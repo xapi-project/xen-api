@@ -60,10 +60,10 @@ module Hist = struct
   (** Write output to a file descriptor in gnuplot format *)
   let to_gnuplot (x: t) (fd: Unix.file_descr) =
     iter x (fun bin_start bin_end height ->
-	      let center = (bin_start +. bin_end) /. 2.0 in
-	      let line = Printf.sprintf "%f %f\n" center height in
-	      let (_: int) = Unix.write fd line 0 (String.length line) in ()
-	   )
+        let center = (bin_start +. bin_end) /. 2.0 in
+        let line = Printf.sprintf "%f %f\n" center height in
+        let (_: int) = Unix.write fd line 0 (String.length line) in ()
+      )
 
   exception Stop
 
@@ -71,10 +71,10 @@ module Hist = struct
   let add (x: t) (y: float) =
     try
       for i = 0 to Array.length x.bin_start - 1 do
-	if x.bin_start.(i) <= y && (y <= x.bin_end.(i + 1)) then begin
-	  x.bin_count.(i) <- x.bin_count.(i) +. 1.0;
-	  raise Stop
-	end
+        if x.bin_start.(i) <= y && (y <= x.bin_end.(i + 1)) then begin
+          x.bin_count.(i) <- x.bin_count.(i) +. 1.0;
+          raise Stop
+        end
       done
     with Stop -> ()
 
@@ -90,9 +90,9 @@ module Hist = struct
   (** Given a monotonically increasing histogram find the 'x' value given a 'y' *)
   let find_x (x: t) (y: float) =
     match fold x (fun bin_start bin_end height acc -> match acc with
-		  | Some x -> acc (* got it already *)
-		  | None -> if height > y then Some ((bin_start +. bin_end) /. 2.) (* no interpolation *) else None
-		 ) None with
+        | Some x -> acc (* got it already *)
+        | None -> if height > y then Some ((bin_start +. bin_end) /. 2.) (* no interpolation *) else None
+      ) None with
     | Some x -> x
     | None -> raise Not_found
 end

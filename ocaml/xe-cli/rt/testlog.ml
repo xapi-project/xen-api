@@ -69,14 +69,14 @@ let test_type_to_string = function
 type timestamp = string
 
 type test_info = {
-    test_result : result;
-    test_ts : timestamp;
-    test_type: test_type;
-    test_name: string;
-    test_class: string;
-    test_desc: string;
-    test_log: string list;
-    test_pic: string option;
+  test_result : result;
+  test_ts : timestamp;
+  test_type: test_type;
+  test_name: string;
+  test_class: string;
+  test_desc: string;
+  test_log: string list;
+  test_pic: string option;
 }
 
 
@@ -143,9 +143,9 @@ let testpicurl test vm = (testxapiloganchor test vm)^".jpg"
 let output_html version fname =
   let oc = open_out fname in
   Printf.fprintf oc "%s" ("<html><head><title>Test Results</title>"^
-			     "<link rel=\"stylesheet\" type=\"text/css\" href=\"test.css\"/>"^
-			     "<script type=\"text/javascript\" src=\"test_log.js\"></script></head><body>"^
-			     "<div id=\"header\"><h1>Test Results</h1></div>\n");
+                          "<link rel=\"stylesheet\" type=\"text/css\" href=\"test.css\"/>"^
+                          "<script type=\"text/javascript\" src=\"test_log.js\"></script></head><body>"^
+                          "<div id=\"header\"><h1>Test Results</h1></div>\n");
 
   Printf.fprintf oc "<h3>Xapi version: %s</h3>" version;
 
@@ -166,29 +166,29 @@ let output_html version fname =
 
     let class_func classname =
       let tests = List.filter
-	(fun t -> t.test_class=classname) tests in
+          (fun t -> t.test_class=classname) tests in
       let testnames = get_all_test_names tests in
 
       Printf.fprintf oc "<tbody>\n";
       let test_func test =
-	let tests = List.filter (fun t -> t.test_name=test) tests in
-	let desc = (List.hd tests).test_desc in
-	Printf.fprintf oc "<tr><td>%s</td><td>%s</td>" test desc;
-	let vm_func vm =
-	  begin
-	    try
-	      let t = List.find (fun t -> vm=get_vm_name t.test_type) tests in
-	      let r =  t.test_result in
-	      Printf.fprintf oc "<td class=\"%s\">%s<br/><a href=\"#\" onclick=\"toggle_visible('%s')\">command log</a><br/>%s<a href=\"%s\">xapi log</a></td>"
-		(string_of_result r) (string_of_result r) (testloganchor test vm)
-		(match (List.hd tests).test_pic with None -> "" | Some x -> "<a href=\""^x^"\">pic</a>") (testxapilogurl test vm);
-	    with
-		_ -> Printf.fprintf oc "<td>&nbsp;</td>";
-	  end;
-	  Printf.fprintf oc "</td>";
-	in
-	StringSet.iter vm_func vms;
-	Printf.fprintf oc "</tr>\n"
+        let tests = List.filter (fun t -> t.test_name=test) tests in
+        let desc = (List.hd tests).test_desc in
+        Printf.fprintf oc "<tr><td>%s</td><td>%s</td>" test desc;
+        let vm_func vm =
+          begin
+            try
+              let t = List.find (fun t -> vm=get_vm_name t.test_type) tests in
+              let r =  t.test_result in
+              Printf.fprintf oc "<td class=\"%s\">%s<br/><a href=\"#\" onclick=\"toggle_visible('%s')\">command log</a><br/>%s<a href=\"%s\">xapi log</a></td>"
+                (string_of_result r) (string_of_result r) (testloganchor test vm)
+                (match (List.hd tests).test_pic with None -> "" | Some x -> "<a href=\""^x^"\">pic</a>") (testxapilogurl test vm);
+            with
+              _ -> Printf.fprintf oc "<td>&nbsp;</td>";
+          end;
+          Printf.fprintf oc "</td>";
+        in
+        StringSet.iter vm_func vms;
+        Printf.fprintf oc "</tr>\n"
       in
       StringSet.iter test_func testnames;
       Printf.fprintf oc "</tbody><tbody><tr><td>&nbsp;</td></tr></tbody>\n"
@@ -230,7 +230,7 @@ let output_html version fname =
     Printf.fprintf oc "<h3>Timestamp: %s</h3>" t.test_ts;
     Printf.fprintf oc "<pre>";
     List.iter (fun s ->
-      Printf.fprintf oc "%s\n" s) t.test_log;
+        Printf.fprintf oc "%s\n" s) t.test_log;
     Printf.fprintf oc "</pre>";
     Printf.fprintf oc "</div>\n"
   in
@@ -248,10 +248,10 @@ let output_xenrt_chan oc =
     let test_to_xml test =
       let vm_name = get_vm_name test.test_type in
       Xml.Element ("test",[],[
-	Xml.Element ("name",[],[Xml.PCData (test.test_name^"_"^vm_name)]);
-	Xml.Element ("state",[],[Xml.PCData (string_of_result test.test_result)]);
-	Xml.Element ("log",[],[Xml.PCData (String.concat "\n" test.test_log)]);
-      ])
+          Xml.Element ("name",[],[Xml.PCData (test.test_name^"_"^vm_name)]);
+          Xml.Element ("state",[],[Xml.PCData (string_of_result test.test_result)]);
+          Xml.Element ("log",[],[Xml.PCData (String.concat "\n" test.test_log)]);
+        ])
     in
     Xml.Element("group",[],List.map test_to_xml tests)
   in
@@ -273,10 +273,10 @@ let output_txt fname =
 
   let printtest t =
     let vm = match t.test_type with
-      OfflineVM x -> x
-    | OnlineVM x -> x
-    | GuestVerified x-> x
-    | Other -> "none" in
+        OfflineVM x -> x
+      | OnlineVM x -> x
+      | GuestVerified x-> x
+      | Other -> "none" in
     Printf.fprintf oc "VM: %10s test:%40s result: %20s\n" vm t.test_name (string_of_result t.test_result)
   in
 
@@ -286,10 +286,10 @@ let output_txt fname =
 
   let printtest t =
     let vm = match t.test_type with
-      OfflineVM x -> x
-    | OnlineVM x -> x
-    | GuestVerified x -> x
-    | Other -> "none" in
+        OfflineVM x -> x
+      | OnlineVM x -> x
+      | GuestVerified x -> x
+      | Other -> "none" in
     Printf.fprintf oc "VM: %s\ntest: %s\ndescription: %s\nresult: %s\n" vm t.test_name t.test_desc (string_of_result t.test_result);
     Printf.fprintf oc "Log:\n";
     List.iter (fun l -> Printf.fprintf oc "%s" l) (t.test_log)
@@ -308,8 +308,8 @@ let register_test name test_type class_name description xapi_log pic =
   let picurl = testpicurl name vm in
   let pic =
     (match pic with
-	None -> None
-      | Some x -> let (_: int) = Sys.command (Printf.sprintf "mv %s %s" x picurl) in Some picurl) in
+       None -> None
+     | Some x -> let (_: int) = Sys.command (Printf.sprintf "mv %s %s" x picurl) in Some picurl) in
   let test_info = {
     test_result= !test_status_flag;
     test_ts=timestamp;
@@ -327,9 +327,9 @@ let register_test name test_type class_name description xapi_log pic =
   let comblog = get_combined_log t xapi_log in
   Printf.fprintf oc "<html><head></head><body><pre>\n";
   List.iter (fun (l,t) ->
-    if t="xapi"
-    then Printf.fprintf oc "      XAPI %s\n" l
-    else Printf.fprintf oc "%s\n" l) comblog;
+      if t="xapi"
+      then Printf.fprintf oc "      XAPI %s\n" l
+      else Printf.fprintf oc "%s\n" l) comblog;
   Printf.fprintf oc "</pre></body></html>\n";
   close_out oc;
   output_html "" "test_in_progress.html"

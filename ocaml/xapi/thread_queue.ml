@@ -29,8 +29,8 @@ type 'a process_fn = 'a -> unit
 type 'a push_fn = string -> 'a -> bool
 
 type 'a t = {
-	push_fn: 'a push_fn;
-	name: string;
+  push_fn: 'a push_fn;
+  name: string;
 }
 
 (** Given an optional maximum queue length and a function for processing elements (which will be called in a
@@ -50,26 +50,26 @@ let make ?max_q_length ?(name="unknown") (process_fn: 'a process_fn) : 'a t =
   let thread_body () =
     Mutex.execute m
       (fun () ->
-	 while true do
-	   (* Wait until there is work to do *)
-	   while Queue.length q = 0 do Condition.wait c m done;
-	   (* Make a copy of the items in the q so we can drop the lock and process them *)
-	   let local_q = Queue.copy q in
-	   Queue.clear q;
+         while true do
+           (* Wait until there is work to do *)
+           while Queue.length q = 0 do Condition.wait c m done;
+           (* Make a copy of the items in the q so we can drop the lock and process them *)
+           let local_q = Queue.copy q in
+           Queue.clear q;
 
-	   Mutex.unlock m;
-	   (* Process the items dropping any exceptions (process function should do whatever logging it wants) *)
-	   finally
-	     (fun () ->
-		Queue.iter
-		  (fun (description, x) ->
-		     debug "pop(%s) = %s" name description;
-		     try process_fn x with _ -> ())
-		   local_q
-	     )
-	     (fun () -> Mutex.lock m);
-	   debug "%s: completed processing %d items: queue = %s" name (Queue.length local_q) (string_of_queue q);
-	 done
+           Mutex.unlock m;
+           (* Process the items dropping any exceptions (process function should do whatever logging it wants) *)
+           finally
+             (fun () ->
+                Queue.iter
+                  (fun (description, x) ->
+                     debug "pop(%s) = %s" name description;
+                     try process_fn x with _ -> ())
+                  local_q
+             )
+             (fun () -> Mutex.lock m);
+           debug "%s: completed processing %d items: queue = %s" name (Queue.length local_q) (string_of_queue q);
+         done
       ) in
 
   (* Called with lock already held *)
@@ -81,17 +81,17 @@ let make ?max_q_length ?(name="unknown") (process_fn: 'a process_fn) : 'a t =
   let push description x =
     Mutex.execute m
       (fun () ->
-	 let q_length = Queue.length q in
-	 match max_q_length with
-	 | Some max when q_length > max ->
-	     warn "%s: Maximum length exceeded (%d): dropping item" name max;
-	     false
-	 | _ ->
-	     Queue.push (description, x) q;
-	     debug "push(%s, %s): queue = %s" name description (string_of_queue q);
-	     Condition.signal c;
-	     maybe_start_thread ();
-	     true
+         let q_length = Queue.length q in
+         match max_q_length with
+         | Some max when q_length > max ->
+           warn "%s: Maximum length exceeded (%d): dropping item" name max;
+           false
+         | _ ->
+           Queue.push (description, x) q;
+           debug "push(%s, %s): queue = %s" name description (string_of_queue q);
+           Condition.signal c;
+           maybe_start_thread ();
+           true
       )
 
   in { push_fn = push; name = name }

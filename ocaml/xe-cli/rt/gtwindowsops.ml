@@ -31,8 +31,8 @@ let reboot timeout =
   (try close_in ic with _ -> ());
   Gtmessages.CmdResult (String.concat "\n" result)
 
- let crash () =
-   Gtmessages.CmdResult "Unimplemented in windows!"
+let crash () =
+  Gtmessages.CmdResult "Unimplemented in windows!"
 
 let rec myfilter func l =
   match l with
@@ -43,15 +43,15 @@ let parse_diskpart ls =
   Printf.printf "In parse_diskpart\n";
   flush_all ();
   let volumes = (myfilter (fun l -> try
-    let substr = String.lowercase (String.sub l 2 6) in
-    Printf.printf "1. substr='%s' comparing with '%s'\n" substr "volume";
-    Printf.printf "   result=%b\n" (substr="volume");
-    flush_all ();
-    substr="volume" with _ -> false) ls) in
+                              let substr = String.lowercase (String.sub l 2 6) in
+                              Printf.printf "1. substr='%s' comparing with '%s'\n" substr "volume";
+                              Printf.printf "   result=%b\n" (substr="volume");
+                              flush_all ();
+                              substr="volume" with _ -> false) ls) in
   List.iter (fun l -> Printf.printf "%s\n" l) volumes;
   let cds = List.filter (fun l -> try
-    Printf.printf "2. substr=%s\n" (String.sub l 30 4);
-    "CDFS"=String.sub l 32 4 with _ -> false) volumes in
+                            Printf.printf "2. substr=%s\n" (String.sub l 30 4);
+                            "CDFS"=String.sub l 32 4 with _ -> false) volumes in
   let mapfn driveline =
     let drive = String.sub driveline 15 1 in
     drive in
@@ -68,13 +68,13 @@ let checkcds devices _ =
   let drives = parse_diskpart result in
   let mapfn drive =
     let cmd = "DIR " ^ drive ^ ":\\" in
-      Printf.printf "cmd=%s\n" cmd;
-      flush_all ();
-      let ic = Unix.open_process_in cmd in
-      let result = read ic [] in
-      (try close_in ic with _ -> ());
-      String.concat "\n" result
-    in
+    Printf.printf "cmd=%s\n" cmd;
+    flush_all ();
+    let ic = Unix.open_process_in cmd in
+    let result = read ic [] in
+    (try close_in ic with _ -> ());
+    String.concat "\n" result
+  in
   Gtmessages.CmdResult (String.concat "\n" (List.map mapfn drives))
 
 let checkdisks devices =

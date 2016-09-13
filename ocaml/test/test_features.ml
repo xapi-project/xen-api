@@ -17,51 +17,51 @@ open Test_highlevel
 open Features
 
 module OfAssocList = Generic.Make(struct
-	module Io = struct
-		type input_t = (string * string) list
-		type output_t = Features.feature list
+    module Io = struct
+      type input_t = (string * string) list
+      type output_t = Features.feature list
 
-		let string_of_input_t = Test_printers.(assoc_list string string)
-		let string_of_output_t =
-			Test_printers.(fun features -> String.concat "," (List.map name_of_feature features))
-	end
+      let string_of_input_t = Test_printers.(assoc_list string string)
+      let string_of_output_t =
+        Test_printers.(fun features -> String.concat "," (List.map name_of_feature features))
+    end
 
-	let transform = of_assoc_list
+    let transform = of_assoc_list
 
-	(* Xen_motion and AD are enabled unless explicitly disabled. All other features
-	   are disabled unless explitly enabled. *)
-	let tests = [
-		[],
-		[Xen_motion; AD];
+    (* Xen_motion and AD are enabled unless explicitly disabled. All other features
+       	   are disabled unless explitly enabled. *)
+    let tests = [
+      [],
+      [Xen_motion; AD];
 
-		["restrict_xen_motion", "true";
-		 "restrict_ad", "true"],
-		[];
+      ["restrict_xen_motion", "true";
+       "restrict_ad", "true"],
+      [];
 
-		["restrict_xen_motion", "true"],
-		[AD];
+      ["restrict_xen_motion", "true"],
+      [AD];
 
-		["restrict_xen_motion", "false"],
-		[Xen_motion; AD];
+      ["restrict_xen_motion", "false"],
+      [Xen_motion; AD];
 
-		["restrict_xen_motion", "false";
-		 "restrict_dmc", "false"],
-		[DMC; Xen_motion; AD];
+      ["restrict_xen_motion", "false";
+       "restrict_dmc", "false"],
+      [DMC; Xen_motion; AD];
 
-		["restrict_xen_motion", "false";
-		 "restrict_ad", "true";
-		 "restrict_dmc", "false"],
-		[DMC; Xen_motion];
+      ["restrict_xen_motion", "false";
+       "restrict_ad", "true";
+       "restrict_dmc", "false"],
+      [DMC; Xen_motion];
 
-		["enable_xha", "true";
-		 "restrict_xen_motion", "true"],
-		[HA; AD];
-	]
-end)
+      ["enable_xha", "true";
+       "restrict_xen_motion", "true"],
+      [HA; AD];
+    ]
+  end)
 
 
 let test =
-	"pool_license" >:::
-		[
-			"test_of_assoc_list" >::: OfAssocList.tests;
-		]
+  "pool_license" >:::
+  [
+    "test_of_assoc_list" >::: OfAssocList.tests;
+  ]

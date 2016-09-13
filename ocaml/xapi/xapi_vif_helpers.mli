@@ -13,7 +13,7 @@
  *)
 (** Common code between the fake and real servers for dealing with VIFs.
  * @group Networking
- *)
+*)
 
 (** Throw error if the given operation is not in the list of allowed operations. *)
 val assert_operation_valid :

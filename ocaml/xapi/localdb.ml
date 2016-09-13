@@ -35,17 +35,17 @@ let assert_loaded () =
       ignore(Unix.stat Xapi_globs.local_database);
       let ic = open_in Xapi_globs.local_database in
       finally
-	(fun () -> of_db (Xmlm.make_input (`Channel ic)); loaded := true)
-	(fun () -> close_in ic);
+        (fun () -> of_db (Xmlm.make_input (`Channel ic)); loaded := true)
+        (fun () -> close_in ic);
       Hashtbl.iter (fun k v -> debug "%s = %s" k v) db
     with
-      | Unix.Unix_error (Unix.ENOENT, _, _) ->
-	  debug "Local database %s doesn't currently exist. Continuing." Xapi_globs.local_database
-      | Xmlm.Error _ ->
-	  debug "Xml error processing local database %s. Moving it out of the way." Xapi_globs.local_database;
-	  let corrupt_fname = Xapi_globs.local_database^".corrupt" in
-	  Stdext.Unixext.unlink_safe corrupt_fname;
-	  Unix.rename Xapi_globs.local_database corrupt_fname
+    | Unix.Unix_error (Unix.ENOENT, _, _) ->
+      debug "Local database %s doesn't currently exist. Continuing." Xapi_globs.local_database
+    | Xmlm.Error _ ->
+      debug "Xml error processing local database %s. Moving it out of the way." Xapi_globs.local_database;
+      let corrupt_fname = Xapi_globs.local_database^".corrupt" in
+      Stdext.Unixext.unlink_safe corrupt_fname;
+      Unix.rename Xapi_globs.local_database corrupt_fname
   end
 
 exception Missing_key of string
@@ -58,13 +58,13 @@ let get (key: string) =
     (fun () ->
        assert_loaded ();
        try
-	 Hashtbl.find db key
+         Hashtbl.find db key
        with Not_found -> raise (Missing_key key)
     )
 
 let get_with_default (key: string) (default: string) =
   try
-	get key
+    get key
   with Missing_key _ -> default
 
 (* Returns true if a change was made and should be flushed *)
@@ -97,6 +97,6 @@ let putv (all: (string * string) list) =
 let del (key : string) =
   Mutex.execute m
     (fun () ->
-      assert_loaded ();
-      Hashtbl.remove db key; (* Does nothing if the key isn't there *)
-      flush ())
+       assert_loaded ();
+       Hashtbl.remove db key; (* Does nothing if the key isn't there *)
+       flush ())

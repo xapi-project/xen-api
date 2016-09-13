@@ -22,7 +22,7 @@ let _ =
   ]
     (fun x ->
        if !disk = "" then disk := x else
-       warn ("Ignoring unexpected extra argument: " ^ x))
+         warn ("Ignoring unexpected extra argument: " ^ x))
     "Test code for pygrub wrapper";
 
   let disk = !disk in

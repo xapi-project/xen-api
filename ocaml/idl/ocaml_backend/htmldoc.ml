@@ -24,11 +24,11 @@ class my_gen =
       (* Decode the locks annotation, stored as s-expresions *)
       let txt = Odoc_info.string_of_text t in
       let locks =
-	match SExpr_TS.of_string txt with
-	| SExpr.Node kv ->
-	    List.map (function SExpr.Node [ SExpr.String k; SExpr.String v ] -> k,v
-		      | _ -> failwith "Failed to parse lock comment") kv
-	| _ -> failwith "Failed to parse lock comment" in
+        match SExpr_TS.of_string txt with
+        | SExpr.Node kv ->
+          List.map (function SExpr.Node [ SExpr.String k; SExpr.String v ] -> k,v
+                           | _ -> failwith "Failed to parse lock comment") kv
+        | _ -> failwith "Failed to parse lock comment" in
 
       if locks = []
       then "<i>No locks held</i>"

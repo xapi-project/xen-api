@@ -26,14 +26,14 @@ let unmarshall schema dbconn =
     let compressed = Unix.openfile filename [ Unix.O_RDONLY ] 0o0 in
     Stdext.Pervasiveext.finally
       (fun () ->
-	 let result = ref None in
-	 Gzip.decompress_passive compressed
-	   (fun uncompressed ->
-	      result := Some (Db_xml.From.channel schema (Unix.in_channel_of_descr uncompressed))
-	   );
-	 match !result with
-	 | None -> failwith "unmarshal failure"
-	 | Some x -> x
+         let result = ref None in
+         Gzip.decompress_passive compressed
+           (fun uncompressed ->
+              result := Some (Db_xml.From.channel schema (Unix.in_channel_of_descr uncompressed))
+           );
+         match !result with
+         | None -> failwith "unmarshal failure"
+         | Some x -> x
       )
       (fun () -> Unix.close compressed)
 
@@ -50,41 +50,41 @@ let populate schema dbconn =
    current state of the global in-memory cache *)
 
 let flush dbconn db =
-	let time = Unix.gettimeofday() in
+  let time = Unix.gettimeofday() in
 
-	let do_flush_xml db filename =
-		Redo_log.flush_db_to_all_active_redo_logs db;
-		Stdext.Unixext.atomic_write_to_file filename 0o0644
-			(fun fd ->
-				if not dbconn.Parse_db_conf.compress
-				then Db_xml.To.fd fd db
-				else
-					Gzip.compress fd
-						(fun uncompressed -> Db_xml.To.fd uncompressed db)
-			) in
+  let do_flush_xml db filename =
+    Redo_log.flush_db_to_all_active_redo_logs db;
+    Stdext.Unixext.atomic_write_to_file filename 0o0644
+      (fun fd ->
+         if not dbconn.Parse_db_conf.compress
+         then Db_xml.To.fd fd db
+         else
+           Gzip.compress fd
+             (fun uncompressed -> Db_xml.To.fd uncompressed db)
+      ) in
 
-	let do_flush_gen db filename =
-		let generation = Manifest.generation (Database.manifest db) in
-		Stdext.Unixext.write_string_to_file filename (Generation.to_string generation) in
+  let do_flush_gen db filename =
+    let generation = Manifest.generation (Database.manifest db) in
+    Stdext.Unixext.write_string_to_file filename (Generation.to_string generation) in
 
-	let filename = dbconn.Parse_db_conf.path in
-	do_flush_xml db filename;
-	let generation_filename = Parse_db_conf.generation_filename dbconn in
-	do_flush_gen db generation_filename;
+  let filename = dbconn.Parse_db_conf.path in
+  do_flush_xml db filename;
+  let generation_filename = Parse_db_conf.generation_filename dbconn in
+  do_flush_gen db generation_filename;
 
-	debug "XML backend [%s] -- Write buffer flushed. Time: %f" filename (Unix.gettimeofday() -. time)
+  debug "XML backend [%s] -- Write buffer flushed. Time: %f" filename (Unix.gettimeofday() -. time)
 
 
 (* NB We don't do incremental flushing *)
 
 let flush_dirty dbconn =
-	let db = Db_ref.get_database (Db_backend.make ()) in
-	let g = Manifest.generation (Database.manifest db) in
-	if g > dbconn.Parse_db_conf.last_generation_count then begin
-		flush dbconn db;
-		dbconn.Parse_db_conf.last_generation_count <- g;
-		true
-	end else false
+  let db = Db_ref.get_database (Db_backend.make ()) in
+  let g = Manifest.generation (Database.manifest db) in
+  if g > dbconn.Parse_db_conf.last_generation_count then begin
+    flush dbconn db;
+    dbconn.Parse_db_conf.last_generation_count <- g;
+    true
+  end else false
 
 
 

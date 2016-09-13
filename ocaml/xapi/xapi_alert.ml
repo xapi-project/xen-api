@@ -18,20 +18,20 @@ open Client
 
 module Alert = struct
   type t = { name: string;
-	     priority: int64;
-	     cls: API.cls;
-	     obj_uuid: string;
-	     body: string }
+             priority: int64;
+             cls: API.cls;
+             obj_uuid: string;
+             body: string }
   let process (x: t) =
     Server_helpers.exec_with_new_task "Sending an HA alert" ~task_in_database:false
       (fun __context ->
-	 Helpers.call_api_functions ~__context
-	   (fun rpc session_id ->
-	      try
-		let (_: 'a Ref.t) = Client.Message.create rpc session_id x.name x.priority x.cls x.obj_uuid x.body in ()
-	      with e ->
-		warn "Exception creating message: %s" (ExnHelper.string_of_exn e)
-	   )
+         Helpers.call_api_functions ~__context
+           (fun rpc session_id ->
+              try
+                let (_: 'a Ref.t) = Client.Message.create rpc session_id x.name x.priority x.cls x.obj_uuid x.body in ()
+              with e ->
+                warn "Exception creating message: %s" (ExnHelper.string_of_exn e)
+           )
       )
 end
 
@@ -43,9 +43,9 @@ let add ~msg:(name, priority) ~cls ~obj_uuid ~body =
   let sent =
     if Pool_role.is_master () then begin
       Server_helpers.exec_with_new_task "Sending an alert" ~task_in_database:false
-	(fun __context ->
-	   let (_: 'a Ref.t) = Xapi_message.create ~__context ~name ~priority ~cls ~obj_uuid ~body in true
-	)
+        (fun __context ->
+           let (_: 'a Ref.t) = Xapi_message.create ~__context ~name ~priority ~cls ~obj_uuid ~body in true
+        )
     end else alert_queue_push name { Alert.name = name; priority = priority; cls = cls; obj_uuid = obj_uuid; body = body } in
   if not sent then warn "Failed to send alert %s %s" name obj_uuid
 

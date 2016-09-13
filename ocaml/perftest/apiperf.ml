@@ -45,13 +45,13 @@ let url_of_string x =
     | [ host ] -> host, default_port in
   match String.explode x with
   | 'h' :: 't' :: 't' :: 'p' :: 's' :: ':' :: '/' :: '/' :: rest ->
-      let host, port = host_and_port_of_string 443 (String.implode rest) in
-      Https(host, port)
+    let host, port = host_and_port_of_string 443 (String.implode rest) in
+    Https(host, port)
   | 'h' :: 't' :: 't' :: 'p' :: ':' :: '/' :: '/' :: rest ->
-      let host, port = host_and_port_of_string 80 (String.implode rest) in
-      Http(host, port)
+    let host, port = host_and_port_of_string 80 (String.implode rest) in
+    Http(host, port)
   | 'f' :: 'i' :: 'l' :: 'e' :: ':' :: '/' :: '/' :: rest ->
-      Uds(String.implode rest)
+    Uds(String.implode rest)
   | _ -> failwith (Printf.sprintf "Unknown URL: %s; was expecting https:// http:// or file://" x)
 
 let string_of_url = function
@@ -60,15 +60,15 @@ let string_of_url = function
   | Uds path -> Printf.sprintf "file://%s" path
 
 let rpc_of_url =
-	let open Xmlrpcclient in
-	let http = xmlrpc ~version:"1.0" "/" in
-	function
-		| Http(host, port) -> fun xml ->
-			XML_protocol.rpc ~transport:(TCP(host, port)) ~http xml
-		| Https(host, port) -> fun xml ->
-			XML_protocol.rpc ~transport:(SSL(SSL.make ~use_stunnel_cache:!use_stunnel_cache (), host, port)) ~http xml
-		| Uds filename -> fun xml ->
-			XML_protocol.rpc ~transport:(Unix filename) ~http xml
+  let open Xmlrpcclient in
+  let http = xmlrpc ~version:"1.0" "/" in
+  function
+  | Http(host, port) -> fun xml ->
+    XML_protocol.rpc ~transport:(TCP(host, port)) ~http xml
+  | Https(host, port) -> fun xml ->
+    XML_protocol.rpc ~transport:(SSL(SSL.make ~use_stunnel_cache:!use_stunnel_cache (), host, port)) ~http xml
+  | Uds filename -> fun xml ->
+    XML_protocol.rpc ~transport:(Unix filename) ~http xml
 
 open API
 open XMLRPC
@@ -99,31 +99,31 @@ let test rpc session hosts nthreads time_limit =
   let samples xs =
     Mutex.execute m
       (fun () ->
-	 n := !n + (List.length xs);
-	 sigma_x := List.fold_left (+.) !sigma_x xs
+         n := !n + (List.length xs);
+         sigma_x := List.fold_left (+.) !sigma_x xs
       ) in
 
   let body () =
     while Unix.gettimeofday () -. test_started < time_limit do
       let one host = time
-	(fun () ->
-	   try
-	     if !master then begin
-	       (* Use the invalid XMLRPC request *)
-	       try
-		 ignore(get_log rpc session host)
-	       with Api_errors.Server_error(code, params) when code = Api_errors.message_method_unknown -> ()
-	     end else begin
-	       (* Use the valid XMLRPC request so it is forwarded *)
-	       try
-		 ignore(Client.Host.get_log rpc session host)
-	       with Api_errors.Server_error(code, params) when code = Api_errors.not_implemented -> ()
-	     end
-	   with e ->
-	     Printf.fprintf stderr "%s\n" (Printexc.to_string e);
-	     flush stderr;
-	     raise e
-	) in
+          (fun () ->
+             try
+               if !master then begin
+                 (* Use the invalid XMLRPC request *)
+                 try
+                   ignore(get_log rpc session host)
+                 with Api_errors.Server_error(code, params) when code = Api_errors.message_method_unknown -> ()
+               end else begin
+                 (* Use the valid XMLRPC request so it is forwarded *)
+                 try
+                   ignore(Client.Host.get_log rpc session host)
+                 with Api_errors.Server_error(code, params) when code = Api_errors.not_implemented -> ()
+               end
+             with e ->
+               Printf.fprintf stderr "%s\n" (Printexc.to_string e);
+               flush stderr;
+               raise e
+          ) in
       let times = List.map one hosts in
       samples times
     done in
@@ -139,12 +139,12 @@ let time = ref 30.
 
 let _ =
   Arg.parse [ "-master", (Arg.Set master), (Printf.sprintf "test the master only [default:%b]" !master);
-	      "-slaves", (Arg.Set_int slave_limit), (Printf.sprintf "number of slaves to forward requests to (round-robin) [default:%d]" !slave_limit);
-	      "-threads", (Arg.Set_int threads), (Printf.sprintf "number of parallel threads to run [default:%d]" !threads);
-	      "-time", (Arg.Set_float time), (Printf.sprintf "set test time in seconds [default:%.2f]" !time);
-	      "-cache", (Arg.Set use_stunnel_cache), (Printf.sprintf "use the stunnel client cache [default:%b]" !use_stunnel_cache);
-	      "-url", (Arg.Set_string url), (Printf.sprintf "specify the URL to use [default:%s]" !url);
-	    ]
+              "-slaves", (Arg.Set_int slave_limit), (Printf.sprintf "number of slaves to forward requests to (round-robin) [default:%d]" !slave_limit);
+              "-threads", (Arg.Set_int threads), (Printf.sprintf "number of parallel threads to run [default:%d]" !threads);
+              "-time", (Arg.Set_float time), (Printf.sprintf "set test time in seconds [default:%.2f]" !time);
+              "-cache", (Arg.Set use_stunnel_cache), (Printf.sprintf "use the stunnel client cache [default:%b]" !use_stunnel_cache);
+              "-url", (Arg.Set_string url), (Printf.sprintf "specify the URL to use [default:%s]" !url);
+            ]
     (fun x -> Printf.fprintf stderr "Skipping unknown argument: %s\n" x)
     "Test the performance of the XMLRPC request forwarding engine";
   let url = url_of_string !url in

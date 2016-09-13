@@ -27,12 +27,12 @@ let refs_of_record cls record =
     | Ref _ -> [ XMLRPC.From.string xml ]
     | Set t -> List.concat (API.Legacy.From.set (refs_of t) xml)
     | Map(k, v) ->
-	let pairs = API.Legacy.From.map (fun x -> x) (refs_of v) xml in
-	let vs = List.concat (List.map snd pairs) in
-	begin match k with
-	  | Ref _ -> List.map fst pairs @ vs
-	  | _ -> vs
-	end
+      let pairs = API.Legacy.From.map (fun x -> x) (refs_of v) xml in
+      let vs = List.concat (List.map snd pairs) in
+      begin match k with
+        | Ref _ -> List.map fst pairs @ vs
+        | _ -> vs
+      end
     | _ -> [] in
   let pairs = XMLRPC.From.structure record in
   let refs_of_field fld =
@@ -43,13 +43,13 @@ let refs_of_record cls record =
   List.concat (List.map refs_of_field fields)
 
 let name_label_of_record cls record =
-    let pairs = XMLRPC.From.structure record in
-    if List.mem_assoc "name_label" pairs
-    then XMLRPC.From.string (List.assoc "name_label" pairs)
-    else "unknown " ^ cls
+  let pairs = XMLRPC.From.structure record in
+  if List.mem_assoc "name_label" pairs
+  then XMLRPC.From.string (List.assoc "name_label" pairs)
+  else "unknown " ^ cls
 
 let all_classes = List.map (fun x -> x.name)
-  (Dm_api.objects_of_api Datamodel.all_api)
+    (Dm_api.objects_of_api Datamodel.all_api)
 
 open XMLRPC
 let do_rpc rpc name args =
@@ -94,20 +94,20 @@ let colour_of_cls = function
 let output_dot nodes edges oc =
   let labels = NodeSet.fold (fun x acc -> x :: acc) nodes [] in
   let edges = EdgeSet.fold (fun x acc ->
-			      try
-				ignore(node_of_id nodes x.a);
-				ignore(node_of_id nodes x.b);
-				x :: acc
-			      with Not_found -> acc
-			   ) edges [] in
+      try
+        ignore(node_of_id nodes x.a);
+        ignore(node_of_id nodes x.b);
+        x :: acc
+      with Not_found -> acc
+    ) edges [] in
   let output =
     [ "digraph g{"; ] @
-      (List.map (fun x -> Printf.sprintf "node [label=\"%s\" style=filled fillcolor=%s]; \"%s\";" x.label (colour_of_cls x.cls) x.id) labels)
+    (List.map (fun x -> Printf.sprintf "node [label=\"%s\" style=filled fillcolor=%s]; \"%s\";" x.label (colour_of_cls x.cls) x.id) labels)
     @
-      (List.map (fun x -> Printf.sprintf "\"%s\" -> \"%s\";" x.a x.b) edges)
+    (List.map (fun x -> Printf.sprintf "\"%s\" -> \"%s\";" x.a x.b) edges)
     @ [
-	"}";
-      ] in
+      "}";
+    ] in
   List.iter (fun x -> output_string oc x; output_string oc "\n") output
 
 let nodes = ref NodeSet.empty
@@ -125,12 +125,12 @@ let singleton = ref false
 
 (* The interface to the ocaml client bindings requires a function which performs the XMLRPC call: *)
 let rpc xml =
-	let open Xmlrpc_client in
-	XML_protocol.rpc ~srcstr:"graph" ~dststr:"xapi" ~transport:(TCP(!host, !port)) ~http:(xmlrpc ~version:"1.0" "/") xml
+  let open Xmlrpc_client in
+  XML_protocol.rpc ~srcstr:"graph" ~dststr:"xapi" ~transport:(TCP(!host, !port)) ~http:(xmlrpc ~version:"1.0" "/") xml
 
 let newrpc xml =
-	let open Xmlrpc_client in
-	XMLRPC_protocol.rpc ~srcstr:"graph" ~dststr:"xapi" ~transport:(TCP(!host, !port)) ~http:(xmlrpc ~version:"1.0" "/") xml
+  let open Xmlrpc_client in
+  XMLRPC_protocol.rpc ~srcstr:"graph" ~dststr:"xapi" ~transport:(TCP(!host, !port)) ~http:(xmlrpc ~version:"1.0" "/") xml
 
 let _ =
   let wanted = ref [] in
@@ -158,20 +158,20 @@ let _ =
     (fun cls ->
        let all = get_all rpc session_id cls in
        List.iter (fun (x, xr) ->
-		    let node = { id = x; cls = cls; label = name_label_of_record cls xr } in
-		    nodes := NodeSet.add node !nodes;
-		    let links = refs_of_record cls xr in
-		    List.iter (fun y -> edges := EdgeSet.add { a = x; b = y } !edges) links
-		 ) all) classes;
+           let node = { id = x; cls = cls; label = name_label_of_record cls xr } in
+           nodes := NodeSet.add node !nodes;
+           let links = refs_of_record cls xr in
+           List.iter (fun y -> edges := EdgeSet.add { a = x; b = y } !edges) links
+         ) all) classes;
   (* Filter all singleton nodes *)
   let is_connected edges nodes node =
     let node_exists nodes id = try ignore(node_of_id nodes id); true with _ -> false in
     EdgeSet.fold (fun edge acc ->
-		    (edge.a = node.id && node_exists nodes edge.b)
-		    ||
-		    (edge.b = node.id && node_exists nodes edge.a)
-		    ||
-		    acc) edges false in
+        (edge.a = node.id && node_exists nodes edge.b)
+        ||
+        (edge.b = node.id && node_exists nodes edge.a)
+        ||
+        acc) edges false in
   let nodes = NodeSet.filter (fun x -> !singleton || is_connected !edges !nodes x) !nodes in
   output_dot nodes !edges stdout
 (*

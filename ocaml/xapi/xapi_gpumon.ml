@@ -19,21 +19,21 @@ let systemctl = "/usr/bin/systemctl"
 let gpumon = "xcp-rrdd-gpumon"
 
 module Gpumon = Daemon_manager.Make(struct
-	let check = Daemon_manager.Function (fun () ->
-		try
-			ignore
-				(Forkhelpers.execute_command_get_output systemctl
-					["is-active"; "-q"; gpumon]);
-			true
-		with _ -> false)
+    let check = Daemon_manager.Function (fun () ->
+        try
+          ignore
+            (Forkhelpers.execute_command_get_output systemctl
+               ["is-active"; "-q"; gpumon]);
+          true
+        with _ -> false)
 
-	let start () =
-		debug "Starting %s" gpumon;
-		ignore (Forkhelpers.execute_command_get_output systemctl ["start"; gpumon])
+    let start () =
+      debug "Starting %s" gpumon;
+      ignore (Forkhelpers.execute_command_get_output systemctl ["start"; gpumon])
 
-	let stop () =
-		debug "Stopping %s" gpumon;
-		ignore (Forkhelpers.execute_command_get_output systemctl ["stop"; gpumon])
-end)
+    let stop () =
+      debug "Stopping %s" gpumon;
+      ignore (Forkhelpers.execute_command_get_output systemctl ["stop"; gpumon])
+  end)
 
 let with_gpumon_stopped = Gpumon.with_daemon_stopped

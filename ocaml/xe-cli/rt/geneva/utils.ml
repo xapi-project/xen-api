@@ -33,15 +33,15 @@ let rec optlistToList = function
 (* bit o sets *)
 
 let rec remove fromset element = match fromset with
-| [] -> []
-| (x::xs) ->
+  | [] -> []
+  | (x::xs) ->
     if x = element then xs
     else x::(remove xs element)
 
 (* this looks like a fold *)
 let rec subtract fromset elements = match elements with
-| [] -> fromset
-| (x::xs) -> subtract (remove fromset x) xs
+  | [] -> fromset
+  | (x::xs) -> subtract (remove fromset x) xs
 
 exception Empty_List
 
@@ -55,8 +55,8 @@ let tl = function
 
 
 let rec member set x = match set with
-| [] -> false
-| (y::ys) -> if (x = y) then true else (member ys x)
+  | [] -> false
+  | (y::ys) -> if (x = y) then true else (member ys x)
 
 
 let rec length = function
@@ -78,8 +78,8 @@ let rec implode chars =
 
 let split s c =
   let rec search results acc tocome = match tocome with
-  | [] -> results @ [acc]
-  | (x::xs) -> if (c x) then search (results @ [acc]) [] xs
+    | [] -> results @ [acc]
+    | (x::xs) -> if (c x) then search (results @ [acc]) [] xs
       else search results (acc @ [x]) xs
 
   in

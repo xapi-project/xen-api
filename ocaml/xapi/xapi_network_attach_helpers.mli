@@ -13,7 +13,7 @@
  *)
 (** Assertion helpers used when attaching a network
  * @group Networking
- *)
+*)
 
 (** Raises an exception if the network has VIFs in use on the host *)
 val assert_network_has_no_vifs_in_use_on_me :

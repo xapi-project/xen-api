@@ -52,17 +52,17 @@ let basic_string_of_status = function
 let coloured_string_of_status = function
   | Pending -> [ Data "           " ]
   | Success ->
-      [ Data "[ ";
-	set_attribute [ bright; green ];
-	Data "Success";
-	set_attribute [ reset ];
-	Data " ]" ]
+    [ Data "[ ";
+      set_attribute [ bright; green ];
+      Data "Success";
+      set_attribute [ reset ];
+      Data " ]" ]
   | Failed ->
-      [ Data "[ ";
-	set_attribute [ bright; red ];
-	Data "Failed ";
-	set_attribute [ reset ];
-	Data " ]" ]
+    [ Data "[ ";
+      set_attribute [ bright; red ];
+      Data "Failed ";
+      set_attribute [ reset ];
+      Data " ]" ]
 
 let xe_path = ref "/opt/xensource/bin/xe"
 let use_colour = ref true
@@ -173,13 +173,13 @@ exception Unable_to_find_suitable_vm_template
 let find_template session_id startswith =
   let vms = Client.VM.get_all !rpc session_id in
   match List.filter (fun self ->
-		       (String.startswith startswith (Client.VM.get_name_label !rpc session_id self))
-		       && (Client.VM.get_is_a_template !rpc session_id self)
-		    ) vms with
+      (String.startswith startswith (Client.VM.get_name_label !rpc session_id self))
+      && (Client.VM.get_is_a_template !rpc session_id self)
+    ) vms with
   | [] -> raise Unable_to_find_suitable_vm_template
   | x :: _ ->
-      (* Printf.printf "Choosing template with name: %s\n" (Client.VM.get_name_label !rpc session_id x); *)
-	x
+    (* Printf.printf "Choosing template with name: %s\n" (Client.VM.get_name_label !rpc session_id x); *)
+    x
 
 let cli_cmd test args =
   debug test (String.concat " " ("$ xe" :: args));
@@ -189,24 +189,24 @@ let cli_cmd test args =
     output
   with
   | Forkhelpers.Spawn_internal_error(log, output, Unix.WEXITED n) ->
-      failed test (Printf.sprintf "Exit code: %d" n);
-      failed test (Printf.sprintf "output=[%s] log=[%s]" output log);
-      failwith "CLI failed"
+    failed test (Printf.sprintf "Exit code: %d" n);
+    failed test (Printf.sprintf "output=[%s] log=[%s]" output log);
+    failwith "CLI failed"
   | Forkhelpers.Spawn_internal_error(log, output, _) ->
-      failed test "Exit code unknown";
-      failed test (Printf.sprintf "output=[%s] log=[%s]" output log);
-      failwith "CLI failed"
+    failed test "Exit code unknown";
+    failed test (Printf.sprintf "output=[%s] log=[%s]" output log);
+    failwith "CLI failed"
   | e ->
-      failed test (Printexc.to_string e);
-      failwith "CLI failed"
+    failed test (Printexc.to_string e);
+    failwith "CLI failed"
 
 let vm_install test session_id template name =
   let newvm_uuid = cli_cmd test [ "vm-install"; "template-uuid=" ^ template; "new-name-label=" ^ name ] in
   Client.VM.get_by_uuid !rpc session_id newvm_uuid
 
 let template_uninstall test session_id vm =
-	let uuid = Client.VM.get_uuid !rpc session_id vm in
-	ignore(cli_cmd test [ "template-uninstall"; "template-uuid=" ^ uuid; "--force" ])
+  let uuid = Client.VM.get_uuid !rpc session_id vm in
+  ignore(cli_cmd test [ "template-uninstall"; "template-uuid=" ^ uuid; "--force" ])
 
 let vm_uninstall test session_id vm =
   let uuid = Client.VM.get_uuid !rpc session_id vm in

@@ -36,15 +36,15 @@ let make_name =
     name
 
 (** Ensure we don't have existing networks with 'name_prefix' becaues this
-   might confuse the tests *)
+    might confuse the tests *)
 let delete_existing_networks cli =
   let existing_networks = Cliops.get_networks cli in
   List.iter (fun name ->
-	       if String.startswith name_prefix name then begin
-		   log Info "Deleting network: %s" name;
-		   ignore(Cliops.remove_network cli name)
-		 end
-	    ) existing_networks
+      if String.startswith name_prefix name then begin
+        log Info "Deleting network: %s" name;
+        ignore(Cliops.remove_network cli name)
+      end
+    ) existing_networks
 
 let run_n_times n f cli =
   for i = 1 to n do

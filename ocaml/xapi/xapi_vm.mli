@@ -13,7 +13,7 @@
  *)
 (** Module that defines API functions for VM objects
  * @group XenAPI functions
- *)
+*)
 
 (** {2 (Fill in Title!)} *)
 
@@ -39,11 +39,11 @@ val set_actions_after_crash :
   __context:Context.t ->
   self:[ `VM ] Ref.t ->
   value:[< `coredump_and_destroy
-         | `coredump_and_restart
-         | `destroy
-         | `preserve
-         | `rename_restart
-         | `restart ] ->
+        | `coredump_and_restart
+        | `destroy
+        | `preserve
+        | `rename_restart
+        | `restart ] ->
   unit
 val set_is_a_template :
   __context:Context.t -> self:[ `VM ] Ref.t -> value:bool -> unit
@@ -110,11 +110,11 @@ val create :
   actions_after_shutdown:[< `destroy | `restart ] ->
   actions_after_reboot:[< `destroy | `restart ] ->
   actions_after_crash:[< `coredump_and_destroy
-                       | `coredump_and_restart
-                       | `destroy
-                       | `preserve
-                       | `rename_restart
-                       | `restart ] ->
+                      | `coredump_and_restart
+                      | `destroy
+                      | `preserve
+                      | `rename_restart
+                      | `restart ] ->
   pV_bootloader:string ->
   pV_kernel:string ->
   pV_ramdisk:string ->
@@ -143,7 +143,7 @@ val create :
   generation_id:string ->
   hardware_platform_version:int64 ->
   has_vendor_device:bool
--> API.ref_VM
+  -> API.ref_VM
 val destroy : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val clone :
   __context:Context.t -> vm:API.ref_VM -> new_name:string -> [ `VM ] Ref.t
@@ -226,15 +226,15 @@ val set_order : __context:Context.t -> self:API.ref_VM -> value:int64 -> unit
 val assert_can_be_recovered : __context:Context.t -> self:API.ref_VM -> session_to:API.ref_session -> unit
 val get_SRs_required_for_recovery : __context:Context.t -> self:API.ref_VM -> session_to:API.ref_session ->API.ref_SR list
 val recover : __context:Context.t -> self:API.ref_VM ->
-	session_to:API.ref_session -> force:bool -> unit
+  session_to:API.ref_session -> force:bool -> unit
 val set_suspend_VDI : __context:Context.t -> self:API.ref_VM ->
-	value:API.ref_VDI -> unit
+  value:API.ref_VDI -> unit
 val set_appliance : __context:Context.t -> self:API.ref_VM -> value:API.ref_VM_appliance -> unit
 val import_convert : __context:Context.t -> _type:string -> username:string -> password:string ->
-	sr:API.ref_SR -> remote_config:(string * string) list -> unit
+  sr:API.ref_SR -> remote_config:(string * string) list -> unit
 
 (** [query_services __context self] returns a Map of service type -> name label provided
-	by the specific VM. *)
+    	by the specific VM. *)
 val query_services : __context:Context.t -> self:API.ref_VM -> (string * string) list
 
 val request_rdp_on : __context:Context.t -> vm:API.ref_VM -> unit

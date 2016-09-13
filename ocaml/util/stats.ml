@@ -18,8 +18,8 @@ open Stdext
 module Normal_population = struct
   (** Stats on a normally-distributed population *)
   type t = { sigma_x: float;
-	     sigma_xx: float;
-	     n: int }
+             sigma_xx: float;
+             n: int }
 
   let empty = { sigma_x = 0.; sigma_xx = 0.; n = 0 }
 
@@ -46,7 +46,7 @@ end
    Since these are used for timing data, which is better approximated by a
    lognormal distribution than a normal one, we take care to apply the
    lognormal transformations here.
- *)
+*)
 
 module D=Debug.Make(struct let name="stats" end)
 open D
@@ -76,13 +76,13 @@ let sample (name: string) (x: float) : unit =
   Mutex.execute timings_m
     (fun () ->
        let p =
-	 if Hashtbl.mem timings name
-	 then Hashtbl.find timings name
-	 else Normal_population.empty in
+         if Hashtbl.mem timings name
+         then Hashtbl.find timings name
+         else Normal_population.empty in
        let p' = Normal_population.sample p x' in
        Hashtbl.replace timings name p';
-(*       debug "Population %s time = %f mean = %s" name x (string_of p'); *)
-       )
+       (*       debug "Population %s time = %f mean = %s" name x (string_of p'); *)
+    )
 (*
   (* Check to see if the value is > 3 standard deviations from the mean *)
   if abs_float (x -. (mean p)) > (sd p *. 3.)
@@ -95,10 +95,10 @@ let time_this (name: string) f =
   finally f
     (fun () ->
        try
-	 let end_time = Unix.gettimeofday () in
-	 sample name (end_time -. start_time)
+         let end_time = Unix.gettimeofday () in
+         sample name (end_time -. start_time)
        with e ->
-	 warn "Ignoring exception %s while timing: %s" (Printexc.to_string e) name
+         warn "Ignoring exception %s while timing: %s" (Printexc.to_string e) name
     )
 
 let summarise () =
@@ -126,22 +126,22 @@ let log_stats = ref false
 let log_db_call task_opt dbcall ty =
   if not !log_stats then () else
     Mutex.execute dbstats_m (fun () ->
-      let hashtbl = match ty with
-	| Read -> dbstats_read_dbcalls
-	| Write -> dbstats_write_dbcalls
-	| Create -> dbstats_create_dbcalls
-	| Drop -> dbstats_drop_dbcalls
-      in
-      Hashtbl.replace hashtbl dbcall (1 + (try Hashtbl.find hashtbl dbcall with _ -> 0));
-      let threadid = Thread.id (Thread.self ()) in
-      Hashtbl.replace dbstats_threads threadid ((dbcall,ty)::(try Hashtbl.find dbstats_threads threadid with _ -> []));
-      match task_opt with
-	|	Some task ->
-		  Hashtbl.replace dbstats_task task ((dbcall,ty)::(try Hashtbl.find dbstats_task task with _ -> []))
-	| None -> ()
+        let hashtbl = match ty with
+          | Read -> dbstats_read_dbcalls
+          | Write -> dbstats_write_dbcalls
+          | Create -> dbstats_create_dbcalls
+          | Drop -> dbstats_drop_dbcalls
+        in
+        Hashtbl.replace hashtbl dbcall (1 + (try Hashtbl.find hashtbl dbcall with _ -> 0));
+        let threadid = Thread.id (Thread.self ()) in
+        Hashtbl.replace dbstats_threads threadid ((dbcall,ty)::(try Hashtbl.find dbstats_threads threadid with _ -> []));
+        match task_opt with
+        |	Some task ->
+          Hashtbl.replace dbstats_task task ((dbcall,ty)::(try Hashtbl.find dbstats_task task with _ -> []))
+        | None -> ()
 
 
-    )
+      )
 
 let summarise_db_calls () =
   let string_of_ty = function | Read -> "read" | Write -> "write" | Create -> "create" | Drop -> "drop" in
@@ -153,12 +153,12 @@ let summarise_db_calls () =
   in
 
   Mutex.execute dbstats_m (fun () ->
-    (summarise_table dbstats_write_dbcalls,
-    summarise_table dbstats_read_dbcalls,
-    summarise_table dbstats_create_dbcalls,
-    summarise_table dbstats_drop_dbcalls,
-    Hashtbl.fold (fun k v acc -> (k,List.map (fun (dbcall,ty) -> (string_of_ty ty,dbcall)) (List.rev v))::acc) dbstats_task [],
-    List.sort (fun (a,_) (b,_) -> compare a b) (Hashtbl.fold (fun k v acc -> (k,List.map (fun (dbcall,ty) -> (string_of_ty ty,dbcall)) (List.rev v))::acc) dbstats_threads [])))
+      (summarise_table dbstats_write_dbcalls,
+       summarise_table dbstats_read_dbcalls,
+       summarise_table dbstats_create_dbcalls,
+       summarise_table dbstats_drop_dbcalls,
+       Hashtbl.fold (fun k v acc -> (k,List.map (fun (dbcall,ty) -> (string_of_ty ty,dbcall)) (List.rev v))::acc) dbstats_task [],
+       List.sort (fun (a,_) (b,_) -> compare a b) (Hashtbl.fold (fun k v acc -> (k,List.map (fun (dbcall,ty) -> (string_of_ty ty,dbcall)) (List.rev v))::acc) dbstats_threads [])))
 
 
 

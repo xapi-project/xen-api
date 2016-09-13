@@ -65,7 +65,7 @@ module Let = struct
       | Named (name, ty) -> "~" ^ name in
     [ Line ("(** " ^ x.doc ^ " *)");
       Line (prefix ^ " " ^ x.name ^ " " ^
-	      (String.concat " " (List.map param x.params)) ^ " =");
+            (String.concat " " (List.map param x.params)) ^ " =");
       Indent (List.map (fun x -> Line x) x.body) ]
 end
 
@@ -78,10 +78,10 @@ end
 module Module = struct
   type e = Let of Let.t | Module of t | Type of Type.t
   and t = { name: string;     (** OCaml module name *)
-	    preamble: string list; (** Convenient place for helper functions, opens etc *)
-	    letrec: bool;     (** True for all the let bindings to be mutually recursive*)
-	    args: string list; (** for functor *)
-	    elements: e list }
+            preamble: string list; (** Convenient place for helper functions, opens etc *)
+            letrec: bool;     (** True for all the let bindings to be mutually recursive*)
+            args: string list; (** for functor *)
+            elements: e list }
 
   let make ?(preamble=[]) ?(letrec=false) ?(args=[]) ~name ~elements () =
     { name = name; preamble = preamble; letrec = letrec;
@@ -93,15 +93,15 @@ module Module = struct
       | Module x -> items_of x
       | Type x -> [ Type.item_of x ] in
     let opening = "module " ^ x.name ^ " = " ^
-      (if x.args = []
-       then ""
-       else String.concat " " (List.map (fun x -> "functor(" ^ x ^ ") ->") x.args)) ^
-      "struct" in
+                  (if x.args = []
+                   then ""
+                   else String.concat " " (List.map (fun x -> "functor(" ^ x ^ ") ->") x.args)) ^
+                  "struct" in
     [ Line opening;
       Indent  (
-	List.map (fun x -> Line x) x.preamble @
-	  ( if x.letrec then [ Line "let rec __unused () = ()" ] else [] ) @
-	  (List.concat (List.map e x.elements))
+        List.map (fun x -> Line x) x.preamble @
+        ( if x.letrec then [ Line "let rec __unused () = ()" ] else [] ) @
+        (List.concat (List.map e x.elements))
       );
       Line "end" ]
 
@@ -121,7 +121,7 @@ module Signature = struct
       then Line ("module type " ^ x.name ^ " = sig")
       else Line ("module " ^ x.name ^ " : sig");
       Indent (
-	List.concat (List.map e x.elements)
+        List.concat (List.map e x.elements)
       );
       Line "end"
     ]

@@ -13,7 +13,7 @@
  *)
 (** Use the API to register a set of default SRs with the server.
  * @group Storage
- *)
+*)
 
 open Client
 module D=Debug.Make(struct let name="xapi" end)
@@ -28,13 +28,13 @@ let plug_all_pbds __context =
   let result = ref true in
   List.iter
     (fun (self, pbd_record) ->
-      try
-	if pbd_record.API.pBD_currently_attached
-	then debug "Not replugging PBD %s: already plugged in" (Ref.string_of self)
-	else Xapi_pbd.plug ~__context ~self
-      with e ->
-	result := false;
-	error "Could not plug in pbd '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
+       try
+         if pbd_record.API.pBD_currently_attached
+         then debug "Not replugging PBD %s: already plugged in" (Ref.string_of self)
+         else Xapi_pbd.plug ~__context ~self
+       with e ->
+         result := false;
+         error "Could not plug in pbd '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
     my_pbds;
   !result
 
@@ -42,30 +42,30 @@ let plug_unplugged_pbds __context =
   let my_pbds = Helpers.get_my_pbds __context in
   List.iter
     (fun (self, pbd_record) ->
-      try
-	if pbd_record.API.pBD_currently_attached
-	then debug "Not replugging PBD %s: already plugged in" (Ref.string_of self)
-	else Xapi_pbd.plug ~__context ~self
-      with e -> debug "Could not plug in pbd '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
+       try
+         if pbd_record.API.pBD_currently_attached
+         then debug "Not replugging PBD %s: already plugged in" (Ref.string_of self)
+         else Xapi_pbd.plug ~__context ~self
+       with e -> debug "Could not plug in pbd '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
     my_pbds
 
 (* Create a PBD which connects this host to the SR, if one doesn't already exist *)
 let maybe_create_pbd rpc session_id sr device_config me =
-	let pbds = Client.SR.get_PBDs rpc session_id sr in
-	let pbds = List.filter (fun self -> Client.PBD.get_host rpc session_id self = me) pbds in
-	(* Check not more than 1 pbd in the database *)
-	let pbds =
-		if List.length pbds > 1
-			then begin
-				(* shouldn't happen... delete all but first pbd to make db consistent again *)
-				List.iter (fun pbd->Client.PBD.destroy rpc session_id pbd) (List.tl pbds);
-				[List.hd pbds]
-				end
-			else pbds
-	in
-	if List.length pbds = 0 (* If there's no PBD, create it *)
-	then Client.PBD.create ~rpc ~session_id ~host:me ~sR:sr ~device_config ~other_config:[]
-	else List.hd pbds (* Otherwise, return the current one *)
+  let pbds = Client.SR.get_PBDs rpc session_id sr in
+  let pbds = List.filter (fun self -> Client.PBD.get_host rpc session_id self = me) pbds in
+  (* Check not more than 1 pbd in the database *)
+  let pbds =
+    if List.length pbds > 1
+    then begin
+      (* shouldn't happen... delete all but first pbd to make db consistent again *)
+      List.iter (fun pbd->Client.PBD.destroy rpc session_id pbd) (List.tl pbds);
+      [List.hd pbds]
+    end
+    else pbds
+  in
+  if List.length pbds = 0 (* If there's no PBD, create it *)
+  then Client.PBD.create ~rpc ~session_id ~host:me ~sR:sr ~device_config ~other_config:[]
+  else List.hd pbds (* Otherwise, return the current one *)
 
 let create_storage (me: API.ref_host) rpc session_id __context : unit =
   let create_pbds_for_shared_srs () =
@@ -112,4 +112,4 @@ let create_storage_localhost rpc session_id : unit =
   Server_helpers.exec_with_new_task "creating storage"
     (fun context->
        let me = Helpers.get_localhost ~__context:context in
-	 create_storage me rpc session_id context)
+       create_storage me rpc session_id context)

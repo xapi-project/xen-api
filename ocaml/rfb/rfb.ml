@@ -23,8 +23,8 @@ let _marshal (x: int list) = String.implode (List.map char_of_int (List.map (fun
 let _unmarshal (x: string) = List.map int_of_char (String.explode x)
 
 let blit src srcoff dst dstoff len =
-    (* Printf.printf "blit src_len=%d srcoff=%d dst_len=%d dstoff=%d len=%d\n" (String.length src) srcoff (String.length dst) dstoff len;  *)
-    String.blit src srcoff dst dstoff len
+  (* Printf.printf "blit src_len=%d srcoff=%d dst_len=%d dstoff=%d len=%d\n" (String.length src) srcoff (String.length dst) dstoff len;  *)
+  String.blit src srcoff dst dstoff len
 
 module UInt16 = struct
   type t = int
@@ -167,15 +167,15 @@ end
 
 module PixelFormat = struct
   type t = { bpp: int;
-	     depth: int;
-	     big_endian: bool;
-	     true_colour: bool;
-	     red_max: int;
-	     green_max: int;
-	     blue_max: int;
-	     red_shift: int;
-	     green_shift: int;
-	     blue_shift: int }
+             depth: int;
+             big_endian: bool;
+             true_colour: bool;
+             red_max: int;
+             green_max: int;
+             blue_max: int;
+             red_shift: int;
+             green_shift: int;
+             blue_shift: int }
   let true_colour_default big_endian = {
     bpp = 32; depth = 24; big_endian = big_endian;
     true_colour = true;
@@ -195,8 +195,8 @@ module PixelFormat = struct
     let green_shift = String.make 1 (char_of_int x.green_shift) in
     let blue_shift = String.make 1 (char_of_int x.blue_shift) in
     bpp ^ depth ^ big_endian ^ true_colour ^
-      red_max ^ green_max ^ blue_max ^ red_shift ^ green_shift ^ blue_shift ^
-      "   " (* padding *)
+    red_max ^ green_max ^ blue_max ^ red_shift ^ green_shift ^ blue_shift ^
+    "   " (* padding *)
   let unmarshal (s: Unix.file_descr) =
     let buf = really_read s 16 in
     { bpp = int_of_char buf.[0];
@@ -215,8 +215,8 @@ end
 
 module ServerInit = struct
   type t = { width: int; height: int;
-	     name: string;
-	     pixelformat: PixelFormat.t }
+             name: string;
+             pixelformat: PixelFormat.t }
 
   let marshal (x: t) =
     let width = UInt16.marshal x.width in
@@ -260,8 +260,8 @@ end
 
 module FramebufferUpdateRequest = struct
   type t = { incremental: bool;
-	     x: int; y: int;
-	     width: int; height: int }
+             x: int; y: int;
+             width: int; height: int }
 
   let unmarshal (s: Unix.file_descr) =
     let buf = really_read s 9 in
@@ -282,9 +282,9 @@ module FramebufferUpdate = struct
     let sizeof (x: t) = String.length x.buffer
     let marshal (x: t) = x.buffer
     let marshal_at (buf: string) (off: int) (x: t) =
-        let length = sizeof x in
-        blit x.buffer 0 buf off length;
-        off + length
+      let length = sizeof x in
+      blit x.buffer 0 buf off length;
+      off + length
   end
   module CopyRect = struct
     type t = { x: int; y: int }
@@ -332,11 +332,11 @@ module FramebufferUpdate = struct
     let off = UInt16.marshal_at buf off 0 in
     let off = UInt16.marshal_at buf off (List.length xs) in
     let update (buf: string) (off: int) (one: t) =
-        let off = UInt16.marshal_at buf off one.x in
-        let off = UInt16.marshal_at buf off one.y in
-        let off = UInt16.marshal_at buf off one.w in
-        let off = UInt16.marshal_at buf off one.h in
-        Encoding.marshal_at buf off one.encoding in
+      let off = UInt16.marshal_at buf off one.x in
+      let off = UInt16.marshal_at buf off one.y in
+      let off = UInt16.marshal_at buf off one.w in
+      let off = UInt16.marshal_at buf off one.h in
+      Encoding.marshal_at buf off one.encoding in
     List.fold_left (fun off x -> update buf off x) off xs
   let marshal (xs: t list) =
     let update (one: t) =
@@ -349,14 +349,14 @@ end
 
 module SetColourMapEntries = struct
   type t = { first_colour: int;
-	     map: (int * int * int) list }
+             map: (int * int * int) list }
   let marshal (x: t) =
     let first_colour = UInt16.marshal x.first_colour in
     let length = UInt16.marshal (List.length x.map) in
     let colour (r, g, b) =
       UInt16.marshal r ^ (UInt16.marshal g) ^ (UInt16.marshal b) in
     "\001\000" ^ first_colour ^ length ^
-      (String.concat "" (List.map colour x.map))
+    (String.concat "" (List.map colour x.map))
 end
 
 module KeyEvent = struct
@@ -416,19 +416,19 @@ module Request = struct
   let unmarshal (s: Unix.file_descr) =
     match int_of_char (really_read s 1).[0] with
     | 0 ->
-	SetPixelFormat (SetPixelFormat.unmarshal s)
+      SetPixelFormat (SetPixelFormat.unmarshal s)
     | 2 ->
-	SetEncodings (SetEncodings.unmarshal s)
+      SetEncodings (SetEncodings.unmarshal s)
     | 3 ->
-	FrameBufferUpdateRequest (FramebufferUpdateRequest.unmarshal s)
+      FrameBufferUpdateRequest (FramebufferUpdateRequest.unmarshal s)
     | 4 ->
-	KeyEvent (KeyEvent.unmarshal s)
+      KeyEvent (KeyEvent.unmarshal s)
     | 5 ->
-	PointerEvent (PointerEvent.unmarshal s)
+      PointerEvent (PointerEvent.unmarshal s)
     | 6 ->
-	ClientCutText (ClientCutText.unmarshal s)
+      ClientCutText (ClientCutText.unmarshal s)
     | x ->
-	failwith (Printf.sprintf "Unknown message type: %d" x)
+      failwith (Printf.sprintf "Unknown message type: %d" x)
 end
 
 let white = (255, 255, 255)
@@ -444,7 +444,7 @@ let handshake w h (s: Unix.file_descr) =
   if ci then print_endline "Client requests a shared display"
   else print_endline "Client requests a non-shared display";
   let si = { ServerInit.name = "dave's desktop";
-	     width = w; height = h;
-	     pixelformat = PixelFormat.true_colour_default false } in
+             width = w; height = h;
+             pixelformat = PixelFormat.true_colour_default false } in
   really_write s (ServerInit.marshal si)
 

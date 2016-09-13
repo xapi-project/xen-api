@@ -15,13 +15,13 @@ open Toplevelhelper
 
 let get_vm_records session_id =
   let allvms = Remote.VM.get_all session_id in
-    List.map (fun vm->(vm,Remote.VM.get_record session_id vm)) allvms
+  List.map (fun vm->(vm,Remote.VM.get_record session_id vm)) allvms
 
 let get_vm_by_name_or_id session_id name =
   let vms = get_vm_records session_id in
   let vms = List.filter
       (fun (_,x) -> (x.API.vM_name_label = name
-	          || x.API.vM_uuid = name)) vms in
+                     || x.API.vM_uuid = name)) vms in
   if List.length vms = 0 then raise (Failure ("VM "^name^" not found"));
   List.nth vms 0
 
@@ -35,20 +35,20 @@ let vmop_to_string = function
   | Suspend -> "suspend"
 
 let change_vm_state session_id vm force st =
-	Printf.printf "Telling vm to %s\n" (vmop_to_string st);
-	(match st with
-		| Start -> Remote.VM.start session_id vm false
-		| Shutdown ->
-			if force
-			then Remote.VM.hard_shutdown session_id vm
-			else Remote.VM.clean_shutdown session_id vm
-		| Suspend -> Remote.VM.pause session_id vm
-		| Reboot ->
-			if force
-			then Remote.VM.hard_reboot session_id vm
-			else Remote.VM.clean_shutdown session_id vm
-		| Resume -> Remote.VM.unpause session_id vm);
-	Remote.VM.get_power_state session_id vm
+  Printf.printf "Telling vm to %s\n" (vmop_to_string st);
+  (match st with
+   | Start -> Remote.VM.start session_id vm false
+   | Shutdown ->
+     if force
+     then Remote.VM.hard_shutdown session_id vm
+     else Remote.VM.clean_shutdown session_id vm
+   | Suspend -> Remote.VM.pause session_id vm
+   | Reboot ->
+     if force
+     then Remote.VM.hard_reboot session_id vm
+     else Remote.VM.clean_shutdown session_id vm
+   | Resume -> Remote.VM.unpause session_id vm);
+  Remote.VM.get_power_state session_id vm
 
 let power_state_to_string state =
   match state with

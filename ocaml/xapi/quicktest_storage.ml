@@ -37,9 +37,9 @@ let iso_path = ref "/opt/xensource/packages/iso"
 let list_srs session_id =
   let all = Client.SR.get_all !rpc session_id in
   List.filter (fun sr ->
-		 let pbds = Client.SR.get_PBDs !rpc session_id sr in
-		 List.fold_left (||) false
-		   (List.map (fun pbd -> Client.PBD.get_currently_attached !rpc session_id pbd) pbds)) all
+      let pbds = Client.SR.get_PBDs !rpc session_id sr in
+      List.fold_left (||) false
+        (List.map (fun pbd -> Client.PBD.get_currently_attached !rpc session_id pbd) pbds)) all
 
 let name_of_sr session_id sr =
   let name_label = Client.SR.get_name_label !rpc session_id sr in
@@ -64,7 +64,7 @@ let find_smallest_disk_size session_id sr =
       Some size
     with _ -> None in
   let find_smallest = List.fold_left
-    (fun state size -> if state = None then try_one size else state) None sizes in
+      (fun state size -> if state = None then try_one size else state) None sizes in
   find_smallest
 
 (** For an SR which may be shared, return one plugged in PBD *)
@@ -85,18 +85,18 @@ let count_vdis session_id sr =
 (** Common code for VDI.{create,clone,snapshot} which checks to see that a new VDI
     is successfully created and destroyed by the backend *)
 let vdi_create_clone_snapshot test session_id sr make_fn =
-    let before = count_vdis session_id sr in
-    let vdi = make_fn () in
-    let vdi_r = Client.VDI.get_record !rpc session_id vdi in
-    debug test (Printf.sprintf "Created VDI has uuid: %s (size = %Ld)" vdi_r.API.vDI_uuid vdi_r.API.vDI_virtual_size);
-    let during = count_vdis session_id sr in
-    if during <= before then begin
-      debug test (Printf.sprintf "SR has %d VDIs before the test" before);
-      debug test (Printf.sprintf "SR has %d VDIs during the test" during);
-      failed test (Printf.sprintf "Before VDI was created there were %d VDIs. After there were %d VDIs." before during);
-      failwith "vdi_create_clone_snapshot"
-    end;
-    Client.VDI.destroy !rpc session_id vdi
+  let before = count_vdis session_id sr in
+  let vdi = make_fn () in
+  let vdi_r = Client.VDI.get_record !rpc session_id vdi in
+  debug test (Printf.sprintf "Created VDI has uuid: %s (size = %Ld)" vdi_r.API.vDI_uuid vdi_r.API.vDI_virtual_size);
+  let during = count_vdis session_id sr in
+  if during <= before then begin
+    debug test (Printf.sprintf "SR has %d VDIs before the test" before);
+    debug test (Printf.sprintf "SR has %d VDIs during the test" during);
+    failed test (Printf.sprintf "Before VDI was created there were %d VDIs. After there were %d VDIs." before during);
+    failwith "vdi_create_clone_snapshot"
+  end;
+  Client.VDI.destroy !rpc session_id vdi
 
 (* Helper function to make a VBD *)
 let vbd_create_helper ~session_id ~vM ~vDI ?(userdevice="autodetect") () : API.ref_VBD =
@@ -107,8 +107,8 @@ let vbd_create_helper ~session_id ~vM ~vDI ?(userdevice="autodetect") () : API.r
 (** If VDI_CREATE and VDI_DELETE are present then make sure VDIs appear and disappear correctly *)
 let vdi_create_destroy caps session_id sr =
   if true
-    && (List.mem vdi_create caps)
-    && (List.mem vdi_delete caps)
+  && (List.mem vdi_create caps)
+  && (List.mem vdi_delete caps)
   then begin
     let test = make_test "VDI_CREATE should make a fresh disk; VDI_DELETE should remove it" 2 in
     start test;
@@ -118,24 +118,24 @@ let vdi_create_destroy caps session_id sr =
 
     List.iter
       (fun virtual_size ->
-	 vdi_create_clone_snapshot test session_id sr
-	   (fun () ->
-	      let vdi = vdi_create_helper ~session_id ~name_label:"quicktest" ~virtual_size ~sr () in
-	      let actual_size = Client.VDI.get_virtual_size !rpc session_id vdi in
-	      if actual_size < virtual_size then begin
-		debug test (Printf.sprintf "VDI requested size of %Ld but was given only %Ld" virtual_size actual_size);
-		failed test "VDI.create created too small a VDI"
-	      end;
-	      new_uuid := Some (Client.VDI.get_uuid !rpc session_id vdi);
-	      vdi);
-	 (* check that the new disk has gone already (after only one SR.scan) *)
-	 maybe (fun uuid ->
-		  try
-		    let vdi = Client.VDI.get_by_uuid !rpc session_id uuid in
-		    debug test "VDI still exists: checking to see whether it is marked as managed";
-		    if Client.VDI.get_managed !rpc session_id vdi
-		    then failed test "VDI was not destroyed (or marked as unmanaged) properly after one SR.scan"
-		  with _ -> ()) !new_uuid
+         vdi_create_clone_snapshot test session_id sr
+           (fun () ->
+              let vdi = vdi_create_helper ~session_id ~name_label:"quicktest" ~virtual_size ~sr () in
+              let actual_size = Client.VDI.get_virtual_size !rpc session_id vdi in
+              if actual_size < virtual_size then begin
+                debug test (Printf.sprintf "VDI requested size of %Ld but was given only %Ld" virtual_size actual_size);
+                failed test "VDI.create created too small a VDI"
+              end;
+              new_uuid := Some (Client.VDI.get_uuid !rpc session_id vdi);
+              vdi);
+         (* check that the new disk has gone already (after only one SR.scan) *)
+         maybe (fun uuid ->
+             try
+               let vdi = Client.VDI.get_by_uuid !rpc session_id uuid in
+               debug test "VDI still exists: checking to see whether it is marked as managed";
+               if Client.VDI.get_managed !rpc session_id vdi
+               then failed test "VDI was not destroyed (or marked as unmanaged) properly after one SR.scan"
+             with _ -> ()) !new_uuid
       ) sizes_to_try;
 
     success test
@@ -159,9 +159,9 @@ let size_of_dom0_vbd session_id vbd =
     the correct size in dom0 *)
 let vdi_create_destroy_plug_checksize caps session_id sr =
   if true
-    && (List.mem vdi_create caps)
-    && (List.mem vdi_delete caps)
-    && (List.mem vdi_attach caps) (* DummySR can't even do this *)
+  && (List.mem vdi_create caps)
+  && (List.mem vdi_delete caps)
+  && (List.mem vdi_attach caps) (* DummySR can't even do this *)
 (*
     && (List.mem `vdi_create allowed_ops)  (* The Tools SR is where these two concepts diverge *)
     && (List.mem `vdi_destroy allowed_ops)
@@ -179,21 +179,21 @@ let vdi_create_destroy_plug_checksize caps session_id sr =
       let vbd = vbd_create_helper ~session_id ~vM:dom0 ~vDI:vdi () in
       Client.VBD.plug !rpc session_id vbd;
       finally
-	(fun () ->
-	   try
-	     let size_dom0 = size_of_dom0_vbd session_id vbd in
-	     debug test (Printf.sprintf "XenAPI reports size: %Ld; dom0 reports size: %Ld" size_should_be size_dom0);
-	     if size_should_be <> size_dom0 then begin
-	       failed test (Printf.sprintf "Size should have been: %Ld" size_should_be);
-	       failwith "vdi_create_destroy_plug_checksize"
-	     end
-	   with Not_this_host ->
-	     debug test "Skipping size check: disk is plugged into another host"
-	)
-	(fun () ->
-	   Client.VBD.unplug !rpc session_id vbd;
-	   Client.VBD.destroy !rpc session_id vbd
-	) in
+        (fun () ->
+           try
+             let size_dom0 = size_of_dom0_vbd session_id vbd in
+             debug test (Printf.sprintf "XenAPI reports size: %Ld; dom0 reports size: %Ld" size_should_be size_dom0);
+             if size_should_be <> size_dom0 then begin
+               failed test (Printf.sprintf "Size should have been: %Ld" size_should_be);
+               failwith "vdi_create_destroy_plug_checksize"
+             end
+           with Not_this_host ->
+             debug test "Skipping size check: disk is plugged into another host"
+        )
+        (fun () ->
+           Client.VBD.unplug !rpc session_id vbd;
+           Client.VBD.destroy !rpc session_id vbd
+        ) in
 
     let small_size = 4L ** mib
     and large_size = 1L ** gib in
@@ -223,8 +223,8 @@ let with_arbitrary_vdi caps session_id sr f =
   let initial_vdis = count_vdis session_id sr in
   if List.mem vdi_create caps then begin
     let vdi = Client.VDI.create ~rpc:!rpc ~session_id ~name_label:"quicktest" ~name_description:""
-      ~sR:sr ~virtual_size:4194304L ~_type:`user ~sharable:false ~read_only:false
-      ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[] in
+        ~sR:sr ~virtual_size:4194304L ~_type:`user ~sharable:false ~read_only:false
+        ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[] in
     finally
       (fun () -> f caps session_id sr vdi)
       (fun () -> Client.VDI.destroy !rpc session_id vdi)
@@ -233,7 +233,7 @@ let with_arbitrary_vdi caps session_id sr f =
     match Client.SR.get_VDIs !rpc session_id sr with
     | [] -> ()
     | vdi::_ ->
-	f caps session_id sr vdi
+      f caps session_id sr vdi
   end;
   (* If everything is supposedly ok then: *)
   let test = make_test "Checking for VDI leak" 2 in
@@ -248,9 +248,9 @@ let with_arbitrary_vdi caps session_id sr f =
 let check_fields test list =
   let check (comparison, field, a, b) = match comparison with
     | `Same ->
-	if a <> b then failed test (Printf.sprintf "%s field differs: %s <> %s" field a b)
+      if a <> b then failed test (Printf.sprintf "%s field differs: %s <> %s" field a b)
     | `Different ->
-	if a = b then failed test (Printf.sprintf "%s field unchanged: %s = %s" field a b) in
+      if a = b then failed test (Printf.sprintf "%s field unchanged: %s = %s" field a b) in
   List.iter check list
 
 (* Clones and snapshots should have some identical fields and some different fields: *)
@@ -269,12 +269,12 @@ let vdi_clone_destroy caps session_id sr vdi =
     start test;
     vdi_create_clone_snapshot test session_id sr
       (fun () ->
-	 let vdi' = Client.VDI.clone ~rpc:!rpc ~session_id ~vdi ~driver_params:[] in
-	 (* Check these look like clones *)
-	 let a = Client.VDI.get_record ~rpc:!rpc ~session_id ~self:vdi in
-	 let b = Client.VDI.get_record ~rpc:!rpc ~session_id ~self:vdi' in
-	 check_fields test (clone_snapshot_fields a b);
-	 vdi');
+         let vdi' = Client.VDI.clone ~rpc:!rpc ~session_id ~vdi ~driver_params:[] in
+         (* Check these look like clones *)
+         let a = Client.VDI.get_record ~rpc:!rpc ~session_id ~self:vdi in
+         let b = Client.VDI.get_record ~rpc:!rpc ~session_id ~self:vdi' in
+         check_fields test (clone_snapshot_fields a b);
+         vdi');
     success test;
 
     Client.SR.scan !rpc session_id sr;
@@ -287,12 +287,12 @@ let vdi_snapshot_destroy caps session_id sr vdi =
     start test;
     vdi_create_clone_snapshot test session_id sr
       (fun () ->
-	 let vdi' = Client.VDI.snapshot ~rpc:!rpc ~session_id ~vdi ~driver_params:[] in
-	 (* Check these look like clones *)
-	 let a = Client.VDI.get_record ~rpc:!rpc ~session_id ~self:vdi in
-	 let b = Client.VDI.get_record ~rpc:!rpc ~session_id ~self:vdi' in
-	 check_fields test (clone_snapshot_fields a b);
-	 vdi');
+         let vdi' = Client.VDI.snapshot ~rpc:!rpc ~session_id ~vdi ~driver_params:[] in
+         (* Check these look like clones *)
+         let a = Client.VDI.get_record ~rpc:!rpc ~session_id ~self:vdi in
+         let b = Client.VDI.get_record ~rpc:!rpc ~session_id ~self:vdi' in
+         check_fields test (clone_snapshot_fields a b);
+         vdi');
     success test
   end
 
@@ -355,10 +355,10 @@ let vdi_db_forget caps session_id sr vdi =
     failwith "db_forget"
   with
   | Api_errors.Server_error(code, _) when code = Api_errors.permission_denied ->
-      debug test "Caught PERMISSION_DENIED";
-      success test
+    debug test "Caught PERMISSION_DENIED";
+    success test
   | e ->
-      failed test (Printf.sprintf "Caught wrong error: %s" (Printexc.to_string e))
+    failed test (Printf.sprintf "Caught wrong error: %s" (Printexc.to_string e))
 
 (** If VDI_INTRODUCE is present then attempt to introduce a VDI with a duplicate location
     and another with a bad UUID to make sure that is reported as an error *)
@@ -369,34 +369,34 @@ let vdi_bad_introduce caps session_id sr vdi =
     let vdir = Client.VDI.get_record !rpc session_id vdi in
     begin
       try
-	debug test (Printf.sprintf "Introducing a VDI with a duplicate UUID (%s)" vdir.API.vDI_uuid);
-	let (_: API.ref_VDI) = Client.VDI.introduce ~rpc:!rpc ~session_id
-	  ~uuid:vdir.API.vDI_uuid ~name_label:"bad uuid" ~name_description:""
-	  ~sR:vdir.API.vDI_SR ~_type:vdir.API.vDI_type ~sharable:false ~read_only:false ~other_config:[]
-	  ~location:(Ref.string_of (Ref.make ())) ~xenstore_data:[] ~sm_config:[]
-	  ~managed:true ~virtual_size:0L ~physical_utilisation:0L ~metadata_of_pool:Ref.null
-	  ~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null
- in
-	failed test "A bad VDI with a duplicate UUID was introduced";
-	failwith "vdi_bad_introduce"
+        debug test (Printf.sprintf "Introducing a VDI with a duplicate UUID (%s)" vdir.API.vDI_uuid);
+        let (_: API.ref_VDI) = Client.VDI.introduce ~rpc:!rpc ~session_id
+            ~uuid:vdir.API.vDI_uuid ~name_label:"bad uuid" ~name_description:""
+            ~sR:vdir.API.vDI_SR ~_type:vdir.API.vDI_type ~sharable:false ~read_only:false ~other_config:[]
+            ~location:(Ref.string_of (Ref.make ())) ~xenstore_data:[] ~sm_config:[]
+            ~managed:true ~virtual_size:0L ~physical_utilisation:0L ~metadata_of_pool:Ref.null
+            ~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null
+        in
+        failed test "A bad VDI with a duplicate UUID was introduced";
+        failwith "vdi_bad_introduce"
       with Api_errors.Server_error(_, _) ->
-	debug test "API error caught as expected";
+        debug test "API error caught as expected";
     end;
     begin
       try
-	debug test (Printf.sprintf "Introducing a VDI with a duplicate location (%s)" vdir.API.vDI_location);
-	let (_: API.ref_VDI) = Client.VDI.introduce ~rpc:!rpc ~session_id
-	  ~uuid:(Uuid.string_of_uuid (Uuid.make_uuid ()))
-	  ~name_label:"bad location" ~name_description:""
-	  ~sR:vdir.API.vDI_SR ~_type:vdir.API.vDI_type ~sharable:false ~read_only:false ~other_config:[]
-	  ~location:vdir.API.vDI_location ~xenstore_data:[] ~sm_config:[]
-	  ~managed:true ~virtual_size:0L ~physical_utilisation:0L ~metadata_of_pool:Ref.null
-	  ~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null
-in
-	failed test "A bad VDI with a duplicate location was introduced";
-	failwith "vdi_bad_introduce"
+        debug test (Printf.sprintf "Introducing a VDI with a duplicate location (%s)" vdir.API.vDI_location);
+        let (_: API.ref_VDI) = Client.VDI.introduce ~rpc:!rpc ~session_id
+            ~uuid:(Uuid.string_of_uuid (Uuid.make_uuid ()))
+            ~name_label:"bad location" ~name_description:""
+            ~sR:vdir.API.vDI_SR ~_type:vdir.API.vDI_type ~sharable:false ~read_only:false ~other_config:[]
+            ~location:vdir.API.vDI_location ~xenstore_data:[] ~sm_config:[]
+            ~managed:true ~virtual_size:0L ~physical_utilisation:0L ~metadata_of_pool:Ref.null
+            ~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null
+        in
+        failed test "A bad VDI with a duplicate location was introduced";
+        failwith "vdi_bad_introduce"
       with Api_errors.Server_error(_, _) ->
-	debug test "API error caught as expected";
+        debug test "API error caught as expected";
     end;
     success test
   end
@@ -408,16 +408,16 @@ type sr_probe_sr = { uuid: string }
 let parse_sr_probe_xml (xml: string) : sr_probe_sr list =
   match Xml.parse_string xml with
   | Xml.Element("SRlist", _, children) ->
-      let parse_sr = function
-	| Xml.Element("SR", _, children) ->
-	    let parse_kv = function
-	      | Xml.Element(key, _, [ Xml.PCData v ]) ->
-		  key, String.strip String.isspace v (* remove whitespace at both ends *)
-	      | _ -> failwith "Malformed key/value pair" in
-	    let all = List.map parse_kv children in
-	    { uuid = List.assoc "UUID" all }
-	| _ -> failwith "Malformed or missing <SR>" in
-      List.map parse_sr children
+    let parse_sr = function
+      | Xml.Element("SR", _, children) ->
+        let parse_kv = function
+          | Xml.Element(key, _, [ Xml.PCData v ]) ->
+            key, String.strip String.isspace v (* remove whitespace at both ends *)
+          | _ -> failwith "Malformed key/value pair" in
+        let all = List.map parse_kv children in
+        { uuid = List.assoc "UUID" all }
+      | _ -> failwith "Malformed or missing <SR>" in
+    List.map parse_sr children
   | _ -> failwith "Missing <SRlist> element"
 
 (** If SR_PROBE is present then probe for an existing plugged in SR and make sure it can
@@ -430,30 +430,30 @@ let sr_probe_test caps session_id sr =
     let all_pbds = Client.SR.get_PBDs !rpc session_id sr in
     match List.filter (fun pbd -> Client.PBD.get_currently_attached !rpc session_id pbd) all_pbds with
     | [] ->
-	failed test "Couldn't find an attached PBD";
-	failwith "sr_probe_test"
+      failed test "Couldn't find an attached PBD";
+      failwith "sr_probe_test"
     | pbd :: _ ->
-	let srr = Client.SR.get_record !rpc session_id sr in
-	let pbdr = Client.PBD.get_record !rpc session_id pbd in
-	Client.PBD.unplug !rpc session_id pbd;
-	let xml = Client.SR.probe ~rpc:!rpc ~session_id
-	  ~host:pbdr.API.pBD_host
-	  ~device_config:pbdr.API.pBD_device_config
-	  ~sm_config:srr.API.sR_sm_config
-	  ~_type:srr.API.sR_type in
-	Client.PBD.plug !rpc session_id pbd;
-	let srs = parse_sr_probe_xml xml in
-	List.iter (fun sr -> debug test (Printf.sprintf "Probe found SR: %s" sr.uuid)) srs;
-	if List.length srs = 0 then begin
-	  failed test "Probe failed to find an SR, even though one is plugged in";
-	  failwith "sr_probe_test"
-	end;
-	let all_uuids = List.map (fun sr -> sr.uuid) srs in
-	if not(List.mem srr.API.sR_uuid all_uuids) then begin
-	  failed test (Printf.sprintf "Probe failed to find SR %s even though it is plugged in" srr.API.sR_uuid);
-	  failwith "sr_probe_test"
-	end;
-	success test
+      let srr = Client.SR.get_record !rpc session_id sr in
+      let pbdr = Client.PBD.get_record !rpc session_id pbd in
+      Client.PBD.unplug !rpc session_id pbd;
+      let xml = Client.SR.probe ~rpc:!rpc ~session_id
+          ~host:pbdr.API.pBD_host
+          ~device_config:pbdr.API.pBD_device_config
+          ~sm_config:srr.API.sR_sm_config
+          ~_type:srr.API.sR_type in
+      Client.PBD.plug !rpc session_id pbd;
+      let srs = parse_sr_probe_xml xml in
+      List.iter (fun sr -> debug test (Printf.sprintf "Probe found SR: %s" sr.uuid)) srs;
+      if List.length srs = 0 then begin
+        failed test "Probe failed to find an SR, even though one is plugged in";
+        failwith "sr_probe_test"
+      end;
+      let all_uuids = List.map (fun sr -> sr.uuid) srs in
+      if not(List.mem srr.API.sR_uuid all_uuids) then begin
+        failed test (Printf.sprintf "Probe failed to find SR %s even though it is plugged in" srr.API.sR_uuid);
+        failwith "sr_probe_test"
+      end;
+      success test
   end
 
 (** Make sure sr_scan doesn't throw an exception *)
@@ -469,46 +469,46 @@ let packages_iso_test session_id =
   let host = List.hd (Client.Host.get_all !rpc session_id) in
   debug test (Printf.sprintf "Will plug into host %s" (Client.Host.get_name_label !rpc session_id host));
   let sr = Client.SR.introduce ~rpc:!rpc ~session_id ~uuid:(Uuid.string_of_uuid (Uuid.make_uuid ()))
-		~name_label:"test tools SR" ~name_description:"" ~_type:"iso" ~content_type:"iso"
-		~shared:true ~sm_config:[] in
+      ~name_label:"test tools SR" ~name_description:"" ~_type:"iso" ~content_type:"iso"
+      ~shared:true ~sm_config:[] in
   finally
     (fun () ->
        let device_config = [ "location", !iso_path;
-			     "legacy_mode", "true" ] in
+                             "legacy_mode", "true" ] in
        let pbd = Client.PBD.create ~rpc:!rpc ~session_id ~sR:sr ~host ~device_config ~other_config:[] in
        finally
-	 (fun () ->
-	    debug test "Plugging PBD";
-	    Client.PBD.plug !rpc session_id pbd;
-	    Client.SR.scan !rpc session_id sr;
-	    let is_iso x = String.endswith ".iso" (String.lowercase x) in
-	    let files = List.filter is_iso (Array.to_list (Sys.readdir !iso_path)) in
-	    let vdis = Client.SR.get_VDIs !rpc session_id sr in
-	    debug test (Printf.sprintf "SR.scan found %d files (directory has %d .isos)" (List.length vdis) (List.length files));
-	    if List.length files <> List.length vdis then begin
-	      failed test (Printf.sprintf "%s has %d files; SR has %d VDIs" !iso_path (List.length files) (List.length vdis));
-	      failwith "packages_iso_test"
-	    end;
-	    let locations = List.map (fun vdi -> Client.VDI.get_location !rpc session_id vdi) vdis in
-	    (* Check each file has a VDI.location *)
-	    List.iter (fun file ->
-			 if not(List.mem file locations) then begin
-			   failed test (Printf.sprintf "ISO %s has no corresponding VDI" file);
-			   failwith "packages_iso_test"
-			 end) files;
-	    (* Check each VDI is read-only *)
-	    List.iter (fun vdi ->
-			 let vdir = Client.VDI.get_record !rpc session_id vdi in
-			 if not(vdir.API.vDI_read_only) then begin
-			   failed test (Printf.sprintf "ISO VDI has read_only set to false (%s)" vdir.API.vDI_name_label);
-			   failwith "packages_iso_test"
-			 end;
-			 debug test (Printf.sprintf "ISO VDI %s looks ok" vdir.API.vDI_name_label);
-		      ) vdis;
-	    success test
-	 ) (fun () ->
-	      Client.PBD.unplug !rpc session_id pbd;
-	      Client.PBD.destroy !rpc session_id pbd)
+         (fun () ->
+            debug test "Plugging PBD";
+            Client.PBD.plug !rpc session_id pbd;
+            Client.SR.scan !rpc session_id sr;
+            let is_iso x = String.endswith ".iso" (String.lowercase x) in
+            let files = List.filter is_iso (Array.to_list (Sys.readdir !iso_path)) in
+            let vdis = Client.SR.get_VDIs !rpc session_id sr in
+            debug test (Printf.sprintf "SR.scan found %d files (directory has %d .isos)" (List.length vdis) (List.length files));
+            if List.length files <> List.length vdis then begin
+              failed test (Printf.sprintf "%s has %d files; SR has %d VDIs" !iso_path (List.length files) (List.length vdis));
+              failwith "packages_iso_test"
+            end;
+            let locations = List.map (fun vdi -> Client.VDI.get_location !rpc session_id vdi) vdis in
+            (* Check each file has a VDI.location *)
+            List.iter (fun file ->
+                if not(List.mem file locations) then begin
+                  failed test (Printf.sprintf "ISO %s has no corresponding VDI" file);
+                  failwith "packages_iso_test"
+                end) files;
+            (* Check each VDI is read-only *)
+            List.iter (fun vdi ->
+                let vdir = Client.VDI.get_record !rpc session_id vdi in
+                if not(vdir.API.vDI_read_only) then begin
+                  failed test (Printf.sprintf "ISO VDI has read_only set to false (%s)" vdir.API.vDI_name_label);
+                  failwith "packages_iso_test"
+                end;
+                debug test (Printf.sprintf "ISO VDI %s looks ok" vdir.API.vDI_name_label);
+              ) vdis;
+            success test
+         ) (fun () ->
+             Client.PBD.unplug !rpc session_id pbd;
+             Client.PBD.destroy !rpc session_id pbd)
     ) (fun () -> Client.SR.forget ~rpc:!rpc ~session_id ~sr)
 
 let sm_caps_of_sr session_id sr =
@@ -516,9 +516,9 @@ let sm_caps_of_sr session_id sr =
   let sm = Client.SM.get_all_records !rpc session_id in
   match List.filter (fun (_, r) -> r.API.sM_type = ty) sm with
   | [ _, plugin ] ->
-      plugin.API.sM_capabilities
+    plugin.API.sM_capabilities
   | _ ->
-      failwith (Printf.sprintf "Failed to query SM plugin type = %s" ty)
+    failwith (Printf.sprintf "Failed to query SM plugin type = %s" ty)
 
 (* Even though the SM backend may expose a VDI_CREATE capability attempts
    to actually create a VDI will fail in (eg) the tools SR and any that
@@ -538,41 +538,41 @@ let foreach_sr session_id sr =
   let sm = Client.SM.get_all_records !rpc session_id in
   match List.filter (fun (_, r) -> r.API.sM_type = ty) sm with
   | [] ->
-      failed test "Failed to query SM plugin"
+    failed test "Failed to query SM plugin"
   | [ _, plugin ] ->
-      let caps = plugin.API.sM_capabilities in
-      debug test (Printf.sprintf "Capabilities reported: [ %s ]" (String.concat " " caps));
-	  let oc = Client.SR.get_other_config !rpc session_id sr in
-	  debug test (Printf.sprintf "SR.other_config = [ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) oc)));
-	  let avoid_vdi_create = avoid_vdi_create session_id sr in
-	  debug test (Printf.sprintf "avoid_vdi_create = %b" avoid_vdi_create);
-      (* Mirror the special handling for the XenServer Tools SR; the
-         create and delete capabilities are forbidden in that special case.
-         See Xapi_sr.valid_operations. *)
-      let caps =
-        if avoid_vdi_create then
-          List.filter
-            (fun cap -> not (List.mem cap [ vdi_create; vdi_delete ])) caps
-        else
-          caps
-      in
-      debug test (Printf.sprintf "Capabilities filtered to: [ %s ]" (String.concat " " caps));
-      success test;
+    let caps = plugin.API.sM_capabilities in
+    debug test (Printf.sprintf "Capabilities reported: [ %s ]" (String.concat " " caps));
+    let oc = Client.SR.get_other_config !rpc session_id sr in
+    debug test (Printf.sprintf "SR.other_config = [ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) oc)));
+    let avoid_vdi_create = avoid_vdi_create session_id sr in
+    debug test (Printf.sprintf "avoid_vdi_create = %b" avoid_vdi_create);
+    (* Mirror the special handling for the XenServer Tools SR; the
+       create and delete capabilities are forbidden in that special case.
+       See Xapi_sr.valid_operations. *)
+    let caps =
+      if avoid_vdi_create then
+        List.filter
+          (fun cap -> not (List.mem cap [ vdi_create; vdi_delete ])) caps
+      else
+        caps
+    in
+    debug test (Printf.sprintf "Capabilities filtered to: [ %s ]" (String.concat " " caps));
+    success test;
 
-      sr_scan_test       caps session_id sr;
-      sr_probe_test      caps session_id sr;
-      sr_update_test     caps session_id sr;
-      vdi_create_destroy caps session_id sr;
-      vdi_create_destroy_plug_checksize caps session_id sr;
-      with_arbitrary_vdi caps session_id sr vdi_bad_introduce;
-      with_arbitrary_vdi caps session_id sr vdi_db_forget;
-      with_arbitrary_vdi caps session_id sr vdi_clone_destroy;
-      with_arbitrary_vdi caps session_id sr vdi_snapshot_destroy;
-      with_arbitrary_vdi caps session_id sr vdi_resize_test;
-      with_arbitrary_vdi caps session_id sr vdi_update_test;
-      with_arbitrary_vdi caps session_id sr vdi_generate_config_test;
+    sr_scan_test       caps session_id sr;
+    sr_probe_test      caps session_id sr;
+    sr_update_test     caps session_id sr;
+    vdi_create_destroy caps session_id sr;
+    vdi_create_destroy_plug_checksize caps session_id sr;
+    with_arbitrary_vdi caps session_id sr vdi_bad_introduce;
+    with_arbitrary_vdi caps session_id sr vdi_db_forget;
+    with_arbitrary_vdi caps session_id sr vdi_clone_destroy;
+    with_arbitrary_vdi caps session_id sr vdi_snapshot_destroy;
+    with_arbitrary_vdi caps session_id sr vdi_resize_test;
+    with_arbitrary_vdi caps session_id sr vdi_update_test;
+    with_arbitrary_vdi caps session_id sr vdi_generate_config_test;
   | _ ->
-      failed test "Multiple plugins with the same type detected"
+    failed test "Multiple plugins with the same type detected"
 
 let go s =
   let test = make_test "Listing available Storage Repositories" 0 in

@@ -52,21 +52,21 @@ let again (x: manager) =
        if x.in_progress
        then x.needs_doing_again <- true (* existing thread will go around the loop again *)
        else begin
-	 (* no existing thread so we need to start one off *)
-	 x.in_progress <- true;
-	 x.needs_doing_again <- false;
-	 let (_: Thread.t) =
-	   Thread.create
-	     (fun () ->
-		(* Always do the operation immediately: thread is only created when work needs doing *)
-		x.f ();
-		while Mutex.execute x.m
-		  (fun () ->
-		     if x.needs_doing_again
-		     then (x.needs_doing_again <- false; true) (* another request came in while we were processing *)
-		     else (x.in_progress <- false; false) (* no more requests: thread will shutdown *)
-		  ) do
-		    x. f()
-		done) () in
-	 ()
+         (* no existing thread so we need to start one off *)
+         x.in_progress <- true;
+         x.needs_doing_again <- false;
+         let (_: Thread.t) =
+           Thread.create
+             (fun () ->
+                (* Always do the operation immediately: thread is only created when work needs doing *)
+                x.f ();
+                while Mutex.execute x.m
+                    (fun () ->
+                       if x.needs_doing_again
+                       then (x.needs_doing_again <- false; true) (* another request came in while we were processing *)
+                       else (x.in_progress <- false; false) (* no more requests: thread will shutdown *)
+                    ) do
+                  x. f()
+                done) () in
+         ()
        end)

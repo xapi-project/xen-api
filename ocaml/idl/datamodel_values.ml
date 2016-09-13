@@ -52,19 +52,19 @@ let rec to_xml v =
 open Printf
 
 let to_ocaml_string v =
-	let rec aux = function
-		| Rpc.Null -> "Rpc.Null"
-		| Rpc.String s -> sprintf "Rpc.String \"%s\"" s
-		| Rpc.Int i -> sprintf "Rpc.Int %LdL" i
-		| Rpc.Int32 i -> sprintf "Rpc.Int32 %ldl" i
-		| Rpc.Float f -> sprintf "Rpc.Float %f" f
-		| Rpc.Bool b -> sprintf "Rpc.Bool %b" b
-		| Rpc.Dict d -> sprintf "Rpc.Dict [%s]" (String.concat ";" (List.map (fun (n,v) -> sprintf "(\"%s\",%s)" n (aux v)) d))
- 		| Rpc.Enum l -> sprintf "Rpc.Enum [%s]" (String.concat ";" (List.map aux l))
-		| Rpc.DateTime t -> sprintf "Rpc.DateTime %s" t in
- match v with
- | VCustom (x,_) -> x
- | _ -> aux (to_rpc v)
+  let rec aux = function
+    | Rpc.Null -> "Rpc.Null"
+    | Rpc.String s -> sprintf "Rpc.String \"%s\"" s
+    | Rpc.Int i -> sprintf "Rpc.Int %LdL" i
+    | Rpc.Int32 i -> sprintf "Rpc.Int32 %ldl" i
+    | Rpc.Float f -> sprintf "Rpc.Float %f" f
+    | Rpc.Bool b -> sprintf "Rpc.Bool %b" b
+    | Rpc.Dict d -> sprintf "Rpc.Dict [%s]" (String.concat ";" (List.map (fun (n,v) -> sprintf "(\"%s\",%s)" n (aux v)) d))
+    | Rpc.Enum l -> sprintf "Rpc.Enum [%s]" (String.concat ";" (List.map aux l))
+    | Rpc.DateTime t -> sprintf "Rpc.DateTime %s" t in
+  match v with
+  | VCustom (x,_) -> x
+  | _ -> aux (to_rpc v)
 
 let rec to_db v =
   let open Schema.Value in

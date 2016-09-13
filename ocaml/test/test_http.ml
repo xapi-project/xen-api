@@ -16,40 +16,40 @@ open OUnit
 open Test_highlevel
 
 module FixCookie = Generic.Make(struct
-	module Io = struct
-		type input_t = (string * string) list
-		type output_t = (string * string) list
+    module Io = struct
+      type input_t = (string * string) list
+      type output_t = (string * string) list
 
-		let string_of_input_t = Test_printers.(assoc_list string string)
-		let string_of_output_t = Test_printers.(assoc_list string string)
-	end
+      let string_of_input_t = Test_printers.(assoc_list string string)
+      let string_of_output_t = Test_printers.(assoc_list string string)
+    end
 
-	let transform = Xapi_services.fix_cookie
+    let transform = Xapi_services.fix_cookie
 
-	let tests = [
-		(* These cookies should be unchanged. *)
-		[], [];
-		["foo", "bar"], ["foo", "bar"];
-		(* Any pairs where the key starts with '$' should be filtered out. *)
-		["$PATH", "baz"], [];
-		["$PATH", "baz"; "foo", "bar"], ["foo", "bar"];
-		(* These cookies have got a bit mangled, and should get unmangled. *)
-		["foo=x, bar", "y"],  ["foo", "x"; "bar", "y"];
-		["foo=x,\tbar", "y"], ["foo", "x"; "bar", "y"];
-		["foo=x; bar", "y"],  ["foo", "x"; "bar", "y"];
-		["foo=x;\tbar", "y"], ["foo", "x"; "bar", "y"];
-		["foo", "x, bar=y"],  ["foo", "x"; "bar", "y"];
-		["foo", "x,\tbar=y"], ["foo", "x"; "bar", "y"];
-		["foo", "x; bar=y"],  ["foo", "x"; "bar", "y"];
-		["foo", "x;\tbar=y"], ["foo", "x"; "bar", "y"];
-		(* These cookies need unmangling and filtering. *)
-		["foo=x,\tbar", "y"; "$Stuff", "whatever"], ["foo", "x"; "bar", "y"];
-		["$Stuff", "whatever"; "foo=x,\tbar", "y"], ["foo", "x"; "bar", "y"];
-	]
-end)
+    let tests = [
+      (* These cookies should be unchanged. *)
+      [], [];
+      ["foo", "bar"], ["foo", "bar"];
+      (* Any pairs where the key starts with '$' should be filtered out. *)
+      ["$PATH", "baz"], [];
+      ["$PATH", "baz"; "foo", "bar"], ["foo", "bar"];
+      (* These cookies have got a bit mangled, and should get unmangled. *)
+      ["foo=x, bar", "y"],  ["foo", "x"; "bar", "y"];
+      ["foo=x,\tbar", "y"], ["foo", "x"; "bar", "y"];
+      ["foo=x; bar", "y"],  ["foo", "x"; "bar", "y"];
+      ["foo=x;\tbar", "y"], ["foo", "x"; "bar", "y"];
+      ["foo", "x, bar=y"],  ["foo", "x"; "bar", "y"];
+      ["foo", "x,\tbar=y"], ["foo", "x"; "bar", "y"];
+      ["foo", "x; bar=y"],  ["foo", "x"; "bar", "y"];
+      ["foo", "x;\tbar=y"], ["foo", "x"; "bar", "y"];
+      (* These cookies need unmangling and filtering. *)
+      ["foo=x,\tbar", "y"; "$Stuff", "whatever"], ["foo", "x"; "bar", "y"];
+      ["$Stuff", "whatever"; "foo=x,\tbar", "y"], ["foo", "x"; "bar", "y"];
+    ]
+  end)
 
 let test =
-	"test_http" >:::
-		[
-			"test_fix_cookie" >::: FixCookie.tests;
-		]
+  "test_http" >:::
+  [
+    "test_fix_cookie" >::: FixCookie.tests;
+  ]

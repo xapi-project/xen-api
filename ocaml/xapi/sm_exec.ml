@@ -13,7 +13,7 @@
  *)
 (** Storage manager backend: external operations through exec
  * @group Storage
- *)
+*)
 
 open Stdext
 open Pervasiveext
@@ -73,42 +73,42 @@ type call = {
 let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type ?vdi_location ?new_uuid ?sr_ref ?vdi_ref (subtask_of,device_config) cmd args =
   Server_helpers.exec_with_new_task "sm_exec"
     (fun __context ->
-      (* Only allow a subset of calls if the SR has been introduced by a DR task. *)
-      Opt.iter (fun sr ->
-        if Db.is_valid_ref __context (Db.SR.get_introduced_by ~__context ~self:sr) then
-          if not(List.mem cmd ["sr_attach"; "sr_detach"; "vdi_attach"; "vdi_detach"; "vdi_activate"; "vdi_deactivate"; "sr_probe"; "sr_scan"; "sr_content_type"]) then
-            raise (Storage_interface.Backend_error(Api_errors.operation_not_allowed,
-              [Printf.sprintf "The operation %s is not allowed on this SR as it is being used for disaster recovery." cmd]));
-      ) sr_ref;
+       (* Only allow a subset of calls if the SR has been introduced by a DR task. *)
+       Opt.iter (fun sr ->
+           if Db.is_valid_ref __context (Db.SR.get_introduced_by ~__context ~self:sr) then
+             if not(List.mem cmd ["sr_attach"; "sr_detach"; "vdi_attach"; "vdi_detach"; "vdi_activate"; "vdi_deactivate"; "sr_probe"; "sr_scan"; "sr_content_type"]) then
+               raise (Storage_interface.Backend_error(Api_errors.operation_not_allowed,
+                                                      [Printf.sprintf "The operation %s is not allowed on this SR as it is being used for disaster recovery." cmd]));
+         ) sr_ref;
        let vdi_location =
-	 if vdi_location <> None
-	 then vdi_location
-	 else may (fun self -> Db.VDI.get_location ~__context ~self) vdi_ref in
+         if vdi_location <> None
+         then vdi_location
+         else may (fun self -> Db.VDI.get_location ~__context ~self) vdi_ref in
        let vdi_uuid = may (fun self -> Db.VDI.get_uuid ~__context ~self) vdi_ref in
-	   let vdi_on_boot = may (fun self ->
-		   match Db.VDI.get_on_boot ~__context ~self with `persist -> "persist" | `reset -> "reset") vdi_ref in
-	   let vdi_allow_caching = may (fun self -> string_of_bool (Db.VDI.get_allow_caching ~__context ~self)) vdi_ref in
-	   let local_cache_sr = try Some (Db.SR.get_uuid ~__context ~self:(Db.Host.get_local_cache_sr ~__context ~self:(Helpers.get_localhost __context))) with _ -> None in
+       let vdi_on_boot = may (fun self ->
+           match Db.VDI.get_on_boot ~__context ~self with `persist -> "persist" | `reset -> "reset") vdi_ref in
+       let vdi_allow_caching = may (fun self -> string_of_bool (Db.VDI.get_allow_caching ~__context ~self)) vdi_ref in
+       let local_cache_sr = try Some (Db.SR.get_uuid ~__context ~self:(Db.Host.get_local_cache_sr ~__context ~self:(Helpers.get_localhost __context))) with _ -> None in
        let sr_uuid = may (fun self -> Db.SR.get_uuid ~__context ~self) sr_ref in
        { host_ref = !Xapi_globs.localhost_ref;
-	 session_ref = None; (* filled in at the last minute *)
-	 device_config = device_config;
-	 sr_ref = sr_ref;
-	 sr_uuid = sr_uuid;
-	 driver_params = driver_params;
-	 sr_sm_config = sr_sm_config;
-	 vdi_sm_config = vdi_sm_config;
-	 vdi_type = vdi_type;
-	 vdi_ref = vdi_ref;
-	 vdi_location = vdi_location;
-	 vdi_uuid = vdi_uuid;
-	 vdi_on_boot = vdi_on_boot;
-	 vdi_allow_caching = vdi_allow_caching;
-	 new_uuid = new_uuid;
-	 subtask_of = subtask_of;
-	 local_cache_sr = local_cache_sr;
-	 cmd = cmd;
-	 args = args
+         session_ref = None; (* filled in at the last minute *)
+         device_config = device_config;
+         sr_ref = sr_ref;
+         sr_uuid = sr_uuid;
+         driver_params = driver_params;
+         sr_sm_config = sr_sm_config;
+         vdi_sm_config = vdi_sm_config;
+         vdi_type = vdi_type;
+         vdi_ref = vdi_ref;
+         vdi_location = vdi_location;
+         vdi_uuid = vdi_uuid;
+         vdi_on_boot = vdi_on_boot;
+         vdi_allow_caching = vdi_allow_caching;
+         new_uuid = new_uuid;
+         subtask_of = subtask_of;
+         local_cache_sr = local_cache_sr;
+         cmd = cmd;
+         args = args
        })
 
 let xmlrpc_of_call (call: call) =
@@ -117,9 +117,9 @@ let xmlrpc_of_call (call: call) =
       (List.map (fun (k, v) -> k, XMLRPC.To.string v) kvpairs) in
 
   let common = [ "host_ref", XMLRPC.To.string (Ref.string_of call.host_ref);
-		 "command", XMLRPC.To.string (call.cmd);
-		 "args", XMLRPC.To.array (List.map XMLRPC.To.string call.args);
-	       ] in
+                 "command", XMLRPC.To.string (call.cmd);
+                 "args", XMLRPC.To.array (List.map XMLRPC.To.string call.args);
+               ] in
   let dc = [ "device_config", kvpairs call.device_config ] in
   let session_ref = default [] (may (fun x -> [ "session_ref", XMLRPC.To.string (Ref.string_of x) ]) call.session_ref) in
   let sr_sm_config = default [] (may (fun x -> [ "sr_sm_config", kvpairs x ]) call.sr_sm_config) in
@@ -143,7 +143,7 @@ let xmlrpc_of_call (call: call) =
 let methodResponse xml =
   match xml with
   | Xml.Element("methodResponse", _, [ Xml.Element("params", _, [ Xml.Element("param", _, [ param ]) ]) ]) ->
-      XMLRPC.Success [ param ]
+    XMLRPC.Success [ param ]
   | xml -> XMLRPC.From.methodResponse xml
 
 
@@ -152,20 +152,20 @@ let methodResponse xml =
 
 let with_session sr f =
   Server_helpers.exec_with_new_task "sm_exec" (fun __context ->
-  let create_session () =
-    let host = !Xapi_globs.localhost_ref in
-    let session=Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:sm_username ~rbac_permissions:[] in
-    (* Give this session access to this particular SR *)
-    maybe (fun sr ->
-	     Db.Session.add_to_other_config ~__context ~self:session
-	       ~key:Xapi_globs._sm_session ~value:(Ref.string_of sr)) sr;
-    session
-  in
-  let destroy_session session_id =
-    Xapi_session.destroy_db_session ~__context ~self:session_id
-  in
-  let session_id = create_session () in
-  Pervasiveext.finally (fun () -> f session_id) (fun () -> destroy_session session_id))
+      let create_session () =
+        let host = !Xapi_globs.localhost_ref in
+        let session=Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:false ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:sm_username ~rbac_permissions:[] in
+        (* Give this session access to this particular SR *)
+        maybe (fun sr ->
+            Db.Session.add_to_other_config ~__context ~self:session
+              ~key:Xapi_globs._sm_session ~value:(Ref.string_of sr)) sr;
+        session
+      in
+      let destroy_session session_id =
+        Xapi_session.destroy_db_session ~__context ~self:session_id
+      in
+      let session_id = create_session () in
+      Pervasiveext.finally (fun () -> f session_id) (fun () -> destroy_session session_id))
 
 let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
   let do_call call =
@@ -174,51 +174,51 @@ let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
     let name = Printf.sprintf "sm_exec: %s" call.cmd in
 
     let (xml,stderr) = Stats.time_this name (fun () ->
-		let exe = cmd_name driver in
-		begin try
-			(* Logging call.cmd is safe, but call.args could contain a password. *)
-			E.debug "smapiv2=>smapiv1 [label=\"%s\"];" call.cmd;
-			let output, stderr = Forkhelpers.execute_command_get_output exe [ Xml.to_string xml ] in
-			begin try
-				(Xml.parse_string output), stderr
-			with e ->
-				error "Failed to parse result from %s: stdout:%s stderr:%s exception:%s" exe output stderr (Printexc.to_string e);
-				raise (Storage_interface.Backend_error(Api_errors.sr_backend_failure, [ Printexc.to_string e; output; stderr ]))
-			end
-		with
-			| Forkhelpers.Spawn_internal_error(log, output, Unix.WSTOPPED i) ->
-				raise (Storage_interface.Backend_error (Api_errors.sr_backend_failure, ["exit code: " ^ (string_of_int i); output; log ]))
-			| Forkhelpers.Spawn_internal_error(log, output, Unix.WSIGNALED i) ->
-				raise (Storage_interface.Backend_error (Api_errors.sr_backend_failure, ["received signal: " ^ (Unixext.string_of_signal i); output; log ]))
-			| Forkhelpers.Spawn_internal_error(log, output, Unix.WEXITED i) ->
-				raise (Storage_interface.Backend_error (Api_errors.sr_backend_failure, ["non-zero exit"; output; log ]))
-		end
-	)
+        let exe = cmd_name driver in
+        begin try
+            (* Logging call.cmd is safe, but call.args could contain a password. *)
+            E.debug "smapiv2=>smapiv1 [label=\"%s\"];" call.cmd;
+            let output, stderr = Forkhelpers.execute_command_get_output exe [ Xml.to_string xml ] in
+            begin try
+                (Xml.parse_string output), stderr
+              with e ->
+                error "Failed to parse result from %s: stdout:%s stderr:%s exception:%s" exe output stderr (Printexc.to_string e);
+                raise (Storage_interface.Backend_error(Api_errors.sr_backend_failure, [ Printexc.to_string e; output; stderr ]))
+            end
+          with
+          | Forkhelpers.Spawn_internal_error(log, output, Unix.WSTOPPED i) ->
+            raise (Storage_interface.Backend_error (Api_errors.sr_backend_failure, ["exit code: " ^ (string_of_int i); output; log ]))
+          | Forkhelpers.Spawn_internal_error(log, output, Unix.WSIGNALED i) ->
+            raise (Storage_interface.Backend_error (Api_errors.sr_backend_failure, ["received signal: " ^ (Unixext.string_of_signal i); output; log ]))
+          | Forkhelpers.Spawn_internal_error(log, output, Unix.WEXITED i) ->
+            raise (Storage_interface.Backend_error (Api_errors.sr_backend_failure, ["non-zero exit"; output; log ]))
+        end
+      )
     in
 
     match methodResponse xml with
     | XMLRPC.Fault(38l, _) -> raise Not_implemented_in_backend
     | XMLRPC.Fault(39l, _) ->
-	raise (Storage_interface.Backend_error (Api_errors.sr_not_empty, []))
+      raise (Storage_interface.Backend_error (Api_errors.sr_not_empty, []))
     | XMLRPC.Fault(24l, _) ->
-	raise (Storage_interface.Backend_error (Api_errors.vdi_in_use, []))
+      raise (Storage_interface.Backend_error (Api_errors.vdi_in_use, []))
     | XMLRPC.Fault(16l, _) ->
-	raise (Storage_interface.Backend_error (Api_errors.sr_device_in_use, []))
+      raise (Storage_interface.Backend_error (Api_errors.sr_device_in_use, []))
     | XMLRPC.Fault(144l, _) ->
-	(* Any call which returns this 'VDIMissing' error really ought to have
-	   been provided both an SR and VDI reference... *)
-	let sr = default "" (may Ref.string_of call.sr_ref)
-	and vdi = default "" (may Ref.string_of call.vdi_ref) in
-	raise (Storage_interface.Backend_error (Api_errors.vdi_missing, [ sr; vdi ]))
+      (* Any call which returns this 'VDIMissing' error really ought to have
+         	   been provided both an SR and VDI reference... *)
+      let sr = default "" (may Ref.string_of call.sr_ref)
+      and vdi = default "" (may Ref.string_of call.vdi_ref) in
+      raise (Storage_interface.Backend_error (Api_errors.vdi_missing, [ sr; vdi ]))
 
     | XMLRPC.Fault(code, reason) ->
-	let xenapi_code = Api_errors.sr_backend_failure ^ "_" ^ (Int32.to_string code) in
-	raise (Storage_interface.Backend_error(xenapi_code, [ ""; reason; stderr ]))
+      let xenapi_code = Api_errors.sr_backend_failure ^ "_" ^ (Int32.to_string code) in
+      raise (Storage_interface.Backend_error(xenapi_code, [ ""; reason; stderr ]))
 
     | XMLRPC.Success [ result ] -> result
-	| _ ->
-		raise (Storage_interface.Backend_error(Api_errors.internal_error, ["Unexpected response from SM plugin"]))
- in
+    | _ ->
+      raise (Storage_interface.Backend_error(Api_errors.internal_error, ["Unexpected response from SM plugin"]))
+  in
   if needs_session
   then with_session call.sr_ref (fun session_id -> do_call { call with session_ref = Some session_id })
   else do_call call
@@ -229,17 +229,17 @@ let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
 
 let xmlrpc_parse_failure (xml: string) (reason: string) =
   raise (Storage_interface.Backend_error (Api_errors.sr_backend_failure,
-				  [ ""; "XML parse failure: " ^xml; reason ]))
+                                          [ ""; "XML parse failure: " ^xml; reason ]))
 
 let rethrow_parse_failures xml f =
   try f ()
   with
   | Backend_missing_field s ->
-      xmlrpc_parse_failure xml (Printf.sprintf "<struct> missing field: %s" s)
+    xmlrpc_parse_failure xml (Printf.sprintf "<struct> missing field: %s" s)
   | XMLRPC.RunTimeTypeError(s, x) ->
-      xmlrpc_parse_failure xml (Printf.sprintf "XMLRPC unmarshall RunTimeTypeError: looking for %s found %s" s (Xml.to_string_fmt x))
+    xmlrpc_parse_failure xml (Printf.sprintf "XMLRPC unmarshall RunTimeTypeError: looking for %s found %s" s (Xml.to_string_fmt x))
   | e ->
-      xmlrpc_parse_failure xml (Printexc.to_string e)
+    xmlrpc_parse_failure xml (Printexc.to_string e)
 
 let safe_assoc key pairs =
   try List.assoc key pairs
@@ -250,10 +250,10 @@ let parse_vdi_info (vdi_info_struct: Xml.xml) =
   rethrow_parse_failures (Xml.to_string_fmt vdi_info_struct)
     (fun () ->
        let pairs = List.map (fun (key, v) -> key, XMLRPC.From.string v)
-	 (XMLRPC.From.structure vdi_info_struct) in
+           (XMLRPC.From.structure vdi_info_struct) in
        {
-	 vdi_info_uuid = Some (safe_assoc "uuid" pairs);
-	 vdi_info_location = safe_assoc "location" pairs
+         vdi_info_uuid = Some (safe_assoc "uuid" pairs);
+         vdi_info_location = safe_assoc "location" pairs
        }
     )
 
@@ -265,31 +265,31 @@ let parse_string (xml: Xml.xml) = XMLRPC.From.string xml
 let parse_unit (xml: Xml.xml) = XMLRPC.From.nil xml
 
 let parse_attach_result (xml : Xml.xml) =
-	rethrow_parse_failures (Xml.to_string_fmt xml) (fun () ->
-		let info = XMLRPC.From.structure xml in
-		let params = XMLRPC.From.string (safe_assoc "params" info) in
-		let o_direct =
-			try XMLRPC.From.boolean (safe_assoc "o_direct" info)
-			with _ -> true
-		in
-		let o_direct_reason =
-			try XMLRPC.From.string (safe_assoc "o_direct_reason" info)
-			with _ -> ""
-		in
-		let xenstore_data =
-			try
-				List.map (fun (x,y) -> (x,XMLRPC.From.string y))
-					(XMLRPC.From.structure (safe_assoc "xenstore_data" info))
-			with _ ->
-				[]
-		in
-		{
-			params;
-			o_direct;
-			o_direct_reason;
-			xenstore_data;
-		}
-	)
+  rethrow_parse_failures (Xml.to_string_fmt xml) (fun () ->
+      let info = XMLRPC.From.structure xml in
+      let params = XMLRPC.From.string (safe_assoc "params" info) in
+      let o_direct =
+        try XMLRPC.From.boolean (safe_assoc "o_direct" info)
+        with _ -> true
+      in
+      let o_direct_reason =
+        try XMLRPC.From.string (safe_assoc "o_direct_reason" info)
+        with _ -> ""
+      in
+      let xenstore_data =
+        try
+          List.map (fun (x,y) -> (x,XMLRPC.From.string y))
+            (XMLRPC.From.structure (safe_assoc "xenstore_data" info))
+        with _ ->
+          []
+      in
+      {
+        params;
+        o_direct;
+        o_direct_reason;
+        xenstore_data;
+      }
+    )
 
 let parse_attach_result_legacy (xml : Xml.xml) = parse_string xml
 
@@ -312,8 +312,8 @@ let parse_sr_get_driver_info driver (xml: Xml.xml) =
   (* Parse the driver options *)
   let configuration =
     List.map (fun kvpairs ->
-		XMLRPC.From.string (safe_assoc "key" kvpairs),
-		XMLRPC.From.string (safe_assoc "description" kvpairs))
+        XMLRPC.From.string (safe_assoc "key" kvpairs),
+        XMLRPC.From.string (safe_assoc "description" kvpairs))
       (XMLRPC.From.array XMLRPC.From.structure (safe_assoc "configuration" info)) in
 
   { sr_driver_filename = driver;
@@ -337,28 +337,28 @@ let sr_get_driver_info driver =
  * backend and daemon found. *)
 let get_supported add_fn =
   let check_driver entry =
-      if String.endswith "SR" entry then (
-        let driver = String.sub entry 0 (String.length entry - 2) in
-        if not(Xapi_globs.accept_sm_plugin driver)
-        then info "Skipping SMAPIv1 plugin %s: not in sm-plugins whitelist in configuration file" driver
-        else begin
-          try
-            Unix.access (cmd_name driver) [ Unix.X_OK ];
-            let i = sr_get_driver_info driver in
-            add_fn driver i;
-          with e ->
-            error "Rejecting SM plugin: %s because of exception: %s (executable)" driver (Printexc.to_string e)
-        end
-      ) in
+    if String.endswith "SR" entry then (
+      let driver = String.sub entry 0 (String.length entry - 2) in
+      if not(Xapi_globs.accept_sm_plugin driver)
+      then info "Skipping SMAPIv1 plugin %s: not in sm-plugins whitelist in configuration file" driver
+      else begin
+        try
+          Unix.access (cmd_name driver) [ Unix.X_OK ];
+          let i = sr_get_driver_info driver in
+          add_fn driver i;
+        with e ->
+          error "Rejecting SM plugin: %s because of exception: %s (executable)" driver (Printexc.to_string e)
+      end
+    ) in
 
   List.iter
     (fun (f, dir) ->
-		 if Sys.file_exists dir then begin
-		   debug "Scanning directory %s for SM plugins" dir;
-		   try Array.iter f (Sys.readdir dir)
-		   with e ->
-			   error "Error checking directory %s for SM backends: %s" dir (ExnHelper.string_of_exn e);
-		 end else error "Not scanning %s for SM backends: directory does not exist" dir
+       if Sys.file_exists dir then begin
+         debug "Scanning directory %s for SM plugins" dir;
+         try Array.iter f (Sys.readdir dir)
+         with e ->
+           error "Error checking directory %s for SM backends: %s" dir (ExnHelper.string_of_exn e);
+       end else error "Not scanning %s for SM backends: directory does not exist" dir
     )
     [ check_driver, !Xapi_globs.sm_dir ]
 

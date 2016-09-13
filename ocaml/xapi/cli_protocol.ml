@@ -13,7 +13,7 @@
  *)
 (**
  * @group Command-Line Interface (CLI)
- *)
+*)
 
 (** Used to ensure that we actually are talking to a thin CLI server *)
 let major = 0
@@ -27,35 +27,35 @@ let prefix = "XenSource thin CLI protocol"
     If the command is "Save" then the server waits for "OK" from the client
     and then streams a list of data chunks to the client. *)
 type command =
-    | Print of string
-    | Debug of string                     (* debug message to optionally display *)
-    | Load of string                      (* filename *)
-    | HttpGet of string * string          (* filename * path *)
-    | HttpPut of string * string          (* filename * path *)
-	| HttpConnect of string               (* path *)
-    | Prompt                              (* request the user enter some text *)
-    | Exit of int                         (* exit with a success or failure code *)
-    | Error of string * string list       (* code params *)
-    | PrintStderr of string               (* print something to stderr *)
+  | Print of string
+  | Debug of string                     (* debug message to optionally display *)
+  | Load of string                      (* filename *)
+  | HttpGet of string * string          (* filename * path *)
+  | HttpPut of string * string          (* filename * path *)
+  | HttpConnect of string               (* path *)
+  | Prompt                              (* request the user enter some text *)
+  | Exit of int                         (* exit with a success or failure code *)
+  | Error of string * string list       (* code params *)
+  | PrintStderr of string               (* print something to stderr *)
 
 (** In response to a server command, the client sends one of these.
     If the command was "Load" or "Prompt" then the client sends a list
     of data chunks. *)
 type response =
-	| OK
-	| Wait
-	| Failed
+  | OK
+  | Wait
+  | Failed
 
 (** When streaming binary data, send in chunks with a known length and a
     special End marker at the end. *)
 type blob_header =
-    | Chunk of int32
-    | End
+  | Chunk of int32
+  | End
 
 type message =
-    | Command of command
-    | Response of response
-    | Blob of blob_header
+  | Command of command
+  | Response of response
+  | Blob of blob_header
 
 (*****************************************************************************)
 (* Pretty-print functions                                                    *)
@@ -73,9 +73,9 @@ let string_of_command = function
   | PrintStderr x            -> "PrintStderr " ^ x
 
 let string_of_response = function
-	| OK      -> "OK"
-	| Wait    -> "Wait"
-	| Failed  -> "Failed"
+  | OK      -> "OK"
+  | Wait    -> "Wait"
+  | Failed  -> "Failed"
 
 let string_of_blob_header = function
   | Chunk x -> "Chunk " ^ (Int32.to_string x)
@@ -134,8 +134,8 @@ let unmarshal_list pos f =
   let rec loop pos acc = function
     | 0 -> List.rev acc, pos
     | n ->
-	let item, pos = f pos in
-	loop pos (item :: acc) (n - 1) in
+      let item, pos = f pos in
+      loop pos (item :: acc) (n - 1) in
   loop pos [] len
 
 
@@ -160,40 +160,40 @@ exception Unknown_tag of string * int
 
 let unmarshal_command pos =
   let tag, pos = unmarshal_int pos in match tag with
-    | 0 -> let body, pos = unmarshal_string pos in Print body, pos
-    | 15 -> let body, pos = unmarshal_string pos in Debug body, pos
-    | 1 -> let body, pos = unmarshal_string pos in Load body, pos
-    | 12 ->
-	let a, pos = unmarshal_string pos in
-	let b, pos = unmarshal_string pos in
-	HttpGet(a, b), pos
-    | 13 ->
-	let a, pos = unmarshal_string pos in
-	let b, pos = unmarshal_string pos in
-	HttpPut(a, b), pos
-    | 3 -> Prompt, pos
-    | 4 -> let body, pos = unmarshal_int pos in Exit body, pos
-	| 17 ->
-	let a, pos = unmarshal_string pos in
-	HttpConnect(a), pos
-    | 14 ->
-	let code, pos = unmarshal_string pos in
-	let params, pos = unmarshal_list pos unmarshal_string in
-	Error(code, params), pos
-    | 16 -> let body, pos = unmarshal_string pos in PrintStderr body, pos
-    | n -> raise (Unknown_tag("command", n))
+  | 0 -> let body, pos = unmarshal_string pos in Print body, pos
+  | 15 -> let body, pos = unmarshal_string pos in Debug body, pos
+  | 1 -> let body, pos = unmarshal_string pos in Load body, pos
+  | 12 ->
+    let a, pos = unmarshal_string pos in
+    let b, pos = unmarshal_string pos in
+    HttpGet(a, b), pos
+  | 13 ->
+    let a, pos = unmarshal_string pos in
+    let b, pos = unmarshal_string pos in
+    HttpPut(a, b), pos
+  | 3 -> Prompt, pos
+  | 4 -> let body, pos = unmarshal_int pos in Exit body, pos
+  | 17 ->
+    let a, pos = unmarshal_string pos in
+    HttpConnect(a), pos
+  | 14 ->
+    let code, pos = unmarshal_string pos in
+    let params, pos = unmarshal_list pos unmarshal_string in
+    Error(code, params), pos
+  | 16 -> let body, pos = unmarshal_string pos in PrintStderr body, pos
+  | n -> raise (Unknown_tag("command", n))
 
 let marshal_response = function
-	| OK      -> marshal_int 5
-	| Wait    -> marshal_int 18
+  | OK      -> marshal_int 5
+  | Wait    -> marshal_int 18
   | Failed  -> marshal_int 6
 
 let unmarshal_response pos =
   let tag, pos = unmarshal_int pos in match tag with
-	  | 5 -> OK, pos
-	  | 18 -> Wait, pos
-    | 6 -> Failed, pos
-    | n -> raise (Unknown_tag("response", n))
+  | 5 -> OK, pos
+  | 18 -> Wait, pos
+  | 6 -> Failed, pos
+  | n -> raise (Unknown_tag("response", n))
 
 let marshal_blob_header = function
   | Chunk x -> marshal_int 7 ^ (marshal_int32 x)
@@ -201,9 +201,9 @@ let marshal_blob_header = function
 
 let unmarshal_blob_header pos =
   let tag, pos = unmarshal_int pos in match tag with
-    | 7 -> let body, pos = unmarshal_int32 pos in Chunk body, pos
-    | 8 -> End, pos
-    | n -> raise (Unknown_tag("blob_header", n))
+  | 7 -> let body, pos = unmarshal_int32 pos in Chunk body, pos
+  | 8 -> End, pos
+  | n -> raise (Unknown_tag("blob_header", n))
 
 let marshal_message = function
   | Command x  -> marshal_int 9 ^ (marshal_command x)
@@ -223,24 +223,24 @@ exception Unmarshal_failure of exn * string
 
 let unmarshal_message pos =
   let tag, pos = unmarshal_int pos in match tag with
-    | 9 -> let body, pos = unmarshal_command pos in Command body, pos
-    | 10 -> let body, pos = unmarshal_response pos in Response body, pos
-    | 11 -> let body, pos = unmarshal_blob_header pos in Blob body, pos
-    | n -> raise (Unknown_tag("blob_header", n))
+  | 9 -> let body, pos = unmarshal_command pos in Command body, pos
+  | 10 -> let body, pos = unmarshal_response pos in Response body, pos
+  | 11 -> let body, pos = unmarshal_blob_header pos in Blob body, pos
+  | n -> raise (Unknown_tag("blob_header", n))
 
 (** Unmarshal a message from a file descriptor *)
 let unmarshal (fd: Unix.file_descr) =
-	let buf = Buffer.create 0 in
-	try
-		let head = Stdext.Unixext.try_read_string ~limit:4 fd in
-		Buffer.add_string buf head;
-		if String.length head < 4 then raise End_of_file;
-		let length, _ = unmarshal_int (head, 0) in
-		let body = Stdext.Unixext.try_read_string ~limit:length fd in
-		Buffer.add_string buf body;
-		if String.length body < length then raise End_of_file;
-		fst (unmarshal_message (body, 0))
-	with e -> raise (Unmarshal_failure (e, Buffer.contents buf))
+  let buf = Buffer.create 0 in
+  try
+    let head = Stdext.Unixext.try_read_string ~limit:4 fd in
+    Buffer.add_string buf head;
+    if String.length head < 4 then raise End_of_file;
+    let length, _ = unmarshal_int (head, 0) in
+    let body = Stdext.Unixext.try_read_string ~limit:length fd in
+    Buffer.add_string buf body;
+    if String.length body < length then raise End_of_file;
+    fst (unmarshal_message (body, 0))
+  with e -> raise (Unmarshal_failure (e, Buffer.contents buf))
 
 let marshal_protocol (fd: Unix.file_descr) =
   write_string fd (prefix ^ (marshal_int major) ^ (marshal_int minor))
@@ -249,23 +249,23 @@ exception Protocol_mismatch of string
 exception Not_a_cli_server
 
 let unmarshal_protocol (fd: Unix.file_descr) =
-	let buf = Buffer.create 0 in
-	try
-		let prefix_len = String.length prefix in
-		let prefix' = Stdext.Unixext.try_read_string ~limit:prefix_len fd in
-		Buffer.add_string buf prefix';
-		if String.length prefix' < prefix_len then raise End_of_file;
-		if prefix' <> prefix then raise Not_a_cli_server;
-		let major_str = Stdext.Unixext.try_read_string ~limit:4 fd in
-		Buffer.add_string buf major_str;
-		if String.length major_str < 4 then raise End_of_file;
-		let minor_str = Stdext.Unixext.try_read_string ~limit:4 fd in
-		Buffer.add_string buf minor_str;
-		if String.length minor_str < 4 then raise End_of_file;
-		let major', _ = unmarshal_int (major_str, 0) in
-		let minor', _ = unmarshal_int (minor_str, 0) in
-		major', minor'
-	with e -> raise (Unmarshal_failure (e, Buffer.contents buf))
+  let buf = Buffer.create 0 in
+  try
+    let prefix_len = String.length prefix in
+    let prefix' = Stdext.Unixext.try_read_string ~limit:prefix_len fd in
+    Buffer.add_string buf prefix';
+    if String.length prefix' < prefix_len then raise End_of_file;
+    if prefix' <> prefix then raise Not_a_cli_server;
+    let major_str = Stdext.Unixext.try_read_string ~limit:4 fd in
+    Buffer.add_string buf major_str;
+    if String.length major_str < 4 then raise End_of_file;
+    let minor_str = Stdext.Unixext.try_read_string ~limit:4 fd in
+    Buffer.add_string buf minor_str;
+    if String.length minor_str < 4 then raise End_of_file;
+    let major', _ = unmarshal_int (major_str, 0) in
+    let minor', _ = unmarshal_int (minor_str, 0) in
+    major', minor'
+  with e -> raise (Unmarshal_failure (e, Buffer.contents buf))
 
 
 (*****************************************************************************)
@@ -276,10 +276,10 @@ let marshal_unmarshal (a: message) =
   let b, (s, offset) = unmarshal_message (x, 0) in
   if a <> b
   then failwith (Printf.sprintf "marshal_unmarshal failure: %s <> %s"
-		   (string_of_message a) (string_of_message b));
+                   (string_of_message a) (string_of_message b));
   if String.length x <> offset
   then failwith (Printf.sprintf "Failed to consume all data in marshal_unmarshal %s (length=%d offset=%d)"
-		   (string_of_message a) (String.length x) offset)
+                   (string_of_message a) (String.length x) offset)
 
 let examples =
   [ Command (Print "Hello there");

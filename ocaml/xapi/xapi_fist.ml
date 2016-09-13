@@ -13,7 +13,7 @@
  *)
 (** Module for reading FIST points
  * @group Testing
- *)
+*)
 
 open Stdext
 
@@ -25,9 +25,9 @@ open D
 let fistpoint name = try Unix.access ("/tmp/fist_" ^ name) [ Unix.F_OK ]; true with _ -> false
 
 let fistpoint_read name =
-	try
-		Some (Unixext.string_of_file ("/tmp/fist_" ^ name))
-	with _ -> None
+  try
+    Some (Unixext.string_of_file ("/tmp/fist_" ^ name))
+  with _ -> None
 
 let delete name = Unixext.unlink_safe ("/tmp/fist_" ^ name)
 

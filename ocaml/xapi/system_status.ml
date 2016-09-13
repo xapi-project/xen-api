@@ -49,26 +49,26 @@ let send_via_fd __context s entries output =
   try
     let headers =
       Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
-        [ "Server: "^Xapi_globs.xapi_user_agent;
-          Http.Hdr.content_type ^": " ^ content_type;
-          "Content-Disposition: attachment; filename=\"system_status.tgz\""]
+      [ "Server: "^Xapi_globs.xapi_user_agent;
+        Http.Hdr.content_type ^": " ^ content_type;
+        "Content-Disposition: attachment; filename=\"system_status.tgz\""]
     in
     Http_svr.headers s headers;
 
     let result =  with_logfile_fd "get-system-status"
-      (fun log_fd ->
-	let pid =
-          safe_close_and_exec None (Some log_fd) (Some log_fd) [(s_uuid,s)] xen_bugtool params
-	in
-	waitpid_fail_if_bad_exit pid
-      )
+        (fun log_fd ->
+           let pid =
+             safe_close_and_exec None (Some log_fd) (Some log_fd) [(s_uuid,s)] xen_bugtool params
+           in
+           waitpid_fail_if_bad_exit pid
+        )
     in
     match result with
-      | Success _ -> debug "xen-bugtool exited successfully"
+    | Success _ -> debug "xen-bugtool exited successfully"
 
-      | Failure (log, exn) ->
-	  debug "xen-bugtool failed with output: %s" log;
-	  raise exn
+    | Failure (log, exn) ->
+      debug "xen-bugtool failed with output: %s" log;
+      raise exn
   with e ->
     let msg = "xen-bugtool failed: " ^ (Printexc.to_string e) in
     error "%s" msg;
@@ -80,21 +80,21 @@ let send_via_fd __context s entries output =
    It will not work on embedded edition *)
 let send_via_cp __context s entries output =
   let cmd = sprintf "%s --entries=%s --silent --yestoall --output=%s"
-    xen_bugtool entries output
+      xen_bugtool entries output
   in
   let () = debug "running %s" cmd in
-    try
-      let filename = String.rtrim (Helpers.get_process_output cmd) in
-        finally
-          (fun () ->
-             debug "bugball path: %s" filename;
-              Http_svr.response_file ~mime_content_type:content_type s filename
-          )
-          (fun () -> Helpers.log_exn_continue "deleting xen-bugtool output" Unix.unlink filename)
-    with e ->
-      let msg = "xen-bugtool failed: " ^ (ExnHelper.string_of_exn e) in
-        error "%s" msg;
-        raise (Api_errors.Server_error (Api_errors.system_status_retrieval_failed, [msg]))
+  try
+    let filename = String.rtrim (Helpers.get_process_output cmd) in
+    finally
+      (fun () ->
+         debug "bugball path: %s" filename;
+         Http_svr.response_file ~mime_content_type:content_type s filename
+      )
+      (fun () -> Helpers.log_exn_continue "deleting xen-bugtool output" Unix.unlink filename)
+  with e ->
+    let msg = "xen-bugtool failed: " ^ (ExnHelper.string_of_exn e) in
+    error "%s" msg;
+    raise (Api_errors.Server_error (Api_errors.system_status_retrieval_failed, [msg]))
 
 let handler (req: Request.t) s _ =
   debug "In system status http handler...";
@@ -108,9 +108,9 @@ let handler (req: Request.t) s _ =
   let () = debug "session_id: %s" (get_param "session_id") in
   Xapi_http.with_context task_label req s
     (fun __context ->
-      if Helpers.on_oem __context && output <> "tar"
-      then raise (Api_errors.Server_error  (Api_errors.system_status_must_use_tar_on_oem, []))
-      else if output = "tar"
-      then send_via_fd __context s entries output
-      else send_via_cp __context s entries output
+       if Helpers.on_oem __context && output <> "tar"
+       then raise (Api_errors.Server_error  (Api_errors.system_status_must_use_tar_on_oem, []))
+       else if output = "tar"
+       then send_via_fd __context s entries output
+       else send_via_cp __context s entries output
     )

@@ -22,8 +22,8 @@ let get_process_output ?(handler=generic_handler) cmd =
   try
     fst (Forkhelpers.execute_command_get_output (List.hd args) (List.tl args))
   with
-    | Forkhelpers.Spawn_internal_error(err,out,Unix.WEXITED n) ->
-	handler cmd n
-    | _ ->
-	raise (Process_output_error cmd)
+  | Forkhelpers.Spawn_internal_error(err,out,Unix.WEXITED n) ->
+    handler cmd n
+  | _ ->
+    raise (Process_output_error cmd)
 

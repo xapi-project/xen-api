@@ -13,7 +13,7 @@
  *)
 (** Built-in networks.
  * @group Networking
- *)
+*)
 
 (** The name_label of the internal management network *)
 val internal_management_network_name : string

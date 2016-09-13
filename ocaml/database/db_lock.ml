@@ -13,11 +13,11 @@
  *)
 (* Lock shared between client/slave implementations *)
 
-  module D = Debug.Make(struct let name = "db_lock" end)
-  open D
+module D = Debug.Make(struct let name = "db_lock" end)
+open D
 
-  open Stdext.Threadext
-  open Stdext.Pervasiveext
+open Stdext.Threadext
+open Stdext.Pervasiveext
 
 (* Withlock takes dbcache_mutex, and ref-counts to allow the same thread to re-enter without blocking as many times
    as it wants. *)
@@ -46,28 +46,28 @@ let with_lock f =
       allow_thread_through_dbcache_mutex := Some me;
       thread_reenter_count := 1;
       finally
-	f
-	(fun () ->
-	   thread_reenter_count := !thread_reenter_count -1;
-	   if !thread_reenter_count = 0 then
-	     begin
-	       allow_thread_through_dbcache_mutex := None;
-	       Mutex.unlock dbcache_mutex
-	     end
-	)
+        f
+        (fun () ->
+           thread_reenter_count := !thread_reenter_count -1;
+           if !thread_reenter_count = 0 then
+             begin
+               allow_thread_through_dbcache_mutex := None;
+               Mutex.unlock dbcache_mutex
+             end
+        )
     in
-      match !allow_thread_through_dbcache_mutex with
-	| None -> do_with_lock()
-	| (Some id) ->
-	    if id=me then
-	      begin
-		thread_reenter_count := !thread_reenter_count + 1;
-		finally
-		  f
-		  (fun () -> thread_reenter_count := !thread_reenter_count - 1)
-	      end
-	    else
-	      do_with_lock()
+    match !allow_thread_through_dbcache_mutex with
+    | None -> do_with_lock()
+    | (Some id) ->
+      if id=me then
+        begin
+          thread_reenter_count := !thread_reenter_count + 1;
+          finally
+            f
+            (fun () -> thread_reenter_count := !thread_reenter_count - 1)
+        end
+      else
+        do_with_lock()
   end
 
 (* Global flush lock: all db flushes are performed holding this lock *)

@@ -23,10 +23,10 @@ module R = Debug.Make(struct let name = "redo_log" end)
 
 let get_static_device reason =
   (* Specifically use Static_vdis_list rather than Static_vdis to avoid the
-	   cyclic dependency caused by reference to Server_helpers in Static_vdis *)
+     	   cyclic dependency caused by reference to Server_helpers in Static_vdis *)
   let vdis = List.filter
-    (fun x -> x.Static_vdis_list.reason = reason && x.Static_vdis_list.currently_attached)
-    (Static_vdis_list.list ())
+      (fun x -> x.Static_vdis_list.reason = reason && x.Static_vdis_list.currently_attached)
+      (Static_vdis_list.list ())
   in
   (* Return the path to the first attached VDI which matches the reason *)
   R.debug "Found %d VDIs matching [%s]" (List.length vdis) reason;
@@ -46,27 +46,27 @@ let redo_log_sm_config = [ "type", "raw" ]
 (* Encapsulate the state of a single redo_log instance. *)
 
 type redo_log = {
-	name: string;
-	marker: string;
-	read_only: bool;
-	enabled: bool ref;
-	device: string option ref;
-	currently_accessible: bool ref;
-	state_change_callback: (bool -> unit) option;
-	time_of_last_failure: float ref;
-	backoff_delay: int ref;
-	sock: Unix.file_descr option ref;
-	pid: (Forkhelpers.pidty * string * string) option ref;
-	dying_processes_mutex: Mutex.t;
-	num_dying_processes: int ref;
+  name: string;
+  marker: string;
+  read_only: bool;
+  enabled: bool ref;
+  device: string option ref;
+  currently_accessible: bool ref;
+  state_change_callback: (bool -> unit) option;
+  time_of_last_failure: float ref;
+  backoff_delay: int ref;
+  sock: Unix.file_descr option ref;
+  pid: (Forkhelpers.pidty * string * string) option ref;
+  dying_processes_mutex: Mutex.t;
+  num_dying_processes: int ref;
 }
 
 module RedoLogSet = Set.Make(
-	struct
-		type t = redo_log
-		let compare = fun log1 log2 -> compare log1.marker log2.marker
-	end
-)
+  struct
+    type t = redo_log
+    let compare = fun log1 log2 -> compare log1.marker log2.marker
+  end
+  )
 
 (* Keep a store of all redo_logs - this will make it easy to write to all the active ones. *)
 let all_redo_logs = ref (RedoLogSet.empty)
@@ -99,31 +99,31 @@ let disable log =
 let redo_log_events = Event.new_channel ()
 
 let cannot_connect_fn log =
-	if !(log.currently_accessible) then begin
-		R.debug "Signalling unable to access redo log";
-		Event.sync (Event.send redo_log_events (log.name, false));
-		Opt.iter (fun callback -> callback false) log.state_change_callback
-	end;
-	log.currently_accessible := false
+  if !(log.currently_accessible) then begin
+    R.debug "Signalling unable to access redo log";
+    Event.sync (Event.send redo_log_events (log.name, false));
+    Opt.iter (fun callback -> callback false) log.state_change_callback
+  end;
+  log.currently_accessible := false
 
 let can_connect_fn log =
-	if not !(log.currently_accessible) then begin
-		R.debug "Signalling redo log is healthy";
-		Event.sync (Event.send redo_log_events (log.name, true));
-		Opt.iter (fun callback -> callback true) log.state_change_callback
-	end;
-	log.currently_accessible := true
+  if not !(log.currently_accessible) then begin
+    R.debug "Signalling redo log is healthy";
+    Event.sync (Event.send redo_log_events (log.name, true));
+    Opt.iter (fun callback -> callback true) log.state_change_callback
+  end;
+  log.currently_accessible := true
 
 (* ----------------------------------------------------------- *)
 (* Functions relating to the serialisation of redo log entries *)
 
 (* The type of a delta, describing an incremental change to the database. *)
 type t =
-    (* (tblname, newobjref, (k,v) list) *)
+  (* (tblname, newobjref, (k,v) list) *)
   | CreateRow of string * string * (string*string) list
-    (* (tblname, objref) *)
+  (* (tblname, objref) *)
   | DeleteRow of string * string
-    (* (tblname, objref, fldname, newval) *)
+  (* (tblname, objref, fldname, newval) *)
   | WriteField of string * string * string * string
 
 (* First 9 bytes of encoding of entries is an ASCII string indicating the kind of record, from {"CreateRow", "DeleteRow", "WriteFiel"} *)
@@ -139,7 +139,7 @@ let redo_log_entry_to_string r =
   | CreateRow(tbl, objref, kvs) ->
     Printf.sprintf "CreateRow%08d%s%08d%s%08d%s" (String.length tbl) tbl (String.length objref) objref (List.length kvs)
       (String.concat ""
-        (List.map (fun (k,v) -> Printf.sprintf "%08d%s%08d%s" (String.length k) k (String.length v) v) kvs)
+         (List.map (fun (k,v) -> Printf.sprintf "%08d%s%08d%s" (String.length k) k (String.length v) v) kvs)
       )
   | DeleteRow(tbl, objref) ->
     Printf.sprintf "DeleteRow%08d%s%08d%s" (String.length tbl) tbl (String.length objref) objref
@@ -171,11 +171,11 @@ let string_to_redo_log_entry str =
     (* Parse key-value pairs *)
     let parse_kvs n =
       let rec aux acc = function
-      | 0 -> acc
-      | n ->
-        let k = parse_length_and_string str pos in
-        let v = parse_length_and_string str pos in
-        aux ((k,v)::acc) (n-1)
+        | 0 -> acc
+        | n ->
+          let k = parse_length_and_string str pos in
+          let v = parse_length_and_string str pos in
+          aux ((k,v)::acc) (n-1)
       in aux [] n
     in
     let kvs = parse_kvs num_kvs in
@@ -272,13 +272,13 @@ let read_database f gen_count sock latest_response_time datasockpath =
 
   finally
     (fun () ->
-      (* Pass the gen_count and the socket's fd to f. f may raise Unixext.Timeout if it cannot complete before latest_response_time. *)
-      f gen_count datasock expected_length latest_response_time;
+       (* Pass the gen_count and the socket's fd to f. f may raise Unixext.Timeout if it cannot complete before latest_response_time. *)
+       f gen_count datasock expected_length latest_response_time;
     )
     (fun () ->
-      (* Close the data socket *)
-      R.debug "Closing the data socket";
-      Unix.close datasock
+       (* Close the data socket *)
+       R.debug "Closing the data socket";
+       Unix.close datasock
     )
 
 let read_delta f gen_count sock latest_response_time =
@@ -367,29 +367,29 @@ let action_write_db marker generation_count write_fn sock datasockpath =
 
   finally
     (fun () ->
-      (* Send data straight down the data channel, then close it to send an EOF. *)
-      (* Ideally, we would check whether this completes before the latest_response_time. Could implement this by performing the write in a separate thread. *)
+       (* Send data straight down the data channel, then close it to send an EOF. *)
+       (* Ideally, we would check whether this completes before the latest_response_time. Could implement this by performing the write in a separate thread. *)
 
-      try
-        write_fn datasock;
-        R.debug "Finished writing database to data socket";
-      with
-      | Sys_error("Connection reset by peer") ->
-          (* CA-41914: Note that if the block_device_io process internally
-           * throws Timeout (or indeed any other exception), it will forcibly
-           * close this connection, we'll see a Sys_error("Connection reset by
-           * peer"). This can be safely suppressed because we'll hear all the
-           * gory details in the response we read over the control socket. *)
-          R.warn "I/O process forcibly closed the data socket while trying to write database to it. Await the response to see why it did that.";
-      | e ->
-          (* We'll re-raise other exceptions, though. *)
-          R.error "Got an unexpected exception while trying to write database to the data socket: %s. Re-raising." (Printexc.to_string e);
-          raise e
+       try
+         write_fn datasock;
+         R.debug "Finished writing database to data socket";
+       with
+       | Sys_error("Connection reset by peer") ->
+         (* CA-41914: Note that if the block_device_io process internally
+          * throws Timeout (or indeed any other exception), it will forcibly
+          * close this connection, we'll see a Sys_error("Connection reset by
+          * peer"). This can be safely suppressed because we'll hear all the
+          * gory details in the response we read over the control socket. *)
+         R.warn "I/O process forcibly closed the data socket while trying to write database to it. Await the response to see why it did that.";
+       | e ->
+         (* We'll re-raise other exceptions, though. *)
+         R.error "Got an unexpected exception while trying to write database to the data socket: %s. Re-raising." (Printexc.to_string e);
+         raise e
     )
     (fun () ->
-      (* Ensure the data socket is closed even if exception is thrown from write_fn *)
-      R.info "Closing data socket";
-      Unix.close datasock;
+       (* Ensure the data socket is closed even if exception is thrown from write_fn *)
+       R.info "Closing data socket";
+       Unix.close datasock;
     );
 
   (* Read response *)
@@ -489,27 +489,27 @@ let shutdown log =
           end;
 
           (* Terminate the child process *)
-	    let ipid = Forkhelpers.getpid p in
+          let ipid = Forkhelpers.getpid p in
           R.info "Killing I/O process with pid %d" ipid;
           Unix.kill ipid Sys.sigkill;
           (* Wait for the process to die. This is done in a separate thread in case it does not respond to the signal immediately. *)
           ignore (Thread.create (fun () ->
-            R.debug "Waiting for I/O process with pid %d to die..." ipid;
-            Mutex.execute log.dying_processes_mutex
-              (fun () -> log.num_dying_processes := !(log.num_dying_processes) + 1);
-            ignore(Forkhelpers.waitpid p);
-            R.debug "Finished waiting for process %d" ipid;
-            Mutex.execute log.dying_processes_mutex
-              (fun () -> log.num_dying_processes := !(log.num_dying_processes) - 1)
-          ) ());
+              R.debug "Waiting for I/O process with pid %d to die..." ipid;
+              Mutex.execute log.dying_processes_mutex
+                (fun () -> log.num_dying_processes := !(log.num_dying_processes) + 1);
+              ignore(Forkhelpers.waitpid p);
+              R.debug "Finished waiting for process %d" ipid;
+              Mutex.execute log.dying_processes_mutex
+                (fun () -> log.num_dying_processes := !(log.num_dying_processes) - 1)
+            ) ());
           (* Forget about that process *)
           log.pid := None;
 
           (* Attempt to remove the sockets *)
           List.iter (fun sockpath ->
-            R.debug "Removing socket %s" sockpath;
-            Unixext.unlink_safe sockpath
-          ) [ctrlsockpath; datasockpath]
+              R.debug "Removing socket %s" sockpath;
+              Unixext.unlink_safe sockpath
+            ) [ctrlsockpath; datasockpath]
       end;
     with _ -> () (* ignore any errors *)
   end
@@ -572,33 +572,33 @@ let startup log =
             let s = connect ctrlsockpath latest_connect_time in
             finally
               (fun () ->
-                try
-                  begin
-                    (* Check that we connected okay by reading the startup message *)
-                    let response_length = 12 in
-                    let response = Unixext.time_limited_read s response_length latest_connect_time in
-                    match response with
-                    | "connect|ack_" ->
-                      R.info "Connect was successful";
-                      (* Save the socket. This defers the responsibility for closing it to shutdown(). *)
-                      log.sock := Some s
-                    | "connect|nack" ->
-                      (* Read the error message *)
-                      let error = read_length_and_string s latest_connect_time in
-                      R.warn "Connect was unsuccessful: [%s]" error;
-                      broken log;
-                    | e ->
-                      R.warn "Received unexpected connect response: [%s]" e;
-                      broken log
-                  end
-               with Unixext.Timeout -> R.warn "Timed out waiting to connect"; broken log
-             )
-             (fun () ->
-               (* If the socket s has been opened, but sock hasn't been set then close it here. *)
-               match !(log.sock) with
-               | Some _ -> ()
-               | None -> ignore_exn (fun () -> Unix.close s)
-             )
+                 try
+                   begin
+                     (* Check that we connected okay by reading the startup message *)
+                     let response_length = 12 in
+                     let response = Unixext.time_limited_read s response_length latest_connect_time in
+                     match response with
+                     | "connect|ack_" ->
+                       R.info "Connect was successful";
+                       (* Save the socket. This defers the responsibility for closing it to shutdown(). *)
+                       log.sock := Some s
+                     | "connect|nack" ->
+                       (* Read the error message *)
+                       let error = read_length_and_string s latest_connect_time in
+                       R.warn "Connect was unsuccessful: [%s]" error;
+                       broken log;
+                     | e ->
+                       R.warn "Received unexpected connect response: [%s]" e;
+                       broken log
+                   end
+                 with Unixext.Timeout -> R.warn "Timed out waiting to connect"; broken log
+              )
+              (fun () ->
+                 (* If the socket s has been opened, but sock hasn't been set then close it here. *)
+                 match !(log.sock) with
+                 | Some _ -> ()
+                 | None -> ignore_exn (fun () -> Unix.close s)
+              )
         end
       | None -> () (* don't attempt to connect *)
     with TooManyProcesses ->
@@ -658,40 +658,40 @@ let connect_and_perform_action f desc log =
 let redo_log_creation_mutex = Mutex.create ()
 
 let create ~name ~state_change_callback ~read_only =
-	let instance = {
-		name = name;
-		marker = Uuid.to_string (Uuid.make_uuid ());
-		read_only = read_only;
-		enabled = ref false;
-		device = ref None;
-		currently_accessible = ref true;
-		state_change_callback = state_change_callback;
-		time_of_last_failure = ref 0.;
-		backoff_delay = ref Xapi_globs.redo_log_initial_backoff_delay;
-		sock = ref None;
-		pid = ref None;
-		dying_processes_mutex = Mutex.create ();
-		num_dying_processes = ref 0;
-	} in
-	Mutex.execute redo_log_creation_mutex
-		(fun () -> all_redo_logs := RedoLogSet.add instance !all_redo_logs);
-	instance
+  let instance = {
+    name = name;
+    marker = Uuid.to_string (Uuid.make_uuid ());
+    read_only = read_only;
+    enabled = ref false;
+    device = ref None;
+    currently_accessible = ref true;
+    state_change_callback = state_change_callback;
+    time_of_last_failure = ref 0.;
+    backoff_delay = ref Xapi_globs.redo_log_initial_backoff_delay;
+    sock = ref None;
+    pid = ref None;
+    dying_processes_mutex = Mutex.create ();
+    num_dying_processes = ref 0;
+  } in
+  Mutex.execute redo_log_creation_mutex
+    (fun () -> all_redo_logs := RedoLogSet.add instance !all_redo_logs);
+  instance
 
 let delete log =
-	shutdown log;
-	disable log;
-	Mutex.execute redo_log_creation_mutex
-		(fun () -> all_redo_logs := RedoLogSet.remove log !all_redo_logs)
+  shutdown log;
+  disable log;
+  Mutex.execute redo_log_creation_mutex
+    (fun () -> all_redo_logs := RedoLogSet.remove log !all_redo_logs)
 
 (* -------------------------------------------------------- *)
 (* Helper functions for interacting with multiple redo_logs *)
 let with_active_redo_logs f =
-	Mutex.execute redo_log_creation_mutex
-		(fun () ->
-			let active_redo_logs =
-				RedoLogSet.filter (fun log -> (is_enabled log) && not(log.read_only)) !(all_redo_logs)
-			in
-			RedoLogSet.iter f active_redo_logs)
+  Mutex.execute redo_log_creation_mutex
+    (fun () ->
+       let active_redo_logs =
+         RedoLogSet.filter (fun log -> (is_enabled log) && not(log.read_only)) !(all_redo_logs)
+       in
+       RedoLogSet.iter f active_redo_logs)
 
 (* --------------------------------------------------------------- *)
 (* Functions which interact with the redo log on the block device. *)
@@ -742,46 +742,46 @@ let empty log =
 
 (* Flush the database to the given redo_log instance. *)
 let flush_db_to_redo_log db log =
-	R.info "Flushing database to redo_log [%s]" log.name;
-	let write_db_to_fd = (fun out_fd -> Db_xml.To.fd out_fd db) in
-	write_db (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) write_db_to_fd log;
-	!(log.currently_accessible)
+  R.info "Flushing database to redo_log [%s]" log.name;
+  let write_db_to_fd = (fun out_fd -> Db_xml.To.fd out_fd db) in
+  write_db (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) write_db_to_fd log;
+  !(log.currently_accessible)
 
 (* Write the given database to all active redo_logs *)
 let flush_db_to_all_active_redo_logs db =
-	R.info "Flushing database to all active redo-logs";
-	with_active_redo_logs (fun log ->
-		ignore(flush_db_to_redo_log db log))
+  R.info "Flushing database to all active redo-logs";
+  with_active_redo_logs (fun log ->
+      ignore(flush_db_to_redo_log db log))
 
 (* Write a delta to all active redo_logs *)
 let database_callback event db =
-	let to_write =
-		match event with
-			| Db_cache_types.RefreshRow (tblname, objref) ->
-				None
-			| Db_cache_types.WriteField (tblname, objref, fldname, oldval, newval) ->
-				R.debug "WriteField(%s, %s, %s, %s, %s)" tblname objref fldname (Schema.Value.marshal oldval) (Schema.Value.marshal newval);
-				if Schema.is_field_persistent (Db_cache_types.Database.schema db) tblname fldname
-				then Some (WriteField(tblname, objref, fldname, Schema.Value.marshal newval))
-				else None
-			| Db_cache_types.PreDelete (tblname, objref) ->
-				None
-			| Db_cache_types.Delete (tblname, objref, _) ->
-				if Schema.is_table_persistent (Db_cache_types.Database.schema db) tblname
-				then Some (DeleteRow(tblname, objref))
-				else None
-			| Db_cache_types.Create (tblname, objref, kvs) ->
-				if Schema.is_table_persistent (Db_cache_types.Database.schema db) tblname
-				then Some (CreateRow(tblname, objref, (List.map (fun (k, v) -> k, Schema.Value.marshal v) kvs)))
-				else None
-	in
+  let to_write =
+    match event with
+    | Db_cache_types.RefreshRow (tblname, objref) ->
+      None
+    | Db_cache_types.WriteField (tblname, objref, fldname, oldval, newval) ->
+      R.debug "WriteField(%s, %s, %s, %s, %s)" tblname objref fldname (Schema.Value.marshal oldval) (Schema.Value.marshal newval);
+      if Schema.is_field_persistent (Db_cache_types.Database.schema db) tblname fldname
+      then Some (WriteField(tblname, objref, fldname, Schema.Value.marshal newval))
+      else None
+    | Db_cache_types.PreDelete (tblname, objref) ->
+      None
+    | Db_cache_types.Delete (tblname, objref, _) ->
+      if Schema.is_table_persistent (Db_cache_types.Database.schema db) tblname
+      then Some (DeleteRow(tblname, objref))
+      else None
+    | Db_cache_types.Create (tblname, objref, kvs) ->
+      if Schema.is_table_persistent (Db_cache_types.Database.schema db) tblname
+      then Some (CreateRow(tblname, objref, (List.map (fun (k, v) -> k, Schema.Value.marshal v) kvs)))
+      else None
+  in
 
-	Opt.iter (fun entry ->
-		with_active_redo_logs (fun log ->
-			write_delta (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) entry
-				(fun () ->
-					(* the function which will be invoked if a database write is required instead of a delta *)
-					ignore(flush_db_to_redo_log db log))
-			 	log
-			)
-	) to_write
+  Opt.iter (fun entry ->
+      with_active_redo_logs (fun log ->
+          write_delta (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) entry
+            (fun () ->
+               (* the function which will be invoked if a database write is required instead of a delta *)
+               ignore(flush_db_to_redo_log db log))
+            log
+        )
+    ) to_write

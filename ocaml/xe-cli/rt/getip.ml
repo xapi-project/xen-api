@@ -42,12 +42,12 @@ let _ =
     (* Try first regexp *)
     let ip = getip1 mac line in
     match ip with
-	Some x -> x
-      | None ->
-	  let ip2 = getip2 mac line in
-	  match ip2 with
-	      Some x -> x
-	    | None -> inner ()
+      Some x -> x
+    | None ->
+      let ip2 = getip2 mac line in
+      match ip2 with
+        Some x -> x
+      | None -> inner ()
   in
   let ip = inner () in
   Printf.printf "%s" ip

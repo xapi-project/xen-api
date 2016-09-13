@@ -74,25 +74,25 @@ let render (x: t) output =
     Printf.sprintf "set xlabel \"%s\"" x.xlabel;
     Printf.sprintf "set ylabel \"%s\"" x.ylabel;
   ] @ (match x.y2label with
-    | None -> []
-    | Some label -> [
-      Printf.sprintf "set y2label \"%s\"" label;
-      "set ytics nomirror";
-      "set y2tics auto";
-      "set y2range [0:]";
-    ])
+      | None -> []
+      | Some label -> [
+          Printf.sprintf "set y2label \"%s\"" label;
+          "set ytics nomirror";
+          "set y2tics auto";
+          "set y2range [0:]";
+        ])
     @ (match x.normal_probability_y_axis with
-       | Some (min, max) ->
-	   [ make_normal_probability_tics [ 0.001; 0.01; 0.05; 0.1; 0.2; 0.3; 0.4; 0.5; 0.6; 0.7; 0.8; 0.9; 0.95; 0.99; 0.999 ];
-	     Printf.sprintf "set yrange [invnorm(%f):invnorm(%f)]" min max ]
-       | None -> [])
+        | Some (min, max) ->
+          [ make_normal_probability_tics [ 0.001; 0.01; 0.05; 0.1; 0.2; 0.3; 0.4; 0.5; 0.6; 0.7; 0.8; 0.9; 0.95; 0.99; 0.999 ];
+            Printf.sprintf "set yrange [invnorm(%f):invnorm(%f)]" min max ]
+        | None -> [])
     @ (match x.log_x_axis with
-       | true ->
-	   [ "set logscale x";
-	     "set grid";
-	     "set xtics (\"1\" 1, \"2\" 2, \"3\" 3, \"4\" 4, \"5\" 5, \"6\" 6, \"7\" 7, \"8\" 8, \"9\" 9, \"10\" 10, \"11\" 11, \"12\" 12, \"13\" 13, \"14\" 14, \"15\" 15, \"20\" 20, \"30\" 30)" ];
-       | false ->
-	   []
+        | true ->
+          [ "set logscale x";
+            "set grid";
+            "set xtics (\"1\" 1, \"2\" 2, \"3\" 3, \"4\" 4, \"5\" 5, \"6\" 6, \"7\" 7, \"8\" 8, \"9\" 9, \"10\" 10, \"11\" 11, \"12\" 12, \"13\" 13, \"14\" 14, \"15\" 15, \"20\" 20, \"30\" 30)" ];
+        | false ->
+          []
       )
     @ [
       (if x.log_x_axis then "set logscale x" else "");

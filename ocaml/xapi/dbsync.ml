@@ -13,7 +13,7 @@
  *)
 (**
  * @group Main Loop and Start-up
- *)
+*)
 
 open Printf
 
@@ -37,36 +37,36 @@ let create_host_metrics ~__context =
     (fun self ->
        let m = Db.Host.get_metrics ~__context ~self in
        if not(Db.is_valid_ref __context m) then begin
-	 debug "Creating missing Host_metrics object for Host: %s" (Db.Host.get_uuid ~__context ~self);
-	 let r = Ref.make () in
-	 Db.Host_metrics.create ~__context ~ref:r
-	   ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
-	   ~memory_total:0L ~memory_free:0L ~last_updated:Stdext.Date.never ~other_config:[];
-	 Db.Host.set_metrics ~__context ~self ~value:r
+         debug "Creating missing Host_metrics object for Host: %s" (Db.Host.get_uuid ~__context ~self);
+         let r = Ref.make () in
+         Db.Host_metrics.create ~__context ~ref:r
+           ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
+           ~memory_total:0L ~memory_free:0L ~last_updated:Stdext.Date.never ~other_config:[];
+         Db.Host.set_metrics ~__context ~self ~value:r
        end) (Db.Host.get_all ~__context)
 
 
 let update_env () =
   Server_helpers.exec_with_new_task "dbsync (update_env)" ~task_in_database:true
     (fun __context ->
-      let other_config =
-	match Db.Pool.get_all ~__context with
-	| [ pool ] ->
-	  Db.Pool.get_other_config ~__context ~self:pool
-	| [] ->
-          (* Happens before the pool object has been created *)
-          []
-        | _ ->
-          error "Multiple pool objects detected -- this should never happen";
-          [] in
+       let other_config =
+         match Db.Pool.get_all ~__context with
+         | [ pool ] ->
+           Db.Pool.get_other_config ~__context ~self:pool
+         | [] ->
+           (* Happens before the pool object has been created *)
+           []
+         | _ ->
+           error "Multiple pool objects detected -- this should never happen";
+           [] in
        if Pool_role.is_master () then create_host_metrics ~__context;
        Dbsync_slave.update_env __context other_config;
        if Pool_role.is_master () then Dbsync_master.update_env __context;
        (* we sync dom0 config files on slaves; however, we don't want
-	  to do this in dbsync_slave since we want the master to have
-	  been set on the pool record before we run it [otherwise we
-	  try and sync config files from the old master if someone's
-	  done a pool.designate_new_master!] *)
+          	  to do this in dbsync_slave since we want the master to have
+          	  been set on the pool record before we run it [otherwise we
+          	  try and sync config files from the old master if someone's
+          	  done a pool.designate_new_master!] *)
        if not (Pool_role.is_master ()) then resync_dom0_config_files();
     )
 

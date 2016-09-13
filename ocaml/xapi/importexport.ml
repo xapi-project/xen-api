@@ -13,27 +13,27 @@
  *)
 (** Common definitions and functions shared between the import and export code.
  * @group Import and Export
- *)
+*)
 
 (** Represents a database record (the reference gets converted to a small string) *)
 type obj = { cls: string; id: string; snapshot: XMLRPC.xmlrpc }
 
 (** Version information attached to each export and checked on import *)
 type version =
-    { hostname: string;
-      date: string;
-      product_version: string;
-      product_brand: string;
-      build_number: string;
-      xapi_vsn_major: int;
-      xapi_vsn_minor: int;
-      export_vsn: int; (* 0 if missing, indicates eg whether to expect sha1sums in the stream *)
-    }
+  { hostname: string;
+    date: string;
+    product_version: string;
+    product_brand: string;
+    build_number: string;
+    xapi_vsn_major: int;
+    xapi_vsn_minor: int;
+    export_vsn: int; (* 0 if missing, indicates eg whether to expect sha1sums in the stream *)
+  }
 
 (** An exported VM has a header record: *)
 type header =
-    { version: version;
-      objects: obj list }
+  { version: version;
+    objects: obj list }
 
 exception Version_mismatch of string
 
@@ -41,9 +41,9 @@ module D=Debug.Make(struct let name="importexport" end)
 open D
 
 let find kvpairs where x =
-    if not(List.mem_assoc x kvpairs)
-    then raise (Failure (Printf.sprintf "Failed to find key '%s' in %s" x where))
-    else List.assoc x kvpairs
+  if not(List.mem_assoc x kvpairs)
+  then raise (Failure (Printf.sprintf "Failed to find key '%s' in %s" x where))
+  else List.assoc x kvpairs
 
 let string_of_obj x = x.cls ^ "  " ^ x.id
 
@@ -52,9 +52,9 @@ let _id = "id"
 let _snapshot = "snapshot"
 
 let xmlrpc_of_obj x = XMLRPC.To.structure
-  [ _class,    XMLRPC.To.string x.cls;
-    _id,       XMLRPC.To.string x.id;
-    _snapshot, x.snapshot ]
+    [ _class,    XMLRPC.To.string x.cls;
+      _id,       XMLRPC.To.string x.id;
+      _snapshot, x.snapshot ]
 
 let obj_of_xmlrpc x =
   let kvpairs = XMLRPC.From.structure x in
@@ -153,19 +153,19 @@ let checksum_table_of_xmlrpc xml = API.Legacy.From.string_to_string_map "" xml
 let compare_checksums a b =
   let success = ref true in
   List.iter (fun (filename, csum) ->
-	       if List.mem_assoc filename b
-	       then (let expected = List.assoc filename b in
-		     if csum <> expected
-		     then begin
-		       error "File %s checksum mismatch (%s <> %s)" filename csum expected;
-		       success := false
-		     end
-		     else debug "File %s checksum ok (%s = %s)" filename csum expected;
-		    )
-	       else begin
-		 error "Missing checksum for file %s (expected %s)" filename csum;
-		 success := false;
-	       end) a;
+      if List.mem_assoc filename b
+      then (let expected = List.assoc filename b in
+            if csum <> expected
+            then begin
+              error "File %s checksum mismatch (%s <> %s)" filename csum expected;
+              success := false
+            end
+            else debug "File %s checksum ok (%s = %s)" filename csum expected;
+           )
+      else begin
+        error "Missing checksum for file %s (expected %s)" filename csum;
+        success := false;
+      end) a;
   !success
 
 let get_default_sr rpc session_id =
@@ -187,7 +187,7 @@ let check_sr_availability ~__context sr =
 
 let find_host_for_sr ~__context ?(prefer_slaves=false) sr =
   let choose_fn ~host =
-	  Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:[sr] ~host in
+    Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:[sr] ~host in
   Xapi_vm_helpers.choose_host ~__context ~choose_fn ~prefer_slaves ()
 
 let check_vm_host_SRs ~__context vm host =
@@ -196,7 +196,7 @@ let check_vm_host_SRs ~__context vm host =
     Xapi_vm_helpers.assert_host_is_live ~__context ~host;
     true
   with
-      _ -> false
+    _ -> false
 
 let find_host_for_VM ~__context vm =
   Xapi_vm_helpers.choose_host ~__context ~vm:vm ~choose_fn:(Xapi_vm_helpers.assert_can_see_SRs ~__context ~self:vm) ()
@@ -210,154 +210,154 @@ let cleanup (x: cleanup_stack) =
   Server_helpers.exec_with_new_task "VM.import (cleanup)" ~task_in_database:true
     (fun __context ->
        Helpers.call_api_functions ~__context
-	 (fun rpc session_id ->
-	    List.iter (fun action ->
-			 Helpers.log_exn_continue "executing cleanup action" (action __context rpc) session_id) x
-	 )
+         (fun rpc session_id ->
+            List.iter (fun action ->
+                Helpers.log_exn_continue "executing cleanup action" (action __context rpc) session_id) x
+         )
     )
 
 open Stdext.Pervasiveext
 
 type vm_export_import = {
-	vm: API.ref_VM;
-	dry_run: bool;
-	live: bool;
-	send_snapshots: bool;
+  vm: API.ref_VM;
+  dry_run: bool;
+  live: bool;
+  send_snapshots: bool;
 }
 
 (* Copy VM metadata to a remote pool *)
 let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address ~restore which =
-	let subtask_of = (Ref.string_of (Context.get_task_id __context)) in
+  let subtask_of = (Ref.string_of (Context.get_task_id __context)) in
 
-	let open Xmlrpc_client in
+  let open Xmlrpc_client in
 
-	let local_export_request = match which with
-		| `All -> "all=true"
-		| `Only {vm=vm; send_snapshots=send_snapshots} -> Printf.sprintf "export_snapshots=%b&ref=%s" send_snapshots (Ref.string_of vm) in
+  let local_export_request = match which with
+    | `All -> "all=true"
+    | `Only {vm=vm; send_snapshots=send_snapshots} -> Printf.sprintf "export_snapshots=%b&ref=%s" send_snapshots (Ref.string_of vm) in
 
-	let remote_import_request =
-		let params = match which with
-		| `All -> []
-		| `Only {vm=vm; live=live; dry_run=dry_run; send_snapshots=send_snapshots} -> [Printf.sprintf "live=%b" live; Printf.sprintf "dry_run=%b" dry_run; Printf.sprintf "export_snapshots=%b" send_snapshots] in
-		let params = Printf.sprintf "restore=%b" restore :: params in
-		Printf.sprintf "%s?%s" Constants.import_metadata_uri (String.concat "&" params) in
+  let remote_import_request =
+    let params = match which with
+      | `All -> []
+      | `Only {vm=vm; live=live; dry_run=dry_run; send_snapshots=send_snapshots} -> [Printf.sprintf "live=%b" live; Printf.sprintf "dry_run=%b" dry_run; Printf.sprintf "export_snapshots=%b" send_snapshots] in
+    let params = Printf.sprintf "restore=%b" restore :: params in
+    Printf.sprintf "%s?%s" Constants.import_metadata_uri (String.concat "&" params) in
 
-	Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
-		let get = Xapi_http.http_request ~version:"1.0" ~subtask_of
-			~cookie:["session_id", Ref.string_of my_session_id] ~keep_alive:false
-			Http.Get
-			(Printf.sprintf "%s?%s" Constants.export_metadata_uri local_export_request) in
-		let remote_task = Client.Task.create rpc session_id "VM metadata import" "" in
-		finally
-			(fun () ->
-				let put = Xapi_http.http_request ~version:"1.0" ~subtask_of
-					~cookie:[
-						"session_id", Ref.string_of session_id;
-						"task_id", Ref.string_of remote_task
-					] ~keep_alive:false
-					Http.Put remote_import_request in
-				debug "Piping HTTP %s to %s" (Http.Request.to_string get) (Http.Request.to_string put);
-				with_transport (Unix Xapi_globs.unix_domain_socket)
-					(with_http get
-						(fun (r, ifd) ->
-							debug "Content-length: %s" (Stdext.Opt.default "None" (Stdext.Opt.map Int64.to_string r.Http.Response.content_length));
-							let put = { put with Http.Request.content_length = r.Http.Response.content_length } in
-							debug "Connecting to %s:%d" remote_address !Xapi_globs.https_port;
-                                                        (* Spawn a cached stunnel instance. Otherwise, once metadata tranmission completes, the connection
-                                                           between local xapi and stunnel will be closed immediately, and the new spawned stunnel instance
-                                                           will be revoked, this might cause the remote stunnel gets partial metadata xml file, and the
-                                                           ripple effect is that remote xapi fails to parse metadata xml file. Using a cached stunnel can
-                                                           not always avoid the problem since any cached stunnel entry might be evicted. However, it is
-                                                           unlikely to happen in practice because the cache size is large enough.*)
-							with_transport (SSL (SSL.make ~use_stunnel_cache:true (), remote_address, !Xapi_globs.https_port))
-								(with_http put
-									(fun (_, ofd) ->
-										let (n: int64) = Stdext.Unixext.copy_file ?limit:r.Http.Response.content_length ifd ofd in
-										debug "Written %Ld bytes" n
-									)
-								)
-						)
-					);
-				(* Wait for remote task to succeed or fail *)
-				Cli_util.wait_for_task_completion rpc session_id remote_task;
-				match Client.Task.get_status rpc session_id remote_task with
-					| `cancelling | `cancelled ->
-						raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of remote_task ]))
-					| `pending ->
-						failwith "wait_for_task_completion failed; task is still pending"
-					| `failure -> begin
-						let error_info = Client.Task.get_error_info rpc session_id remote_task in
-						match error_info with
-						| code :: params when Hashtbl.mem Datamodel.errors code ->
-							raise (Api_errors.Server_error(code, params))
-						| _ -> failwith (Printf.sprintf "VM metadata import failed: %s" (String.concat " " error_info));
-					end
-					| `success -> begin
-						debug "Remote metadata import succeeded";
-						let result = Client.Task.get_result rpc session_id remote_task in
-						API.Legacy.From.ref_VM_set "" (Xml.parse_string result)
-					end
-			)
-			(fun () -> Client.Task.destroy rpc session_id remote_task )
-	)
+  Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
+      let get = Xapi_http.http_request ~version:"1.0" ~subtask_of
+          ~cookie:["session_id", Ref.string_of my_session_id] ~keep_alive:false
+          Http.Get
+          (Printf.sprintf "%s?%s" Constants.export_metadata_uri local_export_request) in
+      let remote_task = Client.Task.create rpc session_id "VM metadata import" "" in
+      finally
+        (fun () ->
+           let put = Xapi_http.http_request ~version:"1.0" ~subtask_of
+               ~cookie:[
+                 "session_id", Ref.string_of session_id;
+                 "task_id", Ref.string_of remote_task
+               ] ~keep_alive:false
+               Http.Put remote_import_request in
+           debug "Piping HTTP %s to %s" (Http.Request.to_string get) (Http.Request.to_string put);
+           with_transport (Unix Xapi_globs.unix_domain_socket)
+             (with_http get
+                (fun (r, ifd) ->
+                   debug "Content-length: %s" (Stdext.Opt.default "None" (Stdext.Opt.map Int64.to_string r.Http.Response.content_length));
+                   let put = { put with Http.Request.content_length = r.Http.Response.content_length } in
+                   debug "Connecting to %s:%d" remote_address !Xapi_globs.https_port;
+                   (* Spawn a cached stunnel instance. Otherwise, once metadata tranmission completes, the connection
+                      between local xapi and stunnel will be closed immediately, and the new spawned stunnel instance
+                      will be revoked, this might cause the remote stunnel gets partial metadata xml file, and the
+                      ripple effect is that remote xapi fails to parse metadata xml file. Using a cached stunnel can
+                      not always avoid the problem since any cached stunnel entry might be evicted. However, it is
+                      unlikely to happen in practice because the cache size is large enough.*)
+                   with_transport (SSL (SSL.make ~use_stunnel_cache:true (), remote_address, !Xapi_globs.https_port))
+                     (with_http put
+                        (fun (_, ofd) ->
+                           let (n: int64) = Stdext.Unixext.copy_file ?limit:r.Http.Response.content_length ifd ofd in
+                           debug "Written %Ld bytes" n
+                        )
+                     )
+                )
+             );
+           (* Wait for remote task to succeed or fail *)
+           Cli_util.wait_for_task_completion rpc session_id remote_task;
+           match Client.Task.get_status rpc session_id remote_task with
+           | `cancelling | `cancelled ->
+             raise (Api_errors.Server_error(Api_errors.task_cancelled, [ Ref.string_of remote_task ]))
+           | `pending ->
+             failwith "wait_for_task_completion failed; task is still pending"
+           | `failure -> begin
+               let error_info = Client.Task.get_error_info rpc session_id remote_task in
+               match error_info with
+               | code :: params when Hashtbl.mem Datamodel.errors code ->
+                 raise (Api_errors.Server_error(code, params))
+               | _ -> failwith (Printf.sprintf "VM metadata import failed: %s" (String.concat " " error_info));
+             end
+           | `success -> begin
+               debug "Remote metadata import succeeded";
+               let result = Client.Task.get_result rpc session_id remote_task in
+               API.Legacy.From.ref_VM_set "" (Xml.parse_string result)
+             end
+        )
+        (fun () -> Client.Task.destroy rpc session_id remote_task )
+    )
 
 let vdi_of_req ~__context (req: Http.Request.t) =
-	let all = req.Http.Request.query @ req.Http.Request.cookie in
-	let vdi =
-		if List.mem_assoc "vdi" all
-		then List.assoc "vdi" all
-		else raise (Failure "Missing vdi query parameter") in
-	if Db.is_valid_ref __context (Ref.of_string vdi)
-	then Ref.of_string vdi
-	else Db.VDI.get_by_uuid ~__context ~uuid:vdi
+  let all = req.Http.Request.query @ req.Http.Request.cookie in
+  let vdi =
+    if List.mem_assoc "vdi" all
+    then List.assoc "vdi" all
+    else raise (Failure "Missing vdi query parameter") in
+  if Db.is_valid_ref __context (Ref.of_string vdi)
+  then Ref.of_string vdi
+  else Db.VDI.get_by_uuid ~__context ~uuid:vdi
 
 let base_vdi_of_req ~__context (req: Http.Request.t) =
-	let all = req.Http.Request.query @ req.Http.Request.cookie in
-	if List.mem_assoc "base" all then begin
-		let base = List.assoc "base" all in
-		Some (if Db.is_valid_ref __context (Ref.of_string base)
-		then Ref.of_string base
-		else Db.VDI.get_by_uuid ~__context ~uuid:base)
-	end else None
+  let all = req.Http.Request.query @ req.Http.Request.cookie in
+  if List.mem_assoc "base" all then begin
+    let base = List.assoc "base" all in
+    Some (if Db.is_valid_ref __context (Ref.of_string base)
+          then Ref.of_string base
+          else Db.VDI.get_by_uuid ~__context ~uuid:base)
+  end else None
 
 module Format = struct
-	type t =
-	| Raw
-	| Vhd
+  type t =
+    | Raw
+    | Vhd
 
-	let to_string = function
-	| Raw -> "raw"
-	| Vhd -> "vhd"
+  let to_string = function
+    | Raw -> "raw"
+    | Vhd -> "vhd"
 
-	let of_string x = match String.lowercase x with
-	| "raw" -> Some Raw
-	| "vhd" -> Some Vhd
-	| _ -> None
+  let of_string x = match String.lowercase x with
+    | "raw" -> Some Raw
+    | "vhd" -> Some Vhd
+    | _ -> None
 
-	let filename ~__context vdi format =
-		Printf.sprintf "%s.%s"
-			(Db.VDI.get_uuid ~__context ~self:vdi)
-			(to_string format)
+  let filename ~__context vdi format =
+    Printf.sprintf "%s.%s"
+      (Db.VDI.get_uuid ~__context ~self:vdi)
+      (to_string format)
 
-	let content_type = function
-	| Raw -> "application/octet-stream"
-	| Vhd -> "application/vhd"
+  let content_type = function
+    | Raw -> "application/octet-stream"
+    | Vhd -> "application/vhd"
 
-	let _key = "format"
+  let _key = "format"
 
-	let of_req (req: Http.Request.t) =
-		let all = req.Http.Request.query @ req.Http.Request.cookie in
-		if List.mem_assoc _key all then begin
-			let x = List.assoc _key all in
-			match of_string x with
-			| Some x -> `Ok x
-			| None -> `Unknown x
-		end else `Ok Raw (* default *)
+  let of_req (req: Http.Request.t) =
+    let all = req.Http.Request.query @ req.Http.Request.cookie in
+    if List.mem_assoc _key all then begin
+      let x = List.assoc _key all in
+      match of_string x with
+      | Some x -> `Ok x
+      | None -> `Unknown x
+    end else `Ok Raw (* default *)
 end
 
 
 let return_302_redirect (req: Http.Request.t) s address =
-	let url = Printf.sprintf "%s://%s%s?%s" (if Context.is_unencrypted s then "http" else "https") address req.Http.Request.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) req.Http.Request.query)) in
-	let headers = Http.http_302_redirect url in
-	debug "HTTP 302 redirect to: %s" url;
-	Http_svr.headers s headers
+  let url = Printf.sprintf "%s://%s%s?%s" (if Context.is_unencrypted s then "http" else "https") address req.Http.Request.uri (String.concat "&" (List.map (fun (a,b) -> a^"="^b) req.Http.Request.query)) in
+  let headers = Http.http_302_redirect url in
+  debug "HTTP 302 redirect to: %s" url;
+  Http_svr.headers s headers

@@ -3,7 +3,7 @@ exception Error of error
 
 let to_string = function
   | Error (name, args) ->
-      Printf.sprintf "V6error(%s, [ %a ])" name (fun () -> String.concat "; ") args
+    Printf.sprintf "V6error(%s, [ %a ])" name (fun () -> String.concat "; ") args
   | e -> Printexc.to_string e
 
 

@@ -21,15 +21,15 @@ open D
 type db_connection_mode = Write_limit | No_limit
 
 type db_connection =
-    {path:string;
-     mode:db_connection_mode;
-     compress:bool;
-     write_limit_period:int;
-     write_limit_write_cycles:int;
-     is_on_remote_storage:bool;
-     other_parameters:(string*string) list;
-	 mutable last_generation_count: Generation.t;
-    }
+  {path:string;
+   mode:db_connection_mode;
+   compress:bool;
+   write_limit_period:int;
+   write_limit_write_cycles:int;
+   is_on_remote_storage:bool;
+   other_parameters:(string*string) list;
+   mutable last_generation_count: Generation.t;
+  }
 
 let default_write_limit_period = 21600 (* 6 hours *)
 let default_write_cycles = 10
@@ -50,8 +50,8 @@ let make path = { dummy_conf with path = path }
 let generation_filename dbconn = dbconn.path ^ Generation.suffix
 
 (** Return the generation of a given database 'connection'. Note we normally
-	expect the database file and the generation file to be present together;
-	however after upgrade only the database file will be present. *)
+    	expect the database file and the generation file to be present together;
+    	however after upgrade only the database file will be present. *)
 let generation_read dbconn =
   let gencount_fname = generation_filename dbconn in
   try Generation.of_string (Unixext.string_of_file gencount_fname) with _ -> 0L
@@ -59,8 +59,8 @@ let generation_read dbconn =
 
 (* The db conf used for bootstrap purposes, e.g. mounting the 'real' db on shared storage *)
 let db_snapshot_dbconn = {dummy_conf with
-  path=Xapi_globs.snapshot_db
-}
+                          path=Xapi_globs.snapshot_db
+                         }
 
 let from_mode v =
   match v with
@@ -71,12 +71,12 @@ let from_block r =
   String.concat ""
     [
       Printf.sprintf
-	"[%s]\nmode:%s\nformat:xml\ncompress:%b\nis_on_remote_storage:%b\n"
-	r.path (from_mode r.mode) r.compress
-	r.is_on_remote_storage;
+        "[%s]\nmode:%s\nformat:xml\ncompress:%b\nis_on_remote_storage:%b\n"
+        r.path (from_mode r.mode) r.compress
+        r.is_on_remote_storage;
       if r.mode = Write_limit then
-	Printf.sprintf "write_limit_period:%d\nwrite_limit_write_cycles:%d\n"
-	  r.write_limit_period r.write_limit_write_cycles
+        Printf.sprintf "write_limit_period:%d\nwrite_limit_write_cycles:%d\n"
+          r.write_limit_period r.write_limit_write_cycles
       else "";
       String.concat "" (List.map (fun (k,v) -> Printf.sprintf "%s:%s\n" k v) r.other_parameters)
     ]
@@ -111,25 +111,25 @@ let parse_db_conf s =
       consume_line();
       let key_values = ref [] in
       while (!lines<>[] && (List.hd !lines)<>"") do
-	let line = List.hd !lines in
-	key_values := (match (String.split ':' line) with
-			k::vs->(String.lowercase k,String.lowercase (String.concat ":" vs))
-		| _ -> failwith (Printf.sprintf "Failed to parse: %s" line)
-	)::!key_values;
-	consume_line();
+        let line = List.hd !lines in
+        key_values := (match (String.split ':' line) with
+              k::vs->(String.lowercase k,String.lowercase (String.concat ":" vs))
+            | _ -> failwith (Printf.sprintf "Failed to parse: %s" line)
+          )::!key_values;
+        consume_line();
       done;
 
       (* if the key_name exists then return the value; otherwise return the default.
-	 if the key_name exists we remove the value from the association list -- this is so at the end of
-	 populating the record what we have left are the "other_fields" *)
+         	 if the key_name exists we remove the value from the association list -- this is so at the end of
+         	 populating the record what we have left are the "other_fields" *)
       let maybe_put_in key_name default conv_fn =
-	if List.mem_assoc key_name !key_values then
-	  begin
-	    let value = List.assoc key_name !key_values in
-	    key_values := List.remove_assoc key_name !key_values;
-	    conv_fn value
-	  end
-	else default in
+        if List.mem_assoc key_name !key_values then
+          begin
+            let value = List.assoc key_name !key_values in
+            key_values := List.remove_assoc key_name !key_values;
+            conv_fn value
+          end
+        else default in
       {path=path;
        mode=maybe_put_in "mode" (* key name *) No_limit (* default if key not present *) to_mode (* fn to conv string->mode type *);
        compress = maybe_put_in "compress" false bool_of_string;
@@ -137,13 +137,13 @@ let parse_db_conf s =
        write_limit_period=maybe_put_in "write_limit_period" default_write_limit_period int_of_string;
        write_limit_write_cycles=maybe_put_in "write_limit_write_cycles" default_write_cycles int_of_string;
        other_parameters = !key_values; (* the things remaining in key_values at this point are the ones we haven't parsed out explicitly above.. *)
-	   last_generation_count = Generation.null_generation;
+       last_generation_count = Generation.null_generation;
       } in
     let connections : db_connection list ref = ref [] in
     while !lines<>[] do
       let line = List.hd !lines in
       if String.startswith "[" line then
-	connections := read_block() :: !connections
+        connections := read_block() :: !connections
       else consume_line()
     done;
     sanity_check !connections;
@@ -158,11 +158,11 @@ let get_db_conf path =
   else begin
     warn "No db_conf file. Using default";
     [{path="/var/lib/xcp/state.db";
-     mode=No_limit;
-     compress=false;
-     is_on_remote_storage=false;
-     write_limit_period=default_write_limit_period;
-     write_limit_write_cycles=default_write_cycles;
-     other_parameters=["available_this_boot","true"];
-     last_generation_count=Generation.null_generation}]
+      mode=No_limit;
+      compress=false;
+      is_on_remote_storage=false;
+      write_limit_period=default_write_limit_period;
+      write_limit_write_cycles=default_write_cycles;
+      other_parameters=["available_this_boot","true"];
+      last_generation_count=Generation.null_generation}]
   end

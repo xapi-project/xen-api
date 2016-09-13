@@ -27,13 +27,13 @@ let biggest_fit_decreasing (things: ('a * int64) list) (bins: ('b * int64) list)
   let allocate_one (mapping, bins) (thing_id, thing_size) = match bins with
     | [] -> mapping, bins (* nowhere to put it *)
     | (first_bin_id, first_bin_size) :: rest ->
-       let remaining = Int64.sub first_bin_size thing_size in
-       if remaining < 0L
-       then (mapping, bins) (* leave it out *)
-       else
-	 (* Allocate the thing to this bin, subtract from bin size and resort *)
-	 let bins = insert less_than (first_bin_id, remaining) rest in
-	 (thing_id, first_bin_id) :: mapping, bins in
+      let remaining = Int64.sub first_bin_size thing_size in
+      if remaining < 0L
+      then (mapping, bins) (* leave it out *)
+      else
+        (* Allocate the thing to this bin, subtract from bin size and resort *)
+        let bins = insert less_than (first_bin_id, remaining) rest in
+        (thing_id, first_bin_id) :: mapping, bins in
   (* Only return the mapping: we aren't interested in the remaining free space *)
   fst(List.fold_left allocate_one initial things')
 
@@ -44,8 +44,8 @@ let memoise f =
     if Hashtbl.mem table x
     then Hashtbl.find table x
     else let result = f lookup x in
-         Hashtbl.add table x result;
-         result in
+      Hashtbl.add table x result;
+      result in
   lookup
 
 (** Raised when an int64 addition overflows (positive numbers only) *)
@@ -93,23 +93,23 @@ type ('a, 'b) configuration = {
 let check_configuration config =
   (* All hosts and VMs in placement should be in the hosts and vms list *)
   List.iter (fun (vm, host) ->
-	       if not(List.mem_assoc vm config.vms) then failwith "VM not found";
-	       if not(List.mem_assoc host config.hosts) then failwith "Host not found"
-	    ) config.placement;
+      if not(List.mem_assoc vm config.vms) then failwith "VM not found";
+      if not(List.mem_assoc host config.hosts) then failwith "Host not found"
+    ) config.placement;
   (* num_failures needs to be <= the total number of hosts *)
   if config.num_failures > config.total_hosts then failwith "num_failures > total_hosts";
   if config.num_failures < 0 then failwith "num_failures < 0"
 
 let string_of_configuration string_of_a string_of_b c =
-    let semicolon x = String.concat "; " x in
-    let comma (a, b) = Printf.sprintf "%s, %s" a b in
-    let map f_a f_b (a, b) = (f_a a, f_b b) in
-    let int64 = Int64.to_string in
-    Printf.sprintf "{ total_hosts = %d; num_failures = %d; hosts = [ %s ]; vms = [ %s ]; placement = [ %s ] }"
-      c.total_hosts c.num_failures
-      (semicolon (List.map comma (List.map (map string_of_a int64) c.hosts)))
-      (semicolon (List.map comma (List.map (map string_of_b int64) c.vms)))
-      (semicolon (List.map comma (List.map (map string_of_b string_of_a) c.placement)))
+  let semicolon x = String.concat "; " x in
+  let comma (a, b) = Printf.sprintf "%s, %s" a b in
+  let map f_a f_b (a, b) = (f_a a, f_b b) in
+  let int64 = Int64.to_string in
+  Printf.sprintf "{ total_hosts = %d; num_failures = %d; hosts = [ %s ]; vms = [ %s ]; placement = [ %s ] }"
+    c.total_hosts c.num_failures
+    (semicolon (List.map comma (List.map (map string_of_a int64) c.hosts)))
+    (semicolon (List.map comma (List.map (map string_of_b int64) c.vms)))
+    (semicolon (List.map comma (List.map (map string_of_b string_of_a) c.placement)))
 
 let assoc errmsg x xs = try List.assoc x xs with Not_found -> failwith ("Not_found: " ^ errmsg)
 
@@ -152,12 +152,12 @@ exception Stop
 
 (** A plan is trivially never possible if there aren't enough hosts for future failures, irrespective of VM size *)
 let plan_trivially_never_possible config =
-    let hosts = List.map fst config.hosts in
-    false (* indent *)
-    (* If there are fewer hosts than config.num_failures then no plan is ever possible *)
-    || (List.length hosts < config.num_failures)
-    (* If there are exactly config.num_failures hosts and any VMs to protect then no plan is ever possible *)
-    || (List.length hosts = config.num_failures && config.vms <> [])
+  let hosts = List.map fst config.hosts in
+  false (* indent *)
+  (* If there are fewer hosts than config.num_failures then no plan is ever possible *)
+  || (List.length hosts < config.num_failures)
+  (* If there are exactly config.num_failures hosts and any VMs to protect then no plan is ever possible *)
+  || (List.length hosts = config.num_failures && config.vms <> [])
 
 (* Return the state of the world after we generate and follow a failover plan for one host *)
 let simulate_failure config dead_host =
@@ -180,10 +180,10 @@ let plan_always_possible config =
     (* For every nCr combination of r host failures, check that we can generate a plan for them happening in any order. *)
     List.iter
       (fun combination ->
-	 List.iter
-	   (fun permutation ->
-	      let (_: ('a, 'b) configuration) = List.fold_left simulate_failure config permutation in ()
-	   ) (permutations combination)
+         List.iter
+           (fun permutation ->
+              let (_: ('a, 'b) configuration) = List.fold_left simulate_failure config permutation in ()
+           ) (permutations combination)
       ) (choose hosts config.num_failures);
     true
   with Stop -> false
@@ -247,19 +247,19 @@ let approximate_bin_pack = {
   plan_always_possible =
     (fun config ->
        try
-	 if plan_trivially_never_possible config then raise Stop;
-	 (* Return the state of the world after we generate and follow a failover plan for the biggest host that
-	    could fail. Raises 'Stop' if a plan could not be found. *)
-	 let simulate_worst_single_failure config =
-	   (* Assume the biggest host fails *)
-	   let biggest_host = fst (List.hd (List.sort less_than config.hosts)) in
-	   approximate_config (simulate_failure config biggest_host) in
+         if plan_trivially_never_possible config then raise Stop;
+         (* Return the state of the world after we generate and follow a failover plan for the biggest host that
+            	    could fail. Raises 'Stop' if a plan could not be found. *)
+         let simulate_worst_single_failure config =
+           (* Assume the biggest host fails *)
+           let biggest_host = fst (List.hd (List.sort less_than config.hosts)) in
+           approximate_config (simulate_failure config biggest_host) in
 
-	 let initial_config = approximate_config config in
+         let initial_config = approximate_config config in
 
-	 (* Simulate the n worst failures *)
-	 ignore (List.fold_left (fun config _ -> simulate_worst_single_failure config) initial_config (mkints initial_config.num_failures));
-	 true
+         (* Simulate the n worst failures *)
+         ignore (List.fold_left (fun config _ -> simulate_worst_single_failure config) initial_config (mkints initial_config.num_failures));
+         true
        with Stop -> false
     );
   get_specific_plan =

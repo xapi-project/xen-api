@@ -13,7 +13,7 @@
  *)
 (**
  * @group Command-Line Interface (CLI)
- *)
+*)
 
 let force="force"
 let live="live"

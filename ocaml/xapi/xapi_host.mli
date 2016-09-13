@@ -13,7 +13,7 @@
  *)
 (** Module that defines API functions for Host objects
  * @group XenAPI functions
- *)
+*)
 
 (** {2 (Fill in Title!)} *)
 
@@ -244,13 +244,13 @@ val refresh_pack_info : __context:Context.t -> host:API.ref_host -> unit
 
 (** Called by post-floodgate slaves to update the database AND recompute the pool_sku on the master *)
 val set_license_params :
-	__context:Context.t ->
-	self:[ `host ] Ref.t -> value:(string * string) list -> unit
+  __context:Context.t ->
+  self:[ `host ] Ref.t -> value:(string * string) list -> unit
 
 val copy_license_to_db :
-	__context:Context.t ->
-	host:[ `host ] Ref.t ->
-	features:Features.feature list -> additional:(string * string) list -> unit
+  __context:Context.t ->
+  host:[ `host ] Ref.t ->
+  features:Features.feature list -> additional:(string * string) list -> unit
 
 val license_add : __context:Context.t -> host:API.ref_host -> contents:string -> unit
 
@@ -264,7 +264,7 @@ val license_remove : __context:Context.t -> host:API.ref_host -> unit
  *  connection details in host.license_server have been amended. *)
 val apply_edition : __context:Context.t -> host:API.ref_host -> edition:string -> force:bool -> unit
 val apply_edition_internal : __context:Context.t -> host:API.ref_host ->
-	edition:string -> additional:(string * string) list -> unit
+  edition:string -> additional:(string * string) list -> unit
 
 (** {2 CPU Feature Masking} *)
 

@@ -10,12 +10,12 @@ let updates = Updates.empty ()
 let tasks = Storage_task.empty ()
 
 let signal task =
-	let open Storage_task in
-	Stdext.Threadext.Mutex.execute tasks.m
-		(fun () ->
-			if exists_locked tasks task then begin
-				debug "TASK.signal %s = %s" task ((find_locked tasks task).state |> Task.rpc_of_state |> Jsonrpc.to_string);
-				Updates.add (Dynamic.Task task) updates;
-			end else debug "TASK.signal %s (object deleted)" task
-		)
+  let open Storage_task in
+  Stdext.Threadext.Mutex.execute tasks.m
+    (fun () ->
+       if exists_locked tasks task then begin
+         debug "TASK.signal %s = %s" task ((find_locked tasks task).state |> Task.rpc_of_state |> Jsonrpc.to_string);
+         Updates.add (Dynamic.Task task) updates;
+       end else debug "TASK.signal %s (object deleted)" task
+    )
 

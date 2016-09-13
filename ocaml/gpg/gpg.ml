@@ -37,8 +37,8 @@ let parse_gpg_status status_data =
   if status_contains validsig then
     let validsigline = List.find (fun s -> String.startswith validsig s) lines in
     match String.split ' ' validsigline with
-	_::_::fingerprint::_ -> Some fingerprint
-      | _ -> None
+      _::_::fingerprint::_ -> Some fingerprint
+    | _ -> None
   else
     None
 
@@ -61,46 +61,46 @@ let common ty filename signature size f =
   let gpg_pub_keyring = Filename.concat !Xapi_globs.gpg_homedir "pubring.gpg" in
   let gpg_args = match ty with
     | `signed_cleartext ->
-        [
-		  "--homedir"; !Xapi_globs.gpg_homedir;
-		  "--no-default-keyring";
-		  "--keyring"; gpg_pub_keyring;
-		  "--status-fd"; status_in_uuid;
-		  "--decrypt"; filename
-		]
+      [
+        "--homedir"; !Xapi_globs.gpg_homedir;
+        "--no-default-keyring";
+        "--keyring"; gpg_pub_keyring;
+        "--status-fd"; status_in_uuid;
+        "--decrypt"; filename
+      ]
     | `detached_signature ->
-        [
-          filename; Int64.to_string size;
-		  "--homedir"; !Xapi_globs.gpg_homedir;
-		  "--no-default-keyring";
-		  "--keyring"; gpg_pub_keyring;
-		  "--status-fd"; status_in_uuid;
-		  "--verify"; signature
-		]
+      [
+        filename; Int64.to_string size;
+        "--homedir"; !Xapi_globs.gpg_homedir;
+        "--no-default-keyring";
+        "--keyring"; gpg_pub_keyring;
+        "--status-fd"; status_in_uuid;
+        "--verify"; signature
+      ]
   in
 
   finally  (* make sure I close all my open fds in the end *)
     (fun () ->
-	    (* Capture stderr output for logging *)
-	    match Forkhelpers.with_logfile_fd "gpg"
-	      (fun log_fd ->
-		 let pid = Forkhelpers.safe_close_and_exec None (Some result_in) (Some log_fd) [(status_in_uuid,status_in)]
-		   gpg_binary_path gpg_args in
-		 (* parent *)
-		 List.iter close' [ result_in; status_in ];
-		 finally (* always waitpid eventually *)
-		   (fun () ->
-		      let gpg_status = Unixext.string_of_fd status_out in
-		      let fingerprint = parse_gpg_status gpg_status in
-		      f fingerprint result_out)
-		   (fun () -> Forkhelpers.waitpid_fail_if_bad_exit pid)) with
-	      | Forkhelpers.Success(_, x) -> debug "gpg subprocess succeeded"; x
-	      | Forkhelpers.Failure(log, Forkhelpers.Subprocess_failed 2) ->
-		  (* Happens when gpg cannot find a readable signature *)
-		  raise InvalidSignature
-	      | Forkhelpers.Failure(log, exn) ->
-		  debug "Error from gpg: %s" log;
-		  raise exn)
+       (* Capture stderr output for logging *)
+       match Forkhelpers.with_logfile_fd "gpg"
+               (fun log_fd ->
+                  let pid = Forkhelpers.safe_close_and_exec None (Some result_in) (Some log_fd) [(status_in_uuid,status_in)]
+                      gpg_binary_path gpg_args in
+                  (* parent *)
+                  List.iter close' [ result_in; status_in ];
+                  finally (* always waitpid eventually *)
+                    (fun () ->
+                       let gpg_status = Unixext.string_of_fd status_out in
+                       let fingerprint = parse_gpg_status gpg_status in
+                       f fingerprint result_out)
+                    (fun () -> Forkhelpers.waitpid_fail_if_bad_exit pid)) with
+       | Forkhelpers.Success(_, x) -> debug "gpg subprocess succeeded"; x
+       | Forkhelpers.Failure(log, Forkhelpers.Subprocess_failed 2) ->
+         (* Happens when gpg cannot find a readable signature *)
+         raise InvalidSignature
+       | Forkhelpers.Failure(log, exn) ->
+         debug "Error from gpg: %s" log;
+         raise exn)
     (fun () -> List.iter Unix.close !fds_to_close)
 
 let with_signed_cleartext filename f =

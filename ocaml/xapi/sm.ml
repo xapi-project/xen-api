@@ -13,7 +13,7 @@
  *)
 (** Storage manager interface
  * @group Storage
- *)
+*)
 
 open Stdext
 open Xstringext
@@ -45,10 +45,10 @@ let register () =
 
 
 let info_of_driver (name: string) =
-	let name = String.lowercase name in
-	if not(Hashtbl.mem driver_info_cache name)
-	then raise (Unknown_driver name)
-	else (Hashtbl.find driver_info_cache name)
+  let name = String.lowercase name in
+  if not(Hashtbl.mem driver_info_cache name)
+  then raise (Unknown_driver name)
+  else (Hashtbl.find driver_info_cache name)
 
 let features_of_driver (name: string) = (info_of_driver name).sr_driver_features
 
@@ -69,9 +69,9 @@ let debug operation driver msg =
   debug "SM %s %s %s" driver operation msg
 
 let srmaster_only (_,dconf) =
-	let is_srmaster = try List.assoc "SRmaster" dconf = "true" with _ -> false in
-	if not is_srmaster
-	then (warn "srmaster_only: Raising MasterOnly exception"; raise MasterOnly)
+  let is_srmaster = try List.assoc "SRmaster" dconf = "true" with _ -> false in
+  if not is_srmaster
+  then (warn "srmaster_only: Raising MasterOnly exception"; raise MasterOnly)
 
 let sr_create dconf driver sr size =
   let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_create" [ Int64.to_string size ] in
@@ -87,14 +87,14 @@ let sr_delete dconf driver sr =
 let serialize_attach_detach = Locking_helpers.Named_mutex.create "sr_attach/detach"
 
 let sr_attach dconf driver sr =
-	Locking_helpers.Named_mutex.execute serialize_attach_detach
+  Locking_helpers.Named_mutex.execute serialize_attach_detach
     (fun ()->
        debug "sr_attach" driver (sprintf "sr=%s" (Ref.string_of sr));
        let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_attach" [] in
        Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call))
 
 let sr_detach dconf driver sr =
-	Locking_helpers.Named_mutex.execute serialize_attach_detach
+  Locking_helpers.Named_mutex.execute serialize_attach_detach
     (fun ()->
        debug "sr_detach" driver (sprintf "sr=%s" (Ref.string_of sr));
        let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_detach" [] in
@@ -105,20 +105,20 @@ let sr_detach dconf driver sr =
 let sr_probe dconf driver sr_sm_config =
   if List.mem_assoc Sr_probe (features_of_driver driver)
   then
-	Locking_helpers.Named_mutex.execute serialize_attach_detach
+    Locking_helpers.Named_mutex.execute serialize_attach_detach
       (fun ()->
-	 debug "sr_probe" driver (sprintf "sm_config=[%s]" (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) sr_sm_config)));
-	 let call = Sm_exec.make_call ~sr_sm_config dconf "sr_probe" [] in
-	 (* sr_probe returns an XML document marshalled within an XMLRPC string *)
-	 XMLRPC.From.string (Sm_exec.exec_xmlrpc (driver_filename driver) call))
+         debug "sr_probe" driver (sprintf "sm_config=[%s]" (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) sr_sm_config)));
+         let call = Sm_exec.make_call ~sr_sm_config dconf "sr_probe" [] in
+         (* sr_probe returns an XML document marshalled within an XMLRPC string *)
+         XMLRPC.From.string (Sm_exec.exec_xmlrpc (driver_filename driver) call))
   else
     raise (Api_errors.Server_error (Api_errors.sr_backend_failure, [ ("Operation 'sr_probe' not supported by this SR type"); ""; ""]))
 
 let sr_scan dconf driver sr =
-	debug "sr_scan" driver (sprintf "sr=%s" (Ref.string_of sr));
-	srmaster_only dconf;
-	let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_scan" [] in
-	Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+  debug "sr_scan" driver (sprintf "sr=%s" (Ref.string_of sr));
+  srmaster_only dconf;
+  let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_scan" [] in
+  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
 let sr_content_type dconf driver sr =
   debug "sr_content_type" driver (sprintf "sr=%s" (Ref.string_of sr));
@@ -132,7 +132,7 @@ let sr_update dconf driver sr =
 
 let vdi_create dconf driver sr sm_config vdi_type size name_label name_description metadata_of_pool is_a_snapshot snapshot_time snapshot_of read_only =
   debug "vdi_create" driver (sprintf "sr=%s sm_config=[%s] type=[%s] size=%Ld" (Ref.string_of sr) (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) sm_config)) vdi_type size);
-	srmaster_only dconf;
+  srmaster_only dconf;
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_sm_config:sm_config ~vdi_type dconf "vdi_create" [ sprintf "%Lu" size; name_label ; name_description; metadata_of_pool; string_of_bool is_a_snapshot; snapshot_time; snapshot_of; string_of_bool read_only ] in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
@@ -205,22 +205,22 @@ let vdi_generate_config dconf driver sr vdi =
   Sm_exec.parse_string (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
 let vdi_compose dconf driver sr vdi1 vdi2 =
-	debug "vdi_compose" driver (sprintf "sr=%s vdi1=%s vdi2=%s" (Ref.string_of sr) (Ref.string_of vdi1) (Ref.string_of vdi2));
-	srmaster_only dconf;
-	let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi2 dconf "vdi_compose" [ Ref.string_of vdi1] in
-	Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+  debug "vdi_compose" driver (sprintf "sr=%s vdi1=%s vdi2=%s" (Ref.string_of sr) (Ref.string_of vdi1) (Ref.string_of vdi2));
+  srmaster_only dconf;
+  let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi2 dconf "vdi_compose" [ Ref.string_of vdi1] in
+  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
 let vdi_epoch_begin dconf driver sr vdi =
-	debug "vdi_epoch_begin" driver (sprintf "sr=%s vdi=%s"
-		(Ref.string_of sr) (Ref.string_of vdi));
-	let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_epoch_begin" [] in
-	Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+  debug "vdi_epoch_begin" driver (sprintf "sr=%s vdi=%s"
+                                    (Ref.string_of sr) (Ref.string_of vdi));
+  let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_epoch_begin" [] in
+  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
 let vdi_epoch_end dconf driver sr vdi =
-	debug "vdi_epoch_end" driver (sprintf "sr=%s vdi=%s"
-		(Ref.string_of sr) (Ref.string_of vdi));
-	let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_epoch_end" [] in
-	Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+  debug "vdi_epoch_end" driver (sprintf "sr=%s vdi=%s"
+                                  (Ref.string_of sr) (Ref.string_of vdi));
+  let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_epoch_end" [] in
+  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
 let session_has_internal_sr_access ~__context ~sr =
   let session_id = Context.get_session_id __context in
@@ -239,13 +239,13 @@ let assert_session_has_internal_sr_access ~__context ~sr =
 let get_my_pbd_for_sr __context sr_id =
   let me = Helpers.get_localhost __context in
   let pbd_ref_and_record = Db.PBD.get_records_where ~__context
-    ~expr:(Db_filter_types.And (
-      Db_filter_types.Eq (Db_filter_types.Field "host", Db_filter_types.Literal (Ref.string_of me)),
-      Db_filter_types.Eq (Db_filter_types.Field "SR", Db_filter_types.Literal (Ref.string_of sr_id))))
+      ~expr:(Db_filter_types.And (
+          Db_filter_types.Eq (Db_filter_types.Field "host", Db_filter_types.Literal (Ref.string_of me)),
+          Db_filter_types.Eq (Db_filter_types.Field "SR", Db_filter_types.Literal (Ref.string_of sr_id))))
   in
   match pbd_ref_and_record with
-    | [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of sr_id ]))
-    | (x::_) -> x
+  | [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of sr_id ]))
+  | (x::_) -> x
 
 let assert_pbd_is_plugged ~__context ~sr =
   let _, pbd_r = get_my_pbd_for_sr __context sr in
@@ -262,18 +262,18 @@ let __get_my_devconf_for_sr __context sr_id =
 
 (** Make it easier to call SM backend functions on an SR *)
 let call_sm_functions ~__context ~sR f =
-    let srtype = Db.SR.get_type ~__context ~self:sR
-    and srconf = __get_my_devconf_for_sr __context sR in
-    let subtask_of = Some (Context.get_task_id __context) in
-    f (subtask_of,srconf) srtype
+  let srtype = Db.SR.get_type ~__context ~self:sR
+  and srconf = __get_my_devconf_for_sr __context sR in
+  let subtask_of = Some (Context.get_task_id __context) in
+  f (subtask_of,srconf) srtype
 
 (** Make it easier to call SM backend functions on a VDI directly *)
 let call_sm_vdi_functions ~__context ~vdi f =
-    let sr = Db.VDI.get_SR ~__context ~self:vdi in
-    let srtype = Db.SR.get_type ~__context ~self:sr
-    and srconf = __get_my_devconf_for_sr __context sr in
-    let subtask_of = Some (Context.get_task_id __context) in
-    f (subtask_of,srconf) srtype sr
+  let sr = Db.VDI.get_SR ~__context ~self:vdi in
+  let srtype = Db.SR.get_type ~__context ~self:sr
+  and srconf = __get_my_devconf_for_sr __context sr in
+  let subtask_of = Some (Context.get_task_id __context) in
+  f (subtask_of,srconf) srtype sr
 
 (* Use the sr_content_type cache *)
 let sr_content_type ~__context ~sr =
@@ -282,7 +282,7 @@ let sr_content_type ~__context ~sr =
        if Hashtbl.mem sr_content_type_cache sr
        then Hashtbl.find sr_content_type_cache sr
        else
-	 let ty = call_sm_functions ~__context ~sR:sr (fun srconf srtype -> (sr_content_type srconf srtype sr)) in
-	 Hashtbl.replace sr_content_type_cache sr ty;
-	 ty)
+         let ty = call_sm_functions ~__context ~sR:sr (fun srconf srtype -> (sr_content_type srconf srtype sr)) in
+         Hashtbl.replace sr_content_type_cache sr ty;
+         ty)
 

@@ -45,5 +45,5 @@ let _ =
     | _ -> exit 0
   with
     exc ->
-      Printf.printf "Exception trapped: %s\n" (Printexc.to_string exc);
-      exit 1
+    Printf.printf "Exception trapped: %s\n" (Printexc.to_string exc);
+    exit 1

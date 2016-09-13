@@ -49,10 +49,10 @@ module Make(T: Floatable) = struct
     int_of_float (T.(to_float value /. (to_float t.max_value) *. (float_of_int (t.width - prefix - suffix))))
 
   let hms secs =
-      let h = secs / 3600 in
-      let m = (secs mod 3600) / 60 in
-      let s = secs mod 60 in
-      Printf.sprintf "%02d:%02d:%02d" h m s
+    let h = secs / 3600 in
+    let m = (secs mod 3600) / 60 in
+    let s = secs mod 60 in
+    Printf.sprintf "%02d:%02d:%02d" h m s
 
   let eta t =
     let time_so_far = Unix.gettimeofday () -. t.start_time in

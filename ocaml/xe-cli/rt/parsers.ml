@@ -41,27 +41,27 @@ let zap_whitespace s =
 
 (* Two functions to parse the output of 'xe'. Result is a list of association lists *)
 let parse_record ls =
-   let rec inner ls cur =
-     match ls with
-       ""::rest -> (cur,rest)
-     | l::ls ->
-       let colon = String.index l ':' in
-       let token = zap_whitespace (String.sub l 0 colon) in
-       let value = zap_whitespace (String.sub l (colon+1) (String.length l - colon - 1)) in
-       inner ls ((token,value)::cur)
-     | _ -> (cur,[])
+  let rec inner ls cur =
+    match ls with
+      ""::rest -> (cur,rest)
+    | l::ls ->
+      let colon = String.index l ':' in
+      let token = zap_whitespace (String.sub l 0 colon) in
+      let value = zap_whitespace (String.sub l (colon+1) (String.length l - colon - 1)) in
+      inner ls ((token,value)::cur)
+    | _ -> (cur,[])
   in
   inner ls []
 
 let parse ls =
-   let rec inner ls cur =
-     match ls with
-       [] -> cur
-     | records ->
-        let (record,rest) = parse_record ls in
-        inner rest (record::cur)
-   in
-   inner ls []
+  let rec inner ls cur =
+    match ls with
+      [] -> cur
+    | records ->
+      let (record,rest) = parse_record ls in
+      inner rest (record::cur)
+  in
+  inner ls []
 
 
 (* Get the last domid from a run of 'list_domains' *)
@@ -78,7 +78,7 @@ let parse_ld ls =
     match ls with
       [] -> cur
     | l::ls ->
-	inner ls ((parse_ld_line l)::cur)
+      inner ls ((parse_ld_line l)::cur)
   in inner (List.tl ls) []
 
 

@@ -43,13 +43,13 @@ module To = struct
 
   (* Marshal a whole database table to an Xmlm output abstraction *)
   let table schema (output: Xmlm.output) name (tbl: Table.t) =
-          let record rf { Stat.created; modified } (row: Row.t) _ =
-		let preamble =
-			if persist_generation_counts
-			then [("__mtime",Generation.to_string modified); ("__ctime",Generation.to_string created); ("ref",rf)]
-			else [("ref",rf)]
-		in
-	  let (tag: Xmlm.tag) = make_tag "row" (List.rev (Row.fold (fun k _ v acc -> (k, Xml_spaces.protect (Schema.Value.marshal v)) :: acc) row preamble)) in
+    let record rf { Stat.created; modified } (row: Row.t) _ =
+      let preamble =
+        if persist_generation_counts
+        then [("__mtime",Generation.to_string modified); ("__ctime",Generation.to_string created); ("ref",rf)]
+        else [("ref",rf)]
+      in
+      let (tag: Xmlm.tag) = make_tag "row" (List.rev (Row.fold (fun k _ v acc -> (k, Xml_spaces.protect (Schema.Value.marshal v)) :: acc) row preamble)) in
       Xmlm.output output (`El_start tag);
       Xmlm.output output `El_end in
     let tag = make_tag "table" [ "name", name ] in
@@ -57,18 +57,18 @@ module To = struct
     (* we write a table entry whether or not the table persists, because populate happens to assume
        that all tables will be present. However, if the table is marked as "don't persist" then we
        don't write any row entries: *)
-	if Schema.is_table_persistent schema name
-	then Table.fold record tbl ();
+    if Schema.is_table_persistent schema name
+    then Table.fold record tbl ();
     Xmlm.output output `El_end
 
   (* Write out a manifest *)
   let manifest (output: Xmlm.output) (manifest: Manifest.t) : unit =
-      Xmlm.output output (`El_start (make_tag "manifest" []));
-	  let major, minor = Manifest.schema manifest in
-      int    output _schema_major_vsn major;
-      int    output _schema_minor_vsn minor;
-      int64  output _generation_count (Manifest.generation manifest);
-      Xmlm.output output `El_end
+    Xmlm.output output (`El_start (make_tag "manifest" []));
+    let major, minor = Manifest.schema manifest in
+    int    output _schema_major_vsn major;
+    int    output _schema_minor_vsn minor;
+    int64  output _generation_count (Manifest.generation manifest);
+    Xmlm.output output `El_end
 
   (* Write out a full database *)
   let database (output: Xmlm.output) db : unit =
@@ -92,99 +92,99 @@ end
 
 module From = struct
 
-	let database schema (input: Xmlm.input) =
-		let tags = Stack.create () in
-		let maybe_return f accu =
-			if Xmlm.eoi input then begin
-				if Stack.is_empty tags then
-					accu
-				else
-					raise (Unmarshall_error "Unexpected end of file")
-			end else
-				f accu in
-		let schema_vsn_of_manifest manifest =
-			let major_vsn = int_of_string (List.assoc _schema_major_vsn manifest) in
-			let minor_vsn = int_of_string (List.assoc _schema_minor_vsn manifest) in
-			(major_vsn, minor_vsn) in
-		let rec f ((tableset, table, tblname, manifest) as acc) = match Xmlm.input input with
-				(* On reading a start tag... *)
-			| `El_start (tag: Xmlm.tag) ->
-				Stack.push tag tags;
-				begin match tag with
-					| (_, ("database" | "manifest")), _ -> f acc
-					| (_, "table"), [ (_, "name"), tblname ] ->
-						f (tableset, Table.empty, tblname, manifest)
-					| (_, "row"), ((_, "ref"), rf) :: rest ->
-						(* Remove any other duplicate "ref"s which might have sneaked in there *)
-						let rest = List.filter (fun ((_,k), _) -> k <> "ref") rest in
-						let (ctime_l,rest) = List.partition (fun ((_, k), _) -> k="__ctime") rest in
-						let (mtime_l,rest) = List.partition (fun ((_, k), _) -> k="__mtime") rest in
-						let ctime = match ctime_l with | [(_,ctime_s)] -> Int64.of_string ctime_s | _ -> 0L in
-						let mtime = match mtime_l with | [(_,mtime_s)] -> Int64.of_string mtime_s | _ -> 0L in
-						let row = List.fold_left (fun row ((_, k), v) ->
-							let table_schema = Schema.Database.find tblname schema.Schema.database in
-							try
-								let column_schema = Schema.Table.find k table_schema in
-								let value = Schema.Value.unmarshal column_schema.Schema.Column.ty (Xml_spaces.unprotect v) in
-								let empty = column_schema.Schema.Column.empty in
-								Row.update mtime k empty (fun _ -> value) (Row.add ctime k value row)
-							with Not_found ->
-								(* This means there's an unexpected field, so we should normally fail. However, fields
-								 * present in Tech Preview releases are permitted to disappear on upgrade, so suppress
-								 * such errors on such upgrades. *)
-								let exc = Unmarshall_error (Printf.sprintf "Unexpected column in table %s: %s" tblname k) in
-								let (this_maj, this_min) = try
-									schema_vsn_of_manifest manifest
-								with Not_found ->
-									(* Probably the database didn't have a <manifest> at the start. So at this point
-									 * we don't know the schema version of the database we're loading. *)
-									D.error "Unmarshalling removed column %s from table %s but don't know schema version because manifest not yet read" k tblname;
-									raise exc
-								in
-								if List.mem (this_maj, this_min) Datamodel.tech_preview_releases then (
-									(* Suppress error for fields that only temporarily existed in the datamodel *)
-									D.warn "Upgrading from Tech Preview schema %d.%d so removing deleted field %s from table %s" this_maj this_min k tblname;
-									row
-								) else
-									(* For any genuinely unexpected fields, fail *)
-									raise exc
-						) Row.empty rest in
-						f (tableset, (Table.update mtime rf Row.empty (fun _ -> row) (Table.add ctime rf row table)), tblname, manifest)
-					| (_, "pair"), [ (_, "key"), k; (_, "value"), v ] ->
-						f (tableset, table, tblname, (k, v) :: manifest)
-					| (_, name), _ ->
-						raise (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name))
-				end
-					(* On reading an end tag... *)
-			| `El_end ->
-				let tag = Stack.pop tags in
-				begin match tag with
-					| (_, ("database" | "manifest" | "row" | "pair")), _ -> maybe_return f acc
-					| (_, "table"), [ (_, "name"), name ] ->
-						maybe_return f (TableSet.add 0L name table tableset, Table.empty, "", manifest)
-					| (_, name), _ ->
-						raise (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name))
-				end
-			| _ -> f acc
-		in
-		let (ts, _, _, manifest) = f (TableSet.empty, Table.empty, "", []) in
-		let g = Int64.of_string (List.assoc _generation_count manifest) in
-		let (major_vsn, minor_vsn) = schema_vsn_of_manifest manifest in
-		let manifest = Manifest.make major_vsn minor_vsn g in
-		let open Stdext.Fun in
-		((Database.update_manifest (fun _ -> manifest))
-		++ (Database.update_tableset (fun _ -> ts)))
-			(Database.make schema)
+  let database schema (input: Xmlm.input) =
+    let tags = Stack.create () in
+    let maybe_return f accu =
+      if Xmlm.eoi input then begin
+        if Stack.is_empty tags then
+          accu
+        else
+          raise (Unmarshall_error "Unexpected end of file")
+      end else
+        f accu in
+    let schema_vsn_of_manifest manifest =
+      let major_vsn = int_of_string (List.assoc _schema_major_vsn manifest) in
+      let minor_vsn = int_of_string (List.assoc _schema_minor_vsn manifest) in
+      (major_vsn, minor_vsn) in
+    let rec f ((tableset, table, tblname, manifest) as acc) = match Xmlm.input input with
+      (* On reading a start tag... *)
+      | `El_start (tag: Xmlm.tag) ->
+        Stack.push tag tags;
+        begin match tag with
+          | (_, ("database" | "manifest")), _ -> f acc
+          | (_, "table"), [ (_, "name"), tblname ] ->
+            f (tableset, Table.empty, tblname, manifest)
+          | (_, "row"), ((_, "ref"), rf) :: rest ->
+            (* Remove any other duplicate "ref"s which might have sneaked in there *)
+            let rest = List.filter (fun ((_,k), _) -> k <> "ref") rest in
+            let (ctime_l,rest) = List.partition (fun ((_, k), _) -> k="__ctime") rest in
+            let (mtime_l,rest) = List.partition (fun ((_, k), _) -> k="__mtime") rest in
+            let ctime = match ctime_l with | [(_,ctime_s)] -> Int64.of_string ctime_s | _ -> 0L in
+            let mtime = match mtime_l with | [(_,mtime_s)] -> Int64.of_string mtime_s | _ -> 0L in
+            let row = List.fold_left (fun row ((_, k), v) ->
+                let table_schema = Schema.Database.find tblname schema.Schema.database in
+                try
+                  let column_schema = Schema.Table.find k table_schema in
+                  let value = Schema.Value.unmarshal column_schema.Schema.Column.ty (Xml_spaces.unprotect v) in
+                  let empty = column_schema.Schema.Column.empty in
+                  Row.update mtime k empty (fun _ -> value) (Row.add ctime k value row)
+                with Not_found ->
+                  (* This means there's an unexpected field, so we should normally fail. However, fields
+                     								 * present in Tech Preview releases are permitted to disappear on upgrade, so suppress
+                     								 * such errors on such upgrades. *)
+                  let exc = Unmarshall_error (Printf.sprintf "Unexpected column in table %s: %s" tblname k) in
+                  let (this_maj, this_min) = try
+                      schema_vsn_of_manifest manifest
+                    with Not_found ->
+                      (* Probably the database didn't have a <manifest> at the start. So at this point
+                         									 * we don't know the schema version of the database we're loading. *)
+                      D.error "Unmarshalling removed column %s from table %s but don't know schema version because manifest not yet read" k tblname;
+                      raise exc
+                  in
+                  if List.mem (this_maj, this_min) Datamodel.tech_preview_releases then (
+                    (* Suppress error for fields that only temporarily existed in the datamodel *)
+                    D.warn "Upgrading from Tech Preview schema %d.%d so removing deleted field %s from table %s" this_maj this_min k tblname;
+                    row
+                  ) else
+                    (* For any genuinely unexpected fields, fail *)
+                    raise exc
+              ) Row.empty rest in
+            f (tableset, (Table.update mtime rf Row.empty (fun _ -> row) (Table.add ctime rf row table)), tblname, manifest)
+          | (_, "pair"), [ (_, "key"), k; (_, "value"), v ] ->
+            f (tableset, table, tblname, (k, v) :: manifest)
+          | (_, name), _ ->
+            raise (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name))
+        end
+      (* On reading an end tag... *)
+      | `El_end ->
+        let tag = Stack.pop tags in
+        begin match tag with
+          | (_, ("database" | "manifest" | "row" | "pair")), _ -> maybe_return f acc
+          | (_, "table"), [ (_, "name"), name ] ->
+            maybe_return f (TableSet.add 0L name table tableset, Table.empty, "", manifest)
+          | (_, name), _ ->
+            raise (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name))
+        end
+      | _ -> f acc
+    in
+    let (ts, _, _, manifest) = f (TableSet.empty, Table.empty, "", []) in
+    let g = Int64.of_string (List.assoc _generation_count manifest) in
+    let (major_vsn, minor_vsn) = schema_vsn_of_manifest manifest in
+    let manifest = Manifest.make major_vsn minor_vsn g in
+    let open Stdext.Fun in
+    ((Database.update_manifest (fun _ -> manifest))
+     ++ (Database.update_tableset (fun _ -> ts)))
+      (Database.make schema)
 
 
   let file schema xml_filename =
-      let input = open_in xml_filename in
-      Stdext.Pervasiveext.finally
-		  (fun () -> database schema (Xmlm.make_input (`Channel input)))
-		  (fun () -> close_in input)
+    let input = open_in xml_filename in
+    Stdext.Pervasiveext.finally
+      (fun () -> database schema (Xmlm.make_input (`Channel input)))
+      (fun () -> close_in input)
 
   let channel schema inchan =
-      database schema (Xmlm.make_input (`Channel inchan))
+    database schema (Xmlm.make_input (`Channel inchan))
 
 end
 

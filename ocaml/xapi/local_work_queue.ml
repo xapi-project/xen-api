@@ -53,21 +53,21 @@ let wait_in_line q description f =
   let state = ref `Pending in
   Locking_helpers.Thread_state.waiting_for (Locking_helpers.Lock q.Thread_queue.name);
   let ok = q.Thread_queue.push_fn description
-    (fun () ->
-       (* Signal the mothership to run the computation now *)
-       Mutex.execute m
-	 (fun () ->
-	    state := `Running;
-	    Condition.signal c
-	 );
-       (* Wait for the computation to complete *)
-       Mutex.execute m (fun () -> while !state = `Running do Condition.wait c m done)
-    ) in
+      (fun () ->
+         (* Signal the mothership to run the computation now *)
+         Mutex.execute m
+           (fun () ->
+              state := `Running;
+              Condition.signal c
+           );
+         (* Wait for the computation to complete *)
+         Mutex.execute m (fun () -> while !state = `Running do Condition.wait c m done)
+      ) in
   assert ok; (* queue has no length limit *)
   (* Wait for the signal from the queue processor *)
   Mutex.execute m (fun () -> while !state = `Pending do Condition.wait c m done);
   Locking_helpers.Thread_state.acquired (Locking_helpers.Lock q.Thread_queue.name);
   finally f
-	  (fun () ->
-		  Locking_helpers.Thread_state.released (Locking_helpers.Lock q.Thread_queue.name);
-		  Mutex.execute m (fun () -> state := `Finished; Condition.signal c))
+    (fun () ->
+       Locking_helpers.Thread_state.released (Locking_helpers.Lock q.Thread_queue.name);
+       Mutex.execute m (fun () -> state := `Finished; Condition.signal c))

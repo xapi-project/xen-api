@@ -13,7 +13,7 @@
  *)
 (**
  * @group Command-Line Interface (CLI)
- *)
+*)
 
 (* Backwards compatible CLI operations *)
 
@@ -42,24 +42,24 @@ let powerstate vm_r =
   let s = vm_r.API.vM_power_state in
   let op_to_string (_,s) =
     match s with
-      | `clone -> "CLONING"
-      | `start -> "STARTING"
-      | `clean_shutdown -> "SHUTTING_DOWN"
-      | `hard_shutdown ->  "SHUTTING_DOWN"
-      | `clean_reboot -> "REBOOTING"
-      | `hard_reboot -> "REBOOTING"
-      | `suspend -> "SUSPENDING"
-      | `resume -> "RESUMING"
-      | `export -> "EXPORTING"
-      | _ -> ""
+    | `clone -> "CLONING"
+    | `start -> "STARTING"
+    | `clean_shutdown -> "SHUTTING_DOWN"
+    | `hard_shutdown ->  "SHUTTING_DOWN"
+    | `clean_reboot -> "REBOOTING"
+    | `hard_reboot -> "REBOOTING"
+    | `suspend -> "SUSPENDING"
+    | `resume -> "RESUMING"
+    | `export -> "EXPORTING"
+    | _ -> ""
   in
   let state = String.concat " " (List.map op_to_string co) in
   if state <> "" then state else
     match s with
-      | `Halted -> "DOWN"
-      | `Paused -> "PAUSED"
-      | `Running -> "UP"
-      | `Suspended -> "SUSPENDED"
+    | `Halted -> "DOWN"
+    | `Paused -> "PAUSED"
+    | `Running -> "UP"
+    | `Suspended -> "SUSPENDED"
 
 (* Functions to get objects from the database in convenient ways *)
 
@@ -81,10 +81,10 @@ let get_patch_by_name_or_id rpc session_id params =
       let name = List.assoc "patch-name" params in
       function (_, x) -> (x.API.host_patch_name_label = name)
     else
-      if List.mem_assoc "patch-id" params
-      then
-	let id = List.assoc "patch-id" params in
-	function (_, x) -> (x.API.host_patch_uuid = id)
+    if List.mem_assoc "patch-id" params
+    then
+      let id = List.assoc "patch-id" params in
+      function (_, x) -> (x.API.host_patch_uuid = id)
     else raise (Failure "Either a patch-name or a patch-id must be specified")
   in
   let patches = List.filter filter_fun patches in
@@ -119,10 +119,10 @@ let host_sr_list printer rpc session_id params =
   let recs =
     List.map
       (fun (_,sr) ->
-	["NAME",sr.API.sR_name_label;
-	 "uuid",sr.API.sR_uuid;
-	 "active","true";
-	 "devices","<unknown>"]) srs
+         ["NAME",sr.API.sR_name_label;
+          "uuid",sr.API.sR_uuid;
+          "active","true";
+          "devices","<unknown>"]) srs
   in
   printer (Cli_printer.PTable recs)
 
@@ -134,8 +134,8 @@ let host_param_list printer rpc session_id params =
       "Xen version","<unknown>";
       "Installed","<unknown>";
       "Product version/build",
-     (List.assoc "product_version" host_r.API.host_software_version)^"/"^
-       (List.assoc "build_number" host_r.API.host_software_version);
+      (List.assoc "product_version" host_r.API.host_software_version)^"/"^
+      (List.assoc "build_number" host_r.API.host_software_version);
       "Sockets per node",string_of_int (List.length host_r.API.host_host_CPUs);
       "Cores per socket","<unknown>";
       "Threads per core","<unknown>"]] in
@@ -166,10 +166,10 @@ let host_cpu_list printer rpc session_id params =
   let cpus = Client.Host.get_host_CPUs rpc session_id this_host in
   let recs = List.map
       (fun cpu ->
-	let cpu = Client.Host_cpu.get_record rpc session_id cpu in
-	[("CPU"^(Int64.to_string cpu.API.host_cpu_number),cpu.API.host_cpu_modelname);
-	 ("Vendor",cpu.API.host_cpu_vendor);
-	 ("Speed",Int64.to_string cpu.API.host_cpu_speed)]) cpus in
+         let cpu = Client.Host_cpu.get_record rpc session_id cpu in
+         [("CPU"^(Int64.to_string cpu.API.host_cpu_number),cpu.API.host_cpu_modelname);
+          ("Vendor",cpu.API.host_cpu_vendor);
+          ("Speed",Int64.to_string cpu.API.host_cpu_speed)]) cpus in
   printer (Cli_printer.PTable recs)
 
 let host_cd_list printer rpc session_id params =
@@ -178,21 +178,21 @@ let host_cd_list printer rpc session_id params =
   let cd_vdis = List.flatten (List.map (fun (sr,sr_record) -> Client.SR.get_VDIs rpc session_id sr) cd_srs) in
   let records = List.map
       (fun vdi ->
-	let vdi_rec = Client.VDI.get_record rpc session_id vdi in
-	[("CD",vdi_rec.API.vDI_name_label);
-	 ("Description",vdi_rec.API.vDI_name_description);
-	 ("Location","<unknown>")]) cd_vdis in
+         let vdi_rec = Client.VDI.get_record rpc session_id vdi in
+         [("CD",vdi_rec.API.vDI_name_label);
+          ("Description",vdi_rec.API.vDI_name_description);
+          ("Location","<unknown>")]) cd_vdis in
   printer (Cli_printer.PTable records)
 
 let host_patch_list printer rpc session_id params =
   let patches = Client.Host_patch.get_all_records_where rpc session_id "true" in
   let records = List.map
-    (fun (patch, patch_rec) ->
-       [("PATCH", patch_rec.API.host_patch_name_label);
-	("uuid", patch_rec.API.host_patch_uuid);
-	("applied on", if patch_rec.API.host_patch_applied
-	 then Date.to_string patch_rec.API.host_patch_timestamp_applied
-	 else "never")]) patches in
+      (fun (patch, patch_rec) ->
+         [("PATCH", patch_rec.API.host_patch_name_label);
+          ("uuid", patch_rec.API.host_patch_uuid);
+          ("applied on", if patch_rec.API.host_patch_applied
+           then Date.to_string patch_rec.API.host_patch_timestamp_applied
+           else "never")]) patches in
   printer (Cli_printer.PTable records)
 
 let host_patch_remove printer rpc session_id params =
@@ -210,7 +210,7 @@ let host_patch_apply printer rpc session_id params =
 let get_disks rpc session_id vm =
   let vbds = Client.VM.get_VBDs rpc session_id vm in
   List.map (fun vbd -> (Client.VBD.get_record rpc session_id vbd,
-		       Client.VDI.get_record rpc session_id (Client.VBD.get_VDI rpc session_id vbd))) vbds
+                        Client.VDI.get_record rpc session_id (Client.VBD.get_VDI rpc session_id vbd))) vbds
 
 let vm_disk_list printer rpc session_id params =
   let op vm =
@@ -239,11 +239,11 @@ let vm_disk_setqos printer rpc session_id params =
       Client.VBD.set_qos_algorithm_type rpc session_id vbd "ionice";
       (* remove the key if it's already there *)
       (try
-	  Client.VBD.remove_from_qos_algorithm_params rpc session_id vbd "class";
-	with _ -> ());
+         Client.VBD.remove_from_qos_algorithm_params rpc session_id vbd "class";
+       with _ -> ());
       Client.VBD.add_to_qos_algorithm_params rpc session_id vbd "class" qos
     with
-	_ -> failwith "Disk not found"
+      _ -> failwith "Disk not found"
   in
   ignore(Cli_operations.do_vm_op printer rpc session_id op params [])
 
@@ -307,9 +307,9 @@ let vm_param_get printer rpc session_id params =
     let param_name=List.assoc "param-name" params in
     let result =
       try
-	List.filter (fun (k,v) -> k=param_name) allparams
+        List.filter (fun (k,v) -> k=param_name) allparams
       with
-	  _ -> ["error","Parameter not found"]
+        _ -> ["error","Parameter not found"]
     in
     printer (Cli_printer.PTable [result])
   in
@@ -321,25 +321,25 @@ let vm_param_set printer rpc session_id params =
     let param = List.assoc "param-name" params in
     let value = List.assoc "param-value" params in
     match param with
-      | "name" -> Client.VM.set_name_label rpc session_id vm value
-      | "description" -> Client.VM.set_name_description rpc session_id vm value
-      | "vcpus" -> Client.VM.set_VCPUs_at_startup rpc session_id vm (Int64.of_string value)
-      | "memory_set" ->
-	  if Client.VM.get_power_state rpc session_id vm <> `Halted
-	  then failwith "Cannot modify memory_set when VM is running";
-	  let bytes = Int64.shift_left (Int64.of_string value) 20 in
-	  Client.VM.set_memory_dynamic_max rpc session_id vm bytes;
-	  Client.VM.set_memory_dynamic_min rpc session_id vm bytes
-      | "auto_poweron" -> ()
-      | "boot_params" -> Client.VM.set_PV_args rpc session_id vm value
-      | "on_crash" -> Client.VM.set_actions_after_crash rpc session_id vm (Record_util.string_to_on_crash_behaviour value)
-      | "sched_credit_weight" ->
-	  (try Client.VM.remove_from_VCPUs_params rpc session_id vm "weight" with _ -> ());
-	  Client.VM.add_to_VCPUs_params rpc session_id vm "weight" value
-      | "sched_credit_cap" ->
-	  (try Client.VM.remove_from_VCPUs_params rpc session_id vm "cap" with _ -> ());
-	  Client.VM.add_to_VCPUs_params rpc session_id vm "cap" value
-      | _ -> failwith "Unknown parameter"
+    | "name" -> Client.VM.set_name_label rpc session_id vm value
+    | "description" -> Client.VM.set_name_description rpc session_id vm value
+    | "vcpus" -> Client.VM.set_VCPUs_at_startup rpc session_id vm (Int64.of_string value)
+    | "memory_set" ->
+      if Client.VM.get_power_state rpc session_id vm <> `Halted
+      then failwith "Cannot modify memory_set when VM is running";
+      let bytes = Int64.shift_left (Int64.of_string value) 20 in
+      Client.VM.set_memory_dynamic_max rpc session_id vm bytes;
+      Client.VM.set_memory_dynamic_min rpc session_id vm bytes
+    | "auto_poweron" -> ()
+    | "boot_params" -> Client.VM.set_PV_args rpc session_id vm value
+    | "on_crash" -> Client.VM.set_actions_after_crash rpc session_id vm (Record_util.string_to_on_crash_behaviour value)
+    | "sched_credit_weight" ->
+      (try Client.VM.remove_from_VCPUs_params rpc session_id vm "weight" with _ -> ());
+      Client.VM.add_to_VCPUs_params rpc session_id vm "weight" value
+    | "sched_credit_cap" ->
+      (try Client.VM.remove_from_VCPUs_params rpc session_id vm "cap" with _ -> ());
+      Client.VM.add_to_VCPUs_params rpc session_id vm "cap" value
+    | _ -> failwith "Unknown parameter"
   in
   ignore(Cli_operations.do_vm_op printer rpc session_id op params [])
 
@@ -356,51 +356,51 @@ let vm_install fd printer rpc session_id params =
   let templates = get_template_records rpc session_id in
   let template = List.filter (fun t -> t.API.vM_name_label = template_name) templates in
   match template with
-      [t] ->
-	marshal fd (Command (Print "Initiating install..."));
-	let new_vm = Client.VM.clone rpc session_id (Client.VM.get_by_uuid rpc session_id (t.API.vM_uuid)) name in
-	let uuid = Client.VM.get_uuid rpc session_id new_vm in
+    [t] ->
+    marshal fd (Command (Print "Initiating install..."));
+    let new_vm = Client.VM.clone rpc session_id (Client.VM.get_by_uuid rpc session_id (t.API.vM_uuid)) name in
+    let uuid = Client.VM.get_uuid rpc session_id new_vm in
 
-	(* Add VIFs to any network that has 'auto_add_to_VM' set to true *)
-	let nets = Client.Network.get_all rpc session_id in
-	let filtered_nets = List.filter (fun net -> try bool_of_string (List.assoc "auto_add_to_VM" (Client.Network.get_other_config rpc session_id net)) with _ -> false) nets in
+    (* Add VIFs to any network that has 'auto_add_to_VM' set to true *)
+    let nets = Client.Network.get_all rpc session_id in
+    let filtered_nets = List.filter (fun net -> try bool_of_string (List.assoc "auto_add_to_VM" (Client.Network.get_other_config rpc session_id net)) with _ -> false) nets in
 
-	let device=ref 0 in
-	let add_vif net =
-	  let mac = Record_util.random_mac_local () in
-	  marshal fd (Command (Print ("Adding VIF, device "^(string_of_int !device)^" to network '"^(Client.Network.get_name_label rpc session_id net)^"' mac="^mac)));
-	  ignore(Client.VIF.create rpc session_id (string_of_int !device) net new_vm mac 1500L [] "" [] `network_default [] [] );
-	  device := !device + 1
-	in
-	List.iter add_vif filtered_nets;
+    let device=ref 0 in
+    let add_vif net =
+      let mac = Record_util.random_mac_local () in
+      marshal fd (Command (Print ("Adding VIF, device "^(string_of_int !device)^" to network '"^(Client.Network.get_name_label rpc session_id net)^"' mac="^mac)));
+      ignore(Client.VIF.create rpc session_id (string_of_int !device) net new_vm mac 1500L [] "" [] `network_default [] [] );
+      device := !device + 1
+    in
+    List.iter add_vif filtered_nets;
 
-	ignore(may (fun vcpus -> Client.VM.set_VCPUs_max rpc session_id new_vm vcpus) vcpus);
-	ignore(may (fun vcpus -> Client.VM.set_VCPUs_at_startup rpc session_id new_vm vcpus) vcpus);
-	ignore(may (fun memory_set -> Client.VM.set_memory_dynamic_max rpc session_id new_vm memory_set) memory_set);
-	ignore(may (fun memory_set -> Client.VM.set_memory_static_max rpc session_id new_vm memory_set) memory_set);
-	ignore(may (fun memory_set -> Client.VM.set_memory_dynamic_min rpc session_id new_vm memory_set) memory_set);
-	ignore(may (fun boot_params -> Client.VM.set_PV_args rpc session_id new_vm boot_params) boot_params);
-	ignore(Client.VM.set_name_description rpc session_id new_vm description);
+    ignore(may (fun vcpus -> Client.VM.set_VCPUs_max rpc session_id new_vm vcpus) vcpus);
+    ignore(may (fun vcpus -> Client.VM.set_VCPUs_at_startup rpc session_id new_vm vcpus) vcpus);
+    ignore(may (fun memory_set -> Client.VM.set_memory_dynamic_max rpc session_id new_vm memory_set) memory_set);
+    ignore(may (fun memory_set -> Client.VM.set_memory_static_max rpc session_id new_vm memory_set) memory_set);
+    ignore(may (fun memory_set -> Client.VM.set_memory_dynamic_min rpc session_id new_vm memory_set) memory_set);
+    ignore(may (fun boot_params -> Client.VM.set_PV_args rpc session_id new_vm boot_params) boot_params);
+    ignore(Client.VM.set_name_description rpc session_id new_vm description);
 
-	let sr_uuid = match get_default_sr_uuid rpc session_id with
-	  | Some sr_uuid -> sr_uuid
-	  | None -> failwith "Failed to find a Pool default_SR and no override was provided" in
-	rewrite_provisioning_xml rpc session_id new_vm sr_uuid;
+    let sr_uuid = match get_default_sr_uuid rpc session_id with
+      | Some sr_uuid -> sr_uuid
+      | None -> failwith "Failed to find a Pool default_SR and no override was provided" in
+    rewrite_provisioning_xml rpc session_id new_vm sr_uuid;
 
-	Client.VM.provision rpc session_id new_vm;
-	(* Geneva doesn't start VMs automatically on install *)
-	(*
+    Client.VM.provision rpc session_id new_vm;
+    (* Geneva doesn't start VMs automatically on install *)
+ (*
 	Client.VM.start rpc session_id new_vm false true;
 	*)
-	(* We wait for the PV bootloader switcheroo *)
-	marshal fd (Command (Print ("New VM uuid: "^uuid)));
-	let record_matches record =
-	  (List.assoc "uuid" record) () = uuid &&
-	  (List.assoc "PV-bootloader" record) () <> "installer"
-	in
-	Cli_operations.event_wait_gen rpc session_id "vm" record_matches;
-	marshal fd (Command (Print ("[DONE]")))
-    | _ -> failwith "Template not found"
+    (* We wait for the PV bootloader switcheroo *)
+    marshal fd (Command (Print ("New VM uuid: "^uuid)));
+    let record_matches record =
+      (List.assoc "uuid" record) () = uuid &&
+      (List.assoc "PV-bootloader" record) () <> "installer"
+    in
+    Cli_operations.event_wait_gen rpc session_id "vm" record_matches;
+    marshal fd (Command (Print ("[DONE]")))
+  | _ -> failwith "Template not found"
 
 
 let host_bridge_list vbridge printer rpc session_id params =
@@ -413,9 +413,9 @@ let host_bridge_list vbridge printer rpc session_id params =
     let name = try List.assoc "geneva-name" other_config with _ -> Client.Network.get_bridge rpc session_id pbridge in
     [((if vbridge then "Virtual bridge" else "Physical bridge"),name);
      ("Description",Client.Network.get_name_description rpc session_id pbridge)] @
-      (if not vbridge then [("NIC",if vbridge then "" else Client.PIF.get_device rpc session_id (List.hd pifs))] else []) @
-      [("VLAN",if vbridge then "(null)" else Int64.to_string (Client.PIF.get_VLAN rpc session_id (List.hd pifs)));
-       ("Auto add to VM",try List.assoc "auto_add_to_VM" other_config with _ -> "false")]
+    (if not vbridge then [("NIC",if vbridge then "" else Client.PIF.get_device rpc session_id (List.hd pifs))] else []) @
+    [("VLAN",if vbridge then "(null)" else Int64.to_string (Client.PIF.get_VLAN rpc session_id (List.hd pifs)));
+     ("Auto add to VM",try List.assoc "auto_add_to_VM" other_config with _ -> "false")]
   in
   printer (Cli_printer.PTable (List.map bridge_to_printer_record pbridges))
 
@@ -424,20 +424,20 @@ let host_vbridge_add printer rpc session_id params =
   let autoadd = List.assoc "auto-vm-add" params in
   let desc = try List.assoc "vbridge-description" params with _ -> "" in
   ignore(Client.Network.create rpc session_id name desc 1500L
-	    (if autoadd="true" then [("auto_add_to_VM",autoadd);("geneva-name",name)] else [("geneva-name",name)]) [])
+           (if autoadd="true" then [("auto_add_to_VM",autoadd);("geneva-name",name)] else [("geneva-name",name)]) [])
 
 let host_vbridge_remove printer rpc session_id params =
   let name = List.assoc "vbridge-name" params in
   let networks = Client.Network.get_all rpc session_id in
   let net = List.filter (fun net ->
-    let other_config = Client.Network.get_other_config rpc session_id net in
-    if List.mem_assoc "geneva-name" other_config then
-      List.assoc "geneva-name" other_config = name
-    else
-      Client.Network.get_bridge rpc session_id net = name) networks in
+      let other_config = Client.Network.get_other_config rpc session_id net in
+      if List.mem_assoc "geneva-name" other_config then
+        List.assoc "geneva-name" other_config = name
+      else
+        Client.Network.get_bridge rpc session_id net = name) networks in
   match net with
-      [n] -> Client.Network.destroy rpc session_id n
-    | _ -> failwith "Multiple networks found!"
+    [n] -> Client.Network.destroy rpc session_id n
+  | _ -> failwith "Multiple networks found!"
 
 let vdi_param_set printer rpc session_id params =
   let vdi = List.assoc "vdi" params in
@@ -445,11 +445,11 @@ let vdi_param_set printer rpc session_id params =
   let param_value=List.assoc "param-value" params in
   let vdi_ref = Client.VDI.get_by_uuid rpc session_id vdi in
   match param_name with
-      "name-label" -> Client.VDI.set_name_label rpc session_id vdi_ref param_value
-    | "name-description" -> Client.VDI.set_name_description rpc session_id vdi_ref param_value
-    | "read-only" -> Client.VDI.set_read_only rpc session_id vdi_ref (bool_of_string param_value)
-    | "sharable" -> Client.VDI.set_sharable rpc session_id vdi_ref (bool_of_string param_value)
-    | _ -> failwith ("Unknown param "^param_name)
+    "name-label" -> Client.VDI.set_name_label rpc session_id vdi_ref param_value
+  | "name-description" -> Client.VDI.set_name_description rpc session_id vdi_ref param_value
+  | "read-only" -> Client.VDI.set_read_only rpc session_id vdi_ref (bool_of_string param_value)
+  | "sharable" -> Client.VDI.set_sharable rpc session_id vdi_ref (bool_of_string param_value)
+  | _ -> failwith ("Unknown param "^param_name)
 
 
 let vm_vif_add printer rpc session_id params =
@@ -473,20 +473,20 @@ let vm_vif_add printer rpc session_id params =
     let filter net =
       let other_config = Client.Network.get_other_config rpc session_id net in
       try
-	List.assoc "geneva-name" other_config = bridge
+        List.assoc "geneva-name" other_config = bridge
       with
-	  _ -> Client.Network.get_bridge rpc session_id net = bridge
+        _ -> Client.Network.get_bridge rpc session_id net = bridge
     in
     let net = List.filter filter networks in
     match net with
-      | [] -> failwith "Bridge not found"
-      |	n::ns ->
-	  begin
-	    let vif = Client.VIF.create rpc session_id device n vm mac 1500L [] "" [] `network_default [] [] in
-	    if List.mem_assoc "rate" params then
-	      (Client.VIF.set_qos_algorithm_type rpc session_id vif "ratelimit";
-	       Client.VIF.add_to_qos_algorithm_params rpc session_id vif "kbs" (List.assoc "rate" params))
-	  end
+    | [] -> failwith "Bridge not found"
+    |	n::ns ->
+      begin
+        let vif = Client.VIF.create rpc session_id device n vm mac 1500L [] "" [] `network_default [] [] in
+        if List.mem_assoc "rate" params then
+          (Client.VIF.set_qos_algorithm_type rpc session_id vif "ratelimit";
+           Client.VIF.add_to_qos_algorithm_params rpc session_id vif "kbs" (List.assoc "rate" params))
+      end
   in
   ignore(Cli_operations.do_vm_op printer rpc session_id op params [])
 
@@ -501,15 +501,15 @@ let vm_vif_list printer rpc session_id params =
       let mac = Client.VIF.get_MAC rpc session_id vif in
       let bridge_other_config = Client.Network.get_other_config rpc session_id (Client.VIF.get_network rpc session_id vif) in
       let bridge =
-	try List.assoc "geneva-name" bridge_other_config
-	with _ -> Client.Network.get_bridge rpc session_id (Client.VIF.get_network rpc session_id vif)
+        try List.assoc "geneva-name" bridge_other_config
+        with _ -> Client.Network.get_bridge rpc session_id (Client.VIF.get_network rpc session_id vif)
       in
       let ip =
-	try
-	  let networks = Client.VM_guest_metrics.get_networks rpc session_id (Client.VM.get_guest_metrics rpc session_id vm) in
-	  List.assoc ((Client.VIF.get_device rpc session_id vif)^"/ip") networks
-	with
-	    _ -> "not available [guest must be on with XenSource tools installed]"
+        try
+          let networks = Client.VM_guest_metrics.get_networks rpc session_id (Client.VM.get_guest_metrics rpc session_id vm) in
+          List.assoc ((Client.VIF.get_device rpc session_id vif)^"/ip") networks
+        with
+          _ -> "not available [guest must be on with XenSource tools installed]"
       in
       [("name",name);
        ("mac",mac);
@@ -536,8 +536,8 @@ let vm_vif_remove printer rpc session_id params =
     in
     let vif = List.filter (fun vif -> Client.VIF.get_device rpc session_id vif = device) vifs in
     match vif with
-	v::vs -> Client.VIF.destroy rpc session_id v
-      | _ -> failwith "Cannot find VIF"
+      v::vs -> Client.VIF.destroy rpc session_id v
+    | _ -> failwith "Cannot find VIF"
   in
   ignore(Cli_operations.do_vm_op printer rpc session_id op params [])
 

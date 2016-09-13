@@ -26,11 +26,11 @@ type config = { password : string } with rpc
 let config_sync_version = 2
 
 let config_sync_uri =
-	Filename.concat Constants.config_sync_uri (string_of_int config_sync_version)
+  Filename.concat Constants.config_sync_uri (string_of_int config_sync_version)
 
 let read_config_file () = match get_password superuser with
-	| None -> failwith "Couldn't get password"
-	| Some p -> { password = p }
+  | None -> failwith "Couldn't get password"
+  | Some p -> { password = p }
 
 let parse_config_string config = Jsonrpc.of_string config |> config_of_rpc
 
@@ -41,7 +41,7 @@ let rewrite_config_files config = parse_config_string config |> write_config
 let write_to_fd s msg = Unix.write s msg 0 (String.length msg) |> ignore
 
 let transmit_config_files s =
-	read_config_file () |> rpc_of_config |> Jsonrpc.to_string |> write_to_fd s
+  read_config_file () |> rpc_of_config |> Jsonrpc.to_string |> write_to_fd s
 
 (* We still need to respect older XenServer hosts which are expecting
    the entire /etc/password file. We need to make sure we send the
@@ -57,16 +57,16 @@ let config_file_sync_handler (req: Http.Request.t) s _ =
   debug "received request to write out dom0 config files";
   Xapi_http.with_context "Syncing dom0 config files over HTTP" req s
     (fun __context ->
-      let uri = String.split '/' (req.Http.Request.uri) |> List.filter (fun x -> x <> "") in
-      req.Http.Request.close <- true;
-      debug "sending headers";
-      Http_svr.headers s (Http.http_200_ok ~keep_alive:false ());
-      match uri with
-      | [path; version] when current version ->
+       let uri = String.split '/' (req.Http.Request.uri) |> List.filter (fun x -> x <> "") in
+       req.Http.Request.close <- true;
+       debug "sending headers";
+       Http_svr.headers s (Http.http_200_ok ~keep_alive:false ());
+       match uri with
+       | [path; version] when current version ->
          debug "writing dom0 config files";
          transmit_config_files s;
          debug "finished writing dom0 config files"
-      | _ ->
+       | _ ->
          debug "writing legacy dom0 config files";
          legacy_transmit_passwd s;
          debug "finished writing legacy dom0 config files")
@@ -74,17 +74,17 @@ let config_file_sync_handler (req: Http.Request.t) s _ =
 let fetch_config_files_internal ~master_address ~pool_secret =
   Server_helpers.exec_with_new_task "fetch_config_files"
     (fun __context ->
-      Helpers.call_api_functions ~__context
-				(fun rpc session_id ->
-					let request = Xapi_http.http_request
-						~cookie:[ "session_id", Ref.string_of session_id ]
-						Http.Get config_sync_uri in
-					let open Xmlrpc_client in
-					let transport = SSL (SSL.make (), master_address, !Xapi_globs.https_port) in
-					with_transport transport
-						(with_http request
-							 (fun (response, fd) ->
-								 Stdext.Unixext.string_of_fd fd))))
+       Helpers.call_api_functions ~__context
+         (fun rpc session_id ->
+            let request = Xapi_http.http_request
+                ~cookie:[ "session_id", Ref.string_of session_id ]
+                Http.Get config_sync_uri in
+            let open Xmlrpc_client in
+            let transport = SSL (SSL.make (), master_address, !Xapi_globs.https_port) in
+            with_transport transport
+              (with_http request
+                 (fun (response, fd) ->
+                    Stdext.Unixext.string_of_fd fd))))
 
 (* Invoked on slave as a notification that config files may have changed. Slaves can use
    this to decide whether to sync the new config files if the hash is different from the
@@ -98,7 +98,7 @@ let fetch_config_files ~master_address ~pool_secret =
 let fetch_config_files_on_slave_startup () =
   Server_helpers.exec_with_new_task "checking no other known hosts are masters"
     (fun __context ->
-      let master_address = Helpers.get_main_ip_address () in
-      let pool_secret = !Xapi_globs.pool_secret in
-      let config_files = fetch_config_files_internal ~master_address ~pool_secret in
-			rewrite_config_files config_files)
+       let master_address = Helpers.get_main_ip_address () in
+       let pool_secret = !Xapi_globs.pool_secret in
+       let config_files = fetch_config_files_internal ~master_address ~pool_secret in
+       rewrite_config_files config_files)

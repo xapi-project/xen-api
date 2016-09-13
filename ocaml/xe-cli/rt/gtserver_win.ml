@@ -53,22 +53,22 @@ class server n np =
 
     method process s =
       try
-	begin
-	  match self#receive s with
-              Shutdown timeout -> self#shutdown s timeout
-	    | Reboot timeout -> self#reboot s timeout
-	    | Test -> self#test s
-	    | Crash -> self#crash s
-	    | CheckCD devs -> self#checkcds s devs
-	    | CheckVIF dev -> self#checkvif s dev
-	    | CheckDisks devs -> self#checkdisks s devs
-	    | CheckMountDisks devs -> self#checkmountdisks s devs
-	    | CheckCDFail devs -> self#checkcds s devs
-	    | _ -> ()
-	end;
-	Unix.shutdown s Unix.SHUTDOWN_ALL
+        begin
+          match self#receive s with
+            Shutdown timeout -> self#shutdown s timeout
+          | Reboot timeout -> self#reboot s timeout
+          | Test -> self#test s
+          | Crash -> self#crash s
+          | CheckCD devs -> self#checkcds s devs
+          | CheckVIF dev -> self#checkvif s dev
+          | CheckDisks devs -> self#checkdisks s devs
+          | CheckMountDisks devs -> self#checkmountdisks s devs
+          | CheckCDFail devs -> self#checkcds s devs
+          | _ -> ()
+        end;
+        Unix.shutdown s Unix.SHUTDOWN_ALL
       with
-	  e -> GuestOp.logerr (Printexc.to_string e)
+        e -> GuestOp.logerr (Printexc.to_string e)
 
 
   end

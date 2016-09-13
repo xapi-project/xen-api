@@ -13,7 +13,7 @@
  *)
 (** Module that handles assigning PCI devices to VMs.
  * @group Virtual-Machine Management
- *)
+*)
 
 (** Check if a given PCI device is free. *)
 val get_free_functions : __context:Context.t -> [ `PCI ] Ref.t -> int

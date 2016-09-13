@@ -31,7 +31,7 @@ let fatal_error s =
   exit 1
 
 type operation = Write_database | Read_gencount | Read_hostiqn | Write_hostiqn
-		 | Am_i_in_the_database | Unknown of string
+               | Am_i_in_the_database | Unknown of string
 let parse_operation s =
   match (String.lowercase s) with
   | "write_db" -> Write_database
@@ -43,7 +43,7 @@ let parse_operation s =
 
 let initialise_db_connections() =
   let dbs = Parse_db_conf.parse_db_conf
-    (if !config="" then !Xapi_globs.db_conf_path else !config) in
+      (if !config="" then !Xapi_globs.db_conf_path else !config) in
   Db_conn_store.initialise_db_connections dbs;
   dbs
 
@@ -53,7 +53,7 @@ let read_in_database() =
   Db_cache_impl.make (Db_backend.make ()) connections Schema.empty
 
 let write_out_databases() =
-	Db_cache_impl.sync (Db_conn_store.read_db_connections ()) (Db_ref.get_database (Db_backend.make ()))
+  Db_cache_impl.sync (Db_conn_store.read_db_connections ()) (Db_ref.get_database (Db_backend.make ()))
 
 (* should never be thrown due to checking argument at start *)
 exception UnknownFormat
@@ -62,10 +62,10 @@ let write_out_database filename =
   print_string ("Dumping database to: "^filename^"\n");
   Db_cache_impl.sync
     [ {
-		Parse_db_conf.dummy_conf with
-			Parse_db_conf.path=filename;
-			Parse_db_conf.mode=Parse_db_conf.No_limit;
-			Parse_db_conf.compress=(!compress)
+      Parse_db_conf.dummy_conf with
+      Parse_db_conf.path=filename;
+      Parse_db_conf.mode=Parse_db_conf.No_limit;
+      Parse_db_conf.compress=(!compress)
     } ] (Db_ref.get_database (Db_backend.make ()))
 
 let help_pad = "      "
@@ -88,7 +88,7 @@ let do_write_database() =
   begin
     read_in_database();
     if !xmltostdout then
-		Db_xml.To.fd (Unix.descr_of_out_channel stdout) (Db_ref.get_database (Db_backend.make()))
+      Db_xml.To.fd (Unix.descr_of_out_channel stdout) (Db_ref.get_database (Db_backend.make()))
     else
       write_out_database !filename
   end
@@ -106,10 +106,10 @@ let _other_config = "other_config"
 let do_read_hostiqn() =
   read_in_database();
   match find_my_host_row() with
-	  | None -> failwith "No row for localhost"
-	  | Some (_, row) ->
-		  let other_config = Schema.Value.Unsafe_cast.pairs (Row.find Db_names.other_config row) in
-		  Printf.printf "%s" (List.assoc _iscsi_iqn other_config)
+  | None -> failwith "No row for localhost"
+  | Some (_, row) ->
+    let other_config = Schema.Value.Unsafe_cast.pairs (Row.find Db_names.other_config row) in
+    Printf.printf "%s" (List.assoc _iscsi_iqn other_config)
 
 let do_write_hostiqn() =
   if !iqn = "" then
@@ -117,35 +117,35 @@ let do_write_hostiqn() =
   let new_iqn = !iqn in
   read_in_database();
   match find_my_host_row() with
-	  | None -> failwith "No row for localhost"
-	  | Some (r, row) ->
-		  (* read other_config from my row, replace host_iqn if already there, add it if its not there and write back *)
-		  let other_config = Schema.Value.Unsafe_cast.pairs (Row.find Db_names.other_config row) in
-		  let other_config =
-			  if List.mem_assoc _iscsi_iqn other_config then
-				  (* replace if key already exists *)
-				  List.map (fun (k,v) ->k, if k=_iscsi_iqn then new_iqn else v) other_config
-			  else
-				  (* ... otherwise add new key/value pair *)
-				  (_iscsi_iqn,new_iqn)::other_config in
-		  let other_config = Schema.Value.Pairs other_config in
-		  Db_ref.update_database (Db_backend.make ()) (set_field Db_names.host r Db_names.other_config other_config);
-		  write_out_databases()
+  | None -> failwith "No row for localhost"
+  | Some (r, row) ->
+    (* read other_config from my row, replace host_iqn if already there, add it if its not there and write back *)
+    let other_config = Schema.Value.Unsafe_cast.pairs (Row.find Db_names.other_config row) in
+    let other_config =
+      if List.mem_assoc _iscsi_iqn other_config then
+        (* replace if key already exists *)
+        List.map (fun (k,v) ->k, if k=_iscsi_iqn then new_iqn else v) other_config
+      else
+        (* ... otherwise add new key/value pair *)
+        (_iscsi_iqn,new_iqn)::other_config in
+    let other_config = Schema.Value.Pairs other_config in
+    Db_ref.update_database (Db_backend.make ()) (set_field Db_names.host r Db_names.other_config other_config);
+    write_out_databases()
 
 let do_am_i_in_the_database () =
-	read_in_database();
-    Printf.printf "%b" (find_my_host_row () <> None)
+  read_in_database();
+  Printf.printf "%b" (find_my_host_row () <> None)
 
 let _ =
   init_logs();
   Arg.parse ([
-	       "-compress", Arg.Set compress, "whether to compress the XML output";
-               "-config", Arg.Set_string config, "config file to read";
-	       "-filename", Arg.Set_string filename, "filename to write to";
-	       "-xmltostdout", Arg.Set xmltostdout, "write XML db to stdout [compress/filename ignored if this option is present]";
-	       "-operation", Arg.Set_string operation, "operation to perform:\n"^operation_list^"\n"^help_pad^"(defaults to write_db if no operation specified)";
-	       "-hostiqn", Arg.Set_string iqn, "hostiqn value"
-	     ])
+      "-compress", Arg.Set compress, "whether to compress the XML output";
+      "-config", Arg.Set_string config, "config file to read";
+      "-filename", Arg.Set_string filename, "filename to write to";
+      "-xmltostdout", Arg.Set xmltostdout, "write XML db to stdout [compress/filename ignored if this option is present]";
+      "-operation", Arg.Set_string operation, "operation to perform:\n"^operation_list^"\n"^help_pad^"(defaults to write_db if no operation specified)";
+      "-hostiqn", Arg.Set_string iqn, "hostiqn value"
+    ])
     (fun x -> print_string ("Warning, ignoring unknown argument: "^x))
     "XE database tool";
   if !operation = "" then
@@ -153,12 +153,12 @@ let _ =
   info "xapi-db-process executed: operation='%s'" !operation;
   match parse_operation !operation with
   | Write_database ->
-      do_write_database()
+    do_write_database()
   | Read_hostiqn ->
-      do_read_hostiqn()
+    do_read_hostiqn()
   | Write_hostiqn ->
-      do_write_hostiqn()
+    do_write_hostiqn()
   | Am_i_in_the_database ->
-      do_am_i_in_the_database()
+    do_am_i_in_the_database()
   | _ ->
-      error "unknown operation %s" !operation
+    error "unknown operation %s" !operation

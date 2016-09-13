@@ -13,21 +13,21 @@
  *)
 (**
  * @group Main Loop and Start-up
- *)
+*)
 
 open Xapi
 
 let _ =
-	Debug.set_facility Syslog.Local5;
+  Debug.set_facility Syslog.Local5;
 
-	init_args(); (* need to read args to find out whether to daemonize or not *)
-	Xcp_service.maybe_daemonize ();
+  init_args(); (* need to read args to find out whether to daemonize or not *)
+  Xcp_service.maybe_daemonize ();
 
   (* Disable logging for the module requested in the config *)
   List.iter (fun m ->
-    D.debug "Disabling logging for: %s" m;
-    Debug.disable m
-  ) !Xapi_globs.disable_logging_for;
+      D.debug "Disabling logging for: %s" m;
+      Debug.disable m
+    ) !Xapi_globs.disable_logging_for;
 
   Stdext.Unixext.pidfile_write "/var/run/xapi.pid";
 

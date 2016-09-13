@@ -13,7 +13,7 @@
  *)
 (**
  * @group Helper functions for handling system domains
- *)
+*)
 
 
 (** [is_system_domain vm] returns true if [vm] is a special system domain *)
@@ -39,7 +39,7 @@ val record_pbd_storage_driver_domain: __context:Context.t -> pbd:API.ref_PBD -> 
 val storage_driver_domain_of_sr_type: __context:Context.t -> _type:string -> API.ref_VM
 
 (** [pbd_of_vm __context vm] returns (Some pbd) if [vm] is a driver domain
-	for [pbd] and None otherwise. *)
+    	for [pbd] and None otherwise. *)
 val pbd_of_vm: __context:Context.t -> vm:API.ref_VM -> API.ref_PBD option
 
 (** [is_in_use __context self] returns true if [self] is in use as a system domain *)
@@ -53,10 +53,10 @@ val ip_of: __context:Context.t -> API.ref_VM -> string
 
 (** One of many service running in a driver domain *)
 type service = {
-	uuid: string;
-	ty: string;
-	instance: string;
-	url: string;
+  uuid: string;
+  ty: string;
+  instance: string;
+  url: string;
 }
 val rpc_of_service: service -> Rpc.t
 val service_of_rpc: Rpc.t -> service

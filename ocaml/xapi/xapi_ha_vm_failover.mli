@@ -13,7 +13,7 @@
  *)
 (**
  * @group High Availability (HA)
- *)
+*)
 
 val all_protected_vms : __context:Context.t -> (API.ref_VM * API.vM_t) list
 

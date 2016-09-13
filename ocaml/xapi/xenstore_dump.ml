@@ -15,7 +15,7 @@
     which can be used to preserve selected parts of xenstore across suspend/resume/migrate.
 
     Permissions have to be handled separately.
- *)
+*)
 
 open Xstringext
 open Xenstore
@@ -31,8 +31,8 @@ let dump ~xs (path: string) : Xml.xml =
     let relative_paths = List.map (Filename.concat prefix) files in
     let absolute_paths = List.map (Filename.concat path) files in
     let kvpairs = List.map
-      (fun (relative, absolute) -> relative, handle_enoent xs.Xs.read absolute)
-      (List.combine relative_paths absolute_paths) in
+        (fun (relative, absolute) -> relative, handle_enoent xs.Xs.read absolute)
+        (List.combine relative_paths absolute_paths) in
 
     List.concat (kvpairs :: children)
   in
@@ -42,15 +42,15 @@ let dump ~xs (path: string) : Xml.xml =
 
 let restore ~xs (path: string) (dump: Xml.xml) = match dump with
   | Xml.Element("xenstore-dump", [ "version", _ ], nodes) ->
-      let node = function
-	| Xml.Element("n", attr, _) ->
-	    if not(List.mem_assoc "path" attr)
-	    then failwith "expected path attribute";
-	    if not(List.mem_assoc "value" attr)
-	    then failwith "expected value attribute";
-	    List.assoc "path" attr, List.assoc "value" attr
-	| _ -> failwith "expected <n> element" in
-      let nodes = List.map node nodes in
-      xs.Xs.writev path nodes
+    let node = function
+      | Xml.Element("n", attr, _) ->
+        if not(List.mem_assoc "path" attr)
+        then failwith "expected path attribute";
+        if not(List.mem_assoc "value" attr)
+        then failwith "expected value attribute";
+        List.assoc "path" attr, List.assoc "value" attr
+      | _ -> failwith "expected <n> element" in
+    let nodes = List.map node nodes in
+    xs.Xs.writev path nodes
   | _ -> failwith "expected <xenstore-dump> element"
 

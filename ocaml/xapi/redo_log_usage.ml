@@ -29,31 +29,31 @@ let read_from_redo_log log staging_path db_ref =
     let read_db gen_count fd expected_length latest_response_time =
       (* Read the database from the fd into a file *)
       let temp_file = Filename.temp_file "from-vdi" ".db" in
-	Stdext.Pervasiveext.finally
+      Stdext.Pervasiveext.finally
         (fun () ->
-          let outfd = Unix.openfile temp_file [Unix.O_CREAT; Unix.O_WRONLY; Unix.O_TRUNC] 0o755 in
-          (* ideally, the reading would also respect the latest_response_time *)
-          let total_read = Stdext.Unixext.read_data_in_chunks (fun str length -> Stdext.Unixext.time_limited_write outfd length str latest_response_time) fd in
-          R.debug "Reading database from fd into file %s" temp_file;
+           let outfd = Unix.openfile temp_file [Unix.O_CREAT; Unix.O_WRONLY; Unix.O_TRUNC] 0o755 in
+           (* ideally, the reading would also respect the latest_response_time *)
+           let total_read = Stdext.Unixext.read_data_in_chunks (fun str length -> Stdext.Unixext.time_limited_write outfd length str latest_response_time) fd in
+           R.debug "Reading database from fd into file %s" temp_file;
 
-          (* Check that we read the expected amount of data *)
-          R.debug "We read %d bytes and were told to expect %d bytes" total_read expected_length;
-          if total_read <> expected_length then raise (DatabaseWrongSize (expected_length, total_read));
+           (* Check that we read the expected amount of data *)
+           R.debug "We read %d bytes and were told to expect %d bytes" total_read expected_length;
+           if total_read <> expected_length then raise (DatabaseWrongSize (expected_length, total_read));
 
-          (* Read from the file into the cache *)
-          let conn = Parse_db_conf.make temp_file in
-          (* ideally, the reading from the file would also respect the latest_response_time *)
-          let db = Backend_xml.populate (Datamodel_schema.of_datamodel ()) conn in
-          Db_ref.update_database db_ref (fun _ -> db);
+           (* Read from the file into the cache *)
+           let conn = Parse_db_conf.make temp_file in
+           (* ideally, the reading from the file would also respect the latest_response_time *)
+           let db = Backend_xml.populate (Datamodel_schema.of_datamodel ()) conn in
+           Db_ref.update_database db_ref (fun _ -> db);
 
-          R.debug "Finished reading database from %s into cache (generation = %Ld)" temp_file gen_count;
+           R.debug "Finished reading database from %s into cache (generation = %Ld)" temp_file gen_count;
 
-          (* Set the generation count *)
-          latest_generation := Some gen_count
+           (* Set the generation count *)
+           latest_generation := Some gen_count
         )
         (fun () ->
-          (* Remove the temporary file *)
-          Stdext.Unixext.unlink_safe temp_file
+           (* Remove the temporary file *)
+           Stdext.Unixext.unlink_safe temp_file
         )
     in
 

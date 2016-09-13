@@ -53,23 +53,23 @@ let checkcds devices checkdev =
     if is_pv then ["2","xvdc";"3","xvdd"] else ["2","hdc";"3","hdd"]
   in
   let results = List.map (fun dev ->
-    let ldevice = List.assoc dev devmap in
-    if checkdev then ignore(checkdevice ldevice);
-    ignore(Sys.command ("mkdir -p /mnt/cdrom0"));
-    ignore(Sys.command ("mount /dev/"^ldevice^" /mnt/cdrom0"));
-    let ic = Unix.open_process_in "ls /mnt/cdrom0" in
-    let result = read ic [] in
-    ignore(Sys.command "umount /mnt/cdrom0");
-    dev ^ ":\n\n" ^ (String.concat "\n" result)) devices in
+      let ldevice = List.assoc dev devmap in
+      if checkdev then ignore(checkdevice ldevice);
+      ignore(Sys.command ("mkdir -p /mnt/cdrom0"));
+      ignore(Sys.command ("mount /dev/"^ldevice^" /mnt/cdrom0"));
+      let ic = Unix.open_process_in "ls /mnt/cdrom0" in
+      let result = read ic [] in
+      ignore(Sys.command "umount /mnt/cdrom0");
+      dev ^ ":\n\n" ^ (String.concat "\n" result)) devices in
   Gtmessages.CmdResult (String.concat "\n" results)
 
 let checkdisks devices =
   let results = List.map (fun dev ->
-    ignore(checkdevice dev);
-    let ldevice = dev in
-    let ic = Unix.open_process_in ("fdisk /dev/"^ldevice) in
-    let result = read ic [] in
-    String.concat "\n" result) devices in
+      ignore(checkdevice dev);
+      let ldevice = dev in
+      let ic = Unix.open_process_in ("fdisk /dev/"^ldevice) in
+      let result = read ic [] in
+      String.concat "\n" result) devices in
   Gtmessages.CmdResult (String.concat "\n" results)
 
 let setuptestdisk device = (* Device is in this case a full sda or hda or whatever *)

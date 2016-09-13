@@ -36,53 +36,53 @@ let rec string_of_expr =
 exception XML_unmarshall_error
 let val_of_xml xml =
   match (XMLRPC.From.array (fun x->x) xml) with
-      [a; s] ->
-	begin
-	  match (XMLRPC.From.string a) with
-	      "field" -> Field (XMLRPC.From.string s)
-	    | "literal" -> Literal (XMLRPC.From.string s)
-	    | _ -> raise XML_unmarshall_error
-	end
-    | _ -> raise XML_unmarshall_error
+    [a; s] ->
+    begin
+      match (XMLRPC.From.string a) with
+        "field" -> Field (XMLRPC.From.string s)
+      | "literal" -> Literal (XMLRPC.From.string s)
+      | _ -> raise XML_unmarshall_error
+    end
+  | _ -> raise XML_unmarshall_error
 
 let rec expr_of_xml xml =
   match (XMLRPC.From.array (fun x->x) xml) with
-      [x] ->
-	begin
-	  match (XMLRPC.From.string x) with
-	      "true" -> True
-	    | "false" -> False
-	    | _ -> raise XML_unmarshall_error
-	end
-    | [x;y] ->
-	begin
-	  match (XMLRPC.From.string x) with
-	      "not" -> Not (expr_of_xml y)
-	    | _ -> raise XML_unmarshall_error
-	end
-    | [x;y;z] ->
-	begin
-	  match (XMLRPC.From.string x) with
-	      "and" -> And(expr_of_xml y, expr_of_xml z)
-	    | "or" -> Or(expr_of_xml y, expr_of_xml z)
-	    | "eq" -> Eq(val_of_xml y, val_of_xml z)
-		| _ -> raise XML_unmarshall_error
-	end
-	| _ -> raise XML_unmarshall_error
+    [x] ->
+    begin
+      match (XMLRPC.From.string x) with
+        "true" -> True
+      | "false" -> False
+      | _ -> raise XML_unmarshall_error
+    end
+  | [x;y] ->
+    begin
+      match (XMLRPC.From.string x) with
+        "not" -> Not (expr_of_xml y)
+      | _ -> raise XML_unmarshall_error
+    end
+  | [x;y;z] ->
+    begin
+      match (XMLRPC.From.string x) with
+        "and" -> And(expr_of_xml y, expr_of_xml z)
+      | "or" -> Or(expr_of_xml y, expr_of_xml z)
+      | "eq" -> Eq(val_of_xml y, val_of_xml z)
+      | _ -> raise XML_unmarshall_error
+    end
+  | _ -> raise XML_unmarshall_error
 
 let xml_of_val v =
   match v with
-      Field s -> XMLRPC.To.array [XMLRPC.To.string "field"; XMLRPC.To.string s]
-    | Literal s -> XMLRPC.To.array [XMLRPC.To.string "literal"; XMLRPC.To.string s]
+    Field s -> XMLRPC.To.array [XMLRPC.To.string "field"; XMLRPC.To.string s]
+  | Literal s -> XMLRPC.To.array [XMLRPC.To.string "literal"; XMLRPC.To.string s]
 
 let rec xml_of_expr e =
   match e with
-      True -> XMLRPC.To.array [XMLRPC.To.string "true"]
-    | False -> XMLRPC.To.array [XMLRPC.To.string "false"]
-    | Not e -> XMLRPC.To.array [XMLRPC.To.string "not";xml_of_expr e]
-    | And(a,b) -> XMLRPC.To.array [XMLRPC.To.string "and"; xml_of_expr a; xml_of_expr b]
-    | Or(a,b) -> XMLRPC.To.array [XMLRPC.To.string "or"; xml_of_expr a; xml_of_expr b]
-    | Eq(a,b) -> XMLRPC.To.array [XMLRPC.To.string "eq"; xml_of_val a; xml_of_val b]
+    True -> XMLRPC.To.array [XMLRPC.To.string "true"]
+  | False -> XMLRPC.To.array [XMLRPC.To.string "false"]
+  | Not e -> XMLRPC.To.array [XMLRPC.To.string "not";xml_of_expr e]
+  | And(a,b) -> XMLRPC.To.array [XMLRPC.To.string "and"; xml_of_expr a; xml_of_expr b]
+  | Or(a,b) -> XMLRPC.To.array [XMLRPC.To.string "or"; xml_of_expr a; xml_of_expr b]
+  | Eq(a,b) -> XMLRPC.To.array [XMLRPC.To.string "eq"; xml_of_val a; xml_of_val b]
 
 
 (** Evaluate a predicate over a database row represented by a function
@@ -102,8 +102,8 @@ exception Expression_error of (string * exn)
 
 (* A simple parser for the expression language: *)
 let expr_of_string x = try
-	 Db_filter_parse.exprstr Db_filter_lex.lexer
-	   (Lexing.from_string x)
+    Db_filter_parse.exprstr Db_filter_lex.lexer
+      (Lexing.from_string x)
   with e -> raise (Expression_error (x, e))
 
 

@@ -13,12 +13,12 @@
  *)
 (**
  * @group Command-Line Interface (CLI)
- *)
+*)
 
 type op =
-    Cli_printer.print_fn ->
-      (Rpc.call -> Rpc.response) ->
-      API.ref_session -> ((string*string) list) -> unit
+  Cli_printer.print_fn ->
+  (Rpc.call -> Rpc.response) ->
+  API.ref_session -> ((string*string) list) -> unit
 
 type imp =
     With_fd of (Unix.file_descr -> op)
@@ -30,19 +30,19 @@ type imp =
 
 (** special options for CLI commands *)
 type flag =
-| Vm_selectors (** adds a "vm" parameter for the name of a VM (rather than a UUID) *)
-| Host_selectors (** a "host" parameter for the name of a host (rather than a UUID) *)
-| Sr_selectors (** a "sr" parameter for the name of a SR (rather than a UUID) *)
-| Standard (** includes the command in the list of common commands displayed by "xe help" *)
-| Neverforward
-| Hidden
-| Deprecated of string list
+  | Vm_selectors (** adds a "vm" parameter for the name of a VM (rather than a UUID) *)
+  | Host_selectors (** a "host" parameter for the name of a host (rather than a UUID) *)
+  | Sr_selectors (** a "sr" parameter for the name of a SR (rather than a UUID) *)
+  | Standard (** includes the command in the list of common commands displayed by "xe help" *)
+  | Neverforward
+  | Hidden
+  | Deprecated of string list
 
 type cmd_spec =
-    {reqd:string list;
-     optn:string list; (* optional arguments *)
-     help:string;
-     implementation: imp;
-     flags:flag list}
+  {reqd:string list;
+   optn:string list; (* optional arguments *)
+   help:string;
+   implementation: imp;
+   flags:flag list}
 
 

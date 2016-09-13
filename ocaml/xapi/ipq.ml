@@ -14,7 +14,7 @@
 (* Imperative priority queue *)
 
 type 'a event = { ev: 'a;
-		  time: float }
+                  time: float }
 
 type 'a t = {mutable size : int; mutable data : 'a event array }
 
@@ -22,7 +22,7 @@ exception EmptyHeap
 
 let create n =
   if n<=0 then invalid_arg "create" else
-  { size = -n; data=[| |] }
+    { size = -n; data=[| |] }
 
 let is_empty h =
   h.size <= 0
@@ -33,8 +33,8 @@ let resize h =
   let n'=2*n in
   let d = h.data in
   let d' = Array.create n' d.(0) in
-    Array.blit d 0 d' 0 n;
-    h.data <- d'
+  Array.blit d 0 d' 0 n;
+  h.data <- d'
 
 let add h x =
   (* first addition: we allocate the array *)
@@ -72,14 +72,14 @@ let remove h s =
     let j = 2 * i + 1 in
     if j < n then
       let j =
-	let j' = j + 1 in
-	if j' < n && (d.(j').time < d.(j).time) then j' else j
+        let j' = j + 1 in
+        if j' < n && (d.(j').time < d.(j).time) then j' else j
       in
       if (d.(j).time < x.time) then begin
-	d.(i) <- d.(j);
-	movedown j
+        d.(i) <- d.(j);
+        movedown j
       end else
-	d.(i) <- x
+        d.(i) <- x
     else
       d.(i) <- x
   in

@@ -50,13 +50,13 @@ let get_type is_cert =
 
 let safe_char c =
   match c with
-    | 'A'..'Z'
-    | 'a'..'z'
-    | '0'..'9'
-    | '.' | '_' | '-' ->
-        true
-    | _ ->
-        false
+  | 'A'..'Z'
+  | 'a'..'z'
+  | '0'..'9'
+  | '.' | '_' | '-' ->
+    true
+  | _ ->
+    false
 
 let not_safe_chars name =
   let n = String.length name in
@@ -109,10 +109,10 @@ let local_sync () =
   try
     rehash()
   with
-    | e ->
-        warn "Exception rehashing certificates: %s"
-          (ExnHelper.string_of_exn e);
-        raise_library_corrupt()
+  | e ->
+    warn "Exception rehashing certificates: %s"
+      (ExnHelper.string_of_exn e);
+    raise_library_corrupt()
 
 let cert_perms is_cert =
   let stat = Unix.stat (library_path is_cert) in
@@ -132,10 +132,10 @@ let host_install is_cert ~name ~cert =
     Unix.chmod filename (cert_perms is_cert);
     rehash()
   with
-    | e ->
-        warn "Exception installing %s %s: %s" (get_type is_cert) name
-          (ExnHelper.string_of_exn e);
-        raise_library_corrupt()
+  | e ->
+    warn "Exception installing %s %s: %s" (get_type is_cert) name
+      (ExnHelper.string_of_exn e);
+    raise_library_corrupt()
 
 let host_uninstall is_cert ~name =
   if not_safe is_cert name then
@@ -148,10 +148,10 @@ let host_uninstall is_cert ~name =
     Sys.remove filename;
     rehash()
   with
-    | e ->
-        warn "Exception uninstalling %s %s: %s" (get_type is_cert) name
-          (ExnHelper.string_of_exn e);
-        raise_corrupt is_cert name
+  | e ->
+    warn "Exception uninstalling %s %s: %s" (get_type is_cert) name
+      (ExnHelper.string_of_exn e);
+    raise_corrupt is_cert name
 
 let get_cert is_cert name =
   if not_safe is_cert name then
@@ -160,10 +160,10 @@ let get_cert is_cert name =
   try
     string_of_file filename
   with
-    | e ->
-        warn "Exception reading %s %s: %s" (get_type is_cert) name
-          (ExnHelper.string_of_exn e);
-        raise_corrupt is_cert name
+  | e ->
+    warn "Exception reading %s %s: %s" (get_type is_cert) name
+      (ExnHelper.string_of_exn e);
+    raise_corrupt is_cert name
 
 let sync_all_hosts ~__context hosts =
   let exn = ref None in
@@ -174,12 +174,12 @@ let sync_all_hosts ~__context hosts =
             try
               Client.Host.certificate_sync rpc session_id host
             with
-              | e ->
-                  exn := Some e)
+            | e ->
+              exn := Some e)
          hosts);
   match !exn with
-    | Some e -> raise e
-    | None -> ()
+  | Some e -> raise e
+  | None -> ()
 
 let sync_certs_crls is_cert list_func install_func uninstall_func
     ~__context master_certs host =
@@ -224,12 +224,12 @@ let sync_certs_all_hosts is_cert ~__context master_certs hosts_but_master =
        try
          sync_certs is_cert ~__context master_certs host
        with
-         | e ->
-             exn := Some e)
+       | e ->
+         exn := Some e)
     hosts_but_master;
   match !exn with
-    | Some e -> raise e
-    | None -> ()
+  | Some e -> raise e
+  | None -> ()
 
 let pool_sync ~__context =
   let hosts = Db.Host.get_all ~__context in
@@ -247,16 +247,16 @@ let pool_install is_cert ~__context ~name ~cert =
   try
     pool_sync ~__context
   with
-    | exn ->
-        begin
-          try
-            host_uninstall is_cert ~name
-          with
-            | e ->
-                warn "Exception unwinding install of %s %s: %s"
-                  (get_type is_cert) name (ExnHelper.string_of_exn e)
-        end;
-        raise exn
+  | exn ->
+    begin
+      try
+        host_uninstall is_cert ~name
+      with
+      | e ->
+        warn "Exception unwinding install of %s %s: %s"
+          (get_type is_cert) name (ExnHelper.string_of_exn e)
+    end;
+    raise exn
 
 let pool_uninstall is_cert ~__context ~name =
   host_uninstall is_cert ~name;
@@ -264,28 +264,28 @@ let pool_uninstall is_cert ~__context ~name =
 
 let rec trim_cert = function
   | x :: xs ->
-      if x = pem_certificate_header then
-        trim_cert' [x] xs
-      else
-        trim_cert xs
+    if x = pem_certificate_header then
+      trim_cert' [x] xs
+    else
+      trim_cert xs
   | [] ->
-      []
+    []
 
 and trim_cert' acc = function
   | x :: xs ->
-      if x = pem_certificate_footer then
-        List.rev (x :: acc)
-      else
-        trim_cert' (x :: acc) xs
+    if x = pem_certificate_footer then
+      List.rev (x :: acc)
+    else
+      trim_cert' (x :: acc) xs
   | [] ->
-      []
+    []
 
 let get_server_certificate () =
   try
     String.concat "\n"
       (trim_cert (String.split '\n' (string_of_file !Xapi_globs.server_cert_path)))
   with
-    | e ->
-        warn "Exception reading server certificate: %s"
-          (ExnHelper.string_of_exn e);
-        raise_library_corrupt()
+  | e ->
+    warn "Exception reading server certificate: %s"
+      (ExnHelper.string_of_exn e);
+    raise_library_corrupt()

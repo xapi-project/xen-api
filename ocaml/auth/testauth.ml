@@ -24,7 +24,7 @@ let _ =
   and password = Sys.argv.(3) in
   match Sys.argv.(1) with
   | "auth" ->
-      Pam.authenticate username password
+    Pam.authenticate username password
   | "chpasswd" ->
-      Pam.change_password username password
+    Pam.change_password username password
   | _ -> usage()

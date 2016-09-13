@@ -13,7 +13,7 @@
  *)
 (**
  * @group Redo-log
- *)
+*)
 
 (** Connect to the block device and write the latest version of the database
  * on it to a file with a given name. *)

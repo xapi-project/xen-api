@@ -13,7 +13,7 @@
  *)
 (** Module that defines API functions for tunnels
  * @group Networking
- *)
+*)
 
 (** Create a tunnel for a given transport PIF and network *)
 val create :

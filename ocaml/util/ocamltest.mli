@@ -14,12 +14,12 @@
 (* A unit testing framework for OCaml.                        *)
 
 type test =
-	| Case  of name * description * case
-	| Suite of name * description * suite
-	and name        = string
-	and description = string
-	and case        = unit -> unit
-	and suite       = test list
+  | Case  of name * description * case
+  | Suite of name * description * suite
+and name        = string
+and description = string
+and case        = unit -> unit
+and suite       = test list
 
 (** Indicates that the current test should be skipped. *)
 exception Skip of string

@@ -24,19 +24,19 @@ val redo_log_sm_config : (string * string) list
 
 (** {redo_log data type} *)
 type redo_log = {
-	name: string;
-	marker: string;
-	read_only: bool;
-	enabled: bool ref;
-	device: string option ref;
-	currently_accessible: bool ref;
-	state_change_callback: (bool -> unit) option;
-	time_of_last_failure: float ref;
-	backoff_delay: int ref;
-	sock: Unix.file_descr option ref;
-	pid: (Forkhelpers.pidty * string * string) option ref;
-	dying_processes_mutex: Mutex.t;
-	num_dying_processes: int ref;
+  name: string;
+  marker: string;
+  read_only: bool;
+  enabled: bool ref;
+  device: string option ref;
+  currently_accessible: bool ref;
+  state_change_callback: (bool -> unit) option;
+  time_of_last_failure: float ref;
+  backoff_delay: int ref;
+  sock: Unix.file_descr option ref;
+  pid: (Forkhelpers.pidty * string * string) option ref;
+  dying_processes_mutex: Mutex.t;
+  num_dying_processes: int ref;
 }
 
 (** {2 Enabling and disabling writing} *)
@@ -79,14 +79,14 @@ val with_active_redo_logs : (redo_log -> unit) -> unit
 (** The type of a delta, describing an incremental change to the database. *)
 type t =
   | CreateRow of string * string * (string*string) list
-    (** [CreateRow (tblname, newobjref, [(k1,v1); ...])]
-        represents the creation of a row in table [tblname], with key [newobjref], and columns [[k1; ...]] having values [[v1; ...]]. *)
+  (** [CreateRow (tblname, newobjref, [(k1,v1); ...])]
+      represents the creation of a row in table [tblname], with key [newobjref], and columns [[k1; ...]] having values [[v1; ...]]. *)
   | DeleteRow of string * string
-    (** [DeleteRow (tblname, objref)]
-        represents the deletion of a row in table [tblname] with key [objref]. *)
+  (** [DeleteRow (tblname, objref)]
+      represents the deletion of a row in table [tblname] with key [objref]. *)
   | WriteField of string * string * string * string
-    (** [WriteField (tblname, objref, fldname, newval)]
-        represents the write to the field with name [fldname] of a row in table [tblname] with key [objref], overwriting its value with [newval]. *)
+  (** [WriteField (tblname, objref, fldname, newval)]
+      represents the write to the field with name [fldname] of a row in table [tblname] with key [objref], overwriting its value with [newval]. *)
 
 val write_db : Generation.t -> (Unix.file_descr -> unit) -> redo_log -> unit
 (** Write a database.

@@ -14,7 +14,7 @@
 (**
  * Verifying whether the current license is still valid
  * @group Licensing
- *)
+*)
 
 (** The expiry date that is considered to be "never". *)
 val never : float

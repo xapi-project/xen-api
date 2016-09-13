@@ -20,10 +20,10 @@ let filter_newline s =
     if i=0 then 0
     else
       let chr = String.get s i in
-    if chr='\n' || chr='\r' then count_newlines (i-1)
-    else i in
+      if chr='\n' || chr='\r' then count_newlines (i-1)
+      else i in
   let newline_end = count_newlines (l-1) in
-    String.sub s 0 (newline_end+1)
+  String.sub s 0 (newline_end+1)
 
 let _cached_hostname = ref ""
 let _cached_hostname_m = Mutex.create ()
@@ -32,9 +32,9 @@ let get_hostname () =
     (fun () ->
        if !_cached_hostname = ""
        then
-     _cached_hostname :=
-       (try filter_newline (get_process_output "/bin/hostname")
-        with _ -> "unknown");
+         _cached_hostname :=
+           (try filter_newline (get_process_output "/bin/hostname")
+            with _ -> "unknown");
        !_cached_hostname
     )
 

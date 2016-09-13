@@ -20,7 +20,7 @@ open Datamodel_utils
 open Datamodel_types
 open Dm_api
 
-  (** Create an XML DTD *)
+(** Create an XML DTD *)
 
 let rec split_cols n x =
   if String.length x < n then [ x ]
@@ -30,7 +30,7 @@ type attribute = Attribute of string * string list * string option
 
 type dtd_element =
     PCData
-    | Element of string * dtd_element list * attribute list
+  | Element of string * dtd_element list * attribute list
 
 
 let name_of_dtd_element = function
@@ -44,23 +44,23 @@ let is_element = function
 
 let string_of_attribute = function
     Attribute(n, options, default) ->
-      let opt_string =
-        if List.length options = 0 then
-          "CDATA"
+    let opt_string =
+      if List.length options = 0 then
+        "CDATA"
+      else
+        "(" ^ String.concat " | " options ^ ")"
+    in
+    let def_string =
+      match default with
+        Some def ->
+        if def = "" then
+          "#REQUIRED"
         else
-          "(" ^ String.concat " | " options ^ ")"
-      in
-      let def_string =
-        match default with
-            Some def ->
-              if def = "" then
-                "#REQUIRED"
-              else
-                def
-          | None ->
-              "#IMPLIED"
-      in
-        sprintf "%s %s %s" n opt_string def_string
+          def
+      | None ->
+        "#IMPLIED"
+    in
+    sprintf "%s %s %s" n opt_string def_string
 
 
 let strings_of_attributes parent atts =
@@ -68,7 +68,7 @@ let strings_of_attributes parent atts =
     let prefix = sprintf "<!ATTLIST %s " parent in
     let body = List.map string_of_attribute atts in
 
-      prefix :: body @ [">"]
+    prefix :: body @ [">"]
   else
     []
 
@@ -76,51 +76,51 @@ let strings_of_attributes parent atts =
 let rec strings_of_dtd_element known_els = function
   | PCData -> ["(#PCDATA)"]
   | Element(name, els, attributes)  ->
-      if Hashtbl.mem known_els name then
-        let el_count = List.length els in
-        let att_count = List.length attributes in
-          if el_count = 0 && att_count = 0 then
-            []
-          else
-            let prefix = sprintf "<!ELEMENT %s " name in
-            let empty = String.make (String.length prefix) ' ' in
-            let body =
-              (if el_count = 0 then
-                   "EMPTY"
-               else if el_count = 1 then
-                 name_of_dtd_element (List.hd els)
-               else
-                 "(" ^
-                   (String.concat ", "
-                      (List.filter (fun x -> x <> "" && x <> empty)
-                         ((name_of_dtd_element (List.hd els)) ::
-                            (List.map
-                               (fun x -> empty ^ name_of_dtd_element x)
-                               (List.tl els))))) ^
-                   ")") in
-
-              Hashtbl.remove known_els name;
-              (sprintf "%s%s>" prefix body) ::
-                ((strings_of_attributes name attributes) @
-                   (List.concat (List.map (strings_of_dtd_element known_els)
-                                   (List.filter is_element els))))
-      else
+    if Hashtbl.mem known_els name then
+      let el_count = List.length els in
+      let att_count = List.length attributes in
+      if el_count = 0 && att_count = 0 then
         []
+      else
+        let prefix = sprintf "<!ELEMENT %s " name in
+        let empty = String.make (String.length prefix) ' ' in
+        let body =
+          (if el_count = 0 then
+             "EMPTY"
+           else if el_count = 1 then
+             name_of_dtd_element (List.hd els)
+           else
+             "(" ^
+             (String.concat ", "
+                (List.filter (fun x -> x <> "" && x <> empty)
+                   ((name_of_dtd_element (List.hd els)) ::
+                    (List.map
+                       (fun x -> empty ^ name_of_dtd_element x)
+                       (List.tl els))))) ^
+             ")") in
+
+        Hashtbl.remove known_els name;
+        (sprintf "%s%s>" prefix body) ::
+        ((strings_of_attributes name attributes) @
+         (List.concat (List.map (strings_of_dtd_element known_els)
+                         (List.filter is_element els))))
+    else
+      []
 
 let element known_els name children atts =
   let existing_children =
     if Hashtbl.mem known_els name then
       match Hashtbl.find known_els name with
-          Element (_, c, att) -> (c, att)
-        | _ -> assert(false)
+        Element (_, c, att) -> (c, att)
+      | _ -> assert(false)
     else
       [], [] in
 
   let el = Element (name,
                     (List.setify children @ fst existing_children),
                     (List.setify atts @ snd existing_children)) in
-    Hashtbl.replace known_els name el;
-    el
+  Hashtbl.replace known_els name el;
+  el
 
 
 let add_attribute known_els el_name att_name options default =
@@ -129,40 +129,40 @@ let add_attribute known_els el_name att_name options default =
 
 let rec dtd_element_of_contents known_els parent_name accu = function
   | Namespace(name, xs) ->
-      element known_els name
-        (List.fold_left (dtd_element_of_contents known_els name) [] xs) [] ::
-	accu
+    element known_els name
+      (List.fold_left (dtd_element_of_contents known_els name) [] xs) [] ::
+    accu
   | Field{field_name=name; ty=ty} -> match ty with
       Set (Int | Ref _)
     | Int
     | Float
     | DateTime
     | Bool ->
-        add_attribute known_els parent_name name [] None;
-        accu
+      add_attribute known_els parent_name name [] None;
+      accu
 
     | Set _ ->
-        element known_els name [] [] :: accu
+      element known_els name [] [] :: accu
 
     | Ref n ->
-        add_attribute known_els parent_name name [] (Some "");
-        accu
+      add_attribute known_els parent_name name [] (Some "");
+      accu
 
     | Enum(_, vals) ->
-        add_attribute known_els parent_name name
-          (List.map fst vals) None;
-        accu
+      add_attribute known_els parent_name name
+        (List.map fst vals) None;
+      accu
 
     | String ->
-        element known_els name [PCData] [] :: accu
+      element known_els name [PCData] [] :: accu
     | _ ->
-        failwith (sprintf "unimplemented DTD of field %s" name)
+      failwith (sprintf "unimplemented DTD of field %s" name)
 
 
 let dtd_element_of_obj known_els x =
   element known_els x.name
     (List.fold_left (dtd_element_of_contents known_els x.name) []
-                     x.contents) []
+       x.contents) []
 
 
 let of_objs api =

@@ -20,9 +20,9 @@ let password = ref ""
 
 (* The interface to the ocaml client bindings requires a function which performs the XMLRPC call: *)
 let rpc xml =
-	let open Xmlrpc_client in
-	let http = xmlrpc ~version:"1.0" "/" in
-	XMLRPC_protocol.rpc ~srcstr:"event_listen" ~dststr:"xapi" ~transport:(TCP(!host, !port)) ~http xml
+  let open Xmlrpc_client in
+  let http = xmlrpc ~version:"1.0" "/" in
+  XMLRPC_protocol.rpc ~srcstr:"event_listen" ~dststr:"xapi" ~transport:(TCP(!host, !port)) ~http xml
 
 open Client
 open Printf
