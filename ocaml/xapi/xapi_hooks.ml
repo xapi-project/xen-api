@@ -19,7 +19,6 @@ let scriptname__host_pre_declare_dead = "host-pre-declare-dead"
 let scriptname__host_post_declare_dead = "host-post-declare-dead"
 
 (* Host Script hook reason codes *)
-let reason__assume_failed = "assume-failed"
 let reason__fenced = "fenced"
 let reason__dbdestroy = "dbdestroy"
 let reason__user = "user"

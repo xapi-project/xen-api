@@ -27,8 +27,6 @@ case "$REASON" in
 	dbdestroy)
 		reset
 		;;
-	assume-failed)
-		;;
 	clean-shutdown)
 		;;
 	*)
