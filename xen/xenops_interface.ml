@@ -501,6 +501,7 @@ module Vif = struct
 		plugged: bool;
 		kthread_pid: int;
 		media_present: bool;
+		device: string option;
 	}
 end
 
