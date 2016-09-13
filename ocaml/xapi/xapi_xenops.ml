@@ -1639,10 +1639,12 @@ let update_vif ~__context id =
                if state.plugged then begin
                  (* sync MTU *)
                  (try
-                    let device = "vif" ^ (Int64.to_string (Db.VM.get_domid ~__context ~self:vm)) ^ "." ^ (snd id) in
-                    let dbg = Context.string_of_task __context in
-                    let mtu = Net.Interface.get_mtu dbg ~name:device in
-                    Db.VIF.set_MTU ~__context ~self:vif ~value:(Int64.of_int mtu)
+                    match state.device with
+                    | None -> failwith (Printf.sprintf "could not determine device id for VIF %s.%s" (fst id) (snd id))
+                    | Some device ->
+                      let dbg = Context.string_of_task __context in
+                      let mtu = Net.Interface.get_mtu dbg ~name:device in
+                      Db.VIF.set_MTU ~__context ~self:vif ~value:(Int64.of_int mtu)
                   with _ ->
                     debug "could not update MTU field on VIF %s.%s" (fst id) (snd id));
 
