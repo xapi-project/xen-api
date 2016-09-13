@@ -78,6 +78,7 @@ install:
 	$(IPROG) xe-enable-all-plugin-metrics $(DESTDIR)$(BINDIR)
 	$(IPROG) static-vdis $(DESTDIR)$(BINDIR)
 	$(IPROG) with-vdi $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) import-update-key $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) pool.conf $(DESTDIR)$(ETCDIR)
 	mkdir -p $(DESTDIR)/etc/pam.d
 	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi
