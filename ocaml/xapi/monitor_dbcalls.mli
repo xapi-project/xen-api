@@ -14,7 +14,7 @@
 
 (** Gathering of fresh properties, and detecting property changes.
  * @group Property Monitoring
- *)
+*)
 
 (** This module triggers updates of xapi's database according to the PIF, bond,
  * and memory information gathered on a regular interval about the VMs and the
@@ -24,7 +24,7 @@
  * have no effect; furthermore, the push will not be retried. One can
  * explicitly clear a part or the whole cache in order to force pushing of
  * fresh information into the database.
- *)
+*)
 
 (** The function to be executed as a stand-alone thread as xapi starts. This
  * thread is responsible for continually gathering fresh properties and

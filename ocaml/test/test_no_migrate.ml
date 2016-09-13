@@ -18,54 +18,54 @@ open Test_common
 module LC = Xapi_vm_lifecycle
 
 let ops =
-	[ `suspend
-	; `checkpoint
-	; `pool_migrate
-	; `migrate_send
-	]
+  [ `suspend
+  ; `checkpoint
+  ; `pool_migrate
+  ; `migrate_send
+  ]
 
 let op_string = function
-	| `suspend      -> "suspend"
-	| `checkpoint   -> "checkpoint"
-	| `pool_migrate -> "pool_migrate"
-	| `migrate_send -> "migrate_send"
-	| _             -> "other"
+  | `suspend      -> "suspend"
+  | `checkpoint   -> "checkpoint"
+  | `pool_migrate -> "pool_migrate"
+  | `migrate_send -> "migrate_send"
+  | _             -> "other"
 
 let testcases =
-	(*nest , nomig, force, permitted *)
-	[ false, false, false, true
-	; false, false, true , true
-	; false, true , false, false
-	; false, true , true , true
-	; true , false, false, false
-	; true , false, true , true
-	; true , true , false, false
-	; true , true , true , true
-	]
+  (*nest , nomig, force, permitted *)
+  [ false, false, false, true
+  ; false, false, true , true
+  ; false, true , false, false
+  ; false, true , true , true
+  ; true , false, false, false
+  ; true , false, true , true
+  ; true , true , false, false
+  ; true , true , true , true
+  ]
 
 let test (nv, nm, force, permitted) op =
-	let __context = make_test_database () in
-	let vm        = make_vm ~__context ~hVM_boot_policy:"" () in
-	let metrics   = Db.VM.get_metrics ~__context ~self:vm in
-	let strict    = not force in
-		( Db.VM.set_power_state ~__context ~self:vm ~value:`Running
-		; Db.VM_metrics.set_nested_virt ~__context ~self:metrics ~value:nv
-		; Db.VM_metrics.set_nomigrate   ~__context ~self:metrics ~value:nm
-		; LC.get_operation_error ~__context ~self:vm ~op ~strict
-		|> function
-		| None        when permitted     -> assert_bool "success" true
-		| None                           -> assert_failure (op_string op)
-		| Some (x,xs) when not permitted -> assert_bool "success" true
-		| Some (x,xs)                    -> assert_failure (op_string op)
-		)
+  let __context = make_test_database () in
+  let vm        = make_vm ~__context ~hVM_boot_policy:"" () in
+  let metrics   = Db.VM.get_metrics ~__context ~self:vm in
+  let strict    = not force in
+  ( Db.VM.set_power_state ~__context ~self:vm ~value:`Running
+  ; Db.VM_metrics.set_nested_virt ~__context ~self:metrics ~value:nv
+  ; Db.VM_metrics.set_nomigrate   ~__context ~self:metrics ~value:nm
+  ; LC.get_operation_error ~__context ~self:vm ~op ~strict
+    |> function
+    | None        when permitted     -> assert_bool "success" true
+    | None                           -> assert_failure (op_string op)
+    | Some (x,xs) when not permitted -> assert_bool "success" true
+    | Some (x,xs)                    -> assert_failure (op_string op)
+  )
 
 let test' op =
-	testcases |> List.iter (fun t -> test t op)
+  testcases |> List.iter (fun t -> test t op)
 
 let test = "test_no_migrate" >:::
-	[ "test_no_migrate_00" >:: (fun () -> test' `suspend)
-	; "test_no_migrate_01" >:: (fun () -> test' `checkpoint)
-	; "test_no_migrate_02" >:: (fun () -> test' `pool_migrate)
-	; "test_no_migrate_03" >:: (fun () -> test' `migrate_send)
-	]
+           [ "test_no_migrate_00" >:: (fun () -> test' `suspend)
+           ; "test_no_migrate_01" >:: (fun () -> test' `checkpoint)
+           ; "test_no_migrate_02" >:: (fun () -> test' `pool_migrate)
+           ; "test_no_migrate_03" >:: (fun () -> test' `migrate_send)
+           ]
 

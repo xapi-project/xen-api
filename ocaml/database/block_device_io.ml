@@ -13,7 +13,7 @@
  *)
 (*
  * Code to store a database and deltas in a block device and retrieve it again later.
- * 
+ *
  * This module can be compiled and executed in a stand-alone fashion from the command-line.
  * The filename of the block device and the filename of a file to use as a Unix domain socket are provided as command-line parameters.
  * The process must have read- and write-permission to the block device.
@@ -35,7 +35,7 @@
 (*
  * On-disk structure
  * -----------------
- * 
+ *
  * The database is double-buffered, so that in case of corruption or write errors, there will always be an intact version of the data preserved.
  * There is a "validity byte" indicating which buffer is currently being written to.
  * Each buffer starts with a database record followed by zero or more deltas.
@@ -65,7 +65,7 @@
 (*
  * Communications protocol
  * -----------------------
- * 
+ *
  * The control socket is used for another process to send commands and receive responses.
  * The response time for command is guaranteed to be no greater than a particular maximum delay (not accounting for network delay between the processes).
  * If the command could not complete in the available time, the response indicates that it failed.
@@ -121,8 +121,8 @@ exception NotEnoughSpace
 
 (* Make informational output go to the syslog *)
 let initialise_logging () =
-	Debug.set_facility Syslog.Local5;
-	Debug.disable ~level:Syslog.Debug name
+  Debug.set_facility Syslog.Local5;
+  Debug.disable ~level:Syslog.Debug name
 
 (* --------------------------------------------- *)
 (* Functions to deal with layout of block device *)
@@ -135,9 +135,9 @@ let start_of_half half =
 
 let half_to_pointer half =
   let ptr = match half with
-  | Neither -> raise InvalidBlockDevice (* half_to_pointer should never be called on "Neither" *)
-  | First -> pointer_first_half
-  | Second -> pointer_second_half in
+    | Neither -> raise InvalidBlockDevice (* half_to_pointer should never be called on "Neither" *)
+    | First -> pointer_first_half
+    | Second -> pointer_second_half in
   ptr
 
 let half_to_string half =
@@ -186,7 +186,7 @@ let open_block_device block_dev target_response_time =
     R.warn "Magic string not matched. Initialising redo log...";
     initialise_redo_log block_dev_fd target_response_time
   end;
-  block_dev_fd 
+  block_dev_fd
 
 (* Within the given block device, seek to the position of the validity byte. *)
 let seek_to_validity_byte block_dev_fd =
@@ -284,8 +284,8 @@ let listen_on sock =
   let s = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
   (* Remove any existing socket file *)
   begin try
-    Unix.unlink sock
-  with Unix.Unix_error _ -> ()
+      Unix.unlink sock
+    with Unix.Unix_error _ -> ()
   end;
   Unix.bind s (Unix.ADDR_UNIX sock);
   Unix.listen s 1; (* 1 = maximum number of pending requests *)
@@ -307,43 +307,43 @@ let accept_conn s latest_response_time =
 (* Listen on a given socket. Accept a single connection and transfer all the data from it to dest_fd, or raise Timeout if target_response_time happens first. *)
 (* Raises NotEnoughSpace if the next write would exceed the available_space. *)
 let transfer_data_from_sock_to_fd sock dest_fd available_space target_response_time =
-	(* Open the data channel *)
-	let s = listen_on sock in
-	try
-	  	(* May raise a Timeout exception: CA-106403 *)
-		let data_client = accept_conn s target_response_time in
-		R.info "Accepted connection on data socket";
-		ignore_exn (fun () -> Unix.close s);
+  (* Open the data channel *)
+  let s = listen_on sock in
+  try
+    (* May raise a Timeout exception: CA-106403 *)
+    let data_client = accept_conn s target_response_time in
+    R.info "Accepted connection on data socket";
+    ignore_exn (fun () -> Unix.close s);
 
-		(* Read all the data from the data channel, writing it straight into the block device, keeping track of accumulated length *)
-		let total_length = ref 0 in
-		R.debug "Reading from data socket, writing to the block device...";
-		let bytes_read = finally
-		(fun () ->
-			(* Read data from the client until EOF. Returns the length read. *)
-			Unixext.read_data_in_chunks (fun chunk len ->
-				(* Check that there's enough space *)
-				if available_space - !total_length < len then raise NotEnoughSpace;
-				(* Otherwise write it *)
-				Unixext.time_limited_write dest_fd len chunk target_response_time;
-				total_length := !total_length + len
-			) ~block_size:16384 data_client
-		)
-		(fun () ->
-			(* Close the connection *)
-			(* CA-42914: If there was an exception, note that we are forcibly closing the connection when possibly the client (xapi) is still trying to write data. This will cause it to see a 'connection reset by peer' error. *)
-			R.info "Closing connection on data socket";
-			try
-				Unix.shutdown data_client Unix.SHUTDOWN_ALL;
-				Unix.close data_client
-			with e ->
-				R.warn "Exception %s while closing socket" (Printexc.to_string e);
-		) in
-		R.debug "Finished reading from data socket";
-		bytes_read
-	with Unixext.Timeout -> (* Raised by accept_conn *)
-		ignore_exn (fun () -> Unix.close s);
-		raise Unixext.Timeout
+    (* Read all the data from the data channel, writing it straight into the block device, keeping track of accumulated length *)
+    let total_length = ref 0 in
+    R.debug "Reading from data socket, writing to the block device...";
+    let bytes_read = finally
+        (fun () ->
+           (* Read data from the client until EOF. Returns the length read. *)
+           Unixext.read_data_in_chunks (fun chunk len ->
+               (* Check that there's enough space *)
+               if available_space - !total_length < len then raise NotEnoughSpace;
+               (* Otherwise write it *)
+               Unixext.time_limited_write dest_fd len chunk target_response_time;
+               total_length := !total_length + len
+             ) ~block_size:16384 data_client
+        )
+        (fun () ->
+           (* Close the connection *)
+           (* CA-42914: If there was an exception, note that we are forcibly closing the connection when possibly the client (xapi) is still trying to write data. This will cause it to see a 'connection reset by peer' error. *)
+           R.info "Closing connection on data socket";
+           try
+             Unix.shutdown data_client Unix.SHUTDOWN_ALL;
+             Unix.close data_client
+           with e ->
+             R.warn "Exception %s while closing socket" (Printexc.to_string e);
+        ) in
+    R.debug "Finished reading from data socket";
+    bytes_read
+  with Unixext.Timeout -> (* Raised by accept_conn *)
+    ignore_exn (fun () -> Unix.close s);
+    raise Unixext.Timeout
 
 let transfer_database_to_sock sock db_fn target_response_time =
   (* Open the data channel *)
@@ -354,12 +354,12 @@ let transfer_database_to_sock sock db_fn target_response_time =
 
   finally
     (fun () ->
-      (* Read the data and send it down the socket *)
-      db_fn (fun chunk len -> Unixext.time_limited_write data_client len chunk target_response_time)
+       (* Read the data and send it down the socket *)
+       db_fn (fun chunk len -> Unixext.time_limited_write data_client len chunk target_response_time)
     )
-    (fun () -> 
-      (* Close the socket *)
-      Unix.close data_client
+    (fun () ->
+       (* Close the socket *)
+       Unix.close data_client
     )
 
 (* --------------------------------------------------- *)
@@ -375,7 +375,7 @@ let send_response client str =
   else R.debug "Sent response [%s] to client" str
 
 (* Write a string containing a text string message. *)
-let send_failure client prefix error = 
+let send_failure client prefix error =
   let len = String.length error in
   let str = Printf.sprintf "%s|%016d|%s" prefix len error in
   Unixext.really_write_string client str;
@@ -428,9 +428,9 @@ let action_writedb block_dev_fd client datasock target_response_time =
 
     (* Decide which half of the double-buffered file to use. If the first half is currently valid, use the second half; and vice versa. *)
     let half_to_use = match validity with
-    | "1" -> Second
-    | "2" -> First
-    | _ -> First (* if neither half is valid, use the first half *) in
+      | "1" -> Second
+      | "2" -> First
+      | _ -> First (* if neither half is valid, use the first half *) in
 
     (* Seek to the start of the chosen half *)
     ignore_int (Unixext.seek_to block_dev_fd (start_of_half half_to_use));
@@ -527,9 +527,9 @@ let action_writedelta block_dev_fd client datasock target_response_time =
 
     (* Decide which half of the double-buffered file to use *)
     let half_to_use = match validity with
-    | "1" -> First
-    | "2" -> Second
-    | _ -> raise InvalidBlockDevice (* the log cannot accept deltas *) in
+      | "1" -> First
+      | "2" -> Second
+      | _ -> raise InvalidBlockDevice (* the log cannot accept deltas *) in
 
     (* Seek to the position to which to write *)
     let ptr = get_pointer half_to_use in
@@ -614,9 +614,9 @@ let action_read block_dev_fd client datasock target_response_time =
 
     (* Decide which half of the double-buffered file to use *)
     let half_to_use = match validity with
-    | "1" -> First
-    | "2" -> Second
-    | _ -> raise InvalidBlockDevice in (* the log is empty *)
+      | "1" -> First
+      | "2" -> Second
+      | _ -> raise InvalidBlockDevice in (* the log is empty *)
 
     (* Seek to the start of the chosen half *)
     ignore_int (Unixext.seek_to block_dev_fd (start_of_half half_to_use));
@@ -662,7 +662,7 @@ let datasock = ref ""
 let dump = ref false
 let empty = ref false
 
-let _ = 
+let _ =
   (* Initialise debug logging *)
   initialise_logging();
 
@@ -701,39 +701,39 @@ let _ =
       (* Read the validity byte *)
       let validity = read_validity_byte block_dev_fd target_response_time in
       Printf.printf "*** Validity byte: [%s]\n" validity;
-  
+
       let halves = [First; Second] in
       List.iter (fun half ->
-        Printf.printf "*** [Half %s] Entering half.\n" (half_to_string half);
+          Printf.printf "*** [Half %s] Entering half.\n" (half_to_string half);
 
-        (* Seek to the start of the chosen half *)
-        ignore_int (Unixext.seek_to block_dev_fd (start_of_half half));
-    
-        begin
-          try
-            (* Attempt to read a database record *)
-            let length, db_fn, generation_count, marker = read_database block_dev_fd target_response_time in
-            Printf.printf "*** [Half %s] Database with generation count [%Ld] and length %d:\n" (half_to_string half) generation_count length;
-            db_fn (fun chunk len -> print_string chunk);
-            Printf.printf "\n";
-            Printf.printf "*** [Half %s] Marker [%s]\n" (half_to_string half) marker;
-          
-            (* Attempt to read the deltas *)
-            while true do
-              let length, delta, generation_count, marker' = read_delta block_dev_fd target_response_time in
-              if marker <> marker' then raise (NonMatchingMarkers(marker, marker'))
-              else
-                (* Send the delta to the client *)
-                Printf.printf "*** [Half %s] Delta with generation count [%Ld] and length %d:\n" (half_to_string half) generation_count length;
+          (* Seek to the start of the chosen half *)
+          ignore_int (Unixext.seek_to block_dev_fd (start_of_half half));
+
+          begin
+            try
+              (* Attempt to read a database record *)
+              let length, db_fn, generation_count, marker = read_database block_dev_fd target_response_time in
+              Printf.printf "*** [Half %s] Database with generation count [%Ld] and length %d:\n" (half_to_string half) generation_count length;
+              db_fn (fun chunk len -> print_string chunk);
+              Printf.printf "\n";
+              Printf.printf "*** [Half %s] Marker [%s]\n" (half_to_string half) marker;
+
+              (* Attempt to read the deltas *)
+              while true do
+                let length, delta, generation_count, marker' = read_delta block_dev_fd target_response_time in
+                if marker <> marker' then raise (NonMatchingMarkers(marker, marker'))
+                else
+                  (* Send the delta to the client *)
+                  Printf.printf "*** [Half %s] Delta with generation count [%Ld] and length %d:\n" (half_to_string half) generation_count length;
                 Printf.printf "%s\n" delta;
                 Printf.printf "*** [Half %s] Marker [%s]\n" (half_to_string half) marker'
-            done
-          with
-          | EndOfDeltas -> Printf.printf "*** [Half %s] No more deltas.\n" (half_to_string half)
-          | InvalidBlockDevice -> Printf.printf "*** [Half %s] Error: no database found\n%!" (half_to_string half)
-          | NonMatchingMarkers(a,b) -> Printf.printf "*** [Half %s] Error: non-matching marker found: expected [%s], got [%s]\n%!" (half_to_string half) a b
-        end
-      ) halves;
+              done
+            with
+            | EndOfDeltas -> Printf.printf "*** [Half %s] No more deltas.\n" (half_to_string half)
+            | InvalidBlockDevice -> Printf.printf "*** [Half %s] Error: no database found\n%!" (half_to_string half)
+            | NonMatchingMarkers(a,b) -> Printf.printf "*** [Half %s] Error: non-matching marker found: expected [%s], got [%s]\n%!" (half_to_string half) a b
+          end
+        ) halves;
       Printf.printf "*** End.\n"
     with
     | InvalidBlockDevice ->
@@ -757,7 +757,7 @@ let _ =
   if !ctrlsock <> "" && !datasock <> "" then begin
     let connect_success_mesg = "connect|ack_" in
     let connect_failure_mesg = "connect|nack" in
-  
+
     let s = listen_on !ctrlsock in
 
     (* Main loop: accept a new client, communicate with it until it stops sending commands, repeat. *)
@@ -768,7 +768,7 @@ let _ =
       R.debug "Awaiting incoming connections on %s..." !ctrlsock;
       let client = accept_conn s target_startup_response_time in
       R.debug "Accepted a connection";
-      
+
       try
         (* Open the block device *)
         let block_dev_fd = open_block_device !block_dev target_startup_response_time in
@@ -776,42 +776,42 @@ let _ =
 
         finally
           (fun () ->
-            (* If no exception was thrown, respond to the client saying that all was okay *)
-            send_response client connect_success_mesg;
-            
-            (* Now read and act upon a sequence of commands, until we receive EOF *)
-            let stop = ref false in
-            while not !stop do
-              R.debug "Reading from client...";
-              try
-                let str = String.make command_size '\000' in
-                Unixext.really_read client str 0 command_size;
-                
-                (* Note: none of the action functions throw any exceptions; they report errors directly to the client. *)
-                let (action_fn, block_time) = match str with
-                  | "writedelta" -> action_writedelta, !Xapi_globs.redo_log_max_block_time_writedelta
-                  | "writedb___" -> action_writedb,    !Xapi_globs.redo_log_max_block_time_writedb
-                  | "read______" -> action_read,       !Xapi_globs.redo_log_max_block_time_read
-                  | "empty_____" -> action_empty,      !Xapi_globs.redo_log_max_block_time_empty
-                  | _ -> (fun _ _ _ _ -> send_failure client (str^"|nack") ("Unknown command "^str)), 0.
-                in
-                (* "Start the clock!" -- set the latest time by which we need to have responded to the client. *)
-                let target_response_time = Unix.gettimeofday() +. block_time in
-                action_fn block_dev_fd client !datasock target_response_time
-              with (* this must be an exception in Unixext.really_read because action_fn doesn't throw exceptions *)
-              | End_of_file ->
-                  R.info "The client sent EOF";
-                  stop := true
-              | e ->
-                  R.info "Unexpected error when trying to read from client: %s. Closing connection." (Printexc.to_string e);
-                  stop := true
-            done;
-            R.debug "Stopping.";
-            ignore_exn (fun () -> Unix.close client)
+             (* If no exception was thrown, respond to the client saying that all was okay *)
+             send_response client connect_success_mesg;
+
+             (* Now read and act upon a sequence of commands, until we receive EOF *)
+             let stop = ref false in
+             while not !stop do
+               R.debug "Reading from client...";
+               try
+                 let str = String.make command_size '\000' in
+                 Unixext.really_read client str 0 command_size;
+
+                 (* Note: none of the action functions throw any exceptions; they report errors directly to the client. *)
+                 let (action_fn, block_time) = match str with
+                   | "writedelta" -> action_writedelta, !Xapi_globs.redo_log_max_block_time_writedelta
+                   | "writedb___" -> action_writedb,    !Xapi_globs.redo_log_max_block_time_writedb
+                   | "read______" -> action_read,       !Xapi_globs.redo_log_max_block_time_read
+                   | "empty_____" -> action_empty,      !Xapi_globs.redo_log_max_block_time_empty
+                   | _ -> (fun _ _ _ _ -> send_failure client (str^"|nack") ("Unknown command "^str)), 0.
+                 in
+                 (* "Start the clock!" -- set the latest time by which we need to have responded to the client. *)
+                 let target_response_time = Unix.gettimeofday() +. block_time in
+                 action_fn block_dev_fd client !datasock target_response_time
+               with (* this must be an exception in Unixext.really_read because action_fn doesn't throw exceptions *)
+               | End_of_file ->
+                 R.info "The client sent EOF";
+                 stop := true
+               | e ->
+                 R.info "Unexpected error when trying to read from client: %s. Closing connection." (Printexc.to_string e);
+                 stop := true
+             done;
+             R.debug "Stopping.";
+             ignore_exn (fun () -> Unix.close client)
           )
           (fun () ->
-            (* Ensure that the block device FD is always closed *)
-            ignore_exn (fun () -> Unix.close block_dev_fd)
+             (* Ensure that the block device FD is always closed *)
+             ignore_exn (fun () -> Unix.close block_dev_fd)
           )
       with (* problems opening block device *)
       | Unix.Unix_error(a,b,c) ->

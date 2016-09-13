@@ -42,7 +42,7 @@ val map : (field -> field) -> (message -> message) -> api -> api
 (** Create an API from raw components (implicitly calls check) *)
 val make : (obj list * relation list) -> api
 
-(** Perform basic sanity-checking on the API to ensure various constraints 
+(** Perform basic sanity-checking on the API to ensure various constraints
     are satisfied *)
 val check : api -> (string*string) list (* list of "emergency calls" *) -> unit
- 
+

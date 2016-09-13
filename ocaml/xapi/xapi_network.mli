@@ -13,23 +13,23 @@
  *)
 (** Module that defines API functions for Network objects
  * @group Networking
- *)
+*)
 
 (**
-{i Network} objects are used to interconnect multiple VIFs and PIFs within a resource pool.
-{ul
-{- PIFs and VIFs can be attached to a Network.}
-{- A Network that spans multiple hosts has physical links (cables + hub/switch) between the PIFs that are attached to it.}
-{- Two VMs are connected iff: both have a VIF on the same Network AND (they are on the same host OR their hosts both have a PIF on this Network).}
-{- Within the boundaries of a host, a Network is represented by a bridge if it is brought up. A Network spanning multiple hosts has a bridge on each host.}
-{- PIFs on a single host are all on different networks, and each PIF is associated to exactly one network. Hence, all PIFs on a network are on different hosts.}
-{- A Network is called {i internal} if there are no PIFs associated with it. VMs that have VIFs on such a network, which is necessarily confined to a single host to be of use, are still able to communicate with each other.}
-{- A Network is associated with any number of VIFs, and zero or one PIFs per host.}
-{- Networks for physical interfaces are created automatically (when the PIF is created). The name of the bridge for such a network is derived from the device name of the interface. E.g. interface [eth0] is always associated with bridge [xenbr0].}
-{- When a PIF or a VIF on a network is plugged, also the associated bridge is ensured to be up.}
-{- There is a special case {i guest installer network}, which is used by the internal p2v tool. It is not associated with a PIF, but does some "special magic stuff". It will probably disappear eventually together with the p2v stuff, which is not really used anyway.}
-}
-Note: It is currently assumed that all PIFs that are associated with a certain Network are physically connected, but this is not checked or enforced anywhere. This means that if a system admin connects the cables in a wrong way, things may be broken. Moreover, if two PIFs are of different Networks, this does not mean that they are not on the same physical network. Ideally, Networks objects should be constructed and maintained automatically by xapi based the actual physical connections.
+   {i Network} objects are used to interconnect multiple VIFs and PIFs within a resource pool.
+   {ul
+   {- PIFs and VIFs can be attached to a Network.}
+   {- A Network that spans multiple hosts has physical links (cables + hub/switch) between the PIFs that are attached to it.}
+   {- Two VMs are connected iff: both have a VIF on the same Network AND (they are on the same host OR their hosts both have a PIF on this Network).}
+   {- Within the boundaries of a host, a Network is represented by a bridge if it is brought up. A Network spanning multiple hosts has a bridge on each host.}
+   {- PIFs on a single host are all on different networks, and each PIF is associated to exactly one network. Hence, all PIFs on a network are on different hosts.}
+   {- A Network is called {i internal} if there are no PIFs associated with it. VMs that have VIFs on such a network, which is necessarily confined to a single host to be of use, are still able to communicate with each other.}
+   {- A Network is associated with any number of VIFs, and zero or one PIFs per host.}
+   {- Networks for physical interfaces are created automatically (when the PIF is created). The name of the bridge for such a network is derived from the device name of the interface. E.g. interface [eth0] is always associated with bridge [xenbr0].}
+   {- When a PIF or a VIF on a network is plugged, also the associated bridge is ensured to be up.}
+   {- There is a special case {i guest installer network}, which is used by the internal p2v tool. It is not associated with a PIF, but does some "special magic stuff". It will probably disappear eventually together with the p2v stuff, which is not really used anyway.}
+   }
+   Note: It is currently assumed that all PIFs that are associated with a certain Network are physically connected, but this is not checked or enforced anywhere. This means that if a system admin connects the cables in a wrong way, things may be broken. Moreover, if two PIFs are of different Networks, this does not mean that they are not on the same physical network. Ideally, Networks objects should be constructed and maintained automatically by xapi based the actual physical connections.
 *)
 
 (** This function is called when xapi starts and management is disabled. It ensures
@@ -37,13 +37,13 @@ Note: It is currently assumed that all PIFs that are associated with a certain N
 val check_himn : __context:Context.t -> unit
 
 (** Instantiate the bridge associated to this network on the localhost, and bring
-   up the PIFs on the localhost that are on this network, provided it wouldn't 
-   destroy existing Networks (e.g. slaves of a bond) in use by something (VIF or management interface).
-   Note special-case handling of new management interfaces: we skip the 
-   check for the existing management interface (essential otherwise switching
-   from a bond slave to a bond master would fail) and we make sure to call
-   {!Nm.bring_pif_up} with the [management_interface] argument so it can make sure
-   the default gateway is set up correctly *)
+    up the PIFs on the localhost that are on this network, provided it wouldn't
+    destroy existing Networks (e.g. slaves of a bond) in use by something (VIF or management interface).
+    Note special-case handling of new management interfaces: we skip the
+    check for the existing management interface (essential otherwise switching
+    from a bond slave to a bond master would fail) and we make sure to call
+    {!Nm.bring_pif_up} with the [management_interface] argument so it can make sure
+    the default gateway is set up correctly *)
 val attach_internal :
   ?management_interface:bool ->
   __context:Context.t -> self:[ `network ] Ref.t -> unit -> unit
@@ -92,33 +92,33 @@ val create_new_blob :
   name:string -> mime_type:string -> public:bool -> [ `blob ] Ref.t
 
 val set_default_locking_mode :
-	__context:Context.t ->
-	network:[ `network ] Ref.t ->
-	value:API.network_default_locking_mode -> unit
+  __context:Context.t ->
+  network:[ `network ] Ref.t ->
+  value:API.network_default_locking_mode -> unit
 
 (** {2 Networking helper functions for VMs and VIFs} *)
 
 val attach_for_vif :
-	__context:Context.t ->
-	vif:[ `VIF ] Ref.t ->
-	unit ->
-	unit
+  __context:Context.t ->
+  vif:[ `VIF ] Ref.t ->
+  unit ->
+  unit
 
 val attach_for_vm :
-	__context:Context.t ->
-	host:[ `host ] Ref.t ->
-	vm:[ `VM ] Ref.t ->
-	unit
+  __context:Context.t ->
+  host:[ `host ] Ref.t ->
+  vm:[ `VM ] Ref.t ->
+  unit
 
 val detach_for_vm :
-	__context:Context.t ->
-	host:[ `host ] Ref.t ->
-	vm:[ `VM ] Ref.t ->
-	unit
+  __context:Context.t ->
+  host:[ `host ] Ref.t ->
+  vm:[ `VM ] Ref.t ->
+  unit
 
 val with_networks_attached_for_vm :
-	__context:Context.t ->
-	?host:[ `host ] Ref.t ->
-	vm:[ `VM ] Ref.t ->
-	(unit -> 'a) ->
-	'a
+  __context:Context.t ->
+  ?host:[ `host ] Ref.t ->
+  vm:[ `VM ] Ref.t ->
+  (unit -> 'a) ->
+  'a

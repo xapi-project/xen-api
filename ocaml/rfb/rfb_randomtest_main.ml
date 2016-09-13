@@ -14,7 +14,7 @@
 open Rfb
 open Rfb_randomtest
 
-let _ = 
+let _ =
   let port = 5902 in
   let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
   Unix.handle_unix_error (Unix.setsockopt s Unix.SO_REUSEADDR) true;

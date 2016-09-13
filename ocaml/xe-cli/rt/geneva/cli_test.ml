@@ -19,44 +19,44 @@ open Cli_utils
 let exportdir = ref ""
 
 let bridge_name = ref "breth0"
-      
+
 let cd_test cli vmid =
   cd_attach_remove cli vmid "w2k3sesp1.iso" None;
   cd_attach_remove cli vmid "winxpsp2.iso" None;
-(*  cd_attach_remove cli vmid "/dev/hda" None; *)
+  (*  cd_attach_remove cli vmid "/dev/hda" None; *)
   cd_attach_remove cli vmid "xswindrivers.iso" None
 
 (* -------------------------------------------------------------------------
     SCRIPT THE TESTS
    ------------------------------------------------------------------------- *)
-    
+
 (* Definitions used in tests: *)
 let pv_guests = [("Debian Sarge 3.1","reg_pv1");
-		 ("Debian Sarge 3.1","reg_pv2");
-		 ("Debian Sarge 3.1","reg_pv3");
-		 ("Debian Sarge 3.1","reg_v4")]
-  
+                 ("Debian Sarge 3.1","reg_pv2");
+                 ("Debian Sarge 3.1","reg_pv3");
+                 ("Debian Sarge 3.1","reg_v4")]
+
 let pv_disks = [("sdc","512");
-		("sdd","1024");
-		("sde","2000");
-		("sdf","512");
-		("sdg","900")]
+                ("sdd","1024");
+                ("sde","2000");
+                ("sdf","512");
+                ("sdg","900")]
 
 let hvm_guests = [
-		  ("Windows XP SP2","reg_hvm1");
-		  ("Windows XP SP2","reg_hvm2");
-		  ("Windows XP SP2","reg_hvm3");
-		  ("Windows XP SP2","reg_hvm4")
-		 ]
+  ("Windows XP SP2","reg_hvm1");
+  ("Windows XP SP2","reg_hvm2");
+  ("Windows XP SP2","reg_hvm3");
+  ("Windows XP SP2","reg_hvm4")
+]
 
 let hvm_disks = [("hdb","512");
-		 ("hdc","1024")]
+                 ("hdc","1024")]
 
 let pv_nics () = [("eth5","00:00:00:00:55",!bridge_name);
-		  ("eth6","00:00:00:00:66",!bridge_name)]
-  
+                  ("eth6","00:00:00:00:66",!bridge_name)]
+
 let hvm_nics () = [("nic5","00:00:00:00:55",!bridge_name);
-		("nic6","00:00:00:00:66",!bridge_name)]
+                   ("nic6","00:00:00:00:66",!bridge_name)]
 
 let vbridges = ["vbridge2";"vbridge3";"vbridge4"]
 
@@ -85,7 +85,7 @@ let run_host_test_cycle cli vbridges =
   (* Generate host output report *)
   let _ =
     print_host_output cli in
-    
+
   (* Remove vbridges from host and verify they're gone *)
   let _ = List.iter (sync_remove_vbridge cli) vbridges in
 
@@ -93,7 +93,7 @@ let run_host_test_cycle cli vbridges =
   let existing_patches = get_patches cli in
   let _ = List.iter (sync_remove_patch cli) existing_patches in
 
-    print_line "\n---- HOST TEST CYCLE FINISHED ----"
+  print_line "\n---- HOST TEST CYCLE FINISHED ----"
 
 
 (* -------------------------------------------------------------------------
@@ -108,20 +108,20 @@ let run_vm_test_cycle is_hvm cli vms disks nics =
      "os";"vcpus";"memory_set";"auto_poweron";"force_hvm";"boot_params"] in
 
   let vm_set_params = [("name","testnameset");
-		       ("description","testdescriptionset");
-		       ("vcpus","1");
-		       ("memory_set","300");
-		       ("auto_poweron","false");
-		       ("auto_poweron","true");
-(*		       ("force_hvm","false");
-		       ("force_hvm","true");*)
-		       ("boot_params","boottest");
-		       ("on_crash","destroy");
-		       ("on_crash","restart")] in
-  
+                       ("description","testdescriptionset");
+                       ("vcpus","1");
+                       ("memory_set","300");
+                       ("auto_poweron","false");
+                       ("auto_poweron","true");
+                       (*		       ("force_hvm","false");
+                         		       ("force_hvm","true");*)
+                       ("boot_params","boottest");
+                       ("on_crash","destroy");
+                       ("on_crash","restart")] in
+
   (* Force shutdown and uninstall all vms from host *)
-  let _ = uninstall_all_vms cli in  
-    
+  let _ = uninstall_all_vms cli in
+
   (* Install new debian guests and remember their uuids *)
   let uuids =
     List.map
@@ -134,13 +134,13 @@ let run_vm_test_cycle is_hvm cli vms disks nics =
   let _ =
     List.iter
       (fun vmid ->
-	 List.iter (sync_add_disk cli vmid) disks) uuids in
+         List.iter (sync_add_disk cli vmid) disks) uuids in
 
   (* Add nics to all VMs *)
   let _ =
     List.iter
       (fun vmid ->
-	 List.iter (sync_add_nic cli vmid) nics) uuids in
+         List.iter (sync_add_nic cli vmid) nics) uuids in
 
   (* Add/Remove/List CDs if HVM *)
   let _ =
@@ -154,24 +154,24 @@ let run_vm_test_cycle is_hvm cli vms disks nics =
   let _ =
     List.iter
       (fun vmid ->
-	 List.iter (sync_remove_nic cli vmid) 
-	   (List.map (fun (n,_,_)->n) nics)) uuids in
+         List.iter (sync_remove_nic cli vmid)
+           (List.map (fun (n,_,_)->n) nics)) uuids in
 
   (* Resize disks on all Vms *)
   let _ =
     List.iter
       (fun (disk,size) ->
-	 List.iter (fun vmid->resize_disk cli vmid disk size) uuids)
+         List.iter (fun vmid->resize_disk cli vmid disk size) uuids)
       (List.map
-	 (fun (d,s)->(d,string_of_int ((int_of_string s)+500))) disks) in
+         (fun (d,s)->(d,string_of_int ((int_of_string s)+500))) disks) in
 
   (* Remove disks from all VMs *)
   let _ =
     List.iter
       (fun vmid ->
-	 List.iter (sync_remove_disk cli vmid)
-	   (List.map fst disks)) uuids in
-    
+         List.iter (sync_remove_disk cli vmid)
+           (List.map fst disks)) uuids in
+
   (* Move VM between states in PV case *)
   let _ = if not is_hvm then state_test cli test_vm in
 
@@ -183,7 +183,7 @@ let run_vm_test_cycle is_hvm cli vms disks nics =
     List.map
       (fun paramname -> getparam cli test_vm paramname)
       vm_get_params in
-    
+
   (* Test set params *)
   let _ =
     List.iter
@@ -191,13 +191,13 @@ let run_vm_test_cycle is_hvm cli vms disks nics =
       vm_set_params in
 
   (* Uninstall everything *)
-  let _ = uninstall_all_vms cli in    
-    print_line "\n---- VM TEST CYCLE FINISHED ----"
+  let _ = uninstall_all_vms cli in
+  print_line "\n---- VM TEST CYCLE FINISHED ----"
 
 let installuninstall cli =
   let vm_uuid =
     install_guest cli (List.hd hvm_guests) in
-    sync_uninstall cli vm_uuid
+  sync_uninstall cli vm_uuid
 
 (* import/export test *)
 let export_checks cli =
@@ -208,7 +208,7 @@ let export_checks cli =
   let _ = expect_success (fun()->cli "vm-export" params) in
   let _ = sync_uninstall cli vmid in
   let _ = expect_success (fun()->cli "vm-import" params) in
-    ()      
+  ()
 
 (* -----------------------------------------------------------------------
     ENTRY POINT:
@@ -217,12 +217,12 @@ let export_checks cli =
 (* Read cmd-line args *)
 let _ =
   Arg.parse [
-	      "-host", Arg.Set_string host, "hostname of test XE host";
-	      "-xe", Arg.Set_string xe, "path to XE CLI executable";
-	      "-exportdir", Arg.Set_string exportdir, "path to export VM to";
-	      "-bridge", Arg.Set_string bridge_name, 
-	      Printf.sprintf "bridge to attach VIFs to (default %s)" !bridge_name;
-	    ]
+    "-host", Arg.Set_string host, "hostname of test XE host";
+    "-xe", Arg.Set_string xe, "path to XE CLI executable";
+    "-exportdir", Arg.Set_string exportdir, "path to export VM to";
+    "-bridge", Arg.Set_string bridge_name,
+    Printf.sprintf "bridge to attach VIFs to (default %s)" !bridge_name;
+  ]
     (fun x -> Printf.printf "Warning, ignoring unknown argument: %s" x)
     "Regression test for XE CLI"
 
@@ -243,7 +243,7 @@ let cli =
   if !host="onhost"
   then (print_line "TEST RUNNING IN ONHOST MODE\n"; cli_onhost)
   else (print_line "TEST RUNNING IN OFFHOST MODE\n"; cli_offhost)
-    
+
 (* Start by licensing server *)
 (*
 let _ = apply_license_to_server cli
@@ -260,28 +260,28 @@ let _ = run_vm_test_cycle true cli hvm_guests hvm_disks (hvm_nics ())
 
 (* Add some patches -- actually add the same one twice for now :) *)
 let _ = expect_success (fun()->cli "host-patch-upload"
-			  ["patch-file",patchfilename]) 
+                           ["patch-file",patchfilename])
 
 let _ = expect_success (fun()->cli "host-patch-upload"
-			  ["patch-file",patchfilename]) 
+                           ["patch-file",patchfilename])
 
 let _ = expect_success (fun()-> cli "host-patch-apply"
-			  ["patch-name",patchfilename]) 
+                           ["patch-name",patchfilename])
 
-let _ = if !exportdir<>"" then export_checks cli_offhost 
+let _ = if !exportdir<>"" then export_checks cli_offhost
 
 (* Off-host checks to run *)
 let offhost_checks() =
-    
+
   (* Check unix password file by running through hvm install/uninstall *)
   let _ = installuninstall (cli_offhost_with_pwf pwf_unix) in
-    (* .. and same for windows password file [i.e. with CR/LFs] *)
+  (* .. and same for windows password file [i.e. with CR/LFs] *)
   let _ = installuninstall (cli_offhost_with_pwf pwf_windows) in
 
   (* Test setting/resetting host password *)
   let _ = test_password_set cli_offhost_with_pwd in
-  
-  ()      
+
+  ()
 
 (* Run off-host checks if off-host *)
 let _ = if !host<>"onhost" then offhost_checks()

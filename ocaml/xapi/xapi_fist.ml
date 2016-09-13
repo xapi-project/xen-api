@@ -13,7 +13,7 @@
  *)
 (** Module for reading FIST points
  * @group Testing
- *)
+*)
 
 open Stdext
 
@@ -25,9 +25,9 @@ open D
 let fistpoint name = try Unix.access ("/tmp/fist_" ^ name) [ Unix.F_OK ]; true with _ -> false
 
 let fistpoint_read name =
-	try
-		Some (Unixext.string_of_file ("/tmp/fist_" ^ name))
-	with _ -> None
+  try
+    Some (Unixext.string_of_file ("/tmp/fist_" ^ name))
+  with _ -> None
 
 let delete name = Unixext.unlink_safe ("/tmp/fist_" ^ name)
 
@@ -78,7 +78,7 @@ let simulate_blocking_planner () = fistpoint "simulate_blocking_planner"
 (** Used to simulate an initial VBD.unplug failure *)
 let simulate_vbd_unplug_failure () = fistpoint "simulate_vbd_unplug_failure"
 
-(** {2 RRD fist points} 
+(** {2 RRD fist points}
  *  NB: these are evaluated once at run time and not again - no dynamic changing here :-) *)
 
 (** Reduce blob sync period to 5 minutes *)
@@ -94,7 +94,7 @@ let disable_sync_lifecycle_path () = fistpoint "disable_sync_lifecycle_path"
 let disable_event_lifecycle_path () = fistpoint "disable_event_lifecycle_path"
 
 (** If set to "reboot" "halt" "suspend" "crash" this will forcibly shutdown the domain during reboot/shutdown *)
-let simulate_internal_shutdown () = 
+let simulate_internal_shutdown () =
   let fist = "simulate_internal_shutdown" in
   let x = fistpoint_read fist in
   delete fist;

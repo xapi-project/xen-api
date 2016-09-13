@@ -13,7 +13,7 @@
  *)
 (** Module that controls feature restriction.
  * @group Licensing
- *)
+*)
 
 (** Check whether a given feature is currently enabled on the pool. *)
 val is_enabled : __context:Context.t -> Features.feature -> bool

@@ -14,7 +14,7 @@
 
 (** Pushing object properties to database.
  * @group Property Monitoring
- *)
+*)
 
 (** This module implements the saving of properties for various objects (e.g.
  * VIFs, CPUs) into xapi's database. It is also used to regularly update

@@ -43,6 +43,6 @@ let test_reset_vms_on_missing_host () =
 
 let test =
   "pool_restore_database" >:::
-    [
-      "test_reset_vms_on_missing_host" >:: test_reset_vms_on_missing_host;
-    ]
+  [
+    "test_reset_vms_on_missing_host" >:: test_reset_vms_on_missing_host;
+  ]

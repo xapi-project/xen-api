@@ -20,29 +20,29 @@ open Test_common
  * an Db_exn.DBCache_NotFound("missing row",...) exception, and the return
  * value should include the deleted record. *)
 let test_db_get_all_records_race () =
-	let __context = make_test_database () in
-	let  (vm_ref: API.ref_VM) = make_vm ~__context () in
+  let __context = make_test_database () in
+  let  (vm_ref: API.ref_VM) = make_vm ~__context () in
 
-	Db_cache_impl.fist_delay_read_records_where := true;
+  Db_cache_impl.fist_delay_read_records_where := true;
 
-	(* Kick off the thread which will destroy a VM. *)
-	let destroyer_thread =
-		Thread.create (fun self -> Db.VM.destroy ~__context ~self) vm_ref
-	in
+  (* Kick off the thread which will destroy a VM. *)
+  let destroyer_thread =
+    Thread.create (fun self -> Db.VM.destroy ~__context ~self) vm_ref
+  in
 
-	(* Call get_all_records *)
-	let _ =
-		try Db.VM.get_all_records ~__context
-		with Db_exn.DBCache_NotFound("missing row", _, _) ->
-			assert_failure "Race condition present"
-	in
-	Thread.join destroyer_thread
+  (* Call get_all_records *)
+  let _ =
+    try Db.VM.get_all_records ~__context
+    with Db_exn.DBCache_NotFound("missing row", _, _) ->
+      assert_failure "Race condition present"
+  in
+  Thread.join destroyer_thread
 
 let tear_down () =
-	Db_cache_impl.fist_delay_read_records_where := false
+  Db_cache_impl.fist_delay_read_records_where := false
 
 let test =
-	"test_db_lowlevel" >:::
-		[
-			"test_db_get_all_records_race" >:: (bracket id test_db_get_all_records_race tear_down);
-		]
+  "test_db_lowlevel" >:::
+  [
+    "test_db_get_all_records_race" >:: (bracket id test_db_get_all_records_race tear_down);
+  ]

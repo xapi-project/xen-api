@@ -47,8 +47,8 @@ let _ = Thread.create (fun ()->Http_daemon.main http_spec) ()
 
 let rec allocator() =
   let x = String.create 100000 in
-    Thread.delay 0.01;
-    allocator()
+  Thread.delay 0.01;
+  allocator()
 
 let rec minor() =
   Gc.minor();
@@ -65,7 +65,7 @@ let headers host path content_length = [
   Printf.sprintf "Host: %s" host;
   "Content-Type: text/xml";
   Printf.sprintf "Content-length: %d" content_length;
-] 
+]
 
 
 let do_http_rpc host port path body f =
@@ -87,14 +87,14 @@ let do_http_rpc host port path body f =
 
   let ic = Unix.in_channel_of_descr s in
   (try
-       while true do
-	 let line = input_line ic in
-	 (* NB input_line removes the final '\n'.
-            RFC1945 says to expect a '\r\n' (- '\n' = '\r') *)
-	 match line with
-	 | "" | "\r" -> raise Not_found
- 	 | _ -> ()
-       done
+     while true do
+       let line = input_line ic in
+       (* NB input_line removes the final '\n'.
+                 RFC1945 says to expect a '\r\n' (- '\n' = '\r') *)
+       match line with
+       | "" | "\r" -> raise Not_found
+       | _ -> ()
+     done
    with Not_found -> () | End_of_file -> ());
   let result = f ic in
   Printf.printf ".";

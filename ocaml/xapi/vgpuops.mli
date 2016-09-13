@@ -11,14 +11,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
- 
+
 (** Module that handles assigning vGPUs to VMs.
  * @group Virtual-Machine Management
- *)
+*)
 
 
 (** Assign a list of PCI devices to a VM for GPU passthrough, store them in
-	other_config:vgpu_pci *)
+    	other_config:vgpu_pci *)
 val create_vgpus :
   __context:Context.t ->
   (API.ref_host) ->(API.ref_VM * API.vM_t) -> bool -> unit

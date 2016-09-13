@@ -20,60 +20,60 @@ open Dm_api
 
 open Stdext.Xstringext
 
-let rec formatted_wrap formatter s = 
+let rec formatted_wrap formatter s =
   let split_in_2 c s =
     match String.split ~limit:2 c s with
-        h :: t -> (h, if t = [] then "" else List.hd t)
-      | [] -> assert false
+      h :: t -> (h, if t = [] then "" else List.hd t)
+    | [] -> assert false
   in
   let prespace, postspace = split_in_2 ' ' s in
   let preeol, posteol = split_in_2 '\n' s in
 
-    if String.length prespace < String.length preeol then
-      (Format.fprintf formatter "%s@ " prespace;
-       if String.length postspace > 0 then
-         formatted_wrap formatter postspace)
-    else
-      (if String.length posteol > 0 then
-         (Format.fprintf formatter "%s@\n" preeol;
-          formatted_wrap formatter posteol)
-       else
-         Format.fprintf formatter "%s@ " preeol)
+  if String.length prespace < String.length preeol then
+    (Format.fprintf formatter "%s@ " prespace;
+     if String.length postspace > 0 then
+       formatted_wrap formatter postspace)
+  else
+    (if String.length posteol > 0 then
+       (Format.fprintf formatter "%s@\n" preeol;
+        formatted_wrap formatter posteol)
+     else
+       Format.fprintf formatter "%s@ " preeol)
 
 
 let wrap s =
   let buf = Buffer.create 16 in
   let formatter = Format.formatter_of_buffer buf in
 
-    Format.pp_open_hvbox formatter 0;
-    Format.pp_set_margin formatter 76;
-    formatted_wrap formatter s;
-    Format.pp_close_box formatter ();
+  Format.pp_open_hvbox formatter 0;
+  Format.pp_set_margin formatter 76;
+  formatted_wrap formatter s;
+  Format.pp_close_box formatter ();
 
-    Format.fprintf formatter "%!";
+  Format.fprintf formatter "%!";
 
-    Buffer.contents buf
+  Buffer.contents buf
 
 let escape s =
   let sl = String.explode s in
   let in_quote = ref true in
   let esc_char =
     function
-        '"' -> in_quote := not !in_quote; if !in_quote then "''" else "``"
-      | '_' -> "\\_"
-      | '#' -> "\\#"
-      | c -> String.make 1 c in
+      '"' -> in_quote := not !in_quote; if !in_quote then "''" else "``"
+    | '_' -> "\\_"
+    | '#' -> "\\#"
+    | c -> String.make 1 c in
   let escaped_list = List.map esc_char sl in
-    String.concat "" escaped_list
+  String.concat "" escaped_list
 
 let full_stop s =
   if String.length s = 0 then s^"."
   else
-    if String.get s (String.length s - 1) != '.'
-    then
-      s ^ "."
-    else
-      s
+  if String.get s (String.length s - 1) != '.'
+  then
+    s ^ "."
+  else
+    s
 
 let rtrim = String.rtrim
 
@@ -117,13 +117,13 @@ let desc_of_ty_opt = function
 (** Add namespaces (separated by _) to each field name *)
 let flatten stuff =
   let rec f ns = function
-    | Field fr -> Field { fr with field_name = ns ^ fr.field_name} 
+    | Field fr -> Field { fr with field_name = ns ^ fr.field_name}
     | Namespace(ns', contents) -> Namespace("", List.map (f (ns ^ ns' ^ "_")) contents)
   in
-    f "" stuff
+  f "" stuff
 
 let string_of_qualifier = function
-  | StaticRO   -> "$\\mathit{RO}_\\mathit{ins}$" 
+  | StaticRO   -> "$\\mathit{RO}_\\mathit{ins}$"
   | DynamicRO  -> "$\\mathit{RO}_\\mathit{run}$"
   | RW         -> "$\\mathit{RW}$"
 
@@ -134,33 +134,33 @@ let string_of_open_product release =
   Printf.sprintf "%s %s &" xe dep
 
 let of_enum_alias name options = [
-				   "\\begin{longtable}{|ll|}";
-				   "\\hline";
-				   "{\\tt enum " ^ (escape name) ^ "} & \\\\";
-				   "\\hline" ] @ 
+  "\\begin{longtable}{|ll|}";
+  "\\hline";
+  "{\\tt enum " ^ (escape name) ^ "} & \\\\";
+  "\\hline" ] @
   (List.map (fun (option, description) ->
-	       hgap ^ "{\\tt " ^ (escape option) ^ "} & " ^ (escape description) ^ " \\\\") options) @
-				   [
-				     "\\hline";
-				     "\\end{longtable}"
-				   ]
-				   
+       hgap ^ "{\\tt " ^ (escape option) ^ "} & " ^ (escape description) ^ " \\\\") options) @
+  [
+    "\\hline";
+    "\\end{longtable}"
+  ]
 
-let of_content x closed = 
+
+let of_content x closed =
   let rec f prefix = function
-    | Field{release=release; qualifier=qualifier; field_name=name; ty=ty; field_description=description} -> 
-	[ sprintf "%s%s & %s {\\tt %s} & %s & %s \\\\" 
-	    (if closed then
-               string_of_open_product release
-             else
-               "")
-            (string_of_qualifier qualifier)
-            prefix (escape name) (of_ty ty) (escape description) ]
+    | Field{release=release; qualifier=qualifier; field_name=name; ty=ty; field_description=description} ->
+      [ sprintf "%s%s & %s {\\tt %s} & %s & %s \\\\"
+          (if closed then
+             string_of_open_product release
+           else
+             "")
+          (string_of_qualifier qualifier)
+          prefix (escape name) (of_ty ty) (escape description) ]
     | Namespace(_, fields) -> List.concat (List.map (f prefix) fields)
   in f "" x
-    
+
 (*
-  let header = [ "\\documentclass[8pt]{article}"; 
+  let header = [ "\\documentclass[8pt]{article}";
   "\\usepackage{geometry}";
   "\\usepackage{layout}";
   "\\geometry{";
@@ -178,7 +178,7 @@ let of_content x closed =
   let footer = [ "\\end{document}" ]
 *)
 
-    
+
 (* Output API parameter table entry *)
 let mk_latex_param p =
   String.concat " "
@@ -190,75 +190,75 @@ let mk_latex_error err =
   sprintf "{\\tt %s}" (escape err.err_name)
 
 let space = "\\vspace{0.3cm}"
-  
+
 (* Make a latex section for an API-specified message *)
 let latex_section_of_message closed section_prefix x =
   String.concat "\n"
     ([
-       String.concat "" ["\\"^section_prefix^"subsection{RPC name:~"; escape x.msg_name; "}\n"];
-       "{\\bf Overview:} ";
-       if x.msg_release.internal_deprecated_since <> None
-       then "{\\bf This message is deprecated}"
-       else "";
-       wrap (full_stop (escape x.msg_doc));
-       " \\noindent {\\bf Signature:} ";
+      String.concat "" ["\\"^section_prefix^"subsection{RPC name:~"; escape x.msg_name; "}\n"];
+      "{\\bf Overview:} ";
+      if x.msg_release.internal_deprecated_since <> None
+      then "{\\bf This message is deprecated}"
+      else "";
+      wrap (full_stop (escape x.msg_doc));
+      " \\noindent {\\bf Signature:} ";
 
-       let section_contents = 
-	   (String.concat " "
-	      [if is_prim_opt_type x.msg_result then of_ty_opt_verbatim x.msg_result
-	      else "("^(of_ty_opt_verbatim x.msg_result)^")";
-	      x.msg_name;
-	      String.concat ""
-		[
-		  "(";	 
-		  String.concat ", "
-		    ((if x.msg_session then ["session_id s"] else []) @
-		       (List.map (fun p -> of_ty_verbatim p.param_type ^ " " ^ p.param_name) x.msg_params));
-		  ")"
-		]
-	      ]) in
-       String.concat ""
-	 (if closed then
+      let section_contents =
+        (String.concat " "
+           [if is_prim_opt_type x.msg_result then of_ty_opt_verbatim x.msg_result
+            else "("^(of_ty_opt_verbatim x.msg_result)^")";
+            x.msg_name;
+            String.concat ""
+              [
+                "(";
+                String.concat ", "
+                  ((if x.msg_session then ["session_id s"] else []) @
+                   (List.map (fun p -> of_ty_verbatim p.param_type ^ " " ^ p.param_name) x.msg_params));
+                ")"
+              ]
+           ]) in
+      String.concat ""
+        (if closed then
            ["\n\n{\\parbox{ \\columnwidth }{\\tt ~~~~~~~";
             escape section_contents;
-	    "}}\n\n"]
+            "}}\n\n"]
          else
            ["\\begin{verbatim} ";
             section_contents;
-	    "\\end{verbatim}\n\n"])
-     ] @
-       
-       (if x.msg_params=[] then []
-	else
-	    [
-	      "\\noindent{\\bf Arguments:}\n\n ";
-	      space;
-	      
-	      "\\begin{tabular}{|c|c|p{7cm}|}\n \\hline";
-	      "{\\bf type} & {\\bf name} & {\\bf description} \\\\ \\hline";
-	      String.concat "\n" ((List.map mk_latex_param) x.msg_params);
-	      "\\end{tabular}\n";
-	    ]) @
+            "\\end{verbatim}\n\n"])
+    ] @
 
-       [
-	 space;
-	 "\n \\noindent {\\bf Return Type:} ";      
-	 "{\\tt ";
-	 of_ty_opt x.msg_result; "}\n\n";
-	 escape (desc_of_ty_opt x.msg_result);
-         space
-       ] @
+      (if x.msg_params=[] then []
+       else
+         [
+           "\\noindent{\\bf Arguments:}\n\n ";
+           space;
 
-       (if x.msg_errors=[] then [space; space]
-	else
-	    [
-              "";
-              wrap (sprintf "\\noindent{\\bf Possible Error Codes:} %s"
-	              (String.concat ", " ((List.map mk_latex_error)
-                                             x.msg_errors)));
-              "\\vspace{0.6cm}"
-	    ]))
-    
+           "\\begin{tabular}{|c|c|p{7cm}|}\n \\hline";
+           "{\\bf type} & {\\bf name} & {\\bf description} \\\\ \\hline";
+           String.concat "\n" ((List.map mk_latex_param) x.msg_params);
+           "\\end{tabular}\n";
+         ]) @
+
+      [
+        space;
+        "\n \\noindent {\\bf Return Type:} ";
+        "{\\tt ";
+        of_ty_opt x.msg_result; "}\n\n";
+        escape (desc_of_ty_opt x.msg_result);
+        space
+      ] @
+
+      (if x.msg_errors=[] then [space; space]
+       else
+         [
+           "";
+           wrap (sprintf "\\noindent{\\bf Possible Error Codes:} %s"
+                   (String.concat ", " ((List.map mk_latex_error)
+                                          x.msg_errors)));
+           "\\vspace{0.6cm}"
+         ]))
+
 (* Make a load of sections for a list of functions, fb.
    if section_prefix="" then we make subsections for each function.
    if section_prefix="sub" then we make subsubsections for each function. *)
@@ -270,7 +270,7 @@ let latex_of_funblock closed section_prefix fb =
 (**
  * The header for the table containing the fields of the given class.  This
  * table has an additional column if closed is true.
- *)
+*)
 let class_header x closed =
   if closed then
     [
@@ -294,7 +294,7 @@ let class_header x closed =
     ]
 
 
-let class_footer =    
+let class_footer =
   [
     "\\hline";
     "\\end{longtable}"
@@ -303,36 +303,36 @@ let class_footer =
 
 let field_table_of_obj newpage x closed =
   let field_tex = List.concat (List.map (fun x -> of_content (flatten x) closed) x.contents) in
-    (if newpage then ["\\newpage"] else []) @
-    [
-      "\\subsection{Fields for class: "^(escape x.name)^"}";
-    ] @
-      (if x.contents=[] then
-	   ["{\\bf Class "^(escape x.name)^" has no fields.}"]
-       else
-           (class_header x closed) @ field_tex @ class_footer)  
-    
+  (if newpage then ["\\newpage"] else []) @
+  [
+    "\\subsection{Fields for class: "^(escape x.name)^"}";
+  ] @
+  (if x.contents=[] then
+     ["{\\bf Class "^(escape x.name)^" has no fields.}"]
+   else
+     (class_header x closed) @ field_tex @ class_footer)
+
 let of_obj x closed =
-  [ 
+  [
     "\\newpage";
     "\\section{Class: "^(escape x.name)^"}" ]
   @ (field_table_of_obj false x closed)
   @
-      [
-	"\\subsection{RPCs associated with class: "^(escape x.name)^"}"
-      ]
-    @
-      (if x.messages=[] then
-	   ["\n\n";
-	    "{\\bf Class "^(escape x.name)^" has no additional RPCs associated with it.}"]
-       else
-	   [
-	     latex_of_funblock closed "sub" x.messages
-	   ])
+  [
+    "\\subsection{RPCs associated with class: "^(escape x.name)^"}"
+  ]
+  @
+  (if x.messages=[] then
+     ["\n\n";
+      "{\\bf Class "^(escape x.name)^" has no additional RPCs associated with it.}"]
+   else
+     [
+       latex_of_funblock closed "sub" x.messages
+     ])
 
 let error_signature name params =
   if params = [] then
-"
+    "
 \\vspace{0.3cm}
 No parameters."
   else
@@ -350,18 +350,18 @@ let error_doc { err_name=name; err_params=params; err_doc=doc } =
 \\begin{center}\\rule{10em}{0.1pt}\\end{center}
 " (escape name) (wrap (escape doc)) (error_signature name params)
 
-let include_file ?(escaped=false) ?(blanklines=false) filename = 
+let include_file ?(escaped=false) ?(blanklines=false) filename =
   let ic = open_in filename in
-    try
-      while true do
-	let line = input_line ic in
-	  print_endline (if escaped then escape line else line);
-	  if blanklines then print_endline "";
-      done
-    with End_of_file -> ()
+  try
+    while true do
+      let line = input_line ic in
+      print_endline (if escaped then escape line else line);
+      if blanklines then print_endline "";
+    done
+  with End_of_file -> ()
 
 and error_section () =
-    print_endline "\\newpage
+  print_endline "\\newpage
 \\section{Error Handling}
 When a low-level transport error occurs, or a request is malformed at the HTTP
 or XML-RPC level, the server may send an XML-RPC Fault response, or the client
@@ -431,9 +431,9 @@ Each possible error code is documented in the following section.
     Hashtbl.fold (fun name err acc -> (name, err) :: acc)
       Datamodel.errors []
   in
-    List.iter error_doc
-      (snd (List.split
-              (List.sort (fun (n1, _) (n2, _)-> compare n1 n2) errs)))
+  List.iter error_doc
+    (snd (List.split
+            (List.sort (fun (n1, _) (n2, _)-> compare n1 n2) errs)))
 
 let first_sentence s =
   List.hd (String.split '.' s)
@@ -441,7 +441,7 @@ let first_sentence s =
 let all api closed =
   (* Remove private messages that are only used internally (e.g. get_record_internal) *)
   let api = Dm_api.filter (fun _ -> true) (fun _ -> true)
-    (fun msg -> match msg.msg_tag with (FromObject (Private _)) -> false | _ -> true) api in
+      (fun msg -> match msg.msg_tag with (FromObject (Private _)) -> false | _ -> true) api in
   let system = objects_of_api api and relations = relations_of_api api in
 
   let graphfilename =
@@ -450,7 +450,7 @@ let all api closed =
     else
       "xenapi-datamodel-graph" in
 
-    print_endline "%
+  print_endline "%
 % Copyright (c) 2006-2007 XenSource, Inc.
 %
 % All rights reserved.
@@ -463,95 +463,95 @@ let all api closed =
 
 ";
 
-(*    print_endline "This API Reference is autogenerated from datamodel specification and IDL --- do not hand-edit.";
-*)
-    print_endline "\\section{Classes}";
-    print_endline "The following classes are defined:";
-    print_endline "";
-    print_endline "\\begin{center}\\begin{tabular}{|lp{10cm}|}";
-    print_endline "\\hline";
-    print_endline "Name & Description \\\\";
-    print_endline "\\hline";
+  (*    print_endline "This API Reference is autogenerated from datamodel specification and IDL --- do not hand-edit.";
+  *)
+  print_endline "\\section{Classes}";
+  print_endline "The following classes are defined:";
+  print_endline "";
+  print_endline "\\begin{center}\\begin{tabular}{|lp{10cm}|}";
+  print_endline "\\hline";
+  print_endline "Name & Description \\\\";
+  print_endline "\\hline";
 
-    List.iter (fun obj -> printf "{\\tt %s} & %s \\\\\n" (escape obj.name) (escape (first_sentence obj.description))) system;
+  List.iter (fun obj -> printf "{\\tt %s} & %s \\\\\n" (escape obj.name) (escape (first_sentence obj.description))) system;
 
-    print_endline "\\hline";
-    print_endline "\\end{tabular}\\end{center}";
+  print_endline "\\hline";
+  print_endline "\\end{tabular}\\end{center}";
 
-    print_endline "\\section{Relationships Between Classes}";
-    print_endline "Fields that are bound together are shown in the following table: ";
+  print_endline "\\section{Relationships Between Classes}";
+  print_endline "Fields that are bound together are shown in the following table: ";
 
-    print_endline "\\begin{center}\\begin{tabular}{|ll|l|}";
-    print_endline "\\hline";
-    print_endline "{\\em object.field} & {\\em object.field} & {\\em relationship} \\\\\n";
-    print_endline "\\hline";
-    List.iter (function (((a, a_field), (b, b_field)) as rel) ->
-		 let c = Relations.classify api rel in
-		   printf "%s.%s & %s.%s & %s\\\\\n" 
-		     (escape a) (escape a_field) 
-		     (escape b) (escape b_field)
-		     (Relations.string_of_classification c)
-	      ) relations;
-    print_endline "\\hline";
-    print_endline "\\end{tabular}\\end{center}";
-    
-    print_endline "";
+  print_endline "\\begin{center}\\begin{tabular}{|ll|l|}";
+  print_endline "\\hline";
+  print_endline "{\\em object.field} & {\\em object.field} & {\\em relationship} \\\\\n";
+  print_endline "\\hline";
+  List.iter (function (((a, a_field), (b, b_field)) as rel) ->
+      let c = Relations.classify api rel in
+      printf "%s.%s & %s.%s & %s\\\\\n"
+        (escape a) (escape a_field)
+        (escape b) (escape b_field)
+        (Relations.string_of_classification c)
+    ) relations;
+  print_endline "\\hline";
+  print_endline "\\end{tabular}\\end{center}";
 
-    print_endline "The following represents bound fields (as specified above) diagramatically, using crows-foot notation to specify one-to-one, one-to-many or many-to-many
+  print_endline "";
+
+  print_endline "The following represents bound fields (as specified above) diagramatically, using crows-foot notation to specify one-to-one, one-to-many or many-to-many
                    relationships:";
-    print_endline "";
-    print_endline "\\begin{center}\\resizebox{0.8\\textwidth}{!}{"; 
-    print_endline (sprintf "\\includegraphics{%s}" graphfilename);
-    print_endline "}\\end{center}";
+  print_endline "";
+  print_endline "\\begin{center}\\resizebox{0.8\\textwidth}{!}{";
+  print_endline (sprintf "\\includegraphics{%s}" graphfilename);
+  print_endline "}\\end{center}";
 
-    print_endline "\\section{Types}";
-    print_endline "\\subsection{Primitives}";
-    print_endline "The following primitive types are used to specify methods and fields in the API Reference:";
-    print_endline "";
-    print_endline "\\begin{center}\\begin{tabular}{|ll|}";
-    print_endline "\\hline";
-    print_endline "Type & Description \\\\";
-    print_endline "\\hline";    
-    print_endline "string & text strings \\\\";
-    print_endline "int    & 64-bit integers \\\\";
-    print_endline "float & IEEE double-precision floating-point numbers \\\\";
-    print_endline "bool   & boolean \\\\";
-    print_endline "datetime & date and timestamp \\\\";
-    print_endline "\\hline";
-    print_endline "\\end{tabular}\\end{center}";
-    print_endline "\\subsection{Higher-order types}";
-    print_endline "The following type constructors are used:";
-    print_endline "";
-    print_endline "\\begin{center}\\begin{tabular}{|ll|}";
-    print_endline "\\hline";
-    print_endline "Type & Description \\\\";
-    print_endline "\\hline";    
-    print_endline "$c$ ref & reference to an object of class $c$ \\\\";
-    print_endline "$t$ set & a set of elements of type $t$ \\\\";
-    print_endline "($a \\rightarrow b$) map & a table mapping values of type $a$ to values of type $b$ \\\\";
-    print_endline "\\hline";
-    print_endline "\\end{tabular}\\end{center}";
-    print_endline "\\subsection{Enumeration types}";
-    print_endline "The following enumeration types are used:";
-    print_endline "";
-    List.iter (function Enum (name, options) -> 
-		 List.iter print_endline (of_enum_alias name options);
-		 print_string vgap
-		 | _ -> () ) (Types.of_objects system);
-    print_endline "";
-    if closed then
-      begin
-        print_endline "\\section{Class field summary}";
-        print_endline "";
-        print_endline "This section summarises the fields in each class and their qualifiers. This information is replicated in the detailed class reference later in this document and is aggregated here solely for convenience.";
-        print_endline "";
-        List.iter (fun x -> List.iter print_endline (field_table_of_obj true x closed);
-                     print_string vgap) system;
-        error_section()
-      end;
-    List.iter (fun x -> List.iter print_endline (of_obj x closed);
-                 print_string vgap) system;
-    if not closed then
-      begin
-        error_section()
-      end
+  print_endline "\\section{Types}";
+  print_endline "\\subsection{Primitives}";
+  print_endline "The following primitive types are used to specify methods and fields in the API Reference:";
+  print_endline "";
+  print_endline "\\begin{center}\\begin{tabular}{|ll|}";
+  print_endline "\\hline";
+  print_endline "Type & Description \\\\";
+  print_endline "\\hline";
+  print_endline "string & text strings \\\\";
+  print_endline "int    & 64-bit integers \\\\";
+  print_endline "float & IEEE double-precision floating-point numbers \\\\";
+  print_endline "bool   & boolean \\\\";
+  print_endline "datetime & date and timestamp \\\\";
+  print_endline "\\hline";
+  print_endline "\\end{tabular}\\end{center}";
+  print_endline "\\subsection{Higher-order types}";
+  print_endline "The following type constructors are used:";
+  print_endline "";
+  print_endline "\\begin{center}\\begin{tabular}{|ll|}";
+  print_endline "\\hline";
+  print_endline "Type & Description \\\\";
+  print_endline "\\hline";
+  print_endline "$c$ ref & reference to an object of class $c$ \\\\";
+  print_endline "$t$ set & a set of elements of type $t$ \\\\";
+  print_endline "($a \\rightarrow b$) map & a table mapping values of type $a$ to values of type $b$ \\\\";
+  print_endline "\\hline";
+  print_endline "\\end{tabular}\\end{center}";
+  print_endline "\\subsection{Enumeration types}";
+  print_endline "The following enumeration types are used:";
+  print_endline "";
+  List.iter (function Enum (name, options) ->
+      List.iter print_endline (of_enum_alias name options);
+      print_string vgap
+                    | _ -> () ) (Types.of_objects system);
+  print_endline "";
+  if closed then
+    begin
+      print_endline "\\section{Class field summary}";
+      print_endline "";
+      print_endline "This section summarises the fields in each class and their qualifiers. This information is replicated in the detailed class reference later in this document and is aggregated here solely for convenience.";
+      print_endline "";
+      List.iter (fun x -> List.iter print_endline (field_table_of_obj true x closed);
+                  print_string vgap) system;
+      error_section()
+    end;
+  List.iter (fun x -> List.iter print_endline (of_obj x closed);
+              print_string vgap) system;
+  if not closed then
+    begin
+      error_section()
+    end

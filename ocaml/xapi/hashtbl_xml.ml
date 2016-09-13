@@ -35,10 +35,10 @@ let of_xml (input: Xmlm.input) =
   let db = Hashtbl.create 10 in
   let el (tag: Xmlm.tag) acc = match tag with
     | (_, "config"), attrs -> List.flatten acc
-    | (_, "row"), attrs -> 
-	let key=List.assoc ("","key") attrs in
-	let value=List.assoc ("","value") attrs in
-	(key,value)::List.flatten acc
+    | (_, "row"), attrs ->
+      let key=List.assoc ("","key") attrs in
+      let value=List.assoc ("","value") attrs in
+      (key,value)::List.flatten acc
     | (ns, name), attrs -> raise (Unmarshall_error (Printf.sprintf "Unknown tag: (%s,%s)" ns name))
   in
   let data str = [] in

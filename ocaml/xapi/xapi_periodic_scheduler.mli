@@ -15,8 +15,8 @@
 
 (** Timer type. *)
 type func_ty =
-| OneShot				(** Fire just once *)
-| Periodic of float		(** Fire periodically with a given period in seconds *)
+  | OneShot				(** Fire just once *)
+  | Periodic of float		(** Fire periodically with a given period in seconds *)
 
 (** Start a new timer. *)
 val add_to_queue :

@@ -84,8 +84,8 @@ let generation_id = "generation-id"
 let is_valid ~key ~platformdata =
   (not (List.mem_assoc key platformdata)) ||
   (match List.assoc key platformdata |> String.lowercase with
-  | "true" | "1" | "false" | "0" -> true
-  | v -> false)
+   | "true" | "1" | "false" | "0" -> true
+   | v -> false)
 
 let is_true ~key ~platformdata ~default =
   try
@@ -111,19 +111,19 @@ let sanity_check ~platformdata ~vcpu_max ~vcpu_at_startup ~hvm ~filter_out_unkno
   in
   (* Sanity check for HVM domains with invalid VCPU configuration*)
   if hvm && (List.mem_assoc "cores-per-socket" platformdata) then
-  begin
-    try
-      let cores_per_socket = int_of_string(List.assoc "cores-per-socket" platformdata) in
-      (* cores per socket has to be in multiples of VCPUs_max and VCPUs_at_startup *)
-      if (((Int64.to_int(vcpu_max) mod cores_per_socket) <> 0)
-        || ((Int64.to_int(vcpu_at_startup) mod cores_per_socket) <> 0)) then
-        raise (Api_errors.Server_error(Api_errors.invalid_value,
-          ["platform:cores-per-socket";
-          "VCPUs_max/VCPUs_at_startup must be a multiple of this field"]))
-    with Failure msg ->
-      raise (Api_errors.Server_error(Api_errors.invalid_value, ["platform:cores-per-socket";
-        Printf.sprintf "value = %s is not a valid int" (List.assoc "cores-per-socket" platformdata)]))
-  end;
+    begin
+      try
+        let cores_per_socket = int_of_string(List.assoc "cores-per-socket" platformdata) in
+        (* cores per socket has to be in multiples of VCPUs_max and VCPUs_at_startup *)
+        if (((Int64.to_int(vcpu_max) mod cores_per_socket) <> 0)
+            || ((Int64.to_int(vcpu_at_startup) mod cores_per_socket) <> 0)) then
+          raise (Api_errors.Server_error(Api_errors.invalid_value,
+                                         ["platform:cores-per-socket";
+                                          "VCPUs_max/VCPUs_at_startup must be a multiple of this field"]))
+      with Failure msg ->
+        raise (Api_errors.Server_error(Api_errors.invalid_value, ["platform:cores-per-socket";
+                                                                  Printf.sprintf "value = %s is not a valid int" (List.assoc "cores-per-socket" platformdata)]))
+    end;
   (* Add usb emulation flags.
      Make sure we don't send usb=false and usb_tablet=true,
      as that wouldn't make sense. *)
@@ -137,7 +137,7 @@ let sanity_check ~platformdata ~vcpu_max ~vcpu_at_startup ~hvm ~filter_out_unkno
   let platformdata =
     List.update_assoc
       [(usb, string_of_bool usb_enabled);
-        (usb_tablet, string_of_bool usb_tablet_enabled)]
+       (usb_tablet, string_of_bool usb_tablet_enabled)]
       platformdata
   in
   (* Filter out invalid values for the "parallel" key. We don't want to give
@@ -157,9 +157,9 @@ let sanity_check ~platformdata ~vcpu_max ~vcpu_at_startup ~hvm ~filter_out_unkno
 let check_restricted_flags ~__context platform =
   if not (is_valid nested_virt platform) then
     raise (Api_errors.Server_error
-      (Api_errors.invalid_value,
-       [Printf.sprintf "platform:%s" nested_virt;
-        List.assoc nested_virt platform]));
+             (Api_errors.invalid_value,
+              [Printf.sprintf "platform:%s" nested_virt;
+               List.assoc nested_virt platform]));
 
   if is_true nested_virt platform false
   then Pool_features.assert_enabled ~__context ~f:Features.Nested_virt

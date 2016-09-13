@@ -15,11 +15,11 @@
  * Client module to interact with the licensing daemon [v6d].
  * [v6d] controls which features are enabled for a given "edition".
  * @group Licensing
- *)
+*)
 
 (** Call the [apply_edition] function on the v6d *)
 val apply_edition : __context:Context.t -> string -> (string * string) list ->
-	string * Features.feature list * (string * string) list
+  string * Features.feature list * (string * string) list
 
 (** Call the [get_editions] function on the v6d *)
 val get_editions : string -> (string * string * string * int) list

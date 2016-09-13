@@ -45,7 +45,7 @@ let filter_api () =
   | Some "debug" ->          filterfn Field.debug Message.debug api_used
   | Some "nothing" ->        filterfn Field.nothing Message.nothing api_used
   | Some x ->                Printf.eprintf "Unknown filter mode: %s\n" x;
-      api_used
+    api_used
 
 let set_gendebug () =
   Gen_server.enable_debugging := true
@@ -57,17 +57,17 @@ let _ =
     [
       "-mode",
       Arg.Symbol (["client"; "server"; "api"; "db"; "actions"; "sql"; "rbac"; "test"],
-		  fun x -> mode := Some x),
+                  fun x -> mode := Some x),
       "Choose which file to output";
       "-filter",
       Arg.Symbol (["opensource"; "closed"; "debug"; "nothing"],
-		  fun x -> filter := Some x),
+                  fun x -> filter := Some x),
       "Apply a filter to the API";
 
       "-filterinternal",
       Arg.Bool (fun x -> filterinternal := x),
       "Filter internal fields and messages";
-      
+
       "-gendebug",
       Arg.Unit (fun _ -> set_gendebug ()),
       "Add debugging code to generated output";
@@ -78,17 +78,17 @@ let _ =
   match !mode with
   | None -> Printf.eprintf "Must select an output type with -mode\n"
   | Some "client" ->
-      Gen_api.gen_client api
+    Gen_api.gen_client api
   | Some "api" ->
-      Gen_api.gen_client_types api
+    Gen_api.gen_client_types api
   | Some "server" ->
-      Gen_api.gen_server api
+    Gen_api.gen_server api
   | Some "db" ->
-      Gen_api.gen_db_actions api
+    Gen_api.gen_db_actions api
   | Some "actions" ->
-      Gen_api.gen_custom_actions api
+    Gen_api.gen_custom_actions api
   | Some "rbac" ->
-      Gen_api.gen_rbac api
+    Gen_api.gen_rbac api
   | Some "test" ->
-	  Gen_test.gen_test api
+    Gen_test.gen_test api
   | Some x -> Printf.eprintf "Didn't recognise mode: %s\n" x

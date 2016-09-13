@@ -13,7 +13,7 @@
  *)
 (** Workload Balancing
  *  @group Workload Balancing
- *)
+*)
 
 open Stdext
 open Printf
@@ -64,35 +64,35 @@ let raise_unknown_host () =
   raise (Api_errors.Server_error (Api_errors.wlb_unknown_host, []))
 
 let raise_connection_reset () =
-   raise (Api_errors.Server_error (Api_errors.wlb_connection_reset, []))
+  raise (Api_errors.Server_error (Api_errors.wlb_connection_reset, []))
 
 let raise_internal_error args =
-   raise (Api_errors.Server_error (Api_errors.wlb_internal_error, args))
+  raise (Api_errors.Server_error (Api_errors.wlb_internal_error, args))
 
 let split_host_port url =
   try
     if url.[0] = '[' then (* IPv6 *)
       begin
-          let host_end = String.rindex url ']' in
-          if url.[host_end + 1] <> ':' then
-              raise_url_invalid url;
-          let host = String.sub url 1 (host_end - 1) in
-          let port = String.sub url (host_end + 2) (String.length url - host_end - 2) in
-          (host, int_of_string port)
+        let host_end = String.rindex url ']' in
+        if url.[host_end + 1] <> ':' then
+          raise_url_invalid url;
+        let host = String.sub url 1 (host_end - 1) in
+        let port = String.sub url (host_end + 2) (String.length url - host_end - 2) in
+        (host, int_of_string port)
       end
     else
       match String.split_f (fun a -> a = ':') url with
-        | [host; port] ->
-            (host, int_of_string port)
-        | _ ->
-            raise_url_invalid url
+      | [host; port] ->
+        (host, int_of_string port)
+      | _ ->
+        raise_url_invalid url
   with
-    | _ -> raise_url_invalid url
+  | _ -> raise_url_invalid url
 
 let wlb_host_port ~__context =
   let pool = Helpers.get_pool ~__context in
   let url = Db.Pool.get_wlb_url ~__context ~self:pool in
-    split_host_port url
+  split_host_port url
 
 let assert_wlb_licensed ~__context =
   Pool_features.assert_enabled ~__context ~f:Features.WLB
@@ -144,16 +144,16 @@ let unexpected_data meth tag xml =
     xml
 
 (* Function walks down the xml tree matching nodes in a path defined by tag_names , returning the element at the end of the path.
-  Throws Xml_parse_failure to be handled in context of the calling function *)
+   Throws Xml_parse_failure to be handled in context of the calling function *)
 let rec descend_and_match tag_names xml =
   match tag_names, xml with
   | [], elem -> elem  (* have reached end of the list, with all correct matches so return this element*)
   | hd_tag::tail, Xml.Element ( _, _, [Xml.PCData data]) ->
     (*we have a leaf node, check that we are at the end of the path and return it *)
-      raise_malformed_response "unknown"
-        (sprintf "Method descend_and_match failed. Found leaf node with tag\
-%s, but expected path to continue with: %s->%s"
-          hd_tag hd_tag (String.concat "->" tag_names)) xml
+    raise_malformed_response "unknown"
+      (sprintf "Method descend_and_match failed. Found leaf node with tag\
+                %s, but expected path to continue with: %s->%s"
+         hd_tag hd_tag (String.concat "->" tag_names)) xml
   | hd_tag::tail, Xml.Element ( _, _, xml_elements) ->
     (* take the tag off the head of the list and search the children of this element for it *)
     begin
@@ -163,7 +163,7 @@ let rec descend_and_match tag_names xml =
       with
       | Not_found ->
         raise (Xml_parse_failure
-          (sprintf "Descend_and_match failed. Node %s not found." hd_tag))
+                 (sprintf "Descend_and_match failed. Node %s not found." hd_tag))
     end
   | _, Xml.PCData _ ->
     assert false (*This  should never happen as a leaf node is detected in an earlier match and returned *)
@@ -172,9 +172,9 @@ let data_from_leaf element =
   match element with
   | Xml.Element ( _, _, [Xml.PCData data]) ->data
   | Xml.Element ( _, _, _) ->  ""
-    | _ ->
-      raise_malformed_response "unknown" "Expected element to be leaf node"
-        element
+  | _ ->
+    raise_malformed_response "unknown" "Expected element to be leaf node"
+      element
 
 let path_to_exception =
   ["Body"; "Fault"; "Reason"; "Text"]
@@ -183,7 +183,7 @@ let path_to_inner meth =
 
 let pool_uuid_param ~__context =
   let pool = Helpers.get_pool ~__context in
-    sprintf "<PoolUuid>%s</PoolUuid>" (Db.Pool.get_uuid ~__context ~self:pool)
+  sprintf "<PoolUuid>%s</PoolUuid>" (Db.Pool.get_uuid ~__context ~self:pool)
 
 let wlb_body meth params =
   Printf.sprintf
@@ -209,14 +209,14 @@ let wlb_request host meth body encoded_auth =
 
 let filtered_headers headers =
   List.map (fun s ->
-              if String.startswith "Authorization:" s then
-                "Authorization: Basic <password>"
-              else
-                s)
+      if String.startswith "Authorization:" s then
+        "Authorization: Basic <password>"
+      else
+        s)
     headers
 
 let encoded_auth un pw =
-    Base64.encode (Printf.sprintf "%s:%s" un pw)
+  Base64.encode (Printf.sprintf "%s:%s" un pw)
 
 let wlb_encoded_auth ~__context =
   let pool = Helpers.get_pool ~__context in
@@ -237,15 +237,15 @@ let parse_result_code meth xml_data response initial_error enable_log =
     | Xml_parse_failure error ->
       raise_malformed_response' meth
         (sprintf "After failing to retrieve valid response, an error code\
-could not be found. Some data is missing or corrupt.
+                  could not be found. Some data is missing or corrupt.
 Attempt retrieve valid response: (%s)
 Attempt to retrieve error code: (%s)"
-          initial_error error)
+           initial_error error)
         (if enable_log
-        then
-          response
-        else
-          "Logging output disabled for this call.")
+         then
+           response
+         else
+           "Logging output disabled for this call.")
   in
   let message =
     try
@@ -262,7 +262,7 @@ let retrieve_inner_xml meth response enable_log=
   | Xml_parse_failure error ->
     try
       raise_internal_error ["Exception:";
-        data_from_leaf (descend_and_match path_to_exception response)]
+                            data_from_leaf (descend_and_match path_to_exception response)]
     with
     | Xml_parse_failure msg ->
       if enable_log
@@ -289,57 +289,57 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log 
       else
         timeout_default
     with
-      | _ ->
-          timeout_default
+    | _ ->
+      timeout_default
   in
   if enable_log then
     debug "%s\n%s" (String.concat "\n" (filtered_headers (Http.Request.to_header_list request))) body;
   try
     Remote_requests.perform_request ~__context ~timeout ~verify_cert
-        ~host ~port ~request ~handler ~enable_log
+      ~host ~port ~request ~handler ~enable_log
   with
-    | Remote_requests.Timed_out ->
-        raise_timeout timeout
-    | Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
-        raise_authentication_failed ()
-    | Xmlrpc_client.Connection_reset ->
-        raise_connection_reset ()
-    | Stunnel.Stunnel_verify_error reason ->
-        raise_verify_error reason
-    | Stunnel.Stunnel_error error_msg as exc->
-        begin
-          match error_msg with
-          | "Connection refused" ->
-            raise_connection_refused ()
-          | "No route to host"
-          | "No host resolved" ->
-            raise_unknown_host ()
-          | "Invalid argument" ->
-            raise_url_invalid (sprintf "%s:%s" host (string_of_int port))
-          | "" -> raise_connection_reset()
-          | _ ->
-            raise exc
-        end
-    | Unix.Unix_error(Unix.ECONNREFUSED, _, _) ->
+  | Remote_requests.Timed_out ->
+    raise_timeout timeout
+  | Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
+    raise_authentication_failed ()
+  | Xmlrpc_client.Connection_reset ->
+    raise_connection_reset ()
+  | Stunnel.Stunnel_verify_error reason ->
+    raise_verify_error reason
+  | Stunnel.Stunnel_error error_msg as exc->
+    begin
+      match error_msg with
+      | "Connection refused" ->
         raise_connection_refused ()
+      | "No route to host"
+      | "No host resolved" ->
+        raise_unknown_host ()
+      | "Invalid argument" ->
+        raise_url_invalid (sprintf "%s:%s" host (string_of_int port))
+      | "" -> raise_connection_reset()
+      | _ ->
+        raise exc
+    end
+  | Unix.Unix_error(Unix.ECONNREFUSED, _, _) ->
+    raise_connection_refused ()
 
 let perform_wlb_request ?auth ?url ?enable_log ~meth ~params
-  ~handle_response ~__context () =
+    ~handle_response ~__context () =
   (* now assumes naming policy of xml repsonses is uniform Envelope->Body-> <x>Response-> <x>Result  where <x> is method name *)
   let enable_log =
     match enable_log with
-     | Some b -> b
-     | None -> true
+    | Some b -> b
+    | None -> true
   in
   let host, port =
     match url with
-      | Some u -> split_host_port u
-      | None -> wlb_host_port ~__context
+    | Some u -> split_host_port u
+    | None -> wlb_host_port ~__context
   in
   let auth' =
     match auth with
-      | Some x -> x
-      | None -> wlb_encoded_auth ~__context
+    | Some x -> x
+    | None -> wlb_encoded_auth ~__context
   in
   let result = ref None in
   (* this function attempts to parse the result into xml , and pass the 'result' section through to the handler*)
@@ -348,17 +348,17 @@ let perform_wlb_request ?auth ?url ?enable_log ~meth ~params
       try
         Xmlrpc_client.XML_protocol.read_response response s
       with
-        | Xml.Error err ->
-            raise_malformed_response' meth (Xml.error err) ""
+      | Xml.Error err ->
+        raise_malformed_response' meth (Xml.error err) ""
     in
     debug "\n\n%s\n\n" (Xml.to_string response);
     let inner_xml = retrieve_inner_xml meth response enable_log in
     result := Some (
-      let code =
-        try
-          data_from_leaf (descend_and_match ["ResultCode"] inner_xml)
-        with
-        | Xml_parse_failure error -> "0" (* If it failed trying to get ResultCode, assume the call was successful *)
+        let code =
+          try
+            data_from_leaf (descend_and_match ["ResultCode"] inner_xml)
+          with
+          | Xml_parse_failure error -> "0" (* If it failed trying to get ResultCode, assume the call was successful *)
         in
         if code <> "0" then
           (* Call failed, get error message and raise internal error *)
@@ -367,7 +367,7 @@ let perform_wlb_request ?auth ?url ?enable_log ~meth ~params
               data_from_leaf (descend_and_match ["ErrorMessage"] inner_xml)
             with
             | Xml_parse_failure error -> ""
-            in raise_internal_error [code; message]
+          in raise_internal_error [code; message]
         else
           (* Call was successful, parse inner xml *)
           try
@@ -404,29 +404,29 @@ let retrieve_vm_recommendations ~__context ~vm =
     let extract_data place_recommendation =
       try
         let h = Db.Host.get_by_uuid ~__context
-          ~uuid:(data_from_leaf
-            (descend_and_match ["HostUuid"] place_recommendation)) in
+            ~uuid:(data_from_leaf
+                     (descend_and_match ["HostUuid"] place_recommendation)) in
         if (is_parent_to place_recommendation "Stars")
         then
           (h, ["WLB";
-            val_num (data_from_leaf (descend_and_match
-              ["Stars"] place_recommendation));
-            val_num (data_from_leaf (descend_and_match
-              ["RecommendationId"] place_recommendation))])
+               val_num (data_from_leaf (descend_and_match
+                                          ["Stars"] place_recommendation));
+               val_num (data_from_leaf (descend_and_match
+                                          ["RecommendationId"] place_recommendation))])
         else
-            (h, ["WLB"; "0.0";
-              val_num (data_from_leaf (descend_and_match
-                ["RecommendationId"] place_recommendation));
-              data_from_leaf (descend_and_match
-                ["ZeroScoreReason"] place_recommendation)])
+          (h, ["WLB"; "0.0";
+               val_num (data_from_leaf (descend_and_match
+                                          ["RecommendationId"] place_recommendation));
+               data_from_leaf (descend_and_match
+                                 ["ZeroScoreReason"] place_recommendation)])
       with
-        | Xml_parse_failure error ->
-          (* let this parse error carry on upwards,  perform_wlb_request will catch it and check the rest of the xml for an error code *)
-          raise (Xml_parse_failure error)
-        | Db_exn.Read_missing_uuid (_,_,_)
-        | Db_exn.Too_many_values (_,_,_) ->
-          raise_malformed_response' "VMGetRecommendations"
-            "Invalid VM or host UUID" "unknown"
+      | Xml_parse_failure error ->
+        (* let this parse error carry on upwards,  perform_wlb_request will catch it and check the rest of the xml for an error code *)
+        raise (Xml_parse_failure error)
+      | Db_exn.Read_missing_uuid (_,_,_)
+      | Db_exn.Too_many_values (_,_,_) ->
+        raise_malformed_response' "VMGetRecommendations"
+          "Invalid VM or host UUID" "unknown"
     in
     let recs = descend_and_match ["Recommendations"] inner_xml in
     if (is_childless recs)
@@ -452,17 +452,17 @@ let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username
   let pool = Helpers.get_pool ~__context in
   let master = Db.Pool.get_master ~__context ~self:pool in
   let params = (sprintf "%s\n%s\n%s\n%s\n"
-    (generate_safe_param "Password" xenserver_password)
-    (pool_uuid_param ~__context)
-    (generate_safe_param "UserName" xenserver_username)
-    (generate_safe_param "XenServerUrl"
-      (let address_type = Record_util.primary_address_type_of_string (Xapi_inventory.lookup Xapi_inventory._management_address_type ~default:"ipv4") in
-      let master_address = Db.Host.get_address ~__context ~self:master in
-      if address_type = `IPv4 then
-        sprintf "http://%s:80/" master_address
-      else
-        (*This is an ipv6 address, put [] around the address so that WLB can properly parse the url*)
-        sprintf "http://[%s]:80/" master_address)))
+                  (generate_safe_param "Password" xenserver_password)
+                  (pool_uuid_param ~__context)
+                  (generate_safe_param "UserName" xenserver_username)
+                  (generate_safe_param "XenServerUrl"
+                     (let address_type = Record_util.primary_address_type_of_string (Xapi_inventory.lookup Xapi_inventory._management_address_type ~default:"ipv4") in
+                      let master_address = Db.Host.get_address ~__context ~self:master in
+                      if address_type = `IPv4 then
+                        sprintf "http://%s:80/" master_address
+                      else
+                        (*This is an ipv6 address, put [] around the address so that WLB can properly parse the url*)
+                        sprintf "http://[%s]:80/" master_address)))
   in
   let handle_response inner_xml =
     (*A succesful result has an ID inside the addxenserverresult *)
@@ -477,9 +477,9 @@ let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username
       Pervasiveext.ignore_exn (fun _ -> Db.Secret.destroy ~__context ~self:old_secret_ref);
   in
   Locking_helpers.Named_mutex.execute request_mutex (perform_wlb_request ~enable_log:false
-    ~meth:"AddXenServer" ~params
-    ~auth:(encoded_auth wlb_username wlb_password) ~url:wlb_url
-    ~handle_response ~__context)
+                                                       ~meth:"AddXenServer" ~params
+                                                       ~auth:(encoded_auth wlb_username wlb_password) ~url:wlb_url
+                                                       ~handle_response ~__context)
 
 let decon_wlb ~__context =
   let clear_wlb_config ~__context ~pool =
@@ -506,7 +506,7 @@ let decon_wlb ~__context =
   else
     let params = pool_uuid_param ~__context in
     try Locking_helpers.Named_mutex.execute request_mutex (perform_wlb_request ~meth:"RemoveXenServer"
-      ~params ~handle_response ~__context) with
+                                                             ~params ~handle_response ~__context) with
     (*Based on CA-60147,CA-93312 and CA-137044 - XAPI is designed to handle the error *)
     | _ -> clear_wlb_config ~__context ~pool
 
@@ -536,9 +536,9 @@ xmlns:b=\"http://schemas.microsoft.com/2003/10/Serialization/Arrays\">
     then
       ()
     else
-     (*child elements are errors. Raise an  exception to force an error check *)
+      (*child elements are errors. Raise an  exception to force an error check *)
       raise (Xml_parse_failure
-        "Expected blank result from a send_wlb_config")
+               "Expected blank result from a send_wlb_config")
   in
   perform_wlb_request ~meth:"SetXenPoolConfiguration" ~params ~handle_response
     ~__context ()
@@ -552,7 +552,7 @@ let retrieve_wlb_config ~__context =
       match key_value_parents with
       | Xml.Element (_, _, _) as key_value_parent :: tl ->
         (data_from_leaf (descend_and_match ["Key"] key_value_parent),
-          data_from_leaf (descend_and_match ["Value"] key_value_parent))
+         data_from_leaf (descend_and_match ["Value"] key_value_parent))
         :: gen_map tl
       | Xml.PCData _ :: tl ->
         unexpected_data "GetXenPoolConfiguration" "Configuration"
@@ -564,13 +564,13 @@ let retrieve_wlb_config ~__context =
       gen_map children
     | _ ->
       raise_malformed_response "GetXenPoolConfiguration"
-            "Expected children to OptimizationParms node" inner_xml
+        "Expected children to OptimizationParms node" inner_xml
   in
   perform_wlb_request ~meth:"GetXenPoolConfiguration" ~params ~handle_response
     ~__context ()
 
-  let get_dom0_vm ~__context host =
-    Db.Host.get_control_domain ~__context ~self:(Db.Host.get_by_uuid ~__context ~uuid:host)
+let get_dom0_vm ~__context host =
+  Db.Host.get_control_domain ~__context ~self:(Db.Host.get_by_uuid ~__context ~uuid:host)
 
 let get_opt_recommendations ~__context =
   assert_wlb_enabled ~__context;
@@ -578,21 +578,21 @@ let get_opt_recommendations ~__context =
   let handle_response inner_xml =
     let rec gen_map key_value_parents =
       match key_value_parents with
-        | Xml.Element (_, _, kvalues) :: tl ->
-          List.map (
-            fun elem -> match elem with
+      | Xml.Element (_, _, kvalues) :: tl ->
+        List.map (
+          fun elem -> match elem with
             | (Xml.Element (key, _, _)) as leaf ->
               (key, data_from_leaf leaf)
             | Xml.PCData _ ->
               unexpected_data "GetOptimizationRecommendations"
                 "PoolOptimizationRecommendation"
                 inner_xml
-            ) kvalues :: gen_map tl
-        | Xml.PCData _ :: tl ->
-          unexpected_data "GetOptimizationRecommendations"
-            "Recommendations node"
-            inner_xml
-        | [] -> [];
+        ) kvalues :: gen_map tl
+      | Xml.PCData _ :: tl ->
+        unexpected_data "GetOptimizationRecommendations"
+          "Recommendations node"
+          inner_xml
+      | [] -> [];
     in
     if (is_childless inner_xml)
     then
@@ -601,7 +601,7 @@ let get_opt_recommendations ~__context =
       match (descend_and_match ["Recommendations"] inner_xml) with
       | Xml.Element (_, _, children) ->
         (gen_map children,
-          data_from_leaf (descend_and_match ["OptimizationId"] inner_xml))
+         data_from_leaf (descend_and_match ["OptimizationId"] inner_xml))
       | _ -> debug "IS CHILDLESS"; assert false (*is_childless should prevent this case *)
   in
   let result_map =
@@ -627,12 +627,12 @@ let get_opt_recommendations ~__context =
     | [] ->
       begin
         match (vm, hostfrom, hostto, reason, rec_id, opt_id) with
-     | (Some vm', _, Some hostto', Some reason', Some rec_id', opt_id') -> (vm', ["WLB"; hostto'; val_num (opt_id'); val_num (rec_id'); reason'])
-     | (None, Some hostfrom',_, Some reason', Some rec_id', opt_id') -> ( (get_dom0_vm ~__context hostfrom'), ["WLB"; hostfrom'; val_num (opt_id'); val_num (rec_id'); reason'])
-      | _ ->
+        | (Some vm', _, Some hostto', Some reason', Some rec_id', opt_id') -> (vm', ["WLB"; hostto'; val_num (opt_id'); val_num (rec_id'); reason'])
+        | (None, Some hostfrom',_, Some reason', Some rec_id', opt_id') -> ( (get_dom0_vm ~__context hostfrom'), ["WLB"; hostfrom'; val_num (opt_id'); val_num (rec_id'); reason'])
+        | _ ->
           raise_malformed_response' "GetOptimizationRecommendations"
             "Missing VmToMoveUuid, RecID, MoveToHostUuid, or Reason" "unknown"
-        end
+      end
   in
   try
     match result_map with (map, opt_id) ->
@@ -656,17 +656,17 @@ let get_evacuation_recoms ~__context ~uuid =
       | Xml.Element (_, _, kvalues) :: tl ->
         List.map (
           fun elem -> match elem with
-          | (Xml.Element (key, _, _)) as leaf ->
-            (key, data_from_leaf leaf)
-          | Xml.PCData _ ->
+            | (Xml.Element (key, _, _)) as leaf ->
+              (key, data_from_leaf leaf)
+            | Xml.PCData _ ->
               unexpected_data "HostGetRecommendations"
                 "HostEvacuationRecommendation"
                 inner_xml
         ) kvalues :: gen_map tl
       | Xml.PCData _ :: tl ->
         unexpected_data "HostGetRecommendations"
-            "Recommendations"
-            inner_xml
+          "Recommendations"
+          inner_xml
       | [] -> []
     in
     if (is_childless inner_xml)
@@ -675,8 +675,8 @@ let get_evacuation_recoms ~__context ~uuid =
     else
       match inner_xml with
       | (Xml.Element ( _, _, [Xml.Element("CanPlaceAllVMs",_,_)])) ->
-          (*CanPlaceAllVMs tag, No recommendations to give. *)
-            []
+        (*CanPlaceAllVMs tag, No recommendations to give. *)
+        []
       | (Xml.Element ( _, _, _)) ->
         begin
           match (descend_and_match ["Recommendations"] inner_xml) with
@@ -685,31 +685,31 @@ let get_evacuation_recoms ~__context ~uuid =
           | _ -> [] (* just data, which we are treating as an empty response *)
         end
       | Xml.PCData _ -> unexpected_data "HostGetRecommendations"
-        "HostGetRecommendationsResult" inner_xml
+                          "HostGetRecommendationsResult" inner_xml
   in
   let result_map =
     perform_wlb_request ~meth:"HostGetRecommendations" ~params
       ~handle_response ~__context ()
   in
   let rec remap vm host rec_id = function
-  | (k, v) :: vs ->
-    if k = "VmUuid" && v<> "" then
-      remap (Some (Db.VM.get_by_uuid ~__context ~uuid:v)) host rec_id vs
-    else if k = "HostUuid" then
-      remap vm (Some v) rec_id vs
-    else if k = "RecommendationId" then
-      remap vm host (Some v) vs
-    else
-      remap vm host rec_id vs
-  | [] ->
-    begin
-      match (vm, host, rec_id) with
-    | (Some vm', Some host', Some rec_id') -> (vm', ["WLB"; host'; val_num (rec_id')])
-    | (None, Some host', Some rec_id') -> ((get_dom0_vm ~__context host'), ["WLB"; host'; val_num (rec_id')])
-      | _ ->
-        raise_malformed_response' "HostGetRecommendations"
-          "Missing VmUuid, RecID or HostUuid" "unknown"
-    end
+    | (k, v) :: vs ->
+      if k = "VmUuid" && v<> "" then
+        remap (Some (Db.VM.get_by_uuid ~__context ~uuid:v)) host rec_id vs
+      else if k = "HostUuid" then
+        remap vm (Some v) rec_id vs
+      else if k = "RecommendationId" then
+        remap vm host (Some v) vs
+      else
+        remap vm host rec_id vs
+    | [] ->
+      begin
+        match (vm, host, rec_id) with
+        | (Some vm', Some host', Some rec_id') -> (vm', ["WLB"; host'; val_num (rec_id')])
+        | (None, Some host', Some rec_id') -> ((get_dom0_vm ~__context host'), ["WLB"; host'; val_num (rec_id')])
+        | _ ->
+          raise_malformed_response' "HostGetRecommendations"
+            "Missing VmUuid, RecID or HostUuid" "unknown"
+      end
   in
   try
     List.map (fun kvs -> remap None None None kvs) result_map
@@ -722,8 +722,8 @@ let get_evacuation_recoms ~__context ~uuid =
 let make_param = function
   | (n, v) ->
     Xml.Element("ReportParameter", [],
-      [Xml.Element("ParameterName", [], [Xml.PCData n]);
-       Xml.Element("ParameterValue", [], [Xml.PCData v])])
+                [Xml.Element("ParameterName", [], [Xml.PCData n]);
+                 Xml.Element("ParameterValue", [], [Xml.PCData v])])
 
 let wlb_context_request meth params ~__context ~handler =
   assert_wlb_licensed ~__context;
@@ -740,7 +740,7 @@ let wlb_report_request report params =
   let p =
     ((Xml.to_string (Xml.Element("ReportName", [], [Xml.PCData report]))) ^
      (Xml.to_string (Xml.Element("ReportParms", [],
-        List.map make_param params))))
+                                 List.map make_param params))))
   in
   debug "%s" p;
   (meth, wlb_context_request meth p)

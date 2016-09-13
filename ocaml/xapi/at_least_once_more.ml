@@ -12,8 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* A common requirement is to execute an idempotent operation in a background thread when 'something' changes but 
-   to minimise the number of times we run the operation i.e. if a large set of changes happen we'd ideally like to 
+(* A common requirement is to execute an idempotent operation in a background thread when 'something' changes but
+   to minimise the number of times we run the operation i.e. if a large set of changes happen we'd ideally like to
    just execute the function once or twice but not once per thing that changed. *)
 
 open Stdext
@@ -46,27 +46,27 @@ let make name f = {
 }
 
 (** Signal that 'something' has changed and so the operation needs re-executed. *)
-let again (x: manager) = 
+let again (x: manager) =
   Mutex.execute x.m
     (fun () ->
        if x.in_progress
        then x.needs_doing_again <- true (* existing thread will go around the loop again *)
        else begin
-	 (* no existing thread so we need to start one off *)
-	 x.in_progress <- true;
-	 x.needs_doing_again <- false;
-	 let (_: Thread.t) = 
-	   Thread.create
-	     (fun () -> 
-		(* Always do the operation immediately: thread is only created when work needs doing *)
-		x.f ();
-		while Mutex.execute x.m
-		  (fun () ->
-		     if x.needs_doing_again 
-		     then (x.needs_doing_again <- false; true) (* another request came in while we were processing *)
-		     else (x.in_progress <- false; false) (* no more requests: thread will shutdown *)
-		  ) do
-		    x. f()
-		done) () in
-	 ()
+         (* no existing thread so we need to start one off *)
+         x.in_progress <- true;
+         x.needs_doing_again <- false;
+         let (_: Thread.t) =
+           Thread.create
+             (fun () ->
+                (* Always do the operation immediately: thread is only created when work needs doing *)
+                x.f ();
+                while Mutex.execute x.m
+                    (fun () ->
+                       if x.needs_doing_again
+                       then (x.needs_doing_again <- false; true) (* another request came in while we were processing *)
+                       else (x.in_progress <- false; false) (* no more requests: thread will shutdown *)
+                    ) do
+                  x. f()
+                done) () in
+         ()
        end)

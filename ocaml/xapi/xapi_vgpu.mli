@@ -13,7 +13,7 @@
  *)
 (** Module that defines API functions for VGPU objects
  * @group Graphics
- *)
+*)
 
 (** Create a VGPU. *)
 val create :
@@ -29,10 +29,10 @@ val destroy : __context:Context.t -> self:[ `VGPU ] Ref.t -> unit
 (** Clear a VGPU's scheduled_to_be_resident_on field and set its resident_on
  *  field. This should always run on the pool master. *)
 val atomic_set_resident_on :
-	__context:Context.t ->
-	self:[ `VGPU ] Ref.t ->
-	value:[ `PGPU ] Ref.t ->
-	unit
+  __context:Context.t ->
+  self:[ `VGPU ] Ref.t ->
+  value:[ `PGPU ] Ref.t ->
+  unit
 
 (** Duplicate a VGPU. *)
 val copy :

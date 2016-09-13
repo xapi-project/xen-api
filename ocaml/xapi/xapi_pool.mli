@@ -13,7 +13,7 @@
  *)
 (** Module that defines API functions for Pool objects
  * @group XenAPI functions
- *)
+*)
 
 (** {2 (Fill in Title!)} *)
 
@@ -91,9 +91,9 @@ val create_VLAN_from_PIF :
 val slave_network_report :
   __context:'a ->
   phydevs:'b -> dev_to_mac:'c -> dev_to_mtu:'d -> slave_host:'e -> 'f list
-  
+
 (** {2 High availability (HA)} *)
-  
+
 val enable_disable_m : Mutex.t
 val enable_ha :
   __context:Context.t ->
@@ -195,6 +195,6 @@ val enable_ssl_legacy : __context:Context.t -> self:API.ref_pool -> unit
 val has_extension : __context:Context.t -> self:API.ref_pool -> name:string -> bool
 
 val add_to_guest_agent_config :
-	__context:Context.t -> self:API.ref_pool -> key:string -> value:string -> unit
+  __context:Context.t -> self:API.ref_pool -> key:string -> value:string -> unit
 val remove_from_guest_agent_config :
-	__context:Context.t -> self:API.ref_pool -> key:string -> unit
+  __context:Context.t -> self:API.ref_pool -> key:string -> unit

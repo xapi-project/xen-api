@@ -4,7 +4,7 @@ include Db_interface.DB_ACCESS
 val make : Db_ref.t -> Parse_db_conf.db_connection list -> Schema.t -> unit
 
 (** [flush_and_exit db code] flushes the specific backend [db] and exits
-	xapi with [code] *)
+    	xapi with [code] *)
 val flush_and_exit : Parse_db_conf.db_connection -> int -> unit
 
 (** [sync db] forcibly flushes the database to disk *)

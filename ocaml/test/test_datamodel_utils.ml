@@ -18,43 +18,43 @@ open OUnit
 open Test_highlevel
 
 module HasBeenRemoved = Generic.Make(struct
-	module Io = struct
-		type input_t = Datamodel_types.lifecycle_transition list
-		type output_t = bool
+    module Io = struct
+      type input_t = Datamodel_types.lifecycle_transition list
+      type output_t = bool
 
-		let string_of_input_t input =
-			List.map
-				(fun (lifecycle_change, _, _) ->
-					Datamodel_types.rpc_of_lifecycle_change lifecycle_change
-					|> Rpc.to_string)
-				input
-			|> String.concat "; "
+      let string_of_input_t input =
+        List.map
+          (fun (lifecycle_change, _, _) ->
+             Datamodel_types.rpc_of_lifecycle_change lifecycle_change
+             |> Rpc.to_string)
+          input
+        |> String.concat "; "
 
-		let string_of_output_t = string_of_bool
-	end
+      let string_of_output_t = string_of_bool
+    end
 
-	let transform = Datamodel_utils.has_been_removed
+    let transform = Datamodel_utils.has_been_removed
 
-	let tests = Datamodel_types.([
-		[], false;
-		[Published, "release1", ""], false;
-		[Removed, "release1", ""], true;
-		[
-			Published, "release1", "";
-			Deprecated, "release2", "";
-			Removed, "release3", "";
-		], true;
-		[
-			Published, "release1", "";
-			Deprecated, "release2", "";
-			Removed, "release3", "";
-			Published, "release4", "";
-		], false;
-	])
-end)
+    let tests = Datamodel_types.([
+        [], false;
+        [Published, "release1", ""], false;
+        [Removed, "release1", ""], true;
+        [
+          Published, "release1", "";
+          Deprecated, "release2", "";
+          Removed, "release3", "";
+        ], true;
+        [
+          Published, "release1", "";
+          Deprecated, "release2", "";
+          Removed, "release3", "";
+          Published, "release4", "";
+        ], false;
+      ])
+  end)
 
-	let test =
-		"datamodel_utils" >:::
-			[
-				"test_has_been_removed" >::: HasBeenRemoved.tests;
-			]
+let test =
+  "datamodel_utils" >:::
+  [
+    "test_has_been_removed" >::: HasBeenRemoved.tests;
+  ]

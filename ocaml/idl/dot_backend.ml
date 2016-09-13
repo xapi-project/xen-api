@@ -32,60 +32,60 @@ let rec all_field_types = function
   | Field fr -> [ fr.field_name, fr.ty ]
   | Namespace(_, xs) -> List.concat (List.map all_field_types xs)
 
-let of_objs api = 
+let of_objs api =
   let xs = objects_of_api api and relations = relations_of_api api in
   let names : string list = List.map (fun x -> x.name) xs in
 
-  let edges : string list = List.concat (List.map 
-        (fun (obj : obj) ->
-	   (* First consider the edges defined as relational *)
-	   let relational = List.filter (fun ((a, _), (b, _)) -> a = obj.name) relations in
-	   let edges = List.map (fun ((a, a_field_name), (b, b_field_name)) ->
-				   let a_field = get_field_by_name api ~objname:a ~fieldname:a_field_name 
-				   and b_field = get_field_by_name api ~objname:b ~fieldname:b_field_name in
-				   let get_arrow which obj ty = match Relations.of_types (Ref obj) ty with
-				     | `None -> failwith (sprintf "bad relational edge between %s.%s and %s.%s; object name [%s] never occurs in [%s]" a a_field_name b b_field_name obj (Types.to_string ty))
-				     | `One  -> [ which ^ "=\"none\"" ]
-				     | `Many -> [ which ^ "=\"crow\"" ] in
-				   let labels = [ (* "label=\"" ^ label ^ "\"";*) "color=\"blue\"" ] @ 
-				     (get_arrow "arrowhead" b a_field.ty) @ (get_arrow "arrowtail" a b_field.ty) in
+  let edges : string list = List.concat (List.map
+                                           (fun (obj : obj) ->
+                                              (* First consider the edges defined as relational *)
+                                              let relational = List.filter (fun ((a, _), (b, _)) -> a = obj.name) relations in
+                                              let edges = List.map (fun ((a, a_field_name), (b, b_field_name)) ->
+                                                  let a_field = get_field_by_name api ~objname:a ~fieldname:a_field_name
+                                                  and b_field = get_field_by_name api ~objname:b ~fieldname:b_field_name in
+                                                  let get_arrow which obj ty = match Relations.of_types (Ref obj) ty with
+                                                    | `None -> failwith (sprintf "bad relational edge between %s.%s and %s.%s; object name [%s] never occurs in [%s]" a a_field_name b b_field_name obj (Types.to_string ty))
+                                                    | `One  -> [ which ^ "=\"none\"" ]
+                                                    | `Many -> [ which ^ "=\"crow\"" ] in
+                                                  let labels = [ (* "label=\"" ^ label ^ "\"";*) "color=\"blue\"" ] @
+                                                               (get_arrow "arrowhead" b a_field.ty) @ (get_arrow "arrowtail" a b_field.ty) in
 
-				     sprintf "%s -> %s [ %s ]" a b (String.concat ", " labels)) relational in
+                                                  sprintf "%s -> %s [ %s ]" a b (String.concat ", " labels)) relational in
 
-	   (* list of pairs of (field name, type) *)
-	   let name_types : (string * ty) list = List.concat (List.map all_field_types obj.contents) in
-	     (* get rid of all those which are defined as relational *)
-	   let name_types = List.filter 
-	     (fun (name, _) ->
-		List.filter (fun ((a, a_name), (b, b_name)) -> (a = obj.name && a_name = name) || (b = obj.name && b_name = name)) relations
-		= []) name_types in
-	     
-	   (* decompose each ty into a list of references *)
-	   let name_refs : (string * string * ty) list = 
-	     List.concat (List.map (fun (name, ty) -> List.map (fun x -> name, x, ty) (all_refs ty)) name_types) in
-	   let name_names : (string * string) list = List.map 
-	     (fun (name, obj, ty) -> 
-		let count = match Relations.of_types (Ref obj) ty with
-		  | `None -> "(0)" | `One -> "(1)" | `Many -> "(*)" in
-		  name ^ count , obj) name_refs in
-	   let edges = List.map 
-	     (fun (field, target) -> sprintf "%s -> %s [ label=\"%s\" ]" obj.name target field) name_names @ edges in
+                                              (* list of pairs of (field name, type) *)
+                                              let name_types : (string * ty) list = List.concat (List.map all_field_types obj.contents) in
+                                              (* get rid of all those which are defined as relational *)
+                                              let name_types = List.filter
+                                                  (fun (name, _) ->
+                                                     List.filter (fun ((a, a_name), (b, b_name)) -> (a = obj.name && a_name = name) || (b = obj.name && b_name = name)) relations
+                                                     = []) name_types in
 
-	     edges
-	) xs) in
+                                              (* decompose each ty into a list of references *)
+                                              let name_refs : (string * string * ty) list =
+                                                List.concat (List.map (fun (name, ty) -> List.map (fun x -> name, x, ty) (all_refs ty)) name_types) in
+                                              let name_names : (string * string) list = List.map
+                                                  (fun (name, obj, ty) ->
+                                                     let count = match Relations.of_types (Ref obj) ty with
+                                                       | `None -> "(0)" | `One -> "(1)" | `Many -> "(*)" in
+                                                     name ^ count , obj) name_refs in
+                                              let edges = List.map
+                                                  (fun (field, target) -> sprintf "%s -> %s [ label=\"%s\" ]" obj.name target field) name_names @ edges in
 
-    [ "digraph g{";
-      let node name = Printf.sprintf "%s [ URL=\"%s.html\" ]" name name in
-      "node [ shape=box ]; " ^ (String.concat " " (List.map node names)) ^ ";" ] @ edges @ [      
-									     "}"
-									   ]
+                                              edges
+                                           ) xs) in
+
+  [ "digraph g{";
+    let node name = Printf.sprintf "%s [ URL=\"%s.html\" ]" name name in
+    "node [ shape=box ]; " ^ (String.concat " " (List.map node names)) ^ ";" ] @ edges @ [
+    "}"
+  ]
 
 (*
 
 module Perl = struct
   (** Output stuff as Perl *)
 
-  let rec all system dirname = 
+  let rec all system dirname =
     List.iter (output_module dirname) system
 
 

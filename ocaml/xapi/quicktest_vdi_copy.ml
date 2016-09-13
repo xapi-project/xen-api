@@ -28,19 +28,19 @@ let http request f =
 
 let write_to_vdi ~session_id ~vdi f =
   let task_id = Client.Task.create ~rpc:!rpc ~session_id
-    ~label:"quicktest importing VDI contents"
-    ~description:"" in
+      ~label:"quicktest importing VDI contents"
+      ~description:"" in
   (*let uri = Printf.sprintf "/import_raw_vdi?session_id=%s&vdi=%s&task_id=%si&chunked=true"
     (Ref.string_of session_id) (Ref.string_of vdi) (Ref.string_of task_id) in *)
   let req = Http.Request.make ~version:"1.0"
-    ~user_agent:"quicktest"
-    ~query:[
-      "session_id", Ref.string_of session_id;
-      "vdi", Ref.string_of vdi;
-      "task_id", Ref.string_of task_id;
-      "chunked", "true"
-    ]
-    Http.Put "/import_raw_vdi" in
+      ~user_agent:"quicktest"
+      ~query:[
+        "session_id", Ref.string_of session_id;
+        "vdi", Ref.string_of vdi;
+        "task_id", Ref.string_of task_id;
+        "chunked", "true"
+      ]
+      Http.Put "/import_raw_vdi" in
   http req (fun (_, fd) -> f fd);
   while Client.Task.get_status ~rpc:!rpc ~session_id ~self:task_id = `pending do
     Unix.sleep 1
@@ -52,10 +52,10 @@ let write_to_vdi ~session_id ~vdi f =
 
 let read_from_vdi ~session_id ~vdi f =
   let uri = Printf.sprintf "/export_raw_vdi?session_id=%s&vdi=%s"
-    (Ref.string_of session_id) (Ref.string_of vdi) in
+      (Ref.string_of session_id) (Ref.string_of vdi) in
   let req = Http.Request.make ~version:"1.0"
-    ~user_agent:"quicktest"
-    Http.Get uri in
+      ~user_agent:"quicktest"
+      Http.Get uri in
   http req (fun (_, fd) -> f fd)
 
 let start session_id sr =
@@ -65,10 +65,10 @@ let start session_id sr =
   (* Create a 4 MiB disk on src_sr *)
   let original =
     Client.VDI.create ~rpc:!rpc ~session_id ~name_label:"quicktest original"
-    ~name_description:"Used by the VDI.copy test"
-    ~sR:sr ~virtual_size:Int64.(mul (mul 4L 1024L) 1024L)
-    ~_type:`user ~sharable:false ~read_only:false 
-    ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[] in
+      ~name_description:"Used by the VDI.copy test"
+      ~sR:sr ~virtual_size:Int64.(mul (mul 4L 1024L) 1024L)
+      ~_type:`user ~sharable:false ~read_only:false
+      ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[] in
 
   debug t "Created a 4MiB test disk";
 
@@ -76,11 +76,11 @@ let start session_id sr =
      half of a 2 MiB block *)
   write_to_vdi ~session_id ~vdi:original
     (fun fd ->
-      let data = String.make (1024 * 1024) 'a' in
-      let chunk = { Chunk.start = 0L; data } in
-      Chunk.marshal fd chunk;
-      let final = { Chunk.start = 0L; data = "" } in
-      Chunk.marshal fd final;
+       let data = String.make (1024 * 1024) 'a' in
+       let chunk = { Chunk.start = 0L; data } in
+       Chunk.marshal fd chunk;
+       let final = { Chunk.start = 0L; data = "" } in
+       Chunk.marshal fd final;
     );
 
   debug t "Uploaded 1MiB of 'a's";
@@ -95,11 +95,11 @@ let start session_id sr =
      be represented as a block with an almost-empty bitmap. *)
   write_to_vdi ~session_id ~vdi:original
     (fun fd ->
-      let data = String.make 512 'b' in
-      let chunk = { Chunk.start = 0L; data } in
-      Chunk.marshal fd chunk;
-      let final = { Chunk.start = 0L; data = "" } in
-      Chunk.marshal fd final;
+       let data = String.make 512 'b' in
+       let chunk = { Chunk.start = 0L; data } in
+       Chunk.marshal fd chunk;
+       let final = { Chunk.start = 0L; data = "" } in
+       Chunk.marshal fd final;
     );
 
   debug t "Uploaded 1 sector of 'b's";
@@ -130,24 +130,24 @@ let start session_id sr =
      we've written to the original *)
   read_from_vdi ~session_id ~vdi:snapshot_backup
     (fun fd ->
-      let a = Stdext.Unixext.really_read_string fd 512 in
-      for i = 0 to String.length a - 1 do
-        if a.[i] <> 'b' then begin
-          let msg = Printf.sprintf "VDI offset %d has %c: expected %c" i a.[i] 'b' in
-          failed t msg;
-          failwith msg;
-        end
-      done;
-      debug t "First sector is full of 'b's";
-      let b = Stdext.Unixext.really_read_string fd (1024 * 1024 - 512) in
-      for i = 0 to String.length b - 1 do
-        if b.[i] <> 'a' then begin
-          let msg = Printf.sprintf "VDI offset %d has %c: expected %c" i b.[i] 'a' in
-          failed t msg;
-          failwith msg
-        end; 
-      done;
-      debug t "1MiB - 1 sector is full of 'a's";
+       let a = Stdext.Unixext.really_read_string fd 512 in
+       for i = 0 to String.length a - 1 do
+         if a.[i] <> 'b' then begin
+           let msg = Printf.sprintf "VDI offset %d has %c: expected %c" i a.[i] 'b' in
+           failed t msg;
+           failwith msg;
+         end
+       done;
+       debug t "First sector is full of 'b's";
+       let b = Stdext.Unixext.really_read_string fd (1024 * 1024 - 512) in
+       for i = 0 to String.length b - 1 do
+         if b.[i] <> 'a' then begin
+           let msg = Printf.sprintf "VDI offset %d has %c: expected %c" i b.[i] 'a' in
+           failed t msg;
+           failwith msg
+         end;
+       done;
+       debug t "1MiB - 1 sector is full of 'a's";
     );
   success t
 
