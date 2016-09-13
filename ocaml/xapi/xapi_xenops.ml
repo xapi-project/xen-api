@@ -132,11 +132,11 @@ let bool = find (function "1" -> true | "0" -> false | x -> bool_of_string x)
 let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
   let timeoffset = string vm_t.API.vM_platform "0" Vm_platform.timeoffset in
   (* If any VDI has on_boot = reset AND has a VDI.other_config:timeoffset
-     	   then we override the platform/timeoffset. This is needed because windows
-     	   stores the local time in timeoffset (the BIOS clock) but records whether
-     	   it has adjusted it for daylight savings in the system disk. If we reset
-     	   the system disk to an earlier snapshot then the BIOS clock needs to be
-     	   reset too. *)
+         then we override the platform/timeoffset. This is needed because windows
+         stores the local time in timeoffset (the BIOS clock) but records whether
+         it has adjusted it for daylight savings in the system disk. If we reset
+         the system disk to an earlier snapshot then the BIOS clock needs to be
+         reset too. *)
   let non_empty_vbds = List.filter (fun vbd -> not vbd.API.vBD_empty) vbds in
   let vdis = List.map (fun vbd -> vbd.API.vBD_VDI) non_empty_vbds in
   let vdis_with_timeoffset_to_be_reset_on_boot =
@@ -217,7 +217,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       acpi = bool vm.API.vM_platform true "acpi";
       serial = begin
         (* The platform value should override the other_config value. If
-           				 * neither are set, use pty. *)
+                   * neither are set, use pty. *)
         let key = "hvm_serial" in
         let other_config_value =
           try Some (List.assoc key vm.API.vM_other_config)
@@ -574,7 +574,7 @@ module MD = struct
     && (List.mem_assoc Vm_platform.vgpu_config vm.API.vM_platform)
     then begin
       (* We're using the vGPU manual setup mode, so get the vGPU configuration
-         			 * from the VM platform keys. *)
+               * from the VM platform keys. *)
       let implementation =
         Nvidia {
           physical_pci_address =
@@ -618,10 +618,10 @@ module MD = struct
     let open Vm in
     let scheduler_params =
       (* vcpu <-> pcpu affinity settings are stored here.
-         			   Format is either:
-         			   1,2,3         ::  all vCPUs receive this mask
-         			   1,2,3; 4,5,6  ::  vCPU n receives mask n. Unlisted vCPUs
-         			                     receive first mask *)
+                 Format is either:
+                 1,2,3         ::  all vCPUs receive this mask
+                 1,2,3; 4,5,6  ::  vCPU n receives mask n. Unlisted vCPUs
+                                   receive first mask *)
       let affinity =
         try
           List.map
@@ -758,7 +758,7 @@ module Guest_agent_features = struct
         if List.mem_assoc Xapi.auto_update_enabled config
         then Some
             (* bool_of_string should be safe as the setter in xapi_pool.ml only
-               					 * allows "true" or "false" to be put into the database. *)
+                         * allows "true" or "false" to be put into the database. *)
             (bool_of_string (List.assoc Xapi.auto_update_enabled config))
         else None
       with
@@ -866,7 +866,7 @@ let metadata_m = Mutex.create ()
 
 module Xapi_cache = struct
   (** Keep a cache of the "xenops-translation" of XenAPI VM configuration,
-      		updated whenever we receive an event from xapi. *)
+          updated whenever we receive an event from xapi. *)
 
   let cache = Hashtbl.create 10 (* indexed by Vm.id *)
 
@@ -896,8 +896,8 @@ end
 
 module Xenops_cache = struct
   (** Remember the last events received from xenopsd so we can compute
-      		field-level differences. This allows us to minimise the number of
-      		database writes we issue upwards. *)
+          field-level differences. This allows us to minimise the number of
+          database writes we issue upwards. *)
 
   type t = {
     vm: Vm.state option;
@@ -1008,7 +1008,7 @@ module Xenopsd_metadata = struct
   (** Manage the lifetime of VM metadata pushed to xenopsd *)
 
   (* If the VM has Xapi_globs.persist_xenopsd_md -> filename in its other_config,
-     	   we persist the xenopsd metadata to a well-known location in the filesystem *)
+         we persist the xenopsd metadata to a well-known location in the filesystem *)
   let maybe_persist_md ~__context ~self md =
     let oc = Db.VM.get_other_config ~__context ~self in
     if List.mem_assoc Xapi_globs.persist_xenopsd_md oc then begin
@@ -1241,10 +1241,10 @@ let update_vm ~__context id =
             let b = Opt.map f previous in
             a <> b in
           (* Notes on error handling: if something fails we log and continue, to
-             					   maximise the amount of state which is correctly synced. If something
-             					   does fail then we may end up permanently out-of-sync until either a
-             					   process restart or an event is generated. We may wish to periodically
-             					   inject artificial events IF there has been an event sync failure? *)
+                         maximise the amount of state which is correctly synced. If something
+                         does fail then we may end up permanently out-of-sync until either a
+                         process restart or an event is generated. We may wish to periodically
+                         inject artificial events IF there has been an event sync failure? *)
           if different (fun x -> x.power_state) then begin
             try
               debug "Will update VM.allowed_operations because power_state has changed.";
@@ -1252,8 +1252,8 @@ let update_vm ~__context id =
               let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).power_state) info) in
               debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
               (* This will mark VBDs, VIFs as detached and clear resident_on
-                 							   if the VM has permanently shutdown.  current-operations
-                 							   should not be reset as there maybe a checkpoint is ongoing*)
+                                 if the VM has permanently shutdown.  current-operations
+                                 should not be reset as there maybe a checkpoint is ongoing*)
               Xapi_vm_lifecycle.force_state_reset_keep_current_operations ~__context ~self ~value:power_state;
 
               if power_state = `Suspended || power_state = `Halted then begin
@@ -1639,10 +1639,16 @@ let update_vif ~__context id =
                if state.plugged then begin
                  (* sync MTU *)
                  (try
-                    let device = "vif" ^ (Int64.to_string (Db.VM.get_domid ~__context ~self:vm)) ^ "." ^ (snd id) in
-                    let dbg = Context.string_of_task __context in
-                    let mtu = Net.Interface.get_mtu dbg ~name:device in
-                    Db.VIF.set_MTU ~__context ~self:vif ~value:(Int64.of_int mtu)
+                   if Opt.is_none state.device
+                   then (failwith "could not determine device id for VIF %s.%s" (fst id) (snd id))
+                   else
+                     (* We need to use the value of domid in VIF.stat because *)
+                     (* this function could have been called before the information *)
+                     (* in the database is completely updated *)
+                     let device = Opt.unbox state.device in
+                     let dbg = Context.string_of_task __context in
+                     let mtu = Net.Interface.get_mtu dbg ~name:device in
+                     Db.VIF.set_MTU ~__context ~self:vif ~value:(Int64.of_int mtu)
                   with _ ->
                     debug "could not update MTU field on VIF %s.%s" (fst id) (snd id));
 
@@ -1807,7 +1813,7 @@ let update_task ~__context queue_name id =
     | _ -> ()
   with Not_found ->
     (* Since this is called on all tasks, possibly after the task has been
-       		   destroyed, it's safe to ignore a Not_found exception here. *)
+             destroyed, it's safe to ignore a Not_found exception here. *)
     ()
      | e ->
        error "xenopsd event: Caught %s while updating task" (string_of_exn e)
@@ -2035,7 +2041,7 @@ let events_from_xapi () =
 
                 let classes = List.map (fun x -> Printf.sprintf "VM/%s" (Ref.string_of x)) resident_VMs in
                 (* NB we re-use the old token so we don't get events we've already
-                   							   received BUT we will not necessarily receive events for the new VMs *)
+                                   received BUT we will not necessarily receive events for the new VMs *)
 
                 while true do
                   let api_timeout = 60. in
@@ -2333,8 +2339,8 @@ let maybe_cleanup_vm ~__context ~self =
   if vm_exists_in_xenopsd queue_name dbg id then begin
     warn "Stale VM detected in Xenopsd, flushing outstanding events";
     (* By calling with_events_suppressed we can guarentee that an refresh_vm
-       		 * will be called with events enabled and therefore we get Xenopsd into a
-       		 * consistent state with Xapi *)
+           * will be called with events enabled and therefore we get Xenopsd into a
+           * consistent state with Xapi *)
     Events_from_xenopsd.with_suppressed queue_name dbg id (fun _ -> ());
     Xenopsd_metadata.delete ~__context id;
   end
@@ -2348,7 +2354,7 @@ let start ~__context ~self paused force =
       if vm_exists_in_xenopsd queue_name dbg vm_id then
         raise (Bad_power_state (Running, Halted));
       (* For all devices which we want xenopsd to manage, set currently_attached = true
-         		   so the metadata is pushed. *)
+               so the metadata is pushed. *)
       let vbds =
         (* xenopsd only manages empty VBDs for HVM guests *)
         let hvm = Helpers.will_boot_hvm ~__context ~self in
@@ -2372,8 +2378,8 @@ let start ~__context ~self paused force =
                   sync_with_task __context queue_name vm_start;
                 with e ->
                   (* If the VM.start throws an error, clean up the unpause
-                     					     which will fail in an irrelevant manor, then reraise
-                     					     the original error *)
+                                   which will fail in an irrelevant manor, then reraise
+                                   the original error *)
                   begin
                     try sync __context queue_name vm_unpause with _ -> ()
                   end;
@@ -2381,7 +2387,7 @@ let start ~__context ~self paused force =
               end;
 
               (* At this point, the start paused has succeeded. Now
-                 					   we _do_ care about any error from unpause *)
+                             we _do_ care about any error from unpause *)
 
               sync_with_task __context queue_name vm_unpause
             end else
@@ -2422,7 +2428,7 @@ let reboot ~__context ~self timeout =
        let dbg = Context.string_of_task __context in
        maybe_cleanup_vm ~__context ~self;
        (* If Xenopsd no longer knows about the VM after cleanup it was shutdown.
-          			   This also means our caches have been removed. *)
+                   This also means our caches have been removed. *)
        if not (vm_exists_in_xenopsd queue_name dbg id) then
          raise (Bad_power_state (Halted, Running));
        (* Ensure we have the latest version of the VM metadata before the reboot *)
@@ -2525,9 +2531,9 @@ let resume ~__context ~self ~start_paused ~force =
        let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
        let module Client = (val make_client queue_name : XENOPS) in
        (* NB we don't set resident_on because we don't want to
-          			   modify the VM.power_state, {VBD,VIF}.currently_attached in the
-          			   failures cases. This means we must remove the metadata from
-          			   xenopsd on failure. *)
+                   modify the VM.power_state, {VBD,VIF}.currently_attached in the
+                   failures cases. This means we must remove the metadata from
+                   xenopsd on failure. *)
        begin try
            Events_from_xenopsd.with_suppressed queue_name dbg vm_id
              (fun () ->
