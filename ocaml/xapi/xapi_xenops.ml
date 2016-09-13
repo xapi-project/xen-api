@@ -1639,10 +1639,9 @@ let update_vif ~__context id =
                if state.plugged then begin
                  (* sync MTU *)
                  (try
-                    if Opt.is_none state.device
-                    then failwith (Printf.sprintf "could not determine device id for VIF %s.%s" (fst id) (snd id))
-                    else
-                      let device = Opt.unbox state.device in
+                    match state.device with
+                    | None -> failwith (Printf.sprintf "could not determine device id for VIF %s.%s" (fst id) (snd id))
+                    | Some device ->
                       let dbg = Context.string_of_task __context in
                       let mtu = Net.Interface.get_mtu dbg ~name:device in
                       Db.VIF.set_MTU ~__context ~self:vif ~value:(Int64.of_int mtu)
