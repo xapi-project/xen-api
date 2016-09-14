@@ -286,8 +286,9 @@ let make_vgpu_type ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
   ref
 
 let make_pvs_site ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
-    ?(name="") ?(cache_storage=[]) () =
-  Db.PVS_site.create ~__context ~ref ~uuid ~name ~cache_storage;
+    ?(name_label="") ?(name_description="") ?(pVS_uuid="") ?(cache_storage=[]) () =
+  Db.PVS_site.create ~__context ~ref ~uuid ~name_label ~name_description
+    ~pVS_uuid ~cache_storage;
   ref
 
 let make_pvs_proxy ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())

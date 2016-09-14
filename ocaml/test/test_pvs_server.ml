@@ -20,7 +20,7 @@ let test_unlicensed () =
   let first_port = 1234L in
   let last_port = 5678L in
   let __context = make_test_database ~features:[] () in
-  let valid_site = make_pvs_site ~__context ~name:"site" () in
+  let valid_site = make_pvs_site ~__context ~name_label:"site" () in
   assert_raises
     Api_errors.(Server_error (license_restriction, ["PVS_proxy"]))
     (fun () ->
@@ -32,7 +32,7 @@ let test_introduce_ok () =
   let first_port = 1234L in
   let last_port = 5678L in
   let __context = make_test_database () in
-  let valid_site = make_pvs_site ~__context ~name:"site" () in
+  let valid_site = make_pvs_site ~__context ~name_label:"site" () in
   let pvs_server = Xapi_pvs_server.introduce ~__context
       ~addresses ~first_port ~last_port ~site:valid_site
   in
@@ -50,7 +50,7 @@ let test_introduce_duplicate_addresses () =
   let first_port = 1234L in
   let last_port = 5678L in
   let __context = make_test_database () in
-  let valid_site = make_pvs_site ~__context ~name:"site" () in
+  let valid_site = make_pvs_site ~__context ~name_label:"site" () in
   let pvs_server = Xapi_pvs_server.introduce ~__context
       ~addresses ~first_port ~last_port ~site:valid_site
   in
@@ -62,7 +62,7 @@ let test_introduce_multiple_addresses () =
   let first_port = 1234L in
   let last_port = 5678L in
   let __context = make_test_database () in
-  let valid_site = make_pvs_site ~__context ~name:"site" () in
+  let valid_site = make_pvs_site ~__context ~name_label:"site" () in
   let pvs_server = Xapi_pvs_server.introduce ~__context
       ~addresses ~first_port ~last_port ~site:valid_site
   in
@@ -74,7 +74,7 @@ let test_introduce_invalid_address () =
   let first_port = 1234L in
   let last_port = 5678L in
   let __context = make_test_database () in
-  let valid_site = make_pvs_site ~__context ~name:"site" () in
+  let valid_site = make_pvs_site ~__context ~name_label:"site" () in
   assert_raises_api_error
     ~args:["addresses"]
     Api_errors.invalid_ip_address_specified
@@ -98,7 +98,7 @@ let test_introduce_invalid_low_port () =
   let first_port = -5L in
   let last_port = 5678L in
   let __context = make_test_database () in
-  let valid_site = make_pvs_site ~__context ~name:"site" () in
+  let valid_site = make_pvs_site ~__context ~name_label:"site" () in
   assert_raises_api_error
     Api_errors.value_not_supported
     ~args:["first_port"; "-5"; "Port out of range"]
@@ -110,7 +110,7 @@ let test_introduce_invalid_high_port () =
   let first_port = 1234L in
   let last_port = 345678L in
   let __context = make_test_database () in
-  let valid_site = make_pvs_site ~__context ~name:"site" () in
+  let valid_site = make_pvs_site ~__context ~name_label:"site" () in
   assert_raises_api_error
     Api_errors.value_not_supported
     ~args:["last_port"; "345678"; "Port out of range"]
@@ -122,7 +122,7 @@ let test_introduce_invalid_ports () =
   let first_port = 5678L in
   let last_port = 1234L in
   let __context = make_test_database () in
-  let valid_site = make_pvs_site ~__context ~name:"site" () in
+  let valid_site = make_pvs_site ~__context ~name_label:"site" () in
   assert_raises_api_error
     Api_errors.value_not_supported
     ~args:["last_port"; "1234"; "last_port smaller than first_port"]
@@ -134,7 +134,7 @@ let test_forget () =
   let first_port = 1234L in
   let last_port = 5678L in
   let __context = make_test_database () in
-  let valid_site = make_pvs_site ~__context ~name:"site" () in
+  let valid_site = make_pvs_site ~__context ~name_label:"site" () in
   let pvs_server = Xapi_pvs_server.introduce ~__context
       ~addresses ~first_port ~last_port ~site:valid_site
   in
@@ -146,7 +146,7 @@ let test_gc () =
   let first_port = 1234L in
   let last_port = 5678L in
   let __context = make_test_database () in
-  let site = make_pvs_site ~__context ~name:"site" () in
+  let site = make_pvs_site ~__context ~name_label:"site" () in
   let server = Xapi_pvs_server.introduce ~__context
       ~addresses ~first_port ~last_port ~site
   in
