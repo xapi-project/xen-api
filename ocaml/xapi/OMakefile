@@ -278,7 +278,6 @@ XAPI_MODULES = $(COMMON) \
 	xapi \
 	cluster_stack_constraints \
 	vm_platform \
-	xapi_pvs_cache \
 	xapi_pvs_site \
 	xapi_pvs_server \
 	xapi_pvs_proxy \
