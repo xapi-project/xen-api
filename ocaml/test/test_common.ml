@@ -105,8 +105,48 @@ let make_host ~__context ?(uuid=make_uuid ()) ?(name_label="host")
     ?(name_description="description") ?(hostname="localhost") ?(address="127.0.0.1")
     ?(external_auth_type="") ?(external_auth_service_name="") ?(external_auth_configuration=[])
     ?(license_params=[]) ?(edition="free") ?(license_server=[]) ?(local_cache_sr=Ref.null) ?(chipset_info=[]) ?(ssl_legacy=false) () =
-
   Xapi_host.create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info ~ssl_legacy
+
+let make_host2 ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="host")
+    ?(name_description="description") ?(hostname="localhost") ?(address="127.0.0.1")
+    ?(external_auth_type="") ?(external_auth_service_name="") ?(external_auth_configuration=[])
+    ?(license_params=[]) ?(edition="free") ?(license_server=[]) ?(local_cache_sr=Ref.null)
+    ?(chipset_info=[]) ?(ssl_legacy=false) () =
+  Db.Host.create ~__context ~ref
+    ~current_operations:[] ~allowed_operations:[]
+    ~software_version:(Xapi_globs.software_version ())
+    ~enabled:false
+    ~aPI_version_major:Xapi_globs.api_version_major
+    ~aPI_version_minor:Xapi_globs.api_version_minor
+    ~aPI_version_vendor:Xapi_globs.api_version_vendor
+    ~aPI_version_vendor_implementation:Xapi_globs.api_version_vendor_implementation
+    ~name_description ~name_label ~uuid ~other_config:[]
+    ~capabilities:[]
+    ~cpu_configuration:[]
+    ~cpu_info:[]
+    ~chipset_info
+    ~memory_overhead:0L
+    ~sched_policy:"credit"
+    ~supported_bootloaders:[]
+    ~suspend_image_sr:Ref.null ~crash_dump_sr:Ref.null
+    ~logging:[] ~hostname ~address ~metrics:Ref.null
+    ~license_params ~boot_free_mem:0L
+    ~ha_statefiles:[] ~ha_network_peers:[] ~blobs:[] ~tags:[]
+    ~external_auth_type
+    ~external_auth_service_name
+    ~external_auth_configuration
+    ~edition ~license_server
+    ~bios_strings:[]
+    ~power_on_mode:""
+    ~power_on_config:[]
+    ~local_cache_sr
+    ~ssl_legacy
+    ~guest_VCPUs_params:[]
+    ~display:`enabled
+    ~virtual_hardware_platform_versions:[]
+    ~control_domain:Ref.null
+    ~patches_requiring_reboot:[];
+  ref
 
 let make_pif ~__context ~network ~host ?(device="eth0") ?(mAC="C0:FF:EE:C0:FF:EE") ?(mTU=1500L)
     ?(vLAN=(-1L)) ?(physical=true) ?(ip_configuration_mode=`None) ?(iP="") ?(netmask="")
@@ -302,4 +342,10 @@ let make_pvs_server ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
     ?(addresses=[]) ?(first_port=1L) ?(last_port=65535L) ?(site=Ref.null) () =
   Db.PVS_server.create ~__context
     ~addresses ~ref ~uuid ~first_port ~last_port ~site;
+  ref
+
+let make_pvs_cache_storage ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
+    ?(host=Ref.null) ?(sR=Ref.null) ?(site=Ref.null) ?(size=0L) ?(vDI=Ref.null) () =
+  Db.PVS_cache_storage.create ~__context
+    ~ref ~uuid ~host ~sR ~site ~size ~vDI;
   ref

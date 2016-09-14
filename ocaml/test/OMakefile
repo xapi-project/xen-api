@@ -68,6 +68,7 @@ OCAML_OBJS = \
 	test_pvs_site \
 	test_pvs_proxy \
 	test_pvs_server \
+	test_pvs_cache_storage \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
 
