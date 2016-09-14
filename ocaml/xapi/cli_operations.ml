@@ -4702,7 +4702,11 @@ let lvhd_enable_thin_provisioning printer rpc session_id params =
 module PVS_site = struct
   let introduce printer rpc session_id params =
     let name  = List.assoc "name" params in
-    let ref   = Client.PVS_site.introduce ~rpc ~session_id ~name in
+    let pVS_uuid =
+      try List.assoc "pvs-uuid" params
+      with Not_found -> ""
+    in
+    let ref   = Client.PVS_site.introduce ~rpc ~session_id ~name ~pVS_uuid in
     let uuid  = Client.PVS_site.get_uuid rpc session_id ref in
     printer (Cli_printer.PList [uuid])
 

@@ -20,13 +20,13 @@ module E = Api_errors
 
 let api_error msg xs = raise (E.Server_error (msg, xs))
 
-let introduce ~__context ~name =
+let introduce ~__context ~name ~pVS_uuid =
   Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
   Helpers.assert_using_vswitch ~__context;
   let pvs_site = Ref.make () in
   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
   Db.PVS_site.create ~__context
-    ~ref:pvs_site ~uuid ~name ~cache_storage:[];
+    ~ref:pvs_site ~uuid ~name ~pVS_uuid ~cache_storage:[];
   pvs_site
 
 let forget ~__context ~self =

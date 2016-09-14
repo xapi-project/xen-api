@@ -3899,9 +3899,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module LVHD = struct end
 
   module PVS_site = struct
-    let introduce ~__context ~name =
+    let introduce ~__context ~name ~pVS_uuid =
       info "PVS_site.introduce %s" name;
-      Local.PVS_site.introduce ~__context ~name
+      Local.PVS_site.introduce ~__context ~name ~pVS_uuid
 
     let forget ~__context ~self =
       info "PVS_site.forget";

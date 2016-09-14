@@ -602,7 +602,8 @@ let create_or_get_pvs_site_on_master __context rpc session_id (pvs_site_ref, pvs
     match Client.PVS_site.get_all_records_where ~rpc ~session_id ~expr with
     | [] ->
       debug "Found no PVS site with name = '%s' on the master, so creating one." my_site_name;
-      let new_pvs_site = Client.PVS_site.introduce ~rpc ~session_id ~name:my_site_name in
+      let new_pvs_site = Client.PVS_site.introduce ~rpc ~session_id
+          ~name:my_site_name ~pVS_uuid:pvs_site.API.pVS_site_PVS_uuid in
       (* Update PVS servers *)
       let (_ : API.ref_PVS_server list) = List.map (fun pvs_server ->
           let pvs_record = Db.PVS_server.get_record ~__context ~self:pvs_server in
