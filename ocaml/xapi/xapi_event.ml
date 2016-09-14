@@ -441,7 +441,7 @@ let from_inner __context session subs from from_t deadline =
                  if Subscription.object_matches subs (String.lowercase table) objref then begin
                    let last = max last (max modified deleted) in (* mtime guaranteed to always be larger than ctime *)
                    ((if created > !last_generation then (table, objref, created)::creates else creates),
-                    (if modified > !last_generation then (table, objref, modified)::mods else mods),
+                    (if modified > !last_generation && not (created > !last_generation) then (table, objref, modified)::mods else mods), (* Only have a mod event if we don't have a created event *)
                     deletes, last)
                  end else begin
                    (creates,mods,deletes,last)
