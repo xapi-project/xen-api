@@ -292,6 +292,20 @@ let event_inject_test session_id =
   then failed test "Failed to see injected event"
   else success test
 
+module StringSet=Set.Make(String)
+
+let event_from_number_test session_id =
+  let test = make_test "Event.from test" 0 in
+  start test;
+  let events = Client.Event.from !rpc session_id [ "vm" ] "" 10. |> event_from_of_rpc in
+  let (_,f) = List.fold_left (fun (set,failed) ev ->
+    let reference = ev.reference in
+    if StringSet.mem reference set
+    then (set,true)
+    else (StringSet.add reference set, failed)) (StringSet.empty, false) events.events in
+  if f
+  then failed test "Object seen twice in events"
+  else success test
 
 let all_srs_with_vdi_create session_id =
   Quicktest_storage.list_srs session_id
@@ -872,6 +886,7 @@ let _ =
           (*				maybe_run_test "event" (fun () -> object_level_event_test s);*)
           maybe_run_test "event" (fun () -> event_message_test s);
           maybe_run_test "event" (fun () -> event_inject_test s);
+          maybe_run_test "event" (fun () -> event_from_number_test s);
           maybe_run_test "vdi" (fun () -> vdi_test s);
           maybe_run_test "async" (fun () -> async_test s);
           maybe_run_test "import" (fun () -> import_export_test s);
