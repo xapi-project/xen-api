@@ -741,6 +741,13 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
          else acc)
       [] vm_and_snapshots in
 
+  (* Double check that all of the suspend VDIs are all visible on the source *)
+  let localhost = Helpers.get_localhost ~__context in
+  List.iter (fun vdi_mirror ->
+      let sr = Db.VDI.get_SR ~__context ~self:vdi_mirror.vdi in
+      if not (Helpers.host_has_pbd_for_sr ~__context ~host:localhost ~sr)
+      then raise (Api_errors.Server_error (Api_errors.suspend_image_not_accessible, [ Ref.string_of vdi_mirror.vdi ]))) suspends_vdis;
+
   let dest_pool = List.hd (XenAPI.Pool.get_all remote.rpc remote.session) in
   let default_sr_ref =
     XenAPI.Pool.get_default_SR remote.rpc remote.session dest_pool in
