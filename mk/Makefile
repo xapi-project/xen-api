@@ -19,9 +19,6 @@ OUTPUT_CLI_RPM_SOURCES = $(RPM_SOURCESDIR)/xe $(RPM_SOURCESDIR)/bash-completion
 OUTPUT_DOCS            = $(MY_OUTPUT_DIR)/sdkiso
 OUTPUT_WEBZIP          = $(MY_OUTPUT_DIR)/sdk-html.zip
 
-JQUERY_PACK_DIST       = $(CARBON_DISTFILES)/javascript/jquery/jquery-1.1.3.1.pack.js
-JQUERY_TV_DIST         = $(CARBON_DISTFILES)/javascript/jquery/treeview/jquery.treeview.zip
-
 OUTPUT_DATAMODEL_DIR   = $(MY_OUTPUT_DIR)/datamodel
 
 OUTPUT_SDK_DIR         = $(MY_OUTPUT_DIR)
