@@ -51,7 +51,7 @@ let create ~__context ~host ~sR ~site ~size =
   let cache_storage = Ref.make () in
   let uuid = Uuidm.to_string (Uuidm.create `V4) in
   let vDI = create_vdi ~__context ~sR ~size in
-  Db.PVS_cache_storage.create ~__context ~ref:cache_storage ~uuid ~host ~sR ~site ~vDI ~host_vdis:[] ~size;
+  Db.PVS_cache_storage.create ~__context ~ref:cache_storage ~uuid ~host ~sR ~site ~vDI ~size;
   cache_storage
 
 let assert_not_in_use ~__context self =

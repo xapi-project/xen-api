@@ -9076,10 +9076,6 @@ module PVS_cache_storage = struct
         ; field  ~qualifier:DynamicRO ~lifecycle
             ~ty:(Ref _vdi) "VDI" ~default_value:null_ref
             "The VDI used for caching"
-
-        ; field  ~qualifier:DynamicRO ~lifecycle
-            ~ty:(Map (Ref _host, Ref _vdi)) "host_vdis" ~default_value:(Some (VMap []))
-            "Map of host to the VDI used for caching on that host, for the associated PVS site"
         ]
 
       ~messages:
