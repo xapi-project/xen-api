@@ -127,12 +127,16 @@ let pifs_and_memory_update_fn xc =
     (fun __context ->
        let host = Helpers.get_localhost ~__context in
        List.iter (fun (uuid, memory) ->
-           let vm = Db.VM.get_by_uuid ~__context ~uuid in
-           let vmm = Db.VM.get_metrics ~__context ~self:vm in
-           if (Db.VM.get_resident_on ~__context ~self:vm =
-               Helpers.get_localhost ~__context)
-           then Db.VM_metrics.set_memory_actual ~__context ~self:vmm ~value:memory
-           else clear_cache_for_vm uuid
+           try
+             let vm = Db.VM.get_by_uuid ~__context ~uuid in
+             let vmm = Db.VM.get_metrics ~__context ~self:vm in
+             if (Db.VM.get_resident_on ~__context ~self:vm =
+                 Helpers.get_localhost ~__context)
+             then Db.VM_metrics.set_memory_actual ~__context ~self:vmm ~value:memory
+             else clear_cache_for_vm uuid
+           with
+           (* ignore errors related to transient or removed uuids *)
+             Db_exn.Read_missing_uuid(_) -> ()
          ) vm_memory_changes;
        Monitor_master.update_pifs ~__context host pif_changes;
        let localhost = Helpers.get_localhost ~__context in
