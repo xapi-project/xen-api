@@ -101,7 +101,7 @@ let gc_PVS_cache_storage ~__context =
     Db.PVS_cache_storage.get_all
     Db.PVS_cache_storage.get_record
     (fun x -> valid_ref __context x.pVS_cache_storage_site)
-    (fun x -> valid_ref __context x.pVS_cache_storage_SR)
+    (fun x -> valid_ref __context x.pVS_cache_storage_host)
     Db.PVS_cache_storage.destroy
 
 let gc_PIFs ~__context =
