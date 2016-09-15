@@ -618,10 +618,37 @@ let create_or_get_pvs_site_on_master __context rpc session_id (pvs_site_ref, pvs
       new_pvs_site
     | (pvs_site, _) :: _ -> pvs_site
   in
-
-  (* TODO: Update PVS site cache SR *)
-
   new_pvs_site_ref
+
+let create_or_get_pvs_cache_storage_on_master __context rpc session_id (pcs_ref, pcs) : API.ref_PVS_cache_storage =
+  let my_host_ref = pcs.API.pVS_cache_storage_host in
+  let my_host = Db.Host.get_record ~__context ~self:my_host_ref in
+  let new_host_ref = create_or_get_host_on_master __context rpc session_id (my_host_ref, my_host) in
+
+  let my_sr_ref = pcs.API.pVS_cache_storage_SR in
+  let my_sr = Db.SR.get_record ~__context ~self:my_sr_ref in
+  let new_sr_ref = create_or_get_sr_on_master __context rpc session_id (my_sr_ref, my_sr) in
+
+  let my_pvs_site_ref = pcs.API.pVS_cache_storage_site in
+  let my_pvs_site = Db.PVS_site.get_record ~__context ~self:my_pvs_site_ref in
+  let new_pvs_site_ref = create_or_get_pvs_site_on_master __context rpc session_id (my_pvs_site_ref, my_pvs_site) in
+
+  let new_pvs_cache_storage_ref =
+    let expr =
+      Printf.sprintf "field \"site\"=\"%s\" and field \"host\"=\"%s\""
+        (Ref.string_of new_pvs_site_ref)
+        (Ref.string_of new_host_ref)
+    in
+    match Client.PVS_cache_storage.get_all_records_where ~rpc ~session_id ~expr with
+    | [] ->
+      Client.PVS_cache_storage.create ~rpc ~session_id
+        ~host:new_host_ref
+        ~sR:new_sr_ref
+        ~site:new_pvs_site_ref
+        ~size:pcs.API.pVS_cache_storage_size
+    | (pvs_cache_storage, _) :: _ -> pvs_cache_storage
+  in
+  new_pvs_cache_storage_ref
 
 let create_or_get_secret_on_master __context rpc session_id (secret_ref, secret) : API.ref_secret =
   let my_uuid = secret.API.secret_uuid in
@@ -681,6 +708,11 @@ let update_non_vm_metadata ~__context ~rpc ~session_id =
   let my_pvs_sites = Db.PVS_site.get_all_records ~__context in
   let (_ : API.ref_PVS_site option list) =
     List.map (protect_exn (create_or_get_pvs_site_on_master __context rpc session_id)) my_pvs_sites in
+
+  (* update PVS_cache_storage *)
+  let my_pvs_cache_storages = Db.PVS_cache_storage.get_all_records ~__context in
+  let (_ : API.ref_PVS_cache_storage option list) =
+    List.map (protect_exn (create_or_get_pvs_cache_storage_on_master __context rpc session_id)) my_pvs_cache_storages in
 
   (* update Secrets *)
   let my_secrets = Db.Secret.get_all_records ~__context in
