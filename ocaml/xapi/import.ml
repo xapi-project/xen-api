@@ -1346,32 +1346,34 @@ let with_open_archive fd ?length f =
   with e ->
     if not(!retry_with_gzip) then raise e;
     debug "Failed to directly open the archive; trying gzip";
-    let pipe_out, pipe_in = Unix.pipe () in
-    let t = Thread.create
-        (Gzip.decompress pipe_in)
-        (fun compressed_in ->
-           (* Write the initial buffer *)
-           Unix.set_close_on_exec compressed_in;
-           debug "Writing initial buffer";
-           Tar_unix.really_write compressed_in buffer;
-           let limit = (Opt.map
-                          (fun x -> Int64.sub x (Int64.of_int Tar_unix.Header.length)) length) in
-           let n = Unixext.copy_file ?limit fd compressed_in in
-           debug "Written a total of %d + %Ld bytes" Tar_unix.Header.length n;
-        ) in
-    finally
-      (fun () ->
-         let hdr = Tar_unix.Header.get_next_header pipe_out in
-         assert_filename_is hdr;
+    let feeder pipe_in = finally
+        (fun () ->
+           Gzip.decompress pipe_in
+             (fun compressed_in ->
+                (* Write the initial buffer *)
+                Unix.set_close_on_exec compressed_in;
+                debug "Writing initial buffer";
+                Tar_unix.really_write compressed_in buffer;
+                let limit = (Opt.map
+                               (fun x -> Int64.sub x (Int64.of_int Tar_unix.Header.length)) length) in
+                let n = Unixext.copy_file ?limit fd compressed_in in
+                debug "Written a total of %d + %Ld bytes" Tar_unix.Header.length n))
+        (fun () ->
+           ignore_exn (fun () -> Unix.close pipe_in)) in
+    let consumer pipe_out feeder_t = finally
+        (fun () ->
+           let hdr = Tar_unix.Header.get_next_header pipe_out in
+           assert_filename_is hdr;
 
-         let xml = read_xml hdr pipe_out in
-         Tar_unix.Archive.skip pipe_out (Tar_unix.Header.compute_zero_padding_length hdr);
-         f xml pipe_out)
-      (fun () ->
-         debug "Closing pipes";
-         Unix.close pipe_in;
-         Unix.close pipe_out;
-         Thread.join t)
+           let xml = read_xml hdr pipe_out in
+           Tar_unix.Archive.skip pipe_out (Tar_unix.Header.compute_zero_padding_length hdr);
+           f xml pipe_out)
+        (fun () ->
+           ignore_exn (fun () -> Unix.close pipe_out);
+           Thread.join feeder_t) in
+    let pipe_out, pipe_in = Unix.pipe () in
+    let feeder_t = Thread.create feeder pipe_in in
+    consumer pipe_out feeder_t
 
 (** Remove "import" from the current operations of all created VMs, complete the
     task including the VM references *)
