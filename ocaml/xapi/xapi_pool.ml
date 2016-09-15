@@ -596,12 +596,12 @@ let create_or_get_pif_on_master __context rpc session_id (pif_ref, pif) : API.re
   new_pif_ref
 
 let create_or_get_pvs_site_on_master __context rpc session_id (pvs_site_ref, pvs_site) : API.ref_PVS_site =
-  let my_site_name = pvs_site.API.pVS_site_name_label in
+  let my_pvs_uuid = pvs_site.API.pVS_site_PVS_uuid in
   let new_pvs_site_ref =
-    let expr = "field \"name__label\"=\"" ^ my_site_name ^ "\"" in
+    let expr = "field \"PVS_uuid\"=\"" ^ my_pvs_uuid ^ "\"" in
     match Client.PVS_site.get_all_records_where ~rpc ~session_id ~expr with
     | [] ->
-      debug "Found no PVS site with name = '%s' on the master, so creating one." my_site_name;
+      debug "Found no PVS site with PVS_uuid = '%s' on the master, so creating one." my_pvs_uuid;
       let new_pvs_site = Client.PVS_site.introduce ~rpc ~session_id
           ~name_label:pvs_site.API.pVS_site_name_label
           ~name_description:pvs_site.API.pVS_site_name_description

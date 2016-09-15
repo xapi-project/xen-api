@@ -102,7 +102,7 @@ let update_site_on_localhost ~__context ~site ~vdi ?(starting_proxies=[]) ?(stop
   if proxy_config.clients <> [] then
     Network.Net.PVS_proxy.configure_site dbg proxy_config
   else
-    let uuid = Db.PVS_site.get_uuid ~__context ~self:site in
+    let uuid = Db.PVS_site.get_PVS_uuid ~__context ~self:site in
     Network.Net.PVS_proxy.remove_site dbg uuid;
 
     (* Ensure that OVS ports for the proxy daemon are removed if they are no longer used *)
