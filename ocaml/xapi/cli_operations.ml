@@ -4763,7 +4763,7 @@ module PVS_cache_storage = struct
           let sR = Client.SR.get_by_uuid ~rpc ~session_id ~uuid:sr_uuid in
           let site_uuid  = List.assoc "pvs-site-uuid" params in
           let site = Client.PVS_site.get_by_uuid ~rpc ~session_id ~uuid:site_uuid in
-          let size = List.assoc "size" params |> Int64.of_string in
+          let size = Record_util.bytes_of_string "size" (List.assoc "size" params) in
           let ref = Client.PVS_cache_storage.create
               ~rpc ~session_id ~host:(host.getref ()) ~sR ~site ~size in
           let uuid = Client.PVS_cache_storage.get_uuid rpc session_id ref in
