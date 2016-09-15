@@ -114,7 +114,7 @@ let sanity_check ~platformdata ~vcpu_max ~vcpu_at_startup ~hvm ~filter_out_unkno
     begin
       try
         let cores_per_socket = int_of_string(List.assoc "cores-per-socket" platformdata) in
-        (* cores per socket has to be in multiples of VCPUs_max and VCPUs_at_startup *)
+        (* VCPUs_max has to be a multiple of cores per socket *)
         if ((Int64.to_int(vcpu_max) mod cores_per_socket) <> 0) then
           raise (Api_errors.Server_error(Api_errors.invalid_value,
                                          ["platform:cores-per-socket";
