@@ -15,11 +15,6 @@
 val create : __context:Context.t ->
   site:API.ref_PVS_site ->
   vIF:API.ref_VIF ->
-  prepopulate:bool ->
   API.ref_PVS_proxy
 
 val destroy : __context:Context.t -> self:API.ref_PVS_proxy -> unit
-
-val set_prepopulate : __context:Context.t ->
-  self:API.ref_PVS_proxy ->
-  value:bool -> unit

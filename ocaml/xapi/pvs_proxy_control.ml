@@ -48,12 +48,11 @@ let metadata_of_site ~__context ~site ~vdi ~proxies =
   let clients =
     List.map (fun (vif, proxy) ->
         let rc = Db.VIF.get_record ~__context ~self:vif in
-        let prepopulate = Db.PVS_proxy.get_prepopulate ~__context ~self:proxy in
         PVS_proxy.Client.{
           uuid = rc.API.vIF_uuid;
           mac = rc.API.vIF_MAC;
           interface = proxy_port_name (Db.Network.get_bridge ~__context ~self:rc.API.vIF_network);
-          prepopulate;
+          prepopulate = false;
         }
       ) proxies
   in

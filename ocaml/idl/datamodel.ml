@@ -8965,7 +8965,6 @@ module PVS_proxy = struct
       ~params:
         [ Ref _pvs_site   , "site","PVS site that we proxy for"
         ; Ref _vif        , "VIF", "VIF for the VM that needs to be proxied"
-        ; Bool            , "prepopulate", "if true, prefetch whole disk for VM"
         ]
       ~lifecycle
       ~allowed_roles:_R_POOL_OP
@@ -8976,17 +8975,6 @@ module PVS_proxy = struct
       ~doc:"remove (or switch off) a PVS proxy for this VM"
       ~params:
         [ Ref _pvs_proxy  , "self", "this PVS proxy"
-        ]
-      ~lifecycle
-      ~allowed_roles:_R_POOL_OP
-      ()
-
-  let set_prepopulate = call
-      ~name:"set_prepopulate"
-      ~doc:"change the value of the prepopulate field"
-      ~params:
-        [ Ref _pvs_proxy  , "self", "this PVS proxy"
-        ; Bool            , "value", "set to this value"
         ]
       ~lifecycle
       ~allowed_roles:_R_POOL_OP
@@ -9017,10 +9005,6 @@ module PVS_proxy = struct
             ~ty:(Ref _vif) "VIF" ~default_value:null_ref
             "VIF of the VM using the proxy"
 
-        ; field   ~qualifier:StaticRO ~lifecycle
-            ~ty:Bool "prepopulate" ~default_value:null_bool
-            "true = proxy prefetches whole disk for the VM"
-
         ; field   ~qualifier:DynamicRO ~lifecycle
             ~ty:Bool "currently_attached" ~default_value:null_bool
             "true = VM is currently proxied"
@@ -9032,7 +9016,6 @@ module PVS_proxy = struct
       ~messages:
         [ create
         ; destroy
-        ; set_prepopulate
         ]
       ()
 end

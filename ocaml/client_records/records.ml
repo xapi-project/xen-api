@@ -1802,11 +1802,6 @@ let pvs_proxy_record rpc session_id pvs_site =
       ; make_field ~name:"vif-uuid"
           ~get:(fun () -> (x ()).API.pVS_proxy_VIF |> get_uuid_from_ref)
           ()
-      ; make_field ~name:"prepopulate"
-          ~get:(fun () -> (x ()).API.pVS_proxy_prepopulate |> string_of_bool)
-          ~set:(fun str -> let value = bool_of_string str in
-                 Client.PVS_proxy.set_prepopulate rpc session_id !_ref value)
-          ()
       ; make_field ~name:"currently-attached"
           ~get:(fun () -> (x ()).API.pVS_proxy_currently_attached
                           |> string_of_bool)

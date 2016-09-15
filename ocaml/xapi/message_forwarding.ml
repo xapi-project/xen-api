@@ -3929,12 +3929,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let host = Db.VM.get_resident_on ~__context ~self:vm in
       if Db.is_valid_ref __context host then host else Helpers.get_localhost ~__context
 
-    let create ~__context ~site ~vIF ~prepopulate =
+    let create ~__context ~site ~vIF =
       info "PVS_proxy.create";
       let host = choose_host ~__context ~vIF in
-      let local_fn = Local.PVS_proxy.create ~site ~vIF ~prepopulate in
+      let local_fn = Local.PVS_proxy.create ~site ~vIF in
       do_op_on ~__context ~local_fn ~host
-        (fun session_id rpc -> Client.PVS_proxy.create rpc session_id site vIF prepopulate)
+        (fun session_id rpc -> Client.PVS_proxy.create rpc session_id site vIF)
 
     let destroy ~__context ~self =
       info "PVS_proxy.destroy";
@@ -3943,15 +3943,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.PVS_proxy.destroy ~self in
       do_op_on ~__context ~local_fn ~host
         (fun session_id rpc -> Client.PVS_proxy.destroy rpc session_id self)
-
-    let set_prepopulate ~__context ~self ~value =
-      info "PVS_proxy.destroy";
-      let vIF = Db.PVS_proxy.get_VIF ~__context ~self in
-      let host = choose_host ~__context ~vIF in
-      let local_fn = Local.PVS_proxy.set_prepopulate ~self ~value in
-      do_op_on ~__context ~local_fn ~host
-        (fun session_id rpc -> Client.PVS_proxy.set_prepopulate rpc session_id self value)
-
   end
 
   module PVS_cache_storage = struct

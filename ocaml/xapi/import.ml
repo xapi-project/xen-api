@@ -1272,7 +1272,6 @@ module PVS_Proxy : HandlerTools = struct
           ~session_id
           ~site:p.API.pVS_proxy_site
           ~vIF:p.API.pVS_proxy_VIF
-          ~prepopulate:p.API.pVS_proxy_prepopulate
       in
       debug "creating PVS Proxy %s btw PVS Site %s <-> %s VIF during import"
         (Ref.string_of proxy)

@@ -805,7 +805,7 @@ let gen_cmds rpc session_id =
       		 *)
     ; Client.PVS_site.(mk get_all get_all_records_where get_by_uuid pvs_site_record "pvs-site" [] ["uuid"; "name-label"; "name-description"; "pvs-uuid"; "pvs-server-uuids"] rpc session_id)
     ; Client.PVS_server.(mk get_all get_all_records_where get_by_uuid pvs_server_record "pvs-server" [] ["uuid"; "addresses"; "pvs-site-uuid"] rpc session_id)
-    ; Client.PVS_proxy.(mk get_all get_all_records_where get_by_uuid pvs_proxy_record "pvs-proxy" [] ["uuid"; "vif-uuid"; "pvs-site-uuid"; "currently-attached"; "prepopulate"; "cache-sr-uuid"] rpc session_id)
+    ; Client.PVS_proxy.(mk get_all get_all_records_where get_by_uuid pvs_proxy_record "pvs-proxy" [] ["uuid"; "vif-uuid"; "pvs-site-uuid"; "currently-attached"; "cache-sr-uuid"] rpc session_id)
     ; Client.PVS_cache_storage.(mk get_all get_all_records_where get_by_uuid pvs_cache_storage_record "pvs-cache-storage" [] ["uuid"; "host-uuid"; "sr-uuid"; "pvs-site-uuid"; "size"] rpc session_id)
     ]
 
@@ -4744,12 +4744,8 @@ module PVS_proxy = struct
     let site = Client.PVS_site.get_by_uuid ~rpc ~session_id ~uuid:site_uuid in
     let vif_uuid  = List.assoc "vif-uuid" params in
     let vIF = Client.VIF.get_by_uuid ~rpc ~session_id ~uuid:vif_uuid in
-    let prepopulate =
-      List.mem_assoc "prepopulate" params &&
-      (List.assoc "prepopulate" params |> bool_of_string "prepopulate")
-    in
     let ref = Client.PVS_proxy.create
-        ~rpc ~session_id ~site ~vIF ~prepopulate in
+        ~rpc ~session_id ~site ~vIF in
     let uuid = Client.PVS_proxy.get_uuid rpc session_id ref in
     printer (Cli_printer.PList [uuid])
 

@@ -285,7 +285,6 @@ let copy ~__context ~vm ~preserve_mac_address vif =
       try
         let site = proxy.API.pVS_proxy_site in
         let vIF = result in
-        let prepopulate = proxy.API.pVS_proxy_prepopulate in
         let pvs_proxy = Ref.make () in
         let uuid = Uuidm.to_string (Uuidm.create `V4) in
         Db.PVS_proxy.create
@@ -294,7 +293,6 @@ let copy ~__context ~vm ~preserve_mac_address vif =
           ~uuid
           ~site
           ~vIF
-          ~prepopulate
           ~currently_attached:false
           ~status:`stopped
       with e ->
