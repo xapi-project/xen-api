@@ -98,23 +98,19 @@ let update_site_on_localhost ~__context ~site ~vdi ?(starting_proxies=[]) ?(stop
     ) running_proxies in
   let proxies = starting_proxies @ (List.set_difference local_running_proxies stopping_proxies) |> List.setify in
   let proxy_config = metadata_of_site ~__context ~site ~vdi ~proxies in
-  if proxy_config.clients <> [] then
-    Network.Net.PVS_proxy.configure_site dbg proxy_config
-  else
-    let uuid = Db.PVS_site.get_PVS_uuid ~__context ~self:site in
-    Network.Net.PVS_proxy.remove_site dbg uuid;
+  Network.Net.PVS_proxy.configure_site dbg proxy_config;
 
-    (* Ensure that OVS ports for the proxy daemon are removed if they are no longer used *)
-    List.iter
-      (fun (vif, _) ->
-         let network = Db.VIF.get_network ~__context ~self:vif in
-         let bridge = Db.Network.get_bridge ~__context ~self:network in
-         let port_name = proxy_port_name bridge in
-         let active_ports = List.map (fun client -> client.Client.interface) proxy_config.clients in
-         if not (List.mem port_name active_ports) then
-           Network.Net.Bridge.remove_port dbg ~bridge ~name:port_name
-      )
-      stopping_proxies
+  (* Ensure that OVS ports for the proxy daemon are removed if they are no longer used *)
+  List.iter
+    (fun (vif, _) ->
+       let network = Db.VIF.get_network ~__context ~self:vif in
+       let bridge = Db.Network.get_bridge ~__context ~self:network in
+       let port_name = proxy_port_name bridge in
+       let active_ports = List.map (fun client -> client.Client.interface) proxy_config.clients in
+       if not (List.mem port_name active_ports) then
+         Network.Net.Bridge.remove_port dbg ~bridge ~name:port_name
+    )
+    stopping_proxies
 
 
 exception No_cache_sr_available
