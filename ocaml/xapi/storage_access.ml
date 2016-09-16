@@ -889,9 +889,22 @@ let make_service uuid ty =
     url = Constants.path [ Constants._services; Constants._driver; uuid; Constants._SM; ty ];
   }
 
+let check_queue_exists queue_name =
+  let t = Xcp_client.(get_ok (Protocol_unix.Client.connect ~switch:!switch_path ())) in
+  let results =
+    match Protocol_unix.Client.list ~t ~prefix:!Storage_interface.queue_name ~filter:`Alive () with
+    | `Ok list -> list
+    | _ -> failwith "Failed to contact switch" (* Shouldn't ever happen *) in
+  if not (List.mem queue_name results)
+  then
+    let prefix_len = String.length !Storage_interface.queue_name + 1 in
+    let driver = String.sub queue_name prefix_len (String.length queue_name - prefix_len) in
+    raise Api_errors.(Server_error(sr_unknown_driver,[driver]))
+
 let external_rpc queue_name uri =
+  let open Xcp_client in
+  if !use_switch then check_queue_exists queue_name;
   fun call ->
-    let open Xcp_client in
     if !use_switch
     then json_switch_rpc queue_name call
     else xml_http_rpc
