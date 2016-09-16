@@ -177,22 +177,20 @@ let start_proxy ~__context vif proxy =
     false
 
 let stop_proxy ~__context vif proxy =
-  if Db.PVS_proxy.get_currently_attached ~__context ~self:proxy then begin
-    try
-      let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
-      let host = Helpers.get_localhost ~__context in
-      let vdi = find_cache_vdi ~__context ~host ~site in
-      update_site_on_localhost ~__context ~site ~vdi ~stopping_proxies:[vif, proxy] ();
-      Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`stopped
-    with e ->
-      let reason =
-        match e with
-        | No_cache_sr_available -> "no PVS cache VDI found"
-        | Network_interface.PVS_proxy_connection_error -> "unable to connect to PVS proxy daemon"
-        | _ -> Printf.sprintf "unknown error (%s)" (Printexc.to_string e)
-      in
-      error "Unable to disable PVS proxy for VIF %s: %s." (Ref.string_of vif) reason
-  end
+  try
+    let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
+    let host = Helpers.get_localhost ~__context in
+    let vdi = find_cache_vdi ~__context ~host ~site in
+    update_site_on_localhost ~__context ~site ~vdi ~stopping_proxies:[vif, proxy] ();
+    Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`stopped
+  with e ->
+    let reason =
+      match e with
+      | No_cache_sr_available -> "no PVS cache VDI found"
+      | Network_interface.PVS_proxy_connection_error -> "unable to connect to PVS proxy daemon"
+      | _ -> Printf.sprintf "unknown error (%s)" (Printexc.to_string e)
+    in
+    error "Unable to disable PVS proxy for VIF %s: %s." (Ref.string_of vif) reason
 
 let find_proxy_for_vif ~__context ~vif =
   let open Db_filter_types in
