@@ -3952,7 +3952,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let destroy ~__context ~self =
       info "PVS_cache_storage.destroy";
-      Local.PVS_cache_storage.destroy ~__context ~self
+      let local_fn = Local.PVS_cache_storage.destroy ~self in
+      let host = Db.PVS_cache_storage.get_host ~__context ~self in
+      do_op_on ~__context ~local_fn ~host
+        (fun session_id rpc -> Client.PVS_cache_storage.destroy rpc session_id self)
   end
 end
-

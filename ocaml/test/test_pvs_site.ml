@@ -19,6 +19,8 @@ let name_label = "my_pvs_site"
 let name_description = "about my_pvs_site"
 let pVS_uuid = "my_pvs_uuid"
 
+let cleanup_storage _ _ = ()
+
 let test_unlicensed () =
   let __context = make_test_database ~features:[] () in
   assert_raises
@@ -34,7 +36,7 @@ let test_introduce () =
 let test_forget_ok () =
   let __context = make_test_database () in
   let pvs_site = Xapi_pvs_site.introduce ~__context ~name_label ~name_description ~pVS_uuid in
-  Xapi_pvs_site.forget ~__context ~self:pvs_site;
+  Xapi_pvs_site.forget_internal ~__context ~self:pvs_site ~cleanup_storage;
   assert_equal (Db.is_valid_ref __context pvs_site) false
 
 let test_forget_stopped_proxy () =
@@ -42,7 +44,7 @@ let test_forget_stopped_proxy () =
   let pvs_site = Xapi_pvs_site.introduce ~__context ~name_label ~name_description ~pVS_uuid in
   let (_: API.ref_PVS_proxy) =
     make_pvs_proxy ~__context ~site:pvs_site ~currently_attached:false () in
-  Xapi_pvs_site.forget ~__context ~self:pvs_site;
+  Xapi_pvs_site.forget_internal ~__context ~self:pvs_site ~cleanup_storage;
   assert_equal (Db.is_valid_ref __context pvs_site) false
 
 let test_forget_running_proxy () =
@@ -53,7 +55,7 @@ let test_forget_running_proxy () =
   assert_raises_api_error
     Api_errors.pvs_site_contains_running_proxies
     ~args:[Ref.string_of pvs_proxy]
-    (fun () -> Xapi_pvs_site.forget ~__context ~self:pvs_site)
+    (fun () -> Xapi_pvs_site.forget_internal ~__context ~self:pvs_site ~cleanup_storage)
 
 let test_forget_server () =
   let __context = make_test_database () in
@@ -62,7 +64,7 @@ let test_forget_server () =
   assert_raises_api_error
     Api_errors.pvs_site_contains_servers
     ~args:[Ref.string_of pvs_server]
-    (fun () -> Xapi_pvs_site.forget ~__context ~self:pvs_site)
+    (fun () -> Xapi_pvs_site.forget_internal ~__context ~self:pvs_site ~cleanup_storage)
 
 let test_forget_running_proxy_and_server () =
   let __context = make_test_database () in
@@ -73,7 +75,7 @@ let test_forget_running_proxy_and_server () =
   assert_raises_api_error
     Api_errors.pvs_site_contains_running_proxies
     ~args:[Ref.string_of pvs_proxy]
-    (fun () -> Xapi_pvs_site.forget ~__context ~self:pvs_site)
+    (fun () -> Xapi_pvs_site.forget_internal ~__context ~self:pvs_site ~cleanup_storage)
 
 let test =
   "test_pvs_site" >:::

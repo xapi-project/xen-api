@@ -66,10 +66,9 @@ let assert_not_in_use ~__context self =
   if in_use then
     api_error E.pvs_cache_storage_is_in_use [str self]
 
-let destroy_internal ~__context self =
-  destroy_vdi ~__context ~self;
-  Db.PVS_cache_storage.destroy ~__context ~self
-
 let destroy ~__context ~self =
   assert_not_in_use ~__context self;
-  destroy_internal ~__context self
+  let site = Db.PVS_cache_storage.get_site ~__context ~self in
+  Pvs_proxy_control.remove_site_on_localhost ~__context ~site;
+  destroy_vdi ~__context ~self;
+  Db.PVS_cache_storage.destroy ~__context ~self

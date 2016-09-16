@@ -112,6 +112,13 @@ let update_site_on_localhost ~__context ~site ~vdi ?(starting_proxies=[]) ?(stop
     )
     stopping_proxies
 
+(** Request xcp-networkd to tell the local PVS-proxy daemon that it must stop
+ *  proxying for the given site, and release the associated cache VDI. *)
+let remove_site_on_localhost ~__context ~site =
+  let open Network_interface.PVS_proxy in
+  let dbg = Context.string_of_task __context in
+  let uuid = Db.PVS_site.get_PVS_uuid ~__context ~self:site in
+  Network.Net.PVS_proxy.remove_site dbg uuid
 
 exception No_cache_sr_available
 

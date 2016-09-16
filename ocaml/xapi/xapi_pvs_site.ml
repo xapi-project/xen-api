@@ -29,7 +29,13 @@ let introduce ~__context ~name_label ~name_description ~pVS_uuid =
     ~ref:pvs_site ~uuid ~name_label ~name_description ~pVS_uuid ~cache_storage:[];
   pvs_site
 
-let forget ~__context ~self =
+let cleanup_storage __context self =
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      Db.PVS_site.get_cache_storage ~__context ~self
+      |> List.iter (fun self -> Client.Client.PVS_cache_storage.destroy ~rpc ~session_id ~self)
+    )
+
+let forget_internal ~__context ~self ~cleanup_storage =
   let open Db_filter_types in
   (* Check there are no running proxies. *)
   let running_proxies = Pvs_proxy_control.get_running_proxies ~__context ~site:self in
@@ -41,11 +47,10 @@ let forget ~__context ~self =
   let servers = Db.PVS_site.get_servers ~__context ~self in
   if servers <> [] then raise Api_errors.(Server_error
                                             (pvs_site_contains_servers, List.map Ref.string_of servers));
-
-  Db.PVS_site.get_cache_storage ~__context ~self
-  |> List.iter (Xapi_pvs_cache_storage.destroy_internal ~__context);
-
+  cleanup_storage __context self;
   Db.PVS_site.destroy ~__context ~self
+
+let forget = forget_internal ~cleanup_storage
 
 (** set the PVS UUID of [self] *)
 let set_PVS_uuid ~__context ~self ~value =
