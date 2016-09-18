@@ -188,6 +188,51 @@ let guidance_from_string = function
   | "restartXAPI" -> `restartXAPI
   | _ -> raise Bad_update_info
 
+let parse_update_info xml =
+  match xml with
+  | Xml.Element ("update", attr, children) ->
+    let key = List.assoc "key" attr in
+    let uuid = List.assoc "uuid" attr in
+    let name_label = List.assoc "name-label" attr in
+    let installation_size =
+      try
+        Int64.of_string (List.assoc "installation-size" attr)
+      with
+      | _ -> 0L
+    in
+    let guidance =
+      try
+        match List.assoc "after-apply-guidance" attr with
+        | "" -> []
+        | s ->  List.map guidance_from_string (String.split ' ' s)
+      with
+      | _ -> []
+    in
+    let is_name_description_node = function
+      | Xml.Element ("name-description", _, _) -> true
+      | _ -> false
+    in
+    let name_description = match List.find is_name_description_node children with
+      | Xml.Element("name-description", _, [ Xml.PCData s ]) -> s
+      | _ -> failwith "Malformed or missing <name-description>"
+    in
+    let update_info = {
+      uuid = uuid;
+      name_label = name_label;
+      name_description = name_description;
+      key = key;
+      installation_size = installation_size;
+      after_apply_guidance = guidance;
+    } in
+    update_info
+  | _ -> failwith "Malformed or missing <update>"
+
+let extract_applied_update_info applied_uuid  =
+  let applied_update = Printf.sprintf "%s/applied/%s" Xapi_globs.host_update_dir applied_uuid in
+  debug "pool_update.extract_applied_update_info, will parse '%s'" applied_update;
+  let xml = Xml.parse_file applied_update in
+  parse_update_info xml
+
 let extract_update_info ~__context ~vdi ~verify =
   let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
   finally
@@ -196,44 +241,8 @@ let extract_update_info ~__context ~vdi ~verify =
        let update_path = Printf.sprintf "%s/%s/vdi" Xapi_globs.host_update_dir vdi_uuid in
        debug "pool_update.extract_update_info get url='%s', will parse_file in '%s'" url update_path;
        let xml = Xml.parse_file (String.concat "/" [update_path ; "update.xml"]) in
-       match xml with
-       | Xml.Element ("update", attr, children) ->
-         let key = List.assoc "key" attr in
-         let uuid = List.assoc "uuid" attr in
-         let name_label = List.assoc "name-label" attr in
-         let guidance =
-           try
-             match List.assoc "after-apply-guidance" attr with
-             | "" -> []
-             | s ->  List.map guidance_from_string (String.split ' ' s)
-           with
-           | _ -> []
-         in
-         let installation_size =
-           try
-             Int64.of_string (List.assoc "installation-size" attr)
-           with
-           | _ -> 0L
-         in
-         let is_name_description_node = function
-           | Xml.Element ("name-description", _, _) -> true
-           | _ -> false
-         in
-         let name_description = match List.find is_name_description_node children with
-           | Xml.Element("name-description", _, [ Xml.PCData s ]) -> s
-           | _ -> failwith "Malformed or missing <name-description>"
-         in
-         let update_info = {
-           uuid = uuid;
-           name_label = name_label;
-           name_description = name_description;
-           key = key;
-           installation_size = installation_size;
-           after_apply_guidance = guidance;
-         } in
-         ignore(verify update_info update_path);
-         update_info
-       | _ -> failwith "Malformed or missing <update>"
+       let update_info = parse_update_info xml in
+       ignore(verify update_info update_path); update_info
     )
     (fun () -> detach_helper ~__context ~uuid:vdi_uuid ~vdi)
 
@@ -273,20 +282,23 @@ let verify update_info update_path =
     ) [update_xml_path; repomd_xml_path];
   debug "Verify signature OK for pool update uuid: %s by key: %s" update_info.uuid update_info.key
 
-let introduce ~__context ~vdi =
-  let update_info = extract_update_info ~__context ~vdi ~verify in
-  ignore(assert_space_available update_info.installation_size);
-  let r = Ref.make () in
+let create_update_record ~__context ~update ~update_info ~vdi =
   Db.Pool_update.create ~__context
-    ~ref:r
+    ~ref:update
     ~uuid:update_info.uuid
     ~name_label:update_info.name_label
     ~name_description:update_info.name_description
     ~installation_size:update_info.installation_size
     ~key:update_info.key
     ~after_apply_guidance:update_info.after_apply_guidance
-    ~vdi:vdi;
-  r
+    ~vdi:vdi
+
+let introduce ~__context ~vdi =
+  let update_info = extract_update_info ~__context ~vdi ~verify in
+  ignore(assert_space_available update_info.installation_size);
+  let update = Ref.make () in
+  create_update_record ~__context ~update ~update_info ~vdi;
+  update
 
 let pool_apply ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
@@ -323,12 +335,21 @@ let resync_host ~__context ~host =
   let update_applied_dir = "/var/update/applied" in
   if Sys.file_exists update_applied_dir then begin
     debug "pool_update.resync_host scanning directory %s for applied updates" update_applied_dir;
-    let update_uuids = try Array.to_list (Sys.readdir update_applied_dir) with _ -> [] in
-    let update_refs = List.map (function update_uuid ->
-      try Db.Pool_update.get_by_uuid ~__context ~uuid:update_uuid
-      with _ -> Ref.null) update_uuids in
-    let updates = List.filter (function update_ref -> update_ref <> Ref.null) update_refs in
-    Db.Host.set_updates ~__context ~self:host ~value:updates
+    let updates_applied = try Array.to_list (Sys.readdir update_applied_dir) with _ -> [] in
+    let update_uuids = List.filter (fun update -> Uuid.is_uuid update) updates_applied in
+    let not_existing_uuids = List.filter (fun update_uuid ->
+        try ignore (Db.Pool_update.get_by_uuid ~__context ~uuid:update_uuid); false
+        with _ -> true) update_uuids in
+
+    (* Handle the updates rolluped and create records accordingly *)
+    List.iter (fun update_uuid ->
+        let update_info = extract_applied_update_info update_uuid in
+        let update = Ref.make () in
+        create_update_record ~__context ~update:update ~update_info ~vdi:Ref.null
+      ) not_existing_uuids;
+    let update_refs = List.map (fun update_uuid ->
+        Db.Pool_update.get_by_uuid ~__context ~uuid:update_uuid) update_uuids in
+    Db.Host.set_updates ~__context ~self:host ~value:update_refs
   end
   else Db.Host.set_updates ~__context ~self:host ~value:[]
 
