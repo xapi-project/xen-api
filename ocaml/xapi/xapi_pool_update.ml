@@ -201,29 +201,19 @@ let extract_update_info ~__context ~vdi ~verify =
          let key = List.assoc "key" attr in
          let uuid = List.assoc "uuid" attr in
          let name_label = List.assoc "name-label" attr in
+         let guidance =
+           try
+             match List.assoc "after-apply-guidance" attr with
+             | "" -> []
+             | s ->  List.map guidance_from_string (String.split ' ' s)
+           with
+           | _ -> []
+         in
          let installation_size =
            try
              Int64.of_string (List.assoc "installation-size" attr)
            with
            | _ -> 0L
-         in
-         let guidance_mandatory =
-           try
-             bool_of_string (List.assoc "guidance-mandatory" attr)
-           with
-           | _ -> true
-         in
-         let guidance =
-           try
-             List.assoc "after-apply-guidance" attr
-           with
-           | _ -> ""
-         in
-         let guidance =
-           match guidance_mandatory, guidance with
-           | false, _ -> []
-           | true, "" -> []
-           | true, _ -> List.map guidance_from_string (String.split ' ' guidance)
          in
          let is_name_description_node = function
            | Xml.Element ("name-description", _, _) -> true
