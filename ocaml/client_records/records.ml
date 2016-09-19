@@ -1072,6 +1072,11 @@ let host_record rpc session_id host =
     let patch_uuids = List.map (fun x -> Client.Pool_patch.get_uuid ~rpc ~session_id ~self:x) patch_refs in
     patch_uuids
   in
+  let get_updates () =
+    let pool_update_refs = (x ()).API.host_updates in
+    let update_uuids = List.map (fun x -> Client.Pool_update.get_uuid ~rpc ~session_id ~self:x) pool_update_refs in
+    update_uuids
+  in
   { setref=(fun r -> _ref := r; record := empty_record );
     setrefrec=(fun (a,b) -> _ref := a; record := Got b);
     record=x;
@@ -1122,7 +1127,8 @@ let host_record rpc session_id host =
       make_field ~name:"memory-free" ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.host_metrics_memory_free) (xm ()) )) ();
       make_field ~name:"memory-free-computed" ~expensive:true ~get:(fun () -> Int64.to_string (Client.Host.compute_free_memory rpc session_id host)) ();
       make_field ~name:"host-metrics-live" ~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.host_metrics_live) (xm ()) )) ();
-      make_field ~name:"patches" ~get:(fun () -> String.concat ", " (get_patches ())) ~get_set:get_patches ();
+      make_field ~name:"patches" ~deprecated:true ~get:(fun () -> String.concat ", " (get_patches ())) ~get_set:get_patches ();
+      make_field ~name:"updates" ~get:(fun () -> String.concat ", " (get_updates ())) ~get_set:get_updates ();
       make_field ~name:"ha-statefiles" ~get:(fun () -> String.concat "; " (List.map (fun x -> get_uuid_from_ref (Ref.of_string x)) (x ()).API.host_ha_statefiles)) ();
       make_field ~name:"ha-network-peers" ~get:(fun () -> String.concat "; " (x ()).API.host_ha_network_peers) ();
       make_field ~name:"external-auth-type" ~get:(fun () -> (x ()).API.host_external_auth_type) ();
