@@ -121,7 +121,7 @@ let parse_string_int64_features strings =
 let parse_capability_int64_features strings =
   List.map
     (function c,v ->
-       ((List.assoc c string_to_capability_table), v))
+      ((List.assoc c string_to_capability_table), v))
     (parse_string_int64_features strings)
 
 type sr_driver_info = {

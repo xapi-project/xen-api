@@ -299,10 +299,10 @@ let event_from_number_test session_id =
   start test;
   let events = Client.Event.from !rpc session_id [ "vm" ] "" 10. |> event_from_of_rpc in
   let (_,f) = List.fold_left (fun (set,failed) ev ->
-    let reference = ev.reference in
-    if StringSet.mem reference set
-    then (set,true)
-    else (StringSet.add reference set, failed)) (StringSet.empty, false) events.events in
+      let reference = ev.reference in
+      if StringSet.mem reference set
+      then (set,true)
+      else (StringSet.add reference set, failed)) (StringSet.empty, false) events.events in
   if f
   then failed test "Object seen twice in events"
   else success test

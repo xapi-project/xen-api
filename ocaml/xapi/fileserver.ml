@@ -32,9 +32,9 @@ let missing uri = "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\"> \
                    </head><body> \
                    <h1>Not Found</h1> \
                    <p>The requested URL " ^ (escape uri) ^ " was not found on this server.</p> \
-                                         <hr>\
-                                         <address>Xapi Server</address>\
-                                         </body></html>"
+                                                            <hr>\
+                                                            <address>Xapi Server</address>\
+                                                            </body></html>"
 
 let get_extension filename =
   try
