@@ -17,7 +17,6 @@ import ConfigParser
 
 UPDATE_DIR = '/var/update/'
 PATCH_PRECHECK_FAILED_UNKNOWN_ERROR = 'PATCH_PRECHECK_FAILED_UNKNOWN_ERROR'
-FIST_FILE = '/tmp/fist_allowed_unsigned_updates'
 
 
 class PrecheckFailure(Exception):
@@ -49,10 +48,10 @@ def parse_control_package(session, yum_url):
     return items[0].getAttribute('control')
 
 
-def execute_precheck(session, control_package, yum_conf_file, nogpgcheck):
+def execute_precheck(session, control_package, yum_conf_file):
     FNULL = open(os.devnull, 'w')
     retcode = subprocess.call('yum -c ' + yum_conf_file + ' install -y ' +
-                              nogpgcheck + control_package, shell=True, stdout=FNULL, stderr=FNULL)
+                              control_package, shell=True, stdout=FNULL, stderr=FNULL)
     if retcode != 0:
         raise PrecheckFailure(
             'Execute control_package (%r) failed.' % control_package)
@@ -92,11 +91,7 @@ if __name__ == '__main__':
 
         control_package = parse_control_package(session, yum_url)
 
-        allow_unsigned = False
-        if os.path.isfile(FIST_FILE):
-            allow_unsigned = update_uuid in open(FIST_FILE, 'rb').read().split()
-        nogpgcheck = ' --nogpgcheck ' if allow_unsigned else ' '
-        execute_precheck(session, control_package, yum_conf_file, nogpgcheck)
+        execute_precheck(session, control_package, yum_conf_file)
 
         print(success_message())
     except Exception as e:

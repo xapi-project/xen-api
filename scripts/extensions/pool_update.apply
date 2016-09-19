@@ -18,7 +18,6 @@ PATCH_ALREADY_APPLIED = 'PATCH_ALREADY_APPLIED'
 PATCH_APPLY_FAILED = 'PATCH_APPLY_FAILED'
 OTHER_OPERATION_IN_PROGRESS = 'OTHER_OPERATION_IN_PROGRESS'
 PATCH_PRECHECK_FAILED_UNKNOWN_ERROR = 'PATCH_PRECHECK_FAILED_UNKNOWN_ERROR'
-FIST_FILE = '/tmp/fist_allowed_unsigned_updates'
 
 
 class ApplyFailure(Exception):
@@ -36,10 +35,10 @@ def failure_message(code, params):
     return xmlrpclib.dumps((rpcparams, ), '', True)
 
 
-def execute_apply(session, update_package, yum_conf_file, nogpgcheck):
+def execute_apply(session, update_package, yum_conf_file):
     FNULL = open(os.devnull, 'w')
     retcode = subprocess.call('yum -c ' + yum_conf_file + ' install -y ' +
-                              nogpgcheck + update_package, shell=True, stdout=FNULL, stderr=FNULL)
+                              update_package, shell=True, stdout=FNULL, stderr=FNULL)
     if retcode != 0:
         raise ApplyFailure(
             'Failed to install update_package (%r).' % update_package)
@@ -85,11 +84,6 @@ if __name__ == '__main__':
                 failure_message(PATCH_PRECHECK_FAILED_UNKNOWN_ERROR, ['%s' % str(e)]))
             sys.exit(0)
 
-        allow_unsigned = False
-        if os.path.isfile(FIST_FILE):
-            allow_unsigned = update_uuid in open(FIST_FILE, 'rb').read().split()
-        nogpgcheck = ' --nogpgcheck ' if allow_unsigned else ' '
-
         # Apply the update.
         try:
             yum_conf = session.xenapi.pool_update.attach(update)
@@ -103,7 +97,7 @@ if __name__ == '__main__':
             with open (yum_conf_file, "w+") as file:
                 file.write("{0}".format(yum_conf))
 
-            execute_apply(session, update_package, yum_conf_file, nogpgcheck)
+            execute_apply(session, update_package, yum_conf_file)
 
             session.xenapi.pool_update.resync_host(host)
             print(success_message())
