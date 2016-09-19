@@ -1161,6 +1161,8 @@ let _ =
     ~doc:"The uploaded patch file already exists" ();
   error Api_errors.patch_is_applied [ ]
     ~doc:"The specified patch is applied and cannot be destroyed." ();
+  error Api_errors.update_is_applied [ ]
+    ~doc:"The specified update has been applied and cannot be destroyed." ();
   error Api_errors.patch_already_applied [ "patch" ]
     ~doc:"This patch has already been applied" ();
   error Api_errors.patch_apply_failed [ "output" ]

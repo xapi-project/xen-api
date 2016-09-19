@@ -318,7 +318,9 @@ let pool_clean ~__context ~self =
 let destroy ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
   debug "pool_update.destroy %s" pool_update_name;
-  Db.Pool_update.destroy ~__context ~self
+  match Db.Pool_update.get_hosts ~__context ~self with
+  | [] -> Db.Pool_update.destroy ~__context ~self
+  | _ -> raise (Api_errors.Server_error(Api_errors.update_is_applied, []))
 
 let detach_attached_updates __context =
   Db.Pool_update.get_all ~__context |>
