@@ -169,12 +169,11 @@ module Platform = struct
 		begin
 			try
 				let cores_per_socket = int_of_string(List.assoc "cores-per-socket" platformdata) in
-				(* cores per socket has to be in multiples of VCPUs_max and VCPUs_at_startup *)
-				if (((Int64.to_int(vcpu_max) mod cores_per_socket) <> 0) 
-					|| ((Int64.to_int(vcpu_at_startup) mod cores_per_socket) <> 0)) then
+				(* VCPUs_max has to be a multiple of cores per socket *)
+				if ((Int64.to_int(vcpu_max) mod cores_per_socket) <> 0) then
 					raise (Api_errors.Server_error(Api_errors.invalid_value, 
 						["platform:cores-per-socket"; 
-						"VCPUs_max/VCPUs_at_startup must be a multiple of this field"]))
+						"VCPUs_max must be a multiple of this field"]))
 			with Failure msg ->
 				raise (Api_errors.Server_error(Api_errors.invalid_value, ["platform:cores-per-socket"; 
 					Printf.sprintf "value = %s is not a valid int" (List.assoc "cores-per-socket" platformdata)]))
