@@ -1083,7 +1083,7 @@ let host_record rpc session_id host =
       make_field ~name:"host-metrics-live" ~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.host_metrics_live) (xm ()) )) ();
       make_field ~name:"patches" ~get:(fun () -> String.concat ", " (get_patches ())) ~get_set:get_patches ();
       make_field ~name:"ha-statefiles" ~get:(fun () -> String.concat "; " (List.map (fun x -> get_uuid_from_ref (Ref.of_string x)) (x ()).API.host_ha_statefiles)) ();
-      make_field ~name:"ha-network-peers" ~get:(fun () -> String.concat "; " (List.map (fun x -> get_uuid_from_ref (Ref.of_string x)) (x ()).API.host_ha_network_peers)) ();
+      make_field ~name:"ha-network-peers" ~get:(fun () -> String.concat "; " (x ()).API.host_ha_network_peers) ();
       make_field ~name:"external-auth-type" ~get:(fun () -> (x ()).API.host_external_auth_type) ();
       make_field ~name:"external-auth-service-name" ~get:(fun () -> (x ()).API.host_external_auth_service_name) ();
       make_field ~name:"external-auth-configuration" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.host_external_auth_configuration)
