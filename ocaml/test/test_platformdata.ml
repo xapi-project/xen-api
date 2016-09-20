@@ -132,18 +132,11 @@ module SanityCheck = Generic.Make(struct
 			]));
 			(* Check VCPUs configuration - hvm failure scenario*)
 			(([
-				"cores-per-socket", "3";
-			], false, 6L, 5L, true),
-			Either.Left (Api_errors.Server_error(Api_errors.invalid_value,
-						["platform:cores-per-socket";
-						"VCPUs_max/VCPUs_at_startup must be a multiple of this field"])));
-			(* Check VCPUs configuration - hvm failure scenario*)
-			(([
 				"cores-per-socket", "4";
 			], false, 6L, 6L, true),
 			Either.Left (Api_errors.Server_error(Api_errors.invalid_value,
 						["platform:cores-per-socket";
-						"VCPUs_max/VCPUs_at_startup must be a multiple of this field"])));
+						"VCPUs_max must be a multiple of this field"])));
 			(* Check VCPUs configuration - hvm failure scenario*)
 			(([
 				"cores-per-socket", "abc";
