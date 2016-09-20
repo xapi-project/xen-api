@@ -13,6 +13,8 @@ import errno
 import shutil
 import StringIO
 import ConfigParser
+import logging
+import xcp.logger
 
 
 UPDATE_DIR = '/var/update/'
@@ -49,15 +51,24 @@ def parse_control_package(session, yum_url):
 
 
 def execute_precheck(session, control_package, yum_conf_file):
-    FNULL = open(os.devnull, 'w')
-    retcode = subprocess.call('yum -c ' + yum_conf_file + ' install -y ' +
-                              control_package, shell=True, stdout=FNULL, stderr=FNULL)
-    if retcode != 0:
+    cmd = ['yum', 'install', '-y', '--noplugins', '-c', yum_conf_file, control_package]
+    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
+    p.wait()
+    output = p.stdout.read()
+    xcp.logger.info('pool_update.precheck %r returncode=%r output=%r', cmd, p.returncode, output)
+    if p.returncode != 0:
+        lines = output.splitlines()
+        errorlines = [l for l in lines if l.startswith('Error: ')]
+        if errorlines:
+            errmsg = errorlines[-1].split(':', 1)[-1].strip()
+        else:
+            errmsg = lines[-1]
         raise PrecheckFailure(
-            'Execute control_package (%r) failed.' % control_package)
+            'Install %s error: %s' % (control_package, errmsg))
 
 
 if __name__ == '__main__':
+    xcp.logger.logToSyslog(level=logging.INFO)
     txt = sys.stdin.read()
     params, method = xmlrpclib.loads(txt)
 
@@ -82,8 +93,8 @@ if __name__ == '__main__':
                 pass
             else:
                 raise
-        with open (yum_conf_file, "w+") as file:
-            file.write("{0}".format(yum_conf))
+        with open(yum_conf_file, "w+") as file:
+            file.write(yum_conf)
 
         config = ConfigParser.ConfigParser()
         config.read(yum_conf_file)
