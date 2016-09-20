@@ -296,9 +296,17 @@ let create_update_record ~__context ~update ~update_info ~vdi =
 let introduce ~__context ~vdi =
   let update_info = extract_update_info ~__context ~vdi ~verify in
   ignore(assert_space_available update_info.installation_size);
-  let update = Ref.make () in
-  create_update_record ~__context ~update ~update_info ~vdi;
-  update
+  try
+    let update = Db.Pool_update.get_by_uuid ~__context ~uuid:update_info.uuid in
+    let vdi_of_update = Db.Pool_update.get_vdi ~__context ~self:update in
+    if vdi <> vdi_of_update then begin
+      Db.Pool_update.set_vdi ~__context ~self:update ~value:vdi
+    end;
+    update
+  with _ ->
+    let update = Ref.make () in
+    create_update_record ~__context ~update ~update_info ~vdi;
+    update
 
 let pool_apply ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
