@@ -214,7 +214,7 @@ let parse_update_info xml =
     in
     let name_description = match List.find is_name_description_node children with
       | Xml.Element("name-description", _, [ Xml.PCData s ]) -> s
-      | _ -> failwith "Malformed or missing <name-description>"
+      | _ -> raise (Missing_update_key "<name-description>")
     in
     let update_info = {
       uuid = uuid;
@@ -225,7 +225,7 @@ let parse_update_info xml =
       after_apply_guidance = guidance;
     } in
     update_info
-  | _ -> failwith "Malformed or missing <update>"
+  | _ -> raise (Missing_update_key "<update>")
 
 let extract_applied_update_info applied_uuid  =
   let applied_update = Printf.sprintf "%s/applied/%s" Xapi_globs.host_update_dir applied_uuid in
