@@ -94,26 +94,23 @@ _xe()
                 ;;
 
             uuid)
+                # Determine the class name and append '-list'
                 case "${OLDSTYLE_WORDS[1]}" in
-                    diagnostic-vm-status) cmd=vm-list;;
-                    diagnostic-vdi-status) cmd=vdi-list;;
-                    host-cpu-info) cmd=host-list;;
-                    *) cmd=$(echo ${OLDSTYLE_WORDS[1]} | awk -F- '
-                         /^host-cpu-/\
-                      || /^host-crashdump-/\
-                      || /^gpu-group-/\
-                      || /^vgpu-type-/\
-                      || /^pvs-server-/\
-                      || /^pvs-proxy-/\
-                      || /^pvs-site-/ { print $1 "-" $2 }
-                         $0 !~ /^host-cpu-/\
-                      && $0 !~ /^host-crashdump-/\
-                      && $0 !~ /^gpu-group-/\
-                      && $0 !~ /^vgpu-type-/\
-                      && $0 !~ /^pvs-server-/\
-                      && $0 !~ /^pvs-proxy-/\
-                      && $0 !~ /^pvs-site-/ { print $1 }')-list
-                      ;;
+                    diagnostic-vm-status)
+                        cmd=vm-list;;
+                    diagnostic-vdi-status)
+                        cmd=vdi-list;;
+                    host-cpu-info)
+                        cmd=host-list;;
+                    pvs-cache-storage-*)
+                        # Chop off at the third '-' and append 'list'
+                        cmd="$(echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1-3)-list";;
+                    host-cpu-*|host-crashdump-*|gpu-group-*|vgpu-type-*|pvs-server-*|pvs-proxy-*|pvs-site-*)
+                        # Chop off at the second '-' and append 'list'
+                        cmd="$(echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1-2)-list";;
+                    *)
+                        # Chop off at the first '-' and append 'list' (works for e.g. 'pif-param-get uuid=<tab>')
+                        cmd="$(echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1)-list";;
                 esac
                 IFS=$'\n,'
                 set_completions_for_names "$cmd" 'uuid' "$value"
