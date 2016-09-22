@@ -706,12 +706,6 @@ let assert_host_has_highest_version_in_pool : __context:Context.t -> host:API.re
     if not (host_has_highest_version_in_pool ~__context ~host:(LocalObject host)) then
       raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
 
-let assert_host_versions_not_decreasing :
-  __context:Context.t -> host_from:[`host] api_object -> host_to:[`host] api_object -> unit =
-  fun ~__context ~host_from ~host_to ->
-    if not (host_versions_not_decreasing ~__context ~host_from ~host_to) then
-      raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
-
 let pool_has_different_host_platform_versions ~__context =
   let all_hosts = Db.Host.get_all ~__context in
   let platform_versions = List.map (fun host -> version_string_of ~__context (LocalObject host)) all_hosts in

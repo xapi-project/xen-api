@@ -1002,36 +1002,46 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
       `cross_pool
   in
 
-  (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
+  (* operations required for migration *)
   let required_sr_operations = [Smint.Vdi_mirror; Smint.Vdi_snapshot] in
-  assert_sr_support_operations ~__context ~vdi_map ~remote ~ops:required_sr_operations;
+  let host_from = Helpers.LocalObject source_host_ref in
 
   match migration_type with
   | `intra_pool ->
     (* Prevent VMs from being migrated onto a host with a lower platform version *)
-    Helpers.assert_host_versions_not_decreasing ~__context
-      ~host_from:(Helpers.LocalObject source_host_ref)
-      ~host_to:(Helpers.LocalObject remote.dest_host);
+    let host_to = Helpers.LocalObject remote.dest_host in
+    if not (Helpers.host_versions_not_decreasing ~__context ~host_from ~host_to) then
+      raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []));
+
+    (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
+    assert_sr_support_operations ~__context ~vdi_map ~remote ~ops:required_sr_operations;
     if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:remote.dest_host ();
     let snapshot = Helpers.get_boot_record ~__context ~self:vm in
     Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:remote.dest_host ~snapshot ~do_sr_check:false ();
     if vif_map <> [] then
       raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [
           "VIF mapping is not allowed for intra-pool migration"]))
+
   | `cross_pool ->
     (* Prevent VMs from being migrated onto a host with a lower platform version *)
     let host_to = Helpers.RemoteObject (remote.rpc, remote.session, remote.dest_host) in
-    Helpers.assert_host_versions_not_decreasing ~__context
-      ~host_from:(Helpers.LocalObject source_host_ref)
-      ~host_to;
+    if not (Helpers.host_versions_not_decreasing ~__context ~host_from ~host_to) then
+      raise (Api_errors.Server_error (Api_errors.vm_host_incompatible_version_migrate,
+        [Ref.string_of vm; Ref.string_of remote.dest_host]));
+
+    (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
+    assert_sr_support_operations ~__context ~vdi_map ~remote ~ops:required_sr_operations;
     let power_state = Db.VM.get_power_state ~__context ~self:vm in
     (* The copy mode is only allow on stopped VM *)
-    if (not force) && copy && power_state <> `Halted then raise (Api_errors.Server_error (Api_errors.vm_bad_power_state, [Ref.string_of vm; Record_util.power_to_string `Halted; Record_util.power_to_string power_state]));
+    if (not force) && copy && power_state <> `Halted then
+      raise (Api_errors.Server_error (Api_errors.vm_bad_power_state,
+        [Ref.string_of vm; Record_util.power_to_string `Halted; Record_util.power_to_string power_state]));
     (* Check the host can support the VM's required version of virtual hardware platform *)
     Xapi_vm_helpers.assert_hardware_platform_support ~__context ~vm ~host:host_to;
     (*Check that the remote host is enabled and not in maintenance mode*)
     let check_host_enabled = XenAPI.Host.get_enabled remote.rpc remote.session (remote.dest_host) in
-    if not check_host_enabled then raise (Api_errors.Server_error (Api_errors.host_disabled,[Ref.string_of remote.dest_host]));
+    if not check_host_enabled then
+      raise (Api_errors.Server_error (Api_errors.host_disabled,[Ref.string_of remote.dest_host]));
 
     (* Check that the VM's required CPU features are available on the host *)
     if not force then
