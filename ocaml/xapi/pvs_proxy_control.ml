@@ -14,6 +14,7 @@
 
 open Stdext
 open Listext
+open Threadext
 
 module D = Debug.Make(struct let name = "xapi_pvs_proxy_control" end)
 open D
@@ -65,6 +66,8 @@ let metadata_of_site ~__context ~site ~vdi ~proxies =
     vdi;
   }
 
+let configure_proxy_m = Mutex.create ()
+
 (** Request xcp-networkd to update a site's PVS-proxy daemon configuration,
  *  for all locally running proxies, taking into account starting and stopping proxies *)
 let update_site_on_localhost ~__context ~site ~vdi ?(starting_proxies=[]) ?(stopping_proxies=[]) () =
@@ -86,19 +89,24 @@ let update_site_on_localhost ~__context ~site ~vdi ?(starting_proxies=[]) ?(stop
     )
     starting_proxies;
 
-  let running_proxies = get_running_proxies ~__context ~site in
-  let localhost = Helpers.get_localhost ~__context in
-  let local_running_proxies = List.filter_map (fun proxy ->
-      let vif = Db.PVS_proxy.get_VIF ~__context ~self:proxy in
-      let vm = Db.VIF.get_VM ~__context ~self:vif in
-      if Db.VM.get_resident_on ~__context ~self:vm = localhost then
-        Some (vif, proxy)
-      else
-        None
-    ) running_proxies in
-  let proxies = starting_proxies @ (List.set_difference local_running_proxies stopping_proxies) |> List.setify in
-  let proxy_config = metadata_of_site ~__context ~site ~vdi ~proxies in
-  Network.Net.PVS_proxy.configure_site dbg proxy_config;
+  let clients =
+    Mutex.execute configure_proxy_m (fun () ->
+      let running_proxies = get_running_proxies ~__context ~site in
+      let localhost = Helpers.get_localhost ~__context in
+      let local_running_proxies = List.filter_map (fun proxy ->
+          let vif = Db.PVS_proxy.get_VIF ~__context ~self:proxy in
+          let vm = Db.VIF.get_VM ~__context ~self:vif in
+          if Db.VM.get_resident_on ~__context ~self:vm = localhost then
+            Some (vif, proxy)
+          else
+            None
+        ) running_proxies in
+      let proxies = starting_proxies @ (List.set_difference local_running_proxies stopping_proxies) |> List.setify in
+      let proxy_config = metadata_of_site ~__context ~site ~vdi ~proxies in
+      Network.Net.PVS_proxy.configure_site dbg proxy_config;
+      proxy_config.clients
+    )
+  in
 
   (* Ensure that OVS ports for the proxy daemon are removed if they are no longer used *)
   List.iter
@@ -106,7 +114,7 @@ let update_site_on_localhost ~__context ~site ~vdi ?(starting_proxies=[]) ?(stop
        let network = Db.VIF.get_network ~__context ~self:vif in
        let bridge = Db.Network.get_bridge ~__context ~self:network in
        let port_name = proxy_port_name bridge in
-       let active_ports = List.map (fun client -> client.Client.interface) proxy_config.clients in
+       let active_ports = List.map (fun client -> client.Client.interface) clients in
        if not (List.mem port_name active_ports) then
          Network.Net.Bridge.remove_port dbg ~bridge ~name:port_name
     )
@@ -118,7 +126,9 @@ let remove_site_on_localhost ~__context ~site =
   let open Network_interface.PVS_proxy in
   let dbg = Context.string_of_task __context in
   let uuid = Db.PVS_site.get_uuid ~__context ~self:site in
-  Network.Net.PVS_proxy.remove_site dbg uuid
+  Mutex.execute configure_proxy_m (fun () ->
+    Network.Net.PVS_proxy.remove_site dbg uuid
+  )
 
 exception No_cache_sr_available
 
