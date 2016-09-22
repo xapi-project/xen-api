@@ -173,6 +173,8 @@ module Attached_SRs = struct
         return ()
       | Some path ->
         let contents = String.Table.sexp_of_t sexp_of_state !sr_table |> Sexplib.Sexp.to_string in
+        let dir = Filename.dirname path in
+        Unix.mkdir ~p:() dir >>= fun () ->
         Writer.save path ~contents
     ) >>= fun () ->
     return (Ok ())
