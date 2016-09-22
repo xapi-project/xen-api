@@ -16,7 +16,6 @@ open Stdext
 open Xstringext
 open Pervasiveext
 open Printf
-open Xenstore
 
 module D = Debug.Make(struct let name = "xenops" end)
 open D
