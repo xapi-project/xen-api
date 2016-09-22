@@ -52,6 +52,7 @@ type feature =
   | Ssl_legacy_switch
   | Nested_virt
   | Live_patching
+  | Live_set_vcpus
 with rpc
 
 type orientation = Positive | Negative
@@ -93,6 +94,7 @@ let keys_of_features =
     Ssl_legacy_switch, ("restrict_ssl_legacy_switch", Negative, "Ssl_legacy_switch");
     Nested_virt, ("restrict_nested_virt", Negative, "Nested_virt");
     Live_patching, ("restrict_live_patching", Negative, "Live_patching");
+    Live_set_vcpus, ("restrict_set_vcpus_number_live", Negative, "Live_set_vcpus");
   ]
 
 (* A list of features that must be considered "enabled" by `of_assoc_list`
