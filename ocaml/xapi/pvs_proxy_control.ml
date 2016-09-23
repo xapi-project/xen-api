@@ -19,8 +19,9 @@ open Threadext
 module D = Debug.Make(struct let name = "xapi_pvs_proxy_control" end)
 open D
 
-let proxy_port_name bridge =
-  "pvs-" ^ bridge
+let proxy_port_name vif =
+  let uuid = String.sub vif.API.vIF_uuid 0 8 in
+  Printf.sprintf "pvs-%s" uuid
 
 (** [proxies] returns all currently attached proxies *)
 let get_running_proxies ~__context ~site =
@@ -127,7 +128,7 @@ let metadata_of_site ~__context ~site ~vdi ~proxies =
         PVS_proxy.Client.{
           uuid = rc.API.vIF_uuid;
           mac = rc.API.vIF_MAC;
-          interface = proxy_port_name (Db.Network.get_bridge ~__context ~self:rc.API.vIF_network);
+          interface = proxy_port_name rc;
           prepopulate = false;
         }
       ) proxies
@@ -145,45 +146,15 @@ let configure_proxy_m = Mutex.create ()
 
 (** Request xcp-networkd to update a site's PVS-proxy daemon configuration,
  *  for all locally running proxies, taking into account starting and stopping proxies *)
-let update_site_on_localhost ~__context ~site ~vdi ?(starting_proxies=[]) ?(stopping_proxies=[]) () =
-  debug "Updating PVS site %s. Starting proxies: [%s]. Stopping proxies: [%s]."
-    (Ref.string_of site)
-    (String.concat ", " (List.map (fun (_, p) -> Ref.string_of p) starting_proxies))
-    (String.concat ", " (List.map (fun (_, p) -> Ref.string_of p) stopping_proxies));
-
+let update_site_on_localhost ~__context ~site ~vdi =
+  debug "Updating PVS site %s." (Ref.string_of site);
   let open Network_interface.PVS_proxy in
   let dbg = Context.string_of_task __context in
-
-  (* Ensure that OVS ports for the proxy daemon exist for starting proxies *)
-  List.iter
-    (fun (vif, _) ->
-       let network = Db.VIF.get_network ~__context ~self:vif in
-       let bridge = Db.Network.get_bridge ~__context ~self:network in
-       let port_name = proxy_port_name bridge in
-       Network.Net.Bridge.add_port dbg ~bridge ~name:port_name ~kind:Network_interface.PVS_proxy ~interfaces:[] ()
-    )
-    starting_proxies;
-
-  let clients =
-    Mutex.execute configure_proxy_m (fun () ->
-      let proxies = State.get_running_proxies ~__context site in
-      let proxy_config = metadata_of_site ~__context ~site ~vdi ~proxies in
-      Network.Net.PVS_proxy.configure_site dbg proxy_config;
-      proxy_config.clients
-    )
-  in
-
-  (* Ensure that OVS ports for the proxy daemon are removed if they are no longer used *)
-  List.iter
-    (fun (vif, _) ->
-       let network = Db.VIF.get_network ~__context ~self:vif in
-       let bridge = Db.Network.get_bridge ~__context ~self:network in
-       let port_name = proxy_port_name bridge in
-       let active_ports = List.map (fun client -> client.Client.interface) clients in
-       if not (List.mem port_name active_ports) then
-         Network.Net.Bridge.remove_port dbg ~bridge ~name:port_name
-    )
-    stopping_proxies
+  Mutex.execute configure_proxy_m (fun () ->
+    let proxies = State.get_running_proxies ~__context site in
+    let proxy_config = metadata_of_site ~__context ~site ~vdi ~proxies in
+    Network.Net.PVS_proxy.configure_site dbg proxy_config
+  )
 
 (** Request xcp-networkd to tell the local PVS-proxy daemon that it must stop
  *  proxying for the given site, and release the associated cache VDI. *)
@@ -218,7 +189,7 @@ let start_proxy ~__context vif proxy =
     Helpers.assert_using_vswitch ~__context;
     let vdi = find_cache_vdi ~__context ~host ~site in
     State.mark_proxy ~__context site vif proxy State.Starting;
-    update_site_on_localhost ~__context ~site ~vdi ~starting_proxies:[vif, proxy] ();
+    update_site_on_localhost ~__context ~site ~vdi;
     State.mark_proxy ~__context site vif proxy State.Started;
     Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`initialised;
     true
@@ -263,7 +234,7 @@ let stop_proxy ~__context vif proxy =
     let host = Helpers.get_localhost ~__context in
     let vdi = find_cache_vdi ~__context ~host ~site in
     State.mark_proxy ~__context site vif proxy State.Stopping;
-    update_site_on_localhost ~__context ~site ~vdi ~stopping_proxies:[vif, proxy] ();
+    update_site_on_localhost ~__context ~site ~vdi;
     State.remove_proxy ~__context site vif;
     Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`stopped
   with e ->

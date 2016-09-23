@@ -380,7 +380,6 @@ module MD = struct
     }
 
   let of_pvs_proxy ~__context vif proxy =
-    let bridge = Db.Network.get_bridge ~__context ~self:vif.API.vIF_network in
     let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
     let servers = Db.PVS_site.get_servers ~__context ~self:site in
     let servers =
@@ -393,7 +392,7 @@ module MD = struct
           }
         ) servers
     in
-    let interface = Pvs_proxy_control.proxy_port_name bridge in
+    let interface = Pvs_proxy_control.proxy_port_name vif in
     servers, interface
 
   let of_vif ~__context ~vm ~vif:(vif_ref, vif) =

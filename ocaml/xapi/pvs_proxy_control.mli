@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val proxy_port_name : string -> string
+val proxy_port_name : API.vIF_t -> string
 val get_running_proxies : __context:Context.t -> site:API.ref_PVS_site -> API.ref_PVS_proxy list
 
 val start_proxy : __context:Context.t -> API.ref_VIF -> API.ref_PVS_proxy -> bool
