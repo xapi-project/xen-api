@@ -166,17 +166,7 @@ let update_site_on_localhost ~__context ~site ~vdi ?(starting_proxies=[]) ?(stop
 
   let clients =
     Mutex.execute configure_proxy_m (fun () ->
-      let running_proxies = get_running_proxies ~__context ~site in
-      let localhost = Helpers.get_localhost ~__context in
-      let local_running_proxies = List.filter_map (fun proxy ->
-          let vif = Db.PVS_proxy.get_VIF ~__context ~self:proxy in
-          let vm = Db.VIF.get_VM ~__context ~self:vif in
-          if Db.VM.get_resident_on ~__context ~self:vm = localhost then
-            Some (vif, proxy)
-          else
-            None
-        ) running_proxies in
-      let proxies = starting_proxies @ (List.set_difference local_running_proxies stopping_proxies) |> List.setify in
+      let proxies = State.get_running_proxies ~__context site in
       let proxy_config = metadata_of_site ~__context ~site ~vdi ~proxies in
       Network.Net.PVS_proxy.configure_site dbg proxy_config;
       proxy_config.clients
