@@ -936,6 +936,8 @@ let _ =
     ~doc:"You attempted to run a VM on a host on which the vGPU required by the VM cannot be allocated on any pGPUs in the GPU_group needed by the VM." ();
   error Api_errors.vm_requires_iommu ["host"]
     ~doc:"You attempted to run a VM on a host which doesn't have I/O virtualization (IOMMU/VT-d) enabled, which is needed by the VM." ();
+  error Api_errors.vm_host_incompatible_version_migrate ["host"; "vm"]
+    ~doc:"You attempted to migrate a VM to a destination host running a version of XenServer older than the source host." ();
   error Api_errors.vm_host_incompatible_version ["host"; "vm"]
     ~doc:"This VM operation cannot be performed on an older-versioned host during an upgrade." ();
   error Api_errors.vm_host_incompatible_virtual_hardware_platform_version ["host"; "host_versions"; "vm"; "vm_version"]
