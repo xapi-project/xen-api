@@ -886,6 +886,9 @@ let vm_record rpc session_id vm =
       make_field ~name:"disks"
         ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_disks) (xgm ()) ))
         ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_disks) (xgm ()))) ();
+      make_field ~name:"VBDs"
+        ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_VBDs))
+        ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vM_VBDs) ();
       make_field ~name:"networks"
         ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_networks) (xgm ()) ))
         ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_networks) (xgm ()))) ();
