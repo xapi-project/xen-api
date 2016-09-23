@@ -371,18 +371,6 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
       | _ -> None
     ) in
 
-  (* CP-18860: can't set dynamic mem range when using nested virt *)
-  let current_error = check current_error (fun () ->
-      match op with
-      | `changing_dynamic_range ->
-        let metrics = Db.VM.get_metrics ~__context ~self:ref in
-        if nested_virt ~__context ref metrics then
-          Some (Api_errors.vm_cant_use_dyn_memory, [ref_str])
-        else 
-          None
-      | _ -> None
-    ) in
-
   (* Check if the VM is a control domain (eg domain 0).            *)
   (* FIXME: Instead of special-casing for the control domain here, *)
   (* make use of the Helpers.ballooning_enabled_for_vm function.   *)

@@ -51,19 +51,22 @@ module Vm_memory_constraints : T = struct
 
   include Vm_memory_constraints.Vm_memory_constraints
 
+  let order_constraint =
+    "Memory limits must satisfy: \
+     static_min ≤ dynamic_min ≤ dynamic_max ≤ static_max"
+  let equality_constraint =
+    "Memory limits must satisfy: \
+     static_min ≤ dynamic_min = dynamic_max = static_max"
+
   let assert_valid ~constraints =
     if not (are_valid ~constraints)
     then raise (Api_errors.Server_error (
-        Api_errors.memory_constraint_violation,
-        ["Memory limits must satisfy: \
-          				static_min ≤ dynamic_min ≤ dynamic_max ≤ static_max"]))
+      Api_errors.memory_constraint_violation, [order_constraint]))
 
   let assert_valid_and_pinned_at_static_max ~constraints =
     if not (are_valid_and_pinned_at_static_max ~constraints)
     then raise (Api_errors.Server_error (
-        Api_errors.memory_constraint_violation,
-        ["Memory limits must satisfy: \
-          				static_min ≤ dynamic_min = dynamic_max = static_max"]))
+      Api_errors.memory_constraint_violation, [equality_constraint]))
 
   let assert_valid_for_current_context ~__context ~vm ~constraints =
     let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in
