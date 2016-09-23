@@ -32,6 +32,81 @@ let get_running_proxies ~__context ~site =
          ,(Eq (Field "currently_attached", Literal "true"))
          ))
 
+(* A module to update and query the state of the proxies on the local host *)
+module State = struct
+  type t = Starting | Started | Stopping | Failed
+
+  open Xenstore
+
+  let of_string = function
+    | "starting" -> Starting
+    | "started" -> Started
+    | "stopping" -> Stopping
+    | "failed" -> Failed
+    | _ -> failwith "unknown proxy state"
+
+  let string_of = function
+    | Starting -> "starting"
+    | Started -> "started"
+    | Stopping -> "stopping"
+    | Failed -> "failed"
+
+  let (//) = Filename.concat
+  let root = "/xapi/pvs-proxy"
+  let _state = "state"
+  let _proxy_uuid = "proxy-uuid"
+
+  (*
+    For each proxy, we have the following xenstore entries:
+
+    /xapi/pvs-proxy/<site-uuid>/<vif-uuid>/state = <state>
+    /xapi/pvs-proxy/<site-uuid>/<vif-uuid>/proxy-uuid = <proxy-uuid>
+  *)
+
+  let mark_proxy ~__context site vif proxy state =
+    let site_uuid = Db.PVS_site.get_uuid ~__context ~self:site in
+    let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif in
+    let proxy_uuid = Db.PVS_proxy.get_uuid ~__context ~self:proxy in
+    with_xs (fun xs ->
+      let dir = root // site_uuid // vif_uuid in
+      xs.Xs.write (dir // _state) (string_of state);
+      xs.Xs.write (dir // _proxy_uuid) proxy_uuid
+    )
+
+  let remove_proxy ~__context site vif =
+    let site_uuid = Db.PVS_site.get_uuid ~__context ~self:site in
+    let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif in
+    with_xs (fun xs ->
+      let dir = root // site_uuid // vif_uuid in
+      xs.Xs.rm dir
+    )
+
+  let remove_site ~__context site =
+    let site_uuid = Db.PVS_site.get_uuid ~__context ~self:site in
+    with_xs (fun xs ->
+      xs.Xs.rm (root // site_uuid)
+    )
+
+  let get_running_proxies ~__context site =
+    let site_uuid = Db.PVS_site.get_uuid ~__context ~self:site in
+    with_xs (fun xs ->
+      xs.Xs.directory (root // site_uuid) |>
+      List.filter_map (fun vif_uuid ->
+        try
+          let dir = root // site_uuid // vif_uuid in
+          let state = of_string (xs.Xs.read (dir // _state)) in
+          if state = Starting || state = Started then
+            let proxy_uuid = xs.Xs.read (dir // _proxy_uuid) in
+            let vif = Db.VIF.get_by_uuid ~__context ~uuid:vif_uuid in
+            let proxy = Db.PVS_proxy.get_by_uuid ~__context ~uuid:proxy_uuid in
+            Some (vif, proxy)
+          else
+            None
+        with _ -> None
+      )
+    )
+end
+
 let metadata_of_site ~__context ~site ~vdi ~proxies =
   let open Network_interface in
   let site_rc = Db.PVS_site.get_record ~__context ~self:site in
