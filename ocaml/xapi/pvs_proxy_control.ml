@@ -221,13 +221,15 @@ let find_cache_vdi ~__context ~host ~site =
     Db.PVS_cache_storage.get_VDI ~__context ~self:pcs
 
 let start_proxy ~__context vif proxy =
+  let host = Helpers.get_localhost ~__context in
+  let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
   try
     Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
     Helpers.assert_using_vswitch ~__context;
-    let host = Helpers.get_localhost ~__context in
-    let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
     let vdi = find_cache_vdi ~__context ~host ~site in
+    State.mark_proxy ~__context site vif proxy State.Starting;
     update_site_on_localhost ~__context ~site ~vdi ~starting_proxies:[vif, proxy] ();
+    State.mark_proxy ~__context site vif proxy State.Started;
     Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`initialised;
     true
   with e ->
@@ -261,6 +263,7 @@ let start_proxy ~__context vif proxy =
         "Host is not using openvswitch"
       | _ -> Printf.sprintf "unknown error (%s)" (Printexc.to_string e)
     in
+    State.mark_proxy ~__context site vif proxy State.Failed;
     warn "Unable to enable PVS proxy for VIF %s: %s. Continuing with proxy unattached." (Ref.string_of vif) reason;
     false
 
@@ -269,7 +272,9 @@ let stop_proxy ~__context vif proxy =
     let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
     let host = Helpers.get_localhost ~__context in
     let vdi = find_cache_vdi ~__context ~host ~site in
+    State.mark_proxy ~__context site vif proxy State.Stopping;
     update_site_on_localhost ~__context ~site ~vdi ~stopping_proxies:[vif, proxy] ();
+    State.remove_proxy ~__context site vif;
     Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`stopped
   with e ->
     let reason =
