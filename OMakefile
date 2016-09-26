@@ -39,6 +39,7 @@ CSHARP_SRC_TMP=$(BINDINGS_TMP)/XenServer.NET-src/XenServer.NET
 CSHARP_BIN_TMP=$(BINDINGS_TMP)/XenServer.NET-bin/XenServer.NET
 CSHARP_GUI_TMP=$(BINDINGS_TMP)/XenCenterBindings/XenServer.NET
 CSHARP_SAM_TMP=$(BINDINGS_TMP)/XenServer.NET-sam/XenServer.NET
+READMES_TMP=$(BINDINGS_TMP)/READMES
 
 OCAMLINCLUDES += .. $(DATAMODEL_DIR)
 OCAMLFLAGS += -dtypes -I $(DATAMODEL_DIR) -thread
@@ -48,10 +49,10 @@ OCAML_LIBS += $(DATAMODEL_DIR)/datamodel
 .PHONY: clean dist
 .SUBDIRS: powershell csharp c java
 
-.PHONY: csharp_samples csharp_src csharp_gui csharp_bin_readmes powershell_src
+.PHONY: csharp_samples csharp_src csharp_gui csharp_ps_readmes powershell_src
 csharp_gui: $(BINDINGS_TMP)/XenCenterBindings.zip
 
-dist: powershell_src csharp_samples csharp_src csharp_gui csharp_bin_readmes c_folders java_folders
+dist: powershell_src csharp_samples csharp_src csharp_gui csharp_ps_readmes c_folders java_folders
 
 
 Flip(dir) =
@@ -61,10 +62,8 @@ ZipUp(dir, dest) =
 	d = $(basename $(dest))
 	cd $(dir)/.. && zip -q -r9 $(d) $(basename $(dir)) && mv $(d) $(dest)
 
-CSharpReadme(dir, specific) =
-	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' csharp/README-common.txt.dist >$(dir)/README.txt
-	cat csharp/README-$(specific).txt.dist >>$(dir)/README.txt
-	$(INSTALL) $(XMLRPCLICENSE) $(dir)/LICENSE.CookComputing.XmlRpcV2
+InstallLicence(dir) =
+	$(INSTALL) $(XMLRPCLICENSE) $(dir)/LICENSE.CookComputing.XmlRpcV2.txt
 	$(INSTALL) LICENSE $(dir)/LICENSE.txt
 
 InstallAndBrand(sourcefile, targetfile) =
@@ -81,7 +80,7 @@ csharp_src: gen_gui_csharp_bindings
 	mv $(CSHARP_SRC_TMP)/AssemblyInfo.cs $(CSHARP_SRC_TMP)/Properties/AssemblyInfo.cs
 	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION).0/g' $(CSHARP_SRC_TMP)/Properties/AssemblyInfo.cs
 	mv $(CSHARP_GEN)/XenObjectDownloader.tmp $(CSHARP_GEN)/XenObjectDownloader.cs
-	CSharpReadme($(CSHARP_SRC_TMP), src)
+	InstallLicence($(CSHARP_SRC_TMP))
 	Flip($(CSHARP_SRC_TMP))
 	mkdir -p $(SDK_NET_FOLDER)/src && cp -r $(CSHARP_SRC_TMP)/* $(SDK_NET_FOLDER)/src
 	cp $(CSHARP_GEN)/callVersions.csv $(MY_OUTPUT_DIR)
@@ -94,7 +93,7 @@ csharp_samples:
 		$(INSTALL) csharp/samples/$(example)/Properties/AssemblyInfo.cs $(CSHARP_SAM_TMP)/$(example)/Properties
 		$(INSTALL) csharp/samples/$(example)/$(example).csproj $(CSHARP_SAM_TMP)/$(example)
 		$(INSTALL) csharp/samples/$(example)/Program.cs $(CSHARP_SAM_TMP)/$(example)
-	CSharpReadme($(CSHARP_SAM_TMP), samples)
+	InstallLicence($(CSHARP_SAM_TMP))
 	Flip($(CSHARP_SAM_TMP))
 	mkdir -p $(SDK_NET_FOLDER)/samples && cp -r $(CSHARP_SAM_TMP)/* $(SDK_NET_FOLDER)/samples
 
@@ -113,17 +112,16 @@ powershell_src: csharp_src gen_powershell_bindings
 	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION)/g' $(POWERSHELL_TMP)/AssemblyInfo.cs
 	sed -i -e 's/1000/$(SDK_VERSION).0/g' $(POWERSHELL_TMP)/AssemblyInfo.cs
 	$(INSTALL) $(POWERSHELL_GEN)/* $(POWERSHELL_TMP)
-	InstallAndBrand(powershell/README.txt.dist, $(POWERSHELL_TMP)/README.txt)
 	InstallAndBrand(powershell/about_XenServer.help.txt, $(POWERSHELL_TMP)/about_XenServer.help.txt)
-	$(INSTALL) LICENSE $(POWERSHELL_TMP)/LICENSE.txt
-	$(INSTALL) $(XMLRPCLICENSE) $(POWERSHELL_TMP)/LICENSE.CookComputing.XmlRpcV2
+	InstallLicence($(POWERSHELL_TMP))
 	Flip($(POWERSHELL_TMP))
 	mkdir -p $(SDK_PS_FOLDER)/src && cp $(POWERSHELL_TMP)/* $(SDK_PS_FOLDER)/src
 
-csharp_bin_readmes:
-	mkdir -p $(CSHARP_BIN_TMP)
-	CSharpReadme($(CSHARP_BIN_TMP), bin)
-	Flip($(CSHARP_BIN_TMP))
+csharp_ps_readmes:
+	mkdir -p $(READMES_TMP)
+	InstallAndBrand(csharp/README.dist, $(READMES_TMP)/README.net.txt)
+	InstallAndBrand(powershell/README.dist, $(READMES_TMP)/README.ps.txt)
+	Flip($(READMES_TMP))
 
 clean:
 	rm -f *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.opt *.omc *.dll

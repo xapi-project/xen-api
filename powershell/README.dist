@@ -6,22 +6,25 @@ Version @SDK_VERSION@
 The XenServer PowerShell Module (XS-PS) is a complete SDK for Citrix XenServer,
 exposing the XenServer API as Windows PowerShell cmdlets.
 
-For XenServer documentation, see http://docs.xensource.com.
+It is available in the XenServer-SDK-@SDK_VERSION@.zip, which can be downloaded
+from http://www.citrix.com/downloads/xenserver/.
+
+For XenServer documentation, see http://docs.citrix.com.
 XS-PS includes a cmdlet for each XenServer API call, so API documentation
 and examples written for other languages will apply equally well to
 PowerShell. In particular, the SDK Guide and API Documentation are ideal
 for developers wishing to use this module.
 
-For community content, blogs, and downloads, visit the XenServer Developer
-Network at http://community.citrix.com/cdn/xs.
+For community content, blogs, and downloads, visit
+http://xenserver.org/partners/developing-products-for-xenserver.html
 
 This module is free sofware. You can redistribute and modify it under the
 terms of the BSD license. See LICENSE.txt for details.
 
-This library may be accompanied by pedagogical examples. These do not form
+This library is accompanied by pedagogical examples. These do not form
 part of this library, and are licensed for redistribution and modification
-under the BSD license. Such examples are licensed clearly at the top
-of each file.
+under the BSD license.
+
 
 Prerequisites
 -------------
@@ -32,23 +35,20 @@ This library requires .NET 4.5 and PowerShell 4.0.
 Dependencies
 ------------
 
-XS-PS is dependent upon XML-RPC.NET (aka CookComputing.XmlRpcV2.dll),
-by Charles Cook. We would like to thank Charles for his contribution.
+XS-PS is dependent upon XML-RPC.NET by Charles Cook (see http://www.xml-rpc.net).
 XML-RPC.NET is licensed under the MIT X11 license; see
-LICENSE.CookComputing.XmlRpcV2 for details.
+LICENSE.CookComputing.XmlRpcV2.txt for details. The library
+(CookComputing.XmlRpcV2.dll) is shipped with the XenServer PowerShell Module.
 
 
-Downloads
----------
+Folder structure
+----------------
 
-The XenServer PowerShell Module is available in the XenServer-SDK-@SDK_VERSION@.zip.
-The source code and sample code can be found in two separate folders in the same
-zip file.
-
-The XenServer-SDK-@SDK_VERSION@.zip is available from
-http://www.citrix.com/downloads/xenserver/.
-
-XML-RPC.NET is available from http://www.xml-rpc.net.
+The XenServer-SDK-@SDK_VERSION@.zip contains the following folders that are
+relevant to PowerShell users:
+- XenServerPowerShell\XenServerPSModule: this is the XenServer PowerShell Module
+- XenServerPowerShell\src: contains the C# source code for the XenServer cmdlets
+- XenServerPowerShell\samples: contains the sample scripts accompanying the module.
 
 
 Getting Started
@@ -65,10 +65,14 @@ Getting Started
 
 2.  Navigate to the extracted XenServer\XenServerPowerShell directory and copy
     the whole folder XenServerPSModule into your PowerShell modules directory,
-    which will normally be %UserProfile%\Documents\WindowsPowerShell\Modules.
+    which will normally be $env:UserProfile\Documents\WindowsPowerShell\Modules
+    for per-user configuration or $env:windir\system32\WindowsPowerShell\v1.0\Modules
+    for system-wide configuration.
 
-3.  Start > Windows PowerShell 4.0 > Right click Windows PowerShell >
-    Run as administrator.
+3.  Open a PowerShell prompt as administrator.
+
+    To do this, open the Windows Start menu by clicking the Start icon, find
+    the item Windows PowerShell, right click it and select Run as administrator.
 
 4.  Determine the current execution policy, like this:
     PS> Get-ExecutionPolicy
@@ -90,7 +94,7 @@ Getting Started
 
 5.  Exit the privileged instance of PowerShell.
 
-6.  Start > Windows PowerShell 4.0
+6.  Start > Windows PowerShell
 
     PS> Import-Module XenServerPSModule
     PS> Get-Help about_XenServer
