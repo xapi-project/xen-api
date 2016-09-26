@@ -118,11 +118,12 @@ case $ACTION in
                         # Packets from server->client that need to be proxied.
                         $OFCTL --strict add-flow "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO-1)),udp,dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",tp_dst=$i,actions="$PVS_PROXY_OFPORT"
                     done
-                    # Announce that on the OVS we have set up the rules for this VIF's pvs-proxy.
-                    $XSWRITE "${PRIVATE_PATH}/pvs-rules-active" ''
                 fi
             done
             unset IFS
+
+            # Announce that on the OVS we have set up the rules for this VIF's pvs-proxy
+            $XSWRITE "${PRIVATE_PATH}/pvs-rules-active" ''
         done
         ;;
     remove)
@@ -171,8 +172,6 @@ case $ACTION in
                         # Packets from server->client that need to be proxied.
                         $OFCTL --strict del-flows "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO-1)),udp,dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",tp_dst=$i
                     done
-                    # Announce that on the OVS we have removed the rules for this VIF's pvs-proxy.
-                    XSRM "${PRIVATE_PATH}/pvs-rules-active"
                 fi
             done
             unset IFS
@@ -185,6 +184,9 @@ case $ACTION in
                 $IP link set "$PVS_PROXY_INTERFACE" down
                 $VSCTL del-port "$PVS_BRIDGE" "$PVS_PROXY_INTERFACE"
                 logger -t "$LOG_TAG" "Removed proxy port $PVS_PROXY_INTERFACE"
+
+                # Announce that on the OVS we have removed the rules for this VIF's pvs-proxy.
+                XSRM "${PRIVATE_PATH}/pvs-rules-active"
             fi
         done
         ;;
