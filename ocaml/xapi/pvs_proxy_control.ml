@@ -125,8 +125,9 @@ let metadata_of_site ~__context ~site ~vdi ~proxies =
   let clients =
     List.map (fun (vif, proxy) ->
         let rc = Db.VIF.get_record ~__context ~self:vif in
+        let uuid = Db.VM.get_uuid ~__context ~self:rc.API.vIF_VM in
         PVS_proxy.Client.{
-          uuid = rc.API.vIF_uuid;
+          uuid;
           mac = rc.API.vIF_MAC;
           interface = proxy_port_name rc;
           prepopulate = false;
