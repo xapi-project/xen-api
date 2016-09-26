@@ -15,6 +15,8 @@ TYPE=$2
 PVS_VM_INTERFACE=$3
 PRIVATE_PATH=$4
 
+IP=/usr/sbin/ip
+
 LOG_TAG="setup-pvs-proxy-rules"
 
 handle_error()
@@ -60,6 +62,11 @@ PVS_RULE_PRIO=1000
 
 case $ACTION in
     add)
+        # Create a port/interface for the proxy daemon
+        ovs-vsctl --may-exist add-port "$PVS_BRIDGE" "$PVS_PROXY_INTERFACE" -- set interface "$PVS_PROXY_INTERFACE" type=internal
+        $IP link set "$PVS_PROXY_INTERFACE" up
+        logger -t "$LOG_TAG" "Created proxy port $PVS_PROXY_INTERFACE"
+
         PVS_PROXY_MAC=$(ovs-vsctl get interface "$PVS_PROXY_INTERFACE" mac_in_use | tr -d '"')
         PVS_PROXY_OFPORT=$(ovs-vsctl get interface "$PVS_PROXY_INTERFACE" ofport)
         PVS_VM_OFPORT=$(ovs-vsctl get interface "$PVS_VM_INTERFACE" ofport)
@@ -164,6 +171,16 @@ case $ACTION in
                 fi
             done
             unset IFS
+
+            if [ "${TYPE}" = "vif" ]; then
+                # Again, don't do the following when a tap goes away, because
+                # vif may still be there.
+
+                # Remove the port/interface for the proxy daemon
+                $IP link set "$PVS_PROXY_INTERFACE" down
+                ovs-vsctl del-port "$PVS_BRIDGE" "$PVS_PROXY_INTERFACE"
+                logger -t "$LOG_TAG" "Removed proxy port $PVS_PROXY_INTERFACE"
+            fi
         done
         ;;
     reset)
