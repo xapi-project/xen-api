@@ -159,9 +159,11 @@ let update_site_on_localhost ~__context ~site ~vdi =
 (** Request xcp-networkd to tell the local PVS-proxy daemon that it must stop
  *  proxying for the given site, and release the associated cache VDI. *)
 let remove_site_on_localhost ~__context ~site =
+  debug "Removing PVS site %s." (Ref.string_of site);
   let open Network_interface.PVS_proxy in
   let dbg = Context.string_of_task __context in
   let uuid = Db.PVS_site.get_uuid ~__context ~self:site in
+  State.remove_site ~__context site;
   Mutex.execute configure_proxy_m (fun () ->
     Network.Net.PVS_proxy.remove_site dbg uuid
   )
