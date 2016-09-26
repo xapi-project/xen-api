@@ -72,9 +72,9 @@ let dd_internal progress_cb base prezeroed infile outfile size =
                         "-dest"; outfile;
                         "-size"; Int64.to_string size;
                         "-good-ciphersuites"; (match !Xapi_globs.ciphersuites_good_outbound with
-                            | Some s -> s
-                            | None -> raise (Api_errors.Server_error
+                            | "" -> raise (Api_errors.Server_error
                                                (Api_errors.internal_error,["Vdi_copy found no good ciphersuites in Xapi_globs."]))
+                            | s -> s
                           );
                         "-legacy-ciphersuites"; !Xapi_globs.ciphersuites_legacy_outbound
                       ] @ (if Stunnel.is_legacy_protocol_and_ciphersuites_allowed () then [ "-ssl-legacy" ] else []
