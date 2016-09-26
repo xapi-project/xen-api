@@ -2251,10 +2251,15 @@ let host_migrate_receive = call
 let set_vcpus_number_live = call
     ~name:"set_VCPUs_number_live"
     ~in_product_since:rel_rio
+    ~lifecycle:[
+        Published, rel_rio, "Set the number of VCPUs for a running VM";
+        Changed, rel_ely, "Unless the feature is explicitly enabled for every host in the pool, this fails with Api_errors.license_restriction.";
+    ]
     ~doc:"Set the number of VCPUs for a running VM"
     ~params:[Ref _vm, "self", "The VM";
              Int, "nvcpu", "The number of VCPUs"]
     ~allowed_roles:_R_VM_ADMIN
+    ~errs:[Api_errors.operation_not_allowed; Api_errors.license_restriction]
     ()
 
 let vm_set_VCPUs_max = call ~flags:[`Session]
