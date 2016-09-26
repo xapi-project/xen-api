@@ -36,8 +36,8 @@ let sync_host ~__context host =
 				Unix.putenv "XSH_SESSION" (Ref.string_of session);
 				Unix.putenv "XSH_SSL_LEGACY" (string_of_bool (Db.Host.get_ssl_legacy ~__context ~self:host));
 				(match !Xapi_globs.ciphersuites_good_outbound with
-					| Some c -> Unix.putenv "XSH_GOOD_CIPHERSUITES" c
-					| None -> raise (Api_errors.Server_error (Api_errors.internal_error,["Xapi_sync found no good ciphersuites in Xapi_globs."]))
+					| "" -> raise (Api_errors.Server_error (Api_errors.internal_error,["Xapi_sync found no good ciphersuites in Xapi_globs."]))
+					| c -> Unix.putenv "XSH_GOOD_CIPHERSUITES" c
 				);
 				Unix.putenv "XSH_LEGACY_CIPHERSUITES" !Xapi_globs.ciphersuites_legacy_outbound;
 
