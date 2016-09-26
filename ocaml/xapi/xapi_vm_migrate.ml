@@ -958,6 +958,17 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
             Xapi_xenops.shutdown ~__context ~self:vm None;
           end;
         with _ -> ());
+
+    if not is_intra_pool && Db.is_valid_ref __context vm then begin
+      List.map (fun self -> Db.VM.get_uuid ~__context ~self) vm_and_snapshots
+        |> List.iter (fun self ->
+          try
+            let vm_ref = XenAPI.VM.get_by_uuid remote.rpc remote.session self in
+            info "Destroying stale VM uuid=%s on destination host" self;
+            XenAPI.VM.destroy remote.rpc remote.session vm_ref
+          with e -> error "Caught %s while destroying VM uuid=%s on destination host" (Printexc.to_string e) self)
+    end;
+
     let task = Context.get_task_id __context in
     let oc = Db.Task.get_other_config ~__context ~self:task in
     if List.mem_assoc "mirror_failed" oc then begin
