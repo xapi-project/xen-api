@@ -2816,7 +2816,21 @@ let host_get_vms_which_prevent_evacuation = call
     ~in_product_since:rel_orlando
     ~name:"get_vms_which_prevent_evacuation"
     ~doc:"Return a set of VMs which prevent the host being evacuated, with per-VM error codes"
+    ~lifecycle:[
+      Published, rel_orlando, "The call returns for each VM all the reasons why a host cannot be evacuated";
+      Changed, rel_ely, "The call now retuns only one reason per VM."
+    ]
     ~params:[Ref _host, "self", "The host to query"]
+    ~result:(Map(Ref _vm, Set(String)), "VMs which block evacuation together with reasons")
+    ~allowed_roles:_R_READ_ONLY
+    ()
+
+let host_get_vms_which_prevent_evacuation_all = call
+    ~in_product_since:rel_ely
+    ~name:"get_vms_which_prevent_evacuation_all"
+    ~doc:"Return a set of VMs which prevent the host being evacuated, with per-VM error codes. This call returns for each VM all the reasons why a host cannot be evacuated."
+    ~params:[Ref _host, "self", "The host to query"]
+    ~hide_from_docs:true
     ~result:(Map(Ref _vm, Set(String)), "VMs which block evacuation together with reasons")
     ~allowed_roles:_R_READ_ONLY
     ()
@@ -4613,6 +4627,7 @@ let host =
                 host_forget_data_source_archives;
                 host_assert_can_evacuate;
                 host_get_vms_which_prevent_evacuation;
+                host_get_vms_which_prevent_evacuation_all;
                 host_get_uncooperative_resident_VMs;
                 host_get_uncooperative_domains;
                 host_evacuate;
