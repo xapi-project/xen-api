@@ -117,11 +117,7 @@ $(MY_OBJ_DIR)/csharp_xmlrpc.tar.gz: $(REPO)/mk/sign.bat omake-phase $(MY_OBJ_DIR
 	tar -C $(CSHARP_XMLRPC_TMP) -zcf $@ .
    
 $(MY_OBJ_DIR)/XenServer.dll: $(MY_OBJ_DIR)/csharp_xmlrpc.tar.gz $(REPO)/mk/csharp.sh
-ifeq ($(SKIP_WINDOWS_BUILD), yes)
-	touch $@
-else
 	$(call win-build,$<,$@,$(REPO)/mk/csharp.sh)
-endif
 
 .PHONY: csharp-bin
 csharp-bin: $(MY_OBJ_DIR)/$(XMLRPC_DLL) $(MY_OBJ_DIR)/XenServer.dll
@@ -139,11 +135,7 @@ $(MY_OBJ_DIR)/powershell.tar.gz: $(MY_OBJ_DIR)/XenServer.dll \
 	tar -C $(PS_TAR_TMP) -zcf $@ .
 
 $(MY_OBJ_DIR)/XenServerPowerShell.dll: $(MY_OBJ_DIR)/powershell.tar.gz $(REPO)/mk/powershell.sh
-ifeq ($(SKIP_WINDOWS_BUILD), yes)
-	touch $@
-else
 	$(call win-build,$<,$@,$(REPO)/mk/powershell.sh)
-endif
 
 .PHONY: powershell-module
 powershell-module: $(MY_OBJ_DIR)/XenServerPowerShell.dll
