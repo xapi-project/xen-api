@@ -38,6 +38,25 @@ handle_xs_error()
 
 logger -t "$LOG_TAG" "Called as $0 $*"
 
+path="${PRIVATE_PATH}/pvs-site"
+PVS_SITE=$($XSREAD "$path")
+if [ $? -ne 0 ] || [ -z "$PVS_SITE" ]; then
+    handle_xs_error "$path"
+fi
+
+path="${PRIVATE_PATH}/vif-uuid"
+VIF=$($XSREAD "$path")
+if [ $? -ne 0 ] || [ -z "$VIF" ]; then
+    handle_xs_error "$path"
+fi
+
+# Only continue if the proxy state is "started".
+path="/xapi/pvs-proxy/$PVS_SITE/$VIF/state"
+PVS_PROXY_STATE=$($XSREAD "$path")
+if [ "$PVS_PROXY_STATE" != "started" ]; then
+    handle_error "PVS proxy daemon not configured for this proxy - not installing OVS rules."
+fi
+
 path="${PRIVATE_PATH}/pvs-interface"
 PVS_PROXY_INTERFACE=$($XSREAD "$path")
 if [ $? -ne 0 ] || [ -z "$PVS_PROXY_INTERFACE" ]; then
