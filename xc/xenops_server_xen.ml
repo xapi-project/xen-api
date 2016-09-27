@@ -2340,7 +2340,7 @@ module VIF = struct
 	let xenstore_of_pvs_proxy proxy =
 		match proxy with
 		| None -> []
-		| Some (servers, interface) ->
+		| Some (site, servers, interface) ->
 			let open Vif.PVS_proxy in
 			let server_keys =
 				List.mapi (fun i server ->
@@ -2352,6 +2352,7 @@ module VIF = struct
 				) servers
 				|> List.flatten
 			in
+			("pvs-site", site) ::
 			("pvs-interface", interface) ::
 			("pvs-server-num", string_of_int (List.length servers)) ::
 			server_keys

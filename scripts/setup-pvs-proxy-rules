@@ -15,6 +15,13 @@ TYPE=$2
 PVS_VM_INTERFACE=$3
 PRIVATE_PATH=$4
 
+IP=/usr/sbin/ip
+VSCTL=/usr/bin/ovs-vsctl
+OFCTL=/usr/bin/ovs-ofctl
+XSREAD=/usr/bin/xenstore-read
+XSWRITE=/usr/bin/xenstore-write
+XSRM=/usr/bin/xenstore-rm
+
 LOG_TAG="setup-pvs-proxy-rules"
 
 handle_error()
@@ -31,38 +38,62 @@ handle_xs_error()
 
 logger -t "$LOG_TAG" "Called as $0 $*"
 
+path="${PRIVATE_PATH}/pvs-site"
+PVS_SITE=$($XSREAD "$path")
+if [ $? -ne 0 ] || [ -z "$PVS_SITE" ]; then
+    handle_xs_error "$path"
+fi
+
+path="${PRIVATE_PATH}/vif-uuid"
+VIF=$($XSREAD "$path")
+if [ $? -ne 0 ] || [ -z "$VIF" ]; then
+    handle_xs_error "$path"
+fi
+
+# Only continue if the proxy state is "started".
+path="/xapi/pvs-proxy/$PVS_SITE/$VIF/state"
+PVS_PROXY_STATE=$($XSREAD "$path")
+if [ "$PVS_PROXY_STATE" != "started" ]; then
+    handle_error "PVS proxy daemon not configured for this proxy - not installing OVS rules."
+fi
+
 path="${PRIVATE_PATH}/pvs-interface"
-PVS_PROXY_INTERFACE=$(xenstore-read "$path")
+PVS_PROXY_INTERFACE=$($XSREAD "$path")
 if [ $? -ne 0 ] || [ -z "$PVS_PROXY_INTERFACE" ]; then
     handle_xs_error "$path"
 fi
 
 path="${PRIVATE_PATH}/mac"
-PVS_VM_MAC=$(xenstore-read "$path")
+PVS_VM_MAC=$($XSREAD "$path")
 if [ $? -ne 0 ] || [ -z "$PVS_VM_MAC" ]; then
     handle_xs_error "$path"
 fi
 
 path="${PRIVATE_PATH}/pvs-server-num"
-PVS_SERVER_NUM=$(xenstore-read "$path")
+PVS_SERVER_NUM=$($XSREAD "$path")
 if [ $? -ne 0 ] || [ -z "$PVS_SERVER_NUM" ]; then
     handle_xs_error "$path"
 fi
 
 path="${PRIVATE_PATH}/bridge"
-bridge=$(xenstore-read "$path")
+bridge=$($XSREAD "$path")
 if [ $? -ne 0 ] || [ -z "$bridge" ]; then
     handle_xs_error "$path"
 fi
-PVS_BRIDGE=$(ovs-vsctl br-to-parent "$bridge")
+PVS_BRIDGE=$($VSCTL br-to-parent "$bridge")
 
 PVS_RULE_PRIO=1000
 
 case $ACTION in
     add)
-        PVS_PROXY_MAC=$(ovs-vsctl get interface "$PVS_PROXY_INTERFACE" mac_in_use | tr -d '"')
-        PVS_PROXY_OFPORT=$(ovs-vsctl get interface "$PVS_PROXY_INTERFACE" ofport)
-        PVS_VM_OFPORT=$(ovs-vsctl get interface "$PVS_VM_INTERFACE" ofport)
+        # Create a port/interface for the proxy daemon
+        $VSCTL --may-exist add-port "$PVS_BRIDGE" "$PVS_PROXY_INTERFACE" -- set interface "$PVS_PROXY_INTERFACE" type=internal
+        $IP link set "$PVS_PROXY_INTERFACE" up
+        logger -t "$LOG_TAG" "Created proxy port $PVS_PROXY_INTERFACE"
+
+        PVS_PROXY_MAC=$($VSCTL get interface "$PVS_PROXY_INTERFACE" mac_in_use | tr -d '"')
+        PVS_PROXY_OFPORT=$($VSCTL get interface "$PVS_PROXY_INTERFACE" ofport)
+        PVS_VM_OFPORT=$($VSCTL get interface "$PVS_VM_INTERFACE" ofport)
         if [ $? -ne 0 ] || [ -z "$PVS_VM_OFPORT" ]; then
             handle_error "The $PVS_VM_INTERFACE interface was not found on a bridge"
         fi
@@ -71,13 +102,13 @@ case $ACTION in
 
         for ((j=0; j<PVS_SERVER_NUM; j++)) do
             path="${PRIVATE_PATH}/pvs-server-$j-addresses"
-            PVS_SERVER_IPS=$(xenstore-read "$path")
+            PVS_SERVER_IPS=$($XSREAD "$path")
             if [ $? -ne 0 ] || [ -z "$PVS_SERVER_IPS" ]; then
                 handle_xs_error "$path"
             fi
 
             path="${PRIVATE_PATH}/pvs-server-$j-ports"
-            PVS_PORTS=$(xenstore-read "$path")
+            PVS_PORTS=$($XSREAD "$path")
             if [ $? -ne 0 ] || [ -z "$PVS_PORTS" ]; then
                 handle_xs_error "$path"
             fi
@@ -91,7 +122,7 @@ case $ACTION in
                 # Packets from proxied clients that have a PVS-server IP must
                 # be dropped. This is done separately for vif and tap interfaces
                 # by matching on the in_port.
-                ovs-ofctl --strict add-flow "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO)),in_port="$PVS_VM_OFPORT",ip,nw_src="$PVS_SERVER_IP",actions=drop
+                $OFCTL --strict add-flow "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO)),in_port="$PVS_VM_OFPORT",ip,nw_src="$PVS_SERVER_IP",actions=drop
 
                 # The following rules are independent of the in_port, so we'll
                 # need just one copy per VIF. We'll only apply them if the
@@ -100,22 +131,23 @@ case $ACTION in
                 if [ "${TYPE}" = "vif" ]; then
                     for ((i=PVS_STARTPORT; i<=PVS_ENDPORT; i++)) do
                         # Packets from client->server that need to be proxied.
-                        ovs-ofctl --strict add-flow "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO-1)),udp,dl_src="$PVS_VM_MAC",nw_dst="$PVS_SERVER_IP",tp_dst=$i,actions="$PVS_PROXY_OFPORT"
+                        $OFCTL --strict add-flow "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO-1)),udp,dl_src="$PVS_VM_MAC",nw_dst="$PVS_SERVER_IP",tp_dst=$i,actions="$PVS_PROXY_OFPORT"
                         # Packets from proxy->client.
-                        ovs-ofctl --strict add-flow "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO)),udp,dl_src="$PVS_PROXY_MAC",dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",tp_dst=$i,actions=NORMAL
+                        $OFCTL --strict add-flow "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO)),udp,dl_src="$PVS_PROXY_MAC",dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",tp_dst=$i,actions=NORMAL
                         # Packets from server->client that need to be proxied.
-                        ovs-ofctl --strict add-flow "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO-1)),udp,dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",tp_dst=$i,actions="$PVS_PROXY_OFPORT"
+                        $OFCTL --strict add-flow "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO-1)),udp,dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",tp_dst=$i,actions="$PVS_PROXY_OFPORT"
                     done
-                    # Announce that on the OVS we have set up the rules for this VIF's pvs-proxy.
-                    xenstore-write "${PRIVATE_PATH}/pvs-rules-active" ''
                 fi
             done
             unset IFS
+
+            # Announce that on the OVS we have set up the rules for this VIF's pvs-proxy
+            $XSWRITE "${PRIVATE_PATH}/pvs-rules-active" ''
         done
         ;;
     remove)
-        PVS_PROXY_MAC=$(ovs-vsctl get interface "$PVS_PROXY_INTERFACE" mac_in_use | tr -d '"')
-        PVS_VM_OFPORT=$(ovs-vsctl get interface "$PVS_VM_INTERFACE" ofport)
+        PVS_PROXY_MAC=$($VSCTL get interface "$PVS_PROXY_INTERFACE" mac_in_use | tr -d '"')
+        PVS_VM_OFPORT=$($VSCTL get interface "$PVS_VM_INTERFACE" ofport)
         if [ $? -ne 0 ] || [ -z "$PVS_VM_OFPORT" ]; then
             handle_error "The $PVS_VM_INTERFACE interface was not found on a bridge"
         fi
@@ -124,13 +156,13 @@ case $ACTION in
         
         for ((j=0; j<PVS_SERVER_NUM; j++)) do
             path="${PRIVATE_PATH}/pvs-server-$j-addresses"
-            PVS_SERVER_IPS=$(xenstore-read "$path")
+            PVS_SERVER_IPS=$($XSREAD "$path")
             if [ $? -ne 0 ] || [ -z "$PVS_SERVER_IPS" ]; then
                 handle_xs_error "$path"
             fi
 
             path="${PRIVATE_PATH}/pvs-server-$j-ports"
-            PVS_PORTS=$(xenstore-read "$path")
+            PVS_PORTS=$($XSREAD "$path")
             if [ $? -ne 0 ] || [ -z "$PVS_PORTS" ]; then
                 handle_xs_error "$path"
             fi
@@ -144,7 +176,7 @@ case $ACTION in
                 # Packets from proxied clients that have a PVS-server IP must
                 # be dropped. This is done separately for vif and tap interfaces
                 # by matching on the in_port.
-                ovs-ofctl --strict del-flows "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO)),in_port="$PVS_VM_OFPORT",ip,nw_src="$PVS_SERVER_IP"
+                $OFCTL --strict del-flows "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO)),in_port="$PVS_VM_OFPORT",ip,nw_src="$PVS_SERVER_IP"
 
                 # The following rules are independent of the in_port, so we'll
                 # need just one copy per VIF. We'll only apply them if the
@@ -153,22 +185,33 @@ case $ACTION in
                 if [ "${TYPE}" = "vif" ]; then
                     for ((i=PVS_STARTPORT; i<=PVS_ENDPORT; i++)) do
                         # Packets from client->server that need to be proxied.
-                        ovs-ofctl --strict del-flows "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO-1)),udp,dl_src="$PVS_VM_MAC",nw_dst="$PVS_SERVER_IP",tp_dst=$i
+                        $OFCTL --strict del-flows "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO-1)),udp,dl_src="$PVS_VM_MAC",nw_dst="$PVS_SERVER_IP",tp_dst=$i
                         # Packets from proxy->client.
-                        ovs-ofctl --strict del-flows "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO)),udp,dl_src="$PVS_PROXY_MAC",dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",tp_dst=$i
+                        $OFCTL --strict del-flows "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO)),udp,dl_src="$PVS_PROXY_MAC",dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",tp_dst=$i
                         # Packets from server->client that need to be proxied.
-                        ovs-ofctl --strict del-flows "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO-1)),udp,dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",tp_dst=$i
+                        $OFCTL --strict del-flows "$PVS_BRIDGE" priority=$((PVS_RULE_PRIO-1)),udp,dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",tp_dst=$i
                     done
-                    # Announce that on the OVS we have removed the rules for this VIF's pvs-proxy.
-                    xenstore-rm "${PRIVATE_PATH}/pvs-rules-active"
                 fi
             done
             unset IFS
+
+            if [ "${TYPE}" = "vif" ]; then
+                # Again, don't do the following when a tap goes away, because
+                # vif may still be there.
+
+                # Remove the port/interface for the proxy daemon
+                $IP link set "$PVS_PROXY_INTERFACE" down
+                $VSCTL del-port "$PVS_BRIDGE" "$PVS_PROXY_INTERFACE"
+                logger -t "$LOG_TAG" "Removed proxy port $PVS_PROXY_INTERFACE"
+
+                # Announce that on the OVS we have removed the rules for this VIF's pvs-proxy.
+                XSRM "${PRIVATE_PATH}/pvs-rules-active"
+            fi
         done
         ;;
     reset)
-        ovs-ofctl del-flows "$PVS_BRIDGE"
-        ovs-ofctl --strict add-flow "$PVS_BRIDGE" priority=0,actions=NORMAL
+        $OFCTL del-flows "$PVS_BRIDGE"
+        $OFCTL --strict add-flow "$PVS_BRIDGE" priority=0,actions=NORMAL
         ;;
     *)
         handle_error "Unknown command '$1'"
