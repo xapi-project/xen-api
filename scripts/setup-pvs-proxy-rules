@@ -15,7 +15,6 @@ TYPE=$2
 PVS_VM_INTERFACE=$3
 PRIVATE_PATH=$4
 
-IP=/usr/sbin/ip
 VSCTL=/usr/bin/ovs-vsctl
 OFCTL=/usr/bin/ovs-ofctl
 XSREAD=/usr/bin/xenstore-read
@@ -86,11 +85,6 @@ PVS_RULE_PRIO=1000
 
 case $ACTION in
     add)
-        # Create a port/interface for the proxy daemon
-        $VSCTL --may-exist add-port "$PVS_BRIDGE" "$PVS_PROXY_INTERFACE" -- set interface "$PVS_PROXY_INTERFACE" type=internal
-        $IP link set "$PVS_PROXY_INTERFACE" up
-        logger -t "$LOG_TAG" "Created proxy port $PVS_PROXY_INTERFACE"
-
         PVS_PROXY_MAC=$($VSCTL get interface "$PVS_PROXY_INTERFACE" mac_in_use | tr -d '"')
         PVS_PROXY_OFPORT=$($VSCTL get interface "$PVS_PROXY_INTERFACE" ofport)
         PVS_VM_OFPORT=$($VSCTL get interface "$PVS_VM_INTERFACE" ofport)
@@ -198,11 +192,6 @@ case $ACTION in
             if [ "${TYPE}" = "vif" ]; then
                 # Again, don't do the following when a tap goes away, because
                 # vif may still be there.
-
-                # Remove the port/interface for the proxy daemon
-                $IP link set "$PVS_PROXY_INTERFACE" down
-                $VSCTL del-port "$PVS_BRIDGE" "$PVS_PROXY_INTERFACE"
-                logger -t "$LOG_TAG" "Removed proxy port $PVS_PROXY_INTERFACE"
 
                 # Announce that on the OVS we have removed the rules for this VIF's pvs-proxy.
                 XSRM "${PRIVATE_PATH}/pvs-rules-active"
