@@ -185,11 +185,20 @@ let find_cache_vdi ~__context ~host ~site =
     Db.PVS_cache_storage.get_VDI ~__context ~self:pcs
 
 let start_proxy ~__context vif proxy =
+  let dbg = Context.string_of_task __context in
   let host = Helpers.get_localhost ~__context in
   let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
   try
     Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy;
     Helpers.assert_using_vswitch ~__context;
+
+    (* Create an interface and OVS port for the proxy *)
+    let vifr = Db.VIF.get_record ~__context ~self:vif in
+    let bridge = Db.Network.get_bridge ~__context ~self:vifr.API.vIF_network in
+    let port_name = proxy_port_name vifr in
+    Network.Net.Bridge.add_port dbg ~bridge ~name:port_name ~kind:Network_interface.PVS_proxy ~interfaces:[] ();
+
+    (* Update the PVS proxy daemon and related metadata *)
     let vdi = find_cache_vdi ~__context ~host ~site in
     State.mark_proxy ~__context site vif proxy State.Starting;
     update_site_on_localhost ~__context ~site ~vdi;
@@ -233,13 +242,22 @@ let start_proxy ~__context vif proxy =
 
 let stop_proxy ~__context vif proxy =
   try
+    let dbg = Context.string_of_task __context in
     let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
     let host = Helpers.get_localhost ~__context in
+
+    (* Update the PVS proxy daemon and related metadata *)
     let vdi = find_cache_vdi ~__context ~host ~site in
     State.mark_proxy ~__context site vif proxy State.Stopping;
     update_site_on_localhost ~__context ~site ~vdi;
     State.remove_proxy ~__context site vif;
-    Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`stopped
+    Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`stopped;
+
+    (* Remove the interface and OVS port for the proxy *)
+    let vifr = Db.VIF.get_record ~__context ~self:vif in
+    let bridge = Db.Network.get_bridge ~__context ~self:vifr.API.vIF_network in
+    let port_name = proxy_port_name vifr in
+    Network.Net.Bridge.remove_port dbg ~bridge ~name:port_name
   with e ->
     let reason =
       match e with
