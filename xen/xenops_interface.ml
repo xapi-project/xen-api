@@ -465,13 +465,14 @@ module Vif = struct
 	let default_locking_mode = Unlocked
 
 	module PVS_proxy = struct
+		type site = string
 		type server = {
 			addresses: string list;
 			first_port: int;
 			last_port: int;
 		}
 		type interface = string
-		type t = (server list * interface)
+		type t = (site * server list * interface)
 	end
 
 	type t = {
