@@ -62,7 +62,15 @@ let umount ?(retry=true) dest =
     try
       ignore(Forkhelpers.execute_command_get_output "/bin/umount" [dest] );
       finished := true
-    with e ->
+    with
+    | Forkhelpers.Spawn_internal_error(stderr, stdout, status) as e ->
+      debug "Caught exception (%s) while unmounting %s: pausing before retrying"
+        (ExnHelper.string_of_exn e) dest;
+      begin match status with
+        | Unix.WEXITED (32) -> finished := true (*not mounted*)
+        | _ -> Thread.delay 5.
+      end
+    | e ->
       if not(retry) then raise e;
       debug "Caught exception (%s) while unmounting %s: pausing before retrying"
         (ExnHelper.string_of_exn e) dest;
