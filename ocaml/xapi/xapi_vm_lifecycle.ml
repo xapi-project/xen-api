@@ -298,7 +298,7 @@ let nested_virt ~__context vm metrics =
 
 let is_mobile ~__context vm strict =
   let metrics = Db.VM.get_metrics ~__context ~self:vm in
-  (not @@ nomigrate ~__context vm metrics 
+  (not @@ nomigrate ~__context vm metrics
    && not @@ nested_virt ~__context vm metrics)
   || not strict
 
