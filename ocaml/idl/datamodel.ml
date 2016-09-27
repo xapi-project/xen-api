@@ -511,6 +511,8 @@ let _ =
     ~doc:"You attempted an operation which would have resulted in duplicate keys in the database." ();
   error Api_errors.location_not_unique ["SR"; "location"]
     ~doc:"A VDI with the specified location already exists within the SR" ();
+  error Api_errors.memory_constraint_violation ["constraint"]
+    ~doc:"The dynamic memory range does not satisfy the following constraint." ();
 
   (* Session errors *)
   error Api_errors.session_authentication_failed []

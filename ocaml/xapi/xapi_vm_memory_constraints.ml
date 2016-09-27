@@ -51,26 +51,34 @@ module Vm_memory_constraints : T = struct
 
   include Vm_memory_constraints.Vm_memory_constraints
 
+  let nested_virt ~__context vm =
+    let metrics = Db.VM.get_metrics ~__context ~self:vm in
+    Xapi_vm_lifecycle.nested_virt ~__context vm metrics
+
+  let order_constraint =
+    "Memory limits must satisfy: \
+     static_min ≤ dynamic_min ≤ dynamic_max ≤ static_max"
+  let equality_constraint =
+    "Memory limits must satisfy: \
+     static_min ≤ dynamic_min = dynamic_max = static_max"
+
   let assert_valid ~constraints =
     if not (are_valid ~constraints)
     then raise (Api_errors.Server_error (
-        Api_errors.memory_constraint_violation,
-        ["Memory limits must satisfy: \
-          				static_min ≤ dynamic_min ≤ dynamic_max ≤ static_max"]))
+      Api_errors.memory_constraint_violation, [order_constraint]))
 
   let assert_valid_and_pinned_at_static_max ~constraints =
     if not (are_valid_and_pinned_at_static_max ~constraints)
     then raise (Api_errors.Server_error (
-        Api_errors.memory_constraint_violation,
-        ["Memory limits must satisfy: \
-          				static_min ≤ dynamic_min = dynamic_max = static_max"]))
+      Api_errors.memory_constraint_violation, [equality_constraint]))
 
   let assert_valid_for_current_context ~__context ~vm ~constraints =
     let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in
-    (if Pool_features.is_enabled ~__context Features.DMC && not is_control_domain
-     then assert_valid
-     else assert_valid_and_pinned_at_static_max)
-      ~constraints
+    if Pool_features.is_enabled ~__context Features.DMC
+      && not is_control_domain
+      && not (nested_virt ~__context vm)
+    then assert_valid ~constraints
+    else assert_valid_and_pinned_at_static_max ~constraints
 
   let extract ~vm_record =
     {
