@@ -4032,7 +4032,7 @@ let pool_update_pool_clean = call
 
 let pool_update_destroy = call
     ~name:"destroy"
-    ~doc:"Removes the update's files from all hosts in the pool, and removes the database entries. But does not revert the update."
+    ~doc:"Removes the database entry. Only works on unapplied update."
     ~in_oss_since:None
     ~in_product_since:rel_ely
     ~params:[ Ref _pool_update, "self", "The update to destroy" ]

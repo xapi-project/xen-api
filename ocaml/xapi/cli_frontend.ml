@@ -954,7 +954,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     {
       reqd=["uuid"];
       optn=[];
-      help="Removes the update's files from all hosts in the pool, and removes the database entries.";
+      help="Removes the database entry. Only works on unapplied update.";
       implementation=No_fd Cli_operations.update_destroy;
       flags=[];
     };
