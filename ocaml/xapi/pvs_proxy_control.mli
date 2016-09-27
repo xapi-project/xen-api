@@ -18,6 +18,8 @@ val get_running_proxies : __context:Context.t -> site:API.ref_PVS_site -> API.re
 val start_proxy : __context:Context.t -> API.ref_VIF -> API.ref_PVS_proxy -> bool
 val stop_proxy : __context:Context.t -> API.ref_VIF -> API.ref_PVS_proxy -> unit
 
+val clear_proxy_state : __context:Context.t -> API.ref_VIF -> API.ref_PVS_proxy -> unit
+
 val find_proxy_for_vif : __context:Context.t -> vif:API.ref_VIF -> API.ref_PVS_proxy option
 val maybe_start_proxy_for_vif : __context:Context.t -> vif:API.ref_VIF -> unit
 val maybe_stop_proxy_for_vif : __context:Context.t -> vif:API.ref_VIF -> unit

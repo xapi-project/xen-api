@@ -1697,7 +1697,10 @@ let update_vif ~__context id =
                 | None -> ()
                 | Some proxy ->
                   debug "xenopsd event: Updating PVS_proxy for VIF %s.%s currently_attached <- %b" (fst id) (snd id) state.pvs_rules_active;
-                  Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:state.pvs_rules_active
+                  if state.pvs_rules_active then
+                    Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:true
+                  else
+                    Pvs_proxy_control.clear_proxy_state ~__context vif proxy
                );
                debug "xenopsd event: Updating VIF %s.%s currently_attached <- %b" (fst id) (snd id) (state.plugged || state.active);
                Db.VIF.set_currently_attached ~__context ~self:vif ~value:(state.plugged || state.active)
