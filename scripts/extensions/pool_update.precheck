@@ -81,6 +81,8 @@ if __name__ == '__main__':
         host = params[2]
         update_uuid = session.xenapi.pool_update.get_uuid(update)
         update_package = session.xenapi.pool_update.get_name_label(update)
+        host_uuid = session.xenapi.host.get_uuid(host)
+        host_name_label = session.xenapi.host.get_name_label(host)
 
         # attach and get the yum configuration
         # generate the yum configuration file
@@ -107,7 +109,7 @@ if __name__ == '__main__':
         print(success_message())
     except Exception as e:
         print(failure_message(PATCH_PRECHECK_FAILED_UNKNOWN_ERROR,
-                              ['Precheck failed: %s' % e]))
+                              ['Precheck failed on host %s[uuid=%s]: %s' % (host_name_label ,host_uuid, e)]))
     finally:
         if session is not None:
             session.xenapi.pool_update.detach(update)

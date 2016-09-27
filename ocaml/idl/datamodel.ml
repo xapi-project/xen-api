@@ -1163,6 +1163,8 @@ let _ =
     ~doc:"The specified patch is applied and cannot be destroyed." ();
   error Api_errors.patch_already_applied [ "patch" ]
     ~doc:"This patch has already been applied" ();
+  error Api_errors.update_pool_apply_failed [ "hosts" ]
+    ~doc:"The update cannot be applied for the following host(s)." ();
   error Api_errors.patch_apply_failed [ "output" ]
     ~doc:"The patch apply failed.  Please see attached output." ();
   error Api_errors.patch_apply_failed_backup_files_exist [ "output" ]

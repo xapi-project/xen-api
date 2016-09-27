@@ -322,12 +322,16 @@ let introduce ~__context ~vdi =
 let pool_apply ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
   debug "pool_update.pool_apply %s" pool_update_name;
-  Db.Pool_update.get_hosts ~__context ~self |>
-  List.set_difference (Db.Host.get_all ~__context) |>
-  List.iter (fun host ->
-      ignore(Helpers.call_api_functions ~__context
-               (fun rpc session_id -> Client.Pool_update.apply rpc session_id self host))
-    )
+  let failed_hosts = Db.Pool_update.get_hosts ~__context ~self |>
+                     List.set_difference (Db.Host.get_all ~__context) |>
+                     List.fold_left (fun acc host ->
+                         try
+                           ignore(Helpers.call_api_functions ~__context
+                                    (fun rpc session_id -> Client.Pool_update.apply rpc session_id self host));
+                           acc
+                         with e -> host :: acc
+                       ) [] in
+  if List.length failed_hosts > 0 then raise (Api_errors.Server_error(Api_errors.update_pool_apply_failed, (List.map Ref.string_of failed_hosts)))
 
 let pool_clean ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
