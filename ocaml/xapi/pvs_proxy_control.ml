@@ -15,13 +15,16 @@
 open Stdext
 open Listext
 open Threadext
+open Xstringext
 
 module D = Debug.Make(struct let name = "xapi_pvs_proxy_control" end)
 open D
 
 let proxy_port_name vif =
-  let uuid = String.sub vif.API.vIF_uuid 0 8 in
-  Printf.sprintf "pvs-%s" uuid
+  (* Interface names in Linux are at most 15 characters. We derive a 
+     name from the MAC address to ensure uniqueness, and make it fit. *)
+  let mac = String.replace ":" "" vif.API.vIF_MAC in
+  Printf.sprintf "pvs%s" mac
 
 (** [proxies] returns all currently attached proxies *)
 let get_running_proxies ~__context ~site =
