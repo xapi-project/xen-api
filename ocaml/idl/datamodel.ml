@@ -1161,8 +1161,6 @@ let _ =
     ~doc:"The uploaded patch file already exists" ();
   error Api_errors.patch_is_applied [ ]
     ~doc:"The specified patch is applied and cannot be destroyed." ();
-  error Api_errors.update_is_applied [ ]
-    ~doc:"The specified update has been applied and cannot be destroyed." ();
   error Api_errors.patch_already_applied [ "patch" ]
     ~doc:"This patch has already been applied" ();
   error Api_errors.patch_apply_failed [ "output" ]
@@ -1190,6 +1188,13 @@ let _ =
     ~doc:"This command is only allowed on the OEM edition." ();
   error Api_errors.not_allowed_on_oem_edition ["command"]
     ~doc:"This command is not allowed on the OEM edition." ();
+
+  (* Update errors *)
+  error Api_errors.invalid_update []
+    ~doc:"The uploaded update package is invalid" ();
+  error Api_errors.update_is_applied [ ]
+    ~doc:"The specified update has been applied and cannot be destroyed." ();
+
 
   (* Pool errors *)
 

@@ -185,7 +185,6 @@ let attach ~__context ~self =
   let vdi = Db.Pool_update.get_vdi ~__context ~self in
   create_yum_config ~__context ~self ~url:(attach_helper ~__context ~uuid ~vdi)
 
-exception Missing_update_key of string
 exception Bad_update_info
 exception Invalid_update_uuid of string
 
@@ -222,7 +221,7 @@ let parse_update_info xml =
     in
     let name_description = match List.find is_name_description_node children with
       | Xml.Element("name-description", _, [ Xml.PCData s ]) -> s
-      | _ -> raise (Missing_update_key "<name-description>")
+      | _ -> raise (Api_errors.Server_error(Api_errors.invalid_update, ["missing <name-description> in update.xml"]))
     in
     let update_info = {
       uuid = uuid;
@@ -233,7 +232,7 @@ let parse_update_info xml =
       after_apply_guidance = guidance;
     } in
     update_info
-  | _ -> raise (Missing_update_key "<update>")
+  | _ -> raise (Api_errors.Server_error(Api_errors.invalid_update, ["missing <update> in update.xml"]))
 
 let extract_applied_update_info applied_uuid  =
   let applied_update = Printf.sprintf "%s/applied/%s" Xapi_globs.host_update_dir applied_uuid in
@@ -277,16 +276,20 @@ let verify update_info update_path =
   let repomd_xml_path = Filename.concat update_path "repodata/repomd.xml" in
   List.iter (fun filename ->
       let signature = filename ^ ".asc" in
-      Gpg.with_verified_signature filename signature (fun fingerprint fd ->
-          match fingerprint with
-          | Some f ->
-            debug "Fingerprint '%s' verified." f
-          | _ ->
-            begin
-              debug "No fingerprint!";
-              raise Gpg.InvalidSignature
-            end
-        )
+      try
+        Gpg.with_verified_signature filename signature (fun fingerprint fd ->
+            match fingerprint with
+            | Some f ->
+              debug "Fingerprint '%s' verified." f
+            | _ ->
+              begin
+                debug "No fingerprint!";
+                raise (Api_errors.Server_error (Api_errors.invalid_update, ["Invalid signature"]))
+              end
+          )
+      with exn ->
+        debug "Caught exception while checking signature: %s" (ExnHelper.string_of_exn exn);
+        raise (Api_errors.Server_error (Api_errors.invalid_update, ["Invalid signature"]))
     ) [update_xml_path; repomd_xml_path];
   debug "Verify signature OK for pool update uuid: %s by key: %s" update_info.uuid update_info.key
 
