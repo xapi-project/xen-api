@@ -81,38 +81,53 @@ let umount ?(retry=true) dest =
 let updates_to_attach_count_tbl : (string, int) Hashtbl.t = Hashtbl.create 10
 let updates_to_attach_count_tbl_mutex = Mutex.create ()
 
-let detach_helper ~__context ~uuid ~vdi =
+let with_dec_refcount ~__context ~uuid ~vdi f =
   Mutex.execute updates_to_attach_count_tbl_mutex
     ( fun () ->
         let count = try Hashtbl.find updates_to_attach_count_tbl uuid with _ -> 0 in
         debug "pool_update.detach_helper '%s' count=%d" uuid count;
         if count <= 1 then begin
-          let mount_point_parent_dir = String.concat "/" [Xapi_globs.host_update_dir; uuid] in
-          let mount_point = Filename.concat mount_point_parent_dir "vdi" in
-
-          debug "pool_update.detach_helper %s from %s" uuid mount_point;
-          if try Sys.is_directory mount_point with _ -> false then begin
-            Helpers.log_exn_continue ("detach_helper: unmounting " ^ mount_point)
-              (fun () -> umount mount_point) ()
-          end;
-          Helpers.call_api_functions ~__context (fun rpc session_id ->
-              let dom0 = Helpers.get_domain_zero ~__context in
-              let vbds = Client.VDI.get_VBDs ~rpc ~session_id ~self:vdi in
-              List.iter (fun self ->
-                  if Client.VBD.get_VM ~rpc ~session_id ~self = dom0 then begin
-                    Client.VBD.unplug ~rpc ~session_id ~self;
-                    Client.VBD.destroy ~rpc ~session_id ~self
-                  end) vbds);
-          if try Sys.is_directory mount_point_parent_dir with _ -> false then begin
-            let output, _ = Forkhelpers.execute_command_get_output "/bin/rm" ["-r"; mount_point_parent_dir] in
-            debug "pool_update.detach_helper Mountpoint removed (output=%s)" output
-          end;
+          f ~__context ~uuid ~vdi
         end;
         if count > 1 then
           Hashtbl.replace updates_to_attach_count_tbl uuid (count - 1)
         else if count = 1 then
           Hashtbl.remove updates_to_attach_count_tbl uuid
+    )
 
+let with_inc_refcount ~__context ~uuid ~vdi f =
+  Mutex.execute updates_to_attach_count_tbl_mutex
+    ( fun () ->
+        let count = try Hashtbl.find updates_to_attach_count_tbl uuid with _ -> 0 in
+        debug "pool_update.attach_helper refcount='%d'" (count);
+        if count = 0 then begin
+          f ~__context ~uuid ~vdi
+        end;
+        Hashtbl.replace updates_to_attach_count_tbl uuid (count + 1)
+    )
+
+let detach_helper ~__context ~uuid ~vdi =
+  with_dec_refcount ~__context ~uuid ~vdi
+    (fun ~__context ~uuid ~vdi ->
+       let mount_point_parent_dir = String.concat "/" [Xapi_globs.host_update_dir; uuid] in
+       let mount_point = Filename.concat mount_point_parent_dir "vdi" in
+       debug "pool_update.detach_helper %s from %s" uuid mount_point;
+       if try Sys.is_directory mount_point with _ -> false then begin
+         Helpers.log_exn_continue ("detach_helper: unmounting " ^ mount_point)
+           (fun () -> umount mount_point) ()
+       end;
+       Helpers.call_api_functions ~__context (fun rpc session_id ->
+           let dom0 = Helpers.get_domain_zero ~__context in
+           let vbds = Client.VDI.get_VBDs ~rpc ~session_id ~self:vdi in
+           List.iter (fun self ->
+               if Client.VBD.get_VM ~rpc ~session_id ~self = dom0 then begin
+                 Client.VBD.unplug ~rpc ~session_id ~self;
+                 Client.VBD.destroy ~rpc ~session_id ~self
+               end) vbds);
+       if try Sys.is_directory mount_point_parent_dir with _ -> false then begin
+         let output, _ = Forkhelpers.execute_command_get_output "/bin/rm" ["-r"; mount_point_parent_dir] in
+         debug "pool_update.detach_helper Mountpoint removed (output=%s)" output
+       end;
     )
 
 let detach ~__context ~self =
@@ -151,34 +166,28 @@ let create_yum_config ~__context ~self ~url =
   ^(if signed then Printf.sprintf ("gpgkey=file:///etc/pki/rpm-gpg/%s") key else "")
 
 let attach_helper ~__context ~uuid ~vdi =
-  Mutex.execute updates_to_attach_count_tbl_mutex
-    ( fun () ->
-        let mount_point_parent_dir = String.concat "/" [Xapi_globs.host_update_dir; uuid] in
-        let mount_point = Filename.concat mount_point_parent_dir "vdi" in
-        let host = Helpers.get_localhost ~__context in
-        let ip = Db.Host.get_address ~__context ~self:host in
-        let url = "http://" ^ ip ^ Constants.get_pool_update_download_uri ^ uuid ^ "/vdi" in
-        let count = try Hashtbl.find updates_to_attach_count_tbl uuid with _ -> 0 in
-        if count = 0 then begin
-          debug "pool_update.attach_helper %s to %s" uuid mount_point;
-          let output, _ = Forkhelpers.execute_command_get_output "/bin/mkdir" ["-p"; mount_point] in
-          debug "pool_update.attach_helper Mountpoint created (output=%s)" output;
-          let device = Helpers.call_api_functions ~__context
-              (fun rpc session_id ->
-                 let dom0 = Helpers.get_domain_zero ~__context in
-                 let vbd = Client.VBD.create ~rpc ~session_id ~vM:dom0 ~empty:false ~vDI:vdi
-                     ~userdevice:"autodetect" ~bootable:false ~mode:`RO ~_type:`Disk ~unpluggable:true
-                     ~qos_algorithm_type:"" ~qos_algorithm_params:[]
-                     ~other_config:[] in
-                 Client.VBD.plug ~rpc ~session_id ~self:vbd;
-                 "/dev/" ^ (Client.VBD.get_device ~rpc ~session_id ~self:vbd)) in
-          with_api_errors (mount device) mount_point;
-          debug "pool_update.attach_helper Mounted %s" mount_point
-        end;
-        debug "pool_update.attach_helper refcount='%d'" (count+1);
-        Hashtbl.replace updates_to_attach_count_tbl uuid (count + 1);
-        url
-    )
+  let host = Helpers.get_localhost ~__context in
+  let ip = Db.Host.get_address ~__context ~self:host in
+  with_inc_refcount ~__context ~uuid ~vdi
+    (fun ~__context ~uuid ~vdi ->
+       let mount_point_parent_dir = String.concat "/" [Xapi_globs.host_update_dir; uuid] in
+       let mount_point = Filename.concat mount_point_parent_dir "vdi" in
+       debug "pool_update.attach_helper %s to %s" uuid mount_point;
+       let output, _ = Forkhelpers.execute_command_get_output "/bin/mkdir" ["-p"; mount_point] in
+       debug "pool_update.attach_helper Mountpoint created (output=%s)" output;
+       let device = Helpers.call_api_functions ~__context
+           (fun rpc session_id ->
+              let dom0 = Helpers.get_domain_zero ~__context in
+              let vbd = Client.VBD.create ~rpc ~session_id ~vM:dom0 ~empty:false ~vDI:vdi
+                  ~userdevice:"autodetect" ~bootable:false ~mode:`RO ~_type:`Disk ~unpluggable:true
+                  ~qos_algorithm_type:"" ~qos_algorithm_params:[]
+                  ~other_config:[] in
+              Client.VBD.plug ~rpc ~session_id ~self:vbd;
+              "/dev/" ^ (Client.VBD.get_device ~rpc ~session_id ~self:vbd)) in
+       with_api_errors (mount device) mount_point;
+       debug "pool_update.attach_helper Mounted %s" mount_point
+    );
+  "http://" ^ ip ^ Constants.get_pool_update_download_uri ^ uuid ^ "/vdi"
 
 let attach ~__context ~self =
   let uuid = Db.Pool_update.get_uuid ~__context ~self in

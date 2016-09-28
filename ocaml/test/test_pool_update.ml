@@ -21,8 +21,18 @@ let test_pool_update_destroy () =
   Xapi_pool_update.destroy ~__context ~self;
   assert_equal (Db.is_valid_ref __context self) false
 
+let test_pool_update_refcount () =
+  let __context = Mock.make_context_with_new_db "Mock context" in
+  let uuid = Helpers.get_localhost_uuid () in
+  let vdi = make_vdi ~__context ~virtual_size:4096L () in
+  Xapi_pool_update.with_inc_refcount ~__context ~uuid ~vdi (fun ~__context ~uuid ~vdi -> ());
+  Xapi_pool_update.with_inc_refcount ~__context ~uuid ~vdi (fun ~__context ~uuid ~vdi -> assert_equal 0 1);
+  Xapi_pool_update.with_dec_refcount ~__context ~uuid ~vdi (fun ~__context ~uuid ~vdi -> assert_equal 0 1);
+  Xapi_pool_update.with_dec_refcount ~__context ~uuid ~vdi (fun ~__context ~uuid ~vdi -> ())
+
 let test =
   "test_pool_update" >:::
   [
     "test_pool_update_destroy" >:: test_pool_update_destroy;
+    "test_pool_update_refcount" >:: test_pool_update_refcount;
   ]
