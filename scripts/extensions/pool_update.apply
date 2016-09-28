@@ -73,7 +73,7 @@ if __name__ == '__main__':
             sys.exit(0)
 
         update_uuid = session.xenapi.pool_update.get_uuid(update)
-        update_package = session.xenapi.pool_update.get_name_label(update)
+        update_package = 'update-' + session.xenapi.pool_update.get_name_label(update)
         yum_conf_file = os.path.join(UPDATE_DIR, update_uuid, 'yum.conf')
 
         # To prevent the race condition of invoking apply, set a lock.
