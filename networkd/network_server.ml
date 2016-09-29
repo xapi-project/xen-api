@@ -896,7 +896,7 @@ end
 module PVS_proxy = struct
 	open PVS_proxy
 
-	let path = ref "/var/run/pvsproxy"
+	let path = ref "/opt/citrix/pvsproxy/socket/pvsproxy"
 	
 	let do_call call =
 		try
