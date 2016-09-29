@@ -998,9 +998,14 @@ let pool_emergency_reset_master printer rpc session_id params =
   printer (Cli_printer.PList ["Host agent will restart and become slave of "^master_address^" in "^(string_of_float !Xapi_globs.fuse_time)^" seconds..."])
 
 let pool_emergency_transition_to_master printer rpc session_id params =
-  Client.Pool.emergency_transition_to_master ~rpc ~session_id;
-  printer (Cli_printer.PList ["Host agent will restart and transition to master in "^(string_of_float !Xapi_globs.fuse_time)^" seconds..."])
-
+  let force = get_bool_param params "force" in
+  if not (Pool_role.is_master ()) || force then begin
+    Client.Pool.emergency_transition_to_master ~rpc ~session_id;
+    printer (Cli_printer.PList ["Host agent will restart and transition to master in "^(string_of_float !Xapi_globs.fuse_time)^" seconds..."])
+  end
+  else
+    printer (Cli_printer.PList ["Host agent is already master. Use '--force' to execute the operation anyway."])
+  
 let pool_recover_slaves printer rpc session_id params =
   let hosts = Client.Pool.recover_slaves ~rpc ~session_id in
   let host_uuids = List.map (fun href -> Client.Host.get_uuid rpc session_id href) hosts in
