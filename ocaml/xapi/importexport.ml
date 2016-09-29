@@ -321,6 +321,15 @@ let base_vdi_of_req ~__context (req: Http.Request.t) =
           else Db.VDI.get_by_uuid ~__context ~uuid:base)
   end else None
 
+let sr_of_req ~__context (req: Http.Request.t) =
+  let all = Http.Request.(req.cookie @ req.query) in
+  if List.mem_assoc "sr_id" all
+  then Some (Ref.of_string (List.assoc "sr_id" all))
+  else
+  if List.mem_assoc "sr_uuid" all
+  then Some (Db.SR.get_by_uuid ~__context ~uuid:(List.assoc "sr_uuid" all))
+  else None
+
 module Format = struct
   type t =
     | Raw
