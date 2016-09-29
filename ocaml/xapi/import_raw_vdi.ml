@@ -98,5 +98,8 @@ let handler (req: Request.t) (s: Unix.file_descr) _ =
      	   task in the forwarding case *)
   Server_helpers.exec_with_new_task "VDI.import"
     (fun __context ->
-       import (vdi_of_req ~__context req) req s ()
+       match vdi_of_req ~__context req with
+       | Some vdi ->
+         import vdi req s ()
+       | None -> failwith "Missing vdi query parameter"
     )

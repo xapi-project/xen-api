@@ -303,13 +303,14 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address ~r
 
 let vdi_of_req ~__context (req: Http.Request.t) =
   let all = req.Http.Request.query @ req.Http.Request.cookie in
-  let vdi =
     if List.mem_assoc "vdi" all
-    then List.assoc "vdi" all
-    else raise (Failure "Missing vdi query parameter") in
+  then
+    let vdi = List.assoc "vdi" all in
   if Db.is_valid_ref __context (Ref.of_string vdi)
-  then Ref.of_string vdi
-  else Db.VDI.get_by_uuid ~__context ~uuid:vdi
+    then Some (Ref.of_string vdi)
+    else Some (Db.VDI.get_by_uuid ~__context ~uuid:vdi)
+  else
+    None
 
 let base_vdi_of_req ~__context (req: Http.Request.t) =
   let all = req.Http.Request.query @ req.Http.Request.cookie in
