@@ -1346,9 +1346,7 @@ let license_add ~__context ~host ~contents =
            let s = "Failed to write temporary file." in
            raise Api_errors.(Server_error(internal_error, [s]))
        end;
-       let edition', features, additional = V6client.apply_edition ~__context "" ["license_file", tmp] in
-       Db.Host.set_edition ~__context ~self:host ~value:edition';
-       copy_license_to_db ~__context ~host ~features ~additional
+       apply_edition_internal ~__context ~host ~edition:"" ~additional:["license_file", tmp]
     )
     (fun () ->
        (* The license will have been moved to a standard location if it was valid, and
@@ -1357,10 +1355,7 @@ let license_add ~__context ~host ~contents =
     )
 
 let license_remove ~__context ~host =
-  let edition', features, additional =
-    V6client.apply_edition ~__context "" ["license_file", ""] in
-  Db.Host.set_edition ~__context ~self:host ~value:edition';
-  copy_license_to_db ~__context ~host ~features ~additional
+  apply_edition_internal ~__context ~host ~edition:"" ~additional:["license_file", ""]
 
 (* Supplemental packs *)
 

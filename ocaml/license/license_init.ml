@@ -43,10 +43,7 @@ let initialise ~__context ~host =
 
   try
     let edition = Db.Host.get_edition ~__context ~self:host in
-    let edition', features, additional =
-      V6client.apply_edition ~__context edition ["force", "true"] in
-    set_licensing edition' features additional
-
+    Xapi_host.apply_edition_internal ~__context ~host ~edition ~additional:["force", "true"]
   with
   | Api_errors.Server_error (code, []) when code = Api_errors.v6d_failure ->
     (* Couldn't communicate with v6d, so fall back to running in free/libre
