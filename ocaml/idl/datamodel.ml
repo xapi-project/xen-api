@@ -1196,7 +1196,8 @@ let _ =
     ~doc:"The uploaded update package is invalid" ();
   error Api_errors.update_is_applied [ ]
     ~doc:"The specified update has been applied and cannot be destroyed." ();
-
+  error Api_errors.cannot_find_update []
+    ~doc:"The requested update could not be found. Please upload the update again. This can occur when you run xe update-pool-clean before xe update-apply. " ();
 
   (* Pool errors *)
 

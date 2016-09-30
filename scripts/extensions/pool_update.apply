@@ -18,6 +18,7 @@ PATCH_ALREADY_APPLIED = 'PATCH_ALREADY_APPLIED'
 PATCH_APPLY_FAILED = 'PATCH_APPLY_FAILED'
 OTHER_OPERATION_IN_PROGRESS = 'OTHER_OPERATION_IN_PROGRESS'
 PATCH_PRECHECK_FAILED_UNKNOWN_ERROR = 'PATCH_PRECHECK_FAILED_UNKNOWN_ERROR'
+CANNOT_FIND_UPDATE = 'CANNOT_FIND_UPDATE'
 
 
 class ApplyFailure(Exception):
@@ -48,7 +49,7 @@ def execute_apply(session, update_package, yum_conf_file):
             errmsg = errorlines[-1].split(':', 1)[-1].strip()
         else:
             errmsg = lines[-1]
-        raise PrecheckFailure(
+        raise ApplyFailure(
             'Install %s error: %s' % (update_package, errmsg))
 
 
@@ -96,6 +97,14 @@ if __name__ == '__main__':
                 print(failure_message(PATCH_PRECHECK_FAILED_UNKNOWN_ERROR, [str(e)]))
             sys.exit(0)
 
+        update_vdi = session.xenapi.pool_update.get_vdi(update)
+        try:
+            update_vdi_uuid = session.xenapi.VDI.get_uuid(update_vdi)
+        except Exception as e:
+            print(failure_message(CANNOT_FIND_UPDATE,
+                ['Missing update package [uuid=%s]' % update_uuid]))
+            sys.exit(0)
+
         # Apply the update.
         try:
             yum_conf = session.xenapi.pool_update.attach(update)
@@ -115,7 +124,7 @@ if __name__ == '__main__':
             print(success_message())
         except Exception as e:
             print(failure_message(PATCH_APPLY_FAILED,
-                                  ['Apply failed: %s' % e]))
+                                  ['Failed to apply the update: %s' % e]))
         finally:
             session.xenapi.pool_update.detach(update)
             try:

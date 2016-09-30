@@ -19,6 +19,7 @@ import xcp.logger
 
 TMP_DIR = '/tmp/'
 PATCH_PRECHECK_FAILED_UNKNOWN_ERROR = 'PATCH_PRECHECK_FAILED_UNKNOWN_ERROR'
+CANNOT_FIND_UPDATE = 'CANNOT_FIND_UPDATE'
 
 
 class PrecheckFailure(Exception):
@@ -84,6 +85,16 @@ if __name__ == '__main__':
         host_uuid = session.xenapi.host.get_uuid(host)
         host_name_label = session.xenapi.host.get_name_label(host)
 
+        update_vdi_valid = False
+        update_vdi = session.xenapi.pool_update.get_vdi(update)
+        try:
+            update_vdi_uuid = session.xenapi.VDI.get_uuid(update_vdi)
+            update_vdi_valid = True
+        except Exception as e:
+            print(failure_message(CANNOT_FIND_UPDATE,
+                ['Missing update package [uuid=%s]' % update_uuid]))
+            sys.exit(0)
+
         # attach and get the yum configuration
         # generate the yum configuration file
         yum_conf = session.xenapi.pool_update.attach(update)
@@ -109,13 +120,12 @@ if __name__ == '__main__':
         print(success_message())
     except Exception as e:
         print(failure_message(PATCH_PRECHECK_FAILED_UNKNOWN_ERROR,
-                              ['Precheck failed on host %s[uuid=%s]: %s' % (host_name_label ,host_uuid, e)]))
+                              ['Precheck failed on host %s [uuid=%s]: %s' % (host_name_label ,host_uuid, e)]))
     finally:
-        if session is not None:
+        if session is not None and update_vdi_valid is True:
             session.xenapi.pool_update.detach(update)
             session.xenapi.session.logout()
         try:
             shutil.rmtree(os.path.dirname(yum_conf_file))
         except Exception as e:
             pass
-

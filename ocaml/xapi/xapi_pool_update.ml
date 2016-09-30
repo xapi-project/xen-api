@@ -127,14 +127,14 @@ let detach_helper ~__context ~uuid ~vdi =
                end) vbds);
        if try Sys.is_directory mount_point_parent_dir with _ -> false then begin
          Helpers.log_exn_continue ("pool_update.detach_helper: rm " ^ mount_point)
-           (fun () ->
-              let output, _ = Forkhelpers.execute_command_get_output "/bin/rm" ["-r"; mount_point] in
-              debug "pool_update.detach_helper Mountpoint removed (output=%s)" output) ();
+          (fun () ->
+            let output, _ = Forkhelpers.execute_command_get_output "/bin/rm" ["-r"; mount_point] in
+            debug "pool_update.detach_helper Mountpoint removed (output=%s)" output) ();
          Helpers.log_exn_continue ("pool_update.detach_helper: rmdir " ^ mount_point_parent_dir)
-           (fun () ->
-              let output, _ = Forkhelpers.execute_command_get_output "/bin/rmdir" ["--ignore-fail-on-non-empty"; mount_point_parent_dir] in
-              debug "pool_update.detach_helper Mountpoint parent dir removed (output=%s)" output
-           ) ()
+          (fun () ->
+            let output, _ = Forkhelpers.execute_command_get_output "/bin/rmdir" ["--ignore-fail-on-non-empty"; mount_point_parent_dir] in
+            debug "pool_update.detach_helper Mountpoint parent dir removed (output=%s)" output
+          ) ()
        end;
     )
 
@@ -165,6 +165,7 @@ let with_api_errors f x =
    ${signed:+gpgkey=file:///etc/pki/rpm-gpg/key}
 *)
 let create_yum_config ~__context ~self ~url =
+  debug "pool_update.create_yum_config";
   let key = Db.Pool_update.get_key ~__context ~self in
   let signed = String.length key <> 0 in
   let signed_index = if signed then 1 else 0 in
@@ -374,7 +375,8 @@ let pool_clean ~__context ~self =
   debug "pool_update.pool_clean %s" pool_update_name;
   detach ~__context ~self;
   let vdi = Db.Pool_update.get_vdi ~__context ~self in
-  Db.VDI.destroy ~__context ~self:vdi
+  Db.VDI.destroy ~__context ~self:vdi;
+  Db.Pool_update.set_vdi ~__context ~self ~value:Ref.null
 
 let destroy ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
@@ -389,8 +391,9 @@ let destroy ~__context ~self =
 let detach_attached_updates __context =
   Db.Pool_update.get_all ~__context |>
   List.iter ( fun self ->
-      ignore(Helpers.call_api_functions ~__context
-               (fun rpc session_id -> Client.Pool_update.detach ~rpc ~session_id ~self))
+      Helpers.log_exn_continue ("detach_attached_updates: update_uuid " ^ (Db.Pool_update.get_uuid ~__context ~self))
+      (fun () -> ignore(Helpers.call_api_functions ~__context
+               (fun rpc session_id -> Client.Pool_update.detach ~rpc ~session_id ~self))) ()
     )
 
 let resync_host ~__context ~host =
@@ -426,7 +429,7 @@ let pool_update_download_handler (req: Request.t) s _ =
   (* remove any dodgy use of "." or ".." NB we don't prevent the use of symlinks *)
   let filepath = String.sub_to_end req.Request.uri (String.length Constants.get_pool_update_download_uri)
                  |> Filename.concat Xapi_globs.host_update_dir
-                 |> Stdext.Unixext.resolve_dot_and_dotdot
+                 |> Stdext.Unixext.resolve_dot_and_dotdot 
                  |> Uri.pct_decode  in
   debug "pool_update.pool_update_download_handler %s" filepath;
 

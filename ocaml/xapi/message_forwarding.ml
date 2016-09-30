@@ -3915,8 +3915,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let pool_clean ~__context ~self =
       info "Pool_update.pool_clean: pool update = '%s'" (pool_update_uuid ~__context self);
       let local_fn = Local.Pool_update.pool_clean ~self in
-      VDI.forward_vdi_op ~local_fn ~__context ~self:(Db.Pool_update.get_vdi ~__context ~self)
+      let update_vdi = Db.Pool_update.get_vdi ~__context ~self in
+      if Db.is_valid_ref __context update_vdi then
+        VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi
         (fun session_id rpc -> Client.Pool_update.pool_clean rpc session_id self)
+      else
+        info "Pool_update.pool_clean: pool update '%s' has already been cleaned." (pool_update_uuid ~__context self)
 
     let destroy ~__context ~self =
       info "Pool_update.destroy: pool update = '%s'" (pool_update_uuid ~__context self);
@@ -3925,14 +3929,22 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let attach ~__context ~self =
       info "Pool_update.attach: pool update = '%s'" (pool_update_uuid ~__context self);
       let local_fn = Local.Pool_update.attach ~self in
-      VDI.forward_vdi_op ~local_fn ~__context ~self:(Db.Pool_update.get_vdi ~__context ~self)
+      let update_vdi = Db.Pool_update.get_vdi ~__context ~self in
+      if Db.is_valid_ref __context update_vdi then
+        VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi
         (fun session_id rpc -> Client.Pool_update.attach rpc session_id self)
+      else
+        raise (Api_errors.Server_error(Api_errors.cannot_find_update, [(pool_update_uuid ~__context self)]))
 
     let detach ~__context ~self =
       info "Pool_update.detach: pool update = '%s''" (pool_update_uuid ~__context self);
       let local_fn = Local.Pool_update.detach ~self in
-      VDI.forward_vdi_op ~local_fn ~__context ~self:(Db.Pool_update.get_vdi ~__context ~self)
+      let update_vdi = Db.Pool_update.get_vdi ~__context ~self in
+      if Db.is_valid_ref __context update_vdi then
+        VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi
         (fun session_id rpc -> Client.Pool_update.detach rpc session_id self)
+      else
+        raise (Api_errors.Server_error(Api_errors.cannot_find_update, [(pool_update_uuid ~__context self)]))
 
     let resync_host ~__context ~host =
       info "Pool_update.resync_host: host = '%s'" (host_uuid ~__context host);
