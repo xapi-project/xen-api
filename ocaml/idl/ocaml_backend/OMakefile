@@ -121,9 +121,6 @@ XAPI_CLIENT_OBJS = \
 	../../xapi/xapi_inventory \
 	../../xapi/xapi_fist \
 	../../xapi/features \
-	../../license/v6rpc \
-	../../license/v6daemon \
-	../../license/v6errors \
 	$(COMMON_OBJS) \
 	$(CLIENT_OBJS)
 

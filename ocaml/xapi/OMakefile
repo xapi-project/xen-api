@@ -256,9 +256,6 @@ XAPI_MODULES = $(COMMON) \
 	remote_requests \
 	xapi_secret \
 	certificates \
-	../license/v6client \
-	../license/v6rpc \
-	../license/v6errors \
 	bios_strings \
 	xapi_config \
 	features \
