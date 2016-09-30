@@ -1310,289 +1310,342 @@ module Events_from_xenopsd = struct
 end
 
 let update_vm ~__context id =
-	try
-		let open Vm in
-		if Events_from_xenopsd.are_suppressed id
-		then debug "xenopsd event: ignoring event for VM (VM %s migrating away)" id
-		else
-			let self = Db.VM.get_by_uuid ~__context ~uuid:id in
-			let localhost = Helpers.get_localhost ~__context in
-			if Db.VM.get_resident_on ~__context ~self <> localhost
-			then debug "xenopsd event: ignoring event for VM (VM %s not resident)" id
-			else
-				let previous = Xenops_cache.find_vm id in
-				let dbg = Context.string_of_task __context in
-				let module Client = (val make_client (queue_of_vm ~__context ~self) : XENOPS) in
-				let info = try Some (Client.VM.stat dbg id) with _ -> None in
-				if Opt.map snd info = previous
-				then debug "xenopsd event: ignoring event for VM %s: metadata has not changed" id
-				else begin
-					debug "xenopsd event: processing event for VM %s" id;
-					if info = None then debug "xenopsd event: VM state missing: assuming VM has shut down";
-					let should_update_allowed_operations = ref false in
-					let different f =
-						let a = Opt.map (fun x -> f (snd x)) info in
-						let b = Opt.map f previous in
-						a <> b in
-					(* Notes on error handling: if something fails we log and continue, to
-					   maximise the amount of state which is correctly synced. If something
-					   does fail then we may end up permanently out-of-sync until either a
-					   process restart or an event is generated. We may wish to periodically
-					   inject artificial events IF there has been an event sync failure? *)
-					if different (fun x -> x.power_state) then begin
-						try
-							debug "Will update VM.allowed_operations because power_state has changed.";
-							should_update_allowed_operations := true;
-							let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).power_state) info) in
-							debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
-							(* This will mark VBDs, VIFs as detached and clear resident_on
-							   if the VM has permanently shutdown.  current-operations
-							   should not be reset as there maybe a checkpoint is ongoing*)
-							Xapi_vm_lifecycle.force_state_reset_keep_current_operations ~__context ~self ~value:power_state;
+  try
+    let open Vm in
+    if Events_from_xenopsd.are_suppressed id
+    then debug "xenopsd event: ignoring event for VM (VM %s migrating away)" id
+    else
+      let self = Db.VM.get_by_uuid ~__context ~uuid:id in
+      let localhost = Helpers.get_localhost ~__context in
+      if Db.VM.get_resident_on ~__context ~self <> localhost
+      then debug "xenopsd event: ignoring event for VM (VM %s not resident)" id
+      else
+        let previous = Xenops_cache.find_vm id in
+        let dbg = Context.string_of_task __context in
+        let module Client = (val make_client (queue_of_vm ~__context ~self) : XENOPS) in
+        let info = try Some (Client.VM.stat dbg id) with _ -> None in
+        if Opt.map snd info = previous
+        then debug "xenopsd event: ignoring event for VM %s: metadata has not changed" id
+        else begin
+          debug "xenopsd event: processing event for VM %s" id;
+          if info = None then debug "xenopsd event: VM state missing: assuming VM has shut down";
+          let should_update_allowed_operations = ref false in
+          let different f =
+            let a = Opt.map (fun x -> f (snd x)) info in
+            let b = Opt.map f previous in
+            a <> b in
+          (* Notes on error handling: if something fails we log and continue, to
+             					   maximise the amount of state which is correctly synced. If something
+             					   does fail then we may end up permanently out-of-sync until either a
+             					   process restart or an event is generated. We may wish to periodically
+             					   inject artificial events IF there has been an event sync failure? *)
+          if different (fun x -> x.power_state) then begin
+            try
+              debug "Will update VM.allowed_operations because power_state has changed.";
+              should_update_allowed_operations := true;
+              let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).power_state) info) in
+              debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
+              (* This will mark VBDs, VIFs as detached and clear resident_on
+                 							   if the VM has permanently shutdown.  current-operations
+                 							   should not be reset as there maybe a checkpoint is ongoing*)
+              Xapi_vm_lifecycle.force_state_reset_keep_current_operations ~__context ~self ~value:power_state;
 
-							if power_state = `Suspended || power_state = `Halted then begin
-								Xapi_network.detach_for_vm ~__context ~host:localhost ~vm:self;
-								Storage_access.reset ~__context ~vm:self;
-							end;
-							if power_state = `Halted
-							then Xenopsd_metadata.delete ~__context id;
-							if power_state = `Suspended then begin
-								let md = Xenopsd_metadata.pull ~__context id in
-								match md.Metadata.domains with
-									| None ->
-										error "Suspended VM has no domain-specific metadata"
-									| Some x ->
-										Db.VM.set_last_booted_record ~__context ~self ~value:x;
-										debug "VM %s last_booted_record set to %s" (Ref.string_of self) x;
-								Xenopsd_metadata.delete ~__context id
-							end;
-							if power_state = `Halted then (
-								!trigger_xenapi_reregister ()
-							);
-						with e ->
-							error "Caught %s: while updating VM %s power_state" (Printexc.to_string e) id
-					end;
-					if different (fun x -> x.domids) then begin
-						try
-							debug "Will update VM.allowed_operations because domid has changed.";
-							should_update_allowed_operations := true;
-							debug "xenopsd event: Updating VM %s domid" id;
-							Opt.iter
-								(fun (_, state) ->
-									match state.domids with
-										| value :: _ ->
-											Db.VM.set_domid ~__context ~self ~value:(Int64.of_int value)
-										| [] -> () (* happens when the VM is shutdown *)
-								) info;
-							(* If this is a storage domain, attempt to plug the PBD *)
-							Opt.iter (fun pbd ->
-								let (_: Thread.t) = Thread.create (fun () ->
-									(* Don't block the database update thread *)
-									Xapi_pbd.plug ~__context ~self:pbd
-								) () in
-								()
-							) (System_domains.pbd_of_vm ~__context ~vm:self)
-						with e ->
-							error "Caught %s: while updating VM %s domids" (Printexc.to_string e) id
-					end;
-					(* consoles *)
-					if different (fun x -> x.consoles) then begin
-						try
-							debug "xenopsd event: Updating VM %s consoles" id;
-							Opt.iter
-								(fun (_, state) ->
-									let localhost = Helpers.get_localhost ~__context in
-									let address = Db.Host.get_address ~__context ~self:localhost in
-									let uri = Printf.sprintf "https://%s%s" address Constants.console_uri in
-									let get_uri_from_location loc =
-										try
-											let n = String.index loc '?' in
-											String.sub loc 0 n
-										with Not_found -> loc
-									in
-									let current_protocols = List.map
-										(fun self ->
-											(Db.Console.get_protocol ~__context ~self |> to_xenops_console_protocol,
-											Db.Console.get_location ~__context ~self |> get_uri_from_location),
-											self)
-										(Db.VM.get_consoles ~__context ~self) in
-									let new_protocols = List.map (fun c -> (c.protocol, uri), c) state.consoles in
-									(* Destroy consoles that have gone away *)
-									List.iter
-										(fun protocol ->
-											let self = List.assoc protocol current_protocols in
-											Db.Console.destroy ~__context ~self
-										) (List.set_difference (List.map fst current_protocols) (List.map fst new_protocols));
-									(* Create consoles that have appeared *)
-									List.iter
-										(fun (protocol, _) ->
-											let ref = Ref.make () in
-											let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-											let location = Printf.sprintf "%s?uuid=%s" uri uuid in
-											let port =
-												try Int64.of_int ((List.find (fun c -> c.protocol = protocol) state.consoles).port)
-												with Not_found -> -1L
-											in
-											Db.Console.create ~__context ~ref ~uuid
-												~protocol:(to_xenapi_console_protocol protocol) ~location ~vM:self
-												~other_config:[] ~port
-										) (List.set_difference (List.map fst new_protocols) (List.map fst current_protocols));
-								) info;
-						with e ->
-							error "Caught %s: while updating VM %s consoles" (Printexc.to_string e) id
-					end;
-					if different (fun x -> x.memory_target) then begin
-						try
-							Opt.iter
-								(fun (_, state) ->
-									debug "xenopsd event: Updating VM %s memory_target <- %Ld" id state.memory_target;
-									Db.VM.set_memory_target ~__context ~self ~value:state.memory_target
-								) info
-						with e ->
-							error "Caught %s: while updating VM %s consoles" (Printexc.to_string e) id
-					end;
-					if different (fun x -> x.rtc_timeoffset) then begin
-						try
-							Opt.iter
-								(fun (_, state) ->
-									if state.rtc_timeoffset <> "" then begin
-										debug "xenopsd event: Updating VM %s platform:timeoffset <- %s" id state.rtc_timeoffset;
-										(try Db.VM.remove_from_platform ~__context ~self ~key:Platform.timeoffset with _ -> ());
-										Db.VM.add_to_platform ~__context ~self ~key:Platform.timeoffset ~value:state.rtc_timeoffset;
-									end
-								) info
-						with e ->
-							error "Caught %s: while updating VM %s rtc/timeoffset" (Printexc.to_string e) id
-					end;
-					let check_guest_agent () =
-						Opt.iter
-							(fun (_, state) ->
-								Opt.iter (fun oldstate -> 
-									let old_ga = oldstate.guest_agent in
-									let new_ga = state.guest_agent in
-									
-									(* Remove memory keys *)
-									let ignored_keys = [ "data/meminfo_free"; "data/updated"; "data/update_cnt" ] in
-									let remove_ignored ga = 
-										List.fold_left (fun acc k -> List.filter (fun x -> fst x <> k) acc) ga ignored_keys in
-									let old_ga = remove_ignored old_ga in
-									let new_ga = remove_ignored new_ga in
-									if new_ga <> old_ga then begin
-										debug "Will update VM.allowed_operations because guest_agent has changed.";
-										should_update_allowed_operations := true
-									end else begin
-										debug "Supressing VM.allowed_operations update because guest_agent data is largely the same"
-									end
-								) previous;
-								List.iter
-									(fun domid ->
-										let lookup key =
-											if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
-										let list dir =
-											let dir = if dir.[0] = '/' then String.sub dir 1 (String.length dir - 1) else dir in
-											let results = Listext.List.filter_map (fun (path, value) ->
-												if String.startswith dir path then begin
-													let rest = String.sub path (String.length dir) (String.length path - (String.length dir)) in
-													match List.filter (fun x -> x <> "") (String.split '/' rest) with
-														| x :: _ -> Some x
-														| _ -> None
-												end else None
-											) state.guest_agent |> Listext.List.setify in
-											results in
-										try
-											debug "xenopsd event: Updating VM %s domid %d guest_agent" id domid;
-											Xapi_guest_agent.all lookup list ~__context ~domid ~uuid:id
-										with e ->
-											error "Caught %s: while updating VM %s guest_agent" (Printexc.to_string e) id
-									) state.domids
-							) info in
-					let update_pv_drivers_detected () =
-						Opt.iter
-							(fun (_, state) ->
-								let gm = Db.VM.get_guest_metrics ~__context ~self in
-								debug "xenopsd event: Updating VM %s PV drivers detected %b" id state.pv_drivers_detected;
-								Db.VM_guest_metrics.set_PV_drivers_detected ~__context ~self:gm ~value:state.pv_drivers_detected;
-								Db.VM_guest_metrics.set_PV_drivers_up_to_date ~__context ~self:gm ~value:state.pv_drivers_detected
-							) info in
-					Opt.iter
-						(fun (_, state) ->
-							List.iter
-								(fun domid ->
-									if different (fun x -> x.uncooperative_balloon_driver) then begin
-										debug "xenopsd event: VM %s domid %d uncooperative_balloon_driver = %b" id domid state.uncooperative_balloon_driver;
-									end;
-									if different (fun x -> x.guest_agent) then check_guest_agent ();
-									if different (fun x -> x.pv_drivers_detected) then update_pv_drivers_detected ();
+              if power_state = `Suspended || power_state = `Halted then begin
+                Xapi_network.detach_for_vm ~__context ~host:localhost ~vm:self;
+                Storage_access.reset ~__context ~vm:self;
+              end;
+              if power_state = `Halted
+              then Xenopsd_metadata.delete ~__context id;
+              if power_state = `Suspended then begin
+                let md = Xenopsd_metadata.pull ~__context id in
+                match md.Metadata.domains with
+                | None ->
+                  error "Suspended VM has no domain-specific metadata"
+                | Some x ->
+                  Db.VM.set_last_booted_record ~__context ~self ~value:x;
+                  debug "VM %s last_booted_record set to %s" (Ref.string_of self) x;
+                  Xenopsd_metadata.delete ~__context id
+              end;
+              if power_state = `Halted then (
+                !trigger_xenapi_reregister ()
+              );
+            with e ->
+              error "Caught %s: while updating VM %s power_state" (Printexc.to_string e) id
+          end;
+          if different (fun x -> x.domids) then begin
+            try
+              debug "Will update VM.allowed_operations because domid has changed.";
+              should_update_allowed_operations := true;
+              debug "xenopsd event: Updating VM %s domid" id;
+              Opt.iter
+                (fun (_, state) ->
+                   match state.domids with
+                   | value :: _ ->
+                     Db.VM.set_domid ~__context ~self ~value:(Int64.of_int value)
+                   | [] -> () (* happens when the VM is shutdown *)
+                ) info;
+              (* If this is a storage domain, attempt to plug the PBD *)
+              Opt.iter (fun pbd ->
+                  let (_: Thread.t) = Thread.create (fun () ->
+                      (* Don't block the database update thread *)
+                      Xapi_pbd.plug ~__context ~self:pbd
+                    ) () in
+                  ()
+                ) (System_domains.pbd_of_vm ~__context ~vm:self)
+            with e ->
+              error "Caught %s: while updating VM %s domids" (Printexc.to_string e) id
+          end;
+          (* consoles *)
+          if different (fun x -> x.consoles) then begin
+            try
+              debug "xenopsd event: Updating VM %s consoles" id;
+              Opt.iter
+                (fun (_, state) ->
+                   let localhost = Helpers.get_localhost ~__context in
+                   let address = Db.Host.get_address ~__context ~self:localhost in
+                   let uri = Printf.sprintf "https://%s%s" address Constants.console_uri in
+                   let get_uri_from_location loc =
+                     try
+                       let n = String.index loc '?' in
+                       String.sub loc 0 n
+                     with Not_found -> loc
+                   in
+                   let current_protocols = List.map
+                       (fun self ->
+                          (Db.Console.get_protocol ~__context ~self |> to_xenops_console_protocol,
+                           Db.Console.get_location ~__context ~self |> get_uri_from_location),
+                          self)
+                       (Db.VM.get_consoles ~__context ~self) in
+                   let new_protocols = List.map (fun c -> (c.protocol, uri), c) state.consoles in
+                   (* Destroy consoles that have gone away *)
+                   List.iter
+                     (fun protocol ->
+                        let self = List.assoc protocol current_protocols in
+                        Db.Console.destroy ~__context ~self
+                     ) (List.set_difference (List.map fst current_protocols) (List.map fst new_protocols));
+                   (* Create consoles that have appeared *)
+                   List.iter
+                     (fun (protocol, _) ->
+                        let ref = Ref.make () in
+                        let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+                        let location = Printf.sprintf "%s?uuid=%s" uri uuid in
+                        let port =
+                          try Int64.of_int ((List.find (fun c -> c.protocol = protocol) state.consoles).port)
+                          with Not_found -> -1L
+                        in
+                        Db.Console.create ~__context ~ref ~uuid
+                          ~protocol:(to_xenapi_console_protocol protocol) ~location ~vM:self
+                          ~other_config:[] ~port
+                     ) (List.set_difference (List.map fst new_protocols) (List.map fst current_protocols));
+                ) info;
+            with e ->
+              error "Caught %s: while updating VM %s consoles" (Printexc.to_string e) id
+          end;
+          if different (fun x -> x.memory_target) then begin
+            try
+              Opt.iter
+                (fun (_, state) ->
+                   debug "xenopsd event: Updating VM %s memory_target <- %Ld" id state.memory_target;
+                   Db.VM.set_memory_target ~__context ~self ~value:state.memory_target
+                ) info
+            with e ->
+              error "Caught %s: while updating VM %s consoles" (Printexc.to_string e) id
+          end;
+          if different (fun x -> x.rtc_timeoffset) then begin
+            try
+              Opt.iter
+                (fun (_, state) ->
+                   if state.rtc_timeoffset <> "" then begin
+                     debug "xenopsd event: Updating VM %s platform:timeoffset <- %s" id state.rtc_timeoffset;
+                     (try Db.VM.remove_from_platform ~__context ~self ~key:Vm_platform.timeoffset with _ -> ());
+                     Db.VM.add_to_platform ~__context ~self ~key:Vm_platform.timeoffset ~value:state.rtc_timeoffset;
+                   end
+                ) info
+            with e ->
+              error "Caught %s: while updating VM %s rtc/timeoffset" (Printexc.to_string e) id
+          end;
+          if different (fun x -> x.hvm) then begin
+            Opt.iter
+              (fun (_, state) ->
+                 let metrics = Db.VM.get_metrics ~__context ~self in
+                 debug "xenopsd event: Updating VM %s hvm <- %s"
+                   id (string_of_bool state.Vm.hvm);
+                 Db.VM_metrics.set_hvm ~__context ~self:metrics
+                   ~value:state.Vm.hvm;
+              )
+              info
+          end;
+          if different (fun x -> x.nomigrate) then begin
+            Opt.iter
+              (fun (_, state) ->
+                 let metrics = Db.VM.get_metrics ~__context ~self in
+                 debug "xenopsd event: Updating VM %s nomigrate <- %s"
+                   id (string_of_bool state.Vm.nomigrate);
+                 Db.VM_metrics.set_nomigrate ~__context ~self:metrics
+                   ~value:state.Vm.nomigrate;
+              )
+              info
+          end;
+          if different (fun x -> x.nested_virt) then begin
+            Opt.iter
+              (fun (_, state) ->
+                 let metrics = Db.VM.get_metrics ~__context ~self in
+                 debug "xenopsd event: Updating VM %s nested_virt <- %s"
+                   id (string_of_bool state.Vm.nested_virt);
+                 Db.VM_metrics.set_nested_virt ~__context ~self:metrics
+                   ~value:state.Vm.nested_virt;
+              )
+              info
+          end;
+          (* Helpers to create and update guest metrics when needed *)
+          let lookup state key =
+            if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
+          let list state dir =
+            let dir = if dir.[0] = '/' then String.sub dir 1 (String.length dir - 1) else dir in
+            let results = Listext.List.filter_map (fun (path, value) ->
+                if String.startswith dir path then begin
+                  let rest = String.sub path (String.length dir) (String.length path - (String.length dir)) in
+                  match List.filter (fun x -> x <> "") (String.split '/' rest) with
+                  | x :: _ -> Some x
+                  | _ -> None
+                end else None
+              ) state.guest_agent |> Listext.List.setify in
+            results in
+          let create_guest_metrics_if_needed () =
+            let gm = Db.VM.get_guest_metrics ~__context ~self in
+            if gm = Ref.null then
+              Opt.iter
+                (fun (_, state) ->
+                   List.iter
+                     (fun domid ->
+                        try
+                          let new_gm_ref = Xapi_guest_agent.create_and_set_guest_metrics (lookup state) (list state) ~__context ~domid ~uuid:id in
+                          debug "xenopsd event: created guest metrics %s for VM %s" (Ref.string_of new_gm_ref) id
+                        with e ->
+                          error "Caught %s: while creating VM %s guest metrics" (Printexc.to_string e) id
+                     ) state.domids
+                ) info in
+          let check_guest_agent () =
+            Opt.iter
+              (fun (_, state) ->
+                 Opt.iter (fun oldstate ->
+                     let old_ga = oldstate.guest_agent in
+                     let new_ga = state.guest_agent in
 
-									if different (fun x -> x.xsdata_state) then begin
-										try
-											debug "xenopsd event: Updating VM %s domid %d xsdata" id domid;
-											Db.VM.set_xenstore_data ~__context ~self ~value:state.xsdata_state
-										with e ->
-											error "Caught %s: while updating VM %s xsdata" (Printexc.to_string e) id
-									end;
-									if different (fun x -> x.memory_target) then begin
-										try
-											debug "xenopsd event: Updating VM %s domid %d memory target" id domid;
-											Rrdd.update_vm_memory_target ~domid ~target:state.memory_target;
-										with e ->
-											error "Caught %s: while updating VM %s memory_target" (Printexc.to_string e) id
-									end;
-								) state.domids;
-						) info;
-					if different (fun x -> x.vcpu_target) then begin
-						Opt.iter
-							(fun (_, state) ->
-								try
-									debug "xenopsd event: Updating VM %s vcpu_target <- %d" id state.Vm.vcpu_target;
-									let metrics = Db.VM.get_metrics ~__context ~self in
-									Db.VM_metrics.set_VCPUs_number ~__context ~self:metrics ~value:(Int64.of_int state.Vm.vcpu_target);
-								with e ->
-									error "Caught %s: while updating VM %s VCPUs_number" (Printexc.to_string e) id
-							) info
-					end;
-					if different (fun x -> x.last_start_time) then begin
-						try
-							Opt.iter
-								(fun (_, state) ->
-									debug "xenopsd event: Updating VM %s last_start_time <- %s" id (Date.to_string (Date.of_float state.last_start_time));
-									let metrics = Db.VM.get_metrics ~__context ~self in
-									let start_time = Date.of_float state.last_start_time in
-									Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:start_time;
-									begin
-										try
-											let gm = Db.VM.get_guest_metrics ~__context ~self in
-											let update_time = Db.VM_guest_metrics.get_last_updated ~__context ~self:gm in
-											if update_time < start_time then begin
-												debug "VM %s guest metrics update time (%s) < VM start time (%s): deleting"
-													id (Date.to_string update_time) (Date.to_string start_time);
-												Xapi_vm_helpers.delete_guest_metrics ~__context ~self;
-												check_guest_agent ();
-											end
-										with _ -> () (* The guest metrics didn't exist *)
-									end
-								) info
-						with e ->
-							error "Caught %s: while updating VM %s last_start_time" (Printexc.to_string e) id
-					end;
-					if different (fun x -> x.shadow_multiplier_target) then begin
-						try
-							Opt.iter
-								(fun (_, state) ->
-									debug "xenopsd event: Updating VM %s shadow_multiplier <- %.2f" id state.shadow_multiplier_target;
-									if state.power_state <> Halted && state.shadow_multiplier_target >= 0.0 then
-										Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:state.shadow_multiplier_target
-								) info
-						with e ->
-							error "Caught %s: while updating VM %s HVM_shadow_multiplier" (Printexc.to_string e) id
-					end;
-					Xenops_cache.update_vm id (Opt.map snd info);
-					if !should_update_allowed_operations then
-						Helpers.call_api_functions ~__context
-							(fun rpc session_id -> XenAPI.VM.update_allowed_operations ~rpc ~session_id ~self);
-				end
-	with e ->
-		error "xenopsd event: Caught %s while updating VM: has this VM been removed while this host is offline?" (string_of_exn e)
+                     (* Remove memory keys *)
+                     let ignored_keys = [ "data/meminfo_free"; "data/updated"; "data/update_cnt" ] in
+                     let remove_ignored ga =
+                       List.fold_left (fun acc k -> List.filter (fun x -> fst x <> k) acc) ga ignored_keys in
+                     let old_ga = remove_ignored old_ga in
+                     let new_ga = remove_ignored new_ga in
+                     if new_ga <> old_ga then begin
+                       debug "Will update VM.allowed_operations because guest_agent has changed.";
+                       should_update_allowed_operations := true
+                     end else begin
+                       debug "Supressing VM.allowed_operations update because guest_agent data is largely the same"
+                     end
+                   ) previous;
+                 List.iter
+                   (fun domid ->
+                      try
+                        debug "xenopsd event: Updating VM %s domid %d guest_agent" id domid;
+                        Xapi_guest_agent.all (lookup state) (list state) ~__context ~domid ~uuid:id
+                      with e ->
+                        error "Caught %s: while updating VM %s guest_agent" (Printexc.to_string e) id
+                   ) state.domids
+              ) info in
+          let update_pv_drivers_detected () =
+            Opt.iter
+              (fun (_, state) ->
+                 let gm = Db.VM.get_guest_metrics ~__context ~self in
+                 try
+                   debug "xenopsd event: Updating VM %s PV drivers detected %b" id state.pv_drivers_detected;
+                   Db.VM_guest_metrics.set_PV_drivers_detected ~__context ~self:gm ~value:state.pv_drivers_detected;
+                   Db.VM_guest_metrics.set_PV_drivers_up_to_date ~__context ~self:gm ~value:state.pv_drivers_detected
+                 with e ->
+                   debug "Caught %s: while updating VM %s PV drivers" (Printexc.to_string e) id
+              ) info in
+          (* Chack last_start_time before updating anything in the guest metrics *)
+          if different (fun x -> x.last_start_time) then begin
+            try
+              Opt.iter
+                (fun (_, state) ->
+                   debug "xenopsd event: Updating VM %s last_start_time <- %s" id (Date.to_string (Date.of_float state.last_start_time));
+                   let metrics = Db.VM.get_metrics ~__context ~self in
+                   let start_time = Date.of_float state.last_start_time in
+                   Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:start_time;
+                   
+                   create_guest_metrics_if_needed ();
+                   let gm = Db.VM.get_guest_metrics ~__context ~self in
+                   let update_time = Db.VM_guest_metrics.get_last_updated ~__context ~self:gm in
+                   if update_time < start_time then begin
+                     debug "VM %s guest metrics update time (%s) < VM start time (%s): deleting"
+                       id (Date.to_string update_time) (Date.to_string start_time);
+                     Xapi_vm_helpers.delete_guest_metrics ~__context ~self;
+                     check_guest_agent ();
+                   end
+                ) info
+            with e ->
+              error "Caught %s: while updating VM %s last_start_time" (Printexc.to_string e) id
+          end;
+          Opt.iter
+            (fun (_, state) ->
+               List.iter
+                 (fun domid ->
+                    (* Guest metrics could have been destroyed during the last_start_time check
+                       by recreating them, we avoid CA-223387 *)
+                    create_guest_metrics_if_needed ();
+                    if different (fun x -> x.uncooperative_balloon_driver) then begin
+                      debug "xenopsd event: VM %s domid %d uncooperative_balloon_driver = %b" id domid state.uncooperative_balloon_driver;
+                    end;
+                    if different (fun x -> x.guest_agent) then check_guest_agent ();
+                    if different (fun x -> x.pv_drivers_detected) then update_pv_drivers_detected ();
+
+                    if different (fun x -> x.xsdata_state) then begin
+                      try
+                        debug "xenopsd event: Updating VM %s domid %d xsdata" id domid;
+                        Db.VM.set_xenstore_data ~__context ~self ~value:state.xsdata_state
+                      with e ->
+                        error "Caught %s: while updating VM %s xsdata" (Printexc.to_string e) id
+                    end;
+                    if different (fun x -> x.memory_target) then begin
+                      try
+                        debug "xenopsd event: Updating VM %s domid %d memory target" id domid;
+                        Rrdd.update_vm_memory_target ~domid ~target:state.memory_target;
+                      with e ->
+                        error "Caught %s: while updating VM %s memory_target" (Printexc.to_string e) id
+                    end;
+                 ) state.domids;
+            ) info;
+          if different (fun x -> x.vcpu_target) then begin
+            Opt.iter
+              (fun (_, state) ->
+                 try
+                   debug "xenopsd event: Updating VM %s vcpu_target <- %d" id state.Vm.vcpu_target;
+                   let metrics = Db.VM.get_metrics ~__context ~self in
+                   Db.VM_metrics.set_VCPUs_number ~__context ~self:metrics ~value:(Int64.of_int state.Vm.vcpu_target);
+                 with e ->
+                   error "Caught %s: while updating VM %s VCPUs_number" (Printexc.to_string e) id
+              ) info
+          end;
+          if different (fun x -> x.shadow_multiplier_target) then begin
+            try
+              Opt.iter
+                (fun (_, state) ->
+                   debug "xenopsd event: Updating VM %s shadow_multiplier <- %.2f" id state.shadow_multiplier_target;
+                   if state.power_state <> Halted && state.shadow_multiplier_target >= 0.0 then
+                     Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:state.shadow_multiplier_target
+                ) info
+            with e ->
+              error "Caught %s: while updating VM %s HVM_shadow_multiplier" (Printexc.to_string e) id
+          end;
+          Xenops_cache.update_vm id (Opt.map snd info);
+          if !should_update_allowed_operations then
+            Helpers.call_api_functions ~__context
+              (fun rpc session_id -> XenAPI.VM.update_allowed_operations ~rpc ~session_id ~self);
+        end
+  with e ->
+    error "xenopsd event: Caught %s while updating VM: has this VM been removed while this host is offline?" (string_of_exn e)
 
 let update_vbd ~__context (id: (string * string)) =
 	try
