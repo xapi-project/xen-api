@@ -215,8 +215,8 @@ let rec cmdtable_data : (string*cmd_spec) list =
     "pool-emergency-transition-to-master",
     {
       reqd=[];
-      optn=[];
-      help="Instruct slave to become pool master.";
+      optn=["force"];
+      help="Instruct slave to become pool master. The operation will be ignored if this host is already master; the optional parameter '--force' will force the operation.";
       implementation=No_fd_local_session Cli_operations.pool_emergency_transition_to_master;
       flags=[Neverforward];
     };
