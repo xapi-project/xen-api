@@ -1406,48 +1406,6 @@ let update_vm ~__context id =
             with e ->
               error "Caught %s: while updating VM %s rtc/timeoffset" (Printexc.to_string e) id
           end;
-          let check_guest_agent () =
-            Opt.iter
-              (fun (_, state) ->
-                 Opt.iter (fun oldstate ->
-                     let old_ga = oldstate.guest_agent in
-                     let new_ga = state.guest_agent in
-
-                     (* Remove memory keys *)
-                     let ignored_keys = [ "data/meminfo_free"; "data/updated"; "data/update_cnt" ] in
-                     let remove_ignored ga =
-                       List.fold_left (fun acc k -> List.filter (fun x -> fst x <> k) acc) ga ignored_keys in
-                     let old_ga = remove_ignored old_ga in
-                     let new_ga = remove_ignored new_ga in
-                     if new_ga <> old_ga then begin
-                       debug "Will update VM.allowed_operations because guest_agent has changed.";
-                       should_update_allowed_operations := true
-                     end else begin
-                       debug "Supressing VM.allowed_operations update because guest_agent data is largely the same"
-                     end
-                   ) previous;
-                 List.iter
-                   (fun domid ->
-                      let lookup key =
-                        if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
-                      let list dir =
-                        let dir = if dir.[0] = '/' then String.sub dir 1 (String.length dir - 1) else dir in
-                        let results = Listext.List.filter_map (fun (path, value) ->
-                            if String.startswith dir path then begin
-                              let rest = String.sub path (String.length dir) (String.length path - (String.length dir)) in
-                              match List.filter (fun x -> x <> "") (String.split '/' rest) with
-                              | x :: _ -> Some x
-                              | _ -> None
-                            end else None
-                          ) state.guest_agent |> Listext.List.setify in
-                        results in
-                      try
-                        debug "xenopsd event: Updating VM %s domid %d guest_agent" id domid;
-                        Xapi_guest_agent.all lookup list ~__context ~domid ~uuid:id
-                      with e ->
-                        error "Caught %s: while updating VM %s guest_agent" (Printexc.to_string e) id
-                   ) state.domids
-              ) info in
           if different (fun x -> x.hvm) then begin
             Opt.iter
               (fun (_, state) ->
@@ -1481,18 +1439,104 @@ let update_vm ~__context id =
               )
               info
           end;
+          (* Helpers to create and update guest metrics when needed *)
+          let lookup state key =
+            if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
+          let list state dir =
+            let dir = if dir.[0] = '/' then String.sub dir 1 (String.length dir - 1) else dir in
+            let results = Listext.List.filter_map (fun (path, value) ->
+                if String.startswith dir path then begin
+                  let rest = String.sub path (String.length dir) (String.length path - (String.length dir)) in
+                  match List.filter (fun x -> x <> "") (String.split '/' rest) with
+                  | x :: _ -> Some x
+                  | _ -> None
+                end else None
+              ) state.guest_agent |> Listext.List.setify in
+            results in
+          let create_guest_metrics_if_needed () =
+            let gm = Db.VM.get_guest_metrics ~__context ~self in
+            if gm = Ref.null then
+              Opt.iter
+                (fun (_, state) ->
+                   List.iter
+                     (fun domid ->
+                        try
+                          let new_gm_ref = Xapi_guest_agent.create_and_set_guest_metrics (lookup state) (list state) ~__context ~domid ~uuid:id in
+                          debug "xenopsd event: created guest metrics %s for VM %s" (Ref.string_of new_gm_ref) id
+                        with e ->
+                          error "Caught %s: while creating VM %s guest metrics" (Printexc.to_string e) id
+                     ) state.domids
+                ) info in
+          let check_guest_agent () =
+            Opt.iter
+              (fun (_, state) ->
+                 Opt.iter (fun oldstate ->
+                     let old_ga = oldstate.guest_agent in
+                     let new_ga = state.guest_agent in
+
+                     (* Remove memory keys *)
+                     let ignored_keys = [ "data/meminfo_free"; "data/updated"; "data/update_cnt" ] in
+                     let remove_ignored ga =
+                       List.fold_left (fun acc k -> List.filter (fun x -> fst x <> k) acc) ga ignored_keys in
+                     let old_ga = remove_ignored old_ga in
+                     let new_ga = remove_ignored new_ga in
+                     if new_ga <> old_ga then begin
+                       debug "Will update VM.allowed_operations because guest_agent has changed.";
+                       should_update_allowed_operations := true
+                     end else begin
+                       debug "Supressing VM.allowed_operations update because guest_agent data is largely the same"
+                     end
+                   ) previous;
+                 List.iter
+                   (fun domid ->
+                      try
+                        debug "xenopsd event: Updating VM %s domid %d guest_agent" id domid;
+                        Xapi_guest_agent.all (lookup state) (list state) ~__context ~domid ~uuid:id
+                      with e ->
+                        error "Caught %s: while updating VM %s guest_agent" (Printexc.to_string e) id
+                   ) state.domids
+              ) info in
           let update_pv_drivers_detected () =
             Opt.iter
               (fun (_, state) ->
                  let gm = Db.VM.get_guest_metrics ~__context ~self in
-                 debug "xenopsd event: Updating VM %s PV drivers detected %b" id state.pv_drivers_detected;
-                 Db.VM_guest_metrics.set_PV_drivers_detected ~__context ~self:gm ~value:state.pv_drivers_detected;
-                 Db.VM_guest_metrics.set_PV_drivers_up_to_date ~__context ~self:gm ~value:state.pv_drivers_detected
+                 try
+                   debug "xenopsd event: Updating VM %s PV drivers detected %b" id state.pv_drivers_detected;
+                   Db.VM_guest_metrics.set_PV_drivers_detected ~__context ~self:gm ~value:state.pv_drivers_detected;
+                   Db.VM_guest_metrics.set_PV_drivers_up_to_date ~__context ~self:gm ~value:state.pv_drivers_detected
+                 with e ->
+                   debug "Caught %s: while updating VM %s PV drivers" (Printexc.to_string e) id
               ) info in
+          (* Chack last_start_time before updating anything in the guest metrics *)
+          if different (fun x -> x.last_start_time) then begin
+            try
+              Opt.iter
+                (fun (_, state) ->
+                   debug "xenopsd event: Updating VM %s last_start_time <- %s" id (Date.to_string (Date.of_float state.last_start_time));
+                   let metrics = Db.VM.get_metrics ~__context ~self in
+                   let start_time = Date.of_float state.last_start_time in
+                   Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:start_time;
+                   
+                   create_guest_metrics_if_needed ();
+                   let gm = Db.VM.get_guest_metrics ~__context ~self in
+                   let update_time = Db.VM_guest_metrics.get_last_updated ~__context ~self:gm in
+                   if update_time < start_time then begin
+                     debug "VM %s guest metrics update time (%s) < VM start time (%s): deleting"
+                       id (Date.to_string update_time) (Date.to_string start_time);
+                     Xapi_vm_helpers.delete_guest_metrics ~__context ~self;
+                     check_guest_agent ();
+                   end
+                ) info
+            with e ->
+              error "Caught %s: while updating VM %s last_start_time" (Printexc.to_string e) id
+          end;
           Opt.iter
             (fun (_, state) ->
                List.iter
                  (fun domid ->
+                    (* Guest metrics could have been destroyed during the last_start_time check
+                       by recreating them, we avoid CA-223387 *)
+                    create_guest_metrics_if_needed ();
                     if different (fun x -> x.uncooperative_balloon_driver) then begin
                       debug "xenopsd event: VM %s domid %d uncooperative_balloon_driver = %b" id domid state.uncooperative_balloon_driver;
                     end;
@@ -1525,30 +1569,6 @@ let update_vm ~__context id =
                  with e ->
                    error "Caught %s: while updating VM %s VCPUs_number" (Printexc.to_string e) id
               ) info
-          end;
-          if different (fun x -> x.last_start_time) then begin
-            try
-              Opt.iter
-                (fun (_, state) ->
-                   debug "xenopsd event: Updating VM %s last_start_time <- %s" id (Date.to_string (Date.of_float state.last_start_time));
-                   let metrics = Db.VM.get_metrics ~__context ~self in
-                   let start_time = Date.of_float state.last_start_time in
-                   Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:start_time;
-                   begin
-                     try
-                       let gm = Db.VM.get_guest_metrics ~__context ~self in
-                       let update_time = Db.VM_guest_metrics.get_last_updated ~__context ~self:gm in
-                       if update_time < start_time then begin
-                         debug "VM %s guest metrics update time (%s) < VM start time (%s): deleting"
-                           id (Date.to_string update_time) (Date.to_string start_time);
-                         Xapi_vm_helpers.delete_guest_metrics ~__context ~self;
-                         check_guest_agent ();
-                       end
-                     with _ -> () (* The guest metrics didn't exist *)
-                   end
-                ) info
-            with e ->
-              error "Caught %s: while updating VM %s last_start_time" (Printexc.to_string e) id
           end;
           if different (fun x -> x.shadow_multiplier_target) then begin
             try
