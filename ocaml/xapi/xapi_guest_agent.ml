@@ -127,10 +127,10 @@ let memory_targets : (int, int64) Hashtbl.t = Hashtbl.create 20
 let dead_domains : IntSet.t ref = ref IntSet.empty
 let mutex = Mutex.create ()
 
-(** Reset all the guest metrics for a particular VM. 'lookup' reads a key from xenstore
-    and 'list' reads a directory from xenstore. Both are relative to the guest's 
-    domainpath. *)
-let all (lookup: string -> string option) (list: string -> string list) ~__context ~domid ~uuid =
+
+(* In the following functions, 'lookup' reads a key from xenstore and 'list' reads
+   a directory from xenstore. Both are relative to the guest's domainpath. *)
+let get_initial_guest_metrics (lookup: string -> string option) (list: string -> string list) =
   let all_control = list "control" in
   let to_map kvpairs = List.concat (List.map (fun (xskey, mapkey) -> match lookup xskey with
     | Some xsval -> [ mapkey, xsval ]
@@ -155,149 +155,184 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
   and last_updated = Unix.gettimeofday () in
   let can_use_hotplug_vbd = get_tristate "feature/hotplug/vbd" in
   let can_use_hotplug_vif = get_tristate "feature/hotplug/vif" in
-
-  (* let num = Mutex.execute mutex (fun () -> Hashtbl.fold (fun _ _ c -> 1 + c) cache 0) in 
-  debug "Number of entries in hashtbl: %d" num; *)
-
   (* to avoid breakage whilst 'micro' is added to linux and windows agents, default this field
      to -1 if it's not present in xenstore *)
   let pv_drivers_version =
     if List.mem_assoc "micro" pv_drivers_version then pv_drivers_version (* already there; do nothing *)
-    else ("micro","-1")::pv_drivers_version in
+    else ("micro","-1")::pv_drivers_version
+  in
+  {pv_drivers_version; os_version; networks; other; memory; device_id; last_updated; can_use_hotplug_vbd; can_use_hotplug_vif;}
+
+
+let create_and_set_guest_metrics (lookup: string -> string option) (list: string -> string list) ~__context ~domid ~uuid =
+  let initial_gm = get_initial_guest_metrics lookup list
+  in
+  let self = Db.VM.get_by_uuid ~__context ~uuid in
+  let new_gm_uuid = (Uuid.to_string (Uuid.make_uuid ()))
+  and new_gm_ref = Ref.make () in
+  Db.VM_guest_metrics.create ~__context
+    ~ref:new_gm_ref
+    ~uuid:new_gm_uuid
+    ~os_version:initial_gm.os_version
+    ~pV_drivers_version:initial_gm.pv_drivers_version
+    ~pV_drivers_up_to_date:false
+    ~memory:[] ~disks:[]
+    ~networks:initial_gm.networks
+    ~pV_drivers_detected:false
+    ~other:initial_gm.other
+    ~last_updated:(Date.of_float initial_gm.last_updated)
+    ~other_config:[]
+    ~live:true
+    ~can_use_hotplug_vbd:`unspecified
+    ~can_use_hotplug_vif:`unspecified
+  ;
+  Db.VM.set_guest_metrics ~__context ~self ~value:new_gm_ref;
+
+  (* Update the cache with the new values *)
+  Mutex.execute mutex (fun () -> Hashtbl.replace cache domid initial_gm);
+  (* We've just set the thing to live, let's make sure it's not in the dead list *)
+  Mutex.execute mutex (fun () -> dead_domains := IntSet.remove domid !dead_domains);
+
+  let sl xs = String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xs) in
+  info "Received initial update from guest agent in VM %s; os_version = [ %s ]; pv_drivers_version = [ %s ]; networks = [ %s ]"
+    (Ref.string_of self) (sl initial_gm.os_version) (sl initial_gm.pv_drivers_version) (sl initial_gm.networks);
+  new_gm_ref
+
+
+(** Reset all the guest metrics for a particular VM *)
+let all (lookup: string -> string option) (list: string -> string list) ~__context ~domid ~uuid =
+  let {pv_drivers_version; os_version; networks; other; memory; device_id;
+       last_updated; can_use_hotplug_vbd; can_use_hotplug_vif;} = get_initial_guest_metrics lookup list
+  in
+
+  (* let num = Mutex.execute mutex (fun () -> Hashtbl.fold (fun _ _ c -> 1 + c) cache 0) in
+     debug "Number of entries in hashtbl: %d" num; *)
 
   let self = Db.VM.get_by_uuid ~__context ~uuid in
 
   let (
-	  guest_metrics_cached
+    guest_metrics_cached
   ) = Mutex.execute mutex (fun () -> try
-	  Hashtbl.find cache domid 
-  with _ -> 
-	  (* Make sure our cached idea of whether the domain is live or not is correct *)
-	  let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self in
-	  let live = true
-		  && Db.is_valid_ref __context vm_guest_metrics 
-		  && Db.VM_guest_metrics.get_live ~__context ~self:vm_guest_metrics in
-	  if live then
-		  dead_domains := IntSet.remove domid !dead_domains
-	  else
-		  dead_domains := IntSet.add domid !dead_domains;
-	  {
-		  pv_drivers_version = [];
-		  os_version = [];
-		  networks = [];
-		  other = [];
-		  memory = [];
-		  device_id = [];
-		  last_updated = 0.0;
-		  can_use_hotplug_vbd = `unspecified;
-		  can_use_hotplug_vif = `unspecified;
-	  }
-  ) in
+                              Hashtbl.find cache domid
+                            with _ ->
+                              (* Make sure our cached idea of whether the domain is live or not is correct *)
+                              let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self in
+                              let live = true
+                                         && Db.is_valid_ref __context vm_guest_metrics
+                                         && Db.VM_guest_metrics.get_live ~__context ~self:vm_guest_metrics in
+                              if live then
+                                dead_domains := IntSet.remove domid !dead_domains
+                              else
+                                dead_domains := IntSet.add domid !dead_domains;
+                              {
+                                pv_drivers_version = [];
+                                os_version = [];
+                                networks = [];
+                                other = [];
+                                memory = [];
+                                device_id = [];
+                                last_updated = 0.0;
+                                can_use_hotplug_vbd = `unspecified;
+                                can_use_hotplug_vif = `unspecified;
+                              }
+                          ) in
 
   (* Consider the data valid IF the data/updated key exists *)
   let data_updated = lookup "data/updated" <> None in
   if data_updated
   then begin
 
-      (* Only if the data is valid, cache it (CA-20353) *)
-      Mutex.execute mutex (fun () -> Hashtbl.replace cache domid {pv_drivers_version; os_version; networks; other; memory; device_id; last_updated; can_use_hotplug_vbd; can_use_hotplug_vif;});
+    (* Only if the data is valid, cache it (CA-20353) *)
+    Mutex.execute mutex (fun () -> Hashtbl.replace cache domid {pv_drivers_version; os_version; networks; other; memory; device_id; last_updated; can_use_hotplug_vbd; can_use_hotplug_vif;});
 
-      (* We update only if any actual data has changed *)
-      if ( guest_metrics_cached.pv_drivers_version <> pv_drivers_version 
-	   ||
-	   guest_metrics_cached.os_version <> os_version
-	   ||
-	   guest_metrics_cached.networks <> networks 
-	   ||
-	   guest_metrics_cached.other <> other
-     ||
-     guest_metrics_cached.device_id <> device_id)
-     ||
-     guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd
-     ||
-     guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif
-(* Nb. we're ignoring the memory updates as far as the VM_guest_metrics API object is concerned. We are putting them into an RRD instead *)
-(*	   ||
-	   guest_metrics_cached.memory <> memory)*)
-      then 
-	begin
-     	  let gm = 
-	    let existing = Db.VM.get_guest_metrics ~__context ~self in
-	    if (try ignore(Db.VM_guest_metrics.get_uuid ~__context ~self:existing); true with _ -> false)
-	    then existing
-	    else 
-	      (* if it doesn't exist, make a fresh one *)
-	      let new_ref = Ref.make () and new_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-	      Db.VM_guest_metrics.create ~__context ~ref:new_ref ~uuid:new_uuid
-		~os_version:os_version ~pV_drivers_version:pv_drivers_version ~pV_drivers_up_to_date:false ~memory:[] ~disks:[] ~networks:networks ~other:other
-		~pV_drivers_detected:false ~last_updated:(Date.of_float last_updated) ~other_config:[] ~live:true ~can_use_hotplug_vbd:`unspecified ~can_use_hotplug_vif:`unspecified;
-	      Db.VM.set_guest_metrics ~__context ~self ~value:new_ref; 
-	      (* We've just set the thing to live, let's make sure it's not in the dead list *)
-		  let sl xs = String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xs) in
-		  info "Received initial update from guest agent in VM %s; os_version = [ %s]; pv_drivers_version = [ %s ]; networks = [ %s ]" (Ref.string_of self) (sl os_version) (sl pv_drivers_version) (sl networks);
-	      Mutex.execute mutex (fun () -> dead_domains := IntSet.remove domid !dead_domains);
-	      new_ref in
+    (* We update only if any actual data has changed *)
+    if ( guest_metrics_cached.pv_drivers_version <> pv_drivers_version
+         ||
+         guest_metrics_cached.os_version <> os_version
+         ||
+         guest_metrics_cached.networks <> networks
+         ||
+         guest_metrics_cached.other <> other
+         ||
+         guest_metrics_cached.device_id <> device_id)
+       ||
+       guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd
+       ||
+       guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif
+       (* Nb. we're ignoring the memory updates as far as the VM_guest_metrics API object is concerned. We are putting them into an RRD instead *)
+       (*	   ||
+         	   guest_metrics_cached.memory <> memory)*)
+    then
+      begin
+        let gm =
+          let existing = Db.VM.get_guest_metrics ~__context ~self in
+          if (try ignore(Db.VM_guest_metrics.get_uuid ~__context ~self:existing); true with _ -> false)
+          then existing
+          else
+            (* if it doesn't exist, make a fresh one *)
+            create_and_set_guest_metrics lookup list ~__context ~domid ~uuid
+        in
 
-	  (* We unconditionally reset the database values but observe that the database
-	     checks whether a value has actually changed before doing anything *)
-	  if(guest_metrics_cached.pv_drivers_version <> pv_drivers_version) then
-	    Db.VM_guest_metrics.set_PV_drivers_version ~__context ~self:gm ~value:pv_drivers_version;
-	  if(guest_metrics_cached.os_version <> os_version) then
-	    Db.VM_guest_metrics.set_os_version ~__context ~self:gm ~value:os_version;
-	  if(guest_metrics_cached.networks <> networks) then
-	    Db.VM_guest_metrics.set_networks ~__context ~self:gm ~value:networks;
-	  if(guest_metrics_cached.other <> other) then begin
-	    Db.VM_guest_metrics.set_other ~__context ~self:gm ~value:other;
-	    Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
-	  end;
-	  if(guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd) then begin
-	  	Db.VM_guest_metrics.set_can_use_hotplug_vbd ~__context ~self:gm ~value:can_use_hotplug_vbd;
-	  end;
-	  if(guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif) then begin
-	  	Db.VM_guest_metrics.set_can_use_hotplug_vif ~__context ~self:gm ~value:can_use_hotplug_vif;
-	  end;
-(*	  if(guest_metrics_cached.memory <> memory) then
-	    Db.VM_guest_metrics.set_memory ~__context ~self:gm ~value:memory; *)
-	  
-	  Db.VM_guest_metrics.set_last_updated ~__context ~self:gm ~value:(Date.of_float last_updated);
-	  
-    if(guest_metrics_cached.device_id <> device_id) then begin
-      if(List.mem_assoc Xapi_globs.device_id_key_name device_id) then begin
-        let value = List.assoc Xapi_globs.device_id_key_name device_id in
-        let platform = Db.VM.get_platform ~__context ~self in
-				info "Updating VM %s platform:%s <- %s" (Ref.string_of self) Xapi_globs.device_id_key_name value;
-				if List.mem_assoc Xapi_globs.device_id_key_name platform then
-					(try
-						Db.VM.remove_from_platform ~__context ~self ~key:Xapi_globs.device_id_key_name
-					with _ -> ());
-				try
-					Db.VM.add_to_platform ~__context ~self ~key:Xapi_globs.device_id_key_name ~value:value;
-				with _ -> ()
-      end
-    end;
+        (* We unconditionally reset the database values but observe that the database
+           	     checks whether a value has actually changed before doing anything *)
+        if(guest_metrics_cached.pv_drivers_version <> pv_drivers_version) then
+          Db.VM_guest_metrics.set_PV_drivers_version ~__context ~self:gm ~value:pv_drivers_version;
+        if(guest_metrics_cached.os_version <> os_version) then
+          Db.VM_guest_metrics.set_os_version ~__context ~self:gm ~value:os_version;
+        if(guest_metrics_cached.networks <> networks) then
+          Db.VM_guest_metrics.set_networks ~__context ~self:gm ~value:networks;
+        if(guest_metrics_cached.other <> other) then begin
+          Db.VM_guest_metrics.set_other ~__context ~self:gm ~value:other;
+          Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
+        end;
+        if(guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd) then begin
+          Db.VM_guest_metrics.set_can_use_hotplug_vbd ~__context ~self:gm ~value:can_use_hotplug_vbd;
+        end;
+        if(guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif) then begin
+          Db.VM_guest_metrics.set_can_use_hotplug_vif ~__context ~self:gm ~value:can_use_hotplug_vif;
+        end;
+        (*	  if(guest_metrics_cached.memory <> memory) then
+          	    Db.VM_guest_metrics.set_memory ~__context ~self:gm ~value:memory; *)
 
-	  (* Update the 'up to date' flag afterwards *)
-	  let gmr = Db.VM_guest_metrics.get_record_internal ~__context ~self:gm in
+        Db.VM_guest_metrics.set_last_updated ~__context ~self:gm ~value:(Date.of_float last_updated);
 
-	  (* CA-18034: If viridian flag isn't in there and we have Orlando-or-newer Windows PV drivers then shove it in the metadata for next boot... *)
-	  if Xapi_pv_driver_version.is_windows_and_orlando_or_newer gmr then begin
-		  let platform = Db.VM.get_platform ~__context ~self in
-		  if not(List.mem_assoc Xapi_globs.viridian_key_name platform) then begin
-			  info "Setting VM %s platform:%s <- %s" (Ref.string_of self) Xapi_globs.viridian_key_name Xapi_globs.default_viridian_key_value;
-			  try
-				  Db.VM.add_to_platform ~__context ~self ~key:Xapi_globs.viridian_key_name ~value:Xapi_globs.default_viridian_key_value;
-			  with _ -> ()
-		  end
-	  end;
+        if(guest_metrics_cached.device_id <> device_id) then begin
+          if(List.mem_assoc Xapi_globs.device_id_key_name device_id) then begin
+            let value = List.assoc Xapi_globs.device_id_key_name device_id in
+            let platform = Db.VM.get_platform ~__context ~self in
+            info "Updating VM %s platform:%s <- %s" (Ref.string_of self) Xapi_globs.device_id_key_name value;
+            if List.mem_assoc Xapi_globs.device_id_key_name platform then
+              (try
+                 Db.VM.remove_from_platform ~__context ~self ~key:Xapi_globs.device_id_key_name
+               with _ -> ());
+            try
+              Db.VM.add_to_platform ~__context ~self ~key:Xapi_globs.device_id_key_name ~value:value;
+            with _ -> ()
+          end
+        end;
 
-	  (* We base some of our allowed-operations decisions on these advertised features and the presence/absence of PV drivers. *)
-	  if guest_metrics_cached.pv_drivers_version <> pv_drivers_version
-	    || guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd
-	    || guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif
-	  then begin
-	    Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
-	  end;	  
-	end (* else debug "Ignored spurious guest agent update" *)
+        (* Update the 'up to date' flag afterwards *)
+        let gmr = Db.VM_guest_metrics.get_record_internal ~__context ~self:gm in
+
+        (* CA-18034: If viridian flag isn't in there and we have Orlando-or-newer Windows PV drivers then shove it in the metadata for next boot... *)
+        if Xapi_pv_driver_version.is_windows_and_orlando_or_newer gmr then begin
+          let platform = Db.VM.get_platform ~__context ~self in
+          if not(List.mem_assoc Xapi_globs.viridian_key_name platform) then begin
+            info "Setting VM %s platform:%s <- %s" (Ref.string_of self) Xapi_globs.viridian_key_name Xapi_globs.default_viridian_key_value;
+            try
+              Db.VM.add_to_platform ~__context ~self ~key:Xapi_globs.viridian_key_name ~value:Xapi_globs.default_viridian_key_value;
+            with _ -> ()
+          end
+        end;
+
+        (* We base some of our allowed-operations decisions on these advertised features and the presence/absence of PV drivers. *)
+        if guest_metrics_cached.pv_drivers_version <> pv_drivers_version
+        || guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd
+        || guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif
+        then begin
+          Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
+        end;
+      end (* else debug "Ignored spurious guest agent update" *)
   end
 
 (* XXX This function was previously called in the monitoring loop of the
