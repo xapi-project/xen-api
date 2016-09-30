@@ -184,8 +184,8 @@ let create_and_set_guest_metrics (lookup: string -> string option) (list: string
     ~last_updated:(Date.of_float initial_gm.last_updated)
     ~other_config:[]
     ~live:true
-    ~can_use_hotplug_vbd:`unspecified
-    ~can_use_hotplug_vif:`unspecified
+    ~can_use_hotplug_vbd:initial_gm.can_use_hotplug_vbd
+    ~can_use_hotplug_vif:initial_gm.can_use_hotplug_vif
   ;
   Db.VM.set_guest_metrics ~__context ~self ~value:new_gm_ref;
 
