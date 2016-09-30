@@ -329,7 +329,9 @@ let pool_apply ~__context ~self =
                            ignore(Helpers.call_api_functions ~__context
                                     (fun rpc session_id -> Client.Pool_update.apply rpc session_id self host));
                            acc
-                         with e -> host :: acc
+                         with e ->
+                           debug "Caught exception while pool_apply %s: %s" (Ref.string_of host) (ExnHelper.string_of_exn e);
+                           host :: acc
                        ) [] in
   if List.length failed_hosts > 0 then raise (Api_errors.Server_error(Api_errors.update_pool_apply_failed, (List.map Ref.string_of failed_hosts)))
 
