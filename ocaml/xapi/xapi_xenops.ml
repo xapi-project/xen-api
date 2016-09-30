@@ -1334,6 +1334,63 @@ let update_vm ~__context id =
             let a = Opt.map (fun x -> f (snd x)) info in
             let b = Opt.map f previous in
             a <> b in
+          (* Helpers to create and update guest metrics when needed *)
+          let lookup state key =
+            if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
+          let list state dir =
+            let dir = if dir.[0] = '/' then String.sub dir 1 (String.length dir - 1) else dir in
+            let results = Listext.List.filter_map (fun (path, value) ->
+                if String.startswith dir path then begin
+                  let rest = String.sub path (String.length dir) (String.length path - (String.length dir)) in
+                  match List.filter (fun x -> x <> "") (String.split '/' rest) with
+                  | x :: _ -> Some x
+                  | _ -> None
+                end else None
+              ) state.guest_agent |> Listext.List.setify in
+            results in
+          let create_guest_metrics_if_needed () =
+            let gm = Db.VM.get_guest_metrics ~__context ~self in
+            if gm = Ref.null then
+              Opt.iter
+                (fun (_, state) ->
+                   List.iter
+                     (fun domid ->
+                        try
+                          let new_gm_ref = Xapi_guest_agent.create_and_set_guest_metrics (lookup state) (list state) ~__context ~domid ~uuid:id in
+                          debug "xenopsd event: created guest metrics %s for VM %s" (Ref.string_of new_gm_ref) id
+                        with e ->
+                          error "Caught %s: while creating VM %s guest metrics" (Printexc.to_string e) id
+                     ) state.domids
+                ) info in
+          let check_guest_agent () =
+            Opt.iter
+              (fun (_, state) ->
+                 Opt.iter (fun oldstate ->
+                     let old_ga = oldstate.guest_agent in
+                     let new_ga = state.guest_agent in
+
+                     (* Remove memory keys *)
+                     let ignored_keys = [ "data/meminfo_free"; "data/updated"; "data/update_cnt" ] in
+                     let remove_ignored ga =
+                       List.fold_left (fun acc k -> List.filter (fun x -> fst x <> k) acc) ga ignored_keys in
+                     let old_ga = remove_ignored old_ga in
+                     let new_ga = remove_ignored new_ga in
+                     if new_ga <> old_ga then begin
+                       debug "Will update VM.allowed_operations because guest_agent has changed.";
+                       should_update_allowed_operations := true
+                     end else begin
+                       debug "Supressing VM.allowed_operations update because guest_agent data is largely the same"
+                     end
+                   ) previous;
+                 List.iter
+                   (fun domid ->
+                      try
+                        debug "xenopsd event: Updating VM %s domid %d guest_agent" id domid;
+                        Xapi_guest_agent.all (lookup state) (list state) ~__context ~domid ~uuid:id
+                      with e ->
+                        error "Caught %s: while updating VM %s guest_agent" (Printexc.to_string e) id
+                   ) state.domids
+              ) info in
           (* Notes on error handling: if something fails we log and continue, to
              					   maximise the amount of state which is correctly synced. If something
              					   does fail then we may end up permanently out-of-sync until either a
@@ -1350,6 +1407,7 @@ let update_vm ~__context id =
                  							   should not be reset as there maybe a checkpoint is ongoing*)
               Xapi_vm_lifecycle.force_state_reset_keep_current_operations ~__context ~self ~value:power_state;
 
+              if power_state = `Running then create_guest_metrics_if_needed ();
               if power_state = `Suspended || power_state = `Halted then begin
                 Xapi_network.detach_for_vm ~__context ~host:localhost ~vm:self;
                 Storage_access.reset ~__context ~vm:self;
@@ -1497,63 +1555,6 @@ let update_vm ~__context id =
               )
               info
           end;
-          (* Helpers to create and update guest metrics when needed *)
-          let lookup state key =
-            if List.mem_assoc key state.guest_agent then Some (List.assoc key state.guest_agent) else None in
-          let list state dir =
-            let dir = if dir.[0] = '/' then String.sub dir 1 (String.length dir - 1) else dir in
-            let results = Listext.List.filter_map (fun (path, value) ->
-                if String.startswith dir path then begin
-                  let rest = String.sub path (String.length dir) (String.length path - (String.length dir)) in
-                  match List.filter (fun x -> x <> "") (String.split '/' rest) with
-                  | x :: _ -> Some x
-                  | _ -> None
-                end else None
-              ) state.guest_agent |> Listext.List.setify in
-            results in
-          let create_guest_metrics_if_needed () =
-            let gm = Db.VM.get_guest_metrics ~__context ~self in
-            if gm = Ref.null then
-              Opt.iter
-                (fun (_, state) ->
-                   List.iter
-                     (fun domid ->
-                        try
-                          let new_gm_ref = Xapi_guest_agent.create_and_set_guest_metrics (lookup state) (list state) ~__context ~domid ~uuid:id in
-                          debug "xenopsd event: created guest metrics %s for VM %s" (Ref.string_of new_gm_ref) id
-                        with e ->
-                          error "Caught %s: while creating VM %s guest metrics" (Printexc.to_string e) id
-                     ) state.domids
-                ) info in
-          let check_guest_agent () =
-            Opt.iter
-              (fun (_, state) ->
-                 Opt.iter (fun oldstate ->
-                     let old_ga = oldstate.guest_agent in
-                     let new_ga = state.guest_agent in
-
-                     (* Remove memory keys *)
-                     let ignored_keys = [ "data/meminfo_free"; "data/updated"; "data/update_cnt" ] in
-                     let remove_ignored ga =
-                       List.fold_left (fun acc k -> List.filter (fun x -> fst x <> k) acc) ga ignored_keys in
-                     let old_ga = remove_ignored old_ga in
-                     let new_ga = remove_ignored new_ga in
-                     if new_ga <> old_ga then begin
-                       debug "Will update VM.allowed_operations because guest_agent has changed.";
-                       should_update_allowed_operations := true
-                     end else begin
-                       debug "Supressing VM.allowed_operations update because guest_agent data is largely the same"
-                     end
-                   ) previous;
-                 List.iter
-                   (fun domid ->
-                      try
-                        debug "xenopsd event: Updating VM %s domid %d guest_agent" id domid;
-                        Xapi_guest_agent.all (lookup state) (list state) ~__context ~domid ~uuid:id
-                      with e ->
-                        error "Caught %s: while updating VM %s guest_agent" (Printexc.to_string e) id
-                   ) state.domids
-              ) info in
           let update_pv_drivers_detected () =
             Opt.iter
               (fun (_, state) ->
