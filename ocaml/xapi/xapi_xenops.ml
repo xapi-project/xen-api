@@ -1277,10 +1277,10 @@ let update_vm ~__context id =
             let b = Opt.map f previous in
             a <> b in
           (* Notes on error handling: if something fails we log and continue, to
-             					   maximise the amount of state which is correctly synced. If something
-             					   does fail then we may end up permanently out-of-sync until either a
-             					   process restart or an event is generated. We may wish to periodically
-             					   inject artificial events IF there has been an event sync failure? *)
+             maximise the amount of state which is correctly synced. If something
+             does fail then we may end up permanently out-of-sync until either a
+             process restart or an event is generated. We may wish to periodically
+             inject artificial events IF there has been an event sync failure? *)
           if different (fun x -> x.power_state) then begin
             try
               debug "Will update VM.allowed_operations because power_state has changed.";
@@ -1288,8 +1288,8 @@ let update_vm ~__context id =
               let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).power_state) info) in
               debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
               (* This will mark VBDs, VIFs as detached and clear resident_on
-                 							   if the VM has permanently shutdown.  current-operations
-                 							   should not be reset as there maybe a checkpoint is ongoing*)
+                 if the VM has permanently shutdown.  current-operations
+                 should not be reset as there maybe a checkpoint is ongoing*)
               Xapi_vm_lifecycle.force_state_reset_keep_current_operations ~__context ~self ~value:power_state;
 
               if power_state = `Suspended || power_state = `Halted then begin
