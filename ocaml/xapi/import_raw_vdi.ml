@@ -80,10 +80,12 @@ let localhost_handler rpc session_id vdi_opt (req: Request.t) (s: Unix.file_desc
                   else Vhd_tool_wrapper.receive (Vhd_tool_wrapper.update_task_progress __context) (Importexport.Format.to_string format) "none" s req.Request.content_length path "" prezeroed
                );
              TaskHelper.complete ~__context (Some (API.rpc_of_ref_VDI vdi));
+             Some vdi
        with
        | HandleError (exn, headers) ->
          TaskHelper.failed ~__context exn;
-         Http_svr.headers s headers
+         Http_svr.headers s headers;
+         None
        | e ->
          Backtrace.is_important e;
          error "Caught exception: %s" (ExnHelper.string_of_exn e);
@@ -113,11 +115,13 @@ let import vdi (req: Request.t) (s: Unix.file_descr) _ =
               else
                 let host = Importexport.find_host_for_sr ~__context sr in
                 let address = Db.Host.get_address ~__context ~self:host in
-                return_302_redirect req s address
+                return_302_redirect req s address;
+                None
             | None ->
               error "Require an SR or VDI to import";
               TaskHelper.failed ~__context Api_errors.(Server_error(vdi_missing,[]));
-              Http_svr.headers s (Http.http_400_badrequest ())
+              Http_svr.headers s (Http.http_400_badrequest ());
+              None
 
          )
     )
@@ -130,5 +134,5 @@ let handler (req: Request.t) (s: Unix.file_descr) _ =
      	   task in the forwarding case *)
   Server_helpers.exec_with_new_task "VDI.import"
     (fun __context ->
-       import (vdi_of_req ~__context req) req s ()
+       ignore(import (vdi_of_req ~__context req) req s ())
     )
