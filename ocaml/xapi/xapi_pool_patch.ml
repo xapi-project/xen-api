@@ -222,25 +222,7 @@ let read_in_and_check_patch length s path =
     raise (Api_errors.Server_error(Api_errors.invalid_patch, []))
 
 let create_patch_record ~__context ?path patch_info =
-  let r = Ref.make () in
-  let path, size =
-    match path with
-    | None -> "", Int64.zero
-    | Some path ->
-      let stat = Unix.stat path in
-      path, Int64.of_int stat.Unix.st_size
-  in
-  Db.Pool_patch.create ~__context ~ref:r
-    ~uuid:patch_info.uuid
-    ~name_label:patch_info.name_label
-    ~name_description:patch_info.name_description
-    ~version:patch_info.version
-    ~filename:path
-    ~size
-    ~pool_applied:false
-    ~after_apply_guidance:patch_info.after_apply_guidance
-    ~other_config:[];
-  r
+  failwith "Unimplemented"
 
 exception CannotUploadPatchToSlave
 

@@ -4219,6 +4219,7 @@ let pool_patch =
         field     ~in_product_since:rel_miami ~default_value:(Some (VBool false)) ~in_oss_since:None ~qualifier:DynamicRO ~ty:Bool "pool_applied" "This patch should be applied across the entire pool";
         field     ~in_product_since:rel_miami ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host_patch)) "host_patches" "This hosts this patch is applied to.";
         field     ~in_product_since:rel_miami ~default_value:(Some (VSet [])) ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set pool_patch_after_apply_guidance) "after_apply_guidance" "What the client should do after this patch has been applied.";
+        field     ~in_product_since:rel_ely   ~default_value:(Some (VRef (Ref.string_of Ref.null))) ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _pool_update) "pool_update" "A reference to the associated pool_update object";
         field     ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~in_oss_since:None  ~ty:(Map(String, String)) "other_config" "additional configuration";
       ]
     ()
@@ -9576,4 +9577,3 @@ let public_http_actions_with_no_rbac_check =
 let extra_permissions = [
   (extra_permission_task_destroy_any, _R_POOL_OP); (* only POOL_OP can destroy any tasks *)
 ]
-

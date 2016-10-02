@@ -302,7 +302,25 @@ let verify update_info update_path =
     ) [update_xml_path; repomd_xml_path];
   debug "Verify signature OK for pool update uuid: %s by key: %s" update_info.uuid update_info.key
 
+let patch_uuid_of_update_uuid uuid =
+  let arr = Uuid.int_array_of_uuid (Uuid.uuid_of_string uuid) in
+  let modify x = arr.(x) <- 0 in
+  modify 4; modify 5; modify 6; modify 7;
+  Uuid.uuid_of_int_array arr |> Uuid.string_of_uuid
+
 let create_update_record ~__context ~update ~update_info ~vdi =
+  let patch_ref = Ref.make () in
+  ignore(Db.Pool_patch.create ~__context
+           ~ref:patch_ref ~uuid:(patch_uuid_of_update_uuid update_info.uuid)
+           ~name_label:update_info.name_label
+           ~name_description:update_info.name_description
+           ~version:"0"
+           ~filename:""
+           ~size:update_info.installation_size
+           ~pool_applied:false
+           ~after_apply_guidance:update_info.after_apply_guidance
+           ~pool_update:update
+           ~other_config:[]);
   Db.Pool_update.create ~__context
     ~ref:update
     ~uuid:update_info.uuid
@@ -402,4 +420,3 @@ let pool_update_download_handler (req: Request.t) s _ =
     Http_svr.response_file s filepath;
     req.Request.close <- true
   end
-
