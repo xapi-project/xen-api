@@ -401,7 +401,19 @@ let resync_host ~__context ~host =
       ) not_existing_uuids;
     let update_refs = List.map (fun update_uuid ->
         Db.Pool_update.get_by_uuid ~__context ~uuid:update_uuid) update_uuids in
-    Db.Host.set_updates ~__context ~self:host ~value:update_refs
+    Db.Host.set_updates ~__context ~self:host ~value:update_refs;
+    let pool_patch update_ref = Db.Pool_patch.get_refs_where ~__context
+        ~expr:Db_filter_types.(Eq (Field "pool_update", Literal (Ref.string_of update_ref))) in
+
+    List.iter (fun update_ref ->
+        match pool_patch update_ref with
+        | [pool_patch_ref] ->
+          Xapi_pool_patch.write_patch_applied_db ~__context ~self:pool_patch_ref
+            ~host ()
+        | patches ->
+          error "Invalid state: Expected invariant - 1 pool_patch per pool_update. Found: [%s]"
+            (String.concat ";" (List.map (fun patch -> Ref.string_of patch) patches))
+      ) update_refs
   end
   else Db.Host.set_updates ~__context ~self:host ~value:[]
 
