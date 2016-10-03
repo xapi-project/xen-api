@@ -249,8 +249,9 @@ let which_specified_SRs_not_available_on_host ~__context ~reqd_srs ~host =
   let pbds = List.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds in
   let avail_srs = List.map (fun self -> Db.PBD.get_SR ~__context ~self) pbds in
   let not_available = List.set_difference reqd_srs avail_srs in
-  List.iter (fun sr -> warn "Host %s cannot see SR %s"
+  List.iter (fun sr -> warn "Host %s cannot see SR %s (%s)"
                 (Helpers.checknull (fun () -> Db.Host.get_name_label ~__context ~self:host))
+                (Helpers.checknull (fun () -> Db.SR.get_uuid ~__context ~self:sr))
                 (Helpers.checknull (fun () -> Db.SR.get_name_label ~__context ~self:sr)))
     not_available;
   not_available
