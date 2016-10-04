@@ -176,7 +176,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %postun core
 %systemd_postun_with_restart cdrommon@.service
-%systemd_postun_with_restart xapi-domains.service
+%systemd_postun xapi-domains.service
 %systemd_postun_with_restart perfmon.service
 %systemd_postun_with_restart genptoken.service
 %systemd_postun_with_restart xapi.service
