@@ -245,59 +245,47 @@ let assert_space_available ?(multiplier=3L) patch_size =
       raise (Api_errors.Server_error (Api_errors.out_of_space, [patch_dir]))
     end
 
+let pool_patch_of_update ~__context update_ref =
+  match Db.Pool_patch.get_refs_where ~__context
+          ~expr:Db_filter_types.(Eq (Field "pool_update", Literal (Ref.string_of update_ref)))
+  with
+  | [patch] -> patch
+  | patches ->
+    error "Invalid state: Expected invariant - 1 pool_patch per pool_update. Found: [%s]"
+      (String.concat ";" (List.map (fun patch -> Ref.string_of patch) patches));
+    raise Api_errors.(Server_error (internal_error, ["Invalid state"]))
+
+
 let pool_patch_upload_handler (req: Request.t) s _ =
   debug "Patch Upload Handler - Entered...";
 
-  if not (Pool_role.is_master ())
-  then raise CannotUploadPatchToSlave;
-
-  Xapi_http.with_context "Uploading host patch" req s
+  Xapi_http.with_context "Uploading update" req s
     (fun __context ->
-       if on_oem ~__context
-       then raise (Api_errors.Server_error (Api_errors.not_allowed_on_oem_edition, ["patch-upload"]));
-
-       debug "Patch Upload Handler - Authenticated...";
-
-       let _ = Unixext.mkdir_safe patch_dir 0o755 in
-       let new_path = patch_dir ^ "/" ^ (Uuid.to_string (Uuid.make_uuid ())) in
-       let task_id = Context.get_task_id __context in
-       begin
-
-         debug "Patch Upload Handler - Sending headers...";
-
-         Http_svr.headers s (Http.http_200_ok ());
-
-         (match req.Request.content_length with
-          | None -> ()
-          | Some size -> assert_space_available size);
-
-         read_in_and_check_patch req.Request.content_length s new_path;
-
-         try
-           let r = create_patch_record ~__context ~path:new_path (get_patch_info new_path) in
-           Db.Task.set_result ~__context ~self:task_id ~value:(Ref.string_of r)
-         with Db_exn.Uniqueness_constraint_violation (_, _, uuid) ->
-           (* patch already uploaded.  if the patch file has been cleaned, then put this one in its place.
-              otherwise, error *)
-           debug "duplicate patch with uuid %s found." uuid;
-           let patch_ref = Db.Pool_patch.get_by_uuid ~__context ~uuid in
-           let old_path = Db.Pool_patch.get_filename ~__context ~self:patch_ref in
-           debug "checking for file %s.  If it doesn't exist new patch will replace it." old_path;
-           if Sys.file_exists old_path
-           then
-             begin
-               Unixext.unlink_safe new_path;
-               raise (Api_errors.Server_error(Api_errors.patch_already_exists, [uuid]))
-             end
-           else
-             begin
-               let stat = Unix.stat new_path in
-               let size = Int64.of_int stat.Unix.st_size in
-               Db.Pool_patch.set_filename ~__context ~self:patch_ref ~value:new_path;
-               Db.Pool_patch.set_size ~__context ~self:patch_ref ~value:size;
-               Db.Task.set_result ~__context ~self:task_id ~value:(Ref.string_of patch_ref)
-             end
-       end
+       Helpers.call_api_functions ~__context (fun rpc session_id ->
+           (* Strip out the task info here, we'll use a new subtask *)
+           let strip = List.filter (fun (k,v) -> k <> "task_id") in
+           let subtask = Client.Client.Task.create rpc session_id "VDI upload" "" in
+           Pervasiveext.finally (fun () ->
+               let req = Http.Request.{req with cookie = strip req.cookie; query = ("task_id",Ref.string_of subtask) :: strip req.query} in
+               let vdi_opt = Import_raw_vdi.localhost_handler rpc session_id (Importexport.vdi_of_req ~__context req) req s in
+               match vdi_opt with
+               | Some vdi ->
+                 begin
+                   try
+                     let update = Client.Client.Pool_update.introduce rpc session_id vdi in
+                     let patch = pool_patch_of_update ~__context update in
+                     Db.Task.set_result ~__context ~self:(Context.get_task_id __context) ~value:(Ref.string_of patch);
+                     TaskHelper.complete ~__context None
+                   with e ->
+                     TaskHelper.failed ~__context e
+                 end
+               | None ->
+                 let error_info = Db.Task.get_error_info ~__context ~self:subtask in
+                 TaskHelper.failed ~__context Api_errors.(Server_error (List.hd error_info, List.tl error_info));
+                 (* If we've got a None here, we'll already have replied with the error. Fail the task now too. *)
+                 ())
+             (fun () -> Client.Client.Task.destroy rpc session_id subtask)
+         )
     )
 
 let bin_sync = "/bin/sync"
