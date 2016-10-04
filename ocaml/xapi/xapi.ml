@@ -611,7 +611,6 @@ let common_http_handlers = [
   ("put_host_restore", (Http_svr.FdIO Xapi_host_backup.host_restore_handler));
   ("get_host_logs_download", (Http_svr.FdIO Xapi_logs_download.logs_download_handler));
   ("put_pool_patch_upload", (Http_svr.FdIO Xapi_pool_patch.pool_patch_upload_handler));
-  ("get_pool_patch_download", (Http_svr.FdIO Xapi_pool_patch.pool_patch_download_handler));
   ("get_vncsnapshot", (Http_svr.FdIO Xapi_vncsnapshot.vncsnapshot_handler));
   ("get_pool_xml_db_sync", (Http_svr.FdIO Pool_db_backup.pull_database_backup_handler));
   ("put_pool_xml_db_sync", (Http_svr.FdIO Pool_db_backup.push_database_restore_handler));
