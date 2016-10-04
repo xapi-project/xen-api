@@ -853,8 +853,8 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "update-upload",
     {
-      reqd=["file-name"; "host-uuid"];
-      optn=[];
+      reqd=["file-name"];
+      optn=["sr-uuid"];
       help="Stream new update to the server.";
       implementation=With_fd Cli_operations.update_upload;
       flags=[];

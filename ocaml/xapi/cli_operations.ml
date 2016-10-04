@@ -4301,17 +4301,23 @@ let patch_upload fd printer rpc session_id params =
 
 let update_upload fd printer rpc session_id params =
   let filename = List.assoc "file-name" params in
-  let host_uuid = List.assoc "host-uuid" params in
-  let host = Client.Host.get_by_uuid rpc session_id host_uuid in
   let make_command task_id =
-    let prefix = uri_of_someone rpc session_id (SpecificHost host) in
-    let uri = Printf.sprintf "%s%s?session_id=%s&task_id=%s"
-        prefix Constants.oem_patch_stream_uri (Ref.string_of session_id) (Ref.string_of task_id) in
-    let _ = debug "trying to post patch to uri:%s" uri in
-    HttpPut (filename, uri)
+    let prefix = uri_of_someone rpc session_id Master in
+    let pools = Client.Pool.get_all rpc session_id in
+    let sr =
+      if List.mem_assoc "sr-uuid" params
+      then Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params)
+      else Client.Pool.get_default_SR ~rpc ~session_id ~self:(List.hd pools)
   in
+    let uri = Printf.sprintf "%s%s?session_id=%s&sr_id=%s&task_id=%s"
+        prefix Constants.import_raw_vdi_uri (Ref.string_of session_id) (Ref.string_of sr)(Ref.string_of task_id) in
+    let _ = debug "trying to post patch to uri:%s" uri in
+    HttpPut (filename, uri) in
   let result = track_http_operation fd rpc session_id make_command "host patch upload" in
-  marshal fd (Command (Print result))
+  let vdi_ref = Ref.of_string result in
+  let update_ref = Client.Pool_update.introduce rpc session_id vdi_ref in
+  let update_uuid = Client.Pool_update.get_uuid rpc session_id update_ref in
+  marshal fd (Command (Print update_uuid))
 
 let patch_clean printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
