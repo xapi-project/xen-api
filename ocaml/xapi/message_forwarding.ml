@@ -3878,11 +3878,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module VGPU = struct
     let create ~__context ~vM ~gPU_group ~device ~other_config ~_type =
       info "VGPU.create: VM = '%s'; GPU_group = '%s'" (vm_uuid ~__context vM) (gpu_group_uuid ~__context gPU_group);
-      Local.VGPU.create ~__context ~vM ~gPU_group ~device ~other_config ~_type
+      let vgpu = Local.VGPU.create ~__context ~vM ~gPU_group ~device ~other_config ~_type in
+      Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vM;
+      vgpu
 
     let destroy ~__context ~self =
       info "VGPU.destroy: VGPU = '%s'" (vgpu_uuid ~__context self);
-      Local.VGPU.destroy ~__context ~self
+      let vm = Db.VGPU.get_VM ~__context ~self in
+      Local.VGPU.destroy ~__context ~self;
+      Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm
 
     let atomic_set_resident_on ~__context ~self ~value =
       info "VGPU.atomic_set_resident_on: VGPU = '%s'; PGPU = '%s'"
