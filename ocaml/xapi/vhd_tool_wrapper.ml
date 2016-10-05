@@ -106,7 +106,10 @@ let find_backend_device path =
           let params = xs.Xs.read (Printf.sprintf "%s/params" backend) in
           match String.split '/' backend with
           | "local" :: "domain" :: bedomid :: _ ->
-            assert (self = bedomid);
+            if not (self = bedomid) then
+              raise Api_errors.(Server_error(internal_error, [
+                  Printf.sprintf "find_backend_device: Got domid %s but expected %s"
+                    bedomid self]));
             Some params
           | _ -> raise Not_found
         )

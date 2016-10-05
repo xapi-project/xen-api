@@ -1045,7 +1045,8 @@ let set_suspend_VDI ~__context ~self ~value =
       match !r with
       | `Succ cs -> cs
       | `Fail e -> raise e
-      | `Pending -> assert false in
+      | `Pending -> raise Api_errors.(Server_error(internal_error, ["set_suspend_VDI: The operation is still `Pending"]))
+    in
     let src_checksum = get_result src_thread src_result in
     let dst_checksum = get_result dst_thread dst_result in
     debug "source suspend_VDI checksum: %s" src_checksum;

@@ -166,7 +166,8 @@ let rec descend_and_match tag_names xml =
                  (sprintf "Descend_and_match failed. Node %s not found." hd_tag))
     end
   | _, Xml.PCData _ ->
-    assert false (*This  should never happen as a leaf node is detected in an earlier match and returned *)
+    (* This should never happen as a leaf node is detected in an earlier match and returned *)
+    raise_malformed_response' "unknown" "Method descend_and_match failed. Found orphan leaf node" ""
 
 let data_from_leaf element =
   match element with
