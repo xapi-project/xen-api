@@ -459,7 +459,7 @@ let make_software_version ~__context =
   let v6_version =
     (* Best-effort attempt to read the date-based version from v6d *)
     try
-      match V6client.get_version "make_software_version" with
+      match V6_client.get_version "make_software_version" with
       | "" -> []
       | dbv -> ["dbv", dbv]
     with Api_errors.Server_error (code, []) when code = Api_errors.v6d_failure ->

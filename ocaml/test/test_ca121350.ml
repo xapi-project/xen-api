@@ -14,11 +14,13 @@ let test_invalid_edition () =
 
   let __context, self = setup_fixture () in
   let module M = struct
-    include V6client ;;
-    let apply_edition ~__context edition _ = (edition, [], []) ;;
-    let get_editions _ = [ "free",       "", "", 0;
-                           "per-socket", "", "", 1;
-                           "xendesktop", "", "", 1; ] ;;
+    include V6_client ;;
+    let apply_edition _ edition _ = (edition, [], []) ;;
+    let get_editions _ = [
+      "free", ("", "", 0);
+      "per-socket", ("", "", 1);
+      "xendesktop", ("", "", 1);
+    ] ;;
   end in
   License_init.v6client := (module M);
 
@@ -34,8 +36,9 @@ let test_xcp_mode () =
 
   let __context, self = setup_fixture () in
   let module M = struct
+    include V6_client ;;
     let get_version _ = "" ;;
-    let apply_edition ~__context edition _ =
+    let apply_edition _ =
       raise Api_errors.(Server_error (v6d_failure, [])) ;;
     let get_editions _ =
       raise Api_errors.(Server_error (v6d_failure, [])) ;;

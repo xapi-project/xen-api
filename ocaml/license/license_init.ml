@@ -16,8 +16,8 @@ module D = Debug.Make(struct let name="license" end)
 open D
 
 (* Dependency injection for unit tests *)
-module type V6clientS = module type of V6client
-let v6client = ref (module V6client : V6clientS)
+module type V6clientS = module type of V6_client
+let v6client = ref (module V6_client : V6clientS)
 
 let fst4 (e,_,_,_) = e
 and lst4 (_,_,_,i) = i
@@ -33,7 +33,7 @@ let find_min_edition allowed_editions =
 
 (* xapi calls this function upon startup *)
 let initialise ~__context ~host =
-  let module V6client = (val !v6client : V6clientS) in
+  let module V6_client = (val !v6client : V6clientS) in
 
   let set_licensing edition features additional =
     debug "Setting license to %s" edition;
@@ -43,10 +43,7 @@ let initialise ~__context ~host =
 
   try
     let edition = Db.Host.get_edition ~__context ~self:host in
-    let edition', features, additional =
-      V6client.apply_edition ~__context edition ["force", "true"] in
-    set_licensing edition' features additional
-
+    Xapi_host.apply_edition_internal ~__context ~host ~edition ~additional:["force", "true"]
   with
   | Api_errors.Server_error (code, []) when code = Api_errors.v6d_failure ->
     (* Couldn't communicate with v6d, so fall back to running in free/libre
