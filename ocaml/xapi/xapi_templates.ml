@@ -47,7 +47,9 @@ let string2vdi_type s =
   | "ephemeral" -> `ephemeral
   | "suspend" -> `suspend
   | "crashdump" -> `crashdump
-  | _           -> assert false
+  | vdi_st -> raise Api_errors.(Server_error(internal_error, [
+      Printf.sprintf "string2vdi_type: Unknown VDI type \"%s\"" vdi_st
+    ]))
 
 exception Parse_failure
 let disk_of_xml = function

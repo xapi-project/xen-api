@@ -58,7 +58,8 @@ let do_rpc rpc name args =
   | Failure(code, strings) -> raise (Api_errors.Server_error(code, strings))
   | Success [] -> invalid_arg "empty result"
   | Success [x] -> x
-  | _           -> assert false
+  | _           -> raise Api_errors.(Server_error(internal_error,
+                                                  ["do_rpc: Unexpected response"]))
 
 let get_all rpc session_id cls =
   let name = Printf.sprintf "%s.get_all_records_where" cls in

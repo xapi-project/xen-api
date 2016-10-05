@@ -2016,7 +2016,9 @@ let on_xapi_restart ~__context =
 
 let assert_resident_on ~__context ~self =
   let localhost = Helpers.get_localhost ~__context in
-  assert (Db.VM.get_resident_on ~__context ~self = localhost)
+  if not (Db.VM.get_resident_on ~__context ~self = localhost) then
+    raise Api_errors.(Server_error(internal_error,
+                                   [Printf.sprintf "the VM %s is not resident on this host" (Ref.string_of self)]))
 
 module Events_from_xapi = struct
   let greatest_token = ref ""
@@ -2502,10 +2504,16 @@ let shutdown ~__context ~self timeout =
        in
        Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Halted;
        (* force_state_reset called from the xenopsd event loop above *)
-       assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
+       if not(Db.VM.get_resident_on ~__context ~self = Ref.null) then
+         raise Api_errors.(Server_error(internal_error, [
+             Printf.sprintf "shutdown: The VM %s is still resident on the host" (Ref.string_of self)]));
+
        List.iter
          (fun vbd ->
-            assert (not(Db.VBD.get_currently_attached ~__context ~self:vbd))
+            if (Db.VBD.get_currently_attached ~__context ~self:vbd) then
+              raise Api_errors.(Server_error(internal_error, [
+                  Printf.sprintf "shutdown: The VBD %s is still attached to VM %s"
+                    (Ref.string_of vbd) (Ref.string_of self)]))
          ) (Db.VM.get_VBDs ~__context ~self)
     )
 
@@ -2543,7 +2551,9 @@ let suspend ~__context ~self =
               Client.VM.suspend dbg id disk |> sync_with_task __context queue_name;
               Events_from_xenopsd.wait queue_name dbg id ();
               Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Suspended;
-              assert (Db.VM.get_resident_on ~__context ~self = Ref.null);
+              if not(Db.VM.get_resident_on ~__context ~self = Ref.null) then
+                raise Api_errors.(Server_error(internal_error, [
+                    Printf.sprintf "suspend: The VM %s is still resident on the host" (Ref.string_of self)]));
             with e ->
               error "Caught exception suspending VM: %s" (string_of_exn e);
               (* If the domain has suspended, we have to shut it down *)
@@ -2659,7 +2669,9 @@ let vbd_plug ~__context ~self =
            info "xenops: VBD.plug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
            Client.VBD.plug dbg id |> sync_with_task __context queue_name;
          );
-       assert (Db.VBD.get_currently_attached ~__context ~self)
+       if not (Db.VBD.get_currently_attached ~__context ~self) then
+         raise Api_errors.(Server_error(internal_error, [
+             Printf.sprintf "vbd_plug: Unable to plug VBD %s" (Ref.string_of self)]))
     )
 
 let vbd_unplug ~__context ~self force =
@@ -2676,10 +2688,12 @@ let vbd_unplug ~__context ~self force =
            info "xenops: VBD.unplug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
            Client.VBD.unplug dbg vbd.Vbd.id force |> sync_with_task __context queue_name;
          with Device_detach_rejected(_, _, _) ->
-           raise (Api_errors.Server_error(Api_errors.device_detach_rejected, [ "VBD"; Ref.string_of self; "" ]))
+           raise Api_errors.(Server_error(device_detach_rejected, ["VBD"; Ref.string_of self; ""]))
        end;
        Events_from_xenopsd.wait queue_name dbg (fst vbd.Vbd.id) ();
-       assert (not(Db.VBD.get_currently_attached ~__context ~self))
+       if (Db.VBD.get_currently_attached ~__context ~self) then
+         raise Api_errors.(Server_error(internal_error, [
+             Printf.sprintf "vbd_unplug: Unable to unplug VBD %s" (Ref.string_of self)]))
     )
 
 let vbd_eject_hvm ~__context ~self =
@@ -2695,8 +2709,14 @@ let vbd_eject_hvm ~__context ~self =
        Client.VBD.eject dbg vbd.Vbd.id |> sync_with_task __context queue_name;
        Events_from_xenopsd.wait queue_name dbg (fst vbd.Vbd.id) ();
        Events_from_xapi.wait ~__context ~self:vm;
-       assert (Db.VBD.get_empty ~__context ~self);
-       assert (Db.VBD.get_VDI ~__context ~self = Ref.null)
+       if not (Db.VBD.get_empty ~__context ~self) then
+         raise Api_errors.(Server_error(internal_error, [
+             Printf.sprintf "vbd_eject_hvm: The VBD %s has not been emptied" (Ref.string_of self)]));
+       let vdi = Db.VBD.get_VDI ~__context ~self in
+       if not (vdi = Ref.null) then
+         raise Api_errors.(Server_error(internal_error, [
+             Printf.sprintf "vbd_eject_hvm: The VBD %s is still connected to VDI %s"
+               (Ref.string_of self) (Ref.string_of vdi)]))
     )
 
 let vbd_insert_hvm ~__context ~self ~vdi =
@@ -2713,8 +2733,14 @@ let vbd_insert_hvm ~__context ~self ~vdi =
        Client.VBD.insert dbg vbd.Vbd.id disk |> sync_with_task __context queue_name;
        Events_from_xenopsd.wait queue_name dbg (fst vbd.Vbd.id) ();
        Events_from_xapi.wait ~__context ~self:vm;
-       assert (not(Db.VBD.get_empty ~__context ~self));
-       assert (Db.VBD.get_VDI ~__context ~self = vdi)
+       if (Db.VBD.get_empty ~__context ~self) then
+         raise Api_errors.(Server_error(internal_error, [
+             Printf.sprintf "vbd_insert_hvm: The VBD %s is empty" (Ref.string_of self)]));
+       let vdi' = Db.VBD.get_VDI ~__context ~self in
+       if not (vdi' = vdi) then
+         raise Api_errors.(Server_error(internal_error, [
+             Printf.sprintf "vbd_insert_hvm: The VBD %s has been connected to the wrong VDI (expected %s, got %s)"
+               (Ref.string_of self) (Ref.string_of vdi) (Ref.string_of vdi)]))
     )
 
 let ejectable ~__context ~self =
@@ -2767,7 +2793,9 @@ let vif_plug ~__context ~self =
                Client.VIF.plug dbg id |> sync_with_task __context queue_name;
              );
          );
-       assert (Db.VIF.get_currently_attached ~__context ~self)
+       if not (Db.VIF.get_currently_attached ~__context ~self) then
+         raise Api_errors.(Server_error(internal_error, [
+             Printf.sprintf "vif_plug: Unable to plug VIF %s" (Ref.string_of self)]))
     )
 
 let vm_set_vm_data ~__context ~self = ()
@@ -2814,7 +2842,9 @@ let vif_unplug ~__context ~self force =
        Client.VIF.unplug dbg vif.Vif.id force |> sync_with_task __context queue_name;
        (* We need to make sure VIF.stat still works so: wait before calling VIF.remove *)
        Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) ();
-       assert (not(Db.VIF.get_currently_attached ~__context ~self))
+       if (Db.VIF.get_currently_attached ~__context ~self) then
+         raise Api_errors.(Server_error(internal_error, [
+             Printf.sprintf "vif_unplug: Unable to unplug VIF %s" (Ref.string_of self)]))
     )
 
 let vif_move ~__context ~self network =
@@ -2833,7 +2863,9 @@ let vif_move ~__context ~self network =
        Xapi_network.attach_for_vif ~__context ~vif:self ();
        Client.VIF.move dbg vif.Vif.id backend |> sync_with_task __context queue_name;
        Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) ();
-       assert (Db.VIF.get_currently_attached ~__context ~self)
+       if not (Db.VIF.get_currently_attached ~__context ~self) then
+         raise Api_errors.(Server_error(internal_error, [
+             Printf.sprintf "vif_move: Unable to plug moved VIF %s" (Ref.string_of self)]))
     )
 
 let vif_set_ipv4_configuration ~__context ~self =

@@ -446,7 +446,12 @@ let evacuate ~__context ~host =
            not (Db.VM.get_is_control_domain ~__context ~self:vm))
         vms
     in
-    assert (List.length vms = 0)
+    let remainder = List.length vms in
+    if not (remainder = 0) then
+      raise Api_errors.(Server_error(internal_error, [
+          Printf.sprintf "evacuate: %d VMs are still resident on %s"
+            remainder (Ref.string_of host)
+        ]))
   end
 
 let retrieve_wlb_evacuate_recommendations ~__context ~self =
