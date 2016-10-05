@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 81cad0ff981440e9ded0e9f52c8ea879)
+# DO NOT EDIT (digest: 2a0befa551f398e32c56a759b1351c69)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -158,6 +158,26 @@ true: annot, bin_annot
 <memory/*.ml{,i,y}>: pkg_xcp-inventory
 <memory/*.ml{,i,y}>: pkg_xmlm
 <memory/*.ml{,i,y}>: use_xcp
+# Library xapi_v6
+"v6/xapi_v6.cmxs": use_xapi_v6
+<v6/*.ml{,i,y}>: pkg_cmdliner
+<v6/*.ml{,i,y}>: pkg_cohttp
+<v6/*.ml{,i,y}>: pkg_fd-send-recv
+<v6/*.ml{,i,y}>: pkg_message_switch
+<v6/*.ml{,i,y}>: pkg_message_switch.unix
+<v6/*.ml{,i,y}>: pkg_re
+<v6/*.ml{,i,y}>: pkg_rpclib
+<v6/*.ml{,i,y}>: pkg_rpclib.syntax
+<v6/*.ml{,i,y}>: pkg_rpclib.xml
+<v6/*.ml{,i,y}>: pkg_sexplib
+<v6/*.ml{,i,y}>: pkg_sexplib.syntax
+<v6/*.ml{,i,y}>: pkg_threads
+<v6/*.ml{,i,y}>: pkg_unix
+<v6/*.ml{,i,y}>: pkg_uri
+<v6/*.ml{,i,y}>: pkg_xapi-backtrace
+<v6/*.ml{,i,y}>: pkg_xcp-inventory
+<v6/*.ml{,i,y}>: pkg_xmlm
+<v6/*.ml{,i,y}>: use_xcp
 # Executable channel_helper
 <lib/channel_helper.{native,byte}>: pkg_cmdliner
 <lib/channel_helper.{native,byte}>: pkg_cohttp
@@ -301,5 +321,6 @@ true: annot, bin_annot
 <network/network_interface.ml>: pkg_rpclib.idl
 <rrd/data_source.ml>: pkg_rpclib.idl
 <rrd/rrd_interface.ml>: pkg_rpclib.idl
+<v6/v6_interface.ml>: pkg_rpclib.idl
 <lib/xcp_channel.ml>: pkg_rpclib.syntax
 <lib/channel_helper.ml>: pkg_lwt.syntax

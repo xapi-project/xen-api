@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: d0b737f17a49130e1b0fc0d82c3f4307)
+# DO NOT EDIT (digest: 4c2fff058ec9d19d5bacfab9163ebe98)
 version = "1.2.0"
 description =
 "Interface definitions and common boilerplate for the xapi toolstack"
@@ -20,6 +20,18 @@ package "xen" (
  archive(native) = "xcp_xen.cmxa"
  archive(native, plugin) = "xcp_xen.cmxs"
  exists_if = "xcp_xen.cma"
+)
+
+package "v6" (
+ version = "1.2.0"
+ description =
+ "Interface definitions and common boilerplate for the xapi toolstack"
+ requires = "xcp threads rpclib rpclib.syntax"
+ archive(byte) = "xapi_v6.cma"
+ archive(byte, plugin) = "xapi_v6.cma"
+ archive(native) = "xapi_v6.cmxa"
+ archive(native, plugin) = "xapi_v6.cmxs"
+ exists_if = "xapi_v6.cma"
 )
 
 package "storage" (
