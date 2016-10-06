@@ -353,6 +353,6 @@ let make_pvs_cache_storage ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
 let make_pool_update ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
     ?(name_label="") ?(name_description="") ?(installation_size=0L) ?(key="")
     ?(after_apply_guidance=[]) ?(vdi=Ref.null) () =
-  Db.Pool_update.create ~__context ~ref ~uuid ~name_label ~name_description
-    ~installation_size ~key ~after_apply_guidance ~vdi;
+  let update_info = Xapi_pool_update.{uuid; name_label; name_description; key; installation_size; after_apply_guidance} in
+  Xapi_pool_update.create_update_record ~__context ~update:ref ~update_info ~vdi;
   ref
