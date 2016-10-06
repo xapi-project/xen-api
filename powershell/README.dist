@@ -3,16 +3,16 @@ Citrix XenServer PowerShell Module
 
 Version @SDK_VERSION@
 
-The XenServer PowerShell Module (XS-PS) is a complete SDK for Citrix XenServer,
-exposing the XenServer API as Windows PowerShell cmdlets.
+The XenServer PowerShell Module is a complete SDK for Citrix XenServer, exposing
+the XenServer API as Windows PowerShell cmdlets.
 
 It is available in the XenServer-SDK-@SDK_VERSION@.zip, which can be downloaded
 from http://www.citrix.com/downloads/xenserver/.
 
 For XenServer documentation, see http://docs.citrix.com.
-XS-PS includes a cmdlet for each XenServer API call, so API documentation
-and examples written for other languages will apply equally well to
-PowerShell. In particular, the SDK Guide and API Documentation are ideal
+The XenServer PowerShell Module includes a cmdlet for each XenServer API call,
+so API documentation and examples written for other languages will apply equally
+well to PowerShell. In particular, the SDK Guide and API Documentation are ideal
 for developers wishing to use this module.
 
 For community content, blogs, and downloads, visit
@@ -35,7 +35,8 @@ This library requires .NET 4.5 and PowerShell 4.0.
 Dependencies
 ------------
 
-XS-PS is dependent upon XML-RPC.NET by Charles Cook (see http://www.xml-rpc.net).
+The XenServer PowerShell Module is dependent upon XML-RPC.NET by Charles Cook
+(see http://www.xml-rpc.net).
 XML-RPC.NET is licensed under the MIT X11 license; see
 LICENSE.CookComputing.XmlRpcV2.txt for details. The library
 (CookComputing.XmlRpcV2.dll) is shipped with the XenServer PowerShell Module.
@@ -46,6 +47,7 @@ Folder structure
 
 The XenServer-SDK-@SDK_VERSION@.zip contains the following folders that are
 relevant to PowerShell users:
+
 - XenServerPowerShell\XenServerPSModule: this is the XenServer PowerShell Module
 - XenServerPowerShell\src: contains the C# source code for the XenServer cmdlets
 - XenServerPowerShell\samples: contains the sample scripts accompanying the module.
@@ -74,31 +76,51 @@ Getting Started
     To do this, open the Windows Start menu by clicking the Start icon, find
     the item Windows PowerShell, right click it and select Run as administrator.
 
-4.  Determine the current execution policy, like this:
-    PS> Get-ExecutionPolicy
+4.  Determine the current execution policy:
 
-    If the current policy is Restricted, then you need to set it to
-    RemoteSigned, like this:
-    PS> Set-ExecutionPolicy RemoteSigned
+        PS> Get-ExecutionPolicy
+
+    If the current policy is Restricted, you need to set it to RemoteSigned:
+
+        PS> Set-ExecutionPolicy RemoteSigned
 
     You should understand the security implications of this change. If you
     are unsure, see Microsoft's documentation on the matter:
-    PS> Get-Help about_signing
 
-    If the current policy is AllSigned, then this will work, but will be
-    very inconvenient. You probably want to change this to RemoteSigned,
-    as above.
+        PS> Get-Help about_signing
 
-    If the current policy is Unrestricted or RemoteSigned, then this is
-    compatible with XS-PS, so there is nothing to do.
+    If the current policy is AllSigned, it will work, but will be very
+    inconvenient. You probably want to change it to RemoteSigned, as above.
+
+    If the current policy is Unrestricted or RemoteSigned, it is compatible with
+    the XenServer PowerShell Module, so there is nothing to do.
 
 5.  Exit the privileged instance of PowerShell.
 
-6.  Start > Windows PowerShell
+6.  Open a PowerShell prompt as a regular user (click Start > Windows PowerShell)
+    and import the XenServer PowerShell Module:
 
-    PS> Import-Module XenServerPSModule
-    PS> Get-Help about_XenServer
-    PS> Connect-XenServer -url https://<servername>
-    PS> Get-XenVM
-    PS> Get-Help Invoke-XenVM
-    PS> Disconnect-XenServer
+        PS> Import-Module XenServerPSModule
+
+7.  If you wish to load specific environment settings when the XenServer PowerShell
+    Module is loaded, create the file XenServerProfile.ps1 and put it in
+    $env:UserProfile\Documents\WindowsPowerShell for per-user configuration or
+    $env:windir\system32\WindowsPowerShell\v1.0 for system-wide configuration.
+
+8.  For an overview of the XenServer PowerShell Module type:
+
+        PS> Get-Help about_XenServer
+
+    You can obtain a list of all available cmdlets by typing:
+
+        PS> Get-Command -Module XenServerPSModule
+
+    For help with a specific command use:
+
+        PS> Get-Help [CommandName]
+
+9.  Here is a quick example of opening a session and making a call to a server:
+
+        PS> Connect-XenServer -Url https://<servername>
+        PS> Get-XenVM
+        PS> Disconnect-XenServer
