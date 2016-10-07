@@ -241,9 +241,7 @@ let start ~__context ~vm ~start_paused ~force =
   (* Clear out any VM guest metrics record. Guest metrics will be updated by
      	 * the running VM and for now they might be wrong, especially network
      	 * addresses inherited by a cloned VM. *)
-  let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
-  Db.VM.set_guest_metrics ~__context ~self:vm ~value:Ref.null;
-  (try Db.VM_guest_metrics.destroy ~__context ~self:vm_gm with _ -> ());
+  Xapi_vm_helpers.delete_guest_metrics ~__context ~self:vm;
 
   (* This makes sense here while the available versions are 0, 1 and 2.
      	 * If/when we introduce another version, we must reassess this. *)
@@ -253,7 +251,7 @@ let start ~__context ~vm ~start_paused ~force =
   Cpuid_helpers.reset_cpu_flags ~__context ~vm;
 
   (* If the VM has any vGPUs, gpumon must remain stopped until the
-     	 * VM has started. *)
+     * VM has started. *)
   begin
     match vmr.API.vM_VGPUs with
     | [] -> Xapi_xenops.start ~__context ~self:vm start_paused force

@@ -128,10 +128,10 @@ let memory_targets : (int, int64) Hashtbl.t = Hashtbl.create 20
 let dead_domains : IntSet.t ref = ref IntSet.empty
 let mutex = Mutex.create ()
 
-(** Reset all the guest metrics for a particular VM. 'lookup' reads a key from xenstore
-    and 'list' reads a directory from xenstore. Both are relative to the guest's
-    domainpath. *)
-let all (lookup: string -> string option) (list: string -> string list) ~__context ~domid ~uuid =
+
+(* In the following functions, 'lookup' reads a key from xenstore and 'list' reads
+   a directory from xenstore. Both are relative to the guest's domainpath. *)
+let get_initial_guest_metrics (lookup: string -> string option) (list: string -> string list) =
   let all_control = list "control" in
   let to_map kvpairs = List.concat (List.map (fun (xskey, mapkey) -> match lookup xskey with
       | Some xsval -> [ mapkey, xsval ]
@@ -156,15 +156,58 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
   and last_updated = Unix.gettimeofday () in
   let can_use_hotplug_vbd = get_tristate "feature/hotplug/vbd" in
   let can_use_hotplug_vif = get_tristate "feature/hotplug/vif" in
-
-  (* let num = Mutex.execute mutex (fun () -> Hashtbl.fold (fun _ _ c -> 1 + c) cache 0) in
-     debug "Number of entries in hashtbl: %d" num; *)
-
   (* to avoid breakage whilst 'micro' is added to linux and windows agents, default this field
      to -1 if it's not present in xenstore *)
   let pv_drivers_version =
     if List.mem_assoc "micro" pv_drivers_version then pv_drivers_version (* already there; do nothing *)
-    else ("micro","-1")::pv_drivers_version in
+    else ("micro","-1")::pv_drivers_version
+  in
+  {pv_drivers_version; os_version; networks; other; memory; device_id; last_updated; can_use_hotplug_vbd; can_use_hotplug_vif;}
+
+
+let create_and_set_guest_metrics (lookup: string -> string option) (list: string -> string list) ~__context ~domid ~uuid =
+  let initial_gm = get_initial_guest_metrics lookup list
+  in
+  let self = Db.VM.get_by_uuid ~__context ~uuid in
+  let new_gm_uuid = (Uuid.to_string (Uuid.make_uuid ()))
+  and new_gm_ref = Ref.make () in
+  Db.VM_guest_metrics.create ~__context
+    ~ref:new_gm_ref
+    ~uuid:new_gm_uuid
+    ~os_version:initial_gm.os_version
+    ~pV_drivers_version:initial_gm.pv_drivers_version
+    ~pV_drivers_up_to_date:false
+    ~memory:[] ~disks:[]
+    ~networks:initial_gm.networks
+    ~pV_drivers_detected:false
+    ~other:initial_gm.other
+    ~last_updated:(Date.of_float initial_gm.last_updated)
+    ~other_config:[]
+    ~live:true
+    ~can_use_hotplug_vbd:initial_gm.can_use_hotplug_vbd
+    ~can_use_hotplug_vif:initial_gm.can_use_hotplug_vif
+  ;
+  Db.VM.set_guest_metrics ~__context ~self ~value:new_gm_ref;
+
+  (* Update the cache with the new values *)
+  Mutex.execute mutex (fun () -> Hashtbl.replace cache domid initial_gm);
+  (* We've just set the thing to live, let's make sure it's not in the dead list *)
+  Mutex.execute mutex (fun () -> dead_domains := IntSet.remove domid !dead_domains);
+
+  let sl xs = String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xs) in
+  info "Received initial update from guest agent in VM %s; os_version = [ %s ]; pv_drivers_version = [ %s ]; networks = [ %s ]"
+    (Ref.string_of self) (sl initial_gm.os_version) (sl initial_gm.pv_drivers_version) (sl initial_gm.networks);
+  new_gm_ref
+
+
+(** Reset all the guest metrics for a particular VM *)
+let all (lookup: string -> string option) (list: string -> string list) ~__context ~domid ~uuid =
+  let {pv_drivers_version; os_version; networks; other; memory; device_id;
+       last_updated; can_use_hotplug_vbd; can_use_hotplug_vif;} = get_initial_guest_metrics lookup list
+  in
+
+  (* let num = Mutex.execute mutex (fun () -> Hashtbl.fold (fun _ _ c -> 1 + c) cache 0) in
+     debug "Number of entries in hashtbl: %d" num; *)
 
   let self = Db.VM.get_by_uuid ~__context ~uuid in
 
@@ -228,16 +271,8 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
           then existing
           else
             (* if it doesn't exist, make a fresh one *)
-            let new_ref = Ref.make () and new_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-            Db.VM_guest_metrics.create ~__context ~ref:new_ref ~uuid:new_uuid
-              ~os_version:os_version ~pV_drivers_version:pv_drivers_version ~pV_drivers_up_to_date:false ~memory:[] ~disks:[] ~networks:networks ~other:other
-              ~pV_drivers_detected:false ~last_updated:(Date.of_float last_updated) ~other_config:[] ~live:true ~can_use_hotplug_vbd:`unspecified ~can_use_hotplug_vif:`unspecified;
-            Db.VM.set_guest_metrics ~__context ~self ~value:new_ref;
-            (* We've just set the thing to live, let's make sure it's not in the dead list *)
-            let sl xs = String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xs) in
-            info "Received initial update from guest agent in VM %s; os_version = [ %s]; pv_drivers_version = [ %s ]; networks = [ %s ]" (Ref.string_of self) (sl os_version) (sl pv_drivers_version) (sl networks);
-            Mutex.execute mutex (fun () -> dead_domains := IntSet.remove domid !dead_domains);
-            new_ref in
+            create_and_set_guest_metrics lookup list ~__context ~domid ~uuid
+        in
 
         (* We unconditionally reset the database values but observe that the database
            	     checks whether a value has actually changed before doing anything *)
