@@ -161,21 +161,29 @@ let reboot  ~__context ~host = ()
    shutting down asycnronously. We immediately set the Host_metrics.live to false 
    and add the host to the global list of known-dying hosts. *)
 let mark_host_as_dead ~__context ~host ~reason =
-  Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m
-    (fun () -> Xapi_globs.hosts_which_are_shutting_down := host :: !Xapi_globs.hosts_which_are_shutting_down);
-  (* The heartbeat handling code (HA and non-HA) will hopefully ignore the heartbeats
-     and leave the host as dead from now until it comes back with a Pool.hello *)
-  Xapi_hooks.host_pre_declare_dead ~__context ~host ~reason;
-  begin
-    try
-      let metrics = Db.Host.get_metrics ~__context ~self:host in
-      Db.Host_metrics.set_live ~__context ~self:metrics ~value:false;
-      update_allowed_operations ~__context ~self:host
-    with e ->
-      info "Caught and ignoring exception setting host %s to dead: %s" (Ref.string_of host) (ExnHelper.string_of_exn e)
-  end;
-  Xapi_hooks.host_post_declare_dead ~__context ~host ~reason
-
+  let done_already = Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m
+    (fun () ->
+      if List.mem host !Xapi_globs.hosts_which_are_shutting_down then
+        true
+      else (
+        Xapi_globs.hosts_which_are_shutting_down := host :: !Xapi_globs.hosts_which_are_shutting_down;
+        false
+      )
+    ) in
+  if not done_already then (
+    (* The heartbeat handling code (HA and non-HA) will hopefully ignore the heartbeats
+       and leave the host as dead from now until it comes back with a Pool.hello *)
+    Xapi_hooks.host_pre_declare_dead ~__context ~host ~reason;
+    begin
+      try
+        let metrics = Db.Host.get_metrics ~__context ~self:host in
+        Db.Host_metrics.set_live ~__context ~self:metrics ~value:false;
+        update_allowed_operations ~__context ~self:host
+      with e ->
+        info "Caught and ignoring exception setting host %s to dead: %s" (Ref.string_of host) (ExnHelper.string_of_exn e)
+    end;
+    Xapi_hooks.host_post_declare_dead ~__context ~host ~reason
+  )
 
 (* Toggled by an explicit Host.disable call to prevent a master restart making us bounce back *)
 let user_requested_host_disable = ref false
