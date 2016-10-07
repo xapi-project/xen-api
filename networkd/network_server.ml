@@ -774,6 +774,7 @@ module Bridge = struct
 		match !backend_kind with
 		| Openvswitch ->
 			ignore (Ovs.create_port ~internal:true name bridge);
+			Ovs.mod_port bridge name "no-flood";
 			Interface.bring_up () dbg ~name
 		| Bridge ->
 			raise Not_implemented
