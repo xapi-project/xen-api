@@ -4314,7 +4314,7 @@ let update_upload fd printer rpc session_id params =
     let _ = debug "trying to post patch to uri:%s" uri in
     HttpPut (filename, uri) in
   let result = track_http_operation fd rpc session_id make_command "host patch upload" in
-  let vdi_ref = Ref.of_string result in
+  let vdi_ref = API.Legacy.From.ref_VDI "" (Xml.parse_string result) in
   let update_ref = Client.Pool_update.introduce rpc session_id vdi_ref in
   let update_uuid = Client.Pool_update.get_uuid rpc session_id update_ref in
   marshal fd (Command (Print update_uuid))
