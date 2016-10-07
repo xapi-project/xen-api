@@ -1027,6 +1027,10 @@ module Ovs = struct
 				) ports)
 		in
 		List.iter (fun flow -> ignore (ofctl ~log:true ["add-flow"; bridge; flow])) flows
+
+	let mod_port bridge port action =
+		ofctl ~log:true ["mod-port"; bridge; port; action] |> ignore
+
 	end
 	include Make(Cli)
 end
