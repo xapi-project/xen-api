@@ -32,7 +32,7 @@ def success_message():
 
 def failure_message(code, params):
     rpcparams = {
-        'Status': 'Failure', 'ErrorDescription': json.dumps([code] + params)}
+        'Status': 'Failure', 'ErrorDescription': [code] + params}
     return xmlrpclib.dumps((rpcparams, ), '', True)
 
 

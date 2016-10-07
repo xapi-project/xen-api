@@ -222,8 +222,8 @@ let operation (obj: obj) (x: message) =
     | Some HostExtension name ->
       [
         "let host = ref_host_of_rpc host_rpc in";
-        "let call_string = Jsonrpc.string_of_call call in";
-        "let marshaller = (fun x -> Rpc.String x) in";
+        "let call_string = Jsonrpc.string_of_call {call with name=__call} in";
+        "let marshaller = (fun x -> x) in";
         "let local_op = fun ~__context ->(rbac __context (fun()->(Custom.Host.call_extension ~__context:(Context.check_for_foreign_database ~__context) ~host ~call:call_string))) in";
         "let supports_async = true in";
         "let generate_task_for = true in";
@@ -232,9 +232,8 @@ let operation (obj: obj) (x: message) =
         "if resp.Rpc.success then";
         "  try";
         "    " ^ (debug "HostExtension '%s' resp \"%s\"" [ "__call (Jsonrpc.string_of_response resp)" ]);
-        "    let rpc = Jsonrpc.response_of_string (string_of_rpc resp.contents) in";
-        "    let _ = "^result_unmarshaller^" rpc.contents in";
-        "    rpc";
+        "    ignore(if not __async then let _ = "^result_unmarshaller^" resp.contents in ());";
+        "    resp";
         "  with";
         "  | _ -> API.response_of_failure Api_errors.internal_error [string_of_rpc resp.Rpc.contents]";
         "else";
@@ -375,5 +374,3 @@ let gen_module api : O.Module.t =
             "  dispatch_call http_req fd call"
           ] ())
     ] ()
-
-

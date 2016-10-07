@@ -3154,11 +3154,13 @@ let host_has_extension = call
 let host_call_extension = call
     ~name:"call_extension"
     ~in_product_since:rel_dundee_plus
+    ~custom_marshaller:true
     ~doc:"Call a XenAPI extension on this host"
     ~params:[Ref _host, "host", "The host";
              String, "call", "Rpc call for the extension";]
     ~result:(String, "Result from the extension")
     ~allowed_roles:_R_POOL_ADMIN
+    ~flags:[`Session] (* no async *)
     ()
 
 let host_enable_binary_storage = call
