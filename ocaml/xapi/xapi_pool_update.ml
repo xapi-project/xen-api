@@ -220,7 +220,7 @@ let parse_update_info xml =
       try
         match List.assoc "after-apply-guidance" attr with
         | "" -> []
-        | s ->  List.map guidance_from_string (String.split ' ' s)
+        | s ->  List.map guidance_from_string (String.split ',' s)
       with
       | _ -> []
     in
