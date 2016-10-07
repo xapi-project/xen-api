@@ -106,7 +106,11 @@ omake-phase:
 	cd $(REPO) && $(OMAKE) dist
 
 $(MY_OBJ_DIR)/$(XMLRPC_DLL):
+ifeq ($(wildcard $(PROJECT_OUTPUTDIR)/dotnet-packages-ref/CookComputing.XmlRpcV2_dotnet45.dll),)
 	cp $(PROJECT_OUTPUTDIR)/dotnet-packages-ref/CookComputing.XmlRpcV2.dll $@
+else
+	cp $(PROJECT_OUTPUTDIR)/dotnet-packages-ref/CookComputing.XmlRpcV2_dotnet45.dll $@
+endif
 
 $(MY_OBJ_DIR)/csharp_xmlrpc.tar.gz: $(REPO)/mk/sign.bat omake-phase $(MY_OBJ_DIR)/$(XMLRPC_DLL)
 	mkdir -p $(CSHARP_XMLRPC_TMP)
