@@ -638,6 +638,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~virtual_hardware_platform_versions:(if host_is_us then Xapi_globs.host_virtual_hardware_platform_versions else [0L])
     ~control_domain:Ref.null
     ~patches_requiring_reboot:[]
+    ~updates_requiring_reboot:[]
   ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));

@@ -1164,6 +1164,9 @@ let host_record rpc session_id host =
       make_field ~name:"patches-requiring-reboot"
         ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.host_patches_requiring_reboot))
         ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.host_patches_requiring_reboot) ();
+      make_field ~name:"updates-requiring-reboot"
+        ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.host_updates_requiring_reboot))
+        ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.host_updates_requiring_reboot) ();
     ]}
 
 let vdi_record rpc session_id vdi =

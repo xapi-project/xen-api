@@ -83,6 +83,7 @@ let refresh_localhost_info ~__context info =
   debug "Updating host software_version and patches_requiring_reboot";
 
   Create_misc.create_patches_requiring_reboot_info ~__context ~host;
+  Create_misc.create_updates_requiring_reboot_info ~__context ~host;
   Create_misc.create_software_version ~__context;
   Db.Host.set_API_version_major ~__context ~self:host ~value:Xapi_globs.api_version_major;
   Db.Host.set_API_version_minor ~__context ~self:host ~value:Xapi_globs.api_version_minor;
