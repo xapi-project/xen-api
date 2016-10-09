@@ -916,18 +916,18 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "update-precheck",
     {
-      reqd=["uuid"];
+      reqd=["uuid"; "host"];
       optn=[];
-      help="Execute the precheck stage of the selected update on a host.";
+      help="Execute the precheck stage of the selected update on the specified host.";
       implementation=No_fd Cli_operations.update_precheck;
       flags=[Host_selectors];
     };
 
     "update-apply",
     {
-      reqd=["uuid"];
+      reqd=["uuid"; "host"];
       optn=[];
-      help="Apply the selected update to a host.";
+      help="Apply the selected update to the specified host.";
       implementation=No_fd Cli_operations.update_apply;
       flags=[Host_selectors];
     };
