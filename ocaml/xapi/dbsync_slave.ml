@@ -80,9 +80,8 @@ let refresh_localhost_info ~__context info =
   let host = !Xapi_globs.localhost_ref in
 
   (* Xapi_ha_flags.resync_host_armed_flag __context host; *)
-  debug "Updating host software_version and patches_requiring_reboot";
+  debug "Updating host software_version and updates_requiring_reboot";
 
-  Create_misc.create_patches_requiring_reboot_info ~__context ~host;
   Create_misc.create_updates_requiring_reboot_info ~__context ~host;
   Create_misc.create_software_version ~__context;
   Db.Host.set_API_version_major ~__context ~self:host ~value:Xapi_globs.api_version_major;

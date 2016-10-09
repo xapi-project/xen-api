@@ -643,15 +643,6 @@ let create_chipset_info ~__context =
   let info = ["iommu", iommu] in
   Db.Host.set_chipset_info ~__context ~self:host ~value:info
 
-let create_patches_requiring_reboot_info ~__context ~host =
-  let patch_uuids = try Stdext.Listext.List.setify (Stdext.Unixext.read_lines !Xapi_globs.reboot_required_hfxs) with _ -> [] in
-  let patches = List.fold_left (fun acc uuid ->
-      try
-        (Db.Pool_patch.get_by_uuid ~__context ~uuid) :: acc
-      with _ -> warn "Invalid Pool_patch UUID [%s]" uuid; acc
-    ) [] patch_uuids in
-  Db.Host.set_patches_requiring_reboot ~__context ~self:host ~value:patches
-
 let create_updates_requiring_reboot_info ~__context ~host =
   let update_uuids = try Stdext.Listext.List.setify (Stdext.Unixext.read_lines !Xapi_globs.reboot_required_hfxs) with _ -> [] in
   let updates = List.fold_left (fun acc uuid ->
