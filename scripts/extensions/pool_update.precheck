@@ -17,7 +17,7 @@ import logging
 import xcp.logger
 
 
-UPDATE_DIR = '/var/update/'
+TMP_DIR = '/tmp/'
 PATCH_PRECHECK_FAILED_UNKNOWN_ERROR = 'PATCH_PRECHECK_FAILED_UNKNOWN_ERROR'
 
 
@@ -87,7 +87,7 @@ if __name__ == '__main__':
         # attach and get the yum configuration
         # generate the yum configuration file
         yum_conf = session.xenapi.pool_update.attach(update)
-        yum_conf_file = os.path.join(UPDATE_DIR, update_uuid, 'yum.conf')
+        yum_conf_file = os.path.join(TMP_DIR, update_uuid, 'yum.conf')
         try:
             os.makedirs(os.path.dirname(yum_conf_file))
         except OSError as e:

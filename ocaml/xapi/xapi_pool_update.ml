@@ -125,8 +125,15 @@ let detach_helper ~__context ~uuid ~vdi =
                  Client.VBD.destroy ~rpc ~session_id ~self
                end) vbds);
        if try Sys.is_directory mount_point_parent_dir with _ -> false then begin
-         let output, _ = Forkhelpers.execute_command_get_output "/bin/rm" ["-r"; mount_point_parent_dir] in
-         debug "pool_update.detach_helper Mountpoint removed (output=%s)" output
+         Helpers.log_exn_continue ("pool_update.detach_helper: rm " ^ mount_point)
+           (fun () ->
+              let output, _ = Forkhelpers.execute_command_get_output "/bin/rm" ["-r"; mount_point] in
+              debug "pool_update.detach_helper Mountpoint removed (output=%s)" output) ();
+         Helpers.log_exn_continue ("pool_update.detach_helper: rmdir " ^ mount_point_parent_dir)
+           (fun () ->
+              let output, _ = Forkhelpers.execute_command_get_output "/bin/rmdir" ["--ignore-fail-on-non-empty"; mount_point_parent_dir] in
+              debug "pool_update.detach_helper Mountpoint parent dir removed (output=%s)" output
+           ) ()
        end;
     )
 
