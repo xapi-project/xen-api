@@ -14,6 +14,7 @@
 
 open OUnit
 open Test_common
+open Stdext.Unixext
 
 let test_pool_update_destroy () =
   let __context = make_test_database () in
@@ -30,9 +31,17 @@ let test_pool_update_refcount () =
   Xapi_pool_update.with_dec_refcount ~__context ~uuid ~vdi (fun ~__context ~uuid ~vdi -> assert_equal 0 1);
   Xapi_pool_update.with_dec_refcount ~__context ~uuid ~vdi (fun ~__context ~uuid ~vdi -> ())
 
+let test_assert_space_available () =
+  let stat = statvfs "./" in
+  let free_bytes = Int64.mul stat.f_frsize stat.f_bfree in
+  Xapi_pool_update.assert_space_available "./" (Int64.div free_bytes 3L);
+  assert_raises_api_error Api_errors.out_of_space
+    (fun () -> Xapi_pool_update.assert_space_available "./" (Int64.div free_bytes 2L))
+
 let test =
   "test_pool_update" >:::
   [
     "test_pool_update_destroy" >:: test_pool_update_destroy;
     "test_pool_update_refcount" >:: test_pool_update_refcount;
+    "test_assert_space_available" >:: test_assert_space_available;
   ]

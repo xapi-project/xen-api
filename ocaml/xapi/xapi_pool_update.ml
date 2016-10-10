@@ -22,6 +22,7 @@ open Helpers
 open Listext
 open Client
 open Stdext.Threadext
+open Unixext
 
 module D = Debug.Make(struct let name="xapi" end)
 open D
@@ -269,10 +270,8 @@ let extract_update_info ~__context ~vdi ~verify =
     )
     (fun () -> detach_helper ~__context ~uuid:vdi_uuid ~vdi)
 
-let assert_space_available ?(multiplier=3L) update_size =
-  let open Unixext in
-  ignore (Unixext.mkdir_safe Xapi_globs.host_update_dir 0o755);
-  let stat = statvfs Xapi_globs.host_update_dir in
+let assert_space_available ?(multiplier=3L) update_dir update_size =
+  let stat = statvfs update_dir in
   let free_bytes =
     (* block size times free blocks *)
     Int64.mul stat.f_frsize stat.f_bfree in
@@ -340,7 +339,8 @@ let create_update_record ~__context ~update ~update_info ~vdi =
 
 let introduce ~__context ~vdi =
   let update_info = extract_update_info ~__context ~vdi ~verify in
-  ignore(assert_space_available update_info.installation_size);
+  ignore(Unixext.mkdir_safe Xapi_globs.host_update_dir 0o755);
+  ignore(assert_space_available Xapi_globs.host_update_dir update_info.installation_size);
   try
     let update = Db.Pool_update.get_by_uuid ~__context ~uuid:update_info.uuid in
     let vdi_of_update = Db.Pool_update.get_vdi ~__context ~self:update in
