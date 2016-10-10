@@ -404,6 +404,7 @@ module Plugin = struct
 		type plugin = {
 			info: P.info;
 			reader: Rrd_reader.reader;
+			mutable muted: bool; (** don't log errors if muted *)
 		}
 
 		(* A map storing currently registered plugins, and any data required to
@@ -416,29 +417,52 @@ module Plugin = struct
 
 		(* Helper function to find plugin info from a uid. *)
 		let find ~(uid: P.uid) : plugin =
-			Mutex.execute registered_m
-				(fun () -> Hashtbl.find registered uid)
+			try
+				Mutex.execute registered_m (fun () -> Hashtbl.find registered uid)
+			with Not_found ->
+				let msg = Printf.sprintf "failed to find plugin %s at %s"
+					(P.string_of_uid uid) __LOC__ in
+				error "internal error: %s" msg;
+				failwith msg
+
+		let mute uid plugin =
+			Mutex.execute registered_m (fun () -> plugin.muted <- true);
+			warn "muting plugin %s" (P.string_of_uid uid)
+
+		let unmute uid plugin =
+			if plugin.muted then begin
+				Mutex.execute registered_m (fun () -> plugin.muted <- false);
+				warn "unmuting plugin %s" (P.string_of_uid uid)
+			end else
+				()
 
 		let get_payload ~(uid: P.uid) : Rrd_protocol.payload =
+			let plugin  = find uid in
 			try
-				let {reader} = find uid in
-				reader.Rrd_reader.read_payload ()
-			with e ->
+				let payload = plugin.reader.Rrd_reader.read_payload () in
+				unmute uid plugin;
+				payload
+			with
+			| e when not plugin.muted ->
+				mute uid plugin;
 				let log e =
-					error "Failed to process plugin: %s (%s)"
+					warn "Failed to process plugin: %s (%s)"
 						(P.string_of_uid uid)
 						(Printexc.to_string e);
 					log_backtrace ()
 				in
 				let open Rrd_protocol in
-				match e with
-				| No_update -> raise No_update
-				| Invalid_header_string | Invalid_length | Invalid_checksum as e ->
-					log e;
-					raise e
-				| e ->
-					log e;
-					raise Read_error
+				begin match e with
+					| No_update -> raise No_update
+					| Invalid_header_string | Invalid_length | Invalid_checksum as e ->
+						log e;
+						raise e
+					| e ->
+						log e;
+						raise Read_error
+				end
+			| _ -> raise Rrd_protocol.Read_error (* don't log, we are muted *)
+
 
 		(* Returns the number of seconds until the next reading phase for the
 		 * sampling frequency given at registration by the plugin with the specified
@@ -463,7 +487,11 @@ module Plugin = struct
 			Mutex.execute registered_m (fun _ ->
 				if not (Hashtbl.mem registered uid) then
 					let reader = P.make_reader uid info (choose_protocol protocol) in
-					Hashtbl.add registered uid {info; reader}
+					Hashtbl.add registered uid
+						{ info    = info
+						; reader  = reader
+						; muted   = false
+						}
 			);
 			next_reading ~uid ()
 
