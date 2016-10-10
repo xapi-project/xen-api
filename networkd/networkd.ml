@@ -51,7 +51,7 @@ let resources = [
 ]
 
 let options = [
-	"monitor_blacklist", Arg.String (fun x -> Network_monitor_thread.monitor_blacklist := String.split ',' x), (fun () -> String.concat "," !Network_monitor_thread.monitor_blacklist), "List of prefixes of interface names that are not to be monitored";
+	"monitor_whitelist", Arg.String (fun x -> Network_monitor_thread.monitor_whitelist := String.split ',' x), (fun () -> String.concat "," !Network_monitor_thread.monitor_whitelist), "List of prefixes of interface names that are to be monitored";
 	"mac-table-size", Arg.Set_int Network_utils.mac_table_size, (fun () -> string_of_int !Network_utils.mac_table_size), "Default value for the mac-table-size openvswitch parameter (see ovs-vswitchd.conf.db.5)";
 	"enic-workaround-until-version", Arg.Set_string Network_server.enic_workaround_until_version, (fun () -> !Network_server.enic_workaround_until_version), "The version till enic driver workaround will be applied or the version set to an empty string for not applying the workaround.";
 	"pvs-proxy-socket", Arg.Set_string Network_server.PVS_proxy.path, (fun () -> !Network_server.PVS_proxy.path), "Path to the Unix domain socket for the PVS-proxy daemon";
