@@ -244,7 +244,7 @@ let parse_update_info xml =
       uuid = uuid;
       name_label = name_label;
       name_description = name_description;
-      key = key;
+      key = Filename.basename key;
       installation_size = installation_size;
       after_apply_guidance = guidance;
     } in
