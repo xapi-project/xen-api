@@ -13,6 +13,8 @@ usage()
   die "Usage: $0 [--sr=<sr>] <iso>"
 }
 
+. /etc/xensource-inventory
+
 while [ -n "$1" ]; do
   case "$1" in
     --sr=*)
@@ -29,13 +31,6 @@ done
 iso="$1"
 [ -n "$iso" ] || usage
 
-if [ -z "$sr_uuid" ]; then
-  pool_uuid=$(xe pool-list --minimal)
-  sr_uuid=$(xe pool-param-get uuid=$pool_uuid param-name=default-SR --minimal)
-fi
-
-vdi_uuid=$(xe vdi-create sr-uuid=$sr_uuid name-label="$(basename $iso)" virtual-size=0)
-trap "xe vdi-destroy uuid=$vdi_uuid" EXIT
-xe vdi-import uuid=$vdi_uuid filename=$1
-update_uuid=$(xe update-introduce vdi-uuid=$vdi_uuid)
-xe update-apply uuid=$update_uuid
+update_uuid=$(xe update-upload file-name="$iso" ${sr_uuid:+sr-uuid=$sr_uuid})
+trap "xe update-destroy uuid=$update_uuid" ERR
+xe update-apply uuid=$update_uuid host=$INSTALLATION_UUID
