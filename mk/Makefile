@@ -125,6 +125,8 @@ csharp-bin: $(MY_OBJ_DIR)/$(XMLRPC_DLL) $(MY_OBJ_DIR)/XenServer.dll
 	$(INSTALL) $^ $(CSHARP_BIN_TMP)
 	mkdir -p $(SDK_NET_FOLDER)/bin && cp -r $(CSHARP_BIN_TMP)/* $(SDK_NET_FOLDER)/bin
 	cp -r $(BINDINGS_TMP)/READMES/README.net.txt $(SDK_NET_FOLDER)/README.txt
+	$(INSTALL) $(CSHARP_SRC_TMP)/LICENSE.CookComputing.XmlRpcV2.txt $(SDK_NET_FOLDER)/bin/LICENSE.CookComputing.XmlRpcV2.txt
+	$(INSTALL) $(CSHARP_SRC_TMP)/LICENSE.txt $(SDK_NET_FOLDER)/bin/LICENSE.txt
 
 $(MY_OBJ_DIR)/powershell.tar.gz: $(MY_OBJ_DIR)/XenServer.dll \
                                  $(AUTOMATION_DLL_V2) $(MY_OBJ_DIR)/$(XMLRPC_DLL) \
