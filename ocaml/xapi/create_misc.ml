@@ -279,7 +279,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
     ~generation_id:""
     ~hardware_platform_version:0L
     ~has_vendor_device:false
-    ~requires_reboot:false
+    ~requires_reboot:false ~reference_label:""
   ;
   Db.Host.set_control_domain ~__context ~self:localhost ~value:domain_zero_ref;
   Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref

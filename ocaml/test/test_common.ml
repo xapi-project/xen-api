@@ -90,7 +90,7 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
     ?(is_snapshot_from_vmpp=false) ?(appliance=Ref.null) ?(start_delay=0L)
     ?(shutdown_delay=0L) ?(order=0L) ?(suspend_SR=Ref.null) ?(version=0L)
     ?(generation_id="0:0") ?(hardware_platform_version=0L)
-    ?(has_vendor_device=false) ?(has_vendor_device=false) () =
+    ?(has_vendor_device=false) ?(has_vendor_device=false) ?(reference_label="") () =
   Xapi_vm.create ~__context ~name_label ~name_description ~user_version ~is_a_template
     ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min
     ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown
@@ -99,7 +99,7 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
     ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~xenstore_data ~recommendations
     ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations ~protection_policy
     ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR
-    ~version ~generation_id ~hardware_platform_version ~has_vendor_device
+    ~version ~generation_id ~hardware_platform_version ~has_vendor_device ~reference_label
 
 let make_host ~__context ?(uuid=make_uuid ()) ?(name_label="host")
     ?(name_description="description") ?(hostname="localhost") ?(address="127.0.0.1")
