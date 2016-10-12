@@ -1159,6 +1159,8 @@ let _ =
     ~doc:"The requested update could to be obtained from the master." ();
   error Api_errors.patch_already_exists [ "uuid" ]
     ~doc:"The uploaded patch file already exists" ();
+  error Api_errors.update_already_exists [ "uuid" ]
+    ~doc:"The uploaded update already exists" ();
   error Api_errors.patch_is_applied [ ]
     ~doc:"The specified patch is applied and cannot be destroyed." ();
   error Api_errors.patch_already_applied [ "patch" ]

@@ -345,11 +345,16 @@ let introduce ~__context ~vdi =
   try
     let update = Db.Pool_update.get_by_uuid ~__context ~uuid:update_info.uuid in
     let vdi_of_update = Db.Pool_update.get_vdi ~__context ~self:update in
-    if vdi <> vdi_of_update then begin
-      Db.Pool_update.set_vdi ~__context ~self:update ~value:vdi
-    end;
-    update
-  with _ ->
+    if not (Db.is_valid_ref __context vdi_of_update) then begin
+        Db.Pool_update.set_vdi ~__context ~self:update ~value:vdi;
+        update
+    end 
+    else if vdi <> vdi_of_update then 
+        raise (Api_errors.Server_error(Api_errors.update_already_exists, [update_info.uuid]))
+    else
+        update
+  with
+  | Db_exn.Read_missing_uuid (_,_,_) -> 
     let update = Ref.make () in
     create_update_record ~__context ~update ~update_info ~vdi;
     update
