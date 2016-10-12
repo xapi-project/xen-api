@@ -43,7 +43,7 @@ let make __context rpc session_id srid (vms, vdis) =
           (fun _ rpc session_id -> Client.VDI.destroy rpc session_id vdi) :: !clean_up_stack;
         vdi) vdis in
     debug("Now creating all the VMs");
-    let vm_refs = List.map (fun vm ->
+    let ref_from_vm = fun vm ->
         let user_version = 0L in
         let memory_b = vm.memory in
 
@@ -92,7 +92,7 @@ let make __context rpc session_id srid (vms, vdis) =
             ~version:0L
             ~generation_id:""
             ~hardware_platform_version:0L
-            ~has_vendor_device:false
+            ~has_vendor_device:false ~reference_label:""
         in
 
         TaskHelper.operate_on_db_task ~__context
@@ -131,7 +131,8 @@ let make __context rpc session_id srid (vms, vdis) =
           with e -> warn "could not create CD drive on imported XVA: %s" (Printexc.to_string e)
         end;
         (vm,vm_ref)
-      ) vms in
+    in
+    let vm_refs = List.map ref_from_vm vms in
     (vm_refs, List.combine vdis vdi_refs, !clean_up_stack)
   with e ->
     debug "Caught exception while importing objects from XVA: %s" (ExnHelper.string_of_exn e);
