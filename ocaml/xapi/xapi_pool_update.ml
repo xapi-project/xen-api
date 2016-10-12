@@ -426,7 +426,8 @@ let pool_update_download_handler (req: Request.t) s _ =
   (* remove any dodgy use of "." or ".." NB we don't prevent the use of symlinks *)
   let filepath = String.sub_to_end req.Request.uri (String.length Constants.get_pool_update_download_uri)
                  |> Filename.concat Xapi_globs.host_update_dir
-                 |> Stdext.Unixext.resolve_dot_and_dotdot in
+                 |> Stdext.Unixext.resolve_dot_and_dotdot
+                 |> Uri.pct_decode  in
   debug "pool_update.pool_update_download_handler %s" filepath;
 
   if not(String.startswith Xapi_globs.host_update_dir filepath) || not (Sys.file_exists filepath) then begin
