@@ -81,18 +81,37 @@ let networks path (list: string -> string list) =
     else
       [ipv4]
   in
-  (* Find all "ethn" or "xenbrn" under a path. *)
-  let find_eths path = List.fold_left
-      (fun acc eth ->
-         if String.startswith "eth" eth then
-           let n = String.sub eth 3 (String.length eth - 3) in
-           (extend path eth, n) :: acc
-         else if String.startswith "xenbr" eth then
-           let n = String.sub eth 5 (String.length eth - 5) in
-           (extend path eth, n) :: acc
-         else
-           acc)
-      [] (list path)
+  (* Find all "ethn", "xenbrn" or newer interface standard names
+   * [see https://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames/]
+   * under a path. *)
+  let find_eths path =
+    let extract eth =
+      let iface_prefixes =
+        ["eth"; "xenbr"; "eno"; "ens"; "emp"; "enx"] in
+      let rec extract' prefixes eth =
+        match prefixes with
+        | [] -> None
+        | prefix :: rest ->
+          if String.startswith prefix eth then
+            let prefix_len = String.length prefix in
+            let size = String.length eth - prefix_len in
+            let n = String.sub eth prefix_len size in
+            Some (extend path eth, n)
+          else
+            extract' rest eth
+      in extract' iface_prefixes eth
+    in
+    let unfiltered_networks =
+      List.fold_left
+        (fun acc eth ->
+           match extract eth with
+           | None -> acc
+           | Some pair -> pair :: acc
+        ) [] (list path)
+    in
+    (* We remove duplicates because we cannot rule out collisions,
+     * e.g. if eth1 and ens1 are both present *)
+    List.sort_uniq (fun (m, _) (m', _) -> String.compare m m') unfiltered_networks
   in
   path
   |> find_eths
