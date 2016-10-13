@@ -85,7 +85,8 @@ let update () =
              let proxies = List.filter_map (fun vif -> Pvs_proxy_control.find_proxy_for_vif ~__context ~vif) vifs in
              let value = pvs_proxy_status_of_int status in
              List.iter (fun self ->
-                 Db.PVS_proxy.set_status ~__context ~self ~value
+                 if Db.PVS_proxy.get_currently_attached ~__context ~self then
+                   Db.PVS_proxy.set_status ~__context ~self ~value
                ) proxies
            with e ->
              error "Unable to update PVS-proxy status for %s: %s" vm_uuid (Printexc.to_string e);
