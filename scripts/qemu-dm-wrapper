@@ -19,6 +19,13 @@ path = "/sbin:/usr/sbin:/bin:/usr/bin"
 
 xenstore_write_cmd = "xenstore-write"
 
+# Set cgroup_slice to the name of the cgroup slice the qemu-dm process should live in.
+#  - None means leave in the same slice as the parent process.
+#  - '' means move it into the default slice.
+#  - 'system.slice' means move it into the system slice, etc.
+# If the nominated slice does not already exist, the process will be left in its parent's slice.
+cgroup_slice = ''
+
 def doexec(args):
 	"""Execute a subprocess, then return its return code, stdout and stderr"""
 	proc = subprocess.Popen([ "/usr/bin/env", "PATH=%s" % path ] + args,stdin=None,stdout=subprocess.PIPE,stderr=subprocess.PIPE,close_fds=True)
@@ -75,7 +82,20 @@ def main(argv):
 	core_dump_limit = enable_core_dumps()
 	print "core dump limit: %d" % core_dump_limit
 
-	xenstore_write("/local/domain/%d/qemu-pid" % domid, "%d" % os.getpid())
+	pid = os.getpid()
+	xenstore_write("/local/domain/%d/qemu-pid" % domid, "%d" % pid)
+
+	if cgroup_slice is not None:
+		# Move to nominated cgroup slice
+		print "Moving to cgroup slice '%s'" % cgroup_slice
+		try:
+			# Note the default slice uses /sys/fs/cgroup/cpu/tasks but
+			# other.slice uses /sys/fs/cgroup/cpu/other.slice/tasks.
+			f = open("/sys/fs/cgroup/cpu/%s/tasks" % cgroup_slice, 'w')
+			f.write(str(pid))
+			f.close()
+		except:
+			print "Warning: couldn't write pid to '%s' tasks file" % cgroup_slice
 
 	os.dup2(1, 2)
 	sys.stdout.flush()
