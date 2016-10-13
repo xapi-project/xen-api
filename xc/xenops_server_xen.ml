@@ -2205,7 +2205,7 @@ module VBD = struct
 			Opt.map (fun i -> Ionice i) i
 		with
 			| Ionice.Parse_failed x ->
-				error "Failed to parse ionice result: %s" x;
+				warn "Failed to parse ionice result: %s" x;
 				None
 			| _ ->
 				None
