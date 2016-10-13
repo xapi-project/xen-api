@@ -271,8 +271,6 @@ let stop_proxy ~__context vif proxy =
     error "Unable to disable PVS proxy for VIF %s: %s." (Ref.string_of vif) reason
 
 let clear_proxy_state ~__context vif proxy =
-    let site = Db.PVS_proxy.get_site ~__context ~self:proxy in
-    State.remove_proxy ~__context site vif;
     Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:false;
     Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`stopped
 
