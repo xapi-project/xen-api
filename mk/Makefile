@@ -121,16 +121,16 @@ $(MY_OBJ_DIR)/csharp_xmlrpc.tar.gz: $(REPO)/mk/sign.bat omake-phase $(MY_OBJ_DIR
 	tar -C $(CSHARP_XMLRPC_TMP) -zcf $@ .
    
 $(MY_OBJ_DIR)/XenServer.dll: $(MY_OBJ_DIR)/csharp_xmlrpc.tar.gz $(REPO)/mk/csharp.sh
-ifeq ($(SKIP_WINDOWS_BUILD), yes)
-	touch $@
-else
 	$(call win-build,$<,$@,$(REPO)/mk/csharp.sh)
-endif
 
 .PHONY: csharp-bin
 csharp-bin: $(MY_OBJ_DIR)/$(XMLRPC_DLL) $(MY_OBJ_DIR)/XenServer.dll
+	mkdir -p $(CSHARP_BIN_TMP)
 	$(INSTALL) $^ $(CSHARP_BIN_TMP)
 	mkdir -p $(SDK_NET_FOLDER)/bin && cp -r $(CSHARP_BIN_TMP)/* $(SDK_NET_FOLDER)/bin
+	cp -r $(BINDINGS_TMP)/READMES/README.net.txt $(SDK_NET_FOLDER)/README.txt
+	$(INSTALL) $(CSHARP_SRC_TMP)/LICENSE.CookComputing.XmlRpcV2.txt $(SDK_NET_FOLDER)/bin/LICENSE.CookComputing.XmlRpcV2.txt
+	$(INSTALL) $(CSHARP_SRC_TMP)/LICENSE.txt $(SDK_NET_FOLDER)/bin/LICENSE.txt
 
 $(MY_OBJ_DIR)/powershell.tar.gz: $(MY_OBJ_DIR)/XenServer.dll \
                                  $(AUTOMATION_DLL_V2) $(MY_OBJ_DIR)/$(XMLRPC_DLL) \
@@ -143,11 +143,7 @@ $(MY_OBJ_DIR)/powershell.tar.gz: $(MY_OBJ_DIR)/XenServer.dll \
 	tar -C $(PS_TAR_TMP) -zcf $@ .
 
 $(MY_OBJ_DIR)/XenServerPowerShell.dll: $(MY_OBJ_DIR)/powershell.tar.gz $(REPO)/mk/powershell.sh
-ifeq ($(SKIP_WINDOWS_BUILD), yes)
-	touch $@
-else
 	$(call win-build,$<,$@,$(REPO)/mk/powershell.sh)
-endif
 
 .PHONY: powershell-module
 powershell-module: $(MY_OBJ_DIR)/XenServerPowerShell.dll
@@ -158,7 +154,8 @@ powershell-module: $(MY_OBJ_DIR)/XenServerPowerShell.dll
 		-e 's/@PRODUCT_GUID@/$(PRODUCT_GUID)/g' \
 		$(REPO)/powershell/XenServerPSModule.psd1 > $(SDK_PS_FOLDER)/XenServerPSModule/XenServerPSModule.psd1
 	cp $(SDK_PS_FOLDER)/src/*.txt $(SDK_PS_FOLDER)/XenServerPSModule
-	$(INSTALL) $(XMLRPCLICENSE) $(SDK_PS_FOLDER)/XenServerPSModule/LICENSE.CookComputing.XmlRpcV2
+	cp -r $(BINDINGS_TMP)/READMES/README.ps.txt $(SDK_PS_FOLDER)/README.txt
+	$(INSTALL) $(SDK_PS_FOLDER)/src/LICENSE.CookComputing.XmlRpcV2.txt $(SDK_PS_FOLDER)/XenServerPSModule/LICENSE.CookComputing.XmlRpcV2.txt
 
 .PHONY: powershell_samples
 powershell_samples: $(MY_OBJ_DIR)/XenServerPowerShell.dll

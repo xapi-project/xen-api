@@ -60,7 +60,7 @@ FormatsToProcess = @('XenServer.format.ps1xml')
 FileList = @('about_XenServer.help.txt',
              'CookComputing.XmlRpcV2.dll',
              'Initialize-Environment.ps1',
-             'LICENSE.CookComputing.XmlRpcV2',
+             'LICENSE.CookComputing.XmlRpcV2.txt',
              'LICENSE.txt',
              'README.txt',
              'XenServer.dll',

@@ -37,13 +37,6 @@ JAVADOC_DIR = $(BINDINGS_TMP)/XenServerJava-javadoc
 
 SDK_JAVA_FOLDER=$(SDK_FOLDER)/XenServerJava
 
-if $(defined-env COMPILE_JAVA)
-  COMPILE_JAVA = $(getenv COMPILE_JAVA)
-  export
-else
-  COMPILE_JAVA = yes
-  export
-
 OCamlProgram(main, main ../licence ../CommonFunctions)
 
 LicenceJava(dir) =
@@ -63,7 +56,6 @@ Brand(src, dst) =
 
 .PHONY: java_bindings_all
 java_bindings_all: main
-  if $(equal $(COMPILE_JAVA), yes)
 	Empty($(JAVAGEN_DIR) $(JAVASRC_DIR) $(JAVABIN_DIR) $(JAVADOC_DIR) $(JAVASAM_DIR))
 	Brand(lib/Makefile.dist, $(JAVAGEN_DIR)/Makefile)
 	mkdir -p $(JAVAGEN_DIR)/com/xensource/xenapi
@@ -79,8 +71,6 @@ java_bindings_all: main
 	mv $(JAVAGEN_DIR)/doc/* $(JAVADOC_DIR)
 	rmdir $(JAVAGEN_DIR)/doc
 	Brand(README.dist, $(JAVATMP_DIR)/README.txt)
-  else
-	Empty($(JAVASRC_DIR) $(JAVABIN_DIR) $(JAVADOC_DIR))
 
 .PHONY: java_folders
 java_folders: java_bindings_all
