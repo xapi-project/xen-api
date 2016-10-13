@@ -194,7 +194,7 @@ case $ACTION in
                 # vif may still be there.
 
                 # Announce that on the OVS we have removed the rules for this VIF's pvs-proxy.
-                XSRM "${PRIVATE_PATH}/pvs-rules-active"
+                $XSRM "${PRIVATE_PATH}/pvs-rules-active"
             fi
         done
         ;;
