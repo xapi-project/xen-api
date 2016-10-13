@@ -134,10 +134,9 @@ case $ACTION in
                 fi
             done
             unset IFS
-
-            # Announce that on the OVS we have set up the rules for this VIF's pvs-proxy
-            $XSWRITE "${PRIVATE_PATH}/pvs-rules-active" ''
         done
+        # Announce that on the OVS we have set up the rules for this VIF's pvs-proxy
+        $XSWRITE "${PRIVATE_PATH}/pvs-rules-active" ''
         ;;
     remove)
         PVS_PROXY_MAC=$($VSCTL get interface "$PVS_PROXY_INTERFACE" mac_in_use | tr -d '"')
@@ -188,15 +187,14 @@ case $ACTION in
                 fi
             done
             unset IFS
-
-            if [ "${TYPE}" = "vif" ]; then
-                # Again, don't do the following when a tap goes away, because
-                # vif may still be there.
-
-                # Announce that on the OVS we have removed the rules for this VIF's pvs-proxy.
-                $XSRM "${PRIVATE_PATH}/pvs-rules-active"
-            fi
         done
+        if [ "${TYPE}" = "vif" ]; then
+            # Again, don't do the following when a tap goes away, because
+            # vif may still be there.
+
+            # Announce that on the OVS we have removed the rules for this VIF's pvs-proxy.
+            $XSRM "${PRIVATE_PATH}/pvs-rules-active"
+        fi
         ;;
     reset)
         $OFCTL del-flows "$PVS_BRIDGE"
