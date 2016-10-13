@@ -101,17 +101,12 @@ let networks path (list: string -> string list) =
             extract' rest eth
       in extract' iface_prefixes eth
     in
-    let unfiltered_networks =
-      List.fold_left
-        (fun acc eth ->
-           match extract eth with
-           | None -> acc
-           | Some pair -> pair :: acc
-        ) [] (list path)
-    in
-    (* We remove duplicates because we cannot rule out collisions,
-     * e.g. if eth1 and ens1 are both present *)
-    List.sort_uniq (fun (m, _) (m', _) -> String.compare m m') unfiltered_networks
+    List.fold_left
+      (fun acc eth ->
+         match extract eth with
+         | None -> acc
+         | Some pair -> pair :: acc
+      ) [] (list path)
   in
   path
   |> find_eths
