@@ -14,8 +14,8 @@ import logging
 import xcp.logger
 
 TMP_DIR = '/tmp/'
-PATCH_ALREADY_APPLIED = 'PATCH_ALREADY_APPLIED'
-PATCH_APPLY_FAILED = 'PATCH_APPLY_FAILED'
+UPDATE_ALREADY_APPLIED = 'UPDATE_ALREADY_APPLIED'
+UPDATE_APPLY_FAILED = 'UPDATE_APPLY_FAILED'
 OTHER_OPERATION_IN_PROGRESS = 'OTHER_OPERATION_IN_PROGRESS'
 PATCH_PRECHECK_FAILED_UNKNOWN_ERROR = 'PATCH_PRECHECK_FAILED_UNKNOWN_ERROR'
 CANNOT_FIND_UPDATE = 'CANNOT_FIND_UPDATE'
@@ -69,7 +69,7 @@ if __name__ == '__main__':
         # Check if the update has been applied.
         if update in session.xenapi.host.get_updates(host):
             print(failure_message(
-                PATCH_ALREADY_APPLIED, ['This update has already been applied.']))
+                UPDATE_ALREADY_APPLIED, ['This update has already been applied.']))
             sys.exit(0)
 
         update_uuid = session.xenapi.pool_update.get_uuid(update)

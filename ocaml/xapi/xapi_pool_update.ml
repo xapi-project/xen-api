@@ -127,14 +127,14 @@ let detach_helper ~__context ~uuid ~vdi =
                end) vbds);
        if try Sys.is_directory mount_point_parent_dir with _ -> false then begin
          Helpers.log_exn_continue ("pool_update.detach_helper: rm " ^ mount_point)
-          (fun () ->
-            let output, _ = Forkhelpers.execute_command_get_output "/bin/rm" ["-r"; mount_point] in
-            debug "pool_update.detach_helper Mountpoint removed (output=%s)" output) ();
+           (fun () ->
+              let output, _ = Forkhelpers.execute_command_get_output "/bin/rm" ["-r"; mount_point] in
+              debug "pool_update.detach_helper Mountpoint removed (output=%s)" output) ();
          Helpers.log_exn_continue ("pool_update.detach_helper: rmdir " ^ mount_point_parent_dir)
-          (fun () ->
-            let output, _ = Forkhelpers.execute_command_get_output "/bin/rmdir" ["--ignore-fail-on-non-empty"; mount_point_parent_dir] in
-            debug "pool_update.detach_helper Mountpoint parent dir removed (output=%s)" output
-          ) ()
+           (fun () ->
+              let output, _ = Forkhelpers.execute_command_get_output "/bin/rmdir" ["--ignore-fail-on-non-empty"; mount_point_parent_dir] in
+              debug "pool_update.detach_helper Mountpoint parent dir removed (output=%s)" output
+           ) ()
        end;
     )
 
@@ -357,18 +357,26 @@ let introduce ~__context ~vdi =
 let pool_apply ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
   debug "pool_update.pool_apply %s" pool_update_name;
-  let failed_hosts = Db.Pool_update.get_hosts ~__context ~self |>
-                     List.set_difference (Db.Host.get_all ~__context) |>
-                     List.fold_left (fun acc host ->
-                         try
-                           ignore(Helpers.call_api_functions ~__context
-                                    (fun rpc session_id -> Client.Pool_update.apply rpc session_id self host));
-                           acc
-                         with e ->
-                           debug "Caught exception while pool_apply %s: %s" (Ref.string_of host) (ExnHelper.string_of_exn e);
-                           host :: acc
-                       ) [] in
-  if List.length failed_hosts > 0 then raise (Api_errors.Server_error(Api_errors.update_pool_apply_failed, (List.map Ref.string_of failed_hosts)))
+  let unapplied_hosts = Db.Pool_update.get_hosts ~__context ~self |>
+                        List.set_difference (Db.Host.get_all ~__context) in
+  if List.length unapplied_hosts = 0
+  then begin
+    debug "pool_update.pool_apply, %s has already been applied on all hosts." pool_update_name;
+    raise (Api_errors.Server_error(Api_errors.update_already_applied_in_pool, []))
+  end
+  else
+    let failed_hosts = unapplied_hosts |>
+                       List.fold_left (fun acc host ->
+                           try
+                             ignore(Helpers.call_api_functions ~__context
+                                      (fun rpc session_id -> Client.Pool_update.apply rpc session_id self host));
+                             acc
+                           with e ->
+                             debug "Caught exception while pool_apply %s: %s" (Ref.string_of host) (ExnHelper.string_of_exn e);
+                             host :: acc
+                         ) [] in
+    if List.length failed_hosts > 0 then raise (Api_errors.Server_error(Api_errors.update_pool_apply_failed, (List.map Ref.string_of failed_hosts)))
+
 
 let pool_clean ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
@@ -392,8 +400,8 @@ let detach_attached_updates __context =
   Db.Pool_update.get_all ~__context |>
   List.iter ( fun self ->
       Helpers.log_exn_continue ("detach_attached_updates: update_uuid " ^ (Db.Pool_update.get_uuid ~__context ~self))
-      (fun () -> ignore(Helpers.call_api_functions ~__context
-               (fun rpc session_id -> Client.Pool_update.detach ~rpc ~session_id ~self))) ()
+        (fun () -> ignore(Helpers.call_api_functions ~__context
+                            (fun rpc session_id -> Client.Pool_update.detach ~rpc ~session_id ~self))) ()
     )
 
 let resync_host ~__context ~host =

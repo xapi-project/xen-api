@@ -1163,8 +1163,6 @@ let _ =
     ~doc:"The specified patch is applied and cannot be destroyed." ();
   error Api_errors.patch_already_applied [ "patch" ]
     ~doc:"This patch has already been applied" ();
-  error Api_errors.update_pool_apply_failed [ "hosts" ]
-    ~doc:"The update cannot be applied for the following host(s)." ();
   error Api_errors.patch_apply_failed [ "output" ]
     ~doc:"The patch apply failed.  Please see attached output." ();
   error Api_errors.patch_apply_failed_backup_files_exist [ "output" ]
@@ -1193,11 +1191,18 @@ let _ =
 
   (* Update errors *)
   error Api_errors.invalid_update []
-    ~doc:"The uploaded update package is invalid" ();
+    ~doc:"The uploaded update package is invalid." ();
   error Api_errors.update_is_applied [ ]
     ~doc:"The specified update has been applied and cannot be destroyed." ();
   error Api_errors.cannot_find_update []
     ~doc:"The requested update could not be found. Please upload the update again. This can occur when you run xe update-pool-clean before xe update-apply. " ();
+  error Api_errors.update_pool_apply_failed [ "hosts" ]
+    ~doc:"The update cannot be applied for the following host(s)." ();
+  error Api_errors.update_already_applied [ "update" ]
+    ~doc:"This update has already been applied." ();
+  error Api_errors.update_already_applied_in_pool [ "update" ]
+    ~doc:"This update has already been applied to all hosts in the pool." ();
+
 
   (* Pool errors *)
 
