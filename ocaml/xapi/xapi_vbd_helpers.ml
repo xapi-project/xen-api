@@ -138,14 +138,16 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
     let fallback () =
       match Xapi_pv_driver_version.make_error_opt (Xapi_pv_driver_version.of_guest_metrics vm_gmr) vm with
       | Some(code, params) -> set_errors code params plug_ops
-      | None -> () in
-
+      | None -> ()
+    in
     (match vm_gmr with
      | None -> fallback ()
      | Some gmr ->
        (match gmr.Db_actions.vM_guest_metrics_can_use_hotplug_vbd with
         | `yes -> () (* Drivers have made an explicit claim of support. *)
         | `no -> set_errors Api_errors.operation_not_allowed ["VM states it does not support VBD hotplug."] plug_ops
+           (* according to xen docs PV drivers are enough for this to be possible *)
+        | `unspecified when gmr.Db_actions.vM_guest_metrics_PV_drivers_detected -> ()
         | `unspecified -> fallback ())
     );
     if record.Db_actions.vBD_type = `CD

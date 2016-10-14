@@ -85,14 +85,16 @@ let valid_operations ~__context record _ref' : table =
     let fallback () =
       match Xapi_pv_driver_version.make_error_opt (Xapi_pv_driver_version.of_guest_metrics vm_gmr) vm with
       | Some(code, params) -> set_errors code params [ `plug; `unplug ]
-      | None -> () in
-
+      | None -> ()
+    in
     match vm_gmr with
     | None -> fallback ()
     | Some gmr -> (
         match gmr.Db_actions.vM_guest_metrics_can_use_hotplug_vif with
         | `yes -> () (* Drivers have made an explicit claim of support. *)
         | `no -> set_errors Api_errors.operation_not_allowed ["VM states it does not support VIF hotplug."] [`plug; `unplug]
+          (* according to xen docs PV drivers are enough for this to be possible *)
+        | `unspecified when gmr.Db_actions.vM_guest_metrics_PV_drivers_detected -> ()
         | `unspecified -> fallback ())
   );
 

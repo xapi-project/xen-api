@@ -15,7 +15,6 @@
  * @group Virtual-Machine Management
 *)
 
-open Xapi_pv_driver_version
 open Stdext
 open Listext
 
@@ -154,7 +153,7 @@ let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
   if power_state <> `Running ||
      (* PV guests offer support implicitly *)
      not (Helpers.has_booted_hvm_of_record ~__context vmr) ||
-     has_pv_drivers (of_guest_metrics vmgmr) (* Full PV drivers imply all features *)
+     Xapi_pv_driver_version.(has_pv_drivers (of_guest_metrics vmgmr)) (* Full PV drivers imply all features *)
   then None
   else
     let some_err e =
