@@ -3990,6 +3990,14 @@ let host_crashdump =
     ()
 
 (* New Ely pool update mechanism *)
+let livepatch_status =
+  Enum ("livepatch_status",
+        [
+          "ok_livepatch_complete", "An applicable live patch exists for every required component";
+          "ok_livepatch_incomplete", "An applicable live patch exists but it is not sufficient";
+          "ok", "There is no applicable live patch"
+        ])
+    
 
 let pool_update_after_apply_guidance =
   Enum ("update_after_apply_guidance",
@@ -4015,6 +4023,7 @@ let pool_update_precheck = call
     ~in_oss_since:None
     ~in_product_since:rel_ely
     ~params:[ Ref _pool_update, "self", "The update whose prechecks will be run"; Ref _host, "host", "The host to run the prechecks on." ]
+    ~result:(livepatch_status, "The precheck pool update")
     ~allowed_roles:_R_POOL_OP
     ~forward_to:(HostExtension "pool_update.precheck")
     ()

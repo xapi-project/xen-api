@@ -131,7 +131,7 @@ let forward ~__context ~self f =
 
 (* precheck API call entrypoint *)
 let precheck ~__context ~self ~host =
-  forward ~__context ~self (Client.Pool_update.precheck ~host); ""
+  ignore (forward ~__context ~self (Client.Pool_update.precheck ~host)); ""
 
 let apply ~__context ~self ~host =
   forward ~__context ~self (Client.Pool_update.apply ~host); ""

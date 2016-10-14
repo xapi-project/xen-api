@@ -21,14 +21,13 @@ TMP_DIR = '/tmp/'
 PATCH_PRECHECK_FAILED_UNKNOWN_ERROR = 'PATCH_PRECHECK_FAILED_UNKNOWN_ERROR'
 CANNOT_FIND_UPDATE = 'CANNOT_FIND_UPDATE'
 
-
 class PrecheckFailure(Exception):
     pass
 
 
-def success_message():
-    rpcparams = {'Status': 'Success', 'Value': None}
-    return xmlrpclib.dumps((rpcparams, ), '', True, allow_none=True)
+def success_message(result):
+    rpcparams = {'Status': 'Success', 'Value': result}
+    return xmlrpclib.dumps((rpcparams, ), '', True)
 
 
 def failure_message(code, params):
@@ -52,13 +51,14 @@ def parse_control_package(session, yum_url):
 
 
 def execute_precheck(session, control_package, yum_conf_file):
+    livepatch_dic = {'PATCH_PRECHECK_LIVEPATCH_COMPLETE': 'ok_livepatch_complete', 'PATCH_PRECHECK_LIVEPATCH_INCOMPLETE': 'ok_livepatch_incomplete', 'PATCH_PRECHECK_LIVEPATCH_NOT_APPLICABLE': 'ok'}
     cmd = ['yum', 'install', '-y', '--noplugins', '-c', yum_conf_file, control_package]
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
     p.wait()
     output = p.stdout.read()
     xcp.logger.info('pool_update.precheck %r returncode=%r output=%r', cmd, p.returncode, output)
+    lines = output.splitlines()
     if p.returncode != 0:
-        lines = output.splitlines()
         errorlines = [l for l in lines if l.startswith('Error: ')]
         if errorlines:
             errmsg = errorlines[-1].split(':', 1)[-1].strip()
@@ -66,7 +66,18 @@ def execute_precheck(session, control_package, yum_conf_file):
             errmsg = lines[-1]
         raise PrecheckFailure(
             'Install %s error: %s' % (control_package, errmsg))
-
+    else:
+        resultlines = [l for l in lines if l.startswith('<livepatch ')]
+        if resultlines:
+            result = resultlines[-1].split('\"')[1]
+            try:
+                return livepatch_dic[result]
+            except KeyError:
+                raise PrecheckFailure(
+                    'Install %s, precheck error: %s' % (control_package, result))
+        else:
+            return "ok"    
+        
 
 if __name__ == '__main__':
     xcp.logger.logToSyslog(level=logging.INFO)
@@ -114,10 +125,8 @@ if __name__ == '__main__':
         yum_url = config.get(update_package, 'baseurl')
 
         control_package = parse_control_package(session, yum_url)
-
-        execute_precheck(session, control_package, yum_conf_file)
-
-        print(success_message())
+        
+        print(success_message(execute_precheck(session, control_package, yum_conf_file)))
     except Exception as e:
         print(failure_message(PATCH_PRECHECK_FAILED_UNKNOWN_ERROR,
                               ['Precheck failed on host %s [uuid=%s]: %s' % (host_name_label ,host_uuid, e)]))
