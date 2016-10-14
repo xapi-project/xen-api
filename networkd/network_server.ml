@@ -774,7 +774,12 @@ module Bridge = struct
 		match !backend_kind with
 		| Openvswitch ->
 			ignore (Ovs.create_port ~internal:true name bridge);
-			Ovs.mod_port bridge name "no-flood";
+			let real_bridge =
+				match Ovs.bridge_to_vlan bridge with
+				| Some (parent, _) -> parent
+				| None -> bridge
+			in
+			Ovs.mod_port real_bridge name "no-flood";
 			Interface.bring_up () dbg ~name
 		| Bridge ->
 			raise Not_implemented
