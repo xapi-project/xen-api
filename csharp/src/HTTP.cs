@@ -130,6 +130,12 @@ namespace XenAPI
 
         public const int DEFAULT_HTTPS_PORT = 443;
 
+        /// <summary>
+        /// The authentication scheme to use for authenticating XenCenter to a proxy server. 
+        /// Defaults to Digest.
+        /// </summary>
+        public static HTTPHelper.ProxyAuthenticationMethod ProxyAuthenticationMethod = HTTPHelper.ProxyAuthenticationMethod.Digest;
+
         #region Helper functions
 
         private static void WriteLine(String txt, Stream stream)
@@ -464,7 +470,7 @@ namespace XenAPI
             if (fields.Count > 0)
             {
                 // clean up (if initial server response specifies "Proxy-Connection: Close" then stream cannot be re-used)
-                string field = initialResponse.Find(str => str.StartsWith("Proxy-Connection: Close"));
+                string field = initialResponse.Find(str => str.StartsWith("Proxy-Connection: Close", StringComparison.CurrentCultureIgnoreCase));
                 if (!string.IsNullOrEmpty(field))
                 {
                     stream.Close();
@@ -478,16 +484,22 @@ namespace XenAPI
 
                 string basicField = fields.Find(str => str.StartsWith("Proxy-Authenticate: Basic"));
                 string digestField = fields.Find(str => str.StartsWith("Proxy-Authenticate: Digest"));
-                if (!string.IsNullOrEmpty(basicField))
+                if (ProxyAuthenticationMethod == HTTPHelper.ProxyAuthenticationMethod.Basic)
                 {
-                    string authenticationFieldReply = String.Format("Proxy-Authorization: Basic {0}",
+                    if (string.IsNullOrEmpty(basicField))
+                        throw new ProxyServerAuthenticationException("Basic authentication scheme is not supported/enabled by the proxy server.");
+
+                    string authenticationFieldReply = string.Format("Proxy-Authorization: Basic {0}",
                         Convert.ToBase64String(Encoding.UTF8.GetBytes(credentials.UserName + ":" + credentials.Password)));
                     WriteLine(header, stream);
                     WriteLine(authenticationFieldReply, stream);
                     WriteLine(stream);
                 }
-                else if (!string.IsNullOrEmpty(digestField))
+                else if (ProxyAuthenticationMethod == HTTPHelper.ProxyAuthenticationMethod.Digest)
                 {
+                    if (string.IsNullOrEmpty(digestField))
+                        throw new ProxyServerAuthenticationException("Digest authentication scheme is not supported/enabled by the proxy server.");
+                    
                     string authenticationFieldReply = string.Format(
                         "Proxy-Authorization: Digest username=\"{0}\", uri=\"{1}:{2}\"",
                         credentials.UserName, uri.Host, uri.Port);
