@@ -41,87 +41,81 @@ import com.xensource.xenapi.Types.XenAPIException;
 /**
  * Creates a shared NFS SR.
  * 
- * java equivalent to the cli command: xe sr-create type=nfs name-label=dummy device-config-server=<nfsServer>
+ * java equivalent to the cli command: xe sr-create type=nfs name-label=<name> device-config-server=<nfsServer>
  * device-config-serverpath=<serverPath> shared=true
  */
 public class SharedStorage extends TestBase
 {
-    public static void RunTest(ILog logger, TargetServer server, String nfsServer, String serverPath) throws Exception
+    private String nfsServer;
+    private String serverPath;
+
+    public String getTestName() {
+        return "SharedStorage";
+    }
+
+    public SharedStorage(String nfsServer, String serverPath) {
+        this.nfsServer = nfsServer;
+        this.serverPath = serverPath;
+    }
+
+    protected void TestCore() throws Exception
     {
-        TestBase.logger = logger;
-        try
-        {
-            connect(server);
-
-            logln("getting list of hosts...");
-
-            // find first host
-            Host host = (Host) Host.getAll(connection).toArray()[0];
-
-            log("choosing the first one...");
-
-            // get its name
-            logln(host.getNameLabel(connection));
-
-            // create config parameter for shared storage on nfs server
-            Map<String, String> deviceConfig = new HashMap<String, String>();
-            deviceConfig.put("server", nfsServer);
-            deviceConfig.put("serverpath", serverPath);
-
-            logln("creating a shared storage SR ...");
-            // make a shared disk there
-            long size = 100000L;
-            String name = "NFS SR created by SharedStorage.java";
-            String desc = "[" + nfsServer + ":" + serverPath + "] Created at " + new Date().toString();
-            String type = "nfs";
-            String contentType = "unused";
-            boolean shared = true;
-            SR newSr = SR.create(connection, host, deviceConfig, size, name, desc, type, contentType, shared,
-                    new HashMap<String, String>());
-
-            // try a couple of erroneous calls to generate exceptions
-            logln("now trying to create one with bad device_config");
-            logln("should throw exception");
-            try
-            {
-                // fail for bad device_config
-                SR.create(connection, host, new HashMap<String, String>(), 100000L, "name", "description", "nfs",
-                        "contenttype", true, new HashMap<String, String>());
-            } catch (XenAPIException ex)
-            {
-                logln("Received exception as exected:");
-                logln(ex);
-            }
-
-            logln("now trying to create one with a bad \"type\" field as well");
-            logln("should throw a different exception");
-            try
-            {
-                // fail for bad type
-                SR.create(connection, host, new HashMap<String, String>(), 100000L, "name", "description", "made_up",
-                        "contenttype", true, new HashMap<String, String>());
-            } catch (XenAPIException ex)
-            {
-                logln("Received exception as exected:");
-                logln(ex);
-            }
-
-            logln("Now unplugging any PBDs");
-            // First unplug any PBDs associated with the SR
-            Set<PBD> pbds = PBD.getAll(connection);
-            for (PBD pbd : pbds)
-            {
-                if (pbd.getSR(connection).equals(newSr))
-                {
-                    pbd.unplug(connection);
-                }
-            }
-
-            logln("Now destroying the newly-created SR");
-            newSr.destroy(connection);
-        } finally
-        {
-            disconnect();
+        if (nfsServer == null || serverPath == null) {
+            log("nfsServer and nfsPath were not provided. Skipping SharedStorage test");
+            throw new SkippingException();
         }
+
+        log("getting list of hosts and choosing the first one...");
+        Host host = (Host) Host.getAll(connection).toArray()[0];
+        logf("Got host %s", host.getNameLabel(connection));
+
+        // create config parameter for shared storage on nfs server
+        Map<String, String> deviceConfig = new HashMap<String, String>();
+        deviceConfig.put("server", nfsServer);
+        deviceConfig.put("serverpath", serverPath);
+
+        log("creating a shared storage SR ...");
+
+        SR newSr = SR.create(connection, host, deviceConfig, 100000L,
+                "NFS SR created by SharedStorage.java",
+                String.format("[%s:%s] Created at %s", nfsServer, serverPath, new Date().toString()),
+                "nfs", "unused", true, new HashMap<String, String>());
+
+        log("Now unplugging any PBDs");
+        // First unplug any PBDs associated with the SR
+        Set<PBD> pbds = PBD.getAll(connection);
+        for (PBD pbd : pbds)
+        {
+            if (pbd.getSR(connection).equals(newSr))
+            {
+                pbd.unplug(connection);
+            }
+        }
+
+        log("Now destroying the newly-created SR");
+        newSr.destroy(connection);
+
+        // try a couple of erroneous calls to generate exceptions
+
+        log("now trying to create one with bad device_config - should throw exception");
+        try {
+            SR.create(connection, host, new HashMap<String, String>(), 100000L, "bad_device_config", "description", "nfs",
+                    "contenttype", true, new HashMap<String, String>());
+        }
+        catch (XenAPIException ex) {
+            logf("Received expected exception: %s", ex.toString());
+        }
+
+        /*
+        comment this out until CA-182929 is fixed
+        log("now trying to create one with a bad 'type' field - should throw a different exception");
+        try {
+            SR.create(connection, host, new HashMap<String, String>(), 100000L, "bad_sr_type", "description", "made_up",
+                    "", true, new HashMap<String, String>());
+        }
+        catch (XenAPIException ex) {
+            logf("Received expected exception: %s", ex.toString());
+        }
+        */
     }
 }
