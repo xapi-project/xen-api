@@ -85,25 +85,29 @@ let networks path (list: string -> string list) =
    * [see https://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames/]
    * under a path. *)
   let find_eths path =
-    let extract eth =
+    let extract_network_keys eth =
       let iface_prefixes =
         ["eth"; "xenbr"; "eno"; "ens"; "emp"; "enx"] in
-      let rec extract' prefixes eth =
+      let string_after_prefix ~prefix str =
+        let prefix_len = String.length prefix in
+        let size = String.length str - prefix_len in
+        let after_prefix = String.sub str prefix_len size in
+        after_prefix
+      in
+      let rec extract prefixes eth =
         match prefixes with
         | [] -> None
         | prefix :: rest ->
           if String.startswith prefix eth then
-            let prefix_len = String.length prefix in
-            let size = String.length eth - prefix_len in
-            let n = String.sub eth prefix_len size in
+            let n = string_after_prefix ~prefix eth in
             Some (extend path eth, n)
           else
-            extract' rest eth
-      in extract' iface_prefixes eth
+            extract rest eth
+      in extract iface_prefixes eth
     in
     List.fold_left
       (fun acc eth ->
-         match extract eth with
+         match extract_network_keys eth with
          | None -> acc
          | Some pair -> pair :: acc
       ) [] (list path)
