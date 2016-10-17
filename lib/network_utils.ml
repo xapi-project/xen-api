@@ -756,8 +756,12 @@ module Ovs = struct
 
 	let bridge_to_vlan name =
 		try
-			Some (vsctl ["br-to-parent"; name], int_of_string (vsctl ["br-to-vlan"; name]))
-		with _ -> None
+			let parent = vsctl ["br-to-parent"; name] |> String.rtrim in
+			let vlan = vsctl ["br-to-vlan"; name] |> String.rtrim |> int_of_string in
+			Some (parent, vlan)
+		with e ->
+			debug "bridge_to_vlan: %s" (Printexc.to_string e);
+			None
 
 	let get_bond_link_status name =
 		try
