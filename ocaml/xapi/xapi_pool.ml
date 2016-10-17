@@ -801,7 +801,7 @@ let emergency_reset_master ~__context ~master_address =
   if Localdb.get Constants.ha_armed = "true" 
   then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
   if Pool_role.is_master ()
-  then raise Api_errors.(Server_error(host_is_already_master, []));
+  then raise Api_errors.(Server_error(host_is_master, []));
   let master_address = Helpers.gethostbyname master_address in
   Xapi_pool_transition.become_another_masters_slave master_address
 

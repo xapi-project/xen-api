@@ -1192,8 +1192,8 @@ let _ =
 
   error Api_errors.host_is_slave ["Master IP address"]
     ~doc:"You cannot make regular API calls directly on a slave. Please pass API calls via the master host." ();
-  error Api_errors.host_is_already_master []
-    ~doc:"The operation failed because the host is already the master." ();
+  error Api_errors.host_is_master []
+    ~doc:"The operation failed because the host is the master." ();
 
   (* HA errors *)
   error Api_errors.ha_failed_to_form_liveset [ ]
