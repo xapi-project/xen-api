@@ -6927,7 +6927,7 @@ let pool_remove_from_guest_agent_config = call
     ()
 
 let pool_set_default_sr = call
-    ~name:"set_default_sr"
+    ~name:"set_default_SR"
     ~in_product_since:rel_ely
     ~doc:"Set the default SR for VDIs."
     ~params:

@@ -471,7 +471,7 @@ let pool_record rpc session_id pool =
         ~get:(fun () -> get_uuid_from_ref (x ()).API.pool_default_SR)
         ~set:(fun x ->
             let sr_ref = if x="" then Ref.null else Client.SR.get_by_uuid rpc session_id x in
-            Client.Pool.set_default_sr rpc session_id pool sr_ref) ();
+            Client.Pool.set_default_SR rpc session_id pool sr_ref) ();
       make_field ~name:"crash-dump-SR"
         ~get:(fun () -> get_uuid_from_ref (x ()).API.pool_crash_dump_SR)
         ~set:(fun x ->

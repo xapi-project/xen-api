@@ -458,7 +458,7 @@ let create_pool session_id sdkname pool_name key ipbase =
     | l -> Array.of_list l
   in
   let pool_ref = List.hd (Client.Pool.get_all ~rpc ~session_id) in
-  Client.Pool.set_default_sr ~rpc ~session_id ~self:pool_ref ~sr:storages.(0);
+  Client.Pool.set_default_SR ~rpc ~session_id ~self:pool_ref ~sr:storages.(0);
   Client.Pool.set_crash_dump_SR ~rpc ~session_id ~self:pool_ref ~value:storages.(0);
   Client.Pool.set_suspend_image_SR ~rpc ~session_id ~self:pool_ref ~value:storages.(0);
 

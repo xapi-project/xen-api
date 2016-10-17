@@ -199,4 +199,4 @@ val add_to_guest_agent_config :
 val remove_from_guest_agent_config :
   __context:Context.t -> self:API.ref_pool -> key:string -> unit
 
-val set_default_sr : __context:Context.t -> self:API.ref_pool -> sr:API.ref_SR -> unit
+val set_default_SR : __context:Context.t -> self:API.ref_pool -> sr:API.ref_SR -> unit
