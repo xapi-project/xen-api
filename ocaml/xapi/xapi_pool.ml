@@ -803,10 +803,6 @@ let emergency_reset_master ~__context ~master_address =
   if Pool_role.is_master ()
   then raise Api_errors.(Server_error(host_is_already_master, []));
   let master_address = Helpers.gethostbyname master_address in
-  let valid_ip = Helpers.is_valid_ip `ipv4 master_address
-                 || Helpers.is_valid_ip `ipv6 master_address in
-  if not valid_ip
-  then raise Api_errors.(Server_error(invalid_ip_address_specified, [master_address]));
   Xapi_pool_transition.become_another_masters_slave master_address
 
 let recover_slaves ~__context =
