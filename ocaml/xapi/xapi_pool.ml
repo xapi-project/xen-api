@@ -1863,4 +1863,7 @@ let remove_from_guest_agent_config ~__context ~self ~key =
   Xapi_pool_helpers.apply_guest_agent_config ~__context
 
 let set_default_sr ~__context ~self ~sr =
-  Db.Pool.set_default_SR ~__context ~self ~value:sr
+  Db.Pool.set_default_SR ~__context ~self ~value:sr;
+  if Db.SR.get_shared ~__context ~self:sr then begin
+    enable_redo_log ~__context ~sr (* CA-225711 *)
+  end
