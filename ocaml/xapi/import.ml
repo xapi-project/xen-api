@@ -384,6 +384,8 @@ module VM : HandlerTools = struct
       let vm_record =
         if (is_live config) || vm_record.API.vM_is_a_template
         then vm_record
+        else if Helpers.is_hvm vm_record && vm_record.API.vM_generation_id = "0:0"
+        then { vm_record with API.vM_generation_id = "" }
         else {
           vm_record with API.vM_generation_id = Xapi_vm_helpers.fresh_genid
                              ~current_genid:vm_record.API.vM_generation_id ()
