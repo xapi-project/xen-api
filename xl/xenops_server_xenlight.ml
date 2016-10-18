@@ -2121,7 +2121,7 @@ module VM = struct
 								~platformdata:vm.Xenops_interface.Vm.platformdata
 								~default:false
 							; nested_virt=Platform.is_true
-								~key:"nested_virt"
+								~key:"nested-virt"
 								~platformdata:vm.Xenops_interface.Vm.platformdata
 								~default:false
 							} in
