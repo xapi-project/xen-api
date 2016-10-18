@@ -879,6 +879,7 @@ let vm_record rpc session_id vm =
         ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_PV_drivers_version) (xgm ()) ))
         ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_PV_drivers_version) (xgm ()))) ();
       make_field ~name:"PV-drivers-up-to-date"
+        ~deprecated: true
         ~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_PV_drivers_up_to_date) (xgm ()) )) ();
       make_field ~name:"memory"
         ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_memory) (xgm ())))
