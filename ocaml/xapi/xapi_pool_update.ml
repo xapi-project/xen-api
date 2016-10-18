@@ -216,9 +216,13 @@ let guidance_from_string = function
 let parse_update_info xml =
   match xml with
   | Xml.Element ("update", attr, children) ->
-    let key = List.assoc "key" attr in
-    let uuid = List.assoc "uuid" attr in
-    let name_label = List.assoc "name-label" attr in
+    let key = try List.assoc "key" attr with _ -> "" in
+    let uuid = try List.assoc "uuid" attr
+      with _ -> raise (Api_errors.Server_error(Api_errors.invalid_update, ["missing <uuid> in update.xml"]))
+    in
+    let name_label = try List.assoc "name-label" attr
+      with _ -> raise (Api_errors.Server_error(Api_errors.invalid_update, ["missing <name-label> in update.xml"]))
+    in
     let installation_size =
       try
         Int64.of_string (List.assoc "installation-size" attr)
@@ -265,7 +269,11 @@ let extract_update_info ~__context ~vdi ~verify =
        let url = attach_helper ~__context ~uuid:vdi_uuid ~vdi in
        let update_path = Printf.sprintf "%s/%s/vdi" Xapi_globs.host_update_dir vdi_uuid in
        debug "pool_update.extract_update_info get url='%s', will parse_file in '%s'" url update_path;
-       let xml = Xml.parse_file (String.concat "/" [update_path ; "update.xml"]) in
+       let xml = try
+         Xml.parse_file (Filename.concat update_path "update.xml")
+       with _ ->
+         raise (Api_errors.Server_error (Api_errors.invalid_update, ["missing update document (update.xml) in the package."]))
+       in
        let update_info = parse_update_info xml in
        ignore(verify update_info update_path); update_info
     )

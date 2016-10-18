@@ -37,20 +37,20 @@ def failure_message(code, params):
 
 
 def parse_control_package(session, yum_url):
-    control_package = ''
     if yum_url.startswith('http://'):
         update_xml = urllib2.urlopen(yum_url + '/update.xml').read()
         xmldoc = xml.dom.minidom.parse(StringIO.StringIO(update_xml))
     else:
         raise PrecheckFailure('Incorrect yum repo (%r)' % yum_url)
     items = xmldoc.getElementsByTagName('update')
-    if not items or not items[0].hasAttribute('control'):
-        raise PrecheckFailure(
-            'Parse Control Package from yum (%r)' % yum_url)
+    if not items:
+        raise PrecheckFailure('Parse Control Package from yum (%r)' % yum_url)
     return items[0].getAttribute('control')
 
 
 def execute_precheck(session, control_package, yum_conf_file):
+    if not control_package:
+        return 'ok'
     livepatch_dic = {'PATCH_PRECHECK_LIVEPATCH_COMPLETE': 'ok_livepatch_complete', 'PATCH_PRECHECK_LIVEPATCH_INCOMPLETE': 'ok_livepatch_incomplete', 'PATCH_PRECHECK_LIVEPATCH_NOT_APPLICABLE': 'ok'}
     cmd = ['yum', 'install', '-y', '--noplugins', '-c', yum_conf_file, control_package]
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
@@ -76,7 +76,7 @@ def execute_precheck(session, control_package, yum_conf_file):
                 raise PrecheckFailure(
                     'Install %s, precheck error: %s' % (control_package, result))
         else:
-            return "ok"    
+            return 'ok'
         
 
 if __name__ == '__main__':
@@ -125,7 +125,6 @@ if __name__ == '__main__':
         yum_url = config.get(update_package, 'baseurl')
 
         control_package = parse_control_package(session, yum_url)
-        
         print(success_message(execute_precheck(session, control_package, yum_conf_file)))
     except Exception as e:
         print(failure_message(PATCH_PRECHECK_FAILED_UNKNOWN_ERROR,
