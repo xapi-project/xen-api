@@ -185,7 +185,7 @@ let find_cache_vdi ~__context ~host ~site =
   | [] ->
     raise No_cache_sr_available
   | pcs :: _ ->
-    Db.PVS_cache_storage.get_VDI ~__context ~self:pcs
+    Pvs_cache_vdi.get_or_recreate_vdi ~__context ~self:pcs
 
 let start_proxy ~__context vif proxy =
   let dbg = Context.string_of_task __context in
