@@ -3347,8 +3347,14 @@ let vbd_unplug_force = call
 
 let vbd_unplug_force_no_safety_check = call
     ~name:"unplug_force_no_safety_check"
-    ~doc:"Forcibly unplug the specified VBD without any safety checks. This is an extremely dangerous operation in the general case that can cause guest crashes and data corruption; it should be called with extreme caution."
+    ~doc:"Deprecated: use 'unplug_force' instead. Forcibly unplug \
+          the specified VBD without any safety checks. This is an \
+          extremely dangerous operation in the general case that \
+          can cause guest crashes and data corruption; it should \
+          be called with extreme caution. Functionally equivalent \
+          with 'unplug_force'."
     ~params:[Ref _vbd, "self", "The VBD to forcibly unplug (no safety checks are applied to test if the device supports surprise-remove)"]
+    ~internal_deprecated_since:rel_ely
     ~hide_from_docs:true
     ~in_product_since:rel_symc
     ~allowed_roles:_R_VM_ADMIN

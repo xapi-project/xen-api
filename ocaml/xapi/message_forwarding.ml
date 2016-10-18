@@ -3648,11 +3648,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let unplug_force_no_safety_check ~__context ~self =
       warn "VBD.unplug_force_no_safety_check: VBD = '%s'" (vbd_uuid ~__context self);
-      let local_fn = Local.VBD.unplug_force_no_safety_check ~self in
-      with_vbd_marked ~__context ~vbd:self ~doc:"VBD.unplug_force_no_safety_check" ~op:`unplug_force
-        (fun () ->
-           forward_vbd_op ~local_fn ~__context ~self (fun session_id rpc -> Client.VBD.unplug_force_no_safety_check rpc session_id self));
-      update_vbd_and_vdi_operations ~__context ~vbd:self
+      unplug_force ~__context ~self
 
     let pause ~__context ~self =
       info "VBD.pause: VBD = '%s'" (vbd_uuid ~__context self);
