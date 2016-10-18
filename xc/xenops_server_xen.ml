@@ -2610,16 +2610,19 @@ module VIF = struct
 			(fun xc xs ->
 				(* If the device is gone then this is ok *)
 				let device = device_by_id xc xs vm Vif Newest (id_of vif) in
-				let path = Device_common.get_private_data_path_of_device device in
+				let private_path = Device_common.get_private_data_path_of_device device in
+				let hotplug_path = Hotplug.get_hotplug_path device in
 				let setup action =
 					let devid = string_of_int device.frontend.devid in
 					let vif_interface_name = Printf.sprintf "vif%d.%s" device.frontend.domid devid in
 					let tap_interface_name = Printf.sprintf "tap%d.%s" device.frontend.domid devid in
 					let di = Xenctrl.domain_getinfo xc device.frontend.domid in
-					ignore (run !Xc_path.setup_pvs_proxy_rules [action; "vif"; vif_interface_name; path]);
+					ignore (run !Xc_path.setup_pvs_proxy_rules [action; "vif"; vif_interface_name;
+						private_path; hotplug_path]);
 					if di.Xenctrl.hvm_guest then
 						try
-							ignore (run !Xc_path.setup_pvs_proxy_rules [action; "tap"; tap_interface_name; path])
+							ignore (run !Xc_path.setup_pvs_proxy_rules [action; "tap"; tap_interface_name;
+							private_path; hotplug_path])
 						with _ ->
 							(* There won't be a tap device if the VM has PV drivers loaded. *)
 							()
@@ -2627,15 +2630,15 @@ module VIF = struct
 				if proxy = None then begin
 					setup "remove";
 					Xs.transaction xs (fun t ->
-						let keys = t.Xs.directory path in
+						let keys = t.Xs.directory private_path in
 						List.iter (fun key ->
 							if String.startswith pvs_proxy_key_prefix key then
-								t.Xs.rm (Printf.sprintf "%s/%s" path key)
+								t.Xs.rm (Printf.sprintf "%s/%s" private_path key)
 						) keys
 					)
 				end else begin
 					Xs.transaction xs (fun t ->
-						t.Xs.writev path (xenstore_of_pvs_proxy proxy)
+						t.Xs.writev private_path (xenstore_of_pvs_proxy proxy)
 					);
 					setup "add"
 				end
@@ -2648,7 +2651,7 @@ module VIF = struct
 					let (d: Device_common.device) = device_by_id xc xs vm Device_common.Vif Newest (id_of vif) in
 					let path = Device_common.kthread_pid_path_of_device ~xs d in
 					let kthread_pid = try xs.Xs.read path |> int_of_string with _ -> 0 in
-					let pra_path = Device_common.vif_pvs_rules_active_path_of_device ~xs d in
+					let pra_path = Hotplug.vif_pvs_rules_active_path_of_device ~xs d in
 					let pvs_rules_active = try (ignore (xs.Xs.read pra_path); true) with _ -> false in
 					(* We say the device is present unless it has been deleted
 					   from xenstore. The corrolary is that: only when the device

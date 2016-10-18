@@ -66,6 +66,11 @@ let error_path_written_by_hotplug_scripts (x: device) =
 	sprintf "/local/domain/%d/backend/%s/%d/%d/hotplug-error"
 	x.backend.domid (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
 
+(** Only useful for a VIF device, this is where the "setup-pvs-proxy-rules"
+  * script indicates whether the OVS rules are set up. *)
+let vif_pvs_rules_active_path_of_device ~xs (x: device) =
+	sprintf "%s/pvs-rules-active" (get_hotplug_path x)
+
 let vif_disconnect_path (x: device) =
 	sprintf "/local/domain/%d/device/vif/%d/disconnect" x.frontend.domid x.frontend.devid
 

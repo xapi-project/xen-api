@@ -1,12 +1,13 @@
 #!/bin/bash
 
-if [[ $# -ne 4 ]]
+if [[ $# -ne 5 ]]
 then
-    echo "Usage: $0 <action> <type> <interface> <private_xs_path>" >&2
+    echo "Usage: $0 <action> <type> <interface> <private_xs_path> <hotplug_xs_path>" >&2
     echo "where <action> is [add|remove|reset]"
     echo "where <type> is [vif|tap]"
     echo "where <interface> is the VIF's device name, e.g. vif2.1"
     echo "where <private_xs_path> is the private xenstore path for the VIF"
+    echo "where <hotplug_xs_path> is the xenstore path for the VIF used by the udev script"
     exit 1;
 fi
 
@@ -14,6 +15,7 @@ ACTION=$1
 TYPE=$2
 PVS_VM_INTERFACE=$3
 PRIVATE_PATH=$4
+HOTPLUG_PATH=$5
 
 VSCTL=/usr/bin/ovs-vsctl
 OFCTL=/usr/bin/ovs-ofctl
@@ -167,10 +169,10 @@ case $ACTION in
             unset IFS
         done
         # Announce that on the OVS we have set up the rules for this VIF's pvs-proxy
-        $XSWRITE "${PRIVATE_PATH}/pvs-rules-active" ''
+        $XSWRITE "${HOTPLUG_PATH}/pvs-rules-active" ''
         ;;
     remove)
-        path="${PRIVATE_PATH}/$TYPE-ifindex"
+        path="${HOTPLUG_PATH}/$TYPE-ifindex"
         PVS_IF_ID=$($XSREAD "$path")
         if [ $? -ne 0 ] || [ -z "$PVS_IF_ID" ]; then
             handle_error "The $PVS_VM_INTERFACE's ID[$PVS_IF_ID] not found"
@@ -184,7 +186,7 @@ case $ACTION in
             # vif may still be there.
 
             # Announce that on the OVS we have removed the rules for this VIF's pvs-proxy.
-            $XSRM "${PRIVATE_PATH}/pvs-rules-active"
+            $XSRM "${HOTPLUG_PATH}/pvs-rules-active"
         fi
         ;;
     reset)

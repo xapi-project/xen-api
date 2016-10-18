@@ -193,7 +193,7 @@ add_to_bridge()
             handle_error "$dev interface not found on the bridge"
         fi
 
-        xenstore-write "${PRIVATE}/$TYPE-ofport" "$ofport"
+        xenstore-write "${HOTPLUG}/${TYPE}-ofport" "$ofport"
         ;;
     esac
 
@@ -202,14 +202,14 @@ add_to_bridge()
         handle_error "$dev ifindex not found"
     fi
 
-    xenstore-write "${PRIVATE}/$TYPE-ifindex" "$ifindex"
+    xenstore-write "${HOTPLUG}/${TYPE}-ifindex" "$ifindex"
 
     # PVS proxy rules are only setup if the pvs-interface xenstore node exists
     xenstore-read ${PRIVATE}/pvs-interface 2>/dev/null
     if [ $? -eq 0 ]; then
         local setup_pvs_proxy_rules=$(xenstore-read "${PRIVATE}/setup-pvs-proxy-rules" 2>/dev/null)
-        $setup_pvs_proxy_rules add "${TYPE}" "${dev}" "$PRIVATE" \
-            || logger -t scripts-vif "Failed to ${setup_pvs_proxy_rules} add ${TYPE} ${dev} ${PRIVATE}"
+        $setup_pvs_proxy_rules add "${TYPE}" "${dev}" "$PRIVATE" "$HOTPLUG" \
+            || logger -t scripts-vif "Failed to ${setup_pvs_proxy_rules} add ${TYPE} ${dev} ${PRIVATE} ${HOTPLUG}"
 	fi
 
     local setup_vif_rules=$(xenstore-read "${PRIVATE}/setup-vif-rules" 2>/dev/null)
@@ -224,8 +224,8 @@ remove_from_bridge()
     xenstore-read ${PRIVATE}/pvs-interface 2>/dev/null
     if [ $? -eq 0 ]; then
         local setup_pvs_proxy_rules=$(xenstore-read "${PRIVATE}/setup-pvs-proxy-rules" 2>/dev/null)
-        /usr/libexec/xenopsd/setup-pvs-proxy-rules remove "${TYPE}" "${dev}" "${PRIVATE}" \
-            || logger -t scripts-vif "Failed to ${setup_pvs_proxy_rules} remove ${TYPE} ${dev} ${PRIVATE}"
+        /usr/libexec/xenopsd/setup-pvs-proxy-rules remove "${TYPE}" "${dev}" "${PRIVATE}" "${HOTPLUG}" \
+            || logger -t scripts-vif "Failed to ${setup_pvs_proxy_rules} remove ${TYPE} ${dev} ${PRIVATE} ${HOTPLUG}"
     fi
 
     local setup_vif_rules=$(xenstore-read "${PRIVATE}/setup-vif-rules" 2>/dev/null)
@@ -240,11 +240,11 @@ remove_from_bridge()
         # port.  Use --if-exists to suppress the error that would otherwise
         # arise in that case.
         $vsctl --timeout=30 -- --if-exists del-port $dev
-        xenstore-rm ${PRIVATE}/"$TYPE"-ofport
+        xenstore-rm "${HOTPLUG}/${TYPE}-ofport"
         ;;
     esac
 
-    xenstore-rm ${PRIVATE}/"$TYPE"-ifindex
+    xenstore-rm "${HOTPLUG}/${TYPE}-ifindex"
 }
 
 call_hook_script() {
