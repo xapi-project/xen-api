@@ -81,18 +81,36 @@ let networks path (list: string -> string list) =
     else
       [ipv4]
   in
-  (* Find all "ethn" or "xenbrn" under a path. *)
-  let find_eths path = List.fold_left
+  (* Find all "ethn", "xenbrn" or newer interface standard names
+   * [see https://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames/]
+   * under a path. *)
+  let find_eths path =
+    let extract_network_keys eth =
+      let iface_prefixes =
+        ["eth"; "xenbr"; "eno"; "ens"; "emp"; "enx"] in
+      let string_after_prefix ~prefix str =
+        let prefix_len = String.length prefix in
+        let size = String.length str - prefix_len in
+        let after_prefix = String.sub str prefix_len size in
+        after_prefix
+      in
+      let rec extract prefixes eth =
+        match prefixes with
+        | [] -> None
+        | prefix :: rest ->
+          if String.startswith prefix eth then
+            let n = string_after_prefix ~prefix eth in
+            Some (extend path eth, n)
+          else
+            extract rest eth
+      in extract iface_prefixes eth
+    in
+    List.fold_left
       (fun acc eth ->
-         if String.startswith "eth" eth then
-           let n = String.sub eth 3 (String.length eth - 3) in
-           (extend path eth, n) :: acc
-         else if String.startswith "xenbr" eth then
-           let n = String.sub eth 5 (String.length eth - 5) in
-           (extend path eth, n) :: acc
-         else
-           acc)
-      [] (list path)
+         match extract_network_keys eth with
+         | None -> acc
+         | Some pair -> pair :: acc
+      ) [] (list path)
   in
   path
   |> find_eths
