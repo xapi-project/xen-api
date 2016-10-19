@@ -81,12 +81,7 @@ let unplug_force ~__context ~self =
   then unplug ~__context ~self
   else Xapi_xenops.vbd_unplug ~__context ~self true
 
-let unplug_force_no_safety_check ~__context ~self =
-  let vm = Db.VBD.get_VM ~__context ~self in
-  let force_loopback_vbd = Helpers.force_loopback_vbd ~__context in
-  if System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = vm && not force_loopback_vbd
-  then unplug ~__context ~self
-  else Xapi_xenops.vbd_unplug ~__context ~self true
+let unplug_force_no_safety_check = unplug_force
 
 (** Hold this mutex while resolving the 'autodetect' device names to prevent two concurrent
     VBD.creates racing with each other and choosing the same device. For simplicity keep this
