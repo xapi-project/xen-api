@@ -126,10 +126,7 @@ def handle_bridge(vif_name, domuuid, devid, action):
             locking_mode = config["locking_mode"]
             if locking_mode == "locked":
                 create_bridge_rules(vif_name, config)
-            if locking_mode in ["locked", "unlocked"]:
-                ip_link_set(vif_name, "up")
-        if action == "clear":
-            ip_link_set(vif_name, "up")
+        ip_link_set(vif_name, "up")
 
 ###############################################################################
 # Creation of openflow rules in the case of openvswitch.
@@ -214,10 +211,7 @@ def handle_vswitch(vif_name, domuuid, devid, action):
             locking_mode = config["locking_mode"]
             if locking_mode == "locked":
                 create_vswitch_rules(bridge_name, port, config)
-            if locking_mode in ["locked", "unlocked"]:
-                ip_link_set(vif_name, "up")
-        if action == "clear":
-            ip_link_set(vif_name, "up")
+        ip_link_set(vif_name, "up")
 
 ###############################################################################
 # Executable entry point.
