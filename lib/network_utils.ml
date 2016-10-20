@@ -705,9 +705,16 @@ end
 
 module Ovs = struct
 
-	module Cli = struct
+	module Cli : sig
+		val vsctl : ?log:bool -> string list -> string
+		val ofctl : ?log:bool -> string list -> string
+		val appctl : ?log:bool -> string list -> string
+	end = struct
+	let s = Semaphore.create 5
 	let vsctl ?(log=false) args =
-		call_script ~log_successful_output:log ovs_vsctl ("--timeout=20" :: args)
+		Semaphore.execute s (fun () ->
+			call_script ~log_successful_output:log ovs_vsctl ("--timeout=20" :: args)
+		)
 	let ofctl ?(log=false) args =
 		call_script ~log_successful_output:log ovs_ofctl args
 	let appctl ?(log=false) args =
