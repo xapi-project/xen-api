@@ -1356,6 +1356,9 @@ let _ =
   error Api_errors.vm_is_immobile ["VM"]
     ~doc:"The VM is configured in a way that prevents it from being mobile." ();
 
+  error Api_errors.vm_is_using_nested_virt ["VM"]
+    ~doc:"This operation is illegal because the VM is using nested virtualisation." ();
+
   (* PVS errors *)
   error Api_errors.pvs_site_contains_running_proxies ["proxies"]
     ~doc:"The PVS site contains running proxies." ();
