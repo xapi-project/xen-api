@@ -879,6 +879,7 @@ let vm_record rpc session_id vm =
         ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_PV_drivers_version) (xgm ()) ))
         ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_PV_drivers_version) (xgm ()))) ();
       make_field ~name:"PV-drivers-up-to-date"
+        ~deprecated: true
         ~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_PV_drivers_up_to_date) (xgm ()) )) ();
       make_field ~name:"memory"
         ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_memory) (xgm ())))
@@ -1166,7 +1167,7 @@ let vdi_record rpc session_id vdi =
       make_field ~name:"read-only" ~get:(fun () -> string_of_bool (x ()).API.vDI_read_only) ();
       make_field ~name:"storage-lock" ~get:(fun () -> string_of_bool (x ()).API.vDI_storage_lock) ();
       make_field ~name:"managed" ~get:(fun () -> string_of_bool (x ()).API.vDI_managed) ();
-      make_field ~name:"parent" ~get:(fun () -> get_uuid_from_ref (x ()).API.vDI_parent) ();
+      make_field ~name:"parent" ~deprecated:true ~get:(fun () -> get_uuid_from_ref (x ()).API.vDI_parent) ();
       make_field ~name:"missing" ~get:(fun () -> string_of_bool (x ()).API.vDI_missing) ();
       make_field ~name:"is-tools-iso" ~get:(fun () -> string_of_bool (x ()).API.vDI_is_tools_iso) ();
       make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vDI_other_config)
