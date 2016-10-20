@@ -1,3 +1,6 @@
+2.1.0 (20-Oct-2016):
+* New Semaphore module
+
 2.0.0 (22-Jun-2016):
 * Namespace everything under Stdext. This is a backwards incompatible change.
 
