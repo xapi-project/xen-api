@@ -357,7 +357,7 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
       then Some (Api_errors.only_revert_snapshot, [])
       else None) in
 
-  (* Migration must be blocked if VM is not mobile *)
+  (* Some ops must be blocked if VM is not mobile *)
   let current_error = check current_error (fun () ->
       match op with
       | `suspend
@@ -368,6 +368,17 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
         Some (Api_errors.vm_is_immobile, [ref_str])
       | _ -> None
     ) in
+
+  let current_error =
+    let metrics = Db.VM.get_metrics ~__context ~self:ref in
+    check current_error (fun () ->
+      match op with
+      | `changing_dynamic_range
+        when nested_virt ~__context ref metrics && strict ->
+        Some (Api_errors.vm_is_using_nested_virt, [ref_str])
+      | _ -> None
+    ) in
+
 
   (* Check if the VM is a control domain (eg domain 0).            *)
   (* FIXME: Instead of special-casing for the control domain here, *)
