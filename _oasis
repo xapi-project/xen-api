@@ -35,6 +35,7 @@ Library stdext
     Qring,
     Range,
     Ring,
+    Semaphore,
     Xstringext,
     Threadext,
     Trie,
@@ -47,7 +48,7 @@ Library stdext
     unixext_stubs.c,
     unixext_write_stubs.c,
     zerocheck_stub.c
-  BuildDepends: 
+  BuildDepends:
     threads,
     uuidm,
     unix,
