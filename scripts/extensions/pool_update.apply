@@ -123,7 +123,7 @@ if __name__ == '__main__':
             session.xenapi.pool_update.resync_host(host)
             print(success_message())
         except Exception as e:
-            print(failure_message(PATCH_APPLY_FAILED,
+            print(failure_message(UPDATE_APPLY_FAILED,
                                   ['Failed to apply the update: %s' % e]))
         finally:
             session.xenapi.pool_update.detach(update)
