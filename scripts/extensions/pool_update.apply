@@ -26,8 +26,8 @@ class ApplyFailure(Exception):
 
 
 def success_message():
-    rpcparams = {'Status': 'Success', 'Value': None}
-    return xmlrpclib.dumps((rpcparams, ), '', True, allow_none=True)
+    rpcparams = {'Status': 'Success', 'Value': ''}
+    return xmlrpclib.dumps((rpcparams, ), '', True)
 
 
 def failure_message(code, params):
