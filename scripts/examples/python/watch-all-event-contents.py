@@ -18,65 +18,97 @@
 # Simple python example to demonstrate the event system. Logs into the server,
 # registers for all events and prints them to the screen.
 
-import XenAPI, sys, time
+import XenAPI
+import sys
+import time
 
 iso8601 = "%Y%m%dT%H:%M:%SZ"
 
+
 def main(session):
     try:
-        # Register for events on all classes:
-        session.xenapi.event.register(["*"])
+        # interval in seconds, after which the event_from call should time out
+        call_timeout = 30.0
+
+        # interval (in seconds) between two subsequent event_from calls
+        polling_interval = 10
+
+        # the output of event_from includes a token, which can be passed into a
+        # subsequent event_from call to retrieve only the events that have occurred
+        # since the last call; if an empty string is passed, event_from will return
+        # all events (this is normally done for the very first call)
+        token = ''
+
+        # get events for all classes
+        event_types = ["*"]
+
         while True:
             try:
-                events = session.xenapi.event.next()
+                print "Polling for events..."
+                output = session.xenapi.event_from(event_types, token, call_timeout)
+                events = output['events']
+                token = output['token']
+
+                print "Number of events retrieved: %s" % len(events)
+
                 now = time.strftime(iso8601, time.gmtime(time.time()))
                 # Print the events out in a nice format:
                 fmt = "%18s %8s %s %20s  %5s  %s %s"
-                hdr = fmt % ("time", "id", "ref", "class", "type", "name of object (if available)", "snapshot")
-                print "-" * (len(hdr))
-                print hdr
-                print "-" * (len(hdr))
+
+                if len(events) > 0:
+                    hdr = fmt % ("time", "id", "ref", "class", "type", "name of object", "snapshot")
+                    print "-" * (len(hdr))
+                    print hdr
+                    print "-" * (len(hdr))
+
                 for event in events:
-                    name = "(unknown object name)"
+                    name = "n/a"
+                    snapshot = ''
                     if "snapshot" in event.keys():
                         snapshot = event['snapshot']
                         if "name_label" in snapshot.keys():
                             name = snapshot['name_label']
                     print fmt % (now, event['id'], event["ref"], event['class'], event['operation'], name, repr(snapshot))
 
-            except XenAPI.Failure, e:
-                if e.details <> [ "EVENTS_LOST" ]: raise
-                print "** Caught EVENTS_LOST error: some events may be lost"
-                # Check for the "EVENTS_LOST" error (happens if the event queue fills up on the
-                # server and some events have been lost). The only thing we can do is to
-                # unregister and then re-register again for future events.
-                # NB: A program which is waiting for a particular condition to become true would
-                # need to explicitly poll the state to make sure the condition hasn't become
-                # true in the gap.
-                session.xenapi.event.unregister(["*"])
-                session.xenapi.event.register(["*"])
+                print "Waiting for %s seconds before next poll..." % polling_interval
+                time.sleep(polling_interval)
+
+            except KeyboardInterrupt:
+                break
+
+            except XenAPI.Failure as e:
+                print e.details
+                break
     finally:
         session.xenapi.session.logout()
-        
-def usage_and_quit():
-    print "Usage:"
-    print sys.argv[0], " url <username> <password>"
-    sys.exit(1)
+
+
+def print_usage():
+    print """
+Usage:
+    %s <url> <username> <password>
+or
+    %s [http://]localhost [<username>] [<password>]
+""" % (sys.argv[0], sys.argv[0])
+
     
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        usage_and_quit()
+        print_usage()
+        sys.exit(1)
+
     url = sys.argv[1]
-    username = ""
-    password = ""
-    if len(sys.argv) > 2:
-        username = sys.argv[2]
-    if len(sys.argv) > 3:
-        password = sys.argv[3]
+    username = sys.argv[2] if len(sys.argv) > 2 else ""
+    password = sys.argv[3] if len(sys.argv) > 3 else ""
+
     # First acquire a valid session by logging in:
     if url == "http://localhost" or url == "localhost":
-        session = XenAPI.xapi_local()
+        new_session = XenAPI.xapi_local()
     else:
-        session = XenAPI.Session(url)
-    session.xenapi.login_with_password(username, password, '1.0', 'xen-api-scripts-watch-event-contents.py')
-    main(session)
+        new_session = XenAPI.Session(url)
+    try:
+        new_session.xenapi.login_with_password(username, password, '1.0', 'xen-api-scripts-watch-event-contents.py')
+    except XenAPI.Failure as f:
+        print "Failed to acquire a session: %s" % f.details
+        sys.exit(1)
+    main(new_session)

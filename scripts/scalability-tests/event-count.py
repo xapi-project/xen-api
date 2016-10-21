@@ -4,45 +4,57 @@
 
 import XenAPI, sys, time
 
-iso8601 = "%Y%m%dT%H:%M:%SZ"
+iso8601 = "%Y-%m-%dT%H:%M:%SZ"
+
 
 def main(session):
     global iso8601
 
-    # Register for events on all classes:
-    session.xenapi.event.register(["*"])
+    token = ''
+    call_timeout = 30.0
+
     while True:
         sys.stdout.flush()
-        time.sleep(5)
+
         now = time.time()
         now_string = time.strftime(iso8601, time.gmtime(now))
+
         try:
-            events = session.xenapi.event.next()
-            print "%s %d 0" % (now_string, len(events))
-            
-        except XenAPI.Failure, e:
-            if e.details <> [ "EVENTS_LOST" ]: raise
-            print "%s 0 1" % now_string
-            session.xenapi.event.unregister(["*"])
-            session.xenapi.event.register(["*"])
+            output = session.xenapi.event_from(["*"], token, call_timeout)
+            events = output['events']
+            token = output['token']
+            print "%s %10d 0" % (now_string, len(events))
+            time.sleep(5)
+
+        except KeyboardInterrupt:
+            break
+
+        except XenAPI.Failure as e:
+            print e.details
+            sys.exit(1)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) <> 4:
+    if len(sys.argv) != 4:
         print "Usage:"
         print sys.argv[0], " <url> <username> <password>"
         sys.exit(1)
+
     url = sys.argv[1]
-    if url[:5] <> "https":
-        raise "Must use SSL for a realistic test"
+    if url[:5] != "https":
+        raise Exception("Must use SSL for a realistic test")
     
     username = sys.argv[2]
     password = sys.argv[3]
     
-    session = XenAPI.Session(url)
-    session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-eventcount.py")
+    new_session = XenAPI.Session(url)
     try:
-        main(session)
+        new_session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-eventcount.py")
+    except XenAPI.Failure as f:
+        print "Failed to acquire a session: %s" % f.details
+        sys.exit(1)
+
+    try:
+        main(new_session)
     finally:
-        session.xenapi.logout()
-        
+        new_session.xenapi.logout()
