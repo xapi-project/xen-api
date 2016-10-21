@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
 import subprocess
-
+import os
+import json
 # Simple XenAPI plugin
 import XenAPIPlugin
+import xcp.environ
 
 class PluginError(Exception):
     """Base Exception class for all plugin errors."""
@@ -15,8 +17,8 @@ class ArgumentError(PluginError):
     def __init__(self, *args):
         PluginError.__init__(self, *args)
 
-class SubprocessFailure(PluginError):
-    """Raised when there was a failure attaching the VDI"""
+class InstallFailure(PluginError):
+    """Raised when there was a failure during install"""
     def __init__(self, *args):
         PluginError.__init__(self, *args)
 
@@ -24,22 +26,35 @@ def install(session, args):
     if not args.has_key("vdi"):
         raise ArgumentError("Key 'vdi' missing from arguments")
     vdi=args['vdi']
+    vdi_ref = None
     try:
-        session.xenapi.VDI.get_by_uuid(vdi)
+        vdi_ref = session.xenapi.VDI.get_by_uuid(vdi)
     except:
         raise ArgumentError("VDI parameter invalid")
 
-    process = subprocess.Popen([
-        "/opt/xensource/debug/with-vdi", vdi, "/opt/xensource/bin/xe-install-supplemental-pack"] + (["-b"] if args.has_key("upgrade") else []),
-        shell = False,
-        stdout = subprocess.PIPE,    
-        close_fds = True)
-    stdout, stderr = process.communicate()
-    if process.returncode != 0:
-        raise SubprocessFailure("Failed to execute the install-supplemental-pack script", stdout, stderr)
+    inventory = xcp.environ.readInventory()
+    this_host_uuid = inventory['INSTALLATION_UUID']
+    this_host_ref = session.xenapi.host.get_by_uuid(this_host_uuid)
+
+    update_ref = None
+    try:
+        update_ref = session.xenapi.pool_update.introduce(vdi_ref)
+    except:
+        raise ArgumentError("VDI contains invalid update package")
+
+    try:
+        session.xenapi.pool_update.apply(update_ref, this_host_ref)
+    except Exception as e:
+        try:
+            # pool_update.apply returns json format string like
+            # "['ERRORCODE', 'error_message']"
+            # fetch the error_message and display it.
+            error = json.loads(str(e))[1].encode('utf8')
+        except:
+            error = str(e)
+        raise InstallFailure("Failed to install the supplemental pack", error)
+
     return "OK"
-        
+
 if __name__ == "__main__":
     XenAPIPlugin.dispatch({"install": install})
-
-

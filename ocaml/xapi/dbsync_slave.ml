@@ -80,9 +80,9 @@ let refresh_localhost_info ~__context info =
   let host = !Xapi_globs.localhost_ref in
 
   (* Xapi_ha_flags.resync_host_armed_flag __context host; *)
-  debug "Updating host software_version and patches_requiring_reboot";
+  debug "Updating host software_version and updates_requiring_reboot";
 
-  Create_misc.create_patches_requiring_reboot_info ~__context ~host;
+  Create_misc.create_updates_requiring_reboot_info ~__context ~host;
   Create_misc.create_software_version ~__context;
   Db.Host.set_API_version_major ~__context ~self:host ~value:Xapi_globs.api_version_major;
   Db.Host.set_API_version_minor ~__context ~self:host ~value:Xapi_globs.api_version_minor;
@@ -306,11 +306,6 @@ let update_env __context sync_keys =
   switched_sync Xapi_globs.sync_pif_params (fun () ->
       debug "resynchronising PIF params";
       resynchronise_pif_params ~__context;
-    );
-
-  switched_sync Xapi_globs.sync_patch_update_db (fun () ->
-      debug "checking patch status";
-      Xapi_pool_patch.update_db ~__context
     );
 
   switched_sync Xapi_globs.sync_bios_strings (fun () ->

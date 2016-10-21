@@ -1680,12 +1680,9 @@ let handler (req: Request.t) s _ =
   Server_helpers.exec_with_new_task ?subtask_of "VM.import"
     (fun __context -> Helpers.call_api_functions ~__context (fun rpc session_id ->
          let sr =
-           if List.mem_assoc "sr_id" all
-           then Ref.of_string (List.assoc "sr_id" all)
-           else
-           if List.mem_assoc "sr_uuid" all
-           then Db.SR.get_by_uuid ~__context ~uuid:(List.assoc "sr_uuid" all)
-           else
+           match Importexport.sr_of_req ~__context req with
+           | Some x -> x
+           | None ->
              log_reraise
                "request was missing both sr_id and sr_uuid: one must be provided"
                (Helpers.call_api_functions ~__context)

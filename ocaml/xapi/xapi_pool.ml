@@ -27,8 +27,8 @@ open D
 open Workload_balancing
 
 (* Surpress exceptions *)
-let no_exn f x = 
-  try ignore (f x) 
+let no_exn f x =
+  try ignore (f x)
   with exn ->
     debug "Ignoring exception: %s" (ExnHelper.string_of_exn exn)
 
@@ -111,28 +111,28 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
         raise (Api_errors.Server_error (code, ["The pool uses v6d. Pool edition list = " ^ pool_edn_list_str]))
   in
 
-  (* CA-73264 Applied patches must match *) 
+  (* CA-73264 Applied patches must match *)
   let assert_applied_patches_match () =
     let get_patches patches get_pool_patch get_uuid =
       let patch_refs = List.map (fun x -> get_pool_patch ~self:x) patches in
       let patch_uuids = List.map (fun x -> get_uuid ~self:x) patch_refs in
       patch_uuids in
-    let pool_patches = get_patches 
-        (Client.Host.get_patches ~rpc ~session_id ~self:(get_master ~rpc ~session_id)) 
-        (Client.Host_patch.get_pool_patch ~rpc ~session_id) 
+    let pool_patches = get_patches
+        (Client.Host.get_patches ~rpc ~session_id ~self:(get_master ~rpc ~session_id))
+        (Client.Host_patch.get_pool_patch ~rpc ~session_id)
         (Client.Pool_patch.get_uuid ~rpc ~session_id) in
-    let host_patches = get_patches 
+    let host_patches = get_patches
         (Db.Host.get_patches ~__context ~self:(Helpers.get_localhost ~__context))
         (Db.Host_patch.get_pool_patch ~__context) (Db.Pool_patch.get_uuid ~__context) in
     let string_of_patches ps = (String.concat " " (List.map (fun patch -> patch) ps)) in
-    let diff = (List.set_difference host_patches pool_patches) @ 
+    let diff = (List.set_difference host_patches pool_patches) @
                (List.set_difference pool_patches host_patches)in
     if (List.length diff > 0) then begin
       error "Pool.join failed because of patches mismatch";
       error "Remote has %s" (string_of_patches pool_patches);
       error "Local has %s" (string_of_patches host_patches);
       raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,
-                                     [(Printf.sprintf "Patches applied differ: Remote has %s -- Local has %s" 
+                                     [(Printf.sprintf "Patches applied differ: Remote has %s -- Local has %s"
                                          (string_of_patches pool_patches) (string_of_patches host_patches))]))
     end
   in
@@ -146,8 +146,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     let slavetobe_auth_service_name = Db.Host.get_external_auth_service_name ~__context ~self:slavetobe in
     let master_auth_type = Client.Host.get_external_auth_type ~rpc ~session_id ~self:master in
     let master_auth_service_name = Client.Host.get_external_auth_service_name ~rpc ~session_id ~self:master in
-    debug "Verifying if external auth configuration of master %s (auth_type=%s service_name=%s) matches that of slave-to-be %s (auth-type=%s service_name=%s)" 
-      (Client.Host.get_name_label ~rpc ~session_id ~self:master) master_auth_type master_auth_service_name 
+    debug "Verifying if external auth configuration of master %s (auth_type=%s service_name=%s) matches that of slave-to-be %s (auth-type=%s service_name=%s)"
+      (Client.Host.get_name_label ~rpc ~session_id ~self:master) master_auth_type master_auth_service_name
       (Db.Host.get_name_label ~__context ~self:slavetobe) slavetobe_auth_type slavetobe_auth_service_name;
     if (slavetobe_auth_type <> master_auth_type)
     || (slavetobe_auth_service_name <> master_auth_service_name) then begin
@@ -273,7 +273,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     (* Check CPUs *)
 
     let my_cpu_vendor = Db.Host.get_cpu_info ~__context ~self:me |> List.assoc "vendor" in
-    let pool_cpu_vendor = 
+    let pool_cpu_vendor =
       let pool = List.hd (Client.Pool.get_all rpc session_id) in
       Client.Pool.get_cpu_info rpc session_id pool |> List.assoc "vendor"
     in
@@ -353,7 +353,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) : API.ref_host =
   let my_uuid = host.API.host_uuid in
 
-  let new_host_ref = 
+  let new_host_ref =
     try Client.Host.get_by_uuid rpc session_id my_uuid
     with _ ->
       debug "Found no host with uuid = '%s' on the master, so creating one." my_uuid;
@@ -385,7 +385,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           ~external_auth_configuration:host.API.host_external_auth_configuration
           ~license_params:host.API.host_license_params
           ~edition:host.API.host_edition
-          ~license_server:host.API.host_license_server 
+          ~license_server:host.API.host_license_server
           (* CA-51925: local_cache_sr can only be written by Host.enable_local_caching_sr but this API
              				 * call is forwarded to the host in question. Since, during a pool-join, the host is offline,
              				 * we need an alternative way of preserving the value of the local_cache_sr field, so it's
@@ -485,7 +485,7 @@ let create_or_get_vdi_on_master __context rpc session_id (vdi_ref, vdi) : API.re
   let new_sr_ref = create_or_get_sr_on_master __context rpc session_id (my_sr_ref, my_sr) in
 
   let new_vdi_ref =
-    try Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:my_uuid 
+    try Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:my_uuid
     with _ ->
       debug "Found no VDI with uuid = '%s' on the master, so creating one." my_uuid;
       Client.VDI.pool_introduce ~rpc ~session_id
@@ -793,12 +793,12 @@ let join_force ~__context ~master_address ~master_username ~master_password  =
 
 (* Assume that db backed up from master will be there and ready to go... *)
 let emergency_transition_to_master ~__context =
-  if Localdb.get Constants.ha_armed = "true" 
-  then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));  
+  if Localdb.get Constants.ha_armed = "true"
+  then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
   Xapi_pool_transition.become_master ()
 
 let emergency_reset_master ~__context ~master_address =
-  if Localdb.get Constants.ha_armed = "true" 
+  if Localdb.get Constants.ha_armed = "true"
   then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
   let master_address = Helpers.gethostbyname master_address in
   Xapi_pool_transition.become_another_masters_slave master_address
@@ -814,11 +814,11 @@ let recover_slaves ~__context =
           let local_fn = emergency_reset_master ~master_address:my_address in
 
           (* We have to use a new context here because the slave is currently doing a
-             	     Task.get_name_label on real tasks, which will block on slaves that we're 
-             	     trying to recover. Get around this by creating a dummy task, for which 
+             	     Task.get_name_label on real tasks, which will block on slaves that we're
+             	     trying to recover. Get around this by creating a dummy task, for which
              	     the name-label bit is bypassed *)
           let newcontext = Context.make "emergency_reset_master" in
-          Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn ~__context:newcontext ~host:hostref 
+          Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn ~__context:newcontext ~host:hostref
             (fun session_id rpc -> Client.Pool.emergency_reset_master rpc session_id my_address);
           recovered_hosts := hostref::!recovered_hosts
         with _ -> ()
@@ -848,7 +848,7 @@ let eject ~__context ~host =
   else begin
     (* Fail the operation if any VMs are running here (except dom0) *)
     let my_vms_with_records = Db.VM.get_records_where ~__context ~expr:(Eq(Field "resident_on", Literal (Ref.string_of host))) in
-    List.iter (fun (_, x) -> 
+    List.iter (fun (_, x) ->
         if (not (Helpers.is_domain_zero ~__context (Db.VM.get_by_uuid ~__context ~uuid:x.API.vM_uuid))) && x.API.vM_power_state <>`Halted
         then begin
           error "VM uuid %s not in Halted state and resident_on this host" (x.API.vM_uuid);
@@ -884,7 +884,7 @@ let eject ~__context ~host =
     debug "Pool.eject: disabling external authentication in slave-to-be-ejected";
     (* disable the external authentication of this slave being ejected *)
     (* this call will return an exception if something goes wrong *)
-    Xapi_host.disable_external_auth_common ~during_pool_eject:true ~__context ~host 
+    Xapi_host.disable_external_auth_common ~during_pool_eject:true ~__context ~host
       ~config:[];
     (* FIXME: in the future, we should send the windows AD admin/pass here *)
     (* in order to remove the slave from the AD database during pool-eject *)
@@ -984,7 +984,7 @@ let eject ~__context ~host =
            (Printf.sprintf "Moving remote database file to backup: %s"
               !Xapi_globs.remote_db_conf_fragment_path)
            (fun () ->
-              Unix.rename 
+              Unix.rename
                 !Xapi_globs.remote_db_conf_fragment_path
                 (!Xapi_globs.remote_db_conf_fragment_path ^ ".bak")) ();
          (* Reset the domain 0 network interface naming configuration
@@ -1005,7 +1005,7 @@ let sync_m = Mutex.create ()
 
 open Db_cache_types
 
-let sync_database ~__context = 
+let sync_database ~__context =
   Mutex.execute sync_m
     (fun () ->
        (* If HA is enabled I'll first try to flush to the LUN *)
@@ -1022,7 +1022,7 @@ let sync_database ~__context =
                 (fun rpc session_id -> Client.Host.request_backup rpc session_id host generation true))
            (Db.Host.get_all ~__context)
        end
-    )	 
+    )
 
 (* This also means me, since call will have been forwarded from the current master *)
 let designate_new_master ~__context ~host =
@@ -1050,7 +1050,7 @@ let initial_auth ~__context =
 
 (** This call is used during master startup so we should check to see whether we need to re-establish our database
     connection and resynchronise lost database state i.e. state which is non-persistent or reverted over a master crash *)
-let is_slave ~__context ~host = 
+let is_slave ~__context ~host =
   let is_slave = not (Pool_role.is_master ()) in
   info "Pool.is_slave call received (I'm a %s)" (if is_slave then "slave" else "master");
   debug "About to kick the database connection to make sure it's still working...";
@@ -1076,7 +1076,7 @@ let hello ~__context ~host_uuid ~host_address =
       (* Nb. next call is purely there to establish that we can talk back to the host that initiated this call *)
       (* We don't care about the return type, only that no exception is raised while talking to it *)
       (try
-         ignore(Message_forwarding.do_op_on_nolivecheck_no_retry ~local_fn ~__context ~host:host_ref 
+         ignore(Message_forwarding.do_op_on_nolivecheck_no_retry ~local_fn ~__context ~host:host_ref
                   (fun session_id rpc -> Client.Pool.is_slave rpc session_id host_ref))
        with Api_errors.Server_error(code, [ "pool.is_slave"; "1"; "2" ]) as e when code = Api_errors.message_parameter_count_mismatch ->
          debug "Caught %s: this host is a Rio box" (ExnHelper.string_of_exn e)
@@ -1084,7 +1084,7 @@ let hello ~__context ~host_uuid ~host_address =
             debug "Caught %s: this host is a Miami box" (ExnHelper.string_of_exn e)
       );
 
-      (* Set the host to disabled initially: when it has finished initialising and is ready to 
+      (* Set the host to disabled initially: when it has finished initialising and is ready to
          	   host VMs it will mark itself as enabled again. *)
       info "Host.enabled: setting host %s (%s) to disabled" (Ref.string_of host_ref) (Db.Host.get_hostname ~__context ~self:host_ref);
       Db.Host.set_enabled ~__context ~self:host_ref ~value:false;
@@ -1100,9 +1100,9 @@ let hello ~__context ~host_uuid ~host_address =
 
       (* Make sure we mark this host as live again *)
       Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m
-        (fun () -> Xapi_globs.hosts_which_are_shutting_down := List.filter (fun x -> x <> host_ref) !Xapi_globs.hosts_which_are_shutting_down);	
+        (fun () -> Xapi_globs.hosts_which_are_shutting_down := List.filter (fun x -> x <> host_ref) !Xapi_globs.hosts_which_are_shutting_down);
 
-      (* Update the heartbeat timestamp for this host so we don't mark it as 
+      (* Update the heartbeat timestamp for this host so we don't mark it as
          	   offline in the next db_gc *)
       let (_: (string * string) list) = Db_gc.tickle_heartbeat ~__context host_ref [] in
       `ok
@@ -1110,7 +1110,7 @@ let hello ~__context ~host_uuid ~host_address =
       debug "Caught exception: %s" (ExnHelper.string_of_exn e);
       `cannot_talk_back
 
-(** Create PIF on each pool host for specified VLAN/device pair. 
+(** Create PIF on each pool host for specified VLAN/device pair.
     On error, destroy all of the PIFs that have already been created. *)
 (* !!! THIS CALL IS FUNDAMENTALLY BROKEN wrt bonds -- see CA-22613; it should no longer be used.
    I have pulled together the function definitions specific to create_VLAN and moved them into create_VLAN definition
@@ -1118,19 +1118,19 @@ let hello ~__context ~host_uuid ~host_address =
    so we don't break existing API clients) there is no need to factor the commonality between these 2 fns.
 *)
 let create_VLAN ~__context ~device ~network ~vLAN =
-  (* Destroy the list of PIFs - try destroying them with the client API, and if 
+  (* Destroy the list of PIFs - try destroying them with the client API, and if
      the host is offline, just destroy the record *)
   let safe_destroy_PIFs ~__context pifs =
     Helpers.call_api_functions ~__context
       (fun rpc session_id ->
-         List.iter 
+         List.iter
            (fun pif ->
               try
                 (* This call destroys the metrics too *)
                 Client.PIF.destroy rpc session_id pif
               with
               | Api_errors.Server_error (a,b) ->
-                if a=Api_errors.host_offline 
+                if a=Api_errors.host_offline
                 then
                   Db.PIF.destroy ~__context ~self:pif
                 else
@@ -1145,13 +1145,13 @@ let create_VLAN ~__context ~device ~network ~vLAN =
   Helpers.call_api_functions ~__context
     (fun rpc session_id ->
        let pifs = List.map (
-           fun host -> 
-             try 
+           fun host ->
+             try
                let pif = Client.PIF.create_VLAN rpc session_id device network host vLAN in
                created := pif :: (!created);
                pif
-             with 
-             | e -> 
+             with
+             | e ->
                (* Any error and we'll clean up and exit *)
                safe_destroy_PIFs ~__context !created;
                raise e
@@ -1227,7 +1227,7 @@ let slave_network_report ~__context ~phydevs ~dev_to_mac ~dev_to_mtu ~slave_host
 (* Let's only process one enable/disable at a time. I would have used an allowed_operation for this but
    it would involve a datamodel change and it's too late for Orlando. *)
 let enable_disable_m = Mutex.create ()
-let enable_ha ~__context ~heartbeat_srs ~configuration = 
+let enable_ha ~__context ~heartbeat_srs ~configuration =
   if not (Helpers.pool_has_different_host_platform_versions ~__context)
   then Mutex.execute enable_disable_m (fun () -> Xapi_ha.enable __context heartbeat_srs configuration)
   else
@@ -1237,7 +1237,7 @@ let disable_ha ~__context = Mutex.execute enable_disable_m (fun () -> Xapi_ha.di
 
 let ha_prevent_restarts_for ~__context ~seconds = Xapi_ha.ha_prevent_restarts_for __context seconds
 
-let ha_failover_plan_exists ~__context ~n = 
+let ha_failover_plan_exists ~__context ~n =
   let n = Int64.to_int n in
   let all_protected_vms = Xapi_ha_vm_failover.all_protected_vms ~__context in
   match Xapi_ha_vm_failover.plan_for_n_failures ~__context ~all_protected_vms n with
@@ -1251,7 +1251,7 @@ let ha_failover_plan_exists ~__context ~n =
     info "No HA failover plan exists for %d host failures" n;
     false
 
-let ha_compute_max_host_failures_to_tolerate ~__context = 
+let ha_compute_max_host_failures_to_tolerate ~__context =
   let n = Xapi_ha_vm_failover.compute_max_host_failures_to_tolerate ~__context () in
   (* Update the Pool with this information if HA is currently enabled *)
   let pool = Helpers.get_pool ~__context in
@@ -1269,9 +1269,9 @@ let ha_compute_max_host_failures_to_tolerate ~__context =
   end;
   n
 
-let ha_compute_hypothetical_max_host_failures_to_tolerate ~__context ~configuration = 
+let ha_compute_hypothetical_max_host_failures_to_tolerate ~__context ~configuration =
   (* Check the restart priorities all look valid *)
-  List.iter (fun (_, pri) -> 
+  List.iter (fun (_, pri) ->
       if not(List.mem pri Constants.ha_valid_restart_priorities)
       then raise (Api_errors.Server_error(Api_errors.invalid_value, [ "ha_restart_priority"; pri ]))) configuration;
 
@@ -1279,19 +1279,19 @@ let ha_compute_hypothetical_max_host_failures_to_tolerate ~__context ~configurat
   let protected_vms = List.map (fun vm -> vm, Db.VM.get_record ~__context ~self:vm) protected_vms in
   Xapi_ha_vm_failover.compute_max_host_failures_to_tolerate ~__context ~protected_vms ()
 
-let ha_compute_vm_failover_plan ~__context ~failed_hosts ~failed_vms = 
+let ha_compute_vm_failover_plan ~__context ~failed_hosts ~failed_vms =
   let vms = List.map (fun vm -> vm, Db.VM.get_record ~__context ~self:vm) failed_vms in
   let all_hosts = Db.Host.get_all ~__context in
   let currently_live_hosts = List.filter (fun h -> try Db.Host_metrics.get_live ~__context ~self:(Db.Host.get_metrics ~__context ~self:h) with _ -> false) all_hosts in
   let live_hosts = List.filter (fun host -> not(List.mem host failed_hosts)) currently_live_hosts in
   debug "using live_hosts = [ %s ]" (String.concat "; " (List.map Ref.string_of live_hosts));
   (* All failed_vms must be agile *)
-  let errors = List.concat 
-      (List.map 
-         (fun self -> 
-            try Agility.vm_assert_agile ~__context ~self; [ self, [ "error_code", Api_errors.host_not_enough_free_memory ] ] (* default *) 
+  let errors = List.concat
+      (List.map
+         (fun self ->
+            try Agility.vm_assert_agile ~__context ~self; [ self, [ "error_code", Api_errors.host_not_enough_free_memory ] ] (* default *)
             with Api_errors.Server_error(code, params) -> [ self, [ "error_code", code ]]) failed_vms) in
-  let plan = List.map (fun (vm, host) -> vm, [ "host", Ref.string_of host ]) 
+  let plan = List.map (fun (vm, host) -> vm, [ "host", Ref.string_of host ])
       (Xapi_ha_vm_failover.compute_evacuation_plan ~__context (List.length all_hosts) live_hosts vms) in
   (List.filter (fun (vm, _) -> not(List.mem_assoc vm plan)) errors) @ plan
 
@@ -1300,7 +1300,7 @@ let create_new_blob ~__context ~pool ~name ~mime_type ~public =
   Db.Pool.add_to_blobs ~__context ~self:pool ~key:name ~value:blob;
   blob
 
-let set_ha_host_failures_to_tolerate ~__context ~self ~value = 
+let set_ha_host_failures_to_tolerate ~__context ~self ~value =
   if value < 0L then raise (Api_errors.Server_error(Api_errors.invalid_value, [ "ha_host_failures_to_tolerate"; Int64.to_string value ]));
 
   (* Don't block changes if we have no plan at all *)
@@ -1310,15 +1310,15 @@ let set_ha_host_failures_to_tolerate ~__context ~self ~value =
   Db.Pool.set_ha_host_failures_to_tolerate ~__context ~self ~value;
   let (_: bool) = Xapi_ha_vm_failover.update_pool_status ~__context () in ()
 
-let ha_schedule_plan_recomputation ~__context = 
+let ha_schedule_plan_recomputation ~__context =
   Xapi_ha.Monitor.plan_out_of_date := true
 
 let call_fn_on_host ~__context f host =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      try 
+      try
         f ~rpc ~session_id ~host
       with e -> begin
-          warn "Exception raised while performing operation on host %s error: %s" 
+          warn "Exception raised while performing operation on host %s error: %s"
             (Ref.string_of host) (ExnHelper.string_of_exn e);
           raise e
         end
@@ -1378,7 +1378,7 @@ let revalidate_subjects ~__context =
     * If a call to a single host to enable external auth fails, then Pool.enable_external_auth fails, and there is
       a best-effort attempt to disable any hosts who had their external auth successfully enabled before the failure occured
 *)
-let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type = 
+let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
 
   (* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
   (* enabling/disabling the pool's extauth at the same time could produce inconsistent states for extauth in each host of the pool *)
@@ -1391,7 +1391,7 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
       (* 1. verifies if any of the pool hosts already have external auth enabled, and fails if so *)
       (* this step isn't strictly necessary, since we will anyway fail in (2) if that is the case, but *)
       (* it avoids unnecessary network roundtrips in the pool *)
-      try 
+      try
         let is_external_auth_enabled host = (Db.Host.get_external_auth_type ~__context ~self:host <> "") in
         let host = List.find is_external_auth_enabled hosts in
         begin
@@ -1406,7 +1406,7 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
         if (List.length hosts)
            <>
            (List.length
-              (Listext.List.setify 
+              (Listext.List.setify
                  (List.map (fun h->Db.Host.get_hostname ~__context ~self:h) hosts))
            )
         then begin
@@ -1418,8 +1418,8 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
         else
           (* 2. tries to enable the external authentication in each host of the pool *)
           let host_error_msg = ref ("","","") in
-          let rollback_list = 
-            let _rollback_list = ref [] in 
+          let rollback_list =
+            let _rollback_list = ref [] in
             (* builds a list of hosts to rollback, if any *)
             if List.for_all (*List.for_all goes through the list up to the point when the predicate fails, inclusive *)
                 (fun h ->
@@ -1430,9 +1430,9 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
                        _rollback_list := h::!_rollback_list; (* add h to potential rollback list *)
                        true (* h was successfully enabled. try next in the pool *)
                      end
-                   with 
+                   with
                    | Api_errors.Server_error (err,[msg]) as e -> begin
-                       debug "received exception while enabling external authentication for host %s: %s" 
+                       debug "received exception while enabling external authentication for host %s: %s"
                          (Db.Host.get_name_label ~__context ~self:h) (err^": "^msg);
                        host_error_msg := (err,msg,ExnHelper.string_of_exn e);
                        (* error enabling h. we add h here so that we also explicitly disable it during rollback *)
@@ -1440,8 +1440,8 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
                        _rollback_list := h::!_rollback_list;
                        false
                      end
-                   | e -> begin 
-                       debug "received exception while enabling external authentication for host %s: %s" 
+                   | e -> begin
+                       debug "received exception while enabling external authentication for host %s: %s"
                          (Db.Host.get_name_label ~__context ~self:h) (ExnHelper.string_of_exn e);
                        host_error_msg := ("","",ExnHelper.string_of_exn e);
                        (* error enabling h. we add h here so that we also explicitly disable it during rollback *)
@@ -1457,22 +1457,22 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
             !_rollback_list
           in
           (* 3. if any failed, then do a best-effort rollback, disabling any host that has been just enabled *)
-          if (List.length rollback_list > 0) 
+          if (List.length rollback_list > 0)
           then begin (* FAILED *)
             let failed_host = (* the failed host is the first item in the rollback list *)
               (List.hd rollback_list) in
             let failed_host_name_label = Db.Host.get_name_label ~__context ~self:failed_host in
             match !host_error_msg with (err_of_e,msg_of_e,string_of_e) ->
               debug "Rolling back any enabled host, because failed to enable external authentication for host %s in the pool: %s" failed_host_name_label string_of_e;
-              List.iter (fun host -> 
+              List.iter (fun host ->
                   (* best-effort attempt to disable all enabled hosts, swallowing any exceptions *)
-                  try (call_fn_on_host ~__context (Client.Host.disable_external_auth ~config) host) 
-                  with e-> (debug "During rollback: Failed to disable external authentication for host %s: %s" 
+                  try (call_fn_on_host ~__context (Client.Host.disable_external_auth ~config) host)
+                  with e-> (debug "During rollback: Failed to disable external authentication for host %s: %s"
                               (Db.Host.get_name_label ~__context ~self:host) (ExnHelper.string_of_exn e)
                            )
                 ) (List.rev rollback_list);
               (* we bubble up the exception returned by the failed host *)
-              match err_of_e with 
+              match err_of_e with
               | "" -> (* generic unknown exception *)
                 raise (Api_errors.Server_error(Api_errors.pool_auth_enable_failed, [(Ref.string_of failed_host);string_of_e]))
               | err_of_e when err_of_e=Api_errors.auth_unknown_type ->
@@ -1495,7 +1495,7 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
     * Reports failure if any of the individual Host.disable_external_auth calls failed or timed-out
     * Guarantees to call Host.disable_external_auth() on every pool host, regardless of whether some of these calls fail
 *)
-let disable_external_auth ~__context ~pool ~config = 
+let disable_external_auth ~__context ~pool ~config =
 
   (* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
   (* enabling/disabling the pool's extauth at the same time could produce inconsistent states for extauth in each host of the pool *)
@@ -1510,24 +1510,24 @@ let disable_external_auth ~__context ~pool ~config =
               call_fn_on_host ~__context (Client.Host.disable_external_auth ~config) host;
               (* no failed host to add to the filtered list, just visit next host *)
               (host,"","")
-            with 
+            with
             | Api_errors.Server_error (err,[host_msg]) -> begin
-                let msg = (Printf.sprintf "%s: %s" 
+                let msg = (Printf.sprintf "%s: %s"
                              (Db.Host.get_name_label ~__context ~self:host) host_msg) in
                 debug "Failed to disable the external authentication of pool in host %s" msg;
                 (* no exception should be raised here, we want to visit every host in hosts *)
                 (host,err,msg)
               end
             | e-> (* add failed host to the filtered list and visit next host *)
-              let msg = (Printf.sprintf "%s: %s" 
+              let msg = (Printf.sprintf "%s: %s"
                            (Db.Host.get_name_label ~__context ~self:host) (ExnHelper.string_of_exn e)) in
               debug "Failed to disable the external authentication of pool in host %s" msg;
               (* no exception should be raised here, we want to visit every host in hosts *)
               (host,"err",msg)
-          ) 
+          )
           hosts
       in
-      let failedhosts_list = List.filter (fun (host,err,msg) -> err<>"") host_msgs_list in 
+      let failedhosts_list = List.filter (fun (host,err,msg) -> err<>"") host_msgs_list in
       if (List.length failedhosts_list > 0)
       then begin (* FAILED *)
         match List.hd failedhosts_list with (host,err,msg) ->
@@ -1557,7 +1557,7 @@ let run_detect_nonhomogeneous_external_auth_in_pool () =
   (* we do not want to run this test while the pool's extauth is being enabled or disabled *)
   Threadext.Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
       ignore (Server_helpers.exec_with_new_task "run_detect_nonhomogeneous_external_auth"
-                (fun __context -> 
+                (fun __context ->
                    detect_nonhomogeneous_external_auth_in_pool ~__context
                 )
              )
@@ -1578,7 +1578,7 @@ let create_redo_log_vdi ~__context ~sr =
   Helpers.call_api_functions ~__context
     (fun rpc session_id ->
        Client.VDI.create ~rpc ~session_id
-         ~name_label:"Metadata redo-log" 
+         ~name_label:"Metadata redo-log"
          ~name_description:"Used when HA is disabled, while extra security is still desired"
          ~sR:sr
          ~virtual_size:Redo_log.minimum_vdi_size
@@ -1591,9 +1591,9 @@ let create_redo_log_vdi ~__context ~sr =
          ~tags:[]
     )
 
-let find_or_create_redo_log_vdi ~__context ~sr = 
+let find_or_create_redo_log_vdi ~__context ~sr =
   match
-    List.filter 
+    List.filter
       (fun self -> true
                    && (Db.VDI.get_type ~__context ~self = `redo_log)
                    && (Db.VDI.get_virtual_size ~__context ~self >= Redo_log.minimum_vdi_size))
@@ -1610,13 +1610,13 @@ let enable_redo_log ~__context ~sr =
   info "Enabling redo log...";
 
   (* find or create suitable VDI *)
-  let vdi = 
+  let vdi =
     try
       find_or_create_redo_log_vdi ~__context ~sr
     with e ->
       let msg = "failed to create a VDI for the redo log on the SR with the given UUID." in
       raise (Api_errors.Server_error(Api_errors.cannot_enable_redo_log, [msg]))
-  in	
+  in
 
   (* ensure VDI is static, and set a flag in the local DB, such that the redo log can be
      	 * re-enabled after a restart of xapi *)
@@ -1633,7 +1633,7 @@ let enable_redo_log ~__context ~sr =
       in
       List.iter attach hosts;
       debug "VDI is static on all hosts"
-    with e -> 
+    with e ->
       let msg = "failed to make VDI static." in
       raise (Api_errors.Server_error(Api_errors.cannot_enable_redo_log, [msg]))
   end;
@@ -1658,7 +1658,7 @@ let disable_redo_log ~__context =
   (* disable redo-log state flag and switch off redo log if HA is disabled *)
   let pool = Helpers.get_pool ~__context in
   Db.Pool.set_redo_log_enabled ~__context ~self:pool ~value:false;
-  if not (Db.Pool.get_ha_enabled ~__context ~self:pool) then begin		
+  if not (Db.Pool.get_ha_enabled ~__context ~self:pool) then begin
     Redo_log_usage.stop_using_redo_log Xapi_ha.ha_redo_log;
     Redo_log.disable Xapi_ha.ha_redo_log;
 
@@ -1713,31 +1713,31 @@ let enable_local_storage_caching ~__context ~self =
   let hosts = Db.Host.get_all ~__context in
 
   (* Exception handler is to cope with transient PBDs with invalid references *)
-  let hosts_and_srs = List.filter_map (fun (pbdref,pbdrec) -> 
-      try Some (pbdrec.API.pBD_host, pbdrec.API.pBD_SR, List.assoc pbdrec.API.pBD_SR srs) with _ -> None) pbds 
+  let hosts_and_srs = List.filter_map (fun (pbdref,pbdrec) ->
+      try Some (pbdrec.API.pBD_host, pbdrec.API.pBD_SR, List.assoc pbdrec.API.pBD_SR srs) with _ -> None) pbds
   in
 
-  let acceptable = List.filter (fun (href,srref,srrec) -> 
-      (not srrec.API.sR_shared) && 
-      (List.length srrec.API.sR_PBDs = 1) && 
+  let acceptable = List.filter (fun (href,srref,srrec) ->
+      (not srrec.API.sR_shared) &&
+      (List.length srrec.API.sR_PBDs = 1) &&
       (List.mem_assoc
          Smint.Sr_supports_local_caching
          (Sm.features_of_driver srrec.API.sR_type))
     ) hosts_and_srs in
 
-  let failed_hosts = 
+  let failed_hosts =
     Helpers.call_api_functions ~__context
-      (fun rpc session_id -> 
+      (fun rpc session_id ->
          let failed = List.filter_map (fun host ->
              let result = ref (Some host) in
              let acceptable_srs = List.filter (fun (href,srref,srrec) -> href=host) acceptable in
-             List.iter (fun (href,ref,sr) -> 
+             List.iter (fun (href,ref,sr) ->
                  try Client.Host.enable_local_storage_caching rpc session_id host ref; result := None with _ -> ()) acceptable_srs;
              !result
            ) hosts in
          failed)
   in
-  if List.length failed_hosts > 0 then 
+  if List.length failed_hosts > 0 then
     raise (Api_errors.Server_error (Api_errors.hosts_failed_to_enable_caching, List.map Ref.string_of failed_hosts))
   else ()
 
@@ -1745,12 +1745,12 @@ let enable_local_storage_caching ~__context ~self =
 let disable_local_storage_caching ~__context ~self =
   let hosts = Db.Host.get_all ~__context in
   let failed_hosts = Helpers.call_api_functions ~__context
-      (fun rpc session_id -> 
-         List.filter_map (fun host -> 
-             try 
+      (fun rpc session_id ->
+         List.filter_map (fun host ->
+             try
                Client.Host.disable_local_storage_caching ~rpc ~session_id ~host;
                None
-             with _ -> 
+             with _ ->
                Some host) hosts)
   in
   if List.length failed_hosts > 0 then

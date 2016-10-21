@@ -400,6 +400,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         Ref.string_of patch
     with _ -> "invalid"
 
+  let pool_update_uuid ~__context update =
+    try if Pool_role.is_master () then
+        Db.Pool_update.get_uuid __context update
+      else
+        Ref.string_of update
+    with _ -> "invalid"
+
   let pci_uuid ~__context pci =
     try if Pool_role.is_master () then
         Db.PCI.get_uuid __context pci
@@ -3894,7 +3901,58 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null
         )
   end
+  module Pool_update = struct
+    let introduce ~__context ~vdi =
+      info "Pool_update.introduce: vdi = '%s'" (vdi_uuid ~__context vdi);
+      let local_fn = Local.Pool_update.introduce ~vdi in
+      VDI.forward_vdi_op ~local_fn ~__context ~self:vdi
+        (fun session_id rpc -> Client.Pool_update.introduce rpc session_id vdi)
 
+    let pool_apply ~__context ~self =
+      info "Pool_update.pool_apply: pool update = '%s'" (pool_update_uuid ~__context self);
+      Local.Pool_update.pool_apply ~__context ~self
+
+    let pool_clean ~__context ~self =
+      info "Pool_update.pool_clean: pool update = '%s'" (pool_update_uuid ~__context self);
+      let local_fn = Local.Pool_update.pool_clean ~self in
+      let update_vdi = Db.Pool_update.get_vdi ~__context ~self in
+      if Db.is_valid_ref __context update_vdi then
+        VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi
+        (fun session_id rpc -> Client.Pool_update.pool_clean rpc session_id self)
+      else
+        info "Pool_update.pool_clean: pool update '%s' has already been cleaned." (pool_update_uuid ~__context self)
+
+    let destroy ~__context ~self =
+      info "Pool_update.destroy: pool update = '%s'" (pool_update_uuid ~__context self);
+      Local.Pool_update.destroy ~__context ~self
+
+    let attach ~__context ~self =
+      info "Pool_update.attach: pool update = '%s'" (pool_update_uuid ~__context self);
+      let local_fn = Local.Pool_update.attach ~self in
+      let update_vdi = Db.Pool_update.get_vdi ~__context ~self in
+      if Db.is_valid_ref __context update_vdi then
+        VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi
+        (fun session_id rpc -> Client.Pool_update.attach rpc session_id self)
+      else
+        raise (Api_errors.Server_error(Api_errors.cannot_find_update, [(pool_update_uuid ~__context self)]))
+
+    let detach ~__context ~self =
+      info "Pool_update.detach: pool update = '%s''" (pool_update_uuid ~__context self);
+      let local_fn = Local.Pool_update.detach ~self in
+      let update_vdi = Db.Pool_update.get_vdi ~__context ~self in
+      if Db.is_valid_ref __context update_vdi then
+        VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi
+        (fun session_id rpc -> Client.Pool_update.detach rpc session_id self)
+      else
+        raise (Api_errors.Server_error(Api_errors.cannot_find_update, [(pool_update_uuid ~__context self)]))
+
+    let resync_host ~__context ~host =
+      info "Pool_update.resync_host: host = '%s'" (host_uuid ~__context host);
+      let local_fn = Local.Pool_update.resync_host ~host in
+      do_op_on ~local_fn ~__context ~host
+        (fun session_id rpc -> Client.Pool_update.resync_host rpc session_id host)
+
+  end
   module VGPU_type = struct end
   module LVHD = struct end
 

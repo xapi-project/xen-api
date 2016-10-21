@@ -145,7 +145,7 @@ let make_host2 ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="
     ~display:`enabled
     ~virtual_hardware_platform_versions:[]
     ~control_domain:Ref.null
-    ~patches_requiring_reboot:[];
+    ~updates_requiring_reboot:[];
   ref
 
 let make_pif ~__context ~network ~host ?(device="eth0") ?(mAC="C0:FF:EE:C0:FF:EE") ?(mTU=1500L)
@@ -348,4 +348,11 @@ let make_pvs_cache_storage ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
     ?(host=Ref.null) ?(sR=Ref.null) ?(site=Ref.null) ?(size=0L) ?(vDI=Ref.null) () =
   Db.PVS_cache_storage.create ~__context
     ~ref ~uuid ~host ~sR ~site ~size ~vDI;
+  ref
+
+let make_pool_update ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
+    ?(name_label="") ?(name_description="") ?(installation_size=0L) ?(key="")
+    ?(after_apply_guidance=[]) ?(vdi=Ref.null) () =
+  let update_info = Xapi_pool_update.{uuid; name_label; name_description; key; installation_size; after_apply_guidance} in
+  Xapi_pool_update.create_update_record ~__context ~update:ref ~update_info ~vdi;
   ref

@@ -611,7 +611,6 @@ let common_http_handlers = [
   ("put_host_restore", (Http_svr.FdIO Xapi_host_backup.host_restore_handler));
   ("get_host_logs_download", (Http_svr.FdIO Xapi_logs_download.logs_download_handler));
   ("put_pool_patch_upload", (Http_svr.FdIO Xapi_pool_patch.pool_patch_upload_handler));
-  ("get_pool_patch_download", (Http_svr.FdIO Xapi_pool_patch.pool_patch_download_handler));
   ("get_vncsnapshot", (Http_svr.FdIO Xapi_vncsnapshot.vncsnapshot_handler));
   ("get_pool_xml_db_sync", (Http_svr.FdIO Pool_db_backup.pull_database_backup_handler));
   ("put_pool_xml_db_sync", (Http_svr.FdIO Pool_db_backup.push_database_restore_handler));
@@ -639,6 +638,7 @@ let common_http_handlers = [
   ("post_json_options", (Http_svr.BufIO (Api_server.options_callback)));
   ("post_jsonrpc_options", (Http_svr.BufIO (Api_server.options_callback)));
   ("connect_migrate", (Http_svr.FdIO Xapi_vm_migrate.handler));
+  ("get_pool_update_download", (Http_svr.FdIO Xapi_pool_update.pool_update_download_handler));
 ]
 
 let listen_unix_socket sock_path =
@@ -962,6 +962,10 @@ let server_init() =
           (fun () -> call_extauth_hook_script_before_xapi_initialize ~__context);
           "Calling on_xapi_initialize event hook in the external authentication plugin", [ Startup.NoExnRaising; Startup.OnThread ],
           (fun () -> event_hook_auth_on_xapi_initialize_async ~__context);
+          "Cleanup attached pool_updates when start", [ Startup.NoExnRaising ],
+          (fun () -> Helpers.call_api_functions ~__context (fun rpc session_id -> Xapi_pool_update.detach_attached_updates __context));
+          "Resync the applied updates of the host when start", [ Startup.NoExnRaising ],
+          (fun () -> Helpers.call_api_functions ~__context (fun rpc session_id -> Xapi_pool_update.resync_host __context (Helpers.get_localhost ~__context)));
         ];
 
         debug "startup: startup sequence finished");

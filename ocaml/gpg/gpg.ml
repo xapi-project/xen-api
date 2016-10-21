@@ -77,6 +77,15 @@ let common ty filename signature size f =
         "--status-fd"; status_in_uuid;
         "--verify"; signature
       ]
+    | `verified_signature ->
+      [
+        "--homedir"; !Xapi_globs.gpg_homedir;
+        "--no-default-keyring";
+        "--keyring"; gpg_pub_keyring;
+        "--status-fd"; status_in_uuid;
+        "--verify"; signature;
+        filename
+      ]
   in
 
   finally  (* make sure I close all my open fds in the end *)
@@ -108,3 +117,6 @@ let with_signed_cleartext filename f =
 
 let with_detached_signature filename signature size f =
   common `detached_signature filename signature size f
+
+let with_verified_signature filename signature f =
+  common `verified_signature filename signature Int64.zero f

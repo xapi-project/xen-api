@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** 
+(**
  * @group Command-Line Interface (CLI)
 *)
 
@@ -154,7 +154,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     (*    "host-introduce",
           {
-          reqd=["name"; "address"; "remote-port"; "remote-username"; "remote-password"]; 
+          reqd=["name"; "address"; "remote-port"; "remote-username"; "remote-password"];
           optn=["description"];
           help="Introduce a remote host";
           implementation=No_fd Cli_operations.host_introduce
@@ -492,7 +492,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     };
 
     "host-enable-local-storage-caching",
-    { 
+    {
       reqd=["sr-uuid"];
       optn=[];
       help="Enable local storage caching on the specified host";
@@ -501,7 +501,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     };
 
     "host-disable-local-storage-caching",
-    { 
+    {
       reqd=[];
       optn=[];
       help="Disable local storage caching on the specified host";
@@ -853,12 +853,12 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "update-upload",
     {
-      reqd=["file-name"; "host-uuid"];
-      optn=[];
+      reqd=["file-name"];
+      optn=["sr-uuid"];
       help="Stream new update to the server.";
       implementation=With_fd Cli_operations.update_upload;
       flags=[];
-    };    
+    };
 
     "patch-precheck",
     {
@@ -902,6 +902,60 @@ let rec cmdtable_data : (string*cmd_spec) list =
       optn=[];
       help="Delete a previously uploaded patch file on all hosts in the pool.";
       implementation=No_fd Cli_operations.patch_pool_clean;
+      flags=[];
+    };
+
+    "update-introduce",
+    {
+      reqd=["vdi-uuid"];
+      optn=[];
+      help="Introduce update VDI.";
+      implementation=No_fd Cli_operations.update_introduce;
+      flags=[];
+    };
+
+    "update-precheck",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Execute the precheck stage of the selected update on the specified host.";
+      implementation=No_fd Cli_operations.update_precheck;
+      flags=[Host_selectors];
+    };
+
+    "update-apply",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Apply the selected update to the specified host.";
+      implementation=No_fd Cli_operations.update_apply;
+      flags=[Host_selectors];
+    };
+
+    "update-pool-apply",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Apply the selected update to all hosts in the pool.";
+      implementation=No_fd Cli_operations.update_pool_apply;
+      flags=[];
+    };
+
+    "update-pool-clean",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Removes the update's files from all hosts in the pool.";
+      implementation=No_fd Cli_operations.update_pool_clean;
+      flags=[];
+    };
+
+    "update-destroy",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Removes the database entry. Only works on unapplied update.";
+      implementation=No_fd Cli_operations.update_destroy;
       flags=[];
     };
 
@@ -988,7 +1042,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "vm-memory-target-wait",
     {
-      reqd=[]; 
+      reqd=[];
       optn=[];
       help="Wait for a running VM to reach its current memory target.";
       implementation=No_fd Cli_operations.vm_memory_target_wait;
@@ -997,7 +1051,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "vm-data-source-list",
     {
-      reqd=[]; 
+      reqd=[];
       optn=[];
       help="List the data sources that can be recorded for a VM.";
       implementation=No_fd Cli_operations.vm_data_source_list;
@@ -1006,7 +1060,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "vm-data-source-record",
     {
-      reqd=["data-source"]; 
+      reqd=["data-source"];
       optn=[];
       help="Record the specified data source for a VM.";
       implementation=No_fd Cli_operations.vm_data_source_record;
@@ -1015,7 +1069,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "vm-data-source-query",
     {
-      reqd=["data-source"]; 
+      reqd=["data-source"];
       optn=[];
       help="Query the last value read from a VM data source.";
       implementation=No_fd Cli_operations.vm_data_source_query;
@@ -1024,7 +1078,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "vm-data-source-forget",
     {
-      reqd=["data-source"]; 
+      reqd=["data-source"];
       optn=[];
       help="Stop recording the specified data source for a VM, and forget all of the recorded data.";
       implementation=No_fd Cli_operations.vm_data_source_forget;
@@ -1042,7 +1096,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "vm-clone",
     {
-      reqd=["new-name-label"]; 
+      reqd=["new-name-label"];
       optn=["new-name-description"];
       help="Clone an existing VM, using storage-level fast disk clone operation where available.";
       implementation=No_fd Cli_operations.vm_clone;
@@ -1078,14 +1132,14 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "vm-copy",
     {
-      reqd=["new-name-label"]; 
+      reqd=["new-name-label"];
       optn=["new-name-description"; "sr-uuid"];
       help="Copy an existing VM, but without using storage-level fast disk clone operation (even if this is available). The disk images of the copied VM are guaranteed to be 'full images' - i.e. not part of a CoW chain.";
       implementation=No_fd Cli_operations.vm_copy;
       flags=[Standard; Vm_selectors];
     };
 
-    "snapshot-revert", 
+    "snapshot-revert",
     {
       reqd=[];
       optn=["uuid"; "snapshot-uuid"];
@@ -1106,7 +1160,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "vm-uninstall",
     {
-      reqd=[]; 
+      reqd=[];
       optn=["force"];
       help="Uninstall a VM. This operation will destroy those VDIs that are marked RW and connected to this VM only. To simply destroy the VM record, use vm-destroy.";
       implementation=With_fd Cli_operations.vm_uninstall;
@@ -1160,7 +1214,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "vm-shutdown",
     {
-      reqd=[]; 
+      reqd=[];
       optn=["force"];
       help="Shutdown the selected VM(s). The optional argument --force will forcibly shut down the VM.";
       implementation=No_fd Cli_operations.vm_shutdown;
@@ -1169,7 +1223,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "vm-reset-powerstate",
     {
-      reqd=[]; 
+      reqd=[];
       optn=["force"];
       help="Force the VM powerstate to halted in the management toolstack database only. This command is used to recover a VM that is marked as 'running', but is known to be on a dead slave host that will not recover. This is a potentially dangerous operation: you must ensure that the VM you are forcing to 'halted' is definitely not running anywhere.";
       implementation=No_fd Cli_operations.vm_reset_powerstate;
@@ -1178,7 +1232,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "snapshot-reset-powerstate",
     {
-      reqd=[]; 
+      reqd=[];
       optn=["uuid"; "snapshot-uuid"; "force"];
       help="Force the VM powerstate to halted in the management toolstack database only. This command is used to recover a snapshot that is marked as 'suspended'. This is a potentially dangerous operation: you must ensure that you do not need the memory image anymore (ie. you will not be able to resume your snapshot anymore).";
       implementation=No_fd Cli_operations.snapshot_reset_powerstate;
@@ -1187,7 +1241,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "vm-reboot",
     {
-      reqd=[]; 
+      reqd=[];
       optn=["force"];
       help="Reboot the selected VM(s).";
       implementation=No_fd Cli_operations.vm_reboot;
@@ -1241,7 +1295,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "vm-disk-list",
     {
-      reqd=[]; 
+      reqd=[];
       optn=["vbd-params";"vdi-params"];
       help="List the disks on the selected VM(s).";
       implementation=No_fd (Cli_operations.vm_disk_list false);
@@ -1432,7 +1486,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "snapshot-disk-list",
     {
-      reqd=[]; 
+      reqd=[];
       optn=["uuid"; "snapshot-uuid"; "vbd-params"; "vdi-params"];
       help="List the disks on the selected VM(s).";
       implementation=No_fd (Cli_operations.snapshot_disk_list false);
@@ -1450,7 +1504,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "template-uninstall",
     {
-      reqd=["template-uuid"]; 
+      reqd=["template-uuid"];
       optn=["force"];
       help="Uninstall a custom template. This operation will destroy those VDIs that are marked as 'owned' by this template";
       implementation=With_fd Cli_operations.template_uninstall;
@@ -1548,7 +1602,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     };
 
     "pif-scan",
-    { 
+    {
       reqd=["host-uuid"];
       optn=[];
       help="Scan for new physical interfaces on a host.";
@@ -1557,7 +1611,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     };
 
     "pif-introduce",
-    { 
+    {
       reqd=["host-uuid"; "device"];
       optn=["mac"; "managed"];
       help="Create a new PIF object representing a physical interface on a host.";
@@ -1750,7 +1804,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     };
     "sr-data-source-list",
     {
-      reqd=[]; 
+      reqd=[];
       optn=[];
       help="List the data sources that can be recorded for a SR.";
       implementation=No_fd Cli_operations.sr_data_source_list;
@@ -1758,7 +1812,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     };
     "sr-data-source-record",
     {
-      reqd=["data-source"]; 
+      reqd=["data-source"];
       optn=[];
       help="Record the specified data source for a SR.";
       implementation=No_fd Cli_operations.sr_data_source_record;
@@ -1767,7 +1821,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "sr-data-source-query",
     {
-      reqd=["data-source"]; 
+      reqd=["data-source"];
       optn=[];
       help="Query the last value read from a SR data source.";
       implementation=No_fd Cli_operations.sr_data_source_query;
@@ -1776,7 +1830,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
 
     "sr-data-source-forget",
     {
-      reqd=["data-source"]; 
+      reqd=["data-source"];
       optn=[];
       help="Stop recording the specified data source for a SR, and forget all of the recorded data.";
       implementation=No_fd Cli_operations.sr_data_source_forget;
@@ -1938,7 +1992,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
     "network-create",
     {
-      reqd=["name-label"]; 
+      reqd=["name-label"];
       optn=["name-description"; "MTU"];
       help="Create a new network.";
       implementation=No_fd Cli_operations.net_create;
@@ -2058,7 +2112,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
 (*
    "diagnostic-event-deltas",
-    { 
+    {
       reqd=["class"];
       optn=[];
       help="Print the changes that are happening to all objects of class specified.";
@@ -2085,7 +2139,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
     "host-data-source-list",
     {
-      reqd=[]; 
+      reqd=[];
       optn=[];
       help="List the data sources that can be recorded for a Host.";
       implementation=No_fd Cli_operations.host_data_source_list;
@@ -2094,7 +2148,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 
     "host-data-source-record",
     {
-      reqd=["data-source"]; 
+      reqd=["data-source"];
       optn=[];
       help="Record the specified data source for a Host.";
       implementation=No_fd Cli_operations.host_data_source_record;
@@ -2103,7 +2157,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 
     "host-data-source-query",
     {
-      reqd=["data-source"]; 
+      reqd=["data-source"];
       optn=[];
       help="Query the last value read from a Host data source.";
       implementation=No_fd Cli_operations.host_data_source_query;
@@ -2112,7 +2166,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 
     "host-data-source-forget",
     {
-      reqd=["data-source"]; 
+      reqd=["data-source"];
       optn=[];
       help="Stop recording the specified data source for a Host, and forget all of the recorded data.";
       implementation=No_fd Cli_operations.host_data_source_forget;
@@ -2246,7 +2300,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       help="Display per-host thread diagnostic information.";
       implementation=No_fd Cli_operations.host_get_thread_diagnostics;
       flags=[];
-    };	  
+    };
     "host-sm-dp-destroy",
     {
       reqd=["uuid"; "dp"];
@@ -2390,8 +2444,8 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
 (*
     "subject-list",
     {
-      reqd=[]; 
-      optn=[]; 
+      reqd=[];
+      optn=[];
       help="Returns a list of subject names that can access the pool";
       implementation=No_fd Cli_operations.subject_list;
       flags=[]
@@ -2400,7 +2454,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     "subject-add",
     {
       reqd=["subject-name"];
-      optn=[]; 
+      optn=[];
       help="Add a subject to the list of subjects that can access the pool";
       implementation=No_fd Cli_operations.subject_add;
       flags=[]
@@ -2409,7 +2463,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     "subject-remove",
     {
       reqd=["subject-uuid"];
-      optn=[]; 
+      optn=[];
       help="Remove a subject from the list of subjects that can access the pool";
       implementation=No_fd Cli_operations.subject_remove;
       flags=[]
@@ -2446,7 +2500,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
         "role-create",
         {
           reqd=["id";"name"];
-          optn=[]; 
+          optn=[];
           help="Add a role to the pool";
           implementation=No_fd Cli_operations.role_create;
           flags=[]
@@ -2710,7 +2764,7 @@ let cmdtable_geneva : (string, cmd_spec) Hashtbl.t =
 let populated = ref false
 
 let populate_cmdtable rpc session_id =
-  if !populated then () 
+  if !populated then ()
   else
     begin
       populated := true;
@@ -2840,7 +2894,7 @@ let tokens_of_argv argv_list =
   end
 
 let parse tokens =
-  let rec read_rval ts sofar = 
+  let rec read_rval ts sofar =
     match ts with
       [] -> ([],sofar)
     | (Id s1)::(Id s2)::ts -> ((Id s2)::ts, sofar^s1)
@@ -2867,14 +2921,14 @@ let rec parse_params_2 xs =
   match xs with
     p::ps ->
     (* unary *)
-    if (starts_with p "--") 
+    if (starts_with p "--")
     then (String.sub p 2 (String.length p - 2),"true")::parse_params_2 ps
     else
       begin
         (* x may be a diadic switch *)
-        if (starts_with p "-") 
-        then 
-          match ps with 
+        if (starts_with p "-")
+        then
+          match ps with
             q::qs -> (convert_switch p,q)::parse_params_2 qs
           | _ -> failwith (Printf.sprintf "Switch %s requires a parameter\n" p)
         else
@@ -2895,7 +2949,7 @@ let parse_commandline arg_list =
     {cmdname = cmdname;
      argv0 = argv0;
      params = params}
-  with 
+  with
   | e ->
     error "Rethrowing %s as ParseError \"\"" (Printexc.to_string e);
     Backtrace.reraise e (ParseError "")
@@ -2907,7 +2961,7 @@ let parse_commandline arg_list =
 let make_list l =
   let indent = "    " in
   let rec doline cur lines cmds =
-    match cmds with [] -> List.rev (cur::lines) | cmd::cmds -> 
+    match cmds with [] -> List.rev (cur::lines) | cmd::cmds ->
       if String.length cur + String.length cmd > 74
       then doline (indent^cmd) (cur::lines) cmds
       else doline (cur^", "^cmd) lines cmds
@@ -2935,7 +2989,7 @@ let rio_help printer minimal cmd =
         | (false,false,true) -> cmd_spec.help ^ srselectorsinfo
         | _ -> cmd_spec.help (* never happens currently *)
       in
-      let recs = 
+      let recs =
         [("command name        ",cmd);
          ("reqd params     ",String.concat ", " cmd_spec.reqd);
          ("optional params ",String.concat ", " optional);
@@ -2956,7 +3010,7 @@ let rio_help printer minimal cmd =
     let cmds = List.sort (fun (name1,cmd1) (name2,cmd2) -> compare name1 name2) cmds in
 
     begin
-      if(List.mem_assoc "all" cmd.params && List.assoc "all" cmd.params = "true") then 
+      if(List.mem_assoc "all" cmd.params && List.assoc "all" cmd.params = "true") then
         let cmds = List.map fst cmds in
         let (host_cmds,other) = List.partition (fun n -> String.startswith "host-" n) cmds in
         let (vm_cmds,other) = List.partition (fun n -> String.startswith "vm-" n) other in
@@ -2966,10 +3020,10 @@ let rio_help printer minimal cmd =
         let h = h ^ "To get help on a specific command: "^cmd.argv0^" help <command>\n\n" in
         let h = h ^ "Full command list\n-----------------" in
         begin
-          if (minimal) 
-          then 
+          if (minimal)
+          then
             printer (Cli_printer.PList cmds)
-          else 
+          else
             begin
               printer (Cli_printer.PList [h]);
               printer (Cli_printer.PList (make_list (host_cmds)));
@@ -2989,10 +3043,10 @@ let rio_help printer minimal cmd =
 
         let h = h ^ "Common command list\n-------------------" in
 
-        if (minimal) 
-        then 
+        if (minimal)
+        then
           printer (Cli_printer.PList cmds)
-        else 
+        else
           begin
             printer (Cli_printer.PList [h]);
             printer (Cli_printer.PList (make_list (cmds)));
@@ -3004,7 +3058,7 @@ let geneva_help printer minimal cmd =
   let docmd cmd =
     try
       let cmd_spec = Hashtbl.find cmdtable_geneva cmd in
-      let recs = 
+      let recs =
         [("command name        ",cmd);
          ("description     ",cmd_spec.help);
          ("reqd params     ",String.concat ", " cmd_spec.reqd);

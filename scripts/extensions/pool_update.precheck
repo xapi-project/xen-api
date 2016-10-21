@@ -1,0 +1,139 @@
+#!/usr/bin/env python
+
+import xmlrpclib
+import sys
+import XenAPI
+import json
+import urllib2
+import xml.dom.minidom
+import traceback
+import subprocess
+import os
+import errno
+import shutil
+import StringIO
+import ConfigParser
+import logging
+import xcp.logger
+
+
+TMP_DIR = '/tmp/'
+PATCH_PRECHECK_FAILED_UNKNOWN_ERROR = 'PATCH_PRECHECK_FAILED_UNKNOWN_ERROR'
+CANNOT_FIND_UPDATE = 'CANNOT_FIND_UPDATE'
+
+class PrecheckFailure(Exception):
+    pass
+
+
+def success_message(result):
+    rpcparams = {'Status': 'Success', 'Value': result}
+    return xmlrpclib.dumps((rpcparams, ), '', True)
+
+
+def failure_message(code, params):
+    rpcparams = {
+        'Status': 'Failure', 'ErrorDescription': [code] + params}
+    return xmlrpclib.dumps((rpcparams, ), '', True)
+
+
+def parse_control_package(session, yum_url):
+    if yum_url.startswith('http://'):
+        update_xml = urllib2.urlopen(yum_url + '/update.xml').read()
+        xmldoc = xml.dom.minidom.parse(StringIO.StringIO(update_xml))
+    else:
+        raise PrecheckFailure('Incorrect yum repo (%r)' % yum_url)
+    items = xmldoc.getElementsByTagName('update')
+    if not items:
+        raise PrecheckFailure('Parse Control Package from yum (%r)' % yum_url)
+    return items[0].getAttribute('control')
+
+
+def execute_precheck(session, control_package, yum_conf_file):
+    if not control_package:
+        return 'ok'
+    livepatch_dic = {'PATCH_PRECHECK_LIVEPATCH_COMPLETE': 'ok_livepatch_complete', 'PATCH_PRECHECK_LIVEPATCH_INCOMPLETE': 'ok_livepatch_incomplete', 'PATCH_PRECHECK_LIVEPATCH_NOT_APPLICABLE': 'ok'}
+    cmd = ['yum', 'install', '-y', '--noplugins', '-c', yum_conf_file, control_package]
+    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
+    p.wait()
+    output = p.stdout.read()
+    xcp.logger.info('pool_update.precheck %r returncode=%r output=%r', cmd, p.returncode, output)
+    lines = output.splitlines()
+    if p.returncode != 0:
+        errorlines = [l for l in lines if l.startswith('Error: ')]
+        if errorlines:
+            errmsg = errorlines[-1].split(':', 1)[-1].strip()
+        else:
+            errmsg = lines[-1]
+        raise PrecheckFailure(
+            'Install %s error: %s' % (control_package, errmsg))
+    else:
+        resultlines = [l for l in lines if l.startswith('<livepatch ')]
+        if resultlines:
+            result = resultlines[-1].split('\"')[1]
+            try:
+                return livepatch_dic[result]
+            except KeyError:
+                raise PrecheckFailure(
+                    'Install %s, precheck error: %s' % (control_package, result))
+        else:
+            return 'ok'
+        
+
+if __name__ == '__main__':
+    xcp.logger.logToSyslog(level=logging.INFO)
+    txt = sys.stdin.read()
+    params, method = xmlrpclib.loads(txt)
+
+    session = None
+    try:
+        session = XenAPI.xapi_local()
+        session.xenapi.login_with_password('root', '', '', 'Pool_update')
+
+        update = params[1]
+        host = params[2]
+        update_uuid = session.xenapi.pool_update.get_uuid(update)
+        update_package = session.xenapi.pool_update.get_name_label(update)
+        host_uuid = session.xenapi.host.get_uuid(host)
+        host_name_label = session.xenapi.host.get_name_label(host)
+
+        update_vdi_valid = False
+        update_vdi = session.xenapi.pool_update.get_vdi(update)
+        try:
+            update_vdi_uuid = session.xenapi.VDI.get_uuid(update_vdi)
+            update_vdi_valid = True
+        except Exception as e:
+            print(failure_message(CANNOT_FIND_UPDATE,
+                ['Missing update package [uuid=%s]' % update_uuid]))
+            sys.exit(0)
+
+        # attach and get the yum configuration
+        # generate the yum configuration file
+        yum_conf = session.xenapi.pool_update.attach(update)
+        yum_conf_file = os.path.join(TMP_DIR, update_uuid, 'yum.conf')
+        try:
+            os.makedirs(os.path.dirname(yum_conf_file))
+        except OSError as e:
+            if e.errno == errno.EEXIST:
+                pass
+            else:
+                raise
+        with open(yum_conf_file, "w+") as file:
+            file.write(yum_conf)
+
+        config = ConfigParser.ConfigParser()
+        config.read(yum_conf_file)
+        yum_url = config.get(update_package, 'baseurl')
+
+        control_package = parse_control_package(session, yum_url)
+        print(success_message(execute_precheck(session, control_package, yum_conf_file)))
+    except Exception as e:
+        print(failure_message(PATCH_PRECHECK_FAILED_UNKNOWN_ERROR,
+                              ['Precheck failed on host %s [uuid=%s]: %s' % (host_name_label ,host_uuid, e)]))
+    finally:
+        if session is not None and update_vdi_valid is True:
+            session.xenapi.pool_update.detach(update)
+            session.xenapi.session.logout()
+        try:
+            shutil.rmtree(os.path.dirname(yum_conf_file))
+        except Exception as e:
+            pass

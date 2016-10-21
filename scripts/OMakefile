@@ -78,6 +78,7 @@ install:
 	$(IPROG) xe-enable-all-plugin-metrics $(DESTDIR)$(BINDIR)
 	$(IPROG) static-vdis $(DESTDIR)$(BINDIR)
 	$(IPROG) with-vdi $(DESTDIR)$(OPTDIR)/debug
+	$(IPROG) import-update-key $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) pool.conf $(DESTDIR)$(ETCDIR)
 	mkdir -p $(DESTDIR)/etc/pam.d
 	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi
@@ -107,6 +108,8 @@ install:
 	$(IPROG) perfmon $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) extensions/Test.test $(DESTDIR)$(EXTENSIONDIR)
+	$(IPROG) extensions/pool_update.precheck $(DESTDIR)$(EXTENSIONDIR)
+	$(IPROG) extensions/pool_update.apply $(DESTDIR)$(EXTENSIONDIR)
 	mkdir -p $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/perfmon $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/extauth-hook $(DESTDIR)$(PLUGINDIR)

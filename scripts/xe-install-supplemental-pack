@@ -1,53 +1,37 @@
-#!/bin/bash
+#!/bin/sh
 
 set -e
 
-function usage()
+die()
 {
-  echo "
-Usage:
-        $0 <filename.iso> [-b]
-" >&2
+  echo $@ >&2
   exit 1
 }
 
-if [ -n "$DEVICE" ]
-then
-  iso="/dev/$DEVICE"
-  upgrade=$1
-else
-  iso="$1"
-  upgrade=$2
-fi
-
-set -u
-
-if [ ! -f "$iso" ] && [ ! -b "$iso" ]
-then
-  usage
-fi
-
-if !(file -s "$iso" | grep -q "ISO 9660")
-then
-  echo "Supplemental pack must be an ISO." >&2
-  exit 2
-fi
-
-tempdir=$(mktemp -d)
-
-function cleanup()
+usage()
 {
-  if mount | grep "$tempdir" >/dev/null
-  then
-    popd >/dev/null
-    umount "$tempdir" || true
-  fi
-  rmdir "$tempdir"
+  die "Usage: $0 [--sr=<sr>] <iso>"
 }
 
-trap cleanup ERR
+. /etc/xensource-inventory
 
-mount -o loop,ro "$iso" "$tempdir"
-pushd "$tempdir" >/dev/null
-./install $upgrade
-cleanup
+while [ -n "$1" ]; do
+  case "$1" in
+    --sr=*)
+      sr_uuid=${1#--sr=};;
+    -*)
+      usage;;
+    *)
+      break;;
+
+  esac
+  shift
+done
+
+iso="$1"
+[ -n "$iso" ] || usage
+
+update_uuid=$(xe update-upload file-name="$iso" ${sr_uuid:+sr-uuid=$sr_uuid})
+trap "xe update-pool-clean uuid=$update_uuid" EXIT ERR
+trap "xe update-destroy uuid=$update_uuid" ERR
+xe update-apply uuid=$update_uuid host=$INSTALLATION_UUID

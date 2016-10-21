@@ -43,6 +43,7 @@ OCAML_OBJS = \
 	test_pool_apply_edition \
 	test_pool_license \
 	test_pool_restore_database \
+	test_pool_update \
 	test_platformdata \
 	test_sm_features \
 	test_gpu_group \

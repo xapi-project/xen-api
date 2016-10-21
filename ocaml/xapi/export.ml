@@ -18,12 +18,12 @@
 (** The general plan:
     + Walk around the database and select the objects you want (see 'create_table')
      and make a table mapping internal ref -> fresh external references. It would
-     be nice to generate a visitor thingimy for this.  
+     be nice to generate a visitor thingimy for this.
     + Select all the objects from each class, filter the subset you want (ie those whose
-     reference exists as a key in the table) and convert them into instances of the 
+     reference exists as a key in the table) and convert them into instances of the
      intermediate record 'type obj' via the functions make_{vm,sr,vbd,vif,network}.
-                                                             The created 'obj record' includes the class name as a string (from the datamodel), 
-                                                             the fresh reference and the output of 'get_record' marshalled using the standard 
+                                                             The created 'obj record' includes the class name as a string (from the datamodel),
+                                                             the fresh reference and the output of 'get_record' marshalled using the standard
                                                              XMLRPC functions with all the references converted either to the fresh external refs
                                                              or NULL (so we aim not to export dangling pointers)
                                                              + Write out one big XML file containing an XMLRPC struct which has keys:
@@ -43,7 +43,7 @@ module D=Debug.Make(struct let name="export" end)
 open D
 
 
-let make_id = 
+let make_id =
   let counter = ref 0 in
   fun () ->
     let this = !counter in
@@ -148,7 +148,7 @@ let create_table () =
   Hashtbl.create 10
 
 (** Convert an internal reference into an external one or NULL *)
-let lookup table r = 
+let lookup table r =
   if not(Hashtbl.mem table r) then Ref.null else Ref.of_string (Hashtbl.find table r)
 
 (** Convert a list of internal references into external references, filtering out NULLs *)
@@ -189,14 +189,14 @@ let make_host table __context self =
     snapshot = API.Legacy.To.host_t host }
 
 (** Convert a VM reference to an obj *)
-let make_vm ?(with_snapshot_metadata=false) ~preserve_power_state table __context self = 
+let make_vm ?(with_snapshot_metadata=false) ~preserve_power_state table __context self =
   let vm = Db.VM.get_record ~__context ~self in
   let vm = { vm with
              API.vM_power_state = if preserve_power_state then vm.API.vM_power_state else `Halted;
              API.vM_suspend_VDI = if preserve_power_state then lookup table (Ref.string_of vm.API.vM_suspend_VDI) else Ref.null;
              API.vM_is_a_snapshot = if with_snapshot_metadata then vm.API.vM_is_a_snapshot else false;
              API.vM_snapshot_of =
-               if with_snapshot_metadata 
+               if with_snapshot_metadata
                then lookup table (Ref.string_of vm.API.vM_snapshot_of)
                else Ref.null;
              API.vM_snapshots = if with_snapshot_metadata then vm.API.vM_snapshots else [];
@@ -221,8 +221,8 @@ let make_vm ?(with_snapshot_metadata=false) ~preserve_power_state table __contex
              API.vM_protection_policy = Ref.null;
              API.vM_bios_strings = vm.API.vM_bios_strings;
              API.vM_blobs = [];} in
-  { cls = Datamodel._vm; 
-    id = Ref.string_of (lookup table (Ref.string_of self)); 
+  { cls = Datamodel._vm;
+    id = Ref.string_of (lookup table (Ref.string_of self));
     snapshot = API.Legacy.To.vM_t vm }
 
 (** Convert a guest-metrics reference to an obj *)
@@ -233,75 +233,75 @@ let make_gm table __context self =
     snapshot = API.Legacy.To.vM_guest_metrics_t gm }
 
 (** Convert a VIF reference to an obj *)
-let make_vif table ~preserve_power_state __context self = 
+let make_vif table ~preserve_power_state __context self =
   let vif = Db.VIF.get_record ~__context ~self in
-  let vif = { vif with 
+  let vif = { vif with
               API.vIF_currently_attached = if preserve_power_state then vif.API.vIF_currently_attached else false;
               API.vIF_network = lookup table (Ref.string_of vif.API.vIF_network);
               API.vIF_VM = lookup table (Ref.string_of vif.API.vIF_VM);
-              API.vIF_metrics = Ref.null; 
+              API.vIF_metrics = Ref.null;
               API.vIF_current_operations = [];
               API.vIF_allowed_operations = [];
             } in
-  { cls = Datamodel._vif; 
-    id = Ref.string_of (lookup table (Ref.string_of self)); 
+  { cls = Datamodel._vif;
+    id = Ref.string_of (lookup table (Ref.string_of self));
     snapshot = API.Legacy.To.vIF_t vif }
 
 (** Convert a Network reference to an obj *)
-let make_network table __context self = 
+let make_network table __context self =
   let net = Db.Network.get_record ~__context ~self in
-  let net = { net with 
+  let net = { net with
               API.network_VIFs = filter table (List.map Ref.string_of net.API.network_VIFs);
-              API.network_PIFs = []; 
+              API.network_PIFs = [];
               API.network_current_operations = [];
               API.network_allowed_operations = [];
             } in
-  { cls = Datamodel._network; 
-    id = Ref.string_of (lookup table (Ref.string_of self)); 
+  { cls = Datamodel._network;
+    id = Ref.string_of (lookup table (Ref.string_of self));
     snapshot = API.Legacy.To.network_t net }
 
 (** Convert a VBD reference to an obj *)
-let make_vbd table ~preserve_power_state __context self = 
+let make_vbd table ~preserve_power_state __context self =
   let vbd = Db.VBD.get_record ~__context ~self in
-  let vbd = { vbd with 
+  let vbd = { vbd with
               API.vBD_currently_attached = if preserve_power_state then vbd.API.vBD_currently_attached else false;
-              API.vBD_VDI = lookup table (Ref.string_of vbd.API.vBD_VDI); 
+              API.vBD_VDI = lookup table (Ref.string_of vbd.API.vBD_VDI);
               API.vBD_VM = lookup table (Ref.string_of vbd.API.vBD_VM);
               API.vBD_metrics = Ref.null;
               API.vBD_current_operations = [];
               API.vBD_allowed_operations = [];
             } in
-  { cls = Datamodel._vbd; 
-    id = Ref.string_of (lookup table (Ref.string_of self)); 
-    snapshot = API.Legacy.To.vBD_t vbd }  
+  { cls = Datamodel._vbd;
+    id = Ref.string_of (lookup table (Ref.string_of self));
+    snapshot = API.Legacy.To.vBD_t vbd }
 
 (** Convert a VDI reference to an obj *)
-let make_vdi table __context self = 
+let make_vdi table __context self =
   let vdi = Db.VDI.get_record ~__context ~self in
-  let vdi = { vdi with 
+  let vdi = { vdi with
               API.vDI_VBDs = filter table (List.map Ref.string_of vdi.API.vDI_VBDs);
               API.vDI_crash_dumps = [];
               API.vDI_SR = lookup table (Ref.string_of vdi.API.vDI_SR);
               API.vDI_current_operations = [];
               API.vDI_allowed_operations = [];
             } in
-  { cls = Datamodel._vdi; 
-    id = Ref.string_of (lookup table (Ref.string_of self)); 
-    snapshot = API.Legacy.To.vDI_t vdi }  
+  { cls = Datamodel._vdi;
+    id = Ref.string_of (lookup table (Ref.string_of self));
+    snapshot = API.Legacy.To.vDI_t vdi }
 
 (** Convert a SR reference to an obj *)
-let make_sr table __context self = 
+let make_sr table __context self =
   let sr = Db.SR.get_record ~__context ~self in
-  let sr = { sr with 
+  let sr = { sr with
              API.sR_VDIs = filter table (List.map Ref.string_of sr.API.sR_VDIs);
-             API.sR_PBDs = []; 
+             API.sR_PBDs = [];
              API.sR_current_operations = [];
              API.sR_allowed_operations = [];
            } in
-  { cls = Datamodel._sr; 
-    id = Ref.string_of (lookup table (Ref.string_of self)); 
+  { cls = Datamodel._sr;
+    id = Ref.string_of (lookup table (Ref.string_of self));
     snapshot = API.Legacy.To.sR_t sr;
-  }    
+  }
 
 (** Convert a VGPU_type reference to an obj *)
 let make_vgpu_type table __context self =
@@ -313,9 +313,9 @@ let make_vgpu_type table __context self =
   }
 
 (** Convert a VGPU reference to an obj *)
-let make_vgpu table ~preserve_power_state __context self = 
+let make_vgpu table ~preserve_power_state __context self =
   let vgpu = Db.VGPU.get_record ~__context ~self in
-  let vgpu = { vgpu with 
+  let vgpu = { vgpu with
                API.vGPU_currently_attached = if preserve_power_state then vgpu.API.vGPU_currently_attached else false;
                API.vGPU_GPU_group = lookup table (Ref.string_of vgpu.API.vGPU_GPU_group);
                API.vGPU_type = lookup table (Ref.string_of vgpu.API.vGPU_type);
@@ -328,7 +328,7 @@ let make_vgpu table ~preserve_power_state __context self =
   }
 
 (** Convert a GPU_group reference to an obj *)
-let make_gpu_group table __context self = 
+let make_gpu_group table __context self =
   let group = Db.GPU_group.get_record ~__context ~self in
   let group = { group with
                 API.gPU_group_VGPUs = filter table (List.map Ref.string_of group.API.gPU_group_VGPUs);
@@ -336,7 +336,7 @@ let make_gpu_group table __context self =
               } in
   {
     cls = Datamodel._gpu_group;
-    id = Ref.string_of (lookup table (Ref.string_of self)); 
+    id = Ref.string_of (lookup table (Ref.string_of self));
     snapshot = API.Legacy.To.gPU_group_t group
   }
 
@@ -406,7 +406,7 @@ let make_all ~with_snapshot_metadata ~preserve_power_state table __context =
 open Xapi_globs
 
 (* on normal export, do not include snapshot metadata;
-   on metadata-export, include snapshots fields of the exported VM as well as the VM records of VMs 
+   on metadata-export, include snapshots fields of the exported VM as well as the VM records of VMs
    which are snapshots of the exported VM. *)
 let vm_metadata ~with_snapshot_metadata ~preserve_power_state ~include_vhd_parents ~__context ~vms =
   let table = create_table () in
@@ -418,7 +418,7 @@ let vm_metadata ~with_snapshot_metadata ~preserve_power_state ~include_vhd_paren
   table, ova_xml
 
 let string_of_vm ~__context vm =
-  try Printf.sprintf "'%s' ('%s')" 
+  try Printf.sprintf "'%s' ('%s')"
         (Db.VM.get_uuid ~__context ~self:vm)
         (Db.VM.get_name_label ~__context ~self:vm)
   with _ -> "invalid"
@@ -427,13 +427,13 @@ let string_of_vm ~__context vm =
 let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state ~include_vhd_parents ~vms s =
   begin match vms with
     | [] -> failwith "need to specify at least one VM"
-    | [vm] -> info "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'; include_vhd_parents = '%b'; preserve_power_state = '%s" 
+    | [vm] -> info "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'; include_vhd_parents = '%b'; preserve_power_state = '%s"
                 (string_of_vm ~__context vm)
                 with_snapshot_metadata
                 include_vhd_parents
                 (string_of_bool preserve_power_state)
     | vms -> info "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'; preserve_power_state = '%s"
-               (String.concat ", " (List.map (string_of_vm ~__context) vms)) 
+               (String.concat ", " (List.map (string_of_vm ~__context) vms))
                with_snapshot_metadata
                (string_of_bool preserve_power_state) end;
 
@@ -461,7 +461,7 @@ let export refresh_session __context rpc session_id s vm_ref preserve_power_stat
   let vdis = List.map (fun self -> Db.VBD.get_VDI ~__context ~self) vbds in
   (* Don't forget the suspend VDI (if we allow export of suspended VMs) *)
   let vdis = match Db.VM.get_power_state ~__context ~self:vm_ref with
-    | `Suspended when preserve_power_state -> Db.VM.get_suspend_VDI ~__context ~self:vm_ref :: vdis 
+    | `Suspended when preserve_power_state -> Db.VM.get_suspend_VDI ~__context ~self:vm_ref :: vdis
     | _ -> vdis in
   let vdis = List.filter (fun self -> Db.SR.get_content_type ~__context ~self:(Db.VDI.get_SR ~__context ~self) <> "iso") vdis in
   let vdis = List.filter (fun vdi -> Hashtbl.mem table (Ref.string_of vdi)) vdis in
@@ -487,34 +487,34 @@ let unlock_vm ~__context ~vm ~task_id =
   Db.VM.remove_from_current_operations ~__context ~self:vm ~key:task_id;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm
 
-let with_vm_locked ~__context ~vm ~task_id op f = 
+let with_vm_locked ~__context ~vm ~task_id op f =
   lock_vm ~__context ~vm ~task_id op;
   finally f
     (fun () -> unlock_vm ~__context ~vm ~task_id)
 
-let vm_from_request ~__context (req: Request.t) = 
+let vm_from_request ~__context (req: Request.t) =
   if List.mem_assoc "ref" req.Request.query
-  then Ref.of_string (List.assoc "ref" req.Request.query) 
-  else 
+  then Ref.of_string (List.assoc "ref" req.Request.query)
+  else
     let uuid = List.assoc "uuid" req.Request.query in
-    Helpers.call_api_functions 
-      ~__context (fun rpc session_id -> Client.VM.get_by_uuid rpc session_id uuid) 
+    Helpers.call_api_functions
+      ~__context (fun rpc session_id -> Client.VM.get_by_uuid rpc session_id uuid)
 
 let bool_from_request ~__context (req: Request.t) default k =
   if List.mem_assoc k req.Request.query
   then bool_of_string (List.assoc k req.Request.query)
   else default
 
-let export_all_vms_from_request ~__context (req: Request.t) = 
+let export_all_vms_from_request ~__context (req: Request.t) =
   bool_from_request ~__context req false "all"
 
-let include_vhd_parents_from_request ~__context (req: Request.t) = 
+let include_vhd_parents_from_request ~__context (req: Request.t) =
   bool_from_request ~__context req false "include_vhd_parents"
 
 let export_snapshots_from_request ~__context (req: Request.t) =
   bool_from_request ~__context req true "export_snapshots"
 
-let metadata_handler (req: Request.t) s _ = 
+let metadata_handler (req: Request.t) s _ =
   debug "metadata_handler called";
   req.Request.close <- true;
 
@@ -603,15 +603,15 @@ let handler (req: Request.t) s _ =
   (* Perform the SR reachability check using a fresh context/task because
      we don't want to complete the task in the forwarding case *)
 
-  Server_helpers.exec_with_new_task "VM.export" 
-    (fun __context -> 
+  Server_helpers.exec_with_new_task "VM.export"
+    (fun __context ->
        (* The VM Ref *)
        let vm_ref = vm_from_request ~__context req in
        let localhost = Helpers.get_localhost ~__context in
        let host_ok = check_vm_host_SRs ~__context vm_ref localhost in
 
        if not host_ok (* redirect *)
-       then 
+       then
          begin
            try
              (* We do this outside the Xapi_http.with_context below since that will complete the *)
@@ -631,16 +631,16 @@ let handler (req: Request.t) s _ =
              (* to complete the task *)
              let task_id =
                let all = req.Request.cookie @ req.Request.query in
-               if List.mem_assoc "task_id" all 
+               if List.mem_assoc "task_id" all
                then Some (Ref.of_string (List.assoc "task_id" all))
                else None in
-             begin match task_id with 
+             begin match task_id with
                | None -> Server_helpers.exec_with_new_task "export" ~task_in_database:true (fun __context -> TaskHelper.failed ~__context e)
                | Some task_id -> Server_helpers.exec_with_forwarded_task task_id (fun __context -> TaskHelper.failed ~__context e)
              end
            | e ->
              error "Caught exception in export handler: %s" (Printexc.to_string e);
-             raise e	       
+             raise e
          end
        else
          (* Xapi_http.with_context always completes the task at the end *)
@@ -652,9 +652,9 @@ let handler (req: Request.t) s _ =
                   (* This is the signal to say we've taken responsibility from the CLI server for completing the task *)
                   (* The GUI can deal with this itself, but the CLI is complicated by the thin cli/cli server split *)
                   TaskHelper.set_progress ~__context 0.0;
-                  let refresh_session = Xapi_session.consider_touching_session rpc session_id in	      
+                  let refresh_session = Xapi_session.consider_touching_session rpc session_id in
                   let task_id = Ref.string_of (Context.get_task_id __context) in
-                  let preserve_power_state = 
+                  let preserve_power_state =
                     let all = req.Request.cookie @ req.Request.query in
                     List.mem_assoc "preserve_power_state" all && bool_of_string (List.assoc "preserve_power_state" all) in
                   let headers = Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
@@ -664,7 +664,7 @@ let handler (req: Request.t) s _ =
                                   "Content-Disposition: attachment; filename=\"export.xva\""] in
 
                   with_vm_locked ~__context ~vm:vm_ref ~task_id `export
-                    (fun () -> 
+                    (fun () ->
                        Http_svr.headers s headers;
                        let go fd = export refresh_session __context rpc session_id fd vm_ref preserve_power_state in
                        if use_compression

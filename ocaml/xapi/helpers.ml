@@ -347,12 +347,12 @@ let update_domain_zero_name ~__context host hostname =
   let dom0 = get_domain_zero ~__context in
   (* Double check host *)
   let dom0_host = Db.VM.get_resident_on ~__context ~self:dom0 in
-  if dom0_host <> host 
-  then 
+  if dom0_host <> host
+  then
     error "Unexpectedly incorrect dom0 record in update_domain_zero_name"
   else begin
     let current_name = Db.VM.get_name_label ~__context ~self:dom0 in
-    let is_default = 
+    let is_default =
       try
         String.sub current_name 0 (String.length stem) = stem
       with _ -> false

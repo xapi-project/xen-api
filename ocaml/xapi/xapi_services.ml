@@ -169,7 +169,7 @@ let put_handler (req: Http.Request.t) s _ =
          http_proxy_to_plugin req s name
        | [ ""; services; "SM"; "data"; sr; vdi ] when services = _services ->
          let vdi, _ = Storage_access.find_vdi ~__context sr vdi in
-         Import_raw_vdi.import vdi req s ()
+         ignore(Import_raw_vdi.import (Some vdi) req s ())
        | [ ""; services; "SM"; "nbd"; sr; vdi; dp ] when services = _services ->
          Storage_migrate.nbd_handler req s sr vdi dp
        | _ ->
@@ -217,5 +217,3 @@ let get_handler (req: Http.Request.t) s _ =
          Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());
          req.Http.Request.close <- true
     )
-
-

@@ -1500,7 +1500,7 @@ let update_vm ~__context id =
           let update_pv_drivers_detected () =
             Opt.iter
               (fun (_, state) ->
-                try
+                 try
                    let gm = Db.VM.get_guest_metrics ~__context ~self in
                    debug "xenopsd event: Updating VM %s PV drivers detected %b" id state.pv_drivers_detected;
                    Db.VM_guest_metrics.set_PV_drivers_detected ~__context ~self:gm ~value:state.pv_drivers_detected;
@@ -1517,7 +1517,7 @@ let update_vm ~__context id =
                    let metrics = Db.VM.get_metrics ~__context ~self in
                    let start_time = Date.of_float state.last_start_time in
                    Db.VM_metrics.set_start_time ~__context ~self:metrics ~value:start_time;
-                   
+
                    create_guest_metrics_if_needed ();
                    let gm = Db.VM.get_guest_metrics ~__context ~self in
                    let update_time = Db.VM_guest_metrics.get_last_updated ~__context ~self:gm in

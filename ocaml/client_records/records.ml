@@ -994,8 +994,44 @@ let pool_patch_record rpc session_id patch =
         make_field ~name:"size"                ~get:(fun () -> Int64.to_string (x ()).API.pool_patch_size) ();
         make_field ~name:"hosts"               ~get:(fun () -> String.concat ", " (get_hosts ())) ~get_set:get_hosts ();
         make_field ~name:"after-apply-guidance" ~get:(fun () -> String.concat ", " (after_apply_guidance ())) ~get_set:after_apply_guidance ();
+        make_field ~name:"update"              ~get:(fun () -> get_uuid_from_ref (x ()).API.pool_patch_pool_update) ();
       ]}
 
+let pool_update_record rpc session_id update =
+  let _ref = ref update in
+  let empty_record = ToGet (fun () -> Client.Pool_update.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  let get_hosts () =
+    let host_refs = (x ()).API.pool_update_hosts in
+    let host_uuids = List.map (fun x -> Client.Host.get_uuid ~rpc ~session_id ~self:x) host_refs in
+    host_uuids
+  in
+  let after_apply_guidance_to_string = function
+    | `restartHVM -> "restartHVM"
+    | `restartPV -> "restartPV"
+    | `restartHost -> "restartHost"
+    | `restartXAPI -> "restartXAPI"
+  in
+  let after_apply_guidance_to_string_set =
+    List.map after_apply_guidance_to_string
+  in
+  let after_apply_guidance () =
+    after_apply_guidance_to_string_set (x ()).API.pool_update_after_apply_guidance
+  in
+  { setref=(fun r -> _ref := r; record := empty_record );
+    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
+    record=x;
+    getref=(fun () -> !_ref);
+    fields =
+      [
+        make_field ~name:"uuid"                ~get:(fun () -> (x ()).API.pool_update_uuid) ();
+        make_field ~name:"name-label"          ~get:(fun () -> (x ()).API.pool_update_name_label) ();
+        make_field ~name:"name-description"    ~get:(fun () -> (x ()).API.pool_update_name_description) ();
+        make_field ~name:"installation-size"   ~get:(fun () -> Int64.to_string (x ()).API.pool_update_installation_size) ();
+        make_field ~name:"hosts"               ~get:(fun () -> String.concat ", " (get_hosts ())) ~get_set:get_hosts ();
+        make_field ~name:"after-apply-guidance" ~get:(fun () -> String.concat ", " (after_apply_guidance ())) ~get_set:after_apply_guidance ();
+      ]}
 
 let host_cpu_record rpc session_id host_cpu =
   let _ref = ref host_cpu in
@@ -1036,6 +1072,11 @@ let host_record rpc session_id host =
     let patch_refs = List.map (fun x -> Client.Host_patch.get_pool_patch ~rpc ~session_id ~self:x) host_patch_refs in
     let patch_uuids = List.map (fun x -> Client.Pool_patch.get_uuid ~rpc ~session_id ~self:x) patch_refs in
     patch_uuids
+  in
+  let get_updates () =
+    let pool_update_refs = (x ()).API.host_updates in
+    let update_uuids = List.map (fun x -> Client.Pool_update.get_uuid ~rpc ~session_id ~self:x) pool_update_refs in
+    update_uuids
   in
   { setref=(fun r -> _ref := r; record := empty_record );
     setrefrec=(fun (a,b) -> _ref := a; record := Got b);
@@ -1087,7 +1128,8 @@ let host_record rpc session_id host =
       make_field ~name:"memory-free" ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.host_metrics_memory_free) (xm ()) )) ();
       make_field ~name:"memory-free-computed" ~expensive:true ~get:(fun () -> Int64.to_string (Client.Host.compute_free_memory rpc session_id host)) ();
       make_field ~name:"host-metrics-live" ~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.host_metrics_live) (xm ()) )) ();
-      make_field ~name:"patches" ~get:(fun () -> String.concat ", " (get_patches ())) ~get_set:get_patches ();
+      make_field ~name:"patches" ~deprecated:true ~get:(fun () -> String.concat ", " (get_patches ())) ~get_set:get_patches ();
+      make_field ~name:"updates" ~get:(fun () -> String.concat ", " (get_updates ())) ~get_set:get_updates ();
       make_field ~name:"ha-statefiles" ~get:(fun () -> String.concat "; " (List.map (fun x -> get_uuid_from_ref (Ref.of_string x)) (x ()).API.host_ha_statefiles)) ();
       make_field ~name:"ha-network-peers" ~get:(fun () -> String.concat "; " (x ()).API.host_ha_network_peers) ();
       make_field ~name:"external-auth-type" ~get:(fun () -> (x ()).API.host_external_auth_type) ();
@@ -1119,9 +1161,9 @@ let host_record rpc session_id host =
       make_field ~name:"resident-vms"
         ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.host_resident_VMs))
         ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.host_resident_VMs) ();
-      make_field ~name:"patches-requiring-reboot"
-        ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.host_patches_requiring_reboot))
-        ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.host_patches_requiring_reboot) ();
+      make_field ~name:"updates-requiring-reboot"
+        ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.host_updates_requiring_reboot))
+        ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.host_updates_requiring_reboot) ();
     ]}
 
 let vdi_record rpc session_id vdi =

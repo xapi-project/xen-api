@@ -64,9 +64,9 @@ let rec compute_additional_restrictions all_host_params = function
     let switches =
       List.map
         (function params ->
-          if List.mem_assoc flag params
-          then bool_of_string (List.assoc flag params)
-          else true)
+           if List.mem_assoc flag params
+           then bool_of_string (List.assoc flag params)
+           else true)
         all_host_params
     in
     (flag, string_of_bool (List.fold_left (||) false switches)) ::

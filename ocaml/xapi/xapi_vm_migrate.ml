@@ -961,7 +961,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
     if not is_intra_pool && Db.is_valid_ref __context vm then begin
       List.map (fun self -> Db.VM.get_uuid ~__context ~self) vm_and_snapshots
-        |> List.iter (fun self ->
+      |> List.iter (fun self ->
           try
             let vm_ref = XenAPI.VM.get_by_uuid remote.rpc remote.session self in
             info "Destroying stale VM uuid=%s on destination host" self;
@@ -1038,7 +1038,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     let host_to = Helpers.RemoteObject (remote.rpc, remote.session, remote.dest_host) in
     if not (Helpers.host_versions_not_decreasing ~__context ~host_from ~host_to) then
       raise (Api_errors.Server_error (Api_errors.vm_host_incompatible_version_migrate,
-        [Ref.string_of vm; Ref.string_of remote.dest_host]));
+                                      [Ref.string_of vm; Ref.string_of remote.dest_host]));
 
     (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
     assert_sr_support_operations ~__context ~vdi_map ~remote ~ops:required_sr_operations;
@@ -1046,7 +1046,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     (* The copy mode is only allow on stopped VM *)
     if (not force) && copy && power_state <> `Halted then
       raise (Api_errors.Server_error (Api_errors.vm_bad_power_state,
-        [Ref.string_of vm; Record_util.power_to_string `Halted; Record_util.power_to_string power_state]));
+                                      [Ref.string_of vm; Record_util.power_to_string `Halted; Record_util.power_to_string power_state]));
     (* Check the host can support the VM's required version of virtual hardware platform *)
     Xapi_vm_helpers.assert_hardware_platform_support ~__context ~vm ~host:host_to;
     (*Check that the remote host is enabled and not in maintenance mode*)

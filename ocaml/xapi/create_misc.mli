@@ -41,4 +41,4 @@ val create_software_version : __context:Context.t -> unit
 val create_host_cpu : __context:Context.t -> unit
 val create_pool_cpuinfo : __context:Context.t -> unit
 val create_chipset_info : __context:Context.t -> unit
-val create_patches_requiring_reboot_info : __context:Context.t -> host:[`host] Ref.t -> unit
+val create_updates_requiring_reboot_info : __context:Context.t -> host:[`host] Ref.t -> unit

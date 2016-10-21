@@ -212,22 +212,6 @@ let ensure_vm_metrics_records_exist __context =
 
 let ensure_vm_metrics_records_exist_noexn __context = Helpers.log_exn_continue "ensuring VM_metrics flags exist" ensure_vm_metrics_records_exist __context
 
-let destroy_invalid_pool_patches ~__context =
-  let is_valid_pool_patch patch =
-    (* If patch has been applied to at least one host, then it is valid. *)
-    if (Db.Pool_patch.get_host_patches ~__context ~self:patch) <> [] then true
-    (* If patch hasn't been applied to any host, but we can still apply it, then it is valid. *)
-    (* File needs to exist in the master's filesystem for us to be able to apply it. *)
-    else if (Sys.file_exists (Db.Pool_patch.get_filename ~__context ~self:patch)) then true
-    else false
-  in
-  let pool_patches = Db.Pool_patch.get_all ~__context in
-  List.iter
-    (fun patch ->
-       if not (is_valid_pool_patch patch)
-       then Db.Pool_patch.destroy ~__context ~self:patch)
-    pool_patches
-
 (* Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
 let update_env __context =
@@ -255,5 +239,4 @@ let update_env __context =
 
   create_tools_sr_noexn __context;
 
-  ensure_vm_metrics_records_exist_noexn __context;
-  destroy_invalid_pool_patches ~__context
+  ensure_vm_metrics_records_exist_noexn __context

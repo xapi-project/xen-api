@@ -171,7 +171,7 @@ val call_plugin :
   plugin:string -> fn:string -> args:(string * string) list -> string
 val call_extension :
   __context:Context.t ->
-  host:[ `host ] Ref.t -> call:string -> string
+  host:[ `host ] Ref.t -> call:string -> Rpc.t
 val has_extension :
   __context:Context.t ->
   host:[ `host ] Ref.t -> name:string -> bool

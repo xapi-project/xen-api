@@ -89,5 +89,9 @@ let handler (req: Http.Request.t) (s: Unix.file_descr) _  =
 
   Server_helpers.exec_with_new_task "VDI.export_raw_vdi"
     (fun __context ->
-       export_raw (Importexport.vdi_of_req ~__context req) req s ()
+       match Importexport.vdi_of_req ~__context req with
+       | Some vdi ->
+         export_raw vdi req s ()
+       | None ->
+         failwith "Missing vdi query parameter"
     )

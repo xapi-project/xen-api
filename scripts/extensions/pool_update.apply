@@ -1,0 +1,139 @@
+#!/usr/bin/env python
+
+import xmlrpclib
+import sys
+import XenAPI
+import json
+import traceback
+import subprocess
+import os
+import fasteners
+import errno
+import shutil
+import logging
+import xcp.logger
+
+TMP_DIR = '/tmp/'
+UPDATE_ALREADY_APPLIED = 'UPDATE_ALREADY_APPLIED'
+UPDATE_APPLY_FAILED = 'UPDATE_APPLY_FAILED'
+OTHER_OPERATION_IN_PROGRESS = 'OTHER_OPERATION_IN_PROGRESS'
+PATCH_PRECHECK_FAILED_UNKNOWN_ERROR = 'PATCH_PRECHECK_FAILED_UNKNOWN_ERROR'
+CANNOT_FIND_UPDATE = 'CANNOT_FIND_UPDATE'
+
+
+class ApplyFailure(Exception):
+    pass
+
+
+def success_message():
+    rpcparams = {'Status': 'Success', 'Value': ''}
+    return xmlrpclib.dumps((rpcparams, ), '', True)
+
+
+def failure_message(code, params):
+    rpcparams = {
+        'Status': 'Failure', 'ErrorDescription': [code] + params}
+    return xmlrpclib.dumps((rpcparams, ), '', True)
+
+
+def execute_apply(session, update_package, yum_conf_file):
+    cmd = ['yum', 'install', '-y', '--noplugins', '-c', yum_conf_file, update_package]
+    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
+    output, _ = p.communicate()
+    xcp.logger.info('pool_update.apply %r returncode=%r output=%r', cmd, p.returncode, output)
+    if p.returncode != 0:
+        lines = output.splitlines()
+        errorlines = [l for l in lines if l.startswith('Error: ')]
+        if errorlines:
+            errmsg = errorlines[-1].split(':', 1)[-1].strip()
+        else:
+            errmsg = lines[-1]
+        raise ApplyFailure(
+            'Install %s error: %s' % (update_package, errmsg))
+
+
+if __name__ == '__main__':
+    xcp.logger.logToSyslog(level=logging.INFO)
+    txt = sys.stdin.read()
+    params, method = xmlrpclib.loads(txt)
+
+    session = None
+    lock_acquired = False
+    try:
+        session = XenAPI.xapi_local()
+        session.xenapi.login_with_password('root', '', '', 'Pool_update')
+
+        update = params[1]
+        host = params[2]
+        # Check if the update has been applied.
+        if update in session.xenapi.host.get_updates(host):
+            print(failure_message(
+                UPDATE_ALREADY_APPLIED, ['This update has already been applied.']))
+            sys.exit(0)
+
+        update_uuid = session.xenapi.pool_update.get_uuid(update)
+        update_package = 'update-' + session.xenapi.pool_update.get_name_label(update)
+        yum_conf_file = os.path.join(TMP_DIR, update_uuid, 'yum.conf')
+
+        # To prevent the race condition of invoking apply, set a lock.
+        lock_file = os.path.join(TMP_DIR, update_uuid + '.lck')
+        lock = fasteners.InterProcessLock(lock_file)
+        lock_acquired = lock.acquire(blocking=False)
+
+        if not lock_acquired:
+            print(failure_message(
+                OTHER_OPERATION_IN_PROGRESS, ['Another apply operation is in progress.']))
+            sys.exit(0)
+
+        # Run precheck
+        try:
+            session.xenapi.pool_update.precheck(update, host)
+        except Exception as e:
+            try:
+                errors = json.loads(str(e))
+                print(failure_message(errors[0], errors[1:]))
+            except:
+                print(failure_message(PATCH_PRECHECK_FAILED_UNKNOWN_ERROR, [str(e)]))
+            sys.exit(0)
+
+        update_vdi = session.xenapi.pool_update.get_vdi(update)
+        try:
+            update_vdi_uuid = session.xenapi.VDI.get_uuid(update_vdi)
+        except Exception as e:
+            print(failure_message(CANNOT_FIND_UPDATE,
+                ['Missing update package [uuid=%s]' % update_uuid]))
+            sys.exit(0)
+
+        # Apply the update.
+        try:
+            yum_conf = session.xenapi.pool_update.attach(update)
+            try:
+                os.makedirs(os.path.dirname(yum_conf_file))
+            except OSError as e:
+                if e.errno == errno.EEXIST:
+                    pass
+                else:
+                    raise
+            with open (yum_conf_file, "w+") as file:
+                file.write("{0}".format(yum_conf))
+
+            execute_apply(session, update_package, yum_conf_file)
+
+            session.xenapi.pool_update.resync_host(host)
+            print(success_message())
+        except Exception as e:
+            print(failure_message(UPDATE_APPLY_FAILED,
+                                  ['Failed to apply the update: %s' % e]))
+        finally:
+            session.xenapi.pool_update.detach(update)
+            try:
+                shutil.rmtree(os.path.dirname(yum_conf_file))
+            except Exception as e:
+                pass
+    finally:
+        if lock_acquired:
+            lock.release()
+            if os.path.isfile(lock_file):
+                os.remove(lock_file)
+        if session is not None:
+            session.xenapi.session.logout()
