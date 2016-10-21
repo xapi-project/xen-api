@@ -39,8 +39,7 @@ def failure_message(code, params):
 def execute_apply(session, update_package, yum_conf_file):
     cmd = ['yum', 'install', '-y', '--noplugins', '-c', yum_conf_file, update_package]
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
-    p.wait()
-    output = p.stdout.read()
+    output, _ = p.communicate()
     xcp.logger.info('pool_update.apply %r returncode=%r output=%r', cmd, p.returncode, output)
     if p.returncode != 0:
         lines = output.splitlines()
