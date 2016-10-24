@@ -375,7 +375,7 @@ let pool_apply ~__context ~self =
   if List.length unapplied_hosts = 0
   then begin
     debug "pool_update.pool_apply, %s has already been applied on all hosts." pool_update_name;
-    raise (Api_errors.Server_error(Api_errors.update_already_applied_in_pool, []))
+    raise (Api_errors.Server_error(Api_errors.update_already_applied_in_pool, [Ref.string_of self]))
   end
   else
     let failed_hosts = unapplied_hosts |>
