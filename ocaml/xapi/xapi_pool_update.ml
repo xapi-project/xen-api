@@ -347,8 +347,10 @@ let create_update_record ~__context ~update ~update_info ~vdi =
     ~vdi:vdi
 
 let introduce ~__context ~vdi =
-  let update_info = extract_update_info ~__context ~vdi ~verify in
   ignore(Unixext.mkdir_safe Xapi_globs.host_update_dir 0o755);
+  (*If current disk free space is smaller than 1MB raise exception*)
+  assert_space_available ~multiplier:1L Xapi_globs.host_update_dir (Int64.mul 1024L 1024L);
+  let update_info = extract_update_info ~__context ~vdi ~verify in
   ignore(assert_space_available Xapi_globs.host_update_dir update_info.installation_size);
   try
     let update = Db.Pool_update.get_by_uuid ~__context ~uuid:update_info.uuid in
