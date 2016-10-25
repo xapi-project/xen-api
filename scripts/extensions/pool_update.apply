@@ -7,6 +7,7 @@ import json
 import traceback
 import subprocess
 import os
+import re
 import fasteners
 import errno
 import shutil
@@ -17,13 +18,19 @@ TMP_DIR = '/tmp/'
 UPDATE_ALREADY_APPLIED = 'UPDATE_ALREADY_APPLIED'
 UPDATE_APPLY_FAILED = 'UPDATE_APPLY_FAILED'
 OTHER_OPERATION_IN_PROGRESS = 'OTHER_OPERATION_IN_PROGRESS'
-PATCH_PRECHECK_FAILED_UNKNOWN_ERROR = 'PATCH_PRECHECK_FAILED_UNKNOWN_ERROR'
+UPDATE_PRECHECK_FAILED_UNKNOWN_ERROR = 'UPDATE_PRECHECK_FAILED_UNKNOWN_ERROR'
 CANNOT_FIND_UPDATE = 'CANNOT_FIND_UPDATE'
+INVALID_UPDATE = 'INVALID_UPDATE'
+ERROR_MESSAGE_DOWNLOAD_PACKAGE = 'Error downloading packages:\n'
+ERROR_MESSAGE_START = 'Error: '
+ERROR_MESSAGE_END = 'You could try '
 
 
 class ApplyFailure(Exception):
     pass
 
+class InvalidUpdate(Exception):
+    pass
 
 def success_message():
     rpcparams = {'Status': 'Success', 'Value': ''}
@@ -42,14 +49,17 @@ def execute_apply(session, update_package, yum_conf_file):
     output, _ = p.communicate()
     xcp.logger.info('pool_update.apply %r returncode=%r output=%r', cmd, p.returncode, output)
     if p.returncode != 0:
-        lines = output.splitlines()
-        errorlines = [l for l in lines if l.startswith('Error: ')]
-        if errorlines:
-            errmsg = errorlines[-1].split(':', 1)[-1].strip()
+        if ERROR_MESSAGE_DOWNLOAD_PACKAGE in output:
+            raise InvalidUpdate('Missing package(s) in the update.')
+
+        m = re.search('(?<=' + ERROR_MESSAGE_START + ').+$', output, flags=re.DOTALL)
+        if m:
+            errmsg = m.group()
+            errmsg = re.sub(ERROR_MESSAGE_END + '.+', '', errmsg, flags=re.DOTALL)
+            errmsg = re.sub('\n +', ' ', errmsg, flags=re.DOTALL)
+            raise ApplyFailure(errmsg)
         else:
-            errmsg = lines[-1]
-        raise ApplyFailure(
-            'Install %s error: %s' % (update_package, errmsg))
+            raise ApplyFailure()
 
 
 if __name__ == '__main__':
@@ -68,7 +78,7 @@ if __name__ == '__main__':
         # Check if the update has been applied.
         if update in session.xenapi.host.get_updates(host):
             print(failure_message(
-                UPDATE_ALREADY_APPLIED, ['This update has already been applied.']))
+                UPDATE_ALREADY_APPLIED, [update]))
             sys.exit(0)
 
         update_uuid = session.xenapi.pool_update.get_uuid(update)
@@ -82,7 +92,7 @@ if __name__ == '__main__':
 
         if not lock_acquired:
             print(failure_message(
-                OTHER_OPERATION_IN_PROGRESS, ['Another apply operation is in progress.']))
+                OTHER_OPERATION_IN_PROGRESS, ['Applying the update', update]))
             sys.exit(0)
 
         # Run precheck
@@ -90,18 +100,16 @@ if __name__ == '__main__':
             session.xenapi.pool_update.precheck(update, host)
         except Exception as e:
             try:
-                errors = json.loads(str(e))
-                print(failure_message(errors[0], errors[1:]))
+                print(failure_message(e.details[0], e.details[1:]))
             except:
-                print(failure_message(PATCH_PRECHECK_FAILED_UNKNOWN_ERROR, [str(e)]))
+                print(failure_message(UPDATE_PRECHECK_FAILED_UNKNOWN_ERROR, [str(e)]))
             sys.exit(0)
 
         update_vdi = session.xenapi.pool_update.get_vdi(update)
         try:
             update_vdi_uuid = session.xenapi.VDI.get_uuid(update_vdi)
         except Exception as e:
-            print(failure_message(CANNOT_FIND_UPDATE,
-                ['Missing update package [uuid=%s]' % update_uuid]))
+            print(failure_message(CANNOT_FIND_UPDATE, []))
             sys.exit(0)
 
         # Apply the update.
@@ -121,9 +129,10 @@ if __name__ == '__main__':
 
             session.xenapi.pool_update.resync_host(host)
             print(success_message())
+        except InvalidUpdate as e:
+            print(failure_message(INVALID_UPDATE, [str(e)]))
         except Exception as e:
-            print(failure_message(UPDATE_APPLY_FAILED,
-                                  ['Failed to apply the update: %s' % e]))
+            print(failure_message(UPDATE_APPLY_FAILED, [str(e)]))
         finally:
             session.xenapi.pool_update.detach(update)
             try:
