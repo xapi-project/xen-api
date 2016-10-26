@@ -24,6 +24,7 @@
 
 import sys, time
 import signal
+import syslog
 
 import XenAPI
 
@@ -90,6 +91,14 @@ def get_running_domains(session, host):
             vms.append((vm,record))
     return vms
 
+def estimate_evacuate_timeout(session, host):
+    """ Rough estimation of the evacuate uplimit based on live VMs memory """
+    mref = session.xenapi.host.get_metrics(host)
+    metrics = session.xenapi.host_metrics.get_record(mref)
+    memory_used = int(metrics['memory_total']) - int(metrics['memory_free'])
+    # Conservative estimation based on 1000Mbps link, and the memory usage of
+    # Dom0 (which is not going to be transferred) is an intentional surplus
+    return (memory_used * 8. / (1000. * 1024 * 1024))
 
 def host_evacuate(session, host):
     """Attempts a host evacuate. If the timeout expires then it attempts to cancel
@@ -98,8 +107,13 @@ def host_evacuate(session, host):
     print "\n  Requesting evacuation of host",
     sys.stdout.flush()
     task = session.xenapi.Async.host.evacuate(host)
+    timeout = 240
     try:
-        if not(wait_for_tasks(session, [ task ], 240)):
+        timeout = max(estimate_evacuate_timeout(session, host), timeout)
+    except Exception, e:
+        syslog.syslog(syslog.LOG_WARNING, "Evacuate timeout estimation error: %s, use default." % e)
+    try:
+        if not(wait_for_tasks(session, [ task ], timeout)):
             print "\n  Cancelling evacuation of host",
             sys.stdout.flush()
             session.xenapi.task.cancel(task)
