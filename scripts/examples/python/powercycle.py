@@ -15,25 +15,25 @@
 
 # Enumerate all existing VMs, shut them down and do some aggressive power-cycling
 
-import sys, time
+import sys
+import time
 
 import XenAPI
 
 
 def main(session):
     # Find a non-template VM object
-    vms = session.xenapi.VM.get_all()
+    vms = session.xenapi.VM.get_all_records()
     print "Server has %d VM objects (this includes templates):" % (len(vms))
 
     for vm in vms:
-        record = session.xenapi.VM.get_record(vm)
+        record = vms[vm]
         # We cannot power-cycle templates and we should avoid touching control domains
         # unless we are really sure of what we are doing...
         if not(record["is_a_template"]) and not(record["is_control_domain"]):
             name = record["name_label"]
-            print "Found VM uuid", record["uuid"], "called: ", name
+            print "Found VM uuid %s called %s" % (record["uuid"], name)
 
-            record = session.xenapi.VM.get_record(vm)            
             # Make sure the VM has powered down
             print "  VM '%s' is in power state '%s'" % (name, record["power_state"])
             if record["power_state"] == "Suspended":
@@ -47,20 +47,23 @@ def main(session):
                 
             # Power-cycle the VM a few times
             for i in range(1, 10):
-                print "  beginning iteration %d" % (i)
-                print "  ... restarting"
-                session.xenapi.VM.start(vm, False, True) # start_paused = False; force = True
-                print "  ... waiting 20s for the VM to boot"
-                time.sleep(20)
-                print "  ... suspending"
+                print "  beginning iteration %d" % i
+                print "      restarting..."
+                session.xenapi.VM.start(vm, False, True)  # start_paused = False; force = True
+                while True:
+                    rec = session.xenapi.VM.get_record(vm)
+                    if 'suspend' in rec['allowed_operations']:
+                        break
+                    time.sleep(1)
+                print "      suspending..."
                 session.xenapi.VM.suspend(vm)
-                print "  ... resuming"
+                print "      resuming..."
                 session.xenapi.VM.resume(vm, False, True) # start_paused = False; force = True
-                print "  ... shutting down"
+                print "      shutting down..."
                 session.xenapi.VM.clean_shutdown(vm)
 
 if __name__ == "__main__":
-    if len(sys.argv) <> 4:
+    if len(sys.argv) != 4:
         print "Usage:"
         print sys.argv[0], " <url> <username> <password>"
         sys.exit(1)
@@ -68,7 +71,16 @@ if __name__ == "__main__":
     username = sys.argv[2]
     password = sys.argv[3]
     # First acquire a valid session by logging in:
-    session = XenAPI.Session(url)
-    session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-powercycle.py")
-    main(session)
-
+    new_session = XenAPI.Session(url)
+    try:
+        new_session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-powercycle.py")
+    except XenAPI.Failure as f:
+        print "Failed to acquire a session: %s" % f.details
+        sys.exit(1)
+    try:
+        main(new_session)
+    except Exception, e:
+        print str(e)
+        raise
+    finally:
+        new_session.xenapi.session.logout()

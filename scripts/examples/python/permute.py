@@ -16,18 +16,19 @@
 # Take all running VMS, their resident_on hosts, permute them and migrate
 # all VMS simultaneously. Repeat N times.
 
-import sys, time
+import sys
+import time
 
 import XenAPI
 
 
 def main(session, iteration):
     # Find a non-template VM object
-    all = session.xenapi.VM.get_all()
+    all_vms = session.xenapi.VM.get_all_records()
     vms = []
     hosts = []
-    for vm in all:
-        record = session.xenapi.VM.get_record(vm)
+    for vm in all_vms:
+        record = all_vms[vm]
         if not(record["is_a_template"]) and not(record["is_control_domain"]) and record["power_state"] == "Running":
             vms.append(vm)
             hosts.append(record["resident_on"])
@@ -36,14 +37,14 @@ def main(session, iteration):
     hosts = [hosts[-1]] + hosts[:(len(hosts)-1)]
 
     tasks = []
-    for i in range(0, len(vms)):
-        vm = vms[i]
-        host = hosts[i]
+    for j in range(0, len(vms)):
+        vm = vms[j]
+        host = hosts[j]
         task = session.xenapi.Async.VM.pool_migrate(vm, host, { "live": "true" })
         tasks.append(task)
     finished = False
     records = {}
-    while not(finished):
+    while not finished:
         finished = True
         for task in tasks:
             record = session.xenapi.task.get_record(task)
@@ -54,9 +55,9 @@ def main(session, iteration):
     allok = True
     for task in tasks:
         record = records[task]
-        if record["status"] <> "success":
+        if record["status"] != "success":
             allok = False
-    if not(allok):
+    if not allok:
         print "One of the tasks didn't succeed at", time.strftime("%F:%HT%M:%SZ", time.gmtime())
         idx = 0
         for task in tasks:
@@ -64,14 +65,14 @@ def main(session, iteration):
             vm_name = session.xenapi.VM.get_name_label(vms[idx])
             host_name = session.xenapi.host.get_name_label(hosts[idx])
             print "%s : %12s %s -> %s [ status: %s; result = %s; error = %s ]" % (record["uuid"], record["name_label"], vm_name, host_name, record["status"], record["result"], repr(record["error_info"]))
-            idx = idx + 1
-        raise "Task failed"
+            idx += 1
+        raise XenAPI.Failure("Task failed")
     else:
         for task in tasks:
             session.xenapi.task.destroy(task)
 
 if __name__ == "__main__":
-    if len(sys.argv) <> 5:
+    if len(sys.argv) != 5:
         print "Usage:"
         print sys.argv[0], " <url> <username> <password> <iterations>"
         sys.exit(1)
@@ -80,10 +81,18 @@ if __name__ == "__main__":
     password = sys.argv[3]
     iterations = int(sys.argv[4])
     # First acquire a valid session by logging in:
-    session = XenAPI.Session(url)
-    session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-permute.py")
+    new_session = XenAPI.Session(url)
+    try:
+        new_session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-permute.py")
+    except XenAPI.Failure as f:
+        print "Failed to acquire a session: %s" % f.details
+        sys.exit(1)
+
     try:
         for i in range(iterations):
-            main(session, i)
+            main(new_session, i)
+    except XenAPI.Failure as e:
+        print e.details
+        sys.exit(1)
     finally:
-        session.xenapi.session.logout()
+        new_session.xenapi.session.logout()

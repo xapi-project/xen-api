@@ -15,11 +15,14 @@
 
 # Apply a new license to a XenServer
 
-import sys, time, base64
+import sys
+import time
+import base64
 
 import XenAPI
 
 filename = "license" # filename containing the license data
+
 
 def main(session):
     f = open(filename, "r")
@@ -36,7 +39,7 @@ def main(session):
     session.xenapi.host.license_apply(host, data)
 
 if __name__ == "__main__":
-    if len(sys.argv) <> 4:
+    if len(sys.argv) != 4:
         print "Usage:"
         print sys.argv[0], " <url> <username> <password>"
         sys.exit(1)
@@ -44,8 +47,17 @@ if __name__ == "__main__":
     username = sys.argv[2]
     password = sys.argv[3]
     # First acquire a valid session by logging in:
-    session = XenAPI.Session(url)
-    session.xenapi.login_with_password(username, password, '1.0', 'xen-api-scripts-license.py')
-    main(session)
-    session.xenapi.session.logout()
+    new_session = XenAPI.Session(url)
+    try:
+        new_session.xenapi.login_with_password(username, password, '1.0', 'xen-api-scripts-license.py')
+    except XenAPI.Failure as e:
+        print "Failed to acquire a session: %s" % e.details
+        sys.exit(1)
+    try:
+        main(new_session)
+    except XenAPI.Failure as e:
+        print e.details
+        sys.exit(1)
+    finally:
+        new_session.xenapi.session.logout()
 

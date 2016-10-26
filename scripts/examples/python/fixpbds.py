@@ -17,11 +17,13 @@
 # This is somewhat more convoluted than simple parameter changes, as PBDs
 # are read-only. This is to ensure they are always consistent with the 
 # state of the world.
-# The parameters to change are defined in the variable 'map'
+# The parameters to change are defined in the variable 'mapping'
 
-import XenAPI, sys
+import XenAPI
+import sys
 
-def main(session,sr,map):
+
+def main(session, sr, mapping):
     # Get all the PBDs associated with the SR
     sr = session.xenapi.SR.get_by_uuid(sr)
     pbds = session.xenapi.SR.get_PBDs(sr)
@@ -34,7 +36,7 @@ def main(session,sr,map):
     for pbd in pbds:
         rec=session.xenapi.PBD.get_record(pbd)
         newdconf=rec['device_config']
-        newdconf.update(map)
+        newdconf.update(mapping)
         session.xenapi.PBD.destroy(pbd)
         print "host=",rec['host']," sr=",rec['SR'],"newdconf=",newdconf
         pbd=session.xenapi.PBD.create({'host':rec['host'],'SR':rec['SR'],'device_config':newdconf})
@@ -49,15 +51,23 @@ if __name__ == "__main__":
     url = sys.argv[1]
     username = sys.argv[2]
     password = sys.argv[3]
-    sr = sys.argv[4]
+    the_sr = sys.argv[4]
     
     # This could be parsed from the command line. 
-    map = { "target":"127.0.0.2" }
+    the_mapping = {"target": "127.0.0.2"}
 
     # First acquire a valid session by logging in:
-    session = XenAPI.Session(url)
-    session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-fixpbds.py")
-    main(session,sr,map)
+    new_session = XenAPI.Session(url)
+    try:
+        new_session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-fixpbds.py")
+    except XenAPI.Failure as f:
+        print "Failed to acquire a session: %s" % f.details
+        sys.exit(1)
 
-
-    
+    try:
+        main(new_session, the_sr, the_mapping)
+    except XenAPI.Failure as e:
+        print e.details
+        sys.exit(1)
+    finally:
+        new_session.xenapi.session.logout()

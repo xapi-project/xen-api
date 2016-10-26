@@ -18,47 +18,68 @@
 # Simple python example to demonstrate the event system. Logs into the server,
 # registers for all events and prints them to the screen.
 
-import XenAPI, sys
+import XenAPI
+import sys
+import time
+
 
 def main(session):
     try:
-        # Register for events on all classes:
-        session.xenapi.event.register(["*"])
+        # interval in seconds, after which the event_from call should time out
+        call_timeout = 30.0
+
+        # interval (in seconds) between two subsequent event_from calls
+        polling_interval = 10
+
+        # the output of event_from includes a token, which can be passed into a
+        # subsequent event_from call to retrieve only the events that have occurred
+        # since the last call; if an empty string is passed, event_from will return
+        # all events (this is normally done for the very first call)
+        token = ''
+
+        # get events for all classes
+        event_types = ["*"]
+
         while True:
             try:
-                events = session.xenapi.event.next()
-                
+                print "Polling for events..."
+                output = session.xenapi.event_from(event_types, token, call_timeout)
+                events = output['events']
+                token = output['token']
+
+                print "Number of events retrieved: %s" % len(events)
+
                 # Print the events out in a nice format:
                 fmt = "%8s  %20s  %5s  %s"
-                hdr = fmt % ("id", "class", "type", "name of object (if available)")
-                print "-" * (len(hdr))
-                print hdr
-                print "-" * (len(hdr))
+                if len(events) > 0:
+                    hdr = fmt % ("id", "class", "type", "name of object (if available)")
+                    print "-" * (len(hdr))
+                    print hdr
+                    print "-" * (len(hdr))
+
                 for event in events:
-                    name = "(unknown object name)"
+                    name = "n/a"
                     if "snapshot" in event.keys():
                         snapshot = event['snapshot']
                         if "name_label" in snapshot.keys():
                             name = snapshot['name_label']
                     print fmt % (event['id'], event['class'], event['operation'], name)
 
-            except XenAPI.Failure, e:
-                if e.details <> [ "EVENTS_LOST" ]: raise
-                print "** Caught EVENTS_LOST error: some events may be lost"
-                # Check for the "EVENTS_LOST" error (happens if the event queue fills up on the
-                # server and some events have been lost). The only thing we can do is to
-                # unregister and then re-register again for future events.
-                # NB: A program which is waiting for a particular condition to become true would
-                # need to explicitly poll the state to make sure the condition hasn't become
-                # true in the gap.
-                session.xenapi.event.unregister(["*"])
-                session.xenapi.event.register(["*"])
+                print "Waiting for %s seconds before next poll..." % polling_interval
+                time.sleep(polling_interval)
+
+            except KeyboardInterrupt:
+                break
+
+    except XenAPI.Failure as e:
+        print e.details
+        sys.exit(1)
     finally:
         session.xenapi.session.logout()
-        
+
 
 if __name__ == "__main__":
-    if len(sys.argv) <> 4:
+    if len(sys.argv) != 4:
         print "Usage:"
         print sys.argv[0], " <url> <username> <password>"
         sys.exit(1)
@@ -66,6 +87,10 @@ if __name__ == "__main__":
     username = sys.argv[2]
     password = sys.argv[3]
     # First acquire a valid session by logging in:
-    session = XenAPI.Session(url)
-    session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-watch-all-events.py")
-    main(session)
+    new_session = XenAPI.Session(url)
+    try:
+        new_session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-watch-all-events.py")
+    except XenAPI.Failure as f:
+        print "Failed to acquire a session: %s" % f.details
+        sys.exit(1)
+    main(new_session)

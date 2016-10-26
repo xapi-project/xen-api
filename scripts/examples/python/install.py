@@ -18,9 +18,12 @@
 # Pool's default-SR. Add a VIF to the guest and wait until we have confirmed
 # the reported OS type and IP address by monitoring the guest metrics.
 
-import sys, time
+import sys
+import time
 
-import XenAPI, provision
+import XenAPI
+import provision
+
 
 def main(session):
 
@@ -52,9 +55,9 @@ def main(session):
                 templates.append(vm)
         print "  Found %8s with name_label = %s" % (ty, record["name_label"])
 
-    print "Choosing a template to clone"
-    if templates == []:
-        print "Could not find any Debian templates. Exitting"
+    print "Choosing a Debian template to clone"
+    if not templates:
+        print "Could not find any Debian templates. Exiting."
         sys.exit(1)
 
     template = templates[0]
@@ -72,9 +75,9 @@ def main(session):
             "qos_algorithm_params": {},
             "other_config": {} }
     session.xenapi.VIF.create(vif)
-    print "Adding noniteractive to the kernel commandline"
-    session.xenapi.VM.set_PV_args(vm, "noninteractive")
-    print "Choosing an SR to instaniate the VM's disks"
+    print "Adding non-interactive to the kernel commandline"
+    session.xenapi.VM.set_PV_args(vm, "non-interactive")
+    print "Choosing an SR to instantiate the VM's disks"
     pool = session.xenapi.pool.get_all()[0]
     default_sr = session.xenapi.pool.get_default_SR(pool)
     default_sr = session.xenapi.SR.get_record(default_sr)
@@ -92,8 +95,8 @@ def main(session):
     print "Waiting for the installation to complete"
     # Here we poll because we don't generate events for metrics objects currently
     
-    def read_os_name(vm):
-        vgm = session.xenapi.VM.get_guest_metrics(vm)
+    def read_os_name(a_vm):
+        vgm = session.xenapi.VM.get_guest_metrics(a_vm)
         try:
             os = session.xenapi.VM_guest_metrics.get_os_version(vgm)
             if "name" in os.keys():
@@ -101,8 +104,9 @@ def main(session):
             return None
         except:
             return None
-    def read_ip_address(vm):
-        vgm = session.xenapi.VM.get_guest_metrics(vm)
+
+    def read_ip_address(a_vm):
+        vgm = session.xenapi.VM.get_guest_metrics(a_vm)
         try:
             os = session.xenapi.VM_guest_metrics.get_networks(vgm)
             if "0/ip" in os.keys():
@@ -111,16 +115,16 @@ def main(session):
         except:
             return None
 
-    while read_os_name(vm) == None: time.sleep(1)
+    while read_os_name(vm) is None:
+        time.sleep(1)
     print "Reported OS name: ", read_os_name(vm)
-    while read_ip_address(vm) == None: time.sleep(1)
+    while read_ip_address(vm) is None:
+        time.sleep(1)
     print "Reported IP: ", read_ip_address(vm)
-
-    session.xenapi.session.logout()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) <> 4:
+    if len(sys.argv) != 4:
         print "Usage:"
         print sys.argv[0], " <url> <username> <password>"
         sys.exit(1)
@@ -128,12 +132,17 @@ if __name__ == "__main__":
     username = sys.argv[2]
     password = sys.argv[3]
     # First acquire a valid session by logging in:
-    session = XenAPI.Session(url)
-    session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-install.py")
+    new_session = XenAPI.Session(url)
     try:
-        main(session)
+        new_session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-install.py")
+    except XenAPI.Failure as f:
+        print "Failed to acquire a session: %s" % f.details
+        sys.exit(1)
+    try:
+        main(new_session)
     except Exception, e:
         print str(e)
         raise
-
+    finally:
+        new_session.xenapi.session.logout()
 
