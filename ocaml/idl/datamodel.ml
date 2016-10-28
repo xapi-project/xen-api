@@ -1192,7 +1192,7 @@ let _ =
     ~doc:"This command is not allowed on the OEM edition." ();
 
   (* Update errors *)
-  error Api_errors.invalid_update []
+  error Api_errors.invalid_update [ "info" ]
     ~doc:"The uploaded update package is invalid." ();
   error Api_errors.update_is_applied [ ]
     ~doc:"The specified update has been applied and cannot be destroyed." ();
@@ -1200,11 +1200,22 @@ let _ =
     ~doc:"The requested update could not be found. Please upload the update again. This can occur when you run xe update-pool-clean before xe update-apply. " ();
   error Api_errors.update_pool_apply_failed [ "hosts" ]
     ~doc:"The update cannot be applied for the following host(s)." ();
+  error Api_errors.update_apply_failed [ "output" ]
+    ~doc:"The update failed to apply. Please see attached output." ();
   error Api_errors.update_already_applied [ "update" ]
     ~doc:"This update has already been applied." ();
   error Api_errors.update_already_applied_in_pool [ "update" ]
     ~doc:"This update has already been applied to all hosts in the pool." ();
-
+  error Api_errors.update_precheck_failed_unknown_error [ "update"; "info" ]
+    ~doc:"The update precheck stage failed with an unknown error." ();
+  error Api_errors.update_precheck_failed_prerequisite_missing [ "update"; "info" ]
+    ~doc:"The update precheck stage failed: prerequisite update(s) are missing." ();
+  error Api_errors.update_precheck_failed_conflict_present ["update"; "info"]
+    ~doc:"The update precheck stage failed: conflicting updates are present." ();
+  error Api_errors.update_precheck_failed_wrong_server_version ["update"; "info"]
+    ~doc:"The update precheck stage failed: the server is of an incorrect version." ();
+  error Api_errors.update_precheck_failed_out_of_space ["update"; "available_space"; "required_space "]
+    ~doc:"The update precheck stage failed: the server does not have enough space." ();
 
   (* Pool errors *)
 
