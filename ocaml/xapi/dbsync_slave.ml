@@ -308,6 +308,11 @@ let update_env __context sync_keys =
       resynchronise_pif_params ~__context;
     );
 
+  switched_sync Xapi_globs.sync_patch_update_db (fun () ->
+      debug "checking patch status";
+      Xapi_pool_patch.update_db ~__context
+    );
+
   switched_sync Xapi_globs.sync_bios_strings (fun () ->
       debug "get BIOS strings on startup";
       let current_bios_strings = Bios_strings.get_host_bios_strings ~__context in

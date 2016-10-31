@@ -16,6 +16,13 @@
 *)
 
 
+open Stdext
+open Pervasiveext
+open Xstringext
+open Forkhelpers
+open Xml
+open Helpers
+open Listext
 open Client
 
 module D = Debug.Make(struct let name="xapi" end)
@@ -30,6 +37,56 @@ open D
              after-apply-guidance="restartHVM restartPV restartHost"
       />
 *)
+type patch_info = { uuid: string; name_label: string;
+                    name_description: string; version: string;
+                    after_apply_guidance: API.after_apply_guidance list }
+
+exception Missing_patch_key of string
+exception Bad_patch_info
+exception Invalid_patch_uuid of string
+
+let rm = "/bin/rm"
+
+let guidance_from_string = function
+  | "restartHVM"  -> `restartHVM
+  | "restartPV"   -> `restartPV
+  | "restartHost" -> `restartHost
+  | "restartXAPI" -> `restartXAPI
+  | _ -> raise Bad_patch_info
+
+let precheck_patch_uuid uuid =
+  let uuid = String.lowercase uuid in
+  if not (Uuid.is_uuid uuid)
+  then raise (Invalid_patch_uuid uuid);
+  uuid
+
+let patch_info_of_xml = function
+  | Element("info", attr, _) ->
+    let find x =
+      if List.mem_assoc x attr
+      then List.assoc x attr
+      else raise (Missing_patch_key x) in
+    let label = find "name-label"
+    and descr = find "name-description"
+    and version = find "version"
+    and uuid = precheck_patch_uuid (find "uuid")
+    and guidance = find "after-apply-guidance"
+    in
+    let guidance =
+      if guidance <> "" then
+        let guidance = String.split ' ' guidance in
+        List.map guidance_from_string guidance
+      else
+        []
+    in
+    { uuid = uuid; name_label = label; name_description = descr;
+      version = version; after_apply_guidance = guidance }
+  | _ -> raise Bad_patch_info
+
+let patch_info_of_string s =
+  let xml = Xml.parse_string s in
+  debug "xml: %s" (Xml.to_string xml);
+  patch_info_of_xml xml
 
 let pool_patch_of_update ~__context update_ref =
   match Db.Pool_patch.get_refs_where ~__context
@@ -121,6 +178,66 @@ let write_patch_applied_db ~__context ?date ?(applied=true) ~self ~host () =
       ~size:Int64.zero
       ~other_config:[]
 
+let patch_applied_dir = "/var/patch/applied"
+
+let create_patch_record ~__context ?path patch_info =
+  failwith "Unimplemented"
+
+let update_db ~__context =
+  (* We need to check the patch_applied_dir for applied patches and check they are present in the db *)
+  (* Used from dbsync_slave - DO NOT THROW ANY EXCEPTIONS *)
+  try
+    (* First look in the patch applied dir for the definitive list of locally-applied patches *)
+    let local_patch_details =
+      (* Full paths of the /var/patch/applied files *)
+      let stampfiles = List.map (Filename.concat patch_applied_dir) (try Array.to_list (Sys.readdir patch_applied_dir) with _ -> []) in
+      let parse x =
+        try [ patch_info_of_string (Unixext.string_of_file x), (Unix.stat x).Unix.st_mtime ]
+        with e -> warn "Error parsing patch stampfile %s: %s" x (ExnHelper.string_of_exn e); [] in
+      List.concat (List.map parse stampfiles) in
+
+    (* Make sure all the patches in the filesystem have global Pool_patch records *)
+    let pool_patches_in_fs = List.map
+        (fun (details , _)->
+           try Db.Pool_patch.get_by_uuid ~__context ~uuid:details.uuid
+           with _ ->
+             debug "Patch uuid %s does not exist in Pool_patch table; creating" details.uuid;
+             create_patch_record ~__context details) local_patch_details in
+    (* Construct a table of pool_patch to mtime, necessary if we create Host_patch records *)
+    let pool_patch_to_mtime = List.combine pool_patches_in_fs (List.map snd local_patch_details) in
+
+    (* Find this Host's Pool_patch records in the database *)
+    let host_patches_in_db = Db.Host.get_patches ~__context ~self:(Helpers.get_localhost ~__context) in
+    let pool_patches_in_db = List.map (fun hp -> Db.Host_patch.get_pool_patch ~__context ~self:hp) host_patches_in_db in
+    (* We compare the referenced 'pool_patches' and then use this table to get back the localhost 'host_patch': *)
+    let pool_patch_to_host_patch = List.combine pool_patches_in_db host_patches_in_db in
+
+    (* Now perform a two-way sync between pool_patches_in_fs and pool_patches_in_db *)
+    let new_pool_patches = List.set_difference pool_patches_in_fs pool_patches_in_db in
+    let old_pool_patches = List.set_difference pool_patches_in_db pool_patches_in_fs in
+
+    List.iter
+      (fun pp ->
+         let msg = Printf.sprintf "Adding new Host_patch record for patch %s" (Ref.string_of pp) in
+         Helpers.log_exn_continue msg
+           (fun () ->
+              debug "%s" msg;
+              let date = List.assoc pp pool_patch_to_mtime in
+              let host = Helpers.get_localhost ~__context in
+              write_patch_applied_db ~__context ~date ~self:pp ~host ()) ()) new_pool_patches;
+    List.iter
+      (fun pp ->
+         let msg = Printf.sprintf "Removing Host_patch record for patch %s" (Ref.string_of pp) in
+         Helpers.log_exn_continue msg
+           (fun () ->
+              debug "%s" msg;
+              Db.Host_patch.destroy ~__context ~self:(List.assoc pp pool_patch_to_host_patch)) ()) old_pool_patches
+  with
+  | End_of_file ->
+    ()
+  | e ->
+    debug "Error updating patch status. %s" (ExnHelper.string_of_exn e)
+
 (* Helper function. [forward __context self f] finds the update associated
    with the pool_patch reference [self] and applies the function f to that
    update *)
@@ -160,4 +277,16 @@ let pool_clean ~__context ~self =
   forward ~__context ~self Client.Pool_update.pool_clean
 
 let destroy ~__context ~self =
-  forward ~__context ~self Client.Pool_update.destroy
+  let hosts = Db.Host.get_all ~__context in
+  let applied = List.exists (fun host -> get_patch_applied_to ~__context ~patch:self ~host <> None ) hosts in
+
+  if applied
+  then raise (Api_errors.Server_error(Api_errors.patch_is_applied, []));
+
+  List.iter
+    (fun host ->
+       Helpers.call_api_functions ~__context
+         (fun rpc session_id -> Client.Pool_patch.clean_on_host ~rpc ~session_id ~self ~host)
+    )
+    hosts;
+  Db.Pool_patch.destroy ~__context ~self
