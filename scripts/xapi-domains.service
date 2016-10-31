@@ -11,5 +11,10 @@ ExecStart=@BINDIR@/xapi-autostart-vms
 ExecStop=@LIBEXECDIR@/shutdown $INSTALLATION_UUID
 ExecStop=@LIBEXECDIR@/shutdown --force $INSTALLATION_UUID
 
+# Generous 24hr timeout that corresponding to the max evacuation time of a host
+# with memory close to our support limit. Finer grained timeout control depends
+# on the logic in the shutdown script itself.
+TimeoutStopSec=86400
+
 [Install]
 WantedBy=multi-user.target
