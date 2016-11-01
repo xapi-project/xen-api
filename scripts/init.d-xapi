@@ -50,10 +50,12 @@ start() {
 	    # clear out qemu coredumps/chroot dirs on system boot:
 	    rm -rf /var/xen/qemu/*
 	    #rm -f ${XAPI_BOOT_TIME_INFO_UPDATED}
+	    echo
 	    exec "@BINDIR@/xapi" -nowatchdog ${xapiflags} \
 		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE} -onsystemboot
 		RETVAL=$?
 	else
+	    echo
 	    exec "@BINDIR@/xapi" -nowatchdog ${xapiflags} \
 		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE}
 		RETVAL=$?
