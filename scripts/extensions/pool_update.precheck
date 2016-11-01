@@ -75,7 +75,9 @@ def parse_control_package(session, yum_url):
 def execute_precheck(session, control_package, yum_conf_file):
     if not control_package:
         return 'ok'
-    livepatch_dic = {'PATCH_PRECHECK_LIVEPATCH_COMPLETE': 'ok_livepatch_complete', 'PATCH_PRECHECK_LIVEPATCH_INCOMPLETE': 'ok_livepatch_incomplete', 'PATCH_PRECHECK_LIVEPATCH_NOT_APPLICABLE': 'ok'}
+    livepatch_messages = {'PATCH_PRECHECK_LIVEPATCH_COMPLETE': 'ok_livepatch_complete',
+                     'PATCH_PRECHECK_LIVEPATCH_INCOMPLETE': 'ok_livepatch_incomplete',
+                     'PATCH_PRECHECK_LIVEPATCH_NOT_APPLICABLE': 'ok'}
     cmd = ['yum', 'install', '-y', '--noplugins', '-c', yum_conf_file, control_package]
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
     output, _ = p.communicate()
@@ -100,17 +102,10 @@ def execute_precheck(session, control_package, yum_conf_file):
         else:
             raise PrecheckFailure()
     else:
-        lines = output.splitlines()
-        resultlines = [l for l in lines if l.startswith('<livepatch ')]
-        if resultlines:
-            result = resultlines[-1].split('\"')[1]
-            try:
-                return livepatch_dic[result]
-            except KeyError:
-                raise PrecheckFailure(
-                    'Install %s, precheck error: %s' % (control_package, result))
-        else:
-            return 'ok'
+        for msg in livepatch_messages.keys():
+            if msg in output:
+                return livepatch_messages[msg]
+        return 'ok'
         
 
 if __name__ == '__main__':
