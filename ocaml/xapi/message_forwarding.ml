@@ -1616,13 +1616,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let pool_migrate ~__context ~vm ~host ~options =
       info "VM.pool_migrate: VM = '%s'; host = '%s'"
         (vm_uuid ~__context vm) (host_uuid ~__context host);
-      let source_host = Db.VM.get_resident_on ~__context ~self:vm in
-      let to_equal_or_greater_version = Helpers.host_versions_not_decreasing ~__context
-        ~host_from:(Helpers.LocalObject source_host)
-        ~host_to:(Helpers.LocalObject host) in
-
-      if (Helpers.rolling_upgrade_in_progress ~__context) && (not to_equal_or_greater_version) then
-          raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []));
 
       let local_fn = Local.VM.pool_migrate ~vm ~host ~options in
 
@@ -1632,6 +1625,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
       with_vm_operation ~__context ~self:vm ~doc:"VM.pool_migrate" ~op:`pool_migrate ~strict:(not force)
         (fun () ->
+           let source_host = Db.VM.get_resident_on ~__context ~self:vm in
+
+           let to_equal_or_greater_version = Helpers.host_versions_not_decreasing ~__context
+             ~host_from:(Helpers.LocalObject source_host)
+             ~host_to:(Helpers.LocalObject host) in
+
+           if (Helpers.rolling_upgrade_in_progress ~__context) && (not to_equal_or_greater_version) then
+               raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []));
+
            (* Make sure the target has enough memory to receive the VM *)
            let snapshot = Helpers.get_boot_record ~__context ~self:vm in
            (* MTC:  An MTC-protected VM has a peer VM on the destination host to which
