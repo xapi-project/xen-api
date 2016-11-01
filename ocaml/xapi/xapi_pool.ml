@@ -1606,7 +1606,7 @@ let find_or_create_redo_log_vdi ~__context ~sr =
     create_redo_log_vdi ~__context ~sr
 
 
-let enable_redo_log ~__context ~sr =
+let do_enable_redo_log ~__context ~sr =
   info "Enabling redo log...";
 
   (* find or create suitable VDI *)
@@ -1679,6 +1679,18 @@ let disable_redo_log ~__context =
     end;
   end;
   info "The redo log is now disabled"
+
+let enable_redo_log ~__context ~sr =
+  let pool = Helpers.get_pool ~__context in
+  if not (Db.Pool.get_redo_log_enabled ~__context ~self:pool)
+  then do_enable_redo_log ~__context ~sr
+  else
+    let redo_log_vdi = Db.Pool.get_redo_log_vdi ~__context ~self:pool in
+    let redo_log_sr = Db.VDI.get_SR ~__context ~self:redo_log_vdi in
+    if redo_log_sr <> sr then begin
+      disable_redo_log ~__context;
+      do_enable_redo_log ~__context ~sr
+    end
 
 let set_vswitch_controller ~__context ~address =
   let dbg = Context.string_of_task __context in
