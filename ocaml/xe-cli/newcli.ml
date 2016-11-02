@@ -36,7 +36,7 @@ let ciphersuites = ref None
 let xedebug = ref false
 let xedebugonfail = ref false
 
-let stunnel_process = ref None
+let stunnel_processes = ref []
 let debug_channel = ref None
 let debug_file = ref None
 
@@ -246,7 +246,7 @@ let open_tcp_ssl server =
   let x = Stunnel.connect ~use_fork_exec_helper:false
       ~write_to_log:(fun x -> debug "stunnel: %s\n%!" x)
       ~extended_diagnosis:(!debug_file <> None) server port in
-  if !stunnel_process = None then stunnel_process := Some x;
+  stunnel_processes := x :: !stunnel_processes;
   Unix.in_channel_of_descr x.Stunnel.fd, Unix.out_channel_of_descr x.Stunnel.fd
 
 let open_tcp server =
@@ -331,19 +331,7 @@ let main_loop ifd ofd =
     *)
     while (match Unix.select [ifd] [] [] 5.0 with
         | _ :: _, _, _ -> false
-        | _ ->
-          match !stunnel_process with
-          | Some { Stunnel.pid = Stunnel.FEFork pid } -> begin
-              match Forkhelpers.waitpid_nohang pid with
-              | 0, _ -> true
-              | i, e -> raise (Stunnel_exit (i, e))
-            end
-          | Some {Stunnel.pid = Stunnel.StdFork pid} -> begin
-              match Unix.waitpid [Unix.WNOHANG] pid with
-              | 0, _ -> true
-              | i, e -> raise (Stunnel_exit (i, e))
-            end
-          | _ -> true) do ()
+        | _ -> true) do ()
     done;
     let cmd =
       try unmarshal ifd
@@ -527,7 +515,6 @@ let main_loop ifd ofd =
                    copy_with_heartbeat file_ch oc heartbeat_fun;
                    marshal ofd (Response OK))
                 (fun () ->
-                   (try close_in ic with _ -> ());
                    (try close_in file_ch with _ -> ()))
             | 302 ->
               let newloc = List.assoc "location" headers in
@@ -673,8 +660,7 @@ let main () =
          | Unix.WSTOPPED c -> "stopped by signal " ^ string_of_int c)
     | e ->
       error "Unhandled exception\n%s\n" (Printexc.to_string e) in
-  begin match !stunnel_process with
-    | Some p ->
+  List.iter (fun p ->
       if Sys.file_exists p.Stunnel.logfile then
         begin
           if !exit_status <> 0 then
@@ -683,9 +669,7 @@ let main () =
              with e -> debug "%s\n" (Printexc.to_string e));
           try Unix.unlink p.Stunnel.logfile with _ -> ()
         end;
-      Stunnel.disconnect ~wait:false ~force:true p
-    | None -> ()
-  end;
+      Stunnel.disconnect ~wait:false ~force:true p) !stunnel_processes;
   begin match !debug_file, !debug_channel with
     | Some f, Some ch -> begin
         close_out ch;
