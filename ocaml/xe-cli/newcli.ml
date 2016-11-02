@@ -515,7 +515,6 @@ let main_loop ifd ofd =
                    copy_with_heartbeat file_ch oc heartbeat_fun;
                    marshal ofd (Response OK))
                 (fun () ->
-                   (try close_in ic with _ -> ());
                    (try close_in file_ch with _ -> ()))
             | 302 ->
               let newloc = List.assoc "location" headers in
