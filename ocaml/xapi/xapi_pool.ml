@@ -1605,6 +1605,18 @@ let find_or_create_redo_log_vdi ~__context ~sr =
     info "no suitable existing redo-log VDI found; creating a fresh one";
     create_redo_log_vdi ~__context ~sr
 
+let redo_log_switch  ~__context ~host ~on =
+  let action_name = if on then "Attach" else "Detach" in
+  let action rpc session_id =
+    let pool = Helpers.get_pool ~__context in
+    let vdi = Db.Pool.get_redo_log_vdi ~__context ~self:pool in
+    if on then Client.Host.attach_static_vdis rpc session_id host [vdi, Xapi_globs.gen_metadata_vdi_reason]
+    else Client.Host.detach_static_vdis rpc session_id host [vdi] in
+  debug "%s VDI on host '%s' ('%s')" action_name (Db.Host.get_name_label ~__context ~self:host) (Ref.string_of host);
+  Helpers.call_api_functions ~__context action;
+  (* Set a flag in the local DB, such that the redo log can be re-enabled/disabled after a restart of xapi *)
+  debug "Setting redo-log local-DB flag on host '%s' ('%s') to %b" (Db.Host.get_name_label ~__context ~self:host) (Ref.string_of host) on;
+  Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Host.set_localdb_key rpc session_id host Constants.redo_log_enabled (string_of_bool on))
 
 let do_enable_redo_log ~__context ~sr =
   info "Enabling redo log...";
@@ -1618,20 +1630,13 @@ let do_enable_redo_log ~__context ~sr =
       raise (Api_errors.Server_error(Api_errors.cannot_enable_redo_log, [msg]))
   in
 
-  (* ensure VDI is static, and set a flag in the local DB, such that the redo log can be
-     	 * re-enabled after a restart of xapi *)
+  let pool = Helpers.get_pool ~__context in
+  Db.Pool.set_redo_log_vdi ~__context ~self:pool ~value:vdi;
+
   begin try
       debug "Ensuring redo-log VDI is static on all hosts in the pool";
       let hosts = Db.Host.get_all ~__context in
-      let attach host =
-        debug "Attaching VDI on host '%s' ('%s')" (Db.Host.get_name_label ~__context ~self:host) (Ref.string_of host);
-        Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Host.attach_static_vdis rpc session_id host [vdi, Xapi_globs.gen_metadata_vdi_reason]);
-        debug "Setting redo-log local-DB flag on host '%s' ('%s')" (Db.Host.get_name_label ~__context ~self:host) (Ref.string_of host);
-        Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Host.set_localdb_key rpc session_id host Constants.redo_log_enabled "true");
-      in
-      List.iter attach hosts;
+      List.iter (fun host -> redo_log_switch ~__context ~host ~on:true)  hosts;
       debug "VDI is static on all hosts"
     with e ->
       let msg = "failed to make VDI static." in
@@ -1640,8 +1645,6 @@ let do_enable_redo_log ~__context ~sr =
 
   (* update state *)
   debug "Updating state...";
-  let pool = Helpers.get_pool ~__context in
-  Db.Pool.set_redo_log_vdi ~__context ~self:pool ~value:vdi;
   Db.Pool.set_redo_log_enabled ~__context ~self:pool ~value:true;
 
   (* enable the new redo log, unless HA is enabled (which means a redo log
@@ -1663,20 +1666,10 @@ let disable_redo_log ~__context =
     Redo_log.disable Xapi_ha.ha_redo_log;
 
     (* disable static-ness of the VDI and clear local-DB flags *)
-    let vdi = Db.Pool.get_redo_log_vdi ~__context ~self:pool in
     let hosts = Db.Host.get_all ~__context in
-    begin try
-        let detach host =
-          debug "Detaching VDI from host '%s' ('%s')" (Db.Host.get_name_label ~__context ~self:host) (Ref.string_of host);
-          Helpers.call_api_functions ~__context (fun rpc session_id ->
-              Client.Host.detach_static_vdis rpc session_id host [vdi]);
-          debug "Clearing redo-log local-DB flag on host '%s' ('%s')" (Db.Host.get_name_label ~__context ~self:host) (Ref.string_of host);
-          Helpers.call_api_functions ~__context (fun rpc session_id ->
-              Client.Host.set_localdb_key rpc session_id host Constants.redo_log_enabled "false");
-        in
-        List.iter detach hosts;
-      with e -> info "Failed to detach static VDIs from all hosts."
-    end;
+    try
+      List.iter (fun host -> redo_log_switch ~__context ~host ~on:false) hosts;
+    with e -> info "Failed to detach static VDIs from all hosts."
   end;
   info "The redo log is now disabled"
 
