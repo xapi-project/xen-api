@@ -253,6 +253,30 @@ let consider_enabling_host ~__context =
   debug "Xapi_host_helpers.consider_enabling_host called";
   consider_enabling_host_request ~__context
 
+let redo_log_switch  ~__context ~self ~log ~on =
+  let pool = Helpers.get_pool ~__context in
+  if not (Db.Pool.get_ha_enabled ~__context ~self:pool) then begin
+    let action_name = if on then "Attach" else "Detach" in
+    let action rpc session_id =
+      let vdi = Db.Pool.get_redo_log_vdi ~__context ~self:pool in
+      if on then begin
+        Client.Client.Host.attach_static_vdis rpc session_id self [vdi, Xapi_globs.gen_metadata_vdi_reason];
+        if Pool_role.is_master () then Redo_log.enable log Xapi_globs.gen_metadata_vdi_reason;
+      end else begin
+        if Pool_role.is_master () then begin
+          Redo_log_usage.stop_using_redo_log log;
+          Redo_log.disable log;
+        end;
+        Client.Client.Host.detach_static_vdis rpc session_id self [vdi]
+      end in
+    debug "%s VDI on host '%s' ('%s')" action_name (Db.Host.get_name_label ~__context ~self) (Ref.string_of self);
+    Helpers.call_api_functions ~__context action;
+    (* Set a flag in the local DB, such that the redo log can be re-enabled/disabled after a restart of xapi *)
+    debug "Setting redo-log local-DB flag on host '%s' ('%s') to %b" (Db.Host.get_name_label ~__context ~self) (Ref.string_of self) on;
+    Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.Host.set_localdb_key rpc session_id self Constants.redo_log_enabled (string_of_bool on))
+  end
+
+
 module Host_requires_reboot = struct
   let m = Mutex.create ()
 
