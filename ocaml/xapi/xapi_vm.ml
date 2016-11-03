@@ -221,6 +221,16 @@ let unpause ~__context ~vm =
 let set_xenstore_data ~__context ~self ~value =
   Xapi_xenops.set_xenstore_data ~__context ~self value
 
+(* CP-18860: check memory limits if using nested_virt on start *)
+let assert_memory_constraints ~__context ~vm platformdata =
+  if Vm_platform.is_true ~key:"nested-virt" ~platformdata ~default:false
+  then
+    begin
+      let module C = Xapi_vm_memory_constraints.Vm_memory_constraints in
+      let c = C.get ~__context ~vm_ref:vm in
+      C.assert_valid_and_pinned_at_static_max c
+    end
+
 (* Note: it is important that we use the pool-internal API call, VM.atomic_set_resident_on, to set resident_on and clear
    scheduled_to_be_resident_on atomically. This prevents concurrent API calls on the master from accounting for the
    same VM twice during memory calculations to determine whether a given VM can start on a particular host..
@@ -233,6 +243,9 @@ let start ~__context ~vm ~start_paused ~force =
     Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
     debug "Setting ha_always_run on vm=%s as true during VM.start" (Ref.string_of vm)
   end;
+
+  if not force then
+    assert_memory_constraints ~__context ~vm vmr.API.vM_platform;
 
   (* Check to see if we're using any restricted platform kvs. This raises
      	   an exception if so *)
