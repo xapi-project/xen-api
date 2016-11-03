@@ -1,6 +1,7 @@
 [Unit]
 Description=Attach statically-configured VDIs to dom0
 Before=xapi.service
+After=network.target nfs-client.target xcp-networkd.service
 
 [Service]
 Type=oneshot
