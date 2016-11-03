@@ -132,6 +132,3 @@ install:
 	mkdir -p $(DESTDIR)/etc/cron.d
 	$(IDATA) xapi-logrotate.cron $(DESTDIR)/etc/cron.d/xapi-logrotate.cron
 	mkdir -p $(DESTDIR)/opt/xensource/gpg
-	$(IDATA) gpg/secring.gpg $(DESTDIR)/opt/xensource/gpg/
-	$(IDATA) gpg/pubring.gpg $(DESTDIR)/opt/xensource/gpg/
-	$(IDATA) gpg/trustdb.gpg $(DESTDIR)/opt/xensource/gpg/
