@@ -177,6 +177,16 @@ let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid xenops
 let migrate_with_retry ~__context queue_name dbg vm_uuid xenops_vdi_map xenops_vif_map xenops =
   migrate_with_retries ~__context queue_name 3 1 dbg vm_uuid xenops_vdi_map xenops_vif_map xenops
 
+(** detach the network of [vm] if it is migrating away to [destination] *)
+let detach_local_network_for_vm ~__context ~vm ~destination =
+  let src, dst = Helpers.get_localhost ~__context, destination in
+  let ref      = Ref.string_of in
+  if src <> dst then begin
+    info "VM %s migrated from %s to %s - detaching VM's network at source"
+      (ref vm) (ref src) (ref dst);
+    Xapi_network.detach_for_vm ~__context ~host:src ~vm;
+  end (* else: localhost migration - nothing to do *)
+
 let pool_migrate ~__context ~vm ~host ~options =
   if (not (Pool_features.is_enabled ~__context Features.Xen_motion)) then
     raise (Api_errors.Server_error(Api_errors.license_restriction, []));
@@ -198,6 +208,7 @@ let pool_migrate ~__context ~vm ~host ~options =
             Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
           );
         Rrdd_proxy.migrate_rrd ~__context ~vm_uuid ~host_uuid:(Ref.string_of host) ();
+        detach_local_network_for_vm ~__context ~vm ~destination:host;
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             XenAPI.VM.pool_migrate_complete rpc session_id vm host
           );
@@ -893,7 +904,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
         | Xenops_interface.Does_not_exist ("extra",_) ->
           ()
       end;
-
+      detach_local_network_for_vm ~__context ~vm ~destination:remote.dest_host;
       debug "Migration complete";
       SMPERF.debug "vm.migrate_send: migration complete vm:%s" vm_uuid;
 
