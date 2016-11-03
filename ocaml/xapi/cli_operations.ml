@@ -4798,15 +4798,20 @@ let update_introduce printer rpc session_id params =
   let uuid = Client.Pool_update.get_uuid ~rpc ~session_id ~self:update in
   printer (Cli_printer.PList [uuid])
 
+let livepatch_status_to_string state =
+  match state with
+  | `ok -> "Ok."
+  | `ok_livepatch_complete -> "Ok: Patch can be applied without reboot."
+  | `ok_livepatch_incomplete -> "Ok: Patch can be applied, but a reboot will be required."
+
 let update_precheck printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
-  ignore(
-    do_host_op rpc session_id (fun _ host ->
-        let host_ref = host.getref () in
-        let ref = Client.Pool_update.get_by_uuid rpc session_id uuid in
-        Client.Pool_update.precheck rpc session_id ref host_ref
-      ) params ["uuid"]
-  )
+  let result = do_host_op rpc session_id (fun _ host ->
+    let host_ref = host.getref () in
+    let ref = Client.Pool_update.get_by_uuid rpc session_id uuid in
+    Client.Pool_update.precheck rpc session_id ref host_ref ) params ["uuid"] in
+  let result_msg = List.map livepatch_status_to_string result in
+  printer (Cli_printer.PList result_msg)
 
 let update_apply printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
