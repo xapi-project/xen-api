@@ -7,9 +7,12 @@ After=remote-fs.target xapi.service
 Type=oneshot
 RemainAfterExit=yes
 EnvironmentFile=@INVENTORY@
+Environment="PATH=/bin:/usr/libexec/xapi/cluster-stack/xhad"
 ExecStart=@BINDIR@/xapi-autostart-vms
-ExecStop=@LIBEXECDIR@/shutdown $INSTALLATION_UUID
-ExecStop=@LIBEXECDIR@/shutdown --force $INSTALLATION_UUID
+ExecStop=-@LIBEXECDIR@/shutdown $INSTALLATION_UUID
+ExecStop=-@LIBEXECDIR@/shutdown --force $INSTALLATION_UUID
+ExecStop=-/usr/libexec/xapi/cluster-stack/xhad/ha_disarm_fencing
+ExecStop=-/usr/libexec/xapi/cluster-stack/xhad/ha_stop_daemon
 
 # Generous 24hr timeout that corresponding to the max evacuation time of a host
 # with memory close to our support limit. Finer grained timeout control depends
