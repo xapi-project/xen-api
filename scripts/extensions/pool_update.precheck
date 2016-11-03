@@ -19,6 +19,7 @@ import xcp.logger
 
 
 TMP_DIR = '/tmp/'
+UPDATE_DIR = '/var/update/'
 UPDATE_PRECHECK_FAILED_UNKNOWN_ERROR = 'UPDATE_PRECHECK_FAILED_UNKNOWN_ERROR'
 UPDATE_PRECHECK_FAILED_PREREQUISITE_MISSING = 'UPDATE_PRECHECK_FAILED_PREREQUISITE_MISSING'
 UPDATE_PRECHECK_FAILED_CONFLICT_PRESENT = 'UPDATE_PRECHECK_FAILED_CONFLICT_PRESENT'
@@ -72,7 +73,7 @@ def parse_control_package(session, yum_url):
     return items[0].getAttribute('control')
 
 
-def execute_precheck(session, control_package, yum_conf_file):
+def execute_precheck(session, control_package, yum_conf_file, update_precheck_file):
     if not control_package:
         return 'ok'
     livepatch_messages = {'PATCH_PRECHECK_LIVEPATCH_COMPLETE': 'ok_livepatch_complete',
@@ -102,11 +103,17 @@ def execute_precheck(session, control_package, yum_conf_file):
         else:
             raise PrecheckFailure()
     else:
-        for msg in livepatch_messages.keys():
-            if msg in output:
-                return livepatch_messages[msg]
-        return 'ok'
-        
+        if not os.path.isfile(update_precheck_file):
+            return 'ok'
+        else:
+            pp = subprocess.Popen(update_precheck_file, shell=False, stdout=subprocess.PIPE, close_fds=True)
+            precheck_output, _ = pp.communicate()
+            xcp.logger.info('pool_update.precheck %r precheck_output=%r', update_precheck_file, precheck_output)
+            for msg in livepatch_messages.keys():
+                if msg in precheck_output:
+                    return livepatch_messages[msg]
+            raise PrecheckFailure()
+
 
 if __name__ == '__main__':
     xcp.logger.logToSyslog(level=logging.INFO)
@@ -166,7 +173,8 @@ if __name__ == '__main__':
         yum_url = config.get(update_package, 'baseurl')
 
         control_package = parse_control_package(session, yum_url)
-        print(success_message(execute_precheck(session, control_package, yum_conf_file)))
+        update_precheck_file = os.path.join(UPDATE_DIR, update_uuid, 'precheck')
+        print(success_message(execute_precheck(session, control_package, yum_conf_file, update_precheck_file)))
     except PrerequisiteMissing as e:
         print(failure_message(UPDATE_PRECHECK_FAILED_PREREQUISITE_MISSING, [update_package, str(e)]))
     except ConflictPresent as e:
