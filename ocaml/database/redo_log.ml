@@ -472,7 +472,7 @@ let maybe_retry f log =
 (* Close any existing socket and kill the corresponding process. *)
 let shutdown log =
   if is_enabled log then begin
-    R.debug "Shutting down connection to I/O process";
+    R.debug "Shutting down connection to I/O process for '%s'" log.name;
     try
       begin
         match !(log.pid) with
@@ -498,7 +498,7 @@ let shutdown log =
               Mutex.execute log.dying_processes_mutex
                 (fun () -> log.num_dying_processes := !(log.num_dying_processes) + 1);
               ignore(Forkhelpers.waitpid p);
-              R.debug "Finished waiting for process %d" ipid;
+              R.debug "Finished waiting for process with pid %d" ipid;
               Mutex.execute log.dying_processes_mutex
                 (fun () -> log.num_dying_processes := !(log.num_dying_processes) - 1)
             ) ());
@@ -511,7 +511,7 @@ let shutdown log =
               Unixext.unlink_safe sockpath
             ) [ctrlsockpath; datasockpath]
       end;
-    with _ -> () (* ignore any errors *)
+    with e -> R.error "Caught %s: while shutting down connection to I/O process" (Printexc.to_string e); () (* ignore any errors *)
   end
 
 let broken log =
