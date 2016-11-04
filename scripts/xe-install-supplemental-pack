@@ -32,6 +32,6 @@ iso="$1"
 [ -n "$iso" ] || usage
 
 update_uuid=$(xe update-upload file-name="$iso" ${sr_uuid:+sr-uuid=$sr_uuid})
-trap "xe update-pool-clean uuid=$update_uuid" EXIT ERR
-trap "xe update-destroy uuid=$update_uuid" ERR
+trap "set +e; xe update-pool-clean uuid=$update_uuid; xe update-destroy uuid=$update_uuid； set -e" ERR
 xe update-apply uuid=$update_uuid host=$INSTALLATION_UUID
+xe update-pool-clean uuid=$update_uuid
