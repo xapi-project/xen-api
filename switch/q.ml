@@ -21,7 +21,7 @@ open Clock
 module Int64Map = struct
   include Map.Make(Int64)
 
-  type 'a t' = (int64 * 'a) list with sexp
+  type 'a t' = (int64 * 'a) list [@@deriving sexp]
   let t_of_sexp a sexp =
     let t' = t'_of_sexp a sexp in
     List.fold_left (fun acc (x, y) -> add x y acc) empty t'
@@ -30,7 +30,7 @@ end
 
 module Lwt_condition = struct
   include Lwt_condition
-  type t' = string with sexp
+  type t' = string [@@deriving sexp]
 
   let t_of_sexp _ _ = Lwt_condition.create ()
   let sexp_of_t _ _ = sexp_of_t' "Lwt_condition.t"
@@ -38,7 +38,7 @@ end
 
 module Lwt_mutex = struct
   include Lwt_mutex
-  type t' = string with sexp
+  type t' = string [@@deriving sexp]
 
   let t_of_sexp _ = Lwt_mutex.create ()
   let sexp_of_t _ = sexp_of_t' "Lwt_mutex.t"
@@ -46,7 +46,7 @@ end
 
 type waiter = {
   mutable next_id: int64;
-} with sexp
+} [@@deriving sexp]
 
 type t = {
   q: Protocol.Entry.t Int64Map.t;
@@ -54,7 +54,7 @@ type t = {
   length: int;
   owner: string option; (* if transient, name of the owning connection *)
   waiter: waiter;
-} with sexp
+} [@@deriving sexp]
 
 let t_of_sexp sexp =
   let t = t_of_sexp sexp in
@@ -83,7 +83,7 @@ let make owner name =
 module StringMap = struct
   include Map.Make(String)
 
-  type 'a t' = (string * 'a) list with sexp
+  type 'a t' = (string * 'a) list [@@deriving sexp]
   let t_of_sexp a sexp =
     let t' = t'_of_sexp a sexp in
     List.fold_left (fun acc (x, y) -> add x y acc) empty t'
@@ -93,7 +93,7 @@ end
 module StringSet = struct
   include Set.Make(String)
 
-  type t' = string list with sexp
+  type t' = string list [@@deriving sexp]
   let t_of_sexp sexp =
     let t' = t'_of_sexp sexp in
     List.fold_left (fun acc x -> add x acc) empty t'
@@ -103,7 +103,7 @@ end
 type queues = {
   queues: t StringMap.t;
   by_owner: StringSet.t StringMap.t;
-} with sexp
+} [@@deriving sexp]
 
 let empty = {
   queues = StringMap.empty;
@@ -216,13 +216,13 @@ module Op = struct
   type directory_operation =
     | Add of string option * string
     | Remove of string
-  with sexp
+  [@@deriving sexp]
 
   type t =
     | Directory of directory_operation
     | Ack of Protocol.message_id
     | Send of Protocol.origin * string * int64 * Protocol.Message.t (* origin * queue * id * body *)
-  with sexp
+  [@@deriving sexp]
 
   let of_cstruct x =
     try

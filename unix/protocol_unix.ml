@@ -383,7 +383,7 @@ module Client = struct
       (fun () ->
          Connection.rpc c.requests_conn In.Diagnostics
          >>|= fun (result: string) ->
-         `Ok (Diagnostics.t_of_rpc (Jsonrpc.of_string result))
+         `Ok (Diagnostics.of_rpc (Jsonrpc.of_string result))
       )
 
   let trace ~t:c ?(from=0L) ?(timeout=0.) () =

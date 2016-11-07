@@ -17,10 +17,10 @@ open Sexplib.Std
 
 exception Queue_deleted of string
 
-type message_id = (string * int64) with rpc, sexp
+type message_id = (string * int64) [@@deriving rpc, sexp]
 (** uniquely identifier for this message *)
 
-type message_id_opt = message_id option with rpc, sexp
+type message_id_opt = message_id option [@@deriving rpc, sexp]
 
 let timeout = 30.
 
@@ -28,11 +28,11 @@ module Message = struct
   type kind =
     | Request of string
     | Response of message_id
-  with rpc, sexp
+  [@@deriving rpc, sexp]
   type t = {
     payload: string; (* switch to Rpc.t *)
     kind: kind;
-  } with rpc, sexp
+  } [@@deriving rpc, sexp]
 
 end
 
@@ -40,7 +40,7 @@ module Event = struct
   type message =
     | Message of message_id * Message.t
     | Ack of message_id
-  with rpc
+  [@@deriving rpc]
 
   type t = {
     time: float;
@@ -49,7 +49,7 @@ module Event = struct
     output: string option;
     message: message;
     processing_time: int64 option;
-  } with rpc
+  } [@@deriving rpc]
 
 end
 
@@ -58,7 +58,7 @@ module In = struct
     from: string option;
     timeout: float;
     queues: string list;
-  } with rpc
+  } [@@deriving rpc]
 
   type t =
     | Login of string            (** Associate this transport-level channel with a session *)
@@ -74,7 +74,7 @@ module In = struct
     | Diagnostics                (** return a diagnostic dump *)
     | Shutdown                   (** shutdown the switch *)
     | Get of string list         (** return a web interface resource *)
-  with rpc
+  [@@deriving rpc]
 
   let slash = Re_str.regexp_string "/"
   let split = Re_str.split_delim slash
@@ -147,7 +147,7 @@ end
 type origin =
   | Anonymous of string (** An un-named connection, probably a temporary client connection *)
   | Name of string   (** A service with a well-known name *)
-with rpc, sexp
+[@@deriving sexp, rpc]
 (** identifies where a message came from *)
 
 module Entry = struct
@@ -155,7 +155,7 @@ module Entry = struct
     origin: origin;
     time: int64;
     message: Message.t;
-  } with rpc, sexp
+  } [@@deriving rpc, sexp]
   (** an enqueued message *)
 
   let make time origin message =
@@ -163,12 +163,12 @@ module Entry = struct
 end
 
 module Diagnostics = struct
-  type queue_contents = (message_id * Entry.t) list with rpc
+  type queue_contents = (message_id * Entry.t) list [@@deriving rpc]
 
   type queue = {
     next_transfer_expected: int64 option;
     queue_contents: queue_contents;
-  } with rpc
+  } [@@deriving rpc]
 
   type t = {
     start_time: int64;
@@ -176,20 +176,20 @@ module Diagnostics = struct
     permanent_queues: (string * queue) list;
     transient_queues: (string * queue) list;
   }
-  with rpc
+  [@@deriving rpc]
 end
 
 module Out = struct
   type transfer = {
     messages: (message_id * Message.t) list;
     next: string;
-  } with rpc
+  } [@@deriving rpc]
 
   type trace = {
     events: (int64 * Event.t) list;
-  } with rpc
+  } [@@deriving rpc]
 
-  type queue_list = string list with rpc
+  type queue_list = string list [@@deriving rpc]
   let rpc_of_string_list = rpc_of_queue_list
   let string_list_of_rpc = queue_list_of_rpc
 
@@ -225,7 +225,7 @@ module Out = struct
     | List l ->
       `OK, (Jsonrpc.to_string (rpc_of_queue_list l))
     | Diagnostics x ->
-      `OK, (Jsonrpc.to_string (Diagnostics.rpc_of_t x))
+      `OK, (Jsonrpc.to_string (Diagnostics.rpc_of x))
     | Not_logged_in ->
       `Not_found, "Please log in."
     | Get x ->

@@ -16,7 +16,7 @@
 
 exception Queue_deleted of string
 
-type message_id = string * int64 with sexp
+type message_id = string * int64 [@@deriving sexp]
 (** uniquely identifier for this message *)
 
 val rpc_of_message_id: message_id -> Rpc.t
@@ -31,14 +31,14 @@ module Message : sig
   type kind =
     | Request of string
     | Response of message_id
-  with sexp
+  [@@deriving sexp]
   type t = {
     payload: string; (* switch to Rpc.t *)
     kind: kind;
   }
-  with sexp
-  val t_of_rpc: Rpc.t -> t
-  val rpc_of_t: t -> Rpc.t
+  [@@deriving sexp]
+  val of_rpc: Rpc.t -> t
+  val rpc_of: t -> Rpc.t
 end
 
 module Event : sig
@@ -54,8 +54,8 @@ module Event : sig
     message: message;
     processing_time: int64 option;
   }
-  val t_of_rpc: Rpc.t -> t
-  val rpc_of_t: t -> Rpc.t
+  val of_rpc: Rpc.t -> t
+  val rpc_of: t -> Rpc.t
 end
 
 module In : sig
@@ -80,8 +80,8 @@ module In : sig
     | Shutdown                   (** Shut down the switch *)
     | Get of string list         (** return a web interface resource *)
 
-  val rpc_of_t : t -> Rpc.t
-  val t_of_rpc : Rpc.t -> t
+  val rpc_of : t -> Rpc.t
+  val of_rpc : Rpc.t -> t
 
   val headers: string -> Cohttp.Header.t
 
@@ -95,7 +95,7 @@ end
 type origin =
   | Anonymous of string (** An un-named connection, probably a temporary client connection *)
   | Name of string   (** A service with a well-known name *)
-with sexp
+[@@deriving sexp]
 (** identifies where a message came from *)
 
 module Entry : sig
@@ -103,7 +103,7 @@ module Entry : sig
     origin: origin;
     time: int64; (** ns *)
     message: Message.t;
-  } with sexp
+  } [@@deriving sexp]
   (** an enqueued message *)
 
   val make: int64 -> origin -> Message.t -> t
@@ -123,8 +123,8 @@ module Diagnostics : sig
     permanent_queues: (string * queue) list;
     transient_queues: (string * queue) list;
   }
-  val rpc_of_t: t -> Rpc.t
-  val t_of_rpc: Rpc.t -> t
+  val rpc_of: t -> Rpc.t
+  val of_rpc: Rpc.t -> t
 end
 
 
