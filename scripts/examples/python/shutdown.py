@@ -240,6 +240,7 @@ def main(session, host_uuid, force):
         rc += parallel_clean_shutdown(session, get_running_domains(session, host))
     else:
         rc += serial_hard_shutdown(session, get_running_domains(session, host))
+
     return rc
 
 if __name__ == "__main__":

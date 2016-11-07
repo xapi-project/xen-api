@@ -2154,9 +2154,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Host.local_management_reconfigure: interface = '%s'" interface;
       Local.Host.local_management_reconfigure ~__context ~interface
 
-    let emergency_ha_disable ~__context =
-      info "Host.emergency_ha_disable";
-      Local.Host.emergency_ha_disable ~__context
+    let emergency_ha_disable ~__context ~soft =
+      info "Host.emergency_ha_disable: soft = '%b'" soft;
+      Local.Host.emergency_ha_disable ~__context ~soft
 
     (* Dummy implementation for a deprecated API method. *)
     let get_uncooperative_resident_VMs ~__context ~self =

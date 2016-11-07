@@ -728,7 +728,7 @@ let abort_new_master ~__context ~address = Xapi_ha.abort_new_master __context ad
 
 let update_master ~__context ~host ~master_address = assert false
 
-let emergency_ha_disable ~__context = Xapi_ha.emergency_ha_disable __context
+let emergency_ha_disable ~__context ~soft = Xapi_ha.emergency_ha_disable __context soft
 
 (* This call can be used to _instruct_ a slave that it has to take a persistent backup (force=true).
    If force=false then this is a hint from the master that the client may want to take a backup; in this

@@ -834,27 +834,33 @@ let ha_stop_daemon __context localhost =
   let (_ : string) = call_script ha_stop_daemon [] in ()
 
 (** Emergency-mode API call to disarm localhost *)
-let emergency_ha_disable __context =
-  if Localdb.get Constants.ha_armed = "false"
-  then raise (Api_errors.Server_error(Api_errors.ha_not_enabled, []));
-
-  warn "Host.emergency_ha_disable: Disabling the HA subsystem on the local host only.";
-  Localdb.put Constants.ha_armed "false";
-
-  begin
-    try
-      ha_disarm_fencing __context ();
-    with Xha_error e ->
-      error "Host.emergency_ha_disable: ha_disarm_fencing failed with %s; continuing" (Xha_errno.to_string e)
-  end;
-  begin
-    try
-      ha_stop_daemon __context ();
-    with Xha_error e ->
-      error "Host.emergency_ha_disable: ha_stop_daemon failed with %s; continuing" (Xha_errno.to_string e)
-  end;
-  (* Might not be able to access the database to detach statefiles; however this isn't critical *)
-  ()
+let emergency_ha_disable __context soft =
+  let ha_armed = try bool_of_string (Localdb.get Constants.ha_armed) with _ -> false in
+  if not ha_armed then
+    if soft then () else raise (Api_errors.Server_error(Api_errors.ha_not_enabled, []))
+  else begin
+    warn "Host.emergency_ha_disable: Disabling the HA subsystem on the local host only.";
+    begin
+      try
+        ha_disarm_fencing __context ();
+      with Xha_error e ->
+        error "Host.emergency_ha_disable: ha_disarm_fencing failed with %s; continuing" (Xha_errno.to_string e)
+    end;
+    begin
+      try
+        ha_stop_daemon __context ();
+      with Xha_error e ->
+        error "Host.emergency_ha_disable: ha_stop_daemon failed with %s; continuing" (Xha_errno.to_string e)
+    end;
+    (* Might not be able to access the database to detach statefiles; however this isn't critical *)
+    begin
+      try
+        ha_set_excluded __context ();
+      with Xha_error e ->
+        error "Host.emergency_ha_disable: ha_set_excluded failed with %s; continuing" (Xha_errno.to_string e)
+    end;
+    if not soft then Localdb.put Constants.ha_armed "false";
+  end
 
 (** Internal API call to release any HA resources after the system has
     	been shutdown.  This call is idempotent. Modified for CA-48539 to

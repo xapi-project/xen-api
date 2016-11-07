@@ -4476,7 +4476,9 @@ let host_emergency_ha_disable = call ~flags:[`Session]
     ~name:"emergency_ha_disable"
     ~in_oss_since:None
     ~in_product_since:rel_orlando
-    ~params:[]
+    ~versioned_params:
+      [{param_type=Bool; param_name="soft"; param_doc="Disable HA temporarily, revert upon host reboot or further changes, idempotent"; param_release=dundee_plus_release; param_default=Some(VBool false)};
+      ]
     ~doc:"This call disables HA on the local host. This should only be used with extreme care."
     ~allowed_roles:_R_POOL_OP
     ()
