@@ -3241,10 +3241,11 @@ let host_set_localdb_key = call
 
 let host_refresh_pack_info = call
     ~name:"refresh_pack_info"
-    ~in_product_since:rel_midnight_ride
     ~doc:"Refresh the list of installed Supplemental Packs."
     ~params:[Ref _host, "host", "The Host to modify"]
     ~allowed_roles:_R_POOL_OP
+    ~lifecycle:[Published, rel_midnight_ride, "";
+                Deprecated, rel_ely, "Use Pool_update.resync_host instead"]
     ()
 
 (* ------------------------------------------------------------------------------------------------------------
