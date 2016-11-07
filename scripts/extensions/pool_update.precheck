@@ -25,11 +25,14 @@ UPDATE_PRECHECK_FAILED_PREREQUISITE_MISSING = 'UPDATE_PRECHECK_FAILED_PREREQUISI
 UPDATE_PRECHECK_FAILED_CONFLICT_PRESENT = 'UPDATE_PRECHECK_FAILED_CONFLICT_PRESENT'
 UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION = 'UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION'
 UPDATE_PRECHECK_FAILED_OUT_OF_SPACE = 'UPDATE_PRECHECK_FAILED_OUT_OF_SPACE'
+UPDATE_PREFIX = 'update-'
 INVALID_UPDATE = 'INVALID_UPDATE'
 CANNOT_FIND_UPDATE = 'CANNOT_FIND_UPDATE'
 ERROR_MESSAGE_START = 'Error: '
 ERROR_MESSAGE_END = 'You could try '
-ERROR_MESSAGE_CONFLICT = ' conflicts with '
+ERROR_MESSAGE_CONFLICTS_WITH = ' conflicts with '
+ERROR_MESSAGE_CONFLICTS = 'conflicts '
+ERROR_MESSAGE_PROCESSING_CONFLICT = '--> Processing Conflict:'
 ERROR_MESSAGE_PREREQUISITE = 'Requires: '
 ERROR_MESSAGE_VERSION_REQUIRED = 'Requires: '
 ERROR_MESSAGE_VERSION_INSTALLED = 'Installed: '
@@ -80,7 +83,9 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
                      'PATCH_PRECHECK_LIVEPATCH_INCOMPLETE': 'ok_livepatch_incomplete',
                      'PATCH_PRECHECK_LIVEPATCH_NOT_APPLICABLE': 'ok'}
     cmd = ['yum', 'install', '-y', '--noplugins', '-c', yum_conf_file, control_package]
-    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
+    yum_env = os.environ.copy()
+    yum_env['LANG'] = 'C'
+    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env)
     output, _ = p.communicate()
     xcp.logger.info('pool_update.precheck %r returncode=%r output=%r', cmd, p.returncode, output)
     if p.returncode != 0:
@@ -91,15 +96,38 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
         if m:
             errmsg = m.group()
             errmsg = re.sub(ERROR_MESSAGE_END + '.+', '', errmsg, flags=re.DOTALL)
-            errmsg = re.sub('\n +', ' ', errmsg, flags=re.DOTALL)
-            if ERROR_MESSAGE_CONFLICT in errmsg:
-                raise ConflictPresent(errmsg)
+            precheckfailure_msg = re.sub('\n +', ' ', errmsg, flags=re.DOTALL)
+            if ERROR_MESSAGE_CONFLICTS_WITH in errmsg and ERROR_MESSAGE_PROCESSING_CONFLICT in output:
+                regex = ERROR_MESSAGE_PROCESSING_CONFLICT + '(.*)' + ERROR_MESSAGE_CONFLICTS + UPDATE_PREFIX + '(.+?)\n'
+                conflict_tuples = re.findall(regex, output)
+                if len(conflict_tuples) > 0:
+                    conflict_updates = ''
+                    for tuple in conflict_tuples:
+                        conflict_updates += tuple[1] + ' '
+                    raise ConflictPresent(conflict_updates.rstrip())
+                else:
+                    raise PrecheckFailure(precheckfailure_msg)
             elif ERROR_MESSAGE_VERSION_REQUIRED in errmsg and ERROR_MESSAGE_VERSION_INSTALLED in errmsg:
-                 raise WrongServerVersion(errmsg)
+                regex = ERROR_MESSAGE_VERSION_REQUIRED + '(.+?)\n.+ {2,2}(.+)$'
+                match = re.search(regex, errmsg, flags=re.DOTALL)
+                if match:
+                    required_version = match.group(1).rstrip()
+                    installed_version = match.group(2).rstrip()
+                    raise WrongServerVersion(required_version, installed_version)
+                else:
+                    raise PrecheckFailure(precheckfailure_msg)
             elif ERROR_MESSAGE_PREREQUISITE in errmsg:
-                raise PrerequisiteMissing(errmsg)
+                regex = ERROR_MESSAGE_PREREQUISITE + UPDATE_PREFIX + '(.+?)\n'
+                prerequisite_list = re.findall(regex, errmsg)
+                if len(prerequisite_list) > 0:
+                    prerequisite_updates = ''
+                    for prerequisite in prerequisite_list:
+                        prerequisite_updates += prerequisite + ' '
+                    raise PrerequisiteMissing(prerequisite_updates.rstrip())
+                else:
+                    raise PrecheckFailure(precheckfailure_msg)
             else:
-                raise PrecheckFailure(errmsg)
+                raise PrecheckFailure(precheckfailure_msg)
         else:
             raise PrecheckFailure()
     else:
@@ -180,7 +208,8 @@ if __name__ == '__main__':
     except ConflictPresent as e:
         print(failure_message(UPDATE_PRECHECK_FAILED_CONFLICT_PRESENT, [update_package, str(e)]))
     except WrongServerVersion as e:
-        print(failure_message(UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION, [update_package, str(e)]))
+        required_version, installed_version = e.args
+        print(failure_message(UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION, [update_package, installed_version, required_version]))
     except InvalidUpdate as e:
         print(failure_message(INVALID_UPDATE, [update_package, str(e)]))
     except Exception as e:
