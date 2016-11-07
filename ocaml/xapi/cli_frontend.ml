@@ -959,6 +959,15 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[];
     };
 
+    "update-resync-host",
+    {
+      reqd=["host-uuid"];
+      optn=[];
+      help="Refreshes Host.updates";
+      implementation=No_fd Cli_operations.update_resync_host;
+      flags=[Hidden];
+    };
+
     "user-password-change",
     {
       reqd=["new"];

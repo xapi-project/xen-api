@@ -4837,3 +4837,8 @@ let update_destroy printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let ref = Client.Pool_update.get_by_uuid rpc session_id uuid in
   Client.Pool_update.destroy rpc session_id ref
+
+let update_resync_host printer rpc session_id params =
+  let uuid = List.assoc "host-uuid" params in
+  let host = Client.Host.get_by_uuid rpc session_id uuid in
+  Client.Pool_update.resync_host rpc session_id host
