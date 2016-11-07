@@ -144,13 +144,19 @@ let detach ~__context ~self =
   detach_helper ~__context ~uuid ~vdi
 
 let with_api_errors f x =
+  let errinfo = "Please upload a valid package." in
   try f x
   with
   | Smint.Command_failed(ret, status, stdout_log, stderr_log)
   | Smint.Command_killed(ret, status, stdout_log, stderr_log) ->
     let msg = Printf.sprintf "Smint.Command_{failed,killed} ret = %d; status = %s; stdout = %s; stderr = %s"
         ret status stdout_log stderr_log in
-    raise (Api_errors.Server_error (Api_errors.internal_error, [msg]))
+    error "%s" msg;
+    raise (Api_errors.Server_error (Api_errors.invalid_update, [errinfo]))
+  | e ->
+    let msg = ExnHelper.string_of_exn e in
+    error "%s" msg;
+    raise (Api_errors.Server_error (Api_errors.invalid_update, [errinfo]))
 
 (* yum confif example
    [main]
