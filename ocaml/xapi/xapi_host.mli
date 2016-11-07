@@ -110,7 +110,7 @@ val propose_new_master : __context:'a -> address:string -> manual:'b -> unit
 val commit_new_master : __context:Context.t -> address:string -> unit
 val abort_new_master : __context:'a -> address:string -> unit
 val update_master : __context:'a -> host:'b -> master_address:'c -> 'd
-val emergency_ha_disable : __context:'a -> unit
+val emergency_ha_disable : __context:'a -> soft:bool -> unit
 val request_backup :
   __context:Context.t -> host:API.ref_host -> generation:int64 -> force:bool -> unit
 val request_config_file_sync : __context:'a -> host:'b -> hash:string -> unit
