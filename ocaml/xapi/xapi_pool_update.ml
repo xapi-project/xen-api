@@ -158,6 +158,7 @@ let with_api_errors f x =
    reposdir=/dev/null
    gpgcheck=$signed
    repo_gpgcheck=$signed
+   installonlypkgs=
 
    [$label]
    name=$label
@@ -170,9 +171,19 @@ let create_yum_config ~__context ~self ~url =
   let signed = String.length key <> 0 in
   let signed_index = if signed then 1 else 0 in
   let name_label = Db.Pool_update.get_name_label ~__context ~self in
-  (Printf.sprintf ("[main]\nkeepcache=0\nreposdir=/dev/null\ngpgcheck=%d\nrepo_gpgcheck=%d\n\n") signed_index signed_index)
-  ^(Printf.sprintf ("[%s]\nname=%s\nbaseurl=%s\n") name_label name_label url)
-  ^(if signed then Printf.sprintf ("gpgkey=file:///etc/pki/rpm-gpg/%s") key else "")
+  String.concat "\n"
+  [ "[main]"
+  ; "keepcache=0"
+  ; "reposdir=/dev/null"
+  ; Printf.sprintf "gpgcheck=%d" signed_index
+  ; Printf.sprintf "repo_gpgcheck=%d" signed_index
+  ; "installonlypkgs="
+  ; ""
+  ; Printf.sprintf "[%s]" name_label
+  ; Printf.sprintf "name=%s" name_label
+  ; Printf.sprintf "baseurl=%s" url
+  ; if signed then Printf.sprintf ("gpgkey=file:///etc/pki/rpm-gpg/%s") key else ""
+  ]
 
 let attach_helper ~__context ~uuid ~vdi =
   let host = Helpers.get_localhost ~__context in
