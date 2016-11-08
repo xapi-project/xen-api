@@ -31,7 +31,15 @@ done
 iso="$1"
 [ -n "$iso" ] || usage
 
+function clean_up {
+  set +e
+  xe update-pool-clean uuid=$update_uuid
+  hosts=$(xe update-param-get param-name=hosts uuid=$update_uuid)
+  [ -z "$hosts" ] && xe update-destroy uuid=$update_uuid
+  set -e
+}
+
 update_uuid=$(xe update-upload file-name="$iso" ${sr_uuid:+sr-uuid=$sr_uuid})
-trap "xe update-pool-clean uuid=$update_uuid" EXIT ERR
-trap "xe update-destroy uuid=$update_uuid" ERR
+trap clean_up ERR
 xe update-apply uuid=$update_uuid host=$INSTALLATION_UUID
+xe update-pool-clean uuid=$update_uuid
