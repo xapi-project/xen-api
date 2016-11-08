@@ -150,15 +150,19 @@ let has_feature ~vmgmr ~feature =
  *  to perform an operation. This makes a difference for ops that require the guest to
  *  react helpfully. *)
 let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
+  let some_err e = Some (e, [ Ref.string_of ref ]) in
+
   if power_state <> `Running ||
      (* PV guests offer support implicitly *)
      not (Helpers.has_booted_hvm_of_record ~__context vmr) ||
      Xapi_pv_driver_version.(has_pv_drivers (of_guest_metrics vmgmr)) (* Full PV drivers imply all features *)
   then None
+
+  else if (Helpers.has_booted_hvm_of_record ~__context vmr) &&
+    not Xapi_pv_driver_version.(has_pv_drivers (of_guest_metrics vmgmr))
+  then some_err Api_errors.vm_missing_pv_drivers
+
   else
-    let some_err e =
-      Some (e, [ Ref.string_of ref ])
-    in
     let lack_feature feature =
       not (has_feature ~vmgmr ~feature)
     in
