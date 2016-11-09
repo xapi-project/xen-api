@@ -6,10 +6,15 @@ set -e
 
 keyfile="$1"
 if [ -z "$keyfile" ]; then
-  echo "Usage: $0 keyfile"
+  echo "Usage: $0 keyfile" >&2
+  exit 1
 fi
 
 keyhash=$(gpg $gpgopts --with-fingerprint $keyfile | sed -ne 's#^pub  [^ ]\+/\([^ ]\+\).*#\1#p')
+if [ ${#keyhash} -ne 8 ]; then
+  echo "Invalid keyfile" >&2
+  exit 2
+fi
 cp -p $keyfile /etc/pki/rpm-gpg
 gpg $gpgopts --import $keyfile
 echo -e "trust\n5\ny\n" | gpg $gpgopts --command-fd 0 --edit-key $keyhash
