@@ -65,6 +65,7 @@ let pool_patch_upload_handler (req: Http.Request.t) s _ =
                      Db.Task.set_result ~__context ~self:(Context.get_task_id __context) ~value:(Ref.string_of patch);
                      TaskHelper.complete ~__context None
                    with e ->
+                     Client.VDI.destroy rpc session_id vdi;
                      TaskHelper.failed ~__context e
                  end
                | None ->
