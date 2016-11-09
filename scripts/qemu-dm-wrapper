@@ -20,6 +20,7 @@ import sys
 path = "/sbin:/usr/sbin:/bin:/usr/bin"
 
 xenstore_write_cmd = "xenstore-write"
+xenstore_read_cmd = "xenstore-read"
 
 # Set cgroup_slice to the name of the cgroup slice the qemu-dm process
 # should live in.
@@ -42,6 +43,12 @@ def doexec(args):
 
 def xenstore_write(key, value):
     doexec([xenstore_write_cmd, key, value])
+
+def xenstore_read(key):
+    (rc, stdout, stderr) = doexec([xenstore_read_cmd, key])
+    if rc != 0:
+        raise RuntimeError(stderr.readlines())
+    return stdout.readline().strip()
 
 def enable_core_dumps():
     from resource import getrlimit, RLIMIT_CORE, setrlimit
