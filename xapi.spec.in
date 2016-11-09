@@ -256,9 +256,7 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/bin/xe-enable-ipv6
 /etc/bash_completion.d/xe-switch-network-backend
 @OPTDIR@/bin/xsh
-@OPTDIR@/gpg/pubring.gpg
-@OPTDIR@/gpg/secring.gpg
-@OPTDIR@/gpg/trustdb.gpg
+%attr(700, root, root) @OPTDIR@/gpg
 /etc/xensource/bugtool/xapi.xml
 /etc/xensource/bugtool/xapi/stuff.xml
 /etc/xensource/bugtool/xenopsd.xml
