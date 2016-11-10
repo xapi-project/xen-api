@@ -96,7 +96,6 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
         if m:
             errmsg = m.group()
             errmsg = re.sub(ERROR_MESSAGE_END + '.+', '', errmsg, flags=re.DOTALL)
-            precheckfailure_msg = re.sub('\n +', ' ', errmsg, flags=re.DOTALL)
             if ERROR_MESSAGE_CONFLICTS_WITH in errmsg and ERROR_MESSAGE_PROCESSING_CONFLICT in output:
                 regex = ERROR_MESSAGE_PROCESSING_CONFLICT + '(.*)' + ERROR_MESSAGE_CONFLICTS + UPDATE_PREFIX + '(.+?)\n'
                 conflict_tuples = re.findall(regex, output)
@@ -106,7 +105,7 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
                         conflict_updates += tuple[1] + ' '
                     raise ConflictPresent(conflict_updates.rstrip())
                 else:
-                    raise PrecheckFailure(precheckfailure_msg)
+                    raise PrecheckFailure(errmsg)
             elif ERROR_MESSAGE_VERSION_REQUIRED in errmsg and ERROR_MESSAGE_VERSION_INSTALLED in errmsg:
                 regex = ERROR_MESSAGE_VERSION_REQUIRED + '(.+?)\n.+ {2,2}(.+)$'
                 match = re.search(regex, errmsg, flags=re.DOTALL)
@@ -115,7 +114,7 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
                     installed_version = match.group(2).rstrip()
                     raise WrongServerVersion(required_version, installed_version)
                 else:
-                    raise PrecheckFailure(precheckfailure_msg)
+                    raise PrecheckFailure(errmsg)
             elif ERROR_MESSAGE_PREREQUISITE in errmsg:
                 regex = ERROR_MESSAGE_PREREQUISITE + UPDATE_PREFIX + '(.+?)\n'
                 prerequisite_list = re.findall(regex, errmsg)
@@ -125,22 +124,24 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
                         prerequisite_updates += prerequisite + ' '
                     raise PrerequisiteMissing(prerequisite_updates.rstrip())
                 else:
-                    raise PrecheckFailure(precheckfailure_msg)
+                    raise PrecheckFailure(errmsg)
             else:
-                raise PrecheckFailure(precheckfailure_msg)
+                raise PrecheckFailure(errmsg)
         else:
-            raise PrecheckFailure()
-    else:
-        if not os.path.isfile(update_precheck_file):
-            return 'ok'
+            raise PrecheckFailure(output)
+
+    if os.path.isfile(update_precheck_file):
+        pp = subprocess.Popen(update_precheck_file, shell=False, stdout=subprocess.PIPE, close_fds=True)
+        precheck_output, _ = pp.communicate()
+        xcp.logger.info('pool_update.precheck %r precheck_output=%r', update_precheck_file, precheck_output)
+        if pp.returncode != 0:
+            raise PrecheckFailure(precheck_output)
         else:
-            pp = subprocess.Popen(update_precheck_file, shell=False, stdout=subprocess.PIPE, close_fds=True)
-            precheck_output, _ = pp.communicate()
-            xcp.logger.info('pool_update.precheck %r precheck_output=%r', update_precheck_file, precheck_output)
-            for msg in livepatch_messages.keys():
-                if msg in precheck_output:
+            if '\n' in precheck_output:
+                msg = precheck_output.split()[0]
+                if msg in livepatch_messages.keys():
                     return livepatch_messages[msg]
-            raise PrecheckFailure()
+    return 'ok'
 
 
 if __name__ == '__main__':
