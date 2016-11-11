@@ -144,13 +144,19 @@ let detach ~__context ~self =
   detach_helper ~__context ~uuid ~vdi
 
 let with_api_errors f x =
+  let errinfo = "Please upload a valid package." in
   try f x
   with
   | Smint.Command_failed(ret, status, stdout_log, stderr_log)
   | Smint.Command_killed(ret, status, stdout_log, stderr_log) ->
     let msg = Printf.sprintf "Smint.Command_{failed,killed} ret = %d; status = %s; stdout = %s; stderr = %s"
         ret status stdout_log stderr_log in
-    raise (Api_errors.Server_error (Api_errors.internal_error, [msg]))
+    error "%s" msg;
+    raise (Api_errors.Server_error (Api_errors.invalid_update, [errinfo]))
+  | e ->
+    let msg = ExnHelper.string_of_exn e in
+    error "%s" msg;
+    raise (Api_errors.Server_error (Api_errors.invalid_update, [errinfo]))
 
 (* yum confif example
    [main]
@@ -158,6 +164,7 @@ let with_api_errors f x =
    reposdir=/dev/null
    gpgcheck=$signed
    repo_gpgcheck=$signed
+   installonlypkgs=
 
    [$label]
    name=$label
@@ -170,9 +177,19 @@ let create_yum_config ~__context ~self ~url =
   let signed = String.length key <> 0 in
   let signed_index = if signed then 1 else 0 in
   let name_label = Db.Pool_update.get_name_label ~__context ~self in
-  (Printf.sprintf ("[main]\nkeepcache=0\nreposdir=/dev/null\ngpgcheck=%d\nrepo_gpgcheck=%d\n\n") signed_index signed_index)
-  ^(Printf.sprintf ("[%s]\nname=%s\nbaseurl=%s\n") name_label name_label url)
-  ^(if signed then Printf.sprintf ("gpgkey=file:///etc/pki/rpm-gpg/%s") key else "")
+  String.concat "\n"
+  [ "[main]"
+  ; "keepcache=0"
+  ; "reposdir=/dev/null"
+  ; Printf.sprintf "gpgcheck=%d" signed_index
+  ; Printf.sprintf "repo_gpgcheck=%d" signed_index
+  ; "installonlypkgs="
+  ; ""
+  ; Printf.sprintf "[%s]" name_label
+  ; Printf.sprintf "name=%s" name_label
+  ; Printf.sprintf "baseurl=%s" url
+  ; if signed then Printf.sprintf ("gpgkey=file:///etc/pki/rpm-gpg/%s") key else ""
+  ]
 
 let attach_helper ~__context ~uuid ~vdi =
   let host = Helpers.get_localhost ~__context in
@@ -445,7 +462,17 @@ let resync_host ~__context ~host =
       ) update_refs;
     Create_misc.create_updates_requiring_reboot_info ~__context ~host
   end
-  else Db.Host.set_updates ~__context ~self:host ~value:[]
+  else Db.Host.set_updates ~__context ~self:host ~value:[];
+
+  (* Remove any pool_patch objects that don't have a corresponding pool_update object *)
+  Db.Pool_patch.get_all ~__context
+  |> List.filter (fun self -> Db.Pool_patch.get_pool_update ~__context ~self = Ref.null)
+  |> List.iter (fun self -> Db.Pool_patch.destroy ~__context ~self);
+
+  (* Clean updates that don't have a corresponding patch record *)
+  Db.Pool_update.get_all ~__context
+  |> List.filter (fun self -> Xapi_pool_patch.pool_patch_of_update ~__context self = Ref.null)
+  |> List.iter (fun self -> destroy ~__context ~self)
 
 let pool_update_download_handler (req: Request.t) s _ =
   debug "pool_update.pool_update_download_handler URL %s" req.Request.uri;

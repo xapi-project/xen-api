@@ -1208,11 +1208,11 @@ let _ =
     ~doc:"This update has already been applied to all hosts in the pool." ();
   error Api_errors.update_precheck_failed_unknown_error [ "update"; "info" ]
     ~doc:"The update precheck stage failed with an unknown error." ();
-  error Api_errors.update_precheck_failed_prerequisite_missing [ "update"; "info" ]
+  error Api_errors.update_precheck_failed_prerequisite_missing [ "update"; "prerequisite_update" ]
     ~doc:"The update precheck stage failed: prerequisite update(s) are missing." ();
-  error Api_errors.update_precheck_failed_conflict_present ["update"; "info"]
-    ~doc:"The update precheck stage failed: conflicting updates are present." ();
-  error Api_errors.update_precheck_failed_wrong_server_version ["update"; "info"]
+  error Api_errors.update_precheck_failed_conflict_present ["update"; "conflict_update"]
+    ~doc:"The update precheck stage failed: conflicting update(s) are present." ();
+  error Api_errors.update_precheck_failed_wrong_server_version ["update"; "installed_version"; "required_version "]
     ~doc:"The update precheck stage failed: the server is of an incorrect version." ();
   error Api_errors.update_precheck_failed_out_of_space ["update"; "available_space"; "required_space "]
     ~doc:"The update precheck stage failed: the server does not have enough space." ();
@@ -3241,10 +3241,11 @@ let host_set_localdb_key = call
 
 let host_refresh_pack_info = call
     ~name:"refresh_pack_info"
-    ~in_product_since:rel_midnight_ride
     ~doc:"Refresh the list of installed Supplemental Packs."
     ~params:[Ref _host, "host", "The Host to modify"]
     ~allowed_roles:_R_POOL_OP
+    ~lifecycle:[Published, rel_midnight_ride, "";
+                Deprecated, rel_ely, "Use Pool_update.resync_host instead"]
     ()
 
 (* ------------------------------------------------------------------------------------------------------------
