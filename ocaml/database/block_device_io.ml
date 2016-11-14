@@ -772,7 +772,7 @@ let _ =
       try
         (* Open the block device *)
         let block_dev_fd = open_block_device !block_dev target_startup_response_time in
-        R.info "Opened block device.";
+        R.info "Opened block device '%s'" !block_dev;
 
         finally
           (fun () ->
@@ -811,6 +811,7 @@ let _ =
           )
           (fun () ->
              (* Ensure that the block device FD is always closed *)
+             R.info "Closing block device '%s'" !block_dev;
              ignore_exn (fun () -> Unix.close block_dev_fd)
           )
       with (* problems opening block device *)
