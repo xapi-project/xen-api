@@ -4393,8 +4393,9 @@ let host_emergency_management_reconfigure printer rpc session_id params =
 
 let host_emergency_ha_disable printer rpc session_id params =
   let force = get_bool_param params "force" in
+  let soft = get_bool_param params "soft" in
   if not force then failwith "This operation is extremely dangerous and may cause data loss. This operation must be forced (use --force).";
-  Client.Host.emergency_ha_disable rpc session_id
+  Client.Host.emergency_ha_disable rpc session_id soft
 
 let host_management_reconfigure printer rpc session_id params =
   let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "pif-uuid" params) in
