@@ -225,7 +225,11 @@ module Task = functor (Interface : INTERFACE) -> struct
     Mutex.execute t.tm (fun () -> t.cancel <- cancel_fn :: t.cancel);
     Stdext.Pervasiveext.finally
       (fun () ->
-         check_cancelling t;
+         (try
+            check_cancelling t
+          with e ->
+            cancel_fn ();
+            raise e);
          f ()
       )
       (fun () -> Mutex.execute t.tm (fun () -> t.cancel <- List.tl t.cancel))
