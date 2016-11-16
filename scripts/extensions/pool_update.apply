@@ -58,10 +58,9 @@ def execute_apply(session, update_package, yum_conf_file):
         if m:
             errmsg = m.group()
             errmsg = re.sub(ERROR_MESSAGE_END + '.+', '', errmsg, flags=re.DOTALL)
-            errmsg = re.sub('\n +', ' ', errmsg, flags=re.DOTALL)
             raise ApplyFailure(errmsg)
         else:
-            raise ApplyFailure()
+            raise ApplyFailure(output)
 
 
 if __name__ == '__main__':
