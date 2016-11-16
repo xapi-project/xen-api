@@ -50,7 +50,7 @@ let version_check db =
   end
 
 (** Makes a new database suitable for xapi by rewriting some configuration from the current
-    	database. *)
+    database. *)
 let prepare_database_for_restore ~old_context ~new_context =
 
   (* To prevent duplicate installation_uuids or duplicate IP address confusing the
@@ -125,11 +125,11 @@ let prepare_database_for_restore ~old_context ~new_context =
        (* We only need to rewrite the MAC addresses of physical PIFs *)
        if physical then begin
          (* If this is a physical PIF but we can't find the device name
-            				   on the restore target, bail out. *)
+            on the restore target, bail out. *)
          if not(List.mem_assoc device device_to_ref)
          then raise (Api_errors.Server_error(Api_errors.restore_target_missing_device, [ device ]));
          (* Otherwise rewrite the MAC address to match the current machine
-            				   and set the management flag accordingly *)
+            and set the management flag accordingly *)
          let existing_pif = List.assoc device device_to_ref in
          Db.PIF.set_MAC ~__context:new_context ~self ~value:(Db.PIF.get_MAC ~__context:old_context ~self:existing_pif)
        end;
@@ -174,32 +174,36 @@ let push_database_restore_handler (req: Http.Request.t) s _ =
   debug "received request to restore db from xml dump";
   Xapi_http.with_context "Reading database as XML" req s
     (fun __context ->
-       debug "sending headers";
-       Http_svr.headers s (Http.http_200_ok ~keep_alive:false ());
-       debug "sent headers";
-       (* XXX: write to temp file *)
-       let tmp_xml_file = Filename.temp_file "" "xml_file" in
-       let xml_file_fd = Unix.openfile tmp_xml_file [ Unix.O_WRONLY ] 0o600 in
-       let () = Pervasiveext.finally
-           (fun ()->ignore (Unixext.copy_file s xml_file_fd))
-           (fun ()->Unix.close xml_file_fd) in
+       match req.Http.Request.content_length with
+       | None -> Http_svr.headers s (Http.http_400_badrequest ())
+       | Some l -> begin
+           debug "sending headers";
+           Http_svr.headers s (Http.http_200_ok ~keep_alive:false ());
+           debug "sent headers";
+           (* XXX: write to temp file *)
+           let tmp_xml_file = Filename.temp_file "" "xml_file" in
+           let xml_file_fd = Unix.openfile tmp_xml_file [ Unix.O_WRONLY ] 0o600 in
+           let () = Pervasiveext.finally
+               (fun ()->ignore (Unixext.copy_file ~limit:l s xml_file_fd))
+               (fun ()->Unix.close xml_file_fd) in
 
-       let dry_run = List.mem_assoc "dry_run" req.Http.Request.query && (List.assoc "dry_run" req.Http.Request.query = "true") in
-       if dry_run
-       then debug "performing dry-run database restore"
-       else debug "performing full restore and restart";
-       Unixext.unlink_safe Xapi_globs.db_temporary_restore_path;
-       restore_from_xml __context dry_run tmp_xml_file;
-       Unixext.unlink_safe tmp_xml_file;
-       if not(dry_run) then begin
-         (* We will restart as a master *)
-         Pool_role.set_role Pool_role.Master;
+           let dry_run = List.mem_assoc "dry_run" req.Http.Request.query && (List.assoc "dry_run" req.Http.Request.query = "true") in
+           if dry_run
+           then debug "performing dry-run database restore"
+           else debug "performing full restore and restart";
+           Unixext.unlink_safe Xapi_globs.db_temporary_restore_path;
+           restore_from_xml __context dry_run tmp_xml_file;
+           Unixext.unlink_safe tmp_xml_file;
+           if not(dry_run) then begin
+             (* We will restart as a master *)
+             Pool_role.set_role Pool_role.Master;
 
-         (* now restart *)
-         debug "xapi has received new database via xml; will reboot and use that db...";
-         info "Rebooting to use restored database after delay of: %f" !Xapi_globs.db_restore_fuse_time;
-         Xapi_fuse.light_fuse_and_reboot ~fuse_length:!Xapi_globs.db_restore_fuse_time ();
-       end
+             (* now restart *)
+             debug "xapi has received new database via xml; will reboot and use that db...";
+             info "Rebooting to use restored database after delay of: %f" !Xapi_globs.db_restore_fuse_time;
+             Xapi_fuse.light_fuse_and_reboot ~fuse_length:!Xapi_globs.db_restore_fuse_time ();
+           end
+         end
     )
 
 let http_fetch_db ~master_address ~pool_secret =
