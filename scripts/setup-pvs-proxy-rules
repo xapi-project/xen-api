@@ -59,7 +59,7 @@ fi
 pvs_prefix="/xapi/pvs-proxy"
 path=$($XSLS -f "$pvs_prefix" | egrep -o "$pvs_prefix/[^/]+/$VIF/state")
 PVS_PROXY_STATE=$($XSREAD "$path")
-if [ "$PVS_PROXY_STATE" != "started" ]; then
+if [ -z "$path" ] || [ "$PVS_PROXY_STATE" != "started" ]; then
     handle_error "PVS proxy daemon not configured for this proxy - not installing OVS rules."
 fi
 
