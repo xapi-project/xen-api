@@ -25,7 +25,6 @@ UPDATE_PRECHECK_FAILED_PREREQUISITE_MISSING = 'UPDATE_PRECHECK_FAILED_PREREQUISI
 UPDATE_PRECHECK_FAILED_CONFLICT_PRESENT = 'UPDATE_PRECHECK_FAILED_CONFLICT_PRESENT'
 UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION = 'UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION'
 UPDATE_PRECHECK_FAILED_OUT_OF_SPACE = 'UPDATE_PRECHECK_FAILED_OUT_OF_SPACE'
-UPDATE_PREFIX = 'update-'
 INVALID_UPDATE = 'INVALID_UPDATE'
 CANNOT_FIND_UPDATE = 'CANNOT_FIND_UPDATE'
 ERROR_MESSAGE_START = 'Error: '
@@ -98,7 +97,7 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
             errmsg = re.sub(ERROR_MESSAGE_END + '.+', '', errmsg, flags=re.DOTALL)
             precheckfailure_msg = re.sub('\n +', ' ', errmsg, flags=re.DOTALL)
             if ERROR_MESSAGE_CONFLICTS_WITH in errmsg and ERROR_MESSAGE_PROCESSING_CONFLICT in output:
-                regex = ERROR_MESSAGE_PROCESSING_CONFLICT + '(.*)' + ERROR_MESSAGE_CONFLICTS + UPDATE_PREFIX + '(.+?)\n'
+                regex = ERROR_MESSAGE_PROCESSING_CONFLICT + '(.*)' + ERROR_MESSAGE_CONFLICTS + '(.+?)\n'
                 conflict_tuples = re.findall(regex, output)
                 if len(conflict_tuples) > 0:
                     conflict_updates = ''
@@ -117,7 +116,7 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
                 else:
                     raise PrecheckFailure(precheckfailure_msg)
             elif ERROR_MESSAGE_PREREQUISITE in errmsg:
-                regex = ERROR_MESSAGE_PREREQUISITE + UPDATE_PREFIX + '(.+?)\n'
+                regex = ERROR_MESSAGE_PREREQUISITE + '(.+?)\n'
                 prerequisite_list = re.findall(regex, errmsg)
                 if len(prerequisite_list) > 0:
                     prerequisite_updates = ''
