@@ -1709,9 +1709,11 @@ let update_vif ~__context id =
                 | None -> ()
                 | Some proxy ->
                   debug "xenopsd event: Updating PVS_proxy for VIF %s.%s currently_attached <- %b" (fst id) (snd id) state.pvs_rules_active;
-                  if state.pvs_rules_active then
-                    Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:true
-                  else
+                  if state.pvs_rules_active then begin
+                    Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:true;
+                    (* force status to be read again by invalidating cache *)
+                    Monitor_dbcalls_cache.clear_pvs_status_cache (fst id)
+                  end else
                     Pvs_proxy_control.clear_proxy_state ~__context vif proxy
                );
                debug "xenopsd event: Updating VIF %s.%s currently_attached <- %b" (fst id) (snd id) (state.plugged || state.active);
