@@ -46,6 +46,11 @@ let clear_cache_for_vm ~vm_uuid =
   Mutex.execute vm_memory_cached_m
     (fun _ -> Hashtbl.remove vm_memory_cached vm_uuid)
 
+(** [clear_pvs_status_cache] removes the cache entry for [vm_uuid] *)
+let clear_pvs_status_cache ~vm_uuid =
+  Mutex.execute pvs_proxy_cached_m
+    (fun _ -> Hashtbl.remove pvs_proxy_cached vm_uuid)
+
 (** Clear the whole cache. This forces fresh properties to be written into
  * xapi's database. *)
 let clear_cache () =
