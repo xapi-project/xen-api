@@ -40,12 +40,6 @@ handle_xs_error()
 
 logger -t "$LOG_TAG" "Called as $0 $*"
 
-path="${PRIVATE_PATH}/pvs-site"
-PVS_SITE=$($XSREAD "$path")
-if [ $? -ne 0 ] || [ -z "$PVS_SITE" ]; then
-    handle_xs_error "$path"
-fi
-
 path="${PRIVATE_PATH}/vif-uuid"
 VIF=$($XSREAD "$path")
 if [ $? -ne 0 ] || [ -z "$VIF" ]; then
