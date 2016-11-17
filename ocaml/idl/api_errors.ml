@@ -537,7 +537,6 @@ let suspend_image_not_accessible = "SUSPEND_IMAGE_NOT_ACCESSIBLE"
 (* PVS *)
 let pvs_site_contains_running_proxies = "PVS_SITE_CONTAINS_RUNNING_PROXIES"
 let pvs_site_contains_servers = "PVS_SITE_CONTAINS_SERVERS"
-let pvs_site_missing_servers = "PVS_SITE_MISSING_SERVERS"
 let pvs_cache_storage_already_present = "PVS_CACHE_STORAGE_ALREADY_PRESENT"
 let pvs_cache_storage_is_in_use = "PVS_CACHE_STORAGE_IS_IN_USE"
 let pvs_proxy_already_present = "PVS_PROXY_ALREADY_PRESENT"
