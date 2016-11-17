@@ -231,12 +231,11 @@ let start_proxy ~__context vif proxy =
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             ignore(Client.Client.Message.create ~rpc ~session_id ~name ~priority ~cls:`PVS_proxy ~obj_uuid:proxy_uuid ~body));
         "unable to connect to PVS proxy daemon"
-      | Api_errors.Server_error (code, args) when
-          code = Api_errors.pvs_site_missing_servers ->
+      | Helpers.No_pvs_server_available ->
         let proxy_uuid = Db.PVS_proxy.get_uuid ~__context ~self:proxy in
         let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif in
-        let site_name_label = (Db.PVS_site.get_name_label ~__context ~self:(Db.PVS_proxy.get_site ~__context ~self:proxy)) in
-        let host_name_label = (Db.Host.get_name_label ~__context ~self:(Helpers.get_localhost ~__context)) in
+        let site_name_label = Db.PVS_site.get_name_label ~__context ~self:(Db.PVS_proxy.get_site ~__context ~self:proxy) in
+        let host_name_label = Db.Host.get_name_label ~__context ~self:(Helpers.get_localhost ~__context) in
         let body = Printf.sprintf "Unable to setup PVS-proxy %s for VIF %s: no PVS-server found on PVS-site %s for host %s."
             proxy_uuid vif_uuid site_name_label host_name_label in
         let (name, priority) = Api_messages.pvs_proxy_no_server_available in
