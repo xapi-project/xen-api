@@ -83,7 +83,6 @@ if __name__ == '__main__':
             sys.exit(0)
 
         update_uuid = session.xenapi.pool_update.get_uuid(update)
-        update_package = 'update-' + session.xenapi.pool_update.get_name_label(update)
         yum_conf_file = os.path.join(TMP_DIR, update_uuid, 'yum.conf')
 
         # To prevent the race condition of invoking apply, set a lock.
@@ -126,7 +125,7 @@ if __name__ == '__main__':
             with open (yum_conf_file, "w+") as file:
                 file.write("{0}".format(yum_conf))
 
-            execute_apply(session, update_package, yum_conf_file)
+            execute_apply(session, '@update', yum_conf_file)
 
             session.xenapi.pool_update.resync_host(host)
             print(success_message())
