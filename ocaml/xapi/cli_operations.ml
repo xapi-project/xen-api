@@ -3170,10 +3170,7 @@ let host_evacuate printer rpc session_id params =
 let host_get_vms_which_prevent_evacuation printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let host = Client.Host.get_by_uuid rpc session_id uuid in
-  (* Although the API call get_vms_which_prevent_evacuation was changed within CA-220610
-    to return per VM only one reason why the host cannot be evacuated, it was decided
-    the CLI call should still return all the reasons *)
-  let vms = Client.Host.get_vms_which_prevent_evacuation_all rpc session_id host in
+  let vms = Client.Host.get_vms_which_prevent_evacuation rpc session_id host in
 
   let op (vm, error) =
     let error = String.concat "," error in
