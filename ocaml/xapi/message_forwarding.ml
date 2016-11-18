@@ -2280,10 +2280,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Host.get_vms_which_prevent_evacuation: host = '%s'" (host_uuid ~__context self);
       Local.Host.get_vms_which_prevent_evacuation ~__context ~self
 
-    let get_vms_which_prevent_evacuation_all ~__context ~self =
-      info "Host.get_vms_which_prevent_evacuation_all: host = '%s'" (host_uuid ~__context self);
-      Local.Host.get_vms_which_prevent_evacuation_all ~__context ~self
-
     let evacuate ~__context ~host =
       info "Host.evacuate: host = '%s'" (host_uuid ~__context host);
       (* Block call if this would break our VM restart plan (because the body of this sets enabled to false) *)
