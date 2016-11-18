@@ -463,15 +463,18 @@ let resync_host ~__context ~host =
   end
   else Db.Host.set_updates ~__context ~self:host ~value:[];
 
-  (* Remove any pool_patch objects that don't have a corresponding pool_update object *)
-  Db.Pool_patch.get_all ~__context
-  |> List.filter (fun self -> Db.Pool_patch.get_pool_update ~__context ~self = Ref.null)
-  |> List.iter (fun self -> Db.Pool_patch.destroy ~__context ~self);
+  (* Only clean up existing patches if rolling upgrade has actually finished *)
+  if not (Helpers.rolling_upgrade_in_progress ~__context) then begin
+    (* Remove any pool_patch objects that don't have a corresponding pool_update object *)
+    Db.Pool_patch.get_all ~__context
+    |> List.filter (fun self -> Db.Pool_patch.get_pool_update ~__context ~self = Ref.null)
+    |> List.iter (fun self -> Db.Pool_patch.destroy ~__context ~self);
 
-  (* Clean updates that don't have a corresponding patch record *)
-  Db.Pool_update.get_all ~__context
-  |> List.filter (fun self -> Xapi_pool_patch.pool_patch_of_update ~__context self = Ref.null)
-  |> List.iter (fun self -> destroy ~__context ~self)
+    (* Clean updates that don't have a corresponding patch record *)
+    Db.Pool_update.get_all ~__context
+    |> List.filter (fun self -> Xapi_pool_patch.pool_patch_of_update ~__context self = Ref.null)
+    |> List.iter (fun self -> destroy ~__context ~self)
+  end
 
 let pool_update_download_handler (req: Request.t) s _ =
   debug "pool_update.pool_update_download_handler URL %s" req.Request.uri;
