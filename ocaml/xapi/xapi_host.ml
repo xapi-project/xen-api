@@ -225,7 +225,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
   then
     begin
       List.iter (fun (vm, _) ->
-          Hashtbl.add plans vm (Error (Api_errors.no_hosts_available, [ Ref.string_of vm ])))
+          Hashtbl.replace plans vm (Error (Api_errors.no_hosts_available, [ Ref.string_of vm ])))
         all_user_vms ;
       plans
     end
@@ -269,8 +269,8 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
       let plan = Xapi_ha_vm_failover.compute_evacuation_plan ~__context (List.length all_hosts) target_hosts migratable_vms in
       (* Check if the plan was actually complete: if some VMs are missing it means there wasn't enough memory *)
       let vms_handled = List.map fst plan in
-      let vms_missing = List.filter (fun x -> not(List.mem x vms_handled)) (List.map fst protected_vms) in
-      List.iter (fun vm -> Hashtbl.add plans vm (Error (Api_errors.host_not_enough_free_memory, [ Ref.string_of vm ]))) vms_missing;
+      let vms_missing = List.filter (fun x -> not(List.mem x vms_handled)) (List.map fst migratable_vms) in
+      List.iter (fun vm -> Hashtbl.replace plans vm (Error (Api_errors.host_not_enough_free_memory, [ Ref.string_of vm ]))) vms_missing;
 
       (* Now for each VM we did place, verify storage and network visibility. *)
       List.iter (fun (vm, host) ->
@@ -279,7 +279,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
             try Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check:false ()
             with (Api_errors.Server_error (code, params)) -> Hashtbl.replace plans vm (Error (code, params))
           end;
-          if not(Hashtbl.mem plans vm) then Hashtbl.add plans vm (Migrate host)
+          if not(Hashtbl.mem plans vm) then Hashtbl.replace plans vm (Migrate host)
         ) plan;
       plans
     end
