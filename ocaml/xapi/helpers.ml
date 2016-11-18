@@ -1082,6 +1082,12 @@ let assert_using_vswitch ~__context =
   in
   if not using_vswitch then raise Api_errors.(Server_error (openvswitch_not_active, []))
 
+exception No_pvs_server_available
+
+let assert_pvs_servers_available ~__context ~pvs_site =
+  let pvs_servers = Db.PVS_site.get_servers ~__context ~self:pvs_site in
+  if pvs_servers = [] then raise No_pvs_server_available
+
 let assert_is_valid_ref ~__context ~name ~ref =
   if not (Db.is_valid_ref __context ref)
   then raise Api_errors.(Server_error (invalid_value, [
