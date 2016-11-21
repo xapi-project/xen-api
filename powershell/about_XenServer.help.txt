@@ -44,7 +44,7 @@ The cmdlets fall into the following categories:
 
 1.  Class Getters
 
-    These retrieve a XenAPI object and have names such as Get­-XenT, where T is an
+    These retrieve a XenAPI object and have names such as Get-XenT, where T is an
     exposed XenAPI class. The object to get can be specified by ‐Ref or, for those
     that have a uuid or name, ‐Name or ‐Uuid. If no parameters are specified, all
     objects of this type are returned. Example:
@@ -53,7 +53,7 @@ The cmdlets fall into the following categories:
 
 2.  Constructors
 
-    These create a new XenAPI object and have names such as New­-XenT, where T is
+    These create a new XenAPI object and have names such as New-XenT, where T is
     an exposed XenAPI class. Example:
 
         PS> $vm = Get‐XenVM ‐Name "Demo VM"
@@ -63,7 +63,7 @@ The cmdlets fall into the following categories:
 
 3.  Class Removers
 
-    These destroy a XenAPI object and have names such as Remove­-XenT, where T is
+    These destroy a XenAPI object and have names such as Remove-XenT, where T is
     an exposed XenAPI class.  To specify the object to remove use the parameter
     ‐T, where T is the exposed XenAPI class, or ‐Ref or, for those objects that
     have a uuid or name, ‐UUID or ‐Name. Example:
@@ -72,7 +72,7 @@ The cmdlets fall into the following categories:
 
 4.  Property Setters
 
-    These set a field of a XenAPI object and have names such as Set-­XenT, where
+    These set a field of a XenAPI object and have names such as Set-XenT, where
     T is an exposed XenAPI class. To specify the object use the parameter ‐T, where
     T is the exposed XenAPI class, or ‐Ref or, for those objects that have a uuid
     or name, ‐UUID or ‐Name. The field to set can be specified as an accordingly
@@ -85,7 +85,7 @@ The cmdlets fall into the following categories:
 5.  Property Adders
 
     These add an element to a field of a XenAPI object and have names such as
-    Add­-XenT, where T is an exposed XenAPI class.  To specify the object use the
+    Add-XenT, where T is an exposed XenAPI class.  To specify the object use the
     parameter ‐T, where T is the exposed XenAPI class, or ‐Ref or, for those objects
     that have a uuid or name, ‐UUID or ‐Name. The field to which the element
     will be added can be specified as an accordingly named parameter. Note that
@@ -97,7 +97,7 @@ The cmdlets fall into the following categories:
 6.  Property Removers
 
     These remove an element from a field of a XenAPI object and have names such
-    as Remove­-XenTProperty, where T is an exposed XenAPI class.  To specify the
+    as Remove-XenTProperty, where T is an exposed XenAPI class.  To specify the
     object use the parameter ‐T, where T is the exposed XenAPI class, or ‐Ref or,
     for those objects that have a uuid or name, ‐UUID or ‐Name. The field from
     which the element will be removed can be specified as an accordingly named
@@ -109,7 +109,7 @@ The cmdlets fall into the following categories:
 7.  Property Getters
 
     These retrieve the value of a field of a XenAPI object and have names such as
-    Get-­XenTProperty, where T is an exposed XenAPI class. To specify the object
+    Get-XenTProperty, where T is an exposed XenAPI class. To specify the object
     use the parameters ‐T, where T is the exposed XenAPI class, or ‐Ref. To specify
     the field use the enum parameter ‐XenProperty. Example:
 
@@ -118,7 +118,7 @@ The cmdlets fall into the following categories:
 
 8.  Invokers
 
-    These invoke operations on XenAPI objects and have names such as Invoke-­XenT,
+    These invoke operations on XenAPI objects and have names such as Invoke-XenT,
     where T is an exposed XenAPI class. To specify the object use the parameter
     ‐T, where T is the exposed XenAPI class, or ‐Ref or, for those objects that
     have a uuid or name, ‐UUID or ‐Name. To specify the call to invoke, use the
