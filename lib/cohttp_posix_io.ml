@@ -105,7 +105,7 @@ module Unbuffered_IO = struct
     remaining = 0 || (n > 0 && (read_into_exactly ic buf (ofs + n) (len - n)))
 
   let read_exactly ic len =
-    let buf = String.create len in
+    let buf = Bytes.create len in
     read_into_exactly ic buf 0 len >>= function
     | true -> return (Some buf)
     | false -> return None
@@ -147,7 +147,7 @@ module Buffered_IO = struct
   let read_into_exactly ic buf ofs len = try really_input ic buf ofs len; true with _ -> false
 
   let read_exactly ic len =
-    let buf = String.create len in
+    let buf = Bytes.create len in
     read_into_exactly ic buf 0 len >>= function
     | true -> return (Some buf)
     | false -> return None

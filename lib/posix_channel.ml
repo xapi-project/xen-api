@@ -16,7 +16,7 @@ module CBuf = struct
   }
 
   let empty length = {
-    buffer = String.create length;
+    buffer = Bytes.create length;
     len = 0;
     start = 0;
     r_closed = false;

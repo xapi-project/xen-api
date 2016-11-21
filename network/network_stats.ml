@@ -88,7 +88,7 @@ module File_helpers = struct
 	(** [fd_blocks_fold block_size f start fd] folds [f] over blocks (strings)
 	    from the fd [fd] with initial value [start] *)
 	let fd_blocks_fold block_size f start fd = 
-		let block = String.create block_size in
+		let block = Bytes.create block_size in
 		let rec fold acc = 
 			let n = Unix.read fd block 0 block_size in
 			(* Consider making the interface explicitly use Substrings *)

@@ -64,8 +64,8 @@ let test_debug_set_level () =
 
 
 let test_debug_set_level_multiple_loggers () = 
-        let a = (module Debug.Make(struct let name = "aaaa" end) : Debug.DEBUG) in
-        let b = (module Debug.Make(struct let name = "bbbb" end) : Debug.DEBUG) in
+        let _ = (module Debug.Make(struct let name = "aaaa" end) : Debug.DEBUG) in
+        let _ = (module Debug.Make(struct let name = "bbbb" end) : Debug.DEBUG) in
         Debug.reset_levels ();
 
         assert_levels "aaaa"    (false, false, false, false);
