@@ -1,6 +1,6 @@
 OASISFormat: 0.4
 Name:        forkexecd
-Version:     1.0.1
+Version:     1.0.2
 Synopsis:    Fork and exec daemon
 Authors:     see CREDITS
 License:     LGPL-2.1 with OCaml linking exception
@@ -12,7 +12,7 @@ Library forkexec
   Path:               lib
   Findlibname:        forkexec
   Modules:            Forkhelpers, Fecomms, Fe
-  BuildDepends:       stdext, threads, uuidm, rpclib, rpclib.syntax, fd-send-recv, xcp
+  BuildDepends:       stdext, threads, uuidm, rpclib, rpclib.json, ppx_deriving_rpc, fd-send-recv, xcp
 
 Executable forkexecd
   CompiledObject:     best
