@@ -96,6 +96,7 @@ let v6_license_server_version_obsolete = addMessage "LICENSE_SERVER_VERSION_OBSO
 let pvs_proxy_no_cache_sr_available = addMessage "PVS_PROXY_NO_CACHE_SR_AVAILABLE" 3L (* No cache storage available for pvs site on the host *)
 let pvs_proxy_setup_failed = addMessage "PVS_PROXY_SETUP_FAILED" 3L (* Setting up pvs proxy rules or pvs proxy daemon initialisation failed internally *)
 let pvs_proxy_no_server_available = addMessage "PVS_PROXY_NO_SERVER_AVAILABLE" 3L (* No pvs server available for pvs site on host *)
+let pvs_proxy_cache_invalid_size = addMessage "PVS_PROXY_CACHE_INVALID_SIZE" 3L (* Cache storage VDI size exceeds available control domain memory *)
 
 (* VMPP message types *)
 let vmpp_snapshot_lock_failed = addMessage "VMPP_SNAPSHOT_LOCK_FAILED" 3L (*'The snapshot phase is already executing for this protection policy. Please try again later'*)
