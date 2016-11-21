@@ -76,7 +76,7 @@ handle_promiscuous()
                 esac
                 ;;
             openvswitch)
-                logger -t script-vif "${dev}: Promiscuous ports are not supported via Open vSwitch."
+                logger -t scripts-vif "${dev}: Promiscuous ports are not supported via Open vSwitch."
                 ;;
         esac
     fi
@@ -334,7 +334,7 @@ online)
         xenstore-write "${HOTPLUG}/vif" "${dev}"
         xenstore-write "${HOTPLUG}/hotplug" "online"
 
-        logger -t script-vif "${dev}: writing ${HOTPLUG_STATUS}=connected"
+        logger -t scripts-vif "${dev}: writing ${HOTPLUG_STATUS}=connected"
         xenstore-write "${HOTPLUG_STATUS}" "connected"
         call_hook_script $DOMID "${ACTION}"
     fi
@@ -351,9 +351,9 @@ remove)
     if [ "${TYPE}" = "vif" ] ;then
         call_hook_script $DOMID "${ACTION}"
 		# Unclear whether this is necessary, since netback also does it:
-        logger -t script-vif "${dev}: removing ${HOTPLUG_STATUS}"
+        logger -t scripts-vif "${dev}: removing ${HOTPLUG_STATUS}"
         xenstore-rm "${HOTPLUG_STATUS}"
-        logger -t script-vif "${dev}: removing ${HOTPLUG}/hotplug"
+        logger -t scripts-vif "${dev}: removing ${HOTPLUG}/hotplug"
 		# Trigger xapi to clean up:
         xenstore-rm "${HOTPLUG}/hotplug"
     fi
