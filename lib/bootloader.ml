@@ -66,6 +66,7 @@ let command bootloader q pv_bootloader_args image vm_uuid =
   match bootloader_of_string bootloader with
   | Some Pygrub ->
     let args = [
+      ["--output-format=simple"];
       q;
       (* --vm is unnecessary for pygrub and not supported upstream *)
       pv_bootloader_args;
@@ -82,32 +83,60 @@ let command bootloader q pv_bootloader_args image vm_uuid =
     path_of_bootloader Eliloader, List.concat args
   | None -> raise (Unknown_bootloader bootloader)
 
-(* linux (kernel /var/lib/xen/vmlinuz.y1Wmrp)(args 'root=/dev/sda1 ro') *)
-(* linux (kernel /var/lib/xen/vmlinuz.SFO5fb)(ramdisk /var/lib/xen/initrd.MUitgP)(args 'root=/dev/sda1 ro') *)
-let kvpairs_of_string x = Sexplib.Sexp.(match scan_sexps (Lexing.from_string x) with
-  | Atom "linux" :: list ->
-    let rec to_list = function
-    | List (Atom key :: values) :: rest ->
-      let atoms = List.map (function Atom x -> x | _ -> raise (Bad_sexpr x)) values in
-      let v = String.concat " " atoms in
-      let v =
-        if v.[0] = '\'' && v.[String.length v - 1] = '\''
-        then String.sub v 1 (String.length v - 2)
-        else v in
-      (key, v) :: (to_list rest)
-    | [] -> []
-    | _ -> raise (Bad_sexpr x) in
-		to_list list
-	| _ -> raise (Bad_sexpr x)
-)
-
-let parse_output x =
-  let l = kvpairs_of_string x in
-	{
-		kernel_path = List.assoc "kernel" l;
-		initrd_path = (try Some (List.assoc "ramdisk" l) with _ -> None);
-		kernel_args = (try List.assoc "args" l with _ -> "")
-	}
+(* The string to parse comes from eliloader or pygrub, which builds it based on
+ * reading and processing the grub configuration from the guest's disc.
+ * Therefore it may contain malicious content from the guest if pygrub has not
+ * cleaned it up sufficiently. *)
+(* Example of a valid three-line string to parse, with blank third line:
+ * kernel <kernel:/vmlinuz-2.6.18-412.el5xen>
+ * args ro root=/dev/VolGroup00/LogVol00 console=ttyS0,115200n8
+ *
+ *)
+type acc_t = {kernel: string option; ramdisk: string option; args: string option}
+let parse_output_simple x =
+  let parse_line_optimistic acc l =
+    (* String.index will raise Not_found on the empty line that pygrub includes
+     * at the end of its simple-format output. *)
+    let space_pos = String.index l ' ' in
+    let first_word = String.sub l 0 space_pos in
+    let pos = space_pos + 1 in
+	match first_word with
+      | "kernel" -> (
+        match acc.kernel with
+          | Some _ -> raise (Bad_error ("More than one kernel line when parsing bootloader result: "^x))
+          | None ->
+            debug "Using kernel line from bootloader output: %s" l;
+            {acc with kernel = Some (String.sub l pos (String.length l - pos))} )
+      | "ramdisk" -> (
+        match acc.ramdisk with
+          | Some _ -> raise (Bad_error ("More than one ramdisk line when parsing bootloader result: "^x))
+          | None ->
+            debug "Using ramdisk line from bootloader output: %s" l;
+            {acc with ramdisk = Some (String.sub l pos (String.length l - pos))} )
+      | "args" -> (
+        match acc.args with
+          | Some _ -> raise (Bad_error ("More than one args line when parsing bootloader result: "^x))
+          | None ->
+            debug "Using args line from bootloader output: %s" l;
+            {acc with args = Some (String.sub l pos (String.length l - pos))} )
+      | "" -> acc
+      | _ -> raise (Bad_error ("Unrecognised start of line when parsing bootloader result: line="^l))
+  in
+  let parse_line acc l =
+    try parse_line_optimistic acc l
+    with Not_found -> acc
+  in
+  let linelist = Stdext.Xstringext.String.split '\n' x in
+  let content = List.fold_left parse_line {kernel=None; ramdisk=None; args=None} linelist in
+  {
+    kernel_path = (match content.kernel with
+      | None -> raise (Bad_error ("No kernel found in "^x))
+      | Some p -> p);
+    initrd_path = content.ramdisk;
+    kernel_args = (match content.args with
+      | None -> ""
+      | Some a -> a)
+  }
 
 let runtimeError = "RuntimeError: "
 
@@ -122,6 +151,20 @@ let parse_exception x =
 	| _ -> (* no expected prefix *)
 		raise (Bad_error x)
 
+(* A layer of defence against the chance of a malicious guest grub config tricking
+ * pygrub or eliloader into giving the guest access to an inappropriate file in dom0 *)
+let sanity_check_path p = match p with
+	| "" -> p
+	| p when Filename.is_relative p ->
+		raise (Bad_error ("Bootloader returned a relative path for kernel or ramdisk: "^p))
+	| p ->
+		let canonical_path = Stdext.Unixext.resolve_dot_and_dotdot p in
+		match Filename.dirname canonical_path with
+			| "/var/run/xen/pygrub" (* From pygrub, including when called by eliloader *)
+			| "/var/run/xend/boot" (* From eliloader *)
+				-> canonical_path
+			| _ -> raise (Bad_error ("Malicious guest? Bootloader returned a kernel or ramdisk path outside the allowed directories: "^p))
+
 (** Extract the default kernel using the -q option *)
 let extract (task: Xenops_task.t) ~bootloader ~disk ?(legacy_args="") ?(extra_args="") ?(pv_bootloader_args="") ~vm:vm_uuid () =
 	(* Without this path, pygrub will fail: *)
@@ -130,8 +173,15 @@ let extract (task: Xenops_task.t) ~bootloader ~disk ?(legacy_args="") ?(extra_ar
 	debug "Bootloader commandline: %s %s\n" bootloader_path (String.concat " " cmdline);
 	try
 		let output, _ = Cancellable_subprocess.run task [] bootloader_path cmdline in
-		let result = parse_output output in
-		{ result with kernel_args = Printf.sprintf "%s %s %s" result.kernel_args legacy_args extra_args }
+		debug "Bootloader output: %s" output;
+		let result = parse_output_simple output in
+		{
+			kernel_path = sanity_check_path result.kernel_path;
+			initrd_path = (match result.initrd_path with
+				| None -> None
+				| Some p -> Some (sanity_check_path p));
+			kernel_args = Printf.sprintf "%s %s %s" result.kernel_args legacy_args extra_args
+		}
 	with Forkhelpers.Spawn_internal_error(stderr, stdout, _) ->
 		parse_exception stderr
 
