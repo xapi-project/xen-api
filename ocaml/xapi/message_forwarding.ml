@@ -442,6 +442,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 		include Local.Task
 
 		let cancel ~__context ~task =
+			TaskHelper.assert_can_destroy ~__context task;
 			let local_fn = cancel ~task in
 			let forwarded_to = Db.Task.get_forwarded_to ~__context ~self:task in
 			if Db.is_valid_ref __context forwarded_to
