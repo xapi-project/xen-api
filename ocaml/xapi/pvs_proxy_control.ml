@@ -249,17 +249,20 @@ let start_proxy ~__context vif proxy =
       | Api_errors.Server_error (code, args) when
           code = Api_errors.openvswitch_not_active ->
         "Host is not using openvswitch"
+      | Api_errors.Server_error ("SR_BACKEND_FAILURE_44", _)
       | Api_errors.Server_error ("SR_BACKEND_FAILURE_79", _) ->
         let proxy_uuid = Db.PVS_proxy.get_uuid ~__context ~self:proxy in
         let body = Printf.sprintf
-          "Unable to setup PVS-proxy %s for VIF %s and PVS-site %s: PVS cache size exceeds available control domain memory on host %s."
+          "Unable to setup PVS-proxy %s for VIF %s and PVS-site %s: \
+           PVS cache size for host %s exceeds SR available space."
           proxy_uuid (Db.VIF.get_uuid ~__context ~self:vif)
           (Db.PVS_site.get_name_label ~__context ~self:(Db.PVS_proxy.get_site ~__context ~self:proxy))
           (Db.Host.get_name_label ~__context ~self:(Helpers.get_localhost ~__context)) in
-        let (name, priority) = Api_messages.pvs_proxy_cache_invalid_size in
+        let (name, priority) = Api_messages.pvs_proxy_sr_out_of_space in
         Helpers.call_api_functions ~__context (fun rpc session_id ->
-            ignore(Client.Client.Message.create ~rpc ~session_id ~name  ~priority ~cls:`PVS_proxy ~obj_uuid:proxy_uuid  ~body));
-        "PVS cache size exceeds available control domain memory"
+            ignore(Client.Client.Message.create
+              ~rpc ~session_id ~name  ~priority ~cls:`PVS_proxy ~obj_uuid:proxy_uuid  ~body));
+        "PVS cache size exceeds SR available space"
       | _ -> Printf.sprintf "unknown error (%s)" (Printexc.to_string e)
     in
     State.mark_proxy ~__context site vif proxy State.Failed;
