@@ -196,11 +196,27 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_contain_shared_SRs, []))
     end in
 
-  let assert_only_physical_pifs () =
-    let non_physical_pifs = Db.PIF.get_refs_where ~__context ~expr:(
+  let allow_management_interface_on_vlan () =
+    (* Allow pool-join if joining host and the pool have management interface on same vlan *)
+    match Db.VLAN.get_all ~__context with
+    | [] -> false
+    | [vlan] ->
+      (try
+        Db.PIF.get_VLAN ~__context ~self:(
+          Xapi_host.get_management_interface ~__context ~host:(Helpers.get_localhost ~__context)) =
+        Client.PIF.get_VLAN rpc session_id (
+          Client.Host.get_management_interface rpc session_id (get_master ~rpc ~session_id))
+       with e -> error "Caught '%s' while checking if joining host and the pool have a management interface on same vlan" (ExnHelper.string_of_exn e);
+         false)
+    | _ -> false
+  in
+
+  let assert_only_physical_pifs_or_vlan_pif () =
+    let non_physical_pifs_count = List.length (Db.PIF.get_refs_where ~__context ~expr:(
         Eq (Field "physical", Literal "false")
-      ) in
-    if non_physical_pifs <> [] then begin
+      )) in
+    (* Allow pool-join if host has only physical pifs or at most one vlan *)
+    if (non_physical_pifs_count > 1) || ((non_physical_pifs_count = 1) && not (allow_management_interface_on_vlan ())) then begin
       error "The current host has network bonds, VLANs or tunnels: it cannot join a new pool";
       raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_only_have_physical_pifs, []))
     end in
@@ -365,7 +381,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_hosts_compatible ();
   if (not force) then assert_hosts_homogeneous ();
   assert_no_shared_srs_on_me ();
-  assert_only_physical_pifs ();
+  assert_only_physical_pifs_or_vlan_pif ();
   assert_external_auth_matches ();
   assert_restrictions_match ();
   assert_homogeneous_vswitch_configuration ();
