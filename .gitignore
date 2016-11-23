@@ -98,7 +98,7 @@ ocaml/templates/templateLexer.ml
 ocaml/templates/templateParser.ml
 ocaml/templates/templateParser.mli
 ocaml/xapi/storage_impl_test
-ocaml/util/version.ml
+ocaml/util/xapi_version.ml
 
 stunnel-4.15/Makefile
 stunnel-4.15/config.status
