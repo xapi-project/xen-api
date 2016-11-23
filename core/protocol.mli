@@ -37,8 +37,8 @@ module Message : sig
     kind: kind;
   }
   [@@deriving sexp]
-  val of_rpc: Rpc.t -> t
-  val rpc_of: t -> Rpc.t
+  val t_of_rpc: Rpc.t -> t
+  val rpc_of_t: t -> Rpc.t
 end
 
 module Event : sig
@@ -54,8 +54,8 @@ module Event : sig
     message: message;
     processing_time: int64 option;
   }
-  val of_rpc: Rpc.t -> t
-  val rpc_of: t -> Rpc.t
+  val t_of_rpc: Rpc.t -> t
+  val rpc_of_t: t -> Rpc.t
 end
 
 module In : sig
@@ -80,8 +80,8 @@ module In : sig
     | Shutdown                   (** Shut down the switch *)
     | Get of string list         (** return a web interface resource *)
 
-  val rpc_of : t -> Rpc.t
-  val of_rpc : Rpc.t -> t
+  val rpc_of_t : t -> Rpc.t
+  val t_of_rpc : Rpc.t -> t
 
   val headers: string -> Cohttp.Header.t
 
@@ -123,8 +123,8 @@ module Diagnostics : sig
     permanent_queues: (string * queue) list;
     transient_queues: (string * queue) list;
   }
-  val rpc_of: t -> Rpc.t
-  val of_rpc: Rpc.t -> t
+  val rpc_of_t: t -> Rpc.t
+  val t_of_rpc: Rpc.t -> t
 end
 
 

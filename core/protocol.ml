@@ -225,7 +225,7 @@ module Out = struct
     | List l ->
       `OK, (Jsonrpc.to_string (rpc_of_queue_list l))
     | Diagnostics x ->
-      `OK, (Jsonrpc.to_string (Diagnostics.rpc_of x))
+      `OK, (Jsonrpc.to_string (Diagnostics.rpc_of_t x))
     | Not_logged_in ->
       `Not_found, "Please log in."
     | Get x ->
