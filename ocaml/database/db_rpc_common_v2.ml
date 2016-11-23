@@ -33,7 +33,7 @@ module Request = struct
     | Read_record of string * string
     | Read_records_where of string * Db_filter_types.expr
     | Process_structured_field of (string * string) * string * string * string * Db_cache_types.structured_op_t
-  with rpc
+  [@@deriving rpc]
 end
 
 module Response = struct
@@ -61,6 +61,5 @@ module Response = struct
     | Uniqueness_constraint_violation of string * string * string
     | Read_missing_uuid of string * string * string
     | Too_many_values of string * string * string
-  with rpc
+  [@@deriving rpc]
 end
-

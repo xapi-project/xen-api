@@ -31,8 +31,8 @@ let pool_secret = ref ""
 let localhost_ref : [`host] Ref.t ref = ref Ref.null
 
 (* xapi version *)
-let version_major = Version.xapi_version_major
-let version_minor = Version.xapi_version_minor
+let version_major = Xapi_version.xapi_version_major
+let version_minor = Xapi_version.xapi_version_minor
 let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int version_minor)
 
 (* api version *)
@@ -140,16 +140,16 @@ let export_vsn = 2
 let software_version () =
   (* In the case of XCP, all product_* fields will be blank. *)
   List.filter (fun (_, value) -> value <> "")
-    [_product_version, Version.product_version ();
-     _product_version_text,       Version.product_version_text ();
-     _product_version_text_short, Version.product_version_text_short ();
-     _platform_name, Version.platform_name ();
-     _platform_version, Version.platform_version ();
-     _product_brand,   Version.product_brand ();
-     _build_number,    Version.build_number ();
-     _git_id,           Version.git_id;
-     _hostname,        Version.hostname;
-     _date,            Version.date]
+    [_product_version, Xapi_version.product_version ();
+     _product_version_text,       Xapi_version.product_version_text ();
+     _product_version_text_short, Xapi_version.product_version_text_short ();
+     _platform_name, Xapi_version.platform_name ();
+     _platform_version, Xapi_version.platform_version ();
+     _product_brand,   Xapi_version.product_brand ();
+     _build_number,    Xapi_version.build_number ();
+     _git_id,           Xapi_version.git_id;
+     _hostname,        Xapi_version.hostname;
+     _date,            Xapi_version.date]
 
 let pygrub_path = "/usr/bin/pygrub"
 let eliloader_path = "/usr/bin/eliloader"
@@ -201,7 +201,7 @@ let grant_api_access = "grant_api_access"
 (* other-config key for backwards compat. *)
 let tools_sr_tag = "xenserver_tools_sr"
 
-let tools_sr_name () = Version.product_brand () ^ " Tools"
+let tools_sr_name () = Xapi_version.product_brand () ^ " Tools"
 let tools_sr_description () = tools_sr_name () ^ " ISOs"
 
 let tools_sr_dir = ref "/opt/xensource/packages/iso"
