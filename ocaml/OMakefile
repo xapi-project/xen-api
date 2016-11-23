@@ -1,7 +1,7 @@
 # You must set your XEN_ROOT env var before building
 XEN_CFLAGS    = -I$(XEN_ROOT)/usr/include
 OCAMLINCLUDES = $(ROOT)/ocaml/idl +ocamldoc
-OCAML_LIBS    = $(ROOT)/ocaml/util/version $(ROOT)/ocaml/util/stats
+OCAML_LIBS    = $(ROOT)/ocaml/util/xapi_version $(ROOT)/ocaml/util/stats
 OCAMLPACKS    = stdext uuid gzip
 
 .SUBDIRS: \
