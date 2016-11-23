@@ -1828,51 +1828,54 @@ let select_vms ?(include_control_vms = false) ?(include_template_vms = false) rp
   (* Make sure we don't select a template or control domain by mistake *)
   let params = if not include_control_vms  then ("is-control-domain", "false") :: params else params in
   let params = if not include_template_vms then ("is-a-template"    , "false") :: params else params in
-
-  let do_filter params =
-    let vms = Client.VM.get_all_records_where rpc session_id "true" in
-    let all_recs = List.map (fun (vm,vm_r) -> let r = vm_record rpc session_id vm in r.setrefrec (vm,vm_r); r) vms in
-    (* Filter on everything on the cmd line except params=... *)
-    let filter_params = List.filter (fun (p,_) ->
-        let p' =
-          try
-            let i = String.index p ':' in
-            String.sub p 0 i
-          with Not_found -> p
-        in
-        not (List.mem p' (stdparams @ ignore_params))
-      ) params in
-    (* Filter all the records *)
-    List.fold_left filter_records_on_fields all_recs filter_params
+  let vm_name_or_ref = try Some (
+      (* Escape every quote character *)
+      List.assoc "vm" params |> Stdext.Xstringext.String.replace "\"" "\\\""
+    ) with _ -> None in
+  let params, where_clause = match vm_name_or_ref with
+    | None -> params, "true"
+    | Some v -> (
+        (* try matching vm=<name or uuid> *)
+        List.remove_assoc "vm" params,
+        Printf.sprintf "(field \"uuid\"=\"%s\") or (field \"name__label\"=\"%s\")" v v
+      )
   in
-
-  (* try matching vm=<name or uuid> first *)
-  if List.mem_assoc "vm" params
-  then
-    try [vm_record rpc session_id (Client.VM.get_by_uuid rpc session_id (List.assoc "vm" params))]
-    with _ -> do_filter (List.map (fun (k,v) -> if k="vm" then ("name-label",v) else (k,v)) params)
-  else
-    do_filter params
+  let vms = Client.VM.get_all_records_where rpc session_id where_clause in
+  let all_recs = List.map (fun (vm,vm_r) -> let r = vm_record rpc session_id vm in r.setrefrec (vm,vm_r); r) vms in
+  (* Filter on everything on the cmd line except params=... *)
+  let filter_params = List.filter (fun (p,_) ->
+      let p' =
+        try
+          let i = String.index p ':' in
+          String.sub p 0 i
+        with Not_found -> p
+      in
+      not (List.mem p' (stdparams @ ignore_params))
+    ) params in
+  (* Filter all the records *)
+  List.fold_left filter_records_on_fields all_recs filter_params
 
 
 let select_hosts rpc session_id params ignore_params =
-  (* try matching host=<name or uuid> first *)
-  let do_filter params =
-    let hosts = Client.Host.get_all_records_where rpc session_id "true" in
-    let all_recs = List.map (fun (host,host_r) -> let r = host_record rpc session_id host in r.setrefrec (host,host_r); r) hosts in
-
-    let filter_params = List.filter (fun (p,_) ->
-        let stem=List.hd (String.split ':' p) in not (List.mem stem (stdparams @ ignore_params))) params in
-    (* Filter all the records *)
-    List.fold_left filter_records_on_fields all_recs filter_params
+  let host_name_or_ref = try Some (
+      (* Escape every quote character *)
+      List.assoc "host" params |> Stdext.Xstringext.String.replace "\"" "\\\""
+    ) with _ -> None in
+  let params, where_clause = match host_name_or_ref with
+    | None -> params, "true"
+    | Some v -> (
+        (* try matching host=<name or uuid> *)
+        List.remove_assoc "host" params,
+        Printf.sprintf "(field \"uuid\"=\"%s\") or (field \"hostname\"=\"%s\") or (field \"name__label\"=\"%s\")" v v v
+      )
   in
+  let hosts = Client.Host.get_all_records_where rpc session_id where_clause in
+  let all_recs = List.map (fun (host,host_r) -> let r = host_record rpc session_id host in r.setrefrec (host,host_r); r) hosts in
+  let filter_params = List.filter (fun (p,_) ->
+      let stem=List.hd (String.split ':' p) in not (List.mem stem (stdparams @ ignore_params))) params in
+  (* Filter all the records *)
+  List.fold_left filter_records_on_fields all_recs filter_params
 
-  if List.mem_assoc "host" params
-  then
-    try [host_record rpc session_id (Client.Host.get_by_uuid rpc session_id (List.assoc "host" params))]
-    with _ -> do_filter (List.map (fun (k,v) -> if k="host" then ("name-label",v) else (k,v)) params)
-  else
-    do_filter params
 
 let select_vm_geneva rpc session_id params =
   if List.mem_assoc "vm-name" params then
@@ -1900,22 +1903,25 @@ let select_vm_geneva rpc session_id params =
                ^(String.concat "," (List.map (fun (a,b) -> a^"="^b) params))))
 
 let select_srs rpc session_id params ignore_params =
-  let do_filter params =
-    let srs = Client.SR.get_all_records_where rpc session_id "true" in
-    let all_recs = List.map (fun (sr,sr_r) -> let r = sr_record rpc session_id sr in r.setrefrec (sr,sr_r); r) srs in
-
-    let filter_params = List.filter (fun (p,_) ->
-        let stem=List.hd (String.split ':' p) in not (List.mem stem (stdparams @ ignore_params))) params in
-    (* Filter all the records *)
-    List.fold_left filter_records_on_fields all_recs filter_params
+  let sr_name_or_ref = try Some (
+      (* Escape every quote character *)
+      List.assoc "sr" params |> Stdext.Xstringext.String.replace "\"" "\\\""
+    ) with _ -> None in
+  let params, where_clause = match sr_name_or_ref with
+    | None -> params, "true"
+    | Some v -> (
+        (* try matching sr=<name or uuid> *)
+        List.remove_assoc "sr" params,
+        Printf.sprintf "(field \"uuid\"=\"%s\") or (field \"name__label\"=\"%s\")" v v
+      )
   in
-  (* try matching sr=<name or uuid> first *)
-  if List.mem_assoc "sr" params
-  then
-    try [sr_record rpc session_id (Client.SR.get_by_uuid rpc session_id (List.assoc "sr" params))]
-    with _ -> do_filter (List.map (fun (k,v) -> if k="sr" then ("name-label",v) else (k,v)) params)
-  else
-    do_filter params
+  let srs = Client.SR.get_all_records_where rpc session_id where_clause in
+  let all_recs = List.map (fun (sr,sr_r) -> let r = sr_record rpc session_id sr in r.setrefrec (sr,sr_r); r) srs in
+  let filter_params = List.filter (fun (p,_) ->
+      let stem=List.hd (String.split ':' p) in not (List.mem stem (stdparams @ ignore_params))) params in
+  (* Filter all the records *)
+  List.fold_left filter_records_on_fields all_recs filter_params
+
 
 exception Multiple_failure of (string * string) list
 
