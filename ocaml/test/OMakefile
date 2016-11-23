@@ -13,7 +13,7 @@ OCAMLINCLUDES = \
 	../license \
 
 OCAML_LIBS = \
-	../util/version \
+	../util/xapi_version \
 	../idl/ocaml_backend/common \
 	../idl/ocaml_backend/client \
 	../idl/ocaml_backend/server \
