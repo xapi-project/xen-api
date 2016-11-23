@@ -90,7 +90,7 @@ clean:
 	omake clean
 	omake lib-uninstall
 	rm -rf dist/staging
-	rm -f .omakedb .omakedb.lock xapi.spec version.ml
+	rm -f .omakedb .omakedb.lock xapi.spec xapi_version.ml
 	find -name '*.omc' -delete
 
 .PHONY: otags
@@ -129,7 +129,7 @@ version:
 	let build_number () = Inventory.lookup ~default:\"$(BUILD_NUMBER)\" \"BUILD_NUMBER\" \n \
 	let xapi_version_major = $(shell cut -d. -f1 VERSION) \n \
 	let xapi_version_minor = $(shell cut -d. -f2 VERSION) \n" \
-	> ocaml/util/version.ml
+	> ocaml/util/xapi_version.ml
 
 .PHONY: clean
  clean:
@@ -146,7 +146,7 @@ srpm: xapi.spec
 	cp $(JQUERY) $(JQUERY_TREEVIEW) $(RPM_SOURCESDIR)
 	make -C $(REPO) version
 	rm -f $(RPM_SOURCESDIR)/xapi-version.patch
-	(cd $(REPO); diff -u /dev/null ocaml/util/version.ml > $(RPM_SOURCESDIR)/xapi-version.patch) || true
+	(cd $(REPO); diff -u /dev/null ocaml/util/xapi_version.ml > $(RPM_SOURCESDIR)/xapi-version.patch) || true
 	rm -f $(RPM_SOURCESDIR)/0001-Workaround-for-NVIDIA-330.patch
 	cp scripts/0001-Workaround-for-NVIDIA-330.patch $(RPM_SOURCESDIR)/0001-Workaround-for-NVIDIA-330.patch
 	cp -f xapi.spec $(RPM_SPECSDIR)/
