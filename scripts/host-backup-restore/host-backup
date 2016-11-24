@@ -6,27 +6,14 @@
 
 # NB if this script returns non-zero then the host-backup CLI command will fail.
 
-# Create a backup of the pool-database.  This is needed because the state in memory
-# is not guarranteed to be flushed to disk.
-
-DATE=$(date +%F--%H-%M-%S)
-POOL_DB_BACKUP=/var/backup/pool-database-${DATE}
-[ -e ${POOL_DB_BACKUP} ] && rm -f ${POOL_DB_BACKUP}
-mkdir -p $(dirname ${POOL_DB_BACKUP})
-
-function cleanup {
-  # Remove the backup of the pool-database. 
-  # We only need it to be present in the tar file.
-  # During restore the tar file is extracted over the backup partition which 
-  # is then made bootable.  Following a reboot the user must manually call 
-  # "xe pool-restore-database" on the pool-database backup file.
-
-  rm -f ${POOL_DB_BACKUP}
-}
-trap cleanup EXIT
-
 set -e
-xe pool-dump-database file-name=${POOL_DB_BACKUP}
+
+# Call pool-sync-database to synchronise the pool-database across all hosts in the pool.
+xe pool-sync-database
+
+# During restore the tar file is extracted over the backup partition which
+# is then made bootable. Following a reboot the user must manually call
+# "xe pool-restore-database" on the pool-database `/var/lib/xcp/state.db` backup file.
 
 # Exclude everything under /tmp (as it is temporary) and everything under /var/crash
 # (as it might contain large sparse files).  The directories themselves still need to
