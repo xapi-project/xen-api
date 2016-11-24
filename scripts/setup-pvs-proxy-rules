@@ -22,7 +22,7 @@ OFCTL=/usr/bin/ovs-ofctl
 XSREAD=/usr/bin/xenstore-read
 XSWRITE=/usr/bin/xenstore-write
 XSRM=/usr/bin/xenstore-rm
-XSLS=/usr/bin/xenstore-ls
+XSLIST=/usr/bin/xenstore-list
 
 LOG_TAG="setup-pvs-proxy-rules"
 
@@ -51,9 +51,15 @@ fi
 #   The VIF UUID is maintained across the migration.
 #   Furthermore, a proxied VIF can be in only one PVS site at once.
 pvs_prefix="/xapi/pvs-proxy"
-path=$($XSLS -f "$pvs_prefix" | egrep -o "$pvs_prefix/[^/]+/$VIF/state")
-PVS_PROXY_STATE=$($XSREAD "$path")
-if [ -z "$path" ] || [ "$PVS_PROXY_STATE" != "started" ]; then
+started=false
+for path in $($XSLIST -p "$pvs_prefix"); do
+    PVS_PROXY_STATE=$($XSREAD "$path/$VIF/state")
+    if [ $? -eq 0 ] && [ "$PVS_PROXY_STATE" = "started" ]; then
+        started=true
+        break
+    fi
+done
+if [ ! started ]; then
     handle_error "PVS proxy daemon not configured for this proxy - not installing OVS rules."
 fi
 
