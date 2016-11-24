@@ -129,7 +129,8 @@ except ImportError:
 	import simplejson as json
 
 class VIF:
-    def __init__(self, vm_uuid, devid):
+    def __init__(self, vif_name, vm_uuid, devid):
+        self.vif_name = vif_name
         self.vm_uuid = vm_uuid
         self.devid = devid
         f = open("%s/VM/%s/vif.%d" % (xenops_path, vm_uuid, devid))
@@ -208,10 +209,10 @@ class VIF:
         return results
 
 class Interface:
-    def __init__(self, uuid, devid):
+    def __init__(self, vif_name, uuid, devid):
         self.uuid = uuid
-	self.devid = int(devid)
-	self.vif = VIF(uuid, int(devid))
+        self.devid = int(devid)
+        self.vif = VIF(vif_name, uuid, int(devid))
     def get_vif(self):
         return self.vif
     def online(self):
