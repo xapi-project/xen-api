@@ -68,4 +68,3 @@ let _ =
   | `Error m ->
     Printf.fprintf stderr "Error: %s\n%!" m;
     exit 1
-  ()

@@ -54,7 +54,6 @@ let level_of_string s =
 	| "emergency"        -> Emerg
 	| "alert"            -> Alert
 	| "critical"         -> Crit
-	| "debug"            -> Debug; 
 	| "error" | "err"    -> Err
 	| "warning" | "warn" -> Warning
 	| "notice"           -> Notice
