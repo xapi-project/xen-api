@@ -51,15 +51,15 @@ fi
 #   The VIF UUID is maintained across the migration.
 #   Furthermore, a proxied VIF can be in only one PVS site at once.
 pvs_prefix="/xapi/pvs-proxy"
-started=false
+started="false"
 for path in $($XSLIST -p "$pvs_prefix"); do
     PVS_PROXY_STATE=$($XSREAD "$path/$VIF/state")
     if [ $? -eq 0 ] && [ "$PVS_PROXY_STATE" = "started" ]; then
-        started=true
+        started="true"
         break
     fi
 done
-if [ ! started ]; then
+if [ "$started" = "false" ]; then
     handle_error "PVS proxy daemon not configured for this proxy - not installing OVS rules."
 fi
 
