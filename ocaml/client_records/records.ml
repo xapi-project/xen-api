@@ -772,10 +772,10 @@ let vm_record rpc session_id vm =
       make_field ~name:"hvm"
         ~get:(fun () -> default "false" (may (fun m ->
             string_of_bool m.API.vM_metrics_hvm) (xm ()) )) ();
-      make_field ~name:"nomigrate"
+      make_field ~name:"nomigrate" ~hidden:true
         ~get:(fun () -> default "false" (may (fun m ->
             string_of_bool m.API.vM_metrics_nomigrate) (xm ()) )) ();
-      make_field ~name:"nested-virt"
+      make_field ~name:"nested-virt" ~hidden:true
         ~get:(fun () -> default "false" (may (fun m ->
             string_of_bool m.API.vM_metrics_nested_virt) (xm ()) )) ();
       make_field ~name:"platform"
