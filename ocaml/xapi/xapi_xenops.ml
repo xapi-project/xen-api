@@ -2279,7 +2279,7 @@ let pause ~__context ~self =
        let module Client = (val make_client queue_name : XENOPS) in
        Client.VM.pause dbg id |> sync_with_task __context queue_name;
        Events_from_xenopsd.wait queue_name dbg id ();
-       Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Paused
+       Xapi_vm_lifecycle.assert_final_power_state_is ~__context ~self ~expected:`Paused
     )
 
 let unpause ~__context ~self =
@@ -2292,7 +2292,7 @@ let unpause ~__context ~self =
        let module Client = (val make_client queue_name : XENOPS) in
        Client.VM.unpause dbg id |> sync_with_task __context queue_name;
        Events_from_xenopsd.wait queue_name dbg id ();
-       Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Running
+       Xapi_vm_lifecycle.assert_final_power_state_is ~__context ~self ~expected:`Running
     )
 
 let request_rdp ~__context ~self enabled =
@@ -2452,7 +2452,7 @@ let start ~__context ~self paused force =
 
         set_resident_on ~__context ~self;
         (* set_resident_on syncs both xenopsd and with the xapi event mechanism *)
-        Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:(if paused then `Paused else `Running)
+        Xapi_vm_lifecycle.assert_final_power_state_is ~__context ~self ~expected:(if paused then `Paused else `Running)
       with e ->
         error "Caught exception starting VM: %s" (string_of_exn e);
         set_resident_on ~__context ~self;
@@ -2465,14 +2465,15 @@ let start ~__context ~self paused force =
     (fun () ->
        try
          start ~__context ~self paused force
-       with Bad_power_state(a, b) as e ->
+       with Bad_power_state(found, expected) as e ->
          Backtrace.is_important e;
          let power_state = function
            | Running -> "Running"
            | Halted -> "Halted"
            | Suspended -> "Suspended"
            | Paused -> "Paused" in
-         let exn = Api_errors.Server_error(Api_errors.vm_bad_power_state, [ Ref.string_of self; power_state a; power_state b ]) in
+         let exn = Api_errors.Server_error(Api_errors.vm_bad_power_state,
+                                           [ Ref.string_of self; power_state found; power_state expected ]) in
          Backtrace.reraise e exn
     )
 
@@ -2498,7 +2499,7 @@ let reboot ~__context ~self timeout =
            (fun () ->
               Events_from_xenopsd.wait queue_name dbg id ())
        in
-       Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Running
+       Xapi_vm_lifecycle.assert_final_power_state_is ~__context ~self ~expected:`Running
     )
 
 let shutdown ~__context ~self timeout =
@@ -2516,7 +2517,7 @@ let shutdown ~__context ~self timeout =
            (fun () ->
               Events_from_xenopsd.wait queue_name dbg id ())
        in
-       Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Halted;
+       Xapi_vm_lifecycle.assert_final_power_state_is ~__context ~self ~expected:`Halted;
        (* force_state_reset called from the xenopsd event loop above *)
        if not(Db.VM.get_resident_on ~__context ~self = Ref.null) then
          raise Api_errors.(Server_error(internal_error, [
@@ -2564,7 +2565,7 @@ let suspend ~__context ~self =
               info "xenops: VM.suspend %s to %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
               Client.VM.suspend dbg id disk |> sync_with_task __context queue_name;
               Events_from_xenopsd.wait queue_name dbg id ();
-              Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:`Suspended;
+              Xapi_vm_lifecycle.assert_final_power_state_is ~__context ~self ~expected:`Suspended;
               if not(Db.VM.get_resident_on ~__context ~self = Ref.null) then
                 raise Api_errors.(Server_error(internal_error, [
                     Printf.sprintf "suspend: The VM %s is still resident on the host" (Ref.string_of self)]));
@@ -2626,7 +2627,7 @@ let resume ~__context ~self ~start_paused ~force =
          (fun rpc session_id ->
             XenAPI.VDI.destroy rpc session_id vdi
          );
-       Xapi_vm_lifecycle.assert_power_state_is ~__context ~self ~expected:(if start_paused then `Paused else `Running)
+       Xapi_vm_lifecycle.assert_final_power_state_is ~__context ~self ~expected:(if start_paused then `Paused else `Running)
     )
 
 let s3suspend ~__context ~self =
