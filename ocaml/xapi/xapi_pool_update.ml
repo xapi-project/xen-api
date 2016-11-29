@@ -40,6 +40,7 @@ type update_info = {
   uuid: string;
   name_label: string;
   name_description: string;
+  version: string;
   key: string;
   installation_size: int64;
   after_apply_guidance: API.after_apply_guidance list;
@@ -240,6 +241,9 @@ let parse_update_info xml =
     let name_label = try List.assoc "name-label" attr
       with _ -> raise (Api_errors.Server_error(Api_errors.invalid_update, ["missing <name-label> in update.xml"]))
     in
+    let version = try List.assoc "version" attr
+      with _ -> raise (Api_errors.Server_error(Api_errors.invalid_update, ["missing <version> in update.xml"]))
+    in
     let installation_size =
       try
         Int64.of_string (List.assoc "installation-size" attr)
@@ -266,6 +270,7 @@ let parse_update_info xml =
       uuid = uuid;
       name_label = name_label;
       name_description = name_description;
+      version = version;
       key = Filename.basename key;
       installation_size = installation_size;
       after_apply_guidance = guidance;
@@ -346,7 +351,7 @@ let create_update_record ~__context ~update ~update_info ~vdi =
            ~ref:patch_ref ~uuid:(patch_uuid_of_update_uuid update_info.uuid)
            ~name_label:update_info.name_label
            ~name_description:update_info.name_description
-           ~version:"0"
+           ~version:update_info.version
            ~filename:""
            ~size:update_info.installation_size
            ~pool_applied:false
@@ -358,6 +363,7 @@ let create_update_record ~__context ~update ~update_info ~vdi =
     ~uuid:update_info.uuid
     ~name_label:update_info.name_label
     ~name_description:update_info.name_description
+    ~version:update_info.version
     ~installation_size:update_info.installation_size
     ~key:update_info.key
     ~after_apply_guidance:update_info.after_apply_guidance
