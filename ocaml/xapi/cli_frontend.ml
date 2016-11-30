@@ -32,37 +32,37 @@ open D
    --------------------------------------------------------------------- *)
 
 let vmselectors = ["<vm-selectors>"]
-let vmselectorsinfo = " The simplest way to select the VM on which the \
-                       operation is to be performed is by supplying the argument \
-                       'vm=<name or uuid>'. VMs can also be \
-                       specified by filtering the full list of VMs on the values of fields. For \
-                       example, specifying 'power-state=halted' will select all VMs whose \
-                       power-state field is equal to 'halted'. Where multiple VMs are matching, \
+let vmselectorsinfo = "VMs can be specified by filtering the full list of VMs \
+                       on the values of zero or more fields. For example, specifying \
+                       'uuid=<some_uuid>' will select only the VM with that uuid, \
+                       and 'power-state=halted' will select only VMs whose 'power-state' field \
+                       is equal to 'halted'. The special pseudo-field 'vm' matches \
+                       either of name-label or uuid. Where multiple VMs are matching, \
                        the option '--multiple' must be specified to perform the operation. The \
                        full list of fields that can be matched can be obtained by the command \
                        'xe vm-list params=all'. If no parameters to select VMs are given, \
                        the operation will be performed on all VMs."
 
 let hostselectors = ["<host-selectors>"]
-let hostselectorsinfo = " The simplest way to select the host on which the \
-                         operation is to be performed is by supplying the argument \
-                         'host=<name or uuid>'. Hosts can also be \
-                         specified by filtering the full list of hosts on the values of fields. For \
-                         example, specifying 'enabled=true' will select all hosts whose \
-                         'enabled' field is equal to 'true'. Where multiple hosts are matching, \
-                         and the operation can be performed on multiple hosts, the option '--multiple' \
-                         must be specified to perform the operation. The \
+let hostselectorsinfo = " Hosts can be specified by filtering the full list of hosts \
+                         on the values of zero or more fields. For example, specifying \
+                         'uuid=<some_uuid>' will select only the host with that uuid, \
+                         and 'enabled=true' will select only hosts whose 'enabled' field \
+                         is equal to 'true'. The special pseudo-field 'host' matches \
+                         any of hostname, name-label or uuid. Where multiple hosts are matching, \
+                         and the operation can be performed on multiple hosts, the option \
+                         '--multiple' must be specified to perform the operation. The \
                          full list of fields that can be matched can be obtained by the command \
                          'xe host-list params=all'. If no parameters to select hosts are given, \
                          the operation will be performed on all hosts."
 
 let srselectors = ["<sr-selectors>"]
-let srselectorsinfo = " The simplest way to select the SR on which the \
-                       operation is to be performed is by supplying the argument \
-                       'sr=<name or uuid>'. SRs can also be \
-                       specified by filtering the full list of hosts on the values of fields. For \
-                       example, specifying 'enabled=true' will select all hosts whose \
-                       'enabled' field is equal to 'true'. Where multiple SRs are matching, \
+let srselectorsinfo = " SRs can be specified by filtering the full list of SRs \
+                       on the values of zero or more fields. For example, specifying \
+                       'uuid=<some_uuid>' will select only the sr with that uuid, \
+                       and 'enabled=true' will select only srs whose 'enabled' field \
+                       is equal to 'true'. The special pseudo-field 'sr' matches \
+                       either of name-label or uuid. Where multiple SRs are matching, \
                        and the operation can be performed on multiple SRs, the option '--multiple' \
                        must be specified to perform the operation. The \
                        full list of fields that can be matched can be obtained by the command \
