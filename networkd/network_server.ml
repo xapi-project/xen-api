@@ -891,8 +891,8 @@ module Bridge = struct
 				update_config bridge_name c;
 				exec (fun () ->
 					create () dbg ?vlan ?mac:bridge_mac ~other_config ~name:bridge_name ();
-					List.iter (fun (port_name, {interfaces; bond_properties; bond_mac}) ->
-						add_port () dbg ?bond_mac ~bridge:bridge_name ~name:port_name ~interfaces ~bond_properties ()
+					List.iter (fun (port_name, {interfaces; bond_properties; bond_mac; kind}) ->
+						add_port () dbg ?bond_mac ~bridge:bridge_name ~name:port_name ~interfaces ~bond_properties ~kind ()
 					) ports
 				)
 			) config
