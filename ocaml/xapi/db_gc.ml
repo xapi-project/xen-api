@@ -516,6 +516,10 @@ let detect_rolling_upgrade ~__context =
             rolling_upgrade_script_hook (String.concat " " args);
           ignore(Forkhelpers.execute_command_get_output rolling_upgrade_script_hook args)
         end;
+        if not actually_in_progress then begin
+          debug "Resync to remove the old patches or updates.";
+          Helpers.call_api_functions ~__context (fun rpc session_id -> Xapi_pool_update.resync_host __context (Helpers.get_localhost ~__context))
+        end;
         (* Call in to internal xapi upgrade code *)
         if actually_in_progress
         then Xapi_upgrade.start ()
