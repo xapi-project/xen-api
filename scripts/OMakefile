@@ -42,10 +42,7 @@ install:
 	$(IDATA) xapi.conf $(DESTDIR)$(XAPICONF)
 	$(IPROG) db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf
 	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio
-	mkdir -p $(DESTDIR)/etc/init.d
-	mkdir -p $(DESTDIR)/etc/rc.d/init.d
 	$(IPROG) init.d-xapi $(DESTDIR)$(LIBEXECDIR)/xapi-init
-	$(IPROG) init.d-xapi-compat $(DESTDIR)/etc/init.d/xapi
 	$(IPROG) init.d-xapissl $(DESTDIR)$(LIBEXECDIR)/xapissl
 	$(IPROG) init.d-management-interface $(DESTDIR)$(LIBEXECDIR)/legacy-management-interface
 	$(IPROG) init.d-save-boot-info $(DESTDIR)$(LIBEXECDIR)/save-boot-info
