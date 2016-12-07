@@ -194,7 +194,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/cron.daily/license-check
 @OPTDIR@/libexec/legacy-management-interface
 @OPTDIR@/libexec/xapi-init
-/etc/init.d/xapi
 @OPTDIR@/libexec/xapissl
 @OPTDIR@/libexec/attach-static-vdis
 @OPTDIR@/libexec/save-boot-info
