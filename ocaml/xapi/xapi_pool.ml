@@ -217,8 +217,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       )) in
     (* Allow pool-join if host has only physical pifs or at most one vlan *)
     if (non_physical_pifs_count > 1) || ((non_physical_pifs_count = 1) && not (allow_management_interface_on_vlan ())) then begin
-      error "The current host has network bonds, VLANs or tunnels: it cannot join a new pool";
-      raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_only_have_physical_pifs, []))
+      error "The current host has network bonds, tunnels or multiple VLANs: it cannot join a new pool";
+      raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_only_have_physical_pifs_or_vlan_pif, []))
     end in
 
   (* Used to tell XCP and XenServer apart - use PRODUCT_BRAND if present, else use PLATFORM_NAME. *)
