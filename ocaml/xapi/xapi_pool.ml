@@ -920,7 +920,7 @@ let eject ~__context ~host =
     let management_pif = Xapi_host.get_management_interface ~__context ~host in
     let pif = Db.PIF.get_record ~__context ~self:management_pif in
     let management_device =
-      (* assumes that the management interface is either physical or a bond *)
+      (* assumes that the management interface is either physical or a bond or a vlan *)
       if pif.API.pIF_bond_master_of <> [] then
         let bond = List.hd pif.API.pIF_bond_master_of in
         let primary_slave = Db.Bond.get_primary_slave ~__context ~self:bond in
@@ -935,24 +935,40 @@ let eject ~__context ~host =
     in
 
     let write_first_boot_management_interface_configuration_file () =
+      (* During pool.eject firstboot scripts running on the ejected host will write the new
+       * management_interface in inventory. In case of VLAN - new vlan bridge will be written. *)
       let bridge = Xapi_pif.bridge_naming_convention management_device in
       Xapi_inventory.update Xapi_inventory._management_interface bridge;
       let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:management_pif in
       Xapi_inventory.update Xapi_inventory._management_address_type
         (Record_util.primary_address_type_to_string primary_address_type);
-      let configuration_file_contents = begin
-        "LABEL='" ^ management_device ^ "'\nMODE=" ^ mode ^
-        if mode = "static" then
-          "\nIP=" ^ pif.API.pIF_IP ^
-          "\nNETMASK=" ^ pif.API.pIF_netmask ^
-          "\nGATEWAY=" ^ pif.API.pIF_gateway ^
-          "\nDNS=" ^ pif.API.pIF_DNS ^ "\n"
-        else
-          "\n"
-      end in
+      let sprintf = Printf.sprintf in
+      (* If the management_interface exists on a vlan, write the vlan id into management.conf *)
+      let vlan_id = Int64.to_int pif.API.pIF_VLAN in
+      let config_base =
+        [ sprintf "LABEL='%s'" management_device
+        ; sprintf "MODE=%s" mode
+        ] in
+      let config_static = if mode <> "static" then [] else
+        [ sprintf "IP=%s" pif.API.pIF_IP
+        ; sprintf "NETMASK=%s" pif.API.pIF_netmask
+        ; sprintf "GATEWAY=%s" pif.API.pIF_gateway
+        ; sprintf "DNS=%s" pif.API.pIF_DNS
+        ] in
+      let config_vlan = if vlan_id = -1 then [] else
+        [ sprintf "VLAN=%d" vlan_id
+        ] in
+      let configuration_file =
+        List.concat
+          [ config_base
+          ; config_static
+          ; config_vlan
+          ]
+          |> String.concat "\n"
+      in
       Unixext.write_string_to_file
         (Xapi_globs.first_boot_dir ^ "data/management.conf")
-        (configuration_file_contents) in
+        (configuration_file) in
 
     write_first_boot_management_interface_configuration_file ();
 
