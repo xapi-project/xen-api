@@ -398,6 +398,7 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
            && op <> `changing_memory_limits
            && op <> `changing_static_range
            && op <> `start
+           && op <> `start_on
            && op <> `changing_VCPUs
            && op <> `destroy
       then Some (Api_errors.operation_not_allowed, ["This operation is not allowed on a control domain"])
