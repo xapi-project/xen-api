@@ -361,6 +361,14 @@ let assert_enough_memory_available ~__context ~self ~host ~snapshot =
           Int64.to_string host_mem_available;
         ]))
 
+(* CA-233580: prevent starting a control domain on a host different from its affinity*)
+let assert_matches_control_domain_affinity ~__context ~self ~host =
+  if Db.VM.get_is_control_domain ~__context ~self then
+    match Db.VM.get_affinity ~__context ~self with
+     | x when x = Ref.null || x = host -> ()
+     | _ -> raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
+             ["Cannot boot a control domain on a host different from its affinity"]))
+
 (** Checks to see if a VM can boot on a particular host, throws an error if not.
  * Criteria:
     - The host must support the VM's required Virtual Hardware Platform version.
@@ -387,7 +395,10 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(
   debug "Checking whether VM %s can run on host %s" (Ref.string_of self) (Ref.string_of host);
   validate_basic_parameters ~__context ~self ~snapshot;
   assert_host_is_live ~__context ~host;
-  assert_host_is_enabled ~__context ~host;
+  assert_matches_control_domain_affinity ~__context ~self ~host;
+  (* CA-233580: allow control domains to start on the host even if the latter is disabled *)
+  if not (Db.VM.get_is_control_domain ~__context ~self) then
+    assert_host_is_enabled ~__context ~host;
   (* Check the host can support the VM's required version of virtual hardware platform *)
   assert_hardware_platform_support ~__context ~vm:self ~host:(Helpers.LocalObject host);
   if do_sr_check then
@@ -499,6 +510,7 @@ let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
     given [guest] can run on the given [host]. Returns true if and only if the
     guest can run on the host. *)
 let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
+  let is_control_domain  = Db.VM.get_is_control_domain ~__context ~self:vm in
   let host_has_proper_version () =
     if Helpers.rolling_upgrade_in_progress ~__context
     then
@@ -516,7 +528,9 @@ let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
   let host_evacuate_in_progress =
     try let _ = List.find (fun s -> snd s = `evacuate) (Db.Host.get_current_operations ~__context ~self:host) in false with _ -> true
   in
-  try host_has_proper_version () && host_enabled () && host_live () && host_can_run_vm () && host_evacuate_in_progress
+  try host_has_proper_version ()
+    && (is_control_domain || host_enabled ()) (*CA-233580: allow control domains to start on a disabled host*)
+    && host_live () && host_can_run_vm () && host_evacuate_in_progress
   with _ -> false
 
 
