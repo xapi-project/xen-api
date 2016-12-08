@@ -183,6 +183,7 @@ let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
    export, provision, and memory settings change *)
 let check_template ~vmr ~op ~ref_str =
   let default_template =
+    vmr.Db_actions.vM_is_default_template ||
     bool_of_assoc Xapi_globs.default_template_key vmr.Db_actions.vM_other_config in
   let allowed_operations = [
     `changing_dynamic_range;
