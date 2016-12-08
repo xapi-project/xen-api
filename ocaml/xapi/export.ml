@@ -530,9 +530,11 @@ let metadata_handler (req: Request.t) s _ =
        let vm_refs =
          if export_all then begin
            let is_default_template vm =
-             vm.API.vM_is_a_template
-             && (List.mem_assoc Xapi_globs.default_template_key vm.API.vM_other_config)
-             && ((List.assoc Xapi_globs.default_template_key vm.API.vM_other_config) = "true") in
+             vm.API.vM_is_default_template ||
+             (vm.API.vM_is_a_template
+              && (List.mem_assoc Xapi_globs.default_template_key vm.API.vM_other_config)
+              && ((List.assoc Xapi_globs.default_template_key vm.API.vM_other_config) = "true")) 
+             in
            let all_vms = Db.VM.get_all_records ~__context in
            let interesting_vms = List.filter (fun (_, vm) ->
                not (is_default_template vm)
