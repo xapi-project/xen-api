@@ -149,7 +149,7 @@ let revalidate_external_session ~__context ~session =
   try
     (* guard: we only want to revalidate external sessions, where is_local_superuser is false *)
     (* Neither do we want to revalidate the special read-only external database sessions, since they can exist independent of external authentication. *)
-    if not (Db.Session.get_is_local_superuser ~__context ~self:session || Db_backend.is_session_registered session) then
+    if not (Db.Session.get_is_local_superuser ~__context ~self:session || Db_backend.is_session_registered (Ref.string_of session)) then
 
       (* 1. is the external authentication disabled in the pool? *)
       let master = Helpers.get_master ~__context in
@@ -291,11 +291,11 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool ~is_local
       ~subject:subject ~is_local_superuser:is_local_superuser
       ~auth_user_sid ~validation_time:(Date.of_float (Unix.time ()))
       ~auth_user_name ~rbac_permissions ~parent ~originator;
-    session_id
+    Ref.string_of session_id
   in
-  let session_id = match db_ref with
+  let session_id = Ref.of_string (match db_ref with
     | Some db_ref -> Db_backend.create_registered_session create_session db_ref
-    | None -> create_session ()
+    | None -> create_session ())
   in
   Rbac_audit.session_create ~__context ~session_id ~uname;
   (* At this point, the session is created, but with an incorrect time *)
