@@ -1210,6 +1210,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       if Helpers.rolling_upgrade_in_progress ~__context
       then Helpers.assert_host_has_highest_version_in_pool
           ~__context ~host ;
+      Xapi_vm_helpers.assert_matches_control_domain_affinity ~__context ~self:vm ~host;
       (* Prevent VM start on a host that is evacuating *)
       List.iter (fun op ->
           match op with
