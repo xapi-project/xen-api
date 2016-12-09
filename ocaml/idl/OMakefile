@@ -86,12 +86,12 @@ clean:
 .PHONY: doc-pdf
 doc-pdf: xenenterpriseapi.pdf
 
-.PHONY: sdk-install
-sdk-install: doc-pdf
+.PHONY: doc-pdf-install
+doc-pdf-install: doc-pdf
 	mkdir -p $(SDK)/docs/pdf
 	cp xenenterpriseapi.pdf $(SDK)/docs/pdf/
 
-noarch-install: sdk-install
+noarch-install: doc-pdf-install
 
 META: META.in
 	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
