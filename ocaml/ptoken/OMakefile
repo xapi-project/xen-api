@@ -14,6 +14,3 @@ install:
 	$(IPROG) genptoken $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DIST)/genptoken-src
 	$(IDATA) $(GENSECRET_SRC_FILES) $(DIST)/genptoken-src
-
-.PHONY: sdk-install
-sdk-install: install

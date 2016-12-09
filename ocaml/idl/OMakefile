@@ -83,20 +83,15 @@ clean:
 	rm -rf *.ps *.pdf *.dvi *.annot
 	rm -rf *datamodel.tex datamodel-dtd.xml datamodel-coversheet.tex
 
-sdk-README.txt : sdk-README.html
-	lynx -dump sdk-README.html > sdk-README.txt
-
 .PHONY: doc-pdf
 doc-pdf: xenenterpriseapi.pdf
 
-.PHONY: sdk-install
-sdk-install: doc-pdf sdk-README.txt
+.PHONY: doc-pdf-install
+doc-pdf-install: doc-pdf
 	mkdir -p $(SDK)/docs/pdf
 	cp xenenterpriseapi.pdf $(SDK)/docs/pdf/
-	cp sdk-README.txt $(SDK)/README.txt
-	cp sdk-index.html $(SDK)/index.html
 
-noarch-install: sdk-install
+noarch-install: doc-pdf-install
 
 META: META.in
 	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@

@@ -104,8 +104,3 @@ install:
 	ln -sf $(OPTDIR)/bin/xe $(DESTDIR)/usr/bin/xe
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
 	$(IPROG) bash-completion $(DESTDIR)/etc/bash_completion.d/xe
-
-.PHONY: sdk-install
-sdk-install: install
-	@:
-

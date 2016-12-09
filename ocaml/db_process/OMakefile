@@ -10,9 +10,6 @@ install:
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
 	cp -f xapi-db-process $(DESTDIR)$(OPTDIR)/bin
 
-.PHONY: sdk-install
-sdk-install: install
-
 .PHONY: clean
 clean:
 	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi xapi-db-process
