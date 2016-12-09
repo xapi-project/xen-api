@@ -36,9 +36,6 @@ install:
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) block_device_io $(DESTDIR)$(LIBEXECDIR)
 
-.PHONY: sdk-install
-sdk-install: install
-
 .PHONY: clean
 clean:
 	rm -f $(CLEAN_OBJS) xenEnterpriseAPI* gen gen.opt db_filter_parse.ml db_filter_parse.mli db_filter_lex.ml

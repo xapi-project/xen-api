@@ -9,9 +9,6 @@ install:
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) vncproxy $(DESTDIR)$(OPTDIR)/debug
 
-.PHONY: sdk-install
-sdk-install: install
-
 .PHONY: clean
 clean:
 	rm -rf $(CLEAN_OBJS) vncproxy
