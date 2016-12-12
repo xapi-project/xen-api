@@ -572,14 +572,14 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
     Db.VM.set_domid ~__context ~self ~value:(-1L)
   end;
 
+  Db.VM.set_power_state ~__context ~self ~value:state;
+  update_allowed_operations ~__context ~self;
+
   if state = `Halted then begin
     (* archive the rrd for this vm *)
     let vm_uuid = Db.VM.get_uuid ~__context ~self in
     log_and_ignore_exn (fun () -> Rrdd.archive_rrd ~vm_uuid ~remote_address:(try Some (Pool_role.get_master_address ()) with _ -> None))
-  end;
-
-  Db.VM.set_power_state ~__context ~self ~value:state;
-  update_allowed_operations ~__context ~self
+  end
 
 (** Called on new VMs (clones, imports) and on server start to manually refresh
     the power state, allowed_operations field etc.  Clean current-operations
