@@ -94,6 +94,8 @@ let backup_rrds _ ?(remote_address = None) () : unit =
 					let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
 					archive_rrd_internal ~remote_address ~uuid ~rrd ()
 				) vrrds;
+
+			Mutex.lock mutex;
 			let srrds =
 				try
 					Hashtbl.fold (fun k v acc -> (k,v.rrd)::acc) sr_rrds []
@@ -108,6 +110,7 @@ let backup_rrds _ ?(remote_address = None) () : unit =
 					let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
 					archive_rrd_internal ~uuid ~rrd ()
 				) srrds;
+
 			match !host_rrd with
 			| Some rrdi ->
 				debug "Backup: saving RRD for host to local disk";
