@@ -133,21 +133,7 @@ module From = struct
                      								 * present in Tech Preview releases are permitted to disappear on upgrade, so suppress
                      								 * such errors on such upgrades. *)
                   let exc = Unmarshall_error (Printf.sprintf "Unexpected column in table %s: %s" tblname k) in
-                  let (this_maj, this_min) = try
-                      schema_vsn_of_manifest manifest
-                    with Not_found ->
-                      (* Probably the database didn't have a <manifest> at the start. So at this point
-                         									 * we don't know the schema version of the database we're loading. *)
-                      D.error "Unmarshalling removed column %s from table %s but don't know schema version because manifest not yet read" k tblname;
-                      raise exc
-                  in
-                  if List.mem (this_maj, this_min) Datamodel.tech_preview_releases then (
-                    (* Suppress error for fields that only temporarily existed in the datamodel *)
-                    D.warn "Upgrading from Tech Preview schema %d.%d so removing deleted field %s from table %s" this_maj this_min k tblname;
-                    row
-                  ) else
-                    (* For any genuinely unexpected fields, fail *)
-                    raise exc
+                  raise exc
               ) Row.empty rest in
             f (tableset, (Table.update mtime rf Row.empty (fun _ -> row) (Table.add ctime rf row table)), tblname, manifest)
           | (_, "pair"), [ (_, "key"), k; (_, "value"), v ] ->
