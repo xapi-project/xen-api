@@ -79,18 +79,6 @@ let set_is_a_template ~__context ~self ~value =
   end;
   Db.VM.set_is_a_template ~__context ~self ~value
 
-let set_is_default_template ~__context ~self ~value =
-  info "VM.set_is_default_template('%b')" value;
-  (* A default template is a template but not viceversa *)
-  if value && not (Db.VM.get_is_a_template ~__context ~self) then
-    set_is_a_template ~__context ~self ~value;
-  (* update other_config flag for backward compatibility *)
-  let other_config = List.append 
-      (Db.VM.get_other_config ~__context ~self)
-      [Xapi_globs.default_template_key, "true"]
-  in Db.VM.set_other_config ~__context ~self ~value:other_config;
-  Db.VM.set_is_default_template ~__context ~self ~value
-
 let update_vm_virtual_hardware_platform_version ~__context ~vm =
   let vm_record = Db.VM.get_record ~__context ~self:vm in
   (* Deduce what we can, but the guest VM might need a higher version. *)
