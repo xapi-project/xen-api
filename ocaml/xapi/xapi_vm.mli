@@ -47,6 +47,8 @@ val set_actions_after_crash :
   unit
 val set_is_a_template :
   __context:Context.t -> self:[ `VM ] Ref.t -> value:bool -> unit
+val set_is_default_template :
+  __context:Context.t -> vm:[ `VM ] Ref.t -> value:bool -> unit
 val validate_restart_priority : string -> unit
 val set_ha_always_run :
   __context:Context.t -> self:API.ref_VM -> value:bool -> unit
