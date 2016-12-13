@@ -293,9 +293,12 @@ module VM : HandlerTools = struct
 
   let precheck __context config rpc session_id state x =
     let vm_record = API.Legacy.From.vM_t "" x.snapshot in
-    if vm_record.API.vM_is_a_template
-    && (List.mem_assoc Xapi_globs.default_template_key vm_record.API.vM_other_config)
-    && ((List.assoc Xapi_globs.default_template_key vm_record.API.vM_other_config) = "true")
+    let is_default_template = vm_record.API.vM_is_default_template || (
+        vm_record.API.vM_is_a_template 
+        && (List.mem_assoc Xapi_globs.default_template_key vm_record.API.vM_other_config)
+        && ((List.assoc Xapi_globs.default_template_key vm_record.API.vM_other_config) = "true"))
+    in
+    if is_default_template
     then begin
       (* If the VM is a default template, then pick up the one with the same name. *)
       let template =
