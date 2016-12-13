@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 109
+let schema_minor_vsn = 108
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -1780,18 +1780,6 @@ let vm_create_template = call
     ]
     ~errs:[]
     ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vm_set_is_default_template = call
-    ~name:"set_is_default_template"
-    ~lifecycle: [Published, rel_ely, "Allows to define XenServer default templates"]
-    ~doc:"Makes the specified VM a default template."
-    ~params:[
-      Ref _vm, "vm", "The VM that will become a default template";
-      Bool, "value", "The boolean value for the is_default_template flag"
-    ]
-    ~errs:[]
-    ~allowed_roles:_R_POOL_ADMIN
     ()
 
 let vm_import_convert = call
@@ -7557,7 +7545,6 @@ let vm =
     ~messages:[ vm_snapshot; vm_snapshot_with_quiesce; vm_clone; vm_copy; vm_revert; vm_checkpoint;
                 vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;vm_shutdown;
                 vm_cleanReboot; vm_hardShutdown; vm_stateReset; vm_hardReboot; vm_suspend; csvm; vm_resume;
-                vm_set_is_default_template;
                 vm_hardReboot_internal;
                 vm_resume_on;
                 vm_pool_migrate; vm_pool_migrate_complete;
@@ -7624,7 +7611,6 @@ let vm =
 
          field ~ty:Int "user_version" "Creators of VMs and templates may store version information here.";
          field ~effect:true ~ty:Bool "is_a_template" "true if this is a template. Template VMs can never be started, they are used only for cloning other VMs";
-         field ~ty:Bool ~default_value:(Some (VBool false)) ~qualifier:DynamicRO ~writer_roles:_R_POOL_ADMIN ~lifecycle:[Published, rel_ely, "Identifies XenServer default templates"] "is_default_template" "true if this is a default template. Default template VMs can never be started or migrated, they are used only for cloning other VMs";
          field ~qualifier:DynamicRO ~ty:(Ref _vdi) "suspend_VDI" "The VDI that a suspend image is stored on. (Only has meaning if VM is currently suspended)";
 
          field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~ty:(Ref _host) "resident_on" "the host the VM is currently resident on";

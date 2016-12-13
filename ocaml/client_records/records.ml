@@ -700,9 +700,6 @@ let vm_record rpc session_id vm =
       make_field ~name:"is-a-template"
         ~get:(fun () -> string_of_bool (x ()).API.vM_is_a_template)
         ~set:(fun x -> Client.VM.set_is_a_template rpc session_id vm (safe_bool_of_string "is-a-template" x)) ();
-      make_field ~name:"is-default-template"
-        ~get:(fun () -> string_of_bool (x ()).API.vM_is_default_template)
-        ~set:(fun x -> Client.VM.set_is_default_template rpc session_id vm (safe_bool_of_string "is-default-template" x)) ();
       make_field ~name:"is-a-snapshot"
         ~get:(fun () -> string_of_bool (x ()).API.vM_is_a_snapshot) ();
       make_field ~name:"snapshot-of"

@@ -418,7 +418,6 @@ let extended_do_not_copy = [
   Db_names.name_label;
   Db_names.is_a_snapshot;
   Db_names.is_a_template;
-  Db_names.is_default_template;
   Db_names.snapshot_of;
   Db_names.snapshot_time;
   Db_names.transportable_snapshot_id;

@@ -1033,21 +1033,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 				  else raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [ "Must use VM.provision" ]))
 				*)
 
-    (* CA-234494: make sure that the allowed operations are updated for default templates *)
-    let set_is_default_template ~__context ~vm ~value =
-      info "VM.set_is_default_template: VM = %s; value = '%s'" (vm_uuid ~__context vm) (string_of_bool value);
-      (* if the vm is already a template we cannot use with_vm_operation because
-       * we would not be allowed to set the field on a template *)
-      let is_a_template = Db.VM.get_is_a_template ~__context ~self:vm in
-      if value && not is_a_template
-      then with_vm_operation ~__context ~self:vm ~doc:"VM.set_is_default_template" ~op:`make_into_template
-          (fun () ->
-             Local.VM.set_is_default_template ~__context ~vm ~value:true)
-      else begin
-        Local.VM.set_is_default_template ~__context ~vm ~value;
-        Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm
-      end
-
     let maximise_memory ~__context ~self ~total ~approximate =
       info "VM.maximise_memory: VM = '%s'; total = '%Ld'; approximate = '%b'" (vm_uuid ~__context self) total approximate;
       Local.VM.maximise_memory ~__context ~self ~total ~approximate

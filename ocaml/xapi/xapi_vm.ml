@@ -79,8 +79,6 @@ let set_actions_after_crash ~__context ~self ~value =
   set_actions_after_crash ~__context ~self ~value
 let set_is_a_template ~__context ~self ~value =
   set_is_a_template ~__context ~self ~value
-let set_is_default_template ~__context ~vm ~value =
-  set_is_default_template ~__context ~self:vm ~value
 
 let validate_restart_priority priority =
   if not(List.mem priority Constants.ha_valid_restart_priorities) then
@@ -509,7 +507,7 @@ let create ~__context ~name_label ~name_description
     ~current_operations:[]
     ~blocked_operations:[]
     ~name_label ~name_description
-    ~user_version ~is_a_template ~is_default_template:false
+    ~user_version ~is_a_template
     ~transportable_snapshot_id:""
     ~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null
     ~parent:Ref.null
