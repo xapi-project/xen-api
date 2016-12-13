@@ -96,5 +96,5 @@ let gen_empty_db_val t =
   | Enum (_, []) -> assert false
   | Set _ -> Value.Set []
   | Map _ -> Value.Pairs []
-  | Ref _ -> Value.String (Ref.string_of Ref.null)
+  | Ref _ -> Value.String null_ref
   | Record _ -> Value.String ""
