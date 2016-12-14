@@ -615,7 +615,7 @@ let media_insert ~xs ~phystype ~params device =
 
 let media_is_ejected ~xs device =
 	let path = (backend_path_of_device ~xs device) ^ "/params" in
-	try xs.Xs.read path = "" with _ -> true
+	try xs.Xs.read path = "" with _ -> raise Device_not_found
 
 end
 
