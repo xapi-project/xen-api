@@ -12,6 +12,7 @@ OCamlGeneratedFiles(db_filter_parse.ml db_filter_parse.mli db_filter_lex.ml)
 OCamlProgram(unit_test_sql, unit_test_sql)
 
 BLOCK_DEVICE_IO_FILES = \
+	db_globs \
 	block_device_io_errors \
 	block_device_io \
 	../xapi/xapi_globs ../idl/ocaml_backend/ref \

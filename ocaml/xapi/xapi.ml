@@ -32,6 +32,10 @@ let info s = info s; debug s (* write info to both info and debug log *)
 module L=Debug.Make(struct let name="license" end)
 module W=Debug.Make(struct let name="watchdog" end)
 
+let _ =
+  Master_connection.is_slave := Pool_role.is_slave;
+  Master_connection.get_master_address := Pool_role.get_master_address
+
 (** Perform some startup sanity checks. Note that we nolonger look for processes using 'ps':
     instead we rely on the init.d scripts to start other services. *)
 let startup_check () =
@@ -43,7 +47,7 @@ let startup_check () =
 *)
 let setup_db_conf() =
   debug "parsing db config file";
-  let dbs = Parse_db_conf.get_db_conf !Xapi_globs.db_conf_path in
+  let dbs = Parse_db_conf.get_db_conf !Db_globs.db_conf_path in
   (* initialise our internal record of db conections from db.conf *)
   Db_conn_store.initialise_db_connections dbs
 
@@ -376,7 +380,7 @@ let start_redo_log () =
         (* read from redo log and store results in a staging file for use in the
          * next step; best effort only: does not raise any exceptions *)
         let db_ref = Db_backend.make () in
-        Redo_log_usage.read_from_redo_log Xapi_ha.ha_redo_log Xapi_globs.gen_metadata_db db_ref
+        Redo_log_usage.read_from_redo_log Xapi_ha.ha_redo_log Db_globs.gen_metadata_db db_ref
       end
   with e ->
     debug "Caught exception starting non-HA redo log: %s" (ExnHelper.string_of_exn e)
@@ -857,8 +861,8 @@ let server_init() =
                   debug "I think the error is a temporary one, retrying in 5s";
                   Thread.delay 5.;
                 | Some Permanent ->
-                  error "Permanent error in Pool.hello, will retry after %.0fs just in case" !Xapi_globs.permanent_master_failure_retry_interval;
-                  Thread.delay !Xapi_globs.permanent_master_failure_retry_interval
+                  error "Permanent error in Pool.hello, will retry after %.0fs just in case" !Db_globs.permanent_master_failure_retry_interval;
+                  Thread.delay !Db_globs.permanent_master_failure_retry_interval
               end;
             done;
             debug "Startup successful";
@@ -883,7 +887,7 @@ let server_init() =
                   server_run_in_emergency_mode()
                 end
             end;
-            Master_connection.connection_timeout := !Xapi_globs.master_connection_retry_timeout;
+            Master_connection.connection_timeout := !Db_globs.master_connection_retry_timeout;
             Master_connection.restart_on_connection_timeout := true;
             Master_connection.on_database_connection_established := (fun () -> on_master_restart ~__context);
         end);

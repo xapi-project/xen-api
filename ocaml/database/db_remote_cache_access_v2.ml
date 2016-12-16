@@ -71,10 +71,9 @@ let process_rpc (req: Rpc.t) =
 
 let handler req bio _ =
   let fd = Buf_io.fd_of bio in (* fd only used for writing *)
-  let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in
+  let body = Http_svr.read_body ~limit:Db_globs.http_limit_max_rpc_size req bio in
   let request_rpc = Jsonrpc.of_string body in
   let reply_rpc = process_rpc request_rpc in
   (* XXX: need to cope with > 16MiB responses *)
   let response = Jsonrpc.to_string reply_rpc in
   Http_svr.response_str req fd response
-

@@ -214,7 +214,7 @@ let get_latest_response_time block_time =
 let start_io_process block_dev ctrlsockpath datasockpath =
   (* Execute the process *)
   let args = ["-device"; block_dev; "-ctrlsock"; ctrlsockpath; "-datasock"; datasockpath] in
-  Forkhelpers.safe_close_and_exec None None None [] !Xapi_globs.redo_log_block_device_io args
+  Forkhelpers.safe_close_and_exec None None None [] !Db_globs.redo_log_block_device_io args
 
 let connect sockpath latest_response_time =
   let rec attempt () =
@@ -227,7 +227,7 @@ let connect sockpath latest_response_time =
       (* It's probably the case that the process hasn't started yet. *)
       (* See if we can afford to wait and try again *)
       Unix.close s;
-      let attempt_delay = !Xapi_globs.redo_log_connect_delay in
+      let attempt_delay = !Db_globs.redo_log_connect_delay in
       let now = Unix.gettimeofday() in
       let remaining = latest_response_time -. now in
       if attempt_delay < remaining then begin
@@ -323,7 +323,7 @@ let rec read_read_response sock fn_db fn_delta expected_gen_count latest_respons
 let action_empty sock datasockpath =
   R.debug "Performing empty";
   (* Compute desired response time *)
-  let latest_response_time = get_latest_response_time !Xapi_globs.redo_log_max_block_time_empty in
+  let latest_response_time = get_latest_response_time !Db_globs.redo_log_max_block_time_empty in
   (* Empty *)
   let str = "empty_____" in
   Unixext.time_limited_write sock (String.length str) str latest_response_time;
@@ -343,7 +343,7 @@ let action_empty sock datasockpath =
 let action_read fn_db fn_delta sock datasockpath =
   R.debug "Performing read";
   (* Compute desired response time *)
-  let latest_response_time = get_latest_response_time !Xapi_globs.redo_log_max_block_time_read in
+  let latest_response_time = get_latest_response_time !Db_globs.redo_log_max_block_time_read in
   (* Write *)
   let str = "read______" in
   Unixext.time_limited_write sock (String.length str) str latest_response_time;
@@ -353,7 +353,7 @@ let action_read fn_db fn_delta sock datasockpath =
 let action_write_db marker generation_count write_fn sock datasockpath =
   R.debug "Performing writedb (generation %Ld)" generation_count;
   (* Compute desired response time *)
-  let latest_response_time = get_latest_response_time !Xapi_globs.redo_log_max_block_time_writedb in
+  let latest_response_time = get_latest_response_time !Db_globs.redo_log_max_block_time_writedb in
   (* Send write command down control channel *)
   let str = Printf.sprintf "writedb___|%s|%016Ld" marker generation_count in
   Unixext.time_limited_write sock (String.length str) str latest_response_time;
@@ -410,7 +410,7 @@ let action_write_db marker generation_count write_fn sock datasockpath =
 let action_write_delta marker generation_count data flush_db_fn sock datasockpath =
   R.debug "Performing writedelta (generation %Ld)" generation_count;
   (* Compute desired response time *)
-  let latest_response_time = get_latest_response_time !Xapi_globs.redo_log_max_block_time_writedelta in
+  let latest_response_time = get_latest_response_time !Db_globs.redo_log_max_block_time_writedelta in
   (* Write *)
   let str = Printf.sprintf "writedelta|%s|%016Ld|%016d|%s" marker generation_count (String.length data) data in
   Unixext.time_limited_write sock (String.length str) str latest_response_time;
@@ -437,13 +437,13 @@ let action_write_delta marker generation_count data flush_db_fn sock datasockpat
 (* Functions relating to the exponential back-off of repeated attempts to reconnect after failure. *)
 
 let initialise_backoff_delay log =
-  log.backoff_delay := Xapi_globs.redo_log_initial_backoff_delay
+  log.backoff_delay := Db_globs.redo_log_initial_backoff_delay
 
 let increase_backoff_delay log =
   if !(log.backoff_delay) = 0 then initialise_backoff_delay log
-  else log.backoff_delay := !(log.backoff_delay) * Xapi_globs.redo_log_exponentiation_base;
-  if !(log.backoff_delay) > Xapi_globs.redo_log_maximum_backoff_delay then
-    log.backoff_delay := Xapi_globs.redo_log_maximum_backoff_delay;
+  else log.backoff_delay := !(log.backoff_delay) * Db_globs.redo_log_exponentiation_base;
+  if !(log.backoff_delay) > Db_globs.redo_log_maximum_backoff_delay then
+    log.backoff_delay := Db_globs.redo_log_maximum_backoff_delay;
   R.debug "Bumped backoff delay to %d seconds" !(log.backoff_delay)
 
 let set_time_of_last_failure log =
@@ -535,7 +535,7 @@ let startup log =
           begin
             (* Don't start if there are already some processes hanging around *)
             Mutex.execute log.dying_processes_mutex
-              (fun () -> if !(log.num_dying_processes) >= Xapi_globs.redo_log_max_dying_processes then raise TooManyProcesses);
+              (fun () -> if !(log.num_dying_processes) >= Db_globs.redo_log_max_dying_processes then raise TooManyProcesses);
 
             match !(log.device) with
             | None ->
@@ -550,7 +550,7 @@ let startup log =
 
                 (* Start the I/O process *)
                 let ctrlsockpath, datasockpath =
-                  let f suffix = Filename.temp_file Xapi_globs.redo_log_comms_socket_stem suffix in
+                  let f suffix = Filename.temp_file Db_globs.redo_log_comms_socket_stem suffix in
                   f "ctrl", f "data" in
                 R.info "Starting I/O process with block device [%s], control socket [%s] and data socket [%s]" device ctrlsockpath datasockpath;
                 let p = start_io_process device ctrlsockpath datasockpath in
@@ -566,7 +566,7 @@ let startup log =
           match !(log.sock) with
           | Some _ -> () (* We're already connected *)
           | None ->
-            let latest_connect_time = get_latest_response_time !Xapi_globs.redo_log_max_startup_time in
+            let latest_connect_time = get_latest_response_time !Db_globs.redo_log_max_startup_time in
 
             (* Now connect to the process via the socket *)
             let s = connect ctrlsockpath latest_connect_time in
@@ -667,7 +667,7 @@ let create ~name ~state_change_callback ~read_only =
     currently_accessible = ref true;
     state_change_callback = state_change_callback;
     time_of_last_failure = ref 0.;
-    backoff_delay = ref Xapi_globs.redo_log_initial_backoff_delay;
+    backoff_delay = ref Db_globs.redo_log_initial_backoff_delay;
     sock = ref None;
     pid = ref None;
     dying_processes_mutex = Mutex.create ();

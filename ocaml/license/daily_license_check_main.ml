@@ -14,7 +14,7 @@ let _ =
       ~rpc:rpc
       ~uname:""
       ~pwd:""
-      ~version:Xapi_globs.api_version_string
+      ~version:"1.0"
       ~originator:"daily-license-check"
   in
   Stdext.Pervasiveext.finally

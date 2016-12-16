@@ -106,7 +106,7 @@ let command_size = 10 (* "write_delta" or "write_db___" or "read______" or "empt
 (* Layout of block device *)
 let pos_validity_byte = 17
 let pos_first_half = 18
-let pos_second_half = pos_first_half + Xapi_globs.redo_log_length_of_half
+let pos_second_half = pos_first_half + Db_globs.redo_log_length_of_half
 
 type half = Neither | First | Second
 
@@ -437,7 +437,7 @@ let action_writedb block_dev_fd client datasock target_response_time =
 
     (* Check that we've got enough space for two markers, a length and a generation count. This is the smallest possible size for a db record. *)
     let min_space_needed = marker_size*2 + size_size + generation_size in
-    let available_space = Xapi_globs.redo_log_length_of_half in
+    let available_space = Db_globs.redo_log_length_of_half in
     R.debug "Min space needed is %d and we've got %d available" min_space_needed available_space;
     if min_space_needed > available_space then raise NotEnoughSpace;
 
@@ -453,7 +453,7 @@ let action_writedb block_dev_fd client datasock target_response_time =
     ignore_int (Unixext.seek_rel block_dev_fd size_size);
 
     (* Read the data from the data channel and write this directly into block_dev_fd *)
-    let remaining_space = Xapi_globs.redo_log_length_of_half - marker_size - size_size in
+    let remaining_space = Db_globs.redo_log_length_of_half - marker_size - size_size in
     R.debug "Transferring data directly from socket...";
     let total_length = transfer_data_from_sock_to_fd datasock block_dev_fd remaining_space target_response_time in (* may raise NotEnoughSpace or Timeout *)
     R.debug "Transfer complete. Total length was %d bytes" total_length;
@@ -544,7 +544,7 @@ let action_writedelta block_dev_fd client datasock target_response_time =
     let str_len = String.length str in
 
     (* See if there's enough space for the delta *)
-    let available_space = Xapi_globs.redo_log_length_of_half - (pos - start_of_half half_to_use) in
+    let available_space = Db_globs.redo_log_length_of_half - (pos - start_of_half half_to_use) in
     if str_len > available_space then raise NotEnoughSpace;
 
     (* Write the delta *)
@@ -692,7 +692,7 @@ let _ =
 
   if !dump then begin
     (* Open the block device *)
-    let block_dev_fd = open_block_device !block_dev (Unix.gettimeofday() +. !Xapi_globs.redo_log_max_startup_time) in
+    let block_dev_fd = open_block_device !block_dev (Unix.gettimeofday() +. !Db_globs.redo_log_max_startup_time) in
     R.info "Opened block device.";
 
     let target_response_time = Unix.gettimeofday() +. 3600. in
@@ -746,7 +746,7 @@ let _ =
 
   if !empty then begin
     (* Open the block device *)
-    let block_dev_fd = open_block_device !block_dev (Unix.gettimeofday() +. !Xapi_globs.redo_log_max_startup_time) in
+    let block_dev_fd = open_block_device !block_dev (Unix.gettimeofday() +. !Db_globs.redo_log_max_startup_time) in
     R.info "Opened block device.";
 
     let target_response_time = Unix.gettimeofday() +. 3600. in
@@ -763,7 +763,7 @@ let _ =
     (* Main loop: accept a new client, communicate with it until it stops sending commands, repeat. *)
     while true do
       let start_of_startup = Unix.gettimeofday() in
-      let target_startup_response_time = start_of_startup +. !Xapi_globs.redo_log_max_startup_time in
+      let target_startup_response_time = start_of_startup +. !Db_globs.redo_log_max_startup_time in
 
       R.debug "Awaiting incoming connections on %s..." !ctrlsock;
       let client = accept_conn s target_startup_response_time in
@@ -789,10 +789,10 @@ let _ =
 
                  (* Note: none of the action functions throw any exceptions; they report errors directly to the client. *)
                  let (action_fn, block_time) = match str with
-                   | "writedelta" -> action_writedelta, !Xapi_globs.redo_log_max_block_time_writedelta
-                   | "writedb___" -> action_writedb,    !Xapi_globs.redo_log_max_block_time_writedb
-                   | "read______" -> action_read,       !Xapi_globs.redo_log_max_block_time_read
-                   | "empty_____" -> action_empty,      !Xapi_globs.redo_log_max_block_time_empty
+                   | "writedelta" -> action_writedelta, !Db_globs.redo_log_max_block_time_writedelta
+                   | "writedb___" -> action_writedb,    !Db_globs.redo_log_max_block_time_writedb
+                   | "read______" -> action_read,       !Db_globs.redo_log_max_block_time_read
+                   | "empty_____" -> action_empty,      !Db_globs.redo_log_max_block_time_empty
                    | _ -> (fun _ _ _ _ -> send_failure client (str^"|nack") ("Unknown command "^str)), 0.
                  in
                  (* "Start the clock!" -- set the latest time by which we need to have responded to the client. *)
