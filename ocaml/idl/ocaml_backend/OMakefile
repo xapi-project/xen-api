@@ -88,7 +88,7 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 	$(AUTOGEN_HELPER_DIR)/generation \
 	$(AUTOGEN_HELPER_DIR)/db_connections \
 	$(AUTOGEN_HELPER_DIR)/db_conn_store \
-	$(AUTOGEN_HELPER_DIR)/eventgen \
+	../../xapi/eventgen \
 	$(AUTOGEN_HELPER_DIR)/master_connection \
 	$(AUTOGEN_HELPER_DIR)/db_lock \
 	$(AUTOGEN_HELPER_DIR)/block_device_io_errors \
