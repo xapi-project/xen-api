@@ -88,13 +88,13 @@ SERVER_OBJS = ../../database/escaping locking_helpers \
 	$(AUTOGEN_HELPER_DIR)/generation \
 	$(AUTOGEN_HELPER_DIR)/db_connections \
 	$(AUTOGEN_HELPER_DIR)/db_conn_store \
+	$(AUTOGEN_HELPER_DIR)/static_vdis_list \
 	../../xapi/eventgen \
 	$(AUTOGEN_HELPER_DIR)/master_connection \
 	$(AUTOGEN_HELPER_DIR)/db_lock \
 	$(AUTOGEN_HELPER_DIR)/block_device_io_errors \
 	$(AUTOGEN_HELPER_DIR)/redo_log \
-	../../xapi/static_vdis_list \
-	../../xapi/parse_db_conf \
+	$(AUTOGEN_HELPER_DIR)/parse_db_conf \
 	../../client_records/records \
 	../../client_records/record_util \
 	../../util/vm_memory_constraints \
