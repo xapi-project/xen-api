@@ -3902,8 +3902,12 @@ let task =
 
 (** Many of the objects need to record IO bandwidth *)
 let iobandwidth =
-  [ field ~persist:false ~qualifier:DynamicRO ~ty:Float "read_kbs" "Read bandwidth (KiB/s)";
-    field ~persist:false ~qualifier:DynamicRO ~ty:Float "write_kbs" "Write bandwidth (KiB/s)" ]
+  let msg = "Disabled and replaced by RRDs" in
+  [ field ~persist:false ~qualifier:DynamicRO ~ty:Float "read_kbs" "Read bandwidth (KiB/s)"
+      ~lifecycle:[ Removed, rel_tampa, msg]
+  ; field ~persist:false ~qualifier:DynamicRO ~ty:Float "write_kbs" "Write bandwidth (KiB/s)"
+      ~lifecycle:[ Removed, rel_tampa, msg]
+  ]
 
 (** Human users *)
 let user = (* DEPRECATED in favor of subject *)
@@ -3946,7 +3950,13 @@ let host_metrics_memory =
   let field = field ~ty:Int in
   [
     field ~qualifier:DynamicRO "total" "Total host memory (bytes)" ~doc_tags:[Memory];
-    field ~qualifier:DynamicRO ~internal_deprecated_since:rel_midnight_ride "free" "Free host memory (bytes)" ~doc_tags:[Memory];
+    field "free" "Free host memory (bytes)"
+      ~lifecycle:
+        [ Deprecated, rel_midnight_ride, "Will be disabled in favour of RRD"
+        ; Removed, rel_tampa, "Disabled in favour of RRD"
+        ]
+      ~qualifier:DynamicRO
+      ~doc_tags:[Memory];
   ]
 
 let api_version =
@@ -4007,7 +4017,6 @@ let livepatch_status =
           "ok_livepatch_incomplete", "An applicable live patch exists but it is not sufficient";
           "ok", "There is no applicable live patch"
         ])
-    
 
 let pool_update_after_apply_guidance =
   Enum ("update_after_apply_guidance",
@@ -5798,7 +5807,17 @@ let vif =
     ()
 
 let vif_metrics =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_vif_metrics ~descr:"The metrics associated with a virtual network device"
+  create_obj
+    ~lifecycle:
+      [ Published, rel_rio, "The metrics associated with a virtual network device"
+      ; Removed, rel_tampa, "Disabled in favour of RRDs"
+      ]
+    ~in_db:true
+    ~in_oss_since:oss_since_303
+    ~persist:PersistNothing
+    ~gen_constructor_destructor:false
+    ~name:_vif_metrics
+    ~descr:"The metrics associated with a virtual network device"
     ~gen_events:true
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_VM_ADMIN
@@ -6487,7 +6506,17 @@ let vbd =
     ()
 
 let vbd_metrics =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_vbd_metrics ~descr:"The metrics associated with a virtual block device"
+  create_obj
+    ~lifecycle:
+      [ Published, rel_rio, "The metrics associated with a virtual block device"
+      ; Removed, rel_tampa, "Disabled in favour of RRD"
+      ]
+    ~in_db:true
+    ~in_oss_since:oss_since_303
+    ~persist:PersistNothing
+    ~gen_constructor_destructor:false
+    ~name:_vbd_metrics
+    ~descr:"The metrics associated with a virtual block device"
     ~gen_events:true
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_VM_ADMIN
@@ -7714,7 +7743,8 @@ let vm_memory_metrics =
 let vm_vcpu_metrics =
   [
     field ~qualifier:DynamicRO ~ty:Int "number" "Current number of VCPUs" ~persist:true;
-    field ~qualifier:DynamicRO ~ty:(Map (Int, Float)) "utilisation" "Utilisation for all of guest's current VCPUs" ~persist:false;
+    field ~qualifier:DynamicRO ~ty:(Map (Int, Float)) ~persist:false "utilisation" "Utilisation for all of guest's current VCPUs"
+      ~lifecycle:[Removed, rel_tampa, "Disabled in favour of RRDs"];
     field ~qualifier:DynamicRO ~ty:(Map (Int, Int)) "CPU" "VCPU to PCPU map" ~persist:false;
     field ~qualifier:DynamicRO ~ty:(Map (String, String)) "params" "The live equivalent to VM.VCPUs_params" ~persist:false;
     field ~qualifier:DynamicRO ~ty:(Map (Int, Set String)) "flags" "CPU flags (blocked,online,running)" ~persist:false;
@@ -9258,7 +9288,7 @@ module PVS_cache_storage = struct
         ]
 
       ~messages:
-        [ 
+        [
         ]
       ()
 end
