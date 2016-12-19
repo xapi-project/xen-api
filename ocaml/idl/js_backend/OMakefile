@@ -10,7 +10,7 @@ AUTOGEN_DIR = ../../autogen
 
 # only gen_api requires datamodel library:
 OCAMLINCLUDES += .. 
-OCAML_LIBS += ../datamodel
+OCAML_LIBS += ../xapi-consts ../xapi-datamodel
 
 OCamlProgram(main, main)
 

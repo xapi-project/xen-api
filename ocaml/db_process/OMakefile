@@ -1,5 +1,5 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../util/stats ../idl/ocaml_backend/server
-OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../database
+OCAML_LIBS    = ../util/version ../idl/xapi-consts ../database/xapi-database ../xapi-types/xapi-types ../xapi-client/xapi-client ../util/stats 
+OCAMLINCLUDES = ../xapi ../database
 OCAMLPACKS    =  xml-light2 uuid sexpr xcp stunnel http-svr gzip uuid xcp-inventory
 
 OCamlProgram(xapi-db-upgrade-4.2, xapi-db-upgrade-4.2)

@@ -8,15 +8,18 @@ OCAMLINCLUDES = \
 	../database \
 	../xapi \
 	../idl \
-	../idl/ocaml_backend \
-	../autogen \
+	../xapi \
+	../xapi-client \
+	../xapi-types \
 	../license \
 
 OCAML_LIBS = \
 	../util/version \
-	../idl/ocaml_backend/common \
-	../idl/ocaml_backend/client \
-	../idl/ocaml_backend/server \
+	../idl/xapi-consts \
+	../idl/xapi-datamodel \
+	../xapi-types/xapi-types \
+	../xapi-client/xapi-client \
+	../database/xapi-database \
 	../auth/pam \
 	../util/stats \
 	../util/sanitycheck \

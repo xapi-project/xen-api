@@ -139,7 +139,7 @@ export
 # Ocaml #############################################################################
 OCAML_PHASE1= autogen_idl
 OCAML_PHASE2= \
-  $(if $(BYTE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cma) $(if $(NATIVE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cmxa) 
+  $(if $(BYTE_ENABLED), ocaml/xapi-client/xapi-client.cma) $(if $(NATIVE_ENABLED), ocaml/xapi-client/xapi-client.cmxa) 
 
 # JS ################################################################################
 JS_PHASE1=

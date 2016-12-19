@@ -1,0 +1,11 @@
+COMMON_OBJS = ref aPI event_types 
+OCAMLINCLUDES += ../idl ../xapi ../idl/ocaml_backend
+OCAMLPACKS += http-svr
+
+OCamlLibrary(xapi-types, $(COMMON_OBJS))
+UseCamlp4(rpclib.syntax, event_types aPI)
+
+.PHONY: clean
+clean:
+	rm -rf $(CLEAN_OBJS) 
+

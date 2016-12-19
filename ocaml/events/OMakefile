@@ -1,5 +1,5 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client 
-OCAMLINCLUDES = ../idl/ocaml_backend ../autogen
+OCAML_LIBS    = ../util/version ../idl/xapi-consts ../xapi-types/xapi-types ../xapi-client/xapi-client
+OCAMLINCLUDES = ../xapi-types ../xapi-client
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp rpclib uuid
 
 OCamlProgram(event_listen, event_listen)

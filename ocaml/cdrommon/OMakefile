@@ -1,4 +1,4 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common
+OCAML_LIBS    = ../util/version ../xapi-types/xapi-types
 OCAMLINCLUDES = ../xapi
 OCAMLPACKS += unix cdrom xcp-inventory
 
