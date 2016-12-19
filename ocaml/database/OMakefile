@@ -1,5 +1,5 @@
 
-OCAMLINCLUDES = ../util ../autogen ../idl
+OCAMLINCLUDES = ../util
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp sexpr rpclib uuid gzip xcp-inventory oUnit
 #OCAMLPPFLAGS  = -pp "camlp4o" 
 #OCAMLDEPFLAGS = -pp "camlp4o"

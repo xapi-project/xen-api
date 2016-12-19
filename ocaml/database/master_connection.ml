@@ -28,6 +28,7 @@ let my_connection : Stunnel.t option ref = ref None
 
 let is_slave = ref (fun () -> false)
 let get_master_address = ref (fun () -> "")
+let master_rpc_path = ref ""
 
 exception Cannot_connect_to_master
 
@@ -259,9 +260,9 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
   done;
   !result
 
-let execute_remote_fn string path =
+let execute_remote_fn string =
   let host = (!get_master_address) () in
   Db_lock.with_lock
     (fun () ->
        (* Ensure that this function is always called under mutual exclusion (provided by the recursive db lock) *)
-       do_db_xml_rpc_persistent_with_reopen ~host ~path string)
+       do_db_xml_rpc_persistent_with_reopen ~host ~path:(!master_rpc_path) string)

@@ -34,7 +34,9 @@ module W=Debug.Make(struct let name="watchdog" end)
 
 let _ =
   Master_connection.is_slave := Pool_role.is_slave;
-  Master_connection.get_master_address := Pool_role.get_master_address
+  Master_connection.get_master_address := Pool_role.get_master_address;
+  Master_connection.master_rpc_path := Constants.remote_db_access_uri
+
 
 (** Perform some startup sanity checks. Note that we nolonger look for processes using 'ps':
     instead we rely on the init.d scripts to start other services. *)
