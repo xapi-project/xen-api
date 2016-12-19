@@ -127,7 +127,7 @@ let event_from_parallel_test session_id =
            let _ = Client.Event.from !rpc session_id [] "" 10. in
            () (* good *)
          with e ->
-           debug test (ExnHelper.string_of_exn e);
+           debug test (Printexc.to_string e);
            ok := false;
       ) () in
   let (interfering_thread: Thread.t) = Thread.create
