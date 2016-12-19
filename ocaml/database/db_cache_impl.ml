@@ -216,7 +216,7 @@ let db_get_by_uuid t tbl uuid_val =
 let db_get_by_name_label t tbl label =
   read_field_where t
     {table=tbl; return=Db_names.ref;
-     where_field=(Escaping.escape_id ["name"; "label"]);
+     where_field="name__label";
      where_value=label}
 
 (* Read references from tbl *)

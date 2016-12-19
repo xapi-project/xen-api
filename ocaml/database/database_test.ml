@@ -88,13 +88,13 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
     Printf.printf "%s <valid table> <invalid return> <valid field> <valid value>\n" fn_name;
     expect_missing_field "wibble"
       (fun () ->
-         let (_: string list) = fn { Db_cache_types.table = "VM"; return = "wibble"; where_field = Escaping.escape_id [ "name"; "label" ]; where_value = name } in
+         let (_: string list) = fn { Db_cache_types.table = "VM"; return = "wibble"; where_field = "name__label"; where_value = name } in
          failwith (Printf.sprintf "%s <valid table> <invalid return> <valid field> <valid value>" fn_name)
       );
     Printf.printf "%s <valid table> <valid return> <invalid field> <valid value>\n" fn_name;
     expect_missing_field "wibble"
       (fun () ->
-         let (_: string list) = fn { Db_cache_types.table = "VM"; return = Escaping.escape_id [ "name"; "label" ]; where_field = "wibble"; where_value = "" } in
+         let (_: string list) = fn { Db_cache_types.table = "VM"; return = "name__label"; where_field = "wibble"; where_value = "" } in
          failwith (Printf.sprintf "%s <valid table> <valid return> <invalid field> <valid value>" fn_name)
       )
 
@@ -485,7 +485,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
       );
     Printf.printf "read_field_where <valid table> <valid return> <valid field> <valid value>\n";
     let where_name_label =
-      { Db_cache_types.table = "VM"; return = Escaping.escape_id(["name"; "label"]); where_field="uuid"; where_value = valid_uuid } in
+      { Db_cache_types.table = "VM"; return = "name__label"); where_field="uuid"; where_value = valid_uuid } in
     let xs = Client.read_field_where t where_name_label in
     if not (List.mem name xs)
     then failwith "read_field_where <valid table> <valid return> <valid field> <valid value>";
@@ -515,10 +515,10 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
          failwith "write_field <valid table> <valid ref> <invalid field>"
       );
     Printf.printf "write_field <valid table> <valid ref> <valid field>\n";
-    let (_: unit) = Client.write_field t "VM" valid_ref (Escaping.escape_id ["name"; "description"]) "description" in
+    let (_: unit) = Client.write_field t "VM" valid_ref "name__description" "description" in
     if in_process then check_ref_index t "VM" valid_ref;
     Printf.printf "write_field <valid table> <valid ref> <valid field> - invalidating ref_index\n";
-    let (_: unit) = Client.write_field t "VM" valid_ref (Escaping.escape_id ["name"; "label"]) "newlabel" in
+    let (_: unit) = Client.write_field t "VM" valid_ref "name__label" "newlabel" in
     if in_process then check_ref_index t "VM" valid_ref;
 
     Printf.printf "read_record <invalid table> <invalid ref>\n";
@@ -535,7 +535,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
       );
     Printf.printf "read_record <valid table> <valid ref>\n";
     let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
-    if not(List.mem_assoc (Escaping.escape_id [ "name"; "label" ]) fv_list)
+    if not(List.mem_assoc "name__label" fv_list)
     then failwith "read_record <valid table> <valid ref> 1";
     if List.assoc "VBDs" fvs_list <> []
     then failwith "read_record <valid table> <valid ref> 2";
@@ -556,7 +556,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
     let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
     if List.assoc "VBDs" fvs_list = []
     then failwith "read_record <valid table> <valid ref> 5";
-    Client.write_field t "VBD" vbd_ref (Escaping.escape_id [ "VM" ]) "overwritten";
+    Client.write_field t "VBD" vbd_ref "VM" "overwritten";
     let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
     if List.assoc "VBDs" fvs_list <> []
     then failwith "read_record <valid table> <valid ref> 6";
@@ -597,7 +597,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
       );
     expect_missing_row "VM" invalid_ref
       (fun () ->
-         Client.process_structured_field t ("","") "VM" (Escaping.escape_id ["name"; "label"]) invalid_ref Db_cache_types.AddSet;
+         Client.process_structured_field t ("","") "VM" "name__label" invalid_ref Db_cache_types.AddSet;
          failwith "process_structure_field <valid table> <valid fld> <invalid ref>"
       );
     Client.process_structured_field t ("foo", "") "VM" "tags" valid_ref Db_cache_types.AddSet;
