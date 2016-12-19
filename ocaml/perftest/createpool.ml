@@ -215,7 +215,7 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
   Client.VM.add_to_other_config rpc session_id hosts.(0) master_of_pool pool.key;
   Client.VM.add_to_other_config rpc session_id hosts.(0) management_ip (Printf.sprintf "192.168.%d.1" pool.ipbase);
 
-  let localhost_uuid = Xapi_inventory.lookup "INSTALLATION_UUID" in
+  let localhost_uuid = Inventory.lookup "INSTALLATION_UUID" in
   Array.iteri (fun i host -> debug "Starting VM %d" i; Client.VM.start_on rpc session_id host (Client.Host.get_by_uuid rpc session_id localhost_uuid) false false) hosts;
 
   ignore(Sys.command (Printf.sprintf "ifconfig %s 192.168.%d.200 up" (Client.Network.get_bridge rpc session_id (Client.VIF.get_network rpc session_id interfaces.(0))) pool.ipbase));
