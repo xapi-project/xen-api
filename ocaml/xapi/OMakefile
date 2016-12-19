@@ -4,12 +4,12 @@ OCAMLPACKS = oclock xml-light2 cdrom pciutil sexpr xcp stunnel		\
              xcp.xen xcp.memory xcp.v6 tar tar.unix oPasswd xcp-inventory \
              rrdd-plugin rrd-transport pci
 
-OCAML_LIBS    = ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
+OCAML_LIBS    = ../util/version ../util/stats \
 	../idl/xapi-consts ../idl/xapi-datamodel ../xapi-types/xapi-types ../xapi-client/xapi-client ../database/xapi-database ../util/ocamltest
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../database/ \
 	../xva ../util \
-	../auth ../client_records ../rfb ../gpg \
+	../auth ../client_records ../rfb \
 	../xapi-types ../xapi-client
 
 UseCamlp4(rpclib.syntax, features storage_impl xapi_globs locking_helpers xapi_udhcpd storage_migrate \
@@ -46,38 +46,34 @@ OCamlProgram(show_bat, show_bat)
 
 OCamlProgram(storage_impl_test, locking_helpers xapi_globs sparse_encoding sparse_dd_wrapper storage_migrate storage_impl task_server updates storage_task storage_locks storage_impl_test)
 
-COMMON = \
-	xapi_templates \
-	../idl/api_lowlevel \
-	network \
-	nm \
-	xapi_mgmt_iface \
-	smint \
-	../gpg/gpg \
-	helpers \
-	at_least_once_more \
-	fileserver
-
-#OCamlProgram(upload_receive, $(COMMON) fileupload upload_receive)
-
-OCamlProgram(quicktestbin, quicktest quicktest_common xapi_globs quicktest_ocamltest quicktest_storage quicktest_http quicktest_vdi_copy quicktest_encodings quicktest_vm_placement vm_placement quicktest_vm_memory_constraints ../util/vm_memory_constraints quicktest_lifecycle sparse_encoding ../client_records/record_util)
+OCamlProgram(quicktestbin, quicktest quicktest_common xapi_globs quicktest_ocamltest quicktest_storage quicktest_http quicktest_vdi_copy quicktest_encodings quicktest_vm_placement vm_placement quicktest_vm_memory_constraints vm_memory_constraints quicktest_lifecycle sparse_encoding ../client_records/record_util)
 
 OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
 
 DB_DIR=../database
 
 XAPI_MODULES = \
+	sanitycheck \
 	xapi_globs \
 	locking_helpers \
 	server \
 	db_actions \
 	custom_actions \
 	context \
-	$(COMMON) \
+	xapi_templates \
+	../idl/api_lowlevel \
+	network \
+	nm \
+	xapi_mgmt_iface \
+	smint \
+	gpg \
+	helpers \
+	at_least_once_more \
+	fileserver \
 	license_init \
 	../client_records/records \
 	../client_records/record_util \
-	../util/vm_memory_constraints \
+	vm_memory_constraints \
 	taskHelper exnHelper \
 	server_helpers session_check \
 	pool_role \
@@ -96,7 +92,7 @@ XAPI_MODULES = \
 	xapi_extensions \
 	agility \
 	network \
-	../util/table \
+	table \
 	balloon \
 	daemon_manager \
 	map_check \
@@ -152,10 +148,10 @@ XAPI_MODULES = \
 	xapi_support \
 	xapi_session \
 	xapi_auth \
-	../auth/auth_signature \
-	../auth/authx \
-	../auth/extauth \
-	../auth/extauth_plugin_ADpbis \
+	auth_signature \
+	authx \
+	extauth \
+	extauth_plugin_ADpbis \
 	xapi_subject \
 	audit_log \
 	xapi_xenops \
@@ -302,7 +298,7 @@ XAPI_MODULES = \
 	xapi_stats \
 	rrdd_proxy \
 	rrdd_helper \
-	../util/rpc_retry \
+	rpc_retry \
 	xapi \
 	cluster_stack_constraints \
 	vm_platform \
@@ -322,6 +318,10 @@ OCamlProgram(bootloader, bootloader bootloader_test)
 OCamlProgram(binpack, binpack binpack_test xapi_fist)
 
 OCamlProgram(at_least_once_more, at_least_once_more at_least_once_more_test)
+
+OCamlProgram(testauth, testauth)
+
+OCamlProgram(testauthx, testauthx authx auth_signature ../idl/api_errors)
 
 .DEFAULT: xapi
 

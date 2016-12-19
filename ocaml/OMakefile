@@ -6,23 +6,19 @@ OCAMLPACKS    = stdext uuid gzip
 
 .SUBDIRS: \
 	ptoken \
-	autogen \
 	xe-cli \
 	client_records \
 	idl \
 	util \
 	xapi \
 	xva \
-	console \
 	auth \
 	events \
 	graph \
 	license \
 	rfb \
 	database \
-	toplevel \
 	cdrommon \
-	gpg \
 	db_process \
 	vncproxy \
 	xsh \

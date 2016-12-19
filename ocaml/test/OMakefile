@@ -22,7 +22,6 @@ OCAML_LIBS = \
 	../database/xapi-database \
 	../auth/pam \
 	../util/stats \
-	../util/sanitycheck \
 	../xapi/xapi \
 
 OCAML_OBJS = \

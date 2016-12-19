@@ -1,4 +1,4 @@
-OCAML_LIBS += ../idl/datamodel
+OCAML_LIBS += ../idl/xapi-consts ../idl/xapi-datamodel
 OCAMLINCLUDES += ../idl
 
 CAMLP4_FILES = jsapi

@@ -21,7 +21,7 @@ OCamlLibrary(xapi-datamodel, datamodel datamodel_utils datamodel_types dm_api es
 # -----------------------------------------------------------------------
 
 DATAMODEL = datamodel
-DATAMODEL_FILES = constants datamodel_types api_errors api_messages dm_api datamodel datamodel_utils dtd_backend latex_backend dot_backend ../database/string_marshall_helper
+DATAMODEL_FILES = constants datamodel_types api_errors api_messages dm_api datamodel datamodel_utils dtd_backend latex_backend dot_backend 
 
 SHARED_TEX = coversheet.tex presentation.tex vm-lifecycle.tex wire-protocol.tex
 SHARED_EPS = vm_lifecycle.eps

@@ -1,8 +1,0 @@
-#!/bin/sh
-
-DIR=`mktemp -d /tmp/stunnelwrapper.XXXXXX `
-
-# !!! nice race condition here... fix later.
-../util/unix-domain-wrapper -socket $DIR/control -- /usr/sbin/stunnel -c -r $1:$2 -A ../burbank_util/clitrust.pem -p ../burbank_util/cli.pem -D 7&
-sleep 0.2
-ledit ../cli/cli -socket $DIR/control

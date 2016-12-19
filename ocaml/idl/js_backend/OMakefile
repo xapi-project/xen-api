@@ -4,10 +4,6 @@ OCAMLPACKS = xml-light2 uuid rpclib
 # autogen stuff
 # -----------------------------------------------------------------------
 
-# should move this into global constants file in root and stop using
-# relative paths...
-AUTOGEN_DIR = ../../autogen
-
 # only gen_api requires datamodel library:
 OCAMLINCLUDES += .. 
 OCAML_LIBS += ../xapi-consts ../xapi-datamodel

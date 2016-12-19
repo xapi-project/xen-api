@@ -1,8 +1,6 @@
 OCAML_LIBS    = ../util/version ../idl/xapi-consts ../xapi-types/xapi-types ../xapi-client/xapi-client
-OCAMLINCLUDES = ../idl/ocaml_backend ../idl  ../xapi ../gpg ../util ../xapi-types ../xapi-client
+OCAMLINCLUDES = ../idl ../util ../xapi-types ../xapi-client
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp rpclib uuid systemd
-
-UseCamlp4(rpclib.syntax, v6rpc v6errors)
 
 # Name of programs to install in dom0:
 DAILY_LICENSE_CHECK = daily-license-check

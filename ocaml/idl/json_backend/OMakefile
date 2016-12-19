@@ -1,6 +1,6 @@
 OCAMLPACKS = xml-light2 uuid rpclib
 OCAMLINCLUDES += ..
-OCAML_LIBS += ../datamodel
+OCAML_LIBS += ../xapi-consts ../xapi-datamodel
 
 OCamlProgram(main, main)
 
@@ -9,7 +9,7 @@ UseCamlp4(rpclib.syntax, $(CAMLP4_FILES))
 
 .PHONY: clean
 clean:
-        rm -f *~ *.opt *.run *.a *.cma *.cmxa *.cmo *.cmi *.o *.cmx *.omc *.annot main *.json
+	rm -f *~ *.opt *.run *.a *.cma *.cmxa *.cmo *.cmi *.o *.cmx *.omc *.annot main *.json
 
 .PHONY: doc-json
 doc-json: main
