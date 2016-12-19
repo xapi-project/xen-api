@@ -390,8 +390,11 @@ let get_subject_identifier _subject_name =
 let authenticate_username_password username password =
     (* first, we try to authenticated user against our external user database *)
     (* pbis_common will raise an Auth_failure if external authentication fails *)
-    let user = List.hd (List.rev (String.split_f (fun c -> c = '\\') username)) in
-    let domain = get_joined_domain_name () in
+    let (domain, user) = match (String.split_f (fun c -> c = '\\') username) with
+      | [domain; user] -> (domain, user)
+      | [user] -> (get_joined_domain_name(), user)
+      | _ -> raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC,"Invalid username " ^ username))
+    in
     let (_: (string * string) list) = pbis_common "/opt/pbis/bin/lsa" ["authenticate-user";"--user";user;"--domain";domain;"--password";password] in
     (* no exception raised, then authentication succeeded, *)
     (* now we return the authenticated user's id *)
