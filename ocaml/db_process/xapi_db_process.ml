@@ -94,8 +94,8 @@ let do_write_database() =
   end
 
 let find_my_host_row() =
-  Xapi_inventory.read_inventory ();
-  let localhost_uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid in
+  Inventory.read_inventory ();
+  let localhost_uuid = Inventory.lookup Inventory._installation_uuid in
   let db = Db_ref.get_database (Db_backend.make ()) in
   let tbl = TableSet.find Db_names.host (Database.tableset db) in
   Table.fold (fun r _ row acc -> if Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid row) = localhost_uuid then (Some (r, row)) else acc) tbl None
