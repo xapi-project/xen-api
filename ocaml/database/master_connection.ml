@@ -26,9 +26,11 @@ open D
 
 let my_connection : Stunnel.t option ref = ref None
 
-let is_slave = ref (fun () -> false)
-let get_master_address = ref (fun () -> "")
-let master_rpc_path = ref ""
+exception Uninitialised
+
+let is_slave : (unit -> bool) ref = ref (fun () -> error "is_slave called without having been set. This is a fatal error."; raise Uninitialised)
+let get_master_address = ref (fun () -> error "get_master_address called without having been set. This is a fatal error"; raise Uninitialised)
+let master_rpc_path = ref "<invalid>"
 
 exception Cannot_connect_to_master
 
