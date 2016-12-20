@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+let name_label = name_label
+let name_description = "name__description"
 
 module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 
@@ -21,10 +23,10 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
   let make_vm r uuid =
     [
       "uuid", uuid;
-      "name__description", "";
+      name_description, "";
       "other_config", "()";
       "tags", "()";
-      "name__label", name;
+      name_label, name;
     ]
 
   let make_vbd vm r uuid = [
@@ -88,13 +90,13 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
     Printf.printf "%s <valid table> <invalid return> <valid field> <valid value>\n" fn_name;
     expect_missing_field "wibble"
       (fun () ->
-         let (_: string list) = fn { Db_cache_types.table = "VM"; return = "wibble"; where_field = "name__label"; where_value = name } in
+         let (_: string list) = fn { Db_cache_types.table = "VM"; return = "wibble"; where_field = name_label; where_value = name } in
          failwith (Printf.sprintf "%s <valid table> <invalid return> <valid field> <valid value>" fn_name)
       );
     Printf.printf "%s <valid table> <valid return> <invalid field> <valid value>\n" fn_name;
     expect_missing_field "wibble"
       (fun () ->
-         let (_: string list) = fn { Db_cache_types.table = "VM"; return = "name__label"; where_field = "wibble"; where_value = "" } in
+         let (_: string list) = fn { Db_cache_types.table = "VM"; return = name_label; where_field = "wibble"; where_value = "" } in
          failwith (Printf.sprintf "%s <valid table> <valid return> <invalid field> <valid value>" fn_name)
       )
 
@@ -112,7 +114,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
       then failwith (Printf.sprintf "check_ref_index %s key %s: got ref %s uuid %s" tblname key _ref uuid);
       let real_ref = if Client.is_valid_ref t key then key else Client.db_get_by_uuid t tblname key in
       let real_name_label =
-        try Some (Client.read_field t tblname "name__label" real_ref)
+        try Some (Client.read_field t tblname name_label real_ref)
         with _ -> None in
       if name_label <> real_name_label
       then failwith (Printf.sprintf "check_ref_index %s key %s: ref_index name_label = %s; db has %s" tblname key (Opt.default "None" name_label) (Opt.default "None" real_name_label))
@@ -254,7 +256,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
     then (Printf.printf "Pass\n")
     else (Printf.printf "Fail\n"; failwith "Event problem");
 
-    let (_: unit) = Client.write_field t "VM" vm "name__label" "moo" in
+    let (_: unit) = Client.write_field t "VM" vm name_label "moo" in
     let db = Db_ref.get_database t in
     let g3 = get_max db in
     Printf.printf "generation after write_field is: %Ld\n" g3;
@@ -263,7 +265,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
     let vm_updated = List.filter (fun (r,_) -> r=vm) updated in
     let vm_updated = List.map snd vm_updated in
     Printf.printf "===TEST=== Checking that the VM field update is reported: ";
-    if (List.mem_assoc "name__label" vm_updated)
+    if (List.mem_assoc name_label vm_updated)
     then (Printf.printf "Pass\n")
     else (Printf.printf "Fail\n"; failwith "Event problem");
 
@@ -405,9 +407,9 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
          failwith "delete_row of a non-existent row silently succeeded"
       );
     Printf.printf "create_row <unique ref> <unique uuid> <missing required field>\n";
-    expect_missing_field "name__label"
+    expect_missing_field name_label
       (fun () ->
-         let broken_vm = List.filter (fun (k, _) -> k <> "name__label") (make_vm valid_ref valid_uuid) in
+         let broken_vm = List.filter (fun (k, _) -> k <> name_label) (make_vm valid_ref valid_uuid) in
          Client.create_row t "VM" broken_vm valid_ref;
          failwith "create_row <unique ref> <unique uuid> <missing required field>"
       );
@@ -458,7 +460,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
     then failwith "db_get_by_name_label <valid name label>";
 
     Printf.printf "read_field <valid field> <valid objref>\n";
-    if Client.read_field t "VM" "name__label" valid_ref <> name
+    if Client.read_field t "VM" name_label valid_ref <> name
     then failwith "read_field <valid field> <valid objref> : invalid name";
 
     Printf.printf "read_field <valid defaulted field> <valid objref>\n";
@@ -468,7 +470,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
     Printf.printf "read_field <valid field> <invalid objref>\n";
     expect_missing_row "VM" invalid_ref
       (fun () ->
-         let (_: string) = Client.read_field t "VM" "name__label" invalid_ref in
+         let (_: string) = Client.read_field t "VM" name_label invalid_ref in
          failwith "read_field <valid field> <invalid objref>"
       );
     Printf.printf "read_field <invalid field> <valid objref>\n";
@@ -485,7 +487,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
       );
     Printf.printf "read_field_where <valid table> <valid return> <valid field> <valid value>\n";
     let where_name_label =
-      { Db_cache_types.table = "VM"; return = "name__label"); where_field="uuid"; where_value = valid_uuid } in
+      { Db_cache_types.table = "VM"; return = name_label); where_field="uuid"; where_value = valid_uuid } in
     let xs = Client.read_field_where t where_name_label in
     if not (List.mem name xs)
     then failwith "read_field_where <valid table> <valid return> <valid field> <valid value>";
@@ -515,10 +517,10 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
          failwith "write_field <valid table> <valid ref> <invalid field>"
       );
     Printf.printf "write_field <valid table> <valid ref> <valid field>\n";
-    let (_: unit) = Client.write_field t "VM" valid_ref "name__description" "description" in
+    let (_: unit) = Client.write_field t "VM" valid_ref name_description "description" in
     if in_process then check_ref_index t "VM" valid_ref;
     Printf.printf "write_field <valid table> <valid ref> <valid field> - invalidating ref_index\n";
-    let (_: unit) = Client.write_field t "VM" valid_ref "name__label" "newlabel" in
+    let (_: unit) = Client.write_field t "VM" valid_ref name_label "newlabel" in
     if in_process then check_ref_index t "VM" valid_ref;
 
     Printf.printf "read_record <invalid table> <invalid ref>\n";
@@ -535,7 +537,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
       );
     Printf.printf "read_record <valid table> <valid ref>\n";
     let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
-    if not(List.mem_assoc "name__label" fv_list)
+    if not(List.mem_assoc name_label fv_list)
     then failwith "read_record <valid table> <valid ref> 1";
     if List.assoc "VBDs" fvs_list <> []
     then failwith "read_record <valid table> <valid ref> 2";
@@ -597,7 +599,7 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
       );
     expect_missing_row "VM" invalid_ref
       (fun () ->
-         Client.process_structured_field t ("","") "VM" "name__label" invalid_ref Db_cache_types.AddSet;
+         Client.process_structured_field t ("","") "VM" name_label invalid_ref Db_cache_types.AddSet;
          failwith "process_structure_field <valid table> <valid fld> <invalid ref>"
       );
     Client.process_structured_field t ("foo", "") "VM" "tags" valid_ref Db_cache_types.AddSet;
