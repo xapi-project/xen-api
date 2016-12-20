@@ -17,6 +17,7 @@ import sys
 import os
 import commands
 import time
+import re
 from optparse import OptionParser
 #import XenAPI
 
@@ -48,12 +49,19 @@ def write_inventory(inventory):
 	os.fsync(f.fileno())
 	f.close()
 
+def valid_vlan(vlan):
+	if not re.match('^\d+$', vlan):
+		return False
+	if int(vlan)<1 or int(vlan)>=4095:
+		return False
+	return True
+
 if __name__ == "__main__":
 	parser = OptionParser()
 	parser.add_option("-m", "--master", help="Master's address", dest="address", default=None)
 	parser.add_option("--device", help="Device name of new management interface", dest="device", default=None)
 	parser.add_option("--mode", help='IP configuration mode for new management interface: "dhcp" or "static" (default is dhcp)', dest="mode", default="dhcp")
-       parser.add_option("--vlan", help="vlanID for new management interface to be on vlan network", dest="vlan", default='')
+	parser.add_option("--vlan", help="vlanID for new management interface to be on vlan network", dest="vlan", default=None)
 	parser.add_option("--ip", help="IP address for new management interface", dest="ip", default='')
 	parser.add_option("--netmask", help="Netmask for new management interface", dest="netmask", default='')
 	parser.add_option("--gateway", help="Gateway for new management interface", dest="gateway", default='')
@@ -92,6 +100,20 @@ if __name__ == "__main__":
 	else:
 		device = options.device
 
+	# Get the VLAN if provided in the firstboot data and not specified by the user
+	if options.vlan == None:
+		try:
+			conf = read_management_conf()
+			vlan = conf['VLAN']
+		except KeyError:
+			vlan = None
+			pass
+	else:
+		if not valid_vlan(options.vlan):
+			print "VLAN tag you gave was invalid, It must be between 0 and 4094"
+			sys.exit(1)
+		vlan = options.vlan
+
 	# Determine IP configuration for management interface
 	options.mode = options.mode.lower()
 	if options.mode not in ["dhcp", "static"]:
@@ -107,8 +129,8 @@ if __name__ == "__main__":
 		configuration = []
 		configuration.append("Management interface:   " + device)
 		configuration.append("IP configuration mode:  " + options.mode)
-               if options.vlan != '':
-                       configuration.append("Vlan:                   " + options.vlan)
+		if vlan != None:
+			configuration.append("Vlan:                   " + vlan)
 		if options.mode == "static":
 			configuration.append("IP address:             " + options.ip)
 			configuration.append("Netmask:                " + options.netmask)
@@ -153,7 +175,7 @@ Type 'no' to cancel.
 
 	# Construct bridge name for management interface based on convention
 	if device[:3] == 'eth':
-               bridge = 'xenbr' + device[3:]
+		bridge = 'xenbr' + device[3:]
 	else:
 		bridge = 'br' + device
 	
@@ -187,8 +209,8 @@ Type 'no' to cancel.
 		f = file(management_conf, 'w')
 		f.write("LABEL='" + device + "'\n")
 		f.write("MODE='" + options.mode + "'\n")
-               if options.vlan != '':
-                       f.write("VLAN='" + options.vlan + "'\n")
+		if vlan != None:
+			f.write("VLAN='" + vlan + "'\n")
 		if options.mode == 'static':
 			f.write("IP='" + options.ip + "'\n")
 			f.write("NETMASK='" + options.netmask + "'\n")
@@ -206,8 +228,8 @@ Type 'no' to cancel.
 		f = file(network_reset, 'w')
 		f.write('DEVICE=' + device + '\n')
 		f.write('MODE=' + options.mode + '\n')
-               if options.vlan != '':
-                       f.write('VLAN=' + options.vlan + '\n')
+		if vlan != None:
+			f.write('VLAN=' + vlan + '\n')
 		if options.mode == 'static':
 			f.write('IP=' + options.ip + '\n')
 			f.write('NETMASK=' + options.netmask + '\n')
