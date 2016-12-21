@@ -41,10 +41,9 @@ CSHARP_GUI_TMP=$(BINDINGS_TMP)/XenCenterBindings/XenServer.NET
 CSHARP_SAM_TMP=$(BINDINGS_TMP)/XenServer.NET-sam/XenServer.NET
 READMES_TMP=$(BINDINGS_TMP)/READMES
 
-OCAMLINCLUDES += .. $(DATAMODEL_DIR)
-OCAMLFLAGS += -dtypes -I $(DATAMODEL_DIR) -thread
-OCAMLPACKS += rpclib getopt xmlm xml-light2 uuid stdext xcp unix str
-OCAML_LIBS += $(DATAMODEL_DIR)/datamodel
+OCAMLINCLUDES += ..
+OCAMLFLAGS += -dtypes -thread
+OCAMLPACKS += rpclib getopt xmlm xml-light2 uuid stdext xcp unix str xapi-datamodel
 
 .PHONY: clean dist
 .SUBDIRS: powershell csharp c java
