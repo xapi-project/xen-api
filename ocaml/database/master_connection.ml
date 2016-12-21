@@ -209,7 +209,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
         raise Http_svr.Client_requested_size_over_limit
       (* TODO: This http exception handler caused CA-36936 and can probably be removed now that there's backoff delay in the generic handler _ below *)
       | Http_client.Http_error (http_code,err_msg) ->
-        error "Received HTTP error %s (%s) from master. This suggests our master address is wrong. Sleeping for %.0fs and then restarting." http_code err_msg !Db_globs.permanent_master_failure_retry_interval;
+        error "Received HTTP error %s (%s) from master. This suggests our master address is wrong. Sleeping for %.0fs and then executing restart_fn." http_code err_msg !Db_globs.permanent_master_failure_retry_interval;
         Thread.delay !Db_globs.permanent_master_failure_retry_interval;
         (!Db_globs.restart_fn) ()
       |	e ->

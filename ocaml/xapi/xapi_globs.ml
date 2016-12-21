@@ -26,7 +26,7 @@ let relax_xsm_sr_check = ref true
 (* xapi process returns this code on exit when it wants to be restarted *)
 let restart_return_code = 123
 
-let _ = Db_globs.restart_fn := (fun () -> exit restart_return_code)
+let _ = Db_globs.restart_fn := (fun () -> D.info "Executing Db_globs.restart_fn: exiting with code %d" restart_return_code; exit restart_return_code)
 
 let pool_secret = ref ""
 
