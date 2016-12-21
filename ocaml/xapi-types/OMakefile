@@ -9,3 +9,17 @@ UseCamlp4(rpclib.syntax, event_types aPI)
 clean:
 	rm -rf $(CLEAN_OBJS) 
 
+.PHONY: lib-install
+META: META.in
+	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
+
+INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
+export
+
+lib-install: META
+	mkdir -p $(INSTALL_PATH)/stublibs
+	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore xapi-types META $(addsuffixes .cmi, $(COMMON_OBJS)) $(if $(BYTE_ENABLED), xapi-types.cma) $(if $(NATIVE_ENABLED), xapi-types.cmxa xapi-types.a $(addsuffixes .cmx, $(COMMON_OBJS)))
+
+.PHONY: lib-uninstall
+lib-uninstall:
+	ocamlfind remove -destdir $(INSTALL_PATH) xapi-types

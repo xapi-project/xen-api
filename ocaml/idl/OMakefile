@@ -94,16 +94,25 @@ doc-pdf-install: doc-pdf
 
 noarch-install: doc-pdf-install
 
-META: META.in
+META.datamodel: META.datamodel.in
+	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
+
+META.consts: META.consts.in
 	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
 
 INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
 export
 
-lib-install: META
+.PHONY: lib-install
+lib-install: META.datamodel META.consts
 	mkdir -p $(INSTALL_PATH)
-	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore xapi-datamodel META datamodel.{a,cmxa,cmi} datamodel_types.cmi datamodel_utils.cmi dm_api.cmi api_messages.cmi 
+	cp META.datamodel META
+	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore xapi-datamodel META xapi-datamodel.{a,cmxa} datamodel.cmi datamodel_types.cmi datamodel_utils.cmi dm_api.cmi api_messages.cmi 
+	cp META.consts META
+	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore xapi-consts META xapi-consts.{a,cmxa} api_errors.cmi api_messages.cmi constants.cmi
 
 .PHONY: lib-uninstall
 lib-uninstall:
 	ocamlfind remove -destdir $(INSTALL_PATH) xapi-datamodel
+	ocamlfind remove -destdir $(INSTALL_PATH) xapi-consts
+
