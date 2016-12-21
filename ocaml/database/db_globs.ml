@@ -47,6 +47,7 @@ let gen_metadata_db = Filename.concat "/var/lib/xcp" "gen_metadata.db"
 
 let static_vdis_dir = ref "/etc/xensource/static-vdis"
 
+(* Note the following has an equivalent in the xapi layer *)
 let http_limit_max_rpc_size = 300 * 1024 (* 300K *)
 
 (** Dynamic configurations to be read whenever xapi (re)start *)

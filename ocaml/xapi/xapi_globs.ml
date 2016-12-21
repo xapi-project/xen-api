@@ -405,6 +405,8 @@ let hosts_which_are_shutting_down_m = Mutex.create ()
 
 let xha_timeout = "timeout"
 
+(* Note the following constant has an equivalent in the db layer *)
+let http_limit_max_rpc_size = 300 * 1024 (* 300K *)
 let http_limit_max_cli_size = 200 * 1024 (* 200K *)
 let http_limit_max_rrd_size = 2 * 1024 * 1024 (* 2M -- FIXME : need to go below 1mb for security purpose. *)
 
