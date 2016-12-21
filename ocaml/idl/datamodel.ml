@@ -881,8 +881,16 @@ let _ =
     ~doc:"Cannot join pool whose external authentication configuration is different." ();
   error Api_errors.pool_joining_host_must_have_same_product_version []
     ~doc:"The host joining the pool must have the same product version as the pool master." ();
-  error Api_errors.pool_joining_host_must_only_have_physical_pifs_or_vlan_pif []
-    ~doc:"The host joining the pool must not have any bonds, tunnels or multiple VLANs." ();
+  error Api_errors.pool_joining_host_must_only_have_physical_pifs []
+    ~doc:"The host joining the pool must not have any bonds, VLANs or tunnels." ();
+  error Api_errors.pool_joining_host_management_vlan_does_not_match ["local"; "remote"]
+    ~doc:"The host joining the pool must have the same management vlan." ();
+  error Api_errors.pool_joining_host_has_non_management_vlans []
+    ~doc:"The host joining the pool must not have any non-management vlans." ();
+  error Api_errors.pool_joining_host_has_bonds []
+    ~doc:"The host joining the pool must not have any bonds." ();
+  error Api_errors.pool_joining_host_has_tunnels []
+    ~doc:"The host joining the pool must not have any tunnels." ();
   error Api_errors.pool_hosts_not_compatible []
     ~doc:"The hosts in this pool are not compatible." ();
   error Api_errors.pool_hosts_not_homogeneous [ "reason" ]
