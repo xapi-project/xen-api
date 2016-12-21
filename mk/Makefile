@@ -65,7 +65,7 @@ XMLRPCLICENSE = $(CARBON_DISTFILES)/csharp/XML-RPC.NET/LICENSE
 
 PRODUCT_GUID := $(shell uuidgen | tr a-z A-Z)
 
-OMAKE=DATAMODEL_DIR=$(PROJECT_OUTPUTDIR)/api/datamodel omake
+OMAKE=omake
 
 # sources
 XMLRPC_DIST=$(CARBON_DISTFILES)/xmlrpc
