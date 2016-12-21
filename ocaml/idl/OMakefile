@@ -107,7 +107,7 @@ export
 lib-install: META.datamodel META.consts
 	mkdir -p $(INSTALL_PATH)
 	cp META.datamodel META
-	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore xapi-datamodel META xapi-datamodel.{a,cmxa} datamodel.cmi datamodel_types.cmi datamodel_utils.cmi dm_api.cmi api_messages.cmi 
+	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore xapi-datamodel META xapi-datamodel.{a,cmxa} datamodel.cmi datamodel_types.cmi datamodel_utils.cmi dm_api.cmi
 	cp META.consts META
 	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore xapi-consts META xapi-consts.{a,cmxa} api_errors.cmi api_messages.cmi constants.cmi
 
