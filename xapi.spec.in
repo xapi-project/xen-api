@@ -322,7 +322,6 @@ rm -rf $RPM_BUILD_ROOT
 @OPTDIR@/debug/event_listen
 @OPTDIR@/debug/graph
 @OPTDIR@/debug/import-update-key
-@OPTDIR@/debug/sm_stress
 @OPTDIR@/debug/vncproxy
 @OPTDIR@/debug/with-vdi
 %{_unitdir}/cdrommon@.service
@@ -354,6 +353,8 @@ rm -rf $RPM_BUILD_ROOT
 
 %files client-devel
 %defattr(-,root,root,-)
+%{_libdir}/ocaml/xapi-types/*
+%{_libdir}/ocaml/xapi-consts/*
 %{_libdir}/ocaml/xapi-client/*
 
 %files datamodel-devel

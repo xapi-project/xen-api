@@ -333,6 +333,8 @@ install:
 	$(IPROG) quicktest $(DESTDIR)$(OPTDIR)/debug
 	cp -f quicktestbin $(DESTDIR)$(OPTDIR)/debug
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) rbac_static.csv $(DESTDIR)$(OPTDIR)/debug
+
 
 .PHONY: clean
 clean:
