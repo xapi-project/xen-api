@@ -341,15 +341,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %files tests
 %defattr(-,root,root,-)
-@OPTDIR@/debug/cli-rt-domu-shar.sh
-@OPTDIR@/debug/cli_test
-@OPTDIR@/debug/install-debian-pv-inside.sh
-@OPTDIR@/debug/install-debian-pv.sh
-@OPTDIR@/debug/myfirstpatch.asc
 @OPTDIR@/debug/perftest
 @OPTDIR@/debug/quicktest
 @OPTDIR@/debug/quicktestbin
-/cli-rt/*
 
 %files client-devel
 %defattr(-,root,root,-)
