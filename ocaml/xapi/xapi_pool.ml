@@ -196,29 +196,41 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_contain_shared_SRs, []))
     end in
 
-  let allow_management_interface_on_vlan () =
-    (* Allow pool-join if joining host and the pool have management interface on same vlan *)
-    match Db.VLAN.get_all ~__context with
-    | [] -> false
-    | [vlan] ->
-      (try
-        Db.PIF.get_VLAN ~__context ~self:(
-          Xapi_host.get_management_interface ~__context ~host:(Helpers.get_localhost ~__context)) =
-        Client.PIF.get_VLAN rpc session_id (
-          Client.Host.get_management_interface rpc session_id (get_master ~rpc ~session_id))
-       with e -> error "Caught '%s' while checking if joining host and the pool have a management interface on same vlan" (ExnHelper.string_of_exn e);
-         false)
-    | _ -> false
+  (* Allow pool-join if host does not have any bonds *)
+  let assert_no_bonds_on_me () =
+    if Db.Bond.get_all ~__context <> [] then begin
+      error "The current host has network bonds: it cannot join a new pool";
+      raise (Api_errors.Server_error(Api_errors.pool_joining_host_has_bonds, []))
+    end in
+
+  (* Allow pool-join if host does not have any tunnels *)
+  let assert_no_tunnels_on_me () =
+    if Db.Tunnel.get_all ~__context <> [] then begin
+      error "The current host has tunnels: it cannot join a new pool";
+      raise (Api_errors.Server_error(Api_errors.pool_joining_host_has_tunnels, []))
+    end in
+
+  (* Allow pool-join if host does not have any non-management VLANs *)
+  let assert_no_non_management_vlans_on_me () =
+    List.iter (fun self ->
+      let pif = Db.VLAN.get_untagged_PIF ~__context ~self in
+      if Db.PIF.get_management ~__context ~self:pif <> true then begin
+        error "The current host has non-management vlans: it cannot join a new pool";
+        raise (Api_errors.Server_error(Api_errors.pool_joining_host_has_non_management_vlans, []))
+      end
+    ) (Db.VLAN.get_all ~__context)
   in
 
-  let assert_only_physical_pifs_or_vlan_pif () =
-    let non_physical_pifs_count = List.length (Db.PIF.get_refs_where ~__context ~expr:(
-        Eq (Field "physical", Literal "false")
-      )) in
-    (* Allow pool-join if host has only physical pifs or at most one vlan *)
-    if (non_physical_pifs_count > 1) || ((non_physical_pifs_count = 1) && not (allow_management_interface_on_vlan ())) then begin
-      error "The current host has network bonds, tunnels or multiple VLANs: it cannot join a new pool";
-      raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_only_have_physical_pifs_or_vlan_pif, []))
+  (* Allow pool-join if the host and the pool are on the same management vlan *)
+  let assert_management_vlan_are_same () =
+    let management_pif = Xapi_host.get_management_interface ~__context ~host:(Helpers.get_localhost ~__context) in
+    let vlan_tag = Db.PIF.get_VLAN ~__context ~self:management_pif in
+    let remote_management_pif = Client.Host.get_management_interface rpc session_id (get_master ~rpc ~session_id) in
+    let remote_vlan_tag = Client.PIF.get_VLAN rpc session_id remote_management_pif in
+    if vlan_tag <> remote_vlan_tag then begin
+      error "The current host and the pool management vlan does not match: it cannot join a new pool";
+      raise (Api_errors.Server_error(Api_errors.pool_joining_host_management_vlan_does_not_match,
+        [Int64.to_string vlan_tag; Int64.to_string remote_vlan_tag]))
     end in
 
   (* Used to tell XCP and XenServer apart - use PRODUCT_BRAND if present, else use PLATFORM_NAME. *)
@@ -381,7 +393,10 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_hosts_compatible ();
   if (not force) then assert_hosts_homogeneous ();
   assert_no_shared_srs_on_me ();
-  assert_only_physical_pifs_or_vlan_pif ();
+  assert_no_bonds_on_me ();
+  assert_no_tunnels_on_me ();
+  assert_no_non_management_vlans_on_me ();
+  assert_management_vlan_are_same ();
   assert_external_auth_matches ();
   assert_restrictions_match ();
   assert_homogeneous_vswitch_configuration ();
