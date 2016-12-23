@@ -621,8 +621,9 @@ let make_stream common source relative_to source_format destination_format =
     | [ raw; vhd ] ->
       let path = common.path @ [ Filename.dirname vhd ] in
       retry common 3 (fun () -> Vhd_IO.openchain ~path vhd false) >>= fun t ->
+      Vhd_IO.close t >>= fun () ->
       Vhd_lwt.IO.openfile raw false >>= fun raw ->
-      ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
+      ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> Vhd_IO.close t >>= fun () -> return (Some t) ) >>= fun from ->
       Hybrid_input.raw ?from raw t
     | _ ->
       fail (Failure (Printf.sprintf "Failed to parse hybrid source: %s (expected raw_disk|vhd_disk)" source))
@@ -633,8 +634,9 @@ let make_stream common source relative_to source_format destination_format =
     | [ raw; vhd ] ->
       let path = common.path @ [ Filename.dirname vhd ] in
       retry common 3 (fun () -> Vhd_IO.openchain ~path vhd false) >>= fun t ->
+      Vhd_IO.close t >>= fun () ->
       Vhd_lwt.IO.openfile raw false >>= fun raw ->
-      ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> return (Some t) ) >>= fun from ->
+      ( match relative_to with None -> return None | Some f -> Vhd_IO.openchain ~path f false >>= fun t -> Vhd_IO.close t >>= fun () -> return (Some t) ) >>= fun from ->
       Hybrid_input.vhd ?from raw t
     | _ ->
       fail (Failure (Printf.sprintf "Failed to parse hybrid source: %s (expected raw_disk|vhd_disk)" source))
