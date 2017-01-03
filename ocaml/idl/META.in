@@ -1,4 +1,0 @@
-version = "@VERSION@"
-description = "Xapi datamodel library for code generators"
-requires = "xml-light2,stdext,stunnel,http-svr,xcp"
-archive(native) = "datamodel.cmxa"

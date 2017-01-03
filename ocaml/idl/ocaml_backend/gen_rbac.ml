@@ -73,8 +73,6 @@ let replace_char _str c1 c2 =
   str
 
 let role_uuid name = hash2uuid name
-let ref_prefix = Ref.ref_prefix
-let role_ref name = (ref_prefix ^ (role_uuid name))
 
 let permission_description = "A basic permission"
 let permission_name wire_name =

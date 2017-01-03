@@ -952,8 +952,8 @@ let eject ~__context ~host =
     (* delete backup databases and any temporary restore databases *)
     Unixext.unlink_safe Xapi_globs.backup_db_xml;
     Unixext.unlink_safe Xapi_globs.db_temporary_restore_path;
-    Unixext.unlink_safe Xapi_globs.ha_metadata_db;
-    Unixext.unlink_safe Xapi_globs.gen_metadata_db;
+    Unixext.unlink_safe Db_globs.ha_metadata_db;
+    Unixext.unlink_safe Db_globs.gen_metadata_db;
 
     (* If we've got local storage, remove it *)
     if (Helpers.local_storage_exists ()) then begin
@@ -970,7 +970,7 @@ let eject ~__context ~host =
     Mutex.lock Pool_db_backup.slave_backup_m;
     finally
       (fun () ->
-         let dbs = Parse_db_conf.parse_db_conf !Xapi_globs.db_conf_path in
+         let dbs = Parse_db_conf.parse_db_conf !Db_globs.db_conf_path in
          (* We need to delete all local dbs but leave remote ones alone *)
          let local = List.filter (fun db -> not db.Parse_db_conf.is_on_remote_storage) dbs in
          List.iter Unixext.unlink_safe (List.map (fun db->db.Parse_db_conf.path) local);

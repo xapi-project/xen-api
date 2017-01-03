@@ -26,6 +26,8 @@ let relax_xsm_sr_check = ref true
 (* xapi process returns this code on exit when it wants to be restarted *)
 let restart_return_code = 123
 
+let _ = Db_globs.restart_fn := (fun () -> D.info "Executing Db_globs.restart_fn: exiting with code %d" restart_return_code; exit restart_return_code)
+
 let pool_secret = ref ""
 
 let localhost_ref : [`host] Ref.t ref = ref Ref.null
@@ -92,7 +94,6 @@ let emergency_mode_error = ref (Api_errors.Server_error(Api_errors.host_still_bo
 let http_realm = "xapi"
 
 let log_config_file = ref (Filename.concat "/etc/xensource" "log.conf")
-let db_conf_path = ref (Filename.concat "/etc/xensource" "db.conf")
 let remote_db_conf_fragment_path = ref (Filename.concat "/etc/xensource" "remote.db.conf")
 let cpu_info_file = ref (Filename.concat "/etc/xensource" "boot_time_cpus")
 let initial_host_free_memory_file = "/var/run/nonpersistent/xapi/boot_time_memory"
@@ -231,12 +232,6 @@ let sm_error_generic_VDI_delete_failure = 80
 (* temporary restore path for db *)
 let db_temporary_restore_path = Filename.concat "/var/lib/xcp" "restore_db.db"
 
-(* temporary path for the HA metadata database *)
-let ha_metadata_db = Filename.concat "/var/lib/xcp" "ha_metadata.db"
-
-(* temporary path for the general metadata database *)
-let gen_metadata_db = Filename.concat "/var/lib/xcp" "gen_metadata.db"
-
 (* temporary path for opening a foreign metadata database *)
 let foreign_metadata_db = Filename.concat "/var/lib/xcp" "foreign.db"
 
@@ -300,7 +295,6 @@ let shared_db_vdi_size = 134217728L (* 128 * 1024 * 1024 = 128 megs *)
 
 (* Mount point for the shared DB *)
 let shared_db_mount_point = Filename.concat "/var/lib/xcp" "shared_db"
-let snapshot_db = Filename.concat "/var/lib/xcp" "snapshot.db"
 
 (* Device for shared DB VBD *)
 let shared_db_device = "15"
@@ -411,6 +405,7 @@ let hosts_which_are_shutting_down_m = Mutex.create ()
 
 let xha_timeout = "timeout"
 
+(* Note the following constant has an equivalent in the db layer *)
 let http_limit_max_rpc_size = 300 * 1024 (* 300K *)
 let http_limit_max_cli_size = 200 * 1024 (* 200K *)
 let http_limit_max_rrd_size = 2 * 1024 * 1024 (* 2M -- FIXME : need to go below 1mb for security purpose. *)
@@ -533,12 +528,6 @@ let memory_ratio_pv  = ("memory-ratio-pv", "0.25")
 (** The maximum allowed number of redo_log instances. *)
 let redo_log_max_instances = 8
 
-(** The prefix of the file used as a socket to communicate with the block device I/O process *)
-let redo_log_comms_socket_stem = "sock-blkdev-io"
-
-(** The maximum permitted number of block device I/O processes we are waiting to die after being killed *)
-let redo_log_max_dying_processes = 2
-
 (** {3 Settings related to the metadata VDI which hosts the redo log} *)
 
 (** Reason associated with the static VDI attach, to help identify the metadata VDI later (HA) *)
@@ -549,20 +538,6 @@ let gen_metadata_vdi_reason = "general metadata VDI"
 
 (** Reason associated with the static VDI attach, to help identify the metadata VDI later (opening foreign databases) *)
 let foreign_metadata_vdi_reason = "foreign metadata VDI"
-
-(** The length, in bytes, of one redo log which constitutes half of the VDI *)
-let redo_log_length_of_half = 60 * 1024 * 1024
-
-(** {3 Settings related to the exponential back-off of repeated attempts to reconnect after failure} *)
-
-(** The initial backoff delay, in seconds *)
-let redo_log_initial_backoff_delay = 2
-
-(** The factor by which the backoff delay is multiplied with each successive failure *)
-let redo_log_exponentiation_base = 2
-
-(** The maximum permitted backoff delay, in seconds *)
-let redo_log_maximum_backoff_delay = 120
 
 (** Pool.other_config key which, when set to the value "true", enables generation of METADATA_LUN_{HEALTHY_BROKEN} alerts *)
 let redo_log_alert_key = "metadata_lun_alerts"
@@ -647,16 +622,6 @@ let persist_xenopsd_md_root = Filename.concat "/var/lib/xcp" "xenopsd_md"
 (** {Host updates directory} *)
 let host_update_dir = "/var/update"
 
-(** Dynamic configurations to be read whenever xapi (re)start *)
-
-let master_connection_reset_timeout = ref 120.
-
-(* amount of time to retry master_connection before (if
-   restart_on_connection_timeout is set) restarting xapi; -ve means don't
-   timeout: *)
-let master_connection_retry_timeout = ref (-1.)
-
-let master_connection_default_timeout = ref 10.
 
 let qemu_dm_ready_timeout = ref 300.
 
@@ -738,25 +703,6 @@ let ha_default_timeout_base = ref 60.
 
 let guest_liveness_timeout = ref 300.
 
-let permanent_master_failure_retry_interval = ref 60.
-
-(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while emptying *)
-let redo_log_max_block_time_empty = ref 2.
-
-(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while reading *)
-let redo_log_max_block_time_read = ref 30.
-
-(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while writing a delta *)
-let redo_log_max_block_time_writedelta = ref 2.
-
-(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while writing a database *)
-let redo_log_max_block_time_writedb = ref 30.
-
-(** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while initially connecting to it *)
-let redo_log_max_startup_time = ref 5.
-
-(** The delay between each attempt to connect to the block device I/O process *)
-let redo_log_connect_delay = ref 0.1
 
 (** The default time, in µs, in which tapdisk3 will keep polling the vbd ring buffer in expectation for extra requests from the guest *)
 let default_vbd3_polling_duration = ref 1000
@@ -791,7 +737,6 @@ let xe_path = ref "xe"
 
 let pbis_force_domain_leave_script = ref "pbis-force-domain-leave"
 
-let redo_log_block_device_io = ref "block_device_io"
 
 let sparse_dd = ref "sparse_dd"
 
@@ -834,8 +779,6 @@ let post_install_scripts_dir = ref "/opt/xensource/packages/post-install-scripts
 
 let gpg_homedir = ref "/opt/xensource/gpg"
 
-let static_vdis_dir = ref "/etc/xensource/static-vdis"
-
 let update_issue_script = ref "update-issue"
 
 let kill_process_script = ref "killall"
@@ -863,9 +806,9 @@ let sr_health_check_task_label = "SR Recovering"
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
 let xapi_globs_spec =
-  [ "master_connection_reset_timeout", Float master_connection_reset_timeout;
-    "master_connection_retry_timeout", Float master_connection_retry_timeout;
-    "master_connection_default_timeout", Float master_connection_default_timeout;
+  [ "master_connection_reset_timeout", Float Db_globs.master_connection_reset_timeout;
+    "master_connection_retry_timeout", Float Db_globs.master_connection_retry_timeout;
+    "master_connection_default_timeout", Float Db_globs.master_connection_default_timeout;
     "qemu_dm_ready_timeout", Float qemu_dm_ready_timeout;
     "hotplug_timeout", Float hotplug_timeout;
     "pif_reconfigure_ip_timeout", Float pif_reconfigure_ip_timeout;
@@ -899,13 +842,13 @@ let xapi_globs_spec =
     "ha_monitor_startup_timeout", Float ha_monitor_startup_timeout;
     "ha_default_timeout_base", Float ha_default_timeout_base;
     "guest_liveness_timeout", Float guest_liveness_timeout;
-    "permanent_master_failure_retry_interval", Float permanent_master_failure_retry_interval;
-    "redo_log_max_block_time_empty", Float redo_log_max_block_time_empty;
-    "redo_log_max_block_time_read", Float redo_log_max_block_time_read;
-    "redo_log_max_block_time_writedelta", Float redo_log_max_block_time_writedelta;
-    "redo_log_max_block_time_writedb", Float redo_log_max_block_time_writedb;
-    "redo_log_max_startup_time", Float redo_log_max_startup_time;
-    "redo_log_connect_delay", Float redo_log_connect_delay;
+    "permanent_master_failure_retry_interval", Float Db_globs.permanent_master_failure_retry_interval;
+    "redo_log_max_block_time_empty", Float Db_globs.redo_log_max_block_time_empty;
+    "redo_log_max_block_time_read", Float Db_globs.redo_log_max_block_time_read;
+    "redo_log_max_block_time_writedelta", Float Db_globs.redo_log_max_block_time_writedelta;
+    "redo_log_max_block_time_writedb", Float Db_globs.redo_log_max_block_time_writedb;
+    "redo_log_max_startup_time", Float Db_globs.redo_log_max_startup_time;
+    "redo_log_connect_delay", Float Db_globs.redo_log_connect_delay;
     "default-vbd3-polling-duration", Int default_vbd3_polling_duration;
     "default-vbd3-polling-idle-threshold", Int default_vbd3_polling_idle_threshold;
     "vm_call_plugin_interval", Float vm_call_plugin_interval;
@@ -1073,7 +1016,7 @@ module Resources = struct
     "xapissl", xapissl_path, "Script for starting the listening stunnel";
     "busybox", busybox, "Swiss army knife executable - used as DHCP server";
     "pbis-force-domain-leave-script", pbis_force_domain_leave_script, "Executed when PBIS domain-leave fails";
-    "redo-log-block-device-io", redo_log_block_device_io, "Used by the redo log for block device I/O";
+    "redo-log-block-device-io", Db_globs.redo_log_block_device_io, "Used by the redo log for block device I/O";
     "sparse_dd", sparse_dd, "Path to sparse_dd";
     "vhd-tool", vhd_tool, "Path to vhd-tool";
     "fence", fence, "Path to fence binary, used for HA host fencing";
@@ -1101,7 +1044,7 @@ module Resources = struct
   ]
   let essential_files = [
     "pool_config_file", pool_config_file, "Pool configuration file";
-    "db-config-file", db_conf_path, "Database configuration file";
+    "db-config-file", Db_globs.db_conf_path, "Database configuration file";
     "udhcpd-skel", udhcpd_skel, "Skeleton config for udhcp";
   ]
   let nonessential_files = [
@@ -1127,7 +1070,7 @@ module Resources = struct
     "xapi-hooks-root", xapi_hooks_root, "Root directory for xapi hooks";
     "xapi-plugins-root", xapi_plugins_root, "Optional directory containing XenAPI plugins";
     "xapi-extensions-root", xapi_extensions_root, "Optional directory containing XenAPI extensions";
-    "static-vdis-root", static_vdis_dir, "Optional directory for configuring static VDIs";
+    "static-vdis-root", Db_globs.static_vdis_dir, "Optional directory for configuring static VDIs";
   ]
 
   let xcp_resources =

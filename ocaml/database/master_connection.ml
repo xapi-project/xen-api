@@ -26,6 +26,12 @@ open D
 
 let my_connection : Stunnel.t option ref = ref None
 
+exception Uninitialised
+
+let is_slave : (unit -> bool) ref = ref (fun () -> error "is_slave called without having been set. This is a fatal error."; raise Uninitialised)
+let get_master_address = ref (fun () -> error "get_master_address called without having been set. This is a fatal error"; raise Uninitialised)
+let master_rpc_path = ref "<invalid>"
+
 exception Cannot_connect_to_master
 
 (* kill the stunnel underlying the connection.. When the master dies
@@ -39,9 +45,9 @@ exception Cannot_connect_to_master
 let force_connection_reset () =
   (* Cleanup cached stunnel connections to the master, so that future API
      	   calls won't be blocked. *)
-  if Pool_role.is_slave () then begin
-    let host = Pool_role.get_master_address () in
-    let port = !Xapi_globs.https_port in
+  if (!is_slave) () then begin
+    let host = (!get_master_address) () in
+    let port = !Db_globs.https_port in
     (* We don't currently have a method to enumerate all the stunnel links
        		   to an address in the cache. The easiest way is, for each valid config
        		   combination, we pop out (remove) its links until Not_found is raised.
@@ -96,7 +102,7 @@ let start_master_connection_watchdog() =
                    | Some t ->
                      let now = Unix.gettimeofday() in
                      let since_last_call = now -. t in
-                     if since_last_call > !Xapi_globs.master_connection_reset_timeout then
+                     if since_last_call > !Db_globs.master_connection_reset_timeout then
                        begin
                          debug "Master connection timeout: forcibly resetting master connection";
                          force_connection_reset()
@@ -119,8 +125,8 @@ exception Goto_handler
 let on_database_connection_established = ref (fun () -> ())
 
 let open_secure_connection () =
-  let host = Pool_role.get_master_address () in
-  let port = !Xapi_globs.https_port in
+  let host = (!get_master_address) () in
+  let port = !Db_globs.https_port in
   let st_proc = Stunnel.connect ~use_fork_exec_helper:true
       ~extended_diagnosis:true
       ~write_to_log:(fun x -> debug "stunnel: %s\n" x) host port in
@@ -138,7 +144,7 @@ let open_secure_connection () =
 
 (* Do a db xml_rpc request, catching exception and trying to reopen the connection if it
    fails *)
-let connection_timeout = ref !Xapi_globs.master_connection_default_timeout
+let connection_timeout = ref !Db_globs.master_connection_default_timeout
 
 (* if this is true then xapi will restart if retries exceeded [and enter emergency mode if still
    can't reconnect after reboot]. if this is false then xapi will just throw exception if retries
@@ -164,14 +170,14 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
       try
         let req_string = req in
         let length = String.length req_string in
-        if length > Xapi_globs.http_limit_max_rpc_size
+        if length > Db_globs.http_limit_max_rpc_size
         then raise Http_svr.Client_requested_size_over_limit;
         (* The pool_secret is added here and checked by the Xapi_http.add_handler RBAC code. *)
         let open Xmlrpc_client in
         let request = xmlrpc
             ~version:"1.1" ~frame:true ~keep_alive:true
             ~length:(Int64.of_int length)
-            ~cookie:["pool_secret", !Xapi_globs.pool_secret] ~body:req path in
+            ~cookie:["pool_secret", !Db_globs.pool_secret] ~body:req path in
         match !my_connection with
           None -> raise Goto_handler
         | (Some stunnel_proc) ->
@@ -198,14 +204,14 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
             )
       with
       | Http_svr.Client_requested_size_over_limit ->
-        error "Content length larger than known limit (%d)." Xapi_globs.http_limit_max_rpc_size;
+        error "Content length larger than known limit (%d)." Db_globs.http_limit_max_rpc_size;
         debug "Re-raising exception to caller.";
         raise Http_svr.Client_requested_size_over_limit
       (* TODO: This http exception handler caused CA-36936 and can probably be removed now that there's backoff delay in the generic handler _ below *)
       | Http_client.Http_error (http_code,err_msg) ->
-        error "Received HTTP error %s (%s) from master. This suggests our master address is wrong. Sleeping for %.0fs and then restarting." http_code err_msg !Xapi_globs.permanent_master_failure_retry_interval;
-        Thread.delay !Xapi_globs.permanent_master_failure_retry_interval;
-        exit Xapi_globs.restart_return_code
+        error "Received HTTP error %s (%s) from master. This suggests our master address is wrong. Sleeping for %.0fs and then executing restart_fn." http_code err_msg !Db_globs.permanent_master_failure_retry_interval;
+        Thread.delay !Db_globs.permanent_master_failure_retry_interval;
+        (!Db_globs.restart_fn) ()
       |	e ->
         begin
           error "Caught %s" (Printexc.to_string e);
@@ -237,7 +243,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
               if !restart_on_connection_timeout then
                 begin
                   debug "Exceeded timeout for retrying master connection: restarting xapi";
-                  exit Xapi_globs.restart_return_code
+                  (!Db_globs.restart_fn) ()
                 end
               else
                 begin
@@ -256,9 +262,9 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
   done;
   !result
 
-let execute_remote_fn string path =
-  let host = Pool_role.get_master_address () in
+let execute_remote_fn string =
+  let host = (!get_master_address) () in
   Db_lock.with_lock
     (fun () ->
        (* Ensure that this function is always called under mutual exclusion (provided by the recursive db lock) *)
-       do_db_xml_rpc_persistent_with_reopen ~host ~path string)
+       do_db_xml_rpc_persistent_with_reopen ~host ~path:(!master_rpc_path) string)

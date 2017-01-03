@@ -4,14 +4,15 @@ OCAMLPACKS = oclock xml-light2 cdrom pciutil sexpr xcp stunnel		\
              xcp.xen xcp.memory xcp.v6 tar tar.unix oPasswd xcp-inventory \
              rrdd-plugin rrd-transport pci
 
-OCAML_LIBS    = ../util/version ../util/vm_memory_constraints ../util/sanitycheck ../util/stats \
-	../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server ../util/ocamltest
+OCAML_LIBS    = ../util/version ../util/stats \
+	../idl/xapi-consts ../idl/xapi-datamodel ../xapi-types/xapi-types ../xapi-client/xapi-client ../database/xapi-database ../util/ocamltest
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
-	../autogen ../database/ \
+	../database/ \
 	../xva ../util \
-	../auth ../license ../client_records ../rfb ../gpg
+	../auth ../client_records ../rfb \
+	../xapi-types ../xapi-client
 
-UseCamlp4(rpclib.syntax, features storage_impl xapi_udhcpd storage_migrate \
+UseCamlp4(rpclib.syntax, features storage_impl xapi_globs locking_helpers xapi_udhcpd storage_migrate \
           xapi_services system_domains cancel_tests config_file_sync updates \
           sparse_dd_wrapper vhd_tool_wrapper)
 
@@ -43,37 +44,62 @@ OCAMLPACKS = $(OCAMLPACKS) $(XEN_OCAMLPACKS)
 OCamlProgram(http_test, http_test)
 OCamlProgram(show_bat, show_bat)
 
-OCamlProgram(storage_impl_test, sparse_encoding sparse_dd_wrapper storage_migrate storage_impl task_server updates storage_task storage_locks storage_impl_test)
+OCamlProgram(storage_impl_test, locking_helpers xapi_globs sparse_encoding sparse_dd_wrapper storage_migrate storage_impl task_server updates storage_task storage_locks storage_impl_test)
 
-COMMON = \
+OCamlProgram(quicktestbin, quicktest quicktest_common xapi_globs quicktest_ocamltest quicktest_storage quicktest_http quicktest_vdi_copy quicktest_encodings quicktest_vm_placement vm_placement quicktest_vm_memory_constraints vm_memory_constraints quicktest_lifecycle sparse_encoding ../client_records/record_util)
+
+OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
+
+DB_DIR=../database
+
+XAPI_MODULES = \
+	sanitycheck \
+	xapi_globs \
+	locking_helpers \
+	server \
+	db_actions \
+	custom_actions \
+	context \
 	xapi_templates \
 	../idl/api_lowlevel \
 	network \
 	nm \
 	xapi_mgmt_iface \
 	smint \
-	../gpg/gpg \
+	gpg \
 	helpers \
 	at_least_once_more \
-	fileserver
-
-#OCamlProgram(upload_receive, $(COMMON) fileupload upload_receive)
-
-OCamlProgram(quicktestbin, quicktest quicktest_common quicktest_ocamltest quicktest_storage quicktest_http quicktest_vdi_copy quicktest_encodings quicktest_vm_placement vm_placement quicktest_vm_memory_constraints ../util/vm_memory_constraints quicktest_lifecycle sparse_encoding)
-
-OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
-
-XAPI_MODULES = $(COMMON) \
+	fileserver \
+	license_init \
+	../client_records/records \
+	../client_records/record_util \
+	vm_memory_constraints \
+	taskHelper exnHelper \
+	server_helpers session_check \
+	pool_role \
+	xapi_inventory \
+	hashtbl_xml \
+	localdb \
+	xapi_role \
+	eventgen \
+	db \
+	rbac \
+	rbac_audit \
+	rbac_static \
+	helper_hostname \
+	helper_process \
+	xmlrpc_sexpr \
+	xapi_extensions \
 	agility \
 	network \
-	../util/table \
+	table \
 	balloon \
 	daemon_manager \
 	map_check \
 	system_domains \
 	local_work_queue \
 	../xva/xva \
-	../idl/ocaml_backend/json \
+	json \
 	../rfb/rfb \
 	../rfb/rfb_randomtest \
 	../client_records/records \
@@ -122,10 +148,10 @@ XAPI_MODULES = $(COMMON) \
 	xapi_support \
 	xapi_session \
 	xapi_auth \
-	../auth/auth_signature \
-	../auth/authx \
-	../auth/extauth \
-	../auth/extauth_plugin_ADpbis \
+	auth_signature \
+	authx \
+	extauth \
+	extauth_plugin_ADpbis \
 	xapi_subject \
 	audit_log \
 	xapi_xenops \
@@ -261,7 +287,7 @@ XAPI_MODULES = $(COMMON) \
 	xapi_config \
 	features \
 	pool_features \
-	../license/license_init \
+	license_init \
 	xapi_pci \
 	xapi_pci_helpers \
 	xapi_pgpu \
@@ -272,7 +298,7 @@ XAPI_MODULES = $(COMMON) \
 	xapi_stats \
 	rrdd_proxy \
 	rrdd_helper \
-	../util/rpc_retry \
+	rpc_retry \
 	xapi \
 	cluster_stack_constraints \
 	vm_platform \
@@ -293,6 +319,10 @@ OCamlProgram(binpack, binpack binpack_test xapi_fist)
 
 OCamlProgram(at_least_once_more, at_least_once_more at_least_once_more_test)
 
+OCamlProgram(testauth, testauth)
+
+OCamlProgram(testauthx, testauthx authx auth_signature ../idl/api_errors)
+
 .DEFAULT: xapi
 
 .PHONY: install
@@ -303,6 +333,8 @@ install:
 	$(IPROG) quicktest $(DESTDIR)$(OPTDIR)/debug
 	cp -f quicktestbin $(DESTDIR)$(OPTDIR)/debug
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) rbac_static.csv $(DESTDIR)$(OPTDIR)/debug
+
 
 .PHONY: clean
 clean:

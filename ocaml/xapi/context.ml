@@ -129,7 +129,7 @@ let string_of_task __context = __context.dbg
 let check_for_foreign_database ~__context =
   match __context.session_id with
   | Some sid ->
-    (match Db_backend.get_registered_database sid with
+    (match Db_backend.get_registered_database (Ref.string_of sid) with
      | Some database -> {__context with database = database}
      | None -> __context)
   | None ->

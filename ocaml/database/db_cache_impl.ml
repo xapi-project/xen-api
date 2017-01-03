@@ -216,7 +216,7 @@ let db_get_by_uuid t tbl uuid_val =
 let db_get_by_name_label t tbl label =
   read_field_where t
     {table=tbl; return=Db_names.ref;
-     where_field=(Escaping.escape_id ["name"; "label"]);
+     where_field="name__label";
      where_value=label}
 
 (* Read references from tbl *)
@@ -277,8 +277,8 @@ let load connections default_schema =
 
   (* We also consider populating from the HA metadata LUN and the general metadata LUN *)
   let connections =
-    Parse_db_conf.make Xapi_globs.ha_metadata_db ::
-    (Parse_db_conf.make Xapi_globs.gen_metadata_db) :: connections in
+    Parse_db_conf.make Db_globs.ha_metadata_db ::
+    (Parse_db_conf.make Db_globs.gen_metadata_db) :: connections in
 
   (* If we have a temporary_restore_path (backup uploaded in previous run of xapi process) then restore from that *)
   let populate db =
@@ -396,7 +396,3 @@ let stats t =
       (name, size) :: acc)
     (Database.tableset (get_database t))
     []
-
-
-
-

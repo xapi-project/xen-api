@@ -1,5 +1,4 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common
-OCAMLINCLUDES = ../xapi
+OCAML_LIBS    = ../util/version
 OCAMLPACKS += unix cdrom xcp-inventory
 
 OCamlProgram(cdrommon, cdrommon)

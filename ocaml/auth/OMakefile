@@ -1,5 +1,4 @@
 OTHER_CLIBS = -cclib -lpam
-OCAMLINCLUDES += ../autogen ../idl/ocaml_backend ../idl ../xapi ..
 
 StaticCLibrary(auth_stubs, xa_auth xa_auth_stubs)
 OCamlLibraryClib(pam, pam, auth_stubs)
@@ -8,13 +7,6 @@ section
 	OCAML_LIBS += pam
 	OCAML_CLIBS += auth_stubs
 
-	OCamlProgram(testauth, testauth)
-	OCamlProgram(testauthx, testauthx authx auth_signature ../idl/api_errors)
-
 .PHONY: clean
 clean:
-	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig testauth testauthx
-
-.PHONY: install
-install:
-	mkdir -p $(DESTDIR)$(OPTDIR)/bin
+	rm -rf $(CLEAN_OBJS)

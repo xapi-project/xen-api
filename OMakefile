@@ -139,7 +139,7 @@ export
 # Ocaml #############################################################################
 OCAML_PHASE1= autogen_idl
 OCAML_PHASE2= \
-  $(if $(BYTE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cma) $(if $(NATIVE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cmxa) 
+  $(if $(BYTE_ENABLED), ocaml/xapi-client/xapi-client.cma) $(if $(NATIVE_ENABLED), ocaml/xapi-client/xapi-client.cmxa) 
 
 # JS ################################################################################
 JS_PHASE1=
@@ -169,24 +169,16 @@ OCAML_PHASE3_XEN = \
 #ocaml/xapi/monitor_fake_plugin
 
 OCAML_PHASE3_NOXEN = \
-		     ocaml/ptoken/genptoken \
-	ocaml/auth/testauth \
-	ocaml/auth/testauthx \
+	ocaml/ptoken/genptoken \
+	ocaml/xapi/testauth \
+	ocaml/xapi/testauthx \
 	ocaml/xe-cli/xe \
 	ocaml/xsh/xsh \
-	ocaml/xe-cli/rt/test_host \
-	ocaml/xe-cli/rt/gtclient \
-	ocaml/xe-cli/rt/gtserver_linux \
-	ocaml/xe-cli/rt/xgetip \
-	ocaml/xe-cli/rt/geneva/cli_test \
-	ocaml/xe-cli/rt/geneva/sm_stress \
 	ocaml/events/event_listen \
-	ocaml/console/console \
 	ocaml/graph/graph \
 	ocaml/rfb/rfb_randomtest \
 	ocaml/database/unit_test_marshall \
 	ocaml/database/block_device_io \
-	ocaml/toplevel \
 	ocaml/cdrommon/cdrommon \
 	ocaml/xapi/binpack \
 	ocaml/idl/datamodel \

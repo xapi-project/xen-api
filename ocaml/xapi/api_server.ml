@@ -191,7 +191,7 @@ let callback is_json req bio _ =
 (** HTML callback that dispatches an RPC and returns the response. *)
 let jsoncallback req bio _ =
   let fd = Buf_io.fd_of bio in (* fd only used for writing *)
-  let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in
+  let body = Http_svr.read_body ~limit:Db_globs.http_limit_max_rpc_size req bio in
   debug "Here in jsoncallback";
   try
     debug "Got the jsonrpc body: %s" body;

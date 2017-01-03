@@ -585,7 +585,7 @@ let register_hooks () = Db_action_helper.events_register event_add
 let on_session_deleted session_id =
   (* Unregister this session if is associated with in imported DB. *)
   (* FIXME: this doesn't logically belong in the event code *)
-  Db_backend.unregister_session session_id;
+  Db_backend.unregister_session (Ref.string_of session_id);
 
   Next.on_session_deleted session_id;
   From.on_session_deleted session_id

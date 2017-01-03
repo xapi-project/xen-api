@@ -1,8 +1,7 @@
-OCAML_LIBS    = ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../util/stats ../idl/ocaml_backend/server
-OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../database
+OCAML_LIBS    = ../util/version ../database/xapi-database 
+OCAMLINCLUDES = ../database
 OCAMLPACKS    =  xml-light2 uuid sexpr xcp stunnel http-svr gzip uuid xcp-inventory
 
-OCamlProgram(xapi-db-upgrade-4.2, xapi-db-upgrade-4.2)
 OCamlProgram(xapi-db-process, xapi_db_process)
 
 .PHONY: install
@@ -12,4 +11,4 @@ install:
 
 .PHONY: clean
 clean:
-	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi xapi-db-process
+	rm -rf $(CLEAN_OBJS) xapi-db-process

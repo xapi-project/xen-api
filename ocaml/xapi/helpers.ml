@@ -732,10 +732,12 @@ let get_vif_metrics ~__context ~self =
 let get_pool_secret () =
   try
     Unix.access !Xapi_globs.pool_secret_path [Unix.F_OK];
-    pool_secret := Unixext.string_of_file !Xapi_globs.pool_secret_path
+    pool_secret := Unixext.string_of_file !Xapi_globs.pool_secret_path;
+    Db_globs.pool_secret := !pool_secret;
   with _ -> (* No pool secret exists. *)
     let mk_rand_string () = Uuid.to_string (Uuid.make_uuid()) in
     pool_secret := (mk_rand_string()) ^ "/" ^ (mk_rand_string()) ^ "/" ^ (mk_rand_string());
+    Db_globs.pool_secret := !pool_secret;
     Unixext.write_string_to_file !Xapi_globs.pool_secret_path !pool_secret
 
 (* Checks that a host has a PBD for a particular SR (meaning that the

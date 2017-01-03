@@ -23,10 +23,10 @@ val blow_away_non_persistent_fields :
   Schema.t -> Db_cache_types.Database.t -> Db_cache_types.Database.t
 
 val create_registered_session :
-  (unit -> API.ref_session) -> Db_ref.t -> API.ref_session
+  (unit -> string) -> Db_ref.t -> string
 
-val unregister_session : API.ref_session -> unit
+val unregister_session : string -> unit
 
-val is_session_registered : API.ref_session -> bool
+val is_session_registered : string -> bool
 
-val get_registered_database : API.ref_session -> Db_ref.t option
+val get_registered_database : string -> Db_ref.t option

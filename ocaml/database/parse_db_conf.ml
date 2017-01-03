@@ -59,7 +59,7 @@ let generation_read dbconn =
 
 (* The db conf used for bootstrap purposes, e.g. mounting the 'real' db on shared storage *)
 let db_snapshot_dbconn = {dummy_conf with
-                          path=Xapi_globs.snapshot_db
+                          path=Db_globs.snapshot_db
                          }
 
 let from_mode v =
@@ -83,7 +83,7 @@ let from_block r =
 
 let write_db_conf connections =
   let dbconf = String.concat "\n" (List.map from_block connections) in
-  Unixext.write_string_to_file !Xapi_globs.db_conf_path dbconf
+  Unixext.write_string_to_file !Db_globs.db_conf_path dbconf
 
 let to_mode s =
   match s with

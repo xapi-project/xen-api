@@ -1,8 +1,9 @@
 
-OCAMLINCLUDES = ../idl/ocaml_backend ../xapi ../idl ../util ../autogen ..
+OCAMLINCLUDES = ../util
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp sexpr rpclib uuid gzip xcp-inventory oUnit
 #OCAMLPPFLAGS  = -pp "camlp4o" 
 #OCAMLDEPFLAGS = -pp "camlp4o"
+OCAML_LIBS += ../idl/xapi-consts
 
 UseCamlp4(rpclib.syntax, db_rpc_common_v2 db_cache_types db_filter_types)
 UseCamlp4(sexplib.syntax, schema)
@@ -11,24 +12,29 @@ OCamlGeneratedFiles(db_filter_parse.ml db_filter_parse.mli db_filter_lex.ml)
 
 OCamlProgram(unit_test_sql, unit_test_sql)
 
+OCamlLibrary(xapi-database, db_globs parse_db_conf static_vdis_list string_unmarshall_helper string_marshall_helper xml_spaces db_action_helper db_xml db_remote_cache_access_v1 db_rpc_common_v1 db_rpc_client_v1 db_remote_cache_access_v2 db_rpc_common_v2 db_rpc_client_v2 db_cache_types schema db_filter db_filter_types db_filter_parse db_filter_lex db_cache db_cache_impl db_names db_upgrade db_exn ref_index db_backend db_ref backend_xml generation db_connections db_conn_store master_connection db_lock block_device_io_errors redo_log)
+
 BLOCK_DEVICE_IO_FILES = \
+	db_globs \
 	block_device_io_errors \
 	block_device_io \
-	../xapi/xapi_globs ../idl/ocaml_backend/ref \
+	db_globs \
 	../xapi/helper_process ../xapi/helper_hostname ../idl/api_errors
 
-OCamlProgram(block_device_io, $(BLOCK_DEVICE_IO_FILES))
+section:
+	OCAML_LIBS += ../xapi-types/xapi-types
+	OCamlProgram(block_device_io, $(BLOCK_DEVICE_IO_FILES))
 
 DATABASE_SERVER_FILES = database_server_main test_schemas ../autogen/db_actions 
 DATABASE_TEST_FILES = db_cache_test test_schemas
 section:
 	#XXX there are lots of interdependencies which we should be aim to remove
-	OCAML_LIBS += ../util/version ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../util/stats ../idl/ocaml_backend/server
+	OCAML_LIBS += xapi-database ../util/version ../xapi-types/xapi-types ../xapi-client/xapi-client ../util/stats
 	OCamlProgram(database_server, $(DATABASE_SERVER_FILES))
 	OCamlProgram(database_test, $(DATABASE_TEST_FILES))
 
 section:
-	OCAML_LIBS += ../idl/ocaml_backend/common ../idl/ocaml_backend/client ../idl/ocaml_backend/server
+	OCAML_LIBS += ../xapi-types/xapi-types ../xapi-client/xapi-client xapi-database
 	OCamlProgram(unit_test_marshall, unit_test_marshall db_remote_cache_access_v1)
 
 .PHONY: install

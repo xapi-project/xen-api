@@ -8,18 +8,20 @@ OCAMLINCLUDES = \
 	../database \
 	../xapi \
 	../idl \
-	../idl/ocaml_backend \
-	../autogen \
+	../xapi \
+	../xapi-client \
+	../xapi-types \
 	../license \
 
 OCAML_LIBS = \
 	../util/version \
-	../idl/ocaml_backend/common \
-	../idl/ocaml_backend/client \
-	../idl/ocaml_backend/server \
+	../idl/xapi-consts \
+	../idl/xapi-datamodel \
+	../xapi-types/xapi-types \
+	../xapi-client/xapi-client \
+	../database/xapi-database \
 	../auth/pam \
 	../util/stats \
-	../util/sanitycheck \
 	../xapi/xapi \
 
 OCAML_OBJS = \
@@ -70,6 +72,7 @@ OCAML_OBJS = \
 	test_pvs_proxy \
 	test_pvs_server \
 	test_pvs_cache_storage \
+	test_event \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
 
