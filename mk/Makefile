@@ -7,13 +7,8 @@ include $(B_BASE)/rpmbuild.mk
 
 REPO                   = $(call git_loc,xen-api)
 
-STAGING                = $(REPO)/dist/staging
-OUTPUT_XAPI            = $(MY_MAIN_PACKAGES)/xapi.tar.bz2
-OUTPUT_XAPI_DEVEL      = $(MY_OUTPUT_DIR)/xapi-devel.tar.gz
 OUTPUT_XAPI_SRC        = $(MY_SOURCES)/xen-api-src.tar.bz2
 
-STAGING_CLI_RT         = $(REPO)/dist/cli-rt
-OUTPUT_CLI_RT          = $(MY_OUTPUT_DIR)/cli-regress.tar.gz
 OUTPUT_CLI_RPM_SOURCES = $(RPM_SOURCESDIR)/xe $(RPM_SOURCESDIR)/bash-completion
 
 OUTPUT_DOCS            = $(MY_OUTPUT_DIR)/sdkiso
@@ -56,7 +51,7 @@ $(OUTPUT_XAPI_SRC):
 		git archive --prefix=$$(echo $@ | sed -r "s/([^/]*\/)*([^./]*)(.[^./]*)*/\2\//") --format=tar HEAD | bzip2 -z > $@; \
 	fi; # git archive in xen-api/mk/Makefile
 
-$(OUTPUT_CLI_RT) $(OUTPUT_SDK): $(MY_MAIN_PACKAGES)/.dirstamp $(RPM_DIRECTORIES)
+$(OUTPUT_SDK): $(MY_MAIN_PACKAGES)/.dirstamp $(RPM_DIRECTORIES)
 	(cd $(REPO); ./configure)
 	$(MAKE) clean
 	$(MAKE) -C $(REPO) version
@@ -78,7 +73,7 @@ $(OUTPUT_CLI_RT) $(OUTPUT_SDK): $(MY_MAIN_PACKAGES)/.dirstamp $(RPM_DIRECTORIES)
 
 .PHONY: clean
 clean:
-	rm -f $(OUTPUT_XAPI) $(OUTPUT_XAPI_DEVEL) $(OUTPUT_XAPI_SRC) $(OUTPUT_CLI_RT) $(OUTPUT_WEBZIP) $(OUTPUT_SDK)
+	rm -f $(OUTPUT_XAPI_SRC) $(OUTPUT_WEBZIP) $(OUTPUT_SDK)
 	rm -rf $(OUTPUT_DATAMODEL_DIR) $(OUTPUT_DOCS) $(OUTPUT_SDK_DIR)/tmp \
 	  $(MY_OUTPUT_DIR)/SRPMS $(RPM_RPMSDIR) $(MY_MAIN_PACKAGES) $(MY_XCP_PACKAGES)
 	$(MAKE) -C $(REPO) clean
