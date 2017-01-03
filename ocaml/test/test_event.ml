@@ -214,7 +214,7 @@ let object_level_event_test session_id =
   let __context, session_id = event_setup_common () in
   let m = Mutex.create () in
   let finished = ref false in
-  let reported_failure = ref false in
+  let failure = ref false in
   let vm_a = make_vm ~__context ~name_label:"vm_a" () in
   let vm_b = make_vm ~__context ~name_label:"vm_b" () in
 
@@ -236,10 +236,10 @@ let object_level_event_test session_id =
            List.iter
              (fun event ->
                 if event.reference <> Ref.string_of vm_a then begin
-                  Printf.printf "event on %s which we aren't watching\n%!" event.reference;
+                  Printf.printf "FAILURE: event on %s which we aren't watching\n%!" event.reference;
                   Mutex.execute m
                     (fun () ->
-                       reported_failure := true;
+                       failure := true;
                        finished := true;
                     )
                 end
@@ -265,10 +265,14 @@ let object_level_event_test session_id =
   Thread.delay 1.0;
   Mutex.execute m
     (fun () ->
-       if not (!reported_failure) then begin
-         if !finished
-         then ()
-         else assert_bool "failed to see object-level event change" false
+      if not !finished then begin
+        Printf.printf "FAILURE: Didn't get expected change in event thread\n%!";
+        failure := true;
+      end);
+  Mutex.execute m
+    (fun () ->
+       if (!failure) then begin
+         assert_bool "failed to see object-level event change" false
        end
     )
 
