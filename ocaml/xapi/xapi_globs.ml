@@ -549,9 +549,6 @@ let serialize_pool_enable_disable_extauth = Mutex.create()
 
 let event_hook_auth_on_xapi_initialize_succeeded = ref false
 
-(** Directory used by the v6 license policy engine for caching *)
-let upgrade_grace_file = Filename.concat "/var/lib/xcp" "ugp"
-
 (** Xenclient enabled *)
 let xenclient_enabled = false
 
