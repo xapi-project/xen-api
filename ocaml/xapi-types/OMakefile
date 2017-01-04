@@ -1,9 +1,9 @@
-COMMON_OBJS = ref aPI event_types 
+COMMON_OBJS = ref aPI event_types features
 OCAMLINCLUDES += ../idl ../xapi ../idl/ocaml_backend
 OCAMLPACKS += http-svr
 
 OCamlLibrary(xapi-types, $(COMMON_OBJS))
-UseCamlp4(rpclib.syntax, event_types aPI)
+UseCamlp4(rpclib.syntax, event_types aPI features)
 
 .PHONY: clean
 clean:
