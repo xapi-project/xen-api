@@ -87,6 +87,24 @@ Library xenopsd
     oclock
   CSources:	      sockopt_stubs.c
 
+Executable dbgring
+  CompiledObject:     best
+  Path:               xc
+  MainIs:             dbgring.ml
+  BuildDepends:
+    xenctrl,
+    xenstore,
+    xenstore.unix,
+    xenstore_transport,
+    xenstore_transport.unix,
+    threads,
+    stdext,
+    xcp.xen,
+    rpclib,
+    uutf,
+    xcp,
+    rpclib.json
+
 Executable set_domain_uuid
   CompiledObject:     best
   Path:               tools
