@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 109e0ec543651aed62733bb129a75555)
+# DO NOT EDIT (digest: 5e20bed5a241d3d51d8b546f027d5682)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -46,6 +46,21 @@ true: annot, bin_annot
 "lib/sockopt_stubs.c": pkg_xenstore_transport
 "lib/sockopt_stubs.c": pkg_xenstore_transport.unix
 "lib/sockopt_stubs.c": pkg_xmlm
+# Executable dbgring
+<xc/dbgring.{native,byte}>: pkg_rpclib
+<xc/dbgring.{native,byte}>: pkg_rpclib.json
+<xc/dbgring.{native,byte}>: pkg_stdext
+<xc/dbgring.{native,byte}>: pkg_threads
+<xc/dbgring.{native,byte}>: pkg_uutf
+<xc/dbgring.{native,byte}>: pkg_xcp
+<xc/dbgring.{native,byte}>: pkg_xcp.xen
+<xc/dbgring.{native,byte}>: pkg_xenctrl
+<xc/dbgring.{native,byte}>: pkg_xenstore
+<xc/dbgring.{native,byte}>: pkg_xenstore.unix
+<xc/dbgring.{native,byte}>: pkg_xenstore_transport
+<xc/dbgring.{native,byte}>: pkg_xenstore_transport.unix
+<xc/*.ml{,i,y}>: pkg_rpclib.json
+<xc/*.ml{,i,y}>: pkg_stdext
 # Executable set_domain_uuid
 <tools/set_domain_uuid.{native,byte}>: oasis_executable_set_domain_uuid_byte
 <tools/*.ml{,i,y}>: oasis_executable_set_domain_uuid_byte
