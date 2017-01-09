@@ -480,8 +480,13 @@ module Intel = struct
             /// conf.identifier.low_gm_sz
             --- 1L
           in
-          if vgpus_per_pgpu <= 0L then
-            None
+          if vgpus_per_pgpu <= 0L then 
+            begin
+              warn "Not enough memory for Intel VGPUs. \
+                    If you intend to use them, increase the GPU \
+                    BAR size in the BIOS settings.";
+              None
+            end
           else
             let vgpu_size =
               Constants.pgpu_default_size /// vgpus_per_pgpu
