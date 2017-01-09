@@ -105,6 +105,29 @@ let read_bridges_from_inventory () =
   with _ ->
     []
 
+(* Ensure the PIF is not a bond slave. *)
+let assert_not_bond_slave_of ~__context ~self =
+  if Db.PIF.get_bond_slave_of ~__context ~self <> Ref.null then
+    raise (Api_errors.Server_error (Api_errors.cannot_plug_bond_slave, [Ref.string_of self]))
+
+(* Ensure the PIF has valid IPv4 configuration mode. *)
+let assert_valid_ip_configuration ~__context ~self =
+  if Db.PIF.get_ip_configuration_mode ~__context ~self = `None then
+    raise (Api_errors.Server_error(Api_errors.pif_has_no_network_configuration, [Ref.string_of self]))
+
+(* Ensure the PIF has valid IPv6 configuration mode. *)
+let assert_valid_ipv6_configuration ~__context ~self =
+  if Db.PIF.get_ipv6_configuration_mode ~__context ~self = `None then
+    raise (Api_errors.Server_error(Api_errors.pif_has_no_v6_network_configuration, [Ref.string_of self]))
+
+let assert_usable_for_management ~__context ~primary_address_type ~self =
+  assert_not_bond_slave_of ~__context ~self;
+  if primary_address_type = `IPv4 then
+    assert_valid_ip_configuration ~__context ~self
+  else if primary_address_type = `IPv6 then
+    assert_valid_ipv6_configuration ~__context ~self
+  else ()
+
 let assert_not_in_bond ~__context ~self =
   (* Prevent bond slaves interfaces *)
   let bond = Db.PIF.get_bond_slave_of ~__context ~self in

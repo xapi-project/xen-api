@@ -1119,6 +1119,47 @@ let designate_new_master ~__context ~host =
     Xapi_pool_transition.attempt_two_phase_commit_of_new_master ~__context true peers my_address
   end
 
+let management_reconfigure ~__context ~network =
+  (* Disallow if HA is enabled *)
+  let pool = Helpers.get_pool ~__context in
+  if Db.Pool.get_ha_enabled ~__context ~self:pool then
+    raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
+
+  (* Create a hash table for hosts with pifs for the network *)
+  let pifs_on_network = Db.Network.get_PIFs ~__context ~self:network in
+  let hosts_with_pifs = Hashtbl.create 16 in
+  List.iter (fun self ->
+    let host = Db.PIF.get_host ~__context ~self in
+    Hashtbl.add hosts_with_pifs host self;
+  ) pifs_on_network;
+
+  (* All Hosts must have associated PIF on the network *)
+  let all_hosts = Db.Host.get_all ~__context in
+  List.iter (fun host ->
+    if not(Hashtbl.mem hosts_with_pifs host) then
+      raise (Api_errors.Server_error(Api_errors.pif_not_present, [Ref.string_of host; Ref.string_of network]));
+  ) all_hosts;
+
+  let address_type = Db.PIF.get_primary_address_type ~__context ~self:(List.hd pifs_on_network) in 
+  List.iter (fun self ->
+    let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self in
+    if primary_address_type <> address_type then
+      raise (Api_errors.Server_error(Api_errors.pif_incompatible_primary_address_type, [Ref.string_of self]));
+    Xapi_pif.assert_usable_for_management ~__context ~primary_address_type ~self;
+  ) pifs_on_network;
+
+  (* Perform Host.management_reconfigure on slaves first and last on master *)
+  let f ~rpc ~session_id ~host =
+    Client.Host.management_reconfigure ~rpc ~session_id ~pif:(Hashtbl.find hosts_with_pifs host)
+  in
+  Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context f;
+
+  (* Perform Pool.recover_slaves *)
+  let hosts_recovered =
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
+      Client.Pool.recover_slaves rpc session_id) in
+  List.iter (fun host -> debug "Host recovered=%s" (Db.Host.get_uuid ~__context ~self:host)) hosts_recovered
+
 let initial_auth ~__context =
   !Xapi_globs.pool_secret
 

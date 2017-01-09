@@ -6805,6 +6805,23 @@ let pool_create_VLAN = call
     ~allowed_roles:_R_POOL_OP
     ()
 
+let pool_management_reconfigure = call
+    ~name:"management_reconfigure"
+    ~in_oss_since:None
+    ~in_product_since:rel_falcon
+    ~params:[
+             Ref _network, "network", "The network";
+    ]
+    ~doc:"Reconfigure the management network interface for all Hosts in the Pool"
+    ~errs:[ Api_errors.ha_is_enabled;
+            Api_errors.pif_not_present;
+            Api_errors.cannot_plug_bond_slave;
+            Api_errors.pif_incompatible_primary_address_type;
+            Api_errors.pif_has_no_network_configuration;
+            Api_errors.pif_has_no_v6_network_configuration
+          ]
+    ~allowed_roles:_R_POOL_OP
+    ()
 
 let hello_return = Enum("hello_return", [
     "ok", "";
@@ -7278,6 +7295,7 @@ let pool =
       ; pool_hello
       ; pool_ping_slave
       ; pool_create_VLAN
+      ; pool_management_reconfigure
       ; pool_create_VLAN_from_PIF
       ; pool_slave_network_report
       ; pool_enable_ha
