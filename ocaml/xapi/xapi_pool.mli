@@ -75,6 +75,7 @@ val eject : __context:Context.t -> host:API.ref_host -> unit
 val sync_m : Mutex.t
 val sync_database : __context:Context.t -> unit
 val designate_new_master : __context:Context.t -> host:API.ref_host -> unit
+val management_reconfigure : __context:Context.t -> network:API.ref_network -> unit
 val initial_auth : __context:'a -> string
 val is_slave : __context:Context.t -> host:'b -> bool
 val hello :
