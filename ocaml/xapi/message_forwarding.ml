@@ -566,6 +566,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.Pool.designate_new_master ~host in
       do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Pool.designate_new_master rpc session_id host)
 
+    let management_reconfigure ~__context ~network =
+      info "Pool.management_reconfigure: pool = '%s'; network = '%s'" (current_pool_uuid ~__context) (network_uuid ~__context network);
+      Local.Pool.management_reconfigure __context network
+
     let enable_ha ~__context ~heartbeat_srs ~configuration =
       info "Pool.enable_ha: pool = '%s'; heartbeat_srs = [ %s ]; configuration = [ %s ]"
         (current_pool_uuid ~__context)
