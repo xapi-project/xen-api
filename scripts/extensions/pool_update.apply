@@ -63,8 +63,8 @@ def execute_apply(session, update_package, yum_conf_file):
             raise ApplyFailure(output)
 
 
-def remove_group(group):
-    cmd = ['yum', 'group', 'mark', 'remove', group]
+def remove_group(group, yum_conf_file):
+    cmd = ['yum', 'group', 'mark', 'remove', group, '-c', yum_conf_file]
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
     output, _ = p.communicate()
     xcp.logger.info('pool_update.apply %r returncode=%r output=%r', cmd, p.returncode, output)
@@ -135,7 +135,7 @@ if __name__ == '__main__':
                 file.write("{0}".format(yum_conf))
 
             execute_apply(session, '@update', yum_conf_file)
-            remove_group('update')
+            remove_group('update', yum_conf_file)
 
             session.xenapi.pool_update.resync_host(host)
             print(success_message())
