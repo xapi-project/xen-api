@@ -723,7 +723,7 @@ Authorized Roles: {1}</value>
     <value>The adapter id is missing</value>
   </data>
   <data name="SR_BACKEND_FAILURE_433" xml:space="preserve">
-    <value>The username is missing</value>
+    <value>The user name is missing</value>
   </data>
   <data name="SR_BACKEND_FAILURE_434" xml:space="preserve">
     <value>The password is missing</value>
@@ -762,7 +762,7 @@ Authorized Roles: {1}</value>
     <value>The tapdisk failed</value>
   </data>
   <data name="SR_BACKEND_FAILURE_446" xml:space="preserve">
-    <value>Extended characters are not supported in SMB paths, usernames, and passwords.</value>
+    <value>Extended characters are not supported in SMB paths, user names, and passwords.</value>
   </data>
   <data name="SR_BACKEND_FAILURE_47" xml:space="preserve">
     <value>The storage repository is not available</value>
@@ -825,7 +825,7 @@ Authorized Roles: {1}</value>
     <value>Unable to add the iSCSI device</value>
   </data>
   <data name="SR_BACKEND_FAILURE_68" xml:space="preserve">
-    <value>Logging in to the iSCSI target failed. Check your username and password.</value>
+    <value>Logging in to the iSCSI target failed. Check your user name and password.</value>
   </data>
   <data name="SR_BACKEND_FAILURE_69" xml:space="preserve">
     <value>Logging out of the iSCSI target failed</value>
@@ -1043,7 +1043,7 @@ Authorized Roles: {1}</value>
   <data name="VM_NOT_RESIDENT_HERE" xml:space="preserve">
     <value>The specified VM is not currently resident on the specified server.</value>
   </data>
-    <data name="VM_REQUIRES_GPU" xml:space="preserve">
+  <data name="VM_REQUIRES_GPU" xml:space="preserve">
     <value>You attempted to run a VM on a host which doesn't have a GPU available in the GPU group needed by the VM. The VM has a virtual GPU attached to this GPU group.</value>
   </data>
   <data name="VM_REQUIRES_GPU-SHORT" xml:space="preserve">
