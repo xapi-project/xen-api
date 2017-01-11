@@ -35,6 +35,7 @@ let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =
   vlan, untagged_PIF
 
 let create ~__context ~tagged_PIF ~tag ~network =
+  Xapi_network.assert_network_is_managed ~__context ~self:network;
   if Db.PIF.get_managed ~__context ~self:tagged_PIF <> true then
     raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of tagged_PIF]));
 
@@ -92,10 +93,10 @@ let destroy ~__context ~self =
        		   connecting this host to the network. Therefore it is safe to detach the network. *)
     let network = Db.PIF.get_network ~__context ~self:untagged_PIF in
     let bridge = Db.Network.get_bridge ~__context ~self:network in
-
+    let managed = Db.Network.get_managed ~__context ~self:network in
     Xapi_pif.unplug ~__context ~self:untagged_PIF;
 
-    Xapi_network.detach ~__context bridge;
+    Xapi_network.detach ~__context ~bridge_name:bridge ~managed;
 
     (try
        let vlan = Db.PIF.get_VLAN_master_of ~__context ~self:untagged_PIF in

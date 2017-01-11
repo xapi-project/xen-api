@@ -2002,7 +2002,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     "network-create",
     {
       reqd=["name-label"];
-      optn=["name-description"; "MTU"];
+      optn=["name-description"; "MTU"; "bridge"; "managed"];
       help="Create a new network.";
       implementation=No_fd Cli_operations.net_create;
       flags=[];
