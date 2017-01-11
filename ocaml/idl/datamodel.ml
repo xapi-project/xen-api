@@ -222,6 +222,12 @@ let get_product_releases in_product_since =
     | x::xs -> if x=in_product_since then "closed"::x::xs else go_through_release_order xs
   in go_through_release_order release_order
 
+let falcon_release =
+  { internal = get_product_releases rel_falcon
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
 let dundee_plus_release =
   { internal = get_product_releases rel_dundee_plus
   ; opensource=get_oss_releases None
@@ -535,6 +541,8 @@ let _ =
     ~doc:"Only the local superuser can execute this operation" ();
 
   (* PIF/VIF/Network errors *)
+  error Api_errors.network_unmanaged [ "network" ]
+    ~doc:"The network is not managed by xapi." ();
   error Api_errors.network_already_connected ["network"; "connected PIF"]
     ~doc:"You tried to create a PIF, but the network you tried to attach it to is already attached to some other PIF, and so the creation failed." ();
   error Api_errors.cannot_destroy_system_network [ "network" ]
@@ -652,6 +660,9 @@ let _ =
     ~doc:"Operation cannot proceed while a tunnel exists on this interface." ();
   error Api_errors.bridge_not_available [ "bridge" ]
     ~doc:"Could not find bridge required by VM." ();
+  error Api_errors.bridge_name_exists [ "bridge" ]
+    ~doc:"The specified bridge already exists." ();
+
   (* VM specific errors *)
   error Api_errors.vm_is_protected [ "vm" ]
     ~doc:"This operation cannot be performed because the specified VM is protected by xHA" ();
@@ -5097,6 +5108,7 @@ let network_introduce_params first_rel =
     {param_type=Int; param_name="MTU"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=Map(String,String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=String; param_name="bridge"; param_doc=""; param_release=first_rel; param_default=None};
+    {param_type=Bool; param_name="managed"; param_doc=""; param_release=falcon_release; param_default=None};
   ]
 
 (* network pool introduce is used to copy network records on pool join -- it's the network analogue of VDI/PIF.pool_introduce *)
@@ -5177,7 +5189,8 @@ let network =
           field ~qualifier:DynamicRO ~ty:(Set (Ref _pif)) "PIFs" "list of connected pifs";
           field ~qualifier:RW ~ty:Int ~default_value:(Some (VInt 1500L)) ~in_product_since:rel_midnight_ride "MTU" "MTU in octets";
           field ~writer_roles:_R_POOL_OP ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP));("XenCenterCreateInProgress",(_R_VM_OP))];
-          field ~in_oss_since:None ~qualifier:DynamicRO "bridge" "name of the bridge corresponding to this network on the local host";
+          field ~lifecycle:[Published, rel_rio, ""; Changed, rel_falcon, "Added to the constructor (network.create)"] ~in_oss_since:None ~qualifier:StaticRO  ~ty:String ~default_value:(Some (VString "")) "bridge" "name of the bridge corresponding to this network on the local host";
+          field ~lifecycle:[Published, rel_falcon, ""] ~qualifier:StaticRO ~ty:Bool ~default_value:(Some (VBool true)) "managed" "true if the bridge is managed by xapi";
           field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this network";
           field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
           field ~qualifier:DynamicRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "unlocked")) ~ty:network_default_locking_mode "default_locking_mode" "The network will use this value to determine the behaviour of all VIFs where locking_mode = default";
