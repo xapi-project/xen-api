@@ -21,6 +21,9 @@ open D
 open Db_filter
 open Network
 
+let bridge_whitelist = ref [
+    "br-int"
+]
 let internal_bridge_m = Mutex.create ()
 
 let create_internal_bridge ~__context ~bridge ~uuid ~persist =
@@ -33,7 +36,7 @@ let create_internal_bridge ~__context ~bridge ~uuid ~persist =
     (* Atomic test-and-set process *)
     Mutex.execute internal_bridge_m (fun () ->
         let current = Net.Bridge.get_all dbg () in
-        if not(List.mem bridge current) then begin
+        if not(List.mem bridge current) && not(List.mem bridge !bridge_whitelist) then begin
           let other_config = ["network-uuids", uuid] in
           debug "Creating internal bridge %s (uuid:%s)" bridge uuid;
           Net.Bridge.create dbg ~name:bridge ~other_config ();
@@ -117,7 +120,8 @@ let detach ~__context bridge_name =
         Net.Interface.bring_down dbg ~name:iface;
         Net.Bridge.remove_port dbg ~bridge:bridge_name ~name:iface
       ) (Net.Bridge.get_interfaces dbg ~name:bridge_name);
-    Net.Bridge.destroy dbg ~name:bridge_name ()
+    if not(List.mem bridge_name !bridge_whitelist) then
+        Net.Bridge.destroy dbg ~name:bridge_name ();
   end
 
 let attach ~__context ~network ~host = attach_internal ~__context ~self:network ()
@@ -170,23 +174,40 @@ let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~
     ~other_config ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked ~assigned_ips:[];
   r
 
-let create ~__context ~name_label ~name_description ~mTU ~other_config ~tags =
+let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~tags =
   Mutex.execute mutex (fun () ->
       let networks = Db.Network.get_all ~__context in
       let bridges = List.map (fun self -> Db.Network.get_bridge ~__context ~self) networks in
       let mTU = if mTU <= 0L then 1500L else mTU in
-      let rec loop () =
-        let name = stem ^ (string_of_int !counter) in
-        incr counter;
-        if List.mem name bridges then loop ()
-        else
-          let r = Ref.make () and uuid = Uuid.make_uuid () in
-          Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
-            ~current_operations:[] ~allowed_operations:[]
-            ~name_label ~name_description ~mTU ~bridge:name
-            ~other_config ~blobs:[] ~tags ~default_locking_mode:`unlocked ~assigned_ips:[];
-          r in
-      loop ())
+      let dbg = Context.string_of_task __context in
+      let ovs_bridges = Net.Bridge.get_all dbg () in
+      if bridge <> "" then (
+        if not(List.mem bridge !bridge_whitelist) then
+          raise (Api_errors.Server_error (Api_errors.bridge_not_supported_for_network, [ bridge ]));
+        if List.mem bridge bridges then
+          raise (Api_errors.Server_error (Api_errors.bridge_already_bound_with_network, [ bridge ]));
+        if not(List.mem bridge ovs_bridges) then
+          raise (Api_errors.Server_error (Api_errors.bridge_not_available_for_network, [ bridge ]));
+        let r = Ref.make () and uuid = Uuid.make_uuid () in
+        Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
+          ~current_operations:[] ~allowed_operations:[]
+          ~name_label ~name_description ~mTU ~bridge:bridge
+          ~other_config ~blobs:[] ~tags ~default_locking_mode:`unlocked ~assigned_ips:[];
+        r
+      )
+      else
+        let rec loop () =
+          let name = stem ^ (string_of_int !counter) in
+          incr counter;
+          if List.mem name bridges then loop ()
+          else
+            let r = Ref.make () and uuid = Uuid.make_uuid () in
+            Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
+              ~current_operations:[] ~allowed_operations:[]
+              ~name_label ~name_description ~mTU ~bridge:name
+              ~other_config ~blobs:[] ~tags ~default_locking_mode:`unlocked ~assigned_ips:[];
+            r in
+        loop ())
 
 let destroy ~__context ~self =
   let vifs = Db.Network.get_VIFs ~__context ~self in
