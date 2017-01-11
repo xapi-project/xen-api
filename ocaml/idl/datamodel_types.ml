@@ -56,6 +56,7 @@ let rel_indigo = "indigo"
 let rel_dundee = "dundee"
 let rel_dundee_plus = "dundee-plus"
 let rel_ely = "ely"
+let rel_falcon = "falcon"
 
 let release_order =
   [ rel_rio
@@ -79,6 +80,7 @@ let release_order =
   ; rel_dundee
   ; rel_dundee_plus
   ; rel_ely
+  ; rel_falcon
   ]
 
 exception Unknown_release of string
