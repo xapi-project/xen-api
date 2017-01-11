@@ -1616,7 +1616,9 @@ let net_create printer rpc session_id params =
   let network = List.assoc "name-label" params in
   let descr = List.assoc_default "name-description" params "" in
   let mtu = if List.mem_assoc "MTU" params then Int64.of_string (List.assoc "MTU" params) else 1500L in
-  let net = Client.Network.create rpc session_id network descr mtu [] [] in
+  let bridge = List.assoc_default "bridge" params "" in
+  let managed = get_bool_param params ~default:true "managed" in
+  let net = Client.Network.create rpc session_id network descr mtu [] bridge managed [] in
   let uuid = Client.Network.get_uuid rpc session_id net in
   printer (Cli_printer.PList [uuid])
 

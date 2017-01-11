@@ -433,6 +433,7 @@ let net_record rpc session_id net =
         ~get_set:(fun () -> (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.network_PIFs)) ();
       make_field ~name:"MTU" ~get:(fun () -> (Int64.to_string (x ()).API.network_MTU)) ~set:(fun x -> Client.Network.set_MTU rpc session_id net (Int64.of_string x)) ();
       make_field ~name:"bridge" ~get:(fun () -> (x ()).API.network_bridge) ();
+      make_field ~name:"managed" ~get:(fun () -> string_of_bool (x ()).API.network_managed) ();
       make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.network_other_config)
         ~add_to_map:(fun k v -> Client.Network.add_to_other_config rpc session_id net k v)
         ~remove_from_map:(fun k -> Client.Network.remove_from_other_config rpc session_id net k)

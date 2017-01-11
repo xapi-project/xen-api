@@ -48,6 +48,7 @@ let create_internal ~__context ~transport_PIF ~network ~host =
   tunnel, access_PIF
 
 let create ~__context ~transport_PIF ~network =
+  Xapi_network.assert_network_is_managed ~__context ~self:network;
   if Db.PIF.get_managed ~__context ~self:transport_PIF <> true then
     raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of transport_PIF]));
   if Db.PIF.get_bond_slave_of ~__context ~self:transport_PIF <> Ref.null then

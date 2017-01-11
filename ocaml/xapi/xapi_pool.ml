@@ -538,6 +538,7 @@ let create_or_get_network_on_master __context rpc session_id (network_ref, netwo
           ~mTU:network.API.network_MTU
           ~other_config:network.API.network_other_config
           ~bridge:network.API.network_bridge
+          ~managed:network.API.network_managed
     else begin
       debug "Recreating network '%s' as internal network." network.API.network_name_label;
       (* This call will generate a new 'xapi#' bridge name rather than keeping the
@@ -547,6 +548,8 @@ let create_or_get_network_on_master __context rpc session_id (network_ref, netwo
         ~name_description:network.API.network_name_description
         ~mTU:network.API.network_MTU
         ~other_config:network.API.network_other_config
+        ~bridge:network.API.network_bridge
+        ~managed:network.API.network_managed
         ~tags:network.API.network_tags
     end
   in
