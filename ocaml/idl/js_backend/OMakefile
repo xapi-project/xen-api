@@ -5,8 +5,8 @@ OCAMLPACKS = xml-light2 uuid rpclib
 # -----------------------------------------------------------------------
 
 # only gen_api requires datamodel library:
-OCAMLINCLUDES += .. 
-OCAML_LIBS += ../xapi-consts ../xapi-datamodel
+OCAMLINCLUDES += .. ../../xapi-consts
+OCAML_LIBS += ../../xapi-consts/xapi-consts ../xapi-datamodel
 
 OCamlProgram(main, main)
 

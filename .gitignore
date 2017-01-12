@@ -192,8 +192,13 @@ xapi.spec
 ocaml/xapi/storage_impl_test
 ocaml/xenops/domain_sethandle
 
+ocaml/xapi-cli-protocol/META
+ocaml/xapi-client/META
+ocaml/xapi-consts/META
+ocaml/xapi-types/META
+
 # Unit tests
-ocaml/test/suite
+ocaml/xapi/suite
 xapi-db.xml*
 oUnit-*.cache
 _build

@@ -1,5 +1,5 @@
-OCAML_LIBS    = ../util/version ../idl/xapi-consts ../xapi-types/xapi-types ../xapi-client/xapi-client
-OCAMLINCLUDES = ../client_records ../idl ../xapi-client ../xapi-types
+OCAML_LIBS    = ../util/version ../xapi-consts/xapi-consts ../xapi-types/xapi-types ../xapi-client/xapi-client
+OCAMLINCLUDES = ../client_records ../idl ../xapi-consts ../xapi-client ../xapi-types
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp rpclib uuid xcp-inventory
 
 PERFTEST_FILES = scenario perfutil createVM createpool testtypes perftest tests ../xapi/xapi_inventory perfdebug 

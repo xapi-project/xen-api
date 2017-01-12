@@ -3,7 +3,7 @@ OCAMLINCLUDES = ../util
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp sexpr rpclib uuid gzip xcp-inventory oUnit
 #OCAMLPPFLAGS  = -pp "camlp4o" 
 #OCAMLDEPFLAGS = -pp "camlp4o"
-OCAML_LIBS += ../idl/xapi-consts
+OCAML_LIBS += ../xapi-consts/xapi-consts
 
 UseCamlp4(rpclib.syntax, db_rpc_common_v2 db_cache_types db_filter_types)
 UseCamlp4(sexplib.syntax, schema)
@@ -19,7 +19,7 @@ BLOCK_DEVICE_IO_FILES = \
 	block_device_io_errors \
 	block_device_io \
 	db_globs \
-	../xapi/helper_process ../xapi/helper_hostname ../idl/api_errors
+	../xapi/helper_process ../xapi/helper_hostname ../xapi-consts/api_errors
 
 section:
 	OCAML_LIBS += ../xapi-types/xapi-types
@@ -29,12 +29,12 @@ DATABASE_SERVER_FILES = database_server_main test_schemas ../autogen/db_actions
 DATABASE_TEST_FILES = db_cache_test test_schemas
 section:
 	#XXX there are lots of interdependencies which we should be aim to remove
-	OCAML_LIBS += xapi-database ../util/version ../xapi-types/xapi-types ../xapi-client/xapi-client ../util/stats
+	OCAML_LIBS += xapi-database ../util/version ../xapi-types/xapi-types ../xapi-client/xapi-client ../xapi-consts/xapi-consts ../util/stats
 	OCamlProgram(database_server, $(DATABASE_SERVER_FILES))
 	OCamlProgram(database_test, $(DATABASE_TEST_FILES))
 
 section:
-	OCAML_LIBS += ../xapi-types/xapi-types ../xapi-client/xapi-client xapi-database
+	OCAML_LIBS += ../xapi-types/xapi-types ../xapi-client/xapi-client ../xapi-consts/xapi-consts xapi-database
 	OCamlProgram(unit_test_marshall, unit_test_marshall db_remote_cache_access_v1)
 
 .PHONY: install

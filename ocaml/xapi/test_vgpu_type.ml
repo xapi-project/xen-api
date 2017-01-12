@@ -48,7 +48,7 @@ module NvidiaTest = struct
       let transform = Nvidia.of_conf_file
 
       let tests = [
-        "ocaml/test/data/test_vgpu_subdevid.conf",
+        "ocaml/xapi/test_data/test_vgpu_subdevid.conf",
         Nvidia.({
             identifier = Identifier.({
                 pdev_id = 0x3333;
@@ -61,9 +61,9 @@ module NvidiaTest = struct
             max_instance = 8L;
             max_x = 1920L;
             max_y = 1200L;
-            file_path = "ocaml/test/data/test_vgpu_subdevid.conf";
+            file_path = "ocaml/xapi/test_data/test_vgpu_subdevid.conf";
           });
-        "ocaml/test/data/test_vgpu_nosubdevid.conf",
+        "ocaml/xapi/test_data/test_vgpu_nosubdevid.conf",
         Nvidia.({
             identifier = Identifier.({
                 pdev_id = 0x3333;
@@ -76,7 +76,7 @@ module NvidiaTest = struct
             max_instance = 8L;
             max_x = 1920L;
             max_y = 1200L;
-            file_path = "ocaml/test/data/test_vgpu_nosubdevid.conf";
+            file_path = "ocaml/xapi/test_data/test_vgpu_nosubdevid.conf";
           });
       ]
     end)
@@ -179,9 +179,9 @@ module IntelTest = struct
         Intel.read_whitelist ~whitelist ~device_id |> List.rev
 
       let tests = [
-        ("ocaml/test/data/gvt-g-whitelist-empty", 0x1234), [];
-        ("ocaml/test/data/gvt-g-whitelist-missing", 0x1234), [];
-        ("ocaml/test/data/gvt-g-whitelist-1234", 0x1234),
+        ("ocaml/xapi/test_data/gvt-g-whitelist-empty", 0x1234), [];
+        ("ocaml/xapi/test_data/gvt-g-whitelist-missing", 0x1234), [];
+        ("ocaml/xapi/test_data/gvt-g-whitelist-1234", 0x1234),
         [
           Intel.({
               identifier = Identifier.({
@@ -214,8 +214,8 @@ module IntelTest = struct
               max_y = 1080L;
             });
         ];
-        ("ocaml/test/data/gvt-g-whitelist-1234", 0x5678), [];
-        ("ocaml/test/data/gvt-g-whitelist-mixed", 0x1234),
+        ("ocaml/xapi/test_data/gvt-g-whitelist-1234", 0x5678), [];
+        ("ocaml/xapi/test_data/gvt-g-whitelist-mixed", 0x1234),
         [
           Intel.({
               identifier = Identifier.({

@@ -27,7 +27,9 @@ OCAMLPACKS    = stdext uuid gzip
 	doc \
 	test \
 	xapi-types \
-	xapi-client 
+	xapi-client \
+	xapi-consts \
+	xapi-cli-protocol
 
 clean:
 	rm -f $(CLEAN_OBJS)

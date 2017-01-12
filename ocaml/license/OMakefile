@@ -1,5 +1,5 @@
-OCAML_LIBS    = ../util/version ../idl/xapi-consts ../xapi-types/xapi-types ../xapi-client/xapi-client
-OCAMLINCLUDES = ../idl ../util ../xapi-types ../xapi-client
+OCAML_LIBS    = ../util/version ../xapi-consts/xapi-consts ../xapi-types/xapi-types ../xapi-client/xapi-client
+OCAMLINCLUDES = ../idl ../xapi-consts ../util ../xapi-types ../xapi-client
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp rpclib uuid systemd
 
 # Name of programs to install in dom0:
