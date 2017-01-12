@@ -491,6 +491,18 @@ module Intel = struct
             let vgpu_size =
               Constants.pgpu_default_size /// vgpus_per_pgpu
             in
+            let internal_config = let open Xapi_globs in
+              List.concat [
+                [ vgt_low_gm_sz, Int64.to_string conf.identifier.low_gm_sz
+                ; vgt_high_gm_sz, Int64.to_string conf.identifier.high_gm_sz
+                ; vgt_fence_sz, Int64.to_string conf.identifier.fence_sz
+                ]
+              ; match conf.identifier.monitor_config_file with
+                | Some monitor_config_file ->
+                  [vgt_monitor_config_file, monitor_config_file]
+                | None -> []
+              ]
+            in
             Some {
               vendor_name;
               model_name = conf.model_name;
@@ -499,16 +511,7 @@ module Intel = struct
               max_resolution_x = conf.max_x;
               max_resolution_y = conf.max_y;
               size = vgpu_size;
-              internal_config = [
-                Xapi_globs.vgt_low_gm_sz, Int64.to_string conf.identifier.low_gm_sz;
-                Xapi_globs.vgt_high_gm_sz, Int64.to_string conf.identifier.high_gm_sz;
-                Xapi_globs.vgt_fence_sz, Int64.to_string conf.identifier.fence_sz;
-              ] @ (
-                  match conf.identifier.monitor_config_file with
-                  | Some monitor_config_file ->
-                    [Xapi_globs.vgt_monitor_config_file, monitor_config_file]
-                  | None -> []
-                );
+              internal_config = internal_config;
               identifier = GVT_g conf.identifier;
               experimental = conf.experimental;
             })
