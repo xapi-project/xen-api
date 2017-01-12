@@ -25,7 +25,6 @@ OCAMLPACKS    = stdext uuid gzip
 	perftest \
 	mpathalert \
 	doc \
-	test \
 	xapi-types \
 	xapi-client \
 	xapi-consts \
