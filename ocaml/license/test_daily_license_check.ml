@@ -76,5 +76,10 @@ module Tests = Generic.Make (struct
     ]
   end)
 
-let test =
-  "test_daily_license_check" >::: Tests.tests
+let base_suite =
+  "base_suite" >:::
+  [ "test_daily_license_check" >::: Tests.tests ]
+
+let () =
+  Printexc.record_backtrace true;
+  ounit2_of_ounit1 base_suite |> OUnit2.run_test_tt_main

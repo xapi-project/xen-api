@@ -58,6 +58,7 @@ test:
 	@echo @ HA binpack test
 	@./ocaml/xapi/binpack
 	./ocaml/database/database_test
+	./ocaml/license/test_daily_license_check -verbose true
 #	The following test no longer compiles:
 #	./ocaml/xenops/device_number_test
 #	The following test must be run in dom0:

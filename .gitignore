@@ -202,3 +202,5 @@ ocaml/xapi/suite
 xapi-db.xml*
 oUnit-*.cache
 _build
+ocaml/license/test_daily_license_check
+
