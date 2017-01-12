@@ -211,4 +211,4 @@ phase2: $(OCAML_PHASE2_TARGETS) $(JS_PHASE2_TARGETS) $(JAVA_PHASE2_TARGETS)
 phase3: $(OCAML_PHASE3_TARGETS) $(JS_PHASE3_TARGETS) $(JAVA_PHASE3_TARGETS)
 
 .PHONY: test
-test: ocaml/test/suite ocaml/database/database_test
+test: ocaml/xapi/suite ocaml/database/database_test ocaml/license/test_daily_license_check

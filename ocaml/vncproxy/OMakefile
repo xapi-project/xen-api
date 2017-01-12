@@ -1,5 +1,5 @@
-OCAML_LIBS    = ../idl/xapi-consts ../xapi-types/xapi-types ../xapi-client/xapi-client
-OCAMLINCLUDES = ../idl ../xapi-types ../xapi-client
+OCAML_LIBS    = ../xapi-consts/xapi-consts ../xapi-types/xapi-types ../xapi-client/xapi-client
+OCAMLINCLUDES = ../xapi-consts ../xapi-types ../xapi-client
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr rpclib uuid
 
 OCamlProgram(vncproxy, vncproxy)

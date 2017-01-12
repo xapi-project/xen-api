@@ -5,12 +5,12 @@ OCAMLPACKS = oclock xml-light2 cdrom pciutil sexpr xcp stunnel		\
              rrdd-plugin rrd-transport pci
 
 OCAML_LIBS    = ../util/version ../util/stats \
-	../idl/xapi-consts ../idl/xapi-datamodel ../xapi-types/xapi-types ../xapi-client/xapi-client ../database/xapi-database ../util/ocamltest
+	../xapi-consts/xapi-consts ../idl/xapi-datamodel ../xapi-types/xapi-types ../xapi-client/xapi-client ../database/xapi-database ../util/ocamltest ../xapi-cli-protocol/xapi-cli-protocol
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../database/ \
 	../xva ../util \
-	../auth ../client_records ../rfb \
-	../xapi-types ../xapi-client
+	../auth ../rfb \
+	../xapi-types ../xapi-client ../xapi-cli-protocol ../xapi-consts
 
 UseCamlp4(rpclib.syntax, storage_impl xapi_globs locking_helpers xapi_udhcpd storage_migrate \
           xapi_services system_domains cancel_tests config_file_sync updates \
@@ -46,7 +46,7 @@ OCamlProgram(show_bat, show_bat)
 
 OCamlProgram(storage_impl_test, locking_helpers xapi_globs sparse_encoding sparse_dd_wrapper storage_migrate storage_impl task_server updates storage_task storage_locks storage_impl_test)
 
-OCamlProgram(quicktestbin, quicktest quicktest_common xapi_globs quicktest_ocamltest quicktest_storage quicktest_http quicktest_vdi_copy quicktest_encodings quicktest_vm_placement vm_placement quicktest_vm_memory_constraints vm_memory_constraints quicktest_lifecycle sparse_encoding ../client_records/record_util)
+OCamlProgram(quicktestbin, quicktest quicktest_common xapi_globs quicktest_ocamltest quicktest_storage quicktest_http quicktest_vdi_copy quicktest_encodings quicktest_vm_placement vm_placement quicktest_vm_memory_constraints vm_memory_constraints quicktest_lifecycle sparse_encoding record_util)
 
 OCamlProgram(xenstore_copy, xenstore_dump xenstore_copy)
 
@@ -71,8 +71,8 @@ XAPI_MODULES = \
 	at_least_once_more \
 	fileserver \
 	license_init \
-	../client_records/records \
-	../client_records/record_util \
+	records \
+	record_util \
 	vm_memory_constraints \
 	taskHelper exnHelper \
 	server_helpers session_check \
@@ -98,12 +98,10 @@ XAPI_MODULES = \
 	map_check \
 	system_domains \
 	local_work_queue \
-	../xva/xva \
+	xva \
 	json \
 	../rfb/rfb \
 	../rfb/rfb_randomtest \
-	../client_records/records \
-	../client_records/record_util \
 	task_server \
 	updates \
 	storage_task \
@@ -217,7 +215,6 @@ XAPI_MODULES = \
 	xapi_plugins \
 	xapi_fuse \
 	db_gc \
-	cli_protocol \
 	cli_cmdtable \
 	cli_frontend \
 	cli_operations \
@@ -320,9 +317,60 @@ OCamlProgram(at_least_once_more, at_least_once_more at_least_once_more_test)
 
 OCamlProgram(testauth, testauth)
 
-OCamlProgram(testauthx, testauthx authx auth_signature ../idl/api_errors)
+OCamlProgram(testauthx, testauthx authx auth_signature ../xapi-consts/api_errors)
 
 .DEFAULT: xapi
+
+OCAMLPACKS += xapi-test-utils oUnit
+
+OCAML_OBJS = \
+	mock \
+	test_state \
+	test_common \
+	test_basic \
+	test_agility \
+	test_helpers \
+	test_datamodel_utils \
+	test_db_lowlevel \
+	test_daemon_manager \
+	test_http \
+	test_pool_db_backup \
+	test_xapi_db_upgrade \
+	test_ca91480 \
+	test_vdi_allowed_operations \
+	test_ha_vm_failover \
+	test_map_check \
+	test_pool_apply_edition \
+	test_pool_license \
+	test_pool_restore_database \
+	test_pool_update \
+	test_platformdata \
+	test_sm_features \
+	test_gpu_group \
+	test_pci_helpers \
+	test_vgpu_type \
+	test_vgpu_common \
+	test_pgpu \
+	test_pgpu_helpers \
+	test_storage_migrate_state \
+	test_vm_helpers \
+	test_vm_migrate \
+	test_xenopsd_metadata \
+	test_ca121350 \
+	test_workload_balancing \
+	test_cpuid_helpers \
+	test_pool_cpuinfo \
+	test_dbsync_master \
+	test_xapi_xenops \
+	test_no_migrate \
+	test_features \
+	test_pvs_site \
+	test_pvs_proxy \
+	test_pvs_server \
+	test_pvs_cache_storage \
+	test_event \
+
+OCamlProgram(suite, suite $(OCAML_OBJS) $(XAPI_MODULES))
 
 .PHONY: install
 install:
@@ -340,5 +388,3 @@ clean:
 	rm -rf $(CLEAN_OBJS) *.aux *.log *.fig xapi
 	rm -f config_constants.ml
 	rm -f binpack xapi_unit_test storage_impl_test monitor_fake_plugin quicktestbin
-
-

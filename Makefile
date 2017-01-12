@@ -53,11 +53,12 @@ test:
 	@echo @
 #	Pipe ugly bash output to /dev/null
 	@echo @ xapi unit test suite
-	@./ocaml/test/suite -verbose true -shards 1
+	@./ocaml/xapi/suite -verbose true -shards 1
 	@echo
 	@echo @ HA binpack test
 	@./ocaml/xapi/binpack
 	./ocaml/database/database_test
+	./ocaml/license/test_daily_license_check -verbose true
 #	The following test no longer compiles:
 #	./ocaml/xenops/device_number_test
 #	The following test must be run in dom0:

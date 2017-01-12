@@ -1,0 +1,21 @@
+OBJS = cli_protocol
+
+OCamlLibrary(xapi-cli-protocol, $(OBJS))
+
+.PHONY: clean
+clean:
+	rm -rf $(CLEAN_OBJS) 
+
+.PHONY: lib-install
+META: META.in
+	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
+
+INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
+export
+
+lib-install: META
+	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore xapi-cli-protocol META $(addsuffixes .cmi, $(OBJS)) $(if $(BYTE_ENABLED), xapi-cli-protocol.cma) $(if $(NATIVE_ENABLED), xapi-cli-protocol.cmxa xapi-cli-protocol.a $(addsuffixes .cmx, $(OBJS)))
+
+.PHONY: lib-uninstall
+lib-uninstall:
+	ocamlfind remove -destdir $(INSTALL_PATH) xapi-cli-protocol

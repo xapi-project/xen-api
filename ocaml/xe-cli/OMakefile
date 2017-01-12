@@ -1,10 +1,9 @@
 OCAMLPACKS    = xml-light2 stdext stunnel xcp
-OCAMLINCLUDES += ../xapi
+OCAMLINCLUDES += ../xapi ../xapi-cli-protocol
+OCAML_LIBS += ../xapi-cli-protocol/xapi-cli-protocol
 
 section
-	OCAMLINCLUDES += .
-	OCAMLFLAGS = -dtypes -thread -warn-error F
-	CLI_FILES = newcli ../xapi/cli_protocol options
+	CLI_FILES = newcli options
 	OCamlProgram(xe, $(CLI_FILES))
 
 .PHONY: clean

@@ -2,8 +2,9 @@
 
 PSTOPDF = $(shell bash -c "which pstopdf 2>/dev/null || which ps2pdf 2>/dev/null || which ps2pdf14 2>/dev/null || echo false")
 
-OCAMLINCLUDES  = ocaml_backend ../database
+OCAMLINCLUDES  = ocaml_backend ../database ../xapi-consts
 OCAMLPACKS     = xml-light2 sexpr xcp rpclib http-svr uuid
+OCAML_LIBS     = ../xapi-consts/xapi-consts
 
 CAMLP4_FILES = datamodel_types
 
@@ -13,7 +14,6 @@ UseCamlp4(rpclib.syntax, $(CAMLP4_FILES))
 # Build datamodel library
 # -----------------------------------------------------------------------
 
-OCamlLibrary(xapi-consts, api_errors constants api_messages)
 OCamlLibrary(xapi-datamodel, datamodel datamodel_utils datamodel_types dm_api escaping datamodel_values datamodel_schema ocaml_backend/ocaml_utils)
 
 # -----------------------------------------------------------------------
@@ -21,7 +21,7 @@ OCamlLibrary(xapi-datamodel, datamodel datamodel_utils datamodel_types dm_api es
 # -----------------------------------------------------------------------
 
 DATAMODEL = datamodel
-DATAMODEL_FILES = constants datamodel_types api_errors api_messages dm_api datamodel datamodel_utils dtd_backend latex_backend dot_backend 
+DATAMODEL_FILES = datamodel_types dm_api datamodel datamodel_utils dtd_backend latex_backend dot_backend 
 
 SHARED_TEX = coversheet.tex presentation.tex vm-lifecycle.tex wire-protocol.tex
 SHARED_EPS = vm_lifecycle.eps
@@ -94,25 +94,18 @@ doc-pdf-install: doc-pdf
 
 noarch-install: doc-pdf-install
 
-META.datamodel: META.datamodel.in
-	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
-
-META.consts: META.consts.in
+META: META.in
 	sed 's/@VERSION@/$(PRODUCT_VERSION)/g' < $< > $@
 
 INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
 export
 
 .PHONY: lib-install
-lib-install: META.datamodel META.consts
+lib-install: META
 	mkdir -p $(INSTALL_PATH)
-	cp META.datamodel META
 	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore xapi-datamodel META xapi-datamodel.{a,cmxa} datamodel.cmi datamodel_types.cmi datamodel_utils.cmi dm_api.cmi
-	cp META.consts META
-	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore xapi-consts META xapi-consts.{a,cmxa} api_errors.cmi api_messages.cmi constants.cmi
 
 .PHONY: lib-uninstall
 lib-uninstall:
 	ocamlfind remove -destdir $(INSTALL_PATH) xapi-datamodel
-	ocamlfind remove -destdir $(INSTALL_PATH) xapi-consts
 

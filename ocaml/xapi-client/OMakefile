@@ -1,5 +1,5 @@
 CLIENT_OBJS = client event_helper tasks
-OCAMLINCLUDES += ../xapi-types
+OCAMLINCLUDES += ../xapi-types ../xapi-consts
 
 OCamlLibrary(xapi-client, $(CLIENT_OBJS))
 

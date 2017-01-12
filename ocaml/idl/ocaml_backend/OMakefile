@@ -9,11 +9,14 @@ XAPI_DIR = ../../xapi
 AUTOGEN_HELPER_DIR = ../../database
 CLIENT_DIR = ../../xapi-client
 TYPES_DIR = ../../xapi-types
+CONSTS_DIR = ../../xapi-consts
+OCAMLINCLUDES  = ../../xapi-consts ../
 
 OCAMLPACKS += sexpr xml-light2 http-svr rpclib stunnel
+OCAML_LIBS += ../../xapi-consts/xapi-consts
 
 # only gen_api requires datamodel library:
-GEN_API_FILES = gen_api gen_test genOCaml ocaml_syntax gen_db_actions gen_db_check gen_empty_custom gen_client gen_server gen_common gen_rbac ../escaping locking ../api_lowlevel gen_api_main ../datamodel ../constants ../api_errors ../api_messages ../datamodel_utils ../datamodel_values ocaml_utils ../datamodel_types ../dm_api 
+GEN_API_FILES = gen_api gen_test genOCaml ocaml_syntax gen_db_actions gen_db_check gen_empty_custom gen_client gen_server gen_common gen_rbac ../escaping locking ../api_lowlevel gen_api_main ../datamodel ../datamodel_utils ../datamodel_values ocaml_utils ../datamodel_types ../dm_api 
 OCamlProgram(gen_api_main, $(GEN_API_FILES))
 
 FILTER = closed # or opensource or closed or debug or implementation

@@ -1,5 +1,5 @@
 COMMON_OBJS = ref aPI event_types features
-OCAMLINCLUDES += ../idl ../xapi ../idl/ocaml_backend
+OCAMLINCLUDES += ../idl ../xapi ../idl/ocaml_backend ../xapi-consts
 OCAMLPACKS += http-svr
 
 OCamlLibrary(xapi-types, $(COMMON_OBJS))
