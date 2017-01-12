@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 07af7833f31512dff9b52e95f34484c9)
+version = "0.0.0"
+description = "Description here"
+requires = "xapi-types"
+archive(byte) = "xapi-client.cma"
+archive(byte, plugin) = "xapi-client.cma"
+archive(native) = "xapi-client.cmxa"
+archive(native, plugin) = "xapi-client.cmxs"
+exists_if = "xapi-client.cma"
+# OASIS_STOP
+

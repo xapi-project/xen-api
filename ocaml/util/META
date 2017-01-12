@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 4a7c866265df2c0711f3beb90883b317)
+version = "0.0.0"
+description = "Description here"
+requires = "xcp xcp-inventory threads"
+archive(byte) = "xapi-version.cma"
+archive(byte, plugin) = "xapi-version.cma"
+archive(native) = "xapi-version.cmxa"
+archive(native, plugin) = "xapi-version.cmxs"
+exists_if = "xapi-version.cma"
+# OASIS_STOP
+

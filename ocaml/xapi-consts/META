@@ -1,0 +1,11 @@
+# OASIS_START
+# DO NOT EDIT (digest: 30ba1bb002287edf4573eb643ef3a68f)
+version = "0.0.0"
+description = "Description here"
+archive(byte) = "xapi-consts.cma"
+archive(byte, plugin) = "xapi-consts.cma"
+archive(native) = "xapi-consts.cmxa"
+archive(native, plugin) = "xapi-consts.cmxs"
+exists_if = "xapi-consts.cma"
+# OASIS_STOP
+

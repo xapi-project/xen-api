@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: fbd6699fead01c71d8955a0f33f33d20)
+version = "0.0.0"
+description = "Description here"
+requires = "stdext threads"
+archive(byte) = "xapi-cli-protocol.cma"
+archive(byte, plugin) = "xapi-cli-protocol.cma"
+archive(native) = "xapi-cli-protocol.cmxa"
+archive(native, plugin) = "xapi-cli-protocol.cmxs"
+exists_if = "xapi-cli-protocol.cma"
+# OASIS_STOP
+

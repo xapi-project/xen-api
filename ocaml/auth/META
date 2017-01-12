@@ -1,0 +1,11 @@
+# OASIS_START
+# DO NOT EDIT (digest: c8ad99a480e77ebf797051fbdad7fb48)
+version = "0.0.0"
+description = "Description here"
+archive(byte) = "pam.cma"
+archive(byte, plugin) = "pam.cma"
+archive(native) = "pam.cmxa"
+archive(native, plugin) = "pam.cmxs"
+exists_if = "pam.cma"
+# OASIS_STOP
+

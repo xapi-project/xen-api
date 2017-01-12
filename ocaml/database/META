@@ -1,0 +1,13 @@
+# OASIS_START
+# DO NOT EDIT (digest: f689c2d404b9df452c119708f524ee86)
+version = "0.0.0"
+description = "Description here"
+requires =
+"rpclib.syntax sexplib.syntax sexpr threads http-svr gzip uuid xcp"
+archive(byte) = "xapi-database.cma"
+archive(byte, plugin) = "xapi-database.cma"
+archive(native) = "xapi-database.cmxa"
+archive(native, plugin) = "xapi-database.cmxs"
+exists_if = "xapi-database.cma"
+# OASIS_STOP
+

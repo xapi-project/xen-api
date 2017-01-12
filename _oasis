@@ -7,64 +7,354 @@ License:      LGPL-2.1 with OCaml linking exception
 Plugins:      DevFiles(0.4), META (0.4)
 BuildTools:   ocamlbuild
 
-Library ocaml_backend
-  Path:             ocaml/idl/ocaml_backend
-  Install:          false
-  InternalModules:  Ref
-  BuildDepends:     sexpr,
-                    uuid
-
-Library database
+Library xapi-database
+  CompiledObject:   best
   Path:             ocaml/database
   Install:          false
-  InternalModules:  Escaping,
-                    Schema
-  BuildDepends:     rpclib.syntax,
-                    sexplib.syntax,
-                    sexpr,
-                    threads,
-                    xcp
+  Modules:
+    Db_globs,
+    Parse_db_conf,
+    Static_vdis_list,
+    String_unmarshall_helper,
+    String_marshall_helper,
+    Xml_spaces,
+    Db_action_helper,
+    Db_xml,
+    Db_remote_cache_access_v1,
+    Db_rpc_common_v1,
+    Db_rpc_client_v1,
+    Db_remote_cache_access_v2,
+    Db_rpc_common_v2,
+    Db_rpc_client_v2,
+    Db_interface,
+    Db_cache_types,
+    Schema,
+    Db_filter,
+    Db_filter_types,
+    Db_filter_parse,
+    Db_filter_lex,
+    Db_cache,
+    Db_cache_impl,
+    Db_names,
+    Db_upgrade,
+    Db_exn,
+    Ref_index,
+    Db_backend,
+    Db_ref,
+    Backend_xml,
+    Generation,
+    Db_connections,
+    Db_conn_store,
+    Master_connection,
+    Db_lock,
+    Block_device_io_errors,
+    Redo_log
+  BuildDepends:
+    rpclib.syntax,
+    sexplib.syntax,
+    sexpr,
+    threads,
+    http-svr,
+    gzip,
+    uuid,
+    xcp
 
-Library datamodel
+Library xapi-datamodel
+  CompiledObject:   best
   Path:             ocaml/idl
   Install:          false
-  InternalModules:  Datamodel,
-                    Api_errors
-  BuildDepends:     ocaml_backend,
-                    database,
-                    rpclib.syntax,
-                    stdext,
-                    threads,
-                    xml-light2,
-                    http-svr
+  Modules:
+    Datamodel,
+    Datamodel_utils,
+    Datamodel_types,
+    Dm_api,
+    Escaping,
+    Datamodel_values,
+    Datamodel_schema
+  ByteOpt:          -warn-error +a-3-4-6-9-27-28-29
+  NativeOpt:        -warn-error +a-3-4-6-9-27-28-29
+  BuildDepends:
+    xapi-database,
+    xapi-consts,
+    rpclib.syntax,
+    stdext,
+    threads,
+    xml-light2,
+    http-svr
+
+Library xapi-consts
+  CompiledObject:   best
+  Path:             ocaml/xapi-consts
+  Install:          false
+  Modules:
+    Api_errors,
+    Constants,
+    Api_messages
 
 Executable gen_api_main
+  CompiledObject:   best
   Path:             ocaml/idl/ocaml_backend
   Install:          false
   MainIs:           gen_api_main.ml
   CompiledObject:   best
-  ByteOpt:          -warn-error +1..45
-  NativeOpt:        -warn-error +1..45
-  BuildDepends:     datamodel,
-                    stdext,
+  ByteOpt:          -warn-error +a-3-4-6-9-27-28-29
+  NativeOpt:        -warn-error +a-3-4-6-9-27-28-29
+  BuildDepends:
+    xapi-datamodel,
+    xapi-consts,
+    stdext,
+    threads
+
+Library xapi-types
+  CompiledObject:   best
+  Path:             ocaml/xapi-types
+  Install:          false
+  Modules:
+    API,
+    Ref,
+    Event_types,
+    Features
+  BuildDepends:
+    xapi-consts,
+    rpclib,
+    rpclib.syntax,
+    stdext,
+    threads,
+    http-svr,
+    uuid
+
+Library xapi-client
+  CompiledObject:   best
+  Path:              ocaml/xapi-client
+  Install:           false
+  Modules:           Client,
+                     Event_helper,
+                     Tasks
+  BuildDepends:      xapi-types
+
+Library xapi-version
+  CompiledObject:   best
+  Path:             ocaml/util
+  Install:          false
+  Modules:          Version
+  BuildDepends:     xcp,
+                    xcp-inventory,
                     threads
 
-Library autogen
-  Path:             ocaml/autogen
+Library pam
+  CompiledObject:   best
+  Path:             ocaml/auth
   Install:          false
-  InternalModules:  Client,
-                    Db_actions
-  BuildDepends:     database,
-                    datamodel,
-                    http-svr,
-                    rpclib.syntax,
-                    stdext,
-                    threads
+  Modules:          Pam
+  CSources:         xa_auth.c, xa_auth_stubs.c, xa_auth.h
+  CCOpt: -I/usr/lib64/ocaml
+  CCLib: -lpam
+
+Library rfb
+  CompiledObject:   best
+  Path:             ocaml/rfb
+  Install:          false
+  Modules:
+    Rfb,
+    Rfb_randomtest
+  BuildDepends:
+    stdext,
+    threads
+
+Library xapi-cli-protocol
+  CompiledObject:   best
+  Path:             ocaml/xapi-cli-protocol
+  Install:          false
+  Modules:          Cli_protocol
+  BuildDepends:     stdext, threads
 
 Executable xapi
+  CompiledObject:   best
   Path:             ocaml/xapi
   Install:          false
-  MainIs:           xapi.ml
+  MainIs:           xapi_main.ml
   CompiledObject:   best
-  ByteOpt:          -warn-error +1..45
-  NativeOpt:        -warn-error +1..45
+  ByteOpt:          -warn-error +a-3-4-6-9-27-28-29
+  NativeOpt:        -warn-error +a-3-4-6-9-27-28-29
+  BuildDepends:
+    oPasswd,
+    pam,
+    pciutil,
+    pci,
+    xenstore-compat,
+    oclock,
+    sha,
+    tar,
+    tar.unix,
+    tapctl,
+    xapi-version,
+    xapi-types,
+    xapi-client,
+    xapi-datamodel,
+    xapi-cli-protocol,
+    rfb,
+    stdext,
+    threads,
+    xenctrl,
+    xcp,
+    xcp.rrd,
+    xcp.storage,
+    xcp.xen,
+    xcp.network,
+    xcp.v6,
+    xcp.memory,
+    rrdd-plugin
+
+Executable xe
+  CompiledObject: best
+  Path:           ocaml/xe-cli
+  Install:        false
+  MainIs:         newcli.ml
+  BuildDepends:
+    threads,
+    stdext,
+    xapi-cli-protocol,
+    stunnel
+
+Executable mpathalert
+  CompiledObject: best
+  Path:           ocaml/mpathalert
+  Install:        false
+  MainIs:         mpathalert.ml
+  BuildDepends:
+    xml-light2,
+    stdext,
+    stunnel,
+    http-svr,
+    xcp,
+    rpclib,
+    uuid,
+    threads,
+    xapi-client
+
+Executable quicktestbin
+  CompiledObject: best
+  Path:           ocaml/xapi
+  Install:        false
+  MainIs:         quicktest.ml
+  BuildDepends:
+    oPasswd,
+    pam,
+    pciutil,
+    pci,
+    xenstore-compat,
+    oclock,
+    sha,
+    tar,
+    tar.unix,
+    tapctl,
+    xapi-version,
+    xapi-types,
+    xapi-client,
+    xapi-datamodel,
+    xapi-cli-protocol,
+    rfb,
+    stdext,
+    threads,
+    xenctrl,
+    xcp,
+    xcp.rrd,
+    xcp.storage,
+    xcp.xen,
+    xcp.network,
+    xcp.v6,
+    xcp.memory,
+    rrdd-plugin,
+    netdev
+
+Executable xsh
+  CompiledObject: best
+  Path:           ocaml/xsh
+  Install:        false
+  MainIs:         xsh.ml
+  BuildDepends:   stdext, stunnel, threads
+
+Executable cdrommon
+  CompiledObject: best
+  Path:           ocaml/cdrommon
+  Install:        false
+  MainIs:         cdrommon.ml
+  BuildDepends:   unix, cdrom, xcp-inventory, threads
+
+Executable daily-license-check
+  CompiledObject: best
+  Path:           ocaml/license
+  Install:        false
+  MainIs:         daily_license_check_main.ml
+  BuildDepends:
+    xml-light2,
+    stdext,
+    stunnel,
+    http-svr,
+    xcp,
+    rpclib,
+    uuid,
+    systemd,
+    threads,
+    xapi-client
+
+Executable xapi-db-process
+  CompiledObject: best
+  Path:           ocaml/db_process
+  Install:        false
+  MainIs:         xapi_db_process.ml
+  BuildDepends:   
+      xml-light2,
+      stdext,
+      stunnel,
+      http-svr,
+      xcp,
+      rpclib,
+      uuid,
+      systemd,
+      threads,
+      xapi-client,
+      xapi-database
+
+############################################################################
+############################################################################
+#################################### TESTS #################################
+
+Executable suite
+  CompiledObject: best
+  Path:           ocaml/xapi
+  Install:        false
+  MainIs:         suite.ml
+  BuildDepends:
+    oPasswd,
+    pam,
+    pciutil,
+    pci,
+    xenstore-compat,
+    oclock,
+    oUnit,
+    sha,
+    tar,
+    tar.unix,
+    tapctl,
+    xapi-version,
+    xapi-types,
+    xapi-client,
+    xapi-datamodel,
+    xapi-cli-protocol,
+    xapi-test-utils,
+    rfb,
+    stdext,
+    threads,
+    xenctrl,
+    xcp,
+    xcp.rrd,
+    xcp.storage,
+    xcp.xen,
+    xcp.network,
+    xcp.v6,
+    xcp.memory,
+    rrdd-plugin
+
+
+
