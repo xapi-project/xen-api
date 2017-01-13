@@ -917,10 +917,15 @@ let host_ha_xapi_healthcheck fd printer rpc session_id params =
 
 let pool_sync_database printer rpc session_id params =
   Client.Pool.sync_database rpc session_id
+
 let pool_designate_new_master printer rpc session_id params =
   let host_uuid=List.assoc "host-uuid" params in
   let host = Client.Host.get_by_uuid rpc session_id host_uuid in
   Client.Pool.designate_new_master rpc session_id host
+
+let pool_management_reconfigure printer rpc session_id params =
+  let network = Client.Network.get_by_uuid rpc session_id (List.assoc "network-uuid" params) in
+  Client.Pool.management_reconfigure rpc session_id network
 
 let pool_join printer rpc session_id params =
   try
