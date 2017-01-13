@@ -350,6 +350,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/ocaml/xapi-types/*
 %{_libdir}/ocaml/xapi-consts/*
 %{_libdir}/ocaml/xapi-client/*
+%{_libdir}/ocaml/xapi-cli-protocol/*
 
 %files datamodel-devel
 %defattr(-,root,root,-)
