@@ -1,5 +1,5 @@
-OCAML_LIBS += ../idl/xapi-consts ../idl/xapi-datamodel
-OCAMLINCLUDES += ../idl
+OCAML_LIBS += ../xapi-consts/xapi-consts ../idl/xapi-datamodel
+OCAMLINCLUDES += ../idl ../xapi-consts
 
 CAMLP4_FILES = jsapi
 UseCamlp4(rpclib.syntax, $(CAMLP4_FILES))
