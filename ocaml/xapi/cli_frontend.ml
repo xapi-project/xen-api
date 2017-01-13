@@ -186,6 +186,16 @@ let rec cmdtable_data : (string*cmd_spec) list =
       implementation=No_fd Cli_operations.pool_designate_new_master;
       flags=[];
     };
+
+    "pool-management-reconfigure",
+    {
+      reqd=["network-uuid"];
+      optn=[];
+      help="Reconfigure the management network interface for all Hosts in the Pool";
+      implementation=No_fd Cli_operations.pool_management_reconfigure;
+      flags=[];
+    };
+
     "pool-sync-database",
     {
       reqd=[];
@@ -194,6 +204,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
       implementation=No_fd Cli_operations.pool_sync_database;
       flags=[];
     };
+
     "pool-join",
     {
       reqd=["master-address"; "master-username"; "master-password"];
