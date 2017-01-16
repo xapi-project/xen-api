@@ -620,6 +620,9 @@ Authorized Roles: {1}</value>
   <data name="SR_BACKEND_FAILURE_16" xml:space="preserve">
     <value>The specified storage repository is currently in use</value>
   </data>
+  <data name="SR_BACKEND_FAILURE_169" xml:space="preserve">
+    <value>Failed to connect to Equallogic Array. Check your user name and password.</value>
+  </data>
   <data name="SR_BACKEND_FAILURE_220" xml:space="preserve">
     <value>The device configuration request is missing the Location parameter</value>
   </data>
