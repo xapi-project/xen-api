@@ -63,6 +63,11 @@ let get_pool ~__context = List.hd (Db.Pool.get_all ~__context)
 let get_master ~__context =
   Db.Pool.get_master ~__context ~self:(get_pool ~__context)
 
+let get_management_iface_is_connected ~__context =
+  let dbg = Context.string_of_task __context in
+  Net.Bridge.get_physical_interfaces dbg ~name:(Xapi_inventory.lookup Xapi_inventory._management_interface)
+  |> List.exists (fun name -> Net.Interface.is_connected dbg ~name)
+
 let get_primary_ip_addr ~__context iface primary_address_type =
   if iface = "" then
     None
