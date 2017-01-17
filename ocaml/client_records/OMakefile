@@ -1,6 +1,0 @@
-OCAMLPACKS += http-svr
-OCAMLINCLUDES += ../idl ../database ../xapi-types ../xapi-client
-
-.PHONY: clean
-clean:
-	rm -f $(CLEAN_OBJS)

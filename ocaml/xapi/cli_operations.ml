@@ -447,7 +447,7 @@ let filter_records_on_set_param records (k,v) s =
     let field = field_lookup record.fields s in
     let get_set = match field.get_set with
       | Some x -> x
-      | None -> (failwith (Printf.sprintf "Client_records broken (field %s)" s))
+      | None -> (failwith (Printf.sprintf "Records broken (field %s)" s))
     in
     try
       let set = get_set () in
@@ -469,7 +469,7 @@ let filter_records_on_map_param records (k,v) s =
     let field = field_lookup record.fields s in
     let get_map = match field.get_map with
       | Some x -> x
-      | None -> failwith (Printf.sprintf "Client_records broken (field %s)" s)
+      | None -> failwith (Printf.sprintf "Records broken (field %s)" s)
     in
     try
       let map = get_map () in
@@ -656,14 +656,14 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
         let key = String.sub k (n + 1) (String.length k - n - 1) in
         let get_map = match field.get_map with
           | Some x -> x
-          | None -> failwith (Printf.sprintf "Broken Client_records (field %s)" s)
+          | None -> failwith (Printf.sprintf "Broken Records (field %s)" s)
         in begin
           (* If set_in_map is present, use it instead of using remove_from_map followed by add_to_map. *)
           match field.set_in_map with
           | Some set_in_map -> set_in_map key v
           | None ->
             let add_to_map = match field.add_to_map with Some f -> f | None -> failwith ("Map field '"^s^"' is read-only.") in
-            let remove_from_map = match field.remove_from_map with Some f -> f | None -> failwith (Printf.sprintf "Client_records broken (field %s)" s) in
+            let remove_from_map = match field.remove_from_map with Some f -> f | None -> failwith (Printf.sprintf "Records broken (field %s)" s) in
             let map = get_map () in
             if List.mem_assoc key map then remove_from_map key;
             add_to_map key v

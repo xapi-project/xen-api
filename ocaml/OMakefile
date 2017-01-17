@@ -7,7 +7,6 @@ OCAMLPACKS    = stdext uuid gzip
 .SUBDIRS: \
 	ptoken \
 	xe-cli \
-	client_records \
 	idl \
 	util \
 	xapi \
