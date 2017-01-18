@@ -9,6 +9,7 @@ build-test: [make "test" ]
 remove: ["rm" "%{bin}%/xapi"]
 depends: [
   "ocamlfind"
+  "xapi-test-utils"
   "xapi-idl" {>= "0.12.2"}
   "xapi-libs-transitional"
   "xen-api-client"
