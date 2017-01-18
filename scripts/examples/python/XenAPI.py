@@ -127,8 +127,9 @@ class Session(xmlrpclib.ServerProxy):
     def __init__(self, uri, transport=None, encoding=None, verbose=0,
                  allow_none=1, ignore_ssl=False):
 
-        # Fix for CA-172901
-        if ignore_ssl:
+        # Fix for CA-172901 (+ Python 2.4 compatibility)
+        if not (sys.version_info[0] <= 2 and sys.version_info[1] < 7) \
+                and ignore_ssl:
             import ssl
             ctx = ssl._create_unverified_context()
         else:
