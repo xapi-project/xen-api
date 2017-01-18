@@ -132,11 +132,11 @@ class Session(xmlrpclib.ServerProxy):
                 and ignore_ssl:
             import ssl
             ctx = ssl._create_unverified_context()
+            xmlrpclib.ServerProxy.__init__(self, uri, transport, encoding,
+                                           verbose, allow_none, context=ctx)
         else:
-            ctx = None
-
-        xmlrpclib.ServerProxy.__init__(self, uri, transport, encoding,
-                                       verbose, allow_none, context=ctx)
+            xmlrpclib.ServerProxy.__init__(self, uri, transport, encoding,
+                                           verbose, allow_none)
         self.transport = transport
         self._session = None
         self.last_login_method = None
@@ -179,7 +179,7 @@ class Session(xmlrpclib.ServerProxy):
             self.last_login_method = method
             self.last_login_params = params
             self.API_version = self._get_api_version()
-        except socket.error as e:
+        except socket.error, e:
             if e.errno == socket.errno.ETIMEDOUT:
                 raise xmlrpclib.Fault(504, 'The connection timed out')
             else:
