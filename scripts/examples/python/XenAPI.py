@@ -126,9 +126,17 @@ class Session(xmlrpclib.ServerProxy):
     """
 
     def __init__(self, uri, transport=None, encoding=None, verbose=0,
-                 allow_none=1):
+                 allow_none=1, ignore_ssl=False):
+
+        # Fix for CA-172901
+        if ignore_ssl:
+            import ssl
+            ctx = ssl._create_unverified_context()
+        else:
+            ctx = None
+
         xmlrpclib.ServerProxy.__init__(self, uri, transport, encoding,
-                                       verbose, allow_none)
+                                       verbose, allow_none, context=ctx)
         self.transport = transport
         self._session = None
         self.last_login_method = None
