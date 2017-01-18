@@ -73,7 +73,6 @@ class Failure(Exception):
         try:
             return str(self.details)
         except Exception, exn:
-            import sys
             print >>sys.stderr, exn
             return "Xen-API failure: %s" % str(self.details)
 
