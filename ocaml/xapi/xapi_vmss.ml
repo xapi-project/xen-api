@@ -90,18 +90,15 @@ let set_schedule ~__context ~self ~value =
   Db.VMSS.set_schedule ~__context ~self ~value
 
 let set_type ~__context ~self ~value =
-  (* Check VMs associated to VMSS supports the new snapshot type *)
   assert_licensed ~__context;
-  let snapshot_type = Record_util.vmss_type_to_string value in
-  let vms = Db.VMSS.get_VMs ~__context ~self in
-  if vms <> [] then
-    List.iter (fun vm ->
-      let allowed_operations = Db.VM.get_allowed_operations ~__context ~self:vm in
-      if not (List.exists (fun ty -> (Record_util.vm_operation_to_string ty) = snapshot_type)
-        allowed_operations) then
-        raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
-          [Ref.string_of vm ; "VM doesn't support snapshot_type " ^ snapshot_type]));
-    ) vms;
+  (* For VMSS snapshot_type=snapshot_with_quiesce, Check VMs supports the snapshot_with_quiesce *)
+  if value = `snapshot_with_quiesce then begin
+    Pool_features.assert_enabled ~__context ~f:Features.VSS;
+    Db.VMSS.get_VMs ~__context ~self
+    |> List.iter (fun vm ->
+       Xapi_vm_helpers.assert_vm_supports_quiesce_snapshot ~__context ~self:vm
+    )
+  end;
   Db.VMSS.set_type ~__context ~self ~value
 
 (* Workaround for `param-set` calling `remove_from_schedule` first then `add_to_schedule`
