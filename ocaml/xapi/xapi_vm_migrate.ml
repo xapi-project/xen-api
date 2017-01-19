@@ -697,6 +697,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
   let open Xapi_xenops in
 
+  let localhost = Helpers.get_localhost ~__context in
   let remote = remote_of_dest dest in
 
   (* Copy mode means we don't destroy the VM on the source host. We also don't
@@ -721,6 +722,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   let snapshot_vifs = List.flatten (List.map (fun self -> Db.VM.get_VIFs ~__context ~self) snapshots) in
 
   let is_intra_pool = try ignore(Db.Host.get_uuid ~__context ~self:remote.dest_host); true with _ -> false in
+  let is_same_host = is_intra_pool && remote.dest_host == localhost in
 
   if copy && is_intra_pool then raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [ "Copy mode is disallowed on intra pool storage migration, try efficient alternatives e.g. VM.copy/clone."]));
 
@@ -753,7 +755,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
       [] vm_and_snapshots in
 
   (* Double check that all of the suspend VDIs are all visible on the source *)
-  let localhost = Helpers.get_localhost ~__context in
   List.iter (fun vdi_mirror ->
       let sr = Db.VDI.get_SR ~__context ~self:vdi_mirror.vdi in
       if not (Helpers.host_has_pbd_for_sr ~__context ~host:localhost ~sr)
@@ -911,6 +912,14 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
       SMPERF.debug "vm.migrate_send: migration initiated vm:%s" vm_uuid;
 
+      (* In case when we do SXM on the same host (mostly likely a VDI
+         migration), the VM's metadata in xenopsd will be in-place updated
+         as soon as the domain migration starts. For these case, there
+         will be no (clean) way back from this point. So we disable task
+         cancellation for them here.
+       *)
+      if is_same_host then (TaskHelper.exn_if_cancelling ~__context; TaskHelper.set_not_cancellable ~__context);
+
       (* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
       begin
         try
@@ -923,13 +932,21 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
         | Xenops_interface.Does_not_exist ("extra",_) ->
           ()
       end;
-      detach_local_network_for_vm ~__context ~vm ~destination:remote.dest_host;
+
       debug "Migration complete";
       SMPERF.debug "vm.migrate_send: migration complete vm:%s" vm_uuid;
 
-      Xapi_xenops.refresh_vm ~__context ~self:vm;
-
+      (* So far the main body of migration is completed, and the rests are
+         updates, config or cleanup on the source and destination. There will
+         be no (clean) way back from this point, due to these destructive
+         changes, so we don't want user intervention e.g. task cancellation.
+       *)
+      TaskHelper.exn_if_cancelling ~__context;
+      TaskHelper.set_not_cancellable ~__context;
       XenAPI.VM.pool_migrate_complete remote.rpc remote.session new_vm remote.dest_host;
+
+      detach_local_network_for_vm ~__context ~vm ~destination:remote.dest_host;
+      Xapi_xenops.refresh_vm ~__context ~self:vm;
 
       (* Those disks that were attached at the point the migration happened will have been
          remapped by the Events_from_xenopsd logic. We need to remap any other disks at
@@ -1011,6 +1028,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     begin match e with
       | Storage_interface.Backend_error(code, params) -> raise (Api_errors.Server_error(code, params))
       | Storage_interface.Unimplemented(code) -> raise (Api_errors.Server_error(Api_errors.unimplemented_in_sm_backend, [code]))
+      | Xenops_interface.Cancelled _ -> TaskHelper.raise_cancelled ~__context
       | _ -> raise e
     end
 
