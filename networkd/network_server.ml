@@ -175,8 +175,13 @@ module Interface = struct
 			| Static4 addrs ->
 				if Dhclient.is_running name then
 					ignore (Dhclient.stop name);
-				Ip.flush_ip_addr name;
-				List.iter (Ip.set_ip_addr name) addrs
+				(* the function is meant to be idempotent and we
+				 * want to avoid CA-239919 *)
+				let cur_addrs = Ip.get_ipv4 name in
+				let rm_addrs = List.set_difference cur_addrs addrs in
+				let add_addrs = List.set_difference addrs cur_addrs in
+				List.iter (Ip.del_ip_addr name) rm_addrs;
+				List.iter (Ip.set_ip_addr name) add_addrs
 		) ()
 
 	let get_ipv4_gateway _ dbg ~name =
