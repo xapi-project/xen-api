@@ -38,26 +38,18 @@ import com.xensource.xenapi.VM;
  */
 public class StartAllVMs extends TestBase
 {
-    public static void RunTest(ILog logger, TargetServer server) throws Exception
-    {
-        TestBase.logger = logger;
-        try
-        {
-            connect(server);
-            logln("We'll try to start all the available VMs. Since most of them will be templates");
-            logln("This should cause a fair number of exceptions");
-            startAllVMs();
-        } finally
-        {
-            disconnect();
-        }
+    public String getTestName() {
+        return "StartAllVMs";
     }
 
-    private static void startAllVMs() throws Types.XenAPIException, org.apache.xmlrpc.XmlRpcException
+    public void TestCore() throws Exception
     {
+        log("We'll try to start all the available VMs. Since most of them will be templates");
+        log("This should cause a fair number of exceptions");
+
         announce("Getting all VM records");
         Map<VM, VM.Record> vms = VM.getAllRecords(connection);
-        logln("got: " + vms.size() + " records");
+        log("got: " + vms.size() + " records");
 
         announce("Start all the available VMs");
         for (VM.Record record : vms.values())
@@ -69,38 +61,36 @@ public class StartAllVMs extends TestBase
             {
                 VM vm = VM.getByUuid(connection, record.uuid);
                 vm.start(connection, false, false);
-                logln(" -- success!");
+                log(" -- success!");
             } catch (Types.VmIsTemplate ex)
             {
                 if (record.isATemplate)
-                    logln(" -- expected failure: can't start a template.");
+                    log(" -- expected failure: can't start a template.");
                 else
                     throw ex;
             } catch (Types.NoHostsAvailable ex)
             {
-                logln(" -- predictable failure: insufficient host capacity to start the VM");
+                log(" -- predictable failure: insufficient host capacity to start the VM");
             } catch (Types.OperationNotAllowed ex)
             {
                 if (record.isControlDomain)
-                    logln(" -- expected failure: can't start the control domain");
+                    log(" -- expected failure: can't start the control domain");
                 else
                     throw ex;
             } catch (Types.VmBadPowerState ex)
             {
                 if (record.powerState != Types.VmPowerState.HALTED)
-                    logln(" -- expected failure: bad power state (actual: " + ex.actual + " expected: " + ex.expected
+                    log(" -- expected failure: bad power state (actual: " + ex.actual + " expected: " + ex.expected
                             + ")");
                 else
                     throw ex;
             } catch (Types.LicenceRestriction ex)
             {
-                logln(" -- predictable failure: licence restriction");
+                log(" -- predictable failure: licence restriction");
             } catch (Types.BootloaderFailed ex)
             {
-                logln(" -- predictable failure: the vm would not boot (" + ex + ")");
+                log(" -- predictable failure: the vm would not boot (" + ex + ")");
             }
         }
-
-        hRule();
     }
 }

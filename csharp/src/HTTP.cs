@@ -130,11 +130,17 @@ namespace XenAPI
 
         public const int DEFAULT_HTTPS_PORT = 443;
 
+        public enum ProxyAuthenticationMethod
+        {
+            Basic = 0,
+            Digest = 1
+        }
+
         /// <summary>
-        /// The authentication scheme to use for authenticating XenCenter to a proxy server. 
+        /// The authentication scheme to use for authenticating to a proxy server. 
         /// Defaults to Digest.
         /// </summary>
-        public static HTTPHelper.ProxyAuthenticationMethod ProxyAuthenticationMethod = HTTPHelper.ProxyAuthenticationMethod.Digest;
+        public static ProxyAuthenticationMethod CurrentProxyAuthenticationMethod = ProxyAuthenticationMethod.Digest;
 
         #region Helper functions
 
@@ -484,7 +490,7 @@ namespace XenAPI
 
                 string basicField = fields.Find(str => str.StartsWith("Proxy-Authenticate: Basic"));
                 string digestField = fields.Find(str => str.StartsWith("Proxy-Authenticate: Digest"));
-                if (ProxyAuthenticationMethod == HTTPHelper.ProxyAuthenticationMethod.Basic)
+                if (CurrentProxyAuthenticationMethod == ProxyAuthenticationMethod.Basic)
                 {
                     if (string.IsNullOrEmpty(basicField))
                         throw new ProxyServerAuthenticationException("Basic authentication scheme is not supported/enabled by the proxy server.");
@@ -495,7 +501,7 @@ namespace XenAPI
                     WriteLine(authenticationFieldReply, stream);
                     WriteLine(stream);
                 }
-                else if (ProxyAuthenticationMethod == HTTPHelper.ProxyAuthenticationMethod.Digest)
+                else if (CurrentProxyAuthenticationMethod == ProxyAuthenticationMethod.Digest)
                 {
                     if (string.IsNullOrEmpty(digestField))
                         throw new ProxyServerAuthenticationException("Digest authentication scheme is not supported/enabled by the proxy server.");

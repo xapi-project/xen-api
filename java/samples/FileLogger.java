@@ -28,24 +28,43 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-public class Skeleton extends TestBase
-{
-    /**
-     * Tests indicate success by returning normally from their RunTest method, and indicate failure by throwing an
-     * exception.
-     */
-    protected static void RunTest(ILog logger, TargetServer server) throws Exception
-    {
-        TestBase.logger = logger;
-        connect(server);
-        try
-        {
-            /*----------------*/
-            /* code goes here */
-            /*----------------*/
-        } finally
-        {
-            disconnect();
+import java.io.FileWriter;
+import java.io.IOException;
+
+public abstract class FileLogger {
+    private FileWriter w;
+
+    protected FileLogger(String path) {
+        try {
+            w = new FileWriter(path);
         }
+        catch (IOException e) {
+            System.err.print("Couldn't open " + path + " for log output.");
+            e.printStackTrace();
+        }
+    }
+
+    public abstract void logTestStart(TestBase test);
+
+    public abstract void logTestResult(TestBase test, RunTests.Result result);
+
+    public abstract void logException(Exception e);
+
+    public void log(String s) {
+        if (w != null) {
+            try {
+                s += "\n";
+                w.write(s);
+                w.flush();
+            }
+            catch (IOException e) {
+                System.err.print("Couldn't write to log file!");
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void logf(String s, Object... args) {
+        log(String.format(s, args));
     }
 }

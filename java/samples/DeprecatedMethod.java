@@ -39,39 +39,34 @@ import com.xensource.xenapi.Types;
  */
 public class DeprecatedMethod extends TestBase
 {
+    public String getTestName() {
+        return "DeprecatedMethod";
+    }
+
     @SuppressWarnings("deprecation")
-    public static void RunTest(ILog logger, TargetServer server) throws Exception
+    protected void TestCore() throws Exception
     {
-        TestBase.logger = logger;
-        try
+        Map<HostPatch, HostPatch.Record> all_recs = HostPatch.getAllRecords(connection);
+        if (all_recs.size() > 0)
         {
-            connect(server);
-
-            Map<HostPatch, HostPatch.Record> all_recs = HostPatch.getAllRecords(connection);
-            if (all_recs.size() > 0)
+            log("Found HostPatches. Applying the first one...");
+            Map.Entry<HostPatch, HostPatch.Record> first = null;
+            for (Map.Entry<HostPatch, HostPatch.Record> entry : all_recs.entrySet())
             {
-                logln("Found HostPatches. Applying the first one...");
-                Map.Entry<HostPatch, HostPatch.Record> first = null;
-                for (Map.Entry<HostPatch, HostPatch.Record> entry : all_recs.entrySet())
-                {
-                    first = entry;
-                    break;
-                }
-
-                logln(first.getValue().toString());                
-                try {
-                    first.getKey().apply(connection);
-                    throw new Exception("Managed to use deprecated method HostPatch.apply()!");
-                } catch (Types.MessageDeprecated e) {
-                    logln("Caught expected MessageDeprecated exception. Do not fail.");
-                }
-            } else
-            {
-                logln("There aren't any HostPatches to be applied...");
+                first = entry;
+                break;
             }
-        } finally
+
+            log(first.getValue().toString());
+            try {
+                first.getKey().apply(connection);
+                throw new Exception("Managed to use deprecated method HostPatch.apply()!");
+            } catch (Types.MessageDeprecated e) {
+                log("Caught expected MessageDeprecated exception. Do not fail.");
+            }
+        } else
         {
-            disconnect();
+            log("There aren't any HostPatches to be applied...");
         }
     }
 }

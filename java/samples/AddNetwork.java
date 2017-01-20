@@ -35,24 +35,20 @@ import com.xensource.xenapi.Network;
 
 public class AddNetwork extends TestBase
 {
+    public String getTestName() {
+        return "AddNetwork";
+    }
+
     /**
      * Adds a new internal network not attached to any NICs.
      */
-    protected static void RunTest(ILog logger, TargetServer server) throws Exception
-    {
-        TestBase.logger = logger;
-        connect(server);
-        try
-        {
-            Network.Record networkRecord = new Network.Record();
-            networkRecord.nameLabel = "TestNetwork" + new Random().nextInt(10000);
-            networkRecord.nameDescription = "Created by AddNetwork.java at " + new Date().toString();
+    protected void TestCore() throws Exception {
 
-            logln("Adding new network: " + networkRecord.nameLabel);
-            Network.create(connection, networkRecord);
-        } finally
-        {
-            disconnect();
-        }
+        Network.Record networkRecord = new Network.Record();
+        networkRecord.nameLabel = "TestNetwork" + new Random().nextInt(10000);
+        networkRecord.nameDescription = "Created by AddNetwork.java at " + new Date().toString();
+
+        log("Adding new network: " + networkRecord.nameLabel);
+        Network.create(connection, networkRecord);
     }
 }
