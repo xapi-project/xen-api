@@ -268,7 +268,7 @@ namespace XenAPI
             return false;
         }
 
-        public static int getResultCode(string line)
+        private static int getResultCode(string line)
         {
             string[] bits = line.Split(new char[] { ' ' });
             return (bits.Length < 2 ? 0 : Int32.Parse(bits[1]));
