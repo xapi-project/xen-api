@@ -36,95 +36,132 @@ import com.xensource.xenapi.*;
 
 public abstract class TestBase
 {
-    protected static ILog logger;
-    protected static Connection connection;
-    private static String connectionName;
+    /**
+     * Exception thrown when we want to skip a test
+     */
+    public class SkippingException extends Exception{
 
-    protected static void connect(TargetServer target) throws Exception
+    }
+
+    protected FileLogger logger;
+    protected Connection connection;
+    private String connectionName;
+
+    protected abstract void TestCore() throws Exception;
+    public abstract String getTestName();
+
+    public void RunTest(FileLogger logger, TargetServer server) throws Exception {
+        this.logger = logger;
+        connect(server);
+        try {
+            TestCore();
+        }
+        finally {
+            disconnect();
+        }
+    }
+
+    private void connect(TargetServer target) throws Exception
     {
-        /*
-         * Old style: Connection constructor performs login_with_password for you. Deprecated.
-         *
-         * connection = new Connection(target.Hostname, target.Username, target.Password);
-         */
-
-        /*
-         * New style: we are responsible for Session login/logout.
-         */
         connection = new Connection(new URL("https://" + target.Hostname));
-        logln(String.format("logging in to '%s' as '%s' with password '%s'...", target.Hostname, target.Username,
-                target.Password));
-        logln("Success");
+        log(String.format("logging in to '%s'...", target.Hostname));
         Session.loginWithPassword(connection, target.Username, target.Password, APIVersion.latest().toString());
-        logln(String.format("Session API version is %s", connection.getAPIVersion().toString()));
+        logf("Success! Session API version is %s", connection.getAPIVersion().toString());
 
         connectionName = target.Hostname;
     }
 
-    protected static void disconnect() throws Exception
+    private void disconnect() throws Exception
     {
-        logln("disposing connection for " + connectionName);
+        logf("disposing connection for %s", connectionName);
         Session.logout(connection);
     }
 
-    protected static void hRule()
+    protected void hRule()
     {
-        logln("----------------------------------------------------------------------");
+        log("----------------------------------------------------------------------");
     }
 
-    protected static void announce(String s)
+    protected void announce(String s)
     {
         hRule();
         log(s);
         hRule();
     }
 
-    protected static void log(String s)
+    protected void logf(String s, Object... args)
+    {
+        logger.logf(String.format(s, args));
+    }
+
+    protected void log(String s)
     {
         logger.log(s);
-    }
-
-    protected static void logf(String s, Object... args)
-    {
-        logger.log(String.format(s, args));
-    }
-
-    protected static void logln(String s)
-    {
-        logger.logln(s);
-    }
-
-    protected static void logln(Object o)
-    {
-        logln(o.toString());
-    }
-
-    protected static TargetServer ParseTarget(String[] args)
-    {
-        return new TargetServer(args[0], args[1], args[2]);
     }
 
     /**
      * Given a task in progress, sleeps until it completes, waking to print status reports periodically.
      */
-    protected static void waitForTask(Connection c, Task task, int delay) throws Exception
+    protected void waitForTask(Connection c, Task task, int delay) throws Exception
     {
         while (task.getStatus(c) == Types.TaskStatusType.PENDING)
         {
             logf("%.2f;", task.getProgress(c));
             Thread.sleep(delay);
         }
-        logln("");
     }
 
-    protected static SR getDefaultSR() throws Exception
-    {
+    /**
+     * Get the pool's default storage; if null, get a local storage.
+     * @return
+     * @throws Exception
+     */
+    protected SR getStorage() throws Exception {
         Set<Pool> pools = Pool.getAll(connection);
-        Pool pool = (pools.toArray(new Pool[0]))[0];
-        return pool.getDefaultSR(connection);
+        Pool pool = (Pool)pools.toArray()[0];
+        SR storage = pool.getDefaultSR(connection);
+
+        if (storage != null && !storage.isNull())
+            return storage;
+
+        Map<SR, SR.Record> srs = SR.getAllRecords(connection);
+        Map<Host, Host.Record> hosts = Host.getAllRecords(connection);
+
+        for (Map.Entry<SR, SR.Record> pair : srs.entrySet()) {
+            SR.Record sr = pair.getValue();
+
+            if (sr.shared || "iso".equals(sr.contentType) || !canCreateVdi(sr))
+                continue;
+
+            Set<PBD> pbds = sr.PBDs;
+            for (PBD pbd : pbds) {
+                if (!pbd.getCurrentlyAttached(connection))
+                    continue;
+
+                for (Map.Entry<Host, Host.Record> host : hosts.entrySet()) {
+                    if (pbd.getHost(connection).getUuid(connection).equals(host.getValue().uuid)) {
+                        return pair.getKey();
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
-    protected static VM getFirstWindowsTemplate() throws Exception
+    private boolean canCreateVdi(SR.Record rec) throws Exception {
+        Set<SM> sms = SM.getAll(connection);
+        for (SM sm : sms) {
+            if (sm.getType(connection).equals(rec.type)) {
+                if (sm.getFeatures(connection).containsKey("VDI_CREATE")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    protected VM getFirstWindowsTemplate() throws Exception
     {
         Map<VM, VM.Record> all_recs = VM.getAllRecords(connection);
         for (Map.Entry<VM, VM.Record> e : all_recs.entrySet())
@@ -141,7 +178,7 @@ public abstract class TestBase
     /**
      * Finds the first network (probably the one created by AddNetwork.java).
      */
-    protected static Network getFirstNetwork() throws Exception
+    protected Network getFirstNetwork() throws Exception
     {
         Set<Network> networks = Network.getAll(connection);
         for (Network i : networks)
@@ -155,9 +192,9 @@ public abstract class TestBase
     /**
      * Checks whether the master has hvm capabilities.
      */
-    protected static void checkMasterHvmCapable() throws Exception
+    protected void checkMasterHvmCapable() throws Exception
     {
-        logln("checking master has hvm capabilities...");
+        log("checking master has hvm capabilities...");
         Pool pool = (Pool) Pool.getAll(connection).toArray()[0];
         Host master = pool.getMaster(connection);
         Set<String> capabilities = master.getCapabilities(connection);

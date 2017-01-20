@@ -28,60 +28,14 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import java.io.ByteArrayOutputStream;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.util.Date;
+import java.util.*;
 
 /**
  * Runs each of the tests except EventMonitor and Https, with plain text debug output, and XML summary of test results.
  */
 public class RunTests
 {
-    private static ILog textLogger, xmlLogger;
-    private static String testName;
-    private static int succeeded = 0, failed = 0, skipped = 0;
     private static final boolean stopOnFailure = false;
-
-    private static class FileLogger implements ILog
-    {
-        private FileWriter w;
-
-        public FileLogger(String path)
-        {
-            try
-            {
-                w = new FileWriter(path);
-            } catch (IOException e)
-            {
-                System.err.print("Couldn't open " + path + " for log output.");
-                e.printStackTrace();
-            }
-        }
-
-        public void log(String s)
-        {
-            if (w != null)
-            {
-                try
-                {
-                    System.out.print(s);
-                    w.write(s);
-                    w.flush();
-                } catch (IOException e)
-                {
-                    System.err.print("Couldn't write to log file!");
-                    e.printStackTrace();
-                }
-            }
-        }
-
-        public void logln(String s)
-        {
-            log(s + "\n");
-        }
-    }
 
     /**
      * Expects the first three parameters to be server {address, username, password}.
@@ -95,12 +49,12 @@ public class RunTests
      */
     public static void main(String[] args)
     {
-        textLogger = new FileLogger("JavaTestOutput.txt");
-        xmlLogger = new FileLogger("JavaTestOutput.xml");
+        FileLogger textLogger = new FileLoggerText("JavaTestOutput.txt");
+        FileLogger xmlLogger = new FileLoggerXml("JavaTestOutput.xml");
 
         if (args.length != 3 && args.length != 5)
         {
-            logln("Expected arguments: <host> <username> <password> [nfs server] [nfs path]");
+            textLogger.log("Expected arguments: <host> <username> <password> [nfs server] [nfs path]");
             return;
         }
 
@@ -114,198 +68,77 @@ public class RunTests
             nfsPath = args[4];
         }
 
-        xml("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
-        xml("<results>");
-        xml("  <group>");
-        xml("    <name>Java</name>");
+        xmlLogger.log("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+                "<results>\n  <group>\n    <name>Java</name>");
 
-        logln("RunTests.java: test run started at " + new Date().toString());
+        textLogger.logf("RunTests.java: test run started at %s", new Date().toString());
 
-        testName = "EventMonitor";
-        try
-        {
-            testStart();
-            EventMonitor.RunNewTest(textLogger, server);
-            testSuccess();
-        } catch (Exception e)
-        {
-            testFailure(e);
-        }
-        
-        testName = "AddNetwork";
-        try
-        {
-            testStart();
-            AddNetwork.RunTest(textLogger, server);
-            testSuccess();
-        } catch (Exception e)
-        {
-            testFailure(e);
-        }
+        List<TestBase> tests = new ArrayList<TestBase>();
+        tests.add(new EventMonitor());
+        tests.add(new AddNetwork());
+        tests.add(new SessionReuse());
+        tests.add(new AsyncVMCreate());
+        tests.add(new VdiAndSrOps());
+        tests.add(new CreateVM());
+        tests.add(new DeprecatedMethod());
+        tests.add(new GetAllRecordsOfAllTypes());
+        tests.add(new Https());
+        tests.add(new SharedStorage(nfsServer, nfsPath));
+        tests.add(new StartAllVMs());
 
-        testName = "SessionReuse";
-        try
-        {
-            testStart();
-            SessionReuse.RunTest(textLogger, server);
-            testSuccess();
-        } catch (Exception e)
-        {
-            testFailure(e);
-        }
+        int succeeded = 0, failed = 0, skipped = 0;
 
-        testName = "AsyncVMCreate";
-        try
-        {
-            testStart();
-            AsyncVMCreate.RunTest(textLogger, server);
-            testSuccess();
-        } catch (Exception e)
-        {
-            testFailure(e);
-        }
+        for (TestBase test : tests) {
+            try {
+                textLogger.logTestStart(test);
+                test.RunTest(textLogger, server);
 
-        testName = "VdiAndSrOps";
-        try
-        {
-            testStart();
-            VdiAndSrOps.RunTest(textLogger, server);
-            testSuccess();
-        } catch (Exception e)
-        {
-            testFailure(e);
-        }
-
-        testName = "CreateVM";
-        try
-        {
-            testStart();
-            CreateVM.RunTest(textLogger, server);
-            testSuccess();
-        } catch (Exception e)
-        {
-            testFailure(e);
-        }
-
-        testName = "DeprecatedMethod";
-        try
-        {
-            testStart();
-            DeprecatedMethod.RunTest(textLogger, server);
-            testSuccess();
-        } catch (Exception e)
-        {
-            testFailure(e);
-        }
-
-        testName = "GetAllRecordsOfAllTypes";
-        try
-        {
-            testStart();
-            GetAllRecordsOfAllTypes.RunTest(textLogger, server);
-            testSuccess();
-        } catch (Exception e)
-        {
-            testFailure(e);
-        }
-
-        testName = "SharedStorage";
-        if (nfsServer != null && nfsPath != null)
-        {
-            try
-            {
-                testStart();
-                SharedStorage.RunTest(textLogger, server, nfsServer, nfsPath);
-                testSuccess();
-            } catch (Exception e)
-            {
-                testFailure(e);
+                succeeded++;
+                textLogger.logTestResult(test, Result.Pass);
+                xmlLogger.logTestResult(test, Result.Pass);
             }
-        } else
-        {
-            logln("nfsServer and nfsPath were not both provided. Skipping SharedStorage test");
-            testSkipped();
+            catch (TestBase.SkippingException e) {
+                skipped++;
+                textLogger.logTestResult(test, Result.Skip);
+                xmlLogger.logTestResult(test, Result.Skip);
+            }
+            catch (Exception e) {
+                failed++;
+                textLogger.logException(e);
+                textLogger.logTestResult(test, Result.Fail);
+                xmlLogger.logTestResult(test, Result.Fail);
+
+                if (stopOnFailure)
+                    System.exit(1);
+            }
         }
 
-        testName = "StartAllVMs";
-        try
-        {
-            testStart();
-            StartAllVMs.RunTest(textLogger, server);
-            testSuccess();
-        } catch (Exception e)
-        {
-            testFailure(e);
-        }
+        xmlLogger.log("  </group>\n</results>");
 
-        xml("  </group>");
-        xml("</results>");
+        textLogger.logf("%d succeeded, %d skipped, %d failed, %d total",
+                succeeded, skipped, failed, succeeded + skipped + failed);
 
-        logf("%d succeeded, %d skipped, %d failed, %d total\n", succeeded, skipped, failed, succeeded + skipped
-                + failed);
-
-        logln("RunTests.java: test run finished at " + new Date().toString());
+        textLogger.logf("RunTests.java: test run finished at %s", new Date().toString());
     }
 
-    private static void testStart()
-    {
-        logln("\n^^^ " + testName + " starting ^^^");
-    }
-
-    private static void testSuccess()
-    {
-        succeeded++;
-        logln("^^^ " + testName + " success ^^^\n");
-        xmlTest(testName, Result.Pass);
-    }
-
-    private static void testSkipped()
-    {
-        skipped++;
-        logln("^^^ " + testName + " skipped ^^^\n");
-        xmlTest(testName, Result.Skip);
-    }
-
-    private static void testFailure(Exception e)
-    {
-        failed++;
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        e.printStackTrace(new PrintStream(bytes));
-        logln(bytes.toString());
-        logln("^^^ " + testName + " failure ^^^\n");
-        xmlTest(testName, Result.Fail);
-
-        if (stopOnFailure)
-        {
-            System.exit(1);
-        }
-    }
-
-    private static void xml(String s)
-    {
-        xmlLogger.logln(s);
-    }
-
-    private static void logln(String s)
-    {
-        textLogger.logln(s);
-    }
-
-    private static void logf(String s, Object... args)
-    {
-        textLogger.log(String.format(s, args));
-    }
 
     public enum Result
     {
-        Pass, Fail, Skip
-    };
+        Pass, Fail, Skip;
 
-    private static void xmlTest(String name, Result result)
-    {
-        xml("    <test>");
-        xml("        <name>" + name + "</name>");
-        xml("        <state>" + result.toString() + "</state>");
-        xml("    </test>");
+        @Override
+        public String toString() {
+            switch (this){
+
+                case Pass:
+                    return "Passed";
+                case Fail:
+                    return "Failed";
+                case Skip:
+                    return "Skipped";
+                default:
+                    return "Unknown";
+            }
+        }
     }
 }

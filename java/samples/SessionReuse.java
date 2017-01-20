@@ -45,9 +45,18 @@ public class SessionReuse extends TestBase
 {
     private static boolean threadExit = false;
 
-    protected static void RunTest(ILog logger, TargetServer server) throws Exception
+    public String getTestName() {
+        return "SessionReuse";
+    }
+
+    protected void TestCore() throws Exception {
+
+    }
+
+    @Override
+    public void RunTest(FileLogger logger, TargetServer server) throws Exception
     {
-        TestBase.logger = logger;
+        this.logger = logger;
 
         URL url = new URL("https://" + server.Hostname);
 
@@ -81,18 +90,18 @@ public class SessionReuse extends TestBase
                             return;
                         }
 
-                        logln("Received " + events.size() + " Event(s). First Event follows.");
+                        log("Received " + events.size() + " Event(s). First Event follows.");
                         for (Event.Record record : events)
                         {
-                            logln(record.toString());
+                            log(record.toString());
                             break;
                         }
                     } catch (Exception e)
                     {
-                        logln("Event listener thread got an Exception");
-                        logln(e.toString());
+                        log("Event listener thread got an Exception");
+                        log(e.toString());
                     }
-                };
+                }
             });
             listener.start();
 

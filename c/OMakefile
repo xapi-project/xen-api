@@ -42,13 +42,6 @@ CFLAGS += $(shell xml2-config --cflags) $(shell curl-config --cflags) -W -Wall -
 
 COMPAT_PATCH = compat.patch
 
-if $(defined-env COMPILE_C)
-  COMPILE_C = $(getenv COMPILE_C)
-  export
-else
-  COMPILE_C = yes
-  export
-
 section
   OCamlProgram(gen_c_binding, gen_c_binding helper ../licence ../CommonFunctions)
 
@@ -59,20 +52,19 @@ c_source: gen_c_binding
   mkdir -p $(C_SRC_TMP_FOLDER)/include
   mkdir -p $(C_SRC_TMP_FOLDER)/src
   mkdir -p $(C_SRC_TMP_FOLDER)/test
-  if $(equal $(COMPILE_C), yes)
-    rm -Rf $(C_GEN_FOLDER)
-    mkdir -p $(C_GEN_FOLDER)
-    ./gen_c_binding -d $(C_GEN_FOLDER)
-    (cd $(C_GEN_FOLDER) && patch -p0 <$(COMPAT_PATCH))
-    cp -r $(C_GEN_FOLDER)/xen $(C_SRC_TMP_FOLDER)/include
-    cp $(C_GEN_FOLDER)/*.h $(C_SRC_TMP_FOLDER)/include
-    cp $(C_GEN_FOLDER)/*.c $(C_SRC_TMP_FOLDER)/src
-    sed -e s/@LIB_MAJOR@/$(API_MAJOR)/g -e s/@LIB_MINOR@/$(API_MINOR)/g -e s/@LIB_NAME@/xenserver/g Makefile.dist > $(C_SRC_TMP_FOLDER)/Makefile
-    cp xen_internal.h $(C_SRC_TMP_FOLDER)/include
-    cp xen_common.h xen_string_set.h xen_int_set.h $(C_SRC_TMP_FOLDER)/include/xen/api
-    cp xen_common.c xen_string_set.c xen_int_set.c $(C_SRC_TMP_FOLDER)/src
-    cp test/*.c $(C_SRC_TMP_FOLDER)/test
-    make -C $(C_SRC_TMP_FOLDER) -f Makefile uberheader
+  rm -Rf $(C_GEN_FOLDER)
+  mkdir -p $(C_GEN_FOLDER)
+  ./gen_c_binding -d $(C_GEN_FOLDER)
+  (cd $(C_GEN_FOLDER) && patch -p0 <$(COMPAT_PATCH))
+  cp -r $(C_GEN_FOLDER)/xen $(C_SRC_TMP_FOLDER)/include
+  cp $(C_GEN_FOLDER)/*.h $(C_SRC_TMP_FOLDER)/include
+  cp $(C_GEN_FOLDER)/*.c $(C_SRC_TMP_FOLDER)/src
+  sed -e s/@LIB_MAJOR@/$(API_MAJOR)/g -e s/@LIB_MINOR@/$(API_MINOR)/g -e s/@LIB_NAME@/xenserver/g Makefile.dist > $(C_SRC_TMP_FOLDER)/Makefile
+  cp xen_internal.h $(C_SRC_TMP_FOLDER)/include
+  cp xen_common.h xen_string_set.h xen_int_set.h $(C_SRC_TMP_FOLDER)/include/xen/api
+  cp xen_common.c xen_string_set.c xen_int_set.c $(C_SRC_TMP_FOLDER)/src
+  cp test/*.c $(C_SRC_TMP_FOLDER)/test
+  make -C $(C_SRC_TMP_FOLDER) -f Makefile uberheader
   cd $(BINDINGS_TMP) && tar cjf $(MY_OUTPUT_DIR)/libxenserver-src.tar.bz2 libxenserver
   mkdir -p $(C_SRC_FOLDER) && cp -r $(C_SRC_TMP_FOLDER)/* $(C_SRC_FOLDER)
   sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' README.dist >$(SDK_C_FOLDER)/README
@@ -80,11 +72,7 @@ c_source: gen_c_binding
 
 .PHONY: c_binaries
 c_binaries:  c_source
-  if $(equal $(COMPILE_C), yes)
-    make -C $(C_SRC_TMP_FOLDER) -f Makefile all
-  else
-    touch $(C_SRC_TMP_FOLDER)/libxenserver.so $(C_SRC_TMP_FOLDER)/libxenserver.so.$(API_MAJOR) $(C_SRC_TMP_FOLDER)/libxenserver.so.$(API_VER)
-    touch $(addprefix $(SDK_C_FOLDER)/, COPYING README)
+  make -C $(C_SRC_TMP_FOLDER) -f Makefile all
   cd $(BINDINGS_TMP) && tar cjf $(MY_OUTPUT_DIR)/libxenserver-bin.tar.bz2 $(addprefix libxenserver/, libxenserver.so libxenserver.so.$(API_MAJOR) libxenserver.so.$(API_VER))
   mkdir -p $(C_BIN_FOLDER) && cp $(addprefix $(C_SRC_TMP_FOLDER)/, libxenserver.so libxenserver.so.$(API_MAJOR) libxenserver.so.$(API_VER)) $(C_BIN_FOLDER)
 
