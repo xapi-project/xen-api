@@ -333,6 +333,12 @@ info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
 			let mode = if ipv6 then "-6" else "-4" in
 			ignore (call ~log:true [mode; "addr"; "flush"; "dev"; dev])
 		with _ -> ()
+	
+	let del_ip_addr dev (ip, prefixlen) = 
+		let addr = Printf.sprintf "%s/%d" (Unix.string_of_inet_addr ip) prefixlen in
+		try
+			ignore (call ~log:true ["addr"; "del"; addr; "dev"; dev])
+		with _ -> ()
 
 	let route_show ?(version=V46) dev =
 		let v = string_of_version version in

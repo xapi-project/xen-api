@@ -175,8 +175,13 @@ module Interface = struct
 			| Static4 addrs ->
 				if Dhclient.is_running name then
 					ignore (Dhclient.stop name);
-				Ip.flush_ip_addr name;
-				List.iter (Ip.set_ip_addr name) addrs
+				(* the function is meant to be idempotent and we
+				 * want to avoid CA-239919 *)
+				let cur_addrs = Ip.get_ipv4 name in
+				let rm_addrs = List.set_difference cur_addrs addrs in
+				let add_addrs = List.set_difference addrs cur_addrs in
+				List.iter (Ip.del_ip_addr name) rm_addrs;
+				List.iter (Ip.set_ip_addr name) add_addrs
 		) ()
 
 	let get_ipv4_gateway _ dbg ~name =
@@ -243,9 +248,18 @@ module Interface = struct
 				if Dhclient.is_running ~ipv6:true name then
 					ignore (Dhclient.stop ~ipv6:true name);
 				Sysctl.set_ipv6_autoconf name false;
-				Ip.flush_ip_addr ~ipv6:true name;
-				Ip.set_ipv6_link_local_addr name;
-				List.iter (Ip.set_ip_addr name) addrs
+				(* add the link_local and clean the old one only when needed *)
+				let cur_addrs = 
+					let addrs = Ip.get_ipv6 name in
+					let maybe_link_local = Ip.split_addr (Ip.get_ipv6_link_local_addr name) in
+					match maybe_link_local with
+					| Some addr -> List.setify (addr :: addrs)
+					| None -> addrs
+				in
+				let rm_addrs = List.set_difference cur_addrs addrs in
+				let add_addrs = List.set_difference addrs cur_addrs in
+				List.iter (Ip.del_ip_addr name) rm_addrs;
+				List.iter (Ip.set_ip_addr name) add_addrs
 		) ()
 
 	let get_ipv6_gateway _ dbg ~name =
