@@ -14,6 +14,7 @@ INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
 export
 
 lib-install: META
+	mkdir -p $(INSTALL_PATH)
 	ocamlfind install -destdir $(INSTALL_PATH) -ldconf ignore xapi-consts META $(addsuffixes .cmi, $(OBJS)) $(if $(BYTE_ENABLED), xapi-consts.cma) $(if $(NATIVE_ENABLED), xapi-consts.cmxa xapi-consts.a $(addsuffixes .cmx, $(OBJS)))
 
 .PHONY: lib-uninstall
