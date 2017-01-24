@@ -413,7 +413,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     "pool-set-vswitch-controller",
     {
       reqd=["address"];
-      optn=[];
+      optn=["port";"protocol"];
       help="Set the IP address of the vswitch controller.";
       implementation=No_fd Cli_operations.pool_set_vswitch_controller;
       flags=[Hidden];

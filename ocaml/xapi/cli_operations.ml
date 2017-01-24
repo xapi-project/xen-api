@@ -1099,7 +1099,11 @@ let pool_disable_redo_log printer rpc session_id params =
 
 let pool_set_vswitch_controller printer rpc session_id params =
   let address = List.assoc "address" params in
-  Client.Pool.set_vswitch_controller ~rpc ~session_id ~address
+  let port = try Int64.of_string (List.assoc "port" params) with _ -> -1L in
+  if port < 0L || port >65535L then
+    printer (Cli_printer.PStderr "NOTE: The given port number is invalid; reverting to the current value.\n");
+  let protocol = List.assoc "protocol" params in
+  Client.Pool.set_vswitch_controller ~rpc ~session_id ~address ~port ~protocol
 
 let pool_enable_ssl_legacy printer rpc session_id params =
   let self = get_pool_with_default rpc session_id params "uuid" in
