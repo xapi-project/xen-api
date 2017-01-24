@@ -73,7 +73,6 @@ class Failure(Exception):
         try:
             return str(self.details)
         except Exception, exn:
-            import sys
             print >>sys.stderr, exn
             return "Xen-API failure: %s" % str(self.details)
 
@@ -126,9 +125,18 @@ class Session(xmlrpclib.ServerProxy):
     """
 
     def __init__(self, uri, transport=None, encoding=None, verbose=0,
-                 allow_none=1):
-        xmlrpclib.ServerProxy.__init__(self, uri, transport, encoding,
-                                       verbose, allow_none)
+                 allow_none=1, ignore_ssl=False):
+
+        # Fix for CA-172901 (+ Python 2.4 compatibility)
+        if not (sys.version_info[0] <= 2 and sys.version_info[1] < 7) \
+                and ignore_ssl:
+            import ssl
+            ctx = ssl._create_unverified_context()
+            xmlrpclib.ServerProxy.__init__(self, uri, transport, encoding,
+                                           verbose, allow_none, context=ctx)
+        else:
+            xmlrpclib.ServerProxy.__init__(self, uri, transport, encoding,
+                                           verbose, allow_none)
         self.transport = transport
         self._session = None
         self.last_login_method = None
@@ -171,7 +179,7 @@ class Session(xmlrpclib.ServerProxy):
             self.last_login_method = method
             self.last_login_params = params
             self.API_version = self._get_api_version()
-        except socket.error as e:
+        except socket.error, e:
             if e.errno == socket.errno.ETIMEDOUT:
                 raise xmlrpclib.Fault(504, 'The connection timed out')
             else:
