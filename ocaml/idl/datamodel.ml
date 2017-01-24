@@ -7061,6 +7061,14 @@ let pool_audit_log_append = call
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+let protocol = Enum ("protocol", [
+    "ssl", "ssl protocol";
+    "pssl", "pssl protocol";
+    "tcp", "tcp protocol";
+    "ptcp", "ptcp protocol";
+    "None", "no protocol";
+     ])
+
 let pool_set_vswitch_controller = call
     ~in_oss_since:None
     ~in_product_since:rel_midnight_ride
@@ -7068,7 +7076,11 @@ let pool_set_vswitch_controller = call
       Published, rel_midnight_ride, "Set the IP address of the vswitch controller.";
       Extended, rel_cowley, "Allow to be set to the empty string (no controller is used)."]
     ~name:"set_vswitch_controller"
-    ~params:[String, "address", "IP address of the vswitch controller."]
+    ~versioned_params:[
+      {param_type=String; param_name="address"; param_doc="IP address of the vswitch controller."; param_release=tampa_release; param_default=(Some (VString ""))};
+      {param_type=Int; param_name="port"; param_doc="For active protocol, designate the port of the vswitch controller. For passive protocol, designate the port to listen for connection request."; param_release=dundee_plus_release; param_default=(Some (VInt 0L)) };
+      {param_type=protocol; param_name="protocol"; param_doc="Protocol to connect with vswitch controller.";param_release=dundee_plus_release; param_default=(Some (VEnum ""))}
+    ]
     ~doc:"Set the IP address of the vswitch controller."
     ~allowed_roles:_R_POOL_OP
     ()

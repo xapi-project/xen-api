@@ -41,6 +41,10 @@ let overrides = [
   "event_operation",(
     "let rpc_of_event_operation x = match x with | `add -> Rpc.String \"add\" | `del -> Rpc.String \"del\" | `_mod -> Rpc.String \"mod\"\n"^
     "let event_operation_of_rpc x = match x with | Rpc.String \"add\" -> `add | Rpc.String \"del\" -> `del | Rpc.String \"mod\" -> `_mod | _ -> failwith \"Unmarshalling error\"");
+  "protocol",(
+    "let rpc_of_protocol x = match x with `ssl -> Rpc.String \"ssl\" | `pssl-> Rpc.String \"pssl\" | `tcp -> Rpc.String \"tcp\" | `ptcp-> Rpc.String \"ptcp\" | `None-> Rpc.String \"\" \n"^
+    "let protocol_of_rpc x = match x with Rpc.String \"ssl\" -> `ssl| Rpc.String \"pssl\" -> `pssl | Rpc.String \"tcp\" -> `tcp | Rpc.String \"ptcp\" -> `ptcp | Rpc.String \"\" -> `None  |_ -> failwith \"invalid protocol\"\n");
+
 
 ]
 

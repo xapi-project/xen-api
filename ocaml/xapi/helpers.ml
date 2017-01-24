@@ -1287,3 +1287,44 @@ let retry ~__context ~doc ?(policy = Policy.standard) f =
 
 let retry_with_global_lock ~__context ~doc ?policy f =
   retry ~__context ~doc ?policy (fun () -> with_global_lock f)
+
+let vswitch_protocol_to_string = function
+    | `ssl -> "ssl"
+    | `pssl -> "pssl"
+    | `tcp -> "tcp"
+    | `ptcp -> "ptcp"
+    | `None -> ""
+
+let vswitch_protocol_of_string m =
+    match String.lowercase m with
+        | "ssl" -> `ssl
+        | "pssl" -> `pssl
+        | "tcp" -> `tcp
+        | "ptcp" -> `ptcp
+        | "" -> `None
+        |  s -> raise Api_errors.(Server_error (value_not_supported, [
+      "protocol"; s; "Invalid protocol";
+    ]))
+
+let vswitch_make_controller address port protocol= 
+    let port_int= Int64.to_int port in
+    let protocol_str = vswitch_protocol_to_string protocol in
+    match protocol,port with
+        | `None,0L ->
+            (* only IP address is set, store IP to keep compatibility with old version *)
+            if address <> "" then
+                assert_is_valid_ip `ipv4 "address" address;
+                address
+        |(`ssl|`tcp),_->
+            assert_is_valid_ip `ipv4 "address" address;
+            assert_is_valid_tcp_udp_port port_int "port";
+            Printf.sprintf "%s:%s:%d" protocol_str address port_int
+        |(`pssl|`ptcp),_ ->
+            begin
+                assert_is_valid_tcp_udp_port port_int "port";
+                match address with
+                    |"" ->  Printf.sprintf "%s:%d" protocol_str port_int
+                    |_  ->  assert_is_valid_ip `ipv4 "address" address;
+                            Printf.sprintf "%s:%d:%s" protocol_str port_int address
+            end
+        | _ -> raise (Api_errors.Server_error(Api_errors.value_not_supported, ["protocol";protocol_str;"protocol can only be ssl|pssl|tcp|ptcp"]))

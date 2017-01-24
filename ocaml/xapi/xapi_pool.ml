@@ -1680,16 +1680,15 @@ let disable_redo_log ~__context =
   end;
   info "The redo log is now disabled"
 
-let set_vswitch_controller ~__context ~address =
+let set_vswitch_controller ~__context ~address ~port ~protocol =
   let dbg = Context.string_of_task __context in
   match Net.Bridge.get_kind dbg () with
   | Network_interface.Openvswitch ->
     let pool = Helpers.get_pool ~__context in
     let current_address = Db.Pool.get_vswitch_controller ~__context ~self:pool in
     if current_address <> address then begin
-      if address <> "" then
-        Helpers.assert_is_valid_ip `ipv4 "address" address;
-      Db.Pool.set_vswitch_controller ~__context ~self:pool ~value:address;
+      let controller = Helpers.vswitch_make_controller address port protocol in
+      Db.Pool.set_vswitch_controller ~__context ~self:pool ~value:controller;
       List.iter (fun host -> Helpers.update_vswitch_controller ~__context ~host) (Db.Host.get_all ~__context)
     end
   | _ -> raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["host not configured for vswitch operation"]))
