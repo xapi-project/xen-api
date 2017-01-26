@@ -18,7 +18,7 @@ module B = Backtrace
 open Core.Std
 open Async.Std
 
-open Types
+open Xapi_storage_script_types
 
 let use_syslog = ref false
 
@@ -161,7 +161,7 @@ module Attached_SRs = struct
   type state = {
     sr: string;
     uids: string list;
-  } with sexp
+  } [@@deriving sexp]
 
   let sr_table : state String.Table.t ref = ref (String.Table.create ())
   let state_path = ref None

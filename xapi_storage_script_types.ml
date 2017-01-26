@@ -18,11 +18,11 @@ type backtrace = {
   (* Python json.dumps and rpclib are not very friendly *)
   files: string list;
   lines: int list;
-} with rpc
+} [@@deriving rpc]
 
 (* This matches xapi.py:exception *)
 type error = {
   code: string;
   params: string list;
   backtrace: backtrace;
-} with rpc
+} [@@deriving rpc]
