@@ -1149,24 +1149,6 @@ let write_qemu_record domid uuid legacy_libxc fd =
 		Unix.close fd2
 	)
 
-let write_demu_record domid uuid fd =
-	let file = sprintf demu_save_path domid in
-	let fd2 = Unix.openfile file [ Unix.O_RDONLY ] 0o640 in
-	finally (fun () ->
-		let size = Int64.of_int Unix.((stat file).st_size) in
-		let open Suspend_image in
-		let open Suspend_image.M in
-		debug "Writing Demu header with length %Ld" size;
-		write_header fd (Demu, size) >>= fun () ->
-		debug "VM = %s; domid = %d; writing %Ld bytes from %s" (Uuid.to_string uuid) domid size file;
-		if Unixext.copy_file ~limit:size fd2 fd <> size
-		then failwith "Failed to write whole demu state file";
-		return ()
-	) (fun () ->
-		Unix.unlink file;
-		Unix.close fd2
-	)
-
 (* suspend register the callback function that will be call by linux_save
  * and is in charge to suspend the domain when called. the whole domain
  * context is saved to fd
@@ -1208,8 +1190,6 @@ let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path vm_str do
 		* suspend-image-writing *)
 		(if hvm then write_qemu_record domid uuid legacy_libxc fd else return ()) >>= fun () ->
 		debug "Qemu record written";
-		let vgpu = Sys.file_exists (sprintf demu_save_path domid) in
-		(if vgpu then write_demu_record domid uuid fd else return ()) >>= fun () ->
 		debug "Writing End_of_image footer";
 		write_header fd (End_of_image, 0L)
 	in match res with
