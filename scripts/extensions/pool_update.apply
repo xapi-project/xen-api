@@ -44,7 +44,7 @@ def failure_message(code, params):
 
 
 def execute_apply(session, update_package, yum_conf_file):
-    cmd = ['yum', 'install', '-y', '--noplugins', '-c', yum_conf_file, update_package]
+    cmd = ['yum', 'upgrade', '-y', '--noplugins', '-c', yum_conf_file, update_package]
     yum_env = os.environ.copy()
     yum_env['LANG'] = 'C'
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env)
