@@ -301,11 +301,13 @@ let extract_update_info ~__context ~vdi ~verify =
     )
     (fun () -> detach_helper ~__context ~uuid:vdi_uuid ~vdi)
 
-let assert_space_available ?(multiplier=3L) update_dir update_size =
-  let stat = statvfs update_dir in
-  let free_bytes =
+let get_free_bytes path =
+    let stat = statvfs path in
     (* block size times free blocks *)
-    Int64.mul stat.f_frsize stat.f_bfree in
+    Int64.mul stat.f_frsize stat.f_bfree
+
+let assert_space_available ?(multiplier=3L) ?(get_free_bytes=get_free_bytes) update_dir update_size =
+  let free_bytes = get_free_bytes update_dir in
   let really_required = Int64.mul multiplier update_size in
   if really_required > free_bytes
   then

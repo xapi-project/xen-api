@@ -32,11 +32,9 @@ let test_pool_update_refcount () =
   Xapi_pool_update.with_dec_refcount ~__context ~uuid ~vdi (fun ~__context ~uuid ~vdi -> ())
 
 let test_assert_space_available () =
-  let stat = statvfs "./" in
-  let free_bytes = Int64.mul stat.f_frsize stat.f_bfree in
-  Xapi_pool_update.assert_space_available "./" (Int64.div free_bytes 3L);
+  let free_bytes = 1_000_000L in
   assert_raises_api_error Api_errors.out_of_space
-    (fun () -> Xapi_pool_update.assert_space_available "./" (Int64.div free_bytes 2L))
+    (fun () -> Xapi_pool_update.assert_space_available ~get_free_bytes:(fun _ -> free_bytes) "./" (Int64.div free_bytes 2L))
 
 let test =
   "test_pool_update" >:::
