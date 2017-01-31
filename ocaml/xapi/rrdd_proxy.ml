@@ -214,7 +214,9 @@ let host_for_vm ~__context ~vm_uuid =
 
 let push_rrd ~__context ~(vm_uuid : string) : unit =
   let vm_host = host_for_vm ~__context ~vm_uuid in
-  if vm_host = (Helpers.get_localhost ~__context) then
+  if vm_host = Ref.null then
+    warn "push_rrd: VM not running, so not pushing its RRD"
+  else if vm_host = (Helpers.get_localhost ~__context) then
     let domid = vm_uuid_to_domid ~__context ~uuid:vm_uuid in
     log_and_ignore_exn (fun () -> Rrdd.push_rrd_local ~vm_uuid ~domid)
   else
