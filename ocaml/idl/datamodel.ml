@@ -5603,6 +5603,26 @@ let bond =
       ]
     ()
 
+let vlan_introduce_params first_rel =
+  [
+    {param_type=Ref _pif; param_name="tagged_PIF"; param_doc=""; param_release=first_rel; param_default=None};
+    {param_type=Ref _pif; param_name="untagged_PIF"; param_doc=""; param_release=first_rel; param_default=None};
+    {param_type=Int; param_name="tag"; param_doc=""; param_release=first_rel; param_default=None};
+    {param_type=Map(String, String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
+  ]
+
+(* vlan pool introduce is used to copy management vlan record on pool join -- it's the vlan analogue of VDI/PIF.pool_introduce *)
+let vlan_pool_introduce = call
+    ~name:"pool_introduce"
+    ~in_oss_since:None
+    ~in_product_since:rel_inverness
+    ~versioned_params:(vlan_introduce_params inverness_release)
+    ~doc:"Create a new vlan record in the database only"
+    ~result:(Ref _vlan, "The reference of the created VLAN object")
+    ~hide_from_docs:true
+    ~allowed_roles:_R_POOL_OP
+    ()
+
 let vlan_create = call
     ~name:"create"
     ~doc:"Create a VLAN mux/demuxer"
@@ -5627,7 +5647,7 @@ let vlan =
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
     ~doc_tags:[Networking]
-    ~messages:[ vlan_create; vlan_destroy ] ~contents:
+    ~messages:[ vlan_pool_introduce; vlan_create; vlan_destroy ] ~contents:
     ([
       uid _vlan;
       field ~qualifier:StaticRO ~ty:(Ref _pif) ~in_product_since:rel_miami "tagged_PIF" "interface on which traffic is tagged" ~default_value:(Some (VRef ""));
