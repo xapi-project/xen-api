@@ -951,11 +951,21 @@ let eject ~__context ~host =
     let management_pif = Xapi_host.get_management_interface ~__context ~host in
     let pif = Db.PIF.get_record ~__context ~self:management_pif in
     let management_device =
-      (* assumes that the management interface is either physical or a bond or a vlan *)
+      (* Assumes that the management interface is either physical or a bond or a vlan on physical or a vlan on bond *)
       if pif.API.pIF_bond_master_of <> [] then
         let bond = List.hd pif.API.pIF_bond_master_of in
         let primary_slave = Db.Bond.get_primary_slave ~__context ~self:bond in
         Db.PIF.get_device ~__context ~self:primary_slave
+      (* If management on VLAN on a bond or physical NIC *)
+      else if pif.API.pIF_VLAN_master_of <> Ref.null then
+        let tagged_pif = Db.VLAN.get_tagged_PIF ~__context ~self:(pif.API.pIF_VLAN_master_of) in
+        let bond_master = Db.PIF.get_bond_master_of ~__context ~self:tagged_pif in
+        if bond_master <> [] then
+          let bond = List.hd bond_master in
+          let primary_slave = Db.Bond.get_primary_slave ~__context ~self:bond in
+          Db.PIF.get_device ~__context ~self:primary_slave
+        else
+          pif.API.pIF_device
       else
         pif.API.pIF_device
     in
