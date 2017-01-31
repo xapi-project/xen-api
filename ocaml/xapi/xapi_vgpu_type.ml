@@ -467,55 +467,36 @@ module Intel = struct
       List.nth device.Pci.Pci_dev.size 2
       |> Int64.of_nativeint
     in
-    let rec collect acc = function
-      | []             -> acc
-      | Some v :: tail -> collect (v :: acc) tail
-      | None   :: tail -> collect acc tail
-    in
-    whitelist
-    |> List.map
+    List.map
       Identifier.(fun conf ->
           let vgpus_per_pgpu =
             bar_size /// 1024L /// 1024L
             /// conf.identifier.low_gm_sz
             --- 1L
           in
-          if vgpus_per_pgpu <= 0L then 
-            begin
-              warn "Not enough memory for Intel VGPUs. \
-                    If you intend to use them, increase the GPU \
-                    BAR size in the BIOS settings.";
-              None
-            end
-          else
-            let vgpu_size =
-              Constants.pgpu_default_size /// vgpus_per_pgpu
-            in
-            let internal_config = let open Xapi_globs in
-              List.concat [
-                [ vgt_low_gm_sz, Int64.to_string conf.identifier.low_gm_sz
-                ; vgt_high_gm_sz, Int64.to_string conf.identifier.high_gm_sz
-                ; vgt_fence_sz, Int64.to_string conf.identifier.fence_sz
-                ]
-              ; match conf.identifier.monitor_config_file with
+          let vgpu_size = Constants.pgpu_default_size /// vgpus_per_pgpu in
+          {
+            vendor_name;
+            model_name = conf.model_name;
+            framebuffer_size = conf.framebufferlength;
+            max_heads = conf.num_heads;
+            max_resolution_x = conf.max_x;
+            max_resolution_y = conf.max_y;
+            size = vgpu_size;
+            internal_config = [
+              Xapi_globs.vgt_low_gm_sz, Int64.to_string conf.identifier.low_gm_sz;
+              Xapi_globs.vgt_high_gm_sz, Int64.to_string conf.identifier.high_gm_sz;
+              Xapi_globs.vgt_fence_sz, Int64.to_string conf.identifier.fence_sz;
+            ] @ (
+                match conf.identifier.monitor_config_file with
                 | Some monitor_config_file ->
-                  [vgt_monitor_config_file, monitor_config_file]
+                  [Xapi_globs.vgt_monitor_config_file, monitor_config_file]
                 | None -> []
-              ]
-            in
-            Some {
-              vendor_name;
-              model_name = conf.model_name;
-              framebuffer_size = conf.framebufferlength;
-              max_heads = conf.num_heads;
-              max_resolution_x = conf.max_x;
-              max_resolution_y = conf.max_y;
-              size = vgpu_size;
-              internal_config = internal_config;
-              identifier = GVT_g conf.identifier;
-              experimental = conf.experimental;
-            })
-    |> collect []
+              );
+            identifier = GVT_g conf.identifier;
+            experimental = conf.experimental;
+          })
+      whitelist
 
   let find_or_create_supported_types ~__context ~pci
       ~is_system_display_device
