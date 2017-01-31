@@ -472,7 +472,7 @@ let resync_host ~__context ~host =
   end
   else Db.Host.set_updates ~__context ~self:host ~value:[];
 
-  (* Only clean up existing patches if rolling upgrade has actually finished *)
+  (* Clean up existing patches and updates if rolling upgrade has actually finished *)
   if not (Helpers.rolling_upgrade_in_progress ~__context) then begin
     (* Remove any pool_patch objects that don't have a corresponding pool_update object *)
     Db.Pool_patch.get_all ~__context
@@ -482,6 +482,19 @@ let resync_host ~__context ~host =
     (* Clean updates that don't have a corresponding patch record *)
     Db.Pool_update.get_all ~__context
     |> List.filter (fun self -> Xapi_pool_patch.pool_patch_of_update ~__context self = Ref.null)
+    |> List.iter (fun self -> destroy ~__context ~self);
+
+    (*
+     * If db indicates an update is not applied to any host but the corresponding patch is applied
+     * on some host(s), that means the RPU has completed, the update record should be removed.
+     * (The patch record will be removed along with the update record.)
+    *)
+    Db.Pool_update.get_all ~__context
+    |> List.filter (fun self ->
+         Db.Pool_update.get_hosts ~__context ~self = []
+         && Xapi_pool_patch.pool_patch_of_update ~__context self
+            |> fun self -> Db.Pool_patch.get_host_patches ~__context ~self
+            |> function [] -> false | _ -> true)
     |> List.iter (fun self -> destroy ~__context ~self)
   end
 
