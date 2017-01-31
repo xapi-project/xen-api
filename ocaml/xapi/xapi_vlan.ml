@@ -17,6 +17,14 @@ open D
 (* Dummy MAC used by the VLAN *)
 let vlan_mac = "fe:ff:ff:ff:ff:ff"
 
+let pool_introduce ~__context ~tagged_PIF ~untagged_PIF ~tag ~other_config =
+  let vlan = Ref.make () in
+  let vlan_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let () = Db.VLAN.create ~__context ~ref:vlan ~uuid:vlan_uuid ~tagged_PIF ~untagged_PIF ~tag ~other_config in
+  (* Untagged PIF going to be VLAN_master_of above VLAN *)
+  Db.PIF.set_VLAN_master_of ~__context ~self:untagged_PIF ~value:vlan;
+  vlan
+
 let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =
   let vlan = Ref.make () and vlan_uuid = Uuid.to_string (Uuid.make_uuid ()) in
   let untagged_PIF = Ref.make () in
