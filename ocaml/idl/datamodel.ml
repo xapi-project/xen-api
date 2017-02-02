@@ -8808,6 +8808,8 @@ let pci =
       field ~qualifier:StaticRO ~ty:(Ref _host) ~lifecycle:[Published, rel_boston, ""] "host" "Physical machine that owns the PCI device" ~default_value:(Some (VRef null_ref));
       field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_boston, ""] "pci_id" "PCI ID of the physical device" ~default_value:(Some (VString ""));
       field ~qualifier:DynamicRO ~ty:Int ~lifecycle:[] ~default_value:(Some (VInt 1L)) "functions" "Number of physical + virtual PCI functions" ~internal_only:true;
+      field ~qualifier:DynamicRO ~ty:(Set (Ref _pci)) ~lifecycle:[Published, rel_falcon, ""] "virtual_functions" "Set of VF PCI devices provided by this physical (PF) PCI device" ~internal_only:true;
+      field ~qualifier:StaticRO ~ty:(Ref _pci) ~lifecycle:[Published, rel_falcon, ""] "physical_function" "The PF (physical PCI device) that provides this VF" ~default_value:(Some (VRef null_ref)) ~internal_only:true;
       field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) ~lifecycle:[] "attached_VMs"
         "VMs that currently have a function of this PCI device passed-through to them" ~internal_only:true;
       field ~qualifier:DynamicRO ~ty:(Set (Ref _pci)) ~lifecycle:[Published, rel_boston, ""] "dependencies" "List of dependent PCI devices" ~ignore_foreign_key:true;
@@ -9159,6 +9161,7 @@ let vgpu_type_implementation =
       "passthrough", "Pass through an entire physical GPU to a guest";
       "nvidia", "vGPU using NVIDIA hardware";
       "gvt_g", "vGPU using Intel GVT-g";
+      "mxgpu", "vGPU using AMD MxGPU";
     ])
 
 let vgpu_type =
@@ -9613,6 +9616,7 @@ let all_relations =
     (_pci, "host"), (_host, "PCIs");
     (_pgpu, "host"), (_host, "PGPUs");
     (_pci, "attached_VMs"), (_vm, "attached_PCIs");
+    (_pci, "physical_function"), (_pci, "virtual_functions");
 
     (_vdi, "metadata_of_pool"), (_pool, "metadata_VDIs");
     (_sr, "introduced_by"), (_dr_task, "introduced_SRs");
