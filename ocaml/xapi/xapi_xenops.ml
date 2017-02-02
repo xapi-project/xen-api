@@ -607,6 +607,9 @@ module MD = struct
     | Failure "int_of_string" ->
       failwith "Intel GVT-g settings invalid"
 
+  let of_mxgpu_vgpu ~__context vm vgpu =
+    failwith "MxGPU not yet implemented"
+
   let vgpus_of_vm ~__context (vmref, vm) =
     let open Vgpu in
     if Vgpuops.vgpu_manual_setup_of_vm vm
@@ -641,7 +644,10 @@ module MD = struct
            | `nvidia ->
              (of_nvidia_vgpu ~__context vm vgpu_record) :: acc
            | `gvt_g ->
-             (of_gvt_g_vgpu ~__context vm vgpu_record) :: acc)
+             (of_gvt_g_vgpu ~__context vm vgpu_record) :: acc
+           | `mxgpu ->
+             (of_mxgpu_vgpu ~__context vm vgpu_record) :: acc
+        )
         [] vm.API.vM_VGPUs
 
   let of_vm ~__context (vmref, vm) vbds pci_passthrough vgpu =

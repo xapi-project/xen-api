@@ -776,6 +776,8 @@ let igd_passthru_vendor_whitelist = ref []
 
 let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
 
+let mxgpu_whitelist = ref "/etc/mxgpu-whitelist"
+
 let xen_livepatch_list = ref "/usr/sbin/xen-livepatch list"
 
 let kpatch_list = ref "/usr/sbin/kpatch list"
@@ -942,6 +944,9 @@ let other_options = [
 
   "gvt-g-whitelist", Arg.Set_string gvt_g_whitelist,
   (fun () -> !gvt_g_whitelist), "path to the GVT-g whitelist file";
+
+  "mxgpu-whitelist", Arg.Set_string mxgpu_whitelist,
+  (fun () -> !mxgpu_whitelist), "path to the MxGPU whitelist file";
 
   "pass-through-pif-carrier", Arg.Set pass_through_pif_carrier,
   (fun () -> string_of_bool !pass_through_pif_carrier), "reflect physical interface carrier information to VMs by default";
