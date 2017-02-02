@@ -300,6 +300,7 @@ module Bridge = struct
 		?bond_properties:(string * string) list -> ?kind:port_kind -> unit -> unit = ""
 	external remove_port : debug_info -> bridge:bridge -> name:port -> unit = ""
 	external get_interfaces : debug_info -> name:bridge -> iface list = ""
+	external get_physical_interfaces : debug_info -> name:bridge -> iface list = ""
 	external get_fail_mode : debug_info -> name:bridge -> fail_mode option = ""
 	external make_config : debug_info -> ?conservative:bool -> config:(bridge * bridge_config_t) list-> unit -> unit = ""
 end
