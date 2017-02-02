@@ -215,7 +215,7 @@ let stream_nbd common c s prezeroed _ ?(progress = no_progress_bar) () =
   fold_left (fun (sector, work_done) x ->
     ( match x with
       | `Sectors data ->
-        Client.write server sector [data] >>= begin
+        Client.write server (Int64.mul sector 512L) [data] >>= begin
           function
           | `Ok () -> return Int64.(of_int (Cstruct.len data))
           | `Error e -> fail (Failure "Got error from NBD library")
