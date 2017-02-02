@@ -669,8 +669,15 @@ let handler (req: Http.Request.t) fd _ =
           Http_svr.headers fd (Http.http_200_ok ()) ;
 
           (* Read messages in, and write to filesystem *)
-          let xml_in = Xmlm.make_input
-              (`Channel (Unix.in_channel_of_descr fd)) in
+          let content_length = match req.Http.Request.content_length with
+          | None -> failwith "debug"
+          | Some length -> Int64.to_int length in
+          let body = Unixext.really_read_string fd content_length in
+          let xml_in = try
+              Xmlm.make_input
+                (`String (0, body))
+          with
+          | e -> error "failed to parse xml body: %s" body; raise e in
           let messages = import_xml xml_in in
           List.iter (function (_,r,m) -> ignore (write ~__context ~_ref:r ~message:m)) messages ;
 
@@ -689,7 +696,7 @@ let send_messages ~__context ~cls ~obj_uuid ~session_id ~remote_address =
               ; "cls", "VM"
               ; "uuid", obj_uuid ] in
   let subtask_of = Context.string_of_task __context in
-  let request = Xapi_http.http_request ~subtask_of ~query ~body
+  let request = Xapi_http.http_request ~subtask_of ~query ~body ~length:(Int64.of_int (String.length body))
       Http.Put Constants.message_put_uri in
   let open Xmlrpc_client in
   let transport = SSL(SSL.make (), remote_address, !Xapi_globs.https_port) in
