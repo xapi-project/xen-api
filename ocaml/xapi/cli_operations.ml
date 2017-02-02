@@ -2721,11 +2721,22 @@ let vm_migrate printer rpc session_id params =
   (* Hack to match host-uuid and host-name for backwards compatibility *)
   let params = List.map (fun (k, v) -> if (k = "host-uuid") || (k = "host-name") then ("host", v) else (k, v)) params in
   let options = List.map_assoc_with_key (string_of_bool +++ bool_of_string) (List.restrict_with_default "false" ["force"; "live"; "copy"] params) in
-  (* If we specify all of: remote-master, remote-username, remote-password
-     	   then we're using the new codepath *)
-  if List.mem_assoc "remote-master" params && (List.mem_assoc "remote-username" params)
-     && (List.mem_assoc "remote-password" params) then begin
+  (* We assume the user wants to do Storage XenMotion if they supply any of the
+     SXM-specific parameters, and then we use the new codepath. *)
+  let use_sxm_migration =
+    (* This is a safe assumption, because vm_migrate_sxm_params do not clash with
+       the VM selector keys. *)
+    let is_sxm_param k = List.exists (fun p -> String.startswith p k) vm_migrate_sxm_params in
+    List.exists (fun (k,_) -> is_sxm_param k) params
+  in
+  if use_sxm_migration then begin
     printer (Cli_printer.PMsg "Performing a Storage XenMotion migration. Your VM's VDIs will be migrated with the VM.");
+    if not ((List.mem_assoc "remote-master" params) && (List.mem_assoc "remote-username" params)
+            && (List.mem_assoc "remote-password" params)) then begin
+       failwith "Storage XenMotion requires remote-master, remote-username, and \
+         remote-password to be specified. Please see 'xe help vm-migrate' for \
+         help."
+    end;
     let ip = List.assoc "remote-master" params in
     let remote_rpc xml =
       let open Xmlrpc_client in
@@ -2826,6 +2837,7 @@ let vm_migrate printer rpc session_id params =
     ignore(do_vm_op ~include_control_vms:true printer rpc session_id (fun vm -> Client.VM.pool_migrate rpc session_id (vm.getref ()) host options)
              params ["host"; "host-uuid"; "host-name"; "live"])
   end
+
 let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
   let vbds = List.filter (fun vbd -> Client.VBD.get_type rpc session_id vbd = (if is_cd_list then `CD else `Disk)) (vm.record()).API.vM_VBDs in
   let vbdrecords = List.map (fun vbd-> (vbd_record rpc session_id vbd)) vbds in
