@@ -776,6 +776,11 @@ module Ovs = struct
 			debug "bridge_to_vlan: %s" (Printexc.to_string e);
 			None
 
+	let get_real_bridge name =
+		match bridge_to_vlan name with
+		| Some (parent, vlan) -> parent
+		| None -> name
+
 	let get_bond_link_status name =
 		try
 			let raw = appctl ["bond/show"; name] in

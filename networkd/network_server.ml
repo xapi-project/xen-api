@@ -788,11 +788,7 @@ module Bridge = struct
 		match !backend_kind with
 		| Openvswitch ->
 			ignore (Ovs.create_port ~internal:true name bridge);
-			let real_bridge =
-				match Ovs.bridge_to_vlan bridge with
-				| Some (parent, _) -> parent
-				| None -> bridge
-			in
+			let real_bridge = Ovs.get_real_bridge bridge in
 			Ovs.mod_port real_bridge name "no-flood";
 			Interface.bring_up () dbg ~name
 		| Bridge ->
@@ -842,6 +838,31 @@ module Bridge = struct
 				Ovs.bridge_to_interfaces name
 			| Bridge ->
 				Sysfs.bridge_to_interfaces name
+		) ()
+
+	let get_physical_interfaces _ dbg ~name =
+		Debug.with_thread_associated dbg (fun () ->
+			match !backend_kind with
+			| Openvswitch ->
+				Ovs.get_real_bridge name
+				|> Ovs.bridge_to_interfaces
+				|> List.filter (Sysfs.is_physical)
+
+			| Bridge ->
+				let ifaces = Sysfs.bridge_to_interfaces name in
+				let vlan_ifaces = List.filter (fun (bridge, _, _) -> List.mem bridge ifaces) (Proc.get_vlans ()) in
+				let bond_ifaces = List.filter (fun iface -> Linux_bonding.is_bond_device iface) ifaces in
+				let physical_ifaces = List.filter (fun iface -> Sysfs.is_physical iface) ifaces in
+				if vlan_ifaces <> [] then
+					let _, _, parent = List.hd vlan_ifaces in
+					if Linux_bonding.is_bond_device parent then
+						Linux_bonding.get_bond_slaves parent
+					else
+						[parent]
+				else if bond_ifaces <> [] then
+					Linux_bonding.get_bond_slaves (List.hd bond_ifaces)
+				else
+					physical_ifaces
 		) ()
 
 	let get_fail_mode _ dbg ~name =
