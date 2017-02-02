@@ -50,13 +50,15 @@ let id_of_int hex_id =
   Printf.sprintf "%04x" hex_id
 
 let create ~__context ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
-    ~device_name ~host ~pci_id ~functions ~dependencies ~other_config
+    ~device_name ~host ~pci_id ~functions ~physical_function
+    ~dependencies ~other_config
     ~subsystem_vendor_id ~subsystem_vendor_name
     ~subsystem_device_id ~subsystem_device_name =
   let p = Ref.make () in
   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
   Db.PCI.create ~__context ~ref:p ~uuid ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
-    ~device_name ~host ~pci_id ~functions ~dependencies:[] ~other_config:[]
+    ~device_name ~host ~pci_id ~functions ~physical_function
+    ~dependencies:[] ~other_config:[]
     ~subsystem_vendor_id ~subsystem_vendor_name
     ~subsystem_device_id ~subsystem_device_name;
   debug "PCI %s, %s, %s created" pci_id vendor_name device_name;
@@ -128,7 +130,7 @@ let update_pcis ~__context ~host =
               ~vendor_name:pci.vendor.name
               ~device_id:(id_of_int pci.device.id)
               ~device_name:pci.device.name ~host ~pci_id:pci.address
-              ~functions:1L ~dependencies:[] ~other_config:[]
+              ~functions:1L ~physical_function:Ref.null ~dependencies:[] ~other_config:[]
               ~subsystem_vendor_id ~subsystem_vendor_name
               ~subsystem_device_id ~subsystem_device_name in
           self, Db.PCI.get_record_internal ~__context ~self
