@@ -85,7 +85,7 @@ let ely_release_schema_major_vsn = 5
 let ely_release_schema_minor_vsn = 100
 
 let falcon_release_schema_major_vsn = 5
-let falcon_release_schema_minor_vsn = 101
+let falcon_release_schema_minor_vsn = 111
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
 let last_release_schema_major_vsn = ely_release_schema_major_vsn
