@@ -158,10 +158,12 @@ let management_ip_cond = Condition.create ()
 
 let wait_for_management_ip ~__context =
   let ip = ref (match Helpers.get_management_ip_addr ~__context with Some x -> x | None -> "") in
+  let is_connected = ref (Helpers.get_management_iface_is_connected ~__context) in
   Mutex.execute management_ip_mutex
-    (fun () -> begin while !ip = "" do
+    (fun () -> begin while !ip = "" && !is_connected = false do
           Condition.wait management_ip_cond management_ip_mutex;
-          ip := (match Helpers.get_management_ip_addr ~__context with Some x -> x | None -> "")
+          ip := (match Helpers.get_management_ip_addr ~__context with Some x -> x | None -> "");
+          is_connected := (Helpers.get_management_iface_is_connected ~__context)
         done; end);
   !ip
 
