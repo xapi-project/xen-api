@@ -647,7 +647,7 @@ module MxGPU = struct
               size_of_pgpu /// vgpus_per_pgpu
             in
             let internal_config = let open Xapi_globs in
-              []
+              [ mxgpu_sched, string_of_int conf.identifier.sched ]
             in
             Some {
               vendor_name;
