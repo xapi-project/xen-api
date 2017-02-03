@@ -1,3 +1,7 @@
+1.0.2 (03-Febr-2017):
+* fix Makfile to make installation via Opam work
+* add Git meta data files .gitarchive-info and .gitattributes
+
 1.0.1 (22-Jun-2016):
 * Update to Stdext 2.0.0
 

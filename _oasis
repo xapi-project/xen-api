@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        xcp-inventory
-Version:     1.0.1
+Version:     1.0.2
 Synopsis:    XCP inventory library
 Authors:     Various
 License:     LGPL-2.1 with OCaml linking exception
