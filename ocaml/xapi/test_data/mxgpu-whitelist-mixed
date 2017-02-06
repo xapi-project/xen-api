@@ -1,0 +1,2 @@
+1234 name='Small AMD MxGPU on 1234' framebuffer_sz=128 sched=2 vgpus_per_pgpu=4
+2345 name='Small AMD MxGPU on 2345' framebuffer_sz=128 sched=2 vgpus_per_pgpu=4

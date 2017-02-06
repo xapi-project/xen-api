@@ -237,6 +237,111 @@ module IntelTest = struct
     end)
 end
 
+module MxGPUTest = struct
+  let string_of_vgpu_conf conf =
+    let open Identifier in
+    let open MxGPU in
+    Printf.sprintf "%04x %d %Ld %s %Ld"
+      conf.identifier.pdev_id
+      conf.identifier.sched
+      conf.identifier.framebufferbytes
+      conf.model_name
+      conf.vgpus_per_pgpu
+
+  module ReadWhitelistLine = Generic.Make(struct
+      module Io = struct
+        type input_t = string
+        type output_t = MxGPU.vgpu_conf option
+
+        let string_of_input_t x = x
+        let string_of_output_t = Test_printers.option string_of_vgpu_conf
+      end
+
+      let transform line = MxGPU.read_whitelist_line ~line
+
+      let tests = [
+        (* Test some failure cases. *)
+        "", None;
+        "nonsense123", None;
+        (* Test some success cases. *)
+        "1234 name='mymxgpu' framebuffer_sz=256 sched=4 vgpus_per_pgpu=5",
+        Some {
+          MxGPU.identifier = Identifier.({
+              pdev_id = 0x1234;
+              sched = 4;
+              framebufferbytes = 256L;
+            });
+          model_name = "mymxgpu";
+          vgpus_per_pgpu = 5L;
+        };
+        "2345 name='yourmxgpu' framebuffer_sz=512 sched=8 vgpus_per_pgpu=8",
+        Some {
+          MxGPU.identifier = Identifier.({
+              pdev_id = 0x2345;
+              sched = 8;
+              framebufferbytes = 512L;
+            });
+          model_name = "yourmxgpu";
+          vgpus_per_pgpu = 8L;
+        };
+      ]
+    end)
+
+  module ReadWhitelist = Generic.Make(struct
+      module Io = struct
+        type input_t = (string * int) (* whitelist * device_id *)
+        type output_t = MxGPU.vgpu_conf list
+
+        let string_of_input_t (whitelist, device_id) =
+          Printf.sprintf "(%s, %04x)" whitelist device_id
+        let string_of_output_t =
+          Test_printers.list string_of_vgpu_conf
+      end
+
+      let transform (whitelist, device_id) =
+        MxGPU.read_whitelist ~whitelist ~device_id |> List.rev
+
+      let tests = [
+        ("ocaml/xapi/test_data/mxgpu-whitelist-empty", 0x1234), [];
+        ("ocaml/xapi/test_data/mxgpu-whitelist-missing", 0x1234), [];
+        ("ocaml/xapi/test_data/mxgpu-whitelist-1234", 0x1234),
+        [
+          MxGPU.({
+              identifier = Identifier.({
+                  pdev_id = 0x1234;
+                  sched = 2;
+                  framebufferbytes = 128L;
+                });
+              model_name = "Small AMD MxGPU on 1234";
+              vgpus_per_pgpu = 4L;
+            });
+          MxGPU.({
+              identifier = Identifier.({
+                  pdev_id = 0x1234;
+                  sched = 4;
+                  framebufferbytes = 256L;
+                });
+              model_name = "Big AMD MxGPU on 1234";
+              vgpus_per_pgpu = 2L;
+            });
+        ];
+        ("ocaml/xapi/test_data/mxgpu-whitelist-1234", 0x5678), [];
+        ("ocaml/xapi/test_data/mxgpu-whitelist-mixed", 0x1234),
+        [
+          MxGPU.({
+              identifier = Identifier.({
+                  pdev_id = 0x1234;
+                  sched = 2;
+                  framebufferbytes = 128L;
+                });
+              model_name = "Small AMD MxGPU on 1234";
+              vgpus_per_pgpu = 4L;
+            });
+        ];
+      ]
+    end)
+end
+
 let test_find_or_create () =
   let __context = make_test_database () in
   let k100_ref_1 = find_or_create ~__context k100 in
@@ -336,10 +441,12 @@ let test_vendor_model_lookup () =
 let test =
   "test_vgpu_type" >:::
   [
-    "test_of_conf_file" >::: NvidiaTest.OfConfFile.tests;
-    "print_nv_types" >:: NvidiaTest.print_nv_types;
-    "read_whitelist_line" >::: IntelTest.ReadWhitelistLine.tests;
-    "read_whitelist" >::: IntelTest.ReadWhitelist.tests;
+    "nvidia_test_of_conf_file" >::: NvidiaTest.OfConfFile.tests;
+    "nvidia_print_nv_types" >:: NvidiaTest.print_nv_types;
+    "intel_read_whitelist_line" >::: IntelTest.ReadWhitelistLine.tests;
+    "intel_read_whitelist" >::: IntelTest.ReadWhitelist.tests;
+    "mxgpu_read_whitelist_line" >::: MxGPUTest.ReadWhitelistLine.tests;
+    "mxgpu_read_whitelist" >::: MxGPUTest.ReadWhitelist.tests;
     "test_find_or_create" >:: test_find_or_create;
     "test_identifier_lookup" >:: test_identifier_lookup;
     "test_vendor_model_lookup" >:: test_vendor_model_lookup;
