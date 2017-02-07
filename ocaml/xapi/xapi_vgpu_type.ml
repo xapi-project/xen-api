@@ -562,7 +562,7 @@ module Vendor_intel = struct
       }
 end
 
-module Vendor_mxgpu = struct
+module Vendor_amd = struct
   type vgpu_conf = {
     (* The identifier has fields for framebuffer size and scheduling slice. *)
     identifier : Identifier.mxgpu_id;
@@ -630,7 +630,7 @@ module Vendor_mxgpu = struct
 end
 
 module Intel = Vendor(Vendor_intel)
-module MxGPU = Vendor(Vendor_mxgpu)
+module AMD = Vendor(Vendor_amd)
 
 let find_or_create_supported_types ~__context ~pci
     ~is_system_display_device
@@ -651,8 +651,8 @@ let find_or_create_supported_types ~__context ~pci
         ~is_host_display_enabled
         ~is_pci_hidden
     end
-  | x when x = MxGPU.vendor_id -> begin
-      MxGPU.find_or_create_supported_types ~__context ~pci
+  | x when x = AMD.vendor_id -> begin
+      AMD.find_or_create_supported_types ~__context ~pci
         ~is_system_display_device
         ~is_host_display_enabled
         ~is_pci_hidden
