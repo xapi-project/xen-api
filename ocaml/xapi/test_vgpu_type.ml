@@ -269,7 +269,7 @@ module AMDTest = struct
           Vendor_amd.identifier = Identifier.({
               pdev_id = 0x1234;
               sched = 4;
-              framebufferbytes = 256L;
+              framebufferbytes = mib 256L;
             });
           model_name = "mymxgpu";
           vgpus_per_pgpu = 5L;
@@ -279,7 +279,7 @@ module AMDTest = struct
           Vendor_amd.identifier = Identifier.({
               pdev_id = 0x2345;
               sched = 8;
-              framebufferbytes = 512L;
+              framebufferbytes = mib 512L;
             });
           model_name = "yourmxgpu";
           vgpus_per_pgpu = 8L;
@@ -310,7 +310,7 @@ module AMDTest = struct
               identifier = Identifier.({
                   pdev_id = 0x1234;
                   sched = 2;
-                  framebufferbytes = 128L;
+                  framebufferbytes = mib 128L;
                 });
               model_name = "Small AMD MxGPU on 1234";
               vgpus_per_pgpu = 4L;
@@ -319,7 +319,7 @@ module AMDTest = struct
               identifier = Identifier.({
                   pdev_id = 0x1234;
                   sched = 4;
-                  framebufferbytes = 256L;
+                  framebufferbytes = mib 256L;
                 });
               model_name = "Big AMD MxGPU on 1234";
               vgpus_per_pgpu = 2L;
@@ -332,7 +332,7 @@ module AMDTest = struct
               identifier = Identifier.({
                   pdev_id = 0x1234;
                   sched = 2;
-                  framebufferbytes = 128L;
+                  framebufferbytes = mib 128L;
                 });
               model_name = "Small AMD MxGPU on 1234";
               vgpus_per_pgpu = 4L;
