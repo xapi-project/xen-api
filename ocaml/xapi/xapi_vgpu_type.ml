@@ -234,9 +234,21 @@ let find_or_create ~__context vgpu_type =
       ~identifier:(Identifier.to_string vgpu_type.identifier)
       ~experimental:vgpu_type.experimental
 
+
+module Passthrough = struct
+  let find_or_create_supported_types ~__context ~pci
+      ~is_system_display_device
+      ~is_host_display_enabled
+      ~is_pci_hidden =
+    if is_system_display_device then
+      []
+    else
+      [find_or_create ~__context passthrough_gpu]
+end
+
 module Nvidia = struct
-  let nvidia_conf_dir = "/usr/share/nvidia/vgx"
-  let nvidia_vendor_id = 0x10de
+  let conf_dir = "/usr/share/nvidia/vgx"
+  let vendor_id = 0x10de
 
   type vgpu_conf = {
     identifier : Identifier.nvidia_id;
@@ -313,7 +325,7 @@ module Nvidia = struct
 
   let relevant_vgpu_types pci_dev_id subsystem_device_id =
     let open Identifier in
-    let vgpu_confs = try read_config_dir nvidia_conf_dir with _ -> [] in
+    let vgpu_confs = try read_config_dir conf_dir with _ -> [] in
     let relevant_vgpu_confs =
       List.filter
         (fun c ->
@@ -349,11 +361,11 @@ module Nvidia = struct
       | [] -> ac
       | conf::tl ->
         debug "Pci.lookup_subsystem_device_name: vendor=%04x device=%04x subdev=%04x"
-          nvidia_vendor_id conf.identifier.vdev_id conf.identifier.vsubdev_id;
-        let vendor_name = Pci.lookup_vendor_name pci_access nvidia_vendor_id
+          vendor_id conf.identifier.vdev_id conf.identifier.vsubdev_id;
+        let vendor_name = Pci.lookup_vendor_name pci_access vendor_id
         and model_name =
-          Pci.lookup_subsystem_device_name pci_access nvidia_vendor_id
-            conf.identifier.vdev_id nvidia_vendor_id conf.identifier.vsubdev_id
+          Pci.lookup_subsystem_device_name pci_access vendor_id
+            conf.identifier.vdev_id vendor_id conf.identifier.vsubdev_id
         and framebuffer_size = conf.framebufferlength
         and max_heads = conf.num_heads
         and max_resolution_x = conf.max_x
@@ -371,22 +383,32 @@ module Nvidia = struct
     in
     Pci.with_access (fun a -> build_vgpu_types a [] relevant_vgpu_confs)
 
-  let find_or_create_supported_types ~__context ~pci =
-    let dev_id = Xapi_pci.int_of_id (Db.PCI.get_device_id ~__context ~self:pci) in
-    let subsystem_dev_id =
-      match Db.PCI.get_subsystem_device_id ~__context ~self:pci with
-      | "" -> None
-      | id_string -> Some (Xapi_pci.int_of_id id_string)
-    in
-    debug "dev_id = %s" (Printf.sprintf "%04x" dev_id);
-    let relevant_types = relevant_vgpu_types dev_id subsystem_dev_id in
-    debug "Relevant vGPU configurations for pgpu = [ %s ]"
-      (String.concat "; "
-         (List.map (fun vt -> vt.model_name) relevant_types));
-    let vgpu_types = List.map
-        (fun v -> find_or_create ~__context v) relevant_types in
-    let passthrough_gpu_type = find_or_create ~__context passthrough_gpu in
-    passthrough_gpu_type :: vgpu_types
+
+  (* The last two arguments of the following function are unused, and only
+   * present to match the function signature *)
+  let find_or_create_supported_types ~__context ~pci
+        ~is_system_display_device
+        ~is_host_display_enabled
+        ~is_pci_hidden =
+    if is_system_display_device then
+      []
+    else begin
+      let dev_id = Xapi_pci.int_of_id (Db.PCI.get_device_id ~__context ~self:pci) in
+      let subsystem_dev_id =
+        match Db.PCI.get_subsystem_device_id ~__context ~self:pci with
+        | "" -> None
+        | id_string -> Some (Xapi_pci.int_of_id id_string)
+      in
+      debug "dev_id = %s" (Printf.sprintf "%04x" dev_id);
+      let relevant_types = relevant_vgpu_types dev_id subsystem_dev_id in
+      debug "Relevant vGPU configurations for pgpu = [ %s ]"
+        (String.concat "; "
+           (List.map (fun vt -> vt.model_name) relevant_types));
+      let vgpu_types = List.map
+          (fun v -> find_or_create ~__context v) relevant_types in
+      let passthrough_gpu_type = find_or_create ~__context passthrough_gpu in
+      passthrough_gpu_type :: vgpu_types
+    end
 end
 
 module type VENDOR = sig
@@ -627,35 +649,19 @@ end
 module Intel = Vendor(Vendor_intel)
 module AMD = Vendor(Vendor_amd)
 
-let find_or_create_supported_types ~__context ~pci
-    ~is_system_display_device
-    ~is_host_display_enabled
-    ~is_pci_hidden =
+let find_or_create_supported_types ~__context ~pci =
   let vendor_id =
     Db.PCI.get_vendor_id ~__context ~self:pci
     |> Xapi_pci.int_of_id
   in
-  match vendor_id with
-  | x when x = Nvidia.nvidia_vendor_id -> begin
-      if is_system_display_device then []
-      else Nvidia.find_or_create_supported_types ~__context ~pci
-    end
-  | x when x = Intel.vendor_id -> begin
-      Intel.find_or_create_supported_types ~__context ~pci
-        ~is_system_display_device
-        ~is_host_display_enabled
-        ~is_pci_hidden
-    end
-  | x when x = AMD.vendor_id -> begin
-      AMD.find_or_create_supported_types ~__context ~pci
-        ~is_system_display_device
-        ~is_host_display_enabled
-        ~is_pci_hidden
-    end
-  | _ -> begin
-      if is_system_display_device then []
-      else [find_or_create ~__context passthrough_gpu]
-    end
+  let find_or_create_supported_types =
+    match vendor_id with
+    | x when x = Nvidia.vendor_id -> Nvidia.find_or_create_supported_types
+    | x when x = Intel.vendor_id ->  Intel.find_or_create_supported_types
+    | x when x = AMD.vendor_id ->    AMD.find_or_create_supported_types
+    | _ ->                           Passthrough.find_or_create_supported_types
+  in
+  find_or_create_supported_types ~__context ~pci
 
 let requires_passthrough ~__context ~self =
   Db.VGPU_type.get_implementation ~__context ~self = `passthrough
