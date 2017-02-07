@@ -482,7 +482,7 @@ module Vendor_intel = struct
     identifier : Identifier.gvt_g_id;
     experimental : bool;
     model_name : string;
-    framebufferlength : int64;
+    framebufferlength : int64;  (* in MiB *)
     num_heads : int64;
     max_x : int64;
     max_y : int64;
@@ -598,14 +598,14 @@ module Vendor_amd = struct
               "%04x name='%s@' framebuffer_sz=%Ld sched=%d vgpus_per_pgpu=%Ld"
               (fun pdev_id (* e.g. "FirePro S7150" has 6929 (PF), 692f (VF) *)
                 model_name (* e.g. PF "FirePro S7150" or VF "FirePro S7150V" *)
-                framebufferbytes
+                framebuffer_sz
                 sched
                 vgpus_per_pgpu ->
                 {
                   identifier = Identifier.({
                       pdev_id;
                       sched;
-                      framebufferbytes;
+                      framebufferbytes = mib framebuffer_sz;
                     });
                   model_name;
                   vgpus_per_pgpu;
