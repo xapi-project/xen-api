@@ -88,13 +88,13 @@ module NvidiaTest = struct
     skip_if skip "Generates print...";
     try
       let open Nvidia in
-      if (Sys.file_exists nvidia_conf_dir
-          && Sys.is_directory nvidia_conf_dir) then
+      if (Sys.file_exists conf_dir
+          && Sys.is_directory conf_dir) then
         begin
-          let vgpu_confs = read_config_dir nvidia_conf_dir in
+          let vgpu_confs = read_config_dir conf_dir in
           List.iter print_vgpu_conf vgpu_confs
         end else
-        Printf.printf "No NVIDIA conf files found in %s\n" nvidia_conf_dir
+        Printf.printf "No NVIDIA conf files found in %s\n" conf_dir
     with e ->
       print_string (Printf.sprintf "%s\n" (Printexc.to_string e));
       assert false (* fail *)
