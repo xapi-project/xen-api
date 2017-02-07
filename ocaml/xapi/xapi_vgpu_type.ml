@@ -516,10 +516,7 @@ module Vendor_intel = struct
                       fence_sz;
                       monitor_config_file = Some monitor_config_file;
                     });
-                  experimental =
-                    (match experimental with
-                     | '0' -> false
-                     | _ -> true);
+                  experimental = (experimental <> '0');
                   model_name;
                   framebufferlength = mib framebuffer_sz;
                   num_heads;
@@ -583,6 +580,7 @@ module Vendor_amd = struct
   type vgpu_conf = {
     (* The identifier has fields for framebuffer size and scheduling slice. *)
     identifier : Identifier.mxgpu_id;
+    experimental : bool;
     model_name : string;
     vgpus_per_pgpu : int64;
   }
@@ -595,8 +593,9 @@ module Vendor_amd = struct
     try
       Some (Scanf.sscanf
               line
-              "%04x name='%s@' framebuffer_sz=%Ld sched=%d vgpus_per_pgpu=%Ld"
+              "%04x experimental=%c name='%s@' framebuffer_sz=%Ld sched=%d vgpus_per_pgpu=%Ld"
               (fun pdev_id (* e.g. "FirePro S7150" has 6929 (PF), 692f (VF) *)
+                experimental
                 model_name (* e.g. PF "FirePro S7150" or VF "FirePro S7150V" *)
                 framebuffer_sz
                 sched
@@ -607,6 +606,7 @@ module Vendor_amd = struct
                       sched;
                       framebufferbytes = mib framebuffer_sz;
                     });
+                  experimental = (experimental <> '0');
                   model_name;
                   vgpus_per_pgpu;
                 }))
@@ -642,7 +642,7 @@ module Vendor_amd = struct
         size = vgpu_size;
         internal_config = internal_config;
         identifier = MxGPU conf.identifier;
-        experimental = false;
+        experimental = conf.experimental;
       }
 end
 
