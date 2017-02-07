@@ -17,6 +17,12 @@ open D
 
 open Stdext.Xstringext
 
+let ( *** ) = Int64.mul
+let ( /// ) = Int64.div
+let ( +++ ) = Int64.add
+let ( --- ) = Int64.sub
+let mib x = List.fold_left Int64.mul x [1024L; 1024L]
+
 exception Parse_error of exn
 
 module Identifier = struct
@@ -381,15 +387,80 @@ module Nvidia = struct
     passthrough_gpu_type :: vgpu_types
 end
 
-module Intel = struct
-  let intel_vendor_id = 0x8086
+module type VENDOR = sig
+  type vgpu_conf
+  val vendor_id : int
+  val whitelist_file : unit -> string
+  val device_id_of_conf : vgpu_conf -> int
+  val read_whitelist_line : line:string -> vgpu_conf option
+  val vgpu_type_of_conf : string -> Pci.Pci_dev.t -> vgpu_conf -> vgpu_type option
+end
 
-  let ( *** ) = Int64.mul
-  let ( /// ) = Int64.div
-  let ( +++ ) = Int64.add
-  let ( --- ) = Int64.sub
-  let mib x = List.fold_left Int64.mul x [1024L; 1024L]
+module Vendor = functor (V : VENDOR) -> struct
+  let vendor_id = V.vendor_id
 
+  let read_whitelist ~whitelist ~device_id =
+    if Sys.file_exists whitelist then begin
+      Stdext.Unixext.file_lines_fold
+        Identifier.(fun acc line ->
+            match V.read_whitelist_line ~line with
+            | Some conf when V.device_id_of_conf conf = device_id -> conf :: acc
+            | _ -> acc)
+        []
+        whitelist
+    end else []
+
+  let make_vgpu_types ~__context ~pci ~whitelist =
+    let open Xenops_interface.Pci in
+    let device_id =
+      Db.PCI.get_device_id ~__context ~self:pci
+      |> Xapi_pci.int_of_id
+    in
+    let address =
+      Db.PCI.get_pci_id ~__context ~self:pci
+      |> address_of_string
+    in
+    let whitelist = read_whitelist ~whitelist ~device_id in
+    let vendor_name, device =
+      Pci.(with_access (fun access ->
+          let vendor_name = lookup_vendor_name access V.vendor_id in
+          let device =
+            List.find
+              (fun device ->
+                 (device.Pci_dev.domain = address.domain) &&
+                 (device.Pci_dev.bus = address.bus) &&
+                 (device.Pci_dev.dev = address.dev) &&
+                 (device.Pci_dev.func = address.fn))
+              (get_devices access)
+          in
+          vendor_name, device))
+    in
+    let rec collect acc = function
+      | []             -> acc
+      | Some v :: tail -> collect (v :: acc) tail
+      | None   :: tail -> collect acc tail
+    in
+    whitelist
+    |> List.map (V.vgpu_type_of_conf vendor_name device)
+    |> collect []
+
+  let find_or_create_supported_types ~__context ~pci
+      ~is_system_display_device
+      ~is_host_display_enabled
+      ~is_pci_hidden =
+    let types =
+      let passthrough_types =
+        if is_system_display_device && (is_host_display_enabled || not is_pci_hidden)
+        then []
+        else [passthrough_gpu]
+      in
+      passthrough_types @
+      (make_vgpu_types ~__context ~pci ~whitelist:(V.whitelist_file ()))
+    in
+    List.map (find_or_create ~__context) types
+end
+
+module Vendor_intel = struct
   type vgpu_conf = {
     identifier : Identifier.gvt_g_id;
     experimental : bool;
@@ -399,6 +470,10 @@ module Intel = struct
     max_x : int64;
     max_y : int64;
   }
+
+  let vendor_id = 0x8086
+  let whitelist_file () = !Xapi_globs.gvt_g_whitelist
+  let device_id_of_conf conf = conf.identifier.Identifier.pdev_id
 
   let read_whitelist_line ~line =
     try
@@ -434,133 +509,70 @@ module Intel = struct
                   max_x;
                   max_y;
                 }))
-    with e-> begin
-        error "Failed to read whitelist line: '%s' %s"
-          line (Printexc.to_string e);
-        None
-      end
-
-  let read_whitelist ~whitelist ~device_id =
-    if Sys.file_exists whitelist then begin
-      Stdext.Unixext.file_lines_fold
-        Identifier.(fun acc line ->
-            match read_whitelist_line ~line with
-            | Some conf when conf.identifier.pdev_id = device_id -> conf :: acc
-            | _ -> acc)
-        []
-        whitelist
-    end else []
-
-  let make_vgpu_types ~__context ~pci ~whitelist =
-    let open Xenops_interface.Pci in
-    let device_id =
-      Db.PCI.get_device_id ~__context ~self:pci
-      |> Xapi_pci.int_of_id
-    in
-    let address =
-      Db.PCI.get_pci_id ~__context ~self:pci
-      |> address_of_string
-    in
-    let whitelist = read_whitelist ~whitelist ~device_id in
-    let vendor_name, device =
-      Pci.(with_access (fun access ->
-          let vendor_name = lookup_vendor_name access intel_vendor_id in
-          let device =
-            List.find
-              (fun device ->
-                 (device.Pci_dev.domain = address.domain) &&
-                 (device.Pci_dev.bus = address.bus) &&
-                 (device.Pci_dev.dev = address.dev) &&
-                 (device.Pci_dev.func = address.fn))
-              (get_devices access)
-          in
-          vendor_name, device))
-    in
+    with e ->
+      error "Failed to read whitelist line: '%s' %s"
+        line (Printexc.to_string e);
+      None
+  
+  let vgpu_type_of_conf vendor_name device conf =
+    let open Identifier in
     let bar_size =
       List.nth device.Pci.Pci_dev.size 2
       |> Int64.of_nativeint
     in
-    let rec collect acc = function
-      | []             -> acc
-      | Some v :: tail -> collect (v :: acc) tail
-      | None   :: tail -> collect acc tail
+    let vgpus_per_pgpu =
+      bar_size /// 1024L /// 1024L
+      /// conf.identifier.low_gm_sz
+      --- 1L
     in
-    whitelist
-    |> List.map
-      Identifier.(fun conf ->
-          let vgpus_per_pgpu =
-            bar_size /// 1024L /// 1024L
-            /// conf.identifier.low_gm_sz
-            --- 1L
-          in
-          if vgpus_per_pgpu <= 0L then 
-            begin
-              warn "Not enough memory for Intel VGPUs. \
-                    If you intend to use them, increase the GPU \
-                    BAR size in the BIOS settings.";
-              None
-            end
-          else
-            let vgpu_size =
-              Constants.pgpu_default_size /// vgpus_per_pgpu
-            in
-            let internal_config = let open Xapi_globs in
-              List.concat [
-                [ vgt_low_gm_sz, Int64.to_string conf.identifier.low_gm_sz
-                ; vgt_high_gm_sz, Int64.to_string conf.identifier.high_gm_sz
-                ; vgt_fence_sz, Int64.to_string conf.identifier.fence_sz
-                ]
-              ; match conf.identifier.monitor_config_file with
-                | Some monitor_config_file ->
-                  [vgt_monitor_config_file, monitor_config_file]
-                | None -> []
-              ]
-            in
-            Some {
-              vendor_name;
-              model_name = conf.model_name;
-              framebuffer_size = conf.framebufferlength;
-              max_heads = conf.num_heads;
-              max_resolution_x = conf.max_x;
-              max_resolution_y = conf.max_y;
-              size = vgpu_size;
-              internal_config = internal_config;
-              identifier = GVT_g conf.identifier;
-              experimental = conf.experimental;
-            })
-    |> collect []
-
-  let find_or_create_supported_types ~__context ~pci
-      ~is_system_display_device
-      ~is_host_display_enabled
-      ~is_pci_hidden =
-    let types =
-      let passthrough_types =
-        if is_system_display_device && (is_host_display_enabled || not is_pci_hidden)
-        then []
-        else [passthrough_gpu]
+    if vgpus_per_pgpu <= 0L then 
+      begin
+        warn "Not enough memory for Intel VGPUs. \
+              If you intend to use them, increase the GPU \
+              BAR size in the BIOS settings.";
+        None
+      end
+    else
+      let vgpu_size =
+        Constants.pgpu_default_size /// vgpus_per_pgpu
       in
-      passthrough_types @
-      (make_vgpu_types ~__context ~pci ~whitelist:!Xapi_globs.gvt_g_whitelist)
-    in
-    List.map (find_or_create ~__context) types
-end (* Intel *)
+      let internal_config = let open Xapi_globs in
+        List.concat [
+          [ vgt_low_gm_sz, Int64.to_string conf.identifier.low_gm_sz
+          ; vgt_high_gm_sz, Int64.to_string conf.identifier.high_gm_sz
+          ; vgt_fence_sz, Int64.to_string conf.identifier.fence_sz
+          ]
+        ; match conf.identifier.monitor_config_file with
+          | Some monitor_config_file ->
+            [vgt_monitor_config_file, monitor_config_file]
+          | None -> []
+        ]
+      in
+      Some {
+        vendor_name;
+        model_name = conf.model_name;
+        framebuffer_size = conf.framebufferlength;
+        max_heads = conf.num_heads;
+        max_resolution_x = conf.max_x;
+        max_resolution_y = conf.max_y;
+        size = vgpu_size;
+        internal_config = internal_config;
+        identifier = GVT_g conf.identifier;
+        experimental = conf.experimental;
+      }
+end
 
-module MxGPU = struct
-  let amd_vendor_id = 0x1002
-
-  let ( *** ) = Int64.mul
-  let ( /// ) = Int64.div
-  let ( +++ ) = Int64.add
-  let ( --- ) = Int64.sub
-  let mib x = List.fold_left Int64.mul x [1024L; 1024L]
-
+module Vendor_mxgpu = struct
   type vgpu_conf = {
     (* The identifier has fields for framebuffer size and scheduling slice. *)
     identifier : Identifier.mxgpu_id;
     model_name : string;
     vgpus_per_pgpu : int64;
   }
+
+  let vendor_id = 0x1002
+  let whitelist_file () = !Xapi_globs.mxgpu_whitelist
+  let device_id_of_conf conf = conf.identifier.Identifier.pdev_id
 
   let read_whitelist_line ~line =
     try
@@ -581,103 +593,44 @@ module MxGPU = struct
                   model_name;
                   vgpus_per_pgpu;
                 }))
-    with e-> begin
-        error "Failed to read whitelist line: '%s' %s"
-          line (Printexc.to_string e);
-        None
-      end
-
-  let read_whitelist ~whitelist ~device_id =
-    if Sys.file_exists whitelist then begin
-      Stdext.Unixext.file_lines_fold
-        Identifier.(fun acc line ->
-            match read_whitelist_line ~line with
-            | Some conf when conf.identifier.pdev_id = device_id -> conf :: acc
-            | _ -> acc)
-        []
-        whitelist
-    end else []
-
-  let make_vgpu_types ~__context ~pci ~whitelist =
-    let open Xenops_interface.Pci in
-    let device_id =
-      Db.PCI.get_device_id ~__context ~self:pci
-      |> Xapi_pci.int_of_id
-    in
-    let address =
-      Db.PCI.get_pci_id ~__context ~self:pci
-      |> address_of_string
-    in
-    let whitelist = read_whitelist ~whitelist ~device_id in
-    let vendor_name, device =
-      Pci.(with_access (fun access ->
-          let vendor_name = lookup_vendor_name access amd_vendor_id in
-          let device =
-            List.find
-              (fun device ->
-                 (device.Pci_dev.domain = address.domain) &&
-                 (device.Pci_dev.bus = address.bus) &&
-                 (device.Pci_dev.dev = address.dev) &&
-                 (device.Pci_dev.func = address.fn))
-              (get_devices access)
-          in
-          vendor_name, device))
-    in
+    with e ->
+      error "Failed to read whitelist line: '%s' %s"
+        line (Printexc.to_string e);
+      None
+  
+  let vgpu_type_of_conf vendor_name _ conf =
+    let open Identifier in
     let size_of_pgpu = (* counterpart of bar_size in gvt-g *)
       Constants.pgpu_default_size
     in
-    let rec collect acc = function
-      | []             -> acc
-      | Some v :: tail -> collect (v :: acc) tail
-      | None   :: tail -> collect acc tail
-    in
-    whitelist
-    |> List.map
-      Identifier.(fun conf ->
-          let vgpus_per_pgpu =
-            conf.vgpus_per_pgpu
-          in
-          if vgpus_per_pgpu <= 0L then 
-            begin
-              warn "Ignoring a config line that specifies 0 vgpus per pgpu.";
-              None
-            end
-          else
-            let vgpu_size =
-              size_of_pgpu /// vgpus_per_pgpu
-            in
-            let internal_config = let open Xapi_globs in
-              [ mxgpu_sched, string_of_int conf.identifier.sched ]
-            in
-            Some {
-              vendor_name;
-              model_name = conf.model_name;
-              framebuffer_size = conf.identifier.framebufferbytes;
-              max_heads = 0L;
-              max_resolution_x = 0L;
-              max_resolution_y = 0L;
-              size = vgpu_size;
-              internal_config = internal_config;
-              identifier = MxGPU conf.identifier;
-              experimental = false;
-            })
-    |> collect []
-
-  let find_or_create_supported_types ~__context ~pci
-      ~is_system_display_device
-      ~is_host_display_enabled
-      ~is_pci_hidden =
-    let types =
-      let passthrough_types =
-        if is_system_display_device && (is_host_display_enabled || not is_pci_hidden)
-        then []
-        else [passthrough_gpu]
+    if conf.vgpus_per_pgpu <= 0L then 
+      begin
+        warn "Ignoring a config line that specifies 0 vgpus per pgpu.";
+        None
+      end
+    else
+      let vgpu_size =
+        size_of_pgpu /// conf.vgpus_per_pgpu
       in
-      passthrough_types @
-      (make_vgpu_types ~__context ~pci ~whitelist:!Xapi_globs.mxgpu_whitelist)
-    in
-    List.map (find_or_create ~__context) types
-end (* MxGPU *)
+      let internal_config = let open Xapi_globs in
+        [ mxgpu_sched, string_of_int conf.identifier.sched ]
+      in
+      Some {
+        vendor_name;
+        model_name = conf.model_name;
+        framebuffer_size = conf.identifier.framebufferbytes;
+        max_heads = 0L;
+        max_resolution_x = 0L;
+        max_resolution_y = 0L;
+        size = vgpu_size;
+        internal_config = internal_config;
+        identifier = MxGPU conf.identifier;
+        experimental = false;
+      }
+end
+
+module Intel = Vendor(Vendor_intel)
+module MxGPU = Vendor(Vendor_mxgpu)
 
 let find_or_create_supported_types ~__context ~pci
     ~is_system_display_device
@@ -692,13 +645,13 @@ let find_or_create_supported_types ~__context ~pci
       if is_system_display_device then []
       else Nvidia.find_or_create_supported_types ~__context ~pci
     end
-  | x when x = Intel.intel_vendor_id -> begin
+  | x when x = Intel.vendor_id -> begin
       Intel.find_or_create_supported_types ~__context ~pci
         ~is_system_display_device
         ~is_host_display_enabled
         ~is_pci_hidden
     end
-  | x when x = MxGPU.amd_vendor_id -> begin
+  | x when x = MxGPU.vendor_id -> begin
       MxGPU.find_or_create_supported_types ~__context ~pci
         ~is_system_display_device
         ~is_host_display_enabled
