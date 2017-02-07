@@ -15,7 +15,9 @@
 module D = Debug.Make(struct let name = "xapi" end)
 open D
 
-open Stdext.Xstringext
+open Stdext
+open Xstringext
+open Listext
 
 let ( *** ) = Int64.mul
 let ( /// ) = Int64.div
@@ -435,14 +437,7 @@ module Vendor = functor (V : VENDOR) -> struct
           in
           vendor_name, device))
     in
-    let rec collect acc = function
-      | []             -> acc
-      | Some v :: tail -> collect (v :: acc) tail
-      | None   :: tail -> collect acc tail
-    in
-    whitelist
-    |> List.map (V.vgpu_type_of_conf vendor_name device)
-    |> collect []
+    List.filter_map (V.vgpu_type_of_conf vendor_name device) whitelist
 
   let find_or_create_supported_types ~__context ~pci
       ~is_system_display_device
