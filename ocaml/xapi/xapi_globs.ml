@@ -948,7 +948,7 @@ let other_options = [
   (fun () -> !gvt_g_whitelist), "path to the GVT-g whitelist file";
 
   "mxgpu-whitelist", Arg.Set_string mxgpu_whitelist,
-  (fun () -> !mxgpu_whitelist), "path to the MxGPU whitelist file";
+  (fun () -> !mxgpu_whitelist), "path to the AMD whitelist file";
 
   "pass-through-pif-carrier", Arg.Set pass_through_pif_carrier,
   (fun () -> string_of_bool !pass_through_pif_carrier), "reflect physical interface carrier information to VMs by default";
