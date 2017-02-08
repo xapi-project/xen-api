@@ -1,4 +1,4 @@
-OCAML_LIBS    = ../util/version ../xapi-consts/xapi-consts ../xapi-types/xapi-types ../xapi-client/xapi-client
+OCAML_LIBS    = ../util/xapi_version ../xapi-consts/xapi-consts ../xapi-types/xapi-types ../xapi-client/xapi-client
 OCAMLINCLUDES = ../idl ../xapi-types ../xapi-client ../xapi-consts
 OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp rpclib uuid
 
