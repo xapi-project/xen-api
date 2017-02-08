@@ -1,4 +1,4 @@
-OASISFormat: 0.2
+OASISFormat: 0.4
 Name:        xcp-idl
 Version:     1.2.0
 Synopsis:    Interface definitions and common boilerplate for the xapi toolstack
@@ -51,7 +51,7 @@ Library xcp_xen
   Path:               xen
   Findlibname:        xen
   Findlibparent:      xcp
-  Modules:            Xenops_interface, Xenops_client, Device_number
+  Modules:            Xenops_interface, Xenops_types, Xenops_client, Device_number
   BuildDepends:       xcp, threads, rpclib, rpclib.syntax
 
 Library xcp_memory
