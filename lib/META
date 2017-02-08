@@ -1,10 +1,10 @@
 # OASIS_START
-# DO NOT EDIT (digest: 4c2fff058ec9d19d5bacfab9163ebe98)
+# DO NOT EDIT (digest: d61b4e5a5c0d213787a9ffd3db8cee24)
 version = "1.2.0"
 description =
 "Interface definitions and common boilerplate for the xapi toolstack"
 requires =
-"cmdliner uri re cohttp xmlm unix sexplib sexplib.syntax rpclib rpclib.syntax rpclib.xml threads message_switch message_switch.unix fd-send-recv xcp-inventory xapi-backtrace"
+"cmdliner uri re cohttp xmlm unix ppx_sexp_conv sexplib ppx_deriving_rpc rpclib rpclib.xml threads message_switch message_switch.unix fd-send-recv xcp-inventory xapi-backtrace"
 archive(byte) = "xcp.cma"
 archive(byte, plugin) = "xcp.cma"
 archive(native) = "xcp.cmxa"
@@ -14,7 +14,7 @@ package "xen" (
  version = "1.2.0"
  description =
  "Interface definitions and common boilerplate for the xapi toolstack"
- requires = "xcp threads rpclib rpclib.syntax"
+ requires = "xcp threads ppx_deriving_rpc rpclib"
  archive(byte) = "xcp_xen.cma"
  archive(byte, plugin) = "xcp_xen.cma"
  archive(native) = "xcp_xen.cmxa"
@@ -26,7 +26,7 @@ package "v6" (
  version = "1.2.0"
  description =
  "Interface definitions and common boilerplate for the xapi toolstack"
- requires = "xcp threads rpclib rpclib.syntax"
+ requires = "xcp threads rpclib"
  archive(byte) = "xapi_v6.cma"
  archive(byte, plugin) = "xapi_v6.cma"
  archive(native) = "xapi_v6.cmxa"
@@ -38,7 +38,7 @@ package "storage" (
  version = "1.2.0"
  description =
  "Interface definitions and common boilerplate for the xapi toolstack"
- requires = "xcp threads rpclib rpclib.syntax"
+ requires = "xcp threads rpclib"
  archive(byte) = "xcp_storage.cma"
  archive(byte, plugin) = "xcp_storage.cma"
  archive(native) = "xcp_storage.cmxa"
@@ -50,7 +50,7 @@ package "rrd" (
  version = "1.2.0"
  description =
  "Interface definitions and common boilerplate for the xapi toolstack"
- requires = "xcp threads rpclib rpclib.syntax rrd"
+ requires = "xcp threads rpclib rrd"
  archive(byte) = "xcp_rrd.cma"
  archive(byte, plugin) = "xcp_rrd.cma"
  archive(native) = "xcp_rrd.cmxa"
@@ -62,7 +62,7 @@ package "network" (
  version = "1.2.0"
  description =
  "Interface definitions and common boilerplate for the xapi toolstack"
- requires = "xcp threads rpclib rpclib.syntax"
+ requires = "xcp threads rpclib"
  archive(byte) = "xcp_network.cma"
  archive(byte, plugin) = "xcp_network.cma"
  archive(native) = "xcp_network.cmxa"
@@ -74,7 +74,7 @@ package "memory" (
  version = "1.2.0"
  description =
  "Interface definitions and common boilerplate for the xapi toolstack"
- requires = "xcp threads rpclib rpclib.syntax"
+ requires = "xcp threads rpclib"
  archive(byte) = "xcp_memory.cma"
  archive(byte, plugin) = "xcp_memory.cma"
  archive(native) = "xcp_memory.cmxa"

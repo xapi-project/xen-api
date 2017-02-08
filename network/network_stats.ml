@@ -44,7 +44,7 @@ type iface_stats = {
 	nb_links: int;
 	links_up: int;
 	interfaces: iface list;
-} with rpc
+} [@@deriving rpc]
 
 let default_stats = {
 	tx_bytes = 0L;
@@ -64,7 +64,7 @@ let default_stats = {
 	interfaces = [];
 }
 
-type stats_t = (iface * iface_stats) list with rpc
+type stats_t = (iface * iface_stats) list [@@deriving rpc]
 
 exception Read_error
 exception Invalid_magic_string
