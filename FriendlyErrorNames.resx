@@ -935,6 +935,9 @@ Authorized Roles: {1}</value>
   <data name="UNKNOWN_BOOTLOADER" xml:space="preserve">
     <value>The requested bootloader {1} for VM {0} is unknown</value>
   </data>
+  <data name="UPDATE_APPLY_FAILED" xml:space="preserve">
+    <value>The update failed to apply. View logs for more details.</value>
+  </data>
   <data name="VALUE_NOT_SUPPORTED" xml:space="preserve">
     <value>You attempted to set value {1} for field {0} that is not supported. {2}</value>
   </data>
