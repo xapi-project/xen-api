@@ -399,7 +399,7 @@ module Nvidia = struct
         | "" -> None
         | id_string -> Some (Xapi_pci.int_of_id id_string)
       in
-      debug "dev_id = %s" (Printf.sprintf "%04x" dev_id);
+      debug "dev_id = %04x" dev_id;
       let relevant_types = relevant_vgpu_types dev_id subsystem_dev_id in
       debug "Relevant vGPU configurations for pgpu = [ %s ]"
         (String.concat "; "
