@@ -1,4 +1,4 @@
-OCAML_LIBS    = ../util/version ../database/xapi-database 
+OCAML_LIBS    = ../util/xapi_version ../database/xapi-database
 OCAMLINCLUDES = ../database
 OCAMLPACKS    =  xml-light2 uuid sexpr xcp stunnel http-svr gzip uuid xcp-inventory
 

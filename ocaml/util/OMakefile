@@ -1,13 +1,13 @@
 OCAMLPACKS    = http-svr xcp uuid xcp-inventory
 
-OCamlLibrary(version,        version)
+OCamlLibrary(xapi_version,        xapi_version)
 OCamlLibrary(stats, stats)
 OCamlLibrary(ocamltest, ocamltest)
 
 .PHONY: clean
 clean:
 	rm -f $(CLEAN_OBJS)
-	rm -f version.ml
+	rm -f xapi_version.ml
 
 .PHONY: install
 install:

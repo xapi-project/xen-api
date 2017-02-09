@@ -4,7 +4,7 @@ OCAMLPACKS = oclock xml-light2 cdrom pciutil sexpr xcp stunnel		\
              xcp.xen xcp.memory xcp.v6 tar tar.unix oPasswd xcp-inventory \
              rrdd-plugin rrd-transport pci
 
-OCAML_LIBS    = ../util/version ../util/stats \
+OCAML_LIBS    = ../util/xapi_version ../util/stats \
 	../xapi-consts/xapi-consts ../idl/xapi-datamodel ../xapi-types/xapi-types ../xapi-client/xapi-client ../database/xapi-database ../util/ocamltest ../xapi-cli-protocol/xapi-cli-protocol
 OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../database/ \
