@@ -18,7 +18,7 @@ module Type = struct
     | String
     | Set (* of strings *)
     | Pairs (* of string * string *)
-  with sexp
+  [@@deriving sexp]
 
   exception Error of t * t
   let _ = Printexc.register_printer (function
@@ -35,7 +35,7 @@ module Value = struct
     | String of string
     | Set of string list
     | Pairs of (string * string) list
-  with sexp
+  [@@deriving sexp]
 
   let marshal = function
     | String x -> x
@@ -73,7 +73,7 @@ module Column = struct
     default: Value.t option;  (** if column is missing, this is default value is used *)
     ty: Type.t;               (** the type of the value in the column *)
     issetref: bool;           (** only so we can special case set refs in the interface *)
-  } with sexp
+  } [@@deriving sexp]
 end
 
 module Table = struct
@@ -81,25 +81,25 @@ module Table = struct
     name: string;
     columns: Column.t list;
     persistent: bool;
-  } with sexp
+  } [@@deriving sexp]
   let find name t = List.find (fun col -> col.Column.name = name) t.columns
 end
 
 type relationship =
   | OneToMany of string * string * string * string
-with sexp
+[@@deriving sexp]
 
 module Database = struct
   type t = {
     tables: Table.t list;
-  } with sexp
+  } [@@deriving sexp]
 
   let find name t = List.find (fun tbl -> tbl.Table.name = name) t.tables
 end
 
 (** indexed by table name, a list of (this field, foreign table, foreign field) *)
 type foreign = (string * string * string) list
-with sexp
+[@@deriving sexp]
 
 module ForeignMap = struct
   include Map.Make(struct
@@ -108,7 +108,7 @@ module ForeignMap = struct
     end)
 
   type t' = (string * foreign) list
-  with sexp
+  [@@deriving sexp]
 
   type m = foreign t
   let sexp_of_m t : Sexplib.Sexp.t =
@@ -127,7 +127,7 @@ type t = {
   (** indexed by table name, a list of (this field, foreign table, foreign field) *)
   one_to_many: ForeignMap.m;
   many_to_many: ForeignMap.m;
-} with sexp
+} [@@deriving sexp]
 
 let database x = x.database
 
@@ -170,4 +170,3 @@ let many_to_many tblname schema =
   try
     ForeignMap.find tblname schema.many_to_many
   with Not_found -> []
-
