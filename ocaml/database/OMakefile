@@ -1,12 +1,9 @@
 
 OCAMLINCLUDES = ../util
-OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp sexpr rpclib uuid gzip xcp-inventory oUnit
+OCAMLPACKS    = xml-light2 stdext stunnel http-svr xcp sexpr rpclib uuid gzip xcp-inventory oUnit ppx_sexp_conv ppx_deriving_rpc
 #OCAMLPPFLAGS  = -pp "camlp4o" 
 #OCAMLDEPFLAGS = -pp "camlp4o"
 OCAML_LIBS += ../xapi-consts/xapi-consts
-
-UseCamlp4(rpclib.syntax, db_rpc_common_v2 db_cache_types db_filter_types)
-UseCamlp4(sexplib.syntax, schema)
 
 OCamlGeneratedFiles(db_filter_parse.ml db_filter_parse.mli db_filter_lex.ml)
 
