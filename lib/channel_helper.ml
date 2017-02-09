@@ -10,27 +10,25 @@ exception No_useful_protocol
 
 let copy_all src dst =
   let buffer = String.make 16384 '\000' in
-  while_lwt true do
-    lwt n = Lwt_unix.read src buffer 0 (String.length buffer) in
+  let rec loop () =
+    Lwt_unix.read src buffer 0 (String.length buffer) >>= fun n ->
     if n = 0
-    then raise_lwt End_of_file
+    then Lwt.fail End_of_file
     else
-      lwt m = Lwt_unix.write dst buffer 0 n in
-      if n <> m then raise_lwt (Short_write(m, n))
-      else return ()
-  done
+      Lwt_unix.write dst buffer 0 n >>= fun m ->
+      if n <> m then Lwt.fail (Short_write(m, n))
+      else loop ()
+  in loop ()
 
 let proxy a b =
   let copy id src dst =
-      try_lwt
-        copy_all src dst
-      with e ->
-        (try Lwt_unix.shutdown src Lwt_unix.SHUTDOWN_RECEIVE with _ -> ());
-        (try Lwt_unix.shutdown dst Lwt_unix.SHUTDOWN_SEND with _ -> ());
-        return () in
-    let ts = [ copy "ab" a b; copy "ba" b a ] in
-    lwt () = Lwt.join ts in
-    return ()
+      Lwt.catch (fun () -> copy_all src dst)
+        (fun e ->
+          (try Lwt_unix.shutdown src Lwt_unix.SHUTDOWN_RECEIVE with _ -> ());
+          (try Lwt_unix.shutdown dst Lwt_unix.SHUTDOWN_SEND with _ -> ());
+          return ()) in
+  let ts = [ copy "ab" a b; copy "ba" b a ] in
+  Lwt.join ts
 
 let file_descr_of_int (x: int) : Unix.file_descr =
   Obj.magic x (* Keep this in sync with ocaml's file_descr type *)
@@ -56,23 +54,23 @@ let _common_options = "COMMON OPTIONS"
 open Cmdliner
 
 (* Options common to all commands *)
-let common_options_t = 
-  let docs = _common_options in 
-  let debug = 
+let common_options_t =
+  let docs = _common_options in
+  let debug =
     let doc = "Give only debug output." in
     Arg.(value & flag & info ["debug"] ~docs ~doc) in
   let verb =
     let doc = "Give verbose output." in
-    let verbose = true, Arg.info ["v"; "verbose"] ~docs ~doc in 
-    Arg.(last & vflag_all [false] [verbose]) in 
-  let port = 
+    let verbose = true, Arg.info ["v"; "verbose"] ~docs ~doc in
+    Arg.(last & vflag_all [false] [verbose]) in
+  let port =
     let doc = Printf.sprintf "Specify port to connect to the message switch." in
     Arg.(value & opt int 8080 & info ["port"] ~docs ~doc) in
   Term.(pure Common.make $ debug $ verb $ port)
 
 (* Help sections common to all commands *)
-let help = [ 
- `S _common_options; 
+let help = [
+ `S _common_options;
  `P "These options are common to all commands.";
  `S "MORE HELP";
  `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
@@ -112,23 +110,22 @@ let advertise_t common_options_t proxy_socket =
     Printf.fprintf stdout "%s\n%!" (Jsonrpc.to_string (Xcp_channel.rpc_of_protocols protocols));
 
   let t_ip =
-    lwt fd, peer = Lwt_unix.accept s_ip in
-    lwt () = Lwt_unix.close s_ip in
+    Lwt_unix.accept s_ip >>= fun (fd, peer) ->
+    Lwt_unix.close s_ip >>= fun () ->
     proxy fd (Lwt_unix.of_unix_file_descr proxy_socket) in
   let t_unix =
-    lwt fd, peer = Lwt_unix.accept s_unix in
+    Lwt_unix.accept s_unix >>= fun (fd, peer) ->
     let buffer = String.make (String.length token) '\000' in
     let io_vector = Lwt_unix.io_vector ~buffer ~offset:0 ~length:(String.length buffer) in
-    lwt n, fds = Lwt_unix.recv_msg ~socket:fd ~io_vectors:[io_vector] in
+    Lwt_unix.recv_msg ~socket:fd ~io_vectors:[io_vector] >>= fun (n, fds) ->
     List.iter Unix.close fds;
     let token' = String.sub buffer 0 n in
     let io_vector' = Lwt_unix.io_vector ~buffer:token' ~offset:0 ~length:(String.length token') in
     if token = token'
     then
-      lwt _ = Lwt_unix.send_msg ~socket:fd ~io_vectors:[io_vector'] ~fds:[proxy_socket] in
-      return ()
+      Lwt_unix.send_msg ~socket:fd ~io_vectors:[io_vector'] ~fds:[proxy_socket] >>= fun _ -> return ()
     else return () in
-  lwt () = Lwt.pick [ t_ip; t_unix ] in
+  Lwt.pick [ t_ip; t_unix ] >>= fun () ->
   Unix.unlink path;
   return ()
 
@@ -152,12 +149,12 @@ let advertise_cmd =
   Term.info "advertise" ~sdocs:_common_options ~doc ~man
 
 let connect_t common_options_t =
-  lwt advertisement = match_lwt Lwt_io.read_line_opt Lwt_io.stdin with None -> return "" | Some x -> return x in
+  Lwt_io.read_line_opt Lwt_io.stdin >>= (function | None -> return "" | Some x -> return x) >>= fun advertisement ->
   let open Xcp_channel in
   let fd = Lwt_unix.of_unix_file_descr (file_descr_of_t (t_of_rpc (Jsonrpc.of_string advertisement))) in
   let a = copy_all Lwt_unix.stdin fd in
   let b = copy_all fd Lwt_unix.stdout in
-  Lwt.join [a; b] 
+  Lwt.join [a; b]
 
 let connect common_options_t =
   Lwt_main.run(connect_t common_options_t);
@@ -172,15 +169,15 @@ let connect_cmd =
   Term.(ret(pure connect $ common_options_t)),
   Term.info "connect" ~sdocs:_common_options ~doc ~man
 
-let default_cmd = 
-  let doc = "channel (file-descriptor) passing helper program" in 
+let default_cmd =
+  let doc = "channel (file-descriptor) passing helper program" in
   let man = help in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "proxy" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
-       
+
 let cmds = [advertise_cmd; connect_cmd]
 
 let _ =
-  match Term.eval_choice default_cmd cmds with 
+  match Term.eval_choice default_cmd cmds with
   | `Error _ -> exit 1
   | _ -> exit 0
