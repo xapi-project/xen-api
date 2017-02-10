@@ -52,7 +52,7 @@ def write_inventory(inventory):
 def valid_vlan(vlan):
 	if not re.match('^\d+$', vlan):
 		return False
-	if int(vlan)<0 or int(vlan)>=4095:
+	if int(vlan)<0 or int(vlan)>4094:
 		return False
 	return True
 
@@ -61,6 +61,7 @@ if __name__ == "__main__":
 	parser.add_option("-m", "--master", help="Master's address", dest="address", default=None)
 	parser.add_option("--device", help="Device name of new management interface", dest="device", default=None)
 	parser.add_option("--mode", help='IP configuration mode for new management interface: "dhcp" or "static" (default is dhcp)', dest="mode", default="dhcp")
+	parser.add_option("--novlan", help="no vlan is used for new management interface", dest="novlan", action="store_const", const=True, default=False)
 	parser.add_option("--vlan", help="vlanID for new management interface to be on vlan network", dest="vlan", default=None)
 	parser.add_option("--ip", help="IP address for new management interface", dest="ip", default='')
 	parser.add_option("--netmask", help="Netmask for new management interface", dest="netmask", default='')
@@ -101,18 +102,21 @@ if __name__ == "__main__":
 		device = options.device
 
 	# Get the VLAN if provided in the firstboot data and not specified by the user
-	if options.vlan == None:
-		try:
-			conf = read_management_conf()
-			vlan = conf['VLAN']
-		except KeyError:
-			vlan = None
-			pass
-	else:
+	vlan = None
+	if options.vlan:
+		if options.novlan:
+			parser.error('"--vlan <vlanId>" and "--novlan" should not be used together')
+			sys.exit(1)
 		if not valid_vlan(options.vlan):
 			print "VLAN tag you gave was invalid, It must be between 0 and 4094"
 			sys.exit(1)
 		vlan = options.vlan
+	elif not options.novlan:
+		try:
+			conf = read_management_conf()
+			vlan = conf['VLAN']
+		except KeyError:
+			pass
 
 	# Determine IP configuration for management interface
 	options.mode = options.mode.lower()
