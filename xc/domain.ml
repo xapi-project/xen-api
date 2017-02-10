@@ -34,20 +34,20 @@ type create_info = {
 	platformdata: (string * string) list;
 	bios_strings: (string * string) list;
 	has_vendor_device: bool;
-} with rpc
+} [@@deriving rpc]
 
 type build_hvm_info = {
 	shadow_multiplier: float;
 	video_mib: int;
-} with rpc
+} [@@deriving rpc]
 
 type build_pv_info = {
 	cmdline: string;
 	ramdisk: string option;
-} with rpc
+} [@@deriving rpc]
 
 type builder_spec_info = BuildHVM of build_hvm_info | BuildPV of build_pv_info
-with rpc
+[@@deriving rpc]
 
 type build_info = {
 	memory_max: int64;    (* memory max in kilobytes *)
@@ -55,7 +55,7 @@ type build_info = {
 	kernel: string;       (* in hvm case, point to hvmloader *)
 	vcpus: int;           (* vcpus max *)
 	priv: builder_spec_info;
-} with rpc
+} [@@deriving rpc]
 
 type domid = int
 

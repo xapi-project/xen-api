@@ -22,7 +22,7 @@ module Interface = struct
 	type t = {
 		name: string;
 		vif: Vif.id;
-	} with rpc
+	} [@@deriving rpc]
 end
 
 module DB = TypedTable(struct

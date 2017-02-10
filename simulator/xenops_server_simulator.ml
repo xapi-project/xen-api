@@ -41,7 +41,7 @@ module Domain = struct
 		vgpus: Vgpu.t list;
 		xsdata: (string * string) list;
 		last_create_time: float;
-	} with rpc
+	} [@@deriving rpc]
 end
 
 module DB = TypedTable(struct

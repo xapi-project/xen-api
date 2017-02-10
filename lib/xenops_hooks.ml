@@ -106,7 +106,7 @@ type script =
 	| VM_pre_resume
 	| VM_post_resume
 	| VM_post_destroy
-with rpc
+[@@deriving rpc]
 
 let vm ~script ~reason ~id =
 	let script_name = match script with

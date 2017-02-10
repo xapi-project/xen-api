@@ -1191,4 +1191,8 @@ let dispatch_default = MyOCamlbuildBase.dispatch_default conf package_default;;
 
 # 1193 "myocamlbuild.ml"
 (* OASIS_STOP *)
-Ocamlbuild_plugin.dispatch dispatch_default;;
+Ocamlbuild_plugin.dispatch
+    (fun hook ->
+            dispatch_default hook ;
+            Ocamlbuild_cppo.dispatcher hook ;
+    );;

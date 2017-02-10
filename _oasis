@@ -5,6 +5,9 @@ Synopsis:    XenServer domain managers
 Authors:     Dave Scott
 License:     LGPL-2.1 with OCaml linking exception
 Plugins:     META (0.2)
+OCamlVersion: >= 4.01
+AlphaFeatures: ocamlbuild_more_args
+XOCamlbuildPluginTags: package(cppo_ocamlbuild)
 BuildTools:  ocamlbuild
 
 Flag xen
@@ -70,14 +73,14 @@ Library xenopsd
     cohttp,
     uri,
     rpclib,
-    rpclib.syntax,
+    ppx_deriving_rpc,
     forkexec,
     fd-send-recv,
     xcp,
     xcp.xen,
     xcp.storage,
     sexplib,
-    sexplib.syntax,
+    ppx_sexp_conv,
     xcp,
     uutf,
     xenstore,

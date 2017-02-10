@@ -35,7 +35,7 @@ module Domain = struct
 		active_vifs: Vif.id list;
 		pcis: Pci.t list;
 		last_create_time: float;
-	} with rpc
+	} [@@deriving rpc]
 end
 
 module DB = TypedTable(struct

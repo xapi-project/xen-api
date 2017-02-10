@@ -67,12 +67,12 @@ let choose_xenguest x = choose_alternative _xenguest !Xc_resources.xenguest x
 type qemu_frontend =
 	| Name of string (* block device path or bridge name *)
 	| Device of Device_common.device
-with rpc
+[@@deriving rpc]
 
 type attached_vdi = {
 	domid: int;
 	attach_info: Storage_interface.attach_info;
-} with rpc
+} [@@deriving rpc]
 
 module VmExtra = struct
 	(** Extra data we store per VM. The persistent data is preserved when
@@ -86,7 +86,7 @@ module VmExtra = struct
 		last_start_time: float;
 		nomigrate: bool;  (* platform:nomigrate   at boot time *)
 		nested_virt: bool (* platform:nested_virt at boot time *)
-	} with rpc
+	} [@@deriving rpc]
 
 	let default_persistent_t =
 		{ build_info = None
@@ -115,12 +115,12 @@ module VmExtra = struct
 		pci_msitranslate: bool;
 		pci_power_mgmt: bool;
 		pv_drivers_detected: bool;
-	} with rpc
+	} [@@deriving rpc]
 
 	type t = {
 		persistent: persistent_t;
 		non_persistent: non_persistent_t;
-	} with rpc
+	} [@@deriving rpc]
 end
 
 module DB = struct
@@ -553,7 +553,7 @@ let device_by_id xc xs vm kind domain_selection id =
 				raise (Device_not_connected)
 
 (* Extra keys to store in VBD backends to allow us to deactivate VDIs: *)
-type backend = disk option with rpc
+type backend = disk option [@@deriving rpc]
 let _vdi_id = "vdi-id"
 let _dp_id = "dp-id"
 
