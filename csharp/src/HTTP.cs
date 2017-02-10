@@ -185,15 +185,14 @@ namespace XenAPI
             string line = ReadLine(stream), initialLine = line, transferEncodingField = null;
             if (string.IsNullOrEmpty(initialLine)) // sanity check
                 return false;
+            if (headers == null)
+                headers = new List<string>();
             while (!string.IsNullOrWhiteSpace(line)) // IsNullOrWhiteSpace also checks for empty string
             {
-                if (headers != null)
-                {
-                    line = line.TrimEnd('\r', '\n');
-                    headers.Add(line);
-                    if (line == "Transfer-Encoding: Chunked")
-                        transferEncodingField = line;
-                }
+                line = line.TrimEnd('\r', '\n');
+                headers.Add(line);
+                if (line == "Transfer-Encoding: Chunked")
+                    transferEncodingField = line;
                 line = ReadLine(stream);
             }
 
@@ -204,34 +203,37 @@ namespace XenAPI
                 int lastChunkSize = -1;
                 do
                 {
+                    // read chunk size
                     string chunkSizeStr = ReadLine(stream);
                     chunkSizeStr = chunkSizeStr.TrimEnd('\r', '\n');
-                    int chunkSize = int.Parse(chunkSizeStr, System.Globalization.NumberStyles.HexNumber);
+                    int chunkSize = 0;
+                    int.TryParse(chunkSizeStr, System.Globalization.NumberStyles.HexNumber,
+                        System.Globalization.CultureInfo.InvariantCulture, out chunkSize);
 
+                    // read <chunkSize> number of bytes from the stream
+                    int totalNumberOfBytesRead = 0;
+                    int numberOfBytesRead;
                     byte[] bytes = new byte[chunkSize];
-                    stream.Read(bytes, 0, chunkSize);
-
-                    if (headers != null)
+                    do
                     {
-                        string str = System.Text.Encoding.ASCII.GetString(bytes);
-                        string[] split = str.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-                        headers.AddRange(split);
-                        
-                        entityBody += str;
-                    }
+                        numberOfBytesRead = stream.Read(bytes, totalNumberOfBytesRead, chunkSize - totalNumberOfBytesRead);
+                        totalNumberOfBytesRead += numberOfBytesRead;
+                    } while (numberOfBytesRead > 0 && totalNumberOfBytesRead < chunkSize);
+
+                    string str = System.Text.Encoding.ASCII.GetString(bytes);
+                    string[] split = str.Split(new string[] {"\r\n"}, StringSplitOptions.RemoveEmptyEntries);
+                    headers.AddRange(split);
+
+                    entityBody += str;
 
                     line = ReadLine(stream); // empty line in the end of chunk
 
                     lastChunkSize = chunkSize;
-                }
-                while (lastChunkSize != 0);
+                } while (lastChunkSize != 0);
 
-                if (headers != null)
-                {
                     entityBody = entityBody.TrimEnd('\r', '\n');
                     headers.Add(entityBody); // keep entityBody if it's needed for Digest authentication (when qop="auth-int")
                 }
-            }
             else
             {
                 // todo: handle other transfer types, in case "Transfer-Encoding: Chunked" isn't used
