@@ -636,7 +636,7 @@ module PCI = struct
 		let msitranslate = if Opt.default non_persistent.VmExtra.pci_msitranslate pci.msitranslate then true else false in
 		let power_mgmt = if Opt.default non_persistent.VmExtra.pci_power_mgmt pci.power_mgmt then true else false in
 		let open Xenlight.Device_pci in
-		let pci' = {with_ctx (fun ctx -> default ctx ()) with
+		let pci' = { (with_ctx (fun ctx -> default ctx ())) with
 			func; dev; bus; domain; msitranslate; power_mgmt;
 		} in
 		pci'
@@ -666,7 +666,7 @@ module PCI = struct
 		on_frontend (fun _ _ frontend_domid _ ->
 			with_ctx (fun ctx ->
 				let open Xenlight.Device_pci in
-				let pci' = {default ctx () with
+				let pci' = {(default ctx ()) with
 					func; dev; bus; domain; msitranslate; power_mgmt
 				} in
 				debug "Calling Xenlight.Device_pci.destroy";
@@ -847,7 +847,7 @@ module VBD = struct
 				let extra_backend_keys = List.map (fun (k, v) -> "sm-data/" ^ k, v) (vdi.attach_info.Storage_interface.xenstore_data) in
 				with_ctx (fun ctx ->
 					let open Xenlight.Device_disk in
-					let disk = {default ctx () with
+					let disk = {(default ctx ()) with
 						backend_domid;
 						pdev_path = Some (vdi.attach_info.Storage_interface.params);
 						vdev = Some vdev;
@@ -1052,7 +1052,7 @@ module VBD = struct
 		(* call libxenlight to plug vbd *)
 		let open Xenlight.Device_disk in
 		let disk = with_ctx (fun ctx ->
-			{default ctx () with
+			{(default ctx ()) with
 				backend_domid; pdev_path; vdev = Some vdev; backend; format; script; removable;
 				readwrite; is_cdrom;
 			}) in
@@ -1188,7 +1188,7 @@ module VBD = struct
 						| Some vdev, Some domid ->
 							let open Xenlight.Device_disk in
 							let vdi = attach_and_activate task xs vm vbd (Some disk) in
-							let disk' = {of_vdev ctx domid vdev with
+							let disk' = {(of_vdev ctx domid vdev) with
 								pdev_path = Some vdi.attach_info.Storage_interface.params;
 								format = Xenlight.DISK_FORMAT_RAW;
 							} in
@@ -1223,7 +1223,7 @@ module VBD = struct
 					match vdev, domid with
 					| Some vdev, Some domid ->
 						let open Xenlight.Device_disk in
-						let disk' = {of_vdev ctx domid vdev with
+						let disk' = {(of_vdev ctx domid vdev) with
 							format = Xenlight.DISK_FORMAT_EMPTY;
 							script = Some !Xl_path.vbd_script;
 						} in
@@ -1428,7 +1428,7 @@ module VIF = struct
 
 		let open Xenlight.Device_nic in
 		let nic = with_ctx (fun ctx ->
-			{default ctx () with
+			{(default ctx ()) with
 				backend_domid; devid; mtu; model = None; mac; ip = None; bridge = Some bridge; ifname = None;
 				script = Some script; nictype; rate_bytes_per_interval; rate_interval_usecs;
 			}) in
@@ -2299,7 +2299,7 @@ module VM = struct
 				in
 
 				(* create and build structures *)
-				let c_info = Xenlight.Domain_create_info.({ with_ctx (fun ctx -> default ctx ()) with
+				let c_info = Xenlight.Domain_create_info.({ (with_ctx (fun ctx -> default ctx ())) with
 					xl_type = (if hvm then Xenlight.DOMAIN_TYPE_HVM else Xenlight.DOMAIN_TYPE_PV);
 					hap = Some hvm;
 					ssidref = vm.Vm.ssidref;
@@ -2323,9 +2323,9 @@ module VM = struct
 					extra = [];
 					extra_pv = [];
 					extra_hvm = [];
-					sched_params = Xenlight.Domain_sched_params.({with_ctx (fun ctx -> default ctx ()) with weight = -1; cap = -1; period = -1; slice = -1; latency = -1; extratime = -1});
+					sched_params = Xenlight.Domain_sched_params.({(with_ctx (fun ctx -> default ctx ())) with weight = -1; cap = -1; period = -1; slice = -1; latency = -1; extratime = -1});
 				}) in
-				let domain_config = Xenlight.Domain_config.({ with_ctx (fun ctx -> default ctx ()) with
+				let domain_config = Xenlight.Domain_config.({(with_ctx (fun ctx -> default ctx ())) with
 					c_info;
 					b_info;
 					disks;
