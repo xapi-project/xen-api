@@ -662,6 +662,49 @@ let create_or_get_pif_on_master __context rpc session_id (pif_ref, pif) : API.re
 
   new_pif_ref
 
+let create_or_get_vlan_on_master __context rpc session_id (vlan_ref, vlan) : API.ref_VLAN =
+  (* Create a VLAN PIF record only if it is a management PIF *)
+
+  let my_host_ref = Db.PIF.get_host ~__context ~self:vlan.API.vLAN_tagged_PIF in
+  let my_host = Db.Host.get_record ~__context ~self:my_host_ref in
+  let new_host_ref = create_or_get_host_on_master __context rpc session_id (my_host_ref, my_host) in
+
+  (* Create the untagged PIF record on Pool *)
+  let untagged_pif_record = Db.PIF.get_record ~__context ~self:vlan.API.vLAN_untagged_PIF in
+  let remote_untagged_pif = create_or_get_pif_on_master __context rpc session_id
+    (vlan.API.vLAN_untagged_PIF, untagged_pif_record) in
+
+  (* Get the remote tagged pif network *)
+  let tagged_pif_network = Db.PIF.get_network ~__context ~self:vlan.API.vLAN_tagged_PIF in
+  let tagged_pif_network_record = Db.Network.get_record ~__context ~self:tagged_pif_network in
+  let remote_tagged_pif_network = create_or_get_network_on_master __context rpc session_id
+    (tagged_pif_network, tagged_pif_network_record) in
+
+  (* Get the new physical PIF ref on Pool for the joining Host *)
+  let expr =
+    Printf.sprintf "field \"network\"=\"%s\" and field \"host\"=\"%s\""
+    (Ref.string_of remote_tagged_pif_network)
+    (Ref.string_of new_host_ref)
+  in
+  let remote_physical_pif =
+    match Client.PIF.get_all_records_where ~rpc ~session_id ~expr with
+    | [] -> Ref.null
+    | (pif, _) :: _ -> pif
+  in
+
+  let new_vlan_ref =
+    try
+      Client.VLAN.get_by_uuid ~rpc ~session_id ~uuid:vlan.API.vLAN_uuid
+    with _ ->
+      debug "Found no VLAN with uuid = '%s' on the master, so creating one." vlan.API.vLAN_uuid;
+      Client.VLAN.pool_introduce ~rpc ~session_id
+        ~tagged_PIF:remote_physical_pif
+        ~untagged_PIF:remote_untagged_pif
+        ~tag:vlan.API.vLAN_tag
+        ~other_config:vlan.API.vLAN_other_config
+  in
+  new_vlan_ref
+
 let create_or_get_pvs_site_on_master __context rpc session_id (pvs_site_ref, pvs_site) : API.ref_PVS_site =
   let my_pvs_uuid = pvs_site.API.pVS_site_PVS_uuid in
   let new_pvs_site_ref =
@@ -770,6 +813,13 @@ let update_non_vm_metadata ~__context ~rpc ~session_id =
     ) in
   let (_ : API.ref_PIF option list) =
     List.map (protect_exn (create_or_get_pif_on_master __context rpc session_id)) my_pifs in
+
+  (* update Management VLAN *)
+  let mgmt_pif = Xapi_host.get_management_interface ~__context ~host:(Helpers.get_localhost ~__context) in
+  let my_vlan = Db.PIF.get_VLAN_master_of ~__context ~self:mgmt_pif in
+  if my_vlan <> Ref.null then
+    let my_vlan_record = Db.VLAN.get_record ~__context ~self:my_vlan in
+    let (_ : API.ref_VLAN option ) = protect_exn (create_or_get_vlan_on_master __context rpc session_id) (my_vlan, my_vlan_record) in
 
   (* update PVS sites *)
   let my_pvs_sites = Db.PVS_site.get_all_records ~__context in
