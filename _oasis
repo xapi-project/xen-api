@@ -1,4 +1,4 @@
-OASISFormat: 0.3
+OASISFormat: 0.4
 Name:        xenopsd
 Version:     0.12.0
 Synopsis:    XenServer domain managers
