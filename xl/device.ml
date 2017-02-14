@@ -51,7 +51,7 @@ module PV_Vnc = struct
 			|> Stdext.Unixext.string_of_file
 			|> Stdext.Xstringext.String.split_f is_null
 		in
-		if (List.mem !Xl_path.vncterm cmdline) && (List.mem (vnc_console_path domid) cmdline)
+		if (List.mem !Xl_resources.vncterm cmdline) && (List.mem (vnc_console_path domid) cmdline)
 		then true
 		else false
 
@@ -91,7 +91,7 @@ module PV_Vnc = struct
 			  "-v"; ip ^ ":1";
 			] @ load_args statefile in
 		(* Now add the close fds wrapper *)
-		let pid = Forkhelpers.safe_close_and_exec None None None [] !Xl_path.vncterm l in
+		let pid = Forkhelpers.safe_close_and_exec None None None [] !Xl_resources.vncterm l in
 		let path = vnc_pid_path domid in
 		xs.Xs.write path (string_of_int (Forkhelpers.getpid pid));
 		Forkhelpers.dontwaitpid pid

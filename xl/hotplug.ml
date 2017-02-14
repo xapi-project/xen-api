@@ -244,8 +244,8 @@ let release' (task:Xenops_task.t) ~xs (x: device) vm kind devid =
 let run_hotplug_script device args =
 	let kind = string_of_kind device.backend.kind in
 	let script = match device.backend.kind with
-	| Vbd _ -> Some !Xl_path.vbd_script
-	| Vif | Tap -> Some !Xl_path.vif_script
+	| Vbd _ -> Some !Xl_resources.vbd_script
+	| Vif | Tap -> Some !Xl_resources.vif_script
 	| Qdisk -> None
 	| _ -> failwith (Printf.sprintf "don't know how to run a hotplug script for: %s" kind) in
 	match script with

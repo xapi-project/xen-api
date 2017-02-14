@@ -853,7 +853,7 @@ module VBD = struct
 						vdev = Some vdev;
 						backend = Xenlight.DISK_BACKEND_PHY;
 						format = Xenlight.DISK_FORMAT_RAW;
-						script = Some !Xl_path.vbd_script;
+						script = Some !Xl_resources.vbd_script;
 						removable = 1;
 						readwrite = 1;
 						is_cdrom = 0;
@@ -918,7 +918,7 @@ module VBD = struct
 
 	let ionice qos pid =
 		try
-			run !(Xl_path.ionice) (Ionice.set_args qos pid) |> ignore_string
+			run !(Xl_resources.ionice) (Ionice.set_args qos pid) |> ignore_string
 		with e ->
 			error "Ionice failed on pid %d: %s" pid (Printexc.to_string e)
 
@@ -945,7 +945,7 @@ module VBD = struct
 		try
 			let path = Device_common.kthread_pid_path_of_device ~xs device in
 			let kthread_pid = xs.Xs.read path |> int_of_string in
-			let i = run !(Xl_path.ionice) (Ionice.get_args kthread_pid) |> Ionice.parse_result_exn in
+			let i = run !(Xl_resources.ionice) (Ionice.get_args kthread_pid) |> Ionice.parse_result_exn in
 			Opt.map (fun i -> Ionice i) i
 		with
 			| Ionice.Parse_failed x ->
@@ -1007,11 +1007,11 @@ module VBD = struct
 		let backend, format, script =
 			if vbd.backend = None then
 				(* empty CDROM *)
-				Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_EMPTY, Some !Xl_path.vbd_script
+				Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_EMPTY, Some !Xl_resources.vbd_script
 			else
 				let xd = vdi.attach_info.Storage_interface.xenstore_data in
 				if xd = [] || not(List.mem_assoc "backend-kind" xd)
-				then Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_path.vbd_script
+				then Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_resources.vbd_script
 				else begin
 					match List.assoc "backend-kind" xd with
 					| "qdisk" ->
@@ -1021,7 +1021,7 @@ module VBD = struct
 							else Xenlight.DISK_FORMAT_QCOW2 in (* FIXME *)
 						Xenlight.DISK_BACKEND_QDISK, format, None
 					| "vbd" ->
-						Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_path.vbd_script
+						Xenlight.DISK_BACKEND_PHY, Xenlight.DISK_FORMAT_RAW, Some !Xl_resources.vbd_script
 					| x ->
 						failwith (Printf.sprintf "libxl doesn't support backend-kind=%s" x)
 				end
@@ -1225,7 +1225,7 @@ module VBD = struct
 						let open Xenlight.Device_disk in
 						let disk' = {(of_vdev ctx domid vdev) with
 							format = Xenlight.DISK_FORMAT_EMPTY;
-							script = Some !Xl_path.vbd_script;
+							script = Some !Xl_resources.vbd_script;
 						} in
 
 						Xenops_task.with_subtask task (Printf.sprintf "Vbd.eject %s" (id_of vbd)) (fun () ->
@@ -1410,7 +1410,7 @@ module VIF = struct
 		let mtu = vif.mtu in
 		let mac = Scanf.sscanf vif.mac "%02x:%02x:%02x:%02x:%02x:%02x" (fun a b c d e f -> [| a; b; c; d; e; f|]) in
 		let bridge = bridge_of_vif vif.backend in
-		let script = !Xl_path.vif_script in
+		let script = !Xl_resources.vif_script in
 		let nictype = if hvm then Xenlight.NIC_TYPE_VIF_IOEMU else Xenlight.NIC_TYPE_VIF in
 
 		let locking_mode = xenstore_of_locking_mode vif.locking_mode in
@@ -1420,7 +1420,7 @@ module VIF = struct
 			(if mtu > 0 then [ "MTU", string_of_int mtu ] else []) @
 			[ "xenopsd-backend", "xenlight" ] @
 			[ "network-backend", get_network_backend () ] @
-			[ "setup-vif-rules", !Xl_path.setup_vif_rules ] @
+			[ "setup-vif-rules", !Xl_resources.setup_vif_rules ] @
 			(id :: vif.extra_private_keys @ locking_mode)
 		in
 		(* write private XS keys *)
@@ -1502,7 +1502,7 @@ module VIF = struct
 		xs.Xs.write xs_bridge_path bridge;
 		let domid = string_of_int device.frontend.domid in
 		let devid = string_of_int device.frontend.devid in
-		ignore (Forkhelpers.execute_command_get_output !Xl_path.vif_script ["move"; "vif"; domid; devid])
+		ignore (Forkhelpers.execute_command_get_output !Xl_resources.vif_script ["move"; "vif"; domid; devid])
 
 	let move task vm vif network =
 		let vm_t = DB.read_exn vm in
@@ -1568,11 +1568,11 @@ module VIF = struct
 				let devid = string_of_int device.frontend.devid in
 				let vif_interface_name = Printf.sprintf "vif%d.%s" device.frontend.domid devid in
 				let tap_interface_name = Printf.sprintf "vif%d.%s-emu" device.frontend.domid devid in
-				ignore (run !Xl_path.setup_vif_rules ["xenlight"; vif_interface_name; vm; devid; "filter"]);
+				ignore (run !Xl_resources.setup_vif_rules ["xenlight"; vif_interface_name; vm; devid; "filter"]);
 				(* Update rules for the tap device if the VM has booted HVM with no PV drivers. *)
 				let di = with_ctx (fun ctx -> Xenlight.Dominfo.get ctx device.frontend.domid) in
 				if di.Xenlight.Dominfo.domain_type = Xenlight.DOMAIN_TYPE_HVM
- 				then ignore (run !Xl_path.setup_vif_rules ["xenlight"; tap_interface_name; vm; devid; "filter"])
+ 				then ignore (run !Xl_resources.setup_vif_rules ["xenlight"; tap_interface_name; vm; devid; "filter"])
 			)
 	
 	let set_ip_unspecified xs xenstore_path suffix =
@@ -2187,7 +2187,7 @@ module VM = struct
 						let vnc_info =
 							let listen =
 								if !Xenopsd.use_upstream_qemu then
-									let console_path = Printf.sprintf "unix:%s/%s" !Xl_path.vnc_dir vm.Vm.id in
+									let console_path = Printf.sprintf "unix:%s/%s" !Xl_resources.vnc_dir vm.Vm.id in
 									Some console_path
 								else None
 							in
@@ -2479,7 +2479,7 @@ module VM = struct
 	(* Mount a filesystem somewhere, with optional type *)
 	let mount ?ty:(ty = None) src dest =
 		let ty = match ty with None -> [] | Some ty -> [ "-t"; ty ] in
-		run !Xl_path.mount (ty @ [ src; dest ]) |> ignore_string
+		run !Xl_resources.mount (ty @ [ src; dest ]) |> ignore_string
 
 	let timeout = 300. (* 5 minutes: something is seriously wrong if we hit this timeout *)
 	exception Umount_timeout
@@ -2491,7 +2491,7 @@ module VM = struct
 
 		while not(!finished) && (Unix.gettimeofday () -. start < timeout) do
 			try
-				run !Xl_path.umount [dest] |> ignore_string;
+				run !Xl_resources.umount [dest] |> ignore_string;
 				finished := true
 			with e ->
 				if not(retry) then raise e;
@@ -2656,7 +2656,7 @@ module VM = struct
 						(* Using the upstream qemu we access the console over a Unix domain socket *)
 						let qemu_unix_vnc =
 							if hvm
-							then [ { Vm.protocol = Vm.Rfb; port = 0; path = Filename.concat !Xl_path.vnc_dir (Uuidm.to_string uuid) } ]
+							then [ { Vm.protocol = Vm.Rfb; port = 0; path = Filename.concat !Xl_resources.vnc_dir (Uuidm.to_string uuid) } ]
 							else [] in
 						let tc = Opt.map (fun port -> { Vm.protocol = Vm.Vt100; port = port; path = "" })
 							(Device.get_tc_port ~xs di.domid) in
