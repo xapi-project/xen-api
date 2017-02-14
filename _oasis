@@ -11,3 +11,4 @@ Executable sm-cli
   MainIs: main.ml
   Path: .
   BuildDepends: xcp, xcp.storage, re, re.str, rpclib, rpclib.json, cmdliner, threads
+  CompiledObject: best 
