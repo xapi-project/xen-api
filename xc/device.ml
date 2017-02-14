@@ -670,7 +670,7 @@ let add (task: Xenops_task.t) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) 
 		"frontend-id", sprintf "%u" domid;
 		"online", "1";
 		"state", string_of_int (Xenbus_utils.int_of Xenbus_utils.Initialising);
-		"script", !Xc_path.vif_script;
+		"script", !Xc_resources.vif_script;
 		"mac", mac;
 		"handle", string_of_int devid
 	] @ back_options in
@@ -789,7 +789,7 @@ let is_cmdline_valid domid pid =
 		|> Unixext.string_of_file
 		|> Stdext.Xstringext.String.split '\000'
 	in
-	if (List.mem !Xc_path.vncterm cmdline) && (List.mem (vnc_console_path domid) cmdline)
+	if (List.mem !Xc_resources.vncterm cmdline) && (List.mem (vnc_console_path domid) cmdline)
 	then true
 	else false
 
@@ -860,7 +860,7 @@ let start ?statefile ~xs ?ip domid =
 		  "-v"; ip ^ ":1";
 		] @ load_args statefile in
 	(* Now add the close fds wrapper *)
-	let pid = Forkhelpers.safe_close_and_exec None None None [] !Xc_path.vncterm l in
+	let pid = Forkhelpers.safe_close_and_exec None None None [] !Xc_resources.vncterm l in
 	let path = vnc_pid_path domid in
 	xs.Xs.write path (string_of_int (Forkhelpers.getpid pid));
 	Forkhelpers.dontwaitpid pid
@@ -989,8 +989,8 @@ let do_flr device =
 	let doflr = "/sys/bus/pci/drivers/pciback/do_flr" in
 	let device_reset_file = Printf.sprintf "/sys/bus/pci/devices/%s/reset" device in
 	let callscript s devstr =
-		if Sys.file_exists !Xc_path.pci_flr_script then begin
-			try ignore (Forkhelpers.execute_command_get_output !Xc_path.pci_flr_script [ s; devstr; ])
+		if Sys.file_exists !Xc_resources.pci_flr_script then begin
+			try ignore (Forkhelpers.execute_command_get_output !Xc_resources.pci_flr_script [ s; devstr; ])
 			with _ -> ()
 		end
 	in
@@ -1689,7 +1689,7 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready
 		let args = vgpu_args_of_nvidia domid info.vcpus vgpu in
 		let ready_path = Printf.sprintf "/local/domain/%d/vgpu-pid" domid in
 		let cancel = Cancel_utils.Vgpu domid in
-		let vgpu_pid = init_daemon ~task ~path:!Xc_path.vgpu ~args
+		let vgpu_pid = init_daemon ~task ~path:!Xc_resources.vgpu ~args
 			~name:"vgpu" ~domid ~xs ~ready_path ~timeout:!Xenopsd.vgpu_ready_timeout ~cancel () in
 		Forkhelpers.dontwaitpid vgpu_pid
 	end
