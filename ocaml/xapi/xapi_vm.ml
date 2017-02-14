@@ -460,6 +460,7 @@ let create ~__context ~name_label ~name_description
     ~ha_always_run ~ha_restart_priority ~tags
     ~blocked_operations ~protection_policy
     ~is_snapshot_from_vmpp
+    ~snapshot_schedule ~is_vmss_snapshot
     ~appliance
     ~start_delay
     ~shutdown_delay
@@ -541,6 +542,8 @@ let create ~__context ~name_label ~name_description
     ~bios_strings:[]
     ~protection_policy:Ref.null
     ~is_snapshot_from_vmpp:false
+    ~snapshot_schedule:Ref.null
+    ~is_vmss_snapshot:false
     ~appliance
     ~start_delay
     ~shutdown_delay
@@ -991,6 +994,29 @@ let copy_bios_strings = Xapi_vm_helpers.copy_bios_strings
 
 let set_protection_policy ~__context ~self ~value =
   raise (Api_errors.Server_error (Api_errors.message_removed, []))
+
+let set_snapshot_schedule ~__context ~self ~value =
+	Pool_features.assert_enabled ~__context ~f:Features.VMSS;
+	(* Validate the VMSS Ref *)
+	let is_vmss_valid_ref = Db.is_valid_ref __context value in
+	if not (is_vmss_valid_ref || (value = Ref.null) || (Ref.string_of value = "")) then
+		raise (Api_errors.Server_error(Api_errors.invalid_value, [Ref.string_of value]));
+	if (value <> Ref.null && is_vmss_valid_ref) then begin
+		if Db.VM.get_is_control_domain ~__context ~self then
+			(* do not assign vmss to the dom0 vm of any host in the pool *)
+			raise (Api_errors.Server_error(Api_errors.invalid_value, [Ref.string_of value]));
+		if Db.VM.get_is_a_template ~__context ~self then
+			(* Do not assign templates to a VMSS. *)
+			raise (Api_errors.Server_error(Api_errors.vm_is_template, [Ref.string_of self]));
+		(* For snapshot_type=snapshot_with_quiesce, Check VM supports the snapshot_with_quiesce *)
+		let snapshot_type = Db.VMSS.get_type ~__context ~self:value in
+		if snapshot_type = `snapshot_with_quiesce then begin
+			Pool_features.assert_enabled ~__context ~f:Features.VSS;
+			Xapi_vm_helpers.assert_vm_supports_quiesce_snapshot ~__context ~self
+		end
+	end;
+	Db.VM.set_snapshot_schedule ~__context ~self ~value;
+	update_allowed_operations ~__context ~self
 
 let set_start_delay ~__context ~self ~value =
   if value < 0L then invalid_value

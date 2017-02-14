@@ -27,6 +27,7 @@ open D
 let snapshot ~__context ~vm ~new_name =
   debug "Snapshot: begin";
   TaskHelper.set_cancellable ~__context;
+  Xapi_vmss.show_task_in_xencenter ~__context ~vm;
   let res = Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_snapshot ~__context ~vm ~new_name in
   debug "Snapshot: end";
   res
@@ -101,6 +102,10 @@ let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
     Db.VM.remove_from_snapshot_info ~__context ~self:snapshot_ref ~key:Xapi_vm_clone.disk_snapshot_type;
     Db.VM.add_to_snapshot_info ~__context ~self:snapshot_ref ~key:Xapi_vm_clone.disk_snapshot_type ~value:Xapi_vm_clone.quiesced;
 
+    (* Update is-vmss-snapshot field for snapshot taken from VMSS policy *)
+    if Xapi_vmss.is_vmss_snapshot ~__context then
+      Db.VM.set_is_vmss_snapshot ~__context ~self:snapshot_ref  ~value:true;
+
     snapshot_ref
 
   | "snapshot-error" ->
@@ -127,6 +132,7 @@ let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
 (* dynamically by the xapi_vm_lifecycle.update_allowed_operations call.                  *)
 let snapshot_with_quiesce ~__context ~vm ~new_name =
   debug "snapshot_with_quiesce: begin";
+  Xapi_vmss.show_task_in_xencenter ~__context ~vm;
   let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
   let result = Xenstore.with_xs (fun xs ->
       (* 1. We first check if the VM supports quiesce-mode *)
@@ -165,6 +171,7 @@ let snapshot_with_quiesce ~__context ~vm ~new_name =
 (* Checkpoint                                                                                    *)
 (*************************************************************************************************)
 let checkpoint ~__context ~vm ~new_name =
+  Xapi_vmss.show_task_in_xencenter ~__context ~vm;
   let power_state = Db.VM.get_power_state ~__context ~self:vm in
   let snapshot_info = ref [] in
   (* live-suspend the VM if the VM is running *)
@@ -401,6 +408,7 @@ let do_not_copy = [
   Db_names.resident_on;
   Db_names.domid;
   Db_names.protection_policy;
+  Db_names.snapshot_schedule;
   Db_names.scheduled_to_be_resident_on;
   (* Global persistent fields should keep *)
   "snapshots"; "tags"; "affinity";

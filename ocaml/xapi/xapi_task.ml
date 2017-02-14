@@ -30,7 +30,7 @@ let create ~__context ~label ~description =
   t
 
 let destroy ~__context ~self =
-  TaskHelper.assert_can_destroy ~__context self;
+  TaskHelper.assert_op_valid ~__context self;
   if TaskHelper.status_is_completed (Db.Task.get_status ~__context ~self)
   then Db.Task.destroy ~__context ~self
   else Db.Task.add_to_current_operations ~__context ~self ~key:"task" ~value:`destroy
@@ -42,7 +42,11 @@ let cancel ~__context ~task =
   then failwith (Printf.sprintf "Task.cancel not forwarded to the correct host (expecting %s but this is %s)"
                    (Db.Host.get_hostname ~__context ~self:forwarded_to) (Db.Host.get_hostname ~__context ~self:localhost)
                 );
-  TaskHelper.assert_can_destroy ~__context task;
+  TaskHelper.assert_op_valid ~__context task;
   Db.Task.set_current_operations ~__context ~self:task ~value:[(Ref.string_of (Context.get_task_id __context)), `cancel];
   if not(Xapi_xenops.task_cancel ~__context ~self:task) && not(Storage_access.task_cancel ~__context ~self:task)
   then info "Task.cancel is falling back to polling"
+
+let set_status ~__context ~self ~value =
+  TaskHelper.assert_op_valid ~__context self;
+  Db.Task.set_status ~__context ~self ~value

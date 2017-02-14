@@ -450,7 +450,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     include Local.Task
 
     let cancel ~__context ~task =
-      TaskHelper.assert_can_destroy ~__context task;
+      TaskHelper.assert_op_valid ~__context task;
       let local_fn = cancel ~task in
       let forwarded_to = Db.Task.get_forwarded_to ~__context ~self:task in
       if Db.is_valid_ref __context forwarded_to
@@ -462,6 +462,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   end
   module Event = Local.Event
   module VMPP = Local.VMPP
+  module VMSS = Local.VMSS
   module VM_appliance = struct
     include Local.VM_appliance
     (* Add to the VM_appliance's current operations, call a function and then remove from the *)
@@ -1969,6 +1970,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let set_protection_policy ~__context ~self ~value =
       info "VM.set_protection_policy: self = '%s'; " (vm_uuid ~__context self);
       Local.VM.set_protection_policy ~__context ~self ~value
+
+    let set_snapshot_schedule ~__context ~self ~value =
+      info "VM.set_snapshot_schedule: self = '%s'; " (vm_uuid ~__context self);
+      Local.VM.set_snapshot_schedule ~__context ~self ~value
 
     let set_start_delay ~__context ~self ~value =
       info "VM.set_start_delay: self = '%s';" (vm_uuid ~__context self);
