@@ -1,20 +1,41 @@
-BINDIR?=/tmp/
+# OASIS_START
+# DO NOT EDIT (digest: a3c674b4239234cbbe53afe090018954)
 
-.PHONY: build install uninstall clean
+SETUP = ocaml setup.ml
 
-build: configure.done
-	obuild build
+build: setup.data
+	$(SETUP) -build $(BUILDFLAGS)
 
-configure.done:
-	obuild configure
-	touch configure.done
+doc: setup.data build
+	$(SETUP) -doc $(DOCFLAGS)
 
-install:
-	install -m 0755 dist/build/sm-cli/sm-cli ${BINDIR}
+test: setup.data build
+	$(SETUP) -test $(TESTFLAGS)
 
-uninstall:
-	rm -f ${BINDIR}/sm-cli
+all:
+	$(SETUP) -all $(ALLFLAGS)
+
+install: setup.data
+	$(SETUP) -install $(INSTALLFLAGS)
+
+uninstall: setup.data
+	$(SETUP) -uninstall $(UNINSTALLFLAGS)
+
+reinstall: setup.data
+	$(SETUP) -reinstall $(REINSTALLFLAGS)
 
 clean:
-	obuild clean
-	rm -f configure.done
+	$(SETUP) -clean $(CLEANFLAGS)
+
+distclean:
+	$(SETUP) -distclean $(DISTCLEANFLAGS)
+
+setup.data:
+	$(SETUP) -configure $(CONFIGUREFLAGS)
+
+configure:
+	$(SETUP) -configure $(CONFIGUREFLAGS)
+
+.PHONY: build doc test all install uninstall reinstall clean distclean configure
+
+# OASIS_STOP
