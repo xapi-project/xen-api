@@ -234,7 +234,6 @@ Executable xenopsd_xenlight_main
     xcp.memory,
     sexplib,
     xcp-inventory,
-    optcomp,
     profiling
   CSources:           fsync_stubs.c, poll_stubs.c
 

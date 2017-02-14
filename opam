@@ -29,7 +29,6 @@ depends: [
   "qmp"
   "oclock"
   "xapi-inventory"
-  "optcomp"
   "bisect_ppx"
 ]
 depopts: "libvirt" {> "0.6.1.2"}
