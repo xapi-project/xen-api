@@ -58,7 +58,7 @@ let choose_alternative kind default platformdata =
 	end else default
 
 (* We allow qemu-dm to be overriden via a platform flag *)
-let choose_qemu_dm x = choose_alternative _device_model !Path.qemu_dm_wrapper x
+let choose_qemu_dm x = choose_alternative _device_model !Resources.qemu_dm_wrapper x
 
 (* We allow xenguest to be overriden via a platform flag *)
 let choose_xenguest x = choose_alternative _xenguest !Xc_path.xenguest x
@@ -573,7 +573,7 @@ module HOST = struct
 		   pool homogeneity checks fail] *)
 		let get_cpuinfo () =
 			let cpu_info_file =
-				try Unix.access !Path.cpu_info_file [ Unix.F_OK ]; !Path.cpu_info_file
+				try Unix.access !Resources.cpu_info_file [ Unix.F_OK ]; !Resources.cpu_info_file
 				with _ -> "/proc/cpuinfo" in
 			let in_chan = open_in cpu_info_file in
 			let tbl = Hashtbl.create 32 in
@@ -1246,7 +1246,7 @@ module VM = struct
 							Domain.shadow_multiplier = hvm_info.shadow_multiplier;
 							video_mib = hvm_info.video_mib;
 						} in
-						((make_build_info !Path.hvmloader builder_spec_info), hvm_info.timeoffset)
+						((make_build_info !Resources.hvmloader builder_spec_info), hvm_info.timeoffset)
 					| PV { boot = Direct direct } ->
 						let builder_spec_info = Domain.BuildPV {
 							Domain.cmdline = direct.cmdline;

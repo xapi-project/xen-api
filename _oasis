@@ -56,7 +56,7 @@ Library xenopsd
     Xenops_server_plugin,
     Xenops_server_skeleton,
     Scheduler,
-    Path,
+    Resources,
     Storage,
     Interface,
     Xenctrl_uuid,

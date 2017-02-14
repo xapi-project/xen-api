@@ -597,12 +597,12 @@ let strip x =
 	else x
 let get_network_backend () =
 	try
-		Unixext.string_of_file !Path.network_conf
+		Unixext.string_of_file !Resources.network_conf
 	|>  strip
 	|>  Stdext.Xstringext.String.split ' '
 	|>  List.hd
 	with _ ->
-		failwith (Printf.sprintf "Failed to read network backend from: %s" !Path.network_conf)
+		failwith (Printf.sprintf "Failed to read network backend from: %s" !Resources.network_conf)
 
 let _sys_hypervisor_type = "/sys/hypervisor/type"
 let _sys_hypervisor_version_major = "/sys/hypervisor/version/major"

@@ -1052,7 +1052,7 @@ let bind_to_i915 devstr =
 		fun loaded line ->
 			loaded || match Stdext.Xstringext.String.split ' ' line with "i915" :: _ -> true | _ -> false
 	) false "/proc/modules" in
-	if not is_loaded then ignore (Forkhelpers.execute_command_get_output !Path.modprobe ["i915"]);
+	if not is_loaded then ignore (Forkhelpers.execute_command_get_output !Resources.modprobe ["i915"]);
 	match get_driver devstr	with
 	| None -> write_string_to_file (Filename.concat sysfs_i915 "bind") devstr
 	| Some (Supported I915) -> ()
@@ -1073,7 +1073,7 @@ let unbind devstr driver =
 let unbind_from_i915 devstr =
 	unbind devstr (Supported I915);
 	let (_:string * string) =
-		Forkhelpers.execute_command_get_output !Path.rmmod ["i915"] in ()
+		Forkhelpers.execute_command_get_output !Resources.rmmod ["i915"] in ()
 
 let procfs_nvidia = "/proc/driver/nvidia/gpus"
 
