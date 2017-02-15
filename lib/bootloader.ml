@@ -36,8 +36,8 @@ let bootloader_of_string = function
   | "pygrub" -> Some Pygrub | "eliloader" -> Some Eliloader | _ -> None
 
 let path_of_bootloader = function
-  | Pygrub -> !Path.pygrub
-  | Eliloader -> !Path.eliloader
+  | Pygrub -> !Resources.pygrub
+  | Eliloader -> !Resources.eliloader
 
 let supported_bootloaders =  List.map string_of_bootloader [ Pygrub; Eliloader ]
 

@@ -50,8 +50,8 @@ let _ =
 	Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".classic";
 	Xenops_utils.set_root "xenopsd/classic";
 	Xenopsd.configure
-		~specific_essential_paths:Xc_path.essentials
-		~specific_nonessential_paths:Xc_path.nonessentials
+		~specific_essential_paths:Xc_resources.essentials
+		~specific_nonessential_paths:Xc_resources.nonessentials
 		();
 	check_domain0_uuid ();
 	make_var_run_xen ();

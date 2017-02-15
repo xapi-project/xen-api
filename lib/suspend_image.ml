@@ -141,8 +141,8 @@ let write_header fd (hdr_type, len) =
 
 let check_conversion_script () =
 	let open Unix in
-	try return (access !Path.legacy_conv_tool [X_OK])
-	with _ -> `Error (Failure (Printf.sprintf "Executable not found: %s" !Path.legacy_conv_tool))
+	try return (access !Resources.legacy_conv_tool [X_OK])
+	with _ -> `Error (Failure (Printf.sprintf "Executable not found: %s" !Resources.legacy_conv_tool))
 
 type 'a thread_status = Running | Thread_failure of exn | Success of 'a
 
@@ -156,7 +156,7 @@ let with_conversion_script task name hvm fd f =
 	let (pipe_r, pipe_w) = Unix.pipe () in
 	let fd_uuid = Uuidm.(to_string (create `V4))
 	and pipe_w_uuid = Uuidm.(to_string (create `V4)) in
-	let conv_script = !Path.legacy_conv_tool
+	let conv_script = !Resources.legacy_conv_tool
 	and args =
 		[ "--in"; fd_uuid; "--out"; pipe_w_uuid;
 			"--width"; "32"; "--skip-qemu";

@@ -46,7 +46,7 @@ let choose_alternative kind default platformdata =
 	debug "looking for %s in [ %s ]" kind (String.concat "; " (List.map (fun (k, v) -> k ^ " : " ^v) platformdata));
 	if List.mem_assoc kind platformdata then begin
 		let x = List.assoc kind platformdata in
-		let dir = Filename.concat !Xc_path.alternatives kind in
+		let dir = Filename.concat !Xc_resources.alternatives kind in
 		let available = try Array.to_list (Sys.readdir dir) with _ -> [] in
 		(* If x has been put in the directory (by root) then it's safe to use *)
 		if List.mem x available
@@ -58,10 +58,10 @@ let choose_alternative kind default platformdata =
 	end else default
 
 (* We allow qemu-dm to be overriden via a platform flag *)
-let choose_qemu_dm x = choose_alternative _device_model !Path.qemu_dm_wrapper x
+let choose_qemu_dm x = choose_alternative _device_model !Resources.qemu_dm_wrapper x
 
 (* We allow xenguest to be overriden via a platform flag *)
-let choose_xenguest x = choose_alternative _xenguest !Xc_path.xenguest x
+let choose_xenguest x = choose_alternative _xenguest !Xc_resources.xenguest x
 
 
 type qemu_frontend =
@@ -573,7 +573,7 @@ module HOST = struct
 		   pool homogeneity checks fail] *)
 		let get_cpuinfo () =
 			let cpu_info_file =
-				try Unix.access !Path.cpu_info_file [ Unix.F_OK ]; !Path.cpu_info_file
+				try Unix.access !Resources.cpu_info_file [ Unix.F_OK ]; !Resources.cpu_info_file
 				with _ -> "/proc/cpuinfo" in
 			let in_chan = open_in cpu_info_file in
 			let tbl = Hashtbl.create 32 in
@@ -1246,7 +1246,7 @@ module VM = struct
 							Domain.shadow_multiplier = hvm_info.shadow_multiplier;
 							video_mib = hvm_info.video_mib;
 						} in
-						((make_build_info !Path.hvmloader builder_spec_info), hvm_info.timeoffset)
+						((make_build_info !Resources.hvmloader builder_spec_info), hvm_info.timeoffset)
 					| PV { boot = Direct direct } ->
 						let builder_spec_info = Domain.BuildPV {
 							Domain.cmdline = direct.cmdline;
@@ -1396,7 +1396,7 @@ module VM = struct
 	(* Mount a filesystem somewhere, with optional type *)
 	let mount ?ty:(ty = None) src dest write =
 		let ty = match ty with None -> [] | Some ty -> [ "-t"; ty ] in
-		run !Xc_path.mount (ty @ [ src; dest; "-o"; if write then "rw" else "ro" ]) |> ignore_string
+		run !Xc_resources.mount (ty @ [ src; dest; "-o"; if write then "rw" else "ro" ]) |> ignore_string
 
 	let timeout = 300. (* 5 minutes: something is seriously wrong if we hit this timeout *)
 	exception Umount_timeout
@@ -1408,7 +1408,7 @@ module VM = struct
 
 		while not(!finished) && (Unix.gettimeofday () -. start < timeout) do
 			try
-				run !Xc_path.umount [dest] |> ignore_string;
+				run !Xc_resources.umount [dest] |> ignore_string;
 				finished := true
 			with e ->
 				if not(retry) then raise e;
@@ -2174,7 +2174,7 @@ module VBD = struct
 
 	let ionice qos pid =
 		try
-			run !Xc_path.ionice (Ionice.set_args qos pid) |> ignore_string
+			run !Xc_resources.ionice (Ionice.set_args qos pid) |> ignore_string
 		with e ->
 			error "Ionice failed on pid %d: %s" pid (Printexc.to_string e)
 
@@ -2201,7 +2201,7 @@ module VBD = struct
 		try
 			let path = Device_common.kthread_pid_path_of_device ~xs device in
 			let kthread_pid = xs.Xs.read path |> int_of_string in
-			let i = run !Xc_path.ionice (Ionice.get_args kthread_pid) |> Ionice.parse_result_exn in
+			let i = run !Xc_resources.ionice (Ionice.get_args kthread_pid) |> Ionice.parse_result_exn in
 			Opt.map (fun i -> Ionice i) i
 		with
 			| Ionice.Parse_failed x ->
@@ -2381,8 +2381,8 @@ module VIF = struct
 				(* Remember the VIF id with the device *)
 				let id = _device_id Device_common.Vif, id_of vif in
 
-				let setup_vif_rules = [ "setup-vif-rules", !Xc_path.setup_vif_rules ] in
-				let setup_pvs_proxy_rules = [ "setup-pvs-proxy-rules", !Xc_path.setup_pvs_proxy_rules ] in
+				let setup_vif_rules = [ "setup-vif-rules", !Xc_resources.setup_vif_rules ] in
+				let setup_pvs_proxy_rules = [ "setup-pvs-proxy-rules", !Xc_resources.setup_pvs_proxy_rules ] in
 				let xenopsd_backend = [ "xenopsd-backend", "classic" ] in
 				let locking_mode = xenstore_of_locking_mode vif.locking_mode in
 				let static_ip_setting = xenstore_of_static_ip_setting vif in
@@ -2530,11 +2530,11 @@ module VIF = struct
 				let devid = string_of_int device.frontend.devid in
 				let vif_interface_name = Printf.sprintf "vif%d.%s" device.frontend.domid devid in
 				let tap_interface_name = Printf.sprintf "tap%d.%s" device.frontend.domid devid in
-				ignore (run !Xc_path.setup_vif_rules ["classic"; vif_interface_name; vm; devid; "filter"]);
+				ignore (run !Xc_resources.setup_vif_rules ["classic"; vif_interface_name; vm; devid; "filter"]);
 				(* Update rules for the tap device if the VM has booted HVM with no PV drivers. *)
 				let di = Xenctrl.domain_getinfo xc device.frontend.domid in
 				if di.Xenctrl.hvm_guest
-				then ignore (run !Xc_path.setup_vif_rules ["classic"; tap_interface_name; vm; devid; "filter"])
+				then ignore (run !Xc_resources.setup_vif_rules ["classic"; tap_interface_name; vm; devid; "filter"])
 			)
 	
 	let set_ip_unspecified xs xenstore_path suffix =
@@ -2617,11 +2617,11 @@ module VIF = struct
 					let vif_interface_name = Printf.sprintf "vif%d.%s" device.frontend.domid devid in
 					let tap_interface_name = Printf.sprintf "tap%d.%s" device.frontend.domid devid in
 					let di = Xenctrl.domain_getinfo xc device.frontend.domid in
-					ignore (run !Xc_path.setup_pvs_proxy_rules [action; "vif"; vif_interface_name;
+					ignore (run !Xc_resources.setup_pvs_proxy_rules [action; "vif"; vif_interface_name;
 						private_path; hotplug_path]);
 					if di.Xenctrl.hvm_guest then
 						try
-							ignore (run !Xc_path.setup_pvs_proxy_rules [action; "tap"; tap_interface_name;
+							ignore (run !Xc_resources.setup_pvs_proxy_rules [action; "tap"; tap_interface_name;
 							private_path; hotplug_path])
 						with _ ->
 							(* There won't be a tap device if the VM has PV drivers loaded. *)

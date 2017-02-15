@@ -116,7 +116,7 @@ module Domain = struct
 			tag_start "os" output;
 			string "type" "hvm" output;
 			begin match hypervisor with
-			| Some (Xen(_, _)) -> string "loader" !Path.hvmloader output
+			| Some (Xen(_, _)) -> string "loader" !Resources.hvmloader output
 			| _ -> ()
 			end;
 			for i = 0 to String.length hvm_info.boot_order - 1 do
@@ -149,7 +149,7 @@ module Domain = struct
 			empty ~attr:["bridge", bridge] "source" output;
 			empty ~attr:["address", vif.Vif.mac] "mac" output;
 			(* TODO: the 'bridge' type doesn't like a script *)
-			(* empty ~attr:["path", !Path.vif_script] "script" output; *)
+			(* empty ~attr:["path", !Resources.vif_script] "script" output; *)
 			if get_network_backend () = "openvswitch" then begin
 				tag_start ~attr:["type", "openvswitch"] "virtualport" output;
 				if List.mem_assoc "vif-uuid" vif.Vif.extra_private_keys then begin
@@ -231,7 +231,7 @@ module Domain = struct
 			empty ~attr:["sync", "localtime"] "clock" output;
 			tag_start "devices" output;
 			let e = match hypervisor with
-			| Some (Xen(_, _)) -> !Path.qemu_system_i386
+			| Some (Xen(_, _)) -> !Resources.qemu_system_i386
 			| _ -> qemu_path in
 			emulator e output;
 			List.iter (fun vif -> of_vif vif output) x.vifs;

@@ -108,9 +108,9 @@ let configure ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_n
 	debug "xenopsd version %d.%d starting" major_version minor_version;
 
 	let options = options @ specific_options in
-	let resources = Path.make_resources
-		~essentials:(Path.essentials @ specific_essential_paths)
-		~nonessentials:(Path.nonessentials @ specific_nonessential_paths) in
+	let resources = Resources.make_resources
+		~essentials:(Resources.essentials @ specific_essential_paths)
+		~nonessentials:(Resources.nonessentials @ specific_nonessential_paths) in
 	match Xcp_service.configure2
 		~name:(Filename.basename Sys.argv.(0))
 		~version:Version.version

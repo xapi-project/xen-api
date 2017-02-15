@@ -23,7 +23,7 @@ let error fmt = Printf.ksprintf (msg ~prefix:"error") fmt
 
 let verify_libxc_v2_record fd =
 	let fd_uuid = Uuidm.(to_string (create `V4)) in
-	let path = !Path.verify_libxc_v2 in
+	let path = !Resources.verify_libxc_v2 in
 	let args = ["--in"; fd_uuid; "--syslog"] in
 	begin
 		try Unix.(access path [X_OK])
