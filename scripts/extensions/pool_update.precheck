@@ -25,6 +25,7 @@ UPDATE_PRECHECK_FAILED_PREREQUISITE_MISSING = 'UPDATE_PRECHECK_FAILED_PREREQUISI
 UPDATE_PRECHECK_FAILED_CONFLICT_PRESENT = 'UPDATE_PRECHECK_FAILED_CONFLICT_PRESENT'
 UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION = 'UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION'
 UPDATE_PRECHECK_FAILED_OUT_OF_SPACE = 'UPDATE_PRECHECK_FAILED_OUT_OF_SPACE'
+PATCH_PRECHECK_FAILED_ISO_MOUNTED = 'PATCH_PRECHECK_FAILED_ISO_MOUNTED'
 INVALID_UPDATE = 'INVALID_UPDATE'
 CANNOT_FIND_UPDATE = 'CANNOT_FIND_UPDATE'
 ERROR_MESSAGE_START = 'Error: '
@@ -51,6 +52,10 @@ class WrongServerVersion(Exception):
 
 class InvalidUpdate(Exception):
     pass
+
+class IsoMounted(Exception):
+    pass
+
 
 def success_message(result):
     rpcparams = {'Status': 'Success', 'Value': result}
@@ -90,6 +95,9 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
     if p.returncode != 0:
         if ERROR_MESSAGE_DOWNLOAD_PACKAGE in output:
             raise InvalidUpdate('Missing package(s) in the update')
+
+        if PATCH_PRECHECK_FAILED_ISO_MOUNTED in output:
+            raise IsoMounted
 
         m = re.search('(?<=' + ERROR_MESSAGE_START + ').+$', output, flags=re.DOTALL)
         if m:
@@ -212,6 +220,8 @@ if __name__ == '__main__':
         print(failure_message(UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION, [update_package, installed_version, required_version]))
     except InvalidUpdate as e:
         print(failure_message(INVALID_UPDATE, [update_package, str(e)]))
+    except IsoMounted as e:
+        print(failure_message(PATCH_PRECHECK_FAILED_ISO_MOUNTED, [update]))
     except Exception as e:
         print(failure_message(UPDATE_PRECHECK_FAILED_UNKNOWN_ERROR, [update_package, str(e)]))
     finally:
