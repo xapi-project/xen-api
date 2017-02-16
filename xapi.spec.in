@@ -175,14 +175,14 @@ rm -rf $RPM_BUILD_ROOT
 %systemd_preun mpathalert.service
 
 %postun core
-%systemd_postun_with_restart cdrommon@.service
+%systemd_postun cdrommon@.service
 %systemd_postun xapi-domains.service
-%systemd_postun_with_restart perfmon.service
-%systemd_postun_with_restart genptoken.service
-%systemd_postun_with_restart xapi.service
-%systemd_postun_with_restart attach-static-vdis.service
-%systemd_postun_with_restart save-boot-info.service
-%systemd_postun_with_restart mpathalert.service
+%systemd_postun perfmon.service
+%systemd_postun genptoken.service
+%systemd_postun xapi.service
+%systemd_postun attach-static-vdis.service
+%systemd_postun save-boot-info.service
+%systemd_postun mpathalert.service
 
 %files core -f core-files
 %defattr(-,root,root,-)
