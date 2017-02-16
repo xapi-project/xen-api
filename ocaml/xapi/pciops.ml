@@ -28,15 +28,20 @@ let get_free_functions ~__context pci =
 
 (* http://wiki.xen.org/wiki/Bus:Device.Function_%28BDF%29_Notation *)
 (* It might be possible to refactor this but attempts so far have failed. *)
-let bdf_fmt            = format_of_string    "%04x:%02x:%02x.%01x"
-let slash_bdf_scan_fmt = format_of_string "%d/%04x:%02x:%02x.%01x"
-let slash_bdf_prnt_fmt = format_of_string "%d/%04x:%02x:%02x.%01x"
-let bdf_paren_prnt_fmt = format_of_string   "(%04x:%02x:%02x.%01x)"
-let bdf_paren_scan_fmt = format_of_string   "(%04x:%02x:%02x.%01x)"
+let bdf_fmt            = format_of_string    "%04x:%02x:%02x.%01x!"
+let bdf_fmt_ignore     = format_of_string    "%_4x:%_2x:%_2x.%_1x%!"
+let slash_bdf_scan_fmt = format_of_string "%d/%04x:%02x:%02x.%01x!"
+let slash_bdf_prnt_fmt = format_of_string "%d/%04x:%02x:%02x.%01x!"
+let bdf_paren_prnt_fmt = format_of_string   "(%04x:%02x:%02x.%01x)!"
+let bdf_paren_scan_fmt = format_of_string   "(%04x:%02x:%02x.%01x)!"
 
 let pcidev_of_pci ~__context pci =
   let bdf_str = Db.PCI.get_pci_id ~__context ~self:pci in
   Scanf.sscanf bdf_str bdf_fmt (fun a b c d -> (a, b, c, d))
+
+let is_bdf_format str =
+  try Scanf.sscanf str bdf_fmt_ignore true
+  with Scanf.Scan_failure _ | Failure _ | End_of_file -> false
 
 (* Confusion: the n/xxxx:xx:xx.x syntax originally meant PCI device
    xxxx:xx:xx.x should be plugged into bus number n. HVM guests don't have

@@ -68,15 +68,61 @@ let sync_pci_hidden ~__context ~pgpu ~pci =
     | `enabled | `disable_on_reboot -> false
   end
 
-let update_gpus ~__context ~host =
+(* If this PCI device is by AMD and if (ON THE HOST RUNNING THIS CODE) it has
+ * a valid-looking phys_fn symlink in its entry under /sys/bus/pci/...
+ * then:
+ *   assume it is a Virtual Function (we should already have checked it is a display device)
+ *   set the physical_function field in its DB object to point to its PF PCI object
+ *   return true meaning it is a VF (even if we couldn't find a PF PCI object for it)
+ * else return false *)
+(* This is not in the .mli *)
+let mxgpu_set_phys_fn_ref ~__context pci_ref pci_rec =
+  Xapi_pci.int_of_id (pci_rec.Db_actions.pCI_vendor_id) = Xapi_vgpu_type.Vendor_amd.vendor_id &&
+  pci_rec.Db_actions.pCI_virtual_functions = [] && (* i.e. we don't already know it is a phys fn *)
+  (* A better name for pci_id would be pci_address. *)
+  let pci_addr = pci_rec.Db_actions.pCI_pci_id in
+  (* E.g. path = "/sys/bus/pci/devices/0000:88:00.0/" *)
+  let path = Printf.sprintf "/sys/bus/pci/devices/%s/physfn" pci_addr in
+  try (
+    (* No problem if there's no such symlink: we'll handle the exception. *)
+    let physfn_addr = Filename.basename(Unix.readlink path) in
+    (* Expect physfn_addr to look like "0000:8c:01.0" from link-target "../0000:8c:01.0" *)
+    (* If it does then look up Db ref with that pci_id (i.e. address), and create a link in DB *)
+    if Pciops.is_bdf_format physfn_addr then (
+      let host = Helpers.get_localhost ~__context in
+      let expr = Db_filter_types.(And (Eq (Field "pci_id", Literal physfn_addr),
+                                       Eq (Field "host", Literal (Ref.string_of host)))) in
+      ( match Db.PCI.get_refs_where ~__context ~expr with (* Expect exactly one *)
+        | [pf_ref] -> Db.PCI.set_physical_function ~__context ~self:pci_ref ~value:pf_ref
+        | [] -> error "Found no pci with address %s but physfn-link of %s points to it!" physfn_addr pci_addr
+        | _ -> error "Found more than one pci with same address! %s" physfn_addr
+      );
+      true (* It was a Virtual Function PCI device so we don't want a pgpu for it. *)
+    ) else false
+  ) (* Unix_error from blind attempt to read symlink that might not exist *)
+  with Unix.Unix_error _ -> false
+
+(* This has the important side-effect of updating the physical_function field
+ * of the PCI object in the database iff the PCI device turns out to be a VF
+ * of an AMD MxGPU on the local host (in which case we return false).
+ * Returns true iff pci_ref seems to represent a PHYSICAL gpu (not a VF) on the
+ * LOCAL host. *)
+let is_pgpu ~__context ~localhost (pci_ref, pci_rec) =
+  pci_rec.Db_actions.pCI_host = localhost
+  && Xapi_pci.(is_class_of_kind Display_controller (int_of_id (pci_rec.Db_actions.pCI_class_id)))
+  && pci_rec.Db_actions.pCI_physical_function = Ref.null (* Ignore PCIs known to be VFs: we don't want PGPUs for them. *)
+  && not (mxgpu_set_phys_fn_ref ~__context pci_ref pci_rec) (* Ignore PCIs discovered to be Virtual Functions. *)
+
+(* It is up to the caller to ensure that the localhost argument really is the local host. *)
+let update_gpus ~__context ~localhost =
+  let host = localhost in
   let system_display_device = Xapi_pci.get_system_display_device () in
   let existing_pgpus = List.filter (fun (rf, rc) -> rc.API.pGPU_host = host) (Db.PGPU.get_all_records ~__context) in
   let pcis =
-    List.filter (fun self ->
-        let class_id = Db.PCI.get_class_id ~__context ~self in
-        Db.PCI.get_host ~__context ~self = host
-        && Xapi_pci.(is_class_of_kind Display_controller (int_of_id class_id))
-      ) (Db.PCI.get_all ~__context) in
+    (* Important side-effects in is_pgpu *)
+    List.filter (is_pgpu ~localhost ~__context)
+      (Xapi_pci.get_local_pcis_and_records ~__context)
+    |> List.map (function pci_ref, _ -> pci_ref) in
   let is_host_display_enabled =
     match Db.Host.get_display ~__context ~self:host with
     | `enabled | `disable_on_reboot -> true
@@ -307,3 +353,26 @@ let disable_dom0_access ~__context ~self =
   if not (Pool_features.is_enabled ~__context Features.Integrated_GPU)
   then raise Api_errors.(Server_error (feature_restricted, []));
   update_dom0_access ~__context ~self ~action:`disable
+
+(* This must be run LOCALLY on the host that is about to start a VM that is
+ * going to use a vgpu backed by an AMD MxGPU pgpu. *)
+let mxgpu_vf_setup ~__context =
+  let localhost = Helpers.get_localhost ~__context in
+  (* From the modprobe(8) manpage:
+   * --first-time
+   *     Normally, modprobe will succeed (and do nothing) if told to insert a
+   *     module which is already present or to remove a module which isn't
+   *     present. This is ideal for simple scripts; however, more complicated
+   *     scripts often want to know whether modprobe really did something: this
+   *     option makes modprobe fail in the case that it actually didn't do
+   *     anything. *)
+  ignore (Forkhelpers.execute_command_get_output !Xapi_globs.modprobe_path ["gim"]);
+  (* Update the gpus even if the module was present already, in case it was
+   * already loaded before xapi was (re)started. *)
+  Xapi_pci.update_pcis ~__context ~host:localhost;
+  (* Potential optimisation: make update_pcis return a value telling whether
+   * it changed anything, and stop here if it did not. *)
+  List.iter
+    (* Important side-effects in is_pgpu *)
+    (fun pci_ref -> ignore (is_pgpu ~__context ~localhost pci_ref))
+    (Xapi_pci.get_local_pcis_and_records ~__context)
