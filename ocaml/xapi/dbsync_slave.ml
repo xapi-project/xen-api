@@ -346,6 +346,6 @@ let update_env __context sync_keys =
     );
 
   switched_sync Xapi_globs.sync_gpus (fun () ->
-      Xapi_pgpu.update_gpus ~__context ~host:localhost;
+      Xapi_pgpu.update_gpus ~__context ~localhost;
     );
 
