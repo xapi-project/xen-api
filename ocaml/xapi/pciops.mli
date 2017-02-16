@@ -34,6 +34,9 @@ val to_string: (int * (int * int * int * int)) -> string
 (** Return the PCI device as a tuple *)
 val of_string: string -> (int * (int * int * int * int))
 
+(** True if the string matches BDF format, e.g. c002:8c:b3.a (all digits hex) *)
+val is_bdf_format: string -> bool
+
 (** Check whether a PCI device will be hidden from the dom0 kernel on boot. *)
 val is_pci_hidden: __context:Context.t -> [ `PCI ] Ref.t -> bool
 

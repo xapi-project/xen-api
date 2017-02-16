@@ -794,6 +794,8 @@ let xen_livepatch_list = ref "/usr/sbin/xen-livepatch list"
 
 let kpatch_list = ref "/usr/sbin/kpatch list"
 
+let modprobe_path = ref "/usr/sbin/modprobe"
+
 (* The bfs-interfaces script returns boot from SAN NICs.
  * All ISCSI Boot Firmware Table (ibft) NICs should be marked
  * with PIF.managed = false and all FCoE boot from SAN * NICs
@@ -984,6 +986,9 @@ let other_options = [
 
   "kpatch_list", Arg.Set_string kpatch_list,
   (fun () -> !kpatch_list), "Command to query current kernel patch list";
+
+  "modprobe_path", Arg.Set_string modprobe_path,
+  (fun () -> !modprobe_path), "Location of the modprobe(8) command: should match $(which modprobe)";
 ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
