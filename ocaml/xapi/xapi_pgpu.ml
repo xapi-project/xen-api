@@ -107,20 +107,21 @@ let mxgpu_set_phys_fn_ref ~__context pci_ref pci_rec =
  * of an AMD MxGPU on the local host (in which case we return false).
  * Returns true iff pci_ref seems to represent a PHYSICAL gpu (not a VF) on the
  * LOCAL host. *)
-let is_pgpu ~__context ~localhost (pci_ref, pci_rec) =
+let is_local_pgpu ~__context (pci_ref, pci_rec) =
+  let localhost = Helpers.get_localhost ~__context in
   pci_rec.Db_actions.pCI_host = localhost
   && Xapi_pci.(is_class_of_kind Display_controller (int_of_id (pci_rec.Db_actions.pCI_class_id)))
   && pci_rec.Db_actions.pCI_physical_function = Ref.null (* Ignore PCIs known to be VFs: we don't want PGPUs for them. *)
   && not (mxgpu_set_phys_fn_ref ~__context pci_ref pci_rec) (* Ignore PCIs discovered to be Virtual Functions. *)
 
-(* It is up to the caller to ensure that the localhost argument really is the local host. *)
-let update_gpus ~__context ~localhost =
-  let host = localhost in
+(* Makes DB match reality for pgpus on local host *)
+let update_gpus ~__context =
+  let host = Helpers.get_localhost ~__context in
   let system_display_device = Xapi_pci.get_system_display_device () in
   let existing_pgpus = List.filter (fun (rf, rc) -> rc.API.pGPU_host = host) (Db.PGPU.get_all_records ~__context) in
   let pcis =
-    (* Important side-effects in is_pgpu *)
-    List.filter (is_pgpu ~localhost ~__context)
+    (* Important side-effects in is_local_pgpu *)
+    List.filter (is_local_pgpu ~__context)
       (Xapi_pci.get_local_pcis_and_records ~__context)
     |> List.map (function pci_ref, _ -> pci_ref) in
   let is_host_display_enabled =
@@ -357,7 +358,6 @@ let disable_dom0_access ~__context ~self =
 (* This must be run LOCALLY on the host that is about to start a VM that is
  * going to use a vgpu backed by an AMD MxGPU pgpu. *)
 let mxgpu_vf_setup ~__context =
-  let localhost = Helpers.get_localhost ~__context in
   (* From the modprobe(8) manpage:
    * --first-time
    *     Normally, modprobe will succeed (and do nothing) if told to insert a
@@ -369,10 +369,10 @@ let mxgpu_vf_setup ~__context =
   ignore (Forkhelpers.execute_command_get_output !Xapi_globs.modprobe_path ["gim"]);
   (* Update the gpus even if the module was present already, in case it was
    * already loaded before xapi was (re)started. *)
-  Xapi_pci.update_pcis ~__context ~host:localhost;
+  Xapi_pci.update_pcis ~__context;
   (* Potential optimisation: make update_pcis return a value telling whether
    * it changed anything, and stop here if it did not. *)
   List.iter
-    (* Important side-effects in is_pgpu *)
-    (fun pci_ref -> ignore (is_pgpu ~__context ~localhost pci_ref))
+    (* Important side-effects in is_local_pgpu *)
+    (fun pci_ref -> ignore (is_local_pgpu ~__context pci_ref))
     (Xapi_pci.get_local_pcis_and_records ~__context)
