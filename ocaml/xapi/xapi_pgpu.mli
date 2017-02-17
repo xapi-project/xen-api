@@ -15,9 +15,9 @@
  * @group Graphics
 *)
 
-(** Synchronise the PGPU objects in the database with the actual devices in the host.
- *  The caller must ensure that the localhost parameter is indeed the local host. *)
-val update_gpus : __context:Context.t -> localhost:API.ref_host -> unit
+(** Synchronise the PGPU objects in the database with the actual devices
+ *  in the local host. *)
+val update_gpus : __context:Context.t -> unit
 
 (** Enable one of the VGPU types supported by the PGPU. *)
 val add_enabled_VGPU_types : __context:Context.t ->

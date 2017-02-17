@@ -75,7 +75,8 @@ let get_local_pcis_and_records ~__context =
 let get_local_pci_refs ~__context =
   get_local ~__context Db.PCI.get_refs_where
 
-let update_pcis ~__context ~host =
+let update_pcis ~__context =
+  let host = Helpers.get_localhost ~__context in
   let existing = List.filter_map
       (fun pref ->
          let prec = Db.PCI.get_record_internal ~__context ~self:pref in
