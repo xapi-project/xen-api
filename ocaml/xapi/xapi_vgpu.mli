@@ -41,4 +41,5 @@ val copy :
 
 (* Determine whether a VGPU requires passthrough of an entire PGPU, or
  * will be only require part of the PGPU. *)
-val requires_passthrough : __context:Context.t -> self:API.ref_VGPU -> bool
+val requires_passthrough : __context:Context.t -> self:API.ref_VGPU ->
+  [ `PF | `VF ] option

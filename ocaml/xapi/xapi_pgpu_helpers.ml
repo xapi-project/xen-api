@@ -94,7 +94,7 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
                  Ref.string_of vgpu_type
                ]))
     in
-    if Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type then
+    if Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type = Some `PF then
       (* For passthrough VGPUs, which means passing through an entire PGPU to a
        * VM, the remaining capacity is binary. We simply return 0 if the PCI
        * device is currently passed-through to a VM, or is scheduled to be,

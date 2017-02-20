@@ -155,7 +155,7 @@ let create_vgpus ~__context host (vm, vm_r) hvm =
   end;
   let (passthru_vgpus, virtual_vgpus) =
     List.partition
-      (fun v -> Xapi_vgpu.requires_passthrough ~__context ~self:v.vgpu_ref)
+      (fun v -> Xapi_vgpu.requires_passthrough ~__context ~self:v.vgpu_ref = Some `PF)
       vgpus
   in
   if virtual_vgpus <> [] && not (Pool_features.is_enabled ~__context Features.VGPU) then

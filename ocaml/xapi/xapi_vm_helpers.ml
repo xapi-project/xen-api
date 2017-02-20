@@ -298,7 +298,7 @@ let assert_can_see_networks ~__context ~self ~host =
  * passthrough. *)
 let vm_needs_iommu ~__context ~self =
   List.exists
-    (fun vgpu -> Xapi_vgpu.requires_passthrough ~__context ~self:vgpu)
+    (fun vgpu -> Xapi_vgpu.requires_passthrough ~__context ~self:vgpu <> None)
     (Db.VM.get_VGPUs ~__context ~self)
 
 let assert_host_has_iommu ~__context ~host =

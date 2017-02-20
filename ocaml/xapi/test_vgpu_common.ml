@@ -209,7 +209,7 @@ let make_vgpu ~__context
     then vm_ref
     else Test_common.make_vm ~__context ()
   in
-  if (Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type_ref)
+  if (Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type_ref = Some `PF)
   && (Db.is_valid_ref __context resident_on)
   then begin
     let pci_ref = Db.PGPU.get_PCI ~__context ~self:resident_on in
