@@ -94,18 +94,16 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
                  Ref.string_of vgpu_type
                ]))
     in
-    if Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type
-    then begin
-      (* For passthrough VGPUs, we check that there are functions available,
-       * and subtract from this list the number of VGPUs scheduled to run on
-       * this PGPU. *)
+    if Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type then
+      (* For passthrough VGPUs, which means passing through an entire PGPU to a
+       * VM, the remaining capacity is binary. We simply return 0 if the PCI
+       * device is currently passed-through to a VM, or is scheduled to be,
+       * and 1 otherwise. *)
       let pci = Db.PGPU.get_PCI ~__context ~self in
-      let scheduled_VGPUs = get_scheduled_VGPUs ~__context ~self in
-      convert_capacity
-        (Int64.of_int (
-            (Pciops.get_free_functions ~__context pci) -
-            (List.length scheduled_VGPUs)))
-    end else begin
+      let scheduled = List.length (get_scheduled_VGPUs ~__context ~self) > 0 in
+      let attached = Db.PCI.get_attached_VMs ~__context ~self:pci <> [] in
+      convert_capacity (if scheduled || attached then 0L else 1L)
+    else begin
       (* For virtual VGPUs, we calculate the number of times the VGPU_type's
        * size fits into the PGPU's (size - utilisation). *)
       let pgpu_size = Db.PGPU.get_size ~__context ~self in
