@@ -1,4 +1,3 @@
 # OASIS_START
 # OASIS_STOP
 <src/chunked.ml>: syntax_camlp4o, pkg_cstruct.syntax
-<src/input.ml>: syntax_camlp4o, pkg_lwt.syntax
