@@ -97,8 +97,8 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
     if Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type
     then begin
       (* For passthrough VGPUs, we check that there are functions available,
-         			 * and subtract from this list the number of VGPUs scheduled to run on
-         			 * this PGPU. *)
+       * and subtract from this list the number of VGPUs scheduled to run on
+       * this PGPU. *)
       let pci = Db.PGPU.get_PCI ~__context ~self in
       let scheduled_VGPUs = get_scheduled_VGPUs ~__context ~self in
       convert_capacity
@@ -107,7 +107,7 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
             (List.length scheduled_VGPUs)))
     end else begin
       (* For virtual VGPUs, we calculate the number of times the VGPU_type's
-         			 * size fits into the PGPU's (size - utilisation). *)
+       * size fits into the PGPU's (size - utilisation). *)
       let pgpu_size = Db.PGPU.get_size ~__context ~self in
       let utilisation =
         List.fold_left
