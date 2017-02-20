@@ -24,6 +24,7 @@ type vgpu = {
   devid: int;
   other_config: (string * string) list;
   type_ref: API.ref_VGPU_type;
+  requires_passthrough: [ `PF | `VF ] option;
 }
 
 let vgpu_of_vgpu ~__context vm_r vgpu =
@@ -34,6 +35,7 @@ let vgpu_of_vgpu ~__context vm_r vgpu =
     devid = int_of_string vgpu_r.API.vGPU_device;
     other_config = vgpu_r.API.vGPU_other_config;
     type_ref = vgpu_r.API.vGPU_type;
+    requires_passthrough = Xapi_vgpu.requires_passthrough ~__context ~self:vgpu;
   }
 
 let vgpus_of_vm ~__context vm_r =
@@ -155,7 +157,7 @@ let create_vgpus ~__context host (vm, vm_r) hvm =
   end;
   let (passthru_vgpus, virtual_vgpus) =
     List.partition
-      (fun v -> Xapi_vgpu.requires_passthrough ~__context ~self:v.vgpu_ref = Some `PF)
+      (fun v -> v.requires_passthrough = Some `PF)
       vgpus
   in
   if virtual_vgpus <> [] && not (Pool_features.is_enabled ~__context Features.VGPU) then
