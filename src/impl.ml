@@ -604,13 +604,13 @@ let retry common retries f =
   let rec aux n =
     if n <= 0 then f ()
     else
-      try_lwt f ()
-      with exn ->
-        if common.Common.debug then
-          Printf.fprintf stderr "warning: caught %s; will retry %d more time%s...\n%!"
-            (Printexc.to_string exn) n (if n=1 then "" else "s");
-        Lwt_unix.sleep 1. >>= fun () ->
-        aux (n - 1) in
+      Lwt.catch f
+        (fun exn ->
+           if common.Common.debug then
+             Printf.fprintf stderr "warning: caught %s; will retry %d more time%s...\n%!"
+               (Printexc.to_string exn) n (if n=1 then "" else "s");
+           Lwt_unix.sleep 1. >>= fun () ->
+           aux (n - 1)) in
   aux retries
 
 let make_stream common source relative_to source_format destination_format =

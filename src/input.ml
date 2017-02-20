@@ -30,7 +30,7 @@ let of_fd fd =
   { fd; offset }
 
 let read fd buf =
-  lwt () = IO.complete "read" (Some fd.offset) Lwt_bytes.read fd.fd buf in
+  IO.complete "read" (Some fd.offset) Lwt_bytes.read fd.fd buf >>= fun () ->
   fd.offset <- Int64.(add fd.offset (of_int (Cstruct.len buf)));
   return ()
 
@@ -42,7 +42,7 @@ let skip_to fd n =
     else
       let this = Int64.(to_int (min remaining (of_int (Cstruct.len buf)))) in
       let frag = Cstruct.sub buf 0 this in
-      lwt () = IO.complete "read" (Some fd.offset) Lwt_bytes.read fd.fd frag in
+      IO.complete "read" (Some fd.offset) Lwt_bytes.read fd.fd frag >>= fun () ->
       fd.offset <- Int64.(add fd.offset (of_int this));
       loop Int64.(sub remaining (of_int this)) in  
   loop Int64.(sub n fd.offset)
