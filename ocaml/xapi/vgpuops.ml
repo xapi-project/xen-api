@@ -78,7 +78,7 @@ let add_pcis_to_vm ~__context host vm passthru_vgpus =
     end else
       [] in
   (* Add a platform key to the VM if any of the PCIs are integrated GPUs;
-     	 * otherwise remove the key. *)
+   * otherwise remove the key. *)
   Db.VM.remove_from_platform ~__context
     ~self:vm ~key:Xapi_globs.igd_passthru_key;
   if List.exists
