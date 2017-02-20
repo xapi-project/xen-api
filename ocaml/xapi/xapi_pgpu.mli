@@ -15,8 +15,9 @@
  * @group Graphics
 *)
 
-(** Synchronise the PGPU objects in the database with the actual devices in the host. *)
-val update_gpus : __context:Context.t -> host:API.ref_host -> unit
+(** Synchronise the PGPU objects in the database with the actual devices in the host.
+ *  The caller must ensure that the localhost parameter is indeed the local host. *)
+val update_gpus : __context:Context.t -> localhost:API.ref_host -> unit
 
 (** Enable one of the VGPU types supported by the PGPU. *)
 val add_enabled_VGPU_types : __context:Context.t ->
@@ -48,3 +49,9 @@ val enable_dom0_access : __context:Context.t -> self:API.ref_PGPU ->
 
 val disable_dom0_access : __context:Context.t -> self:API.ref_PGPU ->
   API.pgpu_dom0_access
+
+(* For AMD MxGPU. Acts on the local host only.
+ * Ensures that the "gim" kernel module is loaded on localhost,
+ * that PCI DB entries exist for the VF PCI devices reported by the module,
+ * and that those entries have the "physical_function" field set correctly. *)
+val mxgpu_vf_setup : __context:Context.t -> unit
