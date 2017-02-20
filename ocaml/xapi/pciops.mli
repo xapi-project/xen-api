@@ -15,9 +15,6 @@
  * @group Virtual-Machine Management
 *)
 
-(** Check if a given PCI device is free. *)
-val get_free_functions : __context:Context.t -> [ `PCI ] Ref.t -> int
-
 (** Return the PCI DBDF string for a PCI object *)
 val pcidev_of_pci: __context:Context.t -> API.ref_PCI -> (int * int * int * int)
 
