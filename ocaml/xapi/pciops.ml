@@ -21,11 +21,6 @@ open Threadext
 
 let m = Mutex.create ()
 
-let get_free_functions ~__context pci =
-  let assignments = List.length (Db.PCI.get_attached_VMs ~__context ~self:pci) in
-  let functions = Int64.to_int (Db.PCI.get_functions ~__context ~self:pci) in
-  functions - assignments
-
 (* http://wiki.xen.org/wiki/Bus:Device.Function_%28BDF%29_Notation *)
 (* It might be possible to refactor this but attempts so far have failed. *)
 let bdf_fmt            = format_of_string    "%04x:%02x:%02x.%01x!"
