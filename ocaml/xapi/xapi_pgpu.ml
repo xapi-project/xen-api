@@ -22,7 +22,7 @@ let calculate_max_capacities ~__context ~pCI ~size ~supported_VGPU_types =
   List.map
     (fun vgpu_type ->
        let max_capacity =
-         if Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type
+         if Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type = Some `PF
          then 1L
          else Int64.div size (Db.VGPU_type.get_size ~__context ~self:vgpu_type)
        in

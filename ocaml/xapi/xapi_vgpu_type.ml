@@ -664,4 +664,7 @@ let find_or_create_supported_types ~__context ~pci =
   find_or_create_supported_types ~__context ~pci
 
 let requires_passthrough ~__context ~self =
-  Db.VGPU_type.get_implementation ~__context ~self = `passthrough
+  match Db.VGPU_type.get_implementation ~__context ~self with
+  | `passthrough     -> Some `PF (* Requires passthough of a physical function (entire device) *)
+  | `mxgpu           -> Some `VF (* Requires passthough of a virtual function (SR-IOV) *)
+  | `nvidia | `gvt_g -> None     (* Does not require any passthrough *)
