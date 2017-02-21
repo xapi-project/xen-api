@@ -161,15 +161,18 @@ let dev_of (id, (domain, bus, dev, fn)) = dev
 let fn_of (id, (domain, bus, dev, fn)) = fn
 
 (** Find a free virtual function given a physical function (SR-IOV) *)
-(* TODO: Fix the obvious race... we need a `PCI.scheduled_to_be_attached_to` *)
-let get_free_virtual_function ~__context pf =
+let reserve_free_virtual_function ~__context vm pf =
   let rec search = function
     | [] -> None
     | vf :: vfs ->
-      if Db.PCI.get_attached_VMs ~__context ~self:vf = [] then
-        Some vf
-      else
+      let attached = Db.PCI.get_attached_VMs ~__context ~self:vf <> [] in
+      let scheduled = Db.PCI.get_scheduled_to_be_attached_to ~__context ~self:vf <> Ref.null in
+      if attached || scheduled then
         search vfs
+      else begin
+        Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:vf ~value:vm;
+        Some vf
+      end
   in
   Db.PCI.get_virtual_functions ~__context ~self:pf
   |> search

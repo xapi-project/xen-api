@@ -1781,10 +1781,12 @@ let update_pci ~__context id =
           Opt.iter
             (fun (_, state) ->
                debug "xenopsd event: Updating PCI %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
-               if attached_in_db && (not state.plugged)
-               then Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:vm
-               else if (not attached_in_db) && state.plugged
-               then Db.PCI.add_attached_VMs ~__context ~self:pci ~value:vm;
+               if attached_in_db && (not state.plugged) then
+                 Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:vm
+               else if (not attached_in_db) && state.plugged then begin
+                 Db.PCI.add_attached_VMs ~__context ~self:pci ~value:vm;
+                 Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:pci ~value:Ref.null
+               end;
 
                match vgpu_opt with
                | Some vgpu -> begin
