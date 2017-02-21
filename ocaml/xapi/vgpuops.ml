@@ -41,7 +41,21 @@ let vgpu_of_vgpu ~__context vm_r vgpu =
 let vgpus_of_vm ~__context vm_r =
   List.map (vgpu_of_vgpu ~__context vm_r) vm_r.API.vM_VGPUs
 
-let allocate_vgpu_to_gpu ~__context host vgpu =
+let fail_creation vm vgpu =
+  match vgpu.requires_passthrough with
+  | None | Some `VF ->
+    raise (Api_errors.Server_error (Api_errors.vm_requires_vgpu, [
+        Ref.string_of vm;
+        Ref.string_of vgpu.gpu_group_ref;
+        Ref.string_of vgpu.type_ref
+      ]))
+  | Some `PF ->
+    raise (Api_errors.Server_error (Api_errors.vm_requires_gpu, [
+        Ref.string_of vm;
+        Ref.string_of vgpu.gpu_group_ref
+      ]))
+
+let allocate_vgpu_to_gpu ~__context vm host vgpu =
   let available_pgpus = Db.Host.get_PGPUs ~__context ~self:host in
   let compatible_pgpus = Db.GPU_group.get_PGPUs ~__context ~self:vgpu.gpu_group_ref in
   let pgpus = List.intersect compatible_pgpus available_pgpus in
@@ -68,24 +82,7 @@ let allocate_vgpu_to_gpu ~__context host vgpu =
         Some pgpu
       with _ -> choose_pgpu remaining
   in
-  choose_pgpu sorted_pgpus
-
-let fail_creation vm vgpu =
-  match vgpu.requires_passthrough with
-  | None | Some `VF ->
-    raise (Api_errors.Server_error (Api_errors.vm_requires_vgpu, [
-        Ref.string_of vm;
-        Ref.string_of vgpu.gpu_group_ref;
-        Ref.string_of vgpu.type_ref
-      ]))
-  | Some `PF ->
-    raise (Api_errors.Server_error (Api_errors.vm_requires_gpu, [
-        Ref.string_of vm;
-        Ref.string_of vgpu.gpu_group_ref
-      ]))
-
-let create_vgpu ~__context ~vm ~host vgpu =
-  match allocate_vgpu_to_gpu ~__context host vgpu with
+  match choose_pgpu sorted_pgpus with
   | None -> fail_creation vm vgpu
   | Some pgpu ->
     Db.VGPU.set_scheduled_to_be_resident_on ~__context
@@ -134,14 +131,14 @@ let add_vgpus_to_vm ~__context host vm vgpus vgpu_manual_setup =
     match vgpu.requires_passthrough with
     | Some `PF ->
       debug "Creating passthrough VGPUs";
-      let pgpu = create_vgpu ~__context ~vm ~host vgpu in
+      let pgpu = allocate_vgpu_to_gpu ~__context vm host vgpu in
       let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
       add_pcis_to_vm ~__context host vm pci
     | Some `VF ->
       Pool_features.assert_enabled ~__context ~f:Features.VGPU;
       debug "Creating SR-IOV VGPUs";
       if not vgpu_manual_setup then
-        let pgpu = create_vgpu ~__context ~vm ~host vgpu in
+        let pgpu = allocate_vgpu_to_gpu ~__context vm host vgpu in
         Db.PGPU.get_PCI ~__context ~self:pgpu
         |> get_free_virtual_function ~__context
         |> add_pcis_to_vm ~__context host vm
@@ -149,7 +146,7 @@ let add_vgpus_to_vm ~__context host vm vgpus vgpu_manual_setup =
       Pool_features.assert_enabled ~__context ~f:Features.VGPU;
       debug "Creating virtual VGPUs";
       if not vgpu_manual_setup then
-        ignore (create_vgpu ~__context ~vm ~host vgpu)
+        ignore (allocate_vgpu_to_gpu ~__context vm host vgpu)
 
 let vgpu_manual_setup_of_vm vm_r =
   List.mem_assoc Xapi_globs.vgpu_manual_setup_key vm_r.API.vM_platform &&
