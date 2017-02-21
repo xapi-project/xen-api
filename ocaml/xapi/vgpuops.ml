@@ -69,7 +69,7 @@ let allocate_vgpu_to_gpu ~__context vgpu available_pgpus =
   in
   choose_pgpu sorted_pgpus
 
-let create_passthrough_vgpu ~__context ~vm vgpu available_pgpus pcis =
+let create_passthrough_vgpu ~__context ~vm vgpu available_pgpus =
   debug "Creating passthrough VGPUs";
   match allocate_vgpu_to_gpu ~__context vgpu available_pgpus with
   | None ->
@@ -78,25 +78,16 @@ let create_passthrough_vgpu ~__context ~vm vgpu available_pgpus pcis =
         Ref.string_of vgpu.gpu_group_ref
       ]))
   | Some pgpu ->
-    let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
     Db.VGPU.set_scheduled_to_be_resident_on ~__context
       ~self:vgpu.vgpu_ref ~value:pgpu;
-    List.filter (fun g -> g <> pgpu) available_pgpus,
-    pci :: pcis
+    pgpu
 
-let add_pcis_to_vm ~__context host vm passthru_vgpus =
+let add_pcis_to_vm ~__context host vm passthru_vgpu =
   let pcis =
-    if passthru_vgpus <> [] then begin
       let pgpus = Db.Host.get_PGPUs ~__context ~self:host in
-      let _, pcis =
-        List.fold_left
-          (fun (pgpus, pcis) passthru_vgpu ->
-             create_passthrough_vgpu ~__context ~vm passthru_vgpu pgpus pcis)
-          (pgpus, []) passthru_vgpus
-      in
-      pcis
-    end else
-      [] in
+      let pgpu = create_passthrough_vgpu ~__context ~vm passthru_vgpu pgpus in
+      [Db.PGPU.get_PCI ~__context ~self:pgpu]
+  in
   (* Add a platform key to the VM if any of the PCIs are integrated GPUs;
    * otherwise remove the key. *)
   Db.VM.remove_from_platform ~__context
@@ -132,11 +123,18 @@ let create_virtual_vgpu ~__context host vm vgpu =
     Db.VGPU.set_scheduled_to_be_resident_on ~__context
       ~self:vgpu.vgpu_ref ~value:pgpu
 
-let add_vgpus_to_vm ~__context host vm vgpus =
+let add_vgpus_to_vm ~__context host vm vgpus vgpu_manual_setup =
   (* Only support a maximum of one virtual GPU per VM for now. *)
   match vgpus with
   | [] -> ()
-  | vgpu :: _ -> create_virtual_vgpu ~__context host vm vgpu
+  | vgpu :: _ ->
+    if vgpu.requires_passthrough = Some `PF then
+      add_pcis_to_vm ~__context host vm vgpu
+    else begin
+      Pool_features.assert_enabled ~__context ~f:Features.VGPU;
+      if not vgpu_manual_setup then
+        create_virtual_vgpu ~__context host vm vgpu
+    end
 
 let vgpu_manual_setup_of_vm vm_r =
   List.mem_assoc Xapi_globs.vgpu_manual_setup_key vm_r.API.vM_platform &&
@@ -144,20 +142,9 @@ let vgpu_manual_setup_of_vm vm_r =
 
 let create_vgpus ~__context host (vm, vm_r) hvm =
   let vgpus = vgpus_of_vm ~__context vm_r in
-  if vgpus <> [] then begin
-    if not hvm then
-      raise (Api_errors.Server_error (Api_errors.feature_requires_hvm, ["vGPU- and GPU-passthrough needs HVM"]))
-  end;
-  let (passthru_vgpus, virtual_vgpus) =
-    List.partition
-      (fun v -> v.requires_passthrough = Some `PF)
-      vgpus
-  in
-  if virtual_vgpus <> [] && not (Pool_features.is_enabled ~__context Features.VGPU) then
-    raise (Api_errors.Server_error (Api_errors.feature_restricted, []));
-  add_pcis_to_vm ~__context host vm passthru_vgpus;
-  if not (vgpu_manual_setup_of_vm vm_r)
-  then add_vgpus_to_vm ~__context host vm virtual_vgpus
+  if vgpus <> [] && not hvm then
+      raise (Api_errors.Server_error (Api_errors.feature_requires_hvm, ["vGPU- and GPU-passthrough needs HVM"]));
+  add_vgpus_to_vm ~__context host vm vgpus (vgpu_manual_setup_of_vm vm_r)
 
 let list_pcis_for_passthrough ~__context ~vm =
   try
