@@ -111,6 +111,21 @@ let add_pcis_to_vm ~__context host vm pci =
   let value = String.concat "," (List.map Pciops.to_string devs) in
   Db.VM.add_to_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci ~value
 
+let get_free_virtual_function ~__context pf =
+  let rec get retry =
+    match Pciops.get_free_virtual_function ~__context pf with
+    | Some vf -> vf
+    | None ->
+      if retry then begin
+        (* We may still need to load the driver... do that and try again *)
+        Xapi_pgpu.mxgpu_vf_setup ~__context;
+        get false
+      end else
+        (* This probably means that our capacity checking went wrong! *)
+        raise Api_errors.(Server_error (internal_error, ["No free virtual function found"]))
+  in
+  get true
+
 let add_vgpus_to_vm ~__context host vm vgpus vgpu_manual_setup =
   (* Only support a maximum of one virtual GPU per VM for now. *)
   match vgpus with
@@ -127,13 +142,9 @@ let add_vgpus_to_vm ~__context host vm vgpus vgpu_manual_setup =
       debug "Creating SR-IOV VGPUs";
       if not vgpu_manual_setup then
         let pgpu = create_vgpu ~__context ~vm ~host vgpu in
-        let pf = Db.PGPU.get_PCI ~__context ~self:pgpu in
-        (match Pciops.get_free_virtual_function ~__context pf with
-        | Some vf -> add_pcis_to_vm ~__context host vm vf
-        | None ->
-          (* This means that our capacitity checking went wrong! *)
-          raise Api_errors.(Server_error (internal_error, ["No free virtual function found"]))
-        )
+        Db.PGPU.get_PCI ~__context ~self:pgpu
+        |> get_free_virtual_function ~__context
+        |> add_pcis_to_vm ~__context host vm
     | None ->
       Pool_features.assert_enabled ~__context ~f:Features.VGPU;
       debug "Creating virtual VGPUs";
