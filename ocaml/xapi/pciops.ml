@@ -159,3 +159,17 @@ let dev_of (id, (domain, bus, dev, fn)) = dev
 
 (** Return the function of a PCI device *)
 let fn_of (id, (domain, bus, dev, fn)) = fn
+
+(** Find a free virtual function given a physical function (SR-IOV) *)
+(* TODO: Fix the obvious race... we need a `PCI.scheduled_to_be_attached_to` *)
+let get_free_virtual_function ~__context pf =
+  let rec search = function
+    | [] -> None
+    | vf :: vfs ->
+      if Db.PCI.get_attached_VMs ~__context ~self:vf = [] then
+        Some vf
+      else
+        search vfs
+  in
+  Db.PCI.get_virtual_functions ~__context ~self:pf
+  |> search
