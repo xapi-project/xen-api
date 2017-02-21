@@ -92,25 +92,18 @@ let create_vgpu ~__context ~vm ~host vgpu =
       ~self:vgpu.vgpu_ref ~value:pgpu;
     pgpu
 
-let add_pcis_to_vm ~__context host vm passthru_vgpu =
-  let pcis =
-      let pgpu = create_vgpu ~__context ~vm ~host passthru_vgpu in
-      [Db.PGPU.get_PCI ~__context ~self:pgpu]
-  in
+(* Take a PCI device and assign it, and any dependent devices, to the VM *)
+let add_pcis_to_vm ~__context host vm pci =
   (* Add a platform key to the VM if any of the PCIs are integrated GPUs;
    * otherwise remove the key. *)
   Db.VM.remove_from_platform ~__context
     ~self:vm ~key:Xapi_globs.igd_passthru_key;
-  if List.exists
-      (fun pci ->
-         let (_, pci_bus, _, _) = Pciops.pcidev_of_pci ~__context pci in
-         (pci_bus = 0) && (Xapi_pci_helpers.igd_is_whitelisted ~__context pci))
-      pcis
-  then Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.igd_passthru_key ~value:"true";
-  (* The GPU PCI devices which xapi manages may have dependencies: *)
-  let dependent_pcis = List.setify (List.flatten
-                                      (List.map (fun pci -> Db.PCI.get_dependencies ~__context ~self:pci) pcis)) in
-  let devs : (int * int * int * int) list = List.sort compare (List.map (Pciops.pcidev_of_pci ~__context) (pcis @ dependent_pcis)) in
+  let (_, pci_bus, _, _) = Pciops.pcidev_of_pci ~__context pci in
+  if (pci_bus = 0) && (Xapi_pci_helpers.igd_is_whitelisted ~__context pci) then
+    Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.igd_passthru_key ~value:"true";
+  (* The GPU PCI device which xapi manages may have dependencies: *)
+  let dependent_pcis = Db.PCI.get_dependencies ~__context ~self:pci in
+  let devs : (int * int * int * int) list = List.sort compare (List.map (Pciops.pcidev_of_pci ~__context) (pci :: dependent_pcis)) in
   (* Add a hotplug ordering (see pcidevs_of_pci) *)
   let devs : ((int * (int * int * int * int))) list = List.rev (snd (List.fold_left (fun (i, acc) pci -> i + 1, (i, pci) :: acc) (0, []) devs)) in
   (* Update VM other_config for PCI passthrough *)
@@ -123,15 +116,17 @@ let add_vgpus_to_vm ~__context host vm vgpus vgpu_manual_setup =
   match vgpus with
   | [] -> ()
   | vgpu :: _ ->
-    if vgpu.requires_passthrough = Some `PF then begin
+    match vgpu.requires_passthrough with
+    | Some `PF ->
       debug "Creating passthrough VGPUs";
-      add_pcis_to_vm ~__context host vm vgpu
-    end else begin
+      let pgpu = create_vgpu ~__context ~vm ~host vgpu in
+      let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
+      add_pcis_to_vm ~__context host vm pci
+    | _ ->
       Pool_features.assert_enabled ~__context ~f:Features.VGPU;
       debug "Creating virtual VGPUs";
       if not vgpu_manual_setup then
         ignore (create_vgpu ~__context ~vm ~host vgpu)
-    end
 
 let vgpu_manual_setup_of_vm vm_r =
   List.mem_assoc Xapi_globs.vgpu_manual_setup_key vm_r.API.vM_platform &&
