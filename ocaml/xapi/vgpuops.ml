@@ -122,7 +122,19 @@ let add_vgpus_to_vm ~__context host vm vgpus vgpu_manual_setup =
       let pgpu = create_vgpu ~__context ~vm ~host vgpu in
       let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
       add_pcis_to_vm ~__context host vm pci
-    | _ ->
+    | Some `VF ->
+      Pool_features.assert_enabled ~__context ~f:Features.VGPU;
+      debug "Creating SR-IOV VGPUs";
+      if not vgpu_manual_setup then
+        let pgpu = create_vgpu ~__context ~vm ~host vgpu in
+        let pf = Db.PGPU.get_PCI ~__context ~self:pgpu in
+        (match Pciops.get_free_virtual_function ~__context pf with
+        | Some vf -> add_pcis_to_vm ~__context host vm vf
+        | None ->
+          (* This means that our capacitity checking went wrong! *)
+          raise Api_errors.(Server_error (internal_error, ["No free virtual function found"]))
+        )
+    | None ->
       Pool_features.assert_enabled ~__context ~f:Features.VGPU;
       debug "Creating virtual VGPUs";
       if not vgpu_manual_setup then
