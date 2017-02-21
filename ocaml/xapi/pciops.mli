@@ -59,5 +59,5 @@ val dev_of: (int * (int * int * int * int)) -> int
 val fn_of: (int * (int * int * int * int)) -> int
 
 (** Find a free virtual function given a physical function (SR-IOV) *)
-val get_free_virtual_function :
-  __context:Context.t -> [ `PCI ] Ref.t -> [ `PCI ] Ref.t option
+val reserve_free_virtual_function :
+  __context:Context.t -> [ `VM ] Ref.t -> [ `PCI ] Ref.t -> [ `PCI ] Ref.t option

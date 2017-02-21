@@ -108,9 +108,9 @@ let add_pcis_to_vm ~__context host vm pci =
   let value = String.concat "," (List.map Pciops.to_string devs) in
   Db.VM.add_to_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci ~value
 
-let get_free_virtual_function ~__context pf =
+let reserve_free_virtual_function ~__context vm pf =
   let rec get retry =
-    match Pciops.get_free_virtual_function ~__context pf with
+    match Pciops.reserve_free_virtual_function ~__context vm pf with
     | Some vf -> vf
     | None ->
       if retry then begin
@@ -140,7 +140,7 @@ let add_vgpus_to_vm ~__context host vm vgpus vgpu_manual_setup =
       if not vgpu_manual_setup then
         let pgpu = allocate_vgpu_to_gpu ~__context vm host vgpu in
         Db.PGPU.get_PCI ~__context ~self:pgpu
-        |> get_free_virtual_function ~__context
+        |> reserve_free_virtual_function ~__context vm
         |> add_pcis_to_vm ~__context host vm
     | None ->
       Pool_features.assert_enabled ~__context ~f:Features.VGPU;
@@ -148,16 +148,24 @@ let add_vgpus_to_vm ~__context host vm vgpus vgpu_manual_setup =
       if not vgpu_manual_setup then
         ignore (allocate_vgpu_to_gpu ~__context vm host vgpu)
 
+
+(* The three functions below are the main entry points of this module *)
+
 let vgpu_manual_setup_of_vm vm_r =
   List.mem_assoc Xapi_globs.vgpu_manual_setup_key vm_r.API.vM_platform &&
   (List.assoc Xapi_globs.vgpu_manual_setup_key vm_r.API.vM_platform = "true")
 
+(* Note that this function is called from Message_forwarding.allocate_vm_to_host,
+ * only on the pool master, and with the global lock held. We therefore do not
+ * need any further locking in any of the functions above, where resources are
+ * reserved. *)
 let create_vgpus ~__context host (vm, vm_r) hvm =
   let vgpus = vgpus_of_vm ~__context vm_r in
   if vgpus <> [] && not hvm then
       raise (Api_errors.Server_error (Api_errors.feature_requires_hvm, ["vGPU- and GPU-passthrough needs HVM"]));
   add_vgpus_to_vm ~__context host vm vgpus (vgpu_manual_setup_of_vm vm_r)
 
+(* This function is called from Xapi_xenops, after forwarding, so possibly on a slave. *)
 let list_pcis_for_passthrough ~__context ~vm =
   try
     let value = List.assoc Xapi_globs.vgpu_pci (Db.VM.get_other_config ~__context ~self:vm) in
