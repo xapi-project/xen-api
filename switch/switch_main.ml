@@ -321,7 +321,7 @@ let main ({ Config.daemonize; path; pidfile } as config) =
               Lwt_io.flush oc
             ) in
 
-    Lwt_unix.run (make_server config);
+    Lwt_main.run (make_server config);
     `Ok ()
   with
   | Not_a_directory dir ->

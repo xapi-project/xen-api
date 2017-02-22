@@ -95,4 +95,4 @@ let _ =
   ] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
     "Test the parser/printer for the link-layer protocol";
 
-  Lwt_unix.run (main ())
+  Lwt_main.run (main ())
