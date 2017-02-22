@@ -4897,6 +4897,18 @@ let host_apply_guest_agent_config = call
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+let host_mxgpu_vf_setup = call
+    ~name:"mxgpu_vf_setup"
+    ~lifecycle:[Published, rel_falcon, ""]
+    ~doc:"Ensure the driver (kernel module) for MxGPU is loaded on the host, and create PCI objects for any new PCI devices (virtual functions) that the module makes visible."
+    ~params:[
+      Ref _host, "host", "The host";
+    ]
+    ~hide_from_docs:true
+    ~pool_internal:true
+    ~allowed_roles:_R_VM_OP
+    ()
+
 (** Hosts *)
 let host =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -4987,6 +4999,7 @@ let host =
                 host_disable_display;
                 host_set_ssl_legacy;
                 host_apply_guest_agent_config;
+                host_mxgpu_vf_setup;
                ]
     ~contents:
       ([ uid _host;
