@@ -2608,6 +2608,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       do_op_on ~local_fn ~__context ~host
         (fun session_id rpc ->
            Client.Host.apply_guest_agent_config rpc session_id host)
+
+    let mxgpu_vf_setup ~__context ~host =
+      info "Host.mxgpu_vf_setup: host = '%s'"
+        (host_uuid ~__context host);
+      let local_fn = Local.Host.mxgpu_vf_setup ~host in
+      do_op_on ~local_fn ~__context ~host
+        (fun session_id rpc ->
+           Client.Host.mxgpu_vf_setup rpc session_id host)
+
   end
 
   module Host_crashdump = struct
