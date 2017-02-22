@@ -23,12 +23,12 @@ let m = Mutex.create ()
 
 (* http://wiki.xen.org/wiki/Bus:Device.Function_%28BDF%29_Notation *)
 (* It might be possible to refactor this but attempts so far have failed. *)
-let bdf_fmt            = format_of_string    "%04x:%02x:%02x.%01x!"
-let bdf_fmt_ignore     = format_of_string    "%_4x:%_2x:%_2x.%_1x%!"
-let slash_bdf_scan_fmt = format_of_string "%d/%04x:%02x:%02x.%01x!"
-let slash_bdf_prnt_fmt = format_of_string "%d/%04x:%02x:%02x.%01x!"
-let bdf_paren_prnt_fmt = format_of_string   "(%04x:%02x:%02x.%01x)!"
-let bdf_paren_scan_fmt = format_of_string   "(%04x:%02x:%02x.%01x)!"
+let bdf_fmt            = format_of_string    "%04x:%02x:%02x.%01x"
+let bdf_fmt_ignore     = format_of_string    "%_4x:%_2x:%_2x.%_1x%!"  (* with end-of-input match *)
+let slash_bdf_scan_fmt = format_of_string "%d/%04x:%02x:%02x.%01x"
+let slash_bdf_prnt_fmt = format_of_string "%d/%04x:%02x:%02x.%01x"
+let bdf_paren_prnt_fmt = format_of_string   "(%04x:%02x:%02x.%01x)"
+let bdf_paren_scan_fmt = format_of_string   "(%04x:%02x:%02x.%01x)"
 
 let pcidev_of_pci ~__context pci =
   let bdf_str = Db.PCI.get_pci_id ~__context ~self:pci in
