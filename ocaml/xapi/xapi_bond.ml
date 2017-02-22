@@ -55,6 +55,15 @@ let move_configuration ~__context from_pif to_pif =
   Db.PIF.set_gateway ~__context ~self:from_pif ~value:"";
   Db.PIF.set_DNS ~__context ~self:from_pif ~value:""
 
+let move_management ~__context from_pif to_pif =
+  Nm.bring_pif_up ~__context ~management_interface:true to_pif;
+  let network = Db.PIF.get_network ~__context ~self:to_pif in
+  let bridge = Db.Network.get_bridge ~__context ~self:network in
+  let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:to_pif in
+  Xapi_host.change_management_interface ~__context bridge primary_address_type;
+  Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
+
+
 (* Determine local VIFs: candidates for moving to the bond.
  * Local VIFs are those VIFs on the given networks that belong to VMs that
  * are either running on the current host, or can only start on the current host or nowhere. *)
@@ -96,8 +105,9 @@ let move_vlan ~__context host new_slave old_vlan =
   let tag = Db.VLAN.get_tag ~__context ~self:old_vlan in
   let network = Db.PIF.get_network ~__context ~self:old_master in
   let plugged = Db.PIF.get_currently_attached ~__context ~self:old_master in
+  let is_management_pif = Db.PIF.get_management ~__context ~self:old_master in
 
-  if plugged then begin
+  if plugged && not is_management_pif then begin
     debug "Unplugging old VLAN";
     Nm.bring_pif_down ~__context old_master
   end;
@@ -125,6 +135,9 @@ let move_vlan ~__context host new_slave old_vlan =
       Xapi_vlan.create_internal ~__context ~host ~tagged_PIF:new_slave ~tag ~network ~device
   in
 
+  (* Copy the IP configuration from vlan old_master to new_master *)
+  move_configuration ~__context old_master new_master;
+
   (* Destroy old VLAN and VLAN-master objects *)
   debug "Destroying old VLAN %d" (Int64.to_int tag);
   Db.VLAN.destroy ~__context ~self:old_vlan;
@@ -132,9 +145,14 @@ let move_vlan ~__context host new_slave old_vlan =
 
   (* Plug again if plugged before the move *)
   if plugged then begin
-    debug "Plugging new VLAN";
-    Nm.bring_pif_up ~__context new_master;
-
+    if is_management_pif then begin
+      debug "Moving management from old VLAN to new VLAN";
+      move_management ~__context old_master new_master;
+    end
+    else begin
+     debug "Plugging new VLAN";
+     Nm.bring_pif_up ~__context new_master
+    end;
     (* Call Xapi_vif.move_internal on VIFs of running VMs to make sure they end up on the right vSwitch *)
     let vifs = Db.Network.get_VIFs ~__context ~self:network in
     let vifs = List.filter (fun vif ->
@@ -170,14 +188,6 @@ let move_tunnel ~__context host new_transport_PIF old_tunnel =
         vifs in
     ignore (List.map (Xapi_vif.move_internal ~__context ~network:network) vifs);
   end
-
-let move_management ~__context from_pif to_pif =
-  Nm.bring_pif_up ~__context ~management_interface:true to_pif;
-  let network = Db.PIF.get_network ~__context ~self:to_pif in
-  let bridge = Db.Network.get_bridge ~__context ~self:network in
-  let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:to_pif in
-  Xapi_host.change_management_interface ~__context bridge primary_address_type;
-  Xapi_pif.update_management_flags ~__context ~host:(Helpers.get_localhost ~__context)
 
 let fix_bond ~__context ~bond =
   let bond_rec = Db.Bond.get_record ~__context ~self:bond in
@@ -278,6 +288,10 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
       let local_vifs = get_local_vifs ~__context host member_networks in
       let local_vlans = List.concat (List.map (fun pif -> Db.PIF.get_VLAN_slave_of ~__context ~self:pif) members) in
       let local_tunnels = List.concat (List.map (fun pif -> Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pif) members) in
+
+      let is_management_on_vlan =
+        List.filter (fun vlan -> Db.PIF.get_management ~__context ~self:(Db.VLAN.get_untagged_PIF ~__context ~self:vlan)) local_vlans <> []
+      in
 
       let management_pif =
         match List.filter (fun p -> Db.PIF.get_management ~__context ~self:p) members with
@@ -380,8 +394,12 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
           debug "Moving management from slave to master";
           move_management ~__context management_pif master
         | None ->
-          debug "Plugging the bond";
-          Nm.bring_pif_up ~__context master
+          (* If management VLAN exist on a bond member then plug the bond
+             after moving management from old vlan master to new vlan master *)
+          if not is_management_on_vlan then begin
+            debug "Plugging the bond";
+            Nm.bring_pif_up ~__context master
+          end
       end;
       TaskHelper.set_progress ~__context 0.2;
 
@@ -389,6 +407,15 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
       debug "Check VLANs to move from slaves to master";
       List.iter (move_vlan ~__context host master) local_vlans;
       TaskHelper.set_progress ~__context 0.4;
+
+      (* If management VLAN exist on a bond member then plugging the bond before moving management
+         from old vlan master to new vlan master destroys the vlan bridge.
+         This results the Host to be out of vlan network, Which is costly during Pool.join
+         Synchronising bonds step. It can force a slave to not able to contact the master permanently. *)
+      if is_management_on_vlan then begin
+        debug "Plugging the bond after moving management from old vlan master to new vlan master";
+        Nm.bring_pif_up ~__context master
+      end;
 
       (* Move tunnels from members to master *)
       debug "Check tunnels to move from slaves to master";
