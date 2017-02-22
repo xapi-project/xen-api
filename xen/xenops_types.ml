@@ -39,6 +39,12 @@ module Vgpu = struct
     config_file: string;
   } [@@deriving sexp, rpc]
 
+  type mxgpu = {
+    physical_function: Pci.address;
+    vgpus_per_pgpu: int64;
+    framebufferbytes: int64;
+  } [@@deriving sexp, rpc]
+
 end
 
 module Vm = struct

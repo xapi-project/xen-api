@@ -120,6 +120,7 @@ module Vgpu = struct
 	type implementation =
 		| GVT_g of gvt_g
 		| Nvidia of nvidia
+		| MxGPU of mxgpu
 
 	type id = string * string
 
