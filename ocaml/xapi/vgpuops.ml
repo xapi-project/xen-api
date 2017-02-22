@@ -115,7 +115,10 @@ let reserve_free_virtual_function ~__context vm pf =
     | None ->
       if retry then begin
         (* We may still need to load the driver... do that and try again *)
-        Xapi_pgpu.mxgpu_vf_setup ~__context;
+        let pf_host = Db.PCI.get_host ~__context ~self:pf in
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+          Client.Client.Host.mxgpu_vf_setup rpc session_id pf_host
+        );
         get false
       end else
         (* This probably means that our capacity checking went wrong! *)
