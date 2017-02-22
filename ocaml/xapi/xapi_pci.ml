@@ -60,7 +60,8 @@ let create ~__context ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
     ~device_name ~host ~pci_id ~functions ~physical_function
     ~dependencies:[] ~other_config:[]
     ~subsystem_vendor_id ~subsystem_vendor_name
-    ~subsystem_device_id ~subsystem_device_name;
+    ~subsystem_device_id ~subsystem_device_name
+    ~scheduled_to_be_attached_to:Ref.null;
   debug "PCI %s, %s, %s created" pci_id vendor_name device_name;
   p
 
