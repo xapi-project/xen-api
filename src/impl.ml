@@ -200,22 +200,26 @@ let stream_human common _ s _ _ ?(progress = no_progress_bar) () =
   return None
 
 let stream_nbd common c s prezeroed _ ?(progress = no_progress_bar) () =
-  let c = { Nbd_lwt_client.read = c.Channels.really_read; write = c.Channels.really_write } in
+  let open Nbd_lwt_unix in
+  let c = { Nbd.Channel.read = c.Channels.really_read; write = c.Channels.really_write; close = c.Channels.close } in
 
-  Nbd_lwt_client.negotiate c >>= fun (server, size, flags) ->
+  Client.negotiate c "" >>= fun (server, size, flags) ->
   (* Work to do is: non-zero data to write + empty sectors if the
      target is not prezeroed *)
   let total_work = let open Vhd.F in Int64.(add (add s.size.metadata s.size.copy) (if prezeroed then 0L else s.size.empty)) in
   let p = progress total_work in
 
   ( if not prezeroed then expand_empty s else return s ) >>= fun s ->
-  expand_copy s >>= fun s ->
+    expand_copy s >>= fun s ->
 
   fold_left (fun (sector, work_done) x ->
     ( match x with
       | `Sectors data ->
-        Nbd_lwt_client.write server data (Int64.mul sector 512L) >>= fun () ->
-        return Int64.(of_int (Cstruct.len data))
+        Client.write server (Int64.mul sector 512L) [data] >>= begin
+          function
+          | `Ok () -> return Int64.(of_int (Cstruct.len data))
+          | `Error e -> fail (Failure "Got error from NBD library")
+        end
       | `Empty n -> (* must be prezeroed *)
         assert prezeroed;
         return 0L
@@ -481,7 +485,6 @@ let serve_vhd_to_raw total_size c dest prezeroed progress _ _ =
   loop 0 (-1L) 0L stream
 
 let serve_tar_to_raw total_size c dest prezeroed progress expected_prefix ignore_checksums =
-  let module M = Tar.Archive(Lwt) in
   let twomib = 2 * 1024 * 1024 in
   let buffer = IO.alloc twomib in
   let header = IO.alloc 512 in
@@ -803,9 +806,9 @@ let stream common args =
 
 let serve_nbd_to_raw common size c dest _ _ _ _ =
   let flags = [] in
-  let open Nbd in
-  let buf = Cstruct.create Negotiate.sizeof in
-  Negotiate.marshal buf { Negotiate.size; flags };
+  let open Nbd.Protocol in
+  let buf = Cstruct.create (Negotiate.sizeof `V1) in
+  Negotiate.marshal buf (Negotiate.V1 { Negotiate.size; flags });
   c.Channels.really_write buf >>= fun () ->
 
   let twomib = 2 * 1024 * 1024 in
@@ -835,17 +838,17 @@ let serve_nbd_to_raw common size c dest _ _ _ _ =
           c.Channels.really_read subblock >>= fun () ->
           Vhd_lwt.IO.really_write dest offset subblock
         ) request >>= fun () ->
-        Reply.marshal rep { Reply.error = 0l; handle = request.Request.handle };
+        Reply.marshal rep { Reply.error = `Ok (); handle = request.Request.handle };
         c.Channels.really_write rep
       | Command.Read ->
-        Reply.marshal rep { Reply.error = 0l; handle = request.Request.handle };
+        Reply.marshal rep { Reply.error = `Ok (); handle = request.Request.handle };
         c.Channels.really_write rep >>= fun () ->
         inblocks (fun offset subblock ->
           Vhd_lwt.IO.really_read dest offset subblock >>= fun () ->
           c.Channels.really_write subblock
         ) request
       | _ ->
-        Reply.marshal rep { Reply.error = 1l; handle = request.Request.handle };
+        Reply.marshal rep { Reply.error = `Error `EPERM; handle = request.Request.handle };
         c.Channels.really_write rep
       end >>= fun () ->
       serve_requests () in

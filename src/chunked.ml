@@ -12,11 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 
-cstruct t {
-  uint64_t offset;
-  uint32_t len
+[%%cstruct
+type t = {
+  offset: uint64_t;
+  len: uint32_t;
   (* data *)
-} as little_endian
+} [@@little_endian]]
 
 let sizeof = sizeof_t
 
