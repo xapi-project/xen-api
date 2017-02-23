@@ -1788,8 +1788,8 @@ let update_pci ~__context id =
                  Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:pci ~value:Ref.null
                end;
 
-               match vgpu_opt with
-               | Some vgpu -> begin
+               Opt.iter
+                 (fun vgpu ->
                    let scheduled =
                      Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu
                    in
@@ -1798,15 +1798,10 @@ let update_pci ~__context id =
                      Helpers.call_api_functions ~__context
                        (fun rpc session_id ->
                           XenAPI.VGPU.atomic_set_resident_on ~rpc ~session_id
-                            ~self:vgpu ~value:scheduled)
-                 end
-               | None -> ();
-
-                 Opt.iter
-                   (fun vgpu ->
-                      debug "xenopsd event: Update VGPU %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
-                      Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:state.plugged
-                   ) vgpu_opt
+                            ~self:vgpu ~value:scheduled);
+                   debug "xenopsd event: Update VGPU %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
+                   Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:state.plugged
+                 ) vgpu_opt
             ) info;
           Xenops_cache.update_pci id (Opt.map snd info);
         end
