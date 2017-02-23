@@ -68,7 +68,7 @@ Library message_switch_server
   Findlibparent:      message_switch
   Findlibname:        server
   Modules:            Clock, Relation, Q, Logging, Mswitch
-  BuildDepends:       lwt,lwt.syntax,sexplib,sexplib.syntax,mtime,mtime.os,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch,mirage-block-unix,shared-block-ring,cmdliner,io-page.unix
+  BuildDepends:       lwt,sexplib,sexplib.syntax,mtime,mtime.os,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch,mirage-block-unix,shared-block-ring,cmdliner,io-page.unix
 
 Executable m_cli
   CompiledObject:     best
@@ -89,7 +89,7 @@ Executable link_test
   MainIs:             link_test_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, cohttp, cohttp.lwt
 
 Executable client
   Build$:             flag(lwt)&&flag(tests)
@@ -100,7 +100,7 @@ Executable client
   MainIs:             client_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, cohttp, cohttp.lwt
 
 Executable client_async
   Build$:             flag(async)&&flag(tests)
@@ -133,7 +133,7 @@ Executable server
   MainIs:             server_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt, cmdliner
+  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, cohttp, cohttp.lwt, cmdliner
 
 Executable server_async
   Build$:             flag(async)&&flag(tests)
@@ -166,4 +166,4 @@ Executable switch
   MainIs:             switch_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.lwt, message_switch.server, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+  BuildDepends:       message_switch, message_switch.lwt, message_switch.server, lwt, lwt.unix, cohttp, cohttp.lwt

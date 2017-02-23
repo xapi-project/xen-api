@@ -218,7 +218,7 @@ let make_server config =
     >>= fun _ ->
     let conn_id_s = Cohttp.Connection.to_string conn_id in
     let open Protocol in
-    lwt body = Cohttp_lwt_body.to_string body in
+    Cohttp_lwt_body.to_string body >>= fun body ->
     let uri = Cohttp.Request.uri req in
     let path = Uri.path uri in
     match In.of_request body (Cohttp.Request.meth req) path with
@@ -317,7 +317,7 @@ let main ({ Config.daemonize; path; pidfile } as config) =
       | Some x ->
         Lwt_io.with_file ~flags:[Unix.O_WRONLY; Unix.O_CREAT] ~perm:0o0644
           ~mode:Lwt_io.output x (fun oc ->
-              lwt () = Lwt_io.write oc (Printf.sprintf "%d" (Unix.getpid ())) in
+              Lwt_io.write oc (Printf.sprintf "%d" (Unix.getpid ())) >>= fun () ->
               Lwt_io.flush oc
             ) in
 
