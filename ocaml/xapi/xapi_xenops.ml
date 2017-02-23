@@ -608,7 +608,29 @@ module MD = struct
       failwith "Intel GVT-g settings invalid"
 
   let of_mxgpu_vgpu ~__context vm vgpu =
-    failwith "MxGPU not yet implemented"
+    let open Vgpu in
+    let vgpu_type = vgpu.Db_actions.vGPU_type in
+    let internal_config =
+      Db.VGPU_type.get_internal_config ~__context ~self:vgpu_type in
+    let framebufferbytes =
+      Db.VGPU_type.get_framebuffer_size ~__context ~self:vgpu_type in
+    try
+      let implementation =
+        MxGPU {
+          framebufferbytes;
+          sched =
+            List.assoc Xapi_globs.mxgpu_sched internal_config
+            |> int_of_string;
+        }
+      in {
+        id = (vm.API.vM_uuid, vgpu.Db_actions.vGPU_device);
+        position = int_of_string vgpu.Db_actions.vGPU_device;
+        implementation;
+      }
+    with
+    | Not_found -> failwith "AMD MxGPU settings (sched slice) not specified"
+    | Failure "int_of_string" ->
+      failwith "AMD MxGPU settings (sched slice) invalid"
 
   let vgpus_of_vm ~__context (vmref, vm) =
     let open Vgpu in
