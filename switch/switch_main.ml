@@ -18,7 +18,7 @@ open Lwt
 open Cohttp
 open Logging
 open Clock
-open Switch
+open Mswitch
 
 module Config = struct
   type t = {
@@ -235,7 +235,7 @@ let make_server config =
       ( match session, request with
         | Some session, In.Transfer { In.from = from; timeout = timeout; queues = names } ->
           let time = Int64.add (ns ()) (Int64.of_float (timeout *. 1e9)) in
-          List.iter (Switch.record_transfer time) names;
+          List.iter (record_transfer time) names;
           let from = match from with None -> -1L | Some x -> Int64.of_string x in
           let rec wait () =
             if Q.transfer !queues from names = [] then begin
