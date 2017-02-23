@@ -1523,6 +1523,7 @@ let cmdline_of_disp info =
 			| None -> []
 			and priv_opt = ["-priv"] in
 			List.flatten [base_opts; config_file_opt; priv_opt]
+		| Vgpu [{implementation = MxGPU mxgpu}] -> []
 		| Vgpu _ -> failwith "Unsupported vGPU configuration"
 		| Std_vga -> ["-std-vga"]
 		| Cirrus -> []
@@ -1611,7 +1612,7 @@ let vnconly_cmdline ~info ?(extras=[]) domid =
     @ disp_options
     @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] extras)
 
-let vgpu_args_of_nvidia domid vcpus vgpu =
+let vgpu_args_of_nvidia domid vcpus (vgpu:Xenops_interface.Vgpu.nvidia) =
 	let suspend_file = sprintf demu_save_path domid in
 	let resume_file = sprintf demu_restore_path domid in
 	let open Xenops_interface.Vgpu in
@@ -1696,6 +1697,9 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready
 	| VNC (Vgpu [{implementation = GVT_g vgpu}], _, _, _, _)
 	| SDL (Vgpu [{implementation = GVT_g vgpu}], _) ->
 		PCI.bind [vgpu.physical_pci_address] PCI.I915
+	| VNC (Vgpu [{implementation = MxGPU _}], _, _, _, _)
+	| SDL (Vgpu [{implementation = MxGPU _}], _) ->
+		()
 	| VNC (Vgpu _, _, _, _, _)
 	| SDL (Vgpu _, _) -> failwith "Unsupported vGPU configuration"
 	| _ -> ()
