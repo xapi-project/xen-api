@@ -68,6 +68,7 @@
 open Stdext
 open Threadext
 open Pervasiveext
+open Listext
 open Fun
 open Storage_interface
 open Storage_task
@@ -122,10 +123,13 @@ module Vdi = struct
       	    the states from the clients' PsoV *)
   let superstate x = Vdi_automaton.superstate (List.map snd x.dps)
 
+  let dp_on_vdi dp t = List.mem_assoc dp t.dps
+
   let get_dp_state dp t =
-    if List.mem_assoc dp t.dps
+    if dp_on_vdi dp t
     then List.assoc dp t.dps
     else Vdi_automaton.Detached
+
 
   let set_dp_state dp state t =
     let rest = List.filter (fun (u, _) -> u <> dp) t.dps in
@@ -619,24 +623,79 @@ module Wrapper = functor(Impl: Server_impl) -> struct
         		    the resources associated with [dp] in [sr]. If [vdi_already_locked] then
         		    it is assumed that all VDIs are already locked. *)
     let destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak vdi_already_locked =
-      (* Every VDI in use by this session should be detached and deactivated *)
-      let vdis = Sr.list sr_t in
-      List.fold_left (fun acc (vdi, vdi_t) ->
-          let locker =
-            if vdi_already_locked
-            then fun f -> f ()
-            else VDI.with_vdi sr vdi in
-          locker
-            (fun () ->
-               try
-                 VDI.destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~allow_leak;								acc
-               with e -> e::acc
-            )) [] vdis
+      (* Every VDI in use by this session should be detached and deactivated
+	 This code makes the assumption that a datapath is only on 0 or 1 VDIs. However, it retains debug code (identified below) to verify this.
+         It also assumes that the VDIs associated with a datapath don't change during its execution - again it retains debug code to verify this.	
+      *)
 
+      let vdis = Sr.list sr_t in
+      
+      (* Note that we assume this filter returns 0 or 1 items, but we need to verify that. *)
+      let vdis_with_dp = List.filter (fun(vdi, vdi_t) -> Vdi.dp_on_vdi dp vdi_t) vdis in
+      debug "[destroy_sr] Filtered VDI count:%d" (List.length vdis_with_dp);
+      List.iter (fun(vdi, vdi_t) -> debug "[destroy_sr] VDI found with the dp is %s" vdi) vdis_with_dp;
+      
+      let locker vdi =
+        if vdi_already_locked
+          then fun f -> f ()
+          else VDI.with_vdi sr vdi in
+
+      (* This is debug code to verify that no more than 1 VDI matched the datapath. We also convert the 0 and 1 cases to an Option which is more natural to work with *)
+      let vdi_to_remove = match vdis_with_dp with
+        | [] -> None
+        | [x] -> Some x
+        | _ -> 
+           raise (Storage_interface.Backend_error (Api_errors.internal_error, [Printf.sprintf "Expected 0 or 1 VDI with datapath, had %d" (List.length vdis_with_dp)]));
+      in
+
+      (* From this point if it didn't raise, the assumption of 0 or 1 VDIs holds *)
+      let failure = match vdi_to_remove with
+        | None -> None
+        | Some (vdi, vdi_t) -> (
+            locker vdi (fun () ->
+              try
+                VDI.destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~allow_leak;
+                None
+              with e -> Some e
+            )
+          )
+      in       
+	
+      (* This is debug code to assert that we removed the datapath from all VDIs by looking for a situation where a VDI not known about has the datapath at this point *)
+      (* Can't just check for vdis_with_dp = 0, the actual removal isn't necessarily complete at this point *)
+      let vdi_ident = match vdi_to_remove with
+        | None -> None
+        | Some (vdi, vdi_t) -> Some vdi
+      in
+
+      let vdis = Sr.list sr_t in
+      let vdis_with_dp = List.filter (fun(vdi, vdi_t) -> Vdi.dp_on_vdi dp vdi_t) vdis in
+      
+      (* Function to see if a (vdi, vdi_t) matches vdi_ident *)
+      let matches (vdi, vdi_t) = match vdi_ident with
+        | None -> false
+        | Some s -> vdi = s
+      in
+
+      let race_occured  =  match vdis_with_dp with 
+        | [] -> false
+        | [v] -> not (matches v)
+        | _ -> true
+      in
+	  
+      if race_occured then(
+	let message = [Printf.sprintf "Expected no new VDIs with DP after destroy_sr. VDI expected with id %s" (match vdi_ident with | None -> "(not attached)" | Some s -> s)] @
+        List.map (fun(vdi, vdi_t) -> Printf.sprintf "VDI found with the dp is %s" vdi) vdis_with_dp in
+        raise (Storage_interface.Backend_error (Api_errors.internal_error, message));
+      );      
+
+      failure
 
     let destroy context ~dbg ~dp ~allow_leak =
       info "DP.destroy dbg:%s dp:%s allow_leak:%b" dbg dp allow_leak;
-      let failures = List.fold_left (fun acc (sr, sr_t) -> acc @ (destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak false)) [] (Host.list !Host.host) in
+      let failures = Host.list !Host.host
+		   |>List.filter_map (fun (sr, sr_t) -> destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak false) in
+
       match failures, allow_leak with
       | [], _  -> ()
       | f :: _, false ->
@@ -773,7 +832,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
                   let dps = active_dps sr_t in
                   List.iter
                     (fun dp ->
-                       let ( _ : exn list) = DP.destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak:false true in ()
+                       let ( _ : exn option) = DP.destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak:false true in ()
                     ) dps;
                   let dps = active_dps sr_t in
                   if dps <> []
