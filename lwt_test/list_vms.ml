@@ -29,16 +29,16 @@ let exn_to_string = function
 
 let main () =
 	let rpc = if !json then make_json !uri else make !uri in
-	lwt session_id = Session.login_with_password rpc !username !password "1.0" "list_vms" in
-	try_lwt
-		lwt vms = VM.get_all_records rpc session_id in
-		List.iter
-			(fun (vm, vm_rec) ->
-				Printf.printf "VM %s\n" vm_rec.API.vM_name_label
-			) vms;
-		return ()
-	finally
-		Session.logout rpc session_id
+	Session.login_with_password rpc !username !password "1.0" "list_vms" >>= fun session_id ->
+	Lwt.finalize
+    (fun () ->
+      VM.get_all_records rpc session_id >>= fun vms ->
+      List.iter
+        (fun (vm, vm_rec) ->
+          Printf.printf "VM %s\n" vm_rec.API.vM_name_label
+        ) vms;
+      return ())
+		(fun () -> Session.logout rpc session_id)
 
 let _ =
 	Arg.parse [

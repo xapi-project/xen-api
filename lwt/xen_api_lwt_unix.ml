@@ -31,12 +31,16 @@ module Lwt_unix_IO = struct
 	let read_line (_, ic) = Lwt_io.read_line_opt ic
 
 	let read (_, ic) count =
-		try_lwt Lwt_io.read ~count ic
-    	with End_of_file -> return ""
+		Lwt.catch
+      (fun () -> Lwt_io.read ~count ic)
+      (function
+        | End_of_file -> return "")
 
 	let read_exactly (_, ic) buf off len =
-        try_lwt Lwt_io.read_into_exactly ic buf off len >> return true
-		with End_of_file -> return false
+    Lwt.catch
+      (fun () -> Lwt_io.read_into_exactly ic buf off len >> return true)
+		  (function
+        | End_of_file -> return false)
 
 	let read_exactly ic len =
 	  let buf = String.create len in
@@ -60,50 +64,48 @@ module Lwt_unix_IO = struct
 	let open_connection uri =
 		let domain_addr_t = match Uri.host uri with
 			| Some host ->
-				begin
-					try_lwt
-						lwt host_entry = Lwt_unix.gethostbyname host in
-						return (host_entry.Lwt_unix.h_addrtype, host_entry.Lwt_unix.h_addr_list.(0))
-					with _ ->
-						fail (Failed_to_resolve_hostname host)
-				end;
+          Lwt.catch
+            (fun () ->
+              Lwt_unix.gethostbyname host >>= fun host_entry ->
+              return (host_entry.Lwt_unix.h_addrtype, host_entry.Lwt_unix.h_addr_list.(0)))
+            (fun _ -> fail (Failed_to_resolve_hostname host))
 			| None -> fail (Failed_to_resolve_hostname "") in
-		lwt ssl = match Uri.scheme uri with
+		(match Uri.scheme uri with
 			| Some "http" -> return false
 			| Some "https" -> return true
 			| Some "file" -> return false
 			| Some x -> fail (Unsupported_scheme x)
-			| None -> fail (Unsupported_scheme "") in
+			| None -> fail (Unsupported_scheme "")) >>= fun ssl ->
 		let port = match Uri.port uri with
 			| Some x -> x
 			| None -> if ssl then 443 else 80 in
-		lwt domain, sockaddr = match Uri.scheme uri with
+		(match Uri.scheme uri with
 			| Some "file" ->
 				return (Unix.PF_UNIX, Unix.ADDR_UNIX (Uri.path uri))
 			| Some "http" | Some "https" ->
-				lwt domain, addr = domain_addr_t in
+				domain_addr_t >>= fun (domain, addr) ->
 				return (domain, Unix.ADDR_INET(addr, port))
-			| _ -> assert false in
+			| _ -> assert false) >>= fun (domain, sockaddr) ->
 
 		if ssl then begin
 			let fd = Lwt_unix.socket domain Unix.SOCK_STREAM 0 in
-			try_lwt
-				lwt () = Lwt_unix.connect fd sockaddr in
-				lwt sock = Lwt_ssl.ssl_connect fd sslctx in
-				let ic = Lwt_ssl.in_channel_of_descr sock in
-				let oc = Lwt_ssl.out_channel_of_descr sock in
-				return (Ok (((fun () -> Lwt_ssl.close sock), ic), ((fun () -> Lwt_ssl.close sock), oc)))
-			with e ->
-				return (Error e)
+			Lwt.catch
+        (fun () ->
+          Lwt_unix.connect fd sockaddr >>= fun () ->
+          Lwt_ssl.ssl_connect fd sslctx >>= fun sock ->
+          let ic = Lwt_ssl.in_channel_of_descr sock in
+          let oc = Lwt_ssl.out_channel_of_descr sock in
+          return (Ok (((fun () -> Lwt_ssl.close sock), ic), ((fun () -> Lwt_ssl.close sock), oc))))
+			  (fun e -> return (Error e))
 		end else begin
 			let fd = Lwt_unix.socket domain Unix.SOCK_STREAM 0 in
-			try_lwt
-				lwt () = Lwt_unix.connect fd sockaddr in
-				let ic = Lwt_io.of_fd ~close:return ~mode:Lwt_io.input fd in
-				let oc = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.output fd in
-				return (Ok (((fun () -> Lwt_io.close ic), ic), ((fun () -> Lwt_io.close oc), oc)))
-			with e ->
-				return (Error e)
+			Lwt.catch
+        (fun () ->
+          Lwt_unix.connect fd sockaddr >>= fun () ->
+          let ic = Lwt_io.of_fd ~close:return ~mode:Lwt_io.input fd in
+          let oc = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.output fd in
+          return (Ok (((fun () -> Lwt_io.close ic), ic), ((fun () -> Lwt_io.close oc), oc))))
+			  (fun e -> return (Error e))
  		end
 
 	let sleep = Lwt_unix.sleep
@@ -121,7 +123,7 @@ let exn_to_string = function
 let do_it uri string =
 	let uri = Uri.of_string uri in
 	let connection = M.make uri in
-	lwt result = M.rpc connection string in
+	M.rpc connection string >>= fun result ->
 	match result with
 		| Ok x -> return x
 		| Error e ->
@@ -130,12 +132,12 @@ let do_it uri string =
 
 let make ?(timeout=30.) uri call =
 	let string = Xmlrpc.string_of_call call in
-	lwt result = do_it uri string in
+	do_it uri string >>= fun result ->
     Lwt.return (Xmlrpc.response_of_string result)
 
 let make_json ?(timeout=30.) uri call =
 	let string = Jsonrpc.string_of_call call in
-	lwt result = do_it uri string in
+	do_it uri string >>= fun result ->
     Lwt.return (Jsonrpc.response_of_string result)
 
 module Client = Client.ClientF(Lwt)
