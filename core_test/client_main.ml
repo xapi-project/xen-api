@@ -73,4 +73,4 @@ let _ =
   ] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
     "Send a message to a name, optionally waiting for a response";
 
-  Lwt_unix.run (main ())
+  Lwt_main.run (main ())
