@@ -85,13 +85,13 @@ let process_request conn_id queues session request = match session, request with
   | _, In.Diagnostics ->
     return (None, Out.Diagnostics (snapshot queues))
   | _, In.Trace(from, timeout) ->
-    lwt events = Trace.get from timeout in
+    Trace.get from timeout >>= fun events ->
     return (None, Out.Trace {Out.events = events})
   | _, In.Get path ->
     let path = if path = [] || path = [ "" ] then [ "index.html" ] else path in
-    lwt ic = Lwt_io.open_file ~mode:Lwt_io.input (String.concat "/" ("www" :: path)) in
-    lwt txt = Lwt_stream.to_string (Lwt_io.read_chars ic) in
-    lwt () = Lwt_io.close ic in
+    Lwt_io.open_file ~mode:Lwt_io.input (String.concat "/" ("www" :: path)) >>= fun ic ->
+    Lwt_stream.to_string (Lwt_io.read_chars ic) >>= fun txt ->
+    Lwt_io.close ic >>= fun () ->
     return (None, Out.Get txt)
   | None, _ ->
     return (None, Out.Not_logged_in)

@@ -22,7 +22,7 @@ Library message_switch
   NativeOpt:          -warn-error +a
   Path:               core
   Findlibname:        message_switch
-  Modules:            Protocol, Make, Monad, Result, S
+  Modules:            Protocol, Make, Monad, Mresult, S
   BuildDepends:       cohttp (>= 0.15.0) ,rpclib,rpclib.json,rpclib.syntax,sexplib,sexplib.syntax,re.str
 
 Library message_switch_lwt
@@ -34,7 +34,7 @@ Library message_switch_lwt
   Findlibparent:      message_switch
   Findlibname:        lwt
   Modules:            Protocol_lwt
-  BuildDepends:       lwt,lwt.unix,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch
+  BuildDepends:       lwt,lwt.unix,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,message_switch
 
 Library message_switch_async
   Build$:             flag(async)
@@ -45,7 +45,7 @@ Library message_switch_async
   Findlibparent:      message_switch
   Findlibname:        async
   Modules:            Protocol_async
-  BuildDepends:       threads,async,cohttp (>= 0.15.0),cohttp.async,rpclib,rpclib.json,rpclib.syntax,message_switch
+  BuildDepends:       threads,async,cohttp (>= 0.15.0),cohttp.async,rpclib,rpclib.json,message_switch
 
 Library message_switch_unix
   CompiledObject:     best
@@ -67,8 +67,8 @@ Library message_switch_server
   Path:               switch
   Findlibparent:      message_switch
   Findlibname:        server
-  Modules:            Clock, Relation, Q, Logging, Switch
-  BuildDepends:       lwt,lwt.syntax,sexplib,sexplib.syntax,mtime,mtime.os,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,rpclib.syntax,message_switch,mirage-block-unix,shared-block-ring,cmdliner,io-page.unix
+  Modules:            Clock, Relation, Q, Logging, Mswitch
+  BuildDepends:       lwt,sexplib,sexplib.syntax,mtime,mtime.os,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,message_switch,mirage-block-unix,shared-block-ring,cmdliner,io-page.unix
 
 Executable m_cli
   CompiledObject:     best
@@ -89,7 +89,7 @@ Executable link_test
   MainIs:             link_test_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, cohttp, cohttp.lwt
 
 Executable client
   Build$:             flag(lwt)&&flag(tests)
@@ -100,7 +100,7 @@ Executable client
   MainIs:             client_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, cohttp, cohttp.lwt
 
 Executable client_async
   Build$:             flag(async)&&flag(tests)
@@ -133,7 +133,7 @@ Executable server
   MainIs:             server_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt, cmdliner
+  BuildDepends:       message_switch, message_switch.lwt, lwt, lwt.unix, cohttp, cohttp.lwt, cmdliner
 
 Executable server_async
   Build$:             flag(async)&&flag(tests)
@@ -166,4 +166,4 @@ Executable switch
   MainIs:             switch_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.lwt, message_switch.server, lwt, lwt.unix, lwt.syntax, cohttp, cohttp.lwt
+  BuildDepends:       message_switch, message_switch.lwt, message_switch.server, lwt, lwt.unix, cohttp, cohttp.lwt

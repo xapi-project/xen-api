@@ -79,7 +79,7 @@ module Client = functor(M: S.BACKEND) -> struct
     | `Queue_deleted of string
   ]
 
-  type 'a result = ('a, [ `Message_switch of error]) Result.result
+  type 'a result = ('a, [ `Message_switch of error]) Mresult.result
 
   let pp_error fmt = function
     | `Message_switch (`Msg x) -> Format.pp_print_string fmt x
@@ -283,7 +283,7 @@ module Server = functor(M: S.BACKEND) -> struct
     | `Unsuccessful_response
   ]
 
-  type 'a result = ('a, [ `Message_switch of error]) Result.result
+  type 'a result = ('a, [ `Message_switch of error]) Mresult.result
 
   let pp_error fmt = function
     | `Message_switch (`Msg x) -> Format.pp_print_string fmt x

@@ -73,10 +73,10 @@ module type SERVER = sig
     | `Unsuccessful_response
   ]
 
-  type 'a result = ('a, [ `Message_switch of error ]) Result.result
+  type 'a result = ('a, [ `Message_switch of error ]) Mresult.result
 
   val pp_error : Format.formatter -> [ `Message_switch of error ] -> unit
-  val error_to_msg : 'a result -> ('a, [ `Msg of string ]) Result.result
+  val error_to_msg : 'a result -> ('a, [ `Msg of string ]) Mresult.result
 
   type t
   (** A listening server *)
@@ -101,10 +101,10 @@ module type CLIENT = sig
     | `Queue_deleted of string
   ]
 
-  type 'a result = ('a, [ `Message_switch of error ]) Result.result
+  type 'a result = ('a, [ `Message_switch of error ]) Mresult.result
 
   val pp_error : Format.formatter -> [ `Message_switch of error ] -> unit
-  val error_to_msg : 'a result -> ('a, [ `Msg of string ]) Result.result
+  val error_to_msg : 'a result -> ('a, [ `Msg of string ]) Mresult.result
 
   val connect: switch:string -> unit -> t result io
   (** [connect switch] connects to a named switch *)

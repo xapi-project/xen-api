@@ -40,12 +40,13 @@ let fold f acc =
 
 let get from timeout : (int64 * Protocol.Event.t) list Lwt.t =
   let sleep = Lwt_unix.sleep timeout in
-  let wait_for_data =
-    while_lwt !next_id <= from do
-      Lwt_condition.wait c
-    done in
+  let rec wait_for_data () =
+    if !next_id <= from then
+      Lwt_condition.wait c >>= wait_for_data
+    else return ()
+  in
   (* Wait until some data is available ie. when next_id > from (or timeout) *)
-  lwt () = Lwt.pick [ sleep; wait_for_data ] in
+  Lwt.pick [ sleep; wait_for_data () ] >>= fun () ->
   (* start from next_slot, looking for non-None entries which
      	   are > from *)
   let reversed_results = fold (fun x acc -> match x with
