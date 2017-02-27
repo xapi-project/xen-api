@@ -69,7 +69,7 @@ module Config = struct
 end
 
 (* Let's try to adopt the conventions of Rresult.R *)
-let get_ok x = match x with | Result.Ok x -> x | Result.Error _ -> failwith "Expecting OK, got Error"
+let get_ok = function | Result.Ok x -> x | Result.Error _ -> failwith "Expecting OK, got Error"
 
 module Lwt_result = struct
   let (>>=) m f = m >>= fun x -> f (get_ok x)
@@ -177,12 +177,10 @@ let make_server config =
       on_disk_queues := qs;
       info "Reading the redo-log from %s" redo_log_path;
       Block.connect ~buffered:true redo_log_path
-      >>= fun block -> begin
-        match block with
-        | `Ok block -> Lwt.return block
-        | `Error `Unknown s -> Lwt.fail (Failure (Printf.sprintf "Unexpected failure when opening block: %s" s))
-        | `Error _ -> Lwt.fail (Failure "Other error")
-      end
+      >>= (function
+          | `Ok block -> Lwt.return block
+          | `Error `Unknown s -> Lwt.fail (Failure (Printf.sprintf "Unexpected failure when opening block: %s" s))
+          | `Error _ -> Lwt.fail (Failure "Other error"))
       >>= fun block ->
       let open Lwt_result in
       Redo_log.start ~flush_interval:5. block (process_redo_log statedir)
