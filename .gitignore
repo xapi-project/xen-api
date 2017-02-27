@@ -7,3 +7,17 @@
 *.cmx
 *.cmxs
 *.cmxa
+
+/_build
+/*.native
+/*.byte
+
+# OASIS
+/setup.log
+/setup.data
+/setup.ml
+/myocamlbuild.ml
+/_tags
+# DevFiles OASIS plugin:
+/Makefile
+/configure
