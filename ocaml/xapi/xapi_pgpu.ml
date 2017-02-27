@@ -93,7 +93,9 @@ let mxgpu_set_phys_fn_ref ~__context pci_ref pci_rec =
       let expr = Db_filter_types.(And (Eq (Field "pci_id", Literal physfn_addr),
                                        Eq (Field "host", Literal (Ref.string_of host)))) in
       ( match Db.PCI.get_refs_where ~__context ~expr with (* Expect exactly one *)
-        | [pf_ref] -> Db.PCI.set_physical_function ~__context ~self:pci_ref ~value:pf_ref
+        | [pf_ref] ->
+          Db.PCI.set_physical_function ~__context ~self:pci_ref ~value:pf_ref;
+          Db.PCI.set_dependencies ~__context ~self:pci_ref ~value:[]
         | [] -> error "Found no pci with address %s but physfn-link of %s points to it!" physfn_addr pci_addr
         | _ -> error "Found more than one pci with same address! %s" physfn_addr
       );
