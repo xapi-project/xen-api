@@ -38,34 +38,45 @@ let pvs_proxy_tmp    : (string, int) Hashtbl.t = Hashtbl.create 100
 (** [clear_cache_for_pif] removes any current cache for PIF with [pif_name],
  * which forces fresh properties for the PIF into xapi's database. *)
 let clear_cache_for_pif ~pif_name =
-  Mutex.execute pifs_cached_m (fun _ -> Hashtbl.remove pifs_cached pif_name)
+  Mutex.execute pifs_cached_m (fun _ ->
+      Hashtbl.remove pifs_cached pif_name;
+      Hashtbl.remove pifs_tmp pif_name
+    )
 
 (** [clear_cache_for_vm] removes any current cache for VM with [vm_uuid],
  * which forces fresh properties for the VM into xapi's database. *)
 let clear_cache_for_vm ~vm_uuid =
-  Mutex.execute vm_memory_cached_m
-    (fun _ -> Hashtbl.remove vm_memory_cached vm_uuid)
+  Mutex.execute vm_memory_cached_m (fun _ ->
+      Hashtbl.remove vm_memory_cached vm_uuid;
+      Hashtbl.remove vm_memory_tmp vm_uuid
+    )
 
 (** [clear_pvs_status_cache] removes the cache entry for [vm_uuid] *)
 let clear_pvs_status_cache ~vm_uuid =
-  Mutex.execute pvs_proxy_cached_m
-    (fun _ -> Hashtbl.remove pvs_proxy_cached vm_uuid)
+  Mutex.execute pvs_proxy_cached_m (fun _ ->
+      Hashtbl.remove pvs_proxy_cached vm_uuid;
+      Hashtbl.remove pvs_proxy_tmp vm_uuid
+    )
 
 (** Clear the whole cache. This forces fresh properties to be written into
  * xapi's database. *)
 let clear_cache () =
-  let safe_clear ~cache ~lock =
-    Mutex.execute lock (fun _ -> Hashtbl.clear cache) in
-  safe_clear ~cache:pifs_cached ~lock:pifs_cached_m;
-  safe_clear ~cache:bonds_links_up_cached ~lock:bonds_links_up_cached_m;
-  safe_clear ~cache:vm_memory_cached ~lock:vm_memory_cached_m;
+  let safe_clear ~cache ~tmp ~lock =
+    Mutex.execute lock (fun _ -> Hashtbl.clear cache; Hashtbl.clear tmp) in
+  safe_clear ~cache:pifs_cached ~tmp:pifs_tmp ~lock:pifs_cached_m;
+  safe_clear ~cache:bonds_links_up_cached ~tmp:bonds_links_up_tmp ~lock:bonds_links_up_cached_m;
+  safe_clear ~cache:vm_memory_cached ~tmp:vm_memory_tmp ~lock:vm_memory_cached_m;
   Mutex.execute host_memory_m (fun _ ->
       host_memory_free_cached := Int64.zero;
       host_memory_total_cached := Int64.zero;
     )
 
 (* Helper map functions. *)
-let transfer_map ~source ~target =
+let transfer_map ?(except=[]) ~source ~target =
+  List.iter (fun ex ->
+      try Hashtbl.replace source ex (Hashtbl.find target ex)
+      with Not_found -> Hashtbl.remove source ex
+    ) except;
   Hashtbl.clear target;
   Hashtbl.iter (fun k v -> Hashtbl.add target k v) source;
   Hashtbl.clear source

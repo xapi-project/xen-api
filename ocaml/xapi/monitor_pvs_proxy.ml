@@ -73,10 +73,11 @@ let get_changes () =
     ) (find_rrd_files ());
 
   (* Check if anything has changed since our last reading. *)
+  get_updates_map ~before:pvs_proxy_cached ~after:pvs_proxy_tmp
+
+let set_changes ?except () =
   Mutex.execute pvs_proxy_cached_m (fun _ ->
-      let changes = get_updates_map ~before:pvs_proxy_cached ~after:pvs_proxy_tmp in
-      transfer_map ~source:pvs_proxy_tmp ~target:pvs_proxy_cached;
-      changes
+      transfer_map ?except ~source:pvs_proxy_tmp ~target:pvs_proxy_cached
     )
 
 let pvs_proxy_status_of_int = function
@@ -90,6 +91,7 @@ let pvs_proxy_status_of_int = function
 let update () =
   Server_helpers.exec_with_new_task "Updating PVS-proxy status fields"
     (fun __context ->
+       let keeps = ref [] in
        List.iter (fun (vm_uuid, status) ->
            try
              let vm = Db.VM.get_by_uuid ~__context ~uuid:vm_uuid in
@@ -101,6 +103,8 @@ let update () =
                    Db.PVS_proxy.set_status ~__context ~self ~value
                ) proxies
            with e ->
+             keeps := vm_uuid :: !keeps;
              error "Unable to update PVS-proxy status for %s: %s" vm_uuid (Printexc.to_string e);
-         ) (get_changes ())
+         ) (get_changes ());
+       set_changes ~except:!keeps ()
     )
