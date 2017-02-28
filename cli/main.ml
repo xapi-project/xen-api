@@ -35,7 +35,7 @@ module Common = struct
     verbose: bool;
     debug: bool;
     path: string;
-  } with rpc
+  } [@@deriving rpc]
 
   let make verbose debug path =
     { verbose; debug; path }

@@ -109,9 +109,9 @@ let m = Mutex.create ()
 
 type time =
   | Absolute of int64
-  | Delta of int with rpc
+  | Delta of int [@@deriving rpc]
 
-type t = int64 * int with rpc
+type t = int64 * int [@@deriving rpc]
 
 let now () = Unix.gettimeofday () |> ceil |> Int64.of_float
 
@@ -119,8 +119,8 @@ module Dump = struct
   type u = {
     time: int64;
     thing: string;
-  } with rpc
-  type t = u list with rpc
+  } [@@deriving rpc]
+  type t = u list [@@deriving rpc]
   let make () =
     let now = now () in
     Mutex.execute m

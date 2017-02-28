@@ -27,7 +27,7 @@ module Config = struct
     pidfile: string option;
     configfile: string option;
     statedir: string option;
-  } with sexp
+  } [@@deriving sexp]
 
   let default = {
     path = "/var/run/message-switch/sock";
@@ -69,7 +69,7 @@ module Config = struct
 end
 
 (* Let's try to adopt the conventions of Rresult.R *)
-let get_ok, get_error = Shared_block.Result.(get_ok, get_error)
+let get_ok = function | Result.Ok x -> x | Result.Error _ -> failwith "Expecting OK, got Error"
 
 module Lwt_result = struct
   let (>>=) m f = m >>= fun x -> f (get_ok x)
@@ -144,7 +144,7 @@ let make_server config =
     save statedir on_disk_queues'
     >>= fun () ->
     on_disk_queues := on_disk_queues';
-    return (`Ok ()) in
+    return (Result.Ok ()) in
 
   let redo_log = match config.statedir with
     | None -> return None
@@ -176,9 +176,13 @@ let make_server config =
       >>= fun qs ->
       on_disk_queues := qs;
       info "Reading the redo-log from %s" redo_log_path;
-      let open Lwt_result in
-      Block.connect ("buffered:" ^ redo_log_path)
+      Block.connect ~buffered:true redo_log_path
+      >>= (function
+          | `Ok block -> Lwt.return block
+          | `Error `Unknown s -> Lwt.fail (Failure (Printf.sprintf "Unexpected failure when opening block: %s" s))
+          | `Error _ -> Lwt.fail (Failure "Other error"))
       >>= fun block ->
+      let open Lwt_result in
       Redo_log.start ~flush_interval:5. block (process_redo_log statedir)
       >>= fun redo_log ->
       info "Redo-log playback complete: everything should be in sync";
@@ -198,8 +202,8 @@ let make_server config =
           | op :: ops ->
             ( Redo_log.push redo_log op
               >>= function
-              | `Ok _waiter -> loop ops
-              | `Error (`Msg txt) ->
+              | Result.Ok _waiter -> loop ops
+              | Result.Error (`Msg txt) ->
                 error "Failed to push to redo-log: %s" txt;
                 fail (Failure "Failed to push to redo-log") )in
         loop ops
