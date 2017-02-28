@@ -1,4 +1,4 @@
-0.9.6 (9-Sep-2015):
+0.9.7 (9-Sep-2015):
 * SRs now have `name_label` and `name_description`
 * pull out logging code into a function
 * log state of copying mirrors
