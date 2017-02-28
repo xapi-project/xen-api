@@ -1339,7 +1339,7 @@ let _ =
     ~doc:"Archive more frequent than backup." ();
   error Api_errors.vm_assigned_to_protection_policy ["vm"; "vmpp"]
     ~doc:"This VM is assigned to a protection policy." ();
-  
+
   error Api_errors.vmss_has_vm []
     ~doc:"There is at least one VM assigned to snapshot schedule." ();
   error Api_errors.vm_assigned_to_snapshot_schedule ["vm"; "vmss"]
