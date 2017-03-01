@@ -79,6 +79,7 @@ val create :
   name_description:string ->
   mTU:int64 ->
   other_config:(string * string) list ->
+  bridge:string ->
   tags:string list -> [ `network ] Ref.t
 
 (** WARNING WARNING WARNING: called with the master dispatcher lock; do nothing but basic DB calls
