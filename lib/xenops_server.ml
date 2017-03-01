@@ -1034,8 +1034,10 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
 			finally
 				(fun () ->
 					let vif = VIF_DB.read_exn id in
-					B.VIF.move t (VIF_DB.vm_of id) vif network;
-					VIF_DB.write id {vif with Vif.backend = network}
+					(* Nb, this VIF_DB write needs to come before the call to move
+					   as the scripts will read from the disk! *)
+					VIF_DB.write id {vif with Vif.backend = network};
+					B.VIF.move t (VIF_DB.vm_of id) vif network
 				) (fun () -> VIF_DB.signal id)
 		| VIF_set_carrier (id, carrier) ->
 			debug "VIF.set_carrier %s %b" (VIF_DB.string_of_id id) carrier;
