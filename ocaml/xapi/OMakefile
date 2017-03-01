@@ -12,10 +12,6 @@ OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../auth ../rfb \
 	../xapi-types ../xapi-client ../xapi-cli-protocol ../xapi-consts
 
-UseCamlp4(rpclib.syntax, storage_impl xapi_globs locking_helpers xapi_udhcpd storage_migrate \
-          xapi_services system_domains cancel_tests config_file_sync updates \
-          sparse_dd_wrapper vhd_tool_wrapper)
-
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 
 #XENLIGHT_LINK_FLAGS= -cclib -lxlutil -cclib -luuid -cclib -lblktapctl -cclib -lutil -cclib -lxenlight -cclib -lxenstore

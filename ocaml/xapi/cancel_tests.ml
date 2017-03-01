@@ -69,7 +69,7 @@ type operation =
   | VBD_unplug
   | VIF_plug
   | VIF_unplug
-with rpc
+[@@deriving rpc]
 
 let operations = [
   VBD_plug
