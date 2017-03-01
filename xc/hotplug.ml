@@ -233,6 +233,7 @@ let run_hotplug_script device args =
 		"XENBUS_TYPE=" ^ kind;
 		"XENBUS_PATH=" ^ (Printf.sprintf "backend/%s/%d/%d" kind device.frontend.domid device.frontend.devid);
 		"XENBUS_BASE_PATH=backend";
+		"INTERFACE=" ^ (Printf.sprintf "%s%d.%d" kind device.frontend.domid device.frontend.devid);
 	|] ] in
 	try
 		debug "Running hotplug script %s %s" script (String.concat " " args);
