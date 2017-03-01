@@ -1,9 +1,6 @@
 OCAML_LIBS += ../xapi-consts/xapi-consts ../idl/xapi-datamodel
 OCAMLINCLUDES += ../idl ../xapi-consts
 
-CAMLP4_FILES = jsapi
-UseCamlp4(rpclib.syntax, $(CAMLP4_FILES))
-
 OCamlProgram(jsapi, jsapi)
 
 .PHONY: doc-html
