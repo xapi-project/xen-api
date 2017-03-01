@@ -3,7 +3,6 @@ OCAMLINCLUDES += ../idl ../xapi ../idl/ocaml_backend ../xapi-consts
 OCAMLPACKS += http-svr
 
 OCamlLibrary(xapi-types, $(COMMON_OBJS))
-UseCamlp4(rpclib.syntax, event_types aPI features)
 
 .PHONY: clean
 clean:
