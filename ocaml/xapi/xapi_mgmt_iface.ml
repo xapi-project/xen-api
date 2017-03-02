@@ -170,7 +170,6 @@ let wait_for_management_ip ~__context =
 let update_getty () =
   (* Running update-issue service on best effort basis *)
   try
-    ignore (Forkhelpers.execute_command_get_output !Xapi_globs.update_issue_script []);
     ignore (Forkhelpers.execute_command_get_output !Xapi_globs.kill_process_script ["-q"; "-HUP"; "mingetty"; "agetty"])
   with e ->
     debug "update_getty at %s caught exception: %s"
@@ -207,6 +206,12 @@ let on_dom0_networking_change ~__context =
         update_getty ();
         Db.Host.set_address ~__context ~self:localhost ~value:""
       end
+  end;
+  begin try
+    ignore (Forkhelpers.execute_command_get_output !Xapi_globs.update_issue_script [])
+  with e ->
+    debug "update-issue script at %s caught exception: %s"
+      __LOC__ (Printexc.to_string e)
   end;
   Helpers.update_domain_zero_name ~__context localhost new_hostname;
   debug "Signalling anyone waiting for the management IP address to change";
