@@ -2781,6 +2781,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.PVS_cache_storage.destroy;
       flags=[];
     };
+    "sdn-controller-introduce",
+    {
+      reqd=[];
+      optn=["address"; "protocol"; "tcp-port"];
+      help="Introduce an SDN controller";
+      implementation=No_fd Cli_operations.SDN_controller.introduce;
+      flags=[];
+    };
+    "sdn-controller-forget",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Remove an SDN controller";
+      implementation=No_fd Cli_operations.SDN_controller.forget;
+      flags=[];
+    };
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t =

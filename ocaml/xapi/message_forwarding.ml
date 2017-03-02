@@ -442,6 +442,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         Ref.string_of vgpu_type
     with _ -> "invalid"
 
+  let sdn_controller_uuid ~__context sdn_controller =
+    try if Pool_role.is_master () then
+        Db.SDN_controller.get_uuid __context sdn_controller
+      else
+        Ref.string_of sdn_controller
+    with _ -> "invalid"
+
   module Session = Local.Session
   module Auth = Local.Auth
   module Subject = Local.Subject
@@ -4035,4 +4042,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       do_op_on ~__context ~local_fn ~host
         (fun session_id rpc -> Client.PVS_cache_storage.destroy rpc session_id self)
   end
+
+  module SDN_controller = struct
+    let introduce ~__context ~protocol ~address ~port =
+      info "SDN_controller.introduce: protocol='%s', address='%s', port='%Ld'" (Record_util.sdn_protocol_to_string protocol) address port;
+      Local.SDN_controller.introduce ~__context ~protocol ~address ~port
+
+    let forget ~__context ~self =
+      info "SDN_controller.forget: sdn_controller = '%s'" (sdn_controller_uuid ~__context self);
+      Local.SDN_controller.forget ~__context ~self
+  end
+
 end

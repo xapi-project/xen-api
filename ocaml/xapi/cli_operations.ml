@@ -809,6 +809,7 @@ let gen_cmds rpc session_id =
     ; Client.PVS_server.(mk get_all get_all_records_where get_by_uuid pvs_server_record "pvs-server" [] ["uuid"; "addresses"; "pvs-site-uuid"] rpc session_id)
     ; Client.PVS_proxy.(mk get_all get_all_records_where get_by_uuid pvs_proxy_record "pvs-proxy" [] ["uuid"; "vif-uuid"; "pvs-site-uuid"; "currently-attached"; "cache-sr-uuid"] rpc session_id)
     ; Client.PVS_cache_storage.(mk get_all get_all_records_where get_by_uuid pvs_cache_storage_record "pvs-cache-storage" [] ["uuid"; "host-uuid"; "sr-uuid"; "pvs-site-uuid"; "size"] rpc session_id)
+    ; Client.SDN_controller.(mk get_all get_all_records_where get_by_uuid sdn_controller_record "sdn-controller" [] ["uuid"; "protocol"; "address"; "port"] rpc session_id)
     ]
 
 (* NB, might want to put these back in at some point
@@ -4891,3 +4892,35 @@ let update_resync_host printer rpc session_id params =
   let uuid = List.assoc "host-uuid" params in
   let host = Client.Host.get_by_uuid rpc session_id uuid in
   Client.Pool_update.resync_host rpc session_id host
+
+module SDN_controller = struct
+  let introduce printer rpc session_id params =
+    let port =
+      if List.mem_assoc "tcp-port" params
+      then
+        try Int64.of_string (List.assoc "tcp-port" params)
+        with _ -> failwith "port field should be an integer"
+      else 0L
+    in
+    let protocol =
+      if List.mem_assoc "protocol" params
+      then
+        Record_util.sdn_protocol_of_string (List.assoc "protocol" params)
+      else
+        `ssl
+    in
+    let address =
+      if List.mem_assoc "address" params
+      then
+        List.assoc "address" params
+      else ""
+    in
+    let sdn = Client.SDN_controller.introduce rpc session_id protocol address port in
+    let uuid = Client.SDN_controller.get_uuid ~rpc ~session_id ~self:sdn in
+    printer (Cli_printer.PList [uuid])
+
+  let forget printer rpc session_id params =
+    let uuid = List.assoc "uuid" params in
+    let ref = Client.SDN_controller.get_by_uuid rpc session_id uuid in
+    Client.SDN_controller.forget rpc session_id ref
+end
