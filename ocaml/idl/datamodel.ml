@@ -652,6 +652,12 @@ let _ =
     ~doc:"Operation cannot proceed while a tunnel exists on this interface." ();
   error Api_errors.bridge_not_available [ "bridge" ]
     ~doc:"Could not find bridge required by VM." ();
+  error Api_errors.bridge_not_available_for_network [ "bridge" ]
+    ~doc:"Could not find the specified bridge." ();
+  error Api_errors.bridge_already_bound_with_network [ "bridge" ]
+    ~doc:"The specified bridge has been bound with another network." ();
+  error Api_errors.bridge_not_supported_for_network [ "bridge" ]
+    ~doc:"The specified bridge is not supported for network creation. The supported bridge is br-int." ();
   (* VM specific errors *)
   error Api_errors.vm_is_protected [ "vm" ]
     ~doc:"This operation cannot be performed because the specified VM is protected by xHA" ();
@@ -5177,7 +5183,7 @@ let network =
           field ~qualifier:DynamicRO ~ty:(Set (Ref _pif)) "PIFs" "list of connected pifs";
           field ~qualifier:RW ~ty:Int ~default_value:(Some (VInt 1500L)) ~in_product_since:rel_midnight_ride "MTU" "MTU in octets";
           field ~writer_roles:_R_POOL_OP ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP));("XenCenterCreateInProgress",(_R_VM_OP))];
-          field ~in_oss_since:None ~qualifier:DynamicRO "bridge" "name of the bridge corresponding to this network on the local host";
+          field ~in_oss_since:None ~qualifier:StaticRO  ~ty:String ~default_value:(Some (VString "")) "bridge" "name of the bridge corresponding to this network on the local host";
           field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this network";
           field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
           field ~qualifier:DynamicRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "unlocked")) ~ty:network_default_locking_mode "default_locking_mode" "The network will use this value to determine the behaviour of all VIFs where locking_mode = default";
