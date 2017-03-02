@@ -1977,3 +1977,21 @@ let feature_record rpc session_id feature =
       make_field ~name:"host-uuid" ~get:(fun () -> (x ()).API.feature_host |> get_uuid_from_ref) ();
     ]
   }
+
+let sdn_controller_record rpc session_id sdn_controller =
+  let _ref = ref sdn_controller in
+  let empty_record = ToGet (fun () -> Client.SDN_controller.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  { setref=(fun r -> _ref := r; record := empty_record );
+    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
+    record=x;
+    getref=(fun () -> !_ref);
+    fields =
+      [
+        make_field ~name:"uuid"                ~get:(fun () -> (x ()).API.sDN_controller_uuid) ();
+        make_field ~name:"protocol"            ~get:(fun () -> Record_util.sdn_protocol_to_string (x ()).API.sDN_controller_protocol) ();
+        make_field ~name:"address"             ~get:(fun () -> (x ()).API.sDN_controller_address) ();
+        make_field ~name:"port"                ~get:(fun () -> Int64.to_string (x ()).API.sDN_controller_port) ();
+      ]}
+
