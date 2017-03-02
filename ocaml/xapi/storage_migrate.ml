@@ -72,9 +72,9 @@ module State = struct
   let loaded = ref false
   let mutex = Mutex.create ()
 
-  type send_table = (string, Send_state.t) Hashtbl.t [@@deriving rpc]
-  type recv_table = (string, Receive_state.t) Hashtbl.t [@@deriving rpc]
-  type copy_table = (string, Copy_state.t) Hashtbl.t [@@deriving rpc]
+  type send_table = (string, Send_state.t) Hashtbl.t
+  type recv_table = (string, Receive_state.t) Hashtbl.t
+  type copy_table = (string, Copy_state.t) Hashtbl.t
 
   type osend
   type orecv
@@ -105,10 +105,12 @@ module State = struct
     | Recv_table _ -> Filename.concat !persist_root "storage_mirrors_recv.json"
     | Copy_table _ -> Filename.concat !persist_root "storage_mirrors_copy.json"
 
-  let rpc_of_table : type a. a table -> Rpc.t = function
-    | Send_table send_table -> rpc_of_send_table send_table
-    | Recv_table recv_table -> rpc_of_recv_table recv_table
-    | Copy_table copy_table -> rpc_of_copy_table copy_table
+  let rpc_of_table : type a. a table -> Rpc.t =
+    let open Rpc_std_helpers in
+    function
+    | Send_table send_table -> rpc_of_hashtbl ~rpc_of:Send_state.rpc_of_t send_table
+    | Recv_table recv_table -> rpc_of_hashtbl ~rpc_of:Receive_state.rpc_of_t recv_table
+    | Copy_table copy_table -> rpc_of_hashtbl ~rpc_of:Copy_state.rpc_of_t copy_table
 
   let to_string : type a. a table -> string =
     (fun table -> rpc_of_table table |> Jsonrpc.to_string)
@@ -118,13 +120,14 @@ module State = struct
 
   let load_one : type a. a table -> unit = (fun table ->
       let rpc = path_of_table table |> rpc_of_path in
+      let open Rpc_std_helpers in
       match table with
       | Send_table table ->
-        Hashtbl.iter (Hashtbl.replace table) (send_table_of_rpc rpc)
+        Hashtbl.iter (Hashtbl.replace table) (hashtbl_of_rpc ~of_rpc:Send_state.t_of_rpc rpc)
       | Recv_table table ->
-        Hashtbl.iter (Hashtbl.replace table) (recv_table_of_rpc rpc)
+        Hashtbl.iter (Hashtbl.replace table) (hashtbl_of_rpc ~of_rpc:Receive_state.t_of_rpc rpc)
       | Copy_table table ->
-        Hashtbl.iter (Hashtbl.replace table) (copy_table_of_rpc rpc))
+        Hashtbl.iter (Hashtbl.replace table) (hashtbl_of_rpc ~of_rpc:Copy_state.t_of_rpc rpc))
 
   let load () =
     try load_one (Send_table active_send) with _ -> ();
