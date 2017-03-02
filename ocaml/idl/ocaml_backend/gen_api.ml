@@ -20,7 +20,8 @@ module OU = Ocaml_utils
 
 module O = Ocaml_syntax
 
-let print s = output_string stdout (s^"\n")
+let oc = ref stdout
+let print s = output_string !oc (s^"\n")
 
 let overrides = [
   "vm_operations_to_string_map",(
