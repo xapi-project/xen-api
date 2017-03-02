@@ -1,5 +1,3 @@
-(** Helpers to marshal and unmarshal Rpc.Dict into Hashtbl *)
-
 let rpc_of_hashtbl ~rpc_of t =
   let dict = Hashtbl.fold (fun k v acc -> (k, rpc_of v) :: acc) t [] in
   Rpc.Dict dict
