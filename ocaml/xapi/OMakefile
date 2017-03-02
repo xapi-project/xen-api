@@ -39,7 +39,7 @@ OCAMLPACKS = $(OCAMLPACKS) $(XEN_OCAMLPACKS)
 OCamlProgram(http_test, http_test)
 OCamlProgram(show_bat, show_bat)
 
-OCamlProgram(storage_impl_test, sparse_encoding sparse_dd_wrapper storage_migrate storage_impl task_server updates storage_task storage_locks storage_impl_test)
+OCamlProgram(storage_impl_test, sparse_encoding sparse_dd_wrapper storage_migrate storage_impl task_server updates storage_task storage_locks storage_impl_test rpc_std_helpers)
 
 COMMON = \
 	xapi_templates \
@@ -49,6 +49,7 @@ COMMON = \
 	xapi_mgmt_iface \
 	smint \
 	../gpg/gpg \
+	rpc_std_helpers \
 	helpers \
 	at_least_once_more \
 	fileserver
