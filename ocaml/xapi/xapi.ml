@@ -549,6 +549,19 @@ let check_network_reset () =
          let gateway = if List.mem_assoc "GATEWAY" args then List.assoc "GATEWAY" args else "" in
          let dNS = if List.mem_assoc "DNS" args then List.assoc "DNS" args else "" in
 
+         (* Get the existing network for management vlan *)
+         let existing_network =
+           match vlan with
+           | Some vlan ->
+             begin match Db.PIF.get_refs_where ~__context ~expr:(And (
+               Eq (Field "device", Literal device),
+               Eq (Field "VLAN", Literal vlan))) with
+             | [] -> None
+             | pif :: _ -> Some (Db.PIF.get_network ~__context ~self:pif)
+             end
+           | None -> None
+         in
+
          (* Erase networking database objects for this host *)
          Helpers.call_api_functions ~__context
            (fun rpc session_id ->
@@ -560,10 +573,16 @@ let check_network_reset () =
 
          (* Create a vlan PIF if management interface asked on a VLAN *)
          let create_vlan pif vlan =
-           let name_label = Printf.sprintf "Pool-wide network associated with %s on VLAN%s" device vlan in
-           let network = Xapi_network.create ~__context ~name_label ~name_description:"" ~mTU:1500L ~other_config:[] ~tags:[] in
-           let vlan = Xapi_vlan.create ~__context ~tagged_PIF:pif ~network ~tag:(Int64.of_string vlan) in
-           Db.VLAN.get_untagged_PIF ~__context ~self:vlan
+           let network =
+             match existing_network with
+             | None ->
+               let name_label = Printf.sprintf "Pool-wide network associated with %s on VLAN%s" device vlan in
+               Xapi_network.create ~__context ~name_label ~name_description:"" ~mTU:1500L ~other_config:[] ~bridge:"" ~managed:true ~tags:[]
+             | Some network -> network
+           in
+           let vlan, untagged_PIF = Xapi_vlan.create_internal ~__context ~host ~tagged_PIF:pif
+             ~network ~tag:(Int64.of_string vlan) ~device in
+           untagged_PIF
          in
 
          (* Introduce and configure the management PIF *)
