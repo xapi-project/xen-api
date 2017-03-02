@@ -492,6 +492,16 @@ let bool_of_string s =
   |"false"|"no"->false
   |_-> raise (Record_failure ("Expected 'true','yes','false','no', got "^s))
 
+let sdn_protocol_of_string s =
+  match String.lowercase s with
+  | "ssl" -> `ssl
+  | "pssl" -> `pssl
+  |_-> raise (Record_failure ("Expected 'ssl','pssl', got "^s))
+
+let sdn_protocol_to_string = function
+  | `ssl -> "ssl"
+  | `pssl -> "pssl"
+
 (* string_to_string_map_to_string *)
 let s2sm_to_string sep x =
   String.concat sep (List.map (fun (a,b) -> a^": "^b) x)

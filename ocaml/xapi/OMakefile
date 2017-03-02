@@ -142,6 +142,7 @@ XAPI_MODULES = \
 	xapi_host_patch \
 	xapi_pool_patch \
 	xapi_pool_update \
+	xapi_sdn_controller \
 	xapi_pool_license \
 	xapi_support \
 	xapi_session \
