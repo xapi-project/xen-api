@@ -159,7 +159,10 @@ end
 
 module Sr = struct
   (** Represents the state of an SR *)
-  type vdis = (string, Vdi.t) Hashtbl.t [@@deriving rpc]
+  type vdis = (string, Vdi.t) Hashtbl.t
+
+  let vdis_of_rpc = Rpc_std_helpers.hashtbl_of_rpc ~of_rpc:Vdi.t_of_rpc
+  let rpc_of_vdis = Rpc_std_helpers.rpc_of_hashtbl ~rpc_of:Vdi.rpc_of_t
 
   type t = {
     vdis: vdis; (** All tracked VDIs *)
@@ -181,9 +184,14 @@ module Sr = struct
 end
 
 module Host = struct
+  type srs = (string, Sr.t) Hashtbl.t
+
+  let srs_of_rpc = Rpc_std_helpers.hashtbl_of_rpc ~of_rpc:Sr.t_of_rpc
+  let rpc_of_srs = Rpc_std_helpers.rpc_of_hashtbl ~rpc_of:Sr.rpc_of_t
+
   (** Represents the state of a host *)
   type t = {
-    srs: (string, Sr.t) Hashtbl.t;
+    srs: srs;
   } [@@deriving rpc]
 
   let empty () = {
