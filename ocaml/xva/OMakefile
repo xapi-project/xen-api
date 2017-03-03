@@ -1,5 +1,0 @@
-OCAMLPACKS = stdext tar tar.unix xml-light2 xcp
-
-.PHONY: clean
-clean:
-	rm -f $(CLEAN_OBJS)
