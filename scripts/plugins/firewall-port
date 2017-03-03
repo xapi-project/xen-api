@@ -1,0 +1,46 @@
+#!/bin/bash
+#
+# Copyright (c) Citrix Systems 2017. All rights reserved.
+
+set -e
+
+#################################################
+# Use this script to open/close port.
+#
+# Usage:
+#   ./firewall-port {open|close} port
+#
+#################################################
+
+OP="$1"
+PORT="$2"
+CHAIN="xapi-INPUT"
+RULE="-p tcp -m conntrack --ctstate NEW -m tcp --dport $PORT -j ACCEPT"
+
+case "${OP}" in
+    open)
+        if ! iptables -C $CHAIN $RULE 2>/dev/null
+        then # first ensure chain exists
+            if  iptables -N "${CHAIN}" 2>/dev/null
+            then #chain did not exist but does now
+                iptables -A "${CHAIN}" -j RETURN
+                iptables -I INPUT -j "${CHAIN}"
+            fi # asuume chain is used if it exists
+        iptables -I "${CHAIN}" $RULE
+        service iptables save
+        fi
+        ;;
+    close)
+        if iptables -C $CHAIN $RULE 2>/dev/null
+        then # close port  if it was opened 
+            iptables -D $CHAIN $RULE
+            service iptables save
+        fi
+        ;;
+    *)
+        echo $"Usage: $0 {open|close} {port}" 1>&2
+        exit 1
+        ;;
+esac
+exit 0
+
