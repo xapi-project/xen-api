@@ -1,8 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: cda24525d154b2eb3188d9af066d41a1)
+# DO NOT EDIT (digest: 42db8b8bd2cbc5b597cfa71564283606)
 version = "0.0.0"
 description = "Description here"
-requires = "xapi-consts rpclib rpclib.syntax stdext threads http-svr uuid"
+requires = "xapi-consts rpclib ppx_deriving_rpc stdext threads http-svr uuid"
 archive(byte) = "xapi-types.cma"
 archive(byte, plugin) = "xapi-types.cma"
 archive(native) = "xapi-types.cmxa"

@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 9e8bbb6700cde9dd1154170bcf64c141) *)
+(* DO NOT EDIT (digest: 446e2bb80f665c841f6143e5c5da5e18) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -746,6 +746,9 @@ module MyOCamlbuildBase = struct
 (* # 110 "src/plugins/ocamlbuild/MyOCamlbuildBase.ml" *)
 
 
+  let env_filename = Pathname.basename BaseEnvLight.default_filename
+
+
   let dispatch_combine lst =
     fun e ->
       List.iter
@@ -878,7 +881,7 @@ module MyOCamlbuildBase = struct
 end
 
 
-# 881 "myocamlbuild.ml"
+# 884 "myocamlbuild.ml"
 open Ocamlbuild_plugin;;
 let package_default =
   {
@@ -1044,7 +1047,7 @@ let conf = {MyOCamlbuildFindlib.no_automatic_syntax = false}
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default conf package_default;;
 
-# 1048 "myocamlbuild.ml"
+# 1051 "myocamlbuild.ml"
 (* OASIS_STOP *)
 
 let custom_dispatch = function
@@ -1057,41 +1060,41 @@ let custom_dispatch = function
         @ [ A "-mode"; A mode ]
         @ [ A "-filterinternal"; A (string_of_bool filterinternal) ]
         @ [ A "-filter"; A filter ]
-        @ if gendebug then [ A "-gendebug" ] else []
-        @ [ Sh ">"; A output ]))) in
+        @ (if gendebug then [ A "-gendebug" ] else [])
+        @ [ A "-output"; A output ]))) in
 
-  autogen_rule "ocaml/autogen/client.ml"
+  autogen_rule "ocaml/xapi-client/client.ml"
     ~mode:"client"
     ~filterinternal:true
     ~filter:"closed";
 
-  autogen_rule "ocaml/autogen/server.ml"
+  autogen_rule "ocaml/xapi/server.ml"
     ~mode:"server"
     ~filterinternal:true
     ~filter:"closed"
     ~gendebug:true;
   
-  autogen_rule "ocaml/autogen/aPI.ml"
+  autogen_rule "ocaml/xapi-types/aPI.ml"
     ~mode:"api"
     ~filterinternal:true
     ~filter:"closed";
 
-  autogen_rule "ocaml/autogen/db_actions.ml"
+  autogen_rule "ocaml/xapi/db_actions.ml"
     ~mode:"db"
     ~filterinternal:false
     ~filter:"nothing";
 
-  autogen_rule "ocaml/autogen/custom_actions.ml"
+  autogen_rule "ocaml/xapi/custom_actions.ml"
     ~mode:"actions"
     ~filterinternal:true
     ~filter:"closed";
 
-  autogen_rule "ocaml/autogen/rbac_static.ml"
+  autogen_rule "ocaml/xapi/rbac_static.ml"
     ~mode:"rbac"
     ~filterinternal:true
     ~filter:"closed";
 
-  autogen_rule "ocaml/autogen/rbac_static.csv"
+  autogen_rule "ocaml/xapi/rbac_static.csv"
     ~mode:"rbac"
     ~filterinternal:true
     ~filter:"closed"
