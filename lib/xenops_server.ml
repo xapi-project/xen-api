@@ -101,6 +101,8 @@ type atomic =
 	| VM_save of (Vm.id * flag list * data)
 	| VM_restore of (Vm.id * data)
 	| VM_delay of (Vm.id * float) (** used to suppress fast reboot loops *)
+	| VM_save_vgpu of (Vm.id * Vgpu.id * data)
+	| VM_restore_vgpu of (Vm.id * Vgpu.id * data)
 	| Parallel of Vm.id * string * atomic list
 
 [@@deriving rpc]
@@ -296,6 +298,9 @@ module VGPU_DB = struct
 	end)
 	let vm_of = fst
 	let string_of_id (a, b) = a ^ "." ^ b
+	let id_of_string str = match Stdext.Xstringext.String.split '.' str with
+		| [a; b] -> a, b
+		| _ -> raise (Internal_error ("String cannot be interpreted as vgpu id: "^str))
 
 	let ids vm : Vgpu.id list =
 		list [ vm ] |> (filter_prefix "vgpu.") |> List.map (fun id -> (vm, id))
@@ -1168,6 +1173,12 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
 				(fun () ->
 					B.PCI.unplug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
 				) (fun () -> PCI_DB.signal id)
+		| VM_save_vgpu (vm_id, vgpu_id, data) ->
+			debug "VM.save_vgpu %s" (VGPU_DB.string_of_id vgpu_id);
+			debug "TODO implement VM.save_vgpu"
+		| VM_restore_vgpu (vm_id, vgpu_id, data) ->
+			debug "VM.restore_vgpu %s" (VGPU_DB.string_of_id vgpu_id);
+			debug "TODO implement VM.restore_vgpu"
 		| VM_set_xsdata (id, xsdata) ->
 			debug "VM.set_xsdata (%s, [ %s ])" id (String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xsdata));
 			B.VM.set_xsdata t (VM_DB.read_exn id) xsdata
@@ -1421,6 +1432,8 @@ and trigger_cleanup_after_failure_atom op t =
 		| VM_s3resume id
 		| VM_save (id, _, _)
 		| VM_restore (id, _)
+		| VM_save_vgpu (id, _, _)
+		| VM_restore_vgpu (id, _, _)
 		| VM_delay (id, _) ->
 			immediate_operation dbg id (VM_check_state id)
 		| Parallel (id, description, ops) ->
@@ -1495,9 +1508,10 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 
 			let module Remote = Xenops_interface.Client(struct let rpc = Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> url') end) in
 			let id = Remote.VM.import_metadata dbg (export_metadata vdi_map vif_map id) in
-			debug "Received id = %s" id;
-			let memory_url = Uri.make ?scheme:(Uri.scheme url) ?host:(Uri.host url) ?port:(Uri.port url)
-				~path:(Uri.path url ^ "/memory/" ^ id) ~query:(Uri.query url) () in
+			debug "Received vm-id = %s" id;
+			let make_url snippet id_str = Uri.make ?scheme:(Uri.scheme url) ?host:(Uri.host url) ?port:(Uri.port url)
+				~path:(Uri.path url ^ snippet ^ id_str) ~query:(Uri.query url) () in
+			let memory_url = make_url "/memory/" id in
 
 			(* CA-78365: set the memory dynamic range to a single value to stop ballooning. *)
 			let atomic = VM_set_memory_dynamic_range(id, vm.Vm.memory_dynamic_min, vm.Vm.memory_dynamic_min) in
@@ -1512,42 +1526,65 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 			info "VM %s has memory_limit = %Ld" id state.Vm.memory_limit;
 
 			Open_uri.with_open_uri memory_url
-				(fun mfd ->
-					Sockopt.set_sock_keepalives mfd;
-					let open Xenops_migrate in
-					let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
-					let cookies = [
-						"instance_id", instance_id;
-						"dbg", dbg;
-						"memory_limit", Int64.to_string state.Vm.memory_limit;
-					] in
-					let headers = Cohttp.Header.of_list (
-						Cohttp.Cookie.Cookie_hdr.serialize cookies :: [
-							"Connection", "keep-alive";
-							"User-agent", "xenopsd";
-						]) in
-					let request = Cohttp.Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers memory_url in
+				(fun mem_fd ->
+					let do_request fd memory_limit url vwhat = (
+						Sockopt.set_sock_keepalives fd;
+						let open Xenops_migrate in
+						let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
+						let cookies = [
+							"instance_id", instance_id;
+							"dbg", dbg;
+						] @  match memory_limit with
+							| None -> []
+							| Some lim -> [("memory_limit", Int64.to_string lim)] in
+						let headers = Cohttp.Header.of_list (
+							Cohttp.Cookie.Cookie_hdr.serialize cookies :: [
+								"Connection", "keep-alive";
+								"User-agent", "xenopsd";
+							]) in
+						let request = Cohttp.Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers url in
 
-					Request.write (fun _ -> ()) request mfd;
+						Request.write (fun _ -> ()) request fd;
 
-					begin match Handshake.recv mfd with
-						| Handshake.Success -> ()
-						| Handshake.Error msg ->
-							error "cannot transmit vm to host: %s" msg;
-							raise (Internal_error msg)
-					end;
+						(* Use mem_fd for all handshaking: not fd which is sometimes vgpu_fd *)
+						begin match Handshake.recv mem_fd with
+							| Handshake.Success -> ()
+							| Handshake.Error msg ->
+								error "cannot transmit %s to host: %s" vwhat msg;
+								raise (Internal_error msg)
+						end;
+					) in
+
+					do_request mem_fd (Some state.Vm.memory_limit) memory_url "vm";
 					debug "Synchronisation point 1";
 
-					perform_atomics [
-						VM_save(id, [ Live ], FD mfd)
-					] t;
-					debug "Synchronisation point 2";
+					let save_vm_then_handshake () = (
+						let atom = VM_save (id, [ Live ], FD mem_fd) in
+						perform_atomics [atom] t;
+						debug "Synchronisation point 2";
 
-					Handshake.send ~verbose:true mfd Handshake.Success;
-					debug "Synchronisation point 3";
+						(* Use mem_fd for all handshaking *)
+						let module Handshake = Xenops_migrate.Handshake in
+						Handshake.send ~verbose:true mem_fd Handshake.Success;
+						debug "Synchronisation point 3";
 
-					Handshake.recv_success mfd;
-					debug "Synchronisation point 4";
+						Handshake.recv_success mem_fd;
+						debug "Synchronisation point 4";
+					) in
+
+					match VGPU_DB.ids id with
+					| [] ->
+						save_vm_then_handshake ()
+					| [vgpu_id] ->
+						let vgpu_url = make_url "/migrate-vgpu/" (VGPU_DB.string_of_id vgpu_id) in
+						Open_uri.with_open_uri vgpu_url (fun vgpu_fd ->
+							do_request vgpu_fd None vgpu_url "vgpu";
+							debug "Synchronisation point 1.5";
+							(* TODO make these saves go in parallel *)
+							perform_atomics [VM_save_vgpu (id, vgpu_id, FD vgpu_fd)] t;
+							save_vm_then_handshake ()
+						)
+					| _ -> raise (Internal_error "Migration of a VM with more than one VGPU is not supported.")
 				);
 			let atomics = [
 				VM_hook_script(id, Xenops_hooks.VM_pre_destroy, Xenops_hooks.reason__suspend);
@@ -1819,6 +1856,7 @@ module VGPU = struct
 			(fun () ->
 				debug "VGPU.list %s" vm;
 				DB.list vm) ()
+
 end
 
 module VBD = struct
@@ -2118,6 +2156,46 @@ module VM = struct
 						None
 					end else
 						Some (queue_operation dbg id op)
+				in
+				Opt.iter (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore) task
+			| None ->
+				let headers = Cohttp.Header.of_list [
+					"User-agent", "xenopsd"
+				] in
+				let response = Cohttp.Response.make ~version:`HTTP_1_1
+				  ~status:`Not_found ~headers () in
+				Response.write (fun _ -> ()) response s
+		) ()
+
+	(* This is modelled closely on receive_memory and there is significant scope for refactoring. *)
+	let receive_vgpu uri cookies s context : unit =
+		let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
+		let module Response = Cohttp.Response.Make(Cohttp_posix_io.Unbuffered_IO) in
+		let dbg = List.assoc "dbg" cookies in
+		Debug.with_thread_associated dbg
+		(fun () ->
+			let is_localhost, vgpu_id = Debug.with_thread_associated dbg
+				debug "VM.receive_vgpu";
+				let remote_instance = List.assoc "instance_id" cookies in
+				let is_localhost = instance_id = remote_instance in
+				(* The URI is /service/xenops/migrate-vgpu/id *)
+				let bits = Stdext.Xstringext.String.split '/' (Uri.path uri) in
+				let vgpu_id_str = bits |> List.rev |> List.hd in
+				debug "VM.receive_vgpu vgpu_id_str = %s is_localhost = %b" vgpu_id_str is_localhost;
+				is_localhost, VGPU_DB.id_of_string vgpu_id_str
+			in
+			let vm_id = VGPU_DB.vm_of vgpu_id in
+			match context.transferred_fd with
+			| Some transferred_fd ->
+				let op = Atomic (VM_restore_vgpu(vm_id, vgpu_id, FD transferred_fd)) in
+				(* If it's a localhost migration then we're already in the queue *)
+				let task =
+					let vm_id = VGPU_DB.vm_of vgpu_id in
+					if is_localhost then begin
+						immediate_operation dbg vm_id op;
+						None
+					end else
+						Some (queue_operation dbg vm_id op)
 				in
 				Opt.iter (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore) task
 			| None ->

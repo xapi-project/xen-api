@@ -79,22 +79,34 @@ let handle_received_fd this_connection =
 		(fun () ->
 			let req = String.sub buf 0 len |> Jsonrpc.of_string |> Xenops_migrate.Forwarded_http_request.t_of_rpc in
 			debug "Received request = [%s]\n%!" (req |> Xenops_migrate.Forwarded_http_request.rpc_of_t |> Jsonrpc.to_string);
-			let expected_prefix = "/services/xenops/memory/" in
+			let common_prefix = "/services/xenops/" in
+			let memory_prefix = common_prefix ^ "memory/" in
+			let migrate_vgpu_prefix = common_prefix ^ "migrate-vgpu/" in
+
+			let has_prefix str prefix =
+				String.length prefix <= String.length str && String.sub str 0 (String.length prefix) = prefix in
+
+			let do_receive fn =
+				let context = {
+					Xenops_server.transferred_fd = Some received_fd
+				} in
+				let uri = Uri.of_string req.Xenops_migrate.Forwarded_http_request.uri in
+				fn uri req.Xenops_migrate.Forwarded_http_request.cookie this_connection context
+			in
+
 			let uri = req.Xenops_migrate.Forwarded_http_request.uri in
-			if String.length uri < String.length expected_prefix || (String.sub uri 0 (String.length expected_prefix) <> expected_prefix) then begin
-				error "Expected URI prefix %s, got %s" expected_prefix uri;
+			if has_prefix uri memory_prefix then
+				do_receive Xenops_server.VM.receive_memory
+			else if has_prefix uri migrate_vgpu_prefix then
+				do_receive Xenops_server.VM.receive_vgpu
+			else begin
+				error "Expected URI prefix %s or %s, got %s" memory_prefix migrate_vgpu_prefix uri;
 				let module Response = Cohttp.Response.Make(Cohttp_posix_io.Unbuffered_IO) in
 				let headers = Cohttp.Header.of_list [
 					"User-agent", "xenopsd"
 				] in
 				let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers () in
 				Response.write (fun _ -> ()) response this_connection;
-			end else begin
-				let context = {
-					Xenops_server.transferred_fd = Some received_fd
-				} in
-				let uri = Uri.of_string req.Xenops_migrate.Forwarded_http_request.uri in
-				Xenops_server.VM.receive_memory uri req.Xenops_migrate.Forwarded_http_request.cookie this_connection context
 			end
 		) (fun () -> Unix.close received_fd)
 
