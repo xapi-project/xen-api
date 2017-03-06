@@ -138,7 +138,8 @@ _xe()
             params)
                 val=$(final_comma_separated_param "$value")
                 class=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1`
-                params=`${xe} ${class}-list params=all 2>/dev/null| cut -d: -f1 | sed -e s/\(.*\)//g -e s/^\ *//g -e s/\ *$//g`
+                obj=`${xe} ${class}-list params=uuid --minimal 2>/dev/null | cut -d, -f1`
+                params=`${xe} ${class}-list params=all uuid=${obj} 2>/dev/null| cut -d: -f1 | sed -e s/\(.*\)//g -e s/^\ *//g -e s/\ *$//g`
                 IFS=$'\n,'
                 set_completions "$params,all" "$val"
                 return 0
