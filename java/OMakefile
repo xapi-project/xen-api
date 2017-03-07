@@ -83,7 +83,6 @@ java_folders: java_bindings_all
 
 .PHONY: clean
 clean:
-  rm -f *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.omc
-  rm -f main
+  rm -f $(CLEAN_OBJS) main
 
 .DEFAULT: java_bindings_all

@@ -81,5 +81,4 @@ c_folders: c_binaries c_source
 
 .PHONY: clean
 clean:
-  rm -f *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.omc
-  rm -f gen_c_binding
+  rm -f $(CLEAN_OBJS) gen_c_binding

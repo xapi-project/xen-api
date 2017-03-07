@@ -40,7 +40,6 @@ gen_gui_csharp_bindings: gen_csharp_binding $(SR_XML)
 
 .PHONY: clean
 clean:
-  rm -f *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.omc
-  rm -f gen_csharp_binding
+  rm -f $(CLEAN_OBJS) gen_csharp_binding
 
 .DEFAULT: gen_csharp_binding
