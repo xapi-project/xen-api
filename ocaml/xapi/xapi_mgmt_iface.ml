@@ -176,7 +176,7 @@ let update_getty () =
     debug "update_getty at %s caught exception: %s"
       __LOC__ (Printexc.to_string e)
 
-let on_dom0_networking_change ~__context =
+let on_dom0_networking_change ~__context ~startup =
   debug "Checking to see if hostname or management IP has changed";
   (* Need to update:
      	   1 Host.hostname
@@ -194,9 +194,16 @@ let on_dom0_networking_change ~__context =
     Db.Host.set_name_label ~__context ~self:localhost ~value:new_hostname;
   begin match Helpers.get_management_ip_addr ~__context with
     | Some ip ->
-      if Db.Host.get_address ~__context ~self:localhost <> ip then begin
+      let ip_changed = Db.Host.get_address ~__context ~self:localhost <> ip in
+      if ip_changed then begin
         debug "Changing Host.address in database to: %s" ip;
-        Db.Host.set_address ~__context ~self:localhost ~value:ip;
+        Db.Host.set_address ~__context ~self:localhost ~value:ip
+      end;
+      (* The startup parameter tells us that the host's IP address has already
+         been set to the correct value in the database earlier during the
+         startup sequence, therefore we execute the related functions even if
+         we do not detect an IP address change. *)
+      if ip_changed || startup then begin
         debug "Refreshing console URIs";
         update_getty ();
         Dbsync_master.refresh_console_urls ~__context

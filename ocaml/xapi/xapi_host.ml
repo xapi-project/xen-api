@@ -131,7 +131,7 @@ let assert_bacon_mode ~__context ~host =
 
 let signal_networking_change ~__context =
   Helpers.update_pif_addresses ~__context;
-  Xapi_mgmt_iface.on_dom0_networking_change ~__context
+  Xapi_mgmt_iface.on_dom0_networking_change ~__context ~startup:false
 
 let signal_cdrom_event ~__context params =
   let find_vdi_name sr name =
@@ -776,7 +776,7 @@ let change_management_interface ~__context interface primary_address_type =
   Xapi_mgmt_iface.run ~__context ~mgmt_enabled:true;
   (* once the inventory file has been rewritten to specify new interface, sync up db with
      	   state of world.. *)
-  Xapi_mgmt_iface.on_dom0_networking_change ~__context
+  Xapi_mgmt_iface.on_dom0_networking_change ~__context ~startup:false
 
 let local_management_reconfigure ~__context ~interface =
   (* Only let this one through if we are in emergency mode, otherwise use

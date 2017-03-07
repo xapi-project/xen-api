@@ -471,7 +471,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
            debug "could not update MTU field on PIF %s" rc.API.pIF_uuid
         );
 
-        Xapi_mgmt_iface.on_dom0_networking_change ~__context
+        Xapi_mgmt_iface.on_dom0_networking_change ~__context ~startup:false
       end
     )
 

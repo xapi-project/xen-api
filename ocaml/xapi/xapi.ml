@@ -295,7 +295,7 @@ let bring_up_management_if ~__context () =
         (* Make sure everyone is up to speed *)
         ignore (Thread.create (fun () -> Server_helpers.exec_with_new_task "dom0 networking update"
                                   ~subtask_of:(Context.get_task_id __context)
-                                  (fun __context -> Xapi_mgmt_iface.on_dom0_networking_change ~__context)) ())
+                                  (fun __context -> Xapi_mgmt_iface.on_dom0_networking_change ~startup:true ~__context)) ())
       | None ->
         warn "Failed to acquire a management IP address"
     end;
