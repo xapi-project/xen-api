@@ -20,6 +20,13 @@ let uri () = "file:" ^ !default_path
 
 type debug_info = string
 
+type edition_info = {
+    edition: string;
+    xapi_params: (string * string) list;
+    additional_params: (string * string) list;
+    experimental_features: (string * bool) list;
+}
+
 exception Invalid_edition of string
 exception V6d_failure
 exception License_expired
@@ -27,10 +34,8 @@ exception License_processing_error
 exception Missing_connection_details
 exception License_checkout_error of string
 
-(* dbg_str -> requested edition -> current params ->
-   new edition * new xapi params * new additional params *)
-external apply_edition : debug_info -> string -> (string * string) list ->
-	string * (string * string) list * (string * string) list = ""
+(* dbg_str -> requested edition -> current params -> edition_info *)
+external apply_edition : debug_info -> string -> (string * string) list -> edition_info = ""
 
 (* dbg_str -> list of editions *)
 external get_editions : debug_info -> (string * (string * string * int)) list = ""
