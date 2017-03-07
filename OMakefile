@@ -45,14 +45,7 @@ OCAMLINCLUDES += ..
 OCAMLFLAGS += -dtypes -thread
 OCAMLPACKS += rpclib getopt xmlm xml-light2 uuid stdext xcp unix str xapi-datamodel
 
-.PHONY: clean dist
 .SUBDIRS: powershell csharp c java
-
-.PHONY: csharp_samples csharp_src csharp_gui csharp_ps_readmes powershell_src
-csharp_gui: $(BINDINGS_TMP)/XenCenterBindings.zip
-
-dist: powershell_src csharp_samples csharp_src csharp_gui csharp_ps_readmes c_folders java_folders
-
 
 Flip(dir) =
 	cd $(dir) && sh $(shell readlink -f $(ROOT))/windows-line-endings.sh
@@ -69,6 +62,7 @@ InstallAndBrand(sourcefile, targetfile) =
 	$(INSTALL) $(sourcefile) $(targetfile)
 	sed -i -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' $(targetfile)
 
+.PHONY: csharp_src
 csharp_src: gen_gui_csharp_bindings
 	mkdir -p $(CSHARP_SRC_TMP)/Properties
 	mv $(CSHARP_GEN)/XenObjectDownloader.cs $(CSHARP_GEN)/XenObjectDownloader.tmp
@@ -84,6 +78,7 @@ csharp_src: gen_gui_csharp_bindings
 	mkdir -p $(SDK_NET_FOLDER)/src && cp -r $(CSHARP_SRC_TMP)/* $(SDK_NET_FOLDER)/src
 	cp $(CSHARP_GEN)/callVersions.csv $(MY_OUTPUT_DIR)
 
+.PHONY: csharp_samples
 csharp_samples:
 	mkdir -p $(CSHARP_SAM_TMP)
 	$(INSTALL) csharp/samples/XenSdkSample.sln $(CSHARP_SAM_TMP)
@@ -96,15 +91,17 @@ csharp_samples:
 	Flip($(CSHARP_SAM_TMP))
 	mkdir -p $(SDK_NET_FOLDER)/samples && cp -r $(CSHARP_SAM_TMP)/* $(SDK_NET_FOLDER)/samples
 
-$(BINDINGS_TMP)/XenCenterBindings.zip: gen_gui_csharp_bindings
+.PHONY: csharp_gui
+csharp_gui: gen_gui_csharp_bindings
 	mkdir -p $(CSHARP_GUI_TMP)
 	$(INSTALL) $(CSHARP_GEN)/*.cs $(CSHARP_GUI_TMP)
 	$(INSTALL) $(CSHARP_GEN)/FriendlyErrorNames.resx $(CSHARP_GUI_TMP)
 	$(INSTALL) $(SUPPORT_CS) $(CSHARP_GUI_TMP)
 	rm $(CSHARP_GUI_TMP)/AssemblyInfo.cs
 	Flip($(CSHARP_GUI_TMP))
-	ZipUp($(CSHARP_GUI_TMP), $@)
+	ZipUp($(CSHARP_GUI_TMP), $(BINDINGS_TMP)/XenCenterBindings.zip)
 
+.PHONY: powershell_src
 powershell_src: csharp_src gen_powershell_bindings
 	mkdir -p $(POWERSHELL_TMP)
 	$(INSTALL) powershell/src/*.cs $(POWERSHELL_TMP)
@@ -116,12 +113,17 @@ powershell_src: csharp_src gen_powershell_bindings
 	Flip($(POWERSHELL_TMP))
 	mkdir -p $(SDK_PS_FOLDER)/src && cp $(POWERSHELL_TMP)/* $(SDK_PS_FOLDER)/src
 
+.PHONY: csharp_ps_readmes
 csharp_ps_readmes:
 	mkdir -p $(READMES_TMP)
 	InstallAndBrand(csharp/README.dist, $(READMES_TMP)/README.net.txt)
 	InstallAndBrand(powershell/README.dist, $(READMES_TMP)/README.ps.txt)
 	Flip($(READMES_TMP))
 
+.PHONY: dist
+dist: powershell_src csharp_samples csharp_src csharp_gui csharp_ps_readmes c_folders java_folders
+
+ .PHONY: clean
 clean:
 	rm -f *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.opt *.omc *.dll
 	rm -Rf $(BINDINGS_TMP)
