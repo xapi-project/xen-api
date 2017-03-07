@@ -1227,6 +1227,9 @@ let host_record rpc session_id host =
       make_field ~name:"updates-requiring-reboot"
         ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.host_updates_requiring_reboot))
         ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.host_updates_requiring_reboot) ();
+      make_field ~name:"features"
+        ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.host_features))
+        ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.host_features) ();
     ]}
 
 let vdi_record rpc session_id vdi =
@@ -1953,3 +1956,23 @@ let pvs_cache_storage_record rpc session_id pvs_site =
       ]
   }
 
+let feature_record rpc session_id feature =
+  let _ref = ref feature in
+  let empty_record = ToGet (fun () -> Client.Feature.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  {
+    setref = (fun r -> _ref := r; record := empty_record );
+    setrefrec = (fun (a,b) -> _ref := a; record := Got b);
+    record = x;
+    getref = (fun () -> !_ref);
+    fields = [
+      make_field ~name:"uuid" ~get:(fun () -> (x ()).API.feature_uuid) ();
+      make_field ~name:"name-label" ~get:(fun () -> (x ()).API.feature_name_label) ();
+      make_field ~name:"name-description" ~get:(fun () -> (x ()).API.feature_name_description) ();
+      make_field ~name:"enabled" ~get:(fun () -> (x ()).API.feature_enabled |> string_of_bool) ();
+      make_field ~name:"experimental" ~get:(fun () -> (x ()).API.feature_experimental|> string_of_bool) ();
+      make_field ~name:"version" ~get:(fun () -> (x ()).API.feature_version) ();
+      make_field ~name:"host-uuid" ~get:(fun () -> (x ()).API.feature_host |> get_uuid_from_ref) ();
+    ]
+  }
