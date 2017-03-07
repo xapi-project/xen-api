@@ -204,7 +204,10 @@ Type 'no' to cancel.
 	# Update interfaces in inventory file
 	print 'Updating inventory file...'
 	inventory = read_inventory()
-	inventory['MANAGEMENT_INTERFACE'] = bridge
+	if vlan != None:
+		inventory['MANAGEMENT_INTERFACE'] = 'xentemp'
+	else:
+		inventory['MANAGEMENT_INTERFACE'] = bridge
 	inventory['CURRENT_INTERFACES'] = ''
 	write_inventory(inventory)
 
