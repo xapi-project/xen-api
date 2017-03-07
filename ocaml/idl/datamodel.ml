@@ -85,7 +85,7 @@ let ely_release_schema_major_vsn = 5
 let ely_release_schema_minor_vsn = 100
 
 let falcon_release_schema_major_vsn = 5
-let falcon_release_schema_minor_vsn = 111
+let falcon_release_schema_minor_vsn = 112
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
 let last_release_schema_major_vsn = ely_release_schema_major_vsn
@@ -159,6 +159,7 @@ let _pvs_site = "PVS_site"
 let _pvs_server = "PVS_server"
 let _pvs_proxy = "PVS_proxy"
 let _pvs_cache_storage = "PVS_cache_storage"
+let _feature = "Feature"
 
 
 (** All the various static role names *)
@@ -5017,6 +5018,7 @@ let host =
          field ~qualifier:DynamicRO ~in_product_since:rel_cream ~default_value:(Some (VSet [VInt 0L])) ~ty:(Set (Int)) "virtual_hardware_platform_versions" "The set of versions of the virtual hardware platform that the host can offer to its guests";
          field ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref)) ~in_product_since:rel_dundee_plus ~ty:(Ref _vm) "control_domain" "The control domain (domain 0)";
          field ~qualifier:DynamicRO ~lifecycle:[Published, rel_ely, ""] ~ty:(Set (Ref _pool_update)) ~ignore_foreign_key:true "updates_requiring_reboot" "List of updates which require reboot";
+         field ~qualifier:DynamicRO ~lifecycle:[Published, rel_falcon, ""] ~ty:(Set (Ref _feature)) "features" "List of features available on this host"
        ])
     ()
 
@@ -9471,6 +9473,38 @@ module PVS_cache_storage = struct
 end
 let pvs_cache_storage = PVS_cache_storage.obj
 
+(* ---------------
+  Features
+  ----------------*)
+
+(** A new piece of functionality *)
+let feature =
+  create_obj
+    ~name:_feature
+    ~descr: "A new piece of functionality"
+    ~doccomments:[]
+    ~gen_constructor_destructor:false
+    ~gen_events:true
+    ~in_db:true
+    ~lifecycle:[Published, rel_falcon, ""]
+    ~messages:[]
+    ~messages_default_allowed_roles:_R_LOCAL_ROOT_ONLY
+    ~persist:PersistEverything
+    ~in_oss_since:None
+    ~contents:[
+      uid _feature ~lifecycle:[Published, rel_falcon, ""];
+      namespace ~name:"name" ~contents:(names None StaticRO) ();
+      field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_falcon, ""] ~default_value:(Some (VBool false))
+        "enabled" "Indicates whether the feature is enabled";
+      field ~qualifier:StaticRO ~ty:Bool ~lifecycle:[Published, rel_falcon, ""] ~default_value:(Some (VBool false))
+        "experimental" "Indicates whether the feature is experimental (as opposed to stable and fully supported)";
+      field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_falcon, ""] ~default_value:(Some (VString "1.0"))
+        "version" "The version of this feature";
+      field ~qualifier:DynamicRO ~ty:(Ref _host) ~lifecycle:[Published, rel_falcon, ""]
+        "host" "The host where this feature is available";
+    ]
+    ()
+
 (******************************************************************************************)
 
 (** All the objects in the system in order they will appear in documentation: *)
@@ -9535,6 +9569,7 @@ let all_system =
     pvs_server;
     pvs_proxy;
     pvs_cache_storage;
+    feature;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -9619,6 +9654,8 @@ let all_relations =
     (_pvs_server, "site"), (_pvs_site, "servers");
     (_pvs_proxy,  "site"), (_pvs_site, "proxies");
     (_pvs_cache_storage,  "site"), (_pvs_site, "cache_storage");
+
+    (_feature, "host"), (_host, "features");
   ]
 
 (** the full api specified here *)
@@ -9708,6 +9745,7 @@ let expose_get_all_messages_for = [
   _pvs_server;
   _pvs_proxy;
   _pvs_cache_storage;
+  _feature;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]

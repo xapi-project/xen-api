@@ -809,6 +809,8 @@ let gen_cmds rpc session_id =
     ; Client.PVS_server.(mk get_all get_all_records_where get_by_uuid pvs_server_record "pvs-server" [] ["uuid"; "addresses"; "pvs-site-uuid"] rpc session_id)
     ; Client.PVS_proxy.(mk get_all get_all_records_where get_by_uuid pvs_proxy_record "pvs-proxy" [] ["uuid"; "vif-uuid"; "pvs-site-uuid"; "currently-attached"; "cache-sr-uuid"] rpc session_id)
     ; Client.PVS_cache_storage.(mk get_all get_all_records_where get_by_uuid pvs_cache_storage_record "pvs-cache-storage" [] ["uuid"; "host-uuid"; "sr-uuid"; "pvs-site-uuid"; "size"] rpc session_id)
+    ; Client.Feature.(mk get_all get_all_records_where get_by_uuid feature_record "feature" []
+        ["uuid"; "name-label"; "name-description"; "enabled"; "experimental"; "version"; "host-uuid"] rpc session_id)
     ]
 
 (* NB, might want to put these back in at some point
