@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-type t with sexp
+type t [@@deriving sexp]
 (** a persistent message queue with a well-known name.
     XXX these aren't really queues as messages are removed
     from the middle *)
@@ -26,7 +26,7 @@ val get_owner: t -> string option
 (** [get_owner t] returns the owner of [t] where the owner is the entity
     which, when it is destroyed, the queue is also cleaned up. *)
 
-type queues with sexp
+type queues [@@deriving sexp]
 (** A set of message queues *)
 
 val empty: queues

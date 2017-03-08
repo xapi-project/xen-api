@@ -23,7 +23,7 @@ Library message_switch
   Path:               core
   Findlibname:        message_switch
   Modules:            Protocol, Make, Monad, Mresult, S
-  BuildDepends:       cohttp (>= 0.15.0) ,rpclib,rpclib.json,rpclib.syntax,sexplib,sexplib.syntax,re.str
+  BuildDepends:       cohttp (>= 0.15.0),rpclib,rpclib.json,ppx_deriving_rpc,sexplib,ppx_sexp_conv,re.str
 
 Library message_switch_lwt
   Build$:             flag(lwt)
@@ -34,7 +34,7 @@ Library message_switch_lwt
   Findlibparent:      message_switch
   Findlibname:        lwt
   Modules:            Protocol_lwt
-  BuildDepends:       lwt,lwt.unix,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,message_switch
+  BuildDepends:       lwt,lwt.unix,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,ppx_deriving_rpc,message_switch
 
 Library message_switch_async
   Build$:             flag(async)
@@ -45,7 +45,7 @@ Library message_switch_async
   Findlibparent:      message_switch
   Findlibname:        async
   Modules:            Protocol_async
-  BuildDepends:       threads,async,cohttp (>= 0.15.0),cohttp.async,rpclib,rpclib.json,message_switch
+  BuildDepends:       threads,async,cohttp (>= 0.15.0),cohttp.async,rpclib,rpclib.json,ppx_deriving_rpc,message_switch
 
 Library message_switch_unix
   CompiledObject:     best
@@ -55,7 +55,7 @@ Library message_switch_unix
   Findlibparent:      message_switch
   Findlibname:        unix
   Modules:            Protocol_unix, Protocol_unix_scheduler
-  BuildDepends:       unix,threads,cohttp (>= 0.15.0),rpclib,rpclib.json,rpclib.syntax,message_switch
+  BuildDepends:       unix,threads,cohttp (>= 0.15.0),rpclib,rpclib.json,ppx_deriving_rpc,message_switch
 
 Library message_switch_server
   Build$:             flag(lwt)
@@ -68,7 +68,7 @@ Library message_switch_server
   Findlibparent:      message_switch
   Findlibname:        server
   Modules:            Clock, Relation, Q, Logging, Mswitch
-  BuildDepends:       lwt,sexplib,sexplib.syntax,mtime,mtime.os,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,message_switch,mirage-block-unix,shared-block-ring,cmdliner,io-page.unix
+  BuildDepends:       lwt,sexplib,ppx_sexp_conv,mtime,mtime.os,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,ppx_deriving_rpc,message_switch,mirage-block-unix,shared-block-ring,cmdliner,io-page.unix
 
 Executable m_cli
   CompiledObject:     best
