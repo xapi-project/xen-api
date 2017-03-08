@@ -13,7 +13,7 @@ Library xcp
   Findlibname:        xcp
   Modules:            Cohttp_posix_io, Posix_channel, Open_uri, Xcp_client, Xcp_service, Xcp_channel, Xcp_channel_protocol, Syslog, Debug
   CSources:           syslog_stubs.c
-  BuildDepends:       cmdliner, uri, re, cohttp, xmlm, unix, sexplib, sexplib.syntax, rpclib, rpclib.syntax, rpclib.xml, threads, message_switch (>= 0.11.0), message_switch.unix, fd-send-recv, xcp-inventory, xapi-backtrace
+  BuildDepends:       cmdliner, uri, re, cohttp, xmlm, unix, ppx_sexp_conv, sexplib, ppx_deriving_rpc, rpclib, rpclib.xml, threads, message_switch (>= 0.11.0), message_switch.unix, fd-send-recv, xcp-inventory, xapi-backtrace
 
 Library xcp_storage
   CompiledObject:     best
@@ -21,7 +21,7 @@ Library xcp_storage
   Findlibname:        storage
   Findlibparent:      xcp
   Modules:            Storage_interface, Vdi_automaton, Storage_client, Storage_skeleton, Storage_skeleton_test
-  BuildDepends:       xcp, threads, rpclib, rpclib.syntax
+  BuildDepends:       xcp, threads, rpclib
 
 Executable storage_test
   CompiledObject:     best
@@ -36,7 +36,7 @@ Library xcp_network
   Findlibname:        network
   Findlibparent:      xcp
   Modules:            Network_interface, Network_client, Network_stats
-  BuildDepends:       xcp, threads, rpclib, rpclib.syntax
+  BuildDepends:       xcp, threads, rpclib
 
 Library xcp_rrd
   CompiledObject:     best
@@ -44,7 +44,7 @@ Library xcp_rrd
   Findlibname:        rrd
   Findlibparent:      xcp
   Modules:            Data_source, Ds, Rrd_interface, Rrd_client
-  BuildDepends:       xcp, threads, rpclib, rpclib.syntax, rrd
+  BuildDepends:       xcp, threads, rpclib, rrd
 
 Library xcp_xen
   CompiledObject:     best
@@ -52,7 +52,7 @@ Library xcp_xen
   Findlibname:        xen
   Findlibparent:      xcp
   Modules:            Xenops_interface, Xenops_types, Xenops_client, Device_number
-  BuildDepends:       xcp, threads, rpclib, rpclib.syntax
+  BuildDepends:       xcp, threads, ppx_deriving_rpc, rpclib
 
 Library xcp_memory
   CompiledObject:     best
@@ -60,7 +60,7 @@ Library xcp_memory
   Findlibname:        memory
   Findlibparent:      xcp
   Modules:            Memory_interface, Memory_client
-  BuildDepends:       xcp, threads, rpclib, rpclib.syntax
+  BuildDepends:       xcp, threads, rpclib
 
 Library xapi_v6
   CompiledObject:     best
@@ -68,7 +68,7 @@ Library xapi_v6
   Findlibname:        v6
   Findlibparent:      xcp
   Modules:            V6_interface, V6_client
-  BuildDepends:       xcp, threads, rpclib, rpclib.syntax
+  BuildDepends:       xcp, threads, rpclib
 
 Executable channel_helper
   CompiledObject:     best

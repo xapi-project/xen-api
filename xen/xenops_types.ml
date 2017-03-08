@@ -6,12 +6,12 @@ module TopLevel = struct
     | Halted
     | Suspended
     | Paused
-  with sexp, rpc
+  [@@deriving sexp, rpc]
 
   type disk =
     | Local of string (** path to a local block device *)
     | VDI of string   (** typically "SR/VDI" *)
-  with sexp, rpc
+  [@@deriving sexp, rpc]
 end
 
 module Pci = struct
@@ -21,7 +21,7 @@ module Pci = struct
     dev: int;
     fn: int;
   }
-  with sexp, rpc
+  [@@deriving sexp, rpc]
 
 end
 
@@ -32,26 +32,26 @@ module Vgpu = struct
     high_gm_sz: int64;
     fence_sz: int64;
     monitor_config_file: string option;
-  } with sexp, rpc
+  } [@@deriving sexp, rpc]
 
   type nvidia = {
     physical_pci_address: Pci.address;
     config_file: string;
-  } with sexp, rpc
+  } [@@deriving sexp, rpc]
 
 end
 
 module Vm = struct
   type igd_passthrough =
     | GVT_d
-  with sexp, rpc
+  [@@deriving rpc, sexp]
 
   type video_card =
     | Cirrus
     | Standard_VGA
     | Vgpu
     | IGD_passthrough of igd_passthrough
-  with sexp, rpc
+  [@@deriving rpc, sexp]
 
   type hvm_info = {
     hap: bool;
@@ -69,7 +69,7 @@ module Vm = struct
     qemu_disk_cmdline: bool;
     qemu_stubdom: bool;
   }
-  with sexp, rpc
+  [@@deriving rpc, sexp]
 
   let default_video_card = Cirrus
 
@@ -95,7 +95,7 @@ module Vm = struct
     cmdline: string;
     ramdisk: string option;
   }
-  with sexp, rpc
+  [@@deriving rpc, sexp]
 
   let default_pv_direct_boot = {
     kernel = "";
@@ -110,7 +110,7 @@ module Vm = struct
     bootloader_args: string;
     devices: TopLevel.disk list;
   }
-  with sexp, rpc
+  [@@deriving rpc, sexp]
 
   let default_pv_indirect_boot = {
     bootloader = "";
@@ -123,7 +123,7 @@ module Vm = struct
   type pv_boot =
     | Direct of pv_direct_boot
     | Indirect of pv_indirect_boot
-  with sexp, rpc
+  [@@deriving rpc, sexp]
 
   let default_pv_boot = Direct default_pv_direct_boot
 
@@ -134,7 +134,7 @@ module Vm = struct
     vncterm: bool;
     vncterm_ip: string option;
   }
-  with sexp, rpc
+  [@@deriving rpc, sexp]
 
   let default_pv_info = {
     boot = default_pv_boot;
@@ -147,11 +147,11 @@ module Vm = struct
   type builder_info =
     | HVM of hvm_info
     | PV of pv_info
-  with sexp, rpc
+  [@@deriving rpc, sexp]
 
   let default_builder_info = HVM default_hvm_info
 
-  type id = string with sexp, rpc
+  type id = string [@@deriving rpc, sexp]
 
   let default_id = ""
 
@@ -160,14 +160,14 @@ module Vm = struct
     | Shutdown
     | Start
     | Pause
-  with sexp, rpc
+  [@@deriving rpc, sexp]
 
   let default_action = Coredump
 
   type scheduler_params = {
     priority: (int * int) option; (* weight, cap *)
     affinity: int list list (* vcpu -> pcpu list *)
-  } with sexp, rpc
+  } [@@deriving rpc, sexp]
 
   let default_scheduler_params = {
     priority = None;
@@ -196,7 +196,7 @@ module Vm = struct
     pci_msitranslate: bool;
     pci_power_mgmt: bool;
     has_vendor_device: bool;
-  } with sexp, rpc
+  } [@@deriving rpc, sexp]
 
   let default_t = {
     id = default_id;
@@ -226,13 +226,13 @@ module Vm = struct
   type console_protocol =
     | Rfb
     | Vt100
-  with sexp, rpc
+  [@@deriving rpc, sexp]
 
   type console = {
     protocol: console_protocol;
     port: int;
     path: string;
-  } with sexp, rpc
+  } [@@deriving rpc, sexp]
 
   type state = {
     power_state: TopLevel.power_state;
@@ -252,6 +252,6 @@ module Vm = struct
     hvm: bool;
     nomigrate: bool; (* true: VM must not migrate *)
     nested_virt: bool (* true: VM uses nested virtualisation *)
-  } with sexp, rpc
+  } [@@deriving rpc, sexp]
 
 end

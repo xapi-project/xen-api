@@ -41,7 +41,7 @@ module Common = struct
     verbose: bool;
     debug: bool;
     port: int;
-  } with rpc
+  } [@@deriving rpc]
 
   let make verbose debug port =
     { verbose; debug; port }
