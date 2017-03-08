@@ -1,6 +1,7 @@
 This software depends on:
 
   * OCaml
+  * OASIS
   * findlib
   * syslog
   * threads
@@ -11,6 +12,7 @@ This software depends on:
 
 To build:
 
+    oasis setup
     make
 
 To install:

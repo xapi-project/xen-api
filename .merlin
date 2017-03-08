@@ -1,4 +1,4 @@
-PKG stdext threads uuidm rpclib rpclib.syntax fd-send-recv xcp
+PKG stdext threads uuidm rpclib rpclib.json ppx_deriving_rpc fd-send-recv xcp
 S cli
 S lib
 S src
