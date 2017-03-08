@@ -207,7 +207,7 @@ module Common = struct
         verbose: bool;
         debug: bool;
         socket: string;
-	} with rpc
+	} [@@deriving rpc]
 
 	let make verbose debug socket queue =
 		begin match queue with
