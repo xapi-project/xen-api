@@ -12,10 +12,6 @@ OCAMLINCLUDES = ../idl ../idl/ocaml_backend \
 	../auth ../rfb \
 	../xapi-types ../xapi-client ../xapi-cli-protocol ../xapi-consts
 
-UseCamlp4(rpclib.syntax, storage_impl xapi_globs locking_helpers xapi_udhcpd storage_migrate \
-          xapi_services system_domains cancel_tests config_file_sync updates \
-          sparse_dd_wrapper vhd_tool_wrapper)
-
 CFLAGS += -std=gnu99 -Wall -Werror -I$(shell ocamlc -where)
 
 #XENLIGHT_LINK_FLAGS= -cclib -lxlutil -cclib -luuid -cclib -lblktapctl -cclib -lutil -cclib -lxenlight -cclib -lxenstore
@@ -44,7 +40,7 @@ OCAMLPACKS = $(OCAMLPACKS) $(XEN_OCAMLPACKS)
 OCamlProgram(http_test, http_test)
 OCamlProgram(show_bat, show_bat)
 
-OCamlProgram(storage_impl_test, locking_helpers xapi_globs sparse_encoding sparse_dd_wrapper storage_migrate storage_impl task_server updates storage_task storage_locks storage_impl_test)
+OCamlProgram(storage_impl_test, locking_helpers xapi_globs sparse_encoding sparse_dd_wrapper storage_migrate storage_impl task_server updates storage_task storage_locks storage_impl_test rpc_std_helpers)
 
 OCamlProgram(quicktestbin, quicktest quicktest_common xapi_globs quicktest_ocamltest quicktest_storage quicktest_http quicktest_vdi_copy quicktest_encodings quicktest_vm_placement vm_placement quicktest_vm_memory_constraints vm_memory_constraints quicktest_lifecycle sparse_encoding record_util)
 
@@ -67,6 +63,7 @@ XAPI_MODULES = \
 	xapi_mgmt_iface \
 	smint \
 	gpg \
+	rpc_std_helpers \
 	helpers \
 	at_least_once_more \
 	fileserver \

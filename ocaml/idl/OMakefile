@@ -6,10 +6,6 @@ OCAMLINCLUDES  = ocaml_backend ../database ../xapi-consts
 OCAMLPACKS     = xml-light2 sexpr xcp rpclib http-svr uuid
 OCAML_LIBS     = ../xapi-consts/xapi-consts
 
-CAMLP4_FILES = datamodel_types
-
-UseCamlp4(rpclib.syntax, $(CAMLP4_FILES))
-
 # -----------------------------------------------------------------------
 # Build datamodel library
 # -----------------------------------------------------------------------
