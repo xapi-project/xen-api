@@ -13,6 +13,7 @@ install: [
   [make "install" "BINDIR=%{bin}%"]
 ]
 remove: [
+  ["oasis" "setup"]
   [make "uninstall" "BINDIR=%{bin}%"]
   ["ocamlfind" "remove" "stdext"]
 ]
