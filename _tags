@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 2c22384c8337719c5d75ab0e5fc90afb)
+# DO NOT EDIT (digest: e05a6be8bb51317f3f3c21dac83a2d55)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -17,10 +17,10 @@ true: annot, bin_annot
 # Executable xapi_script_storage
 <main.{native,byte}>: pkg_async_inotify
 <main.{native,byte}>: pkg_message_switch.async
+<main.{native,byte}>: pkg_ppx_deriving_rpc
+<main.{native,byte}>: pkg_ppx_sexp_conv
 <main.{native,byte}>: pkg_rpclib
-<main.{native,byte}>: pkg_rpclib.syntax
 <main.{native,byte}>: pkg_sexplib
-<main.{native,byte}>: pkg_sexplib.syntax
 <main.{native,byte}>: pkg_threads
 <main.{native,byte}>: pkg_xapi-storage
 <main.{native,byte}>: pkg_xcp
@@ -28,10 +28,10 @@ true: annot, bin_annot
 <main.{native,byte}>: pkg_xcp.storage
 <*.ml{,i,y}>: pkg_async_inotify
 <*.ml{,i,y}>: pkg_message_switch.async
+<*.ml{,i,y}>: pkg_ppx_deriving_rpc
+<*.ml{,i,y}>: pkg_ppx_sexp_conv
 <*.ml{,i,y}>: pkg_rpclib
-<*.ml{,i,y}>: pkg_rpclib.syntax
 <*.ml{,i,y}>: pkg_sexplib
-<*.ml{,i,y}>: pkg_sexplib.syntax
 <*.ml{,i,y}>: pkg_threads
 <*.ml{,i,y}>: pkg_xapi-storage
 <*.ml{,i,y}>: pkg_xcp
