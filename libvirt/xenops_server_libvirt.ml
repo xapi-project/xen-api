@@ -79,7 +79,7 @@ module Domain = struct
 		active_vifs: Vif.id list;
 		pcis: Pci.t list;
 		last_create_time: float;
-	} with rpc
+	} [@@deriving rpc]
 
         module To_xml = struct
 		let tag_start ?(attr=[]) key output = Xmlm.output output (`El_start (("", key), List.map (fun (x, y) -> ("", x), y) attr))

@@ -101,7 +101,7 @@ type atomic =
 	| VM_delay of (Vm.id * float) (** used to suppress fast reboot loops *)
 	| Parallel of Vm.id * string * atomic list
 
-with rpc
+[@@deriving rpc]
 
 let string_of_atomic x = x |> rpc_of_atomic |> Jsonrpc.to_string
 
@@ -125,7 +125,7 @@ type operation =
 	| VBD_check_state of Vbd.id
 	| VIF_check_state of Vif.id
 	| Atomic of atomic
-with rpc
+[@@deriving rpc]
 
 let string_of_operation x = x |> rpc_of_operation |> Jsonrpc.to_string
 
@@ -501,8 +501,8 @@ module Redirector = struct
 		type q = {
 			tag: string;
 			items: operation list
-		} with rpc
-		type t = q list with rpc
+		} [@@deriving rpc]
+		type t = q list [@@deriving rpc]
 
 		let make () =
 			Mutex.execute m
@@ -637,7 +637,7 @@ module WorkerPool = struct
 			ctime: string;
 			dbg: string;
 			subtasks: (string * string) list;
-		} with rpc
+		} [@@deriving rpc]
 		let of_task t = {
 				id = t.Xenops_task.id;
 				ctime = t.Xenops_task.ctime |> Date.of_float |> Date.to_string;
@@ -647,8 +647,8 @@ module WorkerPool = struct
 		type w = {
 			state: string;
 			task: task option;
-		} with rpc
-		type t = w list with rpc
+		} [@@deriving rpc]
+		type t = w list [@@deriving rpc]
 		let make () =
 			Mutex.execute m
 				(fun () ->
@@ -2325,7 +2325,7 @@ module Diagnostics = struct
 		updates: Updates.Dump.t;
 		tasks: WorkerPool.Dump.task list;
 		vm_actions: (string * domain_action_request option) list;
-	} with rpc
+	} [@@deriving rpc]
 
 	let make () =
 		let module B = (val get_backend (): S) in {

@@ -26,7 +26,11 @@ setup.bin: setup.ml
 setup.data: setup.bin
 	@./setup.bin -configure $(ENABLE_TESTS) $(ENABLE_XEN) $(ENABLE_XENLIGHT) $(ENABLE_LIBVIRT) $(ENABLE_XENGUESTBIN)
 
-build: setup.data setup.bin version.ml
+_build/config.ml: config.ml
+	@mkdir -p _build
+	@cp config.ml _build/
+
+build: setup.data setup.bin version.ml _build/config.ml
 	@./setup.bin -build -j $(J)
 ifeq ($(ENABLE_XENLIGHT),--enable-xenlight)
 	ln -s ./xenops_xl_main.native xenopsd-xenlight || true

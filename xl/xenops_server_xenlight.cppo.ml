@@ -111,12 +111,12 @@ let run cmd args =
 type qemu_frontend =
 	| Name of string (* block device path or bridge name *)
 	| Device of Device_common.device
-with rpc
+[@@deriving rpc]
 
 type attached_vdi = {
 	domid: int;
 	attach_info: Storage_interface.attach_info;
-} with rpc
+} [@@deriving rpc]
 
 (* The following module contains left-overs from the "classic" domain.ml 
    Note: "has_vendor_device" parameter won't do anything for the libxl backend
@@ -131,20 +131,20 @@ module Domain = struct
 		platformdata: (string * string) list;
 		bios_strings: (string * string) list;
 		has_vendor_device: bool;
-	} with rpc
+	} [@@deriving rpc]
 
 	type build_hvm_info = {
 		shadow_multiplier: float;
 		video_mib: int;
-	} with rpc
+	} [@@deriving rpc]
 
 	type build_pv_info = {
 		cmdline: string;
 		ramdisk: string option;
-	} with rpc
+	} [@@deriving rpc]
 
 	type builder_spec_info = BuildHVM of build_hvm_info | BuildPV of build_pv_info
-	with rpc
+	[@@deriving rpc]
 
 	type build_info = {
 		memory_max: int64;    (* memory max in kilobytes *)
@@ -152,7 +152,7 @@ module Domain = struct
 		kernel: string;       (* in hvm case, point to hvmloader *)
 		vcpus: int;           (* vcpus max *)
 		priv: builder_spec_info;
-	} with rpc
+	} [@@deriving rpc]
 
 	let allowed_xsdata_prefixes = [ "vm-data"; "FIST" ]
 
@@ -238,7 +238,7 @@ module VmExtra = struct
 		last_start_time: float;
 		nomigrate: bool;  (* platform:nomigrate   at boot time *)
 		nested_virt: bool (* platform:nested_virt at boot time *)
-	} with rpc
+	} [@@deriving rpc]
 
 	type non_persistent_t = {
 		create_info: Domain.create_info;
@@ -252,12 +252,12 @@ module VmExtra = struct
 		pci_msitranslate: bool;
 		pci_power_mgmt: bool;
 		pv_drivers_detected: bool;
-	} with rpc
+	} [@@deriving rpc]
 
 	type t = {
 		persistent: persistent_t;
 		non_persistent: non_persistent_t;
-	} with rpc
+	} [@@deriving rpc]
 
 	let default_persistent_t =
 		{ build_info = None
@@ -528,7 +528,7 @@ let device_by_id xs vm kind domain_selection id =
 				raise (Device_not_connected)
 
 (* Extra keys to store in VBD backends to allow us to deactivate VDIs: *)
-type backend = disk option with rpc
+type backend = disk option [@@deriving rpc]
 let _vdi_id = "vdi-id"
 let _dp_id = "dp-id"
 
@@ -2208,7 +2208,7 @@ module VM = struct
 								boot = Some hvm_info.Xenops_interface.Vm.boot_order;
 								usb = Some true;
 								usbdevice_list = [ "tablet" ];
-#if xen45
+#if xen45 = 1
 								serial_list = begin
 									match hvm_info.Xenops_interface.Vm.serial with 
 									| Some x -> [x] | None -> []

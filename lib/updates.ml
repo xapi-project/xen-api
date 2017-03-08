@@ -136,13 +136,13 @@ type rpcable_barrier_t = {
 	bar_id: int;
 	u_snap: (Interface.Dynamic.id * int) list;
 	event_id: int
-} with rpc
+} [@@deriving rpc]
 
 type rpcable_t = {
 	u' : (Interface.Dynamic.id * int) list;
 	b: rpcable_barrier_t list;
 	next : int;
-} with rpc
+} [@@deriving rpc]
 
 let rpc_of_t t =
 	let get_u u = U.M.fold (fun x y acc -> (x,y)::acc) u [] in
@@ -252,13 +252,13 @@ module Dump = struct
 	type u = {
 		id: int;
 		v: string;
-	} with rpc
+	} [@@deriving rpc]
 	type t = {
 		updates: u list;
 		barriers : (int * int * (u list)) list;
 		(* In barriers, first int is token id of barrier;
 		 * second int is event id of snapshot (from "next") *)
-	} with rpc
+	} [@@deriving rpc]
 	let make_list updates = 
 		U.M.fold (fun key v acc -> { id = v; v = (key |> Interface.Dynamic.rpc_of_id |> Jsonrpc.to_string) } :: acc) updates []
 	let make_raw u =

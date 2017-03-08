@@ -34,7 +34,7 @@ module Xenops_record = struct
 		(* All additional fields below should use the sexp_option extension *)
 		vm_str: string sexp_option;
 		xs_subtree: (string * string) list sexp_option;
-	} with sexp
+	} [@@deriving sexp]
 
 	let make ?vm_str ?xs_subtree () =
 		let time = Stdext.Date.(to_string (of_float (Unix.time ()))) in
