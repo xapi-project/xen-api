@@ -61,7 +61,7 @@ let type_decl env t =
   [
     Line (sprintf "type %s =" t.TyDecl.name);
     Block [ typeof ~expand_aliases:true env t.TyDecl.ty ];
-    Line "with rpc";
+    Line "[@@deriving rpc]";
     Line (sprintf "(** %s *)" t.TyDecl.description);
   ]
 
@@ -109,7 +109,7 @@ let exn_decl env e =
   [
     Line (sprintf "type %s =" (String.lowercase e.TyDecl.name));
     Block [ typeof ~expand_aliases:true env e.TyDecl.ty ];
-    Line "with rpc";
+    Line "[@@deriving rpc]";
     Line (sprintf "exception %s of %s" e.TyDecl.name (String.concat " * " (List.map Type.ocaml_of_t args)));
     Line (sprintf "(** %s *)" e.TyDecl.description);
   ]
@@ -213,7 +213,7 @@ let rpc_of_interfaces env is =
           Block [
             Line "type t = {";
             Block (List.concat (List.map field_of_arg m.Method.inputs));
-            Line "} with rpc";
+            Line "} [@@deriving rpc]";
             Line (Printf.sprintf "let make %s = { %s }"
               (String.concat " " (List.map (fun a -> a.Arg.name) m.Method.inputs))
               (String.concat "; " (List.map (fun a -> a.Arg.name ^ " = " ^ a.Arg.name) m.Method.inputs))
@@ -227,10 +227,10 @@ let rpc_of_interfaces env is =
           | [ x ] -> Block [
             Line "type t = ";
             Block [ typeof env x.Arg.ty ];
-            Line "with rpc";
+            Line "[@@deriving rpc]";
             ]
           | [] ->
-            Line "type t = unit with rpc"
+            Line "type t = unit [@@deriving rpc]"
           | _ -> failwith (Printf.sprintf "%s.%s has output arity <> 0, 1: rpc-light can't cope" i.Interface.name m.Method.name)
         );
         Line "end";
@@ -262,7 +262,7 @@ let rpc_of_interfaces env is =
       Block ([
           Line "type t =";
           Block (List.map (fun m -> Line(sprintf "| %s of %s.%s.t" (String.capitalize m.Method.name) (String.capitalize m.Method.name) direction)) i.Interface.methods);
-          Line "with rpc";
+          Line "[@@deriving rpc]";
 
         ] @ (
             if direction = "In" then [

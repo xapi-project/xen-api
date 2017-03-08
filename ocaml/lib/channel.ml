@@ -8,9 +8,9 @@ type protocol =
   | TCP_proxy of string * int             (** IP, port *)
   | V4V_proxy of int * int                (** domid, port *)
   | Unix_sendmsg of int * string * string (** domid, path, token *)
-with rpc
+[@@deriving rpc]
 
-type protocols = protocol list with rpc
+type protocols = protocol list [@@deriving rpc]
 
 let _proxy = "/usr/local/bin/proxy"
 

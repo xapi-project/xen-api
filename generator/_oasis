@@ -13,4 +13,4 @@ Executable storage_test
   Custom:             true
   CompiledObject:     best
   Install:            false
-  BuildDepends:       cow, cow.syntax, xmlm, unix
+  BuildDepends:       cow, xmlm, unix
