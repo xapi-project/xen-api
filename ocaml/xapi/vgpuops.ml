@@ -104,7 +104,6 @@ let add_pcis_to_vm ~__context host vm pci =
   (* Add a hotplug ordering (see pcidevs_of_pci) *)
   let devs : ((int * (int * int * int * int))) list = List.rev (snd (List.fold_left (fun (i, acc) pci -> i + 1, (i, pci) :: acc) (0, []) devs)) in
   (* Update VM other_config for PCI passthrough *)
-  (try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci with _ -> ());
   let value = String.concat "," (List.map Pciops.to_string devs) in
   Db.VM.add_to_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci ~value
 
@@ -128,6 +127,7 @@ let reserve_free_virtual_function ~__context vm pf =
 
 let add_vgpus_to_vm ~__context host vm vgpus vgpu_manual_setup =
   (* Only support a maximum of one virtual GPU per VM for now. *)
+  (try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci with _ -> ());
   match vgpus with
   | [] -> ()
   | vgpu :: _ ->
