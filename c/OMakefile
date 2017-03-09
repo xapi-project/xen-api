@@ -32,7 +32,6 @@ API_MAJOR=2
 API_MINOR=6
 API_VER=$(API_MAJOR).$(API_MINOR)
 
-C_GEN_FOLDER=$(BINDINGS_TMP)/c_gen
 C_SRC_TMP_FOLDER=$(BINDINGS_TMP)/libxenserver
 SDK_C_FOLDER=$(SDK_FOLDER)/libxenserver
 C_BIN_FOLDER=$(SDK_C_FOLDER)/bin/
@@ -52,13 +51,13 @@ c_source: gen_c_binding
   mkdir -p $(C_SRC_TMP_FOLDER)/include
   mkdir -p $(C_SRC_TMP_FOLDER)/src
   mkdir -p $(C_SRC_TMP_FOLDER)/test
-  rm -Rf $(C_GEN_FOLDER)
-  mkdir -p $(C_GEN_FOLDER)
-  ./gen_c_binding -d $(C_GEN_FOLDER)
-  (cd $(C_GEN_FOLDER) && patch -p0 <$(COMPAT_PATCH))
-  cp -r $(C_GEN_FOLDER)/xen $(C_SRC_TMP_FOLDER)/include
-  cp $(C_GEN_FOLDER)/*.h $(C_SRC_TMP_FOLDER)/include
-  cp $(C_GEN_FOLDER)/*.c $(C_SRC_TMP_FOLDER)/src
+  rm -Rf autogen
+  mkdir -p autogen
+  ./gen_c_binding -d autogen
+  (cd autogen && patch -p0 <$(COMPAT_PATCH))
+  cp -r autogen/xen $(C_SRC_TMP_FOLDER)/include
+  cp autogen/*.h $(C_SRC_TMP_FOLDER)/include
+  cp autogen/*.c $(C_SRC_TMP_FOLDER)/src
   sed -e s/@LIB_MAJOR@/$(API_MAJOR)/g -e s/@LIB_MINOR@/$(API_MINOR)/g -e s/@LIB_NAME@/xenserver/g Makefile.dist > $(C_SRC_TMP_FOLDER)/Makefile
   cp xen_internal.h $(C_SRC_TMP_FOLDER)/include
   cp xen_common.h xen_string_set.h xen_int_set.h $(C_SRC_TMP_FOLDER)/include/xen/api
@@ -82,3 +81,4 @@ c_folders: c_binaries c_source
 .PHONY: clean
 clean:
   rm -f $(CLEAN_OBJS) gen_c_binding
+  rm -rf autogen

@@ -32,12 +32,13 @@ OCamlProgram(gen_powershell_binding, gen_powershell_binding common_functions ../
 
 .PHONY: gen_powershell_bindings
 gen_powershell_bindings: gen_powershell_binding
-	rm -Rf $(POWERSHELL_GEN)
-	mkdir -p $(POWERSHELL_GEN)
-	./gen_powershell_binding $(POWERSHELL_GEN)
+	rm -rf autogen
+	mkdir -p autogen
+	./gen_powershell_binding autogen
 
 .PHONY: clean
 clean:
   rm -f $(CLEAN_OBJS) gen_powershell_binding
+  rm -rf autogen
 
 .DEFAULT: gen_powershell_bindings

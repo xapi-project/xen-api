@@ -34,12 +34,13 @@ OCamlProgram(gen_csharp_binding, gen_csharp_binding ../friendly_error_names ../l
 
 .PHONY: gen_gui_csharp_bindings
 gen_gui_csharp_bindings: gen_csharp_binding $(SR_XML)
-	rm -Rf $(CSHARP_GEN)
-	mkdir -p $(CSHARP_GEN)
-	./gen_csharp_binding -s $(SR_XML) -d $(CSHARP_GEN)
+	rm -rf autogen
+	mkdir -p autogen
+	./gen_csharp_binding -s $(SR_XML) -d autogen
 
 .PHONY: clean
 clean:
   rm -f $(CLEAN_OBJS) gen_csharp_binding
+  rm -rf autogen
 
 .DEFAULT: gen_csharp_binding
