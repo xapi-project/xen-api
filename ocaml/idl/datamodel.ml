@@ -7080,7 +7080,8 @@ let pool_set_vswitch_controller = call
     ~in_product_since:rel_midnight_ride
     ~lifecycle:[
       Published, rel_midnight_ride, "Set the IP address of the vswitch controller.";
-      Extended, rel_cowley, "Allow to be set to the empty string (no controller is used)."]
+      Extended, rel_cowley, "Allow to be set to the empty string (no controller is used).";
+      Deprecated, rel_falcon, "Deprecated: use 'SDN_controller.introduce' and 'SDN_controller.forget' instead."]
     ~name:"set_vswitch_controller"
     ~params:[String, "address", "IP address of the vswitch controller."]
     ~doc:"Set the IP address of the vswitch controller."
@@ -7295,7 +7296,10 @@ let pool =
        ; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_verify_cert" "true if communication with the WLB server should enforce SSL certificate verification."
        ; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "redo_log_enabled" "true a redo-log is to be used other than when HA is enabled, false otherwise"
        ; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Ref _vdi) ~default_value:(Some (VRef null_ref)) "redo_log_vdi" "indicates the VDI to use for the redo-log other than when HA is enabled"
-       ; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "vswitch_controller" "address of the vswitch controller"
+       ; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "vswitch_controller" "address of the vswitch controller"
+           ~lifecycle:[
+             Published, rel_midnight_ride, "the IP address of the vswitch controller.";
+             Deprecated, rel_falcon, "Deprecated: set the IP address of the vswitch controller in SDN_controller instead."]
        ; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "restrictions" "Pool-wide restrictions currently in effect"
        ; field ~in_oss_since:None ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) "metadata_VDIs" "The set of currently known metadata VDIs for this pool"
        ; field ~in_oss_since:None ~in_product_since:rel_dundee ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String "ha_cluster_stack" "The HA cluster stack that is currently in use. Only valid when HA is enabled."

@@ -1709,7 +1709,11 @@ let set_vswitch_controller ~__context ~address =
       if address <> "" then
         Helpers.assert_is_valid_ip `ipv4 "address" address;
       Db.Pool.set_vswitch_controller ~__context ~self:pool ~value:address;
-      List.iter (fun host -> Helpers.update_vswitch_controller ~__context ~host) (Db.Host.get_all ~__context)
+      let sdn_controllers = Db.SDN_controller.get_all ~__context in
+      if sdn_controllers <> [] then
+        Xapi_sdn_controller.forget ~__context ~self:(List.hd sdn_controllers);
+      if address <> "" then
+        ignore (Xapi_sdn_controller.introduce ~__context ~protocol:`ssl ~address:address ~port:6632L);
     end
   | _ -> raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["host not configured for vswitch operation"]))
 
