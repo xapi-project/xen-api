@@ -636,7 +636,7 @@ module Vendor_amd = struct
         vendor_name;
         model_name = conf.model_name;
         framebuffer_size = conf.identifier.framebufferbytes;
-        max_heads = 1L;
+        max_heads = 0L;
         max_resolution_x = 0L;
         max_resolution_y = 0L;
         size = vgpu_size;
