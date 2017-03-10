@@ -1098,8 +1098,12 @@ let pool_disable_redo_log printer rpc session_id params =
   Client.Pool.disable_redo_log ~rpc ~session_id
 
 let pool_set_vswitch_controller printer rpc session_id params =
-  let address = List.assoc "address" params in
-  Client.Pool.set_vswitch_controller ~rpc ~session_id ~address
+  let address = try List.assoc "address" params with _ -> "" in
+  let port = try Int64.of_string (List.assoc "port-num" params) with _ -> 0L in
+  let protocol_str = try List.assoc "protocol" params with _ -> "" in
+  let protocol = Helpers.vswitch_protocol_of_string protocol_str in
+  debug "port: %Ld protocol: %s address: %s" port protocol_str address;
+  Client.Pool.set_vswitch_controller ~rpc ~session_id ~address ~port ~protocol
 
 let pool_enable_ssl_legacy printer rpc session_id params =
   let self = get_pool_with_default rpc session_id params "uuid" in
