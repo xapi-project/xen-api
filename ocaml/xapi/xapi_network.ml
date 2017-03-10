@@ -14,6 +14,7 @@
 open Stdext
 open Threadext
 open Client
+open Xstringext
 
 module D=Debug.Make(struct let name="xapi" end)
 open D
@@ -21,7 +22,19 @@ open D
 open Db_filter
 open Network
 
+let bridge_blacklist = [
+    "xen";
+    "xapi";
+    "vif";
+    "tap";
+    "eth";
+]
+
 let internal_bridge_m = Mutex.create ()
+
+let assert_network_is_managed ~__context ~self =
+   if not (Db.Network.get_managed ~__context ~self) then
+    raise (Api_errors.Server_error (Api_errors.network_unmanaged, [ Ref.string_of self ]))
 
 let create_internal_bridge ~__context ~bridge ~uuid ~persist =
   let dbg = Context.string_of_task __context in
@@ -79,39 +92,48 @@ let attach_internal ?(management_interface=false) ~__context ~self () =
   let local_pifs = Xapi_network_attach_helpers.get_local_pifs ~__context ~network:self ~host in
   let persist = try List.mem_assoc "persist" net.API.network_other_config with _ -> false in
 
-  (* Ensure internal bridge exists and is up. external bridges will be
-     	   brought up by call to interface-reconfigure. *)
-  if List.length(local_pifs) = 0 then create_internal_bridge ~__context
-      ~bridge:net.API.network_bridge ~uuid:net.API.network_uuid ~persist;
+  (* Check whether the network is managed or not. If not, the only thing that it must do is check whether the bridge exists.*)
+  if not net.API.network_managed then begin
+    let dbg = Context.string_of_task __context in
+    let bridges = Net.Bridge.get_all dbg () in
+    if not(List.mem net.API.network_bridge bridges) then
+       raise (Api_errors.Server_error (Api_errors.bridge_not_available, [ net.API.network_bridge ]));
+  end
+  else begin
+    (* Ensure internal bridge exists and is up. external bridges will be
+           brought up by call to interface-reconfigure. *)
+    if List.length(local_pifs) = 0 then create_internal_bridge ~__context
+        ~bridge:net.API.network_bridge ~uuid:net.API.network_uuid ~persist;
 
-  (* Check if we're a Host-Internal Management Network (HIMN) (a.k.a. guest-installer network) *)
-  if (List.mem_assoc Xapi_globs.is_guest_installer_network net.API.network_other_config)
-  && (List.assoc Xapi_globs.is_guest_installer_network net.API.network_other_config = "true") then
-    set_himn_ip ~__context net.API.network_bridge net.API.network_other_config;
+    (* Check if we're a Host-Internal Management Network (HIMN) (a.k.a. guest-installer network) *)
+    if (List.mem_assoc Xapi_globs.is_guest_installer_network net.API.network_other_config)
+    && (List.assoc Xapi_globs.is_guest_installer_network net.API.network_other_config = "true") then
+      set_himn_ip ~__context net.API.network_bridge net.API.network_other_config;
 
-  (* Create the new PIF.
-     	   NB if we're doing this as part of a management-interface-reconfigure then
-     	   we might be just about to loose our current management interface... *)
-  List.iter (fun pif ->
-      let uuid = Db.PIF.get_uuid ~__context ~self:pif in
-      if Db.PIF.get_managed ~__context ~self:pif then begin
-        if Db.PIF.get_currently_attached ~__context ~self:pif = false || management_interface then begin
-          Xapi_network_attach_helpers.assert_no_slave ~__context pif;
-          debug "Trying to attach PIF: %s" uuid;
-          Nm.bring_pif_up ~__context ~management_interface pif
-        end
-      end else
-      if management_interface then
-        info "PIF %s is the management interface, but it is not managed by xapi. \
-              					The bridge and IP must be configured through other means." uuid
-      else
-        info "PIF %s is needed by a VM, but not managed by xapi. \
-              					The bridge must be configured through other means." uuid
-    ) local_pifs
+    (* Create the new PIF.
+           NB if we're doing this as part of a management-interface-reconfigure then
+           we might be just about to loose our current management interface... *)
+    List.iter (fun pif ->
+        let uuid = Db.PIF.get_uuid ~__context ~self:pif in
+        if Db.PIF.get_managed ~__context ~self:pif then begin
+          if Db.PIF.get_currently_attached ~__context ~self:pif = false || management_interface then begin
+            Xapi_network_attach_helpers.assert_no_slave ~__context pif;
+            debug "Trying to attach PIF: %s" uuid;
+            Nm.bring_pif_up ~__context ~management_interface pif
+          end
+        end else
+        if management_interface then
+          info "PIF %s is the management interface, but it is not managed by xapi. \
+                          The bridge and IP must be configured through other means." uuid
+        else
+          info "PIF %s is needed by a VM, but not managed by xapi. \
+                          The bridge must be configured through other means." uuid
+      ) local_pifs
+  end
 
-let detach ~__context bridge_name =
+let detach ~__context ~bridge_name ~managed =
   let dbg = Context.string_of_task __context in
-  if Net.Interface.exists dbg ~name:bridge_name then begin
+  if managed && Net.Interface.exists dbg ~name:bridge_name then begin
     List.iter (fun iface ->
         D.warn "Untracked interface %s exists on bridge %s: deleting" iface bridge_name;
         Net.Interface.bring_down dbg ~name:iface;
@@ -136,6 +158,7 @@ let register_vif ~__context vif =
 let deregister_vif ~__context vif =
   let network = Db.VIF.get_network ~__context ~self:vif in
   let bridge = Db.Network.get_bridge ~__context ~self:network in
+  let managed = Db.Network.get_managed ~__context ~self:network in
   let internal_only = Db.Network.get_PIFs ~__context ~self:network = [] in
   Mutex.execute active_vifs_to_networks_m
     (fun () ->
@@ -152,7 +175,7 @@ let deregister_vif ~__context vif =
            let dbg = Context.string_of_task __context in
            let ifs = Net.Bridge.get_interfaces dbg ~name:bridge in
            if ifs = []
-           then detach ~__context bridge
+           then detach ~__context ~bridge_name:bridge ~managed
            else error "Cannot remove bridge %s: other interfaces still present [ %s ]" bridge (String.concat "; " ifs)
          end
        end
@@ -162,31 +185,45 @@ let counter = ref 0
 let mutex = Mutex.create ()
 let stem = "xapi"
 
-let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge =
+let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed =
   let r = Ref.make() and uuid = Uuid.make_uuid() in
   Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
     ~current_operations:[] ~allowed_operations:[]
-    ~name_label ~name_description ~mTU ~bridge
+    ~name_label ~name_description ~mTU ~bridge ~managed
     ~other_config ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked ~assigned_ips:[];
   r
 
-let create ~__context ~name_label ~name_description ~mTU ~other_config ~tags =
+let rec choose_bridge_name bridges =
+  let name = stem ^ (string_of_int !counter) in
+  incr counter;
+  if List.mem name bridges then
+    choose_bridge_name bridges
+  else
+    name
+
+let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed ~tags =
   Mutex.execute mutex (fun () ->
       let networks = Db.Network.get_all ~__context in
       let bridges = List.map (fun self -> Db.Network.get_bridge ~__context ~self) networks in
       let mTU = if mTU <= 0L then 1500L else mTU in
-      let rec loop () =
-        let name = stem ^ (string_of_int !counter) in
-        incr counter;
-        if List.mem name bridges then loop ()
-        else
-          let r = Ref.make () and uuid = Uuid.make_uuid () in
-          Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
-            ~current_operations:[] ~allowed_operations:[]
-            ~name_label ~name_description ~mTU ~bridge:name
-            ~other_config ~blobs:[] ~tags ~default_locking_mode:`unlocked ~assigned_ips:[];
-          r in
-      loop ())
+      let bridge =
+        if bridge = "" then
+          choose_bridge_name bridges
+        else begin
+          if String.length bridge > 15 || List.exists (fun s -> String.startswith s bridge) bridge_blacklist then
+            raise (Api_errors.Server_error (Api_errors.invalid_value, [ "bridge"; bridge ]));
+          if List.mem bridge bridges then
+            raise (Api_errors.Server_error (Api_errors.bridge_name_exists, [ bridge ]));
+          bridge
+        end
+      in
+      let r = Ref.make () and uuid = Uuid.make_uuid () in
+      Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
+        ~current_operations:[] ~allowed_operations:[]
+        ~name_label ~name_description ~mTU ~bridge ~managed
+        ~other_config ~blobs:[] ~tags ~default_locking_mode:`unlocked ~assigned_ips:[];
+      r
+    )
 
 let destroy ~__context ~self =
   let vifs = Db.Network.get_VIFs ~__context ~self in
@@ -286,4 +323,3 @@ let with_networks_attached_for_vm ~__context ?host ~vm f =
         error "Caught %s while detaching networks" (string_of_exn e)
     end;
     raise e
-
