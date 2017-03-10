@@ -1061,8 +1061,8 @@ let copy_snapshot_metadata rpc session_id ?lookup_table ~src_record ~dst_ref =
 
 let update_vswitch_controller ~__context ~host =
   try call_api_functions ~__context (fun rpc session_id ->
-      let result = Client.Client.Host.call_plugin ~rpc ~session_id ~host ~plugin:"openvswitch-cfg-update" ~fn:"update" ~args:[] in
-      debug "openvswitch-cfg-update(on %s): %s"
+      let result = Client.Client.Host.call_plugin ~rpc ~session_id ~host ~plugin:"openvswitch-config-update" ~fn:"update" ~args:[] in
+      debug "openvswitch-config-update(on %s): %s"
         (Db.Host.get_name_label ~__context ~self:host)
         result)
   with e ->
@@ -1071,11 +1071,10 @@ let update_vswitch_controller ~__context ~host =
       (Db.Host.get_name_label ~__context ~self:host)
 
 let assert_vswitch_controller_not_active ~__context =
-  let pool = get_pool ~__context in
-  let controller = Db.Pool.get_vswitch_controller ~__context ~self:pool in
+  let sdn_controllers = Db.SDN_controller.get_all ~__context in
   let dbg = Context.string_of_task __context in
   let backend = Net.Bridge.get_kind dbg () in
-  if (controller <> "") && (backend = Network_interface.Openvswitch) then
+  if (sdn_controllers <> []) && (backend = Network_interface.Openvswitch) then
     raise (Api_errors.Server_error (Api_errors.operation_not_allowed, ["A vswitch controller is active"]))
 
 (* use the database rather than networkd so we can unit test the PVS functions that use this *)

@@ -52,6 +52,8 @@ let clearwater = Datamodel.clearwater_release_schema_major_vsn, Datamodel.clearw
 let creedence = Datamodel.creedence_release_schema_major_vsn, Datamodel.creedence_release_schema_minor_vsn
 let cream = Datamodel.cream_release_schema_major_vsn, Datamodel.cream_release_schema_minor_vsn
 let dundee = Datamodel.dundee_release_schema_major_vsn, Datamodel.dundee_release_schema_minor_vsn
+let ely = Datamodel.ely_release_schema_major_vsn, Datamodel.ely_release_schema_minor_vsn
+let falcon = Datamodel.falcon_release_schema_major_vsn, Datamodel.falcon_release_schema_minor_vsn
 
 (* This is to support upgrade from Dundee tech-preview versions *)
 let vsn_with_meaningful_has_vendor_device = Datamodel.meaningful_vm_has_vendor_device_schema_major_vsn, Datamodel.meaningful_vm_has_vendor_device_schema_minor_vsn
@@ -492,6 +494,18 @@ let upgrade_recommendations_for_gpu_passthru = {
       ) (Db.VM.get_all ~__context)
 }
 
+let upgrade_vswitch_controller = {
+  description = "Upgrading vswitch controller settings";
+  version = (fun x -> x <= falcon);
+  fn = fun ~__context ->
+    if Db.SDN_controller.get_all ~__context = [] then
+    begin
+      let pool = List.hd (Db.Pool.get_all ~__context) in
+      let address = Db.Pool.get_vswitch_controller ~__context ~self:pool in
+      ignore (Xapi_sdn_controller.introduce ~__context ~protocol:`ssl ~address ~port:6632L)
+    end
+}
+
 let rules = [
   upgrade_alert_priority;
   update_mail_min_priority;
@@ -513,6 +527,7 @@ let rules = [
   default_pv_drivers_detected_false;
   remove_restricted_pbd_keys;
   upgrade_recommendations_for_gpu_passthru;
+  upgrade_vswitch_controller;
 ]
 
 (* Maybe upgrade most recent db *)
