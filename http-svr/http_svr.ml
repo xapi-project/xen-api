@@ -547,7 +547,7 @@ let read_body ?limit req bio =
 	| Some length ->
 		let length = Int64.to_int length in
 		maybe (fun l -> if length > l then raise Client_requested_size_over_limit) limit;
-		if Buf_io.get_data bio = "" then Unixext.really_read_string (Buf_io.fd_of bio) length
+		if Buf_io.is_buffer_empty bio then Unixext.really_read_string (Buf_io.fd_of bio) length
 		else Buf_io.really_input_buf ~timeout:Buf_io.infinite_timeout bio length
 
 module Chunked = struct
