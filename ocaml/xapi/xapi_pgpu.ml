@@ -113,7 +113,6 @@ let is_local_pgpu ~__context (pci_ref, pci_rec) =
   let localhost = Helpers.get_localhost ~__context in
   pci_rec.Db_actions.pCI_host = localhost
   && Xapi_pci.(is_class_of_kind Display_controller (int_of_id (pci_rec.Db_actions.pCI_class_id)))
-  && pci_rec.Db_actions.pCI_physical_function = Ref.null (* Ignore PCIs known to be VFs: we don't want PGPUs for them. *)
   && not (mxgpu_set_phys_fn_ref ~__context pci_ref pci_rec) (* Ignore PCIs discovered to be Virtual Functions. *)
 
 (* Makes DB match reality for pgpus on local host *)
