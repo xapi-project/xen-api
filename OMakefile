@@ -29,102 +29,15 @@
 #
 
 USE_OCAMLFIND = true
-
-SUPPORT_CS = csharp/src/*.cs
-
-POWERSHELL_TMP=$(BINDINGS_TMP)/XenServerPowerShell
-CSHARP_SRC_TMP=$(BINDINGS_TMP)/XenServer.NET-src/XenServer.NET
-CSHARP_BIN_TMP=$(BINDINGS_TMP)/XenServer.NET-bin/XenServer.NET
-CSHARP_GUI_TMP=$(BINDINGS_TMP)/XenCenterBindings/XenServer.NET
-CSHARP_SAM_TMP=$(BINDINGS_TMP)/XenServer.NET-sam/XenServer.NET
-READMES_TMP=$(BINDINGS_TMP)/READMES
-
 OCAMLINCLUDES += ..
 OCAMLFLAGS += -dtypes -thread
 OCAMLPACKS += rpclib getopt xmlm xml-light2 uuid stdext xcp unix str xapi-datamodel
 
 .SUBDIRS: powershell csharp c java
 
-Flip(dir) =
-	cd $(dir) && sh $(shell readlink -f $(ROOT))/windows-line-endings.sh
-
-ZipUp(dir, dest) =
-	d = $(basename $(dest))
-	cd $(dir)/.. && zip -q -r9 $(d) $(basename $(dir)) && mv $(d) $(dest)
-
-InstallLicence(dir) =
-	$(INSTALL) $(XMLRPCLICENSE) $(dir)/LICENSE.CookComputing.XmlRpcV2.txt
-	$(INSTALL) LICENSE $(dir)/LICENSE.txt
-
-InstallAndBrand(sourcefile, targetfile) =
-	$(INSTALL) $(sourcefile) $(targetfile)
-	sed -i -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' $(targetfile)
-
-.PHONY: csharp_src
-csharp_src: gen_gui_csharp_bindings
-	mkdir -p $(CSHARP_SRC_TMP)/Properties
-	mv csharp/autogen/XenObjectDownloader.cs csharp/autogen/XenObjectDownloader.tmp
-	sh csharp/subst-autogen-csproj.sh csharp/autogen csharp/src/XenServer.csproj $(CSHARP_SRC_TMP)/XenServer.csproj
-	$(INSTALL) csharp/autogen/*.cs $(CSHARP_SRC_TMP)
-	$(INSTALL) csharp/autogen/FriendlyErrorNames.resx $(CSHARP_SRC_TMP)
-	$(INSTALL) $(SUPPORT_CS) $(CSHARP_SRC_TMP)
-	mv $(CSHARP_SRC_TMP)/AssemblyInfo.cs $(CSHARP_SRC_TMP)/Properties/AssemblyInfo.cs
-	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION).0/g' $(CSHARP_SRC_TMP)/Properties/AssemblyInfo.cs
-	mv csharp/autogen/XenObjectDownloader.tmp csharp/autogen/XenObjectDownloader.cs
-	InstallLicence($(CSHARP_SRC_TMP))
-	Flip($(CSHARP_SRC_TMP))
-	mkdir -p $(SDK_NET_FOLDER)/src && cp -r $(CSHARP_SRC_TMP)/* $(SDK_NET_FOLDER)/src
-
-.PHONY: csharp_samples
-csharp_samples:
-	mkdir -p $(CSHARP_SAM_TMP)
-	$(INSTALL) csharp/samples/XenSdkSample.sln $(CSHARP_SAM_TMP)
-	foreach(example, GetVariousRecords GetVmRecords VmPowerStates)
-		mkdir -p $(CSHARP_SAM_TMP)/$(example)/Properties
-		$(INSTALL) csharp/samples/$(example)/Properties/AssemblyInfo.cs $(CSHARP_SAM_TMP)/$(example)/Properties
-		$(INSTALL) csharp/samples/$(example)/$(example).csproj $(CSHARP_SAM_TMP)/$(example)
-		$(INSTALL) csharp/samples/$(example)/Program.cs $(CSHARP_SAM_TMP)/$(example)
-	InstallLicence($(CSHARP_SAM_TMP))
-	Flip($(CSHARP_SAM_TMP))
-	mkdir -p $(SDK_NET_FOLDER)/samples && cp -r $(CSHARP_SAM_TMP)/* $(SDK_NET_FOLDER)/samples
-
-.PHONY: csharp_gui
-csharp_gui: gen_gui_csharp_bindings
-	mkdir -p $(CSHARP_GUI_TMP)
-	$(INSTALL) csharp/autogen/*.cs $(CSHARP_GUI_TMP)
-	$(INSTALL) csharp/autogen/FriendlyErrorNames.resx $(CSHARP_GUI_TMP)
-	$(INSTALL) $(SUPPORT_CS) $(CSHARP_GUI_TMP)
-	rm $(CSHARP_GUI_TMP)/AssemblyInfo.cs
-	Flip($(CSHARP_GUI_TMP))
-	ZipUp($(CSHARP_GUI_TMP), $(BINDINGS_TMP)/XenCenterBindings.zip)
-
-.PHONY: powershell_src
-powershell_src: csharp_src gen_powershell_bindings
-	mkdir -p $(POWERSHELL_TMP)
-	$(INSTALL) powershell/src/*.cs $(POWERSHELL_TMP)
-	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION)/g' $(POWERSHELL_TMP)/AssemblyInfo.cs
-	sed -i -e 's/1000/$(SDK_VERSION).0/g' $(POWERSHELL_TMP)/AssemblyInfo.cs
-	$(INSTALL) powershell/autogen/* $(POWERSHELL_TMP)
-	InstallAndBrand(powershell/about_XenServer.help.txt, $(POWERSHELL_TMP)/about_XenServer.help.txt)
-	InstallLicence($(POWERSHELL_TMP))
-	Flip($(POWERSHELL_TMP))
-	mkdir -p $(SDK_PS_FOLDER)/src && cp $(POWERSHELL_TMP)/* $(SDK_PS_FOLDER)/src
-
-.PHONY: csharp_ps_readmes
-csharp_ps_readmes:
-	mkdir -p $(READMES_TMP)
-	InstallAndBrand(csharp/README.dist, $(READMES_TMP)/README.net.txt)
-	InstallAndBrand(powershell/README.dist, $(READMES_TMP)/README.ps.txt)
-	Flip($(READMES_TMP))
-
-.PHONY: dist
-dist: powershell_src csharp_samples csharp_src csharp_gui csharp_ps_readmes c_folders java_folders
-
-
 CLEAN_OBJS = *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.opt *.omc *.dll *.rej *.orig
 export CLEAN_OBJS
 
 .PHONY: clean
 clean:
-	rm -f $(CLEAN_OBJS)
-	rm -Rf $(BINDINGS_TMP)
+  rm -f $(CLEAN_OBJS)

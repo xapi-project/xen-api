@@ -28,60 +28,26 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-JAVATMP_DIR = $(BINDINGS_TMP)/XenServerJava-tmp
-JAVABIN_DIR = $(BINDINGS_TMP)/XenServerJava-bin
-JAVASRC_DIR = $(BINDINGS_TMP)/XenServerJava-src
-JAVASAM_DIR = $(BINDINGS_TMP)/XenServerJava-samples
-JAVADOC_DIR = $(BINDINGS_TMP)/XenServerJava-javadoc
-
-SDK_JAVA_FOLDER=$(SDK_FOLDER)/XenServerJava
-
 OCamlProgram(main, main ../licence ../CommonFunctions)
 
-LicenceJava(dir) =
-	$(INSTALL) ../LICENSE $(dir)/LICENSE.txt
-	$(INSTALL) LICENSE.Apache-2.0.txt $(dir)
-
-Empty(dirs) =
-	rm -rf $(dirs)
-	mkdir -p $(dirs)
-
-Brand(src, dst) =
-	mkdir -p $(JAVATMP_DIR)
-	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' $(src) >$(JAVATMP_DIR)/t-$(basename $(dst))
-	$(INSTALL) $(JAVATMP_DIR)/t-$(basename $(dst)) $(dst)
-
-#N.B. the following also does a test build of the tests
-
-.PHONY: java_bindings_all
-java_bindings_all: main
-	Empty(autogen $(JAVASRC_DIR) $(JAVABIN_DIR) $(JAVADOC_DIR) $(JAVASAM_DIR))
-	Brand(lib/Makefile.dist, autogen/Makefile)
-	mkdir -p autogen/com/xensource/xenapi
-	$(INSTALL) lib/com/xensource/xenapi/*.java autogen/com/xensource/xenapi
-	Brand(lib/com/xensource/xenapi/Connection.java, autogen/com/xensource/xenapi/Connection.java)
-	./main autogen
-	cp -r autogen/* $(JAVASRC_DIR)
-	$(INSTALL) samples/*.java $(JAVASAM_DIR)
-	$(INSTALL) samples/*.java autogen
-	$(INSTALL) $(XMLRPC_DIST)/{xmlrpc-common-3.1,xmlrpc-client-3.1,ws-commons-util-1.0.2}.jar autogen
-	make -C autogen all docs
-	mv autogen/*.jar $(JAVABIN_DIR)
-	cp -r autogen/doc/* $(JAVADOC_DIR) && rm -rf autogen/doc
-	Brand(README.dist, $(JAVATMP_DIR)/README.txt)
-
-.PHONY: java_folders
-java_folders: java_bindings_all
-	mkdir -p $(SDK_JAVA_FOLDER)/bin && cp -r $(JAVABIN_DIR)/* $(SDK_JAVA_FOLDER)/bin
-	mkdir -p $(SDK_JAVA_FOLDER)/src && cp -r $(JAVASRC_DIR)/* $(SDK_JAVA_FOLDER)/src
-	mkdir -p $(SDK_JAVA_FOLDER)/samples && cp -r $(JAVASAM_DIR)/*.java $(SDK_JAVA_FOLDER)/samples
-	mkdir -p $(SDK_JAVA_FOLDER)/javadoc && cp -r $(JAVADOC_DIR)/* $(SDK_JAVA_FOLDER)/javadoc
-	$(INSTALL) $(JAVATMP_DIR)/README.txt $(SDK_JAVA_FOLDER)
-	LicenceJava($(SDK_JAVA_FOLDER))
+.PHONY: dist
+dist: main
+  rm -rf autogen
+  mkdir -p autogen/com/xensource/xenapi
+  mkdir -p autogen/samples
+  ./main autogen
+  #source
+  cp lib/com/xensource/xenapi/*.java autogen/com/xensource/xenapi
+  sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' lib/com/xensource/xenapi/Connection.java > autogen/com/xensource/xenapi/Connection.java
+  #samples
+  cp samples/*.java autogen/samples
+  #other
+  sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' lib/Makefile.dist > autogen/Makefile
+  sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' README.dist > autogen/README.txt
+  cp ../LICENSE autogen/LICENSE.txt
+  cp LICENSE.Apache-2.0.txt autogen
 
 .PHONY: clean
 clean:
   rm -f $(CLEAN_OBJS) main
   rm -rf autogen
-
-.DEFAULT: java_bindings_all

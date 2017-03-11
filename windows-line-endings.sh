@@ -28,8 +28,10 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-for file in `find -type f`
+DIR_TO_FLIP=$1
+
+for file in `find ${DIR_TO_FLIP} -type f`
 do
-  sed -i -e 's,,,g' $file
-  sed -i -e 's,$,,g' $file
+  sed -i -e 's,\r,,g' $file
+  sed -i -e 's,$,\r,g' $file
 done
