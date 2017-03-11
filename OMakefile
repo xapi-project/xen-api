@@ -74,7 +74,6 @@ csharp_src: gen_gui_csharp_bindings
 	InstallLicence($(CSHARP_SRC_TMP))
 	Flip($(CSHARP_SRC_TMP))
 	mkdir -p $(SDK_NET_FOLDER)/src && cp -r $(CSHARP_SRC_TMP)/* $(SDK_NET_FOLDER)/src
-	cp csharp/autogen/callVersions.csv $(MY_OUTPUT_DIR)
 
 .PHONY: csharp_samples
 csharp_samples:
