@@ -28,8 +28,6 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-SR_XML = $(PROJECT_OUTPUTDIR)/sm/XE_SR_ERRORCODES.xml
-
 OCamlProgram(gen_csharp_binding, gen_csharp_binding ../friendly_error_names ../licence ../CommonFunctions)
 
 .PHONY: dist
@@ -50,12 +48,7 @@ dist: gen_csharp_binding $(SR_XML)
   mv autogen/*.* autogen/gui
   rm autogen/gui/AssemblyInfo.cs
   #samples
-  cp samples/XenSdkSample.sln autogen/samples
-  foreach(example, GetVariousRecords GetVmRecords VmPowerStates)
-    mkdir -p autogen/samples/$(example)/Properties
-    cp samples/$(example)/Properties/AssemblyInfo.cs autogen/samples/$(example)/Properties
-    cp samples/$(example)/$(example).csproj autogen/samples/$(example)
-    cp samples/$(example)/Program.cs        autogen/samples/$(example)
+  cp -r samples/* autogen/samples
   #other  
   sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' README.dist > autogen/README.txt
   cp ../LICENSE autogen
