@@ -60,7 +60,7 @@ dist: gen_csharp_binding $(SR_XML)
   sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' README.dist > autogen/README.txt
   cp ../LICENSE autogen
   sh ../windows-line-endings.sh autogen
-  cp ../mk/csharp.sh ../mk/sign.bat autogen
+  cp csharp.sh ../sign.bat autogen
 
 .PHONY: clean
 clean:

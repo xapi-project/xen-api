@@ -53,7 +53,7 @@ dist: gen_powershell_binding
   sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' README.dist > autogen/README.txt
   cp ../LICENSE autogen/LICENSE.txt
   sh ../windows-line-endings.sh autogen
-  cp ../mk/powershell.sh ../mk/sign.bat ../mk/sign-ps.bat autogen
+  cp powershell.sh ../sign.bat ../sign-ps.bat autogen
 
 .PHONY: clean
 clean:
