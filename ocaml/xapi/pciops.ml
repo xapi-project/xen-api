@@ -164,7 +164,7 @@ let fn_of (id, (domain, bus, dev, fn)) = fn
 let reserve_free_virtual_function ~__context vm pf =
   let rec search = function
     | [] -> None
-    | vf :: vfs ->
+    | (vf, _) :: vfs ->
       let attached = Db.PCI.get_attached_VMs ~__context ~self:vf <> [] in
       let scheduled = Db.PCI.get_scheduled_to_be_attached_to ~__context ~self:vf <> Ref.null in
       if attached || scheduled then
@@ -175,4 +175,6 @@ let reserve_free_virtual_function ~__context vm pf =
       end
   in
   Db.PCI.get_virtual_functions ~__context ~self:pf
+  |> List.map (fun vf -> vf, pcidev_of_pci ~__context vf)
+  |> List.sort (fun (_, a) (_, b) -> compare a b)  (* prefer low BDF numbers *)
   |> search
