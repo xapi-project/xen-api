@@ -32,7 +32,6 @@ open Stdext
 open Pervasiveext
 open Printf
 open Xstringext
-open Getopt
 open Datamodel
 open Datamodel_types
 open Dm_api

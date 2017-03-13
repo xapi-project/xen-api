@@ -31,7 +31,7 @@
 USE_OCAMLFIND = true
 OCAMLINCLUDES += ..
 OCAMLFLAGS += -dtypes -thread
-OCAMLPACKS += rpclib getopt xmlm xml-light2 uuid stdext xcp unix str xapi-datamodel
+OCAMLPACKS += rpclib xmlm xml-light2 uuid stdext xcp unix str xapi-datamodel
 
 .SUBDIRS: powershell csharp c java
 

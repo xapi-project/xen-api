@@ -35,8 +35,6 @@ open Pervasiveext
 open Printf
 open Xstringext
 
-open Getopt
-
 open Datamodel_types
 open Dm_api
 
@@ -48,40 +46,34 @@ module TypeSet = Set.Make(struct
               end)
 
 
-let open_source = ref false
+let open_source' = ref false
 let destdir'    = ref ""
 
 
 let usage () =
-  eprintf "
+  Printf.sprintf "
 Usage:
 
-    %s [-o/--open] [-d/--dest=<destdir>]
+    %s [-o] [-d <destdir>]
 
   where
 
-        --open requests a version of the API filtered for open source; and
-        --dest specifies the destination directory for the generated files.
+    -o requests a version of the API filtered for open source; and
+    -d specifies the destination directory for the generated files.
 " Sys.argv.(0)
 
 
 let _ =
-    try
-     ignore (parse_cmdline
-                   [
-                     ('o', "open", (set open_source true), None);
-                     ('d', "destdir", None, (atmost_once destdir'
-                                               (Error "only one output")))
-                   ] print_endline);
+  Arg.parse
+    [
+      "-o", Arg.Set open_source', "requests a version of the API filtered for open source";
+      "-d", Arg.Set_string destdir', "specifies the destination directory for the generated files";
+    ] 
+    (fun x -> Printf.printf "Skipping unknown argument: %s" x)
+    (usage ())
 
-           if String.compare !destdir' "" = 0 then
-             usage()
-     with
-     Getopt.Error message ->
-       prerr_string message;
-       usage();
-       exit 1
 
+let open_source = !open_source'
 let destdir = !destdir'
 
 
@@ -91,14 +83,14 @@ let api =
     let obj_filter _ = true in
     let field_filter field =
         (not field.internal_only) &&
-        (if (!open_source) then List.mem "3.0.3" field.release.opensource
+        (if open_source then List.mem "3.0.3" field.release.opensource
             else List.mem "closed" field.release.internal)
     in
     let message_filter msg =
         Datamodel_utils.on_client_side msg &&
         (not msg.msg_hide_from_docs) &&
-        (if !open_source
-            then (List.mem "3.0.3" msg.msg_release.opensource)
+        (if open_source then
+                (List.mem "3.0.3" msg.msg_release.opensource)
             else
                 (List.mem "closed" msg.msg_release.internal)
                 && (msg.msg_name <> "get")
