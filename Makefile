@@ -28,22 +28,6 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-#==============================================================
-#Micro version override - please keep at the top of the script
-#==============================================================
-#Uncomment and set to override the micro version obtained from branding
-#SDK_MICRO_VERSION_OVERRIDE = 
-
-SDK_MICRO_VERSION = $(PRODUCT_MICRO_VERSION)
-
-ifneq ($(SDK_MICRO_VERSION_OVERRIDE),)
-	SDK_MICRO_VERSION = $(SDK_MICRO_VERSION_OVERRIDE)
-endif
-
-SDK_VERSION = $(PRODUCT_MAJOR_VERSION).$(PRODUCT_MINOR_VERSION).$(SDK_MICRO_VERSION)
-export SDK_VERSION
-export SR_XML
-
 .PHONY: build
 build: clean
 	omake dist
