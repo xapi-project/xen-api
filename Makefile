@@ -52,6 +52,7 @@ version.ml: VERSION
 	echo "let version = \"$(shell cat VERSION)\"" > lib/version.ml
 
 install:
+	@./setup.bin -install
 ifeq ($(ENABLE_XENLIGHT),--enable-xenlight)
 	install -D ./xenops_xl_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-xenlight
 	install -D ./xenopsd-xenlight.1 $(DESTDIR)/$(MANDIR)/man1/xenopsd-xenlight.1

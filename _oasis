@@ -39,6 +39,7 @@ Library profiling
 Library xenopsd
   CompiledObject:     best
   Path:               lib
+  Install:            true
   Findlibname:        xenopsd
   ByteOpt:            -warn-error +a
   NativeOpt:          -warn-error +a
@@ -94,6 +95,7 @@ Executable dbgring
   CompiledObject:     best
   Path:               xc
   MainIs:             dbgring.ml
+  Install:            false
   BuildDepends:
     xenctrl,
     xenstore,
