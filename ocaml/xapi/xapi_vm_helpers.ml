@@ -215,14 +215,13 @@ let validate_basic_parameters ~__context ~self ~snapshot:x =
 
 let assert_vm_supports_quiesce_snapshot ~__context ~self =
   let vmr = Db.VM.get_record_internal ~__context ~self in
-  let vdis_on_boot_reset = List.filter_map (fun vbd ->
-      try
-        let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-        let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
-        Some (Xapi_vm_lifecycle.assoc_opt "on_boot" sm_config = Some "reset")
-      with _ -> None
-    ) vmr.Db_actions.vM_VBDs in
-  if vdis_on_boot_reset <> [] then
+  if List.exists ( fun vbd ->
+    try
+      let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+      let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
+      Xapi_vm_lifecycle.assoc_opt "on_boot" sm_config = Some "reset"
+    with _ -> false
+  ) vmr.Db_actions.vM_VBDs then
     raise (Api_errors.Server_error(Api_errors.vdi_on_boot_mode_incompatible_with_operation, [ ]));
 
   let vmgmr = Xapi_vm_lifecycle.maybe_get_guest_metrics ~__context ~ref:(vmr.Db_actions.vM_guest_metrics) in
