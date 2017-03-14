@@ -51,8 +51,6 @@ let start path handler =
   in
   loop ()
 
-let ($) f x = f x
-
 let proxy (fd : Lwt_unix.file_descr) protocol ty localport =
   let open LwtWsIteratee in
   let open Lwt_support in
@@ -71,7 +69,7 @@ let proxy (fd : Lwt_unix.file_descr) protocol ty localport =
   in
   let (realframe,realunframe) = ((fun s -> base64encode (frame s)), (fun s -> unframe (base64decode s))) in
   open_connection_fd "localhost" localport >>= fun localfd -> 
-  let thread1 = lwt_fd_enumerator localfd $ realframe (writer (really_write fd) "thread1") >>= fun _ -> Lwt.return () in
+  let thread1 = lwt_fd_enumerator localfd (realframe (writer (really_write fd) "thread1")) >>= fun _ -> Lwt.return () in
   let thread2 = lwt_fd_enumerator fd (realunframe (writer (really_write localfd) "thread2")) >>= fun _ -> Lwt.return () in
   try%lwt 
     Lwt.join [thread1; thread2] >>= (fun _ -> Lwt_unix.close fd)
