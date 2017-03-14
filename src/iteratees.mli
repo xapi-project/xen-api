@@ -35,10 +35,10 @@ module Iteratee :
   functor (IO : Monad) ->
   sig
     (** The type t describes the current state of the iteratee.
-        	  It's either 'Done', in which case it's got some sort of
-        	  value, or it's in the 'Cont' state, which mean's it 
-        	  hasn't finished processing - in this case it may be in 
-        	  an error state, or it may be awaiting more input. 
+        It's either 'Done', in which case it's got some sort of
+        value, or it's in the 'Cont' state, which mean's it 
+        hasn't finished processing - in this case it may be in 
+        an error state, or it may be awaiting more input. 
     *)
 
     type 'a t =
@@ -67,16 +67,16 @@ module Iteratee :
     val head : char option t
 
     (** writer - a generic writer iteratee. Takes an argument of type
-        	  'string -> unit IO.t' *)
+        'string -> unit IO.t' *)
     val writer : (string -> unit IO.t) -> string -> unit t
 
     (** break - iteratee that stops consuming input when the supplied predicate is met, 
-        	  then returns the string so far *)
+        then returns the string so far *)
     val break : (char -> bool) -> string t
 
     (** heads - iteratee that matches character for character the incoming stream and
-        	  the string passed in, then returns the number of characters that
-        	  matched *)
+        the string passed in, then returns the number of characters that
+        matched *)
     val heads : string -> int t
 
     (** drop - iteratee that consumes and ignores n characters of the stream *)
@@ -95,7 +95,7 @@ module Iteratee :
     val read_int32 : int32 t
 
     (** drop_while - iteratee that drops characters from the stream while they 
-        	  satisfy the supplied predicate *)
+        satisfy the supplied predicate *)
     val drop_while : (char -> bool) -> unit t
 
     (** accumulate - Simply accumulate the stream until EOF *)
@@ -119,7 +119,7 @@ module Iteratee :
     val enum_1chunk : string -> 'a t -> 'a t IO.t
 
     (** enum_nchunk - Gives the supplied string to the iteratee in chunks of length n.
-        	  Good for testing *)
+        Good for testing *)
     val enum_nchunk : string -> int -> 'a t -> 'a t IO.t
 
     (** extract_result_from_iteratee - Given a 'done' iteratee, pull the result out *)
@@ -133,15 +133,15 @@ module Iteratee :
     type 'a enumeratee = 'a t -> 'a t t
 
     (** take - takes exactly n characters from the input stream and applies them to 
-        	  the inner stream *)
+        the inner stream *)
     val take : int -> 'a t -> 'a t t
 
     (** stream_printer - given a name and an iteratee i, returns an iteratee that 
-        	  will print the chunks supplied before handing them off to the iteratee *)
+        will print the chunks supplied before handing them off to the iteratee *)
     val stream_printer : string -> 'a t -> 'a t t
 
     (** modify - Modify the stream in some way before giving the result to the
-        	  inner stream. For example, one could base64 encode things this way *)
+        inner stream. For example, one could base64 encode things this way *)
     val modify : (string -> string) -> 'a t -> 'a t t
 
     type 'a either = Left of 'a | Right of 'a

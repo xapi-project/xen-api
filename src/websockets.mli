@@ -21,27 +21,27 @@ module Wsprotocol :
     val writer : (string -> unit IO.t) -> string -> unit t
 
     (** enumeratee that base64 encodes individual chunks
-        	  and passes them onto the sub-iteratee *)
+        and passes them onto the sub-iteratee *)
     val base64encode : 'a t -> 'a t t
 
     (** enumeratee that base64 decodes individual chunks
-        	  and passes them onto the sub-iteratee *)
+        and passes them onto the sub-iteratee *)
     val base64decode : 'a t -> 'a t t
 
     (** enumeratee that websocket-encodes data and
-        	  passes the encoded data to the sub-iteratee *)
+        passes the encoded data to the sub-iteratee *)
     val wsframe : 'a t -> 'a t t
 
     (** enumeratee that old-style websocket-encodes data and
-        	  passes the encoded data to the sub-iteratee *)
+        passes the encoded data to the sub-iteratee *)
     val wsframe_old : 'a t -> 'a t t
 
     (** enumeratee that websocket-decodes data and
-        	  passes the decoded data to the sub-iteratee *)
+        passes the decoded data to the sub-iteratee *)
     val wsunframe : 'a t -> 'a t t
 
     (** enumeratee that old-style websocket-decodes data and
-        	  passes the decoded data to the sub-iteratee *)
+        passes the decoded data to the sub-iteratee *)
     val wsunframe_old : 'a t -> 'a t t
   end
 
