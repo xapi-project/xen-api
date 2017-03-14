@@ -596,10 +596,10 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~current_operations:[] ~allowed_operations:[]
     ~software_version:(Xapi_globs.software_version ())
     ~enabled:false
-    ~aPI_version_major:Xapi_globs.api_version_major
-    ~aPI_version_minor:Xapi_globs.api_version_minor
-    ~aPI_version_vendor:Xapi_globs.api_version_vendor
-    ~aPI_version_vendor_implementation:Xapi_globs.api_version_vendor_implementation
+    ~aPI_version_major:Datamodel.api_version_major
+    ~aPI_version_minor:Datamodel.api_version_minor
+    ~aPI_version_vendor:Datamodel.api_version_vendor
+    ~aPI_version_vendor_implementation:Datamodel.api_version_vendor_implementation
     ~name_description ~name_label ~uuid ~other_config:[]
     ~capabilities:[]
     ~cpu_configuration:[]   (* !!! FIXME hard coding *)
