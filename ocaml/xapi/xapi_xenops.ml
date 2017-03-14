@@ -617,10 +617,11 @@ module MD = struct
     try
       let implementation =
         MxGPU {
+          physical_function = get_target_pci_address ~__context vgpu;
+          vgpus_per_pgpu =
+            List.assoc Xapi_globs.mxgpu_vgpus_per_pgpu internal_config
+            |> Int64.of_string;
           framebufferbytes;
-          sched =
-            List.assoc Xapi_globs.mxgpu_sched internal_config
-            |> int_of_string;
         }
       in {
         id = (vm.API.vM_uuid, vgpu.Db_actions.vGPU_device);
@@ -628,9 +629,9 @@ module MD = struct
         implementation;
       }
     with
-    | Not_found -> failwith "AMD MxGPU settings (sched slice) not specified"
+    | Not_found -> failwith "AMD MxGPU settings not specified"
     | Failure "int_of_string" ->
-      failwith "AMD MxGPU settings (sched slice) invalid"
+      failwith "AMD MxGPU settings invalid"
 
   let vgpus_of_vm ~__context (vmref, vm) =
     let open Vgpu in
