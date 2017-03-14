@@ -13,8 +13,8 @@
  *)
 
 type 'a t = 'a Iteratees.Iteratee(Lwt).t =
-	    | IE_done of 'a
-	    | IE_cont of Iteratees.err option * (Iteratees.stream -> ('a t * Iteratees.stream) Lwt.t)
+  | IE_done of 'a
+  | IE_cont of Iteratees.err option * (Iteratees.stream -> ('a t * Iteratees.stream) Lwt.t)
 
 (** Really write a string to a file descriptor - repeats until the whole
     string is done *)

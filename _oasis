@@ -1,0 +1,20 @@
+OASISFormat: 0.4
+Name:        wsproxy
+Version:     1.1.0
+Synopsis:    Websockets proxy for VNC traffic
+Authors:     Jon Ludlam, Marcello Seri
+License:     LGPL-2.0 with OCaml linking exception
+Plugins:     DevFiles (0.4)
+BuildTools:  ocamlbuild
+
+Executable wsproxy
+  Path:           src
+  MainIs:         wsproxy.ml
+  CompiledObject: best
+  #InternalModules: Base64, Helpers, Iterates, Lwt_support, Websockets
+  BuildDepends:   re.str, lwt, lwt.ppx, lwt.unix
+
+SourceRepository master
+  Type:     git
+  Location: https://github.com/xapi-project/wsproxy
+  Browser:  https://github.com/xapi-project/wsproxy
