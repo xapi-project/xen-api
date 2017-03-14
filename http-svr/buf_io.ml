@@ -44,15 +44,12 @@ let fd_of t = t.fd
 
 (* Internal functions *)
 
-(* Return a copy of the data currently in the buffer *)
-let get_data ic =
-  let str = String.sub ic.buf ic.cur (ic.max - ic.cur) in
-  str
+let is_buffer_empty ic = ic.max - ic.cur <= 0
 
 (* Used as a temporary measure while converting from unbuffered to buffered
    I/O in the rest of the software. *)
 let assert_buffer_empty ic = 
-  if get_data ic <> "" then failwith "Buf_io buffer not empty"
+  if not (is_buffer_empty ic) then failwith "Buf_io buffer not empty"
 
 (* Shift the unprocessed data to the beginning of the buffer *)
 let shift ic =
