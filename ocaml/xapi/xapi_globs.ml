@@ -37,16 +37,6 @@ let version_major = Xapi_version.xapi_version_major
 let version_minor = Xapi_version.xapi_version_minor
 let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int version_minor)
 
-(* api version *)
-(* Normally xencenter_min_verstring and xencenter_max_verstring below should be set to the same value,
- * but there are exceptions: please consult the XenCenter maintainers if in doubt. *)
-let api_version_major = 2L
-let api_version_minor = 6L
-let api_version_string =
-  Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
-let api_version_vendor = "XenSource"
-let api_version_vendor_implementation = []
-
 (* client min/max version range *)
 (* xencenter_min should be the lowest version of XenCenter we want the new server to work with. In the
  * (usual) case that we want to force the user to upgrade XenCenter when they upgrade the server,
