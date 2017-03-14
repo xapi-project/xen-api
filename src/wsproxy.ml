@@ -24,7 +24,7 @@ let start path handler =
   let fd_sock_path = Printf.sprintf "%s%s" dir_path path in
   let fd_sock = Lwt_unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
   let%lwt () = (try%lwt Lwt_unix.unlink fd_sock_path with _ -> Lwt.return ()) in
-  let () = Lwt_unix.Versioned.bind_1 fd_sock (Unix.ADDR_UNIX fd_sock_path) in
+  let () = Lwt_unix.bind fd_sock (Unix.ADDR_UNIX fd_sock_path) in
   let () = Lwt_unix.listen fd_sock 5 in
 
   let rec loop () =
