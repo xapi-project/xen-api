@@ -30,13 +30,13 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
     let l = String.length s in
     if l < 126 
     then 
-      Printf.sprintf "%c%c%s" (char_of_int 0x81) (char_of_int l) s
+      Printf.sprintf "%c%c%s" (char_of_int 0x82) (char_of_int l) s
     else if l < 65535 
     then
-      Printf.sprintf "%c%c%s%s" (char_of_int 0x81) (char_of_int 126)
+      Printf.sprintf "%c%c%s%s" (char_of_int 0x82) (char_of_int 126)
 	(Helpers.marshal_int16 l) s
     else
-      Printf.sprintf "%c%c%s%s" (char_of_int 0x81) (char_of_int 127)
+      Printf.sprintf "%c%c%s%s" (char_of_int 0x82) (char_of_int 127)
 	(Helpers.marshal_int32 (Int32.of_int l)) s) s
 
   let wsframe_old s = modify (fun s -> 
