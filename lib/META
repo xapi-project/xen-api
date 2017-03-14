@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 1d53d887b8f1a199ade04aaee9121596)
+version = "0.9.9"
+description = "Temporary set of to-be-deprecated libraries"
+requires = "xenstore.unix xenstore_transport.unix threads logs cmdliner"
+archive(byte) = "ezxenstore.cma"
+archive(byte, plugin) = "ezxenstore.cma"
+archive(native) = "ezxenstore.cmxa"
+archive(native, plugin) = "ezxenstore.cmxs"
+exists_if = "ezxenstore.cma"
+# OASIS_STOP
+
