@@ -89,7 +89,6 @@ let handler sock msg =
     Lwt_unix.close sock
 
 let _ =
-  Random.self_init ();
   if Array.length Sys.argv > 1 
   then Lwt.return (Websockets.runtest ())
   else 
