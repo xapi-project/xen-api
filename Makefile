@@ -1,65 +1,41 @@
-PACKS=lwt,lwt.syntax,lwt.unix,re.str
-OBJS=base64 helpers iteratees lwt_support test websockets wsproxy
-OCAMLC=ocamlc
-OCAMLOPT=ocamlopt
-OCAMLFIND=ocamlfind
-OCAMLCFLAGS=-package $(PACKS) -syntax camlp4o -g
-OCAMLOPTFLAGS=-package $(PACKS) -syntax camlp4o -annot -g
-OCAMLLINKFLAGS=-package $(PACKS) -linkpkg
+# OASIS_START
+# DO NOT EDIT (digest: a3c674b4239234cbbe53afe090018954)
 
-wsproxy : $(foreach obj,$(OBJS),$(obj).cmx)
-	$(OCAMLFIND) $(OCAMLOPT) $(OCAMLLINKFLAGS) $^ -o wsproxy
+SETUP = ocaml setup.ml
 
-%.cmo: %.ml %.cmi
-	$(OCAMLFIND) $(OCAMLC) $(OCAMLCFLAGS) -c -o $@ $<
+build: setup.data
+	$(SETUP) -build $(BUILDFLAGS)
 
-%.cmi: %.mli
-	$(OCAMLFIND) $(OCAMLC) $(OCAMLCFLAGS) -c -o $@ $<
+doc: setup.data build
+	$(SETUP) -doc $(DOCFLAGS)
 
-%.cmx: %.ml %.cmi
-	$(OCAMLFIND) $(OCAMLOPT) $(OCAMLOPTFLAGS) $(RPCLIGHTFLAGS) -c -thread -o $@ $<
+test: setup.data build
+	$(SETUP) -test $(TESTFLAGS)
 
-.PHONY: clean install
+all:
+	$(SETUP) -all $(ALLFLAGS)
+
+install: setup.data
+	$(SETUP) -install $(INSTALLFLAGS)
+
+uninstall: setup.data
+	$(SETUP) -uninstall $(UNINSTALLFLAGS)
+
+reinstall: setup.data
+	$(SETUP) -reinstall $(REINSTALLFLAGS)
+
 clean:
-	rm -f *.annot *.o *~ *.cmi *.cmx *.cmo wsproxy
+	$(SETUP) -clean $(CLEANFLAGS)
 
-install: wsproxy
-	install -D wsproxy $(DESTDIR)/opt/xensource/libexec/wsproxy
+distclean:
+	$(SETUP) -distclean $(DISTCLEANFLAGS)
 
-RPM_SOURCESDIR ?= /usr/src/redhat/SOURCES
-RPM_SRPMSDIR ?= /usr/src/redhat/SRPMS
+setup.data:
+	$(SETUP) -configure $(CONFIGUREFLAGS)
 
-wsproxy.spec: wsproxy.spec.in
-	sed -e 's/@RPM_RELEASE@/$(shell git rev-list HEAD | wc -l)/g' < $< > $@
+configure:
+	$(SETUP) -configure $(CONFIGUREFLAGS)
 
-srpm: wsproxy.spec
-	mkdir -p $(RPM_SOURCESDIR)
-	git archive --prefix=wsproxy-0/ --format=tar HEAD | bzip2 -z > $(RPM_SOURCESDIR)/wsproxy.tar.bz2
-	rpmbuild -bs --nodeps --define "_sourcedir ${RPM_SOURCESDIR}" --define "_srcrpmdir ${RPM_SRPMSDIR}" wsproxy.spec
+.PHONY: build doc test all install uninstall reinstall clean distclean configure
 
-base64.cmo: base64.cmi
-base64.cmx: base64.cmi
-helpers.cmo: helpers.cmi
-helpers.cmx: helpers.cmi
-iteratees.cmo: helpers.cmi iteratees.cmi
-iteratees.cmx: helpers.cmx iteratees.cmi
-lwt_support.cmo: iteratees.cmi lwt_support.cmi
-lwt_support.cmx: iteratees.cmx lwt_support.cmi
-test.cmo: iteratees.cmi test.cmi
-test.cmx: iteratees.cmx test.cmi
-websockets.cmo: test.cmi iteratees.cmi helpers.cmi base64.cmi websockets.cmi
-websockets.cmx: test.cmx iteratees.cmx helpers.cmx base64.cmx websockets.cmi
-wsproxy.cmo: websockets.cmi lwt_support.cmi wsproxy.cmi
-wsproxy.cmx: websockets.cmx lwt_support.cmx wsproxy.cmi
-helpers.cmi:
-iteratees.cmi:
-lwt_support.cmi: iteratees.cmi
-test.cmi:
-websockets.cmi: iteratees.cmi
-wsproxy.cmi:
-
-
-
-
-
-
+# OASIS_STOP
