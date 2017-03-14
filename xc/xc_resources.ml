@@ -25,6 +25,7 @@ let ionice = ref "ionice"
 let setup_vif_rules = ref "setup-vif-rules"
 let setup_pvs_proxy_rules = ref "setup-pvs-proxy-rules"
 let vgpu = ref "vgpu"
+let gimtool = ref "/opt/xensource/bin/gimtool"
 
 let alternatives = ref "/usr/lib/xapi/alternatives"
 
@@ -47,5 +48,6 @@ let nonessentials = [
 	X_OK, "alternatives", alternatives, "path to the alternative xenguests";
 	X_OK, "vgpu", vgpu, "path to the vgpu binary";
 	X_OK, "vncterm", vncterm, "path to the vncterm binary";
+	X_OK, "gimtool", gimtool, "path to the gimtool binary";
 ] @ Resources.hvm_guests @ Resources.pv_guests
 

@@ -192,7 +192,7 @@ let make ~xc ~xs vm_info uuid =
 	let name = if vm_info.name <> "" then vm_info.name else sprintf "Domain-%d" domid in
 	try
 		let dom_path = xs.Xs.getdomainpath domid in
-		let xenops_dom_path = sprintf "/xenops/domain/%d" domid in
+		let xenops_dom_path = xenops_path_of_domain domid in
 		let vm_path = "/vm/" ^ (Uuid.to_string uuid) in
 		let vss_path = "/vss/" ^ (Uuid.to_string uuid) in
 		let roperm = Xenbus_utils.roperm_for_guest domid in
@@ -370,7 +370,7 @@ let sysrq ~xs domid key =
 
 let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	let dom_path = xs.Xs.getdomainpath domid in
-	let xenops_dom_path = sprintf "/xenops/domain/%d" domid in
+	let xenops_dom_path = xenops_path_of_domain domid in
 	let uuid = get_uuid ~xc domid in
 
 	(* Move this out of the way immediately *)

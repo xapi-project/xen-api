@@ -324,3 +324,7 @@ let demu_restore_path : (_, _, _) format = "/var/lib/xen/demu-resume.%d"
 (* Where qemu writes its state and is signalled *)
 let device_model_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d" qemu_domid domid
 
+let xenops_domain_path = "/xenops/domain"
+let xenops_path_of_domain domid = sprintf "%s/%d" xenops_domain_path domid
+let xenops_vgpu_path domid devid =
+	sprintf "%s/device/vgpu/%d" (xenops_path_of_domain domid) devid

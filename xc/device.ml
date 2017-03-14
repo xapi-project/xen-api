@@ -1627,6 +1627,52 @@ let vgpu_args_of_nvidia domid vcpus (vgpu:Xenops_interface.Vgpu.nvidia) =
 	then ["--resume=" ^ resume_file]
 	else []
 
+let write_vgpu_data ~xs domid devid keys =
+	let path = xenops_vgpu_path domid devid in
+	xs.Xs.writev path keys
+
+let mxgpu_device_in_use ~xs physical_function =
+	(* Check if there is a /xenops/domain/<x>/device/vgpu/<y>/pf xenstore node
+	 * that is equal to the given physical_function. *)
+	let root = Device_common.xenops_domain_path in
+	try
+		(* NB: The response size of this directory call may exceed the default payload
+		 * size limit. However, we have an exception that allows oversized packets. *)
+		xs.Xs.directory root
+		|> List.map (fun domid ->
+				let path = Printf.sprintf "%s/%s/device/vgpu" root domid in
+				try
+					List.map (fun x -> path ^ "/" ^ x) (xs.Xs.directory path)
+				with Xs_protocol.Enoent _ -> []
+			)
+		|> List.concat
+		|> List.exists (fun vgpu ->
+			try
+				let path = Printf.sprintf "%s/pf" vgpu in
+				let pf = xs.Xs.read path in
+				pf = physical_function
+			with Xs_protocol.Enoent _ -> false
+		)
+	with Xs_protocol.Enoent _ -> false
+
+let call_gimtool args =
+	try
+		info "Initialising MxGPU PF: %s %s" !Xc_resources.gimtool (String.concat " " args);
+		ignore (Forkhelpers.execute_command_get_output !Xc_resources.gimtool args)
+	with _ ->
+		error "Failed to initialise MxGPU PF (%s %s)" !Xc_resources.gimtool (String.concat " " args);
+		failwith "Call to gimtool failed"
+
+let configure_gim ~xs physical_function vgpus_per_gpu framebufferbytes =
+	let pf = Xenops_interface.Pci.string_of_address physical_function in
+	(* gimtool must (only) be called when no VM is using the PF yet *)
+	if not (mxgpu_device_in_use ~xs pf) then
+		let vgpus = Int64.to_string vgpus_per_gpu in
+		let fb = Int64.to_string (Int64.div framebufferbytes Memory.bytes_per_mib) in
+		call_gimtool ["--bdf"; pf; "--num_vfs"; vgpus; "--vf_fb_size"; fb]
+	else
+		info "MxGPU PF %s already initialised" pf
+
 let prepend_wrapper_args domid args =
 	(string_of_int domid) :: "--syslog" :: args
 
@@ -1675,34 +1721,43 @@ let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeo
 	debug "Daemon initialised: %s" syslog_key;
 	pid
 
-let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready_timeout) l info domid =
-	debug "Device.Dm.start domid=%d args: [%s]" domid (String.concat " " l);
+let gimtool_m = Mutex.create ()
 
-	(* start vgpu emulation if appropriate *)
+let start_vgpu ~xs task domid vgpus vcpus =
 	let open Xenops_interface.Vgpu in
-	let () = match info.disp with
-	| VNC (Vgpu [{implementation = Nvidia vgpu}], _, _, _, _)
-	| SDL (Vgpu [{implementation = Nvidia vgpu}], _) -> begin
+	match vgpus with
+	| [{implementation = Nvidia vgpu}] ->
 		(* The below line does nothing if the device is already bound to the
 		 * nvidia driver. We rely on xapi to refrain from attempting to run
 		 * a vGPU on a device which is passed through to a guest. *)
 		PCI.bind [vgpu.physical_pci_address] PCI.Nvidia;
-		let args = vgpu_args_of_nvidia domid info.vcpus vgpu in
+		let args = vgpu_args_of_nvidia domid vcpus vgpu in
 		let ready_path = Printf.sprintf "/local/domain/%d/vgpu-pid" domid in
 		let cancel = Cancel_utils.Vgpu domid in
 		let vgpu_pid = init_daemon ~task ~path:!Xc_resources.vgpu ~args
 			~name:"vgpu" ~domid ~xs ~ready_path ~timeout:!Xenopsd.vgpu_ready_timeout ~cancel () in
 		Forkhelpers.dontwaitpid vgpu_pid
-	end
-	| VNC (Vgpu [{implementation = GVT_g vgpu}], _, _, _, _)
-	| SDL (Vgpu [{implementation = GVT_g vgpu}], _) ->
+	| [{implementation = GVT_g vgpu}] ->
 		PCI.bind [vgpu.physical_pci_address] PCI.I915
-	| VNC (Vgpu [{implementation = MxGPU _}], _, _, _, _)
-	| SDL (Vgpu [{implementation = MxGPU _}], _) ->
-		()
-	| VNC (Vgpu _, _, _, _, _)
-	| SDL (Vgpu _, _) -> failwith "Unsupported vGPU configuration"
-	| _ -> ()
+	| [{implementation = MxGPU vgpu}] ->
+		Mutex.execute gimtool_m (fun () ->
+			configure_gim ~xs vgpu.physical_function vgpu.vgpus_per_pgpu vgpu.framebufferbytes;
+			let keys = [
+				"pf", Xenops_interface.Pci.string_of_address vgpu.physical_function;
+			] in
+			write_vgpu_data ~xs domid 0 keys
+		)
+	| _ -> failwith "Unsupported vGPU configuration"
+
+let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready_timeout) l info domid =
+	debug "Device.Dm.start domid=%d args: [%s]" domid (String.concat " " l);
+
+	(* start vgpu emulation if appropriate *)
+	let () = match info.disp with
+		| VNC (Vgpu vgpus, _, _, _, _)
+		| SDL (Vgpu vgpus, _) ->
+			start_vgpu ~xs task domid vgpus info.vcpus
+		| _ -> ()
 	in
 
 	(* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
