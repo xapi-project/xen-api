@@ -630,7 +630,7 @@ module Vendor_amd = struct
         size_of_pgpu /// conf.vgpus_per_pgpu
       in
       let internal_config = let open Xapi_globs in
-        [ mxgpu_sched, string_of_int conf.identifier.sched ]
+        [ mxgpu_vgpus_per_pgpu, Int64.to_string conf.vgpus_per_pgpu ]
       in
       Some {
         vendor_name;
