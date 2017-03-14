@@ -67,7 +67,7 @@ let proxy (fd : Lwt_unix.file_descr) protocol ty localport =
       Printf.printf "unknown\n%!";
       (wsframe,wsunframe)
   in
-  let (realframe,realunframe) = ((fun s -> base64encode (frame s)), (fun s -> unframe (base64decode s))) in
+  let (realframe,realunframe) = (frame, unframe) in
   open_connection_fd "localhost" localport >>= fun localfd -> 
   let thread1 = lwt_fd_enumerator localfd (realframe (writer (really_write fd) "thread1")) >>= fun _ -> Lwt.return () in
   let thread2 = lwt_fd_enumerator fd (realunframe (writer (really_write localfd) "thread2")) >>= fun _ -> Lwt.return () in
@@ -89,6 +89,7 @@ let handler sock msg =
     Lwt_unix.close sock
 
 let _ =
+  Random.self_init ();
   if Array.length Sys.argv > 1 
   then Lwt.return (Websockets.runtest ())
   else 
@@ -99,7 +100,7 @@ let _ =
       Lwt_main.run begin
         let pid = Unix.getpid () in
         let%lwt _ = Lwt_io.with_file filename ~mode:Lwt_io.output (fun chan ->
-            Lwt_io.fprintf chan "%d\n" pid) 
+            Lwt_io.fprintf chan "%d" pid) 
         in
         start "wsproxy" handler
       end
