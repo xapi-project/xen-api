@@ -23,25 +23,25 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
 
   let base64encode s = modify Base64.encode s
   let base64decode s = modify Base64.decode s
-    
+
   let writer = I.writer
 
   let wsframe s = modify (fun s ->
-    let l = String.length s in
-    if l < 126 
-    then 
-      Printf.sprintf "%c%c%s" (char_of_int 0x81) (char_of_int l) s
-    else if l < 65535 
-    then
-      Printf.sprintf "%c%c%s%s" (char_of_int 0x81) (char_of_int 126)
-	(Helpers.marshal_int16 l) s
-    else
-      Printf.sprintf "%c%c%s%s" (char_of_int 0x81) (char_of_int 127)
-	(Helpers.marshal_int32 (Int32.of_int l)) s) s
+      let l = String.length s in
+      if l < 126 
+      then 
+        Printf.sprintf "%c%c%s" (char_of_int 0x81) (char_of_int l) s
+      else if l < 65535 
+      then
+        Printf.sprintf "%c%c%s%s" (char_of_int 0x81) (char_of_int 126)
+          (Helpers.marshal_int16 l) s
+      else
+        Printf.sprintf "%c%c%s%s" (char_of_int 0x81) (char_of_int 127)
+          (Helpers.marshal_int32 (Int32.of_int l)) s) s
 
   let wsframe_old s = modify (fun s -> 
-    Printf.printf "frame: got %s\n" s; Printf.sprintf "\x00%s\xff" s) s
-    
+      Printf.printf "frame: got %s\n" s; Printf.sprintf "\x00%s\xff" s) s
+
   let rec wsunframe x = 
     let read_sz =
       read_int8 >>= fun sz ->
@@ -51,9 +51,9 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
       if sz < 126 
       then return sz
       else if sz = 126 then
-	read_int16
+        read_int16
       else (* sz = 127 *)
-	read_int32 >>= fun x -> return (Int32.to_int x)
+        read_int32 >>= fun x -> return (Int32.to_int x)
     in  
     let read_mask has_mask =
       if has_mask 
@@ -62,40 +62,40 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
     in
     let rec inner acc s = 
       match s with 
-	| IE_cont (None, k) ->
-	  begin
-	    read_int8                    >>= fun op ->
-	    read_sz                      >>= fun (has_mask, sz) ->
-	    read_size sz                 >>= fun size ->
-	    read_mask has_mask           >>= fun mask -> 
-	    readn size                   >>= fun str ->
-	    let real_str = Helpers.unmask mask str in
-	    if op land 0x0f = 0x08 
-	    then (* close frame *)
-	      return s
-	    else 
-	      if not (op land 0x80 = 0x80)
-	      then begin
-		inner (acc ^ real_str) s 
-	      end else begin
-		liftI (IO.bind (k (Iteratees.Chunk (acc ^ real_str))) (fun (i, _) ->
-		  IO.return (wsunframe i)))
-	      end
-	  end	
-	| _ -> return s
+      | IE_cont (None, k) ->
+        begin
+          read_int8                    >>= fun op ->
+          read_sz                      >>= fun (has_mask, sz) ->
+          read_size sz                 >>= fun size ->
+          read_mask has_mask           >>= fun mask -> 
+          readn size                   >>= fun str ->
+          let real_str = Helpers.unmask mask str in
+          if op land 0x0f = 0x08 
+          then (* close frame *)
+            return s
+          else 
+          if not (op land 0x80 = 0x80)
+          then begin
+            inner (acc ^ real_str) s 
+          end else begin
+            liftI (IO.bind (k (Iteratees.Chunk (acc ^ real_str))) (fun (i, _) ->
+                IO.return (wsunframe i)))
+          end
+        end	
+      | _ -> return s
     in inner "" x
 
   let rec wsunframe_old s =
     match s with 
-      | IE_cont (None, k) ->
-	begin    
-	  heads "\x00" >>= fun n ->
-      break ((=) '\xff') >>= fun str -> 
-	  drop 1 >>= fun () -> 
-	  liftI (IO.bind (k (Iteratees.Chunk str)) (fun (i,_) ->
-	    IO.return (wsunframe_old i)))
-	end
-      | _ -> return s
+    | IE_cont (None, k) ->
+      begin    
+        heads "\x00" >>= fun n ->
+        break ((=) '\xff') >>= fun str -> 
+        drop 1 >>= fun () -> 
+        liftI (IO.bind (k (Iteratees.Chunk str)) (fun (i,_) ->
+            IO.return (wsunframe_old i)))
+      end
+    | _ -> return s
 
 end  
 
@@ -134,4 +134,4 @@ let runtest () =
   let x = enum_eof =<< (enum_nchunk test3 3 it) in dump x;
   Printf.printf "old style:\n";
   let x = enum_nchunk testold1 3 $ itold in dump x
-						
+

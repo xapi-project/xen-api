@@ -20,14 +20,14 @@ let of_char x = if x = padding then 0 else String.index code x
 let to_char x = code.[x]
 
 let fold_right f string accu =
-	let accu = ref accu in
-	for i = String.length string - 1 downto 0 do
-		accu := f string.[i] !accu
-	done;
-	!accu
+  let accu = ref accu in
+  for i = String.length string - 1 downto 0 do
+    accu := f string.[i] !accu
+  done;
+  !accu
 
 let explode string =
-	fold_right (fun h t -> h :: t) string []
+  fold_right (fun h t -> h :: t) string []
 
 let implode list =
   let of_char c = String.make 1 c in
@@ -41,8 +41,8 @@ let decode x =
   let words = String.length x / 4 in
   let padding = 
     if String.length x = 0 then 0 else (
-    if x.[String.length x - 2] = padding
-    then 2 else (if x.[String.length x - 1] = padding then 1 else 0)) in
+      if x.[String.length x - 2] = padding
+      then 2 else (if x.[String.length x - 1] = padding then 1 else 0)) in
   let output = String.make (words * 3 - padding) '\000' in
   for i = 0 to words - 1 do
     let a = of_char x.[4 * i + 0]
@@ -91,8 +91,8 @@ let test x =
   then failwith (Printf.sprintf "Original: '%s'; encoded = '%s'; decoded = '%s'" x x' x'')
 
 let tests = [ "hello"; 
-	      "this is a basic test"; "1"; "22"; "333"; "4444"; "5555";
-	      "\000"; "\000\000"; "\000\000\000"; "\000\000\000\000" ]
+              "this is a basic test"; "1"; "22"; "333"; "4444"; "5555";
+              "\000"; "\000\000"; "\000\000\000"; "\000\000\000\000" ]
 
 (*
 let _ = List.iter test tests

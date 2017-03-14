@@ -28,7 +28,7 @@ let start path handler =
   let () = Lwt_unix.listen fd_sock 5 in
 
   let rec loop () =
-    try%lwt 
+    try%lwt
       let%lwt (fd_sock2,_) = Lwt_unix.accept fd_sock in
       let buffer = String.make 16384 '\000' in
       let iov = Lwt_unix.io_vector buffer 0 16384 in
@@ -57,8 +57,8 @@ let proxy (fd : Lwt_unix.file_descr) protocol ty localport =
   let open LwtWsIteratee in
   let open Lwt_support in
   let (>>=) = Lwt.bind in
-  let (frame,unframe) = 
-    match protocol with 
+  let (frame,unframe) =
+    match protocol with
     | "hixie76" -> 
       Printf.printf "old-style\n%!"; 
       (wsframe_old, wsunframe_old)

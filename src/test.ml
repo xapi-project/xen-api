@@ -22,8 +22,8 @@ end
 
 module StringMonad = struct
   type 'a t = 
-      { data : 'a;
-	str : string }
+    { data : 'a;
+      str : string }
   let return a = { data=a; str=""; }
   let bind x f =
     let newstr = f x.data in

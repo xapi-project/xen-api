@@ -13,7 +13,7 @@
  *)
 
 (* Basic helper functions *)
-	
+
 let split str n =
   let l = String.length str in
   if n>l 
@@ -59,7 +59,7 @@ let marshal_int8 x = marshal_int 1 (Int64.of_int x)
 let marshal_int16 x = marshal_int 2 (Int64.of_int x)
 let marshal_int32 x = marshal_int 4 (Int64.of_int32 x)
 let marshal_int64 x = marshal_int 8 x
-	
+
 let unmarshal_int ?(bigendian=true) n s =
   if String.length s < n then failwith "Invalid argument";
   let f = 
@@ -72,8 +72,8 @@ let unmarshal_int ?(bigendian=true) n s =
     then acc 
     else
       let newacc = Int64.logor 
-	(Int64.shift_left acc 8) 
-	(Int64.of_int (int_of_char s.[f i]))
+          (Int64.shift_left acc 8) 
+          (Int64.of_int (int_of_char s.[f i]))
       in
       inner newacc (i+1)
   in inner 0L 0
@@ -90,4 +90,4 @@ let unmask mask str =
       str.[i] <- char_of_int ((int_of_char str.[i]) lxor (int_of_char mask.[j]))	
     done;
     str end else str
-						    
+
