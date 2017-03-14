@@ -56,9 +56,9 @@ let open_connection_fd host port =
   let s = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
   Lwt_unix.gethostbyname host >>= fun he ->
   if Array.length he.Lwt_unix.h_addr_list = 0
-  then (Lwt_unix.close s; Lwt.fail (Host_not_found host))
+  then (Lwt_unix.close s >>= fun () -> Lwt.fail (Host_not_found host))
   else let ip = he.Unix.h_addr_list.(0) in
        let addr = Unix.ADDR_INET(ip, port) in
-       Lwt_unix.connect s addr;
+       Lwt_unix.connect s addr >>= fun () ->
        Lwt.return s
 
