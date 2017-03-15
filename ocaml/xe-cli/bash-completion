@@ -362,7 +362,7 @@ _xe()
 
             protocol) # for sdn-controller
                 IFS=$'\n,'
-                set_completions 'ssl,pssl' "$value"
+                set_completions 'ssl' "$value"
                 return 0
                 ;;
 
