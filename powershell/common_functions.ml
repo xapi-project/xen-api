@@ -34,6 +34,7 @@ open Printf
 open Xstringext
 open Datamodel
 open Datamodel_types
+open Datamodel_utils
 open Dm_api
   
 module DU = Datamodel_utils

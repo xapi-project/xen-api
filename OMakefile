@@ -33,11 +33,11 @@ OCAMLINCLUDES += ..
 OCAMLFLAGS += -dtypes -thread
 OCAMLPACKS += rpclib xmlm xml-light2 uuid stdext xcp unix str xapi-datamodel
 
-.SUBDIRS: powershell csharp c java
-
-CLEAN_OBJS = *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.opt *.omc *.dll *.rej *.orig
+CLEAN_OBJS = *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.opt *.omc *.rej *.orig
 export CLEAN_OBJS
 
 .PHONY: clean
 clean:
   rm -f $(CLEAN_OBJS)
+
+.SUBDIRS: powershell csharp c java

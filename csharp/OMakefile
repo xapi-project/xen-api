@@ -31,7 +31,7 @@
 OCamlProgram(gen_csharp_binding, gen_csharp_binding ../friendly_error_names ../licence ../CommonFunctions)
 
 .PHONY: dist
-dist: gen_csharp_binding $(SR_XML)
+dist: gen_csharp_binding
   rm -rf autogen
   mkdir -p autogen/src/Properties
   mkdir -p autogen/gui
@@ -51,7 +51,7 @@ dist: gen_csharp_binding $(SR_XML)
   cp -r samples/* autogen/samples
   #other  
   sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' README.dist > autogen/README.txt
-  cp ../LICENSE autogen
+  cp ../LICENSE autogen/LICENSE.txt
   sh ../windows-line-endings.sh autogen
   cp csharp.sh ../sign.bat autogen
 

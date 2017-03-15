@@ -17,4 +17,8 @@ TAGS
 *.opt
 *.omc
 .omakedb*
-
+c/gen_c_binding
+csharp/gen_csharp_binding
+java/main
+powershell/gen_powershell_binding
+autogen
