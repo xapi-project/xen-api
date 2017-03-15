@@ -49,7 +49,7 @@ val attach_internal :
   __context:Context.t -> self:[ `network ] Ref.t -> unit -> unit
 
 (** Remove the bridge associated to this network *)
-val detach : __context:Context.t -> string -> unit
+val detach : __context:Context.t -> bridge_name:string -> managed:bool -> unit
 
 (** Makes the network immediately available on a particular host (Network.attach is hidden from docs) *)
 val attach :
@@ -70,7 +70,9 @@ val pool_introduce :
   name_label:string ->
   name_description:string ->
   mTU:int64 ->
-  other_config:(string * string) list -> bridge:string -> [ `network ] Ref.t
+  other_config:(string * string) list ->
+  bridge:string ->
+  managed:bool -> [ `network ] Ref.t
 
 (** Attempt to create a bridge with a unique name *)
 val create :
@@ -79,6 +81,8 @@ val create :
   name_description:string ->
   mTU:int64 ->
   other_config:(string * string) list ->
+  bridge:string ->
+  managed:bool ->
   tags:string list -> [ `network ] Ref.t
 
 (** WARNING WARNING WARNING: called with the master dispatcher lock; do nothing but basic DB calls
@@ -122,3 +126,8 @@ val with_networks_attached_for_vm :
   vm:[ `VM ] Ref.t ->
   (unit -> 'a) ->
   'a
+
+(** {2 Assertion Helper Functions} *)
+
+val assert_network_is_managed :
+  __context:Context.t -> self:[`network] Ref.t -> unit

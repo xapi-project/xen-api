@@ -170,6 +170,7 @@ let _pvs_server = "PVS_server"
 let _pvs_proxy = "PVS_proxy"
 let _pvs_cache_storage = "PVS_cache_storage"
 let _feature = "Feature"
+let _sdn_controller = "SDN_controller"
 
 
 (** All the various static role names *)
@@ -232,6 +233,12 @@ let get_product_releases in_product_since =
       [] -> raise UnspecifiedRelease
     | x::xs -> if x=in_product_since then "closed"::x::xs else go_through_release_order xs
   in go_through_release_order release_order
+
+let falcon_release =
+  { internal = get_product_releases rel_falcon
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
 
 let dundee_plus_release =
   { internal = get_product_releases rel_dundee_plus
@@ -546,6 +553,8 @@ let _ =
     ~doc:"Only the local superuser can execute this operation" ();
 
   (* PIF/VIF/Network errors *)
+  error Api_errors.network_unmanaged [ "network" ]
+    ~doc:"The network is not managed by xapi." ();
   error Api_errors.network_already_connected ["network"; "connected PIF"]
     ~doc:"You tried to create a PIF, but the network you tried to attach it to is already attached to some other PIF, and so the creation failed." ();
   error Api_errors.cannot_destroy_system_network [ "network" ]
@@ -663,6 +672,9 @@ let _ =
     ~doc:"Operation cannot proceed while a tunnel exists on this interface." ();
   error Api_errors.bridge_not_available [ "bridge" ]
     ~doc:"Could not find bridge required by VM." ();
+  error Api_errors.bridge_name_exists [ "bridge" ]
+    ~doc:"The specified bridge already exists." ();
+
   (* VM specific errors *)
   error Api_errors.vm_is_protected [ "vm" ]
     ~doc:"This operation cannot be performed because the specified VM is protected by xHA" ();
@@ -5109,6 +5121,7 @@ let network_introduce_params first_rel =
     {param_type=Int; param_name="MTU"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=Map(String,String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=String; param_name="bridge"; param_doc=""; param_release=first_rel; param_default=None};
+    {param_type=Bool; param_name="managed"; param_doc=""; param_release=falcon_release; param_default=None};
   ]
 
 (* network pool introduce is used to copy network records on pool join -- it's the network analogue of VDI/PIF.pool_introduce *)
@@ -5189,7 +5202,8 @@ let network =
           field ~qualifier:DynamicRO ~ty:(Set (Ref _pif)) "PIFs" "list of connected pifs";
           field ~qualifier:RW ~ty:Int ~default_value:(Some (VInt 1500L)) ~in_product_since:rel_midnight_ride "MTU" "MTU in octets";
           field ~writer_roles:_R_POOL_OP ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP));("XenCenterCreateInProgress",(_R_VM_OP))];
-          field ~in_oss_since:None ~qualifier:DynamicRO "bridge" "name of the bridge corresponding to this network on the local host";
+          field ~lifecycle:[Published, rel_rio, ""; Changed, rel_falcon, "Added to the constructor (network.create)"] ~in_oss_since:None ~qualifier:StaticRO  ~ty:String ~default_value:(Some (VString "")) "bridge" "name of the bridge corresponding to this network on the local host";
+          field ~lifecycle:[Published, rel_falcon, ""] ~qualifier:StaticRO ~ty:Bool ~default_value:(Some (VBool true)) "managed" "true if the bridge is managed by xapi";
           field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this network";
           field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
           field ~qualifier:DynamicRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "unlocked")) ~ty:network_default_locking_mode "default_locking_mode" "The network will use this value to determine the behaviour of all VIFs where locking_mode = default";
@@ -7078,7 +7092,8 @@ let pool_set_vswitch_controller = call
     ~in_product_since:rel_midnight_ride
     ~lifecycle:[
       Published, rel_midnight_ride, "Set the IP address of the vswitch controller.";
-      Extended, rel_cowley, "Allow to be set to the empty string (no controller is used)."]
+      Extended, rel_cowley, "Allow to be set to the empty string (no controller is used).";
+      Deprecated, rel_falcon, "Deprecated: use 'SDN_controller.introduce' and 'SDN_controller.forget' instead."]
     ~name:"set_vswitch_controller"
     ~params:[String, "address", "IP address of the vswitch controller."]
     ~doc:"Set the IP address of the vswitch controller."
@@ -7293,7 +7308,10 @@ let pool =
        ; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_verify_cert" "true if communication with the WLB server should enforce SSL certificate verification."
        ; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "redo_log_enabled" "true a redo-log is to be used other than when HA is enabled, false otherwise"
        ; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Ref _vdi) ~default_value:(Some (VRef null_ref)) "redo_log_vdi" "indicates the VDI to use for the redo-log other than when HA is enabled"
-       ; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "vswitch_controller" "address of the vswitch controller"
+       ; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "vswitch_controller" "address of the vswitch controller"
+           ~lifecycle:[
+             Published, rel_midnight_ride, "the IP address of the vswitch controller.";
+             Deprecated, rel_falcon, "Deprecated: set the IP address of the vswitch controller in SDN_controller instead."]
        ; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "restrictions" "Pool-wide restrictions currently in effect"
        ; field ~in_oss_since:None ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) "metadata_VDIs" "The set of currently known metadata VDIs for this pool"
        ; field ~in_oss_since:None ~in_product_since:rel_dundee ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String "ha_cluster_stack" "The HA cluster stack that is currently in use. Only valid when HA is enabled."
@@ -9515,6 +9533,70 @@ let feature =
     ]
     ()
 
+module SDN_controller = struct
+  let lifecycle = [Published, rel_falcon, ""]
+
+  let sdn_controller_protocol = Enum ("sdn_controller_protocol", [
+      "ssl", "Active ssl connection";
+      "pssl", "Passive ssl connection";
+    ])
+
+  let introduce = call
+      ~name:"introduce"
+      ~doc:"Introduce an SDN controller to the pool."
+      ~result:(Ref _sdn_controller, "the introduced SDN controller")
+      ~versioned_params:[
+        {param_type=sdn_controller_protocol; param_name="protocol"; param_doc="Protocol to connect with the controller."; param_release=falcon_release; param_default=(Some (VEnum "ssl"))};
+        {param_type=String; param_name="address"; param_doc="IP address of the controller."; param_release=falcon_release; param_default=(Some (VString ""))};
+        {param_type=Int; param_name="port"; param_doc="TCP port of the controller."; param_release=falcon_release; param_default=(Some (VInt 0L)) }
+      ]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let forget = call
+      ~name:"forget"
+      ~doc:"Remove the OVS manager of the pool and destroy the db record."
+      ~params: [ Ref _sdn_controller, "self", "this SDN controller"]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let obj =
+    create_obj
+      ~name: _sdn_controller
+      ~descr:"Describes the SDN controller that is to connect with the pool"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~contents:
+        [ uid     _sdn_controller ~lifecycle
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:sdn_controller_protocol "protocol" ~default_value:(Some (VEnum "ssl"))
+            "Protocol to connect with SDN controller"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:String "address" ~default_value:(Some (VString ""))
+            "IP address of the controller"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+            ~ty:Int "port" ~default_value:(Some (VInt 0L))
+            "TCP port of the controller"
+        ]
+      ~messages:
+        [ introduce
+        ; forget
+        ]
+      ()
+end
+let sdn_controller = SDN_controller.obj
+
 (******************************************************************************************)
 
 (** All the objects in the system in order they will appear in documentation: *)
@@ -9580,6 +9662,7 @@ let all_system =
     pvs_proxy;
     pvs_cache_storage;
     feature;
+    sdn_controller;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -9756,6 +9839,7 @@ let expose_get_all_messages_for = [
   _pvs_proxy;
   _pvs_cache_storage;
   _feature;
+  _sdn_controller;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]

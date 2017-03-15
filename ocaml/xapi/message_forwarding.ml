@@ -442,6 +442,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         Ref.string_of vgpu_type
     with _ -> "invalid"
 
+  let sdn_controller_uuid ~__context sdn_controller =
+    try if Pool_role.is_master () then
+        Db.SDN_controller.get_uuid __context sdn_controller
+      else
+        Ref.string_of sdn_controller
+    with _ -> "invalid"
+
   module Session = Local.Session
   module Auth = Local.Auth
   module Subject = Local.Subject
@@ -2682,9 +2689,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     (* Don't forward. These are just db operations. Networks are "attached" when required by hosts that read db entries.
        		   Bridges corresponding to networks are removed by per-host GC threads that read from db. *)
-    let create ~__context ~name_label ~name_description ~mTU ~other_config ~tags =
-      info "Network.create: name_label = '%s'" name_label;
-      Local.Network.create ~__context ~name_label ~name_description ~mTU ~other_config ~tags
+    let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed ~tags =
+      info "Network.create: name_label = '%s'; bridge = '%s'; managed = '%b'" name_label bridge managed;
+      Local.Network.create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed ~tags
 
     let attach ~__context ~network ~host =
       info "Network.attach: network = '%s'; host = '%s'" (network_uuid ~__context network) (host_uuid ~__context host);
@@ -2692,8 +2699,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       do_op_on ~local_fn ~__context ~host
         (fun session_id rpc -> Client.Network.attach rpc session_id network host)
 
-    let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge =
-      Local.Network.pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge
+    let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed =
+      Local.Network.pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed
 
     let destroy ~__context ~self =
       info "Network.destroy: network = '%s'" (network_uuid ~__context self);
@@ -4037,4 +4044,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   end
 
   module Feature = struct end
+
+  module SDN_controller = struct
+    let introduce ~__context ~protocol ~address ~port =
+      info "SDN_controller.introduce: protocol='%s', address='%s', port='%Ld'" (Record_util.sdn_protocol_to_string protocol) address port;
+      Local.SDN_controller.introduce ~__context ~protocol ~address ~port
+
+    let forget ~__context ~self =
+      info "SDN_controller.forget: sdn_controller = '%s'" (sdn_controller_uuid ~__context self);
+      Local.SDN_controller.forget ~__context ~self
+  end
+
 end

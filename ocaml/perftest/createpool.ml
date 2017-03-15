@@ -51,7 +51,7 @@ let initialise session_id template pool =
   let networks_to_create = pool.interfaces_per_host - pool.bonds in
   debug "Creating %d networks..." networks_to_create;
   let networks = Array.init networks_to_create (fun i ->
-      Client.Network.create ~rpc ~session_id ~name_label:(Printf.sprintf "perftestnet%d" i) ~name_description:"" ~mTU:1500L ~other_config:[oc_key,pool.key] ~tags:[])
+      Client.Network.create ~rpc ~session_id ~name_label:(Printf.sprintf "perftestnet%d" i) ~name_description:"" ~mTU:1500L ~other_config:[oc_key,pool.key] ~bridge:"" ~managed:true ~tags:[])
   in
 
   (* Set up the template - create the VIFs *)
@@ -380,7 +380,7 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
   let pifs = Client.PIF.get_all poolrpc poolses in
 
   let bondednets = Array.init pool.bonds (fun i ->
-      Client.Network.create poolrpc poolses (Printf.sprintf "Network associated with bond%d" i) "" 1500L [] [])
+      Client.Network.create poolrpc poolses (Printf.sprintf "Network associated with bond%d" i) "" 1500L [] "" true [])
   in
 
   let unused_nets = ref (List.setify (List.map (fun pif -> Client.PIF.get_network poolrpc poolses pif) pifs)) in

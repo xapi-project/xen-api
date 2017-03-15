@@ -74,8 +74,9 @@ let assert_can_attach_network_on_host ~__context ~self ~host =
 
 let assert_can_see_named_networks ~__context ~vm ~host reqd_nets =
   let is_network_available_on host net =
-    (* has the network been actualised by one or more PIFs? *)
+    (* has the network been actualised by one or more PIFs, or is managed by xapi?*)
     let pifs = Db.Network.get_PIFs ~__context ~self:net in
+    let managed = Db.Network.get_managed ~__context ~self:net in
     if pifs <> [] then begin
       (* network is only available if one of  *)
       (* the PIFs connects to the target host *)
@@ -87,7 +88,9 @@ let assert_can_see_named_networks ~__context ~vm ~host reqd_nets =
       if List.mem_assoc Xapi_globs.assume_network_is_shared other_config && (List.assoc Xapi_globs.assume_network_is_shared other_config = "true") then begin
         debug "other_config:%s is set on Network %s" Xapi_globs.assume_network_is_shared (Ref.string_of net);
         true
-      end else begin
+      end else if not managed then
+        true
+      else begin
         (* find all the VIFs on this network and whose VM's are running. *)
         (* XXX: in many environments this will perform O (Vms) calls to  *)
         (* VM.getRecord. *)

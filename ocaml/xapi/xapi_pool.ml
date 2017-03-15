@@ -297,7 +297,6 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 
   let assert_homogeneous_vswitch_configuration () =
     (* The network backend must be the same as the remote master's backend *)
-    let my_pool = Helpers.get_pool __context in
     let dbg = Context.string_of_task __context in
     let my_backend' = Net.Bridge.get_kind dbg () in
     let my_backend = Network_interface.string_of_kind my_backend' in
@@ -315,10 +314,27 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 
     match my_backend' with
     | Network_interface.Openvswitch ->
-      let my_controller = Db.Pool.get_vswitch_controller ~__context ~self:my_pool in
-      let controller = Client.Pool.get_vswitch_controller ~rpc ~session_id ~self:pool in
-      if my_controller <> controller && my_controller <> "" then
-        raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["vswitch controller address differs"]))
+      begin
+      let remote_sdn_controllers = Client.SDN_controller.get_all ~rpc ~session_id in
+      let my_sdn_controllers = Db.SDN_controller.get_all ~__context in
+      (* We assume that each pool has _at most_ one SDN controller *)
+      match remote_sdn_controllers, my_sdn_controllers with
+      | _, [] -> ()
+      | remote_sdn_controller :: _, my_sdn_controller :: _ ->
+          (* check that protocol/address/port are identical *)
+          let my_sdn_protocol = Db.SDN_controller.get_protocol ~__context ~self:my_sdn_controller in
+          let my_sdn_address = Db.SDN_controller.get_address ~__context ~self:my_sdn_controller in
+          let my_sdn_port = Db.SDN_controller.get_port ~__context ~self:my_sdn_controller in
+          let remote_sdn_protocol = Client.SDN_controller.get_protocol ~rpc ~session_id ~self:remote_sdn_controller in
+          let remote_sdn_address = Client.SDN_controller.get_address ~rpc ~session_id ~self:remote_sdn_controller in
+          let remote_sdn_port = Client.SDN_controller.get_port ~rpc ~session_id ~self:remote_sdn_controller in
+          if my_sdn_protocol <> remote_sdn_protocol
+            || my_sdn_address <> remote_sdn_address
+            || my_sdn_port <> remote_sdn_port then
+            raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["SDN controller differs"]))
+      | _ ->
+        raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["SDN controller differs"]))
+      end
     | _ -> ()
   in
 
@@ -538,6 +554,7 @@ let create_or_get_network_on_master __context rpc session_id (network_ref, netwo
           ~mTU:network.API.network_MTU
           ~other_config:network.API.network_other_config
           ~bridge:network.API.network_bridge
+          ~managed:network.API.network_managed
     else begin
       debug "Recreating network '%s' as internal network." network.API.network_name_label;
       (* This call will generate a new 'xapi#' bridge name rather than keeping the
@@ -547,6 +564,8 @@ let create_or_get_network_on_master __context rpc session_id (network_ref, netwo
         ~name_description:network.API.network_name_description
         ~mTU:network.API.network_MTU
         ~other_config:network.API.network_other_config
+        ~bridge:network.API.network_bridge
+        ~managed:network.API.network_managed
         ~tags:network.API.network_tags
     end
   in
@@ -1690,7 +1709,11 @@ let set_vswitch_controller ~__context ~address =
       if address <> "" then
         Helpers.assert_is_valid_ip `ipv4 "address" address;
       Db.Pool.set_vswitch_controller ~__context ~self:pool ~value:address;
-      List.iter (fun host -> Helpers.update_vswitch_controller ~__context ~host) (Db.Host.get_all ~__context)
+      let sdn_controllers = Db.SDN_controller.get_all ~__context in
+      if sdn_controllers <> [] then
+        Xapi_sdn_controller.forget ~__context ~self:(List.hd sdn_controllers);
+      if address <> "" then
+        ignore (Xapi_sdn_controller.introduce ~__context ~protocol:`ssl ~address:address ~port:6632L);
     end
   | _ -> raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["host not configured for vswitch operation"]))
 

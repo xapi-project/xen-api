@@ -105,7 +105,7 @@ _xe()
                     pvs-cache-storage-*)
                         # Chop off at the third '-' and append 'list'
                         cmd="$(echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1-3)-list";;
-                    host-cpu-*|host-crashdump-*|gpu-group-*|vgpu-type-*|pvs-server-*|pvs-proxy-*|pvs-site-*)
+                    host-cpu-*|host-crashdump-*|gpu-group-*|vgpu-type-*|pvs-server-*|pvs-proxy-*|pvs-site-*|sdn-controller-*)
                         # Chop off at the second '-' and append 'list'
                         cmd="$(echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1-2)-list";;
                     *)
@@ -358,6 +358,12 @@ _xe()
                 LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
                 EDITIONS=`${xe} host-all-editions --minimal 2>/dev/null`
                 set_completions "$EDITIONS" "$LAST_VALUE"
+                return 0
+                ;;
+
+            protocol) # for sdn-controller
+                IFS=$'\n,'
+                set_completions 'ssl' "$value"
                 return 0
                 ;;
 

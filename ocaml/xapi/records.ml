@@ -433,6 +433,7 @@ let net_record rpc session_id net =
         ~get_set:(fun () -> (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.network_PIFs)) ();
       make_field ~name:"MTU" ~get:(fun () -> (Int64.to_string (x ()).API.network_MTU)) ~set:(fun x -> Client.Network.set_MTU rpc session_id net (Int64.of_string x)) ();
       make_field ~name:"bridge" ~get:(fun () -> (x ()).API.network_bridge) ();
+      make_field ~name:"managed" ~get:(fun () -> string_of_bool (x ()).API.network_managed) ();
       make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.network_other_config)
         ~add_to_map:(fun k v -> Client.Network.add_to_other_config rpc session_id net k v)
         ~remove_from_map:(fun k -> Client.Network.remove_from_other_config rpc session_id net k)
@@ -1976,3 +1977,21 @@ let feature_record rpc session_id feature =
       make_field ~name:"host-uuid" ~get:(fun () -> (x ()).API.feature_host |> get_uuid_from_ref) ();
     ]
   }
+
+let sdn_controller_record rpc session_id sdn_controller =
+  let _ref = ref sdn_controller in
+  let empty_record = ToGet (fun () -> Client.SDN_controller.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  { setref=(fun r -> _ref := r; record := empty_record );
+    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
+    record=x;
+    getref=(fun () -> !_ref);
+    fields =
+      [
+        make_field ~name:"uuid"                ~get:(fun () -> (x ()).API.sDN_controller_uuid) ();
+        make_field ~name:"protocol"            ~get:(fun () -> Record_util.sdn_protocol_to_string (x ()).API.sDN_controller_protocol) ();
+        make_field ~name:"address"             ~get:(fun () -> (x ()).API.sDN_controller_address) ();
+        make_field ~name:"port"                ~get:(fun () -> Int64.to_string (x ()).API.sDN_controller_port) ();
+      ]}
+

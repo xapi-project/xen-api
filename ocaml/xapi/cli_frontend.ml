@@ -2002,7 +2002,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     "network-create",
     {
       reqd=["name-label"];
-      optn=["name-description"; "MTU"];
+      optn=["name-description"; "MTU"; "bridge"; "managed"];
       help="Create a new network.";
       implementation=No_fd Cli_operations.net_create;
       flags=[];
@@ -2779,6 +2779,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       optn=[];
       help="Remove a PVS cache";
       implementation=No_fd Cli_operations.PVS_cache_storage.destroy;
+      flags=[];
+    };
+    "sdn-controller-introduce",
+    {
+      reqd=[];
+      optn=["address"; "protocol"; "tcp-port"];
+      help="Introduce an SDN controller";
+      implementation=No_fd Cli_operations.SDN_controller.introduce;
+      flags=[];
+    };
+    "sdn-controller-forget",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Remove an SDN controller";
+      implementation=No_fd Cli_operations.SDN_controller.forget;
       flags=[];
     };
   ]
