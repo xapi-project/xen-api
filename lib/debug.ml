@@ -117,7 +117,7 @@ let format include_time brand priority message =
     (if include_time then gettimestring () else "")
     priority host id name task brand message
 
-let print_debug = ref false
+let print_debug = ref true
 let log_to_stdout () = print_debug := true
 
 let loglevel_m = Mutex.create ()
