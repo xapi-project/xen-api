@@ -659,7 +659,7 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
         (fun acc content_id -> match acc with
            | Some x -> acc
            | None ->
-             try Some (List.find (fun vdi -> vdi.content_id = content_id) vdis)
+             try Some (List.find (fun vdi -> vdi.content_id = content_id && vdi.virtual_size <= vdi_info.virtual_size) vdis)
              with Not_found -> None) None similar in
 
     debug "Nearest VDI: content_id=%s vdi=%s"
@@ -822,7 +822,7 @@ let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
           (fun acc content_id -> match acc with
              | Some x -> acc
              | None ->
-               try Some (List.find (fun vdi -> vdi.content_id = content_id) remote_vdis)
+               try Some (List.find (fun vdi -> vdi.content_id = content_id && vdi.virtual_size <= local_vdi.virtual_size) remote_vdis)
                with Not_found -> None) None similars in
 
       debug "Nearest VDI: content_id=%s vdi=%s"
