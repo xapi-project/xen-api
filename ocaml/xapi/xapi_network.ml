@@ -207,8 +207,11 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~
       let bridges = List.map (fun self -> Db.Network.get_bridge ~__context ~self) networks in
       let mTU = if mTU <= 0L then 1500L else mTU in
       let bridge =
-        if bridge = "" then
+        if bridge = "" then begin
+          if not managed then
+            raise (Api_errors.Server_error (Api_errors.invalid_value, [ "bridge"; bridge ]));
           choose_bridge_name bridges
+        end
         else begin
           if String.length bridge > 15 || List.exists (fun s -> String.startswith s bridge) bridge_blacklist then
             raise (Api_errors.Server_error (Api_errors.invalid_value, [ "bridge"; bridge ]));
