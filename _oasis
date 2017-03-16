@@ -94,7 +94,7 @@ Executable lib_test
   BuildDepends:       lwt, lwt.unix, xcp, xcp.xen, threads, rpclib, oUnit, xcp.updates
 
 Test lib_test
-  Command:            ./test.native
+  Command:            ./test.native -runner sequential
   Run:                true
 
 Executable example
