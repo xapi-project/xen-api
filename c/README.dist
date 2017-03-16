@@ -35,7 +35,7 @@ Dependencies
 This library is dependent upon libxml2, the XML toolkit from the GNOME project,
 by Daniel Veillard, et al.  This can be obtained from http://xmlsoft.org/.
 
-The test programs are dependent also upon libcurl3, by Daniel Stenberg, et al.
+The test programs are dependent also upon libcurl-devel, by Daniel Stenberg, et al.
 This can be downloaded from http://curl.haxx.se/. You may choose to use
 libcurl3 in your application, just as we have for the test programs, though
 it is not required to do so, and you may use a different network layer if you

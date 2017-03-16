@@ -30,6 +30,9 @@
 
 OCamlProgram(gen_csharp_binding, gen_csharp_binding ../friendly_error_names ../licence ../CommonFunctions)
 
+#this has been installed with the sdk's dependencies
+SR_XML=/opt/xensource/sm/XE_SR_ERRORCODES.xml
+
 .PHONY: dist
 dist: gen_csharp_binding
   rm -rf autogen
@@ -53,7 +56,6 @@ dist: gen_csharp_binding
   sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' README.dist > autogen/README.txt
   cp ../LICENSE autogen/LICENSE.txt
   sh ../windows-line-endings.sh autogen
-  cp csharp.sh ../sign.bat autogen
 
 .PHONY: clean
 clean:
