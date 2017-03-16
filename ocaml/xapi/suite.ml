@@ -57,6 +57,7 @@ let base_suite =
     Test_pvs_proxy.test;
     Test_pvs_server.test;
     Test_pvs_cache_storage.test;
+    Test_sdn_controller.test;
     Test_event.test;
   ]
 
