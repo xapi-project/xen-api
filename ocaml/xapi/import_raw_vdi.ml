@@ -32,7 +32,7 @@ exception HandleError of exn * (string list) (* Exception to put into the task *
 let vdi_assert_is_valid_size = function
   | None -> ()
   | Some size ->
-    if size = 0L || Int64.rem size 512L <> 0L then begin (* potentially demoting 64-bit value to a 32-bit value should be okay for calculating multiple of 512 *)
+    if size = 0L || Int64.rem size 512L <> 0L then begin
       error "VDI size = %s bytes; the size must be a non-zero multiple of 512 bytes." (Int64.to_string size);
       raise (HandleError(Api_errors.(Server_error(internal_error, ["VDI size must be a non-zero multiple of 512 bytes."])),Http.http_400_badrequest ~version:"1.0" ()))
     end
