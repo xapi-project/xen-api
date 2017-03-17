@@ -30,56 +30,35 @@
 
 API_MAJOR=2
 API_MINOR=6
-API_VER=$(API_MAJOR).$(API_MINOR)
-
-C_GEN_FOLDER=$(BINDINGS_TMP)/c_gen
-C_SRC_TMP_FOLDER=$(BINDINGS_TMP)/libxenserver
-SDK_C_FOLDER=$(SDK_FOLDER)/libxenserver
-C_BIN_FOLDER=$(SDK_C_FOLDER)/bin/
-C_SRC_FOLDER=$(SDK_C_FOLDER)/src/
-
-CFLAGS += $(shell xml2-config --cflags) $(shell curl-config --cflags) -W -Wall -Wmissing-prototypes -Werror -std=c99 -g -O2
-
-COMPAT_PATCH = compat.patch
 
 section
   OCamlProgram(gen_c_binding, gen_c_binding helper ../licence ../CommonFunctions)
 
-
-.PHONY: c_source
-c_source: gen_c_binding
-  rm -Rf $(C_SRC_TMP_FOLDER)
-  mkdir -p $(C_SRC_TMP_FOLDER)/include
-  mkdir -p $(C_SRC_TMP_FOLDER)/src
-  mkdir -p $(C_SRC_TMP_FOLDER)/test
-  rm -Rf $(C_GEN_FOLDER)
-  mkdir -p $(C_GEN_FOLDER)
-  ./gen_c_binding -d $(C_GEN_FOLDER)
-  (cd $(C_GEN_FOLDER) && patch -p0 <$(COMPAT_PATCH))
-  cp -r $(C_GEN_FOLDER)/xen $(C_SRC_TMP_FOLDER)/include
-  cp $(C_GEN_FOLDER)/*.h $(C_SRC_TMP_FOLDER)/include
-  cp $(C_GEN_FOLDER)/*.c $(C_SRC_TMP_FOLDER)/src
-  sed -e s/@LIB_MAJOR@/$(API_MAJOR)/g -e s/@LIB_MINOR@/$(API_MINOR)/g -e s/@LIB_NAME@/xenserver/g Makefile.dist > $(C_SRC_TMP_FOLDER)/Makefile
-  cp xen_internal.h $(C_SRC_TMP_FOLDER)/include
-  cp xen_common.h xen_string_set.h xen_int_set.h $(C_SRC_TMP_FOLDER)/include/xen/api
-  cp xen_common.c xen_string_set.c xen_int_set.c $(C_SRC_TMP_FOLDER)/src
-  cp test/*.c $(C_SRC_TMP_FOLDER)/test
-  make -C $(C_SRC_TMP_FOLDER) -f Makefile uberheader
-  cd $(BINDINGS_TMP) && tar cjf $(MY_OUTPUT_DIR)/libxenserver-src.tar.bz2 libxenserver
-  mkdir -p $(C_SRC_FOLDER) && cp -r $(C_SRC_TMP_FOLDER)/* $(C_SRC_FOLDER)
-  sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' README.dist >$(SDK_C_FOLDER)/README
-  cp ../LICENSE $(SDK_C_FOLDER)/COPYING
-
-.PHONY: c_binaries
-c_binaries:  c_source
-  make -C $(C_SRC_TMP_FOLDER) -f Makefile all
-  cd $(BINDINGS_TMP) && tar cjf $(MY_OUTPUT_DIR)/libxenserver-bin.tar.bz2 $(addprefix libxenserver/, libxenserver.so libxenserver.so.$(API_MAJOR) libxenserver.so.$(API_VER))
-  mkdir -p $(C_BIN_FOLDER) && cp $(addprefix $(C_SRC_TMP_FOLDER)/, libxenserver.so libxenserver.so.$(API_MAJOR) libxenserver.so.$(API_VER)) $(C_BIN_FOLDER)
-
-.PHONY: c_folders
-c_folders: c_binaries c_source
+.PHONY: dist
+dist: gen_c_binding
+  rm -Rf autogen
+  mkdir -p autogen/include 
+  mkdir -p autogen/src
+  mkdir -p autogen/test
+  ./gen_c_binding -d autogen
+  #source
+  (cd autogen && patch -p0 < compat.patch)
+  rm autogen/*.orig
+  mv autogen/xen autogen/include
+  mv autogen/*.h autogen/include
+  mv autogen/*.c autogen/src
+  cp xen_internal.h autogen/include
+  cp xen_common.h xen_string_set.h xen_int_set.h autogen/include/xen/api
+  cp xen_common.c xen_string_set.c xen_int_set.c autogen/src
+  sed -e s/@LIB_MAJOR@/$(API_MAJOR)/g -e s/@LIB_MINOR@/$(API_MINOR)/g Makefile.dist > autogen/Makefile  
+  make -C autogen -f Makefile ueberheader
+  #tests
+  cp test/*.c autogen/test 
+  #other
+  sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' README.dist > autogen/README
+  cp ../LICENSE autogen/COPYING
 
 .PHONY: clean
 clean:
-  rm -f *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.omc
-  rm -f gen_c_binding
+  rm -f $(CLEAN_OBJS) gen_c_binding
+  rm -rf autogen

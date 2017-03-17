@@ -31,6 +31,7 @@
 open Stdext
 open Dm_api
 open Datamodel_utils
+open Datamodel_types
 open Xstringext
 
 module DT=Datamodel_types

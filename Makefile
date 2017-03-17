@@ -6,13 +6,13 @@
 # modification, are permitted provided that the following conditions
 # are met:
 # 
-#   1) Redistributions of source code must retain the above copyright
-#      notice, this list of conditions and the following disclaimer.
+#  1) Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
 # 
-#   2) Redistributions in binary form must reproduce the above
-#      copyright notice, this list of conditions and the following
-#      disclaimer in the documentation and/or other materials
-#      provided with the distribution.
+#  2) Redistributions in binary form must reproduce the above
+#     copyright notice, this list of conditions and the following
+#     disclaimer in the documentation and/or other materials
+#     provided with the distribution.
 # 
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -28,10 +28,12 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-DIR_TO_FLIP=$1
+.PHONY: build
+build: clean
+	omake dist
 
-for file in `find ${DIR_TO_FLIP} -type f`
-do
-  sed -i -e 's,\r,,g' $file
-  sed -i -e 's,$,\r,g' $file
-done
+.PHONY: clean
+clean:
+	omake clean
+	rm -f .omakedb .omakedb.lock
+

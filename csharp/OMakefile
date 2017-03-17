@@ -28,19 +28,36 @@
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-SR_XML = $(PROJECT_OUTPUTDIR)/sm/XE_SR_ERRORCODES.xml
-
 OCamlProgram(gen_csharp_binding, gen_csharp_binding ../friendly_error_names ../licence ../CommonFunctions)
 
-.PHONY: gen_gui_csharp_bindings
-gen_gui_csharp_bindings: gen_csharp_binding $(SR_XML)
-	rm -Rf $(CSHARP_GEN)
-	mkdir -p $(CSHARP_GEN)
-	./gen_csharp_binding -s $(SR_XML) -d $(CSHARP_GEN)
+#this has been installed with the sdk's dependencies
+SR_XML=/opt/xensource/sm/XE_SR_ERRORCODES.xml
+
+.PHONY: dist
+dist: gen_csharp_binding
+  rm -rf autogen
+  mkdir -p autogen/src/Properties
+  mkdir -p autogen/gui
+  mkdir -p autogen/samples
+  ./gen_csharp_binding -s $(SR_XML) -d autogen
+  #source
+  mv autogen/XenObjectDownloader.cs autogen/gui 
+  sh subst-autogen-csproj.sh autogen src/XenServer.csproj autogen/src/XenServer.csproj
+  cp src/*.cs autogen
+  cp autogen/*.* autogen/src
+  mv autogen/src/AssemblyInfo.cs autogen/src/Properties/AssemblyInfo.cs
+  sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION).0/g' autogen/src/Properties/AssemblyInfo.cs
+  #source gui
+  mv autogen/*.* autogen/gui
+  rm autogen/gui/AssemblyInfo.cs
+  #samples
+  cp -r samples/* autogen/samples
+  #other  
+  sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' README.dist > autogen/README.txt
+  cp ../LICENSE autogen/LICENSE.txt
+  sh ../windows-line-endings.sh autogen
 
 .PHONY: clean
 clean:
-  rm -f *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.omc
-  rm -f gen_csharp_binding
-
-.DEFAULT: gen_csharp_binding
+  rm -f $(CLEAN_OBJS) gen_csharp_binding
+  rm -rf autogen

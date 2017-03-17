@@ -33,8 +33,6 @@ open Pervasiveext
 open Printf
 open Xstringext
 
-open Getopt
-
 open Datamodel
 open Datamodel_types
 open Dm_api
@@ -49,13 +47,13 @@ module TypeSet = Set.Make(struct
 			    let compare = compare
 			  end)
 
-let open_source = ref false
+let open_source' = ref false
 let destdir'    = ref ""
 let sr_xml'     = ref ""
 
 
 let usage () =
-  eprintf "
+  Printf.sprintf "
 Usage:
 
     %s -s/--srxml=<filename> -d/--dest=<destdir> [-o/--open]
@@ -78,21 +76,16 @@ let get_deprecated_attribute message =
     get_deprecated_attribute_string version
 
 let _ =
-  try
-    ignore (parse_cmdline
-			       [
-				     ('s', "srxml", None, (atmost_once sr_xml' (Error "only one output")));
-				     ('o', "open", (set open_source true), None);
-				     ('d', "destdir", None, (atmost_once destdir' (Error "only one output")))
-			       ] print_endline);
-	if String.compare !destdir' "" = 0 || String.compare !sr_xml' "" = 0 then
-	  usage()
-    with
-      Getopt.Error message ->
-        prerr_string message;
-        usage();
-        exit 1
+  Arg.parse
+    [
+      "-s", Arg.Set_string sr_xml', "specifies the location of the XE_SR_ERRORCODES.xml file";
+      "-o", Arg.Set open_source', "requests a version of the API filtered for open source";
+      "-d", Arg.Set_string destdir', "specifies the destination directory for the generated files";
+    ] 
+    (fun x -> Printf.printf "Skipping unknown argument: %s" x)
+    (usage ())
 
+let open_source = !open_source'
 let destdir = !destdir'
 let sr_xml = !sr_xml'
 
@@ -103,15 +96,15 @@ let api =
 	let obj_filter _ = true in
 	let field_filter field =
 		(not field.internal_only) &&
-		((not !open_source && (List.mem "closed" field.release.internal)) ||
-		(!open_source && (List.mem "3.0.3" field.release.opensource)))
+		((not open_source && (List.mem "closed" field.release.internal)) ||
+		(open_source && (List.mem "3.0.3" field.release.opensource)))
 	in
 	let message_filter msg = 
 		Datamodel_utils.on_client_side msg &&
 		(* XXX: C# binding generates get_all_records some other way *)
 		(msg.msg_tag <> (FromObject GetAllRecords)) && 
-		((not !open_source && (List.mem "closed" msg.msg_release.internal)) ||
-		(!open_source && (List.mem "3.0.3" msg.msg_release.opensource)))
+		((not open_source && (List.mem "closed" msg.msg_release.internal)) ||
+		(open_source && (List.mem "3.0.3" msg.msg_release.opensource)))
 	in
 	filter obj_filter field_filter message_filter
 		(Datamodel_utils.add_implicit_messages ~document_order:false
@@ -149,7 +142,6 @@ let enum_of_wire = String.replace "-" "_"
 
 let rec main() =
   gen_proxy();
-  gen_callversionscsv();
   List.iter (fun x -> if generated x then gen_class x) classes;
   gen_object_downloader classes;
   TypeSet.iter gen_enum !enums;
@@ -1354,31 +1346,6 @@ and gen_proxy_for_class out_chan {name=classname; messages=messages} =
   List.iter (gen_proxy_method_overloads out_chan classname) (List.filter (fun x -> not x.msg_hide_from_docs) messages);
   if (not (List.exists (fun msg -> String.compare msg.msg_name "get_all_records" = 0) messages)) then
     gen_proxy_method out_chan classname (get_all_records_method classname) []
-
-(*Generate a csv file detailing the call name and when it was added - used for testing*)
-and gen_callversionscsv() =
-  let out_chan = open_out (Filename.concat destdir "callVersions.csv")
-  in
-    finally (fun () -> gen_callversionscsv' out_chan)
-            (fun () -> close_out out_chan)
-
-and gen_callversionscsv' out_chan =
-  List.iter (fun x -> if proxy_generated x then gen_callversionscsv_for_class out_chan x) classes
-
-and gen_callversionscsv_for_class out_chan {name=classname; messages=messages} =
-  List.iter (gen_callversionscsv_method out_chan classname) (List.filter (fun x -> not x.msg_hide_from_docs) messages);
-  if (not (List.exists (fun msg -> String.compare msg.msg_name "get_all_records" = 0) messages)) then
-    gen_callversionscsv_method out_chan classname (get_all_records_method classname)
-
-and gen_callversionscsv_method out_chan classname message =
-  let print format = fprintf out_chan format in
-  let published = List.filter (fun (transition, release, doc) -> transition = Published) message.msg_lifecycle in
-  let proxy_msg_name = proxy_msg_name classname message in
-  let printRel = fun releaseVersion ->
-    print "\n%s,%s" proxy_msg_name releaseVersion;
-    if message.msg_async then print "\nasync_%s,%s" proxy_msg_name releaseVersion
-  in
-  List.iter (fun (t, rel, doc) -> printRel rel) published
 
 and gen_proxy_method_overloads out_chan classname message =
   let generator = fun x -> gen_proxy_method out_chan classname message x in

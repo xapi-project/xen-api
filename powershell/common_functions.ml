@@ -32,9 +32,9 @@ open Stdext
 open Pervasiveext
 open Printf
 open Xstringext
-open Getopt
 open Datamodel
 open Datamodel_types
+open Datamodel_utils
 open Dm_api
   
 module DU = Datamodel_utils

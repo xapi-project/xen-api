@@ -30,15 +30,31 @@
 
 OCamlProgram(gen_powershell_binding, gen_powershell_binding common_functions ../licence ../CommonFunctions)
 
-.PHONY: gen_powershell_bindings
-gen_powershell_bindings: gen_powershell_binding
-	rm -Rf $(POWERSHELL_GEN)
-	mkdir -p $(POWERSHELL_GEN)
-	./gen_powershell_binding $(POWERSHELL_GEN)
+PRODUCT_GUID=$(shell uuidgen | tr a-z A-Z)
+
+.PHONY: dist
+dist: gen_powershell_binding
+  rm -rf autogen
+  mkdir -p autogen/src
+  mkdir -p autogen/samples
+  ./gen_powershell_binding autogen
+  #source
+  mv autogen/*.cs autogen/src
+  cp src/*.cs autogen/src
+  sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION)/g' -e 's/1000/$(SDK_VERSION).0/g' autogen/src/AssemblyInfo.cs
+  #samples
+  cp samples/*.ps1 autogen/samples
+  #other 
+  cp *.ps1xml *.ps1 autogen
+  sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' \
+      -e 's/@PRODUCT_GUID@/$(PRODUCT_GUID)/g' \
+      XenServerPSModule.psd1 > autogen/XenServerPSModule.psd1
+  sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' about_XenServer.help.txt > autogen/about_XenServer.help.txt
+  sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' README.dist > autogen/README.txt
+  cp ../LICENSE autogen/LICENSE.txt
+  sh ../windows-line-endings.sh autogen
 
 .PHONY: clean
 clean:
-  rm -f *.annot *.o *.cmi *.cmx *.cmo *.cma *.cmxa *.run *.opt *.omc
-  rm -f gen_powershell_binding
-
-.DEFAULT: gen_powershell_bindings
+  rm -f $(CLEAN_OBJS) gen_powershell_binding
+  rm -rf autogen
