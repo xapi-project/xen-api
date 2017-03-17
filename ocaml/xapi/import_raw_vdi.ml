@@ -29,14 +29,6 @@ open Client
 
 exception HandleError of exn * (string list) (* Exception to put into the task * headers to return to the client *)
 
-let vdi_assert_is_valid_size = function
-  | None -> ()
-  | Some size ->
-    if size = 0L || Int64.rem size 512L <> 0L then begin (* potentially demoting 64-bit value to a 32-bit value should be okay for calculating multiple of 512 *)
-      error "VDI size = %s bytes; the size must be a non-zero multiple of 512 bytes." (Int64.to_string size);
-      raise (HandleError(Api_errors.(Server_error(internal_error, ["VDI size must be a non-zero multiple of 512 bytes."])),Http.http_400_badrequest ~version:"1.0" ()))
-    end
-
 let localhost_handler rpc session_id vdi_opt (req: Request.t) (s: Unix.file_descr) =
   req.Request.close <- true;
   Xapi_http.with_context "Importing raw VDI" req s
@@ -46,7 +38,6 @@ let localhost_handler rpc session_id vdi_opt (req: Request.t) (s: Unix.file_desc
        let task_id = Context.get_task_id __context in
        let format = Importexport.Format.of_req req in
        try
-         vdi_assert_is_valid_size req.Request.content_length;
          match format with
          | `Unknown x ->
            error "import_raw_vdi task_id = %s; vdi = %s; unknown disk format = %s"
