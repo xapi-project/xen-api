@@ -65,7 +65,6 @@ Library xenopsd
     Storage,
     Interface,
     Xenctrl_uuid,
-    Xenstore,
     Version
   BuildDepends:
     threads,
@@ -161,24 +160,9 @@ Executable xenopsd_xc_main
     rrd,
     sexplib,
     xcp-inventory,
+    ezxenstore,
     profiling
   CSources:           fsync_stubs.c, xenctrlext_stubs.c
-
-Executable watch_test
-  CompiledObject:     best
-  Path:               xc
-  ByteOpt:            -warn-error +a-3
-  NativeOpt:          -warn-error +a-3
-  MainIs:             watch_test.ml
-  Install:            false
-  BuildDepends:
-    xenopsd,
-    xenstore,
-    xenstore.unix,
-    xenstore_transport,
-    xenstore_transport.unix,
-    threads,
-    profiling
 
 Executable xenopsd_simulator
   CompiledObject:     best
@@ -237,6 +221,7 @@ Executable xenopsd_xenlight_main
     xcp.memory,
     sexplib,
     xcp-inventory,
+    ezxenstore,
     profiling
   CSources:           fsync_stubs.c, poll_stubs.c
 
