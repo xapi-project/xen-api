@@ -11,6 +11,8 @@ let suite =
       Debug_test.tests;
       Syslog_test.tests;
       Scheduler_test.tests;
+      Updates_test.tests;
+      Task_server_test.tests;
     ]
 
 let () =
