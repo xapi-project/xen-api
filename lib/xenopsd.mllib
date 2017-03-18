@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: f6d3566ed45247192bc4647d7d2db97b)
+# DO NOT EDIT (digest: 18c27524efc99b1700e07a291888609b)
 Suspend_image
 Cancellable_subprocess
 Bootloader
@@ -7,16 +7,13 @@ Ionice
 Mac
 Xenops_migrate
 Xenops_hooks
-Task_server
 Xenops_task
-Updates
 Xenops_utils
 Xenops_server
 Xenopsd
 Xenops_server_plugin
 Xenops_server_skeleton
 Xenops_server_simulator
-Scheduler
 Resources
 Storage
 Interface
