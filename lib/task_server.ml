@@ -217,19 +217,25 @@ module Task = functor (Interface : INTERFACE) -> struct
     info "Task %s has been cancelled: raising Cancelled exception" t.id;
     raise (Interface.Cancelled(t.id))
 
+  let check_cancelling_locked t =
+    t.cancel_points_seen <- t.cancel_points_seen + 1;
+    if t.cancelling then raise_cancelled t;
+    Opt.iter (fun x -> if t.cancel_points_seen = x then begin
+        info "Task %s has been triggered by the test-case (cancel_point = %d)" t.id t.cancel_points_seen;
+        raise_cancelled t
+      end) t.test_cancel_at
+
   let check_cancelling t =
-    Mutex.execute t.tm
-      (fun () ->
-         t.cancel_points_seen <- t.cancel_points_seen + 1;
-         if t.cancelling then raise_cancelled t;
-         Opt.iter (fun x -> if t.cancel_points_seen = x then begin
-             info "Task %s has been triggered by the test-case (cancel_point = %d)" t.id t.cancel_points_seen;
-             raise_cancelled t
-           end) t.test_cancel_at
-      )
+    Mutex.execute t.tm (fun () -> check_cancelling_locked t)
 
   let with_cancel t cancel_fn f =
-    Mutex.execute t.tm (fun () -> t.cancel <- cancel_fn :: t.cancel);
+    Mutex.execute t.tm (fun () ->
+        try
+          check_cancelling_locked t;
+          t.cancel <- cancel_fn :: t.cancel
+        with e ->
+          (try cancel_fn () with e -> debug "Task.cancel %s: ignore exception %s" t.id (Printexc.to_string e));
+          raise e);
     finally
       (fun () ->
          check_cancelling t;
