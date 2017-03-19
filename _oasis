@@ -230,6 +230,7 @@ Executable xapi
     xcp.network,
     xcp.v6,
     xcp.memory,
+    xcp.updates,
     rrdd-plugin
 
 Executable xe
