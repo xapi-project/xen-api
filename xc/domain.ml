@@ -226,9 +226,11 @@ let make ~xc ~xs vm_info uuid =
 			t.Xst.rm vss_path;
 			t.Xst.mkdirperms vss_path rwperm;
 
-			t.Xst.write (dom_path ^ "/vm") vm_path;
-			t.Xst.write (dom_path ^ "/vss") vss_path;
-			t.Xst.write (dom_path ^ "/name") name;
+			t.Xst.writev dom_path [
+				"vm", vm_path;
+				"vss", vss_path;
+				"name", name;
+			];
 
 			(* create cpu and memory directory with read only perms *)
 			List.iter (fun dir ->
