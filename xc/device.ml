@@ -87,7 +87,6 @@ let add_device ~xs device backend_list frontend_list private_list xenserver_list
 		             (("frontend", frontend_rw_path) :: backend_list);
 
 		t.Xst.mkdirperms private_data_path (Xenbus_utils.hotplug device);
-		t.Xst.writev private_data_path private_list;
 		t.Xst.writev private_data_path
 			(("backend-kind", string_of_kind device.backend.kind) ::
 				("backend-id", string_of_int device.backend.domid) :: private_list);
