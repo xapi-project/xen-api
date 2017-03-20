@@ -294,7 +294,7 @@ module VM : HandlerTools = struct
   let precheck __context config rpc session_id state x =
     let vm_record = API.Legacy.From.vM_t "" x.snapshot in
     let is_default_template = vm_record.API.vM_is_default_template || (
-        vm_record.API.vM_is_a_template 
+        vm_record.API.vM_is_a_template
         && (List.mem_assoc Xapi_globs.default_template_key vm_record.API.vM_other_config)
         && ((List.assoc Xapi_globs.default_template_key vm_record.API.vM_other_config) = "true"))
     in
@@ -1688,8 +1688,8 @@ let handler (req: Request.t) s _ =
            | None ->
              log_reraise
                "request was missing both sr_id and sr_uuid: one must be provided"
-               (Helpers.call_api_functions ~__context)
-               get_default_sr
+               (fun () -> Helpers.call_api_functions ~__context get_default_sr)
+               ()
          in
          info "VM.import: SR = '%s%s'; force = %b; full_restore = %b"
            (try Db.SR.get_uuid ~__context ~self:sr with _ -> "invalid")

@@ -249,7 +249,7 @@ type 'a api_object =
 
 (** Log into pool master using the client code, call a function
     passing it the rpc function and session id, logout when finished. *)
-let call_api_functions ~__context f =
+let call_api_functions_internal ~__context f =
   let rpc = make_rpc ~__context in
   (* let () = debug "logging into master" in *)
   (* If we're the master then our existing session may be a client one without 'pool' flag set, so
@@ -290,6 +290,16 @@ let call_api_functions ~__context f =
          try Client.Client.Session.logout rpc session_id
          with e ->
            debug "Helpers.call_api_functions failed to logout: %s (ignoring)" (Printexc.to_string e))
+
+let test_mode = ref false
+let call_api_functions ~__context ?test_fn f =
+  if not !test_mode
+  then call_api_functions_internal ~__context f
+  else begin
+    match test_fn with
+    | Some fn -> fn ()
+    | None -> failwith "Test mode API function unset"
+  end
 
 let call_emergency_mode_functions hostname f =
   let open Xmlrpc_client in
