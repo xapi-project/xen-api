@@ -1,4 +1,7 @@
 include config.mk
+INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
+OCAMLFIND_DESTDIR = $(INSTALL_PATH)
+export OCAMLFIND_DESTDIR
 
 SETUP = ocaml setup.ml
 
@@ -44,8 +47,8 @@ install: setup.data rbac_static.csv
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	mkdir -p $(DESTDIR)/usr/bin
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
+	mkdir -p $(INSTALL_PATH)
 # ocaml/xapi
-	$(SETUP) -install $(INSTALLFLAGS)
 	make -C scripts install
 	cp -f xapi_main.native $(DESTDIR)$(SBINDIR)/xapi
 	scripts/install.sh 755 ocaml/xapi/quicktest $(DESTDIR)$(OPTDIR)/debug
@@ -75,4 +78,5 @@ install: setup.data rbac_static.csv
 	scripts/install.sh 755 cdrommon.native $(DESTDIR)$(LIBEXECDIR)/cdrommon
 # ocaml/database
 	scripts/install.sh 755 block_device_io.native $(DESTDIR)$(LIBEXECDIR)/block_device_io
-
+# Libraries
+	ocaml setup.ml -install

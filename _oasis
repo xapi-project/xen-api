@@ -74,7 +74,7 @@ Executable block_device_io
 Library xapi-datamodel
   CompiledObject:   best
   Path:             ocaml/idl
-  Install:          false
+  Install:          true
   Modules:
     Datamodel,
     Datamodel_utils,
@@ -98,7 +98,7 @@ Library xapi-datamodel
 Library xapi-consts
   CompiledObject:   best
   Path:             ocaml/xapi-consts
-  Install:          false
+  Install:          true
   Modules:
     Api_errors,
     Constants,
@@ -125,7 +125,7 @@ Executable gen_api_main
 Library xapi-types
   CompiledObject:   best
   Path:             ocaml/xapi-types
-  Install:          false
+  Install:          true
   Modules:
     API,
     Ref,
@@ -143,7 +143,7 @@ Library xapi-types
 Library xapi-client
   CompiledObject:   best
   Path:              ocaml/xapi-client
-  Install:           false
+  Install:           true
   Modules:           Client,
                      Event_helper,
                      Tasks
@@ -181,7 +181,7 @@ Library rfb
 Library xapi-cli-protocol
   CompiledObject:   best
   Path:             ocaml/xapi-cli-protocol
-  Install:          false
+  Install:          true
   Modules:          Cli_protocol
   BuildDepends:     stdext, threads
 
