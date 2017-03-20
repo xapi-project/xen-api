@@ -19,16 +19,21 @@ open Xenops_interface
 
 module type XENOPS = module type of Xenops_client.Client
 
+let queue_override = ref []
+
 let make_client queue_name =
   let module Client = Xenops_interface.Client(struct
       let rpc x =
         if !Xcp_client.use_switch
-        then Xcp_client.json_switch_rpc queue_name x
-        else Xcp_client.http_rpc Xmlrpc.string_of_call Xmlrpc.response_of_string ~srcstr:"xapi" ~dststr:"xenops" Xenops_interface.default_uri x
+        then begin
+          if List.mem_assoc queue_name !queue_override
+          then List.assoc queue_name !queue_override x
+          else Xcp_client.json_switch_rpc queue_name x
+        end else Xcp_client.http_rpc Xmlrpc.string_of_call Xmlrpc.response_of_string ~srcstr:"xapi" ~dststr:"xenops" Xenops_interface.default_uri x
     end) in
   (module Client: XENOPS)
 
-let all_known_xenopsds () = !Xapi_globs.xenopsd_queues
+let all_known_xenopsds () = !Xapi_globs.xenopsd_queues @ List.map fst !queue_override
 let default_xenopsd () = !Xapi_globs.default_xenopsd
 
 let queue_of_other_config oc =
@@ -45,4 +50,3 @@ let queue_of_other_config oc =
 let queue_of_vmr vm = queue_of_other_config vm.API.vM_other_config
 
 let queue_of_vm ~__context ~self = queue_of_other_config (Db.VM.get_other_config ~__context ~self)
-
