@@ -1,8 +1,14 @@
-opam-version: "1"
-maintainer: "dave.scott@citrix.com"
+opam-version: "1.2"
+maintainer: "xen-api@lists.xen.org"
+authors: [ "xen-api@lists.xen.org" ]
+homepage: "https://github.com/xapi-project/message-switch"
+bug-reports: "https://github.com/xapi-project/message-switch/issues"
+dev-repo: "git://github.com/xapi-project/message-switch"
 build: [
   ["./configure" "--bindir" "%{bin}%"]
   [make]
+]
+install: [
   [make "install"]
 ]
 remove: [
