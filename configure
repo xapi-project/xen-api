@@ -1,27 +1,12 @@
-#!/bin/sh
+#!/bin/bash
 
-# OASIS_START
-# DO NOT EDIT (digest: dc86c2ad450f91ca10c931b6045d0499)
-set -e
+D=$(mktemp -d /tmp/configure.XXXXX)
+function cleanup {
+  cd /
+  rm -rf $D
+}
+trap cleanup EXIT
 
-FST=true
-for i in "$@"; do
-  if $FST; then
-    set --
-    FST=false
-  fi
-
-  case $i in
-    --*=*)
-      ARG=${i%%=*}
-      VAL=${i##*=}
-      set -- "$@" "$ARG" "$VAL"
-      ;;
-    *)
-      set -- "$@" "$i"
-      ;;
-  esac
-done
-
-ocaml setup.ml -configure "$@"
-# OASIS_STOP
+cp configure.ml $D
+(cd $D; ocamlfind ocamlopt -package "cmdliner,findlib,unix" -linkpkg configure.ml -o configure)
+$D/configure $*
