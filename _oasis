@@ -452,7 +452,8 @@ Executable suite
     xcp.network,
     xcp.v6,
     xcp.memory,
-    rrdd-plugin
+    rrdd-plugin,
+    xenopsd
 
 Test suite
   TestTools: suite
