@@ -4,7 +4,7 @@ Version:      0.0.0
 Synopsis:     Description here
 Authors:      Xapi Project
 License:      LGPL-2.1 with OCaml linking exception
-Plugins:      DevFiles(0.4), META (0.4)
+Plugins:      META (0.4)
 BuildTools:   ocamlbuild
 OCamlVersion: >= 4.01
 
@@ -325,6 +325,21 @@ Executable xapi-db-process
       threads,
       xapi-client,
       xapi-database
+
+Executable vncproxy
+  CompiledObject: best
+  Path:           ocaml/vncproxy
+  Install:        false
+  MainIs:         vncproxy.ml
+  BuildDepends:
+    xml-light2,
+    stdext,
+    stunnel,
+    http-svr,
+    rpclib,
+    uuid,
+    threads,
+    xapi-client
 
 ############################################################################
 ############################################################################
