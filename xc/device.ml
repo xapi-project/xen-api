@@ -1242,7 +1242,7 @@ let ensure_device_frontend_exists ~xs backend_domid frontend_domid =
 	debug "adding PCI frontend: frontend_domid = %d; backend_domid = %d" frontend_domid backend_domid;
 	Xs.transaction xs (fun t ->
 		(* If the frontend already exists, no work to do *)
-		if try ignore(t.Xst.read (frontend_path ^ "backend")); true with _ -> false
+		if try ignore(t.Xst.read (frontend_path ^ "/backend")); true with _ -> false
 		then debug "PCI frontend already exists: no work to do"
 		else begin
 			t.Xst.mkdirperms frontend_path (Xs_protocol.ACL.({owner = frontend_domid; other = NONE; acl = [ (backend_domid, READ) ]}));
