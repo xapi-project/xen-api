@@ -58,7 +58,7 @@ install: setup.data rbac_static.csv
 	ln -sf $(OPTDIR)/bin/xe $(DESTDIR)/usr/bin/xe
 	scripts/install.sh 755 ocaml/xe-cli/bash-completion $(DESTDIR)/etc/bash_completion.d/xe
 # ocaml/vncproxy
-	scripts/install.sh 755 vncproxy.native $(DESTDIR)$(OPTDIR)/debug
+	scripts/install.sh 755 vncproxy.native $(DESTDIR)$(OPTDIR)/debug/vncproxy
 # ocaml/ptoken
 	scripts/install.sh 755 genptoken.native $(DESTDIR)$(LIBEXECDIR)/genptoken
 # ocaml/mpathalert
@@ -73,3 +73,6 @@ install: setup.data rbac_static.csv
 	scripts/install.sh 755 xapi_db_process.native $(DESTDIR)$(OPTDIR)/bin/xapi-db-process
 # ocaml/cdrommon
 	scripts/install.sh 755 cdrommon.native $(DESTDIR)$(LIBEXECDIR)/cdrommon
+# ocaml/database
+	scripts/install.sh 755 block_device_io.native $(DESTDIR)$(LIBEXECDIR)/block_device_io
+

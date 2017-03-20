@@ -64,6 +64,13 @@ Library xapi-database
     uuid,
     xcp
 
+Executable block_device_io
+  CompiledObject:   best
+  Path:             ocaml/database
+  Install:          false
+  MainIs:           block_device_io.ml
+  BuildDepends:     xapi-database
+
 Library xapi-datamodel
   CompiledObject:   best
   Path:             ocaml/idl
