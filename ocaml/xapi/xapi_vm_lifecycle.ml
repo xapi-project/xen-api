@@ -264,6 +264,12 @@ let check_protection_policy ~vmr ~op ~ref_str =
                                  [ref_str; Ref.string_of vmr.Db_actions.vM_protection_policy])
   | _ -> None
 
+(* VM cannot be converted into a template while it is assigned to a snapshot schedule. *)
+let check_snapshot_schedule ~vmr ~ref_str = function
+  | `make_into_template -> Some (Api_errors.vm_assigned_to_snapshot_schedule,
+                                 [ref_str; Ref.string_of vmr.Db_actions.vM_snapshot_schedule])
+  | _ -> None
+
 (** Some VMs can't migrate. The predicate [is_mobile] is true, if and
  * only if a VM is mobile.
  *
@@ -456,6 +462,12 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
   let current_error = check current_error (fun () ->
       if Db.is_valid_ref __context vmr.Db_actions.vM_protection_policy
       then check_protection_policy ~vmr ~op ~ref_str
+      else None) in
+
+  (* Check for errors caused by VM being assigned to a snapshot schedule. *)
+  let current_error = check current_error (fun () ->
+      if Db.is_valid_ref __context vmr.Db_actions.vM_snapshot_schedule
+      then check_snapshot_schedule ~vmr ~ref_str op
       else None) in
 
   (* Check whether this VM needs to be a system domain. *)
