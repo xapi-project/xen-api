@@ -1,3 +1,7 @@
+1.0.1 (20-Mar-2017):
+* Add explicit unix dependency to uuid library
+* CA-245559: Fix a problem where the http server was reading too much
+
 1.0.0 (22-Jun-2016):
 * Use secure cypher suites in stunnel
 * Fix wsproxy in http-svr
