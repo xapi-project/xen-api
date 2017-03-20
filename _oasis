@@ -371,7 +371,15 @@ Executable graph
     threads,
     xapi-client,
     xapi-datamodel
-  
+
+Executable genptoken
+  CompiledObject: best
+  Path:           ocaml/ptoken
+  Install:        false
+  MainIs:         genptoken.ml
+  BuildDepends:
+    uuid
+
 ############################################################################
 ############################################################################
 #################################### TESTS #################################
