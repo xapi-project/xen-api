@@ -43,6 +43,7 @@ Library uuid
   Path: uuid
   Findlibname: uuid
   Modules: Uuid
+  BuildDepends: unix
 
 Library xmllight2
   Path: xml-light2
