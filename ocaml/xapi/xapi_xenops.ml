@@ -1918,11 +1918,12 @@ let update_task ~__context queue_name id =
      | e ->
        error "xenopsd event: Caught %s while updating task" (string_of_exn e)
 
-let rec events_watch ~__context queue_name from =
+let rec events_watch ~__context cancel queue_name from =
   let dbg = Context.string_of_task __context in
   if Xapi_fist.delay_xenopsd_event_threads () then Thread.delay 30.0;
   let module Client = (val make_client queue_name : XENOPS) in
   let barriers, events, next = Client.UPDATES.get dbg from None in
+  if !cancel then raise (Api_errors.Server_error(Api_errors.task_cancelled, []));
   let done_events = ref [] in
   let already_done x = List.mem x !done_events in
   let add_event x = done_events := (x :: !done_events) in
@@ -1981,14 +1982,14 @@ let rec events_watch ~__context queue_name from =
       do_updates b_events;
       Events_from_xenopsd.wakeup queue_name dbg id) barriers;
   do_updates events;
-  events_watch ~__context queue_name (Some next)
+  events_watch ~__context cancel queue_name (Some next)
 
 let events_from_xenopsd queue_name =
   Server_helpers.exec_with_new_task (Printf.sprintf "%s events" queue_name)
     (fun __context ->
        while true do
          try
-           events_watch ~__context queue_name None;
+           events_watch ~__context (ref false) queue_name None;
          with e ->
            error "%s event thread caught: %s" queue_name (string_of_exn e);
            Thread.delay 10.

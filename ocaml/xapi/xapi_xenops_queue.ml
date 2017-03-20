@@ -33,7 +33,7 @@ let make_client queue_name =
     end) in
   (module Client: XENOPS)
 
-let all_known_xenopsds () = !Xapi_globs.xenopsd_queues @ List.map fst !queue_override
+let all_known_xenopsds () = !Xapi_globs.xenopsd_queues
 let default_xenopsd () = !Xapi_globs.default_xenopsd
 
 let queue_of_other_config oc =
