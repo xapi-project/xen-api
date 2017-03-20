@@ -341,6 +341,21 @@ Executable vncproxy
     threads,
     xapi-client
 
+Executable event_listen
+  CompiledObject: best
+  Path:           ocaml/events
+  Install:        false
+  MainIs:         event_listen.ml
+  BuildDepends:
+    xml-light2,
+    stdext,
+    stunnel,
+    http-svr,
+    rpclib,
+    uuid,
+    threads,
+    xapi-client
+
 Executable graph
   CompiledObject: best
   Path:           ocaml/graph
