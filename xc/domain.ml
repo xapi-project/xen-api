@@ -1049,6 +1049,23 @@ let restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid 
 	            ~static_max_kib:info.memory_max ~target_kib:info.memory_target ~vcpus:info.vcpus ~extras
 	            xenguest_path domid fd
 
+let restore_vgpu (task: Xenops_task.task_handle) ~xc ~xs domid fd vgpu vcpus =
+	let uuid = get_uuid ~xc domid in
+	debug "VM = %s; domid = %d; restore_vgpu_setup" (Uuid.to_string uuid) domid;
+	let open Suspend_image in let open Suspend_image.M in
+	let res =
+		read_header fd >>= function
+		| Demu, _ ->
+			debug "Read Demu header";
+			Device.Dm.restore_vgpu task ~xs fd domid vgpu vcpus;
+			return ()
+		| _ -> failwith "Unsupported"
+	in
+	match res with
+	| `Ok () ->
+		debug "VM = %s; domid = %d; restore_vgpu_setup complete" (Uuid.to_string uuid) domid
+	| `Error e -> raise e
+
 type suspend_flag = Live | Debug
 
 let write_libxc_record (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback =
@@ -1195,6 +1212,18 @@ let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path vm_str do
 	in match res with
 	| `Ok () ->
 		debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid
+	| `Error e -> raise e
+
+let suspend_vgpu (task: Xenops_task.task_handle) ~xc ~xs domid fd =
+	let uuid = get_uuid ~xc domid in
+	debug "VM = %s; domid = %d; suspend_vgpu_setup" (Uuid.to_string uuid) domid;
+	let open Suspend_image in let open Suspend_image.M in
+	let res =
+		debug "Writing DEMU header";
+		write_header fd (Demu, 0L)
+	in match res with
+	| `Ok () ->
+		debug "VM = %s; domid = %d; suspend_vgpu_setup complete" (Uuid.to_string uuid) domid
 	| `Error e -> raise e
 
 let send_s3resume ~xc domid =

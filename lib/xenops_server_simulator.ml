@@ -355,6 +355,8 @@ module HOST = struct
 	let send_debug_keys _ = ()
 end
 module VM = struct
+	include Xenops_server_skeleton.VM
+
 	let add vm = ()
 	let remove vm = ()
 	let create _ memory_limit vm = Mutex.execute m (create_nolock memory_limit vm)

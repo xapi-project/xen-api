@@ -151,6 +151,9 @@ val hvm_restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs
 (** Restore a domain using the info provided *)
 val restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> no_incr_generationid:bool -> timeoffset:string -> extras:string list -> build_info -> string -> domid -> Unix.file_descr -> unit
 
+val restore_vgpu: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh ->
+	domid -> Unix.file_descr -> Xenops_interface.Vgpu.t -> int -> unit
+
 type suspend_flag = Live | Debug
 
 (** suspend a domain into the file descriptor *)
@@ -159,6 +162,9 @@ val suspend: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xe
           -> ?progress_callback: (float -> unit)
 		  -> qemu_domid: int
           -> (unit -> unit) -> unit
+
+val suspend_vgpu: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh ->
+	domid -> Unix.file_descr -> unit
 
 (** send a s3resume event to a domain *)
 val send_s3resume: xc: Xenctrl.handle -> domid -> unit

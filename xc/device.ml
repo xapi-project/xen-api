@@ -1824,6 +1824,9 @@ let stop ~xs ~qemu_domid domid  =
     stop_vgpu ();
     stop_qemu ()
 
+let restore_vgpu (task: Xenops_task.task_handle) ~xs restore_fd domid vgpu vcpus =
+	start_vgpu ~xs task domid [vgpu] vcpus
+
 end (* End of module Dm *)
 
 let get_vnc_port ~xs domid = 
