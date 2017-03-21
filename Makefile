@@ -31,8 +31,11 @@ clean:
 distclean:
 	$(SETUP) -distclean $(DISTCLEANFLAGS)
 
-setup.data:
+setup.data: setup.ml
 	$(SETUP) -configure $(CONFIGUREFLAGS)
+
+setup.ml: _oasis
+	oasis setup
 
 configure:
 	$(SETUP) -configure $(CONFIGUREFLAGS)
@@ -66,6 +69,8 @@ install: setup.data rbac_static.csv
 	scripts/install.sh 755 vncproxy.native $(DESTDIR)$(OPTDIR)/debug/vncproxy
 # ocaml/ptoken
 	scripts/install.sh 755 genptoken.native $(DESTDIR)$(LIBEXECDIR)/genptoken
+# ocaml/perftest
+	scripts/install.sh 755 perftest.native $(DESTDIR)$(OPTDIR)/debug/perftest
 # ocaml/mpathalert
 	scripts/install.sh 755 mpathalert.native $(DESTDIR)$(OPTDIR)/bin/mpathalert
 # ocaml/license

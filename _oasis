@@ -233,6 +233,22 @@ Executable xe
     xapi-cli-protocol,
     stunnel
 
+Executable perftest
+  CompiledObject: best
+  Path:           ocaml/perftest
+  Install:        false
+  MainIs:         perftest.ml
+  BuildDepends:
+    xml-light2,
+    stdext,
+    stunnel,
+    http-svr,
+    xcp,
+    rpclib,
+    uuid,
+    threads,
+    xapi-client
+
 Executable mpathalert
   CompiledObject: best
   Path:           ocaml/mpathalert
