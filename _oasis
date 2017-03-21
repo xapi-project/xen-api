@@ -14,7 +14,7 @@ OCamlVersion: >= 4.01
 Library xapi-database
   CompiledObject:   best
   Path:             ocaml/database
-  Install:          false
+  Install:          true
   Modules:
     Db_globs,
     Parse_db_conf,
