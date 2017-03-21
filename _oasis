@@ -60,6 +60,7 @@ Library xenopsd
     Xenops_server_simulator,
     Resources,
     Storage,
+    Sockopt,
     Interface,
     Xenctrl_uuid,
     Version

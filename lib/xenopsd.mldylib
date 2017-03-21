@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 18c27524efc99b1700e07a291888609b)
+# DO NOT EDIT (digest: ed6953b462b6bdcd4b77aef3298c79a1)
 Suspend_image
 Cancellable_subprocess
 Bootloader
@@ -16,6 +16,7 @@ Xenops_server_skeleton
 Xenops_server_simulator
 Resources
 Storage
+Sockopt
 Interface
 Xenctrl_uuid
 Version
