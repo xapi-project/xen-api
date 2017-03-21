@@ -1,6 +1,8 @@
 include config.mk
 INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
 OCAMLFIND_DESTDIR = $(INSTALL_PATH)
+CONFIGUREFLAGS=--enable-tests
+
 export OCAMLFIND_DESTDIR
 
 SETUP = ocaml setup.ml

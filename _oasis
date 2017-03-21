@@ -426,3 +426,8 @@ Executable suite
     xcp.v6,
     xcp.memory,
     rrdd-plugin
+
+Test suite
+  TestTools: suite
+  Command: $suite -runner sequential -verbose true
+
