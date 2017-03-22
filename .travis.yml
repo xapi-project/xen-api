@@ -4,7 +4,7 @@ install:
   - wget https://raw.githubusercontent.com/simonjbeaumont/ocaml-travis-coveralls/master/travis-coveralls.sh
 script:
     - bash -ex .travis-opam.sh
-    - if [ ! -z ${XS_COV+1} ]; then bash -ex travis-coveralls.sh || true; fi
+    - if [ ! -z ${XS_COV} ]; then bash -ex travis-coveralls.sh || true; fi
 sudo: required
 env:
   global:
