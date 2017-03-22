@@ -178,9 +178,9 @@ let di_of_uuid ~xc ~xs domain_selection uuid =
 	let possible = List.filter (fun x -> uuid_of_di x = uuid) all in
 	let oldest_first = List.sort
 		(fun a b ->
-			let create_time x = 
-			  try 
-			    xs.Xs.read (Printf.sprintf "/vm/%s/domains/%d/create-time" uuid' x.domid) |> Int64.of_string 
+			let create_time x =
+			  try
+			    xs.Xs.read (Printf.sprintf "/vm/%s/domains/%d/create-time" uuid' x.domid) |> Int64.of_string
 			  with e ->
                             warn "Caught exception trying to find creation time of domid %d (uuid %s)" x.domid uuid';
                             warn "Defaulting to 'now'";
@@ -266,7 +266,7 @@ let destroy_vbd_frontend ~xc ~xs task disk =
 					Device.Vbd.clean_shutdown_async ~xs device;
 					Device.Vbd.clean_shutdown_wait task ~xs ~ignore_transients:true device
 				)
-		
+
 
 module Storage = struct
 	open Storage
@@ -437,7 +437,7 @@ module Mem = struct
 	let transfer_reservation_to_domain dbg domid r =
 		let (_: unit option) = wrap (fun () -> transfer_reservation_to_domain_exn dbg domid r) in
 		()
-        
+
         let query_reservation_of_domain dbg domid =
                 match get_session_id dbg with
                         | Some session_id ->
@@ -616,16 +616,16 @@ module HOST = struct
 				let p = physinfo xc in
 				let cpu_count = p.nr_cpus in
 				let socket_count = p.nr_cpus / (p.threads_per_core * p.cores_per_socket) in
-				
+
 				let features = get_featureset xc Featureset_host in
 				let features_pv = get_featureset xc Featureset_pv in
 				let features_hvm = get_featureset xc Featureset_hvm in
 				let features_oldstyle = oldstyle_featuremask xc in
-				
+
 				let v = version xc in
 				let xen_version_string = Printf.sprintf "%d.%d%s" v.major v.minor v.extra in
 				let xen_capabilities = version_capabilities xc in
-				
+
 				{
 					Host.cpu_info = {
 						Host.cpu_count;
@@ -648,7 +648,7 @@ module HOST = struct
 					}
 				}
 			)
-			
+
 	let get_console_data () =
 		with_xc_and_xs
 			(fun xc xs ->
@@ -802,7 +802,7 @@ module VM = struct
 		let hvm = match vm.ty with HVM _ -> true | _ -> false in
 		(* XXX add per-vcpu information to the platform data *)
 		(* VCPU configuration *)
-		let pcpus = Xenctrlext.get_max_nr_cpus xc in							
+		let pcpus = Xenctrlext.get_max_nr_cpus xc in
 		let all_pcpus = mkints pcpus in
 		let all_vcpus = mkints vm.vcpu_max in
 		let masks = match vm.scheduler_params.affinity with
@@ -814,7 +814,7 @@ module VM = struct
 				let defaults = List.map (fun _ -> m) all_vcpus in
 				take vm.vcpu_max (m :: ms @ defaults) in
 		(* convert a mask into a binary string, one char per pCPU *)
-		let bitmap cpus: string = 
+		let bitmap cpus: string =
 			let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
 			let result = String.make pcpus '0' in
 			List.iter (fun cpu -> result.[cpu] <- '1') cpus;
@@ -1038,8 +1038,8 @@ module VM = struct
 		end;
 		Domain.destroy task ~xc ~xs ~qemu_domid domid;
 		(* Detach any remaining disks *)
-		List.iter (fun dp -> 
-			try 
+		List.iter (fun dp ->
+			try
 				Storage.dp_destroy task dp
 			with e ->
 		        warn "Ignoring exception in VM.destroy: %s" (Printexc.to_string e)) dps
@@ -1129,7 +1129,7 @@ module VM = struct
 		},{
 			VmExtra.qemu_vbds = qemu_vbds
 		} ->
-			let make ?(boot_order="cd") ?(serial="pty") ?(monitor="null") 
+			let make ?(boot_order="cd") ?(serial="pty") ?(monitor="null")
 					?(nics=[]) ?(disks=[]) ?(vgpus=[])
 					?(pci_emulations=[]) ?(usb=Device.Dm.Disabled)
 					?(parallel=None)
@@ -1258,9 +1258,9 @@ module VM = struct
 					| PV { boot = Indirect ( { devices = d :: _ } as i ) } ->
 						with_disk ~xc ~xs task d false
 							(fun dev ->
-								let b = Bootloader.extract task ~bootloader:i.bootloader 
+								let b = Bootloader.extract task ~bootloader:i.bootloader
 									~legacy_args:i.legacy_args ~extra_args:i.extra_args
-									~pv_bootloader_args:i.bootloader_args 
+									~pv_bootloader_args:i.bootloader_args
 									~disk:dev ~vm:vm.Vm.id () in
 								kernel_to_cleanup := Some b;
 								let builder_spec_info = Domain.BuildPV {
@@ -1613,7 +1613,7 @@ module VM = struct
 						let memory_target = try xs.Xs.read (local "memory/target") |> Int64.of_string |> Int64.mul 1024L with Xs_protocol.Enoent _ -> 0L in
 						let memory_actual =
 							let pages = Int64.of_nativeint di.Xenctrl.total_memory_pages in
-							let kib = Xenctrl.pages_to_kib pages in 
+							let kib = Xenctrl.pages_to_kib pages in
 							Memory.bytes_of_kib kib in
 
 						let memory_limit =
@@ -1648,9 +1648,9 @@ module VM = struct
 							    (* CA-104562: Work around probable bug in bindings *)
 							    if result > 1000.0 then begin
 							      warn "CA-104562: Got value '%d' from shadow_allocation_get" actual_shadow_mib_int;
-							      -1.0 
+							      -1.0
 							    end else result
-							  with e -> 
+							  with e ->
 							    warn "Caught exception in getting shadow allocation: %s" (Printexc.to_string e);
 							    -1.0
 							end
@@ -1973,7 +1973,7 @@ module VBD = struct
 		| VDI path ->
 			let sr, vdi = Storage.get_disk_by_name task path in
 			Storage.epoch_end task sr vdi
-		| _ -> ()		
+		| _ -> ()
 
 	let _backend_kind = "backend-kind"
 
@@ -2018,7 +2018,7 @@ module VBD = struct
 					let dp_id = _dp_id, Storage.id_of (string_of_int frontend_domid) vbd.Vbd.id in
 					let x = {
 						Device.Vbd.mode = (match vbd.mode with
-							| ReadOnly -> Device.Vbd.ReadOnly 
+							| ReadOnly -> Device.Vbd.ReadOnly
 							| ReadWrite -> Device.Vbd.ReadWrite
 						);
 						device_number = vbd.position;
@@ -2053,7 +2053,7 @@ module VBD = struct
 						| Device_number.Ide, n, _ when n < 4 ->
 							begin match vbd.Vbd.backend with
 								| None -> None
-								| Some _ -> 
+								| Some _ ->
 									let bd = create_vbd_frontend ~xc ~xs task qemu_domid vdi in
 									let index = Device_number.to_disk_number device_number in
 									Some (index, bd)
@@ -2061,7 +2061,7 @@ module VBD = struct
 						| _, _, _ -> None in
 					(* Remember what we've just done *)
 					Mutex.execute dB_m (fun () ->
-					(* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains, 
+					(* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains,
 					   we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
 					let vm_t = DB.read_exn vm in
 					Opt.iter (fun q ->
@@ -2122,7 +2122,7 @@ module VBD = struct
 							(* If we have a qemu frontend, detach this too. *)
 							Mutex.execute dB_m (fun () ->
 							let vm_t = DB.read vm in
-							Opt.iter (fun vm_t -> 
+							Opt.iter (fun vm_t ->
 								let non_persistent = vm_t.VmExtra.non_persistent in
 								if List.mem_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds then begin
 									let _, qemu_vbd = List.assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds in
@@ -2141,7 +2141,7 @@ module VBD = struct
 								-> Storage.dp_destroy task (Storage.id_of (string_of_int x) vbd.Vbd.id)
 							| _ -> ()
 						)
-				with 
+				with
 					| Device_common.Device_error(_, s) ->
 						debug "Caught Device_error: %s" s;
 						raise (Device_detach_rejected("VBD", id_of vbd, s))
@@ -2442,7 +2442,7 @@ module VIF = struct
 							(fun () -> Device.Vif.release task ~xc ~xs device) in
 					destroy device;
 
-					Opt.iter (fun vm_t -> 
+					Opt.iter (fun vm_t ->
 						(* If we have a qemu frontend, detach this too. *)
 						if List.mem_assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs then begin
 							match (List.assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs) with
@@ -2537,7 +2537,7 @@ module VIF = struct
 				if di.Xenctrl.hvm_guest
 				then ignore (run !Xc_resources.setup_vif_rules ["classic"; tap_interface_name; vm; devid; "filter"])
 			)
-	
+
 	let set_ip_unspecified xs xenstore_path suffix =
 		Xs.transaction xs (fun t ->
 			let ip_setting_enabled = Printf.sprintf "%s/%s%s" xenstore_path "enabled" suffix in
@@ -2549,7 +2549,7 @@ module VIF = struct
 			let ip_setting_gateway = Printf.sprintf "%s/%s%s" xenstore_path "gateway" suffix in
 			t.Xst.rm ip_setting_gateway
 		)
-	
+
 	let set_ip_static xs xenstore_path suffix address gateway =
 		Xs.transaction xs (fun t ->
 			let ip_setting_enabled = Printf.sprintf "%s/%s%s" xenstore_path "enabled" suffix in
@@ -2566,7 +2566,7 @@ module VIF = struct
 				debug "xenstore-write %s <- %s" ip_setting_gateway value;
 				t.Xst.write ip_setting_gateway value
 		)
-			
+
 	let set_ipv4_configuration task vm vif ipv4_configuration =
 		let open Device_common in
 		with_xc_and_xs
