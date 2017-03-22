@@ -20,4 +20,5 @@ depends: [
   "xenstore_transport"
   "logs"
   "cmdliner"
+  "oasis" {build}
 ]
