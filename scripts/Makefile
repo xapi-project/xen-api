@@ -1,5 +1,23 @@
 include ../config.mk
 
+export DISABLE_WARN_ERROR
+export VARPATCHDIR
+export ETCDIR
+export OPTDIR
+export PLUGINDIR
+export EXTENSIONDIR
+export HOOKSDIR
+export INVENTORY
+export XAPICONF
+export LIBEXECDIR
+export SCRIPTSDIR
+export SHAREDIR
+export WEBDIR
+export CLUSTER_STACK_ROOT
+export BINDIR
+export SBINDIR
+export UDEVDIR
+
 SITE_DIR=$(shell python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
 
 IPROG=./install.sh 755
