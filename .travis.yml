@@ -8,6 +8,11 @@ env:
   global:
     - OCAML_VERSION=4.02
     - PACKAGE=message-switch
-    - BASE_REMOTE=git://github.com/xapi-project/xs-opam
-    - COV_CONF="./configure"
+  matrix:
+    - BASE_REMOTE=git://github.com/xapi-project/xs-opam COV_CONF="./configure"
+    - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+matrix:
+    fast_finish: true
+    allow_failures:
+        - env: EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
 
