@@ -1,8 +1,0 @@
-digraph g {
-	graph [rankdir="LR"];
-	Prototype -> Published [label="1"];
-	Published -> Published [label="2, 3"];
-	Published -> Deprecated [label="4"];
-	Deprecated -> Removed [label="5"];
-}
-
