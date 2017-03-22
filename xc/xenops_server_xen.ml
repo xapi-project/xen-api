@@ -1714,16 +1714,18 @@ module VM = struct
 						try xs.Xs.read (path ^ "/control/feature-xs-batcmd")
 						with _ -> raise (Unimplemented "run-script is not supported on the given VM (or it is still booting)") in
 					di.Xenctrl.domid, path ^ "/control/batcmd") in
-		let () = Xs.transaction ()
-			(fun xs ->
+		let () = with_xc_and_xs
+			(fun xc xs ->
 				let state = try xs.Xs.read (path ^ "/state") with _ -> "" in
-				let () = match state with
+				match state with
 				| "" -> () (* state should normally be empty, unless in exceptional case e.g. xapi restarted previously *)
 				| "IN PROGRESS" ->
 					raise (Failed_to_run_script "A residual run-script instance in progress, either wait for its completion or reboot the VM.")
 				| _ ->
 					info "Found previous run_script state %s leftover (either not started or completed), remove." state;
-					xs.Xs.rm path in
+					xs.Xs.rm path) in
+		let () = Xs.transaction ()
+			(fun xs ->
 				xs.Xs.write (path ^ "/script") script;
 				xs.Xs.write (path ^ "/state") "READY") in
 		let watch_succ = List.map
