@@ -26,6 +26,11 @@ exception Write_error
 
 let config_file_path = "/var/lib/xcp/networkd.db"
 
+let bridge_naming_convention (device: string) =
+	if String.startswith "eth" device
+		then ("xenbr" ^ (String.sub device 3 (String.length device - 3)))
+	else ("br" ^ device)
+
 let read_management_conf () =
 	try
 		let management_conf = Unixext.string_of_file ("/etc/firstboot.d/data/management.conf") in
