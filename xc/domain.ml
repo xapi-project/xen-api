@@ -1178,12 +1178,13 @@ let suspend (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path vm_str domid fd fla
 	(* Suspend image signature *)
 	debug "Writing save signature: %s" save_signature;
 	Io.write fd save_signature;
-	(* Xenops record *)
-	let xs_subtree =
-		Xs.transaction xs (fun t ->
-			xenstore_read_dir t (xs.Xs.getdomainpath domid)
-		)
-	in
+	(* CA-248130: originally, [xs_subtree] contained [xenstore_read_dir t
+	 * (xs.Xs.getdomainpath domid)] and this data was written to [fd].
+	 * However, on the receiving side this data is never used. As a
+	 * short-term fix, we sent nothing but keep the write to maintain the
+	 * protocol.
+	 *)
+	let xs_subtree = [] in
 	let xenops_record = Xenops_record.(to_string (make ~xs_subtree ~vm_str ())) in
 	let xenops_rec_len = String.length xenops_record in
 	let res =
