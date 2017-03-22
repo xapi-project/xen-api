@@ -90,7 +90,7 @@ let log_exn_rm ~xs x = log_exn_continue ("xenstore-rm " ^ x) xs.Xs.rm x
 
 let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
 
-let assert_file_is_readable filename = 
+let assert_file_is_readable filename =
 	try Unix.access filename [ Unix.F_OK; Unix.R_OK ]
 	with _ ->
 		error "Cannot read file %s" filename;
@@ -178,7 +178,7 @@ let make ~xc ~xs vm_info uuid =
                 [ Xenctrl.CDF_HVM ]
             end else if hap = "true" then begin
                 info "VM = %s; Hardware Assisted Paging (HAP) will be enabled." (Uuid.to_string uuid);
-                [ Xenctrl.CDF_HVM; Xenctrl.CDF_HAP ] 
+                [ Xenctrl.CDF_HVM; Xenctrl.CDF_HAP ]
             end else begin
                 warn "VM = %s; Unrecognized value platform/hap=\"%s\".  Hardware Assisted Paging will be %s." (Uuid.to_string uuid) hap (if List.mem Xenctrl.CDF_HAP default_flags then "enabled" else "disabled");
                 default_flags
@@ -267,7 +267,7 @@ let make ~xc ~xs vm_info uuid =
 
 		xs.Xs.writev dom_path (filtered_xsdata vm_info.xsdata);
 		xs.Xs.writev (dom_path ^ "/platform") vm_info.platformdata;
-	
+
 		xs.Xs.writev (dom_path ^ "/bios-strings") vm_info.bios_strings;
 
 		(* If a toolstack sees a domain which it should own in this state then the
@@ -319,7 +319,7 @@ let shutdown_to_xc_shutdown = function
 	| Unknown _-> raise (Invalid_argument "unknown")
 
 (** Immediately change the domain state to shutdown *)
-let hard_shutdown ~xc domid req = 
+let hard_shutdown ~xc domid req =
 	Xenctrl.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
 
 (** Return the path in xenstore watched by the PV shutdown driver *)
@@ -380,7 +380,7 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	(* These are the devices with a frontend in [domid] and a well-formed backend
 	   in some other domain *)
 	let all_devices = list_frontends ~xs domid in
-	
+
 	debug "VM = %s; domid = %d; Domain.destroy: all known devices = [ %a ]"
 		(Uuid.to_string uuid) domid
 		(fun () -> String.concat "; ")
@@ -423,7 +423,7 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	                 (fun () -> Device.PV_Vnc.stop ~xs domid) ();
 
 	(* Forcibly shutdown every backend *)
-	List.iter 
+	List.iter
 	  (fun device ->
 	     try
 	       Device.hard_shutdown task ~xs device
@@ -482,12 +482,12 @@ let destroy (task: Xenops_task.t) ~xc ~xs ~qemu_domid domid =
 	Cancel_utils.cleanup_for_domain ~xs domid;
 
 	(* Block waiting for the dying domain to disappear: aim is to catch shutdown errors early*)
-	let still_exists () = 
+	let still_exists () =
 	  try
 	    let _ = Xenctrl.domain_getinfo xc domid in
 	    debug "VM = %s; domid = %d; Domain still exist, waiting for it to disappear." (Uuid.to_string uuid) domid;
 	    true
-	  with 
+	  with
 	  | Xenctrl.Error err ->
 		  debug "VM = %s; domid = %d; Domain nolonger exists (%s)" (Uuid.to_string uuid) domid err;
 	      false
@@ -751,7 +751,7 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_
 	if actual_shadow_mib < requested_shadow_mib then begin
 		warn
 			"VM = %s; domid = %d; HVM domain builder reduced our \
-			shadow memory from %d to %d MiB; reverting" 
+			shadow memory from %d to %d MiB; reverting"
 			(Uuid.to_string uuid) domid
 			requested_shadow_mib actual_shadow_mib;
 		Xenctrl.shadow_allocation_set xc domid requested_shadow_mib;
@@ -766,7 +766,7 @@ let build_hvm (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid ~static_
 			debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s" (Uuid.to_string uuid) domid store_mfn console_mfn;
 			Nativeint.of_string store_mfn, Nativeint.of_string console_mfn
 		| _ ->
-			error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid line;			
+			error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid line;
 			raise Domain_build_failed in
 
 	let local_stuff = [
@@ -1085,8 +1085,8 @@ let write_libxc_record (task: Xenops_task.t) ~xc ~xs ~hvm xenguest_path domid uu
 						progress_callback (float_of_int percent /. 100.)
 					with e ->
 						error "VM = %s; domid = %d; failed to parse progress update: \"%s\"" (Uuid.to_string uuid) domid percent;
-                        (* MTC: catch exception by progress_callback, for example, 
-                           an abort request, and re-raise them *) 
+                        (* MTC: catch exception by progress_callback, for example,
+                           an abort request, and re-raise them *)
                         raise e
 					)
 				| _ -> ()
@@ -1142,7 +1142,7 @@ let write_qemu_record domid uuid legacy_libxc fd =
 		if Unixext.copy_file ~limit:size fd2 fd <> size
 		then failwith "Failed to write whole qemu-dm state file";
 		return ()
-	) (fun () -> 
+	) (fun () ->
 		Unix.unlink file;
 		Unix.close fd2
 	)
