@@ -1,6 +1,6 @@
 OASISFormat:  0.4
 Name:         ezxenstore
-Version:      0.1.0
+Version:      0.1.1
 Synopsis:     Easy to use Xenstore library
 License:      LGPL-2.1 with OCaml linking exception
 Authors:      various
