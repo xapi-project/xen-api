@@ -2,10 +2,19 @@ language: c
 install:
   - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
   - wget https://raw.githubusercontent.com/simonjbeaumont/ocaml-travis-coveralls/master/travis-coveralls.sh
-script: bash -ex .travis-opam.sh && bash -ex travis-coveralls.sh
+script:
+    - bash -ex .travis-opam.sh
+    - if [ ! -z ${XS_COV} ]; then bash -ex travis-coveralls.sh || true; fi
+sudo: required
 env:
   global:
     - OCAML_VERSION=4.02
     - PACKAGE=message-switch
-    - PINS="shared-block-ring:git://github.com/mirage/shared-block-ring"
-    - COV_CONF="./configure"
+  matrix:
+    - BASE_REMOTE=git://github.com/xapi-project/xs-opam XS_COV=1 COV_CONF="./configure"
+    - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+matrix:
+    fast_finish: true
+    allow_failures:
+        - env: EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+
