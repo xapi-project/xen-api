@@ -65,7 +65,8 @@ let configure disable_warn_error varpatchdir etcdir optdir plugindir extensiondi
       Printf.sprintf "CLUSTER_STACK_ROOT=%s" cluster_stack_root;
       Printf.sprintf "BINDIR=%s" bindir;
       Printf.sprintf "SBINDIR=%s" sbindir;
-      Printf.sprintf "UDEVDIR=%s" udevdir
+      Printf.sprintf "UDEVDIR=%s" udevdir;
+      Printf.sprintf "export DISABLE_WARN_ERROR VARPATCHDIR ETCDIR OPTDIR PLUGINDIR EXTENSIONDIR HOOKSDIR INVENTORY XAPICONF LIBEXECDIR SCRIPTSDIR SHAREDIR WEBDIR CLUSTER_STACK_ROOT BINDIR SBINDIR UDEVDIR";
     ] in
   output_file config_mk lines
 
