@@ -71,6 +71,11 @@ let _ =
       "-gendebug",
       Arg.Unit (fun _ -> set_gendebug ()),
       "Add debugging code to generated output";
+
+      "-output",
+      Arg.String (fun s -> begin try Unix.mkdir (Filename.dirname s) 0o755 with Unix.Unix_error(Unix.EEXIST,_,_) -> () end ; Gen_api.oc := (open_out s)),
+      "Output to the specified file";
+
     ] (fun x -> Printf.eprintf "Ignoring argument: %s\n" x)
     "Generate ocaml code from the datamodel. See -help";
 

@@ -20,7 +20,8 @@ module OU = Ocaml_utils
 
 module O = Ocaml_syntax
 
-let print s = output_string stdout (s^"\n")
+let oc = ref stdout
+let print s = output_string !oc (s^"\n")
 
 let overrides = [
   "vm_operations_to_string_map",(
@@ -206,4 +207,4 @@ let gen_db_actions highapi =
     )
 
 let gen_rbac highapi =
-  print_endline (Gen_rbac.gen_permissions_of_static_roles highapi)
+  print (Gen_rbac.gen_permissions_of_static_roles highapi)

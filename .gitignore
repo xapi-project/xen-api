@@ -1,3 +1,5 @@
+setup.data
+*.native
 .pc
 *~
 *\#*

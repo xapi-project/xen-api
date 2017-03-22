@@ -1,11 +1,11 @@
+include ../config.mk
+
 SITE_DIR=$(shell python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
 
+IPROG=./install.sh 755
+IDATA=./install.sh 644
+
 .PHONY: noarch-install install
-
-.SUBDIRS: examples host-backup-restore poweron templates
-
-noarch-install:
-	echo removed
 
 install:
 	mkdir -p $(DESTDIR)$(BINDIR)
@@ -18,6 +18,8 @@ install:
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)/var/lib/xcp
 	mkdir -p $(DESTDIR)/usr/lib/systemd/system
+	mkdir -p $(DESTDIR)$(OPTDIR)/packages/post-install-scripts
+	mkdir -p $(DESTDIR)$(SITE_DIR)
 	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
 	$(IPROG) sm_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)
@@ -131,3 +133,26 @@ install:
 	mkdir -p $(DESTDIR)/etc/cron.d
 	$(IDATA) xapi-logrotate.cron $(DESTDIR)/etc/cron.d/xapi-logrotate.cron
 	mkdir -p $(DESTDIR)/opt/xensource/gpg
+# templates
+	$(IPROG) templates/debian $(DESTDIR)$(OPTDIR)/packages/post-install-scripts/debian-etch
+	$(IPROG) templates/debug $(DESTDIR)$(OPTDIR)/packages/post-install-scripts
+# host-backup-restore
+	$(IPROG) host-backup-restore/host-backup $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) host-backup-restore/host-restore $(DESTDIR)$(LIBEXECDIR)
+# example/python
+	$(IDATA) examples/python/XenAPIPlugin.py $(DESTDIR)$(SITE_DIR)/
+	$(IDATA) examples/python/XenAPI.py $(DESTDIR)$(SITE_DIR)/
+	$(IDATA) examples/python/inventory.py $(DESTDIR)$(SITE_DIR)/
+	$(IPROG) examples/python/echo.py $(DESTDIR)$(PLUGINDIR)/echo
+	$(IPROG) examples/python/wake-on-lan.py $(DESTDIR)$(PLUGINDIR)/wake-on-lan
+	$(IPROG) examples/python/shutdown.py $(DESTDIR)$(LIBEXECDIR)/shutdown
+	$(IPROG) examples/python/shell.py $(DESTDIR)$(LIBEXECDIR)/shell.py
+	$(IPROG) examples/python/xva.py $(DESTDIR)$(BINDIR)/xva-rewrite-scsiid
+# poweron
+	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wlan.py
+	$(IPROG) poweron/iLOPowerON.xml $(DESTDIR)$(PLUGINDIR)/iLOPowerON.xml
+	$(IPROG) poweron/iLO.py $(DESTDIR)$(PLUGINDIR)/iLO.py
+	$(IPROG) poweron/DRAC.py $(DESTDIR)$(PLUGINDIR)/DRAC.py
+	$(IPROG) poweron/power-on.py $(DESTDIR)$(PLUGINDIR)/power-on-host
+	
+

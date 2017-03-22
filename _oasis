@@ -1,0 +1,459 @@
+OASISFormat:  0.4
+Name:         xapi
+Version:      0.0.0
+Synopsis:     Description here
+Authors:      Xapi Project
+License:      LGPL-2.1 with OCaml linking exception
+Plugins:      META (0.4)
+BuildTools:   ocamlbuild
+OCamlVersion: >= 4.01
+
+#BuildType:    OMake(0.4)
+
+
+Library xapi-database
+  CompiledObject:   best
+  Path:             ocaml/database
+  Install:          true
+  Modules:
+    Db_globs,
+    Parse_db_conf,
+    Static_vdis_list,
+    String_unmarshall_helper,
+    String_marshall_helper,
+    Xml_spaces,
+    Db_action_helper,
+    Db_xml,
+    Db_remote_cache_access_v1,
+    Db_rpc_common_v1,
+    Db_rpc_client_v1,
+    Db_remote_cache_access_v2,
+    Db_rpc_common_v2,
+    Db_rpc_client_v2,
+    Db_interface,
+    Db_cache_types,
+    Schema,
+    Db_filter,
+    Db_filter_types,
+    Db_filter_parse,
+    Db_filter_lex,
+    Db_cache,
+    Db_cache_impl,
+    Db_names,
+    Db_upgrade,
+    Db_exn,
+    Ref_index,
+    Db_backend,
+    Db_ref,
+    Backend_xml,
+    Generation,
+    Db_connections,
+    Db_conn_store,
+    Master_connection,
+    Db_lock,
+    Block_device_io_errors,
+    Redo_log
+  BuildDepends:
+    ppx_deriving_rpc,
+    rpclib,
+    ppx_sexp_conv,
+    sexpr,
+    threads,
+    http-svr,
+    gzip,
+    uuid,
+    xcp
+
+Executable block_device_io
+  CompiledObject:   best
+  Path:             ocaml/database
+  Install:          false
+  MainIs:           block_device_io.ml
+  BuildDepends:     xapi-database
+
+Library xapi-datamodel
+  CompiledObject:   best
+  Path:             ocaml/idl
+  Install:          true
+  Modules:
+    Datamodel,
+    Datamodel_utils,
+    Datamodel_types,
+    Dm_api,
+    Escaping,
+    Datamodel_values,
+    Datamodel_schema
+  ByteOpt:          -warn-error +a-3-4-6-9-27-28-29
+  NativeOpt:        -warn-error +a-3-4-6-9-27-28-29
+  BuildDepends:
+    xapi-database,
+    xapi-consts,
+    rpclib,
+    ppx_deriving_rpc,
+    stdext,
+    threads,
+    xml-light2,
+    http-svr
+
+Library xapi-consts
+  CompiledObject:   best
+  Path:             ocaml/xapi-consts
+  Install:          true
+  Modules:
+    Api_errors,
+    Constants,
+    Api_messages
+
+Executable gen_api_main
+  CompiledObject:   best
+  Path:             ocaml/idl/ocaml_backend
+  Install:          false
+  MainIs:           gen_api_main.ml
+  CompiledObject:   best
+  ByteOpt:          -warn-error +a-3-4-6-9-27-28-29
+  NativeOpt:        -warn-error +a-3-4-6-9-27-28-29
+  BuildDepends:
+    xapi-datamodel,
+    xapi-consts,
+    stdext,
+    sexpr,
+    xml-light2,
+    http-svr,
+    uuid,
+    threads
+
+Executable gen_json
+  CompiledObject:   best
+  Path:             ocaml/idl/json_backend
+  Install:          false
+  MainIs:           gen_json.ml
+  CompiledObject:   best
+  BuildDepends:
+    xapi-datamodel,
+    xapi-consts
+
+Library xapi-types
+  CompiledObject:   best
+  Path:             ocaml/xapi-types
+  Install:          true
+  Modules:
+    API,
+    Ref,
+    Event_types,
+    Features
+  BuildDepends:
+    xapi-consts,
+    rpclib,
+    ppx_deriving_rpc,
+    stdext,
+    threads,
+    http-svr,
+    uuid
+
+Library xapi-client
+  CompiledObject:   best
+  Path:              ocaml/xapi-client
+  Install:           true
+  Modules:           Client,
+                     Event_helper,
+                     Tasks
+  BuildDepends:      xapi-types
+
+Library xapi-version
+  CompiledObject:   best
+  Path:             ocaml/util
+  Install:          false
+  Modules:          Xapi_version
+  BuildDepends:     xcp,
+                    xcp-inventory,
+                    threads
+
+Library pam
+  CompiledObject:   best
+  Path:             ocaml/auth
+  Install:          false
+  Modules:          Pam
+  CSources:         xa_auth.c, xa_auth_stubs.c, xa_auth.h
+  CCOpt: -I/usr/lib64/ocaml
+  CCLib: -lpam
+
+Library rfb
+  CompiledObject:   best
+  Path:             ocaml/rfb
+  Install:          false
+  Modules:
+    Rfb,
+    Rfb_randomtest
+  BuildDepends:
+    stdext,
+    threads
+
+Library xapi-cli-protocol
+  CompiledObject:   best
+  Path:             ocaml/xapi-cli-protocol
+  Install:          true
+  Modules:          Cli_protocol
+  BuildDepends:     stdext, threads
+
+Executable xapi
+  CompiledObject:   best
+  Path:             ocaml/xapi
+  Install:          false
+  MainIs:           xapi_main.ml
+  CompiledObject:   best
+  ByteOpt:          -warn-error +a-3-4-6-9-27-28-29
+  NativeOpt:        -warn-error +a-3-4-6-9-27-28-29
+  BuildDepends:
+    oPasswd,
+    pam,
+    pciutil,
+    pci,
+    xenstore-compat,
+    oclock,
+    sha,
+    tar,
+    tar.unix,
+    tapctl,
+    xapi-version,
+    xapi-types,
+    xapi-client,
+    xapi-datamodel,
+    xapi-cli-protocol,
+    rfb,
+    stdext,
+    threads,
+    xenctrl,
+    xcp,
+    xcp.rrd,
+    xcp.storage,
+    xcp.xen,
+    xcp.network,
+    xcp.v6,
+    xcp.memory,
+    rrdd-plugin
+
+Executable xe
+  CompiledObject: best
+  Path:           ocaml/xe-cli
+  Install:        false
+  MainIs:         newcli.ml
+  BuildDepends:
+    threads,
+    stdext,
+    xapi-cli-protocol,
+    stunnel
+
+Executable perftest
+  CompiledObject: best
+  Path:           ocaml/perftest
+  Install:        false
+  MainIs:         perftest.ml
+  BuildDepends:
+    xml-light2,
+    stdext,
+    stunnel,
+    http-svr,
+    xcp,
+    rpclib,
+    uuid,
+    threads,
+    xapi-client
+
+Executable mpathalert
+  CompiledObject: best
+  Path:           ocaml/mpathalert
+  Install:        false
+  MainIs:         mpathalert.ml
+  BuildDepends:
+    xml-light2,
+    stdext,
+    stunnel,
+    http-svr,
+    xcp,
+    rpclib,
+    uuid,
+    threads,
+    xapi-client
+
+Executable quicktestbin
+  CompiledObject: best
+  Path:           ocaml/xapi
+  Install:        false
+  MainIs:         quicktest.ml
+  BuildDepends:
+    oPasswd,
+    pam,
+    pciutil,
+    pci,
+    xenstore-compat,
+    oclock,
+    sha,
+    tar,
+    tar.unix,
+    tapctl,
+    xapi-version,
+    xapi-types,
+    xapi-client,
+    xapi-datamodel,
+    xapi-cli-protocol,
+    rfb,
+    stdext,
+    threads,
+    xenctrl,
+    xcp,
+    xcp.rrd,
+    xcp.storage,
+    xcp.xen,
+    xcp.network,
+    xcp.v6,
+    xcp.memory,
+    rrdd-plugin,
+    netdev
+
+Executable xsh
+  CompiledObject: best
+  Path:           ocaml/xsh
+  Install:        false
+  MainIs:         xsh.ml
+  BuildDepends:   stdext, stunnel, threads
+
+Executable cdrommon
+  CompiledObject: best
+  Path:           ocaml/cdrommon
+  Install:        false
+  MainIs:         cdrommon.ml
+  BuildDepends:   unix, cdrom, xcp-inventory, threads
+
+Executable daily-license-check
+  CompiledObject: best
+  Path:           ocaml/license
+  Install:        false
+  MainIs:         daily_license_check_main.ml
+  BuildDepends:
+    xml-light2,
+    stdext,
+    stunnel,
+    http-svr,
+    xcp,
+    rpclib,
+    uuid,
+    systemd,
+    threads,
+    xapi-client
+
+Executable xapi-db-process
+  CompiledObject: best
+  Path:           ocaml/db_process
+  Install:        false
+  MainIs:         xapi_db_process.ml
+  BuildDepends:
+      xml-light2,
+      stdext,
+      stunnel,
+      http-svr,
+      xcp,
+      rpclib,
+      uuid,
+      systemd,
+      threads,
+      xapi-client,
+      xapi-database
+
+Executable vncproxy
+  CompiledObject: best
+  Path:           ocaml/vncproxy
+  Install:        false
+  MainIs:         vncproxy.ml
+  BuildDepends:
+    xml-light2,
+    stdext,
+    stunnel,
+    http-svr,
+    rpclib,
+    uuid,
+    threads,
+    xapi-client
+
+Executable event_listen
+  CompiledObject: best
+  Path:           ocaml/events
+  Install:        false
+  MainIs:         event_listen.ml
+  BuildDepends:
+    xml-light2,
+    stdext,
+    stunnel,
+    http-svr,
+    rpclib,
+    uuid,
+    threads,
+    xapi-client
+
+Executable graph
+  CompiledObject: best
+  Path:           ocaml/graph
+  Install:        false
+  MainIs:         graph.ml
+  BuildDepends:
+    xml-light2,
+    stdext,
+    stunnel,
+    http-svr,
+    rpclib,
+    uuid,
+    threads,
+    xapi-client,
+    xapi-datamodel
+
+Executable genptoken
+  CompiledObject: best
+  Path:           ocaml/ptoken
+  Install:        false
+  MainIs:         genptoken.ml
+  BuildDepends:
+    uuid
+
+############################################################################
+############################################################################
+#################################### TESTS #################################
+
+Executable suite
+  CompiledObject: best
+  Path:           ocaml/xapi
+  Install:        false
+  MainIs:         suite.ml
+  BuildDepends:
+    oPasswd,
+    pam,
+    pciutil,
+    pci,
+    xenstore-compat,
+    oclock,
+    oUnit,
+    sha,
+    tar,
+    tar.unix,
+    tapctl,
+    xapi-version,
+    xapi-types,
+    xapi-client,
+    xapi-datamodel,
+    xapi-cli-protocol,
+    xapi-test-utils,
+    rfb,
+    stdext,
+    threads,
+    xenctrl,
+    xcp,
+    xcp.rrd,
+    xcp.storage,
+    xcp.xen,
+    xcp.network,
+    xcp.v6,
+    xcp.memory,
+    rrdd-plugin
+
+Test suite
+  TestTools: suite
+  Command: $suite -runner sequential -verbose true
+
