@@ -45,6 +45,9 @@ configure:
 rbac_static.csv: gen_api_main.native
 	./gen_api_main.native -mode rbac -gendebug -output rbac_static.csv
 
+doc-json:
+	./gen_json.native
+
 install: setup.data rbac_static.csv
 	mkdir -p $(DESTDIR)$(SBINDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin

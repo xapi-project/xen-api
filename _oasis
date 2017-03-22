@@ -122,6 +122,16 @@ Executable gen_api_main
     uuid,
     threads
 
+Executable gen_json
+  CompiledObject:   best
+  Path:             ocaml/idl/json_backend
+  Install:          false
+  MainIs:           gen_json.ml
+  CompiledObject:   best
+  BuildDepends:
+    xapi-datamodel,
+    xapi-consts
+
 Library xapi-types
   CompiledObject:   best
   Path:             ocaml/xapi-types
