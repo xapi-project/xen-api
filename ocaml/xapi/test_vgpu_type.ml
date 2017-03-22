@@ -241,9 +241,8 @@ module AMDTest = struct
   let string_of_vgpu_conf conf =
     let open Identifier in
     let open Vendor_amd in
-    Printf.sprintf "%04x %d %Ld %b %s %Ld"
+    Printf.sprintf "%04x %Ld %b %s %Ld"
       conf.identifier.pdev_id
-      conf.identifier.sched
       conf.identifier.framebufferbytes
       conf.experimental
       conf.model_name
@@ -265,22 +264,20 @@ module AMDTest = struct
         "", None;
         "nonsense123", None;
         (* Test some success cases. *)
-        "1234 experimental=0 name='mymxgpu' framebuffer_sz=256 sched=4 vgpus_per_pgpu=5",
+        "1234 experimental=0 name='mymxgpu' framebuffer_sz=256 vgpus_per_pgpu=5",
         Some {
           Vendor_amd.identifier = Identifier.({
               pdev_id = 0x1234;
-              sched = 4;
               framebufferbytes = mib 256L;
             });
           experimental = false;
           model_name = "mymxgpu";
           vgpus_per_pgpu = 5L;
         };
-        "2345 experimental=1 name='yourmxgpu' framebuffer_sz=512 sched=8 vgpus_per_pgpu=8",
+        "2345 experimental=1 name='yourmxgpu' framebuffer_sz=512 vgpus_per_pgpu=8",
         Some {
           Vendor_amd.identifier = Identifier.({
               pdev_id = 0x2345;
-              sched = 8;
               framebufferbytes = mib 512L;
             });
           experimental = true;
@@ -312,7 +309,6 @@ module AMDTest = struct
           Vendor_amd.({
               identifier = Identifier.({
                   pdev_id = 0x1234;
-                  sched = 2;
                   framebufferbytes = mib 128L;
                 });
                 experimental = false;
@@ -322,7 +318,6 @@ module AMDTest = struct
           Vendor_amd.({
               identifier = Identifier.({
                   pdev_id = 0x1234;
-                  sched = 4;
                   framebufferbytes = mib 256L;
                 });
               experimental = true;
@@ -336,7 +331,6 @@ module AMDTest = struct
           Vendor_amd.({
               identifier = Identifier.({
                   pdev_id = 0x1234;
-                  sched = 2;
                   framebufferbytes = mib 128L;
                 });
               experimental = false;

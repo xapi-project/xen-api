@@ -47,7 +47,6 @@ module Identifier = struct
 
   type mxgpu_id = {
     pdev_id : int; (* Device id of the PCI PF, not the VFs *)
-    sched: int;
     framebufferbytes: int64;
   }
 
@@ -82,9 +81,8 @@ module Identifier = struct
            | Some path -> path
            | None -> "")
       | MxGPU mxgpu_id ->
-        Printf.sprintf "mxgpu,%04x,%x,%Lx"
+        Printf.sprintf "mxgpu,%04x,%Lx"
           mxgpu_id.pdev_id
-          mxgpu_id.sched
           mxgpu_id.framebufferbytes
     in
     Printf.sprintf "%04d:%s" version data
@@ -578,7 +576,7 @@ end
 
 module Vendor_amd = struct
   type vgpu_conf = {
-    (* The identifier has fields for framebuffer size and scheduling slice. *)
+    (* The identifier has a field for the framebuffer size. *)
     identifier : Identifier.mxgpu_id;
     experimental : bool;
     model_name : string;
@@ -593,17 +591,15 @@ module Vendor_amd = struct
     try
       Some (Scanf.sscanf
               line
-              "%04x experimental=%c name='%s@' framebuffer_sz=%Ld sched=%d vgpus_per_pgpu=%Ld"
+              "%04x experimental=%c name='%s@' framebuffer_sz=%Ld vgpus_per_pgpu=%Ld"
               (fun pdev_id (* e.g. "FirePro S7150" has 6929 (PF), 692f (VF) *)
                 experimental
                 model_name (* e.g. PF "FirePro S7150" or VF "FirePro S7150V" *)
                 framebuffer_sz
-                sched
                 vgpus_per_pgpu ->
                 {
                   identifier = Identifier.({
                       pdev_id;
-                      sched;
                       framebufferbytes = mib framebuffer_sz;
                     });
                   experimental = (experimental <> '0');
