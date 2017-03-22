@@ -16,6 +16,7 @@ Library ezxenstore
 
 Executable xstest
   Path: lib_test
+  Install: false
   MainIs: main.ml
   BuildDepends: ezxenstore
 
