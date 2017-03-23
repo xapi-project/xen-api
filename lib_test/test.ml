@@ -10,7 +10,9 @@ let suite =
       Http_test.tests;
       Debug_test.tests;
       Syslog_test.tests;
+      Scheduler_test.tests;
     ]
 
 let () =
+  let _ = Scheduler.start () in
   OUnit2.run_test_tt_main (ounit2_of_ounit1 suite)
