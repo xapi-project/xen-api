@@ -2012,78 +2012,127 @@ let events_from_xenopsd queue_name =
 			done
 		)
 
+let resync_resident_on ~__context =
+  let dbg = Context.string_of_task __context in
+  let localhost = Helpers.get_localhost ~__context in
+
+  (* Get a list of all the ids of VMs that Xapi thinks are resident here *)
+  let resident_vms_in_db =
+    List.filter (fun self ->
+        not (Db.VM.get_is_control_domain ~__context ~self)
+      ) (Db.Host.get_resident_VMs ~__context ~self:localhost)
+    |> List.map (fun self -> (id_of_vm ~__context ~self, self)) in
+
+  (* Get a list of VMs that the xenopsds know about with their xenopsd client *)
+  let vms_in_xenopsds =
+    List.map (fun queue_name ->
+        let module Client = (val make_client queue_name : XENOPS) in
+        let vms = Client.VM.list dbg () in
+        List.map (fun (vm, state) -> ((vm.Vm.id, state), queue_name)) vms
+      ) (all_known_xenopsds ())
+    |> List.flatten in
+
+  (* The list of VMs xenopsd knows about that (xapi knows about at all,
+     xapi has no idea about at all) *)
+  let xenopsd_vms_in_xapi, xenopsd_vms_not_in_xapi =
+    List.partition (fun ((id, _), _) ->
+        try vm_of_id ~__context id |> ignore; true with _ -> false
+      ) vms_in_xenopsds in
+
+  (* Of the VMs xapi knows about, partition that set into VMs xapi believes
+     should be running here, and those that it didn't *)
+  let xapi_thinks_are_here, xapi_thinks_are_not_here =
+    List.partition (fun ((id, _), _) ->
+        List.exists (fun (id', _) -> id=id') resident_vms_in_db)
+        xenopsd_vms_in_xapi in
+
+  (* Of those xapi thinks aren't here, are any running on another host? If
+     so, kill the VM here. If they aren't running on another host (to the
+     best of our knowledge), set the resident_on to be here. *)
+  let xapi_thinks_are_elsewhere, xapi_thinks_are_nowhere =
+    List.partition (fun ((id, _), _) ->
+      let vm_ref = vm_of_id ~__context id in
+      Db.is_valid_ref __context (Db.VM.get_resident_on ~__context ~self:vm_ref)
+    ) xapi_thinks_are_not_here in
+
+  (* This is the list of VMs xapi thought were running here, but actually
+     aren't *)
+  let xapi_vms_not_in_xenopsd =
+    List.filter (fun (id, _) ->
+        not (List.exists (fun ((id', _), _) -> id' = id) vms_in_xenopsds)
+      ) resident_vms_in_db in
+
+  (* Log the state before we do anything *)
+  let maybe_log_em msg l =
+    if List.length l > 0 then begin
+      debug "%s" msg;
+      List.iter (fun ((id,_),queue) -> debug "%s (%s)" id queue) l
+    end
+  in
+
+
+  maybe_log_em
+    "The following VMs are running in xenopsd that xapi does not know about"
+    xenopsd_vms_not_in_xapi;
+
+  maybe_log_em
+    "The following VMs are running in xenopsd but xapi thinks are running elsewhere."
+    xapi_thinks_are_elsewhere; (* This is bad! *)
+
+  maybe_log_em
+    "The following VMs are running in xenopsd but xapi thinks are running nowhere."
+    xapi_thinks_are_nowhere; (* This is pretty bad! *)
+
+  if List.length xapi_vms_not_in_xenopsd > 0 then begin
+    debug "The following VMs are not running in xenopsd, but xapi thought they were";
+    List.iter (fun (id,_) -> debug "%s" id) xapi_vms_not_in_xenopsd
+  end;
+
+  (* Destroy any VMs running that aren't in Xapi's database, or that xapi
+     thinks are running on another host *)
+  List.iter (fun ((id, state), queue_name) ->
+      let module Client = (val make_client queue_name : XENOPS) in
+      info "VM %s is running here but isn't supposed to be: terminating" id;
+      if state.Vm.power_state <> Halted then
+        Client.VM.shutdown dbg id None |> wait_for_task queue_name dbg |> ignore;
+      Client.VM.remove dbg id
+    ) (xenopsd_vms_not_in_xapi @ xapi_thinks_are_elsewhere);
+
+  (* Sync resident_on state in Xapi for VMs running by local Xenopsds that
+     xapi didn't think were anywhere *)
+  List.iter (fun ((id, state), queue_name) ->
+      let vm = vm_of_id ~__context id in
+      info "Setting resident_on for VM %s to be this host" id;
+      Db.VM.set_resident_on ~__context ~self:vm ~value:localhost)
+      xapi_thinks_are_nowhere;
+
+  (* Sync VM state in Xapi for VMs not running on this host *)
+  List.iter (fun (id, vm) ->
+      info "VM %s was running in the DB but isn't any more. Resetting in DB" id;
+      Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
+      Db.VM.set_resident_on ~__context ~self:vm ~value:Ref.null;
+  ) xapi_vms_not_in_xenopsd
+
+let resync_all_vms ~__context =
+  (* This should now be correct *)
+  let localhost = Helpers.get_localhost ~__context in
+  let resident_vms_in_db =
+    List.filter (fun self ->
+        not (Db.VM.get_is_control_domain ~__context ~self)
+      ) (Db.Host.get_resident_VMs ~__context ~self:localhost)
+  in
+  List.iter (fun vm -> refresh_vm ~__context ~self:vm) resident_vms_in_db
+
 let on_xapi_restart ~__context =
-	let dbg = Context.string_of_task __context in
-	let localhost = Helpers.get_localhost ~__context in
+  resync_resident_on ~__context;
+  (* For all available xenopsds, start the event thread. This will cause
+     events on everything xenopsd knows about, hence a refresh of all VMs. *)
+  List.iter (fun queue_name ->
+    let (_: Thread.t) = Thread.create events_from_xenopsd queue_name in
+      ()
+    ) (all_known_xenopsds ());
 
-	(* For all available xenopsds, start the event thread *)
-	List.iter (fun queue_name ->
-		let (_: Thread.t) = Thread.create events_from_xenopsd queue_name in
-		()
-	) (all_known_xenopsds ());
-
-	(* Get a list of all the ids of VMs that Xapi thinks are resident here *)
-	let resident_vms_in_db =
-		List.filter (fun self ->
-			not (Db.VM.get_is_control_domain ~__context ~self)
-		) (Db.Host.get_resident_VMs ~__context ~self:localhost)
-		|> List.map (fun self -> (id_of_vm ~__context ~self, self)) in
-
-	(* Get a list of VMs that the xenopsds know about with their xenopsd client *)
-	let vms_in_xenopsds =
-		List.map (fun queue_name ->
-			let module Client = (val make_client queue_name : XENOPS) in
-			let vms = Client.VM.list dbg () in
-			List.map (fun (vm, state) -> ((vm.Vm.id, state), queue_name)) vms
-		) (all_known_xenopsds ())
-		|> List.flatten in
-
-	let xenopsd_vms_in_xapi, xenopsd_vms_not_in_xapi =
-		List.partition (fun ((id, _), _) ->
-			try vm_of_id ~__context id |> ignore; true with _ -> false
-		) vms_in_xenopsds in
-
-	let xapi_vms_not_in_xenopsd =
-		List.filter (fun (id, _) ->
-			not (List.exists (fun ((id', _), _) -> id' = id) vms_in_xenopsds)
-		) resident_vms_in_db in
-
-	(* Destroy any VMs running that aren't in Xapi's database *)
-	List.iter (fun ((id, state), queue_name) ->
-		let module Client = (val make_client queue_name : XENOPS) in
-		info "VM %s is running here but isn't in the database: terminating" id;
-		if state.Vm.power_state <> Halted then
-			Client.VM.shutdown dbg id None |> wait_for_task queue_name dbg |> ignore;
-		Client.VM.remove dbg id
-	) xenopsd_vms_not_in_xapi;
-
-	(* Sync VM state in Xapi for VMs running by local Xenopsds *)
-	List.iter (fun ((id, state), queue_name) ->
-		let vm = vm_of_id ~__context id in
-		let reset_vm_to vm powerstate =
-			Xapi_vm_lifecycle.force_state_reset ~__context
-				~self:vm ~value:powerstate;
-			info "Reset power state of VM %s to %s (%s)"
-				id (Record_util.power_to_string powerstate) __LOC__ in
-		let xapi_power_state =
-			xenapi_of_xenops_power_state (Some state.Vm.power_state) in
-		match xapi_power_state with
-		| `Running | `Paused ->
-			reset_vm_to vm xapi_power_state;
-			Db.VM.set_resident_on ~__context ~self:vm ~value:localhost;
-			add_caches id
-		| `Suspended | `Halted ->
-			let module Client = (val make_client queue_name : XENOPS) in
-			Client.VM.remove dbg id;
-			if List.exists (fun (id', _) -> id' = id) resident_vms_in_db then
-				reset_vm_to vm xapi_power_state;
-	) xenopsd_vms_in_xapi;
-
-	(* Sync VM state in Xapi for VMs not running on this host *)
-	List.iter (fun (id, vm) ->
-		Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
-		Db.VM.set_resident_on ~__context ~self:vm ~value:Ref.null;
-	) xapi_vms_not_in_xenopsd
+  resync_all_vms ~__context
 
 let assert_resident_on ~__context ~self =
 	let localhost = Helpers.get_localhost ~__context in
