@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: d61b4e5a5c0d213787a9ffd3db8cee24)
+# DO NOT EDIT (digest: 8768846be18e97edf6faf163a4fb6e66)
 version = "1.2.0"
 description =
 "Interface definitions and common boilerplate for the xapi toolstack"
@@ -32,6 +32,17 @@ package "v6" (
  archive(native) = "xapi_v6.cmxa"
  archive(native, plugin) = "xapi_v6.cmxs"
  exists_if = "xapi_v6.cma"
+)
+
+package "updates" (
+ version = "1.2.0"
+ description =
+ "Interface definitions and common boilerplate for the xapi toolstack"
+ archive(byte) = "xcp_updates.cma"
+ archive(byte, plugin) = "xcp_updates.cma"
+ archive(native) = "xcp_updates.cmxa"
+ archive(native, plugin) = "xcp_updates.cmxs"
+ exists_if = "xcp_updates.cma"
 )
 
 package "storage" (

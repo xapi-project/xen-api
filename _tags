@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 84bd6ed57b3561ce9ac6edd2793b3d1b)
+# DO NOT EDIT (digest: 602453b3fb6b3d0b87012f531fd91c7d)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -34,6 +34,8 @@ true: annot, bin_annot
 "lib/syslog_stubs.c": pkg_xapi-backtrace
 "lib/syslog_stubs.c": pkg_xcp-inventory
 "lib/syslog_stubs.c": pkg_xmlm
+# Library xcp_updates
+"lib/xcp_updates.cmxs": use_xcp_updates
 # Library xcp_storage
 "storage/xcp_storage.cmxs": use_xcp_storage
 # Executable storage_test
@@ -242,6 +244,7 @@ true: annot, bin_annot
 <lib_test/test.{native,byte}>: pkg_xcp-inventory
 <lib_test/test.{native,byte}>: pkg_xmlm
 <lib_test/test.{native,byte}>: use_xcp
+<lib_test/test.{native,byte}>: use_xcp_updates
 <lib_test/test.{native,byte}>: use_xcp_xen
 <lib_test/*.ml{,i,y}>: pkg_cmdliner
 <lib_test/*.ml{,i,y}>: pkg_cohttp
@@ -264,6 +267,7 @@ true: annot, bin_annot
 <lib_test/*.ml{,i,y}>: pkg_xcp-inventory
 <lib_test/*.ml{,i,y}>: pkg_xmlm
 <lib_test/*.ml{,i,y}>: use_xcp
+<lib_test/*.ml{,i,y}>: use_xcp_updates
 <lib_test/*.ml{,i,y}>: use_xcp_xen
 <lib_test/test.{native,byte}>: custom
 # Executable example
