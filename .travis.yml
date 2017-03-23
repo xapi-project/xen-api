@@ -11,7 +11,7 @@ env:
     - OCAML_VERSION=4.02
     - PACKAGE=xapi-idl
   matrix:
-    - BASE_REMOTE=git://github.com/xapi-project/xs-opam XS_COV=1
+    - BASE_REMOTE=git://github.com/xapi-project/xs-opam XS_COV=1 COV_CONF="ocaml setup.ml -configure --enable-tests"
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
 matrix:
     fast_finish: true
