@@ -1,15 +1,20 @@
 language: c
-install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
-script: bash -ex .travis-opam.sh
-sudo: true
+install:
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
+  - wget https://raw.githubusercontent.com/simonjbeaumont/ocaml-travis-coveralls/master/travis-coveralls.sh
+script:
+    - bash -ex .travis-opam.sh
+    - if [ ! -z "${XS_COV}" ]; then bash -ex travis-coveralls.sh || true; fi
+sudo: required
 env:
   global:
-    - PACKAGE=xapi-idl
     - OCAML_VERSION=4.02
+    - PACKAGE=xapi-idl
   matrix:
-    - BASE_REMOTE=git://github.com/xapi-project/xs-opam
+    - BASE_REMOTE=git://github.com/xapi-project/xs-opam XS_COV=1 COV_CONF="ocaml setup.ml -configure --enable-tests"
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
 matrix:
-  fast_finish: true
-  allow_failure:
-    - env: OCAML_VERSION=4.02 PACKAGE=xapi-idl EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+    fast_finish: true
+    allow_failures:
+        - env: EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+
