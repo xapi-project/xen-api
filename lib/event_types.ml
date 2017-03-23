@@ -24,7 +24,7 @@ type event = {
 	op: op;
 	reference: string;
 	snapshot: Rpc.t option;
-} with rpc
+} [@@deriving rpc]
 
 let ev_struct_remap = [
 	"id","id";
@@ -47,15 +47,15 @@ let rpc_of_event ev =
 let event_of_rpc rpc =
 	event_of_rpc (remap (List.map (fun (k,v) -> (v,k)) ev_struct_remap) rpc)
 
-type events = event list with rpc
+type events = event list [@@deriving rpc]
 
-type token = string with rpc
+type token = string [@@deriving rpc]
 
 type event_from = {
 	events: event list;
 	valid_ref_counts: (string * int32) list;
 	token: token;
-} with rpc
+} [@@deriving rpc]
 
 (** Return result of an events.from call *)
 
