@@ -29,7 +29,7 @@ let mutex_execute m f =
 module D = Debug.Make(struct let name = "scheduler" end)
 open D
 
-module Int64Map = Map.Make(struct type t = int64 let compare = compare end)
+module Int64Map = Map.Make(struct type t = int64 let compare = Int64.compare end)
 
 module Delay = struct
   (* Concrete type is the ends of a pipe *)
@@ -51,6 +51,7 @@ module Delay = struct
   exception Pre_signalled
 
   let wait (x: t) (seconds: float) =
+    let timeout = if seconds < 0.0 then 0.0 else seconds in
     let to_close = ref [ ] in
     let close' fd =
       if List.mem fd !to_close then Unix.close fd;
@@ -71,7 +72,7 @@ module Delay = struct
                   x.pipe_in <- Some pipe_in;
                   x.signalled <- false;
                   pipe_out) in
-           let r, _, _ = Unix.select [ pipe_out ] [] [] seconds in
+           let r, _, _ = Unix.select [ pipe_out ] [] [] timeout in
            (* flush the single byte from the pipe *)
            if r <> [] then ignore(Unix.read pipe_out (String.create 1) 0 1);
            (* return true if we waited the full length of time, false if we were woken *)
@@ -101,16 +102,25 @@ type item = {
   fn: unit -> unit
 }
 
-let schedule = ref Int64Map.empty
-let delay = Delay.make ()
-let next_id = ref 0
-let m = Mutex.create ()
+type t = {
+  mutable schedule : item list Int64Map.t;
+  delay : Delay.t;
+  mutable next_id : int;
+  m : Mutex.t;
+}
+
+let global_scheduler = {
+  schedule = Int64Map.empty;
+  delay = Delay.make ();
+  next_id = 0;
+  m = Mutex.create ()
+}
 
 type time =
   | Absolute of int64
   | Delta of int [@@deriving rpc]
 
-type t = int64 * int [@@deriving rpc]
+(*type t = int64 * int [@@deriving rpc]*)
 
 let now () = Unix.gettimeofday () |> ceil |> Int64.of_float
 
@@ -119,55 +129,56 @@ module Dump = struct
     time: int64;
     thing: string;
   } [@@deriving rpc]
-  type t = u list [@@deriving rpc]
-  let make () =
+  type dump = u list [@@deriving rpc]
+  let make s =
     let now = now () in
-    mutex_execute m
+    mutex_execute s.m
       (fun () ->
-         Int64Map.fold (fun time xs acc -> List.map (fun i -> { time = Int64.sub time now; thing = i.name }) xs @ acc) !schedule []
+         Int64Map.fold (fun time xs acc -> List.map (fun i -> { time = Int64.sub time now; thing = i.name }) xs @ acc) s.schedule []
       )
 end
 
-let one_shot time (name: string) f =
+let one_shot s time (name: string) f =
   let time = match time with
     | Absolute x -> x
     | Delta x -> Int64.(add (of_int x) (now ())) in
-  let id = mutex_execute m
+  let id = mutex_execute s.m
       (fun () ->
          let existing =
-           if Int64Map.mem time !schedule
-           then Int64Map.find time !schedule
-           else [] in
-         let id = !next_id in
-         incr next_id;
+           try
+             Int64Map.find time s.schedule
+           with _ -> []
+         in
+         let id = s.next_id in
+         s.next_id <- s.next_id + 1;
          let item = {
            id = id;
            name = name;
            fn = f
          } in
-         schedule := Int64Map.add time (item :: existing) !schedule;
-         Delay.signal delay;
+         s.schedule <- Int64Map.add time (item :: existing) s.schedule;
+         Delay.signal s.delay;
          id
       ) in
   (time, id)
 
-let cancel (time, id) =
-  mutex_execute m
+let cancel s (time, id) =
+  mutex_execute s.m
     (fun () ->
        let existing =
-         if Int64Map.mem time !schedule
-         then Int64Map.find time !schedule
+         if Int64Map.mem time s.schedule
+         then Int64Map.find time s.schedule
          else [] in
-       schedule := Int64Map.add time (List.filter (fun i -> i.id <> id) existing) !schedule
+       s.schedule <- Int64Map.add time (List.filter (fun i -> i.id <> id) existing) s.schedule
     )
 
-let process_expired () =
+let process_expired s =
   let t = now () in
   let expired =
-    mutex_execute m
+    mutex_execute s.m
       (fun () ->
-         let expired, unexpired = Int64Map.partition (fun t' _ -> t' <= t) !schedule in
-         schedule := unexpired;
+         let expired, unexpired = Int64Map.partition (fun t' _ -> t' <= t) s.schedule in
+         s.schedule <- unexpired;
          Int64Map.fold (fun _ stuff acc -> acc @ stuff) expired [] |> List.rev) in
   (* This might take a while *)
   List.iter
@@ -179,20 +190,20 @@ let process_expired () =
     ) expired;
   expired <> [] (* true if work was done *)
 
-let rec main_loop () =
-  while process_expired () do () done;
+let rec main_loop s =
+  while process_expired s do () done;
   let sleep_until =
-    mutex_execute m
+    mutex_execute s.m
       (fun () ->
          try
-           Int64Map.min_binding !schedule |> fst
+           Int64Map.min_binding s.schedule |> fst
          with Not_found ->
            Int64.add 3600L (now ())
       ) in
   let seconds = Int64.sub sleep_until (now ()) in
-  let (_: bool) = Delay.wait delay (Int64.to_float seconds) in
-  main_loop ()
+  let (_: bool) = Delay.wait s.delay (Int64.to_float seconds) in
+  main_loop s
 
 let start () =
-  let (_: Thread.t) = Thread.create main_loop () in
+  let (_: Thread.t) = Thread.create main_loop global_scheduler in
   ()

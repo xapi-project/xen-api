@@ -187,7 +187,7 @@ module Updates = functor(Interface : INTERFACE) -> struct
         )
     in
     let id = Opt.map (fun timeout ->
-        Scheduler.one_shot (Scheduler.Delta timeout) dbg cancel_fn
+        Scheduler.one_shot Scheduler.global_scheduler (Scheduler.Delta timeout) dbg cancel_fn
       ) timeout in
     with_cancel cancel_fn (fun () ->
         finally (fun () ->
@@ -202,7 +202,7 @@ module Updates = functor(Interface : INTERFACE) -> struct
                 in
                 wait ()
               )
-          ) (fun () -> Opt.iter Scheduler.cancel id))
+          ) (fun () -> Opt.iter (Scheduler.cancel Scheduler.global_scheduler) id))
 
   let last_id dbg t =
     Mutex.execute t.m

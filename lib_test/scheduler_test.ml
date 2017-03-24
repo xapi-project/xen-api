@@ -27,7 +27,7 @@ let test_delay_cancel () =
 let test_one_shot () =
   let after = ref None in
   let before = Unix.gettimeofday () in
-  let _ = Scheduler.one_shot (Scheduler.Delta 1) "test_one_shot"
+  let _ = Scheduler.one_shot Scheduler.global_scheduler (Scheduler.Delta 1) "test_one_shot"
       (fun () -> after := Some (Unix.gettimeofday ())) in
   Thread.delay 2.0;
   let success =
@@ -45,7 +45,7 @@ let test_one_shot_abs () =
   let after = ref None in
   let before = Unix.gettimeofday () in
   let now = Scheduler.now () in
-  let _ = Scheduler.one_shot (Scheduler.Absolute (Int64.add 1L now)) "test_one_shot"
+  let _ = Scheduler.one_shot Scheduler.global_scheduler (Scheduler.Absolute (Int64.add 1L now)) "test_one_shot"
       (fun () -> after := Some (Unix.gettimeofday ())) in
   Thread.delay 2.0;
   let success =
@@ -63,9 +63,9 @@ let test_one_shot_abs () =
 let test_one_shot_failure () =
   let after = ref None in
   let before = Unix.gettimeofday () in
-  let _ = Scheduler.one_shot (Scheduler.Delta 0) "test_one_shot"
+  let _ = Scheduler.one_shot Scheduler.global_scheduler (Scheduler.Delta 0) "test_one_shot"
       (fun () -> after := failwith "Error") in
-  let _ = Scheduler.one_shot (Scheduler.Delta 1) "test_one_shot"
+  let _ = Scheduler.one_shot Scheduler.global_scheduler (Scheduler.Delta 1) "test_one_shot"
       (fun () -> after := Some (Unix.gettimeofday ())) in
   Thread.delay 2.0;
   let success =
@@ -81,8 +81,8 @@ let test_one_shot_failure () =
 (* Checks that one-shot functions can cancelled and are then not executed *)
 let test_one_shot_cancel () =
   let after = ref None in
-  let x = Scheduler.one_shot (Scheduler.Delta 1) "test_one_shot_cancel" (fun () -> after := Some (Unix.gettimeofday ())) in
-  Scheduler.cancel x;
+  let x = Scheduler.one_shot Scheduler.global_scheduler (Scheduler.Delta 1) "test_one_shot_cancel" (fun () -> after := Some (Unix.gettimeofday ())) in
+  Scheduler.cancel Scheduler.global_scheduler x;
   Thread.delay 2.0;
   let success =
     match !after with
@@ -96,9 +96,9 @@ let test_one_shot_cancel () =
 let test_dump () =
   let after = ref None in
   let before = Unix.gettimeofday () in
-  let _ = Scheduler.one_shot (Scheduler.Delta 1) "test_dump"
+  let _ = Scheduler.one_shot Scheduler.global_scheduler (Scheduler.Delta 1) "test_dump"
       (fun () -> after := Some (Unix.gettimeofday ())) in
-  let dump = Scheduler.Dump.make () in
+  let dump = Scheduler.Dump.make Scheduler.global_scheduler in
   assert_bool "dump_contains_item" (List.exists (fun x -> x.Scheduler.Dump.thing = "test_dump") dump)
 
 let _ = Scheduler.start ()
