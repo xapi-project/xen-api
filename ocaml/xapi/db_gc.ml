@@ -125,14 +125,17 @@ let gc_PIFs ~__context =
 let gc_VBDs ~__context =
   gc_connector ~__context Db.VBD.get_all Db.VBD.get_record (fun x->valid_ref __context x.vBD_VM) (fun x->valid_ref __context x.vBD_VDI || x.vBD_empty)
     (fun ~__context ~self ->
+       let valid_vm = valid_ref __context (Db.VBD.get_VM ~__context ~self) in
+       let is_cd = Db.VBD.get_type ~__context ~self = `CD in
+       let is_attached = Db.VBD.get_currently_attached ~__context ~self in
        (* When GCing VBDs that are CDs, set them to empty rather than destroy them entirely *)
-       if (valid_ref __context (Db.VBD.get_VM ~__context ~self)) && (Db.VBD.get_type ~__context ~self = `CD) then
+       if valid_vm && is_cd then
          begin
            Db.VBD.set_VDI ~__context ~self ~value:Ref.null;
            Db.VBD.set_empty ~__context ~self ~value:true;
            debug "VBD corresponds to CD. Record preserved but set to empty";
          end
-       else
+       else if not (valid_vm && is_attached) then (* preserve it if it's a valid vm and it's attached *)
          begin
            let metrics = Db.VBD.get_metrics ~__context ~self in
            (try Db.VBD_metrics.destroy ~__context ~self:metrics with _ -> ());
