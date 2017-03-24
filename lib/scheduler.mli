@@ -20,6 +20,8 @@ type t
 
 (** The handle for referring to an item that has been scheduled *)
 type handle
+val rpc_of_handle : handle -> Rpc.t
+val handle_of_rpc : Rpc.t -> handle
 
 (** Creates a scheduler *)
 val make : unit -> t

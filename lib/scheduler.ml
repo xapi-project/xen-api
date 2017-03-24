@@ -102,7 +102,7 @@ type item = {
   fn: unit -> unit
 }
 
-type handle = int64 * int
+type handle = int64 * int [@@deriving rpc]
 
 type t = {
   mutable schedule : item list Int64Map.t;

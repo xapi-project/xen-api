@@ -163,7 +163,7 @@ let test_dump () =
   M.add update_a u;
   M.inject_barrier 1 (fun _ _ -> true) u;
   let dump = M.Dump.make u in
-  let json = Jsonrpc.to_string (M.Dump.rpc_of_t dump) in
+  let json = Jsonrpc.to_string (M.Dump.rpc_of_dump dump) in
   let expected = "{\"updates\": [{\"id\": 1, \"v\": \"[\\\"Foo\\\", \\\"a\\\"]\"}], \"barriers\": [[1, 2, [{\"id\": 1, \"v\": \"[\\\"Foo\\\", \\\"a\\\"]\"}]]]}" in
   assert_equal json expected
 

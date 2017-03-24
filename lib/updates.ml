@@ -176,6 +176,9 @@ module Updates = functor(Interface : INTERFACE) -> struct
       m = Mutex.create ();
     }
 
+  type get_result =
+    (int * Interface.Dynamic.id list) list * Interface.Dynamic.id list * id
+
   let get dbg ?(with_cancel=(fun _ f -> f ())) from timeout t =
     let from = Opt.default U.initial from in
     let cancel = ref false in
@@ -253,7 +256,7 @@ module Updates = functor(Interface : INTERFACE) -> struct
       id: int;
       v: string;
     } [@@deriving rpc]
-    type t = {
+    type dump = {
       updates: u list;
       barriers : (int * int * (u list)) list;
       (* In barriers, first int is token id of barrier;
