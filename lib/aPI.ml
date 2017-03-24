@@ -12,26 +12,23 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Date
-
-type failure = (string list) with rpc
+type failure = (string list) [@@deriving rpc]
 let response_of_failure code params =
   Rpc.failure (rpc_of_failure (code::params))
 let response_of_fault code =
   Rpc.failure (rpc_of_failure (["Fault"; code]))
 
 include Rpc
-type string_list = string list with rpc
+type string_list = string list [@@deriving rpc]
 
 module Ref = struct
-  type 'a t=string
-  let of_string x = x
-  let string_of x = x
-  let rpc_of_t _ x = rpc_of_string (string_of x)
+  include Ref
+  let rpc_of_t _ x = rpc_of_string (Ref.string_of x)
   let t_of_rpc _ x = of_string (string_of_rpc x);
 end
 
 module Date = struct
+  open Stdext
   include Date
   let rpc_of_iso8601 x = DateTime (Date.to_string x)
   let iso8601_of_rpc = function String x | DateTime x -> Date.of_string x | _ -> failwith "Date.iso8601_of_rpc"
@@ -39,133 +36,152 @@ end
 
 let on_dict f = function | Rpc.Dict x -> f x | _ -> failwith "Expected Dictionary"
 
-type ref_VGPU_type = [`VGPU_type] Ref.t with rpc
-type vgpu_type_implementation = [ `passthrough | `nvidia | `gvt_g ] with rpc
-type vgpu_type_implementation_set = vgpu_type_implementation list with rpc
-type ref_GPU_group = [`GPU_group] Ref.t with rpc
-type ref_GPU_group_set = [`GPU_group] Ref.t list with rpc
-type ref_PGPU = [`PGPU] Ref.t with rpc
-type ref_PGPU_set = [`PGPU] Ref.t list with rpc
-type ref_VGPU = [`VGPU] Ref.t with rpc
-type string_to_string_map = (string * string) list with rpc
-type ref_VM = [`VM] Ref.t with rpc
-type ref_VGPU_type_set = [`VGPU_type] Ref.t list with rpc
-type allocation_algorithm = [ `breadth_first | `depth_first ] with rpc
-type allocation_algorithm_set = allocation_algorithm list with rpc
-type string_set = string list with rpc
-type pgpu_dom0_access = [ `enabled | `disable_on_reboot | `disabled | `enable_on_reboot ] with rpc
-type pgpu_dom0_access_set = pgpu_dom0_access list with rpc
-type ref_VGPU_type_to_int64_map = (ref_VGPU_type * int64) list with rpc
-type ref_host = [`host] Ref.t with rpc
-type ref_PCI = [`PCI] Ref.t with rpc
-type ref_PCI_set = [`PCI] Ref.t list with rpc
-type ref_tunnel = [`tunnel] Ref.t with rpc
-type ref_network = [`network] Ref.t with rpc
-type ref_PIF = [`PIF] Ref.t with rpc
-type ref_secret = [`secret] Ref.t with rpc
-type ref_message = [`message] Ref.t with rpc
-type datetime = Date.iso8601 with rpc
-type cls = [ `VM | `Host | `SR | `Pool | `VMPP ] with rpc
-type cls_set = cls list with rpc
-type ref_blob = [`blob] Ref.t with rpc
-type ref_user = [`user] Ref.t with rpc
-type ref_console = [`console] Ref.t with rpc
-type console_protocol = [ `vt100 | `rfb | `rdp ] with rpc
-type console_protocol_set = console_protocol list with rpc
-type ref_VTPM = [`VTPM] Ref.t with rpc
-type ref_crashdump = [`crashdump] Ref.t with rpc
-type ref_VDI = [`VDI] Ref.t with rpc
-type ref_PBD = [`PBD] Ref.t with rpc
-type ref_SR = [`SR] Ref.t with rpc
-type ref_VBD_metrics = [`VBD_metrics] Ref.t with rpc
-type ref_VBD = [`VBD] Ref.t with rpc
-type vbd_type = [ `CD | `Disk | `Floppy ] with rpc
-type vbd_type_set = vbd_type list with rpc
-type vbd_mode = [ `RO | `RW ] with rpc
-type vbd_mode_set = vbd_mode list with rpc
-type vbd_operations = [ `attach | `eject | `insert | `plug | `unplug | `unplug_force | `pause | `unpause ] with rpc
-type string_to_vbd_operations_map = (string * vbd_operations) list with rpc
-type vbd_operations_set = vbd_operations list with rpc
-type on_boot = [ `reset | `persist ] with rpc
-type on_boot_set = on_boot list with rpc
-type ref_pool = [`pool] Ref.t with rpc
-type vdi_type = [ `system | `user | `ephemeral | `suspend | `crashdump | `ha_statefile | `metadata | `redo_log | `rrd ] with rpc
-type vdi_type_set = vdi_type list with rpc
-type vdi_operations = [ `scan | `clone | `copy | `resize | `resize_online | `snapshot | `mirror | `destroy | `forget | `update | `force_unlock | `generate_config | `blocked ] with rpc
-type string_to_vdi_operations_map = (string * vdi_operations) list with rpc
-type vdi_operations_set = vdi_operations list with rpc
-type ref_LVHD = [`LVHD] Ref.t with rpc
-type ref_DR_task = [`DR_task] Ref.t with rpc
-type string_to_ref_blob_map = (string * ref_blob) list with rpc
-type storage_operations = [ `scan | `destroy | `forget | `plug | `unplug | `update | `vdi_create | `vdi_introduce | `vdi_destroy | `vdi_resize | `vdi_clone | `vdi_snapshot | `vdi_mirror | `pbd_create | `pbd_destroy ] with rpc
-type string_to_storage_operations_map = (string * storage_operations) list with rpc
-type storage_operations_set = storage_operations list with rpc
-type ref_SM = [`SM] Ref.t with rpc
-type string_to_int64_map = (string * int64) list with rpc
-type ref_VLAN = [`VLAN] Ref.t with rpc
-type ref_Bond = [`Bond] Ref.t with rpc
+type ref_SDN_controller = [`SDN_controller] Ref.t [@@deriving rpc]
+type sdn_controller_protocol = [ `ssl | `pssl ] [@@deriving rpc]
+type sdn_controller_protocol_set = sdn_controller_protocol list [@@deriving rpc]
+type ref_host = [`host] Ref.t [@@deriving rpc]
+type ref_Feature = [`Feature] Ref.t [@@deriving rpc]
+type ref_VDI = [`VDI] Ref.t [@@deriving rpc]
+type ref_PVS_cache_storage = [`PVS_cache_storage] Ref.t [@@deriving rpc]
+type ref_PVS_site = [`PVS_site] Ref.t [@@deriving rpc]
+type ref_SR = [`SR] Ref.t [@@deriving rpc]
+type ref_PVS_proxy = [`PVS_proxy] Ref.t [@@deriving rpc]
+type ref_VIF = [`VIF] Ref.t [@@deriving rpc]
+type pvs_proxy_status = [ `stopped | `initialised | `caching | `incompatible_write_cache_mode | `incompatible_protocol_version ] [@@deriving rpc]
+type pvs_proxy_status_set = pvs_proxy_status list [@@deriving rpc]
+type ref_PVS_server = [`PVS_server] Ref.t [@@deriving rpc]
+type string_set = string list [@@deriving rpc]
+type ref_PVS_cache_storage_set = [`PVS_cache_storage] Ref.t list [@@deriving rpc]
+type ref_VGPU_type = [`VGPU_type] Ref.t [@@deriving rpc]
+type vgpu_type_implementation = [ `passthrough | `nvidia | `gvt_g | `mxgpu ] [@@deriving rpc]
+type vgpu_type_implementation_set = vgpu_type_implementation list [@@deriving rpc]
+type ref_GPU_group = [`GPU_group] Ref.t [@@deriving rpc]
+type ref_GPU_group_set = [`GPU_group] Ref.t list [@@deriving rpc]
+type string_to_string_map = (string * string) list [@@deriving rpc]
+type ref_PGPU = [`PGPU] Ref.t [@@deriving rpc]
+type ref_PGPU_set = [`PGPU] Ref.t list [@@deriving rpc]
+type ref_VGPU = [`VGPU] Ref.t [@@deriving rpc]
+type ref_VM = [`VM] Ref.t [@@deriving rpc]
+type ref_VGPU_type_set = [`VGPU_type] Ref.t list [@@deriving rpc]
+type allocation_algorithm = [ `breadth_first | `depth_first ] [@@deriving rpc]
+type allocation_algorithm_set = allocation_algorithm list [@@deriving rpc]
+type pgpu_dom0_access = [ `enabled | `disable_on_reboot | `disabled | `enable_on_reboot ] [@@deriving rpc]
+type pgpu_dom0_access_set = pgpu_dom0_access list [@@deriving rpc]
+type ref_VGPU_type_to_int64_map = (ref_VGPU_type * int64) list [@@deriving rpc]
+type ref_PCI = [`PCI] Ref.t [@@deriving rpc]
+type ref_PCI_set = [`PCI] Ref.t list [@@deriving rpc]
+type ref_VM_set = [`VM] Ref.t list [@@deriving rpc]
+type ref_tunnel = [`tunnel] Ref.t [@@deriving rpc]
+type ref_network = [`network] Ref.t [@@deriving rpc]
+type ref_PIF = [`PIF] Ref.t [@@deriving rpc]
+type ref_secret = [`secret] Ref.t [@@deriving rpc]
+type ref_message = [`message] Ref.t [@@deriving rpc]
+type datetime = Date.iso8601 [@@deriving rpc]
+type cls = [ `VM | `Host | `SR | `Pool | `VMPP | `VMSS | `PVS_proxy ] [@@deriving rpc]
+type cls_set = cls list [@@deriving rpc]
+type ref_blob = [`blob] Ref.t [@@deriving rpc]
+type ref_user = [`user] Ref.t [@@deriving rpc]
+type ref_console = [`console] Ref.t [@@deriving rpc]
+type console_protocol = [ `vt100 | `rfb | `rdp ] [@@deriving rpc]
+type console_protocol_set = console_protocol list [@@deriving rpc]
+type ref_VTPM = [`VTPM] Ref.t [@@deriving rpc]
+type ref_crashdump = [`crashdump] Ref.t [@@deriving rpc]
+type ref_PBD = [`PBD] Ref.t [@@deriving rpc]
+type ref_VBD_metrics = [`VBD_metrics] Ref.t [@@deriving rpc]
+type ref_VBD = [`VBD] Ref.t [@@deriving rpc]
+type vbd_type = [ `CD | `Disk | `Floppy ] [@@deriving rpc]
+type vbd_type_set = vbd_type list [@@deriving rpc]
+type vbd_mode = [ `RO | `RW ] [@@deriving rpc]
+type vbd_mode_set = vbd_mode list [@@deriving rpc]
+type vbd_operations = [ `attach | `eject | `insert | `plug | `unplug | `unplug_force | `pause | `unpause ] [@@deriving rpc]
+type string_to_vbd_operations_map = (string * vbd_operations) list [@@deriving rpc]
+type vbd_operations_set = vbd_operations list [@@deriving rpc]
+type on_boot = [ `reset | `persist ] [@@deriving rpc]
+type on_boot_set = on_boot list [@@deriving rpc]
+type ref_pool = [`pool] Ref.t [@@deriving rpc]
+type vdi_type = [ `system | `user | `ephemeral | `suspend | `crashdump | `ha_statefile | `metadata | `redo_log | `rrd | `pvs_cache ] [@@deriving rpc]
+type vdi_type_set = vdi_type list [@@deriving rpc]
+type vdi_operations = [ `scan | `clone | `copy | `resize | `resize_online | `snapshot | `mirror | `destroy | `forget | `update | `force_unlock | `generate_config | `blocked ] [@@deriving rpc]
+type string_to_vdi_operations_map = (string * vdi_operations) list [@@deriving rpc]
+type vdi_operations_set = vdi_operations list [@@deriving rpc]
+type ref_LVHD = [`LVHD] Ref.t [@@deriving rpc]
+type ref_DR_task = [`DR_task] Ref.t [@@deriving rpc]
+type string_to_ref_blob_map = (string * ref_blob) list [@@deriving rpc]
+type storage_operations = [ `scan | `destroy | `forget | `plug | `unplug | `update | `vdi_create | `vdi_introduce | `vdi_destroy | `vdi_resize | `vdi_clone | `vdi_snapshot | `vdi_mirror | `pbd_create | `pbd_destroy ] [@@deriving rpc]
+type string_to_storage_operations_map = (string * storage_operations) list [@@deriving rpc]
+type storage_operations_set = storage_operations list [@@deriving rpc]
+type ref_SM = [`SM] Ref.t [@@deriving rpc]
+type string_to_int64_map = (string * int64) list [@@deriving rpc]
+type ref_VLAN = [`VLAN] Ref.t [@@deriving rpc]
+type ref_Bond = [`Bond] Ref.t [@@deriving rpc]
 type bond_mode = [ `balanceslb | `activebackup | `lacp ]
 let rpc_of_bond_mode x = match x with `balanceslb -> Rpc.String "balance-slb" | `activebackup -> Rpc.String "active-backup" | `lacp -> Rpc.String "lacp"
 let bond_mode_of_rpc x = match x with Rpc.String "balance-slb" -> `balanceslb | Rpc.String "active-backup" -> `activebackup | Rpc.String "lacp" -> `lacp | _ -> failwith "Unmarshalling error in bond-mode"
 
 
-type bond_mode_set = bond_mode list with rpc
-type ref_PIF_set = [`PIF] Ref.t list with rpc
-type ref_PIF_metrics = [`PIF_metrics] Ref.t with rpc
-type primary_address_type = [ `IPv4 | `IPv6 ] with rpc
-type primary_address_type_set = primary_address_type list with rpc
-type ipv6_configuration_mode = [ `None | `DHCP | `Static | `Autoconf ] with rpc
-type ipv6_configuration_mode_set = ipv6_configuration_mode list with rpc
-type ip_configuration_mode = [ `None | `DHCP | `Static ] with rpc
-type ip_configuration_mode_set = ip_configuration_mode list with rpc
-type ref_VIF_metrics = [`VIF_metrics] Ref.t with rpc
-type vif_ipv6_configuration_mode = [ `None | `Static ] with rpc
-type vif_ipv6_configuration_mode_set = vif_ipv6_configuration_mode list with rpc
-type ref_VIF = [`VIF] Ref.t with rpc
-type vif_ipv4_configuration_mode = [ `None | `Static ] with rpc
-type vif_ipv4_configuration_mode_set = vif_ipv4_configuration_mode list with rpc
-type vif_locking_mode = [ `network_default | `locked | `unlocked | `disabled ] with rpc
-type vif_locking_mode_set = vif_locking_mode list with rpc
-type vif_operations = [ `attach | `plug | `unplug ] with rpc
-type string_to_vif_operations_map = (string * vif_operations) list with rpc
-type vif_operations_set = vif_operations list with rpc
-type network_default_locking_mode = [ `unlocked | `disabled ] with rpc
-type network_default_locking_mode_set = network_default_locking_mode list with rpc
-type ref_VIF_to_string_map = (ref_VIF * string) list with rpc
-type network_operations = [ `attaching ] with rpc
-type string_to_network_operations_map = (string * network_operations) list with rpc
-type network_operations_set = network_operations list with rpc
-type ref_host_cpu = [`host_cpu] Ref.t with rpc
-type ref_host_metrics = [`host_metrics] Ref.t with rpc
-type ref_host_patch = [`host_patch] Ref.t with rpc
-type ref_pool_patch = [`pool_patch] Ref.t with rpc
-type ref_host_crashdump = [`host_crashdump] Ref.t with rpc
-type ref_VDI_set = [`VDI] Ref.t list with rpc
-type ref_VDI_to_string_map = (ref_VDI * string) list with rpc
-type int64_set = int64 list with rpc
-type host_display = [ `enabled | `disable_on_reboot | `disabled | `enable_on_reboot ] with rpc
-type host_display_set = host_display list with rpc
-type host_allowed_operations = [ `provision | `evacuate | `shutdown | `reboot | `power_on | `vm_start | `vm_resume | `vm_migrate ] with rpc
-type string_to_host_allowed_operations_map = (string * host_allowed_operations) list with rpc
-type host_allowed_operations_set = host_allowed_operations list with rpc
-type ref_session = [`session] Ref.t with rpc
-type ref_VM_appliance = [`VM_appliance] Ref.t with rpc
-type vm_appliance_operation = [ `start | `clean_shutdown | `hard_shutdown | `shutdown ] with rpc
-type string_to_vm_appliance_operation_map = (string * vm_appliance_operation) list with rpc
-type vm_appliance_operation_set = vm_appliance_operation list with rpc
-type ref_VMPP = [`VMPP] Ref.t with rpc
-type vmpp_archive_target_type = [ `none | `cifs | `nfs ] with rpc
-type vmpp_archive_target_type_set = vmpp_archive_target_type list with rpc
-type vmpp_archive_frequency = [ `never | `always_after_backup | `daily | `weekly ] with rpc
-type vmpp_archive_frequency_set = vmpp_archive_frequency list with rpc
-type vmpp_backup_frequency = [ `hourly | `daily | `weekly ] with rpc
-type vmpp_backup_frequency_set = vmpp_backup_frequency list with rpc
-type vmpp_backup_type = [ `snapshot | `checkpoint ] with rpc
-type vmpp_backup_type_set = vmpp_backup_type list with rpc
-type ref_VM_guest_metrics = [`VM_guest_metrics] Ref.t with rpc
-type tristate_type = [ `yes | `no | `unspecified ] with rpc
-type tristate_type_set = tristate_type list with rpc
-type ref_VM_metrics = [`VM_metrics] Ref.t with rpc
+type bond_mode_set = bond_mode list [@@deriving rpc]
+type ref_PIF_set = [`PIF] Ref.t list [@@deriving rpc]
+type ref_PIF_metrics = [`PIF_metrics] Ref.t [@@deriving rpc]
+type primary_address_type = [ `IPv4 | `IPv6 ] [@@deriving rpc]
+type primary_address_type_set = primary_address_type list [@@deriving rpc]
+type ipv6_configuration_mode = [ `None | `DHCP | `Static | `Autoconf ] [@@deriving rpc]
+type ipv6_configuration_mode_set = ipv6_configuration_mode list [@@deriving rpc]
+type ip_configuration_mode = [ `None | `DHCP | `Static ] [@@deriving rpc]
+type ip_configuration_mode_set = ip_configuration_mode list [@@deriving rpc]
+type ref_VIF_metrics = [`VIF_metrics] Ref.t [@@deriving rpc]
+type vif_ipv6_configuration_mode = [ `None | `Static ] [@@deriving rpc]
+type vif_ipv6_configuration_mode_set = vif_ipv6_configuration_mode list [@@deriving rpc]
+type vif_ipv4_configuration_mode = [ `None | `Static ] [@@deriving rpc]
+type vif_ipv4_configuration_mode_set = vif_ipv4_configuration_mode list [@@deriving rpc]
+type vif_locking_mode = [ `network_default | `locked | `unlocked | `disabled ] [@@deriving rpc]
+type vif_locking_mode_set = vif_locking_mode list [@@deriving rpc]
+type vif_operations = [ `attach | `plug | `unplug ] [@@deriving rpc]
+type string_to_vif_operations_map = (string * vif_operations) list [@@deriving rpc]
+type vif_operations_set = vif_operations list [@@deriving rpc]
+type network_default_locking_mode = [ `unlocked | `disabled ] [@@deriving rpc]
+type network_default_locking_mode_set = network_default_locking_mode list [@@deriving rpc]
+type ref_VIF_to_string_map = (ref_VIF * string) list [@@deriving rpc]
+type network_operations = [ `attaching ] [@@deriving rpc]
+type string_to_network_operations_map = (string * network_operations) list [@@deriving rpc]
+type network_operations_set = network_operations list [@@deriving rpc]
+type ref_host_cpu = [`host_cpu] Ref.t [@@deriving rpc]
+type ref_host_metrics = [`host_metrics] Ref.t [@@deriving rpc]
+type ref_host_patch = [`host_patch] Ref.t [@@deriving rpc]
+type ref_pool_patch = [`pool_patch] Ref.t [@@deriving rpc]
+type ref_host_crashdump = [`host_crashdump] Ref.t [@@deriving rpc]
+type ref_VDI_set = [`VDI] Ref.t list [@@deriving rpc]
+type ref_VDI_to_string_map = (ref_VDI * string) list [@@deriving rpc]
+type ref_pool_update = [`pool_update] Ref.t [@@deriving rpc]
+type ref_pool_update_set = [`pool_update] Ref.t list [@@deriving rpc]
+type int64_set = int64 list [@@deriving rpc]
+type host_display = [ `enabled | `disable_on_reboot | `disabled | `enable_on_reboot ] [@@deriving rpc]
+type host_display_set = host_display list [@@deriving rpc]
+type host_allowed_operations = [ `provision | `evacuate | `shutdown | `reboot | `power_on | `vm_start | `vm_resume | `vm_migrate ] [@@deriving rpc]
+type string_to_host_allowed_operations_map = (string * host_allowed_operations) list [@@deriving rpc]
+type host_allowed_operations_set = host_allowed_operations list [@@deriving rpc]
+type ref_session = [`session] Ref.t [@@deriving rpc]
+type ref_VM_appliance = [`VM_appliance] Ref.t [@@deriving rpc]
+type vm_appliance_operation = [ `start | `clean_shutdown | `hard_shutdown | `shutdown ] [@@deriving rpc]
+type string_to_vm_appliance_operation_map = (string * vm_appliance_operation) list [@@deriving rpc]
+type vm_appliance_operation_set = vm_appliance_operation list [@@deriving rpc]
+type vmss_type = [ `snapshot | `checkpoint | `snapshot_with_quiesce ] [@@deriving rpc]
+type vmss_type_set = vmss_type list [@@deriving rpc]
+type ref_VMSS = [`VMSS] Ref.t [@@deriving rpc]
+type vmss_frequency = [ `hourly | `daily | `weekly ] [@@deriving rpc]
+type vmss_frequency_set = vmss_frequency list [@@deriving rpc]
+type ref_VMPP = [`VMPP] Ref.t [@@deriving rpc]
+type vmpp_archive_target_type = [ `none | `cifs | `nfs ] [@@deriving rpc]
+type vmpp_archive_target_type_set = vmpp_archive_target_type list [@@deriving rpc]
+type vmpp_archive_frequency = [ `never | `always_after_backup | `daily | `weekly ] [@@deriving rpc]
+type vmpp_archive_frequency_set = vmpp_archive_frequency list [@@deriving rpc]
+type vmpp_backup_frequency = [ `hourly | `daily | `weekly ] [@@deriving rpc]
+type vmpp_backup_frequency_set = vmpp_backup_frequency list [@@deriving rpc]
+type vmpp_backup_type = [ `snapshot | `checkpoint ] [@@deriving rpc]
+type vmpp_backup_type_set = vmpp_backup_type list [@@deriving rpc]
+type ref_VM_guest_metrics = [`VM_guest_metrics] Ref.t [@@deriving rpc]
+type tristate_type = [ `yes | `no | `unspecified ] [@@deriving rpc]
+type tristate_type_set = tristate_type list [@@deriving rpc]
+type ref_VM_metrics = [`VM_metrics] Ref.t [@@deriving rpc]
 type int64_to_string_set_map = (int64 * string_set) list
 let rpc_of_int64_to_string_set_map x = Rpc.Dict (List.map (fun (x,y) -> Int64.to_string x, rpc_of_string_set y) x)
 let int64_to_string_set_map_of_rpc x = match x with Rpc.Dict x -> List.map (fun (x,y) -> Int64.of_string x, string_set_of_rpc y) x | _ -> failwith "Unmarshalling error"
@@ -178,366 +194,423 @@ type int64_to_float_map = (int64 * float) list
 let rpc_of_int64_to_float_map x = Rpc.Dict (List.map (fun (x,y) -> Int64.to_string x, Rpc.Float y) x)
 let int64_to_float_map_of_rpc x = match x with Rpc.Dict x -> List.map (fun (x,y) -> Int64.of_string x, float_of_rpc y) x | _ -> failwith "Unmarshalling error"
 
-type vm_operations = [ `snapshot | `clone | `copy | `create_template | `revert | `checkpoint | `snapshot_with_quiesce | `provision | `start | `start_on | `pause | `unpause | `clean_shutdown | `clean_reboot | `hard_shutdown | `power_state_reset | `hard_reboot | `suspend | `csvm | `resume | `resume_on | `pool_migrate | `migrate_send | `get_boot_record | `send_sysrq | `send_trigger | `query_services | `shutdown | `call_plugin | `changing_memory_live | `awaiting_memory_live | `changing_dynamic_range | `changing_static_range | `changing_memory_limits | `changing_shadow_memory | `changing_shadow_memory_live | `changing_VCPUs | `changing_VCPUs_live | `assert_operation_valid | `data_source_op | `update_allowed_operations | `make_into_template | `import | `export | `metadata_export | `reverting | `destroy ] with rpc
-type ref_VIF_to_ref_network_map = (ref_VIF * ref_network) list with rpc
-type ref_VDI_to_ref_SR_map = (ref_VDI * ref_SR) list with rpc
+type vm_operations = [ `snapshot | `clone | `copy | `create_template | `revert | `checkpoint | `snapshot_with_quiesce | `provision | `start | `start_on | `pause | `unpause | `clean_shutdown | `clean_reboot | `hard_shutdown | `power_state_reset | `hard_reboot | `suspend | `csvm | `resume | `resume_on | `pool_migrate | `migrate_send | `get_boot_record | `send_sysrq | `send_trigger | `query_services | `shutdown | `call_plugin | `changing_memory_live | `awaiting_memory_live | `changing_dynamic_range | `changing_static_range | `changing_memory_limits | `changing_shadow_memory | `changing_shadow_memory_live | `changing_VCPUs | `changing_VCPUs_live | `assert_operation_valid | `data_source_op | `update_allowed_operations | `make_into_template | `import | `export | `metadata_export | `reverting | `destroy ] [@@deriving rpc]
+type ref_VIF_to_ref_network_map = (ref_VIF * ref_network) list [@@deriving rpc]
+type ref_VDI_to_ref_SR_map = (ref_VDI * ref_SR) list [@@deriving rpc]
 type vm_operations_to_string_map = (vm_operations * string) list
 let rpc_of_vm_operations_to_string_map x = Rpc.Dict (List.map (fun (x,y) -> (match rpc_of_vm_operations x with Rpc.String x -> x | _ -> failwith "Marshalling error"), Rpc.String y) x)
 let vm_operations_to_string_map_of_rpc x = match x with Rpc.Dict l -> List.map (function (x,y) -> vm_operations_of_rpc (Rpc.String x), string_of_rpc y) l | _ -> failwith "Unmarshalling error"
 
 
-type on_crash_behaviour = [ `destroy | `coredump_and_destroy | `restart | `coredump_and_restart | `preserve | `rename_restart ] with rpc
-type on_crash_behaviour_set = on_crash_behaviour list with rpc
-type on_normal_exit = [ `destroy | `restart ] with rpc
-type on_normal_exit_set = on_normal_exit list with rpc
-type vm_power_state = [ `Halted | `Paused | `Running | `Suspended ] with rpc
-type vm_power_state_set = vm_power_state list with rpc
-type string_to_vm_operations_map = (string * vm_operations) list with rpc
-type vm_operations_set = vm_operations list with rpc
-type after_apply_guidance = [ `restartHVM | `restartPV | `restartHost | `restartXAPI ] with rpc
-type after_apply_guidance_set = after_apply_guidance list with rpc
-type ref_VM_set = [`VM] Ref.t list with rpc
-type ref_host_set = [`host] Ref.t list with rpc
-type ref_VM_to_string_map = (ref_VM * string) list with rpc
-type ref_SR_set = [`SR] Ref.t list with rpc
-type pool_allowed_operations = [ `ha_enable | `ha_disable ] with rpc
-type string_to_pool_allowed_operations_map = (string * pool_allowed_operations) list with rpc
-type pool_allowed_operations_set = pool_allowed_operations list with rpc
-type ref_task = [`task] Ref.t with rpc
-type task_status_type = [ `pending | `success | `failure | `cancelling | `cancelled ] with rpc
-type task_status_type_set = task_status_type list with rpc
-type task_allowed_operations = [ `cancel | `destroy ] with rpc
-type string_to_task_allowed_operations_map = (string * task_allowed_operations) list with rpc
-type task_allowed_operations_set = task_allowed_operations list with rpc
-type ref_role = [`role] Ref.t with rpc
-type ref_role_set = [`role] Ref.t list with rpc
-type ref_subject = [`subject] Ref.t with rpc
-type ref_task_set = [`task] Ref.t list with rpc
-type ref_subject_set = [`subject] Ref.t list with rpc
-type hello_return = [ `ok | `unknown_host | `cannot_talk_back ] with rpc
-type hello_return_set = hello_return list with rpc
-type ref_VM_to_string_to_string_map_map = (ref_VM * string_to_string_map) list with rpc
-type ref_VM_to_string_set_map = (ref_VM * string_set) list with rpc
-type ref_pool_set = [`pool] Ref.t list with rpc
-type ref_pool_patch_set = [`pool_patch] Ref.t list with rpc
-type ref_host_patch_set = [`host_patch] Ref.t list with rpc
-type ref_console_set = [`console] Ref.t list with rpc
-type ref_VIF_set = [`VIF] Ref.t list with rpc
-type ref_VBD_set = [`VBD] Ref.t list with rpc
-type ref_crashdump_set = [`crashdump] Ref.t list with rpc
-type ref_VTPM_set = [`VTPM] Ref.t list with rpc
-type ref_VGPU_set = [`VGPU] Ref.t list with rpc
-type ref_host_to_string_set_map = (ref_host * string_set) list with rpc
-type ref_VM_metrics_set = [`VM_metrics] Ref.t list with rpc
-type ref_VM_guest_metrics_set = [`VM_guest_metrics] Ref.t list with rpc
-type ref_VMPP_set = [`VMPP] Ref.t list with rpc
-type ref_VM_appliance_set = [`VM_appliance] Ref.t list with rpc
-type ref_DR_task_set = [`DR_task] Ref.t list with rpc
-type ref_host_crashdump_set = [`host_crashdump] Ref.t list with rpc
-type ref_PBD_set = [`PBD] Ref.t list with rpc
-type ref_host_cpu_set = [`host_cpu] Ref.t list with rpc
-type ref_host_metrics_set = [`host_metrics] Ref.t list with rpc
-type ref_network_set = [`network] Ref.t list with rpc
-type ref_VIF_metrics_set = [`VIF_metrics] Ref.t list with rpc
-type ref_Bond_set = [`Bond] Ref.t list with rpc
-type ref_VLAN_set = [`VLAN] Ref.t list with rpc
-type ref_tunnel_set = [`tunnel] Ref.t list with rpc
-type ref_PIF_metrics_set = [`PIF_metrics] Ref.t list with rpc
-type ref_SM_set = [`SM] Ref.t list with rpc
-type ref_VBD_metrics_set = [`VBD_metrics] Ref.t list with rpc
-type ref_blob_set = [`blob] Ref.t list with rpc
-type ref_message_set = [`message] Ref.t list with rpc
-type ref_secret_set = [`secret] Ref.t list with rpc
+type on_crash_behaviour = [ `destroy | `coredump_and_destroy | `restart | `coredump_and_restart | `preserve | `rename_restart ] [@@deriving rpc]
+type on_crash_behaviour_set = on_crash_behaviour list [@@deriving rpc]
+type on_normal_exit = [ `destroy | `restart ] [@@deriving rpc]
+type on_normal_exit_set = on_normal_exit list [@@deriving rpc]
+type vm_power_state = [ `Halted | `Paused | `Running | `Suspended ] [@@deriving rpc]
+type vm_power_state_set = vm_power_state list [@@deriving rpc]
+type string_to_vm_operations_map = (string * vm_operations) list [@@deriving rpc]
+type vm_operations_set = vm_operations list [@@deriving rpc]
+type ref_host_set = [`host] Ref.t list [@@deriving rpc]
+type update_after_apply_guidance = [ `restartHVM | `restartPV | `restartHost | `restartXAPI ] [@@deriving rpc]
+type update_after_apply_guidance_set = update_after_apply_guidance list [@@deriving rpc]
+type after_apply_guidance = [ `restartHVM | `restartPV | `restartHost | `restartXAPI ] [@@deriving rpc]
+type after_apply_guidance_set = after_apply_guidance list [@@deriving rpc]
+type ref_VM_to_string_map = (ref_VM * string) list [@@deriving rpc]
+type ref_SR_set = [`SR] Ref.t list [@@deriving rpc]
+type pool_allowed_operations = [ `ha_enable | `ha_disable ] [@@deriving rpc]
+type string_to_pool_allowed_operations_map = (string * pool_allowed_operations) list [@@deriving rpc]
+type pool_allowed_operations_set = pool_allowed_operations list [@@deriving rpc]
+type task_status_type = [ `pending | `success | `failure | `cancelling | `cancelled ] [@@deriving rpc]
+type task_status_type_set = task_status_type list [@@deriving rpc]
+type ref_task = [`task] Ref.t [@@deriving rpc]
+type task_allowed_operations = [ `cancel | `destroy ] [@@deriving rpc]
+type string_to_task_allowed_operations_map = (string * task_allowed_operations) list [@@deriving rpc]
+type task_allowed_operations_set = task_allowed_operations list [@@deriving rpc]
+type ref_role = [`role] Ref.t [@@deriving rpc]
+type ref_role_set = [`role] Ref.t list [@@deriving rpc]
+type ref_subject = [`subject] Ref.t [@@deriving rpc]
+type ref_session_set = [`session] Ref.t list [@@deriving rpc]
+type ref_task_set = [`task] Ref.t list [@@deriving rpc]
+type ref_subject_set = [`subject] Ref.t list [@@deriving rpc]
+type ref_pool_set = [`pool] Ref.t list [@@deriving rpc]
+type hello_return = [ `ok | `unknown_host | `cannot_talk_back ] [@@deriving rpc]
+type hello_return_set = hello_return list [@@deriving rpc]
+type ref_VM_to_string_to_string_map_map = (ref_VM * string_to_string_map) list [@@deriving rpc]
+type ref_VM_to_string_set_map = (ref_VM * string_set) list [@@deriving rpc]
+type ref_pool_patch_set = [`pool_patch] Ref.t list [@@deriving rpc]
+type ref_host_patch_set = [`host_patch] Ref.t list [@@deriving rpc]
+type livepatch_status = [ `ok_livepatch_complete | `ok_livepatch_incomplete | `ok ] [@@deriving rpc]
+type livepatch_status_set = livepatch_status list [@@deriving rpc]
+type ref_console_set = [`console] Ref.t list [@@deriving rpc]
+type ref_VIF_set = [`VIF] Ref.t list [@@deriving rpc]
+type ref_VBD_set = [`VBD] Ref.t list [@@deriving rpc]
+type ref_crashdump_set = [`crashdump] Ref.t list [@@deriving rpc]
+type ref_VTPM_set = [`VTPM] Ref.t list [@@deriving rpc]
+type ref_VGPU_set = [`VGPU] Ref.t list [@@deriving rpc]
+type ref_host_to_string_set_map = (ref_host * string_set) list [@@deriving rpc]
+type ref_VM_metrics_set = [`VM_metrics] Ref.t list [@@deriving rpc]
+type ref_VM_guest_metrics_set = [`VM_guest_metrics] Ref.t list [@@deriving rpc]
+type ref_VMPP_set = [`VMPP] Ref.t list [@@deriving rpc]
+type ref_VMSS_set = [`VMSS] Ref.t list [@@deriving rpc]
+type ref_VM_appliance_set = [`VM_appliance] Ref.t list [@@deriving rpc]
+type ref_DR_task_set = [`DR_task] Ref.t list [@@deriving rpc]
+type ref_host_crashdump_set = [`host_crashdump] Ref.t list [@@deriving rpc]
+type ref_PBD_set = [`PBD] Ref.t list [@@deriving rpc]
+type ref_host_cpu_set = [`host_cpu] Ref.t list [@@deriving rpc]
+type ref_Feature_set = [`Feature] Ref.t list [@@deriving rpc]
+type ref_host_metrics_set = [`host_metrics] Ref.t list [@@deriving rpc]
+type ref_network_set = [`network] Ref.t list [@@deriving rpc]
+type ref_VIF_metrics_set = [`VIF_metrics] Ref.t list [@@deriving rpc]
+type ref_Bond_set = [`Bond] Ref.t list [@@deriving rpc]
+type ref_VLAN_set = [`VLAN] Ref.t list [@@deriving rpc]
+type ref_tunnel_set = [`tunnel] Ref.t list [@@deriving rpc]
+type ref_PIF_metrics_set = [`PIF_metrics] Ref.t list [@@deriving rpc]
+type ref_SM_set = [`SM] Ref.t list [@@deriving rpc]
+type ref_LVHD_set = [`LVHD] Ref.t list [@@deriving rpc]
+type ref_VBD_metrics_set = [`VBD_metrics] Ref.t list [@@deriving rpc]
+type ref_user_set = [`user] Ref.t list [@@deriving rpc]
+type ref_blob_set = [`blob] Ref.t list [@@deriving rpc]
+type ref_message_set = [`message] Ref.t list [@@deriving rpc]
+type ref_secret_set = [`secret] Ref.t list [@@deriving rpc]
+type ref_PVS_site_set = [`PVS_site] Ref.t list [@@deriving rpc]
+type ref_PVS_server_set = [`PVS_server] Ref.t list [@@deriving rpc]
+type ref_PVS_proxy_set = [`PVS_proxy] Ref.t list [@@deriving rpc]
+type ref_SDN_controller_set = [`SDN_controller] Ref.t list [@@deriving rpc]
 type event_operation = [ `add | `del | `_mod ]
 let rpc_of_event_operation x = match x with | `add -> Rpc.String "add" | `del -> Rpc.String "del" | `_mod -> Rpc.String "mod"
 let event_operation_of_rpc x = match x with | Rpc.String "add" -> `add | Rpc.String "del" -> `del | Rpc.String "mod" -> `_mod | _ -> failwith "Unmarshalling error"
 
-type event_operation_set = event_operation list with rpc
-type ref_data_source = [`data_source] Ref.t with rpc
-type ref_data_source_set = [`data_source] Ref.t list with rpc
-type ref_user_set = [`user] Ref.t list with rpc
-type ref_LVHD_set = [`LVHD] Ref.t list with rpc
-type ref_event = [`event] Ref.t with rpc
-type ref_event_set = [`event] Ref.t list with rpc
-type ref_auth = [`auth] Ref.t with rpc
-type ref_auth_set = [`auth] Ref.t list with rpc
-type ref_session_set = [`session] Ref.t list with rpc
+type event_operation_set = event_operation list [@@deriving rpc]
+type ref_data_source = [`data_source] Ref.t [@@deriving rpc]
+type ref_data_source_set = [`data_source] Ref.t list [@@deriving rpc]
+type ref_event = [`event] Ref.t [@@deriving rpc]
+type ref_event_set = [`event] Ref.t list [@@deriving rpc]
+type ref_auth = [`auth] Ref.t [@@deriving rpc]
+type ref_auth_set = [`auth] Ref.t list [@@deriving rpc]
 
-type vGPU_type_t = { vGPU_type_uuid : string; vGPU_type_vendor_name : string; vGPU_type_model_name : string; vGPU_type_framebuffer_size : int64; vGPU_type_max_heads : int64; vGPU_type_max_resolution_x : int64; vGPU_type_max_resolution_y : int64; vGPU_type_supported_on_PGPUs : ref_PGPU_set; vGPU_type_enabled_on_PGPUs : ref_PGPU_set; vGPU_type_VGPUs : ref_VGPU_set; vGPU_type_supported_on_GPU_groups : ref_GPU_group_set; vGPU_type_enabled_on_GPU_groups : ref_GPU_group_set; vGPU_type_implementation : vgpu_type_implementation; vGPU_type_identifier : string; vGPU_type_experimental : bool }
-let rpc_of_vGPU_type_t x = Rpc.Dict [ "uuid",rpc_of_string x.vGPU_type_uuid; "vendor_name",rpc_of_string x.vGPU_type_vendor_name; "model_name",rpc_of_string x.vGPU_type_model_name; "framebuffer_size",rpc_of_int64 x.vGPU_type_framebuffer_size; "max_heads",rpc_of_int64 x.vGPU_type_max_heads; "max_resolution_x",rpc_of_int64 x.vGPU_type_max_resolution_x; "max_resolution_y",rpc_of_int64 x.vGPU_type_max_resolution_y; "supported_on_PGPUs",rpc_of_ref_PGPU_set x.vGPU_type_supported_on_PGPUs; "enabled_on_PGPUs",rpc_of_ref_PGPU_set x.vGPU_type_enabled_on_PGPUs; "VGPUs",rpc_of_ref_VGPU_set x.vGPU_type_VGPUs; "supported_on_GPU_groups",rpc_of_ref_GPU_group_set x.vGPU_type_supported_on_GPU_groups; "enabled_on_GPU_groups",rpc_of_ref_GPU_group_set x.vGPU_type_enabled_on_GPU_groups; "implementation",rpc_of_vgpu_type_implementation x.vGPU_type_implementation; "identifier",rpc_of_string x.vGPU_type_identifier; "experimental",rpc_of_bool x.vGPU_type_experimental ]
-let vGPU_type_t_of_rpc x = on_dict (fun x -> { vGPU_type_uuid = string_of_rpc (List.assoc "uuid" x); vGPU_type_vendor_name = string_of_rpc (List.assoc "vendor_name" x); vGPU_type_model_name = string_of_rpc (List.assoc "model_name" x); vGPU_type_framebuffer_size = int64_of_rpc (List.assoc "framebuffer_size" x); vGPU_type_max_heads = int64_of_rpc (List.assoc "max_heads" x); vGPU_type_max_resolution_x = int64_of_rpc (List.assoc "max_resolution_x" x); vGPU_type_max_resolution_y = int64_of_rpc (List.assoc "max_resolution_y" x); vGPU_type_supported_on_PGPUs = ref_PGPU_set_of_rpc (List.assoc "supported_on_PGPUs" x); vGPU_type_enabled_on_PGPUs = ref_PGPU_set_of_rpc (List.assoc "enabled_on_PGPUs" x); vGPU_type_VGPUs = ref_VGPU_set_of_rpc (List.assoc "VGPUs" x); vGPU_type_supported_on_GPU_groups = ref_GPU_group_set_of_rpc (List.assoc "supported_on_GPU_groups" x); vGPU_type_enabled_on_GPU_groups = ref_GPU_group_set_of_rpc (List.assoc "enabled_on_GPU_groups" x); vGPU_type_implementation = vgpu_type_implementation_of_rpc (List.assoc "implementation" x); vGPU_type_identifier = string_of_rpc (List.assoc "identifier" x); vGPU_type_experimental = bool_of_rpc (List.assoc "experimental" x) }) x
-type ref_VGPU_type_to_vGPU_type_t_map = (ref_VGPU_type * vGPU_type_t) list with rpc
-type vGPU_type_t_set = vGPU_type_t list with rpc
+type sDN_controller_t = { sDN_controller_uuid : string; sDN_controller_protocol : sdn_controller_protocol; sDN_controller_address : string; sDN_controller_port : int64 }
+let rpc_of_sDN_controller_t x = Rpc.Dict [ "uuid",rpc_of_string x.sDN_controller_uuid; "protocol",rpc_of_sdn_controller_protocol x.sDN_controller_protocol; "address",rpc_of_string x.sDN_controller_address; "port",rpc_of_int64 x.sDN_controller_port ]
+let sDN_controller_t_of_rpc x = on_dict (fun x -> { sDN_controller_uuid = string_of_rpc (List.assoc "uuid" x); sDN_controller_protocol = sdn_controller_protocol_of_rpc (List.assoc "protocol" x); sDN_controller_address = string_of_rpc (List.assoc "address" x); sDN_controller_port = int64_of_rpc (List.assoc "port" x) }) x
+type ref_SDN_controller_to_sDN_controller_t_map = (ref_SDN_controller * sDN_controller_t) list [@@deriving rpc]
+type sDN_controller_t_set = sDN_controller_t list [@@deriving rpc]
 
-type vGPU_t = { vGPU_uuid : string; vGPU_VM : ref_VM; vGPU_GPU_group : ref_GPU_group; vGPU_device : string; vGPU_currently_attached : bool; vGPU_other_config : string_to_string_map; vGPU_type : ref_VGPU_type; vGPU_resident_on : ref_PGPU }
-let rpc_of_vGPU_t x = Rpc.Dict [ "uuid",rpc_of_string x.vGPU_uuid; "VM",rpc_of_ref_VM x.vGPU_VM; "GPU_group",rpc_of_ref_GPU_group x.vGPU_GPU_group; "device",rpc_of_string x.vGPU_device; "currently_attached",rpc_of_bool x.vGPU_currently_attached; "other_config",rpc_of_string_to_string_map x.vGPU_other_config; "type",rpc_of_ref_VGPU_type x.vGPU_type; "resident_on",rpc_of_ref_PGPU x.vGPU_resident_on ]
-let vGPU_t_of_rpc x = on_dict (fun x -> { vGPU_uuid = string_of_rpc (List.assoc "uuid" x); vGPU_VM = ref_VM_of_rpc (List.assoc "VM" x); vGPU_GPU_group = ref_GPU_group_of_rpc (List.assoc "GPU_group" x); vGPU_device = string_of_rpc (List.assoc "device" x); vGPU_currently_attached = bool_of_rpc (List.assoc "currently_attached" x); vGPU_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); vGPU_type = ref_VGPU_type_of_rpc (List.assoc "type" x); vGPU_resident_on = ref_PGPU_of_rpc (List.assoc "resident_on" x) }) x
-type ref_VGPU_to_vGPU_t_map = (ref_VGPU * vGPU_t) list with rpc
-type vGPU_t_set = vGPU_t list with rpc
+type feature_t = { feature_uuid : string; feature_name_label : string; feature_name_description : string; feature_enabled : bool; feature_experimental : bool; feature_version : string; feature_host : ref_host }
+let rpc_of_feature_t x = Rpc.Dict [ "uuid",rpc_of_string x.feature_uuid; "name_label",rpc_of_string x.feature_name_label; "name_description",rpc_of_string x.feature_name_description; "enabled",rpc_of_bool x.feature_enabled; "experimental",rpc_of_bool x.feature_experimental; "version",rpc_of_string x.feature_version; "host",rpc_of_ref_host x.feature_host ]
+let feature_t_of_rpc x = on_dict (fun x -> { feature_uuid = string_of_rpc (List.assoc "uuid" x); feature_name_label = string_of_rpc (List.assoc "name_label" x); feature_name_description = string_of_rpc (List.assoc "name_description" x); feature_enabled = bool_of_rpc (List.assoc "enabled" x); feature_experimental = bool_of_rpc (List.assoc "experimental" x); feature_version = string_of_rpc (List.assoc "version" x); feature_host = ref_host_of_rpc (List.assoc "host" x) }) x
+type ref_Feature_to_feature_t_map = (ref_Feature * feature_t) list [@@deriving rpc]
+type feature_t_set = feature_t list [@@deriving rpc]
+
+type pVS_cache_storage_t = { pVS_cache_storage_uuid : string; pVS_cache_storage_host : ref_host; pVS_cache_storage_SR : ref_SR; pVS_cache_storage_site : ref_PVS_site; pVS_cache_storage_size : int64; pVS_cache_storage_VDI : ref_VDI }
+let rpc_of_pVS_cache_storage_t x = Rpc.Dict [ "uuid",rpc_of_string x.pVS_cache_storage_uuid; "host",rpc_of_ref_host x.pVS_cache_storage_host; "SR",rpc_of_ref_SR x.pVS_cache_storage_SR; "site",rpc_of_ref_PVS_site x.pVS_cache_storage_site; "size",rpc_of_int64 x.pVS_cache_storage_size; "VDI",rpc_of_ref_VDI x.pVS_cache_storage_VDI ]
+let pVS_cache_storage_t_of_rpc x = on_dict (fun x -> { pVS_cache_storage_uuid = string_of_rpc (List.assoc "uuid" x); pVS_cache_storage_host = ref_host_of_rpc (List.assoc "host" x); pVS_cache_storage_SR = ref_SR_of_rpc (List.assoc "SR" x); pVS_cache_storage_site = ref_PVS_site_of_rpc (List.assoc "site" x); pVS_cache_storage_size = int64_of_rpc (List.assoc "size" x); pVS_cache_storage_VDI = ref_VDI_of_rpc (List.assoc "VDI" x) }) x
+type ref_PVS_cache_storage_to_pVS_cache_storage_t_map = (ref_PVS_cache_storage * pVS_cache_storage_t) list [@@deriving rpc]
+type pVS_cache_storage_t_set = pVS_cache_storage_t list [@@deriving rpc]
+
+type pVS_proxy_t = { pVS_proxy_uuid : string; pVS_proxy_site : ref_PVS_site; pVS_proxy_VIF : ref_VIF; pVS_proxy_currently_attached : bool; pVS_proxy_status : pvs_proxy_status }
+let rpc_of_pVS_proxy_t x = Rpc.Dict [ "uuid",rpc_of_string x.pVS_proxy_uuid; "site",rpc_of_ref_PVS_site x.pVS_proxy_site; "VIF",rpc_of_ref_VIF x.pVS_proxy_VIF; "currently_attached",rpc_of_bool x.pVS_proxy_currently_attached; "status",rpc_of_pvs_proxy_status x.pVS_proxy_status ]
+let pVS_proxy_t_of_rpc x = on_dict (fun x -> { pVS_proxy_uuid = string_of_rpc (List.assoc "uuid" x); pVS_proxy_site = ref_PVS_site_of_rpc (List.assoc "site" x); pVS_proxy_VIF = ref_VIF_of_rpc (List.assoc "VIF" x); pVS_proxy_currently_attached = bool_of_rpc (List.assoc "currently_attached" x); pVS_proxy_status = pvs_proxy_status_of_rpc (List.assoc "status" x) }) x
+type ref_PVS_proxy_to_pVS_proxy_t_map = (ref_PVS_proxy * pVS_proxy_t) list [@@deriving rpc]
+type pVS_proxy_t_set = pVS_proxy_t list [@@deriving rpc]
+
+type pVS_server_t = { pVS_server_uuid : string; pVS_server_addresses : string_set; pVS_server_first_port : int64; pVS_server_last_port : int64; pVS_server_site : ref_PVS_site }
+let rpc_of_pVS_server_t x = Rpc.Dict [ "uuid",rpc_of_string x.pVS_server_uuid; "addresses",rpc_of_string_set x.pVS_server_addresses; "first_port",rpc_of_int64 x.pVS_server_first_port; "last_port",rpc_of_int64 x.pVS_server_last_port; "site",rpc_of_ref_PVS_site x.pVS_server_site ]
+let pVS_server_t_of_rpc x = on_dict (fun x -> { pVS_server_uuid = string_of_rpc (List.assoc "uuid" x); pVS_server_addresses = string_set_of_rpc (List.assoc "addresses" x); pVS_server_first_port = int64_of_rpc (List.assoc "first_port" x); pVS_server_last_port = int64_of_rpc (List.assoc "last_port" x); pVS_server_site = ref_PVS_site_of_rpc (List.assoc "site" x) }) x
+type ref_PVS_server_to_pVS_server_t_map = (ref_PVS_server * pVS_server_t) list [@@deriving rpc]
+type pVS_server_t_set = pVS_server_t list [@@deriving rpc]
+
+type pVS_site_t = { pVS_site_uuid : string; pVS_site_name_label : string; pVS_site_name_description : string; pVS_site_PVS_uuid : string; pVS_site_cache_storage : ref_PVS_cache_storage_set; pVS_site_servers : ref_PVS_server_set; pVS_site_proxies : ref_PVS_proxy_set }
+let rpc_of_pVS_site_t x = Rpc.Dict [ "uuid",rpc_of_string x.pVS_site_uuid; "name_label",rpc_of_string x.pVS_site_name_label; "name_description",rpc_of_string x.pVS_site_name_description; "PVS_uuid",rpc_of_string x.pVS_site_PVS_uuid; "cache_storage",rpc_of_ref_PVS_cache_storage_set x.pVS_site_cache_storage; "servers",rpc_of_ref_PVS_server_set x.pVS_site_servers; "proxies",rpc_of_ref_PVS_proxy_set x.pVS_site_proxies ]
+let pVS_site_t_of_rpc x = on_dict (fun x -> { pVS_site_uuid = string_of_rpc (List.assoc "uuid" x); pVS_site_name_label = string_of_rpc (List.assoc "name_label" x); pVS_site_name_description = string_of_rpc (List.assoc "name_description" x); pVS_site_PVS_uuid = string_of_rpc (List.assoc "PVS_uuid" x); pVS_site_cache_storage = ref_PVS_cache_storage_set_of_rpc (List.assoc "cache_storage" x); pVS_site_servers = ref_PVS_server_set_of_rpc (List.assoc "servers" x); pVS_site_proxies = ref_PVS_proxy_set_of_rpc (List.assoc "proxies" x) }) x
+type ref_PVS_site_to_pVS_site_t_map = (ref_PVS_site * pVS_site_t) list [@@deriving rpc]
+type pVS_site_t_set = pVS_site_t list [@@deriving rpc]
+
+type vGPU_type_t = { vGPU_type_uuid : string; vGPU_type_vendor_name : string; vGPU_type_model_name : string; vGPU_type_framebuffer_size : int64; vGPU_type_max_heads : int64; vGPU_type_max_resolution_x : int64; vGPU_type_max_resolution_y : int64; vGPU_type_size : int64; vGPU_type_supported_on_PGPUs : ref_PGPU_set; vGPU_type_enabled_on_PGPUs : ref_PGPU_set; vGPU_type_VGPUs : ref_VGPU_set; vGPU_type_internal_config : string_to_string_map; vGPU_type_supported_on_GPU_groups : ref_GPU_group_set; vGPU_type_enabled_on_GPU_groups : ref_GPU_group_set; vGPU_type_implementation : vgpu_type_implementation; vGPU_type_identifier : string; vGPU_type_experimental : bool }
+let rpc_of_vGPU_type_t x = Rpc.Dict [ "uuid",rpc_of_string x.vGPU_type_uuid; "vendor_name",rpc_of_string x.vGPU_type_vendor_name; "model_name",rpc_of_string x.vGPU_type_model_name; "framebuffer_size",rpc_of_int64 x.vGPU_type_framebuffer_size; "max_heads",rpc_of_int64 x.vGPU_type_max_heads; "max_resolution_x",rpc_of_int64 x.vGPU_type_max_resolution_x; "max_resolution_y",rpc_of_int64 x.vGPU_type_max_resolution_y; "size",rpc_of_int64 x.vGPU_type_size; "supported_on_PGPUs",rpc_of_ref_PGPU_set x.vGPU_type_supported_on_PGPUs; "enabled_on_PGPUs",rpc_of_ref_PGPU_set x.vGPU_type_enabled_on_PGPUs; "VGPUs",rpc_of_ref_VGPU_set x.vGPU_type_VGPUs; "internal_config",rpc_of_string_to_string_map x.vGPU_type_internal_config; "supported_on_GPU_groups",rpc_of_ref_GPU_group_set x.vGPU_type_supported_on_GPU_groups; "enabled_on_GPU_groups",rpc_of_ref_GPU_group_set x.vGPU_type_enabled_on_GPU_groups; "implementation",rpc_of_vgpu_type_implementation x.vGPU_type_implementation; "identifier",rpc_of_string x.vGPU_type_identifier; "experimental",rpc_of_bool x.vGPU_type_experimental ]
+let vGPU_type_t_of_rpc x = on_dict (fun x -> { vGPU_type_uuid = string_of_rpc (List.assoc "uuid" x); vGPU_type_vendor_name = string_of_rpc (List.assoc "vendor_name" x); vGPU_type_model_name = string_of_rpc (List.assoc "model_name" x); vGPU_type_framebuffer_size = int64_of_rpc (List.assoc "framebuffer_size" x); vGPU_type_max_heads = int64_of_rpc (List.assoc "max_heads" x); vGPU_type_max_resolution_x = int64_of_rpc (List.assoc "max_resolution_x" x); vGPU_type_max_resolution_y = int64_of_rpc (List.assoc "max_resolution_y" x); vGPU_type_size = int64_of_rpc (List.assoc "size" x); vGPU_type_supported_on_PGPUs = ref_PGPU_set_of_rpc (List.assoc "supported_on_PGPUs" x); vGPU_type_enabled_on_PGPUs = ref_PGPU_set_of_rpc (List.assoc "enabled_on_PGPUs" x); vGPU_type_VGPUs = ref_VGPU_set_of_rpc (List.assoc "VGPUs" x); vGPU_type_internal_config = string_to_string_map_of_rpc (List.assoc "internal_config" x); vGPU_type_supported_on_GPU_groups = ref_GPU_group_set_of_rpc (List.assoc "supported_on_GPU_groups" x); vGPU_type_enabled_on_GPU_groups = ref_GPU_group_set_of_rpc (List.assoc "enabled_on_GPU_groups" x); vGPU_type_implementation = vgpu_type_implementation_of_rpc (List.assoc "implementation" x); vGPU_type_identifier = string_of_rpc (List.assoc "identifier" x); vGPU_type_experimental = bool_of_rpc (List.assoc "experimental" x) }) x
+type ref_VGPU_type_to_vGPU_type_t_map = (ref_VGPU_type * vGPU_type_t) list [@@deriving rpc]
+type vGPU_type_t_set = vGPU_type_t list [@@deriving rpc]
+
+type vGPU_t = { vGPU_uuid : string; vGPU_VM : ref_VM; vGPU_GPU_group : ref_GPU_group; vGPU_device : string; vGPU_currently_attached : bool; vGPU_other_config : string_to_string_map; vGPU_type : ref_VGPU_type; vGPU_resident_on : ref_PGPU; vGPU_scheduled_to_be_resident_on : ref_PGPU }
+let rpc_of_vGPU_t x = Rpc.Dict [ "uuid",rpc_of_string x.vGPU_uuid; "VM",rpc_of_ref_VM x.vGPU_VM; "GPU_group",rpc_of_ref_GPU_group x.vGPU_GPU_group; "device",rpc_of_string x.vGPU_device; "currently_attached",rpc_of_bool x.vGPU_currently_attached; "other_config",rpc_of_string_to_string_map x.vGPU_other_config; "type",rpc_of_ref_VGPU_type x.vGPU_type; "resident_on",rpc_of_ref_PGPU x.vGPU_resident_on; "scheduled_to_be_resident_on",rpc_of_ref_PGPU x.vGPU_scheduled_to_be_resident_on ]
+let vGPU_t_of_rpc x = on_dict (fun x -> { vGPU_uuid = string_of_rpc (List.assoc "uuid" x); vGPU_VM = ref_VM_of_rpc (List.assoc "VM" x); vGPU_GPU_group = ref_GPU_group_of_rpc (List.assoc "GPU_group" x); vGPU_device = string_of_rpc (List.assoc "device" x); vGPU_currently_attached = bool_of_rpc (List.assoc "currently_attached" x); vGPU_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); vGPU_type = ref_VGPU_type_of_rpc (List.assoc "type" x); vGPU_resident_on = ref_PGPU_of_rpc (List.assoc "resident_on" x); vGPU_scheduled_to_be_resident_on = ref_PGPU_of_rpc (List.assoc "scheduled_to_be_resident_on" x) }) x
+type ref_VGPU_to_vGPU_t_map = (ref_VGPU * vGPU_t) list [@@deriving rpc]
+type vGPU_t_set = vGPU_t list [@@deriving rpc]
 
 type gPU_group_t = { gPU_group_uuid : string; gPU_group_name_label : string; gPU_group_name_description : string; gPU_group_PGPUs : ref_PGPU_set; gPU_group_VGPUs : ref_VGPU_set; gPU_group_GPU_types : string_set; gPU_group_other_config : string_to_string_map; gPU_group_allocation_algorithm : allocation_algorithm; gPU_group_supported_VGPU_types : ref_VGPU_type_set; gPU_group_enabled_VGPU_types : ref_VGPU_type_set }
 let rpc_of_gPU_group_t x = Rpc.Dict [ "uuid",rpc_of_string x.gPU_group_uuid; "name_label",rpc_of_string x.gPU_group_name_label; "name_description",rpc_of_string x.gPU_group_name_description; "PGPUs",rpc_of_ref_PGPU_set x.gPU_group_PGPUs; "VGPUs",rpc_of_ref_VGPU_set x.gPU_group_VGPUs; "GPU_types",rpc_of_string_set x.gPU_group_GPU_types; "other_config",rpc_of_string_to_string_map x.gPU_group_other_config; "allocation_algorithm",rpc_of_allocation_algorithm x.gPU_group_allocation_algorithm; "supported_VGPU_types",rpc_of_ref_VGPU_type_set x.gPU_group_supported_VGPU_types; "enabled_VGPU_types",rpc_of_ref_VGPU_type_set x.gPU_group_enabled_VGPU_types ]
 let gPU_group_t_of_rpc x = on_dict (fun x -> { gPU_group_uuid = string_of_rpc (List.assoc "uuid" x); gPU_group_name_label = string_of_rpc (List.assoc "name_label" x); gPU_group_name_description = string_of_rpc (List.assoc "name_description" x); gPU_group_PGPUs = ref_PGPU_set_of_rpc (List.assoc "PGPUs" x); gPU_group_VGPUs = ref_VGPU_set_of_rpc (List.assoc "VGPUs" x); gPU_group_GPU_types = string_set_of_rpc (List.assoc "GPU_types" x); gPU_group_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); gPU_group_allocation_algorithm = allocation_algorithm_of_rpc (List.assoc "allocation_algorithm" x); gPU_group_supported_VGPU_types = ref_VGPU_type_set_of_rpc (List.assoc "supported_VGPU_types" x); gPU_group_enabled_VGPU_types = ref_VGPU_type_set_of_rpc (List.assoc "enabled_VGPU_types" x) }) x
-type ref_GPU_group_to_gPU_group_t_map = (ref_GPU_group * gPU_group_t) list with rpc
-type gPU_group_t_set = gPU_group_t list with rpc
+type ref_GPU_group_to_gPU_group_t_map = (ref_GPU_group * gPU_group_t) list [@@deriving rpc]
+type gPU_group_t_set = gPU_group_t list [@@deriving rpc]
 
-type pGPU_t = { pGPU_uuid : string; pGPU_PCI : ref_PCI; pGPU_GPU_group : ref_GPU_group; pGPU_host : ref_host; pGPU_other_config : string_to_string_map; pGPU_supported_VGPU_types : ref_VGPU_type_set; pGPU_enabled_VGPU_types : ref_VGPU_type_set; pGPU_resident_VGPUs : ref_VGPU_set; pGPU_supported_VGPU_max_capacities : ref_VGPU_type_to_int64_map; pGPU_dom0_access : pgpu_dom0_access; pGPU_is_system_display_device : bool }
-let rpc_of_pGPU_t x = Rpc.Dict [ "uuid",rpc_of_string x.pGPU_uuid; "PCI",rpc_of_ref_PCI x.pGPU_PCI; "GPU_group",rpc_of_ref_GPU_group x.pGPU_GPU_group; "host",rpc_of_ref_host x.pGPU_host; "other_config",rpc_of_string_to_string_map x.pGPU_other_config; "supported_VGPU_types",rpc_of_ref_VGPU_type_set x.pGPU_supported_VGPU_types; "enabled_VGPU_types",rpc_of_ref_VGPU_type_set x.pGPU_enabled_VGPU_types; "resident_VGPUs",rpc_of_ref_VGPU_set x.pGPU_resident_VGPUs; "supported_VGPU_max_capacities",rpc_of_ref_VGPU_type_to_int64_map x.pGPU_supported_VGPU_max_capacities; "dom0_access",rpc_of_pgpu_dom0_access x.pGPU_dom0_access; "is_system_display_device",rpc_of_bool x.pGPU_is_system_display_device ]
-let pGPU_t_of_rpc x = on_dict (fun x -> { pGPU_uuid = string_of_rpc (List.assoc "uuid" x); pGPU_PCI = ref_PCI_of_rpc (List.assoc "PCI" x); pGPU_GPU_group = ref_GPU_group_of_rpc (List.assoc "GPU_group" x); pGPU_host = ref_host_of_rpc (List.assoc "host" x); pGPU_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); pGPU_supported_VGPU_types = ref_VGPU_type_set_of_rpc (List.assoc "supported_VGPU_types" x); pGPU_enabled_VGPU_types = ref_VGPU_type_set_of_rpc (List.assoc "enabled_VGPU_types" x); pGPU_resident_VGPUs = ref_VGPU_set_of_rpc (List.assoc "resident_VGPUs" x); pGPU_supported_VGPU_max_capacities = ref_VGPU_type_to_int64_map_of_rpc (List.assoc "supported_VGPU_max_capacities" x); pGPU_dom0_access = pgpu_dom0_access_of_rpc (List.assoc "dom0_access" x); pGPU_is_system_display_device = bool_of_rpc (List.assoc "is_system_display_device" x) }) x
-type ref_PGPU_to_pGPU_t_map = (ref_PGPU * pGPU_t) list with rpc
-type pGPU_t_set = pGPU_t list with rpc
+type pGPU_t = { pGPU_uuid : string; pGPU_PCI : ref_PCI; pGPU_GPU_group : ref_GPU_group; pGPU_host : ref_host; pGPU_other_config : string_to_string_map; pGPU_supported_VGPU_types : ref_VGPU_type_set; pGPU_enabled_VGPU_types : ref_VGPU_type_set; pGPU_resident_VGPUs : ref_VGPU_set; pGPU_size : int64; pGPU_supported_VGPU_max_capacities : ref_VGPU_type_to_int64_map; pGPU_dom0_access : pgpu_dom0_access; pGPU_is_system_display_device : bool }
+let rpc_of_pGPU_t x = Rpc.Dict [ "uuid",rpc_of_string x.pGPU_uuid; "PCI",rpc_of_ref_PCI x.pGPU_PCI; "GPU_group",rpc_of_ref_GPU_group x.pGPU_GPU_group; "host",rpc_of_ref_host x.pGPU_host; "other_config",rpc_of_string_to_string_map x.pGPU_other_config; "supported_VGPU_types",rpc_of_ref_VGPU_type_set x.pGPU_supported_VGPU_types; "enabled_VGPU_types",rpc_of_ref_VGPU_type_set x.pGPU_enabled_VGPU_types; "resident_VGPUs",rpc_of_ref_VGPU_set x.pGPU_resident_VGPUs; "size",rpc_of_int64 x.pGPU_size; "supported_VGPU_max_capacities",rpc_of_ref_VGPU_type_to_int64_map x.pGPU_supported_VGPU_max_capacities; "dom0_access",rpc_of_pgpu_dom0_access x.pGPU_dom0_access; "is_system_display_device",rpc_of_bool x.pGPU_is_system_display_device ]
+let pGPU_t_of_rpc x = on_dict (fun x -> { pGPU_uuid = string_of_rpc (List.assoc "uuid" x); pGPU_PCI = ref_PCI_of_rpc (List.assoc "PCI" x); pGPU_GPU_group = ref_GPU_group_of_rpc (List.assoc "GPU_group" x); pGPU_host = ref_host_of_rpc (List.assoc "host" x); pGPU_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); pGPU_supported_VGPU_types = ref_VGPU_type_set_of_rpc (List.assoc "supported_VGPU_types" x); pGPU_enabled_VGPU_types = ref_VGPU_type_set_of_rpc (List.assoc "enabled_VGPU_types" x); pGPU_resident_VGPUs = ref_VGPU_set_of_rpc (List.assoc "resident_VGPUs" x); pGPU_size = int64_of_rpc (List.assoc "size" x); pGPU_supported_VGPU_max_capacities = ref_VGPU_type_to_int64_map_of_rpc (List.assoc "supported_VGPU_max_capacities" x); pGPU_dom0_access = pgpu_dom0_access_of_rpc (List.assoc "dom0_access" x); pGPU_is_system_display_device = bool_of_rpc (List.assoc "is_system_display_device" x) }) x
+type ref_PGPU_to_pGPU_t_map = (ref_PGPU * pGPU_t) list [@@deriving rpc]
+type pGPU_t_set = pGPU_t list [@@deriving rpc]
 
-type pCI_t = { pCI_uuid : string; pCI_class_name : string; pCI_vendor_name : string; pCI_device_name : string; pCI_host : ref_host; pCI_pci_id : string; pCI_dependencies : ref_PCI_set; pCI_other_config : string_to_string_map; pCI_subsystem_vendor_name : string; pCI_subsystem_device_name : string }
-let rpc_of_pCI_t x = Rpc.Dict [ "uuid",rpc_of_string x.pCI_uuid; "class_name",rpc_of_string x.pCI_class_name; "vendor_name",rpc_of_string x.pCI_vendor_name; "device_name",rpc_of_string x.pCI_device_name; "host",rpc_of_ref_host x.pCI_host; "pci_id",rpc_of_string x.pCI_pci_id; "dependencies",rpc_of_ref_PCI_set x.pCI_dependencies; "other_config",rpc_of_string_to_string_map x.pCI_other_config; "subsystem_vendor_name",rpc_of_string x.pCI_subsystem_vendor_name; "subsystem_device_name",rpc_of_string x.pCI_subsystem_device_name ]
-let pCI_t_of_rpc x = on_dict (fun x -> { pCI_uuid = string_of_rpc (List.assoc "uuid" x); pCI_class_name = string_of_rpc (List.assoc "class_name" x); pCI_vendor_name = string_of_rpc (List.assoc "vendor_name" x); pCI_device_name = string_of_rpc (List.assoc "device_name" x); pCI_host = ref_host_of_rpc (List.assoc "host" x); pCI_pci_id = string_of_rpc (List.assoc "pci_id" x); pCI_dependencies = ref_PCI_set_of_rpc (List.assoc "dependencies" x); pCI_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); pCI_subsystem_vendor_name = string_of_rpc (List.assoc "subsystem_vendor_name" x); pCI_subsystem_device_name = string_of_rpc (List.assoc "subsystem_device_name" x) }) x
-type ref_PCI_to_pCI_t_map = (ref_PCI * pCI_t) list with rpc
-type pCI_t_set = pCI_t list with rpc
+type pCI_t = { pCI_uuid : string; pCI_class_id : string; pCI_class_name : string; pCI_vendor_id : string; pCI_vendor_name : string; pCI_device_id : string; pCI_device_name : string; pCI_host : ref_host; pCI_pci_id : string; pCI_functions : int64; pCI_virtual_functions : ref_PCI_set; pCI_physical_function : ref_PCI; pCI_attached_VMs : ref_VM_set; pCI_dependencies : ref_PCI_set; pCI_other_config : string_to_string_map; pCI_subsystem_vendor_id : string; pCI_subsystem_vendor_name : string; pCI_subsystem_device_id : string; pCI_subsystem_device_name : string; pCI_scheduled_to_be_attached_to : ref_VM }
+let rpc_of_pCI_t x = Rpc.Dict [ "uuid",rpc_of_string x.pCI_uuid; "class_id",rpc_of_string x.pCI_class_id; "class_name",rpc_of_string x.pCI_class_name; "vendor_id",rpc_of_string x.pCI_vendor_id; "vendor_name",rpc_of_string x.pCI_vendor_name; "device_id",rpc_of_string x.pCI_device_id; "device_name",rpc_of_string x.pCI_device_name; "host",rpc_of_ref_host x.pCI_host; "pci_id",rpc_of_string x.pCI_pci_id; "functions",rpc_of_int64 x.pCI_functions; "virtual_functions",rpc_of_ref_PCI_set x.pCI_virtual_functions; "physical_function",rpc_of_ref_PCI x.pCI_physical_function; "attached_VMs",rpc_of_ref_VM_set x.pCI_attached_VMs; "dependencies",rpc_of_ref_PCI_set x.pCI_dependencies; "other_config",rpc_of_string_to_string_map x.pCI_other_config; "subsystem_vendor_id",rpc_of_string x.pCI_subsystem_vendor_id; "subsystem_vendor_name",rpc_of_string x.pCI_subsystem_vendor_name; "subsystem_device_id",rpc_of_string x.pCI_subsystem_device_id; "subsystem_device_name",rpc_of_string x.pCI_subsystem_device_name; "scheduled_to_be_attached_to",rpc_of_ref_VM x.pCI_scheduled_to_be_attached_to ]
+let pCI_t_of_rpc x = on_dict (fun x -> { pCI_uuid = string_of_rpc (List.assoc "uuid" x); pCI_class_id = string_of_rpc (List.assoc "class_id" x); pCI_class_name = string_of_rpc (List.assoc "class_name" x); pCI_vendor_id = string_of_rpc (List.assoc "vendor_id" x); pCI_vendor_name = string_of_rpc (List.assoc "vendor_name" x); pCI_device_id = string_of_rpc (List.assoc "device_id" x); pCI_device_name = string_of_rpc (List.assoc "device_name" x); pCI_host = ref_host_of_rpc (List.assoc "host" x); pCI_pci_id = string_of_rpc (List.assoc "pci_id" x); pCI_functions = int64_of_rpc (List.assoc "functions" x); pCI_virtual_functions = ref_PCI_set_of_rpc (List.assoc "virtual_functions" x); pCI_physical_function = ref_PCI_of_rpc (List.assoc "physical_function" x); pCI_attached_VMs = ref_VM_set_of_rpc (List.assoc "attached_VMs" x); pCI_dependencies = ref_PCI_set_of_rpc (List.assoc "dependencies" x); pCI_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); pCI_subsystem_vendor_id = string_of_rpc (List.assoc "subsystem_vendor_id" x); pCI_subsystem_vendor_name = string_of_rpc (List.assoc "subsystem_vendor_name" x); pCI_subsystem_device_id = string_of_rpc (List.assoc "subsystem_device_id" x); pCI_subsystem_device_name = string_of_rpc (List.assoc "subsystem_device_name" x); pCI_scheduled_to_be_attached_to = ref_VM_of_rpc (List.assoc "scheduled_to_be_attached_to" x) }) x
+type ref_PCI_to_pCI_t_map = (ref_PCI * pCI_t) list [@@deriving rpc]
+type pCI_t_set = pCI_t list [@@deriving rpc]
 
 type tunnel_t = { tunnel_uuid : string; tunnel_access_PIF : ref_PIF; tunnel_transport_PIF : ref_PIF; tunnel_status : string_to_string_map; tunnel_other_config : string_to_string_map }
 let rpc_of_tunnel_t x = Rpc.Dict [ "uuid",rpc_of_string x.tunnel_uuid; "access_PIF",rpc_of_ref_PIF x.tunnel_access_PIF; "transport_PIF",rpc_of_ref_PIF x.tunnel_transport_PIF; "status",rpc_of_string_to_string_map x.tunnel_status; "other_config",rpc_of_string_to_string_map x.tunnel_other_config ]
 let tunnel_t_of_rpc x = on_dict (fun x -> { tunnel_uuid = string_of_rpc (List.assoc "uuid" x); tunnel_access_PIF = ref_PIF_of_rpc (List.assoc "access_PIF" x); tunnel_transport_PIF = ref_PIF_of_rpc (List.assoc "transport_PIF" x); tunnel_status = string_to_string_map_of_rpc (List.assoc "status" x); tunnel_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
-type ref_tunnel_to_tunnel_t_map = (ref_tunnel * tunnel_t) list with rpc
-type tunnel_t_set = tunnel_t list with rpc
+type ref_tunnel_to_tunnel_t_map = (ref_tunnel * tunnel_t) list [@@deriving rpc]
+type tunnel_t_set = tunnel_t list [@@deriving rpc]
 
 type secret_t = { secret_uuid : string; secret_value : string; secret_other_config : string_to_string_map }
 let rpc_of_secret_t x = Rpc.Dict [ "uuid",rpc_of_string x.secret_uuid; "value",rpc_of_string x.secret_value; "other_config",rpc_of_string_to_string_map x.secret_other_config ]
 let secret_t_of_rpc x = on_dict (fun x -> { secret_uuid = string_of_rpc (List.assoc "uuid" x); secret_value = string_of_rpc (List.assoc "value" x); secret_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
-type ref_secret_to_secret_t_map = (ref_secret * secret_t) list with rpc
-type secret_t_set = secret_t list with rpc
+type ref_secret_to_secret_t_map = (ref_secret * secret_t) list [@@deriving rpc]
+type secret_t_set = secret_t list [@@deriving rpc]
 
 type blob_t = { blob_uuid : string; blob_name_label : string; blob_name_description : string; blob_size : int64; blob_public : bool; blob_last_updated : datetime; blob_mime_type : string }
 let rpc_of_blob_t x = Rpc.Dict [ "uuid",rpc_of_string x.blob_uuid; "name_label",rpc_of_string x.blob_name_label; "name_description",rpc_of_string x.blob_name_description; "size",rpc_of_int64 x.blob_size; "public",rpc_of_bool x.blob_public; "last_updated",rpc_of_datetime x.blob_last_updated; "mime_type",rpc_of_string x.blob_mime_type ]
 let blob_t_of_rpc x = on_dict (fun x -> { blob_uuid = string_of_rpc (List.assoc "uuid" x); blob_name_label = string_of_rpc (List.assoc "name_label" x); blob_name_description = string_of_rpc (List.assoc "name_description" x); blob_size = int64_of_rpc (List.assoc "size" x); blob_public = bool_of_rpc (List.assoc "public" x); blob_last_updated = datetime_of_rpc (List.assoc "last_updated" x); blob_mime_type = string_of_rpc (List.assoc "mime_type" x) }) x
-type ref_blob_to_blob_t_map = (ref_blob * blob_t) list with rpc
-type blob_t_set = blob_t list with rpc
+type ref_blob_to_blob_t_map = (ref_blob * blob_t) list [@@deriving rpc]
+type blob_t_set = blob_t list [@@deriving rpc]
 
 type user_t = { user_uuid : string; user_short_name : string; user_fullname : string; user_other_config : string_to_string_map }
 let rpc_of_user_t x = Rpc.Dict [ "uuid",rpc_of_string x.user_uuid; "short_name",rpc_of_string x.user_short_name; "fullname",rpc_of_string x.user_fullname; "other_config",rpc_of_string_to_string_map x.user_other_config ]
 let user_t_of_rpc x = on_dict (fun x -> { user_uuid = string_of_rpc (List.assoc "uuid" x); user_short_name = string_of_rpc (List.assoc "short_name" x); user_fullname = string_of_rpc (List.assoc "fullname" x); user_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
-type ref_user_to_user_t_map = (ref_user * user_t) list with rpc
-type user_t_set = user_t list with rpc
+type ref_user_to_user_t_map = (ref_user * user_t) list [@@deriving rpc]
+type user_t_set = user_t list [@@deriving rpc]
 
-type console_t = { console_uuid : string; console_protocol : console_protocol; console_location : string; console_VM : ref_VM; console_other_config : string_to_string_map }
-let rpc_of_console_t x = Rpc.Dict [ "uuid",rpc_of_string x.console_uuid; "protocol",rpc_of_console_protocol x.console_protocol; "location",rpc_of_string x.console_location; "VM",rpc_of_ref_VM x.console_VM; "other_config",rpc_of_string_to_string_map x.console_other_config ]
-let console_t_of_rpc x = on_dict (fun x -> { console_uuid = string_of_rpc (List.assoc "uuid" x); console_protocol = console_protocol_of_rpc (List.assoc "protocol" x); console_location = string_of_rpc (List.assoc "location" x); console_VM = ref_VM_of_rpc (List.assoc "VM" x); console_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
-type ref_console_to_console_t_map = (ref_console * console_t) list with rpc
-type console_t_set = console_t list with rpc
+type console_t = { console_uuid : string; console_protocol : console_protocol; console_location : string; console_VM : ref_VM; console_other_config : string_to_string_map; console_port : int64 }
+let rpc_of_console_t x = Rpc.Dict [ "uuid",rpc_of_string x.console_uuid; "protocol",rpc_of_console_protocol x.console_protocol; "location",rpc_of_string x.console_location; "VM",rpc_of_ref_VM x.console_VM; "other_config",rpc_of_string_to_string_map x.console_other_config; "port",rpc_of_int64 x.console_port ]
+let console_t_of_rpc x = on_dict (fun x -> { console_uuid = string_of_rpc (List.assoc "uuid" x); console_protocol = console_protocol_of_rpc (List.assoc "protocol" x); console_location = string_of_rpc (List.assoc "location" x); console_VM = ref_VM_of_rpc (List.assoc "VM" x); console_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); console_port = int64_of_rpc (List.assoc "port" x) }) x
+type ref_console_to_console_t_map = (ref_console * console_t) list [@@deriving rpc]
+type console_t_set = console_t list [@@deriving rpc]
 
 type vTPM_t = { vTPM_uuid : string; vTPM_VM : ref_VM; vTPM_backend : ref_VM }
 let rpc_of_vTPM_t x = Rpc.Dict [ "uuid",rpc_of_string x.vTPM_uuid; "VM",rpc_of_ref_VM x.vTPM_VM; "backend",rpc_of_ref_VM x.vTPM_backend ]
 let vTPM_t_of_rpc x = on_dict (fun x -> { vTPM_uuid = string_of_rpc (List.assoc "uuid" x); vTPM_VM = ref_VM_of_rpc (List.assoc "VM" x); vTPM_backend = ref_VM_of_rpc (List.assoc "backend" x) }) x
-type ref_VTPM_to_vTPM_t_map = (ref_VTPM * vTPM_t) list with rpc
-type vTPM_t_set = vTPM_t list with rpc
+type ref_VTPM_to_vTPM_t_map = (ref_VTPM * vTPM_t) list [@@deriving rpc]
+type vTPM_t_set = vTPM_t list [@@deriving rpc]
 
 type crashdump_t = { crashdump_uuid : string; crashdump_VM : ref_VM; crashdump_VDI : ref_VDI; crashdump_other_config : string_to_string_map }
 let rpc_of_crashdump_t x = Rpc.Dict [ "uuid",rpc_of_string x.crashdump_uuid; "VM",rpc_of_ref_VM x.crashdump_VM; "VDI",rpc_of_ref_VDI x.crashdump_VDI; "other_config",rpc_of_string_to_string_map x.crashdump_other_config ]
 let crashdump_t_of_rpc x = on_dict (fun x -> { crashdump_uuid = string_of_rpc (List.assoc "uuid" x); crashdump_VM = ref_VM_of_rpc (List.assoc "VM" x); crashdump_VDI = ref_VDI_of_rpc (List.assoc "VDI" x); crashdump_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
-type ref_crashdump_to_crashdump_t_map = (ref_crashdump * crashdump_t) list with rpc
-type crashdump_t_set = crashdump_t list with rpc
+type ref_crashdump_to_crashdump_t_map = (ref_crashdump * crashdump_t) list [@@deriving rpc]
+type crashdump_t_set = crashdump_t list [@@deriving rpc]
 
 type pBD_t = { pBD_uuid : string; pBD_host : ref_host; pBD_SR : ref_SR; pBD_device_config : string_to_string_map; pBD_currently_attached : bool; pBD_other_config : string_to_string_map }
 let rpc_of_pBD_t x = Rpc.Dict [ "uuid",rpc_of_string x.pBD_uuid; "host",rpc_of_ref_host x.pBD_host; "SR",rpc_of_ref_SR x.pBD_SR; "device_config",rpc_of_string_to_string_map x.pBD_device_config; "currently_attached",rpc_of_bool x.pBD_currently_attached; "other_config",rpc_of_string_to_string_map x.pBD_other_config ]
 let pBD_t_of_rpc x = on_dict (fun x -> { pBD_uuid = string_of_rpc (List.assoc "uuid" x); pBD_host = ref_host_of_rpc (List.assoc "host" x); pBD_SR = ref_SR_of_rpc (List.assoc "SR" x); pBD_device_config = string_to_string_map_of_rpc (List.assoc "device_config" x); pBD_currently_attached = bool_of_rpc (List.assoc "currently_attached" x); pBD_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
-type ref_PBD_to_pBD_t_map = (ref_PBD * pBD_t) list with rpc
-type pBD_t_set = pBD_t list with rpc
+type ref_PBD_to_pBD_t_map = (ref_PBD * pBD_t) list [@@deriving rpc]
+type pBD_t_set = pBD_t list [@@deriving rpc]
 
 type vBD_metrics_t = { vBD_metrics_uuid : string; vBD_metrics_io_read_kbs : float; vBD_metrics_io_write_kbs : float; vBD_metrics_last_updated : datetime; vBD_metrics_other_config : string_to_string_map }
 let rpc_of_vBD_metrics_t x = Rpc.Dict [ "uuid",rpc_of_string x.vBD_metrics_uuid; "io_read_kbs",rpc_of_float x.vBD_metrics_io_read_kbs; "io_write_kbs",rpc_of_float x.vBD_metrics_io_write_kbs; "last_updated",rpc_of_datetime x.vBD_metrics_last_updated; "other_config",rpc_of_string_to_string_map x.vBD_metrics_other_config ]
 let vBD_metrics_t_of_rpc x = on_dict (fun x -> { vBD_metrics_uuid = string_of_rpc (List.assoc "uuid" x); vBD_metrics_io_read_kbs = float_of_rpc (List.assoc "io_read_kbs" x); vBD_metrics_io_write_kbs = float_of_rpc (List.assoc "io_write_kbs" x); vBD_metrics_last_updated = datetime_of_rpc (List.assoc "last_updated" x); vBD_metrics_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
-type ref_VBD_metrics_to_vBD_metrics_t_map = (ref_VBD_metrics * vBD_metrics_t) list with rpc
-type vBD_metrics_t_set = vBD_metrics_t list with rpc
+type ref_VBD_metrics_to_vBD_metrics_t_map = (ref_VBD_metrics * vBD_metrics_t) list [@@deriving rpc]
+type vBD_metrics_t_set = vBD_metrics_t list [@@deriving rpc]
 
-type vBD_t = { vBD_uuid : string; vBD_allowed_operations : vbd_operations_set; vBD_current_operations : string_to_vbd_operations_map; vBD_VM : ref_VM; vBD_VDI : ref_VDI; vBD_device : string; vBD_userdevice : string; vBD_bootable : bool; vBD_mode : vbd_mode; vBD_type : vbd_type; vBD_unpluggable : bool; vBD_storage_lock : bool; vBD_empty : bool; vBD_other_config : string_to_string_map; vBD_currently_attached : bool; vBD_status_code : int64; vBD_status_detail : string; vBD_runtime_properties : string_to_string_map; vBD_qos_algorithm_type : string; vBD_qos_algorithm_params : string_to_string_map; vBD_qos_supported_algorithms : string_set; vBD_metrics : ref_VBD_metrics }
-let rpc_of_vBD_t x = Rpc.Dict [ "uuid",rpc_of_string x.vBD_uuid; "allowed_operations",rpc_of_vbd_operations_set x.vBD_allowed_operations; "current_operations",rpc_of_string_to_vbd_operations_map x.vBD_current_operations; "VM",rpc_of_ref_VM x.vBD_VM; "VDI",rpc_of_ref_VDI x.vBD_VDI; "device",rpc_of_string x.vBD_device; "userdevice",rpc_of_string x.vBD_userdevice; "bootable",rpc_of_bool x.vBD_bootable; "mode",rpc_of_vbd_mode x.vBD_mode; "type",rpc_of_vbd_type x.vBD_type; "unpluggable",rpc_of_bool x.vBD_unpluggable; "storage_lock",rpc_of_bool x.vBD_storage_lock; "empty",rpc_of_bool x.vBD_empty; "other_config",rpc_of_string_to_string_map x.vBD_other_config; "currently_attached",rpc_of_bool x.vBD_currently_attached; "status_code",rpc_of_int64 x.vBD_status_code; "status_detail",rpc_of_string x.vBD_status_detail; "runtime_properties",rpc_of_string_to_string_map x.vBD_runtime_properties; "qos_algorithm_type",rpc_of_string x.vBD_qos_algorithm_type; "qos_algorithm_params",rpc_of_string_to_string_map x.vBD_qos_algorithm_params; "qos_supported_algorithms",rpc_of_string_set x.vBD_qos_supported_algorithms; "metrics",rpc_of_ref_VBD_metrics x.vBD_metrics ]
-let vBD_t_of_rpc x = on_dict (fun x -> { vBD_uuid = string_of_rpc (List.assoc "uuid" x); vBD_allowed_operations = vbd_operations_set_of_rpc (List.assoc "allowed_operations" x); vBD_current_operations = string_to_vbd_operations_map_of_rpc (List.assoc "current_operations" x); vBD_VM = ref_VM_of_rpc (List.assoc "VM" x); vBD_VDI = ref_VDI_of_rpc (List.assoc "VDI" x); vBD_device = string_of_rpc (List.assoc "device" x); vBD_userdevice = string_of_rpc (List.assoc "userdevice" x); vBD_bootable = bool_of_rpc (List.assoc "bootable" x); vBD_mode = vbd_mode_of_rpc (List.assoc "mode" x); vBD_type = vbd_type_of_rpc (List.assoc "type" x); vBD_unpluggable = bool_of_rpc (List.assoc "unpluggable" x); vBD_storage_lock = bool_of_rpc (List.assoc "storage_lock" x); vBD_empty = bool_of_rpc (List.assoc "empty" x); vBD_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); vBD_currently_attached = bool_of_rpc (List.assoc "currently_attached" x); vBD_status_code = int64_of_rpc (List.assoc "status_code" x); vBD_status_detail = string_of_rpc (List.assoc "status_detail" x); vBD_runtime_properties = string_to_string_map_of_rpc (List.assoc "runtime_properties" x); vBD_qos_algorithm_type = string_of_rpc (List.assoc "qos_algorithm_type" x); vBD_qos_algorithm_params = string_to_string_map_of_rpc (List.assoc "qos_algorithm_params" x); vBD_qos_supported_algorithms = string_set_of_rpc (List.assoc "qos_supported_algorithms" x); vBD_metrics = ref_VBD_metrics_of_rpc (List.assoc "metrics" x) }) x
-type ref_VBD_to_vBD_t_map = (ref_VBD * vBD_t) list with rpc
-type vBD_t_set = vBD_t list with rpc
+type vBD_t = { vBD_uuid : string; vBD_allowed_operations : vbd_operations_set; vBD_current_operations : string_to_vbd_operations_map; vBD_VM : ref_VM; vBD_VDI : ref_VDI; vBD_device : string; vBD_userdevice : string; vBD_bootable : bool; vBD_mode : vbd_mode; vBD_type : vbd_type; vBD_unpluggable : bool; vBD_storage_lock : bool; vBD_empty : bool; vBD_reserved : bool; vBD_other_config : string_to_string_map; vBD_currently_attached : bool; vBD_status_code : int64; vBD_status_detail : string; vBD_runtime_properties : string_to_string_map; vBD_qos_algorithm_type : string; vBD_qos_algorithm_params : string_to_string_map; vBD_qos_supported_algorithms : string_set; vBD_metrics : ref_VBD_metrics }
+let rpc_of_vBD_t x = Rpc.Dict [ "uuid",rpc_of_string x.vBD_uuid; "allowed_operations",rpc_of_vbd_operations_set x.vBD_allowed_operations; "current_operations",rpc_of_string_to_vbd_operations_map x.vBD_current_operations; "VM",rpc_of_ref_VM x.vBD_VM; "VDI",rpc_of_ref_VDI x.vBD_VDI; "device",rpc_of_string x.vBD_device; "userdevice",rpc_of_string x.vBD_userdevice; "bootable",rpc_of_bool x.vBD_bootable; "mode",rpc_of_vbd_mode x.vBD_mode; "type",rpc_of_vbd_type x.vBD_type; "unpluggable",rpc_of_bool x.vBD_unpluggable; "storage_lock",rpc_of_bool x.vBD_storage_lock; "empty",rpc_of_bool x.vBD_empty; "reserved",rpc_of_bool x.vBD_reserved; "other_config",rpc_of_string_to_string_map x.vBD_other_config; "currently_attached",rpc_of_bool x.vBD_currently_attached; "status_code",rpc_of_int64 x.vBD_status_code; "status_detail",rpc_of_string x.vBD_status_detail; "runtime_properties",rpc_of_string_to_string_map x.vBD_runtime_properties; "qos_algorithm_type",rpc_of_string x.vBD_qos_algorithm_type; "qos_algorithm_params",rpc_of_string_to_string_map x.vBD_qos_algorithm_params; "qos_supported_algorithms",rpc_of_string_set x.vBD_qos_supported_algorithms; "metrics",rpc_of_ref_VBD_metrics x.vBD_metrics ]
+let vBD_t_of_rpc x = on_dict (fun x -> { vBD_uuid = string_of_rpc (List.assoc "uuid" x); vBD_allowed_operations = vbd_operations_set_of_rpc (List.assoc "allowed_operations" x); vBD_current_operations = string_to_vbd_operations_map_of_rpc (List.assoc "current_operations" x); vBD_VM = ref_VM_of_rpc (List.assoc "VM" x); vBD_VDI = ref_VDI_of_rpc (List.assoc "VDI" x); vBD_device = string_of_rpc (List.assoc "device" x); vBD_userdevice = string_of_rpc (List.assoc "userdevice" x); vBD_bootable = bool_of_rpc (List.assoc "bootable" x); vBD_mode = vbd_mode_of_rpc (List.assoc "mode" x); vBD_type = vbd_type_of_rpc (List.assoc "type" x); vBD_unpluggable = bool_of_rpc (List.assoc "unpluggable" x); vBD_storage_lock = bool_of_rpc (List.assoc "storage_lock" x); vBD_empty = bool_of_rpc (List.assoc "empty" x); vBD_reserved = bool_of_rpc (List.assoc "reserved" x); vBD_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); vBD_currently_attached = bool_of_rpc (List.assoc "currently_attached" x); vBD_status_code = int64_of_rpc (List.assoc "status_code" x); vBD_status_detail = string_of_rpc (List.assoc "status_detail" x); vBD_runtime_properties = string_to_string_map_of_rpc (List.assoc "runtime_properties" x); vBD_qos_algorithm_type = string_of_rpc (List.assoc "qos_algorithm_type" x); vBD_qos_algorithm_params = string_to_string_map_of_rpc (List.assoc "qos_algorithm_params" x); vBD_qos_supported_algorithms = string_set_of_rpc (List.assoc "qos_supported_algorithms" x); vBD_metrics = ref_VBD_metrics_of_rpc (List.assoc "metrics" x) }) x
+type ref_VBD_to_vBD_t_map = (ref_VBD * vBD_t) list [@@deriving rpc]
+type vBD_t_set = vBD_t list [@@deriving rpc]
 
 type vDI_t = { vDI_uuid : string; vDI_name_label : string; vDI_name_description : string; vDI_allowed_operations : vdi_operations_set; vDI_current_operations : string_to_vdi_operations_map; vDI_SR : ref_SR; vDI_VBDs : ref_VBD_set; vDI_crash_dumps : ref_crashdump_set; vDI_virtual_size : int64; vDI_physical_utilisation : int64; vDI_type : vdi_type; vDI_sharable : bool; vDI_read_only : bool; vDI_other_config : string_to_string_map; vDI_storage_lock : bool; vDI_location : string; vDI_managed : bool; vDI_missing : bool; vDI_parent : ref_VDI; vDI_xenstore_data : string_to_string_map; vDI_sm_config : string_to_string_map; vDI_is_a_snapshot : bool; vDI_snapshot_of : ref_VDI; vDI_snapshots : ref_VDI_set; vDI_snapshot_time : datetime; vDI_tags : string_set; vDI_allow_caching : bool; vDI_on_boot : on_boot; vDI_metadata_of_pool : ref_pool; vDI_metadata_latest : bool; vDI_is_tools_iso : bool }
 let rpc_of_vDI_t x = Rpc.Dict [ "uuid",rpc_of_string x.vDI_uuid; "name_label",rpc_of_string x.vDI_name_label; "name_description",rpc_of_string x.vDI_name_description; "allowed_operations",rpc_of_vdi_operations_set x.vDI_allowed_operations; "current_operations",rpc_of_string_to_vdi_operations_map x.vDI_current_operations; "SR",rpc_of_ref_SR x.vDI_SR; "VBDs",rpc_of_ref_VBD_set x.vDI_VBDs; "crash_dumps",rpc_of_ref_crashdump_set x.vDI_crash_dumps; "virtual_size",rpc_of_int64 x.vDI_virtual_size; "physical_utilisation",rpc_of_int64 x.vDI_physical_utilisation; "type",rpc_of_vdi_type x.vDI_type; "sharable",rpc_of_bool x.vDI_sharable; "read_only",rpc_of_bool x.vDI_read_only; "other_config",rpc_of_string_to_string_map x.vDI_other_config; "storage_lock",rpc_of_bool x.vDI_storage_lock; "location",rpc_of_string x.vDI_location; "managed",rpc_of_bool x.vDI_managed; "missing",rpc_of_bool x.vDI_missing; "parent",rpc_of_ref_VDI x.vDI_parent; "xenstore_data",rpc_of_string_to_string_map x.vDI_xenstore_data; "sm_config",rpc_of_string_to_string_map x.vDI_sm_config; "is_a_snapshot",rpc_of_bool x.vDI_is_a_snapshot; "snapshot_of",rpc_of_ref_VDI x.vDI_snapshot_of; "snapshots",rpc_of_ref_VDI_set x.vDI_snapshots; "snapshot_time",rpc_of_datetime x.vDI_snapshot_time; "tags",rpc_of_string_set x.vDI_tags; "allow_caching",rpc_of_bool x.vDI_allow_caching; "on_boot",rpc_of_on_boot x.vDI_on_boot; "metadata_of_pool",rpc_of_ref_pool x.vDI_metadata_of_pool; "metadata_latest",rpc_of_bool x.vDI_metadata_latest; "is_tools_iso",rpc_of_bool x.vDI_is_tools_iso ]
 let vDI_t_of_rpc x = on_dict (fun x -> { vDI_uuid = string_of_rpc (List.assoc "uuid" x); vDI_name_label = string_of_rpc (List.assoc "name_label" x); vDI_name_description = string_of_rpc (List.assoc "name_description" x); vDI_allowed_operations = vdi_operations_set_of_rpc (List.assoc "allowed_operations" x); vDI_current_operations = string_to_vdi_operations_map_of_rpc (List.assoc "current_operations" x); vDI_SR = ref_SR_of_rpc (List.assoc "SR" x); vDI_VBDs = ref_VBD_set_of_rpc (List.assoc "VBDs" x); vDI_crash_dumps = ref_crashdump_set_of_rpc (List.assoc "crash_dumps" x); vDI_virtual_size = int64_of_rpc (List.assoc "virtual_size" x); vDI_physical_utilisation = int64_of_rpc (List.assoc "physical_utilisation" x); vDI_type = vdi_type_of_rpc (List.assoc "type" x); vDI_sharable = bool_of_rpc (List.assoc "sharable" x); vDI_read_only = bool_of_rpc (List.assoc "read_only" x); vDI_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); vDI_storage_lock = bool_of_rpc (List.assoc "storage_lock" x); vDI_location = string_of_rpc (List.assoc "location" x); vDI_managed = bool_of_rpc (List.assoc "managed" x); vDI_missing = bool_of_rpc (List.assoc "missing" x); vDI_parent = ref_VDI_of_rpc (List.assoc "parent" x); vDI_xenstore_data = string_to_string_map_of_rpc (List.assoc "xenstore_data" x); vDI_sm_config = string_to_string_map_of_rpc (List.assoc "sm_config" x); vDI_is_a_snapshot = bool_of_rpc (List.assoc "is_a_snapshot" x); vDI_snapshot_of = ref_VDI_of_rpc (List.assoc "snapshot_of" x); vDI_snapshots = ref_VDI_set_of_rpc (List.assoc "snapshots" x); vDI_snapshot_time = datetime_of_rpc (List.assoc "snapshot_time" x); vDI_tags = string_set_of_rpc (List.assoc "tags" x); vDI_allow_caching = bool_of_rpc (List.assoc "allow_caching" x); vDI_on_boot = on_boot_of_rpc (List.assoc "on_boot" x); vDI_metadata_of_pool = ref_pool_of_rpc (List.assoc "metadata_of_pool" x); vDI_metadata_latest = bool_of_rpc (List.assoc "metadata_latest" x); vDI_is_tools_iso = bool_of_rpc (List.assoc "is_tools_iso" x) }) x
-type ref_VDI_to_vDI_t_map = (ref_VDI * vDI_t) list with rpc
-type vDI_t_set = vDI_t list with rpc
+type ref_VDI_to_vDI_t_map = (ref_VDI * vDI_t) list [@@deriving rpc]
+type vDI_t_set = vDI_t list [@@deriving rpc]
 
 type lVHD_t = { lVHD_uuid : string }
 let rpc_of_lVHD_t x = Rpc.Dict [ "uuid",rpc_of_string x.lVHD_uuid ]
 let lVHD_t_of_rpc x = on_dict (fun x -> { lVHD_uuid = string_of_rpc (List.assoc "uuid" x) }) x
-type ref_LVHD_to_lVHD_t_map = (ref_LVHD * lVHD_t) list with rpc
-type lVHD_t_set = lVHD_t list with rpc
+type ref_LVHD_to_lVHD_t_map = (ref_LVHD * lVHD_t) list [@@deriving rpc]
+type lVHD_t_set = lVHD_t list [@@deriving rpc]
 
-type sR_t = { sR_uuid : string; sR_name_label : string; sR_name_description : string; sR_allowed_operations : storage_operations_set; sR_current_operations : string_to_storage_operations_map; sR_VDIs : ref_VDI_set; sR_PBDs : ref_PBD_set; sR_virtual_allocation : int64; sR_physical_utilisation : int64; sR_physical_size : int64; sR_type : string; sR_content_type : string; sR_shared : bool; sR_other_config : string_to_string_map; sR_tags : string_set; sR_sm_config : string_to_string_map; sR_blobs : string_to_ref_blob_map; sR_local_cache_enabled : bool; sR_introduced_by : ref_DR_task; sR_clustered : bool; sR_is_tools_sr : bool }
-let rpc_of_sR_t x = Rpc.Dict [ "uuid",rpc_of_string x.sR_uuid; "name_label",rpc_of_string x.sR_name_label; "name_description",rpc_of_string x.sR_name_description; "allowed_operations",rpc_of_storage_operations_set x.sR_allowed_operations; "current_operations",rpc_of_string_to_storage_operations_map x.sR_current_operations; "VDIs",rpc_of_ref_VDI_set x.sR_VDIs; "PBDs",rpc_of_ref_PBD_set x.sR_PBDs; "virtual_allocation",rpc_of_int64 x.sR_virtual_allocation; "physical_utilisation",rpc_of_int64 x.sR_physical_utilisation; "physical_size",rpc_of_int64 x.sR_physical_size; "type",rpc_of_string x.sR_type; "content_type",rpc_of_string x.sR_content_type; "shared",rpc_of_bool x.sR_shared; "other_config",rpc_of_string_to_string_map x.sR_other_config; "tags",rpc_of_string_set x.sR_tags; "sm_config",rpc_of_string_to_string_map x.sR_sm_config; "blobs",rpc_of_string_to_ref_blob_map x.sR_blobs; "local_cache_enabled",rpc_of_bool x.sR_local_cache_enabled; "introduced_by",rpc_of_ref_DR_task x.sR_introduced_by; "clustered",rpc_of_bool x.sR_clustered; "is_tools_sr",rpc_of_bool x.sR_is_tools_sr ]
-let sR_t_of_rpc x = on_dict (fun x -> { sR_uuid = string_of_rpc (List.assoc "uuid" x); sR_name_label = string_of_rpc (List.assoc "name_label" x); sR_name_description = string_of_rpc (List.assoc "name_description" x); sR_allowed_operations = storage_operations_set_of_rpc (List.assoc "allowed_operations" x); sR_current_operations = string_to_storage_operations_map_of_rpc (List.assoc "current_operations" x); sR_VDIs = ref_VDI_set_of_rpc (List.assoc "VDIs" x); sR_PBDs = ref_PBD_set_of_rpc (List.assoc "PBDs" x); sR_virtual_allocation = int64_of_rpc (List.assoc "virtual_allocation" x); sR_physical_utilisation = int64_of_rpc (List.assoc "physical_utilisation" x); sR_physical_size = int64_of_rpc (List.assoc "physical_size" x); sR_type = string_of_rpc (List.assoc "type" x); sR_content_type = string_of_rpc (List.assoc "content_type" x); sR_shared = bool_of_rpc (List.assoc "shared" x); sR_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); sR_tags = string_set_of_rpc (List.assoc "tags" x); sR_sm_config = string_to_string_map_of_rpc (List.assoc "sm_config" x); sR_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); sR_local_cache_enabled = bool_of_rpc (List.assoc "local_cache_enabled" x); sR_introduced_by = ref_DR_task_of_rpc (List.assoc "introduced_by" x); sR_clustered = bool_of_rpc (List.assoc "clustered" x); sR_is_tools_sr = bool_of_rpc (List.assoc "is_tools_sr" x) }) x
-type ref_SR_to_sR_t_map = (ref_SR * sR_t) list with rpc
-type sR_t_set = sR_t list with rpc
+type sR_t = { sR_uuid : string; sR_name_label : string; sR_name_description : string; sR_allowed_operations : storage_operations_set; sR_current_operations : string_to_storage_operations_map; sR_VDIs : ref_VDI_set; sR_PBDs : ref_PBD_set; sR_virtual_allocation : int64; sR_physical_utilisation : int64; sR_physical_size : int64; sR_type : string; sR_content_type : string; sR_shared : bool; sR_other_config : string_to_string_map; sR_tags : string_set; sR_default_vdi_visibility : bool; sR_sm_config : string_to_string_map; sR_blobs : string_to_ref_blob_map; sR_local_cache_enabled : bool; sR_introduced_by : ref_DR_task; sR_clustered : bool; sR_is_tools_sr : bool }
+let rpc_of_sR_t x = Rpc.Dict [ "uuid",rpc_of_string x.sR_uuid; "name_label",rpc_of_string x.sR_name_label; "name_description",rpc_of_string x.sR_name_description; "allowed_operations",rpc_of_storage_operations_set x.sR_allowed_operations; "current_operations",rpc_of_string_to_storage_operations_map x.sR_current_operations; "VDIs",rpc_of_ref_VDI_set x.sR_VDIs; "PBDs",rpc_of_ref_PBD_set x.sR_PBDs; "virtual_allocation",rpc_of_int64 x.sR_virtual_allocation; "physical_utilisation",rpc_of_int64 x.sR_physical_utilisation; "physical_size",rpc_of_int64 x.sR_physical_size; "type",rpc_of_string x.sR_type; "content_type",rpc_of_string x.sR_content_type; "shared",rpc_of_bool x.sR_shared; "other_config",rpc_of_string_to_string_map x.sR_other_config; "tags",rpc_of_string_set x.sR_tags; "default_vdi_visibility",rpc_of_bool x.sR_default_vdi_visibility; "sm_config",rpc_of_string_to_string_map x.sR_sm_config; "blobs",rpc_of_string_to_ref_blob_map x.sR_blobs; "local_cache_enabled",rpc_of_bool x.sR_local_cache_enabled; "introduced_by",rpc_of_ref_DR_task x.sR_introduced_by; "clustered",rpc_of_bool x.sR_clustered; "is_tools_sr",rpc_of_bool x.sR_is_tools_sr ]
+let sR_t_of_rpc x = on_dict (fun x -> { sR_uuid = string_of_rpc (List.assoc "uuid" x); sR_name_label = string_of_rpc (List.assoc "name_label" x); sR_name_description = string_of_rpc (List.assoc "name_description" x); sR_allowed_operations = storage_operations_set_of_rpc (List.assoc "allowed_operations" x); sR_current_operations = string_to_storage_operations_map_of_rpc (List.assoc "current_operations" x); sR_VDIs = ref_VDI_set_of_rpc (List.assoc "VDIs" x); sR_PBDs = ref_PBD_set_of_rpc (List.assoc "PBDs" x); sR_virtual_allocation = int64_of_rpc (List.assoc "virtual_allocation" x); sR_physical_utilisation = int64_of_rpc (List.assoc "physical_utilisation" x); sR_physical_size = int64_of_rpc (List.assoc "physical_size" x); sR_type = string_of_rpc (List.assoc "type" x); sR_content_type = string_of_rpc (List.assoc "content_type" x); sR_shared = bool_of_rpc (List.assoc "shared" x); sR_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); sR_tags = string_set_of_rpc (List.assoc "tags" x); sR_default_vdi_visibility = bool_of_rpc (List.assoc "default_vdi_visibility" x); sR_sm_config = string_to_string_map_of_rpc (List.assoc "sm_config" x); sR_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); sR_local_cache_enabled = bool_of_rpc (List.assoc "local_cache_enabled" x); sR_introduced_by = ref_DR_task_of_rpc (List.assoc "introduced_by" x); sR_clustered = bool_of_rpc (List.assoc "clustered" x); sR_is_tools_sr = bool_of_rpc (List.assoc "is_tools_sr" x) }) x
+type ref_SR_to_sR_t_map = (ref_SR * sR_t) list [@@deriving rpc]
+type sR_t_set = sR_t list [@@deriving rpc]
 
 type sM_t = { sM_uuid : string; sM_name_label : string; sM_name_description : string; sM_type : string; sM_vendor : string; sM_copyright : string; sM_version : string; sM_required_api_version : string; sM_configuration : string_to_string_map; sM_capabilities : string_set; sM_features : string_to_int64_map; sM_other_config : string_to_string_map; sM_driver_filename : string; sM_required_cluster_stack : string_set }
 let rpc_of_sM_t x = Rpc.Dict [ "uuid",rpc_of_string x.sM_uuid; "name_label",rpc_of_string x.sM_name_label; "name_description",rpc_of_string x.sM_name_description; "type",rpc_of_string x.sM_type; "vendor",rpc_of_string x.sM_vendor; "copyright",rpc_of_string x.sM_copyright; "version",rpc_of_string x.sM_version; "required_api_version",rpc_of_string x.sM_required_api_version; "configuration",rpc_of_string_to_string_map x.sM_configuration; "capabilities",rpc_of_string_set x.sM_capabilities; "features",rpc_of_string_to_int64_map x.sM_features; "other_config",rpc_of_string_to_string_map x.sM_other_config; "driver_filename",rpc_of_string x.sM_driver_filename; "required_cluster_stack",rpc_of_string_set x.sM_required_cluster_stack ]
 let sM_t_of_rpc x = on_dict (fun x -> { sM_uuid = string_of_rpc (List.assoc "uuid" x); sM_name_label = string_of_rpc (List.assoc "name_label" x); sM_name_description = string_of_rpc (List.assoc "name_description" x); sM_type = string_of_rpc (List.assoc "type" x); sM_vendor = string_of_rpc (List.assoc "vendor" x); sM_copyright = string_of_rpc (List.assoc "copyright" x); sM_version = string_of_rpc (List.assoc "version" x); sM_required_api_version = string_of_rpc (List.assoc "required_api_version" x); sM_configuration = string_to_string_map_of_rpc (List.assoc "configuration" x); sM_capabilities = string_set_of_rpc (List.assoc "capabilities" x); sM_features = string_to_int64_map_of_rpc (List.assoc "features" x); sM_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); sM_driver_filename = string_of_rpc (List.assoc "driver_filename" x); sM_required_cluster_stack = string_set_of_rpc (List.assoc "required_cluster_stack" x) }) x
-type ref_SM_to_sM_t_map = (ref_SM * sM_t) list with rpc
-type sM_t_set = sM_t list with rpc
+type ref_SM_to_sM_t_map = (ref_SM * sM_t) list [@@deriving rpc]
+type sM_t_set = sM_t list [@@deriving rpc]
 
 type vLAN_t = { vLAN_uuid : string; vLAN_tagged_PIF : ref_PIF; vLAN_untagged_PIF : ref_PIF; vLAN_tag : int64; vLAN_other_config : string_to_string_map }
 let rpc_of_vLAN_t x = Rpc.Dict [ "uuid",rpc_of_string x.vLAN_uuid; "tagged_PIF",rpc_of_ref_PIF x.vLAN_tagged_PIF; "untagged_PIF",rpc_of_ref_PIF x.vLAN_untagged_PIF; "tag",rpc_of_int64 x.vLAN_tag; "other_config",rpc_of_string_to_string_map x.vLAN_other_config ]
 let vLAN_t_of_rpc x = on_dict (fun x -> { vLAN_uuid = string_of_rpc (List.assoc "uuid" x); vLAN_tagged_PIF = ref_PIF_of_rpc (List.assoc "tagged_PIF" x); vLAN_untagged_PIF = ref_PIF_of_rpc (List.assoc "untagged_PIF" x); vLAN_tag = int64_of_rpc (List.assoc "tag" x); vLAN_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
-type ref_VLAN_to_vLAN_t_map = (ref_VLAN * vLAN_t) list with rpc
-type vLAN_t_set = vLAN_t list with rpc
+type ref_VLAN_to_vLAN_t_map = (ref_VLAN * vLAN_t) list [@@deriving rpc]
+type vLAN_t_set = vLAN_t list [@@deriving rpc]
 
 type bond_t = { bond_uuid : string; bond_master : ref_PIF; bond_slaves : ref_PIF_set; bond_other_config : string_to_string_map; bond_primary_slave : ref_PIF; bond_mode : bond_mode; bond_properties : string_to_string_map; bond_links_up : int64 }
 let rpc_of_bond_t x = Rpc.Dict [ "uuid",rpc_of_string x.bond_uuid; "master",rpc_of_ref_PIF x.bond_master; "slaves",rpc_of_ref_PIF_set x.bond_slaves; "other_config",rpc_of_string_to_string_map x.bond_other_config; "primary_slave",rpc_of_ref_PIF x.bond_primary_slave; "mode",rpc_of_bond_mode x.bond_mode; "properties",rpc_of_string_to_string_map x.bond_properties; "links_up",rpc_of_int64 x.bond_links_up ]
 let bond_t_of_rpc x = on_dict (fun x -> { bond_uuid = string_of_rpc (List.assoc "uuid" x); bond_master = ref_PIF_of_rpc (List.assoc "master" x); bond_slaves = ref_PIF_set_of_rpc (List.assoc "slaves" x); bond_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); bond_primary_slave = ref_PIF_of_rpc (List.assoc "primary_slave" x); bond_mode = bond_mode_of_rpc (List.assoc "mode" x); bond_properties = string_to_string_map_of_rpc (List.assoc "properties" x); bond_links_up = int64_of_rpc (List.assoc "links_up" x) }) x
-type ref_Bond_to_bond_t_map = (ref_Bond * bond_t) list with rpc
-type bond_t_set = bond_t list with rpc
+type ref_Bond_to_bond_t_map = (ref_Bond * bond_t) list [@@deriving rpc]
+type bond_t_set = bond_t list [@@deriving rpc]
 
 type pIF_metrics_t = { pIF_metrics_uuid : string; pIF_metrics_io_read_kbs : float; pIF_metrics_io_write_kbs : float; pIF_metrics_carrier : bool; pIF_metrics_vendor_id : string; pIF_metrics_vendor_name : string; pIF_metrics_device_id : string; pIF_metrics_device_name : string; pIF_metrics_speed : int64; pIF_metrics_duplex : bool; pIF_metrics_pci_bus_path : string; pIF_metrics_last_updated : datetime; pIF_metrics_other_config : string_to_string_map }
 let rpc_of_pIF_metrics_t x = Rpc.Dict [ "uuid",rpc_of_string x.pIF_metrics_uuid; "io_read_kbs",rpc_of_float x.pIF_metrics_io_read_kbs; "io_write_kbs",rpc_of_float x.pIF_metrics_io_write_kbs; "carrier",rpc_of_bool x.pIF_metrics_carrier; "vendor_id",rpc_of_string x.pIF_metrics_vendor_id; "vendor_name",rpc_of_string x.pIF_metrics_vendor_name; "device_id",rpc_of_string x.pIF_metrics_device_id; "device_name",rpc_of_string x.pIF_metrics_device_name; "speed",rpc_of_int64 x.pIF_metrics_speed; "duplex",rpc_of_bool x.pIF_metrics_duplex; "pci_bus_path",rpc_of_string x.pIF_metrics_pci_bus_path; "last_updated",rpc_of_datetime x.pIF_metrics_last_updated; "other_config",rpc_of_string_to_string_map x.pIF_metrics_other_config ]
 let pIF_metrics_t_of_rpc x = on_dict (fun x -> { pIF_metrics_uuid = string_of_rpc (List.assoc "uuid" x); pIF_metrics_io_read_kbs = float_of_rpc (List.assoc "io_read_kbs" x); pIF_metrics_io_write_kbs = float_of_rpc (List.assoc "io_write_kbs" x); pIF_metrics_carrier = bool_of_rpc (List.assoc "carrier" x); pIF_metrics_vendor_id = string_of_rpc (List.assoc "vendor_id" x); pIF_metrics_vendor_name = string_of_rpc (List.assoc "vendor_name" x); pIF_metrics_device_id = string_of_rpc (List.assoc "device_id" x); pIF_metrics_device_name = string_of_rpc (List.assoc "device_name" x); pIF_metrics_speed = int64_of_rpc (List.assoc "speed" x); pIF_metrics_duplex = bool_of_rpc (List.assoc "duplex" x); pIF_metrics_pci_bus_path = string_of_rpc (List.assoc "pci_bus_path" x); pIF_metrics_last_updated = datetime_of_rpc (List.assoc "last_updated" x); pIF_metrics_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
-type ref_PIF_metrics_to_pIF_metrics_t_map = (ref_PIF_metrics * pIF_metrics_t) list with rpc
-type pIF_metrics_t_set = pIF_metrics_t list with rpc
+type ref_PIF_metrics_to_pIF_metrics_t_map = (ref_PIF_metrics * pIF_metrics_t) list [@@deriving rpc]
+type pIF_metrics_t_set = pIF_metrics_t list [@@deriving rpc]
 
-type pIF_t = { pIF_uuid : string; pIF_device : string; pIF_network : ref_network; pIF_host : ref_host; pIF_MAC : string; pIF_MTU : int64; pIF_VLAN : int64; pIF_metrics : ref_PIF_metrics; pIF_physical : bool; pIF_currently_attached : bool; pIF_ip_configuration_mode : ip_configuration_mode; pIF_IP : string; pIF_netmask : string; pIF_gateway : string; pIF_DNS : string; pIF_bond_slave_of : ref_Bond; pIF_bond_master_of : ref_Bond_set; pIF_VLAN_master_of : ref_VLAN; pIF_VLAN_slave_of : ref_VLAN_set; pIF_management : bool; pIF_other_config : string_to_string_map; pIF_disallow_unplug : bool; pIF_tunnel_access_PIF_of : ref_tunnel_set; pIF_tunnel_transport_PIF_of : ref_tunnel_set; pIF_ipv6_configuration_mode : ipv6_configuration_mode; pIF_IPv6 : string_set; pIF_ipv6_gateway : string; pIF_primary_address_type : primary_address_type; pIF_managed : bool; pIF_properties : string_to_string_map; pIF_capabilities : string_set }
-let rpc_of_pIF_t x = Rpc.Dict [ "uuid",rpc_of_string x.pIF_uuid; "device",rpc_of_string x.pIF_device; "network",rpc_of_ref_network x.pIF_network; "host",rpc_of_ref_host x.pIF_host; "MAC",rpc_of_string x.pIF_MAC; "MTU",rpc_of_int64 x.pIF_MTU; "VLAN",rpc_of_int64 x.pIF_VLAN; "metrics",rpc_of_ref_PIF_metrics x.pIF_metrics; "physical",rpc_of_bool x.pIF_physical; "currently_attached",rpc_of_bool x.pIF_currently_attached; "ip_configuration_mode",rpc_of_ip_configuration_mode x.pIF_ip_configuration_mode; "IP",rpc_of_string x.pIF_IP; "netmask",rpc_of_string x.pIF_netmask; "gateway",rpc_of_string x.pIF_gateway; "DNS",rpc_of_string x.pIF_DNS; "bond_slave_of",rpc_of_ref_Bond x.pIF_bond_slave_of; "bond_master_of",rpc_of_ref_Bond_set x.pIF_bond_master_of; "VLAN_master_of",rpc_of_ref_VLAN x.pIF_VLAN_master_of; "VLAN_slave_of",rpc_of_ref_VLAN_set x.pIF_VLAN_slave_of; "management",rpc_of_bool x.pIF_management; "other_config",rpc_of_string_to_string_map x.pIF_other_config; "disallow_unplug",rpc_of_bool x.pIF_disallow_unplug; "tunnel_access_PIF_of",rpc_of_ref_tunnel_set x.pIF_tunnel_access_PIF_of; "tunnel_transport_PIF_of",rpc_of_ref_tunnel_set x.pIF_tunnel_transport_PIF_of; "ipv6_configuration_mode",rpc_of_ipv6_configuration_mode x.pIF_ipv6_configuration_mode; "IPv6",rpc_of_string_set x.pIF_IPv6; "ipv6_gateway",rpc_of_string x.pIF_ipv6_gateway; "primary_address_type",rpc_of_primary_address_type x.pIF_primary_address_type; "managed",rpc_of_bool x.pIF_managed; "properties",rpc_of_string_to_string_map x.pIF_properties; "capabilities",rpc_of_string_set x.pIF_capabilities ]
-let pIF_t_of_rpc x = on_dict (fun x -> { pIF_uuid = string_of_rpc (List.assoc "uuid" x); pIF_device = string_of_rpc (List.assoc "device" x); pIF_network = ref_network_of_rpc (List.assoc "network" x); pIF_host = ref_host_of_rpc (List.assoc "host" x); pIF_MAC = string_of_rpc (List.assoc "MAC" x); pIF_MTU = int64_of_rpc (List.assoc "MTU" x); pIF_VLAN = int64_of_rpc (List.assoc "VLAN" x); pIF_metrics = ref_PIF_metrics_of_rpc (List.assoc "metrics" x); pIF_physical = bool_of_rpc (List.assoc "physical" x); pIF_currently_attached = bool_of_rpc (List.assoc "currently_attached" x); pIF_ip_configuration_mode = ip_configuration_mode_of_rpc (List.assoc "ip_configuration_mode" x); pIF_IP = string_of_rpc (List.assoc "IP" x); pIF_netmask = string_of_rpc (List.assoc "netmask" x); pIF_gateway = string_of_rpc (List.assoc "gateway" x); pIF_DNS = string_of_rpc (List.assoc "DNS" x); pIF_bond_slave_of = ref_Bond_of_rpc (List.assoc "bond_slave_of" x); pIF_bond_master_of = ref_Bond_set_of_rpc (List.assoc "bond_master_of" x); pIF_VLAN_master_of = ref_VLAN_of_rpc (List.assoc "VLAN_master_of" x); pIF_VLAN_slave_of = ref_VLAN_set_of_rpc (List.assoc "VLAN_slave_of" x); pIF_management = bool_of_rpc (List.assoc "management" x); pIF_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); pIF_disallow_unplug = bool_of_rpc (List.assoc "disallow_unplug" x); pIF_tunnel_access_PIF_of = ref_tunnel_set_of_rpc (List.assoc "tunnel_access_PIF_of" x); pIF_tunnel_transport_PIF_of = ref_tunnel_set_of_rpc (List.assoc "tunnel_transport_PIF_of" x); pIF_ipv6_configuration_mode = ipv6_configuration_mode_of_rpc (List.assoc "ipv6_configuration_mode" x); pIF_IPv6 = string_set_of_rpc (List.assoc "IPv6" x); pIF_ipv6_gateway = string_of_rpc (List.assoc "ipv6_gateway" x); pIF_primary_address_type = primary_address_type_of_rpc (List.assoc "primary_address_type" x); pIF_managed = bool_of_rpc (List.assoc "managed" x); pIF_properties = string_to_string_map_of_rpc (List.assoc "properties" x); pIF_capabilities = string_set_of_rpc (List.assoc "capabilities" x) }) x
-type ref_PIF_to_pIF_t_map = (ref_PIF * pIF_t) list with rpc
-type pIF_t_set = pIF_t list with rpc
+type pIF_t = { pIF_uuid : string; pIF_device : string; pIF_network : ref_network; pIF_host : ref_host; pIF_MAC : string; pIF_MTU : int64; pIF_VLAN : int64; pIF_device_name : string; pIF_metrics : ref_PIF_metrics; pIF_physical : bool; pIF_currently_attached : bool; pIF_ip_configuration_mode : ip_configuration_mode; pIF_IP : string; pIF_netmask : string; pIF_gateway : string; pIF_DNS : string; pIF_bond_slave_of : ref_Bond; pIF_bond_master_of : ref_Bond_set; pIF_VLAN_master_of : ref_VLAN; pIF_VLAN_slave_of : ref_VLAN_set; pIF_management : bool; pIF_other_config : string_to_string_map; pIF_disallow_unplug : bool; pIF_tunnel_access_PIF_of : ref_tunnel_set; pIF_tunnel_transport_PIF_of : ref_tunnel_set; pIF_ipv6_configuration_mode : ipv6_configuration_mode; pIF_IPv6 : string_set; pIF_ipv6_gateway : string; pIF_primary_address_type : primary_address_type; pIF_managed : bool; pIF_properties : string_to_string_map; pIF_capabilities : string_set }
+let rpc_of_pIF_t x = Rpc.Dict [ "uuid",rpc_of_string x.pIF_uuid; "device",rpc_of_string x.pIF_device; "network",rpc_of_ref_network x.pIF_network; "host",rpc_of_ref_host x.pIF_host; "MAC",rpc_of_string x.pIF_MAC; "MTU",rpc_of_int64 x.pIF_MTU; "VLAN",rpc_of_int64 x.pIF_VLAN; "device_name",rpc_of_string x.pIF_device_name; "metrics",rpc_of_ref_PIF_metrics x.pIF_metrics; "physical",rpc_of_bool x.pIF_physical; "currently_attached",rpc_of_bool x.pIF_currently_attached; "ip_configuration_mode",rpc_of_ip_configuration_mode x.pIF_ip_configuration_mode; "IP",rpc_of_string x.pIF_IP; "netmask",rpc_of_string x.pIF_netmask; "gateway",rpc_of_string x.pIF_gateway; "DNS",rpc_of_string x.pIF_DNS; "bond_slave_of",rpc_of_ref_Bond x.pIF_bond_slave_of; "bond_master_of",rpc_of_ref_Bond_set x.pIF_bond_master_of; "VLAN_master_of",rpc_of_ref_VLAN x.pIF_VLAN_master_of; "VLAN_slave_of",rpc_of_ref_VLAN_set x.pIF_VLAN_slave_of; "management",rpc_of_bool x.pIF_management; "other_config",rpc_of_string_to_string_map x.pIF_other_config; "disallow_unplug",rpc_of_bool x.pIF_disallow_unplug; "tunnel_access_PIF_of",rpc_of_ref_tunnel_set x.pIF_tunnel_access_PIF_of; "tunnel_transport_PIF_of",rpc_of_ref_tunnel_set x.pIF_tunnel_transport_PIF_of; "ipv6_configuration_mode",rpc_of_ipv6_configuration_mode x.pIF_ipv6_configuration_mode; "IPv6",rpc_of_string_set x.pIF_IPv6; "ipv6_gateway",rpc_of_string x.pIF_ipv6_gateway; "primary_address_type",rpc_of_primary_address_type x.pIF_primary_address_type; "managed",rpc_of_bool x.pIF_managed; "properties",rpc_of_string_to_string_map x.pIF_properties; "capabilities",rpc_of_string_set x.pIF_capabilities ]
+let pIF_t_of_rpc x = on_dict (fun x -> { pIF_uuid = string_of_rpc (List.assoc "uuid" x); pIF_device = string_of_rpc (List.assoc "device" x); pIF_network = ref_network_of_rpc (List.assoc "network" x); pIF_host = ref_host_of_rpc (List.assoc "host" x); pIF_MAC = string_of_rpc (List.assoc "MAC" x); pIF_MTU = int64_of_rpc (List.assoc "MTU" x); pIF_VLAN = int64_of_rpc (List.assoc "VLAN" x); pIF_device_name = string_of_rpc (List.assoc "device_name" x); pIF_metrics = ref_PIF_metrics_of_rpc (List.assoc "metrics" x); pIF_physical = bool_of_rpc (List.assoc "physical" x); pIF_currently_attached = bool_of_rpc (List.assoc "currently_attached" x); pIF_ip_configuration_mode = ip_configuration_mode_of_rpc (List.assoc "ip_configuration_mode" x); pIF_IP = string_of_rpc (List.assoc "IP" x); pIF_netmask = string_of_rpc (List.assoc "netmask" x); pIF_gateway = string_of_rpc (List.assoc "gateway" x); pIF_DNS = string_of_rpc (List.assoc "DNS" x); pIF_bond_slave_of = ref_Bond_of_rpc (List.assoc "bond_slave_of" x); pIF_bond_master_of = ref_Bond_set_of_rpc (List.assoc "bond_master_of" x); pIF_VLAN_master_of = ref_VLAN_of_rpc (List.assoc "VLAN_master_of" x); pIF_VLAN_slave_of = ref_VLAN_set_of_rpc (List.assoc "VLAN_slave_of" x); pIF_management = bool_of_rpc (List.assoc "management" x); pIF_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); pIF_disallow_unplug = bool_of_rpc (List.assoc "disallow_unplug" x); pIF_tunnel_access_PIF_of = ref_tunnel_set_of_rpc (List.assoc "tunnel_access_PIF_of" x); pIF_tunnel_transport_PIF_of = ref_tunnel_set_of_rpc (List.assoc "tunnel_transport_PIF_of" x); pIF_ipv6_configuration_mode = ipv6_configuration_mode_of_rpc (List.assoc "ipv6_configuration_mode" x); pIF_IPv6 = string_set_of_rpc (List.assoc "IPv6" x); pIF_ipv6_gateway = string_of_rpc (List.assoc "ipv6_gateway" x); pIF_primary_address_type = primary_address_type_of_rpc (List.assoc "primary_address_type" x); pIF_managed = bool_of_rpc (List.assoc "managed" x); pIF_properties = string_to_string_map_of_rpc (List.assoc "properties" x); pIF_capabilities = string_set_of_rpc (List.assoc "capabilities" x) }) x
+type ref_PIF_to_pIF_t_map = (ref_PIF * pIF_t) list [@@deriving rpc]
+type pIF_t_set = pIF_t list [@@deriving rpc]
 
 type vIF_metrics_t = { vIF_metrics_uuid : string; vIF_metrics_io_read_kbs : float; vIF_metrics_io_write_kbs : float; vIF_metrics_last_updated : datetime; vIF_metrics_other_config : string_to_string_map }
 let rpc_of_vIF_metrics_t x = Rpc.Dict [ "uuid",rpc_of_string x.vIF_metrics_uuid; "io_read_kbs",rpc_of_float x.vIF_metrics_io_read_kbs; "io_write_kbs",rpc_of_float x.vIF_metrics_io_write_kbs; "last_updated",rpc_of_datetime x.vIF_metrics_last_updated; "other_config",rpc_of_string_to_string_map x.vIF_metrics_other_config ]
 let vIF_metrics_t_of_rpc x = on_dict (fun x -> { vIF_metrics_uuid = string_of_rpc (List.assoc "uuid" x); vIF_metrics_io_read_kbs = float_of_rpc (List.assoc "io_read_kbs" x); vIF_metrics_io_write_kbs = float_of_rpc (List.assoc "io_write_kbs" x); vIF_metrics_last_updated = datetime_of_rpc (List.assoc "last_updated" x); vIF_metrics_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
-type ref_VIF_metrics_to_vIF_metrics_t_map = (ref_VIF_metrics * vIF_metrics_t) list with rpc
-type vIF_metrics_t_set = vIF_metrics_t list with rpc
+type ref_VIF_metrics_to_vIF_metrics_t_map = (ref_VIF_metrics * vIF_metrics_t) list [@@deriving rpc]
+type vIF_metrics_t_set = vIF_metrics_t list [@@deriving rpc]
 
-type vIF_t = { vIF_uuid : string; vIF_allowed_operations : vif_operations_set; vIF_current_operations : string_to_vif_operations_map; vIF_device : string; vIF_network : ref_network; vIF_VM : ref_VM; vIF_MAC : string; vIF_MTU : int64; vIF_other_config : string_to_string_map; vIF_currently_attached : bool; vIF_status_code : int64; vIF_status_detail : string; vIF_runtime_properties : string_to_string_map; vIF_qos_algorithm_type : string; vIF_qos_algorithm_params : string_to_string_map; vIF_qos_supported_algorithms : string_set; vIF_metrics : ref_VIF_metrics; vIF_MAC_autogenerated : bool; vIF_locking_mode : vif_locking_mode; vIF_ipv4_allowed : string_set; vIF_ipv6_allowed : string_set; vIF_ipv4_configuration_mode : vif_ipv4_configuration_mode; vIF_ipv4_addresses : string_set; vIF_ipv4_gateway : string; vIF_ipv6_configuration_mode : vif_ipv6_configuration_mode; vIF_ipv6_addresses : string_set; vIF_ipv6_gateway : string }
-let rpc_of_vIF_t x = Rpc.Dict [ "uuid",rpc_of_string x.vIF_uuid; "allowed_operations",rpc_of_vif_operations_set x.vIF_allowed_operations; "current_operations",rpc_of_string_to_vif_operations_map x.vIF_current_operations; "device",rpc_of_string x.vIF_device; "network",rpc_of_ref_network x.vIF_network; "VM",rpc_of_ref_VM x.vIF_VM; "MAC",rpc_of_string x.vIF_MAC; "MTU",rpc_of_int64 x.vIF_MTU; "other_config",rpc_of_string_to_string_map x.vIF_other_config; "currently_attached",rpc_of_bool x.vIF_currently_attached; "status_code",rpc_of_int64 x.vIF_status_code; "status_detail",rpc_of_string x.vIF_status_detail; "runtime_properties",rpc_of_string_to_string_map x.vIF_runtime_properties; "qos_algorithm_type",rpc_of_string x.vIF_qos_algorithm_type; "qos_algorithm_params",rpc_of_string_to_string_map x.vIF_qos_algorithm_params; "qos_supported_algorithms",rpc_of_string_set x.vIF_qos_supported_algorithms; "metrics",rpc_of_ref_VIF_metrics x.vIF_metrics; "MAC_autogenerated",rpc_of_bool x.vIF_MAC_autogenerated; "locking_mode",rpc_of_vif_locking_mode x.vIF_locking_mode; "ipv4_allowed",rpc_of_string_set x.vIF_ipv4_allowed; "ipv6_allowed",rpc_of_string_set x.vIF_ipv6_allowed; "ipv4_configuration_mode",rpc_of_vif_ipv4_configuration_mode x.vIF_ipv4_configuration_mode; "ipv4_addresses",rpc_of_string_set x.vIF_ipv4_addresses; "ipv4_gateway",rpc_of_string x.vIF_ipv4_gateway; "ipv6_configuration_mode",rpc_of_vif_ipv6_configuration_mode x.vIF_ipv6_configuration_mode; "ipv6_addresses",rpc_of_string_set x.vIF_ipv6_addresses; "ipv6_gateway",rpc_of_string x.vIF_ipv6_gateway ]
-let vIF_t_of_rpc x = on_dict (fun x -> { vIF_uuid = string_of_rpc (List.assoc "uuid" x); vIF_allowed_operations = vif_operations_set_of_rpc (List.assoc "allowed_operations" x); vIF_current_operations = string_to_vif_operations_map_of_rpc (List.assoc "current_operations" x); vIF_device = string_of_rpc (List.assoc "device" x); vIF_network = ref_network_of_rpc (List.assoc "network" x); vIF_VM = ref_VM_of_rpc (List.assoc "VM" x); vIF_MAC = string_of_rpc (List.assoc "MAC" x); vIF_MTU = int64_of_rpc (List.assoc "MTU" x); vIF_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); vIF_currently_attached = bool_of_rpc (List.assoc "currently_attached" x); vIF_status_code = int64_of_rpc (List.assoc "status_code" x); vIF_status_detail = string_of_rpc (List.assoc "status_detail" x); vIF_runtime_properties = string_to_string_map_of_rpc (List.assoc "runtime_properties" x); vIF_qos_algorithm_type = string_of_rpc (List.assoc "qos_algorithm_type" x); vIF_qos_algorithm_params = string_to_string_map_of_rpc (List.assoc "qos_algorithm_params" x); vIF_qos_supported_algorithms = string_set_of_rpc (List.assoc "qos_supported_algorithms" x); vIF_metrics = ref_VIF_metrics_of_rpc (List.assoc "metrics" x); vIF_MAC_autogenerated = bool_of_rpc (List.assoc "MAC_autogenerated" x); vIF_locking_mode = vif_locking_mode_of_rpc (List.assoc "locking_mode" x); vIF_ipv4_allowed = string_set_of_rpc (List.assoc "ipv4_allowed" x); vIF_ipv6_allowed = string_set_of_rpc (List.assoc "ipv6_allowed" x); vIF_ipv4_configuration_mode = vif_ipv4_configuration_mode_of_rpc (List.assoc "ipv4_configuration_mode" x); vIF_ipv4_addresses = string_set_of_rpc (List.assoc "ipv4_addresses" x); vIF_ipv4_gateway = string_of_rpc (List.assoc "ipv4_gateway" x); vIF_ipv6_configuration_mode = vif_ipv6_configuration_mode_of_rpc (List.assoc "ipv6_configuration_mode" x); vIF_ipv6_addresses = string_set_of_rpc (List.assoc "ipv6_addresses" x); vIF_ipv6_gateway = string_of_rpc (List.assoc "ipv6_gateway" x) }) x
-type ref_VIF_to_vIF_t_map = (ref_VIF * vIF_t) list with rpc
-type vIF_t_set = vIF_t list with rpc
+type vIF_t = { vIF_uuid : string; vIF_allowed_operations : vif_operations_set; vIF_current_operations : string_to_vif_operations_map; vIF_device : string; vIF_network : ref_network; vIF_VM : ref_VM; vIF_MAC : string; vIF_MTU : int64; vIF_reserved : bool; vIF_other_config : string_to_string_map; vIF_currently_attached : bool; vIF_status_code : int64; vIF_status_detail : string; vIF_runtime_properties : string_to_string_map; vIF_qos_algorithm_type : string; vIF_qos_algorithm_params : string_to_string_map; vIF_qos_supported_algorithms : string_set; vIF_metrics : ref_VIF_metrics; vIF_MAC_autogenerated : bool; vIF_locking_mode : vif_locking_mode; vIF_ipv4_allowed : string_set; vIF_ipv6_allowed : string_set; vIF_ipv4_configuration_mode : vif_ipv4_configuration_mode; vIF_ipv4_addresses : string_set; vIF_ipv4_gateway : string; vIF_ipv6_configuration_mode : vif_ipv6_configuration_mode; vIF_ipv6_addresses : string_set; vIF_ipv6_gateway : string }
+let rpc_of_vIF_t x = Rpc.Dict [ "uuid",rpc_of_string x.vIF_uuid; "allowed_operations",rpc_of_vif_operations_set x.vIF_allowed_operations; "current_operations",rpc_of_string_to_vif_operations_map x.vIF_current_operations; "device",rpc_of_string x.vIF_device; "network",rpc_of_ref_network x.vIF_network; "VM",rpc_of_ref_VM x.vIF_VM; "MAC",rpc_of_string x.vIF_MAC; "MTU",rpc_of_int64 x.vIF_MTU; "reserved",rpc_of_bool x.vIF_reserved; "other_config",rpc_of_string_to_string_map x.vIF_other_config; "currently_attached",rpc_of_bool x.vIF_currently_attached; "status_code",rpc_of_int64 x.vIF_status_code; "status_detail",rpc_of_string x.vIF_status_detail; "runtime_properties",rpc_of_string_to_string_map x.vIF_runtime_properties; "qos_algorithm_type",rpc_of_string x.vIF_qos_algorithm_type; "qos_algorithm_params",rpc_of_string_to_string_map x.vIF_qos_algorithm_params; "qos_supported_algorithms",rpc_of_string_set x.vIF_qos_supported_algorithms; "metrics",rpc_of_ref_VIF_metrics x.vIF_metrics; "MAC_autogenerated",rpc_of_bool x.vIF_MAC_autogenerated; "locking_mode",rpc_of_vif_locking_mode x.vIF_locking_mode; "ipv4_allowed",rpc_of_string_set x.vIF_ipv4_allowed; "ipv6_allowed",rpc_of_string_set x.vIF_ipv6_allowed; "ipv4_configuration_mode",rpc_of_vif_ipv4_configuration_mode x.vIF_ipv4_configuration_mode; "ipv4_addresses",rpc_of_string_set x.vIF_ipv4_addresses; "ipv4_gateway",rpc_of_string x.vIF_ipv4_gateway; "ipv6_configuration_mode",rpc_of_vif_ipv6_configuration_mode x.vIF_ipv6_configuration_mode; "ipv6_addresses",rpc_of_string_set x.vIF_ipv6_addresses; "ipv6_gateway",rpc_of_string x.vIF_ipv6_gateway ]
+let vIF_t_of_rpc x = on_dict (fun x -> { vIF_uuid = string_of_rpc (List.assoc "uuid" x); vIF_allowed_operations = vif_operations_set_of_rpc (List.assoc "allowed_operations" x); vIF_current_operations = string_to_vif_operations_map_of_rpc (List.assoc "current_operations" x); vIF_device = string_of_rpc (List.assoc "device" x); vIF_network = ref_network_of_rpc (List.assoc "network" x); vIF_VM = ref_VM_of_rpc (List.assoc "VM" x); vIF_MAC = string_of_rpc (List.assoc "MAC" x); vIF_MTU = int64_of_rpc (List.assoc "MTU" x); vIF_reserved = bool_of_rpc (List.assoc "reserved" x); vIF_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); vIF_currently_attached = bool_of_rpc (List.assoc "currently_attached" x); vIF_status_code = int64_of_rpc (List.assoc "status_code" x); vIF_status_detail = string_of_rpc (List.assoc "status_detail" x); vIF_runtime_properties = string_to_string_map_of_rpc (List.assoc "runtime_properties" x); vIF_qos_algorithm_type = string_of_rpc (List.assoc "qos_algorithm_type" x); vIF_qos_algorithm_params = string_to_string_map_of_rpc (List.assoc "qos_algorithm_params" x); vIF_qos_supported_algorithms = string_set_of_rpc (List.assoc "qos_supported_algorithms" x); vIF_metrics = ref_VIF_metrics_of_rpc (List.assoc "metrics" x); vIF_MAC_autogenerated = bool_of_rpc (List.assoc "MAC_autogenerated" x); vIF_locking_mode = vif_locking_mode_of_rpc (List.assoc "locking_mode" x); vIF_ipv4_allowed = string_set_of_rpc (List.assoc "ipv4_allowed" x); vIF_ipv6_allowed = string_set_of_rpc (List.assoc "ipv6_allowed" x); vIF_ipv4_configuration_mode = vif_ipv4_configuration_mode_of_rpc (List.assoc "ipv4_configuration_mode" x); vIF_ipv4_addresses = string_set_of_rpc (List.assoc "ipv4_addresses" x); vIF_ipv4_gateway = string_of_rpc (List.assoc "ipv4_gateway" x); vIF_ipv6_configuration_mode = vif_ipv6_configuration_mode_of_rpc (List.assoc "ipv6_configuration_mode" x); vIF_ipv6_addresses = string_set_of_rpc (List.assoc "ipv6_addresses" x); vIF_ipv6_gateway = string_of_rpc (List.assoc "ipv6_gateway" x) }) x
+type ref_VIF_to_vIF_t_map = (ref_VIF * vIF_t) list [@@deriving rpc]
+type vIF_t_set = vIF_t list [@@deriving rpc]
 
-type network_t = { network_uuid : string; network_name_label : string; network_name_description : string; network_allowed_operations : network_operations_set; network_current_operations : string_to_network_operations_map; network_VIFs : ref_VIF_set; network_PIFs : ref_PIF_set; network_MTU : int64; network_other_config : string_to_string_map; network_bridge : string; network_blobs : string_to_ref_blob_map; network_tags : string_set; network_default_locking_mode : network_default_locking_mode; network_assigned_ips : ref_VIF_to_string_map }
-let rpc_of_network_t x = Rpc.Dict [ "uuid",rpc_of_string x.network_uuid; "name_label",rpc_of_string x.network_name_label; "name_description",rpc_of_string x.network_name_description; "allowed_operations",rpc_of_network_operations_set x.network_allowed_operations; "current_operations",rpc_of_string_to_network_operations_map x.network_current_operations; "VIFs",rpc_of_ref_VIF_set x.network_VIFs; "PIFs",rpc_of_ref_PIF_set x.network_PIFs; "MTU",rpc_of_int64 x.network_MTU; "other_config",rpc_of_string_to_string_map x.network_other_config; "bridge",rpc_of_string x.network_bridge; "blobs",rpc_of_string_to_ref_blob_map x.network_blobs; "tags",rpc_of_string_set x.network_tags; "default_locking_mode",rpc_of_network_default_locking_mode x.network_default_locking_mode; "assigned_ips",rpc_of_ref_VIF_to_string_map x.network_assigned_ips ]
-let network_t_of_rpc x = on_dict (fun x -> { network_uuid = string_of_rpc (List.assoc "uuid" x); network_name_label = string_of_rpc (List.assoc "name_label" x); network_name_description = string_of_rpc (List.assoc "name_description" x); network_allowed_operations = network_operations_set_of_rpc (List.assoc "allowed_operations" x); network_current_operations = string_to_network_operations_map_of_rpc (List.assoc "current_operations" x); network_VIFs = ref_VIF_set_of_rpc (List.assoc "VIFs" x); network_PIFs = ref_PIF_set_of_rpc (List.assoc "PIFs" x); network_MTU = int64_of_rpc (List.assoc "MTU" x); network_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); network_bridge = string_of_rpc (List.assoc "bridge" x); network_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); network_tags = string_set_of_rpc (List.assoc "tags" x); network_default_locking_mode = network_default_locking_mode_of_rpc (List.assoc "default_locking_mode" x); network_assigned_ips = ref_VIF_to_string_map_of_rpc (List.assoc "assigned_ips" x) }) x
-type ref_network_to_network_t_map = (ref_network * network_t) list with rpc
-type network_t_set = network_t list with rpc
+type network_t = { network_uuid : string; network_name_label : string; network_name_description : string; network_allowed_operations : network_operations_set; network_current_operations : string_to_network_operations_map; network_VIFs : ref_VIF_set; network_PIFs : ref_PIF_set; network_MTU : int64; network_other_config : string_to_string_map; network_bridge : string; network_managed : bool; network_blobs : string_to_ref_blob_map; network_tags : string_set; network_default_locking_mode : network_default_locking_mode; network_assigned_ips : ref_VIF_to_string_map }
+let rpc_of_network_t x = Rpc.Dict [ "uuid",rpc_of_string x.network_uuid; "name_label",rpc_of_string x.network_name_label; "name_description",rpc_of_string x.network_name_description; "allowed_operations",rpc_of_network_operations_set x.network_allowed_operations; "current_operations",rpc_of_string_to_network_operations_map x.network_current_operations; "VIFs",rpc_of_ref_VIF_set x.network_VIFs; "PIFs",rpc_of_ref_PIF_set x.network_PIFs; "MTU",rpc_of_int64 x.network_MTU; "other_config",rpc_of_string_to_string_map x.network_other_config; "bridge",rpc_of_string x.network_bridge; "managed",rpc_of_bool x.network_managed; "blobs",rpc_of_string_to_ref_blob_map x.network_blobs; "tags",rpc_of_string_set x.network_tags; "default_locking_mode",rpc_of_network_default_locking_mode x.network_default_locking_mode; "assigned_ips",rpc_of_ref_VIF_to_string_map x.network_assigned_ips ]
+let network_t_of_rpc x = on_dict (fun x -> { network_uuid = string_of_rpc (List.assoc "uuid" x); network_name_label = string_of_rpc (List.assoc "name_label" x); network_name_description = string_of_rpc (List.assoc "name_description" x); network_allowed_operations = network_operations_set_of_rpc (List.assoc "allowed_operations" x); network_current_operations = string_to_network_operations_map_of_rpc (List.assoc "current_operations" x); network_VIFs = ref_VIF_set_of_rpc (List.assoc "VIFs" x); network_PIFs = ref_PIF_set_of_rpc (List.assoc "PIFs" x); network_MTU = int64_of_rpc (List.assoc "MTU" x); network_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); network_bridge = string_of_rpc (List.assoc "bridge" x); network_managed = bool_of_rpc (List.assoc "managed" x); network_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); network_tags = string_set_of_rpc (List.assoc "tags" x); network_default_locking_mode = network_default_locking_mode_of_rpc (List.assoc "default_locking_mode" x); network_assigned_ips = ref_VIF_to_string_map_of_rpc (List.assoc "assigned_ips" x) }) x
+type ref_network_to_network_t_map = (ref_network * network_t) list [@@deriving rpc]
+type network_t_set = network_t list [@@deriving rpc]
 
 type host_cpu_t = { host_cpu_uuid : string; host_cpu_host : ref_host; host_cpu_number : int64; host_cpu_vendor : string; host_cpu_speed : int64; host_cpu_modelname : string; host_cpu_family : int64; host_cpu_model : int64; host_cpu_stepping : string; host_cpu_flags : string; host_cpu_features : string; host_cpu_utilisation : float; host_cpu_other_config : string_to_string_map }
 let rpc_of_host_cpu_t x = Rpc.Dict [ "uuid",rpc_of_string x.host_cpu_uuid; "host",rpc_of_ref_host x.host_cpu_host; "number",rpc_of_int64 x.host_cpu_number; "vendor",rpc_of_string x.host_cpu_vendor; "speed",rpc_of_int64 x.host_cpu_speed; "modelname",rpc_of_string x.host_cpu_modelname; "family",rpc_of_int64 x.host_cpu_family; "model",rpc_of_int64 x.host_cpu_model; "stepping",rpc_of_string x.host_cpu_stepping; "flags",rpc_of_string x.host_cpu_flags; "features",rpc_of_string x.host_cpu_features; "utilisation",rpc_of_float x.host_cpu_utilisation; "other_config",rpc_of_string_to_string_map x.host_cpu_other_config ]
 let host_cpu_t_of_rpc x = on_dict (fun x -> { host_cpu_uuid = string_of_rpc (List.assoc "uuid" x); host_cpu_host = ref_host_of_rpc (List.assoc "host" x); host_cpu_number = int64_of_rpc (List.assoc "number" x); host_cpu_vendor = string_of_rpc (List.assoc "vendor" x); host_cpu_speed = int64_of_rpc (List.assoc "speed" x); host_cpu_modelname = string_of_rpc (List.assoc "modelname" x); host_cpu_family = int64_of_rpc (List.assoc "family" x); host_cpu_model = int64_of_rpc (List.assoc "model" x); host_cpu_stepping = string_of_rpc (List.assoc "stepping" x); host_cpu_flags = string_of_rpc (List.assoc "flags" x); host_cpu_features = string_of_rpc (List.assoc "features" x); host_cpu_utilisation = float_of_rpc (List.assoc "utilisation" x); host_cpu_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
-type ref_host_cpu_to_host_cpu_t_map = (ref_host_cpu * host_cpu_t) list with rpc
-type host_cpu_t_set = host_cpu_t list with rpc
+type ref_host_cpu_to_host_cpu_t_map = (ref_host_cpu * host_cpu_t) list [@@deriving rpc]
+type host_cpu_t_set = host_cpu_t list [@@deriving rpc]
 
 type host_metrics_t = { host_metrics_uuid : string; host_metrics_memory_total : int64; host_metrics_memory_free : int64; host_metrics_live : bool; host_metrics_last_updated : datetime; host_metrics_other_config : string_to_string_map }
 let rpc_of_host_metrics_t x = Rpc.Dict [ "uuid",rpc_of_string x.host_metrics_uuid; "memory_total",rpc_of_int64 x.host_metrics_memory_total; "memory_free",rpc_of_int64 x.host_metrics_memory_free; "live",rpc_of_bool x.host_metrics_live; "last_updated",rpc_of_datetime x.host_metrics_last_updated; "other_config",rpc_of_string_to_string_map x.host_metrics_other_config ]
 let host_metrics_t_of_rpc x = on_dict (fun x -> { host_metrics_uuid = string_of_rpc (List.assoc "uuid" x); host_metrics_memory_total = int64_of_rpc (List.assoc "memory_total" x); host_metrics_memory_free = int64_of_rpc (List.assoc "memory_free" x); host_metrics_live = bool_of_rpc (List.assoc "live" x); host_metrics_last_updated = datetime_of_rpc (List.assoc "last_updated" x); host_metrics_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
-type ref_host_metrics_to_host_metrics_t_map = (ref_host_metrics * host_metrics_t) list with rpc
-type host_metrics_t_set = host_metrics_t list with rpc
+type ref_host_metrics_to_host_metrics_t_map = (ref_host_metrics * host_metrics_t) list [@@deriving rpc]
+type host_metrics_t_set = host_metrics_t list [@@deriving rpc]
 
-type host_patch_t = { host_patch_uuid : string; host_patch_name_label : string; host_patch_name_description : string; host_patch_version : string; host_patch_host : ref_host; host_patch_applied : bool; host_patch_timestamp_applied : datetime; host_patch_size : int64; host_patch_pool_patch : ref_pool_patch; host_patch_other_config : string_to_string_map }
-let rpc_of_host_patch_t x = Rpc.Dict [ "uuid",rpc_of_string x.host_patch_uuid; "name_label",rpc_of_string x.host_patch_name_label; "name_description",rpc_of_string x.host_patch_name_description; "version",rpc_of_string x.host_patch_version; "host",rpc_of_ref_host x.host_patch_host; "applied",rpc_of_bool x.host_patch_applied; "timestamp_applied",rpc_of_datetime x.host_patch_timestamp_applied; "size",rpc_of_int64 x.host_patch_size; "pool_patch",rpc_of_ref_pool_patch x.host_patch_pool_patch; "other_config",rpc_of_string_to_string_map x.host_patch_other_config ]
-let host_patch_t_of_rpc x = on_dict (fun x -> { host_patch_uuid = string_of_rpc (List.assoc "uuid" x); host_patch_name_label = string_of_rpc (List.assoc "name_label" x); host_patch_name_description = string_of_rpc (List.assoc "name_description" x); host_patch_version = string_of_rpc (List.assoc "version" x); host_patch_host = ref_host_of_rpc (List.assoc "host" x); host_patch_applied = bool_of_rpc (List.assoc "applied" x); host_patch_timestamp_applied = datetime_of_rpc (List.assoc "timestamp_applied" x); host_patch_size = int64_of_rpc (List.assoc "size" x); host_patch_pool_patch = ref_pool_patch_of_rpc (List.assoc "pool_patch" x); host_patch_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
-type ref_host_patch_to_host_patch_t_map = (ref_host_patch * host_patch_t) list with rpc
-type host_patch_t_set = host_patch_t list with rpc
+type host_patch_t = { host_patch_uuid : string; host_patch_name_label : string; host_patch_name_description : string; host_patch_version : string; host_patch_host : ref_host; host_patch_filename : string; host_patch_applied : bool; host_patch_timestamp_applied : datetime; host_patch_size : int64; host_patch_pool_patch : ref_pool_patch; host_patch_other_config : string_to_string_map }
+let rpc_of_host_patch_t x = Rpc.Dict [ "uuid",rpc_of_string x.host_patch_uuid; "name_label",rpc_of_string x.host_patch_name_label; "name_description",rpc_of_string x.host_patch_name_description; "version",rpc_of_string x.host_patch_version; "host",rpc_of_ref_host x.host_patch_host; "filename",rpc_of_string x.host_patch_filename; "applied",rpc_of_bool x.host_patch_applied; "timestamp_applied",rpc_of_datetime x.host_patch_timestamp_applied; "size",rpc_of_int64 x.host_patch_size; "pool_patch",rpc_of_ref_pool_patch x.host_patch_pool_patch; "other_config",rpc_of_string_to_string_map x.host_patch_other_config ]
+let host_patch_t_of_rpc x = on_dict (fun x -> { host_patch_uuid = string_of_rpc (List.assoc "uuid" x); host_patch_name_label = string_of_rpc (List.assoc "name_label" x); host_patch_name_description = string_of_rpc (List.assoc "name_description" x); host_patch_version = string_of_rpc (List.assoc "version" x); host_patch_host = ref_host_of_rpc (List.assoc "host" x); host_patch_filename = string_of_rpc (List.assoc "filename" x); host_patch_applied = bool_of_rpc (List.assoc "applied" x); host_patch_timestamp_applied = datetime_of_rpc (List.assoc "timestamp_applied" x); host_patch_size = int64_of_rpc (List.assoc "size" x); host_patch_pool_patch = ref_pool_patch_of_rpc (List.assoc "pool_patch" x); host_patch_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
+type ref_host_patch_to_host_patch_t_map = (ref_host_patch * host_patch_t) list [@@deriving rpc]
+type host_patch_t_set = host_patch_t list [@@deriving rpc]
 
-type host_crashdump_t = { host_crashdump_uuid : string; host_crashdump_host : ref_host; host_crashdump_timestamp : datetime; host_crashdump_size : int64; host_crashdump_other_config : string_to_string_map }
-let rpc_of_host_crashdump_t x = Rpc.Dict [ "uuid",rpc_of_string x.host_crashdump_uuid; "host",rpc_of_ref_host x.host_crashdump_host; "timestamp",rpc_of_datetime x.host_crashdump_timestamp; "size",rpc_of_int64 x.host_crashdump_size; "other_config",rpc_of_string_to_string_map x.host_crashdump_other_config ]
-let host_crashdump_t_of_rpc x = on_dict (fun x -> { host_crashdump_uuid = string_of_rpc (List.assoc "uuid" x); host_crashdump_host = ref_host_of_rpc (List.assoc "host" x); host_crashdump_timestamp = datetime_of_rpc (List.assoc "timestamp" x); host_crashdump_size = int64_of_rpc (List.assoc "size" x); host_crashdump_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
-type ref_host_crashdump_to_host_crashdump_t_map = (ref_host_crashdump * host_crashdump_t) list with rpc
-type host_crashdump_t_set = host_crashdump_t list with rpc
+type host_crashdump_t = { host_crashdump_uuid : string; host_crashdump_host : ref_host; host_crashdump_timestamp : datetime; host_crashdump_size : int64; host_crashdump_filename : string; host_crashdump_other_config : string_to_string_map }
+let rpc_of_host_crashdump_t x = Rpc.Dict [ "uuid",rpc_of_string x.host_crashdump_uuid; "host",rpc_of_ref_host x.host_crashdump_host; "timestamp",rpc_of_datetime x.host_crashdump_timestamp; "size",rpc_of_int64 x.host_crashdump_size; "filename",rpc_of_string x.host_crashdump_filename; "other_config",rpc_of_string_to_string_map x.host_crashdump_other_config ]
+let host_crashdump_t_of_rpc x = on_dict (fun x -> { host_crashdump_uuid = string_of_rpc (List.assoc "uuid" x); host_crashdump_host = ref_host_of_rpc (List.assoc "host" x); host_crashdump_timestamp = datetime_of_rpc (List.assoc "timestamp" x); host_crashdump_size = int64_of_rpc (List.assoc "size" x); host_crashdump_filename = string_of_rpc (List.assoc "filename" x); host_crashdump_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
+type ref_host_crashdump_to_host_crashdump_t_map = (ref_host_crashdump * host_crashdump_t) list [@@deriving rpc]
+type host_crashdump_t_set = host_crashdump_t list [@@deriving rpc]
 
-type host_t = { host_uuid : string; host_name_label : string; host_name_description : string; host_memory_overhead : int64; host_allowed_operations : host_allowed_operations_set; host_current_operations : string_to_host_allowed_operations_map; host_API_version_major : int64; host_API_version_minor : int64; host_API_version_vendor : string; host_API_version_vendor_implementation : string_to_string_map; host_enabled : bool; host_software_version : string_to_string_map; host_other_config : string_to_string_map; host_capabilities : string_set; host_cpu_configuration : string_to_string_map; host_sched_policy : string; host_supported_bootloaders : string_set; host_resident_VMs : ref_VM_set; host_logging : string_to_string_map; host_PIFs : ref_PIF_set; host_suspend_image_sr : ref_SR; host_crash_dump_sr : ref_SR; host_crashdumps : ref_host_crashdump_set; host_patches : ref_host_patch_set; host_PBDs : ref_PBD_set; host_host_CPUs : ref_host_cpu_set; host_cpu_info : string_to_string_map; host_hostname : string; host_address : string; host_metrics : ref_host_metrics; host_license_params : string_to_string_map; host_ha_statefiles : string_set; host_ha_network_peers : string_set; host_blobs : string_to_ref_blob_map; host_tags : string_set; host_external_auth_type : string; host_external_auth_service_name : string; host_external_auth_configuration : string_to_string_map; host_edition : string; host_license_server : string_to_string_map; host_bios_strings : string_to_string_map; host_power_on_mode : string; host_power_on_config : string_to_string_map; host_local_cache_sr : ref_SR; host_chipset_info : string_to_string_map; host_PCIs : ref_PCI_set; host_PGPUs : ref_PGPU_set; host_ssl_legacy : bool; host_guest_VCPUs_params : string_to_string_map; host_display : host_display; host_virtual_hardware_platform_versions : int64_set; host_control_domain : ref_VM }
-let rpc_of_host_t x = Rpc.Dict [ "uuid",rpc_of_string x.host_uuid; "name_label",rpc_of_string x.host_name_label; "name_description",rpc_of_string x.host_name_description; "memory_overhead",rpc_of_int64 x.host_memory_overhead; "allowed_operations",rpc_of_host_allowed_operations_set x.host_allowed_operations; "current_operations",rpc_of_string_to_host_allowed_operations_map x.host_current_operations; "API_version_major",rpc_of_int64 x.host_API_version_major; "API_version_minor",rpc_of_int64 x.host_API_version_minor; "API_version_vendor",rpc_of_string x.host_API_version_vendor; "API_version_vendor_implementation",rpc_of_string_to_string_map x.host_API_version_vendor_implementation; "enabled",rpc_of_bool x.host_enabled; "software_version",rpc_of_string_to_string_map x.host_software_version; "other_config",rpc_of_string_to_string_map x.host_other_config; "capabilities",rpc_of_string_set x.host_capabilities; "cpu_configuration",rpc_of_string_to_string_map x.host_cpu_configuration; "sched_policy",rpc_of_string x.host_sched_policy; "supported_bootloaders",rpc_of_string_set x.host_supported_bootloaders; "resident_VMs",rpc_of_ref_VM_set x.host_resident_VMs; "logging",rpc_of_string_to_string_map x.host_logging; "PIFs",rpc_of_ref_PIF_set x.host_PIFs; "suspend_image_sr",rpc_of_ref_SR x.host_suspend_image_sr; "crash_dump_sr",rpc_of_ref_SR x.host_crash_dump_sr; "crashdumps",rpc_of_ref_host_crashdump_set x.host_crashdumps; "patches",rpc_of_ref_host_patch_set x.host_patches; "PBDs",rpc_of_ref_PBD_set x.host_PBDs; "host_CPUs",rpc_of_ref_host_cpu_set x.host_host_CPUs; "cpu_info",rpc_of_string_to_string_map x.host_cpu_info; "hostname",rpc_of_string x.host_hostname; "address",rpc_of_string x.host_address; "metrics",rpc_of_ref_host_metrics x.host_metrics; "license_params",rpc_of_string_to_string_map x.host_license_params; "ha_statefiles",rpc_of_string_set x.host_ha_statefiles; "ha_network_peers",rpc_of_string_set x.host_ha_network_peers; "blobs",rpc_of_string_to_ref_blob_map x.host_blobs; "tags",rpc_of_string_set x.host_tags; "external_auth_type",rpc_of_string x.host_external_auth_type; "external_auth_service_name",rpc_of_string x.host_external_auth_service_name; "external_auth_configuration",rpc_of_string_to_string_map x.host_external_auth_configuration; "edition",rpc_of_string x.host_edition; "license_server",rpc_of_string_to_string_map x.host_license_server; "bios_strings",rpc_of_string_to_string_map x.host_bios_strings; "power_on_mode",rpc_of_string x.host_power_on_mode; "power_on_config",rpc_of_string_to_string_map x.host_power_on_config; "local_cache_sr",rpc_of_ref_SR x.host_local_cache_sr; "chipset_info",rpc_of_string_to_string_map x.host_chipset_info; "PCIs",rpc_of_ref_PCI_set x.host_PCIs; "PGPUs",rpc_of_ref_PGPU_set x.host_PGPUs; "ssl_legacy",rpc_of_bool x.host_ssl_legacy; "guest_VCPUs_params",rpc_of_string_to_string_map x.host_guest_VCPUs_params; "display",rpc_of_host_display x.host_display; "virtual_hardware_platform_versions",rpc_of_int64_set x.host_virtual_hardware_platform_versions; "control_domain",rpc_of_ref_VM x.host_control_domain ]
-let host_t_of_rpc x = on_dict (fun x -> { host_uuid = string_of_rpc (List.assoc "uuid" x); host_name_label = string_of_rpc (List.assoc "name_label" x); host_name_description = string_of_rpc (List.assoc "name_description" x); host_memory_overhead = int64_of_rpc (List.assoc "memory_overhead" x); host_allowed_operations = host_allowed_operations_set_of_rpc (List.assoc "allowed_operations" x); host_current_operations = string_to_host_allowed_operations_map_of_rpc (List.assoc "current_operations" x); host_API_version_major = int64_of_rpc (List.assoc "API_version_major" x); host_API_version_minor = int64_of_rpc (List.assoc "API_version_minor" x); host_API_version_vendor = string_of_rpc (List.assoc "API_version_vendor" x); host_API_version_vendor_implementation = string_to_string_map_of_rpc (List.assoc "API_version_vendor_implementation" x); host_enabled = bool_of_rpc (List.assoc "enabled" x); host_software_version = string_to_string_map_of_rpc (List.assoc "software_version" x); host_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); host_capabilities = string_set_of_rpc (List.assoc "capabilities" x); host_cpu_configuration = string_to_string_map_of_rpc (List.assoc "cpu_configuration" x); host_sched_policy = string_of_rpc (List.assoc "sched_policy" x); host_supported_bootloaders = string_set_of_rpc (List.assoc "supported_bootloaders" x); host_resident_VMs = ref_VM_set_of_rpc (List.assoc "resident_VMs" x); host_logging = string_to_string_map_of_rpc (List.assoc "logging" x); host_PIFs = ref_PIF_set_of_rpc (List.assoc "PIFs" x); host_suspend_image_sr = ref_SR_of_rpc (List.assoc "suspend_image_sr" x); host_crash_dump_sr = ref_SR_of_rpc (List.assoc "crash_dump_sr" x); host_crashdumps = ref_host_crashdump_set_of_rpc (List.assoc "crashdumps" x); host_patches = ref_host_patch_set_of_rpc (List.assoc "patches" x); host_PBDs = ref_PBD_set_of_rpc (List.assoc "PBDs" x); host_host_CPUs = ref_host_cpu_set_of_rpc (List.assoc "host_CPUs" x); host_cpu_info = string_to_string_map_of_rpc (List.assoc "cpu_info" x); host_hostname = string_of_rpc (List.assoc "hostname" x); host_address = string_of_rpc (List.assoc "address" x); host_metrics = ref_host_metrics_of_rpc (List.assoc "metrics" x); host_license_params = string_to_string_map_of_rpc (List.assoc "license_params" x); host_ha_statefiles = string_set_of_rpc (List.assoc "ha_statefiles" x); host_ha_network_peers = string_set_of_rpc (List.assoc "ha_network_peers" x); host_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); host_tags = string_set_of_rpc (List.assoc "tags" x); host_external_auth_type = string_of_rpc (List.assoc "external_auth_type" x); host_external_auth_service_name = string_of_rpc (List.assoc "external_auth_service_name" x); host_external_auth_configuration = string_to_string_map_of_rpc (List.assoc "external_auth_configuration" x); host_edition = string_of_rpc (List.assoc "edition" x); host_license_server = string_to_string_map_of_rpc (List.assoc "license_server" x); host_bios_strings = string_to_string_map_of_rpc (List.assoc "bios_strings" x); host_power_on_mode = string_of_rpc (List.assoc "power_on_mode" x); host_power_on_config = string_to_string_map_of_rpc (List.assoc "power_on_config" x); host_local_cache_sr = ref_SR_of_rpc (List.assoc "local_cache_sr" x); host_chipset_info = string_to_string_map_of_rpc (List.assoc "chipset_info" x); host_PCIs = ref_PCI_set_of_rpc (List.assoc "PCIs" x); host_PGPUs = ref_PGPU_set_of_rpc (List.assoc "PGPUs" x); host_ssl_legacy = bool_of_rpc (List.assoc "ssl_legacy" x); host_guest_VCPUs_params = string_to_string_map_of_rpc (List.assoc "guest_VCPUs_params" x); host_display = host_display_of_rpc (List.assoc "display" x); host_virtual_hardware_platform_versions = int64_set_of_rpc (List.assoc "virtual_hardware_platform_versions" x); host_control_domain = ref_VM_of_rpc (List.assoc "control_domain" x) }) x
-type ref_host_to_host_t_map = (ref_host * host_t) list with rpc
-type host_t_set = host_t list with rpc
+type host_t = { host_uuid : string; host_name_label : string; host_name_description : string; host_memory_overhead : int64; host_allowed_operations : host_allowed_operations_set; host_current_operations : string_to_host_allowed_operations_map; host_API_version_major : int64; host_API_version_minor : int64; host_API_version_vendor : string; host_API_version_vendor_implementation : string_to_string_map; host_enabled : bool; host_software_version : string_to_string_map; host_other_config : string_to_string_map; host_capabilities : string_set; host_cpu_configuration : string_to_string_map; host_sched_policy : string; host_supported_bootloaders : string_set; host_resident_VMs : ref_VM_set; host_logging : string_to_string_map; host_PIFs : ref_PIF_set; host_suspend_image_sr : ref_SR; host_crash_dump_sr : ref_SR; host_crashdumps : ref_host_crashdump_set; host_patches : ref_host_patch_set; host_updates : ref_pool_update_set; host_PBDs : ref_PBD_set; host_host_CPUs : ref_host_cpu_set; host_cpu_info : string_to_string_map; host_hostname : string; host_address : string; host_metrics : ref_host_metrics; host_license_params : string_to_string_map; host_boot_free_mem : int64; host_ha_statefiles : string_set; host_ha_network_peers : string_set; host_blobs : string_to_ref_blob_map; host_tags : string_set; host_external_auth_type : string; host_external_auth_service_name : string; host_external_auth_configuration : string_to_string_map; host_edition : string; host_license_server : string_to_string_map; host_bios_strings : string_to_string_map; host_power_on_mode : string; host_power_on_config : string_to_string_map; host_local_cache_sr : ref_SR; host_chipset_info : string_to_string_map; host_PCIs : ref_PCI_set; host_PGPUs : ref_PGPU_set; host_ssl_legacy : bool; host_guest_VCPUs_params : string_to_string_map; host_display : host_display; host_virtual_hardware_platform_versions : int64_set; host_control_domain : ref_VM; host_updates_requiring_reboot : ref_pool_update_set; host_features : ref_Feature_set }
+let rpc_of_host_t x = Rpc.Dict [ "uuid",rpc_of_string x.host_uuid; "name_label",rpc_of_string x.host_name_label; "name_description",rpc_of_string x.host_name_description; "memory_overhead",rpc_of_int64 x.host_memory_overhead; "allowed_operations",rpc_of_host_allowed_operations_set x.host_allowed_operations; "current_operations",rpc_of_string_to_host_allowed_operations_map x.host_current_operations; "API_version_major",rpc_of_int64 x.host_API_version_major; "API_version_minor",rpc_of_int64 x.host_API_version_minor; "API_version_vendor",rpc_of_string x.host_API_version_vendor; "API_version_vendor_implementation",rpc_of_string_to_string_map x.host_API_version_vendor_implementation; "enabled",rpc_of_bool x.host_enabled; "software_version",rpc_of_string_to_string_map x.host_software_version; "other_config",rpc_of_string_to_string_map x.host_other_config; "capabilities",rpc_of_string_set x.host_capabilities; "cpu_configuration",rpc_of_string_to_string_map x.host_cpu_configuration; "sched_policy",rpc_of_string x.host_sched_policy; "supported_bootloaders",rpc_of_string_set x.host_supported_bootloaders; "resident_VMs",rpc_of_ref_VM_set x.host_resident_VMs; "logging",rpc_of_string_to_string_map x.host_logging; "PIFs",rpc_of_ref_PIF_set x.host_PIFs; "suspend_image_sr",rpc_of_ref_SR x.host_suspend_image_sr; "crash_dump_sr",rpc_of_ref_SR x.host_crash_dump_sr; "crashdumps",rpc_of_ref_host_crashdump_set x.host_crashdumps; "patches",rpc_of_ref_host_patch_set x.host_patches; "updates",rpc_of_ref_pool_update_set x.host_updates; "PBDs",rpc_of_ref_PBD_set x.host_PBDs; "host_CPUs",rpc_of_ref_host_cpu_set x.host_host_CPUs; "cpu_info",rpc_of_string_to_string_map x.host_cpu_info; "hostname",rpc_of_string x.host_hostname; "address",rpc_of_string x.host_address; "metrics",rpc_of_ref_host_metrics x.host_metrics; "license_params",rpc_of_string_to_string_map x.host_license_params; "boot_free_mem",rpc_of_int64 x.host_boot_free_mem; "ha_statefiles",rpc_of_string_set x.host_ha_statefiles; "ha_network_peers",rpc_of_string_set x.host_ha_network_peers; "blobs",rpc_of_string_to_ref_blob_map x.host_blobs; "tags",rpc_of_string_set x.host_tags; "external_auth_type",rpc_of_string x.host_external_auth_type; "external_auth_service_name",rpc_of_string x.host_external_auth_service_name; "external_auth_configuration",rpc_of_string_to_string_map x.host_external_auth_configuration; "edition",rpc_of_string x.host_edition; "license_server",rpc_of_string_to_string_map x.host_license_server; "bios_strings",rpc_of_string_to_string_map x.host_bios_strings; "power_on_mode",rpc_of_string x.host_power_on_mode; "power_on_config",rpc_of_string_to_string_map x.host_power_on_config; "local_cache_sr",rpc_of_ref_SR x.host_local_cache_sr; "chipset_info",rpc_of_string_to_string_map x.host_chipset_info; "PCIs",rpc_of_ref_PCI_set x.host_PCIs; "PGPUs",rpc_of_ref_PGPU_set x.host_PGPUs; "ssl_legacy",rpc_of_bool x.host_ssl_legacy; "guest_VCPUs_params",rpc_of_string_to_string_map x.host_guest_VCPUs_params; "display",rpc_of_host_display x.host_display; "virtual_hardware_platform_versions",rpc_of_int64_set x.host_virtual_hardware_platform_versions; "control_domain",rpc_of_ref_VM x.host_control_domain; "updates_requiring_reboot",rpc_of_ref_pool_update_set x.host_updates_requiring_reboot; "features",rpc_of_ref_Feature_set x.host_features ]
+let host_t_of_rpc x = on_dict (fun x -> { host_uuid = string_of_rpc (List.assoc "uuid" x); host_name_label = string_of_rpc (List.assoc "name_label" x); host_name_description = string_of_rpc (List.assoc "name_description" x); host_memory_overhead = int64_of_rpc (List.assoc "memory_overhead" x); host_allowed_operations = host_allowed_operations_set_of_rpc (List.assoc "allowed_operations" x); host_current_operations = string_to_host_allowed_operations_map_of_rpc (List.assoc "current_operations" x); host_API_version_major = int64_of_rpc (List.assoc "API_version_major" x); host_API_version_minor = int64_of_rpc (List.assoc "API_version_minor" x); host_API_version_vendor = string_of_rpc (List.assoc "API_version_vendor" x); host_API_version_vendor_implementation = string_to_string_map_of_rpc (List.assoc "API_version_vendor_implementation" x); host_enabled = bool_of_rpc (List.assoc "enabled" x); host_software_version = string_to_string_map_of_rpc (List.assoc "software_version" x); host_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); host_capabilities = string_set_of_rpc (List.assoc "capabilities" x); host_cpu_configuration = string_to_string_map_of_rpc (List.assoc "cpu_configuration" x); host_sched_policy = string_of_rpc (List.assoc "sched_policy" x); host_supported_bootloaders = string_set_of_rpc (List.assoc "supported_bootloaders" x); host_resident_VMs = ref_VM_set_of_rpc (List.assoc "resident_VMs" x); host_logging = string_to_string_map_of_rpc (List.assoc "logging" x); host_PIFs = ref_PIF_set_of_rpc (List.assoc "PIFs" x); host_suspend_image_sr = ref_SR_of_rpc (List.assoc "suspend_image_sr" x); host_crash_dump_sr = ref_SR_of_rpc (List.assoc "crash_dump_sr" x); host_crashdumps = ref_host_crashdump_set_of_rpc (List.assoc "crashdumps" x); host_patches = ref_host_patch_set_of_rpc (List.assoc "patches" x); host_updates = ref_pool_update_set_of_rpc (List.assoc "updates" x); host_PBDs = ref_PBD_set_of_rpc (List.assoc "PBDs" x); host_host_CPUs = ref_host_cpu_set_of_rpc (List.assoc "host_CPUs" x); host_cpu_info = string_to_string_map_of_rpc (List.assoc "cpu_info" x); host_hostname = string_of_rpc (List.assoc "hostname" x); host_address = string_of_rpc (List.assoc "address" x); host_metrics = ref_host_metrics_of_rpc (List.assoc "metrics" x); host_license_params = string_to_string_map_of_rpc (List.assoc "license_params" x); host_boot_free_mem = int64_of_rpc (List.assoc "boot_free_mem" x); host_ha_statefiles = string_set_of_rpc (List.assoc "ha_statefiles" x); host_ha_network_peers = string_set_of_rpc (List.assoc "ha_network_peers" x); host_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); host_tags = string_set_of_rpc (List.assoc "tags" x); host_external_auth_type = string_of_rpc (List.assoc "external_auth_type" x); host_external_auth_service_name = string_of_rpc (List.assoc "external_auth_service_name" x); host_external_auth_configuration = string_to_string_map_of_rpc (List.assoc "external_auth_configuration" x); host_edition = string_of_rpc (List.assoc "edition" x); host_license_server = string_to_string_map_of_rpc (List.assoc "license_server" x); host_bios_strings = string_to_string_map_of_rpc (List.assoc "bios_strings" x); host_power_on_mode = string_of_rpc (List.assoc "power_on_mode" x); host_power_on_config = string_to_string_map_of_rpc (List.assoc "power_on_config" x); host_local_cache_sr = ref_SR_of_rpc (List.assoc "local_cache_sr" x); host_chipset_info = string_to_string_map_of_rpc (List.assoc "chipset_info" x); host_PCIs = ref_PCI_set_of_rpc (List.assoc "PCIs" x); host_PGPUs = ref_PGPU_set_of_rpc (List.assoc "PGPUs" x); host_ssl_legacy = bool_of_rpc (List.assoc "ssl_legacy" x); host_guest_VCPUs_params = string_to_string_map_of_rpc (List.assoc "guest_VCPUs_params" x); host_display = host_display_of_rpc (List.assoc "display" x); host_virtual_hardware_platform_versions = int64_set_of_rpc (List.assoc "virtual_hardware_platform_versions" x); host_control_domain = ref_VM_of_rpc (List.assoc "control_domain" x); host_updates_requiring_reboot = ref_pool_update_set_of_rpc (List.assoc "updates_requiring_reboot" x); host_features = ref_Feature_set_of_rpc (List.assoc "features" x) }) x
+type ref_host_to_host_t_map = (ref_host * host_t) list [@@deriving rpc]
+type host_t_set = host_t list [@@deriving rpc]
 
 type dR_task_t = { dR_task_uuid : string; dR_task_introduced_SRs : ref_SR_set }
 let rpc_of_dR_task_t x = Rpc.Dict [ "uuid",rpc_of_string x.dR_task_uuid; "introduced_SRs",rpc_of_ref_SR_set x.dR_task_introduced_SRs ]
 let dR_task_t_of_rpc x = on_dict (fun x -> { dR_task_uuid = string_of_rpc (List.assoc "uuid" x); dR_task_introduced_SRs = ref_SR_set_of_rpc (List.assoc "introduced_SRs" x) }) x
-type ref_DR_task_to_dR_task_t_map = (ref_DR_task * dR_task_t) list with rpc
-type dR_task_t_set = dR_task_t list with rpc
+type ref_DR_task_to_dR_task_t_map = (ref_DR_task * dR_task_t) list [@@deriving rpc]
+type dR_task_t_set = dR_task_t list [@@deriving rpc]
 
 type vM_appliance_t = { vM_appliance_uuid : string; vM_appliance_name_label : string; vM_appliance_name_description : string; vM_appliance_allowed_operations : vm_appliance_operation_set; vM_appliance_current_operations : string_to_vm_appliance_operation_map; vM_appliance_VMs : ref_VM_set }
 let rpc_of_vM_appliance_t x = Rpc.Dict [ "uuid",rpc_of_string x.vM_appliance_uuid; "name_label",rpc_of_string x.vM_appliance_name_label; "name_description",rpc_of_string x.vM_appliance_name_description; "allowed_operations",rpc_of_vm_appliance_operation_set x.vM_appliance_allowed_operations; "current_operations",rpc_of_string_to_vm_appliance_operation_map x.vM_appliance_current_operations; "VMs",rpc_of_ref_VM_set x.vM_appliance_VMs ]
 let vM_appliance_t_of_rpc x = on_dict (fun x -> { vM_appliance_uuid = string_of_rpc (List.assoc "uuid" x); vM_appliance_name_label = string_of_rpc (List.assoc "name_label" x); vM_appliance_name_description = string_of_rpc (List.assoc "name_description" x); vM_appliance_allowed_operations = vm_appliance_operation_set_of_rpc (List.assoc "allowed_operations" x); vM_appliance_current_operations = string_to_vm_appliance_operation_map_of_rpc (List.assoc "current_operations" x); vM_appliance_VMs = ref_VM_set_of_rpc (List.assoc "VMs" x) }) x
-type ref_VM_appliance_to_vM_appliance_t_map = (ref_VM_appliance * vM_appliance_t) list with rpc
-type vM_appliance_t_set = vM_appliance_t list with rpc
+type ref_VM_appliance_to_vM_appliance_t_map = (ref_VM_appliance * vM_appliance_t) list [@@deriving rpc]
+type vM_appliance_t_set = vM_appliance_t list [@@deriving rpc]
+
+type vMSS_t = { vMSS_uuid : string; vMSS_name_label : string; vMSS_name_description : string; vMSS_enabled : bool; vMSS_type : vmss_type; vMSS_retained_snapshots : int64; vMSS_frequency : vmss_frequency; vMSS_schedule : string_to_string_map; vMSS_last_run_time : datetime; vMSS_VMs : ref_VM_set }
+let rpc_of_vMSS_t x = Rpc.Dict [ "uuid",rpc_of_string x.vMSS_uuid; "name_label",rpc_of_string x.vMSS_name_label; "name_description",rpc_of_string x.vMSS_name_description; "enabled",rpc_of_bool x.vMSS_enabled; "type",rpc_of_vmss_type x.vMSS_type; "retained_snapshots",rpc_of_int64 x.vMSS_retained_snapshots; "frequency",rpc_of_vmss_frequency x.vMSS_frequency; "schedule",rpc_of_string_to_string_map x.vMSS_schedule; "last_run_time",rpc_of_datetime x.vMSS_last_run_time; "VMs",rpc_of_ref_VM_set x.vMSS_VMs ]
+let vMSS_t_of_rpc x = on_dict (fun x -> { vMSS_uuid = string_of_rpc (List.assoc "uuid" x); vMSS_name_label = string_of_rpc (List.assoc "name_label" x); vMSS_name_description = string_of_rpc (List.assoc "name_description" x); vMSS_enabled = bool_of_rpc (List.assoc "enabled" x); vMSS_type = vmss_type_of_rpc (List.assoc "type" x); vMSS_retained_snapshots = int64_of_rpc (List.assoc "retained_snapshots" x); vMSS_frequency = vmss_frequency_of_rpc (List.assoc "frequency" x); vMSS_schedule = string_to_string_map_of_rpc (List.assoc "schedule" x); vMSS_last_run_time = datetime_of_rpc (List.assoc "last_run_time" x); vMSS_VMs = ref_VM_set_of_rpc (List.assoc "VMs" x) }) x
+type ref_VMSS_to_vMSS_t_map = (ref_VMSS * vMSS_t) list [@@deriving rpc]
+type vMSS_t_set = vMSS_t list [@@deriving rpc]
 
 type vMPP_t = { vMPP_uuid : string; vMPP_name_label : string; vMPP_name_description : string; vMPP_is_policy_enabled : bool; vMPP_backup_type : vmpp_backup_type; vMPP_backup_retention_value : int64; vMPP_backup_frequency : vmpp_backup_frequency; vMPP_backup_schedule : string_to_string_map; vMPP_is_backup_running : bool; vMPP_backup_last_run_time : datetime; vMPP_archive_target_type : vmpp_archive_target_type; vMPP_archive_target_config : string_to_string_map; vMPP_archive_frequency : vmpp_archive_frequency; vMPP_archive_schedule : string_to_string_map; vMPP_is_archive_running : bool; vMPP_archive_last_run_time : datetime; vMPP_VMs : ref_VM_set; vMPP_is_alarm_enabled : bool; vMPP_alarm_config : string_to_string_map; vMPP_recent_alerts : string_set }
 let rpc_of_vMPP_t x = Rpc.Dict [ "uuid",rpc_of_string x.vMPP_uuid; "name_label",rpc_of_string x.vMPP_name_label; "name_description",rpc_of_string x.vMPP_name_description; "is_policy_enabled",rpc_of_bool x.vMPP_is_policy_enabled; "backup_type",rpc_of_vmpp_backup_type x.vMPP_backup_type; "backup_retention_value",rpc_of_int64 x.vMPP_backup_retention_value; "backup_frequency",rpc_of_vmpp_backup_frequency x.vMPP_backup_frequency; "backup_schedule",rpc_of_string_to_string_map x.vMPP_backup_schedule; "is_backup_running",rpc_of_bool x.vMPP_is_backup_running; "backup_last_run_time",rpc_of_datetime x.vMPP_backup_last_run_time; "archive_target_type",rpc_of_vmpp_archive_target_type x.vMPP_archive_target_type; "archive_target_config",rpc_of_string_to_string_map x.vMPP_archive_target_config; "archive_frequency",rpc_of_vmpp_archive_frequency x.vMPP_archive_frequency; "archive_schedule",rpc_of_string_to_string_map x.vMPP_archive_schedule; "is_archive_running",rpc_of_bool x.vMPP_is_archive_running; "archive_last_run_time",rpc_of_datetime x.vMPP_archive_last_run_time; "VMs",rpc_of_ref_VM_set x.vMPP_VMs; "is_alarm_enabled",rpc_of_bool x.vMPP_is_alarm_enabled; "alarm_config",rpc_of_string_to_string_map x.vMPP_alarm_config; "recent_alerts",rpc_of_string_set x.vMPP_recent_alerts ]
 let vMPP_t_of_rpc x = on_dict (fun x -> { vMPP_uuid = string_of_rpc (List.assoc "uuid" x); vMPP_name_label = string_of_rpc (List.assoc "name_label" x); vMPP_name_description = string_of_rpc (List.assoc "name_description" x); vMPP_is_policy_enabled = bool_of_rpc (List.assoc "is_policy_enabled" x); vMPP_backup_type = vmpp_backup_type_of_rpc (List.assoc "backup_type" x); vMPP_backup_retention_value = int64_of_rpc (List.assoc "backup_retention_value" x); vMPP_backup_frequency = vmpp_backup_frequency_of_rpc (List.assoc "backup_frequency" x); vMPP_backup_schedule = string_to_string_map_of_rpc (List.assoc "backup_schedule" x); vMPP_is_backup_running = bool_of_rpc (List.assoc "is_backup_running" x); vMPP_backup_last_run_time = datetime_of_rpc (List.assoc "backup_last_run_time" x); vMPP_archive_target_type = vmpp_archive_target_type_of_rpc (List.assoc "archive_target_type" x); vMPP_archive_target_config = string_to_string_map_of_rpc (List.assoc "archive_target_config" x); vMPP_archive_frequency = vmpp_archive_frequency_of_rpc (List.assoc "archive_frequency" x); vMPP_archive_schedule = string_to_string_map_of_rpc (List.assoc "archive_schedule" x); vMPP_is_archive_running = bool_of_rpc (List.assoc "is_archive_running" x); vMPP_archive_last_run_time = datetime_of_rpc (List.assoc "archive_last_run_time" x); vMPP_VMs = ref_VM_set_of_rpc (List.assoc "VMs" x); vMPP_is_alarm_enabled = bool_of_rpc (List.assoc "is_alarm_enabled" x); vMPP_alarm_config = string_to_string_map_of_rpc (List.assoc "alarm_config" x); vMPP_recent_alerts = string_set_of_rpc (List.assoc "recent_alerts" x) }) x
-type ref_VMPP_to_vMPP_t_map = (ref_VMPP * vMPP_t) list with rpc
-type vMPP_t_set = vMPP_t list with rpc
+type ref_VMPP_to_vMPP_t_map = (ref_VMPP * vMPP_t) list [@@deriving rpc]
+type vMPP_t_set = vMPP_t list [@@deriving rpc]
 
 type vM_guest_metrics_t = { vM_guest_metrics_uuid : string; vM_guest_metrics_os_version : string_to_string_map; vM_guest_metrics_PV_drivers_version : string_to_string_map; vM_guest_metrics_PV_drivers_up_to_date : bool; vM_guest_metrics_memory : string_to_string_map; vM_guest_metrics_disks : string_to_string_map; vM_guest_metrics_networks : string_to_string_map; vM_guest_metrics_other : string_to_string_map; vM_guest_metrics_last_updated : datetime; vM_guest_metrics_other_config : string_to_string_map; vM_guest_metrics_live : bool; vM_guest_metrics_can_use_hotplug_vbd : tristate_type; vM_guest_metrics_can_use_hotplug_vif : tristate_type; vM_guest_metrics_PV_drivers_detected : bool }
 let rpc_of_vM_guest_metrics_t x = Rpc.Dict [ "uuid",rpc_of_string x.vM_guest_metrics_uuid; "os_version",rpc_of_string_to_string_map x.vM_guest_metrics_os_version; "PV_drivers_version",rpc_of_string_to_string_map x.vM_guest_metrics_PV_drivers_version; "PV_drivers_up_to_date",rpc_of_bool x.vM_guest_metrics_PV_drivers_up_to_date; "memory",rpc_of_string_to_string_map x.vM_guest_metrics_memory; "disks",rpc_of_string_to_string_map x.vM_guest_metrics_disks; "networks",rpc_of_string_to_string_map x.vM_guest_metrics_networks; "other",rpc_of_string_to_string_map x.vM_guest_metrics_other; "last_updated",rpc_of_datetime x.vM_guest_metrics_last_updated; "other_config",rpc_of_string_to_string_map x.vM_guest_metrics_other_config; "live",rpc_of_bool x.vM_guest_metrics_live; "can_use_hotplug_vbd",rpc_of_tristate_type x.vM_guest_metrics_can_use_hotplug_vbd; "can_use_hotplug_vif",rpc_of_tristate_type x.vM_guest_metrics_can_use_hotplug_vif; "PV_drivers_detected",rpc_of_bool x.vM_guest_metrics_PV_drivers_detected ]
 let vM_guest_metrics_t_of_rpc x = on_dict (fun x -> { vM_guest_metrics_uuid = string_of_rpc (List.assoc "uuid" x); vM_guest_metrics_os_version = string_to_string_map_of_rpc (List.assoc "os_version" x); vM_guest_metrics_PV_drivers_version = string_to_string_map_of_rpc (List.assoc "PV_drivers_version" x); vM_guest_metrics_PV_drivers_up_to_date = bool_of_rpc (List.assoc "PV_drivers_up_to_date" x); vM_guest_metrics_memory = string_to_string_map_of_rpc (List.assoc "memory" x); vM_guest_metrics_disks = string_to_string_map_of_rpc (List.assoc "disks" x); vM_guest_metrics_networks = string_to_string_map_of_rpc (List.assoc "networks" x); vM_guest_metrics_other = string_to_string_map_of_rpc (List.assoc "other" x); vM_guest_metrics_last_updated = datetime_of_rpc (List.assoc "last_updated" x); vM_guest_metrics_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); vM_guest_metrics_live = bool_of_rpc (List.assoc "live" x); vM_guest_metrics_can_use_hotplug_vbd = tristate_type_of_rpc (List.assoc "can_use_hotplug_vbd" x); vM_guest_metrics_can_use_hotplug_vif = tristate_type_of_rpc (List.assoc "can_use_hotplug_vif" x); vM_guest_metrics_PV_drivers_detected = bool_of_rpc (List.assoc "PV_drivers_detected" x) }) x
-type ref_VM_guest_metrics_to_vM_guest_metrics_t_map = (ref_VM_guest_metrics * vM_guest_metrics_t) list with rpc
-type vM_guest_metrics_t_set = vM_guest_metrics_t list with rpc
+type ref_VM_guest_metrics_to_vM_guest_metrics_t_map = (ref_VM_guest_metrics * vM_guest_metrics_t) list [@@deriving rpc]
+type vM_guest_metrics_t_set = vM_guest_metrics_t list [@@deriving rpc]
 
-type vM_metrics_t = { vM_metrics_uuid : string; vM_metrics_memory_actual : int64; vM_metrics_VCPUs_number : int64; vM_metrics_VCPUs_utilisation : int64_to_float_map; vM_metrics_VCPUs_CPU : int64_to_int64_map; vM_metrics_VCPUs_params : string_to_string_map; vM_metrics_VCPUs_flags : int64_to_string_set_map; vM_metrics_state : string_set; vM_metrics_start_time : datetime; vM_metrics_install_time : datetime; vM_metrics_last_updated : datetime; vM_metrics_other_config : string_to_string_map }
-let rpc_of_vM_metrics_t x = Rpc.Dict [ "uuid",rpc_of_string x.vM_metrics_uuid; "memory_actual",rpc_of_int64 x.vM_metrics_memory_actual; "VCPUs_number",rpc_of_int64 x.vM_metrics_VCPUs_number; "VCPUs_utilisation",rpc_of_int64_to_float_map x.vM_metrics_VCPUs_utilisation; "VCPUs_CPU",rpc_of_int64_to_int64_map x.vM_metrics_VCPUs_CPU; "VCPUs_params",rpc_of_string_to_string_map x.vM_metrics_VCPUs_params; "VCPUs_flags",rpc_of_int64_to_string_set_map x.vM_metrics_VCPUs_flags; "state",rpc_of_string_set x.vM_metrics_state; "start_time",rpc_of_datetime x.vM_metrics_start_time; "install_time",rpc_of_datetime x.vM_metrics_install_time; "last_updated",rpc_of_datetime x.vM_metrics_last_updated; "other_config",rpc_of_string_to_string_map x.vM_metrics_other_config ]
-let vM_metrics_t_of_rpc x = on_dict (fun x -> { vM_metrics_uuid = string_of_rpc (List.assoc "uuid" x); vM_metrics_memory_actual = int64_of_rpc (List.assoc "memory_actual" x); vM_metrics_VCPUs_number = int64_of_rpc (List.assoc "VCPUs_number" x); vM_metrics_VCPUs_utilisation = int64_to_float_map_of_rpc (List.assoc "VCPUs_utilisation" x); vM_metrics_VCPUs_CPU = int64_to_int64_map_of_rpc (List.assoc "VCPUs_CPU" x); vM_metrics_VCPUs_params = string_to_string_map_of_rpc (List.assoc "VCPUs_params" x); vM_metrics_VCPUs_flags = int64_to_string_set_map_of_rpc (List.assoc "VCPUs_flags" x); vM_metrics_state = string_set_of_rpc (List.assoc "state" x); vM_metrics_start_time = datetime_of_rpc (List.assoc "start_time" x); vM_metrics_install_time = datetime_of_rpc (List.assoc "install_time" x); vM_metrics_last_updated = datetime_of_rpc (List.assoc "last_updated" x); vM_metrics_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
-type ref_VM_metrics_to_vM_metrics_t_map = (ref_VM_metrics * vM_metrics_t) list with rpc
-type vM_metrics_t_set = vM_metrics_t list with rpc
+type vM_metrics_t = { vM_metrics_uuid : string; vM_metrics_memory_actual : int64; vM_metrics_VCPUs_number : int64; vM_metrics_VCPUs_utilisation : int64_to_float_map; vM_metrics_VCPUs_CPU : int64_to_int64_map; vM_metrics_VCPUs_params : string_to_string_map; vM_metrics_VCPUs_flags : int64_to_string_set_map; vM_metrics_state : string_set; vM_metrics_start_time : datetime; vM_metrics_install_time : datetime; vM_metrics_last_updated : datetime; vM_metrics_other_config : string_to_string_map; vM_metrics_hvm : bool; vM_metrics_nested_virt : bool; vM_metrics_nomigrate : bool }
+let rpc_of_vM_metrics_t x = Rpc.Dict [ "uuid",rpc_of_string x.vM_metrics_uuid; "memory_actual",rpc_of_int64 x.vM_metrics_memory_actual; "VCPUs_number",rpc_of_int64 x.vM_metrics_VCPUs_number; "VCPUs_utilisation",rpc_of_int64_to_float_map x.vM_metrics_VCPUs_utilisation; "VCPUs_CPU",rpc_of_int64_to_int64_map x.vM_metrics_VCPUs_CPU; "VCPUs_params",rpc_of_string_to_string_map x.vM_metrics_VCPUs_params; "VCPUs_flags",rpc_of_int64_to_string_set_map x.vM_metrics_VCPUs_flags; "state",rpc_of_string_set x.vM_metrics_state; "start_time",rpc_of_datetime x.vM_metrics_start_time; "install_time",rpc_of_datetime x.vM_metrics_install_time; "last_updated",rpc_of_datetime x.vM_metrics_last_updated; "other_config",rpc_of_string_to_string_map x.vM_metrics_other_config; "hvm",rpc_of_bool x.vM_metrics_hvm; "nested_virt",rpc_of_bool x.vM_metrics_nested_virt; "nomigrate",rpc_of_bool x.vM_metrics_nomigrate ]
+let vM_metrics_t_of_rpc x = on_dict (fun x -> { vM_metrics_uuid = string_of_rpc (List.assoc "uuid" x); vM_metrics_memory_actual = int64_of_rpc (List.assoc "memory_actual" x); vM_metrics_VCPUs_number = int64_of_rpc (List.assoc "VCPUs_number" x); vM_metrics_VCPUs_utilisation = int64_to_float_map_of_rpc (List.assoc "VCPUs_utilisation" x); vM_metrics_VCPUs_CPU = int64_to_int64_map_of_rpc (List.assoc "VCPUs_CPU" x); vM_metrics_VCPUs_params = string_to_string_map_of_rpc (List.assoc "VCPUs_params" x); vM_metrics_VCPUs_flags = int64_to_string_set_map_of_rpc (List.assoc "VCPUs_flags" x); vM_metrics_state = string_set_of_rpc (List.assoc "state" x); vM_metrics_start_time = datetime_of_rpc (List.assoc "start_time" x); vM_metrics_install_time = datetime_of_rpc (List.assoc "install_time" x); vM_metrics_last_updated = datetime_of_rpc (List.assoc "last_updated" x); vM_metrics_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); vM_metrics_hvm = bool_of_rpc (List.assoc "hvm" x); vM_metrics_nested_virt = bool_of_rpc (List.assoc "nested_virt" x); vM_metrics_nomigrate = bool_of_rpc (List.assoc "nomigrate" x) }) x
+type ref_VM_metrics_to_vM_metrics_t_map = (ref_VM_metrics * vM_metrics_t) list [@@deriving rpc]
+type vM_metrics_t_set = vM_metrics_t list [@@deriving rpc]
 
-type vM_t = { vM_uuid : string; vM_allowed_operations : vm_operations_set; vM_current_operations : string_to_vm_operations_map; vM_power_state : vm_power_state; vM_name_label : string; vM_name_description : string; vM_user_version : int64; vM_is_a_template : bool; vM_suspend_VDI : ref_VDI; vM_resident_on : ref_host; vM_affinity : ref_host; vM_memory_overhead : int64; vM_memory_target : int64; vM_memory_static_max : int64; vM_memory_dynamic_max : int64; vM_memory_dynamic_min : int64; vM_memory_static_min : int64; vM_VCPUs_params : string_to_string_map; vM_VCPUs_max : int64; vM_VCPUs_at_startup : int64; vM_actions_after_shutdown : on_normal_exit; vM_actions_after_reboot : on_normal_exit; vM_actions_after_crash : on_crash_behaviour; vM_consoles : ref_console_set; vM_VIFs : ref_VIF_set; vM_VBDs : ref_VBD_set; vM_crash_dumps : ref_crashdump_set; vM_VTPMs : ref_VTPM_set; vM_PV_bootloader : string; vM_PV_kernel : string; vM_PV_ramdisk : string; vM_PV_args : string; vM_PV_bootloader_args : string; vM_PV_legacy_args : string; vM_HVM_boot_policy : string; vM_HVM_boot_params : string_to_string_map; vM_HVM_shadow_multiplier : float; vM_platform : string_to_string_map; vM_PCI_bus : string; vM_other_config : string_to_string_map; vM_domid : int64; vM_domarch : string; vM_last_boot_CPU_flags : string_to_string_map; vM_is_control_domain : bool; vM_metrics : ref_VM_metrics; vM_guest_metrics : ref_VM_guest_metrics; vM_last_booted_record : string; vM_recommendations : string; vM_xenstore_data : string_to_string_map; vM_ha_always_run : bool; vM_ha_restart_priority : string; vM_is_a_snapshot : bool; vM_snapshot_of : ref_VM; vM_snapshots : ref_VM_set; vM_snapshot_time : datetime; vM_transportable_snapshot_id : string; vM_blobs : string_to_ref_blob_map; vM_tags : string_set; vM_blocked_operations : vm_operations_to_string_map; vM_snapshot_info : string_to_string_map; vM_snapshot_metadata : string; vM_parent : ref_VM; vM_children : ref_VM_set; vM_bios_strings : string_to_string_map; vM_protection_policy : ref_VMPP; vM_is_snapshot_from_vmpp : bool; vM_appliance : ref_VM_appliance; vM_start_delay : int64; vM_shutdown_delay : int64; vM_order : int64; vM_VGPUs : ref_VGPU_set; vM_attached_PCIs : ref_PCI_set; vM_suspend_SR : ref_SR; vM_version : int64; vM_generation_id : string; vM_hardware_platform_version : int64; vM_has_vendor_device : bool }
-let rpc_of_vM_t x = Rpc.Dict [ "uuid",rpc_of_string x.vM_uuid; "allowed_operations",rpc_of_vm_operations_set x.vM_allowed_operations; "current_operations",rpc_of_string_to_vm_operations_map x.vM_current_operations; "power_state",rpc_of_vm_power_state x.vM_power_state; "name_label",rpc_of_string x.vM_name_label; "name_description",rpc_of_string x.vM_name_description; "user_version",rpc_of_int64 x.vM_user_version; "is_a_template",rpc_of_bool x.vM_is_a_template; "suspend_VDI",rpc_of_ref_VDI x.vM_suspend_VDI; "resident_on",rpc_of_ref_host x.vM_resident_on; "affinity",rpc_of_ref_host x.vM_affinity; "memory_overhead",rpc_of_int64 x.vM_memory_overhead; "memory_target",rpc_of_int64 x.vM_memory_target; "memory_static_max",rpc_of_int64 x.vM_memory_static_max; "memory_dynamic_max",rpc_of_int64 x.vM_memory_dynamic_max; "memory_dynamic_min",rpc_of_int64 x.vM_memory_dynamic_min; "memory_static_min",rpc_of_int64 x.vM_memory_static_min; "VCPUs_params",rpc_of_string_to_string_map x.vM_VCPUs_params; "VCPUs_max",rpc_of_int64 x.vM_VCPUs_max; "VCPUs_at_startup",rpc_of_int64 x.vM_VCPUs_at_startup; "actions_after_shutdown",rpc_of_on_normal_exit x.vM_actions_after_shutdown; "actions_after_reboot",rpc_of_on_normal_exit x.vM_actions_after_reboot; "actions_after_crash",rpc_of_on_crash_behaviour x.vM_actions_after_crash; "consoles",rpc_of_ref_console_set x.vM_consoles; "VIFs",rpc_of_ref_VIF_set x.vM_VIFs; "VBDs",rpc_of_ref_VBD_set x.vM_VBDs; "crash_dumps",rpc_of_ref_crashdump_set x.vM_crash_dumps; "VTPMs",rpc_of_ref_VTPM_set x.vM_VTPMs; "PV_bootloader",rpc_of_string x.vM_PV_bootloader; "PV_kernel",rpc_of_string x.vM_PV_kernel; "PV_ramdisk",rpc_of_string x.vM_PV_ramdisk; "PV_args",rpc_of_string x.vM_PV_args; "PV_bootloader_args",rpc_of_string x.vM_PV_bootloader_args; "PV_legacy_args",rpc_of_string x.vM_PV_legacy_args; "HVM_boot_policy",rpc_of_string x.vM_HVM_boot_policy; "HVM_boot_params",rpc_of_string_to_string_map x.vM_HVM_boot_params; "HVM_shadow_multiplier",rpc_of_float x.vM_HVM_shadow_multiplier; "platform",rpc_of_string_to_string_map x.vM_platform; "PCI_bus",rpc_of_string x.vM_PCI_bus; "other_config",rpc_of_string_to_string_map x.vM_other_config; "domid",rpc_of_int64 x.vM_domid; "domarch",rpc_of_string x.vM_domarch; "last_boot_CPU_flags",rpc_of_string_to_string_map x.vM_last_boot_CPU_flags; "is_control_domain",rpc_of_bool x.vM_is_control_domain; "metrics",rpc_of_ref_VM_metrics x.vM_metrics; "guest_metrics",rpc_of_ref_VM_guest_metrics x.vM_guest_metrics; "last_booted_record",rpc_of_string x.vM_last_booted_record; "recommendations",rpc_of_string x.vM_recommendations; "xenstore_data",rpc_of_string_to_string_map x.vM_xenstore_data; "ha_always_run",rpc_of_bool x.vM_ha_always_run; "ha_restart_priority",rpc_of_string x.vM_ha_restart_priority; "is_a_snapshot",rpc_of_bool x.vM_is_a_snapshot; "snapshot_of",rpc_of_ref_VM x.vM_snapshot_of; "snapshots",rpc_of_ref_VM_set x.vM_snapshots; "snapshot_time",rpc_of_datetime x.vM_snapshot_time; "transportable_snapshot_id",rpc_of_string x.vM_transportable_snapshot_id; "blobs",rpc_of_string_to_ref_blob_map x.vM_blobs; "tags",rpc_of_string_set x.vM_tags; "blocked_operations",rpc_of_vm_operations_to_string_map x.vM_blocked_operations; "snapshot_info",rpc_of_string_to_string_map x.vM_snapshot_info; "snapshot_metadata",rpc_of_string x.vM_snapshot_metadata; "parent",rpc_of_ref_VM x.vM_parent; "children",rpc_of_ref_VM_set x.vM_children; "bios_strings",rpc_of_string_to_string_map x.vM_bios_strings; "protection_policy",rpc_of_ref_VMPP x.vM_protection_policy; "is_snapshot_from_vmpp",rpc_of_bool x.vM_is_snapshot_from_vmpp; "appliance",rpc_of_ref_VM_appliance x.vM_appliance; "start_delay",rpc_of_int64 x.vM_start_delay; "shutdown_delay",rpc_of_int64 x.vM_shutdown_delay; "order",rpc_of_int64 x.vM_order; "VGPUs",rpc_of_ref_VGPU_set x.vM_VGPUs; "attached_PCIs",rpc_of_ref_PCI_set x.vM_attached_PCIs; "suspend_SR",rpc_of_ref_SR x.vM_suspend_SR; "version",rpc_of_int64 x.vM_version; "generation_id",rpc_of_string x.vM_generation_id; "hardware_platform_version",rpc_of_int64 x.vM_hardware_platform_version; "has_vendor_device",rpc_of_bool x.vM_has_vendor_device ]
-let vM_t_of_rpc x = on_dict (fun x -> { vM_uuid = string_of_rpc (List.assoc "uuid" x); vM_allowed_operations = vm_operations_set_of_rpc (List.assoc "allowed_operations" x); vM_current_operations = string_to_vm_operations_map_of_rpc (List.assoc "current_operations" x); vM_power_state = vm_power_state_of_rpc (List.assoc "power_state" x); vM_name_label = string_of_rpc (List.assoc "name_label" x); vM_name_description = string_of_rpc (List.assoc "name_description" x); vM_user_version = int64_of_rpc (List.assoc "user_version" x); vM_is_a_template = bool_of_rpc (List.assoc "is_a_template" x); vM_suspend_VDI = ref_VDI_of_rpc (List.assoc "suspend_VDI" x); vM_resident_on = ref_host_of_rpc (List.assoc "resident_on" x); vM_affinity = ref_host_of_rpc (List.assoc "affinity" x); vM_memory_overhead = int64_of_rpc (List.assoc "memory_overhead" x); vM_memory_target = int64_of_rpc (List.assoc "memory_target" x); vM_memory_static_max = int64_of_rpc (List.assoc "memory_static_max" x); vM_memory_dynamic_max = int64_of_rpc (List.assoc "memory_dynamic_max" x); vM_memory_dynamic_min = int64_of_rpc (List.assoc "memory_dynamic_min" x); vM_memory_static_min = int64_of_rpc (List.assoc "memory_static_min" x); vM_VCPUs_params = string_to_string_map_of_rpc (List.assoc "VCPUs_params" x); vM_VCPUs_max = int64_of_rpc (List.assoc "VCPUs_max" x); vM_VCPUs_at_startup = int64_of_rpc (List.assoc "VCPUs_at_startup" x); vM_actions_after_shutdown = on_normal_exit_of_rpc (List.assoc "actions_after_shutdown" x); vM_actions_after_reboot = on_normal_exit_of_rpc (List.assoc "actions_after_reboot" x); vM_actions_after_crash = on_crash_behaviour_of_rpc (List.assoc "actions_after_crash" x); vM_consoles = ref_console_set_of_rpc (List.assoc "consoles" x); vM_VIFs = ref_VIF_set_of_rpc (List.assoc "VIFs" x); vM_VBDs = ref_VBD_set_of_rpc (List.assoc "VBDs" x); vM_crash_dumps = ref_crashdump_set_of_rpc (List.assoc "crash_dumps" x); vM_VTPMs = ref_VTPM_set_of_rpc (List.assoc "VTPMs" x); vM_PV_bootloader = string_of_rpc (List.assoc "PV_bootloader" x); vM_PV_kernel = string_of_rpc (List.assoc "PV_kernel" x); vM_PV_ramdisk = string_of_rpc (List.assoc "PV_ramdisk" x); vM_PV_args = string_of_rpc (List.assoc "PV_args" x); vM_PV_bootloader_args = string_of_rpc (List.assoc "PV_bootloader_args" x); vM_PV_legacy_args = string_of_rpc (List.assoc "PV_legacy_args" x); vM_HVM_boot_policy = string_of_rpc (List.assoc "HVM_boot_policy" x); vM_HVM_boot_params = string_to_string_map_of_rpc (List.assoc "HVM_boot_params" x); vM_HVM_shadow_multiplier = float_of_rpc (List.assoc "HVM_shadow_multiplier" x); vM_platform = string_to_string_map_of_rpc (List.assoc "platform" x); vM_PCI_bus = string_of_rpc (List.assoc "PCI_bus" x); vM_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); vM_domid = int64_of_rpc (List.assoc "domid" x); vM_domarch = string_of_rpc (List.assoc "domarch" x); vM_last_boot_CPU_flags = string_to_string_map_of_rpc (List.assoc "last_boot_CPU_flags" x); vM_is_control_domain = bool_of_rpc (List.assoc "is_control_domain" x); vM_metrics = ref_VM_metrics_of_rpc (List.assoc "metrics" x); vM_guest_metrics = ref_VM_guest_metrics_of_rpc (List.assoc "guest_metrics" x); vM_last_booted_record = string_of_rpc (List.assoc "last_booted_record" x); vM_recommendations = string_of_rpc (List.assoc "recommendations" x); vM_xenstore_data = string_to_string_map_of_rpc (List.assoc "xenstore_data" x); vM_ha_always_run = bool_of_rpc (List.assoc "ha_always_run" x); vM_ha_restart_priority = string_of_rpc (List.assoc "ha_restart_priority" x); vM_is_a_snapshot = bool_of_rpc (List.assoc "is_a_snapshot" x); vM_snapshot_of = ref_VM_of_rpc (List.assoc "snapshot_of" x); vM_snapshots = ref_VM_set_of_rpc (List.assoc "snapshots" x); vM_snapshot_time = datetime_of_rpc (List.assoc "snapshot_time" x); vM_transportable_snapshot_id = string_of_rpc (List.assoc "transportable_snapshot_id" x); vM_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); vM_tags = string_set_of_rpc (List.assoc "tags" x); vM_blocked_operations = vm_operations_to_string_map_of_rpc (List.assoc "blocked_operations" x); vM_snapshot_info = string_to_string_map_of_rpc (List.assoc "snapshot_info" x); vM_snapshot_metadata = string_of_rpc (List.assoc "snapshot_metadata" x); vM_parent = ref_VM_of_rpc (List.assoc "parent" x); vM_children = ref_VM_set_of_rpc (List.assoc "children" x); vM_bios_strings = string_to_string_map_of_rpc (List.assoc "bios_strings" x); vM_protection_policy = ref_VMPP_of_rpc (List.assoc "protection_policy" x); vM_is_snapshot_from_vmpp = bool_of_rpc (List.assoc "is_snapshot_from_vmpp" x); vM_appliance = ref_VM_appliance_of_rpc (List.assoc "appliance" x); vM_start_delay = int64_of_rpc (List.assoc "start_delay" x); vM_shutdown_delay = int64_of_rpc (List.assoc "shutdown_delay" x); vM_order = int64_of_rpc (List.assoc "order" x); vM_VGPUs = ref_VGPU_set_of_rpc (List.assoc "VGPUs" x); vM_attached_PCIs = ref_PCI_set_of_rpc (List.assoc "attached_PCIs" x); vM_suspend_SR = ref_SR_of_rpc (List.assoc "suspend_SR" x); vM_version = int64_of_rpc (List.assoc "version" x); vM_generation_id = string_of_rpc (List.assoc "generation_id" x); vM_hardware_platform_version = int64_of_rpc (List.assoc "hardware_platform_version" x); vM_has_vendor_device = bool_of_rpc (List.assoc "has_vendor_device" x) }) x
-type ref_VM_to_vM_t_map = (ref_VM * vM_t) list with rpc
-type vM_t_set = vM_t list with rpc
+type vM_t = { vM_uuid : string; vM_allowed_operations : vm_operations_set; vM_current_operations : string_to_vm_operations_map; vM_power_state : vm_power_state; vM_name_label : string; vM_name_description : string; vM_user_version : int64; vM_is_a_template : bool; vM_is_default_template : bool; vM_suspend_VDI : ref_VDI; vM_resident_on : ref_host; vM_scheduled_to_be_resident_on : ref_host; vM_affinity : ref_host; vM_memory_overhead : int64; vM_memory_target : int64; vM_memory_static_max : int64; vM_memory_dynamic_max : int64; vM_memory_dynamic_min : int64; vM_memory_static_min : int64; vM_VCPUs_params : string_to_string_map; vM_VCPUs_max : int64; vM_VCPUs_at_startup : int64; vM_actions_after_shutdown : on_normal_exit; vM_actions_after_reboot : on_normal_exit; vM_actions_after_crash : on_crash_behaviour; vM_consoles : ref_console_set; vM_VIFs : ref_VIF_set; vM_VBDs : ref_VBD_set; vM_crash_dumps : ref_crashdump_set; vM_VTPMs : ref_VTPM_set; vM_PV_bootloader : string; vM_PV_kernel : string; vM_PV_ramdisk : string; vM_PV_args : string; vM_PV_bootloader_args : string; vM_PV_legacy_args : string; vM_HVM_boot_policy : string; vM_HVM_boot_params : string_to_string_map; vM_HVM_shadow_multiplier : float; vM_platform : string_to_string_map; vM_PCI_bus : string; vM_other_config : string_to_string_map; vM_domid : int64; vM_domarch : string; vM_last_boot_CPU_flags : string_to_string_map; vM_is_control_domain : bool; vM_metrics : ref_VM_metrics; vM_guest_metrics : ref_VM_guest_metrics; vM_last_booted_record : string; vM_recommendations : string; vM_xenstore_data : string_to_string_map; vM_ha_always_run : bool; vM_ha_restart_priority : string; vM_is_a_snapshot : bool; vM_snapshot_of : ref_VM; vM_snapshots : ref_VM_set; vM_snapshot_time : datetime; vM_transportable_snapshot_id : string; vM_blobs : string_to_ref_blob_map; vM_tags : string_set; vM_blocked_operations : vm_operations_to_string_map; vM_snapshot_info : string_to_string_map; vM_snapshot_metadata : string; vM_parent : ref_VM; vM_children : ref_VM_set; vM_bios_strings : string_to_string_map; vM_protection_policy : ref_VMPP; vM_is_snapshot_from_vmpp : bool; vM_snapshot_schedule : ref_VMSS; vM_is_vmss_snapshot : bool; vM_appliance : ref_VM_appliance; vM_start_delay : int64; vM_shutdown_delay : int64; vM_order : int64; vM_VGPUs : ref_VGPU_set; vM_attached_PCIs : ref_PCI_set; vM_suspend_SR : ref_SR; vM_version : int64; vM_generation_id : string; vM_hardware_platform_version : int64; vM_has_vendor_device : bool; vM_requires_reboot : bool; vM_reference_label : string }
+let rpc_of_vM_t x = Rpc.Dict [ "uuid",rpc_of_string x.vM_uuid; "allowed_operations",rpc_of_vm_operations_set x.vM_allowed_operations; "current_operations",rpc_of_string_to_vm_operations_map x.vM_current_operations; "power_state",rpc_of_vm_power_state x.vM_power_state; "name_label",rpc_of_string x.vM_name_label; "name_description",rpc_of_string x.vM_name_description; "user_version",rpc_of_int64 x.vM_user_version; "is_a_template",rpc_of_bool x.vM_is_a_template; "is_default_template",rpc_of_bool x.vM_is_default_template; "suspend_VDI",rpc_of_ref_VDI x.vM_suspend_VDI; "resident_on",rpc_of_ref_host x.vM_resident_on; "scheduled_to_be_resident_on",rpc_of_ref_host x.vM_scheduled_to_be_resident_on; "affinity",rpc_of_ref_host x.vM_affinity; "memory_overhead",rpc_of_int64 x.vM_memory_overhead; "memory_target",rpc_of_int64 x.vM_memory_target; "memory_static_max",rpc_of_int64 x.vM_memory_static_max; "memory_dynamic_max",rpc_of_int64 x.vM_memory_dynamic_max; "memory_dynamic_min",rpc_of_int64 x.vM_memory_dynamic_min; "memory_static_min",rpc_of_int64 x.vM_memory_static_min; "VCPUs_params",rpc_of_string_to_string_map x.vM_VCPUs_params; "VCPUs_max",rpc_of_int64 x.vM_VCPUs_max; "VCPUs_at_startup",rpc_of_int64 x.vM_VCPUs_at_startup; "actions_after_shutdown",rpc_of_on_normal_exit x.vM_actions_after_shutdown; "actions_after_reboot",rpc_of_on_normal_exit x.vM_actions_after_reboot; "actions_after_crash",rpc_of_on_crash_behaviour x.vM_actions_after_crash; "consoles",rpc_of_ref_console_set x.vM_consoles; "VIFs",rpc_of_ref_VIF_set x.vM_VIFs; "VBDs",rpc_of_ref_VBD_set x.vM_VBDs; "crash_dumps",rpc_of_ref_crashdump_set x.vM_crash_dumps; "VTPMs",rpc_of_ref_VTPM_set x.vM_VTPMs; "PV_bootloader",rpc_of_string x.vM_PV_bootloader; "PV_kernel",rpc_of_string x.vM_PV_kernel; "PV_ramdisk",rpc_of_string x.vM_PV_ramdisk; "PV_args",rpc_of_string x.vM_PV_args; "PV_bootloader_args",rpc_of_string x.vM_PV_bootloader_args; "PV_legacy_args",rpc_of_string x.vM_PV_legacy_args; "HVM_boot_policy",rpc_of_string x.vM_HVM_boot_policy; "HVM_boot_params",rpc_of_string_to_string_map x.vM_HVM_boot_params; "HVM_shadow_multiplier",rpc_of_float x.vM_HVM_shadow_multiplier; "platform",rpc_of_string_to_string_map x.vM_platform; "PCI_bus",rpc_of_string x.vM_PCI_bus; "other_config",rpc_of_string_to_string_map x.vM_other_config; "domid",rpc_of_int64 x.vM_domid; "domarch",rpc_of_string x.vM_domarch; "last_boot_CPU_flags",rpc_of_string_to_string_map x.vM_last_boot_CPU_flags; "is_control_domain",rpc_of_bool x.vM_is_control_domain; "metrics",rpc_of_ref_VM_metrics x.vM_metrics; "guest_metrics",rpc_of_ref_VM_guest_metrics x.vM_guest_metrics; "last_booted_record",rpc_of_string x.vM_last_booted_record; "recommendations",rpc_of_string x.vM_recommendations; "xenstore_data",rpc_of_string_to_string_map x.vM_xenstore_data; "ha_always_run",rpc_of_bool x.vM_ha_always_run; "ha_restart_priority",rpc_of_string x.vM_ha_restart_priority; "is_a_snapshot",rpc_of_bool x.vM_is_a_snapshot; "snapshot_of",rpc_of_ref_VM x.vM_snapshot_of; "snapshots",rpc_of_ref_VM_set x.vM_snapshots; "snapshot_time",rpc_of_datetime x.vM_snapshot_time; "transportable_snapshot_id",rpc_of_string x.vM_transportable_snapshot_id; "blobs",rpc_of_string_to_ref_blob_map x.vM_blobs; "tags",rpc_of_string_set x.vM_tags; "blocked_operations",rpc_of_vm_operations_to_string_map x.vM_blocked_operations; "snapshot_info",rpc_of_string_to_string_map x.vM_snapshot_info; "snapshot_metadata",rpc_of_string x.vM_snapshot_metadata; "parent",rpc_of_ref_VM x.vM_parent; "children",rpc_of_ref_VM_set x.vM_children; "bios_strings",rpc_of_string_to_string_map x.vM_bios_strings; "protection_policy",rpc_of_ref_VMPP x.vM_protection_policy; "is_snapshot_from_vmpp",rpc_of_bool x.vM_is_snapshot_from_vmpp; "snapshot_schedule",rpc_of_ref_VMSS x.vM_snapshot_schedule; "is_vmss_snapshot",rpc_of_bool x.vM_is_vmss_snapshot; "appliance",rpc_of_ref_VM_appliance x.vM_appliance; "start_delay",rpc_of_int64 x.vM_start_delay; "shutdown_delay",rpc_of_int64 x.vM_shutdown_delay; "order",rpc_of_int64 x.vM_order; "VGPUs",rpc_of_ref_VGPU_set x.vM_VGPUs; "attached_PCIs",rpc_of_ref_PCI_set x.vM_attached_PCIs; "suspend_SR",rpc_of_ref_SR x.vM_suspend_SR; "version",rpc_of_int64 x.vM_version; "generation_id",rpc_of_string x.vM_generation_id; "hardware_platform_version",rpc_of_int64 x.vM_hardware_platform_version; "has_vendor_device",rpc_of_bool x.vM_has_vendor_device; "requires_reboot",rpc_of_bool x.vM_requires_reboot; "reference_label",rpc_of_string x.vM_reference_label ]
+let vM_t_of_rpc x = on_dict (fun x -> { vM_uuid = string_of_rpc (List.assoc "uuid" x); vM_allowed_operations = vm_operations_set_of_rpc (List.assoc "allowed_operations" x); vM_current_operations = string_to_vm_operations_map_of_rpc (List.assoc "current_operations" x); vM_power_state = vm_power_state_of_rpc (List.assoc "power_state" x); vM_name_label = string_of_rpc (List.assoc "name_label" x); vM_name_description = string_of_rpc (List.assoc "name_description" x); vM_user_version = int64_of_rpc (List.assoc "user_version" x); vM_is_a_template = bool_of_rpc (List.assoc "is_a_template" x); vM_is_default_template = bool_of_rpc (List.assoc "is_default_template" x); vM_suspend_VDI = ref_VDI_of_rpc (List.assoc "suspend_VDI" x); vM_resident_on = ref_host_of_rpc (List.assoc "resident_on" x); vM_scheduled_to_be_resident_on = ref_host_of_rpc (List.assoc "scheduled_to_be_resident_on" x); vM_affinity = ref_host_of_rpc (List.assoc "affinity" x); vM_memory_overhead = int64_of_rpc (List.assoc "memory_overhead" x); vM_memory_target = int64_of_rpc (List.assoc "memory_target" x); vM_memory_static_max = int64_of_rpc (List.assoc "memory_static_max" x); vM_memory_dynamic_max = int64_of_rpc (List.assoc "memory_dynamic_max" x); vM_memory_dynamic_min = int64_of_rpc (List.assoc "memory_dynamic_min" x); vM_memory_static_min = int64_of_rpc (List.assoc "memory_static_min" x); vM_VCPUs_params = string_to_string_map_of_rpc (List.assoc "VCPUs_params" x); vM_VCPUs_max = int64_of_rpc (List.assoc "VCPUs_max" x); vM_VCPUs_at_startup = int64_of_rpc (List.assoc "VCPUs_at_startup" x); vM_actions_after_shutdown = on_normal_exit_of_rpc (List.assoc "actions_after_shutdown" x); vM_actions_after_reboot = on_normal_exit_of_rpc (List.assoc "actions_after_reboot" x); vM_actions_after_crash = on_crash_behaviour_of_rpc (List.assoc "actions_after_crash" x); vM_consoles = ref_console_set_of_rpc (List.assoc "consoles" x); vM_VIFs = ref_VIF_set_of_rpc (List.assoc "VIFs" x); vM_VBDs = ref_VBD_set_of_rpc (List.assoc "VBDs" x); vM_crash_dumps = ref_crashdump_set_of_rpc (List.assoc "crash_dumps" x); vM_VTPMs = ref_VTPM_set_of_rpc (List.assoc "VTPMs" x); vM_PV_bootloader = string_of_rpc (List.assoc "PV_bootloader" x); vM_PV_kernel = string_of_rpc (List.assoc "PV_kernel" x); vM_PV_ramdisk = string_of_rpc (List.assoc "PV_ramdisk" x); vM_PV_args = string_of_rpc (List.assoc "PV_args" x); vM_PV_bootloader_args = string_of_rpc (List.assoc "PV_bootloader_args" x); vM_PV_legacy_args = string_of_rpc (List.assoc "PV_legacy_args" x); vM_HVM_boot_policy = string_of_rpc (List.assoc "HVM_boot_policy" x); vM_HVM_boot_params = string_to_string_map_of_rpc (List.assoc "HVM_boot_params" x); vM_HVM_shadow_multiplier = float_of_rpc (List.assoc "HVM_shadow_multiplier" x); vM_platform = string_to_string_map_of_rpc (List.assoc "platform" x); vM_PCI_bus = string_of_rpc (List.assoc "PCI_bus" x); vM_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); vM_domid = int64_of_rpc (List.assoc "domid" x); vM_domarch = string_of_rpc (List.assoc "domarch" x); vM_last_boot_CPU_flags = string_to_string_map_of_rpc (List.assoc "last_boot_CPU_flags" x); vM_is_control_domain = bool_of_rpc (List.assoc "is_control_domain" x); vM_metrics = ref_VM_metrics_of_rpc (List.assoc "metrics" x); vM_guest_metrics = ref_VM_guest_metrics_of_rpc (List.assoc "guest_metrics" x); vM_last_booted_record = string_of_rpc (List.assoc "last_booted_record" x); vM_recommendations = string_of_rpc (List.assoc "recommendations" x); vM_xenstore_data = string_to_string_map_of_rpc (List.assoc "xenstore_data" x); vM_ha_always_run = bool_of_rpc (List.assoc "ha_always_run" x); vM_ha_restart_priority = string_of_rpc (List.assoc "ha_restart_priority" x); vM_is_a_snapshot = bool_of_rpc (List.assoc "is_a_snapshot" x); vM_snapshot_of = ref_VM_of_rpc (List.assoc "snapshot_of" x); vM_snapshots = ref_VM_set_of_rpc (List.assoc "snapshots" x); vM_snapshot_time = datetime_of_rpc (List.assoc "snapshot_time" x); vM_transportable_snapshot_id = string_of_rpc (List.assoc "transportable_snapshot_id" x); vM_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); vM_tags = string_set_of_rpc (List.assoc "tags" x); vM_blocked_operations = vm_operations_to_string_map_of_rpc (List.assoc "blocked_operations" x); vM_snapshot_info = string_to_string_map_of_rpc (List.assoc "snapshot_info" x); vM_snapshot_metadata = string_of_rpc (List.assoc "snapshot_metadata" x); vM_parent = ref_VM_of_rpc (List.assoc "parent" x); vM_children = ref_VM_set_of_rpc (List.assoc "children" x); vM_bios_strings = string_to_string_map_of_rpc (List.assoc "bios_strings" x); vM_protection_policy = ref_VMPP_of_rpc (List.assoc "protection_policy" x); vM_is_snapshot_from_vmpp = bool_of_rpc (List.assoc "is_snapshot_from_vmpp" x); vM_snapshot_schedule = ref_VMSS_of_rpc (List.assoc "snapshot_schedule" x); vM_is_vmss_snapshot = bool_of_rpc (List.assoc "is_vmss_snapshot" x); vM_appliance = ref_VM_appliance_of_rpc (List.assoc "appliance" x); vM_start_delay = int64_of_rpc (List.assoc "start_delay" x); vM_shutdown_delay = int64_of_rpc (List.assoc "shutdown_delay" x); vM_order = int64_of_rpc (List.assoc "order" x); vM_VGPUs = ref_VGPU_set_of_rpc (List.assoc "VGPUs" x); vM_attached_PCIs = ref_PCI_set_of_rpc (List.assoc "attached_PCIs" x); vM_suspend_SR = ref_SR_of_rpc (List.assoc "suspend_SR" x); vM_version = int64_of_rpc (List.assoc "version" x); vM_generation_id = string_of_rpc (List.assoc "generation_id" x); vM_hardware_platform_version = int64_of_rpc (List.assoc "hardware_platform_version" x); vM_has_vendor_device = bool_of_rpc (List.assoc "has_vendor_device" x); vM_requires_reboot = bool_of_rpc (List.assoc "requires_reboot" x); vM_reference_label = string_of_rpc (List.assoc "reference_label" x) }) x
+type ref_VM_to_vM_t_map = (ref_VM * vM_t) list [@@deriving rpc]
+type vM_t_set = vM_t list [@@deriving rpc]
 
-type pool_patch_t = { pool_patch_uuid : string; pool_patch_name_label : string; pool_patch_name_description : string; pool_patch_version : string; pool_patch_size : int64; pool_patch_pool_applied : bool; pool_patch_host_patches : ref_host_patch_set; pool_patch_after_apply_guidance : after_apply_guidance_set; pool_patch_other_config : string_to_string_map }
-let rpc_of_pool_patch_t x = Rpc.Dict [ "uuid",rpc_of_string x.pool_patch_uuid; "name_label",rpc_of_string x.pool_patch_name_label; "name_description",rpc_of_string x.pool_patch_name_description; "version",rpc_of_string x.pool_patch_version; "size",rpc_of_int64 x.pool_patch_size; "pool_applied",rpc_of_bool x.pool_patch_pool_applied; "host_patches",rpc_of_ref_host_patch_set x.pool_patch_host_patches; "after_apply_guidance",rpc_of_after_apply_guidance_set x.pool_patch_after_apply_guidance; "other_config",rpc_of_string_to_string_map x.pool_patch_other_config ]
-let pool_patch_t_of_rpc x = on_dict (fun x -> { pool_patch_uuid = string_of_rpc (List.assoc "uuid" x); pool_patch_name_label = string_of_rpc (List.assoc "name_label" x); pool_patch_name_description = string_of_rpc (List.assoc "name_description" x); pool_patch_version = string_of_rpc (List.assoc "version" x); pool_patch_size = int64_of_rpc (List.assoc "size" x); pool_patch_pool_applied = bool_of_rpc (List.assoc "pool_applied" x); pool_patch_host_patches = ref_host_patch_set_of_rpc (List.assoc "host_patches" x); pool_patch_after_apply_guidance = after_apply_guidance_set_of_rpc (List.assoc "after_apply_guidance" x); pool_patch_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
-type ref_pool_patch_to_pool_patch_t_map = (ref_pool_patch * pool_patch_t) list with rpc
-type pool_patch_t_set = pool_patch_t list with rpc
+type pool_update_t = { pool_update_uuid : string; pool_update_name_label : string; pool_update_name_description : string; pool_update_version : string; pool_update_installation_size : int64; pool_update_key : string; pool_update_after_apply_guidance : update_after_apply_guidance_set; pool_update_vdi : ref_VDI; pool_update_hosts : ref_host_set }
+let rpc_of_pool_update_t x = Rpc.Dict [ "uuid",rpc_of_string x.pool_update_uuid; "name_label",rpc_of_string x.pool_update_name_label; "name_description",rpc_of_string x.pool_update_name_description; "version",rpc_of_string x.pool_update_version; "installation_size",rpc_of_int64 x.pool_update_installation_size; "key",rpc_of_string x.pool_update_key; "after_apply_guidance",rpc_of_update_after_apply_guidance_set x.pool_update_after_apply_guidance; "vdi",rpc_of_ref_VDI x.pool_update_vdi; "hosts",rpc_of_ref_host_set x.pool_update_hosts ]
+let pool_update_t_of_rpc x = on_dict (fun x -> { pool_update_uuid = string_of_rpc (List.assoc "uuid" x); pool_update_name_label = string_of_rpc (List.assoc "name_label" x); pool_update_name_description = string_of_rpc (List.assoc "name_description" x); pool_update_version = string_of_rpc (List.assoc "version" x); pool_update_installation_size = int64_of_rpc (List.assoc "installation_size" x); pool_update_key = string_of_rpc (List.assoc "key" x); pool_update_after_apply_guidance = update_after_apply_guidance_set_of_rpc (List.assoc "after_apply_guidance" x); pool_update_vdi = ref_VDI_of_rpc (List.assoc "vdi" x); pool_update_hosts = ref_host_set_of_rpc (List.assoc "hosts" x) }) x
+type ref_pool_update_to_pool_update_t_map = (ref_pool_update * pool_update_t) list [@@deriving rpc]
+type pool_update_t_set = pool_update_t list [@@deriving rpc]
 
-type pool_t = { pool_uuid : string; pool_name_label : string; pool_name_description : string; pool_master : ref_host; pool_default_SR : ref_SR; pool_suspend_image_SR : ref_SR; pool_crash_dump_SR : ref_SR; pool_other_config : string_to_string_map; pool_ha_enabled : bool; pool_ha_configuration : string_to_string_map; pool_ha_statefiles : string_set; pool_ha_host_failures_to_tolerate : int64; pool_ha_plan_exists_for : int64; pool_ha_allow_overcommit : bool; pool_ha_overcommitted : bool; pool_blobs : string_to_ref_blob_map; pool_tags : string_set; pool_gui_config : string_to_string_map; pool_health_check_config : string_to_string_map; pool_wlb_url : string; pool_wlb_username : string; pool_wlb_enabled : bool; pool_wlb_verify_cert : bool; pool_redo_log_enabled : bool; pool_redo_log_vdi : ref_VDI; pool_vswitch_controller : string; pool_restrictions : string_to_string_map; pool_metadata_VDIs : ref_VDI_set; pool_ha_cluster_stack : string; pool_allowed_operations : pool_allowed_operations_set; pool_current_operations : string_to_pool_allowed_operations_map; pool_guest_agent_config : string_to_string_map; pool_cpu_info : string_to_string_map; pool_policy_no_vendor_device : bool }
-let rpc_of_pool_t x = Rpc.Dict [ "uuid",rpc_of_string x.pool_uuid; "name_label",rpc_of_string x.pool_name_label; "name_description",rpc_of_string x.pool_name_description; "master",rpc_of_ref_host x.pool_master; "default_SR",rpc_of_ref_SR x.pool_default_SR; "suspend_image_SR",rpc_of_ref_SR x.pool_suspend_image_SR; "crash_dump_SR",rpc_of_ref_SR x.pool_crash_dump_SR; "other_config",rpc_of_string_to_string_map x.pool_other_config; "ha_enabled",rpc_of_bool x.pool_ha_enabled; "ha_configuration",rpc_of_string_to_string_map x.pool_ha_configuration; "ha_statefiles",rpc_of_string_set x.pool_ha_statefiles; "ha_host_failures_to_tolerate",rpc_of_int64 x.pool_ha_host_failures_to_tolerate; "ha_plan_exists_for",rpc_of_int64 x.pool_ha_plan_exists_for; "ha_allow_overcommit",rpc_of_bool x.pool_ha_allow_overcommit; "ha_overcommitted",rpc_of_bool x.pool_ha_overcommitted; "blobs",rpc_of_string_to_ref_blob_map x.pool_blobs; "tags",rpc_of_string_set x.pool_tags; "gui_config",rpc_of_string_to_string_map x.pool_gui_config; "health_check_config",rpc_of_string_to_string_map x.pool_health_check_config; "wlb_url",rpc_of_string x.pool_wlb_url; "wlb_username",rpc_of_string x.pool_wlb_username; "wlb_enabled",rpc_of_bool x.pool_wlb_enabled; "wlb_verify_cert",rpc_of_bool x.pool_wlb_verify_cert; "redo_log_enabled",rpc_of_bool x.pool_redo_log_enabled; "redo_log_vdi",rpc_of_ref_VDI x.pool_redo_log_vdi; "vswitch_controller",rpc_of_string x.pool_vswitch_controller; "restrictions",rpc_of_string_to_string_map x.pool_restrictions; "metadata_VDIs",rpc_of_ref_VDI_set x.pool_metadata_VDIs; "ha_cluster_stack",rpc_of_string x.pool_ha_cluster_stack; "allowed_operations",rpc_of_pool_allowed_operations_set x.pool_allowed_operations; "current_operations",rpc_of_string_to_pool_allowed_operations_map x.pool_current_operations; "guest_agent_config",rpc_of_string_to_string_map x.pool_guest_agent_config; "cpu_info",rpc_of_string_to_string_map x.pool_cpu_info; "policy_no_vendor_device",rpc_of_bool x.pool_policy_no_vendor_device ]
-let pool_t_of_rpc x = on_dict (fun x -> { pool_uuid = string_of_rpc (List.assoc "uuid" x); pool_name_label = string_of_rpc (List.assoc "name_label" x); pool_name_description = string_of_rpc (List.assoc "name_description" x); pool_master = ref_host_of_rpc (List.assoc "master" x); pool_default_SR = ref_SR_of_rpc (List.assoc "default_SR" x); pool_suspend_image_SR = ref_SR_of_rpc (List.assoc "suspend_image_SR" x); pool_crash_dump_SR = ref_SR_of_rpc (List.assoc "crash_dump_SR" x); pool_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); pool_ha_enabled = bool_of_rpc (List.assoc "ha_enabled" x); pool_ha_configuration = string_to_string_map_of_rpc (List.assoc "ha_configuration" x); pool_ha_statefiles = string_set_of_rpc (List.assoc "ha_statefiles" x); pool_ha_host_failures_to_tolerate = int64_of_rpc (List.assoc "ha_host_failures_to_tolerate" x); pool_ha_plan_exists_for = int64_of_rpc (List.assoc "ha_plan_exists_for" x); pool_ha_allow_overcommit = bool_of_rpc (List.assoc "ha_allow_overcommit" x); pool_ha_overcommitted = bool_of_rpc (List.assoc "ha_overcommitted" x); pool_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); pool_tags = string_set_of_rpc (List.assoc "tags" x); pool_gui_config = string_to_string_map_of_rpc (List.assoc "gui_config" x); pool_health_check_config = string_to_string_map_of_rpc (List.assoc "health_check_config" x); pool_wlb_url = string_of_rpc (List.assoc "wlb_url" x); pool_wlb_username = string_of_rpc (List.assoc "wlb_username" x); pool_wlb_enabled = bool_of_rpc (List.assoc "wlb_enabled" x); pool_wlb_verify_cert = bool_of_rpc (List.assoc "wlb_verify_cert" x); pool_redo_log_enabled = bool_of_rpc (List.assoc "redo_log_enabled" x); pool_redo_log_vdi = ref_VDI_of_rpc (List.assoc "redo_log_vdi" x); pool_vswitch_controller = string_of_rpc (List.assoc "vswitch_controller" x); pool_restrictions = string_to_string_map_of_rpc (List.assoc "restrictions" x); pool_metadata_VDIs = ref_VDI_set_of_rpc (List.assoc "metadata_VDIs" x); pool_ha_cluster_stack = string_of_rpc (List.assoc "ha_cluster_stack" x); pool_allowed_operations = pool_allowed_operations_set_of_rpc (List.assoc "allowed_operations" x); pool_current_operations = string_to_pool_allowed_operations_map_of_rpc (List.assoc "current_operations" x); pool_guest_agent_config = string_to_string_map_of_rpc (List.assoc "guest_agent_config" x); pool_cpu_info = string_to_string_map_of_rpc (List.assoc "cpu_info" x); pool_policy_no_vendor_device = bool_of_rpc (List.assoc "policy_no_vendor_device" x) }) x
-type ref_pool_to_pool_t_map = (ref_pool * pool_t) list with rpc
-type pool_t_set = pool_t list with rpc
+type pool_patch_t = { pool_patch_uuid : string; pool_patch_name_label : string; pool_patch_name_description : string; pool_patch_version : string; pool_patch_filename : string; pool_patch_size : int64; pool_patch_pool_applied : bool; pool_patch_host_patches : ref_host_patch_set; pool_patch_after_apply_guidance : after_apply_guidance_set; pool_patch_pool_update : ref_pool_update; pool_patch_other_config : string_to_string_map }
+let rpc_of_pool_patch_t x = Rpc.Dict [ "uuid",rpc_of_string x.pool_patch_uuid; "name_label",rpc_of_string x.pool_patch_name_label; "name_description",rpc_of_string x.pool_patch_name_description; "version",rpc_of_string x.pool_patch_version; "filename",rpc_of_string x.pool_patch_filename; "size",rpc_of_int64 x.pool_patch_size; "pool_applied",rpc_of_bool x.pool_patch_pool_applied; "host_patches",rpc_of_ref_host_patch_set x.pool_patch_host_patches; "after_apply_guidance",rpc_of_after_apply_guidance_set x.pool_patch_after_apply_guidance; "pool_update",rpc_of_ref_pool_update x.pool_patch_pool_update; "other_config",rpc_of_string_to_string_map x.pool_patch_other_config ]
+let pool_patch_t_of_rpc x = on_dict (fun x -> { pool_patch_uuid = string_of_rpc (List.assoc "uuid" x); pool_patch_name_label = string_of_rpc (List.assoc "name_label" x); pool_patch_name_description = string_of_rpc (List.assoc "name_description" x); pool_patch_version = string_of_rpc (List.assoc "version" x); pool_patch_filename = string_of_rpc (List.assoc "filename" x); pool_patch_size = int64_of_rpc (List.assoc "size" x); pool_patch_pool_applied = bool_of_rpc (List.assoc "pool_applied" x); pool_patch_host_patches = ref_host_patch_set_of_rpc (List.assoc "host_patches" x); pool_patch_after_apply_guidance = after_apply_guidance_set_of_rpc (List.assoc "after_apply_guidance" x); pool_patch_pool_update = ref_pool_update_of_rpc (List.assoc "pool_update" x); pool_patch_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x) }) x
+type ref_pool_patch_to_pool_patch_t_map = (ref_pool_patch * pool_patch_t) list [@@deriving rpc]
+type pool_patch_t_set = pool_patch_t list [@@deriving rpc]
 
-type task_t = { task_uuid : string; task_name_label : string; task_name_description : string; task_allowed_operations : task_allowed_operations_set; task_current_operations : string_to_task_allowed_operations_map; task_created : datetime; task_finished : datetime; task_status : task_status_type; task_resident_on : ref_host; task_progress : float; task_type : string; task_result : string; task_error_info : string_set; task_other_config : string_to_string_map; task_subtask_of : ref_task; task_subtasks : ref_task_set; task_backtrace : string }
-let rpc_of_task_t x = Rpc.Dict [ "uuid",rpc_of_string x.task_uuid; "name_label",rpc_of_string x.task_name_label; "name_description",rpc_of_string x.task_name_description; "allowed_operations",rpc_of_task_allowed_operations_set x.task_allowed_operations; "current_operations",rpc_of_string_to_task_allowed_operations_map x.task_current_operations; "created",rpc_of_datetime x.task_created; "finished",rpc_of_datetime x.task_finished; "status",rpc_of_task_status_type x.task_status; "resident_on",rpc_of_ref_host x.task_resident_on; "progress",rpc_of_float x.task_progress; "type",rpc_of_string x.task_type; "result",rpc_of_string x.task_result; "error_info",rpc_of_string_set x.task_error_info; "other_config",rpc_of_string_to_string_map x.task_other_config; "subtask_of",rpc_of_ref_task x.task_subtask_of; "subtasks",rpc_of_ref_task_set x.task_subtasks; "backtrace",rpc_of_string x.task_backtrace ]
-let task_t_of_rpc x = on_dict (fun x -> { task_uuid = string_of_rpc (List.assoc "uuid" x); task_name_label = string_of_rpc (List.assoc "name_label" x); task_name_description = string_of_rpc (List.assoc "name_description" x); task_allowed_operations = task_allowed_operations_set_of_rpc (List.assoc "allowed_operations" x); task_current_operations = string_to_task_allowed_operations_map_of_rpc (List.assoc "current_operations" x); task_created = datetime_of_rpc (List.assoc "created" x); task_finished = datetime_of_rpc (List.assoc "finished" x); task_status = task_status_type_of_rpc (List.assoc "status" x); task_resident_on = ref_host_of_rpc (List.assoc "resident_on" x); task_progress = float_of_rpc (List.assoc "progress" x); task_type = string_of_rpc (List.assoc "type" x); task_result = string_of_rpc (List.assoc "result" x); task_error_info = string_set_of_rpc (List.assoc "error_info" x); task_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); task_subtask_of = ref_task_of_rpc (List.assoc "subtask_of" x); task_subtasks = ref_task_set_of_rpc (List.assoc "subtasks" x); task_backtrace = string_of_rpc (List.assoc "backtrace" x) }) x
-type ref_task_to_task_t_map = (ref_task * task_t) list with rpc
-type task_t_set = task_t list with rpc
+type pool_t = { pool_uuid : string; pool_name_label : string; pool_name_description : string; pool_master : ref_host; pool_default_SR : ref_SR; pool_suspend_image_SR : ref_SR; pool_crash_dump_SR : ref_SR; pool_other_config : string_to_string_map; pool_ha_enabled : bool; pool_ha_configuration : string_to_string_map; pool_ha_statefiles : string_set; pool_ha_host_failures_to_tolerate : int64; pool_ha_plan_exists_for : int64; pool_ha_allow_overcommit : bool; pool_ha_overcommitted : bool; pool_blobs : string_to_ref_blob_map; pool_tags : string_set; pool_gui_config : string_to_string_map; pool_health_check_config : string_to_string_map; pool_wlb_url : string; pool_wlb_username : string; pool_wlb_password : ref_secret; pool_wlb_enabled : bool; pool_wlb_verify_cert : bool; pool_redo_log_enabled : bool; pool_redo_log_vdi : ref_VDI; pool_vswitch_controller : string; pool_restrictions : string_to_string_map; pool_metadata_VDIs : ref_VDI_set; pool_ha_cluster_stack : string; pool_allowed_operations : pool_allowed_operations_set; pool_current_operations : string_to_pool_allowed_operations_map; pool_guest_agent_config : string_to_string_map; pool_cpu_info : string_to_string_map; pool_policy_no_vendor_device : bool; pool_live_patching_disabled : bool }
+let rpc_of_pool_t x = Rpc.Dict [ "uuid",rpc_of_string x.pool_uuid; "name_label",rpc_of_string x.pool_name_label; "name_description",rpc_of_string x.pool_name_description; "master",rpc_of_ref_host x.pool_master; "default_SR",rpc_of_ref_SR x.pool_default_SR; "suspend_image_SR",rpc_of_ref_SR x.pool_suspend_image_SR; "crash_dump_SR",rpc_of_ref_SR x.pool_crash_dump_SR; "other_config",rpc_of_string_to_string_map x.pool_other_config; "ha_enabled",rpc_of_bool x.pool_ha_enabled; "ha_configuration",rpc_of_string_to_string_map x.pool_ha_configuration; "ha_statefiles",rpc_of_string_set x.pool_ha_statefiles; "ha_host_failures_to_tolerate",rpc_of_int64 x.pool_ha_host_failures_to_tolerate; "ha_plan_exists_for",rpc_of_int64 x.pool_ha_plan_exists_for; "ha_allow_overcommit",rpc_of_bool x.pool_ha_allow_overcommit; "ha_overcommitted",rpc_of_bool x.pool_ha_overcommitted; "blobs",rpc_of_string_to_ref_blob_map x.pool_blobs; "tags",rpc_of_string_set x.pool_tags; "gui_config",rpc_of_string_to_string_map x.pool_gui_config; "health_check_config",rpc_of_string_to_string_map x.pool_health_check_config; "wlb_url",rpc_of_string x.pool_wlb_url; "wlb_username",rpc_of_string x.pool_wlb_username; "wlb_password",rpc_of_ref_secret x.pool_wlb_password; "wlb_enabled",rpc_of_bool x.pool_wlb_enabled; "wlb_verify_cert",rpc_of_bool x.pool_wlb_verify_cert; "redo_log_enabled",rpc_of_bool x.pool_redo_log_enabled; "redo_log_vdi",rpc_of_ref_VDI x.pool_redo_log_vdi; "vswitch_controller",rpc_of_string x.pool_vswitch_controller; "restrictions",rpc_of_string_to_string_map x.pool_restrictions; "metadata_VDIs",rpc_of_ref_VDI_set x.pool_metadata_VDIs; "ha_cluster_stack",rpc_of_string x.pool_ha_cluster_stack; "allowed_operations",rpc_of_pool_allowed_operations_set x.pool_allowed_operations; "current_operations",rpc_of_string_to_pool_allowed_operations_map x.pool_current_operations; "guest_agent_config",rpc_of_string_to_string_map x.pool_guest_agent_config; "cpu_info",rpc_of_string_to_string_map x.pool_cpu_info; "policy_no_vendor_device",rpc_of_bool x.pool_policy_no_vendor_device; "live_patching_disabled",rpc_of_bool x.pool_live_patching_disabled ]
+let pool_t_of_rpc x = on_dict (fun x -> { pool_uuid = string_of_rpc (List.assoc "uuid" x); pool_name_label = string_of_rpc (List.assoc "name_label" x); pool_name_description = string_of_rpc (List.assoc "name_description" x); pool_master = ref_host_of_rpc (List.assoc "master" x); pool_default_SR = ref_SR_of_rpc (List.assoc "default_SR" x); pool_suspend_image_SR = ref_SR_of_rpc (List.assoc "suspend_image_SR" x); pool_crash_dump_SR = ref_SR_of_rpc (List.assoc "crash_dump_SR" x); pool_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); pool_ha_enabled = bool_of_rpc (List.assoc "ha_enabled" x); pool_ha_configuration = string_to_string_map_of_rpc (List.assoc "ha_configuration" x); pool_ha_statefiles = string_set_of_rpc (List.assoc "ha_statefiles" x); pool_ha_host_failures_to_tolerate = int64_of_rpc (List.assoc "ha_host_failures_to_tolerate" x); pool_ha_plan_exists_for = int64_of_rpc (List.assoc "ha_plan_exists_for" x); pool_ha_allow_overcommit = bool_of_rpc (List.assoc "ha_allow_overcommit" x); pool_ha_overcommitted = bool_of_rpc (List.assoc "ha_overcommitted" x); pool_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); pool_tags = string_set_of_rpc (List.assoc "tags" x); pool_gui_config = string_to_string_map_of_rpc (List.assoc "gui_config" x); pool_health_check_config = string_to_string_map_of_rpc (List.assoc "health_check_config" x); pool_wlb_url = string_of_rpc (List.assoc "wlb_url" x); pool_wlb_username = string_of_rpc (List.assoc "wlb_username" x); pool_wlb_password = ref_secret_of_rpc (List.assoc "wlb_password" x); pool_wlb_enabled = bool_of_rpc (List.assoc "wlb_enabled" x); pool_wlb_verify_cert = bool_of_rpc (List.assoc "wlb_verify_cert" x); pool_redo_log_enabled = bool_of_rpc (List.assoc "redo_log_enabled" x); pool_redo_log_vdi = ref_VDI_of_rpc (List.assoc "redo_log_vdi" x); pool_vswitch_controller = string_of_rpc (List.assoc "vswitch_controller" x); pool_restrictions = string_to_string_map_of_rpc (List.assoc "restrictions" x); pool_metadata_VDIs = ref_VDI_set_of_rpc (List.assoc "metadata_VDIs" x); pool_ha_cluster_stack = string_of_rpc (List.assoc "ha_cluster_stack" x); pool_allowed_operations = pool_allowed_operations_set_of_rpc (List.assoc "allowed_operations" x); pool_current_operations = string_to_pool_allowed_operations_map_of_rpc (List.assoc "current_operations" x); pool_guest_agent_config = string_to_string_map_of_rpc (List.assoc "guest_agent_config" x); pool_cpu_info = string_to_string_map_of_rpc (List.assoc "cpu_info" x); pool_policy_no_vendor_device = bool_of_rpc (List.assoc "policy_no_vendor_device" x); pool_live_patching_disabled = bool_of_rpc (List.assoc "live_patching_disabled" x) }) x
+type ref_pool_to_pool_t_map = (ref_pool * pool_t) list [@@deriving rpc]
+type pool_t_set = pool_t list [@@deriving rpc]
+
+type task_t = { task_uuid : string; task_name_label : string; task_name_description : string; task_allowed_operations : task_allowed_operations_set; task_current_operations : string_to_task_allowed_operations_map; task_created : datetime; task_finished : datetime; task_status : task_status_type; task_session : ref_session; task_resident_on : ref_host; task_progress : float; task_externalpid : int64; task_stunnelpid : int64; task_forwarded : bool; task_forwarded_to : ref_host; task_type : string; task_result : string; task_error_info : string_set; task_other_config : string_to_string_map; task_subtask_of : ref_task; task_subtasks : ref_task_set; task_backtrace : string }
+let rpc_of_task_t x = Rpc.Dict [ "uuid",rpc_of_string x.task_uuid; "name_label",rpc_of_string x.task_name_label; "name_description",rpc_of_string x.task_name_description; "allowed_operations",rpc_of_task_allowed_operations_set x.task_allowed_operations; "current_operations",rpc_of_string_to_task_allowed_operations_map x.task_current_operations; "created",rpc_of_datetime x.task_created; "finished",rpc_of_datetime x.task_finished; "status",rpc_of_task_status_type x.task_status; "session",rpc_of_ref_session x.task_session; "resident_on",rpc_of_ref_host x.task_resident_on; "progress",rpc_of_float x.task_progress; "externalpid",rpc_of_int64 x.task_externalpid; "stunnelpid",rpc_of_int64 x.task_stunnelpid; "forwarded",rpc_of_bool x.task_forwarded; "forwarded_to",rpc_of_ref_host x.task_forwarded_to; "type",rpc_of_string x.task_type; "result",rpc_of_string x.task_result; "error_info",rpc_of_string_set x.task_error_info; "other_config",rpc_of_string_to_string_map x.task_other_config; "subtask_of",rpc_of_ref_task x.task_subtask_of; "subtasks",rpc_of_ref_task_set x.task_subtasks; "backtrace",rpc_of_string x.task_backtrace ]
+let task_t_of_rpc x = on_dict (fun x -> { task_uuid = string_of_rpc (List.assoc "uuid" x); task_name_label = string_of_rpc (List.assoc "name_label" x); task_name_description = string_of_rpc (List.assoc "name_description" x); task_allowed_operations = task_allowed_operations_set_of_rpc (List.assoc "allowed_operations" x); task_current_operations = string_to_task_allowed_operations_map_of_rpc (List.assoc "current_operations" x); task_created = datetime_of_rpc (List.assoc "created" x); task_finished = datetime_of_rpc (List.assoc "finished" x); task_status = task_status_type_of_rpc (List.assoc "status" x); task_session = ref_session_of_rpc (List.assoc "session" x); task_resident_on = ref_host_of_rpc (List.assoc "resident_on" x); task_progress = float_of_rpc (List.assoc "progress" x); task_externalpid = int64_of_rpc (List.assoc "externalpid" x); task_stunnelpid = int64_of_rpc (List.assoc "stunnelpid" x); task_forwarded = bool_of_rpc (List.assoc "forwarded" x); task_forwarded_to = ref_host_of_rpc (List.assoc "forwarded_to" x); task_type = string_of_rpc (List.assoc "type" x); task_result = string_of_rpc (List.assoc "result" x); task_error_info = string_set_of_rpc (List.assoc "error_info" x); task_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); task_subtask_of = ref_task_of_rpc (List.assoc "subtask_of" x); task_subtasks = ref_task_set_of_rpc (List.assoc "subtasks" x); task_backtrace = string_of_rpc (List.assoc "backtrace" x) }) x
+type ref_task_to_task_t_map = (ref_task * task_t) list [@@deriving rpc]
+type task_t_set = task_t list [@@deriving rpc]
 
 type role_t = { role_uuid : string; role_name_label : string; role_name_description : string; role_subroles : ref_role_set }
 let rpc_of_role_t x = Rpc.Dict [ "uuid",rpc_of_string x.role_uuid; "name_label",rpc_of_string x.role_name_label; "name_description",rpc_of_string x.role_name_description; "subroles",rpc_of_ref_role_set x.role_subroles ]
 let role_t_of_rpc x = on_dict (fun x -> { role_uuid = string_of_rpc (List.assoc "uuid" x); role_name_label = string_of_rpc (List.assoc "name_label" x); role_name_description = string_of_rpc (List.assoc "name_description" x); role_subroles = ref_role_set_of_rpc (List.assoc "subroles" x) }) x
-type ref_role_to_role_t_map = (ref_role * role_t) list with rpc
-type role_t_set = role_t list with rpc
+type ref_role_to_role_t_map = (ref_role * role_t) list [@@deriving rpc]
+type role_t_set = role_t list [@@deriving rpc]
 
 type subject_t = { subject_uuid : string; subject_subject_identifier : string; subject_other_config : string_to_string_map; subject_roles : ref_role_set }
 let rpc_of_subject_t x = Rpc.Dict [ "uuid",rpc_of_string x.subject_uuid; "subject_identifier",rpc_of_string x.subject_subject_identifier; "other_config",rpc_of_string_to_string_map x.subject_other_config; "roles",rpc_of_ref_role_set x.subject_roles ]
 let subject_t_of_rpc x = on_dict (fun x -> { subject_uuid = string_of_rpc (List.assoc "uuid" x); subject_subject_identifier = string_of_rpc (List.assoc "subject_identifier" x); subject_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); subject_roles = ref_role_set_of_rpc (List.assoc "roles" x) }) x
-type ref_subject_to_subject_t_map = (ref_subject * subject_t) list with rpc
-type subject_t_set = subject_t list with rpc
+type ref_subject_to_subject_t_map = (ref_subject * subject_t) list [@@deriving rpc]
+type subject_t_set = subject_t list [@@deriving rpc]
 
 type session_t = { session_uuid : string; session_this_host : ref_host; session_this_user : ref_user; session_last_active : datetime; session_pool : bool; session_other_config : string_to_string_map; session_is_local_superuser : bool; session_subject : ref_subject; session_validation_time : datetime; session_auth_user_sid : string; session_auth_user_name : string; session_rbac_permissions : string_set; session_tasks : ref_task_set; session_parent : ref_session; session_originator : string }
 let rpc_of_session_t x = Rpc.Dict [ "uuid",rpc_of_string x.session_uuid; "this_host",rpc_of_ref_host x.session_this_host; "this_user",rpc_of_ref_user x.session_this_user; "last_active",rpc_of_datetime x.session_last_active; "pool",rpc_of_bool x.session_pool; "other_config",rpc_of_string_to_string_map x.session_other_config; "is_local_superuser",rpc_of_bool x.session_is_local_superuser; "subject",rpc_of_ref_subject x.session_subject; "validation_time",rpc_of_datetime x.session_validation_time; "auth_user_sid",rpc_of_string x.session_auth_user_sid; "auth_user_name",rpc_of_string x.session_auth_user_name; "rbac_permissions",rpc_of_string_set x.session_rbac_permissions; "tasks",rpc_of_ref_task_set x.session_tasks; "parent",rpc_of_ref_session x.session_parent; "originator",rpc_of_string x.session_originator ]
 let session_t_of_rpc x = on_dict (fun x -> { session_uuid = string_of_rpc (List.assoc "uuid" x); session_this_host = ref_host_of_rpc (List.assoc "this_host" x); session_this_user = ref_user_of_rpc (List.assoc "this_user" x); session_last_active = datetime_of_rpc (List.assoc "last_active" x); session_pool = bool_of_rpc (List.assoc "pool" x); session_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); session_is_local_superuser = bool_of_rpc (List.assoc "is_local_superuser" x); session_subject = ref_subject_of_rpc (List.assoc "subject" x); session_validation_time = datetime_of_rpc (List.assoc "validation_time" x); session_auth_user_sid = string_of_rpc (List.assoc "auth_user_sid" x); session_auth_user_name = string_of_rpc (List.assoc "auth_user_name" x); session_rbac_permissions = string_set_of_rpc (List.assoc "rbac_permissions" x); session_tasks = ref_task_set_of_rpc (List.assoc "tasks" x); session_parent = ref_session_of_rpc (List.assoc "parent" x); session_originator = string_of_rpc (List.assoc "originator" x) }) x
-type ref_session_to_session_t_map = (ref_session * session_t) list with rpc
-type session_t_set = session_t list with rpc
+type ref_session_to_session_t_map = (ref_session * session_t) list [@@deriving rpc]
+type session_t_set = session_t list [@@deriving rpc]
 
 type event_t = { event_id : int64; event_timestamp : datetime; event_class : string; event_operation : event_operation; event_ref : string; event_obj_uuid : string }
 let rpc_of_event_t x = Rpc.Dict [ "id",rpc_of_int64 x.event_id; "timestamp",rpc_of_datetime x.event_timestamp; "class",rpc_of_string x.event_class; "operation",rpc_of_event_operation x.event_operation; "ref",rpc_of_string x.event_ref; "obj_uuid",rpc_of_string x.event_obj_uuid ]
 let event_t_of_rpc x = on_dict (fun x -> { event_id = int64_of_rpc (List.assoc "id" x); event_timestamp = datetime_of_rpc (List.assoc "timestamp" x); event_class = string_of_rpc (List.assoc "class" x); event_operation = event_operation_of_rpc (List.assoc "operation" x); event_ref = string_of_rpc (List.assoc "ref" x); event_obj_uuid = string_of_rpc (List.assoc "obj_uuid" x) }) x
-type ref_event_to_event_t_map = (ref_event * event_t) list with rpc
-type event_t_set = event_t list with rpc
+type ref_event_to_event_t_map = (ref_event * event_t) list [@@deriving rpc]
+type event_t_set = event_t list [@@deriving rpc]
 
 type data_source_t = { data_source_name_label : string; data_source_name_description : string; data_source_enabled : bool; data_source_standard : bool; data_source_units : string; data_source_min : float; data_source_max : float; data_source_value : float }
 let rpc_of_data_source_t x = Rpc.Dict [ "name_label",rpc_of_string x.data_source_name_label; "name_description",rpc_of_string x.data_source_name_description; "enabled",rpc_of_bool x.data_source_enabled; "standard",rpc_of_bool x.data_source_standard; "units",rpc_of_string x.data_source_units; "min",rpc_of_float x.data_source_min; "max",rpc_of_float x.data_source_max; "value",rpc_of_float x.data_source_value ]
 let data_source_t_of_rpc x = on_dict (fun x -> { data_source_name_label = string_of_rpc (List.assoc "name_label" x); data_source_name_description = string_of_rpc (List.assoc "name_description" x); data_source_enabled = bool_of_rpc (List.assoc "enabled" x); data_source_standard = bool_of_rpc (List.assoc "standard" x); data_source_units = string_of_rpc (List.assoc "units" x); data_source_min = float_of_rpc (List.assoc "min" x); data_source_max = float_of_rpc (List.assoc "max" x); data_source_value = float_of_rpc (List.assoc "value" x) }) x
-type ref_data_source_to_data_source_t_map = (ref_data_source * data_source_t) list with rpc
-type data_source_t_set = data_source_t list with rpc
+type ref_data_source_to_data_source_t_map = (ref_data_source * data_source_t) list [@@deriving rpc]
+type data_source_t_set = data_source_t list [@@deriving rpc]
 
 type message_t = { message_uuid : string; message_name : string; message_priority : int64; message_cls : cls; message_obj_uuid : string; message_timestamp : datetime; message_body : string }
 let rpc_of_message_t x = Rpc.Dict [ "uuid",rpc_of_string x.message_uuid; "name",rpc_of_string x.message_name; "priority",rpc_of_int64 x.message_priority; "cls",rpc_of_cls x.message_cls; "obj_uuid",rpc_of_string x.message_obj_uuid; "timestamp",rpc_of_datetime x.message_timestamp; "body",rpc_of_string x.message_body ]
 let message_t_of_rpc x = on_dict (fun x -> { message_uuid = string_of_rpc (List.assoc "uuid" x); message_name = string_of_rpc (List.assoc "name" x); message_priority = int64_of_rpc (List.assoc "priority" x); message_cls = cls_of_rpc (List.assoc "cls" x); message_obj_uuid = string_of_rpc (List.assoc "obj_uuid" x); message_timestamp = datetime_of_rpc (List.assoc "timestamp" x); message_body = string_of_rpc (List.assoc "body" x) }) x
-type ref_message_to_message_t_map = (ref_message * message_t) list with rpc
-type message_t_set = message_t list with rpc
+type ref_message_to_message_t_map = (ref_message * message_t) list [@@deriving rpc]
+type message_t_set = message_t list [@@deriving rpc]
 
 
 module type API = sig
@@ -617,8 +690,19 @@ module type API = sig
       val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_patch -> ref_task
       val clean_on_host : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_patch -> host:ref_host -> ref_task
     end
+    module Pool_update : sig
+      val introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vdi:ref_VDI -> ref_task
+      val precheck : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> host:ref_host -> ref_task
+      val apply : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> host:ref_host -> ref_task
+      val pool_apply : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> ref_task
+      val pool_clean : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> ref_task
+      val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> ref_task
+      val attach : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> ref_task
+      val detach : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> ref_task
+      val resync_host : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> ref_task
+    end
     module VM : sig
-      val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> user_version:int64 -> is_a_template:bool -> affinity:ref_host -> memory_target:int64 -> memory_static_max:int64 -> memory_dynamic_max:int64 -> memory_dynamic_min:int64 -> memory_static_min:int64 -> vCPUs_params:string_to_string_map -> vCPUs_max:int64 -> vCPUs_at_startup:int64 -> actions_after_shutdown:on_normal_exit -> actions_after_reboot:on_normal_exit -> actions_after_crash:on_crash_behaviour -> pV_bootloader:string -> pV_kernel:string -> pV_ramdisk:string -> pV_args:string -> pV_bootloader_args:string -> pV_legacy_args:string -> hVM_boot_policy:string -> hVM_boot_params:string_to_string_map -> hVM_shadow_multiplier:float -> platform:string_to_string_map -> pCI_bus:string -> other_config:string_to_string_map -> recommendations:string -> xenstore_data:string_to_string_map -> ha_always_run:bool -> ha_restart_priority:string -> tags:string_set -> blocked_operations:vm_operations_to_string_map -> protection_policy:ref_VMPP -> is_snapshot_from_vmpp:bool -> appliance:ref_VM_appliance -> start_delay:int64 -> shutdown_delay:int64 -> order:int64 -> suspend_SR:ref_SR -> version:int64 -> generation_id:string -> hardware_platform_version:int64 -> has_vendor_device:bool -> ref_task
+      val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> user_version:int64 -> is_a_template:bool -> affinity:ref_host -> memory_target:int64 -> memory_static_max:int64 -> memory_dynamic_max:int64 -> memory_dynamic_min:int64 -> memory_static_min:int64 -> vCPUs_params:string_to_string_map -> vCPUs_max:int64 -> vCPUs_at_startup:int64 -> actions_after_shutdown:on_normal_exit -> actions_after_reboot:on_normal_exit -> actions_after_crash:on_crash_behaviour -> pV_bootloader:string -> pV_kernel:string -> pV_ramdisk:string -> pV_args:string -> pV_bootloader_args:string -> pV_legacy_args:string -> hVM_boot_policy:string -> hVM_boot_params:string_to_string_map -> hVM_shadow_multiplier:float -> platform:string_to_string_map -> pCI_bus:string -> other_config:string_to_string_map -> recommendations:string -> xenstore_data:string_to_string_map -> ha_always_run:bool -> ha_restart_priority:string -> tags:string_set -> blocked_operations:vm_operations_to_string_map -> protection_policy:ref_VMPP -> is_snapshot_from_vmpp:bool -> snapshot_schedule:ref_VMSS -> is_vmss_snapshot:bool -> appliance:ref_VM_appliance -> start_delay:int64 -> shutdown_delay:int64 -> order:int64 -> suspend_SR:ref_SR -> version:int64 -> generation_id:string -> hardware_platform_version:int64 -> has_vendor_device:bool -> reference_label:string -> ref_task
       val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> ref_task
       val snapshot : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> new_name:string -> ref_task
       val snapshot_with_quiesce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> new_name:string -> ref_task
@@ -640,6 +724,7 @@ module type API = sig
       val suspend : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> ref_task
       val csvm : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> ref_task
       val resume : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> start_paused:bool -> force:bool -> ref_task
+      val set_is_default_template : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> value:bool -> ref_task
       val hard_reboot_internal : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> ref_task
       val resume_on : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> host:ref_host -> start_paused:bool -> force:bool -> ref_task
       val pool_migrate : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> host:ref_host -> options:string_to_string_map -> ref_task
@@ -650,6 +735,7 @@ module type API = sig
       val set_memory_dynamic_range : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> min:int64 -> max:int64 -> ref_task
       val set_memory_static_range : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> min:int64 -> max:int64 -> ref_task
       val set_memory_limits : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> static_min:int64 -> static_max:int64 -> dynamic_min:int64 -> dynamic_max:int64 -> ref_task
+      val set_memory : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:int64 -> ref_task
       val set_memory_target_live : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> target:int64 -> ref_task
       val wait_memory_target_live : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> ref_task
       val get_cooperative : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> ref_task
@@ -694,6 +780,11 @@ module type API = sig
       val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> is_policy_enabled:bool -> backup_type:vmpp_backup_type -> backup_retention_value:int64 -> backup_frequency:vmpp_backup_frequency -> backup_schedule:string_to_string_map -> archive_target_type:vmpp_archive_target_type -> archive_target_config:string_to_string_map -> archive_frequency:vmpp_archive_frequency -> archive_schedule:string_to_string_map -> is_alarm_enabled:bool -> alarm_config:string_to_string_map -> ref_task
       val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMPP -> ref_task
       val create_from_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> value:vMPP_t -> ref_task
+    end
+    module VMSS : sig
+      val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> enabled:bool -> _type:vmss_type -> retained_snapshots:int64 -> frequency:vmss_frequency -> schedule:string_to_string_map -> ref_task
+      val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> ref_task
+      val create_from_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> value:vMSS_t -> ref_task
     end
     module VM_appliance : sig
       val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> ref_task
@@ -749,6 +840,7 @@ module type API = sig
       val compute_memory_overhead : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> ref_task
       val create_new_blob : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> name:string -> mime_type:string -> public:bool -> ref_task
       val call_plugin : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> plugin:string -> fn:string -> args:string_to_string_map -> ref_task
+      val has_extension : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> name:string -> ref_task
       val enable_binary_storage : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> ref_task
       val disable_binary_storage : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> ref_task
       val retrieve_wlb_evacuate_recommendations : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> ref_task
@@ -774,6 +866,7 @@ module type API = sig
       val disable_display : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> ref_task
       val set_ssl_legacy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> value:bool -> ref_task
       val apply_guest_agent_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> ref_task
+      val mxgpu_vf_setup : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> ref_task
     end
     module Host_crashdump : sig
       val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host_crashdump -> ref_task
@@ -788,10 +881,10 @@ module type API = sig
     module Host_cpu : sig
     end
     module Network : sig
-      val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> mTU:int64 -> other_config:string_to_string_map -> tags:string_set -> ref_task
+      val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> mTU:int64 -> other_config:string_to_string_map -> bridge:string -> managed:bool -> tags:string_set -> ref_task
       val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> ref_task
       val attach : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> network:ref_network -> host:ref_host -> ref_task
-      val pool_introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> mTU:int64 -> other_config:string_to_string_map -> bridge:string -> ref_task
+      val pool_introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> mTU:int64 -> other_config:string_to_string_map -> bridge:string -> managed:bool -> ref_task
       val create_new_blob : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> network:ref_network -> name:string -> mime_type:string -> public:bool -> ref_task
       val set_default_locking_mode : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> network:ref_network -> value:network_default_locking_mode -> ref_task
       val attach_for_vm : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> vm:ref_VM -> ref_task
@@ -804,6 +897,7 @@ module type API = sig
       val plug : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VIF -> ref_task
       val unplug : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VIF -> ref_task
       val unplug_force : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VIF -> ref_task
+      val move : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VIF -> network:ref_network -> ref_task
       val set_locking_mode : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VIF -> value:vif_locking_mode -> ref_task
       val set_ipv4_allowed : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VIF -> value:string_set -> ref_task
       val add_ipv4_allowed : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VIF -> value:string -> ref_task
@@ -866,7 +960,7 @@ module type API = sig
       val disable_database_replication : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> sr:ref_SR -> ref_task
     end
     module LVHD : sig
-      val enable_thin_provisioning : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> sR:ref_SR -> initial_allocation:int64 -> allocation_quantum:int64 -> ref_task
+      val enable_thin_provisioning : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> sR:ref_SR -> initial_allocation:int64 -> allocation_quantum:int64 -> ref_task
     end
     module VDI : sig
       val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> sR:ref_SR -> virtual_size:int64 -> _type:vdi_type -> sharable:bool -> read_only:bool -> other_config:string_to_string_map -> xenstore_data:string_to_string_map -> sm_config:string_to_string_map -> tags:string_set -> ref_task
@@ -927,7 +1021,7 @@ module type API = sig
       val create_from_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> value:vTPM_t -> ref_task
     end
     module Console : sig
-      val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> other_config:string_to_string_map -> ref_task
+      val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> other_config:string_to_string_map -> port:int64 -> ref_task
       val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_console -> ref_task
       val create_from_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> value:console_t -> ref_task
     end
@@ -975,6 +1069,30 @@ module type API = sig
       val atomic_set_resident_on : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VGPU -> value:ref_PGPU -> ref_task
     end
     module VGPU_type : sig
+    end
+    module PVS_site : sig
+      val introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> pVS_uuid:string -> ref_task
+      val forget : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_site -> ref_task
+      val set_PVS_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_site -> value:string -> ref_task
+    end
+    module PVS_server : sig
+      val introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> addresses:string_set -> first_port:int64 -> last_port:int64 -> site:ref_PVS_site -> ref_task
+      val forget : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_server -> ref_task
+    end
+    module PVS_proxy : sig
+      val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> site:ref_PVS_site -> vIF:ref_VIF -> ref_task
+      val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_proxy -> ref_task
+    end
+    module PVS_cache_storage : sig
+      val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> sR:ref_SR -> site:ref_PVS_site -> size:int64 -> ref_task
+      val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_cache_storage -> ref_task
+      val create_from_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> value:pVS_cache_storage_t -> ref_task
+    end
+    module Feature : sig
+    end
+    module SDN_controller : sig
+      val introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> protocol:sdn_controller_protocol -> address:string -> port:int64 -> ref_task
+      val forget : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_SDN_controller -> ref_task
     end
   end
   module Session : sig
@@ -1074,6 +1192,7 @@ module type API = sig
     val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> label:string -> description:string -> ref_task
     val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_task -> unit
     val cancel : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> task:ref_task -> unit
+    val set_status : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_task -> value:task_status_type -> unit
     val get_all : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_task_set
     val get_all_records_where : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> expr:string -> ref_task_to_task_t_map
     val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_task_to_task_t_map
@@ -1123,6 +1242,7 @@ module type API = sig
     val get_guest_agent_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> string_to_string_map
     val get_cpu_info : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> string_to_string_map
     val get_policy_no_vendor_device : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> bool
+    val get_live_patching_disabled : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> bool
     val set_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> value:string -> unit
     val set_name_description : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> value:string -> unit
     val set_default_SR : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> value:ref_SR -> unit
@@ -1144,6 +1264,7 @@ module type API = sig
     val set_wlb_enabled : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> value:bool -> unit
     val set_wlb_verify_cert : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> value:bool -> unit
     val set_policy_no_vendor_device : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> value:bool -> unit
+    val set_live_patching_disabled : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool -> value:bool -> unit
     val join : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> master_address:string -> master_username:string -> master_password:string -> unit
     val join_force : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> master_address:string -> master_username:string -> master_password:string -> unit
     val eject : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> unit
@@ -1216,6 +1337,7 @@ module type API = sig
     val get_pool_applied : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_patch -> bool
     val get_host_patches : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_patch -> ref_host_patch_set
     val get_after_apply_guidance : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_patch -> after_apply_guidance_set
+    val get_pool_update : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_patch -> ref_pool_update
     val get_other_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_patch -> string_to_string_map
     val set_other_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_patch -> value:string_to_string_map -> unit
     val add_to_other_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_patch -> key:string -> value:string -> unit
@@ -1231,10 +1353,36 @@ module type API = sig
     val get_all_records_where : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> expr:string -> ref_pool_patch_to_pool_patch_t_map
     val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_pool_patch_to_pool_patch_t_map
   end
+  module Pool_update : sig
+    val get_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> pool_update_t
+    val get_by_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> uuid:string -> ref_pool_update
+    val get_by_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> label:string -> ref_pool_update_set
+    val get_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> string
+    val get_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> string
+    val get_name_description : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> string
+    val get_version : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> string
+    val get_installation_size : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> int64
+    val get_key : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> string
+    val get_after_apply_guidance : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> update_after_apply_guidance_set
+    val get_vdi : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> ref_VDI
+    val get_hosts : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> ref_host_set
+    val introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vdi:ref_VDI -> ref_pool_update
+    val precheck : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> host:ref_host -> livepatch_status
+    val apply : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> host:ref_host -> unit
+    val pool_apply : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> unit
+    val pool_clean : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> unit
+    val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> unit
+    val attach : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> string
+    val detach : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_pool_update -> unit
+    val resync_host : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> unit
+    val get_all : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_pool_update_set
+    val get_all_records_where : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> expr:string -> ref_pool_update_to_pool_update_t_map
+    val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_pool_update_to_pool_update_t_map
+  end
   module VM : sig
     val get_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> vM_t
     val get_by_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> uuid:string -> ref_VM
-    val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> user_version:int64 -> is_a_template:bool -> affinity:ref_host -> memory_target:int64 -> memory_static_max:int64 -> memory_dynamic_max:int64 -> memory_dynamic_min:int64 -> memory_static_min:int64 -> vCPUs_params:string_to_string_map -> vCPUs_max:int64 -> vCPUs_at_startup:int64 -> actions_after_shutdown:on_normal_exit -> actions_after_reboot:on_normal_exit -> actions_after_crash:on_crash_behaviour -> pV_bootloader:string -> pV_kernel:string -> pV_ramdisk:string -> pV_args:string -> pV_bootloader_args:string -> pV_legacy_args:string -> hVM_boot_policy:string -> hVM_boot_params:string_to_string_map -> hVM_shadow_multiplier:float -> platform:string_to_string_map -> pCI_bus:string -> other_config:string_to_string_map -> recommendations:string -> xenstore_data:string_to_string_map -> ha_always_run:bool -> ha_restart_priority:string -> tags:string_set -> blocked_operations:vm_operations_to_string_map -> protection_policy:ref_VMPP -> is_snapshot_from_vmpp:bool -> appliance:ref_VM_appliance -> start_delay:int64 -> shutdown_delay:int64 -> order:int64 -> suspend_SR:ref_SR -> version:int64 -> generation_id:string -> hardware_platform_version:int64 -> has_vendor_device:bool -> ref_VM
+    val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> user_version:int64 -> is_a_template:bool -> affinity:ref_host -> memory_target:int64 -> memory_static_max:int64 -> memory_dynamic_max:int64 -> memory_dynamic_min:int64 -> memory_static_min:int64 -> vCPUs_params:string_to_string_map -> vCPUs_max:int64 -> vCPUs_at_startup:int64 -> actions_after_shutdown:on_normal_exit -> actions_after_reboot:on_normal_exit -> actions_after_crash:on_crash_behaviour -> pV_bootloader:string -> pV_kernel:string -> pV_ramdisk:string -> pV_args:string -> pV_bootloader_args:string -> pV_legacy_args:string -> hVM_boot_policy:string -> hVM_boot_params:string_to_string_map -> hVM_shadow_multiplier:float -> platform:string_to_string_map -> pCI_bus:string -> other_config:string_to_string_map -> recommendations:string -> xenstore_data:string_to_string_map -> ha_always_run:bool -> ha_restart_priority:string -> tags:string_set -> blocked_operations:vm_operations_to_string_map -> protection_policy:ref_VMPP -> is_snapshot_from_vmpp:bool -> snapshot_schedule:ref_VMSS -> is_vmss_snapshot:bool -> appliance:ref_VM_appliance -> start_delay:int64 -> shutdown_delay:int64 -> order:int64 -> suspend_SR:ref_SR -> version:int64 -> generation_id:string -> hardware_platform_version:int64 -> has_vendor_device:bool -> reference_label:string -> ref_VM
     val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> unit
     val get_by_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> label:string -> ref_VM_set
     val get_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> string
@@ -1245,6 +1393,7 @@ module type API = sig
     val get_name_description : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> string
     val get_user_version : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> int64
     val get_is_a_template : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> bool
+    val get_is_default_template : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> bool
     val get_suspend_VDI : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> ref_VDI
     val get_resident_on : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> ref_host
     val get_affinity : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> ref_host
@@ -1303,6 +1452,8 @@ module type API = sig
     val get_bios_strings : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> string_to_string_map
     val get_protection_policy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> ref_VMPP
     val get_is_snapshot_from_vmpp : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> bool
+    val get_snapshot_schedule : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> ref_VMSS
+    val get_is_vmss_snapshot : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> bool
     val get_appliance : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> ref_VM_appliance
     val get_start_delay : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> int64
     val get_shutdown_delay : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> int64
@@ -1314,6 +1465,8 @@ module type API = sig
     val get_generation_id : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> string
     val get_hardware_platform_version : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> int64
     val get_has_vendor_device : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> bool
+    val get_requires_reboot : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> bool
+    val get_reference_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> string
     val set_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:string -> unit
     val set_name_description : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:string -> unit
     val set_user_version : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:int64 -> unit
@@ -1374,6 +1527,7 @@ module type API = sig
     val suspend : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> unit
     val csvm : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> ref_VM
     val resume : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> start_paused:bool -> force:bool -> unit
+    val set_is_default_template : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> value:bool -> unit
     val hard_reboot_internal : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> unit
     val resume_on : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> host:ref_host -> start_paused:bool -> force:bool -> unit
     val pool_migrate : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> host:ref_host -> options:string_to_string_map -> unit
@@ -1390,6 +1544,7 @@ module type API = sig
     val set_memory_static_min : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:int64 -> unit
     val set_memory_static_range : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> min:int64 -> max:int64 -> unit
     val set_memory_limits : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> static_min:int64 -> static_max:int64 -> dynamic_min:int64 -> dynamic_max:int64 -> unit
+    val set_memory : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:int64 -> unit
     val set_memory_target_live : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> target:int64 -> unit
     val wait_memory_target_live : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> unit
     val get_cooperative : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> bool
@@ -1422,6 +1577,7 @@ module type API = sig
     val retrieve_wlb_recommendations : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> ref_host_to_string_set_map
     val copy_bios_strings : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vm:ref_VM -> host:ref_host -> unit
     val set_protection_policy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:ref_VMPP -> unit
+    val set_snapshot_schedule : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:ref_VMSS -> unit
     val set_start_delay : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:int64 -> unit
     val set_shutdown_delay : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:int64 -> unit
     val set_order : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM -> value:int64 -> unit
@@ -1455,6 +1611,9 @@ module type API = sig
     val get_install_time : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM_metrics -> datetime
     val get_last_updated : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM_metrics -> datetime
     val get_other_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM_metrics -> string_to_string_map
+    val get_hvm : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM_metrics -> bool
+    val get_nested_virt : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM_metrics -> bool
+    val get_nomigrate : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM_metrics -> bool
     val set_other_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM_metrics -> value:string_to_string_map -> unit
     val add_to_other_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM_metrics -> key:string -> value:string -> unit
     val remove_from_other_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM_metrics -> key:string -> unit
@@ -1546,6 +1705,38 @@ module type API = sig
     val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_VMPP_to_vMPP_t_map
     val create_from_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> value:vMPP_t -> ref_VMPP
   end
+  module VMSS : sig
+    val get_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> vMSS_t
+    val get_by_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> uuid:string -> ref_VMSS
+    val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> enabled:bool -> _type:vmss_type -> retained_snapshots:int64 -> frequency:vmss_frequency -> schedule:string_to_string_map -> ref_VMSS
+    val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> unit
+    val get_by_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> label:string -> ref_VMSS_set
+    val get_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> string
+    val get_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> string
+    val get_name_description : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> string
+    val get_enabled : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> bool
+    val get_type : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> vmss_type
+    val get_retained_snapshots : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> int64
+    val get_frequency : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> vmss_frequency
+    val get_schedule : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> string_to_string_map
+    val get_last_run_time : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> datetime
+    val get_VMs : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> ref_VM_set
+    val set_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> value:string -> unit
+    val set_name_description : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> value:string -> unit
+    val set_enabled : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> value:bool -> unit
+    val snapshot_now : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vmss:ref_VMSS -> string
+    val set_retained_snapshots : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> value:int64 -> unit
+    val set_frequency : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> value:vmss_frequency -> unit
+    val set_schedule : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> value:string_to_string_map -> unit
+    val add_to_schedule : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> key:string -> value:string -> unit
+    val remove_from_schedule : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> key:string -> unit
+    val set_last_run_time : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> value:datetime -> unit
+    val set_type : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VMSS -> value:vmss_type -> unit
+    val get_all : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_VMSS_set
+    val get_all_records_where : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> expr:string -> ref_VMSS_to_vMSS_t_map
+    val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_VMSS_to_vMSS_t_map
+    val create_from_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> value:vMSS_t -> ref_VMSS
+  end
   module VM_appliance : sig
     val get_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VM_appliance -> vM_appliance_t
     val get_by_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> uuid:string -> ref_VM_appliance
@@ -1611,6 +1802,7 @@ module type API = sig
     val get_crash_dump_sr : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> ref_SR
     val get_crashdumps : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> ref_host_crashdump_set
     val get_patches : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> ref_host_patch_set
+    val get_updates : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> ref_pool_update_set
     val get_PBDs : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> ref_PBD_set
     val get_host_CPUs : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> ref_host_cpu_set
     val get_cpu_info : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> string_to_string_map
@@ -1639,6 +1831,8 @@ module type API = sig
     val get_display : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> host_display
     val get_virtual_hardware_platform_versions : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> int64_set
     val get_control_domain : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> ref_VM
+    val get_updates_requiring_reboot : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> ref_pool_update_set
+    val get_features : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> ref_Feature_set
     val set_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> value:string -> unit
     val set_name_description : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> value:string -> unit
     val set_other_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> value:string_to_string_map -> unit
@@ -1678,7 +1872,7 @@ module type API = sig
     val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> unit
     val power_on : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> unit
     val set_license_params : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> value:string_to_string_map -> unit
-    val emergency_ha_disable : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> unit
+    val emergency_ha_disable : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> soft:bool -> unit
     val ha_disarm_fencing : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> unit
     val preconfigure_ha : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> statefiles:ref_VDI_set -> metadata_vdi:ref_VDI -> generation:string -> unit
     val ha_join_liveset : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> unit
@@ -1722,6 +1916,8 @@ module type API = sig
     val backup_rrds : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> delay:float -> unit
     val create_new_blob : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> name:string -> mime_type:string -> public:bool -> ref_blob
     val call_plugin : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> plugin:string -> fn:string -> args:string_to_string_map -> string
+    val has_extension : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> name:string -> bool
+    val call_extension : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> call:string -> Rpc.t
     val get_servertime : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> datetime
     val get_server_localtime : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> datetime
     val enable_binary_storage : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> unit
@@ -1762,6 +1958,7 @@ module type API = sig
     val disable_display : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> host_display
     val set_ssl_legacy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_host -> value:bool -> unit
     val apply_guest_agent_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> unit
+    val mxgpu_vf_setup : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> unit
     val get_all : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_host_set
     val get_all_records_where : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> expr:string -> ref_host_to_host_t_map
     val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_host_to_host_t_map
@@ -1848,7 +2045,7 @@ module type API = sig
   module Network : sig
     val get_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> network_t
     val get_by_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> uuid:string -> ref_network
-    val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> mTU:int64 -> other_config:string_to_string_map -> tags:string_set -> ref_network
+    val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> mTU:int64 -> other_config:string_to_string_map -> bridge:string -> managed:bool -> tags:string_set -> ref_network
     val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> unit
     val get_by_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> label:string -> ref_network_set
     val get_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> string
@@ -1861,6 +2058,7 @@ module type API = sig
     val get_MTU : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> int64
     val get_other_config : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> string_to_string_map
     val get_bridge : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> string
+    val get_managed : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> bool
     val get_blobs : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> string_to_ref_blob_map
     val get_tags : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> string_set
     val get_default_locking_mode : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> network_default_locking_mode
@@ -1875,7 +2073,7 @@ module type API = sig
     val add_tags : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> value:string -> unit
     val remove_tags : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> value:string -> unit
     val attach : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> network:ref_network -> host:ref_host -> unit
-    val pool_introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> mTU:int64 -> other_config:string_to_string_map -> bridge:string -> ref_network
+    val pool_introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> mTU:int64 -> other_config:string_to_string_map -> bridge:string -> managed:bool -> ref_network
     val create_new_blob : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> network:ref_network -> name:string -> mime_type:string -> public:bool -> ref_blob
     val set_default_locking_mode : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> network:ref_network -> value:network_default_locking_mode -> unit
     val attach_for_vm : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> vm:ref_VM -> unit
@@ -1927,6 +2125,7 @@ module type API = sig
     val plug : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VIF -> unit
     val unplug : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VIF -> unit
     val unplug_force : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VIF -> unit
+    val move : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VIF -> network:ref_network -> unit
     val set_locking_mode : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VIF -> value:vif_locking_mode -> unit
     val set_ipv4_allowed : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VIF -> value:string_set -> unit
     val add_ipv4_allowed : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VIF -> value:string -> unit
@@ -2165,7 +2364,7 @@ module type API = sig
     val get_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_LVHD -> lVHD_t
     val get_by_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> uuid:string -> ref_LVHD
     val get_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_LVHD -> string
-    val enable_thin_provisioning : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> sR:ref_SR -> initial_allocation:int64 -> allocation_quantum:int64 -> unit
+    val enable_thin_provisioning : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> sR:ref_SR -> initial_allocation:int64 -> allocation_quantum:int64 -> string
   end
   module VDI : sig
     val get_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VDI -> vDI_t
@@ -2370,7 +2569,7 @@ module type API = sig
   module Console : sig
     val get_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_console -> console_t
     val get_by_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> uuid:string -> ref_console
-    val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> other_config:string_to_string_map -> ref_console
+    val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> other_config:string_to_string_map -> port:int64 -> ref_console
     val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_console -> unit
     val get_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_console -> string
     val get_protocol : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_console -> console_protocol
@@ -2591,5 +2790,98 @@ module type API = sig
     val get_all_records_where : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> expr:string -> ref_VGPU_type_to_vGPU_type_t_map
     val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_VGPU_type_to_vGPU_type_t_map
   end
+  module PVS_site : sig
+    val get_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_site -> pVS_site_t
+    val get_by_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> uuid:string -> ref_PVS_site
+    val get_by_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> label:string -> ref_PVS_site_set
+    val get_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_site -> string
+    val get_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_site -> string
+    val get_name_description : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_site -> string
+    val get_PVS_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_site -> string
+    val get_cache_storage : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_site -> ref_PVS_cache_storage_set
+    val get_servers : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_site -> ref_PVS_server_set
+    val get_proxies : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_site -> ref_PVS_proxy_set
+    val set_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_site -> value:string -> unit
+    val set_name_description : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_site -> value:string -> unit
+    val introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> pVS_uuid:string -> ref_PVS_site
+    val forget : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_site -> unit
+    val set_PVS_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_site -> value:string -> unit
+    val get_all : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_PVS_site_set
+    val get_all_records_where : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> expr:string -> ref_PVS_site_to_pVS_site_t_map
+    val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_PVS_site_to_pVS_site_t_map
+  end
+  module PVS_server : sig
+    val get_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_server -> pVS_server_t
+    val get_by_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> uuid:string -> ref_PVS_server
+    val get_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_server -> string
+    val get_addresses : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_server -> string_set
+    val get_first_port : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_server -> int64
+    val get_last_port : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_server -> int64
+    val get_site : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_server -> ref_PVS_site
+    val introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> addresses:string_set -> first_port:int64 -> last_port:int64 -> site:ref_PVS_site -> ref_PVS_server
+    val forget : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_server -> unit
+    val get_all : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_PVS_server_set
+    val get_all_records_where : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> expr:string -> ref_PVS_server_to_pVS_server_t_map
+    val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_PVS_server_to_pVS_server_t_map
+  end
+  module PVS_proxy : sig
+    val get_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_proxy -> pVS_proxy_t
+    val get_by_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> uuid:string -> ref_PVS_proxy
+    val get_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_proxy -> string
+    val get_site : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_proxy -> ref_PVS_site
+    val get_VIF : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_proxy -> ref_VIF
+    val get_currently_attached : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_proxy -> bool
+    val get_status : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_proxy -> pvs_proxy_status
+    val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> site:ref_PVS_site -> vIF:ref_VIF -> ref_PVS_proxy
+    val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_proxy -> unit
+    val get_all : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_PVS_proxy_set
+    val get_all_records_where : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> expr:string -> ref_PVS_proxy_to_pVS_proxy_t_map
+    val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_PVS_proxy_to_pVS_proxy_t_map
+  end
+  module PVS_cache_storage : sig
+    val get_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_cache_storage -> pVS_cache_storage_t
+    val get_by_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> uuid:string -> ref_PVS_cache_storage
+    val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> sR:ref_SR -> site:ref_PVS_site -> size:int64 -> ref_PVS_cache_storage
+    val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_cache_storage -> unit
+    val get_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_cache_storage -> string
+    val get_host : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_cache_storage -> ref_host
+    val get_SR : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_cache_storage -> ref_SR
+    val get_site : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_cache_storage -> ref_PVS_site
+    val get_size : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_cache_storage -> int64
+    val get_VDI : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_PVS_cache_storage -> ref_VDI
+    val get_all : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_PVS_cache_storage_set
+    val get_all_records_where : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> expr:string -> ref_PVS_cache_storage_to_pVS_cache_storage_t_map
+    val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_PVS_cache_storage_to_pVS_cache_storage_t_map
+    val create_from_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> value:pVS_cache_storage_t -> ref_PVS_cache_storage
+  end
+  module Feature : sig
+    val get_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_Feature -> feature_t
+    val get_by_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> uuid:string -> ref_Feature
+    val get_by_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> label:string -> ref_Feature_set
+    val get_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_Feature -> string
+    val get_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_Feature -> string
+    val get_name_description : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_Feature -> string
+    val get_enabled : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_Feature -> bool
+    val get_experimental : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_Feature -> bool
+    val get_version : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_Feature -> string
+    val get_host : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_Feature -> ref_host
+    val get_all : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_Feature_set
+    val get_all_records_where : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> expr:string -> ref_Feature_to_feature_t_map
+    val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_Feature_to_feature_t_map
+  end
+  module SDN_controller : sig
+    val get_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_SDN_controller -> sDN_controller_t
+    val get_by_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> uuid:string -> ref_SDN_controller
+    val get_uuid : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_SDN_controller -> string
+    val get_protocol : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_SDN_controller -> sdn_controller_protocol
+    val get_address : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_SDN_controller -> string
+    val get_port : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_SDN_controller -> int64
+    val introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> protocol:sdn_controller_protocol -> address:string -> port:int64 -> ref_SDN_controller
+    val forget : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_SDN_controller -> unit
+    val get_all : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_SDN_controller_set
+    val get_all_records_where : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> expr:string -> ref_SDN_controller_to_sDN_controller_t_map
+    val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_SDN_controller_to_sDN_controller_t_map
+  end
 
 end
+
