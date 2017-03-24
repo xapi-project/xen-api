@@ -25,7 +25,7 @@ Library xenctrlext
   Findlibname: xenctrlext
   Modules: Xenctrlext
   CSources: xenctrlext_stubs.c
-  BuildDepends: xenctrl, xenstore-compat
+  BuildDepends: xenctrl, ezxenstore, threads
 
 Library pciutil
   Path: pciutil
