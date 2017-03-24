@@ -22,13 +22,14 @@ include Rpc
 type string_list = string list [@@deriving rpc]
 
 module Ref = struct
-  include Ref
-  let rpc_of_t _ x = rpc_of_string (Ref.string_of x)
+  type 'a t=string
+  let of_string x = x
+  let string_of x = x
+  let rpc_of_t _ x = rpc_of_string (string_of x)
   let t_of_rpc _ x = of_string (string_of_rpc x);
 end
 
 module Date = struct
-  open Stdext
   include Date
   let rpc_of_iso8601 x = DateTime (Date.to_string x)
   let iso8601_of_rpc = function String x | DateTime x -> Date.of_string x | _ -> failwith "Date.iso8601_of_rpc"
