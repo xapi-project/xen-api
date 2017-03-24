@@ -33,7 +33,7 @@ depends: [
   "uri"
   "re"
   "xmlm"
-  "rpc" {>= "1.3.0"}
+  "rpc" {>= "1.9.1"}
   "xapi-rrd"
   "uuidm"
 ]
