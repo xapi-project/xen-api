@@ -73,7 +73,7 @@ def update(session, args):
     if not controller and currentControllers:
         delete_cacert()
         cmd = [iptablectl, 'close', '6640']
-        subprocess.call(cmd)
+        output = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()
         try:
             emergency_reset(session, None)
         except:
@@ -209,7 +209,10 @@ def update(session, args):
 
 def vswitchCurrentControllers():
     controllers = vswitchCfgQuery(['get-manager'])
-    return controllers.split('\n')
+    if controllers:
+        return controllers.split('\n')
+    else:
+        return []
 
 
 def removeControllerCfg():
@@ -223,7 +226,7 @@ def setControllerCfg(bootstrap, controller):
     if bootstrap:
         # For active ssl, do not need to turn on TCP port 6640 on host.
         cmd = [iptablectl, 'close', '6640']
-        subprocess.call(cmd)
+        output = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()
         vswitchCfgMod(['--', 'del-manager',
                        '--', 'del-ssl',
                        '--', '--bootstrap', 'set-ssl',
@@ -235,7 +238,7 @@ def setControllerCfg(bootstrap, controller):
         # For passive ssl, only TCP port 6640 is meaningful.
         # Turn on the port of the host.
         cmd = [iptablectl, 'open', '6640']
-        subprocess.call(cmd)
+        output = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()
         vswitchCfgMod(['--', 'del-manager',
                        '--', 'del-ssl',
                        '--', 'set-ssl',
