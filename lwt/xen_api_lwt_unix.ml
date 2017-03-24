@@ -34,13 +34,15 @@ module Lwt_unix_IO = struct
 		Lwt.catch
       (fun () -> Lwt_io.read ~count ic)
       (function
-        | End_of_file -> return "")
+        | End_of_file -> return ""
+        | e -> Lwt.fail e)
 
 	let read_exactly (_, ic) buf off len =
     Lwt.catch
       (fun () -> Lwt_io.read_into_exactly ic buf off len >> return true)
 		  (function
-        | End_of_file -> return false)
+        | End_of_file -> return false
+        | e -> Lwt.fail e)
 
 	let read_exactly ic len =
 	  let buf = String.create len in
