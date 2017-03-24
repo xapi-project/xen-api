@@ -1,21 +1,41 @@
 
+(** The Delay module here implements simple cancellable delays. *)
 module Delay :
   sig
     type t
+
+    (** Makes a Delay.t *)
     val make : unit -> t
-    exception Pre_signalled
+
+    (** Wait for the specified amount of time. Returns true if we waited
+        the full length of time, false if we were woken *)
     val wait : t -> float -> bool
+
+    (** Signal anyone currently waiting with the Delay.t *)
     val signal : t -> unit
   end
 
+(** The type of a scheduler *)
 type t
 
+(** The handle for referring to an item that has been scheduled *)
+type handle
+
+(** Creates a scheduler *)
+val make : unit -> t
+
+(** This module provides a global scheduler. Use the 'start' function
+    to start the thread handling it *)
 val global_scheduler : t
 
+(** Items can be scheduled at an absolute time (measured in seconds since
+    unix epoch) or as a delta measured in for seconds from now. *)
 type time = Absolute of int64 | Delta of int
 
+(** Useful for Absolutely scheduled items *)
 val now : unit -> int64
 
+(** This module is for dumping the state of a scheduler *)
 module Dump :
   sig
     type u = { time : int64; thing : string; }
@@ -25,12 +45,14 @@ module Dump :
     val make : t -> dump
   end
 
-val one_shot : t -> time -> string -> (unit -> unit) -> int64 * int
+(** Insert a one-shot item into the scheduler. *)
+val one_shot : t -> time -> string -> (unit -> unit) -> handle
 
-val cancel : t -> int64 * int -> unit
+(** Cancel an item *)
+val cancel : t -> handle -> unit
 
-val process_expired : t -> bool
-
+(** Process a scheduler. This function never returns. *)
 val main_loop : t -> unit
 
+(** Start the global scheduler *)
 val start : unit -> unit

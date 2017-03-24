@@ -102,6 +102,8 @@ type item = {
   fn: unit -> unit
 }
 
+type handle = int64 * int
+
 type t = {
   mutable schedule : item list Int64Map.t;
   delay : Delay.t;
@@ -109,12 +111,14 @@ type t = {
   m : Mutex.t;
 }
 
-let global_scheduler = {
+let make () = {
   schedule = Int64Map.empty;
   delay = Delay.make ();
   next_id = 0;
   m = Mutex.create ()
 }
+
+let global_scheduler = make ()
 
 type time =
   | Absolute of int64
