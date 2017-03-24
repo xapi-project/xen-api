@@ -10,6 +10,8 @@ env:
   global:
     - OCAML_VERSION=4.02
     - PACKAGE=xen-api-client
+    # WARNING: Don't set TESTS=true here (which is the default) as that env var
+    # is already used by the Makefile for OASIS configuration.
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam XS_COV=1
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
