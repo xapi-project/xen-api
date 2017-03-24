@@ -218,7 +218,7 @@ if __name__ == '__main__':
         statvfs = os.statvfs('/')
         available_dom0_disk_size = statvfs.f_frsize * statvfs.f_bavail
         try:
-            required_size = int(int(session.xenapi.pool_update.get_installation_size(update)) * 1.5)
+            required_size = int(session.xenapi.pool_update.get_installation_size(update))
             if required_size > available_dom0_disk_size:
                 print(failure_message(UPDATE_PRECHECK_FAILED_OUT_OF_SPACE,
                     [update_package, str(available_dom0_disk_size), str(required_size)]))
