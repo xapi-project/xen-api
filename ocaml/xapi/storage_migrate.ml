@@ -54,7 +54,7 @@ module State = struct
       remote_url : string;
       tapdev : Tapctl.tapdev;
       mutable failed : bool;
-      mutable watchdog : Scheduler.t option;
+      mutable watchdog : Scheduler.handle option;
     } [@@deriving rpc]
   end
 
@@ -517,7 +517,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
           let stats = Tapctl.stats (Tapctl.create ()) tapdev in
           if stats.Tapctl.Stats.nbd_mirror_failed = 1 then
             Updates.add (Dynamic.Mirror id) updates;
-          alm.State.Send_state.watchdog <- Some (Scheduler.one_shot (Scheduler.Delta 5) "tapdisk_watchdog" inner)
+          alm.State.Send_state.watchdog <- Some (Scheduler.one_shot Scheduler.global_scheduler (Scheduler.Delta 5) "tapdisk_watchdog" inner)
         | None -> ()
       in inner ()
     end;
@@ -776,7 +776,7 @@ let post_detach_hook ~sr ~vdi ~dp =
           State.remove_local_mirror id;
           debug "Removed active local mirror: %s" id
         ) () in
-      Opt.iter (fun id -> Scheduler.cancel id) r.watchdog;
+      Opt.iter (fun id -> Scheduler.cancel Scheduler.global_scheduler id) r.watchdog;
       debug "Created thread %d to call receive finalize and dp destroy" (Thread.id t))
 
 let nbd_handler req s sr vdi dp =
