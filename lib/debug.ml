@@ -87,9 +87,10 @@ module ThreadLocalTable = struct
   let find t =
     let id = get_thread_id () in
     Mutex.execute t.m (fun () ->
-        if Hashtbl.mem t.tbl id
-        then Some (Hashtbl.find t.tbl id)
-        else None
+        try
+          Some (Hashtbl.find t.tbl id)
+        with
+        | _ -> None
       )
 end
 
@@ -117,7 +118,7 @@ let format include_time brand priority message =
     (if include_time then gettimestring () else "")
     priority host id name task brand message
 
-let print_debug = ref true
+let print_debug = ref false
 let log_to_stdout () = print_debug := true
 
 let loglevel_m = Mutex.create ()
