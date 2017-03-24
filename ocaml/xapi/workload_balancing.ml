@@ -675,13 +675,6 @@ let get_evacuation_recoms ~__context ~uuid =
       []
     else
       match inner_xml with
-      | (Xml.Element ( _, _, children)) when List.exists 
-        (function 
-          | Xml.Element ("CanPlaceAllVMs",_,_) -> true
-          | _ -> false
-        ) children 
-        -> []
-        (*CanPlaceAllVMs tag, No recommendations to give. *)
       | (Xml.Element ( _, _, _)) ->
         begin
           match (descend_and_match ["Recommendations"] inner_xml) with
