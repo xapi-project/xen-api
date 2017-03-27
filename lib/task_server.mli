@@ -68,6 +68,8 @@ module Task :
 
       val get_state : tasks -> id -> Interface.Task.state
 
+      val set_state : tasks -> id -> Interface.Task.state -> unit
+
       val with_subtask : task_handle -> id -> (unit -> 'a) -> 'a
 
       val list : tasks -> id list

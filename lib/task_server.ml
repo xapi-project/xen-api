@@ -203,6 +203,10 @@ module Task = functor (Interface : INTERFACE) -> struct
     let task = find tasks id in
     task.state
 
+  let set_state tasks id state =
+    let task = find tasks id in
+    task.state <- state
+
   let replace_assoc key new_value existing =
     (key, new_value) :: (List.filter (fun (k, _) -> k <> key) existing)
 
