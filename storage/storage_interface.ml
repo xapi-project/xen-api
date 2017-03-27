@@ -127,7 +127,7 @@ type probe_result =
 module Mirror = struct
 	type id = string
 
-	type state = 
+	type state =
 		| Receiving
 		| Sending
 		| Copying
@@ -135,7 +135,7 @@ module Mirror = struct
 	type t = {
 		source_vdi : vdi;
 		dest_vdi : vdi;
-		state : state list; 
+		state : state list;
 		failed : bool;
 	}
 
@@ -146,14 +146,14 @@ module Mirror = struct
 		copy_diffs_to : vdi;
 		dummy_vdi : vdi;
 	}
-			
-	type mirror_receive_result = 
+
+	type mirror_receive_result =
 		| Vhd_mirror of mirror_receive_result_vhd_t
-			
-	type similars = content_id list 
+
+	type similars = content_id list
 end
 
-type async_result_t = 
+type async_result_t =
 	| Vdi_info of vdi_info
 	| Mirror_id of Mirror.id
 
@@ -175,27 +175,29 @@ module Task = struct
 		| Failed of Rpc.t
 
 	type t = {
-		id: id;
-		debug_info: string;
+   id: id;
+   dbg: string;
 		ctime: float;
 		state: state;
 		subtasks: (string * state) list;
-	}
+  debug_info: (string * string) list;
+  backtrace: string;
+ }
 end
 
 module Dynamic = struct
-	type id = 
+	type id =
 		| Task of Task.id
 		| Vdi of vdi
 		| Dp of dp
 		| Mirror of Mirror.id
 
-	type t = 
+	type t =
 		| Task_t of Task.id * Task.t
 		| Vdi_t of vdi * vdi_info
 		| Dp_t of dp * dp_stat_t
 		| Mirror_t of Mirror.id * Mirror.t
-		
+
 end
 
 exception Backend_error_with_backtrace of (string * (string list)) (** name * params *)
@@ -245,7 +247,7 @@ module DP = struct
 		This will typically do any needed VDI.detach, VDI.deactivate cleanup. *)
 	external destroy: dbg:debug_info -> dp:dp -> allow_leak:bool -> unit = ""
 
-		
+
 	(** [attach_info task sr vdi dp]: returns the params of the dp (the return value of VDI.attach) *)
 	external attach_info: dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> attach_info = ""
 
@@ -287,7 +289,7 @@ module SR = struct
 	external reset : dbg:debug_info -> sr:sr ->  unit = ""
 
 	(** [destroy sr]: destroys (i.e. makes unattachable and unprobeable) the [sr],
-		first detaching and/or deactivating any active VDIs. This may fail with 
+		first detaching and/or deactivating any active VDIs. This may fail with
 		Sr_not_attached, or any error from VDI.detach or VDI.deactivate. *)
 	external destroy : dbg:debug_info -> sr:sr -> unit = ""
 
@@ -419,20 +421,20 @@ module DATA = struct
 		(** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and writes
 			data synchronously. It returns the id of the VDI.*)
 		external start : dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> url:string -> dest:sr -> Task.id = ""
-			
+
 		(** [stop task sr vdi] stops mirroring local [vdi] *)
 		external stop : dbg:debug_info -> id:Mirror.id -> unit = ""
-			
+
 		external stat : dbg:debug_info -> id:Mirror.id -> Mirror.t = ""
-			
+
 		(** Called on the receiving end *)
-		external receive_start : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> id:Mirror.id -> similar:Mirror.similars -> 
+		external receive_start : dbg:debug_info -> sr:sr -> vdi_info:vdi_info -> id:Mirror.id -> similar:Mirror.similars ->
 			Mirror.mirror_receive_result = ""
-			
+
 		external receive_finalize : dbg:debug_info -> id:Mirror.id -> unit = ""
-			
+
 		external receive_cancel : dbg:debug_info -> id:Mirror.id -> unit = ""
-			
+
 		external list : dbg:debug_info -> (Mirror.id * Mirror.t) list = ""
 	end
 
@@ -453,4 +455,3 @@ end
 module UPDATES = struct
 	external get: dbg:debug_info -> from:string -> timeout:int option -> Dynamic.id list * string = ""
 end
-
