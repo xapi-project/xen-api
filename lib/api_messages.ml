@@ -29,9 +29,6 @@ let addMessage name priority =
   let _ = msgList := msg :: !msgList in
   msg
 
-let license_does_not_support_pooling = addMessage "LICENSE_DOES_NOT_SUPPORT_POOLING" 2L (* Name conflict with Api_errors; unused in xen-api *)
-let license_expires_soon = addMessage "LICENSE_EXPIRES_SOON" 2L (* Used by license-check.py, which may be unused? *)
-
 let ha_statefile_lost = addMessage "HA_STATEFILE_LOST" 2L
 
 let ha_heartbeat_approaching_timeout = addMessage "HA_HEARTBEAT_APPROACHING_TIMEOUT" 5L
@@ -84,13 +81,22 @@ let auth_external_pool_non_homogeneous = addMessage "EXTAUTH_IN_POOL_IS_NON_HOMO
 
 let multipath_periodic_alert = addMessage "MULTIPATH_PERIODIC_ALERT" 3L
 
+(* Licensing alerts *)
+let license_does_not_support_pooling = addMessage "LICENSE_DOES_NOT_SUPPORT_POOLING" 2L (* Name conflict with Api_errors; unused in xen-api *)
+let license_expires_soon = addMessage "LICENSE_EXPIRES_SOON" 2L
+let license_expired = addMessage "LICENSE_EXPIRED" 2L
 let v6_server_up = addMessage "LICENSE_SERVER_CONNECTED" 4L (* Used in XenCenter *)
 let v6_server_down = addMessage "LICENSE_SERVER_UNAVAILABLE" 3L (* Used in XenCenter *)
-let v6_license_expired = addMessage "LICENSE_EXPIRED" 2L (* Used in XenCenter *)
 let v6_grace_license = addMessage "GRACE_LICENSE" 3L
 let v6_rejected = addMessage "LICENSE_NOT_AVAILABLE" 2L
 let v6_comm_error = addMessage "LICENSE_SERVER_UNREACHABLE" 2L
 let v6_license_server_version_obsolete = addMessage "LICENSE_SERVER_VERSION_OBSOLETE" 2L
+
+(* PVS alerts *)
+let pvs_proxy_no_cache_sr_available = addMessage "PVS_PROXY_NO_CACHE_SR_AVAILABLE" 3L (* No cache storage available for pvs site on the host *)
+let pvs_proxy_setup_failed = addMessage "PVS_PROXY_SETUP_FAILED" 3L (* Setting up pvs proxy rules or pvs proxy daemon initialisation failed internally *)
+let pvs_proxy_no_server_available = addMessage "PVS_PROXY_NO_SERVER_AVAILABLE" 3L (* No pvs server available for pvs site on host *)
+let pvs_proxy_sr_out_of_space = addMessage "PVS_PROXY_SR_OUT_OF_SPACE" 3L (* PVS cache storage size exceeds available space on SR *)
 
 (* VMPP message types *)
 let vmpp_snapshot_lock_failed = addMessage "VMPP_SNAPSHOT_LOCK_FAILED" 3L (*'The snapshot phase is already executing for this protection policy. Please try again later'*)
@@ -106,6 +112,14 @@ let vmpp_xapi_logon_failure = addMessage "VMPP_XAPI_LOGON_FAILURE" 3L (*'Could n
 let vmpp_snapshot_missed_event = addMessage "VMPP_SNAPSHOT_MISSED_EVENT" 3L (*'A scheduled snapshot event was missed due to another on-going scheduled snapshot run. This is unexpected behaviour, please re-configure your snapshot sub-policy',*)
 let vmpp_archive_missed_event = addMessage "VMPP_ARCHIVE_MISSED_EVENT" 3L (*'A scheduled archive event was missed due to another on-going scheduled archive run. This is unexpected behaviour, please re-configure your archive sub-policy'*)
 let vmpp_snapshot_archive_already_exists = addMessage "VMPP_SNAPSHOT_ARCHIVE_ALREADY_EXISTS" 3L (*'Failed to archive the snapshot, it has already been archived on the specified target'*)
+
+(* VMSS message types *)
+let vmss_snapshot_lock_failed = addMessage "VMSS_SNAPSHOT_LOCK_FAILED" 3L (*'The snapshot is already executing for schedule snapshot. Please try again later'*)
+let vmss_snapshot_succeeded = addMessage "VMSS_SNAPSHOT_SUCCEEDED" 5L (*'Successfully performed the snapshot of the schedule snapshot'*)
+let vmss_snapshot_failed = addMessage "VMSS_SNAPSHOT_FAILED" 3L (*'The snapshot of the schedule snapshot has failed.'*)
+let vmss_license_error = addMessage "VMSS_LICENSE_ERROR" 3L (*'This operation is not allowed under your license.  Please contact your support representative'*)
+let vmss_xapi_logon_failure = addMessage "VMSS_XAPI_LOGON_FAILURE" 3L (*'Could not login to API session.'*)
+let vmss_snapshot_missed_event = addMessage "VMSS_SNAPSHOT_MISSED_EVENT" 3L (*'A scheduled snapshot event was missed due to another on-going scheduled snapshot run. This is unexpected behaviour, please re-configure your schedule snapshot',*)
 
 let bond_status_changed = addMessage "BOND_STATUS_CHANGED" 3L (* A link in a bond went down or came back up *) (* Previously missing from table *)
 

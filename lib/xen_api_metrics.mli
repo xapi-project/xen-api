@@ -55,7 +55,7 @@ val archive_length_of_interval: interval -> int
 module Updates : sig
 
   val uri:
-       host:Uri.t -> authentication:Xen_api_auth.t
+    host:Uri.t -> authentication:Xen_api_auth.t
     -> start:int -> ?include_host:bool
     -> ?interval:interval -> ?cf:cf
     -> unit

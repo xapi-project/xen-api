@@ -34,21 +34,21 @@ module Legend = struct
   let of_string x = match Re_str.split_delim colon x with
     | cf :: cls :: uuid :: name :: [] ->
       begin match cf_of_string cf with
-      | `Error x -> `Error x
-      | `Ok cf ->
-        let cls = match cls with
-        | "host" -> `Host
-        | "vm" -> `VM
-        | x -> `Other x in
-        begin match Uuidm.of_string uuid with
-        | None -> `Error (`Msg (Printf.sprintf "Failed to parse uuid: %s" uuid))
-        | Some uuid ->
-          `Ok (name, cf, cls, uuid)
-        end
+        | `Error x -> `Error x
+        | `Ok cf ->
+          let cls = match cls with
+            | "host" -> `Host
+            | "vm" -> `VM
+            | x -> `Other x in
+          begin match Uuidm.of_string uuid with
+            | None -> `Error (`Msg (Printf.sprintf "Failed to parse uuid: %s" uuid))
+            | Some uuid ->
+              `Ok (name, cf, cls, uuid)
+          end
       end
     | _ -> `Error (`Msg (Printf.sprintf "Failed to parse legend: %s" x))
   (* Example:
-    AVERAGE:host:05843b4a-be19-4ea2-9940-be3f31b5e4bb:memory_total_kib
+     AVERAGE:host:05843b4a-be19-4ea2-9940-be3f31b5e4bb:memory_total_kib
   *)
 
   let find_data_source dsl (name, _, _, _) =
@@ -91,23 +91,23 @@ module Updates = struct
 
   let uri ~host ~authentication ~start ?(include_host=false) ?interval ?cf () =
     let ssl, scheme = match Uri.scheme host with
-    | Some "https" -> true, "https"
-    | Some "http" -> false, "http"
-    | x -> failwith (Printf.sprintf "Unknown scheme: %s" (match x with None -> "None" | Some x -> x)) in
+      | Some "https" -> true, "https"
+      | Some "http" -> false, "http"
+      | x -> failwith (Printf.sprintf "Unknown scheme: %s" (match x with None -> "None" | Some x -> x)) in
     let port = match Uri.port host with
-    | Some x -> x
-    | None -> if ssl then 443 else 80 in
+      | Some x -> x
+      | None -> if ssl then 443 else 80 in
     let query = [
       "start", [ string_of_int start ];
       "host", [ string_of_bool include_host ]
     ] @ (match interval with None -> [] | Some x -> [ "interval", [string_of_int (seconds_of_interval x) ] ])
       @ (match cf with None -> [] | Some x -> [ "cf", [ string_of_cf x ] ]) in
     let userinfo = match authentication with
-    | `UserPassword (user, pass) -> Some (user ^ ":" ^ pass)
-    | `Session_id _ -> None in
+      | `UserPassword (user, pass) -> Some (user ^ ":" ^ pass)
+      | `Session_id _ -> None in
     let query = match authentication with
-    | `UserPassword (_, _) -> query
-    | `Session_id s -> ("session_id", [ s ]) :: query in
+      | `UserPassword (_, _) -> query
+      | `Session_id s -> ("session_id", [ s ]) :: query in
     Uri.make ~scheme ?userinfo ?host:(Uri.host host) ~port ~path:"/rrd_updates" ~query ()
 
   let parse x =

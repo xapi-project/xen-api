@@ -23,30 +23,30 @@ let password = ref "password"
 let json = ref false
 
 let exn_to_string = function
-	| Api_errors.Server_error(code, params) ->
-		Printf.sprintf "%s %s" code (String.concat " " params)
-	| e -> Printexc.to_string e
+  | Api_errors.Server_error(code, params) ->
+    Printf.sprintf "%s %s" code (String.concat " " params)
+  | e -> Printexc.to_string e
 
 let main () =
-	let rpc = if !json then make_json !uri else make !uri in
-	lwt session_id = Session.login_with_password rpc !username !password "1.0" "list_vms" in
-	try_lwt
-		lwt vms = VM.get_all_records rpc session_id in
-		List.iter
-			(fun (vm, vm_rec) ->
-				Printf.printf "VM %s\n" vm_rec.API.vM_name_label
-			) vms;
-		return ()
-	finally
-		Session.logout rpc session_id
+  let rpc = if !json then make_json !uri else make !uri in
+  Session.login_with_password rpc !username !password "1.0" "list_vms" >>= fun session_id ->
+  Lwt.finalize
+    (fun () ->
+       VM.get_all_records rpc session_id >>= fun vms ->
+       List.iter
+         (fun (vm, vm_rec) ->
+            Printf.printf "VM %s\n" vm_rec.API.vM_name_label
+         ) vms;
+       return ())
+    (fun () -> Session.logout rpc session_id)
 
 let _ =
-	Arg.parse [
-		"-uri", Arg.Set_string uri, (Printf.sprintf "URI of server to connect to (default %s)" !uri);
-		"-u", Arg.Set_string username, (Printf.sprintf "Username to log in with (default %s)" !username);
-		"-pw", Arg.Set_string password, (Printf.sprintf "Password to log in with (default %s)" !password);
-		"-j", Arg.Set json, (Printf.sprintf "Use jsonrpc rather than xmlrpc (default %b)" !json);
-	] (fun x -> Printf.fprintf stderr "Ignoring argument: %s\n" x)
-		"Simple example which lists VMs found on a pool";
+  Arg.parse [
+    "-uri", Arg.Set_string uri, (Printf.sprintf "URI of server to connect to (default %s)" !uri);
+    "-u", Arg.Set_string username, (Printf.sprintf "Username to log in with (default %s)" !username);
+    "-pw", Arg.Set_string password, (Printf.sprintf "Password to log in with (default %s)" !password);
+    "-j", Arg.Set json, (Printf.sprintf "Use jsonrpc rather than xmlrpc (default %b)" !json);
+  ] (fun x -> Printf.fprintf stderr "Ignoring argument: %s\n" x)
+    "Simple example which lists VMs found on a pool";
 
-	Lwt_main.run (main ())
+  Lwt_main.run (main ())

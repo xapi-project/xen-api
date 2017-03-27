@@ -16,10 +16,10 @@ open Lwt
 
 type authentication =
   | Session_id of string
-    (** use an existing session_id *)
+  (** use an existing session_id *)
 
   | UserPassword of string * string
-    (** login with this username and password, then log out afterwards *)
+  (** login with this username and password, then log out afterwards *)
 
 val uri: pool:Uri.t -> authentication:authentication -> vdi:API.ref_VDI -> Uri.t
 (** [uri pool auth vdi] constructs a URI which references the remote disk [vdi]
