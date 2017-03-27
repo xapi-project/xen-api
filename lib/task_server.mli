@@ -62,9 +62,7 @@ module Task :
 
       val run : t -> unit
 
-      val exists_locked : tasks -> string -> bool
-
-      val find_locked : tasks -> string -> t
+      val get_state : tasks -> string -> Interface.Task.state
 
       val with_subtask : t -> string -> (unit -> 'a) -> 'a
 

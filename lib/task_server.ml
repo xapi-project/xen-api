@@ -168,6 +168,10 @@ module Task = functor (Interface : INTERFACE) -> struct
     if not (exists_locked tasks id) then raise (Interface.Does_not_exist("task", id));
     SMap.find id !(tasks.tasks)
 
+  let get_state tasks id =
+    let task = Mutex.execute tasks.m (fun () -> find_locked tasks id) in
+    task.state
+
   let replace_assoc key new_value existing =
     (key, new_value) :: (List.filter (fun (k, _) -> k <> key) existing)
 
