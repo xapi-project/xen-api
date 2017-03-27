@@ -56,18 +56,16 @@ module T = Task_server.Task(TestInterface)
 let test_add () =
   let t = T.empty () in
   let task = T.add t "dbg" (fun task -> Some "done") in
-  let id = T.id_of_handle task in
   let ts = T.list t in
-  assert_bool "Task in task list" (List.mem id ts)
+  assert_bool "Task in task list" (List.mem task ts)
 
 (* Test that destroying a task removes it from the task list *)
 let test_destroy () =
   let t = T.empty () in
   let task = T.add t "dbg" (fun task -> Some "done") in
-  let id = T.id_of_handle task in
-  T.destroy t id;
+  T.destroy task;
   let ts = T.list t in
-  assert_bool "Task not in task list" (not (List.mem id ts))
+  assert_bool "Task not in task list" (not (List.mem task ts))
 
 (* Test 'running' a task, and that the various times associated with the
    task make sense, and that the task status is correctly completed with
@@ -111,7 +109,7 @@ let test_cancel () =
   let t = T.empty () in
   let task = T.add t "dbg" (fun task -> T.check_cancelling task; Some "foo") in
   let id = T.id_of_handle task in
-  T.cancel t id;
+  T.cancel task;
   T.run task;
   assert_bool "Task result"
     (match (T.to_interface_task task).TestInterface.Task.state with
@@ -132,7 +130,7 @@ let test_with_cancel () =
   let task = T.add t "dbg"
       (fun task -> T.with_cancel task (fun () -> cancel_fn_run := true) (fun () -> Some "foo")) in
   let id = T.id_of_handle task in
-  T.cancel t id;
+  T.cancel task;
   T.run task;
   assert_bool "Task result"
     (match (T.to_interface_task task).TestInterface.Task.state with
@@ -152,7 +150,7 @@ let test_with_cancel_failure () =
   let task = T.add t "dbg"
       (fun task -> T.with_cancel task (fun () -> failwith "moo") (fun () -> Some "foo")) in
   let id = T.id_of_handle task in
-  T.cancel t id;
+  T.cancel task;
   T.run task;
   assert_bool "Task result"
     (match (T.to_interface_task task).TestInterface.Task.state with
@@ -178,7 +176,7 @@ let test_with_cancel2 () =
   let id = T.id_of_handle task in
   let th = Thread.create (fun () -> T.run task) () in
   Thread.delay 0.01;
-  T.cancel t id;
+  T.cancel task;
   Scheduler.Delay.signal delay;
   Thread.join th;
   assert_bool "Task result"
@@ -205,8 +203,7 @@ let test_with_cancel_failure2 () =
   let id = T.id_of_handle task in
   let th = Thread.create (fun () -> T.run task) () in
   Thread.delay 0.01;
-  assert_raises (TestInterface.Does_not_exist ("task","moo")) (fun () -> T.cancel t "moo");
-  T.cancel t id;
+  T.cancel task;
   Scheduler.Delay.signal delay;
   Thread.join th;
   assert_bool "Task result"

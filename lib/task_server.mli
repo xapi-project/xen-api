@@ -48,38 +48,28 @@ module Task :
       type tasks
 
       val empty : unit -> tasks
-
-      val next_task_id : unit -> id
+      val list : tasks -> task_handle list
 
       val set_cancel_trigger : tasks -> string -> int -> unit
-
       val clear_cancel_trigger : tasks -> unit
 
       val id_of_handle : task_handle -> id
-
+      val handle_of_id : tasks -> id -> task_handle
       val to_interface_task : task_handle -> Interface.Task.t
 
-      val add :
-        tasks -> string -> (task_handle -> Interface.Task.async_result option) -> task_handle
-
+      val add : tasks -> string -> (task_handle -> Interface.Task.async_result option) -> task_handle
       val run : task_handle -> unit
 
-      val find : tasks -> id -> task_handle
-
-      val get_state : tasks -> id -> Interface.Task.state
-
-      val set_state : tasks -> id -> Interface.Task.state -> unit
+      val get_state : task_handle -> Interface.Task.state
+      val set_state : task_handle -> Interface.Task.state -> unit
+      val get_dbg : task_handle -> string
 
       val with_subtask : task_handle -> id -> (unit -> 'a) -> 'a
 
-      val list : tasks -> id list
-
-      val destroy : tasks -> id -> unit
-
-      val cancel : tasks -> id -> unit
+      val destroy : task_handle -> unit
+      val cancel : task_handle -> unit
 
       val raise_cancelled : task_handle -> 'a
-
       val check_cancelling : task_handle -> unit
 
       val with_cancel : task_handle -> (unit -> unit) -> (unit -> 'a) -> 'a

@@ -84,6 +84,7 @@ module Task = functor (Interface : INTERFACE) -> struct
 
   (* A task is associated with every running operation *)
   type task_handle = {
+    tasks : tasks;
     id: id;                                        (* unique task id *)
     ctime: float;                                  (* created timestamp *)
     dbg: string;                                   (* token sent by client *)
@@ -98,18 +99,18 @@ module Task = functor (Interface : INTERFACE) -> struct
     mutable backtrace: Backtrace.t;                (* on error, a backtrace *)
   }
 
-  type tasks = {
-    tasks : task_handle SMap.t ref;
+  and tasks = {
+    task_map : task_handle SMap.t ref;
     mutable test_cancel_trigger : (string * int) option;
     m : Mutex.t;
     c : Condition.t;
   }
 
   let empty () =
-    let tasks = ref SMap.empty in
+    let task_map = ref SMap.empty in
     let m = Mutex.create () in
     let c = Condition.create () in
-    { tasks; test_cancel_trigger = None; m; c }
+    { task_map; test_cancel_trigger = None; m; c }
 
   (* [next_task_id ()] returns a fresh task id *)
   let next_task_id =
@@ -136,6 +137,7 @@ module Task = functor (Interface : INTERFACE) -> struct
   (* [add dbg f] creates a fresh [t], registers and returns it *)
   let add tasks dbg (f: task_handle -> Interface.Task.async_result option) =
     let t = {
+      tasks = tasks;
       id = next_task_id ();
       ctime = Unix.gettimeofday ();
       dbg = dbg;
@@ -155,7 +157,7 @@ module Task = functor (Interface : INTERFACE) -> struct
     } in
     Mutex.execute tasks.m
       (fun () ->
-         tasks.tasks := SMap.add t.id t !(tasks.tasks)
+         tasks.task_map := SMap.add t.id t !(tasks.task_map)
       );
     t
 
@@ -175,11 +177,11 @@ module Task = functor (Interface : INTERFACE) -> struct
       let e = e |> Interface.exnty_of_exn |> Interface.Exception.rpc_of_exnty in
       item.state <- Interface.Task.Failed e
 
-  let exists_locked tasks id = SMap.mem id !(tasks.tasks)
+  let exists_locked tasks id = SMap.mem id !(tasks.task_map)
 
   let find_locked tasks id =
     try
-      SMap.find id !(tasks.tasks)
+      SMap.find id !(tasks.task_map)
     with
     | _ -> raise (Interface.Does_not_exist("task", id))
 
@@ -196,16 +198,17 @@ module Task = functor (Interface : INTERFACE) -> struct
       backtrace = Sexplib.Sexp.to_string (Backtrace.sexp_of_t t.backtrace);
     }
 
-  let find tasks id =
+  let handle_of_id tasks id =
     Mutex.execute tasks.m (fun () -> find_locked tasks id)
 
-  let get_state tasks id =
-    let task = find tasks id in
+  let get_state task =
     task.state
 
-  let set_state tasks id state =
-    let task = find tasks id in
+  let set_state task state =
     task.state <- state
+
+  let get_dbg task_handle =
+    task_handle.dbg
 
   let replace_assoc key new_value existing =
     (key, new_value) :: (List.filter (fun (k, _) -> k <> key) existing)
@@ -227,42 +230,42 @@ module Task = functor (Interface : INTERFACE) -> struct
   let list tasks =
     Mutex.execute tasks.m
       (fun () ->
-         SMap.bindings !(tasks.tasks) |> List.map fst
+         SMap.bindings !(tasks.task_map) |> List.map snd
       )
 
   (* Remove the task from the id -> task mapping. NB any active thread will still continue. *)
-  let destroy tasks id =
+  let destroy task =
+    let tasks = task.tasks in
     Mutex.execute tasks.m
       (fun () ->
-         tasks.tasks := SMap.remove id !(tasks.tasks)
+         tasks.task_map := SMap.remove task.id !(tasks.task_map)
       )
 
-  let cancel tasks id =
-    let t = Mutex.execute tasks.m (fun () -> find_locked tasks id) in
-    let callbacks = Mutex.execute t.tm
+  let cancel task =
+    let callbacks = Mutex.execute task.tm
         (fun () ->
-           t.cancelling <- true;
-           t.cancel
+           task.cancelling <- true;
+           task.cancel
         ) in
     List.iter
       (fun f ->
          try
            f ()
          with e ->
-           debug "Task.cancel %s: ignore exception %s" id (Printexc.to_string e)
+           debug "Task.cancel %s: ignore exception %s" task.id (Printexc.to_string e)
       ) callbacks
 
-  let raise_cancelled t =
-    info "Task %s has been cancelled: raising Cancelled exception" t.id;
-    raise (Interface.Cancelled(t.id))
+  let raise_cancelled task =
+    info "Task %s has been cancelled: raising Cancelled exception" task.id;
+    raise (Interface.Cancelled(task.id))
 
-  let check_cancelling_locked t =
-    t.cancel_points_seen <- t.cancel_points_seen + 1;
-    if t.cancelling then raise_cancelled t;
-    Opt.iter (fun x -> if t.cancel_points_seen = x then begin
-        info "Task %s has been triggered by the test-case (cancel_point = %d)" t.id t.cancel_points_seen;
-        raise_cancelled t
-      end) t.test_cancel_at
+  let check_cancelling_locked task =
+    task.cancel_points_seen <- task.cancel_points_seen + 1;
+    if task.cancelling then raise_cancelled task;
+    Opt.iter (fun x -> if task.cancel_points_seen = x then begin
+        info "Task %s has been triggered by the test-case (cancel_point = %d)" task.id task.cancel_points_seen;
+        raise_cancelled task
+      end) task.test_cancel_at
 
   let check_cancelling t =
     Mutex.execute t.tm (fun () -> check_cancelling_locked t)
