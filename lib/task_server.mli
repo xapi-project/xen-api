@@ -76,8 +76,6 @@ module Task :
 
       val raise_cancelled : t -> 'a
 
-      val check_cancelling_locked : t -> unit
-
       val check_cancelling : t -> unit
 
       val with_cancel : t -> (unit -> unit) -> (unit -> 'a) -> 'a
