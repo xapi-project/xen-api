@@ -48,6 +48,16 @@ module type INTERFACE = sig
       | Completed of completion_t
       | Failed of Rpc.t
 
+    type t = {
+      id: id;
+      dbg: string;
+      ctime: float;
+      state: state;
+      subtasks: (string * state) list;
+      debug_info: (string * string) list;
+      backtrace: string;
+    }
+
   end
 
   (* The following stuff comes from rpc-light.idl *)
@@ -70,15 +80,16 @@ module Task = functor (Interface : INTERFACE) -> struct
   module SMap = Map.Make(struct type t = string let compare = compare end)
 
   (* Tasks are stored in an id -> t map *)
+  type id = string
 
   (* A task is associated with every running operation *)
-  type t = {
-    id: string;                                    (* unique task id *)
+  type task_handle = {
+    id: id;                                        (* unique task id *)
     ctime: float;                                  (* created timestamp *)
     dbg: string;                                   (* token sent by client *)
-    mutable state: Interface.Task.state;         (* current completion state *)
+    mutable state: Interface.Task.state;           (* current completion state *)
     mutable subtasks: (string * Interface.Task.state) list; (* one level of "subtasks" *)
-    f: t -> Interface.Task.async_result option;    (* body of the function *)
+    f: task_handle -> Interface.Task.async_result option;    (* body of the function *)
     tm: Mutex.t;                                   (* protects cancelling state: *)
     mutable cancelling: bool;                      (* set by cancel *)
     mutable cancel: (unit -> unit) list;           (* attempt to cancel [f] *)
@@ -88,7 +99,7 @@ module Task = functor (Interface : INTERFACE) -> struct
   }
 
   type tasks = {
-    tasks : t SMap.t ref;
+    tasks : task_handle SMap.t ref;
     mutable test_cancel_trigger : (string * int) option;
     m : Mutex.t;
     c : Condition.t;
@@ -120,8 +131,10 @@ module Task = functor (Interface : INTERFACE) -> struct
          tasks.test_cancel_trigger <- None
       )
 
+  let id_of_handle task_handle = task_handle.id
+
   (* [add dbg f] creates a fresh [t], registers and returns it *)
-  let add tasks dbg (f: t -> Interface.Task.async_result option) =
+  let add tasks dbg (f: task_handle -> Interface.Task.async_result option) =
     let t = {
       id = next_task_id ();
       ctime = Unix.gettimeofday ();
@@ -165,8 +178,23 @@ module Task = functor (Interface : INTERFACE) -> struct
   let exists_locked tasks id = SMap.mem id !(tasks.tasks)
 
   let find_locked tasks id =
-    if not (exists_locked tasks id) then raise (Interface.Does_not_exist("task", id));
-    SMap.find id !(tasks.tasks)
+    try
+      SMap.find id !(tasks.tasks)
+    with
+    | _ -> raise (Interface.Does_not_exist("task", id))
+
+  let to_interface_task t =
+    {
+      Interface.Task.id = t.id;
+      dbg = t.dbg;
+      ctime = t.ctime;
+      state = t.state;
+      subtasks = t.subtasks;
+      debug_info = [
+        "cancel_points_seen", string_of_int t.cancel_points_seen
+      ];
+      backtrace = Sexplib.Sexp.to_string (Backtrace.sexp_of_t t.backtrace);
+    }
 
   let find tasks id =
     Mutex.execute tasks.m (fun () -> find_locked tasks id)
@@ -195,7 +223,7 @@ module Task = functor (Interface : INTERFACE) -> struct
   let list tasks =
     Mutex.execute tasks.m
       (fun () ->
-         SMap.bindings !(tasks.tasks) |> List.map snd
+         SMap.bindings !(tasks.tasks) |> List.map fst
       )
 
   (* Remove the task from the id -> task mapping. NB any active thread will still continue. *)

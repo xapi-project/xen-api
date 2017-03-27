@@ -21,6 +21,15 @@ module type INTERFACE =
             Pending of float
           | Completed of completion_t
           | Failed of Rpc.t
+        type t = {
+          id: id;
+          dbg: string;
+          ctime: float;
+          state: state;
+          subtasks: (string * state) list;
+          debug_info: (string * string) list;
+          backtrace: string;
+        }
       end
     module Exception : sig type exnty val rpc_of_exnty : exnty -> Rpc.t end
     val exnty_of_exn : exn -> Exception.exnty
@@ -32,51 +41,44 @@ module Task :
   functor (Interface : INTERFACE) ->
     sig
 
-      type t = {
-        id : string;
-        ctime : float;
-        dbg : string;
-        mutable state : Interface.Task.state;
-        mutable subtasks : (string * Interface.Task.state) list;
-        f : t -> Interface.Task.async_result option;
-        tm : Mutex.t;
-        mutable cancelling : bool;
-        mutable cancel : (unit -> unit) list;
-        mutable cancel_points_seen : int;
-        test_cancel_at : int option;
-        mutable backtrace : Backtrace.t;
-      }
+      type id = string
+
+      type task_handle
 
       type tasks
 
       val empty : unit -> tasks
 
-      val next_task_id : unit -> string
+      val next_task_id : unit -> id
 
       val set_cancel_trigger : tasks -> string -> int -> unit
 
       val clear_cancel_trigger : tasks -> unit
 
+      val id_of_handle : task_handle -> id
+
+      val to_interface_task : task_handle -> Interface.Task.t
+
       val add :
-        tasks -> string -> (t -> Interface.Task.async_result option) -> t
+        tasks -> string -> (task_handle -> Interface.Task.async_result option) -> task_handle
 
-      val run : t -> unit
+      val run : task_handle -> unit
 
-      val find : tasks -> string -> t
+      val find : tasks -> id -> task_handle
 
-      val get_state : tasks -> string -> Interface.Task.state
+      val get_state : tasks -> id -> Interface.Task.state
 
-      val with_subtask : t -> string -> (unit -> 'a) -> 'a
+      val with_subtask : task_handle -> id -> (unit -> 'a) -> 'a
 
-      val list : tasks -> t list
+      val list : tasks -> id list
 
-      val destroy : tasks -> string -> unit
+      val destroy : tasks -> id -> unit
 
-      val cancel : tasks -> string -> unit
+      val cancel : tasks -> id -> unit
 
-      val raise_cancelled : t -> 'a
+      val raise_cancelled : task_handle -> 'a
 
-      val check_cancelling : t -> unit
+      val check_cancelling : task_handle -> unit
 
-      val with_cancel : t -> (unit -> unit) -> (unit -> 'a) -> 'a
+      val with_cancel : task_handle -> (unit -> unit) -> (unit -> 'a) -> 'a
     end

@@ -17,6 +17,15 @@ module TestInterface = struct
       | Pending of float
       | Completed of completion_t
       | Failed of Rpc.t
+    type t = {
+      id: id;
+      dbg: string;
+      ctime: float;
+      state: state;
+      subtasks: (string * state) list;
+      debug_info: (string * string) list;
+      backtrace: string;
+    }
   end
 
   module Exception = struct
@@ -47,16 +56,18 @@ module T = Task_server.Task(TestInterface)
 let test_add () =
   let t = T.empty () in
   let task = T.add t "dbg" (fun task -> Some "done") in
+  let id = T.id_of_handle task in
   let ts = T.list t in
-  assert_bool "Task in task list" (List.mem task ts)
+  assert_bool "Task in task list" (List.mem id ts)
 
 (* Test that destroying a task removes it from the task list *)
 let test_destroy () =
   let t = T.empty () in
   let task = T.add t "dbg" (fun task -> Some "done") in
-  T.destroy t task.T.id;
+  let id = T.id_of_handle task in
+  T.destroy t id;
   let ts = T.list t in
-  assert_bool "Task not in task list" (not (List.mem task ts))
+  assert_bool "Task not in task list" (not (List.mem id ts))
 
 (* Test 'running' a task, and that the various times associated with the
    task make sense, and that the task status is correctly completed with
@@ -67,9 +78,10 @@ let test_run () =
   Thread.delay 0.001;
   let task = T.add t "dbg" (fun task -> Thread.delay 0.001; Some "done") in
   T.run task;
-  assert_bool "Task ctime" (task.T.ctime > start);
+  let t' = T.to_interface_task task in
+  assert_bool "Task ctime" (t'.TestInterface.Task.ctime > start);
   assert_bool "Task result"
-    (match task.T.state with
+    (match t'.TestInterface.Task.state with
      | TestInterface.Task.Completed {TestInterface.Task.result=Some r; duration} ->
        r = "done" && duration > 0.0
      | _ -> false)
@@ -81,8 +93,9 @@ let test_raise () =
   let t = T.empty () in
   let task = T.add t "dbg" (fun task -> raise (TestInterface.Internal_error "test")) in
   T.run task;
+  let t' = T.to_interface_task task in
   assert_bool "Task result"
-    (match task.T.state with
+    (match t'.TestInterface.Task.state with
      | TestInterface.Task.Failed r ->
        begin
          try
@@ -97,15 +110,16 @@ let test_raise () =
 let test_cancel () =
   let t = T.empty () in
   let task = T.add t "dbg" (fun task -> T.check_cancelling task; Some "foo") in
-  T.cancel t task.T.id;
+  let id = T.id_of_handle task in
+  T.cancel t id;
   T.run task;
   assert_bool "Task result"
-    (match task.T.state with
+    (match (T.to_interface_task task).TestInterface.Task.state with
      | TestInterface.Task.Failed r ->
        begin
          try
            let e = TestInterface.Exception.exnty_of_rpc r in
-           e = TestInterface.Exception.Cancelled (task.T.id)
+           e = TestInterface.Exception.Cancelled id
          with _ -> false end
      | _ -> false)
 
@@ -117,15 +131,16 @@ let test_with_cancel () =
   let cancel_fn_run = ref false in
   let task = T.add t "dbg"
       (fun task -> T.with_cancel task (fun () -> cancel_fn_run := true) (fun () -> Some "foo")) in
-  T.cancel t task.T.id;
+  let id = T.id_of_handle task in
+  T.cancel t id;
   T.run task;
   assert_bool "Task result"
-    (match task.T.state with
+    (match (T.to_interface_task task).TestInterface.Task.state with
      | TestInterface.Task.Failed r ->
        begin
          try
            let e = TestInterface.Exception.exnty_of_rpc r in
-           e = TestInterface.Exception.Cancelled (task.T.id)
+           e = TestInterface.Exception.Cancelled id
          with _ -> false end
      | _ -> false);
   assert_bool "Cancel_fn run" !cancel_fn_run
@@ -136,15 +151,16 @@ let test_with_cancel_failure () =
   let t = T.empty () in
   let task = T.add t "dbg"
       (fun task -> T.with_cancel task (fun () -> failwith "moo") (fun () -> Some "foo")) in
-  T.cancel t task.T.id;
+  let id = T.id_of_handle task in
+  T.cancel t id;
   T.run task;
   assert_bool "Task result"
-    (match task.T.state with
+    (match (T.to_interface_task task).TestInterface.Task.state with
      | TestInterface.Task.Failed r ->
        begin
          try
            let e = TestInterface.Exception.exnty_of_rpc r in
-           e = TestInterface.Exception.Cancelled (task.T.id)
+           e = TestInterface.Exception.Cancelled id
          with _ -> false end
      | _ -> false)
 
@@ -159,18 +175,19 @@ let test_with_cancel2 () =
          T.with_cancel task (fun () -> cancel_fn_run := true)
            (fun () -> ignore (Scheduler.Delay.wait delay 1.0);
              T.check_cancelling task; Some "foo")) in
+  let id = T.id_of_handle task in
   let th = Thread.create (fun () -> T.run task) () in
   Thread.delay 0.01;
-  T.cancel t task.T.id;
+  T.cancel t id;
   Scheduler.Delay.signal delay;
   Thread.join th;
   assert_bool "Task result"
-    (match task.T.state with
+    (match (T.to_interface_task task).TestInterface.Task.state with
      | TestInterface.Task.Failed r ->
        begin
          try
            let e = TestInterface.Exception.exnty_of_rpc r in
-           e = TestInterface.Exception.Cancelled (task.T.id)
+           e = TestInterface.Exception.Cancelled id
          with _ -> false end
      | _ -> false);
   assert_bool "Cancel_fn run" !cancel_fn_run
@@ -185,19 +202,20 @@ let test_with_cancel_failure2 () =
          T.with_cancel task (fun () -> failwith "moo")
            (fun () -> ignore (Scheduler.Delay.wait delay 1.0);
              T.check_cancelling task; Some "foo")) in
+  let id = T.id_of_handle task in
   let th = Thread.create (fun () -> T.run task) () in
   Thread.delay 0.01;
   assert_raises (TestInterface.Does_not_exist ("task","moo")) (fun () -> T.cancel t "moo");
-  T.cancel t task.T.id;
+  T.cancel t id;
   Scheduler.Delay.signal delay;
   Thread.join th;
   assert_bool "Task result"
-    (match task.T.state with
+    (match (T.to_interface_task task).TestInterface.Task.state with
      | TestInterface.Task.Failed r ->
        begin
          try
            let e = TestInterface.Exception.exnty_of_rpc r in
-           e = TestInterface.Exception.Cancelled (task.T.id)
+           e = TestInterface.Exception.Cancelled id
          with _ -> false end
      | _ -> false)
 
@@ -209,11 +227,12 @@ let test_subtasks () =
       (fun task ->
         let _ : int = T.with_subtask task "subtask1" (fun () -> 0) in
          Some "done") in
+  let id = T.id_of_handle task in
   T.run task;
   assert_bool "Subtasks"
-    ((List.hd task.T.subtasks |> fst) = "subtask1");
+    ((List.hd (T.to_interface_task task).TestInterface.Task.subtasks |> fst) = "subtask1");
   assert_bool "Task result"
-    (match task.T.state with
+    (match (T.to_interface_task task).TestInterface.Task.state with
      | TestInterface.Task.Completed {TestInterface.Task.result=Some r; duration} ->
        r = "done"
      | _ -> false)
@@ -229,7 +248,7 @@ let test_subtasks_failure () =
              (fun () -> raise (TestInterface.Internal_error "foo")) in
          Some "done") in
   T.run task;
-  let subtask = List.hd task.T.subtasks in
+  let subtask = List.hd (T.to_interface_task task).TestInterface.Task.subtasks in
   assert_bool "Subtasks"
     (fst subtask = "subtask1");
   assert_bool "Subtasks"
@@ -238,7 +257,7 @@ let test_subtasks_failure () =
        r |> TestInterface.Exception.exnty_of_rpc = TestInterface.Exception.Internal_error "foo"
      | _ -> false);
   assert_bool "Task result"
-    (match task.T.state with
+    (match (T.to_interface_task task).TestInterface.Task.state with
      | TestInterface.Task.Failed r ->
        r |> TestInterface.Exception.exnty_of_rpc = TestInterface.Exception.Internal_error "foo"
      | _ -> false)
@@ -260,19 +279,20 @@ let test_cancel_trigger () =
   in
   let task1 = T.add t "xxx" (fn xxx) in
   let task2 = T.add t "dbg" (fn dbg) in
+  let id2 = T.id_of_handle task2 in
   T.run task1;
   T.run task2;
   assert_bool "Task result"
-    (match task2.T.state with
+    (match (T.to_interface_task task2).TestInterface.Task.state with
      | TestInterface.Task.Failed r ->
        begin
          try
            let e = TestInterface.Exception.exnty_of_rpc r in
-           e = TestInterface.Exception.Cancelled (task2.T.id)
+           e = TestInterface.Exception.Cancelled id2
          with _ -> false end
      | _ -> false);
   assert_bool "Task result"
-    (match task1.T.state with
+    (match (T.to_interface_task task1).TestInterface.Task.state with
      | TestInterface.Task.Completed {TestInterface.Task.result=Some r; duration} ->
        r = "done"
       | _ -> false);
