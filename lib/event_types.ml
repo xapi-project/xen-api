@@ -13,7 +13,7 @@
  *)
 
 (** Types used to store events: *****************************************************************)
-type op = API.event_operation 
+type op = API.event_operation
 let rpc_of_op = API.rpc_of_event_operation
 let op_of_rpc = API.event_operation_of_rpc
 
@@ -36,7 +36,7 @@ let ev_struct_remap = [
 ]
 
 let remap map str =
-	match str with 
+	match str with
 		| Rpc.Dict d ->
 			Rpc.Dict (List.map (fun (k,v) -> (List.assoc k map, v)) d)
 		| _ -> str
@@ -61,7 +61,7 @@ type event_from = {
 
 open Printf
 
-let string_of_op = function `add -> "add" | `_mod -> "mod" | `del -> "del" 
+let string_of_op = function `add -> "add" | `_mod -> "mod" | `del -> "del"
 let op_of_string x = match String.lowercase x with
   | "add" -> `add | "mod" -> `_mod | "del" -> `del
   | x -> failwith (sprintf "Unknown operation type: %s" x)
@@ -70,4 +70,4 @@ let string_of_event ev = sprintf "%s %s %s %s %s" ev.id ev.ty (string_of_op ev.o
   (if ev.snapshot = None then "(no snapshot)" else "OK")
 
 
-		
+

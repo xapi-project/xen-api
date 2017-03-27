@@ -65,7 +65,7 @@ let watch_events rpc session_id =
                                         error "Event contained no snapshot";
                                         ty
                                  | Some s ->
-                                        StringMap.add ty ~key:ev.reference ~data:s 
+                                        StringMap.add ty ~key:ev.reference ~data:s
                                  end
                         | `del -> StringMap.remove ty ev.reference in
                 if StringMap.is_empty ty
@@ -96,7 +96,7 @@ let watch_events rpc session_id =
                                 ) (StringMap.symmetric_diff root_table current_table (fun a b -> a = b))
                 ) (StringMap.keys current);
                 return () in
-                
+
         let rec loop token =
                 Event.from rpc session_id ["*"] token 30. >>= fun rpc ->
                 debug "received event: %s" (Jsonrpc.to_string rpc);

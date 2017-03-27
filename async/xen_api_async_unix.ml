@@ -29,15 +29,15 @@ module IO = struct
 	type oc = (unit -> unit Deferred.t) * Writer.t
 	type conn = unit
 
-	let iter fn x = Deferred.List.iter x ~f:fn 
+	let iter fn x = Deferred.List.iter x ~f:fn
 
 	let read_line (_, ic) =
 		Reader.read_line ic >>=
 			function
 			|`Ok s -> return (Some s)
 			|`Eof -> return None
-  
-	let read = 
+
+	let read =
 		let buf = String.create 4096 in
 		fun (_, ic) len ->
 			Reader.read ic ~len buf >>=

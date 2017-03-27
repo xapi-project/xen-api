@@ -4,7 +4,7 @@ let req = "<?xml version=\"1.0\"?><methodCall><methodName>session.login_with_pas
 
 module Client=Client.ClientF(Lwt)
 
-let testrpc x = 
+let testrpc x =
 	let open XmlHttpRequest in
 		Post.post_xml "http://st11.uk.xensource.com/" (Xml.to_string x) >>= fun r ->
 			Lwt.return (Xml.parse_string r.content)
