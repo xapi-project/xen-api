@@ -18,18 +18,33 @@ type change_t = lifecycle_change * string * string
 and changes_t = change_t list
 [@@deriving rpc]
 
-let _ =
+let destdir = ref "."
+
+let parse_args () =
+  Arg.parse [
+      "-destdir", Arg.Set_string destdir, "the destination directory for the generated files";
+    ]
+    (fun x-> Printf.printf "Ignoring anonymous argument %s" x)
+    ("Generates documentation for the datamodel classes. See -help.")
+
+
+let generate_files destdir =
+  let api_dir = Filename.concat destdir "api" in
+  Stdext.Unixext.mkdir_rec api_dir 0o755;
+
   let api = (Datamodel.all_api) in
   let objs = Dm_api.objects_of_api api in
   let create_json obj =
     let name = obj.name in
     let s = Jsonrpc.to_string (rpc_of_obj obj) in
-    Stdext.Unixext.write_string_to_file ("api/" ^ name ^ ".json") ("clsdoc = " ^ s);
+    let fname = name ^ ".json" in
+    Stdext.Unixext.write_string_to_file (Filename.concat api_dir fname) ("clsdoc = " ^ s);
     name
   in
   let names = List.map create_json objs in
   let class_list = String.concat ", " (List.map (fun s -> "'" ^ s ^ "'") names) in
-  Stdext.Unixext.write_string_to_file "api/index.json" ("classes = [" ^ class_list ^ "]");
+  Stdext.Unixext.write_string_to_file (Filename.concat api_dir "index.json") ("classes = [" ^ class_list ^ "]");
+
 
   let changes_in_release rel =
     let search_obj obj =
@@ -68,8 +83,14 @@ let _ =
       "{'cls': '" ^ obj.name ^ "', 'obj_changes': " ^ Jsonrpc.to_string (rpc_of_changes_t obj_changes) ^ ", 'field_changes': " ^ Jsonrpc.to_string (rpc_of_changes_t field_changes) ^ ", 'msg_changes': " ^ Jsonrpc.to_string (rpc_of_changes_t msg_changes) ^ "}"
     in
     let release_info = String.concat ", " (List.map search_obj objs) in
-    Stdext.Unixext.write_string_to_file ("api/" ^ rel ^ ".json") ("release_info = [" ^ release_info ^ "]")
+    let fname = rel ^ ".json" in
+    Stdext.Unixext.write_string_to_file (Filename.concat api_dir fname) ("release_info = [" ^ release_info ^ "]")
   in
   List.iter changes_in_release release_order;
   let release_list = String.concat ", " (List.map (fun s -> "'" ^ s ^ "'") release_order) in
-  Stdext.Unixext.write_string_to_file "api/releases.json" ("releases = [" ^ release_list ^ "]");
+  Stdext.Unixext.write_string_to_file (Filename.concat api_dir "releases.json") ("releases = [" ^ release_list ^ "]")
+
+
+let _ =
+  parse_args ();
+  generate_files !destdir

@@ -31,6 +31,7 @@ let cluster_stack_root = dir "cluster-stack-root" "/usr/libexec/xapi/cluster-sta
 let bindir = dir "bindir" "/opt/xensource/bin" "BINDIR" "binaries"
 let sbindir = dir "sbindir" "/opt/xensource/bin" "BINDIR" "system binaries"
 let udevdir = dir "udevdir" "/etc/udev" "UDEVDIR" "udev scripts"
+let docdir = dir "docdir" "/usr/share/xapi/doc" "DOCDIR" "XenAPI documentation"
 
 let info =
   let doc = "Configures a package" in
@@ -59,7 +60,8 @@ let configure
     cluster_stack_root
     bindir
     sbindir
-    udevdir =
+    udevdir
+    docdir =
 
   (* Write config.mk *)
   let vars = [
@@ -80,6 +82,7 @@ let configure
     "BINDIR", bindir;
     "SBINDIR", sbindir;
     "UDEVDIR", udevdir;
+    "DOCDIR", docdir;
   ] in
   let lines = List.map (fun (k,v) -> Printf.sprintf "%s=%s" k v) vars in
   let export = Printf.sprintf "export %s"
@@ -98,7 +101,7 @@ let configure_t =
   Term.(pure configure $ disable_warn_error $ varpatchdir $ etcdir $
         optdir $ plugindir $ extensiondir $ hooksdir $ inventory $
         xapiconf $ libexecdir $ scriptsdir $ sharedir $ webdir $
-        cluster_stack_root $ bindir $ sbindir $ udevdir )
+        cluster_stack_root $ bindir $ sbindir $ udevdir $ docdir )
 
 let () =
   match
