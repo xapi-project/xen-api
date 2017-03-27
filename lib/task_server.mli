@@ -72,7 +72,7 @@ module Task :
 
       val cancel : tasks -> string -> unit
 
-      val raise_cancelled : t -> unit
+      val raise_cancelled : t -> 'a
 
       val check_cancelling_locked : t -> unit
 
