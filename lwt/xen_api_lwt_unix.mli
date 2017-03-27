@@ -14,11 +14,11 @@
 
 val make: ?timeout:float -> string -> Rpc.call -> Rpc.response Lwt.t
 (** [make ?timeout uri] returns an 'rpc' function which can be
-	passed to Client.* functions *)
+    passed to Client.* functions *)
 
 val make_json: ?timeout:float -> string -> Rpc.call -> Rpc.response Lwt.t
 (** [make ?timeout uri] returns an 'rpc' function which can be
-	passed to Client.* functions *)
+    passed to Client.* functions *)
 
 include (module type of (Client.ClientF(Lwt)))
 

@@ -54,10 +54,10 @@ module ClientF = functor(X : IO) ->struct
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
-        ~rpc
-        ~session_id
-        ~subject_identifier:value.subject_subject_identifier
-        ~other_config:value.subject_other_config
+          ~rpc
+          ~session_id
+          ~subject_identifier:value.subject_subject_identifier
+          ~other_config:value.subject_other_config
     end
     module Role = struct
     end
@@ -1007,56 +1007,56 @@ module ClientF = functor(X : IO) ->struct
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
-        ~rpc
-        ~session_id
-        ~name_label:value.vM_name_label
-        ~name_description:value.vM_name_description
-        ~user_version:value.vM_user_version
-        ~is_a_template:value.vM_is_a_template
-        ~affinity:value.vM_affinity
-        ~memory_target:value.vM_memory_target
-        ~memory_static_max:value.vM_memory_static_max
-        ~memory_dynamic_max:value.vM_memory_dynamic_max
-        ~memory_dynamic_min:value.vM_memory_dynamic_min
-        ~memory_static_min:value.vM_memory_static_min
-        ~vCPUs_params:value.vM_VCPUs_params
-        ~vCPUs_max:value.vM_VCPUs_max
-        ~vCPUs_at_startup:value.vM_VCPUs_at_startup
-        ~actions_after_shutdown:value.vM_actions_after_shutdown
-        ~actions_after_reboot:value.vM_actions_after_reboot
-        ~actions_after_crash:value.vM_actions_after_crash
-        ~pV_bootloader:value.vM_PV_bootloader
-        ~pV_kernel:value.vM_PV_kernel
-        ~pV_ramdisk:value.vM_PV_ramdisk
-        ~pV_args:value.vM_PV_args
-        ~pV_bootloader_args:value.vM_PV_bootloader_args
-        ~pV_legacy_args:value.vM_PV_legacy_args
-        ~hVM_boot_policy:value.vM_HVM_boot_policy
-        ~hVM_boot_params:value.vM_HVM_boot_params
-        ~hVM_shadow_multiplier:value.vM_HVM_shadow_multiplier
-        ~platform:value.vM_platform
-        ~pCI_bus:value.vM_PCI_bus
-        ~other_config:value.vM_other_config
-        ~recommendations:value.vM_recommendations
-        ~xenstore_data:value.vM_xenstore_data
-        ~ha_always_run:value.vM_ha_always_run
-        ~ha_restart_priority:value.vM_ha_restart_priority
-        ~tags:value.vM_tags
-        ~blocked_operations:value.vM_blocked_operations
-        ~protection_policy:value.vM_protection_policy
-        ~is_snapshot_from_vmpp:value.vM_is_snapshot_from_vmpp
-        ~snapshot_schedule:value.vM_snapshot_schedule
-        ~is_vmss_snapshot:value.vM_is_vmss_snapshot
-        ~appliance:value.vM_appliance
-        ~start_delay:value.vM_start_delay
-        ~shutdown_delay:value.vM_shutdown_delay
-        ~order:value.vM_order
-        ~suspend_SR:value.vM_suspend_SR
-        ~version:value.vM_version
-        ~generation_id:value.vM_generation_id
-        ~hardware_platform_version:value.vM_hardware_platform_version
-        ~has_vendor_device:value.vM_has_vendor_device
-        ~reference_label:value.vM_reference_label
+          ~rpc
+          ~session_id
+          ~name_label:value.vM_name_label
+          ~name_description:value.vM_name_description
+          ~user_version:value.vM_user_version
+          ~is_a_template:value.vM_is_a_template
+          ~affinity:value.vM_affinity
+          ~memory_target:value.vM_memory_target
+          ~memory_static_max:value.vM_memory_static_max
+          ~memory_dynamic_max:value.vM_memory_dynamic_max
+          ~memory_dynamic_min:value.vM_memory_dynamic_min
+          ~memory_static_min:value.vM_memory_static_min
+          ~vCPUs_params:value.vM_VCPUs_params
+          ~vCPUs_max:value.vM_VCPUs_max
+          ~vCPUs_at_startup:value.vM_VCPUs_at_startup
+          ~actions_after_shutdown:value.vM_actions_after_shutdown
+          ~actions_after_reboot:value.vM_actions_after_reboot
+          ~actions_after_crash:value.vM_actions_after_crash
+          ~pV_bootloader:value.vM_PV_bootloader
+          ~pV_kernel:value.vM_PV_kernel
+          ~pV_ramdisk:value.vM_PV_ramdisk
+          ~pV_args:value.vM_PV_args
+          ~pV_bootloader_args:value.vM_PV_bootloader_args
+          ~pV_legacy_args:value.vM_PV_legacy_args
+          ~hVM_boot_policy:value.vM_HVM_boot_policy
+          ~hVM_boot_params:value.vM_HVM_boot_params
+          ~hVM_shadow_multiplier:value.vM_HVM_shadow_multiplier
+          ~platform:value.vM_platform
+          ~pCI_bus:value.vM_PCI_bus
+          ~other_config:value.vM_other_config
+          ~recommendations:value.vM_recommendations
+          ~xenstore_data:value.vM_xenstore_data
+          ~ha_always_run:value.vM_ha_always_run
+          ~ha_restart_priority:value.vM_ha_restart_priority
+          ~tags:value.vM_tags
+          ~blocked_operations:value.vM_blocked_operations
+          ~protection_policy:value.vM_protection_policy
+          ~is_snapshot_from_vmpp:value.vM_is_snapshot_from_vmpp
+          ~snapshot_schedule:value.vM_snapshot_schedule
+          ~is_vmss_snapshot:value.vM_is_vmss_snapshot
+          ~appliance:value.vM_appliance
+          ~start_delay:value.vM_start_delay
+          ~shutdown_delay:value.vM_shutdown_delay
+          ~order:value.vM_order
+          ~suspend_SR:value.vM_suspend_SR
+          ~version:value.vM_version
+          ~generation_id:value.vM_generation_id
+          ~hardware_platform_version:value.vM_hardware_platform_version
+          ~has_vendor_device:value.vM_has_vendor_device
+          ~reference_label:value.vM_reference_label
     end
     module VM_metrics = struct
     end
@@ -1090,21 +1090,21 @@ module ClientF = functor(X : IO) ->struct
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
-        ~rpc
-        ~session_id
-        ~name_label:value.vMPP_name_label
-        ~name_description:value.vMPP_name_description
-        ~is_policy_enabled:value.vMPP_is_policy_enabled
-        ~backup_type:value.vMPP_backup_type
-        ~backup_retention_value:value.vMPP_backup_retention_value
-        ~backup_frequency:value.vMPP_backup_frequency
-        ~backup_schedule:value.vMPP_backup_schedule
-        ~archive_target_type:value.vMPP_archive_target_type
-        ~archive_target_config:value.vMPP_archive_target_config
-        ~archive_frequency:value.vMPP_archive_frequency
-        ~archive_schedule:value.vMPP_archive_schedule
-        ~is_alarm_enabled:value.vMPP_is_alarm_enabled
-        ~alarm_config:value.vMPP_alarm_config
+          ~rpc
+          ~session_id
+          ~name_label:value.vMPP_name_label
+          ~name_description:value.vMPP_name_description
+          ~is_policy_enabled:value.vMPP_is_policy_enabled
+          ~backup_type:value.vMPP_backup_type
+          ~backup_retention_value:value.vMPP_backup_retention_value
+          ~backup_frequency:value.vMPP_backup_frequency
+          ~backup_schedule:value.vMPP_backup_schedule
+          ~archive_target_type:value.vMPP_archive_target_type
+          ~archive_target_config:value.vMPP_archive_target_config
+          ~archive_frequency:value.vMPP_archive_frequency
+          ~archive_schedule:value.vMPP_archive_schedule
+          ~is_alarm_enabled:value.vMPP_is_alarm_enabled
+          ~alarm_config:value.vMPP_alarm_config
     end
     module VMSS = struct
       (**  *)
@@ -1128,15 +1128,15 @@ module ClientF = functor(X : IO) ->struct
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
-        ~rpc
-        ~session_id
-        ~name_label:value.vMSS_name_label
-        ~name_description:value.vMSS_name_description
-        ~enabled:value.vMSS_enabled
-        ~_type:value.vMSS_type
-        ~retained_snapshots:value.vMSS_retained_snapshots
-        ~frequency:value.vMSS_frequency
-        ~schedule:value.vMSS_schedule
+          ~rpc
+          ~session_id
+          ~name_label:value.vMSS_name_label
+          ~name_description:value.vMSS_name_description
+          ~enabled:value.vMSS_enabled
+          ~_type:value.vMSS_type
+          ~retained_snapshots:value.vMSS_retained_snapshots
+          ~frequency:value.vMSS_frequency
+          ~schedule:value.vMSS_schedule
     end
     module VM_appliance = struct
       (**  *)
@@ -1202,10 +1202,10 @@ module ClientF = functor(X : IO) ->struct
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
-        ~rpc
-        ~session_id
-        ~name_label:value.vM_appliance_name_label
-        ~name_description:value.vM_appliance_name_description
+          ~rpc
+          ~session_id
+          ~name_label:value.vM_appliance_name_label
+          ~name_description:value.vM_appliance_name_description
     end
     module DR_task = struct
       (**  *)
@@ -1760,15 +1760,15 @@ module ClientF = functor(X : IO) ->struct
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
-        ~rpc
-        ~session_id
-        ~name_label:value.network_name_label
-        ~name_description:value.network_name_description
-        ~mTU:value.network_MTU
-        ~other_config:value.network_other_config
-        ~bridge:value.network_bridge
-        ~managed:value.network_managed
-        ~tags:value.network_tags
+          ~rpc
+          ~session_id
+          ~name_label:value.network_name_label
+          ~name_description:value.network_name_description
+          ~mTU:value.network_MTU
+          ~other_config:value.network_other_config
+          ~bridge:value.network_bridge
+          ~managed:value.network_managed
+          ~tags:value.network_tags
     end
     module VIF = struct
       (**  *)
@@ -1888,19 +1888,19 @@ module ClientF = functor(X : IO) ->struct
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
-        ~rpc
-        ~session_id
-        ~device:value.vIF_device
-        ~network:value.vIF_network
-        ~vM:value.vIF_VM
-        ~mAC:value.vIF_MAC
-        ~mTU:value.vIF_MTU
-        ~other_config:value.vIF_other_config
-        ~qos_algorithm_type:value.vIF_qos_algorithm_type
-        ~qos_algorithm_params:value.vIF_qos_algorithm_params
-        ~locking_mode:value.vIF_locking_mode
-        ~ipv4_allowed:value.vIF_ipv4_allowed
-        ~ipv6_allowed:value.vIF_ipv6_allowed
+          ~rpc
+          ~session_id
+          ~device:value.vIF_device
+          ~network:value.vIF_network
+          ~vM:value.vIF_VM
+          ~mAC:value.vIF_MAC
+          ~mTU:value.vIF_MTU
+          ~other_config:value.vIF_other_config
+          ~qos_algorithm_type:value.vIF_qos_algorithm_type
+          ~qos_algorithm_params:value.vIF_qos_algorithm_params
+          ~locking_mode:value.vIF_locking_mode
+          ~ipv4_allowed:value.vIF_ipv4_allowed
+          ~ipv6_allowed:value.vIF_ipv6_allowed
     end
     module VIF_metrics = struct
     end
@@ -2461,19 +2461,19 @@ module ClientF = functor(X : IO) ->struct
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
-        ~rpc
-        ~session_id
-        ~name_label:value.vDI_name_label
-        ~name_description:value.vDI_name_description
-        ~sR:value.vDI_SR
-        ~virtual_size:value.vDI_virtual_size
-        ~_type:value.vDI_type
-        ~sharable:value.vDI_sharable
-        ~read_only:value.vDI_read_only
-        ~other_config:value.vDI_other_config
-        ~xenstore_data:value.vDI_xenstore_data
-        ~sm_config:value.vDI_sm_config
-        ~tags:value.vDI_tags
+          ~rpc
+          ~session_id
+          ~name_label:value.vDI_name_label
+          ~name_description:value.vDI_name_description
+          ~sR:value.vDI_SR
+          ~virtual_size:value.vDI_virtual_size
+          ~_type:value.vDI_type
+          ~sharable:value.vDI_sharable
+          ~read_only:value.vDI_read_only
+          ~other_config:value.vDI_other_config
+          ~xenstore_data:value.vDI_xenstore_data
+          ~sm_config:value.vDI_sm_config
+          ~tags:value.vDI_tags
     end
     module VBD = struct
       (**  *)
@@ -2557,19 +2557,19 @@ module ClientF = functor(X : IO) ->struct
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
-        ~rpc
-        ~session_id
-        ~vM:value.vBD_VM
-        ~vDI:value.vBD_VDI
-        ~userdevice:value.vBD_userdevice
-        ~bootable:value.vBD_bootable
-        ~mode:value.vBD_mode
-        ~_type:value.vBD_type
-        ~unpluggable:value.vBD_unpluggable
-        ~empty:value.vBD_empty
-        ~other_config:value.vBD_other_config
-        ~qos_algorithm_type:value.vBD_qos_algorithm_type
-        ~qos_algorithm_params:value.vBD_qos_algorithm_params
+          ~rpc
+          ~session_id
+          ~vM:value.vBD_VM
+          ~vDI:value.vBD_VDI
+          ~userdevice:value.vBD_userdevice
+          ~bootable:value.vBD_bootable
+          ~mode:value.vBD_mode
+          ~_type:value.vBD_type
+          ~unpluggable:value.vBD_unpluggable
+          ~empty:value.vBD_empty
+          ~other_config:value.vBD_other_config
+          ~qos_algorithm_type:value.vBD_qos_algorithm_type
+          ~qos_algorithm_params:value.vBD_qos_algorithm_params
     end
     module VBD_metrics = struct
     end
@@ -2611,12 +2611,12 @@ module ClientF = functor(X : IO) ->struct
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
-        ~rpc
-        ~session_id
-        ~host:value.pBD_host
-        ~sR:value.pBD_SR
-        ~device_config:value.pBD_device_config
-        ~other_config:value.pBD_other_config
+          ~rpc
+          ~session_id
+          ~host:value.pBD_host
+          ~sR:value.pBD_SR
+          ~device_config:value.pBD_device_config
+          ~other_config:value.pBD_other_config
     end
     module Crashdump = struct
       (**  *)
@@ -2643,10 +2643,10 @@ module ClientF = functor(X : IO) ->struct
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
-        ~rpc
-        ~session_id
-        ~vM:value.vTPM_VM
-        ~backend:value.vTPM_backend
+          ~rpc
+          ~session_id
+          ~vM:value.vTPM_VM
+          ~backend:value.vTPM_backend
     end
     module Console = struct
       (**  *)
@@ -2665,10 +2665,10 @@ module ClientF = functor(X : IO) ->struct
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
-        ~rpc
-        ~session_id
-        ~other_config:value.console_other_config
-        ~port:value.console_port
+          ~rpc
+          ~session_id
+          ~other_config:value.console_other_config
+          ~port:value.console_port
     end
     module User = struct
       (**  *)
@@ -2688,11 +2688,11 @@ module ClientF = functor(X : IO) ->struct
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
-        ~rpc
-        ~session_id
-        ~short_name:value.user_short_name
-        ~fullname:value.user_fullname
-        ~other_config:value.user_other_config
+          ~rpc
+          ~session_id
+          ~short_name:value.user_short_name
+          ~fullname:value.user_fullname
+          ~other_config:value.user_other_config
     end
     module Data_source = struct
     end
@@ -2717,10 +2717,10 @@ module ClientF = functor(X : IO) ->struct
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
-        ~rpc
-        ~session_id
-        ~value:value.secret_value
-        ~other_config:value.secret_other_config
+          ~rpc
+          ~session_id
+          ~value:value.secret_value
+          ~other_config:value.secret_other_config
     end
     module Tunnel = struct
       (**  *)
@@ -2924,12 +2924,12 @@ module ClientF = functor(X : IO) ->struct
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
-        ~rpc
-        ~session_id
-        ~host:value.pVS_cache_storage_host
-        ~sR:value.pVS_cache_storage_SR
-        ~site:value.pVS_cache_storage_site
-        ~size:value.pVS_cache_storage_size
+          ~rpc
+          ~session_id
+          ~host:value.pVS_cache_storage_host
+          ~sR:value.pVS_cache_storage_SR
+          ~site:value.pVS_cache_storage_site
+          ~size:value.pVS_cache_storage_size
     end
     module Feature = struct
     end
@@ -3244,10 +3244,10 @@ module ClientF = functor(X : IO) ->struct
     (**  *)
     let create_from_record ~rpc ~session_id ~value =
       create
-      ~rpc
-      ~session_id
-      ~subject_identifier:value.subject_subject_identifier
-      ~other_config:value.subject_other_config
+        ~rpc
+        ~session_id
+        ~subject_identifier:value.subject_subject_identifier
+        ~other_config:value.subject_other_config
   end
   module Role = struct
     (**  *)
@@ -6091,56 +6091,56 @@ module ClientF = functor(X : IO) ->struct
     (**  *)
     let create_from_record ~rpc ~session_id ~value =
       create
-      ~rpc
-      ~session_id
-      ~name_label:value.vM_name_label
-      ~name_description:value.vM_name_description
-      ~user_version:value.vM_user_version
-      ~is_a_template:value.vM_is_a_template
-      ~affinity:value.vM_affinity
-      ~memory_target:value.vM_memory_target
-      ~memory_static_max:value.vM_memory_static_max
-      ~memory_dynamic_max:value.vM_memory_dynamic_max
-      ~memory_dynamic_min:value.vM_memory_dynamic_min
-      ~memory_static_min:value.vM_memory_static_min
-      ~vCPUs_params:value.vM_VCPUs_params
-      ~vCPUs_max:value.vM_VCPUs_max
-      ~vCPUs_at_startup:value.vM_VCPUs_at_startup
-      ~actions_after_shutdown:value.vM_actions_after_shutdown
-      ~actions_after_reboot:value.vM_actions_after_reboot
-      ~actions_after_crash:value.vM_actions_after_crash
-      ~pV_bootloader:value.vM_PV_bootloader
-      ~pV_kernel:value.vM_PV_kernel
-      ~pV_ramdisk:value.vM_PV_ramdisk
-      ~pV_args:value.vM_PV_args
-      ~pV_bootloader_args:value.vM_PV_bootloader_args
-      ~pV_legacy_args:value.vM_PV_legacy_args
-      ~hVM_boot_policy:value.vM_HVM_boot_policy
-      ~hVM_boot_params:value.vM_HVM_boot_params
-      ~hVM_shadow_multiplier:value.vM_HVM_shadow_multiplier
-      ~platform:value.vM_platform
-      ~pCI_bus:value.vM_PCI_bus
-      ~other_config:value.vM_other_config
-      ~recommendations:value.vM_recommendations
-      ~xenstore_data:value.vM_xenstore_data
-      ~ha_always_run:value.vM_ha_always_run
-      ~ha_restart_priority:value.vM_ha_restart_priority
-      ~tags:value.vM_tags
-      ~blocked_operations:value.vM_blocked_operations
-      ~protection_policy:value.vM_protection_policy
-      ~is_snapshot_from_vmpp:value.vM_is_snapshot_from_vmpp
-      ~snapshot_schedule:value.vM_snapshot_schedule
-      ~is_vmss_snapshot:value.vM_is_vmss_snapshot
-      ~appliance:value.vM_appliance
-      ~start_delay:value.vM_start_delay
-      ~shutdown_delay:value.vM_shutdown_delay
-      ~order:value.vM_order
-      ~suspend_SR:value.vM_suspend_SR
-      ~version:value.vM_version
-      ~generation_id:value.vM_generation_id
-      ~hardware_platform_version:value.vM_hardware_platform_version
-      ~has_vendor_device:value.vM_has_vendor_device
-      ~reference_label:value.vM_reference_label
+        ~rpc
+        ~session_id
+        ~name_label:value.vM_name_label
+        ~name_description:value.vM_name_description
+        ~user_version:value.vM_user_version
+        ~is_a_template:value.vM_is_a_template
+        ~affinity:value.vM_affinity
+        ~memory_target:value.vM_memory_target
+        ~memory_static_max:value.vM_memory_static_max
+        ~memory_dynamic_max:value.vM_memory_dynamic_max
+        ~memory_dynamic_min:value.vM_memory_dynamic_min
+        ~memory_static_min:value.vM_memory_static_min
+        ~vCPUs_params:value.vM_VCPUs_params
+        ~vCPUs_max:value.vM_VCPUs_max
+        ~vCPUs_at_startup:value.vM_VCPUs_at_startup
+        ~actions_after_shutdown:value.vM_actions_after_shutdown
+        ~actions_after_reboot:value.vM_actions_after_reboot
+        ~actions_after_crash:value.vM_actions_after_crash
+        ~pV_bootloader:value.vM_PV_bootloader
+        ~pV_kernel:value.vM_PV_kernel
+        ~pV_ramdisk:value.vM_PV_ramdisk
+        ~pV_args:value.vM_PV_args
+        ~pV_bootloader_args:value.vM_PV_bootloader_args
+        ~pV_legacy_args:value.vM_PV_legacy_args
+        ~hVM_boot_policy:value.vM_HVM_boot_policy
+        ~hVM_boot_params:value.vM_HVM_boot_params
+        ~hVM_shadow_multiplier:value.vM_HVM_shadow_multiplier
+        ~platform:value.vM_platform
+        ~pCI_bus:value.vM_PCI_bus
+        ~other_config:value.vM_other_config
+        ~recommendations:value.vM_recommendations
+        ~xenstore_data:value.vM_xenstore_data
+        ~ha_always_run:value.vM_ha_always_run
+        ~ha_restart_priority:value.vM_ha_restart_priority
+        ~tags:value.vM_tags
+        ~blocked_operations:value.vM_blocked_operations
+        ~protection_policy:value.vM_protection_policy
+        ~is_snapshot_from_vmpp:value.vM_is_snapshot_from_vmpp
+        ~snapshot_schedule:value.vM_snapshot_schedule
+        ~is_vmss_snapshot:value.vM_is_vmss_snapshot
+        ~appliance:value.vM_appliance
+        ~start_delay:value.vM_start_delay
+        ~shutdown_delay:value.vM_shutdown_delay
+        ~order:value.vM_order
+        ~suspend_SR:value.vM_suspend_SR
+        ~version:value.vM_version
+        ~generation_id:value.vM_generation_id
+        ~hardware_platform_version:value.vM_hardware_platform_version
+        ~has_vendor_device:value.vM_has_vendor_device
+        ~reference_label:value.vM_reference_label
   end
   module VM_metrics = struct
     (**  *)
@@ -6810,21 +6810,21 @@ module ClientF = functor(X : IO) ->struct
     (**  *)
     let create_from_record ~rpc ~session_id ~value =
       create
-      ~rpc
-      ~session_id
-      ~name_label:value.vMPP_name_label
-      ~name_description:value.vMPP_name_description
-      ~is_policy_enabled:value.vMPP_is_policy_enabled
-      ~backup_type:value.vMPP_backup_type
-      ~backup_retention_value:value.vMPP_backup_retention_value
-      ~backup_frequency:value.vMPP_backup_frequency
-      ~backup_schedule:value.vMPP_backup_schedule
-      ~archive_target_type:value.vMPP_archive_target_type
-      ~archive_target_config:value.vMPP_archive_target_config
-      ~archive_frequency:value.vMPP_archive_frequency
-      ~archive_schedule:value.vMPP_archive_schedule
-      ~is_alarm_enabled:value.vMPP_is_alarm_enabled
-      ~alarm_config:value.vMPP_alarm_config
+        ~rpc
+        ~session_id
+        ~name_label:value.vMPP_name_label
+        ~name_description:value.vMPP_name_description
+        ~is_policy_enabled:value.vMPP_is_policy_enabled
+        ~backup_type:value.vMPP_backup_type
+        ~backup_retention_value:value.vMPP_backup_retention_value
+        ~backup_frequency:value.vMPP_backup_frequency
+        ~backup_schedule:value.vMPP_backup_schedule
+        ~archive_target_type:value.vMPP_archive_target_type
+        ~archive_target_config:value.vMPP_archive_target_config
+        ~archive_frequency:value.vMPP_archive_frequency
+        ~archive_schedule:value.vMPP_archive_schedule
+        ~is_alarm_enabled:value.vMPP_is_alarm_enabled
+        ~alarm_config:value.vMPP_alarm_config
   end
   module VMSS = struct
     (**  *)
@@ -7019,15 +7019,15 @@ module ClientF = functor(X : IO) ->struct
     (**  *)
     let create_from_record ~rpc ~session_id ~value =
       create
-      ~rpc
-      ~session_id
-      ~name_label:value.vMSS_name_label
-      ~name_description:value.vMSS_name_description
-      ~enabled:value.vMSS_enabled
-      ~_type:value.vMSS_type
-      ~retained_snapshots:value.vMSS_retained_snapshots
-      ~frequency:value.vMSS_frequency
-      ~schedule:value.vMSS_schedule
+        ~rpc
+        ~session_id
+        ~name_label:value.vMSS_name_label
+        ~name_description:value.vMSS_name_description
+        ~enabled:value.vMSS_enabled
+        ~_type:value.vMSS_type
+        ~retained_snapshots:value.vMSS_retained_snapshots
+        ~frequency:value.vMSS_frequency
+        ~schedule:value.vMSS_schedule
   end
   module VM_appliance = struct
     (**  *)
@@ -7177,10 +7177,10 @@ module ClientF = functor(X : IO) ->struct
     (**  *)
     let create_from_record ~rpc ~session_id ~value =
       create
-      ~rpc
-      ~session_id
-      ~name_label:value.vM_appliance_name_label
-      ~name_description:value.vM_appliance_name_description
+        ~rpc
+        ~session_id
+        ~name_label:value.vM_appliance_name_label
+        ~name_description:value.vM_appliance_name_description
   end
   module DR_task = struct
     (**  *)
@@ -9150,15 +9150,15 @@ module ClientF = functor(X : IO) ->struct
     (**  *)
     let create_from_record ~rpc ~session_id ~value =
       create
-      ~rpc
-      ~session_id
-      ~name_label:value.network_name_label
-      ~name_description:value.network_name_description
-      ~mTU:value.network_MTU
-      ~other_config:value.network_other_config
-      ~bridge:value.network_bridge
-      ~managed:value.network_managed
-      ~tags:value.network_tags
+        ~rpc
+        ~session_id
+        ~name_label:value.network_name_label
+        ~name_description:value.network_name_description
+        ~mTU:value.network_MTU
+        ~other_config:value.network_other_config
+        ~bridge:value.network_bridge
+        ~managed:value.network_managed
+        ~tags:value.network_tags
   end
   module VIF = struct
     (**  *)
@@ -9519,19 +9519,19 @@ module ClientF = functor(X : IO) ->struct
     (**  *)
     let create_from_record ~rpc ~session_id ~value =
       create
-      ~rpc
-      ~session_id
-      ~device:value.vIF_device
-      ~network:value.vIF_network
-      ~vM:value.vIF_VM
-      ~mAC:value.vIF_MAC
-      ~mTU:value.vIF_MTU
-      ~other_config:value.vIF_other_config
-      ~qos_algorithm_type:value.vIF_qos_algorithm_type
-      ~qos_algorithm_params:value.vIF_qos_algorithm_params
-      ~locking_mode:value.vIF_locking_mode
-      ~ipv4_allowed:value.vIF_ipv4_allowed
-      ~ipv6_allowed:value.vIF_ipv6_allowed
+        ~rpc
+        ~session_id
+        ~device:value.vIF_device
+        ~network:value.vIF_network
+        ~vM:value.vIF_VM
+        ~mAC:value.vIF_MAC
+        ~mTU:value.vIF_MTU
+        ~other_config:value.vIF_other_config
+        ~qos_algorithm_type:value.vIF_qos_algorithm_type
+        ~qos_algorithm_params:value.vIF_qos_algorithm_params
+        ~locking_mode:value.vIF_locking_mode
+        ~ipv4_allowed:value.vIF_ipv4_allowed
+        ~ipv6_allowed:value.vIF_ipv6_allowed
   end
   module VIF_metrics = struct
     (**  *)
@@ -11534,19 +11534,19 @@ module ClientF = functor(X : IO) ->struct
     (**  *)
     let create_from_record ~rpc ~session_id ~value =
       create
-      ~rpc
-      ~session_id
-      ~name_label:value.vDI_name_label
-      ~name_description:value.vDI_name_description
-      ~sR:value.vDI_SR
-      ~virtual_size:value.vDI_virtual_size
-      ~_type:value.vDI_type
-      ~sharable:value.vDI_sharable
-      ~read_only:value.vDI_read_only
-      ~other_config:value.vDI_other_config
-      ~xenstore_data:value.vDI_xenstore_data
-      ~sm_config:value.vDI_sm_config
-      ~tags:value.vDI_tags
+        ~rpc
+        ~session_id
+        ~name_label:value.vDI_name_label
+        ~name_description:value.vDI_name_description
+        ~sR:value.vDI_SR
+        ~virtual_size:value.vDI_virtual_size
+        ~_type:value.vDI_type
+        ~sharable:value.vDI_sharable
+        ~read_only:value.vDI_read_only
+        ~other_config:value.vDI_other_config
+        ~xenstore_data:value.vDI_xenstore_data
+        ~sm_config:value.vDI_sm_config
+        ~tags:value.vDI_tags
   end
   module VBD = struct
     (**  *)
@@ -11876,19 +11876,19 @@ module ClientF = functor(X : IO) ->struct
     (**  *)
     let create_from_record ~rpc ~session_id ~value =
       create
-      ~rpc
-      ~session_id
-      ~vM:value.vBD_VM
-      ~vDI:value.vBD_VDI
-      ~userdevice:value.vBD_userdevice
-      ~bootable:value.vBD_bootable
-      ~mode:value.vBD_mode
-      ~_type:value.vBD_type
-      ~unpluggable:value.vBD_unpluggable
-      ~empty:value.vBD_empty
-      ~other_config:value.vBD_other_config
-      ~qos_algorithm_type:value.vBD_qos_algorithm_type
-      ~qos_algorithm_params:value.vBD_qos_algorithm_params
+        ~rpc
+        ~session_id
+        ~vM:value.vBD_VM
+        ~vDI:value.vBD_VDI
+        ~userdevice:value.vBD_userdevice
+        ~bootable:value.vBD_bootable
+        ~mode:value.vBD_mode
+        ~_type:value.vBD_type
+        ~unpluggable:value.vBD_unpluggable
+        ~empty:value.vBD_empty
+        ~other_config:value.vBD_other_config
+        ~qos_algorithm_type:value.vBD_qos_algorithm_type
+        ~qos_algorithm_params:value.vBD_qos_algorithm_params
   end
   module VBD_metrics = struct
     (**  *)
@@ -12096,12 +12096,12 @@ module ClientF = functor(X : IO) ->struct
     (**  *)
     let create_from_record ~rpc ~session_id ~value =
       create
-      ~rpc
-      ~session_id
-      ~host:value.pBD_host
-      ~sR:value.pBD_SR
-      ~device_config:value.pBD_device_config
-      ~other_config:value.pBD_other_config
+        ~rpc
+        ~session_id
+        ~host:value.pBD_host
+        ~sR:value.pBD_SR
+        ~device_config:value.pBD_device_config
+        ~other_config:value.pBD_other_config
   end
   module Crashdump = struct
     (**  *)
@@ -12232,10 +12232,10 @@ module ClientF = functor(X : IO) ->struct
     (**  *)
     let create_from_record ~rpc ~session_id ~value =
       create
-      ~rpc
-      ~session_id
-      ~vM:value.vTPM_VM
-      ~backend:value.vTPM_backend
+        ~rpc
+        ~session_id
+        ~vM:value.vTPM_VM
+        ~backend:value.vTPM_backend
   end
   module Console = struct
     (**  *)
@@ -12334,10 +12334,10 @@ module ClientF = functor(X : IO) ->struct
     (**  *)
     let create_from_record ~rpc ~session_id ~value =
       create
-      ~rpc
-      ~session_id
-      ~other_config:value.console_other_config
-      ~port:value.console_port
+        ~rpc
+        ~session_id
+        ~other_config:value.console_other_config
+        ~port:value.console_port
   end
   module User = struct
     (**  *)
@@ -12422,11 +12422,11 @@ module ClientF = functor(X : IO) ->struct
     (**  *)
     let create_from_record ~rpc ~session_id ~value =
       create
-      ~rpc
-      ~session_id
-      ~short_name:value.user_short_name
-      ~fullname:value.user_fullname
-      ~other_config:value.user_other_config
+        ~rpc
+        ~session_id
+        ~short_name:value.user_short_name
+        ~fullname:value.user_fullname
+        ~other_config:value.user_other_config
   end
   module Data_source = struct
   end
@@ -12702,10 +12702,10 @@ module ClientF = functor(X : IO) ->struct
     (**  *)
     let create_from_record ~rpc ~session_id ~value =
       create
-      ~rpc
-      ~session_id
-      ~value:value.secret_value
-      ~other_config:value.secret_other_config
+        ~rpc
+        ~session_id
+        ~value:value.secret_value
+        ~other_config:value.secret_other_config
   end
   module Tunnel = struct
     (**  *)
@@ -13860,12 +13860,12 @@ module ClientF = functor(X : IO) ->struct
     (**  *)
     let create_from_record ~rpc ~session_id ~value =
       create
-      ~rpc
-      ~session_id
-      ~host:value.pVS_cache_storage_host
-      ~sR:value.pVS_cache_storage_SR
-      ~site:value.pVS_cache_storage_site
-      ~size:value.pVS_cache_storage_size
+        ~rpc
+        ~session_id
+        ~host:value.pVS_cache_storage_host
+        ~sR:value.pVS_cache_storage_SR
+        ~site:value.pVS_cache_storage_site
+        ~size:value.pVS_cache_storage_size
   end
   module Feature = struct
     (**  *)

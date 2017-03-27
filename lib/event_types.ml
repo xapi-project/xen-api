@@ -18,43 +18,43 @@ let rpc_of_op = API.rpc_of_event_operation
 let op_of_rpc = API.event_operation_of_rpc
 
 type event = {
-	id: string;
-	ts: string;
-	ty: string;
-	op: op;
-	reference: string;
-	snapshot: Rpc.t option;
+  id: string;
+  ts: string;
+  ty: string;
+  op: op;
+  reference: string;
+  snapshot: Rpc.t option;
 } [@@deriving rpc]
 
 let ev_struct_remap = [
-	"id","id";
-	"ts","timestamp";
-	"ty","class";
-	"op","operation";
-	"reference","ref";
-	"snapshot","snapshot"
+  "id","id";
+  "ts","timestamp";
+  "ty","class";
+  "op","operation";
+  "reference","ref";
+  "snapshot","snapshot"
 ]
 
 let remap map str =
-	match str with
-		| Rpc.Dict d ->
-			Rpc.Dict (List.map (fun (k,v) -> (List.assoc k map, v)) d)
-		| _ -> str
+  match str with
+  | Rpc.Dict d ->
+    Rpc.Dict (List.map (fun (k,v) -> (List.assoc k map, v)) d)
+  | _ -> str
 
 let rpc_of_event ev =
-	remap ev_struct_remap (rpc_of_event ev)
+  remap ev_struct_remap (rpc_of_event ev)
 
 let event_of_rpc rpc =
-	event_of_rpc (remap (List.map (fun (k,v) -> (v,k)) ev_struct_remap) rpc)
+  event_of_rpc (remap (List.map (fun (k,v) -> (v,k)) ev_struct_remap) rpc)
 
 type events = event list [@@deriving rpc]
 
 type token = string [@@deriving rpc]
 
 type event_from = {
-	events: event list;
-	valid_ref_counts: (string * int32) list;
-	token: token;
+  events: event list;
+  valid_ref_counts: (string * int32) list;
+  token: token;
 } [@@deriving rpc]
 
 (** Return result of an events.from call *)
@@ -67,7 +67,7 @@ let op_of_string x = match String.lowercase x with
   | x -> failwith (sprintf "Unknown operation type: %s" x)
 
 let string_of_event ev = sprintf "%s %s %s %s %s" ev.id ev.ty (string_of_op ev.op) ev.reference
-  (if ev.snapshot = None then "(no snapshot)" else "OK")
+    (if ev.snapshot = None then "(no snapshot)" else "OK")
 
 
 

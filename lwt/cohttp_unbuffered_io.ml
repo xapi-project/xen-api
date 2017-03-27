@@ -89,21 +89,21 @@ let crlf = Re_str.regexp_string "\r\n"
 
 (* We assume read_line is only used to read the HTTP header *)
 let rec read_line ic = match ic.header_buffer, ic.header_buffer_idx with
-| None, _ ->
-  read_http_headers ic.c >>= fun str ->
-  ic.header_buffer <- Some str;
-  read_line ic
-| Some buf, i when i < (String.length buf) ->
-  begin
-    try
-      let eol = Re_str.search_forward crlf buf i in
-      let line = String.sub buf i (eol - i) in
-      ic.header_buffer_idx <- eol + 2;
-      return (Some line)
-    with Not_found -> return (Some "")
-  end
-| Some _, _ ->
-  return (Some "")
+  | None, _ ->
+    read_http_headers ic.c >>= fun str ->
+    ic.header_buffer <- Some str;
+    read_line ic
+  | Some buf, i when i < (String.length buf) ->
+    begin
+      try
+        let eol = Re_str.search_forward crlf buf i in
+        let line = String.sub buf i (eol - i) in
+        ic.header_buffer_idx <- eol + 2;
+        return (Some line)
+      with Not_found -> return (Some "")
+    end
+  | Some _, _ ->
+    return (Some "")
 
 let read_into_exactly ic buf ofs len =
   really_read_into ic.c buf ofs len >>= fun () ->
