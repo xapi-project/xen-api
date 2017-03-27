@@ -62,6 +62,8 @@ module Task :
 
       val run : t -> unit
 
+      val find : tasks -> string -> t
+
       val get_state : tasks -> string -> Interface.Task.state
 
       val with_subtask : t -> string -> (unit -> 'a) -> 'a
