@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 109
+let schema_minor_vsn = 120
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -82,14 +82,14 @@ let dundee_release_schema_major_vsn = 5
 let dundee_release_schema_minor_vsn = 93
 
 let ely_release_schema_major_vsn = 5
-let ely_release_schema_minor_vsn = 100
+let ely_release_schema_minor_vsn = 108
 
 let falcon_release_schema_major_vsn = 5
-let falcon_release_schema_minor_vsn = 112
+let falcon_release_schema_minor_vsn = 120
 
 (* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = ely_release_schema_major_vsn
-let last_release_schema_minor_vsn = ely_release_schema_minor_vsn
+let last_release_schema_major_vsn = falcon_release_schema_major_vsn
+let last_release_schema_minor_vsn = falcon_release_schema_minor_vsn
 
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
