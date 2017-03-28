@@ -1,0 +1,56 @@
+XenAPI python examples
+----------------------
+
+Note the examples all make use of the library XenAPI.py and provision.py.
+
+install.py
+   -- chooses a Debian template and installs a VM from it, placing
+      disks on the Pool's default SR. It adds a VIF connecting the VM
+      to a network on the host and boots the VM. The script blocks until
+      the guest agent has reported both the OS version and eth0's IP address.
+
+powercycle.py
+   -- lists all existing VMs, shuts them down and then performs some
+      aggressive power-cycling on each one
+
+permute.py
+   -- finds a set of running VMs, finds the hosts on which the VMs are
+      running, permutes the list of hosts and then simultaneously migrates
+      each VM to the chosen new host. The program waits for all parallel
+      migration tasks to complete before continuing. NB this program
+      requires an extra argument: an integer number of iterations.
+
+vm_start_async.py
+   -- demonstrates the asyncronous operation support by starting a VM
+      named "new" (which must already exist and be halted), retrieving
+      a task reference and displaying the instantaneous task status
+
+watch-all-events.py
+  -- demonstrates using the event system by registering for events on
+     all classes and pretty-printing them as they are received.
+
+fixpbds.py
+  -- shows how to alter the device config parameters of PBD objects,
+     useful if your storage server configuration has changed.
+
+shell.py
+  -- creates a python interactive shell with access to the bindings for
+     experimentation
+
+license.py
+  --  demonstrates how to upload a license file to a server. It expects
+      the license to be contained within the file "license" in the current
+      directory.
+
+Invoking the examples
+---------------------
+
+Each program takes 3 commandline arguments:
+
+url - an https or http URL pointing at the server
+username - a valid user on the server (eg root)
+password
+
+For example:
+
+./install.py https://localhost:443/ root letmein
