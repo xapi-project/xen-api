@@ -49,5 +49,6 @@ val one_shot : t -> time -> string -> (unit -> unit) -> handle
 (** Cancel an item *)
 val cancel : t -> handle -> unit
 
-(** shutdown a scheduler *)
+(** shutdown a scheduler. Any item currently scheduled will not
+    be executed. The scheduler cannot be restarted. *)
 val shutdown : t -> unit
