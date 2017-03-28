@@ -1,6 +1,26 @@
 language: c
-install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
-script: bash -ex .travis-opam.sh
-sudo: true
+sudo: required
+dist: trusty
+before_install:
+    - sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu/ trusty main universe"
+    - sudo apt-get update -qq
+    - sudo apt-get install libgcrypt20 liblzma5 libselinux1
+    - wget "http://archive.ubuntu.com/ubuntu/ubuntu/pool/main/s/systemd/libsystemd0_219-7ubuntu3_amd64.deb"
+    - wget "http://archive.ubuntu.com/ubuntu/ubuntu/pool/main/s/systemd/libsystemd-dev_219-7ubuntu3_amd64.deb"
+    - sudo dpkg -i libsystemd0_219-7ubuntu3_amd64.deb libsystemd-dev_219-7ubuntu3_amd64.deb
+    - git clone https://github.com/xapi-project/xs-opam && cd xs-opam && sh into_repo.sh && cd -
+install:
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
+script:
+    - bash -ex .travis-opam.sh
 env:
-        - OCAML_VERSION=4.02 PACKAGE=xapi-tapctl EXTRA_REMOTES=git://github.com/xapi-project/opam-repo-dev
+  global:
+    - OCAML_VERSION=4.02
+    - PACKAGE=xapi-tapctl
+  matrix:
+    - BASE_REMOTE=$TRAVIS_BUILD_DIR/xs-opam
+    - EXTRA_REMOTES=$TRAVIS_BUILD_DIR/xs-opam
+matrix:
+  fast_finish: true
+  allow_failures:
+    - env: EXTRA_REMOTES=$TRAVIS_BUILD_DIR/xs-opam

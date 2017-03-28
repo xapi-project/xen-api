@@ -13,11 +13,13 @@ install: [
 ]
 remove: [
   ["ocamlfind" "remove" "tapctl"]
-  [make "uninstall" "BINDIR=%{bin}%"]
 ]
 depends: [
-  "ocamlfind"
+  "ocamlfind" {build}
+  "oasis" {build}
   "xapi-stdext" {>= "2.0.0"}
   "xapi-forkexecd"
-  "oasis" {build}
-] 
+  "rpc"
+  "base-threads"
+  "xapi-stdext"
+]
