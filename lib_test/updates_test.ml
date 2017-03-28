@@ -11,6 +11,7 @@ module TestInterface = struct
   end
 end
 
+let scheduler = Scheduler.make ()
 let update_a = TestInterface.Dynamic.Foo "a"
 let update_b = TestInterface.Dynamic.Foo "b"
 let update_c = TestInterface.Dynamic.Foo "c"
@@ -19,20 +20,20 @@ module M = Updates.Updates(TestInterface)
 
 (* Tests adding and getting an update *)
 let test_add () =
-  let u = M.empty () in
+  let u = M.empty scheduler in
   M.add update_a u;
   let (barriers,updates,id) = M.get "dbg" None (Some 0) u in
   assert_bool "Update returned" (List.length updates = 1 && List.exists (fun x -> x=update_a) updates)
 
 (* Tests that no updates are returned if none exist *)
 let test_noadd () =
-  let u = M.empty () in
+  let u = M.empty scheduler in
   let (barriers,updates,id) = M.get "dbg" None (Some 0) u in
   assert_bool "Update returned" (List.length updates = 0)
 
 (* Tests that we can remove an update, and that it's not then returned by 'get' *)
 let test_remove () =
-  let u = M.empty () in
+  let u = M.empty scheduler in
   M.add update_a u;
   M.remove update_a u;
   let (barriers,updates,id) = M.get "dbg" None (Some 0) u in
@@ -41,7 +42,7 @@ let test_remove () =
 (* Tests that, if we specify a timeout, the 'get' call returns the empty
    list after that timeout. *)
 let test_timeout () =
-  let u = M.empty () in
+  let u = M.empty scheduler in
   let before = Unix.gettimeofday () in
   let (_,l,_) = M.get "dbg" None (Some 1) u in
   let duration = Unix.gettimeofday () -. before in
@@ -52,7 +53,7 @@ let test_timeout () =
    is unblocked. Verifies that the call returns immediately and that the
    correct update was returned. *)
 let test_add_after_get () =
-  let u = M.empty () in
+  let u = M.empty scheduler in
   let ok = ref false in
   let before = Unix.gettimeofday () in
   let th = Thread.create (fun () ->
@@ -69,7 +70,7 @@ let test_add_after_get () =
    that the updates returned from the 'get' contain all 3 updates in the
    correct order *)
 let test_inject_barrier () =
-  let u = M.empty () in
+  let u = M.empty scheduler in
   M.add update_a u;
   M.add update_b u;
   M.inject_barrier 1 (fun _ _ -> true) u;
@@ -90,7 +91,7 @@ let test_inject_barrier () =
 (* Test the removal of a barrier. Adds a barrier as above, then removes
    it and makes sure it doesn't show up in a subsequent 'get' *)
 let test_remove_barrier () =
-  let u = M.empty () in
+  let u = M.empty scheduler in
   M.add update_a u;
   M.add update_b u;
   M.inject_barrier 1 (fun _ _ -> true) u;
@@ -108,15 +109,13 @@ let test_remove_barrier () =
    Rpc.t to verify the hand-written t_of_rpc and rpc_of_t functions are
    correct *)
 let test_inject_barrier_rpc () =
-  let u = M.empty () in
+  let u = M.empty scheduler in
   M.add update_a u;
   M.add update_b u;
   M.inject_barrier 1 (fun _ _ -> true) u;
   M.add update_a u;
   M.add update_c u;
-  let rpc = M.rpc_of_t u in
-  let u' = M.t_of_rpc rpc in
-  let (barriers,updates,id) = M.get "dbg" None (Some 1) u' in
+  let (barriers,updates,id) = M.get "dbg" None (Some 1) u in
   assert_bool "Barrier returned" (List.length barriers = 1);
   assert_bool "Barriers contains our barrier" (List.exists (fun x -> fst x = 1) barriers);
   let our_barrier = List.hd barriers in
@@ -132,7 +131,7 @@ let test_inject_barrier_rpc () =
    subsequent 'get' invocation. This second one should return only events
    that happend after the first 'get' *)
 let test_multiple_gets () =
-  let u = M.empty () in
+  let u = M.empty scheduler in
   M.add update_a u;
   let (_,updates1,id) = M.get "dbg" None (Some 1) u in
   M.add update_b u;
@@ -147,7 +146,7 @@ let test_multiple_gets () =
    'a' and 'b', then filter out everything but 'a', and check that a
    subsequent 'get' call returns only update 'a' *)
 let test_filter () =
-  let u = M.empty () in
+  let u = M.empty scheduler in
   M.add update_a u;
   M.add update_b u;
   M.filter (function | Foo "a" -> true | _ -> false) u;
@@ -159,7 +158,7 @@ let test_filter () =
 (* Check that a dumped updates.t value has the correct json representation.
    Note that the dumped json contains embedded strings containing json... *)
 let test_dump () =
-  let u = M.empty () in
+  let u = M.empty scheduler in
   M.add update_a u;
   M.inject_barrier 1 (fun _ _ -> true) u;
   let dump = M.Dump.make u in
@@ -170,7 +169,7 @@ let test_dump () =
 (* Test that last_id returns a token that can be passed to 'get'. This get call should
    then only return events that were added _after_ the call to 'last_id' *)
 let test_last_id () =
-  let u = M.empty () in
+  let u = M.empty scheduler in
   let ok = ref false in
   M.add update_a u;
   M.add update_b u;

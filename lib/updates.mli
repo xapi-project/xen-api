@@ -12,9 +12,7 @@ module Updates :
     sig
       type id = int
       type t
-      val empty : unit -> t
-      val rpc_of_t : t -> Rpc.t
-      val t_of_rpc : Rpc.t -> t
+      val empty : Scheduler.t -> t
       val last_id : 'a -> t -> int
       type get_result = (int * Interface.Dynamic.id list) list * Interface.Dynamic.id list * id
       val get :

@@ -16,5 +16,4 @@ let suite =
     ]
 
 let () =
-  let _ = Scheduler.start () in
   OUnit2.run_test_tt_main (ounit2_of_ounit1 suite)

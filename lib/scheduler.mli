@@ -26,10 +26,6 @@ val handle_of_rpc : Rpc.t -> handle
 (** Creates a scheduler *)
 val make : unit -> t
 
-(** This module provides a global scheduler. Use the 'start' function
-    to start the thread handling it *)
-val global_scheduler : t
-
 (** Items can be scheduled at an absolute time (measured in seconds since
     unix epoch) or as a delta measured in for seconds from now. *)
 type time = Absolute of int64 | Delta of int
@@ -53,8 +49,5 @@ val one_shot : t -> time -> string -> (unit -> unit) -> handle
 (** Cancel an item *)
 val cancel : t -> handle -> unit
 
-(** Process a scheduler. This function never returns. *)
-val main_loop : t -> unit
-
-(** Start the global scheduler *)
-val start : unit -> unit
+(** shutdown a scheduler *)
+val shutdown : t -> unit

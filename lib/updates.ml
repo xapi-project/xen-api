@@ -123,58 +123,16 @@ module Updates = functor(Interface : INTERFACE) -> struct
   type t = {
     mutable u: U.t;
     c: Condition.t;
+    s: Scheduler.t;
     m: Mutex.t;
   }
 
-  let empty () = {
+  let empty scheduler = {
     u = U.empty;
     c = Condition.create ();
+    s = scheduler;
     m = Mutex.create ();
   }
-
-
-  type rpcable_barrier_t = {
-    bar_id: int;
-    u_snap: (Interface.Dynamic.id * int) list;
-    event_id: int
-  } [@@deriving rpc]
-
-  type rpcable_t = {
-    u' : (Interface.Dynamic.id * int) list;
-    b: rpcable_barrier_t list;
-    next : int;
-  } [@@deriving rpc]
-
-  let rpc_of_t t =
-    let get_u u = U.M.fold (fun x y acc -> (x,y)::acc) u [] in
-    let b = List.map
-        (fun br -> {
-             bar_id = br.U.bar_id;
-             u_snap = get_u br.U.map_s;
-             event_id = br.U.event_id
-           })
-        t.u.U.barriers in
-    rpc_of_rpcable_t { u'=get_u t.u.U.map; b=b; next = t.u.U.next }
-
-  let t_of_rpc rpc =
-    let u' = rpcable_t_of_rpc rpc in
-    let map_of u =
-      let map = U.M.empty in
-      List.fold_left (fun map (x,y) -> U.M.add x y map) map u
-    in
-    let map = map_of u'.u' in
-    let barriers = List.map
-        (fun rb -> {
-             U.bar_id = rb.bar_id;
-             U.map_s = map_of rb.u_snap;
-             U.event_id = rb.event_id
-           })
-        u'.b in
-    {
-      u = { U.map = map; next=u'.next; barriers };
-      c = Condition.create ();
-      m = Mutex.create ();
-    }
 
   type get_result =
     (int * Interface.Dynamic.id list) list * Interface.Dynamic.id list * id
@@ -190,7 +148,7 @@ module Updates = functor(Interface : INTERFACE) -> struct
         )
     in
     let id = Opt.map (fun timeout ->
-        Scheduler.one_shot Scheduler.global_scheduler (Scheduler.Delta timeout) dbg cancel_fn
+        Scheduler.one_shot t.s (Scheduler.Delta timeout) dbg cancel_fn
       ) timeout in
     with_cancel cancel_fn (fun () ->
         finally (fun () ->
@@ -205,7 +163,7 @@ module Updates = functor(Interface : INTERFACE) -> struct
                 in
                 wait ()
               )
-          ) (fun () -> Opt.iter (Scheduler.cancel Scheduler.global_scheduler) id))
+          ) (fun () -> Opt.iter (Scheduler.cancel t.s) id))
 
   let last_id dbg t =
     Mutex.execute t.m

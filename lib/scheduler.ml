@@ -106,19 +106,12 @@ type handle = int64 * int [@@deriving rpc]
 
 type t = {
   mutable schedule : item list Int64Map.t;
+  mutable shutdown : bool;
   delay : Delay.t;
   mutable next_id : int;
+  mutable thread : Thread.t option;
   m : Mutex.t;
 }
-
-let make () = {
-  schedule = Int64Map.empty;
-  delay = Delay.make ();
-  next_id = 0;
-  m = Mutex.create ()
-}
-
-let global_scheduler = make ()
 
 type time =
   | Absolute of int64
@@ -206,8 +199,30 @@ let rec main_loop s =
       ) in
   let seconds = Int64.sub sleep_until (now ()) in
   let (_: bool) = Delay.wait s.delay (Int64.to_float seconds) in
-  main_loop s
+  if s.shutdown
+  then s.thread <- None
+  else main_loop s
 
-let start () =
-  let (_: Thread.t) = Thread.create main_loop global_scheduler in
-  ()
+let start s =
+  if s.shutdown then failwith "Scheduler was shutdown";
+  s.thread <- Some (Thread.create main_loop s)
+
+let make () =
+  let s = {
+    schedule = Int64Map.empty;
+    shutdown = false;
+    delay = Delay.make ();
+    next_id = 0;
+    m = Mutex.create ();
+    thread = None;
+  } in
+  start s;
+  s
+
+let shutdown s =
+  match s.thread with
+  | Some th ->
+    s.shutdown <- true;
+    Delay.signal s.delay;
+    Thread.join th
+  | None -> ()
