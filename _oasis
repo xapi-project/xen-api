@@ -413,6 +413,19 @@ Executable genptoken
   BuildDepends:
     uuid
 
+Executable jsapi
+  CompiledObject:   best
+  Path:             ocaml/doc
+  Install:          false
+  MainIs:           jsapi.ml
+  BuildDepends:
+    xapi-datamodel,
+    xapi-consts,
+    stdext,
+    uuid,
+    gzip
+
+
 ############################################################################
 ############################################################################
 #################################### TESTS #################################
