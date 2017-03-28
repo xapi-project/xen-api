@@ -46,7 +46,7 @@ let create ~xc ~xs domid =
     Domain.set_machine_address_size ~xc stubdom_domid (Some 32);
 	stubdom_domid
 
-let build (task: Xenops_task.t) ~xc ~xs ~store_domid ~console_domid info xenguest domid stubdom_domid =
+let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid info xenguest domid stubdom_domid =
     (* Now build it as a PV domain *)
     let (_: Domain.domarch) = Domain.build task ~xc ~xs ~store_domid ~console_domid ~timeoffset:"" ~extras:[] {
         Domain.memory_max=memory_kib;

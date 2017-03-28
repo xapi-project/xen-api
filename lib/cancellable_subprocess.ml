@@ -19,8 +19,8 @@ module D = Debug.Make(struct let name = "xenops" end)
 open D
 
 open Forkhelpers
-let run (task: Xenops_task.t) ?env ?stdin fds ?(syslog_stdout=NoSyslogging) cmd args =
-	let stdinandpipes = Opt.map (fun str -> 
+let run (task: Xenops_task.task_handle) ?env ?stdin fds ?(syslog_stdout=NoSyslogging) cmd args =
+	let stdinandpipes = Opt.map (fun str ->
 		let (x,y) = Unix.pipe () in
 		(str,x,y)) stdin in
 	(* Used so that cancel -> kills subprocess -> Unix.WSIGNALED -> raise cancelled *)

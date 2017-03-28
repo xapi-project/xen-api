@@ -112,7 +112,7 @@ let device_is_online ~xs (x: device) =
       then not(backend_shutdown ())
       else hotplugged ~xs x
 
-let wait_for_plug (task: Xenops_task.t) ~xs (x: device) = 
+let wait_for_plug (task: Xenops_task.task_handle) ~xs (x: device) =
   debug "Hotplug.wait_for_plug: %s" (string_of_device x);
   try
     Stats.time_this "udev backend add event" 
@@ -132,7 +132,7 @@ let wait_for_plug (task: Xenops_task.t) ~xs (x: device) =
   with Watch.Timeout _ ->
     raise (Device_timeout x)
 
-let wait_for_unplug (task: Xenops_task.t) ~xs (x: device) = 
+let wait_for_unplug (task: Xenops_task.task_handle) ~xs (x: device) =
   debug "Hotplug.wait_for_unplug: %s" (string_of_device x);
   try
     Stats.time_this "udev backend remove event" 
@@ -146,7 +146,7 @@ let wait_for_unplug (task: Xenops_task.t) ~xs (x: device) =
     raise (Device_timeout x)
 
 (** Wait for the frontend device to become available to userspace *)
-let wait_for_frontend_plug (task: Xenops_task.t) ~xs (x: device) =
+let wait_for_frontend_plug (task: Xenops_task.task_handle) ~xs (x: device) =
 	debug "Hotplug.wait_for_frontend_plug: %s" (string_of_device x);
 	try
 		let ok_watch = Watch.value_to_appear (frontend_status_node x) |> Watch.map (fun _ -> ())  in
@@ -169,7 +169,7 @@ let wait_for_frontend_plug (task: Xenops_task.t) ~xs (x: device) =
 		error "Timed out waiting for the frontend udev event to fire on device: %s" (string_of_device x);
 		raise (Frontend_device_timeout x)
 
-let wait_for_frontend_unplug (task: Xenops_task.t) ~xs (x: device) =
+let wait_for_frontend_unplug (task: Xenops_task.task_handle) ~xs (x: device) =
   debug "Hotplug.wait_for_frontend_unplug: %s" (string_of_device x);
   try
     let path = frontend_status_node x in
@@ -185,7 +185,7 @@ let wait_for_frontend_unplug (task: Xenops_task.t) ~xs (x: device) =
 (* If we're running the hotplug scripts ourselves then we must wait
    for the VIF device to actually be created. libxl waits until the
    backend gets into state 2 (InitWait): see libxl__wait_device_connection *)
-let wait_for_connect (task: Xenops_task.t) ~xs (x: device) = 
+let wait_for_connect (task: Xenops_task.task_handle) ~xs (x: device) =
   debug "Hotplug.wait_for_connect: %s" (string_of_device x);
   try
     Stats.time_this "device backend in state 2" 
@@ -201,7 +201,7 @@ let wait_for_connect (task: Xenops_task.t) ~xs (x: device) =
 (* Wait for the device to be released by the backend driver (via udev) and
    then deallocate any resources which are registered (in our private bit of
    xenstore) *)
-let release (task:Xenops_task.t) ~xc ~xs (x: device) =
+let release (task:Xenops_task.task_handle) ~xc ~xs (x: device) =
 	debug "Hotplug.release: %s" (string_of_device x);
 	wait_for_unplug task ~xs x;
 	let hotplug_path = get_hotplug_path x in
@@ -243,5 +243,3 @@ let run_hotplug_script device args =
 	with Forkhelpers.Spawn_internal_error(stdout, stderr, Unix.WEXITED n) ->
 		(* suppress the error: the only thing to do is continue to cleanup *)
 		error "%s exitted with %d (%s; %s)" script n stdout stderr
-
-

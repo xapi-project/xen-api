@@ -77,14 +77,14 @@ let supports_feature path feat =
 			|> fst |> strip isspace |> lowercase = "true"
 	with Spawn_internal_error _ -> false
 
-let with_connection (task: Xenops_task.t) path domid (args: string list) (fds: (string * Unix.file_descr) list) f =
+let with_connection (task: Xenops_task.task_handle) path domid (args: string list) (fds: (string * Unix.file_descr) list) f =
 	let t = connect path domid args fds in
 	let cancelled = ref false in
 	let cancel_cb () =
 		let _, _, _, _, pid = t in
 		let pid = Forkhelpers.getpid pid in
 		cancelled := true;
-		info "Cancelling task %s by killing xenguest subprocess pid: %d" task.Xenops_task.id pid;
+    info "Cancelling task %s by killing xenguest subprocess pid: %d" (Xenops_task.id_of_handle task) pid;
 		try Unix.kill pid Sys.sigkill with _ -> () in
 	finally
 		(fun () ->
@@ -187,4 +187,3 @@ let receive_success ?(debug_callback=(fun s -> debug "%s" s)) cnx =
 	| Suspend -> failwith "xenguesthelper protocol failure; not expecting Suspend"
 	| Result x -> x
 	| Stdout _ | Stderr _ | Info _ -> assert false
-

@@ -51,7 +51,7 @@ module DB = TypedTable(struct
 	let key x = [ x ]
 end)
 
-let updates = Updates.empty ()
+let updates = Updates.empty scheduler
 
 let next_domid =
 	let next = ref None in (* unknown *)

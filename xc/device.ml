@@ -170,7 +170,7 @@ let error_watch ~xs (x: device) = Watch.value_to_appear (error_path_of_device ~x
 let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_rw_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed))
 let backend_closed ~xs (x: device) = Watch.value_to_become (backend_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed)
 
-let clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_transients (x: device) =
+let clean_shutdown_wait (task: Xenops_task.task_handle) ~xs ~ignore_transients (x: device) =
 	debug "Device.Generic.clean_shutdown_wait %s" (string_of_device x);
 
 	let on_error () =
@@ -196,7 +196,7 @@ let clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_transients (x: device)
 		else on_error ()
 	end else on_error ()
 
-let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
+let clean_shutdown (task: Xenops_task.task_handle) ~xs (x: device) =
 	debug "Device.Generic.clean_shutdown %s" (string_of_device x);
 	clean_shutdown_async ~xs x;
 	clean_shutdown_wait task ~xs ~ignore_transients:false x
@@ -218,7 +218,7 @@ let hard_shutdown_complete ~xs (x: device) =
 	then backend_closed ~xs x
 	else unplug_watch ~xs x
 
-let hard_shutdown (task: Xenops_task.t) ~xs (x: device) = 
+let hard_shutdown (task: Xenops_task.task_handle) ~xs (x: device) =
 	hard_shutdown_request ~xs x;
 
 	let (_: bool) = cancellable_watch (Device x) [ hard_shutdown_complete ~xs x ] [ ] task ~xs ~timeout:!Xenopsd.hotplug_timeout () in
@@ -375,7 +375,7 @@ let request_shutdown ~xs (x: device) (force: bool) =
 let shutdown_done ~xs (x: device): unit Watch.t =
 	Watch.value_to_appear (backend_shutdown_done_path_of_device ~xs x) |> Watch.map (fun _ -> ())
 
-let shutdown_request_clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_transients (x: device) =
+let shutdown_request_clean_shutdown_wait (task: Xenops_task.task_handle) ~xs ~ignore_transients (x: device) =
     debug "Device.Vbd.clean_shutdown_wait %s" (string_of_device x);
 
     (* Allow the domain to reject the request by writing to the error node *)
@@ -397,7 +397,7 @@ let shutdown_request_clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_trans
 		raise (Device_error (x, error))
 	end
 
-let shutdown_request_hard_shutdown (task: Xenops_task.t) ~xs (x: device) = 
+let shutdown_request_hard_shutdown (task: Xenops_task.task_handle) ~xs (x: device) =
 	debug "Device.Vbd.hard_shutdown %s" (string_of_device x);
 	request_shutdown ~xs x true; (* force *)
 
@@ -411,15 +411,15 @@ let clean_shutdown_async ~xs x = match shutdown_mode_of_device ~xs x with
 	| Classic -> Generic.clean_shutdown_async ~xs x
 	| ShutdownRequest -> request_shutdown ~xs x false (* normal *)
 
-let clean_shutdown_wait (task: Xenops_task.t) ~xs ~ignore_transients x = match shutdown_mode_of_device ~xs x with
+let clean_shutdown_wait (task: Xenops_task.task_handle) ~xs ~ignore_transients x = match shutdown_mode_of_device ~xs x with
 	| Classic -> Generic.clean_shutdown_wait task ~xs ~ignore_transients x
 	| ShutdownRequest -> shutdown_request_clean_shutdown_wait task ~xs ~ignore_transients x
 
-let clean_shutdown (task: Xenops_task.t) ~xs x =
+let clean_shutdown (task: Xenops_task.task_handle) ~xs x =
 	clean_shutdown_async ~xs x;
 	clean_shutdown_wait task ~xs ~ignore_transients:false x
 
-let hard_shutdown (task: Xenops_task.t) ~xs x = match shutdown_mode_of_device ~xs x with
+let hard_shutdown (task: Xenops_task.task_handle) ~xs x = match shutdown_mode_of_device ~xs x with
 	| Classic -> Generic.hard_shutdown task ~xs x
 	| ShutdownRequest -> shutdown_request_hard_shutdown task ~xs x
 
@@ -431,11 +431,11 @@ let hard_shutdown_complete ~xs x = match shutdown_mode_of_device ~xs x with
 	| Classic -> Generic.hard_shutdown_complete ~xs x
 	| ShutdownRequest -> shutdown_done ~xs x
 
-let hard_shutdown_wait (task: Xenops_task.t) ~xs ~timeout x =
+let hard_shutdown_wait (task: Xenops_task.task_handle) ~xs ~timeout x =
 	let (_: bool) = cancellable_watch (Device x) [ Watch.map (fun _ -> ()) (hard_shutdown_complete ~xs x) ] [] task ~xs ~timeout () in
 	()
 
-let release (task: Xenops_task.t) ~xc ~xs (x: device) =
+let release (task: Xenops_task.task_handle) ~xc ~xs (x: device) =
 	debug "Device.Vbd.release %s" (string_of_device x);
 	(* Make sure blktap/blkback fire the udev remove event by deleting the
 	   backend now *)
@@ -541,7 +541,7 @@ let add_async ~xs ~hvm x domid =
 	Generic.add_device ~xs device back front priv [];
 	device
 
-let add_wait (task: Xenops_task.t) ~xc ~xs device =
+let add_wait (task: Xenops_task.task_handle) ~xc ~xs device =
 	if !Xenopsd.run_hotplug_scripts
 	then Hotplug.run_hotplug_script device [ "add" ];
 
@@ -571,7 +571,7 @@ let add_wait (task: Xenops_task.t) ~xc ~xs device =
 (* Add the VBD to the domain, When this command returns, the device is ready. (This isn't as
    concurrent as xend-- xend allocates loopdevices via hotplug in parallel and then
    performs a 'waitForDevices') *)
-let add (task: Xenops_task.t) ~xc ~xs ~hvm x domid =
+let add (task: Xenops_task.task_handle) ~xc ~xs ~hvm x domid =
 	let device =
 		let result = ref None in
 		while !result = None do
@@ -632,7 +632,7 @@ end
 
 module Vif = struct
 
-let add (task: Xenops_task.t) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Native) ?(backend_domid=0) ?(other_config=[]) ?(extra_private_keys=[]) ?(extra_xenserver_keys=[]) domid =
+let add (task: Xenops_task.task_handle) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Native) ?(backend_domid=0) ?(other_config=[]) ?(extra_private_keys=[]) ?(extra_xenserver_keys=[]) domid =
 	debug "Device.Vif.add domid=%d devid=%d mac=%s carrier=%b rate=%s other_config=[%s] extra_private_keys=[%s] extra_xenserver_keys=[%s]" domid devid mac carrier
 	      (match rate with None -> "none" | Some (a, b) -> sprintf "(%Ld,%Ld)" a b)
 	      (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) other_config))
@@ -726,7 +726,7 @@ let set_carrier ~xs (x: device) carrier =
 	let disconnect_path = disconnect_path_of_device ~xs x in
 	xs.Xs.write disconnect_path (if carrier then "0" else "1")
 
-let release (task: Xenops_task.t) ~xc ~xs (x: device) =
+let release (task: Xenops_task.task_handle) ~xc ~xs (x: device) =
 	debug "Device.Vif.release %s" (string_of_device x);
 
 	if !Xenopsd.run_hotplug_scripts then begin
@@ -1184,7 +1184,7 @@ let reset ~xs address =
 	debug "Device.Pci.reset %s" devstr;
 	do_flr devstr
 
-let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
+let clean_shutdown (task: Xenops_task.task_handle) ~xs (x: device) =
 	debug "Device.Pci.clean_shutdown %s" (string_of_device x);
 	let devs = enumerate_devs ~xs x in
 	Xenctrl.with_intf (fun xc ->
@@ -1192,7 +1192,7 @@ let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
 		with _ -> ());
 	()
 
-let hard_shutdown (task: Xenops_task.t) ~xs (x: device) =
+let hard_shutdown (task: Xenops_task.task_handle) ~xs (x: device) =
 	debug "Device.Pci.hard_shutdown %s" (string_of_device x);
 	clean_shutdown task ~xs x
 
@@ -1213,7 +1213,7 @@ let signal_device_model ~xs domid cmd parameter =
 				       Printf.sprintf "device-model/%d/parameter" domid, parameter ];
 	)
 
-let wait_device_model (task: Xenops_task.t) ~xs domid = 
+let wait_device_model (task: Xenops_task.task_handle) ~xs domid =
   let be_domid = 0 in
   let path = device_model_state_path xs be_domid domid in
   let watch = Watch.value_to_appear path |> Watch.map (fun _ -> ()) in
@@ -1287,11 +1287,11 @@ let add ~xc ~xs ?(backend_domid=0) domid =
     );
 	()
 
-let hard_shutdown (task: Xenops_task.t) ~xs (x: device) =
+let hard_shutdown (task: Xenops_task.task_handle) ~xs (x: device) =
 	debug "Device.Vfs.hard_shutdown %s" (string_of_device x);
 	()
 
-let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
+let clean_shutdown (task: Xenops_task.task_handle) ~xs (x: device) =
 	debug "Device.Vfs.clean_shutdown %s" (string_of_device x);
 	()
 end
@@ -1319,11 +1319,11 @@ let add ~xc ~xs ?(backend_domid=0) ?(protocol=Protocol_Native) domid =
 	Generic.add_device ~xs device back front [] [];
 	()
 
-let hard_shutdown (task: Xenops_task.t) ~xs (x: device) =
+let hard_shutdown (task: Xenops_task.task_handle) ~xs (x: device) =
 	debug "Device.Vfb.hard_shutdown %s" (string_of_device x);
 	()
 
-let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
+let clean_shutdown (task: Xenops_task.task_handle) ~xs (x: device) =
 	debug "Device.Vfb.clean_shutdown %s" (string_of_device x);
 	()
 
@@ -1351,17 +1351,17 @@ let add ~xc ~xs ?(backend_domid=0) ?(protocol=Protocol_Native) domid =
 	Generic.add_device ~xs device back front [] [];
 	()
 
-let hard_shutdown (task: Xenops_task.t) ~xs (x: device) =
+let hard_shutdown (task: Xenops_task.task_handle) ~xs (x: device) =
 	debug "Device.Vkbd.hard_shutdown %s" (string_of_device x);
 	()
 
-let clean_shutdown (task: Xenops_task.t) ~xs (x: device) =
+let clean_shutdown (task: Xenops_task.task_handle) ~xs (x: device) =
 	debug "Device.Vkbd.clean_shutdown %s" (string_of_device x);
 	()
 
 end
 
-let hard_shutdown (task: Xenops_task.t) ~xs (x: device) = match x.backend.kind with
+let hard_shutdown (task: Xenops_task.task_handle) ~xs (x: device) = match x.backend.kind with
   | Vif -> Vif.hard_shutdown task ~xs x
   | Vbd _ | Tap -> Vbd.hard_shutdown task ~xs x
   | Pci -> PCI.hard_shutdown task ~xs x
@@ -1369,7 +1369,7 @@ let hard_shutdown (task: Xenops_task.t) ~xs (x: device) = match x.backend.kind w
   | Vfb -> Vfb.hard_shutdown task ~xs x
   | Vkbd -> Vkbd.hard_shutdown task ~xs x
 
-let clean_shutdown (task: Xenops_task.t) ~xs (x: device) = match x.backend.kind with
+let clean_shutdown (task: Xenops_task.task_handle) ~xs (x: device) = match x.backend.kind with
   | Vif -> Vif.clean_shutdown task ~xs x
   | Vbd _ | Tap -> Vbd.clean_shutdown task ~xs x
   | Pci -> PCI.clean_shutdown task ~xs x
@@ -1480,7 +1480,7 @@ let xenclient_specific ~xs info ~qemu_domid domid =
    "-M"; (if info.hvm then "xenfv" else "xenpv")] 
   @ sound_options
    
-let signal (task: Xenops_task.t) ~xs ~qemu_domid ~domid ?wait_for ?param cmd =
+let signal (task: Xenops_task.task_handle) ~xs ~qemu_domid ~domid ?wait_for ?param cmd =
 	let cmdpath = device_model_path ~qemu_domid domid in
 	Xs.transaction xs (fun t ->
 		t.Xst.write (cmdpath ^ "/command") cmd;
@@ -1749,7 +1749,7 @@ let start_vgpu ~xs task domid vgpus vcpus =
 		)
 	| _ -> failwith "Unsupported vGPU configuration"
 
-let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready_timeout) l info domid =
+let __start (task: Xenops_task.task_handle) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready_timeout) l info domid =
 	debug "Device.Dm.start domid=%d args: [%s]" domid (String.concat " " l);
 
 	(* start vgpu emulation if appropriate *)
@@ -1771,19 +1771,19 @@ let __start (task: Xenops_task.t) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready
 	(* At this point we expect qemu to outlive us; we will never call waitpid *)
 	Forkhelpers.dontwaitpid qemu_pid
 
-let start (task: Xenops_task.t) ~xs ~dmpath ?timeout info domid =
+let start (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
 	let l = cmdline_of_info info false domid in
 	__start task ~xs ~dmpath ?timeout l info domid
-let restore (task: Xenops_task.t) ~xs ~dmpath ?timeout info domid =
+let restore (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
 	let l = cmdline_of_info info true domid in
 	__start task ~xs ~dmpath ?timeout l info domid
 
-let start_vnconly (task: Xenops_task.t) ~xs ~dmpath ?timeout info domid =
+let start_vnconly (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
 	let l = vnconly_cmdline ~info domid in
 	__start task ~xs ~dmpath ?timeout l info domid
 
 (* suspend/resume is a done by sending signals to qemu *)
-let suspend (task: Xenops_task.t) ~xs ~qemu_domid domid =
+let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
 	let suspend_vgpu () = match Vgpu.pid ~xs domid with
 	| None -> debug "vgpu: no process running"
 	| Some vgpu_pid -> begin
@@ -1801,7 +1801,7 @@ let suspend (task: Xenops_task.t) ~xs ~qemu_domid domid =
 	end in
 	suspend_vgpu ();
 	signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
-let resume (task: Xenops_task.t) ~xs ~qemu_domid domid =
+let resume (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
 	signal task ~xs ~qemu_domid ~domid "continue" ~wait_for:"running"
 
 (* Called by every domain destroy, even non-HVM *)
@@ -1853,5 +1853,3 @@ let get_tc_port ~xs domid =
 	if qemu_exists
 	then Dm.get_tc_port ~xs domid
 	else PV_Vnc.get_tc_port ~xs domid
-
-

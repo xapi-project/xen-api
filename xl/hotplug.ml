@@ -106,7 +106,7 @@ let device_is_online ~xs vm (x: device) =
       then not(backend_shutdown ())
       else hotplugged ~xs vm x
 
-let wait_for_plug (task: Xenops_task.t) ~xs (x: device) = 
+let wait_for_plug (task: Xenops_task.task_handle) ~xs (x: device) = 
   debug "Hotplug.wait_for_plug: %s" (string_of_device x);
   try
     Stats.time_this "udev backend add event" 
@@ -119,7 +119,7 @@ let wait_for_plug (task: Xenops_task.t) ~xs (x: device) =
   with Watch.Timeout _ ->
     raise (Device_timeout x)
 
-let wait_for_unplug (task: Xenops_task.t) ~xs (x: device) = 
+let wait_for_unplug (task: Xenops_task.task_handle) ~xs (x: device) =
   debug "Hotplug.wait_for_unplug: %s" (string_of_device x);
   try
     Stats.time_this "udev backend remove event" 
@@ -135,7 +135,7 @@ let wait_for_unplug (task: Xenops_task.t) ~xs (x: device) =
 (* If we're running the hotplug scripts ourselves then we must wait
    for the VIF device to actually be created. libxl waits until the
    backend gets into state 2 (InitWait): see libxl__wait_device_connection *)
-let wait_for_connect (task: Xenops_task.t) ~xs (x: device) = 
+let wait_for_connect (task: Xenops_task.task_handle) ~xs (x: device) =
   debug "Hotplug.wait_for_connect: %s" (string_of_device x);
   try
     Stats.time_this "device backend in state 2" 
@@ -198,7 +198,7 @@ let mount_loopdev ~xs (x: device) file readonly =
 (* Wait for the device to be released by the backend driver (via udev) and
    then deallocate any resources which are registered (in our private bit of
    xenstore) *)
-let release (task:Xenops_task.t) ~xs (x: device) =
+let release (task:Xenops_task.task_handle) ~xs (x: device) =
 	debug "Hotplug.release: %s" (string_of_device x);
 	wait_for_unplug task ~xs x;
 	let path = get_hotplug_path x in
@@ -219,7 +219,7 @@ let release (task:Xenops_task.t) ~xs (x: device) =
 		  ) all;
 	xs.Xs.rm path
 
-let release' (task:Xenops_task.t) ~xs (x: device) vm kind devid =
+let release' (task:Xenops_task.task_handle) ~xs (x: device) vm kind devid =
 	debug "Hotplug.release: %s" (string_of_device x);
 	wait_for_unplug task ~xs x;
 	let path = get_hotplug_path x in
@@ -266,5 +266,3 @@ let run_hotplug_script device args =
 			raise e
 		end
 	| None -> ()
-
-

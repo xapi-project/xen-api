@@ -20,7 +20,7 @@ type domain_action_request =
 	| Needs_poweroff
 	| Needs_reboot
 	| Needs_suspend
-	| Needs_crashdump	
+	| Needs_crashdump
 [@@deriving rpc]
 
 type device_action_request =
@@ -67,29 +67,29 @@ module type S = sig
 	module VM : sig
 		val add: Vm.t -> unit
 		val remove: Vm.t -> unit
-		val create: Xenops_task.t -> int64 option -> Vm.t -> unit
-		val build: ?restore_fd:Unix.file_descr -> Xenops_task.t -> Vm.t -> Vbd.t list -> Vif.t list -> Vgpu.t list -> string list -> bool ->  unit (* XXX cancel *)
-		val create_device_model: Xenops_task.t -> Vm.t -> Vbd.t list -> Vif.t list -> Vgpu.t list -> bool -> unit
-		val destroy_device_model: Xenops_task.t -> Vm.t -> unit
-		val destroy: Xenops_task.t -> Vm.t -> unit
-		val pause: Xenops_task.t -> Vm.t -> unit
-		val unpause: Xenops_task.t -> Vm.t -> unit
-		val set_xsdata: Xenops_task.t -> Vm.t -> (string * string) list -> unit
-		val set_vcpus: Xenops_task.t -> Vm.t -> int -> unit
-		val set_shadow_multiplier: Xenops_task.t -> Vm.t -> float -> unit
-		val set_memory_dynamic_range: Xenops_task.t -> Vm.t -> int64 -> int64 -> unit
-		val request_shutdown: Xenops_task.t -> Vm.t -> shutdown_request -> float -> bool
-		val wait_shutdown: Xenops_task.t -> Vm.t -> shutdown_request -> float -> bool
+		val create: Xenops_task.task_handle -> int64 option -> Vm.t -> unit
+		val build: ?restore_fd:Unix.file_descr -> Xenops_task.task_handle -> Vm.t -> Vbd.t list -> Vif.t list -> Vgpu.t list -> string list -> bool ->  unit (* XXX cancel *)
+		val create_device_model: Xenops_task.task_handle -> Vm.t -> Vbd.t list -> Vif.t list -> Vgpu.t list -> bool -> unit
+		val destroy_device_model: Xenops_task.task_handle -> Vm.t -> unit
+		val destroy: Xenops_task.task_handle -> Vm.t -> unit
+		val pause: Xenops_task.task_handle -> Vm.t -> unit
+		val unpause: Xenops_task.task_handle -> Vm.t -> unit
+		val set_xsdata: Xenops_task.task_handle -> Vm.t -> (string * string) list -> unit
+		val set_vcpus: Xenops_task.task_handle -> Vm.t -> int -> unit
+		val set_shadow_multiplier: Xenops_task.task_handle -> Vm.t -> float -> unit
+		val set_memory_dynamic_range: Xenops_task.task_handle -> Vm.t -> int64 -> int64 -> unit
+		val request_shutdown: Xenops_task.task_handle -> Vm.t -> shutdown_request -> float -> bool
+		val wait_shutdown: Xenops_task.task_handle -> Vm.t -> shutdown_request -> float -> bool
 
-		val save: Xenops_task.t -> progress_cb -> Vm.t -> flag list -> data -> unit
-		val restore: Xenops_task.t -> progress_cb -> Vm.t -> Vbd.t list -> Vif.t list -> data -> string list -> unit
+		val save: Xenops_task.task_handle -> progress_cb -> Vm.t -> flag list -> data -> unit
+		val restore: Xenops_task.task_handle -> progress_cb -> Vm.t -> Vbd.t list -> Vif.t list -> data -> string list -> unit
 
-		val s3suspend: Xenops_task.t -> Vm.t -> unit
-		val s3resume: Xenops_task.t -> Vm.t -> unit
+		val s3suspend: Xenops_task.task_handle -> Vm.t -> unit
+		val s3resume: Xenops_task.task_handle -> Vm.t -> unit
 
 		val get_state: Vm.t -> Vm.state
 		val request_rdp: Vm.t -> bool -> unit
-		val run_script: Xenops_task.t -> Vm.t -> string -> Rpc.t
+		val run_script: Xenops_task.task_handle -> Vm.t -> string -> Rpc.t
 		val set_domain_action_request: Vm.t -> domain_action_request option -> unit
 		val get_domain_action_request: Vm.t -> domain_action_request option
 
@@ -101,35 +101,35 @@ module type S = sig
 	end
 	module PCI : sig
 		val get_state: Vm.id -> Pci.t -> Pci.state
-		val plug: Xenops_task.t -> Vm.id -> Pci.t -> unit
-		val unplug: Xenops_task.t -> Vm.id -> Pci.t -> unit
+		val plug: Xenops_task.task_handle -> Vm.id -> Pci.t -> unit
+		val unplug: Xenops_task.task_handle -> Vm.id -> Pci.t -> unit
 		val get_device_action_request: Vm.id -> Pci.t -> device_action_request option
 	end
 	module VBD : sig
-		val set_active: Xenops_task.t -> Vm.id -> Vbd.t -> bool -> unit
-		val epoch_begin: Xenops_task.t -> Vm.id -> disk -> bool -> unit
-		val epoch_end: Xenops_task.t -> Vm.id -> disk -> unit
-		val plug: Xenops_task.t -> Vm.id -> Vbd.t -> unit
-		val unplug: Xenops_task.t -> Vm.id -> Vbd.t -> bool -> unit
-		val insert: Xenops_task.t -> Vm.id -> Vbd.t -> disk -> unit
-		val eject: Xenops_task.t -> Vm.id -> Vbd.t -> unit
+		val set_active: Xenops_task.task_handle -> Vm.id -> Vbd.t -> bool -> unit
+		val epoch_begin: Xenops_task.task_handle -> Vm.id -> disk -> bool -> unit
+		val epoch_end: Xenops_task.task_handle -> Vm.id -> disk -> unit
+		val plug: Xenops_task.task_handle -> Vm.id -> Vbd.t -> unit
+		val unplug: Xenops_task.task_handle -> Vm.id -> Vbd.t -> bool -> unit
+		val insert: Xenops_task.task_handle -> Vm.id -> Vbd.t -> disk -> unit
+		val eject: Xenops_task.task_handle -> Vm.id -> Vbd.t -> unit
 
-		val set_qos: Xenops_task.t -> Vm.id -> Vbd.t -> unit
+		val set_qos: Xenops_task.task_handle -> Vm.id -> Vbd.t -> unit
 
 		val get_state: Vm.id -> Vbd.t -> Vbd.state
 
 		val get_device_action_request: Vm.id -> Vbd.t -> device_action_request option
 	end
 	module VIF : sig
-		val set_active: Xenops_task.t -> Vm.id -> Vif.t -> bool -> unit
-		val plug: Xenops_task.t -> Vm.id -> Vif.t -> unit
-		val unplug: Xenops_task.t -> Vm.id -> Vif.t -> bool -> unit
-		val move: Xenops_task.t -> Vm.id -> Vif.t -> Network.t -> unit
-		val set_carrier: Xenops_task.t -> Vm.id -> Vif.t -> bool -> unit
-		val set_locking_mode: Xenops_task.t -> Vm.id -> Vif.t -> Vif.locking_mode -> unit
-		val set_ipv4_configuration: Xenops_task.t -> Vm.id -> Vif.t -> Vif.ipv4_configuration -> unit
-		val set_ipv6_configuration: Xenops_task.t -> Vm.id -> Vif.t -> Vif.ipv6_configuration -> unit
-		val set_pvs_proxy: Xenops_task.t -> Vm.id -> Vif.t -> Vif.PVS_proxy.t option -> unit
+		val set_active: Xenops_task.task_handle -> Vm.id -> Vif.t -> bool -> unit
+		val plug: Xenops_task.task_handle -> Vm.id -> Vif.t -> unit
+		val unplug: Xenops_task.task_handle -> Vm.id -> Vif.t -> bool -> unit
+		val move: Xenops_task.task_handle -> Vm.id -> Vif.t -> Network.t -> unit
+		val set_carrier: Xenops_task.task_handle -> Vm.id -> Vif.t -> bool -> unit
+		val set_locking_mode: Xenops_task.task_handle -> Vm.id -> Vif.t -> Vif.locking_mode -> unit
+		val set_ipv4_configuration: Xenops_task.task_handle -> Vm.id -> Vif.t -> Vif.ipv4_configuration -> unit
+		val set_ipv6_configuration: Xenops_task.task_handle -> Vm.id -> Vif.t -> Vif.ipv6_configuration -> unit
+		val set_pvs_proxy: Xenops_task.task_handle -> Vm.id -> Vif.t -> Vif.PVS_proxy.t option -> unit
 
 		val get_state: Vm.id -> Vif.t -> Vif.state
 
@@ -139,7 +139,7 @@ module type S = sig
 		val get_state: Vm.id -> Vgpu.t -> Vgpu.state
 	end
 	module UPDATES : sig
-		val get: Updates.id option -> int option -> Dynamic.barrier list * Dynamic.id list * Updates.id 
+		val get: Updates.id option -> int option -> Dynamic.barrier list * Dynamic.id list * Updates.id
 	end
 	module DEBUG : sig
 		val trigger: string -> string list -> unit

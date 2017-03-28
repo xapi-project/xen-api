@@ -47,4 +47,4 @@ val write_qemu_header_for_legacy_libxc : Unix.file_descr -> int64 ->  [`Ok of un
 val write_header : Unix.file_descr -> header -> [`Ok of unit | `Error of exn]
 val read_header : Unix.file_descr -> [`Ok of header | `Error of exn]
 
-val with_conversion_script : Xenops_task.Xenops_task.t -> string -> bool -> Unix.file_descr -> (Unix.file_descr -> 'a) -> [`Ok of 'a | `Error of exn]
+val with_conversion_script : Xenops_task.Xenops_task.task_handle -> string -> bool -> Unix.file_descr -> (Unix.file_descr -> 'a) -> [`Ok of 'a | `Error of exn]
