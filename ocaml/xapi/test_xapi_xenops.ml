@@ -53,6 +53,7 @@ let unsetup_simulator () =
 let test_xapi_restart () =
   let __context = make_test_database () in
   setup_simulator ();
+  Debug.log_to_stdout ();
   Helpers.test_mode := true;
   let open Xenops_interface in
   let open Xapi_xenops_queue in
@@ -68,11 +69,11 @@ let test_xapi_restart () =
           | Api_errors.Server_error (x,[]) when x = Api_errors.task_cancelled -> ()
           | e -> raise e) () in
     (cancel,th) in
-  let vm1 = make_vm ~__context () in
-  let vm2 = make_vm ~__context () in
-  let vm3 = make_vm ~__context () in
-  let vm4 = make_vm ~__context () in
-  let vm5 = make_vm ~__context () in
+  let vm1 = make_vm ~__context ~name_label:"vm1" () in
+  let vm2 = make_vm ~__context ~name_label:"vm2" () in
+  let vm3 = make_vm ~__context ~name_label:"vm3" () in
+  let vm4 = make_vm ~__context ~name_label:"vm4" () in
+  let vm5 = make_vm ~__context ~name_label:"vm5" () in
   let host2 = make_host ~__context ~name_label:"host2" ~hostname:"localhost2" () in
   let flags = [
     Xapi_globs.cpu_info_vendor_key, "AuthenticAMD";
@@ -99,7 +100,6 @@ let test_xapi_restart () =
     Thread.join th;
     let after = Unix.gettimeofday () in
     Printf.printf "Elapsed time for   thread death: %f\n%!" (after -. before);
-
 (* Check they're running *)
     let is_resident vm =
       Db.VM.get_resident_on ~__context ~self:vm = Helpers.get_localhost ~__context
@@ -110,7 +110,7 @@ let test_xapi_restart () =
     assert_bool "Running here" (is_resident vm4);
     assert_bool "Running here" (is_resident vm5);
 
-(* Simulate an out-of-band VM start by resetting the xapi state to halted, and stop one that was running *)
+(* Simulate various out-of-band VM operations by resetting the xapi state to halted, and stop one that was running *)
     Db.VM.set_resident_on ~__context ~self:vm1 ~value:(Ref.null);
     Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm2 ~value:`Halted;
     ignore(Client.VM.shutdown "dbg" (Xapi_xenops.id_of_vm ~__context ~self:vm3) None);
