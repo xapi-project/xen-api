@@ -300,7 +300,8 @@ let bring_up_management_if ~__context () =
         warn "Failed to acquire a management IP address"
     end;
     (* Start the Host Internal Management Network, if needed. *)
-    Xapi_network.check_himn ~__context
+    Xapi_network.check_himn ~__context;
+    Helpers.update_getty ()
   with e ->
     debug "Caught exception bringing up management interface: %s" (ExnHelper.string_of_exn e)
 

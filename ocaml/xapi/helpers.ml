@@ -185,6 +185,15 @@ let update_pif_address ~__context ~self =
   with _ ->
     debug "Bridge %s is not up; not updating IP" bridge
 
+let update_getty () =
+  (* Running update-issue service on best effort basis *)
+  try
+    ignore (Forkhelpers.execute_command_get_output !Xapi_globs.update_issue_script []);
+    ignore (Forkhelpers.execute_command_get_output !Xapi_globs.kill_process_script ["-q"; "-HUP"; "mingetty"; "agetty"])
+  with e ->
+    debug "update_getty at %s caught exception: %s"
+      __LOC__ (Printexc.to_string e)
+
 let set_gateway ~__context ~pif ~bridge =
   let dbg = Context.string_of_task __context in
   try
