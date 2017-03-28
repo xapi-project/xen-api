@@ -175,14 +175,14 @@ module Task = struct
 		| Failed of Rpc.t
 
 	type t = {
-   id: id;
-   dbg: string;
+		id: id;
+		dbg: string;
 		ctime: float;
 		state: state;
 		subtasks: (string * state) list;
-  debug_info: (string * string) list;
-  backtrace: string;
- }
+		debug_info: (string * string) list;
+		backtrace: string;
+	}
 end
 
 module Dynamic = struct
