@@ -38,6 +38,8 @@ import XenAPI
 import sys
 import time
 
+iso8601 = "%Y%m%dT%H:%M:%SZ"
+
 
 def main(session):
     try:
@@ -65,21 +67,24 @@ def main(session):
 
                 print "Number of events retrieved: %s" % len(events)
 
+                now = time.strftime(iso8601, time.gmtime(time.time()))
                 # Print the events out in a nice format:
-                fmt = "%8s  %20s  %5s  %s"
+                fmt = "%18s %8s %s %20s  %5s  %s %s"
+
                 if len(events) > 0:
-                    hdr = fmt % ("id", "class", "type", "name of object (if available)")
+                    hdr = fmt % ("time", "id", "ref", "class", "type", "name of object", "snapshot")
                     print "-" * (len(hdr))
                     print hdr
                     print "-" * (len(hdr))
 
                 for event in events:
                     name = "n/a"
+                    snapshot = ''
                     if "snapshot" in event.keys():
                         snapshot = event['snapshot']
                         if "name_label" in snapshot.keys():
                             name = snapshot['name_label']
-                    print fmt % (event['id'], event['class'], event['operation'], name)
+                    print fmt % (now, event['id'], event["ref"], event['class'], event['operation'], name, repr(snapshot))
 
                 print "Waiting for %s seconds before next poll..." % polling_interval
                 time.sleep(polling_interval)
@@ -94,18 +99,31 @@ def main(session):
         session.xenapi.session.logout()
 
 
+def print_usage():
+    print """
+Usage:
+    %s <url> <username> <password>
+or
+    %s [http://]localhost [<username>] [<password>]
+""" % (sys.argv[0], sys.argv[0])
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print "Usage:"
-        print sys.argv[0], " <url> <username> <password>"
+    if len(sys.argv) < 2:
+        print_usage()
         sys.exit(1)
+
     url = sys.argv[1]
-    username = sys.argv[2]
-    password = sys.argv[3]
+    username = sys.argv[2] if len(sys.argv) > 2 else ""
+    password = sys.argv[3] if len(sys.argv) > 3 else ""
+
     # First acquire a valid session by logging in:
-    new_session = XenAPI.Session(url)
+    if url == "http://localhost" or url == "localhost":
+        new_session = XenAPI.xapi_local()
+    else:
+        new_session = XenAPI.Session(url)
     try:
-        new_session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-watch-all-events.py")
+        new_session.xenapi.login_with_password(username, password, '1.0', 'xen-api-scripts-watch-all-events.py')
     except XenAPI.Failure as f:
         print "Failed to acquire a session: %s" % f.details
         sys.exit(1)
