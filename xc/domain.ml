@@ -1051,7 +1051,7 @@ let restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid 
 
 let restore_vgpu (task: Xenops_task.task_handle) ~xc ~xs domid fd vgpu vcpus =
 	let uuid = get_uuid ~xc domid in
-	debug "VM = %s; domid = %d; restore_vgpu_setup" (Uuid.to_string uuid) domid;
+	debug "VM = %s; domid = %d; restore_vgpu" (Uuid.to_string uuid) domid;
 	let open Suspend_image in let open Suspend_image.M in
 	let res =
 		read_header fd >>= function
@@ -1063,7 +1063,7 @@ let restore_vgpu (task: Xenops_task.task_handle) ~xc ~xs domid fd vgpu vcpus =
 	in
 	match res with
 	| `Ok () ->
-		debug "VM = %s; domid = %d; restore_vgpu_setup complete" (Uuid.to_string uuid) domid
+		debug "VM = %s; domid = %d; restore_vgpu complete" (Uuid.to_string uuid) domid
 	| `Error e -> raise e
 
 type suspend_flag = Live | Debug
