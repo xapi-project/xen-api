@@ -187,7 +187,8 @@ let old_main () =
 			let open Storage_interface.Task in
 
 			List.iter (fun t ->
-				Printf.printf "%-8s %-12f %-30s %s\n" t.Task.id t.Task.ctime t.Task.debug_info (t.Task.state |> Task.rpc_of_state |> Jsonrpc.to_string);
+				let debug_info_str = Printf.sprintf "[%s]" (String.concat "; " (List.map (fun (k,v) -> Printf.sprintf "(%s,%s)" k v) t.Task.debug_info)) in
+				Printf.printf "%-8s %-12f %-30s %s\n" t.Task.id t.Task.ctime debug_info_str (t.Task.state |> Task.rpc_of_state |> Jsonrpc.to_string);
 				List.iter
 					(fun (name, state) ->
 						Printf.printf "  |_ %-30s %s\n" name (state |> Task.rpc_of_state |> Jsonrpc.to_string)
