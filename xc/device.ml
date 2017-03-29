@@ -1611,20 +1611,27 @@ let vnconly_cmdline ~info ?(extras=[]) domid =
     @ disp_options
     @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] extras)
 
-let vgpu_args_of_nvidia domid vcpus (vgpu:Xenops_interface.Vgpu.nvidia) =
+let vgpu_args_of_nvidia domid vcpus (vgpu:Xenops_interface.Vgpu.nvidia) fds =
+	let open Xenops_interface.Vgpu in
 	let suspend_file = sprintf demu_save_path domid in
 	let resume_file = sprintf demu_restore_path domid in
-	let open Xenops_interface.Vgpu in
-	[
+	let base_args = [
 		"--domain=" ^ (string_of_int domid);
 		"--vcpus=" ^ (string_of_int vcpus);
 		"--gpu=" ^ (Xenops_interface.Pci.string_of_address vgpu.physical_pci_address);
 		"--config=" ^ vgpu.config_file;
 		"--suspend=" ^ suspend_file;
-	] @
-	if Sys.file_exists resume_file
-	then ["--resume=" ^ resume_file]
-	else []
+	] in
+	let fd_arg = match fds with
+		| [] -> []
+		| (uuid, _) :: _ -> ["--resumefd"; uuid]
+	in
+	let resume_arg =
+		if Sys.file_exists resume_file
+		then ["--resume=" ^ resume_file]
+		else []
+	in
+	List.concat [base_args; fd_arg; resume_arg]
 
 let write_vgpu_data ~xs domid devid keys =
 	let path = xenops_vgpu_path domid devid in
@@ -1678,12 +1685,12 @@ let prepend_wrapper_args domid args =
 (* Forks a daemon and waits for a path to appear (optionally with a given value)
  * and then returns the pid. If this doesn't happen in the timeout then an
  * exception is raised *)
-let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel _ =
+let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ?(fds=[]) _ =
 	debug "Starting daemon: %s with args [%s]" path (String.concat "; " args);
 	let syslog_key = (Printf.sprintf "%s-%d" name domid) in
 	let syslog_stdout = Forkhelpers.Syslog_WithKey syslog_key in
 	let redirect_stderr_to_stdout = true in
-	let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout ~redirect_stderr_to_stdout path args in
+	let pid = Forkhelpers.safe_close_and_exec None None None fds ~syslog_stdout ~redirect_stderr_to_stdout path args in
 	debug
 		"%s: should be running in the background (stdout -> syslog); (fd,pid) = %s"
 		name (Forkhelpers.string_of_pidty pid);
@@ -1722,7 +1729,7 @@ let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeo
 
 let gimtool_m = Mutex.create ()
 
-let start_vgpu ~xs task domid vgpus vcpus =
+let start_vgpu ~xs task ?restore_fd domid vgpus vcpus =
 	let open Xenops_interface.Vgpu in
 	match vgpus with
 	| [{implementation = Nvidia vgpu}] ->
@@ -1731,11 +1738,18 @@ let start_vgpu ~xs task domid vgpus vcpus =
 			 * nvidia driver. We rely on xapi to refrain from attempting to run
 			 * a vGPU on a device which is passed through to a guest. *)
 			PCI.bind [vgpu.physical_pci_address] PCI.Nvidia;
-			let args = vgpu_args_of_nvidia domid vcpus vgpu in
+			let fds = match restore_fd with
+				| None -> []
+				| Some fd ->
+					let uuid = Uuidm.to_string (Uuidm.create `V4) in
+					[uuid, fd]
+			in
+			let args = vgpu_args_of_nvidia domid vcpus vgpu fds in
 			let ready_path = Printf.sprintf "/local/domain/%d/vgpu-pid" domid in
 			let cancel = Cancel_utils.Vgpu domid in
 			let vgpu_pid = init_daemon ~task ~path:!Xc_resources.vgpu ~args
-				~name:"vgpu" ~domid ~xs ~ready_path ~timeout:!Xenopsd.vgpu_ready_timeout ~cancel () in
+				~name:"vgpu" ~domid ~xs ~ready_path ~timeout:!Xenopsd.vgpu_ready_timeout
+				~cancel ~fds () in
 			Forkhelpers.dontwaitpid vgpu_pid
 		end else
 			D.info "Daemon %s is already running for domain %d" !Xc_resources.vgpu domid
@@ -1825,7 +1839,7 @@ let stop ~xs ~qemu_domid domid  =
     stop_qemu ()
 
 let restore_vgpu (task: Xenops_task.task_handle) ~xs restore_fd domid vgpu vcpus =
-	start_vgpu ~xs task domid [vgpu] vcpus
+	start_vgpu ~xs task ~restore_fd domid [vgpu] vcpus
 
 end (* End of module Dm *)
 
