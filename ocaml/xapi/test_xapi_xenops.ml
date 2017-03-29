@@ -2,6 +2,9 @@ open OUnit
 open Test_common
 open Test_vgpu_common
 
+module D=Debug.Make(struct let name="test_xapi_xenops" end)
+open D
+
 let test_enabled_in_xenguest () =
   let should_raise = ["foo";"";"banana";"2"] in
   let should_be_true = ["TRUE";"tRuE";"1";"true"] in
@@ -99,7 +102,7 @@ let test_xapi_restart () =
     let before = Unix.gettimeofday () in
     Thread.join th;
     let after = Unix.gettimeofday () in
-    Printf.printf "Elapsed time for   thread death: %f\n%!" (after -. before);
+    debug "Elapsed time for thread death: %f\n%!" (after -. before);
 (* Check they're running *)
     let is_resident vm =
       Db.VM.get_resident_on ~__context ~self:vm = Helpers.get_localhost ~__context
@@ -118,7 +121,7 @@ let test_xapi_restart () =
     Db.VM.destroy ~__context ~self:vm5;
 
     (* Now run the on_xapi_restart logic *)
-    Printf.printf "\n\n\nXXX resync resident on\n\n\n";
+    debug "Resync resident on";
     Xapi_xenops.resync_resident_on ~__context;
     let (cancel,th) =
       let cancel = ref false in
@@ -130,7 +133,7 @@ let test_xapi_restart () =
             | Api_errors.Server_error (x,[]) when x = Api_errors.task_cancelled -> ()
             | e -> raise e) () in
       (cancel,th) in
-    Printf.printf "\n\n\nXXX resync_all_vms\n\n\n";
+    debug "Resync_all_vms";
     Xapi_xenops.resync_all_vms ~__context;
 
     cancel := true;
@@ -138,7 +141,7 @@ let test_xapi_restart () =
     let before = Unix.gettimeofday () in
     Thread.join th;
     let after = Unix.gettimeofday () in
-    Printf.printf "Elapsed time for   thread death: %f\n%!" (after -. before);
+    debug "Elapsed time for thread death: %f\n%!" (after -. before);
 
     (* And check that the right thing has happened *)
     assert_bool "Running here" (is_resident vm1);
