@@ -79,7 +79,8 @@ module Task :
     val set_state : task_handle -> Interface.Task.state -> unit
     val get_dbg : task_handle -> string
 
-    (* Given a task, record a specific subtask happening *)
+    (* Given a task, record a specific subtask happening. Subtasks are just for
+       labelling subsections of a task, and there is no real task hierarchy. *)
     val with_subtask : task_handle -> id -> (unit -> 'a) -> 'a
 
     (* Destroy removes the task from the [tasks] list *)
