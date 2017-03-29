@@ -40,13 +40,13 @@ let id_of frontend vbd = Printf.sprintf "vbd/%s/%s" frontend (snd vbd)
 let epoch_begin task sr vdi persistent =
 	transform_exception
 		(fun () ->
-			Client.VDI.epoch_begin task.Xenops_task.dbg sr vdi persistent
+			Client.VDI.epoch_begin (Xenops_task.get_dbg task) sr vdi persistent
 		) ()
 
 let epoch_end task sr vdi =
 	transform_exception
 		(fun () ->
-			Client.VDI.epoch_end task.Xenops_task.dbg sr vdi
+			Client.VDI.epoch_end (Xenops_task.get_dbg task) sr vdi
 		) ()
 
 let attach_and_activate task vm dp sr vdi read_write =
@@ -94,4 +94,3 @@ let get_disk_by_name task path =
 		| _ ->
 			error "Failed to parse VDI name %s (expected SR/VDI)" path;
 			raise (Storage_interface.Vdi_does_not_exist path)
-

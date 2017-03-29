@@ -16,7 +16,7 @@ val memory_kib: int64
 
 val create: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> Xenctrl.domid
 
-val build: Xenops_task.Xenops_task.t
+val build: Xenops_task.Xenops_task.task_handle
   -> xc:Xenctrl.handle
   -> xs:Xenstore.Xs.xsh
   -> store_domid:int

@@ -136,7 +136,7 @@ let dB_m = Mutex.create ()
 
 (* These updates are local plugin updates, distinct from those that are
    exposed via the UPDATES API *)
-let internal_updates = Updates.empty ()
+let internal_updates = Updates.empty scheduler
 
 let safe_rm xs path =
 	debug "xenstore-rm %s" path;
@@ -299,7 +299,7 @@ let with_disk ~xc ~xs task disk write f = match disk with
 		let open Storage_interface in
 		let open Storage in
 		let sr, vdi = get_disk_by_name task path in
-		let dp = Client.DP.create "with_disk" (Printf.sprintf "xenopsd/task/%s" task.Xenops_task.id) in
+		let dp = Client.DP.create "with_disk" (Printf.sprintf "xenopsd/task/%s" (Xenops_task.id_of_handle task)) in
 		finally
 			(fun () ->
 				let frontend_domid = this_domid ~xs in
@@ -863,7 +863,7 @@ module VM = struct
 			pv_drivers_detected = false;
 		}
 
-	let create_exn (task: Xenops_task.t) memory_upper_bound vm =
+	let create_exn (task: Xenops_task.task_handle) memory_upper_bound vm =
 		let k = vm.Vm.id in
 		with_xc_and_xs
 			(fun xc xs ->
@@ -911,20 +911,21 @@ module VM = struct
 				let min_kib = kib_of_bytes_used (min_bytes +++ overhead_bytes)
 				and max_kib = kib_of_bytes_used (max_bytes +++ overhead_bytes) in
 				(* XXX: we would like to be able to cancel an in-progress with_reservation *)
-				Mem.with_reservation task.Xenops_task.dbg min_kib max_kib
+				let dbg = Xenops_task.get_dbg task in
+				Mem.with_reservation dbg min_kib max_kib
 					(fun target_plus_overhead_kib reservation_id ->
 						DB.write k {
 							VmExtra.persistent = persistent;
 							VmExtra.non_persistent = non_persistent
 						};
 						let domid = Domain.make ~xc ~xs non_persistent.VmExtra.create_info (uuid_of_vm vm) in
-						Mem.transfer_reservation_to_domain task.Xenops_task.dbg domid reservation_id;
+						Mem.transfer_reservation_to_domain dbg domid reservation_id;
 						begin match vm.Vm.ty with
 							| Vm.HVM { Vm.qemu_stubdom = true } ->
-								Mem.with_reservation task.Xenops_task.dbg Stubdom.memory_kib Stubdom.memory_kib
+								Mem.with_reservation dbg Stubdom.memory_kib Stubdom.memory_kib
 									(fun _ reservation_id ->
 										let stubdom_domid = Stubdom.create ~xc ~xs domid in
-										Mem.transfer_reservation_to_domain task.Xenops_task.dbg stubdom_domid reservation_id;
+										Mem.transfer_reservation_to_domain dbg stubdom_domid reservation_id;
 										set_stubdom ~xs domid stubdom_domid;
 									)
 							| _ ->
@@ -946,7 +947,7 @@ module VM = struct
 			)
 	let create = create_exn
 
-	let on_domain f domain_selection (task: Xenops_task.t) vm =
+	let on_domain f domain_selection (task: Xenops_task.task_handle) vm =
 		let uuid = uuid_of_vm vm in
 		with_xc_and_xs
 			(fun xc xs ->
@@ -955,7 +956,7 @@ module VM = struct
 					| Some di -> f xc xs task vm di
 			)
 
-	let on_domain_if_exists f domain_selection (task: Xenops_task.t) vm =
+	let on_domain_if_exists f domain_selection (task: Xenops_task.task_handle) vm =
 		try
 			on_domain f domain_selection task vm
 		with Does_not_exist("domain", _) ->
@@ -1115,7 +1116,7 @@ module VM = struct
 			~min:(Int64.to_int (Int64.div min 1024L))
 			~max:(Int64.to_int (Int64.div max 1024L))
 			domid;
-		Mem.balance_memory task.Xenops_task.dbg
+		Mem.balance_memory (Xenops_task.get_dbg task)
 	) Newest task vm
 
 	(* NB: the arguments which affect the qemu configuration must be saved and
@@ -1221,8 +1222,9 @@ module VM = struct
 
         let clean_memory_reservation task domid =
                 try
-                        let reservation_id = Mem.query_reservation_of_domain task.Xenops_task.dbg domid in
-                        Mem.delete_reservation task.Xenops_task.dbg (reservation_id, None)
+			let dbg = Xenops_task.get_dbg task in
+			let reservation_id = Mem.query_reservation_of_domain dbg domid in
+			Mem.delete_reservation dbg (reservation_id, None)
                 with No_reservation ->
                         error "Please check if memory reservation for domain %d is present, if so manually remove it" domid
 
@@ -1473,7 +1475,7 @@ module VM = struct
 					| Live -> Domain.Live
 				) flags in
 		on_domain
-			(fun xc xs (task:Xenops_task.t) vm di ->
+			(fun xc xs (task:Xenops_task.task_handle) vm di ->
 				let hvm = di.Xenctrl.hvm_guest in
 				let domid = di.Xenctrl.domid in
 

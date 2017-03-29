@@ -114,7 +114,7 @@ let with_path ~xs key f =
 				()
 		)
 
-let cancellable_watch key good_watches error_watches (task: Xenops_task.t) ~xs ~timeout () =
+let cancellable_watch key good_watches error_watches (task: Xenops_task.task_handle) ~xs ~timeout () =
 	with_path ~xs key
 		(fun () ->
 			Xenops_task.with_cancel task

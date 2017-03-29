@@ -166,7 +166,6 @@ let main backend =
 		let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever xml_server) () in
 		()
 	) ();
-	Scheduler.start ();
 	Xenops_server.WorkerPool.start !worker_pool_size;
 	while true do
 		try

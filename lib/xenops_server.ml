@@ -41,7 +41,7 @@ let query _ _ _ = {
 
 let backend = ref None
 let get_backend () = match !backend with
- | Some x -> x 
+ | Some x -> x
   | None -> failwith "No backend implementation set"
 
 let ignore_exception msg f x =
@@ -132,36 +132,23 @@ let string_of_operation x = x |> rpc_of_operation |> Jsonrpc.to_string
 module TASK = struct
 	open Xenops_task
 
-	let task x = {
-		Task.id = x.id;
-		dbg = x.dbg;
-		ctime = x.ctime;
-		state = x.state;
-		subtasks = x.subtasks;
-		debug_info = [
-			"cancel_points_seen", string_of_int x.cancel_points_seen
-		];
-		backtrace = Sexplib.Sexp.to_string (Backtrace.sexp_of_t x.backtrace);
-	}
 	let cancel _ dbg id =
-		Xenops_task.cancel tasks id
+		Xenops_task.cancel (handle_of_id tasks id)
 	let stat' id =
-		Mutex.execute tasks.m
-			(fun () ->
-				find_locked tasks id |> task
-			)
+		handle_of_id tasks id |> to_interface_task
+
 	let signal id =
-		Mutex.execute tasks.m
-			(fun () ->
-				if exists_locked tasks id then begin
-					debug "TASK.signal %s = %s" id ((find_locked tasks id).state |> Task.rpc_of_state |> Jsonrpc.to_string);
-					Updates.add (Dynamic.Task id) updates
-				end else debug "TASK.signal %s (object deleted)" id
-			)
-	let stat _ dbg id = stat' id 
-	let destroy' id = destroy tasks id; Updates.remove (Dynamic.Task id) updates
+		try
+			let handle = handle_of_id tasks id in
+			let state = get_state handle in
+			debug "TASK.signal %s = %s" id (state |> Task.rpc_of_state |> Jsonrpc.to_string);
+			Updates.add (Dynamic.Task id) updates
+		with
+			Does_not_exist _ -> debug "TASK.signal %s (object deleted)" id
+	let stat _ dbg id = stat' id
+	let destroy' id = destroy (handle_of_id tasks id); Updates.remove (Dynamic.Task id) updates
 	let destroy _ dbg id = destroy' id
-	let list _ dbg = list tasks |> List.map task
+	let list _ dbg = list tasks |> List.map Xenops_task.to_interface_task
 end
 
 module VM_DB = struct
@@ -200,7 +187,7 @@ module PCI_DB = struct
 		include Pci
 		let namespace = "PCI"
 		type key = id
-		let key k = [ fst k; "pci." ^ (snd k) ]	
+		let key k = [ fst k; "pci." ^ (snd k) ]
 	end)
 	let vm_of = fst
 	let string_of_id (a, b) = a ^ "." ^ b
@@ -436,7 +423,7 @@ module Queues = struct
 end
 
 module Redirector = struct
-	type t = { queues: (operation * Xenops_task.t) Queues.t; mutex: Mutex.t }
+	type t = { queues: (operation * Xenops_task.task_handle) Queues.t; mutex: Mutex.t }
 
 	(* When a thread is not actively processing a queue, items are placed here: *)
 	let default = { queues = Queues.create (); mutex = Mutex.create () }
@@ -516,12 +503,12 @@ module Redirector = struct
 				)
 
 	end
-end		
+end
 
 module Worker = struct
 	type state =
 		| Idle
-		| Processing of (operation * Xenops_task.t)
+		| Processing of (operation * Xenops_task.task_handle)
 		| Shutdown_requested
 		| Shutdown
 	type t = {
@@ -594,14 +581,16 @@ module Worker = struct
 				)) do
 					Mutex.execute t.m (fun () -> t.state <- Idle);
 					let tag, queue, (op, item) = Redirector.pop redirector () in (* blocks here *)
+					let id = Xenops_task.id_of_handle item in
 					debug "Queue.pop returned %s" (string_of_operation op);
 					Mutex.execute t.m (fun () -> t.state <- Processing (op, item));
 					begin
 						try
+							let t' = Xenops_task.to_interface_task item in
 							Debug.with_thread_associated
-								item.Xenops_task.dbg
+								t'.Task.dbg
 								(fun () ->
-									debug "Task %s reference %s: %s" item.Xenops_task.id item.Xenops_task.dbg (string_of_operation op);
+									debug "Task %s reference %s: %s" id t'.Task.dbg (string_of_operation op);
 									Xenops_task.run item
 								) ()
 						with e ->
@@ -609,15 +598,15 @@ module Worker = struct
 					end;
 					Redirector.finished redirector tag queue;
 					(* The task must have succeeded or failed. *)
-					begin match item.Xenops_task.state with
+					begin match Xenops_task.get_state item with
 						| Task.Pending _ ->
-							error "Task %s has been left in a Pending state" item.Xenops_task.id;
+							error "Task %s has been left in a Pending state" id;
 							let e = Internal_error "Task left in Pending state" in
 							let e = e |> exnty_of_exn |> Exception.rpc_of_exnty in
-							item.Xenops_task.state <- Task.Failed e
+							Xenops_task.set_state item (Task.Failed e)
 						| _ -> ()
 					end;
-					TASK.signal item.Xenops_task.id
+					TASK.signal id
 				done
 			) () in
 		t.t <- Some thread;
@@ -638,11 +627,13 @@ module WorkerPool = struct
 			dbg: string;
 			subtasks: (string * string) list;
 		} [@@deriving rpc]
-		let of_task t = {
-				id = t.Xenops_task.id;
-				ctime = t.Xenops_task.ctime |> Date.of_float |> Date.to_string;
-				dbg = t.Xenops_task.dbg;
-				subtasks = List.map (fun (name, state) -> name, state |> Task.rpc_of_state |> Jsonrpc.to_string) t.Xenops_task.subtasks |> List.rev;
+	let of_task t =
+		let t' = Xenops_task.to_interface_task t in
+			{
+				id = t'.Task.id;
+				ctime = t'.Task.ctime |> Date.of_float |> Date.to_string;
+				dbg = t'.Task.dbg;
+				subtasks = List.map (fun (name, state) -> name, state |> Task.rpc_of_state |> Jsonrpc.to_string) t'.Task.subtasks |> List.rev;
 			}
 		type w = {
 			state: string;
@@ -745,7 +736,7 @@ let export_metadata vdi_map vif_map id =
 	debug "Remapping bootloader VDIs";
 
 	(* Remap the bootloader vdis *)
-	let vm_t = { vm_t with Vm.ty = 
+	let vm_t = { vm_t with Vm.ty =
 			match vm_t.Vm.ty with
 				| Vm.HVM _ -> vm_t.Vm.ty
 				| Vm.PV pv_info ->
@@ -753,7 +744,7 @@ let export_metadata vdi_map vif_map id =
 						Vm.boot = match pv_info.Vm.boot with
 							| Vm.Direct x -> pv_info.Vm.boot
 							| Vm.Indirect pv_indirect_boot ->
-								Vm.Indirect { pv_indirect_boot with Vm.devices = 
+								Vm.Indirect { pv_indirect_boot with Vm.devices =
 										List.map (remap_vdi vdi_map) pv_indirect_boot.Vm.devices } } } in
 
 	let vbds = VBD_DB.vbds id in
@@ -809,7 +800,7 @@ let rec atomics_of_operation = function
 			VM_hook_script(id, Xenops_hooks.VM_pre_start, Xenops_hooks.reason__none);
 		] @ simplify [
 			VM_create (id, None)
-		] @ [	
+		] @ [
 			VM_build (id,force);
 		] @ (List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
 			(VBD_DB.vbds id)
@@ -835,7 +826,7 @@ let rec atomics_of_operation = function
 		) @ simplify (List.map (fun vif -> VIF_plug vif.Vif.id)
 			(VIF_DB.vifs id |> vif_plug_order)
 		) @ simplify [
-			(* Unfortunately this has to be done after the vbd,vif 
+			(* Unfortunately this has to be done after the vbd,vif
 			   devices have been created since qemu reads xenstore keys
 			   in preference to its own commandline. After this is
 			   fixed we can consider creating qemu as a part of the
@@ -992,30 +983,31 @@ let rec atomics_of_operation = function
 		]
 	| _ -> []
 
-let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xenops_task.t) : unit =
+let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xenops_task.task_handle) : unit =
 	let module B = (val get_backend () : S) in
 	Xenops_task.check_cancelling t;
 	match op with
 		| Parallel (id, description, atoms) ->
 			(* parallel_id is a unused unique name prefix for a parallel worker queue *)
-			let parallel_id = Printf.sprintf "Parallel:task=%s.atoms=%d.(%s)" t.Xenops_task.id (List.length atoms) description in
+			let parallel_id = Printf.sprintf "Parallel:task=%s.atoms=%d.(%s)" (Xenops_task.id_of_handle t) (List.length atoms) description in
 			debug "begin_%s" parallel_id;
 			let task_list = queue_atomics_and_wait ~progress_callback ~max_parallel_atoms:10 parallel_id parallel_id atoms in
 			debug "end_%s" parallel_id;
 			(* make sure that we destroy all the parallel tasks that finished *)
-			let errors = List.map (fun task->
-				match task.Xenops_task.state with
+			let errors = List.map (fun task_handle ->
+				let id = Xenops_task.id_of_handle task_handle in
+				match (Xenops_task.get_state task_handle) with
 				| Task.Completed _ ->
-					TASK.destroy' task.Xenops_task.id;
+					TASK.destroy' id;
 					None
 				| Task.Failed e ->
-					TASK.destroy' task.Xenops_task.id;
+					TASK.destroy' id;
 					let e = e |> Exception.exnty_of_rpc |> exn_of_exnty in
 					Some e
 				| Task.Pending _ ->
 					error "Parallel: queue_atomics_and_wait returned a pending task";
-					Xenops_task.cancel tasks task.Xenops_task.id;
-					Some (Cancelled task.Xenops_task.id)
+					Xenops_task.cancel task_handle;
+					Some (Cancelled id)
 			) task_list in
 			(* if any error was present, raise first one, so that trigger_cleanup_after_failure is called *)
 			List.iter (fun err->match err with None->() |Some e->raise e) errors
@@ -1052,7 +1044,7 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
 			finally
 				(fun () ->
 					let vif = VIF_DB.read_exn id in
-					(* Nb, this VIF_DB write needs to come before the call to set_locking_mode 
+					(* Nb, this VIF_DB write needs to come before the call to set_locking_mode
 					   as the scripts will read from the disk! *)
 					VIF_DB.write id {vif with Vif.locking_mode = mode};
 					B.VIF.set_locking_mode t (VIF_DB.vm_of id) vif mode
@@ -1248,7 +1240,7 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
 			(* Spend at most the first minute waiting for a clean shutdown ack. This allows
 			   us to abort early. *)
 			if not (B.VM.request_shutdown t vm reason (min 60. timeout))
-			then raise (Failed_to_acknowledge_shutdown_request);		
+			then raise (Failed_to_acknowledge_shutdown_request);
 			let remaining_timeout = max 0. (timeout -. (Unix.gettimeofday () -. start)) in
 			if not (B.VM.wait_shutdown t vm reason remaining_timeout)
 			then raise (Failed_to_shutdown(id, timeout))
@@ -1296,7 +1288,7 @@ and queue_atomics_and_wait ~progress_callback ~max_parallel_atoms dbg id ops =
 			) ops
 		in
 		let timeout_start = Unix.gettimeofday () in
-		List.iter (fun task-> event_wait updates task ~from ~timeout_start 1200.0 (task_finished_p task.Xenops_task.id) |> ignore) task_list;
+		List.iter (fun task-> event_wait updates task ~from ~timeout_start 1200.0 (task_finished_p (Xenops_task.id_of_handle task)) |> ignore) task_list;
 		task_list
 	) |> List.concat
 
@@ -1308,8 +1300,9 @@ let weight_of_atomic = function
 
 let progress_callback start len t y =
 	let new_progress = start +. (y *. len) in
-	t.Xenops_task.state <- Task.Pending new_progress;
-	TASK.signal t.Xenops_task.id
+	let id = Xenops_task.id_of_handle t in
+	Xenops_task.set_state t (Task.Pending new_progress);
+	TASK.signal id
 
 let perform_atomics atomics t =
 	let total_weight = List.fold_left ( +. ) 0. (List.map weight_of_atomic atomics) in
@@ -1327,13 +1320,14 @@ let perform_atomics atomics t =
 
 let rec immediate_operation dbg id op =
 	let task = Xenops_task.add tasks dbg (fun t -> perform op t; None) in
-	TASK.destroy' task.Xenops_task.id;
+	let task_id = Xenops_task.id_of_handle task in
+	TASK.destroy' task_id;
 	Debug.with_thread_associated dbg
 		(fun () ->
-			debug "Task %s reference %s: %s" task.Xenops_task.id task.Xenops_task.dbg (string_of_operation op);
+			debug "Task %s reference %s: %s" task_id (Xenops_task.to_interface_task task).Task.dbg (string_of_operation op);
 			Xenops_task.run task
 		) ();
-	match task.Xenops_task.state with
+	match Xenops_task.get_state task with
 		| Task.Pending _ -> assert false
 		| Task.Completed _ -> ()
 		| Task.Failed e ->
@@ -1343,7 +1337,9 @@ let rec immediate_operation dbg id op =
 (* At all times we ensure that an operation which partially fails
    leaves the system in a recoverable state. All that should be
    necessary is to call the {VM,VBD,VIF,PCI}_check_state function. *)
-and trigger_cleanup_after_failure op t = match op with
+and trigger_cleanup_after_failure op t =
+	let dbg = (Xenops_task.to_interface_task t).Task.dbg in
+	match op with
 	| VM_check_state _
 	| PCI_check_state _
 	| VBD_check_state _
@@ -1358,22 +1354,24 @@ and trigger_cleanup_after_failure op t = match op with
 	| VM_restore_devices (id, _)
 	| VM_resume (id, _)
 	| VM_receive_memory (id, _, _) ->
-		immediate_operation t.Xenops_task.dbg id (VM_check_state id);
+		immediate_operation dbg id (VM_check_state id);
 	| VM_migrate (id, _, _, _) ->
-		immediate_operation t.Xenops_task.dbg id (VM_check_state id);
-		immediate_operation t.Xenops_task.dbg id (VM_check_state id);
+		immediate_operation dbg id (VM_check_state id);
+		immediate_operation dbg id (VM_check_state id);
 
 	| VBD_hotplug id
 	| VBD_hotunplug (id, _) ->
-		immediate_operation t.Xenops_task.dbg (fst id) (VBD_check_state id)
+		immediate_operation dbg (fst id) (VBD_check_state id)
 
 	| VIF_hotplug id
 	| VIF_hotunplug (id, _) ->
-		immediate_operation t.Xenops_task.dbg (fst id) (VIF_check_state id)
+		immediate_operation dbg (fst id) (VIF_check_state id)
 
 	| Atomic op -> trigger_cleanup_after_failure_atom op t
 
-and trigger_cleanup_after_failure_atom op t = match op with
+and trigger_cleanup_after_failure_atom op t =
+	let dbg = (Xenops_task.to_interface_task t).Task.dbg in
+	match op with
 		| VBD_eject id
 		| VBD_plug id
 		| VBD_set_active (id, _)
@@ -1382,7 +1380,7 @@ and trigger_cleanup_after_failure_atom op t = match op with
 		| VBD_set_qos id
 		| VBD_unplug (id, _)
 		| VBD_insert (id, _) ->
-			immediate_operation t.Xenops_task.dbg (fst id) (VBD_check_state id)
+			immediate_operation dbg (fst id) (VBD_check_state id)
 
 		| VIF_plug id
 		| VIF_set_active (id, _)
@@ -1393,11 +1391,11 @@ and trigger_cleanup_after_failure_atom op t = match op with
 		| VIF_set_pvs_proxy (id, _)
 		| VIF_set_ipv4_configuration (id, _)
 		| VIF_set_ipv6_configuration (id, _) ->
-			immediate_operation t.Xenops_task.dbg (fst id) (VIF_check_state id)
+			immediate_operation dbg (fst id) (VIF_check_state id)
 
 		| PCI_plug id
 		| PCI_unplug id ->
-			immediate_operation t.Xenops_task.dbg (fst id) (PCI_check_state id)
+			immediate_operation dbg (fst id) (PCI_check_state id)
 
 		| VM_hook_script (id, _, _)
 		| VM_remove id
@@ -1421,11 +1419,11 @@ and trigger_cleanup_after_failure_atom op t = match op with
 		| VM_save (id, _, _)
 		| VM_restore (id, _)
 		| VM_delay (id, _) ->
-			immediate_operation t.Xenops_task.dbg id (VM_check_state id)
+			immediate_operation dbg id (VM_check_state id)
 		| Parallel (id, description, ops) ->
 			List.iter (fun op->trigger_cleanup_after_failure_atom op t) ops
 
-and perform ?subtask ?result (op: operation) (t: Xenops_task.t) : unit =
+and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit =
 	let module B = (val get_backend () : S) in
 	let one = function
 		| VM_start (id, force) ->
@@ -1438,7 +1436,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.t) : unit =
 		| VM_poweroff (id, timeout) ->
 			debug "VM.poweroff %s" id;
 			perform_atomics (atomics_of_operation op) t;
-			VM_DB.signal id			
+			VM_DB.signal id
 		| VM_reboot (id, timeout) ->
 			debug "VM.reboot %s" id;
 			rebooting id (fun () -> perform_atomics (atomics_of_operation op) t);
@@ -1477,11 +1475,12 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.t) : unit =
 			debug "VM.migrate %s -> %s" id url';
 			let vm = VM_DB.read_exn id in
 			let open Xenops_client in
+			let dbg = (Xenops_task.to_interface_task t).Task.dbg in
 			let url = Uri.of_string url' in
 			(* We need to perform version exchange here *)
 			let is_localhost =
 				try
-					let q = query t.Xenops_task.dbg url' in
+					let q = query dbg url' in
 					debug "Remote system is: %s" (q |> Query.rpc_of_t |> Jsonrpc.to_string);
 					q.Query.instance_id = instance_id
 				with e ->
@@ -1492,7 +1491,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.t) : unit =
 			Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 
 			let module Remote = Xenops_interface.Client(struct let rpc = Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> url') end) in
-			let id = Remote.VM.import_metadata t.Xenops_task.dbg(export_metadata vdi_map vif_map id) in
+			let id = Remote.VM.import_metadata dbg (export_metadata vdi_map vif_map id) in
 			debug "Received id = %s" id;
 			let memory_url = Uri.make ?scheme:(Uri.scheme url) ?host:(Uri.host url) ?port:(Uri.port url)
 				~path:(Uri.path url ^ "/memory/" ^ id) ~query:(Uri.query url) () in
@@ -1512,7 +1511,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.t) : unit =
 					let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
 					let cookies = [
 						"instance_id", instance_id;
-						"dbg", t.Xenops_task.dbg;
+						"dbg", dbg;
 						"memory_limit", Int64.to_string state.Vm.memory_limit;
 					] in
 					let headers = Cohttp.Header.of_list (
@@ -1706,12 +1705,13 @@ let queue_operation_int dbg id op =
 
 let queue_operation dbg id op =
 	let task = queue_operation_int dbg id op in
-	task.Xenops_task.id
+	Xenops_task.id_of_handle task
 
 let queue_operation_and_wait dbg id op =
 	let from = Updates.last_id dbg updates in
 	let task = queue_operation_int dbg id op in
-	event_wait updates task ~from 1200.0 (task_finished_p task.Xenops_task.id) |> ignore;
+	let task_id = Xenops_task.id_of_handle task in
+	event_wait updates task ~from 1200.0 (task_finished_p task_id) |> ignore;
 	task
 
 module PCI = struct
@@ -1882,7 +1882,7 @@ module VIF = struct
 	let add _ dbg x =
 		Debug.with_thread_associated dbg (fun () -> add' x) ()
 
-	let plug _ dbg id = queue_operation dbg (DB.vm_of id) (VIF_hotplug id) 
+	let plug _ dbg id = queue_operation dbg (DB.vm_of id) (VIF_hotplug id)
 	let unplug _ dbg id force = queue_operation dbg (DB.vm_of id) (VIF_hotunplug (id, force))
 	let move _ dbg id network = queue_operation dbg (DB.vm_of id) (Atomic (VIF_move (id, network)))
 	let set_carrier _ dbg id carrier = queue_operation dbg (DB.vm_of id) (Atomic (VIF_set_carrier (id, carrier)))
@@ -1989,19 +1989,20 @@ module VM = struct
 	let add _ dbg x =
 		Debug.with_thread_associated dbg (fun () -> add' x) ()
 
-	let remove _ dbg id = 
+	let remove _ dbg id =
 		let task = queue_operation_and_wait dbg id (Atomic (VM_remove id)) in
-		match task.Xenops_task.state with
+		let task_id = Xenops_task.id_of_handle task in
+		match Xenops_task.get_state task with
 		| Task.Completed _ ->
-			TASK.destroy' task.Xenops_task.id;
+			TASK.destroy' task_id;
 		| Task.Failed e ->
-			TASK.destroy' task.Xenops_task.id;
+			TASK.destroy' task_id;
 			let e = e |> Exception.exnty_of_rpc |> exn_of_exnty in
 			raise e
-		| Task.Pending _ -> 
+		| Task.Pending _ ->
 			error "VM.remove: queue_operation_and_wait returned a pending task";
-			Xenops_task.cancel tasks task.Xenops_task.id;
-			raise (Cancelled task.Xenops_task.id)
+			Xenops_task.cancel task;
+			raise (Cancelled task_id)
 
 	let stat' x =
 		debug "VM.stat %s" x;
@@ -2056,7 +2057,7 @@ module VM = struct
 
 	let suspend _ dbg id disk = queue_operation dbg id (VM_suspend (id, Disk disk))
 
-	let resume _ dbg id disk = queue_operation dbg id (VM_resume (id, Disk disk)) 
+	let resume _ dbg id disk = queue_operation dbg id (VM_resume (id, Disk disk))
 
 	let s3suspend _ dbg id = queue_operation dbg id (Atomic(VM_s3suspend id))
 	let s3resume _ dbg id = queue_operation dbg id (Atomic(VM_s3resume id))
@@ -2107,7 +2108,7 @@ module VM = struct
 				let headers = Cohttp.Header.of_list [
 					"User-agent", "xenopsd"
 				] in
-				let response = Cohttp.Response.make ~version:`HTTP_1_1 
+				let response = Cohttp.Response.make ~version:`HTTP_1_1
 				  ~status:`Not_found ~headers () in
 				Response.write (fun _ -> ()) response s
 		) ()
@@ -2153,7 +2154,7 @@ module VM = struct
 						platformdata
 				in
 				let vm = add' {md.Metadata.vm with platformdata} in
-				
+
 				let vbds = List.map
 					(fun x ->
 						(* If receiving an HVM migration from XS 6.2 or earlier, the hd*
@@ -2186,7 +2187,7 @@ module VM = struct
 				let (_: Pci.id list) = List.map PCI.add' pcis in
 				let (_: Vgpu.id list) = List.map VGPU.add' vgpus in
 				md.Metadata.domains |> Opt.iter (B.VM.set_internal_state (VM_DB.read_exn vm));
-				vm 
+				vm
 			) ()
 end
 
@@ -2228,12 +2229,12 @@ module UPDATES = struct
 		Debug.with_thread_associated dbg
 			(fun () ->
 				debug "UPDATES.inject_barrier %s %d" vm_id id;
-				let filter k _ = 
-					match k with 
+				let filter k _ =
+					match k with
 						| Dynamic.Task _ -> false
-						| Dynamic.Vm id 
-						| Dynamic.Vbd (id,_) 
-						| Dynamic.Vif (id,_) 
+						| Dynamic.Vm id
+						| Dynamic.Vbd (id,_)
+						| Dynamic.Vif (id,_)
 						| Dynamic.Pci (id,_)
 						| Dynamic.Vgpu (id,_) -> id=vm_id
 				in
@@ -2321,8 +2322,8 @@ module Diagnostics = struct
 	type t = {
 		queues: Redirector.Dump.t;
 		workers: WorkerPool.Dump.t;
-		scheduler: Scheduler.Dump.t;
-		updates: Updates.Dump.t;
+		scheduler: Scheduler.Dump.dump;
+		updates: Updates.Dump.dump;
 		tasks: WorkerPool.Dump.task list;
 		vm_actions: (string * domain_action_request option) list;
 	} [@@deriving rpc]
@@ -2331,7 +2332,7 @@ module Diagnostics = struct
 		let module B = (val get_backend (): S) in {
 			queues = Redirector.Dump.make ();
 			workers = WorkerPool.Dump.make ();
-			scheduler = Scheduler.Dump.make ();
+			scheduler = Scheduler.Dump.make scheduler;
 			updates = Updates.Dump.make updates;
 			tasks = List.map WorkerPool.Dump.of_task (Xenops_task.list tasks);
 			vm_actions = List.filter_map (fun id -> match VM_DB.read id with
@@ -2342,4 +2343,4 @@ module Diagnostics = struct
 end
 
 let get_diagnostics _ _ () =
-	Diagnostics.make () |> Diagnostics.rpc_of_t |> Jsonrpc.to_string 
+	Diagnostics.make () |> Diagnostics.rpc_of_t |> Jsonrpc.to_string

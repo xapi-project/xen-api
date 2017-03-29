@@ -57,39 +57,39 @@ sig
 		backend_domid: int;
 	}
 
-	val add : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool -> t -> Xenctrl.domid -> device
+	val add : Xenops_task.task_handle -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool -> t -> Xenctrl.domid -> device
 
-	val release : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> device -> unit
+	val release : Xenops_task.task_handle -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> device -> unit
 	val media_eject : xs:Xenstore.Xs.xsh -> device -> unit
 	val media_insert : xs:Xenstore.Xs.xsh -> phystype:physty -> params:string -> device -> unit
 	val media_is_ejected : xs:Xenstore.Xs.xsh -> device -> bool
 
 	val clean_shutdown_async : xs:Xenstore.Xs.xsh -> device -> unit
-	val clean_shutdown_wait : Xenops_task.t -> xs:Xenstore.Xs.xsh -> ignore_transients:bool -> device -> unit
+	val clean_shutdown_wait : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> ignore_transients:bool -> device -> unit
 
 	(* For migration: *)
 	val hard_shutdown_request : xs:Xenstore.Xs.xsh -> device -> unit
 	val hard_shutdown_complete : xs:Xenstore.Xs.xsh -> device -> unit Watch.t
-	val hard_shutdown_wait : Xenops_task.t -> xs:Xenstore.Xs.xsh -> timeout:float -> device -> unit
+	val hard_shutdown_wait : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> timeout:float -> device -> unit
 end
 
 module Vif :
 sig
-	val add : Xenops_task.t -> xs:Xenstore.Xs.xsh -> devid:int -> netty:Netman.netty
-	       -> mac:string -> carrier:bool 
+	val add : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> devid:int -> netty:Netman.netty
+	       -> mac:string -> carrier:bool
 	       -> ?mtu:int -> ?rate:(int64 * int64) option
-	       -> ?protocol:protocol -> ?backend_domid:Xenctrl.domid 
+	       -> ?protocol:protocol -> ?backend_domid:Xenctrl.domid
 	       -> ?other_config:((string * string) list)
 	       -> ?extra_private_keys:(string * string) list
 	       -> ?extra_xenserver_keys:(string * string) list -> Xenctrl.domid
 	       -> device
 	val set_carrier : xs:Xenstore.Xs.xsh -> device -> bool -> unit
-	val release : Xenops_task.t -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> device -> unit
+	val release : Xenops_task.task_handle -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> device -> unit
 	val move : xs:Xenstore.Xs.xsh -> device -> string -> unit
 end
 
-val clean_shutdown : Xenops_task.t -> xs:Xenstore.Xs.xsh -> device -> unit
-val hard_shutdown  : Xenops_task.t -> xs:Xenstore.Xs.xsh -> device -> unit
+val clean_shutdown : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> device -> unit
+val hard_shutdown  : Xenops_task.task_handle  -> xs:Xenstore.Xs.xsh -> device -> unit
 
 val can_surprise_remove : xs:Xenstore.Xs.xsh -> device -> bool
 
@@ -161,7 +161,7 @@ sig
 end
 
 module Vkbd :
-sig 
+sig
 	val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> ?backend_domid:int -> ?protocol:protocol -> Xenctrl.domid -> unit
 end
 
@@ -213,16 +213,16 @@ sig
 	val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 	val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 
-	val signal : Xenops_task.t -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> domid:Xenctrl.domid -> ?wait_for:string -> ?param:string
+	val signal : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> domid:Xenctrl.domid -> ?wait_for:string -> ?param:string
 	          -> string -> unit
 
 	val cmdline_of_info: info -> bool -> int -> string list
 
-	val start : Xenops_task.t -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
-	val start_vnconly : Xenops_task.t -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
-	val restore : Xenops_task.t -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
-	val suspend : Xenops_task.t -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
-	val resume : Xenops_task.t -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
+	val start : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
+	val start_vnconly : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
+	val restore : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
+	val suspend : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
+	val resume : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
 	val stop : xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
 end
 
