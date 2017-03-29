@@ -1175,10 +1175,10 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
 				) (fun () -> PCI_DB.signal id)
 		| VM_save_vgpu (vm_id, vgpu_id, data) ->
 			debug "VM.save_vgpu %s" (VGPU_DB.string_of_id vgpu_id);
-			debug "TODO implement VM.save_vgpu"
+			B.VM.save_vgpu t (VM_DB.read_exn vm_id) (VGPU_DB.read_exn vgpu_id) data
 		| VM_restore_vgpu (vm_id, vgpu_id, data) ->
 			debug "VM.restore_vgpu %s" (VGPU_DB.string_of_id vgpu_id);
-			debug "TODO implement VM.restore_vgpu"
+			B.VM.restore_vgpu t (VM_DB.read_exn vm_id) (VGPU_DB.read_exn vgpu_id) data
 		| VM_set_xsdata (id, xsdata) ->
 			debug "VM.set_xsdata (%s, [ %s ])" id (String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xsdata));
 			B.VM.set_xsdata t (VM_DB.read_exn id) xsdata
