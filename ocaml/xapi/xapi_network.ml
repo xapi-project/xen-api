@@ -206,11 +206,12 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~
       let networks = Db.Network.get_all ~__context in
       let bridges = List.map (fun self -> Db.Network.get_bridge ~__context ~self) networks in
       let mTU = if mTU <= 0L then 1500L else mTU in
+      let is_internal_session = Db.Session.get_pool ~__context ~self:(Context.get_session_id __context) in
       let bridge =
         if bridge = "" then
           choose_bridge_name bridges
         else begin
-          if String.length bridge > 15 || List.exists (fun s -> String.startswith s bridge) bridge_blacklist then
+          if not is_internal_session && (String.length bridge > 15 || List.exists (fun s -> String.startswith s bridge) bridge_blacklist) then
             raise (Api_errors.Server_error (Api_errors.invalid_value, [ "bridge"; bridge ]));
           if List.mem bridge bridges then
             raise (Api_errors.Server_error (Api_errors.bridge_name_exists, [ bridge ]));
