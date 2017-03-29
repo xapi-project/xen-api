@@ -1897,7 +1897,7 @@ let update_vgpu ~__context id =
 exception Not_a_xenops_task
 let wrap queue_name id = TaskHelper.Xenops (queue_name, id)
 let unwrap x = match x with | TaskHelper.Xenops (queue_name, id) -> queue_name, id | _ -> raise Not_a_xenops_task
-let register_task __context queue_name id = TaskHelper.register_task __context (wrap queue_name id); id
+let register_task __context ?cancellable queue_name id = TaskHelper.register_task __context ?cancellable (wrap queue_name id); id
 let unregister_task __context queue_name id = TaskHelper.unregister_task __context (wrap queue_name id); id
 
 let update_task ~__context queue_name id =
@@ -2362,11 +2362,11 @@ let update_debug_info __context t =
          debug "Failed to add %s = %s to task %s: %s" k v (Ref.string_of task) (Printexc.to_string e)
     ) debug_info
 
-let sync_with_task_result __context queue_name x =
+let sync_with_task_result __context ?cancellable queue_name x =
   let dbg = Context.string_of_task __context in
-  x |> register_task __context queue_name |> wait_for_task queue_name dbg |> unregister_task __context queue_name |> success_task queue_name (update_debug_info __context) dbg
+  x |> register_task __context ?cancellable queue_name |> wait_for_task queue_name dbg |> unregister_task __context queue_name |> success_task queue_name (update_debug_info __context) dbg
 
-let sync_with_task __context queue_name x = sync_with_task_result __context queue_name x |> ignore
+let sync_with_task __context ?cancellable queue_name x = sync_with_task_result __context ?cancellable queue_name x |> ignore
 
 let sync __context queue_name x =
   let dbg = Context.string_of_task __context in
