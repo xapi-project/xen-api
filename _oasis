@@ -208,7 +208,7 @@ Executable xapi
     pam,
     pciutil,
     pci,
-    xenstore-compat,
+    ezxenstore,
     oclock,
     sha,
     tar,
@@ -230,6 +230,7 @@ Executable xapi
     xcp.network,
     xcp.v6,
     xcp.memory,
+    xcp.updates,
     rrdd-plugin
 
 Executable xe
@@ -285,7 +286,7 @@ Executable quicktestbin
     pam,
     pciutil,
     pci,
-    xenstore-compat,
+    ezxenstore,
     oclock,
     sha,
     tar,
@@ -440,7 +441,7 @@ Executable suite
     pam,
     pciutil,
     pci,
-    xenstore-compat,
+    ezxenstore,
     oclock,
     oUnit,
     sha,
@@ -464,7 +465,8 @@ Executable suite
     xcp.network,
     xcp.v6,
     xcp.memory,
-    rrdd-plugin
+    rrdd-plugin,
+    xenopsd
 
 Test suite
   TestTools: suite

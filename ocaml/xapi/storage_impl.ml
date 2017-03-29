@@ -904,27 +904,16 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 
   module TASK = struct
     open Storage_task
-    let t x = {
-      Task.id = x.id;
-      debug_info = x.dbg;
-      ctime = x.ctime;
-      state = x.state;
-      subtasks = x.subtasks;
-    }
-
     let cancel _ ~dbg ~task =
-      Storage_task.cancel tasks task
+      handle_of_id tasks task |> Storage_task.cancel
     let stat' task =
-      Mutex.execute tasks.m
-        (fun () ->
-           find_locked tasks task |> t
-        )
+      handle_of_id tasks task |> to_interface_task
     let stat _ ~dbg ~task = stat' task
     let destroy' ~task =
-      destroy tasks task;
+      handle_of_id tasks task |> destroy;
       Updates.remove (Dynamic.Task task) updates
     let destroy _ ~dbg ~task = destroy' ~task
-    let list _ ~dbg = list tasks |> List.map t
+    let list _ ~dbg = list tasks |> List.map to_interface_task
   end
 
   module UPDATES = struct

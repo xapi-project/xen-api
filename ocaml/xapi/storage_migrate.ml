@@ -54,7 +54,7 @@ module State = struct
       remote_url : string;
       tapdev : Tapctl.tapdev;
       mutable failed : bool;
-      mutable watchdog : Updates.Scheduler.t option;
+      mutable watchdog : Scheduler.handle option;
     } [@@deriving rpc]
   end
 
@@ -277,8 +277,8 @@ let perform_cleanup_actions =
 
 let progress_callback start len t y =
   let new_progress = start +. (y *. len) in
-  t.Storage_task.state <- Task.Pending new_progress;
-  signal t.Storage_task.id
+  Storage_task.set_state t (Task.Pending new_progress);
+  signal (Storage_task.id_of_handle t)
 
 let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
   let remote_url = Http.Url.of_string url in
@@ -517,7 +517,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
           let stats = Tapctl.stats (Tapctl.create ()) tapdev in
           if stats.Tapctl.Stats.nbd_mirror_failed = 1 then
             Updates.add (Dynamic.Mirror id) updates;
-          alm.State.Send_state.watchdog <- Some (Updates.Scheduler.one_shot (Updates.Scheduler.Delta 5) "tapdisk_watchdog" inner)
+          alm.State.Send_state.watchdog <- Some (Scheduler.one_shot scheduler (Scheduler.Delta 5) "tapdisk_watchdog" inner)
         | None -> ()
       in inner ()
     end;
@@ -776,7 +776,7 @@ let post_detach_hook ~sr ~vdi ~dp =
           State.remove_local_mirror id;
           debug "Removed active local mirror: %s" id
         ) () in
-      Opt.iter (fun id -> Updates.Scheduler.cancel id) r.watchdog;
+      Opt.iter (fun id -> Scheduler.cancel scheduler id) r.watchdog;
       debug "Created thread %d to call receive finalize and dp destroy" (Thread.id t))
 
 let nbd_handler req s sr vdi dp =
@@ -872,9 +872,9 @@ let wrap ~dbg f =
   let _ = Thread.create
       (Debug.with_thread_associated dbg (fun () ->
            Storage_task.run task;
-           signal task.Storage_task.id
+           signal (Storage_task.id_of_handle task)
          )) () in
-  task.Storage_task.id
+  Storage_task.id_of_handle task
 
 let start ~dbg ~sr ~vdi ~dp ~url ~dest =
   wrap ~dbg (fun task -> start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest)

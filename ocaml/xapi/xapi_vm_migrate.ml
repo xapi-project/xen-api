@@ -796,7 +796,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
              debug "%s Remote suspend SR not set, mapping suspend VDI to remote default SR" log_prefix;
              default_sr_ref
            end else if remote_has_default_sr then begin
-             debug "Mapping unspecified VDI to remote default SR";
+             debug "%s Mapping unspecified VDI to remote default SR" log_prefix;
              default_sr_ref
            end else begin
              error "%s VDI not in VDI->SR map and no remote default SR is set" log_prefix;

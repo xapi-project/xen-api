@@ -806,7 +806,6 @@ let server_init() =
           "Registering SMAPIv1 plugins", [Startup.OnlyMaster], Sm.register;
           "Starting SMAPIv1 proxies", [Startup.OnlyMaster], Storage_access.start_smapiv1_servers;
           "Initialising SM state", [], Storage_impl.initialise;
-          "Starting SM internal event service", [], Storage_task.Updates.Scheduler.start;
           "Starting SM service", [], Storage_access.start;
           "Starting SM xapi event service", [], Storage_access.events_from_sm;
           "Killing stray sparse_dd processes", [], Sparse_dd_wrapper.killall;
