@@ -32,6 +32,7 @@ depends: [
   "xenctrl"
   "xenstore"
   "xenstore_transport"
+  "ezxenstore"
   "oasis" {build}
 ]
 depexts: [
