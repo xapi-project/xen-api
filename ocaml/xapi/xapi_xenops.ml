@@ -1985,9 +1985,8 @@ let resync_resident_on ~__context =
 
   (* Get a list of all the ids of VMs that Xapi thinks are resident here *)
   let resident_vms_in_db =
-    List.filter (fun self ->
-        not (Db.VM.get_is_control_domain ~__context ~self)
-      ) (Db.Host.get_resident_VMs ~__context ~self:localhost)
+    Db.Host.get_resident_VMs ~__context ~self:localhost
+    |> List.filter (fun self -> not (Db.VM.get_is_control_domain ~__context ~self))
     |> List.map (fun self -> (id_of_vm ~__context ~self, self)) in
 
   (* Get a list of VMs that the xenopsds know about with their xenopsd client *)
@@ -2030,52 +2029,59 @@ let resync_resident_on ~__context =
       ) resident_vms_in_db in
 
   (* Log the state before we do anything *)
-  let maybe_log_em msg l =
+  let maybe_log_em msg prefix l =
     if List.length l > 0 then begin
       debug "%s" msg;
-      List.iter (fun ((id,_),queue) -> debug "%s (%s)" id queue) l
+      List.iter (fun ((id,_),queue) -> debug "%s %s (%s)" prefix id queue) l
     end
   in
 
 
   maybe_log_em
-    "The following VMs are running in xenopsd that xapi does not know about"
+    "The following VMs are known to xenopsd that xapi does not know about"
+    "In xenopsd but unknown to xapi: "
     xenopsd_vms_not_in_xapi;
 
   maybe_log_em
-    "The following VMs are running in xenopsd but xapi thinks are running elsewhere."
-    xapi_thinks_are_elsewhere; (* This is bad! *)
+    "The following VMs are known to xenopsd but xapi thinks are running elsewhere."
+    "In xenopsd but resident elsewhere: "
+    xapi_thinks_are_elsewhere; (* This is bad if they're running! *)
 
   maybe_log_em
-    "The following VMs are running in xenopsd but xapi thinks are running nowhere."
+    "The following VMs are known to xenopsd but xapi thinks are running nowhere."
+    "In xenopsd but resident nowhere: "
     xapi_thinks_are_nowhere; (* This is pretty bad! *)
 
   if List.length xapi_vms_not_in_xenopsd > 0 then begin
-    debug "The following VMs are not running in xenopsd, but xapi thought they were";
-    List.iter (fun (id,_) -> debug "%s" id) xapi_vms_not_in_xenopsd
+    debug "The following VMs are not known to xenopsd, but xapi thought they should have been";
+    List.iter (fun (id,_) -> debug "Should have been known to xenopsd: %s" id) xapi_vms_not_in_xenopsd
   end;
 
   (* Destroy any VMs running that aren't in Xapi's database, or that xapi
      thinks are running on another host *)
   List.iter (fun ((id, state), queue_name) ->
       let module Client = (val make_client queue_name : XENOPS) in
-      info "VM %s is running here but isn't supposed to be: terminating" id;
-      if state.Vm.power_state <> Halted then
-        Client.VM.shutdown dbg id None |> wait_for_task queue_name dbg |> ignore;
+      info "VM %s is known to xenopsd but isn't supposed to be: terminating" id;
+      if state.Vm.power_state <> Halted then begin
+        info "VM %s was actually running. This can cause data corruption, therefore terminating" id;
+        Client.VM.shutdown dbg id None |> wait_for_task queue_name dbg |> ignore
+      end;
       Client.VM.remove dbg id
     ) (xenopsd_vms_not_in_xapi @ xapi_thinks_are_elsewhere);
 
   (* Sync resident_on state in Xapi for VMs running by local Xenopsds that
-     xapi didn't think were anywhere *)
+     xapi didn't think were anywhere. We set resident_on to be this host so that
+     the events thread will be aware of it. If it's not running, the events thread will
+     remove the metadata from xenopsd and reset resident_on. *)
   List.iter (fun ((id, state), queue_name) ->
       let vm = vm_of_id ~__context id in
-      info "Setting resident_on for VM %s to be this host" id;
+      info "Setting resident_on for VM %s to be this host as xenopsd is aware of it" id;
       Db.VM.set_resident_on ~__context ~self:vm ~value:localhost)
       xapi_thinks_are_nowhere;
 
   (* Sync VM state in Xapi for VMs not running on this host *)
   List.iter (fun (id, vm) ->
-      info "VM %s was running in the DB but isn't any more. Resetting in DB" id;
+      info "VM %s was marked as resident here in the DB but isn't known to xenopsd. Resetting in DB" id;
       Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
       Db.VM.set_resident_on ~__context ~self:vm ~value:Ref.null;
   ) xapi_vms_not_in_xenopsd;
