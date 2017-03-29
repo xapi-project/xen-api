@@ -38,32 +38,32 @@ module Cache = struct
   let invalidate t =
     Mutex.execute t.m
       (fun () ->
-        t.item <- None;
+         t.item <- None;
       )
 
   let get t =
     Mutex.execute t.m
       (fun () ->
-        match t.item with
-        | Some x -> x
-        | None ->
-          let x = t.fn () in
-          t.item <- Some x;
-          x
+         match t.item with
+         | Some x -> x
+         | None ->
+           let x = t.fn () in
+           t.item <- Some x;
+           x
       )
 end
 
 let hostname = Cache.make
-  (fun () ->
-    let h = Unix.gethostname () in
-    Backtrace.set_my_name (Filename.basename(Sys.argv.(0)) ^ " @ " ^ h);
-    h
-  )
+    (fun () ->
+       let h = Unix.gethostname () in
+       Backtrace.set_my_name (Filename.basename(Sys.argv.(0)) ^ " @ " ^ h);
+       h
+    )
 
 let invalidate_hostname_cache () = Cache.invalidate hostname
 
 let get_thread_id () =
-    try Thread.id (Thread.self ()) with _ -> -1 
+  try Thread.id (Thread.self ()) with _ -> -1
 
 module ThreadLocalTable = struct
   type 'a t = {
@@ -83,14 +83,15 @@ module ThreadLocalTable = struct
   let remove t =
     let id = get_thread_id () in
     Mutex.execute t.m (fun () -> Hashtbl.remove t.tbl id)
- 
+
   let find t =
     let id = get_thread_id () in
     Mutex.execute t.m (fun () ->
-      if Hashtbl.mem t.tbl id
-      then Some (Hashtbl.find t.tbl id)
-      else None
-    )
+        try
+          Some (Hashtbl.find t.tbl id)
+        with
+        | _ -> None
+      )
 end
 
 let names = ThreadLocalTable.make ()
@@ -127,21 +128,21 @@ let loglevel = ref default_loglevel
 
 let disabled_modules () =
   Mutex.execute loglevel_m (fun () ->
-    Hashtbl.fold (fun key _ acc -> key :: acc) logging_disabled_for []
-  )
+      Hashtbl.fold (fun key _ acc -> key :: acc) logging_disabled_for []
+    )
 
 let is_disabled brand level =
   Mutex.execute loglevel_m (fun () ->
-    Syslog.is_masked ~threshold:!loglevel level ||
+      Syslog.is_masked ~threshold:!loglevel level ||
       Hashtbl.mem logging_disabled_for (brand, level)
-  )
+    )
 
 let reset_levels () =
   Mutex.execute loglevel_m (fun () ->
-    loglevel := default_loglevel;
-    Hashtbl.clear logging_disabled_for 
-  )
-  
+      loglevel := default_loglevel;
+      Hashtbl.clear logging_disabled_for
+    )
+
 
 let facility = ref Syslog.Daemon
 let facility_m = Mutex.create ()
@@ -196,9 +197,9 @@ let with_thread_named name f x =
     raise e
 
 module StringSet = Set.Make(struct type t=string let compare=Pervasives.compare end)
-let debug_keys = ref StringSet.empty 
+let debug_keys = ref StringSet.empty
 let get_all_debug_keys () =
-	StringSet.fold (fun key keys -> key::keys) !debug_keys []
+  StringSet.fold (fun key keys -> key::keys) !debug_keys []
 
 let dkmutex = Mutex.create ()
 
@@ -209,78 +210,78 @@ end
 let all_levels = [Syslog.Debug; Syslog.Info; Syslog.Warning; Syslog.Err]
 
 let add_to_stoplist brand level =
-	Hashtbl.replace logging_disabled_for (brand, level) ()
+  Hashtbl.replace logging_disabled_for (brand, level) ()
 
 let remove_from_stoplist brand level =
-	Hashtbl.remove logging_disabled_for (brand, level)
+  Hashtbl.remove logging_disabled_for (brand, level)
 
 let disable ?level brand =
-	let levels = match level with
-		| None -> all_levels
-		| Some l -> [l]
-	in
-	Mutex.execute loglevel_m (fun () ->
-		List.iter (add_to_stoplist brand) levels
-	)
+  let levels = match level with
+    | None -> all_levels
+    | Some l -> [l]
+  in
+  Mutex.execute loglevel_m (fun () ->
+      List.iter (add_to_stoplist brand) levels
+    )
 
 let enable ?level brand =
-	let levels = match level with
-		| None -> all_levels
-		| Some l -> [l]
-	in
-	Mutex.execute loglevel_m (fun () ->
-		List.iter (remove_from_stoplist brand) levels
-	)
+  let levels = match level with
+    | None -> all_levels
+    | Some l -> [l]
+  in
+  Mutex.execute loglevel_m (fun () ->
+      List.iter (remove_from_stoplist brand) levels
+    )
 
 let set_level level =
-	Mutex.execute loglevel_m (fun () ->
-		loglevel := level
-	)
+  Mutex.execute loglevel_m (fun () ->
+      loglevel := level
+    )
 
 module type DEBUG = sig
-	val debug : ('a, unit, string, unit) format4 -> 'a
+  val debug : ('a, unit, string, unit) format4 -> 'a
 
-	val warn : ('a, unit, string, unit) format4 -> 'a
+  val warn : ('a, unit, string, unit) format4 -> 'a
 
-	val info : ('a, unit, string, unit) format4 -> 'a
+  val info : ('a, unit, string, unit) format4 -> 'a
 
-	val error : ('a, unit, string, unit) format4 -> 'a
+  val error : ('a, unit, string, unit) format4 -> 'a
 
-	val audit : ?raw:bool -> ('a, unit, string, string) format4 -> 'a
+  val audit : ?raw:bool -> ('a, unit, string, string) format4 -> 'a
 
-	val log_backtrace : unit -> unit
+  val log_backtrace : unit -> unit
 
-	val log_and_ignore_exn : (unit -> unit) -> unit
+  val log_and_ignore_exn : (unit -> unit) -> unit
 end
 
 module Make = functor(Brand: BRAND) -> struct
   let _ =
-    Mutex.execute dkmutex (fun () -> 
-      debug_keys := StringSet.add Brand.name !debug_keys)
+    Mutex.execute dkmutex (fun () ->
+        debug_keys := StringSet.add Brand.name !debug_keys)
 
-	let output level priority (fmt: ('a, unit, string, 'b) format4) =
-		Printf.kprintf
-			(fun s ->
-				if not(is_disabled Brand.name level)
-				then output_log Brand.name level priority s
-			) fmt
-    
-	let debug fmt = output Syslog.Debug "debug" fmt
-	let warn fmt = output Syslog.Warning "warn" fmt
-	let info fmt = output Syslog.Info "info" fmt
-	let error fmt = output Syslog.Err "error" fmt
-	let audit ?(raw=false) (fmt: ('a, unit, string, 'b) format4) =
-		Printf.kprintf
-			(fun s ->
-				let msg = if raw then s else format true Brand.name "audit" s in
-				Syslog.log Syslog.Local6 Syslog.Info msg;
-				msg
-			) fmt
+  let output level priority (fmt: ('a, unit, string, 'b) format4) =
+    Printf.kprintf
+      (fun s ->
+         if not(is_disabled Brand.name level)
+         then output_log Brand.name level priority s
+      ) fmt
 
-	let log_backtrace () =
-		let backtrace = Printexc.get_backtrace () in
-		debug "%s" (String.escaped backtrace)
+  let debug fmt = output Syslog.Debug "debug" fmt
+  let warn fmt = output Syslog.Warning "warn" fmt
+  let info fmt = output Syslog.Info "info" fmt
+  let error fmt = output Syslog.Err "error" fmt
+  let audit ?(raw=false) (fmt: ('a, unit, string, 'b) format4) =
+    Printf.kprintf
+      (fun s ->
+         let msg = if raw then s else format true Brand.name "audit" s in
+         Syslog.log Syslog.Local6 Syslog.Info msg;
+         msg
+      ) fmt
 
-	let log_and_ignore_exn f =
-		try f () with _ -> log_backtrace ()
+  let log_backtrace () =
+    let backtrace = Printexc.get_backtrace () in
+    debug "%s" (String.escaped backtrace)
+
+  let log_and_ignore_exn f =
+    try f () with _ -> log_backtrace ()
 end

@@ -15,6 +15,13 @@ Library xcp
   CSources:           syslog_stubs.c
   BuildDepends:       cmdliner, uri, re, cohttp, xmlm, unix, ppx_sexp_conv, sexplib, ppx_deriving_rpc, rpclib, rpclib.xml, threads, message_switch (>= 0.11.0), message_switch.unix, fd-send-recv, xcp-inventory, xapi-backtrace
 
+Library xcp_updates
+  CompiledObject:     best
+  Path:               lib
+  Findlibname:        updates
+  Findlibparent:      xcp
+  Modules:            Updates, Task_server, Scheduler
+
 Library xcp_storage
   CompiledObject:     best
   Path:               storage
@@ -84,10 +91,10 @@ Executable lib_test
   MainIs:             test.ml
   Custom:             true
   Install:            false
-  BuildDepends:       lwt, lwt.unix, xcp, xcp.xen, threads, rpclib, oUnit
+  BuildDepends:       lwt, lwt.unix, xcp, xcp.xen, threads, rpclib, oUnit, xcp.updates
 
 Test lib_test
-  Command:            ./test.native
+  Command:            ./test.native -runner sequential
   Run:                true
 
 Executable example
