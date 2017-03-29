@@ -4310,6 +4310,11 @@ let host_disable_display printer rpc session_id params =
   let result = Client.Host.disable_display rpc session_id host in
   printer (Cli_printer.PMsg (Record_util.host_display_to_string result))
 
+let set_update_vdi_name rpc session_id update_ref =
+  let update_vdi = Client.Pool_update.get_vdi rpc session_id update_ref in
+  let update_name = Client.Pool_update.get_name_label rpc session_id update_ref in
+  Client.VDI.set_name_label rpc session_id update_vdi (Printf.sprintf "Update: %s" update_name)
+
 let patch_upload fd printer rpc session_id params =
   let filename = List.assoc "file-name" params in
   let make_command task_id =
@@ -4323,6 +4328,8 @@ let patch_upload fd printer rpc session_id params =
   let result = track_http_operation fd rpc session_id make_command "host patch upload" in
   let patch_ref = Ref.of_string result in
   let patch_uuid = Client.Pool_patch.get_uuid rpc session_id patch_ref in
+  let update_ref = Client.Pool_patch.get_pool_update rpc session_id patch_ref in
+  set_update_vdi_name rpc session_id update_ref;
   marshal fd (Command (Print patch_uuid))
 
 let update_upload fd printer rpc session_id params =
@@ -4348,6 +4355,7 @@ let update_upload fd printer rpc session_id params =
       raise e
   in
   let update_uuid = Client.Pool_update.get_uuid rpc session_id update_ref in
+  set_update_vdi_name rpc session_id update_ref;
   marshal fd (Command (Print update_uuid))
 
 let patch_clean printer rpc session_id params =
