@@ -2607,7 +2607,7 @@ let suspend ~__context ~self =
             try
               let dbg = Context.string_of_task __context in
               info "xenops: VM.suspend %s to %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
-              Client.VM.suspend dbg id disk |> sync_with_task __context queue_name;
+              Client.VM.suspend dbg id disk |> sync_with_task __context ~cancellable:false queue_name;
               Events_from_xenopsd.wait queue_name dbg id ();
               Xapi_vm_lifecycle.assert_final_power_state_is ~__context ~self ~expected:`Suspended;
               if not(Db.VM.get_resident_on ~__context ~self = Ref.null) then
@@ -2652,10 +2652,10 @@ let resume ~__context ~self ~start_paused ~force =
                 Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
                   (fun () ->
                      info "xenops: VM.resume %s from %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
-                     Client.VM.resume dbg id disk |> sync_with_task __context queue_name;
+                     Client.VM.resume dbg id disk |> sync_with_task __context ~cancellable:false queue_name;
                      if not start_paused then begin
                        info "xenops: VM.unpause %s" id;
-                       Client.VM.unpause dbg id |> sync_with_task __context queue_name;
+                       Client.VM.unpause dbg id |> sync_with_task __context ~cancellable:false queue_name;
                      end;
                   )
              )
