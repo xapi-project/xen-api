@@ -46,7 +46,7 @@ type id =
 
 val id_to_task_exn : id -> API.ref_task
 val task_to_id_exn : API.ref_task -> id
-val register_task : Context.t -> id -> unit
+val register_task : Context.t -> ?cancellable:bool -> id -> unit
 val unregister_task : Context.t -> id -> unit
 
 

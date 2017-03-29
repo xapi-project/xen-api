@@ -240,16 +240,18 @@ let task_to_id_exn task =
        Hashtbl.find task_to_id_tbl task
     )
 
-let register_task __context id =
+let register_task __context ?(cancellable=true) id =
   let task = Context.get_task_id __context in
   Mutex.execute task_tbl_m
     (fun () ->
        Hashtbl.replace id_to_task_tbl id task;
        Hashtbl.replace task_to_id_tbl task id;
     );
-  (* Since we've bound the XenAPI Task to the xenopsd Task, and the xenopsd Task
-     	   is cancellable, mark the XenAPI Task as cancellable too. *)
-  set_cancellable ~__context;
+  (* We bind the XenAPI Task to the xenopsd Task, which is capable of
+     cancellation at the low level. If this is not desired behavior, overwrite
+     it with the cancellable flag. *)
+  if cancellable then set_cancellable ~__context
+  else set_not_cancellable ~__context;
   ()
 
 let unregister_task __context id =
