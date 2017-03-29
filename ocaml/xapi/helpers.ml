@@ -291,6 +291,13 @@ let call_api_functions_internal ~__context f =
          with e ->
            debug "Helpers.call_api_functions failed to logout: %s (ignoring)" (Printexc.to_string e))
 
+
+(* Note: `test_fn` here is a mechanism for providing an alternative to an API
+   call _only for unit testing_ - if !test_mode above is true this function will
+   call the test code instead of `f`, as API calls currently do not work in the
+   unit test context. This is ONLY intended as a LAST RESORT mechanism if
+   there's no other way of achieving this effect. We should move the code in
+   the direction where this sort of thing is unnecessary. *)
 let test_mode = ref false
 let call_api_functions ~__context ?test_fn f =
   if not !test_mode
