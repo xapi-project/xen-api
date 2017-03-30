@@ -111,7 +111,6 @@ let check_domain_create_has_config_param () =
 let configure bindir sbindir libexecdir scriptsdir etcdir mandir =
   let xenctrl = find_ocamlfind false "xenctrl" in
   let xenlight = find_ocamlfind false "xenlight" in
-  let libvirt = find_ocamlfind false "libvirt" in
   let xen45 = find_seriallist () in
   let xen_4_7 = check_domain_create_has_config_param () in
   let p = Printf.sprintf in
@@ -125,7 +124,6 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir =
     ; p "\tmandir=%s"     mandir
     ; p "\txenctrl=%b"    xenctrl
     ; p "\txenlight=%b"   xenlight
-    ; p "\tlibvirt=%b"    libvirt
     ; p "\txentoollog=%b" xen_4_7
     ; p "" (* new line *)
     ];
@@ -142,7 +140,6 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir =
       Printf.sprintf "MANDIR=%s" mandir;
       Printf.sprintf "ENABLE_XEN=--%s-xen" (if xenctrl then "enable" else "disable");
       Printf.sprintf "ENABLE_XENLIGHT=--%s-xenlight" (if xenlight then "enable" else "disable");
-      Printf.sprintf "ENABLE_LIBVIRT=--%s-libvirt" (if libvirt then "enable" else "disable");
       Printf.sprintf "ENABLE_XENTOOLLOG=--%s-xentoollog" (if not xen_4_7 then "disable" else "enable");
     ] in
   output_file config_mk lines;
