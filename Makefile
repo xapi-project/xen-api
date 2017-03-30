@@ -17,7 +17,6 @@ install: setup.data
 
 uninstall:
 	ocamlfind remove xml-light2
-	ocamlfind remove xenstore-compat
 	ocamlfind remove xenctrlext
 	ocamlfind remove uuid
 	ocamlfind remove stunnel

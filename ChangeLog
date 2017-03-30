@@ -1,3 +1,6 @@
+1.1.0 (23-Mar-2017):
+* Remove xenstore-compat library (please use ezxenstore instead)
+
 1.0.1 (20-Mar-2017):
 * Add explicit unix dependency to uuid library
 * CA-245559: Fix a problem where the http server was reading too much

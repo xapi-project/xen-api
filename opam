@@ -20,7 +20,6 @@ remove: [
   ["ocamlfind" "remove" "stunnel"]
   ["ocamlfind" "remove" "uuid"]
   ["ocamlfind" "remove" "xenctrlext"]
-  ["ocamlfind" "remove" "xenstore-compat"]
   ["ocamlfind" "remove" "xml-light2"]
 ]
 available: [ os = "linux" ]
@@ -33,6 +32,7 @@ depends: [
   "xenctrl"
   "xenstore"
   "xenstore_transport"
+  "ezxenstore"
   "oasis" {build}
 ]
 depexts: [

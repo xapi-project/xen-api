@@ -1,6 +1,6 @@
 OASISFormat:  0.3
 Name:         xen-api-libs-transitional
-Version:      1.0.1
+Version:      1.1.0
 Synopsis:     Temporary set of to-be-deprecated libraries
 License:      LGPL-2.1 with OCaml linking exception
 Authors:      various
@@ -20,18 +20,12 @@ Library gzip
   Modules: Gzip
   BuildDepends: stdext, forkexec, threads
 
-Library xenstore
-  Path: xenstore
-  Findlibname: xenstore-compat
-  Modules: Xenstore, Watch
-  BuildDepends: xenstore.unix, xenstore_transport.unix, threads, stdext
-
 Library xenctrlext
   Path: xenctrlext
   Findlibname: xenctrlext
   Modules: Xenctrlext
   CSources: xenctrlext_stubs.c
-  BuildDepends: xenctrl, xenstore-compat
+  BuildDepends: xenctrl, ezxenstore, threads
 
 Library pciutil
   Path: pciutil
