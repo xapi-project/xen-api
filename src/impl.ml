@@ -668,7 +668,7 @@ let make_stream common source relative_to source_format destination_format =
     Raw_input.raw t
   | _, _ -> assert false
 
-let write_stream common s destination source_protocol destination_protocol prezeroed progress tar_filename_prefix ssl_legacy good_ciphersuites legacy_ciphersuites = 
+let write_stream common s destination source_protocol destination_protocol prezeroed progress tar_filename_prefix ssl_legacy good_ciphersuites legacy_ciphersuites =
   endpoint_of_string destination >>= fun endpoint ->
   let use_ssl = match endpoint with Https _ -> true | _ -> false in
   ( match endpoint with
@@ -703,7 +703,7 @@ let write_stream common s destination source_protocol destination_protocol preze
 
       let open Cohttp in
       ( if use_ssl then Channels.of_ssl_fd sock ssl_legacy good_ciphersuites legacy_ciphersuites else Channels.of_raw_fd sock ) >>= fun c ->
-  
+
       let module Request = Request.Make(Cohttp_unbuffered_io) in
       let module Response = Response.Make(Cohttp_unbuffered_io) in
       let headers = Header.init () in
@@ -879,17 +879,36 @@ let serve_chunked_to_raw _ c dest _ _ _ _ =
     end in
   loop ()
 
+(* If we're using unbuffered IO, we write in whole sectors. We therefore might
+  need to extend the cstruct to the next sector boundary *)
+let round_up_to_sector unbuffered len =
+  if unbuffered then
+    let sector_size = 512 in
+    (((len - 1) / sector_size) + 1) * sector_size
+  else
+    len
+
 let serve_raw_to_raw common size c dest _ progress _ _ =
   let twomib = 2 * 1024 * 1024 in
   let buffer = IO.alloc twomib in
   let p = progress size in
   let rec loop offset remaining =
-    let this = Int64.(to_int (min remaining (of_int (Cstruct.len buffer)))) in
-    let block = Cstruct.sub buffer 0 this in
-    c.Channels.really_read block >>= fun () ->
+    let n = Int64.(to_int (min remaining (of_int (Cstruct.len buffer)))) in
+    let rounded_n = round_up_to_sector common.unbuffered n in
+    (* Create a buffer of the rounded-up size *)
+    let block = Cstruct.sub buffer 0 rounded_n in
+    begin
+      if n <> rounded_n
+      then Vhd_lwt.IO.really_read dest offset block
+      else Lwt.return ()
+    end >>= fun () ->
+    (* Create a cstruct that's an alias to the above block,
+       but only as long as the amount of data we're expecting *)
+    let block2 = Cstruct.sub block 0 n in
+    c.Channels.really_read block2 >>= fun () ->
     Vhd_lwt.IO.really_write dest offset block >>= fun () ->
-    let offset = Int64.(add offset (of_int this)) in
-    let remaining = Int64.(sub remaining (of_int this)) in begin
+    let offset = Int64.(add offset (of_int n)) in
+    let remaining = Int64.(sub remaining (of_int n)) in begin
       p Int64.(sub size remaining);
       if remaining > 0L
       then loop offset remaining
