@@ -20,5 +20,6 @@ depends: [
   "xenctrl"
   "xenstore"
   "xenstore_transport"
+  "ezxenstore"
 ]
 available: [ocaml-version >= "4.01.0"]
