@@ -36,7 +36,7 @@ setup.data: setup.ml
 	$(SETUP) -configure $(CONFIGUREFLAGS)
 
 setup.ml: _oasis
-	oasis setup
+	oasis setup -setup-update dynamic
 
 configure:
 	$(SETUP) -configure $(CONFIGUREFLAGS)
