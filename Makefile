@@ -24,7 +24,7 @@ setup.bin: setup.ml
 	@rm -f setup.cmx setup.cmi setup.o setup.cmo
 
 setup.data: setup.bin
-	@./setup.bin -configure $(ENABLE_TESTS) $(ENABLE_XEN) $(ENABLE_XENLIGHT) $(ENABLE_LIBVIRT) $(ENABLE_XENGUESTBIN)
+	@./setup.bin -configure $(ENABLE_TESTS) $(ENABLE_XEN) $(ENABLE_XENLIGHT) $(ENABLE_LIBVIRT) $(ENABLE_XENGUESTBIN) $(ENABLE_XENTOOLLOG)
 
 _build/config.ml: config.ml
 	@mkdir -p _build

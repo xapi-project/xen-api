@@ -1,14 +1,23 @@
-opam-version: "1"
-maintainer: "dave.scott@eu.citrix.com"
+opam-version: "1.2"
+maintainer: "xen-api@lists.xen.org"
+authors: "xen-api@lists.xen.org"
+homepage: "https://github.com/xapi-project/xenopsd"
 build: [
-  ["./configure" "--bindir" "%{bin}%" "--sbindir" "%{bin}%" "--libexecdir" "%{bin}%" "--scriptsdir" "%{bin}%" "--etcdir" "%{prefix}%/etc" "--mandir" "%{man}%"]
-  [make]
-  [make "install"]
+	["oasis" "setup"]
+	["./configure"]
+  ["ocaml" "setup.ml" "-configure" "--disable-libvirt"]
+	[make]
 ]
-remove: [make "uninstall"]
+install: [
+ 	["ocaml" "setup.ml" "-install"]
+]
+remove: [
+        ["oasis" "setup"]
+        ["ocaml" "setup.ml" "-uninstall"]
+        ["ocamlfind" "remove" "xenopsd"]
+]
 depends: [
-  "cppo"
-  "oasis"
+  "oasis" {build}
   "ocamlfind"
   "xmlm"
   "uuidm"
@@ -18,18 +27,16 @@ depends: [
   "uri"
   "re"
   "rpc"
-  "xapi-idl" {>= "0.12.0"}
+  "xapi-idl"
   "xapi-forkexecd"
   "xapi-stdext"
   "fd-send-recv"
   "sexplib"
   "xenstore"
   "xenstore_transport"
-  "xenctrl" {>= "0.9.25"}
-  "qmp"
+  "xenctrl"
   "oclock"
   "xapi-inventory"
-  "bisect_ppx"
+  "ezxenstore"
 ]
-depopts: "libvirt" {> "0.6.1.2"}
-ocaml-version: [>= "4.01.0"]
+depopts: "libvirt"
