@@ -82,15 +82,14 @@ let expand start finish input output =
 
 let output_file filename lines =
   let oc = open_out filename in
-  let lines = List.map (fun line -> line ^ "\n") lines in
-  List.iter (output_string oc) lines;
+  List.iter (fun line -> Printf.fprintf oc "%s\n" line) lines;
   close_out oc
 
 let cc c_program =
   let c_file = Filename.temp_file "configure" ".c" in
   let o_file = c_file ^ ".o" in
   output_file c_file c_program;
-  let found = Sys.command (Printf.sprintf "cc -Werror -c %s -o %s %s" c_file o_file "2>/dev/null") = 0 in
+  let found = Sys.command (Printf.sprintf "cc -Werror -c %s -o %s 2>/dev/null" c_file o_file) = 0 in
   if Sys.file_exists c_file then Sys.remove c_file;
   if Sys.file_exists o_file then Sys.remove o_file;
   found
@@ -100,8 +99,8 @@ let check_domain_create_has_config_param () =
     "#include <stdlib.h>";
     "#include <xenctrl.h>";
     "#include <xenguest.h>";
-    "int main(int argc, const char *argv){";
-    "  int r = xc_domain_create(0, 0, 0, 0, 0, 0);";
+    "int main(int argc, char *argv[]){";
+    "  xc_domain_create(0, 0, 0, 0, 0, 0);";
     "  return 0;";
     "}";
   ] in
@@ -115,8 +114,21 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir =
   let libvirt = find_ocamlfind false "libvirt" in
   let xen45 = find_seriallist () in
   let xen_4_7 = check_domain_create_has_config_param () in
-
-  Printf.printf "Configuring with:\n\tbindir=%s\n\tsbindir=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tetcdir=%s\n\tmandir=%s\n\txenctrl=%b\n\txenlight=%b\n\tlibvirt=%b\n\txentoollog=%b\n\n" bindir sbindir libexecdir scriptsdir etcdir mandir xenctrl xenlight libvirt xen_4_7;
+  let p = Printf.sprintf in
+  List.iter print_endline
+    [ "Configure with"
+    ; p "\tbindir=%s"     bindir
+    ; p "\tsbindir=%s"    sbindir
+    ; p "\tlibexecdir=%s" libexecdir
+    ; p "\tscriptsdir=%s" scriptsdir
+    ; p "\tetcdir=%s"     etcdir
+    ; p "\tmandir=%s"     mandir
+    ; p "\txenctrl=%b"    xenctrl
+    ; p "\txenlight=%b"   xenlight
+    ; p "\tlibvirt=%b"    libvirt
+    ; p "\txentoollog=%b" xen_4_7
+    ; p "" (* new line *)
+    ];
 
   (* Write config.mk *)
   let lines =
