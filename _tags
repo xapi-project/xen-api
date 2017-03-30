@@ -1,5 +1,11 @@
+# START_COVERAGE
+# coverage analysis with bisect_ppx
+# compile and link with package bisect_ppx
+<**/*.ml{,i,y}>: pkg_bisect_ppx
+<**/*.native>:   pkg_bisect_ppx
+# END_COVERAGE
 # OASIS_START
-# DO NOT EDIT (digest: f1be0ee0fb23188ef5cc0b1401fa1c2a)
+# DO NOT EDIT (digest: c653a60545f17cb6cbe118337e0e86e4)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -315,62 +321,6 @@ true: annot, bin_annot
 <simulator/*.ml{,i,y}>: use_profiling
 <simulator/*.ml{,i,y}>: use_xenopsd
 <simulator/xenops_simulator_main.{native,byte}>: custom
-# Executable xenopsd_libvirt_main
-<libvirt/xenops_libvirt_main.{native,byte}>: oasis_executable_xenopsd_libvirt_main_byte
-<libvirt/*.ml{,i,y}>: oasis_executable_xenopsd_libvirt_main_byte
-<libvirt/xenops_libvirt_main.{native,byte}>: oasis_executable_xenopsd_libvirt_main_native
-<libvirt/*.ml{,i,y}>: oasis_executable_xenopsd_libvirt_main_native
-<libvirt/xenops_libvirt_main.{native,byte}>: package(cohttp)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(fd-send-recv)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(forkexec)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(libvirt)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(oclock)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(ppx_deriving_rpc)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(ppx_sexp_conv)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(rpclib)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(sexplib)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(threads)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(threads.posix)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(uri)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(uuidm)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(uutf)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(xcp)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(xcp.storage)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(xcp.updates)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(xcp.xen)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(xenstore)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(xenstore.unix)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(xenstore_transport)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(xenstore_transport.unix)
-<libvirt/xenops_libvirt_main.{native,byte}>: package(xmlm)
-<libvirt/xenops_libvirt_main.{native,byte}>: use_profiling
-<libvirt/xenops_libvirt_main.{native,byte}>: use_xenopsd
-<libvirt/*.ml{,i,y}>: package(cohttp)
-<libvirt/*.ml{,i,y}>: package(fd-send-recv)
-<libvirt/*.ml{,i,y}>: package(forkexec)
-<libvirt/*.ml{,i,y}>: package(libvirt)
-<libvirt/*.ml{,i,y}>: package(oclock)
-<libvirt/*.ml{,i,y}>: package(ppx_deriving_rpc)
-<libvirt/*.ml{,i,y}>: package(ppx_sexp_conv)
-<libvirt/*.ml{,i,y}>: package(rpclib)
-<libvirt/*.ml{,i,y}>: package(sexplib)
-<libvirt/*.ml{,i,y}>: package(threads)
-<libvirt/*.ml{,i,y}>: package(threads.posix)
-<libvirt/*.ml{,i,y}>: package(uri)
-<libvirt/*.ml{,i,y}>: package(uuidm)
-<libvirt/*.ml{,i,y}>: package(uutf)
-<libvirt/*.ml{,i,y}>: package(xcp)
-<libvirt/*.ml{,i,y}>: package(xcp.storage)
-<libvirt/*.ml{,i,y}>: package(xcp.updates)
-<libvirt/*.ml{,i,y}>: package(xcp.xen)
-<libvirt/*.ml{,i,y}>: package(xenstore)
-<libvirt/*.ml{,i,y}>: package(xenstore.unix)
-<libvirt/*.ml{,i,y}>: package(xenstore_transport)
-<libvirt/*.ml{,i,y}>: package(xenstore_transport.unix)
-<libvirt/*.ml{,i,y}>: package(xmlm)
-<libvirt/*.ml{,i,y}>: use_profiling
-<libvirt/*.ml{,i,y}>: use_xenopsd
-<libvirt/xenops_libvirt_main.{native,byte}>: custom
 # Executable xenopsd_xenlight_main
 <xl/xenops_xl_main.{native,byte}>: oasis_executable_xenopsd_xenlight_main_cclib
 "xl/libxenopsd_xenlight_main_stubs.lib": oasis_executable_xenopsd_xenlight_main_cclib

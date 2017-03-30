@@ -24,7 +24,7 @@ setup.bin: setup.ml
 	@rm -f setup.cmx setup.cmi setup.o setup.cmo
 
 setup.data: setup.bin
-	@./setup.bin -configure $(ENABLE_TESTS) $(ENABLE_XEN) $(ENABLE_XENLIGHT) $(ENABLE_LIBVIRT) $(ENABLE_XENGUESTBIN) $(ENABLE_XENTOOLLOG)
+	@./setup.bin -configure $(ENABLE_TESTS) $(ENABLE_XEN) $(ENABLE_XENLIGHT) $(ENABLE_XENGUESTBIN) $(ENABLE_XENTOOLLOG)
 
 _build/config.ml: config.ml
 	@mkdir -p _build
@@ -35,10 +35,6 @@ build: setup.data setup.bin version.ml _build/config.ml
 ifeq ($(ENABLE_XENLIGHT),--enable-xenlight)
 	ln -s ./xenops_xl_main.native xenopsd-xenlight || true
 	./xenopsd-xenlight --help=groff > xenopsd-xenlight.1
-endif
-ifeq ($(ENABLE_LIBVIRT),--enable-libvirt)
-	ln -s ./xenops_libvirt_main.native xenopsd-libvirt || true
-	./xenopsd-libvirt --help=groff > xenopsd-libvirt.1
 endif
 	ln -s ./xenops_simulator_main.native xenopsd-simulator || true
 	./xenopsd-simulator --help=groff > xenopsd-simulator.1
@@ -56,10 +52,6 @@ install:
 ifeq ($(ENABLE_XENLIGHT),--enable-xenlight)
 	install -D ./xenops_xl_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-xenlight
 	install -D ./xenopsd-xenlight.1 $(DESTDIR)/$(MANDIR)/man1/xenopsd-xenlight.1
-endif
-ifeq ($(ENABLE_LIBVIRT),--enable-libvirt)
-	install -D ./xenops_libvirt_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-libvirt
-	install -D ./xenopsd-libvirt.1 $(DESTDIR)/$(MANDIR)/man1/xenopsd-libvirt.1
 endif
 	install -D ./xenops_simulator_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 	install -D ./xenopsd-simulator.1 $(DESTDIR)/$(MANDIR)/man1/xenopsd-simulator.1
@@ -83,11 +75,9 @@ reinstall: install
 
 uninstall:
 	@ocamlfind remove $(NAME) || true
-	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-libvirt
 	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-xenlight
 	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-xc
 	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
-	rm -f $(DESTDIR)/$(MANDIR)/man1/xenopsd-libvirt.1
 	rm -f $(DESTDIR)/$(MANDIR)/man1/xenopsd-xenlight.1
 	rm -f $(DESTDIR)/$(MANDIR)/man1/xenopsd-xc.1
 	rm -f $(DESTDIR)/$(MANDIR)/man1/xenopsd-simluator.1

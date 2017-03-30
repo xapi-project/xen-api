@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 189a9bd4804dfffec77bd194ca76ce31) *)
+(* DO NOT EDIT (digest: 6392f37f8ea22bfe89331ffacc76b3a0) *)
 module OASISGettext = struct
 (* # 22 "src/oasis/OASISGettext.ml" *)
 
@@ -1065,48 +1065,6 @@ let package_default =
               "native"
            ],
             [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
-          ([
-              "oasis_executable_xenopsd_libvirt_main_byte";
-              "ocaml";
-              "link";
-              "byte"
-           ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
-          ([
-              "oasis_executable_xenopsd_libvirt_main_native";
-              "ocaml";
-              "link";
-              "native"
-           ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
-          ([
-              "oasis_executable_xenopsd_libvirt_main_byte";
-              "ocaml";
-              "ocamldep";
-              "byte"
-           ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
-          ([
-              "oasis_executable_xenopsd_libvirt_main_native";
-              "ocaml";
-              "ocamldep";
-              "native"
-           ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
-          ([
-              "oasis_executable_xenopsd_libvirt_main_byte";
-              "ocaml";
-              "compile";
-              "byte"
-           ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
-          ([
-              "oasis_executable_xenopsd_libvirt_main_native";
-              "ocaml";
-              "compile";
-              "native"
-           ],
-            [(OASISExpr.EBool true, S [A "-warn-error"; A "+a-3"])]);
           (["oasis_executable_xenopsd_xenlight_main_cclib"; "link"],
             [
                (OASISExpr.EBool true, S []);
@@ -1170,7 +1128,6 @@ let package_default =
           ("tools", ["profiling"]);
           ("test", ["lib"]);
           ("simulator", ["lib"; "profiling"]);
-          ("libvirt", ["lib"; "profiling"]);
           ("lib", ["profiling"])
        ]
   }
@@ -1180,7 +1137,7 @@ let conf = {MyOCamlbuildFindlib.no_automatic_syntax = false}
 
 let dispatch_default = MyOCamlbuildBase.dispatch_default conf package_default;;
 
-# 1184 "myocamlbuild.ml"
+# 1141 "myocamlbuild.ml"
 (* OASIS_STOP *)
 Ocamlbuild_plugin.dispatch
     (fun hook ->

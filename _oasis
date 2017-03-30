@@ -18,10 +18,6 @@ Flag xenlight
   Description:        Build server with xenlight support
   Default:            true
 
-Flag libvirt
-  Description:        build server with libvirt support
-  Default:            false
-
 Flag simulator
   Description:        Build server with simulator support
   Default:            true
@@ -177,25 +173,6 @@ Executable xenopsd_simulator
   Install:            false
   BuildDepends:
     xenopsd,
-    profiling
-
-Executable xenopsd_libvirt_main
-  CompiledObject:     best
-  Path:               libvirt
-  ByteOpt:            -warn-error +a-3
-  NativeOpt:          -warn-error +a-3
-  MainIs:             xenops_libvirt_main.ml
-  Build$:             flag(libvirt)
-  Custom:             true
-  Install:            false
-  BuildDepends:
-    xenopsd,
-    rpclib,
-    forkexec,
-    xcp,
-    xcp.storage,
-    sexplib,
-    libvirt,
     profiling
 
 Executable xenopsd_xenlight_main

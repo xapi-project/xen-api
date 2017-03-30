@@ -38,5 +38,5 @@ depends: [
   "oclock"
   "xapi-inventory"
   "ezxenstore"
+  "bisect_ppx"
 ]
-depopts: "libvirt"
