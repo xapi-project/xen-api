@@ -972,7 +972,9 @@ let serve common_options source source_fd source_format source_protocol destinat
           let size = match destination_size with
             | None -> Vhd_lwt.File.get_file_size path
             | Some x -> x in
-          return (fd, size)
+          if size=0L
+          then fail (Failure "Non-zero size required (either a pre-existing destination file or specified via --destination-size on the command line)")
+          else return (fd, size)
         | _ -> failwith (Printf.sprintf "Not implemented: writing to destination %s" destination) ) >>= fun (destination_fd, size) ->
       let fn = match source_format, source_protocol with
         | "raw", NoProtocol -> serve_raw_to_raw common_options size
