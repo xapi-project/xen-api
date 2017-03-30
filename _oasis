@@ -14,7 +14,7 @@ Library xenops
   Modules:            Io, Memory, Netman, Statdev, Xenops_helpers, Xenstore_watch
   ByteOpt:            -bin-annot
   NativeOpt:          -bin-annot
-  BuildDepends:       xcp, xenctrl, xenstore, xenstore_transport.unix, uuid, xenstore-compat, threads
+  BuildDepends:       xcp, xenctrl, xenstore, xenstore_transport.unix, uuid, ezxenstore, threads
   CSources:           statdev_stubs.c
   CCOpt:              -Wno-unused-function -g -ggdb
 
