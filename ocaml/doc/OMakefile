@@ -10,15 +10,15 @@ doc-html: jsapi
 
 .PHONY: doc-html-install
 doc-html-install: doc-html
-	mkdir -p $(SDK)/docs/html/xcp
-	sh -c 'cp -r -L api $(SDK)/docs/html/xcp/'
-	sh -c 'cp -r -L content $(SDK)/docs/html/xcp/ || true'
-	cp *.js *.html *.css *.png $(SDK)/docs/html/xcp/
+	mkdir -p $(DESTDIR)$(DOCDIR)/html/xcp
+	sh -c 'cp -r -L api $(DESTDIR)$(DOCDIR)/html/xcp/'
+	sh -c 'cp -r -L content $(DESTDIR)$(DOCDIR)/html/xcp/ || true'
+	cp *.js *.html *.css *.png $(DESTDIR)$(DOCDIR)/html/xcp/
 
-	mkdir -p $(SDK)/docs/html/xenserver
-	sh -c 'cp -r -L api $(SDK)/docs/html/xenserver/'
-	cp *.js *.html *.css *.png $(SDK)/docs/html/xenserver/
-	cp xenserver/* $(SDK)/docs/html/xenserver/
+	mkdir -p $(DESTDIR)$(DOCDIR)/html/xenserver
+	sh -c 'cp -r -L api $(DESTDIR)$(DOCDIR)/html/xenserver/'
+	cp *.js *.html *.css *.png $(DESTDIR)$(DOCDIR)/html/xenserver/
+	cp xenserver/* $(DESTDIR)$(DOCDIR)/html/xenserver/
 
 noarch-install: doc-html-install
 
