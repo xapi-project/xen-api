@@ -34,10 +34,10 @@ let start path handler =
       (fun () ->
          Lwt_unix.accept fd_sock >>= fun (fd_sock2,_) ->
          let buffer = String.make 16384 '\000' in
-         let iov = Lwt_unix.io_vector buffer 0 16384 in
+         let iov = Lwt_unix.io_vector ~buffer ~offset:0 ~length:16384 in
          (
-           try Lwt_unix.recv_msg fd_sock2 [iov] 
-           with e ->
+           try Lwt_unix.recv_msg ~socket:fd_sock2 ~io_vectors:[iov] 
+           with _ ->
              Lwt_unix.close fd_sock2 >>= fun () -> 
              Lwt.return (0,[])
          ) >>= fun (len,newfds) ->
@@ -55,7 +55,7 @@ let start path handler =
   in
   loop ()
 
-let proxy (fd : Lwt_unix.file_descr) protocol ty localport =
+let proxy (fd : Lwt_unix.file_descr) protocol _ty localport =
   let open LwtWsIteratee in
   let open Lwt_support in
   let (frame,unframe) =
@@ -79,7 +79,7 @@ let proxy (fd : Lwt_unix.file_descr) protocol ty localport =
   Lwt.catch 
     (fun () -> Lwt.join [thread1; thread2] >>= fun _ -> 
       Lwt_unix.close fd)
-    (fun e -> Lwt.return ())
+    (fun _ -> Lwt.return ())
 
 let handler sock msg =
   Lwt_io.printf "Got msg: %s\n" msg >>= fun _ ->

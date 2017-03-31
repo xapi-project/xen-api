@@ -47,7 +47,7 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
       read_int8 >>= fun sz ->
       return (sz >= 128, sz land 0x7f)
     in
-    let rec read_size sz = 
+    let read_size sz = 
       if sz < 126 
       then return sz
       else if sz = 126 then
@@ -89,7 +89,7 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
     match s with 
     | IE_cont (None, k) ->
       begin    
-        heads "\x00" >>= fun n ->
+        heads "\x00" >>= fun _ ->
         break ((=) '\xff') >>= fun str -> 
         drop 1 >>= fun () -> 
         liftI (IO.bind (k (Iteratees.Chunk str)) (fun (i,_) ->

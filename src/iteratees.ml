@@ -16,7 +16,7 @@ open Helpers
 
 type err = string
 
-type stream = 
+type stream =
   | Eof of err option
   | Chunk of string
 
@@ -31,7 +31,7 @@ module type Monad = sig
 
   val return : 'a -> 'a t
   val bind : 'a t -> ('a -> 'b t) -> 'b t
-end      
+end
 
 module Iteratee (IO : Monad) = struct
   type 'a t =
@@ -43,14 +43,14 @@ module Iteratee (IO : Monad) = struct
   let rec bind i f =
     match i with
     | IE_done result -> f result
-    | IE_cont (e, k) -> 
-      let docase = function 
-        | (IE_done x, stream) -> 
+    | IE_cont (e, k) ->
+      let docase = function
+        | (IE_done x, stream) ->
           begin match f x with
-            | IE_cont (None, k) -> k stream 
+            | IE_cont (None, k) -> k stream
             | x -> IO.return (x, stream)
           end
-        | (x, stream) -> 
+        | (x, stream) ->
           IO.return (bind x f, stream)
       in
       IE_cont (e, fun s -> IO.bind (k s) docase)
@@ -62,18 +62,18 @@ module Iteratee (IO : Monad) = struct
   let ie_errM msg k x = IO.return (IE_cont (Some msg, k), x)
 
   let state = function
-    | IE_done result -> "Done"
-    | IE_cont (None,_) -> "Ready"
+    | IE_done _           -> "Done"
+    | IE_cont (None,_)    -> "Ready"
     | IE_cont (Some e, _) -> Printf.sprintf "Error (%s)" e
 
   (* Simplest iteratees *)
 
   let rec peek =
-    let step st = 
-      match st with 
+    let step st =
+      match st with
       | Chunk s ->
-        if String.length s = 0 
-        then IO.return (peek, st) 
+        if String.length s = 0
+        then IO.return (peek, st)
         else IO.return (IE_done (Some s.[0]), st)
       | _ -> IO.return (IE_done None, st)
     in
@@ -83,18 +83,18 @@ module Iteratee (IO : Monad) = struct
     let rec step st =
       match st with
       | Chunk s ->
-        if String.length s = 0 
+        if String.length s = 0
         then IO.return (head, st)
         else IO.return (IE_done (Some s.[0]), Chunk (String.sub s 1 (String.length s - 1)))
       | _ -> IO.return (IE_cont ((Some "Eof"),step), st)
-    in 
+    in
     IE_cont (None, step)
 
-  let writer really_write name =
-    let rec step st = 
+  let writer really_write _ =
+    let rec step st =
       match st with
       | Chunk s ->
-        IO.bind (really_write s) 
+        IO.bind (really_write s)
           (fun () -> IO.return (IE_cont (None, step), Chunk ""))
       | Eof _ ->
         IO.return (IE_done (), st)
@@ -107,9 +107,9 @@ module Iteratee (IO : Monad) = struct
     let rec step before st =
       match st with
       | Chunk "" -> ie_contM (step before) st
-      | Chunk s -> 
+      | Chunk s ->
         begin
-          match break pred s with 
+          match break pred s with
           | (_,"") -> ie_contM (step (before^s)) (Chunk "")
           | (str,tail) -> ie_doneM (before^str) (Chunk tail)
         end
@@ -117,43 +117,43 @@ module Iteratee (IO : Monad) = struct
     in IE_cont (None, step "")
 
   let heads str =
-    let rec step cnt str stream = 
-      match (stream,str) with 
-      | _, "" 
+    let rec step cnt str stream =
+      match (stream,str) with
+      | _, ""
       | Eof _, _ -> IO.return (IE_done cnt, stream)
       | Chunk s, str ->
-        if String.length s = 0 
+        if String.length s = 0
         then IO.return (IE_cont (None, step 0 str), stream)
         else
-        if s.[0]=str.[0] 
-        then let (hd,tl) = split str 1 in step (cnt+1) tl (Chunk (snd (split s 1)))
+        if s.[0]=str.[0]
+        then let (_, tl) = split str 1 in step (cnt+1) tl (Chunk (snd (split s 1)))
         else IO.return (IE_done cnt, stream)
     in
     IE_cont (None, step 0 str)
 
-  let rec drop = function
+  let drop = function
     | 0 -> IE_done ()
     | n -> begin
         let rec step n st = match st with
-          | Chunk s -> 
-            let len = String.length s in 
-            if len < n 
-            then ie_contM (step (n-len)) (Chunk "") 
+          | Chunk s ->
+            let len = String.length s in
+            if len < n
+            then ie_contM (step (n-len)) (Chunk "")
             else ie_doneM () (Chunk (String.sub s n (len-n)))
-          | Eof _ -> ie_doneM () st 
+          | Eof _ -> ie_doneM () st
         in IE_cont (None, step n)
       end
 
-  let rec readn = function 
+  let readn = function
     | 0 -> IE_done ""
     | n -> begin
-        let rec step acc n st =  
+        let rec step acc n st =
           match st with
           | Chunk s ->
             let len = String.length s in
-            if len < n 
+            if len < n
             then ie_contM (step (acc^s) (n-len)) (Chunk "")
-            else 
+            else
               let (s1,s2) = split s n in
               ie_doneM (acc^s1) (Chunk s2)
           | Eof _ -> ie_errM "EOF" (step acc n) st
@@ -164,9 +164,9 @@ module Iteratee (IO : Monad) = struct
   let read_int16 = readn 2 >>= (fun s -> return (unmarshal_int16 s))
   let read_int32 = readn 4 >>= (fun s -> return (unmarshal_int32 s))
 
-  let drop_while pred = 
+  let drop_while pred =
     let rec step st = match st with
-      | Chunk s -> 
+      | Chunk s ->
         let news = str_drop_while pred s in
         if news="" 
         then ie_contM step (Chunk "")
@@ -178,7 +178,7 @@ module Iteratee (IO : Monad) = struct
 
   let accumulate =
     let rec step acc st = match st with
-      | Chunk s -> 
+      | Chunk s ->
         ie_contM (step (acc^s)) (Chunk "")
       | Eof _ -> ie_doneM acc st
     in IE_cont (None, step "")
@@ -192,7 +192,7 @@ module Iteratee (IO : Monad) = struct
     in IE_cont (None, step)
 
   let liftI m = 
-    let rec step st i =
+    let step st i =
       match i with
       | IE_cont (None, k) -> k st
       | IE_cont (Some _, _) | IE_done _ -> IO.return (i,st)
@@ -207,13 +207,13 @@ module Iteratee (IO : Monad) = struct
 
   (* Simplest enumarator *)
 
-  let enum_eof i = 
-    let result = 
+  let enum_eof i =
+    let result =
       match i with
       | IE_cont (None, f) -> IO.bind (f (Eof None)) (fun x -> IO.return (fst x))
       | _ -> IO.return i
     in
-    IO.bind result (function 
+    IO.bind result (function
         | IE_done _ -> result
         | IE_cont (Some _, _) -> result
         | _ -> failwith "Divergent Iteratee")
@@ -222,12 +222,12 @@ module Iteratee (IO : Monad) = struct
     | IE_cont (None, f) -> IO.bind (f (Chunk str)) (fun x -> IO.return (fst x))
     | x -> IO.return x
 
-  let rec enum_nchunk str n = 
+  let rec enum_nchunk str n =
     if str="" then (fun x -> IO.return x) else
       let (str1,str2) = split str n in
       function
-      | IE_cont (None, f) -> 
-        IO.bind (IO.bind (f (Chunk str1)) 
+      | IE_cont (None, f) ->
+        IO.bind (IO.bind (f (Chunk str1))
                    (fun x -> IO.return (fst x))) (enum_nchunk str2 n)
       | x -> IO.return x
 
@@ -237,41 +237,41 @@ module Iteratee (IO : Monad) = struct
 
   type 'a enumeratee = 'a t -> ('a t) t
 
-  let rec take = 
+  let rec take =
     let step n k s =
       match s with
       | Chunk str ->
         let len = String.length str in
         if len < n
         then
-          IO.bind (k s) (fun (i, _) -> 
+          IO.bind (k s) (fun (i, _) ->
               IO.return (take (n-len) i, Chunk ""))
-        else 
+        else
           let (str1,str2) = split str n in
           IO.bind (k (Chunk str1)) (fun (i,_) ->
               IO.return (IE_done i, Chunk str2))
-      | Eof _ -> 
-        IO.bind (k s) (fun (i, _) -> IO.return (IE_done i, s))	    
+      | Eof _ ->
+        IO.bind (k s) (fun (i, _) -> IO.return (IE_done i, s))
     in
-    function 
+    function
     | 0 -> return
-    | n -> 
-      fun s -> match s with 
+    | n ->
+      fun s -> match s with
         | IE_cont (None,k) -> IE_cont (None, (step n k))
-        | IE_cont (Some _, _) 
+        | IE_cont (Some _, _)
         | IE_done _ -> bind (drop n) (fun () -> return s)
 
   let stream_printer name =
     let rec step k s =
       Printf.printf "%s: %s\n" name (string_of_stream s);
       IO.bind (k s) (fun i ->
-          match i with 
+          match i with
           | (IE_cont (None, f), s) -> IO.return (IE_cont (None, step f), s)
           | (IE_cont (err, f), s) -> IO.return (IE_cont (err, step f), s)
           | (i, s) -> IO.return (IE_done i, s))
-    in fun s -> match s with 
+    in fun s -> match s with
       | IE_cont (None,k) -> IE_cont (None, (step k))
-      | IE_cont (Some _, _) 
+      | IE_cont (Some _, _)
       | IE_done _ -> return s
 
   let modify f =
@@ -287,15 +287,15 @@ module Iteratee (IO : Monad) = struct
       | Eof _ ->
         IO.bind (k s) (fun (i,_) -> IO.return (IE_done i, s))
     in fun s -> match s with
-      | IE_cont (None, k) -> 
+      | IE_cont (None, k) ->
         IE_cont (None, step k)
       | IE_cont (Some _, _) ->
-        return s	  
+        return s
       | IE_done _ -> return s
 
   type 'a either = Left of 'a | Right of 'a
 
-  let read_lines = 
+  let read_lines =
     let (>>=) = bind in
     let iscrlf = function | '\r' | '\n' -> true | _ -> false in
     let terminators = heads "\r\n" >>= function | 0 -> heads "\n" | n -> return n in
