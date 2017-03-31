@@ -1,6 +1,0 @@
-S src
-B _build
-PKG lwt
-PKG lwt.ppx
-PKG lwt.unix
-PKG re.str
