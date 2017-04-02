@@ -1,7 +1,7 @@
-.PHONY: all clean install build test reinstall uninstall distclean
+.PHONY: all clean install build test libinstall reinstall uninstall distclean
 all: build
 
-NAME=xenops
+NAME=xenopsd
 J=4
 
 ENABLE_TESTS=--enable-tests
@@ -47,8 +47,10 @@ test: build
 version.ml: VERSION
 	echo "let version = \"$(shell cat VERSION)\"" > lib/version.ml
 
-install:
+libinstall: build
 	@./setup.bin -install
+
+install: libinstall
 ifeq ($(ENABLE_XENLIGHT),--enable-xenlight)
 	install -D ./xenops_xl_main.native $(DESTDIR)/$(SBINDIR)/xenopsd-xenlight
 	install -D ./xenopsd-xenlight.1 $(DESTDIR)/$(MANDIR)/man1/xenopsd-xenlight.1
