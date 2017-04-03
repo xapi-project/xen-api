@@ -1,7 +1,9 @@
 PKG oUnit
-PKG stdext cdrom forkexec xcp xapi-libs-transitional http-svr netdev threads uuid sha1 oPasswd
+PKG ppx_deriving_rpc rpclib ppx_sexp_conv sexpr threads http-svr gzip uuid xcp xml-light2 uuid xcp xcp-inventory oPasswd pciutil pci ezxenstore oclock sha tar tar.unix tapctl xenctrl xcp.rrd xcp.storage xcp.xen xcp.network xcp.v6 xcp.memory rrdd-plugin cdrom netdev stdext stunnel systemd xapi-test-utils
 B +threads
 S ./
 B ./
 S ./**
 B ./**
+S ../_build/ocaml/**
+B ../_build/ocaml/**
