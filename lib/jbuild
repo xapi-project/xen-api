@@ -1,0 +1,18 @@
+(jbuild_version 1)
+
+(library (
+  (name stdext)
+  (public_name stdext)
+  (flags (:standard -w -3))
+  (c_names (blkgetsize_stubs
+            unixext_open_stubs
+            unixext_stubs
+            unixext_write_stubs
+            zerocheck_stub))
+  (libraries (threads
+              uuidm
+              unix
+              fd-send-recv
+              bigarray
+              xapi-backtrace))
+  ))
