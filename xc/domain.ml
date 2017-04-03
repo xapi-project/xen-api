@@ -1068,8 +1068,18 @@ let restore_vgpu (task: Xenops_task.task_handle) ~xc ~xs domid fd vgpu vcpus =
 
 type suspend_flag = Live | Debug
 
-let write_libxc_record (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback =
+let write_libxc_record ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest_path ~domid
+	~uuid ~fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback =
 	let fd_uuid = Uuid.(to_string (create `V4)) in
+
+	let vgpu_args, vgpu_cmdline =
+		match vgpu_fd with
+		| Some fd ->
+			let vgpu_fd_uuid = Uuid.(to_string (create `V4)) in
+			[vgpu_fd_uuid, fd],
+			["-dm"; "vgpu:" ^ vgpu_fd_uuid]
+		| None -> [], []
+	in
 
 	let cmdline_to_flag flag =
 		match flag with
@@ -1083,9 +1093,11 @@ let write_libxc_record (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_pat
 		"-mode"; if hvm then "hvm_save" else "save";
 		"-domid"; string_of_int domid;
 		"-fork"; "true";
-	] @ (List.concat flags') in
+	] @ (List.concat flags') @ vgpu_cmdline in
 
-	XenguestHelper.with_connection task xenguest_path domid xenguestargs [ fd_uuid, fd ]
+	let fds = [fd_uuid, fd] @ vgpu_args in
+
+	XenguestHelper.with_connection task xenguest_path domid xenguestargs fds
 		(fun cnx ->
 		debug "VM = %s; domid = %d; waiting for xenguest to call suspend callback" (Uuid.to_string uuid) domid;
 
@@ -1170,7 +1182,7 @@ let write_qemu_record domid uuid legacy_libxc fd =
  * and is in charge to suspend the domain when called. the whole domain
  * context is saved to fd
  *)
-let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path vm_str domid fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path vm_str domid fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
 	let module DD = Debug.Make(struct let name = "mig64" end) in
 	let open DD in
 	let uuid = get_uuid ~xc domid in
@@ -1199,8 +1211,8 @@ let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path vm_str do
 		let libxc_header = (if legacy_libxc then Libxc_legacy else Libxc) in
 		write_header fd (libxc_header, 0L) >>= fun () ->
 		debug "Writing Libxc record";
-		write_libxc_record task ~xc ~xs ~hvm xenguest_path domid uuid fd flags
-			progress_callback qemu_domid do_suspend_callback;
+		write_libxc_record ~task ~xc ~xs ~hvm ~xenguest_path ~domid ~uuid ~fd ~vgpu_fd ~flags
+			~progress_callback ~qemu_domid ~do_suspend_callback;
 		(* Qemu record (if this is a hvm domain) *)
 		(* Currently Qemu suspended inside above call with the libxc memory
 		* image, we should try putting it below in the relevant section of the

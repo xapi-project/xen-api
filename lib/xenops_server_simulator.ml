@@ -150,7 +150,7 @@ let request_shutdown_nolock vm reason () =
 	Updates.add (Dynamic.Vm vm.Vm.id) updates;
 	true
 
-let save_nolock vm _ data () =
+let save_nolock vm _ data vgpu_data () =
 	DB.write vm.Vm.id { (DB.read_exn vm.Vm.id) with Domain.suspended = true }
 
 let restore_nolock vm vbds vifs data extras () =
@@ -373,7 +373,7 @@ module VM = struct
 	let request_shutdown _ vm reason ack_delay = Mutex.execute m (request_shutdown_nolock vm reason)
 	let wait_shutdown _ vm reason timeout = true
 
-	let save _ cb vm flags data = Mutex.execute m (save_nolock vm flags data)
+	let save _ cb vm flags data vgpu_data = Mutex.execute m (save_nolock vm flags data vgpu_data)
 	let restore _ cb vm vbds vifs data extras = Mutex.execute m (restore_nolock vm vbds vifs data extras)
 
 	let s3suspend _ vm = ()

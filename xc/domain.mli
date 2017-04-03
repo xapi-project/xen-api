@@ -158,7 +158,9 @@ type suspend_flag = Live | Debug
 
 (** suspend a domain into the file descriptor *)
 val suspend: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> string -> string -> domid
-          -> Unix.file_descr -> suspend_flag list
+          -> Unix.file_descr
+          -> Unix.file_descr option
+          -> suspend_flag list
           -> ?progress_callback: (float -> unit)
 		  -> qemu_domid: int
           -> (unit -> unit) -> unit

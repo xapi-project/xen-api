@@ -2549,7 +2549,7 @@ module VM = struct
 			)
 		| FD fd -> f fd
 
-	let save task progress_callback vm flags data =
+	let save task progress_callback vm flags data vgpu_data =
 		let open Xenlight.Dominfo in
 		on_domain
 			(fun xc xs (task:Xenops_task.task_handle) vm di _ ->
