@@ -989,6 +989,8 @@ let _ =
     ~doc:"Host cannot attach network (in the case of NIC bonding, this may be because attaching the network on this host would require other networks [that are currently active] to be taken down)." ();
   error Api_errors.vm_requires_vdi [ "vm"; "vdi" ]
     ~doc:"VM cannot be started because it requires a VDI which cannot be attached" ();
+  error Api_errors.vm_has_no_suspend_vdi [ "vm" ]
+    ~doc:"VM cannot be resumed because it has no suspend VDI" ();
   error Api_errors.vm_migrate_failed [ "vm"; "source"; "destination"; "msg" ]
     ~doc:"An error occurred during the migration process." ();
   error Api_errors.vm_has_too_many_snapshots [ "vm" ]
