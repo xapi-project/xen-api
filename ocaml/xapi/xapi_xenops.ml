@@ -2697,6 +2697,11 @@ let resume ~__context ~self ~start_paused ~force =
        if vm_exists_in_xenopsd queue_name dbg vm_id then
          raise (Bad_power_state (Running, Suspended));
        let vdi = Db.VM.get_suspend_VDI ~__context ~self in
+       if vdi = Ref.null then begin
+         info "VM suspend VDI not found; Performing VM hard_shutdown";
+         Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:`Halted;
+         raise Api_errors.(Server_error(vm_has_no_suspend_vdi, ["VM"; Ref.string_of self]))
+       end;
        let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
        let module Client = (val make_client queue_name : XENOPS) in
        (* NB we don't set resident_on because we don't want to
