@@ -1556,8 +1556,15 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 
 					debug "Synchronisation point 1";
 
-					let save_vm_then_handshake ?vgpu_data () = (
-						let atom = VM_save (id, [ Live ], FD mem_fd, vgpu_data) in
+					let save_vm_then_handshake ?vgpu () = (
+						let atom = match vgpu with
+							| Some (vgpu_id, vgpu_fd) ->
+								let save = VM_save (id, [ Live ], FD mem_fd, Some (FD vgpu_fd)) in
+								let save_vgpu = VM_save_vgpu (id, vgpu_id, FD vgpu_fd) in
+								Parallel (id, Printf.sprintf "VM.save+save_vgpu vm=%s" id, [save; save_vgpu])
+							| None ->
+								VM_save (id, [ Live ], FD mem_fd, None)
+						in
 						perform_atomics [atom] t;
 						debug "Synchronisation point 2";
 
@@ -1577,19 +1584,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 						let vgpu_url = make_url "/migrate-vgpu/" (VGPU_DB.string_of_id vgpu_id) in
 						Open_uri.with_open_uri vgpu_url (fun vgpu_fd ->
 							do_request vgpu_fd [] vgpu_url;
-							debug "Synchronisation point 1.5";
-
-							perform_atomics [VM_save_vgpu (id, vgpu_id, FD vgpu_fd)] t;
-
-							(* Use mem_fd for all handshaking *)
-							begin match Handshake.recv mem_fd with
-								| Handshake.Success -> ()
-								| Handshake.Error msg ->
-									error "cannot transmit vgpu to host: %s" msg;
-									raise (Internal_error msg)
-							end;
-
-							save_vm_then_handshake ~vgpu_data:(FD vgpu_fd) ()
+							save_vm_then_handshake ~vgpu:(vgpu_id, vgpu_fd) ()
 						)
 					| _ -> raise (Internal_error "Migration of a VM with more than one VGPU is not supported.")
 				);
@@ -2204,8 +2199,7 @@ module VM = struct
 					end else
 						Some (queue_operation dbg vm_id op)
 				in
-				Opt.iter (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore) task;
-				Xenops_migrate.(Handshake.send transferred_fd Handshake.Success)
+				Opt.iter (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore) task
 			| None ->
 				let headers = Cohttp.Header.of_list [
 					"User-agent", "xenopsd"
