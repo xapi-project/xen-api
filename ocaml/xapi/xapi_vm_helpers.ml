@@ -298,7 +298,12 @@ let assert_can_see_SRs ~__context ~self ~host =
   let vdis = List.map (fun self -> Db.VBD.get_VDI ~__context ~self) vbds in
   (* If VM is currently suspended then consider the suspend_VDI. Note both power_state and the suspend VDI
      	   are stored in R/O fields, not the last_boot_record *)
-  let suspend_vdi = if Db.VM.get_power_state ~__context ~self =`Suspended then [ Db.VM.get_suspend_VDI ~__context ~self ] else [] in
+  let suspend_vdi =
+    if Db.VM.get_power_state ~__context ~self = `Suspended then
+      let vdi = Db.VM.get_suspend_VDI ~__context ~self in
+      if vdi = Ref.null then [] else [vdi]
+    else []
+  in
   let reqd_srs = List.map (fun self -> Db.VDI.get_SR ~__context ~self) (vdis @ suspend_vdi) in
   let not_available = which_specified_SRs_not_available_on_host ~__context ~reqd_srs ~host in
   if not_available <> []
