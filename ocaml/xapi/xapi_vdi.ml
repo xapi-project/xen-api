@@ -517,7 +517,11 @@ let destroy ~__context ~self =
       List.iter (fun vbd ->
           Helpers.log_exn_continue (Printf.sprintf "destroying VBD: %s" (Ref.string_of vbd))
             (fun vbd -> Db.VBD.destroy ~__context ~self:vbd) vbd) vbds;
-      (* Db.VDI.destroy ~__context ~self *)
+
+      (* If VDI destroyed is suspend VDI of VM then set the suspend_VDI field as null ref *)
+      let open Db_filter_types in
+      Db.VM.get_refs_where ~__context ~expr:(Eq (Field "suspend_VDI", Literal (Ref.string_of self)))
+      |> List.iter (fun self -> Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null);
     end
 
 let resize_online ~__context ~vdi ~size =
