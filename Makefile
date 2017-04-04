@@ -45,12 +45,12 @@ _build/config.ml: config.ml
 build: setup.data setup.bin version.ml _build/config.ml
 	@./setup.bin -build -j $(J)
 ifeq ($(ENABLE_XENLIGHT),--enable-xenlight)
-	ln -s ./xenops_xl_main.native xenopsd-xenlight || true
+	ln -sf ./xenops_xl_main.native xenopsd-xenlight
 	./xenopsd-xenlight --help=groff > xenopsd-xenlight.1
 endif
-	ln -s ./xenops_simulator_main.native xenopsd-simulator || true
+	ln -sf ./xenops_simulator_main.native xenopsd-simulator
 	./xenopsd-simulator --help=groff > xenopsd-simulator.1
-	ln -s ./xenops_xc_main.native xenopsd-xc || true
+	ln -sf ./xenops_xc_main.native xenopsd-xc
 	./xenopsd-xc --help=groff > xenopsd-xc.1
 
 test: build
