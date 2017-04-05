@@ -111,29 +111,35 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
         raise (Api_errors.Server_error (code, ["The pool uses v6d. Pool edition list = " ^ pool_edn_list_str]))
   in
 
-  (* CA-73264 Applied patches must match *)
-  let assert_applied_patches_match () =
-    let get_patches patches get_pool_patch get_uuid =
-      let patch_refs = List.map (fun x -> get_pool_patch ~self:x) patches in
-      let patch_uuids = List.map (fun x -> get_uuid ~self:x) patch_refs in
-      patch_uuids in
-    let pool_patches = get_patches
-        (Client.Host.get_patches ~rpc ~session_id ~self:(get_master ~rpc ~session_id))
-        (Client.Host_patch.get_pool_patch ~rpc ~session_id)
-        (Client.Pool_patch.get_uuid ~rpc ~session_id) in
-    let host_patches = get_patches
-        (Db.Host.get_patches ~__context ~self:(Helpers.get_localhost ~__context))
-        (Db.Host_patch.get_pool_patch ~__context) (Db.Pool_patch.get_uuid ~__context) in
-    let string_of_patches ps = (String.concat " " (List.map (fun patch -> patch) ps)) in
-    let diff = (List.set_difference host_patches pool_patches) @
-               (List.set_difference pool_patches host_patches)in
-    if (List.length diff > 0) then begin
-      error "Pool.join failed because of patches mismatch";
-      error "Remote has %s" (string_of_patches pool_patches);
-      error "Local has %s" (string_of_patches host_patches);
-      raise (Api_errors.Server_error(Api_errors.pool_hosts_not_homogeneous,
-                                     [(Printf.sprintf "Patches applied differ: Remote has %s -- Local has %s"
-                                         (string_of_patches pool_patches) (string_of_patches host_patches))]))
+  let assert_api_version_matches () =
+    let master = get_master rpc session_id in
+    let candidate_slave = Helpers.get_localhost ~__context in
+    let master_major = Client.Host.get_API_version_major ~rpc ~session_id ~self:master in
+    let master_minor = Client.Host.get_API_version_minor ~rpc ~session_id ~self:master in
+    let slave_major = Db.Host.get_API_version_major ~__context ~self:candidate_slave in
+    let slave_minor = Db.Host.get_API_version_minor ~__context ~self:candidate_slave in
+    if master_major <> slave_major || master_minor <> slave_minor then
+    begin
+      error "The joining host's API version is %Ld.%Ld while the master's is %Ld.%Ld"
+        slave_major slave_minor master_major master_minor;
+      raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_same_api_version,
+        [Printf.sprintf "%Ld.%Ld" slave_major slave_minor; Printf.sprintf "%Ld.%Ld" master_major master_minor;]))
+    end
+  in
+
+  let assert_db_schema_matches () =
+    let master = get_master rpc session_id in
+    let candidate_slave = Helpers.get_localhost ~__context in
+    let master_sw_version = Client.Host.get_software_version ~rpc ~session_id ~self:master in
+    let slave_sw_version = Db.Host.get_software_version ~__context ~self:candidate_slave in
+    let master_db_schema = try List.assoc Xapi_globs._db_schema master_sw_version with _ -> "" in
+    let slave_db_schema = try List.assoc Xapi_globs._db_schema slave_sw_version with _ -> "" in
+    if master_db_schema = "" || slave_db_schema = "" ||  master_db_schema <> slave_db_schema then
+    begin
+        error "The joining host's database schema is %s; the master's is %s"
+          slave_db_schema master_db_schema;
+        raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_same_db_schema,
+          [slave_db_schema; master_db_schema]))
     end
   in
 
@@ -347,7 +353,9 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_external_auth_matches ();
   assert_restrictions_match ();
   assert_homogeneous_vswitch_configuration ();
-  assert_applied_patches_match ();
+  (* CA-247399: check first the API version and then the database schema *)
+  assert_api_version_matches ();
+  assert_db_schema_matches ();
   assert_homogeneous_primary_address_type ()
 
 let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) : API.ref_host =

@@ -879,6 +879,10 @@ let _ =
     ~doc:"The pool failed to disable the external authentication of at least one host." ();
   error Api_errors.pool_auth_disable_failed_permission_denied ["host";"message"]
     ~doc:"The pool failed to disable the external authentication of at least one host." ();
+  error Api_errors.pool_joining_host_must_have_same_api_version ["host_api_version";"master_api_version"]
+    ~doc:"The host joining the pool must have the same API version as the pool master." ();
+  error Api_errors.pool_joining_host_must_have_same_db_schema ["host_db_schema";"master_db_schema"]
+    ~doc:"The host joining the pool must have the same database schema as the pool master." ();
 
   (* External directory service *)
   error Api_errors.subject_cannot_be_resolved []
