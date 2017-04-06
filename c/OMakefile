@@ -29,7 +29,7 @@
 #
 
 API_MAJOR=2
-API_MINOR=6
+API_MINOR=7
 
 section
   OCamlProgram(gen_c_binding, gen_c_binding helper ../licence ../CommonFunctions)
