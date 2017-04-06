@@ -11,6 +11,7 @@ env:
         - CONTAINER_NAME=build-env
         - OCAMLRUNPARAM=b
         - REPO_PACKAGE_NAME=xapi
+        - GIT_BRANCH=falcon
         - REPO_CONFIGURE_CMD=./configure
         - REPO_BUILD_CMD=make
         - REPO_TEST_CMD='make test'
