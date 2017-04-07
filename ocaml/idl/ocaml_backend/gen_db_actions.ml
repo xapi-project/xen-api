@@ -448,7 +448,7 @@ let db_action api : O.Module.t =
 (** Generate a signature for the Server.Make functor. It should have one
     field per member in the user-facing API (not the special full 'DB api')
     which has no custom action. The signature will be smaller than the
-    db_actions signature but the db_actions module will be compatable with it *)
+    db_actions signature but the db_actions module will be compatible with it *)
 let make_db_defaults_api = Dm_api.filter (fun _ -> true) (fun _ -> true)
     (fun x -> not(Gen_empty_custom.operation_requires_side_effect x))
 

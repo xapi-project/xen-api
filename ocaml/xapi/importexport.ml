@@ -79,7 +79,7 @@ let this_version __context =
 
 (** Raises an exception if a prospective import cannot be handled by this code.
     This will get complicated over time... *)
-let assert_compatable ~__context other_version =
+let assert_compatible ~__context other_version =
   let this_version = this_version __context in
   let error() =
     error "Import version is incompatible";
