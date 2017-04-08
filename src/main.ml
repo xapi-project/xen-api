@@ -86,8 +86,8 @@ let with_attached_vdi sr vdi read_write f =
 
 let handle_connection fd =
   let rpc = make !uri in
-  let channel = Nbd_lwt_channel.of_fd fd in
-  Nbd_lwt_server.connect channel ()
+  let channel = Nbd_lwt_unix.of_fd fd in
+  Nbd_lwt_unix.Server.connect channel ()
   >>= fun (name, t) ->
   let uri = Uri.of_string name in
   ( match Uri.user uri, Uri.password uri, Uri.get_query_param uri "session_id" with
@@ -114,7 +114,7 @@ let handle_connection fd =
       >>= fun sr_uuid ->
       with_attached_vdi sr_uuid vdi_rec.API.vDI_location (not vdi_rec.API.vDI_read_only)
         (fun filename -> 
-          with_block filename (Nbd_lwt_server.serve t (module Block))
+          with_block filename (Nbd_lwt_unix.Server.serve t (module Block))
         )
     finally
       if need_to_logout
