@@ -96,8 +96,8 @@ let handle_connection fd =
       Session.get_uuid rpc x x
       >>= fun _ ->
       return (x, false)
-    | Some user, Some password, _ ->
-      Session.login_with_password rpc user password "1.0"
+    | Some uname, Some pwd, _ ->
+      Session.login_with_password ~rpc ~uname ~pwd ~version:"1.0" ~originator:"xapi-nbd"
       >>= fun session_id ->
       return (session_id, true)
     | _, _, _ ->
