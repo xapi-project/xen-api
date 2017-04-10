@@ -47,7 +47,7 @@ An XCP host shall contain a single logical *message switch*. Each service
 shall maintain a single *session* with the switch. Associated with the
 session there will be set of individual *links* (connections)
 managed via a shared library (available in python or OCaml). Link-level messages
-will allow the creation and destruction of named *message queues" and
+will allow the creation and destruction of named *message queues* and
 the creation and destruction of binary messages. All messages are
 unidirectional so we shall have a well-known convention for bidirectional
 Remote Procedure Calls, based on how OpenStack uses AMQP. Regular link-level
