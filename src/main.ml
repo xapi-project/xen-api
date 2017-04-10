@@ -86,8 +86,8 @@ let with_attached_vdi sr vdi read_write f =
 
 let handle_connection fd =
   let rpc = make !uri in
-  let channel = Nbd_lwt_channel.of_fd fd in
-  Nbd_lwt_server.connect channel ()
+  let channel = Nbd_lwt_unix.of_fd fd in
+  Nbd_lwt_unix.Server.connect channel ()
   >>= fun (name, t) ->
   let uri = Uri.of_string name in
   ( match Uri.user uri, Uri.password uri, Uri.get_query_param uri "session_id" with
@@ -96,30 +96,32 @@ let handle_connection fd =
       Session.get_uuid rpc x x
       >>= fun _ ->
       return (x, false)
-    | Some user, Some password, _ ->
-      Session.login_with_password rpc user password "1.0"
+    | Some uname, Some pwd, _ ->
+      Session.login_with_password ~rpc ~uname ~pwd ~version:"1.0" ~originator:"xapi-nbd"
       >>= fun session_id ->
       return (session_id, true)
     | _, _, _ ->
       fail (Failure "No suitable authentication provided")
   ) >>= fun (session_id, need_to_logout) ->
-  ( try_lwt
-      let path = Uri.path uri in (* note preceeding / *)
-      let vdi_uuid = if path <> "" then String.sub path 1 (String.length path - 1) else path in
-      VDI.get_by_uuid rpc session_id vdi_uuid
-      >>= fun vdi_ref ->
-      VDI.get_record rpc session_id vdi_ref 
-      >>= fun vdi_rec ->
-      SR.get_uuid rpc session_id vdi_rec.API.vDI_SR
-      >>= fun sr_uuid ->
-      with_attached_vdi sr_uuid vdi_rec.API.vDI_location (not vdi_rec.API.vDI_read_only)
-        (fun filename -> 
-          with_block filename (Nbd_lwt_server.serve t (module Block))
-        )
-    finally
-      if need_to_logout
-      then Session.logout rpc session_id
-      else return ()
+  ( Lwt.finalize
+      (fun () ->
+        let path = Uri.path uri in (* note preceeding / *)
+        let vdi_uuid = if path <> "" then String.sub path 1 (String.length path - 1) else path in
+        VDI.get_by_uuid rpc session_id vdi_uuid
+        >>= fun vdi_ref ->
+        VDI.get_record rpc session_id vdi_ref
+        >>= fun vdi_rec ->
+        SR.get_uuid rpc session_id vdi_rec.API.vDI_SR
+        >>= fun sr_uuid ->
+        with_attached_vdi sr_uuid vdi_rec.API.vDI_location (not vdi_rec.API.vDI_read_only)
+          (fun filename ->
+            with_block filename (Nbd_lwt_unix.Server.serve t (module Block))
+          )
+      )
+      (fun () ->
+        if need_to_logout
+        then Session.logout rpc session_id
+        else return ())
   )
 
 let main port =
@@ -129,18 +131,22 @@ let main port =
     let sockaddr = Lwt_unix.ADDR_INET(Unix.inet_addr_any, port) in
     Lwt_unix.bind sock sockaddr;
     Lwt_unix.listen sock 5;
-    while_lwt true do
-      Lwt_unix.accept sock
-      >>= fun (fd, _) ->
-      (* Background thread per connection *)
-      let _ =
-        Lwt.catch
-          (fun () -> handle_connection fd)
-          (fun e -> Printf.fprintf stderr "Caught %s\n%!" (Printexc.to_string e); return ())
-        >>= fun () ->
-        Lwt_unix.close fd in
-      return ()
-    done in
+    let rec loop () =
+      begin
+        Lwt_unix.accept sock
+        >>= fun (fd, _) ->
+        (* Background thread per connection *)
+        let _ =
+          Lwt.catch
+            (fun () -> handle_connection fd)
+            (fun e -> Printf.fprintf stderr "Caught %s\n%!" (Printexc.to_string e); return ())
+          >>= fun () ->
+          Lwt_unix.close fd in
+        return ()
+      end >>= loop
+    in
+    loop ()
+  in
   Lwt_main.run t;
 
   `Ok ()
