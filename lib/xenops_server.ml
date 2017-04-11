@@ -1698,9 +1698,18 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 		| None -> one op
 		| Some name -> Xenops_task.with_subtask t name (fun () -> one op)
 
+let uses_mxgpu id =
+	List.exists (fun vgpu_id ->
+		let vgpu = VGPU_DB.read_exn vgpu_id in
+		match vgpu.Vgpu.implementation with
+		| Vgpu.MxGPU _ -> true
+		| _ -> false
+	) (VGPU_DB.ids id)
+
 let queue_operation_int dbg id op =
 	let task = Xenops_task.add tasks dbg (let r = ref None in fun t -> perform ~result:r op t; !r) in
-	Redirector.push Redirector.default id (op, task);
+	let tag = if uses_mxgpu id then "mxgpu" else id in
+	Redirector.push Redirector.default tag (op, task);
 	task
 
 let queue_operation dbg id op =
