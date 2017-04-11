@@ -15,6 +15,7 @@
 module Client = Xs_client_unix.Client(Xs_transport_unix_client)
 let make_client () =
 	try
+		Client.set_logger (fun s -> Logs.debug (fun m -> m "Xs_client_unix: %s" s));
 		Client.make ()
 	with e ->
 		Logs.err (fun m -> m "Failed to connect to xenstore. The raw error was: %s" (Printexc.to_string e));
