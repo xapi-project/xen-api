@@ -25,6 +25,9 @@ type domid = int
 type incompatibility_reason = Host_driver | Guest_driver | GPU | Other
 type compatibility = Compatible | Incompatible of incompatibility_reason list
 
+exception NvmlInterfaceNotAvailable
+exception NvmlFailure of string
+
 (** Get the metadata for a pGPU, given its address (PCI bus ID). *)
 external get_pgpu_metadata: debug_info -> pgpu_address -> pgpu_metadata = ""
 
