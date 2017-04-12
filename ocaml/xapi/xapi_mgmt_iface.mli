@@ -23,7 +23,7 @@ val wait_for_management_ip : __context:Context.t -> string
 
 (** Called anywhere we suspect dom0's networking (hostname, IP address) has been changed
     underneath us (eg by dhclient) *)
-val on_dom0_networking_change : __context:Context.t -> unit
+val on_dom0_networking_change : __context:Context.t -> startup:bool -> unit
 
 (** Update the inventory file with the given interface (used for management traffic). *)
 val change : string -> [< `IPv4 | `IPv6 ] -> unit
