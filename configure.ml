@@ -85,34 +85,26 @@ let output_file filename lines =
   List.iter (fun line -> Printf.fprintf oc "%s\n" line) lines;
   close_out oc
 
-let cc c_program =
-  let c_file = Filename.temp_file "configure" ".c" in
-  let o_file = c_file ^ ".o" in
-  output_file c_file c_program;
-  let found = Sys.command (Printf.sprintf "cc -Werror -c %s -o %s 2>/dev/null" c_file o_file) = 0 in
-  if Sys.file_exists c_file then Sys.remove c_file;
-  if Sys.file_exists o_file then Sys.remove o_file;
-  found
-
-let check_domain_create_has_config_param () =
+let find_xentoollog verbose =
   let c_program = [
-    "#include <stdlib.h>";
-    "#include <xenctrl.h>";
-    "#include <xenguest.h>";
-    "int main(int argc, char *argv[]){";
-    "  xc_domain_create(0, 0, 0, 0, 0, 0);";
+    "int main(int argc, const char *argv){";
     "  return 0;";
     "}";
   ] in
-  let found = cc c_program in
-  Printf.printf "Looking for config parameter on xc_domain_create: %s\n" (if found then "ok" else "missing");
+  let c_file = Filename.temp_file "configure" ".c" in
+  let exe_file = c_file ^ ".exe" in
+  output_file c_file c_program;
+  let found = Sys.command (Printf.sprintf "cc -Werror %s -lxentoollog -o %s %s" c_file exe_file (if verbose then "" else "2>/dev/null")) = 0 in
+  if Sys.file_exists c_file then Sys.remove c_file;
+  if Sys.file_exists exe_file then Sys.remove exe_file;
+  Printf.printf "Looking for xentoollog: %s\n" (if found then "found" else "missing");
   found
 
 let configure bindir sbindir libexecdir scriptsdir etcdir mandir =
   let xenctrl = find_ocamlfind false "xenctrl" in
   let xenlight = find_ocamlfind false "xenlight" in
   let xen45 = find_seriallist () in
-  let xen_4_7 = check_domain_create_has_config_param () in
+  let xentoollog = find_xentoollog false in
   let p = Printf.sprintf in
   List.iter print_endline
     [ "Configure with"
@@ -124,7 +116,7 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir =
     ; p "\tmandir=%s"     mandir
     ; p "\txenctrl=%b"    xenctrl
     ; p "\txenlight=%b"   xenlight
-    ; p "\txentoollog=%b" xen_4_7
+    ; p "\txentoollog=%b" xentoollog
     ; p "" (* new line *)
     ];
 
@@ -140,7 +132,7 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir =
       Printf.sprintf "MANDIR=%s" mandir;
       Printf.sprintf "ENABLE_XEN=--%s-xen" (if xenctrl then "enable" else "disable");
       Printf.sprintf "ENABLE_XENLIGHT=--%s-xenlight" (if xenlight then "enable" else "disable");
-      Printf.sprintf "ENABLE_XENTOOLLOG=--%s-xentoollog" (if not xen_4_7 then "disable" else "enable");
+      Printf.sprintf "ENABLE_XENTOOLLOG=--%s-xentoollog" (if xentoollog then "enable" else "disable");
     ] in
   output_file config_mk lines;
   (* Expand @LIBEXEC@ in udev rules *)
