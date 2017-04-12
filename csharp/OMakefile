@@ -39,7 +39,7 @@ dist: gen_csharp_binding
   mkdir -p autogen/src/Properties
   mkdir -p autogen/gui
   mkdir -p autogen/samples
-  ./gen_csharp_binding -s $(SR_XML) -d autogen
+  ./gen_csharp_binding -r ../FriendlyErrorNames.resx -s $(SR_XML) -d autogen
   #source
   mv autogen/XenObjectDownloader.cs autogen/gui 
   sh subst-autogen-csproj.sh autogen src/XenServer.csproj autogen/src/XenServer.csproj

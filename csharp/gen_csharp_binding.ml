@@ -50,19 +50,21 @@ module TypeSet = Set.Make(struct
 let open_source' = ref false
 let destdir'    = ref ""
 let sr_xml'     = ref ""
+let resx_file'  = ref ""
 
 
 let usage () =
   Printf.sprintf "
 Usage:
 
-    %s -s/--srxml=<filename> -d/--dest=<destdir> [-o/--open]
+    %s -r=<resxfilename> -s=<filename> -d=<destdir> [-o]
 
   where
 
-        --srxml specifies the location of the XE_SR_ERRORCODES.xml file;
-        --open requests a version of the API filtered for open source; and
-        --dest specifies the destination directory for the generated files.
+        -r specifies the location of the FriendlyErrorNames.resx file;
+        -s specifies the location of the XE_SR_ERRORCODES.xml file;
+        -o requests a version of the API filtered for open source; and
+        -d specifies the destination directory for the generated files.
 " Sys.argv.(0)
 
 
@@ -78,6 +80,7 @@ let get_deprecated_attribute message =
 let _ =
   Arg.parse
     [
+      "-r", Arg.Set_string resx_file', "specifies the location of the FriendlyErrorNames.resx file";
       "-s", Arg.Set_string sr_xml', "specifies the location of the XE_SR_ERRORCODES.xml file";
       "-o", Arg.Set open_source', "requests a version of the API filtered for open source";
       "-d", Arg.Set_string destdir', "specifies the destination directory for the generated files";
@@ -88,6 +91,7 @@ let _ =
 let open_source = !open_source'
 let destdir = !destdir'
 let sr_xml = !sr_xml'
+let resx_file = !resx_file'
 
 
 let api =
@@ -1912,7 +1916,7 @@ and i18n_footer out_chan =
 "</root>\n"
 and gen_i18n_errors () =
   Friendly_error_names.parse_sr_xml sr_xml;
-  Friendly_error_names.parse_resx "../FriendlyErrorNames.resx";
+  Friendly_error_names.parse_resx resx_file;
   let out_chan = open_out (Filename.concat destdir "FriendlyErrorNames.resx")
   in
     finally (fun () ->
