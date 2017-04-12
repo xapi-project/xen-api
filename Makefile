@@ -17,7 +17,7 @@ doc: setup.data build
 test: setup.data build
 	$(SETUP) -test $(TESTFLAGS)
 
-all:
+all: setup.ml
 	$(SETUP) -all $(ALLFLAGS)
 
 uninstall: setup.data
@@ -26,10 +26,10 @@ uninstall: setup.data
 reinstall: setup.data
 	$(SETUP) -reinstall $(REINSTALLFLAGS)
 
-clean:
+clean: setup.ml
 	$(SETUP) -clean $(CLEANFLAGS)
 
-distclean:
+distclean: setup.ml
 	$(SETUP) -distclean $(DISTCLEANFLAGS)
 
 setup.data: setup.ml
@@ -38,7 +38,7 @@ setup.data: setup.ml
 setup.ml: _oasis
 	oasis setup -setup-update dynamic
 
-configure:
+configure: setup.ml
 	$(SETUP) -configure $(CONFIGUREFLAGS)
 
 .PHONY: build doc test all install uninstall reinstall clean distclean configure
