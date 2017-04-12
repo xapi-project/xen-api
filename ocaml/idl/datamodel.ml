@@ -6800,7 +6800,7 @@ let pool_create_VLAN = call
 let pool_management_reconfigure = call
     ~name:"management_reconfigure"
     ~in_oss_since:None
-    ~in_product_since:rel_falcon
+    ~in_product_since:rel_inverness
     ~params:[
              Ref _network, "network", "The network";
     ]
