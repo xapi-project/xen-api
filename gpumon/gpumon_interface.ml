@@ -32,7 +32,8 @@ exception NvmlFailure of string
 external get_pgpu_metadata: debug_info -> pgpu_address -> pgpu_metadata = ""
 
 (** Check compatibility between a VM's vGPU(s) and another pGPU.
-  * pgpu_address = PCI bus ID of the pGPU in which the VM is currently running.
+  * pgpu_address = PCI bus ID of the pGPU in which the VM is currently running
+  *                in the form `domain:bus:device.function` PCI identifier.
   * domid = domain ID of the VM in which the vGPU(s) is running.
   * pgpu_metadata = metadata of the pGPU to check compatibility for. *)
 external get_pgpu_vm_compatibility: debug_info -> pgpu_address -> domid -> pgpu_metadata -> compatibility = ""
