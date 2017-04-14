@@ -169,5 +169,6 @@ type structured_op_t =
   | RemoveSet
   | AddMap
   | RemoveMap
+  | AddMapLegacy
 val structured_op_t_of_rpc: Rpc.t -> structured_op_t
 val rpc_of_structured_op_t: structured_op_t -> Rpc.t

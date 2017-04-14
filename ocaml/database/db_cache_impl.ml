@@ -254,14 +254,24 @@ let process_structured_field_locked t (key,value) tblname fld objref proc_fn_sel
     let newval = match proc_fn_selector with
       | AddSet -> add_to_set key existing_str
       | RemoveSet -> remove_from_set key existing_str
-      | AddMap ->
+      | AddMap | AddMapLegacy ->
         begin
           try
-            add_to_map false key value existing_str
+            (* We use the idempotent map add if we're using the non-legacy
+               process function, or if the global field 'idempotent_map' has
+               been set. By default, the Db calls on the master use the
+               legacy functions, but those on the slave use the new one.
+               This means xapi code should always assume idempotent_map is
+               true *)
+            let idempotent =
+              (proc_fn_selector = AddMap) || !Db_globs.idempotent_map
+            in
+            add_to_map idempotent key value existing_str
           with Duplicate ->
             error "Duplicate key in set or map: table %s; field %s; ref %s; key %s" tblname fld objref key;
             raise (Duplicate_key (tblname,fld,objref,key));
         end
+
       | RemoveMap -> remove_from_map key existing_str in
     write_field_locked t tblname objref fld newval
   with Not_found ->

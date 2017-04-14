@@ -500,4 +500,5 @@ type structured_op_t =
   | RemoveSet
   | AddMap
   | RemoveMap
+  | AddMapLegacy
 [@@deriving rpc]
