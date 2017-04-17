@@ -35,7 +35,7 @@ CN = ${CN}
 
 openssl genrsa 1024 > privkey.rsa
 openssl req -batch -new -x509 -key privkey.rsa -days 3650 -config config -out cert.csr
-openssl dhparam 512 > dh.pem
+openssl dhparam 2048 > dh.pem
 
 popd
 
