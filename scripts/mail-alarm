@@ -159,23 +159,23 @@ class CpuUsageAlarmETG(EmailTextGenerator):
 
     def generate_subject(self):
         pool_name = get_pool_name()
-        subject_str = self.mail_subject()
-        if subject_str is None:
-            subject_str = '[%s] %s Alarm: CPU usage on %s "%s"'
+        subject_pattern = self.mail_subject()
+        if subject_pattern is None:
+            subject_pattern = '[%s] %s Alarm: CPU usage on %s "%s"'
 
-        return subject_str % (pool_name,
+        return subject_pattern % (pool_name,
                    branding.PRODUCT_BRAND, self.cls, self.params['name_label'])
     
     def generate_body(self):
-        body_str = self.mail_body()
-        if body_str is None:
-            body_str = 'CPU usage on %s "%s" has been on average %.1f%% for the last %d seconds.\n' \
+        body_pattern = self.mail_body()
+        if body_pattern is None:
+            body_pattern = 'CPU usage on %s "%s" has been on average %.1f%% for the last %d seconds.\n' \
             'This alarm is set to be triggered when CPU usage is more than %.1f%%.\n' \
             '\n' \
             'For Alarm Settings, please log into your %s Console and click on "%s"->\n' \
             '"Properties"->"Alerts"\n'
 
-        return body_str % \
+        return body_pattern % \
             (self.cls, 
              self.params['name_label'],
              self.value * 100.0,
@@ -202,23 +202,23 @@ class NetworkUsageAlarmETG(EmailTextGenerator):
 
     def generate_subject(self):
         pool_name = pool_name = get_pool_name()
-        subject_str = self.mail_subject()
-        if subject_str is None:
-            subject_str = '[%s] %s Alarm: Network usage on %s "%s"'
+        subject_pattern = self.mail_subject()
+        if subject_pattern is None:
+            subject_pattern = '[%s] %s Alarm: Network usage on %s "%s"'
 
-        return subject_str % (pool_name,
+        return subject_pattern % (pool_name,
                    branding.PRODUCT_BRAND, self.cls, self.params['name_label'])
     
     def generate_body(self):
-        body_str = self.mail_body()
-        if body_str is None:
-            body_str = 'Network usage on %s "%s" has been on average %d B/s for the last %d seconds.\n' \
+        body_pattern = self.mail_body()
+        if body_pattern is None:
+            body_pattern = 'Network usage on %s "%s" has been on average %d B/s for the last %d seconds.\n' \
             'This alarm is set to be triggered when Network usage is more than %d B/s.\n' \
             '\n' \
             'For Alarm Settings, please log into your %s Console and click on "%s"->\n' \
             '"Properties"->"Alerts"\n'
 
-        return body_str % \
+        return body_pattern % \
             (self.cls, 
              self.params['name_label'],
              self.value,
@@ -242,23 +242,23 @@ class MemoryUsageAlarmETG(EmailTextGenerator):
 
     def generate_subject(self):
         pool_name = pool_name = get_pool_name()
-        subject_str = self.mail_subject()
-        if subject_str is None:
-            subject_str = '[%s] %s Alarm: Memory usage on %s "%s"'
+        subject_pattern = self.mail_subject()
+        if subject_pattern is None:
+            subject_pattern = '[%s] %s Alarm: Memory usage on %s "%s"'
 
-        return subject_str % (pool_name,
+        return subject_pattern % (pool_name,
                    branding.PRODUCT_BRAND, self.cls, self.params['name_label'])
 
     def generate_body(self):
-        body_str = self.mail_body()
-        if body_str is None:
-            body_str = 'Free memory on %s "%s" has been on average %d KiB for the last %d seconds.\n' \
+        body_pattern = self.mail_body()
+        if body_pattern is None:
+            body_pattern = 'Free memory on %s "%s" has been on average %d KiB for the last %d seconds.\n' \
             'This alarm is set to be triggered when free memory is less than %d KiB.\n' \
             '\n' \
             'For Alarm Settings, please log into your %s Console and click on "Server"->\n' \
             '"Properties"->"Alerts"\n'
 
-        return body_str % \
+        return body_pattern % \
             (self.cls,
              self.params['name_label'],
              self.value,
@@ -281,23 +281,23 @@ class DiskUsageAlarmETG(EmailTextGenerator):
 
     def generate_subject(self):
         pool_name = get_pool_name()
-        subject_str = self.mail_subject()
-        if subject_str is None:
-            subject_str = '[%s] %s Alarm: Disk usage on VM "%s"'
+        subject_pattern = self.mail_subject()
+        if subject_pattern is None:
+            subject_pattern = '[%s] %s Alarm: Disk usage on VM "%s"'
 
-        return subject_str % (pool_name,
+        return subject_pattern % (pool_name,
                    branding.PRODUCT_BRAND, self.params['name_label'])
     
     def generate_body(self):
-        body_str = self.mail_body()
-        if body_str is None:
-            body_str = 'Disk usage on VM "%s" has been on average %d B/s for the last %d seconds.\n' \
+        body_pattern = self.mail_body()
+        if body_pattern is None:
+            body_pattern = 'Disk usage on VM "%s" has been on average %d B/s for the last %d seconds.\n' \
             'This alarm is set to be triggered when Disk usage is more than %d B/s.\n' \
             '\n' \
             'For Alarm Settings, please log into your %s Console and click on "VM"->\n' \
             '"Properties"->"Alerts"\n'
 
-        return body_str % \
+        return body_pattern % \
             (self.params['name_label'],
              self.value,
              self.alarm_trigger_period,
@@ -318,21 +318,21 @@ class Dom0FSUsageAlarmETG(EmailTextGenerator):
 
     def generate_subject(self):
         pool_name = get_pool_name()
-        subject_str = self.mail_subject()
-        if subject_str is None:
-            subject_str = '[%s] %s Alarm: Filesystem nearly full on "%s"'
+        subject_pattern = self.mail_subject()
+        if subject_pattern is None:
+            subject_pattern = '[%s] %s Alarm: Filesystem nearly full on "%s"'
 
-        return subject_str % (pool_name,
+        return subject_pattern % (pool_name,
                    branding.PRODUCT_BRAND, self.params['name_label'])
     
     def generate_body(self):
-        body_str = self.mail_body()
-        if body_str is None:
-            body_str = 'The filesystem usage on "%s" is at %.1f%%.\n' \
+        body_pattern = self.mail_body()
+        if body_pattern is None:
+            body_pattern = 'The filesystem usage on "%s" is at %.1f%%.\n' \
             'This alarm is set to be triggered when filesystem usage is more than %.1f%%.\n' \
             '\n'
 
-        return body_str % \
+        return body_pattern % \
             (self.params['name_label'],
              self.value * 100.0,
              self.alarm_trigger_level * 100.0)
@@ -351,21 +351,21 @@ class Dom0LogFSUsageAlarmETG(EmailTextGenerator):
 
     def generate_subject(self):
         pool_name = get_pool_name()
-        subject_str = self.mail_subject()
-        if subject_str is None:
-            subject_str = '[%s] %s Alarm: Log partition nearly full on "%s"'
+        subject_pattern = self.mail_subject()
+        if subject_pattern is None:
+            subject_pattern = '[%s] %s Alarm: Log partition nearly full on "%s"'
 
-        return subject_str % (pool_name,
+        return subject_pattern % (pool_name,
                    branding.PRODUCT_BRAND, self.params['name_label'])
 
     def generate_body(self):
-        body_str = self.mail_body()
-        if body_str is None:
-            body_str = 'The log partition usage on "%s" is at %.1f%%.\n' \
+        body_pattern = self.mail_body()
+        if body_pattern is None:
+            body_pattern = 'The log partition usage on "%s" is at %.1f%%.\n' \
             'This alarm is set to be triggered when log partition usage is more than %.1f%%.\n' \
             '\n'
 
-        return body_str % \
+        return body_pattern % \
             (self.params['name_label'],
              self.value * 100.0,
              self.alarm_trigger_level * 100.0)
@@ -384,22 +384,22 @@ class Dom0MemUsageAlarmETG(EmailTextGenerator):
 
     def generate_subject(self):
         pool_name = get_pool_name()
-        subject_str = self.mail_subject()
-        if subject_str is None:
-            subject_str = '[%s] %s Alarm: Dom0 memory demand is high on "%s"'
+        subject_pattern = self.mail_subject()
+        if subject_pattern is None:
+            subject_pattern = '[%s] %s Alarm: Dom0 memory demand is high on "%s"'
 
-        return subject_str % (pool_name,
+        return subject_pattern % (pool_name,
                    branding.PRODUCT_BRAND, self.params['name_label'])
 
     def generate_body(self):
-        body_str = self.mail_body()
-        if body_str is None:
-            body_str = 'The memory required by the control domain on "%s" is about %.1f%% of its allocated memory.' \
+        body_pattern = self.mail_body()
+        if body_pattern is None:
+            body_pattern = 'The memory required by the control domain on "%s" is about %.1f%% of its allocated memory.' \
             'Occasional performance degradation can be expected when memory swapping is forced to happen.\n' \
             'This alarm is set to be triggered when the memory required by the control domain is above %.1f%% of its allocated memory.\n' \
             '\n'
             
-        return body_str % \
+        return body_pattern % \
             (self.params['name_label'],
              self.value * 100.0,
              self.alarm_trigger_level * 100.0)
@@ -412,21 +412,21 @@ class WlbConsultationFailure(EmailTextGenerator):
 
     def generate_subject(self):
         pool_name = get_pool_name()
-        subject_str = self.mail_subject()
-        if subject_str is None:
-            subject_str = '[%s] %s Alarm: Attempt to consult wlb for VM "%s" failed'
+        subject_pattern = self.mail_subject()
+        if subject_pattern is None:
+            subject_pattern = '[%s] %s Alarm: Attempt to consult wlb for VM "%s" failed'
 
-        return subject_str % (self.params['name_label'],
+        return subject_pattern % (self.params['name_label'],
                    branding.PRODUCT_BRAND, pool_name)
     
     def generate_body(self):
-        body_str = self.mail_body()
-        if body_str is None:
-            body_str = 'A workload balancing consultation for VM %s failed.\n' \
+        body_pattern = self.mail_body()
+        if body_pattern is None:
+            body_pattern = 'A workload balancing consultation for VM %s failed.\n' \
             'The operation was completed using the default algorithm instead of a workload balancing recommendation.\n' \
             '\n'
 
-        return body_str % \
+        return body_pattern % \
             (self.params['name_label'])
             
 class WlbOptimizationAlert(EmailTextGenerator):
@@ -437,20 +437,20 @@ class WlbOptimizationAlert(EmailTextGenerator):
         self.pool_name = pool_name = get_pool_name()
 
     def generate_subject(self):
-        subject_str = self.mail_subject()
-        if subject_str is None:
-            subject_str = 'Workload Balancing Alert: Optimization alert from pool %s'
+        subject_pattern = self.mail_subject()
+        if subject_pattern is None:
+            subject_pattern = 'Workload Balancing Alert: Optimization alert from pool %s'
 
-        return subject_str % (self.pool_name)
+        return subject_pattern % (self.pool_name)
     
     def generate_body(self):
-        body_str = self.mail_body()
-        if body_str is None:
-            body_str = 'The Workload Balancing server has reported that pool %s is in need of optimization.\n' \
+        body_pattern = self.mail_body()
+        if body_pattern is None:
+            body_pattern = 'The Workload Balancing server has reported that pool %s is in need of optimization.\n' \
             '%s is in optimization mode %s and is in a %s state.\n' \
             '\n'
 
-        return body_str % \
+        return body_pattern % \
             (self.pool_name,
              self.pool_name,
              self.optimization_mode,
@@ -464,21 +464,21 @@ class HAHostFailedETG(EmailTextGenerator):
 
     def generate_subject(self):
         pool_name = get_pool_name()
-        subject_str = self.mail_subject()
-        if subject_str is None:
-            subject_str = '[%s] %s HA Alarm: %s'
+        subject_pattern = self.mail_subject()
+        if subject_pattern is None:
+            subject_pattern = '[%s] %s HA Alarm: %s'
 
-        return subject_str % (pool_name, branding.PRODUCT_BRAND, self.text)
+        return subject_pattern % (pool_name, branding.PRODUCT_BRAND, self.text)
     
     def generate_body(self):
-        body_str = self.mail_body()
-        if body_str is None:
-            body_str = '%s\n' \
+        body_pattern = self.mail_body()
+        if body_pattern is None:
+            body_pattern = '%s\n' \
             '\n' \
             'This alarm is set to be triggered when a host belonging to a high availability pool fails.' \
             '\n'
 
-        return body_str % self.text
+        return body_pattern % self.text
 
 class XapiMessage:
     def __init__(self, xml, mail_language):
@@ -502,11 +502,18 @@ class XapiMessage:
             self.body      = ""
         self.pool_name = get_pool_name()
         try:
-            with open('/etc/xapi.d/mail-languages/' + mail_language + '.json', 'r') as fileh:
-                self.ml = json.loads(fileh.read())
-        except:
-            log_err("Read mail language pack [\"%s\"] error" % ('/etc/xapi.d/mail-languages/' + mail_language + ".json"))
-            self.ml = None
+            mail_language_file = '/etc/xapi.d/mail-languages/' + mail_language + '.json'
+            with open(mail_language_file, 'r') as fileh:
+                self.mail_language = json.load(fileh, encoding="utf-8")
+        except IOError:
+            log_err("Read mail language pack error:[\"%s\"]" % (mail_language_file))
+            self.mail_language = None
+        except ValueError:
+            log_err("Decode JSON string error:[\"%s\"]" % (mail_language_file))
+            self.mail_language = None
+        except Exception as exn:
+            log_err("Unknown Error from Decode [\"%s\"] to JSON object: \"%s\"" % (mail_language_file, str(exn)))
+            self.mail_language = None
 
     def get_priority(self):
         return int(self.priority)
@@ -549,31 +556,31 @@ class XapiMessage:
 
             # Set the alarm text generator
             if name == 'cpu_usage':
-                etg = CpuUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_period, alarm_trigger_level, self.ml)
+                etg = CpuUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_period, alarm_trigger_level, self.mail_language)
             elif name == 'network_usage':
-                etg = NetworkUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_period, alarm_trigger_level, self.ml)
+                etg = NetworkUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_period, alarm_trigger_level, self.mail_language)
             elif name == 'memory_free_kib':
-                etg = MemoryUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_period, alarm_trigger_level, self.ml)
+                etg = MemoryUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_period, alarm_trigger_level, self.mail_language)
             elif name == 'disk_usage':
-                etg = DiskUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_period, alarm_trigger_level, self.ml)
+                etg = DiskUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_period, alarm_trigger_level, self.mail_language)
             elif name == 'fs_usage':
-                etg = Dom0FSUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_level, self.ml)
+                etg = Dom0FSUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_level, self.mail_language)
             elif name == 'log_fs_usage':
-                etg = Dom0LogFSUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_level, self.ml)
+                etg = Dom0LogFSUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_level, self.mail_language)
             elif name == 'mem_usage':
-                etg = Dom0MemUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_level, self.ml)
+                etg = Dom0MemUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_level, self.mail_language)
             else:
                 etg = None
         elif self.name == 'HA_HOST_FAILED':
-            etg = HAHostFailedETG(self.body, self.ml)
+            etg = HAHostFailedETG(self.body, self.mail_language)
         elif self.name == 'WLB_CONSULTATION_FAILED':
-            etg = WlbConsultationFailure(self.cls, self.obj_uuid, self.ml)
+            etg = WlbConsultationFailure(self.cls, self.obj_uuid, self.mail_language)
         elif self.name == 'WLB_OPTIMIZATION_ALERT':
             severity_line = self.body.split()[0]
             severity = str(severity_line.split('severity:')[1])
             mode_line = self.body.split()[1]
             optimization_mode = str(mode_line.split('mode:')[1])          
-            etg = WlbOptimizationAlert(optimization_mode, severity, self.ml)
+            etg = WlbOptimizationAlert(optimization_mode, severity, self.mail_language)
         else:
             etg = None
 
@@ -607,6 +614,10 @@ class XapiMessage:
 
 
 def main():
+    if len(sys.argv) < 2:
+        log_err("Expected at least 1 argument but got none: [\"%s\"]." % (' '.join(sys.argv)))
+        raise Exception, "Insufficient arguments"
+
     other_config = get_pool_other_config()
     if other_config.has_key('mail-min-priority'):
         min_priority = int(other_config['mail-min-priority'])
