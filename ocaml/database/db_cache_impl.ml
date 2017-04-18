@@ -266,7 +266,7 @@ let process_structured_field_locked t (key,value) tblname fld objref proc_fn_sel
             let idempotent =
               (proc_fn_selector = AddMap) || !Db_globs.idempotent_map
             in
-            add_to_map idempotent key value existing_str
+            add_to_map ~idempotent key value existing_str
           with Duplicate ->
             error "Duplicate key in set or map: table %s; field %s; ref %s; key %s" tblname fld objref key;
             raise (Duplicate_key (tblname,fld,objref,key));
