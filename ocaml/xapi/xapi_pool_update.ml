@@ -468,7 +468,8 @@ let resync_host ~__context ~host =
         let mtime = (Unix.stat (Filename.concat update_applied_dir uuid)).Unix.st_mtime in
         Xapi_pool_patch.write_patch_applied_db ~__context ~date:mtime ~self:pool_patch_ref ~host ()
       ) update_refs;
-    Create_misc.create_updates_requiring_reboot_info ~__context ~host
+    Create_misc.create_updates_requiring_reboot_info ~__context ~host;
+    Create_misc.create_software_version ~__context
   end
   else Db.Host.set_updates ~__context ~self:host ~value:[];
 
