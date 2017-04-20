@@ -668,6 +668,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Pool.remove_from_guest_agent_config: pool = '%s'; key = '%s'"
         (pool_uuid ~__context self) key;
       Local.Pool.remove_from_guest_agent_config ~__context ~self ~key
+
+    let set_default_SR ~__context ~self ~sr =
+      info "Pool.set_default_sr: pool = '%s'; sr = '%s'"
+        (pool_uuid ~__context self) (sr_uuid __context sr);
+      Local.Pool.set_default_SR ~__context ~self ~sr
   end
 
   module VM = struct
