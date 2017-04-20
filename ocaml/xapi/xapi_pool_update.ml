@@ -468,7 +468,8 @@ let resync_host ~__context ~host =
         let pool_patch_ref = Xapi_pool_patch.pool_patch_of_update ~__context update_ref in
         Xapi_pool_patch.write_patch_applied_db ~__context ~self:pool_patch_ref ~host ()
       ) update_refs;
-    Create_misc.create_updates_requiring_reboot_info ~__context ~host
+    Create_misc.create_updates_requiring_reboot_info ~__context ~host;
+    Create_misc.create_software_version ~__context
   end
   else Db.Host.set_updates ~__context ~self:host ~value:[];
 
