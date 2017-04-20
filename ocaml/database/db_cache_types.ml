@@ -350,10 +350,10 @@ let remove_from_set key t =
   Schema.Value.Set (List.filter (fun x -> x <> key) t)
 
 exception Duplicate
-let add_to_map key value t =
+let add_to_map ~idempotent key value t =
   let t = Schema.Value.Unsafe_cast.pairs t in
-  if List.mem key (List.map fst t) then raise Duplicate;
-  Schema.Value.Pairs ((key, value) :: t)
+  if List.mem_assoc key t && (not idempotent || List.assoc key t <> value) then raise Duplicate;
+  Schema.Value.Pairs ((key, value) :: List.filter (fun (k, _) -> k <> key) t)
 
 let remove_from_map key t =
   let t = Schema.Value.Unsafe_cast.pairs t in
@@ -500,4 +500,5 @@ type structured_op_t =
   | RemoveSet
   | AddMap
   | RemoveMap
+  | AddMapLegacy
 [@@deriving rpc]
