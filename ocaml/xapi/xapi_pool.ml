@@ -1632,8 +1632,7 @@ let find_or_create_redo_log_vdi ~__context ~sr =
     info "no suitable existing redo-log VDI found; creating a fresh one";
     create_redo_log_vdi ~__context ~sr
 
-
-let enable_redo_log ~__context ~sr =
+let do_enable_redo_log ~__context ~sr =
   info "Enabling redo log...";
 
   (* find or create suitable VDI *)
@@ -1645,20 +1644,13 @@ let enable_redo_log ~__context ~sr =
       raise (Api_errors.Server_error(Api_errors.cannot_enable_redo_log, [msg]))
   in
 
-  (* ensure VDI is static, and set a flag in the local DB, such that the redo log can be
-     	 * re-enabled after a restart of xapi *)
+  let pool = Helpers.get_pool ~__context in
+  Db.Pool.set_redo_log_vdi ~__context ~self:pool ~value:vdi;
+
   begin try
       debug "Ensuring redo-log VDI is static on all hosts in the pool";
       let hosts = Db.Host.get_all ~__context in
-      let attach host =
-        debug "Attaching VDI on host '%s' ('%s')" (Db.Host.get_name_label ~__context ~self:host) (Ref.string_of host);
-        Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Host.attach_static_vdis rpc session_id host [vdi, Xapi_globs.gen_metadata_vdi_reason]);
-        debug "Setting redo-log local-DB flag on host '%s' ('%s')" (Db.Host.get_name_label ~__context ~self:host) (Ref.string_of host);
-        Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Host.set_localdb_key rpc session_id host Constants.redo_log_enabled "true");
-      in
-      List.iter attach hosts;
+      List.iter (fun host -> Xapi_host_helpers.redo_log_switch ~__context ~self:host ~log:Xapi_ha.ha_redo_log ~on:true) hosts;
       debug "VDI is static on all hosts"
     with e ->
       let msg = "failed to make VDI static." in
@@ -1667,16 +1659,7 @@ let enable_redo_log ~__context ~sr =
 
   (* update state *)
   debug "Updating state...";
-  let pool = Helpers.get_pool ~__context in
-  Db.Pool.set_redo_log_vdi ~__context ~self:pool ~value:vdi;
   Db.Pool.set_redo_log_enabled ~__context ~self:pool ~value:true;
-
-  (* enable the new redo log, unless HA is enabled (which means a redo log
-     	 * is already in use) *)
-  if not (Db.Pool.get_ha_enabled ~__context ~self:pool) then begin
-    Redo_log.enable Xapi_ha.ha_redo_log Xapi_globs.gen_metadata_vdi_reason;
-    Localdb.put Constants.redo_log_enabled "true"
-  end;
   info "The redo log is now enabled"
 
 let disable_redo_log ~__context =
@@ -1686,26 +1669,25 @@ let disable_redo_log ~__context =
   let pool = Helpers.get_pool ~__context in
   Db.Pool.set_redo_log_enabled ~__context ~self:pool ~value:false;
   if not (Db.Pool.get_ha_enabled ~__context ~self:pool) then begin
-    Redo_log_usage.stop_using_redo_log Xapi_ha.ha_redo_log;
-    Redo_log.disable Xapi_ha.ha_redo_log;
-
     (* disable static-ness of the VDI and clear local-DB flags *)
-    let vdi = Db.Pool.get_redo_log_vdi ~__context ~self:pool in
     let hosts = Db.Host.get_all ~__context in
-    begin try
-        let detach host =
-          debug "Detaching VDI from host '%s' ('%s')" (Db.Host.get_name_label ~__context ~self:host) (Ref.string_of host);
-          Helpers.call_api_functions ~__context (fun rpc session_id ->
-              Client.Host.detach_static_vdis rpc session_id host [vdi]);
-          debug "Clearing redo-log local-DB flag on host '%s' ('%s')" (Db.Host.get_name_label ~__context ~self:host) (Ref.string_of host);
-          Helpers.call_api_functions ~__context (fun rpc session_id ->
-              Client.Host.set_localdb_key rpc session_id host Constants.redo_log_enabled "false");
-        in
-        List.iter detach hosts;
-      with e -> info "Failed to detach static VDIs from all hosts."
-    end;
+    try
+      List.iter (fun host -> Xapi_host_helpers.redo_log_switch ~__context ~self:host ~log:Xapi_ha.ha_redo_log ~on:false) hosts;
+    with e -> info "Failed to detach static VDIs from all hosts."
   end;
   info "The redo log is now disabled"
+
+let enable_redo_log ~__context ~sr =
+  let pool = Helpers.get_pool ~__context in
+  if not (Db.Pool.get_redo_log_enabled ~__context ~self:pool)
+  then do_enable_redo_log ~__context ~sr
+  else
+    let redo_log_vdi = Db.Pool.get_redo_log_vdi ~__context ~self:pool in
+    let redo_log_sr = Db.VDI.get_SR ~__context ~self:redo_log_vdi in
+    if redo_log_sr <> sr then begin
+      disable_redo_log ~__context;
+      do_enable_redo_log ~__context ~sr
+    end
 
 let set_vswitch_controller ~__context ~address =
   let dbg = Context.string_of_task __context in
@@ -1892,3 +1874,9 @@ let add_to_guest_agent_config ~__context ~self ~key ~value =
 let remove_from_guest_agent_config ~__context ~self ~key =
   Db.Pool.remove_from_guest_agent_config ~__context ~self ~key;
   Xapi_pool_helpers.apply_guest_agent_config ~__context
+
+let set_default_SR ~__context ~self ~value =
+  Db.Pool.set_default_SR ~__context ~self ~value;
+  if Db.SR.get_shared ~__context ~self:value then begin
+    enable_redo_log ~__context ~sr:value (* CA-225711 *)
+  end

@@ -7228,6 +7228,20 @@ let pool_remove_from_guest_agent_config = call
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+let pool_set_default_SR = call
+    ~name:"set_default_SR"
+    ~lifecycle:
+      [ Published, rel_rio, "set default SR for VDIs"
+      ; Changed,   rel_ely, "enable the redo-log"
+      ]
+    ~doc:"Set the default SR for VDIs."
+    ~params:
+      [ Ref _pool, "self", "The pool"
+      ; Ref _sr, "value",  "SR to hold VDIs."
+      ]
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
 (** A pool class *)
 let pool =
   create_obj
@@ -7299,13 +7313,14 @@ let pool =
       ; pool_has_extension
       ; pool_add_to_guest_agent_config
       ; pool_remove_from_guest_agent_config
+      ; pool_set_default_SR
       ]
     ~contents:
       ([uid ~in_oss_since:None _pool] @
        [ field ~in_oss_since:None ~qualifier:RW ~ty:String "name_label" "Short name"
        ; field ~in_oss_since:None ~qualifier:RW ~ty:String "name_description" "Description"
        ; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Ref _host) "master" "The host that is pool master"
-       ; field ~in_oss_since:None ~qualifier:RW ~ty:(Ref _sr) "default_SR" "Default SR for VDIs"
+       ; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Ref _sr) "default_SR" "Default SR for VDIs"
        ; field ~in_oss_since:None ~qualifier:RW ~ty:(Ref _sr) "suspend_image_SR" "The SR in which VDIs for suspend images are created"
        ; field ~in_oss_since:None ~qualifier:RW ~ty:(Ref _sr) "crash_dump_SR" "The SR in which VDIs for crash dumps are created"
        ; field ~in_oss_since:None ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP));("EMPTY_FOLDERS",(_R_VM_OP))]

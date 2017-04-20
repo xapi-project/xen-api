@@ -668,6 +668,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Pool.remove_from_guest_agent_config: pool = '%s'; key = '%s'"
         (pool_uuid ~__context self) key;
       Local.Pool.remove_from_guest_agent_config ~__context ~self ~key
+
+    let set_default_SR ~__context ~self ~value =
+      info "Pool.set_default_sr: pool = '%s'; sr = '%s'"
+        (pool_uuid ~__context self) (sr_uuid __context value);
+      Local.Pool.set_default_SR ~__context ~self ~value
   end
 
   module VM = struct
@@ -3777,6 +3782,17 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun () -> f ())
         (fun () -> Helpers.with_global_lock (fun () -> SR.unmark_sr ~__context ~sr ~doc ~op))
 
+    let redo_log_switch ~__context ~self ~on =
+      let pool = Helpers.get_pool ~__context in
+      let sr = Db.PBD.get_SR ~__context ~self in
+      let host = Db.PBD.get_host ~__context ~self in
+      let redo_log_should_on =
+        Db.Pool.get_redo_log_enabled ~__context ~self:pool
+        && Db.PBD.get_currently_attached ~__context ~self
+        && List.mem (Db.Pool.get_redo_log_vdi ~__context ~self:pool) (Db.SR.get_VDIs ~__context ~self:sr) in
+      if redo_log_should_on then
+        Xapi_host_helpers.redo_log_switch ~__context ~self:host ~log:Xapi_ha.ha_redo_log ~on
+
     (* plug and unplug need to be executed on the host that the pbd is related to *)
     let plug ~__context ~self =
       info "PBD.plug: PBD = '%s'" (pbd_uuid ~__context self);
@@ -3816,7 +3832,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
             in
 
             Xapi_sr.scan_one ~__context ~callback:sr_scan_callback sr;
-          )
+          );
+
+      (* switch redo_log after SR scan *)
+      redo_log_switch ~__context ~self ~on:true
 
     let unplug ~__context ~self =
       info "PBD.unplug: PBD = '%s'" (pbd_uuid ~__context self);
@@ -3831,6 +3850,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun () ->
            if is_master_pbd then
              Xapi_sr.maybe_copy_sr_rrds ~__context ~sr;
+           redo_log_switch ~__context ~self ~on:false;
            forward_pbd_op ~local_fn ~__context ~self
              (fun session_id rpc -> Client.PBD.unplug rpc session_id self))
   end
