@@ -258,7 +258,7 @@ let exec_tap_ctl () =
 			update_vdi_to_vm_map ()
 		end else
 			let disappeared_pids = List.set_difference !previous_map pid_and_minor_to_sr_and_vdi in
-			let appeared_pids    = List.set_difference pid_and_minor_to_sr_and_vdi !previous_map in
+			let unmapped_vdi_pids = List.filter (fun (_, (_, (_, vdi))) -> not (List.mem_assoc vdi !vdi_to_vm_map)) pid_and_minor_to_sr_and_vdi in
 
 			List.iter (fun (pid, (_, (_, vdi))) ->
 				try
@@ -268,9 +268,9 @@ let exec_tap_ctl () =
 					D.debug "no knowledge about pid %d; ignoring" pid
 			) disappeared_pids;
 
-			if appeared_pids <> [] then begin
+			if unmapped_vdi_pids <> [] then begin
 				let pids_to_string pids = pids |> List.map (fun (pid, (_, (_, vdi))) -> Printf.sprintf "%d (%s)" pid vdi) |> String.concat "; " in
-				D.info "There are new tapdisk processes: [%s]; updating VDI-to-VM map..." (pids_to_string appeared_pids);
+				D.info "There are new tapdisk processes: [%s]; updating VDI-to-VM map..." (pids_to_string unmapped_vdi_pids);
 				(* Unfortunately the only way of identifying which VMs the new tapdisks service is to refresh the entire map *)
 				update_vdi_to_vm_map ()
 			end
