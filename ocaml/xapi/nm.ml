@@ -462,18 +462,17 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
             let master = Db.Bond.get_master ~__context ~self:bond in
             Db.PIF.set_currently_attached ~__context ~self:master ~value:false
         end;
-
-        (* sync MTU *)
-        (try
-           let mtu = Int64.of_int (Net.Interface.get_mtu dbg ~name:bridge) in
-           Db.PIF.set_MTU ~__context ~self:pif ~value:mtu
-         with _ ->
-           debug "could not update MTU field on PIF %s" rc.API.pIF_uuid
-        );
-
         Xapi_mgmt_iface.on_dom0_networking_change ~__context
-      end
-    )
+      end;
+
+      (* sync MTU *)
+      try
+        let mtu = Int64.of_int (Net.Interface.get_mtu dbg ~name:bridge) in
+        if mtu <> rc.API.pIF_MTU then
+          Db.PIF.set_MTU ~__context ~self:pif ~value:mtu
+      with _ ->
+        warn "could not update MTU field on PIF %s" rc.API.pIF_uuid
+   )
 
 let bring_pif_down ~__context ?(force=false) (pif: API.ref_PIF) =
   with_local_lock (fun () ->
