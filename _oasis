@@ -44,7 +44,7 @@ OCamlVersion: >= 4.01
 
 Library CommonFunctions
   CompiledObject: best
-  Path:           .
+  Path:           common
   Install:        false
   Modules:        CommonFunctions
   ByteOpt:        -thread
@@ -60,7 +60,7 @@ Executable gen_c_binding
   MainIs:         gen_c_binding.ml
   ByteOpt:        -thread
   NativeOpt:      -thread
-  BuildDepends:   xapi-datamodel
+  BuildDepends:   xapi-datamodel, CommonFunctions
 
 Executable gen_csharp_binding
   CompiledObject: best
@@ -69,7 +69,7 @@ Executable gen_csharp_binding
   MainIs:         gen_csharp_binding.ml
   ByteOpt:        -thread
   NativeOpt:      -thread
-  BuildDepends:   xapi-datamodel
+  BuildDepends:   xapi-datamodel, CommonFunctions
 
 Executable main
   CompiledObject: best
@@ -78,7 +78,7 @@ Executable main
   MainIs:         main.ml
   ByteOpt:        -thread
   NativeOpt:      -thread
-  BuildDepends:   xapi-datamodel,str
+  BuildDepends:   xapi-datamodel, str, CommonFunctions
 
 Executable gen_powershell_binding
   CompiledObject: best
@@ -87,5 +87,5 @@ Executable gen_powershell_binding
   MainIs:         gen_powershell_binding.ml
   ByteOpt:        -thread
   NativeOpt:      -thread
-  BuildDepends:   xapi-datamodel
+  BuildDepends:   xapi-datamodel, CommonFunctions
 

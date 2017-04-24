@@ -122,7 +122,7 @@ csharp: gen_csharp_binding.native
 	mkdir -p _build/csharp/autogen/src/Properties
 	mkdir -p _build/csharp/autogen/gui
 	mkdir -p _build/csharp/autogen/samples
-	./gen_csharp_binding.native -r FriendlyErrorNames.resx -s $(SR_XML) -d _build/csharp/autogen
+	./gen_csharp_binding.native -r csharp/FriendlyErrorNames.resx -s $(SR_XML) -d _build/csharp/autogen
 #source
 	mv _build/csharp/autogen/XenObjectDownloader.cs _build/csharp/autogen/gui
 	sh csharp/subst-autogen-csproj.sh _build/csharp/autogen csharp/src/XenServer.csproj _build/csharp/autogen/src/XenServer.csproj
