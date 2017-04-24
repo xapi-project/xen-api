@@ -709,7 +709,7 @@ namespace XenAPI
         /// <summary>
         /// A general HTTP GET method, with delegates for progress and cancelling. May throw various exceptions.
         /// </summary>
-        /// <param name="dataRxDelegate">Delegate called periodically (500 ms) with the number of bytes transferred</param>
+        /// <param name="dataCopiedDelegate">Delegate called periodically (500 ms) with the number of bytes transferred</param>
         /// <param name="cancellingDelegate">Delegate called periodically to see if need to cancel</param>
         /// <param name="uri">URI to GET from</param>
         /// <param name="proxy">A proxy to handle the HTTP connection</param>
@@ -729,12 +729,38 @@ namespace XenAPI
                 }
 
                 File.Delete(path);
-                File.Move(tmpFile, path);
+                MoveFileWithRetry(tmpFile, path);
             }
             finally
             {
                 File.Delete(tmpFile);
             }
+        }
+
+        private const int FILE_MOVE_MAX_RETRIES = 5;
+        private const int FILE_MOVE_SLEEP_BETWEEN_RETRIES = 100;
+
+        /// <summary>
+        /// Move a file, retrying a few times with a short sleep between retries.
+        /// If it still fails after these retries, then throw the error.
+        /// </summary>
+        public static void MoveFileWithRetry(string sourceFileName, string destFileName)
+        {
+            int retriesRemaining = FILE_MOVE_MAX_RETRIES;
+            do
+            {
+                try
+                {
+                    File.Move(sourceFileName, destFileName);
+                    break;
+                }
+                catch (IOException)
+                {
+                    if (retriesRemaining <= 0)
+                        throw;
+                    System.Threading.Thread.Sleep(FILE_MOVE_SLEEP_BETWEEN_RETRIES);
+                }
+            } while (retriesRemaining-- > 0);
         }
     }
 }
