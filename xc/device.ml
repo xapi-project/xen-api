@@ -1740,6 +1740,8 @@ let start_vgpu ~xs task ?restore_fd domid vgpus vcpus =
 			(* The below line does nothing if the device is already bound to the
 			 * nvidia driver. We rely on xapi to refrain from attempting to run
 			 * a vGPU on a device which is passed through to a guest. *)
+			debug "start_vgpu: got VGPU with physical pci address %s"
+				(Xenops_interface.Pci.string_of_address vgpu.physical_pci_address);
 			PCI.bind [vgpu.physical_pci_address] PCI.Nvidia;
 			let fds = match restore_fd with
 				| None -> []
@@ -1803,13 +1805,16 @@ let __start (task: Xenops_task.task_handle) ~xs ~dmpath ?(timeout = !Xenopsd.qem
 
 let start (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
 	let l = cmdline_of_info info false domid in
+	debug "Called Dm.start";
 	__start task ~xs ~dmpath ?timeout l info domid
 let restore (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
 	let l = cmdline_of_info info true domid in
+	debug "Called Dm.restore";
 	__start task ~xs ~dmpath ?timeout l info domid
 
 let start_vnconly (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
 	let l = vnconly_cmdline ~info domid in
+	debug "Called Dm.start_vnconly";
 	__start task ~xs ~dmpath ?timeout l info domid
 
 (* suspend/resume is a done by sending signals to qemu *)
@@ -1853,7 +1858,7 @@ let stop ~xs ~qemu_domid domid  =
     stop_qemu ()
 
 let restore_vgpu (task: Xenops_task.task_handle) ~xs restore_fd domid vgpu vcpus =
-	start_vgpu ~xs task ~restore_fd domid [vgpu] vcpus
+	debug "Called Dm.restore_vgpu";
 
 end (* End of module Dm *)
 
