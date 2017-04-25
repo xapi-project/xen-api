@@ -33,9 +33,9 @@ module Updates = functor(Interface : INTERFACE) -> struct
 
     type time =
       | Absolute of int64
-      | Delta of int with rpc
+      | Delta of int [@@deriving rpc]
 
-    type t = int64 * int with rpc
+    type t = int64 * int [@@deriving rpc]
 
     let now () = Unix.gettimeofday () |> ceil |> Int64.of_float
 
@@ -43,8 +43,8 @@ module Updates = functor(Interface : INTERFACE) -> struct
       type u = {
         time: int64;
         thing: string;
-      } with rpc
-      type t = u list with rpc
+      } [@@deriving rpc]
+      type t = u list [@@deriving rpc]
       let make () =
         let now = now () in
         Mutex.execute m
@@ -218,7 +218,7 @@ module Updates = functor(Interface : INTERFACE) -> struct
     u' : (Interface.Dynamic.id * int) list;
     b : (int * (Interface.Dynamic.id * int) list) list;
     next : int;
-  } with rpc
+  } [@@deriving rpc]
 
   let rpc_of_t t =
     let get_u u = U.M.fold (fun x y acc -> (x,y)::acc) u [] in
@@ -315,11 +315,11 @@ module Updates = functor(Interface : INTERFACE) -> struct
     type u = {
       id: int;
       v: string;
-    } with rpc
+    } [@@deriving rpc]
     type t = {
       updates: u list;
       barriers : (int * (u list)) list;
-    } with rpc
+    } [@@deriving rpc]
     let make_list updates =
       U.M.fold (fun key v acc -> { id = v; v = (key |> Interface.Dynamic.rpc_of_id |> Jsonrpc.to_string) } :: acc) updates []
     let make_raw u =

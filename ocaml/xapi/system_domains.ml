@@ -193,9 +193,9 @@ type service = {
   ty: string;
   instance: string;
   url: string;
-} with rpc
+} [@@deriving rpc]
 
-type services = service list with rpc
+type services = service list [@@deriving rpc]
 
 let service_to_queue = Hashtbl.create 10
 let service_to_queue_m = Mutex.create ()
