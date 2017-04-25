@@ -20,7 +20,7 @@ open Stdext.Xstringext
 
 let superuser = "root"
 
-type config = { password : string } with rpc
+type config = { password : string } [@@deriving rpc]
 
 (* Increment this if config type changes *)
 let config_sync_version = 2

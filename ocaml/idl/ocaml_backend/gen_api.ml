@@ -57,12 +57,12 @@ let gen_non_record_type highapi tys =
     | DT.Map (_, DT.Record _) :: t
     | DT.Set (DT.Record _)    :: t -> aux accu t
     | DT.Set (DT.Enum (n,_) as e) as ty :: t ->
-      aux (sprintf "type %s = %s list with rpc" (OU.alias_of_ty ty) (OU.alias_of_ty e) :: accu) t
+      aux (sprintf "type %s = %s list [@@deriving rpc]" (OU.alias_of_ty ty) (OU.alias_of_ty e) :: accu) t
     | ty                      :: t ->
       let alias = OU.alias_of_ty ty in
       if List.mem_assoc alias overrides
       then aux ((sprintf "type %s = %s\n%s\n" alias (OU.ocaml_of_ty ty) (List.assoc alias overrides))::accu) t
-      else aux (sprintf "type %s = %s with rpc" (OU.alias_of_ty ty) (OU.ocaml_of_ty ty) :: accu) t in
+      else aux (sprintf "type %s = %s [@@deriving rpc]" (OU.alias_of_ty ty) (OU.ocaml_of_ty ty) :: accu) t in
   aux [] tys
 
 (** Generate a list of modules for each record kind *)
@@ -93,8 +93,8 @@ let gen_record_type ~with_module highapi tys =
         else [
           sprintf "let rpc_of_%s_t x = Rpc.Dict [ %s ]" obj_name (map_fields make_of_field);
           sprintf "let %s_t_of_rpc x = on_dict (fun x -> { %s }) x" obj_name (map_fields make_to_field);
-          sprintf "type ref_%s_to_%s_t_map = (ref_%s * %s_t) list with rpc" record obj_name record obj_name;
-          sprintf "type %s_t_set = %s_t list with rpc" obj_name obj_name;
+          sprintf "type ref_%s_to_%s_t_map = (ref_%s * %s_t) list [@@deriving rpc]" record obj_name record obj_name;
+          sprintf "type %s_t_set = %s_t list [@@deriving rpc]" obj_name obj_name;
           ""
         ] in
       aux (type_t :: others @ accu) t
@@ -131,14 +131,14 @@ let gen_client_types highapi =
   List.iter (List.iter print)
     (List.between [""] [
         [
-          "type failure = (string list) with rpc";
+          "type failure = (string list) [@@deriving rpc]";
           "let response_of_failure code params =";
           "  Rpc.failure (rpc_of_failure (code::params))";
           "let response_of_fault code =";
           "  Rpc.failure (rpc_of_failure ([\"Fault\"; code]))";
         ]; [
           "include Rpc";
-          "type string_list = string list with rpc";
+          "type string_list = string list [@@deriving rpc]";
         ]; [
           "module Ref = struct";
           "  include Ref";

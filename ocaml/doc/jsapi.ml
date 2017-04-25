@@ -16,7 +16,7 @@ open Datamodel_types
 
 type change_t = lifecycle_change * string * string
 and changes_t = change_t list
-with rpc
+[@@deriving rpc]
 
 let _ =
   let api = (Datamodel.all_api) in

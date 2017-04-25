@@ -25,7 +25,7 @@ open Threadext
 open Constants
 open Xstringext
 
-type driver_list = Storage_interface.query_result list with rpc
+type driver_list = Storage_interface.query_result list [@@deriving rpc]
 
 let list_sm_drivers ~__context =
   let all = List.map (Smint.query_result_of_sr_driver_info ++ Sm.info_of_driver) (Sm.supported_drivers ()) in
