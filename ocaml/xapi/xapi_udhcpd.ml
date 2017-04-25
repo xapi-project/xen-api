@@ -30,7 +30,7 @@ let pxe_server_key = "pxe_server"
 let (|>) x f = f x
 
 module Ip = struct
-  type t = int * int * int * int with rpc
+  type t = int * int * int * int [@@deriving rpc]
 
   exception Invalid_ip of t
 
@@ -66,9 +66,9 @@ type static_lease = {
   ip : Ip.t;
   vif : string; (* API.ref_VIF *)
   network : string; (* API.ref_network *)
-} with rpc
+} [@@deriving rpc]
 
-type static_leases = static_lease list with rpc
+type static_leases = static_lease list [@@deriving rpc]
 
 (** List of static leases. Protected by mutex below. *)
 let assigned = ref []
