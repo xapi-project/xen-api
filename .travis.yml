@@ -10,6 +10,7 @@ env:
     global:
         - CONTAINER_NAME=build-env
         - OCAMLRUNPARAM=b
+        - GIT_BRANCH=ely-bugfix
         - REPO_PACKAGE_NAME=xapi
         - REPO_CONFIGURE_CMD=./configure
         - REPO_BUILD_CMD=make
