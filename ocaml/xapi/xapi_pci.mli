@@ -26,6 +26,10 @@ val is_class_of_kind : base_class -> int -> bool
 (** Get int value for PCI {class, vendor, device}_id *)
 val int_of_id : string -> int
 
+(** Get string value of int form of PCI {class, vendor, device}_id
+  * (the reverse of int_of_id) *)
+val id_of_int : int -> string
+
 (** Get an identifier for this PCI device **)
 val string_of_pci : __context:Context.t -> self:API.ref_PCI -> string
 
