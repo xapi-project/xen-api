@@ -75,17 +75,6 @@ OCamlLibraryClib(name, files, clibs) =
    return $(array $(if $(NATIVE_ENABLED), $(NATIVELIB)), $(if $(NATIVE_ENABLED), $(CLIB)), $(if $(BYTE_ENABLED), $(BYTELIB)))
 
 #
-# Use Camlp4
-#
-UseCamlp4(packs, files) =
-       OCAMLPACKS     += $(packs)
-       OCAMLFINDFLAGS += -syntax camlp4o
-       $(addsuffix .cmx, $(files)):
-       $(addsuffix .o, $(files)):
-       $(addsuffix .cmi, $(files)):
-       $(addsuffix .cmo, $(files)):
-
-#
 # Include the OMakefile in this directory.
 #
 .SUBDIRS: .
