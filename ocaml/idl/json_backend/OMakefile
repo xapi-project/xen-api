@@ -4,9 +4,6 @@ OCAML_LIBS += ../datamodel
 
 OCamlProgram(main, main)
 
-CAMLP4_FILES = main
-UseCamlp4(rpclib.syntax, $(CAMLP4_FILES))
-
 .PHONY: clean
 clean:
         rm -f *~ *.opt *.run *.a *.cma *.cmxa *.cmo *.cmi *.o *.cmx *.omc *.annot main *.json
