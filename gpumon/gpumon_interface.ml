@@ -17,23 +17,27 @@ let queue_name = Xcp_service.common_prefix ^ service_name
 let xml_path = "/var/xapi/" ^ service_name
 
 type debug_info = string
-
-type pgpu_address = string
-type pgpu_metadata = string
 type domid = int
 
 type incompatibility_reason = Host_driver | Guest_driver | GPU | Other
 type compatibility = Compatible | Incompatible of incompatibility_reason list
 
-exception NvmlInterfaceNotAvailable
-exception NvmlFailure of string
+module type Nvidia = sig 
+  (** Compatibility checking interface for Nvidia vGPUs *)
 
-(** Get the metadata for a pGPU, given its address (PCI bus ID). *)
-external get_pgpu_metadata: debug_info -> pgpu_address -> pgpu_metadata = ""
+  type pgpu_address = string
+  type pgpu_metadata = string
 
-(** Check compatibility between a VM's vGPU(s) and another pGPU.
-  * pgpu_address = PCI bus ID of the pGPU in which the VM is currently running
-  *                in the form `domain:bus:device.function` PCI identifier.
-  * domid = domain ID of the VM in which the vGPU(s) is running.
-  * pgpu_metadata = metadata of the pGPU to check compatibility for. *)
-external get_pgpu_vm_compatibility: debug_info -> pgpu_address -> domid -> pgpu_metadata -> compatibility = ""
+  exception InterfaceNotAvailable
+  exception Failure of string
+
+  (** Get the metadata for a pGPU, given its address (PCI bus ID). *)
+  external get_pgpu_metadata: debug_info -> pgpu_address -> pgpu_metadata = ""
+
+  (** Check compatibility between a VM's vGPU(s) and another pGPU.
+    * pgpu_address = PCI bus ID of the pGPU in which the VM is currently running
+    *                in the form `domain:bus:device.function` PCI identifier.
+    * domid = domain ID of the VM in which the vGPU(s) is running.
+    * pgpu_metadata = metadata of the pGPU to check compatibility for. *)
+  external get_pgpu_vm_compatibility: debug_info -> pgpu_address -> domid -> pgpu_metadata -> compatibility = ""
+end
