@@ -1,44 +1,44 @@
 {
 	"mail-alarms":{
 		"cpu_usage_alarm":{
-			"subject":"[%s] %s Alarm: CPU usage on %s \"%s\"",
-			"body":"CPU usage on %s \"%s\" has been on average %.1f%% for the last %d seconds.\nThis alarm is set to be triggered when CPU usage is more than %.1f%%.\n\nFor Alarm Settings, please log into your %s Console and click on \"%s\"->\n\"Properties\"->\"Alerts\"\n"
+			"subject":"[%s] %s アラート: %s \"%s\" の CPU 使用率",
+			"body":"%s \"%s\" の CPU 使用率は最近の %d 秒で平均 %.1f%% です。\nこのアラートは CPU 使用率が %.1f%% を超えると発するように設定されています。\n\n[アラート設定] は、%s コンソールにログインして次の順にをクリックしてください。\n[%s] -> [プロパティ] -> [アラート]\n"
 		},
 		"network_usage_alarm":{
-			"subject":"[%s] %s Alarm: Network usage on %s \"%s\"",
-			"body":"Network usage on %s \"%s\" has been on average %d B/s for the last %d seconds.\nThis alarm is set to be triggered when Network usage is more than %d B/s.\n\nFor Alarm Settings, please log into your %s Console and click on \"%s\"->\n\"Properties\"->\"Alerts\"\n"
+			"subject":"[%s] %s アラート: %s \"%s\" のネットワーク使用量",
+			"body":"%s \"%s\" のネットワーク使用量は最近の %d 秒で平均 %d バイト/秒です。\nこのアラートはネットワーク使用量が %d バイト/秒を超えると発するように設定されています。\n\n[アラート設定] は、%s コンソールにログインして次の順にをクリックしてください。\n[%s] -> [プロパティ] -> [アラート]\n"
 		},
 		"memory_usage_alarm":{
-			"subject":"[%s] %s Alarm: Memory usage on %s \"%s\"",
-			"body":"Free memory on %s \"%s\" has been on average %d KiB for the last %d seconds.\nThis alarm is set to be triggered when free memory is less than %d KiB.\n\nFor Alarm Settings, please log into your %s Console and click on \"Server\"->\n\"Properties\"->\"Alerts\"\n"
+			"subject":"[%s] %s アラート: %s \"%s\" のメモリ使用率",
+			"body":"%s \"%s\" の空きメモリは最近の %d 秒で平均 %d KiB です。\nこのアラートは空きメモリが %d KiB を下回ると発するように設定されています。\n\n[アラート設定] は、%s コンソールにログインして次の順にをクリックしてください。\n[サーバー] -> [プロパティ] -> [アラート]\n"
 		},
 		"disk_usage_alarm":{
-			"subject":"[%s] %s Alarm: Disk usage on VM \"%s\"",
-			"body":"Disk usage on VM \"%s\" has been on average %d B/s for the last %d seconds.\nThis alarm is set to be triggered when Disk usage is more than %d B/s.\n\nFor Alarm Settings, please log into your %s Console and click on \"VM\"->\n\"Properties\"->\"Alerts\"\n"
+			"subject":"[%s] %s アラート: VM \"%s\" のディスク使用量",
+			"body":"VM \"%s\" のディスク使用量は最近の %d 秒で平均 %d バイト/秒です。\nこのアラートはディスク使用量が %d バイト/秒を超えると発するように設定されています。\n\n[アラート設定] は、%s コンソールにログインして次の順にをクリックしてください。\n[VM] -> [プロパティ] -> [アラート]\n"
 		},
 		"dom0fs_usage_alarm":{
-			"subject":"[%s] %s Alarm: Filesystem nearly full on \"%s\"",
-			"body":"The filesystem usage on \"%s\" is at %.1f%%.\nThis alarm is set to be triggered when filesystem usage is more than %.1f%%.\n\n"
+			"subject":"[%s] %s アラート: \"%s\" のファイルシステムがほぼいっぱいです",
+			"body":"\"%s\" のファイルシステム使用率は %.1f%% です。\nこのアラートはファイルシステム使用率が %.1f%% を超えると発するよう設定されています。\n\n"
 		},
 		"dom0logfs_usage_alarm":{
-			"subject":"[%s] %s Alarm: Log partition nearly full on \"%s\"",
-			"body":"The log partition usage on \"%s\" is at %.1f%%.\nThis alarm is set to be triggered when log partition usage is more than %.1f%%.\n\n"
+			"subject":"[%s] %s アラート: \"%s\" のログパーティションがほぼいっぱいです",
+			"body":"\"%s\" のログ パーティション使用率は %.1f%% です。\nこのアラートはログ パーティション使用率が %.1f%% を超えると発するよう設定されています。\n\n"
 		},
 		"dom0memory_usage_alarm":{
-			"subject":"[%s] %s Alarm: Dom0 memory demand is high on \"%s\"",
-			"body":"The memory required by the control domain on \"%s\" is about %.1f%% of its allocated memory. Occasional performance degradation can be expected when memory swapping is forced to happen.\nThis alarm is set to be triggered when the memory required by the control domain is above %.1f%% of its allocated memory.\n\n"
+			"subject":"[%s] %s アラート: \"%s\" の Dom0 メモリ要求が高い値です",
+			"body":"\"%s\" のコントロール ドメインによるメモリ要求は割り当てられたメモリの %.1f%% です。 メモリ スワッピングの発生によりパフォーマンスが低下する場合があります。 \n割り当てられたメモリに対するコントロール ドメインのメモリ要求の割合が %.1f%% を超えるとアラートが送信されます。\n\n"
 		},
 		"wlb_consultation_failure":{
-			"subject":"[%s] %s Alarm: Attempt to consult WLB for VM \"%s\" failed",
-			"body":"A workload balancing consultation for VM %s failed.\nThe operation was completed using the default algorithm instead of a workload balancing recommendation.\n\n"
+			"subject":"[%s] %s アラート: VM \"%s\" の WLB 情報の取得に失敗しました",
+			"body":"VM %s のワークロード バランス情報の取得に失敗しました\nこの操作はワークロードバランスの推奨ではなくデフォルトのアルゴリズムを使用して完了しました。\n\n"
 		},
 		"wlb_optimization_alert":{
-			"subject":"Workload Balancing Alert: Optimization alert from pool %s",
-			"body":"The Workload Balancing Server has reported that pool %s is in need of optimization.\n%s is in optimization mode %s and is in a %s state.\n\n"
+			"subject":"ワークロード バランス アラート: プール %s からの最適化アラート",
+			"body":"ワークロード バランス サーバーがプール %s に最適化が必要であることを報告しています。\n%s は最適化モード %s で %s の状態です。\n\n"
 		},
 		"ha_host_failed":{
-			"subject":"[%s] %s HA Alarm: %s",
-			"body":"%s\n\nThis alarm is set to be triggered when a host belonging to a high availability pool fails.\n"
+			"subject":"[%s] %s 高可用性アラート: %s",
+			"body":"%s\n\nこのアラートは、高可用性プールに属しているホストが失敗したときに発するよう設定されています。\n"
 		}
 	}
 }
