@@ -37,7 +37,7 @@ type t = {
 
 (* Store sparse_dd pids on disk so we can kill them after a xapi restart *)
 module State = struct
-  type pids = int list with rpc
+  type pids = int list [@@deriving rpc]
 
   let filename = ref "/var/run/nonpersistent/xapi/sparse_dd_pids.json"
 

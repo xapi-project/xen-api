@@ -41,7 +41,7 @@ module State = struct
       leaf_dp : dp;
       parent_vdi : vdi;
       remote_vdi : vdi;
-    } with rpc
+    } [@@deriving rpc]
   end
 
   module Send_state = struct
@@ -55,7 +55,7 @@ module State = struct
       tapdev : Tapctl.tapdev;
       mutable failed : bool;
       mutable watchdog : Updates.Scheduler.t option;
-    } with rpc
+    } [@@deriving rpc]
   end
 
   module Copy_state = struct
@@ -66,15 +66,15 @@ module State = struct
       dest_sr: sr;
       copy_vdi: vdi;
       remote_url : string;
-    } with rpc
+    } [@@deriving rpc]
   end
 
   let loaded = ref false
   let mutex = Mutex.create ()
 
-  type send_table = (string, Send_state.t) Hashtbl.t with rpc
-  type recv_table = (string, Receive_state.t) Hashtbl.t with rpc
-  type copy_table = (string, Copy_state.t) Hashtbl.t with rpc
+  type send_table = (string, Send_state.t) Hashtbl.t [@@deriving rpc]
+  type recv_table = (string, Receive_state.t) Hashtbl.t [@@deriving rpc]
+  type copy_table = (string, Copy_state.t) Hashtbl.t [@@deriving rpc]
 
   type osend
   type orecv
