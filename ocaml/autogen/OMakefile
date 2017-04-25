@@ -7,8 +7,6 @@ OCAMLPACKS    = xml-light2 sexpr http-svr xcp rpclib
 clean:
 	rm -rf *.*
 
-UseCamlp4(rpclib.syntax, aPI)
-
 DB_ACTIONS_FILES = db_actions $(AUTOGEN_HELPER_DIR)/string_unmarshall_helper $(AUTOGEN_HELPER_DIR)/string_marshall_helper $(AUTOGEN_HELPER_DIR)/db_action_helper $(AUTOGEN_HELPER_DIR)/db_remote_marshall $(AUTOGEN_HELPER_DIR)/db_filter_types $(AUTOGEN_HELPER_DIR)/db_filter $(AUTOGEN_HELPER_DIR)/db_filter_parse $(AUTOGEN_HELPER_DIR)/db_filter_lex
 OCamlProgram(db_actions, $(DB_ACTIONS_FILES))
 
