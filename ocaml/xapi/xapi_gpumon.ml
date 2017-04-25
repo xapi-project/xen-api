@@ -37,3 +37,15 @@ module Gpumon = Daemon_manager.Make(struct
   end)
 
 let with_gpumon_stopped = Gpumon.with_daemon_stopped
+
+module Nvidia = struct
+  let key = "nvidia"
+
+  (* N.B. the pgpu must be in the local host where this function runs *)
+  let get_pgpu_compatibility_metadata ~__context ~pgpu =
+    let get = Gpumon_client.Client.Nvidia.get_pgpu_metadata in
+    let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
+    let address = Db.PCI.get_pci_id ~__context ~self:pci in
+    [key, get "xapi_gpumon" address]
+
+end (* Nvidia *)
