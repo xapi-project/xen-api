@@ -40,7 +40,8 @@ let create ~__context ~pCI ~gPU_group ~host ~other_config
   Db.PGPU.create ~__context ~ref:pgpu ~uuid ~pCI
     ~gPU_group ~host ~other_config ~size
     ~supported_VGPU_max_capacities ~dom0_access
-    ~is_system_display_device;
+    ~is_system_display_device
+    ~compatibility_metadata:[];
   Db.PGPU.set_supported_VGPU_types ~__context
     ~self:pgpu ~value:supported_VGPU_types;
   Db.PGPU.set_enabled_VGPU_types ~__context
