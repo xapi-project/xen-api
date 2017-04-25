@@ -1554,7 +1554,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 							raise (Internal_error msg)
 					end;
 
-					debug "Synchronisation point 1";
+					debug "VM.migrate: Synchronisation point 1";
 
 					let save_vm_then_handshake ?vgpu () = (
 						let atom = match vgpu with
@@ -1566,13 +1566,13 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 								VM_save (id, [ Live ], FD mem_fd, None)
 						in
 						perform_atomics [atom] t;
-						debug "Synchronisation point 2";
+						debug "VM.migrate: Synchronisation point 2";
 
 						Handshake.send ~verbose:true mem_fd Handshake.Success;
-						debug "Synchronisation point 3";
+						debug "VM.migrate: Synchronisation point 3";
 
 						Handshake.recv_success mem_fd;
-						debug "Synchronisation point 4";
+						debug "VM.migrate: Synchronisation point 4";
 					) in
 
 					(* If we have a vGPU, kick off its migration process before
@@ -1614,7 +1614,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 				Handshake.send s (Handshake.Error (Printexc.to_string e));
 				raise e
 			);
-			debug "Synchronisation point 1";
+			debug "VM.receive_memory: Synchronisation point 1";
 
 			debug "VM.receive_memory calling create";
 			perform_atomics (
@@ -1622,12 +1622,12 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 				VM_restore (id, FD s);
 			]) t;
 			debug "VM.receive_memory restore complete";
-			debug "Synchronisation point 2";
+			debug "VM.receive_memory: Synchronisation point 2";
 
 			begin try
 				(* Receive the all-clear to unpause *)
 				Handshake.recv_success ~verbose:true s;
-				debug "Synchronisation point 3";
+				debug "VM.receive_memory: Synchronisation point 3";
 
 				perform_atomics ([
 				] @ (atomics_of_operation (VM_restore_devices (id, false))) @ [
@@ -1637,7 +1637,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 				]) t;
 
 				Handshake.send s Handshake.Success;
-				debug "Synchronisation point 4";
+				debug "VM.receive_memory: Synchronisation point 4";
 			with e ->
 				debug "Caught %s: cleaning up VM state" (Printexc.to_string e);
 				perform_atomics (atomics_of_operation (VM_shutdown (id, None)) @ [
@@ -2183,12 +2183,14 @@ module VM = struct
 				(* The URI is /service/xenops/migrate-vgpu/id *)
 				let bits = Stdext.Xstringext.String.split '/' (Uri.path uri) in
 				let vgpu_id_str = bits |> List.rev |> List.hd in
+				let vgpu_id = VGPU_DB.id_of_string vgpu_id_str in
 				debug "VM.receive_vgpu vgpu_id_str = %s is_localhost = %b" vgpu_id_str is_localhost;
-				is_localhost, VGPU_DB.id_of_string vgpu_id_str
+				is_localhost, vgpu_id
 			in
 			let vm_id = VGPU_DB.vm_of vgpu_id in
 			match context.transferred_fd with
 			| Some transferred_fd ->
+				debug "receive_vgpu: passed fd %d" (Obj.magic transferred_fd);
 				let op = Atomic (VM_restore_vgpu(vm_id, vgpu_id, FD transferred_fd)) in
 				(* If it's a localhost migration then we're already in the queue *)
 				let task =
