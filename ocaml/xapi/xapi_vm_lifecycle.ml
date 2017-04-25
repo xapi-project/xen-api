@@ -283,7 +283,7 @@ let check_pci ~op ~ref_str =
 
 let check_vgpu ~__context ~op ~ref_str ~vgpus =
   match op with
-  | `suspend | `pool_migrate -> begin
+  | `pool_migrate | `migrate_send -> begin
       let all_nvidia_vgpus =
         List.fold_left
           (fun acc vgpu ->
@@ -293,11 +293,10 @@ let check_vgpu ~__context ~op ~ref_str ~vgpus =
              acc && (implementation = `nvidia))
           true vgpus
       in
-      if all_nvidia_vgpus && (Xapi_fist.allow_nvidia_vgpu_migration ())
-      then None
+      if all_nvidia_vgpus then None
       else Some (Api_errors.vm_has_vgpu, [ref_str])
     end
-  | `checkpoint | `migrate_send -> Some (Api_errors.vm_has_vgpu, [ref_str])
+  | `suspend | `checkpoint  -> Some (Api_errors.vm_has_vgpu, [ref_str])
   | _ -> None
 
 (* VM cannot be converted into a template while it is a member of an appliance. *)
