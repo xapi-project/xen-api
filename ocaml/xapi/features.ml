@@ -54,7 +54,7 @@ type feature =
   | Live_patching
   | Live_set_vcpus
   | PVS_proxy
-with rpc
+[@@deriving rpc]
 
 type orientation = Positive | Negative
 
