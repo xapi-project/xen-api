@@ -618,9 +618,18 @@ let create_or_get_pif_on_master __context rpc session_id (pif_ref, pif) : API.re
   let my_host = Db.Host.get_record ~__context ~self:my_host_ref in
   let new_host_ref = create_or_get_host_on_master __context rpc session_id (my_host_ref, my_host) in
 
-  let my_network_ref = pif.API.pIF_network in
-  let my_network = Db.Network.get_record ~__context ~self:my_network_ref in
-  let new_network_ref = create_or_get_network_on_master __context rpc session_id (my_network_ref, my_network) in
+  let new_network_ref =
+    if pif.API.pIF_VLAN <> -1L then begin
+      (* Get the remote management network for management VLAN PIF *)
+      let remote_mgmt_pif = Client.Host.get_management_interface rpc session_id (get_master ~rpc ~session_id) in
+      Client.PIF.get_network rpc session_id remote_mgmt_pif
+    end
+    else begin
+      let my_network_ref = pif.API.pIF_network in
+      let my_network = Db.Network.get_record ~__context ~self:my_network_ref in
+      create_or_get_network_on_master __context rpc session_id (my_network_ref, my_network)
+    end
+  in
 
   let new_pif_ref =
     try Client.PIF.get_by_uuid ~rpc ~session_id ~uuid:my_uuid
