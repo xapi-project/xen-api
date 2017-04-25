@@ -29,4 +29,16 @@ module Nvidia : sig
     pgpu_pci_address: string ->
     (string * string) list
 
+  (** Check compatibility between a VM's vGPU(s) and another pGPU,
+   *  and fail if they are not compatible. This function is assumed
+   *  to run on the host where the VM is running. 
+   *  Note that Nvidia drivers exceptions (as declared in Gpumon_interface.Nvidia)
+   *  are propagated. *)
+  val assert_pgpu_is_compatibile_with_vm:
+    __context:Context.t ->
+    vm:[ `VM ] API.Ref.t ->
+    vgpu:[ `VGPU ] API.Ref.t ->
+    pgpu:[ `PGPU ] API.Ref.t ->
+    unit
+
 end
