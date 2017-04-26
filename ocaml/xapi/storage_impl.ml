@@ -98,7 +98,7 @@ let info  (fmt: ('a, unit, string, unit) format4) = if !print_debug then log_to_
 let host_state_path = ref "/var/run/nonpersistent/xapi/storage.db"
 
 module Dp = struct
-  type t = string with rpc
+  type t = string [@@deriving rpc]
   let make username = username
 end
 
@@ -112,7 +112,7 @@ module Vdi = struct
     attach_info :  attach_info option;    (** Some path when attached; None otherwise *)
     dps: (Dp.t * Vdi_automaton.state) list; (** state of the VDI from each dp's PoV *)
     leaked: Dp.t list;                        (** "leaked" dps *)
-  } with rpc
+  } [@@deriving rpc]
   let empty () = {
     attach_info = None;
     dps = [];
@@ -159,11 +159,14 @@ end
 
 module Sr = struct
   (** Represents the state of an SR *)
-  type vdis = (string, Vdi.t) Hashtbl.t with rpc
+  type vdis = (string, Vdi.t) Hashtbl.t
+
+  let vdis_of_rpc = Rpc_std_helpers.hashtbl_of_rpc ~of_rpc:Vdi.t_of_rpc
+  let rpc_of_vdis = Rpc_std_helpers.rpc_of_hashtbl ~rpc_of:Vdi.rpc_of_t
 
   type t = {
     vdis: vdis; (** All tracked VDIs *)
-  } with rpc
+  } [@@deriving rpc]
 
   let empty () = {
     vdis = Hashtbl.create 10;
@@ -181,10 +184,15 @@ module Sr = struct
 end
 
 module Host = struct
+  type srs = (string, Sr.t) Hashtbl.t
+
+  let srs_of_rpc = Rpc_std_helpers.hashtbl_of_rpc ~of_rpc:Sr.t_of_rpc
+  let rpc_of_srs = Rpc_std_helpers.rpc_of_hashtbl ~rpc_of:Sr.rpc_of_t
+
   (** Represents the state of a host *)
   type t = {
-    srs: (string, Sr.t) Hashtbl.t;
-  } with rpc
+    srs: srs;
+  } [@@deriving rpc]
 
   let empty () = {
     srs = Hashtbl.create 10
@@ -207,9 +215,9 @@ module Errors = struct
     sr: string;
     vdi: string;
     error: string
-  } with rpc
+  } [@@deriving rpc]
 
-  type t = error list with rpc
+  type t = error list [@@deriving rpc]
 
   let max = 100
   let errors = ref []
@@ -234,7 +242,7 @@ module Everything = struct
   type t = {
     host: Host.t;
     errors: Errors.t;
-  } with rpc
+  } [@@deriving rpc]
 
   let make () = { host = !Host.host; errors = !Errors.errors }
 
