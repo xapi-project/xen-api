@@ -1603,6 +1603,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 			debug "VM.receive_memory %s power_state = %s" id (state.Vm.power_state |> rpc_of_power_state |> Jsonrpc.to_string);*)
 
 			(* set up the destination domain *)
+			debug "VM.receive_memory creating domain and restoring VIFs";
 			(try
 				perform_atomics (
 					simplify [VM_create (id, Some memory_limit);] @
@@ -1616,7 +1617,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 			);
 			debug "VM.receive_memory: Synchronisation point 1";
 
-			debug "VM.receive_memory calling create";
+			debug "VM.receive_memory restoring VM";
 			perform_atomics (
 			[
 				VM_restore (id, FD s);
@@ -1629,6 +1630,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 				Handshake.recv_success ~verbose:true s;
 				debug "VM.receive_memory: Synchronisation point 3";
 
+				debug "VM.receive_memory restoring remaining devices and unpausing";
 				perform_atomics ([
 				] @ (atomics_of_operation (VM_restore_devices (id, false))) @ [
 					VM_unpause id;
