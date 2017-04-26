@@ -2199,16 +2199,10 @@ module VM = struct
 			| Some transferred_fd ->
 				debug "receive_vgpu: passed fd %d" (Obj.magic transferred_fd);
 				let op = Atomic (VM_restore_vgpu(vm_id, vgpu_id, FD transferred_fd)) in
-				(* If it's a localhost migration then we're already in the queue *)
-				let task =
-					let vm_id = VGPU_DB.vm_of vgpu_id in
-					if is_localhost then begin
-						immediate_operation dbg vm_id op;
-						None
-					end else
-						Some (queue_operation dbg vm_id op)
-				in
-				Opt.iter (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore) task;
+				let vm_id = VGPU_DB.vm_of vgpu_id in
+				(* This must happen in parallel with a VM_receive_memory operation, so
+				 * don't add it to a VM worker queue, which will serialise these ops (CA-250785). *)
+				immediate_operation dbg vm_id op;
 				Xenops_migrate.(Handshake.send ~verbose:true transferred_fd Handshake.Success);
 				debug "VM.receive_vgpu: Synchronisation point 2-vgpu"
 			| None ->
