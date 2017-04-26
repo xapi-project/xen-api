@@ -173,8 +173,10 @@ module Interface = struct
 				let options = gateway @ dns in
 				Dhclient.ensure_running name options
 			| Static4 addrs ->
-				if Dhclient.is_running name then
+				if Dhclient.is_running name then begin
 					ignore (Dhclient.stop name);
+					Ip.flush_ip_addr name
+				end;
 				(* the function is meant to be idempotent and we
 				 * want to avoid CA-239919 *)
 				let cur_addrs = Ip.get_ipv4 name in
