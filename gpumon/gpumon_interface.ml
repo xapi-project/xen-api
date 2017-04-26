@@ -22,22 +22,22 @@ type domid = int
 type incompatibility_reason = Host_driver | Guest_driver | GPU | Other
 type compatibility = Compatible | Incompatible of incompatibility_reason list
 
-module type Nvidia = sig 
-  (** Compatibility checking interface for Nvidia vGPUs *)
+type pgpu_address = string
+type nvidia_pgpu_metadata = string
 
-  type pgpu_address = string
-  type pgpu_metadata = string
+module Nvidia = struct
+  (** Compatibility checking interface for Nvidia vGPUs *)
 
   exception InterfaceNotAvailable
   exception Failure of string
 
   (** Get the metadata for a pGPU, given its address (PCI bus ID). *)
-  external get_pgpu_metadata: debug_info -> pgpu_address -> pgpu_metadata = ""
+  external get_pgpu_metadata: debug_info -> pgpu_address -> nvidia_pgpu_metadata = ""
 
   (** Check compatibility between a VM's vGPU(s) and another pGPU.
     * pgpu_address = PCI bus ID of the pGPU in which the VM is currently running
     *                in the form `domain:bus:device.function` PCI identifier.
     * domid = domain ID of the VM in which the vGPU(s) is running.
     * pgpu_metadata = metadata of the pGPU to check compatibility for. *)
-  external get_pgpu_vm_compatibility: debug_info -> pgpu_address -> domid -> pgpu_metadata -> compatibility = ""
+  external get_pgpu_vm_compatibility: debug_info -> pgpu_address -> domid -> nvidia_pgpu_metadata -> compatibility = ""
 end
