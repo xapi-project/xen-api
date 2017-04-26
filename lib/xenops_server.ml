@@ -1556,7 +1556,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 
 					debug "VM.migrate: Synchronisation point 1";
 
-					let save_vm_then_handshake ?vgpu () = (
+					let save ?vgpu () =
 						let atom = match vgpu with
 							| Some (vgpu_id, vgpu_fd) ->
 								let save = VM_save (id, [ Live ], FD mem_fd, Some (FD vgpu_fd)) in
@@ -1566,26 +1566,31 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 								VM_save (id, [ Live ], FD mem_fd, None)
 						in
 						perform_atomics [atom] t;
-						debug "VM.migrate: Synchronisation point 2";
-
+						debug "VM.migrate: Synchronisation point 2"
+					in
+					let final_handshake () =
 						Handshake.send ~verbose:true mem_fd Handshake.Success;
 						debug "VM.migrate: Synchronisation point 3";
 
 						Handshake.recv_success mem_fd;
 						debug "VM.migrate: Synchronisation point 4";
-					) in
+					in
 
 					(* If we have a vGPU, kick off its migration process before
 					 * starting the main VM migration sequence. *)
 					match VGPU_DB.ids id with
 					| [] ->
-						save_vm_then_handshake ()
+						save ();
+						final_handshake ()
 					| [vgpu_id] ->
 						let vgpu_url = make_url "/migrate-vgpu/" (VGPU_DB.string_of_id vgpu_id) in
 						Open_uri.with_open_uri vgpu_url (fun vgpu_fd ->
 							do_request vgpu_fd [] vgpu_url;
-							save_vm_then_handshake ~vgpu:(vgpu_id, vgpu_fd) ()
-						)
+							save ~vgpu:(vgpu_id, vgpu_fd) ();
+							Handshake.recv_success vgpu_fd;
+							debug "VM.migrate: Synchronisation point 2-vgpu";
+						);
+						final_handshake ()
 					| _ -> raise (Internal_error "Migration of a VM with more than one VGPU is not supported.")
 				);
 			let atomics = [
@@ -2203,7 +2208,9 @@ module VM = struct
 					end else
 						Some (queue_operation dbg vm_id op)
 				in
-				Opt.iter (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore) task
+				Opt.iter (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore) task;
+				Xenops_migrate.(Handshake.send ~verbose:true transferred_fd Handshake.Success);
+				debug "VM.receive_vgpu: Synchronisation point 2-vgpu"
 			| None ->
 				let headers = Cohttp.Header.of_list [
 					"User-agent", "xenopsd"
