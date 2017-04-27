@@ -29,13 +29,17 @@ let calculate_max_capacities ~__context ~pCI ~size ~supported_VGPU_types =
        vgpu_type, max_capacity)
     supported_VGPU_types
 
-let set_compatibility_metadata ~__context ~pgpu =
+let fetch_compatibility_metadata ~__context ~pgpu =
   let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
   if Db.PCI.get_vendor_id ~__context ~self:pci = Xapi_pci.id_of_int Xapi_vgpu_type.Nvidia.vendor_id then (
-     let () = Db.PGPU.set_compatibility_metadata ~__context ~self:pgpu
-       ~value:(Xapi_gpumon.Nvidia.get_pgpu_compatibility_metadata ~__context ~pgpu)
-     in ()
+     Xapi_gpumon.Nvidia.get_pgpu_compatibility_metadata ~__context ~pgpu
   )
+  else []
+
+let populate_compatibility_metadata ~__context ~pgpu =
+  let () = Db.PGPU.set_compatibility_metadata ~__context ~self:pgpu
+    ~value:(fetch_compatibility_metadata ~__context ~pgpu)
+  in ()
 
 let create ~__context ~pCI ~gPU_group ~host ~other_config
     ~supported_VGPU_types ~size ~dom0_access
@@ -49,12 +53,11 @@ let create ~__context ~pCI ~gPU_group ~host ~other_config
     ~gPU_group ~host ~other_config ~size
     ~supported_VGPU_max_capacities ~dom0_access
     ~is_system_display_device
-    ~compatibility_metadata:[];
+    ~compatibility_metadata:(fetch_compatibility_metadata ~__context ~pgpu);
   Db.PGPU.set_supported_VGPU_types ~__context
     ~self:pgpu ~value:supported_VGPU_types;
   Db.PGPU.set_enabled_VGPU_types ~__context
     ~self:pgpu ~value:supported_VGPU_types;
-  set_compatibility_metadata ~__context ~pgpu;
   debug "PGPU ref='%s' created (host = '%s')" (Ref.string_of pgpu) (Ref.string_of host);
   pgpu
 
@@ -143,7 +146,7 @@ let update_gpus ~__context ~host =
           Db.PGPU.set_is_system_display_device ~__context
             ~self:rf
             ~value:is_system_display_device;
-          set_compatibility_metadata ~__context ~pgpu:rf;
+          populate_compatibility_metadata ~__context ~pgpu:rf;
           (rf, rc)
         with Not_found ->
           (* If a new PCI has appeared then we know this is a system boot.
