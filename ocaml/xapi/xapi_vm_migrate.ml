@@ -198,6 +198,11 @@ let pool_migrate ~__context ~vm ~host ~options =
   let ip = Http.Url.maybe_wrap_IPv6_literal (Db.Host.get_address ~__context ~self:host) in
   let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
+  (* Check pGPU compatibility for Nvidia vGPUs *)
+  List.iter (fun vgpu -> 
+      let pgpu = Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu in
+      Xapi_gpumon.Nvidia.assert_pgpu_is_compatibile_with_vm ~__context ~vm ~vgpu ~pgpu
+    ) (Db.VM.get_VGPUs ~__context ~self:vm);
   Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid (fun () ->
       try
         Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
