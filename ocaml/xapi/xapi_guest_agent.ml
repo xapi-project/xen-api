@@ -66,8 +66,12 @@ let extend base str = Printf.sprintf "%s/%s" base str
  * attr/eth0/ip -> 0/ip
  * attr/eth0/ipv6/0/addr -> 0/ipv6/0
  * attr/eth0/ipv6/1/addr -> 0/ipv6/1
+ *
+ * CA-223802 ID of vif is used as network ID rather than NIC name if mac
+ *           address can be found under attr/ethN/.
+ *           Otherwise, it will fallback to logic above.
  * *)
-let networks path (list: string -> string list) =
+let networks path (list: string -> string list) (lookup: string -> string option) =
   (* Find all ipv6 addresses under a path. *)
   let find_ipv6 path prefix = List.map
       (fun str -> (extend (extend path str) "addr", extend prefix str))
@@ -94,16 +98,43 @@ let networks path (list: string -> string list) =
         let after_prefix = String.sub str prefix_len size in
         after_prefix
       in
+      (* get vif id of the eth which own these mac addresses *)
+      let rec find_vif_id mac_list vifs =
+        match vifs with
+        | [] -> None
+        | vif_id :: rest ->
+          match lookup (Printf.sprintf "device/vif/%s/mac" vif_id) with
+          | None -> find_vif_id mac_list rest
+          | Some mac_of_vif -> 
+            if List.mem mac_of_vif mac_list then begin
+              Some vif_id
+            end else
+              find_vif_id mac_list rest
+      in
+      (* get all mac addresses of eth *)
+      let get_mac_list eth =
+        let key_prefix = Printf.sprintf "attr/%s/mac" eth in
+        list key_prefix
+        |> Listext.List.filter_map (fun mac_id -> lookup (Printf.sprintf "%s/%s" key_prefix mac_id))
+      in
       let rec extract prefixes eth =
         match prefixes with
         | [] -> None
         | prefix :: rest ->
           if String.startswith prefix eth then
-            let n = string_after_prefix ~prefix eth in
-            Some (extend path eth, n)
+            match get_mac_list eth with
+            | [] -> 
+              (* fallback to original logic if no mac under attr/ethN/ was found *)
+              let n = string_after_prefix ~prefix eth in
+              Some (extend path eth, n)
+            | mac_list -> 
+              match find_vif_id mac_list (list "device/vif") with
+              | None -> None
+              | Some vif_id -> Some (extend path eth, vif_id)
           else
             extract rest eth
-      in extract iface_prefixes eth
+      in 
+      extract iface_prefixes eth
     in
     List.fold_left
       (fun acc eth ->
@@ -168,7 +199,7 @@ let get_initial_guest_metrics (lookup: string -> string option) (list: string ->
   let pv_drivers_version = to_map pv_drivers_version
   and os_version = to_map os_version
   and device_id = to_map device_id
-  and networks = to_map (networks "attr" list)
+  and networks = to_map (networks "attr" list lookup)
   and other = List.append (to_map (other all_control)) ts
   and memory = to_map memory
   and last_updated = Unix.gettimeofday () in
