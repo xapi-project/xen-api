@@ -25,8 +25,8 @@ module Nvidia : sig
    *  is the opaque string of data from the graphics driver.
    *  IMPORTANT: This must be called on the host that has the GPU installed in it. *)
   val get_pgpu_compatibility_metadata:
-    __context:Context.t ->
-    pgpu:[ `PGPU ] API.Ref.t ->
-    (string * string Gpumon_client.Client.RPCM.t) list
+    dbg: string ->
+    pgpu_pci_address: string ->
+    (string * string) list
 
 end

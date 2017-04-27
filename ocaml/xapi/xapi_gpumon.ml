@@ -42,10 +42,8 @@ module Nvidia = struct
   let key = "nvidia"
 
   (* N.B. the pgpu must be in the local host where this function runs *)
-  let get_pgpu_compatibility_metadata ~__context ~pgpu =
+  let get_pgpu_compatibility_metadata ~dbg ~pgpu_pci_address =
     let get = Gpumon_client.Client.Nvidia.get_pgpu_metadata in
-    let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
-    let address = Db.PCI.get_pci_id ~__context ~self:pci in
-    [key, get "xapi_gpumon" address]
+    [key, get dbg pgpu_pci_address]
 
 end (* Nvidia *)
