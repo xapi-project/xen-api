@@ -25,7 +25,9 @@ type compatibility = Compatible | Incompatible of incompatibility_reason list
 type pgpu_address = string
 type nvidia_pgpu_metadata = string
 
+(** Exception raised when gpumon is unable to load the nvml nvidia library *)
 exception NvmlInterfaceNotAvailable
+(** Exception raised by the c bindings to the nvml nvidia library*)
 exception NvmlFailure of string
 
 
