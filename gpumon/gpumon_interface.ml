@@ -25,11 +25,12 @@ type compatibility = Compatible | Incompatible of incompatibility_reason list
 type pgpu_address = string
 type nvidia_pgpu_metadata = string
 
+exception NvmlInterfaceNotAvailable
+exception NvmlFailure of string
+
+
 module Nvidia = struct
   (** Compatibility checking interface for Nvidia vGPUs *)
-
-  exception InterfaceNotAvailable
-  exception Failure of string
 
   (** Get the metadata for a pGPU, given its address (PCI bus ID). *)
   external get_pgpu_metadata: debug_info -> pgpu_address -> nvidia_pgpu_metadata = ""
