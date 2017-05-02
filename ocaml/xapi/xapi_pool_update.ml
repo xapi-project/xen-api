@@ -190,6 +190,7 @@ let create_yum_config ~__context ~self ~url =
   ; Printf.sprintf "name=%s" name_label
   ; Printf.sprintf "baseurl=%s" url
   ; if signed then Printf.sprintf ("gpgkey=file:///etc/pki/rpm-gpg/%s") key else ""
+  ; "" (* Newline at the end of the file *)
   ]
 
 let attach_helper ~__context ~uuid ~vdi =
