@@ -38,9 +38,13 @@ let fetch_compatibility_metadata ~__context ~pgpu_pci =
      Xapi_gpumon.Nvidia.get_pgpu_compatibility_metadata ~dbg ~pgpu_pci_address
   ) else []
 
+let maybe_fetch_compatibility_metadata ~__context ~pgpu_pci =
+  try fetch_compatibility_metadata ~__context ~pgpu_pci
+  with Gpumon_interface.NvmlInterfaceNotAvailable -> []
+
 let populate_compatibility_metadata ~__context ~pgpu ~pgpu_pci =
   let () = Db.PGPU.set_compatibility_metadata ~__context ~self:pgpu
-    ~value:(fetch_compatibility_metadata ~__context ~pgpu_pci)
+    ~value:(maybe_fetch_compatibility_metadata ~__context ~pgpu_pci)
   in ()
 
 let create ~__context ~pCI ~gPU_group ~host ~other_config
@@ -55,7 +59,7 @@ let create ~__context ~pCI ~gPU_group ~host ~other_config
     ~gPU_group ~host ~other_config ~size
     ~supported_VGPU_max_capacities ~dom0_access
     ~is_system_display_device
-    ~compatibility_metadata:(fetch_compatibility_metadata ~__context ~pgpu_pci:pCI);
+    ~compatibility_metadata:(maybe_fetch_compatibility_metadata ~__context ~pgpu_pci:pCI);
   Db.PGPU.set_supported_VGPU_types ~__context
     ~self:pgpu ~value:supported_VGPU_types;
   Db.PGPU.set_enabled_VGPU_types ~__context
