@@ -575,6 +575,13 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg sr vdi;
       Impl.VDI.get_url context ~dbg ~sr ~vdi
 
+    let enable_cbt context ~dbg ~sr ~vdi =
+      info "VDI.enable_cbt dbg:%s sr:%s vdi:%s" dbg sr vdi;
+      with_vdi sr vdi
+        (fun () ->
+           Impl.VDI.enable_cbt context ~dbg ~sr ~vdi
+        )
+
   end
 
   let get_by_name context ~dbg ~name =

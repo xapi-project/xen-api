@@ -255,6 +255,9 @@ module Mux = struct
     let get_url context ~dbg ~sr ~vdi =
       let module C = Client(struct let rpc = of_sr sr end) in
       C.VDI.get_url ~dbg ~sr ~vdi
+    let enable_cbt context ~dbg ~sr ~vdi =
+      let module C = Client(struct let rpc = of_sr sr end) in
+      C.VDI.enable_cbt ~dbg ~sr ~vdi
 
   end
 

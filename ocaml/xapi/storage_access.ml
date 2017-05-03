@@ -821,6 +821,21 @@ module SMAPIv1 = struct
            let vdi, _ = find_vdi ~__context sr vdi in
            Printf.sprintf "%s/%s/%s" ip (Ref.string_of session_ref) (Ref.string_of vdi))
 
+    let enable_cbt context ~dbg ~sr ~vdi =
+      try
+        for_vdi ~dbg ~sr ~vdi "VDI.enable_cbt"
+          (fun device_config _type sr self ->
+             Sm.vdi_enable_cbt device_config _type sr self
+          );
+      with
+      | Smint.Not_implemented_in_backend ->
+        raise (Unimplemented "VDI.enable_cbt")
+      | Api_errors.Server_error(code, params) ->
+        raise (Backend_error(code, params))
+      | No_VDI ->
+        raise (Vdi_does_not_exist vdi)
+      | Sm.MasterOnly -> redirect sr
+
   end
 
   let get_by_name context ~dbg ~name = assert false
