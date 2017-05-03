@@ -404,6 +404,9 @@ module VDI = struct
 	(** [remove_from_sm_config dbg sr vdi key] remove [key] from [vdi] sm-config *)
 	external remove_from_sm_config: dbg:debug_info -> sr:sr -> vdi:vdi -> key:string -> unit = ""
 
+  (** [enable_cbt dbg sr vdi] enables changed block tracking for [vdi] *)
+  external enable_cbt: dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
+
 end
 
 (** [get_by_name task name] returns a vdi with [name] (which may be in any SR) *)
