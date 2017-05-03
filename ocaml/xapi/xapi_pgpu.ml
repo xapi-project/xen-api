@@ -40,7 +40,12 @@ let fetch_compatibility_metadata ~__context ~pgpu_pci =
 
 let maybe_fetch_compatibility_metadata ~__context ~pgpu_pci =
   try fetch_compatibility_metadata ~__context ~pgpu_pci
-  with Gpumon_interface.NvmlInterfaceNotAvailable -> []
+  with
+  | Gpumon_interface.NvmlInterfaceNotAvailable -> []
+  | err ->
+    debug "fetch_compatibility_metadata for pgpu_pci:%s failed with %s"
+      (Ref.string_of pgpu_pci) (Printexc.to_string err);
+    []
 
 let populate_compatibility_metadata ~__context ~pgpu ~pgpu_pci =
   let () = Db.PGPU.set_compatibility_metadata ~__context ~self:pgpu
