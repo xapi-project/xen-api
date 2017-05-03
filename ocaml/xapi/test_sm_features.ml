@@ -61,6 +61,8 @@ let test_sequences =
         "VDI_RESIZE";
         "VDI_GENERATE_CONFIG";
         "VDI_RESET_ON_BOOT/2";
+        "VDI_ENABLE_CBT";
+        "VDI_DISABLE_CBT";
         "ATOMIC_PAUSE"; (* xapi ignores this *)
       ];
       smapiv1_features = [
@@ -76,6 +78,8 @@ let test_sequences =
         Vdi_resize, 1L;
         Vdi_generate_config, 1L;
         Vdi_reset_on_boot, 2L;
+        Vdi_enable_cbt, 1L;
+        Vdi_disable_cbt, 1L;
       ];
       smapiv2_features = [
         "SR_PROBE/1";
@@ -90,6 +94,8 @@ let test_sequences =
         "VDI_RESIZE/1";
         "VDI_GENERATE_CONFIG/1";
         "VDI_RESET_ON_BOOT/2";
+        "VDI_ENABLE_CBT/1";
+        "VDI_DISABLE_CBT/1";
       ];
       sm = {
         capabilities = [
@@ -105,6 +111,8 @@ let test_sequences =
           "VDI_RESIZE";
           "VDI_GENERATE_CONFIG";
           "VDI_RESET_ON_BOOT";
+          "VDI_ENABLE_CBT";
+          "VDI_DISABLE_CBT";
         ];
         features = [
           "SR_PROBE", 1L;
@@ -119,6 +127,8 @@ let test_sequences =
           "VDI_RESIZE", 1L;
           "VDI_GENERATE_CONFIG", 1L;
           "VDI_RESET_ON_BOOT", 2L;
+          "VDI_ENABLE_CBT", 1L;
+          "VDI_DISABLE_CBT", 1L;
         ];
       };
     };
