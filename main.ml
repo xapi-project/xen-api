@@ -18,8 +18,6 @@
 open Storage_interface
 open Storage_client
 
-let ( |> ) a b = b a
-
 let dbg = "sm-cli"
 
 let string_of_mirror id {Mirror.source_vdi; dest_vdi; state; failed} =
