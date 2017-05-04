@@ -505,6 +505,9 @@ let _ =
   error Api_errors.cannot_contact_host ["host"]
     ~doc:"Cannot forward messages because the host cannot be contacted.  The host may be switched off or there may be network connectivity problems." ();
 
+  error Api_errors.tls_connection_failed ["address"; "port"]
+    ~doc:"Cannot contact the other host using TLS on the specified address and port" ();
+
   error Api_errors.uuid_invalid [ "type"; "uuid" ]
     ~doc:"The uuid you supplied was invalid." ();
   error Api_errors.object_nolonger_exists []

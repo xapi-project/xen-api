@@ -42,6 +42,7 @@ let session_invalid = "SESSION_INVALID"
 let change_password_rejected = "CHANGE_PASSWORD_REJECTED"
 let user_is_not_local_superuser = "USER_IS_NOT_LOCAL_SUPERUSER"
 let cannot_contact_host = "CANNOT_CONTACT_HOST"
+let tls_connection_failed = "TLS_CONNECTION_FAILED"
 let not_supported_during_upgrade = "NOT_SUPPORTED_DURING_UPGRADE"
 
 let handle_invalid = "HANDLE_INVALID"
