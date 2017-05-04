@@ -1,3 +1,6 @@
+0.10.0 (2-Mar-2017):
+* port to PPX and OASIS
+
 0.9.7 (9-Sep-2015):
 * SRs now have `name_label` and `name_description`
 * pull out logging code into a function
