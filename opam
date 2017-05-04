@@ -18,6 +18,7 @@ remove: [
 ]
 depends: [
   "oasis" {build}
+  "base-threads"
   "xapi-idl"
   "re"
   "rpc"
