@@ -7,6 +7,7 @@ script:
 env:
   global:
     - OCAML_VERSION=4.02
+    - TESTS=false
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
