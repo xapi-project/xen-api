@@ -43,8 +43,11 @@ module Nvidia = struct
 
   (* N.B. the pgpu must be in the local host where this function runs *)
   let get_pgpu_compatibility_metadata ~dbg ~pgpu_pci_address =
-    let get = Gpumon_client.Client.Nvidia.get_pgpu_metadata in
-    [key, get dbg pgpu_pci_address]
+    let metadata =
+      pgpu_pci_address
+      |> Gpumon_client.Client.Nvidia.get_pgpu_metadata dbg 
+      |> Stdext.Base64.encode
+    in [key, metadata]
 
   (* N.B. the vgpu (and the vm) must be in the local host where this function runs *)
   let assert_pgpu_is_compatibile_with_vm ~__context ~vm ~vgpu ~pgpu =
@@ -54,6 +57,7 @@ module Nvidia = struct
       try
         Db.PGPU.get_compatibility_metadata ~__context ~self:pgpu
         |> List.assoc key
+        |> Stdext.Base64.decode
       with
       | Not_found ->
           debug "Key %s is missing from the compatibility_metadata for pgpu %s" key (Ref.string_of pgpu);
