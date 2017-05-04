@@ -1,12 +1,9 @@
-Build dependencies include:
-
-  * OCaml
-  * findlib
-  * cmdliner
-  * xcp
+The build dependencies are listed in the `BuildDepends:` field of the `_oasis`
+file.
 
 To build:
 
+    oasis setup
     make
 
 To install:
