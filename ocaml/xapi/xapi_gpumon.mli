@@ -22,7 +22,7 @@ module Nvidia : sig
 
   (** Fetch metadata about the PGPU from the driver, and return
    *  [(key, metadata)] where key is a fixed value and metadata
-   *  is the opaque string of data from the graphics driver.
+   *  is the base64 encoded opaque string of data from the graphics driver.
    *  IMPORTANT: This must be called on the host that has the GPU installed in it. *)
   val get_pgpu_compatibility_metadata:
     dbg: string ->
