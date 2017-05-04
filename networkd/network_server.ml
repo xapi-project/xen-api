@@ -638,13 +638,15 @@ module Bridge = struct
 			Interface.bring_down () dbg ~name;
 			match !backend_kind with
 			| Openvswitch ->
-				if Ovs.get_vlans name = [] || force then begin
+				let vlans_on_this_parent = Ovs.get_vlans name in
+				if vlans_on_this_parent = [] || force then begin
 					debug "Destroying bridge %s" name;
 					remove_config name;
+					let interfaces = (Ovs.bridge_to_interfaces name) @ vlans_on_this_parent in
 					List.iter (fun dev ->
 						Interface.set_ipv4_conf () dbg ~name:dev ~conf:None4;
 						Interface.bring_down () dbg ~name:dev
-					) (Ovs.bridge_to_interfaces name);
+					) interfaces;
 					Interface.set_ipv4_conf () dbg ~name ~conf:None4;
 					ignore (Ovs.destroy_bridge name)
 				end else
