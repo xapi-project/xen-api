@@ -453,6 +453,9 @@ let destroy ~__context ~self =
 
       let local_vifs = get_local_vifs ~__context host [master_network] in
       let local_vlans = Db.PIF.get_VLAN_slave_of ~__context ~self:master in
+      let is_management_on_vlan =
+        List.filter (fun vlan -> Db.PIF.get_management ~__context ~self:(Db.VLAN.get_untagged_PIF ~__context ~self:vlan)) local_vlans <> []
+      in
       let local_tunnels = Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:master in
 
       (* CA-86573: forbid the deletion of a bond involving the mgmt interface if HA is on *)
@@ -470,8 +473,10 @@ let destroy ~__context ~self =
         List.iter (fun pif -> if pif <> primary_slave then Nm.bring_pif_up ~__context pif) members
       end else begin
         (* Plug the members if the master was plugged *)
-        if plugged then
+        if plugged && not is_management_on_vlan then begin
+          debug "Plugging the bond members";
           List.iter (Nm.bring_pif_up ~__context) members
+        end
       end;
       TaskHelper.set_progress ~__context 0.2;
 
@@ -484,6 +489,13 @@ let destroy ~__context ~self =
       debug "Check VLANs to move from master to slaves";
       List.iter (move_vlan ~__context host primary_slave) local_vlans;
       TaskHelper.set_progress ~__context 0.6;
+
+      (* If management VLAN exist on a bond master then plug the members after moving management
+         from old vlan master to new vlan master *)
+      if is_management_on_vlan then begin
+        debug "Plugging the bond members after moving management from old vlan master to new vlan master";
+        List.iter (Nm.bring_pif_up ~__context) members
+      end;
 
       (* Move tunnels down *)
       debug "Check tunnels to move from master to slaves";
