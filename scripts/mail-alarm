@@ -128,7 +128,7 @@ class EmailTextGenerator(object):
             mail_err('subject')
             return None
         except Exception as err:
-            log_err("[%s] unexpected failure: %s" % (self.__class__.__name__, str(err))
+            log_err("[%s] unexpected failure: %s" % (self.__class__.__name__, str(err)))
             raise
 
     def mail_body(self):
@@ -138,7 +138,7 @@ class EmailTextGenerator(object):
             mail_err('body')
             return None
         except Exception as err:
-            log_err("[%s] unexpected failure: %s" % (self.__class__.__name__, str(err))
+            log_err("[%s] unexpected failure: %s" % (self.__class__.__name__, str(err)))
             raise
 
 class CpuUsageAlarmETG(EmailTextGenerator):
