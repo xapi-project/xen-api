@@ -480,15 +480,10 @@ let destroy ~__context ~self =
       end;
       TaskHelper.set_progress ~__context 0.2;
 
-      (* Move VIFs from master to slaves *)
-      debug "Check VIFs to move from master to slaves";
-      List.iter (Xapi_vif.move_internal ~__context ~network:primary_slave_network) local_vifs;
-      TaskHelper.set_progress ~__context 0.4;
-
       (* Move VLANs down *)
       debug "Check VLANs to move from master to slaves";
       List.iter (move_vlan ~__context host primary_slave) local_vlans;
-      TaskHelper.set_progress ~__context 0.6;
+      TaskHelper.set_progress ~__context 0.4;
 
       (* If management VLAN exist on a bond master then plug the members after moving management
          from old vlan master to new vlan master *)
@@ -496,6 +491,11 @@ let destroy ~__context ~self =
         debug "Plugging the bond members after moving management from old vlan master to new vlan master";
         List.iter (Nm.bring_pif_up ~__context) members
       end;
+
+      (* Move VIFs from master to slaves *)
+      debug "Check VIFs to move from master to slaves";
+      List.iter (Xapi_vif.move_internal ~__context ~network:primary_slave_network) local_vifs;
+      TaskHelper.set_progress ~__context 0.6;
 
       (* Move tunnels down *)
       debug "Check tunnels to move from master to slaves";
