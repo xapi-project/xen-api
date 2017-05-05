@@ -1,22 +1,17 @@
 language: c
+sudo: required
 services: docker
-install:
-        - wget https://raw.githubusercontent.com/xenserver/xenserver-build-env/master/utils/travis-build-repo.sh
-script: bash travis-build-repo.sh
-after_success:
-    - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && bash deploy.sh
-sudo: true
+script: bash ./.travis-$BUILD_METHOD.sh
 env:
     global:
-        - CONTAINER_NAME=build-env
-        - OCAMLRUNPARAM=b
-        - REPO_PACKAGE_NAME=xapi
-        - REPO_CONFIGURE_CMD=./configure
-        - REPO_BUILD_CMD=make
-        - REPO_TEST_CMD='make test'
-        - REPO_DOC_CMD='make doc-json'
+        # for BUILD_METHOD=xenserver-build-env
         - secure: tokxJl2litqu/T6UUwzkLRZzlbxnbYqVG2QRKKQz3tkIXyZHQWTS2NAyH7mwDgdBq2dDVSxAUxS1jWq/vGraX7MmbVz37Pz8wjykoIfIRtQuEx+REDAvAzWSw+1LTpUf7ZcI+F2SpgJrnH87uN5AAc220UqIx8TvAtGrita+2+o=
     matrix:
-        - OCAML_VERSION=4.02
+        - BUILD_METHOD=xenserver-build-env
+        - BUILD_METHOD=opam-coverage
 notifications:
     slack: citrix:BHYQZbI8m036ELU21gZil75Y
+matrix:
+    fast_finish: true
+    allow_failures:
+        - env: BUILD_METHOD=opam-coverage
