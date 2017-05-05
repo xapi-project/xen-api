@@ -560,7 +560,7 @@ let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_stat_cmd; sr_scan_cmd;
             vdi_similar_content_cmd; vdi_compose_cmd;
             mirror_list_cmd; mirror_start_cmd; mirror_stop_cmd]
 
-let _ =
+let () =
   match Term.eval_choice default_cmd cmds with 
   | `Error _ -> exit 1
   | _ -> exit 0
