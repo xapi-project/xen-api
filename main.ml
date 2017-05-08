@@ -331,6 +331,11 @@ let vdi_compose common_opts sr vdi1 vdi2 =
         Client.VDI.compose ~dbg ~sr ~vdi1 ~vdi2
     ) common_opts sr vdi1
 
+let vdi_enable_cbt common_opts sr vdi =
+  on_vdi (fun sr vdi ->
+    Client.VDI.enable_cbt ~dbg ~sr ~vdi
+  ) common_opts sr vdi
+
 let query_cmd =
   let doc = "query the capabilities of a storage service" in
   let man = [
@@ -546,6 +551,15 @@ let vdi_similar_content_cmd =
   Term.(ret(pure vdi_similar_content $ common_options_t $ sr_arg $ vdi_arg)),
   Term.info "vdi-similar-content" ~sdocs:_common_options ~doc ~man
 
+let vdi_enable_cbt_cmd =
+  let doc = "enable changed block tracking for the given VDI." in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Start tracking changed blocks for the given non-snapshot VDI.";
+  ] @ help in
+  Term.(ret(pure vdi_enable_cbt $ common_options_t $ sr_arg $ vdi_arg)),
+  Term.info "vdi-enable-cbt" ~sdocs:_common_options ~doc ~man
+
 let default_cmd =
   let doc = "interact with an XCP storage management service" in
   let man = help in
@@ -555,7 +569,7 @@ let default_cmd =
 let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_stat_cmd; sr_scan_cmd;
             vdi_create_cmd; vdi_destroy_cmd; vdi_attach_cmd; vdi_detach_cmd;
             vdi_activate_cmd; vdi_deactivate_cmd; vdi_clone_cmd; vdi_resize_cmd;
-            vdi_similar_content_cmd; vdi_compose_cmd;
+            vdi_similar_content_cmd; vdi_compose_cmd; vdi_enable_cbt_cmd;
             mirror_list_cmd; mirror_start_cmd; mirror_stop_cmd]
 
 let () =
