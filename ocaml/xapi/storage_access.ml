@@ -836,6 +836,21 @@ module SMAPIv1 = struct
         raise (Vdi_does_not_exist vdi)
       | Sm.MasterOnly -> redirect sr
 
+    let disable_cbt context ~dbg ~sr ~vdi =
+      try
+        for_vdi ~dbg ~sr ~vdi "VDI.disable_cbt"
+          (fun device_config _type sr self ->
+             Sm.vdi_disable_cbt device_config _type sr self
+          );
+      with
+      | Smint.Not_implemented_in_backend ->
+        raise (Unimplemented "VDI.disable_cbt")
+      | Api_errors.Server_error(code, params) ->
+        raise (Backend_error(code, params))
+      | No_VDI ->
+        raise (Vdi_does_not_exist vdi)
+      | Sm.MasterOnly -> redirect sr
+
   end
 
   let get_by_name context ~dbg ~name = assert false

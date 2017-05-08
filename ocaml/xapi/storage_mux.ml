@@ -258,6 +258,9 @@ module Mux = struct
     let enable_cbt context ~dbg ~sr ~vdi =
       let module C = Client(struct let rpc = of_sr sr end) in
       C.VDI.enable_cbt ~dbg ~sr ~vdi
+    let disable_cbt context ~dbg ~sr ~vdi =
+      let module C = Client(struct let rpc = of_sr sr end) in
+      C.VDI.disable_cbt ~dbg ~sr ~vdi
 
   end
 

@@ -582,6 +582,13 @@ module Wrapper = functor(Impl: Server_impl) -> struct
            Impl.VDI.enable_cbt context ~dbg ~sr ~vdi
         )
 
+    let disable_cbt context ~dbg ~sr ~vdi =
+      info "VDI.disable_cbt dbg:%s sr:%s vdi:%s" dbg sr vdi;
+      with_vdi sr vdi
+        (fun () ->
+           Impl.VDI.disable_cbt context ~dbg ~sr ~vdi
+        )
+
   end
 
   let get_by_name context ~dbg ~name =
