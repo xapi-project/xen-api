@@ -11,9 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(**
- * @group Storage
- *)
+(** @group Storage *)
 
 open Storage_interface
 open Storage_client
@@ -26,49 +24,49 @@ let string_of_mirror id {Mirror.source_vdi; dest_vdi; state; failed} =
     "id: %s\nsrc_vdi: %s\ndest_vdi: %s\nstatus: %s\nfailed: %b\n"
     id source_vdi dest_vdi
     (String.concat ","
-      (List.map
-        (function
-          | Receiving -> "Receiving"
-          | Sending -> "Sending"
-          | Copying -> "Copying")
-        state))
+       (List.map
+          (function
+            | Receiving -> "Receiving"
+            | Sending -> "Sending"
+            | Copying -> "Copying")
+          state))
     failed
 let project_url = "http://github.com/djs55/sm-cli"
 
 open Cmdliner
 
 module Common = struct
-	type t = {
-        verbose: bool;
-        debug: bool;
-        socket: string;
-	} [@@deriving rpc]
+  type t = {
+    verbose: bool;
+    debug: bool;
+    socket: string;
+  } [@@deriving rpc]
 
-	let make verbose debug socket queue =
-		begin match queue with
-		| None -> ();
-		| Some name ->
-			Storage_interface.queue_name := name;
-			Xcp_client.use_switch := true
-		end;
-		{ verbose; debug; socket }
+  let make verbose debug socket queue =
+    begin match queue with
+      | None -> ();
+      | Some name ->
+        Storage_interface.queue_name := name;
+        Xcp_client.use_switch := true
+    end;
+    { verbose; debug; socket }
 
-	let to_string x = Jsonrpc.to_string (rpc_of_t x)
+  let to_string x = Jsonrpc.to_string (rpc_of_t x)
 end
 
 let _common_options = "COMMON OPTIONS"
 
 (* Options common to all commands *)
-let common_options_t = 
-  let docs = _common_options in 
-  let debug = 
+let common_options_t =
+  let docs = _common_options in
+  let debug =
     let doc = "Give only debug output." in
     Arg.(value & flag & info ["debug"] ~docs ~doc) in
   let verb =
     let doc = "Give verbose output." in
-    let verbose = true, Arg.info ["v"; "verbose"] ~docs ~doc in 
-    Arg.(last & vflag_all [false] [verbose]) in 
-  let socket = 
+    let verbose = true, Arg.info ["v"; "verbose"] ~docs ~doc in
+    Arg.(last & vflag_all [false] [verbose]) in
+  let socket =
     let doc = Printf.sprintf "Specify path to the server Unix domain socket." in
     Arg.(value & opt file !Storage_interface.default_path & info ["socket"] ~docs ~doc) in
   let queue =
@@ -78,40 +76,40 @@ let common_options_t =
 
 
 (* Help sections common to all commands *)
-let help = [ 
- `S _common_options; 
- `P "These options are common to all commands.";
- `S "MORE HELP";
- `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
- `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" project_url);
+let help = [
+  `S _common_options;
+  `P "These options are common to all commands.";
+  `S "MORE HELP";
+  `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
+  `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" project_url);
 ]
 
 (* Commands *)
 
 let wrap common_opts f =
-	Storage_interface.default_path := common_opts.Common.socket;
-	try
-		f ();
-		`Ok ()
-	with
-	| Unix.Unix_error((Unix.ECONNREFUSED|Unix.ENOENT), "connect", _) as e->
-		Printf.fprintf stderr "Failed to connect to %s: %s\n%!" common_opts.Common.socket (Printexc.to_string e);
-		Printf.fprintf stderr "Check whether the storage service is listening and try again.\n%!";
-		`Error(false, "could not connect to service")
-	| Unix.Unix_error(Unix.EACCES, "connect", _) as e ->
-		Printf.fprintf stderr "Failed to connect to %s: %s\n%!" common_opts.Common.socket (Printexc.to_string e);
-		Printf.fprintf stderr "Ensure this program is being run as root and try again.\n%!";
-		`Error(false, "permission denied")
-	| Storage_interface.Backend_error(code, params) ->
-		Printf.fprintf stderr "Error from storage backend:\n";
-		Printf.fprintf stderr "%s: [ %s ]\n" code (String.concat "; " params);
-		exit 1
+  Storage_interface.default_path := common_opts.Common.socket;
+  try
+    f ();
+    `Ok ()
+  with
+  | Unix.Unix_error((Unix.ECONNREFUSED|Unix.ENOENT), "connect", _) as e->
+    Printf.fprintf stderr "Failed to connect to %s: %s\n%!" common_opts.Common.socket (Printexc.to_string e);
+    Printf.fprintf stderr "Check whether the storage service is listening and try again.\n%!";
+    `Error(false, "could not connect to service")
+  | Unix.Unix_error(Unix.EACCES, "connect", _) as e ->
+    Printf.fprintf stderr "Failed to connect to %s: %s\n%!" common_opts.Common.socket (Printexc.to_string e);
+    Printf.fprintf stderr "Ensure this program is being run as root and try again.\n%!";
+    `Error(false, "permission denied")
+  | Storage_interface.Backend_error(code, params) ->
+    Printf.fprintf stderr "Error from storage backend:\n";
+    Printf.fprintf stderr "%s: [ %s ]\n" code (String.concat "; " params);
+    exit 1
 
 let query common_opts =
   wrap common_opts (fun () ->
-    let q = Client.Query.query ~dbg in
-    Printf.printf "%s\n" (q |> rpc_of_query_result |> Jsonrpc.to_string)
-  )
+      let q = Client.Query.query ~dbg in
+      Printf.printf "%s\n" (q |> rpc_of_query_result |> Jsonrpc.to_string)
+    )
 
 let filename_suffix = "-filename"
 let filename_suffix_regex = Re_str.regexp_string filename_suffix
@@ -133,10 +131,10 @@ let string_of_file filename =
 
 let mirror_list common_opts =
   wrap common_opts (fun () ->
-    let list = Client.DATA.MIRROR.list ~dbg in
-    List.iter
-      (fun (id,status) -> Printf.printf "%s" (string_of_mirror id status))
-      list)
+      let list = Client.DATA.MIRROR.list ~dbg in
+      List.iter
+        (fun (id,status) -> Printf.printf "%s" (string_of_mirror id status))
+        list)
 
 let sr_attach common_opts sr device_config = match sr with
   | None -> `Error(true, "must supply SR")
@@ -147,56 +145,56 @@ let sr_attach common_opts sr device_config = match sr with
     (* The first 'device_config' will actually be the sr *)
     let device_config = List.tl device_config in
     let device_config = List.map (fun x -> match Re_str.bounded_split (Re_str.regexp_string "=") x 2 with
-    | [ k; v ] when List.mem k expected_device_config_keys -> k, v
-    | [ k; v ] -> begin match Re_str.bounded_split_delim filename_suffix_regex k 2 with
-      | [ k'; "" ] ->
-        (* We will send the contents of the file [v] as the value and [k'] as the key *)
-        if not(Sys.file_exists v) then begin
-          Printf.fprintf stderr "File does not exist: %s\n%!" v;
+        | [ k; v ] when List.mem k expected_device_config_keys -> k, v
+        | [ k; v ] -> begin match Re_str.bounded_split_delim filename_suffix_regex k 2 with
+            | [ k'; "" ] ->
+              (* We will send the contents of the file [v] as the value and [k'] as the key *)
+              if not(Sys.file_exists v) then begin
+                Printf.fprintf stderr "File does not exist: %s\n%!" v;
+                exit 1
+              end;
+              if not (List.mem k' expected_device_config_keys) then begin
+                Printf.fprintf stderr "unexpected device_config key: %s (expected: %s)\n" k (String.concat ", " expected_device_config_keys);
+                exit 1
+              end;
+              k', string_of_file v
+            | _ ->
+              Printf.fprintf stderr "unexpected device_config key: %s (expected: %s)\n" k (String.concat ", " expected_device_config_keys);
+              exit 1
+          end
+        | _ ->
+          Printf.fprintf stderr "device_config arguments need to be of the form key=value (got '%s')\n" x;
           exit 1
-        end;
-        if not (List.mem k' expected_device_config_keys) then begin
-          Printf.fprintf stderr "unexpected device_config key: %s (expected: %s)\n" k (String.concat ", " expected_device_config_keys);
-          exit 1
-        end;
-        k', string_of_file v
-      | _ ->
-        Printf.fprintf stderr "unexpected device_config key: %s (expected: %s)\n" k (String.concat ", " expected_device_config_keys);
-        exit 1
-      end
-    | _ ->
-      Printf.fprintf stderr "device_config arguments need to be of the form key=value (got '%s')\n" x;
-      exit 1
-    ) device_config in
+      ) device_config in
     wrap common_opts (fun () ->
-      Client.SR.attach ~dbg ~sr ~device_config
-    )
+        Client.SR.attach ~dbg ~sr ~device_config
+      )
 
 let sr_detach common_opts sr = match sr with
   | None -> `Error(true, "must supply SR")
   | Some sr ->
     wrap common_opts (fun () ->
-      Client.SR.detach ~dbg ~sr
-    )
+        Client.SR.detach ~dbg ~sr
+      )
 
 let sr_stat common_opts sr = match sr with
   | None -> `Error(true, "must supply SR")
   | Some sr ->
     wrap common_opts (fun () ->
-      let sr_info = Client.SR.stat ~dbg ~sr in
-      Printf.fprintf stdout "Total space on substrate:      %Ld\n" sr_info.total_space;
-      Printf.fprintf stdout "Free space on substrate:       %Ld\n" sr_info.free_space
-    )
+        let sr_info = Client.SR.stat ~dbg ~sr in
+        Printf.fprintf stdout "Total space on substrate:      %Ld\n" sr_info.total_space;
+        Printf.fprintf stdout "Free space on substrate:       %Ld\n" sr_info.free_space
+      )
 
 let sr_scan common_opts sr = match sr with
   | None -> `Error(true, "must supply SR")
   | Some sr ->
     wrap common_opts (fun () ->
-      let vdis = Client.SR.scan ~dbg ~sr in
-      List.iter (fun vdi ->
-        Printf.fprintf stdout "%s: %s\n" vdi.vdi (Jsonrpc.to_string (rpc_of_vdi_info vdi))
-      ) vdis
-    )
+        let vdis = Client.SR.scan ~dbg ~sr in
+        List.iter (fun vdi ->
+            Printf.fprintf stdout "%s: %s\n" vdi.vdi (Jsonrpc.to_string (rpc_of_vdi_info vdi))
+          ) vdis
+      )
 
 let parse_size x =
   let kib = 1024L in
@@ -224,26 +222,26 @@ let vdi_create common_opts sr name descr virtual_size format = match sr with
   | None -> `Error(true, "must supply SR")
   | Some sr ->
     wrap common_opts (fun () ->
-      let vdi_info = {
-        vdi = "";
-        uuid = None;
-        content_id = "";
-        name_label = name;
-        name_description = descr;
-        ty = "user";
-        metadata_of_pool = "";
-        is_a_snapshot = false;
-        snapshot_time = "";
-        snapshot_of = "";
-        read_only = false;
-        virtual_size = parse_size virtual_size;
-        physical_utilisation = 0L;
-        sm_config = (match format with None -> [] | Some x -> ["type", x]);
-        persistent = true;
-      } in
-      let vdi_info = Client.VDI.create ~dbg ~sr ~vdi_info in
-      Printf.printf "%s\n" vdi_info.vdi
-    )
+        let vdi_info = {
+          vdi = "";
+          uuid = None;
+          content_id = "";
+          name_label = name;
+          name_description = descr;
+          ty = "user";
+          metadata_of_pool = "";
+          is_a_snapshot = false;
+          snapshot_time = "";
+          snapshot_of = "";
+          read_only = false;
+          virtual_size = parse_size virtual_size;
+          physical_utilisation = 0L;
+          sm_config = (match format with None -> [] | Some x -> ["type", x]);
+          persistent = true;
+        } in
+        let vdi_info = Client.VDI.create ~dbg ~sr ~vdi_info in
+        Printf.printf "%s\n" vdi_info.vdi
+      )
 
 let on_vdi f common_opts sr vdi = match sr, vdi with
   | None, _ -> `Error(true, "must supply SR")
@@ -262,76 +260,76 @@ let mirror_start common_opts sr vdi dp url dest =
       Printf.printf "Task id: %s\n" task) common_opts sr vdi
 
 let mirror_stop common_opts id =
-  wrap common_opts (fun () -> 
-      match id with Some id -> Client.DATA.MIRROR.stop ~dbg ~id 
+  wrap common_opts (fun () ->
+      match id with Some id -> Client.DATA.MIRROR.stop ~dbg ~id
                   | None -> failwith "Need an ID")
 
 let vdi_clone common_opts sr vdi name descr = on_vdi
-  (fun sr vdi ->
-    wrap common_opts (fun () ->
-      let vdi_info = Client.VDI.stat ~dbg ~sr ~vdi in
-      let vdi_info = { vdi_info with
-        name_label = (match name with None -> vdi_info.name_label | Some x -> x);
-        name_description = (match descr with None -> vdi_info.name_description | Some x -> x);
-      } in
-      let vdi_info = Client.VDI.clone ~dbg ~sr ~vdi_info in
-      Printf.printf "%s\n" vdi_info.vdi
-    )
-  ) common_opts sr vdi
+    (fun sr vdi ->
+       wrap common_opts (fun () ->
+           let vdi_info = Client.VDI.stat ~dbg ~sr ~vdi in
+           let vdi_info = { vdi_info with
+                            name_label = (match name with None -> vdi_info.name_label | Some x -> x);
+                            name_description = (match descr with None -> vdi_info.name_description | Some x -> x);
+                          } in
+           let vdi_info = Client.VDI.clone ~dbg ~sr ~vdi_info in
+           Printf.printf "%s\n" vdi_info.vdi
+         )
+    ) common_opts sr vdi
 
 let vdi_resize common_opts sr vdi new_size = on_vdi
-  (fun sr vdi ->
-    match new_size with
-    | None -> `Error(true, "must supply a new size")
-    | Some new_size ->
-      let new_size = parse_size new_size in
-      wrap common_opts (fun () ->
-        let new_size = Client.VDI.resize ~dbg ~sr ~vdi ~new_size in
-        Printf.printf "%Ld\n" new_size
-      )
-  ) common_opts sr vdi
+    (fun sr vdi ->
+       match new_size with
+       | None -> `Error(true, "must supply a new size")
+       | Some new_size ->
+         let new_size = parse_size new_size in
+         wrap common_opts (fun () ->
+             let new_size = Client.VDI.resize ~dbg ~sr ~vdi ~new_size in
+             Printf.printf "%Ld\n" new_size
+           )
+    ) common_opts sr vdi
 
 let vdi_destroy common_opts sr vdi =
   on_vdi (fun sr vdi ->
-    Client.VDI.destroy ~dbg ~sr ~vdi
-  ) common_opts sr vdi
+      Client.VDI.destroy ~dbg ~sr ~vdi
+    ) common_opts sr vdi
 
 let vdi_attach common_opts sr vdi =
   on_vdi (fun sr vdi ->
-    let info = Client.VDI.attach ~dbg ~dp:dbg ~sr ~vdi ~read_write:true in
-    Printf.printf "%s\n" (Jsonrpc.to_string (rpc_of_attach_info info))
-  ) common_opts sr vdi
+      let info = Client.VDI.attach ~dbg ~dp:dbg ~sr ~vdi ~read_write:true in
+      Printf.printf "%s\n" (Jsonrpc.to_string (rpc_of_attach_info info))
+    ) common_opts sr vdi
 
 let vdi_detach common_opts sr vdi =
   on_vdi (fun sr vdi ->
-    Client.VDI.detach ~dbg ~dp:dbg ~sr ~vdi
-  ) common_opts sr vdi
+      Client.VDI.detach ~dbg ~dp:dbg ~sr ~vdi
+    ) common_opts sr vdi
 
 let vdi_activate common_opts sr vdi =
   on_vdi (fun sr vdi ->
-    Client.VDI.activate ~dbg ~dp:dbg ~sr ~vdi
-  ) common_opts sr vdi
+      Client.VDI.activate ~dbg ~dp:dbg ~sr ~vdi
+    ) common_opts sr vdi
 
 let vdi_deactivate common_opts sr vdi =
   on_vdi (fun sr vdi ->
-    Client.VDI.deactivate ~dbg ~dp:dbg ~sr ~vdi
-  ) common_opts sr vdi
+      Client.VDI.deactivate ~dbg ~dp:dbg ~sr ~vdi
+    ) common_opts sr vdi
 
 let vdi_similar_content common_opts sr vdi =
   on_vdi (fun sr vdi ->
-    let vdis = Client.VDI.similar_content ~dbg ~sr ~vdi in
-    List.iter (fun vdi ->
-      Printf.fprintf stdout "%s: %s\n" vdi.vdi (Jsonrpc.to_string (rpc_of_vdi_info vdi))
-    ) vdis
-  ) common_opts sr vdi
+      let vdis = Client.VDI.similar_content ~dbg ~sr ~vdi in
+      List.iter (fun vdi ->
+          Printf.fprintf stdout "%s: %s\n" vdi.vdi (Jsonrpc.to_string (rpc_of_vdi_info vdi))
+        ) vdis
+    ) common_opts sr vdi
 
 let vdi_compose common_opts sr vdi1 vdi2 =
   on_vdi (fun sr vdi1 ->
-    match vdi2 with
-    | None -> failwith "must supply VDI2"
-    | Some vdi2 ->
-      Client.VDI.compose ~dbg ~sr ~vdi1 ~vdi2
-  ) common_opts sr vdi1
+      match vdi2 with
+      | None -> failwith "must supply VDI2"
+      | Some vdi2 ->
+        Client.VDI.compose ~dbg ~sr ~vdi1 ~vdi2
+    ) common_opts sr vdi1
 
 let query_cmd =
   let doc = "query the capabilities of a storage service" in
@@ -369,7 +367,7 @@ let mirror_start_cmd =
     `S "DESCRIPTION";
     `P "Start a mirror operation that will initialise and then actively mirror the contents of a VDI to a different (possibly remote) SR.";
     `P "The local datapath needs to be attached already"] @ help in
-  let dp = 
+  let dp =
     let doc = "Local data path attaching the VDI" in
     Arg.(value & pos 2 (some string) None & info [] ~docv:"DP" ~doc) in
   let url =
@@ -386,7 +384,7 @@ let mirror_stop_cmd =
   let man = [
     `S "DESCRIPTION";
     `P "Stop a currently-active mirror";] in
-  let id = 
+  let id =
     let doc = "ID of the mirror" in
     Arg.(value & pos 0 (some string) None & info [] ~docv:"ID" ~doc) in
   Term.(ret(pure mirror_stop $ common_options_t $ id)),
@@ -548,12 +546,12 @@ let vdi_similar_content_cmd =
   Term.(ret(pure vdi_similar_content $ common_options_t $ sr_arg $ vdi_arg)),
   Term.info "vdi-similar-content" ~sdocs:_common_options ~doc ~man
 
-let default_cmd = 
-  let doc = "interact with an XCP storage management service" in 
+let default_cmd =
+  let doc = "interact with an XCP storage management service" in
   let man = help in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "sm-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
-       
+
 let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_stat_cmd; sr_scan_cmd;
             vdi_create_cmd; vdi_destroy_cmd; vdi_attach_cmd; vdi_detach_cmd;
             vdi_activate_cmd; vdi_deactivate_cmd; vdi_clone_cmd; vdi_resize_cmd;
@@ -561,6 +559,6 @@ let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_stat_cmd; sr_scan_cmd;
             mirror_list_cmd; mirror_start_cmd; mirror_stop_cmd]
 
 let () =
-  match Term.eval_choice default_cmd cmds with 
+  match Term.eval_choice default_cmd cmds with
   | `Error _ -> exit 1
   | _ -> exit 0
