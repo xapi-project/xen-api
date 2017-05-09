@@ -18,6 +18,18 @@
 module D = Debug.Make(struct let name="extauth_plugin_ADpbis" end)
 open D
 
+open Stdext.Xstringext
+
+let extract_sid_from_group_list = fun group_list ->
+  List.map (fun (n,v)->
+      let v = String.replace ")" "" v in
+      let v = String.replace "sid =" "|" v in
+      let vs = String.split_f (fun c -> c = '|') v in
+      let sid = String.trim (List.nth vs 1) in
+      debug "extract_sid_from_group_list get sid=[%s]" sid;
+      sid
+    ) (List.filter (fun (n,v)->n="") group_list)
+
 module AuthADlw : Auth_signature.AUTH_MODULE =
 struct
 
@@ -30,20 +42,7 @@ struct
 
   let user_friendly_error_msg = "The Active Directory Plug-in could not complete the command. Additional information in the logs."
 
-  open Stdext.Xstringext
-
   let splitlines s = String.split_f (fun c -> c = '\n') (String.replace "#012" "\n" s)
-
-  let rec string_trim s =
-    let l = String.length s in
-    if l = 0 then
-      s
-    else if s.[0] = ' ' || s.[0] = '\t' || s.[0] = '\n' || s.[0] = '\r' then
-      string_trim (String.sub s 1 (l-1))
-    else if s.[l-1] = ' ' || s.[l-1] = '\t' || s.[l-1] = '\n' || s.[l-1] = '\r' then
-      string_trim (String.sub s 0 (l-1))
-    else
-      s
 
   let pbis_common_with_password (password:string) (pbis_cmd:string) (pbis_args:string list) =
     let debug_cmd = pbis_cmd ^ " " ^ (List.fold_left (fun p pp -> p^" "^pp) " " pbis_args) in
@@ -211,8 +210,8 @@ struct
             debug "parse %s: currkey=[%s] line=[%s]" debug_cmd currkey line;
             if List.length slices > 1 then
               begin
-                let key = string_trim (List.hd slices) in
-                let value = string_trim (List.nth slices 1) in
+                let key = String.trim (List.hd slices) in
+                let value = String.trim (List.nth slices 1) in
                 debug "parse %s: key=[%s] value=[%s] currkey=[%s]" debug_cmd key value currkey;
                 if String.length value > 0 then
                   (acc @ [(key, value)], "")
@@ -221,7 +220,7 @@ struct
               end
             else
               let key = currkey in
-              let value = string_trim line in
+              let value = String.trim line in
               debug "parse %s: key=[%s] value=[%s] currkey=[%s]" debug_cmd key value currkey;
               (acc @ [(key, value)], currkey)
           ) in
@@ -323,14 +322,7 @@ struct
        And pbis_common will return subject_attrs as
        [("Number of groups found for user 'test@testdomain'", "2"), ("", line1), ("", line2) ... ("", lineN)]
     *)
-    List.map (fun (n,v)->
-        let v = String.replace ")" "|" v in
-        let v = String.replace "sid =" "|" v in
-        let vs = String.split_f (fun c -> c = '|') v in
-        let sid = string_trim (List.nth vs 1) in
-        debug "pbis_get_group_sids_byname %s get sid=[%s]" _subject_name sid;
-        sid
-      ) (List.filter (fun (n,v)->n="") subject_attrs)
+    extract_sid_from_group_list subject_attrs
 
   let pbis_get_sid_bygid gid =
 

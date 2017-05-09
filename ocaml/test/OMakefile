@@ -11,6 +11,7 @@ OCAMLINCLUDES = \
 	../idl/ocaml_backend \
 	../autogen \
 	../license \
+	../auth \
 
 OCAML_LIBS = \
 	../util/version \
@@ -70,6 +71,7 @@ OCAML_OBJS = \
 	test_pvs_proxy \
 	test_pvs_server \
 	test_pvs_cache_storage \
+  test_extauth_plugin_ADpbis \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
 
