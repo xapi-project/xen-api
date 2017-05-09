@@ -855,6 +855,17 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
       raise (Api_errors.Server_error(Api_errors.pool_joining_host_service_failed, [])) in
 
   let cluster_secret = ref "" in
+  (* If management is on a VLAN, then get the Pool master
+     management network bridge before we logout the session *)
+  let pool_master_bridge, mgmt_pif =
+    let my_pif = Xapi_host.get_management_interface ~__context ~host:(Helpers.get_localhost ~__context) in
+    if (Db.PIF.get_VLAN_master_of ~__context ~self:my_pif) <> Ref.null then
+      let pif = Client.Host.get_management_interface rpc session_id (get_master ~rpc ~session_id) in
+      let network = Client.PIF.get_network rpc session_id pif in
+      Some (Client.Network.get_bridge rpc session_id network), my_pif
+    else
+      None, my_pif
+  in
 
   finally (fun () ->
       pre_join_checks ~__context ~rpc ~session_id ~force;
@@ -893,6 +904,20 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
              ) ()
         ) (Db.Host.get_PBDs ~__context ~self:me)
     );
+
+  (* If management is on a VLAN, then we might need to create a vlan bridge with the same name as the Pool master is using *)
+  begin match pool_master_bridge with
+    | None -> ()
+    | Some bridge ->
+      let network = Db.PIF.get_network ~__context ~self:mgmt_pif in
+      let mgmt_bridge = Db.Network.get_bridge ~__context ~self:network in
+      if mgmt_bridge <> bridge then begin
+        debug "Changing management vlan bridge from=%s to=%s" mgmt_bridge bridge;
+        Db.Network.set_bridge ~__context ~self:network ~value:bridge;
+        Nm.bring_pif_up ~__context ~management_interface:true mgmt_pif;
+        Xapi_mgmt_iface.change bridge (Db.PIF.get_primary_address_type ~__context ~self:mgmt_pif)
+      end
+  end;
 
   (* Rewrite the pool secret on every host of the current pool, and restart all the agent as slave of the distant pool master. *)
   Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
