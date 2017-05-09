@@ -50,6 +50,7 @@ let base_suite =
 			(* Test_ca121350.test; *)
 			Test_daily_license_check.test;
 			Test_dbsync_master.test;
+			Test_extauth_plugin_ADpbis.test;
 		]
 
 let handlers = [
