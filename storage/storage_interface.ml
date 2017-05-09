@@ -407,6 +407,9 @@ module VDI = struct
   (** [enable_cbt dbg sr vdi] enables changed block tracking for [vdi] *)
   external enable_cbt: dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
 
+  (** [disable_cbt dbg sr vdi] disables changed block tracking for [vdi] *)
+  external disable_cbt: dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
+
 end
 
 (** [get_by_name task name] returns a vdi with [name] (which may be in any SR) *)
