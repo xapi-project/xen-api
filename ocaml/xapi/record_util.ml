@@ -387,6 +387,7 @@ let vdi_type_to_string t =
   | `redo_log -> "Redo log"
   | `rrd -> "rrd"
   | `pvs_cache -> "PVS cache"
+  | `cbt_metadata -> "CBT metadata"
 
 let ip_configuration_mode_to_string = function
   | `None -> "None"

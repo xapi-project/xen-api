@@ -294,7 +294,8 @@ let create ~__context ~name_label ~name_description
     | `system -> "system"
     | `user -> "user"
     | `rrd -> "rrd"
-    | `pvs_cache -> "pvs_cache" in
+    | `pvs_cache -> "pvs_cache"
+    | `cbt_metadata -> "cbt_metadata" in
 
   let open Storage_access in
   let task = Context.get_task_id __context in
@@ -349,7 +350,8 @@ let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type 
     ~other_config ~storage_lock:false ~location ~managed ~missing:false ~parent:Ref.null ~tags:[]
     ~on_boot:`persist ~allow_caching:false
     ~metadata_of_pool ~metadata_latest:false
-    ~is_tools_iso:false;
+    ~is_tools_iso:false
+    ~cbt_enabled:false;
   ref
 
 let internal_db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of =
