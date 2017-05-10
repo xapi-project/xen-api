@@ -87,10 +87,6 @@ let ely_release_schema_minor_vsn = 108
 let falcon_release_schema_major_vsn = 5
 let falcon_release_schema_minor_vsn = 120
 
-(* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = falcon_release_schema_major_vsn
-let last_release_schema_minor_vsn = falcon_release_schema_minor_vsn
-
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
 let tech_preview_releases = [
