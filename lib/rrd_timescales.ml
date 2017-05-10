@@ -20,9 +20,9 @@ type t = {
 	name: string;
 	num_intervals: int;
 	interval_in_steps: int;
-} with rpc
+} [@@deriving rpc]
 
-type ts = t list with rpc
+type ts = t list [@@deriving rpc]
 
 let make ~name ~num_intervals ~interval_in_steps () =
 	{ name; num_intervals; interval_in_steps }
