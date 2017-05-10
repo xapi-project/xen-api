@@ -55,7 +55,7 @@ let iter_nb ring f nb =
   done
 
 (* iter directly on all element without using the index *)
-let iter f a = 
+let iter f a =
   for i=0 to Bigarray.Array1.dim a - 1 do
     f (Bigarray.Array1.get a i)
   done
@@ -68,7 +68,7 @@ let iter ring f = iter_nb ring f (ring.size)
 let get_nb ring nb =
   if nb > ring.size then
     raise (Invalid_argument "get_nb: nb");
-  let a = Array.create nb (top ring) in
+  let a = Array.make nb (top ring) in
   for i = 1 to nb - 1
   do
     (* FIXME: OPTIMIZE ME with 2 Array.blit *)
