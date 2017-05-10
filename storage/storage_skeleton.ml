@@ -76,6 +76,8 @@ module VDI = struct
   let compose ctx ~dbg ~sr ~vdi1 ~vdi2 = u "VDI.compose"
   let add_to_sm_config ctx ~dbg ~sr ~vdi ~key ~value = u "VDI.add_to_sm_config"
   let remove_from_sm_config ctx ~dbg ~sr ~vdi ~key = u "VDI.remove_from_sm_config"
+  let enable_cbt ctx ~dbg ~sr ~vdi = u "VDI.enable_cbt"
+  let disable_cbt ctx ~dbg ~sr ~vdi = u "VDI.disable_cbt"
 end
 
 let get_by_name ctx ~dbg ~name = u "get_by_name"
