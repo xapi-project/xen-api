@@ -1,26 +1,34 @@
 opam-version: "1"
-maintainer: "john.else@eu.citrix.com"
+maintainer: "xen-api@lists.xen.org"
 build: [
+  ["oasis" "setup"]
   [make]
-  [make "install" "BINDIR=%{bin}%" "SBINDIR=%{bin}%" "LIBEXECDIR=%{bin}%" "SCRIPTSDIR=%{bin}%" "ETCDIR=%{prefix}%/etc"]
+]
+install: [
+  ["ocaml" "setup.ml" "-install"]
 ]
 build-test: [
   [make "test"]
 ]
-remove: [make "uninstall" "BINDIR=%{bin}%" "SBINDIR=%{bin}%" "LIBEXECDIR=%{bin}%" "SCRIPTSDIR=%{bin}%" "ETCDIR=%{prefix}%/etc"]
+remove: [
+    [make "uninstall"]
+    ["ocamlfind" "remove" "rrdd-libs"]
+]
 depends: [
-  "obuild" {>= "0.1.1"}
+  "oasis"
   "ocamlfind"
   "xapi-backtrace"
-  "xapi-idl" {>= "0.9.21"}
-  "xapi-libs-transitional" {>= "0.9.7"}
+  "xapi-idl"
+  "xapi-libs-transitional"
   "xapi-inventory"
-  "xapi-stdext" {>= "0.13.0"}
+  "xapi-stdext"
   "xapi-forkexecd"
-  "xenctrl" {>= "0.9.28"}
+  "xenctrl"
   "xenstore_transport"
   "xapi-xenops"
+  "rpc"
   "io-page"
+  "inotify"
   "xen-gnt"
   "xapi-rrd-transport"
   "oclock"
@@ -28,5 +36,5 @@ depends: [
   "bisect_ppx"
   "systemd"
 ]
-ocaml-version: [>= "4.01.0"]
+caml-version: [>= "4.02.0"]
 
