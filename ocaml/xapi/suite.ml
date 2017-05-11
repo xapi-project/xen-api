@@ -61,6 +61,7 @@ let base_suite =
     Test_event.test;
     Test_extauth_plugin_ADpbis.test;
     Test_guest_agent.test;
+    Test_vlan.test;
   ]
 
 let handlers = [
