@@ -137,43 +137,6 @@ struct ethtool_cmd {
 	uint32_t reserved[4];
 };
 
-value stub_link_get_status(value fd, value dev)
-{
-	CAMLparam2(fd, dev);
-	CAMLlocal1(ret);
-	struct ifreq ifr;
-	struct ethtool_cmd ecmd;
-	int err, speed, duplex;
-
-	SET_IFREQ(ifr, String_val(dev));
-	ecmd.cmd = ETHTOOL_GSET;
-	ifr.ifr_data = (caddr_t) &ecmd;
-	err = ioctl(Int_val(fd), SIOCETHTOOL, &ifr);
-	CHECK_IOCTL(err, "get ethtool");
-
-	/* CA-24610: apparently speeds can be other values eg 2500 */
-	speed = ecmd.speed;
-
-	switch (ecmd.duplex) {
-	case 0: duplex = 1; break;
-	case 1: duplex = 2; break;
-	default: duplex = 0;
-	}
-
-	ret = caml_alloc_tuple(2);
-	Store_field(ret, 0, Val_int(speed));
-	Store_field(ret, 1, Val_int(duplex));
-
-	CAMLreturn(ret);
-}
 #else
-value stub_link_get_status(value fd, value dev)
-{
-	CAMLparam2(fd, dev);
-	CAMLlocal1(ret);
-	ret = caml_alloc_tuple(2);
-	Store_field(ret, 0, Val_int(0)); /* unknown speed */
-	Store_field(ret, 1, Val_int(0)); /* unknown duplex */
-	CAMLreturn(ret);
-}
+/* nothing here at present */
 #endif

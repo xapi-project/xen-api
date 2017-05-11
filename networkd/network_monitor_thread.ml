@@ -188,7 +188,7 @@ let rec monitor dbg () =
 							let carrier = Sysfs.get_carrier dev in
 							let speed, duplex =
 								if carrier then
-									try Bindings.get_status dev with _ -> (0, Duplex_unknown)
+									Sysfs.get_status dev
 								else
 									(0, Duplex_unknown)
 							in
@@ -209,7 +209,7 @@ let rec monitor dbg () =
 								List.fold_left (fun (speed, duplex) info ->
 									try
 										if info.active then
-											let speed', duplex' = Bindings.get_status info.slave in
+											let speed', duplex' = Sysfs.get_status info.slave in
 											speed + speed', combine_duplex (duplex, duplex')
 										else
 											speed, duplex
