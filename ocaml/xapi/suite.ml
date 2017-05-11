@@ -60,6 +60,7 @@ let base_suite =
     Test_sdn_controller.test;
     Test_event.test;
     Test_extauth_plugin_ADpbis.test;
+    Test_vlan.test;
   ]
 
 let handlers = [
