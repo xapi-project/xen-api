@@ -172,7 +172,7 @@ namespace XenAPI
         {
             Dictionary<Type, Relation[]> relations = new Dictionary<Type, Relation[]>();
 
-" (banner());
+" Licence.bsd_two_clause;
     Hashtbl.iter (gen_relations_by_type out_chan) relations;
     print
 "
@@ -236,7 +236,7 @@ namespace XenAPI
         {
             HTTP.Put(progressDelegate, cancellingDelegate, HTTP.BuildUri(hostname, remotePath, args), proxy, localPath, timeout_ms);
         }"
-    (banner())
+    Licence.bsd_two_clause
   in
 
   let print_footer() = print "\n    }\n}\n" in
@@ -333,7 +333,7 @@ namespace XenAPI
     public partial class %s : XenObject<%s>
     {"
 
-  (banner())
+  Licence.bsd_two_clause
   cls.description (if publishedInfo = "" then "" else "\n    /// "^publishedInfo)
   exposed_class_name exposed_class_name;
 
@@ -1313,7 +1313,7 @@ namespace XenAPI
         [XmlRpcMethod(\"event.from\")]
         Response<Events>
         event_from(string session, string [] _classes, string _token, double _timeout);
-" (banner());
+" Licence.bsd_two_clause;
 
   List.iter
     (fun x -> if proxy_generated x then gen_proxy_for_class out_chan x) classes;
@@ -1431,7 +1431,7 @@ namespace XenAPI
 {
     public enum %s
     {
-        " (banner()) name;
+        " Licence.bsd_two_clause name;
 
   print "%s" (joined ", " gen_enum_line contents);
 
@@ -1498,7 +1498,7 @@ namespace XenAPI
 {
     internal class Maps
     {
-" (banner());
+" Licence.bsd_two_clause;
 
   TypeSet.iter (gen_map_conversion out_chan) !maps;
 
@@ -1767,9 +1767,6 @@ and is_static_readonly field =
       StaticRO     -> "true"
     | DynamicRO    -> "false"
     | _            -> "false"
-
-
-and banner () = sprintf "%s" Licence.bsd_two_clause
 
 and i18n_header out_chan =
   let print format = fprintf out_chan format in
