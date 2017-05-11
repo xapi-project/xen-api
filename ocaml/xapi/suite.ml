@@ -59,6 +59,7 @@ let base_suite =
     Test_pvs_cache_storage.test;
     Test_sdn_controller.test;
     Test_event.test;
+    Test_vlan.test;
   ]
 
 let handlers = [
