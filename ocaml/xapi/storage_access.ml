@@ -821,35 +821,26 @@ module SMAPIv1 = struct
            let vdi, _ = find_vdi ~__context sr vdi in
            Printf.sprintf "%s/%s/%s" ip (Ref.string_of session_ref) (Ref.string_of vdi))
 
-    let enable_cbt context ~dbg ~sr ~vdi =
+    let call_cbt_function context ~f ~f_name ~dbg ~sr ~vdi =
       try
-        for_vdi ~dbg ~sr ~vdi "VDI.enable_cbt"
+        for_vdi ~dbg ~sr ~vdi f_name
           (fun device_config _type sr self ->
-             Sm.vdi_enable_cbt device_config _type sr self
+             f device_config _type sr self
           );
       with
       | Smint.Not_implemented_in_backend ->
-        raise (Unimplemented "VDI.enable_cbt")
+        raise (Unimplemented f_name)
       | Api_errors.Server_error(code, params) ->
         raise (Backend_error(code, params))
       | No_VDI ->
         raise (Vdi_does_not_exist vdi)
       | Sm.MasterOnly -> redirect sr
 
-    let disable_cbt context ~dbg ~sr ~vdi =
-      try
-        for_vdi ~dbg ~sr ~vdi "VDI.disable_cbt"
-          (fun device_config _type sr self ->
-             Sm.vdi_disable_cbt device_config _type sr self
-          );
-      with
-      | Smint.Not_implemented_in_backend ->
-        raise (Unimplemented "VDI.disable_cbt")
-      | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
-      | No_VDI ->
-        raise (Vdi_does_not_exist vdi)
-      | Sm.MasterOnly -> redirect sr
+    let enable_cbt context =
+      call_cbt_function context ~f:Sm.vdi_enable_cbt ~f_name:"VDI.enable_cbt"
+
+    let disable_cbt context =
+      call_cbt_function context ~f:Sm.vdi_disable_cbt ~f_name:"VDI.disable_cbt"
 
   end
 
