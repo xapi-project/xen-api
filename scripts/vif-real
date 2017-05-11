@@ -127,7 +127,6 @@ add_to_bridge()
 
     ${IP} link set "${dev}" down                        || logger -t scripts-vif "Failed to ip link set ${dev} down"
     ${IP} link set "${dev}" arp off                     || logger -t scripts-vif "Failed to ip link set ${dev} arp off"
-    ${IP} link set "${dev}" multicast off               || logger -t scripts-vif "Failed to ip link set ${dev} multicast off"
     ${IP} link set "${dev}" address "${address}"        || logger -t scripts-vif "Failed to ip link set ${dev} address ${address}"
     ${IP} addr flush "${dev}"                           || logger -t scripts-vif "Failed to ip addr flush ${dev}"
 
