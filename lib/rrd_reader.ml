@@ -121,18 +121,22 @@ type reader = {
 
 module Make (T: TRANSPORT) = struct
 	let create id protocol =
-		let state = T.init id in
+		let state = ref (T.init id) in
 		let reader = protocol.Rrd_protocol.make_payload_reader () in
 		let is_open = ref true in
 		let read_payload () =
 			if !is_open then begin
-				let cs = T.expose state in
+				let cs =
+					if Cstruct.len (T.expose !state) <= 0 
+					then state := (T.init id); 
+					T.expose !state
+				in
 				reader cs
 			end else raise Rrd_io.Resource_closed
 		in
 		let cleanup () =
 			if !is_open then begin
-				T.cleanup id state;
+				T.cleanup id !state;
 				is_open := false
 			end else raise Rrd_io.Resource_closed
 		in {

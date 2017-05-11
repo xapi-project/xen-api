@@ -65,7 +65,7 @@ let get_metadata_start datasource_count =
 module Read = struct
 	let header cs =
 		let header = Bytes.create header_bytes in
-		Cstruct.blit_to_string cs header_start header 0 header_bytes;
+		Cstruct.blit_to_bytes cs header_start header 0 header_bytes;
 		header
 
 	let data_crc cs =
@@ -106,7 +106,7 @@ module Read = struct
 
 	let metadata cs datasource_count metadata_length =
 		let metadata = Bytes.create metadata_length in
-		Cstruct.blit_to_string
+		Cstruct.blit_to_bytes
 			cs (get_metadata_start datasource_count)
 			metadata 0 metadata_length;
 		metadata
