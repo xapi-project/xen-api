@@ -866,6 +866,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     (* Reserves the resources for a VM by setting it as 'scheduled_to_be_resident_on' a host *)
     let allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op () =
+      info "Reserve resources for VM %s on host %s" (Ref.string_of vm) (Ref.string_of host);
       begin match host_op with
         | Some x ->
           let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -1712,7 +1713,20 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm);
       let local_fn = Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~options in
       let forwarder =
-        if Xapi_vm_lifecycle.is_live ~__context ~self:vm then forward_vm_op else
+        if Xapi_vm_lifecycle.is_live ~__context ~self:vm then
+          let host = List.assoc Xapi_vm_migrate._host dest |> Ref.of_string in
+          if Db.is_valid_ref __context host then
+            (* Intra-pool: reserve resources on the destination host, then
+             * forward the call to the source. *)
+            let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+            (fun ~local_fn ~__context ~vm op ->
+              reserve_memory_for_vm ~__context ~vm ~host ~snapshot ~host_op:`vm_migrate
+                (fun () -> forward_vm_op ~local_fn ~__context ~vm op))
+          else
+            (* Cross pool: just forward to the source host. Resources on the
+             * destination will be reserved separately. *)
+            forward_vm_op
+        else
           let snapshot = Db.VM.get_record ~__context ~self:vm in
           (fun ~local_fn ~__context ~vm op ->
              fst (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_migrate op)) in
