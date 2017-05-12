@@ -25,7 +25,7 @@ let finally fct clean_f =
       fct ()
     with
       exn ->
-      clean_f (); 
+      clean_f ();
       raise exn
   in
   clean_f ();
@@ -33,8 +33,8 @@ let finally fct clean_f =
 
 let temp_file_in_dir otherfile =
   let base_dir = Filename.dirname otherfile in
-  let rec keep_trying () = 
-    try 
+  let rec keep_trying () =
+    try
       let uuid = Uuidm.to_string (Uuidm.create `V4) in
       let newfile = base_dir ^ "/" ^ uuid in
       Unix.close (Unix.openfile newfile [Unix.O_CREAT; Unix.O_TRUNC; Unix.O_EXCL] 0o600);
@@ -60,16 +60,16 @@ let atomic_write_to_file fname perms f =
        result)
     (fun () -> unlink_safe tmp)
 
-let fd_blocks_fold block_size f start fd = 
-  let block = String.create block_size in
-  let rec fold acc = 
+let fd_blocks_fold block_size f start fd =
+  let block = Bytes.create block_size in
+  let rec fold acc =
     let n = Unix.read fd block 0 block_size in
     (* Consider making the interface explicitly use Substrings *)
     let s = if n = block_size then block else String.sub block 0 n in
     if n = 0 then acc else fold (f acc s) in
   fold start
 
-let buffer_of_fd fd = 
+let buffer_of_fd fd =
   fd_blocks_fold 1024 (fun b s -> Buffer.add_string b s; b) (Buffer.create 1024) fd
 
 let with_file file mode perms f =
@@ -97,7 +97,7 @@ let of_file filename =
   let input = Xmlm.make_input (`String (0,body)) in
   Rrd.from_xml input
 
-let with_out_channel_output fd f = 
+let with_out_channel_output fd f =
   let oc = Unix.out_channel_of_descr fd in
   finally
     (fun () ->
@@ -122,7 +122,7 @@ let json_to_fd rrd fd =
 
 let to_fd ?(json=false) rrd fd = (if json then json_to_fd else xml_to_fd) rrd fd
 
-let to_file ?(json=false) rrd filename = 
+let to_file ?(json=false) rrd filename =
   atomic_write_to_file filename 0o644 (to_fd ~json rrd)
 
 (** WARNING WARNING: Do not call the following function from within xapi! *)

@@ -28,45 +28,45 @@ exception Invalid_data_source of string
 type ds_owner = VM of string | Host | SR of string
 
 (** Data source types - see ds datatype *)
-type ds_type = Absolute | Gauge | Derive with rpc
+type ds_type = Absolute | Gauge | Derive [@@deriving rpc]
 
 (** Consolidation function - see RRA datatype *)
 type cf_type = CF_Average | CF_Min | CF_Max | CF_Last
 
 (** Container so that we can handle different typed inputs *)
-type ds_value_type = VT_Float of float | VT_Int64 of int64 | VT_Unknown with rpc
+type ds_value_type = VT_Float of float | VT_Int64 of int64 | VT_Unknown [@@deriving rpc]
 
-type sampling_frequency = Five_Seconds with rpc
+type sampling_frequency = Five_Seconds [@@deriving rpc]
 
 (* utility *)
 
 let cf_type_of_string s =
   match s with
-  | "AVERAGE" -> CF_Average 
-  | "MIN" -> CF_Min 
-  | "MAX" -> CF_Max 
+  | "AVERAGE" -> CF_Average
+  | "MIN" -> CF_Min
+  | "MAX" -> CF_Max
   | "LAST" -> CF_Last
   | x -> failwith (Printf.sprintf "Unknown cf_type: %s" x)
 
 let cf_type_to_string cf =
-  match cf with 
-  | CF_Average -> "AVERAGE" 
-  | CF_Max -> "MAX" 
-  | CF_Min -> "MIN" 
+  match cf with
+  | CF_Average -> "AVERAGE"
+  | CF_Max -> "MAX"
+  | CF_Min -> "MIN"
   | CF_Last -> "LAST"
 
-let cf_init_value cf = 
-  match cf with 
-  | CF_Average -> 0.0 
-  | CF_Min -> infinity 
-  | CF_Max -> neg_infinity 
+let cf_init_value cf =
+  match cf with
+  | CF_Average -> 0.0
+  | CF_Min -> infinity
+  | CF_Max -> neg_infinity
   | CF_Last -> nan
 
 (** The CDP preparation scratch area.
-    The 'value' field should be accumulated in such a way that it always 
-    contains the value that will eventually be the CDP. This means that 
+    The 'value' field should be accumulated in such a way that it always
+    contains the value that will eventually be the CDP. This means that
     for averages, we accumulate 1/n * the PDP, and renormalise when we
-    have unknown PDPs. For the other types it's much easier *) 
+    have unknown PDPs. For the other types it's much easier *)
 
 type cdp_prep = {
   mutable cdp_value: float;
@@ -77,7 +77,7 @@ type cdp_prep = {
     This defines how we deal with incoming data. Type is one of:
 
     - Absolute: meaning that the incoming data is an absolute rate
-    - Derive:   meaning that the rate must come from the difference between the 
+    - Derive:   meaning that the rate must come from the difference between the
                 incoming data and the previous value
     - Gauge:    meaning that the value isn't a rate at all (e.g. temperature, load avg)
 
@@ -87,16 +87,16 @@ type cdp_prep = {
 type ds = {
   ds_name : string;                  (** Name *)
   ds_ty : ds_type;                   (** Type (as above) *)
-  ds_min : float;             
+  ds_min : float;
   ds_max : float;
   ds_mrhb : float;                   (** Maximum time between updates *)
   mutable ds_last : ds_value_type;   (** Last value *)
   mutable ds_value: float;           (** The accumulator for the PDP value *)
   mutable ds_unknown_sec: float;     (** Number of seconds that are unknown in the current PDP *)
-} with rpc 
+} [@@deriving rpc]
 
 (** RRA - RRD archive
-    This is an archive that holds consolidated data points (CDPs). It 
+    This is an archive that holds consolidated data points (CDPs). It
     defines the type of consolidation that happens (average, max, min or last),
     the number of primary data points (PDPs) that go to make a CDP, and
     the number of CDPs to store. *)
@@ -117,11 +117,11 @@ type rra = {
 and rrd = {
   mutable last_updated: float;  (** Last updated time in seconds *)
   timestep: int64;              (** Period between PDPs *)
-  rrd_dss: ds array; 
+  rrd_dss: ds array;
   rrd_rras: rra array;
 }
 
-let copy_cdp_prep x = 
+let copy_cdp_prep x =
   {
     cdp_value = x.cdp_value;
     cdp_unknown_pdps = x.cdp_unknown_pdps;
@@ -138,7 +138,7 @@ let copy_rra x =
     rra_updatehook = x.rra_updatehook
   }
 
-let copy_ds x = 
+let copy_ds x =
   {
     ds_name = x.ds_name; (* not mutable *)
     ds_ty = x.ds_ty;
@@ -150,7 +150,7 @@ let copy_ds x =
     ds_unknown_sec = x.ds_unknown_sec;
   }
 
-let copy_rrd x = 
+let copy_rrd x =
   {
     last_updated = x.last_updated;
     timestep = x.timestep;
@@ -169,7 +169,7 @@ let do_cfs rra start_pdp_offset pdps =
   for i=0 to Array.length pdps - 1 do
     let cdp = rra.rra_cdps.(i) in
     if Utils.isnan pdps.(i)
-    then begin 
+    then begin
       (* CDP is an accumulator for the average. If we've got some unknowns, we need to
          			   renormalize. ie, CDP contains \sum_{i=0}^j{ (1/n) x_i} where n is the number of
          			   values we expect to have. If we have unknowns, we need to multiply the whole
@@ -195,7 +195,7 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
     let start_pdp_offset = rra.rra_pdp_cnt - (Int64.to_int (Int64.rem (Int64.div proc_pdp_st rrd.timestep) (Int64.of_int rra.rra_pdp_cnt))) in
     let rra_step_cnt = if elapsed_pdp_st < start_pdp_offset then 0 else (elapsed_pdp_st - start_pdp_offset) / rra.rra_pdp_cnt + 1 in
     do_cfs rra (min start_pdp_offset elapsed_pdp_st) pdps;
-    if rra_step_cnt > 0 then 
+    if rra_step_cnt > 0 then
       begin
         (* When writing multiple CDP values into the archive, the
            				   first one (primary) is calculated using the values we
@@ -204,9 +204,9 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
            				   current PDP. It turns out that the secondary values are
            				   simply the PDPs as whichever CF is used, a CDP of many
            				   repeated values is simply the value itself. *)
-        let primaries = Array.map (fun cdp ->  
-            if cdp.cdp_unknown_pdps <= (int_of_float (rra.rra_xff *. float_of_int rra.rra_pdp_cnt)) 
-            then cdp.cdp_value 
+        let primaries = Array.map (fun cdp ->
+            if cdp.cdp_unknown_pdps <= (int_of_float (rra.rra_xff *. float_of_int rra.rra_pdp_cnt))
+            then cdp.cdp_value
             else nan) rra.rra_cdps
         in
         let secondaries = pdps in
@@ -228,15 +228,15 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
   Array.iter updatefn rrd.rrd_rras
 
 (* We assume that the data being given is of the form of a rate; that is,
-   it's dependent on the time interval between updates. To be able to 
-   deal with guage DSs, we multiply by the interval so that it cancels 
+   it's dependent on the time interval between updates. To be able to
+   deal with guage DSs, we multiply by the interval so that it cancels
    the subsequent divide by interval later on *)
 let process_ds_value ds value interval new_domid =
-  if interval > ds.ds_mrhb 
-  then nan 
+  if interval > ds.ds_mrhb
+  then nan
   else
     begin
-      let rate = 
+      let rate =
         match ds.ds_ty with
         | Absolute ->
           begin
@@ -270,7 +270,7 @@ let process_ds_value ds value interval new_domid =
               | _, VT_Unknown -> nan
               | _ -> failwith ("Bad type updating ds: "^ds.ds_name)
           end
-      in 
+      in
       ds.ds_last <- value;
       rate
     end
@@ -290,9 +290,9 @@ let ds_update rrd timestamp values transforms new_domid =
 
   (* if we're due one or more PDPs, pre_int is the amount of the
      	   current update interval that will be used in calculating them, and
-     	   post_int is the amount left over 
+     	   post_int is the amount left over
       this step. If a PDP isn't post is what's left over *)
-  let pre_int, post_int = 
+  let pre_int, post_int =
     if elapsed_pdp_st > 0 then
       let pre = interval -. occu_pdp_age in
       (pre, occu_pdp_age)
@@ -308,10 +308,10 @@ let ds_update rrd timestamp values transforms new_domid =
   (*  debug "Got values: %s\n" (String.concat "," (Array.to_list (Array.mapi (fun i p -> Printf.sprintf "(%s: %f)" rrd.rrd_dss.(i).ds_name p) v2s)));*)
   (* Update the PDP accumulators up until the most recent PDP *)
   Array.iteri
-    (fun i value -> 
+    (fun i value ->
        let ds=rrd.rrd_dss.(i) in
-       if Utils.isnan value 
-       then ds.ds_unknown_sec <- pre_int 
+       if Utils.isnan value
+       then ds.ds_unknown_sec <- pre_int
        else ds.ds_value <- ds.ds_value +. (pre_int *. value /. interval))
     v2s;
 
@@ -319,17 +319,17 @@ let ds_update rrd timestamp values transforms new_domid =
   if elapsed_pdp_st > 0 then
     begin
       (* Calculate the PDPs for each DS *)
-      let pdps = Array.mapi (fun i ds -> 
-          if interval > ds.ds_mrhb 
+      let pdps = Array.mapi (fun i ds ->
+          if interval > ds.ds_mrhb
           then nan
-          else 
+          else
             let raw = ds.ds_value /. (Int64.to_float (Int64.sub occu_pdp_st proc_pdp_st) -. ds.ds_unknown_sec) in
-            let raw = 
-              if raw < ds.ds_min 
-              then ds.ds_min 
-              else if raw > ds.ds_max 
-              then ds.ds_max 
-              else raw 
+            let raw =
+              if raw < ds.ds_min
+              then ds.ds_min
+              else if raw > ds.ds_max
+              then ds.ds_max
+              else raw
             in
             (* Here is where we apply the transform *)
             transforms.(i) raw
@@ -341,7 +341,7 @@ let ds_update rrd timestamp values transforms new_domid =
       Array.iteri
         (fun i value ->
            let ds = rrd.rrd_dss.(i) in
-           if Utils.isnan value 
+           if Utils.isnan value
            then (ds.ds_value <- 0.0; ds.ds_unknown_sec <- post_int)
            else (ds.ds_value <- post_int *. value /. interval; ds.ds_unknown_sec <- 0.0))
         v2s;
@@ -384,7 +384,7 @@ let rra_create cf row_cnt pdp_cnt xff =
   }
 
 let ds_create name ty ?(min=neg_infinity) ?(max=infinity) ?(mrhb=infinity) init =
-  { 
+  {
     ds_name=name;
     ds_ty=ty;
     ds_min=min;
@@ -397,12 +397,12 @@ let ds_create name ty ?(min=neg_infinity) ?(max=infinity) ?(mrhb=infinity) init 
 
 let rrd_create dss rras timestep inittime =
   (* Use the standard update routines to initialise everything to correct values *)
-  let rrd = { 
-    last_updated=0.0; 
+  let rrd = {
+    last_updated=0.0;
     timestep=timestep;
     rrd_dss=dss;
-    rrd_rras=Array.map (fun rra -> 
-        { rra with 
+    rrd_rras=Array.map (fun rra ->
+        { rra with
           rra_data = Array.init (Array.length dss) (fun _ -> Fring.make rra.rra_row_cnt nan);
           rra_cdps = Array.init (Array.length dss) (fun i -> {cdp_value=0.0; cdp_unknown_pdps=0})
         }) rras;
@@ -412,7 +412,7 @@ let rrd_create dss rras timestep inittime =
   ds_update rrd inittime values transforms true;
   rrd
 
-(** Add in a new DS into a pre-existing RRD. Preserves data of all the other archives 
+(** Add in a new DS into a pre-existing RRD. Preserves data of all the other archives
     and fills the new one full of NaNs. Note that this doesn't fill in the CDP values
     correctly at the moment!
 
@@ -420,11 +420,11 @@ let rrd_create dss rras timestep inittime =
  *)
 
 let rrd_add_ds rrd now newds =
-  if List.mem newds.ds_name (ds_names rrd) then rrd else 
+  if List.mem newds.ds_name (ds_names rrd) then rrd else
     let npdps = Int64.div (Int64.of_float now) rrd.timestep in
     {rrd with
      rrd_dss = Array.append rrd.rrd_dss [|newds|];
-     rrd_rras = Array.map (fun rra -> 
+     rrd_rras = Array.map (fun rra ->
          let nunknowns = Int64.to_int (Int64.rem npdps (Int64.of_int rra.rra_pdp_cnt)) in
          { rra with
            rra_data = Array.append rra.rra_data [| Fring.make rra.rra_row_cnt nan |];
@@ -451,15 +451,15 @@ let rrd_remove_ds rrd ds_name =
     not archive with the correct CF. Assumes the RRAs are stored in
     increasing time-length *)
 let find_best_rras rrd pdp_interval cf start =
-  let rras = 
-    match cf with 
-    | Some realcf -> List.filter (fun rra -> rra.rra_cf=realcf) (Array.to_list rrd.rrd_rras) 
+  let rras =
+    match cf with
+    | Some realcf -> List.filter (fun rra -> rra.rra_cf=realcf) (Array.to_list rrd.rrd_rras)
     | None -> Array.to_list rrd.rrd_rras in
   (if List.length rras = 0 then raise No_RRA_Available);
   let (last_pdp_time,age) = get_times rrd.last_updated rrd.timestep in
   let contains_time t rra =
     let lasttime = Int64.sub last_pdp_time (Int64.mul rrd.timestep (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt))) in
-    (rra.rra_pdp_cnt >= pdp_interval) && (t > lasttime) 
+    (rra.rra_pdp_cnt >= pdp_interval) && (t > lasttime)
   in
   try
     let first_ok_rra = List.find (contains_time start) rras in
@@ -467,7 +467,7 @@ let find_best_rras rrd pdp_interval cf start =
     let row_cnt = first_ok_rra.rra_row_cnt in
     let ok_rras = List.filter (fun rra -> rra.rra_row_cnt = row_cnt && rra.rra_pdp_cnt=pdp_cnt) rras in
     ok_rras
-  with _ -> 
+  with _ ->
     let rra = List.hd (List.rev rras) in
     let newstarttime = Int64.add 1L (Int64.sub last_pdp_time (Int64.mul rrd.timestep (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt)))) in
     List.filter (contains_time newstarttime) rras
@@ -589,7 +589,7 @@ let from_xml input =
   read_block "rrd" (fun i ->
       let (step,last_update) = read_header i in (* ok *)
       let dss = read_dss i in (* ok *)
-      let rras = read_rras i in 
+      let rras = read_rras i in
       let rrd = {
         last_updated = float_of_string last_update;
         timestep = Int64.of_string step;
@@ -617,12 +617,12 @@ let from_xml input =
 
 let xml_to_output rrd output =
   (* We use an output channel for Xmlm-compat buffered output. Provided we flush
-     	   at the end we should be safe. *)  
+     	   at the end we should be safe. *)
 
-  let tag n fn output = 
-    Xmlm.output output (`El_start (("",n),[])); 
+  let tag n fn output =
+    Xmlm.output output (`El_start (("",n),[]));
     fn output;
-    Xmlm.output output (`El_end) 
+    Xmlm.output output (`El_end)
   in
   let data dat output = Xmlm.output output (`Data dat) in
 
@@ -635,13 +635,13 @@ let xml_to_output rrd output =
         tag "max" (data (Utils.f_to_s ds.ds_max)) output;
         tag "last_ds" (data (match ds.ds_last with VT_Float x -> Utils.f_to_s x | VT_Int64 x -> Printf.sprintf "%Ld" x | _ -> "0.0")) output;
         tag "value" (data (Utils.f_to_s ds.ds_value)) output;
-        tag "unknown_sec" (data (Printf.sprintf "%d" (int_of_float ds.ds_unknown_sec))) output) 
+        tag "unknown_sec" (data (Printf.sprintf "%d" (int_of_float ds.ds_unknown_sec))) output)
       output
   in
 
   let do_dss dss output =
     Array.iter (fun ds -> do_ds ds output) dss
-  in 
+  in
 
   let do_rra_cdp cdp output =
     tag "ds" (fun output ->
@@ -675,7 +675,7 @@ let xml_to_output rrd output =
         tag "params" (tag "xff" (data (Utils.f_to_s rra.rra_xff))) output;
         tag "cdp_prep" (fun output ->
             do_rra_cdps rra.rra_cdps output) output;
-        tag "database" (fun output -> 
+        tag "database" (fun output ->
             do_database rra.rra_data output) output) output
   in
 
@@ -695,14 +695,14 @@ let xml_to_output rrd output =
 
 let json_to_string rrd =
   let do_dss ds_list =
-    "ds:["^(String.concat "," (List.map (fun ds -> 
+    "ds:["^(String.concat "," (List.map (fun ds ->
         "{name:\""^ds.ds_name^"\",type:\""^(match ds.ds_ty with Gauge -> "GAUGE" | Absolute -> "ABSOLUTE" | Derive -> "DERIVE")^
         "\",minimal_heartbeat:" ^(Utils.f_to_s ds.ds_mrhb)^",min:"^(Utils.f_to_s ds.ds_min)^
         ",max:"^(Utils.f_to_s ds.ds_max)^",last_ds:0.0,value:0.0,unknown_sec:0}") ds_list))^"]"
   in
 
   let do_rra_cdps cdp_list =
-    "ds:["^(String.concat "," (List.map (fun cdp -> 
+    "ds:["^(String.concat "," (List.map (fun cdp ->
         "{primary_value:0.0,secondary_value:0.0,value:"^(Utils.f_to_s cdp.cdp_value)^
         ",unknown_datapoints:"^(Printf.sprintf "%d" cdp.cdp_unknown_pdps)^"}") cdp_list))^"]"
   in
@@ -711,20 +711,20 @@ let json_to_string rrd =
     if Array.length rings = 0 then "[]" else
       let rows = Fring.length rings.(0) in
       let cols = Array.length rings in
-      "["^(String.concat "," 
+      "["^(String.concat ","
              (Array.to_list
                 (Array.init rows (fun row ->
-                     "["^(String.concat "," 
-                            (Array.to_list 
-                               (Array.init cols 
+                     "["^(String.concat ","
+                            (Array.to_list
+                               (Array.init cols
                                   (fun col ->
-                                     Utils.f_to_s 
+                                     Utils.f_to_s
                                        (Fring.peek rings.(col)
                                           (rows-row-1))))))^"]"))))^"]"
   in
 
   let do_rras rra_list =
-    "rra:[{" ^ (String.concat "},{" (List.map (fun rra -> 
+    "rra:[{" ^ (String.concat "},{" (List.map (fun rra ->
         "cf:\""^(cf_type_to_string rra.rra_cf)^
         "\",pdp_per_row:"^(string_of_int rra.rra_pdp_cnt)^",params:{xff:"^(Utils.f_to_s rra.rra_xff)^"},cdp_prep:{"^(do_rra_cdps (Array.to_list rra.rra_cdps))^
         "},database:"^(do_database rra.rra_data)) rra_list))^"}]"
@@ -743,5 +743,5 @@ let json_to_string rrd =
   Buffer.contents b
 
 module Statefile_latency = struct
-  type t = {id: string; latency: float option} with rpc
+  type t = {id: string; latency: float option} [@@deriving rpc]
 end
