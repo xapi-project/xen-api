@@ -4341,11 +4341,12 @@ let update_upload fd printer rpc session_id params =
       if List.mem_assoc "sr-uuid" params
       then Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params)
       else Client.Pool.get_default_SR ~rpc ~session_id ~self:(List.hd pools)
-  in
+    in
     let uri = Printf.sprintf "%s%s?session_id=%s&sr_id=%s&task_id=%s"
         prefix Constants.import_raw_vdi_uri (Ref.string_of session_id) (Ref.string_of sr)(Ref.string_of task_id) in
     let _ = debug "trying to post patch to uri:%s" uri in
-    HttpPut (filename, uri) in
+    HttpPut (filename, uri)
+  in
   let result = track_http_operation fd rpc session_id make_command "host patch upload" in
   let vdi_ref = API.Legacy.From.ref_VDI "" (Xml.parse_string result) in
   let update_ref =
