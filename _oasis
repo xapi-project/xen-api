@@ -1,10 +1,10 @@
-OASISFormat: 0.3
+OASISFormat: 0.4
 Name:        xcp-rrdd
 Version:     1.0.0
 Synopsis:    XenServer RRD daemon
 Authors:     John Else
 License:     LGPL-2.1 with OCaml linking exception
-Plugins:     META (0.3)
+Plugins:     META (0.3), DevFiles (0.4)
 BuildTools:  ocamlbuild
 
 
@@ -57,7 +57,7 @@ Executable "xcp-rrdd"
     xenops,
     rrd-transport,
     threads,
-    rpclib.syntax,
+    ppx_deriving_rpc,
     io-page.unix,
     xen-gnt.unix,
     oclock,
@@ -72,7 +72,7 @@ Executable "test_rrdd_monitor"
   Install:            false
   ByteOpt:            -bin-annot
   NativeOpt:          -bin-annot
-  BuildDepends:       
+  BuildDepends:
     profiling,
     oUnit,
     threads,
@@ -94,7 +94,7 @@ Executable "test_rrdd_monitor"
     xenops,
     rrd-transport,
     threads,
-    rpclib.syntax,
+    ppx_deriving_rpc,
     io-page.unix,
     xen-gnt.unix,
     oclock
