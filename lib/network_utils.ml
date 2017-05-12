@@ -179,6 +179,18 @@ module Sysfs = struct
 	let get_all_bridges () =
 		let ifaces = list () in
 		List.filter (fun name -> Sys.file_exists (getpath name "bridge")) ifaces
+
+	(** Returns (speed, duplex) for a given network interface: int megabits/s, Duplex.
+	 *  The units of speed are specified in pif_record in xen-api/xapi/records.ml.
+	 *  Note: these data are present in sysfs from kernel 2.6.33. *)
+	let get_status name =
+		let speed = getpath name "speed"
+		|> (fun p -> try (read_one_line p |> int_of_string) with _ -> 0)
+		in
+		let duplex = getpath name "duplex"
+		|> (fun p -> try read_one_line p |> duplex_of_string with _ -> Duplex_unknown)
+		in (speed, duplex)
+
 end
 
 module Ip = struct
@@ -1092,38 +1104,4 @@ module Ethtool = struct
 	let set_offload name options =
 		if options <> [] then
 			ignore (call ~log:true ("-K" :: name :: (List.concat (List.map (fun (k, v) -> [k; v]) options))))
-end
-
-module Bindings = struct
-	let control_socket () =
-		try
-			Unix.socket Unix.PF_INET Unix.SOCK_DGRAM 0
-		with
-		exn ->
-			try
-				Unix.socket Unix.PF_UNIX Unix.SOCK_DGRAM 0
-			with
-			exn ->
-				Unix.socket Unix.PF_INET6 Unix.SOCK_DGRAM 0
-
-	let with_fd f =
-		let fd = control_socket () in
-		let r = begin try
-			f fd
-		with
-		exn ->
-			Unix.close fd;
-			raise exn
-		end in
-		Unix.close fd;
-		r
-
-	external _get_status : Unix.file_descr -> string -> int * duplex = "stub_link_get_status"
-
-	(** Returns speed and duplex for a given network interface.
-	 *  Note: from kernel 2.6.33, this information is also present in sysfs. *)
-	let get_status name =
-		try
-			with_fd (fun fd -> _get_status fd name)
-		with _ -> raise (Read_error "stub_link_get_status")
 end

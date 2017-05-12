@@ -28,8 +28,6 @@ Library networklibs
     xcp-inventory,
     xcp.network,
     systemd
-  CSources:           link_stubs.c, netdev.h
-  CCOpt:              -Wno-unused-function -g -ggdb
 
 Executable xcp_networkd
   CompiledObject:     best
