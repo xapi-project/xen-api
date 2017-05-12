@@ -4340,7 +4340,16 @@ let update_upload fd printer rpc session_id params =
     let sr =
       if List.mem_assoc "sr-uuid" params
       then Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params)
-      else Client.Pool.get_default_SR ~rpc ~session_id ~self:(List.hd pools)
+      else begin
+        let sr = Client.Pool.get_default_SR ~rpc ~session_id ~self:(List.hd pools) in
+        let ref_is_valid = Server_helpers.exec_with_new_task
+            ~session_id "Checking default SR validity"
+            (fun __context -> Db.is_valid_ref __context sr) in
+        if ref_is_valid then sr
+        else failwith "No sr-uuid parameter was given, and the pool's default SR \
+                       is unspecified or invalid. Please explicitly specify the SR to use \
+                       in the sr-uuid parameter, or set the pool's default SR."
+      end
     in
     let uri = Printf.sprintf "%s%s?session_id=%s&sr_id=%s&task_id=%s"
         prefix Constants.import_raw_vdi_uri (Ref.string_of session_id) (Ref.string_of sr)(Ref.string_of task_id) in
