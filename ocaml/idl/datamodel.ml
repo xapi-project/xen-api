@@ -303,37 +303,37 @@ let cowley_release =
   }
 
 let midnight_ride_release =
-  { internal=get_product_releases "midnight-ride"
+  { internal=get_product_releases rel_midnight_ride
   ; opensource=get_oss_releases None
   ; internal_deprecated_since=None
   }
 
 let george_release =
-  { internal=get_product_releases "george"
+  { internal=get_product_releases rel_george
   ; opensource=get_oss_releases None
   ; internal_deprecated_since=None
   }
 
 let orlando_release =
-  { internal=get_product_releases "orlando"
+  { internal=get_product_releases rel_orlando
   ; opensource=get_oss_releases None
   ; internal_deprecated_since=None
   }
 
 let miami_symc_release =
-  { internal=get_product_releases "symc"
+  { internal=get_product_releases rel_symc
   ; opensource=get_oss_releases None
   ; internal_deprecated_since=None
   }
 
 let miami_release =
-  { internal=get_product_releases "miami"
+  { internal=get_product_releases rel_miami
   ; opensource=get_oss_releases None
   ; internal_deprecated_since=None
   }
 
 let rio_release =
-  { internal=get_product_releases "rio"
+  { internal=get_product_releases rel_rio
   ; opensource=get_oss_releases (Some "3.0.3")
   ; internal_deprecated_since=None
   }
