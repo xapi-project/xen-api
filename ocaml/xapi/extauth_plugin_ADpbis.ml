@@ -18,6 +18,36 @@
 module D = Debug.Make(struct let name="extauth_plugin_ADpbis" end)
 open D
 
+let match_error_tag (lines:string list) =
+  let err_catch_list = 
+    [ "DNS_ERROR_BAD_PACKET",       Auth_signature.E_LOOKUP;
+      "LW_ERROR_PASSWORD_MISMATCH", Auth_signature.E_CREDENTIALS;
+      "LW_ERROR_INVALID_ACCOUNT",   Auth_signature.E_INVALID_ACCOUNT;
+      "LW_ERROR_ACCESS_DENIED",     Auth_signature.E_DENIED;
+      "LW_ERROR_DOMAIN_IS_OFFLINE", Auth_signature.E_UNAVAILABLE;
+      "LW_ERROR_INVALID_OU",       Auth_signature.E_INVALID_OU;
+      (* More errors to be caught here *)
+    ] 
+  in
+  let split_to_words = fun str -> 
+    let open Stdext.Xstringext in
+    let seps = ['('; ')'; ' '; '\t'; '.'] in 
+    String.split_f (fun s -> List.exists (fun sep -> sep = s) seps) str 
+  in
+  let rec has_err lines err_pattern =
+    match lines with
+    | [] -> false
+    | line :: rest -> 
+      try 
+        ignore(List.find (fun w -> w = err_pattern) (split_to_words line));
+        true
+      with Not_found -> has_err rest err_pattern
+  in
+  try 
+    let (_, errtag) = List.find (fun (err_pattern, _) -> has_err lines err_pattern) err_catch_list in
+    errtag
+  with Not_found -> Auth_signature.E_GENERIC 
+
 module AuthADlw : Auth_signature.AUTH_MODULE =
 struct
 
@@ -57,9 +87,9 @@ struct
       error "execute %s exited with code %d [stdout = '%s'; stderr = '%s']" debug_cmd n stdout stderr;
       let lines = List.filter (fun l-> String.length l > 0) (splitlines (stdout ^ stderr)) in
       let errmsg = List.hd (List.rev lines) in
-      raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, errmsg))
-    | e ->
-      error "execute %s exited: %s" debug_cmd (ExnHelper.string_of_exn e);
+      let errtag = match_error_tag lines in
+      raise (Auth_signature.Auth_service_error (errtag, errmsg))
+    | e -> error "execute %s exited: %s" debug_cmd (ExnHelper.string_of_exn e);
       raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, user_friendly_error_msg))
 
   let pbis_config (name:string) (value:string) =
