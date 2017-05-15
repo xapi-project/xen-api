@@ -14,7 +14,9 @@
 
 (** Stop gpumon if it's running, perform f, then start gpumon if
   * no other threads which require gpumon to be stopped are running. *)
-val with_gpumon_stopped : ?timeout:float -> (unit -> 'a) -> 'a
+val with_gpumon_stopped :
+  ?timeout:float ->
+  (unit -> 'a) -> 'a
 
 module Nvidia : sig
   (** The key used in the metadata assoc-list *)
@@ -32,13 +34,16 @@ module Nvidia : sig
   (** Check compatibility between a VM's vGPU(s) and another pGPU,
    *  and fail if they are not compatible. This function is assumed
    *  to run on the host where the VM is running. 
+   *  The pgpu metadata is expected to be the encoded dump contained
+   *  in the Xapi database, do not pass decoded metadata.
    *  Note that Nvidia drivers exceptions (as declared in Gpumon_interface.Nvidia)
    *  are propagated. *)
-  val assert_pgpu_is_compatibile_with_vm:
+  val assert_pgpu_is_compatible_with_vm:
     __context:Context.t ->
-    vm:[ `VM ] API.Ref.t ->
-    vgpu:[ `VGPU ] API.Ref.t ->
-    pgpu:[ `PGPU ] API.Ref.t ->
+    vm:API.ref_VM ->
+    vgpu:API.ref_VGPU ->
+    dest_host:API.ref_host ->
+    encoded_pgpu_metadata: string ->
     unit
 
 end
