@@ -198,11 +198,10 @@ let pool_migrate ~__context ~vm ~host ~options =
   let ip = Http.Url.maybe_wrap_IPv6_literal (Db.Host.get_address ~__context ~self:host) in
   let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
+
   (* Check pGPU compatibility for Nvidia vGPUs *)
-  List.iter (fun vgpu -> 
-      let pgpu = Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu in
-      Xapi_gpumon.Nvidia.assert_pgpu_is_compatibile_with_vm ~__context ~vm ~vgpu ~pgpu
-    ) (Db.VM.get_VGPUs ~__context ~self:vm);
+  Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~host ();
+
   Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid (fun () ->
       try
         Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
@@ -1086,6 +1085,9 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     if not (Helpers.host_versions_not_decreasing ~__context ~host_from ~host_to) then
       raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []));
 
+    (* Check that the destination host has compatible pGPUs -- if needed *)
+    Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~host:remote.dest_host ();
+
     (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
     assert_sr_support_operations ~__context ~vdi_map ~remote ~ops:required_sr_operations;
     if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:remote.dest_host ();
@@ -1101,6 +1103,9 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     if not (Helpers.host_versions_not_decreasing ~__context ~host_from ~host_to) then
       raise (Api_errors.Server_error (Api_errors.vm_host_incompatible_version_migrate,
                                       [Ref.string_of vm; Ref.string_of remote.dest_host]));
+
+    (* Check that the destination host has compatible pGPUs -- if needed *)
+    Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~host:remote.dest_host ~remote:(remote.rpc, remote.session) ();
 
     (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
     assert_sr_support_operations ~__context ~vdi_map ~remote ~ops:required_sr_operations;
