@@ -2512,6 +2512,21 @@ let vm_assert_can_migrate = call
     ~errs:[Api_errors.license_restriction]
     ()
 
+let vm_assert_can_migrate_sender = call
+    ~name:"assert_can_migrate_sender"
+    ~lifecycle:[]
+    ~doc:"Assertions for VM.assert_can_migrate that must be done on the sending host."
+    ~params:[
+      Ref _vm, "vm", "The VM";
+      Map(String,String), "dest", "The result of a VM.migrate_receive call.";
+      Bool, "live", "Live migration";
+      Map (Ref _vdi, Ref _sr), "vdi_map", "Map of source VDI to destination SR";
+      Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
+      Map (String, String), "options", "Other parameters" ]
+    ~allowed_roles:_R_VM_POWER_ADMIN
+    ~hide_from_docs:true
+    ()
+
 let vm_s3_suspend = call
     ~name: "s3_suspend"
     ~in_product_since:rel_midnight_ride
@@ -7916,6 +7931,7 @@ let vm =
                 vm_maximise_memory;
                 vm_migrate_send;
                 vm_assert_can_migrate;
+                vm_assert_can_migrate_sender;
                 vm_get_boot_record;
                 vm_get_data_sources; vm_record_data_source; vm_query_data_source; vm_forget_data_source_archives;
                 assert_operation_valid vm_operations _vm _self;
