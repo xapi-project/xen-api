@@ -234,6 +234,27 @@ let assert_can_live_import __context rpc session_id vm_record =
   if vm_record.API.vM_power_state = `Running || vm_record.API.vM_power_state = `Paused
   then assert_memory_available ()
 
+(* Assert that the local host, which is the host we are live-migrating the VM to,
+ * has free capacity on a PGPU from the given VGPU's GPU group. *)
+let assert_can_live_import_vgpu ~__context vgpu_record =
+  let host = Helpers.get_localhost ~__context in
+  let local_pgpus = Db.PGPU.get_refs_where ~__context ~expr:Db_filter_types.(And
+    (Eq (Field "GPU_group", Literal (Ref.string_of vgpu_record.API.vGPU_GPU_group)),
+     Eq (Field "host", Literal (Ref.string_of host))
+    )
+  ) in
+  let capacity_exists =
+    List.exists (fun pgpu ->
+      try Xapi_pgpu_helpers.assert_capacity_exists_for_VGPU_type ~__context ~self:pgpu ~vgpu_type:vgpu_record.API.vGPU_type; true
+      with _ -> false
+    ) local_pgpus
+  in
+  if not capacity_exists then
+    raise Api_errors.(Server_error (vm_requires_gpu, [
+        Ref.string_of vgpu_record.API.vGPU_VM;
+        Ref.string_of vgpu_record.API.vGPU_GPU_group
+      ]))
+
 (* The signature for a set of functions which we must provide to be able to import an object type. *)
 module type HandlerTools = sig
   (* A type which represents how we should deal with the import of an object. *)
@@ -1194,6 +1215,8 @@ module VGPU : HandlerTools = struct
                           API.vGPU_GPU_group = group;
                           API.vGPU_type = _type;
                         } in
+      if is_live config then
+        assert_can_live_import_vgpu ~__context vgpu_record;
       Create vgpu_record
 
   let handle_dry_run __context config rpc session_id state x precheck_result =
