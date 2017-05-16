@@ -1169,6 +1169,9 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   (* check_vdi_map above has already verified that all VDIs are in the vdi_map *)
   assert_no_cbt_enabled_vdi_migrated ~__context ~vdi_map
 
+let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+  ()
+
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   with_migrate (fun () ->
       migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options)
@@ -1330,6 +1333,7 @@ let vdi_pool_migrate ~__context ~vdi ~sr ~options =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       let dest = XenAPI.Host.migrate_receive ~rpc ~session_id ~host:dest_host ~network ~options in
       assert_can_migrate ~__context ~vm ~dest ~live:true ~vdi_map ~vif_map:[] ~options:[];
+      assert_can_migrate_sender ~__context ~vm ~dest ~live:true ~vdi_map ~vif_map:[] ~options:[];
       ignore(migrate_send ~__context ~vm ~dest ~live:true ~vdi_map ~vif_map:[] ~options:[])
     ) ;
   Db.VBD.get_VDI ~__context ~self:vbd
