@@ -846,6 +846,10 @@ let _ =
     ~doc:"The host failed to enable external authentication." ();
   error Api_errors.auth_enable_failed_unavailable ["message"]
     ~doc:"The host failed to enable external authentication." ();
+  error Api_errors.auth_enable_failed_invalid_ou ["message"]
+    ~doc:"The host failed to enable external authentication." ();
+  error Api_errors.auth_enable_failed_invalid_account ["message"]
+    ~doc:"The host failed to enable external authentication." ();
   error Api_errors.auth_disable_failed ["message"]
     ~doc:"The host failed to disable external authentication." ();
   error Api_errors.auth_disable_failed_wrong_credentials ["message"]
@@ -898,6 +902,10 @@ let _ =
   error Api_errors.pool_auth_enable_failed_unavailable ["host";"message"]
     ~doc:"The pool failed to enable external authentication." ();
   error Api_errors.pool_auth_enable_failed_duplicate_hostname ["host";"message"]
+    ~doc:"The pool failed to enable external authentication." ();
+  error Api_errors.pool_auth_enable_failed_invalid_ou ["host";"message"]
+    ~doc:"The pool failed to enable external authentication." ();
+  error Api_errors.pool_auth_enable_failed_invalid_account ["host";"message"]
     ~doc:"The pool failed to enable external authentication." ();
   error Api_errors.pool_auth_disable_failed ["host";"message"]
     ~doc:"The pool failed to disable the external authentication of at least one host." ();
