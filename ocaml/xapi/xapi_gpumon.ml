@@ -83,10 +83,16 @@ module Nvidia = struct
       | Compatible -> 
         info "VM %s Nvidia vGPU is compatible with the destination pGPU on host %s"
           (Ref.string_of vm) (Ref.string_of dest_host)
-      | Incompatible reasons -> 
+      | Incompatible reasons ->
+        let stringify = function
+          | Host_driver  -> "host-driver"
+          | Guest_driver -> "guest-driver"
+          | GPU          -> "gpu"
+          | Other        -> "other"
+        in
         raise Api_errors.(Server_error (
             vgpu_destination_incompatible,
-            [ if List.mem Host_driver reasons then "host-driver" else "unknown"
+            [ String.concat ", " (List.map stringify reasons) (* There could be multiple reasons *)
             ; Ref.string_of vgpu
             ; Ref.string_of dest_host
             ]))
