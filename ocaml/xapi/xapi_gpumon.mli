@@ -34,10 +34,9 @@ module Nvidia : sig
   (** Check compatibility between a VM's vGPU(s) and another pGPU,
    *  and fail if they are not compatible. This function is assumed
    *  to run on the host where the VM is running. 
-   *  The pgpu metadata is expected to be the encoded dump contained
-   *  in the Xapi database, do not pass decoded metadata.
-   *  Note that Nvidia drivers exceptions (as declared in Gpumon_interface.Nvidia)
-   *  are propagated. *)
+   *  The pgpu metadata is expected to be the encoded dump obtained
+   *  from the Xapi database.
+   *  The destination host is needed for the metadata of some of the errors. *)
   val assert_pgpu_is_compatible_with_vm:
     __context:Context.t ->
     vm:API.ref_VM ->
