@@ -2402,11 +2402,7 @@ let vm_install_real printer rpc session_id template name description params =
 
   let suspend_sr_ref = match sr_ref with
     | Some sr ->
-      let ref_is_valid = Server_helpers.exec_with_new_task
-          ~session_id "Checking suspend_SR validity"
-          (fun __context -> Db.is_valid_ref __context sr)
-      in
-      if ref_is_valid then
+      if Cli_util.is_valid_ref session_id sr then
         (* sr-uuid and/or sr-name-label was specified - use this as the suspend_SR *)
         sr
       else
@@ -4342,10 +4338,7 @@ let update_upload fd printer rpc session_id params =
       then Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params)
       else begin
         let sr = Client.Pool.get_default_SR ~rpc ~session_id ~self:(List.hd pools) in
-        let ref_is_valid = Server_helpers.exec_with_new_task
-            ~session_id "Checking default SR validity"
-            (fun __context -> Db.is_valid_ref __context sr) in
-        if ref_is_valid then sr
+        if Cli_util.is_valid_ref session_id sr then sr
         else failwith "No sr-uuid parameter was given, and the pool's default SR \
                        is unspecified or invalid. Please explicitly specify the SR to use \
                        in the sr-uuid parameter, or set the pool's default SR."
