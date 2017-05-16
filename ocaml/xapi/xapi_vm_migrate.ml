@@ -1037,6 +1037,15 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
       | _ -> raise e
     end
 
+let migration_type ~__context ~remote =
+  try
+    ignore(Db.Host.get_uuid ~__context ~self:remote.dest_host);
+    debug "This is an intra-pool migration";
+    `intra_pool
+  with _ ->
+    debug "This is a cross-pool migration";
+    `cross_pool
+
 let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   assert_licensed_storage_motion ~__context ;
 
@@ -1056,29 +1065,16 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   let vms_vdis = List.filter_map (vdi_filter __context true) vbds in
   check_vdi_map ~__context vms_vdis vdi_map;
 
-  let migration_type =
-    try
-      ignore(Db.Host.get_uuid ~__context ~self:remote.dest_host);
-      debug "This is an intra-pool migration";
-      `intra_pool
-    with _ ->
-      debug "This is a cross-pool migration";
-      `cross_pool
-  in
-
   (* operations required for migration *)
   let required_sr_operations = [Smint.Vdi_mirror; Smint.Vdi_snapshot] in
   let host_from = Helpers.LocalObject source_host_ref in
 
-  match migration_type with
+  match migration_type ~__context ~remote with
   | `intra_pool ->
     (* Prevent VMs from being migrated onto a host with a lower platform version *)
     let host_to = Helpers.LocalObject remote.dest_host in
     if not (Helpers.host_versions_not_decreasing ~__context ~host_from ~host_to) then
       raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []));
-
-    (* Check that the destination host has compatible pGPUs -- if needed *)
-    Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~host:remote.dest_host ();
 
     (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
     assert_sr_support_operations ~__context ~vdi_map ~remote ~ops:required_sr_operations;
@@ -1095,9 +1091,6 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     if not (Helpers.host_versions_not_decreasing ~__context ~host_from ~host_to) then
       raise (Api_errors.Server_error (Api_errors.vm_host_incompatible_version_migrate,
                                       [Ref.string_of vm; Ref.string_of remote.dest_host]));
-
-    (* Check that the destination host has compatible pGPUs -- if needed *)
-    Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~host:remote.dest_host ~remote:(remote.rpc, remote.session) ();
 
     (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
     assert_sr_support_operations ~__context ~vdi_map ~remote ~ops:required_sr_operations;
@@ -1142,6 +1135,17 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
         raise Api_errors.(Server_error(internal_error, ["assert_can_migrate: inter_pool_metadata_transfer returned a nonempty list"]))
     with Xmlrpc_client.Connection_reset ->
       raise (Api_errors.Server_error(Api_errors.cannot_contact_host, [remote.remote_ip]))
+
+let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+  (* Check that the destination host has compatible pGPUs -- if needed *)
+  let remote = remote_of_dest dest in
+  let remote_for_migration_type =
+    match migration_type ~__context ~remote with
+    | `intra_pool -> None
+    | `cross_pool -> Some (remote.rpc, remote.session)
+  in
+  Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context
+    ~vm ~host:remote.dest_host ?remote:remote_for_migration_type ()
 
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   with_migrate (fun () ->
@@ -1296,6 +1300,7 @@ let vdi_pool_migrate ~__context ~vdi ~sr ~options =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       let dest = XenAPI.Host.migrate_receive ~rpc ~session_id ~host:dest_host ~network ~options in
       assert_can_migrate ~__context ~vm ~dest ~live:true ~vdi_map ~vif_map:[] ~options:[];
+      assert_can_migrate_sender ~__context ~vm ~dest ~live:true ~vdi_map ~vif_map:[] ~options:[];
       ignore(migrate_send ~__context ~vm ~dest ~live:true ~vdi_map ~vif_map:[] ~options:[])
     ) ;
   Db.VBD.get_VDI ~__context ~self:vbd
