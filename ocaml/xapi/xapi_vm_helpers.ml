@@ -647,6 +647,10 @@ let choose_host_uses_wlb ~__context =
          ~self:(Helpers.get_pool ~__context)))
 
 
+(* This is a stub used in the pattern_matching below to silence a
+ * warning in the newer ocaml compilers *)
+exception Float_of_string_failure
+
 (** Given a virtual machine, returns a host it can boot on, giving   *)
 (** priority to an affinity host if one is present. WARNING: called  *)
 (** while holding the global lock from the message forwarding layer. *)
@@ -662,8 +666,9 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
             | ["WLB"; "0.0"; rec_id; zero_reason] ->
               filter_and_convert tl
             | ["WLB"; stars; rec_id] ->
-              (h, float_of_string stars, rec_id)
-              :: filter_and_convert tl
+                let st = try float_of_string stars with Failure _ -> raise Float_of_string_failure
+                in
+                (h, st, rec_id) :: filter_and_convert tl
             | _ -> filter_and_convert tl
           end
         | [] -> []
@@ -728,7 +733,7 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
         with _ -> ()
       end;
       choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-    | Failure "float_of_string" ->
+    | Float_of_string_failure ->
       debug "Star ratings from wlb could not be parsed to floats. \
              				Using original algorithm";
       choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
