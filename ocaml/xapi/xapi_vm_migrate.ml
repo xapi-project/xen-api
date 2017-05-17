@@ -894,6 +894,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
           in
           let vm = List.hd vms in
           let () = if ha_always_run_reset then XenAPI.VM.set_ha_always_run ~rpc:remote.rpc ~session_id:remote.session ~self:vm ~value:false in
+          (* Reserve resources for the new VM on the destination pool's host *)
+          let () = XenAPI.Host.allocate_resources_for_vm remote.rpc remote.session remote.dest_host vm true in
           vm in
 
       wait_for_fist __context Xapi_fist.pause_storage_migrate2 "pause_storage_migrate2";
