@@ -2654,6 +2654,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun session_id rpc ->
            Client.Host.mxgpu_vf_setup rpc session_id host)
 
+    let allocate_resources_for_vm ~__context ~self ~vm ~live =
+      info "Host.host_allocate_resources_for_vm: host = %s; VM = %s"
+        (host_uuid ~__context self) (vm_uuid ~__context vm);
+      let snapshot = Db.VM.get_record ~__context ~self:vm in
+      VM.allocate_vm_to_host ~__context ~vm ~host:self ~snapshot ()
   end
 
   module Host_crashdump = struct
