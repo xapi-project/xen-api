@@ -678,6 +678,7 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
         try
           set v
         with
+        (* XXX: -- warning 52 -- this might break with new ocaml compilers *)
           (Failure "int_of_string") -> failwith ("Parameter "^k^" must be an integer")
         | (Failure "float_of_string") -> failwith ("Parameter "^k^" must be a floating-point number")
         | (Invalid_argument "bool_of_string") -> failwith ("Parameter "^k^" must be a boolean (true or false)")
@@ -1839,7 +1840,7 @@ let select_vms ?(include_control_vms = false) ?(include_template_vms = false) rp
   let params = if not include_template_vms then ("is-a-template"    , "false") :: params else params in
   let vm_name_or_ref = try Some (
       (* Escape every quote character *)
-      List.assoc "vm" params |> Stdext.Xstringext.String.replace "\"" "\\\""
+      List.assoc "vm" params |> String.replace "\"" "\\\""
     ) with _ -> None in
   let params, where_clause = match vm_name_or_ref with
     | None -> params, "true"
