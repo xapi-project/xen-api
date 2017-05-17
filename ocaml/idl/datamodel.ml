@@ -5018,6 +5018,19 @@ let host_mxgpu_vf_setup = call
     ~allowed_roles:_R_VM_OP
     ()
 
+let host_allocate_resources_for_vm = call
+    ~name:"allocate_resources_for_vm"
+    ~lifecycle:[Published, rel_vgpu_migration_tech_preview, ""]
+    ~doc:"Reserves the resources for a VM by setting the 'scheduled_to_be_resident_on' fields"
+    ~params:[
+      Ref _host, "self", "The host";
+      Ref _vm, "vm", "The VM";
+      Bool, "live", "Is this part of a live migration?"
+    ]
+    ~hide_from_docs:true
+    ~allowed_roles:_R_VM_OP
+    ()
+
 (** Hosts *)
 let host =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -5109,6 +5122,7 @@ let host =
                 host_set_ssl_legacy;
                 host_apply_guest_agent_config;
                 host_mxgpu_vf_setup;
+                host_allocate_resources_for_vm;
                ]
     ~contents:
       ([ uid _host;
