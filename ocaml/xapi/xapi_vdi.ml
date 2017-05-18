@@ -225,15 +225,6 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
 let update_allowed_operations ~__context ~self : unit =
   update_allowed_operations_internal ~__context ~self ~sr_records:[] ~pbd_records:[] ~vbd_records:[]
 
-(** Someone is cancelling a task so remove it from the current_operations *)
-let cancel_task ~__context ~self ~task_id =
-  let all = List.map fst (Db.VDI.get_current_operations ~__context ~self) in
-  if List.mem task_id all then
-    begin
-      Db.VDI.remove_from_current_operations ~__context ~self ~key:task_id;
-      update_allowed_operations ~__context ~self
-    end
-
 let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let ops = Db.VDI.get_current_operations ~__context ~self in
   let set = (fun value -> Db.VDI.set_current_operations ~__context ~self ~value) in
