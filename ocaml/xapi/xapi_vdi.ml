@@ -177,6 +177,8 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
           if not Smint.(has_capability Vdi_generate_config sm_features)
           then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
           else None
+        | `snapshot when not Smint.(has_capability Vdi_snapshot sm_features) ->
+          Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
         | `snapshot when record.Db_actions.vDI_sharable ->
           Some (Api_errors.vdi_is_sharable, [ _ref ])
         | `snapshot when reset_on_boot ->
