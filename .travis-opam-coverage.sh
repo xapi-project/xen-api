@@ -16,6 +16,8 @@ docker run --rm --volume=$PWD:/mnt --workdir=/mnt \
   --env "TRAVIS_JOB_ID=$TRAVIS_JOB_ID" \
   ocaml/opam:ubuntu-16.04_ocaml-4.02.3 \
   bash -uex -c '
+sudo apt-get update
+
 # replace the base remote with xs-opam
 opam repository remove default
 opam repository add xs-opam https://github.com/xapi-project/xs-opam.git
