@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2017 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Module that defines API functions for VDI objects
+(* Module that defines API functions for VDI objects
  * @group XenAPI functions
 *)
 
@@ -49,8 +49,8 @@ let check_sm_feature_error (op:API.vdi_operations) sm_features sr =
     then None
     else Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 
-(** Checks to see if an operation is valid in this state. Returns Some exception
-    if not and None if everything is ok. *)
+(* Checks to see if an operation is valid in this state. Returns Some exception
+   if not and None if everything is ok. *)
 let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_records=[]) ha_enabled record _ref' op =
   let _ref = Ref.string_of _ref' in
   let current_ops = record.Db_actions.vDI_current_operations in
@@ -232,7 +232,7 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
 
 (**************************************************************************************)
 
-(** Helper function to create a new VDI record with all fields copied from
+(*  Helper function to create a new VDI record with all fields copied from
     an original, except ref and *_operations, UUID and others supplied as optional arguments.
     If a new UUID is not supplied, a fresh one is generated.
     storage_lock defaults to false.
