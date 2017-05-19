@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2017 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Module that defines API functions for VDI objects
+(* Module that defines API functions for VDI objects
  * @group XenAPI functions
 *)
 
@@ -25,8 +25,32 @@ open Printf
 (**************************************************************************************)
 (* current/allowed operations checking                                                *)
 
-(** Checks to see if an operation is valid in this state. Returns Some exception
-    if not and None if everything is ok. *)
+let check_sm_feature_error (op:API.vdi_operations) sm_features sr =
+  let required_sm_feature = Smint.(match op with
+  | `forget
+  | `snapshot
+  | `copy
+  | `scan
+  | `force_unlock
+  | `blocked
+    -> None
+  | `destroy -> Some Vdi_delete
+  | `resize -> Some Vdi_resize
+  | `update -> Some Vdi_update
+  | `resize_online -> Some Vdi_resize_online
+  | `generate_config -> Some Vdi_generate_config
+  | `clone -> Some Vdi_clone
+  | `mirror -> Some Vdi_mirror
+  ) in
+  match required_sm_feature with
+  | None -> None
+  | Some feature ->
+    if Smint.(has_capability feature sm_features)
+    then None
+    else Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+
+(* Checks to see if an operation is valid in this state. Returns Some exception
+   if not and None if everything is ok. *)
 let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_records=[]) ha_enabled record _ref' op =
   let _ref = Ref.string_of _ref' in
   let current_ops = record.Db_actions.vDI_current_operations in
@@ -113,8 +137,6 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 
       (* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
 
-      let sm_features = Xapi_sr_operations.features_of_sr_internal ~__context ~_type:sr_type in
-
       let blocked_by_attach =
         if operation_can_be_performed_live
         then false
@@ -128,6 +150,11 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
       then Some (Api_errors.vdi_in_use,[_ref; (Record_util.vdi_operation_to_string op)])
       else if my_has_current_operation_vbd_records <> []
       then Some (Api_errors.other_operation_in_progress, [ "VDI"; _ref ])
+      else
+      let sm_features = Xapi_sr_operations.features_of_sr_internal ~__context ~_type:sr_type in
+      let sm_feature_error = check_sm_feature_error op sm_features sr in
+      if sm_feature_error <> None
+      then sm_feature_error
       else (
         match op with
         | `forget ->
@@ -151,31 +178,14 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
           then Some (Api_errors.ha_enable_in_progress, [])
           else if List.mem record.Db_actions.vDI_type [`ha_statefile; `metadata ] && Xapi_pool_helpers.ha_disable_in_progress ~__context
           then Some (Api_errors.ha_disable_in_progress, [])
-          else
-          if not Smint.(has_capability Vdi_delete sm_features)
-          then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
           else None
         | `resize ->
           if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
           then Some (Api_errors.ha_is_enabled, [])
-          else
-          if not Smint.(has_capability Vdi_resize sm_features)
-          then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
-          else None
-        | `update ->
-          if not Smint.(has_capability Vdi_update sm_features)
-          then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
           else None
         | `resize_online ->
           if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
           then Some (Api_errors.ha_is_enabled, [])
-          else
-          if not Smint.(has_capability Vdi_resize_online sm_features)
-          then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
-          else None
-        | `generate_config ->
-          if not Smint.(has_capability Vdi_generate_config sm_features)
-          then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
           else None
         | `snapshot when not Smint.(has_capability Vdi_snapshot sm_features) ->
           Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
@@ -191,15 +201,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
           if List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
           then Some (Api_errors.operation_not_allowed, ["VDI containing HA statefile or redo log cannot be copied (check the VDI's allowed operations)."])
           else None
-        | `clone ->
-          if not Smint.(has_capability Vdi_clone sm_features)
-          then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
-          else None
-        | `mirror ->
-          if not Smint.(has_capability Vdi_mirror sm_features)
-          then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
-          else None
-        | _ -> None
+        | `mirror | `clone | `generate_config | `scan | `force_unlock | `blocked | `update -> None
       )
 
 let assert_operation_valid ~__context ~self ~(op:API.vdi_operations) =
@@ -225,15 +227,6 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
 let update_allowed_operations ~__context ~self : unit =
   update_allowed_operations_internal ~__context ~self ~sr_records:[] ~pbd_records:[] ~vbd_records:[]
 
-(** Someone is cancelling a task so remove it from the current_operations *)
-let cancel_task ~__context ~self ~task_id =
-  let all = List.map fst (Db.VDI.get_current_operations ~__context ~self) in
-  if List.mem task_id all then
-    begin
-      Db.VDI.remove_from_current_operations ~__context ~self ~key:task_id;
-      update_allowed_operations ~__context ~self
-    end
-
 let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let ops = Db.VDI.get_current_operations ~__context ~self in
   let set = (fun value -> Db.VDI.set_current_operations ~__context ~self ~value) in
@@ -241,7 +234,7 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
 
 (**************************************************************************************)
 
-(** Helper function to create a new VDI record with all fields copied from
+(*  Helper function to create a new VDI record with all fields copied from
     an original, except ref and *_operations, UUID and others supplied as optional arguments.
     If a new UUID is not supplied, a fresh one is generated.
     storage_lock defaults to false.
