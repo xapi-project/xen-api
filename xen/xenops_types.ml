@@ -27,7 +27,7 @@ end
 
 module Vgpu = struct
   type gvt_g = {
-    physical_pci_address: Pci.address;
+    physical_pci_address: Pci.address option; (* unused; promoted to Vgpu.t *)
     low_gm_sz: int64;
     high_gm_sz: int64;
     fence_sz: int64;
@@ -35,12 +35,12 @@ module Vgpu = struct
   } [@@deriving sexp, rpc]
 
   type nvidia = {
-    physical_pci_address: Pci.address;
+    physical_pci_address: Pci.address option; (* unused; promoted to Vgpu.t *)
     config_file: string;
   } [@@deriving sexp, rpc]
 
   type mxgpu = {
-    physical_function: Pci.address;
+    physical_function: Pci.address option; (* unused; promoted to Vgpu.t *)
     vgpus_per_pgpu: int64;
     framebufferbytes: int64;
   } [@@deriving sexp, rpc]

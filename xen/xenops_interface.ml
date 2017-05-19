@@ -120,14 +120,36 @@ module Vgpu = struct
 		| GVT_g of gvt_g
 		| Nvidia of nvidia
 		| MxGPU of mxgpu
+		| Empty
 
 	type id = string * string
 
 	type t = {
 		id: id;
 		position: int;
+		physical_pci_address: Pci.address;
 		implementation: implementation;
 	}
+
+	let default_t = {
+		id = "", "";
+		position = 0;
+		physical_pci_address = Pci.{domain = 0; bus = 0; dev = 0; fn = 0};
+		implementation = Empty;
+	}
+
+	let upgrade_pci_info x =
+		match x with
+		| {implementation = GVT_g {physical_pci_address = Some address; _}; _}
+		| {implementation = Nvidia {physical_pci_address = Some address; _}; _}
+		| {implementation = MxGPU {physical_function = Some address; _}; _} ->
+			{x with physical_pci_address = address}
+		| _ -> x
+
+	let t_of_rpc rpc =
+		Rpc.struct_extend rpc (rpc_of_t default_t)
+		|> t_of_rpc
+		|> upgrade_pci_info
 
 	type state = {
 		plugged: bool;
