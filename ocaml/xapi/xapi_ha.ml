@@ -971,6 +971,16 @@ let preconfigure_host __context localhost statevdis metadata_vdi generation =
     failwith "FIST: fist_reconfigure_host"
   end;
 
+  (* We don't allow VDIs that only have changed block tracking metadata but no
+     actual data to be configured as statefile or metadata VDIs. *)
+  List.iter
+    (fun vdi ->
+       if (Db.VDI.get_type ~__context ~self:vdi) = `cbt_metadata then begin
+         error "Host.preconfigure_ha: one of the statefile VDIs or the metadata VDI has type cbt_metadata (at %s)" __LOC__;
+         raise (Api_errors.Server_error(Api_errors.vdi_incompatible_type, [ Ref.string_of vdi; Record_util.vdi_type_to_string `cbt_metadata ]))
+       end)
+    (metadata_vdi::statevdis);
+
   (* Write name of cluster stack to the local DB. This determines which HA scripts we use. *)
   let pool = Helpers.get_pool ~__context in
   let cluster_stack = Db.Pool.get_ha_cluster_stack ~__context ~self:pool in
