@@ -90,8 +90,11 @@ let read_config () =
 	try
 		let config_json = Unixext.string_of_file config_file_path in
 		config_json |> Jsonrpc.of_string |> config_t_of_rpc
-	with e ->
-		error "Error while trying to read networkd configuration: %s\n%s"
-			(Printexc.to_string e) (Printexc.get_backtrace ());
-		raise Read_error
-
+	with
+		| Unix.Unix_error (Unix.ENOENT, _, file) ->
+			info "Cannot read networkd configuration file %s because it does not exist." file;
+			raise Read_error
+		| e ->
+			info "Error while trying to read networkd configuration: %s\n%s"
+				(Printexc.to_string e) (Printexc.get_backtrace ());
+			raise Read_error
