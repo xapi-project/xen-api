@@ -47,31 +47,16 @@ module TypeSet = Set.Make(struct
 
 
 let open_source' = ref false
-let destdir'    = ref ""
-
-
-let usage () =
-  Printf.sprintf "
-Usage:
-
-    %s [-o] [-d <destdir>]
-
-  where
-
-    -o requests a version of the API filtered for open source; and
-    -d specifies the destination directory for the generated files.
-" Sys.argv.(0)
-
+let destdir'     = ref ""
 
 let _ =
   Arg.parse
     [
       "-o", Arg.Set open_source', "requests a version of the API filtered for open source";
       "-d", Arg.Set_string destdir', "specifies the destination directory for the generated files";
-    ] 
-    (fun x -> Printf.printf "Skipping unknown argument: %s" x)
-    (usage ())
-
+    ]
+    (fun x -> raise (Arg.Bad ("Found anonymous argument " ^ x)))
+    ("Generates C bindings for the XenAPI. See -help.")
 
 let open_source = !open_source'
 let destdir = !destdir'

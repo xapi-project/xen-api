@@ -52,22 +52,6 @@ let destdir'    = ref ""
 let sr_xml'     = ref ""
 let resx_file'  = ref ""
 
-
-let usage () =
-  Printf.sprintf "
-Usage:
-
-    %s -r=<resxfilename> -s=<filename> -d=<destdir> [-o]
-
-  where
-
-        -r specifies the location of the FriendlyErrorNames.resx file;
-        -s specifies the location of the XE_SR_ERRORCODES.xml file;
-        -o requests a version of the API filtered for open source; and
-        -d specifies the destination directory for the generated files.
-" Sys.argv.(0)
-
-
 let get_deprecated_attribute_string version =
   match version with
   | None -> ""
@@ -84,9 +68,9 @@ let _ =
       "-s", Arg.Set_string sr_xml', "specifies the location of the XE_SR_ERRORCODES.xml file";
       "-o", Arg.Set open_source', "requests a version of the API filtered for open source";
       "-d", Arg.Set_string destdir', "specifies the destination directory for the generated files";
-    ] 
-    (fun x -> Printf.printf "Skipping unknown argument: %s" x)
-    (usage ())
+    ]
+    (fun x -> raise (Arg.Bad ("Found anonymous argument " ^ x)))
+    ("Generates C# bindings for the XenAPI. See -help.")
 
 let open_source = !open_source'
 let destdir = !destdir'

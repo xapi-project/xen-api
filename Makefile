@@ -143,7 +143,7 @@ csharp: gen_csharp_binding.native
 java: main.native
 	mkdir -p _build/java/autogen/com/xensource/xenapi
 	mkdir -p _build/java/autogen/samples
-	./main.native _build/java/autogen
+	./main.native -d _build/java/autogen
 #source
 	cp java/lib/com/xensource/xenapi/*.java _build/java/autogen/com/xensource/xenapi
 	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' java/lib/com/xensource/xenapi/Connection.java > _build/java/autogen/com/xensource/xenapi/Connection.java
@@ -158,7 +158,7 @@ java: main.native
 powershell: gen_powershell_binding.native
 	mkdir -p _build/powershell/autogen/src
 	mkdir -p _build/powershell/autogen/samples
-	./gen_powershell_binding.native _build/powershell/autogen
+	./gen_powershell_binding.native -d _build/powershell/autogen
 #source
 	mv _build/powershell/autogen/*.cs _build/powershell/autogen/src
 	cp powershell/src/*.cs _build/powershell/autogen/src
