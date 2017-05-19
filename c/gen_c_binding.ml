@@ -509,12 +509,6 @@ and abstract_result_handling_async needed classname msg_name param_count =
     %s
     return session->ok;\n" call
 
-
-and abstract_record_fields classname contents =
-  joined ",\n        " (abstract_record_field classname "" "")
-    contents
-
-
 and abstract_record_field classname prefix prefix_caps content =
   match content with
       Field fr ->
@@ -1074,6 +1068,7 @@ and failure_enum name =
 
 
 and write_impl {name=classname; contents=contents; messages=messages} out_chan =
+  let is_event = (classname = "event") in
   let print format = fprintf out_chan format in
   let needed = ref StringSet.empty in
   let tn = typename classname in
@@ -1088,13 +1083,15 @@ and write_impl {name=classname; contents=contents; messages=messages} out_chan =
     if classname = "event" then "" else "    free(record->handle);\n" in
   let record_free_impls =
     joined "\n    " (record_free_impl "record->") contents in
-  let record_fields = abstract_record_fields classname contents in
+  let filtered_record_fields =
+    let not_obj_uuid x = match x with | Field r when r.field_name = "obj_uuid" -> false | _ -> true in
+    if is_event then List.filter not_obj_uuid contents else contents in
+  let record_fields =
+    joined ",\n        " (abstract_record_field classname "" "") filtered_record_fields in
   let needed = ref StringSet.empty in
     find_needed needed messages;
     needed := StringSet.add "internal" !needed;
     needed := StringSet.add classname !needed;
-
-  let is_event = (classname = "event") in
 
   let getAllRecordsExists = List.exists (fun x -> x.msg_name = "get_all_records") messages in
   let mappingName = sprintf "%s_%s" tn record_tn in

@@ -99,8 +99,6 @@ c: gen_c_binding.native
 	mkdir -p _build/c/autogen/test
 	./gen_c_binding.native -d _build/c/autogen -t c/templates
 #source
-	(cd _build/c/autogen && patch -p0 < ../../../c/compat.patch)
-	rm _build/c/autogen/*.orig
 	mv _build/c/autogen/xen _build/c/autogen/include
 	mv _build/c/autogen/*.h _build/c/autogen/include
 	mv _build/c/autogen/*.c _build/c/autogen/src
