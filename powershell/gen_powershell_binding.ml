@@ -48,22 +48,17 @@ module TypeSet = Set.Make(
     let compare = compare
   end)
 
-let usage () =
-  eprintf "
-Usage:
-
-    %s <destdir>
-
-  where
-
-        <destdir> specifies the destination directory for the generated files.
-" Sys.argv.(0)
-
+let destdir' = ref ""
 
 let _ =
-  if Array.length Sys.argv <> 2 then (usage(); exit 1)
+  Arg.parse
+    [
+      "-d", Arg.Set_string destdir', "specifies the destination directory for the generated files";
+    ]
+    (fun x -> raise (Arg.Bad ("Found anonymous argument " ^ x)))
+    ("Generates PowerShell bindings for the XenAPI. See -help.")
 
-let destdir = Sys.argv.(1)
+let destdir = !destdir'
 
 let api =
 	Datamodel_utils.named_self := true;

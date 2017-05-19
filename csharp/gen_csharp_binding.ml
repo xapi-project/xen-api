@@ -51,22 +51,7 @@ let open_source' = ref false
 let destdir'    = ref ""
 let sr_xml'     = ref ""
 let resx_file'  = ref ""
-
-
-let usage () =
-  Printf.sprintf "
-Usage:
-
-    %s -r=<resxfilename> -s=<filename> -d=<destdir> [-o]
-
-  where
-
-        -r specifies the location of the FriendlyErrorNames.resx file;
-        -s specifies the location of the XE_SR_ERRORCODES.xml file;
-        -o requests a version of the API filtered for open source; and
-        -d specifies the destination directory for the generated files.
-" Sys.argv.(0)
-
+let templdir'     = ref ""
 
 let get_deprecated_attribute_string version =
   match version with
@@ -84,14 +69,16 @@ let _ =
       "-s", Arg.Set_string sr_xml', "specifies the location of the XE_SR_ERRORCODES.xml file";
       "-o", Arg.Set open_source', "requests a version of the API filtered for open source";
       "-d", Arg.Set_string destdir', "specifies the destination directory for the generated files";
-    ] 
-    (fun x -> Printf.printf "Skipping unknown argument: %s" x)
-    (usage ())
+      "-t", Arg.Set_string templdir', "the directory with the template (mustache) files";
+    ]
+    (fun x -> raise (Arg.Bad ("Found anonymous argument " ^ x)))
+    ("Generates C# bindings for the XenAPI. See -help.")
 
 let open_source = !open_source'
 let destdir = !destdir'
 let sr_xml = !sr_xml'
 let resx_file = !resx_file'
+let templdir = !templdir'
 
 
 let api =
@@ -188,7 +175,7 @@ namespace XenAPI
         {
             Dictionary<Type, Relation[]> relations = new Dictionary<Type, Relation[]>();
 
-" (banner());
+" Licence.bsd_two_clause;
     Hashtbl.iter (gen_relations_by_type out_chan) relations;
     print
 "
@@ -252,7 +239,7 @@ namespace XenAPI
         {
             HTTP.Put(progressDelegate, cancellingDelegate, HTTP.BuildUri(hostname, remotePath, args), proxy, localPath, timeout_ms);
         }"
-    (banner())
+    Licence.bsd_two_clause
   in
 
   let print_footer() = print "\n    }\n}\n" in
@@ -349,7 +336,7 @@ namespace XenAPI
     public partial class %s : XenObject<%s>
     {"
 
-  (banner())
+  Licence.bsd_two_clause
   cls.description (if publishedInfo = "" then "" else "\n    /// "^publishedInfo)
   exposed_class_name exposed_class_name;
 
@@ -1329,7 +1316,7 @@ namespace XenAPI
         [XmlRpcMethod(\"event.from\")]
         Response<Events>
         event_from(string session, string [] _classes, string _token, double _timeout);
-" (banner());
+" Licence.bsd_two_clause;
 
   List.iter
     (fun x -> if proxy_generated x then gen_proxy_for_class out_chan x) classes;
@@ -1447,7 +1434,7 @@ namespace XenAPI
 {
     public enum %s
     {
-        " (banner()) name;
+        " Licence.bsd_two_clause name;
 
   print "%s" (joined ", " gen_enum_line contents);
 
@@ -1514,7 +1501,7 @@ namespace XenAPI
 {
     internal class Maps
     {
-" (banner());
+" Licence.bsd_two_clause;
 
   TypeSet.iter (gen_map_conversion out_chan) !maps;
 
@@ -1784,9 +1771,6 @@ and is_static_readonly field =
     | DynamicRO    -> "false"
     | _            -> "false"
 
-
-and banner () = sprintf "%s" Licence.bsd_two_clause
-
 and i18n_header out_chan =
   let print format = fprintf out_chan format in
     print
@@ -1937,5 +1921,9 @@ and gen_i18n_error_field out_chan (error, desc) =
       error
       (Xml.to_string (Xml.Element("value", [], [(Xml.PCData desc)])))
 
+let populate_releases ()=
+  render_file ("ApiVersion.mustache", "ApiVersion.cs") json_releases templdir destdir
+
 let _ =
-  main()
+  main();
+  populate_releases()

@@ -40,9 +40,6 @@ ifndef SR_XML
 	SR_XML=XE_SR_ERRORCODES.xml
 endif
 
-API_MAJOR=2
-API_MINOR=7
-
 # OASIS_START
 
 SETUP = ocaml setup.ml
@@ -100,7 +97,7 @@ c: gen_c_binding.native
 	mkdir -p _build/c/autogen/include/xen
 	mkdir -p _build/c/autogen/src
 	mkdir -p _build/c/autogen/test
-	./gen_c_binding.native -d _build/c/autogen
+	./gen_c_binding.native -d _build/c/autogen -t c/templates
 #source
 	(cd _build/c/autogen && patch -p0 < ../../../c/compat.patch)
 	rm _build/c/autogen/*.orig
@@ -110,7 +107,6 @@ c: gen_c_binding.native
 	cp c/xen_internal.h _build/c/autogen/include
 	cp c/xen_common.h c/xen_string_set.h c/xen_int_set.h _build/c/autogen/include/xen/api
 	cp c/xen_common.c c/xen_string_set.c c/xen_int_set.c _build/c/autogen/src
-	sed -e s/@LIB_MAJOR@/$(API_MAJOR)/g -e s/@LIB_MINOR@/$(API_MINOR)/g c/Makefile.dist > _build/c/autogen/Makefile
 	make -C _build/c/autogen -f Makefile ueberheader
 #tests
 	cp c/test/*.c _build/c/autogen/test
@@ -122,7 +118,7 @@ csharp: gen_csharp_binding.native
 	mkdir -p _build/csharp/autogen/src/Properties
 	mkdir -p _build/csharp/autogen/gui
 	mkdir -p _build/csharp/autogen/samples
-	./gen_csharp_binding.native -r csharp/FriendlyErrorNames.resx -s $(SR_XML) -d _build/csharp/autogen
+	./gen_csharp_binding.native -r csharp/FriendlyErrorNames.resx -s $(SR_XML) -d _build/csharp/autogen -t csharp/templates
 #source
 	mv _build/csharp/autogen/XenObjectDownloader.cs _build/csharp/autogen/gui
 	sh csharp/subst-autogen-csproj.sh _build/csharp/autogen csharp/src/XenServer.csproj _build/csharp/autogen/src/XenServer.csproj
@@ -143,7 +139,7 @@ csharp: gen_csharp_binding.native
 java: main.native
 	mkdir -p _build/java/autogen/com/xensource/xenapi
 	mkdir -p _build/java/autogen/samples
-	./main.native _build/java/autogen
+	./main.native -d _build/java/autogen -t java/templates
 #source
 	cp java/lib/com/xensource/xenapi/*.java _build/java/autogen/com/xensource/xenapi
 	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' java/lib/com/xensource/xenapi/Connection.java > _build/java/autogen/com/xensource/xenapi/Connection.java
@@ -158,7 +154,7 @@ java: main.native
 powershell: gen_powershell_binding.native
 	mkdir -p _build/powershell/autogen/src
 	mkdir -p _build/powershell/autogen/samples
-	./gen_powershell_binding.native _build/powershell/autogen
+	./gen_powershell_binding.native -d _build/powershell/autogen
 #source
 	mv _build/powershell/autogen/*.cs _build/powershell/autogen/src
 	cp powershell/src/*.cs _build/powershell/autogen/src

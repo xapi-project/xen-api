@@ -49,7 +49,7 @@ Library CommonFunctions
   Modules:        CommonFunctions
   ByteOpt:        -thread
   NativeOpt:      -thread
-  BuildDepends:   xapi-datamodel
+  BuildDepends:   xapi-datamodel, mustache
 
 # executables
 

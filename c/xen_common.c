@@ -165,53 +165,6 @@ xen_fini(void)
 }
 
 
-const char *
-xen_api_version_to_string(xen_api_version version)
-{
-    switch (version)
-    {
-    case xen_api_version_1_1:
-        return "1.1";
-    case xen_api_version_1_2:
-        return "1.2";
-    case xen_api_version_1_3:
-        return "1.3";
-    case xen_api_version_1_4:
-        return "1.4";
-    case xen_api_version_1_5:
-        return "1.5";
-    case xen_api_version_1_6:
-        return "1.6";
-    case xen_api_version_1_7:
-        return "1.7";
-    case xen_api_version_1_8:
-        return "1.8";
-    case xen_api_version_1_9:
-        return "1.9";
-    case xen_api_version_1_10:
-        return "1.10";
-    case xen_api_version_2_0:
-        return "2.0";
-    case xen_api_version_2_1:
-        return "2.1";
-    case xen_api_version_2_2:
-        return "2.2";
-    case xen_api_version_2_3:
-        return "2.3";
-    case xen_api_version_2_4:
-        return "2.4";
-    case xen_api_version_2_5:
-        return "2.5";
-    case xen_api_version_2_6:
-        return "2.6";
-    case xen_api_version_2_7:
-        return "2.7";
-    default:
-        return "Unknown";
-    }
-}
-
-
 void
 xen_session_record_free(xen_session_record *record)
 {
@@ -332,76 +285,7 @@ set_api_version(xen_session *session)
 
     xen_host_get_api_version_major(session, &major_version, host);
     xen_host_get_api_version_minor(session, &minor_version, host);
-
-    if (major_version == (int64_t)2)
-    {
-        if (minor_version == (int64_t)7)
-            session->api_version = xen_api_version_2_7;
-
-        else if (minor_version == (int64_t)6)
-            session->api_version = xen_api_version_2_6;
-
-        else if (minor_version == (int64_t)5)
-            session->api_version = xen_api_version_2_5;
-
-        else if (minor_version == (int64_t)4)
-            session->api_version = xen_api_version_2_4;
-
-        else if (minor_version == (int64_t)3)
-            session->api_version = xen_api_version_2_3;
-
-        else if (minor_version == (int64_t)2)
-            session->api_version = xen_api_version_2_2;
-
-        else if (minor_version == (int64_t)1)
-            session->api_version = xen_api_version_2_1;
-
-        else if (minor_version == (int64_t)0)
-            session->api_version = xen_api_version_2_0;
-
-        else
-            session->api_version = xen_api_unknown_version;
-    }
-    else if (major_version == (int64_t)1)
-    {
-        if (minor_version == (int64_t)10)
-            session->api_version = xen_api_version_1_10;
-        
-        else if (minor_version == (int64_t)9)
-            session->api_version = xen_api_version_1_9;
-        
-        else if (minor_version == (int64_t)8)
-            session->api_version = xen_api_version_1_8;
-        
-        else if (minor_version == (int64_t)7)
-            session->api_version = xen_api_version_1_7;
-        
-        else if (minor_version == (int64_t)6)
-            session->api_version = xen_api_version_1_6;
-        
-        else if (minor_version == (int64_t)5)
-            session->api_version = xen_api_version_1_5;
-        
-        else if (minor_version == (int64_t)4)
-            session->api_version = xen_api_version_1_4;
-        
-        else if (minor_version == (int64_t)3)
-            session->api_version = xen_api_version_1_3;
-        
-        else if (minor_version == (int64_t)2)
-            session->api_version = xen_api_version_1_2;
-        
-        else if (minor_version == (int64_t)1)
-            session->api_version = xen_api_version_1_1;
-        
-        else
-            session->api_version = xen_api_unknown_version;
-    }
-    else
-    {
-        session->api_version = xen_api_unknown_version;
-    }
-    
+    session->api_version = xen_api_version_from_int(major_version, minor_version);
     xen_host_free(host);
 }
 

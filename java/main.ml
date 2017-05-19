@@ -40,7 +40,24 @@ open CommonFunctions
 module DT = Datamodel_types
 module DU = Datamodel_utils
 
-let open_source = ref false
+
+let open_source' = ref false
+let destdir'     = ref ""
+let templdir'     = ref ""
+
+let _ =
+  Arg.parse
+    [
+      "-o", Arg.Set open_source', "requests a version of the API filtered for open source";
+      "-d", Arg.Set_string destdir', "specifies the destination directory for the generated files";
+      "-t", Arg.Set_string templdir', "the directory with the template (mustache) files";
+    ]
+    (fun x -> raise (Arg.Bad ("Found anonymous argument " ^ x)))
+    ("Generates Java bindings for the XenAPI. See -help.")
+
+let open_source = !open_source'
+let destdir = Filename.concat !destdir' "com/xensource/xenapi"
+let templdir = !templdir'
 
 (*Filter out all the bits of the data model we don't want to put in the api.
 For instance we don't want the things which are marked internal only, or the 
@@ -51,14 +68,14 @@ let api =
 	let obj_filter _ = true in
 	let field_filter field =
 		(not field.internal_only) &&
-		((not !open_source && (List.mem "closed" field.release.internal)) ||
-		(!open_source && (List.mem "3.0.3" field.release.opensource)))
+		((not open_source && (List.mem "closed" field.release.internal)) ||
+		(open_source && (List.mem "3.0.3" field.release.opensource)))
 	in
 	let message_filter msg = 
 		Datamodel_utils.on_client_side msg &&
 		(not msg.msg_hide_from_docs) &&
-		((not !open_source && (List.mem "closed" msg.msg_release.internal)) ||
-		(!open_source && (List.mem "3.0.3" msg.msg_release.opensource)))
+		((not open_source && (List.mem "closed" msg.msg_release.internal)) ||
+		(open_source && (List.mem "3.0.3" msg.msg_release.opensource)))
 	in
 	filter obj_filter field_filter message_filter
 		(Datamodel_utils.add_implicit_messages ~document_order:false
@@ -454,23 +471,13 @@ let gen_record file cls =
 
 (* Generate the class *)
 
-let dirs =  [Sys.argv.(1);"com";"xensource";"xenapi"]
-
-let setup_dir dir =
-  let _ = try
-    Unix.mkdir dir 0o640
-  with _ -> () in
-  Unix.chdir dir
-
-let _ = List.map setup_dir dirs
-
 let class_is_empty cls =
   cls.contents = []
 
-let gen_class cls = 
+let gen_class cls folder =
   let class_name = class_case cls.name in
   let methods = cls.messages in
-  let file = open_out (class_name ^ ".java") in
+  let file = open_out (Filename.concat folder class_name ^ ".java") in
 	let publishInfo = get_published_info_class cls in
   print_license file;
   fprintf file "package com.xensource.xenapi;
@@ -772,9 +779,9 @@ let gen_method_error_throw file name error =
   fprintf file "                throw new Types.%s(%s);\n" class_name paramsStr;
   fprintf file "            }\n"
 
-let gen_types_class () =
+let gen_types_class folder =
   let class_name = "Types" in
-  let file = open_out (class_name ^ ".java") in
+  let file = open_out (Filename.concat folder class_name ^ ".java") in
   print_license file;
   fprintf file "package com.xensource.xenapi;
 
@@ -974,5 +981,11 @@ public class Types
 
 (* Now run it *)
 
-let _ = List.map gen_class classes
-let _ = gen_types_class ()
+let populate_releases ()=
+  render_file ("APIVersion.mustache", "APIVersion.java") json_releases templdir destdir
+
+let _ =
+  Unixext.mkdir_rec destdir  0o755;
+  List.iter (fun x-> gen_class x destdir) classes;
+  gen_types_class destdir;
+  populate_releases ()

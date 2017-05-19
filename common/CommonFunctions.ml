@@ -28,9 +28,11 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
+open Stdext
+open Pervasiveext
 open Printf
 open Datamodel_types
-module DT = Datamodel_types
+
 
 let rec list_distinct list =
   match list with
@@ -53,11 +55,6 @@ and list_index_of x list =
     index_rec 0 list
     with Not_found -> -1
 
-and list_is_empty list =
-  match list with
-  | [] -> true
-  | _  -> false
-
 let rec gen_param_groups_for_releases releaseOrder params =
   match releaseOrder with
   | []     -> [("", [])]
@@ -73,14 +70,21 @@ and get_method_params_list message =
   if is_method_static message then message.msg_params
   else List.tl message.msg_params
 
+and code_name_of_release_ext x =
+  try code_name_of_release x
+  with UnspecifiedRelease -> ""
+
+and code_name_order =
+  release_order |> List.map code_name_of_release
+
 and gen_param_groups message params =
   let expRelease = get_prototyped_release message.msg_lifecycle in
   let msgRelease = get_first_release message.msg_release.internal in
-  let msgReleaseIndex = list_index_of msgRelease DT.release_order in
-  let paramGroups = gen_param_groups_for_releases DT.release_order params in
+  let msgReleaseIndex = list_index_of msgRelease code_name_order in
+  let paramGroups = gen_param_groups_for_releases code_name_order params in
   let rec getValid x = match x with
                        | [] -> []
-                       | hd::tl -> let index = list_index_of (fst hd) DT.release_order in
+                       | hd::tl -> let index = list_index_of (fst hd) code_name_order in
                                    let valid = if (not (index = -1)) && (not (msgReleaseIndex = -1)) && (index < msgReleaseIndex) then []
                                                else snd hd in
                                    valid::(getValid tl)
@@ -91,28 +95,14 @@ and gen_param_groups message params =
   else
     list_distinct filteredGroups
 
-and get_release_name release =
-  if      release = rel_rio                 then "XenServer 4.0"
-  else if release = rel_miami               then "XenServer 4.1"
-  else if release = rel_symc                then "XenServer 4.1.1"
-  else if release = rel_orlando             then "XenServer 5.0"
-  else if release = rel_orlando_update_1    then "XenServer 5.0 Update 1"
-  else if release = rel_george              then "XenServer 5.5"
-  else if release = rel_midnight_ride       then "XenServer 5.6"
-  else if release = rel_cowley              then "XenServer 5.6 FP1"
-  else if release = rel_boston              then "XenServer 6.0"
-  else if release = rel_tampa               then "XenServer 6.1"
-  else if release = rel_clearwater          then "XenServer 6.2"
-  else if release = rel_vgpu_tech_preview   then "XenServer 6.2 SP1 Tech-Preview"
-  else if release = rel_vgpu_productisation then "XenServer 6.2 SP1"
-  else if release = rel_clearwater_felton   then "XenServer 6.2 SP1 Hotfix XS62ESP1004"
-  else if release = rel_creedence           then "XenServer 6.5"
-  else if release = rel_cream               then "XenServer 6.5 SP1"
-  else if release = rel_dundee              then "XenServer Dundee"
-  else                                           ""
+and get_release_name codename =
+  try
+    let found = List.find (fun x-> code_name_of_release x = codename) release_order in
+    found.branding
+  with | Not_found -> ""
 
 and get_first_release releases =
-  let filtered = List.filter (fun x -> List.mem x releases) DT.release_order in
+  let filtered = List.filter (fun x -> List.mem x releases) code_name_order in
     match filtered with
     | []     -> ""
     | hd::tl -> hd
@@ -140,8 +130,8 @@ and get_published_info_message message cls =
   let expRelease = get_prototyped_release_string message.msg_lifecycle in 
   let clsRelease = get_first_release cls.obj_release.internal in 
   let msgRelease =  get_first_release message.msg_release.internal in
-  let clsReleaseIndex = list_index_of clsRelease DT.release_order in
-  let msgReleaseIndex = list_index_of msgRelease DT.release_order in
+  let clsReleaseIndex = list_index_of clsRelease code_name_order in
+  let msgReleaseIndex = list_index_of msgRelease code_name_order in
     if (not (expRelease = "")) then
       expRelease
     else if (not (clsReleaseIndex = -1)) && (not (msgReleaseIndex = -1)) && (clsReleaseIndex < msgReleaseIndex) then
@@ -156,8 +146,8 @@ and get_deprecated_info_message message =
 and get_published_info_param message param =
   let msgRelease = get_first_release message.msg_release.internal in 
   let paramRelease = get_first_release param.param_release.internal in
-  let msgReleaseIndex = list_index_of msgRelease DT.release_order in
-  let paramReleaseIndex = list_index_of paramRelease DT.release_order in 
+  let msgReleaseIndex = list_index_of msgRelease code_name_order in
+  let paramReleaseIndex = list_index_of paramRelease code_name_order in
     if (not (msgReleaseIndex = -1)) && (not (paramReleaseIndex = -1)) && (msgReleaseIndex < paramReleaseIndex) then
       get_first_release_string paramRelease
     else ""
@@ -166,14 +156,48 @@ and get_published_info_class cls =
   get_first_release_string (get_first_release cls.obj_release.internal)
 
 and get_published_info_field field cls =
-  let expRelease = get_prototyped_release_string field.lifecycle in 
+  let expRelease = get_prototyped_release_string field.lifecycle in
   let clsRelease = get_first_release cls.obj_release.internal in 
   let fieldRelease =  get_first_release field.release.internal in
-  let clsReleaseIndex = list_index_of clsRelease DT.release_order in
-  let fieldReleaseIndex = list_index_of fieldRelease DT.release_order in
+  let clsReleaseIndex = list_index_of clsRelease code_name_order in
+  let fieldReleaseIndex = list_index_of fieldRelease code_name_order in
     if (not (expRelease = "")) then
       expRelease
     else if (not (clsReleaseIndex = -1)) && (not (fieldReleaseIndex = -1)) && (clsReleaseIndex < fieldReleaseIndex) then
       get_first_release_string fieldRelease
     else
       ""
+
+and render_template template_file json output_file =
+  let templ = Stdext.Unixext.string_of_file template_file |> Mustache.of_string in
+  let rendered = Mustache.render templ json in
+  let out_chan = open_out output_file in
+  finally (fun () -> output_string out_chan rendered)
+          (fun () -> close_out out_chan)
+
+let render_file (infile,outfile) json templates_dir dest_dir=
+  let input_path = Filename.concat templates_dir infile in
+  let output_path = Filename.concat dest_dir outfile in
+  render_template input_path json output_path
+
+let json_releases =
+  let json_of_rel x y = `O [
+    "code_name", `String (code_name_of_release_ext x);
+    "version_major", `Float (float_of_int x.version_major);
+    "version_minor", `Float (float_of_int x.version_minor);
+    "branding", `String x.branding;
+    "version_index", `Float (float_of_int y);
+    ]
+  in
+  let rec get_unique l =
+    match l with
+    | [] -> []
+    | hd::tl ->
+        let remove_duplicates = List.filter (fun x -> not (x.version_major = hd.version_major && x.version_minor = hd.version_minor)) in
+        hd::(get_unique (remove_duplicates tl))
+  in
+  let unique_version_bumps = get_unique release_order_full in
+  `O [ "API_VERSION_MAJOR", `Float (Int64.to_float Datamodel.api_version_major);
+       "API_VERSION_MINOR", `Float (Int64.to_float Datamodel.api_version_minor);
+       "releases", `A (List.map (fun x -> json_of_rel x ((list_index_of x unique_version_bumps) + 1)) unique_version_bumps);
+       "latest_version_index", `Float (float_of_int (List.length unique_version_bumps));]

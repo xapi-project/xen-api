@@ -46,35 +46,23 @@ module TypeSet = Set.Make(struct
               end)
 
 
-let open_source' = ref false
-let destdir'    = ref ""
-
-
-let usage () =
-  Printf.sprintf "
-Usage:
-
-    %s [-o] [-d <destdir>]
-
-  where
-
-    -o requests a version of the API filtered for open source; and
-    -d specifies the destination directory for the generated files.
-" Sys.argv.(0)
-
+let open_source'   = ref false
+let destdir'       = ref ""
+let templates_dir' = ref ""
 
 let _ =
   Arg.parse
     [
+      "-t", Arg.Set_string templates_dir', "specifies the firectory with the mustache templates to use";
       "-o", Arg.Set open_source', "requests a version of the API filtered for open source";
       "-d", Arg.Set_string destdir', "specifies the destination directory for the generated files";
-    ] 
-    (fun x -> Printf.printf "Skipping unknown argument: %s" x)
-    (usage ())
-
+    ]
+    (fun x -> raise (Arg.Bad ("Found anonymous argument " ^ x)))
+    ("Generates C bindings for the XenAPI. See -help.")
 
 let open_source = !open_source'
 let destdir = !destdir'
+let templates_dir = !templates_dir'
 
 
 let api =
@@ -753,7 +741,7 @@ const abstract_type %s_abstract_type_ =
     };
 
 
-" (banner ()) (hash_include "internal") (hash_include name)
+" Licence.bsd_two_clause (hash_include "internal") (hash_include name)
       (hash_include (name ^ "_internal"))
       (enum_lookup_entries
          (contents @ [("undefined", "")]))
@@ -815,7 +803,7 @@ extern const abstract_type %s_abstract_type_;
 %s
 
 #endif
-" (banner ())
+" Licence.bsd_two_clause
       (Helper.comment false (sprintf "Declarations of the abstract types used during demarshalling of enum %s.  Internal to this library -- do not use from outside." tn))
       protect protect
       (hash_include "internal") tn
@@ -899,7 +887,7 @@ and write_map_impl name l r out_chan =
 void
 %s_free(%s *map)
 {
-" (banner ()) (hash_includes !needed) tn tn tn tn
+" Licence.bsd_two_clause (hash_includes !needed) tn tn tn tn
   (String.make (String.length tn) ' ') tn tn tn;
 
     if (String.compare l_free_impl "" != 0 ||
@@ -1070,7 +1058,7 @@ xen_api_failure_from_string(const char *str)
 }
 
 
-" (banner ())
+" Licence.bsd_two_clause
   (String.concat ",\n    " (failure_lookup_entries out_chan)))
           (fun () -> close_out out_chan)
 
@@ -1137,7 +1125,7 @@ and write_impl {name=classname; contents=contents; messages=messages} out_chan =
 %s
 
 
-" (banner ()) (hash_includes !needed) free_block;
+" Licence.bsd_two_clause (hash_includes !needed) free_block;
 
 
     print
@@ -1426,16 +1414,20 @@ and fieldname name =
 
 and print_h_header out_chan protect =
   let print format = fprintf out_chan format in
-    print "%s\n\n" (banner ());
+    print "%s\n\n" Licence.bsd_two_clause;
     print "#ifndef %s\n" protect;
     print "#define %s\n\n" protect;
 
 and print_h_footer out_chan =
   fprintf out_chan "\n#endif\n"
 
-
-and banner () =
-  Licence.bsd_two_clause
+and populate_version () =
+  List.iter (fun x -> render_file x json_releases templates_dir destdir) [
+    "Makefile.mustache",          "Makefile";
+    "xen_api_version.h.mustache", "xen/api/xen_api_version.h";
+    "xen_api_version.c.mustache", "xen_api_version.c";
+  ]
 
 let _ =
-  main()
+  main ();
+  populate_version ()
