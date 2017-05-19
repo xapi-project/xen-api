@@ -1,0 +1,6 @@
+PKG xapi-datamodel
+PKG mustache
+PKG str
+
+S ./**
+B ./_build/**
