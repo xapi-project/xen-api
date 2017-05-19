@@ -48,14 +48,14 @@ let generate_files destdir =
 
   let changes_in_release rel =
     let search_obj obj =
-      let changes = List.filter (fun (transition, release, doc) -> release = rel) obj.obj_lifecycle in
+      let changes = List.filter (fun (transition, release, doc) -> release = code_name_of_release rel) obj.obj_lifecycle in
       let obj_changes : changes_t =
         List.map (fun (transition, release, doc) ->
             (transition, obj.name, if doc = "" && transition = Published then obj.description else doc)
           ) changes in
 
       let changes_for_msg m =
-        let changes = List.filter (fun (transition, release, doc) -> release = rel) m.msg_lifecycle in
+        let changes = List.filter (fun (transition, release, doc) -> release = code_name_of_release rel) m.msg_lifecycle in
         List.map (fun (transition, release, doc) ->
             (transition, m.msg_name, if doc = "" && transition = Published then m.msg_doc else doc)
           ) changes
@@ -64,7 +64,7 @@ let generate_files destdir =
       let msg_changes : changes_t = List.fold_left (fun l m -> l @ (changes_for_msg m)) [] msgs in
 
       let changes_for_field f =
-        let changes = List.filter (fun (transition, release, doc) -> release = rel) f.lifecycle in
+        let changes = List.filter (fun (transition, release, doc) -> release = code_name_of_release rel) f.lifecycle in
         let field_name = String.concat "_" f.full_name in
         List.map (fun (transition, release, doc) ->
             (transition, field_name, if doc = "" && transition = Published then f.field_description else doc)
@@ -83,11 +83,11 @@ let generate_files destdir =
       "{'cls': '" ^ obj.name ^ "', 'obj_changes': " ^ Jsonrpc.to_string (rpc_of_changes_t obj_changes) ^ ", 'field_changes': " ^ Jsonrpc.to_string (rpc_of_changes_t field_changes) ^ ", 'msg_changes': " ^ Jsonrpc.to_string (rpc_of_changes_t msg_changes) ^ "}"
     in
     let release_info = String.concat ", " (List.map search_obj objs) in
-    let fname = rel ^ ".json" in
+    let fname = (code_name_of_release rel) ^ ".json" in
     Stdext.Unixext.write_string_to_file (Filename.concat api_dir fname) ("release_info = [" ^ release_info ^ "]")
   in
   List.iter changes_in_release release_order;
-  let release_list = String.concat ", " (List.map (fun s -> "'" ^ s ^ "'") release_order) in
+  let release_list = String.concat ", " (List.map (fun s -> "'" ^ (code_name_of_release s) ^ "'") release_order) in
   Stdext.Unixext.write_string_to_file (Filename.concat api_dir "releases.json") ("releases = [" ^ release_list ^ "]")
 
 

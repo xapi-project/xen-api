@@ -215,8 +215,6 @@ let _R_ALL = _R_READ_ONLY
 let errors = Hashtbl.create 10
 let messages = Hashtbl.create 10
 
-exception UnspecifiedRelease
-
 let get_oss_releases in_oss_since =
   match in_oss_since with
     None -> []
@@ -227,7 +225,8 @@ let get_product_releases in_product_since =
   let rec go_through_release_order rs =
     match rs with
       [] -> raise UnspecifiedRelease
-    | x::xs -> if x=in_product_since then "closed"::x::xs else go_through_release_order xs
+    | x::xs when code_name_of_release x = in_product_since -> "closed"::in_product_since::(List.map code_name_of_release xs)
+    | x::xs -> go_through_release_order xs
   in go_through_release_order release_order
 
 let falcon_release =
