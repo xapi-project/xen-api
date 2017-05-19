@@ -1973,6 +1973,7 @@ module VGPU = struct
 			(fun _ xs frontend_domid _ ->
 				let emulator_pid =
 					match vgpu.implementation with
+					| Empty
 					| MxGPU _
 					| GVT_g _ -> Device.Qemu.pid ~xs frontend_domid
 					| Nvidia _ -> Device.Vgpu.pid ~xs frontend_domid

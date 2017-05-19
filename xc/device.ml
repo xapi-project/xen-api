@@ -1611,14 +1611,14 @@ let vnconly_cmdline ~info ?(extras=[]) domid =
     @ disp_options
     @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] extras)
 
-let vgpu_args_of_nvidia domid vcpus (vgpu:Xenops_interface.Vgpu.nvidia) fds =
+let vgpu_args_of_nvidia domid vcpus (vgpu:Xenops_interface.Vgpu.nvidia) pci fds =
 	let open Xenops_interface.Vgpu in
 	let suspend_file = sprintf demu_save_path domid in
 	let resume_file = sprintf demu_restore_path domid in
 	let base_args = [
 		"--domain=" ^ (string_of_int domid);
 		"--vcpus=" ^ (string_of_int vcpus);
-		"--gpu=" ^ (Xenops_interface.Pci.string_of_address vgpu.physical_pci_address);
+		"--gpu=" ^ (Xenops_interface.Pci.string_of_address pci);
 		"--config=" ^ vgpu.config_file;
 		"--suspend=" ^ suspend_file;
 	] in
@@ -1732,7 +1732,7 @@ let gimtool_m = Mutex.create ()
 let start_vgpu ~xs task ?restore_fd domid vgpus vcpus =
 	let open Xenops_interface.Vgpu in
 	match vgpus with
-	| [{implementation = Nvidia vgpu}] ->
+	| [{physical_pci_address = pci; implementation = Nvidia vgpu}] ->
 		(* Start DEMU and wait until it has reached the "initialising" or "restoring" state *)
 		let state_path = Printf.sprintf "/local/domain/%d/vgpu/state" domid in
 		let cancel = Cancel_utils.Vgpu domid in
@@ -1741,15 +1741,15 @@ let start_vgpu ~xs task ?restore_fd domid vgpus vcpus =
 			 * nvidia driver. We rely on xapi to refrain from attempting to run
 			 * a vGPU on a device which is passed through to a guest. *)
 			debug "start_vgpu: got VGPU with physical pci address %s"
-				(Xenops_interface.Pci.string_of_address vgpu.physical_pci_address);
-			PCI.bind [vgpu.physical_pci_address] PCI.Nvidia;
+				(Xenops_interface.Pci.string_of_address pci);
+			PCI.bind [pci] PCI.Nvidia;
 			let fds = match restore_fd with
 				| None -> []
 				| Some fd ->
 					let uuid = Uuidm.to_string (Uuidm.create `V4) in
 					[uuid, fd]
 			in
-			let args = vgpu_args_of_nvidia domid vcpus vgpu fds in
+			let args = vgpu_args_of_nvidia domid vcpus vgpu pci fds in
 			let vgpu_pid = init_daemon ~task ~path:!Xc_resources.vgpu ~args
 				~name:"vgpu" ~domid ~xs ~ready_path:state_path ~timeout:!Xenopsd.vgpu_ready_timeout
 				~cancel ~fds () in
@@ -1769,13 +1769,13 @@ let start_vgpu ~xs task ?restore_fd domid vgpus vcpus =
 			error "Daemon vgpu returned error: %s" error_code;
 			raise (Ioemu_failed ("vgpu", Printf.sprintf "Daemon vgpu returned error: %s" error_code))
 		end
-	| [{implementation = GVT_g vgpu}] ->
-		PCI.bind [vgpu.physical_pci_address] PCI.I915
-	| [{implementation = MxGPU vgpu}] ->
+	| [{physical_pci_address = pci; implementation = GVT_g vgpu}] ->
+		PCI.bind [pci] PCI.I915
+	| [{physical_pci_address = pci; implementation = MxGPU vgpu}] ->
 		Mutex.execute gimtool_m (fun () ->
-			configure_gim ~xs vgpu.physical_function vgpu.vgpus_per_pgpu vgpu.framebufferbytes;
+			configure_gim ~xs pci vgpu.vgpus_per_pgpu vgpu.framebufferbytes;
 			let keys = [
-				"pf", Xenops_interface.Pci.string_of_address vgpu.physical_function;
+				"pf", Xenops_interface.Pci.string_of_address pci;
 			] in
 			write_vgpu_data ~xs domid 0 keys
 		)
