@@ -46,12 +46,14 @@ module TypeSet = Set.Make(struct
               end)
 
 
-let open_source' = ref false
-let destdir'     = ref ""
+let open_source'   = ref false
+let destdir'       = ref ""
+let templates_dir' = ref ""
 
 let _ =
   Arg.parse
     [
+      "-t", Arg.Set_string templates_dir', "specifies the firectory with the mustache templates to use";
       "-o", Arg.Set open_source', "requests a version of the API filtered for open source";
       "-d", Arg.Set_string destdir', "specifies the destination directory for the generated files";
     ]
@@ -60,6 +62,7 @@ let _ =
 
 let open_source = !open_source'
 let destdir = !destdir'
+let templates_dir = !templates_dir'
 
 
 let api =
@@ -1418,7 +1421,13 @@ and print_h_header out_chan protect =
 and print_h_footer out_chan =
   fprintf out_chan "\n#endif\n"
 
-
+and populate_version () =
+  List.iter (fun x -> render_file x json_releases templates_dir destdir) [
+    "Makefile.mustache",          "Makefile";
+    "xen_api_version.h.mustache", "xen/api/xen_api_version.h";
+    "xen_api_version.c.mustache", "xen_api_version.c";
+  ]
 
 let _ =
-  main()
+  main ();
+  populate_version ()

@@ -1,3 +1,4 @@
+    <Compile Include="ApiVersion.cs" />
     <Compile Include="Event.cs" />
     <Compile Include="EventHelpers.cs" />
     <Compile Include="DeprecatedAttribute.cs" />

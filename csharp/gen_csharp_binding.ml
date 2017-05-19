@@ -51,6 +51,7 @@ let open_source' = ref false
 let destdir'    = ref ""
 let sr_xml'     = ref ""
 let resx_file'  = ref ""
+let templdir'     = ref ""
 
 let get_deprecated_attribute_string version =
   match version with
@@ -68,6 +69,7 @@ let _ =
       "-s", Arg.Set_string sr_xml', "specifies the location of the XE_SR_ERRORCODES.xml file";
       "-o", Arg.Set open_source', "requests a version of the API filtered for open source";
       "-d", Arg.Set_string destdir', "specifies the destination directory for the generated files";
+      "-t", Arg.Set_string templdir', "the directory with the template (mustache) files";
     ]
     (fun x -> raise (Arg.Bad ("Found anonymous argument " ^ x)))
     ("Generates C# bindings for the XenAPI. See -help.")
@@ -76,6 +78,7 @@ let open_source = !open_source'
 let destdir = !destdir'
 let sr_xml = !sr_xml'
 let resx_file = !resx_file'
+let templdir = !templdir'
 
 
 let api =
@@ -1918,5 +1921,9 @@ and gen_i18n_error_field out_chan (error, desc) =
       error
       (Xml.to_string (Xml.Element("value", [], [(Xml.PCData desc)])))
 
+let populate_releases ()=
+  render_file ("ApiVersion.mustache", "ApiVersion.cs") json_releases templdir destdir
+
 let _ =
-  main()
+  main();
+  populate_releases()

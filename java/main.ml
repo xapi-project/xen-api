@@ -43,18 +43,21 @@ module DU = Datamodel_utils
 
 let open_source' = ref false
 let destdir'     = ref ""
+let templdir'     = ref ""
 
 let _ =
   Arg.parse
     [
       "-o", Arg.Set open_source', "requests a version of the API filtered for open source";
       "-d", Arg.Set_string destdir', "specifies the destination directory for the generated files";
+      "-t", Arg.Set_string templdir', "the directory with the template (mustache) files";
     ]
     (fun x -> raise (Arg.Bad ("Found anonymous argument " ^ x)))
     ("Generates Java bindings for the XenAPI. See -help.")
 
 let open_source = !open_source'
-let destdir = !destdir'
+let destdir = Filename.concat !destdir' "com/xensource/xenapi"
+let templdir = !templdir'
 
 (*Filter out all the bits of the data model we don't want to put in the api.
 For instance we don't want the things which are marked internal only, or the 
@@ -978,8 +981,11 @@ public class Types
 
 (* Now run it *)
 
+let populate_releases ()=
+  render_file ("APIVersion.mustache", "APIVersion.java") json_releases templdir destdir
+
 let _ =
-  let folder = (Filename.concat destdir "com/xensource/xenapi") in
-  Unixext.mkdir_rec folder  0o755;
-  List.iter (fun x-> gen_class x folder) classes;
-  gen_types_class folder
+  Unixext.mkdir_rec destdir  0o755;
+  List.iter (fun x-> gen_class x destdir) classes;
+  gen_types_class destdir;
+  populate_releases ()

@@ -45,6 +45,7 @@
 #endif
 #endif
 
+#include "xen_api_version.h"
 #include "xen/api/xen_host_decl.h"
 #include "xen/api/xen_task_decl.h"
 #include "xen/api/xen_string_set.h"
@@ -60,33 +61,6 @@ typedef bool (*xen_result_func)(const void *data, size_t len,
 typedef int (*xen_call_func)(const void *, size_t len, void *user_handle,
                              void *result_handle,
                              xen_result_func result_func);
-
-
-typedef enum xen_api_version
-{
-    xen_api_version_1_1 = 1,
-    xen_api_version_1_2 = 2,
-    xen_api_version_1_3 = 3,
-    xen_api_version_1_4 = 4,
-    xen_api_version_1_5 = 5,
-    xen_api_version_1_6 = 6,
-    xen_api_version_1_7 = 7,
-    xen_api_version_1_8 = 8,
-    xen_api_version_1_9 = 9,
-    xen_api_version_1_10 = 10,
-    xen_api_version_2_0 = 11,
-    xen_api_version_2_1 = 12,
-    xen_api_version_2_2 = 13,
-    xen_api_version_2_3 = 14,
-    xen_api_version_2_4 = 15,
-    xen_api_version_2_5 = 16,
-    xen_api_version_2_6 = 17,
-    xen_api_version_2_7 = 18,
-    xen_api_latest_version = 18,
-    xen_api_unknown_version = 99,
-    /* Also change xen_api_version_to_string() and set_api_version() in xen_common.c */
-} xen_api_version;
-
 
 typedef struct
 {
@@ -107,10 +81,6 @@ typedef struct xen_session_record
     char *this_user;
     time_t last_active;
 } xen_session_record;
-
-
-extern const char *
-xen_api_version_to_string(xen_api_version version);
 
 
 /**
