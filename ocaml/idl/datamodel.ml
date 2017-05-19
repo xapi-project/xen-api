@@ -236,8 +236,8 @@ let falcon_release =
   ; internal_deprecated_since=None
   }
 
-let dundee_plus_release =
-  { internal = get_product_releases rel_dundee_plus
+let ely_release =
+  { internal = get_product_releases rel_ely
   ; opensource=get_oss_releases None
   ; internal_deprecated_since=None
   }
@@ -3219,7 +3219,7 @@ let host_call_plugin = call
 
 let host_has_extension = call
     ~name:"has_extension"
-    ~in_product_since:rel_dundee_plus
+    ~in_product_since:rel_ely
     ~doc:"Return true if the extension is available on the host"
     ~params:[Ref _host, "host", "The host";
              String, "name", "The name of the API call";]
@@ -3229,7 +3229,7 @@ let host_has_extension = call
 
 let host_call_extension = call
     ~name:"call_extension"
-    ~in_product_since:rel_dundee_plus
+    ~in_product_since:rel_ely
     ~custom_marshaller:true
     ~doc:"Call a XenAPI extension on this host"
     ~params:[Ref _host, "host", "The host";
@@ -4555,7 +4555,7 @@ let host_emergency_ha_disable = call ~flags:[`Session]
     ~in_oss_since:None
     ~in_product_since:rel_orlando
     ~versioned_params:
-      [{param_type=Bool; param_name="soft"; param_doc="Disable HA temporarily, revert upon host reboot or further changes, idempotent"; param_release=dundee_plus_release; param_default=Some(VBool false)};
+      [{param_type=Bool; param_name="soft"; param_doc="Disable HA temporarily, revert upon host reboot or further changes, idempotent"; param_release=ely_release; param_default=Some(VBool false)};
       ]
     ~doc:"This call disables HA on the local host. This should only be used with extreme care."
     ~allowed_roles:_R_POOL_OP
@@ -5064,7 +5064,7 @@ let host =
          field ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VMap [])) ~ty:(Map (String, String)) "guest_VCPUs_params" "VCPUs params to apply to all resident guests";
          field ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VEnum "enabled")) ~ty:host_display "display" "indicates whether the host is configured to output its console to a physical display device";
          field ~qualifier:DynamicRO ~in_product_since:rel_cream ~default_value:(Some (VSet [VInt 0L])) ~ty:(Set (Int)) "virtual_hardware_platform_versions" "The set of versions of the virtual hardware platform that the host can offer to its guests";
-         field ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref)) ~in_product_since:rel_dundee_plus ~ty:(Ref _vm) "control_domain" "The control domain (domain 0)";
+         field ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref)) ~in_product_since:rel_ely ~ty:(Ref _vm) "control_domain" "The control domain (domain 0)";
          field ~qualifier:DynamicRO ~lifecycle:[Published, rel_ely, ""] ~ty:(Set (Ref _pool_update)) ~ignore_foreign_key:true "updates_requiring_reboot" "List of updates which require reboot";
          field ~qualifier:DynamicRO ~lifecycle:[Published, rel_falcon, ""] ~ty:(Set (Ref _feature)) "features" "List of features available on this host"
        ])
@@ -9256,7 +9256,7 @@ let vgpu_type =
     ()
 
 module PVS_site = struct
-  let lifecycle = [Prototyped, rel_dundee_plus, ""]
+  let lifecycle = [Prototyped, rel_ely, ""]
 
   let introduce = call
       ~name:"introduce"
@@ -9342,7 +9342,7 @@ end
 let pvs_site = PVS_site.obj
 
 module PVS_server = struct
-  let lifecycle = [Prototyped, rel_dundee_plus, ""]
+  let lifecycle = [Prototyped, rel_ely, ""]
 
   let introduce = call
       ~name:"introduce"
@@ -9411,7 +9411,7 @@ end
 let pvs_server = PVS_server.obj
 
 module PVS_proxy = struct
-  let lifecycle = [Prototyped, rel_dundee_plus, ""]
+  let lifecycle = [Prototyped, rel_ely, ""]
 
   let status = Enum ("pvs_proxy_status", [
       "stopped", "The proxy is not currently running";
