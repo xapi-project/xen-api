@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Stdext
+open Pervasiveext
 open Datamodel_types
 
 type change_t = lifecycle_change * string * string
@@ -19,10 +21,12 @@ and changes_t = change_t list
 [@@deriving rpc]
 
 let destdir = ref "."
+let templdir = ref ""
 
 let parse_args () =
   Arg.parse [
       "-destdir", Arg.Set_string destdir, "the destination directory for the generated files";
+      "-templdir", Arg.Set_string templdir, "the directory with the template (mustache) files";
     ]
     (fun x-> Printf.printf "Ignoring anonymous argument %s" x)
     ("Generates documentation for the datamodel classes. See -help.")
@@ -90,7 +94,30 @@ let generate_files destdir =
   let release_list = String.concat ", " (List.map (fun s -> "'" ^ (code_name_of_release s) ^ "'") release_order) in
   Stdext.Unixext.write_string_to_file (Filename.concat api_dir "releases.json") ("releases = [" ^ release_list ^ "]")
 
+let json_releases =
+  let json_of_rel x = `O [
+    "code_name", `String (code_name_of_release x);
+    "version_major", `Float (float_of_int x.version_major);
+    "version_minor", `Float (float_of_int x.version_minor);
+    "branding", `String x.branding;
+    ]
+  in
+  `O [ "releases", `A (List.map json_of_rel release_order) ]
+
+let render_template template_file json output_file =
+  let templ =  Stdext.Unixext.string_of_file template_file |> Mustache.of_string in
+  let rendered = Mustache.render templ json in
+  let out_chan = open_out output_file in
+  finally (fun () -> output_string out_chan rendered)
+          (fun () -> close_out out_chan)
+
+let populate_releases templates_dir dest_dir=
+  let inpath x = Filename.concat templates_dir x in
+  let outpath x = Filename.concat dest_dir x in
+  let render (infile, outfile) = render_template (inpath infile) json_releases (outpath outfile) in
+  [ "branding.mustache", "branding.js"] |> List.iter render
 
 let _ =
   parse_args ();
-  generate_files !destdir
+  generate_files !destdir;
+  populate_releases !templdir !destdir
