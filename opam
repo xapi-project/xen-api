@@ -52,6 +52,7 @@ depends: [
   "pci"
   "sha"
   "xapi-xenopsd"
+  "mustache"
 ]
 depexts: [
   [["centos"] ["pam-devel"]]
