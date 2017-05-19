@@ -32,14 +32,14 @@ preinstalled OPAM environment and Ocaml compiler._
 Add [xs-opam][4] as a remote Opam repository (follow the instructions in that
 repo).
 
-The SDK is dependent on the XenAPI, therefore run
+Then, to install the dependencies of the SDK, which include Xapi, run
 
 ```
-   opam depext -y xapi
-   opam install -y xapi
+   opam depext -y xen-api-sdk
+   opam install -y --deps-only xen-api-sdk
 ```
-This will install first the dependencies of the xapi package and then the package
-itself following its master version.
+This will install first the external dependencies of this package and of all
+its dependencies, and then all the OPAM packages required for building it.
 
 Finally, copy [this file][5] into the root of the xen-api-sdk repo.
 
