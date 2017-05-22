@@ -207,7 +207,6 @@ let pool_migrate ~__context ~vm ~host ~options =
         Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
             (* XXX: PR-1255: the live flag *)
             info "xenops: VM.migrate %s to %s" vm_uuid xenops_url;
-            Xapi_xenops.Xenopsd_metadata.update ~__context ~self:vm;
             migrate_with_retry ~__context queue_name dbg vm_uuid [] [] xenops_url;
             (* Delete all record of this VM locally (including caches) *)
             Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
