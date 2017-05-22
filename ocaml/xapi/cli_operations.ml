@@ -2403,11 +2403,7 @@ let vm_install_real printer rpc session_id template name description params =
 
   let suspend_sr_ref = match sr_ref with
     | Some sr ->
-      let ref_is_valid = Server_helpers.exec_with_new_task
-          ~session_id "Checking suspend_SR validity"
-          (fun __context -> Db.is_valid_ref __context sr)
-      in
-      if ref_is_valid then
+      if Cli_util.is_valid_ref session_id sr then
         (* sr-uuid and/or sr-name-label was specified - use this as the suspend_SR *)
         sr
       else
@@ -4341,12 +4337,19 @@ let update_upload fd printer rpc session_id params =
     let sr =
       if List.mem_assoc "sr-uuid" params
       then Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params)
-      else Client.Pool.get_default_SR ~rpc ~session_id ~self:(List.hd pools)
-  in
+      else begin
+        let sr = Client.Pool.get_default_SR ~rpc ~session_id ~self:(List.hd pools) in
+        if Cli_util.is_valid_ref session_id sr then sr
+        else failwith "No sr-uuid parameter was given, and the pool's default SR \
+                       is unspecified or invalid. Please explicitly specify the SR to use \
+                       in the sr-uuid parameter, or set the pool's default SR."
+      end
+    in
     let uri = Printf.sprintf "%s%s?session_id=%s&sr_id=%s&task_id=%s"
         prefix Constants.import_raw_vdi_uri (Ref.string_of session_id) (Ref.string_of sr)(Ref.string_of task_id) in
     let _ = debug "trying to post patch to uri:%s" uri in
-    HttpPut (filename, uri) in
+    HttpPut (filename, uri)
+  in
   let result = track_http_operation fd rpc session_id make_command "host patch upload" in
   let vdi_ref = API.Legacy.From.ref_VDI "" (Xml.parse_string result) in
   let update_ref =
