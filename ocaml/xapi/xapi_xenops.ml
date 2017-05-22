@@ -561,12 +561,13 @@ module MD = struct
     in
     let implementation =
       Nvidia {
-        physical_pci_address;
+        physical_pci_address = None; (* unused *)
         config_file;
       }
     in {
       id = (vm.API.vM_uuid, vgpu.Db_actions.vGPU_device);
       position = int_of_string vgpu.Db_actions.vGPU_device;
+      physical_pci_address;
       implementation;
     }
 
@@ -581,7 +582,7 @@ module MD = struct
     try
       let implementation =
         GVT_g {
-          physical_pci_address;
+          physical_pci_address = None; (* unused *)
           low_gm_sz =
             List.assoc Xapi_globs.vgt_low_gm_sz internal_config
             |> Int64.of_string;
@@ -600,6 +601,7 @@ module MD = struct
       in {
         id = (vm.API.vM_uuid, vgpu.Db_actions.vGPU_device);
         position = int_of_string vgpu.Db_actions.vGPU_device;
+        physical_pci_address;
         implementation;
       }
     with
@@ -608,6 +610,8 @@ module MD = struct
 
   let of_mxgpu_vgpu ~__context vm vgpu =
     let open Vgpu in
+    (* Get the PCI address. *)
+    let physical_pci_address = get_target_pci_address ~__context vgpu in
     let vgpu_type = vgpu.Db_actions.vGPU_type in
     let internal_config =
       Db.VGPU_type.get_internal_config ~__context ~self:vgpu_type in
@@ -616,7 +620,7 @@ module MD = struct
     try
       let implementation =
         MxGPU {
-          physical_function = get_target_pci_address ~__context vgpu;
+          physical_function = None; (* unused *)
           vgpus_per_pgpu =
             List.assoc Xapi_globs.mxgpu_vgpus_per_pgpu internal_config
             |> Int64.of_string;
@@ -625,6 +629,7 @@ module MD = struct
       in {
         id = (vm.API.vM_uuid, vgpu.Db_actions.vGPU_device);
         position = int_of_string vgpu.Db_actions.vGPU_device;
+        physical_pci_address;
         implementation;
       }
     with
@@ -641,14 +646,15 @@ module MD = struct
          			 * from the VM platform keys. *)
       let implementation =
         Nvidia {
-          physical_pci_address =
-            Xenops_interface.Pci.address_of_string
-              (List.assoc Vm_platform.vgpu_pci_id vm.API.vM_platform);
+          physical_pci_address = None; (* unused *)
           config_file = List.assoc Vm_platform.vgpu_config vm.API.vM_platform;
         }
       in [{
           id = (vm.API.vM_uuid, "0");
           position = 0;
+          physical_pci_address =
+            Xenops_interface.Pci.address_of_string
+              (List.assoc Vm_platform.vgpu_pci_id vm.API.vM_platform);
           implementation;
         }]
     end else
