@@ -12,14 +12,14 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let nothrow f () = try f() with _ -> ()
-
 let destroy ~__context ~self =
   Stdext.Pervasiveext.finally
-    (nothrow (fun ()->
-         let vdi = Db.Crashdump.get_VDI ~__context ~self in
-         Helpers.call_api_functions ~__context
-           (fun rpc session_id ->
-              Client.Client.VDI.destroy rpc session_id vdi)))
+    (Helpers.log_exn_continue
+       "destroying crashdump"
+       (fun ()->
+          let vdi = Db.Crashdump.get_VDI ~__context ~self in
+          Helpers.call_api_functions ~__context
+            (fun rpc session_id ->
+               Client.Client.VDI.destroy rpc session_id vdi)))
     (fun ()->
        Db.Crashdump.destroy ~__context ~self)
