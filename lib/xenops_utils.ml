@@ -598,6 +598,12 @@ let remap_vif vif_map vif =
 		then (debug "Remapping VIF: %s" device; {vif with Vif.backend = (List.assoc device vif_map)})
 		else vif
 
+let remap_vgpu vgpu_pci_map vgpu =
+	match vgpu.Vgpu.id with (_,device) ->
+		if List.mem_assoc device vgpu_pci_map
+		then (debug "Remapping VGPU: %s" device; {vgpu with Vgpu.physical_pci_address = (List.assoc device vgpu_pci_map)})
+		else vgpu
+
 let strip x =
 	if x.[String.length x - 1] = '\n'
 	then String.sub x 0 (String.length x - 1)

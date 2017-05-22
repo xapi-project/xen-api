@@ -119,7 +119,7 @@ type operation =
 	| VM_resume of (Vm.id * data)
 	| VM_restore_vifs of Vm.id
 	| VM_restore_devices of (Vm.id * bool)
-	| VM_migrate of (Vm.id * (string * string) list * (string * Network.t) list * string)
+	| VM_migrate of (Vm.id * (string * string) list * (string * Network.t) list * (string * Pci.address) list * string)
 	| VM_receive_memory of (Vm.id * int64 * Unix.file_descr)
 	| VBD_hotplug of Vbd.id
 	| VBD_hotunplug of Vbd.id * bool
@@ -736,7 +736,7 @@ let rebooting id f =
 let is_rebooting id =
 	Mutex.execute rebooting_vms_m (fun () -> List.mem id !rebooting_vms)
 
-let export_metadata vdi_map vif_map id =
+let export_metadata vdi_map vif_map vgpu_pci_map id =
 	let module B = (val get_backend () : S) in
 
 	let vm_t = VM_DB.read_exn id in
@@ -758,7 +758,7 @@ let export_metadata vdi_map vif_map id =
 	let vbds = VBD_DB.vbds id in
 	let vifs = List.map (fun vif -> remap_vif vif_map vif) (VIF_DB.vifs id) in
 	let pcis = PCI_DB.pcis id in
-	let vgpus = VGPU_DB.vgpus id in
+	let vgpus = List.map (remap_vgpu vgpu_pci_map) (VGPU_DB.vgpus id) in
 	let domains = B.VM.get_internal_state vdi_map vif_map vm_t in
 
 
@@ -1370,7 +1370,7 @@ and trigger_cleanup_after_failure op t =
 	| VM_resume (id, _)
 	| VM_receive_memory (id, _, _) ->
 		immediate_operation dbg id (VM_check_state id);
-	| VM_migrate (id, _, _, _) ->
+	| VM_migrate (id, _, _, _, _) ->
 		immediate_operation dbg id (VM_check_state id);
 		immediate_operation dbg id (VM_check_state id);
 
@@ -1488,7 +1488,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 		| VIF_hotunplug (id, force) ->
 			debug "VIF_hotplug %s.%s %b" (fst id) (snd id) force;
 			perform_atomics (atomics_of_operation op) t
-		| VM_migrate (id, vdi_map, vif_map, url') ->
+		| VM_migrate (id, vdi_map, vif_map, vgpu_pci_map, url') ->
 			debug "VM.migrate %s -> %s" id url';
 			let vm = VM_DB.read_exn id in
 			let open Xenops_client in
@@ -1508,7 +1508,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 			Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 
 			let module Remote = Xenops_interface.Client(struct let rpc = Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> url') end) in
-			let id = Remote.VM.import_metadata dbg (export_metadata vdi_map vif_map id) in
+			let id = Remote.VM.import_metadata dbg (export_metadata vdi_map vif_map vgpu_pci_map id) in
 			debug "Received vm-id = %s" id;
 			let make_url snippet id_str = Uri.make ?scheme:(Uri.scheme url) ?host:(Uri.host url) ?port:(Uri.port url)
 				~path:(Uri.path url ^ snippet ^ id_str) ~query:(Uri.query url) () in
@@ -2125,7 +2125,8 @@ module VM = struct
 	let s3suspend _ dbg id = queue_operation dbg id (Atomic(VM_s3suspend id))
 	let s3resume _ dbg id = queue_operation dbg id (Atomic(VM_s3resume id))
 
-	let migrate context dbg id vdi_map vif_map url = queue_operation dbg id (VM_migrate (id, vdi_map, vif_map, url))
+	let migrate context dbg id vdi_map vif_map vgpu_pci_map url =
+		queue_operation dbg id (VM_migrate (id, vdi_map, vif_map, vgpu_pci_map, url))
 
 	let migrate_receive_memory _ dbg id memory_limit remote_instance_id c =
 		let is_localhost = instance_id = remote_instance_id in
@@ -2218,7 +2219,7 @@ module VM = struct
 		let module B = (val get_backend () : S) in
 		B.VM.generate_state_string vm
 
-	let export_metadata _ dbg id = export_metadata [] [] id
+	let export_metadata _ dbg id = export_metadata [] [] [] id
 
 	let import_metadata _ dbg s =
 		Debug.with_thread_associated dbg
