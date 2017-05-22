@@ -240,7 +240,6 @@ module Monitor = struct
   let plan_out_of_date = ref true
 
   exception Already_started
-  exception Not_started
 
   (** Background thread which monitors the membership set and takes action if HA is
       		armed and something goes wrong *)

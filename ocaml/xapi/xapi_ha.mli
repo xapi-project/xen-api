@@ -1,6 +1,13 @@
+(** Functions for implementing 'High Availability' (HA).
+    @group High Availability (HA) *)
+
 val ha_redo_log : Redo_log.redo_log
+(** The redo log instance used for HA *)
+
 module Monitor :
   sig
+    (** Control the background HA monitoring thread *)
+
     val plan_out_of_date : bool ref
     val stop : unit -> unit
   end
