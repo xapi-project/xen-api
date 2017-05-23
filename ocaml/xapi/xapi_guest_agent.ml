@@ -66,6 +66,17 @@ let extend base str = Printf.sprintf "%s/%s" base str
  * attr/eth0/ip -> 0/ip
  * attr/eth0/ipv6/0/addr -> 0/ipv6/0
  * attr/eth0/ipv6/1/addr -> 0/ipv6/1
+ *
+ * Example output on new xenstore protocol:
+ * attr/vif/0/ipv4/0 -> 0/ipv4/0
+ * attr/vif/0/ipv4/1 -> 0/ipv4/1
+ * attr/vif/0/ipv6/0 -> 0/ipv6/0
+ * attr/vif/0/ipv6/1 -> 0/ipv6/1
+ *
+ * For the compatibility of XAPI clients, outputs of both protocols 
+ * will be generated. I.E.
+ * attr/eth0/ip -> 0/ip; 0/ipv4/0
+ * attr/vif/0/ipv4/0 -> 0/ip; 0/ipv4/0
  * *)
 let networks path (list: string -> string list) =
   (* Find all ipv6 addresses under a path. *)
@@ -76,10 +87,11 @@ let networks path (list: string -> string list) =
   (* Find the ipv4 address under a path, and the ipv6 addresses if they exist. *)
   let find_all_ips path prefix =
     let ipv4 = (extend path "ip", extend prefix "ip") in
+    let ipv4_with_idx = (extend path "ip", extend prefix "ipv4/0") in
     if List.mem "ipv6" (list path) then
-      ipv4 :: (find_ipv6 (extend path "ipv6") (extend prefix "ipv6"))
+      ipv4 :: (ipv4_with_idx :: (find_ipv6 (extend path "ipv6") (extend prefix "ipv6")))
     else
-      [ipv4]
+      [ipv4; ipv4_with_idx]
   in
   (* Find all "ethn", "xenbrn" or newer interface standard names
    * [see https://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames/]
@@ -112,10 +124,49 @@ let networks path (list: string -> string list) =
          | Some pair -> pair :: acc
       ) [] (list path)
   in
-  path
-  |> find_eths
-  |> List.map (fun (path, prefix) -> find_all_ips path prefix)
-  |> List.concat
+  let find_vifs vif_path =
+    let extract_vif acc vif_id = ((extend vif_path vif_id), vif_id) :: acc in  
+    List.fold_left extract_vif [] (list vif_path)
+  in
+  let cmp a b = 
+    try 
+      compare (int_of_string a) (int_of_string b) 
+    with Failure _ -> 
+      error "String (\"%s\" or \"%s\") can't be converted into an integer as index of IP" a b;
+      raise (Failure "Failed to compare")
+  in
+  let find_all_vif_ips vif_path vif_id = 
+    (*  vif_path: attr/vif/0 *)
+    (*  vif_id: 0 *)
+    let extract_ip_ver vif_id acc ip_ver = 
+      let ip_addr_ids = list (extend vif_path ip_ver)  in
+      let extract_ip_addr vif_id ip_ver acc ip_addr_id = 
+        let key_left = Printf.sprintf "%s/%s/%s" vif_path ip_ver ip_addr_id in
+        let key_right = Printf.sprintf "%s/%s/%s" vif_id ip_ver ip_addr_id in
+        match acc with
+        | [] when ip_ver = "ipv4"  -> 
+          [(key_left, (extend vif_id "ip")); (key_left, key_right)]
+        | _ -> (key_left, key_right) :: acc
+      in  
+      try 
+        (List.fold_left (extract_ip_addr vif_id ip_ver) [] (List.stable_sort cmp ip_addr_ids)) @ acc
+      with Failure _ ->
+        error "Failed to extract IP address for vif %s." vif_id;
+        []
+    in
+    let ip_vers = List.filter (fun a -> a = "ipv4" || a = "ipv6") (list vif_path) in
+    List.fold_left (extract_ip_ver vif_id) [] ip_vers
+  in
+  match find_vifs (extend path "vif") with
+  | [] ->
+    path
+    |> find_eths
+    |> List.map (fun (path, prefix) -> find_all_ips path prefix)
+    |> List.concat
+  | vif_pair_list ->
+    vif_pair_list
+    |> List.map (fun (vif_path, vif_id) -> find_all_vif_ips vif_path vif_id)
+    |> List.concat
 
 (* One key is placed in the other map per control/* key in xenstore. This
    catches keys like "feature-shutdown" "feature-hibernate" "feature-reboot"
