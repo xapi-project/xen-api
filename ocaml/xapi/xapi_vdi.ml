@@ -705,6 +705,10 @@ let set_metadata_of_pool ~__context ~self ~value =
   Db.VDI.set_metadata_of_pool ~__context ~self ~value
 
 let set_on_boot ~__context ~self ~value =
+  if (Db.VDI.get_cbt_enabled ~__context ~self) && value = `reset then begin
+    error "Xapi_vdi.set_on_boot: tried to set on_boot to reset for a VDI for which changed block tracking is enabled";
+    raise (Api_errors.Server_error (Api_errors.vdi_cbt_enabled, [Ref.string_of self]))
+  end;
   let sr = Db.VDI.get_SR ~__context ~self in
   let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
   let sm_features = Xapi_sr_operations.features_of_sr ~__context sr_record in

@@ -188,7 +188,7 @@ val set_metadata_of_pool :
   self:[ `VDI ] API.Ref.t -> value:[ `pool ] API.Ref.t -> unit
 val set_on_boot :
   __context:Context.t ->
-  self:[ `VDI ] API.Ref.t -> value:[< `persist | `reset > `persist ] -> unit
+  self:[ `VDI ] API.Ref.t -> value:API.on_boot -> unit
 val set_allow_caching :
   __context:Context.t -> self:[ `VDI ] API.Ref.t -> value:bool -> unit
 val set_name_label :
