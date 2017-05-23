@@ -769,6 +769,8 @@ module SMAPIv1 = struct
            let _, vdi_rec = find_vdi ~__context sr vdi in
            let vdis = explore 0 StringMap.empty vdi_rec.API.vDI_location |> invert |> IntMap.bindings |> List.map snd |> List.concat in
            let vdi_recs = List.map (fun l -> StringMap.find l locations) vdis in
+           (** We drop cbt_metadata VDIs that do not have any actual data *)
+           let vdi_recs = List.filter (fun r -> r.API.vDI_type <> `cbt_metadata) vdi_recs in
            List.map (fun x -> vdi_info_of_vdi_rec __context x) vdi_recs
         )
 
