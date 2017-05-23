@@ -307,16 +307,21 @@ let is_mobile ~__context vm strict =
    && not @@ nested_virt ~__context vm metrics)
   || not strict
 
+let maybe_get_guest_metrics ~__context ~ref =
+  if Db.is_valid_ref __context ref
+  then Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:ref)
+  else None
 
 (** Take an internal VM record and a proposed operation. Return None iff the operation
     would be acceptable; otherwise Some (Api_errors.<something>, [list of strings])
     corresponding to the first error found. Checking stops at the first error.
     The "strict" param sets whether we require feature-flags for ops that need guest
     support: ops in the suspend-like and shutdown-like categories. *)
-let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled ~vdis_reset_and_caching ~op ~strict =
+let check_operation_error ~__context ~ref ~op ~strict =
+  let vmr = Db.VM.get_record_internal ~__context ~self:ref in
+  let vmgmr = maybe_get_guest_metrics ~__context ~ref:(vmr.Db_actions.vM_guest_metrics) in
   let ref_str = Ref.string_of ref in
   let power_state = vmr.Db_actions.vM_power_state in
-  let current_ops = vmr.Db_actions.vM_current_operations in
   let is_template = vmr.Db_actions.vM_is_a_template in
   let is_snapshot = vmr.Db_actions.vM_is_a_snapshot in
 
@@ -337,6 +342,7 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 
   (* if other operations are in progress, check that the new operation is allowed concurrently with them. *)
   let current_error = check current_error (fun () ->
+      let current_ops = vmr.Db_actions.vM_current_operations in
       if List.length current_ops <> 0 && not (is_allowed_concurrently ~op ~current_ops)
       then report_concurrent_operations_error ~current_ops ~ref_str
       else None) in
@@ -428,6 +434,12 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 
   (* Check for an error due to VDI caching/reset behaviour *)
   let current_error = check current_error (fun () ->
+      let vdis_reset_and_caching = List.filter_map (fun vbd ->
+          try
+            let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+            let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
+            Some ((assoc_opt "on_boot" sm_config = Some "reset"), (bool_of_assoc "caching" sm_config))
+          with _ -> None) vmr.Db_actions.vM_VBDs in
       if op = `checkpoint || op = `snapshot || op = `suspend || op = `snapshot_with_quiesce
       then (* If any vdi exists with on_boot=reset, then disallow checkpoint, snapshot, suspend *)
         if List.exists fst vdis_reset_and_caching
@@ -478,26 +490,8 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 
   current_error
 
-let maybe_get_guest_metrics ~__context ~ref =
-  if Db.is_valid_ref __context ref
-  then Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:ref)
-  else None
-
-let get_info ~__context ~self =
-  let all = Db.VM.get_record_internal ~__context ~self in
-  let gm = maybe_get_guest_metrics ~__context ~ref:(all.Db_actions.vM_guest_metrics) in
-  let clone_suspended_vm_enabled = Helpers.clone_suspended_vm_enabled ~__context in
-  let vdis_reset_and_caching = List.filter_map (fun vbd ->
-      try
-        let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-        let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
-        Some ((assoc_opt "on_boot" sm_config = Some "reset"), (bool_of_assoc "caching" sm_config))
-      with _ -> None) all.Db_actions.vM_VBDs in
-  all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching
-
 let get_operation_error ~__context ~self ~op ~strict =
-  let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
-  check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op strict
+  check_operation_error ~__context ~ref:self ~op ~strict
 
 let assert_operation_valid ~__context ~self ~op ~strict =
   match get_operation_error ~__context ~self ~op ~strict with
@@ -505,9 +499,8 @@ let assert_operation_valid ~__context ~self ~op ~strict =
   | Some (a,b) -> raise (Api_errors.Server_error (a,b))
 
 let update_allowed_operations ~__context ~self =
-  let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
   let check accu op =
-    match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op true with
+    match check_operation_error ~__context ~ref:self ~op ~strict:true with
     | None -> op :: accu
     | _    -> accu
   in
