@@ -6231,7 +6231,10 @@ let vdi_pool_introduce = call
     ~name:"pool_introduce"
     ~in_oss_since:None
     ~in_product_since:rel_rio
-    ~versioned_params:(vdi_introduce_params miami_release)
+    ~versioned_params:(
+      (vdi_introduce_params miami_release) @
+      [{ param_type=Bool; param_name="cbt_enabled"; param_doc="True if changed blocks are tracked for this VDI"; param_release=inverness_release; param_default= Some(VBool false) }]
+    )
     ~doc:"Create a new VDI record in the database only"
     ~result:(Ref _vdi, "The ref of the newly created VDI record.")
     ~hide_from_docs:true

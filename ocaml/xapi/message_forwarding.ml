@@ -3416,13 +3416,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
              (fun session_id rpc -> Client.VDI.create ~rpc ~session_id ~name_label ~name_description ~sR ~virtual_size ~_type ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags))
 
     (* Hidden call used in pool join only *)
-    let pool_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location =
-      Local.VDI.pool_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location
+    let pool_introduce = Local.VDI.pool_introduce
 
     (* Called from the SM backend *)
-    let db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location =
+    let db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config  ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of ~cbt_enabled =
       Sm.assert_session_has_internal_sr_access ~__context ~sr:sR;
-      Local.VDI.db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location
+      Local.VDI.db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config  ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of ~cbt_enabled
 
     (* Called from the SM backend *)
     let db_forget ~__context ~vdi =

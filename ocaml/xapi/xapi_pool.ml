@@ -561,7 +561,8 @@ let create_or_get_vdi_on_master __context rpc session_id (vdi_ref, vdi) : API.re
         ~metadata_of_pool:vdi.API.vDI_metadata_of_pool
         ~is_a_snapshot:vdi.API.vDI_is_a_snapshot
         ~snapshot_time:vdi.API.vDI_snapshot_time
-        ~snapshot_of:vdi.API.vDI_snapshot_of in
+        ~snapshot_of:vdi.API.vDI_snapshot_of
+        ~cbt_enabled:vdi.API.vDI_cbt_enabled in
   new_vdi_ref
 
 let create_or_get_network_on_master __context rpc session_id (network_ref, network) : API.ref_network =
