@@ -1238,6 +1238,10 @@ let handler req fd _ =
     )
 
 let vdi_pool_migrate ~__context ~vdi ~sr ~options =
+  if Db.VDI.get_type ~__context ~self:vdi = `cbt_metadata then begin
+    error "VDI.pool_migrate: the specified VDI has type cbt_metadata (at %s)" __LOC__;
+    raise Api_errors.(Server_error(vdi_incompatible_type, [ Ref.string_of vdi; Record_util.vdi_type_to_string `cbt_metadata ]))
+  end;
 
   (* inserted by message_forwarding *)
   let vm = Ref.of_string (List.assoc "__internal__vm" options) in
