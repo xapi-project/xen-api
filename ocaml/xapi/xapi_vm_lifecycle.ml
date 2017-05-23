@@ -324,6 +324,7 @@ let check_operation_error ~__context ~ref ~op ~strict =
   let power_state = vmr.Db_actions.vM_power_state in
   let is_template = vmr.Db_actions.vM_is_a_template in
   let is_snapshot = vmr.Db_actions.vM_is_a_snapshot in
+  let vdis = List.filter_map (fun vbd -> try Some (Db.VBD.get_VDI ~__context ~self:vbd) with _ -> None) vmr.Db_actions.vM_VBDs in
 
   (* Check if the operation has been explicitly blocked by the/a user *)
   let current_error = None in
@@ -434,12 +435,11 @@ let check_operation_error ~__context ~ref ~op ~strict =
 
   (* Check for an error due to VDI caching/reset behaviour *)
   let current_error = check current_error (fun () ->
-      let vdis_reset_and_caching = List.filter_map (fun vbd ->
+      let vdis_reset_and_caching = List.filter_map (fun vdi ->
           try
-            let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
             let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
             Some ((assoc_opt "on_boot" sm_config = Some "reset"), (bool_of_assoc "caching" sm_config))
-          with _ -> None) vmr.Db_actions.vM_VBDs in
+          with _ -> None) vdis in
       if op = `checkpoint || op = `snapshot || op = `suspend || op = `snapshot_with_quiesce
       then (* If any vdi exists with on_boot=reset, then disallow checkpoint, snapshot, suspend *)
         if List.exists fst vdis_reset_and_caching
@@ -487,6 +487,15 @@ let check_operation_error ~__context ~ref ~op ~strict =
       if op = `query_services && not (bool_of_assoc "is_system_domain" vmr.Db_actions.vM_other_config)
       then Some (Api_errors.not_system_domain, [ ref_str ])
       else None) in
+
+  (* For cross-pool VM migration, check if any of the VM's VDIs has CBT enabled *)
+  let current_error = check current_error (fun () ->
+      let is_cbt_enabled vdi = try Db.VDI.get_cbt_enabled ~__context ~self:vdi with _ -> false in
+      if op = `migrate_send && List.exists is_cbt_enabled vdis then begin
+        let vdi = List.find is_cbt_enabled vdis in
+        Some (Api_errors.vdi_cbt_enabled, [ Ref.string_of vdi ])
+      end else None
+    ) in
 
   current_error
 
