@@ -1051,6 +1051,12 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   let vms_vdis = List.filter_map (vdi_filter __context true) vbds in
   check_vdi_map ~__context vms_vdis vdi_map;
 
+  (* Prevent SXM when the VM has a VDI on which changed block tracking is enabled *)
+  List.iter (fun vconf ->
+      let vdi = vconf.vdi in
+      if (Db.VDI.get_cbt_enabled ~__context ~self:vdi) then
+        raise Api_errors.(Server_error(vdi_cbt_enabled, [Ref.string_of vdi]))) vms_vdis ;
+
   let migration_type =
     try
       ignore(Db.Host.get_uuid ~__context ~self:remote.dest_host);
