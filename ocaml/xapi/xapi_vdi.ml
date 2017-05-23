@@ -281,6 +281,12 @@ let update_vdi_db ~__context ~sr newvdi =
 let create ~__context ~name_label ~name_description
     ~sR ~virtual_size ~_type
     ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags =
+
+  if _type = `cbt_metadata then begin
+    error "VDI.create: creation of VDIs with type cbt_metadata is not allowed (at %s)" __LOC__;
+    raise (Api_errors.Server_error (Api_errors.vdi_incompatible_type, [ ""; Record_util.vdi_type_to_string `cbt_metadata ]))
+  end;
+
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
 
   (* XXX: unify with record_util.vdi_type_to_string *)
