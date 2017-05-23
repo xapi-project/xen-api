@@ -1051,6 +1051,12 @@ let recover ~__context ~self ~session_to ~force =
 
 let set_suspend_VDI ~__context ~self ~value =
   Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self ~expected:`Suspended;
+
+  if Db.VDI.get_type ~__context ~self:value = `cbt_metadata then begin
+    error "VM.set_suspend_VDI: the given VDI has type cbt_metadata (at %s)" __LOC__;
+    raise Api_errors.(Server_error(vdi_incompatible_type, [ Ref.string_of self; Record_util.vdi_type_to_string `cbt_metadata ]))
+  end;
+
   let src_vdi = Db.VM.get_suspend_VDI ~__context ~self in
   let dst_vdi = value in
   if src_vdi <> dst_vdi then
