@@ -185,6 +185,8 @@ let on_dom0_networking_change ~__context =
     Db.Host.set_name_label ~__context ~self:localhost ~value:new_hostname;
   begin match Helpers.get_management_ip_addr ~__context with
     | Some ip ->
+      (* WARNING: this does NOT detect IP address changes that happen before
+         xapi's startup (see CA-242706) *)
       if Db.Host.get_address ~__context ~self:localhost <> ip then begin
         debug "Changing Host.address in database to: %s" ip;
         Db.Host.set_address ~__context ~self:localhost ~value:ip;
