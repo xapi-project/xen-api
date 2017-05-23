@@ -97,7 +97,7 @@ let host_operation_to_string = function
   | `vm_resume -> "VM.resume"
   | `vm_migrate -> "VM.migrate"
 
-let vdi_operation_to_string = function
+let vdi_operation_to_string: API.vdi_operations -> string = function
   | `scan -> "scan"
   | `clone -> "clone"
   | `copy -> "copy"
@@ -110,9 +110,11 @@ let vdi_operation_to_string = function
   | `forget -> "forget"
   | `update -> "update"
   | `generate_config -> "generate_config"
+  | `enable_cbt -> "enable_cbt"
+  | `disable_cbt -> "disable_cbt"
   | `blocked -> "blocked"
 
-let sr_operation_to_string = function
+let sr_operation_to_string: API.storage_operations -> string = function
   | `scan -> "scan"
   | `destroy -> "destroy"
   | `forget -> "forget"
@@ -126,6 +128,8 @@ let sr_operation_to_string = function
   | `vdi_clone -> "VDI.clone"
   | `vdi_snapshot -> "VDI.snapshot"
   | `vdi_mirror -> "VDI.mirror"
+  | `vdi_enable_cbt -> "VDI.enable_cbt"
+  | `vdi_disable_cbt -> "VDI.disable_cbt"
   | `pbd_create -> "PBD.create"
   | `pbd_destroy -> "PBD.destroy"
 

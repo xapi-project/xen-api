@@ -41,6 +41,7 @@ let check_sm_feature_error (op:API.vdi_operations) sm_features sr =
   | `generate_config -> Some Vdi_generate_config
   | `clone -> Some Vdi_clone
   | `mirror -> Some Vdi_mirror
+  | `enable_cbt | `disable_cbt -> Some Vdi_configure_cbt
   ) in
   match required_sm_feature with
   | None -> None
@@ -125,7 +126,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
          			   VDI.clone (if the VM is suspended we have to have the 'allow_clone_suspended_vm'' flag)
          			   VDI.snapshot; VDI.resize_online; 'blocked' (CP-831) *)
       let operation_can_be_performed_live = match op with
-        | `snapshot | `resize_online | `blocked | `clone | `mirror -> true
+        | `snapshot | `resize_online | `blocked | `clone | `mirror | `enable_cbt | `disable_cbt -> true
         | _ -> false in
 
       let operation_can_be_performed_with_ro_attach =
@@ -198,6 +199,14 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
         | `copy ->
           if List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
           then Some (Api_errors.operation_not_allowed, ["VDI containing HA statefile or redo log cannot be copied (check the VDI's allowed operations)."])
+          else None
+        | (`enable_cbt | `disable_cbt) ->
+          if record.Db_actions.vDI_is_a_snapshot
+          then Some (Api_errors.operation_not_allowed, ["VDI is a snapshot: " ^ _ref])
+          else if record.Db_actions.vDI_type <> `user
+          then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string record.Db_actions.vDI_type ])
+          else if record.Db_actions.vDI_on_boot = `reset
+          then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
           else None
         | `mirror | `clone | `generate_config | `scan | `force_unlock | `blocked | `update -> None
       )
