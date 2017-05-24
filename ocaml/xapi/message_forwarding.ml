@@ -3575,6 +3575,24 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         ~extra_sr:(Db.VDI.get_SR ~__context ~self)
         (fun session_id rpc -> Client.VDI.checksum rpc session_id self)
 
+    let enable_cbt ~__context ~self =
+      info "VDI.enable_cbt: VDI = '%s'" (vdi_uuid ~__context self);
+      let local_fn = Local.VDI.enable_cbt ~self in
+      let sR = Db.VDI.get_SR ~__context ~self in
+      with_sr_andor_vdi ~__context ~sr:(sR, `vdi_enable_cbt) ~vdi:(self, `enable_cbt) ~doc:"VDI.enable_cbt"
+        (fun () ->
+           forward_vdi_op ~local_fn ~__context ~self
+             (fun session_id rpc -> Client.VDI.enable_cbt rpc session_id self))
+
+    let disable_cbt ~__context ~self =
+      info "VDI.disable_cbt: VDI = '%s'" (vdi_uuid ~__context self);
+      let local_fn = Local.VDI.disable_cbt ~self in
+      let sR = Db.VDI.get_SR ~__context ~self in
+      with_sr_andor_vdi ~__context ~sr:(sR, `vdi_disable_cbt) ~vdi:(self, `disable_cbt) ~doc:"VDI.disable_cbt"
+        (fun () ->
+           forward_vdi_op ~local_fn ~__context ~self
+             (fun session_id rpc -> Client.VDI.disable_cbt rpc session_id self))
+
   end
   module VBD = struct
 

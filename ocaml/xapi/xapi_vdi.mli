@@ -204,3 +204,8 @@ val open_database :
   __context:Context.t -> self:[ `VDI ] API.Ref.t -> API.ref_session
 
 val read_database_pool_uuid : __context:'a -> self:API.ref_VDI -> string
+
+val enable_cbt :
+  __context:Context.t -> self:API.ref_VDI -> unit
+val disable_cbt :
+  __context:Context.t -> self:API.ref_VDI -> unit

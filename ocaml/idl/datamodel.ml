@@ -6518,6 +6518,24 @@ let vdi_read_database_pool_uuid = call
     ~allowed_roles:_R_READ_ONLY
     ()
 
+let vdi_enable_cbt = call
+    ~name:"enable_cbt"
+    ~in_oss_since:None
+    ~in_product_since:rel_inverness
+    ~params:[Ref _vdi, "self", "The VDI for which CBT should be enabled"]
+    ~doc:"Enable changed block tracking for the VDI."
+    ~allowed_roles:_R_VM_ADMIN
+    ()
+
+let vdi_disable_cbt = call
+    ~name:"disable_cbt"
+    ~in_oss_since:None
+    ~in_product_since:rel_inverness
+    ~params:[Ref _vdi, "self", "The VDI for which CBT should be disabled"]
+    ~doc:"Disable changed block tracking for the VDI."
+    ~allowed_roles:_R_VM_ADMIN
+    ()
+
 (** A virtual disk *)
 let vdi =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vdi ~descr:"A virtual disk image"
@@ -6550,6 +6568,8 @@ let vdi =
                vdi_checksum;
                vdi_read_database_pool_uuid;
                vdi_pool_migrate;
+               vdi_enable_cbt;
+               vdi_disable_cbt;
               ]
     ~contents:
       ([ uid _vdi;
