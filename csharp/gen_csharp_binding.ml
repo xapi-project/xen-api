@@ -131,6 +131,8 @@ let escape s =
 
 let enum_of_wire = String.replace "-" "_"
 
+let api_members = ref []
+
 let rec main() =
   gen_proxy();
   List.iter (fun x -> if generated x then gen_class x) classes;
@@ -139,7 +141,10 @@ let rec main() =
   gen_maps();
   gen_i18n_errors();
   gen_http_actions();
-  gen_relations()
+  gen_relations();
+  let sorted_members = List.sort String.compare !api_members in
+  let json = `O ["api_members", `A (List.map (fun x -> `O ["api_member", `String x];) sorted_members); ] in
+  render_file ("XenServer.csproj.mustache", "XenServer.csproj") json templdir destdir
 
 
 (* ------------------- category: relations *)
@@ -305,6 +310,9 @@ namespace XenAPI
 
 
 and gen_class cls =
+  let m = exposed_class_name cls.name in
+  if not (List.mem m !api_members) then
+    api_members := m::!api_members;
   let out_chan = open_out (Filename.concat destdir (exposed_class_name cls.name)^".cs")
   in
     finally (fun () -> gen_class_gui out_chan cls)
@@ -1413,7 +1421,9 @@ and gen_proxy_field out_chan content =
 
 
 and gen_enum = function
-    Enum(name, contents) ->
+  | Enum(name, contents) ->
+      if not (List.mem name !api_members) then
+        api_members := name::!api_members;
       let out_chan = open_out (Filename.concat destdir (name ^ ".cs"))
       in
         finally (fun () -> gen_enum' name contents out_chan)

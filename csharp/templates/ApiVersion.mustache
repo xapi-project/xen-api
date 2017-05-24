@@ -51,7 +51,7 @@ namespace XenAPI
             switch (v)
             {
 {{#releases}}
-                case API_{{version_major}}_{{version_minor}}:
+                case API_Version.API_{{version_major}}_{{version_minor}}:
                     return "{{version_major}}.{{version_minor}}";
 {{/releases}}
                 default:
