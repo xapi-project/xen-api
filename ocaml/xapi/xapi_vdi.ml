@@ -42,6 +42,7 @@ let check_sm_feature_error (op:API.vdi_operations) sm_features sr =
   | `clone -> Some Vdi_clone
   | `mirror -> Some Vdi_mirror
   | `enable_cbt | `disable_cbt -> Some Vdi_configure_cbt
+  | `set_on_boot -> Some Vdi_reset_on_boot
   ) in
   match required_sm_feature with
   | None -> None
@@ -158,7 +159,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
       then sm_feature_error
       else
       let allowed_for_cbt_metadata_vdi = match op with
-        | `clone | `copy | `disable_cbt | `enable_cbt | `mirror | `resize | `resize_online | `snapshot -> false
+        | `clone | `copy | `disable_cbt | `enable_cbt | `mirror | `resize | `resize_online | `snapshot | `set_on_boot -> false
         | `blocked | `destroy | `force_unlock | `forget | `generate_config | `scan | `update -> true in
       if not allowed_for_cbt_metadata_vdi && record.Db_actions.vDI_type = `cbt_metadata
       then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string `cbt_metadata ])
@@ -214,7 +215,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
           else if record.Db_actions.vDI_on_boot = `reset
           then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
           else None
-        | `mirror | `clone | `generate_config | `scan | `force_unlock | `blocked | `update -> None
+        | `mirror | `clone | `generate_config | `scan | `force_unlock | `set_on_boot | `blocked | `update -> None
       )
 
 let assert_operation_valid ~__context ~self ~(op:API.vdi_operations) =
@@ -720,31 +721,18 @@ let set_metadata_of_pool ~__context ~self ~value =
   Db.VDI.set_metadata_of_pool ~__context ~self ~value
 
 let set_on_boot ~__context ~self ~value =
-  if (Db.VDI.get_type ~__context ~self = `cbt_metadata) then begin
-    error "Xapi_vdi.set_on_boot: tried to set on_boot property for a VDI of type cbt_metadata";
-    raise (Api_errors.Server_error (Api_errors.vdi_incompatible_type, [ Ref.string_of self; Record_util.vdi_type_to_string `cbt_metadata ]))
-  end;
-  if (Db.VDI.get_cbt_enabled ~__context ~self) && value = `reset then begin
-    error "Xapi_vdi.set_on_boot: tried to set on_boot to reset for a VDI for which changed block tracking is enabled";
-    raise (Api_errors.Server_error (Api_errors.vdi_cbt_enabled, [Ref.string_of self]))
-  end;
   let sr = Db.VDI.get_SR ~__context ~self in
-  let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
-  let sm_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
-
-  if not Smint.(has_capability Vdi_reset_on_boot sm_features) then
-    raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported,[Ref.string_of sr]));
   Sm.assert_pbd_is_plugged ~__context ~sr;
 
   let open Storage_access in
   let open Storage_interface in
   let task = Context.get_task_id __context in
   let sr' = Db.SR.get_uuid ~__context ~self:sr in
-  let vdi' = Db.VDI.get_location ~__context ~self in
+  let vdi = Db.VDI.get_location ~__context ~self in
   let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
   transform_storage_exn
     (fun () ->
-       C.VDI.set_persistent ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~persistent:(value = `persist);
+       C.VDI.set_persistent ~dbg:(Ref.string_of task) ~sr:sr' ~vdi ~persistent:(value = `persist);
     );
 
   Db.VDI.set_on_boot ~__context ~self ~value

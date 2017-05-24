@@ -3393,8 +3393,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let set_on_boot ~__context ~self ~value =
       ensure_vdi_not_on_running_vm ~__context ~self;
       let local_fn = Local.VDI.set_on_boot ~self ~value in
-      forward_vdi_op ~local_fn ~__context ~self
-        (fun session_id rpc -> Client.VDI.set_on_boot rpc session_id self value)
+      let sr = Db.VDI.get_SR ~__context ~self in
+      with_sr_andor_vdi ~__context ~sr:(sr, `vdi_set_on_boot) ~vdi:(self, `set_on_boot) ~doc:"VDI.set_on_boot"
+        (fun () ->
+           forward_vdi_op ~local_fn ~__context ~self
+             (fun session_id rpc -> Client.VDI.set_on_boot rpc session_id self value))
 
     let set_allow_caching ~__context ~self ~value =
       ensure_vdi_not_on_running_vm ~__context ~self;

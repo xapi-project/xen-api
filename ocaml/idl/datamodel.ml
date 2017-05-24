@@ -5989,6 +5989,7 @@ let storage_operations =
           "vdi_mirror", "Mirroring a VDI";
           "vdi_enable_cbt", "Enabling changed block tracking for a VDI";
           "vdi_disable_cbt", "Disabling changed block tracking for a VDI";
+          "vdi_set_on_boot", "Setting the on_boot field of the VDI";
           "pbd_create", "Creating a PBD for this SR";
           "pbd_destroy", "Destroying one of this SR's PBDs"; ])
 
@@ -6313,6 +6314,7 @@ let vdi_operations =
           "generate_config", "Generating static configuration";
           "enable_cbt", "Enabling changed block tracking for a VDI";
           "disable_cbt", "Disabling changed block tracking for a VDI";
+          "set_on_boot", "Setting the on_boot field of the VDI";
           "blocked", "Operations on this VDI are temporarily blocked";
         ])
 

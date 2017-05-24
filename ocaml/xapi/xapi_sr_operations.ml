@@ -37,7 +37,7 @@ open Record_util
 
 let all_ops : API.storage_operations_set =
   [ `scan; `destroy; `forget; `plug; `unplug; `vdi_create; `vdi_destroy; `vdi_resize; `vdi_clone; `vdi_snapshot; `vdi_mirror;
-    `vdi_enable_cbt; `vdi_disable_cbt; `vdi_introduce; `update; `pbd_create; `pbd_destroy ]
+    `vdi_enable_cbt; `vdi_disable_cbt; `vdi_set_on_boot; `vdi_introduce; `update; `pbd_create; `pbd_destroy ]
 
 let sm_cap_table : (API.storage_operations * _) list =
   [ `vdi_create, Smint.Vdi_create;
@@ -47,6 +47,7 @@ let sm_cap_table : (API.storage_operations * _) list =
     `vdi_mirror, Smint.Vdi_mirror;
     `vdi_enable_cbt, Smint.Vdi_configure_cbt;
     `vdi_disable_cbt, Smint.Vdi_configure_cbt;
+    `vdi_set_on_boot, Smint.Vdi_reset_on_boot;
     `update, Smint.Sr_update;
     (* We fake clone ourselves *)
     `vdi_snapshot, Smint.Vdi_snapshot ]
