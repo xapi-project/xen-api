@@ -806,7 +806,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
 
   let vdi_map = vdi_map @ extra_vdi_map in
 
-  let total_size = List.fold_left (fun acc vconf -> Int64.add acc vconf.size) 0L (suspends_vdis @ snapshots_vdis @ vms_vdis) in
   let dbg = Context.string_of_task __context in
   let open Xapi_xenops_queue in
   let queue_name = queue_of_vm ~__context ~self:vm in
@@ -820,20 +819,41 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   eject_cds __context cd_vbds;
 
   try
+    (* Sort VDIs by size in principle and then age secondly. This gives better
+       chances that similar but smaller VDIs would arrive comparatively
+       earlier, which can serve as base for incremental copying the larger
+       ones. *)
+    let compare_fun v1 v2 =
+      let r = Int64.compare v1.size v2.size in
+      if r = 0 then
+        let t1 = Date.to_float (Db.VDI.get_snapshot_time ~__context ~self:v1.vdi) in
+        let t2 = Date.to_float (Db.VDI.get_snapshot_time ~__context ~self:v2.vdi) in
+        compare t1 t2
+      else r in
+    let all_vdis = List.concat [suspends_vdis; snapshots_vdis; vms_vdis] |> List.sort compare_fun in
+
+    let total_size = List.fold_left (fun acc vconf -> Int64.add acc vconf.size) 0L all_vdis in
     let so_far = ref 0L in
 
-    let with_mirrored_vdis = with_many (vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far total_size copy) in
     let new_vm =
-      with_mirrored_vdis suspends_vdis @@ fun suspends_map ->
-      with_mirrored_vdis snapshots_vdis @@ fun snapshots_map ->
-      with_mirrored_vdis vms_vdis @@ fun vdi_map ->
+      with_many (vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far total_size copy) all_vdis @@ fun all_map ->
+
+      let was_from vmap = List.exists (fun vconf -> vconf.vdi = vmap.mr_local_vdi_reference) in
+
+      let suspends_map, snapshots_map, vdi_map = List.fold_left (fun (suspends, snapshots, vdis) vmap ->
+          if was_from vmap suspends_vdis then  vmap :: suspends, snapshots, vdis
+          else if was_from vmap snapshots_vdis then suspends, vmap :: snapshots, vdis
+          else suspends, snapshots, vmap :: vdis
+        ) ([],[],[]) all_map in
+
+      let all_map = List.concat [suspends_map; snapshots_map; vdi_map] in
 
       (* All the disks and snapshots have been created in the remote SR(s),
        * so update the snapshot links if there are any snapshots. *)
       if snapshots_map <> [] then
         update_snapshot_info ~__context ~dbg ~url:remote.sm_url ~vdi_map ~snapshots_map;
 
-      let xenops_vdi_map = List.map (fun mirror_record -> (mirror_record.mr_local_xenops_locator, mirror_record.mr_remote_xenops_locator)) (suspends_map @ snapshots_map @ vdi_map) in
+      let xenops_vdi_map = List.map (fun mirror_record -> (mirror_record.mr_local_xenops_locator, mirror_record.mr_remote_xenops_locator)) all_map in
 
       (* Wait for delay fist to disappear *)
       wait_for_fist __context Xapi_fist.pause_storage_migrate "pause_storage_migrate";
@@ -853,8 +873,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
                     local_vdi_reference = mirror_record.mr_local_vdi_reference;
                     remote_vdi_reference = Some mirror_record.mr_remote_vdi_reference;
                   })
-                (suspends_map @ snapshots_map @ vdi_map)
-            in
+                all_map in
             let vif_map =
               List.map (fun (vif, network) -> {
                     local_vif_reference = vif;
@@ -888,7 +907,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
       (* Destroy the local datapaths - this allows the VDIs to properly detach, invoking the migrate_finalize calls *)
       List.iter (fun mirror_record ->
           if mirror_record.mr_mirrored
-          then match mirror_record.mr_dp with | Some dp ->  SMAPI.DP.destroy ~dbg ~dp ~allow_leak:false | None -> ()) (suspends_map @ snapshots_map @ vdi_map);
+          then match mirror_record.mr_dp with | Some dp ->  SMAPI.DP.destroy ~dbg ~dp ~allow_leak:false | None -> ()) all_map;
 
       SMPERF.debug "vm.migrate_send: migration initiated vm:%s" vm_uuid;
 
@@ -920,7 +939,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
       then
         List.iter
           (fun vm' ->
-             intra_pool_vdi_remap ~__context vm' (suspends_map @ snapshots_map @ vdi_map);
+             intra_pool_vdi_remap ~__context vm' all_map;
              intra_pool_fix_suspend_sr ~__context remote.dest_host vm')
           vm_and_snapshots;
 

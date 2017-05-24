@@ -464,9 +464,12 @@ let resync_host ~__context ~host =
 
     List.iter (fun update_ref ->
         let pool_patch_ref = Xapi_pool_patch.pool_patch_of_update ~__context update_ref in
-        Xapi_pool_patch.write_patch_applied_db ~__context ~self:pool_patch_ref ~host ()
+        let uuid = Db.Pool_update.get_uuid ~__context ~self:update_ref in
+        let mtime = (Unix.stat (Filename.concat update_applied_dir uuid)).Unix.st_mtime in
+        Xapi_pool_patch.write_patch_applied_db ~__context ~date:mtime ~self:pool_patch_ref ~host ()
       ) update_refs;
-    Create_misc.create_updates_requiring_reboot_info ~__context ~host
+    Create_misc.create_updates_requiring_reboot_info ~__context ~host;
+    Create_misc.create_software_version ~__context
   end
   else Db.Host.set_updates ~__context ~self:host ~value:[];
 

@@ -58,6 +58,7 @@ let base_suite =
     Test_pvs_proxy.test;
     Test_pvs_server.test;
     Test_pvs_cache_storage.test;
+    Test_extauth_plugin_ADpbis.test;
   ]
 
 let handlers = [
