@@ -1248,6 +1248,14 @@ let vdi_unlock printer rpc session_id params =
   then failwith "This operation is extremely dangerous and may cause data loss. This operation must be forced (use --force).";
   Client.VDI.force_unlock rpc session_id vdi
 
+let vdi_enable_cbt printer rpc session_id params =
+  let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+  Client.VDI.enable_cbt rpc session_id vdi
+
+let vdi_disable_cbt printer rpc session_id params =
+  let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+  Client.VDI.disable_cbt rpc session_id vdi
+
 let diagnostic_vdi_status printer rpc session_id params =
   let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
   let vdi_r = vdi_record rpc session_id vdi in
