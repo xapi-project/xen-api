@@ -156,6 +156,12 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
       let sm_feature_error = check_sm_feature_error op sm_features sr in
       if sm_feature_error <> None
       then sm_feature_error
+      else
+      let allowed_for_cbt_metadata_vdi = match op with
+        | `clone | `copy | `disable_cbt | `enable_cbt | `mirror | `resize | `resize_online | `snapshot -> false
+        | `blocked | `destroy | `force_unlock | `forget | `generate_config | `scan | `update -> true in
+      if not allowed_for_cbt_metadata_vdi && record.Db_actions.vDI_type = `cbt_metadata
+      then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string `cbt_metadata ])
       else (
         match op with
         | `forget ->
