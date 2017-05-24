@@ -120,7 +120,6 @@ csharp: gen_csharp_binding.native
 	mkdir -p _build/csharp/autogen/samples
 	./gen_csharp_binding.native -r csharp/FriendlyErrorNames.resx -s $(SR_XML) -d _build/csharp/autogen -t csharp/templates
 #source
-	mv _build/csharp/autogen/XenObjectDownloader.cs _build/csharp/autogen/gui
 	mv _build/csharp/autogen/XenServer.csproj _build/csharp/autogen/src
 	cp csharp/src/*.cs _build/csharp/autogen
 	cp _build/csharp/autogen/*.* _build/csharp/autogen/src
