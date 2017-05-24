@@ -1248,6 +1248,10 @@ let vdi_pool_migrate ~__context ~vdi ~sr ~options =
     error "VDI.pool_migrate: the specified VDI has type cbt_metadata (at %s)" __LOC__;
     raise Api_errors.(Server_error(vdi_incompatible_type, [ Ref.string_of vdi; Record_util.vdi_type_to_string `cbt_metadata ]))
   end;
+  if Db.VDI.get_cbt_enabled ~__context ~self:vdi then begin
+    error "VDI.pool_migrate: changed block tracking is enabled for the specified VDI (at %s)" __LOC__;
+    raise Api_errors.(Server_error(vdi_cbt_enabled, [ Ref.string_of vdi ]))
+  end;
 
   (* inserted by message_forwarding *)
   let vm = Ref.of_string (List.assoc "__internal__vm" options) in
