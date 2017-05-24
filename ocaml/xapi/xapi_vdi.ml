@@ -720,6 +720,10 @@ let set_metadata_of_pool ~__context ~self ~value =
   Db.VDI.set_metadata_of_pool ~__context ~self ~value
 
 let set_on_boot ~__context ~self ~value =
+  if (Db.VDI.get_type ~__context ~self = `cbt_metadata) then begin
+    error "Xapi_vdi.set_on_boot: tried to set on_boot property for a VDI of type cbt_metadata";
+    raise (Api_errors.Server_error (Api_errors.vdi_incompatible_type, [ Ref.string_of self; Record_util.vdi_type_to_string `cbt_metadata ]))
+  end;
   if (Db.VDI.get_cbt_enabled ~__context ~self) && value = `reset then begin
     error "Xapi_vdi.set_on_boot: tried to set on_boot to reset for a VDI for which changed block tracking is enabled";
     raise (Api_errors.Server_error (Api_errors.vdi_cbt_enabled, [Ref.string_of self]))
