@@ -39,6 +39,10 @@
 		"ha_host_failed":{
 			"subject":"[%s] %s 高可用性警报: %s",
 			"body":"%s\n\n此警报设置为在属于高可用性池的主机出现故障时触发。\n"
+		},
+		"sr_io_throughput_total_alert":{
+			"subject":"[%s] Storage Throughput Alarm: The total IO throughput on \"%s\"",
+			"body":"The total read and write throughput of server \"%s\" on storage repository \"%s\" has been %.1f MB/s for the last %d seconds.\nThis alarm is set to be triggered when the total throughput exceeds %d KB/s.\n\nFor Alarm Settings, please log into your %s Console and click on \"Storage\"->\n\"Properties\"->\"Alerts\"\n"
 		}
 	}
 }
