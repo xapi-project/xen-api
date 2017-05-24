@@ -163,6 +163,12 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
         | `blocked | `destroy | `force_unlock | `forget | `generate_config | `scan | `update -> true in
       if not allowed_for_cbt_metadata_vdi && record.Db_actions.vDI_type = `cbt_metadata
       then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string `cbt_metadata ])
+      else
+      let allowed_when_cbt_enabled = match op with
+        | `mirror | `set_on_boot -> false
+        | `blocked | `clone | `copy | `destroy | `disable_cbt | `enable_cbt | `force_unlock | `forget | `generate_config | `resize | `resize_online | `scan | `snapshot | `update -> true in
+      if not allowed_when_cbt_enabled && record.Db_actions.vDI_cbt_enabled
+      then Some (Api_errors.vdi_cbt_enabled, [_ref])
       else (
         match op with
         | `forget ->
