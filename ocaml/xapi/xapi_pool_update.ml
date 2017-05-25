@@ -499,7 +499,10 @@ let resync_host ~__context ~host =
          && Xapi_pool_patch.pool_patch_of_update ~__context self
             |> fun self -> Db.Pool_patch.get_host_patches ~__context ~self
             |> function [] -> false | _ -> true)
-    |> List.iter (fun self -> destroy ~__context ~self)
+    |> List.iter (fun self -> destroy ~__context ~self);
+    
+    (* Clean up host_patch table *)
+    Db_gc_util.gc_Host_patches ~__context
   end
 
 let pool_update_download_handler (req: Request.t) s _ =
