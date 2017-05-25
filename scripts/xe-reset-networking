@@ -32,7 +32,7 @@ def read_dict_file(fname):
 	d = {}
 	for l in f.readlines():
 		kv = l.split('=')
-		d[kv[0]] = kv[1][1:-2]
+		d[kv[0].strip()] = kv[1].strip().strip("'")
 	return d
 
 def read_inventory():
