@@ -216,7 +216,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
         | (`enable_cbt | `disable_cbt) ->
           if record.Db_actions.vDI_is_a_snapshot
           then Some (Api_errors.operation_not_allowed, ["VDI is a snapshot: " ^ _ref])
-          else if record.Db_actions.vDI_type <> `user
+          else if not (List.mem record.Db_actions.vDI_type [ `user; `system ])
           then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string record.Db_actions.vDI_type ])
           else if record.Db_actions.vDI_on_boot = `reset
           then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
