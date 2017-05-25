@@ -1072,16 +1072,16 @@ let eject ~__context ~host =
       let vlan_id = Int64.to_int pif.API.pIF_VLAN in
       let config_base =
         [ sprintf "LABEL='%s'" management_device
-        ; sprintf "MODE=%s" mode
+        ; sprintf "MODE='%s'" mode
         ] in
       let config_static = if mode <> "static" then [] else
-        [ sprintf "IP=%s" pif.API.pIF_IP
-        ; sprintf "NETMASK=%s" pif.API.pIF_netmask
-        ; sprintf "GATEWAY=%s" pif.API.pIF_gateway
-        ; sprintf "DNS=%s" pif.API.pIF_DNS
+        [ sprintf "IP='%s'" pif.API.pIF_IP
+        ; sprintf "NETMASK='%s'" pif.API.pIF_netmask
+        ; sprintf "GATEWAY='%s'" pif.API.pIF_gateway
+        ; sprintf "DNS='%s'" pif.API.pIF_DNS
         ] in
       let config_vlan = if vlan_id = -1 then [] else
-        [ sprintf "VLAN=%d" vlan_id
+        [ sprintf "VLAN='%d'" vlan_id
         ] in
       let configuration_file =
         List.concat
