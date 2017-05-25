@@ -43,51 +43,20 @@ let gc_connector ~__context get_all get_record valid_ref1 valid_ref2 delete_reco
           (Ref.string_of ref),
           (print_valid ref_1_valid),
           (print_valid ref_2_valid) in
-        debug "Connector %s (%s) has invalid refs [ref_1: %s; ref_2: %s]. Attempting GC..." table reference valid1 valid2;
+        debug "Connector %s (%s) has invalid refs [ref_1: %s; ref_2: %s]. Attempting to GC..." table reference valid1 valid2;
         delete_record ~__context ~self:ref
       end in
   List.iter do_gc all_refs
 
-let gc_VGPU_types ~__context =
-  (* We delete a VGPU_type iff it does not appear in the supported_VGPU_types
-     	 * of any PGPU _and_ there doesn't exist a VGPU with this VGPU_type *)
-  let open Db_filter_types in
-  let garbage = Db.VGPU_type.get_records_where ~__context
-      ~expr:(And ((Eq (Field "VGPUs", Literal "()")),
-                  (Eq (Field "supported_on_PGPUs", Literal "()")))) in
-  match garbage with
-  | [] -> ()
-  | _ ->
-    debug "GC-ing the following unused and unsupported VGPU_types: [ %s ]"
-      (String.concat "; " (List.map Ref.string_of (List.map fst garbage)));
-    List.iter (fun (self, _) -> Db.VGPU_type.destroy ~__context ~self) garbage
-
-let gc_PVS_proxies ~__context =
-  gc_connector ~__context
-    Db.PVS_proxy.get_all
-    Db.PVS_proxy.get_record
-    (fun x -> valid_ref __context x.pVS_proxy_VIF)
-    (fun x -> valid_ref __context x.pVS_proxy_site)
-    Db.PVS_proxy.destroy
-
-(* A PVS server refers to a PVS site. We delete it, if the reference
- * becomes invalid. At creation, the server is connected to a site and
- * hence we never GC a server right after it was created. *)
-let gc_PVS_servers ~__context =
-  gc_connector ~__context
-    Db.PVS_server.get_all
-    Db.PVS_server.get_record
-    (fun x -> true)
-    (fun x -> valid_ref __context x.pVS_server_site)
-    Db.PVS_server.destroy
-
-let gc_PVS_cache_storage ~__context =
-  gc_connector ~__context
-    Db.PVS_cache_storage.get_all
-    Db.PVS_cache_storage.get_record
-    (fun x -> valid_ref __context x.pVS_cache_storage_site)
-    (fun x -> valid_ref __context x.pVS_cache_storage_host)
-    Db.PVS_cache_storage.destroy
+(* If the SR record is missing, delete the VDI record *)
+let gc_VDIs ~__context =
+  let all_srs = Db.SR.get_all ~__context in
+  List.iter (fun vdi ->
+      let sr = Db.VDI.get_SR ~__context ~self:vdi in
+      if not(List.mem sr all_srs) then begin
+        debug "GCed VDI %s" (Ref.string_of vdi);
+        Db.VDI.destroy ~__context ~self:vdi
+      end) (Db.VDI.get_all ~__context)
 
 let gc_PIFs ~__context =
   gc_connector ~__context Db.PIF.get_all Db.PIF.get_record (fun x->valid_ref __context x.pIF_host) (fun x->valid_ref __context x.pIF_network)
@@ -106,7 +75,8 @@ let gc_PIFs ~__context =
        (try Db.VLAN.destroy ~__context ~self:vlan_to_gc with _ -> ());
        List.iter (fun tunnel -> (try Db.Tunnel.destroy ~__context ~self:tunnel with _ -> ())) tunnels_to_gc;
        List.iter (fun bond -> (try Db.Bond.destroy ~__context ~self:bond with _ -> ())) bonds_to_gc;
-       Db.PIF.destroy ~__context ~self)
+       Db.PIF.destroy ~__context ~self) 
+      
 let gc_VBDs ~__context =
   gc_connector ~__context Db.VBD.get_all Db.VBD.get_record (fun x->valid_ref __context x.vBD_VM) (fun x->valid_ref __context x.vBD_VDI || x.vBD_empty)
     (fun ~__context ~self ->
@@ -123,16 +93,21 @@ let gc_VBDs ~__context =
            (try Db.VBD_metrics.destroy ~__context ~self:metrics with _ -> ());
            Db.VBD.destroy ~__context ~self;
          end)
-
+      
 let gc_crashdumps ~__context =
   gc_connector ~__context Db.Crashdump.get_all Db.Crashdump.get_record
     (fun x->valid_ref __context x.crashdump_VM) (fun x->valid_ref __context x.crashdump_VDI) Db.Crashdump.destroy
+
 let gc_VIFs ~__context =
   gc_connector ~__context Db.VIF.get_all Db.VIF.get_record (fun x->valid_ref __context x.vIF_VM) (fun x->valid_ref __context x.vIF_network)
     (fun ~__context ~self ->
        let metrics = Db.VIF.get_metrics ~__context ~self in
        (try Db.VIF_metrics.destroy ~__context ~self:metrics with _ -> ());
        Db.VIF.destroy ~__context ~self)
+      
+let gc_PBDs ~__context =
+  gc_connector ~__context Db.PBD.get_all Db.PBD.get_record (fun x->valid_ref __context x.pBD_host) (fun x->valid_ref __context x.pBD_SR) Db.PBD.destroy
+
 let gc_VGPUs ~__context =
   gc_connector ~__context Db.VGPU.get_all Db.VGPU.get_record (fun x->valid_ref __context x.vGPU_VM) (fun x->valid_ref __context x.vGPU_GPU_group)
     (fun ~__context ~self ->
@@ -165,16 +140,30 @@ let gc_PGPUs ~__context =
        Xapi_gpu_group.update_supported_VGPU_types ~__context ~self:group)
     affected_groups
 
-let gc_PBDs ~__context =
-  gc_connector ~__context Db.PBD.get_all Db.PBD.get_record (fun x->valid_ref __context x.pBD_host) (fun x->valid_ref __context x.pBD_SR) Db.PBD.destroy
+let gc_VGPU_types ~__context =
+  (* We delete a VGPU_type iff it does not appear in the supported_VGPU_types
+     	 * of any PGPU _and_ there doesn't exist a VGPU with this VGPU_type *)
+  let open Db_filter_types in
+  let garbage = Db.VGPU_type.get_records_where ~__context
+      ~expr:(And ((Eq (Field "VGPUs", Literal "()")),
+                  (Eq (Field "supported_on_PGPUs", Literal "()")))) in
+  match garbage with
+  | [] -> ()
+  | _ ->
+    debug "GC-ing the following unused and unsupported VGPU_types: [ %s ]"
+      (String.concat "; " (List.map Ref.string_of (List.map fst garbage)));
+    List.iter (fun (self, _) -> Db.VGPU_type.destroy ~__context ~self) garbage
+
 let gc_Host_patches ~__context =
   gc_connector ~__context Db.Host_patch.get_all Db.Host_patch.get_record (fun x->valid_ref __context x.host_patch_host) (fun x->valid_ref __context x.host_patch_pool_patch) Db.Host_patch.destroy
+
 let gc_host_cpus ~__context =
   let host_cpus = Db.Host_cpu.get_all ~__context in
   List.iter
     (fun hcpu ->
        if not (valid_ref __context (Db.Host_cpu.get_host ~__context ~self:hcpu)) then
          Db.Host_cpu.destroy ~__context ~self:hcpu) host_cpus
+         
 let gc_host_metrics ~__context =
   let all_host_metrics = Db.Host_metrics.get_all ~__context in
   let metrics = List.map (fun host-> Db.Host.get_metrics ~__context ~self:host) in
@@ -183,110 +172,6 @@ let gc_host_metrics ~__context =
     (fun hmetric->
        if not (List.mem hmetric host_metrics) then
          Db.Host_metrics.destroy ~__context ~self:hmetric) all_host_metrics
-
-(* If the SR record is missing, delete the VDI record *)
-let gc_VDIs ~__context =
-  let all_srs = Db.SR.get_all ~__context in
-  List.iter (fun vdi ->
-      let sr = Db.VDI.get_SR ~__context ~self:vdi in
-      if not(List.mem sr all_srs) then begin
-        debug "GCed VDI %s" (Ref.string_of vdi);
-        Db.VDI.destroy ~__context ~self:vdi
-      end) (Db.VDI.get_all ~__context)
-
-let gc_consoles ~__context =
-  List.iter (fun console ->
-      if not (valid_ref __context (Db.Console.get_VM ~__context ~self:console))
-      then begin
-        Db.Console.destroy ~__context ~self:console;
-        debug "GCed console %s" (Ref.string_of console);
-      end
-    ) (Db.Console.get_all ~__context)
-
-let timeout_sessions_common ~__context sessions limit session_group =
-  let unused_sessions = List.filter
-      (fun (x, _) ->
-         let rec is_session_unused s =
-           if (s=Ref.null) then true (* top of session tree *)
-           else
-             try (* if no session s, assume default value true=unused *)
-               let tasks = (Db.Session.get_tasks ~__context ~self:s) in
-               let parent = (Db.Session.get_parent ~__context ~self:s) in
-               (List.for_all
-                  (fun t -> TaskHelper.status_is_completed
-                      (* task might not exist anymore, assume completed in this case *)
-                      (try Db.Task.get_status ~__context ~self:t with _->`success)
-                  )
-                  tasks
-               )
-               && (is_session_unused parent)
-             with _->true
-         in is_session_unused x
-      )
-      sessions
-  in
-  (* Only keep a list of (ref, last_active, uuid) *)
-  let disposable_sessions = List.map (fun (x, y) -> x, Date.to_float y.Db_actions.session_last_active, y.Db_actions.session_uuid) unused_sessions in
-  (* Definitely invalidate sessions last used long ago *)
-  let threshold_time = Unix.time () -. !Xapi_globs.inactive_session_timeout in
-  let young, old = List.partition (fun (_, y, _) -> y > threshold_time) disposable_sessions in
-  (* If there are too many young sessions then we need to delete the oldest *)
-  let lucky, unlucky =
-    if List.length young <= limit
-    then young, [] (* keep them all *)
-    else
-      (* Need to reverse sort by last active and drop the oldest *)
-      List.chop limit (List.sort (fun (_,a, _) (_,b, _) -> compare b a) young) in
-  let cancel doc sessions =
-    List.iter
-      (fun (s, active, uuid) ->
-         debug "Session.destroy _ref=%s uuid=%s %s (last active %s): %s" (Ref.string_of s) uuid (Context.trackid_of_session (Some s)) (Date.to_string (Date.of_float active)) doc;
-         Xapi_session.destroy_db_session ~__context ~self:s
-      ) sessions in
-  (* Only the 'lucky' survive: the 'old' and 'unlucky' are destroyed *)
-  if unlucky <> []
-  then debug "Number of disposable sessions in group '%s' in database (%d/%d) exceeds limit (%d): will delete the oldest" session_group (List.length disposable_sessions) (List.length sessions) limit;
-  cancel (Printf.sprintf "Timed out session in group '%s' because of its age" session_group) old;
-  cancel (Printf.sprintf "Timed out session in group '%s' because max number of sessions was exceeded" session_group) unlucky
-
-let last_session_log_time = ref None
-
-let timeout_sessions ~__context =
-  let all_sessions = Db.Session.get_internal_records_where ~__context ~expr:Db_filter_types.True in
-
-  let pool_sessions, nonpool_sessions = List.partition (fun (_, s) -> s.Db_actions.session_pool) all_sessions in
-  let use_root_auth_name s = s.Db_actions.session_auth_user_name = "" || s.Db_actions.session_auth_user_name = "root" in
-  let anon_sessions, named_sessions = List.partition (fun (_, s) -> s.Db_actions.session_originator = "" && use_root_auth_name s) nonpool_sessions in
-  let session_groups = Hashtbl.create 37 in
-  List.iter (function (_, s) as rs ->
-      let key = if use_root_auth_name s then `Orig s.Db_actions.session_originator else `Name s.Db_actions.session_auth_user_name in
-      let current_sessions =
-        try Hashtbl.find session_groups key
-        with Not_found -> [] in
-      Hashtbl.replace session_groups key (rs :: current_sessions)
-    ) named_sessions;
-
-  let should_log = match !last_session_log_time with
-    | None -> true
-    | Some t -> Unix.time () -. t > 600.0 (* Every 10 mins, dump session stats *)
-  in
-
-  if should_log then begin
-    last_session_log_time := Some (Unix.time ());
-    let nbindings = Hashtbl.fold (fun _ _ acc -> 1+acc) session_groups 0 in
-    debug "session_log: active_sessions=%d (%d pool, %d anon, %d named - %d groups)"
-      (List.length all_sessions) (List.length pool_sessions) (List.length anon_sessions) (List.length named_sessions) nbindings
-  end;
-
-  begin
-    Hashtbl.iter
-      (fun key ss -> match key with
-         | `Orig orig -> timeout_sessions_common ~__context ss Xapi_globs.max_sessions_per_originator ("originator:"^orig)
-         | `Name name -> timeout_sessions_common ~__context ss Xapi_globs.max_sessions_per_user_name ("username:"^name))
-      session_groups;
-    timeout_sessions_common ~__context anon_sessions Xapi_globs.max_sessions "external";
-    timeout_sessions_common ~__context pool_sessions Xapi_globs.max_sessions "internal";
-  end
 
 let probation_pending_tasks = Hashtbl.create 53
 
@@ -371,6 +256,131 @@ let timeout_tasks ~__context =
     ) (old @ unlucky);
   if List.length lucky > Xapi_globs.max_tasks
   then warn "There are more pending tasks than the maximum allowed: %d > %d" (List.length lucky) Xapi_globs.max_tasks
+  
+  
+let timeout_sessions_common ~__context sessions limit session_group =
+  let unused_sessions = List.filter
+      (fun (x, _) ->
+         let rec is_session_unused s =
+           if (s=Ref.null) then true (* top of session tree *)
+           else
+             try (* if no session s, assume default value true=unused *)
+               let tasks = (Db.Session.get_tasks ~__context ~self:s) in
+               let parent = (Db.Session.get_parent ~__context ~self:s) in
+               (List.for_all
+                  (fun t -> TaskHelper.status_is_completed
+                      (* task might not exist anymore, assume completed in this case *)
+                      (try Db.Task.get_status ~__context ~self:t with _->`success)
+                  )
+                  tasks
+               )
+               && (is_session_unused parent)
+             with _->true
+         in is_session_unused x
+      )
+      sessions
+  in
+  (* Only keep a list of (ref, last_active, uuid) *)
+  let disposable_sessions = List.map (fun (x, y) -> x, Date.to_float y.Db_actions.session_last_active, y.Db_actions.session_uuid) unused_sessions in
+  (* Definitely invalidate sessions last used long ago *)
+  let threshold_time = Unix.time () -. !Xapi_globs.inactive_session_timeout in
+  let young, old = List.partition (fun (_, y, _) -> y > threshold_time) disposable_sessions in
+  (* If there are too many young sessions then we need to delete the oldest *)
+  let lucky, unlucky =
+    if List.length young <= limit
+    then young, [] (* keep them all *)
+    else
+      (* Need to reverse sort by last active and drop the oldest *)
+      List.chop limit (List.sort (fun (_,a, _) (_,b, _) -> compare b a) young) in
+  let cancel doc sessions =
+    List.iter
+      (fun (s, active, uuid) ->
+         debug "Session.destroy _ref=%s uuid=%s %s (last active %s): %s" (Ref.string_of s) uuid (Context.trackid_of_session (Some s)) (Date.to_string (Date.of_float active)) doc;
+         Xapi_session.destroy_db_session ~__context ~self:s
+      ) sessions in
+  (* Only the 'lucky' survive: the 'old' and 'unlucky' are destroyed *)
+  if unlucky <> []
+  then debug "Number of disposable sessions in group '%s' in database (%d/%d) exceeds limit (%d): will delete the oldest" session_group (List.length disposable_sessions) (List.length sessions) limit;
+  cancel (Printf.sprintf "Timed out session in group '%s' because of its age" session_group) old;
+  cancel (Printf.sprintf "Timed out session in group '%s' because max number of sessions was exceeded" session_group) unlucky
+
+let last_session_log_time = ref None
+
+let timeout_sessions ~__context =
+  let all_sessions = Db.Session.get_internal_records_where ~__context ~expr:Db_filter_types.True in
+
+  let pool_sessions, nonpool_sessions = List.partition (fun (_, s) -> s.Db_actions.session_pool) all_sessions in
+  let use_root_auth_name s = s.Db_actions.session_auth_user_name = "" || s.Db_actions.session_auth_user_name = "root" in
+  let anon_sessions, named_sessions = List.partition (fun (_, s) -> s.Db_actions.session_originator = "" && use_root_auth_name s) nonpool_sessions in
+  let session_groups = Hashtbl.create 37 in
+  List.iter (function (_, s) as rs ->
+      let key = if use_root_auth_name s then `Orig s.Db_actions.session_originator else `Name s.Db_actions.session_auth_user_name in
+      let current_sessions =
+        try Hashtbl.find session_groups key
+        with Not_found -> [] in
+      Hashtbl.replace session_groups key (rs :: current_sessions)
+    ) named_sessions;
+
+  let should_log = match !last_session_log_time with
+    | None -> true
+    | Some t -> Unix.time () -. t > 600.0 (* Every 10 mins, dump session stats *)
+  in
+
+  if should_log then begin
+    last_session_log_time := Some (Unix.time ());
+    let nbindings = Hashtbl.fold (fun _ _ acc -> 1+acc) session_groups 0 in
+    debug "session_log: active_sessions=%d (%d pool, %d anon, %d named - %d groups)"
+      (List.length all_sessions) (List.length pool_sessions) (List.length anon_sessions) (List.length named_sessions) nbindings
+  end;
+
+  begin
+    Hashtbl.iter
+      (fun key ss -> match key with
+         | `Orig orig -> timeout_sessions_common ~__context ss Xapi_globs.max_sessions_per_originator ("originator:"^orig)
+         | `Name name -> timeout_sessions_common ~__context ss Xapi_globs.max_sessions_per_user_name ("username:"^name))
+      session_groups;
+    timeout_sessions_common ~__context anon_sessions Xapi_globs.max_sessions "external";
+    timeout_sessions_common ~__context pool_sessions Xapi_globs.max_sessions "internal";
+  end
+  
+let gc_messages ~__context =
+  Xapi_message.gc ~__context
+  
+let gc_consoles ~__context =
+  List.iter (fun console ->
+      if not (valid_ref __context (Db.Console.get_VM ~__context ~self:console))
+      then begin
+        Db.Console.destroy ~__context ~self:console;
+        debug "GCed console %s" (Ref.string_of console);
+      end
+    ) (Db.Console.get_all ~__context)
+  
+let gc_PVS_proxies ~__context =
+  gc_connector ~__context
+    Db.PVS_proxy.get_all
+    Db.PVS_proxy.get_record
+    (fun x -> valid_ref __context x.pVS_proxy_VIF)
+    (fun x -> valid_ref __context x.pVS_proxy_site)
+    Db.PVS_proxy.destroy
+  
+(* A PVS server refers to a PVS site. We delete it, if the reference
+ * becomes invalid. At creation, the server is connected to a site and
+ * hence we never GC a server right after it was created. *)
+let gc_PVS_servers ~__context =
+  gc_connector ~__context
+    Db.PVS_server.get_all
+    Db.PVS_server.get_record
+    (fun x -> true)
+    (fun x -> valid_ref __context x.pVS_server_site)
+    Db.PVS_server.destroy
+  
+let gc_PVS_cache_storage ~__context =
+  gc_connector ~__context
+    Db.PVS_cache_storage.get_all
+    Db.PVS_cache_storage.get_record
+    (fun x -> valid_ref __context x.pVS_cache_storage_site)
+    (fun x -> valid_ref __context x.pVS_cache_storage_host)
+    Db.PVS_cache_storage.destroy
 
 (*
 let timeout_alerts ~__context =
@@ -383,8 +393,6 @@ let timeout_alerts ~__context =
   ) all_alerts
 *)
 
-let gc_messages ~__context =
-  Xapi_message.gc ~__context
 
 (* do VDIs first because this will cause some VBDs to be affected *)
 let gc_subtask_list = [
