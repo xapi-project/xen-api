@@ -56,6 +56,7 @@ let rel_indigo = "indigo"
 let rel_dundee = "dundee"
 let rel_ely = "ely"
 let rel_falcon = "falcon"
+let rel_inverness = "inverness"
 
 type api_release = {
     code_name: string option;
@@ -179,6 +180,12 @@ let release_order_full = [{
       version_major = 2;
       version_minor = 7;
       branding   = "XenServer 7.2";
+    }; {
+      code_name     = Some rel_inverness;
+      (** TODO replace with the actual version numbers when Inverness is released *)
+      version_major = 2;
+      version_minor = 7;
+      branding   = "Unreleased";
     };
   ]
 
