@@ -493,11 +493,11 @@ type where_record = {
   return: string;      (** we'd like to return this field... *)
   where_field: string; (** where this other field... *)
   where_value: string; (** contains this value *)
-} with rpc
+} [@@deriving rpc]
 
 type structured_op_t =
   | AddSet
   | RemoveSet
   | AddMap
   | RemoveMap
-with rpc
+[@@deriving rpc]
