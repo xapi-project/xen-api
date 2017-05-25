@@ -87,6 +87,9 @@ let ely_release_schema_minor_vsn = 108
 let falcon_release_schema_major_vsn = 5
 let falcon_release_schema_minor_vsn = 120
 
+let inverness_release_schema_major_vsn = 5
+let inverness_release_schema_minor_vsn = 120
+
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
 let tech_preview_releases = [
@@ -228,6 +231,12 @@ let get_product_releases in_product_since =
     | x::xs when code_name_of_release x = in_product_since -> "closed"::in_product_since::(List.map code_name_of_release xs)
     | x::xs -> go_through_release_order xs
   in go_through_release_order release_order
+
+let inverness_release =
+  { internal = get_product_releases rel_inverness
+  ; opensource = get_oss_releases None
+  ; internal_deprecated_since = None
+  }
 
 let falcon_release =
   { internal = get_product_releases rel_falcon
