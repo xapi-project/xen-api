@@ -65,6 +65,8 @@ type api_release = {
     branding: string;
 }
 
+(* When you add a new release, use the version number of the latest release,
+   and "Unreleased" for the branding, until the actual values are finalised. *)
 let release_order_full = [{
       code_name     = Some rel_rio;
       version_major = 1;
