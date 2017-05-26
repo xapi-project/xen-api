@@ -356,12 +356,7 @@ let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
         debug "Copying the VBDs";
         let (_ : [`VBD] Ref.t list) =
           List.map (fun (vbd, vdi, _) -> Xapi_vbd_helpers.copy ~__context ~vm ~vdi vbd) (cloned_disks @ cloned_CDs) in
-        (* XXX: no VBDs stored in the LBR now *)
-   (*
-			(* To include the case of checkpoints we must also update the VBD references in the LBR *)
-			let snapshot = Helpers.get_boot_record ~__context ~self:vm in
-			Helpers.set_boot_record ~__context ~self:vm { snapshot with API.vM_VBDs = vbds };
-			  *)
+
         TaskHelper.set_progress ~__context 0.7;
 
         debug "Update the suspend_VDI";
