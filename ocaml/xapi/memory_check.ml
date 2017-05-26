@@ -24,18 +24,18 @@ let ( /// ) = Int64.div
 let vm_compute_required_memory vm_record guest_memory_kib =
   let vcpu_count = Int64.to_int vm_record.API.vM_VCPUs_max in
   let multiplier =
-    if Helpers.is_hvm vm_record
+    if Helpers.will_boot_hvm_from_record vm_record
     then vm_record.API.vM_HVM_shadow_multiplier
     else XenopsMemory.Linux.shadow_multiplier_default in
   let target_mib = XenopsMemory.mib_of_kib_used guest_memory_kib in
   let max_mib = XenopsMemory.mib_of_bytes_used vm_record.API.vM_memory_static_max in
   let footprint_mib = (
-    if Helpers.is_hvm vm_record
+    if Helpers.will_boot_hvm_from_record vm_record
     then XenopsMemory.HVM.footprint_mib
     else XenopsMemory.Linux.footprint_mib)
       target_mib max_mib vcpu_count multiplier in
   let shadow_mib = (
-    if Helpers.is_hvm vm_record
+    if Helpers.will_boot_hvm_from_record vm_record
     then XenopsMemory.HVM.shadow_mib
     else XenopsMemory.Linux.shadow_mib)
       max_mib vcpu_count multiplier in
@@ -222,13 +222,13 @@ let host_compute_memory_overhead ~__context ~host =
   (* to time and simply fetch the existing cached value from the database. *)
   Db.Host.get_memory_overhead ~__context ~self:host
 
-let vm_compute_memory_overhead snapshot =
-  let static_max_bytes = snapshot.API.vM_memory_static_max in
+let vm_compute_memory_overhead ~vm_record ~hvm =
+  let static_max_bytes = vm_record.API.vM_memory_static_max in
   let static_max_mib = XenopsMemory.mib_of_bytes_used static_max_bytes in
-  let multiplier = snapshot.API.vM_HVM_shadow_multiplier in
-  let vcpu_count = Int64.to_int (snapshot.API.vM_VCPUs_max) in
+  let multiplier = vm_record.API.vM_HVM_shadow_multiplier in
+  let vcpu_count = Int64.to_int (vm_record.API.vM_VCPUs_max) in
   let memory_overhead_mib = (
-    if Helpers.is_hvm snapshot
+    if hvm
     then XenopsMemory.HVM.overhead_mib
     else XenopsMemory.Linux.overhead_mib)
       static_max_mib vcpu_count multiplier in
