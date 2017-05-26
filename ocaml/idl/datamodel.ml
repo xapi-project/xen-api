@@ -6633,7 +6633,7 @@ let crashdump_destroy = call
 
 (** A crashdump for a particular VM, stored in a particular VDI *)
 let crashdump =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_crashdump ~descr:"A VM crashdump"
+  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:(Some rel_inverness) ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_crashdump ~descr:"A VM crashdump"
     ~gen_events:true
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
