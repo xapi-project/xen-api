@@ -61,10 +61,6 @@ val vm_compute_start_memory : __context:Context.t ->
 val vm_compute_used_memory : __context:Context.t -> accounting_policy ->
   [`VM] Ref.t -> int64
 
-val vm_compute_resume_memory : __context:Context.t -> [`VM] Ref.t -> int64
-
-val vm_compute_migrate_memory : __context:Context.t -> [`VM] Ref.t -> int64
-
 (**
    	Given a host's memory summary and a policy flag (i.e. whether to only
    	consider static_max or to consider dynamic balloon data) it returns a
