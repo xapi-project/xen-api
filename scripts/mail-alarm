@@ -162,7 +162,7 @@ class CpuUsageAlarmETG(EmailTextGenerator):
         elif cls == 'VM':
             self.params = get_VM_params(obj_uuid)
         else:
-            raise Exception, "programmer error"
+            raise Exception, "programmer error - this alarm should only be available for Hosts and VMs"
         self.cls = cls
         self.value = value
         self.alarm_trigger_period = alarm_trigger_period
@@ -205,7 +205,7 @@ class NetworkUsageAlarmETG(EmailTextGenerator):
         elif cls == 'VM':
             self.params = get_VM_params(obj_uuid)
         else:
-            raise Exception, "programmer error"
+            raise Exception, "programmer error - this alarm should only be available for Hosts and VMs"
         self.cls = cls
         self.value = value
         self.alarm_trigger_period = alarm_trigger_period
@@ -499,12 +499,11 @@ class SRIOThroughputTotalAlertETG(EmailTextGenerator):
         if cls == 'Host':
             self.params = get_host_params(obj_uuid)
         else:
-            raise Exception, "programmer error"
+            raise Exception, "programmer error - this alarm should only be available for Hosts"
         self.value = value
         self.alarm_trigger_period = alarm_trigger_period
         self.alarm_trigger_level = alarm_trigger_level
-        self.sr_uuid = sr_uuid
-        self.sr_name = get_sr_name_by_uuid(self.sr_uuid)
+        self.sr_name = get_sr_name_by_uuid(sr_uuid)
 
   def generate_subject(self):
         pool_name = get_pool_name()
