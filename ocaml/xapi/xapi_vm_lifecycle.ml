@@ -190,6 +190,13 @@ let has_feature ~vmgmr ~feature =
       List.assoc feature other = "1"
     with Not_found -> false
 
+(* Returns `true` only if we are certain that the VM has booted PV (if there
+ * is no metrics record, then we can't tell) *)
+let has_definitely_booted_pv ~vmmr =
+  match vmmr with
+  | None -> false
+  | Some r -> r.Db_actions.vM_metrics_hvm = false
+
 (** Return an error iff vmr is an HVM guest and lacks a needed feature.
  *  Note: it turned out that the Windows guest agent does not write "feature-suspend"
  *  on resume (only on startup), so we cannot rely just on that flag. We therefore
@@ -199,10 +206,10 @@ let has_feature ~vmgmr ~feature =
  *  (which is advisory only) and false (more permissive) when we are potentially about
  *  to perform an operation. This makes a difference for ops that require the guest to
  *  react helpfully. *)
-let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
+let check_op_for_feature ~__context ~vmr ~vmmr ~vmgmr ~power_state ~op ~ref ~strict =
   if power_state <> `Running ||
      (* PV guests offer support implicitly *)
-     not (Helpers.has_booted_hvm_of_record ~__context vmr) ||
+     has_definitely_booted_pv ~vmmr ||
      Xapi_pv_driver_version.(has_pv_drivers (of_guest_metrics vmgmr)) (* Full PV drivers imply all features *)
   then None
   else
@@ -356,6 +363,11 @@ let is_mobile ~__context vm strict =
    && not @@ nested_virt ~__context vm metrics)
   || not strict
 
+let maybe_get_metrics ~__context ~ref =
+  if Db.is_valid_ref __context ref
+  then Some (Db.VM_metrics.get_record_internal ~__context ~self:ref)
+  else None
+
 let maybe_get_guest_metrics ~__context ~ref =
   if Db.is_valid_ref __context ref
   then Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:ref)
@@ -368,6 +380,7 @@ let maybe_get_guest_metrics ~__context ~ref =
     support: ops in the suspend-like and shutdown-like categories. *)
 let check_operation_error ~__context ~ref ~op ~strict =
   let vmr = Db.VM.get_record_internal ~__context ~self:ref in
+  let vmmr = maybe_get_metrics ~__context ~ref:(vmr.Db_actions.vM_metrics) in
   let vmgmr = maybe_get_guest_metrics ~__context ~ref:(vmr.Db_actions.vM_guest_metrics) in
   let ref_str = Ref.string_of ref in
   let power_state = vmr.Db_actions.vM_power_state in
@@ -469,7 +482,7 @@ let check_operation_error ~__context ~ref ~op ~strict =
 
   (* check for any HVM guest feature needed by the op *)
   let current_error = check current_error (fun () ->
-      check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict
+      check_op_for_feature ~__context ~vmr ~vmmr ~vmgmr ~power_state ~op ~ref ~strict
     ) in
 
   (* check if the dynamic changeable operations are still valid *)
