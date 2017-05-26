@@ -17,6 +17,7 @@ import tempfile
 import traceback
 import syslog
 import json
+import re
 from xml.dom import minidom
 from xml.sax.saxutils import unescape
 from xml.parsers.expat import ExpatError
@@ -47,6 +48,16 @@ def get_pool_name():
             return master_name
         else:
             return pool_name
+    finally:
+        session.xenapi.session.logout()
+
+def get_sr_name_by_uuid(sr_uuid):
+    session = XenAPI.xapi_local()
+    session.xenapi.login_with_password(ma_username, "", "1.0", "xen-api-scripts-mail-alarm")
+    try:
+        opaque_ref = session.xenapi.SR.get_by_uuid(sr_uuid)
+        sr_name = session.xenapi.SR.get_name_label(opaque_ref)
+        return sr_name
     finally:
         session.xenapi.session.logout()
 
@@ -151,7 +162,7 @@ class CpuUsageAlarmETG(EmailTextGenerator):
         elif cls == 'VM':
             self.params = get_VM_params(obj_uuid)
         else:
-            raise Exception, "programmer error"
+            raise Exception, "programmer error - this alarm should only be available for Hosts and VMs"
         self.cls = cls
         self.value = value
         self.alarm_trigger_period = alarm_trigger_period
@@ -194,7 +205,7 @@ class NetworkUsageAlarmETG(EmailTextGenerator):
         elif cls == 'VM':
             self.params = get_VM_params(obj_uuid)
         else:
-            raise Exception, "programmer error"
+            raise Exception, "programmer error - this alarm should only be available for Hosts and VMs"
         self.cls = cls
         self.value = value
         self.alarm_trigger_period = alarm_trigger_period
@@ -480,6 +491,45 @@ class HAHostFailedETG(EmailTextGenerator):
 
         return body_pattern % self.text
 
+class SRIOThroughputTotalAlertETG(EmailTextGenerator):
+  def __init__(self, cls, obj_uuid, value, alarm_trigger_period, alarm_trigger_level, sr_uuid, mail_language):
+        super(SRIOThroughputTotalAlertETG, self).__init__(mail_language, 'sr_io_throughput_total_alert')
+        if alarm_trigger_period is None:
+            alarm_trigger_period = 60
+        if cls == 'Host':
+            self.params = get_host_params(obj_uuid)
+        else:
+            raise Exception, "programmer error - this alarm should only be available for Hosts"
+        self.value = value
+        self.alarm_trigger_period = alarm_trigger_period
+        self.alarm_trigger_level = alarm_trigger_level
+        self.sr_name = get_sr_name_by_uuid(sr_uuid)
+
+  def generate_subject(self):
+        pool_name = get_pool_name()
+        subject_pattern = self.mail_subject()
+        if subject_pattern is None:
+            subject_pattern = '[%s] Storage Throughput Alarm: The total IO throughput on "%s"'
+
+        return subject_pattern % (pool_name, self.sr_name)
+
+  def generate_body(self):
+        body_pattern = self.mail_body()
+        if body_pattern is None:
+            body_pattern = 'The total read and write throughput of server "%s" on storage repository "%s" has been %.1f MB/s for the last %d seconds.\n' \
+            'This alarm is set to be triggered when the total throughput exceeds %d KB/s.\n' \
+            '\n' \
+            'For Alarm Settings, please log into your %s Console and click on "Storage"->\n' \
+            '"Properties"->"Alerts"\n'
+
+        return body_pattern % \
+            (self.params['name_label'],
+             self.sr_name,
+             self.value,
+             self.alarm_trigger_period,
+             self.alarm_trigger_level * 1024,
+             branding.BRAND_CONSOLE)
+
 class XapiMessage:
     def __init__(self, xml, mail_language):
         "Parse message XML"
@@ -539,11 +589,15 @@ class XapiMessage:
         def get_alarm_config(tag, cast):
             try:   return cast(config_xmldoc.getElementsByTagName(tag)[0].getAttribute('value'))
             except:return None
+        def get_alarm_uuid(tag, cast):
+            try:   return cast(config_xmldoc.getElementsByTagName(tag)[0].getAttribute('uuid'))
+            except:return None
         name                  = get_alarm_config('name',str)
         alarm_trigger_level   = get_alarm_config('alarm_trigger_level',float)
         alarm_trigger_period  = get_alarm_config('alarm_trigger_period',int)
+        uuid               = get_alarm_uuid('configured_on',str)
 
-        return (value,name,alarm_trigger_level,alarm_trigger_period)
+        return (value,name,uuid,alarm_trigger_level,alarm_trigger_period)
 
     def __get_email_text_generator(self):
         """Returns an EmailTextGenerator object appropriate to this XapiMessage or None if none found"""
@@ -552,7 +606,7 @@ class XapiMessage:
 
         if self.name == 'ALARM':
 
-            value, name, alarm_trigger_level, alarm_trigger_period = self.get_message(self.body)
+            value, name, uuid, alarm_trigger_level, alarm_trigger_period = self.get_message(self.body)
 
             # Set the alarm text generator
             if name == 'cpu_usage':
@@ -569,6 +623,8 @@ class XapiMessage:
                 etg = Dom0LogFSUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_level, self.mail_language)
             elif name == 'mem_usage':
                 etg = Dom0MemUsageAlarmETG(self.cls, self.obj_uuid, value, alarm_trigger_level, self.mail_language)
+            elif re.match("sr_io_throughput_total_[0-9a-f]{8}$", name):
+                etg = SRIOThroughputTotalAlertETG(self.cls, self.obj_uuid, value, alarm_trigger_period, alarm_trigger_level, uuid, self.mail_language)
             else:
                 etg = None
         elif self.name == 'HA_HOST_FAILED':
