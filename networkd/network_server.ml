@@ -79,6 +79,19 @@ let reset_state _ () =
 	config := Network_config.read_management_conf ()
 
 let set_gateway_interface _ dbg ~name =
+	(* Update dhclient conf for interface on changing default gateway.
+	 * If new default gateway is not same as gateway_interface from networkd.db then
+	 * we need to remove gateway information from gateway_interface *)
+	begin match !config.gateway_interface with
+	| Some gateway_iface when name <> gateway_iface ->
+		let opts =
+			match !config.dns_interface with
+			| Some dns_iface when gateway_iface = dns_iface -> [`set_dns]
+			| _ -> []
+		in
+		Dhclient.write_conf_file gateway_iface opts
+	| _ -> ()
+	end;
 	debug "Setting gateway interface to %s" name;
 	config := {!config with gateway_interface = Some name}
 
