@@ -32,6 +32,8 @@ FromLineOverride=YES
 
 ma_username="__dom0__mail_alarm"
 
+mail_language_pack_path = '/etc/xapi.d/mail-languages/'
+
 def log_err(err):
     print >>sys.stderr, err
     syslog.syslog(syslog.LOG_USER | syslog.LOG_ERR, "%s: %s" % (sys.argv[0], err))
@@ -123,20 +125,37 @@ def get_config_file():
     except:
         return default_config
 
+def load_mail_language(mail_language):
+    try:
+        mail_language_file = os.path.join(mail_language_pack_path, mail_language + '.json')
+        with open(mail_language_file, 'r') as fileh:
+            return json.load(fileh, encoding="utf-8")
+    except IOError:
+        log_err("Read mail language pack error:[\"%s\"]" % (mail_language_file))
+        return None
+    except ValueError:
+        log_err("Decode JSON string error:[\"%s\"]" % (mail_language_file))
+        return None
+    except Exception as exn:
+        log_err("Unknown Error from Decode [\"%s\"] to JSON object: \"%s\"" % (mail_language_file, str(exn)))
+        return None
+
 class EmailTextGenerator(object):
     def __init__(self, mail_language, mail_language_component):
         self.mail_language = mail_language
         self.mail_language_component = mail_language_component
 
     def mail_err(self, key):
-        log_err("[%s] error in looking for (%s:%s)." % (self.__class__.__name__, self.mail_language_component, key))
-        log_err("Mail language pack: %s." % (self.mail_language))
+        log_err("[%s] error in looking for (%s:%s). Mail language pack:(%s)." % (self.__class__.__name__, self.mail_language_component, key, self.mail_language))
 
     def mail_subject(self):
         try:
             return self.mail_language['mail-alarms'][self.mail_language_component]['subject']
         except KeyError:
-            mail_err('subject')
+            self.mail_err('subject')
+            return None
+        except TypeError:
+            self.mail_err('subject')
             return None
         except Exception as err:
             log_err("[%s] unexpected failure: %s" % (self.__class__.__name__, str(err)))
@@ -146,7 +165,10 @@ class EmailTextGenerator(object):
         try:
             return self.mail_language['mail-alarms'][self.mail_language_component]['body']
         except KeyError:
-            mail_err('body')
+            self.mail_err('body')
+            return None
+        except TypeError:
+            self.mail_err('body')
             return None
         except Exception as err:
             log_err("[%s] unexpected failure: %s" % (self.__class__.__name__, str(err)))
@@ -551,19 +573,7 @@ class XapiMessage:
         except:
             self.body      = ""
         self.pool_name = get_pool_name()
-        try:
-            mail_language_file = '/etc/xapi.d/mail-languages/' + mail_language + '.json'
-            with open(mail_language_file, 'r') as fileh:
-                self.mail_language = json.load(fileh, encoding="utf-8")
-        except IOError:
-            log_err("Read mail language pack error:[\"%s\"]" % (mail_language_file))
-            self.mail_language = None
-        except ValueError:
-            log_err("Decode JSON string error:[\"%s\"]" % (mail_language_file))
-            self.mail_language = None
-        except Exception as exn:
-            log_err("Unknown Error from Decode [\"%s\"] to JSON object: \"%s\"" % (mail_language_file, str(exn)))
-            self.mail_language = None
+        self.mail_language = load_mail_language(mail_language)
 
     def get_priority(self):
         return int(self.priority)
