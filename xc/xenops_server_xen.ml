@@ -3222,7 +3222,7 @@ module Actions = struct
         let open Xenctrl in
         let id = Uuidm.to_string (uuid_of_di di) in
         let update = match kind with
-          | "vbd" | "vbd3" ->
+          | "vbd" | "vbd3" | "qdisk" ->
             let devid' = devid |> int_of_string |> Device_number.of_xenstore_key |> Device_number.to_linux_device in
             Some (Dynamic.Vbd (id, devid'))
           | "vif" -> Some (Dynamic.Vif (id, devid))
