@@ -1662,7 +1662,7 @@ let rrd_cf_type = Enum ("rrd_cf_type",
 let vm_get_boot_record = call
     ~name:"get_boot_record"
     ~in_oss_since:None
-    ~in_product_since:rel_rio
+    ~lifecycle:[Published, rel_rio, ""; Deprecated, rel_vgpu_migration_tech_preview, "Use the current VM record/fields instead"]
     ~doc:"Returns a record describing the VM's dynamic state, initialised when the VM boots and updated to reflect runtime configuration changes e.g. CPU hotplug"
     ~result:(Record _vm, "A record describing the VM")
     ~params:[Ref _vm, "self", "The VM whose boot-time state to return"]
