@@ -1087,7 +1087,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
     assert_sr_support_operations ~__context ~vdi_map ~remote ~ops:required_sr_operations;
     if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:remote.dest_host ();
-    let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+    let snapshot = Db.VM.get_record ~__context ~self:vm in
     Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:remote.dest_host ~snapshot ~do_sr_check:false ();
     if vif_map <> [] then
       raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [

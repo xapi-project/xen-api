@@ -1585,7 +1585,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
           (fun () ->
              with_vbds_marked ~__context ~vm ~doc:"VM.resume" ~op:`attach
                (fun vbds ->
-                  let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+                  let snapshot = Db.VM.get_record ~__context ~self:vm in
                   let (), host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_resume
                       (fun session_id rpc -> Client.VM.resume rpc session_id vm start_paused force) in
                   host
@@ -1616,7 +1616,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun () ->
            with_vbds_marked ~__context ~vm ~doc:"VM.resume_on" ~op:`attach
              (fun vbds ->
-                let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+                let snapshot = Db.VM.get_record ~__context ~self:vm in
                 reserve_memory_for_vm ~__context ~vm ~host ~snapshot ~host_op:`vm_resume
                   (fun () ->
                      do_op_on ~local_fn ~__context ~host
@@ -1669,7 +1669,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
                raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []));
 
            (* Make sure the target has enough memory to receive the VM *)
-           let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+           let snapshot = Db.VM.get_record ~__context ~self:vm in
            (* MTC:  An MTC-protected VM has a peer VM on the destination host to which
               					   it migrates to.  When reserving memory, we must substitute the source VM
               					   with this peer VM.  If is not an MTC-protected VM, then this call will
@@ -1710,7 +1710,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
           if Db.is_valid_ref __context host then
             (* Intra-pool: reserve resources on the destination host, then
              * forward the call to the source. *)
-            let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+            let snapshot = Db.VM.get_record ~__context ~self:vm in
             (fun ~local_fn ~__context ~vm op ->
               reserve_memory_for_vm ~__context ~vm ~host ~snapshot ~host_op:`vm_migrate
                 (fun () -> forward_vm_op ~local_fn ~__context ~vm op))
@@ -3547,7 +3547,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun () ->
            let snapshot, host =
              if Xapi_vm_lifecycle.is_live ~__context ~self:vm then
-               (Helpers.get_boot_record ~__context ~self:vm,
+               (Db.VM.get_record ~__context ~self:vm,
                 Db.VM.get_resident_on ~__context ~self:vm)
              else
                let snapshot = Db.VM.get_record ~__context ~self:vm in
