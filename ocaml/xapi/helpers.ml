@@ -458,31 +458,6 @@ let rolling_upgrade_in_progress ~__context =
   with _ ->
     false
 
-let parse_boot_record ~string:lbr =
-  match Xmlrpc_sexpr.sexpr_str_to_xmlrpc lbr with
-  | None     -> API.Legacy.From.vM_t "ret_val" (Xml.parse_string lbr)
-  | Some xml -> API.Legacy.From.vM_t "ret_val" xml
-
-(** Fetch the configuration the VM was booted with *)
-let get_boot_record_of_record ~__context ~string:lbr ~uuid:current_vm_uuid =
-  try
-    parse_boot_record lbr
-  with e ->
-    (* warn "Warning: exception '%s' parsing last booted record (%s) - returning current record instead" lbr (ExnHelper.string_of_exn e); *)
-    Db.VM.get_record ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:current_vm_uuid)
-
-let get_boot_record ~__context ~self =
-  let r = Db.VM.get_record_internal ~__context ~self in
-  let lbr = get_boot_record_of_record ~__context ~string:r.Db_actions.vM_last_booted_record ~uuid:r.Db_actions.vM_uuid in
-  (* CA-31903: we now use an unhealthy mix of fields from the boot_records and the live VM.
-     In particular the VM is currently using dynamic_min and max from the live VM -- not the boot-time settings. *)
-  { lbr with
-    API.vM_memory_target = 0L;
-    API.vM_memory_dynamic_min = r.Db_actions.vM_memory_dynamic_min;
-    API.vM_memory_dynamic_max = r.Db_actions.vM_memory_dynamic_max;
-  }
-
-
 let set_boot_record ~__context ~self newbootrec =
   (* blank last_booted_record field in newbootrec, so we don't just keep encapsulating
      old last_boot_records in new snapshots! *)
