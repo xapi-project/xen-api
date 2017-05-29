@@ -53,7 +53,7 @@ let run_create_metadata ~__context =
   let (_: API.ref_pool) = make_pool ~__context ~master:host () in
   let vms = Db.VM.get_by_name_label ~__context ~label:test_vm_name in
   let vm = List.nth vms 0 in
-  Xapi_xenops.create_metadata ~__context ~upgrade:false ~self:vm
+  Xapi_xenops.create_metadata ~__context ~self:vm
 
 (* Test the behaviour of the "hvm_serial" other_config/platform key. *)
 module HVMSerial = Generic.Make(Generic.EncapsulateState(struct
