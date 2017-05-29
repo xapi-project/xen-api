@@ -458,29 +458,6 @@ let rolling_upgrade_in_progress ~__context =
   with _ ->
     false
 
-let set_boot_record ~__context ~self newbootrec =
-  (* blank last_booted_record field in newbootrec, so we don't just keep encapsulating
-     old last_boot_records in new snapshots! *)
-  let newbootrec = {newbootrec with API.vM_last_booted_record=""; API.vM_bios_strings=[]} in
-  if rolling_upgrade_in_progress ~__context then
-    begin
-      (* during a rolling upgrade, there might be slaves in the pool
-         who have not yet been upgraded to understand sexprs, so
-         let's still talk using the legacy xmlrpc format.
-      *)
-      let xml = Xml.to_string (API.Legacy.To.vM_t newbootrec) in
-      Db.VM.set_last_booted_record ~__context ~self ~value:xml
-    end
-  else
-    begin
-      (* if it's not a rolling upgrade, then we know everyone
-         else in the pool will understand s-expressions.
-      *)
-      let sexpr = Xmlrpc_sexpr.xmlrpc_to_sexpr_str (API.Legacy.To.vM_t newbootrec) in
-      Db.VM.set_last_booted_record ~__context ~self ~value:sexpr
-    end;
-  ()
-
 (** Inspect the current configuration of a VM and return a boot_method type *)
 let boot_method_of_vm ~__context ~vm =
   if vm.API.vM_HVM_boot_policy <> "" then begin

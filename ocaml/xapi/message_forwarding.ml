@@ -854,11 +854,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
           Xapi_host_helpers.update_allowed_operations ~__context ~self:host
         | None -> ()
       end;
-      (* Make sure the last_booted record has useful values for later use in memory checking
-         			   code. *)
-      if snapshot.API.vM_power_state = `Halted then begin
-        Helpers.set_boot_record ~__context ~self:vm snapshot
-      end;
       (* Once this is set concurrent VM.start calls will start checking the memory used by this VM *)
       Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:host;
       try
