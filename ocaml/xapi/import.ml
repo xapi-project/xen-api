@@ -946,10 +946,10 @@ module VBD : HandlerTools = struct
       (* If the VBD is supposed to be attached to a PV guest (which doesn't support
          				 currently_attached empty drives) then throw a fatal error. *)
       let original_vm = API.Legacy.From.vM_t "" (find_in_export (Ref.string_of vbd_record.API.vBD_VM) state.export) in
-
-      let has_booted_hvm =
-        let lbr = try Helpers.parse_boot_record original_vm.API.vM_last_booted_record with _ -> original_vm in
-        lbr.API.vM_HVM_boot_policy <> "" in
+      (* Note: the following is potentially inaccurate: the find out whether a running or
+       * suspended VM has booted HVM, we must consult the VM metrics, but those aren't
+       * available in the exported metadata. *)
+      let has_booted_hvm = Helpers.will_boot_hvm_from_record original_vm in
 
       (* In the case of dry_run live migration, don't check for
          				 missing disks as CDs will be ejected before the real migration. *)
