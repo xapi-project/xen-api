@@ -173,7 +173,6 @@ let (+++) = Int64.add
 (**     1. The domain zero record.                                     *)
 (**     2. The domain zero console record.                             *)
 (**     3. The domain zero guest metrics record.                       *)
-(**     4. The domain zero shadow record.                              *)
 (** This function makes sure there is exactly one record of each type. *)
 (** It updates existing records if they are found, or else creates new *)
 (** records for any records that are missing.                          *)
@@ -181,8 +180,7 @@ let rec ensure_domain_zero_records ~__context ~host (host_info: host_info) : uni
   maybe_upgrade_domain_zero_record ~__context ~host host_info;
   let domain_zero_ref = ensure_domain_zero_record ~__context host_info in
   ensure_domain_zero_console_record ~__context ~domain_zero_ref;
-  ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref host_info;
-  ensure_domain_zero_shadow_record ~__context ~domain_zero_ref
+  ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref host_info
 
 and maybe_upgrade_domain_zero_record ~__context ~host (host_info: host_info) =
   try
@@ -228,11 +226,6 @@ and ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref (host_in
         ~vcpus:(calculate_domain_zero_vcpu_count ~__context);
       Db.VM.set_metrics ~__context ~self:domain_zero_ref ~value:metrics_ref
     end
-
-and ensure_domain_zero_shadow_record ~__context ~domain_zero_ref : unit =
-  (* Always create a new shadow record. *)
-  let domain_zero_record = Db.VM.get_record ~__context ~self:domain_zero_ref in
-  Helpers.set_boot_record ~__context ~self:domain_zero_ref domain_zero_record
 
 and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
   (* Determine domain 0 memory constraints. *)
