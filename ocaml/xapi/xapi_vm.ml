@@ -940,7 +940,7 @@ let send_trigger ~__context ~vm ~trigger =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "send_trigger" ]))
 
 let get_boot_record ~__context ~self =
-  Helpers.get_boot_record ~__context ~self
+  Db.VM.get_record ~__context ~self
 
 let get_data_sources ~__context ~self =
   List.map Rrdd_helper.to_API_data_source (Rrdd.query_possible_vm_dss ~vm_uuid:(Db.VM.get_uuid ~__context ~self))
