@@ -873,27 +873,8 @@ let apply_guest_agent_config ~__context config =
   let module Client = (val make_client (default_xenopsd ()): XENOPS) in
   Client.HOST.update_guest_agent_features dbg features
 
-(* If a VM was suspended pre-xenopsd it won't have a last_booted_record of the format understood by xenopsd. *)
-(* If we can parse the last_booted_record according to the old syntax, update it before attempting to resume. *)
-let generate_xenops_state ~__context ~self ~vm ~vbds ~pcis ~vgpus =
-  try
-    let vm_to_resume = {
-      (Helpers.parse_boot_record vm.API.vM_last_booted_record) with
-      API.vM_VBDs = vm.API.vM_VBDs
-    } in
-    debug "Successfully parsed old last_booted_record format - translating to new format so that xenopsd can resume the VM.";
-    let module Client = (val make_client (queue_of_vmr vm): XENOPS) in
-    let vm = MD.of_vm ~__context
-        (self, vm_to_resume) vbds (pcis <> []) (vgpus <> [])
-    in
-    let dbg = Context.string_of_task __context in
-    Client.VM.generate_state_string dbg vm
-  with Xml.Error _ ->
-    debug "last_booted_record is not of the old format, so we should be able to resume the VM.";
-    vm.API.vM_last_booted_record
-
 (* Create an instance of Metadata.t, suitable for uploading to the xenops service *)
-let create_metadata ~__context ~upgrade ~self =
+let create_metadata ~__context ~self =
   let vm = Db.VM.get_record ~__context ~self in
   let vbds = List.filter (fun vbd -> vbd.API.vBD_currently_attached)
       (List.map (fun self -> Db.VBD.get_record ~__context ~self) vm.API.vM_VBDs) in
@@ -904,11 +885,12 @@ let create_metadata ~__context ~upgrade ~self =
   let pcis = MD.pcis_of_vm ~__context (self, vm) in
   let vgpus = MD.vgpus_of_vm ~__context (self, vm) in
   let domains =
-    (* For suspended VMs, we may need to translate the last_booted_record from the old format. *)
-    if vm.API.vM_power_state = `Suspended || upgrade then begin
-      (* We need to recall the currently_attached devices *)
-      Some(generate_xenops_state ~__context ~self ~vm ~vbds ~pcis ~vgpus)
-    end else None in
+    (* For suspended VMs, the last_booted_record contains the "live" xenopsd state. *)
+    if vm.API.vM_power_state = `Suspended then
+      Some vm.API.vM_last_booted_record
+    else
+      None
+  in
   let open Metadata in {
     vm = MD.of_vm ~__context (self, vm) vbds (pcis <> []) (vgpus <> []);
     vbds = vbds';
@@ -1092,9 +1074,9 @@ module Xenopsd_metadata = struct
       end
     end
 
-  let push ~__context ~upgrade ~self =
+  let push ~__context ~self =
     Mutex.execute metadata_m (fun () ->
-        let md = create_metadata ~__context ~upgrade ~self in
+        let md = create_metadata ~__context ~self in
         let txt = md |> Metadata.rpc_of_t |> Jsonrpc.to_string in
         info "xenops: VM.import_metadata %s" txt;
         let dbg = Context.string_of_task __context in
@@ -1154,7 +1136,7 @@ module Xenopsd_metadata = struct
          let dbg = Context.string_of_task __context in
          if vm_exists_in_xenopsd queue_name dbg id
          then
-           let txt = create_metadata ~__context ~upgrade:false ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
+           let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
            begin match Xapi_cache.find_nolock id with
              | Some old when old = txt -> ()
              | _ ->
@@ -2528,7 +2510,7 @@ let start ~__context ~self paused force =
       let module Client = (val make_client queue_name : XENOPS) in
       debug "Sending VM %s configuration to xenopsd" (Ref.string_of self);
       try
-        let id = Xenopsd_metadata.push ~__context ~upgrade:false ~self in
+        let id = Xenopsd_metadata.push ~__context ~self in
         Xapi_network.with_networks_attached_for_vm ~__context ~vm:self (fun () ->
             info "xenops: VM.start %s" id;
             if not paused then begin
@@ -2714,7 +2696,7 @@ let resume ~__context ~self ~start_paused ~force =
            Events_from_xenopsd.with_suppressed queue_name dbg vm_id
              (fun () ->
                 debug "Sending VM %s configuration to xenopsd" (Ref.string_of self);
-                let id = Xenopsd_metadata.push ~__context ~upgrade:false ~self in
+                let id = Xenopsd_metadata.push ~__context ~self in
                 Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
                   (fun () ->
                      info "xenops: VM.resume %s from %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);
