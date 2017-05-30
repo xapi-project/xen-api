@@ -10,7 +10,6 @@ build: setup.data
 ifeq ($(ENABLE_XENSERVER),--enable-xenserver)
 	rm -f sparse_dd
 	ln -s sparse_dd.native sparse_dd
-	./sparse_dd --help=groff > sparse_dd.1
 endif
 
 setup.data: setup.ml
