@@ -66,6 +66,7 @@ let configure bindir libexecdir etcdir =
       "]";
       "man: [";    
       "  \"vhd-tool.1\" { \"vhd-tool.1\" }";
+      "]";
     ] in
   output_file "vhd-tool.install" lines
 
