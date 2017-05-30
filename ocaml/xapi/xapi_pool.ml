@@ -1060,9 +1060,8 @@ let eject ~__context ~host =
     in
 
     let write_first_boot_management_interface_configuration_file () =
-      (* During pool.eject firstboot scripts running on the ejected host will write the new
-       * management_interface in inventory. In case of VLAN - new vlan bridge will be written. *)
-      let bridge = Xapi_pif.bridge_naming_convention management_device in
+      (* During firstboot, now inventory has an empty MANAGEMENT_INTERFACE *)
+      let bridge = "" in
       Xapi_inventory.update Xapi_inventory._management_interface bridge;
       let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:management_pif in
       Xapi_inventory.update Xapi_inventory._management_address_type
