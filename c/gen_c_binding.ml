@@ -212,7 +212,8 @@ and write_decl {name=classname; contents=contents; description=description;
   let needed = ref (StringSet.add (classname ^ "_decl") StringSet.empty) in
   let record = decl_record needed tn record_tn contents in
   let record_opt = decl_record_opt needed tn record_tn record_opt_tn contents in
-  let message_decls = decl_messages needed classname messages in
+  let message_decls = decl_messages needed classname
+    (List.filter (fun x-> not (classname = "event" && x.msg_name = "from")) messages) in
   let full_stop = if String.endswith "." description then "" else "."
   in
 
@@ -1090,8 +1091,7 @@ and write_impl {name=classname; contents=contents; messages=messages} out_chan =
   let record_opt_tn = record_opt_typename classname in
   let msgs =
     impl_messages needed classname
-      ((List.filter (fun x -> x.msg_name <> "get_uuid") messages) @
-       (List.filter (fun x -> x.msg_name = "get_uuid")  messages))
+      (List.filter (fun x-> not (classname = "event" && x.msg_name = "from")) messages)
  in
   let record_free_handle =
     if classname = "event" then "" else "    free(record->handle);\n" in

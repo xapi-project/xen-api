@@ -96,9 +96,9 @@ gen_powershell_binding.native: build
 c: gen_c_binding.native
 	./gen_c_binding.native -d _build/c/autogen -t c/templates
 #source
-	cp c/xen_internal.h _build/c/autogen/include
-	cp c/xen_common.h c/xen_string_set.h c/xen_int_set.h _build/c/autogen/include/xen/api
-	cp c/xen_common.c c/xen_string_set.c c/xen_int_set.c _build/c/autogen/src
+	cp c/xen_internal.h c/sources/xen_event_internal.h _build/c/autogen/include
+	cp c/xen_common.h c/xen_string_set.h c/xen_int_set.h c/sources/xen_event_batch.h _build/c/autogen/include/xen/api
+	cp c/xen_common.c c/xen_string_set.c c/xen_int_set.c c/sources/xen_event_batch.c _build/c/autogen/src
 #tests
 	mkdir -p _build/c/autogen/test
 	cp c/test/*.c _build/c/autogen/test

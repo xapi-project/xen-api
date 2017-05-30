@@ -166,20 +166,17 @@ int main(int argc, char **argv)
         xmlCleanupParser();                     \
     } while(0)                                  \
 
-    
+
     xen_session *session =
         xen_session_login_with_password(call_func, NULL, username, password,
                                         xen_api_latest_version);
 
-    const char* ALL_CLASSES = "*";
-    char *all_classes = calloc(1, sizeof(all_classes));
-    strcpy(all_classes, ALL_CLASSES);
+    //get events for all classes
+    char *all_classes = calloc(1, sizeof (all_classes));
+    strncpy(all_classes, "*", sizeof (all_classes) - 1);
 
     struct xen_string_set *classes = xen_string_set_alloc(1);
     classes->contents[0] = all_classes;
-    
-    xen_event_register(session, classes);
-    xen_string_set_free(classes);
 
     if (!session->ok)
     {
@@ -188,19 +185,33 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    // interval in seconds, after which the xen_event_from call should time out
+    const double timeout = 30;
+
+    // the output of xen_event_from includes a token, which can be passed into a
+    // subsequent xen_event_from call to retrieve only the events that have occurred
+    // since the last call; if an empty string is passed, xen_event_from will return
+    // all events (this is normally done for the very first call)
+    char token[512];
+    token[0] = '\0';
+
     while (true)
     {
-        struct xen_event_record_set *events;
-        if (!xen_event_next(session, &events))
+        printf("Polling for events...\n");
+        struct xen_event_batch *event_batch;
+        if (!xen_event_from(session, &event_batch, classes, token, timeout))
         {
             print_error(session);
             CLEANUP;
             return 1;
         }
 
-        for (size_t i = 0; i < events->size; i++)
+        strncpy(token, event_batch->token, sizeof (token) - 1);
+        token[sizeof (token) - 1] = '\0';
+
+        for (size_t i = 0; i < event_batch->events->size; i++)
         {
-            xen_event_record *ev = events->contents[i];
+            xen_event_record *ev = event_batch->events->contents[i];
             char time[256];
             struct tm *tm = localtime(&ev->timestamp);
             my_strftime(time, 256, "%c, local time", tm);
@@ -223,8 +234,10 @@ int main(int argc, char **argv)
             }
         }
 
-        xen_event_record_set_free(events);
+        xen_event_batch_free(event_batch);
     }
+
+    xen_string_set_free(classes);
 
     CLEANUP;
 
