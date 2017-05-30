@@ -7,10 +7,9 @@ build: setup.data
 	rm -f vhd-tool
 	ln -s main.native vhd-tool
 	./vhd-tool --help=groff > vhd-tool.1
-ifeq ($(ENABLE_XENSERVER), "--enable-xenserver")
+ifeq ($(ENABLE_XENSERVER),--enable-xenserver)
 	rm -f sparse_dd
 	ln -s sparse_dd.native sparse_dd
-	./sparse_dd --help=groff > sparse_dd.1
 endif
 
 setup.data: setup.ml
@@ -30,7 +29,7 @@ clean: setup.data
 install: build
 	mkdir -p ${BINDIR}
 	install -m 755 main.native ${BINDIR}/vhd-tool || echo "Failed to install vhd-tool"
-ifeq ($(ENABLE_XENSERVER), "--enable-xenserver")
+ifeq ($(ENABLE_XENSERVER),--enable-xenserver)
 	mkdir -p ${LIBEXECDIR}
 	install -m 755 sparse_dd.native ${LIBEXECDIR}/sparse_dd || echo "Failed to install sparse_dd"
 	mkdir -p ${ETCDIR}
@@ -40,7 +39,7 @@ endif
 .PHONY: uninstall
 uninstall:
 	rm -f ${BINDIR}/vhd-tool
-ifeq ($(ENABLE_XENSERVER), "--enable-xenserver")
+ifeq ($(ENABLE_XENSERVER),--enable-xenserver)
 	rm -f ${LIBEXECDIR}/sparse_dd
 	rm -f ${ETCDIR}/sparse_dd.conf
 endif

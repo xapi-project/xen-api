@@ -66,10 +66,6 @@ let configure bindir libexecdir etcdir =
       "]";
       "man: [";    
       "  \"vhd-tool.1\" { \"vhd-tool.1\" }";
-    ] @ (if enable_xenserver
-         then [ "  \"sparse_dd.1\" { \"sparse_dd.1\" }" ]
-         else []) @ [
-      "]";  
     ] in
   output_file "vhd-tool.install" lines
 
