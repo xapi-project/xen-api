@@ -79,7 +79,9 @@ let marshall_structured_op x =
       AddSet -> "addset"
     | RemoveSet -> "removeset"
     | AddMap -> "addmap"
-    | RemoveMap -> "removemap" in
+    | RemoveMap -> "removemap"
+    | AddMapLegacy -> "addmap" (* Nb, we always use 'non-legacy' mode for remote access *)
+  in
   XMLRPC.To.string str
 let unmarshall_structured_op xml =
   match (XMLRPC.From.string xml) with
@@ -311,4 +313,3 @@ let unmarshall_read_records_where_response xml =
            [ref_xml; rec_xml] -> (XMLRPC.From.string ref_xml, unmarshall_read_record_response rec_xml)
          | _ -> raise DB_remote_marshall_error)
       xml_refs_and_recs_list
-

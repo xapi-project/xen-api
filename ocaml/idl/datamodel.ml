@@ -87,9 +87,8 @@ let ely_release_schema_minor_vsn = 108
 let falcon_release_schema_major_vsn = 5
 let falcon_release_schema_minor_vsn = 120
 
-(* the schema vsn of the last release: used to determine whether we can upgrade or not.. *)
-let last_release_schema_major_vsn = falcon_release_schema_major_vsn
-let last_release_schema_minor_vsn = falcon_release_schema_minor_vsn
+let inverness_release_schema_major_vsn = 5
+let inverness_release_schema_minor_vsn = 120
 
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
@@ -219,8 +218,6 @@ let _R_ALL = _R_READ_ONLY
 let errors = Hashtbl.create 10
 let messages = Hashtbl.create 10
 
-exception UnspecifiedRelease
-
 let get_oss_releases in_oss_since =
   match in_oss_since with
     None -> []
@@ -231,8 +228,15 @@ let get_product_releases in_product_since =
   let rec go_through_release_order rs =
     match rs with
       [] -> raise UnspecifiedRelease
-    | x::xs -> if x=in_product_since then "closed"::x::xs else go_through_release_order xs
+    | x::xs when code_name_of_release x = in_product_since -> "closed"::in_product_since::(List.map code_name_of_release xs)
+    | x::xs -> go_through_release_order xs
   in go_through_release_order release_order
+
+let inverness_release =
+  { internal = get_product_releases rel_inverness
+  ; opensource = get_oss_releases None
+  ; internal_deprecated_since = None
+  }
 
 let falcon_release =
   { internal = get_product_releases rel_falcon
@@ -240,8 +244,8 @@ let falcon_release =
   ; internal_deprecated_since=None
   }
 
-let dundee_plus_release =
-  { internal = get_product_releases rel_dundee_plus
+let ely_release =
+  { internal = get_product_releases rel_ely
   ; opensource=get_oss_releases None
   ; internal_deprecated_since=None
   }
@@ -307,37 +311,37 @@ let cowley_release =
   }
 
 let midnight_ride_release =
-  { internal=get_product_releases "midnight-ride"
+  { internal=get_product_releases rel_midnight_ride
   ; opensource=get_oss_releases None
   ; internal_deprecated_since=None
   }
 
 let george_release =
-  { internal=get_product_releases "george"
+  { internal=get_product_releases rel_george
   ; opensource=get_oss_releases None
   ; internal_deprecated_since=None
   }
 
 let orlando_release =
-  { internal=get_product_releases "orlando"
+  { internal=get_product_releases rel_orlando
   ; opensource=get_oss_releases None
   ; internal_deprecated_since=None
   }
 
 let miami_symc_release =
-  { internal=get_product_releases "symc"
+  { internal=get_product_releases rel_symc
   ; opensource=get_oss_releases None
   ; internal_deprecated_since=None
   }
 
 let miami_release =
-  { internal=get_product_releases "miami"
+  { internal=get_product_releases rel_miami
   ; opensource=get_oss_releases None
   ; internal_deprecated_since=None
   }
 
 let rio_release =
-  { internal=get_product_releases "rio"
+  { internal=get_product_releases rel_rio
   ; opensource=get_oss_releases (Some "3.0.3")
   ; internal_deprecated_since=None
   }
@@ -504,6 +508,9 @@ let _ =
 
   error Api_errors.cannot_contact_host ["host"]
     ~doc:"Cannot forward messages because the host cannot be contacted.  The host may be switched off or there may be network connectivity problems." ();
+
+  error Api_errors.tls_connection_failed ["address"; "port"]
+    ~doc:"Cannot contact the other host using TLS on the specified address and port" ();
 
   error Api_errors.uuid_invalid [ "type"; "uuid" ]
     ~doc:"The uuid you supplied was invalid." ();
@@ -847,6 +854,10 @@ let _ =
     ~doc:"The host failed to enable external authentication." ();
   error Api_errors.auth_enable_failed_unavailable ["message"]
     ~doc:"The host failed to enable external authentication." ();
+  error Api_errors.auth_enable_failed_invalid_ou ["message"]
+    ~doc:"The host failed to enable external authentication." ();
+  error Api_errors.auth_enable_failed_invalid_account ["message"]
+    ~doc:"The host failed to enable external authentication." ();
   error Api_errors.auth_disable_failed ["message"]
     ~doc:"The host failed to disable external authentication." ();
   error Api_errors.auth_disable_failed_wrong_credentials ["message"]
@@ -899,6 +910,10 @@ let _ =
   error Api_errors.pool_auth_enable_failed_unavailable ["host";"message"]
     ~doc:"The pool failed to enable external authentication." ();
   error Api_errors.pool_auth_enable_failed_duplicate_hostname ["host";"message"]
+    ~doc:"The pool failed to enable external authentication." ();
+  error Api_errors.pool_auth_enable_failed_invalid_ou ["host";"message"]
+    ~doc:"The pool failed to enable external authentication." ();
+  error Api_errors.pool_auth_enable_failed_invalid_account ["host";"message"]
     ~doc:"The pool failed to enable external authentication." ();
   error Api_errors.pool_auth_disable_failed ["host";"message"]
     ~doc:"The pool failed to disable the external authentication of at least one host." ();
@@ -3212,7 +3227,7 @@ let host_call_plugin = call
 
 let host_has_extension = call
     ~name:"has_extension"
-    ~in_product_since:rel_dundee_plus
+    ~in_product_since:rel_ely
     ~doc:"Return true if the extension is available on the host"
     ~params:[Ref _host, "host", "The host";
              String, "name", "The name of the API call";]
@@ -3222,7 +3237,7 @@ let host_has_extension = call
 
 let host_call_extension = call
     ~name:"call_extension"
-    ~in_product_since:rel_dundee_plus
+    ~in_product_since:rel_ely
     ~custom_marshaller:true
     ~doc:"Call a XenAPI extension on this host"
     ~params:[Ref _host, "host", "The host";
@@ -4548,7 +4563,7 @@ let host_emergency_ha_disable = call ~flags:[`Session]
     ~in_oss_since:None
     ~in_product_since:rel_orlando
     ~versioned_params:
-      [{param_type=Bool; param_name="soft"; param_doc="Disable HA temporarily, revert upon host reboot or further changes, idempotent"; param_release=dundee_plus_release; param_default=Some(VBool false)};
+      [{param_type=Bool; param_name="soft"; param_doc="Disable HA temporarily, revert upon host reboot or further changes, idempotent"; param_release=ely_release; param_default=Some(VBool false)};
       ]
     ~doc:"This call disables HA on the local host. This should only be used with extreme care."
     ~allowed_roles:_R_POOL_OP
@@ -5057,7 +5072,7 @@ let host =
          field ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VMap [])) ~ty:(Map (String, String)) "guest_VCPUs_params" "VCPUs params to apply to all resident guests";
          field ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VEnum "enabled")) ~ty:host_display "display" "indicates whether the host is configured to output its console to a physical display device";
          field ~qualifier:DynamicRO ~in_product_since:rel_cream ~default_value:(Some (VSet [VInt 0L])) ~ty:(Set (Int)) "virtual_hardware_platform_versions" "The set of versions of the virtual hardware platform that the host can offer to its guests";
-         field ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref)) ~in_product_since:rel_dundee_plus ~ty:(Ref _vm) "control_domain" "The control domain (domain 0)";
+         field ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref)) ~in_product_since:rel_ely ~ty:(Ref _vm) "control_domain" "The control domain (domain 0)";
          field ~qualifier:DynamicRO ~lifecycle:[Published, rel_ely, ""] ~ty:(Set (Ref _pool_update)) ~ignore_foreign_key:true "updates_requiring_reboot" "List of updates which require reboot";
          field ~qualifier:DynamicRO ~lifecycle:[Published, rel_falcon, ""] ~ty:(Set (Ref _feature)) "features" "List of features available on this host"
        ])
@@ -6618,7 +6633,7 @@ let crashdump_destroy = call
 
 (** A crashdump for a particular VM, stored in a particular VDI *)
 let crashdump =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_crashdump ~descr:"A VM crashdump"
+  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:(Some rel_inverness) ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_crashdump ~descr:"A VM crashdump"
     ~gen_events:true
     ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_OP
@@ -9249,7 +9264,7 @@ let vgpu_type =
     ()
 
 module PVS_site = struct
-  let lifecycle = [Prototyped, rel_dundee_plus, ""]
+  let lifecycle = [Prototyped, rel_ely, ""]
 
   let introduce = call
       ~name:"introduce"
@@ -9335,7 +9350,7 @@ end
 let pvs_site = PVS_site.obj
 
 module PVS_server = struct
-  let lifecycle = [Prototyped, rel_dundee_plus, ""]
+  let lifecycle = [Prototyped, rel_ely, ""]
 
   let introduce = call
       ~name:"introduce"
@@ -9404,7 +9419,7 @@ end
 let pvs_server = PVS_server.obj
 
 module PVS_proxy = struct
-  let lifecycle = [Prototyped, rel_dundee_plus, ""]
+  let lifecycle = [Prototyped, rel_ely, ""]
 
   let status = Enum ("pvs_proxy_status", [
       "stopped", "The proxy is not currently running";

@@ -167,15 +167,6 @@ let wait_for_management_ip ~__context =
         done; end);
   !ip
 
-let update_getty () =
-  (* Running update-issue service on best effort basis *)
-  try
-    ignore (Forkhelpers.execute_command_get_output !Xapi_globs.update_issue_script []);
-    ignore (Forkhelpers.execute_command_get_output !Xapi_globs.kill_process_script ["-q"; "-HUP"; "mingetty"; "agetty"])
-  with e ->
-    debug "update_getty at %s caught exception: %s"
-      __LOC__ (Printexc.to_string e)
-
 let on_dom0_networking_change ~__context =
   debug "Checking to see if hostname or management IP has changed";
   (* Need to update:
@@ -194,17 +185,19 @@ let on_dom0_networking_change ~__context =
     Db.Host.set_name_label ~__context ~self:localhost ~value:new_hostname;
   begin match Helpers.get_management_ip_addr ~__context with
     | Some ip ->
+      (* WARNING: this does NOT detect IP address changes that happen before
+         xapi's startup (see CA-242706) *)
       if Db.Host.get_address ~__context ~self:localhost <> ip then begin
         debug "Changing Host.address in database to: %s" ip;
         Db.Host.set_address ~__context ~self:localhost ~value:ip;
         debug "Refreshing console URIs";
-        update_getty ();
+        Helpers.update_getty ();
         Dbsync_master.refresh_console_urls ~__context
       end
     | None ->
       if Db.Host.get_address ~__context ~self:localhost <> "" then begin
         debug "Changing Host.address in database to: '' (host has no management IP address)";
-        update_getty ();
+        Helpers.update_getty ();
         Db.Host.set_address ~__context ~self:localhost ~value:""
       end
   end;

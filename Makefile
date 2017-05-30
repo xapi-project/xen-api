@@ -12,12 +12,12 @@ build: setup.data
 
 doc: setup.data build
 	$(SETUP) -doc $(DOCFLAGS)
-	./jsapi.native -destdir _build/ocaml/doc
+	./jsapi.native -destdir _build/ocaml/doc -templdir ocaml/doc/templates
 
 test: setup.data build
 	$(SETUP) -test $(TESTFLAGS)
 
-all:
+all: setup.ml
 	$(SETUP) -all $(ALLFLAGS)
 
 uninstall: setup.data
@@ -26,10 +26,10 @@ uninstall: setup.data
 reinstall: setup.data
 	$(SETUP) -reinstall $(REINSTALLFLAGS)
 
-clean:
+clean: setup.ml
 	$(SETUP) -clean $(CLEANFLAGS)
 
-distclean:
+distclean: setup.ml
 	$(SETUP) -distclean $(DISTCLEANFLAGS)
 
 setup.data: setup.ml
@@ -38,7 +38,7 @@ setup.data: setup.ml
 setup.ml: _oasis
 	oasis setup -setup-update dynamic
 
-configure:
+configure: setup.ml
 	$(SETUP) -configure $(CONFIGUREFLAGS)
 
 .PHONY: build doc test all install uninstall reinstall clean distclean configure
@@ -95,5 +95,4 @@ install: setup.data rbac_static.csv
 	mkdir -p $(DESTDIR)$(DOCDIR)/html/xenserver
 	cp -r -L _build/ocaml/doc/api $(DESTDIR)$(DOCDIR)/html/xenserver
 	cd ocaml/doc && cp *.js *.html *.css *.png $(DESTDIR)$(DOCDIR)/html/xenserver
-	cp ocaml/doc/xenserver/* $(DESTDIR)$(DOCDIR)/html/xenserver
-
+	cp _build/ocaml/doc/branding.js $(DESTDIR)$(DOCDIR)/html/xenserver/branding.js

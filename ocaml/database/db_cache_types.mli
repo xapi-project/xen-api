@@ -146,7 +146,7 @@ end
 exception Duplicate
 val add_to_set : string -> Schema.Value.t -> Schema.Value.t
 val remove_from_set : string -> Schema.Value.t -> Schema.Value.t
-val add_to_map : string -> string -> Schema.Value.t -> Schema.Value.t
+val add_to_map : idempotent:bool -> string -> string -> Schema.Value.t -> Schema.Value.t
 val remove_from_map : string -> Schema.Value.t -> Schema.Value.t
 
 val set_field : string -> string -> string -> Schema.Value.t -> Database.t -> Database.t
@@ -169,5 +169,6 @@ type structured_op_t =
   | RemoveSet
   | AddMap
   | RemoveMap
+  | AddMapLegacy
 val structured_op_t_of_rpc: Rpc.t -> structured_op_t
 val rpc_of_structured_op_t: structured_op_t -> Rpc.t

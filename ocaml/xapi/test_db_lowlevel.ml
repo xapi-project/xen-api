@@ -41,8 +41,38 @@ let test_db_get_all_records_race () =
 let tear_down () =
   Db_cache_impl.fist_delay_read_records_where := false
 
+let test_idempotent_map () =
+  Db_globs.idempotent_map := false;
+  let __context = make_test_database () in
+  let (vm_ref: API.ref_VM) = make_vm ~__context () in
+  Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test" ~value:"value";
+  assert_raises (Db_exn.Duplicate_key ("VM","other_config",(Ref.string_of vm_ref),"test"))
+    (fun () -> Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test" ~value:"value");
+  assert_raises (Db_exn.Duplicate_key ("VM","other_config",(Ref.string_of vm_ref),"test"))
+    (fun () -> Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test" ~value:"value2");
+
+  Db_globs.idempotent_map := true;
+  let __context = make_test_database () in
+  let (vm_ref: API.ref_VM) = make_vm ~__context () in
+  Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test" ~value:"value";
+  assert_equal (Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test" ~value:"value") ();
+  assert_raises (Db_exn.Duplicate_key ("VM","other_config",(Ref.string_of vm_ref),"test"))
+    (fun () -> Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test" ~value:"value2");
+
+  Db_globs.idempotent_map := false
+
+let test_slave_uses_nonlegacy_addmap () =
+  let operation = Db_cache_types.AddMapLegacy in
+  let operation' = Db_rpc_common_v1.marshall_structured_op operation |> Db_rpc_common_v1.unmarshall_structured_op in
+  assert_equal operation' Db_cache_types.AddMap;
+  let operationv2 = Db_rpc_common_v2.Request.Process_structured_field (("",""),"","","",Db_cache_types.AddMapLegacy) in
+  let operationv2' = Db_rpc_common_v2.Request.(operationv2 |> rpc_of_t |> t_of_rpc) in
+  assert_equal operationv2' (Db_rpc_common_v2.Request.Process_structured_field (("",""),"","","",Db_cache_types.AddMap))
+
 let test =
   "test_db_lowlevel" >:::
   [
     "test_db_get_all_records_race" >:: (bracket id test_db_get_all_records_race tear_down);
+    "test_db_idempotent_map" >:: test_idempotent_map;
+    "test_slaves_use_nonlegacy_addmap" >:: test_slave_uses_nonlegacy_addmap;
   ]

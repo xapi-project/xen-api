@@ -1553,7 +1553,7 @@ let metadata_handler (req: Request.t) s _ =
               Tar_unix.Archive.skip s (Tar_unix.Header.length * 2);
 
               let header = header_of_xmlrpc metadata in
-              assert_compatable ~__context header.version;
+              assert_compatible ~__context header.version;
               if full_restore then assert_can_restore_backup ~__context rpc session_id header;
 
               with_error_handling (fun () ->
@@ -1597,7 +1597,7 @@ let stream_import __context rpc session_id s content_length refresh_session conf
          else begin
            debug "importing new style VM";
            let header = header_of_xmlrpc metadata in
-           assert_compatable ~__context header.version;
+           assert_compatible ~__context header.version;
            if config.full_restore then assert_can_restore_backup ~__context rpc session_id header;
 
            (* objects created here: *)
