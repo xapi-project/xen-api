@@ -160,7 +160,7 @@ let test_gc_vlan () =
   assert_equal vlan (Db.PIF.get_VLAN_master_of ~__context ~self:untagged_PIF);
   Db.PIF.set_host ~__context ~self:untagged_PIF ~value:Ref.null;
   Db.PIF.set_network ~__context ~self:untagged_PIF ~value:Ref.null;
-  Db_gc.gc_PIFs ~__context;
+  Db_gc_util.gc_PIFs ~__context;
   assert_equal false (Db.is_valid_ref __context vlan)
 
 let test =
