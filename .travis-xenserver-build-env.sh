@@ -16,4 +16,4 @@ env \
   REPO_TEST_CMD='make test' \
   REPO_DOC_CMD='make doc-json' \
   bash travis-build-repo.sh && \
-  ( ( test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master" && bash deploy.sh ) || true )
+  ( ( test $TRAVIS_PULL_REQUEST = "false" && test $TRAVIS_BRANCH = "master" && bash deploy.sh ) || true )
