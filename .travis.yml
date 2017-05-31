@@ -1,7 +1,12 @@
 language: c
 sudo: required
 services: docker
-script: bash ./.travis-$BUILD_METHOD.sh
+script:
+    - bash ./.travis-$BUILD_METHOD.sh
+    - cd scripts && nosetests
+before_install:
+    - sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu/ trusty main universe"
+    - sudo apt-get install -y python-mock python-nose
 env:
     global:
         # for BUILD_METHOD=xenserver-build-env
