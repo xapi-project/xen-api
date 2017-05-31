@@ -490,12 +490,56 @@ module Bridge = struct
 			| Bridge -> Sysfs.get_all_bridges ()
 		) ()
 
+	let destroy_existing_vlan_bridge name (parent, vlan) =
+		begin match !backend_kind with
+		| Openvswitch ->
+			let bridges =
+				let raw = Ovs.vsctl ["--bare"; "-f"; "table"; "--"; "--columns=name"; "find"; "port"; "fake_bridge=true"; "tag=" ^ (string_of_int vlan)] in
+				if raw <> "" then String.split '\n' (String.rtrim raw) else []
+			in
+			let existing_bridges =
+				List.filter ( fun bridge ->
+					match Ovs.bridge_to_vlan bridge with
+					| Some (p, v) -> p = parent && v = vlan
+					| None -> false
+				) bridges in
+			List.iter (fun bridge ->
+				if bridge <> name then begin
+					debug "Destroying existing bridge %s" bridge;
+					remove_config bridge;
+					ignore (Ovs.destroy_bridge bridge)
+				end
+			) existing_bridges
+		| Bridge ->
+			let ifaces = Sysfs.bridge_to_interfaces parent in
+			let existing_bridges =
+				match List.filter (fun (_, tag, iface) -> tag = vlan && List.mem iface ifaces) (Proc.get_vlans ()) with
+				| [] -> []
+				| (vlan_iface, _, _) :: _ ->
+					List.filter (fun bridge ->
+						List.mem vlan_iface (Sysfs.bridge_to_interfaces bridge)
+					) (Sysfs.get_all_bridges ())
+			in
+			List.iter (fun bridge ->
+				if bridge <> name then begin
+					debug "Destroying existing bridge %s" bridge;
+					Interface.bring_down () "Destroying existing bridge" ~name:bridge;
+					remove_config bridge;
+					List.iter (fun dev ->
+						Brctl.destroy_port bridge dev;
+					) (Sysfs.bridge_to_interfaces bridge);
+					ignore (Brctl.destroy_bridge bridge)
+				end
+			) existing_bridges
+		end
+
 	let create _ dbg ?vlan ?mac ?(other_config=[]) ~name () =
 		Debug.with_thread_associated dbg (fun () ->
 			debug "Creating bridge %s%s" name (match vlan with
 				| None -> ""
 				| Some (parent, vlan) -> Printf.sprintf " (VLAN %d on bridge %s)" vlan parent
 			);
+			Stdext.Opt.iter (destroy_existing_vlan_bridge name) vlan;
 			update_config name {(get_config name) with vlan; bridge_mac=mac; other_config};
 			begin match !backend_kind with
 			| Openvswitch ->
@@ -594,13 +638,15 @@ module Bridge = struct
 			Interface.bring_down () dbg ~name;
 			match !backend_kind with
 			| Openvswitch ->
-				if Ovs.get_vlans name = [] || force then begin
+				let vlans_on_this_parent = Ovs.get_vlans name in
+				if vlans_on_this_parent = [] || force then begin
 					debug "Destroying bridge %s" name;
 					remove_config name;
+					let interfaces = (Ovs.bridge_to_interfaces name) @ vlans_on_this_parent in
 					List.iter (fun dev ->
 						Interface.set_ipv4_conf () dbg ~name:dev ~conf:None4;
 						Interface.bring_down () dbg ~name:dev
-					) (Ovs.bridge_to_interfaces name);
+					) interfaces;
 					Interface.set_ipv4_conf () dbg ~name ~conf:None4;
 					ignore (Ovs.destroy_bridge name)
 				end else
