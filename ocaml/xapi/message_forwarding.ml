@@ -566,6 +566,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.Pool.designate_new_master ~host in
       do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Pool.designate_new_master rpc session_id host)
 
+    let management_reconfigure ~__context ~network =
+      info "Pool.management_reconfigure: pool = '%s'; network = '%s'" (current_pool_uuid ~__context) (network_uuid ~__context network);
+      Local.Pool.management_reconfigure __context network
+
     let enable_ha ~__context ~heartbeat_srs ~configuration =
       info "Pool.enable_ha: pool = '%s'; heartbeat_srs = [ %s ]; configuration = [ %s ]"
         (current_pool_uuid ~__context)
@@ -2877,10 +2881,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   end
 
   module VLAN = struct
+    let pool_introduce ~__context ~tagged_PIF ~untagged_PIF ~tag ~other_config =
+      info "VLAN.pool_introduce: tagged_PIF = '%s'; untagged_PIF = '%s'; VLAN tag = %Ld"
+        (pif_uuid ~__context tagged_PIF) (pif_uuid ~__context untagged_PIF) tag;
+      Local.VLAN.pool_introduce ~__context ~tagged_PIF ~untagged_PIF ~tag ~other_config
+
     let create ~__context ~tagged_PIF ~tag ~network =
       info "VLAN.create: network = '%s'; VLAN tag = %Ld" (network_uuid ~__context network) tag;
       let local_fn = Local.VLAN.create ~tagged_PIF ~tag ~network in
       do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self:tagged_PIF) (fun session_id rpc -> Client.VLAN.create rpc session_id tagged_PIF tag network)
+
     let destroy ~__context ~self =
       info "VLAN.destroy: VLAN = '%s'" (vlan_uuid ~__context self);
       let local_fn = Local.VLAN.destroy ~self in

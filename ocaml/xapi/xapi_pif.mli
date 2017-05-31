@@ -161,6 +161,13 @@ val bridge_naming_convention : string -> string
 (** Return the list of bridges in the CURRENT_INTERFACES field in the inventory file. *)
 val read_bridges_from_inventory : unit -> string list
 
+(** Ensure the PIF can be used for management. *)
+val assert_usable_for_management :
+  __context:Context.t ->
+  primary_address_type:[ `IPv4 | `IPv6 | `None ] ->
+  self:[ `PIF ] API.Ref.t ->
+  unit
+
 (** If a network for the given bridge already exists, then return a reference to this network,
  *  otherwise create a new network and return its reference.
 *)

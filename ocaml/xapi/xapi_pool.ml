@@ -196,13 +196,41 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       raise (Api_errors.Server_error(Api_errors.pool_joining_host_cannot_contain_shared_SRs, []))
     end in
 
-  let assert_only_physical_pifs () =
-    let non_physical_pifs = Db.PIF.get_refs_where ~__context ~expr:(
-        Eq (Field "physical", Literal "false")
-      ) in
-    if non_physical_pifs <> [] then begin
-      error "The current host has network bonds, VLANs or tunnels: it cannot join a new pool";
-      raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_only_have_physical_pifs, []))
+  (* Allow pool-join if host does not have any bonds *)
+  let assert_no_bonds_on_me () =
+    if Db.Bond.get_all ~__context <> [] then begin
+      error "The current host has network bonds: it cannot join a new pool";
+      raise (Api_errors.Server_error(Api_errors.pool_joining_host_has_bonds, []))
+    end in
+
+  (* Allow pool-join if host does not have any tunnels *)
+  let assert_no_tunnels_on_me () =
+    if Db.Tunnel.get_all ~__context <> [] then begin
+      error "The current host has tunnels: it cannot join a new pool";
+      raise (Api_errors.Server_error(Api_errors.pool_joining_host_has_tunnels, []))
+    end in
+
+  (* Allow pool-join if host does not have any non-management VLANs *)
+  let assert_no_non_management_vlans_on_me () =
+    List.iter (fun self ->
+      let pif = Db.VLAN.get_untagged_PIF ~__context ~self in
+      if Db.PIF.get_management ~__context ~self:pif <> true then begin
+        error "The current host has non-management vlans: it cannot join a new pool";
+        raise (Api_errors.Server_error(Api_errors.pool_joining_host_has_non_management_vlans, []))
+      end
+    ) (Db.VLAN.get_all ~__context)
+  in
+
+  (* Allow pool-join if the host and the pool are on the same management vlan *)
+  let assert_management_vlan_are_same () =
+    let management_pif = Xapi_host.get_management_interface ~__context ~host:(Helpers.get_localhost ~__context) in
+    let vlan_tag = Db.PIF.get_VLAN ~__context ~self:management_pif in
+    let remote_management_pif = Client.Host.get_management_interface rpc session_id (get_master ~rpc ~session_id) in
+    let remote_vlan_tag = Client.PIF.get_VLAN rpc session_id remote_management_pif in
+    if vlan_tag <> remote_vlan_tag then begin
+      error "The current host and the pool management vlan does not match: it cannot join a new pool";
+      raise (Api_errors.Server_error(Api_errors.pool_joining_host_management_vlan_does_not_match,
+        [Int64.to_string vlan_tag; Int64.to_string remote_vlan_tag]))
     end in
 
   (* Used to tell XCP and XenServer apart - use PRODUCT_BRAND if present, else use PLATFORM_NAME. *)
@@ -365,7 +393,10 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_hosts_compatible ();
   if (not force) then assert_hosts_homogeneous ();
   assert_no_shared_srs_on_me ();
-  assert_only_physical_pifs ();
+  assert_no_bonds_on_me ();
+  assert_no_tunnels_on_me ();
+  assert_no_non_management_vlans_on_me ();
+  assert_management_vlan_are_same ();
   assert_external_auth_matches ();
   assert_restrictions_match ();
   assert_homogeneous_vswitch_configuration ();
@@ -587,9 +618,18 @@ let create_or_get_pif_on_master __context rpc session_id (pif_ref, pif) : API.re
   let my_host = Db.Host.get_record ~__context ~self:my_host_ref in
   let new_host_ref = create_or_get_host_on_master __context rpc session_id (my_host_ref, my_host) in
 
-  let my_network_ref = pif.API.pIF_network in
-  let my_network = Db.Network.get_record ~__context ~self:my_network_ref in
-  let new_network_ref = create_or_get_network_on_master __context rpc session_id (my_network_ref, my_network) in
+  let new_network_ref =
+    if pif.API.pIF_VLAN <> -1L then begin
+      (* Get the remote management network for management VLAN PIF *)
+      let remote_mgmt_pif = Client.Host.get_management_interface rpc session_id (get_master ~rpc ~session_id) in
+      Client.PIF.get_network rpc session_id remote_mgmt_pif
+    end
+    else begin
+      let my_network_ref = pif.API.pIF_network in
+      let my_network = Db.Network.get_record ~__context ~self:my_network_ref in
+      create_or_get_network_on_master __context rpc session_id (my_network_ref, my_network)
+    end
+  in
 
   let new_pif_ref =
     try Client.PIF.get_by_uuid ~rpc ~session_id ~uuid:my_uuid
@@ -621,6 +661,49 @@ let create_or_get_pif_on_master __context rpc session_id (pif_ref, pif) : API.re
         ~properties:pif.API.pIF_properties in
 
   new_pif_ref
+
+let create_or_get_vlan_on_master __context rpc session_id (vlan_ref, vlan) : API.ref_VLAN =
+  (* Create a VLAN PIF record only if it is a management PIF *)
+
+  let my_host_ref = Db.PIF.get_host ~__context ~self:vlan.API.vLAN_tagged_PIF in
+  let my_host = Db.Host.get_record ~__context ~self:my_host_ref in
+  let new_host_ref = create_or_get_host_on_master __context rpc session_id (my_host_ref, my_host) in
+
+  (* Create the untagged PIF record on Pool *)
+  let untagged_pif_record = Db.PIF.get_record ~__context ~self:vlan.API.vLAN_untagged_PIF in
+  let remote_untagged_pif = create_or_get_pif_on_master __context rpc session_id
+    (vlan.API.vLAN_untagged_PIF, untagged_pif_record) in
+
+  (* Get the remote tagged pif network *)
+  let tagged_pif_network = Db.PIF.get_network ~__context ~self:vlan.API.vLAN_tagged_PIF in
+  let tagged_pif_network_record = Db.Network.get_record ~__context ~self:tagged_pif_network in
+  let remote_tagged_pif_network = create_or_get_network_on_master __context rpc session_id
+    (tagged_pif_network, tagged_pif_network_record) in
+
+  (* Get the new physical PIF ref on Pool for the joining Host *)
+  let expr =
+    Printf.sprintf "field \"network\"=\"%s\" and field \"host\"=\"%s\""
+    (Ref.string_of remote_tagged_pif_network)
+    (Ref.string_of new_host_ref)
+  in
+  let remote_physical_pif =
+    match Client.PIF.get_all_records_where ~rpc ~session_id ~expr with
+    | [] -> Ref.null
+    | (pif, _) :: _ -> pif
+  in
+
+  let new_vlan_ref =
+    try
+      Client.VLAN.get_by_uuid ~rpc ~session_id ~uuid:vlan.API.vLAN_uuid
+    with _ ->
+      debug "Found no VLAN with uuid = '%s' on the master, so creating one." vlan.API.vLAN_uuid;
+      Client.VLAN.pool_introduce ~rpc ~session_id
+        ~tagged_PIF:remote_physical_pif
+        ~untagged_PIF:remote_untagged_pif
+        ~tag:vlan.API.vLAN_tag
+        ~other_config:vlan.API.vLAN_other_config
+  in
+  new_vlan_ref
 
 let create_or_get_pvs_site_on_master __context rpc session_id (pvs_site_ref, pvs_site) : API.ref_PVS_site =
   let my_pvs_uuid = pvs_site.API.pVS_site_PVS_uuid in
@@ -731,6 +814,13 @@ let update_non_vm_metadata ~__context ~rpc ~session_id =
   let (_ : API.ref_PIF option list) =
     List.map (protect_exn (create_or_get_pif_on_master __context rpc session_id)) my_pifs in
 
+  (* update Management VLAN *)
+  let mgmt_pif = Xapi_host.get_management_interface ~__context ~host:(Helpers.get_localhost ~__context) in
+  let my_vlan = Db.PIF.get_VLAN_master_of ~__context ~self:mgmt_pif in
+  if my_vlan <> Ref.null then
+    let my_vlan_record = Db.VLAN.get_record ~__context ~self:my_vlan in
+    let (_ : API.ref_VLAN option ) = protect_exn (create_or_get_vlan_on_master __context rpc session_id) (my_vlan, my_vlan_record) in
+
   (* update PVS sites *)
   let my_pvs_sites = Db.PVS_site.get_all_records ~__context in
   let (_ : API.ref_PVS_site option list) =
@@ -765,6 +855,17 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
       raise (Api_errors.Server_error(Api_errors.pool_joining_host_service_failed, [])) in
 
   let cluster_secret = ref "" in
+  (* If management is on a VLAN, then get the Pool master
+     management network bridge before we logout the session *)
+  let pool_master_bridge, mgmt_pif =
+    let my_pif = Xapi_host.get_management_interface ~__context ~host:(Helpers.get_localhost ~__context) in
+    if (Db.PIF.get_VLAN_master_of ~__context ~self:my_pif) <> Ref.null then
+      let pif = Client.Host.get_management_interface rpc session_id (get_master ~rpc ~session_id) in
+      let network = Client.PIF.get_network rpc session_id pif in
+      Some (Client.Network.get_bridge rpc session_id network), my_pif
+    else
+      None, my_pif
+  in
 
   finally (fun () ->
       pre_join_checks ~__context ~rpc ~session_id ~force;
@@ -803,6 +904,20 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
              ) ()
         ) (Db.Host.get_PBDs ~__context ~self:me)
     );
+
+  (* If management is on a VLAN, then we might need to create a vlan bridge with the same name as the Pool master is using *)
+  begin match pool_master_bridge with
+    | None -> ()
+    | Some bridge ->
+      let network = Db.PIF.get_network ~__context ~self:mgmt_pif in
+      let mgmt_bridge = Db.Network.get_bridge ~__context ~self:network in
+      if mgmt_bridge <> bridge then begin
+        debug "Changing management vlan bridge from=%s to=%s" mgmt_bridge bridge;
+        Db.Network.set_bridge ~__context ~self:network ~value:bridge;
+        Nm.bring_pif_up ~__context ~management_interface:true mgmt_pif;
+        Xapi_mgmt_iface.change bridge (Db.PIF.get_primary_address_type ~__context ~self:mgmt_pif)
+      end
+  end;
 
   (* Rewrite the pool secret on every host of the current pool, and restart all the agent as slave of the distant pool master. *)
   Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
@@ -920,11 +1035,21 @@ let eject ~__context ~host =
     let management_pif = Xapi_host.get_management_interface ~__context ~host in
     let pif = Db.PIF.get_record ~__context ~self:management_pif in
     let management_device =
-      (* assumes that the management interface is either physical or a bond *)
+      (* Assumes that the management interface is either physical or a bond or a vlan on physical or a vlan on bond *)
       if pif.API.pIF_bond_master_of <> [] then
         let bond = List.hd pif.API.pIF_bond_master_of in
         let primary_slave = Db.Bond.get_primary_slave ~__context ~self:bond in
         Db.PIF.get_device ~__context ~self:primary_slave
+      (* If management on VLAN on a bond or physical NIC *)
+      else if pif.API.pIF_VLAN_master_of <> Ref.null then
+        let tagged_pif = Db.VLAN.get_tagged_PIF ~__context ~self:(pif.API.pIF_VLAN_master_of) in
+        let bond_master = Db.PIF.get_bond_master_of ~__context ~self:tagged_pif in
+        if bond_master <> [] then
+          let bond = List.hd bond_master in
+          let primary_slave = Db.Bond.get_primary_slave ~__context ~self:bond in
+          Db.PIF.get_device ~__context ~self:primary_slave
+        else
+          pif.API.pIF_device
       else
         pif.API.pIF_device
     in
@@ -935,24 +1060,39 @@ let eject ~__context ~host =
     in
 
     let write_first_boot_management_interface_configuration_file () =
-      let bridge = Xapi_pif.bridge_naming_convention management_device in
+      (* During firstboot, now inventory has an empty MANAGEMENT_INTERFACE *)
+      let bridge = "" in
       Xapi_inventory.update Xapi_inventory._management_interface bridge;
       let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:management_pif in
       Xapi_inventory.update Xapi_inventory._management_address_type
         (Record_util.primary_address_type_to_string primary_address_type);
-      let configuration_file_contents = begin
-        "LABEL='" ^ management_device ^ "'\nMODE=" ^ mode ^
-        if mode = "static" then
-          "\nIP=" ^ pif.API.pIF_IP ^
-          "\nNETMASK=" ^ pif.API.pIF_netmask ^
-          "\nGATEWAY=" ^ pif.API.pIF_gateway ^
-          "\nDNS=" ^ pif.API.pIF_DNS ^ "\n"
-        else
-          "\n"
-      end in
+      let sprintf = Printf.sprintf in
+      (* If the management_interface exists on a vlan, write the vlan id into management.conf *)
+      let vlan_id = Int64.to_int pif.API.pIF_VLAN in
+      let config_base =
+        [ sprintf "LABEL='%s'" management_device
+        ; sprintf "MODE='%s'" mode
+        ] in
+      let config_static = if mode <> "static" then [] else
+        [ sprintf "IP='%s'" pif.API.pIF_IP
+        ; sprintf "NETMASK='%s'" pif.API.pIF_netmask
+        ; sprintf "GATEWAY='%s'" pif.API.pIF_gateway
+        ; sprintf "DNS='%s'" pif.API.pIF_DNS
+        ] in
+      let config_vlan = if vlan_id = -1 then [] else
+        [ sprintf "VLAN='%d'" vlan_id
+        ] in
+      let configuration_file =
+        List.concat
+          [ config_base
+          ; config_static
+          ; config_vlan
+          ]
+          |> String.concat "\n"
+      in
       Unixext.write_string_to_file
         (Xapi_globs.first_boot_dir ^ "data/management.conf")
-        (configuration_file_contents) in
+        (configuration_file) in
 
     write_first_boot_management_interface_configuration_file ();
 
@@ -1071,6 +1211,47 @@ let designate_new_master ~__context ~host =
     let peers = List.filter (fun x -> x <> my_address) addresses in
     Xapi_pool_transition.attempt_two_phase_commit_of_new_master ~__context true peers my_address
   end
+
+let management_reconfigure ~__context ~network =
+  (* Disallow if HA is enabled *)
+  let pool = Helpers.get_pool ~__context in
+  if Db.Pool.get_ha_enabled ~__context ~self:pool then
+    raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
+
+  (* Create a hash table for hosts with pifs for the network *)
+  let pifs_on_network = Db.Network.get_PIFs ~__context ~self:network in
+  let hosts_with_pifs = Hashtbl.create 16 in
+  List.iter (fun self ->
+    let host = Db.PIF.get_host ~__context ~self in
+    Hashtbl.add hosts_with_pifs host self;
+  ) pifs_on_network;
+
+  (* All Hosts must have associated PIF on the network *)
+  let all_hosts = Db.Host.get_all ~__context in
+  List.iter (fun host ->
+    if not(Hashtbl.mem hosts_with_pifs host) then
+      raise (Api_errors.Server_error(Api_errors.pif_not_present, [Ref.string_of host; Ref.string_of network]));
+  ) all_hosts;
+
+  let address_type = Db.PIF.get_primary_address_type ~__context ~self:(List.hd pifs_on_network) in 
+  List.iter (fun self ->
+    let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self in
+    if primary_address_type <> address_type then
+      raise (Api_errors.Server_error(Api_errors.pif_incompatible_primary_address_type, [Ref.string_of self]));
+    Xapi_pif.assert_usable_for_management ~__context ~primary_address_type ~self;
+  ) pifs_on_network;
+
+  (* Perform Host.management_reconfigure on slaves first and last on master *)
+  let f ~rpc ~session_id ~host =
+    Client.Host.management_reconfigure ~rpc ~session_id ~pif:(Hashtbl.find hosts_with_pifs host)
+  in
+  Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context f;
+
+  (* Perform Pool.recover_slaves *)
+  let hosts_recovered =
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
+      Client.Pool.recover_slaves rpc session_id) in
+  List.iter (fun host -> debug "Host recovered=%s" (Db.Host.get_uuid ~__context ~self:host)) hosts_recovered
 
 let initial_auth ~__context =
   !Xapi_globs.pool_secret
