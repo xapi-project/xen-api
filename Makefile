@@ -94,21 +94,13 @@ gen_powershell_binding.native: build
 # bindings
 
 c: gen_c_binding.native
-	mkdir -p _build/c/autogen/include/xen
-	mkdir -p _build/c/autogen/src
-	mkdir -p _build/c/autogen/test
 	./gen_c_binding.native -d _build/c/autogen -t c/templates
 #source
-	(cd _build/c/autogen && patch -p0 < ../../../c/compat.patch)
-	rm _build/c/autogen/*.orig
-	mv _build/c/autogen/xen _build/c/autogen/include
-	mv _build/c/autogen/*.h _build/c/autogen/include
-	mv _build/c/autogen/*.c _build/c/autogen/src
-	cp c/xen_internal.h _build/c/autogen/include
-	cp c/xen_common.h c/xen_string_set.h c/xen_int_set.h _build/c/autogen/include/xen/api
-	cp c/xen_common.c c/xen_string_set.c c/xen_int_set.c _build/c/autogen/src
-	make -C _build/c/autogen -f Makefile ueberheader
+	cp c/xen_internal.h c/sources/xen_event_internal.h _build/c/autogen/include
+	cp c/xen_common.h c/xen_string_set.h c/xen_int_set.h c/sources/xen_event_batch.h _build/c/autogen/include/xen/api
+	cp c/xen_common.c c/xen_string_set.c c/xen_int_set.c c/sources/xen_event_batch.c _build/c/autogen/src
 #tests
+	mkdir -p _build/c/autogen/test
 	cp c/test/*.c _build/c/autogen/test
 #other
 	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' c/README.dist > _build/c/autogen/README

@@ -99,7 +99,7 @@ module StringSet = Set.Make(struct
 let enums = ref TypeSet.empty
 let maps = ref TypeSet.empty
 let enum_maps = ref TypeSet.empty
-
+  let all_headers = ref []
 
 let joined sep f l =
   let r = List.map f l in
@@ -108,42 +108,54 @@ let joined sep f l =
 
 
 let rec main() =
-  Unixext.mkdir_rec (Filename.concat destdir "xen/api") 0o755;
+  let include_dir = Filename.concat destdir "include" in
+  let src_dir = Filename.concat destdir "src" in
+  Unixext.mkdir_rec (Filename.concat include_dir "xen/api") 0o755;
+  Unixext.mkdir_rec src_dir 0o755;
 
   gen_failure_h();
   gen_failure_c();
 
+  let filtered_classes = List.filter (fun x-> not (List.mem x.name ["session"; "debug"; "data_source"])) classes in
   List.iter
     (fun x ->
-       if not (List.mem x.name ["session"; "debug"; "data_source"]) then
-         (gen_class write_predecl predecl_filename x;
-          gen_class write_decl    decl_filename    x;
-          gen_class write_impl    impl_filename    x)) classes;
+         (gen_class write_predecl predecl_filename x  include_dir;
+          gen_class write_decl    decl_filename    x  include_dir;
+          gen_class write_impl    impl_filename    x) src_dir) filtered_classes;
 
-  TypeSet.iter (gen_enum write_enum_decl decl_filename) !enums;
-  TypeSet.iter (gen_enum write_enum_impl impl_filename) !enums;
-  TypeSet.iter (gen_enum write_enum_internal_decl internal_decl_filename)
+  all_headers := List.map (fun x-> x.name) filtered_classes;
+
+  TypeSet.iter (gen_enum write_enum_decl decl_filename include_dir) !enums;
+  TypeSet.iter (gen_enum write_enum_impl impl_filename src_dir) !enums;
+  TypeSet.iter (gen_enum write_enum_internal_decl internal_decl_filename include_dir)
     !enums;
 
   maps := TypeSet.add (Map(String, Int)) !maps;
   maps := TypeSet.add (Map(Int, Int)) !maps;
   maps := TypeSet.add (Map(String, Set (String))) !maps;
   maps := TypeSet.add (Map(String, Map (String, String))) !maps;
-  TypeSet.iter (gen_map write_map_decl decl_filename) !maps;
-  TypeSet.iter (gen_map write_map_impl impl_filename) !maps;
+  TypeSet.iter (gen_map write_map_decl decl_filename include_dir) !maps;
+  TypeSet.iter (gen_map write_map_impl impl_filename src_dir) !maps;
 
-  TypeSet.iter (gen_map write_enum_map_internal_decl internal_decl_filename) !enum_maps
+  TypeSet.iter (gen_map write_enum_map_internal_decl internal_decl_filename include_dir) !enum_maps;
+
+  let sorted_headers = List.sort String.compare (List.map decl_filename !all_headers) in
+  let json = `O ["api_headers", `A (List.map (fun x -> `O ["api_header", `String x];) sorted_headers); ] in
+  render_file ("xen_all.h.mustache", "include/xen/api/xen_all.h") json templates_dir destdir
 
 
-and gen_class f g clas =
-  let out_chan = open_out (Filename.concat destdir (g clas.name))
+and gen_class f g clas targetdir =
+  let out_chan = open_out (Filename.concat targetdir (g clas.name))
   in
-    finally (fun () -> f clas out_chan) (fun () -> close_out out_chan)
+    finally (fun () -> f clas out_chan)
+            (fun () -> close_out out_chan)
 
 
-and gen_enum f g = function
-    Enum(name, contents) ->
-      let out_chan = open_out (Filename.concat destdir (g name))
+and gen_enum f g targetdir = function
+  | Enum(name, contents) ->
+      if not (List.mem name !all_headers) then
+        all_headers := name::!all_headers;
+      let out_chan = open_out (Filename.concat targetdir (g name))
       in
         finally (fun () -> f name contents out_chan)
                 (fun () -> close_out out_chan)
@@ -151,10 +163,12 @@ and gen_enum f g = function
   | _ -> assert false
 
 
-and gen_map f g = function
-    Map(l, r) ->
+and gen_map f g targetdir = function
+  | Map(l, r) ->
       let name = mapname l r in
-      let out_chan = open_out (Filename.concat destdir (g name))
+      if not (List.mem name !all_headers) then
+        all_headers := name::!all_headers;
+      let out_chan = open_out (Filename.concat targetdir (g name))
       in
         finally (fun () -> f name l r out_chan)
                 (fun () -> close_out out_chan)
@@ -198,7 +212,8 @@ and write_decl {name=classname; contents=contents; description=description;
   let needed = ref (StringSet.add (classname ^ "_decl") StringSet.empty) in
   let record = decl_record needed tn record_tn contents in
   let record_opt = decl_record_opt needed tn record_tn record_opt_tn contents in
-  let message_decls = decl_messages needed classname messages in
+  let message_decls = decl_messages needed classname
+    (List.filter (fun x-> not (classname = "event" && x.msg_name = "from")) messages) in
   let full_stop = if String.endswith "." description then "" else "."
   in
 
@@ -508,12 +523,6 @@ and abstract_result_handling_async needed classname msg_name param_count =
     *result = NULL;
     %s
     return session->ok;\n" call
-
-
-and abstract_record_fields classname contents =
-  joined ",\n        " (abstract_record_field classname "" "")
-    contents
-
 
 and abstract_record_field classname prefix prefix_caps content =
   match content with
@@ -966,7 +975,7 @@ and hash_include_enum = function
 
 and gen_failure_h () =
   let protect = protector "api_failure" in
-  let out_chan = open_out (Filename.concat destdir "xen/api/xen_api_failure.h")
+  let out_chan = open_out (Filename.concat destdir "include/xen/api/xen_api_failure.h")
   in
   finally (fun () ->
              print_h_header out_chan protect;
@@ -1025,7 +1034,7 @@ xen_api_failure_from_string(const char *str);
 
 
 and gen_failure_c () =
-  let out_chan = open_out (Filename.concat destdir "xen_api_failure.c") in
+  let out_chan = open_out (Filename.concat destdir "src/xen_api_failure.c") in
   let print format = fprintf out_chan format
   in
   finally (fun () ->
@@ -1074,6 +1083,7 @@ and failure_enum name =
 
 
 and write_impl {name=classname; contents=contents; messages=messages} out_chan =
+  let is_event = (classname = "event") in
   let print format = fprintf out_chan format in
   let needed = ref StringSet.empty in
   let tn = typename classname in
@@ -1081,20 +1091,21 @@ and write_impl {name=classname; contents=contents; messages=messages} out_chan =
   let record_opt_tn = record_opt_typename classname in
   let msgs =
     impl_messages needed classname
-      ((List.filter (fun x -> x.msg_name <> "get_uuid") messages) @
-       (List.filter (fun x -> x.msg_name = "get_uuid")  messages))
+      (List.filter (fun x-> not (classname = "event" && x.msg_name = "from")) messages)
  in
   let record_free_handle =
     if classname = "event" then "" else "    free(record->handle);\n" in
   let record_free_impls =
     joined "\n    " (record_free_impl "record->") contents in
-  let record_fields = abstract_record_fields classname contents in
+  let filtered_record_fields =
+    let not_obj_uuid x = match x with | Field r when r.field_name = "obj_uuid" -> false | _ -> true in
+    if is_event then List.filter not_obj_uuid contents else contents in
+  let record_fields =
+    joined ",\n        " (abstract_record_field classname "" "") filtered_record_fields in
   let needed = ref StringSet.empty in
     find_needed needed messages;
     needed := StringSet.add "internal" !needed;
     needed := StringSet.add classname !needed;
-
-  let is_event = (classname = "event") in
 
   let getAllRecordsExists = List.exists (fun x -> x.msg_name = "get_all_records") messages in
   let mappingName = sprintf "%s_%s" tn record_tn in
@@ -1347,11 +1358,7 @@ and name_of_ty = function
   | Record n -> sprintf "%s" (record_typename n)
 
 and decl_filename name =
-  let dir = (if String.endswith "internal" name
-             then
-               ""
-             else
-               "xen/api/") in
+  let dir = (if String.endswith "internal" name then "" else "xen/api/") in
     sprintf "%sxen_%s.h" dir (String.lowercase name)
 
 
@@ -1424,8 +1431,8 @@ and print_h_footer out_chan =
 and populate_version () =
   List.iter (fun x -> render_file x json_releases templates_dir destdir) [
     "Makefile.mustache",          "Makefile";
-    "xen_api_version.h.mustache", "xen/api/xen_api_version.h";
-    "xen_api_version.c.mustache", "xen_api_version.c";
+    "xen_api_version.h.mustache", "include/xen/api/xen_api_version.h";
+    "xen_api_version.c.mustache", "src/xen_api_version.c";
   ]
 
 let _ =
