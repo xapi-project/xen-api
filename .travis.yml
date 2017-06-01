@@ -1,9 +1,7 @@
 language: c
 sudo: required
 services: docker
-script:
-    - bash ./.travis-$BUILD_METHOD.sh
-    - nosetests scripts/ scripts/examples scripts/examples/python
+script: bash ./.travis-$BUILD_METHOD.sh
 before_install:
     - sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu/ trusty main universe"
     - sudo apt-get install -y python-mock python-nose
@@ -13,6 +11,7 @@ env:
         - secure: tokxJl2litqu/T6UUwzkLRZzlbxnbYqVG2QRKKQz3tkIXyZHQWTS2NAyH7mwDgdBq2dDVSxAUxS1jWq/vGraX7MmbVz37Pz8wjykoIfIRtQuEx+REDAvAzWSw+1LTpUf7ZcI+F2SpgJrnH87uN5AAc220UqIx8TvAtGrita+2+o=
     matrix:
         - BUILD_METHOD=xenserver-build-env
+        - BUILD_METHOD=python-nosetests
         - BUILD_METHOD=opam-coverage
 notifications:
     slack: citrix:BHYQZbI8m036ELU21gZil75Y
