@@ -395,7 +395,11 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
   let find_vdi db_vdi_map loc =
     if StringMap.mem loc db_vdi_map
     then fst (StringMap.find loc db_vdi_map)
-    else Ref.null in
+    else
+      (* CA-254515: Also check for the snapshoted VDI in the database *)
+      try Db.VDI.get_by_uuid ~__context ~uuid:loc
+      with _ -> Ref.null
+  in
 
   let get_is_tools_iso vdi =
     List.mem_assoc "xs-tools" vdi.sm_config && List.assoc "xs-tools" vdi.sm_config = "true" in
