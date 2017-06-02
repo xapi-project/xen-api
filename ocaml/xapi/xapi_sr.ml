@@ -395,7 +395,11 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
   let find_vdi db_vdi_map loc =
     if StringMap.mem loc db_vdi_map
     then fst (StringMap.find loc db_vdi_map)
-    else Ref.null in
+    else
+      (* CA-254515: Also check for the snapshoted VDI in the database *)
+      try Db.VDI.get_by_uuid ~__context ~uuid:loc
+      with _ -> Ref.null
+  in
 
   let get_is_tools_iso vdi =
     List.mem_assoc "xs-tools" vdi.sm_config && List.assoc "xs-tools" vdi.sm_config = "true" in
@@ -419,7 +423,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
            ~name_label:vdi.name_label ~name_description:vdi.name_description
            ~current_operations:[] ~allowed_operations:[]
            ~is_a_snapshot:vdi.is_a_snapshot
-           ~snapshot_of:(find_vdi db_vdi_map vdi.snapshot_of)
+           ~snapshot_of:(find_vdi db_vdi_map vdi.snapshot_of) (* is this needed if we re/set the snapshot_of field right after? alternative?.. *)
            ~snapshot_time:(Date.of_string vdi.snapshot_time)
            ~sR:sr ~virtual_size:vdi.virtual_size
            ~physical_utilisation:vdi.physical_utilisation
@@ -434,6 +438,19 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
            ~is_tools_iso:(get_is_tools_iso vdi);
          StringMap.add vdi.vdi (ref, Db.VDI.get_record ~__context ~self:ref) m
       ) to_create db_vdi_map in
+  (* CA-254515: Update the snapshot_of field for the newly-created VDIs. We must do
+     this after creating them all because it's possible that the newly-created VDIs
+     above included snapshoted VDIs and their snapshots, which were not yet in the 
+     database and so would have had their snapshot_of field reference set to null. *)
+  StringMap.iter
+    (fun loc (vi:vdi_info) ->
+       let snapshot_ref = find_vdi db_vdi_map vi.snapshot_of in
+       let snapshot_of_str = Ref.string_of snapshot_ref.snapshot_of in
+       if loc <> snapshot_of_str then begin
+         debug "%s snapshot_of <- %s" (Ref.string_of snapshot_ref) snapshot_of_str;
+         Db.VDI.set_snapshot_of ~__context ~self:snapshot_ref ~value:snapshot_ref.snapshot_of
+       end
+    ) to_create;
   (* Update the ones which already exist *)
   StringMap.iter
     (fun loc (r, v, (vi: vdi_info)) ->
