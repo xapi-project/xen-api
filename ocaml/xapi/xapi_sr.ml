@@ -392,12 +392,16 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
       | _, _, _ -> None
     ) db_vdi_map scan_vdi_map in
 
-  let find_vdi db_vdi_map loc =
-    if StringMap.mem loc db_vdi_map
-    then fst (StringMap.find loc db_vdi_map)
+  let find_snapshoted_vdi loc =
+    (* We check the to_create map in case the snapshoted VDI is one of the VDIs
+       being created (after realising that it exists in the SR but not the database).
+       This may happen if the snapshoted VDI _and_ the snapshot VDI are both in the
+       SR but not the database, and we are creating both now. *)
+    if StringMap.mem loc to_create
+    then Ref.of_string (StringMap.find loc to_create).snapshot_of
     else
       (* CA-254515: Also check for the snapshoted VDI in the database *)
-      try Db.VDI.get_by_uuid ~__context ~uuid:loc 
+      try Db.VDI.get_by_uuid ~__context ~uuid:loc
       with _ -> Ref.null
   in
 
@@ -411,7 +415,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
        Db.VDI.destroy ~__context ~self:r
     ) to_delete;
   (* Create the new ones *)
-  let db_vdi_map = StringMap.fold
+  let _ = StringMap.fold
       (fun loc vdi m ->
          let ref = Ref.make () in
          let uuid = match vdi.uuid with
@@ -423,7 +427,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
            ~name_label:vdi.name_label ~name_description:vdi.name_description
            ~current_operations:[] ~allowed_operations:[]
            ~is_a_snapshot:vdi.is_a_snapshot
-           ~snapshot_of:(find_vdi db_vdi_map vdi.snapshot_of)
+           ~snapshot_of:(find_snapshoted_vdi vdi.snapshot_of)
            ~snapshot_time:(Date.of_string vdi.snapshot_time)
            ~sR:sr ~virtual_size:vdi.virtual_size
            ~physical_utilisation:vdi.physical_utilisation
@@ -467,7 +471,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
          debug "%s snapshot_time <- %s" (Ref.string_of r) vi.snapshot_time;
          Db.VDI.set_snapshot_time ~__context ~self:r ~value:(Date.of_string vi.snapshot_time)
        end;
-       let snapshot_of = find_vdi db_vdi_map vi.snapshot_of in
+       let snapshot_of = find_snapshoted_vdi vi.snapshot_of in
        if v.API.vDI_snapshot_of <> snapshot_of then begin
          debug "%s snapshot_of <- %s" (Ref.string_of r) (Ref.string_of snapshot_of);
          Db.VDI.set_snapshot_of ~__context ~self:r ~value:snapshot_of
