@@ -240,6 +240,9 @@ let falcon_release =
   ; internal_deprecated_since=None
   }
 
+(* WARN: get rid of this when the release time comes *)
+let vgpu_migration_stub_release = falcon_release
+
 let dundee_plus_release =
   { internal = get_product_releases rel_dundee_plus
   ; opensource=get_oss_releases None
@@ -2450,12 +2453,15 @@ let vm_migrate_send = call
     ~name: "migrate_send"
     ~in_product_since:rel_tampa
     ~doc: "Migrate the VM to another host.  This can only be called when the specified VM is in the Running state."
-    ~params:[Ref _vm, "vm", "The VM";
-             Map(String,String), "dest", "The result of a Host.migrate_receive call.";
-             Bool, "live", "Live migration";
-             Map (Ref _vdi, Ref _sr), "vdi_map", "Map of source VDI to destination SR";
-             Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
-             Map (String, String), "options", "Other parameters"]
+    ~versioned_params:
+      [{param_type=Ref _vm; param_name="vm"; param_doc="The VM"; param_release=tampa_release; param_default=None};
+       {param_type=Map(String,String); param_name="dest"; param_doc="The result of a Host.migrate_receive call."; param_release=tampa_release;  param_default=None};
+       {param_type=Bool; param_name="live"; param_doc="Live migration"; param_release=tampa_release; param_default=None};
+       {param_type=Map (Ref _vdi, Ref _sr); param_name="vdi_map"; param_doc="Map of source VDI to destination SR"; param_release=tampa_release; param_default=None};
+       {param_type=Map (Ref _vif, Ref _network); param_name="vif_map"; param_doc="Map of source VIF to destination network"; param_release=tampa_release; param_default=None};
+       {param_type=Map (String, String); param_name="options"; param_doc="Other parameters"; param_release=tampa_release; param_default=None};
+       {param_type=Map (Ref _vgpu, Ref _gpu_group); param_name="vgpu_map"; param_doc="Map of source vGPU to destination GPU group"; param_release=vgpu_migration_stub_release; param_default=Some (VMap [])}
+      ]
     ~result:(Ref _vm, "The reference of the newly created VM in the destination pool")
     ~errs:[Api_errors.vm_bad_power_state; Api_errors.license_restriction]
     ~allowed_roles:_R_VM_POWER_ADMIN
@@ -2465,13 +2471,15 @@ let vm_assert_can_migrate = call
     ~name:"assert_can_migrate"
     ~in_product_since:rel_tampa
     ~doc:"Assert whether a VM can be migrated to the specified destination."
-    ~params:[
-      Ref _vm, "vm", "The VM";
-      Map(String,String), "dest", "The result of a VM.migrate_receive call.";
-      Bool, "live", "Live migration";
-      Map (Ref _vdi, Ref _sr), "vdi_map", "Map of source VDI to destination SR";
-      Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
-      Map (String, String), "options", "Other parameters" ]
+    ~versioned_params:
+      [{param_type=Ref _vm; param_name="vm"; param_doc="The VM"; param_release=tampa_release; param_default=None};
+       {param_type=Map(String,String); param_name="dest"; param_doc="The result of a VM.migrate_receive call."; param_release=tampa_release;  param_default=None};
+       {param_type=Bool; param_name="live"; param_doc="Live migration"; param_release=tampa_release; param_default=None};
+       {param_type=Map (Ref _vdi, Ref _sr); param_name="vdi_map"; param_doc="Map of source VDI to destination SR"; param_release=tampa_release; param_default=None};
+       {param_type=Map (Ref _vif, Ref _network); param_name="vif_map"; param_doc="Map of source VIF to destination network"; param_release=tampa_release; param_default=None};
+       {param_type=Map (String, String); param_name="options"; param_doc="Other parameters"; param_release=tampa_release; param_default=None};
+       {param_type=Map (Ref _vgpu, Ref _gpu_group); param_name="vgpu_map"; param_doc="Map of source vGPU to destination GPU group"; param_release=vgpu_migration_stub_release; param_default=Some (VMap [])}
+      ]
     ~allowed_roles:_R_VM_POWER_ADMIN
     ~errs:[Api_errors.license_restriction]
     ()
@@ -2486,6 +2494,7 @@ let vm_assert_can_migrate_sender = call
       Bool, "live", "Live migration";
       Map (Ref _vdi, Ref _sr), "vdi_map", "Map of source VDI to destination SR";
       Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
+      Map (Ref _vgpu, Ref _gpu_group), "vgpu_map", "Map of source vGPU to destination GPU group";
       Map (String, String), "options", "Other parameters" ]
     ~allowed_roles:_R_VM_POWER_ADMIN
     ~hide_from_docs:true
