@@ -375,6 +375,19 @@ let power_to_string h =
   | `ShuttingDown -> "shutting down"
   | `Migrating -> "migrating"
 
+let string_to_vdi_type x = match (String.lowercase x) with
+  | "system" -> Some `system
+  | "user" -> Some `user
+  | "ephemeral" -> Some `ephemeral
+  | "suspend" -> Some `suspend
+  | "crashdump" -> Some `crashdump
+  | "ha statefile" -> Some `ha_statefile
+  | "metadata" -> Some `metadata
+  | "redo log" -> Some `redo_log
+  | "rrd" -> Some `rrd
+  | "pvs_cache" -> Some `pvs_cache
+  | _ -> None
+
 let vdi_type_to_string t =
   match t with
   | `system -> "System"

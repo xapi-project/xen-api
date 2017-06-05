@@ -233,7 +233,7 @@ let check api emergency_calls =
           [] -> sofar
         | "closed"::xs -> find_smallest sofar xs (* closed is not a real release, so skip it *)
         | x::xs -> if release_lt x sofar then find_smallest x xs else find_smallest sofar xs in
-      find_smallest (getlast release_order |> code_name_of_release) releases in
+      find_smallest (getlast release_order) releases in
     let rec check_vsns max_release_sofar ps =
       match ps with
         [] -> true

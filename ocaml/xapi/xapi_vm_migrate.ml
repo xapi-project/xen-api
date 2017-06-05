@@ -619,8 +619,8 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
         match mirror_id with
         | Some mid ->
           ignore(Storage_access.unregister_mirror mid);
-          let m = SMAPI.DATA.MIRROR.stat ~dbg ~id:mid in
           (try SMAPI.DATA.MIRROR.stop ~dbg ~id:mid with _ -> ());
+          let m = SMAPI.DATA.MIRROR.stat ~dbg ~id:mid in
           m.Mirror.failed
         | None -> false in
       if mirror_failed then raise (Api_errors.Server_error(Api_errors.mirror_failed,[Ref.string_of vconf.vdi]))

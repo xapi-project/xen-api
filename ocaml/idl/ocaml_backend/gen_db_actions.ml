@@ -312,7 +312,7 @@ let db_action api : O.Module.t =
           (Escaping.escape_id full_name)
           Client._self
       | FromField(Add, { DT.ty = DT.Map(_, _); full_name = full_name }) ->
-        Printf.sprintf "DB.process_structured_field __t (%s,%s) \"%s\" \"%s\" %s AddMapLegacy"
+        Printf.sprintf "DB.process_structured_field __t (%s,%s) \"%s\" \"%s\" %s AddMap"
           Client._key Client._value
           (Escaping.escape_obj obj.DT.name)
           (Escaping.escape_id full_name)
@@ -448,7 +448,7 @@ let db_action api : O.Module.t =
 (** Generate a signature for the Server.Make functor. It should have one
     field per member in the user-facing API (not the special full 'DB api')
     which has no custom action. The signature will be smaller than the
-    db_actions signature but the db_actions module will be compatible with it *)
+    db_actions signature but the db_actions module will be compatable with it *)
 let make_db_defaults_api = Dm_api.filter (fun _ -> true) (fun _ -> true)
     (fun x -> not(Gen_empty_custom.operation_requires_side_effect x))
 
@@ -472,3 +472,4 @@ let db_defaults api : O.Signature.t =
   { O.Signature.name = _db_defaults;
     elements = List.map (fun x -> O.Signature.Module (obj x)) (Dm_api.objects_of_api api)
   }
+

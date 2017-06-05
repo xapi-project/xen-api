@@ -435,7 +435,7 @@ module MD = struct
             let rate = Int64.of_string (List.assoc "kbps" qos_params) in
             Some (rate, timeslice)
           with
-          | Failure _ (* int_of_string *) ->
+          | Failure "int_of_string" ->
             log_qos_failure "parameter \"kbps\" not an integer"; None
           | Not_found ->
             log_qos_failure "necessary parameter \"kbps\" not found"; None
@@ -604,7 +604,8 @@ module MD = struct
       }
     with
     | Not_found -> failwith "Intel GVT-g settings not specified"
-    | Failure _ (* int_of_string *)-> failwith "Intel GVT-g settings invalid"
+    | Failure "int_of_string" ->
+      failwith "Intel GVT-g settings invalid"
 
   let of_mxgpu_vgpu ~__context vm vgpu =
     let open Vgpu in
@@ -629,7 +630,8 @@ module MD = struct
       }
     with
     | Not_found -> failwith "AMD MxGPU settings not specified"
-    | Failure _ (* int_of_string *) -> failwith "AMD MxGPU settings invalid"
+    | Failure "int_of_string" ->
+      failwith "AMD MxGPU settings invalid"
 
   let vgpus_of_vm ~__context (vmref, vm) =
     let open Vgpu in

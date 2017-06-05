@@ -50,9 +50,6 @@ let static_vdis_dir = ref "/etc/xensource/static-vdis"
 (* Note the following has an equivalent in the xapi layer *)
 let http_limit_max_rpc_size = 300 * 1024 (* 300K *)
 
-(* add_to_map is idempotent *)
-let idempotent_map = ref false
-
 (** Dynamic configurations to be read whenever xapi (re)start *)
 
 let permanent_master_failure_retry_interval = ref 60.

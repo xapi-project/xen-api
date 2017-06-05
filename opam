@@ -1,58 +1,39 @@
-opam-version: "1.2"
-maintainer: "xen-api@lists.xen.org"
-authors: [ "xen-api@lists.xen.org" ]
-homepage: "https://github.com/xapi-project/xen-api"
-bug-reports: "https://github.com/xapi-project/xen-api/issues"
-dev-repo: "https://github.com/xapi-project/xen-api.git"
+opam-version: "1"
+maintainer: "dave.scott@citrix.com"
 build: [
-  ["./configure"]
+  ["./configure" "--disable-warn-error" "--varpatchdir" "%{prefix}%/var/patch" "--optdir" "%{lib}%/xcp" "--plugindir" "%{lib}%/xcp/plugins" "--hooksdir" "%{prefix}%/etc/hook-scripts" "--xapiconf" "%{prefix}%/etc/xapi.conf" "--libexecdir" "%{lib}%/xcp/bin" "--scriptsdir" "%{lib}%/xcp/scripts" "--sharedir" "%{share}%/xcp" "--webdir" "%{share}%/xcp/web" "--cluster-stack-root" "%{lib}%/xcp/bin/cluster-stack" "--bindir" "%{bin}%" "--sbindir" "%{bin}%" "--etcdir" "%{prefix}%/etc"]
   [make]
+  ["install" "-m" "0755" "ocaml/xapi/xapi.opt" "%{bin}%/xapi"]
 ]
-install: [
-    ["oasis" "setup"]
-    ["ocaml" "setup.ml" "-install"]
-]
-build-test: [make "test"]
-remove: [
-    ["oasis" "setup"]
-    ["ocaml" "setup.ml" "-uninstall"]
-    ["ocamlfind" "remove" "xapi"]
-    ["ocamlfind" "remove" "xapi-client"]
-    ["ocamlfind" "remove" "xapi-cli-protocol"]
-    ["ocamlfind" "remove" "xapi-consts"]
-    ["ocamlfind" "remove" "xapi-datamodel"]
-    ["ocamlfind" "remove" "xapi-database"]
-    ["ocamlfind" "remove" "xapi-types"]
-]
+build-test: [make "test" ]
+remove: ["rm" "%{bin}%/xapi"]
 depends: [
-  "oasis" {build}
-  "ocamlfind" {build}
+  "ocamlfind"
   "xapi-test-utils"
-  "xapi-idl"
+  "xapi-idl" {>= "0.12.2"}
   "xapi-libs-transitional"
   "xen-api-client"
   "xapi-netdev"
+  "omake"
   "cdrom"
   "fd-send-recv"
   "xapi-forkexecd"
-  "vhd-format"
+  "libvhd"
   "nbd"
   "oclock"
   "ounit"
   "rpc"
   "ssl"
-  "xapi-stdext"
+  "xapi-stdext" {>= "0.13.0"}
   "xapi-tapctl"
   "xenctrl"
   "xenstore"
   "xapi-inventory"
   "tar-format"
-  "opasswd"
+  "opasswd" {>= "0.9.3"}
   "xapi-rrdd-plugin"
-  "pci"
+  "pci" {>= "0.2.0"}
   "sha"
-  "xapi-xenopsd"
-  "mustache"
 ]
 depexts: [
   [["centos"] ["pam-devel"]]

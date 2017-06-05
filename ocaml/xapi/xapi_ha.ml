@@ -11,11 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-
-(* Functions for implementing 'High Availability' (HA). File is divided into 3 sections:
-      + scripts and functions which form part of the HA subsystem interface
-      + internal API calls used for arming and disarming individual hosts
-      + external API calls (Pool.enable_ha, Pool.disable_ha) used for turning on/off HA pool-wide
+(** Functions for implementing 'High Availability' (HA). File is divided into 3 sections:
+    	+ scripts and functions which form part of the HA subsystem interface
+    	+ internal API calls used for arming and disarming individual hosts
+    	+ external API calls (Pool.enable_ha, Pool.disable_ha) used for turning on/off HA pool-wide
+    	* @group High Availability (HA)
 *)
 
 module D = Debug.Make(struct let name="xapi_ha" end)
@@ -218,6 +218,7 @@ module Timeouts = struct
 end
 
 module Monitor = struct
+  (** Control the background HA monitoring thread *)
 
   let request_shutdown = ref false
   let prevent_failover_actions_until = ref 0. (* protected by the request_shutdown_m too *)
@@ -235,9 +236,11 @@ module Monitor = struct
   let database_state_valid = ref false
   let database_state_valid_c = Condition.create ()
 
+  (* Used to explicitly signal that we should replan *)
   let plan_out_of_date = ref true
 
   exception Already_started
+  exception Not_started
 
   (** Background thread which monitors the membership set and takes action if HA is
       		armed and something goes wrong *)
@@ -621,6 +624,7 @@ module Monitor = struct
 
 end
 
+(** Called by MTC in Orlando Update 1 to temporarily block the VM restart thread. *)
 let ha_prevent_restarts_for __context seconds =
   (* Even if HA is not enabled, this should still go ahead (rather than doing
      	 * a successful no-op) in case HA is about to be enabled within the specified
@@ -678,6 +682,14 @@ let redo_log_ha_enabled_at_startup () =
 (* ----------------------------- *)
 
 
+(** Called when xapi restarts: server may be in emergency mode at this point. We need
+    	to inspect the local configuration and if HA is supposed to be armed we need to
+    	set everything up.
+    	Note that
+    	the master shouldn't be able to activate HA while we are offline since that would cause
+    	us to come up with a broken configuration (the enable-HA stage has the critical task of
+    	synchronising the HA configuration on all the hosts). So really we only want to notice
+    	if the Pool has had HA disabled while we were offline. *)
 let on_server_restart () =
   let armed = bool_of_string (Localdb.get Constants.ha_armed) in
 
@@ -771,6 +783,9 @@ let on_server_restart () =
     (* We signal the monitor that the database state is valid (wrt liveness + disabledness of hosts) later *)
   end
 
+(** Called in the master xapi startup when the database is ready. We set all hosts (including this one) to
+    	disabled then signal the monitor thread to look. It can then wait for slaves to turn up
+    	before trying to restart VMs. *)
 let on_database_engine_ready () =
   info "Setting all hosts to dead and disabled. Hosts must re-enable themselves explicitly";
   Server_helpers.exec_with_new_task "Setting all hosts to dead and disabled"
@@ -788,6 +803,8 @@ let on_database_engine_ready () =
 (*********************************************************************************************)
 (* Internal API calls to configure individual hosts                                          *)
 
+(** Internal API call to prevent this node making an unsafe failover decision.
+    	This call is idempotent. *)
 let ha_disable_failover_decisions __context localhost =
   debug "Disabling failover decisions";
   (* FIST *)
@@ -797,6 +814,10 @@ let ha_disable_failover_decisions __context localhost =
   end;
   Localdb.put Constants.ha_disable_failover_decisions "true"
 
+(** Internal API call to disarm localhost.
+    	If the daemon is missing then we return success. Either fencing was previously disabled and the
+    	daemon has shutdown OR the daemon has died and this node will fence shortly...
+*)
 let ha_disarm_fencing __context localhost =
   try
     let (_ : string) = call_script ha_disarm_fencing [] in ()
@@ -806,10 +827,13 @@ let ha_disarm_fencing __context localhost =
 let ha_set_excluded __context localhost =
   let (_ : string) = call_script ha_set_excluded [] in ()
 
+(** Internal API call to stop the HA daemon.
+    	This call is idempotent. *)
 let ha_stop_daemon __context localhost =
   Monitor.stop ();
   let (_ : string) = call_script ha_stop_daemon [] in ()
 
+(** Emergency-mode API call to disarm localhost *)
 let emergency_ha_disable __context soft =
   let ha_armed = try bool_of_string (Localdb.get Constants.ha_armed) with _ -> false in
   if not ha_armed then
@@ -838,6 +862,9 @@ let emergency_ha_disable __context soft =
     if not soft then Localdb.put Constants.ha_armed "false";
   end
 
+(** Internal API call to release any HA resources after the system has
+    	been shutdown.  This call is idempotent. Modified for CA-48539 to
+    	call vdi.deactivate before vdi.detach. *)
 let ha_release_resources __context localhost =
   Monitor.stop ();
 
@@ -864,6 +891,10 @@ let ha_release_resources __context localhost =
   (* At this point a restart won't enable the HA subsystem *)
   Localdb.put Constants.ha_armed "false"
 
+(** Internal API call which blocks until this node's xHA daemon spots the invalid statefile
+    	and exits cleanly. If the daemon survives but the statefile access is lost then this function
+    	will return an exception and the no-statefile shutdown can be attempted.
+*)
 let ha_wait_for_shutdown_via_statefile __context localhost =
   try
     while true do
@@ -961,6 +992,7 @@ let write_config_file ~__context statevdi_paths generation =
     (Xha_interface.DaemonConfiguration.to_xml_string config);
   debug "%s file written" Xha_interface.DaemonConfiguration.filename
 
+(** Internal API call to preconfigure localhost *)
 let preconfigure_host __context localhost statevdis metadata_vdi generation =
   info "Host.preconfigure_ha host = %s; statevdis = [ %s ]; generation = %s"
     (Ref.string_of localhost) (String.concat "; " (List.map Ref.string_of statevdis)) generation;
@@ -1088,10 +1120,12 @@ let rec propose_new_master_internal ~__context ~address ~manual =
     proposed_master := Some address;
     proposed_master_time := Unix.gettimeofday ()
 
+(* First phase of a two-phase commit of a new master *)
 let propose_new_master ~__context ~address ~manual =
   Mutex.execute proposed_master_m
     (fun () -> propose_new_master_internal ~__context ~address ~manual)
 
+(* Second phase of a two-phase commit of a new master *)
 let commit_new_master ~__context ~address =
   begin match !proposed_master with
     | Some x when x <> address ->
@@ -1501,6 +1535,7 @@ let enable __context heartbeat_srs configuration =
     raise exn
 
 
+(* Called before shutting down or rebooting a host *)
 let before_clean_shutdown_or_reboot ~__context ~host =
   let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool then begin
