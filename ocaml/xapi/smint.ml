@@ -45,6 +45,18 @@ type capability =
 
 type feature = capability * int64
 
+let all_capabilites =
+  [ Sr_create; Sr_delete; Sr_attach; Sr_detach; Sr_scan; Sr_probe; Sr_update;
+    Sr_supports_local_caching;
+    Sr_metadata;
+    Sr_trim;
+    Sr_stats;
+    Vdi_create; Vdi_delete; Vdi_attach; Vdi_detach;
+    Vdi_clone; Vdi_resize; Vdi_activate; Vdi_deactivate;
+    Vdi_update; Vdi_introduce;
+    Vdi_resize_online
+  ]
+
 let string_to_capability_table = [
   "SR_PROBE",       Sr_probe;
   "SR_UPDATE",      Sr_update;

@@ -150,10 +150,10 @@ let test_gc () =
   let server = Xapi_pvs_server.introduce ~__context
       ~addresses ~first_port ~last_port ~site
   in
-  ( Db_gc_util.gc_PVS_servers ~__context
+  ( Db_gc.gc_PVS_servers ~__context
   ; assert_equal (Db.PVS_server.get_site ~__context ~self:server) site
   ; Db.PVS_server.set_site ~__context ~self:server ~value:Ref.null
-  ; Db_gc_util.gc_PVS_servers ~__context (* should collect the server *)
+  ; Db_gc.gc_PVS_servers ~__context (* should collect the server *)
   ; assert_equal false (Db.is_valid_ref __context server)
   )
 

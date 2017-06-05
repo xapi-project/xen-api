@@ -179,7 +179,7 @@ module SMAPIv1 = struct
           String.sub queue (i + 1) (String.length queue -i - 1)
         with Not_found ->
           queue in
-      Server_helpers.exec_with_new_task "SR.probe" ~subtask_of:(Ref.of_string dbg)
+      Server_helpers.exec_with_new_task "SR.create" ~subtask_of:(Ref.of_string dbg)
         (fun __context ->
            let task = Context.get_task_id __context in
            Storage_interface.Raw (Sm.sr_probe (Some task,(Sm.sm_master true :: device_config)) _type sm_config)
@@ -779,7 +779,7 @@ module SMAPIv1 = struct
           (fun __context ->
              (* This call 'operates' on vdi2 *)
              let vdi1 = find_vdi ~__context sr vdi1 |> fst in
-             for_vdi ~dbg ~sr ~vdi:vdi2 "VDI.compose"
+             for_vdi ~dbg ~sr ~vdi:vdi2 "VDI.activate"
                (fun device_config _type sr self ->
                   Sm.vdi_compose device_config _type sr vdi1 self
                )
@@ -811,7 +811,7 @@ module SMAPIv1 = struct
       info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg sr vdi;
       (* XXX: PR-1255: tapdisk shouldn't hardcode xapi urls *)
       (* peer_ip/session_ref/vdi_ref *)
-      Server_helpers.exec_with_new_task "VDI.get_url" ~subtask_of:(Ref.of_string dbg)
+      Server_helpers.exec_with_new_task "VDI.compose" ~subtask_of:(Ref.of_string dbg)
         (fun __context ->
            let ip = Helpers.get_management_ip_addr ~__context |> Opt.unbox in
            let rpc = Helpers.make_rpc ~__context in

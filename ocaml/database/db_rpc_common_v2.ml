@@ -34,16 +34,6 @@ module Request = struct
     | Read_records_where of string * Db_filter_types.expr
     | Process_structured_field of (string * string) * string * string * string * Db_cache_types.structured_op_t
   [@@deriving rpc]
-
-  (* Make sure the slave only ever uses the idempotent version *)
-  let rpc_of_t t =
-    let t' =
-      match t with
-      | Process_structured_field (a,b,c,d,Db_cache_types.AddMapLegacy) ->
-        Process_structured_field (a,b,c,d,Db_cache_types.AddMap)
-      | x -> x
-    in
-    rpc_of_t t'
 end
 
 module Response = struct

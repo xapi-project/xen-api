@@ -424,8 +424,7 @@ Executable jsapi
     xapi-consts,
     stdext,
     uuid,
-    gzip,
-    mustache
+    gzip
 
 
 ############################################################################

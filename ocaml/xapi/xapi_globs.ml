@@ -980,10 +980,6 @@ let other_options = [
 
   "modprobe_path", Arg.Set_string modprobe_path,
   (fun () -> !modprobe_path), "Location of the modprobe(8) command: should match $(which modprobe)";
-
-  "db_idempotent_map", Arg.Set Db_globs.idempotent_map,
-  (fun () -> string_of_bool !Db_globs.idempotent_map), "True if the add_to_<map> API calls should be idempotent";
-
 ]
 
 let all_options = options_of_xapi_globs_spec @ other_options

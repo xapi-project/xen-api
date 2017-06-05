@@ -52,21 +52,9 @@ let pool_patch_upload_handler (req: Http.Request.t) s _ =
               is to avoid our task being prematurely marked as completed by
               the import_raw_vdi handler. *)
            let strip = List.filter (fun (k,v) -> k <> "task_id") in
-           let add_sr query =
-             match Importexport.sr_of_req ~__context req with
-             | Some _ -> query (* There was already an SR specified *)
-             | None ->
-               let pool = Db.Pool.get_all ~__context |> List.hd in
-               let default_SR = Db.Pool.get_default_SR ~__context ~self:pool in
-               ("sr_id",Ref.string_of default_SR)::query
-           in
            let subtask = Client.Task.create rpc session_id "VDI upload" "" in
            Stdext.Pervasiveext.finally (fun () ->
-               let req = Http.Request.{
-                   req with
-                   cookie = strip req.cookie;
-                   query = ("task_id",Ref.string_of subtask) :: strip req.query |> add_sr;
-                 } in
+               let req = Http.Request.{req with cookie = strip req.cookie; query = ("task_id",Ref.string_of subtask) :: strip req.query} in
                let vdi_opt = Import_raw_vdi.localhost_handler rpc session_id (Importexport.vdi_of_req ~__context req) req s in
                match vdi_opt with
                | Some vdi ->

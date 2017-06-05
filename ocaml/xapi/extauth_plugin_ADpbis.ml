@@ -18,47 +18,6 @@
 module D = Debug.Make(struct let name="extauth_plugin_ADpbis" end)
 open D
 
-open Stdext.Xstringext
-
-let match_error_tag (lines:string list) =
-  let err_catch_list =
-    [ "DNS_ERROR_BAD_PACKET",       Auth_signature.E_LOOKUP;
-      "LW_ERROR_PASSWORD_MISMATCH", Auth_signature.E_CREDENTIALS;
-      "LW_ERROR_INVALID_ACCOUNT",   Auth_signature.E_INVALID_ACCOUNT;
-      "LW_ERROR_ACCESS_DENIED",     Auth_signature.E_DENIED;
-      "LW_ERROR_DOMAIN_IS_OFFLINE", Auth_signature.E_UNAVAILABLE;
-      "LW_ERROR_INVALID_OU",       Auth_signature.E_INVALID_OU;
-      (* More errors to be caught here *)
-    ]
-  in
-  let split_to_words = fun str ->
-    let seps = ['('; ')'; ' '; '\t'; '.'] in
-    String.split_f (fun s -> List.exists (fun sep -> sep = s) seps) str
-  in
-  let rec has_err lines err_pattern =
-    match lines with
-    | [] -> false
-    | line :: rest ->
-      try
-        ignore(List.find (fun w -> w = err_pattern) (split_to_words line));
-        true
-      with Not_found -> has_err rest err_pattern
-  in
-  try
-    let (_, errtag) = List.find (fun (err_pattern, _) -> has_err lines err_pattern) err_catch_list in
-    errtag
-  with Not_found -> Auth_signature.E_GENERIC
-
-let extract_sid_from_group_list = fun group_list ->
-  List.map (fun (n,v)->
-      let v = String.replace ")" "" v in
-      let v = String.replace "sid =" "|" v in
-      let vs = String.split_f (fun c -> c = '|') v in
-      let sid = String.trim (List.nth vs 1) in
-      debug "extract_sid_from_group_list get sid=[%s]" sid;
-      sid
-    ) (List.filter (fun (n,v)->n="") group_list)
-
 module AuthADlw : Auth_signature.AUTH_MODULE =
 struct
 
@@ -75,6 +34,17 @@ struct
 
   let splitlines s = String.split_f (fun c -> c = '\n') (String.replace "#012" "\n" s)
 
+  let rec string_trim s =
+    let l = String.length s in
+    if l = 0 then
+      s
+    else if s.[0] = ' ' || s.[0] = '\t' || s.[0] = '\n' || s.[0] = '\r' then
+      string_trim (String.sub s 1 (l-1))
+    else if s.[l-1] = ' ' || s.[l-1] = '\t' || s.[l-1] = '\n' || s.[l-1] = '\r' then
+      string_trim (String.sub s 0 (l-1))
+    else
+      s
+
   let pbis_common_with_password (password:string) (pbis_cmd:string) (pbis_args:string list) =
     let debug_cmd = pbis_cmd ^ " " ^ (List.fold_left (fun p pp -> p^" "^pp) " " pbis_args) in
     try
@@ -87,9 +57,9 @@ struct
       error "execute %s exited with code %d [stdout = '%s'; stderr = '%s']" debug_cmd n stdout stderr;
       let lines = List.filter (fun l-> String.length l > 0) (splitlines (stdout ^ stderr)) in
       let errmsg = List.hd (List.rev lines) in
-      let errtag = match_error_tag lines in
-      raise (Auth_signature.Auth_service_error (errtag, errmsg))
-    | e -> error "execute %s exited: %s" debug_cmd (ExnHelper.string_of_exn e);
+      raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, errmsg))
+    | e ->
+      error "execute %s exited: %s" debug_cmd (ExnHelper.string_of_exn e);
       raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, user_friendly_error_msg))
 
   let pbis_config (name:string) (value:string) =
@@ -241,8 +211,8 @@ struct
             debug "parse %s: currkey=[%s] line=[%s]" debug_cmd currkey line;
             if List.length slices > 1 then
               begin
-                let key = String.trim (List.hd slices) in
-                let value = String.trim (List.nth slices 1) in
+                let key = string_trim (List.hd slices) in
+                let value = string_trim (List.nth slices 1) in
                 debug "parse %s: key=[%s] value=[%s] currkey=[%s]" debug_cmd key value currkey;
                 if String.length value > 0 then
                   (acc @ [(key, value)], "")
@@ -251,7 +221,7 @@ struct
               end
             else
               let key = currkey in
-              let value = String.trim line in
+              let value = string_trim line in
               debug "parse %s: key=[%s] value=[%s] currkey=[%s]" debug_cmd key value currkey;
               (acc @ [(key, value)], currkey)
           ) in
@@ -353,7 +323,14 @@ struct
        And pbis_common will return subject_attrs as
        [("Number of groups found for user 'test@testdomain'", "2"), ("", line1), ("", line2) ... ("", lineN)]
     *)
-    extract_sid_from_group_list subject_attrs
+    List.map (fun (n,v)->
+        let v = String.replace ")" "|" v in
+        let v = String.replace "sid =" "|" v in
+        let vs = String.split_f (fun c -> c = '|') v in
+        let sid = string_trim (List.nth vs 1) in
+        debug "pbis_get_group_sids_byname %s get sid=[%s]" _subject_name sid;
+        sid
+      ) (List.filter (fun (n,v)->n="") subject_attrs)
 
   let pbis_get_sid_bygid gid =
 

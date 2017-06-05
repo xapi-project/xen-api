@@ -5,19 +5,17 @@
 set -e
 
 #################################################
-# Use this script to open/close port with specified
-# protocol.
+# Use this script to open/close port.
 #
 # Usage:
-#   ./firewall-port {open|close} port protocol
+#   ./firewall-port {open|close} port
 #
 #################################################
 
 OP="$1"
 PORT="$2"
-PROTOCOL="${3:-tcp}"
 CHAIN="xapi-INPUT"
-RULE="-p $PROTOCOL -m conntrack --ctstate NEW -m $PROTOCOL --dport $PORT -j ACCEPT"
+RULE="-p tcp -m conntrack --ctstate NEW -m tcp --dport $PORT -j ACCEPT"
 
 case "${OP}" in
     open)
@@ -40,7 +38,7 @@ case "${OP}" in
         fi
         ;;
     *)
-        echo $"Usage: $0 {open|close} {port} {protocol}" 1>&2
+        echo $"Usage: $0 {open|close} {port}" 1>&2
         exit 1
         ;;
 esac

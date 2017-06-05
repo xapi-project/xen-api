@@ -54,161 +54,42 @@ let rel_creedence = "creedence"
 let rel_cream = "cream"
 let rel_indigo = "indigo"
 let rel_dundee = "dundee"
+let rel_dundee_plus = "dundee-plus"
 let rel_ely = "ely"
 let rel_falcon = "falcon"
-let rel_inverness = "inverness"
-
-type api_release = {
-    code_name: string option;
-    version_major: int;
-    version_minor: int;
-    branding: string;
-}
-
-(* When you add a new release, use the version number of the latest release,
-   and "Unreleased" for the branding, until the actual values are finalised. *)
-let release_order_full = [{
-      code_name     = Some rel_rio;
-      version_major = 1;
-      version_minor = 1;
-      branding   = "XenServer 4.0";
-    }; {
-      code_name     = Some rel_miami;
-      version_major = 1;
-      version_minor = 2;
-      branding   = "XenServer 4.1";
-    }; {
-      code_name     = Some rel_symc;
-      version_major = 1;
-      version_minor = 2;
-      branding   = "XenServer 4.1.1";
-    }; {
-      code_name     = Some rel_orlando;
-      version_major = 1;
-      version_minor = 3;
-      branding   = "XenServer 5.0";
-    }; {
-      code_name     = Some rel_orlando_update_1;
-      version_major = 1;
-      version_minor = 3;
-      branding   = "XenServer 5.0 Update 1";
-    }; {
-      code_name     = None;
-      version_major = 1;
-      version_minor = 4;
-      branding   = "Unreleased";
-    }; {
-      code_name     = None;
-      version_major = 1;
-      version_minor = 5;
-      branding   = "XenServer 5.0 update 3";
-    }; {
-      code_name     = Some rel_george;
-      version_major = 1;
-      version_minor = 6;
-      branding   = "XenServer 5.5";
-    }; {
-      code_name     = Some rel_midnight_ride;
-      version_major = 1;
-      version_minor = 7;
-      branding   = "XenServer 5.6";
-    }; {
-      code_name     = Some rel_cowley;
-      version_major = 1;
-      version_minor = 8;
-      branding   = "XenServer 5.6 FP1";
-    }; {
-      code_name     = Some rel_boston;
-      version_major = 1;
-      version_minor = 9;
-      branding   = "XenServer 6.0";
-    }; {
-      code_name     = Some rel_tampa;
-      version_major = 1;
-      version_minor = 10;
-      branding   = "XenServer 6.1";
-    }; {
-      code_name     = Some rel_clearwater;
-      version_major = 2;
-      version_minor = 0;
-      branding   = "XenServer 6.2";
-    }; {
-      code_name     = Some rel_vgpu_tech_preview;
-      version_major = 2;
-      version_minor = 0;
-      branding   = "XenServer 6.2 SP1 Tech-Preview";
-    }; {
-      code_name     = Some rel_vgpu_productisation;
-      version_major = 2;
-      version_minor = 1;
-      branding   = "XenServer 6.2 SP1";
-    }; {
-      code_name     = Some rel_clearwater_felton;
-      version_major = 2;
-      version_minor = 2;
-      branding   = "XenServer 6.2 SP1 Hotfix 4";
-    }; {
-      code_name     = Some rel_clearwater_whetstone;
-      version_major = 2;
-      version_minor = 2;
-      branding   = "XenServer 6.2 SP1 Hotfix 11";
-    }; {
-      code_name     = Some rel_creedence;
-      version_major = 2;
-      version_minor = 3;
-      branding   = "XenServer 6.5";
-    }; {
-      code_name     = Some rel_cream;
-      version_major = 2;
-      version_minor = 4;
-      branding   = "XenServer 6.5 SP1";
-    }; {
-      code_name     = Some rel_indigo;
-      version_major = 2;
-      version_minor = 4;
-      branding   = "XenServer 6.5 SP1 Hotfix 31";
-    }; {
-      code_name     = Some rel_dundee;
-      version_major = 2;
-      version_minor = 5;
-      branding   = "XenServer 7.0";
-    }; {
-      code_name     = Some rel_ely;
-      version_major = 2;
-      version_minor = 6;
-      branding   = "XenServer 7.1";
-    }; {
-      code_name     = Some rel_falcon;
-      version_major = 2;
-      version_minor = 7;
-      branding   = "XenServer 7.2";
-    }; {
-      code_name     = Some rel_inverness;
-      (** TODO replace with the actual version numbers when Inverness is released *)
-      version_major = 2;
-      version_minor = 7;
-      branding   = "Unreleased";
-    };
-  ]
 
 let release_order =
-  List.filter (fun x -> x.code_name <> None) release_order_full
+  [ rel_rio
+  ; rel_miami
+  ; rel_symc
+  ; rel_orlando
+  ; rel_orlando_update_1
+  ; rel_george
+  ; rel_midnight_ride
+  ; rel_cowley
+  ; rel_boston
+  ; rel_tampa
+  ; rel_clearwater
+  ; rel_vgpu_tech_preview
+  ; rel_vgpu_productisation
+  ; rel_clearwater_felton
+  ; rel_clearwater_whetstone
+  ; rel_creedence
+  ; rel_cream
+  ; rel_indigo
+  ; rel_dundee
+  ; rel_dundee_plus
+  ; rel_ely
+  ; rel_falcon
+  ]
 
 exception Unknown_release of string
-exception UnspecifiedRelease
-
-let code_name_of_release x =
-  match x.code_name with
-  | Some r -> r
-  | None -> raise UnspecifiedRelease
-
 (* ordering function on releases *)
 let release_leq x y =
   let rec posn_in_list i x l =
     match l with
       [] -> raise (Unknown_release x)
-    | r::rs when code_name_of_release r = x -> i
-    | r::rs-> posn_in_list (i+1) x rs in
+    | r::rs -> if r=x then i else posn_in_list (i+1) x rs in
   (posn_in_list 0 x release_order) <= (posn_in_list 0 y release_order)
 
 (** Types of object fields. Accessor functions are generated for each field automatically according to its type and qualifiers. *)

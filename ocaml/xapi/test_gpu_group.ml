@@ -55,7 +55,7 @@ let test_supported_enabled_types () =
   (* Invalidate the PGPU's host ref, and run a GC pass; this should destroy the
      	 * pgpu, and clear the group's supported and enabled types. *)
   Db.PGPU.set_host ~__context ~self:pgpu ~value:Ref.null;
-  Db_gc_util.gc_PGPUs ~__context;
+  Db_gc.gc_PGPUs ~__context;
   let group_supported_types =
     Db.GPU_group.get_supported_VGPU_types ~__context ~self:gPU_group
   in
