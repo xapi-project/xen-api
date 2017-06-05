@@ -1,0 +1,7 @@
+(* This file defines which files are excluded from bisect_ppx code coverage, which is submitted to coveralls *)
+(* See https://github.com/aantron/bisect_ppx/blob/master/doc/advanced.md#Excluding
+   and https://github.com/simonjbeaumont/ocaml-travis-coveralls/#configuration for details *)
+
+file "ocaml/xapi/server.ml"
+file "ocaml/xapi-types/aPI.ml"
+file "ocaml/xapi-client/client.ml"
