@@ -29,7 +29,7 @@ let really_write fd str =
 let lwt_fd_enumerator fd =
   let (>>=) = Lwt.bind in
   let blocksize = 1024 in
-  let str = String.create blocksize in
+  let str = Bytes.create blocksize in
   let get_str n =
     if n=0 
     then (Eof None) 

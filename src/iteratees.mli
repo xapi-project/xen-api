@@ -59,8 +59,10 @@ module Iteratee :
     (** Return a string representation of the state of the monad *)
     val state : 'a t -> string
 
-    (** Here are the first iteratees *)
-    (** peek - iteratee that look at the first character in the stream without consuming it *)
+    (** Here are the first iteratees
+        peek - iteratee that look at the first character in the stream
+        without consuming it
+    *)
     val peek : char option t
 
     (** head - iteratee that remove and return the first character in the stream *)
@@ -70,7 +72,7 @@ module Iteratee :
         'string -> unit IO.t' *)
     val writer : (string -> unit IO.t) -> string -> unit t
 
-    (** break - iteratee that stops consuming input when the supplied predicate is met, 
+    (** break - iteratee that stops consuming input when the supplied predicate is met,
         then returns the string so far *)
     val break : (char -> bool) -> string t
 
