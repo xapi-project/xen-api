@@ -234,7 +234,7 @@ let pool_migrate ~__context ~vm ~host ~options =
   let xenops_vgpu_map = infer_vgpu_map ~__context vm in
 
   (* Check pGPU compatibility for Nvidia vGPUs *)
-  Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~host ();
+  Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~host ~vgpu_map:[] ();
 
   Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid (fun () ->
       try
@@ -310,6 +310,11 @@ type vif_transfer_record = {
   remote_network_reference : API.ref_network;
 }
 
+type vgpu_transfer_record = {
+  local_vgpu_reference : API.ref_VGPU;
+  remote_gpu_group_reference : API.ref_GPU_group;
+}
+
 (* If VM's suspend_SR is set to the local SR, it won't be visible to
    the destination host after an intra-pool storage migrate *)
 let intra_pool_fix_suspend_sr ~__context host vm =
@@ -343,7 +348,7 @@ let intra_pool_vdi_remap ~__context vm vdi_map =
          Not_found -> ())
     vdis_and_callbacks
 
-let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~dry_run ~live ~copy =
+let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~vgpu_map ~dry_run ~live ~copy =
   List.iter (fun vdi_record ->
       let vdi = vdi_record.local_vdi_reference in
       Db.VDI.remove_from_other_config ~__context ~self:vdi
@@ -361,6 +366,14 @@ let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~dry_r
       Db.VIF.add_to_other_config ~__context ~self:vif
         ~key:Constants.storage_migrate_vif_map_key
         ~value:(Ref.string_of vif_record.remote_network_reference)) vif_map;
+
+  List.iter (fun vgpu_record ->
+      let vgpu = vgpu_record.local_vgpu_reference in
+      Db.VGPU.remove_from_other_config ~__context ~self:vgpu
+        ~key:Constants.storage_migrate_vgpu_map_key;
+      Db.VGPU.add_to_other_config ~__context ~self:vgpu
+        ~key:Constants.storage_migrate_vgpu_map_key
+        ~value:(Ref.string_of vgpu_record.remote_gpu_group_reference)) vgpu_map;
 
   let vm_export_import = {
     Importexport.vm = vm; dry_run = dry_run; live = live; send_snapshots = not copy;
@@ -382,7 +395,13 @@ let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~dry_r
             Db.VIF.remove_from_other_config ~__context
               ~self:vif_record.local_vif_reference
               ~key:Constants.storage_migrate_vif_map_key)
-         vif_map)
+         vif_map;
+       List.iter
+         (fun vgpu_record ->
+            Db.VGPU.remove_from_other_config ~__context
+              ~self:vgpu_record.local_vgpu_reference
+              ~key:Constants.storage_migrate_vgpu_map_key)
+         vgpu_map;)
 
 module VDIMap = Map.Make(struct type t = API.ref_VDI let compare = compare end)
 let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
@@ -732,7 +751,7 @@ let check_vdi_map ~__context vms_vdis vdi_map =
         error "VDI:SR map not fully specified for VDI %s" vdi_uuid ;
         raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vconf.vdi ]))) vms_vdis)
 
-let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options =
   SMPERF.debug "vm.migrate_send called vm:%s" (Db.VM.get_uuid ~__context ~self:vm);
 
   let open Xapi_xenops in
@@ -920,10 +939,16 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
                     local_vif_reference = vif;
                     remote_network_reference = network;
                   })
-                vif_map
+                vif_map in
+            let vgpu_map =
+              List.map (fun (vgpu, gpu_group) -> {
+                    local_vgpu_reference = vgpu;
+                    remote_gpu_group_reference = gpu_group;
+                  })
+                vgpu_map
             in
             inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map
-              ~vif_map ~dry_run:false ~live:true ~copy
+              ~vif_map ~vgpu_map ~dry_run:false ~live:true ~copy
           in
           let vm = List.hd vms in
           let () = if ha_always_run_reset then XenAPI.VM.set_ha_always_run ~rpc:remote.rpc ~session_id:remote.session ~self:vm ~value:false in
@@ -1085,7 +1110,7 @@ let migration_type ~__context ~remote =
     debug "This is a cross-pool migration";
     `cross_pool
 
-let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options ~vgpu_map =
   assert_licensed_storage_motion ~__context ;
 
   let remote = remote_of_dest dest in
@@ -1176,12 +1201,18 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
               remote_network_reference = network;
             })
           vif_map in
-      if not (inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~dry_run:true ~live:true ~copy = []) then
+      let vgpu_map =
+        List.map (fun (vgpu, gpu_group) -> {
+              local_vgpu_reference = vgpu;
+              remote_gpu_group_reference = gpu_group;
+            })
+          vgpu_map in
+      if not (inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~vgpu_map ~dry_run:true ~live:true ~copy = []) then
         raise Api_errors.(Server_error(internal_error, ["assert_can_migrate: inter_pool_metadata_transfer returned a nonempty list"]))
     with Xmlrpc_client.Connection_reset ->
       raise (Api_errors.Server_error(Api_errors.cannot_contact_host, [remote.remote_ip]))
 
-let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options =
   (* Check that the destination host has compatible pGPUs -- if needed *)
   let remote = remote_of_dest dest in
   let remote_for_migration_type =
@@ -1190,11 +1221,11 @@ let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~opti
     | `cross_pool -> Some (remote.rpc, remote.session)
   in
   Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context
-    ~vm ~host:remote.dest_host ?remote:remote_for_migration_type ()
+    ~vm ~vgpu_map ~host:remote.dest_host ?remote:remote_for_migration_type ()
 
-let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options =
   with_migrate (fun () ->
-      migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options)
+      migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options)
 
 let vdi_pool_migrate ~__context ~vdi ~sr ~options =
   if Db.VDI.get_type ~__context ~self:vdi = `cbt_metadata then begin
@@ -1251,8 +1282,8 @@ let vdi_pool_migrate ~__context ~vdi ~sr ~options =
   TaskHelper.set_cancellable ~__context;
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       let dest = XenAPI.Host.migrate_receive ~rpc ~session_id ~host:dest_host ~network ~options in
-      assert_can_migrate ~__context ~vm ~dest ~live:true ~vdi_map ~vif_map:[] ~options:[];
-      assert_can_migrate_sender ~__context ~vm ~dest ~live:true ~vdi_map ~vif_map:[] ~options:[];
-      ignore(migrate_send ~__context ~vm ~dest ~live:true ~vdi_map ~vif_map:[] ~options:[])
+      assert_can_migrate ~__context ~vm ~dest ~live:true ~vdi_map ~vif_map:[] ~vgpu_map:[] ~options:[];
+      assert_can_migrate_sender ~__context ~vm ~dest ~live:true ~vdi_map ~vif_map:[] ~vgpu_map:[] ~options:[];
+      ignore(migrate_send ~__context ~vm ~dest ~live:true ~vdi_map ~vif_map:[] ~vgpu_map:[] ~options:[])
     ) ;
   Db.VBD.get_VDI ~__context ~self:vbd
