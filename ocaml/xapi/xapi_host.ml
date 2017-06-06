@@ -1738,3 +1738,7 @@ let apply_guest_agent_config ~__context ~host =
 
 let mxgpu_vf_setup ~__context ~host =
   Xapi_pgpu.mxgpu_vf_setup __context
+
+let allocate_resources_for_vm ~__context ~self ~vm ~live =
+  (* Implemented entirely in Message_forwarding *)
+  ()

@@ -140,6 +140,13 @@ let has_feature ~vmgmr ~feature =
       List.assoc feature other = "1"
     with Not_found -> false
 
+(* Returns `true` only if we are certain that the VM has booted PV (if there
+ * is no metrics record, then we can't tell) *)
+let has_definitely_booted_pv ~vmmr =
+  match vmmr with
+  | None -> false
+  | Some r -> r.Db_actions.vM_metrics_hvm = false
+
 (** Return an error iff vmr is an HVM guest and lacks a needed feature.
  *  Note: it turned out that the Windows guest agent does not write "feature-suspend"
  *  on resume (only on startup), so we cannot rely just on that flag. We therefore
@@ -149,10 +156,10 @@ let has_feature ~vmgmr ~feature =
  *  (which is advisory only) and false (more permissive) when we are potentially about
  *  to perform an operation. This makes a difference for ops that require the guest to
  *  react helpfully. *)
-let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
+let check_op_for_feature ~__context ~vmr ~vmmr ~vmgmr ~power_state ~op ~ref ~strict =
   if power_state <> `Running ||
      (* PV guests offer support implicitly *)
-     not (Helpers.has_booted_hvm_of_record ~__context vmr) ||
+     has_definitely_booted_pv ~vmmr ||
      Xapi_pv_driver_version.(has_pv_drivers (of_guest_metrics vmgmr)) (* Full PV drivers imply all features *)
   then None
   else
@@ -312,7 +319,7 @@ let is_mobile ~__context vm strict =
     corresponding to the first error found. Checking stops at the first error.
     The "strict" param sets whether we require feature-flags for ops that need guest
     support: ops in the suspend-like and shutdown-like categories. *)
-let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enabled ~vdis_reset_and_caching ~op ~strict =
+let check_operation_error ~__context ~vmr ~vmmr ~vmgmr ~ref ~clone_suspended_vm_enabled ~vdis_reset_and_caching ~op ~strict =
   let ref_str = Ref.string_of ref in
   let power_state = vmr.Db_actions.vM_power_state in
   let current_ops = vmr.Db_actions.vM_current_operations in
@@ -412,7 +419,7 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 
   (* check for any HVM guest feature needed by the op *)
   let current_error = check current_error (fun () ->
-      check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict
+      check_op_for_feature ~__context ~vmr ~vmmr ~vmgmr ~power_state ~op ~ref ~strict
     ) in
 
   (* check if the dynamic changeable operations are still valid *)
@@ -477,6 +484,11 @@ let check_operation_error ~__context ~vmr ~vmgmr ~ref ~clone_suspended_vm_enable
 
   current_error
 
+let maybe_get_metrics ~__context ~ref =
+  if Db.is_valid_ref __context ref
+  then Some (Db.VM_metrics.get_record_internal ~__context ~self:ref)
+  else None
+
 let maybe_get_guest_metrics ~__context ~ref =
   if Db.is_valid_ref __context ref
   then Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:ref)
@@ -484,6 +496,7 @@ let maybe_get_guest_metrics ~__context ~ref =
 
 let get_info ~__context ~self =
   let all = Db.VM.get_record_internal ~__context ~self in
+  let m = maybe_get_metrics ~__context ~ref:(all.Db_actions.vM_metrics) in
   let gm = maybe_get_guest_metrics ~__context ~ref:(all.Db_actions.vM_guest_metrics) in
   let clone_suspended_vm_enabled = Helpers.clone_suspended_vm_enabled ~__context in
   let vdis_reset_and_caching = List.filter_map (fun vbd ->
@@ -492,11 +505,11 @@ let get_info ~__context ~self =
         let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
         Some ((assoc_opt "on_boot" sm_config = Some "reset"), (bool_of_assoc "caching" sm_config))
       with _ -> None) all.Db_actions.vM_VBDs in
-  all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching
+  all, m, gm, clone_suspended_vm_enabled, vdis_reset_and_caching
 
 let get_operation_error ~__context ~self ~op ~strict =
-  let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
-  check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op strict
+  let all, m, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
+  check_operation_error __context all m gm self clone_suspended_vm_enabled vdis_reset_and_caching op strict
 
 let assert_operation_valid ~__context ~self ~op ~strict =
   match get_operation_error ~__context ~self ~op ~strict with
@@ -504,9 +517,9 @@ let assert_operation_valid ~__context ~self ~op ~strict =
   | Some (a,b) -> raise (Api_errors.Server_error (a,b))
 
 let update_allowed_operations ~__context ~self =
-  let all, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
+  let all, m, gm, clone_suspended_vm_enabled, vdis_reset_and_caching = get_info ~__context ~self in
   let check accu op =
-    match check_operation_error __context all gm self clone_suspended_vm_enabled vdis_reset_and_caching op true with
+    match check_operation_error __context all m gm self clone_suspended_vm_enabled vdis_reset_and_caching op true with
     | None -> op :: accu
     | _    -> accu
   in

@@ -35,10 +35,9 @@ let db_set_in_other_config ~__context ~self ~key ~value =
   Db.VM.add_to_other_config ~__context ~self ~key ~value
 
 let compute_memory_overhead ~__context ~vm =
-  let snapshot = match Db.VM.get_power_state ~__context ~self:vm with
-    | `Paused | `Running | `Suspended -> Helpers.get_boot_record ~__context ~self:vm
-    | `Halted | _ -> Db.VM.get_record ~__context ~self:vm in
-  Memory_check.vm_compute_memory_overhead snapshot
+  let vm_record = Db.VM.get_record ~__context ~self:vm in
+  let hvm = Helpers.is_hvm ~__context ~self:vm in
+  Memory_check.vm_compute_memory_overhead vm_record hvm
 
 let update_memory_overhead ~__context ~vm = Db.VM.set_memory_overhead ~__context ~self:vm ~value:(compute_memory_overhead ~__context ~vm)
 

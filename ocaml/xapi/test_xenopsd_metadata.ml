@@ -53,7 +53,7 @@ let run_create_metadata ~__context =
   let (_: API.ref_pool) = make_pool ~__context ~master:host () in
   let vms = Db.VM.get_by_name_label ~__context ~label:test_vm_name in
   let vm = List.nth vms 0 in
-  Xapi_xenops.create_metadata ~__context ~upgrade:false ~self:vm
+  Xapi_xenops.create_metadata ~__context ~self:vm
 
 (* Test the behaviour of the "hvm_serial" other_config/platform key. *)
 module HVMSerial = Generic.Make(Generic.EncapsulateState(struct
@@ -297,12 +297,7 @@ module GenerateVGPUMetadata = Generic.Make(Generic.EncapsulateState(struct
                                                ),
                                                [
                                                  Xenops_interface.Vgpu.(Nvidia {
-                                                     physical_pci_address = Xenops_interface.Pci.({
-                                                         domain = 0;
-                                                         bus = 0;
-                                                         dev = 0;
-                                                         fn = 0;
-                                                       });
+                                                     physical_pci_address = None;
                                                      config_file = "/usr/share/nvidia/vgx/grid_k100.conf";
                                                    })
                                                ];
@@ -313,12 +308,7 @@ module GenerateVGPUMetadata = Generic.Make(Generic.EncapsulateState(struct
                                                ),
                                                [
                                                  Xenops_interface.Vgpu.(GVT_g {
-                                                     physical_pci_address = Xenops_interface.Pci.({
-                                                         domain = 0;
-                                                         bus = 0;
-                                                         dev = 0;
-                                                         fn = 0;
-                                                       });
+                                                     physical_pci_address = None;
                                                      low_gm_sz = 128L;
                                                      high_gm_sz = 384L;
                                                      fence_sz = 4L;

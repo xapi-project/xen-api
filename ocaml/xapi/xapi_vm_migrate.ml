@@ -137,13 +137,13 @@ let assert_sr_support_operations ~__context ~vdi_map ~remote ~ops =
 let assert_licensed_storage_motion ~__context =
   Pool_features.assert_enabled ~__context ~f:Features.Storage_motion
 
-let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid xenops_vdi_map xenops_vif_map xenops =
+let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid xenops_vdi_map xenops_vif_map xenops_vgpu_map xenops =
   let open Xapi_xenops_queue in
   let module Client = (val make_client queue_name: XENOPS) in
   let progress = ref "(none yet)" in
   let f () =
     progress := "Client.VM.migrate";
-    let t1 = Client.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map xenops in
+    let t1 = Client.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map xenops_vgpu_map xenops in
     progress := "sync_with_task";
     ignore (Xapi_xenops.sync_with_task __context queue_name t1)
   in
@@ -165,7 +165,7 @@ let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid xenops
     | Xenops_interface.Internal_error "End_of_file" as e ->
       debug "xenops: will retry migration: caught %s from %s in attempt %d of %d."
         (Printexc.to_string e) !progress try_no max;
-      migrate_with_retries ~__context queue_name max (try_no + 1) dbg vm_uuid xenops_vdi_map xenops_vif_map xenops
+      migrate_with_retries ~__context queue_name max (try_no + 1) dbg vm_uuid xenops_vdi_map xenops_vif_map xenops_vgpu_map xenops
 
     (* Something else went wrong *)
     | e ->
@@ -174,8 +174,8 @@ let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid xenops
       raise e
   end
 
-let migrate_with_retry ~__context queue_name dbg vm_uuid xenops_vdi_map xenops_vif_map xenops =
-  migrate_with_retries ~__context queue_name 3 1 dbg vm_uuid xenops_vdi_map xenops_vif_map xenops
+let migrate_with_retry ~__context queue_name =
+  migrate_with_retries ~__context queue_name 3 1
 
 (** detach the network of [vm] if it is migrating away to [destination] *)
 let detach_local_network_for_vm ~__context ~vm ~destination =
@@ -186,6 +186,39 @@ let detach_local_network_for_vm ~__context ~vm ~destination =
       (ref vm) (ref src) (ref dst);
     Xapi_network.detach_for_vm ~__context ~host:src ~vm;
   end (* else: localhost migration - nothing to do *)
+
+(** Return a map of vGPU device to PCI address of the destination pGPU.
+  * This only works _after_ resources on the destination have been reserved
+  * by a call to Message_forwarding.VM.allocate_vm_to_host (through
+  * Host.allocate_resources_for_vm for cross-pool migrations). *)
+let infer_vgpu_map ~__context ?remote vm =
+  match remote with
+  | None ->
+    let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
+    List.map (fun self ->
+      let vgpu = Db.VGPU.get_record ~__context ~self in
+      let device = vgpu.API.vGPU_device in
+      let pci =
+        vgpu.API.vGPU_scheduled_to_be_resident_on
+        |> fun self -> Db.PGPU.get_PCI ~__context ~self
+        |> fun self -> Db.PCI.get_pci_id ~__context ~self
+        |> Xenops_interface.Pci.address_of_string
+      in
+      device, pci
+    ) vgpus
+  | Some {rpc; session} ->
+    let vgpus = XenAPI.VM.get_VGPUs rpc session vm in
+    List.map (fun self ->
+      let vgpu = XenAPI.VGPU.get_record rpc session self in
+      let device = vgpu.API.vGPU_device in
+      let pci =
+        vgpu.API.vGPU_scheduled_to_be_resident_on
+        |> fun self -> XenAPI.PGPU.get_PCI rpc session self
+        |> fun self -> XenAPI.PCI.get_pci_id rpc session self
+        |> Xenops_interface.Pci.address_of_string
+      in
+      device, pci
+    ) vgpus
 
 let pool_migrate ~__context ~vm ~host ~options =
   if (not (Pool_features.is_enabled ~__context Features.Xen_motion)) then
@@ -198,6 +231,7 @@ let pool_migrate ~__context ~vm ~host ~options =
   let ip = Http.Url.maybe_wrap_IPv6_literal (Db.Host.get_address ~__context ~self:host) in
   let xenops_url = Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id in
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
+  let xenops_vgpu_map = infer_vgpu_map ~__context vm in
 
   (* Check pGPU compatibility for Nvidia vGPUs *)
   Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~host ();
@@ -207,8 +241,7 @@ let pool_migrate ~__context ~vm ~host ~options =
         Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
             (* XXX: PR-1255: the live flag *)
             info "xenops: VM.migrate %s to %s" vm_uuid xenops_url;
-            Xapi_xenops.Xenopsd_metadata.update ~__context ~self:vm;
-            migrate_with_retry ~__context queue_name dbg vm_uuid [] [] xenops_url;
+            migrate_with_retry ~__context queue_name dbg vm_uuid [] [] xenops_vgpu_map xenops_url;
             (* Delete all record of this VM locally (including caches) *)
             Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
           );
@@ -892,6 +925,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
           in
           let vm = List.hd vms in
           let () = if ha_always_run_reset then XenAPI.VM.set_ha_always_run ~rpc:remote.rpc ~session_id:remote.session ~self:vm ~value:false in
+          (* Reserve resources for the new VM on the destination pool's host *)
+          let () = XenAPI.Host.allocate_resources_for_vm remote.rpc remote.session remote.dest_host vm true in
           vm in
 
       wait_for_fist __context Xapi_fist.pause_storage_migrate2 "pause_storage_migrate2";
@@ -909,6 +944,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
             vifr.API.vIF_device, bridge
           ) vifs
       in
+
+      let xenops_vgpu_map = infer_vgpu_map ~__context ~remote new_vm in
 
       (* Destroy the local datapaths - this allows the VDIs to properly detach, invoking the migrate_finalize calls *)
       List.iter (fun mirror_record ->
@@ -930,7 +967,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
         try
           Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid
             (fun () ->
-               migrate_with_retry ~__context queue_name dbg vm_uuid xenops_vdi_map xenops_vif_map remote.xenops_url;
+               migrate_with_retry ~__context queue_name dbg vm_uuid xenops_vdi_map xenops_vif_map xenops_vgpu_map remote.xenops_url;
                Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid)
         with
         | Xenops_interface.Does_not_exist ("VM",_)
@@ -1079,7 +1116,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
     assert_sr_support_operations ~__context ~vdi_map ~remote ~ops:required_sr_operations;
     if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:remote.dest_host ();
-    let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+    let snapshot = Db.VM.get_record ~__context ~self:vm in
     Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:remote.dest_host ~snapshot ~do_sr_check:false ();
     if vif_map <> [] then
       raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [
@@ -1150,107 +1187,6 @@ let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~opti
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   with_migrate (fun () ->
       migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options)
-
-(* Handling migrations from pre-Tampa hosts *)
-
-exception Failure
-
-(** Extra parameter added in rel_mnr: memory_required_kib which is the lowest
-    upper-bound on the amount of memory we know the domain will fit in. This
-    is also used as a neutral target value post-migrate.
-    If this is missing (e.g. during rolling upgrade from George) we fall back to *static_max*.
-*)
-let _memory_required_kib = "memory_required_kib"
-
-(** HTTP handler to receive the live memory image *)
-let handler req fd _ =
-  let safe_lookup key list =
-    if not (List.mem_assoc key list) then begin
-      error "Failed to find key %s (list was [ %s ])"
-        key (String.concat "; " (List.map (fun (k, v) -> k ^ ", " ^ v) list));
-      Http_svr.headers fd (Http.http_403_forbidden ());
-      raise Failure
-    end else
-      List.assoc key list
-  in
-
-  (* find all the required references *)
-  let session_id = Ref.of_string (safe_lookup "session_id" req.Http.Request.cookie) in
-  let task_id = Ref.of_string (safe_lookup "task_id" req.Http.Request.cookie) in
-  let vm = Ref.of_string (safe_lookup "ref" req.Http.Request.query) in
-
-  Server_helpers.exec_with_forwarded_task ~session_id task_id ~origin:(Context.Http(req,fd)) (fun __context ->
-      let localhost = Helpers.get_localhost ~__context in
-
-      (* NB this parameter will be present except when we're doing a rolling upgrade. *)
-      let memory_required_kib =
-        if List.mem_assoc _memory_required_kib req.Http.Request.query then
-          Int64.of_string (List.assoc _memory_required_kib req.Http.Request.query)
-        else
-          XenopsMemory.kib_of_bytes_used (Memory_check.vm_compute_migrate_memory __context vm)
-      in
-      try
-        Http_svr.headers fd (Http.http_200_ok ());
-
-        debug "memory_required_kib = %Ld" memory_required_kib;
-        let snapshot = Helpers.get_boot_record ~__context ~self:vm in
-        (* CA-31764: the transmitted memory value may actually be > static_max if maxmem on the remote was
-           			   increased. If this happens we clip the target at static_max. If the domain has managed to
-           			   allocate more than static_max (!) then it may not fit and the migrate will fail. *)
-        let target_kib =
-          XenopsMemory.kib_of_bytes_used (
-            let bytes = XenopsMemory.bytes_of_kib memory_required_kib in
-            if bytes > snapshot.API.vM_memory_static_max then begin
-              warn "memory_required_bytes = %Ld > memory_static_max = %Ld; clipping"
-                bytes snapshot.API.vM_memory_static_max;
-              snapshot.API.vM_memory_static_max
-            end else
-              bytes
-          )
-        in
-
-        (* Since the initial memory target is read from vM_memory_target in _resume_domain we must
-           			   configure this to prevent the domain ballooning up and allocating more than target_kib
-           			   of guest memory on unpause. *)
-        let snapshot = { snapshot with API.vM_memory_target = XenopsMemory.bytes_of_kib target_kib } in
-        let overhead_bytes = Memory_check.vm_compute_memory_overhead snapshot in
-        let free_memory_required_kib = Int64.add (XenopsMemory.kib_of_bytes_used overhead_bytes) memory_required_kib in
-        debug "overhead_bytes = %Ld; free_memory_required = %Ld KiB" overhead_bytes free_memory_required_kib;
-
-        Cpuid_helpers.update_cpu_flags ~__context ~vm ~host:localhost;
-
-        let dbg = Context.string_of_task __context in
-        let queue_name = Xapi_xenops_queue.queue_of_vm ~__context ~self:vm in
-        Xapi_network.with_networks_attached_for_vm ~__context ~vm (fun () ->
-            Xapi_xenops.transform_xenops_exn ~__context ~vm queue_name (fun () ->
-                debug "Sending VM %s configuration to xenopsd" (Ref.string_of vm);
-                let id = Xapi_xenops.Xenopsd_metadata.push ~__context ~upgrade:true ~self:vm in
-                info "xenops: VM.receive_memory %s" id;
-                let uri = Printf.sprintf "/services/xenops/memory/%s" id in
-                let memory_limit = free_memory_required_kib |> XenopsMemory.bytes_of_kib |> Int64.to_string in
-                let req = Http.Request.make ~cookie:["dbg", dbg; "instance_id", "upgrade"; "memory_limit", memory_limit]
-                    ~user_agent:"xapi" Http.Put uri in
-                let path = Filename.concat "/var/lib/xcp" "xenopsd.forwarded" in
-                let response = Xapi_services.hand_over_connection req fd path in
-                let open Xapi_xenops in
-                begin match response with
-                  | Some task ->
-                    task |> wait_for_task queue_name dbg |> assume_task_succeeded queue_name dbg |> ignore
-                  | None ->
-                    debug "We did not get a task id to wait for!!"
-                end;
-                (* Looks like this might be necessary for RPU from Boston *)
-                Xapi_xenops.set_resident_on ~__context ~self:vm
-              )
-          );
-
-        TaskHelper.set_progress ~__context 1.
-      with
-      | Api_errors.Server_error(code, params) as e ->
-        TaskHelper.failed ~__context e
-      | e ->
-        TaskHelper.failed ~__context e
-    )
 
 let vdi_pool_migrate ~__context ~vdi ~sr ~options =
 

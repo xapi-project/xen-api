@@ -1624,7 +1624,7 @@ let rrd_cf_type = Enum ("rrd_cf_type",
 let vm_get_boot_record = call
     ~name:"get_boot_record"
     ~in_oss_since:None
-    ~in_product_since:rel_rio
+    ~lifecycle:[Published, rel_rio, ""; Deprecated, rel_vgpu_migration_tech_preview, "Use the current VM record/fields instead"]
     ~doc:"Returns a record describing the VM's dynamic state, initialised when the VM boots and updated to reflect runtime configuration changes e.g. CPU hotplug"
     ~result:(Record _vm, "A record describing the VM")
     ~params:[Ref _vm, "self", "The VM whose boot-time state to return"]
@@ -4932,6 +4932,19 @@ let host_mxgpu_vf_setup = call
     ~allowed_roles:_R_VM_OP
     ()
 
+let host_allocate_resources_for_vm = call
+    ~name:"allocate_resources_for_vm"
+    ~lifecycle:[Published, rel_vgpu_migration_tech_preview, ""]
+    ~doc:"Reserves the resources for a VM by setting the 'scheduled_to_be_resident_on' fields"
+    ~params:[
+      Ref _host, "self", "The host";
+      Ref _vm, "vm", "The VM";
+      Bool, "live", "Is this part of a live migration?"
+    ]
+    ~hide_from_docs:true
+    ~allowed_roles:_R_VM_OP
+    ()
+
 (** Hosts *)
 let host =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -5023,6 +5036,7 @@ let host =
                 host_set_ssl_legacy;
                 host_apply_guest_agent_config;
                 host_mxgpu_vf_setup;
+                host_allocate_resources_for_vm;
                ]
     ~contents:
       ([ uid _host;
@@ -9219,7 +9233,7 @@ let vgpu =
       field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
       field ~qualifier:DynamicRO ~ty:(Ref _vgpu_type) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "type" "Preset type for this VGPU" ~default_value:(Some (VRef null_ref));
       field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "resident_on" "The PGPU on which this VGPU is running" ~default_value:(Some (VRef null_ref));
-      field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_dundee, ""] ~internal_only:true "scheduled_to_be_resident_on" "The PGPU on which this VGPU is scheduled to run" ~default_value:(Some (VRef null_ref));
+      field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_dundee, ""] "scheduled_to_be_resident_on" "The PGPU on which this VGPU is scheduled to run" ~default_value:(Some (VRef null_ref));
     ]
     ()
 
