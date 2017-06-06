@@ -1205,16 +1205,31 @@ module VGPU : HandlerTools = struct
       let vm = log_reraise
           ("Failed to find VGPU's VM: " ^ (Ref.string_of vgpu_record.API.vGPU_VM))
           (lookup vgpu_record.API.vGPU_VM) state.table in
-      let group = log_reraise
+      let group =
+        (* If we find the cross-pool migration key, attach the vgpu to the provided gpu_group... *)
+        if List.mem_assoc Constants.storage_migrate_vgpu_map_key vgpu_record.API.vGPU_other_config
+        then Ref.of_string (List.assoc Constants.storage_migrate_vgpu_map_key vgpu_record.API.vGPU_other_config)
+        else
+          (* ...otherwise fall back to looking up the vgpu from the state table. *)
+          log_reraise
           ("Failed to find VGPU's GPU group: " ^ (Ref.string_of vgpu_record.API.vGPU_GPU_group))
           (lookup vgpu_record.API.vGPU_GPU_group) state.table in
       let _type = log_reraise
           ("Failed to find VGPU's type: " ^ (Ref.string_of vgpu_record.API.vGPU_type))
           (lookup vgpu_record.API.vGPU_type) state.table in
+      (* Make sure we remove the cross-pool migration VGPU mapping key from the other_config
+       * before creating a VGPU - otherwise we'll risk sending this key on to another pool
+       * during a future cross-pool migration and it won't make sense. *)
+      let other_config =
+        List.filter
+          (fun (k, _) -> k <> Constants.storage_migrate_vgpu_map_key)
+          vgpu_record.API.vGPU_other_config
+      in
       let vgpu_record = { vgpu_record with
                           API.vGPU_VM = vm;
                           API.vGPU_GPU_group = group;
                           API.vGPU_type = _type;
+                          API.vGPU_other_config = other_config;
                         } in
       if is_live config then
         assert_can_live_import_vgpu ~__context vgpu_record;
