@@ -1683,22 +1683,22 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       update_vif_operations ~__context ~vm;
       Cpuid_helpers.update_cpu_flags ~__context ~vm ~host
 
-    let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+    let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options =
       info "VM.assert_can_migrate_sender: VM = '%s'" (vm_uuid ~__context vm);
-      let local_fn = Local.VM.assert_can_migrate_sender ~vm ~dest ~live ~vdi_map ~vif_map ~options in
+      let local_fn = Local.VM.assert_can_migrate_sender ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options in
       forward_vm_op ~local_fn ~__context ~vm
-        (fun session_id rpc -> Client.VM.assert_can_migrate_sender rpc session_id vm dest live vdi_map vif_map options)
+        (fun session_id rpc -> Client.VM.assert_can_migrate_sender rpc session_id vm dest live vdi_map vif_map vgpu_map options)
 
-    let assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+    let assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options ~vgpu_map =
       info "VM.assert_can_migrate: VM = '%s'" (vm_uuid ~__context vm);
       (* Run the checks that can be done using just the DB directly on the master *)
-      Local.VM.assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options;
+      Local.VM.assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options;
       (* Run further checks on the sending host *)
-      assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options
+      assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options
 
-    let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+    let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options ~vgpu_map =
       info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm);
-      let local_fn = Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~options in
+      let local_fn = Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options in
       let forwarder =
         if Xapi_vm_lifecycle.is_live ~__context ~self:vm then
           let host = List.assoc Xapi_vm_migrate._host dest |> Ref.of_string in
@@ -1719,9 +1719,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
              fst (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_migrate op)) in
       with_vm_operation ~__context ~self:vm ~doc:"VM.migrate_send" ~op:`migrate_send
         (fun () ->
-           assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options;
+           assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options;
            forwarder ~local_fn ~__context ~vm
-             (fun session_id rpc -> Client.VM.migrate_send rpc session_id vm dest live vdi_map vif_map options)
+             (fun session_id rpc -> Client.VM.migrate_send rpc session_id vm dest live vdi_map vif_map options vgpu_map)
         )
 
     let send_trigger ~__context ~vm ~trigger =
