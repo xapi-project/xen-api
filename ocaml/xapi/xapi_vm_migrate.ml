@@ -1223,7 +1223,7 @@ let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu
   Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context
     ~vm ~vgpu_map ~host:remote.dest_host ?remote:remote_for_migration_type ()
 
-let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options =
+let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options ~vgpu_map =
   with_migrate (fun () ->
       migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options)
 
