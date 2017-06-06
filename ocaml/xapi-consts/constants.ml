@@ -130,3 +130,6 @@ let storage_migrate_vif_map_key = "maps_to"
 
 (* Abstract size value for tracking PGPU utilisation. *)
 let pgpu_default_size = Int64.mul 1024L 1024L
+
+(* Used to specify mapping of vGPUs to pGPU groups on the remote machine. Stored in VGPU.other_config *)
+let storage_migrate_vgpu_map_key = "maps_to"
