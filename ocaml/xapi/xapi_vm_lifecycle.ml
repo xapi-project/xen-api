@@ -324,7 +324,7 @@ let check_operation_error ~__context ~ref ~op ~strict =
   let power_state = vmr.Db_actions.vM_power_state in
   let is_template = vmr.Db_actions.vM_is_a_template in
   let is_snapshot = vmr.Db_actions.vM_is_a_snapshot in
-  let vdis = List.filter_map (fun vbd -> try Some (Db.VBD.get_VDI ~__context ~self:vbd) with _ -> None) vmr.Db_actions.vM_VBDs in
+  let vdis = List.filter_map (fun vbd -> try Some (Db.VBD.get_VDI ~__context ~self:vbd) with _ -> None) vmr.Db_actions.vM_VBDs |> List.filter (Db.is_valid_ref __context) in
 
   (* Check if the operation has been explicitly blocked by the/a user *)
   let current_error = None in
