@@ -129,6 +129,7 @@ module Vgpu = struct
 		position: int;
 		physical_pci_address: Pci.address;
 		implementation: implementation;
+		other_config: (string*string) list;
 	}
 
 	let default_t = {
@@ -136,6 +137,7 @@ module Vgpu = struct
 		position = 0;
 		physical_pci_address = Pci.{domain = 0; bus = 0; dev = 0; fn = 0};
 		implementation = Empty;
+		other_config = [];
 	}
 
 	let upgrade_pci_info x =
