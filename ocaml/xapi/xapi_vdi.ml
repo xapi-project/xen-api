@@ -505,6 +505,8 @@ let snapshot ~__context ~vdi ~driver_params =
   (* Record the fact this is a snapshot *)
   Db.VDI.set_is_a_snapshot ~__context ~self:newvdi ~value:true;
   Db.VDI.set_snapshot_of ~__context ~self:newvdi ~value:vdi;
+  (* Inherit the cbt_enabled field from the snapshotted VDI *)
+  Db.VDI.set_cbt_enabled ~__context ~self:newvdi ~value:(Db.VDI.get_cbt_enabled ~__context ~self:vdi);
 
   update_allowed_operations ~__context ~self:newvdi;
   newvdi
