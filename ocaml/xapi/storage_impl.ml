@@ -522,15 +522,18 @@ module Wrapper = functor(Impl: Server_impl) -> struct
            Impl.VDI.resize context ~dbg ~sr ~vdi ~new_size
         )
 
-    let destroy context ~dbg ~sr ~vdi =
-      info "VDI.destroy dbg:%s sr:%s vdi:%s" dbg sr vdi;
+    let destroy_and_data_destroy call_name call_f context ~dbg ~sr ~vdi =
+      info "%s dbg:%s sr:%s vdi:%s" call_name dbg sr vdi;
       with_vdi sr vdi
         (fun () ->
            remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.all
              (fun () ->
-                Impl.VDI.destroy context ~dbg ~sr ~vdi
+                call_f context ~dbg ~sr ~vdi
              )
         )
+
+    let destroy = destroy_and_data_destroy "VDI.destroy" Impl.VDI.destroy
+    let data_destroy = destroy_and_data_destroy "VDI.data_destroy" Impl.VDI.data_destroy
 
     let stat context ~dbg ~sr ~vdi =
       info "VDI.stat dbg:%s sr:%s vdi:%s" dbg sr vdi;
