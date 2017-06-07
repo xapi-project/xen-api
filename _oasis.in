@@ -159,7 +159,8 @@ Executable xenopsd_xc_main
     sexplib,
     xcp-inventory,
     ezxenstore,
-    profiling
+    profiling,
+    qmp
   CSources:           fsync_stubs.c, xenctrlext_stubs.c
 
 Executable xenopsd_simulator

@@ -603,7 +603,21 @@ let qemu_media_change ~xs device _type params =
 		"params",         pathtowrite;
 	] in
 	Xs.transaction xs (fun t -> t.Xst.writev backend_path back_delta);
-	debug "Media changed: params = %s" pathtowrite
+	debug "Media changed: params = %s" pathtowrite;
+
+	try
+		ignore(with_xs (fun xs -> xs.Xs.read (Printf.sprintf "/libxl/%d/dm-version" device.frontend.domid)) = "qemu_xen");
+		let c = Qmp_protocol.connect (Printf.sprintf "/var/run/xen/qmp-libxl-%d" device.frontend.domid) in
+		Qmp_protocol.negotiate c;
+
+		let cd = "ide1-cd1" in
+		if params = ""
+		then Qmp_protocol.write c (Qmp.Command(None, Qmp.Eject (cd, Some true)))
+		else Qmp_protocol.write c (Qmp.Command(None, Qmp.Change (cd, params, None)));
+
+		Qmp_protocol.close c
+	with _ -> ()
+
 
 let media_eject ~xs device =
 	qemu_media_change ~xs device "" ""
