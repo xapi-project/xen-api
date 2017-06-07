@@ -78,6 +78,7 @@ module VDI = struct
   let remove_from_sm_config ctx ~dbg ~sr ~vdi ~key = u "VDI.remove_from_sm_config"
   let enable_cbt ctx ~dbg ~sr ~vdi = u "VDI.enable_cbt"
   let disable_cbt ctx ~dbg ~sr ~vdi = u "VDI.disable_cbt"
+  let data_destroy ctx ~dbg ~sr ~vdi = u "VDI.data_destroy"
 end
 
 let get_by_name ctx ~dbg ~name = u "get_by_name"
