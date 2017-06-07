@@ -168,6 +168,7 @@ module Debug_print_impl = struct
     let similar_content context ~dbg ~sr ~vdi = assert false
     let enable_cbt context ~dbg ~sr ~vdi = assert false
     let disable_cbt context ~dbg ~sr ~vdi = assert false
+    let data_destroy context ~dbg ~sr ~vdi = assert false
 
 
   end

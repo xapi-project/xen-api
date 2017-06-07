@@ -844,6 +844,9 @@ module SMAPIv1 = struct
     let disable_cbt context =
       call_cbt_function context ~f:Sm.vdi_disable_cbt ~f_name:"VDI.disable_cbt"
 
+    let data_destroy context =
+      call_cbt_function context ~f:Sm.vdi_data_destroy ~f_name:"VDI.data_destroy"
+
   end
 
   let get_by_name context ~dbg ~name = assert false
