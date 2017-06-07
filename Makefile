@@ -82,7 +82,7 @@ sdk-install: doc
 	omake sdk-install
 
 .PHONY: noarch-install
-noarch-install: doc
+noarch-install:
 	omake noarch-install
 
 .PHONY: clean

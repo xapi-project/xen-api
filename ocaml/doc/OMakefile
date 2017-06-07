@@ -20,7 +20,8 @@ sdk-install: doc-html
 	cp *.js *.html *.css *.png $(SDK)/docs/html/xenserver/
 	cp xenserver/* $(SDK)/docs/html/xenserver/
 
-noarch-install: sdk-install
+noarch-install:
+	echo "removed"
 
 .PHONY: clean
 clean:
