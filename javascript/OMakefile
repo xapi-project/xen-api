@@ -1,7 +1,4 @@
 
 .PHONY: noarch-install
 noarch-install:
-	echo "removed"
-
-
-
+	echo "nothing to do here"
