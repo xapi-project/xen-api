@@ -11,6 +11,9 @@ doc-html: jsapi
 	mkdir -p api
 	./jsapi
 
+# in the following recipes cp is not called directly because
+# the OMakefile does not recognise the -L option
+
 .PHONY: sdk-install
 sdk-install: doc-html
 	mkdir -p $(SDK)/docs/html/xcp
@@ -36,7 +39,7 @@ doc-html-install: doc-html
 	cp xenserver/* $(DESTDIR)$(DOCDIR)/html/xenserver/
 
 noarch-install: doc-html-install
-	echo "removed"
+	echo "nothing to do here"
 
 .PHONY: clean
 clean:
