@@ -63,6 +63,8 @@ function get_release_name(s)
 		return 'XenServer 6.5 SP1';
 	case 'dundee':
 		return 'XenServer 7.0';
+	case 'ely':
+		return 'XenServer 7.1';
 	default:
 		return (s + ' (unreleased)');
 	}

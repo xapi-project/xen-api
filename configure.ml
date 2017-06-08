@@ -31,6 +31,7 @@ let cluster_stack_root = dir "cluster-stack-root" "/usr/libexec/xapi/cluster-sta
 let bindir = dir "bindir" "/opt/xensource/bin" "BINDIR" "binaries"
 let sbindir = dir "sbindir" "/opt/xensource/bin" "BINDIR" "system binaries"
 let udevdir = dir "udevdir" "/etc/udev" "UDEVDIR" "udev scripts"
+let docdir = dir "docdir" "/usr/share/xapi/doc" "DOCDIR" "XenAPI documentation"
 
 let info =
   let doc = "Configures a package" in
@@ -42,8 +43,8 @@ let output_file filename lines =
   List.iter (output_string oc) lines;
   close_out oc
 
-let configure disable_warn_error varpatchdir etcdir optdir plugindir extensiondir hooksdir inventory xapiconf libexecdir scriptsdir sharedir webdir cluster_stack_root bindir sbindir udevdir =
-  Printf.printf "Configuring with the following params:\n\tdisable_warn_error=%b\n\tvarpatchdir=%s\n\tetcdir=%s\n\toptdir=%s\n\tplugindir=%s\n\textensiondir=%s\n\thooksdir=%s\n\tinventory=%s\n\txapiconf=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tsharedir=%s\n\twebdir=%s\n\tcluster_stack_root=%s\n\tbindir=%s\n\tsbindir=%s\n\tudevdir=%s\n\n" disable_warn_error varpatchdir etcdir optdir plugindir extensiondir hooksdir inventory xapiconf libexecdir scriptsdir sharedir webdir cluster_stack_root bindir sbindir udevdir;
+let configure disable_warn_error varpatchdir etcdir optdir plugindir extensiondir hooksdir inventory xapiconf libexecdir scriptsdir sharedir webdir cluster_stack_root bindir sbindir udevdir docdir =
+  Printf.printf "Configuring with the following params:\n\tdisable_warn_error=%b\n\tvarpatchdir=%s\n\tetcdir=%s\n\toptdir=%s\n\tplugindir=%s\n\textensiondir=%s\n\thooksdir=%s\n\tinventory=%s\n\txapiconf=%s\n\tlibexecdir=%s\n\tscriptsdir=%s\n\tsharedir=%s\n\twebdir=%s\n\tcluster_stack_root=%s\n\tbindir=%s\n\tsbindir=%s\n\tudevdir=%s\n\tdocdir=%s\n\n" disable_warn_error varpatchdir etcdir optdir plugindir extensiondir hooksdir inventory xapiconf libexecdir scriptsdir sharedir webdir cluster_stack_root bindir sbindir udevdir docdir;
 
   (* Write config.mk *)
   let lines =
@@ -65,11 +66,12 @@ let configure disable_warn_error varpatchdir etcdir optdir plugindir extensiondi
       Printf.sprintf "CLUSTER_STACK_ROOT=%s" cluster_stack_root;
       Printf.sprintf "BINDIR=%s" bindir;
       Printf.sprintf "SBINDIR=%s" sbindir;
-      Printf.sprintf "UDEVDIR=%s" udevdir
+      Printf.sprintf "UDEVDIR=%s" udevdir;
+      Printf.sprintf "DOCDIR=%s" docdir
     ] in
   output_file config_mk lines
 
-let configure_t = Term.(pure configure $ disable_warn_error $ varpatchdir $ etcdir $ optdir $ plugindir $ extensiondir $ hooksdir $ inventory $ xapiconf $ libexecdir $ scriptsdir $ sharedir $ webdir $ cluster_stack_root $ bindir $ sbindir $ udevdir )
+let configure_t = Term.(pure configure $ disable_warn_error $ varpatchdir $ etcdir $ optdir $ plugindir $ extensiondir $ hooksdir $ inventory $ xapiconf $ libexecdir $ scriptsdir $ sharedir $ webdir $ cluster_stack_root $ bindir $ sbindir $ udevdir $ docdir )
 
 let () =
   match
