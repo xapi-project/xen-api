@@ -4,6 +4,7 @@ authors: "xen-api@lists.xen.org"
 homepage: "https://github.com/xapi-project/"
 bug-reports: "https://github.com/xapi-project/forkexecd/issues"
 dev-repo: "git://github.com/xapi-project/forkexecd"
+tags: [ "org:xapi-project" ]
 build: [
   ["oasis" "setup"]
   [make]
@@ -19,12 +20,12 @@ remove: [
 depends: [
   "ocamlfind" {build}
   "oasis" {build}
-  "systemd" {build}
+  "base-threads"
+  "systemd" {>= "1.2"}
   "syslog"
-  "rpc"
+  "rpc" {>= "1.9.51"}
   "fd-send-recv"
   "uuidm"
   "xapi-stdext"
-  "re"
   "xapi-idl"
 ]
