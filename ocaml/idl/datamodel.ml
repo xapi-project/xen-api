@@ -6580,6 +6580,17 @@ let vdi_data_destroy = call
     ~in_oss_since:None
     ~in_product_since:rel_inverness
     ~params:[Ref _vdi, "self", "The VDI whose data should be deleted."]
+    ~errs:[
+      Api_errors.sr_operation_not_supported;
+      Api_errors.vdi_missing;
+      Api_errors.sr_not_attached;
+      Api_errors.sr_no_pbds;
+      Api_errors.operation_not_allowed;
+      Api_errors.vdi_incompatible_type;
+      Api_errors.vdi_no_cbt_metadata;
+      Api_errors.vdi_in_use;
+      Api_errors.vdi_is_a_physical_device;
+    ]
     ~doc:"Delete the data of the snapshot VDI, but keep its changed block tracking metadata. When successful, this call changes the type of the VDI to cbt_metadata. This operation is idempotent: calling it on a VDI of type cbt_metadata results in a no-op, and no error will be thrown."
     ~allowed_roles:_R_VM_ADMIN
     ()
