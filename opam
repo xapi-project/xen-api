@@ -4,6 +4,7 @@ authors: [ "xen-api@lists.xen.org" ]
 homepage: "https://github.com/xapi-project/message-switch"
 bug-reports: "https://github.com/xapi-project/message-switch/issues"
 dev-repo: "git://github.com/xapi-project/message-switch"
+tags: [ "org:xapi-project" ]
 build: [
   ["./configure" "--bindir" "%{bin}%"]
   [make]
@@ -15,20 +16,18 @@ remove: [
   ["ocamlfind" "remove" "message_switch"]
 ]
 depends: [
-  "ocamlfind"
-  "cohttp" {>= "0.15.0" }
-  "rpc"
+  "oasis" {build}
+  "ocamlfind" {build}
+  "base-unix"
+  "cohttp" {>= "0.15.0" & < "0.22.0"}
+  "rpc" {>= "1.9.51"}
   "sexplib"
   "ppx_sexp_conv"
-  "ounit"
-  "syslog"
   "uri"
   "re"
-  "mtime"
+  "mtime" {< "1.0.0"}
   "mirage-block-unix" {>= "2.4.0"}
-  "shared-block-ring"
+  "shared-block-ring" {>= "2.3.0"}
   "cmdliner"
-  "ssl"
-  "oasis"
-  "async"
+  "async" {< "v0.9.0"}
 ]
