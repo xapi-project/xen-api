@@ -1,7 +1,6 @@
 opam-version: "1.2"
 name: "xen-api-client"
-maintainer: "dave@recoil.org"
-version: "0.9.10"
+maintainer: "xen-api@lists.xen.org"
 authors: [ "David Scott" "Anil Madhavapeddy" "Jerome Maloberti" "John Else" "Jon Ludlam" "Thomas Sanders" "Mike McClurg" ]
 license: "LGPL"
 homepage: "https://github.com/xapi-project/xen-api-client"
@@ -25,17 +24,20 @@ remove: [["ocamlfind" "remove" "xen-api-client"]]
 depends: [
   "ocamlfind" {build}
   "oasis"     {build}
-  "lwt" {>= "2.4.3"}
-  "cstruct" {>= "1.0.1"}
+  "lwt" {>= "2.4.3" & < "3.0.0"}
+  "cstruct" {>= "1.0.1" & < "3.0.0"}
   "ssl"
   "ounit"
-  "cohttp" {>= "0.12.0"}
+  "cohttp" {>= "0.12.0" & < "0.22.0"}
   "uri"
   "re"
   "xmlm"
-  "rpc" {>= "1.9.1"}
+  "rpc" {>= "1.9.51"}
   "xapi-rrd"
   "uuidm"
 ]
 depopts: ["async"]
-conflicts: ["async" {< "111.13.00"}]
+conflicts: [
+  "async" {< "111.13.00"}
+  "async" {>= "v0.9.0"}
+]
