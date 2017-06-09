@@ -1985,6 +1985,14 @@ let rec cmdtable_data : (string*cmd_spec) list =
       implementation=No_fd Cli_operations.vdi_disable_cbt;
       flags=[];
     };
+    "vdi-data-destroy",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Delete the data of the VDI, but keep its changed block tracking metadata.";
+      implementation=No_fd Cli_operations.vdi_data_destroy;
+      flags=[];
+    };
     "diagnostic-vdi-status",
     {
       reqd=["uuid"];

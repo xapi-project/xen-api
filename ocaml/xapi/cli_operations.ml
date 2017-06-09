@@ -1256,6 +1256,10 @@ let vdi_disable_cbt printer rpc session_id params =
   let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
   Client.VDI.disable_cbt rpc session_id vdi
 
+let vdi_data_destroy printer rpc session_id params =
+  let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+  Client.VDI.data_destroy rpc session_id vdi
+
 let diagnostic_vdi_status printer rpc session_id params =
   let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
   let vdi_r = vdi_record rpc session_id vdi in
