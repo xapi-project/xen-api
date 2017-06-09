@@ -1,5 +1,9 @@
-opam-version: "1"
-maintainer: "dave.scott@eu.citrix.com"
+opam-version: "1.2"
+maintainer: "xen-api@lists.xen.org"
+authors: [ "xen-api@lists.xen.org" ]
+homepage: "https://github.com/xapi-project/vhd-tool"
+bug-reports: "https://github.com/xapi-project/vhd-tool/issues"
+dev-repo: "https://github.com/xapi-project/vhd-tool.git"
 tags: [
   "org:mirage"
   "org:xapi-project"
@@ -10,19 +14,23 @@ build: [
   [make]
 ]
 depends: [
-  "ocamlfind"
-  "lwt" {>= "2.4.3"}
-  "cstruct" {>= "1.0.1"}
-  "vhd-format" {>= "0.7.0"}
-  "uuidm"
-  "cmdliner"
-  "nbd" {>= "1.0.1"}
-  "ounit"
-  "uri"
-  "tar-format"
-  "sha"
-  "cohttp" {>="0.12.0"}
-  "ssl"
-  "xapi-tapctl"
   "oasis" {build}
+  "ocamlfind" {build}
+  "base-threads"
+  "cmdliner"
+  "cohttp" {>="0.12.0" & < "0.22.0"}
+  "cstruct" {>= "1.0.1" & < "3.0.0"}
+  "io-page-unix"
+  "lwt" {>= "2.4.3" & < "3.0.0"}
+  "nbd" {>= "1.0.1" & < "3.0.0"}
+  "re"
+  "sha"
+  "ssl"
+  "tar-format" {>"0.5.0"}
+  "uri"
+  "vhd-format" {>= "0.7.0"}
+  "xapi-idl"
+  "xapi-tapctl"
+  "xenstore"
+  "xenstore_transport"
 ]
