@@ -5993,6 +5993,7 @@ let storage_operations =
           "vdi_mirror", "Mirroring a VDI";
           "vdi_enable_cbt", "Enabling changed block tracking for a VDI";
           "vdi_disable_cbt", "Disabling changed block tracking for a VDI";
+          "vdi_data_destroy", "Deleting the data of the VDI";
           "vdi_set_on_boot", "Setting the on_boot field of the VDI";
           "pbd_create", "Creating a PBD for this SR";
           "pbd_destroy", "Destroying one of this SR's PBDs"; ])
@@ -6318,6 +6319,7 @@ let vdi_operations =
           "generate_config", "Generating static configuration";
           "enable_cbt", "Enabling changed block tracking for a VDI";
           "disable_cbt", "Disabling changed block tracking for a VDI";
+          "data_destroy", "Deleting the data of the VDI";
           "set_on_boot", "Setting the on_boot field of the VDI";
           "blocked", "Operations on this VDI are temporarily blocked";
         ])
@@ -6560,6 +6562,15 @@ let vdi_disable_cbt = call
     ~allowed_roles:_R_VM_ADMIN
     ()
 
+let vdi_data_destroy = call
+    ~name:"data_destroy"
+    ~in_oss_since:None
+    ~in_product_since:rel_inverness
+    ~params:[Ref _vdi, "self", "The VDI whose data should be deleted."]
+    ~doc:"Delete the data of the snapshot VDI, but keep its changed block tracking metadata. When successful, this call changes the type of the VDI to cbt_metadata. This operation is idempotent: calling it on a VDI of type cbt_metadata results in a no-op, and no error will be thrown."
+    ~allowed_roles:_R_VM_ADMIN
+    ()
+
 (** A virtual disk *)
 let vdi =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vdi ~descr:"A virtual disk image"
@@ -6594,6 +6605,7 @@ let vdi =
                vdi_pool_migrate;
                vdi_enable_cbt;
                vdi_disable_cbt;
+               vdi_data_destroy;
               ]
     ~contents:
       ([ uid _vdi;

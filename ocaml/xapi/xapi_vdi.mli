@@ -148,6 +148,7 @@ val snapshot :
   vdi:[ `VDI ] API.Ref.t ->
   driver_params:(string * string) list -> [ `VDI ] API.Ref.t
 val destroy : __context:Context.t -> self:[ `VDI ] API.Ref.t -> unit
+val data_destroy : __context:Context.t -> self:[ `VDI ] API.Ref.t -> unit
 val resize_online :
   __context:Context.t -> vdi:[ `VDI ] API.Ref.t -> size:int64 -> unit
 val resize :
