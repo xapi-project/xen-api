@@ -6525,6 +6525,15 @@ let vdi_enable_cbt = call
     ~in_oss_since:None
     ~in_product_since:rel_inverness
     ~params:[Ref _vdi, "self", "The VDI for which CBT should be enabled"]
+    ~errs:[
+      Api_errors.sr_operation_not_supported;
+      Api_errors.vdi_missing;
+      Api_errors.sr_not_attached;
+      Api_errors.sr_no_pbds;
+      Api_errors.operation_not_allowed;
+      Api_errors.vdi_incompatible_type;
+      Api_errors.vdi_on_boot_mode_incompatible_with_operation;
+    ]
     ~doc:"Enable changed block tracking for the VDI. This call is idempotent - enabling CBT for a VDI for which CBT is already enabled results in a no-op, and no error will be thrown."
     ~allowed_roles:_R_VM_ADMIN
     ()
@@ -6534,6 +6543,15 @@ let vdi_disable_cbt = call
     ~in_oss_since:None
     ~in_product_since:rel_inverness
     ~params:[Ref _vdi, "self", "The VDI for which CBT should be disabled"]
+    ~errs:[
+      Api_errors.sr_operation_not_supported;
+      Api_errors.vdi_missing;
+      Api_errors.sr_not_attached;
+      Api_errors.sr_no_pbds;
+      Api_errors.operation_not_allowed;
+      Api_errors.vdi_incompatible_type;
+      Api_errors.vdi_on_boot_mode_incompatible_with_operation;
+    ]
     ~doc:"Disable changed block tracking for the VDI. This call is only allowed on VDIs that support enabling CBT. It is an idempotent operation - disabling CBT for a VDI for which CBT is not enabled results in a no-op, and no error will be thrown."
     ~allowed_roles:_R_VM_ADMIN
     ()
