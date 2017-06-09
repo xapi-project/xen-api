@@ -1109,6 +1109,8 @@ let _ =
     ~doc:"This VDI was not mapped to a destination SR in VM.migrate_send operation" () ;
   error Api_errors.vdi_cbt_enabled [ "vdi" ]
     ~doc:"The requested operation is not allowed for VDIs with CBT enabled or VMs having such VDIs, and CBT is enabled for the specified VDI." ();
+  error Api_errors.vdi_no_cbt_metadata [ "vdi" ]
+    ~doc:"The requested operation is not allowed because the specified VDI does not have changed block tracking metadata." ();
   error Api_errors.vdi_copy_failed []
     ~doc:"The VDI copy action has failed" ();
   error Api_errors.vdi_on_boot_mode_incompatible_with_operation []
