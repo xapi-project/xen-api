@@ -4,6 +4,7 @@ authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/tapctl/issues"
 dev-repo: "git://github.com/xapi-project/tapctl.git"
+tags: [ "org:xapi-project" ]
 build: [
   ["oasis" "setup"]
   [make]
@@ -21,5 +22,5 @@ depends: [
   "xapi-forkexecd"
   "rpc"
   "base-threads"
-  "xapi-stdext"
 ]
+
