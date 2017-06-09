@@ -3,7 +3,8 @@ authors: "Dave Scott"
 homepage: "https://github.com/xapi-project/xcp-idl"
 bug-reports: "https://github.com/xapi-project/xcp-idl/issues"
 dev-repo: "git://github.com/xapi-project/xcp-idl"
-maintainer: "dave.scott@eu.citrix.com"
+maintainer: "xen-api@lists.xen.org"
+tags: [ "org:xapi-project" ]
 build: [
   [make "all"]
 ]
@@ -16,18 +17,26 @@ install: [
 remove: [
   ["ocamlfind" "remove" "xcp"]
 ]
-depends: [ "uri"
-           "re"
-           "cmdliner"
-           "cohttp"
-           "xmlm"
-           "rpc" {>= "1.5.3"}
-           "ocamlfind"
-           "cohttp" {>= "0.15.0"}
-           "message-switch"
-           "xapi-stdext"
-           "xapi-rrd"
-           "xapi-inventory"
-           "xapi-backtrace"
-          ]
+depends: [
+  "ocamlfind" {build}
+  "ocamlbuild" {build}
+  "base-threads"
+  "base-unix"
+  "uri"
+  "re"
+  "cmdliner"
+  "cohttp" {< "0.22.0"}
+  "xmlm"
+  "rpc" {>= "1.9.51"}
+  "message-switch"
+  "xapi-stdext"
+  "xapi-rrd"
+  "xapi-inventory"
+  "xapi-backtrace"
+  "fd-send-recv"
+  "lwt" {< "3.0.0"}
+  "ounit" {>= "2.0.0"}
+  "ppx_sexp_conv"
+  "sexplib"
+]
 
