@@ -3596,6 +3596,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            forward_vdi_op ~local_fn ~__context ~self
              (fun session_id rpc -> Client.VDI.disable_cbt rpc session_id self))
 
+    let data_destroy ~__context ~self =
+      info "VDI.data_destroy: VDI = '%s'" (vdi_uuid ~__context self);
+      let local_fn = Local.VDI.data_destroy ~self in
+      let sR = Db.VDI.get_SR ~__context ~self in
+      with_sr_andor_vdi ~__context ~sr:(sR, `vdi_data_destroy) ~vdi:(self, `data_destroy) ~doc:"VDI.data_destroy"
+        (fun () ->
+           forward_vdi_op ~local_fn ~__context ~self
+             (fun session_id rpc -> Client.VDI.data_destroy rpc session_id self))
+
   end
   module VBD = struct
 
