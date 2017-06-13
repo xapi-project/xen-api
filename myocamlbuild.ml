@@ -5,4 +5,5 @@ Ocamlbuild_plugin.dispatch
     (fun hook ->
             dispatch_default hook ;
             Ocamlbuild_cppo.dispatcher hook ;
+            Bisect_ppx_plugin.dispatch hook ;
     );;

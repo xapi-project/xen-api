@@ -53,3 +53,5 @@ setup.ml
 scripts/vif
 scripts/xen-backend.rules
 scripts/xen-backend-xl.rules
+_oasis
+coverage/

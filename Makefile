@@ -5,13 +5,16 @@ NAME=xenopsd
 J=4
 
 ENABLE_TESTS=--enable-tests
+COVERAGE=coverage
 
 clean:
-	@rm -f setup.data setup.log setup.bin setup.ml lib/version.ml
+	@rm -f setup.data setup.log setup.bin setup.ml _oasis lib/version.ml
 	@rm -rf _build
 	@rm -f xenopsd-xc xenopsd-xenlight xenopsd-simulator xenopsd-libvirt
 	@rm -f xenopsd-xc.1 xenopsd-xenlight.1 xenopsd-simulator.1 xenopsd-libvirt.1
 	@rm -f *.native
+	@rm -f /tmp/bisect-xenops*.out || true
+	@rm -rf $(COVERAGE)
 
 -include config.mk
 
@@ -26,7 +29,13 @@ setup.bin: setup.ml
 setup.data: setup.bin
 	@./setup.bin -configure $(ENABLE_TESTS) $(ENABLE_XEN) $(ENABLE_XENLIGHT) $(ENABLE_XENGUESTBIN) $(ENABLE_XENTOOLLOG)
 
-setup.ml: _oasis
+setup.ml: _oasis.in
+ifeq ($(BISECT_COVERAGE),YES)
+	rm -f _oasis
+	sed -e 's/BuildDepends:/BuildDepends: bisect_ppx,/' _oasis.in >_oasis
+else
+	ln -sf _oasis.in _oasis
+endif
 	oasis setup -setup-update dynamic
 
 _build/config.ml: config.ml
@@ -105,19 +114,9 @@ release:
 	mv _oasis.tmp _oasis
 	oasis setup
 
-# make coverage - prepares for building with coverage analysis
-# make uncover  - reverses the setup from "make coverage"
 # make report   - create coverage/index.html 
 
-coverage: _tags _tags.coverage 
-	test ! -f _tags.orig && mv _tags _tags.orig || true
-	cat _tags.coverage _tags.orig > _tags
-
-uncover: _tags.orig
-	mv _tags.orig _tags
-
 report:
-	bisect-ppx-report -I _build -html coverage /tmp/bisect-xenops*out
+	bisect-ppx-report -I _build -html $(COVERAGE) /tmp/bisect-xenops*out
 
-.PHONY: report coverage uncover
-	
+.PHONY: report

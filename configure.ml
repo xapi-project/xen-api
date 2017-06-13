@@ -15,6 +15,10 @@ let sbindir =
 let libexecdir =
   let doc = "Set the directory for installing helper executables" in
   Arg.(value & opt string "/usr/lib/xenopsd" & info ["libexecdir"] ~docv:"LIBEXECDIR" ~doc)
+let coverage =
+  let doc = "Enable coverage profiling" in
+  Arg.(value & flag & info ["enable-coverage"] ~doc)
+
 
 let scriptsdir =
   let doc = "Set the directory for installing helper scripts" in
@@ -100,7 +104,11 @@ let find_xentoollog verbose =
   Printf.printf "Looking for xentoollog: %s\n" (if found then "found" else "missing");
   found
 
-let configure bindir sbindir libexecdir scriptsdir etcdir mandir =
+let yesno_of_bool = function
+ | true -> "YES"
+ | false -> "NO"
+
+let configure bindir sbindir libexecdir scriptsdir etcdir mandir coverage =
   let xenctrl = find_ocamlfind false "xenctrl" in
   let xenlight = find_ocamlfind false "xenlight" in
   let xen45 = find_seriallist () in
@@ -117,6 +125,7 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir =
     ; p "\txenctrl=%b"    xenctrl
     ; p "\txenlight=%b"   xenlight
     ; p "\txentoollog=%b" xentoollog
+    ; p "\tcoverage=%b"   coverage
     ; p "" (* new line *)
     ];
 
@@ -133,6 +142,8 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir =
       Printf.sprintf "ENABLE_XEN=--%s-xen" (if xenctrl then "enable" else "disable");
       Printf.sprintf "ENABLE_XENLIGHT=--%s-xenlight" (if xenlight then "enable" else "disable");
       Printf.sprintf "ENABLE_XENTOOLLOG=--%s-xentoollog" (if xentoollog then "enable" else "disable");
+      Printf.sprintf "BISECT_COVERAGE=%s" (yesno_of_bool coverage);
+      "export BISECT_COVERAGE"
     ] in
   output_file config_mk lines;
   (* Expand @LIBEXEC@ in udev rules *)
@@ -145,7 +156,7 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir =
     ] in
   output_file config_ml configmllines
 
-let configure_t = Term.(pure configure $ bindir $ sbindir $ libexecdir $ scriptsdir $ etcdir $ mandir)
+let configure_t = Term.(pure configure $ bindir $ sbindir $ libexecdir $ scriptsdir $ etcdir $ mandir $ coverage)
 
 let () = 
   match 
