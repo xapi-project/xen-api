@@ -40,6 +40,15 @@ ERROR_MESSAGE_VERSION_REQUIRED = 'Requires: '
 ERROR_MESSAGE_VERSION_INSTALLED = 'Installed: '
 ERROR_MESSAGE_DOWNLOAD_PACKAGE = 'Error downloading packages:\n'
 ERROR_MESSAGE_GPGKEY_NOT_IMPORTED = 'Gpg Keys not imported'
+ERROR_XML_START = '<error errorcode='
+ERROR_XML_END = '</error>'
+ERRORCODE = 'errorcode'
+ERROR = 'error'
+FOUND = 'found'
+REQUIRED = 'required'
+
+class PrecheckError(Exception):
+    pass
 
 class PrecheckFailure(Exception):
     pass
@@ -87,6 +96,19 @@ def parse_control_package(session, yum_url):
         raise PrecheckFailure('Missing <update> in update.xml')
     return items[0].getAttribute('control')
 
+def parse_precheck_failure(xmldoc):
+    errors = {
+        UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION: (FOUND, REQUIRED)
+    }
+
+    error = xmldoc.getElementsByTagName(ERROR)[0]
+    code = error.getAttribute(ERRORCODE)
+
+    if code in errors:
+        params = [xmldoc.getElementsByTagName(a)[0].firstChild.nodeValue for a in errors[code]]
+        raise PrecheckError(code, *params)
+    else:
+        raise PrecheckFailure(xmldoc.toxml())
 
 def execute_precheck(session, control_package, yum_conf_file, update_precheck_file):
     if not control_package:
@@ -149,6 +171,14 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
             else:
                 raise PrecheckFailure(errmsg)
         else:
+            regex = ERROR_XML_START + '.+' + ERROR_XML_END
+            m = re.search(regex, output, flags=re.DOTALL)
+            if m:
+                try:
+                    xmldoc = xml.dom.minidom.parseString(m.group(0))
+                except:
+                    raise PrecheckFailure(output)
+                parse_precheck_failure(xmldoc)
             raise PrecheckFailure(output)
 
     if os.path.isfile(update_precheck_file):
@@ -225,6 +255,8 @@ if __name__ == '__main__':
         control_package = parse_control_package(session, yum_url)
         update_precheck_file = os.path.join(UPDATE_DIR, update_uuid, 'precheck')
         print(success_message(execute_precheck(session, control_package, yum_conf_file, update_precheck_file)))
+    except PrecheckError as e:
+        print(failure_message(e.args[0], [update_package] + [a for a in e.args[1:]]))
     except PrerequisiteMissing as e:
         print(failure_message(UPDATE_PRECHECK_FAILED_PREREQUISITE_MISSING, [update_package, str(e)]))
     except ConflictPresent as e:
