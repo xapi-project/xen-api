@@ -6,7 +6,7 @@ Authors:     Dave Scott
 License:     LGPL-2.1 with OCaml linking exception
 Plugins:     META (0.2)
 OCamlVersion: >= 4.01
-AlphaFeatures: ocamlbuild_more_args
+AlphaFeatures: ocamlbuild_more_args, compiled_setup_ml
 XOCamlbuildPluginTags: package(cppo_ocamlbuild)
 BuildTools:  ocamlbuild
 

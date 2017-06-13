@@ -7,7 +7,7 @@ J=4
 ENABLE_TESTS=--enable-tests
 
 clean:
-	@rm -f setup.data setup.log setup.bin lib/version.ml
+	@rm -f setup.data setup.log setup.bin setup.ml lib/version.ml
 	@rm -rf _build
 	@rm -f xenopsd-xc xenopsd-xenlight xenopsd-simulator xenopsd-libvirt
 	@rm -f xenopsd-xc.1 xenopsd-xenlight.1 xenopsd-simulator.1 xenopsd-libvirt.1
@@ -20,11 +20,14 @@ config.mk:
 	exit 1
 
 setup.bin: setup.ml
-	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
-	@rm -f setup.cmx setup.cmi setup.o setup.cmo
+	@ocamlfind ocamlopt -o $@ -linkpkg -package oasis.dynrun setup.ml || ocamlfind ocamlc -o $@ -linkpkg -package oasis.dynrun setup.ml
+	@rm -f setup.cmi setup.cmo setup.cmx setup.o
 
 setup.data: setup.bin
 	@./setup.bin -configure $(ENABLE_TESTS) $(ENABLE_XEN) $(ENABLE_XENLIGHT) $(ENABLE_XENGUESTBIN) $(ENABLE_XENTOOLLOG)
+
+setup.ml: _oasis
+	oasis setup -setup-update dynamic
 
 _build/config.ml: config.ml
 	@mkdir -p _build

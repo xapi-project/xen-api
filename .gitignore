@@ -49,6 +49,7 @@ dist
 _build
 setup.bin
 setup.data
+setup.ml
 scripts/vif
 scripts/xen-backend.rules
 scripts/xen-backend-xl.rules
