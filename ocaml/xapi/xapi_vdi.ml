@@ -28,12 +28,12 @@ open Printf
 let check_sm_feature_error (op:API.vdi_operations) sm_features sr =
   let required_sm_feature = Smint.(match op with
   | `forget
-  | `snapshot
   | `copy
   | `scan
   | `force_unlock
   | `blocked
     -> None
+  | `snapshot -> Some Vdi_snapshot
   | `destroy -> Some Vdi_delete
   | `resize -> Some Vdi_resize
   | `update -> Some Vdi_update
@@ -187,8 +187,6 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
           if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
           then Some (Api_errors.ha_is_enabled, [])
           else None
-        | `snapshot when not Smint.(has_capability Vdi_snapshot sm_features) ->
-          Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
         | `snapshot when record.Db_actions.vDI_sharable ->
           Some (Api_errors.vdi_is_sharable, [ _ref ])
         | `snapshot when reset_on_boot ->
