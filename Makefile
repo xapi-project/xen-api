@@ -37,7 +37,6 @@ setup.data: setup.ml
 
 setup.ml: _oasis.in
 ifeq ($(BISECT_COVERAGE),YES)
-	rm -f _oasis
 	sed -e 's/BuildDepends:/BuildDepends: bisect_ppx,/' _oasis.in >_oasis
 	ln -sf profiling-enabled/coverage.ml ocaml/xapi/coverage.ml
 else
