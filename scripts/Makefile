@@ -154,5 +154,10 @@ install:
 	$(IPROG) poweron/iLO.py $(DESTDIR)$(PLUGINDIR)/iLO.py
 	$(IPROG) poweron/DRAC.py $(DESTDIR)$(PLUGINDIR)/DRAC.py
 	$(IPROG) poweron/power-on.py $(DESTDIR)$(PLUGINDIR)/power-on-host
+# maillanguages
+	mkdir -p $(DESTDIR)/etc/xapi.d/mail-languages
+	$(IDATA) mail-languages/en-US.json $(DESTDIR)/etc/xapi.d/mail-languages
+	$(IDATA) mail-languages/zh-CN.json $(DESTDIR)/etc/xapi.d/mail-languages
+	$(IDATA) mail-languages/ja-JP.json $(DESTDIR)/etc/xapi.d/mail-languages
 	
 
