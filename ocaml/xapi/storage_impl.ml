@@ -592,6 +592,10 @@ module Wrapper = functor(Impl: Server_impl) -> struct
            Impl.VDI.disable_cbt context ~dbg ~sr ~vdi
         )
 
+    let export_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to =
+      info "VDI.export_changed_blocks dbg:%s sr:%s vdi_from:%s vdi_to:%s" dbg sr vdi_from vdi_to;
+      Impl.VDI.export_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to
+
   end
 
   let get_by_name context ~dbg ~name =
