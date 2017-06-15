@@ -264,6 +264,9 @@ module Mux = struct
     let data_destroy context ~dbg ~sr ~vdi =
       let module C = Client(struct let rpc = of_sr sr end) in
       C.VDI.data_destroy ~dbg ~sr ~vdi
+    let export_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to =
+      let module C = Client(struct let rpc = of_sr sr end) in
+      C.VDI.export_changed_blocks ~dbg ~sr ~vdi_from ~vdi_to
 
   end
 
