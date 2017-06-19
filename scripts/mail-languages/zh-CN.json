@@ -1,48 +1,48 @@
 {
 	"mail-alarms":{
 		"cpu_usage_alarm":{
-			"subject":"[%s] %s 警报: %s“%s”上的 CPU 使用率",
-			"body":"%s“%s”上的 CPU 使用率在过去 %d 秒内处于平均值 %.1f%%。\n此警报设置为在 CPU 使用率超过 %.1f%% 时触发。\n\n要查看警报设置，请登录您的 %s 控制台并单击“%s”->\n“属性”->“警报”\n"
+			"subject":"[{pool_name}] {product_brand} 警报: {cls}“{name_label}”上的 CPU 使用率",
+			"body":"{cls}“{name_label}”上的 CPU 使用率在过去 {period} 秒内处于平均值 {value}%。\n此警报设置为在 CPU 使用率超过 {level}% 时触发。\n\n要查看警报设置，请登录您的 {brand_console} 控制台并单击“{cls_name}”->\n“属性”->“警报”\n"
 		},
 		"network_usage_alarm":{
-			"subject":"[%s] %s 警报: %s“%s”上的网络使用率",
-			"body":"%s“%s”上的网络使用率在过去 %d 秒内处于平均值 %d B/秒。\n此警报设置为在网络使用率超过 %d B/秒时触发。\n\n要查看警报设置，请登录您的 %s 控制台并单击“%s”->\n“属性”->“警报”\n"
+			"subject":"[{pool_name}] {product_brand} 警报: {cls}“{name_label}”上的网络使用率",
+			"body":"{cls}“{name_label}”上的网络使用率在过去 {period} 秒内处于平均值 {value} B/秒。\n此警报设置为在网络使用率超过 {level} B/秒时触发。\n\n要查看警报设置，请登录您的 {brand_console} 控制台并单击“{cls_name}”->\n“属性”->“警报”\n"
 		},
 		"memory_usage_alarm":{
-			"subject":"[%s] %s 警报: %s“%s”的内存使用量",
-			"body":"%s“%s”上的可用内存在过去 %d 秒内处于平均值 %d KiB。\n此警报设置为在可用内存低于 %d KiB 时触发。\n\n要查看警报设置，请登录您的 %s 控制台并单击“服务器”->\n“属性”->“警报”\n"
+			"subject":"[{pool_name}] {product_brand} 警报: {cls}“{name_label}”的内存使用量",
+			"body":"{cls}“{name_label}”上的可用内存在过去 {period} 秒内处于平均值 {value} KiB。\n此警报设置为在可用内存低于 {level} KiB 时触发。\n\n要查看警报设置，请登录您的 {brand_console} 控制台并单击“服务器”->\n“属性”->“警报”\n"
 		},
 		"disk_usage_alarm":{
-			"subject":"[%s] %s 警报: VM“%s”上的磁盘使用率",
-			"body":"VM“%s”上的磁盘使用率在过去 %d 秒内处于平均值 %d B/秒。\n此警报设置为在磁盘使用率超过 %d B/秒时触发。\n\n要查看警报设置，请登录您的 %s 控制台并单击“VM”->\n“属性”->“警报”\n"
+			"subject":"[{pool_name}] {product_brand} 警报: VM“{name_label}”上的磁盘使用率",
+			"body":"VM“{name_label}”上的磁盘使用率在过去 {period} 秒内处于平均值 {value} B/秒。\n此警报设置为在磁盘使用率超过 {level} B/秒时触发。\n\n要查看警报设置，请登录您的 {brand_console} 控制台并单击“VM”->\n“属性”->“警报”\n"
 		},
 		"dom0fs_usage_alarm":{
-			"subject":"[%s] %s 警报:“%s”上的文件系统即将满载",
-			"body":"“%s”上的文件系统使用量为 %.1f%%。\n此警报设置为在文件系统使用量超过 %.1f%% 时触发。\n\n"
+			"subject":"[{pool_name}] {product_brand} 警报:“{name_label}”上的文件系统即将满载",
+			"body":"“{name_label}”上的文件系统使用量为 {value}%。\n此警报设置为在文件系统使用量超过 {level}% 时触发。\n\n"
 		},
 		"dom0logfs_usage_alarm":{
-			"subject":"[%s] %s 警报:“%s”上的日志分区即将满载",
-			"body":"“%s”上的日志分区使用量为 %.1f%%。\n此警报设置为在日志分区使用量超过 %.1f%% 时触发。\n\n"
+			"subject":"[{pool_name}] {product_brand} 警报:“{name_label}”上的日志分区即将满载",
+			"body":"“{name_label}”上的日志分区使用量为 {value}%。\n此警报设置为在日志分区使用量超过 {level}% 时触发。\n\n"
 		},
 		"dom0memory_usage_alarm":{
-			"subject":"[%s] %s 警报:“%s”上的 Dom0 内存需求较高",
-			"body":"“%s”上的控制域所需的内存占所分配内存的 %.1f%%。如果强制执行内存交换，性能有时会下降。\n此警报设置为在控制域所需的内存超过所分配内存的 %.1f%% 时触发。"
+			"subject":"[{pool_name}] {product_brand} 警报:“{name_label}”上的 Dom0 内存需求较高",
+			"body":"“{name_label}”上的控制域所需的内存占所分配内存的 {value}%。如果强制执行内存交换，性能有时会下降。\n此警报设置为在控制域所需的内存超过所分配内存的 {level}% 时触发。"
 		},
 		"wlb_consultation_failure":{
-			"subject":"[%s] %s 警报: 尝试为 VM“%s”咨询 WLB 失败",
-			"body":"VM“%s”的 Workload Balancing 咨询失败。\n该操作是使用默认算法完成的，而非使用工作负载平衡建议完成的。\n"
+			"subject":"[{pool_name}] {product_brand} 警报: 尝试为 VM“{name_label}”咨询 WLB 失败",
+			"body":"VM“{name_label}”的 Workload Balancing 咨询失败。\n该操作是使用默认算法完成的，而非使用工作负载平衡建议完成的。\n"
 		},
 		"wlb_optimization_alert":{
-			"subject":"Workload Balancing 警报: 来自池 %s 的优化警报",
-			"body":"Workload Balancing 服务器报告池 %s 需要优化。\n%s 处于优化模式 %s，状态为 %s。"
+			"subject":"Workload Balancing 警报: 来自池 {pool_name} 的优化警报",
+			"body":"Workload Balancing 服务器报告池 {pool_name} 需要优化。\n{pool_name} 处于优化模式 {optimization_mode}，状态为 {severity}。"
 		},
 		"ha_host_failed":{
-			"subject":"[%s] %s 高可用性警报: %s",
-			"body":"%s\n\n此警报设置为在属于高可用性池的主机出现故障时触发。\n"
+			"subject":"[{pool_name}] {product_brand} 高可用性警报: {text}",
+			"body":"{text}\n\n此警报设置为在属于高可用性池的主机出现故障时触发。\n"
 		},
 		"sr_io_throughput_total_alert":{
-			"subject":"[%s] 存储吞吐量警报:“%s”上的总 IO 吞吐量",
-			"body":"服务器“%s”(位于存储库“%s”上)的总读取和写入吞吐量在过去 %d 秒内已达到 %.1f MB/秒。\n此警报设置为在总吞吐量超过 %d KB/秒时触发。\n\n要查看警报设置，请登录您的 %s 控制台，然后依次单击“存储”->\n“属性”->“警报”"
+			"subject":"[{pool_name}] 存储吞吐量警报:“{sr_name}”上的总 IO 吞吐量",
+			"body":"服务器“{name_label}”(位于存储库“{sr_name}”上)的总读取和写入吞吐量在过去 {period} 秒内已达到 {value} MB/秒。\n此警报设置为在总吞吐量超过 {level} KB/秒时触发。\n\n要查看警报设置，请登录您的 {brand_console} 控制台，然后依次单击“存储”->\n“属性”->“警报”"
 		}
 	}
 }

@@ -152,7 +152,7 @@ class TestXapiMessage(unittest.TestCase):
         self.common_test_good_input('HA_HOST_FAILED', 'Host', '', mail_subject_expected, mail_body_expected, xmlbody_str)
 
         # Test WLB_CONSULTATION_FAILED 
-        mail_subject_expected = '[test_VM] XenServer Alarm: Attempt to consult WLB for VM "test_pool" failed'
+        mail_subject_expected = '[test_pool] XenServer Alarm: Attempt to consult WLB for VM "test_VM" failed'
         mail_body_expected = 'A workload balancing consultation for VM test_VM failed.\nThe operation was completed using the default algorithm instead of a workload balancing recommendation.'
         xmlbody_str = 'WLB consultation failed'
         self.common_test_good_input('WLB_CONSULTATION_FAILED', 'VM', '', mail_subject_expected, mail_body_expected, xmlbody_str)
