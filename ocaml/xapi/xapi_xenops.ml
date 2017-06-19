@@ -569,7 +569,6 @@ module MD = struct
       position = int_of_string vgpu.Db_actions.vGPU_device;
       physical_pci_address;
       implementation;
-      other_config = [];
     }
 
   let of_gvt_g_vgpu ~__context vm vgpu =
@@ -604,7 +603,6 @@ module MD = struct
         position = int_of_string vgpu.Db_actions.vGPU_device;
         physical_pci_address;
         implementation;
-        other_config = [];
       }
     with
     | Not_found -> failwith "Intel GVT-g settings not specified"
@@ -634,7 +632,6 @@ module MD = struct
         position = int_of_string vgpu.Db_actions.vGPU_device;
         physical_pci_address;
         implementation;
-        other_config = [];
       }
     with
     | Not_found -> failwith "AMD MxGPU settings not specified"
@@ -661,7 +658,6 @@ module MD = struct
             Xenops_interface.Pci.address_of_string
               (List.assoc Vm_platform.vgpu_pci_id vm.API.vM_platform);
           implementation;
-          other_config = [];
         }]
     end else
       List.fold_left
