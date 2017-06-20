@@ -1308,6 +1308,7 @@ let vdi_record rpc session_id vdi =
         ~get_set:(fun () -> (x ()).API.vDI_tags)
         ~add_to_set:(fun tag -> Client.VDI.add_tags rpc session_id vdi tag)
         ~remove_from_set:(fun tag -> Client.VDI.remove_tags rpc session_id vdi tag) ();
+      make_field ~name:"cbt-enabled" ~get:(fun () -> string_of_bool (x ()).API.vDI_cbt_enabled) ();
     ]}
 
 let vbd_record rpc session_id vbd =

@@ -431,7 +431,8 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
            ~on_boot:`persist ~allow_caching:false
            ~metadata_of_pool:(Ref.of_string vdi.metadata_of_pool)
            ~metadata_latest:false
-           ~is_tools_iso:(get_is_tools_iso vdi);
+           ~is_tools_iso:(get_is_tools_iso vdi)
+           ~cbt_enabled:false;
          StringMap.add vdi.vdi (ref, Db.VDI.get_record ~__context ~self:ref) m
       ) to_create db_vdi_map in
   (* Update the ones which already exist *)

@@ -1051,6 +1051,12 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   let vms_vdis = List.filter_map (vdi_filter __context true) vbds in
   check_vdi_map ~__context vms_vdis vdi_map;
 
+  (* Prevent SXM when the VM has a VDI on which changed block tracking is enabled *)
+  List.iter (fun vconf ->
+      let vdi = vconf.vdi in
+      if (Db.VDI.get_cbt_enabled ~__context ~self:vdi) then
+        raise Api_errors.(Server_error(vdi_cbt_enabled, [Ref.string_of vdi]))) vms_vdis ;
+
   let migration_type =
     try
       ignore(Db.Host.get_uuid ~__context ~self:remote.dest_host);
@@ -1238,6 +1244,14 @@ let handler req fd _ =
     )
 
 let vdi_pool_migrate ~__context ~vdi ~sr ~options =
+  if Db.VDI.get_type ~__context ~self:vdi = `cbt_metadata then begin
+    error "VDI.pool_migrate: the specified VDI has type cbt_metadata (at %s)" __LOC__;
+    raise Api_errors.(Server_error(vdi_incompatible_type, [ Ref.string_of vdi; Record_util.vdi_type_to_string `cbt_metadata ]))
+  end;
+  if Db.VDI.get_cbt_enabled ~__context ~self:vdi then begin
+    error "VDI.pool_migrate: changed block tracking is enabled for the specified VDI (at %s)" __LOC__;
+    raise Api_errors.(Server_error(vdi_cbt_enabled, [ Ref.string_of vdi ]))
+  end;
 
   (* inserted by message_forwarding *)
   let vm = Ref.of_string (List.assoc "__internal__vm" options) in

@@ -41,6 +41,8 @@ let check_sm_feature_error (op:API.vdi_operations) sm_features sr =
   | `generate_config -> Some Vdi_generate_config
   | `clone -> Some Vdi_clone
   | `mirror -> Some Vdi_mirror
+  | `enable_cbt | `disable_cbt -> Some Vdi_configure_cbt
+  | `set_on_boot -> Some Vdi_reset_on_boot
   ) in
   match required_sm_feature with
   | None -> None
@@ -125,7 +127,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
          			   VDI.clone (if the VM is suspended we have to have the 'allow_clone_suspended_vm'' flag)
          			   VDI.snapshot; VDI.resize_online; 'blocked' (CP-831) *)
       let operation_can_be_performed_live = match op with
-        | `snapshot | `resize_online | `blocked | `clone | `mirror -> true
+        | `snapshot | `resize_online | `blocked | `clone | `mirror | `enable_cbt | `disable_cbt -> true
         | _ -> false in
 
       let operation_can_be_performed_with_ro_attach =
@@ -155,6 +157,18 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
       let sm_feature_error = check_sm_feature_error op sm_features sr in
       if sm_feature_error <> None
       then sm_feature_error
+      else
+      let allowed_for_cbt_metadata_vdi = match op with
+        | `clone | `copy | `disable_cbt | `enable_cbt | `mirror | `resize | `resize_online | `snapshot | `set_on_boot -> false
+        | `blocked | `destroy | `force_unlock | `forget | `generate_config | `scan | `update -> true in
+      if not allowed_for_cbt_metadata_vdi && record.Db_actions.vDI_type = `cbt_metadata
+      then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string `cbt_metadata ])
+      else
+      let allowed_when_cbt_enabled = match op with
+        | `mirror | `set_on_boot -> false
+        | `blocked | `clone | `copy | `destroy | `disable_cbt | `enable_cbt | `force_unlock | `forget | `generate_config | `resize | `resize_online | `scan | `snapshot | `update -> true in
+      if not allowed_when_cbt_enabled && record.Db_actions.vDI_cbt_enabled
+      then Some (Api_errors.vdi_cbt_enabled, [_ref])
       else (
         match op with
         | `forget ->
@@ -199,7 +213,15 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
           if List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
           then Some (Api_errors.operation_not_allowed, ["VDI containing HA statefile or redo log cannot be copied (check the VDI's allowed operations)."])
           else None
-        | `mirror | `clone | `generate_config | `scan | `force_unlock | `blocked | `update -> None
+        | (`enable_cbt | `disable_cbt) ->
+          if record.Db_actions.vDI_is_a_snapshot
+          then Some (Api_errors.operation_not_allowed, ["VDI is a snapshot: " ^ _ref])
+          else if not (List.mem record.Db_actions.vDI_type [ `user; `system ])
+          then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string record.Db_actions.vDI_type ])
+          else if record.Db_actions.vDI_on_boot = `reset
+          then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
+          else None
+        | `mirror | `clone | `generate_config | `scan | `force_unlock | `set_on_boot | `blocked | `update -> None
       )
 
 let assert_operation_valid ~__context ~self ~(op:API.vdi_operations) =
@@ -281,6 +303,12 @@ let update_vdi_db ~__context ~sr newvdi =
 let create ~__context ~name_label ~name_description
     ~sR ~virtual_size ~_type
     ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags =
+
+  if _type = `cbt_metadata then begin
+    error "VDI.create: creation of VDIs with type cbt_metadata is not allowed (at %s)" __LOC__;
+    raise (Api_errors.Server_error (Api_errors.vdi_incompatible_type, [ ""; Record_util.vdi_type_to_string `cbt_metadata ]))
+  end;
+
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
 
   (* XXX: unify with record_util.vdi_type_to_string *)
@@ -294,7 +322,8 @@ let create ~__context ~name_label ~name_description
     | `system -> "system"
     | `user -> "user"
     | `rrd -> "rrd"
-    | `pvs_cache -> "pvs_cache" in
+    | `pvs_cache -> "pvs_cache"
+    | `cbt_metadata -> "cbt_metadata" in
 
   let open Storage_access in
   let task = Context.get_task_id __context in
@@ -322,7 +351,7 @@ let create ~__context ~name_label ~name_description
   db_vdi
 
 (* Make the database record only *)
-let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config  ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of =
+let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config  ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of ~cbt_enabled =
   (* Verify that the location field is unique in this SR *)
   List.iter
     (fun vdi ->
@@ -349,12 +378,13 @@ let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type 
     ~other_config ~storage_lock:false ~location ~managed ~missing:false ~parent:Ref.null ~tags:[]
     ~on_boot:`persist ~allow_caching:false
     ~metadata_of_pool ~metadata_latest:false
-    ~is_tools_iso:false;
+    ~is_tools_iso:false
+    ~cbt_enabled;
   ref
 
-let internal_db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of =
+let internal_db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of ~cbt_enabled =
   debug "{pool,db}_introduce uuid=%s name_label=%s" uuid name_label;
-  let ref = introduce_dbonly ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config  ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of in
+  let ref = introduce_dbonly ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config  ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of ~cbt_enabled in
   update_allowed_operations ~__context ~self:ref;
   ref
 
@@ -475,6 +505,8 @@ let snapshot ~__context ~vdi ~driver_params =
   (* Record the fact this is a snapshot *)
   Db.VDI.set_is_a_snapshot ~__context ~self:newvdi ~value:true;
   Db.VDI.set_snapshot_of ~__context ~self:newvdi ~value:vdi;
+  (* Inherit the cbt_enabled field from the snapshotted VDI *)
+  Db.VDI.set_cbt_enabled ~__context ~self:newvdi ~value:(Db.VDI.get_cbt_enabled ~__context ~self:vdi);
 
   update_allowed_operations ~__context ~self:newvdi;
   newvdi
@@ -690,26 +722,25 @@ let set_snapshot_time ~__context ~self ~value =
   Db.VDI.set_snapshot_time ~__context ~self ~value
 
 let set_metadata_of_pool ~__context ~self ~value =
+  if (Db.VDI.get_type ~__context ~self) = `cbt_metadata then begin
+    error "VDI.set_metadata_of_pool: called with a VDI of type cbt_metadata (at %s)" __LOC__;
+    raise (Api_errors.Server_error (Api_errors.vdi_incompatible_type, [ Ref.string_of self; Record_util.vdi_type_to_string `cbt_metadata ]))
+  end;
   Db.VDI.set_metadata_of_pool ~__context ~self ~value
 
 let set_on_boot ~__context ~self ~value =
   let sr = Db.VDI.get_SR ~__context ~self in
-  let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
-  let sm_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
-
-  if not Smint.(has_capability Vdi_reset_on_boot sm_features) then
-    raise (Api_errors.Server_error(Api_errors.sr_operation_not_supported,[Ref.string_of sr]));
   Sm.assert_pbd_is_plugged ~__context ~sr;
 
   let open Storage_access in
   let open Storage_interface in
   let task = Context.get_task_id __context in
   let sr' = Db.SR.get_uuid ~__context ~self:sr in
-  let vdi' = Db.VDI.get_location ~__context ~self in
+  let vdi = Db.VDI.get_location ~__context ~self in
   let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
   transform_storage_exn
     (fun () ->
-       C.VDI.set_persistent ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~persistent:(value = `persist);
+       C.VDI.set_persistent ~dbg:(Ref.string_of task) ~sr:sr' ~vdi ~persistent:(value = `persist);
     );
 
   Db.VDI.set_on_boot ~__context ~self ~value
@@ -776,5 +807,24 @@ let read_database_pool_uuid ~__context ~self =
   match Xapi_dr.read_vdi_cache_record ~vdi:self with
   | Some (_, uuid) -> uuid
   | None -> ""
+
+let change_cbt_status ~__context ~self ~new_cbt_enabled ~caller_name =
+  if Db.VDI.get_cbt_enabled ~__context ~self <> new_cbt_enabled then begin
+    let task = Context.get_task_id __context in
+    let sr = Db.VDI.get_SR ~__context ~self in
+    let sr = Db.SR.get_uuid ~__context ~self:sr in
+    let vdi = Db.VDI.get_location ~__context ~self in
+    let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+    let call_f = if new_cbt_enabled then C.VDI.enable_cbt else C.VDI.disable_cbt in
+    Storage_access.transform_storage_exn
+      (fun () ->
+         call_f ~dbg:(Ref.string_of task) ~sr ~vdi
+      );
+    Db.VDI.set_cbt_enabled ~__context ~self ~value:new_cbt_enabled
+  end else
+    debug "%s: Not doing anything, CBT is already %s" caller_name (if new_cbt_enabled then "enabled" else "disabled")
+
+let enable_cbt = change_cbt_status ~new_cbt_enabled:true ~caller_name:"VDI.enable_cbt"
+let disable_cbt = change_cbt_status ~new_cbt_enabled:false ~caller_name:"VDI.disable_cbt"
 
 (* let pool_migrate = "See Xapi_vm_migrate.vdi_pool_migrate!" *)

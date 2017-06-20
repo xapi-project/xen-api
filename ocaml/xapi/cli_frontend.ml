@@ -1969,6 +1969,22 @@ let rec cmdtable_data : (string*cmd_spec) list =
       implementation=No_fd Cli_operations.vdi_unlock;
       flags=[];
     };
+    "vdi-enable-cbt",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Enable changed block tracking on a VDI.";
+      implementation=No_fd Cli_operations.vdi_enable_cbt;
+      flags=[];
+    };
+    "vdi-disable-cbt",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Disable changed block tracking on a VDI.";
+      implementation=No_fd Cli_operations.vdi_disable_cbt;
+      flags=[];
+    };
     "diagnostic-vdi-status",
     {
       reqd=["uuid"];

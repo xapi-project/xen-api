@@ -83,7 +83,8 @@ val pool_introduce :
   metadata_of_pool:[ `pool ] API.Ref.t ->
   is_a_snapshot:bool ->
   snapshot_time:API.Date.iso8601 ->
-  snapshot_of:[ `VDI ] API.Ref.t -> [ `VDI ] Ref.t
+  snapshot_of:[ `VDI ] API.Ref.t ->
+  cbt_enabled:bool -> [ `VDI ] Ref.t
 
 val db_introduce :
   __context:Context.t ->
@@ -104,7 +105,8 @@ val db_introduce :
   metadata_of_pool:[ `pool ] API.Ref.t ->
   is_a_snapshot:bool ->
   snapshot_time:API.Date.iso8601 ->
-  snapshot_of:[ `VDI ] API.Ref.t -> [ `VDI ] Ref.t
+  snapshot_of:[ `VDI ] API.Ref.t ->
+  cbt_enabled:bool -> [ `VDI ] Ref.t
 
 val db_forget : __context:Context.t -> vdi:[ `VDI ] API.Ref.t -> unit
 
@@ -188,7 +190,7 @@ val set_metadata_of_pool :
   self:[ `VDI ] API.Ref.t -> value:[ `pool ] API.Ref.t -> unit
 val set_on_boot :
   __context:Context.t ->
-  self:[ `VDI ] API.Ref.t -> value:[< `persist | `reset > `persist ] -> unit
+  self:[ `VDI ] API.Ref.t -> value:API.on_boot -> unit
 val set_allow_caching :
   __context:Context.t -> self:[ `VDI ] API.Ref.t -> value:bool -> unit
 val set_name_label :
@@ -202,3 +204,8 @@ val open_database :
   __context:Context.t -> self:[ `VDI ] API.Ref.t -> API.ref_session
 
 val read_database_pool_uuid : __context:'a -> self:API.ref_VDI -> string
+
+val enable_cbt :
+  __context:Context.t -> self:API.ref_VDI -> unit
+val disable_cbt :
+  __context:Context.t -> self:API.ref_VDI -> unit

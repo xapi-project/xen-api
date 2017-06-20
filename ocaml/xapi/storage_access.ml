@@ -769,6 +769,8 @@ module SMAPIv1 = struct
            let _, vdi_rec = find_vdi ~__context sr vdi in
            let vdis = explore 0 StringMap.empty vdi_rec.API.vDI_location |> invert |> IntMap.bindings |> List.map snd |> List.concat in
            let vdi_recs = List.map (fun l -> StringMap.find l locations) vdis in
+           (** We drop cbt_metadata VDIs that do not have any actual data *)
+           let vdi_recs = List.filter (fun r -> r.API.vDI_type <> `cbt_metadata) vdi_recs in
            List.map (fun x -> vdi_info_of_vdi_rec __context x) vdi_recs
         )
 
@@ -820,6 +822,27 @@ module SMAPIv1 = struct
            let session_ref = XenAPI.Session.slave_login rpc localhost !Xapi_globs.pool_secret in
            let vdi, _ = find_vdi ~__context sr vdi in
            Printf.sprintf "%s/%s/%s" ip (Ref.string_of session_ref) (Ref.string_of vdi))
+
+    let call_cbt_function context ~f ~f_name ~dbg ~sr ~vdi =
+      try
+        for_vdi ~dbg ~sr ~vdi f_name
+          (fun device_config _type sr self ->
+             f device_config _type sr self
+          );
+      with
+      | Smint.Not_implemented_in_backend ->
+        raise (Unimplemented f_name)
+      | Api_errors.Server_error(code, params) ->
+        raise (Backend_error(code, params))
+      | No_VDI ->
+        raise (Vdi_does_not_exist vdi)
+      | Sm.MasterOnly -> redirect sr
+
+    let enable_cbt context =
+      call_cbt_function context ~f:Sm.vdi_enable_cbt ~f_name:"VDI.enable_cbt"
+
+    let disable_cbt context =
+      call_cbt_function context ~f:Sm.vdi_disable_cbt ~f_name:"VDI.disable_cbt"
 
   end
 

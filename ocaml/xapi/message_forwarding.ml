@@ -3393,8 +3393,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let set_on_boot ~__context ~self ~value =
       ensure_vdi_not_on_running_vm ~__context ~self;
       let local_fn = Local.VDI.set_on_boot ~self ~value in
-      forward_vdi_op ~local_fn ~__context ~self
-        (fun session_id rpc -> Client.VDI.set_on_boot rpc session_id self value)
+      let sr = Db.VDI.get_SR ~__context ~self in
+      with_sr_andor_vdi ~__context ~sr:(sr, `vdi_set_on_boot) ~vdi:(self, `set_on_boot) ~doc:"VDI.set_on_boot"
+        (fun () ->
+           forward_vdi_op ~local_fn ~__context ~self
+             (fun session_id rpc -> Client.VDI.set_on_boot rpc session_id self value))
 
     let set_allow_caching ~__context ~self ~value =
       ensure_vdi_not_on_running_vm ~__context ~self;
@@ -3416,13 +3419,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
              (fun session_id rpc -> Client.VDI.create ~rpc ~session_id ~name_label ~name_description ~sR ~virtual_size ~_type ~sharable ~read_only ~other_config ~xenstore_data ~sm_config ~tags))
 
     (* Hidden call used in pool join only *)
-    let pool_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location =
-      Local.VDI.pool_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location
+    let pool_introduce = Local.VDI.pool_introduce
 
     (* Called from the SM backend *)
-    let db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location =
+    let db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config  ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of ~cbt_enabled =
       Sm.assert_session_has_internal_sr_access ~__context ~sr:sR;
-      Local.VDI.db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location
+      Local.VDI.db_introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config  ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of ~cbt_enabled
 
     (* Called from the SM backend *)
     let db_forget ~__context ~vdi =
@@ -3575,6 +3577,24 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       VM.forward_to_access_srs_and ~local_fn:(Local.VDI.checksum ~self) ~__context
         ~extra_sr:(Db.VDI.get_SR ~__context ~self)
         (fun session_id rpc -> Client.VDI.checksum rpc session_id self)
+
+    let enable_cbt ~__context ~self =
+      info "VDI.enable_cbt: VDI = '%s'" (vdi_uuid ~__context self);
+      let local_fn = Local.VDI.enable_cbt ~self in
+      let sR = Db.VDI.get_SR ~__context ~self in
+      with_sr_andor_vdi ~__context ~sr:(sR, `vdi_enable_cbt) ~vdi:(self, `enable_cbt) ~doc:"VDI.enable_cbt"
+        (fun () ->
+           forward_vdi_op ~local_fn ~__context ~self
+             (fun session_id rpc -> Client.VDI.enable_cbt rpc session_id self))
+
+    let disable_cbt ~__context ~self =
+      info "VDI.disable_cbt: VDI = '%s'" (vdi_uuid ~__context self);
+      let local_fn = Local.VDI.disable_cbt ~self in
+      let sR = Db.VDI.get_SR ~__context ~self in
+      with_sr_andor_vdi ~__context ~sr:(sR, `vdi_disable_cbt) ~vdi:(self, `disable_cbt) ~doc:"VDI.disable_cbt"
+        (fun () ->
+           forward_vdi_op ~local_fn ~__context ~self
+             (fun session_id rpc -> Client.VDI.disable_cbt rpc session_id self))
 
   end
   module VBD = struct

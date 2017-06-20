@@ -1272,6 +1272,16 @@ let disable_external_auth ~__context ~host ~config =
   disable_external_auth_common ~during_pool_eject:false ~__context ~host ~config
 
 let attach_static_vdis ~__context ~host ~vdi_reason_map =
+  (* We throw an exception immediately if any of the VDIs in vdi_reason_map is
+     a changed block tracking metadata VDI. *)
+  List.iter
+    (function (vdi, _) ->
+       if (Db.VDI.get_type ~__context ~self:vdi) = `cbt_metadata then begin
+         error "host.attach_static_vdis: one of the given VDIs has type cbt_metadata (at %s)" __LOC__;
+         raise (Api_errors.Server_error(Api_errors.vdi_incompatible_type, [ Ref.string_of vdi; Record_util.vdi_type_to_string `cbt_metadata ]))
+       end)
+    vdi_reason_map;
+
   let attach (vdi, reason) =
     let static_vdis = Static_vdis_list.list () in
     let check v =

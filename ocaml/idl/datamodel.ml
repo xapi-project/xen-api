@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 120
+let schema_minor_vsn = 131
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -88,7 +88,7 @@ let falcon_release_schema_major_vsn = 5
 let falcon_release_schema_minor_vsn = 120
 
 let inverness_release_schema_major_vsn = 5
-let inverness_release_schema_minor_vsn = 130
+let inverness_release_schema_minor_vsn = 131
 
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
@@ -1105,10 +1105,12 @@ let _ =
     ~doc:"This operation cannot be performed because the system does not manage this VDI" ();
   error Api_errors.vdi_not_in_map [ "vdi" ]
     ~doc:"This VDI was not mapped to a destination SR in VM.migrate_send operation" () ;
+  error Api_errors.vdi_cbt_enabled [ "vdi" ]
+    ~doc:"The requested operation is not allowed for VDIs with CBT enabled or VMs having such VDIs, and CBT is enabled for the specified VDI." ();
   error Api_errors.vdi_copy_failed []
     ~doc:"The VDI copy action has failed" ();
   error Api_errors.vdi_on_boot_mode_incompatible_with_operation []
-    ~doc:"This operation is not permitted on VMs containing VDIs in the 'on-boot=reset' mode" ();
+    ~doc:"This operation is not permitted on VDIs in the 'on-boot=reset' mode, or on VMs having such VDIs." ();
   error Api_errors.cannot_create_state_file []
     ~doc:"An HA statefile could not be created, perhaps because no SR with the appropriate capability was found." ();
   error Api_errors.vif_not_in_map [ "vif" ]
@@ -5985,6 +5987,9 @@ let storage_operations =
           "vdi_clone", "Cloneing a VDI";
           "vdi_snapshot", "Snapshotting a VDI";
           "vdi_mirror", "Mirroring a VDI";
+          "vdi_enable_cbt", "Enabling changed block tracking for a VDI";
+          "vdi_disable_cbt", "Disabling changed block tracking for a VDI";
+          "vdi_set_on_boot", "Setting the on_boot field of the VDI";
           "pbd_create", "Creating a PBD for this SR";
           "pbd_destroy", "Destroying one of this SR's PBDs"; ])
 
@@ -6199,6 +6204,7 @@ let vdi_type = Enum ("vdi_type", [ "system",    "a disk that may be replaced on 
                                    "redo_log", "a disk used for a general metadata redo-log";
                                    "rrd", "a disk that stores SR-level RRDs";
                                    "pvs_cache", "a disk that stores PVS cache data";
+                                   "cbt_metadata", "Metadata about a snapshot VDI that has been deleted: the set of blocks that changed between some previous version of the disk and the version tracked by the snapshot.";
                                  ])
 
 let vdi_introduce_params first_rel =
@@ -6230,7 +6236,10 @@ let vdi_pool_introduce = call
     ~name:"pool_introduce"
     ~in_oss_since:None
     ~in_product_since:rel_rio
-    ~versioned_params:(vdi_introduce_params miami_release)
+    ~versioned_params:(
+      (vdi_introduce_params miami_release) @
+      [{ param_type=Bool; param_name="cbt_enabled"; param_doc="True if changed blocks are tracked for this VDI"; param_release=inverness_release; param_default= Some(VBool false) }]
+    )
     ~doc:"Create a new VDI record in the database only"
     ~result:(Ref _vdi, "The ref of the newly created VDI record.")
     ~hide_from_docs:true
@@ -6303,6 +6312,9 @@ let vdi_operations =
           "update", "Refreshing the fields of the VDI";
           "force_unlock", "Forcibly unlocking the VDI";
           "generate_config", "Generating static configuration";
+          "enable_cbt", "Enabling changed block tracking for a VDI";
+          "disable_cbt", "Disabling changed block tracking for a VDI";
+          "set_on_boot", "Setting the on_boot field of the VDI";
           "blocked", "Operations on this VDI are temporarily blocked";
         ])
 
@@ -6508,6 +6520,42 @@ let vdi_read_database_pool_uuid = call
     ~allowed_roles:_R_READ_ONLY
     ()
 
+let vdi_enable_cbt = call
+    ~name:"enable_cbt"
+    ~in_oss_since:None
+    ~in_product_since:rel_inverness
+    ~params:[Ref _vdi, "self", "The VDI for which CBT should be enabled"]
+    ~errs:[
+      Api_errors.sr_operation_not_supported;
+      Api_errors.vdi_missing;
+      Api_errors.sr_not_attached;
+      Api_errors.sr_no_pbds;
+      Api_errors.operation_not_allowed;
+      Api_errors.vdi_incompatible_type;
+      Api_errors.vdi_on_boot_mode_incompatible_with_operation;
+    ]
+    ~doc:"Enable changed block tracking for the VDI. This call is idempotent - enabling CBT for a VDI for which CBT is already enabled results in a no-op, and no error will be thrown."
+    ~allowed_roles:_R_VM_ADMIN
+    ()
+
+let vdi_disable_cbt = call
+    ~name:"disable_cbt"
+    ~in_oss_since:None
+    ~in_product_since:rel_inverness
+    ~params:[Ref _vdi, "self", "The VDI for which CBT should be disabled"]
+    ~errs:[
+      Api_errors.sr_operation_not_supported;
+      Api_errors.vdi_missing;
+      Api_errors.sr_not_attached;
+      Api_errors.sr_no_pbds;
+      Api_errors.operation_not_allowed;
+      Api_errors.vdi_incompatible_type;
+      Api_errors.vdi_on_boot_mode_incompatible_with_operation;
+    ]
+    ~doc:"Disable changed block tracking for the VDI. This call is only allowed on VDIs that support enabling CBT. It is an idempotent operation - disabling CBT for a VDI for which CBT is not enabled results in a no-op, and no error will be thrown."
+    ~allowed_roles:_R_VM_ADMIN
+    ()
+
 (** A virtual disk *)
 let vdi =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vdi ~descr:"A virtual disk image"
@@ -6540,6 +6588,8 @@ let vdi =
                vdi_checksum;
                vdi_read_database_pool_uuid;
                vdi_pool_migrate;
+               vdi_enable_cbt;
+               vdi_disable_cbt;
               ]
     ~contents:
       ([ uid _vdi;
@@ -6573,6 +6623,7 @@ let vdi =
          field ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:(Ref _pool) ~default_value:(Some (VRef null_ref)) "metadata_of_pool" "The pool whose metadata is contained in this VDI";
          field ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "metadata_latest" "Whether this VDI contains the latest known accessible metadata for the pool";
          field ~lifecycle:[Published, rel_dundee, ""] ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "is_tools_iso" "Whether this VDI is a Tools ISO";
+         field ~lifecycle:[Published, rel_inverness, ""] ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "cbt_enabled" "True if changed blocks are tracked for this VDI" ~doc_tags:[Snapshots];
        ])
     ()
 

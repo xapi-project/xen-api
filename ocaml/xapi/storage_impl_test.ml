@@ -166,6 +166,8 @@ module Debug_print_impl = struct
     let set_content_id context ~dbg ~sr ~vdi ~content_id = assert false
     let get_by_name context ~dbg ~sr ~name = assert false
     let similar_content context ~dbg ~sr ~vdi = assert false
+    let enable_cbt context ~dbg ~sr ~vdi = assert false
+    let disable_cbt context ~dbg ~sr ~vdi = assert false
 
 
   end

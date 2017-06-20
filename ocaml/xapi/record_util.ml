@@ -97,7 +97,7 @@ let host_operation_to_string = function
   | `vm_resume -> "VM.resume"
   | `vm_migrate -> "VM.migrate"
 
-let vdi_operation_to_string = function
+let vdi_operation_to_string: API.vdi_operations -> string = function
   | `scan -> "scan"
   | `clone -> "clone"
   | `copy -> "copy"
@@ -110,9 +110,12 @@ let vdi_operation_to_string = function
   | `forget -> "forget"
   | `update -> "update"
   | `generate_config -> "generate_config"
+  | `enable_cbt -> "enable_cbt"
+  | `disable_cbt -> "disable_cbt"
+  | `set_on_boot -> "set_on_boot"
   | `blocked -> "blocked"
 
-let sr_operation_to_string = function
+let sr_operation_to_string: API.storage_operations -> string = function
   | `scan -> "scan"
   | `destroy -> "destroy"
   | `forget -> "forget"
@@ -126,6 +129,9 @@ let sr_operation_to_string = function
   | `vdi_clone -> "VDI.clone"
   | `vdi_snapshot -> "VDI.snapshot"
   | `vdi_mirror -> "VDI.mirror"
+  | `vdi_enable_cbt -> "VDI.enable_cbt"
+  | `vdi_disable_cbt -> "VDI.disable_cbt"
+  | `vdi_set_on_boot -> "VDI.set_on_boot"
   | `pbd_create -> "PBD.create"
   | `pbd_destroy -> "PBD.destroy"
 
@@ -387,6 +393,7 @@ let vdi_type_to_string t =
   | `redo_log -> "Redo log"
   | `rrd -> "rrd"
   | `pvs_cache -> "PVS cache"
+  | `cbt_metadata -> "CBT metadata"
 
 let ip_configuration_mode_to_string = function
   | `None -> "None"

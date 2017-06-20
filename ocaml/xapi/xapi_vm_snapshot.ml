@@ -476,6 +476,8 @@ let revert ~__context ~snapshot ~vm =
     | Api_errors.Server_error("SR_BACKEND_FAILURE_109", _) as e ->
       error "Snapshot chain too long";
       raise e
+    | Api_errors.Server_error(code, _) as e when code = Api_errors.vdi_incompatible_type ->
+      raise e
     | _ -> raise (Api_errors.Server_error (Api_errors.vm_revert_failed, [Ref.string_of snapshot; Ref.string_of vm]))
 
 let	create_vm_from_snapshot ~__context ~snapshot =
