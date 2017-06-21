@@ -19,6 +19,7 @@ open Xapi
 
 let _ =
   Debug.set_facility Syslog.Local5;
+  Coverage.init "xapi";
 
   init_args(); (* need to read args to find out whether to daemonize or not *)
   Xcp_service.maybe_daemonize ();

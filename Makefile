@@ -1,7 +1,7 @@
 include config.mk
 INSTALL_PATH = $(DESTDIR)/$(shell ocamlfind printconf destdir)
 OCAMLFIND_DESTDIR = $(INSTALL_PATH)
-CONFIGUREFLAGS=--enable-tests
+CONFIGUREFLAGS=--enable-tests --override ocamlbuildflags '-j 8'
 
 export OCAMLFIND_DESTDIR
 
@@ -35,7 +35,14 @@ distclean: setup.ml
 setup.data: setup.ml
 	$(SETUP) -configure $(CONFIGUREFLAGS)
 
-setup.ml: _oasis
+setup.ml: _oasis.in
+ifeq ($(BISECT_COVERAGE),YES)
+	sed -e 's/BuildDepends:/BuildDepends: bisect_ppx,/' _oasis.in >_oasis
+	ln -sf profiling-enabled/coverage.ml ocaml/xapi/coverage.ml
+else
+	ln -sf _oasis.in _oasis
+	ln -sf profiling-disabled/coverage.ml ocaml/xapi/coverage.ml
+endif
 	oasis setup -setup-update dynamic
 
 configure: setup.ml
