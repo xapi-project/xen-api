@@ -320,12 +320,12 @@ module Mem = struct
 	let wrap f =
 		try Some (f ())
 		with
-			| Memory_interface.Cannot_free_this_much_memory(needed, free) ->
+			| Memory_interface.MemoryError (Memory_interface.Cannot_free_this_much_memory(needed, free)) ->
 				let needed = Memory.bytes_of_kib needed in
 				let free = Memory.bytes_of_kib free in
 				error "Cannot free %Ld; only %Ld are available" needed free;
 				raise (Cannot_free_this_much_memory(needed, free))
-			| Memory_interface.Domains_refused_to_cooperate domids ->
+			| Memory_interface.MemoryError (Memory_interface.Domains_refused_to_cooperate domids) ->
 				debug "Got error_domains_refused_to_cooperate_code from ballooning daemon";
 				Xenctrl.with_intf
 					(fun xc ->
@@ -368,8 +368,8 @@ module Mem = struct
 			try
 				f ()
 			with
-				| Memory_interface.Domains_refused_to_cooperate _
-				| Memory_interface.Cannot_free_this_much_memory(_, _) as e ->
+				| Memory_interface.MemoryError Memory_interface.Domains_refused_to_cooperate _
+				| Memory_interface.MemoryError (Memory_interface.Cannot_free_this_much_memory(_, _)) as e ->
 				let now = Unix.gettimeofday () in
 				if now -. start > timeout then raise e else begin
 					debug "Sleeping %.0f before retrying" interval;
@@ -449,14 +449,14 @@ module Mem = struct
                                         with
                                                 | Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
                                                         error "Ballooning daemon has disappeared. Cannot query reservation_id for domid = %d" domid;
-                                                        raise No_reservation
+                                                        raise (MemoryError No_reservation)
                                                 | _ ->
                                                         error "Internal error. Cannot query reservation_id for domid = %d" domid;
-                                                        raise No_reservation
+                                                        raise (MemoryError No_reservation)
                                 end
                         | None ->
                                 info "No ballooning daemon. Cannot query reservation_id for domid = %d" domid;
-                                raise No_reservation
+                                raise (MemoryError No_reservation)
 
 	(** After an event which frees memory (eg a domain destruction), perform a one-off memory rebalance *)
 	let balance_memory dbg =
@@ -1225,7 +1225,7 @@ module VM = struct
 			let dbg = Xenops_task.get_dbg task in
 			let reservation_id = Mem.query_reservation_of_domain dbg domid in
 			Mem.delete_reservation dbg (reservation_id, None)
-                with No_reservation ->
+                with MemoryError No_reservation ->
                         error "Please check if memory reservation for domain %d is present, if so manually remove it" domid
 
 	let build_domain_exn xc xs domid task vm vbds vifs vgpus extras force =
