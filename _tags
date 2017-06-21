@@ -315,13 +315,11 @@ true: annot, bin_annot
 # OASIS_STOP
 <storage/storage_interface.ml{,i}>: syntax_camlp4o
 <xen/xenops_interface.ml{,i}>: syntax_camlp4o
-<memory/memory_interface.ml{,i}>: syntax_camlp4o
 <network/network_interface.ml{,i}>: syntax_camlp4o
 <rrd/rrd_interface.ml{,i}>: syntax_camlp4o
 <v6/v6_interface.ml>: syntax_camlp4o
 <storage/storage_interface.ml>: pkg_rpclib.idl
 <xen/xenops_interface.ml>: pkg_rpclib.idl
-<memory/memory_interface.ml>: pkg_rpclib.idl
 <network/network_interface.ml>: pkg_rpclib.idl
 <rrd/data_source.ml>: pkg_rpclib.idl
 <rrd/rrd_interface.ml>: pkg_rpclib.idl
