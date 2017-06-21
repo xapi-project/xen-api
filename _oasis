@@ -427,6 +427,14 @@ Executable jsapi
     gzip,
     mustache
 
+Executable datamodel_main
+  CompiledObject:   best
+  Path:             ocaml/idl
+  Install:          false
+  MainIs:           datamodel_main.ml
+  BuildDepends:
+    xapi-datamodel
+
 
 ############################################################################
 ############################################################################
