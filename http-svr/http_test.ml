@@ -12,14 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
+open OUnit2
 open Http
-
-let usage_and_exit () =
-    Printf.fprintf stderr "Usage:\n";
-    Printf.fprintf stderr "  %s\n" Sys.argv.(0);
-	Printf.fprintf stderr "       -- run all unit tests\n";
-    exit 1
+open Stdext
 
 let test_accept_simple _ =
 	let t = Accept.t_of_string "application/json" in
@@ -29,7 +24,6 @@ let test_accept_simple _ =
 
 let test_accept_complex _ =
 	let ts = Accept.ts_of_string "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" in
-	let all = List.filter (Accept.matches ("text", "html")) ts in
 	let m = Accept.preferred_match ("text", "html") ts in
 	assert((Opt.unbox m).Accept.ty = Some "text");
 	let m = Accept.preferred_match ("foo", "bar") ts in
@@ -141,12 +135,6 @@ let test_url _ =
 		assert (s = "https://xapi.xen.org/services/SM/data?foo=bar")
 	end
 let _ =
-    let verbose = ref false in
-    Arg.parse [
-        "-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
-    ] (fun x -> Printf.fprintf stderr "Ignoring argument: %s\n" x)
-        "Test HTTP server";
-
 	let suite = "HTTP test" >::: 
         [
             "accept_simple" >:: test_accept_simple;
@@ -155,4 +143,4 @@ let _ =
 			"radix2" >:: test_radix_tree2;
 			"test_url" >:: test_url
 		] in
-    run_test_tt ~verbose:!verbose suite
+    run_test_tt_main suite
