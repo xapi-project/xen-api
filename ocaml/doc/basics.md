@@ -78,18 +78,18 @@ following additional RPCs associated with it:
 
 * `remove_f(r, v)`: removes element `v` from the set.
 
-Each field, `f`, with qualifier `RW` and whose outermost type is `set` has the
+Each field, `f`, with qualifier `RW` and whose outermost type is `map` has the
 following additional RPCs associated with it:
 
-* `add_to_f(r, k, v)`: adds new pair `k -> v`
-  to the mapping stored in `f` in object`r`. Adding a new pair for duplicate
-  key `k`, overwrites any previous mapping for `k`.
+* `add_to_f(r, k, v)`: adds new pair `k -> v` to the mapping stored in `f` in
+  object`r`. Attempting to add a new pair for duplicate key, `k`, fails with a
+  `MAP_DUPLICATE_KEY` error.
 
 * `remove_from_f(r, k)`: removes the pair with key `k`
   from the mapping stored in `f` in object `r`.
 
 Each field whose outermost type is neither `set` nor `map`, but whose
-qualifier is `RW` has an RPC acessor associated with it that sets its value:
+qualifier is `RW` has an RPC accessor associated with it that sets its value:
 
 * `set_f(r, v)`: sets the field `f` on object `r` to value `v`.
 
@@ -107,7 +107,7 @@ qualifier is `RW` has an RPC acessor associated with it that sets its value:
   `get_by_name_label(name_label)` RPC that returns a set of objects of that
   class that have the specified `name_label`.
 
-* Each class has a `destroy(r)` RPC that explicitly deletes
+* Most classes have a `destroy(r)` RPC that explicitly deletes
   the persistent object specified by `r` from the system.  This is a
   non-cascading delete - if the object being removed is referenced by another
   object then the `destroy` call will fail.

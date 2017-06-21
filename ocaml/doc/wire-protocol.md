@@ -149,7 +149,7 @@ may look like this:
 
 The following transport layers are currently supported:
 
-* HTTPS for remote administration
+* HTTP/HTTPS for remote administration
 * HTTP over Unix domain sockets for local administration
 
 ### Session Layer
