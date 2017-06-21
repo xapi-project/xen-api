@@ -9363,7 +9363,7 @@ let vgpu_type =
     ()
 
 module PVS_site = struct
-  let lifecycle = [Prototyped, rel_ely, ""]
+  let lifecycle = [Published, rel_ely, ""]
 
   let introduce = call
       ~name:"introduce"
@@ -9449,7 +9449,7 @@ end
 let pvs_site = PVS_site.obj
 
 module PVS_server = struct
-  let lifecycle = [Prototyped, rel_ely, ""]
+  let lifecycle = [Published, rel_ely, ""]
 
   let introduce = call
       ~name:"introduce"
@@ -9518,7 +9518,7 @@ end
 let pvs_server = PVS_server.obj
 
 module PVS_proxy = struct
-  let lifecycle = [Prototyped, rel_ely, ""]
+  let lifecycle = [Published, rel_ely, ""]
 
   let status = Enum ("pvs_proxy_status", [
       "stopped", "The proxy is not currently running";
@@ -9592,7 +9592,7 @@ end
 let pvs_proxy = PVS_proxy.obj
 
 module PVS_cache_storage = struct
-  let lifecycle = [Prototyped, rel_ely, ""]
+  let lifecycle = [Published, rel_ely, ""]
 
   let obj =
     let null_ref  = Some (VRef null_ref) in
