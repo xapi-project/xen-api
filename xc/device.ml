@@ -891,7 +891,18 @@ module type DAEMONPIDPATH = sig
 end
 
 module DaemonMgmt (D : DAEMONPIDPATH) = struct
+	module SignalMask = struct
+		module H = Hashtbl
+		type t = (int, bool) H.t
+		let create () = H.create 16
+		let set tbl key = H.replace tbl key true
+		let unset tbl key = H.remove tbl key
+		let has tbl key = H.mem tbl key
+	end
+	let signal_mask = SignalMask.create ()
+
 	let pid_path = D.pid_path
+	let pid_path_signal domid = (pid_path domid) ^ "-signal"
 	let pid ~xs domid =
 		try
 			let pid = xs.Xs.read (pid_path domid) in
@@ -1777,8 +1788,39 @@ let __start (task: Xenops_task.task_handle) ~xs ~dmpath ?(timeout = !Xenopsd.qem
 	let cancel = Cancel_utils.Qemu (qemu_domid, domid) in
 	let qemu_pid = init_daemon ~task ~path:dmpath ~args ~name:"qemu-dm" ~domid
 		~xs ~ready_path ~ready_val:"running" ~timeout ~cancel () in
-	(* At this point we expect qemu to outlive us; we will never call waitpid *)
-	Forkhelpers.dontwaitpid qemu_pid
+	match !Xenopsd.action_after_qemu_crash with
+	| None ->
+		(* At this point we expect qemu to outlive us; we will never call waitpid *)
+		Forkhelpers.dontwaitpid qemu_pid
+	| Some _ ->
+		(* We register a callback to be run asynchronously in case qemu fails/crashes or is killed *)
+		let waitpid_async x ~callback =
+			ignore(Thread.create (fun x->callback (try Forkhelpers.waitpid_fail_if_bad_exit x; None with e -> Some e)) x)
+		in
+		waitpid_async qemu_pid ~callback:(fun qemu_crash -> Forkhelpers.(
+			debug "Finished waiting qemu pid=%d for domid=%d" (getpid qemu_pid) domid;
+			let crash_reason = match qemu_crash with
+			| None -> debug "domid=%d qemu-pid=%d: detected exit=0" domid (getpid qemu_pid);
+				"exit:0"
+			| Some e -> begin match e with
+				| Subprocess_failed x -> (* exit n *)
+					debug "domid=%d qemu-pid=%d: detected exit=%d" domid (getpid qemu_pid) x;
+					Printf.sprintf "exit:%d" x
+				| Subprocess_killed x -> (* qemu received signal/crashed *)
+					debug "domid=%d qemu-pid=%d: detected signal=%d" domid (getpid qemu_pid) x;
+					Printf.sprintf "signal:%d" x
+				| e -> debug "domid=%d qemu-pid=%d: detected unknown exception %s" domid (getpid qemu_pid) (Printexc.to_string e);
+					Printf.sprintf "unknown"
+				end
+			in
+			if not (Qemu.SignalMask.has Qemu.signal_mask domid) then
+				match (Qemu.pid ~xs domid) with
+				| None -> (* after expected qemu stop or domain xs tree destroyed: this event arrived too late, nothing to do *)
+					debug "domid=%d qemu-pid=%d: already removed from xenstore during domain destroy" domid (getpid qemu_pid);
+				| Some _ ->
+					(* before expected qemu stop: qemu-pid is available in domain xs tree: signal action to take *)
+					xs.Xs.write (Qemu.pid_path_signal domid) crash_reason
+		))
 
 let start (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
 	let l = cmdline_of_info info false domid in
@@ -1828,10 +1870,14 @@ let stop ~xs ~qemu_domid domid  =
 		| Some qemu_pid ->
 			debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid;
 			let open Generic in
+			    best_effort "signalling that qemu is ending as expected, mask further signals"
+				    (fun () -> Qemu.SignalMask.set Qemu.signal_mask domid);
 			    best_effort "killing qemu-dm"
 				    (fun () -> really_kill qemu_pid);
 			    best_effort "removing qemu-pid from xenstore"
 				    (fun () -> xs.Xs.rm qemu_pid_path);
+			    best_effort "unmasking signals, qemu-pid is already gone from xenstore"
+				    (fun () -> Qemu.SignalMask.unset Qemu.signal_mask domid);
 			    (* best effort to delete the qemu chroot dir; we
 			       deliberately want this to fail if the dir is not
 			       empty cos it may contain core files that bugtool

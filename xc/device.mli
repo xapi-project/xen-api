@@ -115,6 +115,15 @@ end
 
 module Qemu :
 sig
+	module SignalMask: sig
+		type t
+		val create: unit -> t
+		val set: t -> int -> unit
+		val unset: t -> int -> unit
+		val has: t -> int -> bool
+	end
+	val signal_mask : SignalMask.t
+	val pid_path_signal : Xenctrl.domid -> string
 	val pid : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 	val is_running : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> bool
 end
