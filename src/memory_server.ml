@@ -45,9 +45,10 @@ let wrap dbg f =
     (* NB both needed and free have been inflated by the lowmem_emergency_pool etc *)
     let needed = Int64.sub needed Squeeze_xen.target_host_free_mem_kib
     and free = Int64.sub free Squeeze_xen.target_host_free_mem_kib in
-    raise (Memory_interface.Cannot_free_this_much_memory (needed, free))
+    raise (MemoryError (Memory_interface.Cannot_free_this_much_memory (needed, free)))
   | Squeeze.Domains_refused_to_cooperate domids ->
-    raise (Memory_interface.Domains_refused_to_cooperate(domids))
+    raise (MemoryError (Memory_interface.Domains_refused_to_cooperate(domids)))
+
 
 
 let start_balance_thread balance_check_interval =
@@ -67,9 +68,9 @@ let start_balance_thread balance_check_interval =
   ()
 
 
-let get_diagnostics _ dbg = "diagnostics not yet available"
+let get_diagnostics dbg = "diagnostics not yet available"
 
-let login _ dbg service_name =
+let login dbg service_name =
   wrap dbg
     (fun () ->
        (* We assume only one instance of a named service logs in at a time and therefore can use
@@ -82,10 +83,10 @@ let login _ dbg service_name =
        service_name
     )
 
-let reserve_memory _ dbg session_id kib =
+let reserve_memory dbg session_id kib =
   let reservation_id = Uuidm.to_string (Uuidm.create `V4) in
   if kib < 0L
-  then raise (Invalid_memory_value kib);
+  then raise (MemoryError (Invalid_memory_value kib));
   wrap dbg
     (fun () ->
        Xenctrl.with_intf
@@ -97,12 +98,12 @@ let reserve_memory _ dbg session_id kib =
        reservation_id
     )
 
-let reserve_memory_range _ dbg session_id min max =
+let reserve_memory_range dbg session_id min max =
   let reservation_id = Uuidm.to_string (Uuidm.create `V4) in
   if min < 0L
-  then raise (Invalid_memory_value min);
+  then raise (MemoryError (Invalid_memory_value min));
   if max < 0L
-  then raise (Invalid_memory_value max);
+  then raise (MemoryError (Invalid_memory_value max));
   wrap dbg
     (fun () ->
        Xenctrl.with_intf
@@ -115,7 +116,7 @@ let reserve_memory_range _ dbg session_id min max =
     )
 
 
-let delete_reservation _ dbg session_id reservation_id =
+let delete_reservation dbg session_id reservation_id =
   wrap dbg
     (fun () ->
        Xenctrl.with_intf
@@ -124,7 +125,7 @@ let delete_reservation _ dbg session_id reservation_id =
          )
     )
 
-let transfer_reservation_to_domain _ dbg session_id reservation_id domid =
+let transfer_reservation_to_domain dbg session_id reservation_id domid =
   wrap dbg
     (fun () ->
        Xenctrl.with_intf
@@ -140,21 +141,21 @@ let transfer_reservation_to_domain _ dbg session_id reservation_id domid =
                 (fun maxmem -> Squeeze_xen.Domain.set_maxmem_noexn xc domid maxmem)
                 (try Some (Int64.of_string kib) with _ -> None);
             with Xs_protocol.Enoent _ ->
-              raise (Unknown_reservation reservation_id)
+              raise (MemoryError (Unknown_reservation reservation_id))
          )
     )
 
-let query_reservation_of_domain _ dbg session_id domid =
+let query_reservation_of_domain dbg session_id domid =
   wrap dbg
     (fun () ->
        try
          let reservation_id = Client.immediate (get_client ()) (fun xs -> Client.read xs (Printf.sprintf "/local/domain/%d/memory/reservation-id" domid)) in
          reservation_id
        with Xs_protocol.Enoent _ ->
-         raise No_reservation
+         raise (MemoryError No_reservation)
     )
 
-let balance_memory _ dbg =
+let balance_memory dbg =
   wrap dbg
     (fun () ->
        Xenctrl.with_intf
@@ -163,7 +164,7 @@ let balance_memory _ dbg =
          )
     )
 
-let get_host_reserved_memory _ dbg = Squeeze_xen.target_host_free_mem_kib
+let get_host_reserved_memory dbg = Squeeze_xen.target_host_free_mem_kib
 
 let get_total_memory_from_xen () =
   try
@@ -235,7 +236,7 @@ let get_total_memory () =
   get_total_memory_from_balloon_driver >>
   get_total_memory_from_proc_meminfo
 
-let get_domain_zero_policy _ dbg =
+let get_domain_zero_policy dbg =
   wrap dbg
     (fun () ->
        match get_total_memory () with
@@ -291,7 +292,7 @@ let record_boot_time_host_free_memory () =
              VMs from being started on this host. (%s)" (Printexc.to_string e)
   end
 
-let get_host_initial_free_memory _ dbg =
+let get_host_initial_free_memory dbg =
   try
     Int64.of_string (Unixext.string_of_file initial_host_free_memory_file)
   with e ->

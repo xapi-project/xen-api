@@ -29,17 +29,33 @@ let options = [
   "domain-zero-dynamic-max", Arg.String (fun x -> Squeeze.domain_zero_dynamic_max := if x = "auto" then None else Some (Int64.of_string x)), (fun () -> match !Squeeze.domain_zero_dynamic_max with None -> "using the static-max value" | Some x -> Int64.to_string x), "Maximum memory to allow domain 0";
 ]
 
+module S=Memory_interface.API(Idl.GenServerExn ())
+
+let bind () =
+  let open Memory_server in
+  S.get_diagnostics get_diagnostics;
+  S.login login;
+  S.reserve_memory reserve_memory;
+  S.reserve_memory_range reserve_memory_range;
+  S.delete_reservation delete_reservation;
+  S.transfer_reservation_to_domain transfer_reservation_to_domain;
+  S.query_reservation_of_domain query_reservation_of_domain;
+  S.balance_memory balance_memory;
+  S.get_host_reserved_memory get_host_reserved_memory;
+  S.get_host_initial_free_memory get_host_initial_free_memory;
+  S.get_domain_zero_policy get_domain_zero_policy
+
 let _ =
   debug "squeezed version %d.%d starting" major_version minor_version;
 
   configure ~options ();
 
-  let module Server = Memory_interface.Server(Memory_server) in
+  bind ();
 
   let server = Xcp_service.make
       ~path:Memory_interface.xml_path
       ~queue_name:Memory_interface.queue_name
-      ~rpc_fn:(Server.process ())
+      ~rpc_fn:(Idl.server S.implementation)
       () in
 
   maybe_daemonize ();
