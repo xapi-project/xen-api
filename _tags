@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 602453b3fb6b3d0b87012f531fd91c7d)
+# DO NOT EDIT (digest: c2a2e2072ba30b89a3568ae322ce4992)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -142,24 +142,6 @@ true: annot, bin_annot
 <xen/*.ml{,i,y}>: use_xcp
 # Library xcp_memory
 "memory/xcp_memory.cmxs": use_xcp_memory
-<memory/*.ml{,i,y}>: pkg_cmdliner
-<memory/*.ml{,i,y}>: pkg_cohttp
-<memory/*.ml{,i,y}>: pkg_fd-send-recv
-<memory/*.ml{,i,y}>: pkg_message_switch
-<memory/*.ml{,i,y}>: pkg_message_switch.unix
-<memory/*.ml{,i,y}>: pkg_ppx_deriving_rpc
-<memory/*.ml{,i,y}>: pkg_ppx_sexp_conv
-<memory/*.ml{,i,y}>: pkg_re
-<memory/*.ml{,i,y}>: pkg_rpclib
-<memory/*.ml{,i,y}>: pkg_rpclib.xml
-<memory/*.ml{,i,y}>: pkg_sexplib
-<memory/*.ml{,i,y}>: pkg_threads
-<memory/*.ml{,i,y}>: pkg_unix
-<memory/*.ml{,i,y}>: pkg_uri
-<memory/*.ml{,i,y}>: pkg_xapi-backtrace
-<memory/*.ml{,i,y}>: pkg_xcp-inventory
-<memory/*.ml{,i,y}>: pkg_xmlm
-<memory/*.ml{,i,y}>: use_xcp
 # Library xapi_v6
 "v6/xapi_v6.cmxs": use_xapi_v6
 <v6/*.ml{,i,y}>: pkg_cmdliner
@@ -312,6 +294,49 @@ true: annot, bin_annot
 <example/*.ml{,i,y}>: pkg_xmlm
 <example/*.ml{,i,y}>: use_xcp
 <example/example.{native,byte}>: custom
+# Executable memory_cli
+<memory/memory_cli.{native,byte}>: pkg_cmdliner
+<memory/memory_cli.{native,byte}>: pkg_cohttp
+<memory/memory_cli.{native,byte}>: pkg_fd-send-recv
+<memory/memory_cli.{native,byte}>: pkg_message_switch
+<memory/memory_cli.{native,byte}>: pkg_message_switch.unix
+<memory/memory_cli.{native,byte}>: pkg_ppx_deriving_rpc
+<memory/memory_cli.{native,byte}>: pkg_ppx_sexp_conv
+<memory/memory_cli.{native,byte}>: pkg_re
+<memory/memory_cli.{native,byte}>: pkg_rpclib
+<memory/memory_cli.{native,byte}>: pkg_rpclib.cmdliner
+<memory/memory_cli.{native,byte}>: pkg_rpclib.markdown
+<memory/memory_cli.{native,byte}>: pkg_rpclib.xml
+<memory/memory_cli.{native,byte}>: pkg_sexplib
+<memory/memory_cli.{native,byte}>: pkg_threads
+<memory/memory_cli.{native,byte}>: pkg_unix
+<memory/memory_cli.{native,byte}>: pkg_uri
+<memory/memory_cli.{native,byte}>: pkg_xapi-backtrace
+<memory/memory_cli.{native,byte}>: pkg_xcp-inventory
+<memory/memory_cli.{native,byte}>: pkg_xmlm
+<memory/memory_cli.{native,byte}>: use_xcp
+<memory/memory_cli.{native,byte}>: use_xcp_memory
+<memory/*.ml{,i,y}>: pkg_cmdliner
+<memory/*.ml{,i,y}>: pkg_cohttp
+<memory/*.ml{,i,y}>: pkg_fd-send-recv
+<memory/*.ml{,i,y}>: pkg_message_switch
+<memory/*.ml{,i,y}>: pkg_message_switch.unix
+<memory/*.ml{,i,y}>: pkg_ppx_deriving_rpc
+<memory/*.ml{,i,y}>: pkg_ppx_sexp_conv
+<memory/*.ml{,i,y}>: pkg_re
+<memory/*.ml{,i,y}>: pkg_rpclib
+<memory/*.ml{,i,y}>: pkg_rpclib.cmdliner
+<memory/*.ml{,i,y}>: pkg_rpclib.markdown
+<memory/*.ml{,i,y}>: pkg_rpclib.xml
+<memory/*.ml{,i,y}>: pkg_sexplib
+<memory/*.ml{,i,y}>: pkg_threads
+<memory/*.ml{,i,y}>: pkg_unix
+<memory/*.ml{,i,y}>: pkg_uri
+<memory/*.ml{,i,y}>: pkg_xapi-backtrace
+<memory/*.ml{,i,y}>: pkg_xcp-inventory
+<memory/*.ml{,i,y}>: pkg_xmlm
+<memory/*.ml{,i,y}>: use_xcp
+<memory/*.ml{,i,y}>: use_xcp_memory
 # OASIS_STOP
 <storage/storage_interface.ml{,i}>: syntax_camlp4o
 <xen/xenops_interface.ml{,i}>: syntax_camlp4o

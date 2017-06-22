@@ -105,3 +105,9 @@ Executable example
   Install:            false
   BuildDepends:       lwt, lwt.unix, xcp, rpclib
 
+Executable memory_cli
+  CompiledObject:     best
+  Path:               memory
+  MainIs:             memory_cli.ml
+  Install:            false
+  BuildDepends:       xcp.memory, cmdliner, rpclib.cmdliner, rpclib.markdown
