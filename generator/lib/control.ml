@@ -14,7 +14,12 @@ let api =
           "The URI identifying this volume. A typical value would be a";
           "file:// URI pointing to a directory or block device.";
           ]),
-        [ "name", Basic String, String.concat " " [
+        [ "uuid", Option (Basic String), String.concat " " [
+              "Uuid that uniquely identifies this SR, if one is available. ";
+              "For SRs that are created by SR.create, this should be the ";
+              "value passed into that call, if it is possible to persist ";
+              "it."];
+          "name", Basic String, String.concat " " [
           "Short, human-readable label for the SR.";
           ];
           "description", Basic String, String.concat " " [
@@ -105,6 +110,11 @@ let api =
     Arg.name = "uri";
     ty = Type.(Basic String);
     description = "The Storage Repository URI";
+  } in
+  let uuid = {
+    Arg.name = "uuid";
+    ty = Type.(Basic String);
+    description = "A uuid to associate with the SR."
   } in
   {
     Interfaces.name = "volume";
@@ -404,8 +414,9 @@ let api =
             };
             {
               Method.name = "create";
-              description = "[create uri name description configuration]: creates a fresh SR";
+              description = "[create uuid uri name description configuration]: creates a fresh SR";
               inputs = [
+                uuid;
                 uri;
                 { Arg.name = "name";
                   ty = Type.(Basic String);
@@ -425,7 +436,7 @@ let api =
                   ];
                 };
               ];
-              outputs = []
+              outputs = [uri]
             };
             {
               Method.name = "attach";
