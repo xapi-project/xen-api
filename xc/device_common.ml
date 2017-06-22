@@ -328,3 +328,21 @@ let xenops_domain_path = "/xenops/domain"
 let xenops_path_of_domain domid = sprintf "%s/%d" xenops_domain_path domid
 let xenops_vgpu_path domid devid =
 	sprintf "%s/device/vgpu/%d" (xenops_path_of_domain domid) devid
+
+let is_upstream_qemu domid =
+	try
+		with_xs (fun xs -> xs.Xs.read (Printf.sprintf "/libxl/%d/dm-version" domid)) = "qemu_xen"
+	with _ -> false
+
+let qmp_write domid cmd =
+	let open Qmp_protocol in
+	let c = connect (Printf.sprintf "/var/run/xen/qmp-libxl-%d" domid) in
+	finally
+		(fun() ->
+			try
+				negotiate c;
+				write c cmd
+			with e ->
+				error "Caught exception attempting to write qmp message: %s" (Printexc.to_string e);
+		)
+		(fun() -> close c)

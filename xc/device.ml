@@ -605,19 +605,15 @@ let qemu_media_change ~xs device _type params =
 	Xs.transaction xs (fun t -> t.Xst.writev backend_path back_delta);
 	debug "Media changed: params = %s" pathtowrite;
 
-	try
-		ignore(with_xs (fun xs -> xs.Xs.read (Printf.sprintf "/libxl/%d/dm-version" device.frontend.domid)) = "qemu_xen");
-		let c = Qmp_protocol.connect (Printf.sprintf "/var/run/xen/qmp-libxl-%d" device.frontend.domid) in
-		Qmp_protocol.negotiate c;
-
+	if is_upstream_qemu device.frontend.domid
+	then begin
 		let cd = "ide1-cd1" in
-		if params = ""
-		then Qmp_protocol.write c (Qmp.Command(None, Qmp.Eject (cd, Some true)))
-		else Qmp_protocol.write c (Qmp.Command(None, Qmp.Change (cd, params, None)));
-
-		Qmp_protocol.close c
-	with _ -> ()
-
+		let qmp_cmd =
+			if params = ""
+			then (Qmp.Command(None, Qmp.Eject (cd, Some true)))
+			else (Qmp.Command(None, Qmp.Change (cd, params, None))) in
+		qmp_write device.frontend.domid qmp_cmd
+	end
 
 let media_eject ~xs device =
 	qemu_media_change ~xs device "" ""
@@ -1813,7 +1809,13 @@ let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
 			failwith "vgpu suspend timed out"
 	end in
 	suspend_vgpu ();
-	signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
+
+	if not (is_upstream_qemu domid)
+	then signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
+	else
+		let file = sprintf qemu_save_path domid in
+		qmp_write domid (Qmp.Command(None, Qmp.Xen_save_devices_state file))
+
 let resume (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
 	signal task ~xs ~qemu_domid ~domid "continue" ~wait_for:"running"
 
