@@ -87,14 +87,6 @@ let of_ty_opt_verbatim = function
 let desc_of_ty_opt = function
     None -> "" | Some(_, desc) -> desc
 
-(** Add namespaces (separated by _) to each field name *)
-let flatten stuff =
-  let rec f ns = function
-    | Field fr -> Field { fr with field_name = ns ^ fr.field_name}
-    | Namespace(ns', contents) -> Namespace("", List.map (f (ns ^ ns' ^ "_")) contents)
-  in
-  f "" stuff
-
 let string_of_qualifier = function
   | StaticRO   -> "_RO/constructor_"
   | DynamicRO  -> "_RO/runtime_"
@@ -103,15 +95,6 @@ let string_of_qualifier = function
 
 let string_of_open_product release =
   if release.internal_deprecated_since = None then "" else "**Deprecated.** "
-
-let print_field_content printer x =
-  let rec f = function
-    | Field{release; qualifier; field_name=name; ty; field_description=description} ->
-        printer (sprintf "|%s|`%s`|%s|%s%s|"
-          (escape name) (of_ty_verbatim ty) (string_of_qualifier qualifier)
-          (string_of_open_product release) (escape description))
-    | Namespace(_, fields) -> List.iter f fields
-  in f x
 
 (* Make a markdown section for an API-specified message *)
 let markdown_section_of_message printer x =
@@ -173,7 +156,15 @@ let print_field_table_of_obj printer x =
   else begin
     printer "|Field|Type|Qualifier|Description|";
     printer "|:---|:---|:---|:---|";
-    List.iter (fun x -> print_field_content printer (flatten x)) x.contents
+
+    let print_field_content printer ({release; qualifier; ty; field_description=description} as y) =
+      let wired_name = Datamodel_utils.wire_name_of_field y in
+        printer (sprintf "|%s|`%s`|%s|%s%s|"
+          (escape wired_name) (of_ty_verbatim ty) (string_of_qualifier qualifier)
+          (string_of_open_product release) (escape description))
+    in
+
+    x |> Datamodel_utils.fields_of_obj |> List.iter (print_field_content printer)
   end
 
 let of_obj printer x =
