@@ -306,6 +306,9 @@ let pool_joining_host_must_have_physical_management_nic = "POOL_JOINING_HOST_MUS
 let pool_joining_external_auth_mismatch = "POOL_JOINING_EXTERNAL_AUTH_MISMATCH"
 let pool_joining_host_must_have_same_product_version = "POOL_JOINING_HOST_MUST_HAVE_SAME_PRODUCT_VERSION"
 let pool_joining_host_must_only_have_physical_pifs = "POOL_JOINING_HOST_MUST_ONLY_HAVE_PHYSICAL_PIFS"
+let pool_joining_host_must_have_same_api_version = "POOL_JOINING_HOST_MUST_HAVE_SAME_API_VERSION"
+let pool_joining_host_must_have_same_db_schema = "POOL_JOINING_HOST_MUST_HAVE_SAME_DB_SCHEMA"
+
 
 (*workload balancing*)
 let wlb_not_initialized = "WLB_NOT_INITIALIZED"
