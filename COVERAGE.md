@@ -4,13 +4,19 @@
 This project can be compiled for coverage analysis using [bisect_ppx]. By
 default, this is not done. To compile for coverage analysis, do:
 
-    make coverage
-    make 
+    ./configure --enable-coverage
+    make
 
-The `coverage` target adds the rules in `_tags.coverage` to the `_tags`
-file, which in turn causes all code to be compiled for coverage
-analysis. The `_tags.coverage` file could be tweaked to control which
-files get instrumented.
+This sets the `BISECT_COVERAGE` make and environment variable, which adds a dependency
+on `bisect_ppx` at `make setup.ml` time.
+This ensures that a proper dependency gets added to the META file, so that other
+projects can successfully link `xenopsd` even if they are themselves not built
+with `bisect_ppx`.
+
+To get a non-coverage build simply run a default build:
+
+   ./configure
+   make clean && make
 
 ## Support Files
 
