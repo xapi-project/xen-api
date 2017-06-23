@@ -928,9 +928,11 @@ let _ =
   error Api_errors.pool_auth_disable_failed ["host";"message"]
     ~doc:"The pool failed to disable the external authentication of at least one host." ();
   error Api_errors.pool_auth_disable_failed_wrong_credentials ["host";"message"]
-    ~doc:"The pool failed to disable the external authentication of at least one host." ();
+    ~doc:"External authentication has been disabled with errors: Some AD machine accounts were not disabled on the AD server due to invalid credentials." ();
   error Api_errors.pool_auth_disable_failed_permission_denied ["host";"message"]
-    ~doc:"The pool failed to disable the external authentication of at least one host." ();
+    ~doc:"External authentication has been disabled with errors: Your AD machine account was not disabled on the AD server as permission was denied." ();
+  error Api_errors.pool_auth_disable_failed_invalid_account ["host";"message"]
+    ~doc:"External authentication has been disabled with errors: Some AD machine accounts were not disabled on the AD server due to invalid account." ();
   error Api_errors.pool_joining_host_must_have_same_api_version ["host_api_version";"master_api_version"]
     ~doc:"The host joining the pool must have the same API version as the pool master." ();
   error Api_errors.pool_joining_host_must_have_same_db_schema ["host_db_schema";"master_db_schema"]

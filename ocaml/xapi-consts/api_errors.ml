@@ -493,6 +493,7 @@ let pool_auth_enable_failed_duplicate_hostname = pool_auth_enable_failed^"_DUPLI
 let pool_auth_disable_failed = pool_auth_prefix^auth_disable_failed
 let pool_auth_disable_failed_wrong_credentials = pool_auth_disable_failed^auth_suffix_wrong_credentials
 let pool_auth_disable_failed_permission_denied = pool_auth_disable_failed^auth_suffix_permission_denied
+let pool_auth_disable_failed_invalid_account = pool_auth_disable_failed^auth_suffix_invalid_account
 let subject_cannot_be_resolved = "SUBJECT_CANNOT_BE_RESOLVED"
 let auth_service_error = "AUTH_SERVICE_ERROR"
 let subject_already_exists = "SUBJECT_ALREADY_EXISTS"
