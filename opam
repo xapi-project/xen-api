@@ -3,17 +3,15 @@ maintainer: "xen-api@lists.xen.org"
 authors: "xen-api@lists.xen.org"
 homepage: "https://github.com/xapi-project/xenopsd"
 build: [
-	["oasis" "setup"]
 	["./configure"]
-  ["ocaml" "setup.ml" "-configure" "--disable-libvirt"]
 	[make]
 ]
 install: [
- 	["ocaml" "setup.ml" "-install"]
+ 	["./setup.bin" "-install"]
 ]
 remove: [
-        ["oasis" "setup"]
-        ["ocaml" "setup.ml" "-uninstall"]
+        ["make" "setup.data"]
+        ["./setup.bin" "-uninstall"]
         ["ocamlfind" "remove" "xenopsd"]
 ]
 depends: [
