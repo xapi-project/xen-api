@@ -13,6 +13,7 @@ build: setup.data
 doc: setup.data build
 	$(SETUP) -doc $(DOCFLAGS)
 	./jsapi.native -destdir _build/ocaml/doc -templdir ocaml/doc/templates
+	./datamodel_main.native -closed -markdown _build/ocaml/doc/markdown
 
 test: setup.data build
 	$(SETUP) -test $(TESTFLAGS)
@@ -91,8 +92,11 @@ install: setup.data rbac_static.csv
 	scripts/install.sh 755 block_device_io.native $(DESTDIR)$(LIBEXECDIR)/block_device_io
 # Libraries
 	ocaml setup.ml -install
-# xenserver html docs
+# xenserver docs
 	mkdir -p $(DESTDIR)$(DOCDIR)/html/xenserver
 	cp -r -L _build/ocaml/doc/api $(DESTDIR)$(DOCDIR)/html/xenserver
 	cd ocaml/doc && cp *.js *.html *.css *.png $(DESTDIR)$(DOCDIR)/html/xenserver
 	cp _build/ocaml/doc/branding.js $(DESTDIR)$(DOCDIR)/html/xenserver/branding.js
+	mkdir -p $(DESTDIR)$(DOCDIR)/markdown/xenserver
+	cp _build/ocaml/doc/markdown/* $(DESTDIR)$(DOCDIR)/markdown/xenserver
+	cd ocaml/doc && cp *.dot *.md $(DESTDIR)$(DOCDIR)/markdown/xenserver

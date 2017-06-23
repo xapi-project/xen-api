@@ -21,21 +21,21 @@ open Dm_api
 
 let _ =
   let dot_mode = ref false
-  and latex_mode = ref false
+  and markdown_mode = ref false
   and dtd_mode = ref false
   and closed = ref false (* shows release_closed *)
   and all = ref false (* shows release_impl as well *)
   and dirname = ref "" in
 
   Arg.parse [ "-dot", Arg.Set dot_mode, "output dot graph";
-              "-latex", Arg.Set latex_mode, "output latex document";
+              "-markdown", Arg.Set markdown_mode, "output markdown document";
               "-dtd", Arg.Set dtd_mode, "output XML DTD";
               "-closed", Arg.Set closed, "output all OSS + closed API functions but not including internal ones";
               "-all", Arg.Set all, "output all API functions, including internal ones"
             ]
     (fun x -> dirname := x)
     "compile XenSource API datamodel specification";
-  let all_modes = [ !dot_mode; !latex_mode; !dtd_mode ] in
+  let all_modes = [ !dot_mode; !markdown_mode; !dtd_mode ] in
 
   let num_modes_set = List.length (List.filter (fun x->x) all_modes) in
 
@@ -60,17 +60,16 @@ let _ =
 
 
   (* Add all implicit messages to the API directly *)
-  let api = DU.add_implicit_messages ~document_order:!latex_mode api in
+  let api = DU.add_implicit_messages ~document_order:!markdown_mode api in
   (* Only show those visible to the client *)
   let api = filter (fun _ -> true) (fun field -> true) DU.on_client_side api in
   (* And only messages marked as not hidden from the docs, and non-internal fields *)
   let api = filter (fun _ -> true) (fun f -> not f.internal_only) (fun m -> not m.msg_hide_from_docs) api in
 
-  if !dirname <> "" then Unix.chdir !dirname;
-  if (!latex_mode) then begin
-    Latex_backend.all api (!all)
-  end;
+  if (!markdown_mode) then
+    Markdown_backend.all api !dirname;
 
+  if !dirname <> "" then Unix.chdir !dirname;
   if !dot_mode then begin
     List.iter print_endline (Dot_backend.of_objs api)
   end;
