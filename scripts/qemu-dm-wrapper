@@ -47,7 +47,7 @@ def xenstore_write(key, value):
 def xenstore_read(key):
     (rc, stdout, stderr) = doexec([xenstore_read_cmd, key])
     if rc != 0:
-        raise RuntimeError(stderr.readlines())
+        return None
     return stdout.readline().strip()
 
 def enable_core_dumps():
@@ -104,10 +104,14 @@ def main(argv):
     if os.path.exists("/usr/share/qemu-linaro/qemu"):
         qemu_args = qemu_args + ["-L", "/usr/share/qemu-linaro/qemu"]
 
+    nic = xenstore_read("/local/domain/%d/platform/nic_type" % domid)
+    if nic:
+        qemu_args = map(lambda x: x.replace("model=rtl8139", "model=%s" % nic), qemu_args)
+
     print "qemu-dm-wrapper in python:"
     print "Using domid: %d" % domid
     print "Starting: %s" % qemu_dm
-    print "Arguments: %s" % " ".join(argv[1:])
+    print "Arguments: %s" % " ".join(qemu_args)
     print "everything else is from qemu-dm:"
 
     core_dump_limit = enable_core_dumps()
