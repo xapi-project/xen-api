@@ -1,5 +1,4 @@
-Describe object relationships via graphviz
-------------------------------------------
+# Describe object relationships via graphviz
 
 To create a graph showing relationships between
 
@@ -10,24 +9,25 @@ To create a graph showing relationships between
 
 run:
 
-  $ graph -h <host> -u root -pw <password> VM VDI VBD SR > graph.gv
+```bash
+graph.native -h <host> -u root -pw <password> VM VDI VBD SR > graph.dot
+```
 
-install graphviz and then run:
+Then install graphviz and run:
 
-  $ dot -Tpng graph.gv -o graph.png
+```bash
+dot -Tsvg graph.dot -o graph.svg
+```
 
-Here's an example:
+See the script [go](go) for some more examples of graphs you can create.
 
-![Example rendered graph](../../../../raw/master/ocaml/graph/example.png)
-
-Notes
------
+## Notes
 
 Unlike the rest of our ocaml client code, this example doesn't use our regular ocaml
 XenAPI bindings. Instead the code parses the XMLRPC responses by walking over the
 type declarations in the datamodel directly.
-Unfortunatly this means that a lot of unnecessary modules have to be linked in.
+Unfortunately this means that a lot of unnecessary modules have to be linked in.
 We should probably improve this by:
 
   1. creating an actual concrete syntax for the IDL, so you wouldn't have to link all of xapi in to get it
-  2. extending the system.listMethods to allow more introspection (e.g. include type information) 
+  2. extending the system.listMethods to allow more introspection (e.g. include type information)
