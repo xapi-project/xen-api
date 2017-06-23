@@ -108,18 +108,12 @@ c: gen_c_binding.native
 
 csharp: gen_csharp_binding.native
 	mkdir -p _build/csharp/autogen/src/Properties
-	mkdir -p _build/csharp/autogen/gui
 	mkdir -p _build/csharp/autogen/samples
-	./gen_csharp_binding.native -r csharp/FriendlyErrorNames.resx -s $(SR_XML) -d _build/csharp/autogen -t csharp/templates
+	./gen_csharp_binding.native -r csharp/FriendlyErrorNames.resx -s $(SR_XML) -d _build/csharp/autogen/src -t csharp/templates
 #source
-	mv _build/csharp/autogen/XenServer.csproj _build/csharp/autogen/src
-	cp csharp/src/*.cs _build/csharp/autogen
-	cp _build/csharp/autogen/*.* _build/csharp/autogen/src
+	cp csharp/src/*.cs _build/csharp/autogen/src
 	mv _build/csharp/autogen/src/AssemblyInfo.cs _build/csharp/autogen/src/Properties/AssemblyInfo.cs
 	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION).0/g' _build/csharp/autogen/src/Properties/AssemblyInfo.cs
-#source gui
-	mv _build/csharp/autogen/*.* _build/csharp/autogen/gui
-	rm _build/csharp/autogen/gui/AssemblyInfo.cs
 #samples
 	cp -r csharp/samples/* _build/csharp/autogen/samples
 #other

@@ -130,7 +130,7 @@ let api_members = ref []
 
 let rec main() =
   gen_proxy();
-  List.iter (fun x -> if generated x then gen_class x) classes;
+  List.iter (fun x -> if generated x then gen_class_file x) classes;
   TypeSet.iter gen_enum !enums;
   gen_maps();
   gen_i18n_errors();
@@ -303,17 +303,16 @@ namespace XenAPI
 (* ------------------- category: classes *)
 
 
-and gen_class cls =
+and gen_class_file cls =
   let m = exposed_class_name cls.name in
   if not (List.mem m !api_members) then
     api_members := m::!api_members;
   let out_chan = open_out (Filename.concat destdir (exposed_class_name cls.name)^".cs")
   in
-    finally (fun () -> gen_class_gui out_chan cls)
+    finally (fun () -> gen_class out_chan cls)
             (fun () -> close_out out_chan)
 
-(* XenAPI autogen class generator for GUI bindings *)
-and gen_class_gui out_chan cls =
+and gen_class out_chan cls =
   let print format = fprintf out_chan format in
   let exposed_class_name = exposed_class_name cls.name in
   let messages = List.filter (fun msg -> (String.compare msg.msg_name "get_all_records_where" != 0)) cls.messages in
