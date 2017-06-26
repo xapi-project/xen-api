@@ -18,6 +18,8 @@ docker run --rm --volume=$PWD:/mnt --workdir=/mnt \
   bash -uex -c '
 sudo apt-get update
 
+sudo chown -R $(whoami) .
+
 # replace the base remote with xs-opam
 opam repository remove default
 opam repository add xs-opam https://github.com/xapi-project/xs-opam.git
