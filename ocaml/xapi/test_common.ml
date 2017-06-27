@@ -220,6 +220,7 @@ let default_sm_features = [
   "VDI_RESIZE", 1L;
   "VDI_GENERATE_CONFIG", 1L;
   "VDI_RESET_ON_BOOT", 2L;
+  "VDI_CONFIG_CBT", 1L;
 ]
 
 let make_sm ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(_type="sm")
