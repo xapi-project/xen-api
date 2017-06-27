@@ -488,7 +488,7 @@ let check_operation_error ~__context ~ref ~op ~strict =
       then Some (Api_errors.not_system_domain, [ ref_str ])
       else None) in
 
-  (* For cross-pool VM migration, check if any of the VM's VDIs has CBT enabled *)
+  (* For storage migration, check if any of the VM's VDIs has CBT enabled *)
   let current_error = check current_error (fun () ->
       let is_cbt_enabled vdi = try Db.VDI.get_cbt_enabled ~__context ~self:vdi with _ -> false in
       if op = `migrate_send && List.exists is_cbt_enabled vdis then begin
