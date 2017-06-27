@@ -26,6 +26,9 @@ open Unixext
 open Pervasiveext
 open Client
 
+let fail_task_in_request (req: Request.t) (s: Unix.file_descr) e =
+  ignore(Xapi_http.ref_param_of_req req "task_id"|> Stdext.Opt.map (fun task_id -> TaskHelper.failed ~__context:(Context.from_forwarded_task task_id) e));
+  Http_svr.headers s (Http.http_400_badrequest ())
 
 exception HandleError of exn * (string list) (* Exception to put into the task * headers to return to the client *)
 
@@ -98,32 +101,37 @@ let import vdi (req: Request.t) (s: Unix.file_descr) _ =
 
   (* Perform the SR reachability check using a fresh context/task because
      	   we don't want to complete the task in the forwarding case *)
+
   Server_helpers.exec_with_new_task "VDI.import"
     (fun __context ->
-       Helpers.call_api_functions ~__context
-         (fun rpc session_id ->
-            let sr_opt = match vdi, sr_of_req ~__context req with
-              | Some vdi, _ -> Some (Db.VDI.get_SR ~__context ~self:vdi)
-              | None, Some sr -> Some sr
-              | None, None -> None
-            in
-            match sr_opt with
-            | Some sr ->
-              debug "Checking whether localhost can see SR: %s" (Ref.string_of sr);
-              if (Importexport.check_sr_availability ~__context sr)
-              then localhost_handler rpc session_id vdi req s
-              else
-                let host = Importexport.find_host_for_sr ~__context sr in
-                let address = Db.Host.get_address ~__context ~self:host in
-                return_302_redirect req s address;
+       try
+         Helpers.call_api_functions ~__context
+           (fun rpc session_id ->
+              let sr_opt = match vdi, sr_of_req ~__context req with
+                | Some vdi, _ -> Some (Db.VDI.get_SR ~__context ~self:vdi)
+                | None, Some sr -> Some sr
+                | None, None -> None
+              in
+              match sr_opt with
+              | Some sr ->
+                debug "Checking whether localhost can see SR: %s" (Ref.string_of sr);
+                if (Importexport.check_sr_availability ~__context sr)
+                then localhost_handler rpc session_id vdi req s
+                else
+                  let host = Importexport.find_host_for_sr ~__context sr in
+                  let address = Db.Host.get_address ~__context ~self:host in
+                  return_302_redirect req s address;
+                  None
+              | None ->
+                error "Require an SR or VDI to import";
+                fail_task_in_request req s Api_errors.(Server_error(vdi_missing,[]));
                 None
-            | None ->
-              error "Require an SR or VDI to import";
-              TaskHelper.failed ~__context Api_errors.(Server_error(vdi_missing,[]));
-              Http_svr.headers s (Http.http_400_badrequest ());
-              None
+           )
+       with e ->
+         error "Caught exception in import handler: %s" (ExnHelper.string_of_exn e);
+         fail_task_in_request req s e;
+         raise e
 
-         )
     )
 
 
