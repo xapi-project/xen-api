@@ -29,7 +29,7 @@ let inet_rpc xml =
   let version = "1.1" and path = "/" in
   let http = 80 and https = !Xapi_globs.https_port in
   (* Bypass SSL for localhost, this works even if the management interface
-     	   is disabled. *)
+     is disabled. *)
   let open Xmlrpc_client in
   let transport =
     if Pool_role.is_master ()
@@ -43,6 +43,12 @@ open Client
 open Http
 
 exception NoAuth
+
+let ref_param_of_req (req: Http.Request.t) param_name =
+  let all = Http.Request.(req.cookie @ req.query) in
+  try Some (Ref.of_string (List.assoc param_name all))
+  with Not_found -> None
+
 
 let get_session_id (req: Request.t) =
   let all = req.Request.cookie @ req.Request.query in
@@ -88,15 +94,8 @@ let rbac_audit_params_of (req: Request.t) =
 let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: Request.t) ic =
   let http_permission = Datamodel.rbac_http_permission_prefix ^ http_action in
   let all = req.Request.cookie @ req.Request.query in
-  let subtask_of =
-    if List.mem_assoc "subtask_of" all
-    then Some (Ref.of_string (List.assoc "subtask_of" all))
-    else None in
-  let task_id =
-    if List.mem_assoc "task_id" all
-    then Some (Ref.of_string (List.assoc "task_id" all))
-    else None
-  in
+  let subtask_of = ref_param_of_req req "subtask_of" in
+  let task_id = ref_param_of_req req "task_id" in
   let rbac_raise permission msg exc =
     (match task_id with
      | None -> ()
@@ -163,14 +162,8 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: Reque
 
 let with_context ?(dummy=false) label (req: Request.t) (s: Unix.file_descr) f =
   let all = req.Request.cookie @ req.Request.query in
-  let task_id =
-    if List.mem_assoc "task_id" all
-    then Some (Ref.of_string (List.assoc "task_id" all))
-    else None in
-  let subtask_of =
-    if List.mem_assoc "subtask_of" all
-    then Some (Ref.of_string (List.assoc "subtask_of" all))
-    else None in
+  let task_id = ref_param_of_req req "task_id" in
+  let subtask_of = ref_param_of_req req "subtask_of" in
   let localhost = Server_helpers.exec_with_new_task "with_context" (fun __context -> Helpers.get_localhost ~__context) in
   try
     let session_id,must_logout =
@@ -240,7 +233,7 @@ let bind inetaddr =
     | Unix.ADDR_INET(ip, port) -> Printf.sprintf "INET %s:%d" (Unix.string_of_inet_addr ip) port
     | Unix.ADDR_UNIX path -> Printf.sprintf "UNIX %s" path in
   (* Sometimes we see failures which we hope are transient. If this
-     	   happens then we'll retry a couple of times before failing. *)
+     happens then we'll retry a couple of times before failing. *)
   let start = Unix.gettimeofday () in
   let timeout = 30.0 in (* 30s *)
   let rec bind' () =
@@ -315,4 +308,3 @@ let add_handler (name, handler) =
       | Datamodel.Connect -> Http.Connect
       | Datamodel.Options -> Http.Options
     in Http_svr.Server.add_handler server ty uri h
-
