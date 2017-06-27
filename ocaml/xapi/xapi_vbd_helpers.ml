@@ -170,8 +170,13 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
     then set_errors Api_errors.vdi_not_managed [ _ref ] all_ops;
 
     let vdi_operations_besides_copy =
+      let is_illegal_operation = function
+        | `mirror
+        | `copy -> false
+        | _     -> true
+      in
       List.exists
-        (fun (_, operation) -> operation <> `copy)
+        (fun (_, operation) -> is_illegal_operation operation)
         vdi_record.Db_actions.vDI_current_operations
     in
     if vdi_operations_besides_copy then begin
