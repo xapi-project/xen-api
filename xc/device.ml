@@ -557,6 +557,12 @@ module Vbd_Common = struct
       | Disk -> "disk"
       | Floppy -> "floppy";
     ];
+    (* Hack: this should be returned separately from SMAPIv3 attach call *)
+    let (params, qemu_params) = if String.startswith "hack|" x.params then begin
+        match Stdext.Xstringext.String.split '|' x.params with
+        | [_; params; qemu_params] -> (params, qemu_params)
+        | _ -> (x.params, "")
+      end else (x.params, "") in
     List.iter (fun (k, v) -> Hashtbl.replace back_tbl k v) [
       "frontend-id", sprintf "%u" domid;
       (* Prevents the backend hotplug scripts from running if the frontend disconnects.
@@ -567,7 +573,8 @@ module Vbd_Common = struct
       "dev", to_linux_device device_number;
       "type", backendty_of_physty x.phystype;
       "mode", string_of_mode x.mode;
-      "params", x.params;
+      "params", params;
+      "qemu-params", qemu_params;
       "direct-io-safe", "1";
     ];
     (* We don't have PV drivers for HVM guests for CDROMs. We prevent
