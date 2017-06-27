@@ -10,6 +10,10 @@ build: [
 install: [
   [make "install" "BINDIR=%{bin}%"]
 ]
+build-test: [
+  [make "configure" "CONFIGUREFLAGS=--enable-tests"]
+  [make "test"]
+]
 remove: [
   ["ocamlfind" "remove" "gzip"]
   ["ocamlfind" "remove" "http-svr"]
@@ -34,6 +38,7 @@ depends: [
   "xenstore_transport"
   "ezxenstore"
   "oasis" {build}
+  "ounit" {test & >= "2.0.0"}
 ]
 depexts: [
   [["debian"] ["libxen-dev"]]

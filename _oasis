@@ -60,3 +60,16 @@ Library sexpr
   Path: sexpr
   Modules: SExprLexer, SExpr, SExprParser, Sexprpp, SExpr_TS
   BuildDepends: stdext, threads
+
+Executable http_test
+  CompiledObject: best
+  Path: http-svr
+  Build$: flag(tests)
+  Install: false
+  MainIs: http_test.ml
+  BuildDepends: http-svr, oUnit, stdext
+
+Test http_test
+  TestTools: http_test
+  Command: $http_test -runner sequential -verbose true
+  Run$: flag(tests)
