@@ -212,9 +212,6 @@ let make_server config =
     Lwt_condition.broadcast queues_c ();
     return () in
 
-  (* Held while processing a non-blocking request *)
-  let m = Lwt_mutex.create () in
-
   (* (Response.t * Body.t) Lwt.t *)
   let callback (_, conn_id) req body =
     (* Make sure we replay the log before processing requests *)
@@ -254,7 +251,7 @@ let make_server config =
         | _, _ -> return () )
       >>= fun () ->
 
-      Lwt_mutex.with_lock m
+      Lwt_mutex.with_lock Switch_main_helper.m
         (fun () ->
           process_request conn_id_s !queues session request
           >>= fun (op_opt, response) ->
@@ -280,7 +277,7 @@ let make_server config =
           info "Session %s cleaning up" session;
           let qs = Q.owned_queues !queues session in
           let ops = Q.StringSet.fold (fun x ops -> Q.Directory.remove !queues x :: ops) qs [] in
-          Lwt_mutex.with_lock m
+          Lwt_mutex.with_lock Switch_main_helper.m
             (fun () ->
               perform ops
             ) in
