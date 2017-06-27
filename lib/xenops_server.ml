@@ -1393,18 +1393,18 @@ and trigger_cleanup_after_failure op t =
 	| VM_restore_devices (id, _)
 	| VM_resume (id, _)
 	| VM_receive_memory (id, _, _) ->
-		immediate_operation dbg id (VM_check_state id);
+		deferred_operation dbg id (VM_check_state id);
 	| VM_migrate (id, _, _, _) ->
-		immediate_operation dbg id (VM_check_state id);
-		immediate_operation dbg id (VM_check_state id);
+		deferred_operation dbg id (VM_check_state id);
+		deferred_operation dbg id (VM_check_state id);
 
 	| VBD_hotplug id
 	| VBD_hotunplug (id, _) ->
-		immediate_operation dbg (fst id) (VBD_check_state id)
+		deferred_operation dbg (fst id) (VBD_check_state id)
 
 	| VIF_hotplug id
 	| VIF_hotunplug (id, _) ->
-		immediate_operation dbg (fst id) (VIF_check_state id)
+		deferred_operation dbg (fst id) (VIF_check_state id)
 
 	| Atomic op -> trigger_cleanup_after_failure_atom op t
 
