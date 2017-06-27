@@ -790,6 +790,14 @@ let pci_plug_order pcis =
 let vgpu_plug_order vgpus =
 	List.sort (fun a b -> compare a.Vgpu.position b.Vgpu.position) vgpus
 
+let uses_mxgpu id =
+	List.exists (fun vgpu_id ->
+		let vgpu = VGPU_DB.read_exn vgpu_id in
+		match vgpu.Vgpu.implementation with
+		| Vgpu.MxGPU _ -> true
+		| _ -> false
+	) (VGPU_DB.ids id)
+
 let simplify f =
 	let module B = (val get_backend () : S) in
 	if B.simplified then [] else f
@@ -1328,15 +1336,46 @@ let rec immediate_operation dbg id op =
 			Xenops_task.run task
 		) ();
 	match Xenops_task.get_state task with
-		| Task.Pending _ -> assert false
-		| Task.Completed _ -> ()
-		| Task.Failed e ->
-			let e = e |> Exception.exnty_of_rpc |> exn_of_exnty in
-			raise e
+	| Task.Pending _ -> assert false
+	| Task.Completed _ -> ()
+	| Task.Failed e ->
+		let e = e |> Exception.exnty_of_rpc |> exn_of_exnty in
+		raise e
+
+and queue_operation_int dbg id op =
+	let task = Xenops_task.add tasks dbg (let r = ref None in fun t -> perform ~result:r op t; !r) in
+	let tag = if uses_mxgpu id then "mxgpu" else id in
+	Redirector.push Redirector.default tag (op, task);
+	task
+
+and queue_operation dbg id op =
+	debug "queue_operation: %s" dbg;
+	let task = queue_operation_int dbg id op in
+	Xenops_task.id_of_handle task
+
+and queue_operation_and_wait dbg id op =
+	debug "queue_operation_and_wait: %s" dbg;
+	let from = Updates.last_id dbg updates in
+	let task = queue_operation_int dbg id op in
+	let task_id = Xenops_task.id_of_handle task in
+	event_wait updates task ~from 1200.0 (task_finished_p task_id) |> ignore;
+	task
+
+(* CA-254911: delay the cleanups checks and move them to a different
+ * thread to try and mitigate the risk of stack overflow due to 
+ * exceptional issues *)
+and deferred_operation dbg id op =
+	let task = queue_operation_and_wait dbg id op in
+	match Xenops_task.get_state task with
+	| Task.Pending _ -> assert false
+	| Task.Completed _ -> ()
+	| Task.Failed e ->
+		let e = e |> Exception.exnty_of_rpc |> exn_of_exnty in
+		raise e
 
 (* At all times we ensure that an operation which partially fails
-   leaves the system in a recoverable state. All that should be
-   necessary is to call the {VM,VBD,VIF,PCI}_check_state function. *)
+ * leaves the system in a recoverable state. All that should be
+ * necessary is to call the {VM,VBD,VIF,PCI}_check_state function. *)
 and trigger_cleanup_after_failure op t =
 	let dbg = (Xenops_task.to_interface_task t).Task.dbg in
 	match op with
@@ -1697,31 +1736,6 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 	match subtask with
 		| None -> one op
 		| Some name -> Xenops_task.with_subtask t name (fun () -> one op)
-
-let uses_mxgpu id =
-	List.exists (fun vgpu_id ->
-		let vgpu = VGPU_DB.read_exn vgpu_id in
-		match vgpu.Vgpu.implementation with
-		| Vgpu.MxGPU _ -> true
-		| _ -> false
-	) (VGPU_DB.ids id)
-
-let queue_operation_int dbg id op =
-	let task = Xenops_task.add tasks dbg (let r = ref None in fun t -> perform ~result:r op t; !r) in
-	let tag = if uses_mxgpu id then "mxgpu" else id in
-	Redirector.push Redirector.default tag (op, task);
-	task
-
-let queue_operation dbg id op =
-	let task = queue_operation_int dbg id op in
-	Xenops_task.id_of_handle task
-
-let queue_operation_and_wait dbg id op =
-	let from = Updates.last_id dbg updates in
-	let task = queue_operation_int dbg id op in
-	let task_id = Xenops_task.id_of_handle task in
-	event_wait updates task ~from 1200.0 (task_finished_p task_id) |> ignore;
-	task
 
 module PCI = struct
 	open Pci
