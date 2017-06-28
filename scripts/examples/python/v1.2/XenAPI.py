@@ -55,8 +55,8 @@
 # --------------------------------------------------------------------
 
 import gettext
-import xmlrpclib
-import httplib
+import six.moves.xmlrpc_client as xmlrpclib
+import six.moves.http_client as httplib
 import socket
 import sys
 
@@ -72,7 +72,7 @@ class Failure(Exception):
     def __str__(self):
         try:
             return str(self.details)
-        except Exception, exn:
+        except Exception as exn:
             print >>sys.stderr, exn
             return "Xen-API failure: %s" % str(self.details)
 
@@ -91,7 +91,7 @@ class UDSHTTPConnection(httplib.HTTPConnection):
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(path)
 
-class UDSHTTP(httplib.HTTP):
+class UDSHTTP(httplib.HTTPConnection):
     _connection_class = UDSHTTPConnection
 
 class UDSTransport(xmlrpclib.Transport):
@@ -179,7 +179,7 @@ class Session(xmlrpclib.ServerProxy):
             self.last_login_method = method
             self.last_login_params = params
             self.API_version = self._get_api_version()
-        except socket.error, e:
+        except socket.error as e:
             if e.errno == socket.errno.ETIMEDOUT:
                 raise xmlrpclib.Fault(504, 'The connection timed out')
             else:
