@@ -56,6 +56,7 @@ let rel_indigo = "indigo"
 let rel_dundee = "dundee"
 let rel_ely = "ely"
 let rel_falcon = "falcon"
+let rel_honolulu = "honolulu"
 let rel_inverness = "inverness"
 
 type api_release = {
@@ -177,6 +178,11 @@ let release_order_full = [{
       version_major = 2;
       version_minor = 6;
       branding   = "XenServer 7.1";
+    }; {
+      code_name     = Some rel_honolulu;
+      version_major = 2;
+      version_minor = 6;
+      branding   = "XenServer 7.1 CU1";
     }; {
       code_name     = Some rel_falcon;
       version_major = 2;
