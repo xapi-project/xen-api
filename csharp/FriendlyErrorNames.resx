@@ -561,6 +561,9 @@
   <data name="POOL_AUTH_ENABLE_FAILED_WRONG_CREDENTIALS" xml:space="preserve">
     <value>Failed to enable external authentication, the supplied credentials were invalid.</value>
   </data>
+  <data name="POOL_AUTH_ENABLE_FAILED_INVALID_ACCOUNT" xml:space="preserve">
+    <value>Failed to enable external authentication, the supplied account was invalid.</value>
+  </data>
   <data name="POOL_JOINING_EXTERNAL_AUTH_MISMATCH" xml:space="preserve">
     <value>The external authentication configuration of the server joining the pool must match the pool's own external authentication configuration.</value>
   </data>
