@@ -23,7 +23,6 @@ let xapiserver = ref "127.0.0.1"
 let xapiuname = ref "root"
 let xapipword = ref "null"
 let xapipasswordfile = ref ""
-let xapicompathost = ref "127.0.0.1"
 let xapiport = ref None
 let get_xapiport ssl =
   match !xapiport with

@@ -45,9 +45,3 @@ let read_rc () =
     parse_lines lines
   with
     _ -> []
-
-let insert_params params =
-  let rc = read_rc () in
-  let fold_func params (param,value) =
-    if List.mem_assoc param params then params else (param,value)::params
-  in List.fold_left fold_func params rc
