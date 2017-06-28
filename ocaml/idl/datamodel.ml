@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 131
+let schema_minor_vsn = 132
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -928,9 +928,11 @@ let _ =
   error Api_errors.pool_auth_disable_failed ["host";"message"]
     ~doc:"The pool failed to disable the external authentication of at least one host." ();
   error Api_errors.pool_auth_disable_failed_wrong_credentials ["host";"message"]
-    ~doc:"The pool failed to disable the external authentication of at least one host." ();
+    ~doc:"External authentication has been disabled with errors: Some AD machine accounts were not disabled on the AD server due to invalid credentials." ();
   error Api_errors.pool_auth_disable_failed_permission_denied ["host";"message"]
-    ~doc:"The pool failed to disable the external authentication of at least one host." ();
+    ~doc:"External authentication has been disabled with errors: Your AD machine account was not disabled on the AD server as permission was denied." ();
+  error Api_errors.pool_auth_disable_failed_invalid_account ["host";"message"]
+    ~doc:"External authentication has been disabled with errors: Some AD machine accounts were not disabled on the AD server due to invalid account." ();
   error Api_errors.pool_joining_host_must_have_same_api_version ["host_api_version";"master_api_version"]
     ~doc:"The host joining the pool must have the same API version as the pool master." ();
   error Api_errors.pool_joining_host_must_have_same_db_schema ["host_db_schema";"master_db_schema"]
@@ -4239,6 +4241,13 @@ let pool_update =
         field     ~in_product_since:rel_ely ~default_value:(Some (VSet [])) ~in_oss_since:None ~qualifier:StaticRO ~ty:(Set pool_update_after_apply_guidance) "after_apply_guidance" "What the client should do after this update has been applied.";
         field     ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _vdi) "vdi" "VDI the update was uploaded to";
         field     ~in_product_since:rel_ely ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host)) "hosts" "The hosts that have applied this update.";
+        field     ~in_product_since:rel_ely
+                  ~default_value:(Some (VBool false))
+                  ~in_oss_since:None
+                  ~qualifier:StaticRO
+                  ~ty:Bool
+                  "enforce_homogeneity"
+                  "Flag - if true, all hosts in a pool must apply this update";
       ]
     ()
 

@@ -70,6 +70,7 @@ let sd (p: Normal_population.t) =
 let string_of (p: Normal_population.t) =
   Printf.sprintf "%f [sd = %f]" (mean p) (sd p)
 
+(** [sample thing t] records new time [t] for population named [thing] *)
 let sample (name: string) (x: float) : unit =
   (* Use the lognormal distribution: *)
   let x' = log x in
@@ -122,26 +123,6 @@ let dbstats_task : (string,(string * dbcallty) list) Hashtbl.t = Hashtbl.create 
 let dbstats_threads : (int, (string * dbcallty) list) Hashtbl.t = Hashtbl.create 100
 
 let log_stats = ref false
-
-let log_db_call task_opt dbcall ty =
-  if not !log_stats then () else
-    Mutex.execute dbstats_m (fun () ->
-        let hashtbl = match ty with
-          | Read -> dbstats_read_dbcalls
-          | Write -> dbstats_write_dbcalls
-          | Create -> dbstats_create_dbcalls
-          | Drop -> dbstats_drop_dbcalls
-        in
-        Hashtbl.replace hashtbl dbcall (1 + (try Hashtbl.find hashtbl dbcall with _ -> 0));
-        let threadid = Thread.id (Thread.self ()) in
-        Hashtbl.replace dbstats_threads threadid ((dbcall,ty)::(try Hashtbl.find dbstats_threads threadid with _ -> []));
-        match task_opt with
-        |	Some task ->
-          Hashtbl.replace dbstats_task task ((dbcall,ty)::(try Hashtbl.find dbstats_task task with _ -> []))
-        | None -> ()
-
-
-      )
 
 let summarise_db_calls () =
   let string_of_ty = function | Read -> "read" | Write -> "write" | Create -> "create" | Drop -> "drop" in
