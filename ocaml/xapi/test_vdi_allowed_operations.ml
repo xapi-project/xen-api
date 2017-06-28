@@ -17,12 +17,15 @@ open Test_common
 
 (* Helpers for testing Xapi_vdi.check_operation_error *)
 
-let setup_test ~__context ~vdi_fun =
+let setup_test ~__context ?sm_fun ?vdi_fun () =
+  let run f x = match f with Some f -> ignore(f x) | None -> () in
+
   let _sm_ref = make_sm ~__context () in
   let sr_ref = make_sr ~__context () in
   let (_: API.ref_PBD) = make_pbd ~__context ~sR:sr_ref () in
   let vdi_ref = make_vdi ~__context ~sR:sr_ref () in
-  vdi_fun vdi_ref;
+  run sm_fun _sm_ref;
+  run vdi_fun vdi_ref;
   let vdi_record = Db.VDI.get_record_internal ~__context ~self:vdi_ref in
   vdi_ref, vdi_record
 
@@ -36,8 +39,8 @@ let string_of_api_exn_opt = function
   | Some (code, args) ->
     Printf.sprintf "Some (%s, [%s])" code (String.concat "; " args)
 
-let run_assert_equal_with_vdi ~__context ?(cmp = my_cmp) ?(ha_enabled=false) ~vdi_fun op exc =
-  let vdi_ref, vdi_record = setup_test ~__context ~vdi_fun in
+let run_assert_equal_with_vdi ~__context ?(cmp = my_cmp) ?(ha_enabled=false) ?sm_fun ?vdi_fun op exc =
+  let vdi_ref, vdi_record = setup_test ~__context ?sm_fun ?vdi_fun () in
   assert_equal
     ~cmp
     ~printer:string_of_api_exn_opt
@@ -96,9 +99,7 @@ let test_ca101669 () =
     `copy None;
 
   (* Attempting to copy an unattached VDI should pass. *)
-  run_assert_equal_with_vdi ~__context
-    ~vdi_fun:(fun vdi_ref -> ())
-    `copy None;
+  run_assert_equal_with_vdi ~__context `copy None;
 
   (* Attempting to copy RW- and RO-attached VDIs should fail with VDI_IN_USE. *)
   run_assert_equal_with_vdi ~__context
@@ -140,7 +141,7 @@ let test_ca125187 () =
             ~value:true;
           Xapi_vbd_helpers.assert_operation_valid ~__context
             ~self:vbd_ref
-            ~op:`plug)
+            ~op:`plug) ()
   in ()
 
 let test_ca126097 () =
@@ -164,6 +165,113 @@ let test_ca126097 () =
           ~value:["mytask", `copy])
     `snapshot (Some (Api_errors.operation_not_allowed, []))
 
+(** Tests for the checks related to changed block tracking *)
+let test_cbt =
+  let all_cbt_operations = [`enable_cbt; `disable_cbt] in
+  let for_vdi_operations ops f () = ops |> List.iter f in
+  let for_cbt_enable_disable = for_vdi_operations [`enable_cbt; `disable_cbt] in
+
+  let test_sm_feature_check op =
+    let __context = Mock.make_context_with_new_db "Mock context" in
+    run_assert_equal_with_vdi
+      ~__context
+      ~sm_fun:(fun sm -> Db.SM.remove_from_features ~__context ~self:sm ~key:"VDI_CONFIG_CBT")
+      op
+      (Some (Api_errors.sr_operation_not_supported, []))
+  in
+  let test_sm_feature_check = for_vdi_operations all_cbt_operations test_sm_feature_check in
+
+  let test_cbt_enable_disable_not_allowed_for_snapshot = for_cbt_enable_disable (fun op ->
+      let __context = Mock.make_context_with_new_db "Mock context" in
+      run_assert_equal_with_vdi
+        ~__context
+        ~vdi_fun:(fun vdi -> Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:true)
+        op
+        (Some (Api_errors.operation_not_allowed, []))
+    )
+  in
+
+  let test_cbt_enable_disable_vdi_type_check = for_cbt_enable_disable (fun op ->
+      let __context = Mock.make_context_with_new_db "Mock context" in
+      run_assert_equal_with_vdi
+        ~__context
+        ~vdi_fun:(fun vdi -> Db.VDI.set_type ~__context ~self:vdi ~value:`metadata)
+        op
+        (Some (Api_errors.vdi_incompatible_type, []));
+      run_assert_equal_with_vdi
+        ~__context
+        ~vdi_fun:(fun vdi -> Db.VDI.set_type ~__context ~self:vdi ~value:`redo_log)
+        op
+        (Some (Api_errors.vdi_incompatible_type, []));
+      run_assert_equal_with_vdi
+        ~__context
+        ~vdi_fun:(fun vdi -> Db.VDI.set_type ~__context ~self:vdi ~value:`user)
+        op
+        None;
+      run_assert_equal_with_vdi
+        ~__context
+        ~vdi_fun:(fun vdi -> Db.VDI.set_type ~__context ~self:vdi ~value:`system)
+        op
+        None
+    )
+  in
+
+  let test_cbt_enable_disable_not_allowed_for_reset_on_boot = for_cbt_enable_disable (fun op ->
+      let __context = Mock.make_context_with_new_db "Mock context" in
+      run_assert_equal_with_vdi
+        ~__context
+        ~vdi_fun:(fun vdi -> Db.VDI.set_on_boot ~__context ~self:vdi ~value:`reset)
+        op
+        (Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, []))
+    )
+  in
+
+  let test_cbt_enable_disable_can_be_performed_live = for_cbt_enable_disable (fun op ->
+      let __context = Mock.make_context_with_new_db "Mock context" in
+      run_assert_equal_with_vdi
+        ~__context
+        ~vdi_fun:(fun vdi -> Test_common.make_vbd ~__context ~vDI:vdi ~currently_attached:true ~mode:`RW ())
+        op
+        None
+    )
+  in
+
+  let test_cbt_metadata_vdi_type_check = for_vdi_operations
+      [`snapshot; `clone; `resize; `resize_online; `copy; `set_on_boot]
+      (fun op ->
+         let __context = Mock.make_context_with_new_db "Mock context" in
+         run_assert_equal_with_vdi
+           ~__context
+           ~sm_fun:(fun sm -> Db.SM.set_features ~__context ~self:sm ~value:["VDI_SNAPSHOT",1L; "VDI_CLONE",1L; "VDI_RESIZE",1L; "VDI_RESIZE_ONLINE",1L; "VDI_RESET_ON_BOOT",2L])
+           ~vdi_fun:(fun vdi -> Db.VDI.set_type ~__context ~self:vdi ~value:`cbt_metadata)
+           op
+           (Some (Api_errors.vdi_incompatible_type, []))
+      )
+  in
+
+  let test_vdi_cbt_enabled_check = for_vdi_operations
+      [`mirror; `set_on_boot]
+      (fun op ->
+         let __context = Mock.make_context_with_new_db "Mock context" in
+         run_assert_equal_with_vdi
+           ~__context
+           ~sm_fun:(fun sm -> Db.SM.set_features ~__context ~self:sm ~value:["VDI_MIRROR",1L; "VDI_RESET_ON_BOOT",2L])
+           ~vdi_fun:(fun vdi -> Db.VDI.set_cbt_enabled ~__context ~self:vdi ~value:true)
+           op
+           (Some (Api_errors.vdi_cbt_enabled, []))
+      )
+  in
+
+  "test_cbt" >:::
+  [ "test_sm_feature_check" >:: test_sm_feature_check
+  ; "test_cbt_enable_disable_not_allowed_for_snapshot" >:: test_cbt_enable_disable_not_allowed_for_snapshot
+  ; "test_cbt_enable_disable_vdi_type_check" >:: test_cbt_enable_disable_vdi_type_check
+  ; "test_cbt_enable_disable_not_allowed_for_reset_on_boot" >:: test_cbt_enable_disable_not_allowed_for_reset_on_boot
+  ; "test_cbt_enable_disable_can_be_performed_live" >:: test_cbt_enable_disable_can_be_performed_live
+  ; "test_cbt_metadata_vdi_type_check" >:: test_cbt_metadata_vdi_type_check
+  ; "test_vdi_cbt_enabled_check" >:: test_vdi_cbt_enabled_check
+  ]
+
 let test =
   "test_vdi_allowed_operations" >:::
   [
@@ -171,4 +279,5 @@ let test =
     "test_ca101669" >:: test_ca101669;
     "test_ca125187" >:: test_ca125187;
     "test_ca126097" >:: test_ca126097;
+    test_cbt;
   ]
