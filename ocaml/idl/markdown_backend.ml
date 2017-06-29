@@ -243,7 +243,7 @@ Fields that are bound together are shown in the following table:
   printer "
 The following diagram represents bound fields (as specified above) diagramatically, using crow's foot notation to specify one-to-one, one-to-many or many-to-many relationships:
 
-![Class relationships](img_xenapi_datamodel_graph 'Class relationships')
+![Class relationships](img-classes 'Class relationships')
 
 ## Types
 
@@ -355,7 +355,7 @@ Each possible error code is documented in the following section.
 
 let all api destdir =
   Stdext.Unixext.mkdir_rec destdir 0o755;
-  let out_chan = open_out (Filename.concat destdir "api_ref_autogen.md") in
+  let out_chan = open_out (Filename.concat destdir "api-ref-autogen.md") in
   let printer text =
     fprintf out_chan "%s" text;
     fprintf out_chan "\n"
