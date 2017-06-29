@@ -123,6 +123,8 @@ let _xapi_major = "xapi_major"
 let _xapi_minor = "xapi_minor"
 let _export_vsn = "export_vsn"
 let _dbv = "dbv"
+let _db_schema = "db_schema"
+
 
 (* When comparing two host versions, always treat a host that has platform_version defined as newer
  * than any host that does not have platform_version defined.
