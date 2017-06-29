@@ -6008,6 +6008,7 @@ let storage_operations =
           "vdi_enable_cbt", "Enabling changed block tracking for a VDI";
           "vdi_disable_cbt", "Disabling changed block tracking for a VDI";
           "vdi_data_destroy", "Deleting the data of the VDI";
+          "vdi_export_changed_blocks", "Exporting a bitmap that shows the changed blocks between two VDIs";
           "vdi_set_on_boot", "Setting the on_boot field of the VDI";
           "pbd_create", "Creating a PBD for this SR";
           "pbd_destroy", "Destroying one of this SR's PBDs"; ])
@@ -6333,6 +6334,7 @@ let vdi_operations =
           "enable_cbt", "Enabling changed block tracking for a VDI";
           "disable_cbt", "Disabling changed block tracking for a VDI";
           "data_destroy", "Deleting the data of the VDI";
+          "export_changed_blocks", "Exporting a bitmap that shows the changed blocks between two VDIs";
           "set_on_boot", "Setting the on_boot field of the VDI";
           "blocked", "Operations on this VDI are temporarily blocked";
         ])
@@ -6595,6 +6597,26 @@ let vdi_data_destroy = call
     ~allowed_roles:_R_VM_ADMIN
     ()
 
+let vdi_export_changed_blocks = call
+    ~name:"export_changed_blocks"
+    ~in_oss_since:None
+    ~in_product_since:rel_inverness
+    ~params:
+      [ Ref _vdi, "vdi_from", "The first VDI."
+      ; Ref _vdi, "vdi_to", "The second VDI."
+      ]
+    ~errs:
+      [ Api_errors.sr_operation_not_supported
+      ; Api_errors.vdi_missing
+      ; Api_errors.sr_not_attached
+      ; Api_errors.sr_no_pbds
+      ; Api_errors.vdi_in_use
+      ]
+    ~result:(String, "A base64 string-encoding of the bitmap showing which blocks differ in the two VDIs.")
+    ~doc:"Reports which blocks differ in the two VDIs. This operation is not allowed when vdi_to is attached to a VM."
+    ~allowed_roles:_R_VM_OP
+    ()
+
 (** A virtual disk *)
 let vdi =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vdi ~descr:"A virtual disk image"
@@ -6630,6 +6652,7 @@ let vdi =
                vdi_enable_cbt;
                vdi_disable_cbt;
                vdi_data_destroy;
+               vdi_export_changed_blocks;
               ]
     ~contents:
       ([ uid _vdi;
