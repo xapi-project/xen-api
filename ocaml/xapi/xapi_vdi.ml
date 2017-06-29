@@ -40,7 +40,7 @@ let check_sm_feature_error (op:API.vdi_operations) sm_features sr =
   | `generate_config -> Some Vdi_generate_config
   | `clone -> Some Vdi_clone
   | `mirror -> Some Vdi_mirror
-  | `enable_cbt | `disable_cbt | `data_destroy -> Some Vdi_configure_cbt
+  | `enable_cbt | `disable_cbt | `data_destroy | `export_changed_blocks -> Some Vdi_configure_cbt
   | `set_on_boot -> Some Vdi_reset_on_boot
   ) in
   match required_sm_feature with
@@ -166,13 +166,13 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
       else
       let allowed_for_cbt_metadata_vdi = match op with
         | `clone | `copy | `disable_cbt | `enable_cbt | `mirror | `resize | `resize_online | `snapshot | `set_on_boot -> false
-        | `blocked |`data_destroy | `destroy | `force_unlock | `forget | `generate_config | `update -> true in
+        | `blocked | `data_destroy | `destroy | `export_changed_blocks | `force_unlock | `forget | `generate_config | `update -> true in
       if not allowed_for_cbt_metadata_vdi && record.Db_actions.vDI_type = `cbt_metadata
       then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string `cbt_metadata ])
       else
       let allowed_when_cbt_enabled = match op with
         | `mirror | `set_on_boot -> false
-        | `blocked | `clone | `copy | `data_destroy | `destroy | `disable_cbt | `enable_cbt | `force_unlock | `forget | `generate_config | `resize | `resize_online | `snapshot | `update -> true in
+        | `blocked | `clone | `copy | `data_destroy | `destroy | `disable_cbt | `enable_cbt | `export_changed_blocks | `force_unlock | `forget | `generate_config | `resize | `resize_online | `snapshot | `update -> true in
       if not allowed_when_cbt_enabled && record.Db_actions.vDI_cbt_enabled
       then Some (Api_errors.vdi_cbt_enabled, [_ref])
       else
@@ -234,10 +234,10 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
         then Some (Api_errors.operation_not_allowed, ["VDI is a snapshot: " ^ _ref])
         else if not (List.mem record.Db_actions.vDI_type [ `user; `system ])
         then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string record.Db_actions.vDI_type ])
-        else if record.Db_actions.vDI_on_boot = `reset
+        else if reset_on_boot
         then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
         else None
-      | `mirror | `clone | `generate_config | `force_unlock | `set_on_boot | `blocked | `update -> None
+      | `mirror | `clone | `generate_config | `force_unlock | `set_on_boot | `export_changed_blocks | `blocked | `update -> None
       end
 
 let assert_operation_valid ~__context ~self ~(op:API.vdi_operations) =
@@ -858,5 +858,18 @@ let change_cbt_status ~__context ~self ~new_cbt_enabled ~caller_name =
 
 let enable_cbt = change_cbt_status ~new_cbt_enabled:true ~caller_name:"VDI.enable_cbt"
 let disable_cbt = change_cbt_status ~new_cbt_enabled:false ~caller_name:"VDI.disable_cbt"
+
+let export_changed_blocks ~__context ~vdi_from ~vdi_to =
+  let task = Context.get_task_id __context in
+  (* We have to pass the SR of vdi_to to the SMAPIv2 call *)
+  let sr = Db.VDI.get_SR ~__context ~self:vdi_to in
+  let sr = Db.SR.get_uuid ~__context ~self:sr in
+  let vdi_from = Db.VDI.get_location ~__context ~self:vdi_from in
+  let vdi_to = Db.VDI.get_location ~__context ~self:vdi_to in
+  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  Storage_access.transform_storage_exn
+    (fun () ->
+       C.VDI.export_changed_blocks ~dbg:(Ref.string_of task) ~sr ~vdi_from ~vdi_to
+    );
 
 (* let pool_migrate = "See Xapi_vm_migrate.vdi_pool_migrate!" *)
