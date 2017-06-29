@@ -180,9 +180,10 @@ let release_order_full = [{
       branding   = "XenServer 7.1";
     }; {
       code_name     = Some rel_honolulu;
+      (** TODO replace with the actual version numbers when Honolulu is released *)
       version_major = 2;
       version_minor = 6;
-      branding   = "XenServer 7.1 CU1";
+      branding   = "Unreleased";
     }; {
       code_name     = Some rel_falcon;
       version_major = 2;

@@ -111,40 +111,6 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
         raise (Api_errors.Server_error (code, ["The pool uses v6d. Pool edition list = " ^ pool_edn_list_str]))
   in
 
-  (** [assert_version_matches] takes a list of [keys] into
-   * [API.host_software_version] and compares each version on
-   * localhost and pool master. A version difference or an
-   * undefined key leads to an assertion and blocks a host to join.
-   *)
-  let assert_version_matches keys =
-    let local =
-      Helpers.get_localhost ~__context
-      |> fun self -> Db.Host.get_record ~__context ~self
-      |> fun r -> r.API.host_software_version in
-    let master =
-      get_master rpc session_id
-      |> fun self -> Client.Host.get_record ~rpc ~session_id ~self
-      |> fun r -> r.API.host_software_version  in
-    let api_error fmt =
-      Printf.kprintf (fun msg ->
-        raise Api_errors.(Server_error(pool_hosts_not_homogeneous,[msg]))) fmt in
-    let compare key =
-      try
-        let local_v  = List.assoc key local  in
-        let master_v = List.assoc key master in
-        if local_v <> master_v then begin
-          error "pool join: software versions differ localhost[%s]=%s <> master[%s]=%s"
-            key local_v key master_v;
-          api_error "localhost[%s]=%s master[%s]=%s" (* avoid i18n *)
-            key local_v key master_v;
-        end
-      with Not_found ->
-        error "pool join: software version for key %s is undefined" key;
-        api_error "%s" key (* avoid i18n *)
-    in
-      List.iter compare keys
-  in
-
   let assert_api_version_matches () =
     let master = get_master rpc session_id in
     let candidate_slave = Helpers.get_localhost ~__context in
@@ -468,7 +434,6 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_api_version_matches ();
   assert_db_schema_matches ();
   assert_homogeneous_updates ();
-  assert_version_matches Xapi_globs.([_product_version; _product_brand]);
   assert_homogeneous_primary_address_type ()
 
 let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) : API.ref_host =
