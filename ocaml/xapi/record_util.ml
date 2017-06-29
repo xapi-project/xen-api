@@ -113,6 +113,7 @@ let vdi_operation_to_string: API.vdi_operations -> string = function
   | `enable_cbt -> "enable_cbt"
   | `disable_cbt -> "disable_cbt"
   | `data_destroy -> "data_destroy"
+  | `export_changed_blocks -> "export_changed_blocks"
   | `set_on_boot -> "set_on_boot"
   | `blocked -> "blocked"
 
@@ -134,6 +135,7 @@ let sr_operation_to_string: API.storage_operations -> string = function
   | `vdi_disable_cbt -> "VDI.disable_cbt"
   | `vdi_set_on_boot -> "VDI.set_on_boot"
   | `vdi_data_destroy -> "VDI.data_destroy"
+  | `vdi_export_changed_blocks -> "VDI.export_changed_blocks"
   | `pbd_create -> "PBD.create"
   | `pbd_destroy -> "PBD.destroy"
 
