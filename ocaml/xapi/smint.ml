@@ -23,11 +23,6 @@ type vdi_info = {
   vdi_info_location: string;
 }
 
-let make_vdi_info ~location ?uuid () =
-  { vdi_info_uuid = uuid;
-    vdi_info_location = location;
-  }
-
 (** Very primitive first attempt at a set of backend features *)
 type capability =
   | Sr_create | Sr_delete | Sr_attach | Sr_detach | Sr_scan | Sr_probe | Sr_update
@@ -77,8 +72,6 @@ let string_of_capability c = List.assoc c capability_to_string_table
 
 let string_of_feature (c,v) =
   Printf.sprintf "%s/%Ld" (string_of_capability c) v
-
-let has_feature (f : feature) fl = List.mem f fl
 
 let has_capability (c : capability) fl = List.mem_assoc c fl
 
@@ -163,7 +156,3 @@ exception Device_in_use
 
 (** Identifies where a request should go to (i.e. a URI) or None if unknown *)
 type request = string option
-
-let string_of_request = function
-  | Some x -> Printf.sprintf "Some %s" x
-  | None -> "None"

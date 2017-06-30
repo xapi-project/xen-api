@@ -257,9 +257,6 @@ let parse_vdi_info (vdi_info_struct: Xml.xml) =
        }
     )
 
-(* Used for sr_get_content_type *)
-let parse_sr_content_type (xml: Xml.xml) = XMLRPC.From.string xml
-
 let parse_string (xml: Xml.xml) = XMLRPC.From.string xml
 
 let parse_unit (xml: Xml.xml) = XMLRPC.From.nil xml

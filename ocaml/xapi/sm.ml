@@ -58,13 +58,6 @@ let driver_filename driver =
 
 (*****************************************************************************)
 
-(* Cache the result of sr_content_type since it never changes and we need it for
-   stuff like resynchronising devices at start-of-day *)
-let sr_content_type_cache : (API.ref_SR, string) Hashtbl.t = Hashtbl.create 10
-let sr_content_type_cache_m = Mutex.create ()
-
-(*****************************************************************************)
-
 let debug operation driver msg =
   debug "SM %s %s %s" driver operation msg
 
@@ -98,9 +91,7 @@ let sr_detach dconf driver sr =
     (fun ()->
        debug "sr_detach" driver (sprintf "sr=%s" (Ref.string_of sr));
        let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_detach" [] in
-       Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call));
-  Threadext.Mutex.execute sr_content_type_cache_m
-    (fun () -> Hashtbl.remove sr_content_type_cache sr)
+       Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call))
 
 let sr_probe dconf driver sr_sm_config =
   if List.mem_assoc Sr_probe (features_of_driver driver)
@@ -119,11 +110,6 @@ let sr_scan dconf driver sr =
   srmaster_only dconf;
   let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_scan" [] in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
-
-let sr_content_type dconf driver sr =
-  debug "sr_content_type" driver (sprintf "sr=%s" (Ref.string_of sr));
-  let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_content_type" [] in
-  Sm_exec.parse_sr_content_type (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
 let sr_update dconf driver sr =
   debug "sr_update" driver (sprintf "sr=%s" (Ref.string_of sr));
@@ -191,12 +177,6 @@ let vdi_resize dconf driver sr vdi newsize =
   debug "vdi_resize" driver (sprintf "sr=%s vdi=%s newsize=%Ld" (Ref.string_of sr) (Ref.string_of vdi) newsize);
   srmaster_only dconf;
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_resize" [ sprintf "%Lu" newsize ] in
-  Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc (driver_filename driver) call)
-
-let vdi_resize_online dconf driver sr vdi newsize =
-  debug "vdi_resize_online" driver (sprintf "sr=%s vdi=%s newsize=%Ld" (Ref.string_of sr) (Ref.string_of vdi) newsize);
-  srmaster_only dconf;
-  let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_resize_online" [ sprintf "%Lu" newsize ] in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
 let vdi_generate_config dconf driver sr vdi =
@@ -286,15 +266,4 @@ let call_sm_vdi_functions ~__context ~vdi f =
   and srconf = __get_my_devconf_for_sr __context sr in
   let subtask_of = Some (Context.get_task_id __context) in
   f (subtask_of,srconf) srtype sr
-
-(* Use the sr_content_type cache *)
-let sr_content_type ~__context ~sr =
-  Threadext.Mutex.execute sr_content_type_cache_m
-    (fun () ->
-       if Hashtbl.mem sr_content_type_cache sr
-       then Hashtbl.find sr_content_type_cache sr
-       else
-         let ty = call_sm_functions ~__context ~sR:sr (fun srconf srtype -> (sr_content_type srconf srtype sr)) in
-         Hashtbl.replace sr_content_type_cache sr ty;
-         ty)
 
