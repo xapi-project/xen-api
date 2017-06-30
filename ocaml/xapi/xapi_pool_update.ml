@@ -44,7 +44,6 @@ type update_info = {
   key: string;
   installation_size: int64;
   after_apply_guidance: API.after_apply_guidance list;
-  enforce_homogeneity: bool; (* true = all hosts in a pool must have this update *)
 }
 
 (** Mount a filesystem somewhere, with optional type *)
@@ -260,9 +259,6 @@ let parse_update_info xml =
       with
       | _ -> []
     in
-    let enforce_homogeneity =
-      Vm_platform.is_true ~key:"enforce-homogeneity" ~platformdata:attr ~default:false
-    in
     let is_name_description_node = function
       | Xml.Element ("name-description", _, _) -> true
       | _ -> false
@@ -271,15 +267,16 @@ let parse_update_info xml =
       | Xml.Element("name-description", _, [ Xml.PCData s ]) -> s
       | _ -> raise (Api_errors.Server_error(Api_errors.invalid_update, ["missing <name-description> in update.xml"]))
     in
-      { uuid
-      ; name_label
-      ; name_description
-      ; version
-      ; key = Filename.basename key
-      ; installation_size
-      ; after_apply_guidance = guidance
-      ; enforce_homogeneity
-      }
+    let update_info = {
+      uuid = uuid;
+      name_label = name_label;
+      name_description = name_description;
+      version = version;
+      key = Filename.basename key;
+      installation_size = installation_size;
+      after_apply_guidance = guidance;
+    } in
+    update_info
   | _ -> raise (Api_errors.Server_error(Api_errors.invalid_update, ["missing <update> in update.xml"]))
 
 let extract_applied_update_info applied_uuid  =
@@ -374,7 +371,6 @@ let create_update_record ~__context ~update ~update_info ~vdi =
     ~key:update_info.key
     ~after_apply_guidance:update_info.after_apply_guidance
     ~vdi:vdi
-    ~enforce_homogeneity:update_info.enforce_homogeneity
 
 let introduce ~__context ~vdi =
   ignore(Unixext.mkdir_safe Xapi_globs.host_update_dir 0o755);
