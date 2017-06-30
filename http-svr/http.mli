@@ -139,6 +139,7 @@ val http_200_ok_with_content : int64 -> ?version:string -> ?keep_alive:bool -> u
 val http_302_redirect : ?version:string -> string -> string list
 val http_404_missing : ?version:string -> unit -> string list
 val http_400_badrequest : ?version:string -> unit -> string list
+val http_500_internal_server_error : ?version:string -> unit -> string list
 val http_501_method_not_implemented : ?version:string -> unit -> string list
 
 module Hdr : sig

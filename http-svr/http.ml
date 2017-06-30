@@ -61,6 +61,11 @@ let http_400_badrequest ?(version="1.1") () =
       "Connection: close";
       "Cache-Control: no-cache, no-store" ]
 
+let http_500_internal_server_error ?(version="1.0") () =
+  [ Printf.sprintf "HTTP/%s 500 Internal Server Error" version;
+    "Connection: close";
+    "Cache-Control: no-cache, no-store" ]
+
 let http_501_method_not_implemented ?(version="1.0") () =
   [ Printf.sprintf "HTTP/%s 501 Method Not Implemented" version;
     "Connection: close";
