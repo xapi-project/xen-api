@@ -319,8 +319,14 @@ let main ({ Config.daemonize; path; pidfile } as config) =
         end else raise (Does_not_exist dir)
       | _ ->
         () );
+
     if daemonize
-    then Lwt_daemon.daemonize ();
+    then begin
+      info "Daemonizing...";
+      ignore (Daemon.notify Daemon.State.Ready);
+      Lwt_daemon.daemonize ();
+      info "Daemonized!"
+    end;
 
     let (_ : unit Lwt.t) =
       match pidfile with
