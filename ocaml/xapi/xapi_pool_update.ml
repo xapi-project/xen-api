@@ -460,16 +460,23 @@ let resync_host ~__context ~host =
     debug "pool_update.resync_host scanning directory %s for applied updates" update_applied_dir;
     let updates_applied = try Array.to_list (Sys.readdir update_applied_dir) with _ -> [] in
     let update_uuids = List.filter (fun update -> Uuid.is_uuid update) updates_applied in
-    let not_existing_uuids = List.filter (fun update_uuid ->
-        try ignore (Db.Pool_update.get_by_uuid ~__context ~uuid:update_uuid); false
-        with _ -> true) update_uuids in
-
+    let exists uuid =
+      try Some (Db.Pool_update.get_by_uuid ~__context ~uuid)
+      with _ -> None in
     (* Handle the updates rolluped and create records accordingly *)
     List.iter (fun update_uuid ->
         let update_info = extract_applied_update_info update_uuid in
-        let update = Ref.make () in
-        create_update_record ~__context ~update:update ~update_info ~vdi:Ref.null
-      ) not_existing_uuids;
+        ( match exists update_uuid with
+          | Some self ->
+            (* re-interpret the enforce_homogeneity flag CP-258536 *)
+            debug "pool_update.resync_host: update %s exists - updating it" update_uuid;
+            Db.Pool_update.set_enforce_homogeneity ~__context ~self
+              ~value:update_info.enforce_homogeneity
+          | None ->
+            let update = Ref.make () in
+            debug "pool_update.resync_host: update %s not in database - creating it" update_uuid;
+            create_update_record ~__context ~update:update ~update_info ~vdi:Ref.null
+        )) update_uuids;
     let update_refs = List.map (fun update_uuid ->
         Db.Pool_update.get_by_uuid ~__context ~uuid:update_uuid) update_uuids in
     Db.Host.set_updates ~__context ~self:host ~value:update_refs;
