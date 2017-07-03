@@ -208,7 +208,8 @@ module SMAPIv1 = struct
                   let e' = ExnHelper.string_of_exn e in
                   error "SR.create failed SR:%s error:%s" (Ref.string_of sr) e';
                   raise e
-             )
+             );
+            device_config
         )
 
     let set_name_label context ~dbg ~sr ~new_name_label =
@@ -1468,8 +1469,9 @@ let create_sr ~__context ~sr ~name_label ~name_description ~physical_size =
        let pbd, pbd_t = Sm.get_my_pbd_for_sr __context sr in
        let (_ : query_result) = bind ~__context ~pbd in
        let dbg = Ref.string_of (Context.get_task_id __context) in
-       Client.SR.create dbg (Db.SR.get_uuid ~__context ~self:sr) name_label name_description pbd_t.API.pBD_device_config physical_size;
-       unbind ~__context ~pbd
+       let result = Client.SR.create dbg (Db.SR.get_uuid ~__context ~self:sr) name_label name_description pbd_t.API.pBD_device_config physical_size in
+       unbind ~__context ~pbd;
+       result
     )
 
 (* This is because the current backends want SR.attached <=> PBD.currently_attached=true.
