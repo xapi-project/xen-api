@@ -13,7 +13,9 @@
  *)
 
 open Stdext
+open Xstringext
 open Pervasiveext
+open Datamodel
 open Datamodel_types
 
 type change_t = lifecycle_change * string * string
@@ -32,10 +34,7 @@ let parse_args () =
     ("Generates documentation for the datamodel classes. See -help.")
 
 
-let generate_files destdir =
-  let api_dir = Filename.concat destdir "api" in
-  Stdext.Unixext.mkdir_rec api_dir 0o755;
-
+let generate_files api_dir =
   let api = (Datamodel.all_api) in
   let objs = Dm_api.objects_of_api api in
   let create_json obj =
@@ -104,6 +103,20 @@ let json_releases =
   in
   `O [ "releases", `A (List.map json_of_rel release_order) ]
 
+let json_current_version =
+  let time = Unix.gettimeofday () in
+  let month, year =
+     match String.split ' ' (Date.rfc822_to_string (Date.rfc822_of_float time)) with
+     | [ _; _; m; y; _; _ ] -> m,y
+     | _ -> failwith "Invalid datetime string"
+  in
+  `O [
+      "api_version_major", `Float (Int64.to_float api_version_major);
+      "api_version_minor", `Float (Int64.to_float api_version_minor);
+      "current_year", `String year;
+      "current_month", `String month;
+    ]
+
 let render_template template_file json output_file =
   let templ =  Stdext.Unixext.string_of_file template_file |> Mustache.of_string in
   let rendered = Mustache.render templ json in
@@ -111,13 +124,24 @@ let render_template template_file json output_file =
   finally (fun () -> output_string out_chan rendered)
           (fun () -> close_out out_chan)
 
-let populate_releases templates_dir dest_dir=
-  let inpath x = Filename.concat templates_dir x in
-  let outpath x = Filename.concat dest_dir x in
-  let render (infile, outfile) = render_template (inpath infile) json_releases (outpath outfile) in
-  [ "branding.mustache", "branding.js"] |> List.iter render
 
 let _ =
   parse_args ();
-  generate_files !destdir;
-  populate_releases !templdir !destdir
+
+  let api_dir = Filename.concat !destdir "api" in
+  Stdext.Unixext.mkdir_rec api_dir 0o755;
+
+  generate_files api_dir;
+
+  render_template
+    (Filename.concat !templdir "branding.mustache")
+    json_releases
+    (Filename.concat !destdir "branding.js");
+
+  let markdown_dir = Filename.concat !destdir "markdown" in
+  Stdext.Unixext.mkdir_rec markdown_dir 0o755;
+
+  render_template
+    (Filename.concat !templdir "cover.mustache")
+    json_current_version
+    (Filename.concat markdown_dir "cover.yaml")
