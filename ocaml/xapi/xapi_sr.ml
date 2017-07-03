@@ -230,19 +230,20 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
     else
       [Xapi_pbd.create_thishost ~__context ~sR:sr_ref ~device_config ~currently_attached:false ]
   in
-  begin
+  let device_config = begin
     try
       Storage_access.create_sr ~__context ~sr:sr_ref ~name_label ~name_description ~physical_size
     with e ->
       Db.SR.destroy ~__context ~self:sr_ref;
       List.iter (fun pbd -> Db.PBD.destroy ~__context ~self:pbd) pbds;
       raise e
-  end;
+  end in
   Helpers.call_api_functions ~__context
     (fun rpc session_id ->
        List.iter
          (fun self ->
             try
+              Db.PBD.set_device_config ~__context ~self ~value:device_config;
               Client.PBD.plug ~rpc ~session_id ~self
             with e -> warn "Could not plug PBD '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
          pbds);
