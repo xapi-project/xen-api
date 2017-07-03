@@ -109,7 +109,7 @@ val diagnostics: __context:Context.t -> string
 val dp_destroy: __context:Context.t -> string -> bool -> unit
 
 (** [create_sr __context sr name_label name_description physical_size] attempts to create an empty SR *)
-val create_sr: __context:Context.t -> sr:API.ref_SR -> name_label:string -> name_description:string -> physical_size:int64 -> unit
+val create_sr: __context:Context.t -> sr:API.ref_SR -> name_label:string -> name_description:string -> physical_size:int64 -> (string * string) list
 
 (** [destroy_sr __context sr] attempts to cleanup and destroy a given SR *)
 val destroy_sr: __context:Context.t -> sr:API.ref_SR -> and_vdis:(API.ref_VDI list) -> unit
