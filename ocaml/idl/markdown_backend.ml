@@ -34,6 +34,9 @@ let pad_right x max_width =
   if String.length x < max_width then x ^ String.make (max_width - length) ' '
   else x
 
+let compare_case_ins x y =
+  compare (String.lowercase x) (String.lowercase y)
+
 let escape s =
   let sl = String.explode s in
   let esc_char =
@@ -183,7 +186,9 @@ let print_field_table_of_obj printer x =
           (pad_right descr col_width_40))
     in
 
-    x |> Datamodel_utils.fields_of_obj |> List.iter (print_field_content printer)
+    x |> Datamodel_utils.fields_of_obj
+    |> List.sort (fun x y -> compare_case_ins (Datamodel_utils.wire_name_of_field x) (Datamodel_utils.wire_name_of_field y))
+    |> List.iter (print_field_content printer)
   end
 
 let of_obj printer x =
@@ -201,16 +206,20 @@ let of_obj printer x =
     printer ""
   end
   else
-    List.iter (markdown_section_of_message printer) x.messages
+    x.messages
+    |> List.sort (fun x y -> compare_case_ins x.msg_name y.msg_name)
+    |> List.iter (markdown_section_of_message printer)
 
 let print_enum printer = function
   | Enum (name, options) ->
     printer (sprintf "|`enum %s`|                                        |"
       (pad_right name (col_width_40 - 7)));
     printer "|:---------------------------------------|:---------------------------------------|";
+
     let print_option (opt, description) = printer (sprintf "|`%s`|%s|"
       (pad_right opt (col_width_40 - 2)) (pad_right (escape description) col_width_40)) in
-    List.iter print_option options;
+
+    options |> List.sort (fun (x,_) (y,_) -> compare_case_ins x y) |> List.iter print_option;
     printer "";
   | _ -> ()
 
@@ -233,7 +242,8 @@ let print_all printer api =
   (* Remove private messages that are only used internally (e.g. get_record_internal) *)
   let api = Dm_api.filter (fun _ -> true) (fun _ -> true)
       (fun msg -> match msg.msg_tag with (FromObject (Private _)) -> false | _ -> true) api in
-  let system = objects_of_api api and relations = relations_of_api api in
+  let system = objects_of_api api |> List.sort (fun x y -> compare_case_ins x.name y.name) in
+  let relations = relations_of_api api in
 
   printer "
 # API Reference
@@ -298,8 +308,12 @@ The following type constructors are used:
 
 The following enumeration types are used:
 ";
-
-  List.iter (print_enum printer) (Types.of_objects system);
+  let type_comparer x y =
+    match x, y with
+    | Enum (a, _), Enum (b, _) -> compare_case_ins a b
+    | _ -> compare x y
+  in
+  Types.of_objects system |> List.sort type_comparer |> List.iter (print_enum printer);
   List.iter (fun x -> of_obj printer x) system;
 
     printer "
