@@ -9160,7 +9160,7 @@ let pgpu =
       uid _pgpu ~lifecycle:[Published, rel_boston, ""];
       field ~qualifier:StaticRO ~ty:(Ref _pci) ~lifecycle:[Published, rel_boston, ""] "PCI" "Link to underlying PCI device" ~default_value:(Some (VRef null_ref));
       field ~qualifier:StaticRO ~ty:(Ref _gpu_group) ~lifecycle:[Published, rel_boston, ""] "GPU_group" "GPU group the pGPU is contained in" ~default_value:(Some (VRef null_ref));
-      field ~qualifier:DynamicRO ~ty:(Ref _host) ~lifecycle:[Published, rel_boston, ""] "host" "Host that own the GPU" ~default_value:(Some (VRef null_ref));
+      field ~qualifier:DynamicRO ~ty:(Ref _host) ~lifecycle:[Published, rel_boston, ""] "host" "Host that owns the GPU" ~default_value:(Some (VRef null_ref));
       field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
       field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "supported_VGPU_types" "List of VGPU types supported by the underlying hardware";
       field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "enabled_VGPU_types" "List of VGPU types which have been enabled for this PGPU";
@@ -9191,7 +9191,7 @@ let gpu_group =
       ~name:"destroy"
       ~lifecycle:[Published, rel_boston, ""]
       ~params:[
-        Ref _gpu_group, "self", "The vGPU to destroy"
+        Ref _gpu_group, "self", "The GPU group to destroy"
       ]
       ~allowed_roles:_R_POOL_OP
       ()
