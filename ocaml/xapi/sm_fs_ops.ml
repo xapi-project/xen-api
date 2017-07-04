@@ -19,12 +19,6 @@ open Printf
 module D=Debug.Make(struct let name="xapi" end)
 open D
 
-let make_tmp_dir() =
-  let tmp_file = Filename.temp_file "xapi_mount_" "" in
-  Unix.unlink tmp_file;
-  Unix.mkdir tmp_file 0o640;
-  tmp_file
-
 (** Block-attach a VDI to dom0 and run 'f' with the device name *)
 let with_block_attached_device __context rpc session_id vdi mode f =
   let dom0 = Helpers.get_domain_zero ~__context in
@@ -46,13 +40,6 @@ let with_open_block_attached_device __context rpc session_id vdi mode f =
          (fun () -> Unix.close fd)
     )
 
-(** Execute a function with a list of device paths after attaching a bunch of VDIs to dom0 *)
-let with_block_attached_devices (__context: Context.t) rpc (session_id: API.ref_session) (vdis: API.ref_VDI list) mode f =
-  let rec loop acc = function
-    | [] -> f (List.rev acc)
-    | vdi :: vdis -> with_block_attached_device __context rpc session_id vdi mode (fun path -> loop (path :: acc) vdis) in
-  loop [] vdis
-
 (** Return a URL suitable for passing to the sparse_dd process *)
 let import_vdi_url ~__context ?(prefer_slaves=false) rpc session_id task_id vdi =
   (* Find a suitable host for the SR containing the VDI *)
@@ -62,102 +49,6 @@ let import_vdi_url ~__context ?(prefer_slaves=false) rpc session_id task_id vdi 
   Printf.sprintf "https://%s%s?vdi=%s&session_id=%s&task_id=%s"
     address Constants.import_raw_vdi_uri (Ref.string_of vdi)
     (Ref.string_of session_id) (Ref.string_of task_id)
-
-(** Catch those smint exceptions and convert into meaningful internal errors *)
-let with_api_errors f x =
-  try f x
-  with
-  | Smint.Command_failed(ret, status, stdout_log, stderr_log)
-  | Smint.Command_killed(ret, status, stdout_log, stderr_log) ->
-    let msg = Printf.sprintf "Smint.Command_{failed,killed} ret = %d; status = %s; stdout = %s; stderr = %s"
-        ret status stdout_log stderr_log in
-    raise (Api_errors.Server_error (Api_errors.internal_error, [msg]))
-
-(** Mount a filesystem somewhere, with optional type *)
-let mount ?ty:(ty = None) src dest =
-  let ty = match ty with None -> [] | Some ty -> [ "-t"; ty ] in
-  ignore(Forkhelpers.execute_command_get_output "/bin/mount" (ty @ [ src; dest ]))
-
-let timeout = 300. (* 5 minutes: something is seriously wrong if we hit this timeout *)
-exception Umount_timeout
-
-(** Unmount a mountpoint. Retries every 5 secs for a total of 5mins before returning failure *)
-let umount ?(retry=true) dest =
-  let finished = ref false in
-  let start = Unix.gettimeofday () in
-
-  while not(!finished) && (Unix.gettimeofday () -. start < timeout) do
-    try
-      ignore(Forkhelpers.execute_command_get_output "/bin/umount" [dest] );
-      finished := true
-    with e ->
-      if not(retry) then raise e;
-      debug "Caught exception (%s) while unmounting %s: pausing before retrying"
-        (ExnHelper.string_of_exn e) dest;
-      Thread.delay 5.
-  done;
-  if not(!finished) then raise Umount_timeout
-
-let with_mounted_dir device mount_point rmdir f =
-  Stdext.Pervasiveext.finally
-    (fun () ->
-       debug "About to create mount point (perhaps)";
-       let output, _ = Forkhelpers.execute_command_get_output "/bin/mkdir" ["-p"; mount_point] in
-       debug "Mountpoint created (output=%s)" output;
-       with_api_errors (mount ~ty:(Some "ext2") device) mount_point;
-       debug "Mounted";
-       f mount_point)
-    (fun () ->
-       Helpers.log_exn_continue ("with_fs_vdi: unmounting " ^ mount_point)
-         (fun () -> umount mount_point) ();
-       Helpers.log_exn_continue ("with_fs_vdi: rmdir " ^ mount_point)
-         (fun () -> if rmdir then Unix.rmdir mount_point) ())
-
-(** Block-attach a VDI to dom0, mount an ext2 filesystem and run 'f' with the mountpoint *)
-let with_fs_vdi __context vdi f =
-  Helpers.call_api_functions ~__context
-    (fun rpc session_id ->
-       with_block_attached_device __context rpc session_id vdi `RW
-         (fun device ->
-            let mount_point = make_tmp_dir () in
-            with_mounted_dir device mount_point true f
-         )
-    )
-
-(** Stick ext2 filesystem on VDI and turn off maximal mount count + checking interval *)
-let mke2fs device =
-  ignore(Forkhelpers.execute_command_get_output "/sbin/mkfs" ["-t"; "ext2"; device]);
-  ignore(Forkhelpers.execute_command_get_output "/sbin/tune2fs"  ["-i"; "0"; "-c"; "0"; device])
-
-(** Create a new VDI, block attach it to dom0, create an ext2 filesystem,
-    run 'f' with the vdi_ref and the mountpoint. Leave the VDI around, unless there is
-    an exception in which case we delete it. *)
-let with_new_fs_vdi __context ~name_label ~name_description ~sR ~required_space ~_type ~sm_config f =
-  let add_fs_overhead req =
-    let fs_overhead_factor = 1.05 (* allow 5% overhead for ext2 *) in
-    (Int64.of_float ((Int64.to_float req)*.fs_overhead_factor))
-  in
-  Helpers.call_api_functions ~__context
-    (fun rpc session_id ->
-       let vdi_ref = Client.VDI.create ~rpc ~session_id
-           ~name_label ~name_description ~sR ~virtual_size:(add_fs_overhead required_space)
-           ~sharable:false ~read_only:false ~_type ~other_config:[] ~xenstore_data:[] ~sm_config ~tags:[] in
-       try
-         with_block_attached_device __context rpc session_id vdi_ref `RW
-           (fun device ->
-              with_api_errors
-                (fun () ->
-                   mke2fs device;
-                   (* Mount it *)
-                   let mount_point = make_tmp_dir() in
-                   with_mounted_dir device mount_point true (f vdi_ref)
-                ) ()
-           )
-       with e ->
-         debug "Caught error (%s) during with_new_fs_vdi: deleting created VDI" (ExnHelper.string_of_exn e);
-         Client.VDI.destroy ~rpc ~session_id ~self:vdi_ref;
-         raise e
-    )
 
 (* SCTX-286: thin provisioning is thrown away over VDI.copy, VM.import(VM.export).
    Return true if the newly created vdi must have zeroes written into it; default to false
