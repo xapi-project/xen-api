@@ -95,8 +95,8 @@ install: setup.data rbac_static.csv
 	ocaml setup.ml -install
 # docs
 	mkdir -p $(DESTDIR)$(DOCDIR)/html
-	scripts/install.sh 755 _build/ocaml/doc/api $(DESTDIR)$(DOCDIR)/html
+	cp -r -L _build/ocaml/doc/api $(DESTDIR)$(DOCDIR)/html
 	cd ocaml/doc && cp *.js *.html *.css $(DESTDIR)$(DOCDIR)/html
 	scripts/install.sh 644 _build/ocaml/doc/branding.js $(DESTDIR)$(DOCDIR)/html/branding.js
-	scripts/install.sh 755 _build/ocaml/doc/markdown/* $(DESTDIR)$(DOCDIR)/markdown
+	cp -r _build/ocaml/doc/markdown $(DESTDIR)$(DOCDIR)
 
