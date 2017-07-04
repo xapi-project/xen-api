@@ -592,9 +592,13 @@ module Wrapper = functor(Impl: Server_impl) -> struct
            Impl.VDI.disable_cbt context ~dbg ~sr ~vdi
         )
 
+    (** The [sr] parameter is the SR of VDI [vdi_to]. *)
     let export_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to =
       info "VDI.export_changed_blocks dbg:%s sr:%s vdi_from:%s vdi_to:%s" dbg sr vdi_from vdi_to;
-      Impl.VDI.export_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to
+      with_vdi sr vdi_to
+        (fun () ->
+           Impl.VDI.export_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to
+        )
 
   end
 
