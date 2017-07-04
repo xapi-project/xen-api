@@ -42,7 +42,7 @@ let get from timeout : (int64 * Protocol.Event.t) list Lwt.t =
   let sleep = Lwt_unix.sleep timeout in
   let rec wait_for_data () =
     if !next_id <= from then
-      Lwt_condition.wait c >>= wait_for_data
+      Lwt_condition.wait ?mutex:(Some Switch_main_helper.m) c >>= wait_for_data
     else return ()
   in
   (* Wait until some data is available ie. when next_id > from (or timeout) *)
