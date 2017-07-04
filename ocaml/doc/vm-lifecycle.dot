@@ -1,6 +1,6 @@
 digraph g{
 
-node [shape=box]; 
+node [shape=box];
 
 halted -> paused [label="start(paused)"];
 halted -> running [label="start(not paused)"];

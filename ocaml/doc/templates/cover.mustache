@@ -1,0 +1,22 @@
+---
+title: |
+  \IfFileExists{logo.pdf}{\includegraphics[width=150px]{logo.pdf}\break}{}
+  Citrix XenServer Management API\
+  Version {{api_version_major}}.{{api_version_minor}}
+date: |
+  Published {{current_month}}-{{current_year}}\
+  \
+  &copy; 2006-{{current_year}} Citrix Systems, Inc. All Rights Reserved.
+
+papersize: A4
+documentclass: book
+classoption: oneside
+geometry: margin=1in
+toc: true
+header-includes: |
+  \usepackage{graphicx}
+  \usepackage{fancyhdr}
+  \pagestyle{fancy}
+  \lhead{}
+  \cfoot{\thepage}
+...
