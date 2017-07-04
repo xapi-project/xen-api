@@ -379,17 +379,24 @@ module FileFS = struct
 	let rm path =
 		List.iter
 			(fun path ->
-				if Sys.is_directory path then begin
-					try
-						debug "DB.delete %s" path;
-						Unix.rmdir path
-					with Unix.Unix_error(Unix.ENOTEMPTY, _, _) as e->
-						error "Failed to DB.delete %s : %s" path (Printexc.to_string e);
-						()
-				end else begin
-					debug "DB.delete %s" path;
-					Unix.unlink path;
-				end
+				debug "DB.delete %s" path;
+				try
+				  if Unix.((lstat path).st_kind = S_DIR)
+				  then Unix.rmdir path
+				  else Unix.unlink path;
+				with
+				| Unix.Unix_error(Unix.ENOTEMPTY, _, _) ->
+				  (* This is thrown by the rmdir when we're trying to delete a directory
+				     that's got files still in it. It's not an error, so ignore it *)
+				  ()
+				| Unix.Unix_error(Unix.ENOENT, _, _) ->
+				  (* This is thrown by the `lstat` if we're racing with another thread
+				     to delete a common directory. Not an error *)
+				  ()
+				| e ->
+				  (* Anything else probably is an error, but we just log and continue *)
+				  error "Failed to DB.delete %s : %s" path (Printexc.to_string e);
+				  ()
 			) (paths_of path)
 	let readdir path =
 		let filename = filename_of path in
