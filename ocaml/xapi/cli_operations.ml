@@ -813,6 +813,7 @@ let gen_cmds rpc session_id =
     ; Client.Feature.(mk get_all get_all_records_where get_by_uuid feature_record "feature" []
         ["uuid"; "name-label"; "name-description"; "enabled"; "experimental"; "version"; "host-uuid"] rpc session_id)
     ; Client.SDN_controller.(mk get_all get_all_records_where get_by_uuid sdn_controller_record "sdn-controller" [] ["uuid"; "protocol"; "address"; "port"] rpc session_id)
+    ; Client.VDA.(mk get_all get_all_records_where get_by_uuid vda_record "vda" [] ["uuid"; "vm-uuid"; "version"] rpc session_id)
     ]
 
 (* NB, might want to put these back in at some point
@@ -4962,4 +4963,47 @@ module SDN_controller = struct
     let uuid = List.assoc "uuid" params in
     let ref = Client.SDN_controller.get_by_uuid rpc session_id uuid in
     Client.SDN_controller.forget rpc session_id ref
+end
+
+module VDA = struct
+  (* get a VDA using its uuid or a VM's uuid *)
+  let get_vda rpc session_id params =
+    if List.mem_assoc "uuid" params then
+      Client.VDA.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "uuid" params)
+    else if List.mem_assoc "vm-uuid" params then
+      let vm_uuid = List.assoc "vm-uuid" params in
+      let all_vdas = Client.VDA.get_all ~rpc ~session_id in (* TODO(replace with get_all_records_where) *)
+      match List.filter (fun vda ->
+        let vda_vm = Client.VDA.get_vm ~rpc ~session_id ~self:vda in
+        let vda_vm_uuid = Client.VM.get_uuid ~rpc ~session_id ~self:vda_vm in
+        vm_uuid = vda_vm_uuid
+        ) all_vdas with
+      | x::y::_ -> failwith "Multiple VDAs found for VM. This should never happen!"
+      | vda::_ -> vda
+      | _ -> failwith "No matching VDAs found."
+    else
+      failwith "The 'uuid=<uuid>' or 'vm-uuid=<vm-uuid>' parameter must be specified to run this command."
+
+  let create printer rpc session_id params =
+    let vm_uuid = List.assoc "vm-uuid" params in
+    let version  = try List.assoc "version" params
+                   with Not_found -> "?_?" in (* TODO(choose appropriate default version) *)
+    let vm = Client.VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid in
+    let ref = Client.VDA.create ~rpc ~session_id ~vm ~version in
+    let uuid = Client.VDA.get_uuid rpc session_id ref in
+    printer (Cli_printer.PList [uuid])
+
+  let destroy printer rpc session_id params =
+    let ref = get_vda rpc session_id params in
+    Client.VDA.destroy rpc session_id ref
+
+  let get_status printer rpc session_id params =
+    let ref = get_vda rpc session_id params in
+    let status = Client.VDA.get_status ~rpc ~session_id ~self:ref in
+    printer (Cli_printer.PList [status])
+
+  let get_log_report printer rpc session_id params =
+    let ref = get_vda rpc session_id params in
+    let log = Client.VDA.get_log_report ~rpc ~session_id ~self:ref in
+    printer (Cli_printer.PList [log])
 end

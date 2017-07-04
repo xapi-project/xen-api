@@ -1997,3 +1997,19 @@ let sdn_controller_record rpc session_id sdn_controller =
         make_field ~name:"port"                ~get:(fun () -> Int64.to_string (x ()).API.sDN_controller_port) ();
       ]}
 
+let vda_record rpc session_id vda =
+  let _ref = ref vda in
+  let empty_record = ToGet (fun () -> Client.VDA.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  {
+    setref = (fun r -> _ref := r; record := empty_record );
+    setrefrec = (fun (a,b) -> _ref := a; record := Got b);
+    record = x;
+    getref = (fun () -> !_ref);
+    fields = [
+      make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vDA_uuid) ();
+      make_field ~name:"vm" ~get:(fun () -> get_uuid_from_ref (x ()).API.vDA_vm) ();
+      make_field ~name:"version" ~get:(fun () -> (x ()).API.vDA_version) ();
+    ]
+  }

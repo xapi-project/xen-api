@@ -170,6 +170,7 @@ let _pvs_proxy = "PVS_proxy"
 let _pvs_cache_storage = "PVS_cache_storage"
 let _feature = "Feature"
 let _sdn_controller = "SDN_controller"
+let _vda = "VDA"
 
 
 (** All the various static role names *)
@@ -9809,6 +9810,83 @@ module SDN_controller = struct
 end
 let sdn_controller = SDN_controller.obj
 
+module VDA = struct
+  let lifecycle = [Published, rel_jura, ""]
+
+  let create = call
+      ~name:"create"
+      ~doc:"Create a VDA object that represents a VDA inside a XenApp/XenDesktop VM."
+      ~in_product_since:rel_jura
+      ~params:[
+        Ref _vm, "vm", "The XenApp/XenDesktop VM where this VDA exists.";
+        String, "version", "The version of the VDA's API.";
+      ]
+      ~result:(Ref _vda, "Reference to the newly-created VDA object.")
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let destroy = call
+      ~name:"destroy"
+      ~doc:"Destroy the VDA object."
+      ~in_product_since:rel_jura
+      ~params:[ Ref _vda, "self", "The VDA object to destroy."]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let get_status = call
+      ~name:"get_status"
+      ~doc:"Obtain the status of the VDA in a running XenApp/XenDesktop VM."
+      ~in_product_since:rel_jura
+      ~params:[ Ref _vda, "self", "The VDA from which to obtain a status."]
+      ~result:(String, "The registration state of the VDA")
+      ~lifecycle
+      ~allowed_roles:_R_VM_OP
+      ()
+
+  let get_log_report = call
+      ~name:"get_log_report"
+      ~doc:"Obtain the log report of the VDA in a running XenApp/XenDesktop VM."
+      ~in_product_since:rel_jura
+      ~params:[ Ref _vda, "self", "The VDA from which to obtain a log report."]
+      ~result:(String, "The log report obtained from the VDA.")
+      ~lifecycle
+      ~allowed_roles:_R_VM_OP
+      ()
+
+  let obj =
+    create_obj
+      ~name: _vda
+      ~descr:"Describes the VDA inside a XenApp/XenDesktop VM."
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~contents:
+        [ uid _vda ~lifecycle
+
+        ; field ~qualifier:StaticRO ~lifecycle
+            ~ty:(Ref _vm) "vm" ~default_value:(Some (VRef null_ref))
+            "The XenApp/XenDesktop VM where this VDA exists."
+
+        ; field ~qualifier:DynamicRO ~lifecycle
+            ~ty:String "version" ~default_value:(Some (VString ""))
+            "The version of the VDA's API."
+        ]
+      ~messages:
+        [ create
+        ; destroy
+        ; get_status
+        ; get_log_report
+        ]
+      ()
+end
+let vda = VDA.obj
+
 (******************************************************************************************)
 
 (** All the objects in the system in order they will appear in documentation: *)
@@ -9875,6 +9953,7 @@ let all_system =
     pvs_cache_storage;
     feature;
     sdn_controller;
+    vda;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -10053,6 +10132,7 @@ let expose_get_all_messages_for = [
   _pvs_cache_storage;
   _feature;
   _sdn_controller;
+  _vda;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]

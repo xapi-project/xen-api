@@ -4117,4 +4117,37 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Local.SDN_controller.forget ~__context ~self
   end
 
+  module VDA = struct
+    let create ~__context ~vm ~version =
+      info "VDA.create";
+      let local_fn = Local.VDA.create ~vm ~version in
+      let host = Db.VM.get_resident_on ~__context ~self:vm in
+      do_op_on ~__context ~local_fn ~host
+        (fun session_id rpc -> Client.VDA.create rpc session_id vm version)
+
+    let destroy ~__context ~self =
+      info "VDA.destroy";
+      let local_fn = Local.VDA.destroy ~self in
+      let vm = Db.VDA.get_vm ~__context ~self in
+      let host = Db.VM.get_resident_on ~__context ~self:vm in
+      do_op_on ~__context ~local_fn ~host
+        (fun session_id rpc -> Client.VDA.destroy rpc session_id self)
+
+    let get_status ~__context ~self =
+      info "VDA.get_status";
+      let local_fn = Local.VDA.get_status ~self in
+      let vm = Db.VDA.get_vm ~__context ~self in
+      let host = Db.VM.get_resident_on ~__context ~self:vm in
+      do_op_on ~__context ~local_fn ~host
+        (fun session_id rpc -> Client.VDA.get_status rpc session_id self)
+
+    let get_log_report ~__context ~self =
+      info "VDA.get_log_report";
+      let local_fn = Local.VDA.get_log_report ~self in
+      let vm = Db.VDA.get_vm ~__context ~self in
+      let host = Db.VM.get_resident_on ~__context ~self:vm in
+      do_op_on ~__context ~local_fn ~host
+        (fun session_id rpc -> Client.VDA.get_log_report rpc session_id self)
+  end
+
 end
