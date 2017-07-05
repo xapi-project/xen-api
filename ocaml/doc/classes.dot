@@ -1,14 +1,15 @@
 digraph "Xen-API Class Diagram" {
   fontname="Verdana";
-  start=10;
+  start=7;
   layout=neato;
   overlap=scale;
 
-  node [shape=box style=filled fillcolor=chocolate]; host PBD SR VDI VBD VM VIF network PIF user session;
+  node [shape=box style=filled fillcolor=chocolate];
+      host PBD SR VDI VBD VM VIF network PIF user session VGPU PGPU GPU_group;
 
-  node [shape=ellipse style=filled fillcolor=wheat]; pool task event host_cpu host_metrics SM VBD_metrics
-                        crashdump VM_metrics VM_guest_metrics console
-                        VIF_metrics PIF_metrics;
+  node [shape=ellipse style=filled fillcolor=wheat];
+      pool task event host_cpu host_metrics SM VM_metrics VM_guest_metrics
+      console PIF_metrics;
 
   edge [arrowhead="none", arrowtail="none"]
 
@@ -17,19 +18,20 @@ digraph "Xen-API Class Diagram" {
   host -> host_metrics
   host -> host_cpu
   host -> PBD [arrowhead="crow"]
+  host -> PGPU [arrowhead="crow"]
   SR -> PBD [arrowhead="crow"]
   SR -> VDI [arrowhead="crow"]
   SR -> SM
   VDI -> VBD [arrowhead="crow"]
-  VBD -> VBD_metrics
   VM -> VBD  [arrowhead="crow"]
   VM -> VIF [arrowhead="crow"]
-  VM -> crashdump [arrowhead="crow"]
   VM -> VM_metrics
   VM -> VM_guest_metrics
   VM -> console [arrowhead="crow"]
+  VM-> VGPU [arrowhead="crow"]
+  GPU_group -> VGPU [arrowhead="crow"]
+  GPU_group -> PGPU [arrowhead="crow"]
   network -> VIF [arrowhead="crow"]
-  VIF -> VIF_metrics
   network -> PIF [arrowhead="crow"]
   host -> PIF [arrowhead="crow"]
   PIF -> PIF_metrics
