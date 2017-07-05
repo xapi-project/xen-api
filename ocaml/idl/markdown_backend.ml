@@ -140,6 +140,8 @@ let markdown_section_of_message printer x =
     printer "";
     printer "|type                          |name                          |description                             |";
     printer "|:-----------------------------|:-----------------------------|:---------------------------------------|";
+    if x.msg_session then
+        printer "|session ref                   |session_id                    |Reference to a valid session            |";
 
     let get_param_row p = sprintf "|`%s`|%s|%s|"
       (pad_right (of_ty_verbatim p.param_type) (col_width_30 - 2))
