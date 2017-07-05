@@ -170,7 +170,7 @@ to subequent RPC calls as an authentication token.
 A session can be terminated with the `session.logout` function:
 
 ```python
-   void  session.logout(session ref)
+   void  session.logout(session ref session_id)
 ```
 
 ### Synchronous and Asynchronous invocation
@@ -199,7 +199,7 @@ The `task ref` is provided in the `Value` field if `Status` is set to `Success`.
 The RPC call
 
 ```python
-    (task ref set)  Task.get_all(session ref)
+    (task ref set)  Task.get_all(session ref session_id)
 ```
 
 returns a set of all task identifiers known to the system. The status (including any
