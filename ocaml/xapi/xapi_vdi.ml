@@ -29,7 +29,6 @@ let check_sm_feature_error (op:API.vdi_operations) sm_features sr =
   let required_sm_feature = Smint.(match op with
   | `forget
   | `copy
-  | `scan
   | `force_unlock
   | `blocked
     -> None
@@ -160,13 +159,13 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
       else
       let allowed_for_cbt_metadata_vdi = match op with
         | `clone | `copy | `disable_cbt | `enable_cbt | `mirror | `resize | `resize_online | `snapshot | `set_on_boot -> false
-        | `blocked | `destroy | `force_unlock | `forget | `generate_config | `scan | `update -> true in
+        | `blocked | `destroy | `force_unlock | `forget | `generate_config | `update -> true in
       if not allowed_for_cbt_metadata_vdi && record.Db_actions.vDI_type = `cbt_metadata
       then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string `cbt_metadata ])
       else
       let allowed_when_cbt_enabled = match op with
         | `mirror | `set_on_boot -> false
-        | `blocked | `clone | `copy | `destroy | `disable_cbt | `enable_cbt | `force_unlock | `forget | `generate_config | `resize | `resize_online | `scan | `snapshot | `update -> true in
+        | `blocked | `clone | `copy | `destroy | `disable_cbt | `enable_cbt | `force_unlock | `forget | `generate_config | `resize | `resize_online | `snapshot | `update -> true in
       if not allowed_when_cbt_enabled && record.Db_actions.vDI_cbt_enabled
       then Some (Api_errors.vdi_cbt_enabled, [_ref])
       else (
@@ -221,7 +220,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
           else if record.Db_actions.vDI_on_boot = `reset
           then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
           else None
-        | `mirror | `clone | `generate_config | `scan | `force_unlock | `set_on_boot | `blocked | `update -> None
+        | `mirror | `clone | `generate_config | `force_unlock | `set_on_boot | `blocked | `update -> None
       )
 
 let assert_operation_valid ~__context ~self ~(op:API.vdi_operations) =
