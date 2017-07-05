@@ -170,7 +170,7 @@ to subequent RPC calls as an authentication token.
 A session can be terminated with the `session.logout` function:
 
 ```python
-   void  session.logout(session_id session)
+   void  session.logout(session ref)
 ```
 
 ### Synchronous and Asynchronous invocation

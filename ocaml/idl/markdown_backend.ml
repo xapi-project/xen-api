@@ -130,7 +130,7 @@ let markdown_section_of_message printer x =
   printer (sprintf "%s (%s)"
     x.msg_name
     (String.concat ", "
-      ((if x.msg_session then "session_id s" else "")::
+      ((if x.msg_session then ["session ref session_id"] else []) @
         (List.map (fun p -> of_ty_verbatim p.param_type ^ " " ^ p.param_name) x.msg_params)))
   );
   printer "```";
