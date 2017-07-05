@@ -373,6 +373,11 @@ let create_update_record ~__context ~update ~update_info ~vdi =
     ~vdi:vdi
 
 let introduce ~__context ~vdi =
+  if Db.VDI.get_type ~__context ~self:vdi = `cbt_metadata then begin
+    error "pool_update.introduce: the given VDI has type cbt_metadata (at %s)" __LOC__;
+    raise Api_errors.(Server_error(vdi_incompatible_type, [ Ref.string_of vdi; Record_util.vdi_type_to_string `cbt_metadata ]))
+  end;
+
   ignore(Unixext.mkdir_safe Xapi_globs.host_update_dir 0o755);
   (*If current disk free space is smaller than 1MB raise exception*)
   assert_space_available ~multiplier:1L Xapi_globs.host_update_dir (Int64.mul 1024L 1024L);
