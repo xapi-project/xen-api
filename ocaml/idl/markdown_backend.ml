@@ -34,6 +34,9 @@ let pad_right x max_width =
   if String.length x < max_width then x ^ String.make (max_width - length) ' '
   else x
 
+let compare_case_ins x y =
+  compare (String.lowercase x) (String.lowercase y)
+
 let escape s =
   let sl = String.explode s in
   let esc_char =
@@ -105,18 +108,26 @@ let string_of_qualifier = function
   | RW         -> "_RW_"
 
 
-let string_of_open_product release =
-  if release.internal_deprecated_since = None then "" else "**Deprecated.** "
+let is_removal_marker x =
+  match x with | (Removed,_,_) -> true | _ -> false
+
+let is_deprecation_marker x =
+  match x with | (Deprecated,_,_) -> true | _ -> false
 
 (* Make a markdown section for an API-specified message *)
-let markdown_section_of_message printer x =
+let markdown_section_of_message printer ~is_class_deprecated ~is_class_removed x =
   let return_type = of_ty_opt_verbatim x.msg_result in
 
   printer (sprintf "#### RPC name: %s" (escape x.msg_name));
   printer "";
-  if x.msg_release.internal_deprecated_since <> None then
+  if List.exists is_removal_marker x.msg_lifecycle || is_class_removed then
   begin
-    printer "This message is deprecated.";
+    printer "**This message is removed.**";
+    printer ""
+  end
+  else if List.exists is_deprecation_marker x.msg_lifecycle || is_class_deprecated then
+  begin
+    printer "**This message is deprecated.**";
     printer ""
   end;
   printer "_Overview:_";
@@ -166,7 +177,7 @@ let markdown_section_of_message printer x =
     printer "";
   end
 
-let print_field_table_of_obj printer x =
+let print_field_table_of_obj printer ~is_class_deprecated ~is_class_removed x =
   printer (sprintf "### Fields for class: "^(escape x.name));
   printer "";
   if x.contents=[] then
@@ -177,23 +188,41 @@ let print_field_table_of_obj printer x =
 
     let print_field_content printer ({release; qualifier; ty; field_description=description} as y) =
       let wired_name = Datamodel_utils.wire_name_of_field y in
-      let descr = (string_of_open_product release)^" "^(escape description) in
-        printer (sprintf "|%s|`%s`|%s|%s|"
-          (pad_right (escape wired_name) col_width_20)
-          (pad_right (of_ty_verbatim ty) (col_width_20 - 2))
-          (pad_right (string_of_qualifier qualifier) col_width_15)
-          (pad_right descr col_width_40))
+      let descr =
+        (if List.exists is_removal_marker y.lifecycle || is_class_removed then "**Removed**. "
+        else if List.exists is_deprecation_marker y.lifecycle || is_class_deprecated then "**Deprecated**. "
+        else "") ^ (escape description)
+      in
+      printer (sprintf "|%s|`%s`|%s|%s|"
+        (pad_right (escape wired_name) col_width_20)
+        (pad_right (of_ty_verbatim ty) (col_width_20 - 2))
+        (pad_right (string_of_qualifier qualifier) col_width_15)
+        (pad_right descr col_width_40))
     in
 
-    x |> Datamodel_utils.fields_of_obj |> List.iter (print_field_content printer)
+    x |> Datamodel_utils.fields_of_obj
+    |> List.sort (fun x y -> compare_case_ins (Datamodel_utils.wire_name_of_field x) (Datamodel_utils.wire_name_of_field y))
+    |> List.iter (print_field_content printer)
   end
 
 let of_obj printer x =
   printer (sprintf "## Class: %s" (escape x.name));
   printer "";
+  let is_class_removed = List.exists is_removal_marker x.obj_lifecycle in
+  let is_class_deprecated = List.exists is_deprecation_marker x.obj_lifecycle in
+  if is_class_removed then
+  begin
+    printer "**This class is removed.**";
+    printer ""
+  end
+  else if is_class_deprecated then
+  begin
+    printer "**This class is deprecated.**";
+    printer ""
+  end;
   printer (escape x.description);
   printer "";
-  print_field_table_of_obj printer x;
+  print_field_table_of_obj printer ~is_class_deprecated ~is_class_removed x;
   printer "";
   printer (sprintf "### RPCs associated with class: "^(escape x.name));
   printer "";
@@ -203,16 +232,20 @@ let of_obj printer x =
     printer ""
   end
   else
-    List.iter (markdown_section_of_message printer) x.messages
+    x.messages
+    |> List.sort (fun x y -> compare_case_ins x.msg_name y.msg_name)
+    |> List.iter (markdown_section_of_message printer ~is_class_deprecated ~is_class_removed)
 
 let print_enum printer = function
   | Enum (name, options) ->
     printer (sprintf "|`enum %s`|                                        |"
       (pad_right name (col_width_40 - 7)));
     printer "|:---------------------------------------|:---------------------------------------|";
+
     let print_option (opt, description) = printer (sprintf "|`%s`|%s|"
       (pad_right opt (col_width_40 - 2)) (pad_right (escape description) col_width_40)) in
-    List.iter print_option options;
+
+    options |> List.sort (fun (x,_) (y,_) -> compare_case_ins x y) |> List.iter print_option;
     printer "";
   | _ -> ()
 
@@ -235,7 +268,8 @@ let print_all printer api =
   (* Remove private messages that are only used internally (e.g. get_record_internal) *)
   let api = Dm_api.filter (fun _ -> true) (fun _ -> true)
       (fun msg -> match msg.msg_tag with (FromObject (Private _)) -> false | _ -> true) api in
-  let system = objects_of_api api and relations = relations_of_api api in
+  let system = objects_of_api api |> List.sort (fun x y -> compare_case_ins x.name y.name) in
+  let relations = relations_of_api api in
 
   printer "
 # API Reference
@@ -247,8 +281,13 @@ The following classes are defined:
 |Name                |Description                                                           |
 |:-------------------|:---------------------------------------------------------------------|";
 
+  let get_descr obj =
+    (if List.exists is_removal_marker obj.obj_lifecycle then "**Removed**. "
+    else if List.exists is_deprecation_marker obj.obj_lifecycle then "**Deprecated**. "
+    else "") ^ (escape obj.description)
+  in
   List.iter (fun obj -> printer (sprintf "|`%s`|%s|"
-      (pad_right obj.name (col_width_20 - 2)) (pad_right (escape obj.description) col_width_70)))
+      (pad_right obj.name (col_width_20 - 2)) (pad_right (get_descr obj) col_width_70)))
     system;
 
   printer "
@@ -300,8 +339,12 @@ The following type constructors are used:
 
 The following enumeration types are used:
 ";
-
-  List.iter (print_enum printer) (Types.of_objects system);
+  let type_comparer x y =
+    match x, y with
+    | Enum (a, _), Enum (b, _) -> compare_case_ins a b
+    | _ -> compare x y
+  in
+  Types.of_objects system |> List.sort type_comparer |> List.iter (print_enum printer);
   List.iter (fun x -> of_obj printer x) system;
 
     printer "
