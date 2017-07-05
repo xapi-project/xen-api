@@ -148,8 +148,8 @@ and relations = Hashtbl.create 10
 and gen_relations() =
   let out_chan = open_out (Filename.concat destdir "Relation.cs") in
   let print format = fprintf out_chan format in
-  let _ = List.iter process_relations (relations_of_api Datamodel.all_api) in
-  print 
+  List.iter process_relations (relations_of_api api);
+  print
 "%s
 
 using System;
