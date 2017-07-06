@@ -162,14 +162,17 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       if not (S.equal local_updates remote_updates) then begin
         let remote_uuid  = Client.Host.get_uuid rpc session_id pool_host in
         let diff xs ys   = S.diff xs ys |> S.elements |> String.concat "," in
-        let reason       = [remote_uuid] in
+        let reason       =
+          Printf.sprintf "Updates on local host %s and pool host %s differ"
+            (Db.Host.get_name_label ~__context ~self:local_host)
+            (Client.Host.get_name_label rpc session_id pool_host) in
         error
           "Pool join: Updates differ. Only on pool host %s: {%s} -- only on local host %s: {%s}"
           remote_uuid
           (diff remote_updates local_updates)
           local_uuid
           (diff local_updates remote_updates);
-        raise Api_errors.(Server_error(pool_hosts_not_homogeneous,reason))
+        raise Api_errors.(Server_error(pool_hosts_not_homogeneous,[reason]))
       end)
   in
 
