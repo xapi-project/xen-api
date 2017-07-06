@@ -4,8 +4,8 @@ set -x
 
 GRAPHVIZ_FLAGS="-Tpng"
 
-dot vm-lifecycle.dot ${GRAPHVIZ_FLAGS} -o img-vm-lifecycle
-dot classes.dot ${GRAPHVIZ_FLAGS} -o img-classes
+dot vm-lifecycle.dot ${GRAPHVIZ_FLAGS} -o vm-lifecycle.png
+dot classes.dot ${GRAPHVIZ_FLAGS} -o classes.png
 
 if  [ ! "$1" = "--pdf" ]; then
     exit 0

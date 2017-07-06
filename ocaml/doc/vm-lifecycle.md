@@ -3,7 +3,7 @@
 The following diagram shows the states that a VM can be in
 and the API calls that can be used to move the VM between these states.
 
-![VM lifecycle](img-vm-lifecycle "VM Lifecycle")
+![VM lifecycle](vm-lifecycle.png "VM Lifecycle")
 
 ## VM boot parameters
 

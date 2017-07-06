@@ -51,12 +51,12 @@ These types are mapped onto XML-RPC types in a straight-forward manner:
     </array>
 ```
 
-* for types `k` and `v`, our type `(k → v) map` maps onto an
+* for types `k` and `v`, our type `(k -> v) map` maps onto an
   XML-RPC `<struct>`, with the key as the name of the struct.  Note that the
-  `(k → v) map` type is only valid when `k` is a `string`, `ref`, or
+  `(k -> v) map` type is only valid when `k` is a `string`, `ref`, or
   `int`, and in each case the keys of the maps are stringified as
-  above. For example, the `(string → double) map` containing the mappings
-  _Mike → 2.3_ and _John → 1.2_ would be represented as:
+  above. For example, the `(string -> double) map` containing the mappings
+  _Mike &#45;&gt; 2.3_ and _John &#45;&gt; 1.2_ would be represented as:
 
 ```xml
     <value>
