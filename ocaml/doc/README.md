@@ -8,4 +8,4 @@ install `pandoc` and `pdflatex`.
 
 To convert the images only, run `sh doc-convert.sh`.
 
-To also generated the pdf run `sh doc-convert.sh --pdf`.
+To also generate the pdf run `sh doc-convert.sh --pdf`.

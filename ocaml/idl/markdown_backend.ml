@@ -76,7 +76,7 @@ let rec of_ty_verbatim = function
   | DateTime -> "datetime"
   | Enum (name, things) -> name
   | Set x -> sprintf "%s set" (of_ty_verbatim x)
-  | Map (a, b) -> sprintf "(%s → %s) map" (of_ty_verbatim a) (of_ty_verbatim b)
+  | Map (a, b) -> sprintf "(%s -> %s) map" (of_ty_verbatim a) (of_ty_verbatim b)
   | Ref obj -> obj ^ " ref"
   | Record obj -> obj ^ " record"
 
@@ -89,7 +89,7 @@ let rec of_ty = function
   | DateTime -> "datetime"
   | Enum (name, things) -> escape name
   | Set x -> (of_ty x) ^ " set"
-  | Map (a, b) -> "(" ^ (of_ty a) ^ " → " ^ (of_ty b) ^ ") map"
+  | Map (a, b) -> "(" ^ (of_ty a) ^ " &#45;&gt; " ^ (of_ty b) ^ ") map"
   | Ref obj -> (escape obj) ^ " ref"
   | Record obj -> (escape obj) ^ " record"
 
@@ -309,7 +309,7 @@ Fields that are bound together are shown in the following table:
   printer "
 The following figure represents bound fields (as specified above) diagramatically, using crow's foot notation to specify one-to-one, one-to-many or many-to-many relationships:
 
-![Class relationships](img-classes 'Class relationships')
+![Class relationships](classes.png 'Class relationships')
 
 ## Types
 
@@ -333,7 +333,7 @@ The following type constructors are used:
 |:-----------------|:-------------------------------------------------------|
 |_c_ ref           |reference to an object of class _c_                     |
 |_t_ set           |a set of elements of type _t_                           |
-|(_a → b_) map     |a table mapping values of type _a_ to values of type _b_|
+|(_a &#45;&gt; b_) map     |a table mapping values of type _a_ to values of type _b_|
 
 ### Enumeration types
 
@@ -405,9 +405,9 @@ like this:
 Note that `ErrorDescription` value is an array of string values. The
 first element of the array is an error code; the remainder of the array are
 strings representing error parameters relating to that code.  In this case,
-the client has attempted to add the mapping _Customer →
+the client has attempted to add the mapping _Customer &#45;&gt;
 eSpiel Incorporated_ to a Map, but it already contains the mapping
-_Customer → eSpiel Inc._, and so the request has failed.
+_Customer &#45;&gt; eSpiel Inc._, and so the request has failed.
 
 Each possible error code is documented in the following section.
 
