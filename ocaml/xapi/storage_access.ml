@@ -844,8 +844,9 @@ module SMAPIv1 = struct
     let disable_cbt context =
       call_cbt_function context ~f:Sm.vdi_disable_cbt ~f_name:"VDI.disable_cbt"
 
-    let data_destroy context =
-      call_cbt_function context ~f:Sm.vdi_data_destroy ~f_name:"VDI.data_destroy"
+    let data_destroy context ~dbg ~sr ~vdi =
+      call_cbt_function context ~f:Sm.vdi_data_destroy ~f_name:"VDI.data_destroy" ~dbg ~sr ~vdi;
+      set_content_id context ~dbg ~sr ~vdi ~content_id:"/No content: this is a cbt_metadata VDI/"
 
     let export_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to =
       try
