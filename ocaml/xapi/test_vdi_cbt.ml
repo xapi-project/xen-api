@@ -53,7 +53,18 @@ let test_cbt_enable_disable () =
   Xapi_vdi.disable_cbt ~__context ~self:vdi_ref;
   assert_vdi_cbt_enabled_is false "VDI.disable_cbt should be idempotent"
 
+let test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi () =
+  let __context = Test_common.make_test_database () in
+  let self = Test_common.make_vdi ~__context ~_type:`cbt_metadata () in
+  let pool = Db.Pool.get_all ~__context |> List.hd in
+  OUnit.assert_raises
+    ~msg:"VDI.set_metadata_of_pool should throw VDI_INCOMPATIBLE_TYPE for a cbt_metadata VDI"
+    Api_errors.(Server_error (vdi_incompatible_type, [Ref.string_of self; Record_util.vdi_type_to_string `cbt_metadata]))
+    (fun () -> Xapi_vdi.set_metadata_of_pool ~__context ~self ~value:pool)
+
 let test =
   let open OUnit in
   "test_vdi_cbt" >:::
-  [ "test_cbt_enable_disable" >:: test_cbt_enable_disable ]
+  [ "test_cbt_enable_disable" >:: test_cbt_enable_disable
+  ; "test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi" >:: test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi
+  ]
