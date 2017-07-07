@@ -209,7 +209,7 @@ module SMAPIv1 = struct
                   error "SR.create failed SR:%s error:%s" (Ref.string_of sr) e';
                   raise e
              );
-            device_config
+            List.filter (fun (x,_) -> x <> "SRmaster") device_config
         )
 
     let set_name_label context ~dbg ~sr ~new_name_label =
