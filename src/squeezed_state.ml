@@ -21,6 +21,8 @@ let ( |> ) a b = b a
 
 let _service = "squeezed"
 
+let initial_host_free_memory_file = "/var/run/nonpersistent/xapi/boot_time_memory"
+
 let listdir path = try List.filter (fun x -> x <> "") (Client.immediate (get_client ()) (fun xs -> Client.directory xs path)) with Xs_protocol.Enoent _ -> []
 let xs_read path = try Client.immediate (get_client ()) (fun xs -> Client.read xs path) with Xs_protocol.Enoent _ as e -> begin debug "xenstsore-read %s returned ENOENT" path; raise e end
 let xs_read_option path = try Some (Client.immediate (get_client ()) (fun xs -> Client.read xs path)) with Xs_protocol.Enoent _ -> None
