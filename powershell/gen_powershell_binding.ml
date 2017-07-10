@@ -79,6 +79,12 @@ let api =
     (Datamodel_utils.add_implicit_messages ~document_order:false
        (filter obj_filter field_filter message_filter Datamodel.all_api))
 
+let classes_with_records =
+    Datamodel_utils.add_implicit_messages ~document_order:false Datamodel.all_api
+    |> objects_of_api
+    |> List.filter (fun x -> List.exists (fun y-> y.msg_name = "get_all_records") x.messages)
+    |> List.map (fun x-> x.name)
+
 let classes = objects_of_api api
 let maps = ref TypeSet.empty
 
@@ -283,8 +289,7 @@ and print_converters classes =
 
 and gen_binding obj =
   match obj with
-    {name=classname; description = description; messages=messages;
-     contents=contents; gen_constructor_destructor=gen_const_dest} ->
+    {name=classname; description; messages; contents; gen_constructor_destructor=gen_const_dest} ->
     let partNew = List.partition (fun x -> is_constructor x) messages in
     let constructors = fst partNew in
     let partDest = List.partition (fun x -> is_destructor x) (snd partNew) in
@@ -300,7 +305,8 @@ and gen_binding obj =
     let invokers = List.filter (fun x -> is_invoke x) (snd partGet) in
     let stem = ocaml_class_to_csharp_class classname in
     begin
-      write_file (sprintf "Get-Xen%s.cs" stem) (gen_class obj classname);
+      if List.mem classname classes_with_records then
+        write_file (sprintf "Get-Xen%s.cs" stem) (gen_class obj classname);
       if ((List.length constructors) > 0) then
         write_file (sprintf "New-Xen%s.cs" stem) (gen_constructor obj classname constructors);
       if ((List.length destructors) > 0) then
@@ -363,10 +369,10 @@ and print_parameters_class obj classname =
         #endregion\n"
     (print_xenobject_params obj classname false false true)
 
-and get_process_record_method_if_exists classname classType has_uuid has_name =
-  if not (List.mem classname expose_get_all_messages_for)
-  then  sprintf ""
-  else  sprintf "
+and print_methods_class classname has_uuid has_name =
+  let classType = (qualified_class_name classname) in
+  sprintf "
+        #region Cmdlet Methods
 
         protected override void ProcessRecord()
         {
@@ -405,10 +411,14 @@ and get_process_record_method_if_exists classname classType has_uuid has_name =
 
             UpdateSessions();
         }
+
+        #endregion
+    }
+}
     "
-      classType
-      classType
-      (if has_name then sprintf "
+    classType
+    classType
+    (if has_name then sprintf "
             else if (Name != null)
             {
                 var options = WildcardOptions.IgnoreCase
@@ -422,8 +432,8 @@ and get_process_record_method_if_exists classname classType has_uuid has_name =
                         results.Add(record.Value);
                 }
             }"
-       else "")
-      (if has_uuid then sprintf "
+     else "")
+    (if has_uuid then sprintf "
             else if (Uuid != Guid.Empty)
             {
                 foreach (var record in records)
@@ -433,23 +443,8 @@ and get_process_record_method_if_exists classname classType has_uuid has_name =
                         break;
                     }
             }"
-       else "")
-      (exposed_class_name classname)
-
-
-
-
-and print_methods_class classname has_uuid has_name =
-  let classType = (qualified_class_name classname) in
-  sprintf "
-        #region Cmdlet Methods%s
-        #endregion
-    }
-}\n"
-
-    (get_process_record_method_if_exists classname classType has_uuid has_name)
-
-
+     else "")
+    (exposed_class_name classname)
 
 
 (*********************************)
