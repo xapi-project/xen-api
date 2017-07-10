@@ -95,7 +95,6 @@ let log_config_file = ref (Filename.concat "/etc/xensource" "log.conf")
 let db_conf_path = ref (Filename.concat "/etc/xensource" "db.conf")
 let remote_db_conf_fragment_path = ref (Filename.concat "/etc/xensource" "remote.db.conf")
 let cpu_info_file = ref (Filename.concat "/etc/xensource" "boot_time_cpus")
-let initial_host_free_memory_file = "/var/run/nonpersistent/xapi/boot_time_memory"
 let requires_reboot_file = "/var/run/nonpersistent/xapi/host-requires-reboot"
 let using_rrds = ref false
 

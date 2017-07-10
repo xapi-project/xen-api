@@ -476,50 +476,6 @@ let resynchronise_ha_state () =
     (* Critical that we don't continue as a master and use shared resources *)
     error "Caught exception resynchronising state of HA system: %s" (ExnHelper.string_of_exn e)
 
-(* Calculates the amount of free memory on the host at boot time. *)
-(* Returns a result that is equivalent to (T - X), where:         *)
-(*     T = total memory in host.                                  *)
-(*     X = host virtualization overhead:                          *)
-(*         memory used by Xen code, heap and crash kernel.        *)
-(* Actually returns the current value of (F + S + Z), where:      *)
-(*     F = host free memory.                                      *)
-(*     S = host scrub memory.                                     *)
-(*     Z = host memory used by domain 0.                          *)
-(* This relies on the equivalence (T = X + F + S + Z).            *)
-(* Warning! This function assumes that:                           *)
-(*     1. Domain 0 is currently in an unballooned state.          *)
-(*     2. No other domains have been started.                     *)
-let calculate_boot_time_host_free_memory () =
-  let ( + ) = Nativeint.add in
-  let open Xenctrl in
-  let host_info = with_intf (fun xc -> physinfo xc) in
-  let host_free_pages = host_info.free_pages in
-  let host_scrub_pages = host_info.scrub_pages in
-  match Create_misc.read_dom0_memory_usage () with
-  | None -> failwith "can't query balloon driver"
-  | Some domain0_bytes ->
-    let domain0_total_pages = XenopsMemory.pages_of_bytes_used domain0_bytes in
-    let boot_time_host_free_pages =
-      host_free_pages + host_scrub_pages + (Int64.to_nativeint domain0_total_pages) in
-    let boot_time_host_free_kib =
-      pages_to_kib (Int64.of_nativeint boot_time_host_free_pages) in
-    Int64.mul 1024L boot_time_host_free_kib
-
-(* Read the free memory on the host and record this in the db. This is used *)
-(* as the baseline for memory calculations in the message forwarding layer. *)
-let record_boot_time_host_free_memory () =
-  if not (Unixext.file_exists Xapi_globs.initial_host_free_memory_file) then begin
-    try
-      let free_memory = calculate_boot_time_host_free_memory () in
-      Unixext.mkdir_rec (Filename.dirname Xapi_globs.initial_host_free_memory_file) 0o700;
-      Unixext.write_string_to_file
-        Xapi_globs.initial_host_free_memory_file
-        (Int64.to_string free_memory)
-    with e ->
-      error "Could not record host free memory. This may prevent VMs from being started on this host. (%s)"
-        (Printexc.to_string e)
-  end
-
 (** Reset the networking-related metadata for this host if the command [xe-reset-networking]
  *  was executed before the restart. *)
 let check_network_reset () =
