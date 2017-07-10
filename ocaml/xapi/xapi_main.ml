@@ -36,7 +36,4 @@ let _ =
   Unixext.mkdir_rec (Filename.concat "/var/lib/xcp" "debug") 0o700;
   Unix.chdir (Filename.concat "/var/lib/xcp" "debug");
 
-  (* WARNING! Never move this function call into the list of startup tasks. *)
-  record_boot_time_host_free_memory ();
-
   watchdog server_init

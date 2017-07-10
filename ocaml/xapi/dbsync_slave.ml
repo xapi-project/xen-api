@@ -139,17 +139,16 @@ let record_host_memory_properties ~__context =
 
 	let metrics = Db.Host.get_metrics ~__context ~self in
 	Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total_memory_bytes;
-	let boot_memory_file = Xapi_globs.initial_host_free_memory_file in
-	let boot_memory_string =
+	let boot_memory_bytes =
 		try
-			Some (Unixext.string_of_file boot_memory_file)
+			let dbg = Context.string_of_task __context in
+			Some (Memory_client.Client.get_host_initial_free_memory dbg)
 		with e ->
-			warn "Could not read host free memory file. This may prevent \
-			VMs from being started on this host. (%s)" (Printexc.to_string e);
+			warn "Failed to get host free memory from ballooning service. This may \
+				prevent VMs from being started on this host. (%s)" (Printexc.to_string e);
 			None in
 	maybe
-		(fun boot_memory_string ->
-			let boot_memory_bytes = Int64.of_string boot_memory_string in
+		(fun boot_memory_bytes ->
 			(* Host memory overhead comes from multiple sources:         *)
 			(* 1. obvious overhead: (e.g. Xen, crash kernel).            *)
 			(*    appears as used memory.                                *)
@@ -173,7 +172,7 @@ let record_host_memory_properties ~__context =
 			Db.Host.set_memory_overhead ~__context ~self ~value:
 				(obvious_overhead_memory_bytes ++ nonobvious_overhead_memory_bytes);
 		)
-		boot_memory_string
+		boot_memory_bytes
 
 (* -- used this for testing uniqueness constraints executed on slave do not kill connection.
    Committing commented out vsn of this because it might be useful again..
