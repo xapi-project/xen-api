@@ -776,12 +776,20 @@ module MD = struct
     let pci_msitranslate =
       if vm.API.vM_VGPUs <> [] then false else pci_msitranslate in
 
+    let templatedata = [] in (* default setting *)
+    let templatedata =
+      if List.mem_assoc Xapi_globs.linux_template_key vm.API.vM_other_config
+      then (Xapi_globs.linux_template_key, List.assoc Xapi_globs.linux_template_key vm.API.vM_other_config)::templatedata
+      else templatedata
+    in
+
     {
       id = vm.API.vM_uuid;
       name = vm.API.vM_name_label;
       ssidref = 0l;
       xsdata = vm.API.vM_xenstore_data;
       platformdata = platformdata;
+      templatedata = templatedata;
       bios_strings = vm.API.vM_bios_strings;
       ty = builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu;
       suppress_spurious_page_faults = (try List.assoc "suppress-spurious-page-faults" vm.API.vM_other_config = "true" with _ -> false);
