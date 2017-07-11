@@ -46,6 +46,8 @@ let _ =
 	(* NB Initialise the xenstore connection after daemonising, otherwise
 	   we lose our connection *)
 
+	Memory_server.record_boot_time_host_free_memory ();
+
 	let rpc_server = Thread.create Xcp_service.serve_forever server in
 
 	Memory_server.start_balance_thread balance_check_interval;
