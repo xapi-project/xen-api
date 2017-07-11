@@ -97,6 +97,8 @@ module type S = sig
 		val get_internal_state: (string * string) list -> (string * Network.t) list -> Vm.t -> string
 		val set_internal_state: Vm.t -> string -> unit
 
+		val wait_ballooning: Xenops_task.task_handle -> Vm.t -> unit
+
 		val minimum_reboot_delay: float
 	end
 	module PCI : sig

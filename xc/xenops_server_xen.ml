@@ -438,25 +438,25 @@ module Mem = struct
 		let (_: unit option) = wrap (fun () -> transfer_reservation_to_domain_exn dbg domid r) in
 		()
 
-        let query_reservation_of_domain dbg domid =
-                match get_session_id dbg with
-                        | Some session_id ->
-                                begin
-                                        try
-                                                let reservation_id = Client.query_reservation_of_domain dbg session_id domid in
-                                                debug "Memory reservation_id = %s" reservation_id;
-                                                reservation_id
-                                        with
-                                                | Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
-                                                        error "Ballooning daemon has disappeared. Cannot query reservation_id for domid = %d" domid;
-                                                        raise (MemoryError No_reservation)
-                                                | _ ->
-                                                        error "Internal error. Cannot query reservation_id for domid = %d" domid;
-                                                        raise (MemoryError No_reservation)
-                                end
-                        | None ->
-                                info "No ballooning daemon. Cannot query reservation_id for domid = %d" domid;
-                                raise (MemoryError No_reservation)
+	let query_reservation_of_domain dbg domid =
+		match get_session_id dbg with
+		| Some session_id ->
+			begin
+				try
+					let reservation_id = Client.query_reservation_of_domain dbg session_id domid in
+					debug "Memory reservation_id = %s" reservation_id;
+					reservation_id
+				with
+				| Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
+					error "Ballooning daemon has disappeared. Cannot query reservation_id for domid = %d" domid;
+					raise Memory_interface.(MemoryError No_reservation)
+				| _ ->
+					error "Internal error. Cannot query reservation_id for domid = %d" domid;
+					raise Memory_interface.(MemoryError No_reservation)
+			end
+		| None ->
+			info "No ballooning daemon. Cannot query reservation_id for domid = %d" domid;
+			raise Memory_interface.(MemoryError No_reservation)
 
 	(** After an event which frees memory (eg a domain destruction), perform a one-off memory rebalance *)
 	let balance_memory dbg =
@@ -1468,6 +1468,35 @@ module VM = struct
 			)
 		| FD fd -> f fd
 
+	let wait_ballooning task vm =
+		on_domain
+			(fun xc xs _ _ di ->
+				let domid = di.Xenctrl.domid in
+				let balloon_active_path = xs.Xs.getdomainpath domid ^ "/control/balloon-active" in
+				let balloon_active =
+					try
+						Some (xs.Xs.read balloon_active_path)
+					with _ -> None
+				in
+				match balloon_active with
+				(* Not currently ballooning *)
+				| None | Some "0" -> ()
+				(* Ballooning in progress, we need to wait *)
+				| Some _ -> 
+					let watches = [ Watch.value_to_become balloon_active_path "0"
+					              ; Watch.key_to_disappear balloon_active_path ]
+					in
+					(* raise Cancelled on task cancellation and Watch.Timeout on timeout *)
+					try
+						cancellable_watch (Domain domid) watches [] task ~xs ~timeout:!Xenopsd.additional_ballooning_timeout ()
+						|> ignore
+					with Watch.Timeout _ ->
+						let msg = Printf.sprintf 
+							"Ballooning Timeout: unable to balloon down the memory of vm %s, please increase the value of memory-dynamic-min"
+							vm.Vm.id
+						in raise (Internal_error msg)
+			) Oldest task vm
+
 	let save task progress_callback vm flags data =
 		let flags' =
 			List.map
@@ -1486,6 +1515,8 @@ module VM = struct
 						let vm_str = Vm.sexp_of_t vm |> Sexplib.Sexp.to_string in
 						Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid (choose_xenguest vm.Vm.platformdata) vm_str domid fd flags'
 							(fun () ->
+								(* SCTX-2558: wait more for ballooning if needed *)
+								wait_ballooning task vm;
 								if not(request_shutdown task vm Suspend 30.)
 								then raise (Failed_to_acknowledge_shutdown_request);
 								if not(wait_shutdown task vm Suspend 1200.)
