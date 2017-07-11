@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -x
+set -xeu
 
 GRAPHVIZ_FLAGS="-Tpng"
 
@@ -9,10 +9,6 @@ dot classes.dot ${GRAPHVIZ_FLAGS} -o classes.png
 
 if  [ ! "$1" = "--pdf" ]; then
     exit 0
-fi
-
-if [ -f logo.eps ]; then
-    epstopdf logo.eps --outfile=logo.pdf
 fi
 
 FILES="
