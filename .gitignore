@@ -35,6 +35,8 @@
 *.cmt
 *.cmti
 *.so
+*.native
+_build
 TAGS
 dist
 mk/.*
