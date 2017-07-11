@@ -1,19 +1,19 @@
 (*
  * Copyright (c) Citrix Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -30,25 +30,25 @@
 
 open Stdext.Xstringext
 
-let rec formatted_wrap formatter s = 
+let rec formatted_wrap formatter s =
   let split_in_2 c s =
     match String.split ~limit:2 c s with
-        h :: t -> (h, if t = [] then "" else List.hd t)
-      | [] -> assert false
+      h :: t -> (h, if t = [] then "" else List.hd t)
+    | [] -> assert false
   in
   let prespace, postspace = split_in_2 ' ' s in
   let preeol, posteol = split_in_2 '\n' s in
 
-    if String.length prespace < String.length preeol then
-      (Format.fprintf formatter "%s@ " prespace;
-       if String.length postspace > 0 then
-         formatted_wrap formatter postspace)
-    else
-      (if String.length posteol > 0 then
-         (Format.fprintf formatter "%s@\n" preeol;
-          formatted_wrap formatter posteol)
-       else
-         Format.fprintf formatter "%s@ " preeol)
+  if String.length prespace < String.length preeol then
+    (Format.fprintf formatter "%s@ " prespace;
+     if String.length postspace > 0 then
+       formatted_wrap formatter postspace)
+  else
+    (if String.length posteol > 0 then
+       (Format.fprintf formatter "%s@\n" preeol;
+        formatted_wrap formatter posteol)
+     else
+       Format.fprintf formatter "%s@ " preeol)
 
 let comment doc ?(indent = 0) s =
   let indent_str = String.make indent ' ' in
@@ -58,35 +58,35 @@ let comment doc ?(indent = 0) s =
 
   let out, flush, newline, spaces =
     let funcs = Format.pp_get_formatter_out_functions formatter () in
-      (funcs.out_string, funcs.out_flush, funcs.out_newline, funcs.out_spaces)
+    (funcs.out_string, funcs.out_flush, funcs.out_newline, funcs.out_spaces)
   in
 
-    let funcs = {
-      out_string = out;
-      out_flush = flush;
-      out_newline = (fun () ->
-                  out (Printf.sprintf "\n%s * " indent_str) 0 (indent + 4));
-      out_spaces = spaces;
-    } in
-    Format.pp_set_formatter_out_functions formatter funcs;
- 
-    Format.pp_open_hvbox formatter 0;
-    Format.pp_set_margin formatter 76;
-    Format.fprintf formatter "%s" indent_str;
-    Format.fprintf formatter "/*";
-    if doc then
-      Format.fprintf formatter "*";
-    Format.fprintf formatter "\n";
-    Format.fprintf formatter "%s" indent_str;
-    Format.fprintf formatter " * ";
+  let funcs = {
+    out_string = out;
+    out_flush = flush;
+    out_newline = (fun () ->
+        out (Printf.sprintf "\n%s * " indent_str) 0 (indent + 4));
+    out_spaces = spaces;
+  } in
+  Format.pp_set_formatter_out_functions formatter funcs;
 
-    formatted_wrap formatter s;
-    Format.pp_close_box formatter ();
+  Format.pp_open_hvbox formatter 0;
+  Format.pp_set_margin formatter 76;
+  Format.fprintf formatter "%s" indent_str;
+  Format.fprintf formatter "/*";
+  if doc then
+    Format.fprintf formatter "*";
+  Format.fprintf formatter "\n";
+  Format.fprintf formatter "%s" indent_str;
+  Format.fprintf formatter " * ";
 
-    Format.fprintf formatter "%!";
+  formatted_wrap formatter s;
+  Format.pp_close_box formatter ();
 
-    Format.pp_set_formatter_out_functions formatter { funcs with out_newline=newline };
-      
-    let result = Buffer.contents buf in
-    let n = String.length result in
-      String.sub result 0 (n - 1) ^ "/"
+  Format.fprintf formatter "%!";
+
+  Format.pp_set_formatter_out_functions formatter { funcs with out_newline=newline };
+
+  let result = Buffer.contents buf in
+  let n = String.length result in
+  String.sub result 0 (n - 1) ^ "/"

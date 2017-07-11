@@ -1,19 +1,19 @@
 (*
  * Copyright (c) Citrix Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -43,9 +43,9 @@ module DT = Datamodel_types
 module DU = Datamodel_utils
 
 module TypeSet = Set.Make(struct
-			    type t = DT.ty
-			    let compare = compare
-			  end)
+    type t = DT.ty
+    let compare = compare
+  end)
 
 let open_source' = ref false
 let destdir'    = ref ""
@@ -56,11 +56,11 @@ let templdir'     = ref ""
 let get_deprecated_attribute_string version =
   match version with
   | None -> ""
-  | Some versionString -> "[Deprecated(\"" ^ get_release_name versionString ^ "\")]"  
+  | Some versionString -> "[Deprecated(\"" ^ get_release_name versionString ^ "\")]"
 
 let get_deprecated_attribute message =
   let version = message.msg_release.internal_deprecated_since in
-    get_deprecated_attribute_string version
+  get_deprecated_attribute_string version
 
 let _ =
   Arg.parse
@@ -82,24 +82,24 @@ let templdir = !templdir'
 
 
 let api =
-	Datamodel_utils.named_self := true;
+  Datamodel_utils.named_self := true;
 
-	let obj_filter _ = true in
-	let field_filter field =
-		(not field.internal_only) &&
-		((not open_source && (List.mem "closed" field.release.internal)) ||
-		(open_source && (List.mem "3.0.3" field.release.opensource)))
-	in
-	let message_filter msg = 
-		Datamodel_utils.on_client_side msg &&
-		(* XXX: C# binding generates get_all_records some other way *)
-		(msg.msg_tag <> (FromObject GetAllRecords)) && 
-		((not open_source && (List.mem "closed" msg.msg_release.internal)) ||
-		(open_source && (List.mem "3.0.3" msg.msg_release.opensource)))
-	in
-	filter obj_filter field_filter message_filter
-		(Datamodel_utils.add_implicit_messages ~document_order:false
-			(filter obj_filter field_filter message_filter Datamodel.all_api))
+  let obj_filter _ = true in
+  let field_filter field =
+    (not field.internal_only) &&
+    ((not open_source && (List.mem "closed" field.release.internal)) ||
+     (open_source && (List.mem "3.0.3" field.release.opensource)))
+  in
+  let message_filter msg =
+    Datamodel_utils.on_client_side msg &&
+    (* XXX: C# binding generates get_all_records some other way *)
+    (msg.msg_tag <> (FromObject GetAllRecords)) &&
+    ((not open_source && (List.mem "closed" msg.msg_release.internal)) ||
+     (open_source && (List.mem "3.0.3" msg.msg_release.opensource)))
+  in
+  filter obj_filter field_filter message_filter
+    (Datamodel_utils.add_implicit_messages ~document_order:false
+       (filter obj_filter field_filter message_filter Datamodel.all_api))
 
 let classes = objects_of_api api
 let enums = ref TypeSet.empty
@@ -122,7 +122,7 @@ let escape s =
     | '"' -> "\\\""
     | c -> String.make 1 c
   in
-    String.concat "" (List.map esc_char (String.explode s))
+  String.concat "" (List.map esc_char (String.explode s))
 
 let enum_of_wire = String.replace "-" "_"
 
@@ -150,7 +150,7 @@ and gen_relations() =
   let print format = fprintf out_chan format in
   List.iter process_relations (relations_of_api api);
   print
-"%s
+    "%s
 
 using System;
 using System.Collections.Generic;
@@ -175,20 +175,20 @@ namespace XenAPI
             Dictionary<Type, Relation[]> relations = new Dictionary<Type, Relation[]>();
 
 " Licence.bsd_two_clause;
-    Hashtbl.iter (gen_relations_by_type out_chan) relations;
-    print
-"
+  Hashtbl.iter (gen_relations_by_type out_chan) relations;
+  print
+    "
             return relations;
        }
     }
 }
 "
-and string_ends str en = 
+and string_ends str en =
   let len = String.length en in
-    String.sub str ((String.length str) - len) len = en
+  String.sub str ((String.length str) - len) len = en
 
-and process_relations ((oneClass, oneField), (manyClass, manyField)) = 
-  let value = 
+and process_relations ((oneClass, oneField), (manyClass, manyField)) =
+  let value =
     try
       (manyField, oneClass, oneField) :: (Hashtbl.find relations manyClass)
     with Not_found ->
@@ -196,19 +196,19 @@ and process_relations ((oneClass, oneField), (manyClass, manyField)) =
         [(manyField, oneClass, oneField)]
       end
   in
-    Hashtbl.replace relations manyClass value
+  Hashtbl.replace relations manyClass value
 
 and gen_relations_by_type out_chan manyClass relations =
   let print format = fprintf out_chan format in
-    print "            relations.Add(typeof(Proxy_%s), new Relation[] {\n" (exposed_class_name manyClass);
-    
-    List.iter (gen_relation out_chan) relations;
-    
-    print "            });\n\n";
-    
+  print "            relations.Add(typeof(Proxy_%s), new Relation[] {\n" (exposed_class_name manyClass);
+
+  List.iter (gen_relation out_chan) relations;
+
+  print "            });\n\n";
+
 and gen_relation out_chan (manyField, oneClass, oneField) =
   let print format = fprintf out_chan format in
-    print "                new Relation(\"%s\", \"%s\", \"%s\"),\n" manyField oneClass oneField
+  print "                new Relation(\"%s\", \"%s\", \"%s\"),\n" manyField oneClass oneField
 
 (* ------------------- category: http_actions *)
 
@@ -217,7 +217,7 @@ and gen_http_actions() =
   let print format = fprintf out_chan format in
 
   let print_header() = print
-"%s
+      "%s
 
 using System;
 using System.Text;
@@ -238,7 +238,7 @@ namespace XenAPI
         {
             HTTP.Put(progressDelegate, cancellingDelegate, HTTP.BuildUri(hostname, remotePath, args), proxy, localPath, timeout_ms);
         }"
-    Licence.bsd_two_clause
+      Licence.bsd_two_clause
   in
 
   let print_footer() = print "\n    }\n}\n" in
@@ -292,15 +292,15 @@ namespace XenAPI
 
   let print_one_action(name, (meth, uri, sdk, sdkargs, _, _)) =
     match sdk with
-      | false -> ()
-      | true -> print_one_action_core name meth uri sdkargs
+    | false -> ()
+    | true -> print_one_action_core name meth uri sdkargs
   in
 
-  print_header(); 
+  print_header();
   List.iter print_one_action http_actions;
   print_footer();
 
-(* ------------------- category: classes *)
+  (* ------------------- category: classes *)
 
 
 and gen_class_file cls =
@@ -309,8 +309,8 @@ and gen_class_file cls =
     api_members := m::!api_members;
   let out_chan = open_out (Filename.concat destdir (exposed_class_name cls.name)^".cs")
   in
-    finally (fun () -> gen_class out_chan cls)
-            (fun () -> close_out out_chan)
+  finally (fun () -> gen_class out_chan cls)
+    (fun () -> close_out out_chan)
 
 and gen_class out_chan cls =
   let print format = fprintf out_chan format in
@@ -320,7 +320,7 @@ and gen_class out_chan cls =
   let publishedInfo = get_published_info_class cls in
 
   print
-"%s
+    "%s
 
 using System;
 using System.Collections;
@@ -337,14 +337,14 @@ namespace XenAPI
     public partial class %s : XenObject<%s>
     {"
 
-  Licence.bsd_two_clause
-  cls.description (if publishedInfo = "" then "" else "\n    /// "^publishedInfo)
-  exposed_class_name exposed_class_name;
+    Licence.bsd_two_clause
+    cls.description (if publishedInfo = "" then "" else "\n    /// "^publishedInfo)
+    exposed_class_name exposed_class_name;
 
   (* Generate bits for Message type *)
   if cls.name = "message" then
     begin
-    print "
+      print "
         public enum MessageType { %s };
 
         public MessageType Type
@@ -353,14 +353,14 @@ namespace XenAPI
             {
                 switch (this.name)
                 {"
-      (String.concat ", " ((List.map fst !Api_messages.msgList) @ ["unknown"]));
-    
-    List.iter (fun x -> print "
+        (String.concat ", " ((List.map fst !Api_messages.msgList) @ ["unknown"]));
+
+      List.iter (fun x -> print "
                     case \"%s\":
                         return MessageType.%s;" x x) (List.map fst !Api_messages.msgList);
 
-    print
-"
+      print
+        "
                     default:
                         return MessageType.unknown;
                 }
@@ -370,29 +370,29 @@ namespace XenAPI
     end;
 
   print
-"
+    "
         public %s()
         {
         }
 "
-  exposed_class_name;
+    exposed_class_name;
 
   let print_internal_ctor = function
     | []            -> ()
     | _ as cnt -> print
-"
+                    "
         public %s(%s)
         {
             %s
         }
 "
-  exposed_class_name
-  (String.concat ",\n            " (List.rev (get_constructor_params cnt)))
-  (String.concat "\n            " (List.rev (get_constructor_body cnt)))
+                    exposed_class_name
+                    (String.concat ",\n            " (List.rev (get_constructor_params cnt)))
+                    (String.concat "\n            " (List.rev (get_constructor_body cnt)))
   in print_internal_ctor contents;
 
   print
-"
+    "
         /// <summary>
         /// Creates a new %s from a Proxy_%s.
         /// </summary>
@@ -405,36 +405,36 @@ namespace XenAPI
         public override void UpdateFrom(%s update)
         {
 "
-  exposed_class_name exposed_class_name
-  exposed_class_name exposed_class_name
-  exposed_class_name;
+    exposed_class_name exposed_class_name
+    exposed_class_name exposed_class_name
+    exposed_class_name;
 
   List.iter (gen_updatefrom_line out_chan) contents;
 
   print
-"        }
+    "        }
 
         internal void UpdateFromProxy(Proxy_%s proxy)
         {
 "
-  exposed_class_name;
+    exposed_class_name;
 
   List.iter (gen_constructor_line out_chan) contents;
 
   print
-"        }
+    "        }
 
         public Proxy_%s ToProxy()
         {
             Proxy_%s result_ = new Proxy_%s();
 "
-  exposed_class_name
-  exposed_class_name exposed_class_name;
+    exposed_class_name
+    exposed_class_name exposed_class_name;
 
   List.iter (gen_to_proxy_line out_chan) contents;
 
   print
-"            return result_;
+    "            return result_;
         }
 ";
 
@@ -446,12 +446,12 @@ namespace XenAPI
         public %s(Hashtable table)
         {
 "
-  exposed_class_name exposed_class_name;
+    exposed_class_name exposed_class_name;
 
   List.iter (gen_hashtable_constructor_line out_chan) contents;
 
   print
-"        }
+    "        }
 
         ";
 
@@ -465,14 +465,14 @@ namespace XenAPI
             if (ReferenceEquals(this, other))
                 return true;" in
   (match current_ops with
-    | [] ->
-      print "public bool DeepEquals(%s other)
+   | [] ->
+     print "public bool DeepEquals(%s other)
         {
             %s
 
             return " exposed_class_name check_refs
-    | _ ->
-      print "public bool DeepEquals(%s other, bool ignoreCurrentOperations)
+   | _ ->
+     print "public bool DeepEquals(%s other, bool ignoreCurrentOperations)
         {
             %s
 
@@ -482,8 +482,8 @@ namespace XenAPI
             return " exposed_class_name check_refs);
 
   (match other_contents with
-     | [] -> print "false"
-     | _ ->  print "%s" (String.concat " &&
+   | [] -> print "false"
+   | _ ->  print "%s" (String.concat " &&
                 " (List.map gen_equals_condition other_contents)));
 
   print ";
@@ -494,33 +494,33 @@ namespace XenAPI
             if (opaqueRef == null)
             {
 "
-  exposed_class_name;
+    exposed_class_name;
 
   if cls.gen_constructor_destructor then
     print
-"                Proxy_%s p = this.ToProxy();
+      "                Proxy_%s p = this.ToProxy();
                 return session.proxy.%s_create(session.uuid, p).parse();
 "
-    exposed_class_name (String.lowercase exposed_class_name)
-    else
-      print
-"                System.Diagnostics.Debug.Assert(false, \"Cannot create instances of this type on the server\");
+      exposed_class_name (String.lowercase exposed_class_name)
+  else
+    print
+      "                System.Diagnostics.Debug.Assert(false, \"Cannot create instances of this type on the server\");
                 return \"\";
 ";
 
-      print
-"            }
+  print
+    "            }
             else
             {
 ";
 
-    gen_save_changes out_chan exposed_class_name messages contents;
+  gen_save_changes out_chan exposed_class_name messages contents;
 
-    print
-"
+  print
+    "
             }
         }";
- 
+
   List.iter (gen_exposed_method_overloads out_chan cls) (List.filter (fun x -> not x.msg_hide_from_docs) messages);
 
   (* Don't create duplicate get_all_records call *)
@@ -531,21 +531,21 @@ namespace XenAPI
   List.iter (gen_exposed_field out_chan cls) contents;
 
   print
-"    }
+    "    }
 }
 ";
 
-and get_all_records_method classname = 
+and get_all_records_method classname =
   { default_message with
     msg_name = "get_all_records";
-    msg_params = []; 
-    msg_result = Some (Map(Ref classname, Record classname), 
-                  sprintf "A map from %s to %s.Record" classname classname);
+    msg_params = [];
+    msg_result = Some (Map(Ref classname, Record classname),
+                       sprintf "A map from %s to %s.Record" classname classname);
     msg_doc = sprintf "Get all the %s Records at once, in a single XML RPC call" classname;
     msg_session = true; msg_async = false;
-    msg_release = {opensource=["3.0.3"]; internal=["closed"; "debug"]; internal_deprecated_since=None}; 
+    msg_release = {opensource=["3.0.3"]; internal=["closed"; "debug"]; internal_deprecated_since=None};
     msg_lifecycle = [];
-    msg_has_effect = false; msg_tag = Custom; 
+    msg_has_effect = false; msg_tag = Custom;
     msg_obj_name = classname;
     msg_errors = []; msg_secret = false;
     msg_custom_marshaller = false;
@@ -565,8 +565,8 @@ and get_constructor_params content =
 and get_constructor_params' content elements =
   match content with
     [] -> elements
-    | (Field fr)::others -> get_constructor_params' others ((sprintf "%s %s" (exposed_type fr.ty) (full_name fr))::elements)
-    | (Namespace (_, c))::others -> get_constructor_params' (c@others) elements
+  | (Field fr)::others -> get_constructor_params' others ((sprintf "%s %s" (exposed_type fr.ty) (full_name fr))::elements)
+  | (Namespace (_, c))::others -> get_constructor_params' (c@others) elements
 
 and get_constructor_body content =
   get_constructor_body' content []
@@ -574,64 +574,64 @@ and get_constructor_body content =
 and get_constructor_body' content elements =
   match content with
     [] -> elements
-    | (Field fr)::others -> get_constructor_body' others ((sprintf "this.%s = %s;" (full_name fr) (full_name fr))::elements)
-    | (Namespace (_, c))::others -> get_constructor_body' (c@others) elements
+  | (Field fr)::others -> get_constructor_body' others ((sprintf "this.%s = %s;" (full_name fr) (full_name fr))::elements)
+  | (Namespace (_, c))::others -> get_constructor_body' (c@others) elements
 
 and gen_constructor_line out_chan content =
   let print format = fprintf out_chan format in
 
   match content with
-      Field fr ->
-          print
-"            %s = %s;
+    Field fr ->
+    print
+      "            %s = %s;
 " (full_name fr) (convert_from_proxy ("proxy." ^ (full_name fr)) fr.ty)
 
-    | Namespace (_, c) -> List.iter (gen_constructor_line out_chan) c
+  | Namespace (_, c) -> List.iter (gen_constructor_line out_chan) c
 
 and gen_hashtable_constructor_line out_chan content =
   let print format = fprintf out_chan format in
 
   match content with
-    | Field fr ->
-          print
-"            %s = %s;
+  | Field fr ->
+    print
+      "            %s = %s;
 " (full_name fr) (convert_from_hashtable (full_name fr) fr.ty)
 
-    | Namespace (_, c) -> List.iter (gen_hashtable_constructor_line out_chan) c
+  | Namespace (_, c) -> List.iter (gen_hashtable_constructor_line out_chan) c
 
 and gen_equals_condition content =
   match content with
-    | Field fr -> "Helper.AreEqual2(this._" ^ (full_name fr) ^ ", other._" ^ (full_name fr) ^ ")"
-    | Namespace (_, c) -> String.concat " &&
+  | Field fr -> "Helper.AreEqual2(this._" ^ (full_name fr) ^ ", other._" ^ (full_name fr) ^ ")"
+  | Namespace (_, c) -> String.concat " &&
                 " (List.map gen_equals_condition c);
 
 and gen_updatefrom_line out_chan content =
   let print format = fprintf out_chan format in
 
   match content with
-      Field fr ->
-          print
-"            %s = %s;
+    Field fr ->
+    print
+      "            %s = %s;
 " (full_name fr) ("update." ^ (full_name fr))
-    | Namespace (_, c) -> List.iter (gen_updatefrom_line out_chan) c
+  | Namespace (_, c) -> List.iter (gen_updatefrom_line out_chan) c
 
 and gen_to_proxy_line out_chan content =
   let print format = fprintf out_chan format in
 
   match content with
-      Field fr ->
-          print
-"            result_.%s = %s;
+    Field fr ->
+    print
+      "            result_.%s = %s;
 " (full_name fr) (convert_to_proxy (full_name fr) fr.ty)
 
-    | Namespace (_, c) -> List.iter (gen_to_proxy_line out_chan) c
+  | Namespace (_, c) -> List.iter (gen_to_proxy_line out_chan) c
 
 and gen_overload out_chan classname message generator =
   let methodParams = get_method_params_list message in
-    match methodParams with
-    | [] -> generator []
-    | _  -> let paramGroups =  gen_param_groups message methodParams in
-              List.iter generator paramGroups
+  match methodParams with
+  | [] -> generator []
+  | _  -> let paramGroups =  gen_param_groups message methodParams in
+    List.iter generator paramGroups
 
 and gen_exposed_method_overloads out_chan cls message =
   let generator = fun x -> gen_exposed_method out_chan cls message x in
@@ -647,7 +647,7 @@ and gen_exposed_method out_chan cls msg curParams =
   let callParams = exposed_call_params msg classname curParams in
   let publishInfo = get_published_info_message msg cls in
   let deprecatedInfo = get_deprecated_info_message msg in
-  let deprecatedAttribute = get_deprecated_attribute msg in 
+  let deprecatedAttribute = get_deprecated_attribute msg in
   let deprecatedInfoString = (if deprecatedInfo = "" then "" else "\n        /// "^deprecatedInfo) in
   let deprecatedAttributeString = (if deprecatedAttribute = "" then "" else "\n        "^deprecatedAttribute) in
   print "
@@ -661,11 +661,11 @@ and gen_exposed_method out_chan cls msg curParams =
     msg.msg_doc (if publishInfo = "" then "" else "\n        /// "^publishInfo)
     deprecatedInfoString
     paramsDoc
-    deprecatedAttributeString 
-    exposed_ret_type  
+    deprecatedAttributeString
+    exposed_ret_type
     msg.msg_name paramSignature
     (convert_from_proxy_opt (sprintf "session.proxy.%s(%s).parse()" proxyMsgName callParams) msg.msg_result);
-  if msg.msg_async then 
+  if msg.msg_async then
     print "
         /// <summary>
         /// %s%s%s
@@ -683,24 +683,24 @@ and gen_exposed_method out_chan cls msg curParams =
 
 and returns_xenobject msg =
   match msg.msg_result with
-    |  Some (Record r, _) -> true
-    |  _ -> false
+  |  Some (Record r, _) -> true
+  |  _ -> false
 
 and get_params_doc msg classname params =
   let sessionDoc = "\n        /// <param name=\"session\">The session</param>" in
   let refDoc =  if is_method_static msg then ""
-                else if (msg.msg_name = "get_by_permission") then
-                  sprintf "\n        /// <param name=\"_%s\">The opaque_ref of the given permission</param>" (String.lowercase classname)
-                else if (msg.msg_name = "revert") then
-                  sprintf "\n        /// <param name=\"_%s\">The opaque_ref of the given snapshotted state</param>" (String.lowercase classname)
-                else sprintf "\n        /// <param name=\"_%s\">The opaque_ref of the given %s</param>"
-                     (String.lowercase classname) (String.lowercase classname) in
+    else if (msg.msg_name = "get_by_permission") then
+      sprintf "\n        /// <param name=\"_%s\">The opaque_ref of the given permission</param>" (String.lowercase classname)
+    else if (msg.msg_name = "revert") then
+      sprintf "\n        /// <param name=\"_%s\">The opaque_ref of the given snapshotted state</param>" (String.lowercase classname)
+    else sprintf "\n        /// <param name=\"_%s\">The opaque_ref of the given %s</param>"
+        (String.lowercase classname) (String.lowercase classname) in
   String.concat "" (sessionDoc::(refDoc::(List.map (fun x -> get_param_doc msg x) params)))
 
 and get_param_doc msg x =
   let publishInfo = get_published_info_param msg x in
-    sprintf "\n        /// <param name=\"_%s\">%s%s</param>" (String.lowercase x.param_name) x.param_doc
-      (if publishInfo = "" then "" else " "^publishInfo)
+  sprintf "\n        /// <param name=\"_%s\">%s%s</param>" (String.lowercase x.param_name) x.param_doc
+    (if publishInfo = "" then "" else " "^publishInfo)
 
 and exposed_params message classname params =
   let exposedParams = List.map exposed_param params in
@@ -709,7 +709,7 @@ and exposed_params message classname params =
   String.concat ", " ("Session session"::exposedParams)
 
 and exposed_param p =
-      sprintf "%s _%s" (internal_type p.param_type) (String.lowercase p.param_name)
+  sprintf "%s _%s" (internal_type p.param_type) (String.lowercase p.param_name)
 
 and exposed_call_params message classname params =
   let exposedParams = List.map exposed_call_param params in
@@ -731,21 +731,21 @@ and gen_save_changes out_chan exposed_class_name messages contents =
   let length = List.length fields2 + List.length readonlyFieldsWithSetters in
   let print format = fprintf out_chan format in
   if length == 0 then
-    print 
-"              throw new InvalidOperationException(\"This type has no read/write properties\");"
-  else 
-    (List.iter (gen_save_changes_to_field out_chan exposed_class_name) fields2;
-    (* Generate calls to any set_ methods *)
-     List.iter (gen_save_changes_to_field out_chan exposed_class_name) readonlyFieldsWithSetters;
     print
-"
+      "              throw new InvalidOperationException(\"This type has no read/write properties\");"
+  else
+    (List.iter (gen_save_changes_to_field out_chan exposed_class_name) fields2;
+     (* Generate calls to any set_ methods *)
+     List.iter (gen_save_changes_to_field out_chan exposed_class_name) readonlyFieldsWithSetters;
+     print
+       "
                 return null;";)
 
 
 and flatten_content content =
   match content with
-      Field fr -> [ fr ]
-    | Namespace (_, c) -> List.flatten (List.map flatten_content c)
+    Field fr -> [ fr ]
+  | Namespace (_, c) -> List.flatten (List.map flatten_content c)
 
 
 and gen_save_changes_to_field out_chan exposed_class_name fr =
@@ -755,8 +755,8 @@ and gen_save_changes_to_field out_chan exposed_class_name fr =
     (* Use AreEqual2 - see CA-19220 *)
     sprintf "Helper.AreEqual2(_%s, server._%s)" full_name_fr full_name_fr
   in
-    print
-"                if (!%s)
+  print
+    "                if (!%s)
                 {
                     %s.set_%s(session, opaqueRef, _%s);
                 }
@@ -772,24 +772,24 @@ and ctor_call classname =
 
 and gen_exposed_field out_chan cls content =
   match content with
-    | Field fr ->
-        let print format = fprintf out_chan format in
-        let full_name_fr = full_name fr in
-        let comp = sprintf "!Helper.AreEqual(value, _%s)" full_name_fr in
-        let publishInfo = get_published_info_field fr cls in
-        
-          print "
+  | Field fr ->
+    let print format = fprintf out_chan format in
+    let full_name_fr = full_name fr in
+    let comp = sprintf "!Helper.AreEqual(value, _%s)" full_name_fr in
+    let publishInfo = get_published_info_field fr cls in
+
+    print "
         /// <summary>
         /// %s%s
         /// </summary>
         public virtual %s %s
         {
             get { return _%s; }" fr.field_description
-  (if publishInfo = "" then "" else "\n        /// "^publishInfo) 
-  (exposed_type fr.ty) full_name_fr full_name_fr;
+      (if publishInfo = "" then "" else "\n        /// "^publishInfo)
+      (exposed_type fr.ty) full_name_fr full_name_fr;
 
-              print
-"
+    print
+      "
             set
             {
                 if (%s)
@@ -801,24 +801,24 @@ and gen_exposed_field out_chan cls content =
             }
         }" comp full_name_fr full_name_fr;
 
-              print "
+    print "
         private %s _%s;\n" (exposed_type fr.ty) full_name_fr
 
-	  | Namespace (_, c) -> List.iter (gen_exposed_field out_chan cls) c
+  | Namespace (_, c) -> List.iter (gen_exposed_field out_chan cls) c
 
 (* ------------------- category: proxy classes *)
 
 and gen_proxy() =
   let out_chan = open_out (Filename.concat destdir "Proxy.cs")
   in
-    finally (fun () -> gen_proxy' out_chan)
-            (fun () -> close_out out_chan)
+  finally (fun () -> gen_proxy' out_chan)
+    (fun () -> close_out out_chan)
 
 
 and gen_proxy' out_chan =
   let print format = fprintf out_chan format in
 
-(* NB the Event methods below must be manually written out since the class is hand-written not autogenerated *)
+  (* NB the Event methods below must be manually written out since the class is hand-written not autogenerated *)
   print "%s
 
 using System;
@@ -868,14 +868,14 @@ namespace XenAPI
   List.iter
     (fun x -> if proxy_generated x then gen_proxy_for_class out_chan x) classes;
   print
-"    }
+    "    }
 
 ";
 
   List.iter (fun x -> if proxy_generated x then gen_proxyclass out_chan x) classes;
 
   print
-"}
+    "}
 "
 
 
@@ -900,8 +900,8 @@ and gen_proxy_method out_chan classname message params =
         Response<%s>
         %s(%s);
 " classname message.msg_name
-  proxy_ret_type 
-  proxy_msg_name proxyParams;
+    proxy_ret_type
+    proxy_msg_name proxyParams;
 
   if message.msg_async then
     print "
@@ -909,7 +909,7 @@ and gen_proxy_method out_chan classname message params =
         Response<string>
         async_%s(%s);
 " classname message.msg_name
-  proxy_msg_name proxyParams;
+      proxy_msg_name proxyParams;
 
 
 and proxy_params message classname params =
@@ -925,35 +925,35 @@ and proxy_param p =
 
 and ctor_fields fields =
   List.filter (function { DT.qualifier = (DT.StaticRO | DT.RW) } -> true | _ -> false) fields
-    
+
 
 and gen_proxyclass out_chan {name=classname; contents=contents} =
   let print format = fprintf out_chan format in
 
   print
-"    [XmlRpcMissingMapping(MappingAction.Ignore)]
+    "    [XmlRpcMissingMapping(MappingAction.Ignore)]
     public class Proxy_%s
     {
 " (exposed_class_name classname);
 
   List.iter (gen_proxy_field out_chan) contents;
 
-print
-"    }
+  print
+    "    }
 
 "
 
 
 and gen_proxy_field out_chan content =
   match content with
-      Field fr ->
-        let print format = fprintf out_chan format in
+    Field fr ->
+    let print format = fprintf out_chan format in
 
-          print
-"        public %s %s;
+    print
+      "        public %s %s;
 " (proxy_type fr.ty) (full_name fr)
 
-    | Namespace (_, c) -> List.iter (gen_proxy_field out_chan) c
+  | Namespace (_, c) -> List.iter (gen_proxy_field out_chan) c
 
 
 (* ------------------- category: enums *)
@@ -961,12 +961,12 @@ and gen_proxy_field out_chan content =
 
 and gen_enum = function
   | Enum(name, contents) ->
-      if not (List.mem name !api_members) then
-        api_members := name::!api_members;
-      let out_chan = open_out (Filename.concat destdir (name ^ ".cs"))
-      in
-        finally (fun () -> gen_enum' name contents out_chan)
-                (fun () -> close_out out_chan)
+    if not (List.mem name !api_members) then
+      api_members := name::!api_members;
+    let out_chan = open_out (Filename.concat destdir (name ^ ".cs"))
+    in
+    finally (fun () -> gen_enum' name contents out_chan)
+      (fun () -> close_out out_chan)
   | _ -> assert false
 
 
@@ -1002,8 +1002,8 @@ namespace XenAPI
 " name name;
 
   List.iter (fun (wire, _) ->
-    print "                case %s.%s:\n                    return \"%s\";\n" name (enum_of_wire wire) wire
-  ) contents;
+      print "                case %s.%s:\n                    return \"%s\";\n" name (enum_of_wire wire) wire
+    ) contents;
 
   print "                default:
                     return \"unknown\";
@@ -1023,7 +1023,7 @@ and has_unknown_entry contents =
     | x :: xs -> if String.lowercase (fst x) = "unknown" then true else f xs
     | []      -> false
   in
-    f contents
+  f contents
 
 
 (* ------------------- category: maps *)
@@ -1033,7 +1033,7 @@ and gen_maps() =
   let out_chan = open_out (Filename.concat destdir "Maps.cs")
   in
   finally (fun () -> gen_maps' out_chan)
-          (fun () -> close_out out_chan)
+    (fun () -> close_out out_chan)
 
 
 and gen_maps' out_chan =
@@ -1054,21 +1054,21 @@ namespace XenAPI
 
   TypeSet.iter (gen_map_conversion out_chan) !maps;
 
-print "
+  print "
     }
 }
 "
 
 and gen_map_conversion out_chan = function
     Map(l, r) ->
-      let print format = fprintf out_chan format in
-      let el = exposed_type l in
-      let el_literal = exposed_type_as_literal l in
-      let er = exposed_type r in
-      let er_literal = exposed_type_as_literal r in
+    let print format = fprintf out_chan format in
+    let el = exposed_type l in
+    let el_literal = exposed_type_as_literal l in
+    let er = exposed_type r in
+    let er_literal = exposed_type_as_literal r in
 
-      print
-"        internal static Dictionary<%s, %s>
+    print
+      "        internal static Dictionary<%s, %s>
         convert_from_proxy_%s_%s(Object o)
         {
             Hashtable table = (Hashtable)o;
@@ -1116,13 +1116,13 @@ and gen_map_conversion out_chan = function
         }
 
 " el er (sanitise_function_name el_literal) (sanitise_function_name er_literal)
-  el er el er
-  el (convert_from_proxy_never_null_string "key" l)
-  er (convert_from_proxy_hashtable_value "table[key]" r)
-  (sanitise_function_name el_literal) (sanitise_function_name er_literal) el er el
-  (proxy_type l) (convert_to_proxy "key" l)
-  (proxy_type r) (convert_to_proxy "table[key]" r)
-(***)
+      el er el er
+      el (convert_from_proxy_never_null_string "key" l)
+      er (convert_from_proxy_hashtable_value "table[key]" r)
+      (sanitise_function_name el_literal) (sanitise_function_name er_literal) el er el
+      (proxy_type l) (convert_to_proxy "key" l)
+      (proxy_type r) (convert_to_proxy "table[key]" r)
+  (***)
 
   | _ -> assert false
 
@@ -1161,12 +1161,12 @@ and exposed_type = function
   | Ref name                -> sprintf "XenRef<%s>" (exposed_class_name name)
   | Set(Ref name)           -> sprintf "List<XenRef<%s>>" (exposed_class_name name)
   | Set(Enum(name, _) as x) -> enums := TypeSet.add x !enums;
-                               sprintf "List<%s>" name
+    sprintf "List<%s>" name
   | Set(Int)                -> "long[]"
   | Set(String)             -> "string[]"
   | Enum(name, _) as x      -> enums := TypeSet.add x !enums; name
   | Map(u, v)               -> sprintf "Dictionary<%s, %s>" (exposed_type u)
-                                                            (exposed_type v)
+                                 (exposed_type v)
   | Record name             -> exposed_class_name name
   | Set(Record name)        -> sprintf "List<%s>" (exposed_class_name name)
   | _                       -> assert false
@@ -1211,36 +1211,36 @@ and convert_from_proxy_never_null_string thing ty = (* for when 'thing' is never
 
 and convert_from_hashtable fname ty =
   let field = sprintf "\"%s\"" fname in
-    match ty with
-      | DateTime            -> sprintf "Marshalling.ParseDateTime(table, %s)" field
-      | Bool                -> sprintf "Marshalling.ParseBool(table, %s)" field
-      | Float               -> sprintf "Marshalling.ParseDouble(table, %s)" field
-      | Int                 -> sprintf "Marshalling.ParseLong(table, %s)" field
-      | Ref name            -> sprintf "Marshalling.ParseRef<%s>(table, %s)" (exposed_class_name name) field
-      | String              -> sprintf "Marshalling.ParseString(table, %s)" field
-      | Set(String)         -> sprintf "Marshalling.ParseStringArray(table, %s)" field
-      | Set(Ref name)       -> sprintf "Marshalling.ParseSetRef<%s>(table, %s)" (exposed_class_name name) field
-      | Set(Enum(name, _))  -> sprintf "Helper.StringArrayToEnumList<%s>(Marshalling.ParseStringArray(table, %s))" name field
-      | Enum(name, _)       -> sprintf "(%s)Helper.EnumParseDefault(typeof(%s), Marshalling.ParseString(table, %s))" name name field
-      | Map(Ref name, Record _) -> sprintf "Marshalling.ParseMapRefRecord<%s, Proxy_%s>(table, %s)" (exposed_class_name name) (exposed_class_name name) field
-      | Map(u, v) as x      ->
-          maps := TypeSet.add x !maps;
-           sprintf "%s(Marshalling.ParseHashTable(table, %s))"
-	         (sanitise_function_name (sprintf "Maps.convert_from_proxy_%s_%s" (exposed_type_as_literal u) (exposed_type_as_literal v))) field
-      | Record name         -> 
-          sprintf "new %s((Proxy_%s)table[%s])"
-            (exposed_class_name name) (exposed_class_name name) field
-      | Set(Record name)    -> 
-          sprintf "Helper.Proxy_%sArrayTo%sList(Marshalling.ParseStringArray(%s))"
-            (exposed_class_name name) (exposed_class_name name) field
-      | Set(Int)            -> sprintf "Marshalling.ParseLongArray(table, %s)" field
-      | _                   -> assert false 
+  match ty with
+  | DateTime            -> sprintf "Marshalling.ParseDateTime(table, %s)" field
+  | Bool                -> sprintf "Marshalling.ParseBool(table, %s)" field
+  | Float               -> sprintf "Marshalling.ParseDouble(table, %s)" field
+  | Int                 -> sprintf "Marshalling.ParseLong(table, %s)" field
+  | Ref name            -> sprintf "Marshalling.ParseRef<%s>(table, %s)" (exposed_class_name name) field
+  | String              -> sprintf "Marshalling.ParseString(table, %s)" field
+  | Set(String)         -> sprintf "Marshalling.ParseStringArray(table, %s)" field
+  | Set(Ref name)       -> sprintf "Marshalling.ParseSetRef<%s>(table, %s)" (exposed_class_name name) field
+  | Set(Enum(name, _))  -> sprintf "Helper.StringArrayToEnumList<%s>(Marshalling.ParseStringArray(table, %s))" name field
+  | Enum(name, _)       -> sprintf "(%s)Helper.EnumParseDefault(typeof(%s), Marshalling.ParseString(table, %s))" name name field
+  | Map(Ref name, Record _) -> sprintf "Marshalling.ParseMapRefRecord<%s, Proxy_%s>(table, %s)" (exposed_class_name name) (exposed_class_name name) field
+  | Map(u, v) as x      ->
+    maps := TypeSet.add x !maps;
+    sprintf "%s(Marshalling.ParseHashTable(table, %s))"
+      (sanitise_function_name (sprintf "Maps.convert_from_proxy_%s_%s" (exposed_type_as_literal u) (exposed_type_as_literal v))) field
+  | Record name         ->
+    sprintf "new %s((Proxy_%s)table[%s])"
+      (exposed_class_name name) (exposed_class_name name) field
+  | Set(Record name)    ->
+    sprintf "Helper.Proxy_%sArrayTo%sList(Marshalling.ParseStringArray(%s))"
+      (exposed_class_name name) (exposed_class_name name) field
+  | Set(Int)            -> sprintf "Marshalling.ParseLongArray(table, %s)" field
+  | _                   -> assert false
 
 and sanitise_function_name name =
   String.implode (List.filter (fun c -> c<>'>' && c<>'<' && c<>',' && c<>' ') (String.explode name))
 
 and simple_convert_from_proxy thing ty =
-   match ty with
+  match ty with
   | DateTime            -> thing
   | Int                 -> sprintf "long.Parse((string)%s)" thing
   | Bool                -> sprintf "(bool)%s" thing
@@ -1248,30 +1248,30 @@ and simple_convert_from_proxy thing ty =
   | Ref name            -> sprintf "XenRef<%s>.Create(%s)" (exposed_class_name name) thing
   | String              -> sprintf "(string)%s" thing
   | Set(String)         -> sprintf "(string [])%s" thing
-  | Set(Ref name)       -> sprintf "XenRef<%s>.Create(%s)" (exposed_class_name name) thing 
+  | Set(Ref name)       -> sprintf "XenRef<%s>.Create(%s)" (exposed_class_name name) thing
   | Set(Enum(name, _))  -> sprintf "Helper.StringArrayToEnumList<%s>(%s)" name thing
   | Enum(name, _)       -> sprintf "(%s)Helper.EnumParseDefault(typeof(%s), (string)%s)" name name thing
   | Map(Ref name, Record _) -> sprintf "XenRef<%s>.Create<Proxy_%s>(%s)" (exposed_class_name name) (exposed_class_name name) thing
-  | Map(u, v) as x      -> 
-      maps := TypeSet.add x !maps;
-      sprintf "%s(%s)"
+  | Map(u, v) as x      ->
+    maps := TypeSet.add x !maps;
+    sprintf "%s(%s)"
       (sanitise_function_name (sprintf "Maps.convert_from_proxy_%s_%s" (exposed_type_as_literal u) (exposed_type_as_literal v))) thing
-  | Record name         -> 
-      sprintf "new %s((Proxy_%s)%s)"
+  | Record name         ->
+    sprintf "new %s((Proxy_%s)%s)"
       (exposed_class_name name) (exposed_class_name name) thing
-  | Set(Record name)    -> 
-      sprintf "Helper.Proxy_%sArrayTo%sList(%s)" 
+  | Set(Record name)    ->
+    sprintf "Helper.Proxy_%sArrayTo%sList(%s)"
       (exposed_class_name name) (exposed_class_name name) thing
   | Set(Int)            ->
-      sprintf "Helper.StringArrayToLongArray(%s)" thing
-  | _                   -> assert false 
+    sprintf "Helper.StringArrayToLongArray(%s)" thing
+  | _                   -> assert false
 
 
 and convert_to_proxy thing ty = (*function*)
   match ty with
   | DateTime            -> thing
   | Int                 -> sprintf "%s.ToString()" thing
-  | Bool                
+  | Bool
   | Float               -> thing
   | Ref _               -> sprintf "(%s != null) ? %s : \"\"" thing thing
   | String              -> sprintf "(%s != null) ? %s : \"\"" thing thing
@@ -1281,8 +1281,8 @@ and convert_to_proxy thing ty = (*function*)
   | Set (Int) -> sprintf "(%s != null) ? Helper.LongArrayToStringArray(%s) : new string[] {}" thing thing
   | Set(Enum(_, _))  -> sprintf "(%s != null) ? Helper.ObjectListToStringArray(%s) : new string[] {}" thing thing
   | Map(u, v) as x      -> maps := TypeSet.add x !maps;
-                           sprintf "%s(%s)"
-                           (sanitise_function_name (sprintf "Maps.convert_to_proxy_%s_%s" (exposed_type_as_literal u) (exposed_type_as_literal v))) thing
+    sprintf "%s(%s)"
+      (sanitise_function_name (sprintf "Maps.convert_to_proxy_%s_%s" (exposed_type_as_literal u) (exposed_type_as_literal v))) thing
   | Record name         -> sprintf "%s.ToProxy()" thing
 
   | _                   -> assert false
@@ -1310,33 +1310,33 @@ and full_description field =
 
 and is_readonly field =
   match field.qualifier with
-      RW   -> "false"
-    | _    -> "true"
+    RW   -> "false"
+  | _    -> "true"
 
 
 and is_static_readonly field =
   match field.qualifier with
-      StaticRO     -> "true"
-    | DynamicRO    -> "false"
-    | _            -> "false"
+    StaticRO     -> "true"
+  | DynamicRO    -> "false"
+  | _            -> "false"
 
 and i18n_header out_chan =
   let print format = fprintf out_chan format in
-    print
-"<?xml version=\"1.0\" encoding=\"utf-8\"?>
+  print
+    "<?xml version=\"1.0\" encoding=\"utf-8\"?>
 <root>
-  <!-- 
-    Microsoft ResX Schema 
-    
+  <!--
+    Microsoft ResX Schema
+
     Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
+
+    The primary goals of this format is to allow a simple XML format
+    that is mostly human readable. The generation and parsing of the
+    various data types are done through the TypeConverter classes
     associated with the data types.
-    
+
     Example:
-    
+
     ... ado.net/XML headers & schema ...
     <resheader name=\"resmimetype\">text/microsoft-resx</resheader>
     <resheader name=\"version\">2.0</resheader>
@@ -1351,36 +1351,36 @@ and i18n_header out_chan =
         <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
         <comment>This is a comment</comment>
     </data>
-                
-    There are any number of \"resheader\" rows that contain simple 
+
+    There are any number of \"resheader\" rows that contain simple
     name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
+
+    Each data row contains a name, and value. The row also contains a
+    type or mimetype. Type corresponds to a .NET class that support
+    text/value conversion through the TypeConverter architecture.
+    Classes that don't support this are serialized and stored with the
     mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
+
+    The mimetype is used for serialized objects, and tells the
+    ResXResourceReader how to depersist the object. This is currently not
     extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
+
+    Note - application/x-microsoft.net.object.binary.base64 is the format
+    that the ResXResourceWriter will generate, however the reader can
     read any of the formats listed below.
-    
+
     mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
             : and then encoded with base64 encoding.
-    
+
     mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
+    value   : The object must be serialized with
             : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
             : and then encoded with base64 encoding.
 
     mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
+    value   : The object must be serialized into a byte array
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
@@ -1445,30 +1445,30 @@ and i18n_header out_chan =
 "
 and i18n_footer out_chan =
   let print format = fprintf out_chan format in
-    print
-"</root>\n"
+  print
+    "</root>\n"
 and gen_i18n_errors () =
   Friendly_error_names.parse_sr_xml sr_xml;
   Friendly_error_names.parse_resx resx_file;
   let out_chan = open_out (Filename.concat destdir "FriendlyErrorNames.resx")
   in
-    finally (fun () ->
-               i18n_header out_chan;
-               List.iter (gen_i18n_error_field out_chan)
-                 (Friendly_error_names.friendly_names_all Datamodel.errors);
-               i18n_footer out_chan)
-            (fun () -> close_out out_chan)
+  finally (fun () ->
+      i18n_header out_chan;
+      List.iter (gen_i18n_error_field out_chan)
+        (Friendly_error_names.friendly_names_all Datamodel.errors);
+      i18n_footer out_chan)
+    (fun () -> close_out out_chan)
 
 
 and gen_i18n_error_field out_chan (error, desc) =
   let print format = fprintf out_chan format in
-    (* Note that we can't use Xml.to_string for the whole block, because
-       we need the output to be whitespace-identical to what Visual Studio
-       would produce.  We need to use it for the inner <value> though, to
-       get the escaping right. *)
-    print "  <data name=\"%s\" xml:space=\"preserve\">\n    %s\n  </data>\n"
-      error
-      (Xml.to_string (Xml.Element("value", [], [(Xml.PCData desc)])))
+  (* Note that we can't use Xml.to_string for the whole block, because
+     we need the output to be whitespace-identical to what Visual Studio
+     would produce.  We need to use it for the inner <value> though, to
+     get the escaping right. *)
+  print "  <data name=\"%s\" xml:space=\"preserve\">\n    %s\n  </data>\n"
+    error
+    (Xml.to_string (Xml.Element("value", [], [(Xml.PCData desc)])))
 
 let populate_releases ()=
   render_file ("ApiVersion.mustache", "ApiVersion.cs") json_releases templdir destdir

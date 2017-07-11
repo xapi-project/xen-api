@@ -1,19 +1,19 @@
 (*
  * Copyright (c) Citrix Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -60,26 +60,26 @@ let destdir = Filename.concat !destdir' "com/xensource/xenapi"
 let templdir = !templdir'
 
 (*Filter out all the bits of the data model we don't want to put in the api.
-For instance we don't want the things which are marked internal only, or the 
-ones marked hide_from_docs*)
+  For instance we don't want the things which are marked internal only, or the
+  ones marked hide_from_docs*)
 let api =
-	Datamodel_utils.named_self := true;
+  Datamodel_utils.named_self := true;
 
-	let obj_filter _ = true in
-	let field_filter field =
-		(not field.internal_only) &&
-		((not open_source && (List.mem "closed" field.release.internal)) ||
-		(open_source && (List.mem "3.0.3" field.release.opensource)))
-	in
-	let message_filter msg = 
-		Datamodel_utils.on_client_side msg &&
-		(not msg.msg_hide_from_docs) &&
-		((not open_source && (List.mem "closed" msg.msg_release.internal)) ||
-		(open_source && (List.mem "3.0.3" msg.msg_release.opensource)))
-	in
-	filter obj_filter field_filter message_filter
-		(Datamodel_utils.add_implicit_messages ~document_order:false
-			(filter obj_filter field_filter message_filter Datamodel.all_api))
+  let obj_filter _ = true in
+  let field_filter field =
+    (not field.internal_only) &&
+    ((not open_source && (List.mem "closed" field.release.internal)) ||
+     (open_source && (List.mem "3.0.3" field.release.opensource)))
+  in
+  let message_filter msg =
+    Datamodel_utils.on_client_side msg &&
+    (not msg.msg_hide_from_docs) &&
+    ((not open_source && (List.mem "closed" msg.msg_release.internal)) ||
+     (open_source && (List.mem "3.0.3" msg.msg_release.opensource)))
+  in
+  filter obj_filter field_filter message_filter
+    (Datamodel_utils.add_implicit_messages ~document_order:false
+       (filter obj_filter field_filter message_filter Datamodel.all_api))
 
 (*Here we extract a list of objs (look in datamodel_types.ml for the structure definitions)*)
 let classes = objects_of_api api
@@ -102,7 +102,7 @@ let reserved_words = function
 let enum_of_wire x = global_replace (regexp_string "-") "_" (String.uppercase x)
 
 let second_character_is_uppercase s =
-  if (String.length s < 2) 
+  if (String.length s < 2)
   then false
   else let second_char = String.sub s 1 1 in
     (second_char = String.uppercase second_char);;
@@ -112,34 +112,34 @@ let transform s =
   then s
   else String.capitalize (reserved_words (String.uncapitalize s));;
 
-let class_case x = 
-  String.concat "" 
+let class_case x =
+  String.concat ""
     (List.map transform (String.split '_' x));;
 
 let keywords = [ "public", "_public" ]
 
 let keyword_map s =
-	if List.mem_assoc s keywords then List.assoc s keywords else s
+  if List.mem_assoc s keywords then List.assoc s keywords else s
 
-let camel_case s = 
+let camel_case s =
   let ss = String.split '_' s in
   let ss' = List.map transform ss in
   let result = match ss' with
     | [] -> ""
-    | h::tl -> 
-        let h' = if String.length h > 1
+    | h::tl ->
+      let h' = if String.length h > 1
         then
           let sndchar = String.sub h 1 1 in
-            if sndchar = String.uppercase sndchar 
-            then h
-            else String.uncapitalize h
+          if sndchar = String.uppercase sndchar
+          then h
+          else String.uncapitalize h
         else String.uncapitalize h in
-          h' ^ (String.concat "" tl)
+      h' ^ (String.concat "" tl)
   in
   keyword_map result
 
-let exception_class_case x = 
-  String.concat "" 
+let exception_class_case x =
+  String.concat ""
     (List.map (fun s -> String.capitalize (String.lowercase s)) (String.split '_' x))
 
 
@@ -155,7 +155,7 @@ let records = Hashtbl.create 10
 (*We want an empty mutable set to keep the types in.*)
 module Ty = struct
   type t = DT.ty
-  let compare = compare 
+  let compare = compare
 end
 
 module TypeSet = Set.Make(Ty)
@@ -163,7 +163,7 @@ module TypeSet = Set.Make(Ty)
 let types = ref TypeSet.empty
 
 (* Helper functions for types *)
-let rec get_java_type ty = 
+let rec get_java_type ty =
   types := TypeSet.add ty !types;
   match ty with
   | String        -> "String"
@@ -222,32 +222,32 @@ let get_method_deprecated_string message =
   if get_method_deprecated message  then "@Deprecated"
   else "";;
 
-let get_method_param {param_type=ty; param_name=name} = 
+let get_method_param {param_type=ty; param_name=name} =
   let ty = get_java_type ty in
   let name = camel_case name in
   sprintf "%s %s" ty name
 
 let get_method_params_for_signature params =
-   (String.concat ", " ("Connection c" :: (List.map get_method_param params)))
+  (String.concat ", " ("Connection c" :: (List.map get_method_param params)))
 
 let get_method_params_for_xml message params=
   let f = function
     | {param_type=Record _; param_name=name} -> (camel_case name) ^ "_map"
     | {param_name=name}                      -> camel_case name in
   match params with
-    | [] -> if is_method_static message then []
-            else ["this.ref"]
-    | _  -> if is_method_static message then List.map f params
-            else "this.ref"::(List.map f params)
+  | [] -> if is_method_static message then []
+    else ["this.ref"]
+  | _  -> if is_method_static message then List.map f params
+    else "this.ref"::(List.map f params)
 
 let gen_method_return_cast message =  match message.msg_result with
-  | None         -> sprintf ""  	
+  | None         -> sprintf ""
   | Some (ty, _) -> sprintf " Types.%s(result)" (get_marshall_function ty);;
 
 let gen_method_return file cls message =
-	if (String.lowercase cls.name) = "event" && (String.lowercase message.msg_name) = "from" then
-	  fprintf file "            return Types.toEventBatch(result);\n"
-	else
+  if (String.lowercase cls.name) = "event" && (String.lowercase message.msg_name) = "from" then
+    fprintf file "            return Types.toEventBatch(result);\n"
+  else
     fprintf file "            return%s;\n" (gen_method_return_cast message)
 
 let rec range = function
@@ -259,75 +259,75 @@ let rec range = function
 let gen_method file cls message params async_version =
   let deprecated_string = get_method_deprecated_string message in
   let return_type = if (String.lowercase cls.name) = "event" && (String.lowercase message.msg_name) = "from" then "EventBatch"
-		                else get_java_type_or_void message.msg_result in
+    else get_java_type_or_void message.msg_result in
   let method_static =  if is_method_static message then "static " else "" in
   let method_name = camel_case message.msg_name in
   let paramString = get_method_params_for_signature params in
   let default_errors = ["BadServerResponse";
                         "XenAPIException";
                         "XmlRpcException"] in
-  let err_string = String.concat ",\n       " (default_errors @ (List.map 
-								   (fun err -> "Types." ^ (exception_class_case err.err_name)) message.msg_errors)) in
-	let publishInfo = get_published_info_message message cls in
+  let err_string = String.concat ",\n       " (default_errors @ (List.map
+                                                                   (fun err -> "Types." ^ (exception_class_case err.err_name)) message.msg_errors)) in
+  let publishInfo = get_published_info_message message cls in
 
-    fprintf file "    /**\n";
-    fprintf file "     * %s\n" message.msg_doc;
-		if not (publishInfo = "") then fprintf file "     * %s\n" publishInfo;
-    if (get_method_deprecated message) then fprintf file "     * @deprecated\n";
-    fprintf file "     *\n";
+  fprintf file "    /**\n";
+  fprintf file "     * %s\n" message.msg_doc;
+  if not (publishInfo = "") then fprintf file "     * %s\n" publishInfo;
+  if (get_method_deprecated message) then fprintf file "     * @deprecated\n";
+  fprintf file "     *\n";
 
-    List.iter (fun x -> let paramPublishInfo = get_published_info_param message x in
-		                    fprintf file "     * @param %s %s%s\n"
-												  (camel_case x.param_name)
-                          x.param_doc
-													(if paramPublishInfo = "" then "" else " "^paramPublishInfo))
-							params;
+  List.iter (fun x -> let paramPublishInfo = get_published_info_param message x in
+              fprintf file "     * @param %s %s%s\n"
+                (camel_case x.param_name)
+                x.param_doc
+                (if paramPublishInfo = "" then "" else " "^paramPublishInfo))
+    params;
 
-    if async_version then
-      fprintf file "     * @return Task\n"
+  if async_version then
+    fprintf file "     * @return Task\n"
+  else
+    (match message.msg_result with
+     | None           -> ()
+     | Some (_, desc) -> fprintf file "     * @return %s\n" desc);
+
+  fprintf file "     */\n";
+
+  if async_version then
+    fprintf file "   %s public %sTask %sAsync(%s) throws\n" deprecated_string method_static method_name paramString
+  else
+    fprintf file "   %s public %s%s %s(%s) throws\n"   deprecated_string method_static return_type method_name  paramString;
+
+  fprintf file "       %s {\n" err_string;
+
+  if async_version then
+    fprintf file "        String method_call = \"Async.%s.%s\";\n" message.msg_obj_name message.msg_name
+  else
+    fprintf file "        String method_call = \"%s.%s\";\n" message.msg_obj_name message.msg_name;
+
+  if message.msg_session then
+    fprintf file "        String session = c.getSessionReference();\n"
+  else ();
+
+  let record_params = List.filter (function {param_type=Record _} -> true | _ -> false) message.msg_params in
+
+  List.iter
+    (fun {param_name=s} ->
+       let name = camel_case s in
+       fprintf file "        Map<String, Object> %s_map = %s.toMap();\n" name name)
+    record_params;
+
+  fprintf file "        Object[] method_params = {";
+
+  let methodParamsList = if message.msg_session then
+      "session"::(get_method_params_for_xml message params)
     else
-      (match message.msg_result with
-			| None           -> ()
-	    | Some (_, desc) -> fprintf file "     * @return %s\n" desc);
-    
-    fprintf file "     */\n";
+      (get_method_params_for_xml message params) in
 
-    if async_version then 
-      fprintf file "   %s public %sTask %sAsync(%s) throws\n" deprecated_string method_static method_name paramString
-    else 
-      fprintf file "   %s public %s%s %s(%s) throws\n"   deprecated_string method_static return_type method_name  paramString;     
-
-    fprintf file "       %s {\n" err_string;
-
-    if async_version then
-      fprintf file "        String method_call = \"Async.%s.%s\";\n" message.msg_obj_name message.msg_name
-    else
-      fprintf file "        String method_call = \"%s.%s\";\n" message.msg_obj_name message.msg_name;
-
-    if message.msg_session then
-			fprintf file "        String session = c.getSessionReference();\n"
-		else ();
-
-    let record_params = List.filter (function {param_type=Record _} -> true | _ -> false) message.msg_params in
-
-      List.iter 
-	     (fun {param_name=s} -> 
-	        let name = camel_case s in
-            fprintf file "        Map<String, Object> %s_map = %s.toMap();\n" name name) 
-	     record_params;
-
-      fprintf file "        Object[] method_params = {";
-
-    let methodParamsList = if message.msg_session then
-			                       "session"::(get_method_params_for_xml message params) 
-                           else
-														 (get_method_params_for_xml message params) in
-
-	output_string file (String.concat ", " (List.map (fun s -> sprintf "Marshalling.toXMLRPC(%s)" s) methodParamsList));
+  output_string file (String.concat ", " (List.map (fun s -> sprintf "Marshalling.toXMLRPC(%s)" s) methodParamsList));
 
 
-	fprintf file "};\n";
-	fprintf file "        Map response = c.dispatch(method_call, method_params);\n";
+  fprintf file "};\n";
+  fprintf file "        Map response = c.dispatch(method_call, method_params);\n";
 
   if async_version then (
     fprintf file "        Object result = response.get(\"Value\");\n";
@@ -336,22 +336,22 @@ let gen_method file cls message params async_version =
     match message.msg_result with
     | None   -> fprintf file "        return;\n"
     | Some _ -> fprintf file "        Object result = response.get(\"Value\");\n";
-                gen_method_return file cls message
+      gen_method_return file cls message
   );
 
-	fprintf file "    }\n\n"
+  fprintf file "    }\n\n"
 
 (*Some methods have an almost identical asynchronous counterpart, which returns*)
 (* a Task reference rather than its usual return value*)
 let gen_method_and_asynchronous_counterpart file cls message =
-	let methodParams = get_method_params_list message in
-	let generator = fun x -> (if message.msg_async then gen_method file cls message x true;
+  let methodParams = get_method_params_list message in
+  let generator = fun x -> (if message.msg_async then gen_method file cls message x true;
                             gen_method file cls message x false) in
-	match methodParams with
-	| [] -> generator []
-	| _  -> let paramGroups =  gen_param_groups message methodParams in
-	          List.iter generator paramGroups
-    ;;
+  match methodParams with
+  | [] -> generator []
+  | _  -> let paramGroups =  gen_param_groups message methodParams in
+    List.iter generator paramGroups
+;;
 
 (* Generate the record *)
 
@@ -361,17 +361,17 @@ let gen_method_and_asynchronous_counterpart file cls message =
 (* functions are in fact implemented as three sets of three mutual recursions,*)
 (* which take the trees apart. *)
 
-let gen_record_field file prefix field cls = 
+let gen_record_field file prefix field cls =
   let ty = get_java_type field.ty in
   let name = camel_case (String.concat "_" (List.rev (field.field_name :: prefix))) in
-	let publishInfo = get_published_info_field field cls in
-    fprintf file "        /**\n";
-    fprintf file "         * %s\n" field.field_description;
-    if not (publishInfo = "") then fprintf file "         * %s\n" publishInfo;
-    fprintf file "         */\n";
-    fprintf file "        public %s %s;\n" ty name
+  let publishInfo = get_published_info_field field cls in
+  fprintf file "        /**\n";
+  fprintf file "         * %s\n" field.field_description;
+  if not (publishInfo = "") then fprintf file "         * %s\n" publishInfo;
+  fprintf file "         */\n";
+  fprintf file "        public %s %s;\n" ty name
 
-let rec gen_record_namespace file prefix (name, contents) cls = 
+let rec gen_record_namespace file prefix (name, contents) cls =
   List.iter (gen_record_contents file (name::prefix) cls) contents;
 
 and gen_record_contents file prefix cls = function
@@ -380,13 +380,13 @@ and gen_record_contents file prefix cls = function
 
 (***)
 
-let gen_record_tostring_field file prefix field = 
+let gen_record_tostring_field file prefix field =
   let name = String.concat "_" (List.rev (field.field_name :: prefix)) in
   let name = camel_case name in
-    fprintf file "            print.printf(\"%%1$20s: %%2$s\\n\", \"%s\", this.%s);\n" 
-      name name
+  fprintf file "            print.printf(\"%%1$20s: %%2$s\\n\", \"%s\", this.%s);\n"
+    name name
 
-let rec gen_record_tostring_namespace file prefix (name, contents) = 
+let rec gen_record_tostring_namespace file prefix (name, contents) =
   List.iter (gen_record_tostring_contents file (name::prefix)) contents
 
 and gen_record_tostring_contents file prefix = function
@@ -411,13 +411,13 @@ let field_default = function
   | Record(ty)    -> assert false
 
 
-let gen_record_tomap_field file prefix field = 
+let gen_record_tomap_field file prefix field =
   let name = String.concat "_" (List.rev (field.field_name :: prefix)) in
   let name' = camel_case name in
   let default = field_default field.ty in
-    fprintf file "            map.put(\"%s\", this.%s == null ? %s : this.%s);\n" name name' default name'
+  fprintf file "            map.put(\"%s\", this.%s == null ? %s : this.%s);\n" name name' default name'
 
-let rec gen_record_tomap_namespace file prefix (name, contents) = 
+let rec gen_record_tomap_namespace file prefix (name, contents) =
   List.iter (gen_record_tomap_contents file (name::prefix)) contents
 
 and gen_record_tomap_contents file prefix = function
@@ -431,43 +431,43 @@ let gen_record file cls =
   let class_name = class_case cls.name in
   let _ = Hashtbl.replace records cls.name cls.contents in
   let contents = cls.contents in
-    fprintf file "    /**\n";
-    fprintf file "     * Represents all the fields in a %s\n" class_name;
-    fprintf file "     */\n";
-    fprintf file "    public static class Record implements Types.Record {\n";
-    fprintf file "        public String toString() {\n";
-    fprintf file "            StringWriter writer = new StringWriter();\n";
-    fprintf file "            PrintWriter print = new PrintWriter(writer);\n";
+  fprintf file "    /**\n";
+  fprintf file "     * Represents all the fields in a %s\n" class_name;
+  fprintf file "     */\n";
+  fprintf file "    public static class Record implements Types.Record {\n";
+  fprintf file "        public String toString() {\n";
+  fprintf file "            StringWriter writer = new StringWriter();\n";
+  fprintf file "            PrintWriter print = new PrintWriter(writer);\n";
 
-    List.iter (gen_record_tostring_contents file []) contents;
-    (*for the Event.Record, we have to add in the snapshot field by hand, because it's not in the data model!*)
-    if (cls.name="event") then fprintf file "            print.printf(\"%%1$20s: %%2$s\\n\", \"snapshot\", this.snapshot);\n";
+  List.iter (gen_record_tostring_contents file []) contents;
+  (*for the Event.Record, we have to add in the snapshot field by hand, because it's not in the data model!*)
+  if (cls.name="event") then fprintf file "            print.printf(\"%%1$20s: %%2$s\\n\", \"snapshot\", this.snapshot);\n";
 
-    fprintf file "            return writer.toString();\n";
-    fprintf file "        }\n\n";
-    fprintf file "        /**\n";
-    fprintf file "         * Convert a %s.Record to a Map\n" cls.name;
-    fprintf file "         */\n";
-    fprintf file "        public Map<String,Object> toMap() {\n";
-    fprintf file "            Map<String,Object> map = new HashMap<String,Object>();\n";
+  fprintf file "            return writer.toString();\n";
+  fprintf file "        }\n\n";
+  fprintf file "        /**\n";
+  fprintf file "         * Convert a %s.Record to a Map\n" cls.name;
+  fprintf file "         */\n";
+  fprintf file "        public Map<String,Object> toMap() {\n";
+  fprintf file "            Map<String,Object> map = new HashMap<String,Object>();\n";
 
-    List.iter (gen_record_tomap_contents file []) contents;
-    if (cls.name="event") then fprintf file "            map.put(\"snapshot\", this.snapshot);\n";
+  List.iter (gen_record_tomap_contents file []) contents;
+  if (cls.name="event") then fprintf file "            map.put(\"snapshot\", this.snapshot);\n";
 
-    fprintf file "            return map;\n";
-    fprintf file "        }\n\n"; 
+  fprintf file "            return map;\n";
+  fprintf file "        }\n\n";
 
-    List.iter (gen_record_contents file [] cls) contents;
-    if (cls.name="event") then 
-      begin
-	fprintf file "        /**\n";
-	fprintf file "         * The record of the database object that was added, changed or deleted\n";
-	fprintf file "         * (the actual type will be VM.Record, VBD.Record or similar)\n";
-	fprintf file "         */\n";
-	fprintf file "        public Object snapshot;\n";
-      end;
-    
-    fprintf file "    }\n\n"
+  List.iter (gen_record_contents file [] cls) contents;
+  if (cls.name="event") then
+    begin
+      fprintf file "        /**\n";
+      fprintf file "         * The record of the database object that was added, changed or deleted\n";
+      fprintf file "         * (the actual type will be VM.Record, VBD.Record or similar)\n";
+      fprintf file "         */\n";
+      fprintf file "        public Object snapshot;\n";
+    end;
+
+  fprintf file "    }\n\n"
 
 (* Generate the class *)
 
@@ -478,7 +478,7 @@ let gen_class cls folder =
   let class_name = class_case cls.name in
   let methods = cls.messages in
   let file = open_out (Filename.concat folder class_name ^ ".java") in
-	let publishInfo = get_published_info_class cls in
+  let publishInfo = get_published_info_class cls in
   print_license file;
   fprintf file "package com.xensource.xenapi;
 
@@ -499,7 +499,7 @@ import org.apache.xmlrpc.XmlRpcException;
 ";
   fprintf file "/**\n";
   fprintf file " * %s\n" cls.description;
-	if not (publishInfo = "") then fprintf file " * %s\n" publishInfo;
+  if not (publishInfo = "") then fprintf file " * %s\n" publishInfo;
   fprintf file " *\n";
   fprintf file " * @author Citrix Systems, Inc.\n";
   fprintf file " */\n";
@@ -514,51 +514,51 @@ import org.apache.xmlrpc.XmlRpcException;
 "
   else
     begin
-  fprintf file "    /**\n";
-  fprintf file "     * The XenAPI reference (OpaqueRef) to this object.\n";
-  fprintf file "     */\n";
-  fprintf file "    protected final String ref;\n\n";
-  fprintf file "    /**\n";
-  fprintf file "     * For internal use only.\n";
-  fprintf file "     */\n";
-  fprintf file "    %s(String ref) {\n" class_name;
-  fprintf file "       this.ref = ref;\n";
-  fprintf file "    }\n\n";
-  fprintf file "    /**\n";
-  fprintf file "     * @return The XenAPI reference (OpaqueRef) to this object.\n";
-  fprintf file "     */\n";
-  fprintf file "    public String toWireString() {\n";
-  fprintf file "       return this.ref;\n";
-  fprintf file "    }\n\n";
-   end;
+      fprintf file "    /**\n";
+      fprintf file "     * The XenAPI reference (OpaqueRef) to this object.\n";
+      fprintf file "     */\n";
+      fprintf file "    protected final String ref;\n\n";
+      fprintf file "    /**\n";
+      fprintf file "     * For internal use only.\n";
+      fprintf file "     */\n";
+      fprintf file "    %s(String ref) {\n" class_name;
+      fprintf file "       this.ref = ref;\n";
+      fprintf file "    }\n\n";
+      fprintf file "    /**\n";
+      fprintf file "     * @return The XenAPI reference (OpaqueRef) to this object.\n";
+      fprintf file "     */\n";
+      fprintf file "    public String toWireString() {\n";
+      fprintf file "       return this.ref;\n";
+      fprintf file "    }\n\n";
+    end;
 
   if not (class_is_empty cls) then
     begin
-  fprintf file "    /**\n";
-  fprintf file "     * If obj is a %s, compares XenAPI references for equality.\n" class_name;
-  fprintf file "     */\n";
-  fprintf file "    @Override\n";
-  fprintf file "    public boolean equals(Object obj)\n";
-  fprintf file "    {\n";
-  fprintf file "        if (obj != null && obj instanceof %s)\n" class_name;
-  fprintf file "        {\n";
-  fprintf file "            %s other = (%s) obj;\n" class_name class_name;
-  fprintf file "            return other.ref.equals(this.ref);\n";
-  fprintf file "        } else\n";
-  fprintf file "        {\n";
-  fprintf file "            return false;\n";
-  fprintf file "        }\n";
-  fprintf file "    }\n\n";
-      
-                                        (*hascode*)
-  fprintf file "    @Override\n";
-  fprintf file "    public int hashCode()\n";
-  fprintf file "    {\n";
-  fprintf file "        return ref.hashCode();\n";
-  fprintf file "    }\n\n";
-  flush file;
-  gen_record file cls;
-  flush file;
+      fprintf file "    /**\n";
+      fprintf file "     * If obj is a %s, compares XenAPI references for equality.\n" class_name;
+      fprintf file "     */\n";
+      fprintf file "    @Override\n";
+      fprintf file "    public boolean equals(Object obj)\n";
+      fprintf file "    {\n";
+      fprintf file "        if (obj != null && obj instanceof %s)\n" class_name;
+      fprintf file "        {\n";
+      fprintf file "            %s other = (%s) obj;\n" class_name class_name;
+      fprintf file "            return other.ref.equals(this.ref);\n";
+      fprintf file "        } else\n";
+      fprintf file "        {\n";
+      fprintf file "            return false;\n";
+      fprintf file "        }\n";
+      fprintf file "    }\n\n";
+
+      (*hascode*)
+      fprintf file "    @Override\n";
+      fprintf file "    public int hashCode()\n";
+      fprintf file "    {\n";
+      fprintf file "        return ref.hashCode();\n";
+      fprintf file "    }\n\n";
+      flush file;
+      gen_record file cls;
+      flush file;
     end;
 
   List.iter (gen_method_and_asynchronous_counterpart file cls) methods;
@@ -573,28 +573,28 @@ import org.apache.xmlrpc.XmlRpcException;
 
 (*This generates the special case code for marshalling the snapshot field in an Event.Record*)
 let generate_snapshot_hack file =
-	    fprintf file "\n";
-	    fprintf file "\n";
-	    fprintf file "        Object a,b;\n";
-	    fprintf file "        a=map.get(\"snapshot\");\n";
-	    fprintf file "        switch(%s(record.clazz))\n" (get_marshall_function switch_enum); 
-	    fprintf file "        {\n";
-            List.iter 
-	      (fun x -> 
-		 (fprintf file "                case %17s: b = %25s(a); break;\n" (String.uppercase x) (get_marshall_function(Record(x)))))
-	      (List.map (fun x -> x.name) (List.filter (fun x -> not (class_is_empty x)) classes));
-	    fprintf file "                default: throw new RuntimeException(\"Internal error in auto-generated code whilst unmarshalling event snapshot\");\n";
-            fprintf file "        }\n";
-	    fprintf file "        record.snapshot = b;\n";;
-	    
+  fprintf file "\n";
+  fprintf file "\n";
+  fprintf file "        Object a,b;\n";
+  fprintf file "        a=map.get(\"snapshot\");\n";
+  fprintf file "        switch(%s(record.clazz))\n" (get_marshall_function switch_enum);
+  fprintf file "        {\n";
+  List.iter
+    (fun x ->
+       (fprintf file "                case %17s: b = %25s(a); break;\n" (String.uppercase x) (get_marshall_function(Record(x)))))
+    (List.map (fun x -> x.name) (List.filter (fun x -> not (class_is_empty x)) classes));
+  fprintf file "                default: throw new RuntimeException(\"Internal error in auto-generated code whilst unmarshalling event snapshot\");\n";
+  fprintf file "        }\n";
+  fprintf file "        record.snapshot = b;\n";;
 
-let gen_marshall_record_field file prefix field = 
+
+let gen_marshall_record_field file prefix field =
   let ty = get_marshall_function field.ty in
   let name = String.concat "_" (List.rev (field.field_name :: prefix)) in
   let name' = camel_case name in
   fprintf file "            record.%s = %s(map.get(\"%s\"));\n" name' ty name
 
-let rec gen_marshall_record_namespace file prefix (name, contents) = 
+let rec gen_marshall_record_namespace file prefix (name, contents) =
   List.iter (gen_marshall_record_contents file (name::prefix)) contents;
 
 and gen_marshall_record_contents file prefix = function
@@ -630,54 +630,54 @@ let gen_marshall_body file = function
   | DateTime      -> fprintf file "        try {
             return (Date) object;
         } catch (ClassCastException e){
-            //Occasionally the date comes back as an ocaml float rather than 
-            //in the xmlrpc format! Catch this and convert. 
+            //Occasionally the date comes back as an ocaml float rather than
+            //in the xmlrpc format! Catch this and convert.
             return (new Date((long) (1000*Double.parseDouble((String) object))));
         }\n"
-  
+
   | Ref(ty)       -> fprintf file "        return new %s((String) object);\n" (class_case ty)
-  | Enum(name,ls) -> 
-      fprintf file "        try {\n";
-      fprintf file "            return %s.valueOf(((String) object).toUpperCase().replace('-','_'));\n" (class_case name);
-      fprintf file "        } catch (IllegalArgumentException ex) {\n";
-      fprintf file "            return %s.UNRECOGNIZED;\n" (class_case name);
-      fprintf file "        }\n"
+  | Enum(name,ls) ->
+    fprintf file "        try {\n";
+    fprintf file "            return %s.valueOf(((String) object).toUpperCase().replace('-','_'));\n" (class_case name);
+    fprintf file "        } catch (IllegalArgumentException ex) {\n";
+    fprintf file "            return %s.UNRECOGNIZED;\n" (class_case name);
+    fprintf file "        }\n"
 
   | Set(ty) ->
-      let ty_name = get_java_type ty in
-      let marshall_fn = get_marshall_function ty in
-        fprintf file "        Object[] items = (Object[]) object;\n";
-        fprintf file "        Set<%s> result = new LinkedHashSet<%s>();\n" ty_name ty_name;
-        fprintf file "        for(Object item: items) {\n";
-        fprintf file "            %s typed = %s(item);\n" ty_name marshall_fn;
-        fprintf file "            result.add(typed);\n";
-        fprintf file "        }\n";
-        fprintf file "        return result;\n"
+    let ty_name = get_java_type ty in
+    let marshall_fn = get_marshall_function ty in
+    fprintf file "        Object[] items = (Object[]) object;\n";
+    fprintf file "        Set<%s> result = new LinkedHashSet<%s>();\n" ty_name ty_name;
+    fprintf file "        for(Object item: items) {\n";
+    fprintf file "            %s typed = %s(item);\n" ty_name marshall_fn;
+    fprintf file "            result.add(typed);\n";
+    fprintf file "        }\n";
+    fprintf file "        return result;\n"
 
-  | Map(ty, ty') -> 
-      let ty_name  = get_java_type ty in
-      let ty_name' = get_java_type ty' in
-      let marshall_fn  = get_marshall_function ty in
-      let marshall_fn' = get_marshall_function ty' in
-        fprintf file "        Map map = (Map) object;\n";
-        fprintf file "        Map<%s,%s> result = new HashMap<%s,%s>();\n" ty_name ty_name' ty_name ty_name';
-        fprintf file "        Set<Map.Entry> entries = map.entrySet();\n";
-        fprintf file "        for(Map.Entry entry: entries) {\n";
-        fprintf file "            %s key = %s(entry.getKey());\n" ty_name marshall_fn;
-        fprintf file "            %s value = %s(entry.getValue());\n" ty_name' marshall_fn';
-        fprintf file "            result.put(key, value);\n";
-        fprintf file "        }\n";
-        fprintf file "        return result;\n"
+  | Map(ty, ty') ->
+    let ty_name  = get_java_type ty in
+    let ty_name' = get_java_type ty' in
+    let marshall_fn  = get_marshall_function ty in
+    let marshall_fn' = get_marshall_function ty' in
+    fprintf file "        Map map = (Map) object;\n";
+    fprintf file "        Map<%s,%s> result = new HashMap<%s,%s>();\n" ty_name ty_name' ty_name ty_name';
+    fprintf file "        Set<Map.Entry> entries = map.entrySet();\n";
+    fprintf file "        for(Map.Entry entry: entries) {\n";
+    fprintf file "            %s key = %s(entry.getKey());\n" ty_name marshall_fn;
+    fprintf file "            %s value = %s(entry.getValue());\n" ty_name' marshall_fn';
+    fprintf file "            result.put(key, value);\n";
+    fprintf file "        }\n";
+    fprintf file "        return result;\n"
 
   | Record(ty)    ->
-      let contents = Hashtbl.find records ty in
-      let cls_name = class_case ty in
-        fprintf file "        Map<String,Object> map = (Map<String,Object>) object;\n";
-        fprintf file "        %s.Record record = new %s.Record();\n" cls_name cls_name;        
-        List.iter (gen_marshall_record_contents file []) contents;	
-	      (*Event.Record needs a special case to handle snapshots*)
-        if (ty="event") then generate_snapshot_hack file;
-        fprintf file "        return record;\n";;
+    let contents = Hashtbl.find records ty in
+    let cls_name = class_case ty in
+    fprintf file "        Map<String,Object> map = (Map<String,Object>) object;\n";
+    fprintf file "        %s.Record record = new %s.Record();\n" cls_name cls_name;
+    List.iter (gen_marshall_record_contents file []) contents;
+    (*Event.Record needs a special case to handle snapshots*)
+    if (ty="event") then generate_snapshot_hack file;
+    fprintf file "        return record;\n";;
 
 let gen_marshall_func file ty =
   let type_string = get_java_type ty in
@@ -685,9 +685,9 @@ let gen_marshall_func file ty =
   fprintf file "    public static %s %s(Object object) {\n" type_string fn_name;
   fprintf file "        if (object == null) {\n";
   fprintf file "            return null;\n";
-  fprintf file "        }\n";  
+  fprintf file "        }\n";
   gen_marshall_body file ty;
-  fprintf file "    }\n\n"  
+  fprintf file "    }\n\n"
 
 
 
@@ -696,77 +696,77 @@ let gen_enum file name ls =
   let ls = ("UNRECOGNIZED", "The value does not belong to this enumeration")::ls in
   fprintf file "    public enum %s {\n" name;
   let to_member_declaration (name, description) =
-      (let escaped_description = global_replace (regexp_string "*/") "* /" description in
-       let final_description = global_replace (regexp_string "\n") "\n         * " escaped_description in
-      "        /**\n" ^
-      "         * " ^ final_description ^ "\n" ^
-      "         */\n" ^
-      "        " ^ enum_of_wire(name)) in
+    (let escaped_description = global_replace (regexp_string "*/") "* /" description in
+     let final_description = global_replace (regexp_string "\n") "\n         * " escaped_description in
+     "        /**\n" ^
+     "         * " ^ final_description ^ "\n" ^
+     "         */\n" ^
+     "        " ^ enum_of_wire(name)) in
   fprintf file "%s" (String.concat ",\n" (List.map to_member_declaration ls));
   fprintf file ";\n";
   fprintf file "        public String toString() {\n";
   List.iter (fun (enum, _) ->
-    fprintf file "            if (this == %s) return \"%s\";\n" (enum_of_wire enum) enum
-  ) ls;
+      fprintf file "            if (this == %s) return \"%s\";\n" (enum_of_wire enum) enum
+    ) ls;
   fprintf file "        /* This can never be reached */\n";
   fprintf file "        return \"illegal enum\";\n";
   fprintf file "        }\n";
   fprintf file "\n    };\n\n"
 ;;
 
-let gen_enums file = 
+let gen_enums file =
   Hashtbl.iter (gen_enum file) enums
 
 let gen_error_field_name field =
   camel_case (String.concat "_" (String.split ' ' field))
 
 let gen_error_field_names fields =
-  List.map gen_error_field_name fields 
+  List.map gen_error_field_name fields
 
 let gen_error_fields file field =
   fprintf file "        public final String %s;\n" field
 
 let gen_error file name params =
   let name = exception_class_case name in
-  let fields = gen_error_field_names params.err_params in 
-  let constructor_params = String.concat ", " (List.map 
-     (fun field ->  "String " ^ field) fields) in
-    
-    fprintf file "    /**\n";
-    fprintf file "     * %s\n" params.err_doc;
-    fprintf file "     */\n";
-    fprintf file "    public static class %s extends XenAPIException {\n" name;
+  let fields = gen_error_field_names params.err_params in
+  let constructor_params = String.concat ", " (List.map
+                                                 (fun field ->  "String " ^ field) fields) in
 
-    List.iter (gen_error_fields file) fields;
+  fprintf file "    /**\n";
+  fprintf file "     * %s\n" params.err_doc;
+  fprintf file "     */\n";
+  fprintf file "    public static class %s extends XenAPIException {\n" name;
 
-    fprintf file "\n        /**\n";
-    fprintf file "         * Create a new %s\n" name;
+  List.iter (gen_error_fields file) fields;
 
-    if List.length fields > 0
-    then
-      begin
+  fprintf file "\n        /**\n";
+  fprintf file "         * Create a new %s\n" name;
+
+  if List.length fields > 0
+  then
+    begin
       fprintf file "         *\n";
       List.iter
         (fun s -> fprintf file "         * @param %s\n" s) fields
-      end;
+    end;
 
-    fprintf file "         */\n";
-    fprintf file "        public %s(%s) {\n" name constructor_params;
-    fprintf file "            super(\"%s\");\n" params.err_doc;
-    
-    List.iter
-      (fun s -> fprintf file "            this.%s = %s;\n" s s) fields;
-    
-    fprintf file "        }\n\n";
-    fprintf file "    }\n\n" 
+  fprintf file "         */\n";
+  fprintf file "        public %s(%s) {\n" name constructor_params;
+  fprintf file "            super(\"%s\");\n" params.err_doc;
+
+  List.iter
+    (fun s -> fprintf file "            this.%s = %s;\n" s s) fields;
+
+  fprintf file "        }\n\n";
+  fprintf file "    }\n\n"
 ;;
 
 let gen_method_error_throw file name error =
   let class_name = exception_class_case name in
-  let paramsStr = 
-    String.concat ", " (List.map 
-                        (fun i -> sprintf "p%i" i) 
-                        (range (List.length error.err_params))) in 
+  let paramsStr =
+    String.concat ", " (List.map
+                          (fun i -> sprintf "p%i" i)
+                          (range (List.length error.err_params))) in
 
   fprintf file "            if (ErrorDescription[0].equals(\"%s\"))\n" name;
   fprintf file "            {\n";
@@ -799,7 +799,7 @@ import org.apache.xmlrpc.XmlRpcException;
 
 /**
  * This class holds vital marshalling functions, enum types and exceptions.
- * 
+ *
  * @author Citrix Systems, Inc.
  */
 public class Types
@@ -927,7 +927,7 @@ public class Types
   ";
 
   fprintf file
-"    /**
+    "    /**
      * Checks the provided server response was successful. If the call failed, throws a XenAPIException. If the server
      * returned an invalid response, throws a BadServerResponse. Otherwise, returns the server response as passed in.
      */
@@ -947,7 +947,7 @@ public class Types
   Hashtbl.iter (gen_method_error_throw file) Datamodel.errors;
 
   fprintf file
-"
+    "
             // An unknown error occurred
             throw new Types.XenAPIException(ErrorDescription);
         }
@@ -964,7 +964,7 @@ public class Types
   TypeSet.iter (gen_marshall_func file) !types;
   fprintf file "\n";
   TypeSet.iter (gen_task_result_func file) !types;
-	fprintf file "
+  fprintf file "
         public static EventBatch toEventBatch(Object object) {
         if (object == null) {
             return null;
