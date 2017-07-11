@@ -65,6 +65,7 @@ let base_suite =
     Test_guest_agent.test;
     Test_vlan.test;
     Test_xapi_vbd_helpers.test;
+    Test_ca253489.test;
   ]
 
 let handlers = [
