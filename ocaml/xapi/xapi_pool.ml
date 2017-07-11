@@ -157,7 +157,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
         updates_on ~rpc ~session_id local_host) in
     (* iterate over all pool hosts and compare patches to local host *)
-    Client.Host.get_all rpc session_id |> List.iter (fun pool_host ->
+    Client.Pool.get_all rpc session_id |> List.iter (fun pool ->
+      let pool_host = Client.Pool.get_master rpc session_id pool in
       let remote_updates = updates_on rpc session_id pool_host in
       if not (S.equal local_updates remote_updates) then begin
         let remote_uuid  = Client.Host.get_uuid rpc session_id pool_host in
