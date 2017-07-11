@@ -855,7 +855,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     {
       reqd=["file-name"];
       optn=["sr-uuid"];
-      help="Stream new update to the server.";
+      help="Stream new update to the server. The update will be uploaded to the SR <sr-uuid>, or, if it is not specified, to the pool's default SR.";
       implementation=With_fd Cli_operations.update_upload;
       flags=[];
     };
