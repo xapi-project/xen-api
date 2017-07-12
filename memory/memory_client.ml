@@ -18,10 +18,10 @@ open Xcp_client
 let json_url () = "file:" ^ json_path
 let xml_url () = "file:" ^ xml_path
 
-module Client = Memory_interface.Client(struct
-	let rpc call =
+let rpc call =
 		if !use_switch
 		then json_switch_rpc queue_name call
 		else xml_http_rpc ~srcstr:"xenops" ~dststr:"squeezed" xml_url call
-end)
+
+module Client = Memory_interface.API(Idl.GenClientExnRpc(struct let rpc=rpc end))
 
