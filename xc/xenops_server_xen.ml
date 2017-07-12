@@ -13,7 +13,6 @@
  *)
 
 open Xenops_interface
-open Memory_interface
 open Xenops_utils
 open Xenops_server_plugin
 open Xenops_helpers
@@ -1225,7 +1224,7 @@ module VM = struct
 			let dbg = Xenops_task.get_dbg task in
 			let reservation_id = Mem.query_reservation_of_domain dbg domid in
 			Mem.delete_reservation dbg (reservation_id, None)
-                with MemoryError No_reservation ->
+                with Memory_interface.MemoryError Memory_interface.No_reservation ->
                         error "Please check if memory reservation for domain %d is present, if so manually remove it" domid
 
 	let build_domain_exn xc xs domid task vm vbds vifs vgpus extras force =
@@ -1494,7 +1493,7 @@ module VM = struct
 						let msg = Printf.sprintf 
 							"Ballooning Timeout: unable to balloon down the memory of vm %s, please increase the value of memory-dynamic-min"
 							vm.Vm.id
-						in raise (Internal_error msg)
+						in raise (Xenops_interface.Internal_error msg)
 			) Oldest task vm
 
 	let save task progress_callback vm flags data =
