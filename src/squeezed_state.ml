@@ -38,10 +38,10 @@ let reserved_host_memory_path service = path [ ""; service; "reserved-host-memor
 (** Path where a specific reservation is stored *)
 let reservation_path service session_id reservation_id = path [ ""; service; "state"; session_id; reservation_id ]
 
-let add_reservation service session_id reservation_id kib = 
+let add_reservation service session_id reservation_id kib =
   Client.immediate (get_client ()) (fun xs -> Client.write xs (reservation_path service session_id reservation_id) kib)
 
-let del_reservation service session_id reservation_id = 
+let del_reservation service session_id reservation_id =
   Client.immediate (get_client ()) (fun xs -> Client.rm xs (reservation_path service session_id reservation_id))
 
 (** Return the total amount of memory reserved *)

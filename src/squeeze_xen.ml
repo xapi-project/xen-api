@@ -30,7 +30,7 @@ open Fun
 
 module M = Debug.Make(struct let name = "memory" end)
 let debug = Squeeze.debug
-let error = Squeeze.error 
+let error = Squeeze.error
 
 let _initial_reservation = "/memory/initial-reservation"  (* immutable *)
 let _target              = "/memory/target"               (* immutable *)
@@ -51,7 +51,7 @@ let set_difference a b = List.filter (fun x -> not (List.mem x b)) a
 
 let low_mem_emergency_pool = 1L ** mib (** Same as xen commandline *)
 
-(** Return the extra amount we always add onto maxmem *) 
+(** Return the extra amount we always add onto maxmem *)
 let xen_max_offset_kib hvm =
   let maxmem_mib = if hvm then Memory.HVM.xen_max_offset_mib else Memory.Linux.xen_max_offset_mib in
   Memory.kib_of_mib maxmem_mib
@@ -70,7 +70,7 @@ module Domain = struct
   let m = Mutex.create ()
   (* get_per_domain can return None if the domain is deleted by
      	 someone else while we are processing some other event handlers *)
-  let get_per_domain xc domid = 
+  let get_per_domain xc domid =
     if Hashtbl.mem cache domid
     then Some (Hashtbl.find cache domid)
     else
@@ -257,7 +257,7 @@ module Domain = struct
         Opt.default 0L (Opt.map (fun d -> d.maxmem) (get_per_domain cnx domid))
       )
 
-  let set_maxmem_noexn xc domid mem = 
+  let set_maxmem_noexn xc domid mem =
     Mutex.execute m
       (fun () ->
          match get_per_domain xc domid with
@@ -275,7 +275,7 @@ module Domain = struct
       )
 
   (** Read a particular domain's key, using the cache *)
-  let read xc domid key = 
+  let read xc domid key =
     let x = Mutex.execute m
         (fun () ->
            match get_per_domain xc domid with
@@ -297,7 +297,7 @@ module Domain = struct
 
   (** Write a new (key, value) pair into a domain's directory in xenstore. Don't write anything
       	  if the domain's directory doesn't exist. Don't throw exceptions. *)
-  let write_noexn xc domid key value = 
+  let write_noexn xc domid key value =
     match get_per_domain xc domid with
     | None -> ()
     | Some per_domain ->
@@ -317,7 +317,7 @@ module Domain = struct
   (** Returns true if the key exists, false otherwise *)
   let exists xc domid key = try ignore(read xc domid key); true with Xs_protocol.Enoent _ -> false
   (** Delete the key. Don't throw exceptions. *)
-  let rm_noexn xc domid key = 
+  let rm_noexn xc domid key =
     match get_per_domain xc domid with
     | None -> ()
     | Some per_domain ->
@@ -328,11 +328,11 @@ module Domain = struct
   (** {High-level functions} *)
 
   (** Set a domain's memory target. Don't throw an exception if the domain has been destroyed. *)
-  let set_target_noexn cnx domid target_kib = 
+  let set_target_noexn cnx domid target_kib =
     write_noexn cnx domid _target (Int64.to_string target_kib)
 
   (** Get a domain's memory target. Throws Xenbus.Xb.Noent if the domain has been destroyed *)
-  let get_target cnx domid = 
+  let get_target cnx domid =
     Int64.of_string (read cnx domid _target)
 
   (** Mark a domain as uncooperative. Don't throw an exception if the domain has been destroyed. *)
@@ -353,7 +353,7 @@ module Domain = struct
     Int64.of_string (read cnx domid _memory_offset)
 
   (** Set a domain's maxmem. Don't throw an exception if the domain has been destroyed *)
-  let set_maxmem_noexn cnx domid target_kib = 
+  let set_maxmem_noexn cnx domid target_kib =
     let maxmem_kib = xen_max_offset_kib (get_hvm cnx domid) +* target_kib in
     set_maxmem_noexn cnx domid maxmem_kib
 
@@ -364,15 +364,15 @@ module Domain = struct
   let get_guest_agent cnx domid = try ignore(read cnx domid _data_updated); true with Xs_protocol.Enoent _ -> false
 
   (** Query a domain's initial reservation. Throws Xs_protocol.Enoent _ if the domain has been destroyed *)
-  let get_initial_reservation cnx domid = 
+  let get_initial_reservation cnx domid =
     Int64.of_string (read cnx domid _initial_reservation)
 
   (** Query a domain's dynamic_min. Throws Xs_protocol.Enoent _ if the domain has been destroyed *)
-  let get_dynamic_min cnx domid = 
+  let get_dynamic_min cnx domid =
     Int64.of_string (read cnx domid _dynamic_min)
 
   (** Query a domain's dynamic_max. Throws Xs_protocol.Enoent _ if the domain has been destroyed *)
-  let get_dynamic_max cnx domid = 
+  let get_dynamic_max cnx domid =
     Int64.of_string (read cnx domid _dynamic_max)
 end
 
@@ -381,7 +381,7 @@ end
 (** Record when the domain was last co-operative *)
 let when_domain_was_last_cooperative : (int, float) Hashtbl.t = Hashtbl.create 10
 
-let update_cooperative_table host = 
+let update_cooperative_table host =
   let now = Unix.gettimeofday () in
   let alive_domids = List.map (fun d -> d.Squeeze.domid) host.Squeeze.domains in
   let known_domids = Hashtbl.fold (fun k _ acc -> k :: acc) when_domain_was_last_cooperative [] in
@@ -391,13 +391,13 @@ let update_cooperative_table host =
   (* Assume domains are initially co-operative *)
   List.iter (fun x -> Hashtbl.replace when_domain_was_last_cooperative x now) arrived_domids;
   (* Main business: mark any domain which is on or above target OR which cannot balloon as co-operative *)
-  List.iter (fun d -> 
+  List.iter (fun d ->
       if not d.Squeeze.can_balloon || (Squeeze.has_hit_target d.Squeeze.inaccuracy_kib d.Squeeze.memory_actual_kib d.Squeeze.target_kib)
       then Hashtbl.replace when_domain_was_last_cooperative d.Squeeze.domid now
     ) host.Squeeze.domains
 
 (** Update all the flags in xenstore *)
-let update_cooperative_flags cnx = 
+let update_cooperative_flags cnx =
   let now = Unix.gettimeofday () in
   Hashtbl.iter (fun domid last_time ->
       let old_value = Domain.get_uncooperative_noexn cnx domid in
@@ -415,7 +415,7 @@ let make_host ~verbose ~xc =
     ignore(Unix.select [] [] [] 0.25)
   done;
 
-  (* Some VMs are considered by us (but not by xen) to have an "initial-reservation". For VMs which have never 
+  (* Some VMs are considered by us (but not by xen) to have an "initial-reservation". For VMs which have never
      	   run (eg which are still being built or restored) we take the difference between memory_actual_kib and the
      	   reservation and subtract this manually from the host's free memory. Note that we don't get an atomic snapshot
      	   of system state so there is a natural race between the hypercalls. Hopefully the memory is being consumed
@@ -457,9 +457,9 @@ let make_host ~verbose ~xc =
               let has_guest_agent = Domain.get_guest_agent cnx di.Xenctrl.domid in
               let has_booted = can_balloon || has_guest_agent in
               (* Once the domain tells us it has booted, we assume it's not currently ballooning and
-                 					   record the offset between memory_actual and target. We assume this is constant over the 
+                 					   record the offset between memory_actual and target. We assume this is constant over the
                  					   lifetime of the domain. *)
-              let offset_kib : int64 = 
+              let offset_kib : int64 =
                 if not has_booted then 0L
                 else begin
                   try
@@ -483,7 +483,7 @@ let make_host ~verbose ~xc =
                 end in
               let memory_actual_kib = memory_actual_kib -* offset_kib in
 
-              let domain = 
+              let domain =
                 { Squeeze.
                   domid = di.Xenctrl.domid;
                   can_balloon = can_balloon;
@@ -624,10 +624,10 @@ let io ~xc ~verbose = {
   free_memory_tolerance_kib = free_memory_tolerance_kib;
 }
 
-let change_host_free_memory ~xc required_mem_kib success_condition = 
+let change_host_free_memory ~xc required_mem_kib success_condition =
   Squeeze.change_host_free_memory (io ~verbose:true ~xc) required_mem_kib success_condition
 
-let free_memory ~xc required_mem_kib = 
+let free_memory ~xc required_mem_kib =
   let io = io ~verbose:true ~xc in
   Squeeze.change_host_free_memory io (required_mem_kib +* io.Squeeze.target_host_free_mem_kib) (fun x -> x >= (required_mem_kib +* io.Squeeze.target_host_free_mem_kib))
 
@@ -637,11 +637,11 @@ let free_memory_range ~xc min_kib max_kib =
 
 let is_balanced x = Int64.sub x target_host_free_mem_kib < free_memory_tolerance_kib
 
-let balance_memory ~xc = 
+let balance_memory ~xc =
   Squeeze.balance_memory (io ~verbose:true ~xc)
 
 (** Return true if the host memory is currently unbalanced and needs rebalancing *)
-let is_host_memory_unbalanced ~xc = 
+let is_host_memory_unbalanced ~xc =
   Squeeze.is_host_memory_unbalanced (io ~verbose:false ~xc)
 
 (* If we want to manage domain 0, we must write the policy settings to xenstore *)

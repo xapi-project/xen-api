@@ -51,7 +51,7 @@ class virtual vm initial_domain = object (self)
     domain <- { domain with target_kib = new_target_kib }
 
   (** Helper function to set the domain's maxmem *)
-  method set_maxmem new_max_kib = 
+  method set_maxmem new_max_kib =
     if domain.target_kib > new_max_kib
     then failwith (Printf.sprintf "mem_max set below target domid %d; max_mem = %Ld; target = %Ld" domain.domid new_max_kib domain.target_kib);
     domain <- { domain with memory_max_kib = new_max_kib }
@@ -67,7 +67,7 @@ class virtual vm initial_domain = object (self)
      		Called by the simulator to update memory_actual. It also returns
      		memory_actual so the host free memory total can be updated.
      	*)
-  method update host_free_mem time = 
+  method update host_free_mem time =
     let time_passed = time -. time_of_last_update in
     (* We can release as much memory as we like but *)
     (* we can't allocate more than is available     *)
@@ -85,9 +85,9 @@ end
 class idealised_vm initial_domain balloon_rate_kib_per_unit_time = object
   inherit vm initial_domain
 
-  method compute_memory_actual_delta time_passed = 
+  method compute_memory_actual_delta time_passed =
     compute_memory_actual_delta
-      domain balloon_rate_kib_per_unit_time time_passed 
+      domain balloon_rate_kib_per_unit_time time_passed
 end
 
 (**
@@ -158,7 +158,7 @@ class intermittently_stuck_vm
     debug "useful_time = %.2f (current actual = %Ld; target = %Ld)"
       useful_time domain.memory_actual_kib domain.target_kib;
     compute_memory_actual_delta
-      domain balloon_rate_kib_per_unit_time useful_time 
+      domain balloon_rate_kib_per_unit_time useful_time
 end
 
 type scenario = {
@@ -175,7 +175,7 @@ type scenario = {
 let scenario_a = {
   name = "a";
   description = "a small domain with a hidden limit and a large domain which \
-                 		exhibits 'sticky' behaviour"; 
+                 		exhibits 'sticky' behaviour";
   should_succeed = true;
   scenario_domains = [
     new idealised_vm_with_limit
@@ -215,7 +215,7 @@ let scenario_c = {
   ];
   host_free_mem_kib = 0L;
   required_mem_kib = 1500L;
-  fistpoints = [ ]; 
+  fistpoints = [ ];
 }
 
 let scenario_d = {
@@ -253,11 +253,11 @@ let scenario_e = {
   host_free_mem_kib = 0L;
   required_mem_kib = 1000L;
   (* The system has 3000L units of surplus memory. Ideally we'd give 1000L to the system and then split
-     	   the remaining 2000L units proportionally amongst the domains: 500L to 0 and 1500L to 1. If both 
+     	   the remaining 2000L units proportionally amongst the domains: 500L to 0 and 1500L to 1. If both
      	   domains were ideal then we could set 0's target to 5500L (down) and 1's target to 6500L (up)
      	   However since the stuck domain is stuck this strategy will fail. In this case we want the idealised
      	   VM to release the 1000L units of memory. However the likely failure mode is that it will have been
-     	   asked to increase its allocation and been unable to do so because all host memory is exhausted. 
+     	   asked to increase its allocation and been unable to do so because all host memory is exhausted.
      	   It will then also have been marked as stuck and the operation will fail. *)
   fistpoints = [ ];
 }
@@ -280,7 +280,7 @@ let scenario_g = {
   name = "g";
   should_succeed = false;
   fistpoints = [ Squeeze.DisableInaccuracyCompensation ];
-  (* The two domains are programmed to have an inaccuracy of 4KiB. We will conclude that the 
+  (* The two domains are programmed to have an inaccuracy of 4KiB. We will conclude that the
      domains are both stuck if we don't take this into account. *)
 }
 
@@ -314,7 +314,7 @@ let all_scenarios = [
 
 (*
 (** Fails if either memory_actual or target lie outside our dynamic range *)
-let assert_within_dynamic_range host = 
+let assert_within_dynamic_range host =
 	List.iter
 		(fun domain ->
 			 let lt domid x x' y y' =
@@ -334,7 +334,7 @@ let assert_within_dynamic_range host =
 		host.domains
 *)
 
-let verify_memory_is_guaranteed_free host kib = 
+let verify_memory_is_guaranteed_free host kib =
   (* Each domain could set its memory_actual to this much and still be considered ok *)
   let extreme domain = domain.target_kib +* domain.inaccuracy_kib in
   let increase domain = extreme domain -* domain.memory_actual_kib in
@@ -342,7 +342,7 @@ let verify_memory_is_guaranteed_free host kib =
   if host.free_mem_kib -* total < kib
   then failwith (Printf.sprintf "Memory not guaranteed free: free_mem = %Ld; total guests could take = %Ld; required free = %Ld" host.free_mem_kib total kib)
 
-let files_created_by_scenario scenario = 
+let files_created_by_scenario scenario =
   [
     Printf.sprintf "%s.dat" scenario.name;
     Printf.sprintf "%s.out" scenario.name;
@@ -350,7 +350,7 @@ let files_created_by_scenario scenario =
   ]
 
 (** Run a full simulation of the given scenario *)
-let simulate scenario = 
+let simulate scenario =
   let host_free_mem_kib = ref scenario.host_free_mem_kib in
   let all_domains = ref scenario.scenario_domains in
 
@@ -395,12 +395,12 @@ let simulate scenario =
 
   let gettimeofday () = float_of_int !i /. 10. in
 
-  let make_host () = 
+  let make_host () =
     Squeeze.make_host
       ~free_mem_kib:!host_free_mem_kib
       ~domains:(List.map (fun d -> d#get_domain) !all_domains) in
 
-  let wait _ = 
+  let wait _ =
     incr i;
     let t = gettimeofday () in
     update_balloons t;
@@ -445,7 +445,7 @@ let simulate scenario =
 let failed_scenarios = ref []
 let scenario_error_table = ref []
 
-let run_test scenario = 
+let run_test scenario =
   try
     simulate scenario;
     List.iter Stdext.Unixext.unlink_safe (files_created_by_scenario scenario);
@@ -456,7 +456,7 @@ let run_test scenario =
         :: !scenario_error_table
     end
   with e ->
-    if scenario.should_succeed then begin 
+    if scenario.should_succeed then begin
       failed_scenarios := scenario :: !failed_scenarios;
       scenario_error_table :=
         (scenario,
@@ -469,7 +469,7 @@ let run_test scenario =
       List.iter Stdext.Unixext.unlink_safe (files_created_by_scenario scenario);
     end
 
-let go () = 
+let go () =
   List.iter run_test all_scenarios;
   debug "%d tests executed; %d unexpected results"
     (List.length all_scenarios) (List.length !failed_scenarios);

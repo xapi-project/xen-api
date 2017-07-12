@@ -35,17 +35,17 @@ module D = Debug.Make(struct let name = "xenops" end)
 let debug_oc = ref stdout
 
 let debug fmt =
-  Printf.kprintf 
-    (fun x -> 
-       Printf.fprintf !debug_oc "[%.2f] %s\n" (Unix.gettimeofday() -. start) x; 
+  Printf.kprintf
+    (fun x ->
+       Printf.fprintf !debug_oc "[%.2f] %s\n" (Unix.gettimeofday() -. start) x;
        flush !debug_oc;
        D.debug "%s" x
     ) fmt
 
 let error fmt =
-  Printf.kprintf 
-    (fun x -> 
-       Printf.fprintf !debug_oc "[%.2f] %s\n" (Unix.gettimeofday() -. start) x; 
+  Printf.kprintf
+    (fun x ->
+       Printf.fprintf !debug_oc "[%.2f] %s\n" (Unix.gettimeofday() -. start) x;
        flush !debug_oc;
        D.error "%s" x
     ) fmt
@@ -87,7 +87,7 @@ let domain_make
     inaccuracy_kib = inaccuracy_kib;
   }
 
-let domain_to_string_pairs (x: domain) = 
+let domain_to_string_pairs (x: domain) =
   let i64 = Int64.to_string and i = string_of_int in
   [
     "domid", i x.domid;
@@ -111,8 +111,8 @@ type host = {
   free_mem_kib: int64;
 }
 
-let make_host ~domains ~free_mem_kib = 
-  { 
+let make_host ~domains ~free_mem_kib =
+  {
     domains = domains;
     domid_to_domain = List.fold_left (fun map domain -> IntMap.add domain.domid domain map) IntMap.empty domains;
     free_mem_kib = free_mem_kib;
@@ -148,10 +148,10 @@ let ( +* ) = Int64.add
 let ( ** ) = Int64.mul
 
 let set_difference a b = List.filter (fun x -> not (List.mem x b)) a
-let sum = List.fold_left ( +* ) 0L 
+let sum = List.fold_left ( +* ) 0L
 
 (** The value returned from the 'free_memory' function *)
-type result = 
+type result =
   | Success
   (** enough memory is now available *)
   | Failed of int list
@@ -165,7 +165,7 @@ type direction = Up | Down
 let string_of_direction = function
   | Some Up -> "^" | Some Down -> "v" | None -> "x"
 
-let direction_of_actual inaccuracy_kib memory_actual_kib target_kib = 
+let direction_of_actual inaccuracy_kib memory_actual_kib target_kib =
   let delta_kib = memory_actual_kib -* target_kib in
   let abs x = if x < 0L then 0L -* x else x in
   if abs delta_kib <= inaccuracy_kib then None
@@ -174,10 +174,10 @@ let direction_of_actual inaccuracy_kib memory_actual_kib target_kib =
 let direction_of_int64 a b = if a = b then None else (if a > b then Some Down else Some Up)
 
 (** Work around the fact that the target may not be hit precisely *)
-let has_hit_target inaccuracy_kib memory_actual_kib target_kib = 
+let has_hit_target inaccuracy_kib memory_actual_kib target_kib =
   direction_of_actual inaccuracy_kib memory_actual_kib target_kib = None
 
-let short_string_of_domain domain = 
+let short_string_of_domain domain =
   Printf.sprintf "%d T%Ld A%Ld M%Ld %s%s" domain.domid
     domain.target_kib domain.memory_actual_kib domain.memory_max_kib
     (if domain.can_balloon then "B" else "?")
@@ -198,14 +198,14 @@ module Stuckness_monitor = struct
   type per_domain_state = {
     mutable last_actual_kib: int64; (** last value of memory actual seen *)
     mutable last_makingprogress_time: float; (** last time we saw progress towards the target *)
-    mutable stuck: bool; 
+    mutable stuck: bool;
   }
   type t = {
     per_domain: (int, per_domain_state) Hashtbl.t;
   }
 
   (** Make a monitoring object *)
-  let make () : t = 
+  let make () : t =
     { per_domain = Hashtbl.create 10 }
 
   (** Update our internal state given a snapshot of the outside world *)
@@ -224,7 +224,7 @@ module Stuckness_monitor = struct
          state.last_actual_kib <- domain.memory_actual_kib;
          (* If memory_actual is moving towards the target then we say we are makingprogress *)
          let makingprogress = (delta_actual > 0L && direction = Some Down) || (delta_actual < 0L && direction = Some Up) in
-         (* We keep track of the last time we were makingprogress. If we are makingprogress now 
+         (* We keep track of the last time we were makingprogress. If we are makingprogress now
             					then we are not stuck. *)
          if makingprogress then begin
            state.last_makingprogress_time <- now;
@@ -250,18 +250,18 @@ module Stuckness_monitor = struct
 
   (** Return true if we think a particular driver is still making useful progress.
       	    If it is not making progress it may have either hit its target or it may have failed. *)
-  let domid_is_active (x: t) domid (now: float) = 
+  let domid_is_active (x: t) domid (now: float) =
     if not (Hashtbl.mem x.per_domain domid)
     then false (* it must have been destroyed *)
     else not (Hashtbl.find x.per_domain domid).stuck
 end
 
-type fistpoint = 
+type fistpoint =
   | DisableTwoPhaseTargetSets (** this prevents free memory going to 0 and allowing all low memory to be allocated *)
   | DisableInaccuracyCompensation (** don't factor balloon driver inaccuracy into calculations *)
 
 (** The minimum amount we will free by setting target = dynamic_min *)
-let min_freeable ?(fistpoints=[]) domain = 
+let min_freeable ?(fistpoints=[]) domain =
   if List.mem DisableInaccuracyCompensation fistpoints
   then max 0L (domain.memory_actual_kib -* domain.dynamic_min_kib)
   else max 0L (domain.memory_actual_kib -* domain.dynamic_min_kib -* 2L ** domain.inaccuracy_kib)
@@ -285,7 +285,7 @@ module Proportional = struct
   let constrain minimum maximum value =
     assert (minimum < maximum);
     if value < minimum then minimum else
-    if value > maximum then maximum else 
+    if value > maximum then maximum else
     if classify_float value = FP_nan then minimum else (* arbitrary *)
       value
 
@@ -304,7 +304,7 @@ module Proportional = struct
     let gamma = constrain 0. 1. gamma' in
     if verbose then begin
       debug "total_range = %Ld gamma = %f gamma' = %f" total_range gamma gamma';
-      debug "Total additional memory over dynamic_min = %Ld KiB; will set gamma = %.2f (leaving unallocated %Ld KiB)" surplus_memory_kib gamma 
+      debug "Total additional memory over dynamic_min = %Ld KiB; will set gamma = %.2f (leaving unallocated %Ld KiB)" surplus_memory_kib gamma
         (if total_range = 0L then 0L else Int64.of_float (Int64.to_float total_range *. (gamma' -. gamma)));
     end;
     List.map (fun domain -> domain, domain.dynamic_min_kib +* (allocate gamma domain)) domains
@@ -336,7 +336,7 @@ module Squeezer = struct
   let one_iteration ?(fistpoints=[]) verbose success_condition (x: t) (host: host) host_target_kib (now: float) =
     (* 1. Compute which domains are still considered active *)
     Stuckness_monitor.update x.stuckness host now;
-    let active_domains = 
+    let active_domains =
       List.filter (fun domain ->
           domain.can_balloon
           && (Stuckness_monitor.domid_is_active x.stuckness domain.domid now))
@@ -369,7 +369,7 @@ module Squeezer = struct
     let is_freeing_memory (domain, new_target_kib) = not (has_hit_target domain.inaccuracy_kib domain.memory_actual_kib new_target_kib) && new_target_kib < domain.memory_actual_kib in
     let freeing, allocating = List.partition is_freeing_memory targets in
     let allocation_phase = freeing = [] in
-    let targets = 
+    let targets =
       if List.mem DisableTwoPhaseTargetSets fistpoints
       then targets
       else (if allocation_phase then allocating else freeing) in
@@ -393,7 +393,7 @@ module Squeezer = struct
     let no_target_changes = List.filter (fun (domain, target) -> domain.target_kib <> target) targets = [] in
     if verbose
     then debug "current host free mem = %Ld KiB (aiming for %Ld KiB);%s; all domain targets%s reached%s; %s"
-        host.free_mem_kib host_target_kib 
+        host.free_mem_kib host_target_kib
         (if success then " OK"
          else if target_too_big then " cannot free enough"
          else if cant_allocate_any_more then " cannot allocate enough" else "")
@@ -408,7 +408,7 @@ module Squeezer = struct
 
     (* 1. In all cases we wait for all targets to be reached and to be stable.
        		   2. If targets are reached and stable we evaluate our success condition and succeed/fail accordingly. *)
-    let action = 
+    let action =
       if not all_targets_reached || not no_target_changes
       then AdjustTargets (List.map (fun (d, t) -> { action_domid = d.domid; new_target_kib = t}) targets)
       else
@@ -421,7 +421,7 @@ end
 
 module Gnuplot = struct
   type colspec = Dynamic_min | Memory_actual | Dynamic_max | Target
-  let write_header oc cols = 
+  let write_header oc cols =
     let all = List.concat [ if List.mem Dynamic_min cols then [ "dynamic_min" ] else [];
                             if List.mem Dynamic_max cols then [ "dynamic_max" ] else [];
                             if List.mem Memory_actual cols then [ "memory_actual" ] else [];
@@ -444,7 +444,7 @@ module Gnuplot = struct
       host.domains;
     Printf.fprintf oc "\n"
 
-  let write_gp stem host cols = 
+  let write_gp stem host cols =
     let oc = open_out (Printf.sprintf "%s.gp" stem) in
     Printf.fprintf oc "set xlabel 'time/seconds'\n";
     Printf.fprintf oc "set ylabel 'memory/KiB'\n";
@@ -486,16 +486,16 @@ type io = {
 exception Cannot_free_this_much_memory of int64 * int64 (** even if we balloon everyone down we can't free this much *)
 exception Domains_refused_to_cooperate of int list (** these VMs didn't release memory and we failed *)
 
-let change_host_free_memory ?fistpoints io required_mem_kib success_condition = 
+let change_host_free_memory ?fistpoints io required_mem_kib success_condition =
   (* For performance concern, do not call squeezer if host memory is enough and other VMs target has reached. *)
   let host = snd(io.make_host ()) in
-  if io.verbose 
+  if io.verbose
   then debug "change_host_free_memory required_mem = %Ld KiB target_mem = %Ld KiB free_mem = %Ld KiB" required_mem_kib io.target_host_free_mem_kib host.free_mem_kib;
 
   let active_domains = List.filter (fun domain -> domain.can_balloon) host.domains in
   let hit_target domain = has_hit_target domain.inaccuracy_kib domain.memory_actual_kib domain.target_kib in
   let all_targets_reached = List.for_all hit_target active_domains in
-  if io.verbose 
+  if io.verbose
   then debug "change_host_free_memory all VM target meet %B" all_targets_reached;
   let finished = ref ((not (required_mem_kib = io.target_host_free_mem_kib)) && (required_mem_kib <= host.free_mem_kib) && all_targets_reached) in
   let acc = ref (Squeezer.make ()) in
@@ -512,9 +512,9 @@ let change_host_free_memory ?fistpoints io required_mem_kib success_condition =
        If the VM is active                       -> use target
        If the VM is inactive                     -> use min(target, actual)
 
-       So active VMs may move up or down towards their target and either get there 
+       So active VMs may move up or down towards their target and either get there
        (while we actively monitor them) or are declared inactive.
-       Inactive VMs are allowed to free memory while we aren't looking but 
+       Inactive VMs are allowed to free memory while we aren't looking but
        they are not to allocate more.
 
        Note that the concept of having 'never been run' is hidden from us by the
@@ -528,7 +528,7 @@ let change_host_free_memory ?fistpoints io required_mem_kib success_condition =
       | AdjustTargets actions ->
         List.map (fun a -> a.action_domid, a.new_target_kib) actions
       | _ -> [] in
-    let new_target_direction domain = 
+    let new_target_direction domain =
       let new_target = if List.mem_assoc domain.domid new_targets then Some(List.assoc domain.domid new_targets) else None in
       match new_target with
       | None -> string_of_direction None
@@ -539,14 +539,14 @@ let change_host_free_memory ?fistpoints io required_mem_kib success_condition =
     (* For each domid, decide what maxmem should be *)
     let maxmems = IntMap.mapi
         (fun domid domain ->
-           if List.mem domid declared_inactive_domids 
-           then 
+           if List.mem domid declared_inactive_domids
+           then
              (* CA-41832: clip the target of an 'inactive' domain to within the dynamic min-max range.
-                			   The danger here is that a domain might be using less than dynamic min now, but might 
+                			   The danger here is that a domain might be using less than dynamic min now, but might
                 			   suddenly wake up and allocate memory belonging to someone else later. *)
              let ideal_kib = min domain.target_kib domain.memory_actual_kib in
              min domain.dynamic_max_kib (max domain.dynamic_min_kib ideal_kib)
-           else 
+           else
            if List.mem_assoc domid new_targets
            then List.assoc domid new_targets
            else domain.target_kib) host.domid_to_domain in
@@ -569,7 +569,7 @@ let change_host_free_memory ?fistpoints io required_mem_kib success_condition =
         raise (Cannot_free_this_much_memory (required_mem_kib, host.free_mem_kib));
       | Failed domids ->
         let s = String.concat ", " (List.map string_of_int domids) in
-        if io.verbose 
+        if io.verbose
         then debug "Failed to free %Ld KiB of memory: the following domains have failed to meet their targets: [ %s ]"
             required_mem_kib s;
         raise (Domains_refused_to_cooperate domids)
@@ -596,7 +596,7 @@ let free_memory_range ?fistpoints io min_kib max_kib =
   let host = snd(io.make_host ())in
   let host' = { host with domains = domain :: host.domains } in
   let adjustments = Policy.compute_target_adjustments io.verbose host' io.target_host_free_mem_kib in
-  let target = 
+  let target =
     if List.mem_assoc domain adjustments
     then List.assoc domain adjustments
     else min_kib in
@@ -612,21 +612,21 @@ let free_memory_range ?fistpoints io min_kib max_kib =
 
 let is_balanced ?fistpoints io x = Int64.sub x io.target_host_free_mem_kib < io.free_memory_tolerance_kib
 
-let balance_memory ?fistpoints io = 
+let balance_memory ?fistpoints io =
   try
     change_host_free_memory ?fistpoints io io.target_host_free_mem_kib (is_balanced io);
   with e -> debug "balance memory caught: %s" (Printexc.to_string e)
 
 (** Return true if the host memory is currently unbalanced and needs rebalancing *)
-let is_host_memory_unbalanced ?fistpoints io = 
+let is_host_memory_unbalanced ?fistpoints io =
   let debug_string, host = io.make_host () in
   let domains = List.map (fun d -> d.domid, d) host.domains in
 
   let _, _, _, result = Squeezer.one_iteration ?fistpoints false
-      (is_balanced io) (Squeezer.make ()) host 
+      (is_balanced io) (Squeezer.make ()) host
       io.target_host_free_mem_kib (io.gettimeofday ()) in
 
-  let is_new_target a = 
+  let is_new_target a =
     let existing = (List.assoc a.action_domid domains).target_kib in
     a.new_target_kib <> existing in
 

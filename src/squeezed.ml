@@ -29,14 +29,14 @@ let options = [
   "domain-zero-dynamic-max", Arg.String (fun x -> Squeeze.domain_zero_dynamic_max := if x = "auto" then None else Some (Int64.of_string x)), (fun () -> match !Squeeze.domain_zero_dynamic_max with None -> "using the static-max value" | Some x -> Int64.to_string x), "Maximum memory to allow domain 0";
 ]
 
-let _ = 
+let _ =
   debug "squeezed version %d.%d starting" major_version minor_version;
 
   configure ~options ();
 
   let module Server = Memory_interface.Server(Memory_server) in
 
-  let server = Xcp_service.make 
+  let server = Xcp_service.make
       ~path:Memory_interface.xml_path
       ~queue_name:Memory_interface.queue_name
       ~rpc_fn:(Server.process ())

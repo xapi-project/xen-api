@@ -19,7 +19,7 @@ open D
 open Xs_protocol
 module Client = Xs_client_unix.Client(Xs_transport_unix_client)
 
-let myclient = ref None 
+let myclient = ref None
 let myclient_m = Mutex.create ()
 
 let open_client () =
@@ -47,7 +47,7 @@ let open_client () =
 let get_client () =
   Stdext.Threadext.Mutex.execute myclient_m
     (fun () ->
-       match !myclient with 
+       match !myclient with
        | None ->
          let finished = ref false in
          while not !finished do
