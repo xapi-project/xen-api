@@ -37,13 +37,13 @@ let pages_per_mib  = bytes_per_mib /// bytes_per_page
 
 (** Returns true if (and only if) the specified argument is a power of 2. *)
 let is_power_of_2 n =
-	(n > 0) && (n land (0 - n) = n)
+  (n > 0) && (n land (0 - n) = n)
 
 let round_down_to_multiple_of x y =
-	(x /// y) *** y
+  (x /// y) *** y
 
 let round_up_to_multiple_of x y =
-	((x +++ y --- 1L) /// y) *** y
+  ((x +++ y --- 1L) /// y) *** y
 
 (* === Memory rounding functions ============================================ *)
 
@@ -60,10 +60,10 @@ let round_pages_up_to_nearest_mib             v = round_up   v pages_per_mib
 (* === Division functions =================================================== *)
 
 let divide_rounding_down numerator denominator =
-	numerator /// denominator
+  numerator /// denominator
 
 let divide_rounding_up numerator denominator =
-	(numerator +++ denominator --- 1L) /// denominator
+  (numerator +++ denominator --- 1L) /// denominator
 
 (* === Memory unit conversion functions ===================================== *)
 
@@ -117,49 +117,49 @@ let mib_of_pages_used   value = divide_rounding_up value pages_per_mib
 (* === Domain memory breakdown: HVM guests ================================== *)
 
 module type MEMORY_MODEL_DATA = sig
-	val extra_internal_mib : int64
-	val extra_external_mib : int64
+  val extra_internal_mib : int64
+  val extra_external_mib : int64
 end
 
 module HVM_memory_model_data : MEMORY_MODEL_DATA = struct
-	let extra_internal_mib = 1L
-	let extra_external_mib = 1L
+  let extra_internal_mib = 1L
+  let extra_external_mib = 1L
 end
 
 module Linux_memory_model_data : MEMORY_MODEL_DATA = struct
-	let extra_internal_mib = 0L
-	let extra_external_mib = 1L
+  let extra_internal_mib = 0L
+  let extra_external_mib = 1L
 end
 
 module Memory_model (D : MEMORY_MODEL_DATA) = struct
 
-	let build_max_mib static_max_mib video_mib = static_max_mib --- (Int64.of_int video_mib)
+  let build_max_mib static_max_mib video_mib = static_max_mib --- (Int64.of_int video_mib)
 
-	let build_start_mib target_mib video_mib = target_mib --- (Int64.of_int video_mib)
+  let build_start_mib target_mib video_mib = target_mib --- (Int64.of_int video_mib)
 
-	let xen_max_offset_mib = D.extra_internal_mib
+  let xen_max_offset_mib = D.extra_internal_mib
 
-	let xen_max_mib target_mib = target_mib +++ xen_max_offset_mib
+  let xen_max_mib target_mib = target_mib +++ xen_max_offset_mib
 
-	let shadow_mib static_max_mib vcpu_count multiplier =
-		let vcpu_pages = 256L *** (Int64.of_int vcpu_count) in
-		let p2m_map_pages = static_max_mib in
-		let shadow_resident_pages = static_max_mib in
-		let total_mib = mib_of_pages_used
-			(vcpu_pages +++ p2m_map_pages +++ shadow_resident_pages) in
-		let total_mib_multiplied =
-			Int64.of_float ((Int64.to_float total_mib) *. multiplier) in
-		max 1L total_mib_multiplied
+  let shadow_mib static_max_mib vcpu_count multiplier =
+    let vcpu_pages = 256L *** (Int64.of_int vcpu_count) in
+    let p2m_map_pages = static_max_mib in
+    let shadow_resident_pages = static_max_mib in
+    let total_mib = mib_of_pages_used
+        (vcpu_pages +++ p2m_map_pages +++ shadow_resident_pages) in
+    let total_mib_multiplied =
+      Int64.of_float ((Int64.to_float total_mib) *. multiplier) in
+    max 1L total_mib_multiplied
 
-	let overhead_mib static_max_mib vcpu_count multiplier =
-		D.extra_internal_mib +++
-		D.extra_external_mib +++
-		(shadow_mib static_max_mib vcpu_count multiplier)
+  let overhead_mib static_max_mib vcpu_count multiplier =
+    D.extra_internal_mib +++
+    D.extra_external_mib +++
+    (shadow_mib static_max_mib vcpu_count multiplier)
 
-	let footprint_mib target_mib static_max_mib vcpu_count multiplier =
-		target_mib +++ (overhead_mib static_max_mib vcpu_count multiplier)
+  let footprint_mib target_mib static_max_mib vcpu_count multiplier =
+    target_mib +++ (overhead_mib static_max_mib vcpu_count multiplier)
 
-	let shadow_multiplier_default = 1.0
+  let shadow_multiplier_default = 1.0
 
 end
 
