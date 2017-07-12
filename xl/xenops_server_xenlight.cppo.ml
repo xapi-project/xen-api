@@ -378,11 +378,11 @@ module Mem = struct
 	let wrap f =
 		try Some (f ())
 		with
-			| Memory_interface.Cannot_free_this_much_memory(needed, free) ->
+			| Memory_interface.MemoryError (Memory_interface.Cannot_free_this_much_memory(needed, free)) ->
 				let needed = Memory.bytes_of_kib needed in
 				let free = Memory.bytes_of_kib free in
 				raise (Cannot_free_this_much_memory(needed, free))
-			| Memory_interface.Domains_refused_to_cooperate domids ->
+			| Memory_interface.MemoryError (Memory_interface.Domains_refused_to_cooperate domids) ->
 				debug "Got error_domains_refused_to_cooperate_code from ballooning daemon";
 				raise (Vms_failed_to_cooperate (List.map get_uuid domids))
 			| Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
@@ -421,8 +421,8 @@ module Mem = struct
 			try
 				f ()
 			with
-				| Memory_interface.Domains_refused_to_cooperate _
-				| Memory_interface.Cannot_free_this_much_memory(_, _) as e ->
+				| Memory_interface.MemoryError Memory_interface.Domains_refused_to_cooperate _
+				| Memory_interface.MemoryError (Memory_interface.Cannot_free_this_much_memory(_, _)) as e ->
 				let now = Unix.gettimeofday () in
 				if now -. start > timeout then raise e else begin
 					debug "Sleeping %.0f before retrying" interval;
