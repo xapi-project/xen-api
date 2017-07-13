@@ -15,7 +15,20 @@
 module D = Debug.Make(struct let name="xapi_vda" end)
 open D
 
+(* TODO - fail with proper API errors? *)
+let assert_vm_is_valid ~__context ~vm =
+  if vm = Ref.null
+  then failwith "VM reference is null."
+
+(* TODO - fail with proper API errors? *)
+let assert_vda_version_is_valid ~__context ~version =
+  (* TODO - validate version format? *)
+  if version = ""
+  then failwith "VDA version cannot be empty."
+
 let create ~__context ~vm ~version =
+  assert_vm_is_valid ~__context ~vm;
+  assert_vda_version_is_valid ~__context ~version;
   let vda = Ref.make () in
   let uuid = Uuidm.to_string (Uuidm.create `V4) in
   Db.VDA.create ~__context ~ref:vda ~uuid ~vm ~version;
@@ -28,4 +41,4 @@ let get_status ~__context ~self =
   "I'm sure it's fine..."
 
 let get_log_report ~__context ~self =
-  "beep boop"
+  "DEBUG 01.01.1972 00:00:001 - beep\nDEBUG 01.01.1972 00:00:005 - boop\n"

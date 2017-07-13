@@ -2842,33 +2842,33 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
     "vda-create",
     {
-      reqd=["vm-uuid"];
-      optn=["version"];
+      reqd=["vm-uuid"; "version"];
+      optn=[];
       help="*TEMPORARILY EXPOSED FOR TESTING PURPOSES*";
       implementation=No_fd Cli_operations.VDA.create;
       flags=[];
     };
     "vda-destroy",
     {
-      reqd=[];
-      optn=["uuid"; "vm-uuid"];
+      reqd=["uuid"];
+      optn=[];
       help="*TEMPORARILY EXPOSED FOR TESTING PURPOSES*";
       implementation=No_fd Cli_operations.VDA.destroy;
       flags=[];
     };
     "vda-get-status",
     {
-      reqd=[];
-      optn=["uuid"; "vm-uuid"];
-      help="Return the registration status of a VDA. TODO(Add more detail on different states). ";
+      reqd=["uuid"];
+      optn=[];
+      help="Return the registration status of a VDA.";
       implementation=No_fd Cli_operations.VDA.get_status;
       flags=[];
     };
     "vda-get-log-report",
     {
-      reqd=[];
-      optn=["uuid"; "vm-uuid"];
-      help="Return the log report of a VDA. TODO(Add more detail wrt expected log contents). ";
+      reqd=["uuid"];
+      optn=[];
+      help="Return the log report of a VDA.";
       implementation=No_fd Cli_operations.VDA.get_log_report;
       flags=[];
     };

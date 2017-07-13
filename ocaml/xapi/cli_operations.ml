@@ -4966,28 +4966,13 @@ module SDN_controller = struct
 end
 
 module VDA = struct
-  (* get a VDA using its uuid or a VM's uuid *)
   let get_vda rpc session_id params =
-    if List.mem_assoc "uuid" params then
-      Client.VDA.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "uuid" params)
-    else if List.mem_assoc "vm-uuid" params then
-      let vm_uuid = List.assoc "vm-uuid" params in
-      let all_vdas = Client.VDA.get_all ~rpc ~session_id in (* TODO(replace with get_all_records_where) *)
-      match List.filter (fun vda ->
-        let vda_vm = Client.VDA.get_vm ~rpc ~session_id ~self:vda in
-        let vda_vm_uuid = Client.VM.get_uuid ~rpc ~session_id ~self:vda_vm in
-        vm_uuid = vda_vm_uuid
-        ) all_vdas with
-      | x::y::_ -> failwith "Multiple VDAs found for VM. This should never happen!"
-      | vda::_ -> vda
-      | _ -> failwith "No matching VDAs found."
-    else
-      failwith "The 'uuid=<uuid>' or 'vm-uuid=<vm-uuid>' parameter must be specified to run this command."
+      let uuid = List.assoc "uuid" params in
+      Client.VDA.get_by_uuid ~rpc ~session_id ~uuid
 
   let create printer rpc session_id params =
     let vm_uuid = List.assoc "vm-uuid" params in
-    let version  = try List.assoc "version" params
-                   with Not_found -> "?_?" in (* TODO(choose appropriate default version) *)
+    let version  = List.assoc "version" params in
     let vm = Client.VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid in
     let ref = Client.VDA.create ~rpc ~session_id ~vm ~version in
     let uuid = Client.VDA.get_uuid rpc session_id ref in

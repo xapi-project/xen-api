@@ -9813,27 +9813,6 @@ let sdn_controller = SDN_controller.obj
 module VDA = struct
   let lifecycle = [Published, rel_jura, ""]
 
-  let create = call
-      ~name:"create"
-      ~doc:"Create a VDA object that represents a VDA inside a XenApp/XenDesktop VM."
-      ~in_product_since:rel_jura
-      ~params:[
-        Ref _vm, "vm", "The XenApp/XenDesktop VM where this VDA exists.";
-        String, "version", "The version of the VDA's API.";
-      ]
-      ~result:(Ref _vda, "Reference to the newly-created VDA object.")
-      ~lifecycle
-      ~allowed_roles:_R_POOL_OP
-      ()
-
-  let destroy = call
-      ~name:"destroy"
-      ~doc:"Destroy the VDA object."
-      ~in_product_since:rel_jura
-      ~params:[ Ref _vda, "self", "The VDA object to destroy."]
-      ~allowed_roles:_R_POOL_OP
-      ()
-
   let get_status = call
       ~name:"get_status"
       ~doc:"Obtain the status of the VDA in a running XenApp/XenDesktop VM."
@@ -9859,7 +9838,7 @@ module VDA = struct
       ~name: _vda
       ~descr:"Describes the VDA inside a XenApp/XenDesktop VM."
       ~doccomments:[]
-      ~gen_constructor_destructor:false
+      ~gen_constructor_destructor:true
       ~gen_events:true
       ~in_db:true
       ~lifecycle
@@ -9873,14 +9852,12 @@ module VDA = struct
             ~ty:(Ref _vm) "vm" ~default_value:(Some (VRef null_ref))
             "The XenApp/XenDesktop VM where this VDA exists."
 
-        ; field ~qualifier:DynamicRO ~lifecycle
+        ; field ~qualifier:StaticRO ~lifecycle
             ~ty:String "version" ~default_value:(Some (VString ""))
             "The version of the VDA's API."
         ]
       ~messages:
-        [ create
-        ; destroy
-        ; get_status
+        [ get_status
         ; get_log_report
         ]
       ()
