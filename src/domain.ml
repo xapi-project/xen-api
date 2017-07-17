@@ -969,11 +969,3 @@ let cpuid_set ~xc ~hvm domid cfg =
 
 let cpuid_apply ~xc ~hvm domid =
 	Xc.domain_cpuid_apply xc domid hvm
-
-let cpuid_check cfg =
-	let tmp = Array.create 4 None in
-	List.map (fun (node, constr) ->
-		cpuid_cfg_to_xc_cpuid_cfg tmp constr;
-		let (success, cfgout) = Xc.cpuid_check node tmp in
-		(success, (node, (cpuid_cfg_of_xc_cpuid_cfg cfgout)))
-	) cfg
