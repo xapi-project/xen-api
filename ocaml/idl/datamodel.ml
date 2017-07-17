@@ -996,7 +996,8 @@ let _ =
     ~doc:"You attempted to start a VM that's attached to more than one VDI with a timeoffset marked as reset-on-boot." ();
   error Api_errors.vms_failed_to_cooperate [ ]
     ~doc:"The given VMs failed to release memory when instructed to do so" ();
-
+  error Api_errors.ballooning_timeout_before_migration [ "vm" ]
+    ~doc:"Timeout trying to balloon down memory before VM migration. If the error occurs repeatedly, consider increasing the memory-dynamic-min value." ();
 
   (* Storage errors *)
   error Api_errors.sr_not_attached ["sr"]

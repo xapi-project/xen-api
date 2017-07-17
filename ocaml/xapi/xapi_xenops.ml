@@ -2242,6 +2242,8 @@ let transform_xenops_exn ~__context ~vm queue_name f =
       | Failed_to_start_emulator (uuid, name, msg) ->
         let vm = Db.VM.get_by_uuid ~__context ~uuid in
         reraise Api_errors.failed_to_start_emulator [Ref.string_of vm; name; msg]
+      | Ballooning_timeout_before_migration ->
+        reraise Api_errors.ballooning_timeout_before_migration [Ref.string_of vm]
       | e -> raise e
     end
 

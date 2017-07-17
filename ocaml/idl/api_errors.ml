@@ -400,6 +400,7 @@ let duplicate_mac_seed = "DUPLICATE_MAC_SEED"
 let client_error = "CLIENT_ERROR"
 
 let ballooning_disabled = "BALLOONING_DISABLED"
+let ballooning_timeout_before_migration = "BALLOONING_TIMEOUT_BEFORE_MIGRATION"
 
 let ha_host_is_armed = "HA_HOST_IS_ARMED"
 let ha_is_enabled = "HA_IS_ENABLED"
