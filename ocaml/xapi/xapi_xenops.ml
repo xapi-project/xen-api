@@ -2196,7 +2196,6 @@ let transform_xenops_exn ~__context ~vm queue_name f =
 		| Vms_failed_to_cooperate vms ->
 			let vms' = List.map (fun uuid -> Db.VM.get_by_uuid ~__context ~uuid |> Ref.string_of) vms in
 			reraise Api_errors.vms_failed_to_cooperate vms'
-		| Ballooning_error(code, descr) -> internal "ballooning error: %s %s" code descr
 		| IO_error -> reraise Api_errors.vdi_io_error ["I/O error saving VM suspend image"]
 		| Failed_to_contact_remote_service x -> internal "failed to contact: %s" x
 		| Hook_failed(script, reason, stdout, i) -> reraise Api_errors.xapi_hook_failed [ script; reason; stdout; i ]
