@@ -51,7 +51,6 @@ exception No_bootable_device
 exception Bootloader_error of (string * string)
 exception Cannot_free_this_much_memory of (int64 * int64)
 exception Vms_failed_to_cooperate of string list
-exception Ballooning_error of (string * string)
 exception IO_error
 exception Failed_to_contact_remote_service of string
 exception Hook_failed of (string * string * string * string)
