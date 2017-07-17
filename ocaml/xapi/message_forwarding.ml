@@ -3108,8 +3108,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let host = Db.PBD.get_host ~__context ~self:pbd in
       do_op_on ~local_fn ~__context ~host op
 
-    (* do op on a host that can view multiple SRs, if none is found, an
-       		   exception of Not_found will be raised *)
+    (** Do op on a host that can view multiple SRs. If none is found, the
+        Not_found exception will be raised.
+        WARNING: this may forward the call to a host that is NOT the SR master. *)
     let forward_sr_multiple_op ~local_fn ~__context ~srs ?(prefer_slaves=false) op =
       let choose_fn ~host =
         Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:srs ~host in
@@ -3608,11 +3609,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let export_changed_blocks ~__context ~vdi_from ~vdi_to =
       info "VDI.export_changed_blocks: vdi_from  = '%s'; vdi_to = '%s'" (vdi_uuid ~__context vdi_from) (vdi_uuid ~__context vdi_to);
       let local_fn = Local.VDI.export_changed_blocks ~vdi_from ~vdi_to in
-      let vdi_from_sr = Db.VDI.get_SR ~__context ~self:vdi_from in
       let vdi_to_sr = Db.VDI.get_SR ~__context ~self:vdi_to in
       with_sr_andor_vdi ~__context ~sr:(vdi_to_sr, `vdi_export_changed_blocks) ~vdi:(vdi_to, `export_changed_blocks) ~doc:"VDI.export_changed_blocks"
         (fun () ->
-           SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[vdi_from_sr; vdi_to_sr] ~prefer_slaves:true
+           forward_vdi_op ~local_fn ~__context ~self:vdi_to
              (fun session_id rpc -> Client.VDI.export_changed_blocks ~rpc ~session_id ~vdi_from ~vdi_to))
 
   end
