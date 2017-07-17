@@ -1490,10 +1490,7 @@ module VM = struct
 						cancellable_watch (Domain domid) watches [] task ~xs ~timeout:!Xenopsd.additional_ballooning_timeout ()
 						|> ignore
 					with Watch.Timeout _ ->
-						let msg = Printf.sprintf 
-							"Ballooning Timeout: unable to balloon down the memory of vm %s, please increase the value of memory-dynamic-min"
-							vm.Vm.id
-						in raise (Xenops_interface.Internal_error msg)
+						raise Xenops_interface.Ballooning_timeout_before_migration
 			) Oldest task vm
 
 	let save task progress_callback vm flags data =

@@ -1502,7 +1502,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 
 			(* Waiting here is not essential but adds a degree of safety
 			 * and reducess unnecessary memory copying. *)
-			(try B.VM.wait_ballooning t vm with Internal_error _ -> ());
+			(try B.VM.wait_ballooning t vm with Ballooning_timeout_before_migration -> ());
 
 			(* Find out the VM's current memory_limit: this will be used to allocate memory on the receiver *)
 			let state = B.VM.get_state vm in
