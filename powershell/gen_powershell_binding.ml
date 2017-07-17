@@ -112,7 +112,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Management.Automation;
-using System.Net;
 using System.Text;
 
 using XenAPI;
@@ -344,10 +343,8 @@ and print_header_class classname =
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Management.Automation;
 using System.Text;
-using System.Text.RegularExpressions;
 
 using XenAPI;
 
