@@ -60,6 +60,7 @@ exception Storage_backend_error of (string * (string list))
 exception PCIBack_not_loaded
 exception Failed_to_run_script of string
 exception Failed_to_start_emulator of (string * string * string)
+exception Ballooning_timeout_before_migration
 
 type debug_info = string
 
