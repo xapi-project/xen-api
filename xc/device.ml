@@ -1459,7 +1459,19 @@ type info = {
 let get_vnc_port ~xs domid =
 	if not (Qemu.is_running ~xs domid)
 	then None
-	else (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
+	else begin
+		if is_upstream_qemu domid then begin
+			let open Qmp in
+			let qmp_cmd = Command (None, Query_vnc) in
+			let qmp_cmd_result = qmp_write_and_read domid  qmp_cmd in
+			match qmp_cmd_result with
+			| Some qmp_message -> (match qmp_message with
+				| Success (None, Vnc vnc) -> (try Some vnc.service with _ -> None)
+				| _ -> raise (Internal_error (Printf.sprintf "Get unexpected result after sending Qmp message: %s" (string_of_message qmp_cmd))))
+			| None -> raise (Internal_error (Printf.sprintf "Fail to get result after sending Qmp message: %s" (string_of_message qmp_cmd)))
+		end
+		else (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
+	end
 
 let get_tc_port ~xs domid =
 	if not (Qemu.is_running ~xs domid)

@@ -99,4 +99,5 @@ val xenops_domain_path: string
 val xenops_path_of_domain: Xenctrl.domid -> string
 val xenops_vgpu_path: Xenctrl.domid -> devid -> string
 val is_upstream_qemu: Xenctrl.domid -> bool
+val qmp_write_and_read: Xenctrl.domid -> ?read_result:bool -> Qmp.message -> Qmp.message option
 val qmp_write: Xenctrl.domid -> Qmp.message -> unit
