@@ -549,7 +549,7 @@ let check_operation_error ~__context ~ref ~op ~strict =
 
   let current_error = check current_error (fun () ->
     if Helpers.rolling_upgrade_in_progress ~__context &&
-       not (List.mem op Xapi_globs.vm_operations_miami)
+       not (List.mem op Xapi_globs.rpu_allowed_vm_operations)
     then Some (Api_errors.not_supported_during_upgrade, [])
     else None)
   in
@@ -574,7 +574,7 @@ let update_allowed_operations ~__context ~self =
   (* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
   let allowed =
     if Helpers.rolling_upgrade_in_progress ~__context
-    then Listext.List.intersect allowed Xapi_globs.vm_operations_miami
+    then Listext.List.intersect allowed Xapi_globs.rpu_allowed_vm_operations
     else allowed
   in
   Db.VM.set_allowed_operations ~__context ~self ~value:allowed;
