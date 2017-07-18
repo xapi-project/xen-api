@@ -1095,6 +1095,7 @@ let pool_update_record rpc session_id update =
         make_field ~name:"installation-size"   ~get:(fun () -> Int64.to_string (x ()).API.pool_update_installation_size) ();
         make_field ~name:"hosts"               ~get:(fun () -> String.concat ", " (get_hosts ())) ~get_set:get_hosts ();
         make_field ~name:"after-apply-guidance" ~get:(fun () -> String.concat ", " (after_apply_guidance ())) ~get_set:after_apply_guidance ();
+        make_field ~name:"enforce-homogeneity" ~get:(fun () -> string_of_bool (x ()).API.pool_update_enforce_homogeneity) ();
       ]}
 
 let host_cpu_record rpc session_id host_cpu =

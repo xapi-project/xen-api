@@ -143,6 +143,40 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     end
   in
 
+  let assert_homogeneous_updates () =
+    let module S      = Helpers.StringSet in
+    let local_host    = Helpers.get_localhost ~__context in
+    let local_uuid    = Db.Host.get_uuid ~__context ~self:local_host in
+    let updates_on ~rpc ~session_id host =
+      Client.Host.get_updates ~rpc ~session_id ~self:host
+      |> List.map (fun self -> Client.Pool_update.get_record ~rpc ~session_id ~self)
+      |> List.filter (fun upd -> upd.API.pool_update_enforce_homogeneity = true)
+      |> List.map (fun upd -> upd.API.pool_update_uuid)
+      |> S.of_list in
+    let local_updates =
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+        updates_on ~rpc ~session_id local_host) in
+    (* compare updates on host and pool master *)
+    Client.Pool.get_all rpc session_id |> List.iter (fun pool ->
+      let pool_host = Client.Pool.get_master rpc session_id pool in
+      let remote_updates = updates_on rpc session_id pool_host in
+      if not (S.equal local_updates remote_updates) then begin
+        let remote_uuid  = Client.Host.get_uuid rpc session_id pool_host in
+        let diff xs ys   = S.diff xs ys |> S.elements |> String.concat "," in
+        let reason       =
+          Printf.sprintf "Updates on local host %s and pool host %s differ"
+            (Db.Host.get_name_label ~__context ~self:local_host)
+            (Client.Host.get_name_label rpc session_id pool_host) in
+        error
+          "Pool join: Updates differ. Only on pool host %s: {%s} -- only on local host %s: {%s}"
+          remote_uuid
+          (diff remote_updates local_updates)
+          local_uuid
+          (diff local_updates remote_updates);
+        raise Api_errors.(Server_error(pool_hosts_not_homogeneous,[reason]))
+      end)
+  in
+
   (* CP-700: Restrict pool.join if AD configuration of slave-to-be does not match *)
   (* that of master of pool-to-join *)
   let assert_external_auth_matches () =
@@ -372,6 +406,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   (* CA-247399: check first the API version and then the database schema *)
   assert_api_version_matches ();
   assert_db_schema_matches ();
+  assert_homogeneous_updates ();
   assert_homogeneous_primary_address_type ()
 
 let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) : API.ref_host =
