@@ -547,6 +547,13 @@ let check_operation_error ~__context ~ref ~op ~strict =
       end else None
     ) in
 
+  let current_error = check current_error (fun () ->
+    if Helpers.rolling_upgrade_in_progress ~__context &&
+       not (List.mem op Xapi_globs.vm_operations_miami)
+    then Some (Api_errors.not_supported_during_upgrade, [])
+    else None)
+  in
+
   current_error
 
 let get_operation_error ~__context ~self ~op ~strict =
