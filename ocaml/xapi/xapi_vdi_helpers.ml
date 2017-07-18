@@ -37,7 +37,6 @@ let all_ops: API.vdi_operations list =
   ; `mirror
   ; `resize
   ; `resize_online
-  ; `scan
   ; `set_on_boot
   ; `snapshot
   ; `update

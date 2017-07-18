@@ -6302,8 +6302,7 @@ let vdi_update = call
 
 let vdi_operations =
   Enum ("vdi_operations",
-        [ "scan", "Scanning backends for new or deleted VDIs";
-          "clone", "Cloning the VDI";
+        [ "clone", "Cloning the VDI";
           "copy", "Copying the VDI";
           "resize", "Resizing the VDI";
           "resize_online", "Resizing the VDI which may or may not be online";

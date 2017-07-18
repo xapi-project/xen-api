@@ -98,7 +98,6 @@ let host_operation_to_string = function
   | `vm_migrate -> "VM.migrate"
 
 let vdi_operation_to_string: API.vdi_operations -> string = function
-  | `scan -> "scan"
   | `clone -> "clone"
   | `copy -> "copy"
   | `resize -> "resize"

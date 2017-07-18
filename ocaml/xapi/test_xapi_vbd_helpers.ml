@@ -48,7 +48,7 @@ let run_assert_equal_with_vdi ~__context ?(cmp = my_cmp) ?(expensive_sharing_che
 let test_ca253933_invalid_operations () =
   let __context = Mock.make_context_with_new_db "Mock context" in
   (* When attach a VDI which is under operation which cannot perform live, should raise other_operation_in_progress *)
-  let invalid_operations =  [`scan ; `resize ; `destroy ; `forget ; `update ; `force_unlock ; `generate_config; `snapshot; `resize_online; `blocked; `clone] in
+  let invalid_operations =  [`resize ; `destroy ; `forget ; `update ; `force_unlock ; `generate_config; `snapshot; `resize_online; `blocked; `clone] in
   let operation_is_invalid op =
     run_assert_equal_with_vdi ~__context
       ~vdi_fun:(fun sr_ref ->
