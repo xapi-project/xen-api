@@ -422,7 +422,7 @@ let host_operations_miami = [
   `provision;
 ]
 
-let vm_operations_miami = [
+let rpu_allowed_vm_operations = [
   `assert_operation_valid;
   `changing_memory_live;
   `changing_shadow_memory_live;
