@@ -51,7 +51,6 @@ exception No_bootable_device
 exception Bootloader_error of (string * string)
 exception Cannot_free_this_much_memory of (int64 * int64)
 exception Vms_failed_to_cooperate of string list
-exception Ballooning_error of (string * string)
 exception IO_error
 exception Failed_to_contact_remote_service of string
 exception Hook_failed of (string * string * string * string)
@@ -61,6 +60,7 @@ exception Storage_backend_error of (string * (string list))
 exception PCIBack_not_loaded
 exception Failed_to_run_script of string
 exception Failed_to_start_emulator of (string * string * string)
+exception Ballooning_timeout_before_migration
 
 type debug_info = string
 
