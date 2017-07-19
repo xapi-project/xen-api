@@ -226,11 +226,13 @@ let pool_migrate ~__context ~vm ~host ~options =
         end;
         match exn with
         | Xenops_interface.Failed_to_acknowledge_shutdown_request ->
-          raise (Api_errors.Server_error (Api_errors.vm_failed_shutdown_ack, []))
+          raise Api_errors.(Server_error (vm_failed_shutdown_ack, []))
         | Xenops_interface.Cancelled _ ->
           TaskHelper.raise_cancelled ~__context
         | Xenops_interface.Storage_backend_error (code, _) ->
-          raise (Api_errors.Server_error (Api_errors.sr_backend_failure, [code]))
+          raise Api_errors.(Server_error (sr_backend_failure, [code]))
+        | Xenops_interface.Ballooning_timeout_before_migration ->
+          raise Api_errors.(Server_error (ballooning_timeout_before_migration, [Ref.string_of vm]))
         | _ -> raise exn
     )
 
