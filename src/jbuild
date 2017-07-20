@@ -1,0 +1,17 @@
+(jbuild_version 1)
+
+(executable
+ ((name main)
+  (public_name xapi-nbd)
+  (libraries
+   (cmdliner
+    lwt
+    lwt.unix
+    message_switch.lwt
+    mirage-block-unix
+    nbd.lwt
+    uri
+    xcp.storage
+    xen-api-client.lwt))
+ )
+)

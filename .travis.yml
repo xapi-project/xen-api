@@ -5,6 +5,7 @@ script: bash -ex .travis-opam.sh
 env:
   global:
     - OCAML_VERSION=4.02
+    - PACKAGE=xapi-nbd
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
