@@ -292,7 +292,17 @@ let make_server config =
      | Unix.Unix_error(Unix.ENOENT, _, _) -> return ()
      | e -> fail e)
   >>= fun () ->
-  Cohttp_lwt_unix.Server.create ~mode:(`Unix_domain_socket (`File config.path)) t
+  (* see ocaml-cohttp/issues/511 for additional context *)
+  let on_exn = function
+    | Unix.Unix_error (Unix.EPIPE, _, _) ->
+        (* This is the common client disconnection error - no need to log it*)
+        ()
+    | Unix.Unix_error (error, func, arg) ->
+      let msg = Printf.sprintf "Client connection error %s: %s(%S)" (Unix.error_message error) func arg in
+      Lwt_log.ign_warning msg
+    | exn -> Lwt_log.ign_error ~exn "Unhandled exception" 
+  in
+  Cohttp_lwt_unix.Server.create ~on_exn ~mode:(`Unix_domain_socket (`File config.path)) t
 
 exception Not_a_directory of string
 exception Does_not_exist of string
