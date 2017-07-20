@@ -36,7 +36,6 @@ import java.util.TimeZone;
 
 import org.apache.xmlrpc.XmlRpcException;
 import org.apache.xmlrpc.client.XmlRpcClient;
-import org.apache.xmlrpc.client.XmlRpcClientConfig;
 import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
 import org.apache.xmlrpc.client.XmlRpcHttpClientConfig;
 
@@ -55,17 +54,35 @@ public class Connection
      * The version of the bindings that this class belongs to.
      */
     public static final String BINDINGS_VERSION = "@SDK_VERSION@";
-    
+
     private APIVersion apiVersion;
 
     /**
-     * Reply timeout for xml-rpc calls. The default value is 10 minutes.
+     * Default reply timeout for xml-rpc calls in seconds
      */
+    protected static final int DEFAULT_REPLY_TIMEOUT = 600;
+
+    /**
+     * Default connection timeout for xml-rpc calls in seconds
+     */
+    protected static final int DEFAULT_CONNECTION_TIMEOUT = 5;
+
+    /**
+     * Reply timeout for xml-rpc calls. The default value is 10 minutes.
+     *
+     * @deprecated This field is not used any more. To set the reply timeout
+     * for xml-rpc calls, please use the appropriate Connection constructor.
+     */
+    @Deprecated
     protected int _replyWait = 600;
 
     /**
      * Connection timeout for xml-rpc calls. The default value is 5 seconds.
+     *
+     * @deprecated This field is not used any more. To set the connection timeout
+     * for xml-rpc calls, please use the appropriate Connection constructor.
      */
+    @Deprecated
     protected int _connWait = 5;
 
     /**
@@ -106,7 +123,7 @@ public class Connection
         deprecatedConstructorUsed = true;
 
         final String ApiVersion = APIVersion.latest().toString();
-        this.client = getClientFromURL(new URL(client), _replyWait, _connWait);
+        this.client = getClientFromURL(new URL(client), DEFAULT_REPLY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT);
         try
         {
             this.sessionReference = loginWithPassword(this.client, username, password, ApiVersion);
@@ -151,11 +168,16 @@ public class Connection
      *
      * When this constructor is used, a call to dispose() will do nothing. The programmer is responsible for manually
      * logging out the Session.
+     *
+     * This constructor uses the default values of the reply and connection timeouts for the xmlrpc calls
+     * (600 seconds and 5 seconds respectively).
+     *
+     * @param url The URL of the server to connect to
      */
     public Connection(URL url)
     {
         deprecatedConstructorUsed = false;
-        this.client = getClientFromURL(url, _replyWait, _connWait);
+        this.client = getClientFromURL(url, DEFAULT_REPLY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT);
     }
 
     /**
@@ -168,14 +190,14 @@ public class Connection
      * When this constructor is used, a call to dispose() will do nothing. The programmer is responsible for manually
      * logging out the Session.
      *
-     * The parameters replyWait and connWait set timeouts for xml-rpc calls.
+     * @param url The URL of the server to connect to
+     * @param replyTimeout The reply timeout for xml-rpc calls in seconds
+     * @param connTimeout The connection timeout for xml-rpc calls in seconds
      */
-    public Connection(URL url, int replyWait, int connWait)
+    public Connection(URL url, int replyTimeout, int connTimeout)
     {
         deprecatedConstructorUsed = false;
-        this.client = getClientFromURL(url, replyWait, connWait);
-        _replyWait = replyWait;
-        _connWait = connWait;
+        this.client = getClientFromURL(url, replyTimeout, connTimeout);
     }
 
 
@@ -183,7 +205,11 @@ public class Connection
      * Creates a connection to a particular server using a given url. This object can then be passed
      * in to any other API calls.
      *
-     * The additional sessionReference parameter must be a reference to a logged-in Session. Any method calls on this
+     * This constructor uses the default values of the reply and connection timeouts for the xmlrpc calls
+     * (600 seconds and 5 seconds respectively).
+     *
+     * @param url The URL of the server to connect to
+     * @param sessionReference A reference to a logged-in Session. Any method calls on this
      * Connection will use it. This constructor does not call Session.loginWithPassword, and dispose() on the resulting
      * Connection object does not call Session.logout. The programmer is responsible for ensuring the Session is logged
      * in and out correctly.
@@ -192,7 +218,7 @@ public class Connection
     {
         deprecatedConstructorUsed = false;
 
-        this.client = getClientFromURL(url, _replyWait, _connWait);
+        this.client = getClientFromURL(url, DEFAULT_REPLY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT);
         this.sessionReference = sessionReference;
     }
 
@@ -200,20 +226,19 @@ public class Connection
      * Creates a connection to a particular server using a given url. This object can then be passed
      * in to any other API calls.
      *
-     * The additional sessionReference parameter must be a reference to a logged-in Session. Any method calls on this
-     * Connection will use it. This constructor does not call Session.loginWithPassword, and dispose() on the resulting
-     * Connection object does not call Session.logout. The programmer is responsible for ensuring the Session is logged
-     * in and out correctly.
-     *
-     * The parameters replyWait and connWait set timeouts for xml-rpc calls.
+     * @param url The URL of the server to connect to
+     * @param sessionReference A reference to a logged-in Session. Any method calls on this Connection will use it.
+     *                         This constructor does not call Session.loginWithPassword, and dispose() on the resulting
+     *                         Connection object does not call Session.logout. The programmer is responsible for
+     *                         ensuring the Session is logged in and out correctly.
+     * @param replyTimeout The reply timeout for xml-rpc calls in seconds
+     * @param connTimeout The connection timeout for xml-rpc calls in seconds
      */
-    public Connection(URL url, String sessionReference, int replyWait, int connWait)
+    public Connection(URL url, String sessionReference, int replyTimeout, int connTimeout)
     {
         deprecatedConstructorUsed = false;
-        this.client = getClientFromURL(url, replyWait, connWait);
+        this.client = getClientFromURL(url, replyTimeout, connTimeout);
         this.sessionReference = sessionReference;
-        _replyWait = replyWait;
-        _connWait = connWait;
     }
 
     protected void finalize() throws Throwable
@@ -303,6 +328,7 @@ public class Connection
     {
         return config;
     }
+
     private XmlRpcClient getClientFromURL(URL url, int replyWait, int connWait)
     {
         config.setTimeZone(TimeZone.getTimeZone("UTC"));
