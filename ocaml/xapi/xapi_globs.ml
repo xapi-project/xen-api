@@ -454,6 +454,20 @@ let vm_operations_miami = [
   `update_allowed_operations;
 ]
 
+let rpu_allowed_vdi_operations = [
+  `clone;
+  `copy;
+  `resize;
+  `resize_online;
+  `snapshot;
+  `destroy;
+  `forget;
+  `update;
+  `force_unlock;
+  `generate_config;
+  `blocked;
+]
+
 (* Viridian key name (goes in platform flags) *)
 let viridian_key_name = "viridian"
 (* Viridian key value (set in new templates, in built-in templates on upgrade and when Orlando PV drivers up-to-date first detected) *)
