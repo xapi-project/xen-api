@@ -16,7 +16,6 @@ let project_url = "http://github.com/djs55/xapi-nbd"
 
 open Lwt
 (* Xapi external interfaces: *)
-open Xen_api
 open Xen_api_lwt_unix
 
 (* Xapi internal interfaces: *)
@@ -72,15 +71,15 @@ let with_block filename f =
 let with_attached_vdi sr vdi read_write f =
   let pid = Unix.getpid () in
   let dbg = Printf.sprintf "xapi-nbd:with_attached_vdi/%d" pid in
-  SM.DP.create dbg (Printf.sprintf "xapi-nbd/%s/%d" vdi pid)
+  SM.DP.create ~dbg ~id:(Printf.sprintf "xapi-nbd/%s/%d" vdi pid)
   >>= fun dp ->
-  SM.VDI.attach dbg dp sr vdi read_write
+  SM.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write
   >>= fun attach_info ->
-  SM.VDI.activate dbg dp sr vdi
+  SM.VDI.activate ~dbg ~dp ~sr ~vdi
   >>= fun () ->
   capture_exception f attach_info.Storage_interface.params
   >>= fun r ->
-  SM.DP.destroy dbg dp true
+  SM.DP.destroy ~dbg ~dp ~allow_leak:true
   >>= fun () ->
   release_exception r
 
@@ -93,7 +92,7 @@ let handle_connection fd =
   ( match Uri.user uri, Uri.password uri, Uri.get_query_param uri "session_id" with
     | _, _, Some x ->
       (* Validate the session *)
-      Session.get_uuid rpc x x
+      Session.get_uuid ~rpc ~session_id:x ~self:x
       >>= fun _ ->
       return (x, false)
     | Some uname, Some pwd, _ ->
@@ -107,11 +106,11 @@ let handle_connection fd =
       (fun () ->
         let path = Uri.path uri in (* note preceeding / *)
         let vdi_uuid = if path <> "" then String.sub path 1 (String.length path - 1) else path in
-        VDI.get_by_uuid rpc session_id vdi_uuid
+        VDI.get_by_uuid ~rpc ~session_id ~uuid:vdi_uuid
         >>= fun vdi_ref ->
-        VDI.get_record rpc session_id vdi_ref
+        VDI.get_record ~rpc ~session_id ~self:vdi_ref
         >>= fun vdi_rec ->
-        SR.get_uuid rpc session_id vdi_rec.API.vDI_SR
+        SR.get_uuid ~rpc ~session_id ~self:vdi_rec.API.vDI_SR
         >>= fun sr_uuid ->
         with_attached_vdi sr_uuid vdi_rec.API.vDI_location (not vdi_rec.API.vDI_read_only)
           (fun filename ->
@@ -120,7 +119,7 @@ let handle_connection fd =
       )
       (fun () ->
         if need_to_logout
-        then Session.logout rpc session_id
+        then Session.logout ~rpc ~session_id
         else return ())
   )
 
