@@ -16,16 +16,12 @@ remove: [
   [make "uninstall" "BINDIR=%{bin}%"]
 ]
 depends: [
-  "oasis"
-  "ocamlfind"
-  "lwt"
-  "cstruct" {> "1.0.0"}
+  "oasis" {build}
+  "ocamlfind" {build}
+  "lwt" {< "3.0.0"}
   "cmdliner"
-  "sexplib"
   "mirage-block-unix"
-  "io-page"
-  "mirage"
-  "nbd"
+  "nbd" {>= "2.0.1"}
   "xen-api-client"
   "uri"
   "xapi-idl"
