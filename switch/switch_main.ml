@@ -294,6 +294,9 @@ let make_server config =
   >>= fun () ->
   (* see ocaml-cohttp/issues/511 for additional context *)
   let on_exn = function
+    | Unix.Unix_error (Unix.EPIPE, _, _) ->
+        (* This is the common client disconnection error - no need to log it*)
+        ()
     | Unix.Unix_error (error, func, arg) ->
       let msg = Printf.sprintf "Client connection error %s: %s(%S)" (Unix.error_message error) func arg in
       Lwt_log.ign_warning msg
