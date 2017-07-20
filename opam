@@ -19,7 +19,7 @@ depends: [
   "oasis" {build}
   "ocamlfind" {build}
   "base-unix"
-  "cohttp" {>= "0.15.0" & < "0.22.0"}
+  "cohttp" {>= "0.21.1" & < "0.22.0"}
   "rpc" {>= "1.9.51"}
   "sexplib"
   "ppx_sexp_conv"
@@ -31,3 +31,4 @@ depends: [
   "cmdliner"
   "async" {< "v0.9.0"}
 ]
+
