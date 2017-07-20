@@ -1,19 +1,19 @@
 /*
  * Copyright (c) Citrix Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -91,12 +91,12 @@ public class Connection
     /**
      * Creates a connection to a particular server using a given username and password. This object can then be passed
      * in to any other API calls.
-     * 
+     *
      * This constructor calls Session.loginWithPassword, passing itself as the first parameter.
-     * 
+     *
      * When this constructor is used, a call to dispose() (also called in the Connection's finalizer) will attempt a
      * Session.logout on this connection.
-     * 
+     *
      * @deprecated Use a constructor that takes a URL as the first parameter instead.
      */
     @Deprecated
@@ -106,7 +106,7 @@ public class Connection
         deprecatedConstructorUsed = true;
 
         final String ApiVersion = APIVersion.latest().toString();
-        this.client = getClientFromURL(new URL(client));
+        this.client = getClientFromURL(new URL(client), _replyWait, _connWait);
         try
         {
             this.sessionReference = loginWithPassword(this.client, username, password, ApiVersion);
@@ -145,34 +145,35 @@ public class Connection
     /**
      * Creates a connection to a particular server using a given url. This object can then be passed
      * in to any other API calls.
-     * 
+     *
      * Note this constructor does NOT call Session.loginWithPassword; the programmer is responsible for calling it,
      * passing the Connection as a parameter. No attempt to connect to the server is made until login is called.
-     * 
+     *
      * When this constructor is used, a call to dispose() will do nothing. The programmer is responsible for manually
      * logging out the Session.
      */
     public Connection(URL url)
     {
         deprecatedConstructorUsed = false;
-        this.client = getClientFromURL(url);
+        this.client = getClientFromURL(url, _replyWait, _connWait);
     }
 
     /**
      * Creates a connection to a particular server using a given url. This object can then be passed
      * in to any other API calls.
-     * 
+     *
      * Note this constructor does NOT call Session.loginWithPassword; the programmer is responsible for calling it,
      * passing the Connection as a parameter. No attempt to connect to the server is made until login is called.
-     * 
+     *
      * When this constructor is used, a call to dispose() will do nothing. The programmer is responsible for manually
      * logging out the Session.
-     * 
+     *
      * The parameters replyWait and connWait set timeouts for xml-rpc calls.
      */
     public Connection(URL url, int replyWait, int connWait)
     {
-        this(url);
+        deprecatedConstructorUsed = false;
+        this.client = getClientFromURL(url, replyWait, connWait);
         _replyWait = replyWait;
         _connWait = connWait;
     }
@@ -181,7 +182,7 @@ public class Connection
     /**
      * Creates a connection to a particular server using a given url. This object can then be passed
      * in to any other API calls.
-     * 
+     *
      * The additional sessionReference parameter must be a reference to a logged-in Session. Any method calls on this
      * Connection will use it. This constructor does not call Session.loginWithPassword, and dispose() on the resulting
      * Connection object does not call Session.logout. The programmer is responsible for ensuring the Session is logged
@@ -191,24 +192,26 @@ public class Connection
     {
         deprecatedConstructorUsed = false;
 
-        this.client = getClientFromURL(url);
+        this.client = getClientFromURL(url, _replyWait, _connWait);
         this.sessionReference = sessionReference;
     }
 
     /**
      * Creates a connection to a particular server using a given url. This object can then be passed
      * in to any other API calls.
-     * 
+     *
      * The additional sessionReference parameter must be a reference to a logged-in Session. Any method calls on this
      * Connection will use it. This constructor does not call Session.loginWithPassword, and dispose() on the resulting
      * Connection object does not call Session.logout. The programmer is responsible for ensuring the Session is logged
      * in and out correctly.
-     * 
+     *
      * The parameters replyWait and connWait set timeouts for xml-rpc calls.
      */
     public Connection(URL url, String sessionReference, int replyWait, int connWait)
     {
-        this(url, sessionReference);
+        deprecatedConstructorUsed = false;
+        this.client = getClientFromURL(url, replyWait, connWait);
+        this.sessionReference = sessionReference;
         _replyWait = replyWait;
         _connWait = connWait;
     }
@@ -300,19 +303,19 @@ public class Connection
     {
         return config;
     }
-    private XmlRpcClient getClientFromURL(URL url)
+    private XmlRpcClient getClientFromURL(URL url, int replyWait, int connWait)
     {
         config.setTimeZone(TimeZone.getTimeZone("UTC"));
         config.setServerURL(url);
-        config.setReplyTimeout(_replyWait * 1000);
-        config.setConnectionTimeout(_connWait * 1000);
+        config.setReplyTimeout(replyWait * 1000);
+        config.setConnectionTimeout(connWait * 1000);
         XmlRpcClient client = new XmlRpcClient();
         client.setConfig(config);
         return client;
     }
 
     /*
-     * Because the binding calls are constructing their own parameter lists, they need to be able to get to 
+     * Because the binding calls are constructing their own parameter lists, they need to be able to get to
      * the session reference directly. This is all rather ugly and needs redone
      * Changed to public to allow easier integration with HTTP-level streaming interface,
      * see CA-15447
@@ -363,14 +366,12 @@ public class Connection
                     {
                         try
                         {
-                            URL client_url =
-                                ((XmlRpcHttpClientConfig)client.getClientConfig()).getServerURL();
-                            Connection tmp_conn =
-                                new Connection(new URL(client_url.getProtocol(),
-                                                       (String)error[1],
-                                                       client_url.getPort(),
-                                                       client_url.getFile()), _replyWait, _connWait);
-                            tmp_conn.sessionReference = sessionReference;
+                            XmlRpcHttpClientConfig clientConfig = (XmlRpcHttpClientConfig)client.getClientConfig();
+                            URL client_url = clientConfig.getServerURL();
+                            URL masterUrl = new URL(client_url.getProtocol(), (String)error[1], client_url.getPort(), client_url.getFile());
+
+                            Connection tmp_conn = new Connection(masterUrl, sessionReference, clientConfig.getReplyTimeout(), clientConfig.getConnectionTimeout());
+
                             try
                             {
                                 Session.logout(tmp_conn);
