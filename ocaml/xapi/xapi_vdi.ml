@@ -241,6 +241,11 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
     let check x = match check_operation_error ~__context ~sr_records ~pbd_records ~vbd_records ha_enabled all self x with None ->  [ x ] | _ -> [] in
     List.fold_left (fun accu op -> check op @ accu) []
       (Listext.List.set_difference Xapi_vdi_helpers.all_ops [`blocked]) in
+  let allowed =
+    if Helpers.rolling_upgrade_in_progress ~__context
+    then Listext.List.intersect allowed Xapi_globs.rpu_allowed_vdi_operations
+    else allowed
+  in
   Db.VDI.set_allowed_operations ~__context ~self ~value:allowed
 
 let update_allowed_operations ~__context ~self : unit =
