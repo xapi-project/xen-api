@@ -272,6 +272,26 @@ let test_cbt =
   ; "test_vdi_cbt_enabled_check" >:: test_vdi_cbt_enabled_check
   ]
 
+(** The set of allowed operations must be restricted during rolling pool
+    upgrade to the enums known by older releases. *)
+let test_operations_restricted_during_rpu () =
+  let __context = Mock.make_context_with_new_db "Mock context" in
+  let master = Test_common.make_host __context () in
+  let pool = Test_common.make_pool ~__context ~master () in
+  Db.Pool.add_to_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"x";
+  run_assert_equal_with_vdi
+    ~__context
+    ~sm_fun:(fun sm -> Db.SM.set_features ~__context ~self:sm ~value:["VDI_MIRROR",1L])
+    `mirror
+    (Some(Api_errors.not_supported_during_upgrade, []));
+  Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress;
+  run_assert_equal_with_vdi
+    ~__context
+    ~sm_fun:(fun sm -> Db.SM.set_features ~__context ~self:sm ~value:["VDI_MIRROR",1L])
+    `mirror
+    None
+
+
 let test =
   "test_vdi_allowed_operations" >:::
   [
@@ -280,4 +300,5 @@ let test =
     "test_ca125187" >:: test_ca125187;
     "test_ca126097" >:: test_ca126097;
     test_cbt;
+    "test_operations_restricted_during_rpu" >:: test_operations_restricted_during_rpu;
   ]
