@@ -70,7 +70,12 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
      	   4. for other operations, fail if any VBD has currently-attached=true or any VBD
      	      has a current_operation itself
      	   5. HA prevents you from deleting statefiles or metadata volumes
+     	   6. During rolling pool upgrade, only operations known by older releases are allowed
      	   *)
+  if Helpers.rolling_upgrade_in_progress ~__context &&
+     not (List.mem op Xapi_globs.rpu_allowed_vdi_operations)
+  then Some (Api_errors.not_supported_during_upgrade, [])
+  else
   (* Don't fail with other_operation_in_progress if VDI mirroring is in progress
      	 * and destroy is called as part of VDI mirroring *)
   let is_vdi_mirroring_in_progress = (List.exists (fun (_, op) -> op = `mirror) current_ops) && (op = `destroy) in
@@ -241,6 +246,11 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
     let check x = match check_operation_error ~__context ~sr_records ~pbd_records ~vbd_records ha_enabled all self x with None ->  [ x ] | _ -> [] in
     List.fold_left (fun accu op -> check op @ accu) []
       (Listext.List.set_difference Xapi_vdi_helpers.all_ops [`blocked]) in
+  let allowed =
+    if Helpers.rolling_upgrade_in_progress ~__context
+    then Listext.List.intersect allowed Xapi_globs.rpu_allowed_vdi_operations
+    else allowed
+  in
   Db.VDI.set_allowed_operations ~__context ~self ~value:allowed
 
 let update_allowed_operations ~__context ~self : unit =
