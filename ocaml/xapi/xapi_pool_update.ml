@@ -348,6 +348,52 @@ let patch_uuid_of_update_uuid uuid =
   modify 4; modify 5; modify 6; modify 7;
   Uuid.uuid_of_int_array arr |> Uuid.string_of_uuid
 
+
+module EnforceHomogeneityWorkaround = struct
+  (* Enforce homogeneity horrendous hack *)
+
+  (* We're doing this because we can't put new keys in the database and then upgrade to the
+     released version of 7.2 that doesn't understand the database keys. So we stash them in
+     other_config. Unforunately pool_update doesn't contain other_config, but pool patch
+     does. So we'll stick it in there. Eughrghghg. *)
+  let __enforce_homogeneity_key = "enforce_homogeneity"
+
+  (* Retreive the pool_patch object associated with a pool_update. This is very
+     similar to the function 'pool_patch_of_update' in xapi_pool_patch.ml, but
+     because we might be talking about a different pool we need to only use the
+     public API, not the internal Db calls that that function uses. Also, because
+     the pool_update field of the pool_patch record is not exposed in the API, we
+     have to use the above patch_uuid_of_update_uuid function... *)
+  let pool_patch_of_update rpc session_id ref =
+    let update_uuid = Client.Pool_update.get_uuid rpc session_id ref in
+    let patch_uuid = patch_uuid_of_update_uuid update_uuid in
+    try
+      Client.Pool_patch.get_by_uuid rpc session_id patch_uuid
+    with e ->
+      error "Invalid state: Expected invariant - 1 pool_patch per pool_update. Got %s"
+        (Printexc.to_string e);
+      raise Api_errors.(Server_error (internal_error, ["Invalid state"]))
+
+  (* Note that this function will purposefully raise exceptions if there's any
+     problem figuring out the value of 'enforce_homogeneity'. It's up to the
+     caller to decide what to do in this case *)
+  let get_enforce_homogeneity rpc session_id ~self =
+    let pool_patch_ref = pool_patch_of_update rpc session_id self in
+    Client.Pool_patch.get_other_config rpc session_id pool_patch_ref
+    |> List.assoc __enforce_homogeneity_key
+    |> bool_of_string
+
+  let set_enforce_homogeneity rpc session_id ~self ~value =
+    let pool_patch_ref = pool_patch_of_update rpc session_id self in
+    Client.Pool_patch.remove_from_other_config rpc session_id pool_patch_ref __enforce_homogeneity_key;
+    Client.Pool_patch.add_to_other_config rpc session_id pool_patch_ref __enforce_homogeneity_key (string_of_bool value)
+
+end
+
+let get_enforce_homogeneity ~__context ~self =
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+    EnforceHomogeneityWorkaround.get_enforce_homogeneity rpc session_id self)
+
 let create_update_record ~__context ~update ~update_info ~vdi =
   let patch_ref = Ref.make () in
   ignore(Db.Pool_patch.create ~__context
@@ -360,7 +406,7 @@ let create_update_record ~__context ~update ~update_info ~vdi =
            ~pool_applied:false
            ~after_apply_guidance:update_info.after_apply_guidance
            ~pool_update:update
-           ~other_config:[]);
+           ~other_config:[EnforceHomogeneityWorkaround.__enforce_homogeneity_key,string_of_bool update_info.enforce_homogeneity]);
   Db.Pool_update.create ~__context
     ~ref:update
     ~uuid:update_info.uuid
@@ -371,7 +417,6 @@ let create_update_record ~__context ~update ~update_info ~vdi =
     ~key:update_info.key
     ~after_apply_guidance:update_info.after_apply_guidance
     ~vdi:vdi
-    ~enforce_homogeneity:update_info.enforce_homogeneity
 
 let introduce ~__context ~vdi =
   ignore(Unixext.mkdir_safe Xapi_globs.host_update_dir 0o755);
@@ -462,8 +507,12 @@ let resync_host ~__context ~host =
           | Some self ->
             (* re-interpret the enforce_homogeneity flag CP-258536 *)
             debug "pool_update.resync_host: update %s exists - updating it" update_uuid;
-            Db.Pool_update.set_enforce_homogeneity ~__context ~self
-              ~value:update_info.enforce_homogeneity
+            begin try
+              Helpers.call_api_functions ~__context (fun rpc session_id -> 
+                EnforceHomogeneityWorkaround.set_enforce_homogeneity rpc session_id self update_info.enforce_homogeneity)
+            with e ->
+              error "Failed to set enforce_homogeneity: %s" (Printexc.to_string e)
+            end
           | None ->
             let update = Ref.make () in
             debug "pool_update.resync_host: update %s not in database - creating it" update_uuid;

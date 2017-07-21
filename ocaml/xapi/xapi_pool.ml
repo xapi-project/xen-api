@@ -144,14 +144,30 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   in
 
   let assert_homogeneous_updates () =
+    (* If we can't find the 'enforce_homogeneity' key, we'll default to it being true. However,
+       let's make an override in case something has gone seriously wrong *)
+    let default_update_enforcement =
+      let pool = List.hd (Client.Pool.get_all rpc session_id) in
+      let remote_pool_other_config = Client.Pool.get_other_config rpc session_id pool in
+      try bool_of_string (List.assoc "default_update_enforcement" remote_pool_other_config) with _ -> true
+    in
+    let safe_get_enforce_homogeneity rpc session_id self =
+      try
+        Client.Pool_update.get_enforce_homogeneity rpc session_id self
+      with e ->
+        error "error locating an update's enforce_homogeneity flag. Update ref: '%s' Exception: '%s'"
+          (Ref.string_of self)
+          (Printexc.to_string e);
+        default_update_enforcement
+    in
     let module S      = Helpers.StringSet in
     let local_host    = Helpers.get_localhost ~__context in
     let local_uuid    = Db.Host.get_uuid ~__context ~self:local_host in
     let updates_on ~rpc ~session_id host =
       Client.Host.get_updates ~rpc ~session_id ~self:host
-      |> List.map (fun self -> Client.Pool_update.get_record ~rpc ~session_id ~self)
-      |> List.filter (fun upd -> upd.API.pool_update_enforce_homogeneity = true)
-      |> List.map (fun upd -> upd.API.pool_update_uuid)
+      |> List.map (fun self -> (self,Client.Pool_update.get_record ~rpc ~session_id ~self))
+      |> List.filter (fun (self,upd) -> safe_get_enforce_homogeneity rpc session_id self = true)
+      |> List.map (fun (_,upd) -> upd.API.pool_update_uuid)
       |> S.of_list in
     let local_updates =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
