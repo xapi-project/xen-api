@@ -1,7 +1,4 @@
-*.native
-*.swp
-
 _build
+.merlin
+*.install
 
-setup.data
-setup.log

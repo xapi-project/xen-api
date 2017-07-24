@@ -1,0 +1,15 @@
+opam-version: "1.2"
+name: "rrd2csv"
+version: "1.0.0"
+maintainer: "opam-devel@lists.ocaml.org"
+authors: [ "Guillem Rieu" ]
+license: "LGPL-2.1 with OCaml linking exception"
+build: ["jbuilder" "build" "-p" name "-j" jobs]
+build-test: ["jbuilder" "runtest" "-p" name]
+depends: [
+  "jbuilder" {build}
+  "base-threads" {build}
+  "xapi" {build}
+  "xapi-idl" {build}
+  "xapi-rrd" {build}
+]
