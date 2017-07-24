@@ -52,7 +52,7 @@ module Stdout = struct
 							(time_of_float (Unix.gettimeofday ())) 
 							(Thread.id (Thread.self ())) s; flush stdout) fmt)
 		else
-			Printf.kprintf (fun s -> ()) fmt
+			Printf.kprintf (fun _ -> ()) fmt
 
 	let string_of_float flt = 
 		if fst (modf flt) = 0. then Printf.sprintf "%.0f" flt
@@ -113,8 +113,8 @@ let get_vm_name_label vm_uuid =
 	if Hashtbl.mem vm_uuid_to_name_label_map vm_uuid then
 		Hashtbl.find vm_uuid_to_name_label_map vm_uuid
 	else begin
-		let name_label, session_id = XAPI.retry_with_session (fun session () ->
-			XAPI.get_vm_name_label session vm_uuid) () in
+		let name_label, _session_id = XAPI.retry_with_session (fun session_id () ->
+			XAPI.get_vm_name_label ~session_id ~uuid:vm_uuid) () in
 		Hashtbl.replace vm_uuid_to_name_label_map vm_uuid name_label;
 		name_label
 	end
@@ -123,8 +123,8 @@ let get_host_name_label host_uuid =
 	if Hashtbl.mem host_uuid_to_name_label_map host_uuid then
 		Hashtbl.find host_uuid_to_name_label_map host_uuid
 	else begin
-		let name_label, session_id = XAPI.retry_with_session (fun session () ->
-			XAPI.get_host_name_label session host_uuid) () in
+		let name_label, _session_id = XAPI.retry_with_session (fun session_id () ->
+			XAPI.get_host_name_label ~session_id ~uuid:host_uuid) () in
 		Hashtbl.replace host_uuid_to_name_label_map host_uuid name_label;
 		name_label
 	end
@@ -327,7 +327,7 @@ module Xport = struct
 		(* function taken from Rrd.from_xml *)
 		let tree =
 			let data d = D d in
-			let el ((prefix,tag_name),attr) children = El (tag_name, children) in
+			let el ((_prefix,tag_name),_attr) children = El (tag_name, children) in
 			match Xmlm.peek input with
 			| `Dtd _ -> snd (Xmlm.input_doc_tree ~data ~el input)
 			| _ -> Xmlm.input_tree ~data ~el input
@@ -337,8 +337,8 @@ module Xport = struct
 			(function | El (key, [D value]) -> Some (key,value) | El _ | D _ -> None) elts in
 
 		let find_elt (key: string) (elts: xml_tree list) =
-			match List.find (function | El(k,elts) -> k=key | _ -> false) elts with
-				| El (k, elts) -> elts
+			match List.find (function | El(k,_elts) -> k=key | _ -> false) elts with
+				| El (_k, elts) -> elts
 				| D _ -> raise (Parse_error "find_elt: the element found doesn't contain any elements")
 		in
 
