@@ -4098,6 +4098,17 @@ let pool_update_resync_host = call
     ~allowed_roles:_R_POOL_OP
     ()
 
+let pool_update_get_enforce_homogeneity = call
+    ~name:"get_enforce_homogeneity"
+    ~hide_from_docs:true
+    ~doc:"Get the value of the field 'enforce_homogeneity'"
+    ~in_oss_since:None
+    ~in_product_since:rel_honolulu
+    ~params:[ Ref _pool_update, "self", "The update to be queried"]
+    ~allowed_roles:_R_POOL_OP
+    ~result:(Bool, "The value of the field")
+    ()
+
 let pool_update =
   create_obj ~in_db:true
     ~in_product_since:rel_ely
@@ -4122,6 +4133,7 @@ let pool_update =
       pool_update_attach;
       pool_update_detach;
       pool_update_resync_host;
+      pool_update_get_enforce_homogeneity;
     ]
     ~contents:
       [ uid       ~in_oss_since:None _pool_update;
@@ -4132,13 +4144,6 @@ let pool_update =
         field     ~in_product_since:rel_ely ~default_value:(Some (VSet [])) ~in_oss_since:None ~qualifier:StaticRO ~ty:(Set pool_update_after_apply_guidance) "after_apply_guidance" "What the client should do after this update has been applied.";
         field     ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _vdi) "vdi" "VDI the update was uploaded to";
         field     ~in_product_since:rel_ely ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host)) "hosts" "The hosts that have applied this update.";
-        field     ~in_product_since:rel_honolulu
-                  ~default_value:(Some (VBool false))
-                  ~in_oss_since:None
-                  ~qualifier:StaticRO
-                  ~ty:Bool
-                  "enforce_homogeneity"
-                  "Flag - if true, all hosts in a pool must apply this update";
       ]
     ()
 

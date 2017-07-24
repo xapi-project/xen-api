@@ -3949,6 +3949,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       do_op_on ~local_fn ~__context ~host
         (fun session_id rpc -> Client.Pool_update.resync_host rpc session_id host)
 
+    let get_enforce_homogeneity = Local.Pool_update.get_enforce_homogeneity
   end
   module VGPU_type = struct end
   module LVHD = struct end
