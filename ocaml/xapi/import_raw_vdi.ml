@@ -96,37 +96,32 @@ let localhost_handler rpc session_id vdi_opt (req: Request.t) (s: Unix.file_desc
          raise e
     )
 
-let import vdi (req: Request.t) (s: Unix.file_descr) _ =
-  Xapi_http.assert_credentials_ok "VDI.import" ~http_action:"put_import_raw_vdi" req s;
-
+let import vdi (req: Request.t) (s: Unix.file_descr) _ rpc session_id =
   (* Perform the SR reachability check using a fresh context/task because
      	   we don't want to complete the task in the forwarding case *)
-
   Server_helpers.exec_with_new_task "VDI.import"
     (fun __context ->
        try
-         Helpers.call_api_functions ~__context
-           (fun rpc session_id ->
-              let sr_opt = match vdi, sr_of_req ~__context req with
-                | Some vdi, _ -> Some (Db.VDI.get_SR ~__context ~self:vdi)
-                | None, Some sr -> Some sr
-                | None, None -> None
-              in
-              match sr_opt with
-              | Some sr ->
-                debug "Checking whether localhost can see SR: %s" (Ref.string_of sr);
-                if (Importexport.check_sr_availability ~__context sr)
-                then localhost_handler rpc session_id vdi req s
-                else
-                  let host = Importexport.find_host_for_sr ~__context sr in
-                  let address = Db.Host.get_address ~__context ~self:host in
-                  return_302_redirect req s address;
-                  None
-              | None ->
-                error "Require an SR or VDI to import";
-                fail_task_in_request req s Api_errors.(Server_error(vdi_missing,[]));
-                None
-           )
+         let sr_opt = match vdi, sr_of_req ~__context req with
+           | Some vdi, _ -> Some (Db.VDI.get_SR ~__context ~self:vdi)
+           | None, Some sr -> Some sr
+           | None, None -> None
+         in
+         match sr_opt with
+         | Some sr ->
+           debug "Checking whether localhost can see SR: %s" (Ref.string_of sr);
+           if (Importexport.check_sr_availability ~__context sr)
+           then localhost_handler rpc session_id vdi req s
+           else
+             let host = Importexport.find_host_for_sr ~__context sr in
+             let address = Db.Host.get_address ~__context ~self:host in
+             return_302_redirect req s address;
+             None
+         | None ->
+           error "Require an SR or VDI to import";
+           fail_task_in_request req s Api_errors.(Server_error(vdi_missing,[]));
+           None
+
        with e ->
          error "Caught exception in import handler: %s" (ExnHelper.string_of_exn e);
          fail_task_in_request req s e;
@@ -134,13 +129,21 @@ let import vdi (req: Request.t) (s: Unix.file_descr) _ =
 
     )
 
+let import_without_credentials __context vdi (req: Request.t) (s: Unix.file_descr) _ =
+  Helpers.call_api_functions ~__context
+    (fun rpc session_id ->
+       let rpc_introduce = rpc in
+       let sessin_id_introduce = session_id in
+       import vdi req s () rpc_introduce sessin_id_introduce
+    )
 
 let handler (req: Request.t) (s: Unix.file_descr) _ =
+
   Xapi_http.assert_credentials_ok "VDI.import" ~http_action:"put_import_raw_vdi" req s;
 
   (* Using a fresh context/task because we don't want to complete the
      	   task in the forwarding case *)
   Server_helpers.exec_with_new_task "VDI.import"
     (fun __context ->
-       ignore(import (vdi_of_req ~__context req) req s ())
+       ignore(import_without_credentials __context (vdi_of_req ~__context req) req s ())
     )
