@@ -36,6 +36,7 @@ let console_domid = 0
 
 let _device_model = "device-model"
 let _xenguest = "xenguest"
+let _emu_manager = "emu-manager"
 
 let run cmd args =
   debug "%s %s" cmd (String.concat " " args);
@@ -65,6 +66,9 @@ let choose_qemu_dm x = Device.(
 
 (* We allow xenguest to be overriden via a platform flag *)
 let choose_xenguest x = choose_alternative _xenguest !Xc_resources.xenguest x
+
+(* We allow emu-manager to be overriden via a platform flag *)
+let choose_emu_manager x = choose_alternative _emu_manager !Xc_resources.emu_manager x
 
 
 type qemu_frontend =
@@ -1505,7 +1509,7 @@ module VM = struct
            (fun fd ->
               let vm_str = Vm.sexp_of_t vm |> Sexplib.Sexp.to_string in
               let vgpu_fd = match vgpu_data with Some (FD fd) -> Some fd | _ -> None in
-              Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid (choose_xenguest vm.Vm.platformdata) vm_str domid fd vgpu_fd flags'
+              Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid (choose_emu_manager vm.Vm.platformdata) vm_str domid fd vgpu_fd flags'
                 (fun () ->
                    (* SCTX-2558: wait more for ballooning if needed *)
                    wait_ballooning task vm;
@@ -1582,7 +1586,7 @@ module VM = struct
                 try
                   with_data ~xc ~xs task data false
                     (fun fd ->
-                       Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *) ~timeoffset ~extras build_info (choose_xenguest vm.Vm.platformdata) domid fd
+                       Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *) ~timeoffset ~extras build_info (choose_emu_manager vm.Vm.platformdata) domid fd
                     );
                 with e ->
                   error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);

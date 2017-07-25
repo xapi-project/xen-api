@@ -1165,7 +1165,7 @@ let write_libxc_record ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest_p
   Device.Dm.with_dirty_log domid (fun () ->
       write_libxc_record' ~task ~xc ~xs ~hvm ~xenguest_path ~domid
         ~uuid ~fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback
-  )
+    )
 
 let write_qemu_record domid uuid legacy_libxc fd =
   let file = sprintf qemu_save_path domid in

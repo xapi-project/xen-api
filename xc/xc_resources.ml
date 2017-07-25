@@ -19,6 +19,7 @@ let igmp_query_injector_script = ref "/usr/libexec/xenopsd/igmp_query_injector.p
 
 let vncterm = ref "vncterm"
 let xenguest = ref "xenguest"
+let emu_manager = ref "emu-manager"
 let tune2fs = ref "tune2fs"
 let mount = ref "mount"
 let umount = ref "umount"
@@ -37,6 +38,7 @@ let essentials = [
   X_OK, "vbd-script", vbd_script, "path to the vbd backend script";
   X_OK, "vif-script", vif_script, "path to the vif backend script";
   X_OK, "xenguest", xenguest, "path to the xenguest binary";
+  X_OK, "emu-manager", emu_manager, "path to the emu-manager binary";
   X_OK, "tune2fs", tune2fs, "path to the tune2fs binary";
   X_OK, "mount", mount, "path to the mount binary";
   X_OK, "umount", umount, "path to the umount binary";
