@@ -488,7 +488,11 @@ let resync_host ~__context ~host =
         let pool_patch_ref = Xapi_pool_patch.pool_patch_of_update ~__context update_ref in
         let uuid = Db.Pool_update.get_uuid ~__context ~self:update_ref in
         let mtime = (Unix.stat (Filename.concat update_applied_dir uuid)).Unix.st_mtime in
-        Xapi_pool_patch.write_patch_applied_db ~__context ~date:mtime ~self:pool_patch_ref ~host ()
+        Xapi_pool_patch.write_patch_applied_db ~__context ~date:mtime ~self:pool_patch_ref ~host ();
+        (* The enforce_homogeneity flag is now stored in an update. In
+         * Honolulu it was stored in pool patches. To avoid any confusion, we
+         * delete it there. CA-260352 *)
+        Db.Pool_patch.remove_from_other_config ~__context ~self:pool_patch_ref ~key:"enforce_homogeneity";
       ) update_refs;
     Create_misc.create_updates_requiring_reboot_info ~__context ~host;
     Create_misc.create_software_version ~__context
