@@ -21,6 +21,13 @@ let assert_vm_is_valid ~__context ~vm =
   then failwith "VM reference is null."
 
 (* TODO - fail with proper API errors? *)
+let assert_vm_has_no_vda ~__context ~vm =
+  match Db.VDA.get_records_where ~__context
+    ~expr:(Db_filter_types.(Eq (Field "vm", Literal (Ref.string_of vm)))) with
+  | (_,record)::_ -> failwith ("VDA already exists: " ^ record.API.vDA_uuid)
+  | _ -> ()
+
+(* TODO - fail with proper API errors? *)
 let assert_vda_version_is_valid ~__context ~version =
   (* TODO - validate version format? *)
   if version = ""
@@ -28,6 +35,7 @@ let assert_vda_version_is_valid ~__context ~version =
 
 let create ~__context ~vm ~version =
   assert_vm_is_valid ~__context ~vm;
+  assert_vm_has_no_vda ~__context ~vm;
   assert_vda_version_is_valid ~__context ~version;
   let vda = Ref.make () in
   let uuid = Uuidm.to_string (Uuidm.create `V4) in
