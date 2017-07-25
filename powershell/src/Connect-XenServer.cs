@@ -1,19 +1,19 @@
 /*
  * Copyright (c) Citrix Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -46,6 +46,9 @@ namespace Citrix.XenServer.Commands
     [Cmdlet("Connect", "XenServer")]
     public class ConnectXenServerCommand : PSCmdlet
     {
+        private readonly string _apiVersionString = Helper.APIVersionString(API_Version.LATEST);
+        private string _originator = "XenServerPSModule/" + Helper.APIVersionString(API_Version.LATEST);
+
         public ConnectXenServerCommand()
         {
             Port = 443;
@@ -79,6 +82,9 @@ namespace Citrix.XenServer.Commands
         public string[] OpaqueRef { get; set; }
 
         [Parameter]
+        public string Originator { get { return _originator; } set { _originator = value; } }
+
+        [Parameter]
         public SwitchParameter PassThru { get; set; }
 
         [Parameter]
@@ -106,7 +112,7 @@ namespace Citrix.XenServer.Commands
                       null));
             }
 
-            if (Creds == null && 
+            if (Creds == null &&
                 (string.IsNullOrEmpty(UserName) || string.IsNullOrEmpty(Password)) &&
                  (OpaqueRef == null || OpaqueRef.Length == 0))
             {
@@ -114,7 +120,7 @@ namespace Citrix.XenServer.Commands
                     "",
                     string.IsNullOrEmpty(UserName) ? "root" : UserName,
                     "");
-                
+
                 if (Creds == null)
                 {
                     // Just bail out at this point, they've clicked cancel on the credentials pop up dialog
@@ -155,7 +161,7 @@ namespace Citrix.XenServer.Commands
             }
 
             ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(ValidateServerCertificate);
-			ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
 
             if (Url == null || Url.Length == 0)
             {
@@ -187,8 +193,25 @@ namespace Citrix.XenServer.Commands
                 if (string.IsNullOrEmpty(OpaqueRef[i]))
                 {
                     session = new Session(Url[i]);
-                    var apiVersionString = XenAPI.Helper.APIVersionString(session.APIVersion);
-                    session.login_with_password(connUser, connPassword, apiVersionString, "XenServerPSModule/" + apiVersionString);
+                    try
+                    {
+                        session.login_with_password(connUser, connPassword, _apiVersionString, Originator);
+                    }
+                    catch (Failure f)
+                    {
+                        if (f.ErrorDescription != null && f.ErrorDescription.Count > 1 && f.ErrorDescription[0] == "HOST_IS_SLAVE")
+                        {
+                            ThrowTerminatingError(new ErrorRecord(f, "", ErrorCategory.InvalidArgument, Url[i])
+                            {
+                                ErrorDetails = new ErrorDetails(string.Format("The host you are trying to connect to is a slave. To make regular API calls, please connect to the master host (IP address: {0}).",
+                                    f.ErrorDescription[1]))
+                            });
+                        }
+                        else
+                        {
+                            throw;
+                        }
+                    }
                 }
                 else
                 {
@@ -232,7 +255,7 @@ namespace Citrix.XenServer.Commands
         const string CERT_NOT_TRUSTED = "The certificate on this server is not trusted.";
 
         #endregion
-        
+
         private readonly object certificateValidationLock = new object();
 
         private bool ValidateServerCertificate(
@@ -243,35 +266,35 @@ namespace Citrix.XenServer.Commands
         {
             if (sslPolicyErrors == SslPolicyErrors.None)
                 return true;
-            
-            lock(certificateValidationLock)
+
+            lock (certificateValidationLock)
             {
                 bool ignoreChanged = NoWarnCertificates || (bool)GetVariableValue("NoWarnCertificates", false);
                 bool ignoreNew = ignoreChanged || NoWarnNewCertificates || (bool)GetVariableValue("NoWarnNewCertificates", false);
-                
+
                 HttpWebRequest webreq = (HttpWebRequest)sender;
                 string hostname = webreq.Address.Host;
                 string fingerprint = CommonCmdletFunctions.FingerprintPrettyString(certificate.GetCertHashString());
-    
+
                 string trusted = VerifyInAllStores(new X509Certificate2(certificate))
                                      ? CERT_TRUSTED : CERT_NOT_TRUSTED;
-    
+
                 var certificates = CommonCmdletFunctions.LoadCertificates();
                 bool ok;
-    
+
                 if (certificates.ContainsKey(hostname))
                 {
                     string fingerprint_old = certificates[hostname];
                     if (fingerprint_old == fingerprint)
                         return true;
-    
+
                     ok = Force || ignoreChanged || ShouldContinue(string.Format(CERT_CHANGED, fingerprint, fingerprint_old, trusted), CERT_HAS_CHANGED_CAPTION);
                 }
                 else
                 {
                     ok = Force || ignoreNew || ShouldContinue(string.Format(CERT_FOUND, fingerprint, trusted), CERT_FOUND_CAPTION);
                 }
-    
+
                 if (ok)
                 {
                     certificates[hostname] = fingerprint;

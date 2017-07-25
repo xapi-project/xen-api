@@ -112,7 +112,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Management.Automation;
-using System.Net;
 using System.Text;
 
 using XenAPI;
@@ -344,10 +343,8 @@ and print_header_class classname =
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Management.Automation;
 using System.Text;
-using System.Text.RegularExpressions;
 
 using XenAPI;
 
@@ -399,14 +396,6 @@ and print_methods_class classname has_uuid has_name =
                 results.AddRange(records.Values);
             }
 
-            if (results.Count == 0)
-            {
-                ThrowTerminatingError(new ErrorRecord(
-                                          new Exception(\"No %s was found that matched the filters.\"),
-                                          string.Empty,
-                                          ErrorCategory.InvalidArgument,
-                                          null));
-            }
             WriteObject(results, true);
 
             UpdateSessions();
@@ -414,8 +403,7 @@ and print_methods_class classname has_uuid has_name =
 
         #endregion
     }
-}
-    "
+}\n"
     classType
     classType
     (if has_name then sprintf "
@@ -444,7 +432,6 @@ and print_methods_class classname has_uuid has_name =
                     }
             }"
      else "")
-    (exposed_class_name classname)
 
 
 (*********************************)
