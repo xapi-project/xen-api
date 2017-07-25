@@ -4242,7 +4242,13 @@ let pool_update =
         field     ~in_product_since:rel_ely ~default_value:(Some (VSet [])) ~in_oss_since:None ~qualifier:StaticRO ~ty:(Set pool_update_after_apply_guidance) "after_apply_guidance" "What the client should do after this update has been applied.";
         field     ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _vdi) "vdi" "VDI the update was uploaded to";
         field     ~in_product_since:rel_ely ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host)) "hosts" "The hosts that have applied this update.";
-        field     ~in_product_since:rel_honolulu
+        field     ~in_product_since:rel_inverness
+                  ~default_value:(Some (VMap []))
+                  ~in_oss_since:None
+                  ~ty:(Map(String, String))
+                  "other_config"
+                  "additional configuration";
+        field     ~in_product_since:rel_inverness
                   ~default_value:(Some (VBool false))
                   ~in_oss_since:None
                   ~qualifier:StaticRO

@@ -363,6 +363,7 @@ let make_pool_update ~__context
     ?(key="")
     ?(after_apply_guidance=[])
     ?(enforce_homogeneity=false)
+    ?(other_config=[])
     ?(vdi=Ref.null) () =
   let update_info = Xapi_pool_update.
     { uuid
@@ -372,6 +373,7 @@ let make_pool_update ~__context
     ; key
     ; installation_size
     ; after_apply_guidance
+    ; other_config
     ; enforce_homogeneity
     } in
   Xapi_pool_update.create_update_record ~__context ~update:ref ~update_info ~vdi;
