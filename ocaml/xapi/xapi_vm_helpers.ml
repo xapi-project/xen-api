@@ -158,9 +158,12 @@ let destroy  ~__context ~self =
   (try Db.VM_metrics.destroy ~__context ~self:vm_metrics with _ -> ());
   let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self in
   (try Db.VM_guest_metrics.destroy ~__context ~self:vm_guest_metrics with _ -> ());
-  let vdas = Db.VDA.get_refs_where ~__context (* there should be 1 or 0 VDAs *)
-    ~expr:(Db_filter_types.(Eq (Field "vm", Literal (Ref.string_of self)))) in
-  List.iter (fun vda -> try Db.VDA.destroy ~__context ~self:vda with _ -> ()) vdas;
+
+  (* destroy VDA if one exists *)
+  Xapi_vda.find_vda ~__context ~vm:self
+    |> Opt.iter (fun vda ->
+      try Db.VDA.destroy ~__context ~self:vda
+      with e -> debug "Error %s while destroying VDA %s" (Printexc.to_string e) (Ref.string_of vda));
 
   Db.VM.destroy ~__context ~self
 

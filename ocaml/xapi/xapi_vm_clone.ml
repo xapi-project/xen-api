@@ -429,6 +429,9 @@ let clone ?(snapshot_info_record) disk_op ~__context ~vm ~new_name =
               (* copy VGPUs *)
               let (_ : [`VGPU] Ref.t list) =
                 List.map (fun vgpu -> Xapi_vgpu.copy ~__context ~vm:ref vgpu) vgpus in
+              (* copy the VDA associated with this VM, if one exists *)
+              Xapi_vda.find_vda ~__context ~vm
+                |> Opt.iter (fun vda -> Xapi_vda.copy ~__context ~vm:ref vda |> ignore);
 
               (* copy the suspended VDI if needed *)
               let suspend_VDI =

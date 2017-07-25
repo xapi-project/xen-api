@@ -15,6 +15,15 @@
 module D = Debug.Make(struct let name="xapi_vda" end)
 open D
 
+let find_vda ~__context ~vm =
+  match Db.VDA.get_refs_where ~__context
+    ~expr:(Db_filter_types.(Eq (Field "vm", Literal (Ref.string_of vm)))) with
+  | ref::[] -> Some ref
+  | ref::_ -> (* should never happen; this occurance indicates a bug *)
+    let msg = "Multiple VDAs found for VM" in
+    raise Api_errors.(Server_error(internal_error, [msg; (Ref.string_of vm)]))
+  | _ -> None
+
 (* TODO - fail with proper API errors? *)
 let assert_vm_is_valid ~__context ~vm =
   if vm = Ref.null
@@ -50,3 +59,7 @@ let get_status ~__context ~self =
 
 let get_log_report ~__context ~self =
   "DEBUG 01.01.1972 00:00:001 - beep\nDEBUG 01.01.1972 00:00:005 - boop\n"
+
+let copy ~__context ~vm vda =
+  let record = Db.VDA.get_record ~__context ~self:vda in
+  create ~__context ~vm ~version:record.API.vDA_version
