@@ -44,6 +44,8 @@ type update_info = {
   key: string;
   installation_size: int64;
   after_apply_guidance: API.after_apply_guidance list;
+  other_config: (string * string) list;
+  enforce_homogeneity: bool; (* true = all hosts in a pool must have this update *)
 }
 
 (** Mount a filesystem somewhere, with optional type *)
@@ -258,6 +260,9 @@ let parse_update_info xml =
       with
       | _ -> []
     in
+    let enforce_homogeneity =
+      Vm_platform.is_true ~key:"enforce-homogeneity" ~platformdata:attr ~default:false
+    in
     let is_name_description_node = function
       | Xml.Element ("name-description", _, _) -> true
       | _ -> false
@@ -266,16 +271,16 @@ let parse_update_info xml =
       | Xml.Element("name-description", _, [ Xml.PCData s ]) -> s
       | _ -> raise (Api_errors.Server_error(Api_errors.invalid_update, ["missing <name-description> in update.xml"]))
     in
-    let update_info = {
-      uuid = uuid;
-      name_label = name_label;
-      name_description = name_description;
-      version = version;
-      key = Filename.basename key;
-      installation_size = installation_size;
-      after_apply_guidance = guidance;
-    } in
-    update_info
+      { uuid
+      ; name_label
+      ; name_description
+      ; version
+      ; key = Filename.basename key
+      ; installation_size
+      ; after_apply_guidance = guidance
+      ; other_config = []
+      ; enforce_homogeneity
+      }
   | _ -> raise (Api_errors.Server_error(Api_errors.invalid_update, ["missing <update> in update.xml"]))
 
 let extract_applied_update_info applied_uuid  =
@@ -370,6 +375,8 @@ let create_update_record ~__context ~update ~update_info ~vdi =
     ~key:update_info.key
     ~after_apply_guidance:update_info.after_apply_guidance
     ~vdi:vdi
+    ~other_config:[]
+    ~enforce_homogeneity:update_info.enforce_homogeneity
 
 let introduce ~__context ~vdi =
   ignore(Unixext.mkdir_safe Xapi_globs.host_update_dir 0o755);
@@ -450,16 +457,23 @@ let resync_host ~__context ~host =
     debug "pool_update.resync_host scanning directory %s for applied updates" update_applied_dir;
     let updates_applied = try Array.to_list (Sys.readdir update_applied_dir) with _ -> [] in
     let update_uuids = List.filter (fun update -> Uuid.is_uuid update) updates_applied in
-    let not_existing_uuids = List.filter (fun update_uuid ->
-        try ignore (Db.Pool_update.get_by_uuid ~__context ~uuid:update_uuid); false
-        with _ -> true) update_uuids in
-
+    let exists uuid =
+      try Some (Db.Pool_update.get_by_uuid ~__context ~uuid)
+      with _ -> None in
     (* Handle the updates rolluped and create records accordingly *)
     List.iter (fun update_uuid ->
         let update_info = extract_applied_update_info update_uuid in
-        let update = Ref.make () in
-        create_update_record ~__context ~update:update ~update_info ~vdi:Ref.null
-      ) not_existing_uuids;
+        ( match exists update_uuid with
+          | Some self ->
+            (* re-interpret the enforce_homogeneity flag CP-258536 *)
+            debug "pool_update.resync_host: update %s exists - updating it" update_uuid;
+            Db.Pool_update.set_enforce_homogeneity ~__context ~self
+              ~value:update_info.enforce_homogeneity
+          | None ->
+            let update = Ref.make () in
+            debug "pool_update.resync_host: update %s not in database - creating it" update_uuid;
+            create_update_record ~__context ~update:update ~update_info ~vdi:Ref.null
+        )) update_uuids;
     let update_refs = List.map (fun update_uuid ->
         Db.Pool_update.get_by_uuid ~__context ~uuid:update_uuid) update_uuids in
     Db.Host.set_updates ~__context ~self:host ~value:update_refs;
@@ -468,7 +482,11 @@ let resync_host ~__context ~host =
         let pool_patch_ref = Xapi_pool_patch.pool_patch_of_update ~__context update_ref in
         let uuid = Db.Pool_update.get_uuid ~__context ~self:update_ref in
         let mtime = (Unix.stat (Filename.concat update_applied_dir uuid)).Unix.st_mtime in
-        Xapi_pool_patch.write_patch_applied_db ~__context ~date:mtime ~self:pool_patch_ref ~host ()
+        Xapi_pool_patch.write_patch_applied_db ~__context ~date:mtime ~self:pool_patch_ref ~host ();
+        (* The enforce_homogeneity flag is now stored in an update. In
+         * Honolulu it was stored in pool patches. To avoid any confusion, we
+         * delete it there. CA-260352 *)
+        Db.Pool_patch.remove_from_other_config ~__context ~self:pool_patch_ref ~key:"enforce_homogeneity";
       ) update_refs;
     Create_misc.create_updates_requiring_reboot_info ~__context ~host;
     Create_misc.create_software_version ~__context
