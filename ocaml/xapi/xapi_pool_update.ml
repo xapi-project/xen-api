@@ -458,7 +458,7 @@ let detach_attached_updates __context =
     )
 
 let resync_host ~__context ~host =
-  let update_applied_dir = "/var/update/applied" in
+  let update_applied_dir = Filename.concat Xapi_globs.host_update_dir "applied" in
   if Sys.file_exists update_applied_dir then begin
     debug "pool_update.resync_host scanning directory %s for applied updates" update_applied_dir;
     let updates_applied = try Array.to_list (Sys.readdir update_applied_dir) with _ -> [] in
