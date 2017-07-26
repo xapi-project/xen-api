@@ -2635,7 +2635,16 @@ let suspend ~__context ~self =
        let module Client = (val make_client queue_name : XENOPS) in
        let vm_t, state = Client.VM.stat dbg id in
        (* XXX: this needs to be at boot time *)
-       let space_needed = Int64.(add (of_float (to_float vm_t.Vm.memory_static_max *. 1.2 *. 1.05)) 104857600L) in
+       let space_needed =
+         let ram = Int64.(of_float (to_float vm_t.Vm.memory_static_max *. 1.2 *. 1.05)) in
+         let vgpu =
+           Db.VM.get_VGPUs ~__context ~self
+           |> List.map (fun self -> Db.VGPU.get_type ~__context ~self)
+           |> List.map (fun self -> Db.VGPU_type.get_framebuffer_size ~__context ~self)
+           |> List.fold_left Int64.add 0L
+         in
+         Int64.(ram |> add vgpu |> add 104857600L)
+       in
        let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm:self in
        let sm_config = [
          Xapi_globs._sm_vm_hint, id;
