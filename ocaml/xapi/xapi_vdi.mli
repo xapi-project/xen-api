@@ -212,3 +212,5 @@ val disable_cbt :
   __context:Context.t -> self:API.ref_VDI -> unit
 val export_changed_blocks :
   __context:Context.t -> vdi_from:API.ref_VDI -> vdi_to:API.ref_VDI -> string
+val get_nbd_info :
+  __context:Context.t -> self:API.ref_VDI -> string list

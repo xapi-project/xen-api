@@ -870,6 +870,38 @@ let export_changed_blocks ~__context ~vdi_from ~vdi_to =
   Storage_access.transform_storage_exn
     (fun () ->
        C.VDI.export_changed_blocks ~dbg:(Ref.string_of task) ~sr ~vdi_from ~vdi_to
-    );
+    )
+
+let get_nbd_info ~__context ~self =
+  if (Db.VDI.get_type ~__context ~self) = `cbt_metadata then begin
+    error "VDI.get_nbd_info: called with a VDI of type cbt_metadata (at %s)" __LOC__;
+    raise (Api_errors.Server_error (Api_errors.vdi_incompatible_type, [ Ref.string_of self; Record_util.vdi_type_to_string `cbt_metadata ]))
+  end;
+
+  let sr = Db.VDI.get_SR ~__context ~self in
+  let hosts_with_attached_pbds =
+    Db.SR.get_PBDs ~__context ~self:sr
+    |> List.filter (fun pbd -> Db.PBD.get_currently_attached ~__context ~self:pbd)
+    |> List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
+  in
+  let get_ips host =
+    let get_ips pif =
+      let not_empty = (<>) "" in
+      let v6_ips = Db.PIF.get_IPv6 ~__context ~self:pif |> List.filter not_empty |> List.map (fun s -> "[" ^ s ^ "]") in
+      let v4_ip = Db.PIF.get_IP ~__context ~self:pif in
+      if not_empty v4_ip then v4_ip :: v6_ips else v6_ips
+    in
+    let attached_pifs =
+      Db.Host.get_PIFs ~__context ~self:host
+      |> List.filter (fun pif -> Db.PIF.get_currently_attached ~__context ~self:pif)
+    in
+    attached_pifs |> List.map get_ips |> List.flatten
+  in
+  let ips = hosts_with_attached_pbds |> List.map get_ips |> List.flatten in
+
+  let vdi_uuid = Db.VDI.get_uuid ~__context ~self in
+  let session_id = Context.get_session_id __context |> Ref.string_of in
+  ips
+  |> List.map (fun ip -> Printf.sprintf "nbd://%s:10809/%s?session_id=%s" ip vdi_uuid session_id)
 
 (* let pool_migrate = "See Xapi_vm_migrate.vdi_pool_migrate!" *)
