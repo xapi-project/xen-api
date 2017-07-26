@@ -293,6 +293,7 @@ let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
   let snap_VIFs = Db.VM.get_VIFs ~__context ~self:snapshot in
   let snap_VGPUs = Db.VM.get_VGPUs ~__context ~self:snapshot in
   let snap_suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:snapshot in
+  let snap_VDA = Xapi_vda.find_vda ~__context ~vm:snapshot in
 
   let vm_VBDs = Db.VM.get_VBDs ~__context ~self:vm in
   (* Filter VBDs to ensure that we don't read empty CDROMs *)
@@ -304,6 +305,7 @@ let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
   let vm_VIFs = Db.VM.get_VIFs ~__context ~self:vm in
   let vm_VGPUs = Db.VM.get_VGPUs ~__context ~self:vm in
   let vm_suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:vm in
+  let vm_VDA = Xapi_vda.find_vda ~__context ~vm in
 
   (* clone all the disks of the snapshot *)
   Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -376,8 +378,14 @@ let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
         let (_ : [`VGPU] Ref.t list) =
           List.map (fun vgpu -> Xapi_vgpu.copy ~__context ~vm vgpu) snap_VGPUs in
         TaskHelper.set_progress ~__context 0.9;
+
+        debug "Cleaning up the old VDA";
+        Stdext.Opt.iter (fun vda -> Db.VDA.destroy ~__context ~self:vda) vm_VDA;
+
+        debug "Setting up the new VDA";
+        Stdext.Opt.iter (fun vda -> Xapi_vda.copy ~__context ~vm vda |> ignore) snap_VDA;
       with e ->
-        error "Error while updating the new VBD, VDI, VIF and VGPU records. Cleaning up the cloned VDIs.";
+        error "Error while updating the new VBD, VDI, VIF, VGPU and VDA records. Cleaning up the cloned VDIs.";
         let vdis = cloned_suspend_VDI :: (List.fold_left (fun acc (_, vdi, on_error_delete) -> if on_error_delete then vdi::acc else acc) [] cloned_disks) in
         List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) vdis;
         raise e)
