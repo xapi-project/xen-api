@@ -867,7 +867,7 @@ module Ovs = struct
 			with _ -> ());
 		) phy_interfaces
 
-	let create_bridge ?mac ?external_id ?disable_in_band ~fail_mode vlan vlan_bug_workaround name =
+	let create_bridge ?mac ?external_id ?disable_in_band ?igmp_snooping ~fail_mode vlan vlan_bug_workaround name =
 		let vlan_arg = match vlan with
 			| None -> []
 			| Some (parent, tag) ->
@@ -917,14 +917,12 @@ module Ovs = struct
 			else
 				[]
 		in
-		let set_mcast_snooping =
-			if vlan = None then
-				["--"; "set"; "bridge"; name; "mcast_snooping_enable=true"]
-			else
-				[]
+		let set_igmp_snooping = match igmp_snooping, vlan with
+			| Some x, None -> ["--"; "set"; "bridge"; name; "mcast_snooping_enable=" ^ (string_of_bool x)]
+			| _ -> []
 		in
 		vsctl ~log:true (del_old_arg @ ["--"; "--may-exist"; "add-br"; name] @
-			vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg @ set_mac_table_size @ set_mcast_snooping)
+			vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg @ set_mac_table_size @ set_igmp_snooping)
 
 	let destroy_bridge name =
 		vsctl ~log:true ["--"; "--if-exists"; "del-br"; name]

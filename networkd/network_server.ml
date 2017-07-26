@@ -546,14 +546,14 @@ module Bridge = struct
 			) existing_bridges
 		end
 
-	let create _ dbg ?vlan ?mac ?(other_config=[]) ~name () =
+	let create _ dbg ?vlan ?mac ?igmp_snooping ?(other_config=[]) ~name () =
 		Debug.with_thread_associated dbg (fun () ->
 			debug "Creating bridge %s%s" name (match vlan with
 				| None -> ""
 				| Some (parent, vlan) -> Printf.sprintf " (VLAN %d on bridge %s)" vlan parent
 			);
 			Stdext.Opt.iter (destroy_existing_vlan_bridge name) vlan;
-			update_config name {(get_config name) with vlan; bridge_mac=mac; other_config};
+			update_config name {(get_config name) with vlan; bridge_mac=mac; igmp_snooping; other_config};
 			begin match !backend_kind with
 			| Openvswitch ->
 				let fail_mode =
@@ -595,7 +595,7 @@ module Bridge = struct
 							(debug "%s isn't a valid setting for other_config:vswitch-disable-in-band" dib;
 							None)
 				in
-				ignore (Ovs.create_bridge ?mac ~fail_mode ?external_id ?disable_in_band
+				ignore (Ovs.create_bridge ?mac ~fail_mode ?external_id ?disable_in_band ?igmp_snooping
 					vlan vlan_bug_workaround name)
 			| Bridge ->
 				ignore (Brctl.create_bridge name);
@@ -983,10 +983,10 @@ module Bridge = struct
 			debug "** Configuring the following bridges: %s%s"
 				(String.concat ", " (List.map (fun (name, _) -> name) config))
 				(if conservative then " (best effort)" else "");
-			List.iter (function (bridge_name, ({ports; vlan; bridge_mac; other_config; _} as c)) ->
+			List.iter (function (bridge_name, ({ports; vlan; bridge_mac; igmp_snooping; other_config; _} as c)) ->
 				update_config bridge_name c;
 				exec (fun () ->
-					create () dbg ?vlan ?mac:bridge_mac ~other_config ~name:bridge_name ();
+					create () dbg ?vlan ?mac:bridge_mac ?igmp_snooping ~other_config ~name:bridge_name ();
 					List.iter (fun (port_name, {interfaces; bond_properties; bond_mac; kind}) ->
 						add_port () dbg ?bond_mac ~bridge:bridge_name ~name:port_name ~interfaces ~bond_properties ~kind ()
 					) ports
