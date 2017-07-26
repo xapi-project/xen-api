@@ -359,3 +359,7 @@ let make_pool_update ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
   let update_info = Xapi_pool_update.{uuid; name_label; name_description; version; key; installation_size; after_apply_guidance} in
   Xapi_pool_update.create_update_record ~__context ~update:ref ~update_info ~vdi;
   ref
+
+let make_session ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(this_host=Ref.null) ?(this_user=Ref.null) ?(last_active=API.Date.never) ?(pool=false) ?(other_config=[]) ?(is_local_superuser=false) ?(subject=Ref.null) ?(validation_time=API.Date.never) ?(auth_user_sid="") ?(auth_user_name="") ?(rbac_permissions=[]) ?(parent=Ref.null) ?(originator="test") () =
+  Db.Session.create ~__context ~ref ~uuid ~this_host ~this_user ~last_active ~pool ~other_config ~is_local_superuser ~subject ~validation_time ~auth_user_sid ~auth_user_name ~rbac_permissions ~parent ~originator;
+  ref

@@ -6604,6 +6604,17 @@ let vdi_export_changed_blocks = call
     ~allowed_roles:_R_VM_OP
     ()
 
+let vdi_get_nbd_info = call
+    ~name:"get_nbd_info"
+    ~in_oss_since:None
+    ~in_product_since:rel_inverness
+    ~params:[Ref _vdi, "self", "The VDI to access via NBD."]
+    ~errs: [Api_errors.vdi_incompatible_type]
+    ~result:(Set String, "The list of URIs.")
+    ~doc:"Get a list of URIs specifying how to access this VDI via the NBD server of XenServer. A URI will be returned for each PIF of each host that is connected to the VDI's SR. An empty list is returned in case no network has a PIF on a host with access to the relevant SR. To access the given VDI, any of the returned URIs can be passed to the NBD server running at the IP address and port specified by that URI as the export name."
+    ~allowed_roles:_R_VM_ADMIN
+    ()
+
 (** A virtual disk *)
 let vdi =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vdi ~descr:"A virtual disk image"
@@ -6640,6 +6651,7 @@ let vdi =
                vdi_disable_cbt;
                vdi_data_destroy;
                vdi_export_changed_blocks;
+               vdi_get_nbd_info;
               ]
     ~contents:
       ([ uid _vdi;

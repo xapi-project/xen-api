@@ -3615,6 +3615,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            forward_vdi_op ~local_fn ~__context ~self:vdi_to
              (fun session_id rpc -> Client.VDI.export_changed_blocks ~rpc ~session_id ~vdi_from ~vdi_to))
 
+    let get_nbd_info ~__context ~self =
+      info "VDI.get_nbd_info: vdi  = '%s'" (vdi_uuid ~__context self);
+      Local.VDI.get_nbd_info ~__context ~self
+
   end
   module VBD = struct
 
