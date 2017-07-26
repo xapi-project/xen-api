@@ -4,16 +4,7 @@ open Fun
 open OUnit
 open Network_utils
 
-(* Example of using OUnitDiff with a String Set *)
-module StringDiff =
-struct
-  type t = string
-  let compare = String.compare
-  let pp_printer = Format.pp_print_string
-  let pp_print_sep = OUnitDiff.pp_comma_separator
-end
-
-module OSSet = OUnitDiff.SetMake(StringDiff)
+module OSSet = Ounit_comparators.StringSet
 
 let run_bond_prop_test props c_props c_per_iface =
   let props, per_iface_props =

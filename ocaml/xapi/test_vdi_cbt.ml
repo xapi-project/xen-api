@@ -153,8 +153,7 @@ let test_get_nbd_info =
       ; "nbd://[10e1:bdb8:05a3:0002:03ae:8a24:0371:0003]:10809/" ^ uuid ^ "?session_id=" ^ session_id
       ]
     in
-    let sort = List.sort String.compare in
-    OUnit.assert_equal ~printer:(String.concat ", ") (sort expected) (sort nbd_info)
+    Ounit_comparators.StringSet.(assert_equal (of_list expected) (of_list nbd_info))
   in
 
   let test_returns_empty_list_when_no_host_is_connected_to_sr () =
