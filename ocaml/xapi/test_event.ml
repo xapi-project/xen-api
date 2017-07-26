@@ -27,34 +27,12 @@ let start_periodic_scheduler () =
     ps_start := true
   end
 
-let create_session ~__context =
-  let session_id = Ref.make () in
-  let uuid = Uuid.to_string (Uuid.make_uuid ()) in
-  let user = Ref.null in (* always return a null reference to the deprecated user object *)
-  let parent = try Context.get_session_id __context with _ -> Ref.null in
-  (*match uname with   (* the user object is deprecated in favor of subject *)
-      Some uname -> Helpers.get_user ~__context uname
-      | None -> Ref.null in*)
-  (* This info line is important for tracking, auditability and client accountability purposes on XenServer *)
-  (* Never print the session id nor uuid: they are secret values that should be known only to the user that *)
-  (* has just logged in. Instead, we print a non-invertible hash as the tracking id for the session id *)
-  (* see also task creation in context.ml *)
-  (* CP-982: promote tracking debug line to info status *)
-  (* CP-982: create tracking id in log files to link username to actions *)
-  Db.Session.create ~__context ~ref:session_id ~uuid
-    ~this_user:user ~this_host:(Helpers.get_localhost ~__context) ~pool:false
-    ~last_active:(Date.of_float (Unix.time ())) ~other_config:[]
-    ~subject:(Ref.null) ~is_local_superuser:true
-    ~auth_user_sid:"" ~validation_time:(Date.of_float (Unix.time ()))
-    ~auth_user_name:"root" ~rbac_permissions:[] ~parent ~originator:"test";
-  session_id
-
 let parse_event_from rpc = rpc |> Xmlrpc.to_string |> Xmlrpc.of_string |> event_from_of_rpc
 
 let event_setup_common () =
   start_periodic_scheduler ();
-  let c1 = make_test_database () in
-  let session_id = create_session c1 in
+  let __context = make_test_database () in
+  let session_id = Test_common.make_session ~__context () in
   let __context = Mock.Context.make ~session_id "session context" in
   (__context, session_id)
   
