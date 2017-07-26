@@ -42,6 +42,11 @@ let assert_vda_version_is_valid ~__context ~version =
   if version = ""
   then failwith "VDA version cannot be empty."
 
+(** Assert that the VDA's VM is in a certain power state *)
+let assert_vm_power_state_is ~__context ~self ~expected =
+  let vm = Db.VDA.get_vm ~__context ~self in
+  Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vm ~expected
+
 let create ~__context ~vm ~version =
   assert_vm_is_valid ~__context ~vm;
   assert_vm_has_no_vda ~__context ~vm;
@@ -55,9 +60,11 @@ let destroy ~__context ~self =
   Db.VDA.destroy ~__context ~self
 
 let get_status ~__context ~self =
+  assert_vm_power_state_is ~__context ~self ~expected:`Running;
   "I'm sure it's fine..."
 
 let get_log_report ~__context ~self =
+  assert_vm_power_state_is ~__context ~self ~expected:`Running;
   "DEBUG 01.01.1972 00:00:001 - beep\nDEBUG 01.01.1972 00:00:005 - boop\n"
 
 let copy ~__context ~vm vda =
