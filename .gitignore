@@ -2,5 +2,5 @@
 _build/
 
 # jbuilder generated files
-src/.merlin
-wsproxy.install
+.merlin
+*.install
