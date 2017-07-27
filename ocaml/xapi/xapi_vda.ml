@@ -24,23 +24,26 @@ let find_vda ~__context ~vm =
     raise Api_errors.(Server_error(internal_error, [msg; (Ref.string_of vm)]))
   | _ -> None
 
-(* TODO - fail with proper API errors? *)
 let assert_vm_is_valid ~__context ~vm =
   if vm = Ref.null
-  then failwith "VM reference is null."
+  then
+    let msg = "VM reference is null" in
+    raise Api_errors.(Server_error(internal_error, [msg]))
 
-(* TODO - fail with proper API errors? *)
 let assert_vm_has_no_vda ~__context ~vm =
   match Db.VDA.get_records_where ~__context
     ~expr:(Db_filter_types.(Eq (Field "vm", Literal (Ref.string_of vm)))) with
-  | (_,record)::_ -> failwith ("VDA already exists: " ^ record.API.vDA_uuid)
+  | (_,record)::_ ->
+    let msg = "VDA already exists" in
+    raise Api_errors.(Server_error(internal_error, [msg; record.API.vDA_uuid]))
   | _ -> ()
 
-(* TODO - fail with proper API errors? *)
 let assert_vda_version_is_valid ~__context ~version =
   (* TODO - validate version format? *)
   if version = ""
-  then failwith "VDA version cannot be empty."
+  then
+    let msg = "VDA version cannot be empty" in
+    raise Api_errors.(Server_error(internal_error, [msg]))
 
 (** Assert that the VDA's VM is in a certain power state *)
 let assert_vm_power_state_is ~__context ~self ~expected =
