@@ -18,13 +18,6 @@ open Sparse_encoding
 open Client
 open Quicktest_common
 
-let http request f =
-  let open Xmlrpc_client in
-  let transport =
-    if !using_unix_domain_socket
-    then Unix Xapi_globs.unix_domain_socket
-    else SSL(SSL.make ~use_fork_exec_helper:false (), !host, 443) in
-  with_transport transport (with_http request f)
 
 let write_to_vdi ~session_id ~vdi f =
   let task_id = Client.Task.create ~rpc:!rpc ~session_id
