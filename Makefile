@@ -23,5 +23,4 @@ doc:
 	jbuilder build @doc
 
 reindent:
-	ocp-indent --syntax cstruct -i lib/*.ml
-	ocp-indent --syntax cstruct -i lib_test/*.ml
+	ocp-indent --syntax cstruct -i **/*.ml*
