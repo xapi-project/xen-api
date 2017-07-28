@@ -16,7 +16,7 @@ let project_url = "http://github.com/djs55/xapi-nbd"
 
 open Lwt
 (* Xapi external interfaces: *)
-open Xen_api_lwt_unix
+module Xen_api = Xen_api_lwt_unix
 
 (* Xapi internal interfaces: *)
 module SM = Storage_interface.ClientM(struct
@@ -83,68 +83,93 @@ let with_attached_vdi sr vdi read_write f =
   >>= fun () ->
   release_exception r
 
+
+let ignore_exn t () = Lwt.catch t (fun _ -> Lwt.return_unit)
+
 let handle_connection fd =
-  let rpc = make !uri in
-  let channel = Nbd_lwt_unix.of_fd fd in
-  Nbd_lwt_unix.Server.connect channel ()
-  >>= fun (name, t) ->
-  let uri = Uri.of_string name in
-  ( match Uri.user uri, Uri.password uri, Uri.get_query_param uri "session_id" with
-    | _, _, Some x ->
-      (* Validate the session *)
-      Session.get_uuid ~rpc ~session_id:x ~self:x
-      >>= fun _ ->
-      return (x, false)
-    | Some uname, Some pwd, _ ->
-      Session.login_with_password ~rpc ~uname ~pwd ~version:"1.0" ~originator:"xapi-nbd"
-      >>= fun session_id ->
-      return (session_id, true)
-    | _, _, _ ->
-      fail (Failure "No suitable authentication provided")
-  ) >>= fun (session_id, need_to_logout) ->
-  ( Lwt.finalize
+
+  let with_session rpc uri f =
+    ( match Uri.user uri, Uri.password uri, Uri.get_query_param uri "session_id" with
+      | _, _, Some x ->
+        (* Validate the session *)
+        Xen_api.Session.get_uuid ~rpc ~session_id:x ~self:x
+        >>= fun _ ->
+        return (x, false)
+      | Some uname, Some pwd, _ ->
+        Xen_api.Session.login_with_password ~rpc ~uname ~pwd ~version:"1.0" ~originator:"xapi-nbd"
+        >>= fun session_id ->
+        return (session_id, true)
+      | _, _, _ ->
+        fail (Failure "No suitable authentication provided")
+    ) >>= fun (session_id, need_to_logout) ->
+    Lwt.finalize
+      (fun () -> f uri rpc session_id)
       (fun () ->
-        let path = Uri.path uri in (* note preceeding / *)
-        let vdi_uuid = if path <> "" then String.sub path 1 (String.length path - 1) else path in
-        VDI.get_by_uuid ~rpc ~session_id ~uuid:vdi_uuid
-        >>= fun vdi_ref ->
-        VDI.get_record ~rpc ~session_id ~self:vdi_ref
-        >>= fun vdi_rec ->
-        SR.get_uuid ~rpc ~session_id ~self:vdi_rec.API.vDI_SR
-        >>= fun sr_uuid ->
-        with_attached_vdi sr_uuid vdi_rec.API.vDI_location (not vdi_rec.API.vDI_read_only)
-          (fun filename ->
-            with_block filename (Nbd_lwt_unix.Server.serve t (module Block))
-          )
+         if need_to_logout
+         then Xen_api.Session.logout ~rpc ~session_id
+         else return ())
+  in
+
+
+  let serve t uri rpc session_id =
+    let path = Uri.path uri in (* note preceeding / *)
+    let vdi_uuid = if path <> "" then String.sub path 1 (String.length path - 1) else path in
+    Xen_api.VDI.get_by_uuid ~rpc ~session_id ~uuid:vdi_uuid
+    >>= fun vdi_ref ->
+    Xen_api.VDI.get_record ~rpc ~session_id ~self:vdi_ref
+    >>= fun vdi_rec ->
+    Xen_api.SR.get_uuid ~rpc ~session_id ~self:vdi_rec.API.vDI_SR
+    >>= fun sr_uuid ->
+    with_attached_vdi sr_uuid vdi_rec.API.vDI_location (not vdi_rec.API.vDI_read_only)
+      (fun filename ->
+         with_block filename (Nbd_lwt_unix.Server.serve t (module Block))
       )
-      (fun () ->
-        if need_to_logout
-        then Session.logout ~rpc ~session_id
-        else return ())
-  )
+  in
+
+  let channel = Nbd_lwt_unix.of_fd fd in
+  Lwt.finalize
+    (fun () ->
+       Nbd_lwt_unix.Server.connect channel ()
+       >>= fun (export_name, t) ->
+       Lwt.finalize
+         (fun () ->
+            let rpc = Xen_api.make !uri in
+            let uri = Uri.of_string export_name in
+            with_session rpc uri (serve t)
+         )
+         (fun () -> Nbd_lwt_unix.Server.close t)
+    )
+    (* ignore the exception resulting from double-closing the socket *)
+    (ignore_exn channel.close)
 
 let main port =
   let t =
     let sock = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-    Lwt_unix.setsockopt sock Lwt_unix.SO_REUSEADDR true;
-    let sockaddr = Lwt_unix.ADDR_INET(Unix.inet_addr_any, port) in
-    Lwt_unix.bind sock sockaddr;
-    Lwt_unix.listen sock 5;
-    let rec loop () =
-      begin
-        Lwt_unix.accept sock
-        >>= fun (fd, _) ->
-        (* Background thread per connection *)
-        let _ =
-          Lwt.catch
-            (fun () -> handle_connection fd)
-            (fun e -> Printf.fprintf stderr "Caught %s\n%!" (Printexc.to_string e); return ())
-          >>= fun () ->
-          Lwt_unix.close fd in
-        return ()
-      end >>= loop
-    in
-    loop ()
+    Lwt.finalize
+      (fun () ->
+         Lwt_unix.setsockopt sock Lwt_unix.SO_REUSEADDR true;
+         let sockaddr = Lwt_unix.ADDR_INET(Unix.inet_addr_any, port) in
+         Lwt_unix.bind sock sockaddr;
+         Lwt_unix.listen sock 5;
+         let rec loop () =
+           Lwt_unix.accept sock
+           >>= fun (fd, _) ->
+           (* Background thread per connection *)
+           let _ =
+             Lwt.catch
+               (fun () ->
+                  Lwt.finalize
+                    (fun () -> handle_connection fd)
+                    (* ignore the exception resulting from double-closing the socket *)
+                    (ignore_exn (fun () -> Lwt_unix.close fd))
+               )
+               (fun e -> Lwt_io.eprintf "Caught %s\n%!" (Printexc.to_string e))
+           in
+           loop ()
+         in
+         loop ()
+      )
+      (ignore_exn (fun () -> Lwt_unix.close sock))
   in
   Lwt_main.run t;
 
