@@ -4,28 +4,28 @@ open Set_test
 
 (* We test using the integer domain only. *)
 module Intextentlist = ExtentlistSet.ExtentlistSet(struct 
-  type t=int 
-  let zero=0 
-  let add=(+) 
-  let sub=(-) 
-end)
+    type t=int 
+    let zero=0 
+    let add=(+) 
+    let sub=(-) 
+  end)
 open Intextentlist
 
 (* Sets are finite, up to cardinality [size] *)
 let size = 1000
 
 module Tests = SetEqualities(struct
-	type t = Intextentlist.t
-	let universe = of_list [(0, size)]
-	let (+) = union
-	let (^) = intersection
-	let (-) = difference
+    type t = Intextentlist.t
+    let universe = of_list [(0, size)]
+    let (+) = union
+    let (^) = intersection
+    let (-) = difference
 
-	let not x = universe - x
-	let (=) x y = (x - y = empty) && (y - x = empty)
-	let extent_to_string (s, l) = Printf.sprintf "(%d, %d)" s l
-	let to_string xs = String.concat ", " (List.map extent_to_string (to_list xs))
-end)
+    let not x = universe - x
+    let (=) x y = (x - y = empty) && (y - x = empty)
+    let extent_to_string (s, l) = Printf.sprintf "(%d, %d)" s l
+    let to_string xs = String.concat ", " (List.map extent_to_string (to_list xs))
+  end)
 (* Given a triple of inputs, check that all the set equalities hold *)
 let one (a, b, c) = List.iter (fun f -> f a b c) Tests.all
 
@@ -55,10 +55,10 @@ type run =
   | Full of int
 let to_run_list xs = 
   let rec inner acc index = function
-	| [] -> acc
-  | (x, y) :: xs -> inner (Full y :: (Empty (x - index)) :: acc) (x + y) xs in
+    | [] -> acc
+    | (x, y) :: xs -> inner (Full y :: (Empty (x - index)) :: acc) (x + y) xs in
 
-	List.rev (inner [] 0 xs)
+  List.rev (inner [] 0 xs)
 
 let _ =
   (* vhds have max size of 2 TiB, in 2 MiB blocks => 2**20 blocks *)
@@ -75,14 +75,14 @@ let _ =
 
 
   Printf.printf "generated\n";
-	let x = to_list worst_case in
-Printf.printf "got a list\n";
-	  (* let y = Listext.List.map_tr hex x in *)
-Printf.printf "got lots of strings\n";
+  let x = to_list worst_case in
+  Printf.printf "got a list\n";
+  (* let y = Listext.List.map_tr hex x in *)
+  Printf.printf "got lots of strings\n";
   let s = to_string (to_list worst_case) in
   Printf.printf "Extent size=%d\n" (String.length s);
-	let string_of_run = function
-	  | Empty x -> Printf.sprintf "-%d" x
-	  | Full x -> Printf.sprintf "+%d" x in
-	let s' = String.concat ";" (Listext.List.map_tr string_of_run (to_run_list x)) in
-	  Printf.printf "Runs size=%d\n" (String.length s')
+  let string_of_run = function
+    | Empty x -> Printf.sprintf "-%d" x
+    | Full x -> Printf.sprintf "+%d" x in
+  let s' = String.concat ";" (Listext.List.map_tr string_of_run (to_run_list x)) in
+  Printf.printf "Runs size=%d\n" (String.length s')

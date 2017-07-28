@@ -3,7 +3,7 @@
 
    Right is commonly used for success
    Left is commonly used for failure.
- *)
+*)
 
 type ('a,'b) t = Left of 'a | Right of 'b
 module Monad : sig include Monad.M2.MONAD with type ('a, 'b) m = ('b, 'a) t end

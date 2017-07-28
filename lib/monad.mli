@@ -15,56 +15,56 @@
 (** 1-parameter monads. *)
 module M1 : sig
 
-	module type BASE =
-	sig
-		type 'a m
-		val bind : 'a m -> ('a -> 'b m) -> 'b m
-		val return : 'a -> 'a m
-	end
+  module type BASE =
+  sig
+    type 'a m
+    val bind : 'a m -> ('a -> 'b m) -> 'b m
+    val return : 'a -> 'a m
+  end
 
-	module type MONAD =
-	sig
-		type 'a m
-		val ( >>= ) : 'a m -> ('a -> 'b m) -> 'b m
-		val bind : 'a m -> ('a -> 'b m) -> 'b m
-		val return : 'a -> 'a m
-	end
+  module type MONAD =
+  sig
+    type 'a m
+    val ( >>= ) : 'a m -> ('a -> 'b m) -> 'b m
+    val bind : 'a m -> ('a -> 'b m) -> 'b m
+    val return : 'a -> 'a m
+  end
 
-	module Make : functor (B : BASE) ->
-	sig
-		type 'a m = 'a B.m
-		val ( >>= ) : 'a m -> ('a -> 'b m) -> 'b m
-		val bind : 'a m -> ('a -> 'b m) -> 'b m
-		val return : 'a -> 'a m
-	end
+  module Make : functor (B : BASE) ->
+  sig
+    type 'a m = 'a B.m
+    val ( >>= ) : 'a m -> ('a -> 'b m) -> 'b m
+    val bind : 'a m -> ('a -> 'b m) -> 'b m
+    val return : 'a -> 'a m
+  end
 
 end
 
 (** 2-parameter monads. *)
 module M2 : sig
 
-	module type BASE =
-	sig
-		type ('a, 'b) m
-		val bind : ('a, 'b) m -> ('a -> ('c, 'b) m) -> ('c, 'b) m
-		val return : 'a -> ('a, 'b) m
-	end
+  module type BASE =
+  sig
+    type ('a, 'b) m
+    val bind : ('a, 'b) m -> ('a -> ('c, 'b) m) -> ('c, 'b) m
+    val return : 'a -> ('a, 'b) m
+  end
 
-	module type MONAD =
-	sig
-		type ('a, 'b) m
-		val ( >>= ) : ('a, 'b) m -> ('a -> ('c, 'b) m) -> ('c, 'b) m
-		val bind : ('a, 'b) m -> ('a -> ('c, 'b) m) -> ('c, 'b) m
-		val return : 'a -> ('a, 'b) m
-	end
+  module type MONAD =
+  sig
+    type ('a, 'b) m
+    val ( >>= ) : ('a, 'b) m -> ('a -> ('c, 'b) m) -> ('c, 'b) m
+    val bind : ('a, 'b) m -> ('a -> ('c, 'b) m) -> ('c, 'b) m
+    val return : 'a -> ('a, 'b) m
+  end
 
-	module Make : functor (B : BASE) ->
-	sig
-		type ('a, 'b) m = ('a, 'b) B.m
-		val ( >>= ) : ('a, 'b) m -> ('a -> ('c, 'b) m) -> ('c, 'b) m
-		val bind : ('a, 'b) m -> ('a -> ('c, 'b) m) -> ('c, 'b) m
-		val return : 'a -> ('a, 'b) m
-	end
+  module Make : functor (B : BASE) ->
+  sig
+    type ('a, 'b) m = ('a, 'b) B.m
+    val ( >>= ) : ('a, 'b) m -> ('a -> ('c, 'b) m) -> ('c, 'b) m
+    val bind : ('a, 'b) m -> ('a -> ('c, 'b) m) -> ('c, 'b) m
+    val return : 'a -> ('a, 'b) m
+  end
 
 end
 

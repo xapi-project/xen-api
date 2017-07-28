@@ -12,11 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 type t = {
-	sz: int;
-	data: string;
-	mutable prod: int;
-	mutable cons: int;
-	mutable pwrap: bool;
+  sz: int;
+  data: string;
+  mutable prod: int;
+  mutable cons: int;
+  mutable pwrap: bool;
 }
 
 exception Data_limit
@@ -36,6 +36,6 @@ val skip : t -> int -> unit
 
 val feed_data : t -> string -> unit
 val read_search : t -> (string -> int -> int -> int)
-                    -> (string -> int -> int -> unit) -> int
-                    -> int
+  -> (string -> int -> int -> unit) -> int
+  -> int
 val search : t -> char -> int

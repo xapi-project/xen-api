@@ -13,30 +13,30 @@
  *)
 
 let to_list tbl =
-	Hashtbl.fold (fun k v acc -> (k, v) :: acc) tbl []
+  Hashtbl.fold (fun k v acc -> (k, v) :: acc) tbl []
 
 (* this is not a fold ... *)
 let fold_keys tbl =
-	Hashtbl.fold (fun k _ acc -> k :: acc) tbl []
+  Hashtbl.fold (fun k _ acc -> k :: acc) tbl []
 
 (* ... neither is this *)
 let fold_values tbl =
-	Hashtbl.fold (fun _ v acc -> v :: acc) tbl []
+  Hashtbl.fold (fun _ v acc -> v :: acc) tbl []
 
 let add_empty tbl k v =
-	if not (Hashtbl.mem tbl k) then
-		Hashtbl.add tbl k v
+  if not (Hashtbl.mem tbl k) then
+    Hashtbl.add tbl k v
 
 let add_list tbl l =
-	List.iter (fun (k, v) -> Hashtbl.add tbl k v) l
+  List.iter (fun (k, v) -> Hashtbl.add tbl k v) l
 
 let remove_other_keys tbl valid_keys =
-	let keys = fold_keys tbl in
-	let maybe_remove k =
-		if not (List.mem k valid_keys) then Hashtbl.remove tbl k in
-	List.iter maybe_remove keys
+  let keys = fold_keys tbl in
+  let maybe_remove k =
+    if not (List.mem k valid_keys) then Hashtbl.remove tbl k in
+  List.iter maybe_remove keys
 
 let of_list l =
-	let tbl = Hashtbl.create (List.length l) in
-	add_list tbl l;
-	tbl
+  let tbl = Hashtbl.create (List.length l) in
+  add_list tbl l;
+  tbl

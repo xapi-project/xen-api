@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 (** Ring structures *)
- 
+
 type t = {
   size : int;
   mutable current : int;

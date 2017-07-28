@@ -16,65 +16,65 @@
  * to the standard library instead?  (Although it would not suffice,
  * since it's not a super-set of our `opt'.)
  * (http://code.google.com/p/ocaml-extlib/)
- *)
+*)
 
 module Monad = Monad.M1.Make (struct
 
-	type 'a m = 'a option
+    type 'a m = 'a option
 
-	let bind option f =
-		match option with
-			| None -> None
-			| Some result -> f result
+    let bind option f =
+      match option with
+      | None -> None
+      | Some result -> f result
 
-	let return x = Some x
+    let return x = Some x
 
-end)
+  end)
 
 let iter f = function
-	| Some x -> f x
-	| None -> ()
+  | Some x -> f x
+  | None -> ()
 
 let map f = function
-	| Some x -> Some(f x)
-	| None -> None
+  | Some x -> Some(f x)
+  | None -> None
 
 let default d = function
-	| Some x -> x
-	| None -> d
+  | Some x -> x
+  | None -> d
 
 let unbox = function
-	| Some x -> x
-	| None -> raise Not_found
+  | Some x -> x
+  | None -> raise Not_found
 
 let is_boxed = function
-	| Some _ -> true
-	| None -> false
+  | Some _ -> true
+  | None -> false
 
 let is_some = is_boxed
 
 let is_none = function
-	| Some _ -> false
-	| None -> true
+  | Some _ -> false
+  | None -> true
 
 let to_list = function
-	| Some x -> [x]
-	| None -> []
+  | Some x -> [x]
+  | None -> []
 
 let fold_left f accu = function
-	| Some x -> f accu x
-	| None -> accu
+  | Some x -> f accu x
+  | None -> accu
 
 let fold_right f opt accu =
-	match opt with
-	| Some x -> f x accu
-	| None -> accu
+  match opt with
+  | Some x -> f x accu
+  | None -> accu
 
 let join = function
-	| Some (Some a) -> Some a
-	| _ -> None
+  | Some (Some a) -> Some a
+  | _ -> None
 
 let of_exception f =
-	try Some (f ())
-	with _ -> None
+  try Some (f ())
+  with _ -> None
 

@@ -34,7 +34,7 @@ val lines_fold : ('a -> string -> 'a) -> 'a -> in_channel -> 'a
 val lines_iter : (string -> unit) -> in_channel -> unit
 
 (** Folds function [f] over every line in the file at [file_path] using the
-starting value [start]. *)
+    starting value [start]. *)
 val file_lines_fold : ('a -> string -> 'a) -> 'a -> string -> 'a
 
 (** [read_lines path] returns a list of lines in the file at [path]. *)
@@ -54,7 +54,7 @@ val readfile_line : (string -> 'a) -> string -> unit
 val buffer_of_fd : Unix.file_descr -> Buffer.t
 
 (** [bigbuffer_of_fd fd] returns a Bigbuffer.t containing all data read from [fd] up 
-to EOF *)
+    to EOF *)
 val bigbuffer_of_fd : Unix.file_descr -> Bigbuffer.t
 
 (** [string_of_fd fd] returns a string containing all data read from [fd] up to EOF *)
@@ -133,17 +133,17 @@ val seek_rel : Unix.file_descr -> int -> int
 val current_cursor_pos : Unix.file_descr -> int
 
 module Fdset : sig
-	type t
-	external of_list : Unix.file_descr list -> t = "stub_fdset_of_list"
-	external is_set : t -> Unix.file_descr -> bool = "stub_fdset_is_set"
-	external is_set_and_clear : t -> Unix.file_descr -> bool = "stub_fdset_is_set_and_clear"
-	external is_empty : t -> bool = "stub_fdset_is_empty"
-	external set : t -> Unix.file_descr -> unit = "stub_fdset_set"
-	external clear : t -> Unix.file_descr -> unit = "stub_fdset_clear"
+  type t
+  external of_list : Unix.file_descr list -> t = "stub_fdset_of_list"
+  external is_set : t -> Unix.file_descr -> bool = "stub_fdset_is_set"
+  external is_set_and_clear : t -> Unix.file_descr -> bool = "stub_fdset_is_set_and_clear"
+  external is_empty : t -> bool = "stub_fdset_is_empty"
+  external set : t -> Unix.file_descr -> unit = "stub_fdset_set"
+  external clear : t -> Unix.file_descr -> unit = "stub_fdset_clear"
 
-	val select : t -> t -> t -> float -> t * t * t
-	val select_ro : t -> float -> t
-	val select_wo : t -> float -> t
+  val select : t -> t -> t -> float -> t * t * t
+  val select_ro : t -> float -> t
+  val select_wo : t -> float -> t
 end
 
 val wait_for_path : string -> (float -> unit) -> int -> unit
@@ -152,17 +152,17 @@ val send_fd : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> U
 val recv_fd : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> int * Unix.sockaddr * Unix.file_descr
 
 type statvfs_t = {
-	f_bsize : int64;
-	f_frsize : int64;
-	f_blocks : int64;
-	f_bfree : int64;
-	f_bavail : int64;
-	f_files : int64;
-	f_ffree : int64;
-	f_favail : int64;
-	f_fsid : int64;
-	f_flag : int64;
-	f_namemax : int64;
+  f_bsize : int64;
+  f_frsize : int64;
+  f_blocks : int64;
+  f_bfree : int64;
+  f_bavail : int64;
+  f_files : int64;
+  f_ffree : int64;
+  f_favail : int64;
+  f_fsid : int64;
+  f_flag : int64;
+  f_namemax : int64;
 }
 
 val statvfs : string -> statvfs_t
@@ -171,30 +171,30 @@ val statvfs : string -> statvfs_t
 val domain_of_addr : string -> Unix.socket_domain option
 
 module Direct : sig
-	(** Perform I/O in O_DIRECT mode using 4KiB page-aligned buffers *)
+  (** Perform I/O in O_DIRECT mode using 4KiB page-aligned buffers *)
 
-	type t
-	(** represents a file open in O_DIRECT mode *)
+  type t
+  (** represents a file open in O_DIRECT mode *)
 
-	val openfile : string -> Unix.open_flag list -> Unix.file_perm -> t
-	(** [openfile name flags perm] behaves the same as [Unix.openfile] but includes the O_DIRECT flag *)
+  val openfile : string -> Unix.open_flag list -> Unix.file_perm -> t
+  (** [openfile name flags perm] behaves the same as [Unix.openfile] but includes the O_DIRECT flag *)
 
-	val close : t -> unit
-	(** [close t] closes [t], a file open in O_DIRECT mode *)
+  val close : t -> unit
+  (** [close t] closes [t], a file open in O_DIRECT mode *)
 
-	val with_openfile : string -> Unix.open_flag list -> Unix.file_perm -> (t -> 'a) -> 'a
-	(** [with_openfile name flags perm f] opens [name], applies the result to [f] and closes *)
+  val with_openfile : string -> Unix.open_flag list -> Unix.file_perm -> (t -> 'a) -> 'a
+  (** [with_openfile name flags perm f] opens [name], applies the result to [f] and closes *)
 
-	val write : t -> string -> int -> int -> int
-	(** [write t buf ofs len] writes [len] bytes at offset [ofs] from buffer [buf] to
-		[t] using page-aligned buffers. *)
+  val write : t -> string -> int -> int -> int
+  (** [write t buf ofs len] writes [len] bytes at offset [ofs] from buffer [buf] to
+      		[t] using page-aligned buffers. *)
 
-	val copy_from_fd : ?limit:int64 -> Unix.file_descr -> t -> int64
-	(** [copy_from_fd ?limit fd t] copies from [fd] to [t] up to [limit] *)
+  val copy_from_fd : ?limit:int64 -> Unix.file_descr -> t -> int64
+  (** [copy_from_fd ?limit fd t] copies from [fd] to [t] up to [limit] *)
 
-	val fsync : t -> unit
-	(** [fsync t] commits all outstanding writes, throwing an error if necessary. *)
+  val fsync : t -> unit
+  (** [fsync t] commits all outstanding writes, throwing an error if necessary. *)
 
-	val lseek : t -> int64 -> Unix.seek_command -> int64
-	(** [lseek t offset command]: see Unix.LargeFile.lseek *)
+  val lseek : t -> int64 -> Unix.seek_command -> int64
+  (** [lseek t offset command]: see Unix.LargeFile.lseek *)
 end

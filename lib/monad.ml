@@ -15,56 +15,56 @@
 (** 1-parameter monads. *)
 module M1 = struct
 
-	module type BASE =
-	sig
-		type 'a m
-		val bind : 'a m -> ('a -> 'b m) -> 'b m
-		val return : 'a -> 'a m
-	end
+  module type BASE =
+  sig
+    type 'a m
+    val bind : 'a m -> ('a -> 'b m) -> 'b m
+    val return : 'a -> 'a m
+  end
 
-	module type MONAD =
-	sig
-		type 'a m
-		val (>>=) : 'a m -> ('a -> 'b m) -> 'b m
-		val bind : 'a m -> ('a -> 'b m) -> 'b m
-		val return : 'a -> 'a m
-	end
+  module type MONAD =
+  sig
+    type 'a m
+    val (>>=) : 'a m -> ('a -> 'b m) -> 'b m
+    val bind : 'a m -> ('a -> 'b m) -> 'b m
+    val return : 'a -> 'a m
+  end
 
-	module Make (B : BASE) : MONAD with type 'a m = 'a B.m =
-	struct
-		type 'a m = 'a B.m
-		let (>>=) = B.bind
-		let bind = B.bind
-		let return = B.return
-	end
+  module Make (B : BASE) : MONAD with type 'a m = 'a B.m =
+  struct
+    type 'a m = 'a B.m
+    let (>>=) = B.bind
+    let bind = B.bind
+    let return = B.return
+  end
 
 end
 
 (** 2-parameter monads. *)
 module M2 = struct
 
-	module type BASE =
-	sig
-		type ('a, 'x) m
-		val bind : ('a, 'x) m -> ('a -> ('b, 'x) m) -> ('b, 'x) m
-		val return : 'a -> ('a, 'x) m
-	end
+  module type BASE =
+  sig
+    type ('a, 'x) m
+    val bind : ('a, 'x) m -> ('a -> ('b, 'x) m) -> ('b, 'x) m
+    val return : 'a -> ('a, 'x) m
+  end
 
-	module type MONAD =
-	sig
-		type ('a, 'x) m
-		val (>>=) : ('a, 'x) m -> ('a -> ('b, 'x) m) -> ('b, 'x) m
-		val bind : ('a, 'x) m -> ('a -> ('b, 'x) m) -> ('b, 'x) m
-		val return : 'a -> ('a, 'x) m
-	end
+  module type MONAD =
+  sig
+    type ('a, 'x) m
+    val (>>=) : ('a, 'x) m -> ('a -> ('b, 'x) m) -> ('b, 'x) m
+    val bind : ('a, 'x) m -> ('a -> ('b, 'x) m) -> ('b, 'x) m
+    val return : 'a -> ('a, 'x) m
+  end
 
-	module Make (B : BASE) : MONAD with type ('a, 'x) m = ('a, 'x) B.m =
-	struct
-		type ('a, 'x) m = ('a, 'x) B.m
-		let (>>=) = B.bind
-		let bind = B.bind
-		let return = B.return
-	end
+  module Make (B : BASE) : MONAD with type ('a, 'x) m = ('a, 'x) B.m =
+  struct
+    type ('a, 'x) m = ('a, 'x) B.m
+    let (>>=) = B.bind
+    let bind = B.bind
+    let return = B.return
+  end
 
 end
 

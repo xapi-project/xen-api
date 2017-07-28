@@ -13,24 +13,24 @@
  *)
 (** apply the clean_f function after fct function has been called.
  * Even if fct raises an exception, clean_f is applied
- *)
+*)
 
 
 let finally fct clean_f =
-	let result =
-		try
-			fct ();
-		with exn ->
-			Backtrace.is_important exn;
-			clean_f ();
-			raise exn in
-	clean_f ();
-	result
+  let result =
+    try
+      fct ();
+    with exn ->
+      Backtrace.is_important exn;
+      clean_f ();
+      raise exn in
+  clean_f ();
+  result
 
 (* Those should go into the Opt module: *)
 
 let maybe_with_default d f v =
-	match v with None -> d | Some x -> f x
+  match v with None -> d | Some x -> f x
 
 (** if v is not none, apply f on it and return some value else return none. *)
 let may f v = maybe_with_default None (fun x -> Some (f x)) v
@@ -43,7 +43,7 @@ let maybe f v = maybe_with_default () f v
 
 (** if bool is false then we intercept and quiten any exception *)
 let reraise_if bool fct =
-	try fct () with exn -> if bool then raise exn else ()
+  try fct () with exn -> if bool then raise exn else ()
 
 (** execute fct ignoring exceptions *)
 let ignore_exn fct = try fct () with _ -> ()
