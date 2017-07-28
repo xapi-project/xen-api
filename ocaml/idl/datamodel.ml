@@ -9844,7 +9844,7 @@ module VDA = struct
       ~lifecycle
       ~persist:PersistEverything
       ~in_oss_since:None
-      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages_default_allowed_roles:_R_VM_OP
       ~contents:
         [ uid _vda ~lifecycle
 
