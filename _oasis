@@ -433,7 +433,8 @@ Executable datamodel_main
   Install:          false
   MainIs:           datamodel_main.ml
   BuildDepends:
-    xapi-datamodel
+    xapi-datamodel,
+    mustache
 
 
 ############################################################################

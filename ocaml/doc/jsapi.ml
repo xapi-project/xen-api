@@ -103,20 +103,6 @@ let json_releases =
   in
   `O [ "releases", `A (List.map json_of_rel release_order) ]
 
-let json_current_version =
-  let time = Unix.gettimeofday () in
-  let month, year =
-     match String.split ' ' (Date.rfc822_to_string (Date.rfc822_of_float time)) with
-     | [ _; _; m; y; _; _ ] -> m,y
-     | _ -> failwith "Invalid datetime string"
-  in
-  `O [
-      "api_version_major", `Float (Int64.to_float api_version_major);
-      "api_version_minor", `Float (Int64.to_float api_version_minor);
-      "current_year", `String year;
-      "current_month", `String month;
-    ]
-
 let render_template template_file json output_file =
   let templ =  Stdext.Unixext.string_of_file template_file |> Mustache.of_string in
   let rendered = Mustache.render templ json in
@@ -137,11 +123,3 @@ let _ =
     (Filename.concat !templdir "branding.mustache")
     json_releases
     (Filename.concat !destdir "branding.js");
-
-  let markdown_dir = Filename.concat !destdir "markdown" in
-  Stdext.Unixext.mkdir_rec markdown_dir 0o755;
-
-  render_template
-    (Filename.concat !templdir "cover.mustache")
-    json_current_version
-    (Filename.concat markdown_dir "cover.yaml")
