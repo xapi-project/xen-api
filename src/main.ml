@@ -20,30 +20,30 @@ module Xen_api = Xen_api_lwt_unix
 
 (* Xapi internal interfaces: *)
 module SM = Storage_interface.ClientM(struct
-  type 'a t = 'a Lwt.t
-  let fail, return, bind = Lwt.(fail, return, bind)
+    type 'a t = 'a Lwt.t
+    let fail, return, bind = Lwt.(fail, return, bind)
 
-  let (>>*=) m f = m >>= function
-    | `Ok x -> f x
-    | `Error e ->
-      let b = Buffer.create 16 in
-      let fmt = Format.formatter_of_buffer b in
-      Protocol_lwt.Client.pp_error fmt e;
-      Format.pp_print_flush fmt ();
-      fail (Failure (Buffer.contents b))
+    let (>>*=) m f = m >>= function
+      | `Ok x -> f x
+      | `Error e ->
+        let b = Buffer.create 16 in
+        let fmt = Format.formatter_of_buffer b in
+        Protocol_lwt.Client.pp_error fmt e;
+        Format.pp_print_flush fmt ();
+        fail (Failure (Buffer.contents b))
 
-  (* A global connection for the lifetime of this process *)
-  let switch =
-    Protocol_lwt.Client.connect ~switch:!Xcp_client.switch_path ()
-    >>*= fun switch ->
-    return switch
+    (* A global connection for the lifetime of this process *)
+    let switch =
+      Protocol_lwt.Client.connect ~switch:!Xcp_client.switch_path ()
+      >>*= fun switch ->
+      return switch
 
-  let rpc call =
-    switch >>= fun switch ->
-    Protocol_lwt.Client.rpc ~t:switch ~queue:!Storage_interface.queue_name ~body:(Jsonrpc.string_of_call call) ()
-    >>*= fun result ->
-    return (Jsonrpc.response_of_string result)
-end)
+    let rpc call =
+      switch >>= fun switch ->
+      Protocol_lwt.Client.rpc ~t:switch ~queue:!Storage_interface.queue_name ~body:(Jsonrpc.string_of_call call) ()
+      >>*= fun result ->
+      return (Jsonrpc.response_of_string result)
+  end)
 
 let uri = ref "http://127.0.0.1/"
 
@@ -180,12 +180,12 @@ open Cmdliner
 (* Help sections common to all commands *)
 
 let _common_options = "COMMON OPTIONS"
-let help = [ 
- `S _common_options; 
- `P "These options are common to all commands.";
- `S "MORE HELP";
- `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
- `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" project_url);
+let help = [
+  `S _common_options;
+  `P "These options are common to all commands.";
+  `S "MORE HELP";
+  `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
+  `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" project_url);
 ]
 
 let cmd =
