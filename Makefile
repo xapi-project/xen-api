@@ -1,5 +1,5 @@
 
-.PHONY: build release install uninstall clean
+.PHONY: build release install uninstall clean reindent
 
 build:
 	jbuilder build @install --dev
@@ -15,3 +15,6 @@ uninstall:
 
 clean:
 	jbuilder clean
+
+reindent:
+	ocp-indent --inplace **/*.ml*
