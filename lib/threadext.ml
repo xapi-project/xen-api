@@ -14,6 +14,7 @@
 
 module Mutex = struct
 	include Mutex
+
 	(** execute the function f with the mutex hold *)
 	let execute lock f =
 		Mutex.lock lock;
@@ -226,7 +227,7 @@ module Thread = struct
 			     thread id *)
 			  -id
 
-	let rec join = function
+	let join = function
 		| Running t -> Thread.join t
 		| Pending ((_, _, pt) as t) ->
 			  if not (Lazy.lazy_is_val pt) then begin

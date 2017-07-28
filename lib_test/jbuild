@@ -1,0 +1,9 @@
+(executable
+ ((name extentlistset_test)
+  (libraries (stdext))))
+
+(alias
+ ((name runtest)
+  (deps (extentlistset_test.exe))
+  (action (run ${<}))))
+

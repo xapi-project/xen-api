@@ -94,18 +94,5 @@ let to_string bigbuf =
 	);
 	dest
 
-
-let test max =
-  let rec inner n =
-    if n>max then () else begin
-      let bb = make () in
-      let s = String.create n in
-      append_substring bb s 0 n;
-      assert ((to_string bb)=s);
-      inner (n+1)
-    end
-  in 
-  inner 0
-
 let to_stream bigbuf outchan =
 	to_fct bigbuf (fun s -> output_string outchan s)

@@ -13,4 +13,4 @@ val map : ('a -> 'b) -> 'a t -> 'b t
 val take : int -> 'a t -> 'a t
 
 (** [iter f xs] applies every list element to [f] *)
-val iter : ('a -> 'b) -> 'a t -> unit
+val iter : ('a -> unit) -> 'a t -> unit

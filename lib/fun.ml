@@ -1,7 +1,5 @@
-
-
 (* just forgets it's second argument: *)
-let const a b = a
+let const a _ = a
 
 let uncurry f (a,b) = f a b
 

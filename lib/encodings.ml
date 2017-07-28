@@ -180,7 +180,7 @@ module String_validator (Decoder : CHARACTER_DECODER) : STRING_VALIDATOR = struc
 		let index = ref 0 and length = String.length string in
 		begin try
 			while !index < length do
-				let value, width = Decoder.decode_character string !index in
+				let _, width = Decoder.decode_character string !index in
 				index := !index + width
 			done;
 		with
@@ -193,7 +193,7 @@ module String_validator (Decoder : CHARACTER_DECODER) : STRING_VALIDATOR = struc
 
 	let longest_valid_prefix string =
 		try validate string; string
-		with Validation_error (index, reason) -> String.sub string 0 index
+		with Validation_error (index, _) -> String.sub string 0 index
 
 end
 

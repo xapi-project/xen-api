@@ -29,13 +29,13 @@ module String :
     val rev_map : (char -> char) -> string -> string
 
     (** Iterate over the characters in a string in reverse order. *)
-    val rev_iter : (char -> 'a) -> string -> unit
+    val rev_iter : (char -> unit) -> string -> unit
 
     (** Fold over the characters in a string. *)
     val fold_left : ('a -> char -> 'a) -> 'a -> string -> 'a
 
     (** Iterate over the characters with the character index in argument *)
-    val iteri : (int -> char -> 'a) -> string -> unit
+    val iteri : (int -> char -> unit) -> string -> unit
 
     (** Iterate over the characters in a string in reverse order. *)
     val fold_right : (char -> 'a -> 'a) -> string -> 'a -> 'a
@@ -76,7 +76,7 @@ module String :
     (** True if sub is a substr of str *)
     val has_substr : string -> string -> bool
 
-(** find all occurences of needle in haystack and return all their respective index *)
+    (** find all occurences of needle in haystack and return all their respective index *)
     val find_all : string -> string -> int list
 
     (** replace all [f] substring in [s] by [t] *)

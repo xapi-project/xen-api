@@ -7,6 +7,8 @@ val comp : ('b -> 'c) -> ('a -> 'b) -> ('a -> 'c)
 val comp2 : ('b -> 'c) -> ('a1 -> 'a2 -> 'b) -> ('a1 -> 'a2 -> 'c)
 val (+++) : ('c -> 'd) -> ('a -> 'b -> 'c) -> 'a -> 'b -> 'd
 val (++) : ('b -> 'c) -> ('a -> 'b) -> 'a -> 'c
-(** Forward pipe operator: facilitates left-to-right function composition. *)
+
 val (|>) : 'a -> ('a -> 'b) -> 'b
+(** Forward pipe operator: facilitates left-to-right function composition. *)
+
 val ($) : ('a -> 'b) -> 'a -> 'b

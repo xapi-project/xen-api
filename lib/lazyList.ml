@@ -11,7 +11,7 @@ let rec map f xs = lazy(match Lazy.force xs with
 	
 let rec take n xs = lazy(match n, Lazy.force xs with
 	| 0, _ -> Empty
-	| n, Empty -> raise Not_found
+	| _, Empty -> raise Not_found
 	| n, Cons(x, xs) -> Cons(x, take (n - 1) xs)) 
 	
 let rec iter f xs = match Lazy.force xs with

@@ -1,5 +1,5 @@
 (* We will check if a list of set equalities hold over random inputs *)
-
+open Stdext
 open Set_test
 
 (* We test using the integer domain only. *)
@@ -56,11 +56,7 @@ type run =
 let to_run_list xs = 
   let rec inner acc index = function
 	| [] -> acc
-	| (x, y) :: xs -> inner (Full y :: (Empty (x - index)) :: acc) (x + y) xs in  let map f xs = 
-	let rec inner acc f = function
-	  | [] -> acc
-	  | (x :: xs) -> inner ((f x)::acc) f xs in
-	  inner [] f xs in
+  | (x, y) :: xs -> inner (Full y :: (Empty (x - index)) :: acc) (x + y) xs in
 
 	List.rev (inner [] 0 xs)
 
@@ -81,7 +77,7 @@ let _ =
   Printf.printf "generated\n";
 	let x = to_list worst_case in
 Printf.printf "got a list\n";
-	  let y = Listext.List.map_tr hex x in
+	  (* let y = Listext.List.map_tr hex x in *)
 Printf.printf "got lots of strings\n";
   let s = to_string (to_list worst_case) in
   Printf.printf "Extent size=%d\n" (String.length s);

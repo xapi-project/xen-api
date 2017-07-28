@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val finally : (unit -> 'a) -> (unit -> 'b) -> 'a
+val finally : (unit -> 'a) -> (unit -> unit) -> 'a
 (** [finally f g] returns [f ()] guaranteeing to run clean-up actions
     [g ()] even if [f ()] throws an exception. *)
 

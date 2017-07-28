@@ -36,9 +36,6 @@ let rec fold_right_aux f l u accu =
 
 let fold_right f r accu = fold_right_aux f r.l r.u accu
 
-let string_of_range r =
-	"[" ^ string_of_int r.l ^ ", " ^ string_of_int r.u ^ ")"
-
 let to_list r =
 	fold_right (fun x y -> x :: y) r []
 

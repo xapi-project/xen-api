@@ -60,7 +60,7 @@ let pidfile_read filename =
 			if rd = 0 then
 				failwith "pidfile_read failed";
 			Scanf.sscanf (String.sub buf 0 rd) "%d" (fun i -> Some i)
-		with exn -> None)
+		with _ -> None)
 	(fun () -> Unix.close fd)
 
 (** daemonize a process *)
@@ -309,7 +309,7 @@ module CBuf = struct
 		(* Offset of the character after the substring *)
 		let next = min (String.length x.buffer) (x.start + x.len) in
 		let len = next - x.start in
-		let written = try Unix.single_write fd x.buffer x.start len with e -> x.w_closed <- true; len in
+		let written = try Unix.single_write fd x.buffer x.start len with _ -> x.w_closed <- true; len in
 		drop x written
 
 	let read (x: t) fd =
@@ -609,7 +609,7 @@ let resolve_dot_and_dotdot (path: string) : string =
     | "." :: rest, _ -> remove_dots n rest (* throw away ".", don't count as parent for ".." *)
     | ".." :: rest, _ -> remove_dots (n + 1) rest (* note the number of ".." *)
     | x :: rest, 0 -> x :: (remove_dots 0 rest)
-    | x :: rest, n -> remove_dots (n - 1) rest (* munch *) in
+    | _ :: rest, n -> remove_dots (n - 1) rest (* munch *) in
   to_string (remove_dots 0 (of_string path))
 
 (** Seek to an absolute offset within a file descriptor *)

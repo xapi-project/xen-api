@@ -84,9 +84,11 @@ module Delay :
 	returning early if someone calls 'signal'. Returns true if the full time
 	period elapsed and false if signalled. Note that multple 'signals' are 
 	coalesced; 'signals' sent before 'wait' is called are not lost. *)
+
     val wait : t -> float -> bool
     (** Sends a signal to a waiting thread. See 'wait' *)
-    val signal : t -> unit
+
+		val signal : t -> unit
   end
 
 (** Keeps a thread alive without doing anything. Used e.g. in XML/RPC daemons. *)

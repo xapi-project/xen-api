@@ -77,16 +77,16 @@ val copy_file : ?limit:int64 -> Unix.file_descr -> Unix.file_descr -> int64
 (** Returns true if and only if a file exists at the given path. *)
 val file_exists : string -> bool
 
-(** Sets both the access and modification times of the file *)
-(** at the given path to the current time. Creates an empty *)
-(** file at the given path if no such file already exists.  *)
+(** Sets both the access and modification times of the file
+ *  at the given path to the current time. Creates an empty
+ *  file at the given path if no such file already exists.  *)
 val touch_file : string -> unit
 
 (** Returns true if and only if an empty file exists at the given path. *)
 val is_empty_file : string -> bool
 
-(** Safely deletes a file at the given path if (and only if) the  *)
-(** file exists and is empty. Returns true if a file was deleted. *)
+(** Safely deletes a file at the given path if (and only if) the
+ *  file exists and is empty. Returns true if a file was deleted. *)
 val delete_empty_file : string -> bool
 
 exception Host_not_found of string
@@ -98,7 +98,7 @@ exception Process_still_alive
 val kill_and_wait : ?signal:int -> ?timeout:float -> int -> unit
 
 (** [string_of_signal x] translates an ocaml signal number into
-	a string suitable for logging. *)
+ *  a string suitable for logging. *)
 val string_of_signal : int -> string
 
 val proxy : Unix.file_descr -> Unix.file_descr -> unit

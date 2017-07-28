@@ -76,9 +76,16 @@ let parse filename =
 	close_in stream;
 	cf
 
+exception IntErr
+exception FloatErr
+exception BoolErr
+
 let validate cf expected other =
 	let err = ref [] in
-	let append x = err := x :: !err in
+	let append x = err := x :: !err in	
+	let int_of_string v = try int_of_string v with Failure _ -> raise IntErr in
+	let float_of_string v = try float_of_string v with Failure _ -> raise FloatErr in
+	let bool_of_string v = try bool_of_string v with Failure _ -> raise BoolErr in
 	List.iter (fun (k, v) ->
 		try
 			if not (List.mem_assoc k expected) then
@@ -96,9 +103,9 @@ let validate cf expected other =
 			| Set_float r  -> r := (float_of_string v)
 		with
 		| Not_found                 -> append (k, "unknown key")
-		| Failure "int_of_string"   -> append (k, "expect int arg")
-		| Failure "bool_of_string"  -> append (k, "expect bool arg")
-		| Failure "float_of_string" -> append (k, "expect float arg")
+		| IntErr                    -> append (k, "expect int arg")
+		| BoolErr                   -> append (k, "expect bool arg")
+		| FloatErr                  -> append (k, "expect float arg")
 		| exn                       -> append (k, Printexc.to_string exn)
 		) cf;
 	if !err != [] then raise (Error !err)

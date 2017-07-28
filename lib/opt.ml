@@ -18,8 +18,6 @@
  * (http://code.google.com/p/ocaml-extlib/)
  *)
 
-open Pervasiveext
-
 module Monad = Monad.M1.Make (struct
 
 	type 'a m = 'a option

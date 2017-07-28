@@ -17,11 +17,11 @@ let to_list tbl =
 
 (* this is not a fold ... *)
 let fold_keys tbl =
-	Hashtbl.fold (fun k v acc -> k :: acc) tbl []
+	Hashtbl.fold (fun k _ acc -> k :: acc) tbl []
 
 (* ... neither is this *)
 let fold_values tbl =
-	Hashtbl.fold (fun k v acc -> v :: acc) tbl []
+	Hashtbl.fold (fun _ v acc -> v :: acc) tbl []
 
 let add_empty tbl k v =
 	if not (Hashtbl.mem tbl k) then
