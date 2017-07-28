@@ -1,44 +1,28 @@
-# OASIS_START
-# DO NOT EDIT (digest: a3c674b4239234cbbe53afe090018954)
+.PHONY: build release install uninstall clean test doc reindent
 
-SETUP = ocaml setup.ml
+build:
+	jbuilder build @install --dev
 
-build: setup.data
-	$(SETUP) -build $(BUILDFLAGS)
+release:
+	jbuilder build @install
 
-doc: setup.data build
-	$(SETUP) -doc $(DOCFLAGS)
+install:
+	jbuilder install
 
-test: setup.data build
-	$(SETUP) -test $(TESTFLAGS)
+uninstall:
+	jbuilder uninstall
 
-all:
-	$(SETUP) -all $(ALLFLAGS)
+clean:
+	jbuilder clean
 
-install: setup.data
-	$(SETUP) -install $(INSTALLFLAGS)
+test:
+	jbuilder runtest
 
-uninstall: setup.data
-	$(SETUP) -uninstall $(UNINSTALLFLAGS)
+# requires odoc
+doc:
+	jbuilder build @doc
 
-reinstall: setup.data
-	$(SETUP) -reinstall $(REINSTALLFLAGS)
-
-clean: setup.ml
-	$(SETUP) -clean $(CLEANFLAGS)
-
-distclean: setup.ml
-	$(SETUP) -distclean $(DISTCLEANFLAGS)
-
-setup.data: setup.ml
-	$(SETUP) -configure $(CONFIGUREFLAGS)
-
-configure: setup.ml
-	$(SETUP) -configure $(CONFIGUREFLAGS)
-
-setup.ml: _oasis
-	oasis setup
-
-.PHONY: build doc test all install uninstall reinstall clean distclean configure
-
-# OASIS_STOP
+reindent:
+	ocp-indent --syntax cstruct -i lib/*.mli
+	ocp-indent --syntax cstruct -i lib/*.ml
+	ocp-indent --syntax cstruct -i lib_test/*.ml

@@ -1,0 +1,10 @@
+(library
+ ((name ezxenstore)
+  (public_name ezxenstore)
+  (modules (xenstore watch))
+  (libraries (cmdliner
+              logs
+              threads
+              xenstore.unix
+              xenstore_transport.unix))
+ ))

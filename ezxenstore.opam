@@ -6,19 +6,13 @@ homepage: "https://github.com/xapi-project/ezxenstore"
 bug-reports: "https://github.com/xapi-project/ezxenstore/issues"
 dev-repo: "https://github.com/xapi-project/ezxenstore.git"
 
-build: [
-  make	
-]
-install: [
-  make "install"
-]
-remove: [
-  "ocamlfind" "remove" "ezxenstore"
-]
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
+
 depends: [
+  "jbuilder" {build}
+  "cmdliner"
+  "logs"
   "xenstore"
   "xenstore_transport"
-  "logs"
-  "cmdliner"
-  "oasis" {build}
 ]
