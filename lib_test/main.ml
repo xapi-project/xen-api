@@ -6,7 +6,7 @@ let set_socket_path path = Xs_transport.xenstored_socket := path
 
 let test socket =
   set_socket_path socket;
-  let open Ezxenstore.Xenstore in
+  let open Xenstore in
   let result = 
     with_xs (fun xs ->
         xs.write "/foo" "bar";
