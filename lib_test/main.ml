@@ -24,9 +24,9 @@ let cmd =
   ] in
   Term.(ret (const test $ socket)),
   Term.info "test_ezxenstore" ~doc ~man
-    
+
 let () = match Term.eval cmd with `Ok x -> exit x | _ -> exit 1
-    
-    
+
+
 
 

@@ -21,9 +21,9 @@ exception Timeout of float
 
 (** Represents a condition to wait for *)
 type 'a t = { evaluate: Xs.xsh -> 'a }
-    
+
 let map f x = { evaluate = fun xs -> f (x.evaluate xs) }
- 
+
 let has_fired ~xs x =
   try Xenstore.with_xs (fun h -> x.evaluate h); true with Xs_protocol.Eagain -> false 
 
@@ -45,53 +45,53 @@ let wait_for ~xs ?(timeout=300.) (x: 'a t) =
   in
   let task = Xs.wait x.evaluate in
   with_pipe (fun (p1,p2) ->
-    let thread = Thread.create (fun () ->
-      let r,_,_ = Unix.select [p1] [] [] timeout in
-      if List.length r > 0 then () else begin
-        try Xs_client_unix.Task.cancel task with _ -> ()
-      end) ()
-    in
-    try
-      let result = Xs_client_unix.Task.wait task in
-      ignore(Unix.write p2 "x" 0 1);
-      Thread.join thread;
-      result
-    with Xs_client_unix.Cancelled ->
-      Thread.join thread;
-      raise (Timeout timeout))
+      let thread = Thread.create (fun () ->
+          let r,_,_ = Unix.select [p1] [] [] timeout in
+          if List.length r > 0 then () else begin
+            try Xs_client_unix.Task.cancel task with _ -> ()
+          end) ()
+      in
+      try
+        let result = Xs_client_unix.Task.wait task in
+        ignore(Unix.write p2 "x" 0 1);
+        Thread.join thread;
+        result
+      with Xs_client_unix.Cancelled ->
+        Thread.join thread;
+        raise (Timeout timeout))
 
 (** Wait for a node to appear in the store and return its value *)
 let value_to_appear (path: path): string t = 
   { evaluate = fun xs -> 
-      try 
-        let v = xs.Xs.read path in
-        v
-      with Xs_protocol.Enoent _ -> raise Xs_protocol.Eagain
+        try 
+          let v = xs.Xs.read path in
+          v
+        with Xs_protocol.Enoent _ -> raise Xs_protocol.Eagain
   }
 
 (** Wait for a node to disappear from the store *)
 let key_to_disappear (path: path) : unit t = 
   { evaluate = fun xs -> 
-      try
-	    ignore(xs.Xs.read path); raise Xs_protocol.Eagain 
-      with Xs_protocol.Enoent _ ->
-        () 
+        try
+          ignore(xs.Xs.read path); raise Xs_protocol.Eagain 
+        with Xs_protocol.Enoent _ ->
+          () 
   }
 
 (** Wait for a node to appear with a particular value *)
 let value_to_become (path: path) (v: string) : unit t = 
   { evaluate = fun xs -> 
-      try 
-        if xs.Xs.read path <> v
-	    then raise Xs_protocol.Eagain
-      with Xs_protocol.Enoent _ -> raise Xs_protocol.Eagain
+        try 
+          if xs.Xs.read path <> v
+          then raise Xs_protocol.Eagain
+        with Xs_protocol.Enoent _ -> raise Xs_protocol.Eagain
   }
 
 (** Wait for a set of conditions simultaneously. Note when any watch fires we
     re-evaluate everything which isn't necessarily the most efficient thing to do. *)
 let all_of (watches: 'a t list) = 
   { evaluate = fun xs ->
-      List.map (fun x -> x.evaluate xs) watches
+        List.map (fun x -> x.evaluate xs) watches
   }
 
 (** Wait for any of a set of tagged conditions to become true. Return the tag of 
