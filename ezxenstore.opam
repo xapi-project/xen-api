@@ -7,7 +7,6 @@ bug-reports: "https://github.com/xapi-project/ezxenstore/issues"
 dev-repo: "https://github.com/xapi-project/ezxenstore.git"
 
 build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
-build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
 
 depends: [
   "jbuilder" {build}
