@@ -13,7 +13,7 @@ build: setup.data
 doc: setup.data build
 	$(SETUP) -doc $(DOCFLAGS)
 	./jsapi.native -destdir _build/ocaml/doc -templdir ocaml/doc/templates
-	./datamodel_main.native -closed -markdown _build/ocaml/doc/markdown
+	./datamodel_main.native -closed -markdown -templdir ocaml/doc/templates _build/ocaml/doc/markdown
 	cp ocaml/doc/*.dot ocaml/doc/*.md ocaml/doc/doc-convert.sh _build/ocaml/doc/markdown
 
 test: setup.data build
