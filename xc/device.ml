@@ -607,12 +607,36 @@ let qemu_media_change ~xs device _type params =
 
 	if is_upstream_qemu device.frontend.domid
 	then begin
+		let open Qmp in
 		let cd = "ide1-cd1" in
-		let qmp_cmd =
-			if params = ""
-			then (Qmp.Command(None, Qmp.Eject (cd, Some true)))
-			else (Qmp.Command(None, Qmp.Change (cd, params, None))) in
-		qmp_write device.frontend.domid qmp_cmd
+		match params with
+		| "" ->
+			let qmp_cmd = Command(None, Eject (cd, Some true)) in
+			qmp_write device.frontend.domid qmp_cmd
+		| _ ->
+			try
+				let c = Qmp_protocol.connect (Printf.sprintf "/var/run/xen/qmp-libxl-%d" device.frontend.domid) in
+				let fd_of_c = Qmp_protocol.to_fd c in
+				let fd_of_cd = Unix.openfile params [ Unix.O_RDONLY ] 0o640 in
+				finally
+					(fun () -> ignore(Fd_send_recv.send_fd fd_of_c " " 0 1 [] fd_of_cd))
+					(fun () -> Unix.close fd_of_cd);
+				
+				let qmp_cmd = Command (None, Add_fd (Fd_send_recv.int_of_fd fd_of_cd)) in
+				Qmp_protocol.negotiate c;
+				Qmp_protocol.write c qmp_cmd;
+				let new_fd = match Qmp_protocol.read c with
+				| Success (None, Fd_info fd_info) -> fd_info.fd
+				| _ -> raise (Internal_error (Printf.sprintf "Get unexpected result after sending Qmp message: %s" (string_of_message qmp_cmd)))
+				in
+				let cmd = Command (None, Blockdev_change_medium (cd, "/dev/fd/" ^ (string_of_int new_fd))) in
+				Qmp_protocol.write c cmd;
+				Qmp_protocol.close c
+			with
+			| Unix.Unix_error(Unix.ECONNREFUSED, "connect", p) -> raise(Internal_error (Printf.sprintf "Failed to connnect qmp socket: %s" p))
+			| Unix.Unix_error(Unix.ENOENT, "open", p) -> raise(Internal_error (Printf.sprintf "Failed to open CD Image: %s" p))
+			| Internal_error(_) as e -> raise e
+			| e -> raise(Internal_error (Printf.sprintf "Get unexpected error trying to change CD: %s" (Printexc.to_string e)))
 	end
 
 let media_eject ~xs device =
