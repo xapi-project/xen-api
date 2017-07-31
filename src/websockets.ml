@@ -21,8 +21,27 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
 
   type 'a t = 'a I.t 
 
+  let strip_whitespace s =
+    let fold_right f string accu =		
+      let accu = ref accu in		
+      for i = String.length string - 1 downto 0 do		
+        accu := f string.[i] !accu		
+      done;
+      !accu
+    in
+    let explode string =
+      fold_right (fun h t -> h :: t) string []
+    in
+    let implode list =
+      let of_char c = String.make 1 c in
+      String.concat "" (List.map of_char list)
+    in
+    implode (List.filter (fun x->not (List.mem x [' ';'\t';'\n';'\r'])) (explode s))		
+
   let base64encode s = modify B64.encode s
-  let base64decode s = modify B64.decode s
+  let base64decode s =
+    let decode x = B64.decode (strip_whitespace x) in
+    modify decode s
 
   let writer = I.writer
 
