@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Fun
+
 module List = struct include List
 
   module Monad = Monad.M1.Make (struct
@@ -195,7 +195,7 @@ module List = struct include List
       if i <= 0 || list = []
       then acc
       else helper (i-1)  (List.hd list :: acc) (List.tl list)
-    in List.rev $ helper n [] list
+    in List.rev (helper n [] list)
 
   (* Thanks to sharing we only use linear space. (Roughly double the space needed for the spine of the original list) *)
   let rec tails = function
@@ -217,7 +217,7 @@ module List = struct include List
   let unbox_list a = List.map Opt.unbox (List.filter Opt.is_boxed a)
 
   let filter_map f list =
-    (unbox_list +++ map) f list
+    unbox_list (map f list)
 
   let restrict_with_default default keys al =
     make_assoc (fun k -> assoc_default k al default) keys
