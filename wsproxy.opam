@@ -10,6 +10,7 @@ bug-reports: "https://github.com/xapi-project/wsproxy/issues"
 build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 depends: [
   "jbuilder" {build}
+  "base64"
   "lwt" { < "3.0.0" }
   "re"
 ]

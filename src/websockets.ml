@@ -21,8 +21,8 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
 
   type 'a t = 'a I.t 
 
-  let base64encode s = modify Base64.encode s
-  let base64decode s = modify Base64.decode s
+  let base64encode s = modify B64.encode s
+  let base64decode s = modify B64.decode s
 
   let writer = I.writer
 
