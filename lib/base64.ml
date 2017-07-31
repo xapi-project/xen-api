@@ -12,4 +12,22 @@
  * GNU Lesser General Public License for more details.
  *)
 let encode = B64.encode ?pad:None ?alphabet:None
-let decode = B64.decode ?alphabet:None
+let decode s =
+  let strip_whitespace s =
+    let fold_right f string accu =
+      let accu = ref accu in
+      for i = String.length string - 1 downto 0 do
+        accu := f string.[i] !accu
+      done;
+      !accu
+    in
+    let explode string =
+      fold_right (fun h t -> h :: t) string []
+    in
+    let implode list =
+      let of_char c = String.make 1 c in
+      String.concat "" (List.map of_char list)
+    in
+    implode (List.filter (fun x->not (List.mem x [' ';'\t';'\n';'\r'])) (explode s))
+  in
+  B64.decode ?alphabet:None (strip_whitespace s)
