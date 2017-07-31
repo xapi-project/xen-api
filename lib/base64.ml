@@ -13,21 +13,17 @@
  *)
 let encode = B64.encode ?pad:None ?alphabet:None
 let decode s =
-  let strip_whitespace s =
-    let fold_right f string accu =
-      let accu = ref accu in
-      for i = String.length string - 1 downto 0 do
-        accu := f string.[i] !accu
-      done;
-      !accu
-    in
-    let explode string =
-      fold_right (fun h t -> h :: t) string []
-    in
-    let implode list =
-      let of_char c = String.make 1 c in
-      String.concat "" (List.map of_char list)
-    in
-    implode (List.filter (fun x->not (List.mem x [' ';'\t';'\n';'\r'])) (explode s))
+  let sanitize x =
+    (* ignore control characters: see RFC4648.1 and RFC4648.3
+     * https://tools.ietf.org/html/rfc4648#section-3 
+     * Note: \t = \009, \n = \012, \r = \015, \s = \032 *)
+    let result = Buffer.create (String.length x) in
+    for i = 0 to String.length x - 1 do
+      if String.unsafe_get x i >= '\000' && String.unsafe_get x i <= '\032'
+         || String.unsafe_get x i = '\127'
+      then () 
+      else Buffer.add_char result (String.unsafe_get x i)
+    done;
+    Buffer.contents result
   in
-  B64.decode ?alphabet:None (strip_whitespace s)
+  B64.decode ?alphabet:None (sanitize s)
