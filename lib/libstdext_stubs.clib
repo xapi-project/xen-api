@@ -1,8 +1,0 @@
-# OASIS_START
-# DO NOT EDIT (digest: b4d5196086bdd5d02be639885c7103de)
-blkgetsize_stubs.o
-unixext_open_stubs.o
-unixext_stubs.o
-unixext_write_stubs.o
-zerocheck_stub.o
-# OASIS_STOP
