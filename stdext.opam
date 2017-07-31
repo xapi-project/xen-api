@@ -13,6 +13,7 @@ depends: [
   "base-bigarray"
   "base-threads"
   "base-unix"
+  "base64"
   "fd-send-recv"
   "uuidm"
   "xapi-backtrace"

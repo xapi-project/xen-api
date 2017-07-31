@@ -9,10 +9,11 @@
             unixext_stubs
             unixext_write_stubs
             zerocheck_stub))
-  (libraries (threads
+  (libraries (base64
+              bigarray
+              fd-send-recv
+              threads
               uuidm
               unix
-              fd-send-recv
-              bigarray
               xapi-backtrace))
   ))
