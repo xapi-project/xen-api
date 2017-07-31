@@ -14,7 +14,8 @@ doc: setup.data build
 	$(SETUP) -doc $(DOCFLAGS)
 	./jsapi.native -destdir _build/ocaml/doc -templdir ocaml/doc/templates
 	./datamodel_main.native -closed -markdown -templdir ocaml/doc/templates _build/ocaml/doc/markdown
-	cp ocaml/doc/*.dot ocaml/doc/*.md ocaml/doc/doc-convert.sh _build/ocaml/doc/markdown
+	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh _build/ocaml/doc/markdown
+	find ocaml/doc -name "*.md" -not -name "README.md" -exec cp {} _build/ocaml/doc/markdown/ \;
 
 test: setup.data build
 	$(SETUP) -test $(TESTFLAGS)
