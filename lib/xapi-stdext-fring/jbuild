@@ -1,0 +1,7 @@
+(jbuild_version 1)
+
+(library
+  ((public_name xapi-stdext-fring)
+   (name xapi_stdext_fring)
+   (libraries (bigarray))
+   ))

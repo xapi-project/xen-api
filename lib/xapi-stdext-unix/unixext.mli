@@ -55,7 +55,7 @@ val buffer_of_fd : Unix.file_descr -> Buffer.t
 
 (** [bigbuffer_of_fd fd] returns a Bigbuffer.t containing all data read from [fd] up 
     to EOF *)
-val bigbuffer_of_fd : Unix.file_descr -> Bigbuffer.t
+val bigbuffer_of_fd : Unix.file_descr -> Xapi_stdext_bigbuffer.Bigbuffer.t
 
 (** [string_of_fd fd] returns a string containing all data read from [fd] up to EOF *)
 val string_of_fd : Unix.file_descr -> string
@@ -64,7 +64,7 @@ val string_of_fd : Unix.file_descr -> string
 val buffer_of_file : string -> Buffer.t
 
 (** [bigbuffer_of_file file] returns a Bigbuffer.t containing the contents of [file] *)
-val bigbuffer_of_file : string -> Bigbuffer.t
+val bigbuffer_of_file : string -> Xapi_stdext_bigbuffer.Bigbuffer.t
 
 (** [string_of_file file] returns a string containing the contents of [file] *)
 val string_of_file : string -> string
@@ -104,7 +104,7 @@ val string_of_signal : int -> string
 val proxy : Unix.file_descr -> Unix.file_descr -> unit
 val really_read : Unix.file_descr -> string -> int -> int -> unit
 val really_read_string : Unix.file_descr -> int -> string
-val really_read_bigbuffer : Unix.file_descr -> Bigbuffer.t -> int64 -> unit
+val really_read_bigbuffer : Unix.file_descr -> Xapi_stdext_bigbuffer.Bigbuffer.t -> int64 -> unit
 val really_write : Unix.file_descr -> string -> int -> int -> unit
 val really_write_string : Unix.file_descr -> string -> unit
 val try_read_string : ?limit: int -> Unix.file_descr -> string

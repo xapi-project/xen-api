@@ -58,7 +58,7 @@ let ignore_bool v = let (_: bool) = v in ()
 
 (* To avoid some parens: *)
 (* composition of functions: *)
-let (++) f g x = Fun.comp f g x
+let (++) f g x = f (g x)
 
 (* and application *)
 let ($) f a = f a

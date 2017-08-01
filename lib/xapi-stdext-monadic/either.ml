@@ -1,5 +1,3 @@
-open Listext
-
 type ('a,'b) t = Left of 'a | Right of 'b
 
 module Monad = Monad.M2.Make (struct
@@ -25,7 +23,9 @@ let to_option = function
   | Right x -> Some x
   | Left _ -> None
 
-let cat_right l = List.unbox_list (List.map to_option l)
+let cat_right l =
+  let unbox_list a = List.map Opt.unbox (List.filter Opt.is_boxed a) in
+  unbox_list (List.map to_option l)
 
 let join = function
   | Right (Right x) -> Right x

@@ -167,8 +167,9 @@ module Thread = struct
          run_pendings ())
 
   let create ?(schedule=Indefinite) f x =
+    let finally = Xapi_stdext_pervasives.Pervasiveext.finally in
     let f' x =
-      Pervasiveext.finally
+      finally
         (fun () -> f x)
         exit in
     Mutex.execute scheduler_token
@@ -362,11 +363,12 @@ module Delay = struct
   exception Pre_signalled
 
   let wait (x: t) (seconds: float) =
+    let finally = Xapi_stdext_pervasives.Pervasiveext.finally in
     let to_close = ref [ ] in
     let close' fd = 
       if List.mem fd !to_close then Unix.close fd;
       to_close := List.filter (fun x -> fd <> x) !to_close in
-    Pervasiveext.finally
+    finally
       (fun () ->
          try
            let pipe_out = Mutex.execute x.m

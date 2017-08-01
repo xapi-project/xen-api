@@ -11,7 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
+module Bigbuffer = Xapi_stdext_bigbuffer.Bigbuffer
 
 exception Unix_error of int
 
@@ -172,12 +173,13 @@ let string_of_file file_path = Buffer.contents (buffer_of_file file_path)
 (** Opens a temp file, applies the fd to the function, when the function completes, renames the file
     as required. *)
 let atomic_write_to_file fname perms f =
+  let module Filenameext = Xapi_stdext_std.Filenameext in
   let tmp = Filenameext.temp_file_in_dir fname in
   Unix.chmod tmp perms;
-  Pervasiveext.finally
+  finally
     (fun () ->
        let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] perms (* ignored since the file exists *) in
-       let result = Pervasiveext.finally
+       let result = finally
            (fun () -> f fd)
            (fun () -> Unix.close fd) in
        Unix.rename tmp fname; (* Nb this only happens if an exception wasn't raised in the application of f *)
@@ -208,6 +210,7 @@ let execv_get_output cmd args =
     pid, pipe_exit
 
 let copy_file_internal ?limit reader writer =
+  let module Opt = Xapi_stdext_monadic.Opt in
   let buffer = String.make 65536 '\000' in
   let buffer_len = Int64.of_int (String.length buffer) in
   let finished = ref false in

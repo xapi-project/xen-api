@@ -14,7 +14,7 @@
 
 module List = struct include List
 
-  module Monad = Monad.M1.Make (struct
+  module Monad = Xapi_stdext_monadic.Monad.M1.Make (struct
 
       type 'a m = 'a list
 
@@ -214,7 +214,9 @@ module List = struct include List
 
   let make_assoc op l = map (fun key -> key, op key) l
 
-  let unbox_list a = List.map Opt.unbox (List.filter Opt.is_boxed a)
+  let unbox_list a =
+    let module Opt = Xapi_stdext_monadic.Opt in
+    List.map Opt.unbox (List.filter Opt.is_boxed a)
 
   let filter_map f list =
     unbox_list (map f list)
