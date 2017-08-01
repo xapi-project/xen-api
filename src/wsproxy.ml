@@ -15,6 +15,7 @@
 
 let get_dir_path () = Printf.sprintf "/var/xapi/" 
 
+let ignore_exn t () = Lwt.catch t (fun _ -> Lwt.return_unit)
 
 module LwtWsIteratee = Websockets.Wsprotocol(Lwt)
 open Lwt.Infix
@@ -45,7 +46,15 @@ let start path handler =
          Lwt_unix.close fd_sock2 >>= fun _ ->
          List.iter (fun fd -> Printf.printf "got fd: %d\n%!" (Obj.magic fd)) newfds;
          Printf.printf "About to fixup the fd\n%!";
-         ignore(handler (Lwt_unix.of_unix_file_descr (List.hd newfds)) msg);
+         Lwt.catch
+          (fun () ->
+            ignore(handler (Lwt_unix.of_unix_file_descr (List.hd newfds)) msg);
+            Lwt.return ()
+          )
+          (fun e ->
+            List.iter (fun fd -> try Unix.close fd with _ -> ()) newfds;
+            Printf.printf "Caught exception: %s\n" (Printexc.to_string e);
+            Lwt.return ()) >>= fun _ ->
          loop ()
       )
       (fun e ->
@@ -76,10 +85,17 @@ let proxy (fd : Lwt_unix.file_descr) protocol _ty localport =
     Lwt.return () in
   let thread2 = lwt_fd_enumerator fd (realunframe (writer (really_write localfd) "thread2")) >>= fun _ -> 
     Lwt.return () in
-  Lwt.catch 
-    (fun () -> Lwt.join [thread1; thread2] >>= fun _ -> 
-      Lwt_unix.close fd)
-    (fun _ -> Lwt.return ())
+  Lwt.catch
+    (fun () ->
+      Lwt.join [thread1; thread2] >>= fun () -> 
+      Lwt_unix.close fd >>= fun () ->
+      Lwt_unix.close localfd)
+    (fun _ ->
+      ignore_exn (fun () -> Lwt_unix.close fd) () >>= fun () -> 
+      ignore_exn (fun () -> Lwt_unix.close localfd) ())
+  >>= fun () -> 
+    Printf.printf "FD closed: %b %b\n" Lwt_unix.(state fd == Closed) Lwt_unix.(state localfd == Closed)
+    |> Lwt.return
 
 let handler sock msg =
   Lwt_io.printf "Got msg: %s\n" msg >>= fun _ ->
@@ -91,7 +107,9 @@ let handler sock msg =
     let port = int_of_string sport in
     proxy sock protocol "hybi10" port
   | _ -> 
-    Lwt_unix.close sock
+    ignore_exn (fun () -> Lwt_unix.close sock) () >>= fun () ->
+    Printf.printf "Sock closed: %b\n" Lwt_unix.(state sock == Closed)
+    |> Lwt.return
 
 let _ =
   if Array.length Sys.argv > 1 
