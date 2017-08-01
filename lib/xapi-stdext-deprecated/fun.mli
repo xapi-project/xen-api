@@ -1,14 +1,10 @@
-val const : 'a -> 'b -> 'a
-val uncurry : ('a -> 'b -> 'c) -> ('a * 'b) -> 'c
-val id : 'a -> 'a
-val flip : ('a -> 'b -> 'c) -> ('b -> 'a -> 'c)
-val on : ('b -> 'b -> 'c) -> ('a -> 'b) -> 'a -> 'a -> 'c
-val comp : ('b -> 'c) -> ('a -> 'b) -> ('a -> 'c)
-val comp2 : ('b -> 'c) -> ('a1 -> 'a2 -> 'b) -> ('a1 -> 'a2 -> 'c)
-val (+++) : ('c -> 'd) -> ('a -> 'b -> 'c) -> 'a -> 'b -> 'd
-val (++) : ('b -> 'c) -> ('a -> 'b) -> 'a -> 'c
-
-val (|>) : 'a -> ('a -> 'b) -> 'b
-(** Forward pipe operator: facilitates left-to-right function composition. *)
-
-val ($) : ('a -> 'b) -> 'a -> 'b
+val const : 'a -> 'b -> 'a  [@@ocaml.deprecated]
+val uncurry : ('a -> 'b -> 'c) -> ('a * 'b) -> 'c  [@@ocaml.deprecated]
+val id : 'a -> 'a  [@@ocaml.deprecated]
+val flip : ('a -> 'b -> 'c) -> ('b -> 'a -> 'c)  [@@ocaml.deprecated]
+val on : ('b -> 'b -> 'c) -> ('a -> 'b) -> 'a -> 'a -> 'c  [@@ocaml.deprecated]
+val comp : ('b -> 'c) -> ('a -> 'b) -> ('a -> 'c)  [@@ocaml.deprecated]
+val comp2 : ('b -> 'c) -> ('a1 -> 'a2 -> 'b) -> ('a1 -> 'a2 -> 'c)  [@@ocaml.deprecated]
+val (+++) : ('c -> 'd) -> ('a -> 'b -> 'c) -> 'a -> 'b -> 'd  [@@ocaml.deprecated]
+val (++) : ('b -> 'c) -> ('a -> 'b) -> 'a -> 'c  [@@ocaml.deprecated]
+val ($) : ('a -> 'b) -> 'a -> 'b  [@@ocaml.deprecated]
