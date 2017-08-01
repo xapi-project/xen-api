@@ -21,8 +21,23 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
 
   type 'a t = 'a I.t 
 
-  let base64encode s = modify Base64.encode s
-  let base64decode s = modify Base64.decode s
+  let sanitize s =
+    (* ignore control characters: see RFC4648.1 and RFC4648.3
+     * https://tools.ietf.org/html/rfc4648#section-3
+     * Note: \t = \009, \n = \012, \r = \015, \s = \032 *)
+    let result = Buffer.create (String.length s) in
+    for i = 0 to String.length s - 1 do
+      if (String.unsafe_get s i >= '\000' && String.unsafe_get s i <= '\032')
+         || String.unsafe_get s i = '\127'
+      then ()
+      else Buffer.add_char result (String.unsafe_get s i)
+    done;
+    Buffer.contents result
+
+  let base64encode s = modify B64.encode s
+  let base64decode s =
+    let decode x = B64.decode (sanitize x) in
+    modify decode s
 
   let writer = I.writer
 
