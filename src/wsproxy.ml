@@ -47,14 +47,13 @@ let start path handler =
          List.iter (fun fd -> Printf.printf "got fd: %d\n%!" (Obj.magic fd)) newfds;
          Printf.printf "About to fixup the fd\n%!";
          Lwt.catch
-          (fun () ->
-            ignore(handler (Lwt_unix.of_unix_file_descr (List.hd newfds)) msg);
-            Lwt.return ()
-          )
-          (fun e ->
-            List.iter (fun fd -> try Unix.close fd with _ -> ()) newfds;
-            Printf.printf "Caught exception: %s\n" (Printexc.to_string e);
-            Lwt.return ()) >>= fun _ ->
+           (fun () ->
+              ignore(handler (Lwt_unix.of_unix_file_descr (List.hd newfds)) msg);
+              Lwt.return ())
+           (fun e ->
+              List.iter (fun fd -> try Unix.close fd with _ -> ()) newfds;
+              Printf.printf "Caught exception: %s\n" (Printexc.to_string e);
+              Lwt.return ()) >>= fun _ ->
          loop ()
       )
       (fun e ->
@@ -87,15 +86,15 @@ let proxy (fd : Lwt_unix.file_descr) protocol _ty localport =
     Lwt.return () in
   Lwt.catch
     (fun () ->
-      Lwt.join [thread1; thread2] >>= fun () -> 
-      Lwt_unix.close fd >>= fun () ->
-      Lwt_unix.close localfd)
+       Lwt.join [thread1; thread2] >>= fun () -> 
+       Lwt_unix.close fd >>= fun () ->
+       Lwt_unix.close localfd)
     (fun _ ->
-      ignore_exn (fun () -> Lwt_unix.close fd) () >>= fun () -> 
-      ignore_exn (fun () -> Lwt_unix.close localfd) ())
+       ignore_exn (fun () -> Lwt_unix.close fd) () >>= fun () -> 
+       ignore_exn (fun () -> Lwt_unix.close localfd) ())
   >>= fun () -> 
-    Printf.printf "FD closed: %b %b\n" Lwt_unix.(state fd == Closed) Lwt_unix.(state localfd == Closed)
-    |> Lwt.return
+  Printf.printf "FD closed: %b %b\n" Lwt_unix.(state fd == Closed) Lwt_unix.(state localfd == Closed)
+  |> Lwt.return
 
 let handler sock msg =
   Lwt_io.printf "Got msg: %s\n" msg >>= fun _ ->
