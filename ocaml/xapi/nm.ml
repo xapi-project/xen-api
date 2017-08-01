@@ -300,7 +300,7 @@ let rec create_bridges ~__context pif_rc net_rc =
     let ports = [pif_rc.API.pIF_device, {default_port with interfaces=[pif_rc.API.pIF_device]}] in
     cleanup,
     [net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some pif_rc.API.pIF_MAC);
-                                                     other_config; persistent_b=persistent}],
+                                                     igmp_snooping = Some false; other_config; persistent_b=persistent}],
     [pif_rc.API.pIF_device, {default_interface with mtu; ethtool_settings; ethtool_offload; persistent_i=persistent}]
 
 let rec destroy_bridges ~__context ~force pif_rc bridge =
