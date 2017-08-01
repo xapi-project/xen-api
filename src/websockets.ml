@@ -27,7 +27,7 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
      * Note: \t = \009, \n = \012, \r = \015, \s = \032 *)
     let result = Buffer.create (String.length s) in
     for i = 0 to String.length s - 1 do
-      if String.unsafe_get s i >= '\000' && String.unsafe_get s i <= '\032'
+      if (String.unsafe_get s i >= '\000' && String.unsafe_get s i <= '\032')
          || String.unsafe_get s i = '\127'
       then ()
       else Buffer.add_char result (String.unsafe_get s i)
