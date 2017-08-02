@@ -1,3 +1,8 @@
+3.0.0 (02-Aug-2017):
+* Remove unused packages
+* Refactor in a backward compatible wrapper and 12 new separate libraries (see https://github.com/xapi-project/stdext/pull/21)
+* Port to jbuilder
+
 2.1.0 (20-Oct-2016):
 * New Semaphore module
 
