@@ -14,7 +14,7 @@
 
 module Wsprotocol :
   functor (IO : Iteratees.Monad) ->
-  sig 
+  sig
     type 'a t = 'a Iteratees.Iteratee(IO).t
 
     (** Exposing the writer from the IO Iteratee *)

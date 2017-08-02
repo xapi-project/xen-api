@@ -36,9 +36,9 @@ module Iteratee :
   sig
     (** The type t describes the current state of the iteratee.
         It's either 'Done', in which case it's got some sort of
-        value, or it's in the 'Cont' state, which mean's it 
-        hasn't finished processing - in this case it may be in 
-        an error state, or it may be awaiting more input. 
+        value, or it's in the 'Cont' state, which mean's it
+        hasn't finished processing - in this case it may be in
+        an error state, or it may be awaiting more input.
     *)
 
     type 'a t =
@@ -96,7 +96,7 @@ module Iteratee :
     (** read_int32 - reads an int32 from the stream (bigendian byte order) *)
     val read_int32 : int32 t
 
-    (** drop_while - iteratee that drops characters from the stream while they 
+    (** drop_while - iteratee that drops characters from the stream while they
         satisfy the supplied predicate *)
     val drop_while : (char -> bool) -> unit t
 
@@ -134,11 +134,11 @@ module Iteratee :
         iteratee *)
     type 'a enumeratee = 'a t -> 'a t t
 
-    (** take - takes exactly n characters from the input stream and applies them to 
+    (** take - takes exactly n characters from the input stream and applies them to
         the inner stream *)
     val take : int -> 'a t -> 'a t t
 
-    (** stream_printer - given a name and an iteratee i, returns an iteratee that 
+    (** stream_printer - given a name and an iteratee i, returns an iteratee that
         will print the chunks supplied before handing them off to the iteratee *)
     val stream_printer : string -> 'a t -> 'a t t
 

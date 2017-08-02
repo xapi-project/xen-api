@@ -16,23 +16,23 @@
 
 let split str n =
   let l = String.length str in
-  if n>l 
-  then (str,"") 
+  if n>l
+  then (str,"")
   else (String.sub str 0 n, String.sub str n (l-n))
 
 let break pred str =
   let l = String.length str in
-  let rec inner = function 
+  let rec inner = function
     | 0 -> (str,"")
-    | n -> 
-      if pred str.[l-n] 
+    | n ->
+      if pred str.[l-n]
       then split str (l-n)
       else inner (n-1)
   in inner l
 
-let str_drop_while pred str = 
-  let l = String.length str in 
-  let rec inner = function 
+let str_drop_while pred str =
+  let l = String.length str in
+  let rec inner = function
     | 0 -> ""
     | n ->
       if pred str.[l-n]

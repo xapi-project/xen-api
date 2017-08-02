@@ -21,7 +21,7 @@ module NoOpMonad = struct
 end
 
 module StringMonad = struct
-  type 'a t = 
+  type 'a t =
     { data : 'a;
       str : string }
   let return a = { data=a; str=""; }
@@ -29,7 +29,7 @@ module StringMonad = struct
     let newstr = f x.data in
     {newstr with str = x.str ^ newstr.str}
 
-  let strwr x = 
+  let strwr x =
     { data=(); str=x }
   let getstr x = x.str
   let getdata x = x.data
