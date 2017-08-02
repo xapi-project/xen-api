@@ -13,16 +13,16 @@
  *)
 let encode = B64.encode ?pad:None ?alphabet:None
 let decode s =
-  let sanitize x =
+  let sanitize s =
     (* ignore control characters: see RFC4648.1 and RFC4648.3
-     * https://tools.ietf.org/html/rfc4648#section-3 
+     * https://tools.ietf.org/html/rfc4648#section-3
      * Note: \t = \009, \n = \012, \r = \015, \s = \032 *)
-    let result = Buffer.create (String.length x) in
-    for i = 0 to String.length x - 1 do
-      if String.unsafe_get x i >= '\000' && String.unsafe_get x i <= '\032'
-         || String.unsafe_get x i = '\127'
-      then () 
-      else Buffer.add_char result (String.unsafe_get x i)
+    let result = Buffer.create (String.length s) in
+    for i = 0 to String.length s - 1 do
+      if (String.unsafe_get s i >= '\000' && String.unsafe_get s i <= '\032')
+      || String.unsafe_get s i = '\127'
+      then ()
+      else Buffer.add_char result (String.unsafe_get s i)
     done;
     Buffer.contents result
   in
