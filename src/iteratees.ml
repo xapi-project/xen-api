@@ -168,7 +168,7 @@ module Iteratee (IO : Monad) = struct
     let rec step st = match st with
       | Chunk s ->
         let news = str_drop_while pred s in
-        if news="" 
+        if news=""
         then ie_contM step (Chunk "")
         else ie_doneM () (Chunk news)
       | Eof _ ->
@@ -185,13 +185,13 @@ module Iteratee (IO : Monad) = struct
 
   let apply f =
     let rec step st = match st with
-      | Chunk s -> 
+      | Chunk s ->
         f s;
         ie_contM step (Chunk "")
       | Eof _ -> ie_doneM () st
     in IE_cont (None, step)
 
-  let liftI m = 
+  let liftI m =
     let step st i =
       match i with
       | IE_cont (None, k) -> k st

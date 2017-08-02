@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Iteratees 
+open Iteratees
 
 type 'a t = 'a Iteratee(Lwt).t =
   | IE_done of 'a
@@ -31,22 +31,22 @@ let lwt_fd_enumerator fd =
   let blocksize = 1024 in
   let str = Bytes.create blocksize in
   let get_str n =
-    if n=0 
-    then (Eof None) 
+    if n=0
+    then (Eof None)
     else (Chunk (String.sub str 0 n))
   in
   let rec go = function
-    | IE_cont (None,x) -> 
+    | IE_cont (None,x) ->
       Lwt_unix.read fd str 0 blocksize >>= fun n ->
-      x (get_str n)                    >>= fun x -> 
+      x (get_str n)                    >>= fun x ->
       Lwt.return (fst x)               >>= fun x ->
       go x
-    | x -> Lwt.return x 
-  in go 
+    | x -> Lwt.return x
+  in go
 
 let lwt_enumerator file iter =
   let (>>=) = Lwt.bind in
-  Lwt_unix.openfile file [Lwt_unix.O_RDONLY] 0o777 >>= fun fd -> 
+  Lwt_unix.openfile file [Lwt_unix.O_RDONLY] 0o777 >>= fun fd ->
   lwt_fd_enumerator fd iter
 
 exception Host_not_found of string

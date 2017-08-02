@@ -19,7 +19,7 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
   module I = Iteratees.Iteratee(IO)
   open I
 
-  type 'a t = 'a I.t 
+  type 'a t = 'a I.t
 
   let sanitize s =
     (* ignore control characters: see RFC4648.1 and RFC4648.3
@@ -43,10 +43,10 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
 
   let wsframe s = modify (fun s ->
       let l = String.length s in
-      if l < 126 
-      then 
+      if l < 126
+      then
         Printf.sprintf "%c%c%s" (char_of_int 0x82) (char_of_int l) s
-      else if l < 65535 
+      else if l < 65535
       then
         Printf.sprintf "%c%c%s%s" (char_of_int 0x82) (char_of_int 126)
           (Helpers.marshal_int16 l) s
@@ -57,62 +57,62 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
   let wsframe_old s = modify (fun s ->
       Printf.printf "frame: got %s\n" s; Printf.sprintf "\x00%s\xff" s) s
 
-  let rec wsunframe x = 
+  let rec wsunframe x =
     let read_sz =
       read_int8 >>= fun sz ->
       return (sz >= 128, sz land 0x7f)
     in
-    let read_size sz = 
-      if sz < 126 
+    let read_size sz =
+      if sz < 126
       then return sz
       else if sz = 126 then
         read_int16
       else (* sz = 127 *)
         read_int32 >>= fun x -> return (Int32.to_int x)
-    in  
-    let read_mask has_mask =
-      if has_mask 
-      then readn 4
-      else return "\x00\x00\x00\x00" 
     in
-    let rec inner acc s = 
-      match s with 
+    let read_mask has_mask =
+      if has_mask
+      then readn 4
+      else return "\x00\x00\x00\x00"
+    in
+    let rec inner acc s =
+      match s with
       | IE_cont (None, k) ->
         begin
           read_int8                    >>= fun op ->
           read_sz                      >>= fun (has_mask, sz) ->
           read_size sz                 >>= fun size ->
-          read_mask has_mask           >>= fun mask -> 
+          read_mask has_mask           >>= fun mask ->
           readn size                   >>= fun str ->
           let real_str = Helpers.unmask mask str in
-          if op land 0x0f = 0x08 
+          if op land 0x0f = 0x08
           then (* close frame *)
             return s
-          else 
+          else
           if not (op land 0x80 = 0x80)
           then begin
-            inner (acc ^ real_str) s 
+            inner (acc ^ real_str) s
           end else begin
             liftI (IO.bind (k (Iteratees.Chunk (acc ^ real_str))) (fun (i, _) ->
                 IO.return (wsunframe i)))
           end
-        end	
+        end
       | _ -> return s
     in inner "" x
 
   let rec wsunframe_old s =
-    match s with 
+    match s with
     | IE_cont (None, k) ->
-      begin    
+      begin
         heads "\x00" >>= fun _ ->
-        break ((=) '\xff') >>= fun str -> 
-        drop 1 >>= fun () -> 
+        break ((=) '\xff') >>= fun str ->
+        drop 1 >>= fun () ->
         liftI (IO.bind (k (Iteratees.Chunk str)) (fun (i,_) ->
             IO.return (wsunframe_old i)))
       end
     | _ -> return s
 
-end  
+end
 
 module TestWsIteratee = Wsprotocol(Test.StringMonad)
 
@@ -124,9 +124,9 @@ let test5 = test1 ^ "\x88\x00"
 
 let testold1 = "\x00Hello\xff\x00There\xff"
 
-let runtest () = 
+let runtest () =
   let open TestWsIteratee in
-  let open I in 
+  let open I in
 
   let it = wsunframe (writer Test.StringMonad.strwr "foo") in
   let itold = wsunframe_old (writer Test.StringMonad.strwr "bar") in
@@ -135,7 +135,7 @@ let runtest () =
   let (>>=) x f = Test.StringMonad.bind x f in
   let (=<<) f x = Test.StringMonad.bind x f in
 
-  let dump x = 
+  let dump x =
     let str = Test.StringMonad.getstr x in
     let data = Test.StringMonad.getdata x in
     Printf.printf "str='%s' state=%s\n" str (state data)
