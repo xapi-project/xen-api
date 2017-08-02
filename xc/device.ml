@@ -1912,6 +1912,29 @@ let stop ~xs ~qemu_domid domid  =
     stop_vgpu ();
     stop_qemu ()
 
+let is_hvm_linux domid =
+	let _XEN_IOPORT_LINUX_PRODNUM = 3 in (* from Linux include/xen/platform_pci.h *)
+	let error x = error "%s" x; Result.Error x in
+	try
+		let open Qmp in
+		match qmp_write_and_read domid (Command (None, Query_xen_platform_pv_driver_info)) with
+		| Some (Success (None, Xen_platform_pv_driver_info { product_num; build_num })) ->
+			Result.Ok ((product_num = _XEN_IOPORT_LINUX_PRODNUM) && (build_num <= 0xff))
+		| Some x ->
+			error (Printf.sprintf "Unexpected QMP response: %s" (Qmp.string_of_message x))
+		| None -> error "No QMP response for Query_xen_platform_pv_driver_info"
+	with e ->
+		error (Printf.sprintf "Exception attempting to obtain Linux product_id and build_number: %s" (Printexc.to_string e))
+
+let maybe_write_pv_feature_flags ~xs domid =
+	if is_upstream_qemu domid then
+	match is_hvm_linux domid with
+	| Result.Ok true ->
+		let write_local_domain prefix x = xs.Xs.write (Printf.sprintf "/local/domain/%d/%s%s" domid prefix x) "1" in
+		List.iter (write_local_domain "control/feature-") ["suspend"; "shutdown"; "vcpu-hotplug"];
+		List.iter (write_local_domain "data/") ["updated"]
+	| _ -> ()
+
 end (* End of module Dm *)
 
 let get_vnc_port ~xs domid = 

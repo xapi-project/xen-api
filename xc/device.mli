@@ -233,6 +233,8 @@ sig
 	val suspend : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
 	val resume : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
 	val stop : xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
+
+	val maybe_write_pv_feature_flags : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
 end
 
 val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
