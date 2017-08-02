@@ -12,4 +12,5 @@ depends: [
   "jbuilder" {build}
   "base-threads"
   "base-unix"
+  "xapi-stdext-pervasives"
 ]
