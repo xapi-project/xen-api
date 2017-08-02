@@ -1,0 +1,15 @@
+language: c
+sudo: false
+services:
+  - docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
+script: bash -ex ./.travis-docker.sh && make gh-pages
+env:
+  global:
+      - PINS="xapi-stdext:. xapi-stdext-base64:. xapi-stdext-bigbuffer:. xapi-stdext-date:. xapi-stdext-deprecated:. xapi-stdext-encodings:. xapi-stdext-monadic:. xapi-stdext-pervasives:. xapi-stdext-range:. xapi-stdext-std:. xapi-stdext-threads:. xapi-stdext-unix:. xapi-stdext-zerocheck:."
+  matrix:
+  - PACKAGE=xapi-stdext  DISTRO="debian-unstable" OCAML_VERSION=4.03.0
+  - PACKAGE=xapi-stdext  DISTRO="debian-unstable" OCAML_VERSION=4.04.2
+  - PACKAGE=xapi-stdext  DISTRO="debian-unstable" OCAML_VERSION=4.05.0
+branches:
+  only: master
