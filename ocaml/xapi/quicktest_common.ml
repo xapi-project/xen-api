@@ -165,6 +165,14 @@ let get_pool session_id =
   if List.length pool <> 1 then (failwith "Number of pools isn't zero!");
   List.hd pool
 
+let http request f =
+  let open Xmlrpc_client in
+  let transport =
+    if !using_unix_domain_socket
+    then Unix Xapi_globs.unix_domain_socket
+    else SSL(SSL.make ~use_fork_exec_helper:false (), !host, 443) in
+  with_transport transport (with_http request f)
+
 let vm_template = "Demo Linux VM"
 let other = "Other install media"
 
