@@ -193,6 +193,9 @@ val assert_mac_seeds_available : __context:Context.t -> self:API.ref_pool -> see
 val disable_ssl_legacy : __context:Context.t -> self:API.ref_pool -> unit
 val enable_ssl_legacy : __context:Context.t -> self:API.ref_pool -> unit
 
+(** Set on/off for IGMP Snooping *)
+val set_igmp_snooping_enabled : __context:Context.t -> self:API.ref_pool -> value:bool -> unit
+
 val has_extension : __context:Context.t -> self:API.ref_pool -> name:string -> bool
 
 val add_to_guest_agent_config :

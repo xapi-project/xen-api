@@ -181,6 +181,8 @@ let create_bond ~__context bond mtu persistent =
                       bond_properties=props; bond_mac=Some mac; kind=Basic}] in
   cleanup,
   [master_net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some mac); other_config;
+                                                          igmp_snooping=(Some 
+                                                          (Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context)));
                                                           persistent_b=persistent}],
   interface_config
 
@@ -300,7 +302,9 @@ let rec create_bridges ~__context pif_rc net_rc =
     let ports = [pif_rc.API.pIF_device, {default_port with interfaces=[pif_rc.API.pIF_device]}] in
     cleanup,
     [net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some pif_rc.API.pIF_MAC);
-                                                     igmp_snooping = Some false; other_config; persistent_b=persistent}],
+                                                     igmp_snooping=(Some 
+                                                        (Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context)));
+                                                     other_config; persistent_b=persistent}],
     [pif_rc.API.pIF_device, {default_interface with mtu; ethtool_settings; ethtool_offload; persistent_i=persistent}]
 
 let rec destroy_bridges ~__context ~force pif_rc bridge =

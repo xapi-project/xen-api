@@ -7308,6 +7308,20 @@ let pool_disable_ssl_legacy = call
     ~allowed_roles:_R_POOL_OP
     ()
 
+let pool_set_igmp_snooping_enabled = call  
+    ~in_oss_since:None  
+    ~lifecycle:[  
+      Published, rel_inverness, "Set pool level IGMP Snooping enabled.";  
+    ]  
+    ~name:"set_igmp_snooping_enabled"  
+    ~params:[  
+      Ref _pool, "self", "The pool";  
+      Bool, "value", "Enable or disable IGMP Snooping on the pool"  
+    ]  
+    ~doc:"True to Enable IGMP Snooping in pool."  
+    ~allowed_roles:_R_POOL_OP  
+    ()
+
 let pool_has_extension = call
     ~name:"has_extension"
     ~in_product_since:rel_dundee
@@ -7412,6 +7426,7 @@ let pool =
       ; pool_apply_edition
       ; pool_enable_ssl_legacy
       ; pool_disable_ssl_legacy
+      ; pool_set_igmp_snooping_enabled
       ; pool_has_extension
       ; pool_add_to_guest_agent_config
       ; pool_remove_from_guest_agent_config
@@ -7455,6 +7470,7 @@ let pool =
        ; field ~qualifier:DynamicRO ~in_product_since:rel_dundee ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "cpu_info" "Details about the physical CPUs on the pool"
        ; field ~qualifier:RW ~in_product_since:rel_dundee ~default_value:(Some (VBool false)) ~ty:Bool "policy_no_vendor_device" "The pool-wide policy for clients on whether to use the vendor device or not on newly created VMs. This field will also be consulted if the 'has_vendor_device' field is not specified in the VM.create call."
        ; field ~qualifier:RW ~in_product_since:rel_ely ~default_value:(Some (VBool false)) ~ty:Bool "live_patching_disabled" "The pool-wide flag to show if the live patching feauture is disabled or not."
+       ; field ~in_product_since:rel_inverness ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "igmp_snooping_enabled" "true if IGMP snooping is enabled in the pool, false otherwise."
        ])
     ()
 
