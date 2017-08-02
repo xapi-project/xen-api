@@ -13,6 +13,7 @@ module Opt = Xapi_stdext_monadic.Opt
 (* Standard library extensions and additions*)
 module Pervasiveext = Xapi_stdext_pervasives.Pervasiveext
 module Filenameext = Xapi_stdext_std.Filenameext
+module Hashtblext = Xapi_stdext_std.Hashtblext
 module Listext = Xapi_stdext_std.Listext
 module Xstringext = Xapi_stdext_std.Xstringext
 
