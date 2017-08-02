@@ -48,7 +48,9 @@ let start path handler =
          Printf.printf "About to fixup the fd\n%!";
          Lwt.catch
            (fun () ->
-              ignore(handler (Lwt_unix.of_unix_file_descr (List.hd newfds)) msg);
+              let fdh :: fdt = newfds in
+              ignore(handler (Lwt_unix.of_unix_file_descr fdh) msg);
+              List.iter (fun fd -> try Unix.close fd with _ -> ()) fdt;
               Lwt.return ())
            (fun e ->
               List.iter (fun fd -> try Unix.close fd with _ -> ()) newfds;
