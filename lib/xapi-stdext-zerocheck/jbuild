@@ -1,0 +1,7 @@
+(jbuild_version 1)
+
+(library
+  ((public_name xapi-stdext-zerocheck)
+   (name xapi_stdext_zerocheck)
+   (c_names (zerocheck_stub))
+   ))

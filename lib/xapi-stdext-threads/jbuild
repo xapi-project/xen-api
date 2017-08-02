@@ -1,0 +1,9 @@
+(jbuild_version 1)
+
+(library
+  ((public_name xapi-stdext-threads)
+   (name  xapi_stdext_threads)
+   (libraries (threads
+               unix
+               xapi-stdext-pervasives))
+   ))

@@ -1,0 +1,6 @@
+(jbuild_version 1)
+
+(library
+  ((name xapi_stdext_encodings)
+   (public_name xapi-stdext-encodings)
+   ))
