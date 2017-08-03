@@ -2001,6 +2001,14 @@ let rec cmdtable_data : (string*cmd_spec) list =
       implementation=With_fd Cli_operations.vdi_export_changed_blocks;
       flags=[];
     };
+    "vdi-get-nbd-info",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Returns a list of URIs specifying how to access the VDI via the NBD server of XenServer. NBD clients should connect to the IP address and port specified in one of the returned URIs, and pass the whole URI to the NBD server as the requested export name.";
+      implementation=No_fd Cli_operations.vdi_get_nbd_info;
+      flags=[];
+    };
     "diagnostic-vdi-status",
     {
       reqd=["uuid"];

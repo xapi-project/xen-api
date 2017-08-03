@@ -1274,6 +1274,11 @@ let vdi_export_changed_blocks socket _ rpc session_id params =
   let bitmap = Client.VDI.export_changed_blocks ~rpc ~session_id ~vdi_from ~vdi_to in
   marshal socket (Command (Print bitmap))
 
+let vdi_get_nbd_info printer rpc session_id params =
+  let vdi = Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "uuid" params) in
+  let uris = Client.VDI.get_nbd_info ~rpc ~session_id ~self:vdi in
+  printer (Cli_printer.PList uris)
+
 let diagnostic_vdi_status printer rpc session_id params =
   let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
   let vdi_r = vdi_record rpc session_id vdi in
