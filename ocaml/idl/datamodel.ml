@@ -7311,14 +7311,14 @@ let pool_disable_ssl_legacy = call
 let pool_set_igmp_snooping_enabled = call  
     ~in_oss_since:None  
     ~lifecycle:[  
-      Published, rel_inverness, "Set pool level IGMP Snooping enabled.";  
+      Published, rel_inverness, "Enable or disable IGMP Snooping on the pool.";  
     ]  
     ~name:"set_igmp_snooping_enabled"  
     ~params:[  
       Ref _pool, "self", "The pool";  
       Bool, "value", "Enable or disable IGMP Snooping on the pool"  
     ]  
-    ~doc:"True to Enable IGMP Snooping in pool."  
+    ~doc:"Enable or disable IGMP Snooping on the pool."  
     ~allowed_roles:_R_POOL_OP  
     ()
 

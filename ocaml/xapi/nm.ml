@@ -179,11 +179,10 @@ let create_bond ~__context bond mtu persistent =
 
   let ports = [port, {interfaces=(List.map (fun (device, _, _) -> device) slave_devices_bridges_and_config);
                       bond_properties=props; bond_mac=Some mac; kind=Basic}] in
+  let igmp_snooping = Some (Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context)) in
   cleanup,
   [master_net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some mac); other_config;
-                                                          igmp_snooping=(Some 
-                                                          (Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context)));
-                                                          persistent_b=persistent}],
+                                                          igmp_snooping; persistent_b=persistent}],
   interface_config
 
 let destroy_bond ~__context ~force bond =
@@ -300,11 +299,10 @@ let rec create_bridges ~__context pif_rc net_rc =
     let (ethtool_settings, ethtool_offload) =
       determine_ethtool_settings pif_rc.API.pIF_properties pif_rc.API.pIF_other_config in
     let ports = [pif_rc.API.pIF_device, {default_port with interfaces=[pif_rc.API.pIF_device]}] in
+    let igmp_snooping = Some (Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context)) in
     cleanup,
     [net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some pif_rc.API.pIF_MAC);
-                                                     igmp_snooping=(Some 
-                                                        (Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context)));
-                                                     other_config; persistent_b=persistent}],
+                                                     igmp_snooping; other_config; persistent_b=persistent}],
     [pif_rc.API.pIF_device, {default_interface with mtu; ethtool_settings; ethtool_offload; persistent_i=persistent}]
 
 let rec destroy_bridges ~__context ~force pif_rc bridge =
