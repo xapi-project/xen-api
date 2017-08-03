@@ -191,7 +191,7 @@ let make_pool ~__context ~master ?(name_label="") ?(name_description="")
     ?(ha_allow_overcommit=false) ?(ha_overcommitted=false) ?(blobs=[]) ?(tags=[])
     ?(gui_config=[]) ?(health_check_config=[]) ?(wlb_url="") ?(wlb_username="") ?(wlb_password=Ref.null)
     ?(wlb_enabled=false) ?(wlb_verify_cert=false) ?(redo_log_enabled=false)
-    ?(redo_log_vdi=Ref.null) ?(vswitch_controller="") ?(restrictions=[])
+    ?(redo_log_vdi=Ref.null) ?(vswitch_controller="") ?(igmp_snooping_enabled=false) ?(restrictions=[])
     ?(current_operations=[]) ?(allowed_operations=[])
     ?(other_config=[Xapi_globs.memory_ratio_hvm; Xapi_globs.memory_ratio_pv])
     ?(ha_cluster_stack="xhad") ?(guest_agent_config=[]) ?(cpu_info=[]) ?(policy_no_vendor_device=false) ?(live_patching_disabled=false)() =
@@ -202,7 +202,7 @@ let make_pool ~__context ~master ?(name_label="") ?(name_description="")
     ~ha_configuration ~ha_statefiles ~ha_host_failures_to_tolerate
     ~ha_plan_exists_for ~ha_allow_overcommit ~ha_overcommitted ~blobs ~tags
     ~gui_config ~health_check_config ~wlb_url ~wlb_username ~wlb_password ~wlb_enabled
-    ~wlb_verify_cert ~redo_log_enabled ~redo_log_vdi ~vswitch_controller
+    ~wlb_verify_cert ~redo_log_enabled ~redo_log_vdi ~vswitch_controller ~igmp_snooping_enabled
     ~current_operations ~allowed_operations
     ~restrictions ~other_config ~ha_cluster_stack ~guest_agent_config ~cpu_info ~policy_no_vendor_device ~live_patching_disabled;
   pool_ref

@@ -2072,6 +2072,10 @@ let disable_ssl_legacy = set_ssl_legacy_on_each_host ~value:false
 
 let enable_ssl_legacy = set_ssl_legacy_on_each_host ~value:true
 
+let set_igmp_snooping_enabled ~__context ~self ~value = 
+  Db.Pool.set_igmp_snooping_enabled ~__context ~self ~value
+  (* To be filled in later. *)
+
 let has_extension ~__context ~self ~name =
   let hosts = Db.Host.get_all ~__context in
   List.for_all (fun host ->
