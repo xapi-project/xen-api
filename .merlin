@@ -1,3 +1,0 @@
-PKG threads uuidm unix fd-send-recv bigarray xapi-backtrace
-S lib
-B _build/lib
