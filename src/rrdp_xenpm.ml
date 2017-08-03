@@ -22,7 +22,6 @@
 open Stdext
 open Fun
 open Listext
-open Arrayext
 open Rrdd_plugin
 
 module Process = Process(struct let name = "xcp-rrdd-xenpm" end)
