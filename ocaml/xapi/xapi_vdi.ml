@@ -878,11 +878,17 @@ let get_nbd_info ~__context ~self =
     raise (Api_errors.Server_error (Api_errors.vdi_incompatible_type, [ Ref.string_of self; Record_util.vdi_type_to_string `cbt_metadata ]))
   end;
 
+  (* Ignore exceptions that can happen due to invalid references and just skip them *)
+  let default_on_exn f default x = try f x with _ -> default in
+  let safe_filter f = List.filter (default_on_exn f false) in
+  let safe_map f = Stdext.Listext.List.filter_map (default_on_exn (fun x -> Some (f x)) None) in
+  let safe_flat_map f l = List.map (default_on_exn f []) l |> List.flatten in
+
   let sr = Db.VDI.get_SR ~__context ~self in
   let hosts_with_attached_pbds =
     Db.SR.get_PBDs ~__context ~self:sr
-    |> List.filter (fun pbd -> Db.PBD.get_currently_attached ~__context ~self:pbd)
-    |> List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
+    |> safe_filter (fun pbd -> Db.PBD.get_currently_attached ~__context ~self:pbd)
+    |> safe_map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
   in
   let get_ips host =
     let get_ips pif =
@@ -893,11 +899,11 @@ let get_nbd_info ~__context ~self =
     in
     let attached_pifs =
       Db.Host.get_PIFs ~__context ~self:host
-      |> List.filter (fun pif -> Db.PIF.get_currently_attached ~__context ~self:pif)
+      |> safe_filter (fun pif -> Db.PIF.get_currently_attached ~__context ~self:pif)
     in
-    attached_pifs |> List.map get_ips |> List.flatten
+    attached_pifs |> safe_flat_map get_ips
   in
-  let ips = hosts_with_attached_pbds |> List.map get_ips |> List.flatten in
+  let ips = hosts_with_attached_pbds |> safe_flat_map get_ips in
 
   let vdi_uuid = Db.VDI.get_uuid ~__context ~self in
   let session_id = Context.get_session_id __context |> Ref.string_of in
