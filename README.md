@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/xapi-project/xenopsd.svg?branch=master)](https://travis-ci.org/xapi-project/xenopsd)
+[![Lines of Code](https://tokei.rs/b1/github/xapi-project/xenopsd)](https://github.com/xapi-project/xenopsd)
+
 xenopsd: a simple VM manager
 ============================
 
