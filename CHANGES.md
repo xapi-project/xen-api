@@ -1,3 +1,6 @@
+0.1.2
+* Port to jbuilder
+
 0.1.1
 * Don't install xstest
 * Add build-time oasis dependency to opam file
