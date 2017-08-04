@@ -2537,6 +2537,15 @@ let vm_create_new_blob = call
     ~allowed_roles:_R_VM_POWER_ADMIN
     ()
 
+let vm_set_bios_strings = call
+    ~name: "set_bios_strings"
+    ~in_product_since:rel_inverness
+    ~doc:"Set custom BIOS strings to this VM"
+    ~params:[Ref _vm, "self", "The VM to modify";
+             Map (String, String), "value", "The custom BIOS strings as a list of key-value pairs"]
+    ~allowed_roles:_R_VM_ADMIN
+    ()
+
 let vm_copy_bios_strings = call
     ~name: "copy_bios_strings"
     ~in_product_since:rel_midnight_ride
@@ -7841,6 +7850,7 @@ let vm =
                 vm_assert_agile;
                 vm_update_snapshot_metadata;
                 vm_retrieve_wlb_recommendations;
+                vm_set_bios_strings;
                 vm_copy_bios_strings;
                 vm_set_protection_policy;
                 vm_set_snapshot_schedule;
