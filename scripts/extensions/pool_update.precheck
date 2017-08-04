@@ -38,6 +38,7 @@ ERROR_MESSAGE_PROCESSING_CONFLICT = '--> Processing Conflict:'
 ERROR_MESSAGE_PREREQUISITE = 'Requires: '
 ERROR_MESSAGE_VERSION_REQUIRED = 'Requires: '
 ERROR_MESSAGE_VERSION_INSTALLED = 'Installed: '
+ERROR_MESSAGE_VERSION_UPDATED_BY = 'Updated By: '
 ERROR_MESSAGE_DOWNLOAD_PACKAGE = 'Error downloading packages:\n'
 ERROR_MESSAGE_GPGKEY_NOT_IMPORTED = 'Gpg Keys not imported'
 ERROR_XML_START = '<error errorcode='
@@ -150,7 +151,7 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
                     raise ConflictPresent(conflict_updates.rstrip())
                 else:
                     raise PrecheckFailure(errmsg)
-            elif ERROR_MESSAGE_VERSION_REQUIRED in errmsg and ERROR_MESSAGE_VERSION_INSTALLED in errmsg:
+            elif ERROR_MESSAGE_VERSION_REQUIRED in errmsg and (ERROR_MESSAGE_VERSION_INSTALLED in errmsg or ERROR_MESSAGE_VERSION_UPDATED_BY in errmsg):
                 regex = ERROR_MESSAGE_VERSION_REQUIRED + '(.+?)\n.+ {2,2}(.+)$'
                 match = re.search(regex, errmsg, flags=re.DOTALL)
                 if match:
