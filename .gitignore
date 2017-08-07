@@ -8,6 +8,7 @@ setup.ml
 *.byte
 *.native
 myocamlbuild.ml
+_tags
 *.mllib
 *.mldylib
 META
