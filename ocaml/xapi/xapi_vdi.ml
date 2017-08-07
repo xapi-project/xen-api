@@ -905,14 +905,15 @@ let get_nbd_info ~__context ~self =
 
   (* Ignore exceptions that can happen due to invalid references and just skip them *)
   let default_on_exn f default x = try f x with _ -> default in
-  let safe_filter f = List.filter (default_on_exn f false) in
   let safe_map f = Stdext.Listext.List.filter_map (default_on_exn (fun x -> Some (f x)) None) in
   let safe_flat_map f l = List.map (default_on_exn f []) l |> List.flatten in
 
   let sr = Db.VDI.get_SR ~__context ~self in
   let hosts_with_attached_pbds =
-    Db.SR.get_PBDs ~__context ~self:sr
-    |> safe_filter (fun pbd -> Db.PBD.get_currently_attached ~__context ~self:pbd)
+    Db.PBD.get_refs_where
+      ~__context
+      ~expr:Db_filter_types.(And (Eq (Field "SR", Literal (Ref.string_of sr)),
+                                  Eq (Field "currently_attached", Literal "true")))
     |> safe_map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
   in
   let get_ips host =
@@ -923,8 +924,10 @@ let get_nbd_info ~__context ~self =
       if not_empty v4_ip then v4_ip :: v6_ips else v6_ips
     in
     let attached_pifs =
-      Db.Host.get_PIFs ~__context ~self:host
-      |> safe_filter (fun pif -> Db.PIF.get_currently_attached ~__context ~self:pif)
+      Db.PIF.get_refs_where
+        ~__context
+        ~expr:Db_filter_types.(And (Eq (Field "host", Literal (Ref.string_of host)),
+                                    Eq (Field "currently_attached", Literal "true")))
     in
     attached_pifs |> safe_flat_map get_ips
   in
