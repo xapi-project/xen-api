@@ -522,15 +522,18 @@ module Wrapper = functor(Impl: Server_impl) -> struct
            Impl.VDI.resize context ~dbg ~sr ~vdi ~new_size
         )
 
-    let destroy context ~dbg ~sr ~vdi =
-      info "VDI.destroy dbg:%s sr:%s vdi:%s" dbg sr vdi;
+    let destroy_and_data_destroy call_name call_f context ~dbg ~sr ~vdi =
+      info "%s dbg:%s sr:%s vdi:%s" call_name dbg sr vdi;
       with_vdi sr vdi
         (fun () ->
            remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.all
              (fun () ->
-                Impl.VDI.destroy context ~dbg ~sr ~vdi
+                call_f context ~dbg ~sr ~vdi
              )
         )
+
+    let destroy = destroy_and_data_destroy "VDI.destroy" Impl.VDI.destroy
+    let data_destroy = destroy_and_data_destroy "VDI.data_destroy" Impl.VDI.data_destroy
 
     let stat context ~dbg ~sr ~vdi =
       info "VDI.stat dbg:%s sr:%s vdi:%s" dbg sr vdi;
@@ -587,6 +590,14 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       with_vdi sr vdi
         (fun () ->
            Impl.VDI.disable_cbt context ~dbg ~sr ~vdi
+        )
+
+    (** The [sr] parameter is the SR of VDI [vdi_to]. *)
+    let export_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to =
+      info "VDI.export_changed_blocks dbg:%s sr:%s vdi_from:%s vdi_to:%s" dbg sr vdi_from vdi_to;
+      with_vdi sr vdi_to
+        (fun () ->
+           Impl.VDI.export_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to
         )
 
   end

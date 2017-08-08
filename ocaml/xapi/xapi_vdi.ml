@@ -40,7 +40,7 @@ let check_sm_feature_error (op:API.vdi_operations) sm_features sr =
   | `generate_config -> Some Vdi_generate_config
   | `clone -> Some Vdi_clone
   | `mirror -> Some Vdi_mirror
-  | `enable_cbt | `disable_cbt -> Some Vdi_configure_cbt
+  | `enable_cbt | `disable_cbt | `data_destroy | `export_changed_blocks -> Some Vdi_configure_cbt
   | `set_on_boot -> Some Vdi_reset_on_boot
   ) in
   match required_sm_feature with
@@ -157,76 +157,88 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
       else if my_has_current_operation_vbd_records <> []
       then Some (Api_errors.other_operation_in_progress, [ "VDI"; _ref ])
       else
+
       let sm_features = Xapi_sr_operations.features_of_sr_internal ~__context ~_type:sr_type in
       let sm_feature_error = check_sm_feature_error op sm_features sr in
       if sm_feature_error <> None
       then sm_feature_error
+
       else
       let allowed_for_cbt_metadata_vdi = match op with
         | `clone | `copy | `disable_cbt | `enable_cbt | `mirror | `resize | `resize_online | `snapshot | `set_on_boot -> false
-        | `blocked | `destroy | `force_unlock | `forget | `generate_config | `update -> true in
+        | `blocked | `data_destroy | `destroy | `export_changed_blocks | `force_unlock | `forget | `generate_config | `update -> true in
       if not allowed_for_cbt_metadata_vdi && record.Db_actions.vDI_type = `cbt_metadata
       then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string `cbt_metadata ])
       else
       let allowed_when_cbt_enabled = match op with
         | `mirror | `set_on_boot -> false
-        | `blocked | `clone | `copy | `destroy | `disable_cbt | `enable_cbt | `force_unlock | `forget | `generate_config | `resize | `resize_online | `snapshot | `update -> true in
+        | `blocked | `clone | `copy | `data_destroy | `destroy | `disable_cbt | `enable_cbt | `export_changed_blocks | `force_unlock | `forget | `generate_config | `resize | `resize_online | `snapshot | `update -> true in
       if not allowed_when_cbt_enabled && record.Db_actions.vDI_cbt_enabled
       then Some (Api_errors.vdi_cbt_enabled, [_ref])
-      else (
-        match op with
-        | `forget ->
-          if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
-          then Some (Api_errors.ha_is_enabled, [])
-          else if List.mem record.Db_actions.vDI_type [ `rrd ]
-          then Some (Api_errors.vdi_has_rrds, [_ref])
-          else None
-        | `destroy ->
-          if sr_type = "udev"
-          then Some (Api_errors.vdi_is_a_physical_device, [_ref])
-          else
-          if is_tools_sr
-          then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
-          else if List.mem record.Db_actions.vDI_type [ `rrd ]
-          then Some (Api_errors.vdi_has_rrds, [_ref])
-          else
-          if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
-          then Some (Api_errors.ha_is_enabled, [])
-          else if List.mem record.Db_actions.vDI_type [`ha_statefile; `metadata ] && Xapi_pool_helpers.ha_enable_in_progress ~__context
-          then Some (Api_errors.ha_enable_in_progress, [])
-          else if List.mem record.Db_actions.vDI_type [`ha_statefile; `metadata ] && Xapi_pool_helpers.ha_disable_in_progress ~__context
-          then Some (Api_errors.ha_disable_in_progress, [])
-          else None
-        | `resize ->
-          if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
-          then Some (Api_errors.ha_is_enabled, [])
-          else None
-        | `resize_online ->
-          if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
-          then Some (Api_errors.ha_is_enabled, [])
-          else None
-        | `snapshot when record.Db_actions.vDI_sharable ->
-          Some (Api_errors.vdi_is_sharable, [ _ref ])
-        | `snapshot when reset_on_boot ->
-          Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
-        | `snapshot ->
-          if List.exists (fun (_, op) -> op = `copy) current_ops
-          then Some (Api_errors.operation_not_allowed, ["Snapshot operation not allowed during copy."])
-          else None
-        | `copy ->
-          if List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
-          then Some (Api_errors.operation_not_allowed, ["VDI containing HA statefile or redo log cannot be copied (check the VDI's allowed operations)."])
-          else None
-        | (`enable_cbt | `disable_cbt) ->
-          if record.Db_actions.vDI_is_a_snapshot
-          then Some (Api_errors.operation_not_allowed, ["VDI is a snapshot: " ^ _ref])
-          else if not (List.mem record.Db_actions.vDI_type [ `user; `system ])
-          then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string record.Db_actions.vDI_type ])
-          else if record.Db_actions.vDI_on_boot = `reset
-          then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
-          else None
-        | `mirror | `clone | `generate_config | `force_unlock | `set_on_boot | `blocked | `update -> None
-      )
+      else
+
+      let check_destroy () =
+        if sr_type = "udev"
+        then Some (Api_errors.vdi_is_a_physical_device, [_ref])
+        else
+        if is_tools_sr
+        then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+        else if List.mem record.Db_actions.vDI_type [ `rrd ]
+        then Some (Api_errors.vdi_has_rrds, [_ref])
+        else
+        if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
+        then Some (Api_errors.ha_is_enabled, [])
+        else if List.mem record.Db_actions.vDI_type [`ha_statefile; `metadata ] && Xapi_pool_helpers.ha_enable_in_progress ~__context
+        then Some (Api_errors.ha_enable_in_progress, [])
+        else if List.mem record.Db_actions.vDI_type [`ha_statefile; `metadata ] && Xapi_pool_helpers.ha_disable_in_progress ~__context
+        then Some (Api_errors.ha_disable_in_progress, [])
+        else None
+      in
+
+      begin match op with
+      | `forget ->
+        if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
+        then Some (Api_errors.ha_is_enabled, [])
+        else if List.mem record.Db_actions.vDI_type [ `rrd ]
+        then Some (Api_errors.vdi_has_rrds, [_ref])
+        else None
+      | `destroy -> check_destroy ()
+      | `data_destroy ->
+        if not record.Db_actions.vDI_is_a_snapshot
+        then Some (Api_errors.operation_not_allowed, ["VDI is not a snapshot: " ^ _ref])
+        else if not record.Db_actions.vDI_cbt_enabled
+        then Some (Api_errors.vdi_no_cbt_metadata, [_ref])
+        else check_destroy ()
+      | `resize ->
+        if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
+        then Some (Api_errors.ha_is_enabled, [])
+        else None
+      | `resize_online ->
+        if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
+        then Some (Api_errors.ha_is_enabled, [])
+        else None
+      | `snapshot when record.Db_actions.vDI_sharable ->
+        Some (Api_errors.vdi_is_sharable, [ _ref ])
+      | `snapshot when reset_on_boot ->
+        Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
+      | `snapshot ->
+        if List.exists (fun (_, op) -> op = `copy) current_ops
+        then Some (Api_errors.operation_not_allowed, ["Snapshot operation not allowed during copy."])
+        else None
+      | `copy ->
+        if List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
+        then Some (Api_errors.operation_not_allowed, ["VDI containing HA statefile or redo log cannot be copied (check the VDI's allowed operations)."])
+        else None
+      | (`enable_cbt | `disable_cbt) ->
+        if record.Db_actions.vDI_is_a_snapshot
+        then Some (Api_errors.operation_not_allowed, ["VDI is a snapshot: " ^ _ref])
+        else if not (List.mem record.Db_actions.vDI_type [ `user; `system ])
+        then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string record.Db_actions.vDI_type ])
+        else if reset_on_boot
+        then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
+        else None
+      | `mirror | `clone | `generate_config | `force_unlock | `set_on_boot | `export_changed_blocks | `blocked | `update -> None
+      end
 
 let assert_operation_valid ~__context ~self ~(op:API.vdi_operations) =
   let pool = Helpers.get_pool ~__context in
@@ -520,9 +532,8 @@ let snapshot ~__context ~vdi ~driver_params =
   update_allowed_operations ~__context ~self:newvdi;
   newvdi
 
-let destroy ~__context ~self =
+let destroy_and_data_destroy_common ~__context ~self ~(operation:[`destroy | `data_destroy]) =
   let sr = Db.VDI.get_SR ~__context ~self in
-  let location = Db.VDI.get_location ~__context ~self in
   Sm.assert_pbd_is_plugged ~__context ~sr;
   Xapi_vdi_helpers.assert_managed ~__context ~vdi:self;
 
@@ -532,18 +543,21 @@ let destroy ~__context ~self =
          let r = Db.VBD.get_record_internal ~__context ~self:vbd in
          r.Db_actions.vBD_currently_attached || r.Db_actions.vBD_reserved) vbds in
   if attached_vbds<>[] then
-    raise (Api_errors.Server_error (Api_errors.vdi_in_use, [(Ref.string_of self); "destroy" ]))
+    let caller_name = match operation with `destroy -> "destroy" | `data_destroy -> "data_destroy" in
+    raise (Api_errors.Server_error (Api_errors.vdi_in_use, [(Ref.string_of self); caller_name]))
   else
     begin
       let open Storage_access in
       let open Storage_interface in
       let task = Context.get_task_id __context in
+      let location = Db.VDI.get_location ~__context ~self in
       let module C = Client(struct let rpc = rpc end) in
+      let call_f = match operation with `destroy -> C.VDI.destroy | `data_destroy -> C.VDI.data_destroy in
       transform_storage_exn
         (fun () ->
-           C.VDI.destroy ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location
+           call_f ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location
         );
-      if Db.is_valid_ref __context self
+      if operation = `destroy && Db.is_valid_ref __context self
       then Db.VDI.destroy ~__context ~self;
 
       (* destroy all the VBDs now rather than wait for the GC thread. This helps
@@ -557,6 +571,15 @@ let destroy ~__context ~self =
       Db.VM.get_refs_where ~__context ~expr:(Eq (Field "suspend_VDI", Literal (Ref.string_of self)))
       |> List.iter (fun self -> Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null);
     end
+
+let destroy = destroy_and_data_destroy_common ~operation:`destroy
+
+let data_destroy ~__context ~self =
+  if Db.VDI.get_type ~__context ~self <> `cbt_metadata then begin
+    destroy_and_data_destroy_common ~__context ~self ~operation:`data_destroy;
+    Db.VDI.set_type ~__context ~self ~value:`cbt_metadata;
+    update_allowed_operations ~__context ~self
+  end
 
 let resize_online ~__context ~vdi ~size =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
@@ -835,5 +858,50 @@ let change_cbt_status ~__context ~self ~new_cbt_enabled ~caller_name =
 
 let enable_cbt = change_cbt_status ~new_cbt_enabled:true ~caller_name:"VDI.enable_cbt"
 let disable_cbt = change_cbt_status ~new_cbt_enabled:false ~caller_name:"VDI.disable_cbt"
+
+let export_changed_blocks ~__context ~vdi_from ~vdi_to =
+  let task = Context.get_task_id __context in
+  (* We have to pass the SR of vdi_to to the SMAPIv2 call *)
+  let sr = Db.VDI.get_SR ~__context ~self:vdi_to in
+  let sr = Db.SR.get_uuid ~__context ~self:sr in
+  let vdi_from = Db.VDI.get_location ~__context ~self:vdi_from in
+  let vdi_to = Db.VDI.get_location ~__context ~self:vdi_to in
+  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  Storage_access.transform_storage_exn
+    (fun () ->
+       C.VDI.export_changed_blocks ~dbg:(Ref.string_of task) ~sr ~vdi_from ~vdi_to
+    )
+
+let get_nbd_info ~__context ~self =
+  if (Db.VDI.get_type ~__context ~self) = `cbt_metadata then begin
+    error "VDI.get_nbd_info: called with a VDI of type cbt_metadata (at %s)" __LOC__;
+    raise (Api_errors.Server_error (Api_errors.vdi_incompatible_type, [ Ref.string_of self; Record_util.vdi_type_to_string `cbt_metadata ]))
+  end;
+
+  let sr = Db.VDI.get_SR ~__context ~self in
+  let hosts_with_attached_pbds =
+    Db.SR.get_PBDs ~__context ~self:sr
+    |> List.filter (fun pbd -> Db.PBD.get_currently_attached ~__context ~self:pbd)
+    |> List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
+  in
+  let get_ips host =
+    let get_ips pif =
+      let not_empty = (<>) "" in
+      let v6_ips = Db.PIF.get_IPv6 ~__context ~self:pif |> List.filter not_empty |> List.map (fun s -> "[" ^ s ^ "]") in
+      let v4_ip = Db.PIF.get_IP ~__context ~self:pif in
+      if not_empty v4_ip then v4_ip :: v6_ips else v6_ips
+    in
+    let attached_pifs =
+      Db.Host.get_PIFs ~__context ~self:host
+      |> List.filter (fun pif -> Db.PIF.get_currently_attached ~__context ~self:pif)
+    in
+    attached_pifs |> List.map get_ips |> List.flatten
+  in
+  let ips = hosts_with_attached_pbds |> List.map get_ips |> List.flatten in
+
+  let vdi_uuid = Db.VDI.get_uuid ~__context ~self in
+  let session_id = Context.get_session_id __context |> Ref.string_of in
+  ips
+  |> List.map (fun ip -> Printf.sprintf "nbd://%s:10809/%s?session_id=%s" ip vdi_uuid session_id)
 
 (* let pool_migrate = "See Xapi_vm_migrate.vdi_pool_migrate!" *)

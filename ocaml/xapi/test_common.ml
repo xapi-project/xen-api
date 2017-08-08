@@ -154,7 +154,7 @@ let make_pif ~__context ~network ~host ?(device="eth0") ?(mAC="C0:FF:EE:C0:FF:EE
     ?(vLAN=(-1L)) ?(physical=true) ?(ip_configuration_mode=`None) ?(iP="") ?(netmask="")
     ?(gateway="") ?(dNS="") ?(bond_slave_of=Ref.null) ?(vLAN_master_of=Ref.null)
     ?(management=false) ?(other_config=[]) ?(disallow_unplug=false)
-    ?(ipv6_configuration_mode=`None) ?(iPv6=[""]) ?(ipv6_gateway="") ?(primary_address_type=`IPv4) ?(managed=true)
+    ?(ipv6_configuration_mode=`None) ?(iPv6=[]) ?(ipv6_gateway="") ?(primary_address_type=`IPv4) ?(managed=true)
     ?(properties=["gro", "on"]) () =
   Xapi_pif.pool_introduce ~__context
     ~device ~network ~host ~mAC ~mTU ~vLAN ~physical ~ip_configuration_mode
@@ -377,4 +377,8 @@ let make_pool_update ~__context
     ; enforce_homogeneity
     } in
   Xapi_pool_update.create_update_record ~__context ~update:ref ~update_info ~vdi;
+  ref
+
+let make_session ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(this_host=Ref.null) ?(this_user=Ref.null) ?(last_active=API.Date.never) ?(pool=false) ?(other_config=[]) ?(is_local_superuser=false) ?(subject=Ref.null) ?(validation_time=API.Date.never) ?(auth_user_sid="") ?(auth_user_name="") ?(rbac_permissions=[]) ?(parent=Ref.null) ?(originator="test") () =
+  Db.Session.create ~__context ~ref ~uuid ~this_host ~this_user ~last_active ~pool ~other_config ~is_local_superuser ~subject ~validation_time ~auth_user_sid ~auth_user_name ~rbac_permissions ~parent ~originator;
   ref

@@ -844,6 +844,26 @@ module SMAPIv1 = struct
     let disable_cbt context =
       call_cbt_function context ~f:Sm.vdi_disable_cbt ~f_name:"VDI.disable_cbt"
 
+    let data_destroy context ~dbg ~sr ~vdi =
+      call_cbt_function context ~f:Sm.vdi_data_destroy ~f_name:"VDI.data_destroy" ~dbg ~sr ~vdi;
+      set_content_id context ~dbg ~sr ~vdi ~content_id:"/No content: this is a cbt_metadata VDI/"
+
+    let export_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to =
+      try
+        Server_helpers.exec_with_new_task "VDI.export_changed_blocks" ~subtask_of:(Ref.of_string dbg)
+          (fun __context ->
+             let vdi_from = find_vdi ~__context sr vdi_from |> fst in
+             for_vdi ~dbg ~sr ~vdi:vdi_to "VDI.export_changed_blocks"
+               (fun device_config _type sr vdi_to ->
+                  Sm.vdi_export_changed_blocks device_config _type sr ~vdi_from ~vdi_to
+               ))
+      with
+      | Smint.Not_implemented_in_backend ->
+        raise (Unimplemented "VDI.export_changed_blocks")
+      | Api_errors.Server_error(code, params) ->
+        raise (Backend_error(code, params))
+      | Sm.MasterOnly -> redirect sr
+
   end
 
   let get_by_name context ~dbg ~name = assert false

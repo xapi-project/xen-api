@@ -1110,6 +1110,8 @@ let _ =
     ~doc:"This VDI was not mapped to a destination SR in VM.migrate_send operation" () ;
   error Api_errors.vdi_cbt_enabled [ "vdi" ]
     ~doc:"The requested operation is not allowed for VDIs with CBT enabled or VMs having such VDIs, and CBT is enabled for the specified VDI." ();
+  error Api_errors.vdi_no_cbt_metadata [ "vdi" ]
+    ~doc:"The requested operation is not allowed because the specified VDI does not have changed block tracking metadata." ();
   error Api_errors.vdi_copy_failed []
     ~doc:"The VDI copy action has failed" ();
   error Api_errors.vdi_on_boot_mode_incompatible_with_operation []
@@ -6005,6 +6007,8 @@ let storage_operations =
           "vdi_mirror", "Mirroring a VDI";
           "vdi_enable_cbt", "Enabling changed block tracking for a VDI";
           "vdi_disable_cbt", "Disabling changed block tracking for a VDI";
+          "vdi_data_destroy", "Deleting the data of the VDI";
+          "vdi_export_changed_blocks", "Exporting a bitmap that shows the changed blocks between two VDIs";
           "vdi_set_on_boot", "Setting the on_boot field of the VDI";
           "pbd_create", "Creating a PBD for this SR";
           "pbd_destroy", "Destroying one of this SR's PBDs"; ])
@@ -6329,6 +6333,8 @@ let vdi_operations =
           "generate_config", "Generating static configuration";
           "enable_cbt", "Enabling changed block tracking for a VDI";
           "disable_cbt", "Disabling changed block tracking for a VDI";
+          "data_destroy", "Deleting the data of the VDI";
+          "export_changed_blocks", "Exporting a bitmap that shows the changed blocks between two VDIs";
           "set_on_boot", "Setting the on_boot field of the VDI";
           "blocked", "Operations on this VDI are temporarily blocked";
         ])
@@ -6571,6 +6577,57 @@ let vdi_disable_cbt = call
     ~allowed_roles:_R_VM_ADMIN
     ()
 
+let vdi_data_destroy = call
+    ~name:"data_destroy"
+    ~in_oss_since:None
+    ~in_product_since:rel_inverness
+    ~params:[Ref _vdi, "self", "The VDI whose data should be deleted."]
+    ~errs:[
+      Api_errors.sr_operation_not_supported;
+      Api_errors.vdi_missing;
+      Api_errors.sr_not_attached;
+      Api_errors.sr_no_pbds;
+      Api_errors.operation_not_allowed;
+      Api_errors.vdi_incompatible_type;
+      Api_errors.vdi_no_cbt_metadata;
+      Api_errors.vdi_in_use;
+      Api_errors.vdi_is_a_physical_device;
+    ]
+    ~doc:"Delete the data of the snapshot VDI, but keep its changed block tracking metadata. When successful, this call changes the type of the VDI to cbt_metadata. This operation is idempotent: calling it on a VDI of type cbt_metadata results in a no-op, and no error will be thrown."
+    ~allowed_roles:_R_VM_ADMIN
+    ()
+
+let vdi_export_changed_blocks = call
+    ~name:"export_changed_blocks"
+    ~in_oss_since:None
+    ~in_product_since:rel_inverness
+    ~params:
+      [ Ref _vdi, "vdi_from", "The first VDI."
+      ; Ref _vdi, "vdi_to", "The second VDI."
+      ]
+    ~errs:
+      [ Api_errors.sr_operation_not_supported
+      ; Api_errors.vdi_missing
+      ; Api_errors.sr_not_attached
+      ; Api_errors.sr_no_pbds
+      ; Api_errors.vdi_in_use
+      ]
+    ~result:(String, "A base64 string-encoding of the bitmap showing which blocks differ in the two VDIs.")
+    ~doc:"Reports which blocks differ in the two VDIs. This operation is not allowed when vdi_to is attached to a VM."
+    ~allowed_roles:_R_VM_OP
+    ()
+
+let vdi_get_nbd_info = call
+    ~name:"get_nbd_info"
+    ~in_oss_since:None
+    ~in_product_since:rel_inverness
+    ~params:[Ref _vdi, "self", "The VDI to access via NBD."]
+    ~errs: [Api_errors.vdi_incompatible_type]
+    ~result:(Set String, "The list of URIs.")
+    ~doc:"Get a list of URIs specifying how to access this VDI via the NBD server of XenServer. A URI will be returned for each PIF of each host that is connected to the VDI's SR. An empty list is returned in case no network has a PIF on a host with access to the relevant SR. To access the given VDI, any of the returned URIs can be passed to the NBD server running at the IP address and port specified by that URI as the export name."
+    ~allowed_roles:_R_VM_ADMIN
+    ()
+
 (** A virtual disk *)
 let vdi =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vdi ~descr:"A virtual disk image"
@@ -6605,6 +6662,9 @@ let vdi =
                vdi_pool_migrate;
                vdi_enable_cbt;
                vdi_disable_cbt;
+               vdi_data_destroy;
+               vdi_export_changed_blocks;
+               vdi_get_nbd_info;
               ]
     ~contents:
       ([ uid _vdi;
