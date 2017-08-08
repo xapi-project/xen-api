@@ -1916,7 +1916,7 @@ module Backend = struct
       val stop: xs:Xenstore.Xs.xsh -> qemu_domid:int -> int -> unit
 
       (** [with_dirty_log domid f] executes f in a context where the dirty log is enabled *)
-      val with_dirty_log: int -> f:(unit -> unit) -> unit
+      val with_dirty_log: int -> f:(unit -> 'a) -> 'a
     end
   end
 

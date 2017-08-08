@@ -102,6 +102,9 @@ let with_connection (task: Xenops_task.task_handle) path domid (args: string lis
 (** immediately write a command to the control channel *)
 let send (_, out, _, _, _) txt = output_string out txt; flush out
 
+let send_done cnx =
+  send cnx "done\n"
+
 (** Keep this in sync with xenguest_main *)
 type message =
   | Stdout of string  (* captured stdout from libxenguest *)

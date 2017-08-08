@@ -263,7 +263,7 @@ sig
   val stop : xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
   val restore_vgpu : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> Unix.file_descr -> Xenctrl.domid  -> Xenops_interface.Vgpu.t -> int -> unit
 
-  val with_dirty_log: int -> f:(unit -> unit) -> unit
+  val with_dirty_log: int -> f:(unit -> 'a) -> 'a
 end
 
 module Backend: sig
