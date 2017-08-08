@@ -410,6 +410,12 @@ module VDI = struct
   (** [disable_cbt dbg sr vdi] disables changed block tracking for [vdi] *)
   external disable_cbt: dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
 
+  (** [data_destroy dbg sr vdi] deletes the data of the snapshot [vdi] without deleting its changed block tracking metadata *)
+  external data_destroy: dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
+
+  (** [export_changed_blocks dbg sr vdi_from vdi_to] returns the blocks that have changed between [vdi_from] and [vdi_to] as a base64-encoded bitmap string *)
+  external export_changed_blocks: dbg:debug_info -> sr:sr -> vdi_from:vdi -> vdi_to:vdi -> string = ""
+
 end
 
 (** [get_by_name task name] returns a vdi with [name] (which may be in any SR) *)
