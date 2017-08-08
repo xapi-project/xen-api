@@ -341,6 +341,20 @@ let vdi_disable_cbt common_opts sr vdi =
     Client.VDI.disable_cbt ~dbg ~sr ~vdi
   ) common_opts sr vdi
 
+let vdi_data_destroy common_opts sr vdi =
+  on_vdi (fun sr vdi ->
+    Client.VDI.data_destroy ~dbg ~sr ~vdi
+  ) common_opts sr vdi
+
+let vdi_export_changed_blocks common_opts sr vdi_from vdi_to =
+  on_vdi (fun sr vdi_from ->
+     match vdi_to with
+     | None -> failwith "must supply VDI_to"
+     | Some vdi_to ->
+       let cbt_bitmap = Client.VDI.export_changed_blocks ~dbg ~sr ~vdi_from ~vdi_to in
+       print_string cbt_bitmap
+  ) common_opts sr vdi_from
+
 let query_cmd =
   let doc = "query the capabilities of a storage service" in
   let man = [
@@ -358,9 +372,8 @@ let vdi_arg =
   let doc = "unique identifier for this VDI within this storage repository" in
   Arg.(value & pos 1 (some string) None & info [] ~docv:"VDI" ~doc)
 
-let vdi2_arg =
-  let doc = "unique identifier for the VDI whose contents should be applied" in
-  Arg.(value & pos 2 (some string) None & info [] ~docv:"VDI2" ~doc)
+let vdi2_arg ~docv ~doc =
+  Arg.(value & pos 2 (some string) None & info [] ~docv ~doc)
 
 let mirror_list_cmd =
   let doc = "List the active VDI mirror operations" in
@@ -499,6 +512,7 @@ let vdi_compose_cmd =
     `S "DESCRIPTION";
     `P "Applies the contents of one virtual disk to another.";
   ] @ help in
+  let vdi2_arg = vdi2_arg ~docv:"VDI2" ~doc:"unique identifier for the VDI whose contents should be applied" in
   Term.(ret(pure vdi_compose $ common_options_t $ sr_arg $vdi_arg $ vdi2_arg)),
   Term.info "vdi-compose" ~sdocs:_common_options ~doc ~man
 
@@ -574,6 +588,25 @@ let vdi_disable_cbt_cmd =
   Term.(ret(pure vdi_disable_cbt $ common_options_t $ sr_arg $ vdi_arg)),
   Term.info "vdi-disable-cbt" ~sdocs:_common_options ~doc ~man
 
+let vdi_data_destroy_cmd =
+  let doc = "delete the data of the given snapshot VDI, but keep its changed block tracking metadata." in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Delete the data of the given snapshot VDI without deleting its changed block tracking metadata.";
+  ] @ help in
+  Term.(ret(pure vdi_data_destroy $ common_options_t $ sr_arg $ vdi_arg)),
+  Term.info "vdi-data-destroy" ~sdocs:_common_options ~doc ~man
+
+let vdi_export_changed_blocks_cmd =
+  let doc = "output the blocks that have changed between the two given VDIs." in
+  let man = [
+    `S "DESCRIPTION";
+    `P "Write the blocks that have changed between the two given VDIs to the standard output as a base64-encoded bitmap.";
+  ] @ help in
+  let vdi2_arg = vdi2_arg ~docv:"VDI_to" ~doc:"unique identifier for the second VDI" in
+  Term.(ret(pure vdi_export_changed_blocks $ common_options_t $ sr_arg $ vdi_arg $ vdi2_arg)),
+  Term.info "vdi-export-changed-blocks" ~sdocs:_common_options ~doc ~man
+
 let default_cmd =
   let doc = "interact with an XCP storage management service" in
   let man = help in
@@ -583,7 +616,8 @@ let default_cmd =
 let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_stat_cmd; sr_scan_cmd;
             vdi_create_cmd; vdi_destroy_cmd; vdi_attach_cmd; vdi_detach_cmd;
             vdi_activate_cmd; vdi_deactivate_cmd; vdi_clone_cmd; vdi_resize_cmd;
-            vdi_similar_content_cmd; vdi_compose_cmd; vdi_enable_cbt_cmd; vdi_disable_cbt_cmd;
+            vdi_similar_content_cmd; vdi_compose_cmd; vdi_enable_cbt_cmd;
+            vdi_disable_cbt_cmd; vdi_data_destroy_cmd; vdi_export_changed_blocks_cmd;
             mirror_list_cmd; mirror_start_cmd; mirror_stop_cmd]
 
 let () =
