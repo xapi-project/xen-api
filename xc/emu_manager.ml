@@ -104,20 +104,22 @@ let send (_, out, _, _, _) txt = output_string out txt; flush out
 
 (** Keep this in sync with xenguest_main *)
 type message =
-  | Stdout of string (* captured stdout from libxenguest *)
-  | Stderr of string (* captured stderr from libxenguest *)
-  | Error of string  (* an actual error that we detected *)
-  | Suspend          (* request the caller suspends the domain *)
-  | Info of string   (* some info that we want to send back *)
-  | Result of string (* the result of the operation *)
+  | Stdout of string  (* captured stdout from libxenguest *)
+  | Stderr of string  (* captured stderr from libxenguest *)
+  | Error of string   (* an actual error that we detected *)
+  | Suspend           (* request the caller suspends the domain *)
+  | Info of string    (* some info that we want to send back *)
+  | Result of string  (* the result of the operation *)
+  | Prepare of string (* request the caller to prepare for the next step *)
 
 let string_of_message = function
-  | Stdout x -> "stdout:" ^ (String.escaped x)
-  | Stderr x -> "stderr:" ^ (String.escaped x)
-  | Error x  -> "error:" ^ (String.escaped x)
-  | Suspend  -> "suspend:"
-  | Info x   -> "info:" ^ (String.escaped x)
-  | Result x -> "result:" ^ (String.escaped x)
+  | Stdout x  -> "stdout:" ^ (String.escaped x)
+  | Stderr x  -> "stderr:" ^ (String.escaped x)
+  | Error x   -> "error:" ^ (String.escaped x)
+  | Suspend   -> "suspend:"
+  | Info x    -> "info:" ^ (String.escaped x)
+  | Result x  -> "result:" ^ (String.escaped x)
+  | Prepare x -> "prepare:" ^ (String.escaped x)
 
 let message_of_string x =
   if not(String.contains x ':') 
@@ -131,6 +133,7 @@ let message_of_string x =
   | "suspend" -> Suspend
   | "info" -> Info suffix
   | "result" -> Result suffix
+  | "prepare" -> Prepare suffix
   | _ -> Error "uncaught exception"
 
 (** return the next output line from the control channel *)
@@ -185,6 +188,6 @@ let receive_success ?(debug_callback=(fun s -> debug "%s" s)) cnx =
       | _ -> failwith (Printf.sprintf "Error from xenguesthelper: " ^ x)
     end
   | Suspend -> failwith "xenguesthelper protocol failure; not expecting Suspend"
+  | Prepare _ -> failwith "xenguesthelper protocol failure; not expecting Prepare"
   | Result x -> x
   | Stdout _ | Stderr _ | Info _ -> assert false
-
