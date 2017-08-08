@@ -1255,14 +1255,8 @@ let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path vm_str do
 let suspend_vgpu (task: Xenops_task.task_handle) ~xc ~xs domid fd =
   let uuid = get_uuid ~xc domid in
   debug "VM = %s; domid = %d; suspend_vgpu_setup" (Uuid.to_string uuid) domid;
-  let open Suspend_image in let open Suspend_image.M in
-  let res =
-    debug "Writing DEMU header";
-    write_header fd (Demu, 0L)
-  in match res with
-  | `Ok () ->
-    debug "VM = %s; domid = %d; suspend_vgpu_setup complete" (Uuid.to_string uuid) domid
-  | `Error e -> raise e
+  (* We don't need to do anything here anymore; suspend_emu_manager handles this *)
+  debug "VM = %s; domid = %d; suspend_vgpu_setup complete" (Uuid.to_string uuid) domid
 
 let send_s3resume ~xc domid =
   let uuid = get_uuid ~xc domid in
