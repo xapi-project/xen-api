@@ -996,9 +996,11 @@ let rec atomics_of_operation = function
       VM_unpause id;
     ]
   | VM_suspend (id, data) ->
+    (* If we've got a vGPU, then save its state to the same file *)
+    let vgpu_data = if VGPU_DB.ids id = [] then None else Some data in
     [
       VM_hook_script(id, Xenops_hooks.VM_pre_suspend, Xenops_hooks.reason__suspend);
-      VM_save (id, [], data, None);
+      VM_save (id, [], data, vgpu_data);
       VM_hook_script(id, Xenops_hooks.VM_pre_destroy, Xenops_hooks.reason__suspend)
     ] @ (atomics_of_operation (VM_shutdown (id, None))
         ) @ [

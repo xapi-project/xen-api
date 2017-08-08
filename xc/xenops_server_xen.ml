@@ -1508,7 +1508,13 @@ module VM = struct
          with_data ~xc ~xs task data true
            (fun fd ->
               let vm_str = Vm.sexp_of_t vm |> Sexplib.Sexp.to_string in
-              let vgpu_fd = match vgpu_data with Some (FD fd) -> Some fd | _ -> None in
+              let vgpu_fd =
+                match vgpu_data with
+                | Some (FD vgpu_fd) -> Some vgpu_fd
+                | Some disk when disk = data -> Some fd (* Don't open the file twice *)
+                | Some other_disk -> None (* We don't support this *)
+                | None -> None
+              in
               Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid (choose_emu_manager vm.Vm.platformdata) vm_str domid fd vgpu_fd flags'
                 (fun () ->
                    (* SCTX-2558: wait more for ballooning if needed *)
