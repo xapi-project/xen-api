@@ -215,7 +215,7 @@ struct
             debug "Pbis raised an error for cmd %s: (%s) %s" debug_cmd errcode errmsg;
             match errcode with
             | "LW_ERROR_INVALID_GROUP_INFO_LEVEL"
-              -> raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, errcode)) (* For pbis_get_all_byid *)
+              -> raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, errcode)) (* For pbis_get_all_by_id *)
             | "LW_ERROR_NO_SUCH_USER"
             | "LW_ERROR_NO_SUCH_GROUP"
             | "LW_ERROR_NO_SUCH_OBJECT"
@@ -259,28 +259,6 @@ struct
         attrs
       )
 
-  (* assoc list for caching pbis_common results,
-     item value is ((stdin_string, pbis_cmd, pbis_args), (unix_time, pbis_common_result))
-  *)
-  let cache_of_pbis_common : ((string * string * (string list)) * (float * ((string * string) list))) list ref = ref []
-  let cache_of_pbis_common_m = Mutex.create ()
-
-  let pbis_common_with_cache ?stdin_string:(stdin_string="") (pbis_cmd:string) (pbis_args:string list) =
-    let expired = 120.0 in
-    let now = Unix.time () in
-    let cache_key = (stdin_string, pbis_cmd, pbis_args) in
-    let f = fun () ->
-      cache_of_pbis_common := List.filter (fun (_, (ts, _)) -> now -. ts < expired) !cache_of_pbis_common;
-      try
-        let _, result = List.assoc cache_key !cache_of_pbis_common in
-        debug "pbis_common_with_cache hit \"%s\" cache." pbis_cmd;
-        result
-      with Not_found ->
-        let result = pbis_common ~stdin_string:stdin_string pbis_cmd pbis_args in
-        cache_of_pbis_common := !cache_of_pbis_common @ [(cache_key, (Unix.time (), result))];
-        result
-    in
-    Stdext.Threadext.Mutex.execute cache_of_pbis_common_m f
 
   let get_joined_domain_name () =
     Server_helpers.exec_with_new_task "obtaining joined-domain name"
@@ -336,16 +314,16 @@ struct
         subject_name
       end
 
-  let pbis_get_all_byid subject_id =
+  let pbis_get_all_by_id subject_id =
     try
-      pbis_common_with_cache "/opt/pbis/bin/find-by-sid" ["--level";"2";subject_id]
+        pbis_common "/opt/pbis/bin/find-by-sid" ["--level";"2";subject_id]
     with Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, "LW_ERROR_INVALID_GROUP_INFO_LEVEL") ->
-      pbis_common_with_cache "/opt/pbis/bin/find-by-sid" ["--level";"1";subject_id]
+        pbis_common "/opt/pbis/bin/find-by-sid" ["--level";"1";subject_id]
 
   let pbis_get_group_sids_byname _subject_name =
     let subject_name = get_full_subject_name _subject_name in (* append domain if necessary *)
 
-    let subject_attrs = pbis_common_with_cache "/opt/pbis/bin/list-groups-for-user" ["--show-sid";subject_name] in
+    let subject_attrs = pbis_common "/opt/pbis/bin/list-groups-for-user" ["--show-sid";subject_name] in
     (* PBIS list-groups-for-user raw output like
         Number of groups found for user 'test@testdomain' : 2
         Group[1 of 2] name = testdomain\dnsadmins (gid = 580912206, sid = S-1-5-21-791009147-1041474540-2433379237-1102)
@@ -457,7 +435,7 @@ struct
       defensive_copy
     in
     let get_value name ls = if List.mem_assoc name ls then List.assoc name ls else "" in
-    let infolist = pbis_get_all_byid subject_identifier in
+    let infolist = pbis_get_all_by_id subject_identifier in
     let subject_is_group = (get_value "Uid" infolist)="" in
     if subject_is_group
     then (* subject is group *)
@@ -701,7 +679,6 @@ struct
                Db.Host.set_external_auth_configuration ~__context ~self:host ~value:extauthconf;
                debug "added external_auth_configuration for host %s" (Db.Host.get_name_label ~__context ~self:host)
             );
-          Stdext.Threadext.Mutex.execute cache_of_pbis_common_m (fun _ -> cache_of_pbis_common := []);
           ensure_pbis_configured ()
 
         with e -> (*ERROR, we didn't join the AD domain*)
