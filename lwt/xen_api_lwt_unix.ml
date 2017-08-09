@@ -125,12 +125,15 @@ let exn_to_string = function
 let do_it uri string =
   let uri = Uri.of_string uri in
   let connection = M.make uri in
-  M.rpc connection string >>= fun result ->
-  match result with
-  | Ok x -> return x
-  | Error e ->
-    Printf.fprintf stderr "Caught: %s\n%!" (exn_to_string e);
-    fail e
+  Lwt.finalize
+    (fun () ->
+      M.rpc connection string >>= fun result ->
+      match result with
+      | Ok x -> return x
+      | Error e ->
+        Printf.fprintf stderr "Caught: %s\n%!" (exn_to_string e);
+        fail e)
+    (fun () -> M.disconnect connection)
 
 let make ?(timeout=30.) uri call =
   let string = Xmlrpc.string_of_call call in
