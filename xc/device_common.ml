@@ -335,19 +335,20 @@ let is_upstream_qemu domid =
 	with _ -> false
 
 let qmp_write_and_read domid ?(read_result=true) cmd  =
-  let open Qmp in
-  let c = Qmp_protocol.connect (Printf.sprintf "/var/run/xen/qmp-libxl-%d" domid) in
-  finally
-    (fun () ->
-      try
+  try
+    let open Qmp in
+    let c = Qmp_protocol.connect (Printf.sprintf "/var/run/xen/qmp-libxl-%d" domid) in
+    finally
+      (fun () ->
         Qmp_protocol.negotiate c;
         Qmp_protocol.write c cmd;
         if read_result then
           Some (Qmp_protocol.read c)
         else None
-      with e ->
-        error "Caught exception attempting to write qmp message: %s" (Printexc.to_string e);
-        None)
-    (fun () -> Qmp_protocol.close c)
+      )
+      (fun () -> Qmp_protocol.close c)
+  with e ->
+    error "Caught exception attempting to write qmp message: %s" (Printexc.to_string e);
+    None
 
 let qmp_write domid cmd = qmp_write_and_read ~read_result:false domid cmd |> ignore
