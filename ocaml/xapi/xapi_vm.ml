@@ -990,6 +990,9 @@ let s3_suspend ~__context ~vm = Xapi_xenops.s3suspend ~__context ~self:vm
 
 let s3_resume ~__context ~vm = Xapi_xenops.s3resume ~__context ~self:vm
 
+let set_bios_strings ~__context ~self ~value =
+  ()
+
 let copy_bios_strings = Xapi_vm_helpers.copy_bios_strings
 
 let set_protection_policy ~__context ~self ~value =
