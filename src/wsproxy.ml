@@ -35,27 +35,33 @@ let start path handler =
       (fun () ->
          Lwt_unix.accept fd_sock >>= fun (fd_sock2,_) ->
          let buffer = String.make 16384 '\000' in
-         let iov = Lwt_unix.io_vector ~buffer ~offset:0 ~length:16384 in
-         (
-           try Lwt_unix.recv_msg ~socket:fd_sock2 ~io_vectors:[iov]
-           with _ ->
-             Lwt_unix.close fd_sock2 >>= fun () ->
-             Lwt.return (0,[])
-         ) >>= fun (len,newfds) ->
-         let msg = String.sub buffer 0 len in
-         Lwt_unix.close fd_sock2 >>= fun _ ->
-         List.iter (fun fd -> Printf.printf "got fd: %d\n%!" (Obj.magic fd)) newfds;
-         Printf.printf "About to fixup the fd\n%!";
+         Lwt.catch
+           (fun () ->
+              let iov = Lwt_unix.io_vector ~buffer ~offset:0 ~length:16384 in
+              Lwt_unix.recv_msg ~socket:fd_sock2 ~io_vectors:[iov])
+           (fun e ->
+              Printf.printf "Caught exception: %s\n" (Printexc.to_string e);
+              ignore_exn (fun () -> Lwt_unix.close fd_sock2) () >>= fun () ->
+              Lwt.return (0,[]))
+         >>= fun (len,newfds) ->
+         Lwt_unix.close fd_sock2 >>= fun () ->
          Lwt.catch
            (fun () ->
               let fdh :: fdt = newfds in
-              ignore(handler (Lwt_unix.of_unix_file_descr fdh) msg);
+              let msg = String.sub buffer 0 len in
+              let fdno = Printf.sprintf "%d" (Obj.magic fdh) in
+              List.iter (fun fd -> Printf.printf "closing fds: %d\n%!" (Obj.magic fd)) fdt;
               List.iter (fun fd -> try Unix.close fd with _ -> ()) fdt;
-              Lwt.return ())
+              Printf.printf "About to fixup: %s\n%!" fdno;
+              let fd = Lwt_unix.of_unix_file_descr fdh in
+              Lwt_unix.setsockopt fd Lwt_unix.SO_KEEPALIVE true;
+              handler fd msg)
            (fun e ->
-              List.iter (fun fd -> try Unix.close fd with _ -> ()) newfds;
               Printf.printf "Caught exception: %s\n" (Printexc.to_string e);
-              Lwt.return ()) >>= fun _ ->
+              List.iter (fun fd -> Printf.printf "closing fd: %d\n%!" (Obj.magic fd)) newfds;
+              List.iter (fun fd -> try Unix.close fd with _ -> ()) newfds;
+              Lwt.return ()) 
+         >>= fun _ ->
          loop ()
       )
       (fun e ->
@@ -81,21 +87,23 @@ let proxy (fd : Lwt_unix.file_descr) protocol _ty localport =
       (wsframe,wsunframe)
   in
   let (realframe,realunframe) = (frame, unframe) in
+  let fdno = Printf.sprintf "%d" (Obj.magic fd) in
   open_connection_fd "localhost" localport >>= fun localfd ->
-  let thread1 = lwt_fd_enumerator localfd (realframe (writer (really_write fd) "thread1")) >>= fun _ ->
-    Lwt.return () in
-  let thread2 = lwt_fd_enumerator fd (realunframe (writer (really_write localfd) "thread2")) >>= fun _ ->
-    Lwt.return () in
-  Lwt.catch
+  Lwt.finalize
     (fun () ->
-       Lwt.join [thread1; thread2] >>= fun () ->
-       Lwt_unix.close fd >>= fun () ->
-       Lwt_unix.close localfd)
+       let thread1 =
+         lwt_fd_enumerator localfd (realframe (writer (really_write fd) "thread1")) >>= fun _ ->
+         Lwt.return () in
+       let thread2 =
+         lwt_fd_enumerator fd (realunframe (writer (really_write localfd) "thread2")) >>= fun _ ->
+         Lwt.return () in
+       ignore_exn (fun () -> Lwt.join [thread1; thread2]) ()
+    )
     (fun _ ->
        ignore_exn (fun () -> Lwt_unix.close fd) () >>= fun () ->
        ignore_exn (fun () -> Lwt_unix.close localfd) ())
   >>= fun () ->
-  Printf.printf "FD closed: %b %b\n" Lwt_unix.(state fd == Closed) Lwt_unix.(state localfd == Closed)
+  Printf.printf "FD %s pipe closed: %b %b\n" fdno Lwt_unix.(state fd == Closed) Lwt_unix.(state localfd == Closed)
   |> Lwt.return
 
 let handler sock msg =
@@ -108,8 +116,9 @@ let handler sock msg =
     let port = int_of_string sport in
     proxy sock protocol "hybi10" port
   | _ ->
+    let sid = Printf.sprintf "%d" (Obj.magic (Lwt_unix.unix_file_descr sock)) in
     ignore_exn (fun () -> Lwt_unix.close sock) () >>= fun () ->
-    Printf.printf "Sock closed: %b\n" Lwt_unix.(state sock == Closed)
+    Printf.printf "Malformed message. Socket %s closed: %b\n" sid Lwt_unix.(state sock == Closed)
     |> Lwt.return
 
 let _ =

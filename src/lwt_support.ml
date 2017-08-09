@@ -54,6 +54,7 @@ exception Host_not_found of string
 let open_connection_fd host port =
   let (>>=) = Lwt.bind in
   let s = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
+  Lwt_unix.setsockopt s Lwt_unix.SO_KEEPALIVE true;
   Lwt_unix.gethostbyname host >>= fun he ->
   if Array.length he.Lwt_unix.h_addr_list = 0
   then (Lwt_unix.close s >>= fun () -> Lwt.fail (Host_not_found host))
@@ -61,4 +62,3 @@ let open_connection_fd host port =
     let addr = Unix.ADDR_INET(ip, port) in
     Lwt_unix.connect s addr >>= fun () ->
     Lwt.return s
-
