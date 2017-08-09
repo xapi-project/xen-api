@@ -872,16 +872,23 @@ let export_changed_blocks ~__context ~vdi_from ~vdi_to =
        C.VDI.export_changed_blocks ~dbg:(Ref.string_of task) ~sr ~vdi_from ~vdi_to
     )
 
+(** Ignore exceptions that can happen due to invalid references and just skip them *)
+module Safe = struct
+  let default_on_missing_ref f default x =
+    try
+      f x
+    with
+    | Db_exn.DBCache_NotFound ("missing reference", _, _) -> default
+    | Db_exn.DBCache_NotFound ("missing row", _, _) -> default
+  let map f = Stdext.Listext.List.filter_map (default_on_missing_ref (fun x -> Some (f x)) None)
+  let flat_map f l = List.map (default_on_missing_ref f []) l |> List.flatten
+end
+
 let get_nbd_info ~__context ~self =
   if (Db.VDI.get_type ~__context ~self) = `cbt_metadata then begin
     error "VDI.get_nbd_info: called with a VDI of type cbt_metadata (at %s)" __LOC__;
     raise (Api_errors.Server_error (Api_errors.vdi_incompatible_type, [ Ref.string_of self; Record_util.vdi_type_to_string `cbt_metadata ]))
   end;
-
-  (* Ignore exceptions that can happen due to invalid references and just skip them *)
-  let default_on_exn f default x = try f x with _ -> default in
-  let safe_map f = Stdext.Listext.List.filter_map (default_on_exn (fun x -> Some (f x)) None) in
-  let safe_flat_map f l = List.map (default_on_exn f []) l |> List.flatten in
 
   let sr = Db.VDI.get_SR ~__context ~self in
   let hosts_with_attached_pbds =
@@ -889,7 +896,7 @@ let get_nbd_info ~__context ~self =
       ~__context
       ~expr:Db_filter_types.(And (Eq (Field "SR", Literal (Ref.string_of sr)),
                                   Eq (Field "currently_attached", Literal "true")))
-    |> safe_map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
+    |> Safe.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
   in
   let get_ips host =
     let get_ips pif =
@@ -904,9 +911,9 @@ let get_nbd_info ~__context ~self =
         ~expr:Db_filter_types.(And (Eq (Field "host", Literal (Ref.string_of host)),
                                     Eq (Field "currently_attached", Literal "true")))
     in
-    attached_pifs |> safe_flat_map get_ips
+    attached_pifs |> Safe.flat_map get_ips
   in
-  let ips = hosts_with_attached_pbds |> safe_flat_map get_ips in
+  let ips = hosts_with_attached_pbds |> Safe.flat_map get_ips in
 
   let vdi_uuid = Db.VDI.get_uuid ~__context ~self in
   let session_id = Context.get_session_id __context |> Ref.string_of in
