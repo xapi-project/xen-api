@@ -722,6 +722,11 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   let vm_and_snapshots = vm :: snapshots in
   let snapshots_vbds = List.flatten (List.map (fun self -> Db.VM.get_VBDs ~__context ~self) snapshots) in
   let snapshot_vifs = List.flatten (List.map (fun self -> Db.VM.get_VIFs ~__context ~self) snapshots) in
+  let vdas = List.map (fun self -> Xapi_vda.find_vda ~__context ~vm:self) vm_and_snapshots in
+  let vda_records = List.map (Opt.map (fun vda -> Db.VDA.get_record ~__context ~self:vda)) vdas in
+  let vm_ref_uuid_map = vm, vm_uuid in
+  let snapshots_ref_uuid_map = List.map (fun self -> self, Db.VM.get_uuid ~__context ~self) snapshots in
+  let vm_and_snapshots_ref_uuid_map = vm_ref_uuid_map :: snapshots_ref_uuid_map in
 
   let is_intra_pool = try ignore(Db.Host.get_uuid ~__context ~self:remote.dest_host); true with _ -> false in
   let is_same_host = is_intra_pool && remote.dest_host == localhost in
@@ -991,8 +996,41 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
         if not is_intra_pool && not copy then begin
           info "Destroying VM ref=%s uuid=%s" (Ref.string_of vm) vm_uuid;
           Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
-          List.iter (fun self -> Db.VM.destroy ~__context ~self) vm_and_snapshots
+          List.iter (fun self ->
+            Db.VM.destroy ~__context ~self;
+            Xapi_vda.find_vda ~__context ~vm:self (* destroy VDA record if one exists *)
+              |> Opt.iter (fun vda ->
+                try Xapi_vda.destroy ~__context ~self:vda
+                with e -> debug "Error %s while destroying VDA %s" (Printexc.to_string e) (Ref.string_of vda));
+            ) vm_and_snapshots
         end);
+
+    (* copy the VDAs after the VM and its snapshots have been destroyed.
+       This is best-effort; no need to fail migration because the VDA should
+       eventually be made again once it is detected in the new host. *)
+    (* Note: for this code to work, we assume the UUID of the VM and its snapshots
+       are preserved in a migration; even though the UUIDs remain the same, their
+       OpaqueRef changes as they are new objects in the destination pool's database. *)
+    let new_snapshots = XenAPI.VM.get_snapshots ~rpc:remote.rpc ~session_id:remote.session ~self:new_vm in
+    let new_vm_and_snapshots = new_vm :: new_snapshots in
+    let new_vm_and_snapshots_uuid_ref_map = List.map (fun self ->
+      XenAPI.VM.get_uuid ~rpc:remote.rpc ~session_id:remote.session ~self, self
+      ) new_vm_and_snapshots in
+    List.iter (Opt.iter (fun vda_record ->
+      try
+        let vda_vm_uuid = List.assoc vda_record.API.vDA_vm vm_and_snapshots_ref_uuid_map in
+        if List.mem_assoc vda_vm_uuid new_vm_and_snapshots_uuid_ref_map then begin
+          let new_vm_ref = List.assoc vda_vm_uuid new_vm_and_snapshots_uuid_ref_map in
+          (* Note: VDA UUID is not preserved *)
+          XenAPI.VDA.create ~rpc:remote.rpc ~session_id:remote.session ~vm:new_vm_ref ~version:vda_record.API.vDA_version
+            |> ignore
+        end else
+          error "Failed to migrate VDA %s. The source VM %s was not found in the destination pool."
+            vda_record.API.vDA_uuid vda_vm_uuid;
+      with _ ->
+        error "Failed to migrate VDA %s." vda_record.API.vDA_uuid
+      )) vda_records;
+
     SMPERF.debug "vm.migrate_send exiting vm:%s" vm_uuid;
     new_vm
   with e ->
