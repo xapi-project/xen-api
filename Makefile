@@ -12,9 +12,10 @@ build: setup.data
 
 doc: setup.data build
 	$(SETUP) -doc $(DOCFLAGS)
-	./jsapi.native -destdir _build/ocaml/doc -templdir ocaml/doc/templates
+	./jsapi.native -destdir _build/ocaml/doc/html -templdir ocaml/doc/templates
+	cp ocaml/doc/*.js ocaml/doc/*.html ocaml/doc/*.css _build/ocaml/doc/html
 	./datamodel_main.native -closed -markdown -templdir ocaml/doc/templates _build/ocaml/doc/markdown
-	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh _build/ocaml/doc/markdown
+	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh _build/ocaml/doc
 	find ocaml/doc -name "*.md" -not -name "README.md" -exec cp {} _build/ocaml/doc/markdown/ \;
 
 test: setup.data build
@@ -95,9 +96,7 @@ install: setup.data rbac_static.csv
 # Libraries
 	ocaml setup.ml -install
 # docs
-	mkdir -p $(DESTDIR)$(DOCDIR)/html
-	cp -r -L _build/ocaml/doc/api $(DESTDIR)$(DOCDIR)/html
-	cd ocaml/doc && cp *.js *.html *.css $(DESTDIR)$(DOCDIR)/html
-	scripts/install.sh 644 _build/ocaml/doc/branding.js $(DESTDIR)$(DOCDIR)/html/branding.js
+	mkdir -p $(DESTDIR)$(DOCDIR)
+	cp -r _build/ocaml/doc/html $(DESTDIR)$(DOCDIR)
 	cp -r _build/ocaml/doc/markdown $(DESTDIR)$(DOCDIR)
-
+	cp _build/ocaml/doc/*.dot ocaml/doc/doc-convert.sh $(DESTDIR)$(DOCDIR)

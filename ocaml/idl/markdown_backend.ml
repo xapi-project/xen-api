@@ -137,9 +137,8 @@ let markdown_section_of_message printer ~is_class_deprecated ~is_class_removed x
   printer "_Signature:_";
   printer "";
   printer "```";
-  printer (of_ty_opt_verbatim x.msg_result);
-  printer (sprintf "%s (%s)"
-    x.msg_name
+  printer (sprintf "%s %s (%s)"
+    (of_ty_opt_verbatim x.msg_result) x.msg_name
     (String.concat ", "
       ((if x.msg_session then ["session ref session_id"] else []) @
         (List.map (fun p -> of_ty_verbatim p.param_type ^ " " ^ p.param_name) x.msg_params)))
