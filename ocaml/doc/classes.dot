@@ -1,15 +1,38 @@
-digraph "Xen-API Class Diagram" {
+digraph "graph" {
   fontname="Verdana";
   start=7;
   layout=neato;
   overlap=scale;
+  size="3,5";
+  resolution=210;
 
   node [shape=box style=filled fillcolor=chocolate];
-      host PBD SR VDI VBD VM VIF network PIF user session VGPU PGPU GPU_group;
+      host [URL="?c=host"]
+      PBD [URL="?c=PBD"]
+      SR [URL="?c=SR"]
+      VDI [URL="?c=VDI"]
+      VBD [URL="?c=VBD"]
+      VM [URL="?c=VM"]
+      VIF [URL="?c=VIF"]
+      network [URL="?c=network"]
+      PIF [URL="?c=PIF"]
+      user [URL="?c=user"]
+      session [URL="?c=session"]
+      VGPU [URL="?c=VGPU"]
+      PGPU [URL="?c=PGPU"]
+      GPU_group [URL="?c=GPU_group"];
 
   node [shape=ellipse style=filled fillcolor=wheat];
-      pool task event host_cpu host_metrics SM VM_metrics VM_guest_metrics
-      console PIF_metrics;
+      pool [URL="?c=pool"]
+      task [URL="?c=task"]
+      event [URL="?c=event"]
+      host_cpu [URL="?c=host_cpu"]
+      host_metrics [URL="?c=host_metrics"]
+      SM [URL="?c=SM"]
+      VM_metrics [URL="?c=VM_metrics"]
+      VM_guest_metrics [URL="?c=VM_guest_metrics"]
+      console [URL="?c=console"]
+      PIF_metrics [URL="?c=PIF_metrics"];
 
   edge [arrowhead="none", arrowtail="none"]
 

@@ -1,14 +1,19 @@
 # A note on generating locally the API reference
 
-Run `make doc`. The output is in `_build/ocaml/doc/markdown`.
+Run `make doc` in the repo root. This will output the API reference in html and
+markdown formats in `_build/ocaml/doc`.
 
-To view the markdown properly you will need to install `graphviz` so as to
-convert the dot files to images. To generate the API reference in other formats
-(currently docbook and pdf) you will need to install `pandoc`. For pdf format
-you will also need `pdflatex`.
+Both html and markdown reference images which need to be generated as a separate
+step from the `.dot` files. This requires `graphviz` to be installed.
 
-To convert the images only, run `sh doc-convert.sh`.
+To generate the images, run `sh doc-convert.sh` in `_build/ocaml/doc`. Now you
+can view the API reference by opening `_build/ocaml/doc/html/index.html` in your
+browser.
 
-To generate the docbook run `sh doc-convert.sh --docbook`.
+To generate the API reference in other formats (currently docbook and pdf) you
+will need to install `pandoc`.
 
-To generate the pdf run `sh doc-convert.sh --pdf`.
+To generate the docbook run `sh doc-convert.sh --docbook` in `_build/ocaml/doc`.
+
+To generate the pdf you also need to install `pdflatex` (available within
+`texlive` distibutions). Then run `sh doc-convert.sh --pdf` in `_build/ocaml/doc`.
