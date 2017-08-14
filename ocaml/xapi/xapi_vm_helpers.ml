@@ -162,7 +162,7 @@ let destroy  ~__context ~self =
   (* destroy VDA if one exists *)
   Xapi_vda.find_vda ~__context ~vm:self
     |> Opt.iter (fun vda ->
-      try Db.VDA.destroy ~__context ~self:vda
+      try Xapi_vda.destroy ~__context ~self:vda
       with e -> debug "Error %s while destroying VDA %s" (Printexc.to_string e) (Ref.string_of vda));
 
   Db.VM.destroy ~__context ~self
