@@ -711,7 +711,7 @@ and exposed_param p =
 and exposed_call_params message classname params =
   let exposedParams = List.map exposed_call_param params in
   let name = String.lowercase classname in
-  let refParam = sprintf "(_%s != null) ? _%s : \"\"" name name in
+  let refParam = sprintf "_%s ?? \"\"" name in
   let exposedParams = if is_method_static message then exposedParams else refParam::exposedParams in
   String.concat ", " ("session.uuid"::exposedParams)
 
@@ -1270,8 +1270,8 @@ and convert_to_proxy thing ty = (*function*)
   | Int                 -> sprintf "%s.ToString()" thing
   | Bool
   | Float               -> thing
-  | Ref _               -> sprintf "(%s != null) ? %s : \"\"" thing thing
-  | String              -> sprintf "(%s != null) ? %s : \"\"" thing thing
+  | Ref _               -> sprintf "%s ?? \"\"" thing
+  | String              -> sprintf "%s ?? \"\"" thing
   | Enum (name,_)       -> sprintf "%s_helper.ToString(%s)" name thing
   | Set (Ref name)         -> sprintf "(%s != null) ? Helper.RefListToStringArray(%s) : new string[] {}" thing thing
   | Set(String)         -> thing

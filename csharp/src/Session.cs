@@ -1,19 +1,19 @@
 /*
  * Copyright (c) Citrix Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -387,7 +387,7 @@ namespace XenAPI
 
         public static string get_this_host(Session session, string _self)
         {
-            return (string)session.proxy.session_get_this_host(session.uuid, (_self != null) ? _self : "").parse();
+            return (string)session.proxy.session_get_this_host(session.uuid, _self ?? "").parse();
         }
 
         public string get_this_user()
@@ -397,7 +397,7 @@ namespace XenAPI
 
         public static string get_this_user(Session session, string _self)
         {
-            return (string)session.proxy.session_get_this_user(session.uuid, (_self != null) ? _self : "").parse();
+            return (string)session.proxy.session_get_this_user(session.uuid, _self ?? "").parse();
         }
 
         public bool get_is_local_superuser()
@@ -407,12 +407,12 @@ namespace XenAPI
 
         public static bool get_is_local_superuser(Session session, string _self)
         {
-            return session.proxy.session_get_is_local_superuser(session.uuid, (_self != null) ? _self : "").parse();
+            return session.proxy.session_get_is_local_superuser(session.uuid, _self ?? "").parse();
         }
 
         public static string[] get_rbac_permissions(Session session, string _self)
         {
-            return session.proxy.session_get_rbac_permissions(session.uuid, (_self != null) ? _self : "").parse();
+            return session.proxy.session_get_rbac_permissions(session.uuid, _self ?? "").parse();
         }
 
         public DateTime get_last_active()
@@ -422,7 +422,7 @@ namespace XenAPI
 
         public static DateTime get_last_active(Session session, string _self)
         {
-            return session.proxy.session_get_last_active(session.uuid, (_self != null) ? _self : "").parse();
+            return session.proxy.session_get_last_active(session.uuid, _self ?? "").parse();
         }
 
         public bool get_pool()
@@ -432,7 +432,7 @@ namespace XenAPI
 
         public static bool get_pool(Session session, string _self)
         {
-            return (bool)session.proxy.session_get_pool(session.uuid, (_self != null) ? _self : "").parse();
+            return (bool)session.proxy.session_get_pool(session.uuid, _self ?? "").parse();
         }
 
         public XenRef<Subject> get_subject()
@@ -442,7 +442,7 @@ namespace XenAPI
 
         public static XenRef<Subject> get_subject(Session session, string _self)
         {
-            return new XenRef<Subject>(session.proxy.session_get_subject(session.uuid, (_self != null) ? _self : "").parse());
+            return new XenRef<Subject>(session.proxy.session_get_subject(session.uuid, _self ?? "").parse());
         }
 
         public string get_auth_user_sid()
@@ -452,7 +452,7 @@ namespace XenAPI
 
         public static string get_auth_user_sid(Session session, string _self)
         {
-            return (string)session.proxy.session_get_auth_user_sid(session.uuid, (_self != null) ? _self : "").parse();
+            return (string)session.proxy.session_get_auth_user_sid(session.uuid, _self ?? "").parse();
         }
 
         #region AD SID enumeration and bootout
@@ -508,7 +508,7 @@ namespace XenAPI
 
         public static Dictionary<string, string> get_other_config(Session session, string _self)
         {
-            return Maps.convert_from_proxy_string_string(session.proxy.session_get_other_config(session.uuid, (_self != null) ? _self : "").parse());
+            return Maps.convert_from_proxy_string_string(session.proxy.session_get_other_config(session.uuid, _self ?? "").parse());
         }
 
         public void set_other_config(Dictionary<string, string> _other_config)
@@ -518,7 +518,7 @@ namespace XenAPI
 
         public static void set_other_config(Session session, string _self, Dictionary<string, string> _other_config)
         {
-            session.proxy.session_set_other_config(session.uuid, (_self != null) ? _self : "", Maps.convert_to_proxy_string_string(_other_config)).parse();
+            session.proxy.session_set_other_config(session.uuid, _self ?? "", Maps.convert_to_proxy_string_string(_other_config)).parse();
         }
 
         public void add_to_other_config(string _key, string _value)
@@ -528,7 +528,7 @@ namespace XenAPI
 
         public static void add_to_other_config(Session session, string _self, string _key, string _value)
         {
-            session.proxy.session_add_to_other_config(session.uuid, (_self != null) ? _self : "", (_key != null) ? _key : "", (_value != null) ? _value : "").parse();
+            session.proxy.session_add_to_other_config(session.uuid, _self ?? "", _key ?? "", _value ?? "").parse();
         }
 
         public void remove_from_other_config(string _key)
@@ -538,7 +538,7 @@ namespace XenAPI
 
         public static void remove_from_other_config(Session session, string _self, string _key)
         {
-            session.proxy.session_remove_from_other_config(session.uuid, (_self != null) ? _self : "", (_key != null) ? _key : "").parse();
+            session.proxy.session_remove_from_other_config(session.uuid, _self ?? "", _key ?? "").parse();
         }
 
         #endregion
