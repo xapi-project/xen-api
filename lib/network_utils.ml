@@ -39,6 +39,7 @@ let inject_igmp_query_script = ref "/usr/libexec/xenopsd/igmp_query_injector.py"
 let mac_table_size = ref 10000
 let igmp_query_maxresp_time = ref "5000"
 let enable_ipv6_mcast_snooping = ref false
+let mcast_snooping_disable_flood_unregistered = ref true
 
 let call_script ?(log_successful_output=false) ?(timeout=Some 60.0) script args =
 	try
@@ -940,8 +941,13 @@ module Ovs = struct
 			| Some _, None -> ["--"; "set"; "bridge"; name; "other_config:enable-ipv6-mcast-snooping=" ^ (string_of_bool !enable_ipv6_mcast_snooping)]
 			| _ -> []
 		in
+		let disable_flood_unregistered = match igmp_snooping, vlan with
+			| Some _, None ->
+				["--"; "set"; "bridge"; name; "other_config:mcast-snooping-disable-flood-unregistered=" ^ (string_of_bool !mcast_snooping_disable_flood_unregistered)]
+			| _ -> []
+		in
 		vsctl ~log:true (del_old_arg @ ["--"; "--may-exist"; "add-br"; name] @
-			vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg @ set_mac_table_size @ set_igmp_snooping @ set_ipv6_igmp_snooping)
+			vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg @ set_mac_table_size @ set_igmp_snooping @ set_ipv6_igmp_snooping @ disable_flood_unregistered)
 
 	let destroy_bridge name =
 		vsctl ~log:true ["--"; "--if-exists"; "del-br"; name]
