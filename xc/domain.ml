@@ -851,29 +851,6 @@ let consume_qemu_record fd limit domid uuid =
       end
     ) (fun () -> Unix.close fd2)
 
-let consume_demu_record fd limit domid uuid =
-  let file = sprintf demu_restore_path domid in
-  let fd2 = Unix.openfile file
-      [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC; ] 0o640
-  in
-  finally (fun () ->
-      debug "VM = %s; domid = %d; reading %Ld bytes from %s" (Uuid.to_string uuid) domid limit file;
-      let bytes =
-        try
-          Unixext.copy_file ~limit fd fd2
-        with Unix.Unix_error (e, s1, s2) ->
-          error "VM = %s; domid = %d; %s, %s, %s" (Uuid.to_string uuid) domid (Unix.error_message e) s1 s2;
-          Unixext.unlink_safe file;
-          raise Suspend_image_failure
-      in
-      if bytes <> limit
-      then begin
-        error "VM = %s; domid = %d; qemu save file was truncated"
-          (Uuid.to_string uuid) domid;
-        raise Domain_restore_truncated_vgpustate
-      end
-    ) (fun () -> Unix.close fd2)
-
 let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~store_port ~store_domid ~console_port ~console_domid ~no_incr_generationid ~vcpus ~extras xenguest_path domid fd =
   let module DD = Debug.Make(struct let name = "mig64" end) in
   let open DD in
@@ -941,7 +918,6 @@ let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~store_port ~sto
         process_header res
       | Demu, len ->
         debug "Read Demu header (length=%Ld)" len;
-        consume_demu_record fd len domid uuid;
         process_header res
       | End_of_image, _ ->
         debug "Read suspend image footer";
