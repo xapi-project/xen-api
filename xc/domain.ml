@@ -803,17 +803,22 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
       ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
       ~vcpus:info.vcpus ~extras xenguest_path domid force
 
-let restore_libxc_record (task: Xenops_task.task_handle) ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid fd =
+let with_emu_manager_restore (task: Xenops_task.task_handle) ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid fd f =
   let fd_uuid = Uuid.(to_string (create `V4)) in
-  let line = Emu_manager.with_connection task xenguest_path domid
-      ([
-        "-mode"; if hvm then "hvm_restore" else "restore";
-        "-domid"; string_of_int domid;
-        "-fd"; fd_uuid;
-        "-store_port"; string_of_int store_port;
-        "-console_port"; string_of_int console_port;
-        "-fork"; "true";
-      ] @ extras) [ fd_uuid, fd ] Emu_manager.receive_success in
+  let fds = [ fd_uuid, fd ] in
+  let args = [
+    "-mode"; if hvm then "hvm_restore" else "restore";
+    "-domid"; string_of_int domid;
+    "-fd"; fd_uuid;
+    "-store_port"; string_of_int store_port;
+    "-console_port"; string_of_int console_port;
+    "-fork"; "true";
+  ] @ extras
+  in
+  Emu_manager.with_connection task xenguest_path domid args fds f
+
+let restore_libxc_record cnx domid uuid =
+  let line = Emu_manager.receive_success cnx in
   match Stdext.Xstringext.String.split ' ' line with
   | [ store; console ] ->
     debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s" (Uuid.to_string uuid) domid store console;
@@ -862,8 +867,9 @@ let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~store_port ~sto
     let (store_mfn, console_mfn) =
       begin match
           with_conversion_script task "Emu_manager" hvm fd (fun pipe_r ->
-              restore_libxc_record task ~hvm ~store_port ~console_port
-                ~extras xenguest_path domid uuid pipe_r
+              with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid fd (fun cnx ->
+                  restore_libxc_record cnx domid uuid
+                )
             )
         with
         | `Ok (s, c) -> (s, c)
@@ -890,45 +896,43 @@ let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~store_port ~sto
     store_mfn, console_mfn
   | `Ok Structured ->
     let open Suspend_image.M in
-    let rec process_header res =
-      debug "Reading next header...";
-      read_header fd >>= function
-      | Xenops, len ->
-        debug "Read Xenops record header (length=%Ld)" len;
-        let rec_str = Io.read fd (Io.int_of_int64_exn len) in
-        debug "Read Xenops record contents";
-        let (_ : Xenops_record.t) = Xenops_record.of_string rec_str in
-        debug "Validated Xenops record contents";
-        process_header res
-      | Libxc, _ ->
-        debug "Read Libxc record header";
-        let res = restore_libxc_record task ~hvm ~store_port ~console_port
-            ~extras xenguest_path domid uuid fd
+    with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid fd (fun cnx ->
+        let rec process_header res =
+          debug "Reading next header...";
+          read_header fd >>= function
+          | Xenops, len ->
+            debug "Read Xenops record header (length=%Ld)" len;
+            let rec_str = Io.read fd (Io.int_of_int64_exn len) in
+            debug "Read Xenops record contents";
+            let (_ : Xenops_record.t) = Xenops_record.of_string rec_str in
+            debug "Validated Xenops record contents";
+            process_header res
+          | Libxc, _ ->
+            debug "Read Libxc record header";
+            let res = restore_libxc_record cnx domid uuid in
+            process_header (return (Some res))
+          | Libxc_legacy, _ ->
+            debug "Read Libxc_legacy record header";
+            let res = restore_libxc_record cnx domid uuid in
+            process_header (return (Some res))
+          | Qemu_trad, len ->
+            debug "Read Qemu_trad header (length=%Ld)" len;
+            consume_qemu_record fd len domid uuid;
+            process_header res
+          | Demu, len ->
+            debug "Read Demu header (length=%Ld)" len;
+            process_header res
+          | End_of_image, _ ->
+            debug "Read suspend image footer";
+            res
+          | _ -> failwith "Unsupported"
         in
-        process_header (return (Some res))
-      | Libxc_legacy, _ ->
-        debug "Read Libxc_legacy record header";
-        let res = restore_libxc_record task ~hvm ~store_port ~console_port
-            ~extras xenguest_path domid uuid fd
-        in
-        process_header (return (Some res))
-      | Qemu_trad, len ->
-        debug "Read Qemu_trad header (length=%Ld)" len;
-        consume_qemu_record fd len domid uuid;
-        process_header res
-      | Demu, len ->
-        debug "Read Demu header (length=%Ld)" len;
-        process_header res
-      | End_of_image, _ ->
-        debug "Read suspend image footer";
-        res
-      | _ -> failwith "Unsupported"
-    in
-    begin match process_header (return None) with
-      | `Ok (Some (store_mfn, console_mfn)) -> store_mfn, console_mfn
-      | `Ok None -> failwith "Well formed, but useless stream"
-      | `Error e -> raise e
-    end
+        begin match process_header (return None) with
+          | `Ok (Some (store_mfn, console_mfn)) -> store_mfn, console_mfn
+          | `Ok None -> failwith "Well formed, but useless stream"
+          | `Error e -> raise e
+        end
+      )
   | `Error e ->
     error "VM = %s; domid = %d; Error reading save signature: %s" (Uuid.to_string uuid) domid e;
     raise Suspend_image_failure
