@@ -1555,6 +1555,12 @@ module VM = struct
 					)
 			) Oldest task vm
 
+	let inject_igmp_query domid vifs =
+		let vif_names = List.map (fun vif -> Printf.sprintf "vif%d.%d" domid vif.Vif.position) vifs in
+		debug "Inject IGMP query to %s" (String.concat " " vif_names);
+		(* Call script to inject IGMP query asynchronously *)
+		Forkhelpers.execute_command_get_output !Xc_resources.igmp_query_injector_script ("--detach" :: "vif" :: "--wait-vif-connected":: (string_of_int !Xenopsd.vif_ready_for_igmp_query_timeout) :: vif_names)
+
 	let restore task progress_callback vm vbds vifs data extras =
 		on_domain
 			(fun xc xs task vm di ->
@@ -1597,7 +1603,11 @@ module VM = struct
 							let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
 							and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
 							Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
-						)
+						);
+						try
+							inject_igmp_query domid vifs |> ignore
+						with e ->
+							error "VM %s: inject IGMP query failed: %s" vm.Vm.id (Printexc.to_string e)
 					) (fun () -> clean_memory_reservation task di.Xenctrl.domid)
 			) Newest task vm
 
