@@ -105,6 +105,9 @@ let send (_, out, _, _, _) txt = output_string out txt; flush out
 let send_done cnx =
   send cnx "done\n"
 
+let send_restore cnx arg =
+  send cnx (Printf.sprintf "restore:%s\n" arg)
+
 (** Keep this in sync with xenguest_main *)
 type message =
   | Stdout of string  (* captured stdout from libxenguest *)
