@@ -47,6 +47,12 @@ let resources = [
     essential = false;
     path = Network_utils.fcoedriver;
     perms = [ Unix.X_OK ];
+  };
+  { Xcp_service.name = "inject-igmp-query-script";
+    description = "used to inject an IGMP query message for a bridge";
+    essential = false;
+    path = Network_utils.inject_igmp_query_script;
+    perms = [ Unix.X_OK ];
   }
 ]
 
@@ -55,6 +61,7 @@ let options = [
 	"mac-table-size", Arg.Set_int Network_utils.mac_table_size, (fun () -> string_of_int !Network_utils.mac_table_size), "Default value for the mac-table-size openvswitch parameter (see ovs-vswitchd.conf.db.5)";
 	"enic-workaround-until-version", Arg.Set_string Network_server.enic_workaround_until_version, (fun () -> !Network_server.enic_workaround_until_version), "The version till enic driver workaround will be applied or the version set to an empty string for not applying the workaround.";
 	"pvs-proxy-socket", Arg.Set_string Network_server.PVS_proxy.path, (fun () -> !Network_server.PVS_proxy.path), "Path to the Unix domain socket for the PVS-proxy daemon";
+	"igmp-query-maxresp-time", Arg.Set_string Network_utils.igmp_query_maxresp_time, (fun () -> !Network_utils.igmp_query_maxresp_time), "Maximum Response Time in IGMP Query message to send";
 ]
 
 let start server =

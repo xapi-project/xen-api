@@ -35,7 +35,9 @@ let modprobe = "/sbin/modprobe"
 let ethtool = ref "/sbin/ethtool"
 let bonding_dir = "/proc/net/bonding/"
 let fcoedriver = ref "/opt/xensource/libexec/fcoe_driver"
+let inject_igmp_query_script = ref "/usr/libexec/xenopsd/igmp_query_injector.py"
 let mac_table_size = ref 10000
+let igmp_query_maxresp_time = ref "5000"
 
 let call_script ?(log_successful_output=false) ?(timeout=Some 60.0) script args =
 	try
@@ -866,6 +868,18 @@ module Ovs = struct
 				ignore (call_script ~log_successful_output:true ovs_vlan_bug_workaround [interface; setting]);
 			with _ -> ());
 		) phy_interfaces
+
+	let get_mcast_snooping_enable ~name =
+		try
+			vsctl ~log:true ["--"; "get"; "bridge"; name; "mcast_snooping_enable"]
+			|> String.rtrim
+			|> bool_of_string
+		with _ -> false
+
+	let inject_igmp_query ~name =
+		try
+			ignore (call_script ~log_successful_output:true !inject_igmp_query_script ["--detach"; "--max-resp-time"; !igmp_query_maxresp_time; "bridge"; name])
+		with _ -> ()    
 
 	let create_bridge ?mac ?external_id ?disable_in_band ?igmp_snooping ~fail_mode vlan vlan_bug_workaround name =
 		let vlan_arg = match vlan with

@@ -595,8 +595,12 @@ module Bridge = struct
 							(debug "%s isn't a valid setting for other_config:vswitch-disable-in-band" dib;
 							None)
 				in
+				let old_igmp_snooping = Ovs.get_mcast_snooping_enable name in
 				ignore (Ovs.create_bridge ?mac ~fail_mode ?external_id ?disable_in_band ?igmp_snooping
-					vlan vlan_bug_workaround name)
+					vlan vlan_bug_workaround name);
+				if igmp_snooping = Some true && not old_igmp_snooping then
+					Ovs.inject_igmp_query name
+                
 			| Bridge ->
 				ignore (Brctl.create_bridge name);
 				Brctl.set_forwarding_delay name 0;
