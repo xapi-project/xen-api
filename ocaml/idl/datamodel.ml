@@ -236,9 +236,6 @@ let get_product_releases in_product_since =
     | x::xs -> go_through_release_order xs
   in go_through_release_order release_order
 
-(* WARN: get rid of this when the release time comes *)
-let vgpu_migration_stub_release = falcon_release
-
 let inverness_release =
   { internal = get_product_releases rel_inverness
   ; opensource = get_oss_releases None
@@ -1690,7 +1687,7 @@ let rrd_cf_type = Enum ("rrd_cf_type",
 let vm_get_boot_record = call
     ~name:"get_boot_record"
     ~in_oss_since:None
-    ~lifecycle:[Published, rel_rio, ""; Deprecated, rel_vgpu_migration_tech_preview, "Use the current VM record/fields instead"]
+    ~lifecycle:[Published, rel_rio, ""; Deprecated, rel_inverness, "Use the current VM record/fields instead"]
     ~doc:"Returns a record describing the VM's dynamic state, initialised when the VM boots and updated to reflect runtime configuration changes e.g. CPU hotplug"
     ~result:(Record _vm, "A record describing the VM")
     ~params:[Ref _vm, "self", "The VM whose boot-time state to return"]
@@ -2523,7 +2520,7 @@ let vm_migrate_send = call
        {param_type=Map (Ref _vdi, Ref _sr); param_name="vdi_map"; param_doc="Map of source VDI to destination SR"; param_release=tampa_release; param_default=None};
        {param_type=Map (Ref _vif, Ref _network); param_name="vif_map"; param_doc="Map of source VIF to destination network"; param_release=tampa_release; param_default=None};
        {param_type=Map (String, String); param_name="options"; param_doc="Other parameters"; param_release=tampa_release; param_default=None};
-       {param_type=Map (Ref _vgpu, Ref _gpu_group); param_name="vgpu_map"; param_doc="Map of source vGPU to destination GPU group"; param_release=vgpu_migration_stub_release; param_default=Some (VMap [])}
+       {param_type=Map (Ref _vgpu, Ref _gpu_group); param_name="vgpu_map"; param_doc="Map of source vGPU to destination GPU group"; param_release=inverness_release; param_default=Some (VMap [])}
       ]
     ~result:(Ref _vm, "The reference of the newly created VM in the destination pool")
     ~errs:[Api_errors.vm_bad_power_state; Api_errors.license_restriction]
@@ -2541,7 +2538,7 @@ let vm_assert_can_migrate = call
        {param_type=Map (Ref _vdi, Ref _sr); param_name="vdi_map"; param_doc="Map of source VDI to destination SR"; param_release=tampa_release; param_default=None};
        {param_type=Map (Ref _vif, Ref _network); param_name="vif_map"; param_doc="Map of source VIF to destination network"; param_release=tampa_release; param_default=None};
        {param_type=Map (String, String); param_name="options"; param_doc="Other parameters"; param_release=tampa_release; param_default=None};
-       {param_type=Map (Ref _vgpu, Ref _gpu_group); param_name="vgpu_map"; param_doc="Map of source vGPU to destination GPU group"; param_release=vgpu_migration_stub_release; param_default=Some (VMap [])}
+       {param_type=Map (Ref _vgpu, Ref _gpu_group); param_name="vgpu_map"; param_doc="Map of source vGPU to destination GPU group"; param_release=inverness_release; param_default=Some (VMap [])}
       ]
     ~allowed_roles:_R_VM_POWER_ADMIN
     ~errs:[Api_errors.license_restriction]
@@ -5029,7 +5026,7 @@ let host_mxgpu_vf_setup = call
 
 let host_allocate_resources_for_vm = call
     ~name:"allocate_resources_for_vm"
-    ~lifecycle:[Published, rel_vgpu_migration_tech_preview, ""]
+    ~lifecycle:[Published, rel_inverness, ""]
     ~doc:"Reserves the resources for a VM by setting the 'scheduled_to_be_resident_on' fields"
     ~params:[
       Ref _host, "self", "The host";
@@ -9418,7 +9415,7 @@ let pgpu =
       field ~qualifier:DynamicRO ~ty:(Map (Ref _vgpu_type, Int)) ~lifecycle:[Published, rel_vgpu_productisation, ""] ~default_value:(Some (VMap [])) "supported_VGPU_max_capacities" "A map relating each VGPU type supported on this GPU to the maximum number of VGPUs of that type which can run simultaneously on this GPU";
       field ~qualifier:DynamicRO ~ty:(pgpu_dom0_access) ~lifecycle:[Published, rel_cream, ""] ~default_value:(Some (VEnum "enabled")) "dom0_access" "The accessibility of this device from dom0";
       field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_cream, ""] ~default_value:(Some (VBool false)) "is_system_display_device" "Is this device the system display device";
-      field ~qualifier:DynamicRO ~ty:(Map (String,String)) ~lifecycle:[Prototyped, rel_vgpu_migration_tech_preview, ""] ~default_value:(Some (VMap [])) "compatibility_metadata" "PGPU metadata to determine whether a VGPU can migrate between two PGPUs";
+      field ~qualifier:DynamicRO ~ty:(Map (String,String)) ~lifecycle:[Published, rel_inverness, ""] ~default_value:(Some (VMap [])) "compatibility_metadata" "PGPU metadata to determine whether a VGPU can migrate between two PGPUs";
     ]
     ()
 
