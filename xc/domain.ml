@@ -828,6 +828,10 @@ let restore_libxc_record cnx domid uuid =
     error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid line;
     raise Domain_restore_failed
 
+let restore_vgpu_record cnx =
+  XenguestHelper.send_restore cnx "vgpu";
+  XenguestHelper.receive_success cnx |> ignore
+
 let consume_qemu_record fd limit domid uuid =
   if limit > 1_048_576L then begin (* 1MB *)
     error "VM = %s; domid = %d; QEMU record length in header too large (%Ld bytes)"
@@ -920,8 +924,9 @@ let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~store_port ~sto
             debug "Read Qemu_trad header (length=%Ld)" len;
             consume_qemu_record fd len domid uuid;
             process_header res
-          | Demu, len ->
-            debug "Read Demu header (length=%Ld)" len;
+          | Demu, _ ->
+            debug "Read Demu header";
+            restore_vgpu_record cnx;
             process_header res
           | End_of_image, _ ->
             debug "Read suspend image footer";
