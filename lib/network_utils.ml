@@ -38,6 +38,7 @@ let fcoedriver = ref "/opt/xensource/libexec/fcoe_driver"
 let inject_igmp_query_script = ref "/usr/libexec/xenopsd/igmp_query_injector.py"
 let mac_table_size = ref 10000
 let igmp_query_maxresp_time = ref "5000"
+let enable_ipv6_mcast_snooping = ref false
 
 let call_script ?(log_successful_output=false) ?(timeout=Some 60.0) script args =
 	try
@@ -935,8 +936,12 @@ module Ovs = struct
 			| Some x, None -> ["--"; "set"; "bridge"; name; "mcast_snooping_enable=" ^ (string_of_bool x)]
 			| _ -> []
 		in
+		let set_ipv6_igmp_snooping = match igmp_snooping, vlan with
+			| Some _, None -> ["--"; "set"; "bridge"; name; "other_config:enable-ipv6-mcast-snooping=" ^ (string_of_bool !enable_ipv6_mcast_snooping)]
+			| _ -> []
+		in
 		vsctl ~log:true (del_old_arg @ ["--"; "--may-exist"; "add-br"; name] @
-			vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg @ set_mac_table_size @ set_igmp_snooping)
+			vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg @ set_mac_table_size @ set_igmp_snooping @ set_ipv6_igmp_snooping)
 
 	let destroy_bridge name =
 		vsctl ~log:true ["--"; "--if-exists"; "del-br"; name]
