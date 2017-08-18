@@ -50,6 +50,7 @@ type field  = { name: string;
                 add_to_map: (string -> string -> unit) option;
                 remove_from_map: (string -> unit) option;
                 set_in_map: (string -> string -> unit) option; (* Change the value of an existing map field, without using add/remove *)
+                set_map: ((string * string) list -> unit) option; (* Set the (key, value) pairs to an existing map field *)
                 expensive: bool; (* Simply means an extra API call is required to get it *)
                 hidden: bool; (* Meaning we don't show it unless it's *explicitly* asked for (i.e. hidden from *-list and *-param-list *)
                 deprecated: bool;
@@ -62,15 +63,8 @@ type ('a,'b) record = { getref : unit -> 'a Ref.t;
                         setrefrec : 'a Ref.t * 'b -> unit;
                         fields : field list; }
 
-let make_field ?add_to_set ?remove_from_set ?add_to_map ?remove_from_map ?set_in_map ?set ?get_set ?get_map ?(expensive=false) ?(hidden=false) ?(deprecated=false) ?(case_insensitive=false) ~name ~get () =
-  { name = name; get = get; set = set;
-    add_to_set = add_to_set; remove_from_set = remove_from_set;
-    add_to_map = add_to_map; remove_from_map = remove_from_map;
-    set_in_map = set_in_map;
-    get_set = get_set; get_map = get_map; expensive = expensive;
-    hidden = hidden; case_insensitive = case_insensitive;
-    deprecated = deprecated
-  }
+let make_field ?add_to_set ?remove_from_set ?add_to_map ?remove_from_map ?set_in_map ?set_map ?set ?get_set ?get_map ?(expensive=false) ?(hidden=false) ?(deprecated=false) ?(case_insensitive=false) ~name ~get () =
+  { name; get; set; add_to_set; remove_from_set; add_to_map; remove_from_map; set_in_map; set_map; get_set; get_map; expensive; hidden; case_insensitive; deprecated }
 
 let makeexpensivefield field =
   { field with get=(fun () -> "<expensive field>") }
