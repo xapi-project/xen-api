@@ -997,6 +997,12 @@ let vm_record rpc session_id vm =
         ~get:(fun () -> string_of_bool (x ()).API.vM_requires_reboot) ();
       make_field ~name:"reference-label"
         ~get:(fun () -> (x ()).API.vM_reference_label) ();
+      make_field ~name:"bios-strings"
+        ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_bios_strings)
+        ~get_map:(fun () -> (x ()).API.vM_bios_strings)
+        ~set_map:(fun x ->
+          let bios_strings = List.map (fun (k, v) -> Record_util.string_to_vm_bios_key k, v) x in
+          Client.VM.set_bios_strings rpc session_id vm bios_strings)();
     ]}
 
 let host_crashdump_record rpc session_id host =
