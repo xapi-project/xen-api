@@ -100,7 +100,7 @@ def parse_control_package(session, yum_url):
 def parse_precheck_failure(xmldoc):
     errors = {
         UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION: (FOUND, REQUIRED),
-        'LICENSE_RESTRICTION': ('feature', )
+        'LICENCE_RESTRICTION': ('feature', )
     }
 
     error = xmldoc.getElementsByTagName(ERROR)[0]
