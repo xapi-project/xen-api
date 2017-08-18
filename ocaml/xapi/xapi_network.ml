@@ -86,7 +86,7 @@ let check_himn ~__context =
     if List.mem rc.API.network_bridge bridges then
       set_himn_ip ~__context rc.API.network_bridge rc.API.network_other_config
 
-let attach_internal ?(management_interface=false) ~__context ~self () =
+let attach_internal ?(management_interface=false) ?(force_bringup=false) ~__context ~self () =
   let host = Helpers.get_localhost ~__context in
   let net = Db.Network.get_record ~__context ~self in
   let local_pifs = Xapi_network_attach_helpers.get_local_pifs ~__context ~network:self ~host in
@@ -116,7 +116,7 @@ let attach_internal ?(management_interface=false) ~__context ~self () =
     List.iter (fun pif ->
         let uuid = Db.PIF.get_uuid ~__context ~self:pif in
         if Db.PIF.get_managed ~__context ~self:pif then begin
-          if Db.PIF.get_currently_attached ~__context ~self:pif = false || management_interface then begin
+          if force_bringup || Db.PIF.get_currently_attached ~__context ~self:pif = false || management_interface then begin
             Xapi_network_attach_helpers.assert_no_slave ~__context pif;
             debug "Trying to attach PIF: %s" uuid;
             Nm.bring_pif_up ~__context ~management_interface pif
@@ -142,7 +142,7 @@ let detach ~__context ~bridge_name ~managed =
     Net.Bridge.destroy dbg ~name:bridge_name ()
   end
 
-let attach ~__context ~network ~host = attach_internal ~__context ~self:network ()
+let attach ~__context ~network ~host = attach_internal ~force_bringup:true ~__context ~self:network ()
 
 let active_vifs_to_networks : (API.ref_VIF, API.ref_network) Hashtbl.t = Hashtbl.create 10
 let active_vifs_to_networks_m = Mutex.create ()

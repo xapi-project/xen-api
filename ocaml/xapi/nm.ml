@@ -263,11 +263,12 @@ let rec create_bridges ~__context pif_rc net_rc =
   let mtu = determine_mtu pif_rc net_rc in
   let other_config = determine_other_config ~__context pif_rc net_rc in
   let persistent = is_dom0_interface pif_rc in
+  let igmp_snooping = Some (Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context)) in
   match get_pif_type pif_rc with
   | `tunnel_pif _ ->
     [],
     [net_rc.API.network_bridge, {default_bridge with bridge_mac=(Some pif_rc.API.pIF_MAC);
-                                                     other_config; persistent_b=persistent}],
+                                                     igmp_snooping; other_config; persistent_b=persistent}],
     []
   | `vlan_pif vlan ->
     let original_pif_rc = pif_rc in
@@ -299,7 +300,6 @@ let rec create_bridges ~__context pif_rc net_rc =
     let (ethtool_settings, ethtool_offload) =
       determine_ethtool_settings pif_rc.API.pIF_properties pif_rc.API.pIF_other_config in
     let ports = [pif_rc.API.pIF_device, {default_port with interfaces=[pif_rc.API.pIF_device]}] in
-    let igmp_snooping = Some (Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context)) in
     cleanup,
     [net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some pif_rc.API.pIF_MAC);
                                                      igmp_snooping; other_config; persistent_b=persistent}],
