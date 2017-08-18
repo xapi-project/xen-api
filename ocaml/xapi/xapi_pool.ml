@@ -2073,8 +2073,37 @@ let disable_ssl_legacy = set_ssl_legacy_on_each_host ~value:false
 let enable_ssl_legacy = set_ssl_legacy_on_each_host ~value:true
 
 let set_igmp_snooping_enabled ~__context ~self ~value = 
-  Db.Pool.set_igmp_snooping_enabled ~__context ~self ~value
-  (* To be filled in later. *)
+  if value then
+    Pool_features.assert_enabled ~__context ~f:Features.IGMP_snooping;
+
+  Helpers.assert_using_vswitch ~__context;
+
+  Db.Pool.set_igmp_snooping_enabled ~__context ~self ~value;
+
+  let hosts = Db.Host.get_all ~__context in
+  let networks = Db.Network.get_all ~__context in
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+    let failure = List.fold_left (fun fail host ->
+      List.fold_left (fun fail' network ->
+        let local_pifs = Xapi_network_attach_helpers.get_local_pifs ~__context ~network ~host in
+        try
+          match local_pifs with
+          | pif :: _ -> (* There is at most one local PIF, by construction *)
+            let pif_record = Db.PIF.get_record ~__context ~self:pif in
+            if (pif_record.API.pIF_VLAN = -1L) && (pif_record.API.pIF_bond_slave_of = Ref.null) then
+              Client.Network.attach ~rpc ~session_id ~network ~host;
+              fail'
+          | [] -> (* Internal network *)
+            fail'
+        with _ ->
+          error "set_igmp_snooping_enabled:Network.attach failed on host uuid=%s network uuid=%s" (Db.Host.get_uuid ~__context ~self:host) (Db.Network.get_uuid ~__context ~self:network);
+          true
+      ) fail networks
+    ) false hosts
+    in
+    if failure then 
+      raise (Api_errors.Server_error(Api_errors.could_not_update_igmp_snooping_everywhere, []))
+  )
 
 let has_extension ~__context ~self ~name =
   let hosts = Db.Host.get_all ~__context in

@@ -1265,6 +1265,8 @@ let _ =
     ~doc:"The requested update could not be found. Please upload the update again. This can occur when you run xe update-pool-clean before xe update-apply. " ();
   error Api_errors.update_pool_apply_failed [ "hosts" ]
     ~doc:"The update cannot be applied for the following host(s)." ();
+  error Api_errors.could_not_update_igmp_snooping_everywhere [ ]
+    ~doc:"The IGMP Snooping setting cannot be applied for some of the host, network(s)." ();
   error Api_errors.update_apply_failed [ "output" ]
     ~doc:"The update failed to apply. Please see attached output." ();
   error Api_errors.update_already_applied [ "update" ]
