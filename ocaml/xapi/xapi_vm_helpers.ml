@@ -933,6 +933,22 @@ let get_SRs_required_for_recovery ~__context ~self ~session_to =
 
 
 (* BIOS strings *)
+let assert_valid_bios_strings ~__context ~bios_strings =
+  (* Validate size of value provided is within bios_string_limit_size and not empty *)
+  (* Validate value chars are printable ASCII characters *)
+  bios_strings |> List.iter (fun (k, v) ->
+    match String.length v with
+    | 0 -> raise (Api_errors.Server_error(Api_errors.invalid_value, [k; "Value provided is empty"]))
+    | len when len > Xapi_globs.bios_string_limit_size ->
+      let err = Printf.sprintf "%s has length more than %d characters" v Xapi_globs.bios_string_limit_size in
+      raise (Api_errors.Server_error(Api_errors.invalid_value, [k; err]))
+    | _ ->
+      String.iter
+        (fun c ->
+          if c < (Char.chr 32) || c >= (Char.chr 127) then
+            raise (Api_errors.Server_error(Api_errors.invalid_value, [k; v ^ " has non-printable ASCII characters"]))
+        ) v
+  )
 
 let copy_bios_strings ~__context ~vm ~host =
   (* only allow to fill in BIOS strings if they are not yet set *)
