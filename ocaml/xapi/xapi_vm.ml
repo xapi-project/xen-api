@@ -991,7 +991,17 @@ let s3_suspend ~__context ~vm = Xapi_xenops.s3suspend ~__context ~self:vm
 let s3_resume ~__context ~vm = Xapi_xenops.s3resume ~__context ~self:vm
 
 let set_bios_strings ~__context ~self ~value =
-  ()
+  (* Allowed only if the VM has no BIOS strings *)
+  if (Db.VM.get_bios_strings ~__context ~self) <> [] then
+    raise (Api_errors.Server_error(Api_errors.vm_bios_strings_already_set, []));
+  let bios_strings = List.map (fun (k, v) -> (Record_util.vm_bios_key_to_string k, v)) value in
+  Xapi_vm_helpers.assert_valid_bios_strings ~__context ~bios_strings;
+  let custom_strings =
+    List.map (fun (k, v) ->
+      if List.mem_assoc k bios_strings then (k, (List.assoc k bios_strings)) else (k, v)
+    ) Xapi_globs.generic_bios_strings
+  in
+  Db.VM.set_bios_strings ~__context ~self ~value:custom_strings
 
 let copy_bios_strings = Xapi_vm_helpers.copy_bios_strings
 
