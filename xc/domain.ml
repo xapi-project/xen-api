@@ -803,9 +803,20 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
       ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
       ~vcpus:info.vcpus ~extras xenguest_path domid force
 
-let with_emu_manager_restore (task: Xenops_task.task_handle) ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid fd f =
+let with_emu_manager_restore (task: Xenops_task.task_handle) ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid main_fd vgpu_fd f =
   let fd_uuid = Uuid.(to_string (create `V4)) in
-  let fds = [ fd_uuid, fd ] in
+  let vgpu_args, vgpu_cmdline =
+    match vgpu_fd with
+    | Some fd when fd = main_fd ->
+      [fd_uuid, main_fd],
+      ["-dm"; "vgpu:" ^ fd_uuid]
+    | Some fd ->
+      let vgpu_fd_uuid = Uuid.(to_string (create `V4)) in
+      [vgpu_fd_uuid, fd],
+      ["-dm"; "vgpu:" ^ vgpu_fd_uuid]
+    | None -> [], []
+  in
+  let fds = [ fd_uuid, main_fd ] @ vgpu_args in
   let args = [
     "-mode"; if hvm then "hvm_restore" else "restore";
     "-domid"; string_of_int domid;
@@ -813,7 +824,7 @@ let with_emu_manager_restore (task: Xenops_task.task_handle) ~hvm ~store_port ~c
     "-store_port"; string_of_int store_port;
     "-console_port"; string_of_int console_port;
     "-fork"; "true";
-  ] @ extras
+  ] @ extras @ vgpu_cmdline
   in
   Emu_manager.with_connection task xenguest_path domid args fds f
 
@@ -829,8 +840,8 @@ let restore_libxc_record cnx domid uuid =
     raise Domain_restore_failed
 
 let restore_vgpu_record cnx =
-  XenguestHelper.send_restore cnx "vgpu";
-  XenguestHelper.receive_success cnx |> ignore
+  Emu_manager.send_restore cnx "vgpu";
+  Emu_manager.receive_success cnx |> ignore
 
 let consume_qemu_record fd limit domid uuid =
   if limit > 1_048_576L then begin (* 1MB *)
@@ -875,7 +886,7 @@ let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~store_port ~sto
     let (store_mfn, console_mfn) =
       begin match
           with_conversion_script task "Emu_manager" hvm fd (fun pipe_r ->
-              with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid fd (fun cnx ->
+              with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid fd vgpu_fd (fun cnx ->
                   restore_libxc_record cnx domid uuid
                 )
             )
@@ -904,7 +915,7 @@ let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~store_port ~sto
     store_mfn, console_mfn
   | `Ok Structured ->
     let open Suspend_image.M in
-    with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid fd (fun cnx ->
+    with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid fd vgpu_fd (fun cnx ->
         let rec process_header res =
           debug "Reading next header...";
           read_header fd >>= function
