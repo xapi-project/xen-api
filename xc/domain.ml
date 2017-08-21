@@ -1238,12 +1238,6 @@ let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path vm_str do
     debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid
   | `Error e -> raise e
 
-let suspend_vgpu (task: Xenops_task.task_handle) ~xc ~xs domid fd =
-  let uuid = get_uuid ~xc domid in
-  debug "VM = %s; domid = %d; suspend_vgpu_setup" (Uuid.to_string uuid) domid;
-  (* We don't need to do anything here anymore; suspend_emu_manager handles this *)
-  debug "VM = %s; domid = %d; suspend_vgpu_setup complete" (Uuid.to_string uuid) domid
-
 let send_s3resume ~xc domid =
   let uuid = get_uuid ~xc domid in
   debug "VM = %s; domid = %d; send_s3resume" (Uuid.to_string uuid) domid;

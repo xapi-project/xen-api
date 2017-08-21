@@ -84,9 +84,6 @@ module type S = sig
     val save: Xenops_task.task_handle -> progress_cb -> Vm.t -> flag list -> data -> data option -> unit
     val restore: Xenops_task.task_handle -> progress_cb -> Vm.t -> Vbd.t list -> Vif.t list -> data -> string list -> unit
 
-    val save_vgpu: Xenops_task.task_handle -> Vm.t -> Vgpu.t -> data -> unit
-    val restore_vgpu: Xenops_task.task_handle -> Vm.t -> Vgpu.t -> data -> unit
-
     val s3suspend: Xenops_task.task_handle -> Vm.t -> unit
     val s3resume: Xenops_task.task_handle -> Vm.t -> unit
 
@@ -141,6 +138,7 @@ module type S = sig
     val get_device_action_request: Vm.id -> Vif.t -> device_action_request option
   end
   module VGPU : sig
+    val start: Xenops_task.task_handle -> Vm.id -> Vgpu.t -> bool -> unit
     val get_state: Vm.id -> Vgpu.t -> Vgpu.state
   end
   module VUSB :sig

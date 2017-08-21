@@ -1618,35 +1618,6 @@ module VM = struct
            ) (fun () -> clean_memory_reservation task di.Xenctrl.domid)
       ) Newest task vm
 
-  let save_vgpu task vm vgpu data =
-    on_domain
-      (fun xc xs (task:Xenops_task.task_handle) vm di ->
-         let domid = di.Xenctrl.domid in
-         with_data ~xc ~xs task data true
-           (fun fd ->
-              Domain.suspend_vgpu task ~xc ~xs domid fd
-           )
-      ) Oldest task vm
-
-  let restore_vgpu task vm vgpu data =
-    on_domain
-      (fun xc xs (task:Xenops_task.task_handle) vm di ->
-         let domid = di.Xenctrl.domid in
-         let k = vm.Vm.id in
-         let vmextra = DB.read_exn k in
-         let vcpus = match vmextra.VmExtra.persistent with
-           | { VmExtra.build_info = None } ->
-             error "VM = %s; No stored build_info: cannot safely restore" vm.Vm.id;
-             raise (Does_not_exist("build_info", vm.Vm.id))
-           | { VmExtra.build_info = Some build_info } ->
-             build_info.Domain.vcpus
-         in
-         with_data ~xc ~xs task data true
-           (fun fd ->
-              Domain.restore_vgpu task ~xc ~xs domid fd vgpu vcpus
-           )
-      ) Newest task vm
-
   let s3suspend =
     (* XXX: TODO: monitor the guest's response; track the s3 state *)
     on_domain
@@ -1972,6 +1943,20 @@ module VGPU = struct
   open Vgpu
 
   let id_of vgpu = snd vgpu.id
+
+  let start task vm vgpu saved_state =
+    on_frontend
+      (fun _ xs frontend_domid _ ->
+         let vmextra = DB.read_exn vm in
+         let vcpus = match vmextra.VmExtra.persistent with
+           | { VmExtra.build_info = None } ->
+             error "VM = %s; No stored build_info: cannot safely restore" vm;
+             raise (Does_not_exist("build_info", vm))
+           | { VmExtra.build_info = Some build_info } ->
+             build_info.Domain.vcpus
+         in
+         Device.Dm.restore_vgpu task ~xs frontend_domid vgpu vcpus
+      ) Newest vm
 
   let get_state vm vgpu =
     on_frontend

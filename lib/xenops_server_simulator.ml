@@ -426,6 +426,7 @@ module PCI = struct
 end
 
 module VGPU = struct
+  include Xenops_server_skeleton.VGPU
   let get_state vm vgpu = Mutex.execute m (vgpu_state vm vgpu)
 end
 

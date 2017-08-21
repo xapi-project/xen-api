@@ -165,9 +165,6 @@ val suspend: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xe
   -> qemu_domid: int
   -> (unit -> unit) -> unit
 
-val suspend_vgpu: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh ->
-  domid -> Unix.file_descr -> unit
-
 (** send a s3resume event to a domain *)
 val send_s3resume: xc: Xenctrl.handle -> domid -> unit
 
