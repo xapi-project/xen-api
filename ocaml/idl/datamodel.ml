@@ -6600,7 +6600,7 @@ let vdi_export_changed_blocks = call
       ; Api_errors.vdi_in_use
       ]
     ~result:(String, "A base64 string-encoding of the bitmap showing which blocks differ in the two VDIs.")
-    ~doc:"Reports which blocks differ in the two VDIs. This operation is not allowed when vdi_to is attached to a VM."
+    ~doc:"Compare two VDIs in 64k block increments and report which blocks differ. This operation is not allowed when vdi_to is attached to a VM."
     ~allowed_roles:_R_VM_OP
     ()
 
@@ -6611,7 +6611,7 @@ let vdi_get_nbd_info = call
     ~params:[Ref _vdi, "self", "The VDI to access via NBD."]
     ~errs: [Api_errors.vdi_incompatible_type]
     ~result:(Set String, "The list of URIs.")
-    ~doc:"Get a list of URIs specifying how to access this VDI via the NBD server of XenServer. A URI will be returned for each PIF of each host that is connected to the VDI's SR. An empty list is returned in case no network has a PIF on a host with access to the relevant SR. To access the given VDI, any of the returned URIs can be passed to the NBD server running at the IP address and port specified by that URI as the export name."
+    ~doc:"Get a list of URIs specifying how to access this VDI via the NBD server of XenServer. A URI will be returned for each PIF of each host that is connected to the VDI's SR. An empty list is returned in case no network has a PIF on a host with access to the relevant SR. To access the given VDI, any of the returned URIs can be passed as the export name to the nbd-server running at the IP address and port specified by that URI."
     ~allowed_roles:_R_VM_ADMIN
     ()
 
