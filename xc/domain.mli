@@ -135,21 +135,12 @@ val build: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xens
 (** resume a domain either cooperative or not *)
 val resume: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> cooperative: bool -> qemu_domid:int -> domid -> unit
 
-(** restore a PV domain into a fresh domain created with 'make' *)
-val pv_restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> no_incr_generationid:bool -> static_max_kib:Int64.t
-  -> target_kib:Int64.t -> vcpus:int -> extras:string list -> string -> domid -> Unix.file_descr
-  -> unit
-
-(** restore an HVM domain from the file descriptor into a fresh domain created
- *  with 'make' *)
-val hvm_restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> no_incr_generationid:bool -> static_max_kib:Int64.t
-  -> target_kib:Int64.t -> shadow_multiplier:float
-  -> vcpus:int -> timeoffset:string -> extras:string list
-  -> string -> domid -> Unix.file_descr
-  -> unit
-
 (** Restore a domain using the info provided *)
-val restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> no_incr_generationid:bool -> timeoffset:string -> extras:string list -> build_info -> string -> domid -> Unix.file_descr -> unit
+val restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh
+  -> store_domid:int -> console_domid:int -> no_incr_generationid:bool
+  -> timeoffset:string -> extras:string list -> build_info -> string -> domid
+  -> Unix.file_descr -> Unix.file_descr option
+  -> unit
 
 val restore_vgpu: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh ->
   domid -> Unix.file_descr -> Xenops_interface.Vgpu.t -> int -> unit

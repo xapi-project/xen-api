@@ -1348,7 +1348,7 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
       | pcis  ->
         let sbdfs = List.map (fun p -> Pci.string_of_address p.Pci.address) pcis in
         [ "-pci_passthrough"; String.concat "," sbdfs] in
-    B.VM.restore t progress_callback (VM_DB.read_exn id) vbds vifs data extras
+    B.VM.restore t progress_callback (VM_DB.read_exn id) vbds vifs data vgpu_data extras
   | VM_delay (id, t) ->
     debug "VM %s: waiting for %.2f before next VM action" id t;
     Thread.delay t
