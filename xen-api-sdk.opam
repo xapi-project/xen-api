@@ -1,16 +1,15 @@
 opam-version: "1.2"
+name: "xen-api-sdk"
 maintainer: "xen-api@lists.xen.org"
 authors: [ "xen-api@lists.xen.org" ]
+license: "BSD 2-Clause"
 homepage: "https://github.com/xapi-project/xen-api-sdk"
 bug-reports: "https://github.com/xapi-project/xen-api-sdk/issues"
 dev-repo: "https://github.com/xapi-project/xen-api-sdk.git"
 tags: [ "org:xapi-project" ]
-build: [
-  ["oasis" "setup"]
-  ["ocaml" "setup.ml" "-configure"]
-  ["ocaml" "setup.ml" "-build"]
-]
+build: [[ "jbuilder" "build" "-p" name ]]
 depends: [
+  "jbuilder" {build}
   "xapi"
   "mustache"
 ]
