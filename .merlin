@@ -1,6 +1,0 @@
-S lib
-S test
-B dist/build/lib-xcp-rrd
-B dist/build/dummy
-B dist/build/rewrite
-PKG rpclib uuidm unix bigarray
