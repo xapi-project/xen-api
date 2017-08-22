@@ -840,9 +840,16 @@ let restore_libxc_record cnx domid uuid =
     error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid res;
     raise Domain_restore_failed
 
-let restore_vgpu_record cnx =
-  Emu_manager.(send_restore cnx Vgpu);
-  Emu_manager.receive_success cnx |> ignore
+let restore_vgpu_record cnx domid uuid =
+  let open Emu_manager in
+  send_restore cnx Vgpu;
+  let res = receive_success cnx in
+  match parse_result res with
+  | Vgpu_result ->
+    debug "VM = %s; domid = %d; restored vGPU state" (Uuid.to_string uuid) domid;
+  | _                          ->
+    error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid res;
+    raise Suspend_image_failure
 
 let consume_qemu_record fd limit domid uuid =
   if limit > 1_048_576L then begin (* 1MB *)
@@ -875,19 +882,19 @@ let consume_qemu_record fd limit domid uuid =
 
 let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~store_port ~store_domid
     ~console_port ~console_domid ~no_incr_generationid ~vcpus ~extras
-    xenguest_path domid fd vgpu_fd =
+    xenguest_path domid main_fd vgpu_fd =
 
   let module DD = Debug.Make(struct let name = "mig64" end) in
   let open DD in
   let uuid = get_uuid ~xc domid in
   let open Suspend_image in
-  match read_save_signature fd with
+  match read_save_signature main_fd with
   | `Ok Legacy ->
     debug "Detected legacy suspend image! Piping through conversion tool.";
     let (store_mfn, console_mfn) =
       begin match
-          with_conversion_script task "Emu_manager" hvm fd (fun pipe_r ->
-              with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid fd vgpu_fd (fun cnx ->
+          with_conversion_script task "Emu_manager" hvm main_fd (fun pipe_r ->
+              with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid main_fd vgpu_fd (fun cnx ->
                   restore_libxc_record cnx domid uuid
                 )
             )
@@ -903,7 +910,7 @@ let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~store_port ~sto
     if hvm
     then begin
       debug "Reading legacy (Xenops-level) QEMU record signature";
-      let length = begin match (read_legacy_qemu_header fd) with
+      let length = begin match (read_legacy_qemu_header main_fd) with
         | `Ok length -> length
         | `Error e ->
           error "VM = %s; domid = %d; Error reading QEMU signature: %s"
@@ -911,14 +918,14 @@ let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~store_port ~sto
           raise Suspend_image_failure
       end in
       debug "Consuming QEMU record into file";
-      consume_qemu_record fd length domid uuid
+      consume_qemu_record main_fd length domid uuid
     end;
     store_mfn, console_mfn
   | `Ok Structured ->
     let open Suspend_image.M in
-    with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid fd vgpu_fd (fun cnx ->
-        let rec process_header res =
-          debug "Reading next header...";
+    with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid main_fd vgpu_fd (fun cnx ->
+        let rec process_header fd res =
+          debug "Reading next header... (fd=%d)" (Obj.magic fd);
           read_header fd >>= function
           | Xenops, len ->
             debug "Read Xenops record header (length=%Ld)" len;
@@ -926,29 +933,41 @@ let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~store_port ~sto
             debug "Read Xenops record contents";
             let (_ : Xenops_record.t) = Xenops_record.of_string rec_str in
             debug "Validated Xenops record contents";
-            process_header res
+            process_header fd res
           | Libxc, _ ->
             debug "Read Libxc record header";
             let res = restore_libxc_record cnx domid uuid in
-            process_header (return (Some res))
+            process_header fd (return (Some res))
           | Libxc_legacy, _ ->
             debug "Read Libxc_legacy record header";
             let res = restore_libxc_record cnx domid uuid in
-            process_header (return (Some res))
+            process_header fd (return (Some res))
           | Qemu_trad, len ->
             debug "Read Qemu_trad header (length=%Ld)" len;
             consume_qemu_record fd len domid uuid;
-            process_header res
+            process_header fd res
           | Demu, _ ->
             debug "Read Demu header";
-            restore_vgpu_record cnx;
-            process_header res
+            restore_vgpu_record cnx domid uuid;
+            process_header fd res
           | End_of_image, _ ->
             debug "Read suspend image footer";
             res
           | _ -> failwith "Unsupported"
         in
-        begin match process_header (return None) with
+        let res =
+          match vgpu_fd with
+          | Some fd when fd <> main_fd ->
+            debug "Starting vGPU resume thread";
+            let th = Thread.create (process_header fd) (return None) in
+            let res = process_header main_fd (return None) in
+            Thread.join th;
+            debug "vGPU resume thread finished";
+            res
+          | _ ->
+            process_header main_fd (return None)
+        in
+        begin match res with
           | `Ok (Some (store_mfn, console_mfn)) -> store_mfn, console_mfn
           | `Ok None -> failwith "Well formed, but useless stream"
           | `Error e -> raise e
@@ -1062,19 +1081,8 @@ let restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
 let restore_vgpu (task: Xenops_task.task_handle) ~xc ~xs domid fd vgpu vcpus =
   let uuid = get_uuid ~xc domid in
   debug "VM = %s; domid = %d; restore_vgpu" (Uuid.to_string uuid) domid;
-  let open Suspend_image in let open Suspend_image.M in
-  let res =
-    read_header fd >>= function
-    | Demu, _ ->
-      debug "Read Demu header";
-      Device.Dm.restore_vgpu task ~xs fd domid vgpu vcpus;
-      return ()
-    | _ -> failwith "Unsupported"
-  in
-  match res with
-  | `Ok () ->
-    debug "VM = %s; domid = %d; restore_vgpu complete" (Uuid.to_string uuid) domid
-  | `Error e -> raise e
+  Device.Dm.restore_vgpu task ~xs fd domid vgpu vcpus;
+  debug "VM = %s; domid = %d; restore_vgpu complete" (Uuid.to_string uuid) domid
 
 type suspend_flag = Live | Debug
 
