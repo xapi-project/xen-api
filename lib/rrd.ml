@@ -213,7 +213,7 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
 
         (* Push the primary and secondary values *)
         Array.iteri (fun i x -> Fring.push rra.rra_data.(i) x) primaries;
-        for i=1 to min (rra_step_cnt-1) (rra.rra_row_cnt) do
+        for _=1 to min (rra_step_cnt-1) (rra.rra_row_cnt) do
           Array.iteri (fun i x -> Fring.push rra.rra_data.(i) x) secondaries
         done;
 
@@ -282,7 +282,7 @@ let ds_update rrd timestamp values transforms new_domid =
   let interval = if interval < 0. then 5. else interval in
 
   (* start time (st) and age of the last processed pdp and the currently occupied one *)
-  let proc_pdp_st, proc_pdp_age = get_times rrd.last_updated rrd.timestep in
+  let proc_pdp_st, _proc_pdp_age = get_times rrd.last_updated rrd.timestep in
   let occu_pdp_st, occu_pdp_age = get_times timestamp rrd.timestep in
 
   (* The number of pdps that should result from this update *)
@@ -404,7 +404,7 @@ let rrd_create dss rras timestep inittime =
     rrd_rras=Array.map (fun rra ->
         { rra with
           rra_data = Array.init (Array.length dss) (fun _ -> Fring.make rra.rra_row_cnt nan);
-          rra_cdps = Array.init (Array.length dss) (fun i -> {cdp_value=0.0; cdp_unknown_pdps=0})
+          rra_cdps = Array.init (Array.length dss) (fun _ -> {cdp_value=0.0; cdp_unknown_pdps=0})
         }) rras;
   } in
   let values = Array.map (fun ds -> ds.ds_last) dss in
@@ -456,7 +456,7 @@ let find_best_rras rrd pdp_interval cf start =
     | Some realcf -> List.filter (fun rra -> rra.rra_cf=realcf) (Array.to_list rrd.rrd_rras)
     | None -> Array.to_list rrd.rrd_rras in
   (if List.length rras = 0 then raise No_RRA_Available);
-  let (last_pdp_time,age) = get_times rrd.last_updated rrd.timestep in
+  let (last_pdp_time, _age) = get_times rrd.last_updated rrd.timestep in
   let contains_time t rra =
     let lasttime = Int64.sub last_pdp_time (Int64.mul rrd.timestep (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt))) in
     (rra.rra_pdp_cnt >= pdp_interval) && (t > lasttime)
@@ -551,7 +551,7 @@ let from_xml input =
         let data = read_block "database" (fun i -> Array.of_list (read_all "row" read_row i [])) i in
         let rows = Array.length data in
         let cols = try Array.length data.(0) with _ -> -1 in
-        let db = Array.init cols (fun i -> Fring.make rows nan) in
+        let db = Array.init cols (fun _ -> Fring.make rows nan) in
         for i=0 to cols-1 do
           for j=0 to rows-1 do
             Fring.push db.(i) (float_of_string data.(j).(i))
@@ -601,7 +601,7 @@ let from_xml input =
       let ds_names = ds_names rrd in
       let ds_names_set = Utils.setify ds_names in
       let ds_name_counts = List.map (fun name ->
-          let (x,y) = List.partition ((=) name) ds_names in
+          let (x, _) = List.partition ((=) name) ds_names in
           (name,List.length x)) ds_names_set
       in
       let removals_required = List.filter (fun (_,x) -> x > 1) ds_name_counts in

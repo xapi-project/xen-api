@@ -179,7 +179,7 @@ let create_multi prefixandrrds start interval cfopt =
   let pdp_interval = Int64.to_int (Int64.div interval first_rrd.timestep) in
 
   (* Sanity - make sure the RRDs are homogeneous *)
-  let prefixandrrds = List.filter (fun (prefix,rrd) -> rrd.timestep = first_rrd.timestep) prefixandrrds in
+  let prefixandrrds = List.filter (fun (_prefix,rrd) -> rrd.timestep = first_rrd.timestep) prefixandrrds in
 
   (* Treat -ve start values as relative to the latest update. *)
   let start =
@@ -189,7 +189,7 @@ let create_multi prefixandrrds start interval cfopt =
 
   let rras =
     (List.map
-       (fun (prefix,rrd) ->
+       (fun (_prefix,rrd) ->
           (* Find the rrds that satisfy the requirements *)
           Rrd.find_best_rras rrd pdp_interval cfopt start) prefixandrrds) in
 
@@ -209,8 +209,8 @@ let create_multi prefixandrrds start interval cfopt =
   let rra_timestep = (Int64.mul first_rrd.timestep (Int64.of_int first_rra.rra_pdp_cnt)) in
 
   (* Get the last and first times of the CDPs to be returned *)
-  let (last_cdp_time,age) = get_times first_rrd.last_updated rra_timestep in
-  let (first_cdp_time_minus_one,age) = get_times (Int64.to_float start) rra_timestep in
+  let (last_cdp_time,_age) = get_times first_rrd.last_updated rra_timestep in
+  let (first_cdp_time_minus_one,_age) = get_times (Int64.to_float start) rra_timestep in
   let first_cdp_time = Int64.add first_cdp_time_minus_one rra_timestep in
 
   create rra_timestep rras first_rra last_cdp_time first_cdp_time start legends

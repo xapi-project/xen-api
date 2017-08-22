@@ -126,7 +126,7 @@ let to_file ?(json=false) rrd filename =
   atomic_write_to_file filename 0o644 (to_fd ~json rrd)
 
 (** WARNING WARNING: Do not call the following function from within xapi! *)
-let text_export rrd grouping =
+let text_export rrd _grouping =
   let open Rrd in
   for rra_i=0 to Array.length rrd.rrd_rras - 1 do
     let rra = rrd.rrd_rras.(rra_i) in
@@ -135,7 +135,7 @@ let text_export rrd grouping =
     let rra_timestep = (Int64.mul rrd.timestep (Int64.of_int rra.rra_pdp_cnt)) in
 
     (* Get the last and first times of the CDPs to be returned *)
-    let (last_cdp_time,age) = get_times rrd.last_updated rra_timestep in
+    let (last_cdp_time,_age) = get_times rrd.last_updated rra_timestep in
 
     let time i = Int64.sub (last_cdp_time) (Int64.mul (Int64.of_int i) rra_timestep) in
 
