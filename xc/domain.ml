@@ -1218,7 +1218,8 @@ let write_qemu_record domid uuid legacy_libxc fd =
  * and is in charge to suspend the domain when called. the whole domain
  * context is saved to fd
 *)
-let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path vm_str domid fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+
+let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path vm_str domid main_fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
   let module DD = Debug.Make(struct let name = "mig64" end) in
   let open DD in
   let uuid = get_uuid ~xc domid in
@@ -1226,7 +1227,7 @@ let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path vm_str do
   let open Suspend_image in let open Suspend_image.M in
   (* Suspend image signature *)
   debug "Writing save signature: %s" save_signature;
-  Io.write fd save_signature;
+  Io.write main_fd save_signature;
   (* CA-248130: originally, [xs_subtree] contained [xenstore_read_dir t
      	 * (xs.Xs.getdomainpath domid)] and this data was written to [fd].
      	 * However, on the receiving side this data is never used. As a
@@ -1238,21 +1239,23 @@ let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path vm_str do
   let xenops_rec_len = String.length xenops_record in
   let res =
     debug "Writing Xenops header (length=%d)" xenops_rec_len;
-    write_header fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
+    write_header main_fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
     debug "Writing Xenops record contents";
-    Io.write fd xenops_record;
+    Io.write main_fd xenops_record;
     let legacy_libxc = not (Emu_manager.supports_feature xenguest_path "migration-v2") in
-    suspend_emu_manager ~task ~xc ~xs ~hvm ~xenguest_path ~domid ~uuid ~main_fd:fd ~vgpu_fd ~flags
+    suspend_emu_manager ~task ~xc ~xs ~hvm ~xenguest_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
       ~progress_callback ~qemu_domid ~do_suspend_callback ~legacy_libxc >>= fun () ->
     (* Qemu record (if this is a hvm domain) *)
     (* Currently Qemu suspended inside above call with the libxc memory
        		* image, we should try putting it below in the relevant section of the
        		* suspend-image-writing *)
-    (if hvm then write_qemu_record domid uuid legacy_libxc fd else return ()) >>= fun () ->
+    (if hvm then write_qemu_record domid uuid legacy_libxc main_fd else return ()) >>= fun () ->
     debug "Qemu record written";
-    debug "Writing End_of_image footer";
+    debug "Writing End_of_image footer(s)";
     progress_callback 1.;
-    write_header fd (End_of_image, 0L)
+    (* Close all streams *)
+    let fds = Stdext.Listext.List.setify (main_fd :: Opt.to_list vgpu_fd) in
+    fold (fun fd () -> write_header fd (End_of_image, 0L)) fds ()
   in match res with
   | `Ok () ->
     debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid

@@ -15,6 +15,7 @@ module M : sig
   type ('a, 'b) t = [ `Ok of 'a | `Error of 'b ]
   val (>>=) : ('a, 'b) t -> ('a -> ('c, 'b) t) -> ('c, 'b) t
   val return : 'a -> ('a, 'b) t
+  val fold : ('a -> 'b -> ('b, 'c) t) -> 'a list -> 'b -> ('b, 'c) t
 end
 
 module Xenops_record : sig

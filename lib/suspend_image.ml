@@ -16,6 +16,7 @@ module M = struct
   type ('a, 'b) t = [ `Ok of 'a | `Error of 'b ]
   let (>>=) m f = match m with | `Ok x -> f x | `Error x -> `Error x
   let return x = `Ok x
+  let fold f l a = List.fold_left (fun c b -> c >>= f b) (return a) l
 end
 
 let (|>) x f = f x
