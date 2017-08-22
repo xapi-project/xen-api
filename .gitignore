@@ -1,7 +1,5 @@
 *.orig
 *.rej
-*.native
 _build
-setup.ml
-setup.data
-setup.log
+.merlin
+*.install

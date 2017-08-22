@@ -11,11 +11,12 @@ before_install:
 install:
   - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
 script:
-  - bash -ex .travis-opam.sh
+  - cp xen-api-sdk.opam opam && bash -ex .travis-opam.sh
 env:
   global:
     - OCAML_VERSION=4.02
     - TESTS=false
+    - INSTALL=false
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam

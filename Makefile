@@ -40,121 +40,80 @@ ifndef SR_XML
 	SR_XML=XE_SR_ERRORCODES.xml
 endif
 
-# OASIS_START
-
-SETUP = ocaml setup.ml
-
-build: setup.data
-	$(SETUP) -build $(BUILDFLAGS)
-
-doc: setup.data build
-	$(SETUP) -doc $(DOCFLAGS)
-
-test: setup.data build
-	$(SETUP) -test $(TESTFLAGS)
-
-all:
-	$(SETUP) -all $(ALLFLAGS)
-
-install: setup.data
-	$(SETUP) -install $(INSTALLFLAGS)
-
-uninstall: setup.data
-	$(SETUP) -uninstall $(UNINSTALLFLAGS)
-
-reinstall: setup.data
-	$(SETUP) -reinstall $(REINSTALLFLAGS)
+build:
+	jbuilder build \
+		c/gen_c_binding.exe \
+		csharp/gen_csharp_binding.exe \
+		java/main.exe \
+		powershell/gen_powershell_binding.exe
 
 clean:
-	$(SETUP) -clean $(CLEANFLAGS)
+	jbuilder clean
 
-distclean:
-	$(SETUP) -distclean $(DISTCLEANFLAGS)
+.PHONY: build clean
 
-setup.data: setup.ml
-	$(SETUP) -configure $(CONFIGUREFLAGS)
-
-configure:
-	$(SETUP) -configure $(CONFIGUREFLAGS)
-
-.PHONY: build doc test all install uninstall reinstall clean distclean configure
-
-# OASIS_STOP
-
-setup.ml: _oasis
-	oasis setup -setup-update dynamic
-
-# executables
-
-gen_c_binding.native: build
-gen_csharp_binding.native: build
-main.native: build
-gen_powershell_binding.native: build
-
-# bindings
-
-c: gen_c_binding.native
-	./gen_c_binding.native -d _build/c/autogen -t c/templates
+c: build
+	_build/default/c/gen_c_binding.exe -d _build/default/c/autogen -t c/templates
 #source
-	cp c/xen_internal.h c/sources/xen_event_internal.h _build/c/autogen/include
-	cp c/xen_common.h c/xen_string_set.h c/xen_int_set.h c/sources/xen_event_batch.h _build/c/autogen/include/xen/api
-	cp c/xen_common.c c/xen_string_set.c c/xen_int_set.c c/sources/xen_event_batch.c _build/c/autogen/src
+	cp c/xen_internal.h c/sources/xen_event_internal.h _build/default/c/autogen/include
+	cp c/xen_common.h c/xen_string_set.h c/xen_int_set.h c/sources/xen_event_batch.h _build/default/c/autogen/include/xen/api
+	cp c/xen_common.c c/xen_string_set.c c/xen_int_set.c c/sources/xen_event_batch.c _build/default/c/autogen/src
 #tests
-	mkdir -p _build/c/autogen/test
-	cp c/test/*.c _build/c/autogen/test
+	mkdir -p _build/default/c/autogen/test
+	cp c/test/*.c _build/default/c/autogen/test
 #other
-	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' c/README.dist > _build/c/autogen/README
-	cp LICENSE _build/c/autogen/COPYING
+	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' c/README.dist > _build/default/c/autogen/README
+	cp LICENSE _build/default/c/autogen/COPYING
 
-csharp: gen_csharp_binding.native
-	mkdir -p _build/csharp/autogen/src/Properties
-	mkdir -p _build/csharp/autogen/samples
-	./gen_csharp_binding.native -r csharp/FriendlyErrorNames.resx -s $(SR_XML) -d _build/csharp/autogen/src -t csharp/templates
+csharp: build
+	mkdir -p _build/default/csharp/autogen/src/Properties
+	mkdir -p _build/default/csharp/autogen/samples
+	_build/default/csharp/gen_csharp_binding.exe -r csharp/FriendlyErrorNames.resx -s $(SR_XML) -d _build/default/csharp/autogen/src -t csharp/templates
 #source
-	cp csharp/src/*.cs _build/csharp/autogen/src
-	mv _build/csharp/autogen/src/AssemblyInfo.cs _build/csharp/autogen/src/Properties/AssemblyInfo.cs
-	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION).0/g' _build/csharp/autogen/src/Properties/AssemblyInfo.cs
+	cp csharp/src/*.cs _build/default/csharp/autogen/src
+	mv _build/default/csharp/autogen/src/AssemblyInfo.cs _build/default/csharp/autogen/src/Properties/AssemblyInfo.cs
+	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION).0/g' _build/default/csharp/autogen/src/Properties/AssemblyInfo.cs
 #samples
-	cp -r csharp/samples/* _build/csharp/autogen/samples
+	cp -r csharp/samples/* _build/default/csharp/autogen/samples
 #other
-	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' csharp/README.dist > _build/csharp/autogen/README.txt
-	cp LICENSE _build/csharp/autogen/LICENSE.txt
-	sh windows-line-endings.sh _build/csharp/autogen
+	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' csharp/README.dist > _build/default/csharp/autogen/README.txt
+	cp LICENSE _build/default/csharp/autogen/LICENSE.txt
+	sh windows-line-endings.sh _build/default/csharp/autogen
 
-java: main.native
-	mkdir -p _build/java/autogen/com/xensource/xenapi
-	mkdir -p _build/java/autogen/samples
-	./main.native -d _build/java/autogen -t java/templates
+java: build
+	mkdir -p _build/default/java/autogen/com/xensource/xenapi
+	mkdir -p _build/default/java/autogen/samples
+	_build/default/java/main.exe -d _build/default/java/autogen -t java/templates
 #source
-	cp java/lib/com/xensource/xenapi/*.java _build/java/autogen/com/xensource/xenapi
-	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' java/lib/com/xensource/xenapi/Connection.java > _build/java/autogen/com/xensource/xenapi/Connection.java
+	cp java/lib/com/xensource/xenapi/*.java _build/default/java/autogen/com/xensource/xenapi
+	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' java/lib/com/xensource/xenapi/Connection.java > _build/default/java/autogen/com/xensource/xenapi/Connection.java
 #samples
-	cp java/samples/*.java _build/java/autogen/samples
+	cp java/samples/*.java _build/default/java/autogen/samples
 #other
-	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' java/lib/Makefile.dist > _build/java/autogen/Makefile
-	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' java/README.dist > _build/java/autogen/README.txt
-	cp LICENSE _build/java/autogen/LICENSE.txt
-	cp java/LICENSE.Apache-2.0.txt _build/java/autogen
+	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' java/lib/Makefile.dist > _build/default/java/autogen/Makefile
+	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' java/README.dist > _build/default/java/autogen/README.txt
+	cp LICENSE _build/default/java/autogen/LICENSE.txt
+	cp java/LICENSE.Apache-2.0.txt _build/default/java/autogen
 
-powershell: gen_powershell_binding.native
-	mkdir -p _build/powershell/autogen/src
-	mkdir -p _build/powershell/autogen/samples
-	./gen_powershell_binding.native -d _build/powershell/autogen
+powershell: build
+	mkdir -p _build/default/powershell/autogen/src
+	mkdir -p _build/default/powershell/autogen/samples
+	_build/default/powershell/gen_powershell_binding.exe -d _build/default/powershell/autogen
 #source
-	mv _build/powershell/autogen/*.cs _build/powershell/autogen/src
-	cp powershell/src/*.cs _build/powershell/autogen/src
-	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION)/g' -e 's/1000/$(SDK_VERSION).0/g' _build/powershell/autogen/src/AssemblyInfo.cs
+	mv _build/default/powershell/autogen/*.cs _build/default/powershell/autogen/src
+	cp powershell/src/*.cs _build/default/powershell/autogen/src
+	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION)/g' -e 's/1000/$(SDK_VERSION).0/g' _build/default/powershell/autogen/src/AssemblyInfo.cs
 #samples
-	cp powershell/samples/*.ps1 _build/powershell/autogen/samples
+	cp powershell/samples/*.ps1 _build/default/powershell/autogen/samples
 #other
-	cp powershell/*.ps1xml powershell/*.ps1 _build/powershell/autogen
+	cp powershell/*.ps1xml powershell/*.ps1 _build/default/powershell/autogen
 	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' \
 	    -e "s/@PRODUCT_GUID@/$(PRODUCT_GUID)/g" \
-	    powershell/XenServerPSModule.psd1 > _build/powershell/autogen/XenServerPSModule.psd1
-	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' powershell/about_XenServer.help.txt > _build/powershell/autogen/about_XenServer.help.txt
-	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' powershell/README.dist > _build/powershell/autogen/README.txt
-	cp LICENSE _build/powershell/autogen/LICENSE.txt
-	sh windows-line-endings.sh _build/powershell/autogen
+	    powershell/XenServerPSModule.psd1 > _build/default/powershell/autogen/XenServerPSModule.psd1
+	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' powershell/about_XenServer.help.txt > _build/default/powershell/autogen/about_XenServer.help.txt
+	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' powershell/README.dist > _build/default/powershell/autogen/README.txt
+	cp LICENSE _build/default/powershell/autogen/LICENSE.txt
+	sh windows-line-endings.sh _build/default/powershell/autogen
 
 sdk_all: c csharp java powershell
 
