@@ -7,24 +7,9 @@ dev-repo: "https://github.com/xapi-project/xcp-rrd.git"
 tags: [
   "org:xapi-project"
 ]
-build: [
-  [make]
-]
-build-test: [
-  [make "test"]
-]
-install: [
-  [make "PREFIX=%{prefix}%" "install"]
-]
-remove: [
-  [make "PREFIX=%{prefix}%" "uninstall"]
-]
+build: ["jbuilder" "build" "-p" name "-j" jobs]
 depends: [
-  "ocamlfind" {build}
-  "oasis"     {build}
-  "base-bigarray"
-  "base-unix"
+  "jbuilder" {build & >= "1.0+beta10"}
   "rpc" {>= "1.9.51"}
-  "uuidm"
-  "ounit" {test}
+  "xmlm"
 ]

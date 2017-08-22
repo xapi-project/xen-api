@@ -1,43 +1,20 @@
-CONFIGUREFLAGS ?= --disable-tests
-SETUP           = ocaml setup.ml
 
-build: setup.data
-	$(SETUP) -build $(BUILDFLAGS)
+.PHONY: build release install uninstall clean reindent
 
-doc: setup.data build
-	$(SETUP) -doc $(DOCFLAGS)
+build:
+	jbuilder build @install --dev
 
-test: setup.data build
-	rm -f setup.data
-	make CONFIGUREFLAGS=--enable-tests build
-	$(SETUP) -test $(TESTFLAGS)
+release:
+	jbuilder build @install
 
-all:
-	$(SETUP) -all $(ALLFLAGS)
+install:
+	jbuilder install
 
-install: setup.data
-	$(SETUP) -install $(INSTALLFLAGS)
-
-uninstall: setup.data
-	$(SETUP) -uninstall $(UNINSTALLFLAGS)
-	ocamlfind remove rrd || /bin/true
-
-reinstall: setup.data
-	$(SETUP) -reinstall $(REINSTALLFLAGS)
+uninstall:
+	jbuilder uninstall
 
 clean:
-	$(SETUP) -clean $(CLEANFLAGS)
+	jbuilder clean
 
-distclean:
-	$(SETUP) -distclean $(DISTCLEANFLAGS)
-
-setup.ml: _oasis
-	oasis setup
-
-setup.data: setup.ml
-	$(SETUP) -configure $(CONFIGUREFLAGS)
-
-configure:
-	$(SETUP) -configure $(CONFIGUREFLAGS)
-
-.PHONY: build doc test all install uninstall reinstall clean distclean configure
+reindent:
+	ocp-indent --inplace **/*.ml

@@ -1,0 +1,6 @@
+(library
+ ((name rrd.unix)
+  (public_name xapi-rrd-unix)
+  (wrapped false)
+  (libraries (unix uuidm xapi-rrd))
+ ))
