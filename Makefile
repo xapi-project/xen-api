@@ -41,24 +41,16 @@ ifndef SR_XML
 endif
 
 build:
-	jbuilder build c/gen_c_binding.exe
-	jbuilder build csharp/gen_csharp_binding.exe
-	jbuilder build java/main.exe
-	jbuilder build powershell/gen_powershell_binding.exe
-
-release:
-	jbuilder build @install
-
-install:
-	jbuilder install
-
-uninstall:
-	jbuilder uninstall
+	jbuilder build \
+		c/gen_c_binding.exe \
+		csharp/gen_csharp_binding.exe \
+		java/main.exe \
+		powershell/gen_powershell_binding.exe
 
 clean:
 	jbuilder clean
 
-.PHONY: build release instal uninstall clean
+.PHONY: build clean
 
 c: build
 	_build/default/c/gen_c_binding.exe -d _build/default/c/autogen -t c/templates
