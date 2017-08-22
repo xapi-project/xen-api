@@ -1364,16 +1364,6 @@ module VM = struct
 			(fun xc xs task vm di ->
 
 				let domid = di.Xenctrl.domid in
-
-				(* As per comment on CA-217805 *)
-				let use_poweroff =
-					try
-						xs.Xs.read (xs.Xs.getdomainpath domid ^ "/control/feature-poweroff") = "1"
-					with _ -> false
-				in
-
-				let reason = match reason, use_poweroff with Domain.Halt, true -> Domain.PowerOff | x, _ -> x in
-
 				try
 					Domain.shutdown ~xc ~xs domid reason;
 					Domain.shutdown_wait_for_ack task ~timeout:ack_delay ~xc ~xs domid reason;
