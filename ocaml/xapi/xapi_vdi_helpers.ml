@@ -42,6 +42,24 @@ let all_ops: API.vdi_operations list =
   ; `update
   ]
 
+(* CA-260245: older XenServer versions do not know about these operations,
+ * and therefore cannot do storage migration to a XenServer that lists them
+ * in a VDI's allowed_operations field.
+ * As a temporary measure, we are fixing the symptom by excluding these ops
+ * from the allowed_operations list. This is a hack: TECHNICAL DEBT.
+ * If we were to continue with this mechanism then any additional new ops would
+ * have to be added to this recently_added_ops list, and we would be able to
+ * remove items when old-but-supported XenServer versions know about them.
+ * We would prefer to do a more general fix for this class of problems; we have
+ * one or two approaches in mind. *)
+let recently_added_ops: API.vdi_operations list =
+  (* If/when items are removed from this list, update
+   * test_vdi_allowed_operations.ml to re-enable (and maybe alter)
+   * the relevant part of test_update_allowed_operations. *)
+  [ `enable_cbt
+  ; `disable_cbt
+  ]
+
 (* CA-26514: Block operations on 'unmanaged' VDIs *)
 let assert_managed ~__context ~vdi =
   if not (Db.VDI.get_managed ~__context ~self:vdi)
