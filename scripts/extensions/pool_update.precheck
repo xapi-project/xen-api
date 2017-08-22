@@ -184,10 +184,18 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
             raise PrecheckFailure(output)
 
     if os.path.isfile(update_precheck_file):
-        pp = subprocess.Popen(update_precheck_file, shell=False, stdout=subprocess.PIPE, close_fds=True)
+        pp = subprocess.Popen(update_precheck_file, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
         precheck_output, _ = pp.communicate()
         xcp.logger.info('pool_update.precheck %r precheck_output=%r', update_precheck_file, precheck_output)
         if pp.returncode != 0:
+            regex = ERROR_XML_START + '.+' + ERROR_XML_END
+            m = re.search(regex, precheck_output, flags=re.DOTALL)
+            if m:
+                try:
+                    xmldoc = xml.dom.minidom.parseString(m.group(0))
+                except:
+                    raise PrecheckFailure(precheck_output)
+                parse_precheck_failure(xmldoc)
             raise PrecheckFailure(precheck_output)
         else:
             if '\n' in precheck_output:
