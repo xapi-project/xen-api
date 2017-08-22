@@ -829,18 +829,19 @@ let with_emu_manager_restore (task: Xenops_task.task_handle) ~hvm ~store_port ~c
   Emu_manager.with_connection task xenguest_path domid args fds f
 
 let restore_libxc_record cnx domid uuid =
-  Emu_manager.send_restore cnx "xenguest";
-  let line = Emu_manager.receive_success cnx in
-  match Stdext.Xstringext.String.split ' ' line with
-  | [ store; console ] ->
-    debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s" (Uuid.to_string uuid) domid store console;
-    Nativeint.of_string store, Nativeint.of_string console
+  let open Emu_manager in
+  send_restore cnx Xenguest;
+  let res = receive_success cnx in
+  match parse_result res with
+  | Xenguest_result (store, console) ->
+    debug "VM = %s; domid = %d; store_mfn = %nd; console_mfn = %nd" (Uuid.to_string uuid) domid store console;
+    store, console
   | _                  ->
-    error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid line;
+    error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid res;
     raise Domain_restore_failed
 
 let restore_vgpu_record cnx =
-  Emu_manager.send_restore cnx "vgpu";
+  Emu_manager.(send_restore cnx Vgpu);
   Emu_manager.receive_success cnx |> ignore
 
 let consume_qemu_record fd limit domid uuid =

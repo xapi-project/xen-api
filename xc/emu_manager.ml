@@ -99,14 +99,25 @@ let with_connection (task: Xenops_task.task_handle) path domid (args: string lis
          )
     ) (fun () -> disconnect t)
 
+type emu = Xenguest | Vgpu
+
+let emu_of_string = function
+  | "xenguest" -> Xenguest
+  | "vgpu" -> Vgpu
+  | _ -> failwith "unknown emu"
+
+let string_of_emu = function
+  | Xenguest -> "xenguest"
+  | Vgpu -> "vgpu"
+
 (** immediately write a command to the control channel *)
 let send (_, out, _, _, _) txt = output_string out txt; flush out
 
 let send_done cnx =
   send cnx "done\n"
 
-let send_restore cnx arg =
-  send cnx (Printf.sprintf "restore:%s\n" arg)
+let send_restore cnx emu =
+  send cnx (Printf.sprintf "restore:%s\n" (string_of_emu emu))
 
 (** Keep this in sync with xenguest_main *)
 type message =
@@ -141,6 +152,18 @@ let message_of_string x =
   | "result" -> Result suffix
   | "prepare" -> Prepare suffix
   | _ -> Error "uncaught exception"
+
+type result =
+  | Xenguest_result of (nativeint * nativeint)
+  | Vgpu_result
+
+let parse_result res =
+  match Stdext.Xstringext.String.split ' ' res with
+  | [emu; store; console] when emu_of_string emu = Xenguest ->
+    Xenguest_result (Nativeint.of_string store, Nativeint.of_string console)
+  | [emu]                 when emu_of_string emu = Vgpu ->
+    Vgpu_result
+  | _ -> failwith "Unknown result type"
 
 (** return the next output line from the control channel *)
 let receive (infd, _, _, _, _) = message_of_string (input_line infd)
