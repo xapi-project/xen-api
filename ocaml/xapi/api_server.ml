@@ -192,11 +192,8 @@ let callback is_json req bio _ =
 let jsoncallback req bio _ =
   let fd = Buf_io.fd_of bio in (* fd only used for writing *)
   let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in
-  debug "Here in jsoncallback";
   try
-    debug "Got the jsonrpc body: %s" body;
     let rpc = Jsonrpc.call_of_string body in
-    debug "Got the jsonrpc body: %s" body;
     let response = Jsonrpc.a_of_response
         ~empty:Bigbuffer.make
         ~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s))
