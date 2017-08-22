@@ -1,0 +1,6 @@
+# JBUILDER_GEN
+
+package "unix" (
+  description = "Deprecated. Use xapi-rrd-unix"
+  requires = "xapi-rrd-unix"
+  )
