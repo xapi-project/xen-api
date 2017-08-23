@@ -219,6 +219,20 @@ sig
 		extras: (string * string option) list;
 	}
 
+	module Profile: sig
+		type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream
+		val fallback : t
+		module Name: sig
+			val qemu_trad: string
+			val qemu_upstream_compat: string
+			val qemu_upstream: string
+			val all: string list
+		end
+		val wrapper_of: t -> string
+		val string_of : t -> string
+		val of_string : string -> t
+	end
+
 	val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 	val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 

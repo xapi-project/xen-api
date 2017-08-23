@@ -57,7 +57,11 @@ let choose_alternative kind default platformdata =
 	end else default
 
 (* We allow qemu-dm to be overriden via a platform flag *)
-let choose_qemu_dm x = choose_alternative _device_model !Resources.qemu_dm_wrapper x
+let choose_qemu_dm x = Device.(Dm.Profile.wrapper_of (
+	if List.mem_assoc _device_model x
+	then Dm.Profile.of_string (List.assoc _device_model x)
+	else Dm.Profile.fallback
+))
 
 (* We allow xenguest to be overriden via a platform flag *)
 let choose_xenguest x = choose_alternative _xenguest !Xc_resources.xenguest x

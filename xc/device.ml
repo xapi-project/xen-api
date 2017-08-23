@@ -1483,6 +1483,30 @@ module Dm = struct
     extras: (string * string option) list;
   }
 
+  module Profile = struct
+    type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream
+    let fallback = Qemu_trad
+    module Name = struct
+      let qemu_trad            = "qemu-trad"
+      let qemu_upstream_compat = "qemu-upstream-compat"
+      let qemu_upstream        = "qemu-upstream"
+      let all = [ qemu_trad; qemu_upstream_compat; qemu_upstream ]
+    end
+    let wrapper_of = function
+      | Qemu_trad            -> !Resources.qemu_dm_wrapper
+      | Qemu_upstream_compat -> !Resources.upstream_compat_qemu_dm_wrapper
+      | Qemu_upstream        -> !Resources.upstream_compat_qemu_dm_wrapper
+    let string_of  = function
+      | Qemu_trad              -> Name.qemu_trad
+      | Qemu_upstream_compat   -> Name.qemu_upstream_compat
+      | Qemu_upstream          -> Name.qemu_upstream
+    let of_string  = function
+      | x when x = Name.qemu_trad            -> Qemu_trad
+      | x when x = Name.qemu_upstream_compat -> Qemu_upstream_compat
+      | x when x = Name.qemu_upstream        -> Qemu_upstream
+      | x -> debug "unknown device-model profile %s: defaulting to fallback: %s" x (string_of fallback);
+         fallback
+  end
 
   let get_vnc_port ~xs domid =
     let is_running = Qemu.is_running ~xs domid in
