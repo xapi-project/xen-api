@@ -1,6 +1,3 @@
-*.swp
-
 _build
-setup.data
-setup.log
-rrddump.native
+.merlin
+*.install

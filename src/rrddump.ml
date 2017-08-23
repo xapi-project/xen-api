@@ -39,7 +39,7 @@ let text_export rrd =
   done
 
 let _ =
-  let body = Stdext.Unixext.string_of_file Sys.argv.(1) in
+  let body = Xapi_stdext_unix.Unixext.string_of_file Sys.argv.(1) in
   let input = Xmlm.make_input (`String (0, body)) in
   let rrd = Rrd.from_xml input in
   text_export rrd
