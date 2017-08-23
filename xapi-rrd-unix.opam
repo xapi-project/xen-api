@@ -15,5 +15,6 @@ depends: [
   "base-unix"
   "uuidm"
   "xapi-rrd"
+  "xmlm"
   "ounit" {test}
 ]
