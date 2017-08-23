@@ -1087,8 +1087,7 @@ let restore_vgpu (task: Xenops_task.task_handle) ~xc ~xs domid fd vgpu vcpus =
 type suspend_flag = Live | Debug
 
 let suspend_emu_manager' ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest_path ~domid
-    ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback
-    ~legacy_libxc =
+    ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback =
   let open Suspend_image in let open Suspend_image.M in
   let open Emu_manager in
 
@@ -1164,9 +1163,8 @@ let suspend_emu_manager' ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest
           send_done cnx;
           wait_for_message ()
         | Prepare x when x = "xenguest" ->
-          debug "Writing Libxc%s header" (if legacy_libxc then "_legacy" else "");
-          let libxc_header = (if legacy_libxc then Libxc_legacy else Libxc) in
-          write_header main_fd (libxc_header, 0L) >>= fun () ->
+          debug "Writing Libxc header";
+          write_header main_fd (Libxc, 0L) >>= fun () ->
           debug "Writing Libxc record";
           send_done cnx;
           wait_for_message ()
@@ -1194,25 +1192,20 @@ let suspend_emu_manager' ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest
     )
 
 let suspend_emu_manager ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest_path ~domid
-    ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback ~legacy_libxc =
+    ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback =
   Device.Dm.with_dirty_log domid ~f:(fun () ->
       suspend_emu_manager' ~task ~xc ~xs ~hvm ~xenguest_path ~domid
-        ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback ~legacy_libxc
+        ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback
     )
 
-let write_qemu_record domid uuid legacy_libxc fd =
+let write_qemu_record domid uuid fd =
   let file = sprintf qemu_save_path domid in
   let fd2 = Unix.openfile file [ Unix.O_RDONLY ] 0o640 in
   finally (fun () ->
       let size = Int64.of_int Unix.((stat file).st_size) in
       let open Suspend_image in let open Suspend_image.M in
-      (if legacy_libxc then begin
-          debug "Writing Qemu signature suitable for legacy libxc with length %Ld" size;
-          write_qemu_header_for_legacy_libxc fd size
-        end else begin
-         debug "Writing Qemu_trad header with length %Ld" size;
-         write_header fd (Qemu_trad, size)
-       end) >>= fun () ->
+      debug "Writing Qemu_trad header with length %Ld" size;
+      write_header fd (Qemu_trad, size) >>= fun () ->
       debug "VM = %s; domid = %d; writing %Ld bytes from %s" (Uuid.to_string uuid) domid size file;
       if Unixext.copy_file ~limit:size fd2 fd <> size
       then failwith "Failed to write whole qemu-dm state file";
@@ -1250,14 +1243,13 @@ let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path vm_str do
     write_header main_fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
     debug "Writing Xenops record contents";
     Io.write main_fd xenops_record;
-    let legacy_libxc = not (Emu_manager.supports_feature xenguest_path "migration-v2") in
     suspend_emu_manager ~task ~xc ~xs ~hvm ~xenguest_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
-      ~progress_callback ~qemu_domid ~do_suspend_callback ~legacy_libxc >>= fun () ->
+      ~progress_callback ~qemu_domid ~do_suspend_callback >>= fun () ->
     (* Qemu record (if this is a hvm domain) *)
     (* Currently Qemu suspended inside above call with the libxc memory
        		* image, we should try putting it below in the relevant section of the
        		* suspend-image-writing *)
-    (if hvm then write_qemu_record domid uuid legacy_libxc main_fd else return ()) >>= fun () ->
+    (if hvm then write_qemu_record domid uuid main_fd else return ()) >>= fun () ->
     debug "Qemu record written";
     debug "Writing End_of_image footer(s)";
     progress_callback 1.;
