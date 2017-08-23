@@ -253,11 +253,17 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
   let pool = Helpers.get_pool ~__context in
   let ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:pool in
 
+  let all_ops = Listext.List.set_difference
+    (* Older XenServers choke on ops they don't recognise during SXM, so
+     * filter out the recently added ones: CA-260245 *)
+    Xapi_vdi_helpers.all_ops
+    (`blocked :: Xapi_vdi_helpers.recently_added_ops)
+  in
   let all = Db.VDI.get_record_internal ~__context ~self in
   let allowed =
     let check x = match check_operation_error ~__context ~sr_records ~pbd_records ~vbd_records ha_enabled all self x with None ->  [ x ] | _ -> [] in
-    List.fold_left (fun accu op -> check op @ accu) []
-      (Listext.List.set_difference Xapi_vdi_helpers.all_ops [`blocked]) in
+    List.fold_left (fun accu op -> check op @ accu) [] all_ops
+  in
   let allowed =
     if Helpers.rolling_upgrade_in_progress ~__context
     then Listext.List.intersect allowed Xapi_globs.rpu_allowed_vdi_operations
