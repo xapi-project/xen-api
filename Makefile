@@ -1,43 +1,30 @@
-all: build
+.PHONY: build release install uninstall clean test doc reindent
 
-TESTS_FLAG=--enable-tests
+build:
+	jbuilder build @install --dev
 
-NAME=rrd-transport
-J=4
+release:
+	jbuilder build @install
 
-LIBDIR=_build/lib
-
-setup.ml: _oasis
-	oasis setup
-
-setup.data: setup.ml
-	ocaml setup.ml -configure $(TESTS_FLAG)
-
-build: setup.data setup.ml
-	ocaml setup.ml -build -j $(J)
-
-doc: setup.data setup.ml
-	ocaml setup.ml -doc -j $(J)
-
-install: setup.data setup.ml
-	ocaml setup.ml -install
+install:
+	jbuilder install
 
 uninstall:
-	ocamlfind remove $(NAME)
-
-test: setup.ml build
-	ocaml setup.ml -test
-
-reinstall: setup.ml
-	ocamlfind remove $(NAME) || true
-	ocaml setup.ml -reinstall
+	jbuilder uninstall
 
 clean:
-	ocamlbuild -clean
-	rm -f setup.data setup.log
+	jbuilder clean
 
-travis-coveralls.sh:
-	wget https://raw.githubusercontent.com/simonjbeaumont/ocaml-travis-coveralls/master/$@
+test:
+	jbuilder runtest
 
-coverage: travis-coveralls.sh
-	bash $<
+# requires odoc
+doc:
+	jbuilder build @doc
+
+gh-pages:
+	bash .docgen.sh
+
+reindent:
+	ocp-indent --syntax cstruct -i **/*.ml
+	ocp-indent --syntax cstruct -i **/*.mli

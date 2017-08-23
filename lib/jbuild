@@ -1,0 +1,15 @@
+(library
+ ((name rrd_transport)
+  (public_name xapi-rrd-transport)
+  (wrapped false)
+  (libraries (bigarray
+              bytes
+              crc
+              cstruct
+              stringext
+              threads
+              xapi-rrd
+              xcp.rrd
+              xen-gnt
+              xen-gnt.unix))
+ ))

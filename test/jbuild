@@ -1,0 +1,15 @@
+(executables
+ ((names (test_unit test_scale))
+  (libraries (oUnit xapi-rrd-transport))
+ ))
+
+(alias
+ ((name    runtest)
+  (deps    (test_unit.exe test_scale.exe))
+  (action  (progn
+            (run ${exe:test_unit.exe})
+            (run ${exe:test_scale.exe} -p 1)
+            (run ${exe:test_scale.exe} -p 2)
+            ))
+ ))
+
