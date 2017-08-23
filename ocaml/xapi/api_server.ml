@@ -123,8 +123,14 @@ let is_himn_req req =
      | None -> false)
   | None -> false
 
+
+let json_of_error_object ?(data=None) code message =
+  let data_json = match data with Some d -> ["data", d] | None -> [] in
+  Rpc.Dict ([ "code", Rpc.Int code; "message", Rpc.String message; ] @ data_json)
+
+
 (* This bit is called directly by the fake_rpc callback *)
-let callback1 is_json req fd body call =
+let callback1 ?(json_rpc_version=Jsonrpc.V1) is_json req fd body call =
   (* We now have the body string, the xml and the call name, and can also tell *)
   (* if we're a master or slave and whether the call came in on the unix domain socket or the tcp socket *)
   (* If we're a slave, and the call is from the unix domain socket or from the HIMN, and the call *isn't* *)
@@ -144,8 +150,14 @@ let callback1 is_json req fd body call =
   else
     let response = Server.dispatch_call req fd call in
     let translated =
-      if is_json && response.Rpc.success && call.Rpc.name <> "system.listMethods" then
-        {response with Rpc.contents = Rpc.rpc_of_string (Jsonrpc.to_string response.Rpc.contents)}
+      if is_json && json_rpc_version = Jsonrpc.V2 && not response.Rpc.success && call.Rpc.name <> "system.listMethods" then
+        begin
+          let message, data = match response.Rpc.contents with
+            | Rpc.Enum ((Rpc.String s)::tl) -> s, (Rpc.Enum tl)
+            | _ -> "", response.Rpc.contents
+          in
+          {response with Rpc.contents = json_of_error_object ~data:(Some data) 0L message}
+        end
       else
         response in
     translated
@@ -196,11 +208,11 @@ let jsoncallback req bio _ =
   let fd = Buf_io.fd_of bio in (* fd only used for writing *)
   let body = Http_svr.read_body ~limit:Db_globs.http_limit_max_rpc_size req bio in
   try
-    let rpc = Jsonrpc.call_of_string body in
-    let response = Jsonrpc.a_of_response
+    let json_rpc_version, id, rpc = Jsonrpc.version_id_and_call_of_string body in
+    let response = Jsonrpc.a_of_response ~id ~version:json_rpc_version
         ~empty:Bigbuffer.make
         ~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s))
-        (callback1 false req fd (Some body) rpc) in
+        (callback1 ~json_rpc_version true req fd (Some body) rpc) in
     Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type, "application/json";
                                       "Access-Control-Allow-Origin", "*";
                                       "Access-Control-Allow-Headers", "X-Requested-With"] fd (Bigbuffer.length response)
