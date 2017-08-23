@@ -44,7 +44,6 @@ let ds_value_of_rpc ~(ty : value_type) ~(rpc : Rpc.t) : Rrd.ds_value_type =
  * default values appropriately. *)
 let ds_of_rpc ((name, rpc) : (string * Rpc.t)) : (Rrd.ds_owner * Ds.ds) =
 	try
-		let open Rpc in
 		let kvs = Rrd_rpc.dict_of_rpc ~rpc in
 		let description = Rrd_rpc.assoc_opt ~key:"description" ~default:"" kvs in
 		let units = Rrd_rpc.assoc_opt ~key:"units" ~default:"" kvs in
@@ -81,7 +80,7 @@ let parse_payload ~(json : string) : payload =
 		let rpc = Jsonrpc.of_string json in
 		let kvs = Rrd_rpc.dict_of_rpc ~rpc in
 		let timestamp = Rpc.int64_of_rpc (List.assoc "timestamp" kvs) in
-		let datasource_rpcs = Rrd_rpc.dict_of_rpc (List.assoc "datasources" kvs) in
+		let datasource_rpcs = Rrd_rpc.dict_of_rpc ~rpc:(List.assoc "datasources" kvs) in
 		{timestamp; datasources = List.map ds_of_rpc datasource_rpcs}
 	with _ -> raise Invalid_payload
 
@@ -102,7 +101,7 @@ let make_payload_reader () =
 		if checksum = !last_checksum
 		then raise No_update
 		else last_checksum := checksum;
-		parse_payload payload_string)
+		parse_payload ~json:payload_string)
 
 let write_payload alloc_cstruct payload =
 	let json =

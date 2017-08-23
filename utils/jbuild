@@ -1,7 +1,7 @@
 (executables
  ((names (reader writer))
-  (public_names (reader writer))
-  (package xapi-rrd-transport)
+  (public_names (rrdreader rrdwriter))
+  (package xapi-rrd-transport-utils)
   (libraries (cmdliner threads xapi-rrd-transport))
  ))
 

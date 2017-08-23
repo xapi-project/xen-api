@@ -1,11 +1,25 @@
 language: c
+sudo: false
+services:
+  - docker
 install:
-  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
-  - wget https://raw.githubusercontent.com/simonjbeaumont/ocaml-travis-coveralls/master/travis-coveralls.sh
-script: bash -ex .travis-opam.sh && if dpkg --compare-versions $OCAML_VERSION ge 4.02; then bash -ex travis-coveralls.sh; fi
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+script:
+  - bash -ex .travis-docker.sh
 env:
   global:
+    - OCAML_VERSION=4.02.3
+    - DISTRO=debian-stable
     - PACKAGE=xapi-rrd-transport
-    - EXTRA_REMOTES=git://github.com/xapi-project/opam-repo-dev
   matrix:
-    - OCAML_VERSION=4.02
+    # We need to pass some Travis environment variables to the container to
+    # enable uploading to coveralls and detection of Travis CI.
+    # Also, set TESTS to false to avoid running them twice.
+    - BASE_REMOTE=git://github.com/xapi-project/xs-opam \
+      TEST=false \
+      POST_INSTALL_HOOK="env TRAVIS=$TRAVIS TRAVIS_JOB_ID=$TRAVIS_JOB_ID bash -ex .coverage.sh"
+    - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+matrix:
+  fast_finish: true
+  allow_failures:
+    - env: EXTRA_REMOTES=git://github.com/xapi-project/xs-opam

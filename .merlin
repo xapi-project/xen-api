@@ -1,8 +1,0 @@
-PKG cmdliner bigarray threads xcp.rrd rrd cstruct xen-gnt crc oUnit
-S lib
-S test
-S utils
-
-B _build/lib
-B _build/test
-B _build/utils

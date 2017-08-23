@@ -165,7 +165,6 @@ let default_value_of_string (s : string) : Rrd.ds_value_type =
  * values will be meaningless. The types however, will be correct. *)
 let uninitialised_ds_of_rpc ((name, rpc) : (string * Rpc.t))
 		: (Rrd.ds_owner * Ds.ds) =
-	let open Rpc in
 	let kvs = Rrd_rpc.dict_of_rpc ~rpc in
 	let description = Rrd_rpc.assoc_opt ~key:"description" ~default:"" kvs in
 	let units = Rrd_rpc.assoc_opt ~key:"units" ~default:"" kvs in
@@ -190,10 +189,9 @@ let uninitialised_ds_of_rpc ((name, rpc) : (string * Rpc.t))
 
 let parse_metadata metadata =
 	try
-		let open Rpc in
 		let rpc = Jsonrpc.of_string metadata in
 		let kvs = Rrd_rpc.dict_of_rpc ~rpc in
-		let datasource_rpcs = Rrd_rpc.dict_of_rpc (List.assoc "datasources" kvs) in
+		let datasource_rpcs = Rrd_rpc.dict_of_rpc ~rpc:(List.assoc "datasources" kvs) in
 		List.map uninitialised_ds_of_rpc datasource_rpcs
 	with _ -> raise Invalid_payload
 

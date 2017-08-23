@@ -15,7 +15,7 @@
 let json_of_ds ?(owner=Rrd.Host) ?(rshift=4) ds buf =
 	let open Ds in
 	let add_string str = 
-		for i=0 to rshift-1 do Buffer.add_char buf ' ' done; 
+		for _=0 to rshift-1 do Buffer.add_char buf ' ' done; 
 		Buffer.add_string buf str in
 	let json_line_string ?(last=false) n v = add_string (Printf.sprintf "  \"%s\": \"%s\"%s\n" n v (if last then "" else ","))
 	and json_line_int64  ?(last=false) n v = add_string (Printf.sprintf "  \"%s\": \"%Ld\"%s\n" n v (if last then "" else ","))

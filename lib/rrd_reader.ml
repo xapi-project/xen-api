@@ -15,11 +15,13 @@
 module type TRANSPORT = sig
 	(** An identifier needed to open the resource. *)
 	type id_t
+
 	(** A handle to an open resource. *)
 	type state_t
 
 	(** Open a resource for writing, given its identifier. *)
 	val init: id_t -> state_t
+
 	(** Cleanup an open resource when it is no longer needed. *)
 	val cleanup: id_t -> state_t -> unit
 

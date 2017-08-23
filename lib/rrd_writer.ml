@@ -15,14 +15,17 @@
 module type TRANSPORT = sig
 	(** An identifier needed to open the resource. *)
 	type id_t
+
 	(** Implementation-specific information about the open resource which needs
 	 *  to be returned to allow coordination between reader/writer pairs. *)
 	type info_t
+
 	(** Internal state relating to the open resource. *)
 	type state_t
 
 	(** Open a resource for writing, given its identifier. *)
 	val init: id_t -> (info_t * state_t)
+
 	(** Cleanup an open resource when it is no longer needed. *)
 	val cleanup: id_t -> info_t -> state_t -> unit
 
@@ -43,8 +46,10 @@ module File = struct
 
 	(** Filesystem path. *)
 	type id_t = local_id
+
 	(** Filesystem path is returned to the caller for future reference. *)
 	type info_t = string
+
 	(** fd for writing to the shared file. *)
 	type state_t = Cstruct.t
 
@@ -78,6 +83,7 @@ module Page = struct
 	open Gnt
 
 	type id_t = interdomain_id
+
 	(** list of shared pages *)
 	type info_t = int list
 	type state_t = Gntshr.share
