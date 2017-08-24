@@ -44,6 +44,7 @@ let base_suite =
     Test_pgpu.test;
     Test_pgpu_helpers.test;
     Test_storage_migrate_state.test;
+    Test_vm.test;
     Test_vm_helpers.test;
     Test_vm_check_operation_error.test;
     Test_vm_migrate.test;
