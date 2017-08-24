@@ -15,99 +15,94 @@
 
 let get_dir_path () = Printf.sprintf "/var/xapi/"
 
-let ignore_exn t () = Lwt.catch t (fun _ -> Lwt.return_unit)
-
 module LwtWsIteratee = Websockets.Wsprotocol(Lwt)
 open Lwt.Infix
+
+let with_fd = Lwt_support.with_fd
 
 let start path handler =
   let dir_path = get_dir_path () in
   let fd_sock_path = Printf.sprintf "%s%s" dir_path path in
+  Lwt_log.info_f "Starting wsproxy on %s" fd_sock_path >>= fun () ->
   let fd_sock = Lwt_unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
   Lwt.catch
     (fun () -> Lwt_unix.unlink fd_sock_path)
-    (fun _ -> Lwt.return ()) >>= fun () ->
+    (fun _ -> Lwt.return_unit) >>= fun () ->
   let () = Lwt_unix.bind fd_sock (Unix.ADDR_UNIX fd_sock_path) in
   let () = Lwt_unix.listen fd_sock 5 in
 
   let rec loop () =
+    let ensure_close = function
+      | [] -> Lwt.return_unit
+      | fds ->
+        Lwt_log.warning_f "Closing %d excess fds" (List.length fds) >>= fun () ->
+        Lwt.catch
+          (fun () -> 
+             List.iter (fun fd -> try Unix.close fd with _ -> ()) fds;
+             Lwt.return_unit)
+          (fun _ -> Lwt.return_unit)
+    in
     Lwt.catch
       (fun () ->
-         Lwt_unix.accept fd_sock >>= fun (fd_sock2,_) ->
-         let buffer = String.make 16384 '\000' in
-         Lwt.catch
-           (fun () ->
-              let iov = Lwt_unix.io_vector ~buffer ~offset:0 ~length:16384 in
-              Lwt_unix.recv_msg ~socket:fd_sock2 ~io_vectors:[iov])
-           (fun e ->
-              Printf.printf "Caught exception: %s\n" (Printexc.to_string e);
-              ignore_exn (fun () -> Lwt_unix.close fd_sock2) () >>= fun () ->
-              Lwt.return (0,[]))
-         >>= fun (len,newfds) ->
-         Lwt_unix.close fd_sock2 >>= fun () ->
-         Lwt.catch
-           (fun () ->
-              let fdh :: fdt = newfds in
-              let msg = String.sub buffer 0 len in
-              let fdno = Printf.sprintf "%d" (Obj.magic fdh) in
-              List.iter (fun fd -> Printf.printf "closing fds: %d\n%!" (Obj.magic fd)) fdt;
-              List.iter (fun fd -> try Unix.close fd with _ -> ()) fdt;
-              Printf.printf "About to fixup: %s\n%!" fdno;
-              let fd = Lwt_unix.of_unix_file_descr fdh in
-              Lwt_unix.setsockopt fd Lwt_unix.SO_KEEPALIVE true;
-              handler fd msg)
-           (fun e ->
-              Printf.printf "Caught exception: %s\n" (Printexc.to_string e);
-              List.iter (fun fd -> Printf.printf "closing fd: %d\n%!" (Obj.magic fd)) newfds;
-              List.iter (fun fd -> try Unix.close fd with _ -> ()) newfds;
-              Lwt.return ()) 
-         >>= fun _ ->
-         loop ()
-      )
+         Lwt_unix.accept fd_sock
+         >>= fun (fd_sock',_) ->
+         (* Background thread per connection *)
+         let _ =
+           let buffer = String.make 16384 '\000' in
+           with_fd fd_sock'
+             (fun fd ->
+                let iov = Lwt_unix.io_vector ~buffer ~offset:0 ~length:16384 in
+                Lwt_unix.recv_msg ~socket:fd ~io_vectors:[iov])
+           >>= fun (len, newfds) ->
+           match newfds with
+           | [] -> Lwt.return_unit
+           | ufd :: ufds ->
+             ensure_close ufds >>= fun () ->
+             with_fd (Lwt_unix.of_unix_file_descr ufd)
+               (fun fd ->
+                  Lwt_log.debug_f "About to start connection" >>= fun () ->
+                  Lwt_unix.setsockopt fd Lwt_unix.SO_KEEPALIVE true;
+                  let msg = String.sub buffer 0 len in
+                  handler fd msg)
+         in loop ())
       (fun e ->
-         Printf.printf "Caught exception: %s\n" (Printexc.to_string e);
-         loop ()
-      )
+         Lwt_log.error_f "Caught exception: %s" (Printexc.to_string e) >>= fun () ->
+         Lwt.return_unit)
+    >>= fun () -> loop ()
+
   in
-  loop ()
+  with_fd fd_sock (fun _ -> loop ())
+
 
 let proxy (fd : Lwt_unix.file_descr) protocol _ty localport =
   let open LwtWsIteratee in
   let open Lwt_support in
-  let (frame,unframe) =
-    match protocol with
+  begin match protocol with
     | "hixie76" ->
-      Printf.printf "old-style\n%!";
-      (wsframe_old, wsunframe_old)
+      Lwt_log.debug_f "old-style (hixie76) protocol" >>= fun () ->
+      Lwt.return (wsframe_old, wsunframe_old)
     | "hybi10" ->
-      Printf.printf "new-style\n%!";
-      (wsframe, wsunframe)
+      Lwt_log.debug_f "new-style (hybi10) protocol" >>= fun () ->
+      Lwt.return (wsframe, wsunframe)
     | _ ->
-      Printf.printf "unknown\n%!";
-      (wsframe,wsunframe)
-  in
-  let (realframe,realunframe) = (frame, unframe) in
-  let fdno = Printf.sprintf "%d" (Obj.magic fd) in
-  open_connection_fd "localhost" localport >>= fun localfd ->
-  Lwt.finalize
-    (fun () ->
-       let thread1 =
-         lwt_fd_enumerator localfd (realframe (writer (really_write fd) "thread1")) >>= fun _ ->
-         Lwt.return () in
-       let thread2 =
-         lwt_fd_enumerator fd (realunframe (writer (really_write localfd) "thread2")) >>= fun _ ->
-         Lwt.return () in
-       ignore_exn (fun () -> Lwt.join [thread1; thread2]) ()
-    )
-    (fun _ ->
-       ignore_exn (fun () -> Lwt_unix.close fd) () >>= fun () ->
-       ignore_exn (fun () -> Lwt_unix.close localfd) ())
-  >>= fun () ->
-  Printf.printf "FD %s pipe closed: %b %b\n" fdno Lwt_unix.(state fd == Closed) Lwt_unix.(state localfd == Closed)
-  |> Lwt.return
+      Lwt_log.debug_f "unknown protocol" >>= fun () ->
+      Lwt.return (wsframe, wsunframe) 
+  end >>= fun (frame,unframe) ->
+  with_open_connection_fd "localhost" localport ~callback:(fun localfd ->
+      Lwt_log.debug_f "Starting proxy" >>= fun () ->
+      let thread1 =
+        lwt_fd_enumerator localfd (frame (writer (really_write fd) "thread1")) >>= fun _ ->
+        Lwt.return_unit in
+      let thread2 =
+        lwt_fd_enumerator fd (unframe (writer (really_write localfd) "thread2")) >>= fun _ ->
+        Lwt.return_unit in
+      (* closing the connection in one of the threads above in general leaves the other pending forever,
+       * by using choose here, we make sure that as soon as one of the threads completes, both are closed *)
+      Lwt.choose [thread1; thread2])
+
 
 let handler sock msg =
-  Lwt_io.printf "Got msg: %s\n" msg >>= fun _ ->
+  Lwt_log.debug_f "Got msg: %s" msg >>= fun () ->
   match Re_str.split (Re_str.regexp "[:]") msg with
   | [protocol;ty;sport] ->
     let port = int_of_string sport in
@@ -115,24 +110,16 @@ let handler sock msg =
   | [protocol;sport] ->
     let port = int_of_string sport in
     proxy sock protocol "hybi10" port
-  | _ ->
-    let sid = Printf.sprintf "%d" (Obj.magic (Lwt_unix.unix_file_descr sock)) in
-    ignore_exn (fun () -> Lwt_unix.close sock) () >>= fun () ->
-    Printf.printf "Malformed message. Socket %s closed: %b\n" sid Lwt_unix.(state sock == Closed)
-    |> Lwt.return
+  | _ -> Lwt.return_unit
 
-let _ =
-  if Array.length Sys.argv > 1
-  then Lwt.return (Websockets.runtest ())
-  else
-    begin
-      Lwt_daemon.daemonize ~stdout:`Dev_null ~stdin:`Close ~stderr:`Dev_null ();
-      let filename = "/var/run/wsproxy.pid" in
-      (try Unix.unlink filename with _ -> ());
-      Lwt_main.run begin
-        let pid = Unix.getpid () in
-        Lwt_io.with_file filename ~mode:Lwt_io.output (fun chan ->
-            Lwt_io.fprintf chan "%d" pid) >>= fun _ ->
-        start "wsproxy" handler
-      end
-    end
+
+let _ = 
+  Lwt_daemon.daemonize ~stdin:`Close ();
+  let filename = "/var/run/wsproxy.pid" in
+  (try Unix.unlink filename with _ -> ());
+  Lwt_main.run begin
+    let pid = Unix.getpid () in
+    Lwt_io.with_file filename ~mode:Lwt_io.output (fun chan ->
+        Lwt_io.fprintf chan "%d" pid) >>= fun _ ->
+    start "wsproxy" handler
+  end
