@@ -103,7 +103,6 @@ let start (xmlrpc_path, http_fwd_path) process =
 
 open Xapi_stdext_monadic
 open Xapi_stdext_std.Listext
-open Xapi_stdext_std.Xstringext
 open Xapi_stdext_threads.Threadext
 module Hashtblext = Xapi_stdext_std.Hashtblext
 open Network_stats
@@ -167,7 +166,7 @@ module Meminfo = struct
 				current_meminfofree_values := IntMap.remove d !current_meminfofree_values
 
 	let watch_fired xc path domains _ =
-		match List.filter (fun x -> x <> "") (String.split '/' path) with
+		match List.filter (fun x -> x <> "") (Stringext.split ~on:'/' path) with
 		| "local" :: "domain" :: domid :: "data" :: "meminfo_free" :: [] ->
 			fire_event_on_vm domid domains
 		| _ -> debug "Ignoring unexpected watch: %s" path
@@ -324,7 +323,7 @@ let update_netdev doms =
 	let stats = Network_stats.read_stats () in
 	let dss, sum_rx, sum_tx =
 	List.fold_left (fun (dss, sum_rx, sum_tx) (dev, stat) ->
-		if not (String.startswith "vif" dev) then
+		if not (Xapi_stdext_std.Xstringext.String.startswith "vif" dev) then
 		begin
 			let pif_name = "pif_" ^ dev in
 			(Host, ds_make ~name:(pif_name ^ "_rx")
@@ -409,12 +408,12 @@ let read_cache_stats timestamp =
 		let assoc_list =
 			List.filter_map (fun line ->
 				try
-					( match String.split '=' line with
+					( match Stringext.split ~on:'=' line with
 					| hd :: tl -> Some (hd, String.concat "=" tl)
 					| _ -> None
 					)
 				with _ -> None
-			) (String.split '\n' cache_stats_out)
+			) (Stringext.split ~on:'\n' cache_stats_out)
 		in
 		(*debug "assoc_list: [%s]" (String.concat ";" (List.map (fun (a,b) -> Printf.sprintf "%s=%s" a b) assoc_list));*)
 		{time = timestamp;

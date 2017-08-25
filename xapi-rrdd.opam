@@ -9,6 +9,7 @@ depends: [
   "oclock"
   "ounit"
   "rpc"
+  "stdext"
   "systemd"
   "xapi-backtrace"
   "xapi-forkexecd"

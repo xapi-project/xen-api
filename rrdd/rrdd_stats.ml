@@ -65,13 +65,12 @@ let plus_process_memory_info pmi1 pmi2 = {
 	lib = pmi1.lib + pmi2.lib;
 }
 
-open Xapi_stdext_std.Xstringext
 open Xapi_stdext_threads.Threadext
 
 (* TODO: Move this function (and its clones) to xen-api-libs. *)
 let split_colon line =
 	List.filter (fun x -> x <> "")
-		(List.map (String.strip String.isspace) (String.split ' ' line))
+		(List.map String.trim (Stringext.split ~on:' ' line))
 
 let meminfo () =
 	let all = Xapi_stdext_unix.Unixext.string_of_file "/proc/meminfo" in
@@ -89,11 +88,11 @@ let meminfo () =
 		| ["SwapTotal:"; x; "kB"] -> swap_total := int_of_string x
 		| ["SwapFree:"; x; "kB"] -> swap_free := int_of_string x
 		| _ -> ()
-	) (String.split '\n' all);
+	) (Stringext.split ~on:'\n' all);
 	{total = !total; free = !free; buffered = !buffered;
 	cached = !cached; swap_total = !swap_total; swap_free = !swap_free}
 
-let string_of_meminfo (x : meminfo) =
+	let string_of_meminfo (x : meminfo) =
 	Printf.sprintf
 		"MemTotal: %d KiB; MemFree: %d KiB; Buffered: %d KiB; Cached: %d KiB; SwapTotal: %d KiB; SwapFree: %d KiB"
 		x.total x.free x.buffered x.cached x.swap_total x.swap_free
@@ -120,7 +119,7 @@ let process_memory_info_of_pid (pid : int) : process_memory_info =
 		| ["VmExe:"; x; "kB"] -> exe := int_of_string x
 		| ["VmLib:"; x; "kB"] -> lib := int_of_string x
 		| _ -> ()
-	) (String.split '\n' all);
+	) (Stringext.split ~on:'\n' all);
 	{peak = !peak; size = !size; locked = !locked; hwm = !hwm;
 	rss = !rss; data = !data; stack = !stack; exe = !exe; lib = !lib}
 
@@ -144,7 +143,7 @@ let print_system_stats () =
 let pidof ?(pid_dir="/var/run") program =
 	try
 		let out = Xapi_stdext_unix.Unixext.string_of_file (Printf.sprintf "%s/%s.pid" pid_dir program) in
-		let words = String.(split_f isspace out) in
+		let words =  Xapi_stdext_std.Xstringext.String.(split_f isspace out) in
 		let maybe_parse_int acc i = try (int_of_string i) :: acc with Failure _ -> acc in
 		List.fold_left maybe_parse_int [] words
 	with 
