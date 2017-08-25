@@ -51,8 +51,9 @@ module D=Debug.Make(struct let name="stats" end)
 open D
 
 module Mutex = struct
-	include Mutex
-	(** execute the function f with the mutex hold *)
+  include Mutex
+
+  (** execute the function f with the mutex hold *)
 	let execute lock f =
 		Mutex.lock lock;
 		let r = begin try f () with exn -> Mutex.unlock lock; raise exn end; in

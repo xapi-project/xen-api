@@ -16,7 +16,6 @@
 type context = unit
 
 open Xapi_stdext_std.Listext
-open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
 module Hashtblext = Xapi_stdext_std.Hashtblext
 open Rrdd_shared
@@ -165,7 +164,7 @@ module Deprecated = struct
 			let rrd =
 				try
 					let rrd = load_rrd_from_local_filesystem uuid in
-					debug "RRD loaded from local filesystem for object uuid=%s" uuid;
+					debug "RRD loaded from local filesystem for object uuid=%s (deprecation warning: timescale %d is ignored)." uuid timescale;
 					rrd
 				with e ->
 					match master_address with
@@ -237,7 +236,7 @@ let migrate_rrd _ ?(session_id : string option) ~(remote_address : string)
 	| Not_found ->
 		debug "VM %s RRDs not found on migrate! Continuing anyway..." vm_uuid;
 		log_backtrace ()
-	| e ->
+	| _ ->
 		(*debug "Caught exception while trying to push VM %s RRDs: %s"
 			vm_uuid (ExnHelper.string_of_exn e);*)
 		log_backtrace ()
@@ -302,7 +301,7 @@ let query_host_ds _ ~(ds_name : string) : float =
 let add_vm_ds _ ~(vm_uuid : string) ~(domid : int) ~(ds_name : string) : unit =
 	Mutex.execute mutex (fun () ->
 		let rrdi = Hashtbl.find vm_rrds vm_uuid in
-		let rrd = add_ds rrdi ds_name in
+		let rrd = add_ds ~rrdi ~ds_name in
 		Hashtbl.replace vm_rrds vm_uuid {rrd; dss = rrdi.dss; domid}
 	)
 
@@ -329,7 +328,7 @@ let query_vm_ds _ ~(vm_uuid : string) ~(ds_name : string) : float =
 let add_sr_ds _ ~(sr_uuid : string) ~(ds_name : string) : unit =
 	Mutex.execute mutex (fun () ->
 		let rrdi = Hashtbl.find sr_rrds sr_uuid in
-		let rrd = add_ds rrdi ds_name in
+		let rrd = add_ds ~rrdi ~ds_name in
 		Hashtbl.replace sr_rrds sr_uuid {rrd; dss = rrdi.dss; domid = 0}
 	)
 
@@ -440,7 +439,7 @@ module Plugin = struct
 			Mutex.execute registered_m (fun () ->
 				let skips     = min (plugin.skip_init * 2) skip_max in
 				warn "setting skip-cycles-after-error for plugin %s to %d"
-					(P.string_of_uid uid) skips;
+					(P.string_of_uid ~uid) skips;
 				plugin.skip_init <- skips;
 				plugin.skip      <- skips)
 
@@ -448,17 +447,17 @@ module Plugin = struct
 		let reset_skip_count uid plugin =
 			if plugin.skip_init > 1 then begin
 				warn "re-setting skip-cycles-after-error for plugin %s to 1"
-					(P.string_of_uid uid);
+					(P.string_of_uid ~uid);
 				Mutex.execute registered_m  (fun () ->
 					plugin.skip_init <- 1;
 					plugin.skip      <- 0)
 			end
 
 		(* true, iff the plugin skips the next reading *)
-		let skip (uid, plugin) = plugin.skip > 0
+		let skip (_uid, plugin) = plugin.skip > 0
 
 		(* we are skipping a reading *)
-		let decr_skip_count (uid, plugin as p) =
+		let decr_skip_count (_uid, plugin as p) =
 			if skip p then
 				Mutex.execute registered_m  (fun () ->
 					plugin.skip <- plugin.skip - 1)
@@ -473,7 +472,7 @@ module Plugin = struct
 					incr_skip_count uid plugin; (* increase skip count *)
 				let log e =
 					warn "Failed to process plugin: %s (%s)"
-						(P.string_of_uid uid)
+						(P.string_of_uid ~uid)
 						(Printexc.to_string e);
 					log_backtrace ()
 				in
@@ -510,7 +509,7 @@ module Plugin = struct
 				: float =
 			Mutex.execute registered_m (fun _ ->
 				if not (Hashtbl.mem registered uid) then
-					let reader = P.make_reader uid info (choose_protocol protocol) in
+					let reader = P.make_reader ~uid ~info ~protocol:(choose_protocol protocol) in
 					Hashtbl.add registered uid
 						{ info      = info
 						; reader    = reader
@@ -537,7 +536,7 @@ module Plugin = struct
 				(fun _ -> Hashtblext.to_list registered) in
 			let process_plugin acc (uid, plugin) =
 				try
-					let payload = get_payload uid plugin in
+					let payload = get_payload ~uid plugin in
 					List.rev_append payload.Rrd_protocol.datasources acc
 				with _ -> acc
 			in
@@ -555,7 +554,8 @@ module Plugin = struct
 
 		let make_reader ~(uid: string) ~(info: Rrd.sampling_frequency)
 				~(protocol:Rrd_protocol.protocol) =
-			Rrd_reader.FileReader.create (get_path_internal uid) protocol
+			let _ = info in (* this lie is used only to silence a warning *)
+			Rrd_reader.FileReader.create (get_path_internal ~uid) protocol
 	end)
 
 

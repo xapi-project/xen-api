@@ -147,7 +147,7 @@ let meminfo_path domid = Printf.sprintf "/local/domain/%d/data/meminfo_free" dom
 module Meminfo = struct
 	let watch_token domid = Printf.sprintf "xcp-rrdd:domain-%d" domid
 	
-	let interesting_paths_for_domain domid uuid = [ meminfo_path domid ]
+	let interesting_paths_for_domain domid _uuid = [ meminfo_path domid ]
 
 	let fire_event_on_vm domid domains =
 		let d = int_of_string domid in
@@ -161,11 +161,11 @@ module Meminfo = struct
 				let meminfo_free = Int64.of_string meminfo_free_string in
 				debug "memfree has changed to %Ld in domain %d" meminfo_free d;
 				current_meminfofree_values := IntMap.add d meminfo_free !current_meminfofree_values
-			with Xs_protocol.Enoent hint ->
+			with Xs_protocol.Enoent _hint ->
 				debug "Couldn't read path %s; forgetting last known memfree value for domain %d" path d;
 				current_meminfofree_values := IntMap.remove d !current_meminfofree_values
 
-	let watch_fired xc path domains _ =
+	let watch_fired _xc path domains _ =
 		match List.filter (fun x -> x <> "") (Stringext.split ~on:'/' path) with
 		| "local" :: "domain" :: domid :: "data" :: "meminfo_free" :: [] ->
 			fire_event_on_vm domid domains
@@ -230,13 +230,13 @@ let update_vcpus xc doms =
 					~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time5) /. 1.0e9))
 					~description:"Fraction of time that some VCPUs are runnable and some are blocked"
 					~ty:Rrd.Derive ~default:false ~min:0.0 ())::dss
-			with e ->
+			with _ ->
 				dss
 		in
 		try
 			let dss = cpus 0 dss in
 			(dss, (uuid, domid)::uuid_domids, domid::domids)
-		with exn ->
+		with _ ->
 			(dss, uuid_domids, domid::domids)
 	) ([], [], []) doms
 
@@ -268,7 +268,7 @@ let update_pcpus xc =
 		~ty:Rrd.Derive ~default:true ~transform:(fun x -> 1.0 -. x) ()) in
 	avgcpu_ds::dss
 
-let update_memory xc doms =
+let update_memory _xc doms =
 	List.fold_left (fun acc dom ->
 		let domid = dom.Xenctrl.domid in
 		let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.Xenctrl.total_memory_pages) in
@@ -403,7 +403,7 @@ let read_cache_stats timestamp =
 	let cache_sr_opt = Mutex.execute cache_sr_lock (fun _ -> !cache_sr_uuid) in
 	let do_read cache_sr =
 		debug "do_read: %s %s" tapdisk_cache_stats cache_sr;
-		let cache_stats_out, err =
+		let cache_stats_out, _err =
 			Forkhelpers.execute_command_get_output tapdisk_cache_stats [cache_sr] in
 		let assoc_list =
 			List.filter_map (fun line ->
@@ -446,7 +446,7 @@ let read_cache_stats timestamp =
 		let stats = do_read cache_sr in
 		last_cache_stats := Some stats;
 		[]
-	| Some oldstats, None ->
+	| Some _oldstats, None ->
 		last_cache_stats := None;
 		[]
 	| Some oldstats, Some cache_sr ->
@@ -528,7 +528,7 @@ let monitor_loop () =
 					Rrdd_shared.last_loop_end_time := Unix.gettimeofday ()
 				);
 				Thread.delay !Rrdd_shared.timeslice
-			with e ->
+			with _ ->
 				debug "Monitor thread caught an exception. Pausing for 10s, then restarting.";
 				log_backtrace ();
 				Thread.delay 10.
@@ -721,7 +721,7 @@ let _ =
         let () =
                 try
                         Watcher.create_watcher_thread (Xs.get_client ())
-                with e ->
+                with _ ->
                         error "xenstore-watching thread has failed" in
 
 	ignore (Daemon.notify Daemon.State.Ready);
@@ -730,7 +730,7 @@ let _ =
         let () =
                 try
        	                Debug.with_thread_associated "main" monitor_loop ()
-                with e ->
+                with _ ->
                         error "monitoring loop thread has failed" in
 
 	while true do

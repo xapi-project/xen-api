@@ -116,9 +116,9 @@ let send_rrd ?(session_id : string option) ~(address : string)
 	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), address, !https_port) in
 	with_transport transport (
-		with_http request (fun (response, fd) ->
+		with_http request (fun (_response, fd) ->
 			try Rrd_unix.to_fd rrd fd
-			with e -> log_backtrace ()
+			with _ -> log_backtrace ()
 		)
 	);
 	debug "Sending RRD complete."
@@ -145,7 +145,7 @@ let archive_rrd_internal ?(remote_address = None) ~uuid ~rrd () =
 			end else begin
 				debug "No local storage: not persisting RRDs"
 			end
-		with e ->
+		with _ ->
 			(*debug "Caught exception: %s" (ExnHelper.string_of_exn e);*)
 			log_backtrace();
 	end

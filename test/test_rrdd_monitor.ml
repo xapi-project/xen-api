@@ -12,7 +12,7 @@ let ds_b = Ds.ds_make ~name:"ds_b" ~units:"(fraction)"
 	~value:(Rrd.VT_Float 2.0)
 	~ty:Rrd.Gauge ~default:true ()
 
-let reset_rrdd_shared_state ctxt =
+let reset_rrdd_shared_state _ctxt =
         Hashtbl.clear Rrdd_shared.vm_rrds;
         Rrdd_shared.host_rrd := None
 

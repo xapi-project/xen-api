@@ -89,7 +89,7 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
 						Hashtbl.replace vm_rrds vm_uuid {rrd; dss; domid}
 					| e -> raise e
 				end
-			with e ->
+			with _ ->
 				(*debug "Error: caught exception %s" (ExnHelper.string_of_exn e);*)
 				log_backtrace ()
 		in
@@ -116,12 +116,12 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
 						Hashtbl.replace sr_rrds sr_uuid {rrd; dss; domid = 0}
 					| e -> raise e
 				end
-			with e ->
+			with _ ->
 				(*debug "Error: caught exception %s" (ExnHelper.string_of_exn e);*)
 				log_backtrace ()
 		in
 		let uuid_srs =
-			List.filter_map (fun (ty, ds) -> match ty with SR x -> Some x | _ -> None) dss
+			List.filter_map (fun (ty, _ds) -> match ty with SR x -> Some x | _ -> None) dss
 			|> List.setify in
 		List.iter do_sr uuid_srs;
 

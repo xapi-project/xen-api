@@ -44,7 +44,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   ((name rrdd_libs_internal)
    (wrapped false)
    (modules (:standard \ xcp_rrdd))
-   (flags (:standard -bin-annot %s))
+   (flags (:standard -w -39 -bin-annot %s))
    (libraries (forkexec
                gzip
                http-svr
