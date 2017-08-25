@@ -68,12 +68,12 @@ let start (xmlrpc_path, http_fwd_path) process =
 	let server = Http_svr.Server.empty () in
 	let open Rrdd_http_handler in
 	Http_svr.Server.add_handler server Http.Post "/" (Http_svr.BufIO (xmlrpc_handler process));
-	Http_svr.Server.add_handler server Http.Get Constants.get_vm_rrd_uri (Http_svr.FdIO get_vm_rrd_handler);
-	Http_svr.Server.add_handler server Http.Get Constants.get_host_rrd_uri (Http_svr.FdIO get_host_rrd_handler);
-	Http_svr.Server.add_handler server Http.Get Constants.get_sr_rrd_uri (Http_svr.FdIO get_sr_rrd_handler);
-	Http_svr.Server.add_handler server Http.Get Constants.get_rrd_updates_uri (Http_svr.FdIO get_rrd_updates_handler);
-	Http_svr.Server.add_handler server Http.Put Constants.put_rrd_uri (Http_svr.FdIO put_rrd_handler);
-	Http_svr.Server.add_handler server Http.Post Constants.rrd_unarchive_uri (Http_svr.FdIO unarchive_rrd_handler);
+	Http_svr.Server.add_handler server Http.Get Rrdd_libs.Constants.get_vm_rrd_uri (Http_svr.FdIO get_vm_rrd_handler);
+	Http_svr.Server.add_handler server Http.Get Rrdd_libs.Constants.get_host_rrd_uri (Http_svr.FdIO get_host_rrd_handler);
+	Http_svr.Server.add_handler server Http.Get Rrdd_libs.Constants.get_sr_rrd_uri (Http_svr.FdIO get_sr_rrd_handler);
+	Http_svr.Server.add_handler server Http.Get Rrdd_libs.Constants.get_rrd_updates_uri (Http_svr.FdIO get_rrd_updates_handler);
+	Http_svr.Server.add_handler server Http.Put Rrdd_libs.Constants.put_rrd_uri (Http_svr.FdIO put_rrd_handler);
+	Http_svr.Server.add_handler server Http.Post Rrdd_libs.Constants.rrd_unarchive_uri (Http_svr.FdIO unarchive_rrd_handler);
 	Unixext.mkdir_safe (Filename.dirname xmlrpc_path) 0o700;
 	Unixext.unlink_safe xmlrpc_path;
 	let xmlrpc_socket = Http_svr.bind (Unix.ADDR_UNIX xmlrpc_path) "unix_rpc" in
@@ -508,7 +508,7 @@ let read_all_dom0_stats xc =
 	all_stats, uuid_domids, timestamp, my_paused_domain_uuids
 
 let do_monitor xc =
-	Stats.time_this "monitor"
+	Rrdd_libs.Stats.time_this "monitor"
 		(fun _ ->
 			let dom0_stats, uuid_domids, timestamp, my_paused_vms =
 				read_all_dom0_stats xc in
@@ -676,7 +676,6 @@ let stop signal =
 
 (* Entry point. *)
 let _ =
-	Coverage.init "xcp-rrdd";
 	(* Prevent shutdown due to sigpipe interrupt. This protects against
 	 * potential stunnel crashes. *)
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;

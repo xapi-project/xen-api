@@ -37,7 +37,7 @@ let archive_sr_rrd _ ~(sr_uuid : string) : string =
 	try
 		archive_rrd_internal ~uuid:sr_uuid ~rrd:sr_rrd.rrd ();
 		let archive_path =
-			Filename.concat Constants.rrd_location (sr_uuid ^ ".gz") in
+			Filename.concat  Rrdd_libs.Constants.rrd_location (sr_uuid ^ ".gz") in
 		if not (Unixext.file_exists archive_path) then begin
 			let msg = Printf.sprintf "Archive not found: %s." archive_path in
 			raise (Archive_failed(msg))
@@ -128,7 +128,7 @@ let backup_rrds _ ?(remote_address = None) () : unit =
 (* Load an RRD from the local filesystem. Will return an RRD or throw an exception. *)
 let load_rrd_from_local_filesystem uuid =
 	debug "Loading RRD from local filesystem for object uuid=%s" uuid;
-	let path = Constants.rrd_location ^ "/" ^ uuid in
+	let path =  Rrdd_libs.Constants.rrd_location ^ "/" ^ uuid in
 	rrd_of_gzip path
 
 module Deprecated = struct
@@ -136,12 +136,12 @@ module Deprecated = struct
 	(* Fetch an RRD from the master *)
 	let pull_rrd_from_master ~uuid ~master_address =
 		let pool_secret = get_pool_secret () in
-		let uri = Constants.get_host_rrd_uri in
+		let uri = Rrdd_libs.Constants.get_host_rrd_uri in
 		(* Add in "dbsync = true" to the query to make sure the master
 		 * doesn't try to redirect here! *)
 		let uri = uri ^ "?uuid=" ^ uuid ^ "&dbsync=true" in
 		let request =
-			Http.Request.make ~user_agent:Constants.rrdd_user_agent
+			Http.Request.make ~user_agent:Rrdd_libs.Constants.rrdd_user_agent
 			~cookie:["pool_secret", pool_secret] Http.Get uri in
 		let open Xmlrpc_client in
 		let transport = SSL(SSL.make (), master_address, !Rrdd_shared.https_port) in
@@ -191,7 +191,7 @@ module Deprecated = struct
 end
 
 let get_rrd ~vm_uuid =
-	let path = Filename.concat Constants.rrd_location vm_uuid in
+	let path = Filename.concat Rrdd_libs.Constants.rrd_location vm_uuid in
 	rrd_of_gzip path
 
 let push_rrd_local _ ~vm_uuid ~domid : unit =
@@ -212,7 +212,7 @@ let push_rrd_remote _ ~vm_uuid ~remote_address : unit =
 
 (** Remove an RRD from the local filesystem, if it exists. *)
 let remove_rrd _ ~(uuid : string) : unit =
-	let path = Constants.rrd_location ^ "/" ^ uuid in
+	let path = Rrdd_libs.Constants.rrd_location ^ "/" ^ uuid in
 	let gz_path = path ^ ".gz" in
 	(try Unix.unlink path with _ -> ());
 	(try Unix.unlink gz_path with _ -> ())

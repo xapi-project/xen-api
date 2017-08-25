@@ -41,8 +41,8 @@ let https_port = ref default_ssl_port
 (** Pool secret. *)
 let get_pool_secret () =
 	try
-		Unix.access Constants.pool_secret_path [Unix.F_OK];
-		Unixext.string_of_file Constants.pool_secret_path
+		Unix.access  Rrdd_libs.Constants.pool_secret_path [Unix.F_OK];
+		Unixext.string_of_file  Rrdd_libs.Constants.pool_secret_path
 	with _ ->
 		failwith "Unable to read the pool secret."
 
@@ -112,8 +112,8 @@ let send_rrd ?(session_id : string option) ~(address : string)
 	let cookie =
 		if sid_query = [] then ["pool_secret", get_pool_secret ()] else [] in
 	let request =
-		Http.Request.make ~user_agent:Constants.rrdd_user_agent
-			~query ~cookie Http.Put Constants.put_rrd_uri in
+		Http.Request.make ~user_agent:Rrdd_libs.Constants.rrdd_user_agent
+			~query ~cookie Http.Put Rrdd_libs.Constants.put_rrd_uri in
 	let open Xmlrpc_client in
 	let transport = SSL(SSL.make (), address, !https_port) in
 	with_transport transport (
@@ -132,13 +132,13 @@ let archive_rrd_internal ?(remote_address = None) ~uuid ~rrd () =
 			(* Stash away the rrd onto disk. *)
 			let exists =
 				try
-					let (_: Unix.stats) = Unix.stat Constants.blob_location in
+					let (_: Unix.stats) = Unix.stat Rrdd_libs.Constants.blob_location in
 					true
 				with _ -> false
 			in
 			if exists then begin
-				Unixext.mkdir_safe Constants.rrd_location 0o755;
-				let base_filename = Constants.rrd_location ^ "/" ^ uuid in
+				Unixext.mkdir_safe Rrdd_libs.Constants.rrd_location 0o755;
+				let base_filename = Rrdd_libs.Constants.rrd_location ^ "/" ^ uuid in
 				Unixext.atomic_write_to_file (base_filename ^ ".gz") 0o644
 					(fun fd -> Gzip.compress fd (Rrd_unix.to_fd rrd));
 				(* If there's an uncompressed one hanging around, remove it. *)
