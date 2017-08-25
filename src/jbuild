@@ -6,6 +6,7 @@
   (libraries (ezxenstore
               threads
               uuid
+              xapi-stdext-pervasives
               xcp
               xenctrl
               xenstore

@@ -4,19 +4,11 @@ authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xenops/issues"
 dev-repo: "git://github.com/xapi-project/xenops.git"
-build: [
-  [make]
-]
-install: [
-  [make "PREFIX=%{prefix}%" "BINDIR=%{bin}%" "install"]
-]
-remove: [
-  [make "PREFIX=%{prefix}%" "BINDIR=%{bin}%" "uninstall"]
-]
+build:  [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 depends: [
-  "jbuilder" {build}
+  "jbuilder" {build & >= "1.0+beta10"}
   "ezxenstore"
-  "xapi-stdext" {>= "2.0.0"}
+  "xapi-stdext-pervasives"
   "xapi-libs-transitional"
   "xenctrl"
   "xenstore"

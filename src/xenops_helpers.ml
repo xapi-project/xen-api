@@ -19,4 +19,4 @@ let with_xc_and_xs xs_client f =
 	Xenctrl.with_intf (fun xc -> Xs.immediate xs_client (fun xs -> f xc xs))
 
 let with_xc_and_xs_final xs_client f cf =
-	with_xc_and_xs xs_client (fun xc xs -> Stdext.Pervasiveext.finally (fun () -> f xc xs) cf)
+	with_xc_and_xs xs_client (fun xc xs -> Xapi_stdext_pervasives.Pervasiveext.finally (fun () -> f xc xs) cf)
