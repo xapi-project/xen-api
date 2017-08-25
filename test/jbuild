@@ -30,29 +30,9 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (executable
   ((name test_rrdd_monitor)
    (flags (:standard -bin-annot %s))
-   (libraries (forkexec
-               gzip
-               http-svr
-               io-page.unix
-               oclock
-               oUnit
-               rpclib
-               rpclib.unix
+   (libraries (oUnit
                rrdd_libs_internal
-               systemd
-               threads
-               uuid
-               xapi-rrd
-               xapi-rrd-transport
-               xapi-rrd-unix
-               xapi-rrdd
-               xapi-xenops
-               xcp
-               xcp-inventory
-               xcp.network
-               xcp.rrd
-               xcp.xen
-               xen-gnt.unix))
+               ))
   ))
 
 (alias

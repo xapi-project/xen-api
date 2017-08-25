@@ -12,9 +12,7 @@ depends: [
   "stdext"
   "systemd"
   "xapi-backtrace"
-  "xapi-forkexecd"
   "xapi-idl"
-  "xapi-inventory"
   "xapi-libs-transitional"
   "xapi-rrd-transport"
   "xapi-stdext-monadic"
@@ -22,9 +20,6 @@ depends: [
   "xapi-stdext-threads"
   "xapi-stdext-unix"
   "xapi-xenops"
-  "xenctrl"
-  "xen-gnt"
-  "xenstore_transport"
 ]
 ocaml-version: [>= "4.02.0"]
 

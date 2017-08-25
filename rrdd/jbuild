@@ -45,33 +45,25 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    (wrapped false)
    (modules (:standard \ xcp_rrdd))
    (flags (:standard -w -39 -bin-annot %s))
-   (libraries (forkexec
-               gzip
+   (libraries (gzip
                http-svr
                inotify
-               io-page.unix
-               oclock
-               rpclib
-               rpclib.unix
-               xapi-rrdd
+               mtime
+               mtime.clock.os
                stringext
                systemd
-               threads
-               uuid
-               xapi-rrd
-               xapi-rrd-transport
-               xapi-rrd-unix
+               xapi-backtrace
+               rrd
+               rrd.unix
+               rrd-transport
+               xapi-rrdd
                xapi-stdext-monadic
                xapi-stdext-std
                xapi-stdext-threads
                xapi-stdext-unix
-               xapi-xenops
-               xcp
-               xcp-inventory
+               xenops
                xcp.network
-               xcp.rrd
-               xcp.xen
-               xen-gnt.unix))
+               uuid))
   ))
 
 (executable
@@ -80,32 +72,9 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    (package xapi-rrdd)
    (flags (:standard -bin-annot %s))
    (modules (xcp_rrdd))
-   (libraries (forkexec
-               gzip
-               http-svr
-               inotify
-               io-page.unix
-               oclock
+   (libraries (http-svr
                rrdd_libs_internal
-               rpclib
-               rpclib.unix
-               systemd
-               threads
-               uuid
-               xapi-rrd
-               xapi-rrd-transport
-               xapi-rrd-unix
-               xapi-rrdd
-               xapi-stdext-monadic
-               xapi-stdext-std
-               xapi-stdext-threads
-               xapi-stdext-unix
-               xapi-xenops
-               xcp
-               xcp-inventory
-               xcp.network
-               xcp.rrd
-               xcp.xen
-               xen-gnt.unix))
+               xapi-backtrace
+               xcp))
   ))
 |} version (flags rewriters) (flags rewriters)
