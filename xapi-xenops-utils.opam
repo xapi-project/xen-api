@@ -15,11 +15,6 @@ remove: [
 ]
 depends: [
   "jbuilder" {build}
-  "ezxenstore"
-  "xapi-stdext" {>= "2.0.0"}
-  "xapi-libs-transitional"
-  "xenctrl"
-  "xenstore"
-  "xenstore_transport"
+  "xapi-xenops"
 ]
 available: [ocaml-version >= "4.01.0"]

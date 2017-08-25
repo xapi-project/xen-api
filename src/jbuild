@@ -1,0 +1,16 @@
+(library
+ ((name xenops)
+  (public_name xapi-xenops)
+  (wrapped false)
+  (flags (:standard -bin-annot))
+  (libraries (ezxenstore
+              threads
+              uuid
+              xcp
+              xenctrl
+              xenstore
+              xenstore_transport.unix))
+  (modules (io memory netman statdev xenops_helpers xenstore_watch))
+  (c_names (statdev_stubs))
+  (c_flags (-Wno-unused-function -g -ggdb))
+ ))
