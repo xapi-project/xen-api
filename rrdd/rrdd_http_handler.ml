@@ -1,8 +1,8 @@
 module D = Debug.Make(struct let name="rrdd_http_handler" end)
 open D
 
-open Stdext
-open Threadext
+module Hashtblext = Xapi_stdext_std.Hashtblext
+open Xapi_stdext_threads.Threadext
 open Rrdd_shared
 
 (* A handler for unarchiving RRDs. Only called on pool master. *)

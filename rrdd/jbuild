@@ -54,13 +54,17 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
                rpclib
                rpclib.unix
                xapi-rrdd
-               stdext
+               stringext
                systemd
                threads
                uuid
                xapi-rrd
                xapi-rrd-transport
                xapi-rrd-unix
+               xapi-stdext-monadic
+               xapi-stdext-std
+               xapi-stdext-threads
+               xapi-stdext-unix
                xapi-xenops
                xcp
                xcp-inventory
@@ -85,7 +89,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
                rrdd_libs_internal
                rpclib
                rpclib.unix
-               stdext
                systemd
                threads
                uuid

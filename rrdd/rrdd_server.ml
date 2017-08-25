@@ -15,12 +15,11 @@
 (* The framework requires type 'context' to be defined. *)
 type context = unit
 
-open Stdext
-open Fun
-open Listext
-open Pervasiveext
-open Xstringext
-open Threadext
+open Xapi_stdext_std.Listext
+open Xapi_stdext_std.Xstringext
+open Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_threads.Threadext
+module Hashtblext = Xapi_stdext_std.Hashtblext
 open Rrdd_shared
 open Rrd_interface
 
@@ -38,7 +37,7 @@ let archive_sr_rrd _ ~(sr_uuid : string) : string =
 		archive_rrd_internal ~uuid:sr_uuid ~rrd:sr_rrd.rrd ();
 		let archive_path =
 			Filename.concat  Rrdd_libs.Constants.rrd_location (sr_uuid ^ ".gz") in
-		if not (Unixext.file_exists archive_path) then begin
+		if not (Xapi_stdext_unix.Unixext.file_exists archive_path) then begin
 			let msg = Printf.sprintf "Archive not found: %s." archive_path in
 			raise (Archive_failed(msg))
 		end;
@@ -150,7 +149,7 @@ module Deprecated = struct
 				match response.Http.Response.content_length with
 				| None -> failwith "pull_rrd_from_master needs a content-length"
 				| Some l ->
-					let body = Unixext.really_read_string s (Int64.to_int l) in
+					let body = Xapi_stdext_unix.Unixext.really_read_string s (Int64.to_int l) in
 					let input = Xmlm.make_input (`String (0, body)) in
 					debug "Pulled rrd for uuid=%s" uuid;
 					Rrd.from_xml input

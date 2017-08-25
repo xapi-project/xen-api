@@ -15,7 +15,6 @@
 module D = Debug.Make(struct let name = "rrdd_shared" end)
 open D
 
-open Stdext
 module StringSet = Set.Make(String)
 
 (* Whether to enable all non-default datasources *)
@@ -42,7 +41,7 @@ let https_port = ref default_ssl_port
 let get_pool_secret () =
 	try
 		Unix.access  Rrdd_libs.Constants.pool_secret_path [Unix.F_OK];
-		Unixext.string_of_file  Rrdd_libs.Constants.pool_secret_path
+		Xapi_stdext_unix.Unixext.string_of_file  Rrdd_libs.Constants.pool_secret_path
 	with _ ->
 		failwith "Unable to read the pool secret."
 
@@ -92,11 +91,11 @@ let rrd_of_gzip path =
 	let gz_path = path ^ ".gz" in
 	let gz_exists = try let (_: Unix.stats) = Unix.stat gz_path in true with _ -> false in
 	if gz_exists then begin
-		Unixext.with_file gz_path [ Unix.O_RDONLY ] 0o0
+		Xapi_stdext_unix.Unixext.with_file gz_path [ Unix.O_RDONLY ] 0o0
 			(fun fd -> Gzip.decompress_passive fd rrd_of_fd)
 	end else begin
 		(* If this fails, let the exception propagate *)
-		Unixext.with_file path [ Unix.O_RDONLY ] 0 rrd_of_fd
+		Xapi_stdext_unix.Unixext.with_file path [ Unix.O_RDONLY ] 0 rrd_of_fd
 	end
 
 (* Send rrds to a remote host. If the host is on another pool, you
@@ -137,12 +136,12 @@ let archive_rrd_internal ?(remote_address = None) ~uuid ~rrd () =
 				with _ -> false
 			in
 			if exists then begin
-				Unixext.mkdir_safe Rrdd_libs.Constants.rrd_location 0o755;
+				Xapi_stdext_unix.Unixext.mkdir_safe Rrdd_libs.Constants.rrd_location 0o755;
 				let base_filename = Rrdd_libs.Constants.rrd_location ^ "/" ^ uuid in
-				Unixext.atomic_write_to_file (base_filename ^ ".gz") 0o644
+				Xapi_stdext_unix.Unixext.atomic_write_to_file (base_filename ^ ".gz") 0o644
 					(fun fd -> Gzip.compress fd (Rrd_unix.to_fd rrd));
 				(* If there's an uncompressed one hanging around, remove it. *)
-				Unixext.unlink_safe base_filename
+				Xapi_stdext_unix.Unixext.unlink_safe base_filename
 			end else begin
 				debug "No local storage: not persisting RRDs"
 			end

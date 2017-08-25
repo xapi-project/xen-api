@@ -1,40 +1,29 @@
 opam-version: "1"
 maintainer: "xen-api@lists.xen.org"
-build: [
-  ["oasis" "setup"]
-  [make]
-]
-install: [
-  ["ocaml" "setup.ml" "-install"]
-]
-build-test: [
-  [make "test"]
-]
-remove: [
-    [make "uninstall"]
-    ["ocamlfind" "remove" "rrdd-libs"]
-]
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build-test: ["jbuilder" "runtest" "-p" name]
 depends: [
-  "oasis"
-  "ocamlfind"
-  "xapi-backtrace"
-  "xapi-idl"
-  "xapi-libs-transitional"
-  "xapi-inventory"
-  "xapi-stdext"
-  "xapi-forkexecd"
-  "xenctrl"
-  "xenstore_transport"
-  "xapi-xenops"
-  "rpc"
-  "io-page"
+  "jbuilder" {build & >= "1.0+beta10"}
   "inotify"
-  "xen-gnt"
-  "xapi-rrd-transport"
+  "io-page"
   "oclock"
   "ounit"
-  "bisect_ppx"
+  "rpc"
   "systemd"
+  "xapi-backtrace"
+  "xapi-forkexecd"
+  "xapi-idl"
+  "xapi-inventory"
+  "xapi-libs-transitional"
+  "xapi-rrd-transport"
+  "xapi-stdext-monadic"
+  "xapi-stdext-std"
+  "xapi-stdext-threads"
+  "xapi-stdext-unix"
+  "xapi-xenops"
+  "xenctrl"
+  "xen-gnt"
+  "xenstore_transport"
 ]
-caml-version: [>= "4.02.0"]
+ocaml-version: [>= "4.02.0"]
 

@@ -1,4 +1,4 @@
-open Stdext.Listext
+open Xapi_stdext_std.Listext
 open Rrdd_shared
 open Rrd
 open Ds
@@ -52,7 +52,8 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
 	(* Here we do the synchronising between the dom0 view of the world
 		 and our Hashtbl. By the end of this execute block, the Hashtbl
 		 correctly represents the world *)
-	Stdext.Threadext.Mutex.execute mutex (fun _ ->
+	let execute = Xapi_stdext_threads.Threadext.Mutex.execute in
+	execute mutex (fun _ ->
 		let out_of_date, by_how_much =
 			match !host_rrd with
 			| None -> false, 0.

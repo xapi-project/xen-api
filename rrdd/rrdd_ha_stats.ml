@@ -15,8 +15,8 @@
 let enabled = ref false
 
 let m = Mutex.create ()
-open Stdext
-open Threadext
+open Xapi_stdext_monadic
+open Xapi_stdext_threads.Threadext
 
 module Statefile_latency = struct
 	open Rrd.Statefile_latency

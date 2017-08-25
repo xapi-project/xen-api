@@ -65,9 +65,8 @@ let plus_process_memory_info pmi1 pmi2 = {
 	lib = pmi1.lib + pmi2.lib;
 }
 
-open Stdext
-open Xstringext
-open Threadext
+open Xapi_stdext_std.Xstringext
+open Xapi_stdext_threads.Threadext
 
 (* TODO: Move this function (and its clones) to xen-api-libs. *)
 let split_colon line =
@@ -75,7 +74,7 @@ let split_colon line =
 		(List.map (String.strip String.isspace) (String.split ' ' line))
 
 let meminfo () =
-	let all = Unixext.string_of_file "/proc/meminfo" in
+	let all = Xapi_stdext_unix.Unixext.string_of_file "/proc/meminfo" in
 	let total = ref (-1)
 	and free = ref (-1)
 	and buffered = ref (-1)
@@ -100,7 +99,7 @@ let string_of_meminfo (x : meminfo) =
 		x.total x.free x.buffered x.cached x.swap_total x.swap_free
 
 let process_memory_info_of_pid (pid : int) : process_memory_info =
-	let all = Unixext.string_of_file (Printf.sprintf "/proc/%d/status" pid) in
+	let all = Xapi_stdext_unix.Unixext.string_of_file (Printf.sprintf "/proc/%d/status" pid) in
 	let peak = ref (-1)
 	and size = ref (-1)
 	and locked = ref (-1)
@@ -144,7 +143,7 @@ let print_system_stats () =
  * This should probably be moved into xen-api-libs. *)
 let pidof ?(pid_dir="/var/run") program =
 	try
-		let out = Unixext.string_of_file (Printf.sprintf "%s/%s.pid" pid_dir program) in
+		let out = Xapi_stdext_unix.Unixext.string_of_file (Printf.sprintf "%s/%s.pid" pid_dir program) in
 		let words = String.(split_f isspace out) in
 		let maybe_parse_int acc i = try (int_of_string i) :: acc with Failure _ -> acc in
 		List.fold_left maybe_parse_int [] words

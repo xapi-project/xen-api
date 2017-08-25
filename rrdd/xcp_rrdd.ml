@@ -29,9 +29,7 @@
 module D = Debug.Make(struct let name = "rrdd_main" end)
 open D
 
-(*open Fun*)
-open Stdext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 
 (* A helper method for processing XMLRPC requests. *)
 let xmlrpc_handler process req bio context =
@@ -74,12 +72,12 @@ let start (xmlrpc_path, http_fwd_path) process =
 	Http_svr.Server.add_handler server Http.Get Rrdd_libs.Constants.get_rrd_updates_uri (Http_svr.FdIO get_rrd_updates_handler);
 	Http_svr.Server.add_handler server Http.Put Rrdd_libs.Constants.put_rrd_uri (Http_svr.FdIO put_rrd_handler);
 	Http_svr.Server.add_handler server Http.Post Rrdd_libs.Constants.rrd_unarchive_uri (Http_svr.FdIO unarchive_rrd_handler);
-	Unixext.mkdir_safe (Filename.dirname xmlrpc_path) 0o700;
-	Unixext.unlink_safe xmlrpc_path;
+	Xapi_stdext_unix.Unixext.mkdir_safe (Filename.dirname xmlrpc_path) 0o700;
+	Xapi_stdext_unix.Unixext.unlink_safe xmlrpc_path;
 	let xmlrpc_socket = Http_svr.bind (Unix.ADDR_UNIX xmlrpc_path) "unix_rpc" in
 	Http_svr.start server xmlrpc_socket;
 
-	Unixext.unlink_safe http_fwd_path;
+	Xapi_stdext_unix.Unixext.unlink_safe http_fwd_path;
 	let http_fwd_socket = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
 	Unix.bind http_fwd_socket (Unix.ADDR_UNIX http_fwd_path);
 	Unix.listen http_fwd_socket 5;
@@ -87,7 +85,7 @@ let start (xmlrpc_path, http_fwd_path) process =
 		let msg_size = 16384 in
 		let buf = String.make msg_size '\000' in
 		(* debug "Calling Unixext.recv_fd()"; *)
-		let len, _, received_fd = Unixext.recv_fd this_connection buf 0 msg_size [] in
+		let len, _, received_fd = Xapi_stdext_unix.Unixext.recv_fd this_connection buf 0 msg_size [] in
 		(* debug "Unixext.recv_fd ok (len = %d)" len; *)
 		finally
 			(fun _ ->
@@ -103,9 +101,11 @@ let start (xmlrpc_path, http_fwd_path) process =
 
 (* Monitoring code --- START. *)
 
-open Listext
-open Xstringext
-open Threadext
+open Xapi_stdext_monadic
+open Xapi_stdext_std.Listext
+open Xapi_stdext_std.Xstringext
+open Xapi_stdext_threads.Threadext
+module Hashtblext = Xapi_stdext_std.Hashtblext
 open Network_stats
 open Rrdd_shared
 open Ds
@@ -167,7 +167,7 @@ module Meminfo = struct
 				current_meminfofree_values := IntMap.remove d !current_meminfofree_values
 
 	let watch_fired xc path domains _ =
-		match List.filter (fun x -> x <> "") (Xstringext.String.split '/' path) with
+		match List.filter (fun x -> x <> "") (String.split '/' path) with
 		| "local" :: "domain" :: domid :: "data" :: "meminfo_free" :: [] ->
 			fire_event_on_vm domid domains
 		| _ -> debug "Ignoring unexpected watch: %s" path
@@ -556,7 +556,7 @@ let monitor_loop () =
  *)
 
 module type DISCOVER = sig
-	val start: unit -> Stdext.Threadext.Thread.t
+	val start: unit -> Xapi_stdext_threads.Threadext.Thread.t
 end
 
 module Discover: DISCOVER = struct
