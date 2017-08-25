@@ -15,15 +15,6 @@ let flags = function
   in
   go ic ""
 
-(*
-let coverage_rewriter ~full =
-  let is_coverage = try Unix.getenv "COVERAGE" = "1" with Not_found -> false in
-  match is_coverage, full with
-  | true, true -> "(preprocess (pps (bisect_ppx -simple-cases)))"
-  | true, _    -> "bisect_ppx -simple-cases"
-  | _          -> ""
-*)
-
 let rewriters = ["ppx_deriving_rpc"]
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
