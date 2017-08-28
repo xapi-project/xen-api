@@ -2539,6 +2539,17 @@ let vm_create_new_blob = call
     ~allowed_roles:_R_VM_POWER_ADMIN
     ()
 
+let vm_bios_string_keys =
+  Enum ("vm_bios_string_keys",
+        [ "bios-vendor",          "Indicates BIOS vendor's Name.";
+          "bios-version",         "Indicates BIOS version";
+          "system-manufacturer",  "Indicates system manufacturer";
+          "system-product-name",  "Indicates system product name";
+          "system-version",       "Indicates system version";
+          "system-serial-number", "Indicates system serial number";
+          "enclosure-asset-tag",  "Indicates system enclosure asset tag"
+        ])
+
 let vm_set_bios_strings = call
     ~name: "set_bios_strings"
     ~in_product_since:rel_inverness
