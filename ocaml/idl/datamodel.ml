@@ -2555,7 +2555,7 @@ let vm_set_bios_strings = call
     ~in_product_since:rel_inverness
     ~doc:"Set custom BIOS strings to this VM"
     ~params:[Ref _vm, "self", "The VM to modify";
-             Map (String, String), "value", "The custom BIOS strings as a list of key-value pairs"]
+             Map (vm_bios_string_keys, String), "value", "The custom BIOS strings as a list of key-value pairs"]
     ~allowed_roles:_R_VM_ADMIN
     ()
 
