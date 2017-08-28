@@ -83,6 +83,26 @@ let string_to_vm_operation x =
   then (raise (Api_errors.Server_error(Api_errors.invalid_value, [ "blocked_operation"; x ])))
   else List.assoc x table
 
+let vm_bios_key_to_string: API.vm_bios_string_keys -> string = function
+  | `biosvendor -> "bios-vendor"
+  | `biosversion -> "bios-version"
+  | `systemmanufacturer -> "system-manufacturer"
+  | `systemproductname -> "system-product-name"
+  | `systemversion -> "system-version"
+  | `systemserialnumber -> "system-serial-number"
+  | `enclosureassettag -> "enclosure-asset-tag"
+
+let string_to_vm_bios_key: string -> API.vm_bios_string_keys = function
+  | "bios-vendor" -> `biosvendor
+  | "bios-version" -> `biosversion
+  | "system-manufacturer" -> `systemmanufacturer
+  | "system-product-name" -> `systemproductname
+  | "system-version" -> `systemversion
+  | "system-serial-number" -> `systemserialnumber
+  | "enclosure-asset-tag" -> `enclosureassettag
+  | s -> raise (Record_failure ("Expected 'bios-vendor', 'bios-version', 'system-manufacturer',
+    'system-product-name', 'system-version', 'system-serial-number', 'enclosure-asset-tag' got "^s))
+
 let pool_operation_to_string = function
   | `ha_enable -> "ha_enable"
   | `ha_disable -> "ha_disable"
