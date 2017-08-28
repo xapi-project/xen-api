@@ -217,7 +217,7 @@ val s3_resume : __context:Context.t -> vm:API.ref_VM -> unit
 
 (** {2 BIOS strings} *)
 val set_bios_strings :
-  __context:Context.t -> self:[ `VM ] Ref.t -> value:(string * string) list -> unit
+  __context:Context.t -> self:[ `VM ] Ref.t -> value:(API.vm_bios_string_keys * string) list -> unit
 val copy_bios_strings :
   __context:Context.t -> vm:[ `VM ] Ref.t -> host:[ `host ] Ref.t -> unit
 (** Copy the BIOS strings from a host to the VM, unless the VM's BIOS strings

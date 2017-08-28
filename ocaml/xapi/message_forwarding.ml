@@ -1975,7 +1975,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
    let set_bios_strings ~__context ~self ~value =
       info "VM.set_bios_strings: self = '%s'; value = '%s'" (vm_uuid ~__context self)
-        (String.concat "; " (List.map (fun (k,v) -> k ^ "=" ^ v) value));
+        (String.concat "; " (List.map (fun (k,v) -> (Record_util.vm_bios_key_to_string k) ^ "=" ^ v) value));
       Local.VM.set_bios_strings ~__context ~self ~value
 
     let copy_bios_strings ~__context ~vm ~host =
