@@ -20,9 +20,10 @@ let start session_id rpc =
     try
       start uuid_t;
       let uuid = with_pbd P.get_uuid pbd in
-      if with_api P.get_by_uuid ~uuid = pbd then success uuid_t
+      if with_api P.get_by_uuid ~uuid = pbd
+      then success uuid_t
       else failed uuid_t "'get_by_uuid' failed";
-    with e -> debug uuid_t (ExnHelper.string_of_exn e); in
+    with e -> failed uuid_t (ExnHelper.string_of_exn e); in
 
   (* main function to run test suite *)
   let run_tests () =
@@ -35,6 +36,5 @@ let start session_id rpc =
       success test;
     with
     | (Failure hd) -> failed test "Error: no PBD available"
-    | e -> debug test (ExnHelper.string_of_exn e);
-           failed test ""
+    | e -> failed test (ExnHelper.string_of_exn e);
   in run_tests () ;
