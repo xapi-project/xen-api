@@ -70,8 +70,10 @@ let with_block filename f =
 
 let with_attached_vdi sr vdi read_write f =
   let pid = Unix.getpid () in
-  let dbg = Printf.sprintf "xapi-nbd:with_attached_vdi/%d" pid in
-  SM.DP.create ~dbg ~id:(Printf.sprintf "xapi-nbd/%s/%d" vdi pid)
+  let connection_uuid = Uuidm.v `V4 |> Uuidm.to_string in
+  let datapath_id = Printf.sprintf "xapi-nbd/%s/%s/%d" vdi connection_uuid pid in
+  let dbg = Printf.sprintf "xapi-nbd:with_attached_vdi/%s" datapath_id in
+  SM.DP.create ~dbg ~id:datapath_id
   >>= fun dp ->
   SM.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write
   >>= fun attach_info ->

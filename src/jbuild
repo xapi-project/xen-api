@@ -11,6 +11,7 @@
     mirage-block-unix
     nbd.lwt
     uri
+    uuidm
     xcp.storage
     xen-api-client.lwt))
  )
