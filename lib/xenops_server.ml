@@ -1014,11 +1014,15 @@ let rec atomics_of_operation = function
       VM_hook_script(id, Xenops_hooks.VM_post_destroy, Xenops_hooks.reason__suspend)
     ]
   | VM_resume (id, data) ->
+    (* If we've got a vGPU, then save its state will be in the same file *)
+    let vgpu_data = if VGPU_DB.ids id = [] then None else Some data in
     simplify [
       VM_create (id, None);
     ] @ [
       VM_hook_script(id, Xenops_hooks.VM_pre_resume, Xenops_hooks.reason__none);
-      VM_restore (id, data, None);
+    ] @ List.map (fun vgpu_id -> VGPU_start (vgpu_id, true)) (VGPU_DB.ids id)
+    @ [
+      VM_restore (id, data, vgpu_data);
     ] @ (atomics_of_operation (VM_restore_devices (id, true))
         ) @ [
       (* At this point the domain is considered survivable. *)
