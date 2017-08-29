@@ -36,11 +36,8 @@ let start path handler =
       | [] -> Lwt.return_unit
       | fds ->
         Lwt_log.warning_f "Closing %d excess fds" (List.length fds) >>= fun () ->
-        Lwt.catch
-          (fun () -> 
-             List.iter (fun fd -> try Unix.close fd with _ -> ()) fds;
-             Lwt.return_unit)
-          (fun _ -> Lwt.return_unit)
+        List.iter (fun fd -> try Unix.close fd with _ -> ()) fds;
+        Lwt.return_unit
     in
     Lwt.catch
       (fun () ->
@@ -55,7 +52,7 @@ let start path handler =
                 Lwt_unix.recv_msg ~socket:fd ~io_vectors:[iov])
            >>= fun (len, newfds) ->
            match newfds with
-           | [] -> Lwt.return_unit
+           | [] -> Lwt_log.warning "No fd to start a connection: not proxying"
            | ufd :: ufds ->
              ensure_close ufds >>= fun () ->
              with_fd (Lwt_unix.of_unix_file_descr ufd)
@@ -79,13 +76,13 @@ let proxy (fd : Lwt_unix.file_descr) protocol localport =
   let open Lwt_support in
   begin match protocol with
     | "hixie76" ->
-      Lwt_log.debug_f "old-style (hixie76) protocol" >>= fun () ->
+      Lwt_log.debug_f "Old-style (hixie76) protocol" >>= fun () ->
       Lwt.return (wsframe_old, wsunframe_old)
     | "hybi10" ->
-      Lwt_log.debug_f "new-style (hybi10) protocol" >>= fun () ->
+      Lwt_log.debug_f "New-style (hybi10) protocol" >>= fun () ->
       Lwt.return (wsframe, wsunframe)
     | _ ->
-      Lwt_log.debug_f "unknown protocol" >>= fun () ->
+      Lwt_log.warning_f "Unknown protocol, fallback to hybi10" >>= fun () ->
       Lwt.return (wsframe, wsunframe) 
   end >>= fun (frame,unframe) ->
   with_open_connection_fd "localhost" localport ~callback:(fun localfd ->
@@ -110,7 +107,7 @@ let handler sock msg =
   | [protocol;sport] ->
     let port = int_of_string sport in
     proxy sock protocol port
-  | _ -> Lwt.return_unit
+  | _ -> Lwt_log.warning "Malformed msg: not proxying"
 
 
 let _ = 
