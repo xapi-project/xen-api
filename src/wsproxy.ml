@@ -47,7 +47,7 @@ let start path handler =
          Lwt_unix.accept fd_sock
          >>= fun (fd_sock',_) ->
          (* Background thread per connection *)
-         let _ =
+         let _ : unit Lwt.t =
            let buffer = String.make 16384 '\000' in
            with_fd fd_sock'
              (fun fd ->
@@ -74,7 +74,7 @@ let start path handler =
   with_fd fd_sock (fun _ -> loop ())
 
 
-let proxy (fd : Lwt_unix.file_descr) protocol _ty localport =
+let proxy (fd : Lwt_unix.file_descr) protocol localport =
   let open LwtWsIteratee in
   let open Lwt_support in
   begin match protocol with
@@ -89,7 +89,8 @@ let proxy (fd : Lwt_unix.file_descr) protocol _ty localport =
       Lwt.return (wsframe, wsunframe) 
   end >>= fun (frame,unframe) ->
   with_open_connection_fd "localhost" localport ~callback:(fun localfd ->
-      Lwt_log.debug_f "Starting proxy" >>= fun () ->
+      let session_id = Uuidm.v `V4 |> Uuidm.to_string in
+      Lwt_log.debug_f "Starting proxy session %s" session_id >>= fun () ->
       let thread1 =
         lwt_fd_enumerator localfd (frame (writer (really_write fd) "thread1")) >>= fun _ ->
         Lwt.return_unit in
@@ -98,22 +99,23 @@ let proxy (fd : Lwt_unix.file_descr) protocol _ty localport =
         Lwt.return_unit in
       (* closing the connection in one of the threads above in general leaves the other pending forever,
        * by using choose here, we make sure that as soon as one of the threads completes, both are closed *)
-      Lwt.choose [thread1; thread2])
+      Lwt.choose [thread1; thread2]
+      >>= fun () -> Lwt_log.debug_f "Closing proxy session %s" session_id)
 
 
 let handler sock msg =
   Lwt_log.debug_f "Got msg: %s" msg >>= fun () ->
   match Re_str.split (Re_str.regexp "[:]") msg with
-  | [protocol;ty;sport] ->
-    let port = int_of_string sport in
-    proxy sock protocol ty port
+  | [protocol;_;sport]
   | [protocol;sport] ->
     let port = int_of_string sport in
-    proxy sock protocol "hybi10" port
+    proxy sock protocol port
   | _ -> Lwt.return_unit
 
 
 let _ = 
+  (* Enable logging for all levels *)
+  Lwt_log.add_rule "*" Lwt_log.Debug;
   Lwt_daemon.daemonize ~stdin:`Close ();
   let filename = "/var/run/wsproxy.pid" in
   (try Unix.unlink filename with _ -> ());
