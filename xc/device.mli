@@ -261,7 +261,7 @@ sig
   val suspend : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
   val resume : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
   val stop : xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
-  val restore_vgpu : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> Unix.file_descr -> Xenctrl.domid  -> Xenops_interface.Vgpu.t -> int -> unit
+  val restore_vgpu : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid  -> Xenops_interface.Vgpu.t -> int -> unit
 
   val with_dirty_log: int -> f:(unit -> 'a) -> 'a
 end

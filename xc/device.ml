@@ -1723,10 +1723,9 @@ module Dm_Common = struct
     @ disp_options
     @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] extras)
 
-  let vgpu_args_of_nvidia domid vcpus (vgpu:Xenops_interface.Vgpu.nvidia) pci fds =
+  let vgpu_args_of_nvidia domid vcpus (vgpu:Xenops_interface.Vgpu.nvidia) pci restore =
     let open Xenops_interface.Vgpu in
     let suspend_file = sprintf demu_save_path domid in
-    let resume_file = sprintf demu_restore_path domid in
     let base_args = [
       "--domain=" ^ (string_of_int domid);
       "--vcpus=" ^ (string_of_int vcpus);
@@ -1734,16 +1733,8 @@ module Dm_Common = struct
       "--config=" ^ vgpu.config_file;
       "--suspend=" ^ suspend_file;
     ] in
-    let fd_arg = match fds with
-      | [] -> []
-      | (uuid, _) :: _ -> ["--resumefd"; uuid]
-    in
-    let resume_arg =
-      if Sys.file_exists resume_file
-      then ["--resume=" ^ resume_file]
-      else []
-    in
-    List.concat [base_args; fd_arg; resume_arg]
+    let fd_arg = if restore then ["--resume"] else [] in
+    List.concat [base_args; fd_arg]
 
   let write_vgpu_data ~xs domid devid keys =
     let path = xenops_vgpu_path domid devid in
@@ -2235,7 +2226,7 @@ module Dm = struct
 
   (* the following functions depend on the functions above that use the qemu backend Q *)
 
-  let start_vgpu ~xs task ?restore_fd domid vgpus vcpus profile =
+  let start_vgpu ~xs task ?(restore=false) domid vgpus vcpus profile =
     let open Xenops_interface.Vgpu in
     match vgpus with
     | [{physical_pci_address = pci; implementation = Nvidia vgpu}] ->
@@ -2249,16 +2240,10 @@ module Dm = struct
         debug "start_vgpu: got VGPU with physical pci address %s"
           (Xenops_interface.Pci.string_of_address pci);
         PCI.bind [pci] PCI.Nvidia;
-        let fds = match restore_fd with
-          | None -> []
-          | Some fd ->
-            let uuid = Uuidm.to_string (Uuidm.create `V4) in
-            [uuid, fd]
-        in
-        let args = vgpu_args_of_nvidia domid vcpus vgpu pci fds in
+        let args = vgpu_args_of_nvidia domid vcpus vgpu pci restore in
         let vgpu_pid = init_daemon ~task ~path:!Xc_resources.vgpu ~args
             ~name:"vgpu" ~domid ~xs ~ready_path:state_path ~timeout:!Xenopsd.vgpu_ready_timeout
-            ~cancel ~fds profile in
+            ~cancel ~fds:[] profile in
         Forkhelpers.dontwaitpid vgpu_pid
       end else
         info "Daemon %s is already running for domain %d" !Xc_resources.vgpu domid;
@@ -2353,9 +2338,9 @@ module Dm = struct
     let l = vnconly_cmdline ~info domid in
     __start task ~xs ~dm ?timeout l info domid
 
-  let restore_vgpu (task: Xenops_task.task_handle) ~xs restore_fd domid vgpu vcpus =
+  let restore_vgpu (task: Xenops_task.task_handle) ~xs domid vgpu vcpus =
     debug "Called Dm.restore_vgpu";
-    start_vgpu ~xs task ~restore_fd domid [vgpu] vcpus Profile.Qemu_trad
+    start_vgpu ~xs task ~restore:true domid [vgpu] vcpus Profile.Qemu_trad
 
 end (* Dm *)
 
