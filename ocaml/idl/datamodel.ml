@@ -2553,10 +2553,11 @@ let vm_bios_string_keys =
 let vm_set_bios_strings = call
     ~name: "set_bios_strings"
     ~in_product_since:rel_inverness
-    ~doc:"Set custom BIOS strings to this VM"
+    ~doc:"Set custom BIOS strings to this VM. VM will be given a default set of BIOS strings, only some of which can be overridden by the supplied values"
     ~params:[Ref _vm, "self", "The VM to modify";
              Map (vm_bios_string_keys, String), "value", "The custom BIOS strings as a list of key-value pairs"]
     ~allowed_roles:_R_VM_ADMIN
+    ~errs:[Api_errors.vm_bios_strings_already_set; Api_errors.invalid_value]
     ()
 
 let vm_copy_bios_strings = call
