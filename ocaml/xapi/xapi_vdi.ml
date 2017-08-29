@@ -253,11 +253,23 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
   let pool = Helpers.get_pool ~__context in
   let ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:pool in
 
+  (* CA-260245: older XenServer versions do not know about newer operations,
+   * and therefore cannot do storage migration to a XenServer that lists them
+   * in a VDI's allowed_operations field.
+   * As a temporary measure, we are fixing the symptom by excluding newer ops
+   * from the allowed_operations list. This is a hack: TECHNICAL DEBT.
+   * We would prefer to do a more general fix for this class of problems with
+   * no age-based exclusion of VDI operations from allowed_operations.
+   * We have one or two approaches in mind.
+   * If/when we do this, we can update test_vdi_allowed_operations.ml to
+   * re-enable (and maybe alter) the relevant part of
+   * test_update_allowed_operations.
+   *)
   let all_ops = Listext.List.set_difference
     (* Older XenServers choke on ops they don't recognise during SXM, so
-     * filter out the recently added ones: CA-260245 *)
-    Xapi_vdi_helpers.all_ops
-    (`blocked :: Xapi_vdi_helpers.recently_added_ops)
+     * until we have a better solution we consider only old ones: CA-260245 *)
+    Xapi_globs.pre_ely_vdi_operations
+    [`blocked]
   in
   let all = Db.VDI.get_record_internal ~__context ~self in
   let allowed =
