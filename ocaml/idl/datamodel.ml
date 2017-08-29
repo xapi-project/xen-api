@@ -1416,7 +1416,7 @@ let _ =
     ~doc:"The operation could not be performed because a redo log is enabled on the Pool." ();
 
   error Api_errors.vm_bios_strings_already_set []
-    ~doc:"The BIOS strings for this VM have already been set and cannot be changed anymore." ();
+    ~doc:"The BIOS strings for this VM have already been set and cannot be changed." ();
 
   (* CPU feature masking (a.k.a. Intel FlexMigration or AMD Extended Migration technology) *)
 
