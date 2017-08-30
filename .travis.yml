@@ -2,7 +2,9 @@ language: c
 services: docker
 install:
     - wget https://raw.githubusercontent.com/xenserver/xenserver-build-env/master/utils/travis-build-repo.sh
-script: bash travis-build-repo.sh
+script:
+    - bash travis-build-repo.sh
+    - bash .travis-python-nosetests.sh
 sudo: true
 env:
     global:
@@ -10,3 +12,4 @@ env:
         - REPO_CONFIGURE_CMD=./configure
         - REPO_BUILD_CMD=make
         - REPO_TEST_CMD=true
+
