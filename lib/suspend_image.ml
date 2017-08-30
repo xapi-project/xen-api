@@ -23,6 +23,12 @@ let (|>) x f = f x
 
 open M
 
+let wrap f =
+  try
+    return (f ())
+  with e ->
+    `Error e
+
 module Xenops_record = struct
   open Sexplib
   open Sexplib.Std
@@ -42,8 +48,8 @@ module Xenops_record = struct
     let word_size = Sys.word_size in
     { word_size; time; vm_str; xs_subtree }
 
-  let to_string t = t |> sexp_of_t |> Sexp.to_string
-  let of_string s = s |> Sexp.of_string |> t_of_sexp
+  let to_string t = wrap (fun () -> t |> sexp_of_t |> Sexp.to_string)
+  let of_string s = wrap (fun () -> s |> Sexp.of_string |> t_of_sexp)
 end
 
 
@@ -95,12 +101,6 @@ let string_of_header h =
   | Qemu_xen, len   -> s "Qemu (Xen) save record (record length=%Ld)" len
   | Demu, len       -> s "vGPU save record (record length=%Ld)" len
   | End_of_image, _ -> s "Suspend image footer"
-
-let wrap f =
-  try
-    return (f ())
-  with e -> 
-    `Error e
 
 let read_int64 fd = wrap (fun () -> Io.read_int64 ~endianness:`little fd)
 let write_int64 fd x = wrap (fun () -> Io.write_int64 ~endianness:`little fd x)

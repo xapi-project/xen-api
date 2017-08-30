@@ -21,8 +21,8 @@ end
 module Xenops_record : sig
   type t
   val make : ?vm_str:string -> ?xs_subtree:(string * string) list -> unit -> t
-  val to_string : t -> string
-  val of_string : string -> t
+  val to_string : t -> [ `Ok of string | `Error of exn ]
+  val of_string : string -> [ `Ok of t | `Error of exn ]
 end
 
 type header_type =
