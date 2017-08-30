@@ -4,20 +4,16 @@ authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/ocaml-rrdd-plugin/issues"
 dev-repo: "git://github.com/xapi-project/ocaml-rrdd-plugin.git"
-build: [
-  ["oasis" "setup"]
-  [make]
-]
-install: [
-  [make "PREFIX=%{prefix}%" "install"]
-]
-remove: [make "PREFIX=%{prefix}%" "uninstall"]
+build: [["jbuilder" "build" "-p" name "-j" jobs]]
 depends: [
   "rpc"
   "xapi-forkexecd"
-  "xapi-stdext" {>= "2.0.0"}
+  "xapi-stdext-pervasives"
+  "xapi-stdext-std"
+  "xapi-stdext-threads"
+  "xapi-stdext-unix"
   "xapi-idl"
   "xapi-rrd-transport" {>= "0.9.0"}
   "xenstore_transport"
-  "oasis" {build}
+  "jbuilder" {build & >= "1.0.0+beta10"}
 ]

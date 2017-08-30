@@ -11,13 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext
-open Pervasiveext
-open Unixext
-open Threadext
-open Xstringext
 
-let (|>) x f = f x
+open Xapi_stdext_std.Xstringext
+open Xapi_stdext_threads.Threadext
+
+open Xapi_stdext_unix
 
 (* This exception is setup to be raised on sigint by Process.initialise, and is
    used to cancel the synchronous function Reporter.start. *)
@@ -37,7 +35,7 @@ module Utils = struct
 				read_directory_contents (next_entry :: acc) handle
 			with End_of_file -> List.rev acc
 		in
-		finally
+		Xapi_stdext_pervasives.Pervasiveext.finally
 			(fun () -> read_directory_contents [] handle)
 			(fun () -> Unix.closedir handle)
 
@@ -220,7 +218,7 @@ module Reporter = struct
 		try
 			let path = RRDD.Plugin.get_path ~uid in
 			D.info "Obtained path=%s\n" path;
-			let _ = mkdir_safe (Filename.dirname path) 0o644 in
+			let _ = Unixext.mkdir_safe (Filename.dirname path) 0o644 in
 			let id = Rrd_writer.({
 				path;
 				shared_page_count = page_count;

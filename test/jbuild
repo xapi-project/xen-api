@@ -1,0 +1,11 @@
+(executable
+  ((name rrdp_dummy)
+   (libraries (rrdd-plugin
+               xenstore.unix
+               xenstore_transport.unix))
+  ))
+
+(alias
+ ((name    runtest)
+  (deps    (rrdp_dummy.exe))
+  (action  (run ${<}))))

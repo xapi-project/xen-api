@@ -1,35 +1,27 @@
-.PHONY: build all
-all: build
+.PHONY: build release install uninstall clean test doc reindent
 
-TESTS_FLAG=--enable-tests
+build:
+	jbuilder build @install --dev
 
-NAME=rrdd-plugin
-J=4
+release:
+	jbuilder build @install
 
-LIBDIR=_build/lib
-
-setup.ml: _oasis
-	oasis setup
-
-setup.data: setup.ml
-	ocaml setup.ml -configure $(TESTS_FLAG)
-
-build: setup.data
-	ocaml setup.ml -build -j $(J)
-
-doc: setup.data
-	ocaml setup.ml -doc -j $(J)
-
-install: setup.data
-	ocaml setup.ml -install
+install:
+	jbuilder install
 
 uninstall:
-	ocamlfind remove $(NAME)
-
-reinstall: setup.data
-	ocamlfind remove $(NAME) || true
-	ocaml setup.ml -reinstall
+	jbuilder uninstall
 
 clean:
-	ocamlbuild -clean
-	rm -f setup.data setup.log
+	jbuilder clean
+
+test:
+	jbuilder runtest
+
+# requires odoc
+doc:
+	jbuilder build @doc
+
+reindent:
+	ocp-indent -i **/*.mli
+	ocp-indent -i **/*.ml
