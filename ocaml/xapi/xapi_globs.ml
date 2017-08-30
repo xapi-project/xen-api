@@ -454,7 +454,10 @@ let rpu_allowed_vm_operations = [
   `update_allowed_operations;
 ]
 
-let rpu_allowed_vdi_operations = [
+(* Until the Ely release, the vdi_operations enum had stayed unchanged
+ * since 2009 or earlier, but then Ely and some subsequent releases
+ * added new members to the enum. *)
+let pre_ely_vdi_operations = [
   `clone;
   `copy;
   `resize;
@@ -467,6 +470,9 @@ let rpu_allowed_vdi_operations = [
   `generate_config;
   `blocked;
 ]
+
+(* We might consider restricting this further. *)
+let rpu_allowed_vdi_operations = pre_ely_vdi_operations
 
 (* Viridian key name (goes in platform flags) *)
 let viridian_key_name = "viridian"
