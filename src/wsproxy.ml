@@ -113,7 +113,7 @@ let handler sock msg =
 let _ = 
   (* Enable logging for all levels *)
   Lwt_log.add_rule "*" Lwt_log.Debug;
-  Lwt_daemon.daemonize ~stdin:`Close ();
+  Lwt_daemon.daemonize ~stdout:`Dev_null ~stdin:`Close ~stderr:`Dev_null ();
   let filename = "/var/run/wsproxy.pid" in
   (try Unix.unlink filename with _ -> ());
   Lwt_main.run begin
