@@ -2230,7 +2230,7 @@ module Dm = struct
     let open Xenops_interface.Vgpu in
     match vgpus with
     | [{physical_pci_address = pci; implementation = Nvidia vgpu}] ->
-      (* Start DEMU and wait until it has reached the "initialising" or "restoring" state *)
+      (* Start DEMU and wait until it has reached the desired state *)
       let state_path = Printf.sprintf "/local/domain/%d/vgpu/state" domid in
       let cancel = Cancel_utils.Vgpu domid in
       if not (Vgpu.is_running ~xs domid) then begin
@@ -2248,11 +2248,13 @@ module Dm = struct
       end else
         info "Daemon %s is already running for domain %d" !Xc_resources.vgpu domid;
 
-      (* Keep waiting until DEMU's state becomes "running", which means that it is
-         		 * ready to run the VM. *)
-      let good_watch = Watch.value_to_become state_path "running" in
+      (* Keep waiting until DEMU's state becomes "initialising" or "running", or an error occurred. *)
+      let good_watches = [
+        Watch.value_to_become state_path "initialising";
+        Watch.value_to_become state_path "running";
+      ] in
       let error_watch = Watch.value_to_become state_path "error" in
-      if cancellable_watch cancel [ good_watch ] [ error_watch ] task ~xs ~timeout:3600. () then
+      if cancellable_watch cancel good_watches [ error_watch ] task ~xs ~timeout:3600. () then
         info "Daemon vgpu is ready"
       else begin
         let error_code_path = Printf.sprintf "/local/domain/%d/vgpu/error-code" domid in
