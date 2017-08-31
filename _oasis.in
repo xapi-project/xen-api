@@ -86,7 +86,8 @@ Library xenopsd
     xenstore.unix,
     xenstore_transport,
     xenstore_transport.unix,
-    oclock
+    oclock,
+    core
   CSources:	      sockopt_stubs.c
 
 Executable dbgring

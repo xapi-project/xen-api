@@ -1430,6 +1430,104 @@ let can_surprise_remove ~xs (x: device) = Generic.can_surprise_remove ~xs x
 
 module Dm = struct
 
+  module QMP_Event = struct
+    open Qmp
+    let (pipe_r, pipe_w) = Unix.pipe ()
+
+    let (>>=) m f = match m with | Some x -> f x | None -> ()
+    let (>>|) m f = match m with | Some _ -> () | None -> f ()
+
+    module Lookup = struct
+      let ftod, dtoc = Hashtbl.create 16, Hashtbl.create 16
+      let add c domid =
+        Hashtbl.replace ftod (Qmp_protocol.to_fd c) domid;
+        Hashtbl.replace dtoc domid c
+      let remove c domid =
+        Hashtbl.remove ftod (Qmp_protocol.to_fd c);
+        Hashtbl.remove dtoc domid
+      let domid_of fd = try Some (Hashtbl.find ftod fd) with Not_found -> None
+      let channel_of domid = try Some (Hashtbl.find dtoc domid) with Not_found -> None
+    end
+
+    module Monitor = struct
+      module Epoll = Core.Linux_ext.Epoll
+      module Flags = Core.Linux_ext.Epoll.Flags
+      let create () = (Core.Std.Or_error.ok_exn Epoll.create) ~num_file_descrs:1001 ~max_ready_events:1
+      let wakeup () =  (* write single byte to wake up Monitor.wait *)
+        if Unix.write pipe_w " " 0 1 <> 1 then
+          debug "Pipe write error, failed to wake up qmp event thread"
+      let add m fd = Epoll.set m fd Flags.in_; wakeup ()
+      let remove m fd = Epoll.remove m fd; wakeup ()
+      let wait m = Epoll.wait m ~timeout:`Never
+      let with_event m fn = function
+        | `Ok -> Epoll.iter_ready m ~f:(fun fd flags -> fn fd (flags = Flags.in_))
+        | `Timeout -> debug "Shouldn't receive epoll timeout event in qmp_event_thread"
+    end
+    let m = Monitor.create ()
+
+    let monitor_path domid = Printf.sprintf "/var/run/xen/qmp-event-%d" domid
+    let debug_exn msg e = debug "%s: %s" msg (Printexc.to_string e)
+
+    let remove domid =
+      Lookup.channel_of domid >>= fun c ->
+      try 
+        finally
+          (fun () ->
+             Lookup.remove c domid;
+             Monitor.remove m (Qmp_protocol.to_fd c);
+             debug "Removed QMP Event fd for domain %d" domid)
+          (fun () -> Qmp_protocol.close c)
+      with e -> debug_exn (Printf.sprintf "Got exception trying to remove qmp on domain-%d" domid) e
+
+    let add domid =
+      try
+        Lookup.channel_of domid >>| fun () ->
+        let c = Qmp_protocol.connect (monitor_path domid) in
+        Qmp_protocol.negotiate c;
+        Lookup.add c domid;
+        Monitor.add m (Qmp_protocol.to_fd c);
+        debug "Added QMP Event fd for domain %d" domid
+      with e ->
+        debug_exn (Printf.sprintf "QMP domain-%d: negotiation failed: removing socket" domid) e;
+        remove domid
+
+    let qmp_event_handle domid qmp_event =
+      (* This function will be extended to handle qmp events *)
+      debug "Got QMP event, domain-%d: %s" domid qmp_event.event
+
+    let qmp_event_thread () =
+      Monitor.add m pipe_r;
+      while true do
+        try
+          Monitor.wait m |> Monitor.with_event m (fun fd is_flag_in ->
+              match fd with
+              | pipe when pipe = pipe_r ->
+                if is_flag_in then ()
+                else debug "Received unexpected epoll event on pipe_r in qmp_event_thread"
+              | sock ->
+                Lookup.domid_of sock >>= fun domid ->
+                if is_flag_in then
+                  Lookup.channel_of domid >>= fun c ->
+                  try
+                    match Qmp_protocol.read c with
+                    | Event e -> qmp_event_handle domid e
+                    | msg -> debug "Got non-event message, domain-%d: %s" domid (string_of_message msg)
+                  with End_of_file ->
+                    debug "domain-%d: end of file, close qmp socket" domid;
+                    remove domid
+                else begin
+                  debug "EPOLL error on domain-%d, close qmp socket" domid;
+                  remove domid
+                end
+            )
+        with e ->
+          debug_exn "Exception in qmp_event_thread: %s" e;
+      done
+
+    let _init_qmp_event =
+      Thread.create qmp_event_thread ()
+  end
+
   (* An example one:
      /usr/lib/xen/bin/qemu-dm -d 39 -m 256 -boot cd -serial pty -usb -usbdevice tablet -domain-name bee94ac1-8f97-42e0-bf77-5cb7a6b664ee -net nic,vlan=1,macaddr=00:16:3E:76:CE:44,model=rtl8139 -net tap,vlan=1,bridge=xenbr0 -vnc 39 -k en-us -vnclisten 127.0.0.1
   *)
@@ -1803,6 +1901,9 @@ module Dm = struct
       if not !finished then
         raise (Ioemu_failed (name, "Timeout reached while starting daemon"))
     end;
+
+    if is_upstream_qemu domid then
+      QMP_Event.add domid;
     debug "Daemon initialised: %s" syslog_key;
     pid
 
@@ -1933,6 +2034,8 @@ module Dm = struct
     let stop_qemu () = (match (Qemu.pid ~xs domid) with
         | None -> () (* nothing to do *)
         | Some qemu_pid ->
+          if is_upstream_qemu domid then
+            QMP_Event.remove domid;
           debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid;
           let open Generic in
           best_effort "signalling that qemu is ending as expected, mask further signals"

@@ -37,4 +37,5 @@ depends: [
   "xapi-inventory"
   "ezxenstore"
   "bisect_ppx"
+  "core"
 ]
