@@ -45,7 +45,8 @@ module SM = Storage_interface.ClientM(struct
       return (Jsonrpc.response_of_string result)
   end)
 
-let uri = ref "http://127.0.0.1/"
+(** Xapi's local Unix domain socket *)
+let uri = "file:///var/xapi/xapi"
 
 let capture_exception f x =
   Lwt.catch
@@ -135,7 +136,7 @@ let handle_connection fd =
        >>= fun (export_name, t) ->
        Lwt.finalize
          (fun () ->
-            let rpc = Xen_api.make !uri in
+            let rpc = Xen_api.make uri in
             let uri = Uri.of_string export_name in
             with_session rpc uri (serve t)
          )
