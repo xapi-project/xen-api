@@ -12,7 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* Iteratees module interface file *)
+(** Iteratees module interface file 
+
+    Refer to http://okmij.org/ftp/Haskell/Iteratee/ for additional information
+    on the context and the design. *)
 
 (** An error message type *)
 type err = string

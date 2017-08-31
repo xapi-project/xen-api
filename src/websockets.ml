@@ -54,8 +54,7 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
         Printf.sprintf "%c%c%s%s" (char_of_int 0x82) (char_of_int 127)
           (Helpers.marshal_int32 (Int32.of_int l)) s) s
 
-  let wsframe_old s = modify (fun s ->
-      Printf.printf "frame: got %s\n" s; Printf.sprintf "\x00%s\xff" s) s
+  let wsframe_old s = modify (fun s -> Printf.sprintf "\x00%s\xff" s) s
 
   let rec wsunframe x =
     let read_sz =
@@ -113,40 +112,3 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
     | _ -> return s
 
 end
-
-module TestWsIteratee = Wsprotocol(Test.StringMonad)
-
-let test1 = "\x81\x05\x48\x65\x6c\x6c\x6f"
-let test2 = "\x81\x85\x37\xfa\x21\x3d\x7f\x9f\x4d\x51\x58"
-let test3 = "\x01\x03\x48\x65\x6c"
-let test4 = "\x80\x02\x6c\x6f"
-let test5 = test1 ^ "\x88\x00"
-
-let testold1 = "\x00Hello\xff\x00There\xff"
-
-let runtest () =
-  let open TestWsIteratee in
-  let open I in
-
-  let it = wsunframe (writer Test.StringMonad.strwr "foo") in
-  let itold = wsunframe_old (writer Test.StringMonad.strwr "bar") in
-
-  let ($) f x = f x in
-  let (>>=) x f = Test.StringMonad.bind x f in
-  let (=<<) f x = Test.StringMonad.bind x f in
-
-  let dump x =
-    let str = Test.StringMonad.getstr x in
-    let data = Test.StringMonad.getdata x in
-    Printf.printf "str='%s' state=%s\n" str (state data)
-  in
-
-  let x = enum_nchunk test1 3 $ it in dump x;
-  let x = enum_nchunk test2 3 $ it in dump x;
-  let mytest3 = enum_nchunk test3 3 $ it in dump mytest3;
-  let x = mytest3 >>= (enum_nchunk test4 3) in dump x;
-  let x = enum_eof =<< (enum_nchunk test5 3 it) in dump x;
-  let x = enum_eof =<< (enum_nchunk test3 3 it) in dump x;
-  Printf.printf "old style:\n";
-  let x = enum_nchunk testold1 3 $ itold in dump x
-
