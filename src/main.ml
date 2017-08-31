@@ -92,25 +92,16 @@ let ignore_exn t () = Lwt.catch t (fun _ -> Lwt.return_unit)
 let handle_connection fd =
 
   let with_session rpc uri f =
-    ( match Uri.user uri, Uri.password uri, Uri.get_query_param uri "session_id" with
-      | _, _, Some x ->
+    ( match Uri.get_query_param uri "session_id" with
+      | Some session_id ->
         (* Validate the session *)
-        Xen_api.Session.get_uuid ~rpc ~session_id:x ~self:x
+        Xen_api.Session.get_uuid ~rpc ~session_id ~self:session_id
         >>= fun _ ->
-        return (x, false)
-      | Some uname, Some pwd, _ ->
-        Xen_api.Session.login_with_password ~rpc ~uname ~pwd ~version:"1.0" ~originator:"xapi-nbd"
-        >>= fun session_id ->
-        return (session_id, true)
-      | _, _, _ ->
-        fail (Failure "No suitable authentication provided")
-    ) >>= fun (session_id, need_to_logout) ->
-    Lwt.finalize
-      (fun () -> f uri rpc session_id)
-      (fun () ->
-         if need_to_logout
-         then Xen_api.Session.logout ~rpc ~session_id
-         else return ())
+        return session_id
+      | None ->
+        fail (Failure "No session_id parameter provided")
+    ) >>= fun session_id ->
+    f uri rpc session_id
   in
 
 
