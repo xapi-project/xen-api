@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let project_url = "http://github.com/djs55/xapi-nbd"
-
 open Lwt
 (* Xapi external interfaces: *)
 module Xen_api = Xen_api_lwt_unix
@@ -44,9 +42,6 @@ module SM = Storage_interface.ClientM(struct
       >>*= fun result ->
       return (Jsonrpc.response_of_string result)
   end)
-
-(** Xapi's local Unix domain socket *)
-let uri = "file:///var/xapi/xapi"
 
 let capture_exception f x =
   Lwt.catch
@@ -127,7 +122,7 @@ let handle_connection fd =
        >>= fun (export_name, t) ->
        Lwt.finalize
          (fun () ->
-            let rpc = Xen_api.make uri in
+            let rpc = Xen_api.make Consts.xapi_unix_domain_socket_uri in
             let uri = Uri.of_string export_name in
             with_session rpc uri (serve t)
          )
@@ -179,7 +174,7 @@ let help = [
   `P "These options are common to all commands.";
   `S "MORE HELP";
   `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
-  `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" project_url);
+  `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" Consts.project_url);
 ]
 
 let cmd =
@@ -190,7 +185,7 @@ let cmd =
   ] @ help in
   let port =
     let doc = "Local port to listen for connections on" in
-    Arg.(value & opt int 10809 & info [ "port" ] ~doc) in
+    Arg.(value & opt int Consts.standard_nbd_port & info [ "port" ] ~doc) in
   Term.(ret (pure main $ port)),
   Term.info "xapi-nbd" ~version:"1.0.0" ~doc ~man ~sdocs:_common_options
 
