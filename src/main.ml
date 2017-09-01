@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let project_url = "http://github.com/djs55/xapi-nbd"
-
 open Lwt
 (* Xapi external interfaces: *)
 module Xen_api = Xen_api_lwt_unix
@@ -44,8 +42,6 @@ module SM = Storage_interface.ClientM(struct
       >>*= fun result ->
       return (Jsonrpc.response_of_string result)
   end)
-
-let uri = ref "http://127.0.0.1/"
 
 let capture_exception f x =
   Lwt.catch
@@ -88,28 +84,19 @@ let with_attached_vdi sr vdi read_write f =
 
 let ignore_exn t () = Lwt.catch t (fun _ -> Lwt.return_unit)
 
-let handle_connection fd =
+let handle_connection xen_api_uri fd =
 
   let with_session rpc uri f =
-    ( match Uri.user uri, Uri.password uri, Uri.get_query_param uri "session_id" with
-      | _, _, Some x ->
+    ( match Uri.get_query_param uri "session_id" with
+      | Some session_id ->
         (* Validate the session *)
-        Xen_api.Session.get_uuid ~rpc ~session_id:x ~self:x
+        Xen_api.Session.get_uuid ~rpc ~session_id ~self:session_id
         >>= fun _ ->
-        return (x, false)
-      | Some uname, Some pwd, _ ->
-        Xen_api.Session.login_with_password ~rpc ~uname ~pwd ~version:"1.0" ~originator:"xapi-nbd"
-        >>= fun session_id ->
-        return (session_id, true)
-      | _, _, _ ->
-        fail (Failure "No suitable authentication provided")
-    ) >>= fun (session_id, need_to_logout) ->
-    Lwt.finalize
-      (fun () -> f uri rpc session_id)
-      (fun () ->
-         if need_to_logout
-         then Xen_api.Session.logout ~rpc ~session_id
-         else return ())
+        return session_id
+      | None ->
+        fail (Failure "No session_id parameter provided")
+    ) >>= fun session_id ->
+    f uri rpc session_id
   in
 
 
@@ -135,7 +122,7 @@ let handle_connection fd =
        >>= fun (export_name, t) ->
        Lwt.finalize
          (fun () ->
-            let rpc = Xen_api.make !uri in
+            let rpc = Xen_api.make xen_api_uri in
             let uri = Uri.of_string export_name in
             with_session rpc uri (serve t)
          )
@@ -144,7 +131,7 @@ let handle_connection fd =
     (* ignore the exception resulting from double-closing the socket *)
     (ignore_exn channel.close)
 
-let main port =
+let main port xen_api_uri =
   let t =
     let sock = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
     Lwt.finalize
@@ -161,7 +148,7 @@ let main port =
              Lwt.catch
                (fun () ->
                   Lwt.finalize
-                    (fun () -> handle_connection fd)
+                    (fun () -> handle_connection xen_api_uri fd)
                     (* ignore the exception resulting from double-closing the socket *)
                     (ignore_exn (fun () -> Lwt_unix.close fd))
                )
@@ -187,7 +174,7 @@ let help = [
   `P "These options are common to all commands.";
   `S "MORE HELP";
   `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
-  `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" project_url);
+  `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" Consts.project_url);
 ]
 
 let cmd =
@@ -198,8 +185,11 @@ let cmd =
   ] @ help in
   let port =
     let doc = "Local port to listen for connections on" in
-    Arg.(value & opt int 10809 & info [ "port" ] ~doc) in
-  Term.(ret (pure main $ port)),
+    Arg.(value & opt int Consts.standard_nbd_port & info [ "port" ] ~doc) in
+  let xen_api_uri =
+    let doc = "The URI to use when making XenAPI calls. It must point to the pool master, or to xapi's local Unix domain socket, which is the default." in
+    Arg.(value & opt string Consts.xapi_unix_domain_socket_uri & info [ "xen-api-uri" ] ~doc) in
+  Term.(ret (pure main $ port $ xen_api_uri)),
   Term.info "xapi-nbd" ~version:"1.0.0" ~doc ~man ~sdocs:_common_options
 
 let _ =
