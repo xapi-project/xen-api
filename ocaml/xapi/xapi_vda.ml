@@ -21,6 +21,7 @@ let find_vda ~__context ~vm =
   | ref::[] -> Some ref
   | ref::_ -> (* should never happen; this occurance indicates a bug *)
     let msg = "Multiple VDAs found for VM" in
+    error "%s %s" msg (Db.VM.get_uuid ~__context ~self:vm);
     raise Api_errors.(Server_error(internal_error, [msg; (Ref.string_of vm)]))
   | _ -> None
 
@@ -28,6 +29,7 @@ let assert_vm_is_valid ~__context ~vm =
   if vm = Ref.null
   then
     let msg = "VM reference is null" in
+    error "%s" msg;
     raise Api_errors.(Server_error(internal_error, [msg]))
 
 let assert_vm_has_no_vda ~__context ~vm =
@@ -35,14 +37,15 @@ let assert_vm_has_no_vda ~__context ~vm =
     ~expr:(Db_filter_types.(Eq (Field "vm", Literal (Ref.string_of vm)))) with
   | (_,record)::_ ->
     let msg = "VDA already exists" in
+    error "%s (%s)" msg record.API.vDA_uuid;
     raise Api_errors.(Server_error(internal_error, [msg; record.API.vDA_uuid]))
   | _ -> ()
 
 let assert_vda_version_is_valid ~__context ~version =
-  (* TODO - validate version format? *)
   if version = ""
   then
     let msg = "VDA version cannot be empty" in
+    error "%s" msg;
     raise Api_errors.(Server_error(internal_error, [msg]))
 
 (** Assert that the VDA's VM is in a certain power state *)
