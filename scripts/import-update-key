@@ -1,6 +1,6 @@
 #!/bin/sh
 
-gpgopts="--homedir=/opt/xensource/gpg"
+gpgopts="--homedir=/opt/xensource/gpg --batch"
 
 set -e
 
