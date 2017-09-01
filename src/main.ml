@@ -84,7 +84,7 @@ let with_attached_vdi sr vdi read_write f =
 
 let ignore_exn t () = Lwt.catch t (fun _ -> Lwt.return_unit)
 
-let handle_connection fd =
+let handle_connection xen_api_uri fd =
 
   let with_session rpc uri f =
     ( match Uri.get_query_param uri "session_id" with
@@ -122,7 +122,7 @@ let handle_connection fd =
        >>= fun (export_name, t) ->
        Lwt.finalize
          (fun () ->
-            let rpc = Xen_api.make Consts.xapi_unix_domain_socket_uri in
+            let rpc = Xen_api.make xen_api_uri in
             let uri = Uri.of_string export_name in
             with_session rpc uri (serve t)
          )
@@ -131,7 +131,7 @@ let handle_connection fd =
     (* ignore the exception resulting from double-closing the socket *)
     (ignore_exn channel.close)
 
-let main port =
+let main port xen_api_uri =
   let t =
     let sock = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
     Lwt.finalize
@@ -148,7 +148,7 @@ let main port =
              Lwt.catch
                (fun () ->
                   Lwt.finalize
-                    (fun () -> handle_connection fd)
+                    (fun () -> handle_connection xen_api_uri fd)
                     (* ignore the exception resulting from double-closing the socket *)
                     (ignore_exn (fun () -> Lwt_unix.close fd))
                )
@@ -186,7 +186,10 @@ let cmd =
   let port =
     let doc = "Local port to listen for connections on" in
     Arg.(value & opt int Consts.standard_nbd_port & info [ "port" ] ~doc) in
-  Term.(ret (pure main $ port)),
+  let xen_api_uri =
+    let doc = "The URI to use when making XenAPI calls. It must point to the pool master, or to xapi's local Unix domain socket, which is the default." in
+    Arg.(value & opt string Consts.xapi_unix_domain_socket_uri & info [ "xen-api-uri" ] ~doc) in
+  Term.(ret (pure main $ port $ xen_api_uri)),
   Term.info "xapi-nbd" ~version:"1.0.0" ~doc ~man ~sdocs:_common_options
 
 let _ =
