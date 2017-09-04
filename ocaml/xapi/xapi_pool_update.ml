@@ -564,6 +564,9 @@ let resync_host ~__context ~host =
             |> fun self -> Db.Pool_patch.get_host_patches ~__context ~self
             |> function [] -> false | _ -> true)
     |> List.iter (fun self -> destroy ~__context ~self);
+
+    (* Clean up host_patch table *)
+    Db_gc_util.gc_Host_patches ~__context
   end
 
 let pool_update_download_handler (req: Request.t) s _ =
