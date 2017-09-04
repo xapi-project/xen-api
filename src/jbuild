@@ -7,12 +7,10 @@
    (cmdliner
     lwt
     lwt.unix
-    message_switch.lwt
     mirage-block-unix
     nbd.lwt
     uri
-    uuidm
-    xcp.storage
+    xcp-inventory
     xen-api-client.lwt))
  )
 )

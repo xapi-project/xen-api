@@ -12,8 +12,7 @@ depends: [
   "mirage-block-unix"
   "nbd" {>= "2.0.1"}
   "uri"
-  "uuidm"
-  "xapi-idl"
+  "xapi-inventory"
   "xen-api-client"
 ]
 tags: [ "org:mirage" "org:xapi-project" ]

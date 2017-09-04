@@ -16,33 +16,6 @@ open Lwt.Infix
 (* Xapi external interfaces: *)
 module Xen_api = Xen_api_lwt_unix
 
-(* Xapi internal interfaces: *)
-module SM = Storage_interface.ClientM(struct
-    type 'a t = 'a Lwt.t
-    let fail, return, bind = Lwt.(fail, return, bind)
-
-    let (>>*=) m f = m >>= function
-      | `Ok x -> f x
-      | `Error e ->
-        let b = Buffer.create 16 in
-        let fmt = Format.formatter_of_buffer b in
-        Protocol_lwt.Client.pp_error fmt e;
-        Format.pp_print_flush fmt ();
-        Lwt.fail_with (Buffer.contents b)
-
-    (* A global connection for the lifetime of this process *)
-    let switch =
-      Protocol_lwt.Client.connect ~switch:!Xcp_client.switch_path ()
-      >>*= fun switch ->
-      Lwt.return switch
-
-    let rpc call =
-      switch >>= fun switch ->
-      Protocol_lwt.Client.rpc ~t:switch ~queue:!Storage_interface.queue_name ~body:(Jsonrpc.string_of_call call) ()
-      >>*= fun result ->
-      Lwt.return (Jsonrpc.response_of_string result)
-  end)
-
 (* TODO share these "require" functions with the nbd package. *)
 let require name arg = match arg with
   | None -> failwith (Printf.sprintf "Please supply a %s argument" name)
@@ -71,23 +44,29 @@ let with_block filename f =
     >>= fun () ->
     release_exception r
 
-let with_attached_vdi sr vdi read_write f =
-  let pid = Unix.getpid () in
-  let connection_uuid = Uuidm.v `V4 |> Uuidm.to_string in
-  let datapath_id = Printf.sprintf "xapi-nbd/%s/%s/%d" vdi connection_uuid pid in
-  let dbg = Printf.sprintf "xapi-nbd:with_attached_vdi/%s" datapath_id in
-  SM.DP.create ~dbg ~id:datapath_id
-  >>= fun dp ->
-  SM.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write
-  >>= fun attach_info ->
-  SM.VDI.activate ~dbg ~dp ~sr ~vdi
-  >>= fun () ->
-  capture_exception f attach_info.Storage_interface.params
-  >>= fun r ->
-  SM.DP.destroy ~dbg ~dp ~allow_leak:true
-  >>= fun () ->
-  release_exception r
-
+let with_attached_vdi vDI read_write rpc session_id f =
+  Lwt_log.notice "Looking up control domain UUID in xensource inventory" >>= fun () ->
+  Inventory.inventory_filename := Consts.xensource_inventory_filename;
+  let control_domain_uuid = Inventory.lookup Inventory._control_domain_uuid in
+  Lwt_log.notice "Found control domain UUID" >>= fun () ->
+  Xen_api.VM.get_by_uuid ~rpc ~session_id ~uuid:control_domain_uuid
+  >>= fun control_domain ->
+  Xen_api.VBD.create ~rpc ~session_id ~vM:control_domain ~vDI ~userdevice:"autodetect" ~bootable:false ~mode:(if read_write then `RW else `RO) ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
+  >>= fun vbd ->
+  Lwt.finalize
+    (fun () ->
+      Lwt_log.notice_f "Plugging VBD %s" vbd >>= fun () ->
+      Xen_api.VBD.plug ~rpc ~session_id ~self:vbd
+      >>= fun () ->
+      Lwt.finalize
+      (fun () ->
+        Xen_api.VBD.get_device ~rpc ~session_id ~self:vbd
+        >>= fun device ->
+        f ("/dev/" ^ device))
+      (fun () -> Xen_api.VBD.unplug ~rpc ~session_id ~self:vbd))
+    (fun () ->
+      Lwt_log.notice_f "Destroying VBD %s" vbd >>= fun () ->
+      Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd)
 
 let ignore_exn t () = Lwt.catch t (fun _ -> Lwt.return_unit)
 
@@ -114,9 +93,7 @@ let handle_connection xen_api_uri fd tls_role =
     >>= fun vdi_ref ->
     Xen_api.VDI.get_record ~rpc ~session_id ~self:vdi_ref
     >>= fun vdi_rec ->
-    Xen_api.SR.get_uuid ~rpc ~session_id ~self:vdi_rec.API.vDI_SR
-    >>= fun sr_uuid ->
-    with_attached_vdi sr_uuid vdi_rec.API.vDI_location (not vdi_rec.API.vDI_read_only)
+    with_attached_vdi vdi_ref (not vdi_rec.API.vDI_read_only) rpc session_id
       (fun filename ->
          with_block filename (Nbd_lwt_unix.Server.serve t (module Block))
       )
