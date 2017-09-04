@@ -142,9 +142,6 @@ val restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xe
   -> Unix.file_descr -> Unix.file_descr option
   -> unit
 
-val restore_vgpu: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh ->
-  domid -> Unix.file_descr -> Xenops_interface.Vgpu.t -> int -> unit
-
 type suspend_flag = Live | Debug
 
 (** suspend a domain into the file descriptor *)

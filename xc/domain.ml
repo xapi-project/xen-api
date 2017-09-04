@@ -1078,12 +1078,6 @@ let restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
     ~static_max_kib:info.memory_max ~target_kib:info.memory_target ~vcpus:info.vcpus ~extras
     xenguest_path domid fd vgpu_fd
 
-let restore_vgpu (task: Xenops_task.task_handle) ~xc ~xs domid fd vgpu vcpus =
-  let uuid = get_uuid ~xc domid in
-  debug "VM = %s; domid = %d; restore_vgpu" (Uuid.to_string uuid) domid;
-  Device.Dm.restore_vgpu task ~xs fd domid vgpu vcpus;
-  debug "VM = %s; domid = %d; restore_vgpu complete" (Uuid.to_string uuid) domid
-
 type suspend_flag = Live | Debug
 
 let suspend_emu_manager' ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest_path ~domid
