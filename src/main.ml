@@ -125,15 +125,12 @@ let handle_connection xen_api_uri fd tls_role =
 
   Nbd_lwt_unix.with_channel fd tls_role
     (fun channel ->
-       Nbd_lwt_unix.Server.connect channel ()
-       >>= fun (export_name, t) ->
-       Lwt.finalize
-         (fun () ->
-            let rpc = Xen_api.make xen_api_uri in
-            let uri = Uri.of_string export_name in
-            with_session rpc uri (serve t)
+       Nbd_lwt_unix.Server.with_connection channel
+         (fun export_name svr ->
+           let rpc = Xen_api.make xen_api_uri in
+           let uri = Uri.of_string export_name in
+           with_session rpc uri (serve svr)
          )
-         (fun () -> Nbd_lwt_unix.Server.close t)
     )
 
 (* TODO use the version from nbd repository *)
