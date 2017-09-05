@@ -75,6 +75,7 @@ exception Domain_restore_truncated_hvmstate
 exception Domain_restore_truncated_vgpustate
 exception Xenguest_protocol_failure of string (* internal protocol failure *)
 exception Xenguest_failure of string (* an actual error is reported to us *)
+exception Emu_manager_protocol_failure (* internal protocol failure *)
 exception Emu_manager_failure of string (* an actual error is reported to us *)
 exception Timeout_backend
 exception Could_not_read_file of string (* eg linux kernel/ initrd *)
@@ -1216,7 +1217,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
             `Error (Emu_manager_failure (Printf.sprintf "Received error from emu-manager: %s" x))
           | _                       ->
             error "VM = %s; domid = %d; unexpected message from emu-manager" (Uuid.to_string uuid) domid;
-            `Error (Emu_manager_failure ("emu-manager protocol failure"))
+            `Error (Emu_manager_protocol_failure)
         in
         wait_for_message ()
       )
