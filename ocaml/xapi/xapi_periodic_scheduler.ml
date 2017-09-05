@@ -30,9 +30,38 @@ let delay = Delay.make ()
 let (queue : (t Ipq.t)) = Ipq.create 50
 let lock = Mutex.create ()
 
+module Clock : sig
+  (** Oclock represents time in nanoseconds in a 64-bit integer. We
+   * can't make this abstract because module Ipq relies
+   * on it (for now). Note that the monotonic clock is only good for
+   * relative time measurements and the values returned by two different
+   * clocks like Oclock.monotonic and Oclock.realtime are unrelated. The
+   * underlying mechanism is clock_gettime(2).
+   *)
+  type t = Int64.t
+  val gettime:  unit -> t
+  val add:      t -> float -> t
+  val sub:      t -> t -> t
+  val to_sec:   t -> float
+  val (++):     t -> float -> t
+end = struct
+  type t             = Int64.t
+  let clock          = Oclock.monotonic
+  let nano           = 1_000_000_000L (* 1E9 *)
+  let nano'          = Int64.to_float nano
+  let gettime ()     = Oclock.gettime clock
+  let add time delay = Int64.(add time (mul (of_float delay) nano))
+  let sub t1 t2      = Int64.(sub t1 t2)
+  let to_sec delay   = (Int64.to_float delay) /.  nano'
+  let (++)           = add
+end
+
 let add_to_queue ?(signal=true) name ty start newfunc =
   Mutex.execute lock (fun () ->
-      Ipq.add queue { Ipq.ev={ func=newfunc; ty=ty; name=name}; Ipq.time=((Unix.gettimeofday ()) +. start) });
+      Ipq.(add queue
+        { ev={func=newfunc; ty; name}
+        ; time=Clock.(gettime () ++ start)
+        }));
   if signal then Delay.signal delay
 
 let remove_from_queue name =
@@ -52,7 +81,7 @@ let loop () =
       else
         begin
           let next = Mutex.execute lock (fun () -> Ipq.maximum queue) in
-          let now = Unix.gettimeofday () in
+          let now = Clock.gettime () in
           if next.Ipq.time < now then begin
             let todo = (Mutex.execute lock (fun () -> Ipq.pop_maximum queue)).Ipq.ev in
             (try todo.func () with _ -> ());
@@ -61,9 +90,9 @@ let loop () =
             | Periodic timer -> add_to_queue ~signal:false todo.name todo.ty timer todo.func
           end else begin
             (* Sleep until next event. *)
-            let sleep = next.Ipq.time -. now +. 0.001 in
+            let sleep = Clock.(sub next.Ipq.time now ++ 0.001) in
             try
-              ignore(Delay.wait delay sleep)
+              ignore(Delay.wait delay (Clock.to_sec sleep))
             with e ->
               let detailed_msg =
                 match e with
@@ -71,7 +100,7 @@ let loop () =
                 | _ -> "unknown error"
               in
               error "Could not schedule interruptable delay (%s). Falling back to normal delay. New events may be missed." detailed_msg;
-              Thread.delay sleep
+              Thread.delay (Clock.to_sec sleep)
           end
         end
     done
