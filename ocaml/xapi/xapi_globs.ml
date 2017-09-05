@@ -645,7 +645,6 @@ let pool_db_sync_interval = ref 300.
 (* blob/message/rrd file syncing - sync once a day *)
 let pool_data_sync_interval = ref 86400.
 
-let domain_shutdown_ack_timeout = ref 10.
 let domain_shutdown_total_timeout = ref 1200.
 
 (* The actual reboot delay will be a random value between base and base + extra *)
@@ -827,7 +826,6 @@ let xapi_globs_spec =
     "pif_reconfigure_ip_timeout", Float pif_reconfigure_ip_timeout;
     "pool_db_sync_interval", Float pool_db_sync_interval;
     "pool_data_sync_interval", Float pool_data_sync_interval;
-    "domain_shutdown_ack_timeout", Float domain_shutdown_ack_timeout;
     "domain_shutdown_total_timeout", Float domain_shutdown_total_timeout;
     "emergency_reboot_delay_base", Float emergency_reboot_delay_base;
     "emergency_reboot_delay_extra", Float emergency_reboot_delay_extra;
