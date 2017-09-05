@@ -75,6 +75,7 @@ exception Domain_restore_truncated_hvmstate
 exception Domain_restore_truncated_vgpustate
 exception Xenguest_protocol_failure of string (* internal protocol failure *)
 exception Xenguest_failure of string (* an actual error is reported to us *)
+exception Emu_manager_failure of string (* an actual error is reported to us *)
 exception Timeout_backend
 exception Could_not_read_file of string (* eg linux kernel/ initrd *)
 exception Domain_stuck_in_dying_state of Xenctrl.domid
@@ -1106,7 +1107,7 @@ let suspend_emu_manager' ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest
   in
   let flags' = List.map cmdline_to_flag flags in
 
-  let xenguestargs = [
+  let args = [
     "-fd"; fd_uuid;
     "-mode"; if hvm then "hvm_save" else "save";
     "-domid"; string_of_int domid;
@@ -1116,7 +1117,7 @@ let suspend_emu_manager' ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest
   let fds = [fd_uuid, main_fd] @ vgpu_args in
 
   (* Start the emu-manager process and connect to the control socket *)
-  with_connection task xenguest_path domid xenguestargs fds (fun cnx ->
+  with_connection task xenguest_path domid args fds (fun cnx ->
       (* Callback to monitor the debug (stderr) output of the process and
               		   spot the progress indicator *)
       let callback txt =
@@ -1171,16 +1172,16 @@ let suspend_emu_manager' ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest
              send_done cnx;
              wait_for_message ()
            | None ->
-             `Error (Xenguest_failure ("Received prepare:vgpu from emu-manager, but there is no vGPU fd")))
+             `Error (Emu_manager_failure ("Received prepare:vgpu from emu-manager, but there is no vGPU fd")))
         | Result x ->
           debug "VM = %s; domid = %d; emu-manager completed successfully" (Uuid.to_string uuid) domid;
           return ()
         | Error x ->
           error "VM = %s; domid = %d; emu-manager failed: \"%s\"" (Uuid.to_string uuid) domid x;
-          `Error (Xenguest_failure (Printf.sprintf "Received error from emu-manager: %s" x))
+          `Error (Emu_manager_failure (Printf.sprintf "Received error from emu-manager: %s" x))
         | _                       ->
           error "VM = %s; domid = %d; unexpected message from emu-manager" (Uuid.to_string uuid) domid;
-          `Error (Xenguest_failure ("xenguesthelper protocol failure"))
+          `Error (Emu_manager_failure ("emu-manager protocol failure"))
       in
       wait_for_message ()
     )

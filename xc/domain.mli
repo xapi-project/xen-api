@@ -23,6 +23,7 @@ exception Domain_build_failed
 exception Domain_restore_failed
 exception Xenguest_protocol_failure of string (* internal protocol failure *)
 exception Xenguest_failure of string (* an actual error is reported to us *)
+exception Emu_manager_failure of string (* an actual error is reported to us *)
 exception Timeout_backend
 exception Could_not_read_file of string (* eg linux kernel/ initrd *)
 
