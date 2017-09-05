@@ -14,7 +14,7 @@
 (* Imperative priority queue *)
 
 type 'a event = { ev: 'a;
-                  time: Int64.t }
+                  time: float }
 
 type 'a t = {mutable size : int; mutable data : 'a event array }
 
