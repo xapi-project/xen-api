@@ -565,3 +565,7 @@ let pvs_proxy_already_present = "PVS_PROXY_ALREADY_PRESENT"
 let pvs_server_address_in_use = "PVS_SERVER_ADDRESS_IN_USE"
 
 let extension_protocol_failure = "EXTENSION_PROTOCOL_FAILURE"
+
+(* VDA *)
+let vda_communication_timeout = "VDA_COMMUNICATION_TIMEOUT"
+let vda_response_error = "VDA_RESPONSE_ERROR"
