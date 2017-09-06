@@ -14,15 +14,15 @@ script:
     - cp wsproxy.opam opam && bash -ex .travis-opam.sh
 env:
   global:
-    - OCAML_VERSION=4.02
+    - OCAML_VERSION=4.04
     - PACKAGE=wsproxy
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
-    - OCAML_VERSION=4.04 EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+    - OCAML_VERSION=4.02 EXTRA_REMOTES=git://github.com/xapi-project/xs-opam#1.8.0
 matrix:
     fast_finish: true
     allow_failures:
         - env: EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
-        - env: OCAML_VERSION=4.04 EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+        - env: OCAML_VERSION=4.02 EXTRA_REMOTES=git://github.com/xapi-project/xs-opam#1.8.0
 
