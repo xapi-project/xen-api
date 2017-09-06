@@ -351,7 +351,7 @@ let shutdown ~xc ~xs domid req =
 
 (** If domain is PV, signal it to shutdown. If the PV domain fails to respond then throw a Watch.Timeout exception.
 	All other exceptions imply the domain has disappeared. *)
-let shutdown_wait_for_ack (t: Xenops_task.task_handle) ?(timeout=60.) ~xc ~xs domid req =
+let shutdown_wait_for_ack (t: Xenops_task.task_handle) ~timeout ~xc ~xs domid req =
 	let di = Xenctrl.domain_getinfo xc domid in
 	let uuid = get_uuid ~xc domid in
 	if (di.Xenctrl.hvm_guest) && not (Xenctrl.hvm_check_pvdriver xc domid) then begin
