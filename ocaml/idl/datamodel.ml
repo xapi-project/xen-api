@@ -8863,6 +8863,7 @@ let message =
                    "VMPP","VMPP";
                    "VMSS", "VMSS";
                    "PVS_proxy","PVS_proxy";
+                   "VDI","VDI";
                  ])
   in
   let create = call
