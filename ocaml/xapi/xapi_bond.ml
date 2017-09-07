@@ -372,7 +372,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
       let metrics = Xapi_pif.make_pif_metrics ~__context in
       Db.PIF.create ~__context ~ref:master ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
         ~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics
-        ~physical:false ~currently_attached:false
+        ~physical:false ~currently_attached:false ~igmp_snooping_status:`unknown
         ~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
         ~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false
         ~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true

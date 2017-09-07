@@ -305,6 +305,7 @@ let pif_record rpc session_id pif =
           ~add_to_map:(fun k v -> Client.PIF.add_to_other_config rpc session_id pif k v)
           ~remove_from_map:(fun k -> Client.PIF.remove_from_other_config rpc session_id pif k)
           ~get_map:(fun () -> (x ()).API.pIF_other_config) ();
+        make_field ~name:"igmp-snooping-status" ~get:(fun () -> Record_util.pif_igmp_status_to_string ((x ()).API.pIF_igmp_snooping_status)) ();
       ] }
 
 let task_record rpc session_id task =
