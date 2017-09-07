@@ -5484,6 +5484,13 @@ let pif_set_property = call
     ~allowed_roles:_R_POOL_OP
     ()
 
+let pif_igmp_status =
+  Enum ("pif_igmp_status", [
+      "enabled", "IGMP Snooping is enabled in the corresponding backend bridge.'";
+      "disabled", "IGMP Snooping is disabled in the corresponding backend bridge.'";
+      "unknown", "IGMP snooping status is unknown. If this is a VLAN master, then please consult the underlying VLAN slave PIF."
+    ])
+
 let pif =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_pif ~descr:"A physical network interface (note separate VLANs are represented as several PIFs)"
     ~gen_events:true
@@ -5532,6 +5539,7 @@ let pif =
                                                                                                                            		can not be used, nor can the interface be bonded or have VLANs based on top through xapi." ~default_value:(Some (VBool true));
       field ~lifecycle:[Published, rel_creedence, ""] ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "properties" "Additional configuration properties for the interface.";
       field ~lifecycle:[Published, rel_dundee, ""] ~qualifier:DynamicRO ~ty:(Set(String)) ~default_value:(Some (VSet [])) "capabilities" "Additional capabilities on the interface.";
+      field ~lifecycle:[Published, rel_inverness, ""] ~qualifier:DynamicRO ~ty:pif_igmp_status ~default_value:(Some (VEnum "unknown")) "igmp_snooping_status" "The IGMP snooping status of the corresponding network bridge";
     ]
     ()
 

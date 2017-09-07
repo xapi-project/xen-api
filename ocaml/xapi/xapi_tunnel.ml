@@ -39,7 +39,7 @@ let create_internal ~__context ~transport_PIF ~network ~host =
   let metrics = Db.PIF.get_metrics ~__context ~self:transport_PIF in
   Db.PIF.create ~__context ~ref:access_PIF ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
     ~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics
-    ~physical:false ~currently_attached:false
+    ~physical:false ~currently_attached:false ~igmp_snooping_status:`unknown
     ~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
     ~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
     ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true ~properties:[] ~capabilities:[];

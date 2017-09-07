@@ -351,7 +351,7 @@ let pool_introduce
       ~__context ~ref:pif_ref ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
       ~device ~device_name:device ~network ~host
       ~mAC ~mTU ~vLAN ~metrics
-      ~physical ~currently_attached:false
+      ~physical ~currently_attached:false ~igmp_snooping_status:`unknown
       ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS
       ~bond_slave_of:Ref.null ~vLAN_master_of ~management
       ~other_config ~disallow_unplug ~ipv6_configuration_mode
@@ -390,7 +390,7 @@ let introduce_internal
   let () = Db.PIF.create
       ~__context ~ref:pif ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
       ~device ~device_name:device ~network:net_ref ~host ~mAC
-      ~mTU ~vLAN ~metrics ~physical ~currently_attached:false
+      ~mTU ~vLAN ~metrics ~physical ~currently_attached:false ~igmp_snooping_status:`unknown
       ~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:""
       ~dNS:"" ~bond_slave_of:Ref.null ~vLAN_master_of ~management:false
       ~other_config:[] ~disallow_unplug ~ipv6_configuration_mode:`None

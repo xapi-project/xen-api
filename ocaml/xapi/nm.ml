@@ -468,12 +468,22 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
       end;
 
       (* sync MTU *)
+      begin
       try
         let mtu = Int64.of_int (Net.Interface.get_mtu dbg ~name:bridge) in
         if mtu <> rc.API.pIF_MTU then
           Db.PIF.set_MTU ~__context ~self:pif ~value:mtu
       with _ ->
         warn "could not update MTU field on PIF %s" rc.API.pIF_uuid
+      end;
+      
+      (* sync igmp_snooping_enabled *)
+      if rc.API.pIF_VLAN = -1L then begin
+        let igmp_snooping = Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context) in
+        let igmp_snooping' = if igmp_snooping then `enabled else `disabled in
+        if igmp_snooping' <> rc.API.pIF_igmp_snooping_status then
+          Db.PIF.set_igmp_snooping_status ~__context ~self:pif ~value:igmp_snooping'
+      end
    )
 
 let bring_pif_down ~__context ?(force=false) (pif: API.ref_PIF) =
