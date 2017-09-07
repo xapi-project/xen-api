@@ -55,6 +55,7 @@ let class_to_string cls =
   | `VMPP -> "VMPP"
   | `VMSS -> "VMSS"
   | `PVS_proxy -> "PVS_proxy"
+  | `VDI -> "VDI" 
   | _ -> "unknown"
 
 let string_to_class str =
@@ -66,6 +67,7 @@ let string_to_class str =
   | "VMPP" -> `VMPP
   | "VMSS" -> `VMSS
   | "PVS_proxy" -> `PVS_proxy
+  | "VDI" -> `VDI
   | _ -> failwith "Bad type"
 
 (* We use the timestamp to name the file. For consistency, use this function *)
@@ -228,6 +230,7 @@ let check_uuid ~__context ~cls ~uuid =
      | `VMPP -> ignore(Db.VMPP.get_by_uuid ~__context ~uuid)
      | `VMSS -> ignore(Db.VMSS.get_by_uuid ~__context ~uuid)
      | `PVS_proxy -> ignore(Db.PVS_proxy.get_by_uuid ~__context ~uuid)
+     | `VDI -> ignore(Db.VDI.get_by_uuid ~__context ~uuid)
     );
     true
   with _ ->
