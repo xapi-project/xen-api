@@ -1,10 +1,7 @@
 import unittest
 from contextlib import contextmanager
 import time
-
 import sys
-
-import binascii
 from mock import patch, MagicMock
 
 # mock modules since this repo does not contain them
@@ -12,69 +9,36 @@ sys.modules['xcp'] = MagicMock()
 sys.modules['xen'] = MagicMock()
 sys.modules['xen.lowlevel'] = MagicMock()
 sys.modules['xen.lowlevel.xs'] = MagicMock()
+sys.modules['scapy'] = MagicMock()
+sys.modules['scapy.all'] = MagicMock()
+sys.modules['scapy.contrib'] = MagicMock()
+sys.modules['scapy.contrib.igmp'] = MagicMock()
+
 
 sys.path.append('./scripts')
 
-from igmp_query_injector import Cleanup, IGMPQueryGenerator, VifsInjector, \
-    BridgeInjector, XSUtil, XSVifStateWatch, Vif
+from igmp_query_injector import XSWatcher, IGMPQueryInjector, get_vif_state_path
 
 
-class TestCleanup(unittest.TestCase):
-    def test_cleanup(self):
-        with Cleanup():
-            pass
-
-        XSUtil.xs_handler.close.assert_called()
-
-
-class TestXSVifStateWatch(unittest.TestCase):
+class TestXSWatcher(unittest.TestCase):
     def test_watch(self):
-        watch = XSVifStateWatch('1')
+        watcher = XSWatcher()
         path = '/a/b/c'
-        watch.watch(path, '000')
-        XSUtil.xs_handler.watch.assert_called()
-        self.assertIn(path, watch.watches)
+        watcher.watch(path, '000')
+        self.assertIn(path, watcher.watches)
 
     def test_unwatch(self):
-        watch = XSVifStateWatch('1')
+        watcher = XSWatcher()
         path = '/a/b/c'
         token = '000'
-        watch.watch(path, token)
-        XSUtil.xs_handler.watch.assert_called()
-        self.assertIn(path, watch.watches)
+        watcher.watch(path, token)
+        self.assertIn(path, watcher.watches)
 
-        watch.unwatch(path, token)
-        XSUtil.xs_handler.unwatch.assert_called()
-        self.assertNotIn(path, watch.watches)
+        watcher.unwatch(path, token)
+        self.assertNotIn(path, watcher.watches)
 
 
-class TestIGMPQueryGenerator(unittest.TestCase):
-    def test_create_igmp_layer(self):
-        gen = IGMPQueryGenerator('00:00:00:00:00:00', -1, 10000)
-        layer = gen.create_igmp_layer()
-        expect_hex_str = "1164ee9b00000000"
-        self.assertEqual(layer, binascii.unhexlify(expect_hex_str))
-
-    def test_generate_without_vlan(self):
-        gen = IGMPQueryGenerator('01:00:5e:00:00:01', -1, 10000)
-        packet = gen.generate()
-        expect_hex_str = '01005e00000100000000000008004600002000010000010244d600000000e0000001940400001164ee9b00000000'
-        self.assertEqual(packet, binascii.unhexlify(expect_hex_str))
-
-    def test_generate_with_vlan(self):
-        gen = IGMPQueryGenerator('01:00:5e:00:00:01', 1209, 10000)
-        packet = gen.generate()
-        expect_hex_str = '01005e000001000000000000810024b908004600002000010000010244d600000000e0000001940400001164ee9b00000000'
-        self.assertEqual(packet, binascii.unhexlify(expect_hex_str))
-
-    def test_generate_max_resp_time_100ms(self):
-        gen = IGMPQueryGenerator('01:00:5e:00:00:01', -1, 100)
-        packet = gen.generate()
-        expect_hex_str = '01005e00000100000000000008004600002000010000010244d600000000e0000001940400001101eefe00000000'
-        self.assertEqual(packet, binascii.unhexlify(expect_hex_str))
-
-
-class TestVifsInjector(unittest.TestCase):
+class TestIGMPQueryInjector(unittest.TestCase):
     @contextmanager
     def assert_time_elapse_in(self, min, max):
         start = time.time()
@@ -82,20 +46,20 @@ class TestVifsInjector(unittest.TestCase):
         elapse = time.time() - start
         self.assertTrue(min <= elapse <= max, 'elapse time %f should in [%f, %f]' % (elapse, min, max))
 
-    @patch('igmp_query_injector.Vif')
     @patch('igmp_query_injector.IGMPQueryInjector.inject_to_vif')
-    @patch('igmp_query_injector.VifsInjector._inject_with_connection_state_check')
+    @patch('igmp_query_injector.IGMPQueryInjector._inject_with_connection_state_check')
     def test_inject_without_connection_state_check(self, mock_inject_with_connection_state_check,
-                                                   mock_inject_to_vif, MockVif):
-        injector = VifsInjector(100, ['vif1.1', 'vif2.1'], 0)
+                                                   mock_inject_to_vif):
+        injector = IGMPQueryInjector(100, ['vif1.1', 'vif2.1'], 0)
         injector.inject()
         mock_inject_with_connection_state_check.assert_not_called()
         self.assertEqual(mock_inject_to_vif.call_count, 2)
 
     @patch('igmp_query_injector.IGMPQueryInjector.inject_to_vif')
-    @patch('threading.Thread')
-    def test_inject_with_connection_state_check_timeout(self, mockThread, mock_inject_to_vif):
-        injector = VifsInjector(100, ['vif1.1', 'vif2.1'], 3)
+    @patch('igmp_query_injector.XSWatcher.read_watch')
+    def test_inject_with_connection_state_check_timeout(self, mock_read_watch, mock_inject_to_vif):
+        mock_read_watch.return_value = ('path', 'vif1.1')
+        injector = IGMPQueryInjector(100, ['vif1.1', 'vif2.1'], 3)
         # should timeout in 3 seconds
         with self.assert_time_elapse_in(2, 4):
             injector.inject()
@@ -103,30 +67,27 @@ class TestVifsInjector(unittest.TestCase):
         mock_inject_to_vif.assert_not_called()
 
     @patch('igmp_query_injector.IGMPQueryInjector.inject_to_vif')
-    @patch('igmp_query_injector.XSUtil.read_watch')
-    @patch('igmp_query_injector.XSVifStateWatch.val_change_to_expected')
-    def test_inject_with_connection_state_check_succ(self, mock_val_change_to_expected, mock_read_watch, mock_inject_to_vif):
-        mock_val_change_to_expected.return_value = True
+    @patch('igmp_query_injector.XSWatcher.read_watch')
+    @patch('igmp_query_injector.g_xs_handler')
+    def test_inject_with_connection_state_check_succ(self, mock_gs_handler, mock_read_watch, mock_inject_to_vif):
+        mock_gs_handler.read.return_value = '4'
+
+        def get_domain_path(domid):
+            return '/local/domain/%d' % domid
+
+        mock_gs_handler.get_domain_path = get_domain_path
         vifs = []
         side_effect = []
-        for domid, vifid in [(1, 2), (2, 3)]:
-            vif = 'vif%d.%d' % (domid, vifid)
-            side_effect.append((XSUtil.vif_state_path(domid, vifid), Vif(vif)))
+        for vif in ('vif1.2', 'vif2.3'):
+            state_path, backend_state_path = get_vif_state_path(vif)
+            side_effect.append((state_path, vif))
+            side_effect.append((backend_state_path, vif))
             vifs.append(vif)
         mock_read_watch.side_effect = side_effect
-        injector = VifsInjector(100, vifs, 3)
+        injector = IGMPQueryInjector(100, vifs, 3)
         with self.assert_time_elapse_in(0, 1):
             injector.inject()
         self.assertEqual(mock_inject_to_vif.call_count, 2)
-
-
-class TestBridgeInjector(unittest.TestCase):
-    @patch('subprocess.check_output')
-    def test_get_vifs_on_bridge(self, mock_subprocess_check_output):
-        mock_subprocess_check_output.return_value = 'vif1.1\ntap1.0\nvif1.2'
-        injector = BridgeInjector(100, ['xenbr0'])
-        vifs = injector.get_vifs_on_bridge('xenbr0')
-        self.assertEqual(len(vifs), 2)
 
 
 if __name__ == '__main__':
