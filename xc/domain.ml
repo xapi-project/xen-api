@@ -825,7 +825,7 @@ module type SUSPEND_RESTORE = sig
     -> timeoffset:string
     -> extras:string list
     -> build_info
-    -> string
+    -> manager_path: string
     -> domid
     -> Unix.file_descr
     -> Unix.file_descr option
@@ -835,7 +835,7 @@ module type SUSPEND_RESTORE = sig
     -> xc: Xenctrl.handle
     -> xs: Xenstore.Xs.xsh
     -> hvm: bool
-    -> string
+    -> manager_path: string
     -> string
     -> domid
     -> Unix.file_descr
@@ -849,7 +849,7 @@ end
 
 module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
 
-  let with_emu_manager_restore (task: Xenops_task.task_handle) ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid main_fd vgpu_fd f =
+  let with_emu_manager_restore (task: Xenops_task.task_handle) ~hvm ~store_port ~console_port ~extras manager_path domid uuid main_fd vgpu_fd f =
     let fd_uuid = Uuid.(to_string (create `V4)) in
     let vgpu_args, vgpu_cmdline =
       match vgpu_fd with
@@ -872,7 +872,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
       "-fork"; "true";
     ] @ extras @ vgpu_cmdline
     in
-    Emu_manager.with_connection task xenguest_path domid args fds f
+    Emu_manager.with_connection task manager_path domid args fds f
 
   let restore_libxc_record cnx domid uuid =
     let open Emu_manager in
@@ -928,7 +928,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
 
   let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~store_port ~store_domid
       ~console_port ~console_domid ~no_incr_generationid ~vcpus ~extras
-      xenguest_path domid main_fd vgpu_fd =
+      manager_path domid main_fd vgpu_fd =
 
     let module DD = Debug.Make(struct let name = "mig64" end) in
     let open DD in
@@ -940,7 +940,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
       let (store_mfn, console_mfn) =
         begin match
             with_conversion_script task "Emu_manager" hvm main_fd (fun pipe_r ->
-                with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid main_fd vgpu_fd (fun cnx ->
+                with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras manager_path domid uuid main_fd vgpu_fd (fun cnx ->
                     restore_libxc_record cnx domid uuid
                   )
               )
@@ -969,7 +969,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
       store_mfn, console_mfn
     | `Ok Structured ->
       let open Suspend_image.M in
-      with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid main_fd vgpu_fd (fun cnx ->
+      with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras manager_path domid uuid main_fd vgpu_fd (fun cnx ->
           let rec process_header fd res =
             debug "Reading next header... (fd=%d)" (Obj.magic fd);
             read_header fd >>= function
@@ -1025,7 +1025,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
 
   let pv_restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
       ~no_incr_generationid ~static_max_kib ~target_kib ~vcpus ~extras
-      xenguest_path domid fd vgpu_fd =
+      manager_path domid fd vgpu_fd =
 
     (* Convert memory configuration values into the correct units. *)
     let static_max_mib = Memory.mib_of_kib_used static_max_kib in
@@ -1051,7 +1051,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
         ~store_port ~store_domid
         ~console_port ~console_domid
         ~no_incr_generationid
-        ~vcpus ~extras xenguest_path domid fd vgpu_fd in
+        ~vcpus ~extras manager_path domid fd vgpu_fd in
 
     let local_stuff = [
       "serial/0/limit",    string_of_int 65536;
@@ -1065,7 +1065,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
 
   let hvm_restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
       ~no_incr_generationid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
-      ~timeoffset ~extras xenguest_path domid fd vgpu_fd =
+      ~timeoffset ~extras manager_path domid fd vgpu_fd =
 
     (* Convert memory configuration values into the correct units. *)
     let static_max_mib = Memory.mib_of_kib_used static_max_kib in
@@ -1090,7 +1090,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
         ~store_port ~store_domid
         ~console_port ~console_domid
         ~no_incr_generationid
-        ~vcpus ~extras xenguest_path domid fd vgpu_fd in
+        ~vcpus ~extras manager_path domid fd vgpu_fd in
     let local_stuff = [
       "serial/0/limit",    string_of_int 65536;
       "console/port",     string_of_int console_port;
@@ -1105,7 +1105,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
       domid store_mfn store_port local_stuff vm_stuff
 
   let restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
-      ~no_incr_generationid ~timeoffset ~extras info xenguest_path domid fd vgpu_fd =
+      ~no_incr_generationid ~timeoffset ~extras info ~manager_path domid fd vgpu_fd =
     let restore_fct = match info.priv with
       | BuildHVM hvminfo ->
         hvm_restore task ~shadow_multiplier:hvminfo.shadow_multiplier
@@ -1115,9 +1115,9 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
     in
     restore_fct ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid
       ~static_max_kib:info.memory_max ~target_kib:info.memory_target ~vcpus:info.vcpus ~extras
-      xenguest_path domid fd vgpu_fd
+      manager_path domid fd vgpu_fd
 
-  let suspend_emu_manager' ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest_path ~domid
+  let suspend_emu_manager' ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~manager_path ~domid
       ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback =
     let open Suspend_image in let open Suspend_image.M in
     let open Emu_manager in
@@ -1153,7 +1153,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
     let fds = [fd_uuid, main_fd] @ vgpu_args in
 
     (* Start the emu-manager process and connect to the control socket *)
-    with_connection task xenguest_path domid args fds (fun cnx ->
+    with_connection task manager_path domid args fds (fun cnx ->
         (* Callback to monitor the debug (stderr) output of the process and
                 		   spot the progress indicator *)
         let callback txt =
@@ -1222,10 +1222,10 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
         wait_for_message ()
       )
 
-  let suspend_emu_manager ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest_path ~domid
+  let suspend_emu_manager ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~manager_path ~domid
       ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback =
     Device.Dm.with_dirty_log domid ~f:(fun () ->
-        suspend_emu_manager' ~task ~xc ~xs ~hvm ~xenguest_path ~domid
+        suspend_emu_manager' ~task ~xc ~xs ~hvm ~manager_path ~domid
           ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback
       )
 
@@ -1250,8 +1250,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
    * and is in charge to suspend the domain when called. the whole domain
    * context is saved to fd
   *)
-
-  let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path vm_str domid main_fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+  let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~manager_path vm_str domid main_fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
     let module DD = Debug.Make(struct let name = "mig64" end) in
     let open DD in
     let uuid = get_uuid ~xc domid in
@@ -1274,7 +1273,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
       write_header main_fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
       debug "Writing Xenops record contents";
       Io.write main_fd xenops_record;
-      suspend_emu_manager ~task ~xc ~xs ~hvm ~xenguest_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
+      suspend_emu_manager ~task ~xc ~xs ~hvm ~manager_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
         ~progress_callback ~qemu_domid ~do_suspend_callback >>= fun () ->
       (* Qemu record (if this is a hvm domain) *)
       (* Currently Qemu suspended inside above call with the libxc memory
@@ -1296,9 +1295,9 @@ end
 
 module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
 
-  let restore_libxc_record (task: Xenops_task.task_handle) ~hvm ~store_port ~console_port ~extras xenguest_path domid uuid fd =
+  let restore_libxc_record (task: Xenops_task.task_handle) ~hvm ~store_port ~console_port ~extras manager_path domid uuid fd =
     let fd_uuid = Uuid.(to_string (create `V4)) in
-    let line = XenguestHelper.with_connection task xenguest_path domid
+    let line = XenguestHelper.with_connection task manager_path domid
         ([
           "-mode"; if hvm then "hvm_restore" else "restore";
           "-domid"; string_of_int domid;
@@ -1367,7 +1366,7 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
         end
       ) (fun () -> Unix.close fd2)
 
-  let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~store_port ~store_domid ~console_port ~console_domid ~no_incr_generationid ~vcpus ~extras xenguest_path domid fd =
+  let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~store_port ~store_domid ~console_port ~console_domid ~no_incr_generationid ~vcpus ~extras manager_path domid fd =
     let module DD = Debug.Make(struct let name = "mig64" end) in
     let open DD in
     let uuid = get_uuid ~xc domid in
@@ -1379,7 +1378,7 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
         begin match
             with_conversion_script task "XenguestHelper" hvm fd (fun pipe_r ->
                 restore_libxc_record task ~hvm ~store_port ~console_port
-                  ~extras xenguest_path domid uuid pipe_r
+                  ~extras manager_path domid uuid pipe_r
               )
           with
           | `Ok (s, c) -> (s, c)
@@ -1419,13 +1418,13 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
         | Libxc, _ ->
           debug "Read Libxc record header";
           let res = restore_libxc_record task ~hvm ~store_port ~console_port
-              ~extras xenguest_path domid uuid fd
+              ~extras manager_path domid uuid fd
           in
           process_header (return (Some res))
         | Libxc_legacy, _ ->
           debug "Read Libxc_legacy record header";
           let res = restore_libxc_record task ~hvm ~store_port ~console_port
-              ~extras xenguest_path domid uuid fd
+              ~extras manager_path domid uuid fd
           in
           process_header (return (Some res))
         | Qemu_trad, len ->
@@ -1450,7 +1449,7 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
       error "VM = %s; domid = %d; Error reading save signature: %s" (Uuid.to_string uuid) domid e;
       raise Suspend_image_failure
 
-  let pv_restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid ~static_max_kib ~target_kib ~vcpus ~extras xenguest_path domid fd =
+  let pv_restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid ~static_max_kib ~target_kib ~vcpus ~extras manager_path domid fd =
 
     (* Convert memory configuration values into the correct units. *)
     let static_max_mib = Memory.mib_of_kib_used static_max_kib in
@@ -1476,7 +1475,7 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
         ~store_port ~store_domid
         ~console_port ~console_domid
         ~no_incr_generationid
-        ~vcpus ~extras xenguest_path domid fd in
+        ~vcpus ~extras manager_path domid fd in
 
     let local_stuff = [
       "serial/0/limit",    string_of_int 65536;
@@ -1487,7 +1486,7 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
     build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
       domid store_mfn store_port local_stuff vm_stuff
 
-  let hvm_restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus ~timeoffset ~extras xenguest_path domid fd =
+  let hvm_restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus ~timeoffset ~extras manager_path domid fd =
 
     (* Convert memory configuration values into the correct units. *)
     let static_max_mib = Memory.mib_of_kib_used static_max_kib in
@@ -1512,7 +1511,7 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
         ~store_port ~store_domid
         ~console_port ~console_domid
         ~no_incr_generationid
-        ~vcpus ~extras xenguest_path domid fd in
+        ~vcpus ~extras manager_path domid fd in
     let local_stuff = [
       "serial/0/limit",    string_of_int 65536;
       "console/port",     string_of_int console_port;
@@ -1525,7 +1524,7 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
     build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
       domid store_mfn store_port local_stuff vm_stuff
 
-  let restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid ~timeoffset ~extras info xenguest_path domid fd vgpu_fd =
+  let restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid ~timeoffset ~extras info ~manager_path domid fd vgpu_fd =
     let restore_fct = match info.priv with
       | BuildHVM hvminfo ->
         hvm_restore task ~shadow_multiplier:hvminfo.shadow_multiplier
@@ -1535,9 +1534,9 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
     in
     restore_fct ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid
       ~static_max_kib:info.memory_max ~target_kib:info.memory_target ~vcpus:info.vcpus ~extras
-      xenguest_path domid fd
+      manager_path domid fd
 
-  let write_libxc_record' (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback =
+  let write_libxc_record' (task: Xenops_task.task_handle) ~xc ~xs ~hvm manager_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback =
     let fd_uuid = Uuid.(to_string (create `V4)) in
 
     let cmdline_to_flag flag =
@@ -1554,7 +1553,7 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
       "-fork"; "true";
     ] @ (List.concat flags') in
 
-    XenguestHelper.with_connection task xenguest_path domid xenguestargs [ fd_uuid, fd ]
+    XenguestHelper.with_connection task manager_path domid xenguestargs [ fd_uuid, fd ]
       (fun cnx ->
          debug "VM = %s; domid = %d; waiting for xenguest to call suspend callback" (Uuid.to_string uuid) domid;
 
@@ -1613,9 +1612,9 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
            error "VM = %s; domid = %d; xenguesthelper protocol failure" (Uuid.to_string uuid) domid;
       )
 
-  let write_libxc_record (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback =
+  let write_libxc_record (task: Xenops_task.task_handle) ~xc ~xs ~hvm manager_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback =
     Device.Dm.with_dirty_log domid ~f:(fun () ->
-        write_libxc_record' task ~xc ~xs ~hvm xenguest_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback
+        write_libxc_record' task ~xc ~xs ~hvm manager_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback
       )
 
   let write_qemu_record domid uuid legacy_libxc fd =
@@ -1662,7 +1661,7 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
    * and is in charge to suspend the domain when called. the whole domain
    * context is saved to fd
   *)
-  let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path vm_str domid fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+  let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~manager_path vm_str domid fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
     let module DD = Debug.Make(struct let name = "mig64" end) in
     let open DD in
     let uuid = get_uuid ~xc domid in
@@ -1686,12 +1685,12 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
       debug "Writing Xenops record contents";
       Io.write fd xenops_record;
       (* Libxc record *)
-      let legacy_libxc = not (XenguestHelper.supports_feature xenguest_path "migration-v2") in
+      let legacy_libxc = not (XenguestHelper.supports_feature manager_path "migration-v2") in
       debug "Writing Libxc%s header" (if legacy_libxc then "_legacy" else "");
       let libxc_header = (if legacy_libxc then Libxc_legacy else Libxc) in
       write_header fd (libxc_header, 0L) >>= fun () ->
       debug "Writing Libxc record";
-      write_libxc_record task ~xc ~xs ~hvm xenguest_path domid uuid fd flags
+      write_libxc_record task ~xc ~xs ~hvm manager_path domid uuid fd flags
         progress_callback qemu_domid do_suspend_callback;
       (* Qemu record (if this is a hvm domain) *)
       (* Currently Qemu suspended inside above call with the libxc memory
@@ -1710,8 +1709,35 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
 
 end
 
-let restore = Suspend_restore_emu_manager.restore
-let suspend = Suspend_restore_emu_manager.suspend
+let use_emu_manager () =
+  try
+    Filename.concat !Xenopsd.feature_flags_path "vgpu_migration"
+    |> fun path -> Stdext.Unixext.read_lines ~path
+                   |> String.concat ""
+                   |> String.trim
+                   |> String.lowercase
+                   |> fun f -> f = "true" || f = "1"
+  with _ ->
+    false
+
+let restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid ~timeoffset ~extras info ~xenguest_path ~emu_manager_path domid fd vgpu_fd =
+  let restore =
+    if use_emu_manager () then
+      Suspend_restore_emu_manager.restore ~manager_path:emu_manager_path
+    else
+      Suspend_restore_xenguest.restore ~manager_path:xenguest_path
+  in
+  restore task xc xs store_domid console_domid no_incr_generationid timeoffset extras info domid fd vgpu_fd
+
+
+let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest_path ~emu_manager_path vm_str domid fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+  let suspend =
+    if use_emu_manager () then
+      Suspend_restore_emu_manager.suspend ~manager_path:emu_manager_path
+    else
+      Suspend_restore_xenguest.suspend ~manager_path:xenguest_path
+  in
+  suspend task ~xc ~xs ~hvm vm_str domid fd vgpu_fd flags ~progress_callback ~qemu_domid do_suspend_callback
 
 let send_s3resume ~xc domid =
   let uuid = get_uuid ~xc domid in

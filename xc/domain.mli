@@ -140,14 +140,16 @@ val resume: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xen
 (** Restore a domain using the info provided *)
 val restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh
   -> store_domid:int -> console_domid:int -> no_incr_generationid:bool
-  -> timeoffset:string -> extras:string list -> build_info -> string -> domid
+  -> timeoffset:string -> extras:string list -> build_info
+  -> xenguest_path:string -> emu_manager_path:string -> domid
   -> Unix.file_descr -> Unix.file_descr option
   -> unit
 
 type suspend_flag = Live | Debug
 
 (** suspend a domain into the file descriptor *)
-val suspend: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> string -> string -> domid
+val suspend: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool
+  -> xenguest_path:string -> emu_manager_path:string -> string -> domid
   -> Unix.file_descr
   -> Unix.file_descr option
   -> suspend_flag list

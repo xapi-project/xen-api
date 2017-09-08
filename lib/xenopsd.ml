@@ -40,6 +40,8 @@ let action_after_qemu_crash = ref None
 let additional_ballooning_timeout = ref 120.
 let vif_ready_for_igmp_query_timeout = ref 120
 
+let feature_flags_path = ref "/etc/xenserver/features.d"
+
 let options = [
   "queue", Arg.Set_string Xenops_interface.queue_name, (fun () -> !Xenops_interface.queue_name), "Listen on a specific queue";
   "sockets-path", Arg.Set_string sockets_path, (fun () -> !sockets_path), "Directory to create listening sockets";
@@ -58,6 +60,7 @@ let options = [
   "domain_shutdown_ack_timeout", Arg.Set_float Xenops_server.domain_shutdown_ack_timeout, (fun () -> string_of_float !Xenops_server.domain_shutdown_ack_timeout), "Time to wait for in-guest PV drivers to acknowledge a shutdown request before we conclude that the drivers have failed";
   "vif-ready-for-igmp-query-timeout", Arg.Set_int vif_ready_for_igmp_query_timeout, (fun () -> string_of_int !vif_ready_for_igmp_query_timeout), "Time before we assume vif has connected";
   "action-after-qemu-crash", Arg.String (fun x -> action_after_qemu_crash := if x="" then None else Some x), (fun () -> match !action_after_qemu_crash with None->"" | Some x->x), "Action to take for VMs if QEMU crashes or dies unexpectedly: pause, poweroff. Otherwise, no action (default).";
+  "feature-flags-path", Arg.Set_string feature_flags_path, (fun () -> !feature_flags_path), "Directory of experimental feature flags";
 ]
 
 let path () = Filename.concat !sockets_path "xenopsd"
