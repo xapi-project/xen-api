@@ -111,6 +111,17 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
             vbd_record.Db_actions.vBD_VDI = _ref' && (vbd_record.Db_actions.vBD_currently_attached || vbd_record.Db_actions.vBD_reserved)
           ) vbd_records)
       in
+      (* Only consider VDIs attached to a non-snapshot VM as actually attached,
+         because VM.checkpoint may set the currently_attached fields of the
+         snapshot's VBDs to true, and this would block operations that require
+         the VDI to be detached. *)
+      let my_active_vbd_records =
+        my_active_vbd_records |> List.filter
+          (fun vbd ->
+             let vm = vbd.Db_actions.vBD_VM in
+             Db.is_valid_ref __context vm && not (Db.VM.get_is_a_snapshot ~__context ~self:vm)
+          )
+      in
       let my_active_rw_vbd_records = List.filter
           (fun vbd -> vbd.Db_actions.vBD_mode = `RW)
           my_active_vbd_records
