@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# Copyright (c) Citrix Systems 2007, 2008. All rights reserved.
+# Copyright (c) Citrix Systems 2007, 2008, 2017. All rights reserved.
 #
-# Generate a ssl certificate file to use with stunnel
+# Generate a TLS certificate file to use with stunnel etc.
 #
 
 DIR=/tmp/ssl-generation-$$
@@ -19,27 +19,60 @@ if [ -e ${FILE} ]; then
 	exit 3
 fi
 
+dnsnames=$((hostname -A; hostname -f) | sort | uniq)
+addresses=$(hostname -I | sort | uniq)
+
 mkdir -p ${DIR}
 chmod 700 ${DIR}
 
 pushd ${DIR}
 
-#config
+# config file written so as to give the same behaviour with the
+# openssl "req" and "x509" commands (because x509 fails to include
+# extension sections when creating a certificate from a CSR).
 cat <<@eof >config
+extensions = ext_section # For openssl x509 command
 [req] # openssl req params
 prompt = no
 distinguished_name = dn-param
+req_extensions = ext_section
 [dn-param] # DN fields
 CN = ${CN}
+[ ext_section ]
+subjectAltName = @alt_names
+[alt_names]
 @eof
 
+i=0
+for x in $dnsnames
+do
+	let i=i+1
+	echo "DNS.${i}=${x}" >> config
+done
+i=0
+for x in $addresses
+do
+	let i=i+1
+	echo "IP.${i}=${x}" >> config
+done
+
 openssl genrsa 1024 > privkey.rsa
-openssl req -batch -new -x509 -key privkey.rsa -days 3650 -config config -out cert.csr
+
+# Generate certificate-signing-request
+openssl req -batch -new -key privkey.rsa -days 3650 -config config -out cert.csr
+
+# Sign it, creating a certificate.
+# Due to a bug in openssl x509, the extensions in the CSR are ignored
+# so we have to re-specify them using the -extfile option.
+# (Trying to do this in one step by passing -x509 to the "req" command ignores
+# the extensions too, but "req" does not allow the -extfile option.)
+openssl x509 -extfile config -req -signkey privkey.rsa -in cert.csr -outform PEM -out signedpubcert.pem -days 3650
+
 openssl dhparam 512 > dh.pem
 
 popd
 
-(cat ${DIR}/privkey.rsa; echo ""; cat ${DIR}/cert.csr; \
+(cat ${DIR}/privkey.rsa; echo ""; cat ${DIR}/signedpubcert.pem; \
  echo ""; cat ${DIR}/dh.pem) > ${FILE}
 chmod 400 ${FILE}
 
