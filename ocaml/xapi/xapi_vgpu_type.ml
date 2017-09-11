@@ -474,6 +474,48 @@ let read_whitelist_line_by_line ~whitelist ~device_id ~parse_line ~device_id_of_
       whitelist
   end else []
 
+module Vendor_nvidia = struct
+  type vgpu_conf = {
+    identifier : Identifier.nvidia_id;
+    framebufferlength : int64;
+    num_heads : int64;
+    max_instance : int64;
+    max_x : int64;
+    max_y : int64;
+    file_path : string;
+  }
+
+  let vendor_id = 0x10de
+  let whitelist_file () = !Xapi_globs.nvidia_whitelist
+  let device_id_of_conf conf = conf.identifier.Identifier.pdev_id
+
+  let read_whitelist ~whitelist ~device_id =
+    []
+
+  let vgpu_type_of_conf vendor_name device conf =
+    let open Identifier in
+    debug "Pci.lookup_subsystem_device_name: vendor=%04x device=%04x subdev=%04x"
+      vendor_id conf.identifier.vdev_id conf.identifier.vsubdev_id;
+    let model_name =
+      Pci.(with_access (fun access ->
+        lookup_subsystem_device_name access vendor_id
+          conf.identifier.vdev_id vendor_id conf.identifier.vsubdev_id)
+      )
+    in
+    Some {
+      vendor_name;
+      model_name;
+      framebuffer_size = conf.framebufferlength;
+      max_heads = conf.num_heads;
+      max_resolution_x = conf.max_x;
+      max_resolution_y = conf.max_y;
+      size = Int64.div Constants.pgpu_default_size conf.max_instance;
+      internal_config = [Xapi_globs.vgpu_config_key, conf.file_path];
+      identifier = Nvidia conf.identifier;
+      experimental = false;
+    }
+end
+
 module Vendor_intel = struct
   type vgpu_conf = {
     identifier : Identifier.gvt_g_id;
