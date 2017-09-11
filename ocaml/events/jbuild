@@ -1,0 +1,16 @@
+(executable
+ ((name event_listen)
+  (public_name event_listen)
+  (package xapi)
+  (libraries (
+   xml-light2
+   stdext
+   stunnel
+   http-svr
+   rpclib
+   uuid
+   threads
+   xapi-client
+  ))
+ )
+)

@@ -1,5 +1,7 @@
 _build/
 *.native
+.merlin
+*.install
 
 # tests
 xapi-db.xml

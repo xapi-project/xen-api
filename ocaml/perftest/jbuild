@@ -1,0 +1,17 @@
+(executable
+ ((name perftest)
+  (public_name perftest)
+  (package xapi)
+  (libraries (
+    xml-light2
+    stdext
+    stunnel
+    http-svr
+    xcp
+    rpclib
+    uuid
+    threads
+    xapi-client
+  ))
+ )
+)

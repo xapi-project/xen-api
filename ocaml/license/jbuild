@@ -1,0 +1,18 @@
+(executable
+ ((name daily_license_check_main)
+  (public_name daily-license-check)
+  (package xapi)
+  (libraries (
+    xml-light2
+    stdext
+    stunnel
+    http-svr
+    xcp
+    rpclib
+    uuid
+    systemd
+    threads
+    xapi-client
+  ))
+ )
+)

@@ -1,0 +1,44 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+| [] -> ""
+| pkgs ->
+  let cmd = "ocamlfind ocamlc -verbose" ^ (
+    List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+  ) in
+  let ic = Unix.open_process_in
+    (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
+  in
+  let rec go ic acc =
+    try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+  in
+  go ic ""
+
+let rewriters = ["ppx_deriving_rpc"]
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(rule
+ ((targets (aPI.ml))
+  (deps (../idl/ocaml_backend/gen_api_main.exe))
+  (action (run ${<} -filterinternal true -filter closed -mode api -output ${@}))
+ )
+)
+
+(library
+ ((name xapi_types)
+  (public_name xapi-types)
+  (flags (:standard %s))
+  (libraries (
+   xapi-consts
+   rpclib
+   ppx_deriving_rpc
+   stdext
+   threads
+   http-svr
+   uuid
+  ))
+  (wrapped false)
+ )
+)
+|} (flags rewriters)

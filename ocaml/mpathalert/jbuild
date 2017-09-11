@@ -1,0 +1,17 @@
+(executable
+ ((name mpathalert)
+  (public_name mpathalert)
+  (package xapi)
+  (libraries (
+    xml-light2
+    stdext
+    stunnel
+    http-svr
+    xcp
+    rpclib
+    uuid
+    threads
+    xapi-client
+  ))
+ )
+)

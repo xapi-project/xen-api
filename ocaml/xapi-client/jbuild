@@ -1,0 +1,16 @@
+(rule
+ ((targets (client.ml))
+  (deps (../idl/ocaml_backend/gen_api_main.exe))
+  (action (run ${<} -filterinternal true -filter closed -mode client -output ${@}))
+ )
+)
+
+(library
+ ((name xapi_client)
+  (public_name xapi-client)
+  (libraries (
+   xapi-types
+  ))
+  (wrapped false)
+ )
+)

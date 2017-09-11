@@ -1,0 +1,10 @@
+(library
+ ((name xapi_cli_protocol)
+  (public_name xapi-cli-protocol)
+  (libraries (
+   stdext
+   threads
+  ))
+  (wrapped false)
+ )
+)

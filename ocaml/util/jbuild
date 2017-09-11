@@ -1,0 +1,13 @@
+(library
+ ((name xapi_version)
+  (modules (
+   xapi_version
+  ))
+  (libraries (
+   xcp
+   xcp-inventory
+   threads
+  ))
+  (wrapped false)
+ )
+)
