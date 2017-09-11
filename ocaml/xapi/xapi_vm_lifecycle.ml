@@ -291,6 +291,13 @@ let check_pci ~op ~ref_str =
 let check_vgpu ~__context ~op ~ref_str ~vgpus =
   match op with
   | `pool_migrate | `migrate_send | `suspend | `checkpoint -> begin
+      let vgpu_migration_enabled =
+        let pool = Helpers.get_pool ~__context in
+        let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
+        try
+          List.assoc "restrict_vgpu_migration" restrictions = "false"
+        with Not_found -> false
+      in
       let all_nvidia_vgpus =
         List.fold_left
           (fun acc vgpu ->
@@ -300,7 +307,7 @@ let check_vgpu ~__context ~op ~ref_str ~vgpus =
              acc && (implementation = `nvidia))
           true vgpus
       in
-      if all_nvidia_vgpus then None
+      if vgpu_migration_enabled && all_nvidia_vgpus then None
       else Some (Api_errors.vm_has_vgpu, [ref_str])
     end
   | _ -> None
