@@ -68,7 +68,7 @@ Library message_switch_server
   Findlibparent:      message_switch
   Findlibname:        server
   Modules:            Clock, Relation, Q, Logging, Mswitch
-  BuildDepends:       lwt,sexplib,ppx_sexp_conv,mtime,mtime.os,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,ppx_deriving_rpc,message_switch,mirage-block-unix,shared-block-ring,cmdliner,io-page.unix
+  BuildDepends:       lwt,sexplib,ppx_sexp_conv,mtime,mtime.clock.os,cohttp (>= 0.15.0),cohttp.lwt,rpclib,rpclib.json,ppx_deriving_rpc,message_switch,mirage-block-unix,shared-block-ring,cmdliner,io-page.unix
 
 Executable m_cli
   CompiledObject:     best

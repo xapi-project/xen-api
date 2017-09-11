@@ -14,17 +14,18 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-let use_mtime () = Mtime.(to_ns_uint64 (elapsed ()))
+let use_mtime () = Mtime.Span.to_uint64_ns (Mtime_clock.elapsed ())
 
-let use_timeofday () = Int64.of_float (Unix.gettimeofday () *. 1e9)
+let use_timeofday () = Int64.of_float (Unix.gettimeofday () *. Mtime.s_to_ns)
 
 let ns =
-  if Mtime.available
-  then use_mtime
-  else begin
-    Logging.warn "No monotonic clock source: falling back to calendar time";
-    use_timeofday
-  end
+  try
+    Mtime_clock.now () |> ignore;
+    use_mtime
+  with Sys_error e -> begin
+      Logging.warn "Error: %s. No monotonic clock source: falling back to calendar time" e;
+      use_timeofday
+    end
 
 include Unix
 let time = gettimeofday
