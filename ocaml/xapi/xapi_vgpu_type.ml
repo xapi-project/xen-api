@@ -413,26 +413,14 @@ module type VENDOR = sig
   type vgpu_conf
   val vendor_id : int
   val whitelist_file : unit -> string
-  val device_id_of_conf : vgpu_conf -> int
-  val read_whitelist_line : line:string -> vgpu_conf option
+  val read_whitelist : whitelist:string -> device_id:int -> vgpu_conf list
   val vgpu_type_of_conf : string -> Pci.Pci_dev.t -> vgpu_conf -> vgpu_type option
 end
 
 module Vendor = functor (V : VENDOR) -> struct
   let vendor_id = V.vendor_id
 
-  let read_whitelist ~whitelist ~device_id =
-    if Sys.file_exists whitelist then begin
-      Stdext.Unixext.file_lines_fold
-        Identifier.(fun acc line ->
-            match V.read_whitelist_line ~line with
-            | Some conf when V.device_id_of_conf conf = device_id -> conf :: acc
-            | _ -> acc)
-        []
-        whitelist
-    end else []
-
-  let make_vgpu_types ~__context ~pci ~whitelist =
+  let make_vgpu_types ~__context ~pci =
     let open Xenops_interface.Pci in
     let device_id =
       Db.PCI.get_device_id ~__context ~self:pci
@@ -442,7 +430,7 @@ module Vendor = functor (V : VENDOR) -> struct
       Db.PCI.get_pci_id ~__context ~self:pci
       |> address_of_string
     in
-    let whitelist = read_whitelist ~whitelist ~device_id in
+    let whitelist = V.read_whitelist ~whitelist:(V.whitelist_file ()) ~device_id in
     let vendor_name, device =
       Pci.(with_access (fun access ->
           let vendor_name = lookup_vendor_name access V.vendor_id in
@@ -470,10 +458,21 @@ module Vendor = functor (V : VENDOR) -> struct
         else [passthrough_gpu]
       in
       passthrough_types @
-      (make_vgpu_types ~__context ~pci ~whitelist:(V.whitelist_file ()))
+      (make_vgpu_types ~__context ~pci)
     in
     List.map (find_or_create ~__context) types
 end
+
+let read_whitelist_line_by_line ~whitelist ~device_id ~parse_line ~device_id_of_conf =
+  if Sys.file_exists whitelist then begin
+    Stdext.Unixext.file_lines_fold
+      Identifier.(fun acc line ->
+          match parse_line ~line with
+          | Some conf when device_id_of_conf conf = device_id -> conf :: acc
+          | _ -> acc)
+      []
+      whitelist
+  end else []
 
 module Vendor_intel = struct
   type vgpu_conf = {
@@ -525,7 +524,14 @@ module Vendor_intel = struct
       error "Failed to read whitelist line: '%s' %s"
         line (Printexc.to_string e);
       None
-  
+
+  let read_whitelist ~whitelist ~device_id =
+    read_whitelist_line_by_line
+      ~whitelist
+      ~device_id
+      ~parse_line:read_whitelist_line
+      ~device_id_of_conf
+
   let vgpu_type_of_conf vendor_name device conf =
     let open Identifier in
     let bar_size =
@@ -610,7 +616,14 @@ module Vendor_amd = struct
       error "Failed to read whitelist line: '%s' %s"
         line (Printexc.to_string e);
       None
-  
+
+  let read_whitelist ~whitelist ~device_id =
+    read_whitelist_line_by_line
+      ~whitelist
+      ~device_id
+      ~parse_line:read_whitelist_line
+      ~device_id_of_conf
+
   let vgpu_type_of_conf vendor_name _ conf =
     let open Identifier in
     let size_of_pgpu = (* counterpart of bar_size in gvt-g *)

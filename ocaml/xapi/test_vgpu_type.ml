@@ -176,7 +176,7 @@ module IntelTest = struct
       end
 
       let transform (whitelist, device_id) =
-        Intel.read_whitelist ~whitelist ~device_id |> List.rev
+        Vendor_intel.read_whitelist ~whitelist ~device_id |> List.rev
 
       let tests = [
         ("test_data/gvt-g-whitelist-empty", 0x1234), [];
@@ -299,7 +299,7 @@ module AMDTest = struct
       end
 
       let transform (whitelist, device_id) =
-        AMD.read_whitelist ~whitelist ~device_id |> List.rev
+        Vendor_amd.read_whitelist ~whitelist ~device_id |> List.rev
 
       let tests = [
         ("test_data/mxgpu-whitelist-empty", 0x1234), [];
