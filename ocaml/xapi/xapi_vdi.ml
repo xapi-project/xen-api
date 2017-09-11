@@ -22,6 +22,19 @@ open Stdext
 open Pervasiveext
 open Printf
 
+(** Ignore exceptions that can happen due to invalid references and just skip them *)
+module Safe = struct
+  let default_on_missing_ref f default x =
+    try
+      f x
+    with
+    | Db_exn.DBCache_NotFound ("missing reference", _, _) -> default
+    | Db_exn.DBCache_NotFound ("missing row", _, _) -> default
+  let map f = Stdext.Listext.List.filter_map (default_on_missing_ref (fun x -> Some (f x)) None)
+  let filter f = List.filter (default_on_missing_ref f false)
+  let flat_map f l = List.map (default_on_missing_ref f []) l |> List.flatten
+end
+
 (**************************************************************************************)
 (* current/allowed operations checking                                                *)
 
@@ -116,7 +129,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
          snapshot's VBDs to true, and this would block operations that require
          the VDI to be detached. *)
       let my_active_vbd_records =
-        my_active_vbd_records |> List.filter
+        my_active_vbd_records |> Safe.filter
           (fun vbd ->
              let vm = vbd.Db_actions.vBD_VM in
              Db.is_valid_ref __context vm && not (Db.VM.get_is_a_snapshot ~__context ~self:vm)
@@ -906,18 +919,6 @@ let list_changed_blocks ~__context ~vdi_from ~vdi_to =
     (fun () ->
        C.VDI.list_changed_blocks ~dbg:(Ref.string_of task) ~sr ~vdi_from ~vdi_to
     )
-
-(** Ignore exceptions that can happen due to invalid references and just skip them *)
-module Safe = struct
-  let default_on_missing_ref f default x =
-    try
-      f x
-    with
-    | Db_exn.DBCache_NotFound ("missing reference", _, _) -> default
-    | Db_exn.DBCache_NotFound ("missing row", _, _) -> default
-  let map f = Stdext.Listext.List.filter_map (default_on_missing_ref (fun x -> Some (f x)) None)
-  let flat_map f l = List.map (default_on_missing_ref f []) l |> List.flatten
-end
 
 let get_nbd_info ~__context ~self =
   if (Db.VDI.get_type ~__context ~self) = `cbt_metadata then begin
