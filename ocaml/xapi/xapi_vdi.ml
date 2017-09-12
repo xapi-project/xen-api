@@ -877,6 +877,13 @@ let change_cbt_status ~__context ~self ~new_cbt_enabled ~caller_name =
 let enable_cbt = change_cbt_status ~new_cbt_enabled:true ~caller_name:"VDI.enable_cbt"
 let disable_cbt = change_cbt_status ~new_cbt_enabled:false ~caller_name:"VDI.disable_cbt"
 
+let set_cbt_enabled ~__context ~self ~value = 
+  if Db.VDI.get_cbt_enabled ~__context ~self <> value then begin
+    Db.VDI.set_cbt_enabled ~__context ~self ~value:value;
+    update_allowed_operations ~__context ~self
+  end else
+    debug "VDI.set_cbt_enabled: Not doing anything, CBT is already %s" (if value then "enabled" else "disabled")
+
 let export_changed_blocks ~__context ~vdi_from ~vdi_to =
   let task = Context.get_task_id __context in
   (* We have to pass the SR of vdi_to to the SMAPIv2 call *)
