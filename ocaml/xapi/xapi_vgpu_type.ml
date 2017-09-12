@@ -414,7 +414,7 @@ module type VENDOR = sig
   val vendor_id : int
   val whitelist_file : unit -> string
   val read_whitelist : whitelist:string -> device_id:int -> vgpu_conf list
-  val vgpu_type_of_conf : string -> Pci.Pci_dev.t -> vgpu_conf -> vgpu_type option
+  val vgpu_type_of_conf : Pci.Pci_access.t -> string -> Pci.Pci_dev.t -> vgpu_conf -> vgpu_type option
 end
 
 module Vendor = functor (V : VENDOR) -> struct
@@ -431,8 +431,8 @@ module Vendor = functor (V : VENDOR) -> struct
       |> address_of_string
     in
     let whitelist = V.read_whitelist ~whitelist:(V.whitelist_file ()) ~device_id in
-    let vendor_name, device =
-      Pci.(with_access (fun access ->
+    Pci.(with_access (fun access ->
+      let vendor_name, device =
           let vendor_name = lookup_vendor_name access V.vendor_id in
           let device =
             List.find
@@ -443,9 +443,10 @@ module Vendor = functor (V : VENDOR) -> struct
                  (device.Pci_dev.func = address.fn))
               (get_devices access)
           in
-          vendor_name, device))
-    in
-    List.filter_map (V.vgpu_type_of_conf vendor_name device) whitelist
+          vendor_name, device
+      in
+      List.filter_map (V.vgpu_type_of_conf access vendor_name device) whitelist
+    ))
 
   let find_or_create_supported_types ~__context ~pci
       ~is_system_display_device
@@ -492,15 +493,13 @@ module Vendor_nvidia = struct
   let read_whitelist ~whitelist ~device_id =
     []
 
-  let vgpu_type_of_conf vendor_name device conf =
+  let vgpu_type_of_conf pci_access vendor_name device conf =
     let open Identifier in
     debug "Pci.lookup_subsystem_device_name: vendor=%04x device=%04x subdev=%04x"
       vendor_id conf.identifier.vdev_id conf.identifier.vsubdev_id;
     let model_name =
-      Pci.(with_access (fun access ->
-        lookup_subsystem_device_name access vendor_id
-          conf.identifier.vdev_id vendor_id conf.identifier.vsubdev_id)
-      )
+      Pci.lookup_subsystem_device_name pci_access vendor_id
+        conf.identifier.vdev_id vendor_id conf.identifier.vsubdev_id
     in
     Some {
       vendor_name;
@@ -574,7 +573,7 @@ module Vendor_intel = struct
       ~parse_line:read_whitelist_line
       ~device_id_of_conf
 
-  let vgpu_type_of_conf vendor_name device conf =
+  let vgpu_type_of_conf _ vendor_name device conf =
     let open Identifier in
     let bar_size =
       List.nth device.Pci.Pci_dev.size 2
@@ -666,7 +665,7 @@ module Vendor_amd = struct
       ~parse_line:read_whitelist_line
       ~device_id_of_conf
 
-  let vgpu_type_of_conf vendor_name _ conf =
+  let vgpu_type_of_conf _ vendor_name _ conf =
     let open Identifier in
     let size_of_pgpu = (* counterpart of bar_size in gvt-g *)
       Constants.pgpu_default_size
