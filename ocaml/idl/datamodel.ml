@@ -4698,12 +4698,12 @@ let host_certificate_sync = call
 
 let host_get_server_certificate = call
     ~in_oss_since:None
-    ~in_product_since:rel_george
+    ~lifecycle:[Published, rel_george, ""; Changed, rel_inverness, "Now available to all RBAC roles."]
     ~name:"get_server_certificate"
-    ~doc:"Get the installed server SSL certificate."
+    ~doc:"Get the installed server public TLS certificate."
     ~params:[Ref _host, "host", "The host"]
-    ~result:(String,"The installed server SSL certificate, in PEM form.")
-    ~allowed_roles:_R_POOL_OP
+    ~result:(String,"The installed server public TLS certificate, in PEM form.")
+    ~allowed_roles:_R_READ_ONLY
     ()
 
 let host_display =
