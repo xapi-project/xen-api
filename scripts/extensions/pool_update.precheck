@@ -123,7 +123,9 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
     yum_env['LANG'] = 'C'
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env)
     output, _ = p.communicate()
-    xcp.logger.info('pool_update.precheck %r returncode=%r output=%r', cmd, p.returncode, output)
+    xcp.logger.info('pool_update.precheck %r returncode=%r output:', cmd, p.returncode)
+    for line in output.split('\n'):
+        xcp.logger.info(line)
     if p.returncode != 0:
         if ERROR_MESSAGE_DOWNLOAD_PACKAGE in output:
             raise InvalidUpdate('Missing package(s) in the update')
@@ -186,7 +188,9 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
     if os.path.isfile(update_precheck_file):
         pp = subprocess.Popen(update_precheck_file, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
         precheck_output, _ = pp.communicate()
-        xcp.logger.info('pool_update.precheck %r precheck_output=%r', update_precheck_file, precheck_output)
+        xcp.logger.info('pool_update.precheck %r precheck_output:', update_precheck_file)
+        for line in precheck_output.split('\n'):
+            xcp.logger.info(line)
         if pp.returncode != 0:
             regex = ERROR_XML_START + '.+' + ERROR_XML_END
             m = re.search(regex, precheck_output, flags=re.DOTALL)
