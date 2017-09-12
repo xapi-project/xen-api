@@ -49,7 +49,9 @@ def execute_apply(session, update_package, yum_conf_file):
     yum_env['LANG'] = 'C'
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env)
     output, _ = p.communicate()
-    xcp.logger.info('pool_update.apply %r returncode=%r output=%r', cmd, p.returncode, output)
+    xcp.logger.info('pool_update.apply %r returncode=%r output:', cmd, p.returncode)
+    for line in output.split('\n'):
+        xcp.logger.info(line)
     if p.returncode != 0:
         if ERROR_MESSAGE_DOWNLOAD_PACKAGE in output:
             raise InvalidUpdate('Missing package(s) in the update.')
@@ -67,7 +69,9 @@ def remove_group(group, yum_conf_file):
     cmd = ['yum', 'group', 'mark', 'remove', group, '-c', yum_conf_file]
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
     output, _ = p.communicate()
-    xcp.logger.info('pool_update.apply %r returncode=%r output=%r', cmd, p.returncode, output)
+    xcp.logger.info('pool_update.apply %r returncode=%r output:', cmd, p.returncode)
+    for line in output.split('\n'):
+        xcp.logger.info(line)
     if p.returncode != 0:
         raise ApplyFailure(output)
 
