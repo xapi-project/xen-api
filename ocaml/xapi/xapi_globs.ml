@@ -816,6 +816,9 @@ let xen_cmdline_script = ref "/opt/xensource/libexec/xen-cmdline"
 
 let sr_health_check_task_label = "SR Recovering"
 
+let vda_communication_timeout = ref 120.
+let vda_communication_script = "/opt/xensource/libexec/guestcommands/guestcommands.py"
+
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
 let xapi_globs_spec =
@@ -865,6 +868,7 @@ let xapi_globs_spec =
     "default-vbd3-polling-duration", Int default_vbd3_polling_duration;
     "default-vbd3-polling-idle-threshold", Int default_vbd3_polling_idle_threshold;
     "vm_call_plugin_interval", Float vm_call_plugin_interval;
+    "vda_communication_timeout", Float vda_communication_timeout;
   ]
 
 let options_of_xapi_globs_spec =

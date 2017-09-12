@@ -4128,7 +4128,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let get_status ~__context ~self =
       info "VDA.get_status";
-      Xapi_vda.assert_vm_power_state_is ~__context ~self ~expected:`Running;
       let local_fn = Local.VDA.get_status ~self in
       let vm = Db.VDA.get_vm ~__context ~self in
       let host = Db.VM.get_resident_on ~__context ~self:vm in
@@ -4137,7 +4136,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let get_log_report ~__context ~self =
       info "VDA.get_log_report";
-      Xapi_vda.assert_vm_power_state_is ~__context ~self ~expected:`Running;
       let local_fn = Local.VDA.get_log_report ~self in
       let vm = Db.VDA.get_vm ~__context ~self in
       let host = Db.VM.get_resident_on ~__context ~self:vm in

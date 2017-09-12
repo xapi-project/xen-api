@@ -1483,6 +1483,14 @@ let _ =
 
   error Api_errors.pvs_server_address_in_use ["address"]
     ~doc:"The address specified is already in use by an existing PVS_server object"
+    ();
+
+  error Api_errors.vda_communication_timeout ["vda"]
+    ~doc:"Timeout while waiting for VDA response"
+    ();
+
+  error Api_errors.vda_response_error ["vda"; "response"]
+    ~doc:"Received malformed response from the VDA"
     ()
 
 let _ =

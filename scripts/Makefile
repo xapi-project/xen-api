@@ -159,5 +159,7 @@ install:
 	$(IDATA) mail-languages/en-US.json $(DESTDIR)/etc/xapi.d/mail-languages
 	$(IDATA) mail-languages/zh-CN.json $(DESTDIR)/etc/xapi.d/mail-languages
 	$(IDATA) mail-languages/ja-JP.json $(DESTDIR)/etc/xapi.d/mail-languages
-	
-
+# guestcommands
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)/guestcommands
+	$(IDATA) guestcommands/guestcommandlib.py $(DESTDIR)$(LIBEXECDIR)/guestcommands/guestcommandlib.py
+	$(IPROG) guestcommands/guestcommands.py   $(DESTDIR)$(LIBEXECDIR)/guestcommands/guestcommands.py
