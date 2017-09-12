@@ -6577,6 +6577,18 @@ let vdi_disable_cbt = call
     ~allowed_roles:_R_VM_ADMIN
     ()
 
+(** This command is for internal use by SM to set the cbt_enabled field when it needs to disable cbt for its own reasons. This command should be removed once SMAPIv3 is implemented *)
+let vdi_set_cbt_enabled = call
+    ~name:"set_cbt_enabled"
+    ~in_oss_since:None
+    ~in_product_since:rel_inverness
+    ~params:[Ref _vdi, "self", "The VDI for which CBT enabled status should be set";
+             Bool, "value", "The value to set"]
+    ~errs:[]
+    ~hide_from_docs:true
+    ~allowed_roles:_R_LOCAL_ROOT_ONLY
+    ()
+
 let vdi_data_destroy = call
     ~name:"data_destroy"
     ~in_oss_since:None
@@ -6662,6 +6674,7 @@ let vdi =
                vdi_pool_migrate;
                vdi_enable_cbt;
                vdi_disable_cbt;
+               vdi_set_cbt_enabled;
                vdi_data_destroy;
                vdi_export_changed_blocks;
                vdi_get_nbd_info;
