@@ -48,7 +48,7 @@ module NvidiaTest = struct
       let transform = Nvidia.of_conf_file
 
       let tests = [
-        "ocaml/xapi/test_data/test_vgpu_subdevid.conf",
+        "test_data/test_vgpu_subdevid.conf",
         Nvidia.({
             identifier = Identifier.({
                 pdev_id = 0x3333;
@@ -61,9 +61,9 @@ module NvidiaTest = struct
             max_instance = 8L;
             max_x = 1920L;
             max_y = 1200L;
-            file_path = "ocaml/xapi/test_data/test_vgpu_subdevid.conf";
+            file_path = "test_data/test_vgpu_subdevid.conf";
           });
-        "ocaml/xapi/test_data/test_vgpu_nosubdevid.conf",
+        "test_data/test_vgpu_nosubdevid.conf",
         Nvidia.({
             identifier = Identifier.({
                 pdev_id = 0x3333;
@@ -76,7 +76,7 @@ module NvidiaTest = struct
             max_instance = 8L;
             max_x = 1920L;
             max_y = 1200L;
-            file_path = "ocaml/xapi/test_data/test_vgpu_nosubdevid.conf";
+            file_path = "test_data/test_vgpu_nosubdevid.conf";
           });
       ]
     end)
@@ -179,9 +179,9 @@ module IntelTest = struct
         Intel.read_whitelist ~whitelist ~device_id |> List.rev
 
       let tests = [
-        ("ocaml/xapi/test_data/gvt-g-whitelist-empty", 0x1234), [];
-        ("ocaml/xapi/test_data/gvt-g-whitelist-missing", 0x1234), [];
-        ("ocaml/xapi/test_data/gvt-g-whitelist-1234", 0x1234),
+        ("test_data/gvt-g-whitelist-empty", 0x1234), [];
+        ("test_data/gvt-g-whitelist-missing", 0x1234), [];
+        ("test_data/gvt-g-whitelist-1234", 0x1234),
         [
           Vendor_intel.({
               identifier = Identifier.({
@@ -214,8 +214,8 @@ module IntelTest = struct
               max_y = 1080L;
             });
         ];
-        ("ocaml/xapi/test_data/gvt-g-whitelist-1234", 0x5678), [];
-        ("ocaml/xapi/test_data/gvt-g-whitelist-mixed", 0x1234),
+        ("test_data/gvt-g-whitelist-1234", 0x5678), [];
+        ("test_data/gvt-g-whitelist-mixed", 0x1234),
         [
           Vendor_intel.({
               identifier = Identifier.({
@@ -302,9 +302,9 @@ module AMDTest = struct
         AMD.read_whitelist ~whitelist ~device_id |> List.rev
 
       let tests = [
-        ("ocaml/xapi/test_data/mxgpu-whitelist-empty", 0x1234), [];
-        ("ocaml/xapi/test_data/mxgpu-whitelist-missing", 0x1234), [];
-        ("ocaml/xapi/test_data/mxgpu-whitelist-1234", 0x1234),
+        ("test_data/mxgpu-whitelist-empty", 0x1234), [];
+        ("test_data/mxgpu-whitelist-missing", 0x1234), [];
+        ("test_data/mxgpu-whitelist-1234", 0x1234),
         [
           Vendor_amd.({
               identifier = Identifier.({
@@ -325,8 +325,8 @@ module AMDTest = struct
               vgpus_per_pgpu = 2L;
             });
         ];
-        ("ocaml/xapi/test_data/mxgpu-whitelist-1234", 0x5678), [];
-        ("ocaml/xapi/test_data/mxgpu-whitelist-mixed", 0x1234),
+        ("test_data/mxgpu-whitelist-1234", 0x5678), [];
+        ("test_data/mxgpu-whitelist-mixed", 0x1234),
         [
           Vendor_amd.({
               identifier = Identifier.({
