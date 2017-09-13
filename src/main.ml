@@ -144,18 +144,23 @@ let init_tls_get_server_ctx ~certfile ~ciphersuites no_tls =
   )
 
 let main port xen_api_uri certfile ciphersuites no_tls =
-  let tls_role = init_tls_get_server_ctx ~certfile ~ciphersuites no_tls in
   let t =
+    Lwt_log.notice_f "Starting xapi-nbd: port = '%d'; xen_api_uri = '%s'; certfile = '%s'; ciphersuites = '%s' no_tls = '%b'" port xen_api_uri certfile ciphersuites no_tls >>= fun () ->
+    Lwt_log.notice "Initialising TLS" >>= fun () ->
+    let tls_role = init_tls_get_server_ctx ~certfile ~ciphersuites no_tls in
     let sock = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
     Lwt.finalize
       (fun () ->
+         Lwt_log.notice "Setting up server socket" >>= fun () ->
          Lwt_unix.setsockopt sock Lwt_unix.SO_REUSEADDR true;
          let sockaddr = Lwt_unix.ADDR_INET(Unix.inet_addr_any, port) in
          Lwt_unix.bind sock sockaddr;
          Lwt_unix.listen sock 5;
+         Lwt_log.notice "Listening for incoming connections" >>= fun () ->
          let rec loop () =
            Lwt_unix.accept sock
            >>= fun (fd, _) ->
+           Lwt_log.notice "Got new client" >>= fun () ->
            (* Background thread per connection *)
            let _ =
              Lwt.catch
@@ -165,7 +170,7 @@ let main port xen_api_uri certfile ciphersuites no_tls =
                     (* ignore the exception resulting from double-closing the socket *)
                     (ignore_exn (fun () -> Lwt_unix.close fd))
                )
-               (fun e -> Lwt_io.eprintf "Caught %s\n%!" (Printexc.to_string e))
+               (fun e -> Lwt_log.error_f "Caught exception while handling client: %s" (Printexc.to_string e))
            in
            loop ()
          in
@@ -217,7 +222,13 @@ let cmd =
   Term.(ret (pure main $ port $ xen_api_uri $ certfile $ ciphersuites $ no_tls)),
   Term.info "xapi-nbd" ~version:"1.0.0" ~doc ~man ~sdocs:_common_options
 
-let _ =
+let setup_logging () =
+  Lwt_log.default := Lwt_log.syslog ~facility:`Daemon ();
+  (* Display all log messages of level "notice" and higher (this is the default Lwt_log behaviour) *)
+  Lwt_log.add_rule "*" Lwt_log.Notice
+
+let () =
+  setup_logging ();
   match Term.eval cmd with
   | `Error _ -> exit 1
   | _ -> exit 0
