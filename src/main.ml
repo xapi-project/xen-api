@@ -144,7 +144,7 @@ let init_tls_get_server_ctx ~certfile ~ciphersuites no_tls =
   )
 
 let main port xen_api_uri certfile ciphersuites no_tls =
-  let t =
+  let t () =
     Lwt_log.notice_f "Starting xapi-nbd: port = '%d'; xen_api_uri = '%s'; certfile = '%s'; ciphersuites = '%s' no_tls = '%b'" port xen_api_uri certfile ciphersuites no_tls >>= fun () ->
     Lwt_log.notice "Initialising TLS" >>= fun () ->
     let tls_role = init_tls_get_server_ctx ~certfile ~ciphersuites no_tls in
@@ -178,7 +178,14 @@ let main port xen_api_uri certfile ciphersuites no_tls =
       )
       (ignore_exn (fun () -> Lwt_unix.close sock))
   in
-  Lwt_main.run t;
+  (* Log unexpected exceptions *)
+  Lwt_main.run
+    (Lwt.catch t
+       (fun e ->
+          Lwt_log.fatal_f "Caught unexpected exception: %s" (Printexc.to_string e) >>= fun () ->
+          Lwt.fail e
+       )
+    );
 
   `Ok ()
 
