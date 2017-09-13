@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Lwt
+open Lwt.Infix
 (* Xapi external interfaces: *)
 module Xen_api = Xen_api_lwt_unix
 
@@ -28,19 +28,19 @@ module SM = Storage_interface.ClientM(struct
         let fmt = Format.formatter_of_buffer b in
         Protocol_lwt.Client.pp_error fmt e;
         Format.pp_print_flush fmt ();
-        fail (Failure (Buffer.contents b))
+        Lwt.fail_with (Buffer.contents b)
 
     (* A global connection for the lifetime of this process *)
     let switch =
       Protocol_lwt.Client.connect ~switch:!Xcp_client.switch_path ()
       >>*= fun switch ->
-      return switch
+      Lwt.return switch
 
     let rpc call =
       switch >>= fun switch ->
       Protocol_lwt.Client.rpc ~t:switch ~queue:!Storage_interface.queue_name ~body:(Jsonrpc.string_of_call call) ()
       >>*= fun result ->
-      return (Jsonrpc.response_of_string result)
+      Lwt.return (Jsonrpc.response_of_string result)
   end)
 
 (* TODO share these "require" functions with the nbd package. *)
@@ -53,18 +53,17 @@ let require_str name arg =
 
 let capture_exception f x =
   Lwt.catch
-    (fun () -> f x >>= fun r -> return (`Ok r))
-    (fun e -> return (`Error e))
+    (fun () -> f x >>= fun r -> Lwt.return (`Ok r))
+    (fun e -> Lwt.return (`Error e))
 
 let release_exception = function
-  | `Ok x -> return x
-  | `Error e -> fail e
+  | `Ok x -> Lwt.return x
+  | `Error e -> Lwt.fail e
 
 let with_block filename f =
-  let open Lwt in
   Block.connect filename
   >>= function
-  | `Error _ -> fail (Failure (Printf.sprintf "Unable to read %s" filename))
+  | `Error _ -> Lwt.fail_with (Printf.sprintf "Unable to read %s" filename)
   | `Ok x ->
     capture_exception f x
     >>= fun r ->
@@ -100,9 +99,9 @@ let handle_connection xen_api_uri fd tls_role =
         (* Validate the session *)
         Xen_api.Session.get_uuid ~rpc ~session_id ~self:session_id
         >>= fun _ ->
-        return session_id
+        Lwt.return session_id
       | None ->
-        fail (Failure "No session_id parameter provided")
+        Lwt.fail_with "No session_id parameter provided"
     ) >>= fun session_id ->
     f uri rpc session_id
   in
