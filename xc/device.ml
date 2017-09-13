@@ -2034,8 +2034,10 @@ module Dm = struct
     let stop_qemu () = (match (Qemu.pid ~xs domid) with
         | None -> () (* nothing to do *)
         | Some qemu_pid ->
-          if is_upstream_qemu domid then
+          if is_upstream_qemu domid then begin
             QMP_Event.remove domid;
+            xs.Xs.rm (sprintf "/libxl/%d" domid)
+          end;
           debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid;
           let open Generic in
           best_effort "signalling that qemu is ending as expected, mask further signals"
