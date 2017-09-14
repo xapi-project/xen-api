@@ -6,7 +6,7 @@ Authors:      Xapi Project
 License:      LGPL-2.1 with OCaml linking exception
 Plugins:      META (0.4)
 BuildTools:   ocamlbuild
-OCamlVersion: >= 4.01
+OCamlVersion: >= 4.04
 
 #BuildType:    OMake(0.4)
 

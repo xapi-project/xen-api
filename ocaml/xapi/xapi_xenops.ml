@@ -1614,6 +1614,26 @@ let update_vm ~__context id =
             with e ->
               error "Caught %s: while updating VM %s HVM_shadow_multiplier" (Printexc.to_string e) id
           end;
+          if different (fun x -> x.vda_version) then begin
+            try
+              Opt.iter
+              (fun (_, state) ->
+                let maybe_old_version = Opt.map (fun s -> s.vda_version) previous in
+                match state.vda_version, maybe_old_version with
+                | Some version, None ->
+                  Xapi_vda.create ~__context ~vm:self ~version
+                  |> ignore
+                | None, Some _ ->
+                  Xapi_vda.find_vda ~__context ~vm:self 
+                  |> Opt.iter (fun self -> Xapi_vda.destroy ~__context ~self)
+                | Some version, Some _ ->
+                  Xapi_vda.find_vda ~__context ~vm:self 
+                  |> Opt.iter (fun self -> Db.VDA.set_version ~__context ~self ~value:version)
+                | None, None -> ()
+              ) info
+            with e ->
+              error "Caught %s: while updating VDA version for VM %s" (Printexc.to_string e) id
+          end;
           Xenops_cache.update_vm id (Opt.map snd info);
           if !should_update_allowed_operations then
             Helpers.call_api_functions ~__context
