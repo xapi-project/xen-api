@@ -1,0 +1,8 @@
+(executable
+ ((name gen_json)
+  (libraries (
+   xapi-datamodel
+   xapi-consts
+  ))
+ )
+)

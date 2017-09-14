@@ -1,0 +1,60 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+| [] -> ""
+| pkgs ->
+  let cmd = "ocamlfind ocamlc -verbose" ^ (
+    List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+  ) in
+  let ic = Unix.open_process_in
+    (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
+  in
+  let rec go ic acc =
+    try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+  in
+  go ic ""
+
+let rewriters = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(ocamllex (db_filter_lex))
+(ocamlyacc (db_filter_parse))
+
+(library
+ ((name xapi_database)
+  (public_name xapi-database)
+  (flags (:standard -w -39 -bin-annot %s))
+  (modules (:standard \
+   database_server_main
+   db_cache_test
+   block_device_io
+  ))
+  (libraries (
+   ppx_deriving_rpc
+   rpclib
+   ppx_sexp_conv
+   sexpr
+   threads
+   http-svr
+   gzip
+   uuid
+   xcp
+  ))
+  (wrapped false)
+ )
+)
+
+(executable
+ ((name block_device_io)
+  (public_name block_device_io)
+  (package xapi)
+  (modules (
+   block_device_io
+  ))
+  (libraries (
+   xapi-database
+  ))
+ )
+)
+|} (flags rewriters)

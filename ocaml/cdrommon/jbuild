@@ -1,0 +1,12 @@
+(executable
+ ((name cdrommon)
+  (public_name cdrommon)
+  (package xapi)
+  (libraries (
+   unix
+   cdrom
+   xcp-inventory
+   threads
+  ))
+ )
+)

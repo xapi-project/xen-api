@@ -1,0 +1,10 @@
+(library
+ ((name rfb)
+  (modules (rfb rfb_randomtest))
+  (libraries (
+   stdext
+   threads
+  ))
+  (wrapped false)
+ )
+)

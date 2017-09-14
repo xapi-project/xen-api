@@ -1,0 +1,19 @@
+(executable
+ ((name xapi_db_process)
+  (public_name xapi-db-process)
+  (package xapi)
+  (libraries (
+   xml-light2
+   stdext
+   stunnel
+   http-svr
+   xcp
+   rpclib
+   uuid
+   systemd
+   threads
+   xapi-client
+   xapi-database
+  ))
+ )
+)
