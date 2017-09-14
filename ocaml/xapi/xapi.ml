@@ -680,6 +680,14 @@ let set_stunnel_legacy_db ~__context () =
     Xapi_host.set_stunnel_legacy ~__context legacy_db
   end
 
+(* Consult database to see if this host has any interfaces on networks
+ * that we want to use for NBD. If so, start the NBD server listening
+ * on those interfaces only. (TODO: do the interface/network checking. *)
+let start_xapi_nbd () =
+  (* TODO refactor this systemctl code so that we can share it with xapi_gpumon.ml *)
+  info "Starting xapi-nbd";
+  ignore (Forkhelpers.execute_command_get_output "/usr/bin/systemctl" ["start"; "xapi-nbd"])
+
 let server_init() =
   let print_server_starting_message() = debug "(Re)starting xapi"; debug "on_system_boot=%b pool_role=%s" !Xapi_globs.on_system_boot (Pool_role.string_of (Pool_role.get_role ())) in
   Unixext.unlink_safe "/etc/xensource/boot_time_info_updated";
@@ -961,6 +969,8 @@ let server_init() =
           (fun () -> Helpers.call_api_functions ~__context (fun rpc session_id -> Xapi_pool_update.detach_attached_updates __context));
           "Resync the applied updates of the host when start", [ Startup.NoExnRaising ],
           (fun () -> Helpers.call_api_functions ~__context (fun rpc session_id -> Xapi_pool_update.resync_host __context (Helpers.get_localhost ~__context)));
+          "Start the xapi-nbd daemon if needed", [ Startup.NoExnRaising ],
+          (fun () -> start_xapi_nbd ());
         ];
 
         debug "startup: startup sequence finished");
