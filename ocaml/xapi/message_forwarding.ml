@@ -3620,14 +3620,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            forward_vdi_op ~local_fn ~__context ~self
              (fun session_id rpc -> Client.VDI.data_destroy rpc session_id self))
 
-    let export_changed_blocks ~__context ~vdi_from ~vdi_to =
-      info "VDI.export_changed_blocks: vdi_from  = '%s'; vdi_to = '%s'" (vdi_uuid ~__context vdi_from) (vdi_uuid ~__context vdi_to);
-      let local_fn = Local.VDI.export_changed_blocks ~vdi_from ~vdi_to in
+    let list_changed_blocks ~__context ~vdi_from ~vdi_to =
+      info "VDI.list_changed_blocks: vdi_from  = '%s'; vdi_to = '%s'" (vdi_uuid ~__context vdi_from) (vdi_uuid ~__context vdi_to);
+      let local_fn = Local.VDI.list_changed_blocks ~vdi_from ~vdi_to in
       let vdi_to_sr = Db.VDI.get_SR ~__context ~self:vdi_to in
-      with_sr_andor_vdi ~__context ~sr:(vdi_to_sr, `vdi_export_changed_blocks) ~vdi:(vdi_to, `export_changed_blocks) ~doc:"VDI.export_changed_blocks"
+      with_sr_andor_vdi ~__context ~sr:(vdi_to_sr, `vdi_list_changed_blocks) ~vdi:(vdi_to, `list_changed_blocks) ~doc:"VDI.list_changed_blocks"
         (fun () ->
            forward_vdi_op ~local_fn ~__context ~self:vdi_to
-             (fun session_id rpc -> Client.VDI.export_changed_blocks ~rpc ~session_id ~vdi_from ~vdi_to))
+             (fun session_id rpc -> Client.VDI.list_changed_blocks ~rpc ~session_id ~vdi_from ~vdi_to))
 
     let get_nbd_info ~__context ~self =
       info "VDI.get_nbd_info: vdi  = '%s'" (vdi_uuid ~__context self);
