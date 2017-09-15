@@ -6,6 +6,7 @@ env:
   global:
     - OCAML_VERSION=4.04
     - PACKAGE=xapi-nbd
+    - PINS="nbd:git://github.com/xapi-project/nbd.git#bugfix-v2.x"
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
