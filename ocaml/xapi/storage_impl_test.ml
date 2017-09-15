@@ -169,7 +169,7 @@ module Debug_print_impl = struct
     let enable_cbt context ~dbg ~sr ~vdi = assert false
     let disable_cbt context ~dbg ~sr ~vdi = assert false
     let data_destroy context ~dbg ~sr ~vdi = assert false
-    let export_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to = assert false
+    let list_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to = assert false
 
 
   end

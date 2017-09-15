@@ -6028,7 +6028,7 @@ let storage_operations =
           "vdi_enable_cbt", "Enabling changed block tracking for a VDI";
           "vdi_disable_cbt", "Disabling changed block tracking for a VDI";
           "vdi_data_destroy", "Deleting the data of the VDI";
-          "vdi_export_changed_blocks", "Exporting a bitmap that shows the changed blocks between two VDIs";
+          "vdi_list_changed_blocks", "Exporting a bitmap that shows the changed blocks between two VDIs";
           "vdi_set_on_boot", "Setting the on_boot field of the VDI";
           "pbd_create", "Creating a PBD for this SR";
           "pbd_destroy", "Destroying one of this SR's PBDs"; ])
@@ -6354,7 +6354,7 @@ let vdi_operations =
           "enable_cbt", "Enabling changed block tracking for a VDI";
           "disable_cbt", "Disabling changed block tracking for a VDI";
           "data_destroy", "Deleting the data of the VDI";
-          "export_changed_blocks", "Exporting a bitmap that shows the changed blocks between two VDIs";
+          "list_changed_blocks", "Exporting a bitmap that shows the changed blocks between two VDIs";
           "set_on_boot", "Setting the on_boot field of the VDI";
           "blocked", "Operations on this VDI are temporarily blocked";
         ])
@@ -6629,8 +6629,8 @@ let vdi_data_destroy = call
     ~allowed_roles:_R_VM_ADMIN
     ()
 
-let vdi_export_changed_blocks = call
-    ~name:"export_changed_blocks"
+let vdi_list_changed_blocks = call
+    ~name:"list_changed_blocks"
     ~in_oss_since:None
     ~in_product_since:rel_inverness
     ~params:
@@ -6696,7 +6696,7 @@ let vdi =
                vdi_disable_cbt;
                vdi_set_cbt_enabled;
                vdi_data_destroy;
-               vdi_export_changed_blocks;
+               vdi_list_changed_blocks;
                vdi_get_nbd_info;
               ]
     ~contents:

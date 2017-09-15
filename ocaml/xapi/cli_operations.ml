@@ -1268,10 +1268,10 @@ let vdi_data_destroy printer rpc session_id params =
   let vdi = Client.VDI.get_by_uuid rpc session_id (List.assoc "uuid" params) in
   Client.VDI.data_destroy rpc session_id vdi
 
-let vdi_export_changed_blocks socket _ rpc session_id params =
+let vdi_list_changed_blocks socket _ rpc session_id params =
   let vdi_from = Client.VDI.get_by_uuid rpc session_id (List.assoc "vdi-from" params) in
   let vdi_to = Client.VDI.get_by_uuid rpc session_id (List.assoc "vdi-to" params) in
-  let bitmap = Client.VDI.export_changed_blocks ~rpc ~session_id ~vdi_from ~vdi_to in
+  let bitmap = Client.VDI.list_changed_blocks ~rpc ~session_id ~vdi_from ~vdi_to in
   marshal socket (Command (Print bitmap))
 
 let diagnostic_vdi_status printer rpc session_id params =
