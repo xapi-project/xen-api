@@ -276,6 +276,9 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
   let is_vmss_snapshot =
       is_a_snapshot && (Xapi_vmss.is_vmss_snapshot ~__context) in
 
+  let hVM_boot_policy = all.Db_actions.vM_HVM_boot_policy in
+  let platform = all.Db_actions.vM_platform |> (Xapi_vm_helpers.ensure_device_model_profile_present ~__context ~hVM_boot_policy) in
+
   (* create a new VM *)
   Db.VM.create ~__context
     ~ref
@@ -313,11 +316,11 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
     ~actions_after_shutdown:all.Db_actions.vM_actions_after_shutdown
     ~actions_after_reboot:all.Db_actions.vM_actions_after_reboot
     ~actions_after_crash:all.Db_actions.vM_actions_after_crash
-    ~hVM_boot_policy:all.Db_actions.vM_HVM_boot_policy
+    ~hVM_boot_policy
     ~hVM_boot_params:all.Db_actions.vM_HVM_boot_params
     ~hVM_shadow_multiplier:all.Db_actions.vM_HVM_shadow_multiplier
     ~suspend_VDI:Ref.null
-    ~platform:all.Db_actions.vM_platform
+    ~platform
     ~pV_kernel:all.Db_actions.vM_PV_kernel
     ~pV_ramdisk:all.Db_actions.vM_PV_ramdisk
     ~pV_args:all.Db_actions.vM_PV_args
