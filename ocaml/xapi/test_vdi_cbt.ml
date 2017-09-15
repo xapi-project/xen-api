@@ -5,7 +5,7 @@ let register_smapiv2_server (module S: Storage_interface.Server_impl with type c
   let dummy_query_result = Storage_interface.({ driver=""; name=""; description=""; vendor=""; copyright=""; version=""; required_api_version=""; features=[]; configuration=[]; required_cluster_stack=[] }) in
   Storage_mux.register sr_ref rpc "" dummy_query_result
 
-let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_snapshot ?vdi_clone () =
+let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_data_destroy ?vdi_snapshot ?vdi_clone () =
   let default a b = match a with
     | Some a -> a
     | None -> b
@@ -16,13 +16,14 @@ let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_snapshot ?
       include Storage_skeleton.VDI
       let enable_cbt = default vdi_enable_cbt Storage_skeleton.VDI.enable_cbt
       let disable_cbt = default vdi_disable_cbt Storage_skeleton.VDI.disable_cbt
+      let data_destroy = default vdi_data_destroy Storage_skeleton.VDI.data_destroy
       let snapshot = default vdi_snapshot Storage_skeleton.VDI.snapshot
       let clone = default vdi_snapshot Storage_skeleton.VDI.clone
     end
   end : Storage_interface.Server_impl with type context = unit)
 
-let register_smapiv2_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_snapshot ?vdi_clone sr_ref =
-  let s = make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_snapshot ?vdi_clone () in
+let register_smapiv2_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_data_destroy ?vdi_snapshot ?vdi_clone sr_ref =
+  let s = make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_data_destroy ?vdi_snapshot ?vdi_clone () in
   register_smapiv2_server s sr_ref
 
 let test_cbt_enable_disable () =
@@ -190,6 +191,27 @@ let test_get_nbd_info =
   ; "test_disallowed_for_cbt_metadata_vdi" >:: test_disallowed_for_cbt_metadata_vdi
   ]
 
+let test_allowed_operations_updated_when_necessary () =
+  let __context = Test_common.make_test_database () in
+  let host = Helpers.get_localhost ~__context in
+  let sR = Test_common.make_sr ~__context () in
+  (* This SM instance has CBT capabilities by default *)
+  let _: _ API.Ref.t = Test_common.make_sm ~__context () in
+  let _: _ API.Ref.t = Test_common.make_pbd ~__context ~host ~sR () in
+  let self = Test_common.make_vdi ~__context ~sR ~_type:`user ~cbt_enabled:true ~is_a_snapshot:true ~managed:true () in
+  register_smapiv2_server ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> ()) (Db.SR.get_uuid ~__context ~self:sR);
+
+  let assert_allowed_operations msg check =
+    OUnit.assert_bool msg (check (Db.VDI.get_allowed_operations ~__context ~self))
+  in
+  (* Populate the allowed_operations list after creating the VDI *)
+  Xapi_vdi.update_allowed_operations ~__context ~self;
+  assert_allowed_operations "contains `copy for a newly-created VDI" (fun ops -> List.mem `copy ops);
+  let (rpc, session_id) = Test_common.make_client_params ~__context in
+  (* Call data_destroy through the client, as allowed_operations may be updated in the message forwarding layer *)
+  Client.Client.VDI.data_destroy ~rpc ~session_id ~self;
+  assert_allowed_operations "does not contain `copy after VDI has been data-destroyed" (fun ops -> not @@ List.mem `copy ops)
+
 let test =
   let open OUnit in
   "test_vdi_cbt" >:::
@@ -197,4 +219,5 @@ let test =
   ; "test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi" >:: test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi
   ; "test_clone_and_snapshot_correctly_sets_cbt_enabled_field" >:: test_clone_and_snapshot_correctly_sets_cbt_enabled_field
   ; test_get_nbd_info
+  ; "test_allowed_operations_updated_when_necessary" >:: test_allowed_operations_updated_when_necessary
   ]
