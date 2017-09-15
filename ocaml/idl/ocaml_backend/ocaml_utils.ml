@@ -59,7 +59,7 @@ let ocaml_of_module_name x =
 
 (** Convert an IDL enum into a polymorhic variant. *)
 let ocaml_of_enum list =
-  "[ "^String.concat " | " (List.map constructor_of list)^" ]"
+  "[ "^String.concat " | " (List.map constructor_of list)^" | `unknown ]"
 
 (** Convert an IDL type to a function name; we need to generate functions to
     marshal/unmarshal from XML for each unique IDL type *)

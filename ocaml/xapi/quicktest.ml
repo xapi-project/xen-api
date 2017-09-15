@@ -774,7 +774,8 @@ let async_test session_id =
                  | `success -> "success"
                  | `failure -> "failure"
                  | `cancelling -> "cancelling"
-                 | `cancelled -> "cancelled")
+                 | `cancelled -> "cancelled"
+                 | `unknown -> "unknown")
                 (Client.Task.get_result !rpc session_id task));
   if status=`failure then
     begin

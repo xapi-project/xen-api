@@ -37,6 +37,8 @@ let check_operation_error ~__context record self op =
         (* Can hard_shutdown/shutdown if any are not halted. *)
         | `hard_shutdown | `shutdown ->
           (fun power_state -> power_state <> `Halted), "All VMs in this appliance are halted."
+        | `unknown ->
+          (fun _ -> true), "Unknown power state"
       in
       if List.exists predicate power_states then
         None

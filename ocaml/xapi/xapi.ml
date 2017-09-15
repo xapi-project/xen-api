@@ -345,6 +345,9 @@ let attempt_pool_hello my_ip =
            Some Permanent
          | `ok ->
            None
+         | `unknown ->
+           error "Unknown result from Master";
+           Some Permanent
       )
   with
   | Api_errors.Server_error(code, params) when code = Api_errors.session_authentication_failed ->

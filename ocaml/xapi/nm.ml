@@ -367,6 +367,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
           (* Configure IPv4 parameters and DNS *)
           let ipv4_conf, ipv4_gateway, dns =
             match rc.API.pIF_ip_configuration_mode with
+            | `unknown -> raise (Api_errors.Server_error(Api_errors.field_type_error,["ip_configuration_mode"]))
             | `None -> None4, None, ([], [])
             | `DHCP -> DHCP4, None, ([], [])
             | `Static ->
@@ -403,6 +404,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
           (* Configure IPv6 parameters *)
           let ipv6_conf, ipv6_gateway =
             match rc.API.pIF_ipv6_configuration_mode with
+            | `unknown -> raise (Api_errors.Server_error(Api_errors.field_type_error,["ipv6_configuration_mode"]))
             | `None -> Linklocal6, None
             | `DHCP -> DHCP6, None
             | `Autoconf -> Autoconf6, None

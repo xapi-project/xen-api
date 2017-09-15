@@ -385,7 +385,8 @@ module MD = struct
       ty = (match vbd.API.vBD_type with
           | `Disk -> Disk
           | `CD -> CDROM
-          | `Floppy -> Floppy);
+          | `Floppy -> Floppy
+          | `unknown -> failwith "Can't handle unknown VBD type");
       unpluggable = vbd.API.vBD_unpluggable;
       extra_backend_keys = backend_kind_keys @ poll_duration_keys @ poll_idle_threshold_keys;
       extra_private_keys = [];
@@ -449,8 +450,10 @@ module MD = struct
       | `network_default, `unlocked -> Vif.Unlocked
       | `locked, _ -> Vif.Locked { Vif.ipv4 = vif.API.vIF_ipv4_allowed; ipv6 = vif.API.vIF_ipv6_allowed }
       | `unlocked, _ -> Vif.Unlocked
-      | `disabled, _ -> Vif.Disabled in
-    let carrier =
+      | `disabled, _ -> Vif.Disabled
+      | `unknown, _ -> failwith "Can't handle unknown locking_mode"
+      | _, `unknown -> failwith "Can't handle unknown default locking_mode" in
+      let carrier =
       if !Xapi_globs.pass_through_pif_carrier then
         (* We need to reflect the carrier of the local PIF on the network (if any) *)
         let host = Helpers.get_localhost ~__context in
@@ -472,6 +475,8 @@ module MD = struct
       | `Static ->
         let gateway = if vif.API.vIF_ipv4_gateway = "" then None else Some vif.API.vIF_ipv4_gateway in
         Vif.Static4 (vif.API.vIF_ipv4_addresses, gateway)
+      | `unknown ->
+        failwith "Can't handle unknown ipv4_configuration_mode"
     in
     let ipv6_configuration =
       match vif.API.vIF_ipv6_configuration_mode with
@@ -479,6 +484,8 @@ module MD = struct
       | `Static ->
         let gateway = if vif.API.vIF_ipv6_gateway = "" then None else Some vif.API.vIF_ipv6_gateway in
         Vif.Static6 (vif.API.vIF_ipv6_addresses, gateway)
+      | `unknown ->
+        failwith "Can't handle unknown ipv6_configuration_mode"
     in
     let extra_private_keys =
       [
@@ -678,10 +685,12 @@ module MD = struct
       | `coredump_and_destroy -> [ Vm.Coredump; Vm.Shutdown ]
       | `restart
       | `rename_restart -> [ Vm.Start ]
-      | `destroy -> [ Vm.Shutdown ] in
+      | `destroy -> [ Vm.Shutdown ]
+      | `unknown -> failwith "Can't handle unknown on_crash_behaviour" in
     let on_normal_exit_behaviour = function
       | `restart -> [ Vm.Start ]
-      | `destroy -> [ Vm.Shutdown ] in
+      | `destroy -> [ Vm.Shutdown ]
+      | `unknown -> failwith "Can't handle unknown on_normal_exit_behaviour" in
     let open Vm in
     let scheduler_params =
       (* vcpu <-> pcpu affinity settings are stored here.

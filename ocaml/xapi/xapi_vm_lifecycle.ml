@@ -144,6 +144,7 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
   | `update_allowed_operations
   | `query_services
     -> all_power_states
+  | `unknown -> []
 
 (** check if [op] can be done when [vmr] is in [power_state], when no other operation is in progress *)
 let is_allowed_sequentially ~__context ~vmr ~power_state ~op =

@@ -59,7 +59,7 @@ val db_introduce :
   mTU:int64 ->
   vLAN:int64 ->
   physical:bool ->
-  ip_configuration_mode:[< `DHCP | `None | `Static ] ->
+  ip_configuration_mode:API.ip_configuration_mode ->
   iP:string ->
   netmask:string ->
   gateway:string ->
@@ -69,10 +69,10 @@ val db_introduce :
   management:bool ->
   other_config:(string * string) list ->
   disallow_unplug:bool ->
-  ipv6_configuration_mode:[< `DHCP | `None | `Static | `Autoconf ] ->
+  ipv6_configuration_mode:API.ipv6_configuration_mode ->
   iPv6:string list ->
   ipv6_gateway:string ->
-  primary_address_type:[< `IPv4 | `IPv6 ] ->
+  primary_address_type:API.primary_address_type ->
   managed:bool ->
   properties:(string * string) list ->
   [ `PIF ] Ref.t
@@ -112,21 +112,21 @@ val destroy : __context:Context.t -> self:API.ref_PIF -> unit
 val reconfigure_ip :
   __context:Context.t ->
   self:API.ref_PIF ->
-  mode:[`DHCP | `None | `Static] ->
+  mode:API.ip_configuration_mode ->
   iP:string -> netmask:string -> gateway:string -> dNS:string -> unit
 
 (** Change the IPv6 configuration of a PIF *)
 val reconfigure_ipv6 :
   __context:Context.t ->
   self:API.ref_PIF ->
-  mode:[ `DHCP | `None | `Static | `Autoconf ] ->
+  mode:API.ipv6_configuration_mode ->
   iPv6:string -> gateway:string -> dNS:string -> unit
 
 (** Change the primary address type between IPv4 and IPv6 *)
 val set_primary_address_type :
   __context:Context.t ->
   self:API.ref_PIF ->
-  primary_address_type:[`IPv4 | `IPv6 ] -> unit
+  primary_address_type:API.primary_address_type -> unit
 
 (** Set the default properties of a PIF *)
 val set_default_properties :
@@ -199,7 +199,7 @@ val pool_introduce :
   mTU:int64 ->
   vLAN:int64 ->
   physical:bool ->
-  ip_configuration_mode:[< `DHCP | `None | `Static ] ->
+  ip_configuration_mode:API.ip_configuration_mode ->
   iP:string ->
   netmask:string ->
   gateway:string ->
@@ -209,10 +209,10 @@ val pool_introduce :
   management:bool ->
   other_config:(string * string) list ->
   disallow_unplug:bool ->
-  ipv6_configuration_mode:[< `DHCP | `None | `Static | `Autoconf ] ->
+  ipv6_configuration_mode:API.ipv6_configuration_mode ->
   iPv6:string list ->
   ipv6_gateway:string ->
-  primary_address_type:[< `IPv4 | `IPv6 ] ->
+  primary_address_type:API.primary_address_type ->
   managed:bool ->
   properties:(string * string) list ->
   [ `PIF ] Ref.t

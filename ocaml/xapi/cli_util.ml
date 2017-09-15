@@ -77,6 +77,8 @@ let result_from_task rpc session_id remote_task =
       | [] -> Failure (Printf.sprintf "Task failed but no error recorded: %s" (Ref.string_of remote_task)) in
     Backtrace.(add exn (t_of_sexp (Sexplib.Sexp.of_string trace)));
     raise exn
+  | `unknown ->
+    failwith "unknown task status"
 
 (** Use the event system to wait for a specific task to complete (succeed, failed or be cancelled) *)
 let wait_for_task_completion = track (fun _ -> ())

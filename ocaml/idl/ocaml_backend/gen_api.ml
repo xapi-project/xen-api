@@ -28,7 +28,7 @@ let overrides = [
     "let rpc_of_vm_operations_to_string_map x = Rpc.Dict (List.map (fun (x,y) -> (match rpc_of_vm_operations x with Rpc.String x -> x | _ -> failwith \"Marshalling error\"), Rpc.String y) x)\n" ^
     "let vm_operations_to_string_map_of_rpc x = match x with Rpc.Dict l -> List.map (function (x,y) -> vm_operations_of_rpc (Rpc.String x), string_of_rpc y) l | _ -> failwith \"Unmarshalling error\"\n");
   "bond_mode",(
-    "let rpc_of_bond_mode x = match x with `balanceslb -> Rpc.String \"balance-slb\" | `activebackup -> Rpc.String \"active-backup\" | `lacp -> Rpc.String \"lacp\"\n"^
+    "let rpc_of_bond_mode x = match x with `balanceslb -> Rpc.String \"balance-slb\" | `activebackup -> Rpc.String \"active-backup\" | `lacp -> Rpc.String \"lacp\" | `unknown -> failwith \"No marshalling `unknown values\" \n"^
     "let bond_mode_of_rpc x = match x with Rpc.String \"balance-slb\" -> `balanceslb | Rpc.String \"active-backup\" -> `activebackup | Rpc.String \"lacp\" -> `lacp | _ -> failwith \"Unmarshalling error in bond-mode\"\n");
   "int64_to_float_map",(
     "let rpc_of_int64_to_float_map x = Rpc.Dict (List.map (fun (x,y) -> Int64.to_string x, Rpc.Float y) x)\n" ^
@@ -40,7 +40,7 @@ let overrides = [
     "let rpc_of_int64_to_string_set_map x = Rpc.Dict (List.map (fun (x,y) -> Int64.to_string x, rpc_of_string_set y) x)\n" ^
     "let int64_to_string_set_map_of_rpc x = match x with Rpc.Dict x -> List.map (fun (x,y) -> Int64.of_string x, string_set_of_rpc y) x | _ -> failwith \"Unmarshalling error\"");
   "event_operation",(
-    "let rpc_of_event_operation x = match x with | `add -> Rpc.String \"add\" | `del -> Rpc.String \"del\" | `_mod -> Rpc.String \"mod\"\n"^
+    "let rpc_of_event_operation x = match x with | `add -> Rpc.String \"add\" | `del -> Rpc.String \"del\" | `_mod -> Rpc.String \"mod\" | `unknown -> failwith \"no marshalling `unknown values\"\n"^
     "let event_operation_of_rpc x = match x with | Rpc.String \"add\" -> `add | Rpc.String \"del\" -> `del | Rpc.String \"mod\" -> `_mod | _ -> failwith \"Unmarshalling error\"");
 
 ]

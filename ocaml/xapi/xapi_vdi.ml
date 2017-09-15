@@ -42,13 +42,16 @@ let check_sm_feature_error (op:API.vdi_operations) sm_features sr =
   | `mirror -> Some Vdi_mirror
   | `enable_cbt | `disable_cbt | `data_destroy | `export_changed_blocks -> Some Vdi_configure_cbt
   | `set_on_boot -> Some Vdi_reset_on_boot
+  | `unknown -> None
   ) in
-  match required_sm_feature with
-  | None -> None
-  | Some feature ->
-    if Smint.(has_capability feature sm_features)
-    then None
-    else Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+  if op=`unknown
+  then Some (Api_errors.sr_operation_not_supported, ["Unknown operation"])
+  else match required_sm_feature with
+    | None -> None
+    | Some feature ->
+      if Smint.(has_capability feature sm_features)
+      then None
+      else Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 
 (* Checks to see if an operation is valid in this state. Returns Some exception
    if not and None if everything is ok. *)
@@ -165,13 +168,13 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 
       else
       let allowed_for_cbt_metadata_vdi = match op with
-        | `clone | `copy | `disable_cbt | `enable_cbt | `mirror | `resize | `resize_online | `snapshot | `set_on_boot -> false
+        | `clone | `copy | `disable_cbt | `enable_cbt | `mirror | `resize | `resize_online | `snapshot | `set_on_boot | `unknown -> false
         | `blocked | `data_destroy | `destroy | `export_changed_blocks | `force_unlock | `forget | `generate_config | `update -> true in
       if not allowed_for_cbt_metadata_vdi && record.Db_actions.vDI_type = `cbt_metadata
       then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string `cbt_metadata ])
       else
       let allowed_when_cbt_enabled = match op with
-        | `mirror | `set_on_boot -> false
+        | `mirror | `set_on_boot | `unknown -> false
         | `blocked | `clone | `copy | `data_destroy | `destroy | `disable_cbt | `enable_cbt | `export_changed_blocks | `force_unlock | `forget | `generate_config | `resize | `resize_online | `snapshot | `update -> true in
       if not allowed_when_cbt_enabled && record.Db_actions.vDI_cbt_enabled
       then Some (Api_errors.vdi_cbt_enabled, [_ref])
@@ -238,7 +241,8 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
         then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
         else None
       | `mirror | `clone | `generate_config | `force_unlock | `set_on_boot | `export_changed_blocks | `blocked | `update -> None
-      end
+      | `unknown -> None (* Note, this is caught above *)
+    end
 
 let assert_operation_valid ~__context ~self ~(op:API.vdi_operations) =
   let pool = Helpers.get_pool ~__context in
@@ -362,7 +366,10 @@ let create ~__context ~name_label ~name_description
     | `user -> "user"
     | `rrd -> "rrd"
     | `pvs_cache -> "pvs_cache"
-    | `cbt_metadata -> "cbt_metadata" in
+    | `cbt_metadata -> "cbt_metadata"
+    | `unknown ->
+      error "Unknown type in VDI.create";
+      raise (Api_errors.Server_error(Api_errors.field_type_error,["type"])) in
 
   let open Storage_access in
   let task = Context.get_task_id __context in

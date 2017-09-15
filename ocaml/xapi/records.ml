@@ -216,7 +216,7 @@ let message_record rpc session_id message =
         make_field ~name:"uuid"         ~get:(fun () -> (x ()).API.message_uuid) ();
         make_field ~name:"name"         ~get:(fun () -> (x ()).API.message_name) ();
         make_field ~name:"priority"     ~get:(fun () -> Int64.to_string (x ()).API.message_priority) ();
-        make_field ~name:"class"        ~get:(fun () -> match (x ()).API.message_cls with `VM -> "VM" | `Host -> "Host" | `SR -> "SR" | `Pool -> "Pool" | `VMPP -> "VMPP" | `VMSS -> "VMSS" | `PVS_proxy -> "PVS_proxy") ();
+        make_field ~name:"class"        ~get:(fun () -> match (x ()).API.message_cls with `VM -> "VM" | `Host -> "Host" | `SR -> "SR" | `Pool -> "Pool" | `VMPP -> "VMPP" | `VMSS -> "VMSS" | `PVS_proxy -> "PVS_proxy" | `unknown -> "unknown") ();
         make_field ~name:"obj-uuid"     ~get:(fun () -> (x ()).API.message_obj_uuid) ();
         make_field ~name:"timestamp"    ~get:(fun () -> Date.to_string (x ()).API.message_timestamp) ();
         make_field ~name:"body"         ~get:(fun () -> (x ()).API.message_body) ();
@@ -1033,17 +1033,8 @@ let pool_patch_record rpc session_id patch =
     let host_uuids = List.map (fun x -> Client.Host.get_uuid ~rpc ~session_id ~self:x) host_refs in
     host_uuids
   in
-  let after_apply_guidance_to_string = function
-    | `restartHVM -> "restartHVM"
-    | `restartPV -> "restartPV"
-    | `restartHost -> "restartHost"
-    | `restartXAPI -> "restartXAPI"
-  in
-  let after_apply_guidance_to_string_set =
-    List.map after_apply_guidance_to_string
-  in
   let after_apply_guidance () =
-    after_apply_guidance_to_string_set (x ()).API.pool_patch_after_apply_guidance
+    Record_util.after_apply_guidance_to_string_set (x ()).API.pool_patch_after_apply_guidance
   in
   { setref=(fun r -> _ref := r; record := empty_record );
     setrefrec=(fun (a,b) -> _ref := a; record := Got b);
@@ -1070,17 +1061,8 @@ let pool_update_record rpc session_id update =
     let host_uuids = List.map (fun x -> Client.Host.get_uuid ~rpc ~session_id ~self:x) host_refs in
     host_uuids
   in
-  let after_apply_guidance_to_string = function
-    | `restartHVM -> "restartHVM"
-    | `restartPV -> "restartPV"
-    | `restartHost -> "restartHost"
-    | `restartXAPI -> "restartXAPI"
-  in
-  let after_apply_guidance_to_string_set =
-    List.map after_apply_guidance_to_string
-  in
   let after_apply_guidance () =
-    after_apply_guidance_to_string_set (x ()).API.pool_update_after_apply_guidance
+    Record_util.after_apply_guidance_to_string_set (x ()).API.pool_update_after_apply_guidance
   in
   { setref=(fun r -> _ref := r; record := empty_record );
     setrefrec=(fun (a,b) -> _ref := a; record := Got b);
@@ -1342,9 +1324,9 @@ let vbd_record rpc session_id vbd =
           ~set:(fun dev -> Client.VBD.set_userdevice rpc session_id vbd dev) ();
         make_field ~name:"bootable" ~get:(fun () -> string_of_bool (x ()).API.vBD_bootable)
           ~set:(fun boot -> Client.VBD.set_bootable rpc session_id vbd (safe_bool_of_string "bootable" boot)) ();
-        make_field ~name:"mode" ~get:(fun () -> match (x ()).API.vBD_mode with `RO -> "RO" | `RW -> "RW")
+        make_field ~name:"mode" ~get:(fun () -> match (x ()).API.vBD_mode with `RO -> "RO" | `RW -> "RW" | `unknown -> "unknown")
           ~set:(fun mode -> Client.VBD.set_mode rpc session_id vbd (Record_util.string_to_vbd_mode mode)) ();
-        make_field ~name:"type" ~get:(fun () -> match (x ()).API.vBD_type with `CD -> "CD" | `Disk -> "Disk" | `Floppy -> "Floppy")
+        make_field ~name:"type" ~get:(fun () -> match (x ()).API.vBD_type with `CD -> "CD" | `Disk -> "Disk" | `Floppy -> "Floppy" | `unknown -> "unknown")
           ~set:(fun ty -> Client.VBD.set_type rpc session_id vbd (Record_util.string_to_vbd_type ty)) ();
         make_field ~name:"unpluggable" ~get:(fun () -> string_of_bool (x ()).API.vBD_unpluggable)
           ~set:(fun unpluggable -> Client.VBD.set_unpluggable rpc session_id vbd (safe_bool_of_string "unpluggable" unpluggable)) ();
