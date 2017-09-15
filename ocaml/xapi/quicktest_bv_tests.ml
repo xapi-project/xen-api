@@ -37,19 +37,21 @@ let get_set_config (class_name, obj, gt, st, permission) =
     try
       start adrm_t;
 
-      (* add ("key","value") to other_config *)
-      let key,value = "key","value" in
-      with_obj add obj ~key ~value;
+      (* add two (key,value) pairs to other_config *)
+      let key,value, key_2, value_2 = "key_to_delete","value_to_delete", "key_to_keep", "value_to_keep" in
+      List.iter (fun (key,value) -> with_obj add obj ~key ~value) [(key,value); (key_2, value_2)];
 
-      (* remove from other config *)
-      if List.mem (key,value) (with_obj gt obj)
-      then with_obj rm obj ~key (* may need ignore *)
+      (* check both pairs have been added, remove one *)
+      if List.fold_left (&&) true (List.map
+       (fun (key,value) -> List.mem (key,value) (with_obj gt obj))
+       [ (key,value); (key_2, value_2) ])
+      then with_obj rm obj ~key
       else failed adrm_t "Error: add_to_other_config failed";
 
-      (* test fails if (key,value) has not been removed *)
-      if List.mem (key,value) (with_obj gt obj)
-      then failed adrm_t "Error: remove_from_other_config failed"
-      else success adrm_t;
+      (* test fails if (key,value) has not been removed or if (key_2,value_2) has *)
+      if List.mem (key_2,value_2) (with_obj gt obj) && not List.mem (key,value) (with_obj gt obj)
+      then success adrm_t;
+      else failed adrm_t "Error: remove_from_other_config failed"
 
     with
       | (Failure hd) -> failed adrm_t (Printf.sprintf "Error: could not find %s object" class_name)
