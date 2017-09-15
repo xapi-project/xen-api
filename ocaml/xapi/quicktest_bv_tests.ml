@@ -26,9 +26,9 @@ let get_set_config (class_name, obj, gt, st, permission) =
 
       (* read-only config returns success test if and only if it throws PERMISSION_DENIED *)
     with
-      | (Failure hd) -> failed conf_t (Printf.sprintf "Error: could not find %s object" class_name)
-      | Api_errors.Server_error (x,_) when x = Api_errors.permission_denied && permission =`RO -> success conf_t;
-      | e -> failed conf_t (ExnHelper.string_of_exn e); in
+    | (Failure hd) -> failed conf_t (Printf.sprintf "Error: could not find %s object" class_name)
+    | Api_errors.Server_error (x,_) when x = Api_errors.permission_denied && permission =`RO -> success conf_t;
+    | e -> failed conf_t (ExnHelper.string_of_exn e); in
 
 
   (* check add_to and remove_from_other_config *)
@@ -49,13 +49,13 @@ let get_set_config (class_name, obj, gt, st, permission) =
       else failed adrm_t "Error: add_to_other_config failed";
 
       (* test fails if (key,value) has not been removed or if (key_2,value_2) has *)
-      if List.mem (key_2,value_2) (with_obj gt obj) && not List.mem (key,value) (with_obj gt obj)
-      then success adrm_t;
-      else failed adrm_t "Error: remove_from_other_config failed"
+      if (List.mem (key_2,value_2) (with_obj gt obj)) && not (List.mem (key,value) (with_obj gt obj))
+      then success adrm_t
+      else failed adrm_t "Error: remove_from_other_config failed";
 
     with
-      | (Failure hd) -> failed adrm_t (Printf.sprintf "Error: could not find %s object" class_name)
-      | e -> failed adrm_t (ExnHelper.string_of_exn e); in
+    | (Failure hd) -> failed adrm_t (Printf.sprintf "Error: could not find %s object" class_name)
+    | e -> failed adrm_t (ExnHelper.string_of_exn e); in
 
 
   (* main function to run test suite *)
@@ -80,12 +80,11 @@ let get_set_config (class_name, obj, gt, st, permission) =
         debug test "Finished testing get and set_other_config\n";
 
         (* iterate test for other_config modifiers over different classes *)
-        debug test "Testing add_to and remove_from_other_config\n";
+        debug test "Testing add_to and remove_from_other_config";
         List.iter (fun (class_name, gt_all, gt, add, rm) ->
           add_rm_other_config (class_name, obj class_name gt_all, gt, add, rm))
           Quicktest_bv_calls.add_rm_config_calls_lst;
         debug test "Finished testing add_to and remove_from_other_config\n";
-
       end;
 
       print_endline ((String.make test_str_indent ' ') ^ "Finished basic verification test\n");
