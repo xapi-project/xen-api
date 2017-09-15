@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Lwt
+open Lwt.Infix
 (* Xapi external interfaces: *)
 module Xen_api = Xen_api_lwt_unix
 
@@ -28,19 +28,19 @@ module SM = Storage_interface.ClientM(struct
         let fmt = Format.formatter_of_buffer b in
         Protocol_lwt.Client.pp_error fmt e;
         Format.pp_print_flush fmt ();
-        fail (Failure (Buffer.contents b))
+        Lwt.fail_with (Buffer.contents b)
 
     (* A global connection for the lifetime of this process *)
     let switch =
       Protocol_lwt.Client.connect ~switch:!Xcp_client.switch_path ()
       >>*= fun switch ->
-      return switch
+      Lwt.return switch
 
     let rpc call =
       switch >>= fun switch ->
       Protocol_lwt.Client.rpc ~t:switch ~queue:!Storage_interface.queue_name ~body:(Jsonrpc.string_of_call call) ()
       >>*= fun result ->
-      return (Jsonrpc.response_of_string result)
+      Lwt.return (Jsonrpc.response_of_string result)
   end)
 
 (* TODO share these "require" functions with the nbd package. *)
@@ -53,18 +53,17 @@ let require_str name arg =
 
 let capture_exception f x =
   Lwt.catch
-    (fun () -> f x >>= fun r -> return (`Ok r))
-    (fun e -> return (`Error e))
+    (fun () -> f x >>= fun r -> Lwt.return (`Ok r))
+    (fun e -> Lwt.return (`Error e))
 
 let release_exception = function
-  | `Ok x -> return x
-  | `Error e -> fail e
+  | `Ok x -> Lwt.return x
+  | `Error e -> Lwt.fail e
 
 let with_block filename f =
-  let open Lwt in
   Block.connect filename
   >>= function
-  | `Error _ -> fail (Failure (Printf.sprintf "Unable to read %s" filename))
+  | `Error _ -> Lwt.fail_with (Printf.sprintf "Unable to read %s" filename)
   | `Ok x ->
     capture_exception f x
     >>= fun r ->
@@ -100,9 +99,9 @@ let handle_connection xen_api_uri fd tls_role =
         (* Validate the session *)
         Xen_api.Session.get_uuid ~rpc ~session_id ~self:session_id
         >>= fun _ ->
-        return session_id
+        Lwt.return session_id
       | None ->
-        fail (Failure "No session_id parameter provided")
+        Lwt.fail_with "No session_id parameter provided"
     ) >>= fun session_id ->
     f uri rpc session_id
   in
@@ -145,18 +144,23 @@ let init_tls_get_server_ctx ~certfile ~ciphersuites no_tls =
   )
 
 let main port xen_api_uri certfile ciphersuites no_tls =
-  let tls_role = init_tls_get_server_ctx ~certfile ~ciphersuites no_tls in
-  let t =
+  let t () =
+    Lwt_log.notice_f "Starting xapi-nbd: port = '%d'; xen_api_uri = '%s'; certfile = '%s'; ciphersuites = '%s' no_tls = '%b'" port xen_api_uri certfile ciphersuites no_tls >>= fun () ->
+    Lwt_log.notice "Initialising TLS" >>= fun () ->
+    let tls_role = init_tls_get_server_ctx ~certfile ~ciphersuites no_tls in
     let sock = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
     Lwt.finalize
       (fun () ->
+         Lwt_log.notice "Setting up server socket" >>= fun () ->
          Lwt_unix.setsockopt sock Lwt_unix.SO_REUSEADDR true;
          let sockaddr = Lwt_unix.ADDR_INET(Unix.inet_addr_any, port) in
          Lwt_unix.bind sock sockaddr;
          Lwt_unix.listen sock 5;
+         Lwt_log.notice "Listening for incoming connections" >>= fun () ->
          let rec loop () =
            Lwt_unix.accept sock
            >>= fun (fd, _) ->
+           Lwt_log.notice "Got new client" >>= fun () ->
            (* Background thread per connection *)
            let _ =
              Lwt.catch
@@ -166,7 +170,7 @@ let main port xen_api_uri certfile ciphersuites no_tls =
                     (* ignore the exception resulting from double-closing the socket *)
                     (ignore_exn (fun () -> Lwt_unix.close fd))
                )
-               (fun e -> Lwt_io.eprintf "Caught %s\n%!" (Printexc.to_string e))
+               (fun e -> Lwt_log.error_f "Caught exception while handling client: %s" (Printexc.to_string e))
            in
            loop ()
          in
@@ -174,7 +178,14 @@ let main port xen_api_uri certfile ciphersuites no_tls =
       )
       (ignore_exn (fun () -> Lwt_unix.close sock))
   in
-  Lwt_main.run t;
+  (* Log unexpected exceptions *)
+  Lwt_main.run
+    (Lwt.catch t
+       (fun e ->
+          Lwt_log.fatal_f "Caught unexpected exception: %s" (Printexc.to_string e) >>= fun () ->
+          Lwt.fail e
+       )
+    );
 
   `Ok ()
 
@@ -218,7 +229,13 @@ let cmd =
   Term.(ret (pure main $ port $ xen_api_uri $ certfile $ ciphersuites $ no_tls)),
   Term.info "xapi-nbd" ~version:"1.0.0" ~doc ~man ~sdocs:_common_options
 
-let _ =
+let setup_logging () =
+  Lwt_log.default := Lwt_log.syslog ~facility:`Daemon ();
+  (* Display all log messages of level "notice" and higher (this is the default Lwt_log behaviour) *)
+  Lwt_log.add_rule "*" Lwt_log.Notice
+
+let () =
+  setup_logging ();
   match Term.eval cmd with
   | `Error _ -> exit 1
   | _ -> exit 0
