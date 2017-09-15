@@ -1,10 +1,8 @@
+(* demonstrative example of how quicktest code should be written *)
 open Client
 open Quicktest_common
 
-(* alias PBD module for convenience 
- * also has scope for generalising verification
- * between PBDs and VBDs for common API calls
- * e.g. both have get_uuid, get_other_config etc. *)
+(* alias PBD module for convenience *)
 module P = Client.PBD
 
 let start session_id rpc =
