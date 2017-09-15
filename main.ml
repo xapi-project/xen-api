@@ -346,12 +346,12 @@ let vdi_data_destroy common_opts sr vdi =
     Client.VDI.data_destroy ~dbg ~sr ~vdi
   ) common_opts sr vdi
 
-let vdi_export_changed_blocks common_opts sr vdi_from vdi_to =
+let vdi_list_changed_blocks common_opts sr vdi_from vdi_to =
   on_vdi (fun sr vdi_from ->
      match vdi_to with
      | None -> failwith "must supply VDI_to"
      | Some vdi_to ->
-       let cbt_bitmap = Client.VDI.export_changed_blocks ~dbg ~sr ~vdi_from ~vdi_to in
+       let cbt_bitmap = Client.VDI.list_changed_blocks ~dbg ~sr ~vdi_from ~vdi_to in
        print_string cbt_bitmap
   ) common_opts sr vdi_from
 
@@ -597,15 +597,15 @@ let vdi_data_destroy_cmd =
   Term.(ret(pure vdi_data_destroy $ common_options_t $ sr_arg $ vdi_arg)),
   Term.info "vdi-data-destroy" ~sdocs:_common_options ~doc ~man
 
-let vdi_export_changed_blocks_cmd =
+let vdi_list_changed_blocks_cmd =
   let doc = "output the blocks that have changed between the two given VDIs." in
   let man = [
     `S "DESCRIPTION";
     `P "Write the blocks that have changed between the two given VDIs to the standard output as a base64-encoded bitmap.";
   ] @ help in
   let vdi2_arg = vdi2_arg ~docv:"VDI_to" ~doc:"unique identifier for the second VDI" in
-  Term.(ret(pure vdi_export_changed_blocks $ common_options_t $ sr_arg $ vdi_arg $ vdi2_arg)),
-  Term.info "vdi-export-changed-blocks" ~sdocs:_common_options ~doc ~man
+  Term.(ret(pure vdi_list_changed_blocks $ common_options_t $ sr_arg $ vdi_arg $ vdi2_arg)),
+  Term.info "vdi-list-changed-blocks" ~sdocs:_common_options ~doc ~man
 
 let default_cmd =
   let doc = "interact with an XCP storage management service" in
@@ -617,7 +617,7 @@ let cmds = [query_cmd; sr_attach_cmd; sr_detach_cmd; sr_stat_cmd; sr_scan_cmd;
             vdi_create_cmd; vdi_destroy_cmd; vdi_attach_cmd; vdi_detach_cmd;
             vdi_activate_cmd; vdi_deactivate_cmd; vdi_clone_cmd; vdi_resize_cmd;
             vdi_similar_content_cmd; vdi_compose_cmd; vdi_enable_cbt_cmd;
-            vdi_disable_cbt_cmd; vdi_data_destroy_cmd; vdi_export_changed_blocks_cmd;
+            vdi_disable_cbt_cmd; vdi_data_destroy_cmd; vdi_list_changed_blocks_cmd;
             mirror_list_cmd; mirror_start_cmd; mirror_stop_cmd]
 
 let () =
