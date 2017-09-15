@@ -505,6 +505,7 @@ let create ~__context ~name_label ~name_description
     ~nested_virt:false
     ~nomigrate:false
   ;
+  let platform = platform |> (Xapi_vm_helpers.ensure_device_model_profile_present ~__context ~hVM_boot_policy) in
   Db.VM.create ~__context ~ref:vm_ref ~uuid:(Uuid.to_string uuid)
     ~power_state:(`Halted) ~allowed_operations:[]
     ~current_operations:[]
