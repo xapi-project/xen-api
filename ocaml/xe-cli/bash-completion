@@ -377,7 +377,7 @@ _xe()
                     else
                         all="--all"
                     fi
-                    if [[ "${fst}" == "into-vdi" || "$fst" == "base-vdi" ]]; then
+                    if [[ "${fst}" == "into-vdi" || "$fst" == "base-vdi" || "$fst" == "vdi-from" || "$fst" == "vdi-to" ]]; then
                         class=vdi
                     else
                         class=${fst}

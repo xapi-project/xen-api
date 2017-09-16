@@ -1995,7 +1995,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     };
     "vdi-list-changed-blocks",
     {
-      reqd=["vdi-from"; "vdi-to"];
+      reqd=["vdi-from-uuid"; "vdi-to-uuid"];
       optn=[];
       help="Write the changed blocks between the two given VDIs to the standard output as a base64-encoded bitmap string.";
       implementation=With_fd Cli_operations.vdi_list_changed_blocks;
