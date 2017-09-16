@@ -6,19 +6,16 @@ let register_smapiv2_server (module S: Storage_interface.Server_impl with type c
   Storage_mux.register sr_ref rpc "" dummy_query_result
 
 let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_data_destroy ?vdi_snapshot ?vdi_clone () =
-  let default a b = match a with
-    | Some a -> a
-    | None -> b
-  in
+  let default = Xapi_stdext_monadic.Opt.default in
   (module struct
     include (Storage_skeleton: module type of Storage_skeleton with module VDI := Storage_skeleton.VDI)
     module VDI = struct
       include Storage_skeleton.VDI
-      let enable_cbt = default vdi_enable_cbt Storage_skeleton.VDI.enable_cbt
-      let disable_cbt = default vdi_disable_cbt Storage_skeleton.VDI.disable_cbt
-      let data_destroy = default vdi_data_destroy Storage_skeleton.VDI.data_destroy
-      let snapshot = default vdi_snapshot Storage_skeleton.VDI.snapshot
-      let clone = default vdi_snapshot Storage_skeleton.VDI.clone
+      let enable_cbt = default Storage_skeleton.VDI.enable_cbt vdi_enable_cbt
+      let disable_cbt = default Storage_skeleton.VDI.disable_cbt vdi_disable_cbt
+      let data_destroy = default Storage_skeleton.VDI.data_destroy vdi_data_destroy
+      let snapshot = default Storage_skeleton.VDI.snapshot vdi_snapshot
+      let clone = default Storage_skeleton.VDI.clone vdi_snapshot
     end
   end : Storage_interface.Server_impl with type context = unit)
 
