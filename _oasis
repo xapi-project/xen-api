@@ -231,7 +231,8 @@ Executable xapi
     xcp.v6,
     xcp.memory,
     xcp.updates,
-    rrdd-plugin
+    rrdd-plugin,
+    yojson
 
 Executable xe
   CompiledObject: best
@@ -309,7 +310,8 @@ Executable quicktestbin
     xcp.v6,
     xcp.memory,
     rrdd-plugin,
-    netdev
+    netdev,
+    yojson
 
 Executable xsh
   CompiledObject: best
@@ -476,7 +478,8 @@ Executable suite
     xcp.v6,
     xcp.memory,
     rrdd-plugin,
-    xenopsd
+    xenopsd,
+    yojson
 
 Test suite
   TestTools: suite
