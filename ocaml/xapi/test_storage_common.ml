@@ -4,7 +4,7 @@ let rpc = S.process () in
 let dummy_query_result = Storage_interface.({ driver=""; name=""; description=""; vendor=""; copyright=""; version=""; required_api_version=""; features=[]; configuration=[]; required_cluster_stack=[] }) in
 Storage_mux.register sr_ref rpc "" dummy_query_result
 
-let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_snapshot ?vdi_clone () =
+let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_snapshot ?vdi_clone ?vdi_create () =
 let default a b = match a with
   | Some a -> a
   | None -> b
@@ -13,6 +13,7 @@ in
   include (Storage_skeleton: module type of Storage_skeleton with module VDI := Storage_skeleton.VDI)
   module VDI = struct
     include Storage_skeleton.VDI
+    let create = default vdi_create Storage_skeleton.VDI.create
     let enable_cbt = default vdi_enable_cbt Storage_skeleton.VDI.enable_cbt
     let disable_cbt = default vdi_disable_cbt Storage_skeleton.VDI.disable_cbt
     let snapshot = default vdi_snapshot Storage_skeleton.VDI.snapshot
@@ -20,6 +21,6 @@ in
   end
 end : Storage_interface.Server_impl with type context = unit)
 
-let register_smapiv2_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_snapshot ?vdi_clone sr_ref =
-let s = make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_snapshot ?vdi_clone () in
+let register_smapiv2_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_snapshot ?vdi_clone ?vdi_create sr_ref =
+let s = make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_snapshot ?vdi_clone ?vdi_create () in
 register_smapiv2_server s sr_ref
