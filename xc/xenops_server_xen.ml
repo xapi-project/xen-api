@@ -1559,7 +1559,8 @@ module VM = struct
 		let vif_names = List.map (fun vif -> Printf.sprintf "vif%d.%d" domid vif.Vif.position) vifs in
 		debug "Inject IGMP query to %s" (String.concat " " vif_names);
 		(* Call script to inject IGMP query asynchronously *)
-		Forkhelpers.execute_command_get_output !Xc_resources.igmp_query_injector_script ("--detach" :: "vif" :: "--wait-vif-connected":: (string_of_int !Xenopsd.vif_ready_for_igmp_query_timeout) :: vif_names)
+		let pid = Forkhelpers.safe_close_and_exec None None None [] !Xc_resources.igmp_query_injector_script ("--wait-vif-connected":: (string_of_int !Xenopsd.vif_ready_for_igmp_query_timeout) :: vif_names) in
+		Forkhelpers.dontwaitpid pid
 
 	let restore task progress_callback vm vbds vifs data extras =
 		on_domain
