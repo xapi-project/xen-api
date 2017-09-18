@@ -2840,6 +2840,38 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.SDN_controller.forget;
       flags=[];
     };
+    "pusb-scan",
+    {
+      reqd=[];
+      optn=[];
+      help="Scan PUSB and update.";
+      implementation=No_fd Cli_operations.PUSB.scan;
+      flags=[];
+    };
+    "vusb-create",
+    {
+      reqd=["usb-group-uuid";"vm-uuid"];
+      optn=[ ];
+      help="Create a VUSB." ;
+      implementation=No_fd Cli_operations.VUSB.create;
+      flags=[];
+    };
+    "vusb-unplug",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Unplug vusb device from vm.";
+      implementation=No_fd Cli_operations.VUSB.unplug;
+      flags=[];
+    };
+    "vusb-destroy",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Destroy a VUSB.";
+      implementation=No_fd Cli_operations.VUSB.destroy;
+      flags=[];
+    };
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t =

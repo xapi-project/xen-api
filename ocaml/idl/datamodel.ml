@@ -170,6 +170,9 @@ let _pvs_proxy = "PVS_proxy"
 let _pvs_cache_storage = "PVS_cache_storage"
 let _feature = "Feature"
 let _sdn_controller = "SDN_controller"
+let _pusb = "PUSB"
+let _usb_group = "USB_group"
+let _vusb = "VUSB"
 
 
 (** All the various static role names *)
@@ -1482,7 +1485,14 @@ let _ =
 
   error Api_errors.pvs_server_address_in_use ["address"]
     ~doc:"The address specified is already in use by an existing PVS_server object"
-    ()
+    ();
+
+  error Api_errors.usb_group_contains_vusb ["vusbs"]
+    ~doc:"The USB group contains active VUSBs and cannot be deleted." ();
+  error Api_errors.usb_group_contains_pusb ["pusbs"]
+    ~doc:"The USB group contains active PUSBs and cannot be deleted." ();
+  error Api_errors.usb_group_contains_no_pusbs ["usb_group"]
+    ~doc:"The USB group does not contain any PUSBs." ()
 
 let _ =
   message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();
@@ -5098,6 +5108,7 @@ let host =
            "chipset_info" "Information about chipset features";
          field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "PCIs" "List of PCI devices in the host";
          field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pgpu)) "PGPUs" "List of physical GPUs in the host";
+         field ~qualifier:DynamicRO ~lifecycle:[Published, rel_inverness, ""] ~ty:(Set (Ref _pusb)) "PUSBs" "List of physical USBs in the host";
          field ~qualifier:StaticRO ~lifecycle:[Published, rel_dundee, ""] ~ty:Bool ~default_value:(Some (VBool true)) "ssl_legacy" "Allow SSLv3 protocol and ciphersuites as used by older XenServers. This controls both incoming and outgoing connections. When this is set to a different value, the host immediately restarts its SSL/TLS listening service; typically this takes less than a second but existing connections to it will be broken. XenAPI login sessions will remain valid.";
          field ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VMap [])) ~ty:(Map (String, String)) "guest_VCPUs_params" "VCPUs params to apply to all resident guests";
          field ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VEnum "enabled")) ~ty:host_display "display" "indicates whether the host is configured to output its console to a physical display device";
@@ -7940,6 +7951,7 @@ let vm =
          field ~writer_roles:_R_POOL_ADMIN ~qualifier:DynamicRO ~ty:(Set (Ref _console)) "consoles" "virtual console devices";
          field ~qualifier:DynamicRO ~ty:(Set (Ref _vif)) ~doc_tags:[Networking] "VIFs" "virtual network interfaces";
          field ~qualifier:DynamicRO ~ty:(Set (Ref _vbd)) "VBDs" "virtual block devices";
+         field ~qualifier:DynamicRO ~ty:(Set (Ref _vusb)) "VUSBs" "vitual usb devices";
          field ~writer_roles:_R_POOL_ADMIN ~qualifier:DynamicRO ~ty:(Set (Ref _crashdump)) "crash_dumps" "crash dumps associated with this VM";
          field ~qualifier:DynamicRO ~ty:(Set (Ref _vtpm)) "VTPMs" "virtual TPMs";
 
@@ -9809,6 +9821,178 @@ module SDN_controller = struct
 end
 let sdn_controller = SDN_controller.obj
 
+module PUSB = struct
+  let lifecycle = [Published, rel_inverness, ""]
+
+  let scan = call
+      ~name:"scan"
+      ~lifecycle
+      ~params:[]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let obj =
+    create_obj
+      ~name: _pusb
+      ~descr:"A physical USB device"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~contents:
+        [
+         uid    _pusb ~lifecycle;
+         field ~qualifier:StaticRO ~ty:(Ref _usb_group) ~lifecycle "USB_group" "USB group the PUSB is contained in" ~default_value:(Some (VRef null_ref));
+         field ~qualifier:DynamicRO ~ty:(Ref _vusb) ~lifecycle "attached" "VUSB running on this PUSB";
+         field ~qualifier:StaticRO ~ty:(Ref _host) ~lifecycle "host" "Physical machine that owns the USB device" ~default_value:(Some (VRef null_ref));
+         field ~qualifier:StaticRO ~ty:String ~lifecycle "path" "port path of USB device"~default_value:(Some (VString ""));
+         field ~qualifier:StaticRO ~ty:String ~lifecycle "vendor_id" "vendor id of the USB device" ~default_value:(Some (VString ""));
+         field ~qualifier:StaticRO ~ty:String ~lifecycle "vendor_desc" "vendor description of the USB device" ~default_value:(Some (VString ""));
+         field ~qualifier:StaticRO ~ty:String ~lifecycle "product_id" "product id of the USB device" ~default_value:(Some (VString ""));
+         field ~qualifier:StaticRO ~ty:String ~lifecycle "product_desc" "product description of the USB device" ~default_value:(Some (VString ""));
+         field ~qualifier:StaticRO ~ty:String ~lifecycle "serial" "serial of the USB device" ~default_value:(Some (VString ""));
+         field ~qualifier:StaticRO ~ty:String ~lifecycle "version" "USB device version" ~default_value:(Some (VString ""));
+         field ~qualifier:StaticRO ~ty:String ~lifecycle "description" "USB device description" ~default_value:(Some (VString ""));
+         field ~qualifier:RW ~ty:Bool ~lifecycle "passthrough_enabled" "enabled for passthrough" ~default_value:(Some (VBool false));
+         field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_inverness, ""] "other_config" "additional configuration" ~default_value:(Some (VMap []));
+        ]
+      ~messages:
+        [
+          scan;
+        ]
+      ()
+end
+let pusb = PUSB.obj
+
+(** Groups of USBs *)
+
+module USB_group = struct
+  let lifecycle = [Published, rel_inverness, ""]
+
+  let create = call
+      ~name:"create"
+      ~lifecycle
+      ~versioned_params:[
+        {param_type=(String); param_name="name_label"; param_doc=""; param_release=inverness_release; param_default=Some (VString "")};
+        {param_type=(String); param_name="name_description"; param_doc=""; param_release=inverness_release; param_default=Some (VString "")};
+        {param_type=(Map (String, String)); param_name="other_config"; param_doc=""; param_release=inverness_release; param_default=Some (VMap [])}
+      ]
+      ~result:(Ref _usb_group, "")
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let destroy = call
+      ~name:"destroy"
+      ~lifecycle
+      ~params:[
+        Ref _usb_group, "self", "The USB group to destroy"
+      ]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let obj =
+    create_obj
+      ~name:_usb_group
+      ~descr:"A group of compatible USBs across the resource pool"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~contents:[
+        uid _usb_group ~lifecycle;
+        namespace ~name:"name" ~contents:(names None RW ~lifecycle) ();
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _pusb)) ~lifecycle "PUSBs" "List of PUSBs in the group";
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _vusb)) ~lifecycle "VUSBs" "List of VUSBs using the group";
+        field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+      ]
+      ~messages:[
+        create;
+        destroy;
+      ]
+      ()
+end
+let usb_group = USB_group.obj
+
+module VUSB = struct
+  let lifecycle = [Published, rel_inverness, ""]
+
+  let vusb_operations =
+    Enum ("vusb_operations",
+        [
+          "attach", "Attempting to attach this VUSB to a VM";
+          "plug", "Attempting to plug this VUSB into a VM";
+          "unplug", "Attempting to hot unplug this VUSB";
+        ])
+
+  let create = call
+      ~name:"create"
+      ~in_oss_since:None
+      ~versioned_params:[
+        {param_type=(Ref _vm); param_name="VM"; param_doc="The VM"; param_release=inverness_release; param_default=None};
+        {param_type=(Ref _usb_group); param_name="USB_group"; param_doc=""; param_release=inverness_release; param_default=None};
+        {param_type=(Map (String, String)); param_name="other_config"; param_doc=""; param_release=inverness_release; param_default=Some (VMap [])};
+      ]
+      ~lifecycle
+      ~doc:"Create a new VUSB record in the database only"
+      ~result:(Ref _vusb, "The ref of the newly created VUSB record.")
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let unplug = call
+      ~name:"unplug"
+      ~doc:"Unplug the vusb device from the vm."
+      ~params: [ Ref _vusb, "self", "vusb deivce"]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let destroy = call
+      ~name:"destroy"
+      ~in_oss_since:None
+      ~params:[ Ref _vusb, "self", "The VUSB to destroy about" ]
+      ~doc:"Removes a VUSB record from the database"
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let obj =
+    create_obj
+      ~name: _vusb
+      ~descr:"Describes the vusb device"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~messages_default_allowed_roles:_R_VM_ADMIN
+      ~contents:
+       ([
+         uid    _vusb ~lifecycle;
+        ] @ (allowed_and_current_operations vusb_operations) @ [
+         field ~qualifier:DynamicRO ~ty:(Ref _vm) ~lifecycle "VM" "VM that owns the VUSB";
+         field ~qualifier:DynamicRO ~ty:(Ref _usb_group) ~lifecycle "USB_group" "USB group used by the VUSB";
+         field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+         field ~qualifier:DynamicRO ~ty:(Ref _pusb) ~lifecycle "attached" "The PUSB on which this VUSB is running" ~default_value:(Some (VRef null_ref));
+        ])
+      ~messages:
+        [ create
+        ; unplug
+        ; destroy
+        ]
+      ()
+end
+let vusb = VUSB.obj
+
 (******************************************************************************************)
 
 (** All the objects in the system in order they will appear in documentation: *)
@@ -9875,6 +10059,9 @@ let all_system =
     pvs_cache_storage;
     feature;
     sdn_controller;
+    pusb;
+    usb_group;
+    vusb;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -9960,6 +10147,12 @@ let all_relations =
     (_pvs_server, "site"), (_pvs_site, "servers");
     (_pvs_proxy,  "site"), (_pvs_site, "proxies");
     (_pvs_cache_storage,  "site"), (_pvs_site, "cache_storage");
+
+    (_pusb, "host"), (_host, "PUSBs");
+    (_pusb, "USB_group"), (_usb_group, "PUSBs");
+    (_vusb, "USB_group"), (_usb_group, "VUSBs");
+    (_vusb, "VM"), (_vm, "VUSBs");
+    (_vusb, "attached"), (_pusb, "attached");
 
     (_feature, "host"), (_host, "features");
   ]
@@ -10053,6 +10246,9 @@ let expose_get_all_messages_for = [
   _pvs_cache_storage;
   _feature;
   _sdn_controller;
+  _pusb;
+  _usb_group;
+  _vusb;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]
