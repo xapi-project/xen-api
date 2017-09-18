@@ -41,14 +41,13 @@ let igmp_query_maxresp_time = ref "5000"
 let enable_ipv6_mcast_snooping = ref false
 let mcast_snooping_disable_flood_unregistered = ref true
 
-let call_script ?(log_successful_output=false) ?(timeout=Some 60.0) script args =
+let check_n_run run_func script args =
 	try
 		Unix.access script [ Unix.X_OK ];
 		(* Use the same $PATH as xapi *)
 		let env = [| "PATH=" ^ (Sys.getenv "PATH") |] in
 		info "%s %s" script (String.concat " " args);
-		let (out,err) = Forkhelpers.execute_command_get_output ~env ?timeout script args in
-		out
+		run_func env script args
 	with
 	| Unix.Unix_error (e, a, b) ->
 		error "Caught unix error: %s [%s, %s]" (Unix.error_message e) a b;
@@ -65,6 +64,20 @@ let call_script ?(log_successful_output=false) ?(timeout=Some 60.0) script args 
 			(String.concat " " args) message stdout stderr;
 		raise (Script_error ["script", script; "args", String.concat " " args; "code",
 			message; "stdout", stdout; "stderr", stderr])
+
+let call_script ?(log_successful_output=false) ?(timeout=Some 60.0) script args =
+	let call_script_internal env script args =
+		let (out,err) = Forkhelpers.execute_command_get_output ~env ?timeout script args in
+		out
+	in
+	check_n_run call_script_internal script args
+
+let fork_script script args =
+	let fork_script_internal env script args =
+		let pid = Forkhelpers.safe_close_and_exec ~env None None None [] script args in
+		Forkhelpers.dontwaitpid pid;
+	in
+	check_n_run fork_script_internal script args
 
 module Sysfs = struct
 	let list () =
@@ -871,6 +884,37 @@ module Ovs = struct
 			with _ -> ());
 		) phy_interfaces
 
+	let get_vlans name =
+		try
+			let vlans_with_uuid =
+				let raw = vsctl ["--bare"; "-f"; "table"; "--"; "--columns=name,_uuid"; "find"; "port"; "fake_bridge=true"] in
+				if raw <> "" then
+					let lines = String.split '\n' (String.rtrim raw) in
+					List.map (fun line -> Scanf.sscanf line "%s %s" (fun a b-> a, b)) lines
+				else
+					[]
+			in
+			let bridge_ports =
+				let raw = vsctl ["get"; "bridge"; name; "ports"] in
+				let raw = String.rtrim raw in
+				if raw <> "[]" then
+					let raw_list = (String.split ',' (String.sub raw 1 (String.length raw - 2))) in
+					List.map (String.strip String.isspace) raw_list
+				else
+					[]
+			in
+			let vlans_on_bridge = List.filter (fun (_, br) -> List.mem br bridge_ports) vlans_with_uuid in
+			List.map (fun (n, _) -> n) vlans_on_bridge
+		with _ -> []
+		
+	let get_bridge_vlan_vifs ~name =
+		try
+			let vlan_fake_bridges = get_vlans name in
+			List.fold_left(fun vifs br -> 
+				let vifs' = bridge_to_interfaces br in
+				vifs' @ vifs) [] vlan_fake_bridges 
+		with _ -> []
+
 	let get_mcast_snooping_enable ~name =
 		try
 			vsctl ~log:true ["--"; "get"; "bridge"; name; "mcast_snooping_enable"]
@@ -880,8 +924,12 @@ module Ovs = struct
 
 	let inject_igmp_query ~name =
 		try
-			ignore (call_script ~log_successful_output:true !inject_igmp_query_script ["--detach"; "--max-resp-time"; !igmp_query_maxresp_time; "bridge"; name])
-		with _ -> ()    
+			let vvifs = get_bridge_vlan_vifs name in
+			let bvifs = bridge_to_interfaces name in
+			let bvifs' = List.filter(fun vif -> Xstringext.String.startswith "vif" vif) bvifs in
+			(* The vifs may be large. However considering current XS limit of 1000VM*7NIC/VM + 800VLANs, the buffer of CLI should be sufficient for lots of vifxxxx.xx *)
+			fork_script !inject_igmp_query_script (["--no-check-snooping-toggle"; "--max-resp-time"; !igmp_query_maxresp_time] @ bvifs' @ vvifs)
+		with _ -> ()
 
 	let create_bridge ?mac ?external_id ?disable_in_band ?igmp_snooping ~fail_mode vlan vlan_bug_workaround name =
 		let vlan_arg = match vlan with
@@ -958,29 +1006,6 @@ module Ovs = struct
 			String.split '\n' bridges
 		else
 			[]
-
-	let get_vlans name =
-		try
-			let vlans_with_uuid =
-				let raw = vsctl ["--bare"; "-f"; "table"; "--"; "--columns=name,_uuid"; "find"; "port"; "fake_bridge=true"] in
-				if raw <> "" then
-					let lines = String.split '\n' (String.rtrim raw) in
-					List.map (fun line -> Scanf.sscanf line "%s %s" (fun a b-> a, b)) lines
-				else
-					[]
-			in
-			let bridge_ports =
-				let raw = vsctl ["get"; "bridge"; name; "ports"] in
-				let raw = String.rtrim raw in
-				if raw <> "[]" then
-					let raw_list = (String.split ',' (String.sub raw 1 (String.length raw - 2))) in
-					List.map (String.strip String.isspace) raw_list
-				else
-					[]
-			in
-			let vlans_on_bridge = List.filter (fun (_, br) -> List.mem br bridge_ports) vlans_with_uuid in
-			List.map (fun (n, _) -> n) vlans_on_bridge
-		with _ -> []
 
 	let create_port ?(internal=false) name bridge =
 		let type_args =
