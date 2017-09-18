@@ -66,6 +66,7 @@ module Profile = struct
       module Dm: sig
         module Event: sig
         end
+        val get_vnc_port : xs:Xenstore.Xs.xsh -> int -> int option
       end
     end
     let qemu_trad:            (module Intf) option ref = ref None
@@ -1602,23 +1603,16 @@ module Dm = struct
     extras: (string * string option) list;
   }
 
+  module Common = struct
+    let get_vnc_port ~xs domid ~f =
+      match Qemu.is_running ~xs domid with
+      | true  -> f ()
+      | false -> None
+  end
+
   let get_vnc_port ~xs domid =
-    let is_running = Qemu.is_running ~xs domid in
-    let is_upstream = is_upstream_qemu domid in
-    match is_running, is_upstream with
-    | true, false -> (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
-    | true, true  -> (
-        let open Qmp in
-        let qmp_cmd = Command (None, Query_vnc) in
-        let parse_qmp_message = function
-          | Success (None, Vnc vnc) -> (try Some vnc.service with _ -> None)
-          | _ -> debug "Get unexpected result after sending Qmp message: %s" (string_of_message qmp_cmd); None
-        in
-        let qmp_cmd_result = qmp_write_and_read domid qmp_cmd in
-        match qmp_cmd_result with
-        | Some qmp_message -> parse_qmp_message qmp_message
-        | None -> debug "Fail to get result after sending Qmp message: %s" (string_of_message qmp_cmd); None)
-    | _, _  -> None
+    let module Q = (val Profile.backend_of domid) in
+    Q.Dm.get_vnc_port ~xs domid
 
   let get_tc_port ~xs domid =
     if not (Qemu.is_running ~xs domid)
@@ -2115,6 +2109,10 @@ module Backend = struct
     module Dm = struct
       module Event =  struct
       end
+      let get_vnc_port ~xs domid =
+        Dm.Common.get_vnc_port ~xs domid ~f:(fun () ->
+          (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
+        )
     end
   end
 
@@ -2160,6 +2158,19 @@ module Backend = struct
     module Dm = struct
       module Event =  struct
       end
+      let get_vnc_port ~xs domid =
+        Dm.Common.get_vnc_port ~xs domid ~f:(fun () ->
+          let open Qmp in
+          let qmp_cmd = Command (None, Query_vnc) in
+          let parse_qmp_message = function
+            | Success (None, Vnc vnc) -> (try Some vnc.service with _ -> None)
+            | _ -> debug "Get unexpected result after sending Qmp message: %s" (string_of_message qmp_cmd); None
+          in
+          let qmp_cmd_result = qmp_write_and_read domid qmp_cmd in
+          match qmp_cmd_result with
+          | Some qmp_message -> parse_qmp_message qmp_message
+          | None -> debug "Fail to get result after sending Qmp message: %s" (string_of_message qmp_cmd); None
+        )
     end
   end
 
