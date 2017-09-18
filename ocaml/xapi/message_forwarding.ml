@@ -449,6 +449,27 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         Ref.string_of sdn_controller
     with _ -> "invalid"
 
+  let pusb_uuid ~__context pusb =
+    try if Pool_role.is_master () then
+        Db.PUSB.get_uuid __context pusb
+      else
+        Ref.string_of pusb
+    with _ -> "invalid"
+
+  let usb_group_uuid ~__context usb_group =
+    try if Pool_role.is_master () then
+        Db.USB_group.get_uuid __context usb_group
+      else
+        Ref.string_of usb_group
+    with _ -> "invalid"
+
+  let vusb_uuid ~__context vusb =
+    try if Pool_role.is_master () then
+        Db.VUSB.get_uuid __context vusb
+      else
+        Ref.string_of vusb
+    with _ -> "invalid"
+
   module Session = Local.Session
   module Auth = Local.Auth
   module Subject = Local.Subject
@@ -4129,6 +4150,38 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let forget ~__context ~self =
       info "SDN_controller.forget: sdn_controller = '%s'" (sdn_controller_uuid ~__context self);
       Local.SDN_controller.forget ~__context ~self
+  end
+
+  module PUSB = struct
+    include Local.PUSB
+
+  end
+
+  module USB_group = struct
+    (* Don't forward. These are just db operations. *)
+    let create ~__context ~name_label ~name_description ~other_config =
+      info "USB_group.create: name_label = '%s'" name_label;
+      Local.USB_group.create ~__context ~name_label ~name_description ~other_config
+
+    let destroy ~__context ~self =
+      info "USB_group.destroy: usb_group = '%s'" (usb_group_uuid ~__context self);
+      (* WARNING WARNING WARNING: directly call destroy with the global lock since it does only database operations *)
+      Helpers.with_global_lock (fun () ->
+          Local.USB_group.destroy ~__context ~self)
+  end
+
+  module VUSB = struct
+    let create ~__context ~vM ~uSB_group ~other_config =
+      info "VUSB.create: VM = '%s'; USB_group = '%s'" (vm_uuid ~__context vM) (usb_group_uuid ~__context uSB_group);
+      Local.VUSB.create ~__context ~vM ~uSB_group ~other_config
+
+    let unplug ~__context ~self =
+      info "VUSB.unplug: VUSB = '%s'" (vusb_uuid ~__context self);
+      debug "VUSB.unplug to do"
+
+    let destroy ~__context ~self =
+      info "VUSB.destroy: VUSB = '%s'" (vusb_uuid ~__context self);
+      Local.VUSB.destroy ~__context ~self
   end
 
 end

@@ -91,6 +91,9 @@ module Actions = struct
   module PVS_cache_storage = Xapi_pvs_cache_storage
   module Feature = struct end
   module SDN_controller = Xapi_sdn_controller
+  module PUSB = Xapi_pusb
+  module USB_group = Xapi_usb_group
+  module VUSB = Xapi_vusb
 end
 (** Use the server functor to make an XML-RPC dispatcher. *)
 module Forwarder = Message_forwarding.Forward (Actions)
