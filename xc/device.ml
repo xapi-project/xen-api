@@ -60,12 +60,11 @@ module Profile = struct
   module Backend = struct
 
     module type Intf = sig
-      module Device: sig
-        module Vbd: sig
-        end
-        module Dm: sig
-          module Event: sig
-          end
+      module Vbd: sig
+        val qemu_media_change : xs:Xenstore.Xs.xsh -> device -> string -> string -> unit
+      end
+      module Dm: sig
+        module Event: sig
         end
       end
     end
@@ -82,7 +81,7 @@ module Profile = struct
       | Qemu_upstream        -> unbox p !qemu_upstream
   end
 
-  let backend_of ~domid = Backend.of_profile (of_domid domid)
+  let backend_of domid = Backend.of_profile (of_domid domid)
 end
 
 (* keys read by vif udev script (keep in sync with api:scripts/vif) *)
@@ -637,71 +636,38 @@ module Vbd = struct
       done; Opt.unbox !result in
     add_wait task ~xc ~xs device
 
-  let qemu_media_change ~xs device _type params =
-    let backend_path  = (backend_path_of_device ~xs device) in
-    let params_path = backend_path ^ "/params" in
+  module Common = struct
 
-    (* unfortunately qemu filter the request if on the same string it has,
-       	   so we trick it by having a different string, but the same path, adding a
-       	   spurious '/' character at the beggining of the string.  *)
-    let oldval = try xs.Xs.read params_path with _ -> "" in
-    let pathtowrite =
-      if oldval = params then (
-        "/" ^ params
-      ) else
-        params in
+    let qemu_media_change ~xs device _type params =
+      let backend_path  = (backend_path_of_device ~xs device) in
+      let params_path = backend_path ^ "/params" in
 
-    let back_delta = [
-      "type",           _type;
-      "params",         pathtowrite;
-    ] in
-    Xs.transaction xs (fun t -> t.Xst.writev backend_path back_delta);
-    debug "Media changed: params = %s" pathtowrite;
+      (* unfortunately qemu filter the request if on the same string it has,
+         	   so we trick it by having a different string, but the same path, adding a
+         	   spurious '/' character at the beggining of the string.  *)
+      let oldval = try xs.Xs.read params_path with _ -> "" in
+      let pathtowrite =
+        if oldval = params then (
+          "/" ^ params
+        ) else
+          params in
 
-    if is_upstream_qemu device.frontend.domid
-    then begin
-      let open Qmp in
-      let cd = "ide1-cd1" in
-      if params = "" then
-        let qmp_cmd = Command(None, Eject (cd, Some true)) in
-        qmp_write device.frontend.domid qmp_cmd
-      else
-        try
-          let c = Qmp_protocol.connect (Printf.sprintf "/var/run/xen/qmp-libxl-%d" device.frontend.domid) in
-          finally
-            (fun () ->
-               let fd_of_c = Qmp_protocol.to_fd c in
-               let fd_of_cd = Unix.openfile params [ Unix.O_RDONLY ] 0o640 in
-               finally
-                 (fun () -> ignore(Fd_send_recv.send_fd fd_of_c " " 0 1 [] fd_of_cd))
-                 (fun () -> Unix.close fd_of_cd);
-
-               let qmp_cmd = Command (None, Add_fd None) in
-               Qmp_protocol.negotiate c;
-               Qmp_protocol.write c qmp_cmd;
-               let fd_info = match Qmp_protocol.read c with
-                 | Success (None, Fd_info x) -> x
-                 | _ -> raise (Internal_error (Printf.sprintf "Get unexpected result after sending Qmp message: %s" (string_of_message qmp_cmd)))
-               in
-               finally
-                 (fun () ->
-                    Qmp_protocol.write c (Command (None, Blockdev_change_medium (cd, "/dev/fdset/" ^ (string_of_int fd_info.fdset_id)))))
-                 (fun () ->
-                    Qmp_protocol.write c (Command (None, Remove_fd fd_info.fdset_id))))
-            (fun () -> Qmp_protocol.close c)
-        with
-        | Unix.Unix_error(Unix.ECONNREFUSED, "connect", p) -> raise(Internal_error (Printf.sprintf "Failed to connnect qmp socket: %s" p))
-        | Unix.Unix_error(Unix.ENOENT, "open", p) -> raise(Internal_error (Printf.sprintf "Failed to open CD Image: %s" p))
-        | Internal_error(_) as e -> raise e
-        | e -> raise(Internal_error (Printf.sprintf "Get unexpected error trying to change CD: %s" (Printexc.to_string e)))
-    end
+      let back_delta = [
+        "type",           _type;
+        "params",         pathtowrite;
+      ] in
+      Xs.transaction xs (fun t -> t.Xst.writev backend_path back_delta);
+      debug "Media changed: params = %s" pathtowrite
+  end
 
   let media_eject ~xs device =
-    qemu_media_change ~xs device "" ""
+    let module Q = (val Profile.backend_of device.frontend.domid) in
+    Q.Vbd.qemu_media_change ~xs device "" ""
 
   let media_insert ~xs ~phystype ~params device =
     let _type = backendty_of_physty phystype in
-    qemu_media_change ~xs device _type params
+    let module Q = (val Profile.backend_of device.frontend.domid) in
+    Q.Vbd.qemu_media_change ~xs device _type params
 
   let media_is_ejected ~xs device =
     let path = (backend_path_of_device ~xs device) ^ "/params" in
@@ -2143,23 +2109,56 @@ let get_tc_port ~xs domid =
 module Backend = struct
 
   module Qemu_trad : Profile.Backend.Intf = struct
-    module Device = struct
-      module Vbd = struct
-      end
-      module Dm = struct
-        module Event =  struct
-        end
+    module Vbd = struct
+      let qemu_media_change = Vbd.Common.qemu_media_change
+    end
+    module Dm = struct
+      module Event =  struct
       end
     end
   end
 
   module Qemu_upstream_compat : Profile.Backend.Intf  = struct
-    module Device = struct
-      module Vbd = struct
-      end
-      module Dm = struct
-        module Event =  struct
-        end
+    module Vbd = struct
+      let qemu_media_change ~xs device _type params =
+        Vbd.Common.qemu_media_change ~xs device _type params;
+        let open Qmp in
+        let cd = "ide1-cd1" in
+        if params = "" then
+          let qmp_cmd = Command(None, Eject (cd, Some true)) in
+          qmp_write device.frontend.domid qmp_cmd
+        else
+          try
+            let c = Qmp_protocol.connect (Printf.sprintf "/var/run/xen/qmp-libxl-%d" device.frontend.domid) in
+            finally
+              (fun () ->
+                 let fd_of_c = Qmp_protocol.to_fd c in
+                 let fd_of_cd = Unix.openfile params [ Unix.O_RDONLY ] 0o640 in
+                 finally
+                   (fun () -> ignore(Fd_send_recv.send_fd fd_of_c " " 0 1 [] fd_of_cd))
+                   (fun () -> Unix.close fd_of_cd);
+
+                 let qmp_cmd = Command (None, Add_fd None) in
+                 Qmp_protocol.negotiate c;
+                 Qmp_protocol.write c qmp_cmd;
+                 let fd_info = match Qmp_protocol.read c with
+                   | Success (None, Fd_info x) -> x
+                   | _ -> raise (Internal_error (Printf.sprintf "Get unexpected result after sending Qmp message: %s" (string_of_message qmp_cmd)))
+                 in
+                 finally
+                   (fun () ->
+                      Qmp_protocol.write c (Command (None, Blockdev_change_medium (cd, "/dev/fdset/" ^ (string_of_int fd_info.fdset_id)))))
+                   (fun () ->
+                      Qmp_protocol.write c (Command (None, Remove_fd fd_info.fdset_id))))
+              (fun () -> Qmp_protocol.close c)
+          with
+          | Unix.Unix_error(Unix.ECONNREFUSED, "connect", p) -> raise(Internal_error (Printf.sprintf "Failed to connnect qmp socket: %s" p))
+          | Unix.Unix_error(Unix.ENOENT, "open", p) -> raise(Internal_error (Printf.sprintf "Failed to open CD Image: %s" p))
+          | Internal_error(_) as e -> raise e
+          | e -> raise(Internal_error (Printf.sprintf "Get unexpected error trying to change CD: %s" (Printexc.to_string e)))
+    end
+    module Dm = struct
+      module Event =  struct
       end
     end
   end
