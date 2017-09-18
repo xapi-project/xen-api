@@ -68,6 +68,7 @@ module Profile = struct
         end
         val get_vnc_port : xs:Xenstore.Xs.xsh -> int -> int option
         val maybe_write_pv_feature_flags : xs:Xenstore.Xs.xsh -> int -> unit
+        val suspend: Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
       end
     end
     let qemu_trad:            (module Intf) option ref = ref None
@@ -1609,6 +1610,25 @@ module Dm = struct
       match Qemu.is_running ~xs domid with
       | true  -> f ()
       | false -> None
+
+    let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
+      let suspend_vgpu () = match Vgpu.pid ~xs domid with
+        | None -> debug "vgpu: no process running"
+        | Some vgpu_pid -> begin
+            let tag = Printf.sprintf "(domid = %d pid = %d)" domid vgpu_pid in
+            debug "vgpu: suspending vgpu with SIGHUP %s" tag;
+            try
+              Unixext.kill_and_wait
+                ~signal:Sys.sighup ~timeout:(!Xenopsd.vgpu_suspend_timeout) vgpu_pid;
+              debug "vgpu: suspended successfully %s" tag
+            with Unixext.Process_still_alive ->
+              debug "vgpu: didn't die within the timeout %s" tag;
+              let open Generic in
+              best_effort "killing vgpu" (fun () -> really_kill vgpu_pid);
+              failwith "vgpu suspend timed out"
+          end in
+      suspend_vgpu ()
+
   end
 
   let get_vnc_port ~xs domid =
@@ -1992,28 +2012,8 @@ module Dm = struct
 
   (* suspend/resume is a done by sending signals to qemu *)
   let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
-    let suspend_vgpu () = match Vgpu.pid ~xs domid with
-      | None -> debug "vgpu: no process running"
-      | Some vgpu_pid -> begin
-          let tag = Printf.sprintf "(domid = %d pid = %d)" domid vgpu_pid in
-          debug "vgpu: suspending vgpu with SIGHUP %s" tag;
-          try
-            Unixext.kill_and_wait
-              ~signal:Sys.sighup ~timeout:(!Xenopsd.vgpu_suspend_timeout) vgpu_pid;
-            debug "vgpu: suspended successfully %s" tag
-          with Unixext.Process_still_alive ->
-            debug "vgpu: didn't die within the timeout %s" tag;
-            let open Generic in
-            best_effort "killing vgpu" (fun () -> really_kill vgpu_pid);
-            failwith "vgpu suspend timed out"
-        end in
-    suspend_vgpu ();
-
-    if not (is_upstream_qemu domid)
-    then signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
-    else
-      let file = sprintf qemu_save_path domid in
-      qmp_write domid (Qmp.Command(None, Qmp.Xen_save_devices_state file))
+    let module Q = (val Profile.backend_of domid) in
+    Q.Dm.suspend task ~xs ~qemu_domid domid
 
   let resume (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
     signal task ~xs ~qemu_domid ~domid "continue" ~wait_for:"running"
@@ -2097,6 +2097,10 @@ module Backend = struct
         )
 
       let maybe_write_pv_feature_flags ~xs domid = ()
+
+      let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
+        Dm.Common.suspend task ~xs ~qemu_domid domid;
+        Dm.signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
     end
   end
 
@@ -2177,6 +2181,12 @@ module Backend = struct
           List.iter (write_local_domain "control/feature-") ["suspend"; "shutdown"; "vcpu-hotplug"];
           List.iter (write_local_domain "data/") ["updated"]
         | _ -> ()
+
+      let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
+        Dm.Common.suspend task ~xs ~qemu_domid domid;
+        let file = sprintf qemu_save_path domid in
+        qmp_write domid (Qmp.Command(None, Qmp.Xen_save_devices_state file))
+
     end
   end
 
