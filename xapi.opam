@@ -39,6 +39,7 @@ depends: [
   "xapi-xenopsd"
   "xenctrl"
   "xenstore"
+  "yojson"
 ]
 depexts: [
   [["centos"] ["pam-devel"]]
