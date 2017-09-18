@@ -32,6 +32,59 @@ exception Cdrom
 module D = Debug.Make(struct let name = "xenops" end)
 open D
 
+module Profile = struct
+  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream
+  let fallback = Qemu_trad
+  module Name = struct
+    let qemu_trad            = "qemu-trad"
+    let qemu_upstream_compat = "qemu-upstream-compat"
+    let qemu_upstream        = "qemu-upstream"
+    let all = [ qemu_trad; qemu_upstream_compat; qemu_upstream ]
+  end
+  let wrapper_of = function
+    | Qemu_trad            -> !Resources.qemu_dm_wrapper
+    | Qemu_upstream_compat -> !Resources.upstream_compat_qemu_dm_wrapper
+    | Qemu_upstream        -> !Resources.upstream_compat_qemu_dm_wrapper
+  let string_of  = function
+    | Qemu_trad              -> Name.qemu_trad
+    | Qemu_upstream_compat   -> Name.qemu_upstream_compat
+    | Qemu_upstream          -> Name.qemu_upstream
+  let of_string  = function
+    | x when x = Name.qemu_trad            -> Qemu_trad
+    | x when x = Name.qemu_upstream_compat -> Qemu_upstream_compat
+    | x when x = Name.qemu_upstream        -> Qemu_upstream
+    | x -> debug "unknown device-model profile %s: defaulting to fallback: %s" x (string_of fallback);
+       fallback
+  let of_domid x = if is_upstream_qemu x then Qemu_upstream else Qemu_trad
+
+  module Backend = struct
+
+    module type Intf = sig
+      module Device: sig
+        module Vbd: sig
+        end
+        module Dm: sig
+          module Event: sig
+          end
+        end
+      end
+    end
+    let qemu_trad:            (module Intf) option ref = ref None
+    let qemu_upstream_compat: (module Intf) option ref = ref None
+    let qemu_upstream:        (module Intf) option ref = ref None
+
+    let unbox profile = function
+      | Some x -> x
+      | None -> failwith (Printf.sprintf "no backend for profile %s" (string_of profile))
+    let of_profile p = match p with
+      | Qemu_trad            -> unbox p !qemu_trad
+      | Qemu_upstream_compat -> unbox p !qemu_upstream_compat
+      | Qemu_upstream        -> unbox p !qemu_upstream
+  end
+
+  let backend_of ~domid = Backend.of_profile (of_domid domid)
+end
+
 (* keys read by vif udev script (keep in sync with api:scripts/vif) *)
 let vif_udev_keys = "promiscuous" :: (List.map (fun x -> "ethtool-" ^ x) [ "rx"; "tx"; "sg"; "tso"; "ufo"; "gso" ])
 
@@ -1583,31 +1636,6 @@ module Dm = struct
     extras: (string * string option) list;
   }
 
-  module Profile = struct
-    type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream
-    let fallback = Qemu_trad
-    module Name = struct
-      let qemu_trad            = "qemu-trad"
-      let qemu_upstream_compat = "qemu-upstream-compat"
-      let qemu_upstream        = "qemu-upstream"
-      let all = [ qemu_trad; qemu_upstream_compat; qemu_upstream ]
-    end
-    let wrapper_of = function
-      | Qemu_trad            -> !Resources.qemu_dm_wrapper
-      | Qemu_upstream_compat -> !Resources.upstream_compat_qemu_dm_wrapper
-      | Qemu_upstream        -> !Resources.upstream_compat_qemu_dm_wrapper
-    let string_of  = function
-      | Qemu_trad              -> Name.qemu_trad
-      | Qemu_upstream_compat   -> Name.qemu_upstream_compat
-      | Qemu_upstream          -> Name.qemu_upstream
-    let of_string  = function
-      | x when x = Name.qemu_trad            -> Qemu_trad
-      | x when x = Name.qemu_upstream_compat -> Qemu_upstream_compat
-      | x when x = Name.qemu_upstream        -> Qemu_upstream
-      | x -> debug "unknown device-model profile %s: defaulting to fallback: %s" x (string_of fallback);
-         fallback
-  end
-
   let get_vnc_port ~xs domid =
     let is_running = Qemu.is_running ~xs domid in
     let is_upstream = is_upstream_qemu domid in
@@ -2109,3 +2137,40 @@ let get_tc_port ~xs domid =
   if qemu_exists
   then Dm.get_tc_port ~xs domid
   else PV_Vnc.get_tc_port ~xs domid
+
+
+(* Implementation of the qemu profile backends *)
+module Backend = struct
+
+  module Qemu_trad : Profile.Backend.Intf = struct
+    module Device = struct
+      module Vbd = struct
+      end
+      module Dm = struct
+        module Event =  struct
+        end
+      end
+    end
+  end
+
+  module Qemu_upstream_compat : Profile.Backend.Intf  = struct
+    module Device = struct
+      module Vbd = struct
+      end
+      module Dm = struct
+        module Event =  struct
+        end
+      end
+    end
+  end
+
+  (* Until stage 4, qemu_upstream behaves as qemu_upstream_compat *)
+  module Qemu_upstream  = Qemu_upstream_compat
+
+  let _init = Profile.Backend.(
+    qemu_trad            := (Some (module Qemu_trad            : Intf));
+    qemu_upstream_compat := (Some (module Qemu_upstream_compat : Intf));
+    qemu_upstream        := (Some (module Qemu_upstream        : Intf))
+  )
+end
+
