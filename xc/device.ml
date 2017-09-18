@@ -67,6 +67,7 @@ module Profile = struct
         module Event: sig
         end
         val get_vnc_port : xs:Xenstore.Xs.xsh -> int -> int option
+        val maybe_write_pv_feature_flags : xs:Xenstore.Xs.xsh -> int -> unit
       end
     end
     let qemu_trad:            (module Intf) option ref = ref None
@@ -2059,28 +2060,9 @@ module Dm = struct
     stop_vgpu ();
     stop_qemu ()
 
-  let is_hvm_linux domid =
-    let _XEN_IOPORT_LINUX_PRODNUM = 3 in (* from Linux include/xen/platform_pci.h *)
-    let error x = error "%s" x; Result.Error x in
-    try
-      let open Qmp in
-      match qmp_write_and_read domid (Command (None, Query_xen_platform_pv_driver_info)) with
-      | Some (Success (None, Xen_platform_pv_driver_info { product_num; build_num })) ->
-        Result.Ok ((product_num = _XEN_IOPORT_LINUX_PRODNUM) && (build_num <= 0xff))
-      | Some x ->
-        error (Printf.sprintf "Unexpected QMP response: %s" (Qmp.string_of_message x))
-      | None -> error "No QMP response for Query_xen_platform_pv_driver_info"
-    with e ->
-      error (Printf.sprintf "Exception attempting to obtain Linux product_id and build_number: %s" (Printexc.to_string e))
-
   let maybe_write_pv_feature_flags ~xs domid =
-    if is_upstream_qemu domid then
-      match is_hvm_linux domid with
-      | Result.Ok true ->
-        let write_local_domain prefix x = xs.Xs.write (Printf.sprintf "/local/domain/%d/%s%s" domid prefix x) "1" in
-        List.iter (write_local_domain "control/feature-") ["suspend"; "shutdown"; "vcpu-hotplug"];
-        List.iter (write_local_domain "data/") ["updated"]
-      | _ -> ()
+    let module Q = (val Profile.backend_of domid) in
+    Q.Dm.maybe_write_pv_feature_flags ~xs domid
 
 end (* End of module Dm *)
 
@@ -2113,6 +2095,8 @@ module Backend = struct
         Dm.Common.get_vnc_port ~xs domid ~f:(fun () ->
           (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
         )
+
+      let maybe_write_pv_feature_flags ~xs domid = ()
     end
   end
 
@@ -2171,6 +2155,28 @@ module Backend = struct
           | Some qmp_message -> parse_qmp_message qmp_message
           | None -> debug "Fail to get result after sending Qmp message: %s" (string_of_message qmp_cmd); None
         )
+
+      let is_hvm_linux domid =
+        let _XEN_IOPORT_LINUX_PRODNUM = 3 in (* from Linux include/xen/platform_pci.h *)
+        let error x = error "%s" x; Result.Error x in
+        try
+          let open Qmp in
+          match qmp_write_and_read domid (Command (None, Query_xen_platform_pv_driver_info)) with
+          | Some (Success (None, Xen_platform_pv_driver_info { product_num; build_num })) ->
+            Result.Ok ((product_num = _XEN_IOPORT_LINUX_PRODNUM) && (build_num <= 0xff))
+          | Some x ->
+            error (Printf.sprintf "Unexpected QMP response: %s" (Qmp.string_of_message x))
+          | None -> error "No QMP response for Query_xen_platform_pv_driver_info"
+        with e ->
+          error (Printf.sprintf "Exception attempting to obtain Linux product_id and build_number: %s" (Printexc.to_string e))
+
+      let maybe_write_pv_feature_flags ~xs domid =
+        match is_hvm_linux domid with
+        | Result.Ok true ->
+          let write_local_domain prefix x = xs.Xs.write (Printf.sprintf "/local/domain/%d/%s%s" domid prefix x) "1" in
+          List.iter (write_local_domain "control/feature-") ["suspend"; "shutdown"; "vcpu-hotplug"];
+          List.iter (write_local_domain "data/") ["updated"]
+        | _ -> ()
     end
   end
 
