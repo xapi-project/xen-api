@@ -568,3 +568,6 @@ let pvs_proxy_already_present = "PVS_PROXY_ALREADY_PRESENT"
 let pvs_server_address_in_use = "PVS_SERVER_ADDRESS_IN_USE"
 
 let extension_protocol_failure = "EXTENSION_PROTOCOL_FAILURE"
+let usb_group_contains_vusb = "USB_GROUP_CONTAINS_VUSB"
+let usb_group_contains_pusb = "USB_GROUP_CONTAINS_PUSB"
+let usb_group_contains_no_pusbs = "USB_GROUP_CONTAINS_NO_PUSBS"

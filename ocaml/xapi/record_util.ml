@@ -513,6 +513,11 @@ let pif_igmp_status_to_string = function
   | `disabled -> "disabled"
   | `unknown -> "unknown"
 
+let vusb_operation_to_string = function
+  | `attach -> "attach"
+  | `plug -> "plug"
+  | `unplug -> "unplug"
+
 (* string_to_string_map_to_string *)
 let s2sm_to_string sep x =
   String.concat sep (List.map (fun (a,b) -> a^": "^b) x)
