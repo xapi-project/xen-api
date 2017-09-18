@@ -165,6 +165,10 @@ let test_ca126097 () =
           ~value:["mytask", `copy])
     `snapshot (Some (Api_errors.operation_not_allowed, []))
 
+let test_unknown_ops () =
+  let __context = Mock.make_context_with_new_db "Mock context" in
+  run_assert_equal_with_vdi ~__context `unknown (Some (Api_errors.sr_operation_not_supported, ["Unknown operation"]))
+
 (** Tests for the checks related to changed block tracking *)
 let test_cbt =
   let all_cbt_operations = [`enable_cbt; `disable_cbt] in
@@ -320,6 +324,7 @@ let test =
     "test_ca101669" >:: test_ca101669;
     "test_ca125187" >:: test_ca125187;
     "test_ca126097" >:: test_ca126097;
+    "test_unknown_ops" >:: test_unknown_ops;
     test_cbt;
     test_operations_restricted_during_rpu;
   ]
