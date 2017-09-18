@@ -98,7 +98,7 @@ let valid_operations ~__context record _ref' : table =
         | `unspecified -> fallback ()
         | `unknown ->
           (* Safe fallback *)
-          set_errors Api_errors.operation_not_allowed ["VM states it does not support VIF hotplug."] [`plug; `unplug])
+          set_errors Api_errors.operation_not_allowed ["VIF hotplug support status unknown"] [`plug; `unplug])
   );
 
   table
