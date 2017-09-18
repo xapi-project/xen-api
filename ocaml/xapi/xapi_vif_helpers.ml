@@ -95,7 +95,10 @@ let valid_operations ~__context record _ref' : table =
         | `no -> set_errors Api_errors.operation_not_allowed ["VM states it does not support VIF hotplug."] [`plug; `unplug]
           (* according to xen docs PV drivers are enough for this to be possible *)
         | `unspecified when gmr.Db_actions.vM_guest_metrics_PV_drivers_detected -> ()
-        | `unspecified -> fallback ())
+        | `unspecified -> fallback ()
+        | `unknown ->
+          (* Safe fallback *)
+          set_errors Api_errors.operation_not_allowed ["VM states it does not support VIF hotplug."] [`plug; `unplug])
   );
 
   table
