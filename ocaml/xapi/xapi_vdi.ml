@@ -241,7 +241,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
         then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
         else None
       | `mirror | `clone | `generate_config | `force_unlock | `set_on_boot | `export_changed_blocks | `blocked | `update -> None
-      | `unknown -> None (* Note, this is caught above *)
+      | `unknown -> Some (Api_errors.sr_operation_not_supported, ["Unknown operation"]) (* Note, this is caught above *)
     end
 
 let assert_operation_valid ~__context ~self ~(op:API.vdi_operations) =
