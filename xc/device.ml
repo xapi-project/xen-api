@@ -69,6 +69,7 @@ module Profile = struct
         val get_vnc_port : xs:Xenstore.Xs.xsh -> int -> int option
         val maybe_write_pv_feature_flags : xs:Xenstore.Xs.xsh -> int -> unit
         val suspend: Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
+        val init_daemon: task:Xenops_task.task_handle -> path:string -> args:string list -> name:string -> domid:int -> xs:Xenstore.Xs.xsh -> ready_path:Watch.path -> ?ready_val:string -> timeout:float -> cancel:Cancel_utils.key -> 'a -> Forkhelpers.pidty
       end
     end
     let qemu_trad:            (module Intf) option ref = ref None
@@ -1629,7 +1630,49 @@ module Dm = struct
           end in
       suspend_vgpu ()
 
-  end
+    let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel _ =
+      debug "Starting daemon: %s with args [%s]" path (String.concat "; " args);
+      let syslog_key = (Printf.sprintf "%s-%d" name domid) in
+      let syslog_stdout = Forkhelpers.Syslog_WithKey syslog_key in
+      let redirect_stderr_to_stdout = true in
+      let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout ~redirect_stderr_to_stdout path args in
+      debug
+        "%s: should be running in the background (stdout -> syslog); (fd,pid) = %s"
+        name (Forkhelpers.string_of_pidty pid);
+      begin
+        let finished = ref false in
+        let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
+        let start = Unix.gettimeofday () in
+        while Unix.gettimeofday () -. start < timeout && not !finished do
+          Xenops_task.check_cancelling task;
+          try
+            let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout () in
+            let state = try xs.Xs.read ready_path with _ -> "" in
+            match ready_val with
+            | Some value ->
+              if state = value
+              then finished := true
+              else raise (Ioemu_failed
+                            (name, (Printf.sprintf "Daemon state not running (%s)" state)))
+            | None -> finished := true
+          with Watch.Timeout _ ->
+            begin match Forkhelpers.waitpid_nohang pid with
+              | 0, Unix.WEXITED 0 -> () (* still running => keep waiting *)
+              | _, Unix.WEXITED n ->
+                error "%s: unexpected exit with code: %d" name n;
+                raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
+              | _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
+                error "%s: unexpected signal: %d" name n;
+                raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
+            end
+        done;
+        if not !finished then
+          raise (Ioemu_failed (name, "Timeout reached while starting daemon"))
+      end;
+      debug "Daemon initialised: %s" syslog_key;
+      pid
+
+  end (* Dm.Common *)
 
   let get_vnc_port ~xs domid =
     let module Q = (val Profile.backend_of domid) in
@@ -1874,49 +1917,8 @@ module Dm = struct
    * and then returns the pid. If this doesn't happen in the timeout then an
    * exception is raised *)
   let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel _ =
-    debug "Starting daemon: %s with args [%s]" path (String.concat "; " args);
-    let syslog_key = (Printf.sprintf "%s-%d" name domid) in
-    let syslog_stdout = Forkhelpers.Syslog_WithKey syslog_key in
-    let redirect_stderr_to_stdout = true in
-    let pid = Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout ~redirect_stderr_to_stdout path args in
-    debug
-      "%s: should be running in the background (stdout -> syslog); (fd,pid) = %s"
-      name (Forkhelpers.string_of_pidty pid);
-    begin
-      let finished = ref false in
-      let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
-      let start = Unix.gettimeofday () in
-      while Unix.gettimeofday () -. start < timeout && not !finished do
-        Xenops_task.check_cancelling task;
-        try
-          let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout () in
-          let state = try xs.Xs.read ready_path with _ -> "" in
-          match ready_val with
-          | Some value ->
-            if state = value
-            then finished := true
-            else raise (Ioemu_failed
-                          (name, (Printf.sprintf "Daemon state not running (%s)" state)))
-          | None -> finished := true
-        with Watch.Timeout _ ->
-          begin match Forkhelpers.waitpid_nohang pid with
-            | 0, Unix.WEXITED 0 -> () (* still running => keep waiting *)
-            | _, Unix.WEXITED n ->
-              error "%s: unexpected exit with code: %d" name n;
-              raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
-            | _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
-              error "%s: unexpected signal: %d" name n;
-              raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
-          end
-      done;
-      if not !finished then
-        raise (Ioemu_failed (name, "Timeout reached while starting daemon"))
-    end;
-
-    if is_upstream_qemu domid then
-      QMP_Event.add domid;
-    debug "Daemon initialised: %s" syslog_key;
-    pid
+    let module Q = (val Profile.backend_of domid) in
+    Q.Dm.init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ()
 
   let gimtool_m = Mutex.create ()
 
@@ -2101,8 +2103,10 @@ module Backend = struct
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
         Dm.Common.suspend task ~xs ~qemu_domid domid;
         Dm.signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
-    end
-  end
+
+      let init_daemon = Dm.Common.init_daemon
+    end (* Backend.Qemu_trad.Dm *)
+  end (* Backend.Qemu_trad *)
 
   module Qemu_upstream_compat : Profile.Backend.Intf  = struct
     module Vbd = struct
@@ -2142,7 +2146,9 @@ module Backend = struct
           | Unix.Unix_error(Unix.ENOENT, "open", p) -> raise(Internal_error (Printf.sprintf "Failed to open CD Image: %s" p))
           | Internal_error(_) as e -> raise e
           | e -> raise(Internal_error (Printf.sprintf "Get unexpected error trying to change CD: %s" (Printexc.to_string e)))
-    end
+
+    end (* Backend.Qemu_upstream_compat.Vbd *)
+
     module Dm = struct
       module Event =  struct
       end
@@ -2187,8 +2193,12 @@ module Backend = struct
         let file = sprintf qemu_save_path domid in
         qmp_write domid (Qmp.Command(None, Qmp.Xen_save_devices_state file))
 
-    end
-  end
+      let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel _ =
+        let pid = Dm.Common.init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel () in
+        Dm.QMP_Event.add domid;
+        pid
+    end (* Backend.Qemu_upstream_compat.Dm *)
+  end (* Backend.Qemu_upstream *)
 
   (* Until stage 4, qemu_upstream behaves as qemu_upstream_compat *)
   module Qemu_upstream  = Qemu_upstream_compat
