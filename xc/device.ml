@@ -70,6 +70,7 @@ module Profile = struct
         val maybe_write_pv_feature_flags : xs:Xenstore.Xs.xsh -> int -> unit
         val suspend: Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
         val init_daemon: task:Xenops_task.task_handle -> path:string -> args:string list -> name:string -> domid:int -> xs:Xenstore.Xs.xsh -> ready_path:Watch.path -> ?ready_val:string -> timeout:float -> cancel:Cancel_utils.key -> 'a -> Forkhelpers.pidty
+        val stop: xs:Xenstore.Xs.xsh -> qemu_domid:int -> int -> unit
       end
     end
     let qemu_trad:            (module Intf) option ref = ref None
@@ -1672,6 +1673,43 @@ module Dm = struct
       debug "Daemon initialised: %s" syslog_key;
       pid
 
+    let stop ~xs ~qemu_domid domid  =
+      let qemu_pid_path = Qemu.pid_path domid
+      in
+      let stop_qemu () = (match (Qemu.pid ~xs domid) with
+          | None -> () (* nothing to do *)
+          | Some qemu_pid ->
+            debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid;
+            let open Generic in
+            best_effort "signalling that qemu is ending as expected, mask further signals"
+              (fun () -> Qemu.SignalMask.set Qemu.signal_mask domid);
+            best_effort "killing qemu-dm"
+              (fun () -> really_kill qemu_pid);
+            best_effort "removing qemu-pid from xenstore"
+              (fun () -> xs.Xs.rm qemu_pid_path);
+            best_effort "unmasking signals, qemu-pid is already gone from xenstore"
+              (fun () -> Qemu.SignalMask.unset Qemu.signal_mask domid);
+            (* best effort to delete the qemu chroot dir; we
+               			       deliberately want this to fail if the dir is not
+               			       empty cos it may contain core files that bugtool
+               			       will pick up; the xapi init script cleans out this
+               			       directory with "rm -rf" on boot *)
+            best_effort "removing core files from /var/xen/qemu"
+              (fun () -> Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)));
+            best_effort "removing device model path from xenstore"
+              (fun () -> xs.Xs.rm (device_model_path ~qemu_domid domid)))
+      in
+      let stop_vgpu () = match (Vgpu.pid ~xs domid) with
+        | None -> ()
+        | Some vgpu_pid ->
+          debug "vgpu: stopping vgpu with SIGTERM (domid = %d pid = %d)" domid vgpu_pid;
+          let open Generic in
+          best_effort "killing vgpu"
+            (fun () -> really_kill vgpu_pid)
+      in
+      stop_vgpu ();
+      stop_qemu ()
+
   end (* Dm.Common *)
 
   let get_vnc_port ~xs domid =
@@ -2022,45 +2060,8 @@ module Dm = struct
 
   (* Called by every domain destroy, even non-HVM *)
   let stop ~xs ~qemu_domid domid  =
-    let qemu_pid_path = Qemu.pid_path domid
-    in
-    let stop_qemu () = (match (Qemu.pid ~xs domid) with
-        | None -> () (* nothing to do *)
-        | Some qemu_pid ->
-          if is_upstream_qemu domid then begin
-            QMP_Event.remove domid;
-            xs.Xs.rm (sprintf "/libxl/%d" domid)
-          end;
-          debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid;
-          let open Generic in
-          best_effort "signalling that qemu is ending as expected, mask further signals"
-            (fun () -> Qemu.SignalMask.set Qemu.signal_mask domid);
-          best_effort "killing qemu-dm"
-            (fun () -> really_kill qemu_pid);
-          best_effort "removing qemu-pid from xenstore"
-            (fun () -> xs.Xs.rm qemu_pid_path);
-          best_effort "unmasking signals, qemu-pid is already gone from xenstore"
-            (fun () -> Qemu.SignalMask.unset Qemu.signal_mask domid);
-          (* best effort to delete the qemu chroot dir; we
-             			       deliberately want this to fail if the dir is not
-             			       empty cos it may contain core files that bugtool
-             			       will pick up; the xapi init script cleans out this
-             			       directory with "rm -rf" on boot *)
-          best_effort "removing core files from /var/xen/qemu"
-            (fun () -> Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)));
-          best_effort "removing device model path from xenstore"
-            (fun () -> xs.Xs.rm (device_model_path ~qemu_domid domid)))
-    in
-    let stop_vgpu () = match (Vgpu.pid ~xs domid) with
-      | None -> ()
-      | Some vgpu_pid ->
-        debug "vgpu: stopping vgpu with SIGTERM (domid = %d pid = %d)" domid vgpu_pid;
-        let open Generic in
-        best_effort "killing vgpu"
-          (fun () -> really_kill vgpu_pid)
-    in
-    stop_vgpu ();
-    stop_qemu ()
+    let module Q = (val Profile.backend_of domid) in
+    Q.Dm.stop ~xs ~qemu_domid domid
 
   let maybe_write_pv_feature_flags ~xs domid =
     let module Q = (val Profile.backend_of domid) in
@@ -2105,6 +2106,8 @@ module Backend = struct
         Dm.signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
 
       let init_daemon = Dm.Common.init_daemon
+      let stop        = Dm.Common.stop
+
     end (* Backend.Qemu_trad.Dm *)
   end (* Backend.Qemu_trad *)
 
@@ -2197,6 +2200,11 @@ module Backend = struct
         let pid = Dm.Common.init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel () in
         Dm.QMP_Event.add domid;
         pid
+
+      let stop ~xs ~qemu_domid domid  =
+        Dm.Common.stop ~xs ~qemu_domid domid;
+        Dm.QMP_Event.remove domid
+
     end (* Backend.Qemu_upstream_compat.Dm *)
   end (* Backend.Qemu_upstream *)
 
