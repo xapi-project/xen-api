@@ -71,6 +71,7 @@ module Profile = struct
         val suspend: Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
         val init_daemon: task:Xenops_task.task_handle -> path:string -> args:string list -> name:string -> domid:int -> xs:Xenstore.Xs.xsh -> ready_path:Watch.path -> ?ready_val:string -> timeout:float -> cancel:Cancel_utils.key -> 'a -> Forkhelpers.pidty
         val stop: xs:Xenstore.Xs.xsh -> qemu_domid:int -> int -> unit
+        val with_dirty_log: int -> f:(unit -> unit) -> unit
       end
     end
     let qemu_trad:            (module Intf) option ref = ref None
@@ -1967,6 +1968,10 @@ module Dm = struct
     let module Q = (val Profile.backend_of domid) in
     Q.Dm.maybe_write_pv_feature_flags ~xs domid
 
+  let with_dirty_log domid ~f =
+    let module Q = (val Profile.backend_of domid) in
+    Q.Dm.with_dirty_log domid ~f
+
 end (* End of module Dm *)
 
 let get_vnc_port ~xs domid = 
@@ -2007,6 +2012,8 @@ module Backend = struct
 
       let init_daemon = Dm.Common.init_daemon
       let stop        = Dm.Common.stop
+
+      let with_dirty_log domid ~f = f()
 
     end (* Backend.Qemu_trad.Dm *)
   end (* Backend.Qemu_trad *)
@@ -2203,6 +2210,16 @@ module Backend = struct
       let stop ~xs ~qemu_domid domid  =
         Dm.Common.stop ~xs ~qemu_domid domid;
         Event.QMP_Event.remove domid
+
+      let with_dirty_log domid ~f =
+        finally
+          (fun() ->
+             qmp_write domid (Qmp.Command(None, Qmp.Xen_set_global_dirty_log true));
+             f()
+          )
+          (fun() ->
+             qmp_write domid (Qmp.Command(None, Qmp.Xen_set_global_dirty_log false));
+          )
 
     end (* Backend.Qemu_upstream_compat.Dm *)
   end (* Backend.Qemu_upstream *)

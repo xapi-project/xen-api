@@ -249,6 +249,7 @@ sig
 	val stop : xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
 
 	val maybe_write_pv_feature_flags : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+	val with_dirty_log: int -> f:(unit -> unit) -> unit
 end
 
 val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
