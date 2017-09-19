@@ -1432,7 +1432,6 @@ module Dm = struct
 
   module QMP_Event = struct
     open Qmp
-    let (pipe_r, pipe_w) = Unix.pipe ()
 
     let (>>=) m f = match m with | Some x -> f x | None -> ()
     let (>>|) m f = match m with | Some _ -> () | None -> f ()
@@ -1453,11 +1452,8 @@ module Dm = struct
       module Epoll = Core.Linux_ext.Epoll
       module Flags = Core.Linux_ext.Epoll.Flags
       let create () = (Core.Std.Or_error.ok_exn Epoll.create) ~num_file_descrs:1001 ~max_ready_events:1
-      let wakeup () =  (* write single byte to wake up Monitor.wait *)
-        if Unix.write pipe_w " " 0 1 <> 1 then
-          debug "Pipe write error, failed to wake up qmp event thread"
-      let add m fd = Epoll.set m fd Flags.in_; wakeup ()
-      let remove m fd = Epoll.remove m fd; wakeup ()
+      let add m fd = Epoll.set m fd Flags.in_
+      let remove m fd = Epoll.remove m fd
       let wait m = Epoll.wait m ~timeout:`Never
       let with_event m fn = function
         | `Ok -> Epoll.iter_ready m ~f:(fun fd flags -> fn fd (flags = Flags.in_))
@@ -1496,29 +1492,23 @@ module Dm = struct
       debug "Got QMP event, domain-%d: %s" domid qmp_event.event
 
     let qmp_event_thread () =
-      Monitor.add m pipe_r;
       while true do
         try
           Monitor.wait m |> Monitor.with_event m (fun fd is_flag_in ->
-              match fd with
-              | pipe when pipe = pipe_r ->
-                if is_flag_in then ()
-                else debug "Received unexpected epoll event on pipe_r in qmp_event_thread"
-              | sock ->
-                Lookup.domid_of sock >>= fun domid ->
-                if is_flag_in then
-                  Lookup.channel_of domid >>= fun c ->
-                  try
-                    match Qmp_protocol.read c with
-                    | Event e -> qmp_event_handle domid e
-                    | msg -> debug "Got non-event message, domain-%d: %s" domid (string_of_message msg)
-                  with End_of_file ->
-                    debug "domain-%d: end of file, close qmp socket" domid;
-                    remove domid
-                else begin
-                  debug "EPOLL error on domain-%d, close qmp socket" domid;
+              Lookup.domid_of fd >>= fun domid ->
+              if is_flag_in then
+                Lookup.channel_of domid >>= fun c ->
+                try
+                  match Qmp_protocol.read c with
+                  | Event e -> qmp_event_handle domid e
+                  | msg -> debug "Got non-event message, domain-%d: %s" domid (string_of_message msg)
+                with End_of_file ->
+                  debug "domain-%d: end of file, close qmp socket" domid;
                   remove domid
-                end
+              else begin
+                debug "EPOLL error on domain-%d, close qmp socket" domid;
+                remove domid
+              end
             )
         with e ->
           debug_exn "Exception in qmp_event_thread: %s" e;
