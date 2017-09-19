@@ -1505,6 +1505,9 @@ module Dm = struct
                 with End_of_file ->
                   debug "domain-%d: end of file, close qmp socket" domid;
                   remove domid
+                | e ->
+                  debug_exn (Printf.sprintf "domain-%d: close qmp socket" domid) e;
+                  remove domid
               else begin
                 debug "EPOLL error on domain-%d, close qmp socket" domid;
                 remove domid
