@@ -1,15 +1,18 @@
 language: c
 install:
-  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
   - wget https://raw.githubusercontent.com/simonjbeaumont/ocaml-travis-coveralls/master/travis-coveralls.sh
 script:
-    - bash -ex .travis-opam.sh
+    - bash -ex .travis-docker.sh
     - if [ ! -z "${XS_COV}" ]; then bash -ex travis-coveralls.sh || true; fi
 sudo: required
+services:
+    - docker
 env:
   global:
-    - OCAML_VERSION=4.04
+    - OCAML_VERSION=4.04.2
     - PACKAGE=xapi-idl
+    - DISTRO="debian-unstable"
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam XS_COV=1 COV_CONF="ocaml setup.ml -configure --enable-tests"
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
