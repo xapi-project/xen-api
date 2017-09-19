@@ -24,11 +24,11 @@ exception Cdrom
 module Profile: sig
 	type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream
 	val fallback : t
+	val all: t list
 	module Name: sig
 		val qemu_trad: string
 		val qemu_upstream_compat: string
 		val qemu_upstream: string
-		val all: string list
 	end
 	val wrapper_of: t -> string
 	val string_of : t -> string
