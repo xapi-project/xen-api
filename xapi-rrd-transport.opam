@@ -11,7 +11,7 @@ depends: [
   "bigarray"
   "cstruct" {< "3.0.0"}
   "crc"
-  "stringext"
+  "astring"
   "xapi-idl" {>= "1.0.0"}
   "xapi-rrd" {>= "1.0.0"}
   "xen-gnt-unix"

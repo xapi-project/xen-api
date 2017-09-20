@@ -14,15 +14,15 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name rrd_transport)
   (public_name xapi-rrd-transport)
   (wrapped false)
-  (libraries (bigarray
+  (libraries (astring
+              bigarray
               crc
               cstruct
-              stringext
               threads
               xapi-rrd
               xcp.rrd
               xen-gnt
-              xen-gnt.unix))
+              xen-gnt-unix))
   %s
  ))
 |} (coverage_rewriter ~full:true)

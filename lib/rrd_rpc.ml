@@ -38,7 +38,7 @@ let ds_ty_of_string (s : string) : Rrd.ds_type =
 
 (* Converts a string to value of datasource owner type. *)
 let owner_of_string (s : string) : Rrd.ds_owner =
-	match Stringext.split ~on:' ' (String.lowercase s) with
+	match Astring.String.cuts ~sep:" " (String.lowercase s) with
 	| ["host"] -> Rrd.Host
 	| ["vm"; uuid] -> Rrd.VM uuid
 	| ["sr"; uuid] -> Rrd.SR uuid
