@@ -293,10 +293,6 @@ let test_cbt =
         ) ,         Some (Api_errors.sr_operation_not_supported , []) ;
 
         (fun vdi -> pass_data_destroy vdi;
-          Db.VDI.set_type ~__context ~self:vdi ~value:`cbt_metadata;
-        ) ,         Some (Api_errors.vdi_incompatible_type, []) ;
-
-        (fun vdi -> pass_data_destroy vdi;
           Db.VDI.set_cbt_enabled ~__context ~self:vdi ~value:false
         ) ,         Some (Api_errors.vdi_no_cbt_metadata, []) ;
       ] in
