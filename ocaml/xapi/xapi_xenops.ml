@@ -1618,7 +1618,7 @@ let update_vm ~__context id =
             try
               Opt.iter
                 (fun (_, state) ->
-                   let maybe_old_version = Opt.map (fun s -> s.vda_version) previous |> Opt.join in
+                   let maybe_old_version = Opt.Monad.(previous >>= fun s -> s.vda_version) in
                    match state.vda_version, maybe_old_version with
                    | Some version, None ->
                      debug "xenopsd event: Detected VDA for VM %s with version %s" id version;
