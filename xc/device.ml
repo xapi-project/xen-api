@@ -1896,8 +1896,6 @@ module Backend = struct
       val qemu_media_change : xs:Xenstore.Xs.xsh -> device -> string -> string -> unit
     end
     module Dm: sig
-      module Event: sig
-      end
       val get_vnc_port : xs:Xenstore.Xs.xsh -> int -> int option
       val maybe_write_pv_feature_flags : xs:Xenstore.Xs.xsh -> int -> unit
       val suspend: Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
@@ -1912,8 +1910,6 @@ module Backend = struct
       let qemu_media_change = Vbd_Common.qemu_media_change
     end
     module Dm = struct
-      module Event =  struct
-      end
       let get_vnc_port ~xs domid =
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
           (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
@@ -1975,7 +1971,6 @@ module Backend = struct
     end (* Backend.Qemu_upstream_compat.Vbd *)
 
     module Dm = struct
-      module Event =  struct
 
         module QMP_Event = struct
           open Qmp
@@ -2073,8 +2068,7 @@ module Backend = struct
 
           let _init_qmp_event =
             Thread.create qmp_event_thread ()
-        end (* QMP_Event *)
-      end (* Qemu_upstream_compat.Dm.Event *)
+        end (* Qemu_upstream_compat.Dm.QMP_Event *)
 
       let get_vnc_port ~xs domid =
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
@@ -2119,12 +2113,12 @@ module Backend = struct
 
       let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel _ =
         let pid = Dm_Common.init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel () in
-        Event.QMP_Event.add domid;
+        QMP_Event.add domid;
         pid
 
       let stop ~xs ~qemu_domid domid  =
         Dm_Common.stop ~xs ~qemu_domid domid;
-        Event.QMP_Event.remove domid
+        QMP_Event.remove domid
 
       let with_dirty_log domid ~f =
         finally
