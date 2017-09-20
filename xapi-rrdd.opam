@@ -4,16 +4,17 @@ build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 build-test: ["jbuilder" "runtest" "-p" name]
 depends: [
   "jbuilder" {build & >= "1.0+beta10"}
+  "astring"
   "inotify"
   "io-page"
   "oclock"
   "ounit"
   "rpc"
-  "stdext"
   "systemd"
   "xapi-backtrace"
   "xapi-idl"
   "xapi-libs-transitional"
+  "xapi-rrd-unix"
   "xapi-rrd-transport"
   "xapi-stdext-monadic"
   "xapi-stdext-std"

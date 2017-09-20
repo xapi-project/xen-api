@@ -36,12 +36,12 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    (wrapped false)
    (modules (:standard \ xcp_rrdd))
    (flags (:standard -w -39 -bin-annot %s))
-   (libraries (gzip
+   (libraries (astring
+               gzip
                http-svr
                inotify
                mtime
                mtime.clock.os
-               stringext
                systemd
                xapi-backtrace
                rrd

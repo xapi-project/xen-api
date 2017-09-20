@@ -83,7 +83,7 @@ let start (xmlrpc_path, http_fwd_path) process =
 	Unix.listen http_fwd_socket 5;
 	accept_forever http_fwd_socket (fun this_connection ->
 		let msg_size = 16384 in
-		let buf = String.make msg_size '\000' in
+		let buf = Bytes.make msg_size '\000' in
 		(* debug "Calling Unixext.recv_fd()"; *)
 		let len, _, received_fd = Xapi_stdext_unix.Unixext.recv_fd this_connection buf 0 msg_size [] in
 		(* debug "Unixext.recv_fd ok (len = %d)" len; *)
@@ -166,7 +166,7 @@ module Meminfo = struct
 				current_meminfofree_values := IntMap.remove d !current_meminfofree_values
 
 	let watch_fired _xc path domains _ =
-		match List.filter (fun x -> x <> "") (Stringext.split ~on:'/' path) with
+		match List.filter (fun x -> x <> "") Astring.String.(cuts ~sep:"/" path) with
 		| "local" :: "domain" :: domid :: "data" :: "meminfo_free" :: [] ->
 			fire_event_on_vm domid domains
 		| _ -> debug "Ignoring unexpected watch: %s" path
@@ -323,7 +323,7 @@ let update_netdev doms =
 	let stats = Network_stats.read_stats () in
 	let dss, sum_rx, sum_tx =
 	List.fold_left (fun (dss, sum_rx, sum_tx) (dev, stat) ->
-		if not (Xapi_stdext_std.Xstringext.String.startswith "vif" dev) then
+		if not Astring.String.(is_prefix ~affix:"vif" dev) then
 		begin
 			let pif_name = "pif_" ^ dev in
 			(Host, ds_make ~name:(pif_name ^ "_rx")
@@ -407,13 +407,10 @@ let read_cache_stats timestamp =
 			Forkhelpers.execute_command_get_output tapdisk_cache_stats [cache_sr] in
 		let assoc_list =
 			List.filter_map (fun line ->
-				try
-					( match Stringext.split ~on:'=' line with
-					| hd :: tl -> Some (hd, String.concat "=" tl)
-					| _ -> None
-					)
-				with _ -> None
-			) (Stringext.split ~on:'\n' cache_stats_out)
+			match Astring.String.cut ~sep:"=" line with
+			| Some (k,v) -> Some (k, v)
+			| None -> None
+			) (Astring.String.cuts ~sep:"\n" cache_stats_out)
 		in
 		(*debug "assoc_list: [%s]" (String.concat ";" (List.map (fun (a,b) -> Printf.sprintf "%s=%s" a b) assoc_list));*)
 		{time = timestamp;

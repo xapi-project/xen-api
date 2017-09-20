@@ -66,9 +66,7 @@ let plus_process_memory_info pmi1 pmi2 = {
 }
 
 (* TODO: Move this function (and its clones) to xen-api-libs. *)
-let split_colon line =
-	List.filter (fun x -> x <> "")
-		(List.map String.trim (Stringext.split ~on:' ' line))
+let split_colon line = Astring.String.fields ~empty:false line
 
 let meminfo () =
 	let all = Xapi_stdext_unix.Unixext.string_of_file "/proc/meminfo" in
@@ -86,7 +84,7 @@ let meminfo () =
 		| ["SwapTotal:"; x; "kB"] -> swap_total := int_of_string x
 		| ["SwapFree:"; x; "kB"] -> swap_free := int_of_string x
 		| _ -> ()
-	) (Stringext.split ~on:'\n' all);
+	) Astring.String.(cuts ~sep:"\n" all);
 	{total = !total; free = !free; buffered = !buffered;
 	cached = !cached; swap_total = !swap_total; swap_free = !swap_free}
 
@@ -117,7 +115,7 @@ let process_memory_info_of_pid (pid : int) : process_memory_info =
 		| ["VmExe:"; x; "kB"] -> exe := int_of_string x
 		| ["VmLib:"; x; "kB"] -> lib := int_of_string x
 		| _ -> ()
-	) (Stringext.split ~on:'\n' all);
+	) Astring.String.(cuts ~sep:"\n" all);
 	{peak = !peak; size = !size; locked = !locked; hwm = !hwm;
 	rss = !rss; data = !data; stack = !stack; exe = !exe; lib = !lib}
 
@@ -139,14 +137,14 @@ let print_system_stats () =
 (* Obtains process IDs for the specified program.
  * This should probably be moved into xen-api-libs. *)
 let pidof ?(pid_dir="/var/run") program =
-	try
-		let out = Xapi_stdext_unix.Unixext.string_of_file (Printf.sprintf "%s/%s.pid" pid_dir program) in
-		let words =  Xapi_stdext_std.Xstringext.String.(split_f isspace out) in
-		let maybe_parse_int acc i = try (int_of_string i) :: acc with Failure _ -> acc in
-		List.fold_left maybe_parse_int [] words
-	with 
-		| Unix.Unix_error (Unix.ENOENT, _, _)
-		| Unix.Unix_error (Unix.EACCES, _, _) -> []
+  try
+    let out = Xapi_stdext_unix.Unixext.string_of_file (Printf.sprintf "%s/%s.pid" pid_dir program) in
+    let words = Astring.String.fields ~empty:false out in
+    let maybe_parse_int acc i = try (int_of_string i) :: acc with Failure _ -> acc in
+    List.fold_left maybe_parse_int [] words
+  with 
+  | Unix.Unix_error (Unix.ENOENT, _, _)
+  | Unix.Unix_error (Unix.EACCES, _, _) -> []
 
 let print_stats_for ~program =
 	let pids = pidof program in
