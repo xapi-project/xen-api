@@ -17,6 +17,8 @@ open Test_common
 
 (* Helpers for testing Xapi_vdi.check_operation_error *)
 
+let for_vdi_operations ops f () = ops |> List.iter f
+
 let setup_test ~__context ?sm_fun ?vdi_fun () =
   let run f x = match f with Some f -> ignore(f x) | None -> () in
 
@@ -176,7 +178,6 @@ let test_ca126097 () =
 (** Tests for the checks related to changed block tracking *)
 let test_cbt =
   let all_cbt_operations = [`enable_cbt; `disable_cbt] in
-  let for_vdi_operations ops f () = ops |> List.iter f in
   let for_cbt_enable_disable = for_vdi_operations [`enable_cbt; `disable_cbt] in
 
   let test_sm_feature_check op =
@@ -341,6 +342,49 @@ let test_operations_restricted_during_rpu =
   ; "test_update_allowed_operations" >:: test_update_allowed_operations
   ]
 
+(* Xapi_vdi.check_operation_error should not throw an
+   exception in case of invalid references, as it is called from
+   the message forwarding layer. *)
+let test_null_vm =
+  let all_vdi_operations =
+    [ `blocked
+    ; `clone
+    ; `copy
+    ; `data_destroy
+    ; `destroy
+    ; `disable_cbt
+    ; `enable_cbt
+    ; `list_changed_blocks
+    ; `force_unlock
+    ; `forget
+    ; `generate_config
+    ; `mirror
+    ; `resize
+    ; `resize_online
+    ; `set_on_boot
+    ; `snapshot
+    ; `update
+    ]
+  in
+
+  let test_null_vm op =
+    let __context = Mock.make_context_with_new_db "Mock context" in
+    let vdi_ref, vdi_record = setup_test
+        ~__context
+        ~vdi_fun:(fun vDI ->
+            (* VBDs with invalid VM refs are not valid - they can only
+               temporarily exist, and the next DB GC pass should remove
+               them. *)
+            let (_: API.ref_VBD) = Test_common.make_vbd ~__context ~vM:Ref.null ~vDI () in
+            ())
+        ()
+    in
+    (* This shouldn't throw an exception *)
+    let _: _ option = Xapi_vdi.check_operation_error ~__context false vdi_record vdi_ref op in
+    ()
+  in
+  for_vdi_operations all_vdi_operations test_null_vm
+
 let test =
   "test_vdi_allowed_operations" >:::
   [
@@ -350,4 +394,5 @@ let test =
     "test_ca126097" >:: test_ca126097;
     test_cbt;
     test_operations_restricted_during_rpu;
+    "test_null_vm" >:: test_null_vm;
   ]
