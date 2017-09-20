@@ -1904,11 +1904,23 @@ module Backend = struct
 
     (** Dm functions that use the dispatcher to choose between different profile backends *)
     module Dm: sig
+
+      (** [get_vnc_port xenstore domid] returns the dom0 tcp port in which the vnc server for [domid] can be found *)
       val get_vnc_port : xs:Xenstore.Xs.xsh -> int -> int option
+
+      (** [maybe_write_pv_feature_flags xenstore domid] writes the necessary pv feature flags to indicate that the domid supports clean shutdown, reboot, suspend *)
       val maybe_write_pv_feature_flags : xs:Xenstore.Xs.xsh -> int -> unit
+
+      (** [suspend task xenstore qemu_domid xc] suspends a domain *)
       val suspend: Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
+
+      (** [init_daemon task path args name domid xenstore ready_path ready_val timeout cancel] returns a forkhelper pid after starting the qemu daemon in dom0 *)
       val init_daemon: task:Xenops_task.task_handle -> path:string -> args:string list -> name:string -> domid:int -> xs:Xenstore.Xs.xsh -> ready_path:Watch.path -> ?ready_val:string -> timeout:float -> cancel:Cancel_utils.key -> 'a -> Forkhelpers.pidty
+
+      (** [stop xenstore qemu_domid domid] stops a domain *)
       val stop: xs:Xenstore.Xs.xsh -> qemu_domid:int -> int -> unit
+
+      (** [with_dirty_log domid f] executes f in a context where the dirty log is enabled *)
       val with_dirty_log: int -> f:(unit -> unit) -> unit
     end
   end
