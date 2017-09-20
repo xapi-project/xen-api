@@ -271,34 +271,34 @@ let test_cbt =
       let sr = Db.VDI.get_SR ~__context ~self:vdi in
       Db.SR.set_is_tools_sr ~__context ~self:sr ~value:false;
       Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:true;
+      Db.VDI.set_managed ~__context ~self:vdi ~value:true;
       Db.VDI.set_cbt_enabled ~__context ~self:vdi ~value:true in
 
     (* change VDI properties one by one so data_destroy only fails for the indicated reason *)
     List.iter (fun (vdi_fun, api_error) ->
-        run_assert_equal_with_vdi ~__context ~vdi_fun `data_destroy (Some api_error))
+        run_assert_equal_with_vdi ~__context ~vdi_fun `data_destroy (api_error))
 
       [
+        (* ensure VDI.data_destroy works before introducing errors *)
         (fun vdi -> pass_data_destroy vdi;
-          Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:false
-        ) ,         (Api_errors.operation_not_allowed, []) ;
+        ) ,         None ;
 
         (fun vdi -> pass_data_destroy vdi;
-          let sr = Db.VDI.get_SR ~__context ~self:vdi in
-          Db.SR.set_type ~__context ~self:sr ~value:"udev"
-        ) ,         (Api_errors.sr_operation_not_supported, [])  ;
+          Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:false
+        ) ,         Some (Api_errors.operation_not_allowed, []) ;
 
         (fun vdi -> pass_data_destroy vdi;
           let sr = Db.VDI.get_SR ~__context ~self:vdi in
           Db.SR.set_is_tools_sr ~__context ~self:sr ~value:true
-        ) ,         (Api_errors.sr_operation_not_supported , []) ;
+        ) ,         Some (Api_errors.sr_operation_not_supported , []) ;
 
         (fun vdi -> pass_data_destroy vdi;
           Db.VDI.set_type ~__context ~self:vdi ~value:`cbt_metadata;
-        ) ,         (Api_errors.vdi_incompatible_type, []) ;
+        ) ,         Some (Api_errors.vdi_incompatible_type, []) ;
 
         (fun vdi -> pass_data_destroy vdi;
           Db.VDI.set_cbt_enabled ~__context ~self:vdi ~value:false
-        ) ,         (Api_errors.vdi_no_cbt_metadata, []) ;
+        ) ,         Some (Api_errors.vdi_no_cbt_metadata, []) ;
       ] in
 
   "test_cbt" >:::
