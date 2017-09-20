@@ -1618,7 +1618,7 @@ let update_vm ~__context id =
             try
               Opt.iter
                 (fun (_, state) ->
-                   let maybe_old_version = Opt.map (fun s -> s.vda_version) previous in
+                   let maybe_old_version = Opt.map (fun s -> s.vda_version) previous |> Opt.join in
                    match state.vda_version, maybe_old_version with
                    | Some version, None ->
                      debug "xenopsd event: Detected VDA for VM %s with version %s" id version;
@@ -1626,8 +1626,8 @@ let update_vm ~__context id =
                      |> ignore
                    | None, Some _ ->
                      debug "xenopsd event: VDA for VM %s disappeared" id
-                   | Some version, Some _ ->
-                     debug "xenopsd event: Detected updated VDA version %s for VM %s" version id;
+                   | Some version, Some old_version ->
+                     debug "xenopsd event: Detected updated VDA version %s -> %s for VM %s" old_version version id;
                      Xapi_vda.find_vda ~__context ~vm:self 
                      |> Opt.iter (fun self -> Db.VDA.set_version ~__context ~self ~value:version)
                    | None, None -> (* This should not happen *) ()
