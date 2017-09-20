@@ -280,21 +280,25 @@ let test_cbt =
       [
         (fun vdi -> pass_data_destroy vdi;
           Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:false
-        ) ,         (Api_errors.operation_not_allowed, ["VDI is not a snapshot"]) ;
+        ) ,         (Api_errors.operation_not_allowed, []) ;
 
         (fun vdi -> pass_data_destroy vdi;
           let sr = Db.VDI.get_SR ~__context ~self:vdi in
           Db.SR.set_type ~__context ~self:sr ~value:"udev"
-        ) ,         (Api_errors.sr_operation_not_supported, ["VDI is a physical device"])  ;
+        ) ,         (Api_errors.sr_operation_not_supported, [])  ;
 
         (fun vdi -> pass_data_destroy vdi;
           let sr = Db.VDI.get_SR ~__context ~self:vdi in
           Db.SR.set_is_tools_sr ~__context ~self:sr ~value:true
-        ) ,         (Api_errors.sr_operation_not_supported , ["Contains ISO tools"]) ;
+        ) ,         (Api_errors.sr_operation_not_supported , []) ;
+
+        (fun vdi -> pass_data_destroy vdi;
+          Db.VDI.set_type ~__context ~self:vdi ~value:`cbt_metadata;
+        ) ,         (Api_errors.vdi_incompatible_type, []) ;
 
         (fun vdi -> pass_data_destroy vdi;
           Db.VDI.set_cbt_enabled ~__context ~self:vdi ~value:false
-        ) ,         (Api_errors.vdi_no_cbt_metadata, ["VDI does not have CBT enabled"]) ;
+        ) ,         (Api_errors.vdi_no_cbt_metadata, []) ;
       ] in
 
   "test_cbt" >:::
