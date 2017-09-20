@@ -100,6 +100,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?vbd_rec
     else
       (* check to see whether VBDs exist which are using this VDI *)
 
+      (* All of these VBDs should link the VDI to a non-null VM reference *)
       let my_vbd_records =
         List.map
           snd
@@ -141,6 +142,15 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?vbd_rec
          | _ -> false)
       in
 
+      (* Most operations are allowed when the VDI only has VBDs that are
+         neither attached, nor reserved. However, some operations are not
+         allowed when there is *any* VBD in the database at all linking the VDI
+         to a VM. *)
+      let operation_can_be_performed_with_inactive_vbds = match op with
+        | `data_destroy -> false
+        | _ -> true
+      in
+
       (* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
 
       let blocked_by_attach =
@@ -149,7 +159,11 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?vbd_rec
         else begin
           if operation_can_be_performed_with_ro_attach
           then (my_active_rw_vbd_records <> [])
-          else (my_active_vbd_records <> [])
+          else begin
+            if operation_can_be_performed_with_inactive_vbds
+            then (my_active_vbd_records <> [])
+            else (my_vbd_records <> [])
+          end
         end
       in
       if blocked_by_attach
@@ -578,8 +592,11 @@ let destroy_and_data_destroy_common ~__context ~self ~(operation:[`destroy | `da
       if operation = `destroy && Db.is_valid_ref __context self
       then Db.VDI.destroy ~__context ~self;
 
-      (* destroy all the VBDs now rather than wait for the GC thread. This helps
-         	   prevent transient glitches but doesn't totally prevent races. *)
+      (* Destroy all the VBDs now rather than wait for the GC thread. This helps
+         prevent transient glitches but doesn't totally prevent races.
+         No VBDs should be found here in case of data_destroy, because the
+         checks in check_operation_error have already verified that the VDI has
+         no VBDs.*)
       List.iter (fun vbd ->
           Helpers.log_exn_continue (Printf.sprintf "destroying VBD: %s" (Ref.string_of vbd))
             (fun vbd -> Db.VBD.destroy ~__context ~self:vbd) vbd) vbds;
