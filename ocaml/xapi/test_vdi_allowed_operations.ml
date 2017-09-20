@@ -262,6 +262,47 @@ let test_cbt =
       )
   in
 
+
+  let test_vdi_data_destroy () =
+    let __context = Mock.make_context_with_new_db "Mock context" in
+
+    (* change VDI properties so that data_destroy passes *)
+    let pass_data_destroy vdi =
+      let sr = Db.VDI.get_SR ~__context ~self:vdi in
+      Db.SR.set_is_tools_sr ~__context ~self:sr ~value:false;
+      Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:true;
+      Db.VDI.set_managed ~__context ~self:vdi ~value:true;
+      Db.VDI.set_cbt_enabled ~__context ~self:vdi ~value:true in
+
+    (* change VDI properties one by one so data_destroy only fails for the indicated reason *)
+    List.iter (fun (vdi_fun, api_error) ->
+        run_assert_equal_with_vdi ~__context ~vdi_fun `data_destroy (api_error))
+
+      [
+        (* ensure VDI.data_destroy works before introducing errors *)
+        (fun vdi -> pass_data_destroy vdi;
+        ) ,         None ;
+
+        (fun vdi -> pass_data_destroy vdi;
+          Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:false
+        ) ,         Some (Api_errors.operation_not_allowed, []) ;
+
+        (fun vdi -> pass_data_destroy vdi;
+          let sr = Db.VDI.get_SR ~__context ~self:vdi in
+          Db.SR.set_is_tools_sr ~__context ~self:sr ~value:true
+        ) ,         Some (Api_errors.sr_operation_not_supported , []) ;
+
+        (fun vdi -> pass_data_destroy vdi;
+          Db.VDI.set_cbt_enabled ~__context ~self:vdi ~value:false
+        ) ,         Some (Api_errors.vdi_no_cbt_metadata, []) ;
+
+        (fun vdi -> let vM =
+                      Test_common.make_vm ~__context () in
+          let _: _ API.Ref.t = Test_common.make_vbd ~__context ~vDI:vdi ~vM ~currently_attached:true () in
+          pass_data_destroy vdi
+        ) ,         Some (Api_errors.vdi_in_use, []) ;
+      ] in
+
   "test_cbt" >:::
   [ "test_sm_feature_check" >:: test_sm_feature_check
   ; "test_cbt_enable_disable_not_allowed_for_snapshot" >:: test_cbt_enable_disable_not_allowed_for_snapshot
@@ -270,6 +311,7 @@ let test_cbt =
   ; "test_cbt_enable_disable_can_be_performed_live" >:: test_cbt_enable_disable_can_be_performed_live
   ; "test_cbt_metadata_vdi_type_check" >:: test_cbt_metadata_vdi_type_check
   ; "test_vdi_cbt_enabled_check" >:: test_vdi_cbt_enabled_check
+  ; "test_vdi_data_destroy" >:: test_vdi_data_destroy
   ]
 
 (** The set of allowed operations must be restricted during rolling pool
@@ -304,7 +346,7 @@ let test_operations_restricted_during_rpu =
     Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress;
     Xapi_vdi.update_allowed_operations ~__context ~self
     (* CA-260245: at present update_allowed_operations excludes the cbt operations unconditionally.
-    OUnit.assert_bool "update_allowed_operations should consider `enable_cbt when RPU is not running" (List.mem `enable_cbt (Db.VDI.get_allowed_operations ~__context ~self))
+       OUnit.assert_bool "update_allowed_operations should consider `enable_cbt when RPU is not running" (List.mem `enable_cbt (Db.VDI.get_allowed_operations ~__context ~self))
     *)
   in
 
