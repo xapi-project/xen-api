@@ -295,6 +295,12 @@ let test_cbt =
         (fun vdi -> pass_data_destroy vdi;
           Db.VDI.set_cbt_enabled ~__context ~self:vdi ~value:false
         ) ,         Some (Api_errors.vdi_no_cbt_metadata, []) ;
+
+        (fun vdi -> let vM =
+                      Test_common.make_vm ~__context () in
+          let _: _ API.Ref.t = Test_common.make_vbd ~__context ~vDI:vdi ~vM ~currently_attached:true () in
+          pass_data_destroy vdi
+        ) ,         Some (Api_errors.vdi_in_use, []) ;
       ] in
 
   "test_cbt" >:::
@@ -340,7 +346,7 @@ let test_operations_restricted_during_rpu =
     Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress;
     Xapi_vdi.update_allowed_operations ~__context ~self
     (* CA-260245: at present update_allowed_operations excludes the cbt operations unconditionally.
-    OUnit.assert_bool "update_allowed_operations should consider `enable_cbt when RPU is not running" (List.mem `enable_cbt (Db.VDI.get_allowed_operations ~__context ~self))
+       OUnit.assert_bool "update_allowed_operations should consider `enable_cbt when RPU is not running" (List.mem `enable_cbt (Db.VDI.get_allowed_operations ~__context ~self))
     *)
   in
 
