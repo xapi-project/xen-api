@@ -21,17 +21,31 @@ exception Device_not_found
 
 exception Cdrom
 
+(** Definition of available qemu profiles, used by the qemu backend implementations *)
 module Profile: sig
 	type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream
+	(** available qemu profiles *)
+
+	(** the fallback profile in case an invalid profile string is provided to [of_string] *)
 	val fallback : t
+
+	(** all available profiles *)
 	val all: t list
+
+	(** Valid names for a profile, used to define valid values for VM.platform.device-model *)
 	module Name: sig
 		val qemu_trad: string
 		val qemu_upstream_compat: string
 		val qemu_upstream: string
 	end
+
+	(** [wrapper_of profile] returns the qemu wrapper script path of a profile *)
 	val wrapper_of: t -> string
+
+	(** [string_of  profile] returns the profile name of a profile *)
 	val string_of : t -> string
+
+	(** [of_string  profile_name] returns the profile of a profile name, and [fallback] if an invalid name is provided. *)
 	val of_string : string -> t
 end
 

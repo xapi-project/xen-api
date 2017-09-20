@@ -32,6 +32,7 @@ exception Cdrom
 module D = Debug.Make(struct let name = "xenops" end)
 open D
 
+(** Definition of available qemu profiles, used by the qemu backend implementations *)
 module Profile = struct
   type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream
   let fallback = Qemu_trad
@@ -309,6 +310,7 @@ end
 (****************************************************************************************)
 (** Disks:                                                                              *)
 
+(** Vbd_Common contains the private Vbd functions that are common between the qemu profile backends *)
 module Vbd_Common = struct
 
   type shutdown_mode =
@@ -1393,6 +1395,7 @@ end
 
 let can_surprise_remove ~xs (x: device) = Generic.can_surprise_remove ~xs x
 
+(** Dm_Common contains the private Dm functions that are common between the qemu profile backends. *)
 module Dm_Common = struct
 
   (* An example one:
@@ -1888,13 +1891,18 @@ module Dm_Common = struct
 end (* End of module Dm_Common *)
 
 
-(* Implementation of the qemu profile backends *)
+(** Implementation of the qemu profile backends *)
 module Backend = struct
 
+  (** Common signature for all the profile backends *)
   module type Intf = sig
+
+    (** Vbd functions that use the dispatcher to choose between different profile backends *)
     module Vbd: sig
       val qemu_media_change : xs:Xenstore.Xs.xsh -> device -> string -> string -> unit
     end
+
+    (** Dm functions that use the dispatcher to choose between different profile backends *)
     module Dm: sig
       val get_vnc_port : xs:Xenstore.Xs.xsh -> int -> int option
       val maybe_write_pv_feature_flags : xs:Xenstore.Xs.xsh -> int -> unit
@@ -1905,10 +1913,15 @@ module Backend = struct
     end
   end
 
+  (** Implementation of the backend common signature for the qemu-trad backend *)
   module Qemu_trad : Intf = struct
+
+    (** Implementation of the Vbd functions that use the dispatcher for the qemu-trad backend *)
     module Vbd = struct
       let qemu_media_change = Vbd_Common.qemu_media_change
     end
+
+    (** Implementation of the Dm functions that use the dispatcher for the qemu-trad backend *)
     module Dm = struct
       let get_vnc_port ~xs domid =
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
@@ -1929,7 +1942,10 @@ module Backend = struct
     end (* Backend.Qemu_trad.Dm *)
   end (* Backend.Qemu_trad *)
 
+  (** Implementation of the backend common signature for the qemu-upstream-compat backend *)
   module Qemu_upstream_compat : Intf  = struct
+
+    (** Implementation of the Vbd functions that use the dispatcher for the qemu-upstream-compat backend *)
     module Vbd = struct
       let qemu_media_change ~xs device _type params =
         Vbd_Common.qemu_media_change ~xs device _type params;
@@ -1970,8 +1986,10 @@ module Backend = struct
 
     end (* Backend.Qemu_upstream_compat.Vbd *)
 
+    (** Implementation of the Dm functions that use the dispatcher for the qemu-upstream-compat backend *)
     module Dm = struct
 
+        (** Handler for the QMP events in upstream qemu *)
         module QMP_Event = struct
           open Qmp
           let (pipe_r, pipe_w) = Unix.pipe ()
@@ -1979,6 +1997,7 @@ module Backend = struct
           let (>>=) m f = match m with | Some x -> f x | None -> ()
           let (>>|) m f = match m with | Some _ -> () | None -> f ()
 
+          (** Efficient lookup table between file descriptors, channels and domain ids *)
           module Lookup = struct
             let ftod, dtoc = Hashtbl.create 16, Hashtbl.create 16
             let add c domid =
@@ -1991,6 +2010,7 @@ module Backend = struct
             let channel_of domid = try Some (Hashtbl.find dtoc domid) with Not_found -> None
           end
 
+          (** File-descriptor event monitor implementation for the epoll library *)
           module Monitor = struct
             module Epoll = Core.Linux_ext.Epoll
             module Flags = Core.Linux_ext.Epoll.Flags
@@ -2133,8 +2153,9 @@ module Backend = struct
     end (* Backend.Qemu_upstream_compat.Dm *)
   end (* Backend.Qemu_upstream *)
 
-  (* Until the stage 4 defined in the qemu upstream design is implemented, qemu_upstream behaves as qemu_upstream_compat *)
+  (** Implementation of the backend common signature for the qemu-upstream backend *)
   module Qemu_upstream  = Qemu_upstream_compat
+  (** Until the stage 4 defined in the qemu upstream design is implemented, qemu_upstream behaves as qemu_upstream_compat *)
 
   let of_profile p = match p with
     | Profile.Qemu_trad            -> (module Qemu_trad            : Intf)
@@ -2147,6 +2168,8 @@ end
 (*
  *  Functions using the backend dispatcher
  *)
+
+(** Vbd module conforming to the corresponding public mli interface *)
 module Vbd = struct
   include Vbd_Common
 
@@ -2161,6 +2184,7 @@ module Vbd = struct
 
 end (* Vbd *)
 
+(** Dm module conforming to the corresponding public mli interface *)
 module Dm = struct
   include Dm_Common
 
