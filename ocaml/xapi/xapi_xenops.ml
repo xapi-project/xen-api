@@ -1617,21 +1617,21 @@ let update_vm ~__context id =
           if different (fun x -> x.vda_version) then begin
             try
               Opt.iter
-              (fun (_, state) ->
-                let maybe_old_version = Opt.map (fun s -> s.vda_version) previous in
-                match state.vda_version, maybe_old_version with
-                | Some version, None ->
-                debug "xenopsd event: Detected VDA for VM %s with version %s" id version;
-                  Xapi_vda.create ~__context ~vm:self ~version
-                  |> ignore
-                | None, Some _ ->
-                  debug "xenopsd event: VDA for VM %s disappeared" id
-                | Some version, Some _ ->
-                debug "xenopsd event: Detected updated VDA version %s for VM %s" version id;
-                  Xapi_vda.find_vda ~__context ~vm:self 
-                  |> Opt.iter (fun self -> Db.VDA.set_version ~__context ~self ~value:version)
-                | None, None -> (* This should not happen *) ()
-              ) info
+                (fun (_, state) ->
+                   let maybe_old_version = Opt.map (fun s -> s.vda_version) previous in
+                   match state.vda_version, maybe_old_version with
+                   | Some version, None ->
+                     debug "xenopsd event: Detected VDA for VM %s with version %s" id version;
+                     Xapi_vda.create ~__context ~vm:self ~version
+                     |> ignore
+                   | None, Some _ ->
+                     debug "xenopsd event: VDA for VM %s disappeared" id
+                   | Some version, Some _ ->
+                     debug "xenopsd event: Detected updated VDA version %s for VM %s" version id;
+                     Xapi_vda.find_vda ~__context ~vm:self 
+                     |> Opt.iter (fun self -> Db.VDA.set_version ~__context ~self ~value:version)
+                   | None, None -> (* This should not happen *) ()
+                ) info
             with e ->
               error "Caught %s: while updating VDA version for VM %s" (Printexc.to_string e) id
           end;
