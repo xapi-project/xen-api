@@ -262,6 +262,41 @@ let test_cbt =
       )
   in
 
+
+  let test_vdi_data_destroy () =
+    let __context = Mock.make_context_with_new_db "Mock context" in
+
+    (* change VDI properties so that data_destroy passes *)
+    let pass_data_destroy vdi =
+      let sr = Db.VDI.get_SR ~__context ~self:vdi in
+      Db.SR.set_is_tools_sr ~__context ~self:sr ~value:false;
+      Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:true;
+      Db.VDI.set_cbt_enabled ~__context ~self:vdi ~value:true in
+
+    (* change VDI properties one by one so data_destroy only fails for the indicated reason *)
+    List.iter (fun (vdi_fun, api_error) ->
+        run_assert_equal_with_vdi ~__context ~vdi_fun `data_destroy (Some api_error))
+
+      [
+        (fun vdi -> pass_data_destroy vdi;
+          Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:false
+        ) ,         (Api_errors.operation_not_allowed, ["VDI is not a snapshot"]) ;
+
+        (fun vdi -> pass_data_destroy vdi;
+          let sr = Db.VDI.get_SR ~__context ~self:vdi in
+          Db.SR.set_type ~__context ~self:sr ~value:"udev"
+        ) ,         (Api_errors.sr_operation_not_supported, ["VDI is a physical device"])  ;
+
+        (fun vdi -> pass_data_destroy vdi;
+          let sr = Db.VDI.get_SR ~__context ~self:vdi in
+          Db.SR.set_is_tools_sr ~__context ~self:sr ~value:true
+        ) ,         (Api_errors.sr_operation_not_supported , ["Contains ISO tools"]) ;
+
+        (fun vdi -> pass_data_destroy vdi;
+          Db.VDI.set_cbt_enabled ~__context ~self:vdi ~value:false
+        ) ,         (Api_errors.vdi_no_cbt_metadata, ["VDI does not have CBT enabled"]) ;
+      ] in
+
   "test_cbt" >:::
   [ "test_sm_feature_check" >:: test_sm_feature_check
   ; "test_cbt_enable_disable_not_allowed_for_snapshot" >:: test_cbt_enable_disable_not_allowed_for_snapshot
@@ -270,6 +305,7 @@ let test_cbt =
   ; "test_cbt_enable_disable_can_be_performed_live" >:: test_cbt_enable_disable_can_be_performed_live
   ; "test_cbt_metadata_vdi_type_check" >:: test_cbt_metadata_vdi_type_check
   ; "test_vdi_cbt_enabled_check" >:: test_vdi_cbt_enabled_check
+  ; "test_vdi_data_destroy" >:: test_vdi_data_destroy
   ]
 
 (** The set of allowed operations must be restricted during rolling pool
