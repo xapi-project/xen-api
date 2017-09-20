@@ -15,5 +15,5 @@ depends: [
   "xapi-idl"
   "xapi-rrd-transport" {>= "0.9.0"}
   "xenstore_transport"
-  "jbuilder" {build & >= "1.0.0+beta10"}
+  "jbuilder" {build & >= "1.0+beta10"}
 ]
