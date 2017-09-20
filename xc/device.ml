@@ -2133,7 +2133,7 @@ module Backend = struct
     end (* Backend.Qemu_upstream_compat.Dm *)
   end (* Backend.Qemu_upstream *)
 
-  (* Until stage 4, qemu_upstream behaves as qemu_upstream_compat *)
+  (* Until the stage 4 defined in the qemu upstream design is implemented, qemu_upstream behaves as qemu_upstream_compat *)
   module Qemu_upstream  = Qemu_upstream_compat
 
   let of_profile p = match p with
