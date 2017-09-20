@@ -116,6 +116,11 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
          snapshot's VBDs to true, and this would block operations that require
          the VDI to be detached. *)
       let my_active_vbd_records =
+        (* Use Safe_list to ignore exceptions due to invalid references that
+           could propagate to the message forwarding layer, which calls this
+           function to check for errors - these exceptions would prevent the
+           actual XenAPI function from being run. Checks called from the
+           message forwarding layer should not fail with an exception. *)
         my_active_vbd_records |> Safe_list.filter
           (fun vbd ->
              let vm = vbd.Db_actions.vBD_VM in
