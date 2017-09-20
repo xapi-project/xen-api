@@ -22,19 +22,6 @@ open Stdext
 open Pervasiveext
 open Printf
 
-(** Ignore exceptions that can happen due to invalid references and just skip them *)
-module Safe = struct
-  let default_on_missing_ref f default x =
-    try
-      f x
-    with
-    | Db_exn.DBCache_NotFound ("missing reference", _, _) -> default
-    | Db_exn.DBCache_NotFound ("missing row", _, _) -> default
-  let map f = Stdext.Listext.List.filter_map (default_on_missing_ref (fun x -> Some (f x)) None)
-  let filter f = List.filter (default_on_missing_ref f false)
-  let flat_map f l = List.map (default_on_missing_ref f []) l |> List.flatten
-end
-
 (**************************************************************************************)
 (* current/allowed operations checking                                                *)
 
@@ -129,7 +116,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
          snapshot's VBDs to true, and this would block operations that require
          the VDI to be detached. *)
       let my_active_vbd_records =
-        my_active_vbd_records |> Safe.filter
+        my_active_vbd_records |> Safe_list.filter
           (fun vbd ->
              let vm = vbd.Db_actions.vBD_VM in
              Db.is_valid_ref __context vm && not (Db.VM.get_is_a_snapshot ~__context ~self:vm)
@@ -932,7 +919,7 @@ let get_nbd_info ~__context ~self =
       ~__context
       ~expr:Db_filter_types.(And (Eq (Field "SR", Literal (Ref.string_of sr)),
                                   Eq (Field "currently_attached", Literal "true")))
-    |> Safe.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
+    |> Safe_list.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
   in
   let get_ips host =
     let get_ips pif =
@@ -947,9 +934,9 @@ let get_nbd_info ~__context ~self =
         ~expr:Db_filter_types.(And (Eq (Field "host", Literal (Ref.string_of host)),
                                     Eq (Field "currently_attached", Literal "true")))
     in
-    attached_pifs |> Safe.flat_map get_ips
+    attached_pifs |> Safe_list.flat_map get_ips
   in
-  let ips = hosts_with_attached_pbds |> Safe.flat_map get_ips in
+  let ips = hosts_with_attached_pbds |> Safe_list.flat_map get_ips in
 
   let vdi_uuid = Db.VDI.get_uuid ~__context ~self in
   let session_id = Context.get_session_id __context |> Ref.string_of in
