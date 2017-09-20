@@ -7,3 +7,5 @@ struct
 end
 
 module StringSet = OUnitDiff.SetMake(StringDiff)
+
+module StringList = OUnitDiff.ListSimpleMake(StringDiff)
