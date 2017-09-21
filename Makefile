@@ -81,6 +81,7 @@ endif
 	install -D ./scripts/setup-vif-rules $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
 	install -D ./scripts/setup-pvs-proxy-rules $(DESTDIR)/$(LIBEXECDIR)/setup-pvs-proxy-rules
 	install -D ./scripts/common.py $(DESTDIR)/$(LIBEXECDIR)/common.py
+	install -D ./scripts/igmp_query_injector.py $(DESTDIR)/$(LIBEXECDIR)/igmp_query_injector.py
 	install -D ./set_domain_uuid.native $(DESTDIR)/$(LIBEXECDIR)/set-domain-uuid
 	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) LIBEXECDIR=$(LIBEXECDIR) ETCDIR=$(ETCDIR) ./scripts/make-custom-xenopsd.conf
 
@@ -106,6 +107,7 @@ uninstall:
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/setup-vif-rules
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/setup-pvs-proxy-rules
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/common.py*
+	rm -f $(DESTDIR)/$(LIBEXECDIR)/igmp_query_injector.py*
 
 .PHONY: release
 release:

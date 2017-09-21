@@ -1555,51 +1555,61 @@ module VM = struct
 					)
 			) Oldest task vm
 
+	let inject_igmp_query domid vifs =
+		let vif_names = List.map (fun vif -> Printf.sprintf "vif%d.%d" domid vif.Vif.position) vifs in
+		debug "Inject IGMP query to %s" (String.concat " " vif_names);
+		(* Call script to inject IGMP query asynchronously *)
+		let pid = Forkhelpers.safe_close_and_exec None None None [] !Xc_resources.igmp_query_injector_script ("--wait-vif-connected":: (string_of_int !Xenopsd.vif_ready_for_igmp_query_timeout) :: vif_names) in
+		Forkhelpers.dontwaitpid pid
+
 	let restore task progress_callback vm vbds vifs data extras =
 		on_domain
 			(fun xc xs task vm di ->
-                            finally
-                                (fun () ->
-				        let domid = di.Xenctrl.domid in
-				        let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
-				        let k = vm.Vm.id in
-				        let vmextra = DB.read_exn k in
-				        let (build_info, timeoffset) = match vmextra.VmExtra.persistent with
-				        	| { VmExtra.build_info = None } ->
-				        		error "VM = %s; No stored build_info: cannot safely restore" vm.Vm.id;
-				        		raise (Does_not_exist("build_info", vm.Vm.id))
-				        	| { VmExtra.build_info = Some x; VmExtra.ty } ->
-				        		let initial_target = get_initial_target ~xs domid in
-				        		let timeoffset = match ty with
-				        				Some x -> (match x with HVM hvm_info -> hvm_info.timeoffset | _ -> "")
-				        			| _ -> "" in
-				        		({ x with Domain.memory_target = initial_target }, timeoffset) in
-				        let no_incr_generationid = false in
-				        begin
-				        	try
+				finally
+					(fun () ->
+						let domid = di.Xenctrl.domid in
+						let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
+						let k = vm.Vm.id in
+						let vmextra = DB.read_exn k in
+						let (build_info, timeoffset) = match vmextra.VmExtra.persistent with
+							| { VmExtra.build_info = None } ->
+								error "VM = %s; No stored build_info: cannot safely restore" vm.Vm.id;
+								raise (Does_not_exist("build_info", vm.Vm.id))
+							| { VmExtra.build_info = Some x; VmExtra.ty } ->
+								let initial_target = get_initial_target ~xs domid in
+								let timeoffset = match ty with
+									| Some x -> (match x with HVM hvm_info -> hvm_info.timeoffset | _ -> "")
+									| _ -> "" in
+								({ x with Domain.memory_target = initial_target }, timeoffset) in
+						let no_incr_generationid = false in
+						begin
+							try
+								with_data ~xc ~xs task data false
+									(fun fd ->
+										Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *) ~timeoffset ~extras build_info (choose_xenguest vm.Vm.platformdata) domid fd
+									);
+							with e ->
+								error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
+								(* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy the domain on failure *)
+								if try ignore(Xenctrl.domain_getinfo xc di.Xenctrl.domid); false with _ -> true then begin
+									try
+										debug "VM %s: libxenguest has destroyed domid %d; cleaning up xenstore for consistency" vm.Vm.id di.Xenctrl.domid;
+										Domain.destroy task ~xc ~xs ~qemu_domid di.Xenctrl.domid;
+									with e -> debug "Domain.destroy failed. Re-raising original error."
+								end;
+								raise e
+						end;
 
-				        		with_data ~xc ~xs task data false
-				        			(fun fd ->
-				        				Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *) ~timeoffset ~extras build_info (choose_xenguest vm.Vm.platformdata) domid fd
-				        			);
-				        	with e ->
-				        		error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
-				        		(* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy the domain on failure *)
-				        		if try ignore(Xenctrl.domain_getinfo xc di.Xenctrl.domid); false with _ -> true then begin
-				        			try
-				        				debug "VM %s: libxenguest has destroyed domid %d; cleaning up xenstore for consistency" vm.Vm.id di.Xenctrl.domid;
-				        				Domain.destroy task ~xc ~xs ~qemu_domid di.Xenctrl.domid;
-				        			with e -> debug "Domain.destroy failed. Re-raising original error."
-				        		end;
-				        		raise e
-				        end;
-
-				        Int64.(
-				        	let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
-				        	and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
-				        	Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
-				        )
-                                ) (fun () -> clean_memory_reservation task di.Xenctrl.domid)
+						Int64.(
+							let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
+							and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
+							Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
+						);
+						try
+							inject_igmp_query domid vifs |> ignore
+						with e ->
+							error "VM %s: inject IGMP query failed: %s" vm.Vm.id (Printexc.to_string e)
+					) (fun () -> clean_memory_reservation task di.Xenctrl.domid)
 			) Newest task vm
 
 	let s3suspend =
