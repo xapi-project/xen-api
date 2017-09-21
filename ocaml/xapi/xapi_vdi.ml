@@ -111,6 +111,22 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
             vbd_record.Db_actions.vBD_VDI = _ref' && (vbd_record.Db_actions.vBD_currently_attached || vbd_record.Db_actions.vBD_reserved)
           ) vbd_records)
       in
+      (* Only consider VDIs attached to a non-snapshot VM as actually attached,
+         because VM.checkpoint may set the currently_attached fields of the
+         snapshot's VBDs to true, and this would block operations that require
+         the VDI to be detached. *)
+      let my_active_vbd_records =
+        (* Use Safe_list to ignore exceptions due to invalid references that
+           could propagate to the message forwarding layer, which calls this
+           function to check for errors - these exceptions would prevent the
+           actual XenAPI function from being run. Checks called from the
+           message forwarding layer should not fail with an exception. *)
+        my_active_vbd_records |> Safe_list.filter
+          (fun vbd ->
+             let vm = vbd.Db_actions.vBD_VM in
+             Db.is_valid_ref __context vm && not (Db.VM.get_is_a_snapshot ~__context ~self:vm)
+          )
+      in
       let my_active_rw_vbd_records = List.filter
           (fun vbd -> vbd.Db_actions.vBD_mode = `RW)
           my_active_vbd_records
@@ -896,18 +912,6 @@ let list_changed_blocks ~__context ~vdi_from ~vdi_to =
        C.VDI.list_changed_blocks ~dbg:(Ref.string_of task) ~sr ~vdi_from ~vdi_to
     )
 
-(** Ignore exceptions that can happen due to invalid references and just skip them *)
-module Safe = struct
-  let default_on_missing_ref f default x =
-    try
-      f x
-    with
-    | Db_exn.DBCache_NotFound ("missing reference", _, _) -> default
-    | Db_exn.DBCache_NotFound ("missing row", _, _) -> default
-  let map f = Stdext.Listext.List.filter_map (default_on_missing_ref (fun x -> Some (f x)) None)
-  let flat_map f l = List.map (default_on_missing_ref f []) l |> List.flatten
-end
-
 let get_nbd_info ~__context ~self =
   if (Db.VDI.get_type ~__context ~self) = `cbt_metadata then begin
     error "VDI.get_nbd_info: called with a VDI of type cbt_metadata (at %s)" __LOC__;
@@ -920,7 +924,7 @@ let get_nbd_info ~__context ~self =
       ~__context
       ~expr:Db_filter_types.(And (Eq (Field "SR", Literal (Ref.string_of sr)),
                                   Eq (Field "currently_attached", Literal "true")))
-    |> Safe.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
+    |> Safe_list.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
   in
   let get_ips host =
     let get_ips pif =
@@ -935,9 +939,9 @@ let get_nbd_info ~__context ~self =
         ~expr:Db_filter_types.(And (Eq (Field "host", Literal (Ref.string_of host)),
                                     Eq (Field "currently_attached", Literal "true")))
     in
-    attached_pifs |> Safe.flat_map get_ips
+    attached_pifs |> Safe_list.flat_map get_ips
   in
-  let ips = hosts_with_attached_pbds |> Safe.flat_map get_ips in
+  let ips = hosts_with_attached_pbds |> Safe_list.flat_map get_ips in
 
   let vdi_uuid = Db.VDI.get_uuid ~__context ~self in
   let session_id = Context.get_session_id __context |> Ref.string_of in

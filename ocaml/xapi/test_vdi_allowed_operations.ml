@@ -17,6 +17,8 @@ open Test_common
 
 (* Helpers for testing Xapi_vdi.check_operation_error *)
 
+let for_vdi_operations ops f () = ops |> List.iter f
+
 let setup_test ~__context ?sm_fun ?vdi_fun () =
   let run f x = match f with Some f -> ignore(f x) | None -> () in
 
@@ -50,35 +52,40 @@ let run_assert_equal_with_vdi ~__context ?(cmp = my_cmp) ?(ha_enabled=false) ?sm
    code. This DO NOT fully test the aforementionned function *)
 let test_ca98944 () =
   let __context = Mock.make_context_with_new_db "Mock context" in
-  (* Should raise vdi_in_use *)
-  run_assert_equal_with_vdi ~__context
-    ~vdi_fun:(fun vdi_ref ->
-        make_vbd ~vDI:vdi_ref ~__context
-          ~reserved:true ~currently_attached:false ~current_operations:["", `attach] ())
-    `update (Some (Api_errors.vdi_in_use, []));
+
+  (* Create a non-snapshot VM that the VDI will be attached to *)
+  let vM = Test_common.make_vm ~__context () in
 
   (* Should raise vdi_in_use *)
   run_assert_equal_with_vdi ~__context
     ~vdi_fun:(fun vdi_ref ->
-        make_vbd ~vDI:vdi_ref
+        make_vbd ~vM ~vDI:vdi_ref ~__context
+          ~reserved:true ~currently_attached:false ~current_operations:["", `attach] ())
+    `update (Some (Api_errors.vdi_in_use, []));
+
+
+  (* Should raise vdi_in_use *)
+  run_assert_equal_with_vdi ~__context
+    ~vdi_fun:(fun vdi_ref ->
+        make_vbd ~vM ~vDI:vdi_ref
           ~__context ~reserved:false ~currently_attached:true ~current_operations:["", `attach] ())
     `update (Some (Api_errors.vdi_in_use, []));
 
   (* Should raise vdi_in_use *)
   run_assert_equal_with_vdi ~__context
-    ~vdi_fun:(fun vdi_ref -> make_vbd ~vDI:vdi_ref
+    ~vdi_fun:(fun vdi_ref -> make_vbd ~vM ~vDI:vdi_ref
                  ~__context ~reserved:true ~currently_attached:true ~current_operations:["", `attach] ())
     `update (Some (Api_errors.vdi_in_use, []));
 
   (* Should raise other_operation_in_progress *)
   run_assert_equal_with_vdi ~__context
-    ~vdi_fun:(fun vdi_ref -> make_vbd ~vDI:vdi_ref
+    ~vdi_fun:(fun vdi_ref -> make_vbd ~vM ~vDI:vdi_ref
                  ~__context ~reserved:false ~currently_attached:false ~current_operations:["", `attach] ())
     `update (Some (Api_errors.other_operation_in_progress, []));
 
   (* Should pass *)
   run_assert_equal_with_vdi ~__context
-    ~vdi_fun:(fun vdi_ref -> make_vbd ~vDI:vdi_ref
+    ~vdi_fun:(fun vdi_ref -> make_vbd ~vM ~vDI:vdi_ref
                  ~__context ~reserved:false ~currently_attached:false ~current_operations:[] ())
     `forget None
 
@@ -86,16 +93,19 @@ let test_ca98944 () =
 let test_ca101669 () =
   let __context = Mock.make_context_with_new_db "Mock context" in
 
+  (* Create a non-snapshot VM that the VDI will be attached to *)
+  let vM = Test_common.make_vm ~__context () in
+
   (* Attempting to copy a RW-attached VDI should fail with VDI_IN_USE. *)
   run_assert_equal_with_vdi ~__context
     ~vdi_fun:(fun vdi_ref ->
-        make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RW ())
+        make_vbd ~__context ~vM ~vDI:vdi_ref ~currently_attached:true ~mode:`RW ())
     `copy (Some (Api_errors.vdi_in_use, []));
 
   (* Attempting to copy a RO-attached VDI should pass. *)
   run_assert_equal_with_vdi ~__context
     ~vdi_fun:(fun vdi_ref ->
-        make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO ())
+        make_vbd ~__context ~vM ~vDI:vdi_ref ~currently_attached:true ~mode:`RO ())
     `copy None;
 
   (* Attempting to copy an unattached VDI should pass. *)
@@ -104,8 +114,8 @@ let test_ca101669 () =
   (* Attempting to copy RW- and RO-attached VDIs should fail with VDI_IN_USE. *)
   run_assert_equal_with_vdi ~__context
     ~vdi_fun:(fun vdi_ref ->
-        let (_: API.ref_VBD) = make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RW () in
-        make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO ())
+        let (_: API.ref_VBD) = make_vbd ~__context ~vM ~vDI:vdi_ref ~currently_attached:true ~mode:`RW () in
+        make_vbd ~__context ~vM ~vDI:vdi_ref ~currently_attached:true ~mode:`RO ())
     `copy (Some (Api_errors.vdi_in_use, []))
 
 let test_ca125187 () =
@@ -168,7 +178,6 @@ let test_ca126097 () =
 (** Tests for the checks related to changed block tracking *)
 let test_cbt =
   let all_cbt_operations = [`enable_cbt; `disable_cbt] in
-  let for_vdi_operations ops f () = ops |> List.iter f in
   let for_cbt_enable_disable = for_vdi_operations [`enable_cbt; `disable_cbt] in
 
   let test_sm_feature_check op =
@@ -262,6 +271,25 @@ let test_cbt =
       )
   in
 
+  let test_operations_are_allowed_on_snapshot_vdis_attached_to_vm_snapshots = for_vdi_operations
+      [`data_destroy; `list_changed_blocks]
+      (fun op ->
+         let __context = Mock.make_context_with_new_db "Mock context" in
+         let vM = Test_common.make_vm ~__context ~is_a_template:true () in
+         (* Set up the fields corresponding to a VM snapshot *)
+         Db.VM.set_is_a_snapshot ~__context ~self:vM ~value:true;
+         Db.VM.set_power_state ~__context ~self:vM ~value:`Suspended;
+         run_assert_equal_with_vdi
+           ~__context
+           ~vdi_fun:(fun vDI ->
+               let (_: API.ref_VBD) = Test_common.make_vbd ~__context ~vM ~vDI ~currently_attached:true () in
+               Db.VDI.set_cbt_enabled ~__context ~self:vDI ~value:true;
+               Db.VDI.set_is_a_snapshot ~__context ~self:vDI ~value:true)
+           op
+           None
+      )
+  in
+
   "test_cbt" >:::
   [ "test_sm_feature_check" >:: test_sm_feature_check
   ; "test_cbt_enable_disable_not_allowed_for_snapshot" >:: test_cbt_enable_disable_not_allowed_for_snapshot
@@ -270,6 +298,7 @@ let test_cbt =
   ; "test_cbt_enable_disable_can_be_performed_live" >:: test_cbt_enable_disable_can_be_performed_live
   ; "test_cbt_metadata_vdi_type_check" >:: test_cbt_metadata_vdi_type_check
   ; "test_vdi_cbt_enabled_check" >:: test_vdi_cbt_enabled_check
+  ; "test_operations_are_allowed_on_snapshot_vdis_attached_to_vm_snapshots" >:: test_operations_are_allowed_on_snapshot_vdis_attached_to_vm_snapshots
   ]
 
 (** The set of allowed operations must be restricted during rolling pool
@@ -313,6 +342,49 @@ let test_operations_restricted_during_rpu =
   ; "test_update_allowed_operations" >:: test_update_allowed_operations
   ]
 
+(* Xapi_vdi.check_operation_error should not throw an
+   exception in case of invalid references, as it is called from
+   the message forwarding layer. *)
+let test_null_vm =
+  let all_vdi_operations =
+    [ `blocked
+    ; `clone
+    ; `copy
+    ; `data_destroy
+    ; `destroy
+    ; `disable_cbt
+    ; `enable_cbt
+    ; `list_changed_blocks
+    ; `force_unlock
+    ; `forget
+    ; `generate_config
+    ; `mirror
+    ; `resize
+    ; `resize_online
+    ; `set_on_boot
+    ; `snapshot
+    ; `update
+    ]
+  in
+
+  let test_null_vm op =
+    let __context = Mock.make_context_with_new_db "Mock context" in
+    let vdi_ref, vdi_record = setup_test
+        ~__context
+        ~vdi_fun:(fun vDI ->
+            (* VBDs with invalid VM refs are not valid - they can only
+               temporarily exist, and the next DB GC pass should remove
+               them. *)
+            let (_: API.ref_VBD) = Test_common.make_vbd ~__context ~vM:Ref.null ~vDI () in
+            ())
+        ()
+    in
+    (* This shouldn't throw an exception *)
+    let _: _ option = Xapi_vdi.check_operation_error ~__context false vdi_record vdi_ref op in
+    ()
+  in
+  for_vdi_operations all_vdi_operations test_null_vm
+
 let test =
   "test_vdi_allowed_operations" >:::
   [
@@ -322,4 +394,5 @@ let test =
     "test_ca126097" >:: test_ca126097;
     test_cbt;
     test_operations_restricted_during_rpu;
+    "test_null_vm" >:: test_null_vm;
   ]
