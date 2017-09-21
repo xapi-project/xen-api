@@ -31,7 +31,7 @@ let nice = ref None
 let ionice_class = ref None
 let ionice_class_data = ref None
 
-let base = ref None 
+let base = ref None
 let src = ref None
 let dest = ref None
 let size = ref (-1L)
@@ -138,7 +138,7 @@ let after f g =
 (** [find_backend_device path] returns [Some path'] where [path'] is the backend path in
     the driver domain corresponding to the frontend device [path] in this domain. *)
 let find_backend_device path =
-	try 
+	try
 		let open Xenstore in
 		(* If we're looking at a xen frontend device, see if the backend
 		   is in the same domain. If so check if it looks like a .vhd *)
@@ -148,7 +148,7 @@ let find_backend_device path =
 		match List.rev (Re_str.split (Re_str.regexp_string "/") link) with
 		| id :: "xen" :: "devices" :: _ when startswith "vbd-" id ->
 			let id = int_of_string (String.sub id 4 (String.length id - 4)) in
-			with_xs (fun xs -> 
+			with_xs (fun xs ->
 				let self = xs.Xs.read "domid" in
 				let backend = xs.Xs.read (Printf.sprintf "device/vbd/%d/backend" id) in
 				let params = xs.Xs.read (Printf.sprintf "%s/params" backend) in
@@ -175,8 +175,8 @@ let with_paused_tapdisk path f =
 		)
 	| _, _, _ -> failwith (Printf.sprintf "Failed to pause tapdisk for %s" path)
 
-let deref_symlinks path = 
-	let rec inner seen_already path = 
+let deref_symlinks path =
+	let rec inner seen_already path =
 		if List.mem path seen_already
 		then failwith "Circular symlink";
 		let stats = Unix.LargeFile.lstat path in
@@ -251,7 +251,7 @@ let _ =
 				(* Run command like: renice -n priority -p pid *)
 				let n = clip n (-20) 19 "nice" in
 				let pid = string_of_int (Unix.getpid ()) in
-				let (stdout, stderr) = Forkhelpers.execute_command_get_output renice_cmd ["-n"; string_of_int n; "-p"; pid]
+				let _ = Forkhelpers.execute_command_get_output renice_cmd ["-n"; string_of_int n; "-p"; pid]
 				in ()
 			)
 		);
@@ -267,7 +267,7 @@ let _ =
 			| Some c ->
 				let pid = string_of_int (Unix.getpid ()) in
 				let ionice args =
-					let (stdout, stderr) = Forkhelpers.execute_command_get_output ionice_cmd args
+					let _ = Forkhelpers.execute_command_get_output ionice_cmd args
 					in ()
 				in
 				let class_only c =
