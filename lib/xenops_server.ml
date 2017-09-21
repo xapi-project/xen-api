@@ -81,6 +81,8 @@ type atomic =
 	| VM_remove of Vm.id
 	| PCI_plug of Pci.id
 	| PCI_unplug of Pci.id
+	| VUSB_plug of Vusb.id
+	| VUSB_unplug of Vusb.id
 	| VM_set_xsdata of (Vm.id * (string * string) list)
 	| VM_set_vcpus of (Vm.id * int)
 	| VM_set_shadow_multiplier of (Vm.id * float)
@@ -126,6 +128,7 @@ type operation =
 	| PCI_check_state of Pci.id
 	| VBD_check_state of Vbd.id
 	| VIF_check_state of Vif.id
+	| VUSB_check_state of Vusb.id
 	| Atomic of atomic
 [@@deriving rpc]
 
@@ -322,6 +325,40 @@ module VGPU_DB = struct
 			)
 end
 
+module VUSB_DB = struct
+	include TypedTable(struct
+		include Vusb
+		let namespace = "VM"
+		type key = id
+		let key k = [ fst k; "vusb." ^ (snd k) ]
+	end)
+	let vm_of = fst
+	let string_of_id (a, b) = a ^ "." ^ b
+
+	let ids vm : Vusb.id list =
+		list [ vm ] |> (filter_prefix "vusb.") |> List.map (fun id -> (vm, id))
+	let vusbs vm = ids vm |> List.map read |> dropnone
+	let list vm =
+		debug "VUSB.list";
+		let vusbs' = vusbs vm in
+		let module B = (val get_backend () : S) in
+		let states = List.map (B.VUSB.get_state vm) vusbs' in
+		List.combine vusbs' states
+	let m = Mutex.create ()
+	let signal id =
+		debug "VUSB_DB.signal %s" (string_of_id id);
+		Mutex.execute m
+			(fun () ->
+				 Updates.add (Dynamic.Vusb id) updates
+			)
+	let remove id =
+		Mutex.execute m
+			(fun () ->
+				Updates.remove (Dynamic.Vusb id) updates;
+				remove id
+			)
+end
+
 module StringMap = Map.Make(struct type t = string let compare = compare end)
 
 let push_with_coalesce should_keep item queue =
@@ -444,6 +481,7 @@ module Redirector = struct
 		| VM_check_state (_)
 		| PCI_check_state (_)
 		| VBD_check_state (_)
+		| VUSB_check_state (_)
 		| VIF_check_state (_) ->
 			let prev' = List.map fst prev in
 			not(List.mem op prev')
@@ -753,6 +791,7 @@ let export_metadata vdi_map vif_map id =
 	let vifs = List.map (fun vif -> remap_vif vif_map vif) (VIF_DB.vifs id) in
 	let pcis = PCI_DB.pcis id in
 	let vgpus = VGPU_DB.vgpus id in
+	let vusbs = VUSB_DB.vusbs id in
 	let domains = B.VM.get_internal_state vdi_map vif_map vm_t in
 
 
@@ -767,6 +806,7 @@ let export_metadata vdi_map vif_map id =
 		vifs = vifs;
 		pcis = pcis;
 		vgpus = vgpus;
+		vusbs = vusbs;
 		domains = Some domains;
 	} |> Metadata.rpc_of_t |> Jsonrpc.to_string
 
@@ -839,6 +879,10 @@ let rec atomics_of_operation = function
 			   condition causing an interrupt storm. *)
 		] @ simplify (List.map (fun pci -> PCI_plug pci.Pci.id)
 			(PCI_DB.pcis id |> pci_plug_order)
+
+			(* Plug USB device into HVM guests via qemu .*)
+		) @ simplify (List.map (fun vusb -> VUSB_plug vusb.Vusb.id)
+			(VUSB_DB.vusbs id)
 		) @ [
 			(* At this point the domain is considered survivable. *)
 			VM_set_domain_action_request(id, None)
@@ -1156,6 +1200,7 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
 					List.iter (fun vif -> VIF_DB.remove vif.Vif.id) (VIF_DB.vifs id);
 					List.iter (fun pci -> PCI_DB.remove pci.Pci.id) (PCI_DB.pcis id);
 					List.iter (fun vgpu -> VGPU_DB.remove vgpu.Vgpu.id) (VGPU_DB.vgpus id);
+					List.iter (fun vusb -> VUSB_DB.remove vusb.Vusb.id) (VUSB_DB.vusbs id);
 					VM_DB.remove id
 			end
 		| PCI_plug id ->
@@ -1168,6 +1213,16 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
 				(fun () ->
 					B.PCI.unplug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
 				) (fun () -> PCI_DB.signal id)
+		| VUSB_plug id ->
+		    debug "VUSB.plug %s" (VUSB_DB.string_of_id id);
+		    B.VUSB.plug t (VUSB_DB.vm_of id) (VUSB_DB.read_exn id);
+		    VUSB_DB.signal id
+		| VUSB_unplug id ->
+		    debug "VUSB.unplug %s" (VUSB_DB.string_of_id id);
+		    finally
+		        (fun () ->
+		            B.VUSB.unplug t (VUSB_DB.vm_of id) (VUSB_DB.read_exn id);
+		        ) (fun () -> VUSB_DB.signal id)
 		| VM_set_xsdata (id, xsdata) ->
 			debug "VM.set_xsdata (%s, [ %s ])" id (String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xsdata));
 			B.VM.set_xsdata t (VM_DB.read_exn id) xsdata
@@ -1213,8 +1268,10 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
 			let vbds : Vbd.t list = VBD_DB.vbds id in
 			let vifs : Vif.t list = VIF_DB.vifs id in
 			let vgpus : Vgpu.t list = VGPU_DB.vgpus id in
-			B.VM.create_device_model t (VM_DB.read_exn id) vbds vifs vgpus save_state;
-			List.iter VGPU_DB.signal  (VGPU_DB.ids id)
+			let vusbs : Vusb.t list = VUSB_DB.vusbs id in
+			B.VM.create_device_model t (VM_DB.read_exn id) vbds vifs vgpus vusbs save_state;
+			List.iter VGPU_DB.signal  (VGPU_DB.ids id);
+			List.iter VUSB_DB.signal (VUSB_DB.ids id)
 		end
 		| VM_destroy_device_model id ->
 			debug "VM.destroy_device_model %s" id;
@@ -1230,12 +1287,13 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
 			let vbds : Vbd.t list = VBD_DB.vbds id |> vbd_plug_order in
 			let vifs : Vif.t list = VIF_DB.vifs id |> vif_plug_order in
 			let vgpus : Vgpu.t list = VGPU_DB.vgpus id |> vgpu_plug_order in
+			let vusbs : Vusb.t list = VUSB_DB.vusbs id in
 			let extras : string list = match PCI_DB.pcis id |> pci_plug_order with
 			| [] -> []
 			| pcis  ->
 				 let sbdfs = List.map (fun p -> Pci.string_of_address p.Pci.address) pcis in
 				 [ "-pci_passthrough"; String.concat "," sbdfs] in
-			B.VM.build t (VM_DB.read_exn id) vbds vifs vgpus extras force
+			B.VM.build t (VM_DB.read_exn id) vbds vifs vgpus vusbs extras force
 		| VM_shutdown_domain (id, reason, timeout) ->
 			debug "VM.shutdown_domain %s, reason = %s, timeout = %f, ack timeout = %f"
 				id (string_of_shutdown_request reason) timeout !domain_shutdown_ack_timeout;
@@ -1346,6 +1404,7 @@ and trigger_cleanup_after_failure op t =
 	| VM_check_state _
 	| PCI_check_state _
 	| VBD_check_state _
+	| VUSB_check_state _
 	| VIF_check_state _ -> () (* not state changing operations *)
 
 	| VM_start (id, _)
@@ -1399,6 +1458,10 @@ and trigger_cleanup_after_failure_atom op t =
 		| PCI_plug id
 		| PCI_unplug id ->
 			immediate_operation dbg (fst id) (PCI_check_state id)
+
+		| VUSB_plug id
+		| VUSB_unplug id ->
+		    immediate_operation dbg (fst id) (VUSB_check_state id)
 
 		| VM_hook_script (id, _, _)
 		| VM_remove id
@@ -1683,6 +1746,23 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 				| Needs_set_qos -> None in
 			let operations = List.filter_map operations_of_request (Opt.to_list request) in
 			List.iter (fun x -> perform x t) operations
+		| VUSB_check_state id ->
+			debug "VUSB.check_state %s" (VUSB_DB.string_of_id id);
+			let vusb_t = VUSB_DB.read_exn id in
+			let vm_state = B.VM.get_state (VM_DB.read_exn (VUSB_DB.vm_of id)) in
+			let request =
+				if vm_state.Vm.power_state = Running || vm_state.Vm.power_state = Paused
+				then B.VUSB.get_device_action_request (VUSB_DB.vm_of id) vusb_t
+				else begin
+					debug "VM %s is not running: VUSB_unplug needed" (VUSB_DB.vm_of id);
+					Some Needs_unplug
+				end in
+			let operations_of_request = function
+				| Needs_unplug -> Some (Atomic(VBD_unplug (id, true)))
+				| Needs_set_qos -> None in
+			let operations = List.filter_map operations_of_request (Opt.to_list request) in
+			List.iter (fun x -> perform x t) operations;
+			VUSB_DB.signal id
 		| Atomic op ->
 			let progress_callback = progress_callback 0. 1. t in
 			perform_atomic ~progress_callback ?subtask ?result op t
@@ -1818,6 +1898,55 @@ module VGPU = struct
 		Debug.with_thread_associated dbg
 			(fun () ->
 				debug "VGPU.list %s" vm;
+				DB.list vm) ()
+end
+
+module VUSB = struct
+	open Vusb
+
+	module DB = VUSB_DB
+	let string_of_id (a, b) = a ^ "." ^ b
+	let add' x =
+		debug "VUSB.add %s %s" (string_of_id x.id) (Jsonrpc.to_string (rpc_of_t x));
+		(* Only if the corresponding VM actually exists *)
+		let vm = DB.vm_of x.id in
+		if not (VM_DB.exists vm) then begin
+			debug "VM %s not managed by me" vm;
+			raise (Does_not_exist("VM", vm));
+		end;
+		DB.write x.id x;
+		x.id
+	let add _ dbg x =
+		Debug.with_thread_associated dbg
+			(fun () -> add' x ) ()
+	let plug _ dbg id  = queue_operation dbg (DB.vm_of id) (Atomic(VUSB_plug id))
+	let unplug _ dbg id = queue_operation dbg (DB.vm_of id) (Atomic(VUSB_unplug id))
+	let remove' id =
+		debug "VUSB.remove %s" (string_of_id id);
+		let module B = (val get_backend () : S) in
+		if (B.VUSB.get_state (DB.vm_of id) (VUSB_DB.read_exn id)).Vusb.plugged
+		then raise (Device_is_connected)
+		else (DB.remove id)
+	let remove _ dbg id =
+		Debug.with_thread_associated dbg
+			(fun () -> remove' id ) ()
+
+	let stat' id =
+		debug "VUSB.stat %s" (string_of_id id);
+		let module B = (val get_backend () : S) in
+		let vusb_t = VUSB_DB.read_exn id in
+		let state = B.VUSB.get_state (DB.vm_of id) vusb_t in
+		vusb_t, state
+
+	let stat _ dbg id =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				(stat' id)) ()
+
+	let list _ dbg vm =
+		Debug.with_thread_associated dbg
+			(fun () ->
+				debug "VUSB.list %s" vm;
 				DB.list vm) ()
 end
 
@@ -2184,6 +2313,7 @@ module VM = struct
 				let vifs = List.map (fun x -> { x with Vif.id = (vm, snd x.Vif.id) }) md.Metadata.vifs in
 				let pcis = List.map (fun x -> { x with Pci.id = (vm, snd x.Pci.id) }) md.Metadata.pcis in
 				let vgpus = List.map (fun x -> {x with Vgpu.id = (vm, snd x.Vgpu.id) }) md.Metadata.vgpus in
+				let vusbs = List.map (fun x -> {x with Vusb.id = (vm, snd x.Vusb.id) }) md.Metadata.vusbs in
 
 				(* Remove any VBDs, VIFs, PCIs and VGPUs not passed in - they must have been destroyed in the higher level *)
 
@@ -2197,11 +2327,13 @@ module VM = struct
 				gc (VIF_DB.ids id) (List.map (fun x -> x.Vif.id) vifs) (VIF.remove');
 				gc (PCI_DB.ids id) (List.map (fun x -> x.Pci.id) pcis) (PCI.remove');
 				gc (VGPU_DB.ids id) (List.map (fun x -> x.Vgpu.id) vgpus) (VGPU.remove');
+				gc (VUSB_DB.ids id) (List.map (fun x -> x.Vusb.id) vusbs) (VUSB.remove');
 
 				let (_: Vbd.id list) = List.map VBD.add' vbds in
 				let (_: Vif.id list) = List.map VIF.add' vifs in
 				let (_: Pci.id list) = List.map PCI.add' pcis in
 				let (_: Vgpu.id list) = List.map VGPU.add' vgpus in
+				let (_: Vusb.id list) = List.map VUSB.add' vusbs in
 				md.Metadata.domains |> Opt.iter (B.VM.set_internal_state (VM_DB.read_exn vm));
 				vm
 			) ()
@@ -2252,6 +2384,7 @@ module UPDATES = struct
 						| Dynamic.Vbd (id,_)
 						| Dynamic.Vif (id,_)
 						| Dynamic.Pci (id,_)
+						| Dynamic.Vusb (id,_)
 						| Dynamic.Vgpu (id,_) -> id=vm_id
 				in
 				Updates.inject_barrier id filter updates
@@ -2273,6 +2406,7 @@ module UPDATES = struct
 				List.iter VIF_DB.signal (VIF_DB.ids id);
 				List.iter PCI_DB.signal (PCI_DB.ids id);
 				List.iter VGPU_DB.signal (VGPU_DB.ids id);
+				List.iter VUSB_DB.signal (VUSB_DB.ids id);
 				()
 			) ()
 end
@@ -2305,6 +2439,9 @@ let internal_event_thread_body = Debug.with_thread_associated "events" (fun () -
 						| Dynamic.Pci id ->
 							debug "Received an event on managed PCI %s.%s" (fst id) (snd id);
 							queue_operation dbg (PCI_DB.vm_of id) (PCI_check_state id) |> TASK.destroy'
+						| Dynamic.Vusb id ->
+							debug "Received an event on managed VUSB %s.%s" (fst id) (snd id);
+							queue_operation dbg (VUSB_DB.vm_of id) (VUSB_check_state id) |> TASK.destroy'
 						| x ->
 							debug "Ignoring event on %s" (Jsonrpc.to_string (Dynamic.rpc_of_id x))
 					) updates;
@@ -2332,6 +2469,7 @@ let register_objects () =
 			List.iter VBD_DB.signal (VIF_DB.ids vm);
 			List.iter PCI_DB.signal (PCI_DB.ids vm);
 			List.iter VGPU_DB.signal (VGPU_DB.ids vm);
+			List.iter VUSB_DB.signal (VUSB_DB.ids vm);
 		) (VM_DB.ids ())
 
 module Diagnostics = struct

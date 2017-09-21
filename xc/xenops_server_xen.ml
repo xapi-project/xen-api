@@ -1125,7 +1125,7 @@ module VM = struct
 
 	(* NB: the arguments which affect the qemu configuration must be saved and
 	   restored with the VM. *)
-	let create_device_model_config vm vmextra vbds vifs vgpus = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
+	let create_device_model_config vm vmextra vbds vifs vgpus vusbs = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
 		| { VmExtra.build_info = None }, _
 		| { VmExtra.ty = None }, _ -> raise (Domain_not_built)
 		| {
@@ -1222,7 +1222,7 @@ module VM = struct
 						?vnc_ip:hvm_info.vnc_ip ~usb ~parallel
 						~pci_emulations:hvm_info.pci_emulations
 						~pci_passthrough:hvm_info.pci_passthrough
-						~boot_order:hvm_info.boot_order ~nics ~disks ~vgpus ())
+						~boot_order:hvm_info.boot_order ~nics ~disks ~vgpus())
 
         let clean_memory_reservation task domid =
                 try
@@ -1232,7 +1232,7 @@ module VM = struct
                 with Memory_interface.MemoryError Memory_interface.No_reservation ->
                         error "Please check if memory reservation for domain %d is present, if so manually remove it" domid
 
-	let build_domain_exn xc xs domid task vm vbds vifs vgpus extras force =
+	let build_domain_exn xc xs domid task vm vbds vifs vgpus vusbs extras force =
 		let open Memory in
 		let initial_target = get_initial_target ~xs domid in
 		let make_build_info kernel priv = {
@@ -1296,12 +1296,12 @@ module VM = struct
 		) (fun () -> Opt.iter Bootloader.delete !kernel_to_cleanup)
 
 
-	let build_domain vm vbds vifs vgpus extras force xc xs task _ di =
+	let build_domain vm vbds vifs vgpus vusbs extras force xc xs task _ di =
 		let domid = di.Xenctrl.domid in
                 finally
                     (fun () ->
                             try
-                              build_domain_exn xc xs domid task vm vbds vifs vgpus extras force;
+                              build_domain_exn xc xs domid task vm vbds vifs vgpus vusbs extras force;
                             with
                                     | Bootloader.Bad_sexpr x ->
                                             let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_sexpr %s" vm.Vm.id domid x in
@@ -1328,9 +1328,9 @@ module VM = struct
                                             raise e
                     ) (fun () -> clean_memory_reservation task di.Xenctrl.domid)
 
-	let build ?restore_fd task vm vbds vifs vgpus extras force = on_domain (build_domain vm vbds vifs vgpus extras force) Newest task vm
+	let build ?restore_fd task vm vbds vifs vgpus vusbs extras force = on_domain (build_domain vm vbds vifs vgpus vusbs extras force) Newest task vm
 
-	let create_device_model_exn vbds vifs vgpus saved_state xc xs task vm di =
+	let create_device_model_exn vbds vifs vgpus vusbs saved_state xc xs task vm di =
 		let vmextra = DB.read_exn vm.Vm.id in
 		let qemu_dm = choose_qemu_dm vm.Vm.platformdata in
 		let xenguest = choose_xenguest vm.Vm.platformdata in
@@ -1353,14 +1353,14 @@ module VM = struct
 						Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
 						Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
 						Device.Dm.start_vnconly task ~xs ~dm:qemu_dm info di.Xenctrl.domid
-			) (create_device_model_config vm vmextra vbds vifs vgpus);
+			) (create_device_model_config vm vmextra vbds vifs vgpus vusbs);
 			match vm.Vm.ty with
 				| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
 				| _ -> ()
 		with Device.Ioemu_failed (name, msg) ->
 			raise (Failed_to_start_emulator (vm.Vm.id, name, msg))
 
-	let create_device_model task vm vbds vifs vgpus saved_state = on_domain (create_device_model_exn vbds vifs vgpus saved_state) Newest task vm
+	let create_device_model task vm vbds vifs vgpus vusbs saved_state = on_domain (create_device_model_exn vbds vifs vgpus vusbs saved_state) Newest task vm
 
 	let request_shutdown task vm reason ack_delay =
 		let reason = shutdown_reason reason in
@@ -1946,6 +1946,47 @@ module VGPU = struct
 				| Some pid -> {plugged = true; emulator_pid}
 				| None -> {plugged = false; emulator_pid})
 			Newest vm
+end
+
+module VUSB = struct
+	open Vusb
+
+	let id_of vusb =snd vusb.id
+
+	let get_state vm vusb =
+		on_frontend
+			(fun _ xs frontend_domid _ ->
+				let emulator_pid = Device.Qemu.pid ~xs frontend_domid in
+				debug "Qom list to get vusb state";
+				let peripherals = Device.Vusb.qom_list ~xs ~domid:frontend_domid in
+				debug "qom list result head %s" (List.hd peripherals);
+				let found = List.mem (snd vusb.Vusb.id)  peripherals in
+				match emulator_pid, found with
+				| Some pid, true -> {plugged = true}
+				| _,_ -> {plugged = false})
+			Newest vm
+
+	let get_device_action_request vm vusb =
+		let state = get_state vm vusb in
+		(* If it has disappeared from qom-list then we assume unplug is needed if only
+		   to release resources *)
+		if not state.plugged then Some Needs_unplug else None
+
+	let plug task vm vusb =
+		on_frontend
+			(fun xc xs frontend_domid hvm ->
+				if not hvm
+				then info "VM = %s; vusb device will no plug to  a PV guest" vm
+				else
+					Device.Vusb.vusb_plug ~xs ~domid:frontend_domid ~id:(snd vusb.Vusb.id) ~hostbus:vusb.Vusb.hostbus ~hostport:vusb.Vusb.hostport ~version:vusb.Vusb.version;
+			) Newest vm
+
+	let unplug task vm vusb =
+		on_frontend
+			(fun xc xs frontend_domid hvm ->
+				Device.Vusb.vusb_unplug ~xs ~domid:frontend_domid ~id:(snd vusb.Vusb.id);
+			) Newest vm
+
 end
 
 let set_active_device path active =
