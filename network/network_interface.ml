@@ -117,6 +117,7 @@ type bridge_config_t = {
 	ports: (port * port_config_t) list;
 	vlan: (bridge * int) option;
 	bridge_mac: string option;
+	igmp_snooping: bool option;
 	other_config: (string * string) list;
 	persistent_b: bool;
 }
@@ -145,6 +146,7 @@ let default_bridge = {
 	ports = [];
 	vlan = None;
 	bridge_mac = None;
+	igmp_snooping = None;
 	other_config = [];
 	persistent_b = false;
 }
@@ -286,7 +288,7 @@ module Bridge = struct
 	external get_all : debug_info -> unit -> bridge list = ""
 	external get_bond_links_up : debug_info -> name:port -> int = ""
 	external create : debug_info -> ?vlan:(bridge * int) ->
-		?mac:string -> ?other_config:(string * string) list -> name:bridge -> unit -> unit = ""
+		?mac:string -> ?igmp_snooping:bool -> ?other_config:(string * string) list -> name:bridge -> unit -> unit = ""
 	external destroy : debug_info -> ?force:bool -> name:bridge -> unit -> unit = ""
 	external get_kind : debug_info -> unit -> kind = ""
 	external get_ports : debug_info -> name:bridge -> (port * iface list) list = ""
