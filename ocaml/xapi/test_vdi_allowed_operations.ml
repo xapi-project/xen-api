@@ -301,6 +301,10 @@ let all_cbt_operations = [`enable_cbt; `disable_cbt; `data_destroy] in
           let _: _ API.Ref.t = Test_common.make_vbd ~__context ~vDI:vdi ~vM ~currently_attached:true () in
           pass_data_destroy vdi
         ) ,         Some (Api_errors.vdi_in_use, []) ;
+
+        (fun vdi -> pass_data_destroy vdi;
+          Db.VDI.set_type ~__context ~self:vdi ~value:`cbt_metadata
+        ) ,         None ;
       ] in
 
   "test_cbt" >:::
