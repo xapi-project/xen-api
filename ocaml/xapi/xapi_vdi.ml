@@ -596,7 +596,6 @@ let data_destroy ~__context ~self =
   if Db.VDI.get_type ~__context ~self <> `cbt_metadata then begin
     destroy_and_data_destroy_common ~__context ~self ~operation:`data_destroy;
     Db.VDI.set_type ~__context ~self ~value:`cbt_metadata;
-    update_allowed_operations ~__context ~self
   end
 
 let resize_online ~__context ~vdi ~size =
