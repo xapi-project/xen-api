@@ -1,0 +1,42 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+| [] -> ""
+| pkgs ->
+  let cmd = "ocamlfind ocamlc -verbose" ^ (
+    List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+  ) in
+  let ic = Unix.open_process_in
+    (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
+  in
+  let rec go ic acc =
+    try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+  in
+  go ic ""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(library (
+  (name local_lib)
+  (wrapped false)
+  (c_names (sendfile64_stubs))
+  (flags (:standard -w -34-32 %s))
+  (libraries (
+    lwt
+    cstruct
+    cohttp.lwt
+    io-page.unix
+    nbd.lwt
+    re.str
+    sha.sha1
+    tapctl
+    tar
+    vhd-format
+    vhd-format.lwt
+    xenstore.client
+    xenstore.unix
+    xenstore_transport
+    xenstore_transport.unix
+  ))
+))
+|} (flags ["cstruct.ppx"])
