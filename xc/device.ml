@@ -2140,7 +2140,8 @@ module Backend = struct
 
       let stop ~xs ~qemu_domid domid  =
         Dm_Common.stop ~xs ~qemu_domid domid;
-        QMP_Event.remove domid
+        QMP_Event.remove domid;
+        xs.Xs.rm (sprintf "/libxl/%d" domid)
 
       let with_dirty_log domid ~f =
         finally
