@@ -74,7 +74,7 @@ let rec of_ty_verbatim = function
   | Float -> "float"
   | Bool -> "bool"
   | DateTime -> "datetime"
-  | Enum (name, things) -> name
+  | Enum (name, _, things) -> name
   | Set x -> sprintf "%s set" (of_ty_verbatim x)
   | Map (a, b) -> sprintf "(%s -> %s) map" (of_ty_verbatim a) (of_ty_verbatim b)
   | Ref obj -> obj ^ " ref"
@@ -87,7 +87,7 @@ let rec of_ty = function
   | Float -> "float"
   | Bool -> "bool"
   | DateTime -> "datetime"
-  | Enum (name, things) -> escape name
+  | Enum (name, _, things) -> escape name
   | Set x -> (of_ty x) ^ " set"
   | Map (a, b) -> "(" ^ (of_ty a) ^ " &#45;&gt; " ^ (of_ty b) ^ ") map"
   | Ref obj -> (escape obj) ^ " ref"
@@ -236,7 +236,7 @@ let of_obj printer x =
     |> List.iter (markdown_section_of_message printer ~is_class_deprecated ~is_class_removed)
 
 let print_enum printer = function
-  | Enum (name, options) ->
+  | Enum (name, _, options) ->
     printer (sprintf "|`enum %s`|                                        |"
       (pad_right name (col_width_40 - 7)));
     printer "|:---------------------------------------|:---------------------------------------|";
@@ -340,7 +340,7 @@ The following enumeration types are used:
 ";
   let type_comparer x y =
     match x, y with
-    | Enum (a, _), Enum (b, _) -> compare_case_ins a b
+    | Enum (a, _, _), Enum (b, _, _) -> compare_case_ins a b
     | _ -> compare x y
   in
   Types.of_objects system |> List.sort type_comparer |> List.iter (print_enum printer);

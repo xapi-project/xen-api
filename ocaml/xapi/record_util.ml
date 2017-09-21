@@ -91,6 +91,7 @@ let vm_bios_key_to_string: API.vm_bios_string_keys -> string = function
   | `systemversion -> "system-version"
   | `systemserialnumber -> "system-serial-number"
   | `enclosureassettag -> "enclosure-asset-tag"
+  | `unknown -> "unknown"
 
 let string_to_vm_bios_key: string -> API.vm_bios_string_keys = function
   | "bios-vendor" -> `biosvendor
