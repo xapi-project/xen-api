@@ -4,12 +4,11 @@
 #
 # Generate a TLS certificate file to use with stunnel etc.
 #
-
-DIR=/tmp/ssl-generation-$$
+set -e
 FILE=$1
 CN=$2
-
-if [ -z "${CN}" ]; then
+set -eu
+if [ -z "${CN}" -o -z "${FILE}" ]; then
 	echo "usage: $0 <certname> <cn>"
 	exit 2
 fi
@@ -22,8 +21,12 @@ fi
 dnsnames=$((hostname -A; hostname -f) | sort | uniq)
 addresses=$(hostname -I | sort | uniq)
 
-mkdir -p ${DIR}
-chmod 700 ${DIR}
+DIR=$(mktemp -d tls-cert-generation-XXXXXXXXXX --tmpdir)
+
+function cleanup {
+	rm -rf "${DIR}"
+}
+trap cleanup ERR EXIT
 
 pushd ${DIR}
 
@@ -72,10 +75,20 @@ openssl dhparam 512 > dh.pem
 
 popd
 
+tmpcert="${DIR}/tmpcertcombined.pem"
+
 (cat ${DIR}/privkey.rsa; echo ""; cat ${DIR}/signedpubcert.pem; \
- echo ""; cat ${DIR}/dh.pem) > ${FILE}
-chmod 400 ${FILE}
+ echo ""; cat ${DIR}/dh.pem) > "${tmpcert}"
 
-rm -rf ${DIR}
+# Set up tmpcert the way we want it, then use mv to ensure that FILE
+# appears as an atomic event.
+chmod 400 "${tmpcert}"
+mv --no-clobber "${tmpcert}" "${FILE}"
+# Now check whether the mv succeeded (since it returns a 0 exit-code even if FILE existed already).
+if [ -e "${tmpcert}" ]; then
+	# It still exists in original location: it has not been moved.
+	echo "File has been created just now by someone else: cannot overwrite";
+	exit 3 # Rely on the EXIT trap to clean up.
+fi
 
-exit 0
+exit 0 # Rely on the EXIT trap to clean up.
