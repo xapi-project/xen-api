@@ -67,7 +67,7 @@ let rec string_of_ty_with_enums ty =
   | Float -> "float", []
   | Bool -> "bool", []
   | DateTime -> "datetime", []
-  | Enum (name, kv) -> "enum " ^ name, [name, kv]
+  | Enum (name, _, kv) -> "enum " ^ name, [name, kv]
   | Set (ty) ->
     let s, e = string_of_ty_with_enums ty in
     s ^ " set", e

@@ -1630,7 +1630,7 @@ let session_logout_subject_identifier = call
    Asynchronous Task Management
    ------------------------------------------------------------------------------------------------------------ *)
 
-let cancel_result = Enum ("cancel_result",
+let cancel_result = Enum ("cancel_result",false,
                           [ "OK", "OK";
                             "Failed", "Not OK" ])
 
@@ -1638,7 +1638,7 @@ let cancel_result = Enum ("cancel_result",
    RRD Consolidation function specification
    ------------------------------------------------------------------------------------------------------------ *)
 
-let rrd_cf_type = Enum ("rrd_cf_type",
+let rrd_cf_type = Enum ("rrd_cf_type", false,
                         [ "Average", "Average";
                           "Min", "Minimum";
                           "Max", "Maximum";
@@ -2540,7 +2540,7 @@ let vm_create_new_blob = call
     ()
 
 let vm_bios_string_keys =
-  Enum ("vm_bios_string_keys",
+  Enum ("vm_bios_string_keys", true,
         [ "bios-vendor",          "Indicates BIOS vendor's Name.";
           "bios-version",         "Indicates BIOS version";
           "system-manufacturer",  "Indicates system manufacturer";
@@ -3931,7 +3931,7 @@ let session =
 
 
 (* NB: the status 'cancelling' is not being used, nor should it ever be used. It should be purged from here! *)
-let status_type = Enum("task_status_type", [ "pending", "task is in progress";
+let status_type = Enum("task_status_type", false, [ "pending", "task is in progress";
                                              "success", "task was completed successfully";
                                              "failure", "task has failed";
                                              "cancelling", "task is being cancelled";
@@ -3984,7 +3984,7 @@ let task_set_status = call ~flags:[`Session]
 let extra_permission_task_destroy_any = "task.destroy/any"
 
 let task_allowed_operations =
-  Enum ("task_allowed_operations", List.map operation_enum [ task_cancel; task_destroy ])
+  Enum ("task_allowed_operations", false, List.map operation_enum [ task_cancel; task_destroy ])
 
 let task =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_task ~descr:"A long-running asynchronous task" ~gen_events:true
@@ -4127,7 +4127,7 @@ let host_crashdump =
 
 (* New Ely pool update mechanism *)
 let livepatch_status =
-  Enum ("livepatch_status",
+  Enum ("livepatch_status", false,
         [
           "ok_livepatch_complete", "An applicable live patch exists for every required component";
           "ok_livepatch_incomplete", "An applicable live patch exists but it is not sufficient";
@@ -4135,7 +4135,7 @@ let livepatch_status =
         ])
 
 let pool_update_after_apply_guidance =
-  Enum ("update_after_apply_guidance",
+  Enum ("update_after_apply_guidance", false,
         [ "restartHVM",  "This update requires HVM guests to be restarted once applied.";
           "restartPV",   "This update requires PV guests to be restarted once applied.";
           "restartHost", "This update requires the host to be restarted once applied.";
@@ -4284,7 +4284,7 @@ let pool_update =
 (* New Miami pool patching mechanism *)
 
 let pool_patch_after_apply_guidance =
-  Enum ("after_apply_guidance",
+  Enum ("after_apply_guidance", false,
         [ "restartHVM",  "This patch requires HVM guests to be restarted once applied.";
           "restartPV",   "This patch requires PV guests to be restarted once applied.";
           "restartHost", "This patch requires the host to be restarted once applied.";
@@ -4716,7 +4716,7 @@ let host_get_server_certificate = call
     ()
 
 let host_display =
-  Enum ("host_display", [
+  Enum ("host_display", false, [
       "enabled", "This host is outputting its console to a physical display device";
       "disable_on_reboot", "The host will stop outputting its console to a physical display device on next boot";
       "disabled", "This host is not outputting its console to a physical display device";
@@ -4724,7 +4724,7 @@ let host_display =
     ])
 
 let host_operations =
-  Enum ("host_allowed_operations",
+  Enum ("host_allowed_operations", false,
         [ "provision", "Indicates this host is able to provision another VM";
           "evacuate", "Indicates this host is evacuating";
           "shutdown", "Indicates this host is in the process of shutting itself down";
@@ -5179,11 +5179,11 @@ let qos devtype =
   ]
 
 let network_operations =
-  Enum ("network_operations",
+  Enum ("network_operations", false,
         [ "attaching", "Indicates this network is attaching to a VIF or PIF" ])
 
 let network_default_locking_mode =
-  Enum ("network_default_locking_mode", [
+  Enum ("network_default_locking_mode", false, [
       "unlocked", "Treat all VIFs on this network with locking_mode = 'default' as if they have locking_mode = 'unlocked'";
       "disabled", "Treat all VIFs on this network with locking_mode = 'default' as if they have locking_mode = 'disabled'";
     ])
@@ -5345,7 +5345,7 @@ let pif_unplug = call
     ~allowed_roles:_R_POOL_OP
     ()
 
-let pif_ip_configuration_mode = Enum ("ip_configuration_mode",
+let pif_ip_configuration_mode = Enum ("ip_configuration_mode", false,
                                       [ "None", "Do not acquire an IP address";
                                         "DHCP", "Acquire an IP address by DHCP";
                                         "Static", "Static IP address configuration" ])
@@ -5364,7 +5364,7 @@ let pif_reconfigure_ip = call
     ~allowed_roles:_R_POOL_OP
     ()
 
-let pif_ipv6_configuration_mode = Enum ("ipv6_configuration_mode",
+let pif_ipv6_configuration_mode = Enum ("ipv6_configuration_mode", false,
                                         [ "None", "Do not acquire an IPv6 address";
                                           "DHCP", "Acquire an IPv6 address by DHCP";
                                           "Static", "Static IPv6 address configuration";
@@ -5383,7 +5383,7 @@ let pif_reconfigure_ipv6 = call
     ~allowed_roles:_R_POOL_OP
     ()
 
-let pif_primary_address_type = Enum ("primary_address_type",
+let pif_primary_address_type = Enum ("primary_address_type", false,
                                      [ "IPv4", "Primary address is the IPv4 address";
                                        "IPv6", "Primary address is the IPv6 address" ])
 
@@ -5578,7 +5578,7 @@ let pif_metrics =
 
 
 let bond_mode =
-  Enum ("bond_mode", [
+  Enum ("bond_mode", false, [
       "balance-slb", "Source-level balancing";
       "active-backup", "Active/passive bonding: only one NIC is carrying traffic";
       "lacp", "Link aggregation control protocol";
@@ -5774,12 +5774,12 @@ let device_status_fields =
 
 (* VIF messages *)
 
-let vif_ipv4_configuration_mode = Enum ("vif_ipv4_configuration_mode", [
+let vif_ipv4_configuration_mode = Enum ("vif_ipv4_configuration_mode", false, [
     "None", "Follow the default IPv4 configuration of the guest (this is guest-dependent)";
     "Static", "Static IPv4 address configuration";
   ])
 
-let vif_ipv6_configuration_mode = Enum ("vif_ipv6_configuration_mode", [
+let vif_ipv6_configuration_mode = Enum ("vif_ipv6_configuration_mode", false, [
     "None", "Follow the default IPv6 configuration of the guest (this is guest-dependent)";
     "Static", "Static IPv6 address configuration";
   ])
@@ -5818,14 +5818,14 @@ let vif_move = call
     ()
 
 let vif_operations =
-  Enum ("vif_operations",
+  Enum ("vif_operations", false,
         [ "attach", "Attempting to attach this VIF to a VM";
           "plug", "Attempting to hotplug this VIF";
           "unplug", "Attempting to hot unplug this VIF";
         ])
 
 let vif_locking_mode =
-  Enum ("vif_locking_mode", [
+  Enum ("vif_locking_mode", false, [
       "network_default", "No specific configuration set - default network policy applies";
       "locked", "Only traffic to a specific MAC and a list of IPv4 or IPv6 addresses is permitted";
       "unlocked", "All traffic is permitted";
@@ -6012,7 +6012,7 @@ let data_source =
     ()
 
 let storage_operations =
-  Enum ("storage_operations",
+  Enum ("storage_operations", false,
         [ "scan", "Scanning backends for new or deleted VDIs";
           "destroy", "Destroying the SR";
           "forget", "Forgetting about SR";
@@ -6235,7 +6235,7 @@ let lvhd =
 
 
 (** Each disk is associated with a vdi_type: (a 'style' of disk?) *)
-let vdi_type = Enum ("vdi_type", [ "system",    "a disk that may be replaced on upgrade";
+let vdi_type = Enum ("vdi_type", false, [ "system",    "a disk that may be replaced on upgrade";
                                    "user",      "a disk that is always preserved on upgrade";
                                    "ephemeral", "a disk that may be reformatted on upgrade";
                                    "suspend",   "a disk that stores a suspend image";
@@ -6340,7 +6340,7 @@ let vdi_update = call
     ()
 
 let vdi_operations =
-  Enum ("vdi_operations",
+  Enum ("vdi_operations", false,
         [ "clone", "Cloning the VDI";
           "copy", "Copying the VDI";
           "resize", "Resizing the VDI";
@@ -6483,7 +6483,7 @@ let vdi_generate_config = call
     ~allowed_roles:_R_VM_ADMIN
     ()
 
-let on_boot = Enum ("on_boot", [
+let on_boot = Enum ("on_boot", false, [
     "reset", "When a VM containing this VDI is started, the contents of the VDI are reset to the state they were in when this flag was last set.";
     "persist", "Standard behaviour.";
   ])
@@ -6724,16 +6724,16 @@ let vdi =
     ()
 
 (** Virtual disk interfaces have a mode parameter: *)
-let vbd_mode = Enum ("vbd_mode", [ "RO", "only read-only access will be allowed";
+let vbd_mode = Enum ("vbd_mode", false, [ "RO", "only read-only access will be allowed";
                                    "RW", "read-write access will be allowed" ])
 
-let vbd_type = Enum ("vbd_type",
+let vbd_type = Enum ("vbd_type", false,
                      [ "CD", "VBD will appear to guest as CD";
                        "Disk", "VBD will appear to guest as disk";
                        "Floppy", "VBD will appear as a floppy"])
 
 let vbd_operations =
-  Enum ("vbd_operations",
+  Enum ("vbd_operations", false,
         [ "attach", "Attempting to attach this VBD to a VM";
           "eject", "Attempting to eject the media from this VBD";
           "insert", "Attempting to insert new media into this VBD";
@@ -6824,7 +6824,7 @@ let crashdump =
     ()
 
 let pool_operations =
-  Enum ("pool_allowed_operations",
+  Enum ("pool_allowed_operations", false,
         [ "ha_enable", "Indicates this pool is in the process of enabling HA";
           "ha_disable", "Indicates this pool is in the process of disabling HA";
         ])
@@ -6990,7 +6990,7 @@ let pool_management_reconfigure = call
     ~allowed_roles:_R_POOL_OP
     ()
 
-let hello_return = Enum("hello_return", [
+let hello_return = Enum("hello_return", false, [
     "ok", "";
     "unknown_host", "";
     "cannot_talk_back", ""
@@ -7745,7 +7745,7 @@ let vtpm =
     ()
 
 (** Console protocols *)
-let console_protocol = Enum("console_protocol", [
+let console_protocol = Enum("console_protocol", false, [
     "vt100", "VT100 terminal";
     "rfb", "Remote FrameBuffer protocol (as used in VNC)";
     "rdp", "Remote Desktop Protocol"
@@ -7795,7 +7795,7 @@ let power_behaviour =
 			     "rename_restart", "leave VM running and restart a new one" ])
 *)
 let on_crash_behaviour =
-  Enum ("on_crash_behaviour", [ "destroy", "destroy the VM state";
+  Enum ("on_crash_behaviour", false, [ "destroy", "destroy the VM state";
                                 "coredump_and_destroy", "record a coredump and then destroy the VM state";
                                 "restart", "restart the VM";
                                 "coredump_and_restart", "record a coredump and then restart the VM";
@@ -7803,7 +7803,7 @@ let on_crash_behaviour =
                                 "rename_restart", "rename the crashed VM and start a new copy" ])
 
 let on_normal_exit_behaviour =
-  Enum ("on_normal_exit", [ "destroy", "destroy the VM state";
+  Enum ("on_normal_exit", false, [ "destroy", "destroy the VM state";
                             "restart", "restart the VM" ])
 
 
@@ -7826,13 +7826,13 @@ let actions =
   ]
 
 let vm_power_state =
-  Enum ("vm_power_state", [ "Halted", "VM is offline and not using any resources";
+  Enum ("vm_power_state", false, [ "Halted", "VM is offline and not using any resources";
                             "Paused", "All resources have been allocated but the VM itself is paused and its vCPUs are not running";
                             "Running", "Running";
                             "Suspended", "VM state has been saved to disk and it is nolonger running. Note that disks remain in-use while the VM is suspended."])
 
 let vm_operations =
-  Enum ("vm_operations",
+  Enum ("vm_operations", false,
         List.map operation_enum
           [ vm_snapshot; vm_clone; vm_copy; vm_create_template; vm_revert; vm_checkpoint; vm_snapshot_with_quiesce;
             vm_provision; vm_start; vm_start_on; vm_pause; vm_unpause; vm_cleanShutdown;
@@ -8096,7 +8096,7 @@ let vm_metrics =
       ]
     ()
 
-let tristate_type = Enum ("tristate_type",
+let tristate_type = Enum ("tristate_type", false,
                           [
                             "yes", "Known to be true";
                             "no", "Known to be false";
@@ -8188,25 +8188,25 @@ let vmpp_get_alerts = call ~flags:[`Session]
     ~allowed_roles:_R_POOL_OP
     ~result:(Set (String), "A list of alerts encoded in xml")
     ()
-let vmpp_backup_type = Enum ("vmpp_backup_type",
+let vmpp_backup_type = Enum ("vmpp_backup_type", false,
                              [
                                "snapshot", "The backup is a snapshot";
                                "checkpoint", "The backup is a checkpoint";
                              ])
-let vmpp_backup_frequency = Enum ("vmpp_backup_frequency",
+let vmpp_backup_frequency = Enum ("vmpp_backup_frequency", false,
                                   [
                                     "hourly", "Hourly backups";
                                     "daily", "Daily backups";
                                     "weekly", "Weekly backups";
                                   ])
-let vmpp_archive_frequency = Enum ("vmpp_archive_frequency",
+let vmpp_archive_frequency = Enum ("vmpp_archive_frequency", false,
                                    [
                                      "never", "Never archive";
                                      "always_after_backup", "Archive after backup";
                                      "daily", "Daily archives";
                                      "weekly", "Weekly backups";
                                    ])
-let vmpp_archive_target_type = Enum ("vmpp_archive_target_type",
+let vmpp_archive_target_type = Enum ("vmpp_archive_target_type", false,
                                      [
                                        "none", "No target config";
                                        "cifs", "CIFS target config";
@@ -8486,14 +8486,14 @@ let vmss_snapshot_now = call ~flags:[`Session]
   ~result:(String, "An XMLRPC result")
   ()
 
-let vmss_type = Enum ("vmss_type",
+let vmss_type = Enum ("vmss_type", false,
   [
     "snapshot", "The snapshot is a disk snapshot";
     "checkpoint", "The snapshot is a checkpoint";
     "snapshot_with_quiesce", "The snapshot is a VSS";
   ])
 
-let vmss_frequency = Enum ("vmss_frequency",
+let vmss_frequency = Enum ("vmss_frequency", false,
   [
     "hourly", "Hourly snapshots";
     "daily", "Daily snapshots";
@@ -8613,7 +8613,7 @@ let vmss =
   ()
 
 (* VM appliance *)
-let vm_appliance_operations = Enum ("vm_appliance_operation",
+let vm_appliance_operations = Enum ("vm_appliance_operation", false,
                                     [
                                       "start", "Start";
                                       "clean_shutdown", "Clean shutdown";
@@ -8753,7 +8753,7 @@ let dr_task =
 
 (** events handling: *)
 
-let event_operation = Enum ("event_operation",
+let event_operation = Enum ("event_operation", false,
                             [ "add", "An object has been created";
                               "del", "An object has been deleted";
                               "mod", "An object has been modified"])
@@ -8878,7 +8878,7 @@ let blob =
 
 let message =
   let cls =
-    Enum ("cls", [ "VM", "VM";
+    Enum ("cls", false, [ "VM", "VM";
                    "Host", "Host";
                    "SR", "SR";
                    "Pool","Pool";
@@ -9085,7 +9085,7 @@ let pci =
 (** Physical GPUs (pGPU) *)
 
 let pgpu_dom0_access =
-  Enum ("pgpu_dom0_access", [
+  Enum ("pgpu_dom0_access", false, [
       "enabled", "dom0 can access this device as normal";
       "disable_on_reboot", "On host reboot dom0 will be blocked from accessing this device";
       "disabled", "dom0 cannot access this device";
@@ -9316,7 +9316,7 @@ let gpu_group =
       ()
   in
   let allocation_algorithm =
-    Enum ("allocation_algorithm",
+    Enum ("allocation_algorithm", false,
           [ "breadth_first", "vGPUs of a given type are allocated evenly across supporting pGPUs.";
             "depth_first", "vGPUs of a given type are allocated on supporting pGPUs until they are full."]
          )
@@ -9418,7 +9418,7 @@ let vgpu =
 (** Virtual GPU types (i.e. preset sizes) *)
 
 let vgpu_type_implementation =
-  Enum ("vgpu_type_implementation", [
+  Enum ("vgpu_type_implementation", false, [
       "passthrough", "Pass through an entire physical GPU to a guest";
       "nvidia", "vGPU using NVIDIA hardware";
       "gvt_g", "vGPU using Intel GVT-g";
@@ -9617,7 +9617,7 @@ let pvs_server = PVS_server.obj
 module PVS_proxy = struct
   let lifecycle = [Published, rel_ely, ""]
 
-  let status = Enum ("pvs_proxy_status", [
+  let status = Enum ("pvs_proxy_status", false, [
       "stopped", "The proxy is not currently running";
       "initialised", "The proxy is setup but has not yet cached anything";
       "caching", "The proxy is currently caching data";
@@ -9770,7 +9770,7 @@ let feature =
 module SDN_controller = struct
   let lifecycle = [Published, rel_falcon, ""]
 
-  let sdn_controller_protocol = Enum ("sdn_controller_protocol", [
+  let sdn_controller_protocol = Enum ("sdn_controller_protocol", false, [
       "ssl", "Active ssl connection";
       "pssl", "Passive ssl connection";
     ])
