@@ -179,9 +179,10 @@ let create_bond ~__context bond mtu persistent =
 
   let ports = [port, {interfaces=(List.map (fun (device, _, _) -> device) slave_devices_bridges_and_config);
                       bond_properties=props; bond_mac=Some mac; kind=Basic}] in
+  let igmp_snooping = Some (Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context)) in
   cleanup,
   [master_net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some mac); other_config;
-                                                          persistent_b=persistent}],
+                                                          igmp_snooping; persistent_b=persistent}],
   interface_config
 
 let destroy_bond ~__context ~force bond =
@@ -262,11 +263,12 @@ let rec create_bridges ~__context pif_rc net_rc =
   let mtu = determine_mtu pif_rc net_rc in
   let other_config = determine_other_config ~__context pif_rc net_rc in
   let persistent = is_dom0_interface pif_rc in
+  let igmp_snooping = Some (Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context)) in
   match get_pif_type pif_rc with
   | `tunnel_pif _ ->
     [],
     [net_rc.API.network_bridge, {default_bridge with bridge_mac=(Some pif_rc.API.pIF_MAC);
-                                                     other_config; persistent_b=persistent}],
+                                                     igmp_snooping; other_config; persistent_b=persistent}],
     []
   | `vlan_pif vlan ->
     let original_pif_rc = pif_rc in
@@ -300,7 +302,7 @@ let rec create_bridges ~__context pif_rc net_rc =
     let ports = [pif_rc.API.pIF_device, {default_port with interfaces=[pif_rc.API.pIF_device]}] in
     cleanup,
     [net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some pif_rc.API.pIF_MAC);
-                                                     other_config; persistent_b=persistent}],
+                                                     igmp_snooping; other_config; persistent_b=persistent}],
     [pif_rc.API.pIF_device, {default_interface with mtu; ethtool_settings; ethtool_offload; persistent_i=persistent}]
 
 let rec destroy_bridges ~__context ~force pif_rc bridge =
@@ -466,12 +468,22 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
       end;
 
       (* sync MTU *)
+      begin
       try
         let mtu = Int64.of_int (Net.Interface.get_mtu dbg ~name:bridge) in
         if mtu <> rc.API.pIF_MTU then
           Db.PIF.set_MTU ~__context ~self:pif ~value:mtu
       with _ ->
         warn "could not update MTU field on PIF %s" rc.API.pIF_uuid
+      end;
+      
+      (* sync igmp_snooping_enabled *)
+      if rc.API.pIF_VLAN = -1L then begin
+        let igmp_snooping = Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context) in
+        let igmp_snooping' = if igmp_snooping then `enabled else `disabled in
+        if igmp_snooping' <> rc.API.pIF_igmp_snooping_status then
+          Db.PIF.set_igmp_snooping_status ~__context ~self:pif ~value:igmp_snooping'
+      end
    )
 
 let bring_pif_down ~__context ?(force=false) (pif: API.ref_PIF) =

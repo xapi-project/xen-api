@@ -1265,6 +1265,8 @@ let _ =
     ~doc:"The requested update could not be found. Please upload the update again. This can occur when you run xe update-pool-clean before xe update-apply. " ();
   error Api_errors.update_pool_apply_failed [ "hosts" ]
     ~doc:"The update cannot be applied for the following host(s)." ();
+  error Api_errors.could_not_update_igmp_snooping_everywhere [ ]
+    ~doc:"The IGMP Snooping setting cannot be applied for some of the host, network(s)." ();
   error Api_errors.update_apply_failed [ "output" ]
     ~doc:"The update failed to apply. Please see attached output." ();
   error Api_errors.update_already_applied [ "update" ]
@@ -5482,6 +5484,13 @@ let pif_set_property = call
     ~allowed_roles:_R_POOL_OP
     ()
 
+let pif_igmp_status =
+  Enum ("pif_igmp_status", [
+      "enabled", "IGMP Snooping is enabled in the corresponding backend bridge.'";
+      "disabled", "IGMP Snooping is disabled in the corresponding backend bridge.'";
+      "unknown", "IGMP snooping status is unknown. If this is a VLAN master, then please consult the underlying VLAN slave PIF."
+    ])
+
 let pif =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_pif ~descr:"A physical network interface (note separate VLANs are represented as several PIFs)"
     ~gen_events:true
@@ -5530,6 +5539,7 @@ let pif =
                                                                                                                            		can not be used, nor can the interface be bonded or have VLANs based on top through xapi." ~default_value:(Some (VBool true));
       field ~lifecycle:[Published, rel_creedence, ""] ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "properties" "Additional configuration properties for the interface.";
       field ~lifecycle:[Published, rel_dundee, ""] ~qualifier:DynamicRO ~ty:(Set(String)) ~default_value:(Some (VSet [])) "capabilities" "Additional capabilities on the interface.";
+      field ~lifecycle:[Published, rel_inverness, ""] ~qualifier:DynamicRO ~ty:pif_igmp_status ~default_value:(Some (VEnum "unknown")) "igmp_snooping_status" "The IGMP snooping status of the corresponding network bridge";
     ]
     ()
 
@@ -7381,6 +7391,20 @@ let pool_disable_ssl_legacy = call
     ~allowed_roles:_R_POOL_OP
     ()
 
+let pool_set_igmp_snooping_enabled = call  
+    ~in_oss_since:None  
+    ~lifecycle:[  
+      Published, rel_inverness, "Enable or disable IGMP Snooping on the pool.";  
+    ]  
+    ~name:"set_igmp_snooping_enabled"  
+    ~params:[  
+      Ref _pool, "self", "The pool";  
+      Bool, "value", "Enable or disable IGMP Snooping on the pool"  
+    ]  
+    ~doc:"Enable or disable IGMP Snooping on the pool."  
+    ~allowed_roles:_R_POOL_OP  
+    ()
+
 let pool_has_extension = call
     ~name:"has_extension"
     ~in_product_since:rel_dundee
@@ -7485,6 +7509,7 @@ let pool =
       ; pool_apply_edition
       ; pool_enable_ssl_legacy
       ; pool_disable_ssl_legacy
+      ; pool_set_igmp_snooping_enabled
       ; pool_has_extension
       ; pool_add_to_guest_agent_config
       ; pool_remove_from_guest_agent_config
@@ -7528,6 +7553,7 @@ let pool =
        ; field ~qualifier:DynamicRO ~in_product_since:rel_dundee ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "cpu_info" "Details about the physical CPUs on the pool"
        ; field ~qualifier:RW ~in_product_since:rel_dundee ~default_value:(Some (VBool false)) ~ty:Bool "policy_no_vendor_device" "The pool-wide policy for clients on whether to use the vendor device or not on newly created VMs. This field will also be consulted if the 'has_vendor_device' field is not specified in the VM.create call."
        ; field ~qualifier:RW ~in_product_since:rel_ely ~default_value:(Some (VBool false)) ~ty:Bool "live_patching_disabled" "The pool-wide flag to show if the live patching feauture is disabled or not."
+       ; field ~in_product_since:rel_inverness ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "igmp_snooping_enabled" "true if IGMP snooping is enabled in the pool, false otherwise."
        ])
     ()
 

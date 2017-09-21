@@ -45,7 +45,7 @@ val check_himn : __context:Context.t -> unit
     {!Nm.bring_pif_up} with the [management_interface] argument so it can make sure
     the default gateway is set up correctly *)
 val attach_internal :
-  ?management_interface:bool ->
+  ?management_interface:bool -> ?force_bringup:bool ->
   __context:Context.t -> self:[ `network ] Ref.t -> unit -> unit
 
 (** Remove the bridge associated to this network *)

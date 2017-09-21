@@ -305,6 +305,7 @@ let pif_record rpc session_id pif =
           ~add_to_map:(fun k v -> Client.PIF.add_to_other_config rpc session_id pif k v)
           ~remove_from_map:(fun k -> Client.PIF.remove_from_other_config rpc session_id pif k)
           ~get_map:(fun () -> (x ()).API.pIF_other_config) ();
+        make_field ~name:"igmp-snooping-status" ~get:(fun () -> Record_util.pif_igmp_status_to_string ((x ()).API.pIF_igmp_snooping_status)) ();
       ] }
 
 let task_record rpc session_id task =
@@ -506,6 +507,7 @@ let pool_record rpc session_id pool =
       make_field ~name:"wlb-username" ~get:(fun () -> (x ()).API.pool_wlb_username) ();
       make_field ~name:"wlb-enabled" ~get:(fun () -> string_of_bool (x ()).API.pool_wlb_enabled) ~set:(fun x -> Client.Pool.set_wlb_enabled rpc session_id pool (bool_of_string x)) ();
       make_field ~name:"wlb-verify-cert" ~get:(fun () -> string_of_bool (x ()).API.pool_wlb_verify_cert) ~set:(fun x -> Client.Pool.set_wlb_verify_cert rpc session_id pool (bool_of_string x)) ();
+      make_field ~name:"igmp-snooping-enabled" ~get:(fun () -> string_of_bool (x ()).API.pool_igmp_snooping_enabled) ~set:(fun x -> Client.Pool.set_igmp_snooping_enabled rpc session_id pool (bool_of_string x)) ();
       make_field ~name:"gui-config"
         ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_gui_config)
         ~add_to_map:(fun k v -> Client.Pool.add_to_gui_config rpc session_id pool k v)

@@ -499,6 +499,11 @@ let sdn_protocol_to_string = function
   | `ssl -> "ssl"
   | `pssl -> "pssl"
 
+let pif_igmp_status_to_string = function
+  | `enabled -> "enabled"
+  | `disabled -> "disabled"
+  | `unknown -> "unknown"
+
 (* string_to_string_map_to_string *)
 let s2sm_to_string sep x =
   String.concat sep (List.map (fun (a,b) -> a^": "^b) x)
