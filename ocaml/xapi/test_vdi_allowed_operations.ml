@@ -305,6 +305,24 @@ let all_cbt_operations = [`enable_cbt; `disable_cbt; `data_destroy] in
         (fun vdi -> pass_data_destroy vdi;
           Db.VDI.set_type ~__context ~self:vdi ~value:`cbt_metadata
         ) ,         None ;
+
+        (fun vdi ->
+           let vM = Test_common.make_vm ~__context ~is_a_template:false () in
+           Db.VM.set_is_a_snapshot ~__context ~self:vM ~value:false;
+           let _: _ API.Ref.t = Test_common.make_vbd ~__context ~vDI:vdi ~vM ~currently_attached:false () in
+           pass_data_destroy vdi
+        ),
+        Some (Api_errors.vdi_in_use, []);
+
+        (fun vdi ->
+           (* Set up the fields corresponding to a VM snapshot *)
+           let vM = Test_common.make_vm ~__context ~is_a_template:true () in
+           Db.VM.set_is_a_snapshot ~__context ~self:vM ~value:true;
+           Db.VM.set_power_state ~__context ~self:vM ~value:`Suspended;
+           let _: _ API.Ref.t = Test_common.make_vbd ~__context ~vDI:vdi ~vM ~currently_attached:false () in
+           pass_data_destroy vdi
+        ),
+        Some (Api_errors.vdi_in_use, []);
       ] in
 
   "test_cbt" >:::
