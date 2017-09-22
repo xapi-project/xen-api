@@ -4251,4 +4251,51 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Local.VUSB.destroy ~__context ~self
   end
 
+  module Cluster = struct
+    let create ~__context ~network ~cluster_token ~cluster_stack ~pool_auto_join =
+      info "Cluster.create";
+      let local_fn = Local.Cluster.create ~network ~cluster_token ~cluster_stack ~pool_auto_join in
+      let master = Helpers.get_master ~__context in
+      do_op_on ~__context ~local_fn ~host:master
+        (fun session_id rpc -> Client.Cluster.create rpc session_id network cluster_token cluster_stack pool_auto_join)
+
+    let destroy ~__context ~self =
+      info "Cluster.destroy";
+      let local_fn = Local.Cluster.destroy ~self in
+      let master = Helpers.get_master ~__context in
+      do_op_on ~__context ~local_fn ~host:master
+        (fun session_id rpc -> Client.Cluster.destroy rpc session_id self)
+
+    let pool_create ~__context ~pool ~cluster_stack ~network =
+      info "Cluster.pool_create";
+      let local_fn = Local.Cluster.pool_create ~pool ~cluster_stack ~network in
+      let master = Helpers.get_master ~__context in
+      do_op_on ~__context ~local_fn ~host:master
+        (fun session_id rpc -> Client.Cluster.pool_create rpc session_id pool cluster_stack network)
+  end
+
+  module Cluster_host = struct
+    let create ~__context ~cluster ~host =
+      info "Cluster_host.create";
+      let local_fn = Local.Cluster_host.create ~cluster ~host in
+      let master = Helpers.get_master ~__context in
+      do_op_on ~__context ~local_fn ~host:master
+        (fun session_id rpc -> Client.Cluster_host.create rpc session_id cluster host)
+
+    let destroy ~__context ~self =
+      info "Cluster_host.destroy";
+      let local_fn = Local.Cluster_host.destroy ~self in
+      let master = Helpers.get_master ~__context in
+      do_op_on ~__context ~local_fn ~host:master
+        (fun session_id rpc -> Client.Cluster_host.destroy rpc session_id self)
+
+    let enable ~__context ~self =
+      info "Cluster_host.enable";
+      Local.Cluster_host.enable ~__context ~self
+
+    let disable ~__context ~self =
+      info "Cluster_host.disable";
+      Local.Cluster_host.disable ~__context ~self
+  end
+
 end
