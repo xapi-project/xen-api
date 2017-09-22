@@ -432,6 +432,14 @@ module VM : HandlerTools = struct
           "0"|"1"|"2"|"3" as order -> { vm_record with API.vM_ha_restart_priority = "restart"; API.vM_order = Int64.of_string (order) }
         | _ -> vm_record;
       in
+      (* Initialize platform["device-model"] if it is not set *)
+      let vm_record = {
+        vm_record with API.vM_platform =
+                         (Xapi_vm_helpers.ensure_device_model_profile_present ~__context
+                            ~hVM_boot_policy:vm_record.API.vM_HVM_boot_policy
+                            vm_record.API.vM_platform)
+      }
+      in
 
       let vm = log_reraise
           ("failed to create VM with name-label " ^ vm_record.API.vM_name_label)
