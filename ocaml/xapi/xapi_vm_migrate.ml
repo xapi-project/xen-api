@@ -777,7 +777,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   let extra_vdis = suspends_vdis @ snapshots_vdis in
 
   let extra_vdi_map =
-    List.filter_map
+    List.map
       (fun vconf ->
          let dest_sr_ref =
            let is_mapped = List.mem_assoc vconf.vdi vdi_map
@@ -806,7 +806,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
              error "%s VDI not in VDI->SR map and no remote default SR is set" log_prefix;
              raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vconf.vdi ]))
            end in
-         Some (vconf.vdi, dest_sr_ref))
+         (vconf.vdi, dest_sr_ref))
       extra_vdis in
 
   let vdi_map = vdi_map @ extra_vdi_map in
