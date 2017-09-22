@@ -57,6 +57,7 @@ type feature =
   | PVS_proxy                    (** Enable the use of PVS proxying. *)
   | IGMP_snooping                (** Enable the use of IGMP snooping feature. *)
   | RPU                          (** Enable use of Rolling Pool Upgrade *)
+  | Pool_size                    (** Enable use of Pooling for more than 3 Hosts *)
 
 (** Convert RPC into {!feature}s *)
 val feature_of_rpc : Rpc.t -> feature
