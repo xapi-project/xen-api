@@ -174,7 +174,8 @@ let _vdi_nbd_server_info = "vdi_nbd_server_info"
 let _pusb = "PUSB"
 let _usb_group = "USB_group"
 let _vusb = "VUSB"
-
+let _cluster = "Cluster"
+let _cluster_host = "Cluster_host"
 
 (** All the various static role names *)
 
@@ -10185,6 +10186,229 @@ module VUSB = struct
 end
 let vusb = VUSB.obj
 
+(* ---------------
+  Clustering
+  ----------------*)
+
+(** Corosync-based clustering *)
+
+let cluster_operation =
+  Enum ("cluster_operation",
+        [ "add",     "adding a new member to the cluster";
+          "remove",  "removing a member from the cluster";
+          "enable",  "enabling any cluster member";
+          "disable", "disabling any cluster member";
+          "destroy", "completely destroying a cluster";
+        ])
+
+let cluster_host_operation =
+  Enum ("cluster_host_operation",
+        [ "enable",  "enabling cluster membership on a particular host";
+          "disable", "disabling cluster membership on a particular host";
+        ])
+
+module Cluster = struct
+  let lifecycle = [Published, rel_jura, ""]
+
+  let create = call
+    ~name:"create"
+    ~doc:"Creates a Cluster object and one Cluster_host object as its first member"
+    ~result:(Ref _cluster, "the new Cluster")
+    ~params:
+      [ Ref _network, "network",        "the single network on which corosync carries out its inter-host communications"
+      ; String,       "cluster_token",  "secret key used by xapi-clusterd when it talks to itself on other hosts"
+      ; String,       "cluster_stack",  "simply the string 'corosync'. No other cluster stacks are currently supported"
+      ; Bool,         "pool_auto_join", "true if xapi is automatically joining new pool members to the cluster"
+      ]
+    ~lifecycle
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
+  let destroy = call
+    ~name:"destroy"
+    ~doc:"Destroys a Cluster object and the one remaining Cluster_host member"
+    ~params:
+      [ Ref _cluster, "self", "the Cluster to destroy"
+      ]
+    ~lifecycle
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
+    let pool_create = call
+    ~name:"pool_create"
+    ~doc:"Attempt to create a Cluster from the entire pool"
+    ~result:(Ref _cluster, "the new Cluster")
+    ~params:
+      [ Ref _pool,    "pool",          "The pool to create a Cluster from"
+      ; String,       "cluster_stack", "simply the string 'corosync'. No other cluster stacks are currently supported"
+      ; Ref _network, "network",       "the single network on which corosync carries out its inter-host communications"
+      ]
+    ~lifecycle
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
+  let obj =
+    create_obj
+      ~name: _cluster
+      ~descr:"cluster-wide cluster metadata"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~messages_default_allowed_roles:_R_POOL_ADMIN
+      ~contents:
+        [ uid     _cluster ~lifecycle
+
+        ; field   ~qualifier:DynamicRO ~lifecycle
+          ~ty:(Set (Ref _cluster_host)) "cluster_hosts"
+          "A list of the cluster_host objects associated with the Cluster"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+          ~ty:(Ref _network) "network" ~default_value:(Some (VRef null_ref))
+          "Reference to the single network on which corosync carries out its inter-host communications"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+          ~ty:String "cluster_token" ~default_value:(Some (VString ""))
+          "The secret key used by xapi-clusterd when it talks to itself on other hosts"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+          ~ty:String "cluster_stack" ~default_value:(Some (VString "corosync"))
+          "Simply the string 'corosync'. No other cluster stacks are currently supported"
+
+(* TODO:  Figure out if we really need this field and what type it should be.
+  The problem is that at the moment we need to specify a relationship between this field
+  and a field in cluster_host, but there is no cluster field to complete the relationship.
+        ; field   ~qualifier:StaticRO ~lifecycle
+          ~ty:(Set (Ref _cluster_host)) "live_members" ~default_value:(Some (VSet []))
+          "A list of the hosts corosync is currently able to talk to"
+*)
+
+        ; field   ~qualifier:DynamicRO ~lifecycle
+          ~ty:(Map(Ref _task, cluster_operation)) "current_operations" ~default_value:(Some (VMap []))
+          "Links each of the running tasks using this object (by reference) to a current_operation enum which describes the nature of the task"
+
+        ; field   ~qualifier:DynamicRO ~lifecycle
+          ~ty:(Set cluster_operation) "allowed_operations" ~default_value:(Some (VSet []))
+          "List of the operations allowed in this state. This list is advisory only and the server state may have changed by the time this field is read by a client"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+          ~ty:Bool "pool_auto_join" ~default_value:(Some (VBool true))
+          "True if xapi is automatically joining new pool members to the cluster. This will be `true` in the first release"
+
+        ; field   ~qualifier:StaticRO ~lifecycle
+          ~ty:(Map(String, String)) "cluster_config" ~default_value:(Some (VMap []))
+          "Contains read-only settings for the cluster, such as timeouts and other options. It can only be set at cluster create time"
+
+        ; field   ~qualifier:RW ~lifecycle
+          ~ty:(Map(String, String)) "other_config" ~default_value:(Some (VMap []))
+          "Additional configuration"
+        ]
+      ~messages:
+        [ create
+        ; destroy
+        ; pool_create
+        ]
+      ()
+end
+let cluster = Cluster.obj
+
+module Cluster_host = struct
+  let lifecycle = [Published, rel_jura, ""]
+
+  let create = call
+    ~name:"create"
+    ~doc:"Add a new host to an existing cluster."
+    ~result:(Ref _cluster_host, "the newly created cluster_host object")
+    ~params:
+      [ Ref _cluster, "cluster", "Cluster to join"
+      ; Ref _host,    "host",    "new cluster member"
+      ]
+    ~lifecycle
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
+    let destroy = call
+    ~name:"destroy"
+    ~doc:"Remove a host from an existing cluster."
+    ~params:
+      [ Ref _cluster_host, "self", "the cluster_host to remove from the cluster"
+      ]
+    ~lifecycle
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
+    let enable = call
+    ~name:"enable"
+    ~doc:"Enable a host for an existing cluster."
+    ~params:
+      [ Ref _cluster_host, "self", "the cluster_host to enable"
+      ]
+    ~lifecycle
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
+    let disable = call
+    ~name:"disable"
+    ~doc:"Disable a host in existing cluster."
+    ~params:
+      [ Ref _cluster_host, "self", "the cluster_host to disable"
+      ]
+    ~lifecycle
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
+let obj =
+  create_obj
+    ~name: _cluster_host
+    ~descr:"Describes the SDN controller that is to connect with the pool"
+    ~doccomments:[]
+    ~gen_constructor_destructor:false
+    ~gen_events:true
+    ~in_db:true
+    ~lifecycle
+    ~persist:PersistEverything
+    ~in_oss_since:None
+    ~messages_default_allowed_roles:_R_POOL_ADMIN
+    ~contents:
+      [ uid     _cluster_host ~lifecycle
+
+      ; field   ~qualifier:StaticRO ~lifecycle
+        ~ty:(Ref _cluster) "cluster" ~default_value:(Some (VRef null_ref))
+        "Reference to the Cluster object"
+
+      ; field   ~qualifier:StaticRO ~lifecycle
+        ~ty:(Ref _host) "host" ~default_value:(Some (VRef null_ref))
+        "Reference to the Host object"
+
+      ; field   ~qualifier:StaticRO ~lifecycle
+        ~ty:Bool "enabled" ~default_value:(Some (VBool false))
+        "Whether clustering should be enabled on this host"
+
+      ; field   ~qualifier:DynamicRO ~lifecycle
+        ~ty:(Map(Ref _task, cluster_operation)) "current_operations" ~default_value:(Some (VMap []))
+        "Links each of the running tasks using this object (by reference) to a current_operation enum which describes the nature of the task"
+
+      ; field   ~qualifier:DynamicRO ~lifecycle
+        ~ty:(Set cluster_operation) "allowed_operations" ~default_value:(Some (VSet []))
+        "List of the operations allowed in this state. This list is advisory only and the server state may have changed by the time this field is read by a client"
+
+      ; field   ~qualifier:StaticRO ~lifecycle
+        ~ty:(Map(String, String)) "other_config" ~default_value:(Some (VMap []))
+        "Additional configuration"
+      ]
+    ~messages:
+      [ create
+      ; destroy
+      ; enable
+      ; disable
+      ]
+    ()
+end
+let cluster_host = Cluster_host.obj
+
 (******************************************************************************************)
 
 (** All the objects in the system in order they will appear in documentation: *)
@@ -10255,6 +10479,8 @@ let all_system =
     pusb;
     usb_group;
     vusb;
+    cluster;
+    cluster_host;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -10292,6 +10518,8 @@ let all_relations =
     (* VM <-> VIF <-> network *)
     (_vif, "VM"), (_vm, "VIFs");
     (_vif, "network"), (_network, "VIFs");
+
+    (_cluster_host,"cluster"), (_cluster, "cluster_hosts");
 
     (* host <-> PIF <-> network *)
     (_pif, "host"), (_host, "PIFs");
@@ -10442,6 +10670,8 @@ let expose_get_all_messages_for = [
   _pusb;
   _usb_group;
   _vusb;
+  _cluster;
+  _cluster_host;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]

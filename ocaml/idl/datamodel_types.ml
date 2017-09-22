@@ -58,6 +58,7 @@ let rel_ely = "ely"
 let rel_falcon = "falcon"
 let rel_honolulu = "honolulu"
 let rel_inverness = "inverness"
+let rel_jura = "jura"
 let rel_kolkata = "kolkata"
 
 type api_release = {
@@ -195,11 +196,17 @@ let release_order_full = [{
      version_minor = 8;
      branding   = "XenServer 7.3";
    }; {
+     code_name     = Some rel_jura;
+     (** TODO replace with the actual version numbers when Jura is released *)
+     version_major = 2;
+     version_minor = 7;
+     branding   = "Unreleased";
+   }; {
      code_name     = Some rel_kolkata;
      version_major = 2;
      version_minor = 10;
      branding   = "Unreleased";
-   };
+   }
   ]
 (* When you add a new release, use the version number of the latest release,
    and "Unreleased" for the branding, until the actual values are finalised. *)
