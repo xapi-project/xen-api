@@ -41,30 +41,30 @@ module VMSetBiosStrings = Generic.Make (Generic.EncapsulateState (struct
   let big_str = String.make (Xapi_globs.bios_string_limit_size + 1) 'x'
   let non_printable_str1 = Printf.sprintf "xyz%c" (Char.chr 31)
   let non_printable_str2 = Printf.sprintf "xyz%c" (Char.chr 127)
-  let bios_str1 = [`biosvendor, "Test"; `biosversion, "Test Inc. A08"]
-  let bios_str2 = [`systemmanufacturer, "Test Inc."; `systemproductname, "Test bios strings"; `systemversion, "8.1.1 SP1 build 8901"; `systemserialnumber, "test-test-test-test"]
-  let bios_str3 = [`enclosureassettag, "testassettag12345"]
+  let bios_str1 = [`bios_vendor, "Test"; `bios_version, "Test Inc. A08"]
+  let bios_str2 = [`system_manufacturer, "Test Inc."; `system_product_name, "Test bios strings"; `system_version, "8.1.1 SP1 build 8901"; `system_serial_number, "test-test-test-test"]
+  let bios_str3 = [`enclosure_asset_tag, "testassettag12345"]
 
   let tests = [
     (* Empty value *)
-    [`enclosureassettag, ""],
+    [`enclosure_asset_tag, ""],
     Either.Left Api_errors.(Server_error
       (invalid_value,
       ["enclosure-asset-tag"; "Value provided is empty"]));
 
     (* Value having more than 512 charactors *)
-    [`enclosureassettag, big_str],
+    [`enclosure_asset_tag, big_str],
     Either.Left Api_errors.(Server_error
       (invalid_value,
       ["enclosure-asset-tag"; (Printf.sprintf "%s has length more than %d characters" big_str Xapi_globs.bios_string_limit_size)]));
 
     (* Value having non printable ascii characters *)
-    [`enclosureassettag, non_printable_str1],
+    [`enclosure_asset_tag, non_printable_str1],
     Either.Left Api_errors.(Server_error
       (invalid_value,
       ["enclosure-asset-tag"; non_printable_str1 ^ " has non-printable ASCII characters"]));
 
-    [`enclosureassettag, non_printable_str2],
+    [`enclosure_asset_tag, non_printable_str2],
     Either.Left Api_errors.(Server_error
       (invalid_value,
       ["enclosure-asset-tag"; non_printable_str2 ^ " has non-printable ASCII characters"]));
