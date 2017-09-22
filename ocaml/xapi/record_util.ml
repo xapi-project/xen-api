@@ -84,23 +84,23 @@ let string_to_vm_operation x =
   else List.assoc x table
 
 let vm_bios_key_to_string: API.vm_bios_string_keys -> string = function
-  | `biosvendor -> "bios-vendor"
-  | `biosversion -> "bios-version"
-  | `systemmanufacturer -> "system-manufacturer"
-  | `systemproductname -> "system-product-name"
-  | `systemversion -> "system-version"
-  | `systemserialnumber -> "system-serial-number"
-  | `enclosureassettag -> "enclosure-asset-tag"
+  | `bios_vendor -> "bios-vendor"
+  | `bios_version -> "bios-version"
+  | `system_manufacturer -> "system-manufacturer"
+  | `system_product_name -> "system-product-name"
+  | `system_version -> "system-version"
+  | `system_serial_number -> "system-serial-number"
+  | `enclosure_asset_tag -> "enclosure-asset-tag"
   | `unknown -> "unknown"
 
 let string_to_vm_bios_key: string -> API.vm_bios_string_keys = function
-  | "bios-vendor" -> `biosvendor
-  | "bios-version" -> `biosversion
-  | "system-manufacturer" -> `systemmanufacturer
-  | "system-product-name" -> `systemproductname
-  | "system-version" -> `systemversion
-  | "system-serial-number" -> `systemserialnumber
-  | "enclosure-asset-tag" -> `enclosureassettag
+  | "bios-vendor" -> `bios_vendor
+  | "bios-version" -> `bios_version
+  | "system-manufacturer" -> `system_manufacturer
+  | "system-product-name" -> `system_product_name
+  | "system-version" -> `system_version
+  | "system-serial-number" -> `system_serial_number
+  | "enclosure-asset-tag" -> `enclosure_asset_tag
   | s -> raise (Record_failure ("Expected 'bios-vendor', 'bios-version', 'system-manufacturer',
     'system-product-name', 'system-version', 'system-serial-number', 'enclosure-asset-tag' got "^s))
 
