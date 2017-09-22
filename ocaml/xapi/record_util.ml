@@ -91,7 +91,7 @@ let vm_bios_key_to_string: API.vm_bios_string_keys -> string = function
   | `system_version -> "system-version"
   | `system_serial_number -> "system-serial-number"
   | `enclosure_asset_tag -> "enclosure-asset-tag"
-  | `unknown -> "unknown"
+  | `unknown -> raise (Api_errors.Server_error(Api_errors.invalid_value, ["unknown bios string key"]))
 
 let string_to_vm_bios_key: string -> API.vm_bios_string_keys = function
   | "bios-vendor" -> `bios_vendor
