@@ -5506,7 +5506,7 @@ let pif_set_property = call
     ()
 
 let pif_igmp_status =
-  Enum ("pif_igmp_status", [
+  Enum ("pif_igmp_status", false, [
       "enabled", "IGMP Snooping is enabled in the corresponding backend bridge.'";
       "disabled", "IGMP Snooping is disabled in the corresponding backend bridge.'";
       "unknown", "IGMP snooping status is unknown. If this is a VLAN master, then please consult the underlying VLAN slave PIF."
