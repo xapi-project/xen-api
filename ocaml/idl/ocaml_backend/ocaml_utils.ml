@@ -58,8 +58,9 @@ let ocaml_of_module_name x =
   String.capitalize x
 
 (** Convert an IDL enum into a polymorhic variant. *)
-let ocaml_of_enum list =
-  "[ "^String.concat " | " (List.map constructor_of list)^" ]"
+let ocaml_of_enum default list =
+  "[ "^String.concat " | " (List.map constructor_of list)^
+  (if default then " | `unknown ] [@default `unknown]" else " ]")
 
 (** Convert an IDL type to a function name; we need to generate functions to
     marshal/unmarshal from XML for each unique IDL type *)
@@ -70,7 +71,7 @@ let rec alias_of_ty ?(prefix="") = function
   | Bool                          -> "bool"
   | DateTime                      -> "datetime"
   | Set ty                        -> sprintf "%s_set" (alias_of_ty ty)
-  | Enum(name, _)                 -> String.uncapitalize name
+  | Enum(name, _, _)                 -> String.uncapitalize name
   | Map(k, v)                     -> sprintf "%s_to_%s_map" (alias_of_ty k) (alias_of_ty v)
   | Ref x                         -> sprintf "ref_%s" x
   | Record x                      -> sprintf "%s_t" (ocaml_of_record_name x)
@@ -85,7 +86,7 @@ let rec ocaml_of_ty = function
   | DateTime -> "Date.iso8601"
   | Set (Record x) -> alias_of_ty (Record x) ^ " list"
   | Set x -> ocaml_of_ty x ^ " list"
-  | Enum(name, cs) -> ocaml_of_enum (List.map fst cs)
+  | Enum(name, default, cs) -> ocaml_of_enum default (List.map fst cs)
   | Map(l, r) -> "("^alias_of_ty l^" * "^alias_of_ty r^") list"
   (*  | Ref "session" -> "Uuid.cookie" *)
   | Ref ty -> "[`"^ty^"] Ref.t"

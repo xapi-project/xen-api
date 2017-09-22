@@ -646,12 +646,15 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
   let p_set (printer : printer) rpc session_id params =
     let record = get_record rpc session_id (List.assoc "uuid" params) in
     let set_params = List.filter (fun (p,_) -> not (List.mem p ("uuid"::stdparams))) params in
+    (* Hashtable set_map_table contains key as set_map function
+       and associated value as list of (key, value) pairs to set a map field *)
+    let set_map_table: (((string * string) list -> unit), (string * string) list) Hashtbl.t = Hashtbl.create 10 in
 
     let set_field (k,v) =
       let field_type = get_field_type k record in
       match field_type with
       | Map s ->
-        let field=field_lookup record s in
+        let field = field_lookup record s in
         let n = String.length s in
         let key = String.sub k (n + 1) (String.length k - n - 1) in
         let get_map = match field.get_map with
@@ -659,14 +662,19 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
           | None -> failwith (Printf.sprintf "Broken Records (field %s)" s)
         in begin
           (* If set_in_map is present, use it instead of using remove_from_map followed by add_to_map. *)
-          match field.set_in_map with
-          | Some set_in_map -> set_in_map key v
-          | None ->
-            let add_to_map = match field.add_to_map with Some f -> f | None -> failwith ("Map field '"^s^"' is read-only.") in
-            let remove_from_map = match field.remove_from_map with Some f -> f | None -> failwith (Printf.sprintf "Records broken (field %s)" s) in
-            let map = get_map () in
-            if List.mem_assoc key map then remove_from_map key;
-            add_to_map key v
+          (* If set_map is present then accumulate all (key, value) pairs into set_map_table *)
+          match field.set_in_map, field.set_map  with
+          | Some set_in_map, None -> set_in_map key v
+          | None, Some set_map ->
+            let existing_params = try Hashtbl.find set_map_table set_map with Not_found -> [] in
+            Hashtbl.replace set_map_table set_map ((key, v) :: existing_params)
+          | None, None ->
+              let add_to_map = match field.add_to_map with Some f -> f | None -> failwith ("Map field '"^s^"' is read-only.") in
+              let remove_from_map = match field.remove_from_map with Some f -> f | None -> failwith (Printf.sprintf "Records broken (field %s)" s) in
+              let map = get_map () in
+              if List.mem_assoc key map then remove_from_map key;
+              add_to_map key v
+          | Some _, Some _ -> failwith (Printf.sprintf "Broken Records (field %s)" s)
         end
       | Set s -> failwith "Cannot param-set on set fields"
       | Normal ->
@@ -684,7 +692,8 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
         | (Invalid_argument "bool_of_string") -> failwith ("Parameter "^k^" must be a boolean (true or false)")
         | e -> raise e
     in
-    List.iter set_field set_params
+    List.iter set_field set_params;
+    Hashtbl.iter (fun func params -> func params) set_map_table
   in
 
   let p_add (printer : printer) rpc session_id params =
@@ -735,8 +744,7 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
       let all = List.filter (fun x -> not x.hidden) (record rpc session_id (Ref.null)).fields in
       let all_optn = List.map (fun r -> r.name) all in
       let settable = List.map (fun r -> r.name) (List.filter (fun r -> r.set <> None) all) in
-      let settable = settable @ (List.map (fun r -> r.name ^ ":") (List.filter (fun r -> r.add_to_map <> None) all)) in
-      let settable = settable @ (List.map (fun r -> r.name ^ ":") (List.filter (fun r -> r.set_in_map <> None) all)) in
+      let settable = settable @ (List.map (fun r -> r.name ^ ":") (List.filter (fun r -> r.add_to_map <> None || r.set_in_map <> None || r.set_map <> None) all)) in
       let addable = List.map (fun r -> r.name) (List.filter (fun r -> r.add_to_set <> None || r.add_to_map <> None) all) in
       let clearable = List.map (fun r -> r.name) (List.filter (fun r -> r.set <> None || r.get_set <> None || r.get_map <> None) all) in
       (* We need the names of the set and map filters *)
