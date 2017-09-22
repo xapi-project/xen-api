@@ -2541,13 +2541,13 @@ let vm_create_new_blob = call
 
 let vm_bios_string_keys =
   Enum ("vm_bios_string_keys", true,
-        [ "bios-vendor",          "Indicates BIOS vendor's Name.";
-          "bios-version",         "Indicates BIOS version";
-          "system-manufacturer",  "Indicates system manufacturer";
-          "system-product-name",  "Indicates system product name";
-          "system-version",       "Indicates system version";
-          "system-serial-number", "Indicates system serial number";
-          "enclosure-asset-tag",  "Indicates system enclosure asset tag"
+        [ "bios_vendor",          "Indicates BIOS vendor's Name.";
+          "bios_version",         "Indicates BIOS version";
+          "system_manufacturer",  "Indicates system manufacturer";
+          "system_product_name",  "Indicates system product name";
+          "system_version",       "Indicates system version";
+          "system_serial_number", "Indicates system serial number";
+          "enclosure_asset_tag",  "Indicates system enclosure asset tag"
         ])
 
 let vm_set_bios_strings = call
