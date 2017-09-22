@@ -56,6 +56,7 @@ type feature =
   | Live_set_vcpus               (** Enable setting the number of virtual CPUs of a running VM. *)
   | PVS_proxy                    (** Enable the use of PVS proxying. *)
   | IGMP_snooping                (** Enable the use of IGMP snooping feature. *)
+  | RPU                          (** Enable use of Rolling Pool Upgrade *)
 
 (** Convert RPC into {!feature}s *)
 val feature_of_rpc : Rpc.t -> feature
