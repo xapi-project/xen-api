@@ -774,6 +774,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
             are 'snapshot_of' a specified VDI go to the same place. suspend VDIs
             that are unspecified go to the suspend_sr_ref defined above *)
 
+  let extra_vdis = suspends_vdis @ snapshots_vdis in
+
   let extra_vdi_map =
     List.filter_map
       (fun vconf ->
@@ -805,9 +807,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
              raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vconf.vdi ]))
            end in
          Some (vconf.vdi, dest_sr_ref))
-      (suspends_vdis @ snapshots_vdis) in
+      extra_vdis in
 
   let vdi_map = vdi_map @ extra_vdi_map in
+  let all_vdis = vms_vdis @ extra_vdis in
 
   let dbg = Context.string_of_task __context in
   let open Xapi_xenops_queue in
@@ -833,7 +836,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
         let t2 = Date.to_float (Db.VDI.get_snapshot_time ~__context ~self:v2.vdi) in
         compare t1 t2
       else r in
-    let all_vdis = List.concat [suspends_vdis; snapshots_vdis; vms_vdis] |> List.sort compare_fun in
+    let all_vdis = all_vdis |> List.sort compare_fun in
 
     let total_size = List.fold_left (fun acc vconf -> Int64.add acc vconf.size) 0L all_vdis in
     let so_far = ref 0L in
