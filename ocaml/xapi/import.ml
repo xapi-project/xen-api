@@ -1711,6 +1711,16 @@ let handler (req: Request.t) s _ =
                 (* The GUI can deal with this itself, but the CLI is complicated by the thin cli/cli server split *)
                 TaskHelper.set_progress ~__context 0.0;
 
+                (* Block VM.import operation during RPU *)
+                debug "Check RPU status before VM.import";
+                if Helpers.rolling_upgrade_in_progress ~__context
+                then
+                  begin
+                    warn "VM.import is not supported during RPU";
+                    Http_svr.headers s (Http.http_400_badrequest ());
+                    raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
+                  end;
+
                 if force then warn "Force option supplied: will ignore checksum failures";
 
                 (* Let's check that we're not trying to import into an iso library! *)
