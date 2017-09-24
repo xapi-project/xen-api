@@ -27,7 +27,7 @@ let require_str name arg =
 let with_block filename f =
   Block.connect filename
   >>= function
-  | `Error _ -> Lwt.fail_with (Printf.sprintf "Unable to read %s" filename)
+  | `Error e -> Lwt.fail_with (Printf.sprintf "Unable to read %s: %s" filename (Nbd.Block_error_printer.to_string e))
   | `Ok x ->
     Lwt.finalize
       (fun () -> f x)
@@ -42,6 +42,7 @@ let with_attached_vdi vDI read_write rpc session_id f =
   >>= fun control_domain ->
   Xen_api.VBD.create ~rpc ~session_id ~vM:control_domain ~vDI ~userdevice:"autodetect" ~bootable:false ~mode:(if read_write then `RW else `RO) ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
   >>= fun vbd ->
+  Lwt_log.notice_f "Created VBD %s" vbd >>= fun () ->
   Lwt.finalize
     (fun () ->
       Lwt_log.notice_f "Plugging VBD %s" vbd >>= fun () ->
