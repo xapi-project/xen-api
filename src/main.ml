@@ -24,25 +24,14 @@ let require name arg = match arg with
 let require_str name arg =
   require name (if arg = "" then None else Some arg)
 
-let capture_exception f x =
-  Lwt.catch
-    (fun () -> f x >>= fun r -> Lwt.return (`Ok r))
-    (fun e -> Lwt.return (`Error e))
-
-let release_exception = function
-  | `Ok x -> Lwt.return x
-  | `Error e -> Lwt.fail e
-
 let with_block filename f =
   Block.connect filename
   >>= function
   | `Error _ -> Lwt.fail_with (Printf.sprintf "Unable to read %s" filename)
   | `Ok x ->
-    capture_exception f x
-    >>= fun r ->
-    Block.disconnect x
-    >>= fun () ->
-    release_exception r
+    Lwt.finalize
+      (fun () -> f x)
+      (fun () -> Block.disconnect x)
 
 let with_attached_vdi vDI read_write rpc session_id f =
   Lwt_log.notice "Looking up control domain UUID in xensource inventory" >>= fun () ->
