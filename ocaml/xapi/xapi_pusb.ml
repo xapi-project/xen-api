@@ -23,11 +23,9 @@ let create ~__context ~uSB_group ~host ~other_config ~path
       ~vendor_id ~vendor_desc ~product_id ~product_desc ~serial ~version ~description =
   let pusb = Ref.make () and uuid = Uuid.make_uuid () in
   let host = Helpers.get_localhost ~__context in
-  Mutex.execute mutex (fun () ->
-      Db.PUSB.create ~__context ~ref:pusb ~uuid:(Uuid.to_string uuid)
-        ~uSB_group ~host ~attached:Ref.null ~other_config ~path ~vendor_id ~vendor_desc ~product_id
-         ~product_desc ~serial ~version ~description ~passthrough_enabled:false;
-  );
+  Db.PUSB.create ~__context ~ref:pusb ~uuid:(Uuid.to_string uuid)
+    ~uSB_group ~host ~attached:Ref.null ~other_config ~path ~vendor_id ~vendor_desc ~product_id
+    ~product_desc ~serial ~version ~description ~passthrough_enabled:false;
   debug "PUSB ref='%s' created" (Ref.string_of pusb);
   pusb
 
