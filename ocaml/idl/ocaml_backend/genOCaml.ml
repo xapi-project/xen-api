@@ -41,20 +41,18 @@ let ty_to_xmlrpc api ty =
   let f = match ty with
     | Bool -> "To.boolean"
     | DateTime -> "To.datetime"
-    | Enum(_, default, cs) ->
+    | Enum(_, cs) ->
       let aux (c, _) = constructor_of c^" -> \""^c^"\"" in
       "    fun v -> To.string(match v with\n  "^indent^
-      String.concat ("\n"^indent^"| ") (List.map aux cs)^
-      (if default then "| `unknown -> failwith \"No marshalling of `unknown\")" else ")")
+      String.concat ("\n"^indent^"| ") (List.map aux cs)^")"
     | Float -> "To.double"
     | Int -> "fun n -> To.string(Int64.to_string n)"
     | Map(key, value) ->
       let kf = begin match key with
         | Ref x -> "tostring_reference"
-        | Enum (name, default, cs) ->
+        | Enum (name, cs) ->
           let aux (c, _) = Printf.sprintf "%s -> \"%s\"" (constructor_of c) (String.lowercase c) in
-          "   function " ^ (String.concat ("\n" ^ indent ^ "| ") ((List.map aux cs) @
-          (if default then ["`unknown -> failwith \"No marshalling of `unknown\""] else [])))
+          "   function " ^ (String.concat ("\n" ^ indent ^ "| ") (List.map aux cs))
         | key -> "ToString." ^ (alias_of_ty key)
       end in
       let vf = alias_of_ty value in
@@ -108,7 +106,7 @@ let ty_of_xmlrpc api ty =
   let f = match ty with
     | Bool -> wrap "xml" "From.boolean xml"
     | DateTime -> wrap "xml" "From.datetime xml"
-    | Enum(name, _, cs) ->
+    | Enum(name, cs) ->
       let aux (c, _) = "\""^(String.lowercase c)^"\" -> "^constructor_of c in
       wrap "xml"
         ("\n    match String.lowercase (From.string xml) with\n      "^
@@ -119,7 +117,7 @@ let ty_of_xmlrpc api ty =
     | Map(key, value) ->
       let kf = begin match key with
         | Ref x -> "fromstring_reference"
-        | Enum (name, _, cs) ->
+        | Enum (name, cs) ->
           let aux (c, _) = "\""^(String.lowercase c)^"\" -> "^constructor_of c in
           wrap "txt"
             ("\n    match String.lowercase txt with\n      "^

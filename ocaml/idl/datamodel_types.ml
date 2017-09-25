@@ -221,7 +221,7 @@ let release_leq x y =
 (** Types of object fields. Accessor functions are generated for each field automatically according to its type and qualifiers. *)
 type ty =
   | String | Int | Float | Bool | DateTime
-  | Enum of string * bool * (string * string) list
+  | Enum of string * (string * string) list
   | Set of ty
   | Map of ty * ty
   | Ref of string
@@ -435,7 +435,7 @@ let rec type_checks v t =
   | VFloat _, Float -> true
   | VBool _, Bool -> true
   | VDateTime _, DateTime -> true
-  | VEnum ev, Enum (_,_,enum_spec) ->
+  | VEnum ev, Enum (_,enum_spec) ->
     let enum_possibles = List.map fst enum_spec in
     List.mem ev enum_possibles
   | VMap vvl, Map (t1,t2) ->
@@ -457,7 +457,7 @@ module TypeToXML = struct
     | Float          -> string "float"
     | Bool           -> string "bool"
     | DateTime       -> string "datetime"
-    | Enum (name, _, _) -> box "enum" [ string name ]
+    | Enum (name, _) -> box "enum" [ string name ]
     | Ref x          -> box "ref" [ string x ]
     | Set ty         -> box "set" [ marshal_ ty ]
     | Map (a, b)     -> box "map" [ marshal_ a; marshal_ b ]
@@ -472,7 +472,7 @@ module TypeToXML = struct
     | Xml.Element("int", [], [])                       -> Int
     | Xml.Element("float", [], [])                     -> Float
     | Xml.Element("datetime", [], [])                  -> DateTime
-    | Xml.Element("enum", [], [Xml.Element(name, [], [])]) -> Enum(name, false, [])
+    | Xml.Element("enum", [], [Xml.Element(name, [], [])]) -> Enum(name, [])
     | Xml.Element("ref", [],  [Xml.Element(name, [], [])]) -> Ref name
     | Xml.Element("set", [], [t])                      -> Set(unmarshal_ t)
     | Xml.Element("map", [], [a;b])                    -> Map(unmarshal_ a, unmarshal_ b)

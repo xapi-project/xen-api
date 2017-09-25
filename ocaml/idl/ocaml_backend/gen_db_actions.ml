@@ -53,7 +53,7 @@ let dm_to_string tys : O.Module.t =
     let body = match ty with
       | DT.Bool -> "string_of_bool"
       | DT.DateTime -> "fun x -> (try Date.assert_utc x with Invalid_argument s -> raise (DateTimeError s)); Date.to_string x"
-      | DT.Enum(name, _, cs) ->
+      | DT.Enum(name, cs) ->
         let aux (c, _) = (OU.constructor_of c)^" -> \""^c^"\"" in
         "\n    fun v -> match v with\n      "^
         String.concat "\n    | " (List.map aux cs)
@@ -94,7 +94,7 @@ let string_to_dm tys : O.Module.t =
     let body = match ty with
       | DT.Bool -> "bool_of_string"
       | DT.DateTime -> "fun x -> Date.of_string x"
-      | DT.Enum(name, _, cs) ->
+      | DT.Enum(name, cs) ->
         let aux (c, _) = "\""^c^"\" -> "^(OU.constructor_of c) in
         "\n    fun v -> match v with\n      "^
         String.concat "\n    | " (List.map aux cs)^

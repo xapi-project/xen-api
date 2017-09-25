@@ -148,7 +148,7 @@ let rec dtd_element_of_contents known_els parent_name accu = function
       add_attribute known_els parent_name name [] (Some "");
       accu
 
-    | Enum(_, _, vals) ->
+    | Enum(_, vals) ->
       add_attribute known_els parent_name name
         (List.map fst vals) None;
       accu
