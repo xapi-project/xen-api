@@ -336,6 +336,8 @@ let string_of_task_status task = match task.API.task_status with
     "Cancelling"
   | `cancelled ->
     "Cancelled"
+  | `unknown ->
+    "Unknown"
 
 (*let task_list printer rpc session_id params =
   let internal = try (List.assoc "internal" params)="true" with _ -> false in
@@ -4892,6 +4894,7 @@ let livepatch_status_to_string state =
   | `ok -> "Ok."
   | `ok_livepatch_complete -> "Ok: Patch can be applied without reboot."
   | `ok_livepatch_incomplete -> "Ok: Patch can be applied, but a reboot will be required."
+  | `unknown -> "Unknown status!"
 
 let update_precheck printer rpc session_id params =
   let uuid = List.assoc "uuid" params in

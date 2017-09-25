@@ -301,6 +301,10 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address ~r
                let result = Client.Task.get_result rpc session_id remote_task in
                API.Legacy.From.ref_VM_set "" (Xml.parse_string result)
              end
+           | `unknown -> begin
+              error "Remote metadata import reported unknown task status. This is a failure";
+              raise (Api_errors.Server_error(Api_errors.internal_error, ["Unknown task result enum"]))
+           end
         )
         (fun () -> Client.Task.destroy rpc session_id remote_task )
     )

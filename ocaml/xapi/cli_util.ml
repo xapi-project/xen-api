@@ -69,6 +69,8 @@ let result_from_task rpc session_id remote_task =
     failwith "wait_for_task_completion failed; task is still pending"
   | `success ->
     ()
+  | `unknown ->
+    failwith "unknown task status"
   | `failure ->
     let error_info = Client.Task.get_error_info rpc session_id remote_task in
     let trace = Client.Task.get_backtrace rpc session_id remote_task in

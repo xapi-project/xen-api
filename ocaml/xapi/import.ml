@@ -944,6 +944,9 @@ module VBD : HandlerTools = struct
 
       let vbd_record = { vbd_record with API.vBD_VM = vm } in
       match vbd_record.API.vBD_type, exists vbd_record.API.vBD_VDI state.table with
+      | `unknown, _ ->
+        warn "Unknown VBD type. Ignoring.";
+        Skip
       | `CD, false | `Floppy, false  ->
         if has_booted_hvm || original_vm.API.vM_power_state <> `Suspended then
           Create { vbd_record with API.vBD_VDI = Ref.null; API.vBD_empty = true }  (* eject *)

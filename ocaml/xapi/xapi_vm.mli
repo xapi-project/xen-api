@@ -29,22 +29,9 @@ val retrieve_wlb_recommendations :
   vm:[ `VM ] Ref.t -> (API.ref_host * string list) list
 val assert_agile : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val immediate_complete : __context:Context.t -> unit
-val set_actions_after_shutdown :
-  __context:Context.t ->
-  self:[ `VM ] Ref.t -> value:[< `destroy | `restart ] -> unit
-val set_actions_after_reboot :
-  __context:Context.t ->
-  self:[ `VM ] Ref.t -> value:[< `destroy | `restart ] -> unit
-val set_actions_after_crash :
-  __context:Context.t ->
-  self:[ `VM ] Ref.t ->
-  value:[< `coredump_and_destroy
-        | `coredump_and_restart
-        | `destroy
-        | `preserve
-        | `rename_restart
-        | `restart ] ->
-  unit
+val set_actions_after_shutdown : __context:Context.t -> self:API.ref_VM -> value:API.on_normal_exit -> unit
+val set_actions_after_reboot : __context:Context.t -> self:API.ref_VM -> value:API.on_normal_exit -> unit
+val set_actions_after_crash : __context:Context.t -> self:API.ref_VM -> value:API.on_crash_behaviour -> unit
 val set_is_a_template :
   __context:Context.t -> self:[ `VM ] Ref.t -> value:bool -> unit
 val set_is_default_template :
@@ -109,14 +96,9 @@ val create :
   vCPUs_params:(string * string) list ->
   vCPUs_max:int64 ->
   vCPUs_at_startup:int64 ->
-  actions_after_shutdown:[< `destroy | `restart ] ->
-  actions_after_reboot:[< `destroy | `restart ] ->
-  actions_after_crash:[< `coredump_and_destroy
-                      | `coredump_and_restart
-                      | `destroy
-                      | `preserve
-                      | `rename_restart
-                      | `restart ] ->
+  actions_after_shutdown:API.on_normal_exit ->
+  actions_after_reboot:API.on_normal_exit ->
+  actions_after_crash:API.on_crash_behaviour ->
   pV_bootloader:string ->
   pV_kernel:string ->
   pV_ramdisk:string ->

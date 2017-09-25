@@ -202,6 +202,7 @@ let validate_actions_after_crash ~__context ~self ~value =
   | `coredump_and_destroy -> hvm_cannot_coredump "coredump_and_destroy"
   | `coredump_and_restart -> hvm_cannot_coredump "coredump_and_restart"
   | `destroy | `restart | `preserve -> ()
+  | `unknown -> value_not_supported fld "unknown" "Unknown value"
 
 (* Used to sanity-check parameters before VM start *)
 let validate_basic_parameters ~__context ~self ~snapshot:x =

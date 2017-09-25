@@ -148,7 +148,8 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
         | `no -> set_errors Api_errors.operation_not_allowed ["VM states it does not support VBD hotplug."] plug_ops
            (* according to xen docs PV drivers are enough for this to be possible *)
         | `unspecified when gmr.Db_actions.vM_guest_metrics_PV_drivers_detected -> ()
-        | `unspecified -> fallback ())
+        | `unspecified -> fallback ()
+        | `unknown -> set_errors Api_errors.operation_not_allowed ["Unknown state in VM_guest_metrics.can_use_hotplug_vbd"] plug_ops)
     );
     if record.Db_actions.vBD_type = `CD
     then set_errors Api_errors.operation_not_allowed

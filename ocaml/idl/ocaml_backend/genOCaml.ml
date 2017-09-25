@@ -44,7 +44,7 @@ let ty_to_xmlrpc api ty =
     | Enum(_, cs) ->
       let aux (c, _) = constructor_of c^" -> \""^c^"\"" in
       "    fun v -> To.string(match v with\n  "^indent^
-      String.concat ("\n"^indent^"| ") (List.map aux cs)^")"
+      String.concat ("\n"^indent^"| ") (List.map aux cs)^" | `unknown -> failwith \"No marshalling of `unknown\")"
     | Float -> "To.double"
     | Int -> "fun n -> To.string(Int64.to_string n)"
     | Map(key, value) ->
@@ -52,7 +52,7 @@ let ty_to_xmlrpc api ty =
         | Ref x -> "tostring_reference"
         | Enum (name, cs) ->
           let aux (c, _) = Printf.sprintf "%s -> \"%s\"" (constructor_of c) (String.lowercase c) in
-          "   function " ^ (String.concat ("\n" ^ indent ^ "| ") (List.map aux cs))
+          "   function " ^ (String.concat ("\n" ^ indent ^ "| ") ((List.map aux cs) @ ["`unknown -> failwith \"No marshalling of `unknown\""]))
         | key -> "ToString." ^ (alias_of_ty key)
       end in
       let vf = alias_of_ty value in

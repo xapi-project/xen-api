@@ -33,7 +33,8 @@ let with_open_block_attached_device __context rpc session_id vdi mode f =
     (fun path ->
        let mode' = match mode with
          | `RO -> [ Unix.O_RDONLY ]
-         | `RW -> [ Unix.O_RDWR ] in
+         | `RW -> [ Unix.O_RDWR ]
+         | `unknown -> failwith "Cannot use unknown mode" in
        let fd = Unix.openfile path mode' 0 in
        Stdext.Pervasiveext.finally
          (fun () -> f fd)

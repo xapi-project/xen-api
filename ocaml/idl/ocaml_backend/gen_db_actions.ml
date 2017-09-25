@@ -57,7 +57,7 @@ let dm_to_string tys : O.Module.t =
         let aux (c, _) = (OU.constructor_of c)^" -> \""^c^"\"" in
         "\n    fun v -> match v with\n      "^
         String.concat "\n    | " (List.map aux cs)
-      (* ^"\n    | _ -> raise (StringEnumTypeError \""^name^"\")" *)
+        ^"\n    | `unknown -> raise (StringEnumTypeError \""^name^"\")"
       | DT.Float -> "Printf.sprintf \"%0.18g\""
       | DT.Int -> "Int64.to_string"
       | DT.Map(key, value) ->

@@ -135,6 +135,7 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
             (* already checked for [] above *)
             | `Floppy -> Device_number.to_linux_device (List.hd possibilities)
             | `CD | `Disk -> string_of_int (Device_number.to_disk_number (List.hd possibilities))
+            | `unknown -> raise Api_errors.(Server_error(field_type_error,["type"]))
           else userdevice
         in
 

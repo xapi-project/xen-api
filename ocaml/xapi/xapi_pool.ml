@@ -1093,6 +1093,7 @@ let eject ~__context ~host =
       | `None -> "none"
       | `DHCP -> "dhcp"
       | `Static -> "static"
+      | `unknown -> "unknown" (* What else can we do? Eject is pretty terminal anyway... *)
     in
 
     let write_first_boot_management_interface_configuration_file () =
@@ -1269,7 +1270,7 @@ let management_reconfigure ~__context ~network =
       raise (Api_errors.Server_error(Api_errors.pif_not_present, [Ref.string_of host; Ref.string_of network]));
   ) all_hosts;
 
-  let address_type = Db.PIF.get_primary_address_type ~__context ~self:(List.hd pifs_on_network) in 
+  let address_type = Db.PIF.get_primary_address_type ~__context ~self:(List.hd pifs_on_network) in
   List.iter (fun self ->
     let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self in
     if primary_address_type <> address_type then

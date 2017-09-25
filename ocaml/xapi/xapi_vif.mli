@@ -118,13 +118,13 @@ val remove_ipv6_allowed :
 val configure_ipv4 :
   __context:Context.t ->
   self:[ `VIF ] Ref.t ->
-  mode:[`None | `Static] ->
+  mode:API.vif_ipv4_configuration_mode ->
   address:string -> gateway:string -> unit
 
 (** Change the IP configuration of a VIF *)
 val configure_ipv6 :
   __context:Context.t ->
   self:[ `VIF ] Ref.t ->
-  mode:[`None | `Static] ->
+  mode:API.vif_ipv6_configuration_mode ->
   address:string -> gateway:string -> unit
 

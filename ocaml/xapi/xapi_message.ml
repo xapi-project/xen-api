@@ -55,7 +55,7 @@ let class_to_string cls =
   | `VMPP -> "VMPP"
   | `VMSS -> "VMSS"
   | `PVS_proxy -> "PVS_proxy"
-  | _ -> "unknown"
+  | `unknown -> "unknown"
 
 let string_to_class str =
   match str with
@@ -228,6 +228,7 @@ let check_uuid ~__context ~cls ~uuid =
      | `VMPP -> ignore(Db.VMPP.get_by_uuid ~__context ~uuid)
      | `VMSS -> ignore(Db.VMSS.get_by_uuid ~__context ~uuid)
      | `PVS_proxy -> ignore(Db.PVS_proxy.get_by_uuid ~__context ~uuid)
+     | `unknown -> failwith "Unknown message type"
     );
     true
   with _ ->
@@ -377,7 +378,7 @@ let write ~__context ~_ref ~message =
 
 (** create: Create a new message, and write to disk. Returns null ref
     	if write failed, or message ref otherwise. *)
-let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
+let create ~__context ~name ~priority ~(cls:API.cls) ~obj_uuid ~body =
   debug "Message.create %s %Ld %s %s" name priority
     (class_to_string cls) obj_uuid;
 
@@ -406,7 +407,7 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
   let message = {API.message_name=name;
                  API.message_uuid=uuid;
                  API.message_priority=priority;
-                 API.message_cls=cls;
+                 API.message_cls=cls |> class_to_string |> string_to_class;
                  API.message_obj_uuid=obj_uuid;
                  API.message_timestamp=Date.of_float timestamp;
                  API.message_body=body;}
