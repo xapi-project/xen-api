@@ -57,7 +57,7 @@ let gen_non_record_type highapi tys =
     | DT.Record _             :: t
     | DT.Map (_, DT.Record _) :: t
     | DT.Set (DT.Record _)    :: t -> aux accu t
-    | DT.Set (DT.Enum (n,_,_) as e) as ty :: t ->
+    | DT.Set (DT.Enum (n,_) as e) as ty :: t ->
       aux (sprintf "type %s = %s list [@@deriving rpc]" (OU.alias_of_ty ty) (OU.alias_of_ty e) :: accu) t
     | ty                      :: t ->
       let alias = OU.alias_of_ty ty in

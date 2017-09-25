@@ -22,7 +22,7 @@ open Stdext.Xstringext
 module Types = struct
   let rec to_string = function
     | String -> "string" | Int -> "int" | Float -> "float" | Bool -> "bool"
-    | DateTime -> "datetime" | Enum (name, _, things) -> name
+    | DateTime -> "datetime" | Enum (name, things) -> name
     | Set x -> (to_string x) ^ " set"
     | Map (a, b) -> "(" ^ (to_string a) ^ " -> " ^ (to_string b) ^ ") map"
     | Ref obj -> obj ^ " ref"
