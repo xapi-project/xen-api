@@ -57,11 +57,11 @@ let choose_alternative kind default platformdata =
 	end else default
 
 (* We allow qemu-dm to be overriden via a platform flag *)
-let choose_qemu_dm x = Device.(Profile.wrapper_of (
+let choose_qemu_dm x = Device.(
 	if List.mem_assoc _device_model x
 	then Profile.of_string (List.assoc _device_model x)
 	else Profile.fallback
-))
+)
 
 (* We allow xenguest to be overriden via a platform flag *)
 let choose_xenguest x = choose_alternative _xenguest !Xc_resources.xenguest x
@@ -1334,7 +1334,7 @@ module VM = struct
 		let vmextra = DB.read_exn vm.Vm.id in
 		let qemu_dm = choose_qemu_dm vm.Vm.platformdata in
 		let xenguest = choose_xenguest vm.Vm.platformdata in
-		debug "chosen qemu_dm = %s" qemu_dm;
+		debug "chosen qemu_dm = %s" (Device.Profile.wrapper_of qemu_dm);
 		debug "chosen xenguest = %s" xenguest;
 		try
 			Opt.iter (fun info ->
@@ -1344,15 +1344,15 @@ module VM = struct
 						Opt.iter
 							(fun stubdom_domid ->
 								Stubdom.build task ~xc ~xs ~store_domid ~console_domid info xenguest di.Xenctrl.domid stubdom_domid;
-								Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info stubdom_domid
+								Device.Dm.start_vnconly task ~xs ~dm:qemu_dm info stubdom_domid
 							) (get_stubdom ~xs di.Xenctrl.domid);
 					| Vm.HVM { Vm.qemu_stubdom = false } ->
 						(if saved_state then Device.Dm.restore else Device.Dm.start)
-							task ~xs ~dmpath:qemu_dm info di.Xenctrl.domid
+							task ~xs ~dm:qemu_dm info di.Xenctrl.domid
 					| Vm.PV _ ->
 						Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
 						Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
-						Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info di.Xenctrl.domid
+						Device.Dm.start_vnconly task ~xs ~dm:qemu_dm info di.Xenctrl.domid
 			) (create_device_model_config vm vmextra vbds vifs vgpus);
 			match vm.Vm.ty with
 				| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid

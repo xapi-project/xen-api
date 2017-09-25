@@ -2167,7 +2167,7 @@ module Dm = struct
         )
     | _ -> failwith "Unsupported vGPU configuration"
 
-  let __start (task: Xenops_task.task_handle) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready_timeout) l info domid =
+  let __start (task: Xenops_task.task_handle) ~xs ~dm ?(timeout = !Xenopsd.qemu_dm_ready_timeout) l info domid =
     debug "Device.Dm.start domid=%d args: [%s]" domid (String.concat " " l);
 
     (* start vgpu emulation if appropriate *)
@@ -2185,7 +2185,7 @@ module Dm = struct
     let ready_path =
       Printf.sprintf "/local/domain/%d/device-model/%d/state" qemu_domid domid in
     let cancel = Cancel_utils.Qemu (qemu_domid, domid) in
-    let qemu_pid = init_daemon ~task ~path:dmpath ~args ~name:"qemu-dm" ~domid
+    let qemu_pid = init_daemon ~task ~path:(Profile.wrapper_of dm) ~args ~name:"qemu-dm" ~domid
         ~xs ~ready_path ~ready_val:"running" ~timeout ~cancel () in
     match !Xenopsd.action_after_qemu_crash with
     | None ->
@@ -2221,17 +2221,17 @@ module Dm = struct
               xs.Xs.write (Qemu.pid_path_signal domid) crash_reason
         ))
 
-  let start (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
+  let start (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =
     let l = cmdline_of_info info false domid in
-    __start task ~xs ~dmpath ?timeout l info domid
+    __start task ~xs ~dm ?timeout l info domid
 
-  let restore (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
+  let restore (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =
     let l = cmdline_of_info info true domid in
-    __start task ~xs ~dmpath ?timeout l info domid
+    __start task ~xs ~dm ?timeout l info domid
 
-  let start_vnconly (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
+  let start_vnconly (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =
     let l = vnconly_cmdline ~info domid in
-    __start task ~xs ~dmpath ?timeout l info domid
+    __start task ~xs ~dm ?timeout l info domid
 
 end (* Dm *)
 
