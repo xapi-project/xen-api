@@ -18,14 +18,20 @@
 module D=Debug.Make(struct let name="xapi_cluster" end)
 open D
 
-let create ~__context ~network ~cluster_stack ~pool_auto_join =
-  let ref = Ref.make () in
-  let uuid = Uuidm.to_string (Uuidm.create `V4) in
-  let cluster_token = uuid in (* TODO: replace with result from xapi-clusterd.Local.create *)
-  Db.Cluster.create ~__context ~ref ~uuid ~network ~cluster_token ~cluster_stack
+let create ~__context ~network (* ~cluster_token *) ~cluster_stack ~pool_auto_join =
+  let cluster_ref = Ref.make () in
+  let cluster_host_ref = Ref.make () in
+  let cluster_uuid = Uuidm.to_string (Uuidm.create `V4) in
+  let cluster_host_uuid = Uuidm.to_string (Uuidm.create `V4) in
+  let pool = Db.Pool.get_all ~__context |> List.hd in
+  let host = Db.Pool.get_master ~__context ~self:pool in
+  (* let cluster_token = xapi-clusterd.local.create ip in *)
+  Db.Cluster.create ~__context ~ref:cluster_ref ~uuid:cluster_uuid ~network ~cluster_token:cluster_uuid ~cluster_stack
     ~pool_auto_join ~current_operations:[] ~allowed_operations:[] ~cluster_config:[]
     ~other_config:[];
-  ref
+  Db.Cluster_host.create ~__context ~ref:cluster_host_ref ~uuid:cluster_host_uuid ~cluster:cluster_ref ~host ~enabled:false
+    ~current_operations:[] ~allowed_operations:[] ~other_config:[];
+  cluster_ref
 
 let destroy ~__context ~self =
   (* TODO: call xapi-clusterd.Local.destroy *)
@@ -33,4 +39,14 @@ let destroy ~__context ~self =
   Db.Cluster.destroy ~__context ~self
 
 let pool_create ~__context ~pool ~cluster_stack ~network =
-  raise (Api_errors.Server_error (Api_errors.not_implemented, [ "pool_create" ]))
+  let master = Db.Pool.get_master ~__context ~self:pool in
+  let hosts = Db.Host.get_all ~__context in
+
+  (*let cluster_token = Uuidm.to_string (Uuidm.create `V4) in*)
+  let cluster = create ~__context ~network (* ~cluster_token *) ~cluster_stack:"corosync" ~pool_auto_join:true in
+
+  List.iter (fun host ->
+    if master <> host then
+      Xapi_cluster_host.create ~__context ~cluster ~host |> ignore) hosts;
+
+  cluster
