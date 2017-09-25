@@ -21,6 +21,7 @@ open D
 let create ~__context ~cluster ~host =
   let ref = Ref.make () in
   let uuid = Uuidm.to_string (Uuidm.create `V4) in
+  (* call xapi-clusterd.join*)
   Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~enabled:false
     ~current_operations:[] ~allowed_operations:[] ~other_config:[];
   ref
