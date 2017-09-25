@@ -171,7 +171,7 @@ let rec get_java_type ty =
   | Float         -> "Double"
   | Bool          -> "Boolean"
   | DateTime      -> "Date"
-  | Enum(name,ls) -> Hashtbl.replace enums name ls; sprintf "Types.%s" (class_case name)
+  | Enum(name,_,ls)-> Hashtbl.replace enums name ls; sprintf "Types.%s" (class_case name)
   | Set(t1)       -> sprintf "Set<%s>" (get_java_type t1)
   | Map(t1, t2)   -> sprintf "Map<%s, %s>" (get_java_type t1) (get_java_type t2)
   | Ref(ty)       -> class_case ty (* We want to hide all refs *)
@@ -180,7 +180,7 @@ let rec get_java_type ty =
 
 (*We'd like the list of XenAPI objects to appear as an enumeration so we can*)
 (* switch on them, so add it using this mechanism*)
-let switch_enum = (Enum ("XenAPIObjects", (List.map (fun x -> (x.name,x.description )) classes)));;
+let switch_enum = (Enum ("XenAPIObjects", false,(List.map (fun x -> (x.name,x.description )) classes)));;
 let _ = (get_java_type switch_enum);;
 
 (*Helper function for get_marshall_function*)
@@ -190,7 +190,7 @@ let rec get_marshall_function_rec = function
   | Float         -> "Double"
   | Bool          -> "Boolean"
   | DateTime      -> "Date"
-  | Enum(name,ls) -> class_case name
+  | Enum(name,_,ls)-> class_case name
   | Set(t1)       -> sprintf "SetOf%s" (get_marshall_function_rec t1)
   | Map(t1, t2)   -> sprintf "MapOf%s%s" (get_marshall_function_rec t1) (get_marshall_function_rec t2)
   | Ref(ty)       -> class_case ty (* We want to hide all refs *)
@@ -403,8 +403,8 @@ let field_default = function
   | Float         -> "0.0"
   | Bool          -> "false"
   | DateTime      -> "new Date(0)"
-  | Enum("vif_locking_mode", _) -> "Types.VifLockingMode.NETWORK_DEFAULT"  (* XOP-372 *)
-  | Enum(name, _) -> sprintf "Types.%s.UNRECOGNIZED" (class_case name)
+  | Enum("vif_locking_mode",_,_) -> "Types.VifLockingMode.NETWORK_DEFAULT"  (* XOP-372 *)
+  | Enum(name,_,_)-> sprintf "Types.%s.UNRECOGNIZED" (class_case name)
   | Set(t1)       -> sprintf "new LinkedHashSet<%s>()" (get_java_type t1)
   | Map(t1, t2)   -> sprintf "new HashMap<%s, %s>()" (get_java_type t1) (get_java_type t2)
   | Ref(ty)       -> sprintf "new %s(\"OpaqueRef:NULL\")" (class_case ty)
@@ -636,7 +636,7 @@ let gen_marshall_body file = function
         }\n"
 
   | Ref(ty)       -> fprintf file "        return new %s((String) object);\n" (class_case ty)
-  | Enum(name,ls) ->
+  | Enum(name,_,ls) ->
     fprintf file "        try {\n";
     fprintf file "            return %s.valueOf(((String) object).toUpperCase().replace('-','_'));\n" (class_case name);
     fprintf file "        } catch (IllegalArgumentException ex) {\n";

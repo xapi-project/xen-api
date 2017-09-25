@@ -643,8 +643,8 @@ and convert_from_hashtable fname ty =
   | Set(String)          -> sprintf "Marshalling.ParseStringArray(HashTable, %s)" field
   | Set(Ref x)           -> sprintf "Marshalling.ParseSetRef<%s>(HashTable, %s)"
                               (exposed_class_name x) field
-  | Set(Enum(x, _))      -> sprintf "Helper.StringArrayToEnumList<%s>(Marshalling.ParseStringArray(HashTable, %s))" x field
-  | Enum(x, _)           -> sprintf "(%s)CommonCmdletFunctions.EnumParseDefault(typeof(%s), Marshalling.ParseString(HashTable, %s))"
+  | Set(Enum(x,_,_))     -> sprintf "Helper.StringArrayToEnumList<%s>(Marshalling.ParseStringArray(HashTable, %s))" x field
+  | Enum(x,_,_)          -> sprintf "(%s)CommonCmdletFunctions.EnumParseDefault(typeof(%s), Marshalling.ParseString(HashTable, %s))"
                               x x field
   | Map(Ref x, Record _) -> sprintf "Marshalling.ParseMapRefRecord<%s, Proxy_%s>(HashTable, %s)"
                               (exposed_class_name x) (exposed_class_name x) field

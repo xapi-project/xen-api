@@ -152,7 +152,7 @@ and gen_class f g clas targetdir =
 
 
 and gen_enum f g targetdir = function
-  | Enum(name, contents) ->
+  | Enum(name, _, contents) ->
     if not (List.mem name !all_headers) then
       all_headers := name::!all_headers;
     let out_chan = open_out (Filename.concat targetdir (g name))
@@ -502,7 +502,7 @@ and abstract_result_handling needed classname msg_name param_count = function
     return session->ok;
 " record_tn (initialiser_of_ty (Record n)) call
 
-    | Enum(e, _) ->
+    | Enum(e, _, _) ->
       sprintf
         "%s
     %s
@@ -545,7 +545,7 @@ and abstract_result_type typ =
 
 and abstract_type record = function
   | String      -> "abstract_type_string"
-  | Enum(n, _)  ->
+  | Enum(n, _, _)  ->
     sprintf "%s_abstract_type_" (typename n)
   | Ref _       ->
     if record then
@@ -556,7 +556,7 @@ and abstract_type record = function
   | Float       -> "abstract_type_float"
   | Bool        -> "abstract_type_bool"
   | DateTime    -> "abstract_type_datetime"
-  | Set (Enum(n, _)) ->
+  | Set (Enum(n, _, _)) ->
     sprintf "%s_set_abstract_type_" (typename n)
   | Set (Record "event") ->
     "xen_event_record_set_abstract_type_"
@@ -569,8 +569,8 @@ and abstract_type record = function
       sprintf "abstract_type_%s_ref_map" (name_of_ty l)
     else
       sprintf "abstract_type_%s_string_map" (name_of_ty l)
-  | Map((Enum(_,_) as l), r) -> (mapname l r) ^ "_abstract_type_"
-  | Map(l, (Enum(_,_) as r)) -> (mapname l r) ^ "_abstract_type_"
+  | Map((Enum(_,_,_) as l), r) -> (mapname l r) ^ "_abstract_type_"
+  | Map(l, (Enum(_,_,_) as r)) -> (mapname l r) ^ "_abstract_type_"
   | Map(l, r) -> sprintf "abstract_type_" ^ (mapname l r)
 
   | Record n -> sprintf "%s_abstract_type_" (record_typename n)
@@ -923,8 +923,8 @@ void
 
   begin
     match l, r with
-      (Enum(_, _), _) -> gen_enum_map_abstract_type print name l r
-    | (_, Enum(_, _)) -> gen_enum_map_abstract_type print name l r
+      (Enum(_,_,_), _) -> gen_enum_map_abstract_type print name l r
+    | (_, Enum(_,_,_)) -> gen_enum_map_abstract_type print name l r
     | _ -> ()
   end
 
@@ -968,7 +968,7 @@ extern const abstract_type %s_abstract_type_;
 
 
 and hash_include_enum = function
-    Enum(x, _) ->
+    Enum(x,_,_) ->
     "\n" ^ hash_include x
   | _ ->
     ""
@@ -1220,13 +1220,13 @@ and find_needed'' needed = function
   | Float
   | Bool
   | DateTime -> ()
-  | Enum (n, _) ->
+  | Enum (n, _, _) ->
     needed := StringSet.add (n ^ "_internal") !needed
   | Ref n ->
     needed := StringSet.add n !needed
   | Set(Ref n) ->
     needed := StringSet.add n !needed
-  | Set(Enum (e, _)) ->
+  | Set(Enum (e, _, _)) ->
     needed := StringSet.add e !needed;
     needed := StringSet.add (e ^ "_internal") !needed
   | Set(Record "event") ->
@@ -1251,10 +1251,10 @@ and free_impl val_name record = function
   | Float
   | Bool
   | DateTime
-  | Enum (_, _)      -> ""
+  | Enum (_, _, _)   -> ""
   | Ref n            -> sprintf "%s_free(%s);" (if record then record_opt_typename n else typename n) val_name
   | Set(Ref n)       -> sprintf "%s_opt_set_free(%s);" (record_typename n) val_name
-  | Set(Enum (e, _)) -> sprintf "%s_set_free(%s);" (typename e) val_name
+  | Set(Enum (e,_,_))-> sprintf "%s_set_free(%s);" (typename e) val_name
   | Set(String)      -> sprintf "xen_string_set_free(%s);" val_name
   | Map(l, r)        -> let n = mapname l r in
     sprintf "%s_free(%s);" (typename n) val_name
@@ -1264,14 +1264,14 @@ and free_impl val_name record = function
 
 
 and add_enum_internal needed = function
-  | Enum(x, _) -> StringSet.add (x ^ "_internal") needed
-  | _          -> needed
+  | Enum(x,_,_) -> StringSet.add (x ^ "_internal") needed
+  | _           -> needed
 
 
 and add_enum_map_internal needed l r =
   match (l, r) with
-    (Enum(_, _), _) -> StringSet.add ((mapname l r) ^ "_internal") needed
-  | (_, Enum(_, _)) -> StringSet.add ((mapname l r) ^ "_internal") needed
+    (Enum(_,_,_), _) -> StringSet.add ((mapname l r) ^ "_internal") needed
+  | (_, Enum(_,_,_)) -> StringSet.add ((mapname l r) ^ "_internal") needed
   | _ -> needed
 
 
@@ -1288,7 +1288,7 @@ and c_type_of_ty needed record = function
       sprintf "struct %s *" (record_opt_typename name)
     else
       sprintf "%s " (typename name)
-  | Enum(name, cs) as x ->
+  | Enum(name, _, cs) as x ->
     needed := StringSet.add name !needed;
     enums := TypeSet.add x !enums;
     c_type_of_enum name
@@ -1298,7 +1298,7 @@ and c_type_of_ty needed record = function
       sprintf "struct %s_set *" (record_opt_typename name)
     else
       sprintf "struct %s_set *" (typename name)
-  | Set (Enum (e, _) as x) ->
+  | Set (Enum (e,_,_) as x) ->
     let enum_typename = typename e in
     needed := StringSet.add e !needed;
     enums := TypeSet.add x !enums;
@@ -1317,8 +1317,8 @@ and c_type_of_ty needed record = function
     maps := TypeSet.add x !maps;
     begin
       match (l, r) with
-        (Enum(_, _), _) -> enum_maps := TypeSet.add x !enum_maps
-      | (_, Enum(_, _)) -> enum_maps := TypeSet.add x !enum_maps
+        (Enum(_,_,_), _) -> enum_maps := TypeSet.add x !enum_maps
+      | (_, Enum(_,_,_)) -> enum_maps := TypeSet.add x !enum_maps
       | _ -> ()
     end;
     sprintf "%s *" (typename n)
@@ -1351,7 +1351,7 @@ and name_of_ty = function
   | Float    -> "float"
   | Bool     -> "bool"
   | DateTime -> "datetime"
-  | Enum(x, _) -> x
+  | Enum(x,_,_) -> x
   | Set(x)   -> sprintf "%s_set" (name_of_ty x)
   | Ref(x)   -> x
   | Map(l,r) -> sprintf "%s_%s_map" (name_of_ty l) (name_of_ty r)
