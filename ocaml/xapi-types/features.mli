@@ -59,6 +59,7 @@ type feature =
   | RPU                          (** Enable use of Rolling Pool Upgrade *)
   | Pool_size                    (** Enable use of Pooling for more than 3 Hosts *)
   | CBT                          (** Enable the use of CBT *)
+  | USB_passthrough              (** Enable the use of USB passthrough. *)
 
 (** Convert RPC into {!feature}s *)
 val feature_of_rpc : Rpc.t -> feature
