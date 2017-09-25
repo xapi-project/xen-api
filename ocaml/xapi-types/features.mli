@@ -55,6 +55,7 @@ type feature =
   | Live_patching                (** Enable the use of live patching feature. *)
   | Live_set_vcpus               (** Enable setting the number of virtual CPUs of a running VM. *)
   | PVS_proxy                    (** Enable the use of PVS proxying. *)
+  | USB_passthrough              (** Enable the use of USB passthrough. *)
 
 (** Convert RPC into {!feature}s *)
 val feature_of_rpc : Rpc.t -> feature
