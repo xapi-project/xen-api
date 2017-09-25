@@ -16,6 +16,34 @@ open Lwt.Infix
 (* Xapi external interfaces: *)
 module Xen_api = Xen_api_lwt_unix
 
+let ignore_exn t = Lwt.catch t (fun _ -> Lwt.return_unit)
+let ignore_exn_delayed t () = Lwt.catch t (fun _ -> Lwt.return_unit)
+
+module StringSet = Set.Make(String)
+let vbds_to_clean_up = ref StringSet.empty
+
+let cleanup_vbds signal =
+  let cleanup () =
+    Lwt_log.warning_f "Caught signal %d, cleaning up" signal >>= fun () ->
+    let rpc = Xen_api.make Consts.xapi_unix_domain_socket_uri in
+    Xen_api.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:"1.0" ~originator:"xapi-nbd" >>= fun session_id ->
+    let cleanup vbd = ignore_exn (fun () ->
+        Lwt_log.warning_f "Cleaning up VBD %s" vbd >>= fun () ->
+        Xen_api.VBD.unplug ~rpc ~session_id ~self:vbd >>= fun () ->
+        Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd)
+    in
+    StringSet.elements !vbds_to_clean_up
+    |> Lwt_list.iter_s cleanup
+  in
+  Lwt_main.run (cleanup ());
+  failwith (Printf.sprintf "Caught signal %d" signal)
+
+let register_signal_handler () =
+  let signals = [ Sys.sigint; Sys.sigterm ] in
+  List.iter
+    (fun s -> Lwt_unix.on_signal s cleanup_vbds |> ignore)
+    signals
+
 (* TODO share these "require" functions with the nbd package. *)
 let require name arg = match arg with
   | None -> failwith (Printf.sprintf "Please supply a %s argument" name)
@@ -33,6 +61,25 @@ let with_block filename f =
       (fun () -> f x)
       (fun () -> Block.disconnect x)
 
+let with_vbd ~vDI ~vM ~mode ~rpc ~session_id f =
+  Xen_api.VBD.create ~rpc ~session_id ~vM ~vDI ~userdevice:"autodetect" ~bootable:false ~mode ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
+  >>= fun vbd ->
+  vbds_to_clean_up := StringSet.add vbd !vbds_to_clean_up;
+  Lwt.finalize
+    (fun () ->
+       Lwt_log.notice_f "Plugging VBD %s" vbd >>= fun () ->
+       Xen_api.VBD.plug ~rpc ~session_id ~self:vbd >>= fun () ->
+       Lwt.finalize
+         (fun () -> f vbd)
+         (fun () ->
+            Lwt_log.notice_f "Unplugging VBD %s" vbd >>= fun () ->
+            Xen_api.VBD.unplug ~rpc ~session_id ~self:vbd)
+    )
+    (fun () ->
+       Lwt_log.notice_f "Destroying VBD %s" vbd >>= fun () ->
+       Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd >|= fun () ->
+       vbds_to_clean_up := StringSet.remove vbd !vbds_to_clean_up)
+
 let with_attached_vdi vDI read_write rpc session_id f =
   Lwt_log.notice "Looking up control domain UUID in xensource inventory" >>= fun () ->
   Inventory.inventory_filename := Consts.xensource_inventory_filename;
@@ -40,27 +87,12 @@ let with_attached_vdi vDI read_write rpc session_id f =
   Lwt_log.notice "Found control domain UUID" >>= fun () ->
   Xen_api.VM.get_by_uuid ~rpc ~session_id ~uuid:control_domain_uuid
   >>= fun control_domain ->
-  Xen_api.VBD.create ~rpc ~session_id ~vM:control_domain ~vDI ~userdevice:"autodetect" ~bootable:false ~mode:(if read_write then `RW else `RO) ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
-  >>= fun vbd ->
-  Lwt_log.notice_f "Created VBD %s" vbd >>= fun () ->
-  Lwt.finalize
-    (fun () ->
-      Lwt_log.notice_f "Plugging VBD %s" vbd >>= fun () ->
-      Xen_api.VBD.plug ~rpc ~session_id ~self:vbd
-      >>= fun () ->
-      Lwt.finalize
-      (fun () ->
-        Xen_api.VBD.get_device ~rpc ~session_id ~self:vbd
-        >>= fun device ->
-        f ("/dev/" ^ device))
-      (fun () -> Xen_api.VBD.unplug ~rpc ~session_id ~self:vbd))
-    (fun () ->
-      Lwt_log.notice_f "Destroying VBD %s" vbd >>= fun () ->
-      Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd)
+  with_vbd ~vDI ~vM:control_domain ~mode:(if read_write then `RW else `RO) ~rpc ~session_id (fun vbd ->
+      Xen_api.VBD.get_device ~rpc ~session_id ~self:vbd
+      >>= fun device ->
+      f ("/dev/" ^ device))
 
-let ignore_exn t () = Lwt.catch t (fun _ -> Lwt.return_unit)
-
-let handle_connection xen_api_uri fd tls_role =
+let handle_connection fd tls_role =
 
   let with_session rpc uri f =
     ( match Uri.get_query_param uri "session_id" with
@@ -93,7 +125,7 @@ let handle_connection xen_api_uri fd tls_role =
     (fun channel ->
        Nbd_lwt_unix.Server.with_connection channel
          (fun export_name svr ->
-           let rpc = Xen_api.make xen_api_uri in
+           let rpc = Xen_api.make Consts.xapi_unix_domain_socket_uri in
            let uri = Uri.of_string export_name in
            with_session rpc uri (serve svr)
          )
@@ -110,9 +142,9 @@ let init_tls_get_server_ctx ~certfile ~ciphersuites no_tls =
     )
   )
 
-let main port xen_api_uri certfile ciphersuites no_tls =
+let main port certfile ciphersuites no_tls =
   let t () =
-    Lwt_log.notice_f "Starting xapi-nbd: port = '%d'; xen_api_uri = '%s'; certfile = '%s'; ciphersuites = '%s' no_tls = '%b'" port xen_api_uri certfile ciphersuites no_tls >>= fun () ->
+    Lwt_log.notice_f "Starting xapi-nbd: port = '%d'; certfile = '%s'; ciphersuites = '%s' no_tls = '%b'" port certfile ciphersuites no_tls >>= fun () ->
     Lwt_log.notice "Initialising TLS" >>= fun () ->
     let tls_role = init_tls_get_server_ctx ~certfile ~ciphersuites no_tls in
     let sock = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
@@ -133,9 +165,9 @@ let main port xen_api_uri certfile ciphersuites no_tls =
              Lwt.catch
                (fun () ->
                   Lwt.finalize
-                    (fun () -> handle_connection xen_api_uri fd tls_role)
+                    (fun () -> handle_connection fd tls_role)
                     (* ignore the exception resulting from double-closing the socket *)
-                    (ignore_exn (fun () -> Lwt_unix.close fd))
+                    (ignore_exn_delayed (fun () -> Lwt_unix.close fd))
                )
                (fun e -> Lwt_log.error_f "Caught exception while handling client: %s" (Printexc.to_string e))
            in
@@ -143,7 +175,7 @@ let main port xen_api_uri certfile ciphersuites no_tls =
          in
          loop ()
       )
-      (ignore_exn (fun () -> Lwt_unix.close sock))
+      (ignore_exn_delayed (fun () -> Lwt_unix.close sock))
   in
   (* Log unexpected exceptions *)
   Lwt_main.run
@@ -190,10 +222,7 @@ let cmd =
   let port =
     let doc = "Local port to listen for connections on" in
     Arg.(value & opt int Consts.standard_nbd_port & info [ "port" ] ~doc) in
-  let xen_api_uri =
-    let doc = "The URI to use when making XenAPI calls. It must point to the pool master, or to xapi's local Unix domain socket, which is the default." in
-    Arg.(value & opt string Consts.xapi_unix_domain_socket_uri & info [ "xen-api-uri" ] ~doc) in
-  Term.(ret (pure main $ port $ xen_api_uri $ certfile $ ciphersuites $ no_tls)),
+  Term.(ret (pure main $ port $ certfile $ ciphersuites $ no_tls)),
   Term.info "xapi-nbd" ~version:"1.0.0" ~doc ~man ~sdocs:_common_options
 
 let setup_logging () =
@@ -202,6 +231,7 @@ let setup_logging () =
   Lwt_log.add_rule "*" Lwt_log.Notice
 
 let () =
+  register_signal_handler ();
   setup_logging ();
   match Term.eval cmd with
   | `Error _ -> exit 1
