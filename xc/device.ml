@@ -1738,95 +1738,6 @@ module Dm_Common = struct
 
   let gimtool_m = Mutex.create ()
 
-  let start_vgpu ~xs task domid vgpus vcpus =
-    let open Xenops_interface.Vgpu in
-    match vgpus with
-    | [{implementation = Nvidia vgpu}] ->
-      (* The below line does nothing if the device is already bound to the
-         		 * nvidia driver. We rely on xapi to refrain from attempting to run
-         		 * a vGPU on a device which is passed through to a guest. *)
-      PCI.bind [vgpu.physical_pci_address] PCI.Nvidia;
-      let args = vgpu_args_of_nvidia domid vcpus vgpu in
-      let ready_path = Printf.sprintf "/local/domain/%d/vgpu-pid" domid in
-      let cancel = Cancel_utils.Vgpu domid in
-      let vgpu_pid = init_daemon ~task ~path:!Xc_resources.vgpu ~args
-          ~name:"vgpu" ~domid ~xs ~ready_path ~timeout:!Xenopsd.vgpu_ready_timeout ~cancel () in
-      Forkhelpers.dontwaitpid vgpu_pid
-    | [{implementation = GVT_g vgpu}] ->
-      PCI.bind [vgpu.physical_pci_address] PCI.I915
-    | [{implementation = MxGPU vgpu}] ->
-      Mutex.execute gimtool_m (fun () ->
-          configure_gim ~xs vgpu.physical_function vgpu.vgpus_per_pgpu vgpu.framebufferbytes;
-          let keys = [
-            "pf", Xenops_interface.Pci.string_of_address vgpu.physical_function;
-          ] in
-          write_vgpu_data ~xs domid 0 keys
-        )
-    | _ -> failwith "Unsupported vGPU configuration"
-
-  let __start (task: Xenops_task.task_handle) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready_timeout) l info domid =
-    debug "Device.Dm.start domid=%d args: [%s]" domid (String.concat " " l);
-
-    (* start vgpu emulation if appropriate *)
-    let () = match info.disp with
-      | VNC (Vgpu vgpus, _, _, _, _)
-      | SDL (Vgpu vgpus, _) ->
-        start_vgpu ~xs task domid vgpus info.vcpus
-      | _ -> ()
-    in
-
-    (* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
-    let args = (prepend_wrapper_args domid l) in
-    let qemu_domid = 0 in (* See stubdom.ml for the corresponding kernel code *)
-    let ready_path =
-      Printf.sprintf "/local/domain/%d/device-model/%d/state" qemu_domid domid in
-    let cancel = Cancel_utils.Qemu (qemu_domid, domid) in
-    let qemu_pid = init_daemon ~task ~path:dmpath ~args ~name:"qemu-dm" ~domid
-        ~xs ~ready_path ~ready_val:"running" ~timeout ~cancel () in
-    match !Xenopsd.action_after_qemu_crash with
-    | None ->
-      (* At this point we expect qemu to outlive us; we will never call waitpid *)
-      Forkhelpers.dontwaitpid qemu_pid
-    | Some _ ->
-      (* We register a callback to be run asynchronously in case qemu fails/crashes or is killed *)
-      let waitpid_async x ~callback =
-        ignore(Thread.create (fun x->callback (try Forkhelpers.waitpid_fail_if_bad_exit x; None with e -> Some e)) x)
-      in
-      waitpid_async qemu_pid ~callback:(fun qemu_crash -> Forkhelpers.(
-          debug "Finished waiting qemu pid=%d for domid=%d" (getpid qemu_pid) domid;
-          let crash_reason = match qemu_crash with
-            | None -> debug "domid=%d qemu-pid=%d: detected exit=0" domid (getpid qemu_pid);
-              "exit:0"
-            | Some e -> begin match e with
-                | Subprocess_failed x -> (* exit n *)
-                  debug "domid=%d qemu-pid=%d: detected exit=%d" domid (getpid qemu_pid) x;
-                  Printf.sprintf "exit:%d" x
-                | Subprocess_killed x -> (* qemu received signal/crashed *)
-                  debug "domid=%d qemu-pid=%d: detected signal=%d" domid (getpid qemu_pid) x;
-                  Printf.sprintf "signal:%d" x
-                | e -> debug "domid=%d qemu-pid=%d: detected unknown exception %s" domid (getpid qemu_pid) (Printexc.to_string e);
-                  Printf.sprintf "unknown"
-              end
-          in
-          if not (Qemu.SignalMask.has Qemu.signal_mask domid) then
-            match (Qemu.pid ~xs domid) with
-            | None -> (* after expected qemu stop or domain xs tree destroyed: this event arrived too late, nothing to do *)
-              debug "domid=%d qemu-pid=%d: already removed from xenstore during domain destroy" domid (getpid qemu_pid);
-            | Some _ ->
-              (* before expected qemu stop: qemu-pid is available in domain xs tree: signal action to take *)
-              xs.Xs.write (Qemu.pid_path_signal domid) crash_reason
-        ))
-
-  let start (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
-    let l = cmdline_of_info info false domid in
-    __start task ~xs ~dmpath ?timeout l info domid
-  let restore (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
-    let l = cmdline_of_info info true domid in
-    __start task ~xs ~dmpath ?timeout l info domid
-
-  let start_vnconly (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
-    let l = vnconly_cmdline ~info domid in
-    __start task ~xs ~dmpath ?timeout l info domid
 
   (* suspend/resume is a done by sending signals to qemu *)
   let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
@@ -2226,6 +2137,101 @@ module Dm = struct
   let with_dirty_log domid ~f =
     let module Q = (val Backend.of_domid domid) in
     Q.Dm.with_dirty_log domid ~f
+
+
+  (* the following functions depend on the functions above that use the qemu backend Q *)
+
+  let start_vgpu ~xs task domid vgpus vcpus =
+    let open Xenops_interface.Vgpu in
+    match vgpus with
+    | [{implementation = Nvidia vgpu}] ->
+      (* The below line does nothing if the device is already bound to the
+         		 * nvidia driver. We rely on xapi to refrain from attempting to run
+         		 * a vGPU on a device which is passed through to a guest. *)
+      PCI.bind [vgpu.physical_pci_address] PCI.Nvidia;
+      let args = vgpu_args_of_nvidia domid vcpus vgpu in
+      let ready_path = Printf.sprintf "/local/domain/%d/vgpu-pid" domid in
+      let cancel = Cancel_utils.Vgpu domid in
+      let vgpu_pid = init_daemon ~task ~path:!Xc_resources.vgpu ~args
+          ~name:"vgpu" ~domid ~xs ~ready_path ~timeout:!Xenopsd.vgpu_ready_timeout ~cancel () in
+      Forkhelpers.dontwaitpid vgpu_pid
+    | [{implementation = GVT_g vgpu}] ->
+      PCI.bind [vgpu.physical_pci_address] PCI.I915
+    | [{implementation = MxGPU vgpu}] ->
+      Mutex.execute gimtool_m (fun () ->
+          configure_gim ~xs vgpu.physical_function vgpu.vgpus_per_pgpu vgpu.framebufferbytes;
+          let keys = [
+            "pf", Xenops_interface.Pci.string_of_address vgpu.physical_function;
+          ] in
+          write_vgpu_data ~xs domid 0 keys
+        )
+    | _ -> failwith "Unsupported vGPU configuration"
+
+  let __start (task: Xenops_task.task_handle) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready_timeout) l info domid =
+    debug "Device.Dm.start domid=%d args: [%s]" domid (String.concat " " l);
+
+    (* start vgpu emulation if appropriate *)
+    let () = match info.disp with
+      | VNC (Vgpu vgpus, _, _, _, _)
+      | SDL (Vgpu vgpus, _) ->
+        start_vgpu ~xs task domid vgpus info.vcpus
+      | _ -> ()
+    in
+
+    (* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
+
+    let args = (prepend_wrapper_args domid l) in
+    let qemu_domid = 0 in (* See stubdom.ml for the corresponding kernel code *)
+    let ready_path =
+      Printf.sprintf "/local/domain/%d/device-model/%d/state" qemu_domid domid in
+    let cancel = Cancel_utils.Qemu (qemu_domid, domid) in
+    let qemu_pid = init_daemon ~task ~path:dmpath ~args ~name:"qemu-dm" ~domid
+        ~xs ~ready_path ~ready_val:"running" ~timeout ~cancel () in
+    match !Xenopsd.action_after_qemu_crash with
+    | None ->
+      (* At this point we expect qemu to outlive us; we will never call waitpid *)
+      Forkhelpers.dontwaitpid qemu_pid
+    | Some _ ->
+      (* We register a callback to be run asynchronously in case qemu fails/crashes or is killed *)
+      let waitpid_async x ~callback =
+        ignore(Thread.create (fun x->callback (try Forkhelpers.waitpid_fail_if_bad_exit x; None with e -> Some e)) x)
+      in
+      waitpid_async qemu_pid ~callback:(fun qemu_crash -> Forkhelpers.(
+          debug "Finished waiting qemu pid=%d for domid=%d" (getpid qemu_pid) domid;
+          let crash_reason = match qemu_crash with
+            | None -> debug "domid=%d qemu-pid=%d: detected exit=0" domid (getpid qemu_pid);
+              "exit:0"
+            | Some e -> begin match e with
+                | Subprocess_failed x -> (* exit n *)
+                  debug "domid=%d qemu-pid=%d: detected exit=%d" domid (getpid qemu_pid) x;
+                  Printf.sprintf "exit:%d" x
+                | Subprocess_killed x -> (* qemu received signal/crashed *)
+                  debug "domid=%d qemu-pid=%d: detected signal=%d" domid (getpid qemu_pid) x;
+                  Printf.sprintf "signal:%d" x
+                | e -> debug "domid=%d qemu-pid=%d: detected unknown exception %s" domid (getpid qemu_pid) (Printexc.to_string e);
+                  Printf.sprintf "unknown"
+              end
+          in
+          if not (Qemu.SignalMask.has Qemu.signal_mask domid) then
+            match (Qemu.pid ~xs domid) with
+            | None -> (* after expected qemu stop or domain xs tree destroyed: this event arrived too late, nothing to do *)
+              debug "domid=%d qemu-pid=%d: already removed from xenstore during domain destroy" domid (getpid qemu_pid);
+            | Some _ ->
+              (* before expected qemu stop: qemu-pid is available in domain xs tree: signal action to take *)
+              xs.Xs.write (Qemu.pid_path_signal domid) crash_reason
+        ))
+
+  let start (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
+    let l = cmdline_of_info info false domid in
+    __start task ~xs ~dmpath ?timeout l info domid
+
+  let restore (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
+    let l = cmdline_of_info info true domid in
+    __start task ~xs ~dmpath ?timeout l info domid
+
+  let start_vnconly (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
+    let l = vnconly_cmdline ~info domid in
+    __start task ~xs ~dmpath ?timeout l info domid
 
 end (* Dm *)
 
