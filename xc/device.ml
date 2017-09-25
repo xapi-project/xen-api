@@ -2114,13 +2114,16 @@ end (* Vbd *)
 module Dm = struct
   include Dm_Common
 
+  let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel profile =
+    (* init_daemon must decide the backend based on a profile because the qemu daemon is not running
+       at the moment and Backend.of_domid uses is_upstream_qemu which depends on a running qemu.
+     *)
+    let module Q = (val Backend.of_profile profile) in
+    Q.Dm.init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ()
+
   let get_vnc_port ~xs domid =
     let module Q = (val Backend.of_domid domid) in
     Q.Dm.get_vnc_port ~xs domid
-
-  let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel _ =
-    let module Q = (val Backend.of_domid domid) in
-    Q.Dm.init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ()
 
   let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
     let module Q = (val Backend.of_domid domid) in
@@ -2141,7 +2144,7 @@ module Dm = struct
 
   (* the following functions depend on the functions above that use the qemu backend Q *)
 
-  let start_vgpu ~xs task domid vgpus vcpus =
+  let start_vgpu ~xs task domid vgpus vcpus profile =
     let open Xenops_interface.Vgpu in
     match vgpus with
     | [{implementation = Nvidia vgpu}] ->
@@ -2153,7 +2156,7 @@ module Dm = struct
       let ready_path = Printf.sprintf "/local/domain/%d/vgpu-pid" domid in
       let cancel = Cancel_utils.Vgpu domid in
       let vgpu_pid = init_daemon ~task ~path:!Xc_resources.vgpu ~args
-          ~name:"vgpu" ~domid ~xs ~ready_path ~timeout:!Xenopsd.vgpu_ready_timeout ~cancel () in
+          ~name:"vgpu" ~domid ~xs ~ready_path ~timeout:!Xenopsd.vgpu_ready_timeout ~cancel profile in
       Forkhelpers.dontwaitpid vgpu_pid
     | [{implementation = GVT_g vgpu}] ->
       PCI.bind [vgpu.physical_pci_address] PCI.I915
@@ -2174,7 +2177,7 @@ module Dm = struct
     let () = match info.disp with
       | VNC (Vgpu vgpus, _, _, _, _)
       | SDL (Vgpu vgpus, _) ->
-        start_vgpu ~xs task domid vgpus info.vcpus
+        start_vgpu ~xs task domid vgpus info.vcpus dm
       | _ -> ()
     in
 
@@ -2186,7 +2189,7 @@ module Dm = struct
       Printf.sprintf "/local/domain/%d/device-model/%d/state" qemu_domid domid in
     let cancel = Cancel_utils.Qemu (qemu_domid, domid) in
     let qemu_pid = init_daemon ~task ~path:(Profile.wrapper_of dm) ~args ~name:"qemu-dm" ~domid
-        ~xs ~ready_path ~ready_val:"running" ~timeout ~cancel () in
+        ~xs ~ready_path ~ready_val:"running" ~timeout ~cancel dm in
     match !Xenopsd.action_after_qemu_crash with
     | None ->
       (* At this point we expect qemu to outlive us; we will never call waitpid *)
