@@ -2872,6 +2872,14 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.VUSB.destroy;
       flags=[];
     };
+    "cluster-pool-create",
+    {
+      reqd=["pool-uuid";"network-uuid"];
+      optn=["cluster-stack"];
+      help="Create pool-wide cluster";
+      implementation=No_fd Cli_operations.Cluster.pool_create;
+      flags=[];
+    };
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t =
