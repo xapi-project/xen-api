@@ -147,10 +147,10 @@ and exposed_type = function
   | DateTime                -> "DateTime"
   | Ref name                -> sprintf "XenRef<%s>" (qualified_class_name name)
   | Set(Ref name)           -> sprintf "List<XenRef<%s>>" (qualified_class_name name)
-  | Set(Enum(name,_,_))     -> sprintf "List<%s>" name
+  | Set(Enum(name, _))      -> sprintf "List<%s>" name
   | Set(Int)                -> "long[]"
   | Set(String)             -> "string[]"
-  | Enum(name,_,_)          -> name
+  | Enum(name, _)           -> name
   | Map(u, v)               -> sprintf "Dictionary<%s, %s>" (exposed_type u)
                                  (exposed_type v)
   | Record name             -> qualified_class_name name

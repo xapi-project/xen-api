@@ -957,7 +957,7 @@ and gen_proxy_field out_chan content =
 
 
 and gen_enum = function
-  | Enum(name, _, contents) ->
+  | Enum(name, contents) ->
     if not (List.mem name !api_members) then
       api_members := name::!api_members;
     let out_chan = open_out (Filename.concat destdir (name ^ ".cs"))
@@ -1157,11 +1157,11 @@ and exposed_type = function
   | DateTime                -> "DateTime"
   | Ref name                -> sprintf "XenRef<%s>" (exposed_class_name name)
   | Set(Ref name)           -> sprintf "List<XenRef<%s>>" (exposed_class_name name)
-  | Set(Enum(name,_,_) as x)-> enums := TypeSet.add x !enums;
+  | Set(Enum(name, _) as x) -> enums := TypeSet.add x !enums;
     sprintf "List<%s>" name
   | Set(Int)                -> "long[]"
   | Set(String)             -> "string[]"
-  | Enum(name,_,_) as x     -> enums := TypeSet.add x !enums; name
+  | Enum(name, _) as x      -> enums := TypeSet.add x !enums; name
   | Map(u, v)               -> sprintf "Dictionary<%s, %s>" (exposed_type u)
                                  (exposed_type v)
   | Record name             -> exposed_class_name name
@@ -1196,7 +1196,7 @@ and convert_from_proxy thing ty = (*function*)
   | Float               -> simple_convert_from_proxy thing ty
   | Int                 -> sprintf "%s == null ? 0 : %s" thing (simple_convert_from_proxy thing ty)
   | Set(String)         -> sprintf "%s == null ? new string[] {} : %s" thing (simple_convert_from_proxy thing ty)
-  | Enum(name,_,_)      -> sprintf "%s == null ? (%s) 0 : %s" thing name (simple_convert_from_proxy thing ty)
+  | Enum(name, _)       -> sprintf "%s == null ? (%s) 0 : %s" thing name (simple_convert_from_proxy thing ty)
   | _                   -> sprintf "%s == null ? null : %s" thing (simple_convert_from_proxy thing ty)
 
 and convert_from_proxy_never_null_string thing ty = (* for when 'thing' is never null and is a string - i.e. it is a key in a hashtable *)
@@ -1217,8 +1217,8 @@ and convert_from_hashtable fname ty =
   | String              -> sprintf "Marshalling.ParseString(table, %s)" field
   | Set(String)         -> sprintf "Marshalling.ParseStringArray(table, %s)" field
   | Set(Ref name)       -> sprintf "Marshalling.ParseSetRef<%s>(table, %s)" (exposed_class_name name) field
-  | Set(Enum(name,_,_)) -> sprintf "Helper.StringArrayToEnumList<%s>(Marshalling.ParseStringArray(table, %s))" name field
-  | Enum(name,_,_)      -> sprintf "(%s)Helper.EnumParseDefault(typeof(%s), Marshalling.ParseString(table, %s))" name name field
+  | Set(Enum(name, _))  -> sprintf "Helper.StringArrayToEnumList<%s>(Marshalling.ParseStringArray(table, %s))" name field
+  | Enum(name, _)       -> sprintf "(%s)Helper.EnumParseDefault(typeof(%s), Marshalling.ParseString(table, %s))" name name field
   | Map(Ref name, Record _) -> sprintf "Marshalling.ParseMapRefRecord<%s, Proxy_%s>(table, %s)" (exposed_class_name name) (exposed_class_name name) field
   | Map(u, v) as x      ->
     maps := TypeSet.add x !maps;
@@ -1246,8 +1246,8 @@ and simple_convert_from_proxy thing ty =
   | String              -> sprintf "(string)%s" thing
   | Set(String)         -> sprintf "(string [])%s" thing
   | Set(Ref name)       -> sprintf "XenRef<%s>.Create(%s)" (exposed_class_name name) thing
-  | Set(Enum(name,_,_)) -> sprintf "Helper.StringArrayToEnumList<%s>(%s)" name thing
-  | Enum(name,_,_)      -> sprintf "(%s)Helper.EnumParseDefault(typeof(%s), (string)%s)" name name thing
+  | Set(Enum(name, _))  -> sprintf "Helper.StringArrayToEnumList<%s>(%s)" name thing
+  | Enum(name, _)       -> sprintf "(%s)Helper.EnumParseDefault(typeof(%s), (string)%s)" name name thing
   | Map(Ref name, Record _) -> sprintf "XenRef<%s>.Create<Proxy_%s>(%s)" (exposed_class_name name) (exposed_class_name name) thing
   | Map(u, v) as x      ->
     maps := TypeSet.add x !maps;
@@ -1272,11 +1272,11 @@ and convert_to_proxy thing ty = (*function*)
   | Float               -> thing
   | Ref _               -> sprintf "%s ?? \"\"" thing
   | String              -> sprintf "%s ?? \"\"" thing
-  | Enum (name,_,_)     -> sprintf "%s_helper.ToString(%s)" name thing
-  | Set (Ref name)      -> sprintf "(%s != null) ? Helper.RefListToStringArray(%s) : new string[] {}" thing thing
+  | Enum (name,_)       -> sprintf "%s_helper.ToString(%s)" name thing
+  | Set (Ref name)         -> sprintf "(%s != null) ? Helper.RefListToStringArray(%s) : new string[] {}" thing thing
   | Set(String)         -> thing
   | Set (Int) -> sprintf "(%s != null) ? Helper.LongArrayToStringArray(%s) : new string[] {}" thing thing
-  | Set(Enum(_,_,_))    -> sprintf "(%s != null) ? Helper.ObjectListToStringArray(%s) : new string[] {}" thing thing
+  | Set(Enum(_, _))  -> sprintf "(%s != null) ? Helper.ObjectListToStringArray(%s) : new string[] {}" thing thing
   | Map(u, v) as x      -> maps := TypeSet.add x !maps;
     sprintf "%s(%s)"
       (sanitise_function_name (sprintf "Maps.convert_to_proxy_%s_%s" (exposed_type_as_literal u) (exposed_type_as_literal v))) thing
