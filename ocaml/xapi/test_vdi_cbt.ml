@@ -37,6 +37,17 @@ let register_smapiv2_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_data_destroy ?
   let s = make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_data_destroy ?vdi_snapshot ?vdi_clone () in
   register_smapiv2_server s sr_ref
 
+(* create host -> (SM) -> SR -> PBD -> VDI infrastructure for
+   mock storage layer, return SR and VDI *)
+let make_mock_server_infrastructure ~__context =
+  let host = Helpers.get_localhost ~__context in
+  let _: _ API.Ref.t = Test_common.make_sm ~__context () in
+  let sR = Test_common.make_sr ~__context () in
+  let _: _ API.Ref.t = Test_common.make_pbd ~__context ~host ~sR ~currently_attached:true () in
+  let vDI = Test_common.make_vdi ~__context ~is_a_snapshot:true ~managed:true ~cbt_enabled:true ~sR () in
+  register_smapiv2_server ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> ()) (Db.SR.get_uuid ~__context ~self:sR);
+  (sR,vDI)
+
 let test_cbt_enable_disable () =
   let __context = Test_common.make_test_database () in
   let sr_ref = Test_common.make_sr ~__context () in
@@ -227,17 +238,11 @@ let test_allowed_operations_updated_when_necessary () =
 let test_vdi_after_data_destroy () =
   try
     let __context = Test_common.make_test_database () in
-
-    (* Create host -> (SM) -> (PBD) -> SR -> VDI -> (VBD) -> VM infrastructure
-       in order to run VDI.data_destroy and test suspended VMs *)
-    let host = Helpers.get_localhost ~__context in
-    let _: _ API.Ref.t = Test_common.make_sm ~__context () in
-    let sR = Test_common.make_sr ~__context ~_type:"sm" ~is_tools_sr:false () in
-    let _: _ API.Ref.t = Test_common.make_pbd ~__context ~host ~sR ~currently_attached:true () in
-    let vDI = Test_common.make_vdi ~__context ~is_a_snapshot:true ~managed:true ~cbt_enabled:true ~_type:`suspend ~sR () in
+    let sR,vDI = make_mock_server_infrastructure ~__context in
+    Db.SR.set_is_tools_sr ~__context ~self:sR ~value:false;
+    Db.VDI.set_type ~__context ~self:vDI ~value:`suspend;
     let vM = Test_common.make_vm ~__context () in
     let _: _ API.Ref.t = Test_common.make_vbd ~__context ~uuid:"VBD-1" ~vDI ~vM ~currently_attached:false () in
-    register_smapiv2_server ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> ()) (Db.SR.get_uuid ~__context ~self:sR);
 
     let check_vdi_is_snapshot_and_type ~vDI ~snapshot ~vdi_type =
       OUnit.assert_equal ~msg:("VDI type should be set to " ^ (Record_util.vdi_type_to_string vdi_type))
