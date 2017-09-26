@@ -348,3 +348,7 @@ let update_env __context sync_keys =
       Xapi_pgpu.update_gpus ~__context;
     );
 
+  switched_sync Xapi_globs.sync_cluster_hosts (fun () ->
+      Xapi_cluster_host.sync_cluster_hosts ~__context
+    );
+
