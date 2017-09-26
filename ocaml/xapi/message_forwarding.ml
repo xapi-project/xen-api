@@ -4278,15 +4278,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let create ~__context ~cluster ~host =
       info "Cluster_host.create";
       let local_fn = Local.Cluster_host.create ~cluster ~host in
-      let master = Helpers.get_master ~__context in
-      do_op_on ~__context ~local_fn ~host:master
+      do_op_on ~__context ~local_fn ~host
         (fun session_id rpc -> Client.Cluster_host.create rpc session_id cluster host)
 
     let destroy ~__context ~self =
       info "Cluster_host.destroy";
       let local_fn = Local.Cluster_host.destroy ~self in
-      let master = Helpers.get_master ~__context in
-      do_op_on ~__context ~local_fn ~host:master
+      let host = Db.Cluster_host.get_host ~__context ~self in
+      do_op_on ~__context ~local_fn ~host
         (fun session_id rpc -> Client.Cluster_host.destroy rpc session_id self)
 
     let enable ~__context ~self =
