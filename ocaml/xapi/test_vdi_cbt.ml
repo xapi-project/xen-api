@@ -263,7 +263,7 @@ let test_vdi_after_data_destroy () =
     OUnit.assert_equal ~msg:"VDI.data_destroy should set VDI type to cbt_metadata"
       (Db.VDI.get_type ~__context ~self:vDI) `cbt_metadata;
 
-    OUnit.assert_equal ~msg:"VDI.data_destroy should destroy all attached VBDs"
+    OUnit.assert_equal ~msg:"VDI.data_destroy should destroy all associated VBDs"
       (Db.VDI.get_VBDs ~__context ~self:vDI) [];
 
     OUnit.assert_equal ~msg:"VM.suspend_VDI should be set to null"
