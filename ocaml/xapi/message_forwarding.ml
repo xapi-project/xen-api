@@ -4264,12 +4264,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   end
 
   module Cluster = struct
-    let create ~__context ~network ~cluster_token ~cluster_stack ~pool_auto_join =
+    let create ~__context ~network ~cluster_stack ~pool_auto_join =
       info "Cluster.create";
-      let local_fn = Local.Cluster.create ~network ~cluster_token ~cluster_stack ~pool_auto_join in
+      let local_fn = Local.Cluster.create ~network ~cluster_stack ~pool_auto_join in
       let master = Helpers.get_master ~__context in
       do_op_on ~__context ~local_fn ~host:master
-        (fun session_id rpc -> Client.Cluster.create rpc session_id network cluster_token cluster_stack pool_auto_join)
+        (fun session_id rpc -> Client.Cluster.create rpc session_id network cluster_stack pool_auto_join)
 
     let destroy ~__context ~self =
       info "Cluster.destroy";
