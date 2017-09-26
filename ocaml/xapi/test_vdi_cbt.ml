@@ -244,14 +244,16 @@ let test_vdi_after_data_destroy () =
     let vM = Test_common.make_vm ~__context () in
     let vBD = Test_common.make_vbd ~__context ~uuid:"VBD-1" ~vDI ~vM ~currently_attached:false () in
 
-    let check_vdi_is_snapshot_and_type ~vDI ~snapshot ~vdi_type =
+    let check_vdi_is_snapshot_and_type ~vDI ~snapshot ~vdi_type ~managed =
       OUnit.assert_equal ~msg:("VDI type should be set to " ^ (Record_util.vdi_type_to_string vdi_type))
         (Db.VDI.get_type ~__context ~self:vDI) vdi_type;
+      OUnit.assert_equal ~msg:("VDI managed should be set to " ^ (if managed then "true" else "false"))
+        (Db.VDI.get_managed ~__context ~self:vDI) managed;
       let word = if snapshot then "" else " not" in
       OUnit.assert_equal ~msg:("VDI should" ^ word ^ " be a snapshot")
         (Db.VDI.get_is_a_snapshot ~__context ~self:vDI) snapshot
     in
-    check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`suspend;
+    check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`suspend ~managed:true;
 
     (* set vDI as the suspend VDI of vM *)
     Db.VM.set_suspend_VDI ~__context ~self:vM ~value:vDI;
@@ -274,9 +276,9 @@ let test_vdi_after_data_destroy () =
       (Db.VM.get_suspend_VDI ~__context ~self:vM) Ref.null;
 
     (* check for idempotence for metadata snapshot VDIs *)
-    check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`cbt_metadata;
+    check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`cbt_metadata ~managed:true;
     Xapi_vdi.data_destroy ~__context ~self:vDI;
-    check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`cbt_metadata;
+    check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`cbt_metadata ~managed:true;
   with e -> failwith (ExnHelper.string_of_exn e)
 
 let test =
