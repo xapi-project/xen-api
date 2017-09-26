@@ -514,6 +514,14 @@ let check_operation_error ~__context ~ref ~op ~strict =
       then check_vgpu ~__context ~op ~ref_str ~vgpus:vmr.Db_actions.vM_VGPUs
       else None) in
 
+  (* The VM has a VUSB, check if the operation is allowed*)
+  let current_error = check current_error (fun () ->
+      if vmr.Db_actions.vM_VUSBs <> []
+      then match op with
+        | `suspend | `snapshot | `migrate_send | `pool_migrate -> Some (Api_errors.vm_has_vusbs, [ref_str])
+        | _ -> None
+      else None) in
+
   (* Check for errors caused by VM being in an appliance. *)
   let current_error = check current_error (fun () ->
       if Db.is_valid_ref __context vmr.Db_actions.vM_appliance
