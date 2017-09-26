@@ -209,6 +209,58 @@ let test_allowed_operations_updated_when_necessary () =
   Client.Client.VDI.data_destroy ~rpc ~session_id ~self;
   assert_allowed_operations "does not contain `copy after VDI has been data-destroyed" (fun ops -> not @@ List.mem `copy ops)
 
+(* Confirm VDI.data_destroy changes requisite fields of VDI *)
+let test_vdi_after_data_destroy () =
+  try
+    let __context = Test_common.make_test_database () in
+
+    (* Create host -> (SM) -> (PBD) -> SR -> VDI -> (VBD) -> VM infrastructure
+       in order to run VDI.data_destroy and test suspended VMs *)
+    let host = Helpers.get_localhost ~__context in
+    let _: _ API.Ref.t = Test_common.make_sm ~__context () in
+    let sR = Test_common.make_sr ~__context ~_type:"sm" ~is_tools_sr:false () in
+    let _: _ API.Ref.t = Test_common.make_pbd ~__context ~host ~sR ~currently_attached:true () in
+    let vDI = Test_common.make_vdi ~__context ~is_a_snapshot:true ~managed:true ~cbt_enabled:true ~_type:`suspend ~sR () in
+    let vM = Test_common.make_vm ~__context () in
+    let _: _ API.Ref.t = Test_common.make_vbd ~__context ~uuid:"VBD-1" ~vDI ~vM ~currently_attached:false () in
+    register_smapiv2_server ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> ()) (Db.SR.get_uuid ~__context ~self:sR);
+
+    let check_vdi_is_snapshot_and_type ~vDI ~snapshot ~vdi_type =
+      OUnit.assert_equal ~msg:("VDI type should be set to " ^ (Record_util.vdi_type_to_string vdi_type))
+        (Db.VDI.get_type ~__context ~self:vDI) vdi_type;
+      let word = if snapshot then "" else " not" in
+      OUnit.assert_equal ~msg:("VDI should" ^ word ^ " be a snapshot")
+        (Db.VDI.get_is_a_snapshot ~__context ~self:vDI) snapshot
+    in
+    check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`suspend;
+
+    (* set vDI as the suspend VDI of vM *)
+    Db.VM.set_suspend_VDI ~__context ~self:vM ~value:vDI;
+    OUnit.assert_equal ~msg:"VM.suspend_VDI should point to previously created VDI"
+      (Db.VM.get_suspend_VDI ~__context ~self:vM) vDI;
+
+    OUnit.assert_equal ~msg:"VDI should link to previously created VBD"
+      (List.map (fun vbd -> Db.VBD.get_uuid ~__context ~self:vbd)
+         (Db.VDI.get_VBDs ~__context ~self:vDI)) ["VBD-1"];
+
+    (* run VDI.data_destroy, check it has updated VDI fields *)
+    Xapi_vdi.data_destroy ~__context ~self:vDI;
+
+    OUnit.assert_equal ~msg:"VDI.data_destroy should set VDI type to cbt_metadata"
+      (Db.VDI.get_type ~__context ~self:vDI) `cbt_metadata;
+
+    OUnit.assert_equal ~msg:"VDI.data_destroy should destroy all attached VBDs"
+      (Db.VDI.get_VBDs ~__context ~self:vDI) [];
+
+    OUnit.assert_equal ~msg:"VM.suspend_VDI should be set to null"
+      (Db.VM.get_suspend_VDI ~__context ~self:vM) Ref.null;
+
+    (* check for idempotence for metadata snapshot VDIs *)
+    check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`cbt_metadata;
+    Xapi_vdi.data_destroy ~__context ~self:vDI;
+    check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`cbt_metadata;
+  with e -> failwith (ExnHelper.string_of_exn e)
+
 let test =
   let open OUnit in
   "test_vdi_cbt" >:::
@@ -217,4 +269,5 @@ let test =
   ; "test_clone_and_snapshot_correctly_sets_cbt_enabled_field" >:: test_clone_and_snapshot_correctly_sets_cbt_enabled_field
   ; test_get_nbd_info
   ; "test_allowed_operations_updated_when_necessary" >:: test_allowed_operations_updated_when_necessary
+  ; "test_vdi_after_data_destroy" >:: test_vdi_after_data_destroy
   ]
