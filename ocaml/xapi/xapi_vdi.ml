@@ -873,7 +873,10 @@ let change_cbt_status ~__context ~self ~new_cbt_enabled ~caller_name =
   end else
     debug "%s: Not doing anything, CBT is already %s" caller_name (if new_cbt_enabled then "enabled" else "disabled")
 
-let enable_cbt = change_cbt_status ~new_cbt_enabled:true ~caller_name:"VDI.enable_cbt"
+let enable_cbt ~__context ~self =
+  Pool_features.assert_enabled ~__context ~f:Features.CBT;
+  change_cbt_status ~__context ~self ~new_cbt_enabled:true ~caller_name:"VDI.enable_cbt"
+
 let disable_cbt = change_cbt_status ~new_cbt_enabled:false ~caller_name:"VDI.disable_cbt"
 
 let set_cbt_enabled ~__context ~self ~value = 
