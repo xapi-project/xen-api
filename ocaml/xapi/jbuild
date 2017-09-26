@@ -90,6 +90,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    threads
    xenctrl
    xcp
+   xcp.cluster
    xcp.rrd
    xcp.storage
    xcp.xen
