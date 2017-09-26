@@ -71,3 +71,29 @@ let enable ~__context ~self =
 
 let disable ~__context ~self =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "disable" ]))
+
+let sync_required ~__context =
+  let clusters = Db.Cluster.get_all_records ~__context in
+  let localhost = Helpers.get_localhost ~__context in
+  match clusters with
+  | [] -> None
+  | [cluster_ref, cluster_rec] -> begin
+      let expr = Db_filter_types.(And (Eq (Field "host", Literal (Ref.string_of localhost)),
+                                       Eq (Field "cluster", Literal (Ref.string_of cluster_ref)))) in
+      let my_cluster_hosts = Db.Cluster_host.get_internal_records_where ~__context ~expr in
+      match my_cluster_hosts with
+      | [(_ref,_rec)] -> None
+      | [] ->
+        if cluster_rec.API.cluster_pool_auto_join
+        then Some (cluster_ref, localhost)
+        else None
+      | _ -> failwith "Internal error: More than one cluster_host object associated with this host"
+    end
+  | _ -> failwith "Internal error: Cannot have more than one Cluster object per pool currently"
+
+let sync_cluster_hosts ~__context =
+  match sync_required ~__context with
+  | Some (cluster_ref, localhost) ->
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
+        Client.Client.Cluster_host.create rpc session_id cluster_ref localhost) |> ignore
+  | None -> ()
