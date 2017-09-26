@@ -1503,6 +1503,8 @@ let _ =
   error Api_errors.too_many_vusbs [ "number" ]
     ~doc:"You reached the maximal number of VUSBs." ()
 
+  error Api_errors.vm_has_vusbs ["VM"]
+    ~doc:"The VM has VUSB attached" ()
 
 let _ =
   message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();
