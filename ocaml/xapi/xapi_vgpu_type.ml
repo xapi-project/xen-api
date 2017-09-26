@@ -18,6 +18,7 @@ open D
 open Stdext
 open Xstringext
 open Listext
+open Pervasiveext
 
 let ( *** ) = Int64.mul
 let ( /// ) = Int64.div
@@ -490,10 +491,120 @@ module Vendor_nvidia = struct
   let whitelist_file () = !Xapi_globs.nvidia_whitelist
   let device_id_of_conf conf = conf.identifier.Identifier.pdev_id
 
-  let read_whitelist ~whitelist ~device_id =
-    []
+  (* A type to capture the XML tree with functions for use in Xmlm.input_doc_tree *)
+  type tree = E of string * (string * string) list * tree list | D of string
+  let el ((_, name), attr) children = E (name, List.map (fun ((_, k), v) -> k, v) attr, children)
+  let data d = D d
 
-  let vgpu_type_of_conf pci_access vendor_name device conf =
+  (* Helper functions for searching through the XML tree *)
+  let rec find_by_name name = function
+    | E (n, _, _) as t when n = name -> [t]
+    | E (_, _, ch) -> List.map (find_by_name name) ch |> List.concat
+    | D _ -> []
+  let find_one_by_name name t =
+    match find_by_name name t with
+    | x :: _ -> x
+    | [] -> failwith (Printf.sprintf "find_one_by_name(%s): not found" name)
+  let get_attr name = function
+    | E (_, attr, _) -> List.assoc name attr
+    | D _ -> failwith (Printf.sprintf "get_attr(%s): not an element" name)
+  let get_data = function 
+    | E (_, _, [D d]) -> d
+    | _ -> failwith "get_data: no data node"
+
+  let find_supported_vgpu_types device_id pgpus =
+    (*
+      Input example:
+        <pgpu>
+          <devId vendorId="0x10de" deviceId="0x1BB4" subsystemVendorId="0x10de" subsystemId="0x0"></devId>
+          <supportedVgpu vgpuId="72">
+            <maxVgpus>16</maxVgpus>
+            <digest type="signature">(...)</digest>
+          </supportedVgpu>
+          <supportedVgpu vgpuId="73">
+            (...)
+      Output: 
+      - Find the pgpus with deviceId = device_id (there's likely just one).
+      - List the vgpuIds of all supportedVgpus of these pgpus with their
+        maxVgpus value and the pgpu's subsystemId.
+    *)
+    List.filter_map (fun pgpu ->
+      let devid = find_one_by_name "devId" pgpu in
+      if int_of_string (get_attr "deviceId" devid) = device_id then
+        let psubdev_id =
+          let id = int_of_string (get_attr "subsystemId" devid) in
+          if id = 0 then None else Some id
+        in
+        let vgpus = find_by_name "supportedVgpu" pgpu in
+        Some (List.map (fun vgpu ->
+          let id = get_attr "vgpuId" vgpu in
+          let max = Int64.of_string (get_data (find_one_by_name "maxVgpus" vgpu)) in
+          id, (max, psubdev_id)
+        ) vgpus)
+      else
+        None
+    ) pgpus |> List.concat
+
+  let extract_conf whitelist device_id vgpu_types vgpu_ids =
+    (*
+      Input example:
+        <vgpuType id="11" name="GRID M60-0B" class="NVS">
+          <devId vendorId="0x10de" deviceId="0x13F2" subsystemVendorId="0x10de" subsystemId="0x1176"></devId>
+          <framebuffer>0x1A000000</framebuffer>
+          <numHeads>2</numHeads>
+          <display width="2560" height="1600"></display>
+          (...)
+        </vgpuType>
+      Output:
+      - Find the vgpuType elements that match the vgpu type ids found above,
+        and construct vgpu_conf records.
+    *)
+    List.filter_map (fun vgpu_type ->
+      let id = get_attr "id" vgpu_type in
+      if List.mem_assoc id vgpu_ids then
+        let max_instance, psubdev_id = List.assoc id vgpu_ids in
+        let framebufferlength = Int64.of_string (get_data (find_one_by_name "framebuffer" vgpu_type)) in
+        let num_heads = Int64.of_string (get_data (find_one_by_name "numHeads" vgpu_type)) in
+        let max_x, max_y =
+          let display = find_one_by_name "display" vgpu_type in
+          Int64.of_string (get_attr "width" display),
+          Int64.of_string (get_attr "height" display)
+        in
+        let devid = find_one_by_name "devId" vgpu_type in
+        let identifier = Identifier.{
+            pdev_id = device_id;
+            psubdev_id;
+            vdev_id = int_of_string (get_attr "deviceId" devid);
+            vsubdev_id = int_of_string (get_attr "subsystemId" devid);
+          } in
+        let file_path = whitelist in
+        Some {identifier; framebufferlength;
+         num_heads; max_instance; max_x; max_y; file_path}
+      else
+        None
+    ) vgpu_types
+
+  let read_whitelist ~whitelist ~device_id =
+    try
+      let ch = open_in whitelist in
+      let t = 
+        finally (fun () ->
+          let i = Xmlm.make_input ~strip:true (`Channel ch) in
+          let _, t = Xmlm.input_doc_tree ~el ~data i in
+          t
+        )
+        (fun () -> close_in ch)
+      in
+      let pgpus = find_by_name "pgpu" t in
+      let vgpu_types = find_by_name "vgpuType" t in
+      find_supported_vgpu_types device_id pgpus
+      |> extract_conf whitelist device_id vgpu_types
+    with e ->
+      error "Ignoring error parsing %s: %s\n%s\n" whitelist
+        (Printexc.to_string e) (Printexc.get_backtrace ());
+      []
+
+  let vgpu_type_of_conf pci_access vendor_name _ conf =
     let open Identifier in
     debug "Pci.lookup_subsystem_device_name: vendor=%04x device=%04x subdev=%04x"
       vendor_id conf.identifier.vdev_id conf.identifier.vsubdev_id;
