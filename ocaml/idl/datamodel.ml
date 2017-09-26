@@ -10218,7 +10218,6 @@ module Cluster = struct
     ~result:(Ref _cluster, "the new Cluster")
     ~params:
       [ Ref _network, "network",        "the single network on which corosync carries out its inter-host communications"
-      ; String,       "cluster_token",  "secret key used by xapi-clusterd when it talks to itself on other hosts"
       ; String,       "cluster_stack",  "simply the string 'corosync'. No other cluster stacks are currently supported"
       ; Bool,         "pool_auto_join", "true if xapi is automatically joining new pool members to the cluster"
       ]
@@ -10252,7 +10251,7 @@ module Cluster = struct
   let obj =
     create_obj
       ~name: _cluster
-      ~descr:"cluster-wide cluster metadata"
+      ~descr:"Cluster-wide Cluster metadata"
       ~doccomments:[]
       ~gen_constructor_destructor:false
       ~gen_events:true
@@ -10365,7 +10364,7 @@ module Cluster_host = struct
 let obj =
   create_obj
     ~name: _cluster_host
-    ~descr:"Describes the SDN controller that is to connect with the pool"
+    ~descr:"Cluster member metadata"
     ~doccomments:[]
     ~gen_constructor_destructor:false
     ~gen_events:true
