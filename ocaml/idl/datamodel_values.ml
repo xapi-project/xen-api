@@ -92,8 +92,8 @@ let gen_empty_db_val t =
   | Float -> Value.String (string_of_float 0.0)
   | Bool -> Value.String "false"
   | DateTime -> Value.String (Date.to_string Date.never)
-  | Enum (_,(enum_value,_)::_) -> Value.String enum_value
-  | Enum (_, []) -> assert false
+  | Enum (_,_,(enum_value,_)::_) -> Value.String enum_value
+  | Enum (_,_,[]) -> assert false
   | Set _ -> Value.Set []
   | Map _ -> Value.Pairs []
   | Ref _ -> Value.String null_ref
