@@ -2109,3 +2109,14 @@ let add_to_guest_agent_config ~__context ~self ~key ~value =
 let remove_from_guest_agent_config ~__context ~self ~key =
   Db.Pool.remove_from_guest_agent_config ~__context ~self ~key;
   Xapi_pool_helpers.apply_guest_agent_config ~__context
+
+let set_nbd_networks ~__context ~self ~networks =
+  let set_one_if_changing net pool_ref =
+    if Db.Network.get_pool_using_nbd ~__context ~self:net <> pool_ref
+    then Db.Network.set_pool_using_nbd ~__context ~self:net ~value:pool_ref
+  in
+  let pool = Db.Pool.get_all ~__context |> List.hd in
+  Db.Network.get_all ~__context |> List.iter (fun net ->
+    let pool_ref = if List.mem net networks then pool else Ref.null in
+    set_one_if_changing net pool_ref
+  )

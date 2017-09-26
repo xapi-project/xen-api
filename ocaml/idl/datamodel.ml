@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 132
+let schema_minor_vsn = 133
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -88,7 +88,7 @@ let falcon_release_schema_major_vsn = 5
 let falcon_release_schema_minor_vsn = 120
 
 let inverness_release_schema_major_vsn = 5
-let inverness_release_schema_minor_vsn = 131
+let inverness_release_schema_minor_vsn = 133
 
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
@@ -5271,7 +5271,8 @@ let network =
           field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this network";
           field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
           field ~qualifier:DynamicRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "unlocked")) ~ty:network_default_locking_mode "default_locking_mode" "The network will use this value to determine the behaviour of all VIFs where locking_mode = default";
-          field ~qualifier:DynamicRO ~in_product_since:rel_creedence ~default_value:(Some (VMap [])) ~ty:(Map (Ref _vif, String)) "assigned_ips" "The IP addresses assigned to VIFs on networks that have active xapi-managed DHCP"
+          field ~qualifier:DynamicRO ~in_product_since:rel_creedence ~default_value:(Some (VMap [])) ~ty:(Map (Ref _vif, String)) "assigned_ips" "The IP addresses assigned to VIFs on networks that have active xapi-managed DHCP";
+          field ~in_product_since:rel_inverness ~qualifier:DynamicRO ~ty:(Ref _pool) ~default_value:(Some (VRef null_ref)) "pool_using_nbd" "The pool of hosts that offer an NBD service on this network"
         ])
     ()
 
@@ -7429,6 +7430,17 @@ let pool_remove_from_guest_agent_config = call
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+let pool_set_nbd_networks = call
+    ~name:"set_nbd_networks"
+    ~in_product_since:rel_inverness
+    ~doc:"Specify the networks on which the Network Block Device service should be provided"
+    ~params:[
+      Ref _pool, "self", "The pool";
+      Set(Ref _network), "networks", "The set of networks"
+    ]
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
 (** A pool class *)
 let pool =
   create_obj
@@ -7501,6 +7513,7 @@ let pool =
       ; pool_has_extension
       ; pool_add_to_guest_agent_config
       ; pool_remove_from_guest_agent_config
+      ; pool_set_nbd_networks
       ]
     ~contents:
       ([uid ~in_oss_since:None _pool] @
@@ -7541,6 +7554,7 @@ let pool =
        ; field ~qualifier:DynamicRO ~in_product_since:rel_dundee ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "cpu_info" "Details about the physical CPUs on the pool"
        ; field ~qualifier:RW ~in_product_since:rel_dundee ~default_value:(Some (VBool false)) ~ty:Bool "policy_no_vendor_device" "The pool-wide policy for clients on whether to use the vendor device or not on newly created VMs. This field will also be consulted if the 'has_vendor_device' field is not specified in the VM.create call."
        ; field ~qualifier:RW ~in_product_since:rel_ely ~default_value:(Some (VBool false)) ~ty:Bool "live_patching_disabled" "The pool-wide flag to show if the live patching feauture is disabled or not."
+       ; field ~qualifier:DynamicRO ~in_product_since:rel_inverness ~ty:(Set (Ref _network)) "nbd_networks" "The set of networks (if any) on which hosts should offer the Network Block Device service."
        ])
     ()
 
@@ -9970,6 +9984,7 @@ let all_relations =
     (_pci, "physical_function"), (_pci, "virtual_functions");
 
     (_vdi, "metadata_of_pool"), (_pool, "metadata_VDIs");
+    (_network, "pool_using_nbd"), (_pool, "nbd_networks");
     (_sr, "introduced_by"), (_dr_task, "introduced_SRs");
     (_pvs_server, "site"), (_pvs_site, "servers");
     (_pvs_proxy,  "site"), (_pvs_site, "proxies");

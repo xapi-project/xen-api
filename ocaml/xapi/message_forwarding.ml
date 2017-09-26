@@ -672,6 +672,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Pool.remove_from_guest_agent_config: pool = '%s'; key = '%s'"
         (pool_uuid ~__context self) key;
       Local.Pool.remove_from_guest_agent_config ~__context ~self ~key
+
+    let set_nbd_networks ~__context ~self ~networks =
+      info "Pool.set_nbd_networks: pool = '%s'; networks = '%s'"
+        (pool_uuid ~__context self)
+        (String.concat "; " (List.map Ref.string_of networks));
+      Local.Pool.set_nbd_networks ~__context ~self ~networks
   end
 
   module VM = struct

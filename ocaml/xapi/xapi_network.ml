@@ -190,7 +190,8 @@ let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~
   Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
     ~current_operations:[] ~allowed_operations:[]
     ~name_label ~name_description ~mTU ~bridge ~managed
-    ~other_config ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked ~assigned_ips:[];
+    ~other_config ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked ~assigned_ips:[]
+    ~pool_using_nbd:Ref.null;
   r
 
 let rec choose_bridge_name bridges =
@@ -227,7 +228,8 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~
       Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
         ~current_operations:[] ~allowed_operations:[]
         ~name_label ~name_description ~mTU ~bridge ~managed
-        ~other_config ~blobs:[] ~tags ~default_locking_mode:`unlocked ~assigned_ips:[];
+        ~other_config ~blobs:[] ~tags ~default_locking_mode:`unlocked ~assigned_ips:[]
+        ~pool_using_nbd:Ref.null;
       r
     )
 
