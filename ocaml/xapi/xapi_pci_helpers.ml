@@ -12,6 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
+ module D=Debug.Make(struct let name="xapi_pci_helpers" end)
+ open D
+
 type pci_property = {
   id: int;
   name: string;
@@ -28,8 +31,15 @@ type pci = {
 }
 
 let get_host_pcis () =
+  let from_dump =
+    try
+      Some (Filename.temp_file "pci" "dump")
+    with e ->
+      debug "Unable to create tempfile for libcpi dump: %s" (Printexc.to_string e);
+      None
+  in
   let open Pci in
-  with_access (fun access ->
+  with_access ?from_dump (fun access ->
       let devs = get_devices access in
       List.map (fun d ->
           let open Pci_dev in
