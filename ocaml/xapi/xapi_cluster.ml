@@ -18,17 +18,18 @@
 module D=Debug.Make(struct let name="xapi_cluster" end)
 open D
 
-let create ~__context ~network ~cluster_token ~cluster_stack ~pool_auto_join =
+let create ~__context ~network ~cluster_stack ~pool_auto_join =
   let ref = Ref.make () in
   let uuid = Uuidm.to_string (Uuidm.create `V4) in
+  let cluster_token = uuid in (* TODO: replace with result from xapi-clusterd.Local.create *)
   Db.Cluster.create ~__context ~ref ~uuid ~network ~cluster_token ~cluster_stack
-    ~pool_auto_join:true ~current_operations:[] ~allowed_operations:[] ~cluster_config:[]
+    ~pool_auto_join ~current_operations:[] ~allowed_operations:[] ~cluster_config:[]
     ~other_config:[];
   ref
 
 let destroy ~__context ~self =
-  (* TODO: destroy remaining member *)
-  (* ... *)
+  (* TODO: call xapi-clusterd.Local.destroy *)
+  (* TODO: destroy member records *)
   Db.Cluster.destroy ~__context ~self
 
 let pool_create ~__context ~pool ~cluster_stack ~network =
