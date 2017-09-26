@@ -448,6 +448,8 @@ let net_record rpc session_id net =
         ~get:(fun () -> Record_util.network_default_locking_mode_to_string (x ()).API.network_default_locking_mode)
         ~set:(fun value -> Client.Network.set_default_locking_mode rpc session_id net
                  (Record_util.string_to_network_default_locking_mode value)) ();
+      make_field ~name:"nbd-enabled"
+        ~get:(fun () -> (x ()).API.network_pool_using_nbd <> Ref.null |> string_of_bool) ();
     ]}
 
 
@@ -538,6 +540,7 @@ let pool_record rpc session_id pool =
       make_field ~name:"cpu_info" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pool_cpu_info) ~get_map:(fun () -> (x ()).API.pool_cpu_info) ();
       make_field ~name:"policy-no-vendor-device" ~get:(fun () -> string_of_bool (x ()).API.pool_policy_no_vendor_device) ~set:(fun s -> Client.Pool.set_policy_no_vendor_device rpc session_id pool (safe_bool_of_string "policy-no-vendor-device" s)) ();
       make_field ~name:"live-patching-disabled"  ~get:(fun () -> string_of_bool (x ()).API.pool_live_patching_disabled) ~set:(fun s -> Client.Pool.set_live_patching_disabled rpc session_id pool (safe_bool_of_string "live-patching-disabled" s)) ();
+      make_field ~name:"nbd-networks" ~get:(fun () -> String.concat "; " (List.map Ref.string_of (x ()).API.pool_nbd_networks)) ();
     ]}
 
 let vmss_record rpc session_id vmss =
