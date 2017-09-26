@@ -1984,8 +1984,8 @@ module Backend = struct
           let qmp_event_handle domid qmp_event =
             (* This function will be extended to handle qmp events *)
             debug "Got QMP event, domain-%d: %s" domid qmp_event.event;
-            qmp_event.data >>= function
-            | RTC_CHANGE timeoffset ->
+
+            let rtc_change timeoffset =
               with_xs (fun xs ->
                 let timeoffset_key = sprintf "/vm/%s/rtc/timeoffset" (Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid)) in
                 try
@@ -1993,6 +1993,9 @@ module Backend = struct
                   xs.Xs.write timeoffset_key Int64.(add timeoffset (of_string rtc) |> to_string)
                 with e -> error "Failed to process RTC_CHANGE for domain %d: %s" domid (Printexc.to_string e)
               )
+            in
+            qmp_event.data >>= function
+            | RTC_CHANGE timeoffset -> rtc_change timeoffset
 
           let qmp_event_thread () =
             debug "Starting QMP_Event thread";
