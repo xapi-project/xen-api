@@ -16,7 +16,7 @@ open Lwt.Infix
 (* Xapi external interfaces: *)
 module Xen_api = Xen_api_lwt_unix
 
-let ignore_exn t = Lwt.catch t (fun _ -> Lwt.return_unit)
+let ignore_exn_log_error msg t = Lwt.catch t (fun e -> Lwt_log.error (msg ^ ": " ^ (Printexc.to_string e)))
 let ignore_exn_delayed t () = Lwt.catch t (fun _ -> Lwt.return_unit)
 
 module StringSet = Set.Make(String)
@@ -25,15 +25,17 @@ let vbds_to_clean_up = ref StringSet.empty
 let cleanup_vbds signal =
   let cleanup () =
     Lwt_log.warning_f "Caught signal %d, cleaning up" signal >>= fun () ->
-    let rpc = Xen_api.make Consts.xapi_unix_domain_socket_uri in
-    Xen_api.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:"1.0" ~originator:"xapi-nbd" >>= fun session_id ->
-    let cleanup vbd = ignore_exn (fun () ->
-        Lwt_log.warning_f "Cleaning up VBD %s" vbd >>= fun () ->
-        Xen_api.VBD.unplug ~rpc ~session_id ~self:vbd >>= fun () ->
-        Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd)
-    in
-    StringSet.elements !vbds_to_clean_up
-    |> Lwt_list.iter_s cleanup
+    ignore_exn_log_error "Caught exception while cleaning up" (fun () ->
+        let rpc = Xen_api.make Consts.xapi_unix_domain_socket_uri in
+        Xen_api.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:"1.0" ~originator:"xapi-nbd" >>= fun session_id ->
+        let cleanup vbd = ignore_exn_log_error (Printf.sprintf "Caught exception while cleaning up VBD %s" vbd) (fun () ->
+            Lwt_log.warning_f "Cleaning up VBD %s" vbd >>= fun () ->
+            Xen_api.VBD.unplug ~rpc ~session_id ~self:vbd >>= fun () ->
+            Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd)
+        in
+        StringSet.elements !vbds_to_clean_up
+        |> Lwt_list.iter_s cleanup
+      )
   in
   Lwt_main.run (cleanup ());
   failwith (Printf.sprintf "Caught signal %d" signal)
@@ -162,14 +164,13 @@ let main port certfile ciphersuites no_tls =
            Lwt_log.notice "Got new client" >>= fun () ->
            (* Background thread per connection *)
            let _ =
-             Lwt.catch
+             ignore_exn_log_error "Caught exception while handling client"
                (fun () ->
                   Lwt.finalize
                     (fun () -> handle_connection fd tls_role)
                     (* ignore the exception resulting from double-closing the socket *)
                     (ignore_exn_delayed (fun () -> Lwt_unix.close fd))
                )
-               (fun e -> Lwt_log.error_f "Caught exception while handling client: %s" (Printexc.to_string e))
            in
            loop ()
          in
