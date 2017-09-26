@@ -1656,6 +1656,14 @@ let net_attach printer rpc session_id params =
   let host = Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params) in
   let () = Client.Network.attach rpc session_id network host in ()
 
+let net_enable_nbd printer rpc session_id params =
+  let network = Client.Network.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+  Client.Network.set_nbd_enabled rpc session_id network true
+
+let net_disable_nbd printer rpc session_id params =
+  let network = Client.Network.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+  Client.Network.set_nbd_enabled rpc session_id network false
+
 let vm_create printer rpc session_id params =
   let name_label=List.assoc "name-label" params in
   let name_description=List.assoc_default "name-description" params "" in

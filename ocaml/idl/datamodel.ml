@@ -5249,6 +5249,17 @@ let network_detach_for_vm = call
     ~allowed_roles:_R_VM_POWER_ADMIN
     ()
 
+let network_set_nbd_enabled = call
+    ~name:"set_nbd_enabled"
+    ~doc:"Specify whether hosts will expose the Network Block Device service on this network."
+    ~params:[
+      Ref _network, "network", "The network";
+      Bool, "value", "Whether to use the network for NBD";
+    ]
+    ~in_product_since:rel_inverness
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
 (** A virtual network *)
 let network =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_network ~descr:"A virtual network" ~gen_events:true
@@ -5256,7 +5267,7 @@ let network =
     ~messages_default_allowed_roles:_R_VM_ADMIN (* vm admins can create/destroy networks without PIFs *)
     ~doc_tags:[Networking]
     ~messages:[network_attach; network_pool_introduce; network_create_new_blob; network_set_default_locking_mode;
-               network_attach_for_vm; network_detach_for_vm]
+               network_attach_for_vm; network_detach_for_vm; network_set_nbd_enabled]
     ~contents:
       ([
         uid _network;

@@ -131,3 +131,9 @@ val with_networks_attached_for_vm :
 
 val assert_network_is_managed :
   __context:Context.t -> self:[`network] Ref.t -> unit
+
+val set_nbd_enabled :
+  __context:Context.t ->
+  network:API.ref_network ->
+  value:bool ->
+  unit

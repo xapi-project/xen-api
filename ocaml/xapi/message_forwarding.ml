@@ -2748,6 +2748,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.Network.detach_for_vm ~host ~vm in
       do_op_on ~local_fn ~__context ~host
         (fun session_id rpc -> Client.Network.detach_for_vm rpc session_id host vm)
+
+    let set_nbd_enabled ~__context ~network ~value =
+      info "Network.set_nbd_enabled: network = '%s'; value = %b" (network_uuid ~__context network) value;
+      Local.Network.set_nbd_enabled ~__context ~network ~value
   end
 
   module VIF = struct

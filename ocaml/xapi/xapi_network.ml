@@ -331,3 +331,13 @@ let with_networks_attached_for_vm ~__context ?host ~vm f =
         error "Caught %s while detaching networks" (string_of_exn e)
     end;
     raise e
+
+let set_nbd_enabled ~__context ~network ~value =
+  let self = network in
+  (* If the pool_using_nbd field is null, the network is currently disabled for NBD.
+   * Only set field if it is not currently the specified value. *)
+  if (Db.Network.get_pool_using_nbd ~__context ~self = Ref.null) = value
+  then Db.Network.set_pool_using_nbd ~__context ~self ~value:(
+    if value then Db.Pool.get_all ~__context |> List.hd
+    else Ref.null
+  )
