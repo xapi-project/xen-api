@@ -10260,7 +10260,7 @@ module Cluster = struct
       ~persist:PersistEverything
       ~in_oss_since:None
       ~messages_default_allowed_roles:_R_POOL_ADMIN
-      ~contents:
+      ~contents:(
         [ uid     _cluster ~lifecycle
 
         ; field   ~qualifier:DynamicRO ~lifecycle
@@ -10287,15 +10287,9 @@ module Cluster = struct
           "A list of the hosts corosync is currently able to talk to"
 *)
 
-        ; field   ~qualifier:DynamicRO ~lifecycle
-          ~ty:(Map(Ref _task, cluster_operation)) "current_operations" ~default_value:(Some (VMap []))
-          "Links each of the running tasks using this object (by reference) to a current_operation enum which describes the nature of the task"
+        ] @ (allowed_and_current_operations cluster_operation) @ [
 
-        ; field   ~qualifier:DynamicRO ~lifecycle
-          ~ty:(Set cluster_operation) "allowed_operations" ~default_value:(Some (VSet []))
-          "List of the operations allowed in this state. This list is advisory only and the server state may have changed by the time this field is read by a client"
-
-        ; field   ~qualifier:StaticRO ~lifecycle
+          field   ~qualifier:StaticRO ~lifecycle
           ~ty:Bool "pool_auto_join" ~default_value:(Some (VBool true))
           "True if xapi is automatically joining new pool members to the cluster. This will be `true` in the first release"
 
@@ -10306,7 +10300,7 @@ module Cluster = struct
         ; field   ~qualifier:RW ~lifecycle
           ~ty:(Map(String, String)) "other_config" ~default_value:(Some (VMap []))
           "Additional configuration"
-        ]
+        ])
       ~messages:
         [ create
         ; destroy
@@ -10373,7 +10367,7 @@ let obj =
     ~persist:PersistEverything
     ~in_oss_since:None
     ~messages_default_allowed_roles:_R_POOL_ADMIN
-    ~contents:
+    ~contents:(
       [ uid     _cluster_host ~lifecycle
 
       ; field   ~qualifier:StaticRO ~lifecycle
@@ -10388,18 +10382,12 @@ let obj =
         ~ty:Bool "enabled" ~default_value:(Some (VBool false))
         "Whether clustering should be enabled on this host"
 
-      ; field   ~qualifier:DynamicRO ~lifecycle
-        ~ty:(Map(Ref _task, cluster_operation)) "current_operations" ~default_value:(Some (VMap []))
-        "Links each of the running tasks using this object (by reference) to a current_operation enum which describes the nature of the task"
+      ] @ (allowed_and_current_operations cluster_host_operation) @ [
 
-      ; field   ~qualifier:DynamicRO ~lifecycle
-        ~ty:(Set cluster_operation) "allowed_operations" ~default_value:(Some (VSet []))
-        "List of the operations allowed in this state. This list is advisory only and the server state may have changed by the time this field is read by a client"
-
-      ; field   ~qualifier:StaticRO ~lifecycle
+        field   ~qualifier:StaticRO ~lifecycle
         ~ty:(Map(String, String)) "other_config" ~default_value:(Some (VMap []))
         "Additional configuration"
-      ]
+      ])
     ~messages:
       [ create
       ; destroy
