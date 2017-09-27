@@ -12,7 +12,7 @@ clean:
 	jbuilder clean
 
 test:
-	jbuilder runtest
+	jbuilder runtest --no-buffer
 
 doc:
 	jbuilder build ocaml/doc/jsapi.exe ocaml/idl/datamodel_main.exe
