@@ -3599,6 +3599,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let set_cbt_enabled ~__context ~self ~value =
       info "VDI.set_cbt_enabled: VDI = '%s'; value = '%b'" (vdi_uuid ~__context self) value;
+      let sr = Db.VDI.get_SR ~__context ~self in
+      Sm.assert_session_has_internal_sr_access ~__context ~sr;
       Local.VDI.set_cbt_enabled ~__context ~self ~value
 
     let data_destroy ~__context ~self =
