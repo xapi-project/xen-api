@@ -309,15 +309,22 @@ let test_cbt =
 
   let test_vdi_list_changed_blocks () =
     let __context = Mock.make_context_with_new_db "Mock context" in
-    (* check correct error is thrown with live VDI *)
-    run_assert_equal_with_vdi ~__context
-      ~vdi_fun:(fun vDI ->
-          let vM = Test_common.make_vm ~__context () in
-          let _: _ API.Ref.t = Test_common.make_vbd ~__context ~currently_attached:true ~vM ~vDI () in ()
-        )
-      `list_changed_blocks
-      (Some (Api_errors.vdi_in_use , [])) in
-
+    List.iter (fun (vdi_fun,api_error) -> run_assert_equal_with_vdi ~__context
+                  ~vdi_fun `list_changed_blocks api_error)
+      [
+        (* check correct error is thrown with live VDI *)
+        ( (fun vDI ->
+              let vM = Test_common.make_vm ~__context () in
+              let _: _ API.Ref.t = Test_common.make_vbd ~__context ~currently_attached:true ~vM ~vDI () in ()
+            ) ,    Some (Api_errors.vdi_in_use , []) ) ;
+        (* check function still runs on CBT metadata/enabled VDIs *)
+        ( (fun vDI -> Db.VDI.set_cbt_enabled ~__context ~self:vDI ~value:true;
+            Db.VDI.set_type ~__context ~self:vDI ~value:`cbt_metadata
+          ) ,   None ) ;
+        ( (fun vDI -> Db.VDI.set_cbt_enabled ~__context ~self:vDI ~value:true
+          ) ,  None  ) ;
+      ] ;
+  in
 
   "test_cbt" >:::
   [ "test_sm_feature_check" >:: test_sm_feature_check
