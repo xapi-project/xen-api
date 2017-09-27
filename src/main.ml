@@ -21,7 +21,9 @@ let ignore_exn_delayed t () = Lwt.catch t (fun _ -> Lwt.return_unit)
 
 module StringSet = Set.Make(String)
 let blocks_to_close = Hashtbl.create 1
+let blocks_to_close_mutex = Lwt_mutex.create ()
 let vbds_to_clean_up = ref StringSet.empty
+let vbds_to_clean_up_mutex = Lwt_mutex.create ()
 
 let cleanup_vbds signal =
   let cleanup () =
@@ -69,18 +71,23 @@ let with_block filename f =
   | `Error e -> Lwt.fail_with (Printf.sprintf "Unable to read %s: %s" filename (Nbd.Block_error_printer.to_string e))
   | `Ok b ->
     let block_uuid = Uuidm.v `V4 |> Uuidm.to_string in
-    Hashtbl.add blocks_to_close block_uuid b;
+    Lwt_mutex.with_lock blocks_to_close_mutex (fun () -> Lwt.wrap (fun () ->
+        Hashtbl.add blocks_to_close block_uuid b))
+    >>= fun () ->
     Lwt.finalize
       (fun () -> f b)
       (fun () ->
-         Block.disconnect b >|= fun () ->
-         Hashtbl.remove blocks_to_close block_uuid
+         Block.disconnect b >>= fun () ->
+         Lwt_mutex.with_lock blocks_to_close_mutex (fun () -> Lwt.wrap (fun () ->
+             Hashtbl.remove blocks_to_close block_uuid))
       )
 
 let with_vbd ~vDI ~vM ~mode ~rpc ~session_id f =
   Xen_api.VBD.create ~rpc ~session_id ~vM ~vDI ~userdevice:"autodetect" ~bootable:false ~mode ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
   >>= fun vbd ->
-  vbds_to_clean_up := StringSet.add vbd !vbds_to_clean_up;
+  Lwt_mutex.with_lock vbds_to_clean_up_mutex (fun () -> Lwt.wrap (fun () ->
+      vbds_to_clean_up := StringSet.add vbd !vbds_to_clean_up))
+  >>= fun () ->
   Lwt.finalize
     (fun () ->
        Lwt_log.notice_f "Plugging VBD %s" vbd >>= fun () ->
@@ -93,8 +100,10 @@ let with_vbd ~vDI ~vM ~mode ~rpc ~session_id f =
     )
     (fun () ->
        Lwt_log.notice_f "Destroying VBD %s" vbd >>= fun () ->
-       Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd >|= fun () ->
-       vbds_to_clean_up := StringSet.remove vbd !vbds_to_clean_up)
+       Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd >>= fun () ->
+       Lwt_mutex.with_lock vbds_to_clean_up_mutex (fun () ->
+           vbds_to_clean_up := StringSet.remove vbd !vbds_to_clean_up; Lwt.return_unit)
+    )
 
 let with_attached_vdi vDI read_write rpc session_id f =
   Lwt_log.notice "Looking up control domain UUID in xensource inventory" >>= fun () ->
