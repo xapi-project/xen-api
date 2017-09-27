@@ -1,3 +1,17 @@
+(*
+-  Copyright (C) 2017 Citrix Systems Inc.
+-
+-  This program is free software; you can redistribute it and/or modify
+-  it under the terms of the GNU Lesser General Public License as published
+-  by the Free Software Foundation; version 2.1 only. with the special
+-  exception on linking described in file LICENSE.
+-
+-  This program is distributed in the hope that it will be useful,
+-  but WITHOUT ANY WARRANTY; without even the implied warranty of
+-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+-  GNU Lesser General Public License for more details.
+  *)
+
 
 let register_smapiv2_server (module S: Storage_interface.Server_impl with type context = unit) sr_ref =
   let module S = Storage_interface.Server(S) in
@@ -22,6 +36,17 @@ let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_data_destr
 let register_smapiv2_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_data_destroy ?vdi_snapshot ?vdi_clone sr_ref =
   let s = make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_data_destroy ?vdi_snapshot ?vdi_clone () in
   register_smapiv2_server s sr_ref
+
+(* create host -> (SM) -> SR -> PBD -> VDI infrastructure for
+   mock storage layer, return SR and VDI *)
+let make_mock_server_infrastructure ~__context =
+  let host = Helpers.get_localhost ~__context in
+  let _: _ API.Ref.t = Test_common.make_sm ~__context () in
+  let sR = Test_common.make_sr ~__context ~is_tools_sr:false () in
+  let _: _ API.Ref.t = Test_common.make_pbd ~__context ~host ~sR ~currently_attached:true () in
+  let vDI = Test_common.make_vdi ~__context ~is_a_snapshot:true ~managed:true ~cbt_enabled:true ~sR () in
+  register_smapiv2_server ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> ()) (Db.SR.get_uuid ~__context ~self:sR);
+  (sR,vDI)
 
 let test_cbt_enable_disable () =
   let __context = Test_common.make_test_database () in
@@ -209,6 +234,60 @@ let test_allowed_operations_updated_when_necessary () =
   Client.Client.VDI.data_destroy ~rpc ~session_id ~self;
   assert_allowed_operations "does not contain `copy after VDI has been data-destroyed" (fun ops -> not @@ List.mem `copy ops)
 
+(* Confirm VDI.data_destroy changes requisite fields of VDI *)
+let test_vdi_after_data_destroy () =
+  let __context = Test_common.make_test_database () in
+  let sR,vDI = make_mock_server_infrastructure ~__context in
+  Db.VDI.set_type ~__context ~self:vDI ~value:`suspend;
+  let vM = Test_common.make_vm ~__context () in
+  let vBD = Test_common.make_vbd ~__context ~vDI ~vM ~currently_attached:false () in
+
+  let check_vdi_is_snapshot_and_type ~vDI ~snapshot ~vdi_type ~managed =
+    let open Printf in
+    OUnit.assert_equal ~msg:(sprintf "VDI type should be set to %s" (Record_util.vdi_type_to_string vdi_type))
+      (Db.VDI.get_type ~__context ~self:vDI) vdi_type;
+    OUnit.assert_equal ~msg:(sprintf "VDI managed should be set to %b" managed)
+      (Db.VDI.get_managed ~__context ~self:vDI) managed;
+    let word = if snapshot then "" else " not" in
+    OUnit.assert_equal ~msg:(sprintf "VDI should%s be a snapshot" word)
+      (Db.VDI.get_is_a_snapshot ~__context ~self:vDI) snapshot
+  in
+  check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`suspend ~managed:true;
+
+  (* set vDI as the suspend VDI of vM *)
+  Db.VM.set_suspend_VDI ~__context ~self:vM ~value:vDI;
+  OUnit.assert_equal ~msg:"VM.suspend_VDI should point to previously created VDI"
+    (Db.VM.get_suspend_VDI ~__context ~self:vM) vDI;
+
+  OUnit.assert_equal ~msg:"VDI should link to previously created VBD"
+    (Db.VDI.get_VBDs ~__context ~self:vDI) [vBD];
+
+  (* run VDI.data_destroy, check it has updated VDI fields *)
+  Xapi_vdi.data_destroy ~__context ~self:vDI;
+
+  OUnit.assert_equal ~msg:"VDI.data_destroy should set VDI type to cbt_metadata"
+    (Db.VDI.get_type ~__context ~self:vDI) `cbt_metadata;
+
+  OUnit.assert_equal ~msg:"VDI.data_destroy should destroy all associated VBDs"
+    (Db.VDI.get_VBDs ~__context ~self:vDI) [];
+
+  OUnit.assert_equal ~msg:"VM.suspend_VDI should be set to null"
+    (Db.VM.get_suspend_VDI ~__context ~self:vM) Ref.null;
+
+  (* check for idempotence for metadata snapshot VDIs *)
+  check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`cbt_metadata ~managed:true;
+  Xapi_vdi.data_destroy ~__context ~self:vDI;
+  check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`cbt_metadata ~managed:true
+
+(* check VDI.data_destroy throws VDI_NOT_MANAGED if managed:false *)
+let test_vdi_managed_data_destroy () =
+  let __context = Test_common.make_test_database () in
+  let _,vDI = make_mock_server_infrastructure ~__context in
+  Db.VDI.set_managed ~__context ~self:vDI ~value:false;
+  OUnit.assert_raises ~msg:"VDI.data_destroy only works on managed VDI"
+    Api_errors.(Server_error (vdi_not_managed, [Ref.string_of vDI]))
+    (fun () -> Xapi_vdi.data_destroy ~__context ~self:vDI)
+
 let test =
   let open OUnit in
   "test_vdi_cbt" >:::
@@ -217,4 +296,8 @@ let test =
   ; "test_clone_and_snapshot_correctly_sets_cbt_enabled_field" >:: test_clone_and_snapshot_correctly_sets_cbt_enabled_field
   ; test_get_nbd_info
   ; "test_allowed_operations_updated_when_necessary" >:: test_allowed_operations_updated_when_necessary
+  ; "test_vdi_data_destroy" >:::
+    [ "test_vdi_after_data_destroy" >:: test_vdi_after_data_destroy
+    ; "test_vdi_managed_data_destroy" >:: test_vdi_managed_data_destroy
+    ]
   ]
