@@ -2,82 +2,99 @@
 #
 # Copyright (c) Citrix Systems. All rights reserved.
 
-set -e
-
 ##############################################################
 # Use this script to open/close the specified interfaces
-# (IP addresses) for incoming TCP connections to the NBD port.
+# for incoming TCP connections to the NBD port.
 #
 # Usage:
-#   ./nbd-firewall-config set [address...]
+#   ./nbd-firewall-config set [interface...]
 #
 ##############################################################
+
+# Historical note: the original version of this file filtered
+# by local IP addresses rather than by network interfaces;
+# that version might one day be a useful reference for something.
 
 # Require the "set" argument because otherwise there would be a risk
 # of someone running the script with no arguments and accidentally
-# setting NBD to be available on no addresses.
+# setting NBD to be available on no interfaces.
 # This way, omitting "set" (or supplying "--help") causes the script
 # to print usage instructions.
 
+set -e
 OP="$1"
 if [ _"${OP}" != _set ]; then
-    echo "Usage: $(basename ${0}) set [address...]
+    echo "Usage: $(basename ${0}) set [interface...]
 will set the firewall to allow incoming TCP connections
-to the NBD port on only the specified addresses (if any)." 1>&2
+to the NBD port on only the specified interfaces (if any)." 1>&2
     exit 1
 fi
 shift 1
 
 set -eu
+# No automatic cleanup on error because it would depend too
+# critically on the stage at which the error occurs.
 
-TMPSET=xapi_nbd_ipset_ephemeral
-NBDSET=xapi_nbd_ipset
+# If this script has been run already then there will be existing chains and
+# rules in place already. Therefore the approach is:
+# 1. Make new nbd-specific chains with names ending in "_new".
+# 2. Insert rules into main INPUT/OUTPUT chains to use our new chains.
+# 3. Remove preexisting rules that use preexisting nbd chains (if present).
+# 4. Remove preexisting nbd chains (if present).
+# 5. Rename the new chains so they no longer end in "_new".
+
+# Note that chain names must be under 29 characters.
+NewChainIn=xapi_nbd_input_chain_new
+NbdChainIn=xapi_nbd_input_chain
+NewChainOut=xapi_nbd_output_chain_new
+NbdChainOut=xapi_nbd_output_chain
+
+# IANA-assigned port: the NBD protocol specifies that it SHOULD be used.
 NBDPORT=10809
-SETTYPE=hash:ip
 
-# Rule to accept new NBD connections on the appropriate addresses
-NBD_ACCEPT="-p tcp --dport $NBDPORT -m conntrack --ctstate NEW -m set --match-set $NBDSET dst -j ACCEPT"
-
-# Rules to reject NBD packets on disallowed addresses,
-# inbound and outbound,
-# even if part of an established connection.
-NBD_REJECT_IN="-p  tcp --dport $NBDPORT -m set ! --match-set $NBDSET dst -j REJECT"
-NBD_REJECT_OUT="-p tcp --sport $NBDPORT -m set ! --match-set $NBDSET src -j REJECT"
-
-function destroy_tmp {
-    ipset destroy $TMPSET 2>/dev/null || true
-}
-
-destroy_tmp
-trap destroy_tmp ERR EXIT
+# Rule fragments for sending NBD packets to NBD chains
+# from INPUT and OUTPUT chains.
+NBD_INPUT_JUMP_TO="-p tcp --dport $NBDPORT -j "
+NBD_OUTPUT_JUMP_TO="-p tcp --sport $NBDPORT -j "
 
 # Same principle as double-buffering a display:
-# add the items one by one to a temporary ipset,
-# then swap it into use atomically.
-ipset create $TMPSET $SETTYPE
-
+# add the items one by one to temporary chains,
+# then swap them into use atomically, or as near as possible.
+iptables --new-chain $NewChainIn 2>/dev/null || iptables --flush $NewChainIn
+iptables --new-chain $NewChainOut 2>/dev/null || iptables --flush $NewChainOut
 while [ "$#" -ne 0 ]; do
-    addr="${1}"
+    intf="${1}"
+    # (Each positional param is forgotten for ever at the end of the loop.)
     shift 1
-    ipset add $TMPSET "${addr}"
+    iptables -A $NewChainIn -m conntrack --ctstate NEW,ESTABLISHED --in-interface "${intf}" -j ACCEPT
+    iptables -A $NewChainOut --out-interface "${intf}" -j RETURN
 done
+iptables --append $NewChainIn -j REJECT
+iptables --append $NewChainOut -j REJECT
 
-ipset create -exist $NBDSET $SETTYPE
-ipset swap $TMPSET $NBDSET
-ipset destroy $TMPSET
+function insert_rule_if_absent {
+    chain="${1}"
+    shift 1
+    rule="${*}"
+    iptables --check "${chain}" $rule 2>/dev/null || \
+        iptables --insert "${chain}" $rule
+}
 
-# Now create the rules if they do not exist already.
-# Note: the ip set must exist before we can add an iptables rule that uses it.
-for rule in "$NBD_ACCEPT" "$NBD_REJECT_IN"; do
-    if ! iptables --check INPUT $rule 2>/dev/null
-    then
-        iptables --insert INPUT $rule
-    fi
-done
+# Start using the new chains.
+insert_rule_if_absent INPUT "${NBD_INPUT_JUMP_TO} ${NewChainIn}"
+insert_rule_if_absent OUTPUT "${NBD_OUTPUT_JUMP_TO} ${NewChainOut}"
 
-if ! iptables --check OUTPUT $NBD_REJECT_OUT 2>/dev/null
-then
-    iptables --insert OUTPUT $NBD_REJECT_OUT
-fi
+# If old chains are present, stop using them and then delete them.
+iptables --delete INPUT $NBD_INPUT_JUMP_TO $NbdChainIn 2>/dev/null || true
+iptables --flush "${NbdChainIn}" 2>/dev/null && \
+    iptables --delete-chain "${NbdChainIn}"
 
+iptables --delete OUTPUT $NBD_OUTPUT_JUMP_TO $NbdChainOut 2>/dev/null || true
+iptables --flush "${NbdChainOut}" 2>/dev/null && \
+    iptables --delete-chain "${NbdChainOut}"
+
+# Rename our rules so they no longer appear new.
+# (References remain valid, pointing to the renamed chains.)
+iptables --rename-chain "${NewChainIn}" "${NbdChainIn}"
+iptables --rename-chain "${NewChainOut}" "${NbdChainOut}"
 exit 0
