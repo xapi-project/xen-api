@@ -245,7 +245,7 @@ module Passthrough = struct
       [find_or_create ~__context passthrough_gpu]
 end
 
-module Nvidia = struct
+module Nvidia_old = struct
   let conf_dir = "/usr/share/nvidia/vgx"
   let vendor_id = 0x10de
 
@@ -453,16 +453,24 @@ module Vendor = functor (V : VENDOR) -> struct
       ~is_system_display_device
       ~is_host_display_enabled
       ~is_pci_hidden =
-    let types =
-      let passthrough_types =
-        if is_system_display_device && (is_host_display_enabled || not is_pci_hidden)
-        then []
-        else [passthrough_gpu]
+    let vgpu_types = make_vgpu_types ~__context ~pci in
+    (* Temporarily fall back to old nvidia module *)
+    if vgpu_types = [] && vendor_id = Nvidia_old.vendor_id then begin
+      info "Temporarily fall back to old nvidia conf file parser";
+      Nvidia_old.find_or_create_supported_types ~__context ~pci
+        ~is_system_display_device
+        ~is_host_display_enabled
+        ~is_pci_hidden
+    end else
+      let types =
+        let passthrough_types =
+          if is_system_display_device && (is_host_display_enabled || not is_pci_hidden)
+          then []
+          else [passthrough_gpu]
+        in
+        passthrough_types @ vgpu_types
       in
-      passthrough_types @
-      (make_vgpu_types ~__context ~pci)
-    in
-    List.map (find_or_create ~__context) types
+      List.map (find_or_create ~__context) types
 end
 
 let read_whitelist_line_by_line ~whitelist ~device_id ~parse_line ~device_id_of_conf =
@@ -807,6 +815,7 @@ module Vendor_amd = struct
       }
 end
 
+module Nvidia = Vendor(Vendor_nvidia)
 module Intel = Vendor(Vendor_intel)
 module AMD = Vendor(Vendor_amd)
 

@@ -23,7 +23,7 @@ let mib x = List.fold_left Int64.mul x [1024L; 1024L]
 module NvidiaTest = struct
   let string_of_vgpu_conf conf =
     let open Identifier in
-    let open Nvidia in
+    let open Nvidia_old in
     Printf.sprintf "%04x %s %04x %04x %Ld"
       conf.identifier.pdev_id
       (match conf.identifier.psubdev_id with
@@ -39,17 +39,17 @@ module NvidiaTest = struct
   module OfConfFile = Generic.Make(struct
       module Io = struct
         type input_t = string
-        type output_t = Nvidia.vgpu_conf
+        type output_t = Nvidia_old.vgpu_conf
 
         let string_of_input_t x = x
         let string_of_output_t = string_of_vgpu_conf
       end
 
-      let transform = Nvidia.of_conf_file
+      let transform = Nvidia_old.of_conf_file
 
       let tests = [
         "test_data/test_vgpu_subdevid.conf",
-        Nvidia.({
+        Nvidia_old.({
             identifier = Identifier.({
                 pdev_id = 0x3333;
                 psubdev_id = Some 0x4444;
@@ -64,7 +64,7 @@ module NvidiaTest = struct
             file_path = "test_data/test_vgpu_subdevid.conf";
           });
         "test_data/test_vgpu_nosubdevid.conf",
-        Nvidia.({
+        Nvidia_old.({
             identifier = Identifier.({
                 pdev_id = 0x3333;
                 psubdev_id = None;
@@ -191,7 +191,7 @@ module NvidiaTest = struct
   let print_nv_types () =
     skip_if skip "Generates print...";
     try
-      let open Nvidia in
+      let open Nvidia_old in
       if (Sys.file_exists conf_dir
           && Sys.is_directory conf_dir) then
         begin
