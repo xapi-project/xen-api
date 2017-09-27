@@ -234,32 +234,22 @@ let test_allowed_operations_updated_when_necessary () =
   Client.Client.VDI.data_destroy ~rpc ~session_id ~self;
   assert_allowed_operations "does not contain `copy after VDI has been data-destroyed" (fun ops -> not @@ List.mem `copy ops)
 
-let test =
-  let open OUnit in
-  "test_vdi_cbt" >:::
-  [ "test_cbt_enable_disable" >:: test_cbt_enable_disable
-  ; "test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi" >:: test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi
-  ; "test_clone_and_snapshot_correctly_sets_cbt_enabled_field" >:: test_clone_and_snapshot_correctly_sets_cbt_enabled_field
-  ; test_get_nbd_info
-  ; "test_allowed_operations_updated_when_necessary" >:: test_allowed_operations_updated_when_necessary
-  ]
-
 (* Confirm VDI.data_destroy changes requisite fields of VDI *)
 let test_vdi_after_data_destroy () =
   let __context = Test_common.make_test_database () in
   let sR,vDI = make_mock_server_infrastructure ~__context in
   Db.VDI.set_type ~__context ~self:vDI ~value:`suspend;
   let vM = Test_common.make_vm ~__context () in
-  let vBD = Test_common.make_vbd ~__context ~uuid:"VBD-1" ~vDI ~vM ~currently_attached:false () in
-  let _: _ API.Ref.t = Test_common.make_vbd ~__context ~uuid:"VBD-1" ~vDI ~vM ~currently_attached:false () in
+  let vBD = Test_common.make_vbd ~__context ~vDI ~vM ~currently_attached:false () in
 
   let check_vdi_is_snapshot_and_type ~vDI ~snapshot ~vdi_type ~managed =
-    OUnit.assert_equal ~msg:("VDI type should be set to " ^ (Record_util.vdi_type_to_string vdi_type))
+    let open Printf in
+    OUnit.assert_equal ~msg:(sprintf "VDI type should be set to %s" (Record_util.vdi_type_to_string vdi_type))
       (Db.VDI.get_type ~__context ~self:vDI) vdi_type;
-    OUnit.assert_equal ~msg:("VDI managed should be set to " ^ (if managed then "true" else "false"))
+    OUnit.assert_equal ~msg:(sprintf "VDI managed should be set to %b" managed)
       (Db.VDI.get_managed ~__context ~self:vDI) managed;
     let word = if snapshot then "" else " not" in
-    OUnit.assert_equal ~msg:("VDI should" ^ word ^ " be a snapshot")
+    OUnit.assert_equal ~msg:(sprintf "VDI should%s be a snapshot" word)
       (Db.VDI.get_is_a_snapshot ~__context ~self:vDI) snapshot
   in
   check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`suspend ~managed:true;
@@ -294,13 +284,20 @@ let test_vdi_managed_data_destroy () =
   let __context = Test_common.make_test_database () in
   let _,vDI = make_mock_server_infrastructure ~__context in
   Db.VDI.set_managed ~__context ~self:vDI ~value:false;
-  OUnit.assert_raises ~msg:"VDI managed field should be set to true"
+  OUnit.assert_raises ~msg:"VDI.data_destroy only works on managed VDI"
     Api_errors.(Server_error (vdi_not_managed, [Ref.string_of vDI]))
     (fun () -> Xapi_vdi.data_destroy ~__context ~self:vDI)
 
-let test_vdi_data_destroy =
+let test =
   let open OUnit in
-  "test_vdi_data_destroy" >:::
-  [ "test_vdi_after_data_destroy" >:: test_vdi_after_data_destroy
-  ; "test_vdi_managed_data_destroy" >:: test_vdi_managed_data_destroy
+  "test_vdi_cbt" >:::
+  [ "test_cbt_enable_disable" >:: test_cbt_enable_disable
+  ; "test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi" >:: test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi
+  ; "test_clone_and_snapshot_correctly_sets_cbt_enabled_field" >:: test_clone_and_snapshot_correctly_sets_cbt_enabled_field
+  ; test_get_nbd_info
+  ; "test_allowed_operations_updated_when_necessary" >:: test_allowed_operations_updated_when_necessary
+  ; "test_vdi_data_destroy" >:::
+    [ "test_vdi_after_data_destroy" >:: test_vdi_after_data_destroy
+    ; "test_vdi_managed_data_destroy" >:: test_vdi_managed_data_destroy
+    ]
   ]
