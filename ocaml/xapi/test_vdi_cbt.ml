@@ -260,7 +260,7 @@ let test_vdi_after_data_destroy () =
     (Db.VM.get_suspend_VDI ~__context ~self:vM) vDI;
 
   OUnit.assert_equal ~msg:"VDI should link to previously created VBD"
-   (Db.VDI.get_VBDs ~__context ~self:vDI) [vBD];
+    (Db.VDI.get_VBDs ~__context ~self:vDI) [vBD];
 
   (* run VDI.data_destroy, check it has updated VDI fields *)
   Xapi_vdi.data_destroy ~__context ~self:vDI;
