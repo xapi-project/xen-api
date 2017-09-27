@@ -10,6 +10,7 @@
     mirage-block-unix
     nbd.lwt
     uri
+    uuidm
     xcp-inventory
     xen-api-client.lwt))
  )

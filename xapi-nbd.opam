@@ -12,6 +12,7 @@ depends: [
   "mirage-block-unix"
   "nbd" {>= "2.0.1"}
   "uri"
+  "uuidm"
   "xapi-inventory"
   "xen-api-client"
 ]

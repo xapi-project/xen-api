@@ -20,12 +20,21 @@ let ignore_exn_log_error msg t = Lwt.catch t (fun e -> Lwt_log.error (msg ^ ": "
 let ignore_exn_delayed t () = Lwt.catch t (fun _ -> Lwt.return_unit)
 
 module StringSet = Set.Make(String)
+let blocks_to_close = Hashtbl.create 1
 let vbds_to_clean_up = ref StringSet.empty
 
 let cleanup_vbds signal =
   let cleanup () =
     Lwt_log.warning_f "Caught signal %d, cleaning up" signal >>= fun () ->
-    ignore_exn_log_error "Caught exception while cleaning up" (fun () ->
+    ignore_exn_log_error "Caught exception while closing open block devices" (fun () ->
+        let cleanup b = ignore_exn_log_error "Caught exception while closing open block device" (fun () ->
+            Lwt_log.warning_f "Disconnecting from block device" >>= fun () ->
+            Block.disconnect b)
+        in
+        let blocks_to_close = Hashtbl.fold (fun _ b l -> b::l) blocks_to_close [] in
+        Lwt_list.iter_s cleanup blocks_to_close
+      ) >>= fun () ->
+    ignore_exn_log_error "Caught exception while cleaning up VBDs" (fun () ->
         let rpc = Xen_api.make Consts.xapi_unix_domain_socket_uri in
         Xen_api.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:"1.0" ~originator:"xapi-nbd" >>= fun session_id ->
         let cleanup vbd = ignore_exn_log_error (Printf.sprintf "Caught exception while cleaning up VBD %s" vbd) (fun () ->
@@ -58,10 +67,15 @@ let with_block filename f =
   Block.connect filename
   >>= function
   | `Error e -> Lwt.fail_with (Printf.sprintf "Unable to read %s: %s" filename (Nbd.Block_error_printer.to_string e))
-  | `Ok x ->
+  | `Ok b ->
+    let block_uuid = Uuidm.v `V4 |> Uuidm.to_string in
+    Hashtbl.add blocks_to_close block_uuid b;
     Lwt.finalize
-      (fun () -> f x)
-      (fun () -> Block.disconnect x)
+      (fun () -> f b)
+      (fun () ->
+         Block.disconnect b >|= fun () ->
+         Hashtbl.remove blocks_to_close block_uuid
+      )
 
 let with_vbd ~vDI ~vM ~mode ~rpc ~session_id f =
   Xen_api.VBD.create ~rpc ~session_id ~vM ~vDI ~userdevice:"autodetect" ~bootable:false ~mode ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
