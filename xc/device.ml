@@ -1999,7 +1999,7 @@ module Backend = struct
                 if is_hvm_linux pv_info then
                 begin
                   let write_local_domain prefix x = xs.Xs.write (Printf.sprintf "/local/domain/%d/%s%s" domid prefix x) "1" in
-                  List.iter (write_local_domain "control/feature-") ["suspend"; "shutdown"; "vcpu-hotplug"];
+                  List.iter (write_local_domain "control/feature-") ["suspend"; "poweroff"; "reboot"; "vcpu-hotplug"];
                   List.iter (write_local_domain "data/") ["updated"]
                 end
               )
