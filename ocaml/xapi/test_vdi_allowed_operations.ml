@@ -167,7 +167,7 @@ let test_ca126097 () =
 
 (** Tests for the checks related to changed block tracking *)
 let test_cbt =
-let all_cbt_operations = [`enable_cbt; `disable_cbt; `data_destroy] in
+  let all_cbt_operations = [`enable_cbt; `disable_cbt; `data_destroy; `list_changed_blocks] in
   let for_vdi_operations ops f () = ops |> List.iter f in
   let for_cbt_enable_disable = for_vdi_operations [`enable_cbt; `disable_cbt] in
 
