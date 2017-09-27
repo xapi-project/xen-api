@@ -190,7 +190,8 @@ let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~
   Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
     ~current_operations:[] ~allowed_operations:[]
     ~name_label ~name_description ~mTU ~bridge ~managed
-    ~other_config ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked ~assigned_ips:[];
+    ~other_config ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked ~assigned_ips:[]
+    ~pool_using_nbd:Ref.null;
   r
 
 let rec choose_bridge_name bridges =
@@ -227,7 +228,8 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~
       Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
         ~current_operations:[] ~allowed_operations:[]
         ~name_label ~name_description ~mTU ~bridge ~managed
-        ~other_config ~blobs:[] ~tags ~default_locking_mode:`unlocked ~assigned_ips:[];
+        ~other_config ~blobs:[] ~tags ~default_locking_mode:`unlocked ~assigned_ips:[]
+        ~pool_using_nbd:Ref.null;
       r
     )
 
@@ -329,3 +331,13 @@ let with_networks_attached_for_vm ~__context ?host ~vm f =
         error "Caught %s while detaching networks" (string_of_exn e)
     end;
     raise e
+
+let set_nbd_enabled ~__context ~network ~value =
+  let self = network in
+  (* If the pool_using_nbd field is null, the network is currently disabled for NBD.
+   * Only set field if it is not currently the specified value. *)
+  if (Db.Network.get_pool_using_nbd ~__context ~self = Ref.null) = value
+  then Db.Network.set_pool_using_nbd ~__context ~self ~value:(
+    if value then Db.Pool.get_all ~__context |> List.hd
+    else Ref.null
+  )

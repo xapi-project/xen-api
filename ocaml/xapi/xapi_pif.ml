@@ -276,6 +276,7 @@ let find_or_create_network (bridge: string) (device: string) ~__context =
         ~name_description:"" ~mTU:1500L
         ~bridge ~managed:true ~other_config:[] ~blobs:[]
         ~tags:[] ~default_locking_mode:`unlocked ~assigned_ips:[]
+        ~pool_using_nbd:Ref.null
     in
     net_ref
 

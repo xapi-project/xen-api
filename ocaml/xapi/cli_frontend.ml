@@ -2066,6 +2066,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.net_attach;
       flags=[Hidden];
     };
+    "network-enable-nbd",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Specify that hosts will expose the NBD service on this network.";
+      implementation=No_fd Cli_operations.net_enable_nbd;
+      flags=[];
+    };
+    "network-disable-nbd",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Specify that hosts will not expose the NBD service on this network.";
+      implementation=No_fd Cli_operations.net_disable_nbd;
+      flags=[];
+    };
     "vif-create",
     {
       reqd=["device";"network-uuid";"vm-uuid"];

@@ -672,6 +672,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Pool.remove_from_guest_agent_config: pool = '%s'; key = '%s'"
         (pool_uuid ~__context self) key;
       Local.Pool.remove_from_guest_agent_config ~__context ~self ~key
+
+    let set_nbd_networks ~__context ~self ~networks =
+      info "Pool.set_nbd_networks: pool = '%s'; networks = '%s'"
+        (pool_uuid ~__context self)
+        (String.concat "; " (List.map Ref.string_of networks));
+      Local.Pool.set_nbd_networks ~__context ~self ~networks
   end
 
   module VM = struct
@@ -2742,6 +2748,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.Network.detach_for_vm ~host ~vm in
       do_op_on ~local_fn ~__context ~host
         (fun session_id rpc -> Client.Network.detach_for_vm rpc session_id host vm)
+
+    let set_nbd_enabled ~__context ~network ~value =
+      info "Network.set_nbd_enabled: network = '%s'; value = %b" (network_uuid ~__context network) value;
+      Local.Network.set_nbd_enabled ~__context ~network ~value
   end
 
   module VIF = struct

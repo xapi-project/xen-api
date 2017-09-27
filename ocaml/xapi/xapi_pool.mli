@@ -199,3 +199,5 @@ val add_to_guest_agent_config :
   __context:Context.t -> self:API.ref_pool -> key:string -> value:string -> unit
 val remove_from_guest_agent_config :
   __context:Context.t -> self:API.ref_pool -> key:string -> unit
+val set_nbd_networks :
+  __context:Context.t -> self:API.ref_pool -> networks:API.ref_network list -> unit
