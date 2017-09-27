@@ -167,7 +167,7 @@ let test_ca126097 () =
 
 (** Tests for the checks related to changed block tracking *)
 let test_cbt =
-let all_cbt_operations = [`enable_cbt; `disable_cbt; `data_destroy] in
+  let all_cbt_operations = [`enable_cbt; `disable_cbt; `data_destroy; `list_changed_blocks] in
   let for_vdi_operations ops f () = ops |> List.iter f in
   let for_cbt_enable_disable = for_vdi_operations [`enable_cbt; `disable_cbt] in
 
@@ -276,16 +276,16 @@ let all_cbt_operations = [`enable_cbt; `disable_cbt; `data_destroy] in
 
     (* change VDI properties one by one so data_destroy only fails for the indicated reason *)
     List.iter (fun (vdi_fun, api_error) ->
-        run_assert_equal_with_vdi ~__context ~vdi_fun `data_destroy (api_error))
+        run_assert_equal_with_vdi ~__context ~vdi_fun `data_destroy api_error)
 
-      [
         (* ensure VDI.data_destroy works before introducing errors *)
+      [
         (fun vdi -> pass_data_destroy vdi;
         ) ,         None ;
 
         (fun vdi -> pass_data_destroy vdi;
           Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:false
-        ) ,         Some (Api_errors.operation_not_allowed, []) ;
+        ) ,         Some (Api_errors.operation_not_allowed , []) ;
 
         (fun vdi -> pass_data_destroy vdi;
           let sr = Db.VDI.get_SR ~__context ~self:vdi in
@@ -294,13 +294,13 @@ let all_cbt_operations = [`enable_cbt; `disable_cbt; `data_destroy] in
 
         (fun vdi -> pass_data_destroy vdi;
           Db.VDI.set_cbt_enabled ~__context ~self:vdi ~value:false
-        ) ,         Some (Api_errors.vdi_no_cbt_metadata, []) ;
+        ) ,         Some (Api_errors.vdi_no_cbt_metadata , []) ;
 
         (fun vdi -> let vM =
                       Test_common.make_vm ~__context () in
           let _: _ API.Ref.t = Test_common.make_vbd ~__context ~vDI:vdi ~vM ~currently_attached:true () in
           pass_data_destroy vdi
-        ) ,         Some (Api_errors.vdi_in_use, []) ;
+        ) ,         Some (Api_errors.vdi_in_use , []) ;
 
         (fun vdi -> pass_data_destroy vdi;
           Db.VDI.set_type ~__context ~self:vdi ~value:`cbt_metadata
