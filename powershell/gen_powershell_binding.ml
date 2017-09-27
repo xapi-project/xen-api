@@ -599,13 +599,13 @@ and explode_record_fields message fields =
   let print_map tl hd =
     sprintf "
                 %s = CommonCmdletFunctions.ConvertDictionaryToHashtable(Record.%s);%s"
-      (exposed_class_name (pascal_case (full_name hd)))
+      (ocaml_class_to_csharp_property (full_name hd))
       (full_name hd)
       (explode_record_fields message tl) in
   let print_record tl hd =
     sprintf "
                 %s = Record.%s;%s"
-      (exposed_class_name (pascal_case (full_name hd)))
+      (ocaml_class_to_csharp_property (full_name hd))
       (full_name hd)
       (explode_record_fields message tl) in
   match fields with
