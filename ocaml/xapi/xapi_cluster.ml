@@ -59,7 +59,9 @@ let pool_create ~__context ~pool ~cluster_stack ~network =
   let master = Db.Pool.get_master ~__context ~self:pool in
   let hosts = Db.Host.get_all ~__context in
 
-  let cluster = create ~__context ~network ~cluster_stack:"corosync" ~pool_auto_join:true in
+  let cluster = Helpers.call_api_functions ~__context (fun rpc session_id ->
+      Client.Client.Cluster.create ~rpc ~session_id ~network ~cluster_stack:"corosync" ~pool_auto_join:true)
+  in
 
   List.iter (fun host ->
       if master <> host then
