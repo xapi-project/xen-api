@@ -933,10 +933,13 @@ let get_SRs_required_for_recovery ~__context ~self ~session_to =
 
 
 (* BIOS strings *)
-let assert_valid_bios_strings ~__context ~bios_strings =
+let assert_valid_bios_strings ~__context ~value =
+  (* Validate BIOS string keys *)
   (* Validate size of value provided is within bios_string_limit_size and not empty *)
   (* Validate value chars are printable ASCII characters *)
-  bios_strings |> List.iter (fun (k, v) ->
+  value |> List.iter (fun (k, v) ->
+    if not (List.mem k Xapi_globs.settable_vm_bios_string_keys) then
+      raise (Api_errors.Server_error(Api_errors.invalid_value, [k; "Unknown key"]));
     match String.length v with
     | 0 -> raise (Api_errors.Server_error(Api_errors.invalid_value, [k; "Value provided is empty"]))
     | len when len > Xapi_globs.bios_string_limit_size ->
