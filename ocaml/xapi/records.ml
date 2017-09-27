@@ -1003,8 +1003,9 @@ let vm_record rpc session_id vm =
         ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_bios_strings)
         ~get_map:(fun () -> (x ()).API.vM_bios_strings)
         ~set_map:(fun x ->
-          let bios_strings = List.map (fun (k, v) -> Record_util.string_to_vm_bios_key k, v) x in
-          Client.VM.set_bios_strings rpc session_id vm bios_strings)();
+          List.iter (fun (k, v) -> if not (List.mem k Xapi_globs.settable_vm_bios_string_keys) then
+            raise (Record_util.Record_failure ("Unknown key '"^k^"': expecting " ^ (String.concat ", " Xapi_globs.settable_vm_bios_string_keys)))) x;
+          Client.VM.set_bios_strings rpc session_id vm x) ();
     ]}
 
 let host_crashdump_record rpc session_id host =

@@ -568,6 +568,16 @@ let xenclient_enabled = false
 (* bios_string length is limited to 512 characters *)
 let bios_string_limit_size = 512
 
+(** List of user-settable VM BIOS strings keys *)
+let settable_vm_bios_string_keys =
+  ["bios-vendor";
+   "bios-version";
+   "system-manufacturer";
+   "system-product-name";
+   "system-version";
+   "system-serial-number";
+   "enclosure-asset-tag"]
+
 (** Type 11 strings that are always included *)
 let standard_type11_strings =
   ["oem-1", "Xen";
