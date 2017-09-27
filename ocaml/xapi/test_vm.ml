@@ -18,10 +18,10 @@ open Test_highlevel
 
 module VMSetBiosStrings = Generic.Make (Generic.EncapsulateState (struct
   module Io = struct
-    type input_t = (API.vm_bios_string_keys * string) list
+    type input_t = (string * string) list
     type output_t = (exn, (string * string) list) Either.t
     let string_of_input_t = fun x -> Printf.sprintf "%s"
-      (String.concat "; " (List.map (fun (k,v) -> (Record_util.vm_bios_key_to_string k) ^ "=" ^ v) x))
+      (String.concat "; " (List.map (fun (k,v) -> k ^ "=" ^ v) x))
     let string_of_output_t = Test_printers.(either exn (assoc_list string string))
   end
   module State = Test_state.XapiDb
@@ -41,30 +41,36 @@ module VMSetBiosStrings = Generic.Make (Generic.EncapsulateState (struct
   let big_str = String.make (Xapi_globs.bios_string_limit_size + 1) 'x'
   let non_printable_str1 = Printf.sprintf "xyz%c" (Char.chr 31)
   let non_printable_str2 = Printf.sprintf "xyz%c" (Char.chr 127)
-  let bios_str1 = [`biosvendor, "Test"; `biosversion, "Test Inc. A08"]
-  let bios_str2 = [`systemmanufacturer, "Test Inc."; `systemproductname, "Test bios strings"; `systemversion, "8.1.1 SP1 build 8901"; `systemserialnumber, "test-test-test-test"]
-  let bios_str3 = [`enclosureassettag, "testassettag12345"]
+  let bios_str1 = ["bios-vendor", "Test"; "bios-version", "Test Inc. A08"]
+  let bios_str2 = ["system-manufacturer", "Test Inc."; "system-product-name", "Test bios strings"; "system-version", "8.1.1 SP1 build 8901"; "system-serial-number", "test-test-test-test"]
+  let bios_str3 = ["enclosure-asset-tag", "testassettag12345"]
 
   let tests = [
+    (* Invalid BIOS string key *)
+    ["xxxx", "test"],
+    Either.Left Api_errors.(Server_error
+      (invalid_value,
+      ["xxxx"; "Unknown key"]));
+
     (* Empty value *)
-    [`enclosureassettag, ""],
+    ["enclosure-asset-tag", ""],
     Either.Left Api_errors.(Server_error
       (invalid_value,
       ["enclosure-asset-tag"; "Value provided is empty"]));
 
     (* Value having more than 512 charactors *)
-    [`enclosureassettag, big_str],
+    ["enclosure-asset-tag", big_str],
     Either.Left Api_errors.(Server_error
       (invalid_value,
       ["enclosure-asset-tag"; (Printf.sprintf "%s has length more than %d characters" big_str Xapi_globs.bios_string_limit_size)]));
 
     (* Value having non printable ascii characters *)
-    [`enclosureassettag, non_printable_str1],
+    ["enclosure-asset-tag", non_printable_str1],
     Either.Left Api_errors.(Server_error
       (invalid_value,
       ["enclosure-asset-tag"; non_printable_str1 ^ " has non-printable ASCII characters"]));
 
-    [`enclosureassettag, non_printable_str2],
+    ["enclosure-asset-tag", non_printable_str2],
     Either.Left Api_errors.(Server_error
       (invalid_value,
       ["enclosure-asset-tag"; non_printable_str2 ^ " has non-printable ASCII characters"]));
