@@ -9,3 +9,7 @@ let xensource_inventory_filename = "/etc/xensource-inventory"
 let standard_nbd_port = 10809
 
 let project_url = "http://github.com/xapi-project/xapi-nbd"
+
+let xapi_nbd_persistent_dir = "/var/lib/xapi-nbd"
+
+let vbd_list_file_name = "VBDs_to_clean_up"
