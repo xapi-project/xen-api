@@ -48,6 +48,11 @@ let get_bool_param params ?(default = false) param =
   then bool_of_string param (List.assoc param params)
   else default
 
+let get_param params param ~default =
+  if List.mem_assoc param params
+  then List.assoc param params
+  else default
+
 open Client
 
 let progress_bar printer task_record =
@@ -5067,12 +5072,7 @@ module Cluster = struct
   let pool_create printer rpc session_id params =
     let pool_uuid = List.assoc "pool-uuid" params in
     let network_uuid = List.assoc "network-uuid" params in
-    let cluster_stack =
-      if List.mem_assoc "cluster-stack" params
-      then
-        List.assoc "cluster-stack" params
-      else "corosync"
-    in
+    let cluster_stack = get_param params "cluster-stack" ~default:"corosync" in
     let network_ref = Client.Network.get_by_uuid rpc session_id network_uuid in
     let pool_ref = Client.Pool.get_by_uuid rpc session_id pool_uuid in
     let cluster = Client.Cluster.pool_create rpc session_id pool_ref cluster_stack network_ref in
@@ -5081,12 +5081,8 @@ module Cluster = struct
 
   let create printer rpc session_id params =
     let network_uuid = List.assoc "network-uuid" params in
-    let cluster_stack =
-      if List.mem_assoc "cluster-stack" params
-      then List.assoc "cluster-stack" params
-      else "corosync"
-    in
-    let pool_auto_join = get_bool_param params ~default:true "pool-auto-join" in
+    let cluster_stack = get_param params "cluster-stack" ~default:"corosync" in
+    let pool_auto_join = get_bool_param params "pool-auto-join" ~default:true in
     let network_ref = Client.Network.get_by_uuid rpc session_id network_uuid in
     let cluster = Client.Cluster.create rpc session_id network_ref cluster_stack pool_auto_join in
     let uuid = Client.Cluster.get_uuid ~rpc ~session_id ~self:cluster in
