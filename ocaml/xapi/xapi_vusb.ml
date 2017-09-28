@@ -31,7 +31,7 @@ let create ~__context ~vM ~uSB_group ~other_config =
   vusb
 
 let unplug ~__context ~self =
-  debug "unplug vusb to do"
+  Xapi_xenops.vusb_unplug ~__context ~self
 
 let destroy ~__context ~self =
   debug "VUSB.destroy (uuid = %s; ref = %s)" (Db.VUSB.get_uuid ~__context ~self) (Ref.string_of self);
