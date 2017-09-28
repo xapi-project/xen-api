@@ -4180,13 +4180,59 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   end
 
   module VUSB = struct
+   let update_vusb_operations ~__context ~vusb =
+      Helpers.with_global_lock
+        (fun () -> Xapi_vusb_helpers.update_allowed_operations ~__context ~self:vusb)
+
+    let unmark_vusb ~__context ~vusb ~doc ~op =
+      let task_id = Ref.string_of (Context.get_task_id __context) in
+      log_exn ~doc:("unmarking VUSB after " ^ doc)
+        (fun self ->
+           if Db.is_valid_ref __context self then begin
+             Db.VUSB.remove_from_current_operations ~__context ~self ~key:task_id;
+             Xapi_vusb_helpers.update_allowed_operations ~__context ~self;
+             Helpers.Early_wakeup.broadcast (Datamodel._vusb, Ref.string_of vusb)
+           end)
+        vusb
+
+    let mark_vusb ~__context ~vusb ~doc ~op =
+      let task_id = Ref.string_of (Context.get_task_id __context) in
+      log_exn ~doc:("marking VUSB for " ^ doc)
+        (fun self ->
+           Xapi_vusb_helpers.assert_operation_valid ~__context ~self ~op;
+           Db.VUSB.add_to_current_operations ~__context ~self ~key:task_id ~value:op;
+           Xapi_vusb_helpers.update_allowed_operations ~__context ~self) vusb
+
+    let with_vusb_marked ~__context ~vusb ~doc ~op f =
+      Helpers.retry_with_global_lock ~__context ~doc (fun () -> mark_vusb ~__context ~vusb ~doc ~op);
+      finally
+        (fun () -> f ())
+        (fun () -> Helpers.with_global_lock (fun () -> unmark_vusb ~__context ~vusb ~doc ~op))
+
+    (* -------- Forwarding helper functions: ------------------------------------ *)
+
+    (* Forward to host that has resident VM that this VUSB references *)
+    let forward_vusb_op ~local_fn ~__context ~self op =
+      let vm = Db.VUSB.get_VM ~__context ~self in
+      let host_resident_on = Db.VM.get_resident_on ~__context ~self:vm in
+      if host_resident_on = Ref.null
+      then local_fn ~__context
+      else do_op_on ~local_fn ~__context ~host:host_resident_on op
+
+    (* -------------------------------------------------------------------------- *)
+
     let create ~__context ~vM ~uSB_group ~other_config =
       info "VUSB.create: VM = '%s'; USB_group = '%s'" (vm_uuid ~__context vM) (usb_group_uuid ~__context uSB_group);
       Local.VUSB.create ~__context ~vM ~uSB_group ~other_config
 
     let unplug ~__context ~self =
       info "VUSB.unplug: VUSB = '%s'" (vusb_uuid ~__context self);
-      debug "VUSB.unplug to do"
+      let local_fn = Local.VUSB.unplug ~self in
+      with_vusb_marked ~__context ~vusb:self ~doc:"VUSB.unplug" ~op:`unplug
+        (fun () ->
+           forward_vusb_op ~local_fn ~__context ~self
+             (fun session_id rpc -> Client.VUSB.unplug rpc session_id self));
+      update_vusb_operations ~__context ~vusb:self
 
     let destroy ~__context ~self =
       info "VUSB.destroy: VUSB = '%s'" (vusb_uuid ~__context self);
