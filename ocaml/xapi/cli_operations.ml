@@ -5075,4 +5075,17 @@ module Cluster = struct
     let cluster = Client.Cluster.pool_create rpc session_id pool_ref cluster_stack network_ref in
     let uuid = Client.Cluster.get_uuid ~rpc ~session_id ~self:cluster in
     printer (Cli_printer.PList [uuid])
+
+  let create printer rpc session_id params =
+    let network_uuid = List.assoc "network-uuid" params in
+    let cluster_stack =
+      if List.mem_assoc "cluster-stack" params
+      then List.assoc "cluster-stack" params
+      else "corosync"
+    in
+    let pool_auto_join = get_bool_param params ~default:true "pool-auto-join" in
+    let network_ref = Client.Network.get_by_uuid rpc session_id network_uuid in
+    let cluster = Client.Cluster.create rpc session_id network_ref cluster_stack pool_auto_join in
+    let uuid = Client.Cluster.get_uuid ~rpc ~session_id ~self:cluster in
+    printer (Cli_printer.PList [uuid])
 end
