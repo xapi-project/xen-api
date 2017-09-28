@@ -41,30 +41,30 @@ module VMSetBiosStrings = Generic.Make (Generic.EncapsulateState (struct
   let big_str = String.make (Xapi_globs.bios_string_limit_size + 1) 'x'
   let non_printable_str1 = Printf.sprintf "xyz%c" (Char.chr 31)
   let non_printable_str2 = Printf.sprintf "xyz%c" (Char.chr 127)
-  let bios_str1 = [`bios_vendor, "Test"; `bios_version, "Test Inc. A08"]
-  let bios_str2 = [`system_manufacturer, "Test Inc."; `system_product_name, "Test bios strings"; `system_version, "8.1.1 SP1 build 8901"; `system_serial_number, "test-test-test-test"]
-  let bios_str3 = [`enclosure_asset_tag, "testassettag12345"]
+  let bios_str1 = [`biosvendor, "Test"; `biosversion, "Test Inc. A08"]
+  let bios_str2 = [`systemmanufacturer, "Test Inc."; `systemproductname, "Test bios strings"; `systemversion, "8.1.1 SP1 build 8901"; `systemserialnumber, "test-test-test-test"]
+  let bios_str3 = [`enclosureassettag, "testassettag12345"]
 
   let tests = [
     (* Empty value *)
-    [`enclosure_asset_tag, ""],
+    [`enclosureassettag, ""],
     Either.Left Api_errors.(Server_error
       (invalid_value,
       ["enclosure-asset-tag"; "Value provided is empty"]));
 
     (* Value having more than 512 charactors *)
-    [`enclosure_asset_tag, big_str],
+    [`enclosureassettag, big_str],
     Either.Left Api_errors.(Server_error
       (invalid_value,
       ["enclosure-asset-tag"; (Printf.sprintf "%s has length more than %d characters" big_str Xapi_globs.bios_string_limit_size)]));
 
     (* Value having non printable ascii characters *)
-    [`enclosure_asset_tag, non_printable_str1],
+    [`enclosureassettag, non_printable_str1],
     Either.Left Api_errors.(Server_error
       (invalid_value,
       ["enclosure-asset-tag"; non_printable_str1 ^ " has non-printable ASCII characters"]));
 
-    [`enclosure_asset_tag, non_printable_str2],
+    [`enclosureassettag, non_printable_str2],
     Either.Left Api_errors.(Server_error
       (invalid_value,
       ["enclosure-asset-tag"; non_printable_str2 ^ " has non-printable ASCII characters"]));
@@ -164,16 +164,8 @@ module VMSetBiosStrings = Generic.Make (Generic.EncapsulateState (struct
   ]
 end))
 
-let test_marshalling () =
-  let test = Rpc.Dict [ "bios_vendor", Rpc.String "test" ] in
-  let test' = API.vm_bios_string_keys_to_string_map_of_rpc test in
-  let expected = [ `bios_vendor, "test" ] in
-  OUnit.assert_equal test' expected
-
-
 let test =
   "test_vm" >:::
   [
     "test_vm_set_bios_strings" >::: VMSetBiosStrings.tests;
-    "test_vm_bios_string_keys_marshalling" >:: test_marshalling;
   ]
