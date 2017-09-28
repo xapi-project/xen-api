@@ -290,17 +290,24 @@ let test_vdi_managed_data_destroy () =
     Api_errors.(Server_error (vdi_not_managed, [Ref.string_of vDI]))
     (fun () -> Xapi_vdi.data_destroy ~__context ~self:vDI)
 
-(* verify message forwarding for VDI.list_changed_blocks *)
+(* behaviour verification VDI.list_changed_blocks *)
 let test_vdi_list_changed_blocks () =
   let __context = Test_common.make_test_database () in
-  let sR,vDI = make_mock_server_infrastructure ~__context in
+  let list_changed_blocks_params = ref None in
+  let sR,vdi_from = make_mock_server_infrastructure ~__context in
   let vdi_to = Test_common.make_vdi ~__context ~sR () in
+  list_changed_blocks_params := Some (sR,vdi_from,vdi_to);
+  Db.VDI.set_cbt_enabled ~__context ~self:vdi_to ~value:true;
   let list_changed_blocks_string = "listchangedblocks000" in
   register_smapiv2_server ~vdi_list_changed_blocks:(fun _ ~dbg ~sr ~vdi_from ~vdi_to -> list_changed_blocks_string) (Db.SR.get_uuid ~__context ~self:sR);
   OUnit.assert_equal
     ~msg:(Printf.sprintf "VDI.list_changed_blocks should return %s" list_changed_blocks_string)
-    (Xapi_vdi.list_changed_blocks ~__context ~vdi_from:vDI ~vdi_to)
-    list_changed_blocks_string
+    (Xapi_vdi.list_changed_blocks ~__context ~vdi_from ~vdi_to)
+    list_changed_blocks_string;
+  OUnit.assert_equal
+    ~msg:("Incorrect parameters passed")
+    (Some (sR,vdi_from,vdi_to))
+    !list_changed_blocks_params
 
 let test =
   let open OUnit in

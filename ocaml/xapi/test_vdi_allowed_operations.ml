@@ -317,7 +317,7 @@ let test_cbt =
               let vM = Test_common.make_vm ~__context () in
               let _: _ API.Ref.t = Test_common.make_vbd ~__context ~currently_attached:true ~vM ~vDI () in ()
             ) ,    Some (Api_errors.vdi_in_use , []) ) ;
-        (* check function still runs on CBT metadata/enabled VDIs *)
+        (* positive test checks no errors thrown for cbt_metadata or cbt_enabled VDIs *)
         ( (fun vDI -> Db.VDI.set_cbt_enabled ~__context ~self:vDI ~value:true;
             Db.VDI.set_type ~__context ~self:vDI ~value:`cbt_metadata
           ) ,   None ) ;
