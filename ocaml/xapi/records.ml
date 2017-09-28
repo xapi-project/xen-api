@@ -28,10 +28,6 @@ let checknull f r =
   if (Ref.string_of r)=nullref then nid else
     try f r with _ -> nid
 
-
-
-let getparam param params = try Some (List.assoc param params) with _ -> None
-
 let string_of_float f = Printf.sprintf "%.3f" f
 
 (* Splitting an empty string gives a list containing the empty string, which
