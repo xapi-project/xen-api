@@ -300,6 +300,14 @@ let check_vgpu ~__context ~op ~ref_str ~vgpus =
   | `checkpoint | `migrate_send -> Some (Api_errors.vm_has_vgpu, [ref_str])
   | _ -> None
 
+let check_vusb ~vmr ~op ~ref_str =
+  if vmr.Db_actions.vM_VUSBs <> []
+  then match op with
+    | `suspend | `snapshot | `migrate_send | `pool_migrate -> Some (Api_errors.vm_has_vusbs, [ref_str])
+    | _ -> None
+  else None
+  
+
 (* VM cannot be converted into a template while it is a member of an appliance. *)
 let check_appliance ~vmr ~op ~ref_str =
   match op with
@@ -517,9 +525,7 @@ let check_operation_error ~__context ~ref =
   (* The VM has a VUSB, check if the operation is allowed*)
   let current_error = check current_error (fun () ->
       if vmr.Db_actions.vM_VUSBs <> []
-      then match op with
-        | `suspend | `snapshot | `migrate_send | `pool_migrate -> Some (Api_errors.vm_has_vusbs, [ref_str])
-        | _ -> None
+      then check_vusb ~vmr ~op ~ref_str
       else None) in
 
   (* Check for errors caused by VM being in an appliance. *)
