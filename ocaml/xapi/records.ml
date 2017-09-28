@@ -2102,3 +2102,90 @@ let vusb_record rpc session_id vusb =
         ~get_set:(fun () -> List.map (fun (a,b) -> Record_util.vusb_operation_to_string b) (x ()).API.vUSB_current_operations) ();
     ]
   }
+
+let cluster_record rpc session_id cluster =
+  let _ref = ref cluster in
+  let empty_record = ToGet (fun () -> Client.Cluster.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  { setref    = (fun r -> _ref := r; record := empty_record);
+    setrefrec = (fun (a,b) -> _ref := a; record := Got b);
+    record    = x;
+    getref    = (fun () -> !_ref);
+    fields =
+      [ make_field ~name:"uuid"
+          ~get:(fun () -> (x ()).API.cluster_uuid)
+          ()
+      ; make_field ~name:"cluster_hosts"
+          ~get:(fun () -> String.concat "; " (List.map (fun r -> get_uuid_from_ref r) (x ()).API.cluster_cluster_hosts))
+          ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.cluster_cluster_hosts)
+          ()
+      ; make_field ~name:"network"
+          ~get:(fun () -> (x ()).API.cluster_network |> get_uuid_from_ref)
+          ()
+      ; make_field ~name:"cluster_token"
+          ~get:(fun () -> (x ()).API.cluster_cluster_token)
+          ()
+      ; make_field ~name:"cluster_stack"
+          ~get:(fun () -> (x ()).API.cluster_cluster_stack)
+          ()
+      ; make_field ~name:"allowed_operations"
+          ~get:(fun () -> String.concat "; " (List.map Record_util.cluster_operation_to_string (x ()).API.cluster_allowed_operations))
+          ~get_set:(fun () -> List.map Record_util.cluster_operation_to_string (x ()).API.cluster_allowed_operations)
+          ()
+      ; make_field ~name:"current_operations"
+          ~get:(fun () -> String.concat "; " (List.map (fun (task,op) -> Record_util.cluster_operation_to_string op) (x ()).API.cluster_current_operations))
+          ~get_set:(fun () -> List.map (fun (task,op) -> Record_util.cluster_operation_to_string op) (x ()).API.cluster_current_operations)
+          ()
+      ; make_field ~name:"pool_auto_join"
+          ~get:(fun () -> (x ()).API.cluster_pool_auto_join |> string_of_bool)
+          ()
+      ; make_field ~name:"cluster_config"
+          ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.cluster_cluster_config)
+          ~get_map:(fun () -> (x ()).API.cluster_cluster_config)
+          ()
+      ; make_field ~name:"other_config"
+          ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.cluster_other_config)
+          ~get_map:(fun () -> (x ()).API.cluster_other_config)
+          ~add_to_map:(fun k v -> Client.Cluster.add_to_other_config rpc session_id cluster k v)
+          ~remove_from_map:(fun k -> Client.Cluster.remove_from_other_config rpc session_id cluster k)
+          ()
+      ]}
+
+let cluster_host_record rpc session_id cluster_host =
+  let _ref = ref cluster_host in
+  let empty_record = ToGet (fun () -> Client.Cluster_host.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  { setref    = (fun r -> _ref := r; record := empty_record);
+    setrefrec = (fun (a,b) -> _ref := a; record := Got b);
+    record    = x;
+    getref    = (fun () -> !_ref);
+    fields =
+      [ make_field ~name:"uuid"
+          ~get:(fun () -> (x ()).API.cluster_host_uuid)
+          ()
+      ; make_field ~name:"cluster"
+          ~get:(fun () -> (x ()).API.cluster_host_cluster |> get_uuid_from_ref)
+          ()
+      ; make_field ~name:"host"
+          ~get:(fun () -> (x ()).API.cluster_host_host |> get_uuid_from_ref)
+          ()
+      ; make_field ~name:"enabled"
+          ~get:(fun () -> (x ()).API.cluster_host_enabled |> string_of_bool)
+          ()
+      ; make_field ~name:"allowed_operations"
+          ~get:(fun () -> String.concat "; " (List.map Record_util.cluster_host_operation_to_string (x ()).API.cluster_host_allowed_operations))
+          ~get_set:(fun () -> List.map Record_util.cluster_host_operation_to_string (x ()).API.cluster_host_allowed_operations)
+          ()
+      ; make_field ~name:"current_operations"
+          ~get:(fun () -> String.concat "; " (List.map (fun (task,op) -> Record_util.cluster_host_operation_to_string op) (x ()).API.cluster_host_current_operations))
+          ~get_set:(fun () -> List.map (fun (task,op) -> Record_util.cluster_host_operation_to_string op) (x ()).API.cluster_host_current_operations)
+          ()
+      ; make_field ~name:"other_config"
+          ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.cluster_host_other_config)
+          ~get_map:(fun () -> (x ()).API.cluster_host_other_config)
+          ~add_to_map:(fun k v -> Client.Cluster.add_to_other_config rpc session_id cluster_host k v)
+          ~remove_from_map:(fun k -> Client.Cluster.remove_from_other_config rpc session_id cluster_host k)
+          ()
+      ]}

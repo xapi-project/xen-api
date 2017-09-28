@@ -781,7 +781,8 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
   in
   gen_frontend rpc session_id
 
-
+(* the fields to show when doing `xe <class>-list`, whereas
+   `xe <class>-param-list uuid=...` shows all the non-hidden fields of a record *)
 let gen_cmds rpc session_id =
   let mk = make_param_funs in
   List.concat
@@ -833,6 +834,8 @@ let gen_cmds rpc session_id =
     ; Client.PUSB.(mk get_all get_all_records_where get_by_uuid pusb_record "pusb" [] ["uuid"; "path"; "product-id"; "product-desc"; "vendor-id"; "vendor-desc"; "serial"; "version";"description"] rpc session_id)
     ; Client.USB_group.(mk get_all get_all_records_where get_by_uuid usb_group_record "usb-group" [] ["uuid";"name-label";"name-description"] rpc session_id)
     ; Client.VUSB.(mk get_all get_all_records_where get_by_uuid vusb_record "vusb" [] ["uuid";"vm-uuid"; "usb-group-uuid"] rpc session_id)
+    ; Client.Cluster.(mk get_all get_all_records_where get_by_uuid cluster_record "cluster" [] ["uuid";"cluster_hosts";"network";"cluster_token";"cluster_stack";"allowed_operations";"current_operations";"pool_auto_join";"cluster_config";"other_config"] rpc session_id)
+    ; Client.Cluster_host.(mk get_all get_all_records_where get_by_uuid cluster_host_record "cluster-host" [] ["uuid";"cluster";"host";"enabled";"allowed_operations";"current_operations";"other_config"] rpc session_id)
     ]
 
 (* NB, might want to put these back in at some point
