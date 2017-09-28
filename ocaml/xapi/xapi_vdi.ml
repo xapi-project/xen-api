@@ -1038,6 +1038,14 @@ let get_nbd_info ~__context ~self =
                                   Eq (Field "currently_attached", Literal "true")))
     |> Valid_ref_list.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
   in
+
+  let nbd_networks = Db.Network.get_all ~__context |>
+  Valid_ref_list.filter (fun nwk ->
+    (* Despite the singular name, Db.get_purpose returns a list. *)
+    Db.Network.get_purpose ~__context ~self:nwk |>
+    List.exists (fun p -> p=`nbd || p=`insecure_nbd)
+  ) in
+
   let get_ips host =
     let get_ips pif =
       let not_empty = (<>) "" in
@@ -1051,13 +1059,30 @@ let get_nbd_info ~__context ~self =
         ~expr:Db_filter_types.(And (Eq (Field "host", Literal (Ref.string_of host)),
                                     Eq (Field "currently_attached", Literal "true")))
     in
-    attached_pifs |> Valid_ref_list.flat_map get_ips
+    let attached_nbd_pifs = attached_pifs |>
+    List.filter (fun pif -> List.mem (Db.PIF.get_network ~__context ~self:pif) nbd_networks) in
+    attached_nbd_pifs |> Valid_ref_list.flat_map get_ips
   in
-  let ips = hosts_with_attached_pbds |> Valid_ref_list.flat_map get_ips in
 
   let vdi_uuid = Db.VDI.get_uuid ~__context ~self in
   let session_id = Context.get_session_id __context |> Ref.string_of in
-  ips
-  |> List.map (fun ip -> Printf.sprintf "nbd://%s:10809/%s?session_id=%s" ip vdi_uuid session_id)
+  let exportname = Printf.sprintf "/%s?session_id=%s" vdi_uuid session_id in
+
+  hosts_with_attached_pbds |> Valid_ref_list.flat_map (fun host ->
+    let cert = Helpers.call_api_functions ~__context
+      (fun rpc session_id -> Client.Host.get_server_certificate ~rpc ~session_id ~host) in
+    let port = 10809L in
+    (* Stopgap measure: use hostname instead of reading a subject out of the cert. *)
+    let subject = Db.Host.get_hostname ~__context ~self:host in
+    let template = API.{
+      vdi_nbd_server_info_exportname = exportname;
+      vdi_nbd_server_info_address = "";
+      vdi_nbd_server_info_port = port;
+      vdi_nbd_server_info_cert = cert;
+      vdi_nbd_server_info_subject = subject;
+    } in
+    get_ips host |> List.map
+     (fun addr -> API.{template with vdi_nbd_server_info_address = addr})
+  )
 
 (* let pool_migrate = "See Xapi_vm_migrate.vdi_pool_migrate!" *)
