@@ -854,6 +854,17 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
              ~value:Ref.null)
         (Db.VM.get_VGPUs ~__context ~self:vm)
 
+    (* Clear scheduled_to_be_resident_on for a VM and all its VUSBs. *)
+    let clear_resident_on ~__context ~vm =
+      Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:Ref.null;
+      List.iter
+        (fun vusb ->
+           Db.VUSB.set_attached ~__context
+             ~self:vusb
+             ~value:Ref.null)
+        (Db.VM.get_VUSBs ~__context ~self:vm)
+
+
     (* Notes on memory checking/reservation logic:
        		   When computing the hosts free memory we consider all VMs resident_on (ie running
        		   and consuming resources NOW) and scheduled_to_be_resident_on (ie those which are
@@ -881,12 +892,22 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       end;
       (* Once this is set concurrent VM.start calls will start checking the memory used by this VM *)
       Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:host;
+      begin
+        try
+          Vgpuops.create_vgpus ~__context host (vm, snapshot)
+            (Helpers.will_boot_hvm ~__context ~self:vm)
+        with e ->
+          clear_scheduled_to_be_resident_on ~__context ~vm;
+          raise e
+      end;
+      (* Allocate vusb to vm *)
       try
-        Vgpuops.create_vgpus ~__context host (vm, snapshot)
-          (Helpers.will_boot_hvm ~__context ~self:vm)
-      with e ->
-        clear_scheduled_to_be_resident_on ~__context ~vm;
-        raise e
+        Vusbops.create_vusbs ~__context host (vm, snapshot)
+           (Helpers.will_boot_hvm ~__context ~self:vm)
+       with e ->
+        clear_resident_on ~__context ~vm;
+         raise e
+
 
     (* For start/start_on/resume/resume_on/migrate *)
     let finally_clear_host_operation ~__context ~host ?host_op () = match host_op with

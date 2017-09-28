@@ -1057,6 +1057,9 @@ let _ =
     ~doc:"The given VMs failed to release memory when instructed to do so" ();
   error Api_errors.ballooning_timeout_before_migration [ "vm" ]
     ~doc:"Timeout trying to balloon down memory before VM migration. If the error occurs repeatedly, consider increasing the memory-dynamic-min value." ();
+  error Api_errors.vm_requires_vusb ["vm"; "USB_group"]
+    ~doc:"You attempted to run a VM on a host on which the VUSB required by the VM cannot be allocated on any PUSBs in the USB_group needed by the VM
+." ();
 
   (* Storage errors *)
   error Api_errors.sr_not_attached ["sr"]

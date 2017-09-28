@@ -226,6 +226,7 @@ let vdi_not_sparse = "VDI_NOT_SPARSE"
 let vdi_is_a_physical_device = "VDI_IS_A_PHYSICAL_DEVICE"
 let vdi_is_not_iso = "VDI_IS_NOT_ISO"
 let vbd_cds_must_be_readonly = "VBD_CDS_MUST_BE_READONLY"
+let vm_requires_vusb = "VM_REQUIRES_VUSB"
 (* CA-83260 *)
 let disk_vbd_must_be_readwrite_for_hvm = "DISK_VBD_MUST_BE_READWRITE_FOR_HVM"
 let host_cd_drive_empty = "HOST_CD_DRIVE_EMPTY"
