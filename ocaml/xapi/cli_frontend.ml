@@ -2880,6 +2880,14 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.Cluster.pool_create;
       flags=[];
     };
+    "cluster-create",
+    {
+      reqd=["network-uuid"];
+      optn=["cluster-stack";"pool-auto-join"];
+      help="Create new cluster with master as first member";
+      implementation=No_fd Cli_operations.Cluster.create;
+      flags=[Hidden];
+    };
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t =
