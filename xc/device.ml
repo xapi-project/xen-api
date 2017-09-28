@@ -1879,7 +1879,7 @@ module Backend = struct
           qmp_write device.frontend.domid qmp_cmd
         else
           try
-            let c = Qmp_protocol.connect (Printf.sprintf "/var/run/xen/qmp-libxl-%d" device.frontend.domid) in
+            let c = Qmp_protocol.connect (qmp_libxl_path device.frontend.domid) in
             finally
               (fun () ->
                  let fd_of_c = Qmp_protocol.to_fd c in
@@ -1946,7 +1946,7 @@ module Backend = struct
           end
           let m = Monitor.create ()
 
-          let monitor_path domid = Printf.sprintf "/var/run/xen/qmp-event-%d" domid
+          let monitor_path domid = qmp_event_path domid
           let debug_exn msg e = debug "%s: %s" msg (Printexc.to_string e)
 
           let remove domid =
@@ -1987,7 +1987,7 @@ module Backend = struct
 
           let qmp_event_thread () =
             (* Add the existing qmp sockets first *)
-            Sys.readdir "/var/run/xen"
+            Sys.readdir var_run_xen_path
             |> Array.to_list
             |> List.iter (fun x -> try Scanf.sscanf x "qmp-event-%d" add with _ -> ());
 
