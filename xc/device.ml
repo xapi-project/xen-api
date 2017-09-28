@@ -1986,6 +1986,11 @@ module Backend = struct
               )
 
           let qmp_event_thread () =
+            (* Add the existing qmp sockets first *)
+            Sys.readdir "/var/run/xen"
+            |> Array.to_list
+            |> List.iter (fun x -> try Scanf.sscanf x "qmp-event-%d" add with _ -> ());
+
             while true do
               try
                 Monitor.wait m |> Monitor.with_event m (fun fd is_flag_in ->
