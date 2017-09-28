@@ -492,6 +492,17 @@ let pvs_proxy_status_to_string = function
   | `incompatible_write_cache_mode -> "incompatible-write-cache-mode"
   | `incompatible_protocol_version -> "incompatible-protocol-version"
 
+let cluster_operation_to_string: API.cluster_operation -> string = function
+  | `add -> "add"
+  | `destroy -> "destroy"
+  | `remove -> "remove"
+  | `enable -> "enable"
+  | `disable -> "disable"
+
+let cluster_host_operation_to_string: API.cluster_host_operation -> string = function
+  | `enable -> "enable"
+  | `disable -> "disable"
+
 let bool_of_string s =
   match String.lowercase_ascii s with
   |"true"|"yes"->true
