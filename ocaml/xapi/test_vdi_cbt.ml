@@ -19,7 +19,7 @@ let register_smapiv2_server (module S: Storage_interface.Server_impl with type c
   let dummy_query_result = Storage_interface.({ driver=""; name=""; description=""; vendor=""; copyright=""; version=""; required_api_version=""; features=[]; configuration=[]; required_cluster_stack=[] }) in
   Storage_mux.register sr_ref rpc "" dummy_query_result
 
-let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_data_destroy ?vdi_snapshot ?vdi_clone () =
+let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_list_changed_blocks ?vdi_data_destroy ?vdi_snapshot ?vdi_clone () =
   let default = Xapi_stdext_monadic.Opt.default in
   (module struct
     include (Storage_skeleton: module type of Storage_skeleton with module VDI := Storage_skeleton.VDI)
@@ -27,14 +27,15 @@ let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_data_destr
       include Storage_skeleton.VDI
       let enable_cbt = default Storage_skeleton.VDI.enable_cbt vdi_enable_cbt
       let disable_cbt = default Storage_skeleton.VDI.disable_cbt vdi_disable_cbt
+      let list_changed_blocks  = default Storage_skeleton.VDI.list_changed_blocks vdi_list_changed_blocks
       let data_destroy = default Storage_skeleton.VDI.data_destroy vdi_data_destroy
       let snapshot = default Storage_skeleton.VDI.snapshot vdi_snapshot
       let clone = default Storage_skeleton.VDI.clone vdi_snapshot
     end
   end : Storage_interface.Server_impl with type context = unit)
 
-let register_smapiv2_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_data_destroy ?vdi_snapshot ?vdi_clone sr_ref =
-  let s = make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_data_destroy ?vdi_snapshot ?vdi_clone () in
+let register_smapiv2_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_list_changed_blocks ?vdi_data_destroy ?vdi_snapshot ?vdi_clone sr_ref =
+  let s = make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_list_changed_blocks ?vdi_data_destroy ?vdi_snapshot ?vdi_clone () in
   register_smapiv2_server s sr_ref
 
 (* create host -> (SM) -> SR -> PBD -> VDI infrastructure for
@@ -45,7 +46,6 @@ let make_mock_server_infrastructure ~__context =
   let sR = Test_common.make_sr ~__context ~is_tools_sr:false () in
   let _: _ API.Ref.t = Test_common.make_pbd ~__context ~host ~sR ~currently_attached:true () in
   let vDI = Test_common.make_vdi ~__context ~is_a_snapshot:true ~managed:true ~cbt_enabled:true ~sR () in
-  register_smapiv2_server ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> ()) (Db.SR.get_uuid ~__context ~self:sR);
   (sR,vDI)
 
 let test_cbt_enable_disable () =
@@ -238,6 +238,7 @@ let test_allowed_operations_updated_when_necessary () =
 let test_vdi_after_data_destroy () =
   let __context = Test_common.make_test_database () in
   let sR,vDI = make_mock_server_infrastructure ~__context in
+  register_smapiv2_server ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> ()) (Db.SR.get_uuid ~__context ~self:sR);
   Db.VDI.set_type ~__context ~self:vDI ~value:`suspend;
   let vM = Test_common.make_vm ~__context () in
   let vBD = Test_common.make_vbd ~__context ~vDI ~vM ~currently_attached:false () in
@@ -282,11 +283,31 @@ let test_vdi_after_data_destroy () =
 (* check VDI.data_destroy throws VDI_NOT_MANAGED if managed:false *)
 let test_vdi_managed_data_destroy () =
   let __context = Test_common.make_test_database () in
-  let _,vDI = make_mock_server_infrastructure ~__context in
+  let sR,vDI = make_mock_server_infrastructure ~__context in
+  register_smapiv2_server ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> ()) (Db.SR.get_uuid ~__context ~self:sR);
   Db.VDI.set_managed ~__context ~self:vDI ~value:false;
   OUnit.assert_raises ~msg:"VDI.data_destroy only works on managed VDI"
     Api_errors.(Server_error (vdi_not_managed, [Ref.string_of vDI]))
     (fun () -> Xapi_vdi.data_destroy ~__context ~self:vDI)
+
+(* behaviour verification VDI.list_changed_blocks *)
+let test_vdi_list_changed_blocks () =
+  let __context = Test_common.make_test_database () in
+  let list_changed_blocks_params = ref None in
+  let sR,vdi_from = make_mock_server_infrastructure ~__context in
+  let vdi_to = Test_common.make_vdi ~__context ~sR () in
+  list_changed_blocks_params := Some (sR,vdi_from,vdi_to);
+  Db.VDI.set_cbt_enabled ~__context ~self:vdi_to ~value:true;
+  let list_changed_blocks_string = "listchangedblocks000" in
+  register_smapiv2_server ~vdi_list_changed_blocks:(fun _ ~dbg ~sr ~vdi_from ~vdi_to -> list_changed_blocks_string) (Db.SR.get_uuid ~__context ~self:sR);
+  OUnit.assert_equal
+    ~msg:(Printf.sprintf "VDI.list_changed_blocks should return %s" list_changed_blocks_string)
+    (Xapi_vdi.list_changed_blocks ~__context ~vdi_from ~vdi_to)
+    list_changed_blocks_string;
+  OUnit.assert_equal
+    ~msg:("Incorrect parameters passed")
+    (Some (sR,vdi_from,vdi_to))
+    !list_changed_blocks_params
 
 let test =
   let open OUnit in
