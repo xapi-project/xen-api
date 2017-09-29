@@ -15,6 +15,13 @@ let flags = function
   in
   go ic ""
 
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+
 let rewriters_camlp4 = ["rpclib.idl -syntax camlp4o"]
 let rewriters_ppx = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
 
@@ -27,7 +34,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (flags (:standard -w -39 %s))
   (modules (vdi_automaton))
   (libraries (xcp threads rpclib))
-  (wrapped false)))
+  (wrapped false)
+  %s))
 
 (library
  ((name xcp_storage_interface)
@@ -35,7 +43,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (flags (:standard -w -39 %s))
   (modules (storage_interface))
   (libraries (xcp threads rpclib xcp_storage_interface_types))
-  (wrapped false)))
+  (wrapped false)
+  %s))
 
 (library
  ((name xcp_storage)
@@ -43,12 +52,14 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (flags (:standard -w -39 %s))
   (modules (:standard \ storage_test storage_interface vdi_automaton))
   (libraries (xcp threads rpclib xcp_storage_interface xcp_storage_interface_types))
-  (wrapped false)))
+  (wrapped false)
+  %s))
 
 (executable
   ((name storage_test)
    (flags (:standard -w -39 %s))
    (modules (storage_test))
-   (libraries (xcp xcp_storage oUnit cmdliner))))
+   (libraries (xcp xcp_storage oUnit cmdliner))
+   %s))
 
-|} (flags rewriters_ppx) (flags rewriters_camlp4) (flags rewriters_ppx) (flags rewriters_ppx)
+|} (flags rewriters_ppx) coverage_rewriter (flags rewriters_camlp4) coverage_rewriter (flags rewriters_ppx) coverage_rewriter (flags rewriters_ppx) coverage_rewriter

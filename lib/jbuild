@@ -15,6 +15,13 @@ let flags = function
   in
   go ic ""
 
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+
 let rewriters = ["ppx_deriving_rpc"]
 let flags = flags rewriters
 
@@ -30,7 +37,9 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (libraries (cmdliner uri re cohttp xmlm unix sexplib
               ppx_deriving_rpc rpclib rpclib.xml threads message_switch.unix
               fd-send-recv xcp-inventory xapi-backtrace))
-  (wrapped false)))
+  (wrapped false)
+  %s
+))
 
 (library
  ((name xcp_updates)
@@ -38,7 +47,9 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (flags (:standard -w -39 %s))
   (modules (updates task_server scheduler))
   (libraries (xcp lwt))
-  (wrapped false)))
+  (wrapped false)
+  %s
+))
 
 (executable
  ((name channel_helper)
@@ -50,4 +61,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name runtest)
   (deps (channel_helper.exe))))
 
-|} flags flags flags
+|} flags coverage_rewriter flags coverage_rewriter flags

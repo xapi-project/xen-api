@@ -18,6 +18,14 @@ let flags = function
 let rewriters_ppx = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
 let rewriters_camlp4 = ["rpclib.idl -syntax camlp4o"]
 
+let coverage_rewriter = ""
+(* (preprocess (pps)) doesn't work with camlp4 and  the other ppx derivers,
+ it complains about missing rpc_of_t *)
+let rewriters_ppx =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then "bisect_ppx" :: rewriters_ppx else rewriters_ppx
+
+
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (jbuild_version 1)
 
@@ -27,19 +35,24 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (modules (xenops_types device_number))
   (flags (:standard -w -39 %s))
   (libraries (xcp threads rpclib))
-  (wrapped false)))
+  (wrapped false)
+  %s))
+
 (library
  ((name xcp_xen_interface)
   (public_name xcp.xen.interface)
   (modules (xenops_interface))
   (flags (:standard -w -39 %s))
   (libraries (xcp threads rpclib xcp_xen_interface_types))
-  (wrapped false)))
+  (wrapped false)
+  %s))
+
 (library
  ((name xcp_xen)
   (public_name xcp.xen)
   (modules (:standard \ xenops_interface xenops_types device_number))
   (flags (:standard -w -39 %s))
   (libraries (xcp threads rpclib xcp_xen_interface))
-  (wrapped false)))
-|} (flags rewriters_ppx) (flags rewriters_camlp4) (flags rewriters_ppx)
+  (wrapped false)
+  %s))
+|} (flags rewriters_ppx) coverage_rewriter (flags rewriters_camlp4) coverage_rewriter (flags rewriters_ppx) coverage_rewriter

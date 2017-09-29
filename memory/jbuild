@@ -18,6 +18,13 @@ let flags = function
 let rewriters = ["ppx_deriving_rpc"]
 let flags = flags rewriters
 
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (jbuild_version 1)
 
@@ -27,7 +34,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (flags (:standard -w -39 %s))
   (modules (:standard \ memory_cli))
   (libraries (xcp threads rpclib))
-  (wrapped false)))
+  (wrapped false)
+  %s))
 
 (executable
  ((name memory_cli)
@@ -38,4 +46,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name runtest)
   (deps (memory_cli.exe))))
 
-|} flags
+|} flags coverage_rewriter

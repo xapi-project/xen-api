@@ -18,6 +18,13 @@ let flags = function
 let rewriters_camlp4 = ["rpclib.idl -syntax camlp4o"]
 let rewriters_ppx = ["ppx_deriving_rpc"]
 
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (jbuild_version 1)
 
@@ -27,7 +34,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (modules (data_source))
   (flags (:standard -w -39 %s))
   (libraries (xcp threads rpclib rrd))
-  (wrapped false)))
+  (wrapped false)
+  %s))
 
 (library
  ((name xcp_rrd_interface)
@@ -35,7 +43,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (modules (rrd_interface))
   (flags (:standard -w -39 %s))
   (libraries (xcp threads rpclib rrd xcp_rrd_interface_types))
-  (wrapped false)))
+  (wrapped false)
+  %s))
 
 (library
  ((name xcp_rrd)
@@ -43,5 +52,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (modules (:standard \ rrd_interface data_source))
   (flags (:standard -w -39 %s))
   (libraries (xcp threads rpclib rrd xcp_rrd_interface))
-  (wrapped false)))
-|} (flags rewriters_ppx) (flags rewriters_camlp4) (flags rewriters_ppx)
+  (wrapped false)
+  %s))
+|} (flags rewriters_ppx) coverage_rewriter (flags rewriters_camlp4) coverage_rewriter (flags rewriters_ppx) coverage_rewriter
