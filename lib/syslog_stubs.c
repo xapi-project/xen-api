@@ -53,7 +53,7 @@ value stub_openlog(value ident, value option, value facility)
 value stub_syslog(value facility, value level, value msg)
 {
 	CAMLparam3(facility, level, msg);
-	const char *c_msg = strdup(String_val(msg));
+	char *c_msg = strdup(String_val(msg));
 	int c_facility = __syslog_facility_table[Int_val(facility)]
 	               | __syslog_level_table[Int_val(level)];
 
