@@ -19,10 +19,6 @@ module Xen_api = Xen_api_lwt_unix
 let ignore_exn_delayed t () = Lwt.catch t (fun _ -> Lwt.return_unit)
 let ignore_exn_log_error = Cleanup.ignore_exn_log_error
 
-module StringSet = Set.Make(String)
-let vbds_to_clean_up = ref StringSet.empty
-let vbds_to_clean_up_mutex = Lwt_mutex.create ()
-
 (* TODO share these "require" functions with the nbd package. *)
 let require name arg = match arg with
   | None -> failwith (Printf.sprintf "Please supply a %s argument" name)
