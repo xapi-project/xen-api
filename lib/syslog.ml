@@ -49,7 +49,7 @@ let facility_of_string s =
 
 exception Unknown_level of string
 let level_of_string s = 
-	match String.lowercase s with
+	match (String.lowercase s)[@ocaml.warning "-3"] with
 	| "emergency"        -> Emerg
 	| "alert"            -> Alert
 	| "critical"         -> Crit
