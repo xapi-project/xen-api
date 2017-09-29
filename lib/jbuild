@@ -1,0 +1,53 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+| [] -> ""
+| pkgs ->
+  let cmd = "ocamlfind ocamlc -verbose" ^ (
+    List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+  ) in
+  let ic = Unix.open_process_in
+    (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
+  in
+  let rec go ic acc =
+    try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+  in
+  go ic ""
+
+let rewriters = ["ppx_deriving_rpc"]
+let flags = flags rewriters
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(jbuild_version 1)
+
+(library
+ ((name xcp)
+  (public_name xcp)
+  (flags (:standard -w -39 %s))
+  (modules (:standard \ updates task_server scheduler channel_helper))
+  (c_names (syslog_stubs))
+  (libraries (cmdliner uri re cohttp xmlm unix sexplib
+              ppx_deriving_rpc rpclib rpclib.xml threads message_switch.unix
+              fd-send-recv xcp-inventory xapi-backtrace))
+  (wrapped false)))
+
+(library
+ ((name xcp_updates)
+  (public_name xcp.updates)
+  (flags (:standard -w -39 %s))
+  (modules (updates task_server scheduler))
+  (libraries (xcp lwt))
+  (wrapped false)))
+
+(executable
+ ((name channel_helper)
+  (flags (:standard -w -39 %s))
+  (modules (channel_helper))
+  (libraries (xcp lwt lwt.unix cmdliner))))
+
+(alias
+ ((name runtest)
+  (deps (channel_helper.exe))))
+
+|} flags flags flags

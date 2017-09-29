@@ -1,0 +1,40 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+| [] -> ""
+| pkgs ->
+  let cmd = "ocamlfind ocamlc -verbose" ^ (
+    List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+  ) in
+  let ic = Unix.open_process_in
+    (cmd ^ " | grep -oEe '-ppx? (\"([^\"\\]|\\.)+\"|\\w+)'")
+  in
+  let rec go ic acc =
+    try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+  in
+  go ic ""
+
+let rewriters_camlp4 = ["rpclib.idl -syntax camlp4o"]
+let rewriters_ppx = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(jbuild_version 1)
+
+(library
+ ((name xapi_v6_interface)
+  (public_name xcp.v6.interface)
+  (modules (v6_interface))
+  (flags (:standard -w -39 %s))
+  (libraries (xcp threads rpclib))
+  (wrapped false)))
+
+(library
+ ((name xapi_v6)
+  (public_name xcp.v6)
+  (modules (:standard \ v6_interface))
+  (flags (:standard -w -39 %s))
+  (libraries (xcp threads rpclib xapi_v6_interface))
+  (wrapped false)))
+
+|} (flags rewriters_camlp4) (flags rewriters_ppx)

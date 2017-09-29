@@ -5,21 +5,11 @@ bug-reports: "https://github.com/xapi-project/xcp-idl/issues"
 dev-repo: "git://github.com/xapi-project/xcp-idl"
 maintainer: "xen-api@lists.xen.org"
 tags: [ "org:xapi-project" ]
-build: [
-  [make "all"]
-]
-build-test: [
-  [make "test"]
-]
-install: [
-  [make "install"]
-]
-remove: [
-  ["ocamlfind" "remove" "xcp"]
-]
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build-test: ["jbuilder" "runtest" "-p" name]
 depends: [
   "ocamlfind" {build}
-  "ocamlbuild" {build}
+  "jbuilder" {build & >= "1.0+beta11"}
   "base-threads"
   "base-unix"
   "uri"
@@ -39,4 +29,3 @@ depends: [
   "ppx_sexp_conv"
   "sexplib"
 ]
-
