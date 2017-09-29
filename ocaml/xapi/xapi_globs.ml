@@ -818,6 +818,8 @@ let kpatch_list = ref "/usr/sbin/kpatch list"
 
 let modprobe_path = ref "/usr/sbin/modprobe"
 
+let usb_path = "usb_path"
+
 (* The bfs-interfaces script returns boot from SAN NICs.
  * All ISCSI Boot Firmware Table (ibft) NICs should be marked
  * with PIF.managed = false and all FCoE boot from SAN * NICs
