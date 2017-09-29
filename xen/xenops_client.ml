@@ -59,5 +59,5 @@ let wait_for_task dbg id =
 	if not(task_ended dbg id) then event_wait dbg ~from finished;
 	id
 
-let ignore_task (t: Task.t) = ()
+let ignore_task (_: Task.t) = ()
 

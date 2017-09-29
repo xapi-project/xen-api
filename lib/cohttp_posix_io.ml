@@ -119,7 +119,7 @@ module Unbuffered_IO = struct
 
   let write oc x = ignore(Unix.write oc x 0 (String.length x))
 
-  let flush oc = ()
+  let flush _oc = ()
 end
 
 module Buffered_IO = struct

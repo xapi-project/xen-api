@@ -263,7 +263,7 @@ let canonicalise x =
 		(* Search the PATH and XCP_PATH for the executable *)
 		let paths = split_c ':' (Sys.getenv "PATH") in
 		let first_hit = List.fold_left (fun found path -> match found with
-			| Some hit -> found
+			| Some _hit -> found
 			| None ->
 				let possibility = Filename.concat path x in
 				if Sys.file_exists possibility
@@ -301,7 +301,7 @@ let startswith prefix x =
         let prefix' = String.length prefix and x' = String.length x in
         prefix' <= x' && (String.sub x 0 prefix' = prefix)
 
-let configure_common ~name ~version ~doc ~options ~resources arg_parse_fn =
+let configure_common ~options ~resources arg_parse_fn =
 	let resources = default_resources @ resources in
 	let config_spec = common_options @ options @ (to_opt resources) in
 
@@ -344,7 +344,7 @@ let configure_common ~name ~version ~doc ~options ~resources arg_parse_fn =
 
 let configure ?(options=[]) ?(resources=[]) () =
   try
-    configure_common ~name:"Unknown" ~version:"Unknown" ~doc:"Unknown" ~options ~resources
+    configure_common ~options ~resources
       (fun config_spec ->
         Arg.parse (Arg.align (arg_spec config_spec))
           (fun _ -> failwith "Invalid argument")
@@ -360,7 +360,7 @@ type ('a, 'b) error = [
 
 let configure2 ~name ~version ~doc ?(options=[]) ?(resources=[]) () =
   try
-    configure_common ~name ~version ~doc ~options ~resources
+    configure_common ~options ~resources
       (fun config_spec ->
         match Term.eval (command_of ~name ~version ~doc config_spec) with
         | `Ok () -> ()
@@ -439,7 +439,7 @@ let http_handler call_of_string string_of_response process s =
 				"content-length", string_of_int content_length;
 			] in
 			let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers ~encoding:(Cohttp.Transfer.Fixed (Int64.of_int content_length)) () in
-			Response.write (fun t -> ()) response oc
+			Response.write (fun _t -> ()) response oc
 		end
 
 let ign_thread (t:Thread.t) = ignore t

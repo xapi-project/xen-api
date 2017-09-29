@@ -22,13 +22,13 @@ module M = Updates.Updates(TestInterface)
 let test_add () =
   let u = M.empty scheduler in
   M.add update_a u;
-  let (barriers,updates,id) = M.get "dbg" None (Some 0) u in
+  let (_barriers,updates,_id) = M.get "dbg" None (Some 0) u in
   assert_bool "Update returned" (List.length updates = 1 && List.exists (fun x -> x=update_a) updates)
 
 (* Tests that no updates are returned if none exist *)
 let test_noadd () =
   let u = M.empty scheduler in
-  let (barriers,updates,id) = M.get "dbg" None (Some 0) u in
+  let (_barriers,updates,_id) = M.get "dbg" None (Some 0) u in
   assert_bool "Update returned" (List.length updates = 0)
 
 (* Tests that we can remove an update, and that it's not then returned by 'get' *)
@@ -36,7 +36,7 @@ let test_remove () =
   let u = M.empty scheduler in
   M.add update_a u;
   M.remove update_a u;
-  let (barriers,updates,id) = M.get "dbg" None (Some 0) u in
+  let (_barriers,updates,_id) = M.get "dbg" None (Some 0) u in
   assert_bool "Update returned" (List.length updates = 0)
 
 (* Tests that, if we specify a timeout, the 'get' call returns the empty
@@ -76,7 +76,7 @@ let test_inject_barrier () =
   M.inject_barrier 1 (fun _ _ -> true) u;
   M.add update_a u;
   M.add update_c u;
-  let (barriers,updates,id) = M.get "dbg" None (Some 1) u in
+  let (barriers,updates,_id) = M.get "dbg" None (Some 1) u in
   assert_bool "Barrier returned" (List.length barriers = 1);
   assert_bool "Barriers contains our barrier" (List.exists (fun x -> fst x = 1) barriers);
   let our_barrier = List.hd barriers in
@@ -98,7 +98,7 @@ let test_remove_barrier () =
   M.add update_a u;
   M.add update_c u;
   M.remove_barrier 1 u;
-  let (barriers,updates,id) = M.get "dbg" None (Some 1) u in
+  let (barriers,updates,_id) = M.get "dbg" None (Some 1) u in
   assert_bool "Barrier returned" (List.length barriers = 0);
   assert_bool "Updates contain all updates"
     (List.nth updates 0 = update_b &&
@@ -115,7 +115,7 @@ let test_inject_barrier_rpc () =
   M.inject_barrier 1 (fun _ _ -> true) u;
   M.add update_a u;
   M.add update_c u;
-  let (barriers,updates,id) = M.get "dbg" None (Some 1) u in
+  let (barriers,updates,_id) = M.get "dbg" None (Some 1) u in
   assert_bool "Barrier returned" (List.length barriers = 1);
   assert_bool "Barriers contains our barrier" (List.exists (fun x -> fst x = 1) barriers);
   let our_barrier = List.hd barriers in
@@ -150,7 +150,7 @@ let test_filter () =
   M.add update_a u;
   M.add update_b u;
   M.filter (function | Foo "a" -> true | _ -> false) u;
-  let (_,updates1,id) = M.get "dbg" None (Some 1) u in
+  let (_,updates1,_id) = M.get "dbg" None (Some 1) u in
   assert_bool "Updates contain correct updates"
     (List.nth updates1 0 = update_a &&
      List.length updates1 = 1)

@@ -21,9 +21,9 @@ let copy_all src dst =
   in loop ()
 
 let proxy a b =
-  let copy id src dst =
+  let copy _id src dst =
       Lwt.catch (fun () -> copy_all src dst)
-        (fun e ->
+        (fun _e ->
           (try Lwt_unix.shutdown src Lwt_unix.SHUTDOWN_RECEIVE with _ -> ());
           (try Lwt_unix.shutdown dst Lwt_unix.SHUTDOWN_SEND with _ -> ());
           return ()) in
@@ -78,7 +78,7 @@ let help = [
 ]
 
 (* Commands *)
-let advertise_t common_options_t proxy_socket =
+let advertise_t _common_options_t proxy_socket =
 
   let s_ip = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
   Lwt_unix.bind s_ip (Lwt_unix.ADDR_INET(Unix.inet_addr_of_string !ip, 0));
@@ -110,11 +110,11 @@ let advertise_t common_options_t proxy_socket =
     Printf.fprintf stdout "%s\n%!" (Jsonrpc.to_string (Xcp_channel.rpc_of_protocols protocols));
 
   let t_ip =
-    Lwt_unix.accept s_ip >>= fun (fd, peer) ->
+    Lwt_unix.accept s_ip >>= fun (fd, _peer) ->
     Lwt_unix.close s_ip >>= fun () ->
     proxy fd (Lwt_unix.of_unix_file_descr proxy_socket) in
   let t_unix =
-    Lwt_unix.accept s_unix >>= fun (fd, peer) ->
+    Lwt_unix.accept s_unix >>= fun (fd, _peer) ->
     let buffer = String.make (String.length token) '\000' in
     let io_vector = Lwt_unix.io_vector ~buffer ~offset:0 ~length:(String.length buffer) in
     Lwt_unix.recv_msg ~socket:fd ~io_vectors:[io_vector] >>= fun (n, fds) ->
@@ -148,7 +148,7 @@ let advertise_cmd =
   Term.(ret(pure advertise $ common_options_t $ fd)),
   Term.info "advertise" ~sdocs:_common_options ~doc ~man
 
-let connect_t common_options_t =
+let connect_t _common_options_t =
   Lwt_io.read_line_opt Lwt_io.stdin >>= (function | None -> return "" | Some x -> return x) >>= fun advertisement ->
   let open Xcp_channel in
   let fd = Lwt_unix.of_unix_file_descr (file_descr_of_t (t_of_rpc (Jsonrpc.of_string advertisement))) in

@@ -164,7 +164,7 @@ let rec split_c c str =
     String.sub str 0 i :: (split_c c (String.sub str (i+1) (String.length str - i - 1)))
   with Not_found -> [str]
 
-let log_backtrace exn bt =
+let log_backtrace exn _bt =
   Backtrace.is_important exn;
   let all = split_c '\n' (Backtrace.(to_string_hum (remove exn))) in
   (* Write to the log line at a time *)
