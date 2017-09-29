@@ -26,7 +26,6 @@ let set_sockets_dir x =
 
 let uri () = "file:" ^ !default_path
 
-open Vdi_automaton
 
 (** Primary key identifying the SR *)
 type sr = string

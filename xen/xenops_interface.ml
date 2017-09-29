@@ -15,7 +15,6 @@
  * @group Xenops
  *)
 
-open Sexplib.Std
 include Xenops_types.TopLevel
 
 let service_name = "xenops"
