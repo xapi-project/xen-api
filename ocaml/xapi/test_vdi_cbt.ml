@@ -321,4 +321,5 @@ let test =
     [ "test_vdi_after_data_destroy" >:: test_vdi_after_data_destroy
     ; "test_vdi_managed_data_destroy" >:: test_vdi_managed_data_destroy
     ]
+  ; "test_vdi_list_changed_blocks" >:: test_vdi_list_changed_blocks
   ]
