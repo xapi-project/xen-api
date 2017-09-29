@@ -170,7 +170,6 @@ let test_dump () =
    then only return events that were added _after_ the call to 'last_id' *)
 let test_last_id () =
   let u = M.empty scheduler in
-  let ok = ref false in
   M.add update_a u;
   M.add update_b u;
   let id = M.last_id "dbg" u in

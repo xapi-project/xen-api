@@ -177,8 +177,6 @@ module Task = functor (Interface : INTERFACE) -> struct
       let e = e |> Interface.exnty_of_exn |> Interface.Exception.rpc_of_exnty in
       item.state <- Interface.Task.Failed e
 
-  let exists_locked tasks id = SMap.mem id !(tasks.task_map)
-
   let find_locked tasks id =
     try
       SMap.find id !(tasks.task_map)

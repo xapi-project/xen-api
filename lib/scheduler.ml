@@ -115,7 +115,7 @@ type t = {
 
 type time =
   | Absolute of int64
-  | Delta of int [@@deriving rpc]
+  | Delta of int
 
 (*type t = int64 * int [@@deriving rpc]*)
 
