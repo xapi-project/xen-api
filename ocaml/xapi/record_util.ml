@@ -207,6 +207,16 @@ let network_purpose_to_string = function
   | `himn -> "Host_Internal_Management"
   | `unmanaged -> "Unmanaged"
 
+let string_to_network_purpose = function
+  | "NBD" -> `nbd
+  | "Insecure_NBD" -> `insecure_nbd
+  | "Management" -> `management
+  | "Storage" -> `storage
+  | "Guest" -> `guest
+  | "Host_Internal_Management" -> `himn
+  | "Unmanaged" -> `unmanaged
+  | s -> raise (Record_failure ("Expected a network purpose string; got "^s))
+
 let vm_appliance_operation_to_string = function
   | `start -> "start"
   | `clean_shutdown -> "clean_shutdown"
