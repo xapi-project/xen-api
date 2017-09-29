@@ -565,6 +565,18 @@ let event_hook_auth_on_xapi_initialize_succeeded = ref false
 let xenclient_enabled = false
 
 (** {2 BIOS strings} *)
+(* bios_string length is limited to 512 characters *)
+let bios_string_limit_size = 512
+
+(** List of user-settable VM BIOS strings keys *)
+let settable_vm_bios_string_keys =
+  ["bios-vendor";
+   "bios-version";
+   "system-manufacturer";
+   "system-product-name";
+   "system-version";
+   "system-serial-number";
+   "enclosure-asset-tag"]
 
 (** Type 11 strings that are always included *)
 let standard_type11_strings =
@@ -579,6 +591,7 @@ let generic_bios_strings =
    "system-product-name", "HVM domU";
    "system-version", "";
    "system-serial-number", "";
+   "enclosure-asset-tag", "";
    "hp-rombios", ""] @ standard_type11_strings
 
 (** BIOS strings of the old (XS 5.5) Dell Edition *)

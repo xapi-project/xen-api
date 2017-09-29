@@ -1418,7 +1418,7 @@ let _ =
     ~doc:"The operation could not be performed because a redo log is enabled on the Pool." ();
 
   error Api_errors.vm_bios_strings_already_set []
-    ~doc:"The BIOS strings for this VM have already been set and cannot be changed anymore." ();
+    ~doc:"The BIOS strings for this VM have already been set and cannot be changed." ();
 
   (* CPU feature masking (a.k.a. Intel FlexMigration or AMD Extended Migration technology) *)
 
@@ -2539,6 +2539,16 @@ let vm_create_new_blob = call
       ]
     ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
     ~allowed_roles:_R_VM_POWER_ADMIN
+    ()
+
+let vm_set_bios_strings = call
+    ~name: "set_bios_strings"
+    ~in_product_since:rel_inverness
+    ~doc:"Set custom BIOS strings to this VM. VM will be given a default set of BIOS strings, only some of which can be overridden by the supplied values. Allowed keys are: 'bios-vendor', 'bios-version', 'system-manufacturer', 'system-product-name', 'system-version', 'system-serial-number', 'enclosure-asset-tag'"
+    ~params:[Ref _vm, "self", "The VM to modify";
+             Map (String, String), "value", "The custom BIOS strings as a list of key-value pairs"]
+    ~allowed_roles:_R_VM_ADMIN
+    ~errs:[Api_errors.vm_bios_strings_already_set; Api_errors.invalid_value]
     ()
 
 let vm_copy_bios_strings = call
@@ -7940,6 +7950,7 @@ let vm =
                 vm_assert_agile;
                 vm_update_snapshot_metadata;
                 vm_retrieve_wlb_recommendations;
+                vm_set_bios_strings;
                 vm_copy_bios_strings;
                 vm_set_protection_policy;
                 vm_set_snapshot_schedule;
