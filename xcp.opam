@@ -24,7 +24,7 @@ depends: [
   "xapi-inventory"
   "xapi-backtrace"
   "fd-send-recv"
-  "lwt" {< "3.0.0"}
+  "lwt" {< "3.0.0" & >= "2.7.1"}
   "ounit" {>= "2.0.0"}
   "ppx_sexp_conv"
   "sexplib"
