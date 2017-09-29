@@ -88,3 +88,59 @@ let scan_thread ~__context =
   in
   start_thread f;
   scan ~__context
+
+let get_sm_usb_path ~__context vdi =
+  try
+    let vdi_sc = Db.VDI.get_sm_config ~__context ~self:vdi in
+    List.assoc Xapi_globs.usb_path vdi_sc
+  with _ -> ""
+
+let set_passthrough_enabled ~__context ~self ~value =
+  Mutex.execute mutex (fun () ->
+    match value with
+     | true ->
+       (* Remove the vdi records which 'usb_path' in sm-config has the
+          same value with the field 'path' in PUSB. *)
+       let pusb_path = Db.PUSB.get_path ~__context ~self in
+       let udev_srs = Db.SR.get_refs_where ~__context ~expr:(Eq(Field "type", Literal "udev")) in
+       List.iter (fun sr ->
+         Db.VDI.get_refs_where ~__context ~expr:(Eq(Field "SR", Literal (Ref.string_of sr))) |>
+           List.iter (fun rf ->
+             try
+               if (get_sm_usb_path ~__context rf) = pusb_path then begin
+                 Xapi_vdi.forget ~__context ~vdi:rf
+               end;
+             with e ->
+               debug "Caught failure during remove vdi records.";
+               raise e
+             )
+       ) udev_srs;
+       debug "set passthrough_enabled %b" value;
+       Db.PUSB.set_passthrough_enabled ~__context ~self ~value
+     | false ->
+       try
+         let attached = Db.PUSB.get_attached ~__context ~self in
+         (* If the USB is passthroughed to vm, need to unplug it firstly*)
+         if attached <> Ref.null then begin
+           let vm = Db.VUSB.get_VM ~__context ~self:attached in
+           raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
+             [Printf.sprintf "USB '%s' is attached to '%s.'" (Ref.string_of self) (Ref.string_of vm)]))
+         end;
+         let usb_group = Db.PUSB.get_USB_group ~__context ~self in
+         let vusbs = Db.USB_group.get_VUSBs ~__context ~self:usb_group in
+         (* If vusb has been created, need to destroy it. *)
+         List.iter (fun vusb -> Xapi_vusb.destroy ~__context ~self:vusb) vusbs;
+         debug "set passthrough_enabled %b." value;
+         Db.PUSB.set_passthrough_enabled ~__context ~self ~value;
+         (* Re-display the removed vdi records. There is a problem here that
+            we scan all the udev SR, as we cannot get the SR corresponding to the PUSB when
+            we want to re-display the vdi records. But in udevSR.py we will handle this, as
+            if passthrough_enabled = true, we will not re-introduce the vdi.
+         *)
+         let open Db_filter_types in
+         Db.SR.get_refs_where ~__context ~expr:(Eq(Field "type", Literal "udev"))
+          |> List.iter (fun sr -> Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.SR.scan rpc session_id sr));
+       with e ->
+         debug "Caught failure during set passthrough_enabled %b." value;
+         raise e
+  )
