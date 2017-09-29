@@ -266,5 +266,9 @@ sig
 	val with_dirty_log: int -> f:(unit -> unit) -> unit
 end
 
+module Backend: sig
+	val init : unit -> unit
+end
+
 val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
