@@ -88,3 +88,54 @@ let scan_thread ~__context =
   in
   start_thread f;
   scan ~__context
+
+let get_sm_usb_path ~__context vdi =
+  try
+    let vdi_sc = Db.VDI.get_sm_config ~__context ~self:vdi in
+    List.assoc Xapi_globs.usb_path vdi_sc
+  with _ -> ""
+
+let set_passthrough_enabled ~__context ~self ~value =
+  Mutex.execute mutex (fun () ->
+    match value with
+     | true ->
+       (* Remove the vdi records which 'usb_path' in sm-config has the
+          same value with the field 'path' in PUSB. *)
+       Db.VDI.get_all_records ~__context |>
+         List.iter (fun (rf, rc) ->
+           try
+             if (get_sm_usb_path ~__context rf) = (Db.PUSB.get_path ~__context ~self) then begin
+               Xapi_vdi.forget ~__context ~vdi:rf
+             end;
+             debug "set passthrough_enabled %b" value;
+             Db.PUSB.set_passthrough_enabled ~__context ~self ~value
+           with e ->
+             debug "Caught failure during set passthrough_enabled %b." value;
+             raise e
+           );
+     | false ->
+       try
+         let attached = Db.PUSB.get_attached ~__context ~self in
+         (* If the USB is passthroughed to vm, need to unplug it firstly*)
+         if attached <> Ref.null then begin
+           let vm = Db.VUSB.get_VM ~__context ~self:attached in
+           raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
+             [Printf.sprintf "USB '%s' is attached to '%s.'" (Ref.string_of self) (Ref.string_of vm)]))
+         end;
+         let usb_group = Db.PUSB.get_USB_group ~__context ~self in
+         let vusbs = Db.USB_group.get_VUSBs ~__context ~self:usb_group in
+         (* If vusb has been created, need to destroy it. *)
+         if vusbs <> [] then begin
+           List.iter(fun vusb -> Xapi_vusb.destroy ~__context ~self:vusb) vusbs
+         end;
+         Db.PUSB.set_passthrough_enabled ~__context ~self ~value;
+         (* Re-display the removed vdi records.*)
+         let open Db_filter_types in
+         match Db.SR.get_refs_where ~__context ~expr:(Eq(Field "type", Literal "udev")) with
+          | [] -> ()
+          | srs -> List.iter (fun sr -> Xapi_sr.scan ~__context ~sr) srs;
+         debug "set passthrough_enabled %b." value;
+       with e ->
+         debug "Caught failure during set passthrough_enabled %b." value;
+         raise e
+  )

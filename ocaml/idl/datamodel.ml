@@ -9884,6 +9884,17 @@ module PUSB = struct
       ~allowed_roles:_R_POOL_OP
       ()
 
+  let set_passthrough_enabled = call
+      ~name:"set_passthrough_enabled"
+      ~lifecycle
+      ~params:[
+        Ref _pusb, "self",  "this PUSB";
+        Bool,     "value", "passthrough is enabled when true and disabled with false"
+      ]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+
   let obj =
     create_obj
       ~name: _pusb
@@ -9910,12 +9921,13 @@ module PUSB = struct
          field ~qualifier:StaticRO ~ty:String ~lifecycle "serial" "serial of the USB device" ~default_value:(Some (VString ""));
          field ~qualifier:StaticRO ~ty:String ~lifecycle "version" "USB device version" ~default_value:(Some (VString ""));
          field ~qualifier:StaticRO ~ty:String ~lifecycle "description" "USB device description" ~default_value:(Some (VString ""));
-         field ~qualifier:RW ~ty:Bool ~lifecycle "passthrough_enabled" "enabled for passthrough" ~default_value:(Some (VBool false));
+         field ~qualifier:DynamicRO ~ty:Bool ~lifecycle "passthrough_enabled" "enabled for passthrough" ~default_value:(Some (VBool false));
          field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_inverness, ""] "other_config" "additional configuration" ~default_value:(Some (VMap []));
         ]
       ~messages:
         [
           scan;
+          set_passthrough_enabled;
         ]
       ()
 end
