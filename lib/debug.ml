@@ -15,6 +15,7 @@
 
 module Mutex = struct
   include Mutex
+
   (** execute the function f with the mutex hold *)
   let execute lock f =
     Mutex.lock lock;
