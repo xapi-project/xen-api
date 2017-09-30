@@ -1501,8 +1501,7 @@ let _ =
   error Api_errors.usb_group_contains_no_pusbs ["usb_group"]
     ~doc:"The USB group does not contain any PUSBs." ();
   error Api_errors.too_many_vusbs [ "number" ]
-    ~doc:"You reached the maximal number of VUSBs." ()
-
+    ~doc:"You reached the maximal number of VUSBs." ();
   error Api_errors.vm_has_vusbs ["VM"]
     ~doc:"The VM has VUSB attached" ()
 
