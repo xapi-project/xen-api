@@ -83,6 +83,9 @@ let op_of_string x = match String.lowercase x with
 let string_of_event ev = sprintf "%s %s %s %s %s" ev.id ev.ty (string_of_op ev.op) ev.reference
     (if ev.snapshot = None then "(no snapshot)" else "OK")
 
-
+let parse_event_from rpc = rpc |> Xmlrpc.to_string |> Xmlrpc.of_string |> event_from_of_rpc
+(** This function should be used, instead of
+    {!event_from_of_rpc}, to parse the value returned by {!Xapi_event.from} in
+    unit tests. *)
 
 
