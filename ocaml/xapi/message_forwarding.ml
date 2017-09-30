@@ -854,6 +854,17 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
              ~value:Ref.null)
         (Db.VM.get_VGPUs ~__context ~self:vm)
 
+    (* Clear scheduled_to_be_resident_on for a VM and all its VUSBs. *)
+    let clear_resident_on ~__context ~vm =
+      Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:Ref.null;
+      List.iter
+        (fun vusb ->
+           Db.VUSB.set_attached ~__context
+             ~self:vusb
+             ~value:Ref.null)
+        (Db.VM.get_VUSBs ~__context ~self:vm)
+
+
     (* Notes on memory checking/reservation logic:
        		   When computing the hosts free memory we consider all VMs resident_on (ie running
        		   and consuming resources NOW) and scheduled_to_be_resident_on (ie those which are
@@ -881,12 +892,22 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       end;
       (* Once this is set concurrent VM.start calls will start checking the memory used by this VM *)
       Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:host;
+      begin
+        try
+          Vgpuops.create_vgpus ~__context host (vm, snapshot)
+            (Helpers.will_boot_hvm ~__context ~self:vm)
+        with e ->
+          clear_scheduled_to_be_resident_on ~__context ~vm;
+          raise e
+      end;
+      (* Allocate vusb to vm *)
       try
-        Vgpuops.create_vgpus ~__context host (vm, snapshot)
-          (Helpers.will_boot_hvm ~__context ~self:vm)
-      with e ->
-        clear_scheduled_to_be_resident_on ~__context ~vm;
-        raise e
+        Vusbops.create_vusbs ~__context host (vm, snapshot)
+           (Helpers.will_boot_hvm ~__context ~self:vm)
+       with e ->
+        clear_resident_on ~__context ~vm;
+         raise e
+
 
     (* For start/start_on/resume/resume_on/migrate *)
     let finally_clear_host_operation ~__context ~host ?host_op () = match host_op with
@@ -4171,17 +4192,69 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   end
 
   module VUSB = struct
+   let update_vusb_operations ~__context ~vusb =
+      Helpers.with_global_lock
+        (fun () ->
+           try
+             Xapi_vusb_helpers.update_allowed_operations ~__context ~self:vusb
+           with _ -> ())
+
+    let unmark_vusb ~__context ~vusb ~doc ~op =
+      let task_id = Ref.string_of (Context.get_task_id __context) in
+      log_exn ~doc:("unmarking VUSB after " ^ doc)
+        (fun self ->
+           if Db.is_valid_ref __context self then begin
+             Db.VUSB.remove_from_current_operations ~__context ~self ~key:task_id;
+             Xapi_vusb_helpers.update_allowed_operations ~__context ~self;
+             Helpers.Early_wakeup.broadcast (Datamodel._vusb, Ref.string_of vusb)
+           end)
+        vusb
+
+    let mark_vusb ~__context ~vusb ~doc ~op =
+      let task_id = Ref.string_of (Context.get_task_id __context) in
+      log_exn ~doc:("marking VUSB for " ^ doc)
+        (fun self ->
+           Xapi_vusb_helpers.assert_operation_valid ~__context ~self ~op;
+           Db.VUSB.add_to_current_operations ~__context ~self ~key:task_id ~value:op;
+           Xapi_vusb_helpers.update_allowed_operations ~__context ~self) vusb
+
+    let with_vusb_marked ~__context ~vusb ~doc ~op f =
+      Helpers.retry_with_global_lock ~__context ~doc (fun () -> mark_vusb ~__context ~vusb ~doc ~op);
+      finally
+        (fun () -> f ())
+        (fun () -> Helpers.with_global_lock (fun () -> unmark_vusb ~__context ~vusb ~doc ~op))
+
+    (* -------- Forwarding helper functions: ------------------------------------ *)
+
+    (* Forward to host that has resident VM that this VUSB references *)
+    let forward_vusb_op ~local_fn ~__context ~self op =
+      let vm = Db.VUSB.get_VM ~__context ~self in
+      let host_resident_on = Db.VM.get_resident_on ~__context ~self:vm in
+      if host_resident_on = Ref.null
+      then local_fn ~__context
+      else do_op_on ~local_fn ~__context ~host:host_resident_on op
+
+    (* -------------------------------------------------------------------------- *)
+
     let create ~__context ~vM ~uSB_group ~other_config =
       info "VUSB.create: VM = '%s'; USB_group = '%s'" (vm_uuid ~__context vM) (usb_group_uuid ~__context uSB_group);
-      Local.VUSB.create ~__context ~vM ~uSB_group ~other_config
+      let vusb = Local.VUSB.create ~__context ~vM ~uSB_group ~other_config in
+      Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vM;
+      vusb
 
     let unplug ~__context ~self =
       info "VUSB.unplug: VUSB = '%s'" (vusb_uuid ~__context self);
-      debug "VUSB.unplug to do"
+      let local_fn = Local.VUSB.unplug ~self in
+      with_vusb_marked ~__context ~vusb:self ~doc:"VUSB.unplug" ~op:`unplug
+        (fun () ->
+           forward_vusb_op ~local_fn ~__context ~self
+             (fun session_id rpc -> Client.VUSB.unplug rpc session_id self));
+      update_vusb_operations ~__context ~vusb:self
 
     let destroy ~__context ~self =
       info "VUSB.destroy: VUSB = '%s'" (vusb_uuid ~__context self);
-      Local.VUSB.destroy ~__context ~self
+      Local.VUSB.destroy ~__context ~self;
+      Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:(Db.VUSB.get_VM ~__context ~self)
   end
 
 end

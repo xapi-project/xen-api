@@ -23,6 +23,17 @@ let m = Mutex.create ()
 let create ~__context ~vM ~uSB_group ~other_config =
   let vusb = Ref.make () in
   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let attached_vusbs = Db.VM.get_VUSBs ~__context ~self:vM in
+  (* At most 6 VUSBS can be attached to one vm *)
+  if List.length attached_vusbs > 5 then
+    raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
+                      [Printf.sprintf "vm '%s' can attach at most 6 VUSBs. " (Ref.string_of vM)]));
+  let vusbs = Db.USB_group.get_VUSBs ~__context ~self:uSB_group in
+  (* Currently USB_group only have one PUSB. So when vusb is created with a USB_group,
+      another vusb can not create with the same USB_group. *)
+  if vusbs <> [] then
+    raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
+                      [Printf.sprintf "USB_group '%s' has a vusb bound with, need to destroy the bound VUSB firstly. " (Ref.string_of uSB_group)]));
   Mutex.execute m (fun () ->
       Db.VUSB.create ~__context ~ref:vusb ~uuid ~current_operations:[] ~allowed_operations:[] ~vM ~uSB_group
       ~other_config ~attached:Ref.null;
@@ -31,7 +42,7 @@ let create ~__context ~vM ~uSB_group ~other_config =
   vusb
 
 let unplug ~__context ~self =
-  debug "unplug vusb to do"
+  Xapi_xenops.vusb_unplug ~__context ~self
 
 let destroy ~__context ~self =
   debug "VUSB.destroy (uuid = %s; ref = %s)" (Db.VUSB.get_uuid ~__context ~self) (Ref.string_of self);

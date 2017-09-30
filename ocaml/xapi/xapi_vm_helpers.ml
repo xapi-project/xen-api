@@ -158,6 +158,8 @@ let destroy  ~__context ~self =
   (try Db.VM_metrics.destroy ~__context ~self:vm_metrics with _ -> ());
   let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self in
   (try Db.VM_guest_metrics.destroy ~__context ~self:vm_guest_metrics with _ -> ());
+  let vusbs = Db.VM.get_VUSBs ~__context ~self in
+  List.iter (fun vusb -> try Db.VUSB.destroy ~__context ~self:vusb with _ -> ()) vusbs;
 
   Db.VM.destroy ~__context ~self
 

@@ -1057,6 +1057,9 @@ let _ =
     ~doc:"The given VMs failed to release memory when instructed to do so" ();
   error Api_errors.ballooning_timeout_before_migration [ "vm" ]
     ~doc:"Timeout trying to balloon down memory before VM migration. If the error occurs repeatedly, consider increasing the memory-dynamic-min value." ();
+  error Api_errors.vm_requires_vusb ["vm"; "USB_group"]
+    ~doc:"You attempted to run a VM on a host on which the VUSB required by the VM cannot be allocated on any PUSBs in the USB_group needed by the VM
+." ();
 
   (* Storage errors *)
   error Api_errors.sr_not_attached ["sr"]
@@ -9881,6 +9884,17 @@ module PUSB = struct
       ~allowed_roles:_R_POOL_OP
       ()
 
+  let set_passthrough_enabled = call
+      ~name:"set_passthrough_enabled"
+      ~lifecycle
+      ~params:[
+        Ref _pusb, "self",  "this PUSB";
+        Bool,     "value", "passthrough is enabled when true and disabled with false"
+      ]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+
   let obj =
     create_obj
       ~name: _pusb
@@ -9907,12 +9921,13 @@ module PUSB = struct
          field ~qualifier:StaticRO ~ty:String ~lifecycle "serial" "serial of the USB device" ~default_value:(Some (VString ""));
          field ~qualifier:StaticRO ~ty:String ~lifecycle "version" "USB device version" ~default_value:(Some (VString ""));
          field ~qualifier:StaticRO ~ty:String ~lifecycle "description" "USB device description" ~default_value:(Some (VString ""));
-         field ~qualifier:RW ~ty:Bool ~lifecycle "passthrough_enabled" "enabled for passthrough" ~default_value:(Some (VBool false));
+         field ~qualifier:DynamicRO ~ty:Bool ~lifecycle "passthrough_enabled" "enabled for passthrough" ~default_value:(Some (VBool false));
          field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_inverness, ""] "other_config" "additional configuration" ~default_value:(Some (VMap []));
         ]
       ~messages:
         [
           scan;
+          set_passthrough_enabled;
         ]
       ()
 end
