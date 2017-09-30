@@ -249,7 +249,6 @@ let test_data_destroy =
     let __context, sR, vDI = setup_test_for_data_destroy () in
     Db.VDI.set_type ~__context ~self:vDI ~value:`suspend;
     let vM = Test_common.make_vm ~__context () in
-    let vBD = Test_common.make_vbd ~__context ~vDI ~vM ~currently_attached:false () in
 
     let check_vdi_is_snapshot_and_type ~vDI ~snapshot ~vdi_type ~managed =
       let open Printf in
@@ -268,17 +267,11 @@ let test_data_destroy =
     OUnit.assert_equal ~msg:"VM.suspend_VDI should point to previously created VDI"
       (Db.VM.get_suspend_VDI ~__context ~self:vM) vDI;
 
-    OUnit.assert_equal ~msg:"VDI should link to previously created VBD"
-      (Db.VDI.get_VBDs ~__context ~self:vDI) [vBD];
-
     (* run VDI.data_destroy, check it has updated VDI fields *)
     Xapi_vdi.data_destroy ~__context ~self:vDI;
 
     OUnit.assert_equal ~msg:"VDI.data_destroy should set VDI type to cbt_metadata"
       (Db.VDI.get_type ~__context ~self:vDI) `cbt_metadata;
-
-    OUnit.assert_equal ~msg:"VDI.data_destroy should destroy all associated VBDs"
-      (Db.VDI.get_VBDs ~__context ~self:vDI) [];
 
     OUnit.assert_equal ~msg:"VM.suspend_VDI should be set to null"
       (Db.VM.get_suspend_VDI ~__context ~self:vM) Ref.null;
