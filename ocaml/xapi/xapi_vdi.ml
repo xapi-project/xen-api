@@ -581,7 +581,7 @@ let snapshot ~__context ~vdi ~driver_params =
 (** Wait for all the VBDs of this VDI to be unplugged and destroyed.
     It is sufficient to wait for all the VBDs to disappear, because a VBD
     cannot be destroyed if it is plugged. *)
-let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self =
+let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
   let vdi_uuid = Db.VDI.get_uuid ~__context ~self in
   (* We watch the "VBDs" field of this VDI. *)
   let classes = [Printf.sprintf "VDI/%s" (Ref.string_of self)] in
@@ -619,21 +619,20 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self =
     (from.Event_types.token, most_recent_vbds_field from.Event_types.events)
   in
 
-  let token, initial_vbds = next_token_and_vbds ~token:"" ~timeout:1.0 in
-  (* When we use an empty token, we always get back the whole VDI record *)
-  let initial_vbds = Xapi_stdext_monadic.Opt.unbox initial_vbds in
-
   (* Wait for 4 seconds in total for all the VBDs of this VDI to be unplugged & destroyed *)
   let start = Mtime_clock.now () in
   let finish =
     let finish =
-      let timeout = 4.0 in
       let timeout = Mtime.(Span.of_uint64_ns (Int64.of_float (timeout *. s_to_ns))) in
       Mtime.(add_span start timeout)
     in
     (* It is safe to unbox this because the timeout should not cause an overflow *)
     Xapi_stdext_monadic.Opt.unbox finish
   in
+
+  let token, initial_vbds = next_token_and_vbds ~token:"" ~timeout in
+  (* When we use an empty token, we always get back the whole VDI record *)
+  let initial_vbds = Xapi_stdext_monadic.Opt.unbox initial_vbds in
 
   let rec loop ~token ~remaining_vbds =
     let now = Mtime_clock.now () in
@@ -652,18 +651,22 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self =
   if remaining_vbds <> [] then
     raise (Api_errors.Server_error (Api_errors.vdi_in_use, [Ref.string_of self; (Record_util.vdi_operation_to_string `data_destroy)]))
 
-let destroy_and_data_destroy_common ~__context ~self ~(operation:[`destroy | `data_destroy]) =
+let destroy_and_data_destroy_common ~__context ~self ~(operation:[ `destroy | `data_destroy of _ ]) =
 
   let sr = Db.VDI.get_SR ~__context ~self in
   Sm.assert_pbd_is_plugged ~__context ~sr;
   Xapi_vdi_helpers.assert_managed ~__context ~vdi:self;
 
-  (* If this VDI has any VBDs, first wait for them to disappear.
-     In case the VBD.unplug operation is already in progress,
-     check_operation_error will return an OTHER_OPERATION_IN_PROGRESS error,
-     which will cause message forwarding to retry until the VBD operation
-     completes, so we don't have to deal with that scenario. *)
-  if operation = `data_destroy then wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self;
+  begin match operation with
+  | `data_destroy timeout ->
+    (* If this VDI has any VBDs, first wait for them to disappear.
+       In case the VBD.unplug operation is already in progress,
+       check_operation_error will return an OTHER_OPERATION_IN_PROGRESS error,
+       which will cause message forwarding to retry until the VBD operation
+       completes, so we don't have to deal with that scenario. *)
+    wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout
+  | `destroy -> ()
+  end;
 
   let vbds = Db.VDI.get_VBDs ~__context ~self in
   let attached_vbds = List.filter
@@ -671,7 +674,7 @@ let destroy_and_data_destroy_common ~__context ~self ~(operation:[`destroy | `da
          let r = Db.VBD.get_record_internal ~__context ~self:vbd in
          r.Db_actions.vBD_currently_attached || r.Db_actions.vBD_reserved) vbds in
   if attached_vbds<>[] then
-    let caller_name = match operation with `destroy -> "destroy" | `data_destroy -> "data_destroy" in
+    let caller_name = match operation with `destroy -> "destroy" | `data_destroy _ -> "data_destroy" in
     raise (Api_errors.Server_error (Api_errors.vdi_in_use, [(Ref.string_of self); caller_name]))
   else
     begin
@@ -680,7 +683,7 @@ let destroy_and_data_destroy_common ~__context ~self ~(operation:[`destroy | `da
       let task = Context.get_task_id __context in
       let location = Db.VDI.get_location ~__context ~self in
       let module C = Client(struct let rpc = rpc end) in
-      let call_f = match operation with `destroy -> C.VDI.destroy | `data_destroy -> C.VDI.data_destroy in
+      let call_f = match operation with `destroy -> C.VDI.destroy | `data_destroy _ -> C.VDI.data_destroy in
       transform_storage_exn
         (fun () ->
            call_f ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location
@@ -702,7 +705,7 @@ let destroy_and_data_destroy_common ~__context ~self ~(operation:[`destroy | `da
 
 let destroy = destroy_and_data_destroy_common ~operation:`destroy
 
-let data_destroy ~__context ~self =
+let _data_destroy ~__context ~self ~timeout =
   let vdi_type = Db.VDI.get_type ~__context ~self in
   if vdi_type <> `cbt_metadata then begin
     (* We tentatively mark the VDI as cbt_metadata, to minimize the chance of
@@ -710,11 +713,13 @@ let data_destroy ~__context ~self =
        running. *)
     Db.VDI.set_type ~__context ~self ~value:`cbt_metadata;
     try
-      destroy_and_data_destroy_common ~__context ~self ~operation:`data_destroy;
+      destroy_and_data_destroy_common ~__context ~self ~operation:(`data_destroy timeout);
     with e ->
       Db.VDI.set_type ~__context ~self ~value:vdi_type;
       raise e
   end
+
+let data_destroy = _data_destroy ~timeout:4.0
 
 let resize_online ~__context ~vdi ~size =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
