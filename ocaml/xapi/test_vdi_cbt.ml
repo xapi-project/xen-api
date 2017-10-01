@@ -213,9 +213,10 @@ let test_get_nbd_info =
   ]
 
 (** Initializes the test so that Xapi_vdi.data_destroy invocations will not
-    fail, registers a no-op SMAPIv2 data_destroy function, and returns a
-    CBT-enabled snapshot VDI on which it is allowed to run data_destroy. *)
-let setup_test_for_data_destroy () =
+    fail, registers a SMAPIv2 data_destroy function that is a no-op by default,
+    and returns a CBT-enabled snapshot VDI on which it is allowed to run
+    data_destroy. *)
+let setup_test_for_data_destroy ?(vdi_data_destroy=(fun _ ~dbg ~sr ~vdi -> ())) () =
   (* data_destroy uses the event mechanism, this is required to make the unit test work *)
   let __context, _ = Test_event.event_setup_common () in
   (* data_destroy uses the Client module to watch for events, we need to ensure
@@ -224,7 +225,7 @@ let setup_test_for_data_destroy () =
 
   let sR = make_mock_server_infrastructure ~__context in
   let vdi = Test_common.make_vdi ~__context ~is_a_snapshot:true ~managed:true ~cbt_enabled:true ~sR () in
-  register_smapiv2_server ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> ()) (Db.SR.get_uuid ~__context ~self:sR);
+  register_smapiv2_server ~vdi_data_destroy (Db.SR.get_uuid ~__context ~self:sR);
   (__context, sR, vdi)
 
 let test_allowed_operations_updated_when_necessary () =
@@ -289,6 +290,16 @@ let test_data_destroy =
     OUnit.assert_raises ~msg:"VDI.data_destroy only works on managed VDI"
       Api_errors.(Server_error (vdi_not_managed, [Ref.string_of vDI]))
       (fun () -> Xapi_vdi.data_destroy ~__context ~self:vDI)
+  in
+
+  let test_does_not_change_vdi_type_to_cbt_metadata_if_it_fails () =
+    let __context, sR, vdi = setup_test_for_data_destroy ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> raise (Failure "error")) () in
+    let original_type = Db.VDI.get_type ~__context ~self:vdi in
+    try Xapi_vdi.data_destroy ~__context ~self:vdi with _ -> ();
+    OUnit.assert_equal
+      ~msg:"data_destroy should not change the VDI's type to cbt_metadata when it did not succeed, it should preserve the original type"
+      original_type
+      (Db.VDI.get_type ~__context ~self:vdi)
   in
 
   let test_data_destroy_timing =
@@ -427,6 +438,7 @@ let test_data_destroy =
   "test_data_destroy" >:::
   [ "test_vdi_after_data_destroy" >:: test_vdi_after_data_destroy
   ; "test_vdi_managed_data_destroy" >:: test_vdi_managed_data_destroy
+  ; "test_does_not_change_vdi_type_to_cbt_metadata_if_it_fails" >:: test_does_not_change_vdi_type_to_cbt_metadata_if_it_fails
   ; test_data_destroy_timing
   ]
 
