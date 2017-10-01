@@ -1,0 +1,18 @@
+
+(executable
+ ((name suite)
+  (libraries
+   (alcotest
+    lwt
+    uuidm
+    vbd_store)
+  )
+ )
+)
+
+(alias
+ ((name   runtest)
+  (deps   (suite.exe))
+  (action (run ${<}))
+ )
+)

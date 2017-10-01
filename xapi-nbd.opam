@@ -5,8 +5,10 @@ homepage: "https://github.com/xapi-project/xapi-nbd"
 bug-reports: "https://github.com/xapi-project/xapi-nbd/issues"
 dev-repo: "https://github.com/xapi-project/xapi-nbd.git"
 build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build-test: [[ "jbuilder" "runtest" ]]
 depends: [
   "jbuilder" {build}
+  "alcotest" {test}
   "cmdliner"
   "lwt" {< "3.0.0"}
   "mirage-block-unix"

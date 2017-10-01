@@ -1,0 +1,9 @@
+
+(library
+ ((name vbd_store)
+  (libraries
+   (lwt
+    lwt.unix)
+  )
+ )
+)
