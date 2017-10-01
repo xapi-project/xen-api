@@ -703,9 +703,17 @@ let destroy_and_data_destroy_common ~__context ~self ~(operation:[`destroy | `da
 let destroy = destroy_and_data_destroy_common ~operation:`destroy
 
 let data_destroy ~__context ~self =
-  if Db.VDI.get_type ~__context ~self <> `cbt_metadata then begin
-    destroy_and_data_destroy_common ~__context ~self ~operation:`data_destroy;
+  let vdi_type = Db.VDI.get_type ~__context ~self in
+  if vdi_type <> `cbt_metadata then begin
+    (* We tentatively mark the VDI as cbt_metadata, to minimize the chance of
+       new VBDs referring to this VDI being created while data_destroy is
+       running. *)
     Db.VDI.set_type ~__context ~self ~value:`cbt_metadata;
+    try
+      destroy_and_data_destroy_common ~__context ~self ~operation:`data_destroy;
+    with e ->
+      Db.VDI.set_type ~__context ~self ~value:vdi_type;
+      raise e
   end
 
 let resize_online ~__context ~vdi ~size =
