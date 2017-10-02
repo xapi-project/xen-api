@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 132
+let schema_minor_vsn = 133
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -88,7 +88,7 @@ let falcon_release_schema_major_vsn = 5
 let falcon_release_schema_minor_vsn = 120
 
 let inverness_release_schema_major_vsn = 5
-let inverness_release_schema_minor_vsn = 131
+let inverness_release_schema_minor_vsn = 133
 
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
@@ -5249,6 +5249,16 @@ let network_detach_for_vm = call
     ~allowed_roles:_R_VM_POWER_ADMIN
     ()
 
+let network_purpose = Enum ("network_purpose", [
+  "nbd", "Network Block Device service using TLS";
+  "insecure_nbd", "Network Block Device service without integrity or confidentiality: NOT RECOMMENDED";
+  "management", "Management";
+  "storage", "Storage";
+  "guest", "Guest virtual machines";
+  "himn", "Host internal management network on which guests will be assigned a private link-local IP address which can be used to talk XenAPI";
+  "unmanaged", "Not managed by xapi";
+])
+ 
 (** A virtual network *)
 let network =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_network ~descr:"A virtual network" ~gen_events:true
@@ -5271,7 +5281,8 @@ let network =
           field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this network";
           field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
           field ~qualifier:DynamicRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "unlocked")) ~ty:network_default_locking_mode "default_locking_mode" "The network will use this value to determine the behaviour of all VIFs where locking_mode = default";
-          field ~qualifier:DynamicRO ~in_product_since:rel_creedence ~default_value:(Some (VMap [])) ~ty:(Map (Ref _vif, String)) "assigned_ips" "The IP addresses assigned to VIFs on networks that have active xapi-managed DHCP"
+          field ~qualifier:DynamicRO ~in_product_since:rel_creedence ~default_value:(Some (VMap [])) ~ty:(Map (Ref _vif, String)) "assigned_ips" "The IP addresses assigned to VIFs on networks that have active xapi-managed DHCP";
+          field ~qualifier:StaticRO ~in_product_since:rel_inverness ~default_value:(Some (VSet [])) ~ty:(Set network_purpose) "purposes" "Purposes for which the network is to be used";
         ])
     ()
 

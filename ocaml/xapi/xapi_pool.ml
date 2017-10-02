@@ -642,6 +642,7 @@ let create_or_get_network_on_master __context rpc session_id (network_ref, netwo
         ~bridge:network.API.network_bridge
         ~managed:network.API.network_managed
         ~tags:network.API.network_tags
+        ~purposes:network.API.network_purposes
     end
   in
 
