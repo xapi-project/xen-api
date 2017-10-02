@@ -186,7 +186,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 
       (* data_destroy first waits for all the VBDs to disappear in its
          implementation, so it is harmless to allow it when any of the VDI's
-         VBDs have operations in progress. This ensure that we avoid the retry
+         VBDs have operations in progress. This ensures that we avoid the retry
          mechanism of message forwarding and only use the event loop. *)
       if my_has_current_operation_vbd_records <> [] && op <> `data_destroy
       then Some (Api_errors.other_operation_in_progress, [ "VDI"; _ref ])
@@ -621,7 +621,7 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
            Client.Event.from ~rpc ~session_id ~classes ~token ~timeout |> Event_types.event_from_of_rpc)
         ~test_fn:(fun () -> Xapi_event.from ~__context ~classes ~token ~timeout |> Event_types.parse_event_from)
     in
-    List.iter (fun event -> debug "wait_for_vbds_to_be_unplugged: got event %s" (Event_types.string_of_event event)) from.Event_types.events;
+    List.iter (fun event -> debug "wait_for_vbds_to_be_unplugged_and_destroyed: got event %s" (Event_types.string_of_event event)) from.Event_types.events;
     (from.Event_types.token, most_recent_vbds_field from.Event_types.events)
   in
 
@@ -643,9 +643,9 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
   let rec loop ~token ~remaining_vbds =
     let now = Mtime_clock.now () in
     if remaining_vbds <> [] && Mtime.is_earlier now ~than:finish then begin
-      debug "wait_for_vbds_to_be_unplugged: waiting for %d VBD(s) of VDI %s to be unplugged and destroyed" (List.length remaining_vbds) vdi_uuid;
+      debug "wait_for_vbds_to_be_unplugged_and_destroyed: waiting for %d VBD(s) of VDI %s to be unplugged and destroyed" (List.length remaining_vbds) vdi_uuid;
       let remaining = Mtime.span now finish |> Mtime.Span.to_s in
-      debug "wait_for_vbds_to_be_unplugged: remaining: %f" remaining;
+      debug "wait_for_vbds_to_be_unplugged_and_destroyed: remaining: %f seconds until timeout" remaining;
       let token, most_recent_vbds = next_token_and_vbds ~token ~timeout:remaining in
       let remaining_vbds = Xapi_stdext_monadic.Opt.default remaining_vbds most_recent_vbds in
       loop ~token ~remaining_vbds
@@ -653,7 +653,7 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
     else remaining_vbds
   in
   let remaining_vbds = loop ~token ~remaining_vbds:initial_vbds in
-  debug "wait_for_vbds_to_be_unplugged: finished, VDI %s has %d VBD(s)" vdi_uuid (List.length remaining_vbds);
+  debug "wait_for_vbds_to_be_unplugged_and_destroyed: finished, VDI %s has %d VBD(s)" vdi_uuid (List.length remaining_vbds);
   if remaining_vbds <> [] then
     raise (Api_errors.Server_error (Api_errors.vdi_in_use, [Ref.string_of self; (Record_util.vdi_operation_to_string `data_destroy)]))
 
