@@ -198,6 +198,15 @@ let string_to_network_default_locking_mode = function
   | "disabled" -> `disabled
   | s -> raise (Record_failure ("Expected 'unlocked' or 'disabled', got "^s))
 
+let network_purpose_to_string = function
+  | `nbd -> "NBD"
+  | `insecure_nbd -> "Insecure_NBD"
+  | `management -> "Management"
+  | `storage -> "Storage"
+  | `guest -> "Guest"
+  | `himn -> "Host_Internal_Management"
+  | `unmanaged -> "Unmanaged"
+
 let vm_appliance_operation_to_string = function
   | `start -> "start"
   | `clean_shutdown -> "clean_shutdown"
