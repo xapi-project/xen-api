@@ -330,11 +330,45 @@ let with_networks_attached_for_vm ~__context ?host ~vm f =
     end;
     raise e
 
+let assert_can_add_purpose ~__context ~network ~current newval =
+  let sop (*string-of-porpoise*) = Record_util.network_purpose_to_string in
+  if (List.mem `himn current) then (
+    info "Existing network purpose %s is not compatible with any other purpose." (sop `himn)
+  );
+  if (List.mem `unmanaged current) then (
+    info "Existing network purpose %s is not compatible with any other purpose." (sop `unmanaged)
+  );
+
+  let assert_no_net_has_bad_porpoise bads =
+    (* Sadly we can't use Db.Network.get_refs_where because the expression
+     * type doesn't allow searching for a value inside a list. *)
+    Db.Network.get_all ~__context |>
+    List.iter (fun nwk ->
+      Db.Network.get_purposes ~__context ~self:nwk |>
+      List.iter (fun suspect -> if (List.mem suspect bads) then
+        info "Cannot set new network purpose %s when there is a network with purpose %s" (sop newval) (sop suspect)
+      )
+    )
+  in
+  match newval with
+  | `himn | `unmanaged -> if current <> [] then (
+      info "New network purpose %s is not compatible with any other purpose" (sop porpoise)
+    )
+  | `management -> if (List.mem `guest current) then (
+      info "Combining network purposes %s and %s is inadvisable for security reasons, but not prevented." (sop `management) (sop `guest)
+    )
+  | `guest -> if (List.mem `management current) then (
+      info "Combining network purposes %s and %s is inadvisable for security reasons, but not prevented." (sop `management) (sop `guest)
+    )
+  | `storage -> ()
+  | `nbd -> assert_no_net_has_bad_porpoise [`insecure_nbd]
+  | `insecure_nbd -> assert_no_net_has_bad_porpoise [`nbd]
+
 let add_purpose ~__context ~network ~purpose =
   let self = network in
   let current = Db.Network.get_purposes ~__context ~self in
   if not (List.mem purpose current) then (
-    (* TODO test for incompatible purposes and raise error if detected *)
+    assert_can_add_purpose ~__context ~network ~current purpose;
     Db.Network.set_purposes ~__context ~self ~value:(purpose::current)
   )
 
