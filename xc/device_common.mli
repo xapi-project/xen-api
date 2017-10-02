@@ -92,9 +92,16 @@ val qemu_restore_path: (int -> 'a, 'b, 'a) format
 val demu_save_path: (int -> 'a, 'b, 'a) format
 val demu_restore_path: (int -> 'a, 'b, 'a) format
 
+val var_run_xen_path: string
+val qmp_libxl_path: int -> string
+val qmp_event_path: int -> string
+
 (** Directory in xenstore where qemu writes its state *)
 val device_model_path: qemu_domid:int -> int -> string
 
 val xenops_domain_path: string
 val xenops_path_of_domain: Xenctrl.domid -> string
 val xenops_vgpu_path: Xenctrl.domid -> devid -> string
+val is_upstream_qemu: Xenctrl.domid -> bool
+val qmp_write_and_read: Xenctrl.domid -> ?read_result:bool -> Qmp.message -> Qmp.message option
+val qmp_write: Xenctrl.domid -> Qmp.message -> unit

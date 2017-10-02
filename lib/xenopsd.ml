@@ -36,6 +36,7 @@ let watch_queue_length = ref 1000
 
 let default_vbd_backend_kind = ref "vbd"
 let ca_140252_workaround = ref false
+let action_after_qemu_crash = ref None
 
 let additional_ballooning_timeout = ref 120.
 let vif_ready_for_igmp_query_timeout = ref 120
@@ -58,6 +59,7 @@ let options = [
     "additional-ballooning-timeout", Arg.Set_float additional_ballooning_timeout, (fun () -> string_of_float !additional_ballooning_timeout), "Time we allow the guests to do additional memory ballooning before live migration";
     "domain_shutdown_ack_timeout", Arg.Set_float Xenops_server.domain_shutdown_ack_timeout, (fun () -> string_of_float !Xenops_server.domain_shutdown_ack_timeout), "Time to wait for in-guest PV drivers to acknowledge a shutdown request before we conclude that the drivers have failed";
     "vif-ready-for-igmp-query-timeout", Arg.Set_int vif_ready_for_igmp_query_timeout, (fun () -> string_of_int !vif_ready_for_igmp_query_timeout), "Time before we assume vif has connected";
+    "action-after-qemu-crash", Arg.String (fun x -> action_after_qemu_crash := if x="" then None else Some x), (fun () -> match !action_after_qemu_crash with None->"" | Some x->x), "Action to take for VMs if QEMU crashes or dies unexpectedly: pause, poweroff. Otherwise, no action (default).";
 ]
 
 let path () = Filename.concat !sockets_path "xenopsd"
@@ -106,7 +108,7 @@ let doc = String.concat "\n" [
 	"Xenopsd looks after a set of Xen domains, performing lifecycle operations including start/shutdown/migrate. A system may run multiple xenopsds, each looking after a different set of VMs. Xenopsd will always ignore domains that it hasn't been asked to manage. There are multiple xenopsd *backends*, including 'xc': which uses libxc directly and 'xenlight': which uses the new Xen libxl library (recommended).";
 ]
 
-       
+
 
 let configure ?(specific_options=[]) ?(specific_essential_paths=[]) ?(specific_nonessential_paths=[]) () =
 	Debug.set_facility Syslog.Local5;
@@ -154,7 +156,7 @@ let main backend =
 
 	Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
   Sys.set_signal Sys.sigterm (Sys.Signal_handle signal_handler);
-  
+
 
 	Xenops_utils.set_fs_backend
 		(Some (if !persist

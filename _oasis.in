@@ -86,7 +86,8 @@ Library xenopsd
     xenstore.unix,
     xenstore_transport,
     xenstore_transport.unix,
-    oclock
+    oclock,
+    core
   CSources:	      sockopt_stubs.c
 
 Executable dbgring
@@ -159,7 +160,8 @@ Executable xenopsd_xc_main
     sexplib,
     xcp-inventory,
     ezxenstore,
-    profiling
+    profiling,
+    qmp
   CSources:           fsync_stubs.c, xenctrlext_stubs.c
 
 Executable xenopsd_simulator

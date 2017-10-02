@@ -1051,7 +1051,7 @@ let restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid 
 
 type suspend_flag = Live | Debug
 
-let write_libxc_record (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback =
+let write_libxc_record' (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback =
 	let fd_uuid = Uuid.(to_string (create `V4)) in
 
 	let cmdline_to_flag flag =
@@ -1113,7 +1113,7 @@ let write_libxc_record (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_pat
 			debug "VM = %s; domid = %d; suspending qemu-dm" (Uuid.to_string uuid) domid;
 			Device.Dm.suspend task ~xs ~qemu_domid domid;
 		);
- 		XenguestHelper.send cnx "done\n";
+		XenguestHelper.send cnx "done\n";
 
 		let msg = XenguestHelper.non_debug_receive cnx in
 		progress_callback 1.;
@@ -1125,6 +1125,11 @@ let write_libxc_record (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_pat
 		    raise (Xenguest_failure (Printf.sprintf "Received error from xenguesthelper: %s" x))
 		| _                       ->
 			error "VM = %s; domid = %d; xenguesthelper protocol failure" (Uuid.to_string uuid) domid;
+	)
+
+let write_libxc_record (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback =
+	Device.Dm.with_dirty_log domid (fun () ->
+		write_libxc_record' task ~xc ~xs ~hvm xenguest_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback
 	)
 
 let write_qemu_record domid uuid legacy_libxc fd =

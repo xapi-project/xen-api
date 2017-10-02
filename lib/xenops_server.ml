@@ -844,7 +844,7 @@ let rec atomics_of_operation = function
 			VM_set_domain_action_request(id, None)
 		]
 	| VM_shutdown (id, timeout) ->
-		(Opt.default [] (Opt.map (fun x -> [ VM_shutdown_domain(id, Halt, x) ]) timeout)
+		(Opt.default [] (Opt.map (fun x -> [ VM_shutdown_domain(id, PowerOff, x) ]) timeout)
 		) @ simplify ([
 			(* At this point we have a shutdown domain (ie Needs_poweroff) *)
 			VM_destroy_device_model id;
