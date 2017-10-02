@@ -182,7 +182,13 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
       in
       if blocked_by_attach
       then Some (Api_errors.vdi_in_use,[_ref; (Record_util.vdi_operation_to_string op)])
-      else if my_has_current_operation_vbd_records <> []
+      else
+
+      (* data_destroy first waits for all the VBDs to disappear in its
+         implementation, so it is harmless to allow it when any of the VDI's
+         VBDs have operations in progress. This ensure that we avoid the retry
+         mechanism of message forwarding and only use the event loop. *)
+      if my_has_current_operation_vbd_records <> [] && op <> `data_destroy
       then Some (Api_errors.other_operation_in_progress, [ "VDI"; _ref ])
       else
 
@@ -659,11 +665,7 @@ let destroy_and_data_destroy_common ~__context ~self ~(operation:[ `destroy | `d
 
   begin match operation with
   | `data_destroy timeout ->
-    (* If this VDI has any VBDs, first wait for them to disappear.
-       In case the VBD.unplug operation is already in progress,
-       check_operation_error will return an OTHER_OPERATION_IN_PROGRESS error,
-       which will cause message forwarding to retry until the VBD operation
-       completes, so we don't have to deal with that scenario. *)
+    (* If this VDI has any VBDs, first wait for them to disappear. *)
     wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout
   | `destroy -> ()
   end;

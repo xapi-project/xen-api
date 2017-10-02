@@ -318,7 +318,6 @@ let test_data_destroy =
     (* We simulate a VBD.unplug call, which might take 1-2 seconds *)
     let vbd_unplug_time = 1.5 /. speedup in
     let other_delay = 0.2 /. speedup in
-    let message_switch_retry_delay = 20.0 /. speedup in
     (* We have to leave some extra time for data_destroy to finish, otherwise
        the tests will fail with a stricter timeout. *)
     let timebox_timeout_delay = 1.0 in
@@ -367,12 +366,6 @@ let test_data_destroy =
             Db.VBD.destroy ~__context ~self:vbd
           ) ()
         in
-        let vbd_unplug_in_progress_when_data_destroy_called = vbd_unplug_started && (not vbd_unplug_finished) in
-        (* If the VBD.unplug operation is in progress when VDI.data_destroy is
-           called, the message forwarding layer will wait for the unplug to
-           finish, and after each retry it sleeps for a random amount of time
-           between 1 and 20 seconds. *)
-        let timeout = if uses_client && vbd_unplug_in_progress_when_data_destroy_called then message_switch_retry_delay else timeout in
         let timeout = timeout +. timebox_timeout_delay in
         Helpers.timebox
           ~timeout
