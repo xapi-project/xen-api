@@ -1,10 +1,11 @@
 language: c
 sudo: require
-install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-opam.sh
-script: bash -ex .travis-opam.sh
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+script: bash -ex .travis-docker.sh
 env:
   global:
-    - OCAML_VERSION=4.04
+    - OCAML_VERSION=4.04.2
+    - DISTRO=debian-stable
     - PACKAGE=xapi-nbd
     - PINS="nbd:git://github.com/xapi-project/nbd.git#bugfix-v2.x"
   matrix:
