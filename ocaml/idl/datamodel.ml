@@ -5254,11 +5254,8 @@ let network_detach_for_vm = call
 let network_purpose = Enum ("network_purpose", [
   "nbd", "Network Block Device service using TLS";
   "insecure_nbd", "Network Block Device service without integrity or confidentiality: NOT RECOMMENDED";
-  "management", "Management";
-  "storage", "Storage";
-  "guest", "Guest virtual machines";
-  "himn", "Host internal management network on which guests will be assigned a private link-local IP address which can be used to talk XenAPI";
-  "unmanaged", "Not managed by xapi";
+  (* We should (re-)add other purposes as and when we write code with behaviour that depends on them,
+   * e.g. management, storage, guest, himn... unmanaged? *)
 ])
 
 let network_add_purpose = call
