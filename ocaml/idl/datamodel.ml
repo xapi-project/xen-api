@@ -5195,7 +5195,7 @@ let network_introduce_params first_rel =
     {param_type=Map(String,String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=String; param_name="bridge"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=Bool; param_name="managed"; param_doc=""; param_release=falcon_release; param_default=None};
-    {param_type=Set(network_purpose); param_name="purposes"; param_doc=""; param_release=inverness_release; param_default=None};
+    {param_type=Set(network_purpose); param_name="purpose"; param_doc=""; param_release=inverness_release; param_default=None};
   ]
 
 (* network pool introduce is used to copy network records on pool join -- it's the network analogue of VDI/PIF.pool_introduce *)
@@ -5305,7 +5305,7 @@ let network =
           field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
           field ~qualifier:DynamicRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "unlocked")) ~ty:network_default_locking_mode "default_locking_mode" "The network will use this value to determine the behaviour of all VIFs where locking_mode = default";
           field ~qualifier:DynamicRO ~in_product_since:rel_creedence ~default_value:(Some (VMap [])) ~ty:(Map (Ref _vif, String)) "assigned_ips" "The IP addresses assigned to VIFs on networks that have active xapi-managed DHCP";
-          field ~qualifier:StaticRO ~in_product_since:rel_inverness ~default_value:(Some (VSet [])) ~ty:(Set network_purpose) "purposes" "Set of purposes for which the server will use this network";
+          field ~qualifier:StaticRO ~in_product_since:rel_inverness ~default_value:(Some (VSet [])) ~ty:(Set network_purpose) "purpose" "Set of purposes for which the server will use this network";
         ])
     ()
 

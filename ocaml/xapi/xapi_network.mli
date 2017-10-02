@@ -73,7 +73,7 @@ val pool_introduce :
   other_config:(string * string) list ->
   bridge:string ->
   managed:bool ->
-  purposes:API.network_purpose list ->
+  purpose:API.network_purpose list ->
   [ `network ] Ref.t
 
 (** Attempt to create a bridge with a unique name *)
@@ -86,7 +86,7 @@ val create :
   bridge:string ->
   managed:bool ->
   tags:string list ->
-  purposes:API.network_purpose list ->
+  purpose:API.network_purpose list ->
   [ `network ] Ref.t
 
 (** WARNING WARNING WARNING: called with the master dispatcher lock; do nothing but basic DB calls

@@ -51,7 +51,7 @@ let initialise session_id template pool =
   let networks_to_create = pool.interfaces_per_host - pool.bonds in
   debug "Creating %d networks..." networks_to_create;
   let networks = Array.init networks_to_create (fun i ->
-      Client.Network.create ~rpc ~session_id ~name_label:(Printf.sprintf "perftestnet%d" i) ~name_description:"" ~mTU:1500L ~other_config:[oc_key,pool.key] ~bridge:"" ~managed:true ~tags:[] ~purposes:[])
+      Client.Network.create ~rpc ~session_id ~name_label:(Printf.sprintf "perftestnet%d" i) ~name_description:"" ~mTU:1500L ~other_config:[oc_key,pool.key] ~bridge:"" ~managed:true ~tags:[] ~purpose:[])
   in
 
   (* Set up the template - create the VIFs *)
