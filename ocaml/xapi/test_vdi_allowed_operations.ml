@@ -430,27 +430,6 @@ let test_operations_restricted_during_rpu =
    exception in case of invalid references, as it is called from
    the message forwarding layer. *)
 let test_null_vm =
-  let all_vdi_operations =
-    [ `blocked
-    ; `clone
-    ; `copy
-    ; `data_destroy
-    ; `destroy
-    ; `disable_cbt
-    ; `enable_cbt
-    ; `list_changed_blocks
-    ; `force_unlock
-    ; `forget
-    ; `generate_config
-    ; `mirror
-    ; `resize
-    ; `resize_online
-    ; `set_on_boot
-    ; `snapshot
-    ; `update
-    ]
-  in
-
   let test_null_vm op =
     let __context = Mock.make_context_with_new_db "Mock context" in
     let vdi_ref, vdi_record = setup_test
@@ -467,7 +446,7 @@ let test_null_vm =
     let _: _ option = Xapi_vdi.check_operation_error ~__context false vdi_record vdi_ref op in
     ()
   in
-  for_vdi_operations all_vdi_operations test_null_vm
+  for_vdi_operations Xapi_vdi_helpers.all_ops test_null_vm
 
 
 let test =
