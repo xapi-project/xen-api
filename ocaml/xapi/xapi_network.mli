@@ -72,7 +72,9 @@ val pool_introduce :
   mTU:int64 ->
   other_config:(string * string) list ->
   bridge:string ->
-  managed:bool -> [ `network ] Ref.t
+  managed:bool ->
+  purposes:API.network_purpose list ->
+  [ `network ] Ref.t
 
 (** Attempt to create a bridge with a unique name *)
 val create :
