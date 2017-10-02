@@ -317,6 +317,7 @@ let test_data_destroy =
     let timeout = 4.0 /. speedup in
     (* We simulate a VBD.unplug call, which might take 1-2 seconds *)
     let vbd_unplug_time = 1.5 /. speedup in
+    let () = assert (vbd_unplug_time < timeout) in
     let other_delay = 0.2 /. speedup in
     (* We have to leave some extra time for data_destroy to finish, otherwise
        the tests will fail with a stricter timeout. *)
@@ -349,6 +350,8 @@ let test_data_destroy =
     let test_data_destroy_succeeds =
       (* The parameters tell us whether the VBD unplug operation has started/finished by the time we call VDI.data_destroy. *)
       let test_data_destroy_succeeds ~vbd_unplug_started ~vbd_unplug_finished () =
+        if vbd_unplug_finished && (not vbd_unplug_started) then failwith "VBD.unplug finished but not started by the time VDI.data_destroy is called: impossible";
+
         let __context, vDI, vbd = setup_test () in
         if vbd_unplug_started then start_vbd_unplug ~__context vbd;
         if vbd_unplug_finished then finish_vbd_unplug ~__context vbd;
