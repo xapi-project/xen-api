@@ -335,6 +335,19 @@ let test_cbt =
 
   let test_vdi_list_changed_blocks () =
     let __context = Mock.make_context_with_new_db "Mock context" in
+
+    let test_cbt_enabled_snapshot_vdi_linked_to_vm_snapshot ~vbd_currently_attached =
+      ( (fun vDI ->
+            let vM = Test_common.make_vm ~__context ~is_a_template:true () in
+            (* Set up the fields corresponding to a VM snapshot *)
+            Db.VM.set_is_a_snapshot ~__context ~self:vM ~value:true;
+            Db.VM.set_power_state ~__context ~self:vM ~value:`Suspended;
+            let (_: API.ref_VBD) = Test_common.make_vbd ~__context ~vM ~vDI ~currently_attached:vbd_currently_attached () in
+            Db.VDI.set_cbt_enabled ~__context ~self:vDI ~value:true;
+            Db.VDI.set_is_a_snapshot ~__context ~self:vDI ~value:true)
+      , None)
+    in
+
     List.iter (fun (vdi_fun,api_error) -> run_assert_equal_with_vdi ~__context
                   ~vdi_fun `list_changed_blocks api_error)
       [
@@ -352,16 +365,10 @@ let test_cbt =
         ( (fun vDI -> Db.VDI.set_cbt_enabled ~__context ~self:vDI ~value:true
           ) ,  None  ) ;
 
+        test_cbt_enabled_snapshot_vdi_linked_to_vm_snapshot ~vbd_currently_attached:false;
+
         (* Test that list_changed_blocks is allowed on snapshot VDIs attached to VM snapshots with currently_attached = true *)
-        ( (fun vDI ->
-              let vM = Test_common.make_vm ~__context ~is_a_template:true () in
-              (* Set up the fields corresponding to a VM snapshot *)
-              Db.VM.set_is_a_snapshot ~__context ~self:vM ~value:true;
-              Db.VM.set_power_state ~__context ~self:vM ~value:`Suspended;
-              let (_: API.ref_VBD) = Test_common.make_vbd ~__context ~vM ~vDI ~currently_attached:true () in
-              Db.VDI.set_cbt_enabled ~__context ~self:vDI ~value:true;
-              Db.VDI.set_is_a_snapshot ~__context ~self:vDI ~value:true)
-        , None)
+        test_cbt_enabled_snapshot_vdi_linked_to_vm_snapshot ~vbd_currently_attached:true;
 
       ]
   in
