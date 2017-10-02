@@ -4,8 +4,6 @@
 open Stdext
 open Pervasiveext
 
-module D = Debug.Make(struct let name = "updates" end)
-
 module type INTERFACE = sig
   val service_name : string
 

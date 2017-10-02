@@ -13,7 +13,6 @@
  *)
 
 open Xcp_service
-module D = Debug.Make(struct let name = "example" end)
 
 let ls = ref "/bin/ls"
 let sh = ref "/bin/sh"
