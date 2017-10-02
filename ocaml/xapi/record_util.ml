@@ -198,23 +198,23 @@ let string_to_network_default_locking_mode = function
   | "disabled" -> `disabled
   | s -> raise (Record_failure ("Expected 'unlocked' or 'disabled', got "^s))
 
-let network_purpose_to_string = function
-  | `nbd -> "NBD"
-  | `insecure_nbd -> "Insecure_NBD"
-  | `management -> "Management"
-  | `storage -> "Storage"
-  | `guest -> "Guest"
-  | `himn -> "Host_Internal_Management"
-  | `unmanaged -> "Unmanaged"
+let network_purpose_to_string: API.network_purpose -> string = function
+  | `nbd -> "nbd"
+  | `insecure_nbd -> "insecure_nbd"
+  | `management -> "management"
+  | `storage -> "storage"
+  | `guest -> "guest"
+  | `himn -> "host_internal_management"
+  | `unmanaged -> "unmanaged"
 
-let string_to_network_purpose = function
-  | "NBD" -> `nbd
-  | "Insecure_NBD" -> `insecure_nbd
-  | "Management" -> `management
-  | "Storage" -> `storage
-  | "Guest" -> `guest
-  | "Host_Internal_Management" -> `himn
-  | "Unmanaged" -> `unmanaged
+let string_to_network_purpose: string -> API.network_purpose = function
+  | "nbd" -> `nbd
+  | "insecure_nbd" -> `insecure_nbd
+  | "management" -> `management
+  | "storage" -> `storage
+  | "guest" -> `guest
+  | "host_internal_management" -> `himn
+  | "unmanaged" -> `unmanaged
   | s -> raise (Record_failure ("Expected a network purpose string; got "^s))
 
 let vm_appliance_operation_to_string = function
