@@ -1740,7 +1740,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
              fst (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_migrate op)) in
       with_vm_operation ~__context ~self:vm ~doc:"VM.migrate_send" ~op:`migrate_send
         (fun () ->
-           assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options;
+           Server_helpers.exec_with_subtask ~__context "VM.assert_can_migrate" (fun ~__context ->
+             assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options
+           );
            forwarder ~local_fn ~__context ~vm
              (fun session_id rpc -> Client.VM.migrate_send rpc session_id vm dest live vdi_map vif_map options vgpu_map)
         )
