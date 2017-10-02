@@ -185,10 +185,10 @@ let counter = ref 0
 let mutex = Mutex.create ()
 let stem = "xapi"
 
-let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed =
+let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed ~purposes =
   let r = Ref.make() and uuid = Uuid.make_uuid() in
   Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
-    ~current_operations:[] ~allowed_operations:[] ~purposes:[]
+    ~current_operations:[] ~allowed_operations:[] ~purposes
     ~name_label ~name_description ~mTU ~bridge ~managed
     ~other_config ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked ~assigned_ips:[];
   r

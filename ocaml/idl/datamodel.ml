@@ -5180,6 +5180,13 @@ let network_attach = call
     ~allowed_roles:_R_POOL_OP
     ()
 
+let network_purpose = Enum ("network_purpose", [
+  "nbd", "Network Block Device service using TLS";
+  "insecure_nbd", "Network Block Device service without integrity or confidentiality: NOT RECOMMENDED";
+  (* We should (re-)add other purposes as and when we write code with behaviour that depends on them,
+   * e.g. management, storage, guest, himn... unmanaged? *)
+])
+
 let network_introduce_params first_rel =
   [
     {param_type=String; param_name="name_label"; param_doc=""; param_release=first_rel; param_default=None};
@@ -5188,6 +5195,7 @@ let network_introduce_params first_rel =
     {param_type=Map(String,String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=String; param_name="bridge"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=Bool; param_name="managed"; param_doc=""; param_release=falcon_release; param_default=None};
+    {param_type=Set(network_purpose); param_name="purposes"; param_doc=""; param_release=inverness_release; param_default=None};
   ]
 
 (* network pool introduce is used to copy network records on pool join -- it's the network analogue of VDI/PIF.pool_introduce *)
@@ -5250,13 +5258,6 @@ let network_detach_for_vm = call
     ~hide_from_docs:true
     ~allowed_roles:_R_VM_POWER_ADMIN
     ()
-
-let network_purpose = Enum ("network_purpose", [
-  "nbd", "Network Block Device service using TLS";
-  "insecure_nbd", "Network Block Device service without integrity or confidentiality: NOT RECOMMENDED";
-  (* We should (re-)add other purposes as and when we write code with behaviour that depends on them,
-   * e.g. management, storage, guest, himn... unmanaged? *)
-])
 
 let network_add_purpose = call
   ~name:"add_purpose"
