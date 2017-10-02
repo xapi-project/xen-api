@@ -234,6 +234,7 @@ let vdi_create common_opts sr name descr virtual_size format = match sr with
           snapshot_time = "";
           snapshot_of = "";
           read_only = false;
+          cbt_enabled = false;
           virtual_size = parse_size virtual_size;
           physical_utilisation = 0L;
           sm_config = (match format with None -> [] | Some x -> ["type", x]);
