@@ -533,7 +533,7 @@ let check_network_reset () =
              match existing_network with
              | None ->
                let name_label = Printf.sprintf "Pool-wide network associated with %s on VLAN%s" device vlan in
-               Xapi_network.create ~__context ~name_label ~name_description:"" ~mTU:1500L ~other_config:[] ~bridge:"" ~managed:true ~tags:[] ~purposes:[]
+               Xapi_network.create ~__context ~name_label ~name_description:"" ~mTU:1500L ~other_config:[] ~bridge:"" ~managed:true ~tags:[] ~purpose:[]
              | Some network -> network
            in
            let vlan, untagged_PIF = Xapi_vlan.create_internal ~__context ~host ~tagged_PIF:pif

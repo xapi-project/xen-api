@@ -416,15 +416,15 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["Primary address type differs"]));
   in
 
-  let assert_compatible_network_purposes () = try (
+  let assert_compatible_network_purpose () = try (
     let my_nbdish =
       Db.Network.get_all ~__context |>
-      List.map (fun nwk -> Db.Network.get_purposes ~__context ~self:nwk) |>
+      List.map (fun nwk -> Db.Network.get_purpose ~__context ~self:nwk) |>
       List.flatten |>
       List.find (function `nbd | `insecure_nbd -> true | _ -> false) in
     let remote_nbdish =
       Client.Network.get_all rpc session_id |>
-      List.map (fun nwk -> Client.Network.get_purposes ~rpc ~session_id ~self:nwk) |>
+      List.map (fun nwk -> Client.Network.get_purpose ~rpc ~session_id ~self:nwk) |>
       List.flatten |>
       List.find (function `nbd | `insecure_nbd -> true | _ -> false) in
     if remote_nbdish <> my_nbdish then
@@ -455,7 +455,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_db_schema_matches ();
   assert_homogeneous_updates ();
   assert_homogeneous_primary_address_type ();
-  assert_compatible_network_purposes ()
+  assert_compatible_network_purpose ()
 
 let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) : API.ref_host =
   let my_uuid = host.API.host_uuid in
@@ -647,7 +647,7 @@ let create_or_get_network_on_master __context rpc session_id (network_ref, netwo
           ~other_config:network.API.network_other_config
           ~bridge:network.API.network_bridge
           ~managed:network.API.network_managed
-          ~purposes:network.API.network_purposes
+          ~purpose:network.API.network_purpose
     else begin
       debug "Recreating network '%s' as internal network." network.API.network_name_label;
       (* This call will generate a new 'xapi#' bridge name rather than keeping the
@@ -660,7 +660,7 @@ let create_or_get_network_on_master __context rpc session_id (network_ref, netwo
         ~bridge:network.API.network_bridge
         ~managed:network.API.network_managed
         ~tags:network.API.network_tags
-        ~purposes:network.API.network_purposes
+        ~purpose:network.API.network_purpose
     end
   in
 

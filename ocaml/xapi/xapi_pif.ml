@@ -273,7 +273,7 @@ let find_or_create_network (bridge: string) (device: string) ~__context =
         ~__context ~ref:net_ref ~uuid:net_uuid
         ~current_operations:[] ~allowed_operations:[]
         ~name_label:(Helpers.choose_network_name_for_pif device)
-        ~name_description:"" ~mTU:1500L ~purposes:[]
+        ~name_description:"" ~mTU:1500L ~purpose:[]
         ~bridge ~managed:true ~other_config:[] ~blobs:[]
         ~tags:[] ~default_locking_mode:`unlocked ~assigned_ips:[]
     in
