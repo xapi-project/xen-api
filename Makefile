@@ -16,5 +16,8 @@ uninstall:
 clean:
 	jbuilder clean
 
+test:
+	jbuilder runtest
+
 reindent:
 	ocp-indent --inplace **/*.ml*

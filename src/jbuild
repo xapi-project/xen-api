@@ -11,6 +11,7 @@
     nbd.lwt
     uri
     uuidm
+    vbd_store
     xcp-inventory
     xen-api-client.lwt))
  )

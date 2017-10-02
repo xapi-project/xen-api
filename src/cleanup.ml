@@ -79,6 +79,11 @@ module VBD = struct
 
   module Persistent = struct
 
+    module Vbd_store = Vbd_store.Make(struct
+        let vbd_list_dir = Consts.xapi_nbd_persistent_dir
+        let vbd_list_file_name = Consts.vbd_list_file_name
+      end)
+
     (* [with_tracking rpc session_id vbd f] guarantees to clean up the VBD
        as long as [vbd] is unplugged and [f] also guarantees the same. *)
     let with_tracking rpc session_id vbd f =
