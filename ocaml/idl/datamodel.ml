@@ -5260,7 +5260,30 @@ let network_purpose = Enum ("network_purpose", [
   "himn", "Host internal management network on which guests will be assigned a private link-local IP address which can be used to talk XenAPI";
   "unmanaged", "Not managed by xapi";
 ])
- 
+
+let network_add_purpose = call
+  ~name:"add_purpose"
+  ~doc:"Give a network a new purpose (if not present already)"
+  ~params:[
+    Ref _network, "network", "The network";
+    network_purpose, "purpose", "The purpose to add";
+  ]
+  ~errs:[Api_errors.network_incompatible_purposes]
+  ~in_product_since:rel_inverness
+  ~allowed_roles:_R_POOL_ADMIN
+  ()
+
+let network_remove_purpose = call
+  ~name:"remove_purpose"
+  ~doc:"Remove a purpose from a network (if present)"
+  ~params:[
+    Ref _network, "network", "The network";
+    network_purpose, "purpose", "The purpose to remove";
+  ]
+  ~in_product_since:rel_inverness
+  ~allowed_roles:_R_POOL_ADMIN
+  ()
+
 (** A virtual network *)
 let network =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_network ~descr:"A virtual network" ~gen_events:true
@@ -5268,7 +5291,7 @@ let network =
     ~messages_default_allowed_roles:_R_VM_ADMIN (* vm admins can create/destroy networks without PIFs *)
     ~doc_tags:[Networking]
     ~messages:[network_attach; network_pool_introduce; network_create_new_blob; network_set_default_locking_mode;
-               network_attach_for_vm; network_detach_for_vm]
+               network_attach_for_vm; network_detach_for_vm; network_add_purpose; network_remove_purpose]
     ~contents:
       ([
         uid _network;
