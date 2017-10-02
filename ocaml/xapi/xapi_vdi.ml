@@ -50,8 +50,10 @@ let check_sm_feature_error (op:API.vdi_operations) sm_features sr =
     then None
     else Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
 
-(* Checks to see if an operation is valid in this state. Returns Some exception
-   if not and None if everything is ok. *)
+(** Checks to see if an operation is valid in this state. Returns [Some exception]
+    if not and [None] if everything is ok. If the [vbd_records] parameter is
+    specified, it should contain at least all the VBD records from the database
+    that are linked to this VDI. *)
 let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_records=[]) ha_enabled record _ref' op =
   let _ref = Ref.string_of _ref' in
   let current_ops = record.Db_actions.vDI_current_operations in
@@ -129,9 +131,13 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 
       (* If the VBD is currently_attached then some operations can still be performed ie:
          			   VDI.clone (if the VM is suspended we have to have the 'allow_clone_suspended_vm'' flag)
-         			   VDI.snapshot; VDI.resize_online; 'blocked' (CP-831) *)
+         			   VDI.snapshot; VDI.resize_online; 'blocked' (CP-831)
+         VDI.data_destroy: it is not allowed on VDIs linked to a VM, but the
+           implementation first waits for the VDI's VBDs to be unplugged and
+           destroyed, and the checks are performed there.
+      *)
       let operation_can_be_performed_live = match op with
-        | `snapshot | `resize_online | `blocked | `clone | `mirror | `enable_cbt | `disable_cbt -> true
+        | `snapshot | `resize_online | `blocked | `clone | `mirror | `enable_cbt | `disable_cbt | `data_destroy -> true
         | _ -> false in
 
       let operation_can_be_performed_with_ro_attach =
@@ -144,17 +150,45 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
       (* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
 
       let blocked_by_attach =
-        if operation_can_be_performed_live
-        then false
-        else begin
-          if operation_can_be_performed_with_ro_attach
-          then (my_active_rw_vbd_records <> [])
-          else (my_active_vbd_records <> [])
-        end
+        let blocked_by_attach =
+          if operation_can_be_performed_live
+          then false
+          else begin
+            if operation_can_be_performed_with_ro_attach
+            then (my_active_rw_vbd_records <> [])
+            else (my_active_vbd_records <> [])
+          end
+        in
+        let allow_attached_vbds =
+          (* We use Valid_ref_list.list to ignore exceptions due to invalid references that
+             could propagate to the message forwarding layer, which calls this
+             function to check for errors - these exceptions would prevent the
+             actual XenAPI function from being run. Checks called from the
+             message forwarding layer should not fail with an exception. *)
+          let true_for_all_active_vbds f = Valid_ref_list.for_all f my_active_vbd_records in
+          match op with
+          | `list_changed_blocks ->
+            let vbd_connected_to_vm_snapshot vbd =
+              let vm = vbd.Db_actions.vBD_VM in
+              Db.is_valid_ref __context vm && (Db.VM.get_is_a_snapshot ~__context ~self:vm)
+            in
+            (* We allow list_changed_blocks on VDIs attached to snapshot VMs,
+               because VM.checkpoint may set the currently_attached fields of the
+               snapshot's VBDs to true, and this would block list_changed_blocks. *)
+            true_for_all_active_vbds vbd_connected_to_vm_snapshot
+          | _ -> false
+        in
+        blocked_by_attach && (not allow_attached_vbds)
       in
       if blocked_by_attach
       then Some (Api_errors.vdi_in_use,[_ref; (Record_util.vdi_operation_to_string op)])
-      else if my_has_current_operation_vbd_records <> []
+      else
+
+      (* data_destroy first waits for all the VBDs to disappear in its
+         implementation, so it is harmless to allow it when any of the VDI's
+         VBDs have operations in progress. This ensures that we avoid the retry
+         mechanism of message forwarding and only use the event loop. *)
+      if my_has_current_operation_vbd_records <> [] && op <> `data_destroy
       then Some (Api_errors.other_operation_in_progress, [ "VDI"; _ref ])
       else
 
@@ -550,10 +584,91 @@ let snapshot ~__context ~vdi ~driver_params =
   update_allowed_operations ~__context ~self:newvdi;
   newvdi
 
-let destroy_and_data_destroy_common ~__context ~self ~(operation:[`destroy | `data_destroy]) =
+(** Wait for all the VBDs of this VDI to be unplugged and destroyed.
+    It is sufficient to wait for all the VBDs to disappear, because a VBD
+    cannot be destroyed if it is plugged. *)
+let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
+  let vdi_uuid = Db.VDI.get_uuid ~__context ~self in
+  (* We watch the "VBDs" field of this VDI. *)
+  let classes = [Printf.sprintf "VDI/%s" (Ref.string_of self)] in
+
+  let next_token_and_vbds ~token ~timeout =
+    let most_recent_vbds_field events =
+      (* We do not assume anything here about the order of the list of events we get. *)
+      let most_recent_snapshot =
+        let events_from_newest_to_oldest =
+          (* We need to sort the timestamp strings in decreasing order *)
+          List.sort (fun e1 e2 -> Event_types.(- String.compare e1.ts e2.ts)) events
+        in
+        let snapshots_from_newest_to_oldest =
+          (* filter_map in Stdext preserves the order of elements *)
+          Xapi_stdext_std.Listext.List.filter_map
+            (fun event -> event.Event_types.snapshot)
+            events_from_newest_to_oldest
+        in
+        Xapi_stdext_std.Listext.List.safe_hd snapshots_from_newest_to_oldest
+      in
+      Xapi_stdext_monadic.Opt.map
+        (fun snapshot ->
+           let vdi = API.vDI_t_of_rpc snapshot in
+           vdi.API.vDI_VBDs)
+        most_recent_snapshot
+    in
+
+    let from =
+      Helpers.call_api_functions ~__context
+        (fun rpc session_id ->
+           Client.Event.from ~rpc ~session_id ~classes ~token ~timeout |> Event_types.event_from_of_rpc)
+        ~test_fn:(fun () -> Xapi_event.from ~__context ~classes ~token ~timeout |> Event_types.parse_event_from)
+    in
+    List.iter (fun event -> debug "wait_for_vbds_to_be_unplugged_and_destroyed: got event %s" (Event_types.string_of_event event)) from.Event_types.events;
+    (from.Event_types.token, most_recent_vbds_field from.Event_types.events)
+  in
+
+  (* Wait for 4 seconds in total for all the VBDs of this VDI to be unplugged & destroyed *)
+  let start = Mtime_clock.now () in
+  let finish =
+    let maybe_finish =
+      let timeout = Mtime.(Span.of_uint64_ns (Int64.of_float (timeout *. s_to_ns))) in
+      Mtime.(add_span start timeout)
+    in
+    (* It is safe to unbox this because the timeout should not cause an overflow *)
+    Xapi_stdext_monadic.Opt.unbox maybe_finish
+  in
+
+  let token, initial_vbds = next_token_and_vbds ~token:"" ~timeout in
+  (* When we use an empty token, we always get back the whole VDI record *)
+  let initial_vbds = Xapi_stdext_monadic.Opt.unbox initial_vbds in
+
+  let rec loop ~token ~remaining_vbds =
+    let now = Mtime_clock.now () in
+    if remaining_vbds <> [] && Mtime.is_earlier now ~than:finish then begin
+      debug "wait_for_vbds_to_be_unplugged_and_destroyed: waiting for %d VBD(s) of VDI %s to be unplugged and destroyed" (List.length remaining_vbds) vdi_uuid;
+      let remaining = Mtime.(span now finish |> Span.to_s) in
+      debug "wait_for_vbds_to_be_unplugged_and_destroyed: remaining: %f seconds until timeout" remaining;
+      let token, most_recent_vbds = next_token_and_vbds ~token ~timeout:remaining in
+      let remaining_vbds = Xapi_stdext_monadic.Opt.default remaining_vbds most_recent_vbds in
+      loop ~token ~remaining_vbds
+    end
+    else remaining_vbds
+  in
+  let remaining_vbds = loop ~token ~remaining_vbds:initial_vbds in
+  debug "wait_for_vbds_to_be_unplugged_and_destroyed: finished, VDI %s has %d VBD(s)" vdi_uuid (List.length remaining_vbds);
+  if remaining_vbds <> [] then
+    raise (Api_errors.Server_error (Api_errors.vdi_in_use, [Ref.string_of self; (Record_util.vdi_operation_to_string `data_destroy)]))
+
+let destroy_and_data_destroy_common ~__context ~self ~(operation:[ `destroy | `data_destroy of _ ]) =
+
   let sr = Db.VDI.get_SR ~__context ~self in
   Sm.assert_pbd_is_plugged ~__context ~sr;
   Xapi_vdi_helpers.assert_managed ~__context ~vdi:self;
+
+  begin match operation with
+  | `data_destroy timeout ->
+    (* If this VDI has any VBDs, first wait for them to disappear. *)
+    wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout
+  | `destroy -> ()
+  end;
 
   let vbds = Db.VDI.get_VBDs ~__context ~self in
   let attached_vbds = List.filter
@@ -561,7 +676,7 @@ let destroy_and_data_destroy_common ~__context ~self ~(operation:[`destroy | `da
          let r = Db.VBD.get_record_internal ~__context ~self:vbd in
          r.Db_actions.vBD_currently_attached || r.Db_actions.vBD_reserved) vbds in
   if attached_vbds<>[] then
-    let caller_name = match operation with `destroy -> "destroy" | `data_destroy -> "data_destroy" in
+    let caller_name = match operation with `destroy -> "destroy" | `data_destroy _ -> "data_destroy" in
     raise (Api_errors.Server_error (Api_errors.vdi_in_use, [(Ref.string_of self); caller_name]))
   else
     begin
@@ -570,7 +685,7 @@ let destroy_and_data_destroy_common ~__context ~self ~(operation:[`destroy | `da
       let task = Context.get_task_id __context in
       let location = Db.VDI.get_location ~__context ~self in
       let module C = Client(struct let rpc = rpc end) in
-      let call_f = match operation with `destroy -> C.VDI.destroy | `data_destroy -> C.VDI.data_destroy in
+      let call_f = match operation with `destroy -> C.VDI.destroy | `data_destroy _ -> C.VDI.data_destroy in
       transform_storage_exn
         (fun () ->
            call_f ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location
@@ -579,7 +694,7 @@ let destroy_and_data_destroy_common ~__context ~self ~(operation:[`destroy | `da
       then Db.VDI.destroy ~__context ~self;
 
       (* destroy all the VBDs now rather than wait for the GC thread. This helps
-         	   prevent transient glitches but doesn't totally prevent races. *)
+         prevent transient glitches but doesn't totally prevent races. *)
       List.iter (fun vbd ->
           Helpers.log_exn_continue (Printf.sprintf "destroying VBD: %s" (Ref.string_of vbd))
             (fun vbd -> Db.VBD.destroy ~__context ~self:vbd) vbd) vbds;
@@ -592,11 +707,21 @@ let destroy_and_data_destroy_common ~__context ~self ~(operation:[`destroy | `da
 
 let destroy = destroy_and_data_destroy_common ~operation:`destroy
 
-let data_destroy ~__context ~self =
-  if Db.VDI.get_type ~__context ~self <> `cbt_metadata then begin
-    destroy_and_data_destroy_common ~__context ~self ~operation:`data_destroy;
+let _data_destroy ~__context ~self ~timeout =
+  let vdi_type = Db.VDI.get_type ~__context ~self in
+  if vdi_type <> `cbt_metadata then begin
+    (* We tentatively mark the VDI as cbt_metadata, to minimize the chance of
+       new VBDs referring to this VDI being created while data_destroy is
+       running. *)
     Db.VDI.set_type ~__context ~self ~value:`cbt_metadata;
+    try
+      destroy_and_data_destroy_common ~__context ~self ~operation:(`data_destroy timeout);
+    with e ->
+      Db.VDI.set_type ~__context ~self ~value:vdi_type;
+      raise e
   end
+
+let data_destroy = _data_destroy ~timeout:4.0
 
 let resize_online ~__context ~vdi ~size =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
@@ -899,18 +1024,6 @@ let list_changed_blocks ~__context ~vdi_from ~vdi_to =
        C.VDI.list_changed_blocks ~dbg:(Ref.string_of task) ~sr ~vdi_from ~vdi_to
     )
 
-(** Ignore exceptions that can happen due to invalid references and just skip them *)
-module Safe = struct
-  let default_on_missing_ref f default x =
-    try
-      f x
-    with
-    | Db_exn.DBCache_NotFound ("missing reference", _, _) -> default
-    | Db_exn.DBCache_NotFound ("missing row", _, _) -> default
-  let map f = Stdext.Listext.List.filter_map (default_on_missing_ref (fun x -> Some (f x)) None)
-  let flat_map f l = List.map (default_on_missing_ref f []) l |> List.flatten
-end
-
 let get_nbd_info ~__context ~self =
   if (Db.VDI.get_type ~__context ~self) = `cbt_metadata then begin
     error "VDI.get_nbd_info: called with a VDI of type cbt_metadata (at %s)" __LOC__;
@@ -923,7 +1036,7 @@ let get_nbd_info ~__context ~self =
       ~__context
       ~expr:Db_filter_types.(And (Eq (Field "SR", Literal (Ref.string_of sr)),
                                   Eq (Field "currently_attached", Literal "true")))
-    |> Safe.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
+    |> Valid_ref_list.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
   in
   let get_ips host =
     let get_ips pif =
@@ -938,9 +1051,9 @@ let get_nbd_info ~__context ~self =
         ~expr:Db_filter_types.(And (Eq (Field "host", Literal (Ref.string_of host)),
                                     Eq (Field "currently_attached", Literal "true")))
     in
-    attached_pifs |> Safe.flat_map get_ips
+    attached_pifs |> Valid_ref_list.flat_map get_ips
   in
-  let ips = hosts_with_attached_pbds |> Safe.flat_map get_ips in
+  let ips = hosts_with_attached_pbds |> Valid_ref_list.flat_map get_ips in
 
   let vdi_uuid = Db.VDI.get_uuid ~__context ~self in
   let session_id = Context.get_session_id __context |> Ref.string_of in

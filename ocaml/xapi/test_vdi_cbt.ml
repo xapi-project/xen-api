@@ -38,15 +38,14 @@ let register_smapiv2_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_list_changed_b
   let s = make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_list_changed_blocks ?vdi_data_destroy ?vdi_snapshot ?vdi_clone () in
   register_smapiv2_server s sr_ref
 
-(* create host -> (SM) -> SR -> PBD -> VDI infrastructure for
-   mock storage layer, return SR and VDI *)
+(** Create host -> (SM) -> PBD -> SR infrastructure for mock storage layer, return SR *)
 let make_mock_server_infrastructure ~__context =
   let host = Helpers.get_localhost ~__context in
+  (* This SM instance has CBT capabilities by default *)
   let _: _ API.Ref.t = Test_common.make_sm ~__context () in
   let sR = Test_common.make_sr ~__context ~is_tools_sr:false () in
   let _: _ API.Ref.t = Test_common.make_pbd ~__context ~host ~sR ~currently_attached:true () in
-  let vDI = Test_common.make_vdi ~__context ~is_a_snapshot:true ~managed:true ~cbt_enabled:true ~sR () in
-  (sR,vDI)
+  sR
 
 let test_cbt_enable_disable () =
   let __context = Test_common.make_test_database () in
@@ -213,14 +212,24 @@ let test_get_nbd_info =
   ; "test_disallowed_for_cbt_metadata_vdi" >:: test_disallowed_for_cbt_metadata_vdi
   ]
 
+(** Initializes the test so that Xapi_vdi.data_destroy invocations will not
+    fail, registers a SMAPIv2 data_destroy function that is a no-op by default,
+    and returns a CBT-enabled snapshot VDI on which it is allowed to run
+    data_destroy. *)
+let setup_test_for_data_destroy ?(vdi_data_destroy=(fun _ ~dbg ~sr ~vdi -> ())) () =
+  (* data_destroy uses the event mechanism, this is required to make the unit test work *)
+  let __context, _ = Test_event.event_setup_common () in
+  (* data_destroy uses the Client module to watch for events, we need to ensure
+     the local function is called instead to make the unit test work. *)
+  Helpers.test_mode := true;
+
+  let sR = make_mock_server_infrastructure ~__context in
+  let vdi = Test_common.make_vdi ~__context ~is_a_snapshot:true ~managed:true ~cbt_enabled:true ~sR () in
+  register_smapiv2_server ~vdi_data_destroy (Db.SR.get_uuid ~__context ~self:sR);
+  (__context, sR, vdi)
+
 let test_allowed_operations_updated_when_necessary () =
-  let __context = Test_common.make_test_database () in
-  let host = Helpers.get_localhost ~__context in
-  let sR = Test_common.make_sr ~__context () in
-  (* This SM instance has CBT capabilities by default *)
-  let _: _ API.Ref.t = Test_common.make_sm ~__context () in
-  let _: _ API.Ref.t = Test_common.make_pbd ~__context ~host ~sR () in
-  let self = Test_common.make_vdi ~__context ~sR ~_type:`user ~cbt_enabled:true ~is_a_snapshot:true ~managed:true () in
+  let __context, sR, self = setup_test_for_data_destroy () in
   register_smapiv2_server ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> ()) (Db.SR.get_uuid ~__context ~self:sR);
 
   let assert_allowed_operations msg check =
@@ -234,79 +243,255 @@ let test_allowed_operations_updated_when_necessary () =
   Client.Client.VDI.data_destroy ~rpc ~session_id ~self;
   assert_allowed_operations "does not contain `copy after VDI has been data-destroyed" (fun ops -> not @@ List.mem `copy ops)
 
-(* Confirm VDI.data_destroy changes requisite fields of VDI *)
-let test_vdi_after_data_destroy () =
-  let __context = Test_common.make_test_database () in
-  let sR,vDI = make_mock_server_infrastructure ~__context in
-  register_smapiv2_server ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> ()) (Db.SR.get_uuid ~__context ~self:sR);
-  Db.VDI.set_type ~__context ~self:vDI ~value:`suspend;
-  let vM = Test_common.make_vm ~__context () in
-  let vBD = Test_common.make_vbd ~__context ~vDI ~vM ~currently_attached:false () in
+let test_data_destroy =
 
-  let check_vdi_is_snapshot_and_type ~vDI ~snapshot ~vdi_type ~managed =
-    let open Printf in
-    OUnit.assert_equal ~msg:(sprintf "VDI type should be set to %s" (Record_util.vdi_type_to_string vdi_type))
-      (Db.VDI.get_type ~__context ~self:vDI) vdi_type;
-    OUnit.assert_equal ~msg:(sprintf "VDI managed should be set to %b" managed)
-      (Db.VDI.get_managed ~__context ~self:vDI) managed;
-    let word = if snapshot then "" else " not" in
-    OUnit.assert_equal ~msg:(sprintf "VDI should%s be a snapshot" word)
-      (Db.VDI.get_is_a_snapshot ~__context ~self:vDI) snapshot
+  (* Confirm VDI.data_destroy changes requisite fields of VDI *)
+  let test_vdi_after_data_destroy () =
+    let __context, sR, vDI = setup_test_for_data_destroy () in
+    Db.VDI.set_type ~__context ~self:vDI ~value:`suspend;
+    let vM = Test_common.make_vm ~__context () in
+
+    let check_vdi_is_snapshot_and_type ~vDI ~snapshot ~vdi_type ~managed =
+      let open Printf in
+      OUnit.assert_equal ~msg:(sprintf "VDI type should be set to %s" (Record_util.vdi_type_to_string vdi_type))
+        (Db.VDI.get_type ~__context ~self:vDI) vdi_type;
+      OUnit.assert_equal ~msg:(sprintf "VDI managed should be set to %b" managed)
+        (Db.VDI.get_managed ~__context ~self:vDI) managed;
+      let word = if snapshot then "" else " not" in
+      OUnit.assert_equal ~msg:(sprintf "VDI should%s be a snapshot" word)
+        (Db.VDI.get_is_a_snapshot ~__context ~self:vDI) snapshot
+    in
+    check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`suspend ~managed:true;
+
+    (* set vDI as the suspend VDI of vM *)
+    Db.VM.set_suspend_VDI ~__context ~self:vM ~value:vDI;
+    OUnit.assert_equal ~msg:"VM.suspend_VDI should point to previously created VDI"
+      (Db.VM.get_suspend_VDI ~__context ~self:vM) vDI;
+
+    (* run VDI.data_destroy, check it has updated VDI fields *)
+    Xapi_vdi.data_destroy ~__context ~self:vDI;
+
+    OUnit.assert_equal ~msg:"VDI.data_destroy should set VDI type to cbt_metadata"
+      (Db.VDI.get_type ~__context ~self:vDI) `cbt_metadata;
+
+    OUnit.assert_equal ~msg:"VM.suspend_VDI should be set to null"
+      (Db.VM.get_suspend_VDI ~__context ~self:vM) Ref.null;
+
+    (* check for idempotence for metadata snapshot VDIs *)
+    check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`cbt_metadata ~managed:true;
+    Xapi_vdi.data_destroy ~__context ~self:vDI;
+    check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`cbt_metadata ~managed:true
   in
-  check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`suspend ~managed:true;
 
-  (* set vDI as the suspend VDI of vM *)
-  Db.VM.set_suspend_VDI ~__context ~self:vM ~value:vDI;
-  OUnit.assert_equal ~msg:"VM.suspend_VDI should point to previously created VDI"
-    (Db.VM.get_suspend_VDI ~__context ~self:vM) vDI;
+  (* check VDI.data_destroy throws VDI_NOT_MANAGED if managed:false *)
+  let test_vdi_managed_data_destroy () =
+    let __context, sR, vDI = setup_test_for_data_destroy () in
+    Db.VDI.set_managed ~__context ~self:vDI ~value:false;
+    OUnit.assert_raises ~msg:"VDI.data_destroy only works on managed VDI"
+      Api_errors.(Server_error (vdi_not_managed, [Ref.string_of vDI]))
+      (fun () -> Xapi_vdi.data_destroy ~__context ~self:vDI)
+  in
 
-  OUnit.assert_equal ~msg:"VDI should link to previously created VBD"
-    (Db.VDI.get_VBDs ~__context ~self:vDI) [vBD];
+  let test_does_not_change_vdi_type_to_cbt_metadata_if_it_fails () =
+    let __context, sR, vdi = setup_test_for_data_destroy ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> raise (Failure "error")) () in
+    let original_type = Db.VDI.get_type ~__context ~self:vdi in
+    try Xapi_vdi.data_destroy ~__context ~self:vdi with _ -> ();
+    OUnit.assert_equal
+      ~msg:"data_destroy should not change the VDI's type to cbt_metadata when it did not succeed, it should preserve the original type"
+      original_type
+      (Db.VDI.get_type ~__context ~self:vdi)
+  in
 
-  (* run VDI.data_destroy, check it has updated VDI fields *)
-  Xapi_vdi.data_destroy ~__context ~self:vDI;
+  (** If [realistic_timing] is true, the tests will use the Client module and
+      the original timeouts, otherwise they will call the implementation in
+      Xapi_vdi directly with a smaller timeout to make the tests faster. The
+      former leads to more comprehensive tests, as it goes through message
+      forwarding, which also includes a timeout / retry mechanism, and can thus
+      impact the timing of data_destroy: when the VBD unplug is already in
+      progress, Xapi_vdi.check_operation_error and the message forwarding layer
+      will first wait for that operation to finish. *)
+  let test_data_destroy_timing ~realistic_timing =
+    let speedup = if realistic_timing then 1.0 else 10.0 in
+    (* VDI.data_destroy currently waits for at most 4 seconds for the VBDs of
+       the VDI to be unplugged and destroyed *)
+    let timeout = 4.0 /. speedup in
+    (* We simulate a VBD.unplug call, which might take 1-2 seconds *)
+    let vbd_unplug_time = 1.5 /. speedup in
+    let () = assert (vbd_unplug_time < timeout) in
+    let other_delay = 0.2 /. speedup in
+    (* We have to leave some extra time for data_destroy to finish, otherwise
+       the tests will fail with a stricter timeout. *)
+    let timebox_timeout_delay = 1.0 in
 
-  OUnit.assert_equal ~msg:"VDI.data_destroy should set VDI type to cbt_metadata"
-    (Db.VDI.get_type ~__context ~self:vDI) `cbt_metadata;
+    let uses_client = realistic_timing in
+    let call_data_destroy ~__context ~self =
+      if uses_client then begin
+        let (rpc, session_id) = Test_common.make_client_params ~__context in
+        Client.Client.VDI.data_destroy ~rpc ~session_id ~self
+      end else
+        Xapi_vdi._data_destroy ~__context ~self ~timeout
+    in
 
-  OUnit.assert_equal ~msg:"VDI.data_destroy should destroy all associated VBDs"
-    (Db.VDI.get_VBDs ~__context ~self:vDI) [];
+    let start_vbd_unplug ~__context self =
+      Db.VBD.set_current_operations ~__context ~self ~value:["", `unplug]
+    in
+    let finish_vbd_unplug ~__context self =
+      Db.VBD.set_currently_attached ~__context ~self ~value:false;
+      Db.VBD.set_current_operations ~__context ~self ~value:[];
+    in
 
-  OUnit.assert_equal ~msg:"VM.suspend_VDI should be set to null"
-    (Db.VM.get_suspend_VDI ~__context ~self:vM) Ref.null;
+    let setup_test () =
+      let __context, sR, vDI = setup_test_for_data_destroy () in
+      let vM = Test_common.make_vm ~__context () in
+      let vbd = Test_common.make_vbd ~__context ~vDI ~vM ~currently_attached:true () in
+      (__context, vDI, vbd)
+    in
 
-  (* check for idempotence for metadata snapshot VDIs *)
-  check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`cbt_metadata ~managed:true;
-  Xapi_vdi.data_destroy ~__context ~self:vDI;
-  check_vdi_is_snapshot_and_type ~vDI ~snapshot:true ~vdi_type:`cbt_metadata ~managed:true
+    let test_data_destroy_succeeds =
+      (* The parameters tell us whether the VBD unplug operation has started/finished by the time we call VDI.data_destroy. *)
+      let test_data_destroy_succeeds ~vbd_unplug_started ~vbd_unplug_finished () =
+        if vbd_unplug_finished && (not vbd_unplug_started) then failwith "VBD.unplug finished but not started by the time VDI.data_destroy is called: impossible";
 
-(* check VDI.data_destroy throws VDI_NOT_MANAGED if managed:false *)
-let test_vdi_managed_data_destroy () =
-  let __context = Test_common.make_test_database () in
-  let sR,vDI = make_mock_server_infrastructure ~__context in
-  register_smapiv2_server ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> ()) (Db.SR.get_uuid ~__context ~self:sR);
-  Db.VDI.set_managed ~__context ~self:vDI ~value:false;
-  OUnit.assert_raises ~msg:"VDI.data_destroy only works on managed VDI"
-    Api_errors.(Server_error (vdi_not_managed, [Ref.string_of vDI]))
-    (fun () -> Xapi_vdi.data_destroy ~__context ~self:vDI)
+        let __context, vDI, vbd = setup_test () in
+        if vbd_unplug_started then start_vbd_unplug ~__context vbd;
+        if vbd_unplug_finished then finish_vbd_unplug ~__context vbd;
+
+        let _: Thread.t = Thread.create (fun () ->
+            if not vbd_unplug_started then begin
+              Thread.delay other_delay;
+              start_vbd_unplug ~__context vbd
+            end;
+            if not vbd_unplug_finished then begin
+              Thread.delay vbd_unplug_time;
+              finish_vbd_unplug ~__context vbd
+            end;
+            Thread.delay other_delay;
+            Db.VBD.destroy ~__context ~self:vbd
+          ) ()
+        in
+        let timeout = timeout +. timebox_timeout_delay in
+        Helpers.timebox
+          ~timeout
+          ~otherwise:(fun () -> failwith "data_destroy did not finish successfully in 5 seconds")
+          (fun () -> call_data_destroy ~__context ~self:vDI)
+      in
+      let open OUnit in
+      "test_data_destroy_succeeds" >:::
+      [ "test_data_destroy_succeeds_when_vbd_is_already_unplugged" >:: test_data_destroy_succeeds ~vbd_unplug_started:true ~vbd_unplug_finished:true
+      ; "test_data_destroy_succeeds_when_vbd_is_being_unplugged" >:: test_data_destroy_succeeds ~vbd_unplug_started:true ~vbd_unplug_finished:false
+      ; "test_data_destroy_succeeds_when_vbd_unplug_is_started_later" >:: test_data_destroy_succeeds ~vbd_unplug_started:false ~vbd_unplug_finished:false
+      ]
+    in
+
+    let test_data_destroy_times_out =
+      (* The parameters tell us whether the VBD unplug operation has started/finished by the time VDI.data_destroy times out. *)
+      let test_data_destroy_times_out ~vbd_unplug_started ~vbd_unplug_finished () =
+        let __context, vDI, vbd = setup_test () in
+
+        let t = Thread.create (fun () ->
+            (* The data_destroy operation will time out in 4 seconds *)
+            let unplug_start_delay = match vbd_unplug_started, vbd_unplug_finished with
+              | true, true -> timeout -. vbd_unplug_time -. other_delay (* unplug starts & finishes before the timeout *)
+              | true, false -> timeout -. (vbd_unplug_time /. 2.0) (* unplug starts before & finishes after the timeout *)
+              | false, false -> timeout +. other_delay (* unplug starts after the 4s timeout *)
+              | _ -> failwith "VBD.unplug finished but not started by the time VDI.data_destroy times out: impossible"
+            in
+            assert (unplug_start_delay >= 0.0);
+            Thread.delay unplug_start_delay;
+            start_vbd_unplug ~__context vbd;
+            (* Simulate a VBD.unplug call, which might take 1-2 seconds *)
+            Thread.delay vbd_unplug_time;
+            (* We have to finish the VBD unplug in the unit test, otherwise
+               message forwarding will wait for a long time for the in-progress
+               VBD.unplug operation to finish *)
+            finish_vbd_unplug ~__context vbd
+          ) ()
+        in
+        (* If the timebox expires, we will fail because we will get an unexpected exception *)
+        let timeout = timeout +. timebox_timeout_delay in
+        OUnit.assert_raises
+          Api_errors.(Server_error (vdi_in_use, [Ref.string_of vDI; "data_destroy"]))
+          (fun () ->
+             Helpers.timebox
+               ~timeout
+               ~otherwise:(fun () -> failwith "data_destroy did not time out")
+               (fun () -> call_data_destroy ~__context ~self:vDI)
+          );
+        (* Wait for the background thread to finish to prevent it failing with
+           DBCache_NotFound exceptions due to missing references - this
+           probably happens when it tries to use the VBD reference but its __context already
+           got garbage collected *)
+        Thread.join t
+      in
+
+      let test_data_destroy_times_out_when_nothing_happens_to_vbd () =
+        let __context, vDI, vbd = setup_test () in
+        let timeout = timeout +. timebox_timeout_delay in
+        (* If the timebox expires, we will fail because we will get an unexpected exception *)
+        OUnit.assert_raises
+          Api_errors.(Server_error (vdi_in_use, [Ref.string_of vDI; "data_destroy"]))
+          (fun () ->
+             Helpers.timebox
+               ~timeout
+               ~otherwise:(fun () -> failwith (Printf.sprintf "data_destroy did not time out in %f seconds" timeout))
+               (fun () -> call_data_destroy ~__context ~self:vDI)
+          )
+      in
+      let open OUnit in
+      "test_data_destroy_times_out" >:::
+      [ "test_data_destroy_times_out_when_vbd_does_not_get_destroyed_in_time" >:: test_data_destroy_times_out ~vbd_unplug_started:true ~vbd_unplug_finished:true
+      ; "test_data_destroy_times_out_when_vbd_unplug_does_not_finish_in_time" >:: test_data_destroy_times_out ~vbd_unplug_started:true ~vbd_unplug_finished:false
+      ; "test_data_destroy_times_out_when_vbd_unplug_is_not_started_in_time" >:: test_data_destroy_times_out ~vbd_unplug_started:false ~vbd_unplug_finished:false
+      ; "test_data_destroy_times_out_when_nothing_happens_to_vbd" >:: test_data_destroy_times_out_when_nothing_happens_to_vbd
+      ]
+    in
+
+    let open OUnit in
+    let suffix = if realistic_timing then "_with_realistic_timing" else "_with_simulated_timing" in
+    ("test_data_destroy_timing" ^ suffix) >:::
+    [ test_data_destroy_succeeds
+    ; test_data_destroy_times_out
+    ]
+  in
+
+  (** This flag controls whether we should run the {!test_data_destroy_timing}
+      tests with realistic timing (with [realistic_timing = true). *)
+  let run_slow_tests = true in
+  let slow_tests = [ test_data_destroy_timing ~realistic_timing:true ] in
+  let open OUnit in
+  "test_data_destroy" >:::
+  [ "test_vdi_after_data_destroy" >:: test_vdi_after_data_destroy
+  ; "test_vdi_managed_data_destroy" >:: test_vdi_managed_data_destroy
+  ; "test_does_not_change_vdi_type_to_cbt_metadata_if_it_fails" >:: test_does_not_change_vdi_type_to_cbt_metadata_if_it_fails
+  ; test_data_destroy_timing ~realistic_timing:false
+  ] @
+  (if run_slow_tests then slow_tests else [])
 
 (* behaviour verification VDI.list_changed_blocks *)
 let test_vdi_list_changed_blocks () =
   let __context = Test_common.make_test_database () in
+  let sR = make_mock_server_infrastructure ~__context in
+  let sr_uuid = Db.SR.get_uuid ~__context ~self:sR in
+
   let list_changed_blocks_params = ref None in
-  let sR,vdi_from = make_mock_server_infrastructure ~__context in
-  let vdi_to = Test_common.make_vdi ~__context ~sR () in
-  list_changed_blocks_params := Some (sR,vdi_from,vdi_to);
-  Db.VDI.set_cbt_enabled ~__context ~self:vdi_to ~value:true;
   let list_changed_blocks_string = "listchangedblocks000" in
-  register_smapiv2_server ~vdi_list_changed_blocks:(fun _ ~dbg ~sr ~vdi_from ~vdi_to -> list_changed_blocks_string) (Db.SR.get_uuid ~__context ~self:sR);
+
+  let vdi_from_location = "vdi_from_location" in
+  let vdi_from = Test_common.make_vdi ~__context ~location:vdi_from_location ~is_a_snapshot:true ~managed:true ~cbt_enabled:true ~sR () in
+  let vdi_to_location = "vdi_to_location" in
+  let vdi_to = Test_common.make_vdi ~__context~location:vdi_to_location  ~sR ~cbt_enabled:true ~managed:true () in
+
+  register_smapiv2_server
+    ~vdi_list_changed_blocks:(fun _ ~dbg ~sr ~vdi_from ~vdi_to -> list_changed_blocks_params := Some (sr,vdi_from,vdi_to); list_changed_blocks_string)
+    (Db.SR.get_uuid ~__context ~self:sR);
+
   OUnit.assert_equal
     ~msg:(Printf.sprintf "VDI.list_changed_blocks should return %s" list_changed_blocks_string)
     (Xapi_vdi.list_changed_blocks ~__context ~vdi_from ~vdi_to)
     list_changed_blocks_string;
   OUnit.assert_equal
     ~msg:("Incorrect parameters passed")
-    (Some (sR,vdi_from,vdi_to))
+    (Some (sr_uuid, vdi_from_location, vdi_to_location))
     !list_changed_blocks_params
 
 let test =
@@ -317,8 +502,6 @@ let test =
   ; "test_clone_and_snapshot_correctly_sets_cbt_enabled_field" >:: test_clone_and_snapshot_correctly_sets_cbt_enabled_field
   ; test_get_nbd_info
   ; "test_allowed_operations_updated_when_necessary" >:: test_allowed_operations_updated_when_necessary
-  ; "test_vdi_data_destroy" >:::
-    [ "test_vdi_after_data_destroy" >:: test_vdi_after_data_destroy
-    ; "test_vdi_managed_data_destroy" >:: test_vdi_managed_data_destroy
-    ]
+  ; test_data_destroy
+  ; "test_vdi_list_changed_blocks" >:: test_vdi_list_changed_blocks
   ]
