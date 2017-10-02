@@ -2743,13 +2743,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       do_op_on ~local_fn ~__context ~host
         (fun session_id rpc -> Client.Network.detach_for_vm rpc session_id host vm)
 
-    let add_purpose ~__context ~network ~purpose =
-      info "Network.add_purpose: network = '%s'; purpose = '%s'" (network_uuid ~__context network) (Record_util.network_purpose_to_string purpose);
-      Local.Network.add_purpose ~__context ~network ~purpose
+    let add_purpose ~__context ~self ~value =
+      info "Network.add_purpose: self = '%s'; value = '%s'" (network_uuid ~__context self) (Record_util.network_purpose_to_string value);
+      Local.Network.add_purpose ~__context ~self ~value
 
-    let remove_purpose ~__context ~network ~purpose =
-      info "Network.remove_purpose: network = '%s'; purpose = '%s'" (network_uuid ~__context network) (Record_util.network_purpose_to_string purpose);
-      Local.Network.remove_purpose ~__context ~network ~purpose
+    let remove_purpose ~__context ~self ~value =
+      info "Network.remove_purpose: self = '%s'; value = '%s'" (network_uuid ~__context self) (Record_util.network_purpose_to_string value);
+      Local.Network.remove_purpose ~__context ~self ~value
 
   end
 

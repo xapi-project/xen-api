@@ -353,18 +353,16 @@ let assert_can_add_purpose ~__context ~network ~current newval =
   | `nbd -> assert_no_net_has_bad_porpoise [`insecure_nbd]
   | `insecure_nbd -> assert_no_net_has_bad_porpoise [`nbd]
 
-let add_purpose ~__context ~network ~purpose =
-  let self = network in
+let add_purpose ~__context ~self ~value =
   let current = Db.Network.get_purposes ~__context ~self in
-  if not (List.mem purpose current) then (
-    assert_can_add_purpose ~__context ~network ~current purpose;
-    Db.Network.set_purposes ~__context ~self ~value:(purpose::current)
+  if not (List.mem value current) then (
+    assert_can_add_purpose ~__context ~network:self ~current value;
+    Db.Network.set_purposes ~__context ~self ~value:(value::current)
   )
 
-let remove_purpose ~__context ~network ~purpose =
-  let self = network in
+let remove_purpose ~__context ~self ~value =
   let current = Db.Network.get_purposes ~__context ~self in
-  if (List.mem purpose current) then (
-    let porpoises = List.filter (fun porpoise -> porpoise<>purpose) current in
+  if (List.mem value current) then (
+    let porpoises = List.filter ((<>) value) current in
     Db.Network.set_purposes ~__context ~self ~value:(porpoises)
   )

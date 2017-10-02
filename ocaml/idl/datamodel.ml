@@ -5263,8 +5263,8 @@ let network_add_purpose = call
   ~name:"add_purpose"
   ~doc:"Give a network a new purpose (if not present already)"
   ~params:[
-    Ref _network, "network", "The network";
-    network_purpose, "purpose", "The purpose to add";
+    Ref _network, "self", "The network";
+    network_purpose, "value", "The purpose to add";
   ]
   ~errs:[Api_errors.network_incompatible_purposes]
   ~in_product_since:rel_inverness
@@ -5275,8 +5275,8 @@ let network_remove_purpose = call
   ~name:"remove_purpose"
   ~doc:"Remove a purpose from a network (if present)"
   ~params:[
-    Ref _network, "network", "The network";
-    network_purpose, "purpose", "The purpose to remove";
+    Ref _network, "self", "The network";
+    network_purpose, "value", "The purpose to remove";
   ]
   ~in_product_since:rel_inverness
   ~allowed_roles:_R_POOL_ADMIN
