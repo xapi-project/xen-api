@@ -566,6 +566,8 @@ let _ =
     ~doc:"You tried to create a PIF, but the network you tried to attach it to is already attached to some other PIF, and so the creation failed." ();
   error Api_errors.cannot_destroy_system_network [ "network" ]
     ~doc:"You tried to destroy a system network: these cannot be destroyed." ();
+  error Api_errors.network_incompatible_purposes ["new_purpose"; "conflicting_purpose"]
+    ~doc:"You tried to add a purpose to a network but the new purpose is not compatible with an existing purpose of the network or other networks." ();
   error Api_errors.pif_is_physical ["PIF"]
     ~doc:"You tried to destroy a PIF, but it represents an aspect of the physical host configuration, and so cannot be destroyed.  The parameter echoes the PIF handle you gave." ();
   error Api_errors.pif_is_vlan ["PIF"]
