@@ -133,14 +133,14 @@ val with_networks_attached_for_vm :
 
 val add_purpose :
   __context:Context.t ->
-  network:[ `network ] Ref.t ->
-  purpose:API.network_purpose ->
+  self:[ `network ] Ref.t ->
+  value:API.network_purpose ->
   unit
 
 val remove_purpose :
   __context:Context.t ->
-  network:[ `network ] Ref.t ->
-  purpose:API.network_purpose ->
+  self:[ `network ] Ref.t ->
+  value:API.network_purpose ->
   unit
 
 (** {2 Assertion Helper Functions} *)
