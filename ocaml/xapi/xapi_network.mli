@@ -83,7 +83,9 @@ val create :
   other_config:(string * string) list ->
   bridge:string ->
   managed:bool ->
-  tags:string list -> [ `network ] Ref.t
+  tags:string list ->
+  purposes:API.network_purpose list ->
+  [ `network ] Ref.t
 
 (** WARNING WARNING WARNING: called with the master dispatcher lock; do nothing but basic DB calls
     here without being really sure *)
