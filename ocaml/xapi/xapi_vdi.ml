@@ -160,12 +160,12 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
           end
         in
         let allow_attached_vbds =
-          (* We use Safe_list.list to ignore exceptions due to invalid references that
+          (* We use Valid_ref_list.list to ignore exceptions due to invalid references that
              could propagate to the message forwarding layer, which calls this
              function to check for errors - these exceptions would prevent the
              actual XenAPI function from being run. Checks called from the
              message forwarding layer should not fail with an exception. *)
-          let true_for_all_active_vbds f = Safe_list.for_all f my_active_vbd_records in
+          let true_for_all_active_vbds f = Valid_ref_list.for_all f my_active_vbd_records in
           match op with
           | `list_changed_blocks ->
             let vbd_connected_to_vm_snapshot vbd =
@@ -1036,7 +1036,7 @@ let get_nbd_info ~__context ~self =
       ~__context
       ~expr:Db_filter_types.(And (Eq (Field "SR", Literal (Ref.string_of sr)),
                                   Eq (Field "currently_attached", Literal "true")))
-    |> Safe_list.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
+    |> Valid_ref_list.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
   in
   let get_ips host =
     let get_ips pif =
@@ -1051,9 +1051,9 @@ let get_nbd_info ~__context ~self =
         ~expr:Db_filter_types.(And (Eq (Field "host", Literal (Ref.string_of host)),
                                     Eq (Field "currently_attached", Literal "true")))
     in
-    attached_pifs |> Safe_list.flat_map get_ips
+    attached_pifs |> Valid_ref_list.flat_map get_ips
   in
-  let ips = hosts_with_attached_pbds |> Safe_list.flat_map get_ips in
+  let ips = hosts_with_attached_pbds |> Valid_ref_list.flat_map get_ips in
 
   let vdi_uuid = Db.VDI.get_uuid ~__context ~self in
   let session_id = Context.get_session_id __context |> Ref.string_of in
