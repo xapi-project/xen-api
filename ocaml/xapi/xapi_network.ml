@@ -188,7 +188,7 @@ let stem = "xapi"
 let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed =
   let r = Ref.make() and uuid = Uuid.make_uuid() in
   Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
-    ~current_operations:[] ~allowed_operations:[]
+    ~current_operations:[] ~allowed_operations:[] ~purposes:[]
     ~name_label ~name_description ~mTU ~bridge ~managed
     ~other_config ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked ~assigned_ips:[];
   r
@@ -201,7 +201,7 @@ let rec choose_bridge_name bridges =
   else
     name
 
-let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed ~tags =
+let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed ~tags ~purposes =
   Mutex.execute mutex (fun () ->
       let networks = Db.Network.get_all ~__context in
       let bridges = List.map (fun self -> Db.Network.get_bridge ~__context ~self) networks in
@@ -227,7 +227,7 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~
       Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
         ~current_operations:[] ~allowed_operations:[]
         ~name_label ~name_description ~mTU ~bridge ~managed
-        ~other_config ~blobs:[] ~tags ~default_locking_mode:`unlocked ~assigned_ips:[];
+        ~other_config ~blobs:[] ~tags ~purposes ~default_locking_mode:`unlocked ~assigned_ips:[];
       r
     )
 
@@ -329,3 +329,19 @@ let with_networks_attached_for_vm ~__context ?host ~vm f =
         error "Caught %s while detaching networks" (string_of_exn e)
     end;
     raise e
+
+let add_purpose ~__context ~network ~purpose =
+  let self = network in
+  let current = Db.Network.get_purposes ~__context ~self in
+  if not (List.mem purpose current) then (
+    (* TODO test for incompatible purposes and raise error if detected *)
+    Db.Network.set_purposes ~__context ~self ~value:(purpose::current)
+  )
+
+let remove_purpose ~__context ~network ~purpose =
+  let self = network in
+  let current = Db.Network.get_purposes ~__context ~self in
+  if (List.mem purpose current) then (
+    let porpoises = List.filter (fun porpoise -> porpoise<>purpose) current in
+    Db.Network.set_purposes ~__context ~self ~value:(porpoises)
+  )

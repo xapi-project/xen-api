@@ -183,12 +183,12 @@ let record_host_memory_properties ~__context =
       ~current_operations:[] ~allowed_operations:[]
       ~name_label:"Test uniqueness constraint"
       ~name_description:"Testing"
-      ~bridge:"bridge" ~other_config:[];
+      ~bridge:"bridge" ~other_config:[] ~purposes:[];
     Db.Network.create ~__context ~ref:(Ref.make()) ~uuid:duplicate_uuid
       ~current_operations:[] ~allowed_operations:[]
       ~name_label:"Test uniqueness constraint"
       ~name_description:"Testing"
-      ~bridge:"bridge" ~other_config:[];
+      ~bridge:"bridge" ~other_config:[] ~purposes:[];
     ()
 *)
 
