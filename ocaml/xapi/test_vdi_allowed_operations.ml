@@ -17,7 +17,7 @@ open Test_common
 
 (* Helpers for testing Xapi_vdi.check_operation_error *)
 
-let for_vdi_operations ops f () = ops |> List.iter f
+let for_vdi_operations ops f () = List.iter f ops
 
 let setup_test ~__context ?sm_fun ?vdi_fun () =
   let run f x = match f with Some f -> ignore(f x) | None -> () in
