@@ -75,6 +75,7 @@ vdi_info_types = {
     "snapshot_time": type(""),
     "snapshot_of": type(""),
     "read_only": type(True),
+    "cbt_enabled": type(True),
     "virtual_size": type(""),
     "physical_utilisation": type("")
 }

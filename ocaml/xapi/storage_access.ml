@@ -102,6 +102,7 @@ module SMAPIv1 = struct
         then Db.VDI.get_uuid ~__context ~self:vdi_rec.API.vDI_snapshot_of
         else "";
       read_only = vdi_rec.API.vDI_read_only;
+      cbt_enabled = vdi_rec.API.vDI_cbt_enabled;
       virtual_size = vdi_rec.API.vDI_virtual_size;
       physical_utilisation = vdi_rec.API.vDI_physical_utilisation;
       persistent = vdi_rec.API.vDI_on_boot = `persist;
