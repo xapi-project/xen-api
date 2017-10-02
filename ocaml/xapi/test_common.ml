@@ -162,8 +162,8 @@ let make_pif ~__context ~network ~host ?(device="eth0") ?(mAC="C0:FF:EE:C0:FF:EE
     ~ipv6_configuration_mode ~iPv6 ~ipv6_gateway ~primary_address_type ~managed ~properties
 
 let make_network ~__context ?(name_label="net") ?(name_description="description") ?(mTU=1500L)
-    ?(other_config=[]) ?(bridge="xenbr0") ?(managed=true) () =
-  Xapi_network.pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed
+    ?(other_config=[]) ?(bridge="xenbr0") ?(managed=true) ?(purposes=[]) () =
+  Xapi_network.pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed ~purposes
 
 let make_vif ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
     ?(current_operations=[]) ?(allowed_operations=[]) ?(reserved=false)
