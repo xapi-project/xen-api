@@ -628,12 +628,12 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
   (* Wait for 4 seconds in total for all the VBDs of this VDI to be unplugged & destroyed *)
   let start = Mtime_clock.now () in
   let finish =
-    let finish =
+    let maybe_finish =
       let timeout = Mtime.(Span.of_uint64_ns (Int64.of_float (timeout *. s_to_ns))) in
       Mtime.(add_span start timeout)
     in
     (* It is safe to unbox this because the timeout should not cause an overflow *)
-    Xapi_stdext_monadic.Opt.unbox finish
+    Xapi_stdext_monadic.Opt.unbox maybe_finish
   in
 
   let token, initial_vbds = next_token_and_vbds ~token:"" ~timeout in
@@ -644,7 +644,7 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
     let now = Mtime_clock.now () in
     if remaining_vbds <> [] && Mtime.is_earlier now ~than:finish then begin
       debug "wait_for_vbds_to_be_unplugged_and_destroyed: waiting for %d VBD(s) of VDI %s to be unplugged and destroyed" (List.length remaining_vbds) vdi_uuid;
-      let remaining = Mtime.span now finish |> Mtime.Span.to_s in
+      let remaining = Mtime.(span now finish |> Span.to_s) in
       debug "wait_for_vbds_to_be_unplugged_and_destroyed: remaining: %f seconds until timeout" remaining;
       let token, most_recent_vbds = next_token_and_vbds ~token ~timeout:remaining in
       let remaining_vbds = Xapi_stdext_monadic.Opt.default remaining_vbds most_recent_vbds in
