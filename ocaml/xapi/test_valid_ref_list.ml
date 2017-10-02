@@ -18,9 +18,9 @@ let with_vm_list f () =
 let test_exists =
   with_vm_list (fun __context l ->
       let f vm = Db.VM.get_name_label ~__context ~self:vm = "a" in
-      OUnit.assert_equal true (Safe_list.exists f l);
+      OUnit.assert_equal true (Valid_ref_list.exists f l);
       let f vm = Db.VM.get_name_label ~__context ~self:vm = "c" in
-      OUnit.assert_equal false (Safe_list.exists f l)
+      OUnit.assert_equal false (Valid_ref_list.exists f l)
     )
 
 let test_for_all =
@@ -29,24 +29,24 @@ let test_for_all =
         let name = Db.VM.get_name_label ~__context ~self:vm in
         name = "a" || name = "c"
       in
-      OUnit.assert_equal false (Safe_list.for_all f l);
+      OUnit.assert_equal false (Valid_ref_list.for_all f l);
       let f vm =
         let name = Db.VM.get_name_label ~__context ~self:vm in
         name = "a" || name = "d"
       in
-      OUnit.assert_equal true (Safe_list.for_all f l)
+      OUnit.assert_equal true (Valid_ref_list.for_all f l)
     )
 
 let test_map =
   with_vm_list (fun __context l ->
       let f vm = Db.VM.get_name_label ~__context ~self:vm in
-      assert_equal ["a"; "d"] (Safe_list.map f l)
+      assert_equal ["a"; "d"] (Valid_ref_list.map f l)
     )
 
 let test_flat_map =
   with_vm_list (fun __context l ->
       let f vm = [(Db.VM.get_name_label ~__context ~self:vm); (Db.VM.get_name_description ~__context ~self:vm)] in
-      assert_equal ["a"; "d_a"; "d"; "d_d"] (Safe_list.flat_map f l)
+      assert_equal ["a"; "d_a"; "d"; "d_d"] (Valid_ref_list.flat_map f l)
     )
 
 let test =
