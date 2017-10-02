@@ -251,6 +251,7 @@ let vdi_of_volume x =
   snapshot_time = "19700101T00:00:00Z";
   snapshot_of = "";
   read_only = not x.Storage.Volume.Types.read_write;
+  cbt_enabled = false;
   virtual_size = x.Storage.Volume.Types.virtual_size;
   physical_utilisation = x.Storage.Volume.Types.physical_utilisation;
   sm_config = [];
