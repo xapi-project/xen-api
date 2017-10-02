@@ -1995,6 +1995,7 @@ module Backend = struct
               )
 
           let qmp_event_thread () =
+            debug "Starting QMP_Event thread";
             (* Add the existing qmp sockets first *)
             Sys.readdir var_run_xen_path
             |> Array.to_list
@@ -2107,7 +2108,7 @@ module Backend = struct
   let of_domid x = of_profile (Profile.of_domid x)
 
   let init() =
-    Profile.all |> List.iter (fun p -> let module Q = (val of_profile p) in Q.Dm.Event.init() )
+    Qemu_upstream.Dm.Event.init()
 end
 
 (*
