@@ -31,7 +31,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (library
  ((name xcp)
   (public_name xcp)
-  (flags (:standard -w -39 %s))
+  (flags (:standard -w -39 %s -warn-error -3))
   (modules (:standard \ updates task_server scheduler channel_helper))
   (c_names (syslog_stubs))
   (libraries (cmdliner uri re cohttp xmlm unix sexplib
