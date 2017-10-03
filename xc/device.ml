@@ -2005,9 +2005,10 @@ module Backend = struct
               )
             in
 
-            qmp_event.data >>= function
-            | RTC_CHANGE timeoffset         -> rtc_change timeoffset
-            | XEN_PLATFORM_PV_DRIVER_INFO x -> xen_platform_pv_driver_info x
+            qmp_event.data |> function
+            | Some (RTC_CHANGE timeoffset)         -> rtc_change timeoffset
+            | Some (XEN_PLATFORM_PV_DRIVER_INFO x) -> xen_platform_pv_driver_info x
+            | _ -> () (* unhandled QMP events *)
 
           let qmp_event_thread () =
             debug "Starting QMP_Event thread";
