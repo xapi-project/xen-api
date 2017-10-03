@@ -433,7 +433,8 @@ let db_action api : O.Module.t =
       () in
 
   let all = Dm_api.objects_of_api api in
-  let modules = List.concat (List.map (fun x -> [ obj x; obj_init x]) all) in
+  let in_db = List.filter (fun obj -> obj.in_database) all in
+  let modules = List.concat (List.map (fun x -> [ obj x; obj_init x]) in_db) in
 
   O.Module.make
     ~name:_db_action
