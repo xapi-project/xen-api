@@ -2,18 +2,18 @@
 #require "unix"
 
 let flags = function
-| [] -> ""
-| pkgs ->
-  let cmd = "ocamlfind ocamlc -verbose" ^ (
-    List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
-  ) in
-  let ic = Unix.open_process_in
-    (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
-  in
-  let rec go ic acc =
-    try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
-  in
-  go ic ""
+  | [] -> ""
+  | pkgs ->
+    let cmd = "ocamlfind ocamlc -verbose" ^ (
+        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+      ) in
+    let ic = Unix.open_process_in
+        (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
+    in
+    let rec go ic acc =
+      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+    in
+    go ic ""
 
 let rewriters = ["ppx_deriving_rpc"]
 let flags = flags rewriters
@@ -33,17 +33,23 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (public_name xcp.memory)
   (flags (:standard -w -39 %s))
   (modules (:standard \ memory_cli))
-  (libraries (xcp threads rpclib))
+  (libraries
+   (rpclib
+    threads
+    xcp))
   (wrapped false)
   %s))
 
 (executable
  ((name memory_cli)
- (modules (memory_cli))
- (libraries (xcp.memory cmdliner rpclib.cmdliner rpclib.markdown))))
+  (modules (memory_cli))
+  (libraries
+   (cmdliner
+    rpclib.cmdliner
+    rpclib.markdown
+    xcp.memory))))
 
 (alias
  ((name runtest)
   (deps (memory_cli.exe))))
-
 |} flags coverage_rewriter

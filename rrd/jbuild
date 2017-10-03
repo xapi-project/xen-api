@@ -2,18 +2,18 @@
 #require "unix"
 
 let flags = function
-| [] -> ""
-| pkgs ->
-  let cmd = "ocamlfind ocamlc -verbose" ^ (
-    List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
-  ) in
-  let ic = Unix.open_process_in
-    (cmd ^ " | grep -oEe '-ppx? (\"([^\"\\]|\\.)+\"|\\w+)'")
-  in
-  let rec go ic acc =
-    try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
-  in
-  go ic ""
+  | [] -> ""
+  | pkgs ->
+    let cmd = "ocamlfind ocamlc -verbose" ^ (
+        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+      ) in
+    let ic = Unix.open_process_in
+        (cmd ^ " | grep -oEe '-ppx? (\"([^\"\\]|\\.)+\"|\\w+)'")
+    in
+    let rec go ic acc =
+      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+    in
+    go ic ""
 
 let rewriters_camlp4 = ["rpclib.idl -syntax camlp4o"]
 let rewriters_ppx = ["ppx_deriving_rpc"]
@@ -33,7 +33,11 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (public_name xcp.rrd.interface.types)
   (modules (data_source))
   (flags (:standard -w -39 %s))
-  (libraries (xcp threads rpclib rrd))
+  (libraries
+   (rpclib
+    rrd
+    threads
+    xcp))
   (wrapped false)
   %s))
 
@@ -42,16 +46,26 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (public_name xcp.rrd.interface)
   (modules (rrd_interface))
   (flags (:standard -w -39 %s))
-  (libraries (xcp threads rpclib rrd xcp_rrd_interface_types))
+  (libraries
+   (rpclib
+    rrd
+    threads
+    xcp
+    xcp_rrd_interface_types))
   (wrapped false)
   %s))
 
 (library
  ((name xcp_rrd)
   (public_name xcp.rrd)
-  (modules (:standard \ rrd_interface data_source))
+  (modules (:standard \ data_source rrd_interface))
   (flags (:standard -w -39 %s))
-  (libraries (xcp threads rpclib rrd xcp_rrd_interface))
+  (libraries
+   (rpclib
+    rrd
+    threads
+    xcp
+    xcp_rrd_interface))
   (wrapped false)
   %s))
 |} (flags rewriters_ppx) coverage_rewriter (flags rewriters_camlp4) coverage_rewriter (flags rewriters_ppx) coverage_rewriter

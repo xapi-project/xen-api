@@ -2,18 +2,18 @@
 #require "unix"
 
 let flags = function
-| [] -> ""
-| pkgs ->
-  let cmd = "ocamlfind ocamlc -verbose" ^ (
-    List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
-  ) in
-  let ic = Unix.open_process_in
-    (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
-  in
-  let rec go ic acc =
-    try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
-  in
-  go ic ""
+  | [] -> ""
+  | pkgs ->
+    let cmd = "ocamlfind ocamlc -verbose" ^ (
+        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+      ) in
+    let ic = Unix.open_process_in
+        (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
+    in
+    let rec go ic acc =
+      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+    in
+    go ic ""
 
 let coverage_rewriter =
   let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
@@ -32,33 +32,49 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name xcp)
   (public_name xcp)
   (flags (:standard -w -39 %s -warn-error -3))
-  (modules (:standard \ updates task_server scheduler channel_helper))
+  (modules (:standard \ channel_helper scheduler task_server updates))
   (c_names (syslog_stubs))
-  (libraries (cmdliner uri re cohttp xmlm unix sexplib
-              ppx_deriving_rpc rpclib rpclib.xml threads message_switch.unix
-              fd-send-recv xcp-inventory xapi-backtrace))
+  (libraries
+   (cmdliner
+    cohttp
+    fd-send-recv
+    message_switch.unix
+    ppx_deriving_rpc
+    re
+    rpclib
+    rpclib.xml
+    sexplib
+    threads
+    unix
+    uri
+    xapi-backtrace
+    xcp-inventory
+    xmlm))
   (wrapped false)
-  %s
-))
+  %s))
 
 (library
  ((name xcp_updates)
   (public_name xcp.updates)
   (flags (:standard -w -39 %s))
   (modules (updates task_server scheduler))
-  (libraries (xcp lwt))
+  (libraries
+   (lwt
+    xcp))
   (wrapped false)
-  %s
-))
+  %s))
 
 (executable
  ((name channel_helper)
   (flags (:standard -w -39 %s))
   (modules (channel_helper))
-  (libraries (xcp lwt lwt.unix cmdliner))))
+  (libraries
+   (cmdliner
+    lwt
+    lwt.unix
+    xcp))))
 
 (alias
  ((name runtest)
   (deps (channel_helper.exe))))
-
 |} flags coverage_rewriter flags coverage_rewriter flags

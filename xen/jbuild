@@ -2,25 +2,25 @@
 #require "unix"
 
 let flags = function
-| [] -> ""
-| pkgs ->
-  let cmd = "ocamlfind ocamlc -verbose" ^ (
-    List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
-  ) in
-  let ic = Unix.open_process_in
-    (cmd ^ " | grep -oEe '-ppx? (\"([^\"\\]|\\.)+\"|\\w+)'")
-  in
-  let rec go ic acc =
-    try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
-  in
-  go ic ""
+  | [] -> ""
+  | pkgs ->
+    let cmd = "ocamlfind ocamlc -verbose" ^ (
+        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+      ) in
+    let ic = Unix.open_process_in
+        (cmd ^ " | grep -oEe '-ppx? (\"([^\"\\]|\\.)+\"|\\w+)'")
+    in
+    let rec go ic acc =
+      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+    in
+    go ic ""
 
 let rewriters_ppx = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
 let rewriters_camlp4 = ["rpclib.idl -syntax camlp4o"]
 
 let coverage_rewriter = ""
 (* (preprocess (pps)) doesn't work with camlp4 and  the other ppx derivers,
- it complains about missing rpc_of_t *)
+   it complains about missing rpc_of_t *)
 let rewriters_ppx =
   let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
   if is_coverage then "bisect_ppx" :: rewriters_ppx else rewriters_ppx
@@ -34,7 +34,10 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (public_name xcp.xen.interface.types)
   (modules (xenops_types device_number))
   (flags (:standard -w -39 %s))
-  (libraries (xcp threads rpclib))
+  (libraries
+   (rpclib
+    threads
+    xcp))
   (wrapped false)
   %s))
 
@@ -43,16 +46,24 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (public_name xcp.xen.interface)
   (modules (xenops_interface))
   (flags (:standard -w -39 %s))
-  (libraries (xcp threads rpclib xcp_xen_interface_types))
+  (libraries
+   (rpclib
+    threads
+    xcp
+    xcp_xen_interface_types))
   (wrapped false)
   %s))
 
 (library
  ((name xcp_xen)
   (public_name xcp.xen)
-  (modules (:standard \ xenops_interface xenops_types device_number))
+  (modules (:standard \ device_number xenops_interface xenops_types))
   (flags (:standard -w -39 %s))
-  (libraries (xcp threads rpclib xcp_xen_interface))
+  (libraries
+   (rpclib
+    threads
+    xcp
+    xcp_xen_interface))
   (wrapped false)
   %s))
 |} (flags rewriters_ppx) coverage_rewriter (flags rewriters_camlp4) coverage_rewriter (flags rewriters_ppx) coverage_rewriter
