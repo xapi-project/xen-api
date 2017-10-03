@@ -72,7 +72,9 @@ val pool_introduce :
   mTU:int64 ->
   other_config:(string * string) list ->
   bridge:string ->
-  managed:bool -> [ `network ] Ref.t
+  managed:bool ->
+  purpose:API.network_purpose list ->
+  [ `network ] Ref.t
 
 (** Attempt to create a bridge with a unique name *)
 val create :
@@ -83,7 +85,8 @@ val create :
   other_config:(string * string) list ->
   bridge:string ->
   managed:bool ->
-  tags:string list -> [ `network ] Ref.t
+  tags:string list ->
+  [ `network ] Ref.t
 
 (** WARNING WARNING WARNING: called with the master dispatcher lock; do nothing but basic DB calls
     here without being really sure *)
@@ -126,6 +129,18 @@ val with_networks_attached_for_vm :
   vm:[ `VM ] Ref.t ->
   (unit -> 'a) ->
   'a
+
+val add_purpose :
+  __context:Context.t ->
+  self:[ `network ] Ref.t ->
+  value:API.network_purpose ->
+  unit
+
+val remove_purpose :
+  __context:Context.t ->
+  self:[ `network ] Ref.t ->
+  value:API.network_purpose ->
+  unit
 
 (** {2 Assertion Helper Functions} *)
 

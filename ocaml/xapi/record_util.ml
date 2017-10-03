@@ -198,6 +198,15 @@ let string_to_network_default_locking_mode = function
   | "disabled" -> `disabled
   | s -> raise (Record_failure ("Expected 'unlocked' or 'disabled', got "^s))
 
+let network_purpose_to_string: API.network_purpose -> string = function
+  | `nbd -> "nbd"
+  | `insecure_nbd -> "insecure_nbd"
+
+let string_to_network_purpose: string -> API.network_purpose = function
+  | "nbd" -> `nbd
+  | "insecure_nbd" -> `insecure_nbd
+  | s -> raise (Record_failure ("Expected a network purpose string; got "^s))
+
 let vm_appliance_operation_to_string = function
   | `start -> "start"
   | `clean_shutdown -> "clean_shutdown"

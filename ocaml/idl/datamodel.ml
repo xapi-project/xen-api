@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 132
+let schema_minor_vsn = 133
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -88,7 +88,7 @@ let falcon_release_schema_major_vsn = 5
 let falcon_release_schema_minor_vsn = 120
 
 let inverness_release_schema_major_vsn = 5
-let inverness_release_schema_minor_vsn = 131
+let inverness_release_schema_minor_vsn = 133
 
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
@@ -566,6 +566,8 @@ let _ =
     ~doc:"You tried to create a PIF, but the network you tried to attach it to is already attached to some other PIF, and so the creation failed." ();
   error Api_errors.cannot_destroy_system_network [ "network" ]
     ~doc:"You tried to destroy a system network: these cannot be destroyed." ();
+  error Api_errors.network_incompatible_purposes ["new_purpose"; "conflicting_purpose"]
+    ~doc:"You tried to add a purpose to a network but the new purpose is not compatible with an existing purpose of the network or other networks." ();
   error Api_errors.pif_is_physical ["PIF"]
     ~doc:"You tried to destroy a PIF, but it represents an aspect of the physical host configuration, and so cannot be destroyed.  The parameter echoes the PIF handle you gave." ();
   error Api_errors.pif_is_vlan ["PIF"]
@@ -5178,6 +5180,13 @@ let network_attach = call
     ~allowed_roles:_R_POOL_OP
     ()
 
+let network_purpose = Enum ("network_purpose", [
+  "nbd", "Network Block Device service using TLS";
+  "insecure_nbd", "Network Block Device service without integrity or confidentiality: NOT RECOMMENDED";
+  (* We should (re-)add other purposes as and when we write code with behaviour that depends on them,
+   * e.g. management, storage, guest, himn... unmanaged? *)
+])
+
 let network_introduce_params first_rel =
   [
     {param_type=String; param_name="name_label"; param_doc=""; param_release=first_rel; param_default=None};
@@ -5186,6 +5195,7 @@ let network_introduce_params first_rel =
     {param_type=Map(String,String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=String; param_name="bridge"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=Bool; param_name="managed"; param_doc=""; param_release=falcon_release; param_default=None};
+    {param_type=Set(network_purpose); param_name="purpose"; param_doc=""; param_release=inverness_release; param_default=None};
   ]
 
 (* network pool introduce is used to copy network records on pool join -- it's the network analogue of VDI/PIF.pool_introduce *)
@@ -5249,6 +5259,29 @@ let network_detach_for_vm = call
     ~allowed_roles:_R_VM_POWER_ADMIN
     ()
 
+let network_add_purpose = call
+  ~name:"add_purpose"
+  ~doc:"Give a network a new purpose (if not present already)"
+  ~params:[
+    Ref _network, "self", "The network";
+    network_purpose, "value", "The purpose to add";
+  ]
+  ~errs:[Api_errors.network_incompatible_purposes]
+  ~in_product_since:rel_inverness
+  ~allowed_roles:_R_POOL_ADMIN
+  ()
+
+let network_remove_purpose = call
+  ~name:"remove_purpose"
+  ~doc:"Remove a purpose from a network (if present)"
+  ~params:[
+    Ref _network, "self", "The network";
+    network_purpose, "value", "The purpose to remove";
+  ]
+  ~in_product_since:rel_inverness
+  ~allowed_roles:_R_POOL_ADMIN
+  ()
+
 (** A virtual network *)
 let network =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_network ~descr:"A virtual network" ~gen_events:true
@@ -5256,7 +5289,7 @@ let network =
     ~messages_default_allowed_roles:_R_VM_ADMIN (* vm admins can create/destroy networks without PIFs *)
     ~doc_tags:[Networking]
     ~messages:[network_attach; network_pool_introduce; network_create_new_blob; network_set_default_locking_mode;
-               network_attach_for_vm; network_detach_for_vm]
+               network_attach_for_vm; network_detach_for_vm; network_add_purpose; network_remove_purpose]
     ~contents:
       ([
         uid _network;
@@ -5271,7 +5304,8 @@ let network =
           field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this network";
           field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
           field ~qualifier:DynamicRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "unlocked")) ~ty:network_default_locking_mode "default_locking_mode" "The network will use this value to determine the behaviour of all VIFs where locking_mode = default";
-          field ~qualifier:DynamicRO ~in_product_since:rel_creedence ~default_value:(Some (VMap [])) ~ty:(Map (Ref _vif, String)) "assigned_ips" "The IP addresses assigned to VIFs on networks that have active xapi-managed DHCP"
+          field ~qualifier:DynamicRO ~in_product_since:rel_creedence ~default_value:(Some (VMap [])) ~ty:(Map (Ref _vif, String)) "assigned_ips" "The IP addresses assigned to VIFs on networks that have active xapi-managed DHCP";
+          field ~qualifier:DynamicRO ~in_product_since:rel_inverness ~default_value:(Some (VSet [])) ~ty:(Set network_purpose) "purpose" "Set of purposes for which the server will use this network";
         ])
     ()
 

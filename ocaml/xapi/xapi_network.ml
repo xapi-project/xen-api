@@ -185,10 +185,10 @@ let counter = ref 0
 let mutex = Mutex.create ()
 let stem = "xapi"
 
-let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed =
+let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed ~purpose =
   let r = Ref.make() and uuid = Uuid.make_uuid() in
   Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
-    ~current_operations:[] ~allowed_operations:[]
+    ~current_operations:[] ~allowed_operations:[] ~purpose
     ~name_label ~name_description ~mTU ~bridge ~managed
     ~other_config ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked ~assigned_ips:[];
   r
@@ -227,7 +227,7 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~
       Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
         ~current_operations:[] ~allowed_operations:[]
         ~name_label ~name_description ~mTU ~bridge ~managed
-        ~other_config ~blobs:[] ~tags ~default_locking_mode:`unlocked ~assigned_ips:[];
+        ~other_config ~blobs:[] ~tags ~purpose:[] ~default_locking_mode:`unlocked ~assigned_ips:[];
       r
     )
 
@@ -329,3 +329,40 @@ let with_networks_attached_for_vm ~__context ?host ~vm f =
         error "Caught %s while detaching networks" (string_of_exn e)
     end;
     raise e
+
+(* Note that in the revision history is a version of this function
+ * with logic for additional purposes, which may be useful in future. *)
+let assert_can_add_purpose ~__context ~network ~current newval =
+  let sop (*string-of-porpoise*) = Record_util.network_purpose_to_string in
+  let reject str =
+    raise Api_errors.(Server_error (network_incompatible_purposes, [ (sop newval); str ]))
+  in
+  let assert_no_net_has_bad_porpoise bads =
+    (* Sadly we can't use Db.Network.get_refs_where because the expression
+     * type doesn't allow searching for a value inside a list. *)
+    Db.Network.get_all ~__context |>
+    List.iter (fun nwk ->
+      Db.Network.get_purpose ~__context ~self:nwk |>
+      List.iter (fun suspect -> if (List.mem suspect bads) then
+        info "Cannot set new network purpose %s when there is a network with purpose %s" (sop newval) (sop suspect);
+        reject (sop suspect)
+      )
+    )
+  in
+  match newval with
+  | `nbd -> assert_no_net_has_bad_porpoise [`insecure_nbd]
+  | `insecure_nbd -> assert_no_net_has_bad_porpoise [`nbd]
+
+let add_purpose ~__context ~self ~value =
+  let current = Db.Network.get_purpose ~__context ~self in
+  if not (List.mem value current) then (
+    assert_can_add_purpose ~__context ~network:self ~current value;
+    Db.Network.set_purpose ~__context ~self ~value:(value::current)
+  )
+
+let remove_purpose ~__context ~self ~value =
+  let current = Db.Network.get_purpose ~__context ~self in
+  if (List.mem value current) then (
+    let porpoises = List.filter ((<>) value) current in
+    Db.Network.set_purpose ~__context ~self ~value:(porpoises)
+  )
