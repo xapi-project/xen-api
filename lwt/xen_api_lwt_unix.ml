@@ -97,7 +97,7 @@ module Lwt_unix_IO = struct
            Lwt_ssl.ssl_connect fd sslctx >>= fun sock ->
            let ic = Lwt_ssl.in_channel_of_descr sock in
            let oc = Lwt_ssl.out_channel_of_descr sock in
-           return (Ok (((fun () -> Lwt_ssl.close sock), ic), ((fun () -> Lwt_ssl.close sock), oc))))
+           return (Ok ((return, ic), ((fun () -> Lwt_ssl.close sock), oc))))
         (fun e -> return (Error e))
     end else begin
       let fd = Lwt_unix.socket domain Unix.SOCK_STREAM 0 in
