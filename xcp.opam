@@ -8,24 +8,24 @@ tags: [ "org:xapi-project" ]
 build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 build-test: ["jbuilder" "runtest" "-p" name]
 depends: [
-  "ocamlfind" {build}
   "jbuilder" {build & >= "1.0+beta11"}
+  "ocamlfind" {build}
   "base-threads"
   "base-unix"
-  "uri"
-  "re"
   "cmdliner"
   "cohttp" {< "0.22.0"}
-  "xmlm"
-  "rpc" {>= "1.9.51"}
-  "message-switch"
-  "xapi-stdext"
-  "xapi-rrd"
-  "xapi-inventory"
-  "xapi-backtrace"
   "fd-send-recv"
   "lwt" {< "3.0.0" & >= "2.7.1"}
+  "message-switch"
   "ounit" {>= "2.0.0"}
   "ppx_sexp_conv"
+  "re"
+  "rpc" {>= "1.9.51"}
   "sexplib"
+  "uri"
+  "xapi-backtrace"
+  "xapi-inventory"
+  "xapi-rrd"
+  "xapi-stdext"
+  "xmlm"
 ]
