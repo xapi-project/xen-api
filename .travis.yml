@@ -8,7 +8,7 @@ script:
   - if [ ! -z "${XS_COV}" ]; then bash -ex travis-coveralls.sh || true; fi
 env:
   global:
-    - OCAML_VERSION=4.02
+    - OCAML_VERSION=4.04
     - PACKAGE=xen-api-client
     # WARNING: Don't set TESTS=true here (which is the default) as that env var
     # is already used by the Makefile for OASIS configuration.
