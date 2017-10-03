@@ -201,7 +201,7 @@ let rec choose_bridge_name bridges =
   else
     name
 
-let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed ~tags ~purpose =
+let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed ~tags =
   Mutex.execute mutex (fun () ->
       let networks = Db.Network.get_all ~__context in
       let bridges = List.map (fun self -> Db.Network.get_bridge ~__context ~self) networks in
@@ -227,7 +227,7 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~
       Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
         ~current_operations:[] ~allowed_operations:[]
         ~name_label ~name_description ~mTU ~bridge ~managed
-        ~other_config ~blobs:[] ~tags ~purpose ~default_locking_mode:`unlocked ~assigned_ips:[];
+        ~other_config ~blobs:[] ~tags ~purpose:[] ~default_locking_mode:`unlocked ~assigned_ips:[];
       r
     )
 
