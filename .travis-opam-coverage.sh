@@ -1,6 +1,6 @@
 # SUMMARY:
 # Builds & tests xapi with coverage in a Ubuntu 16.04 Docker container with
-# OCaml 4.02.3, then uploads the coverage information to coveralls.
+# OCaml 4.04.2, then uploads the coverage information to coveralls.
 
 set -uex
 
