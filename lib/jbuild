@@ -48,6 +48,9 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     unix
     uri
     xapi-backtrace
+    xapi-stdext-monadic
+    xapi-stdext-pervasives
+    xapi-stdext-threads
     xcp-inventory
     xmlm))
   (wrapped false)

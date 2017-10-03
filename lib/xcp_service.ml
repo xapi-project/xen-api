@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext
+open Xapi_stdext_monadic
 module StringSet = Set.Make(String)
 
 (* Server configuration. We have built-in (hopefully) sensible defaults,

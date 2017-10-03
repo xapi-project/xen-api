@@ -1,8 +1,8 @@
 (******************************************************************************)
 (* Object update tracking                                                     *)
 
-open Stdext
-open Pervasiveext
+open Xapi_stdext_monadic
+open Xapi_stdext_pervasives.Pervasiveext
 
 module type INTERFACE = sig
   val service_name : string
@@ -111,7 +111,7 @@ module Updates = functor(Interface : INTERFACE) -> struct
 (*    let fold f t init = M.fold f t.map init *)
   end
 
-  open Stdext.Threadext
+  open Xapi_stdext_threads.Threadext
 
   module U = UpdateRecorder(struct type t = Interface.Dynamic.id let compare = compare end)
 

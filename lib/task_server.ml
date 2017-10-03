@@ -14,9 +14,9 @@
 (**
  * @group Xenops
 *)
-open Stdext
-open Threadext
-open Pervasiveext
+open Xapi_stdext_monadic
+open Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_threads.Threadext
 
 
 module D = Debug.Make(struct let name = "task_server" end)
