@@ -86,7 +86,6 @@ val create :
   bridge:string ->
   managed:bool ->
   tags:string list ->
-  purpose:API.network_purpose list ->
   [ `network ] Ref.t
 
 (** WARNING WARNING WARNING: called with the master dispatcher lock; do nothing but basic DB calls
