@@ -346,7 +346,9 @@ module Interface = struct
 		Debug.with_thread_associated dbg (fun () ->
 			debug "Configuring MTU for %s: %d" name mtu;
 			update_config name {(get_config name) with mtu};
-			ignore (Ip.link_set_mtu name mtu)
+			match !backend_kind with
+			| Openvswitch -> ignore (Ovs.set_mtu name mtu)
+			| Bridge -> Ip.link_set_mtu name mtu
 		) ()
 
 	let set_ethtool_settings _ dbg ~name ~params =
