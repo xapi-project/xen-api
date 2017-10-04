@@ -1119,6 +1119,9 @@ module Ovs = struct
 	let mod_port bridge port action =
 		ofctl ~log:true ["mod-port"; bridge; port; action] |> ignore
 
+	let set_mtu interface mtu =
+		vsctl ~log:true ["set"; "interface"; interface; Printf.sprintf "mtu_request=%d" mtu]
+
 	end
 	include Make(Cli)
 end
