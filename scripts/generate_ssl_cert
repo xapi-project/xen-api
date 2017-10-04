@@ -19,7 +19,6 @@ if [ -e ${FILE} ]; then
 fi
 
 dnsnames=$((hostname -A; hostname -f) | sort | uniq)
-addresses=$(hostname -I | sort | uniq)
 
 DIR=$(mktemp -d tls-cert-generation-XXXXXXXXXX --tmpdir)
 
@@ -51,12 +50,6 @@ for x in $dnsnames
 do
 	let i=i+1
 	echo "DNS.${i}=${x}" >> config
-done
-i=0
-for x in $addresses
-do
-	let i=i+1
-	echo "IP.${i}=${x}" >> config
 done
 
 openssl genrsa 1024 > privkey.rsa
