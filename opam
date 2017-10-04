@@ -38,4 +38,5 @@ depends: [
   "ezxenstore"
   "bisect_ppx"
   "core"
+  "qmp"
 ]
