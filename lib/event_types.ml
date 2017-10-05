@@ -57,6 +57,19 @@ type event_from = {
   token: token;
 } [@@deriving rpc]
 
+let rec rpc_of_event_from e =
+  Rpc.Dict
+    [ ("events",
+       (Rpc.Enum (List.map rpc_of_event e.events)));
+      ("valid_ref_counts",
+       (let dict =
+          List.map
+            (fun (key, count) ->
+               (key, (Rpc.Int32 count)))
+            e.valid_ref_counts
+        in Rpc.Dict dict));
+      ("token", (rpc_of_token e.token)) ]
+
 (** Return result of an events.from call *)
 
 open Printf
@@ -68,6 +81,7 @@ let op_of_string x = match String.lowercase x with
 
 let string_of_event ev = sprintf "%s %s %s %s %s" ev.id ev.ty (string_of_op ev.op) ev.reference
     (if ev.snapshot = None then "(no snapshot)" else "OK")
+
 
 
 

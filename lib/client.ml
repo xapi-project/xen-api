@@ -349,6 +349,13 @@ module ClientF = functor(X : IO) ->struct
         
         rpc_wrapper rpc "Async.pool.disable_ssl_legacy" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
+      let set_igmp_snooping_enabled ~rpc ~session_id ~self ~value =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_pool self in
+        let value = rpc_of_bool value in
+        
+        rpc_wrapper rpc "Async.pool.set_igmp_snooping_enabled" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
       let has_extension ~rpc ~session_id ~self ~name =
         let session_id = rpc_of_ref_session session_id in
         let self = rpc_of_ref_pool self in
@@ -905,6 +912,13 @@ module ClientF = functor(X : IO) ->struct
         let vm = rpc_of_ref_VM vm in
         
         rpc_wrapper rpc "Async.VM.retrieve_wlb_recommendations" [ session_id; vm ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let set_bios_strings ~rpc ~session_id ~self ~value =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_VM self in
+        let value = rpc_of_string_to_string_map value in
+        
+        rpc_wrapper rpc "Async.VM.set_bios_strings" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let copy_bios_strings ~rpc ~session_id ~vm ~host =
         let session_id = rpc_of_ref_session session_id in
@@ -2488,6 +2502,32 @@ module ClientF = functor(X : IO) ->struct
         
         rpc_wrapper rpc "Async.VDI.disable_cbt" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
+      let set_cbt_enabled ~rpc ~session_id ~self ~value =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_VDI self in
+        let value = rpc_of_bool value in
+        
+        rpc_wrapper rpc "Async.VDI.set_cbt_enabled" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let data_destroy ~rpc ~session_id ~self =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_VDI self in
+        
+        rpc_wrapper rpc "Async.VDI.data_destroy" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let export_changed_blocks ~rpc ~session_id ~vdi_from ~vdi_to =
+        let session_id = rpc_of_ref_session session_id in
+        let vdi_from = rpc_of_ref_VDI vdi_from in
+        let vdi_to = rpc_of_ref_VDI vdi_to in
+        
+        rpc_wrapper rpc "Async.VDI.export_changed_blocks" [ session_id; vdi_from; vdi_to ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let get_nbd_info ~rpc ~session_id ~self =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_VDI self in
+        
+        rpc_wrapper rpc "Async.VDI.get_nbd_info" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
         ~rpc
@@ -2679,11 +2719,10 @@ module ClientF = functor(X : IO) ->struct
     end
     module Console = struct
       (**  *)
-      let create ~rpc ~session_id ~other_config ~port =
+      let create ~rpc ~session_id ~other_config =
         let session_id = rpc_of_ref_session session_id in
         let other_config = rpc_of_string_to_string_map other_config in
-        let port = rpc_of_int64 port in
-        let args = Dict [ "other_config", other_config; "port", port] in
+        let args = Dict [ "other_config", other_config] in
         rpc_wrapper rpc "Async.console.create" [ session_id; args ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let destroy ~rpc ~session_id ~self =
@@ -2697,7 +2736,6 @@ module ClientF = functor(X : IO) ->struct
         ~rpc
         ~session_id
         ~other_config:value.console_other_config
-        ~port:value.console_port
     end
     module User = struct
       (**  *)
@@ -3811,6 +3849,12 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "pool.get_live_patching_disabled" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
     (**  *)
+    let get_igmp_snooping_enabled ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      
+      rpc_wrapper rpc "pool.get_igmp_snooping_enabled" [ session_id; self ] >>= fun x -> return (bool_of_rpc  x)
+    (**  *)
     let set_name_label ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_pool self in
@@ -4307,6 +4351,13 @@ module ClientF = functor(X : IO) ->struct
       let self = rpc_of_ref_pool self in
       
       rpc_wrapper rpc "pool.disable_ssl_legacy" [ session_id; self ] >>= fun x -> return (ignore x)
+    (**  *)
+    let set_igmp_snooping_enabled ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_pool self in
+      let value = rpc_of_bool value in
+      
+      rpc_wrapper rpc "pool.set_igmp_snooping_enabled" [ session_id; self; value ] >>= fun x -> return (ignore x)
     (**  *)
     let has_extension ~rpc ~session_id ~self ~name =
       let session_id = rpc_of_ref_session session_id in
@@ -6022,6 +6073,13 @@ module ClientF = functor(X : IO) ->struct
       let vm = rpc_of_ref_VM vm in
       
       rpc_wrapper rpc "VM.retrieve_wlb_recommendations" [ session_id; vm ] >>= fun x -> return (ref_host_to_string_set_map_of_rpc  x)
+    (**  *)
+    let set_bios_strings ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VM self in
+      let value = rpc_of_string_to_string_map value in
+      
+      rpc_wrapper rpc "VM.set_bios_strings" [ session_id; self; value ] >>= fun x -> return (ignore x)
     (**  *)
     let copy_bios_strings ~rpc ~session_id ~vm ~host =
       let session_id = rpc_of_ref_session session_id in
@@ -9884,6 +9942,12 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "PIF.get_capabilities" [ session_id; self ] >>= fun x -> return (string_set_of_rpc  x)
     (**  *)
+    let get_igmp_snooping_status ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_PIF self in
+      
+      rpc_wrapper rpc "PIF.get_igmp_snooping_status" [ session_id; self ] >>= fun x -> return (pif_igmp_status_of_rpc  x)
+    (**  *)
     let set_other_config ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_PIF self in
@@ -11614,6 +11678,32 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "VDI.disable_cbt" [ session_id; self ] >>= fun x -> return (ignore x)
     (**  *)
+    let set_cbt_enabled ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VDI self in
+      let value = rpc_of_bool value in
+      
+      rpc_wrapper rpc "VDI.set_cbt_enabled" [ session_id; self; value ] >>= fun x -> return (ignore x)
+    (**  *)
+    let data_destroy ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VDI self in
+      
+      rpc_wrapper rpc "VDI.data_destroy" [ session_id; self ] >>= fun x -> return (ignore x)
+    (**  *)
+    let export_changed_blocks ~rpc ~session_id ~vdi_from ~vdi_to =
+      let session_id = rpc_of_ref_session session_id in
+      let vdi_from = rpc_of_ref_VDI vdi_from in
+      let vdi_to = rpc_of_ref_VDI vdi_to in
+      
+      rpc_wrapper rpc "VDI.export_changed_blocks" [ session_id; vdi_from; vdi_to ] >>= fun x -> return (string_of_rpc  x)
+    (**  *)
+    let get_nbd_info ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_VDI self in
+      
+      rpc_wrapper rpc "VDI.get_nbd_info" [ session_id; self ] >>= fun x -> return (string_set_of_rpc  x)
+    (**  *)
     let get_all ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
       
@@ -12349,11 +12439,10 @@ module ClientF = functor(X : IO) ->struct
       
       rpc_wrapper rpc "console.get_by_uuid" [ session_id; uuid ] >>= fun x -> return (ref_console_of_rpc  x)
     (**  *)
-    let create ~rpc ~session_id ~other_config ~port =
+    let create ~rpc ~session_id ~other_config =
       let session_id = rpc_of_ref_session session_id in
       let other_config = rpc_of_string_to_string_map other_config in
-      let port = rpc_of_int64 port in
-      let args = Dict [ "other_config", other_config; "port", port] in
+      let args = Dict [ "other_config", other_config] in
       rpc_wrapper rpc "console.create" [ session_id; args ] >>= fun x -> return (ref_console_of_rpc  x)
     (**  *)
     let destroy ~rpc ~session_id ~self =
@@ -12435,7 +12524,6 @@ module ClientF = functor(X : IO) ->struct
       ~rpc
       ~session_id
       ~other_config:value.console_other_config
-      ~port:value.console_port
   end
   module User = struct
     (**  *)
