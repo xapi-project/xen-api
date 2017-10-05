@@ -343,9 +343,11 @@ let assert_can_add_purpose ~__context ~network ~current newval =
     Db.Network.get_all ~__context |>
     List.iter (fun nwk ->
       Db.Network.get_purpose ~__context ~self:nwk |>
-      List.iter (fun suspect -> if (List.mem suspect bads) then
-        info "Cannot set new network purpose %s when there is a network with purpose %s" (sop newval) (sop suspect);
-        reject (sop suspect)
+      List.iter (fun suspect ->
+        if (List.mem suspect bads) then (
+          info "Cannot set new network purpose %s when there is a network with purpose %s" (sop newval) (sop suspect);
+          reject (sop suspect)
+        )
       )
     )
   in
