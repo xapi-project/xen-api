@@ -486,6 +486,7 @@ let create_vdi_test sr =
     snapshot_time = "";
     snapshot_of = "";
     read_only = false;
+    cbt_enabled = false;
     physical_utilisation = 10L;
     metadata_of_pool = "";
     persistent = true;
