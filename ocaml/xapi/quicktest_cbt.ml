@@ -22,7 +22,7 @@ let start session_id =
     failed test (Printf.sprintf "%s failed: %s" test_name  (ExnHelper.string_of_exn error)) in
 
   (* overall test suite runs smaller unit tests *)
-  let cbt_test = make_test "Testing CBT feature" 4 in
+  let cbt_test = make_test "Testing changed block tracking" 2 in
   try
     start cbt_test;
     (* find an lvm SR to attach new VDI to *)
@@ -37,7 +37,7 @@ let start session_id =
 
     (* test enable/disable CBT, test cbt_enabled:false for new VDI *)
     let enable_disable_cbt_test () =
-      let enable_cbt_test = make_test "Testing VDI.enable/disable_CBT" 2 in
+      let enable_cbt_test = make_test "Testing VDI.enable/disable_CBT" 4 in
       let get_cbt_status vDI = VDI.get_cbt_enabled ~session_id ~rpc:!rpc ~self:vDI in
       try
         start enable_cbt_test;

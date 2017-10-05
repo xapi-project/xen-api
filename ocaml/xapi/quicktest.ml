@@ -844,6 +844,7 @@ let _ =
     "lifecycle";
     "vhd";
     "copy";
+    "cbt";
     "import_raw_vdi";
     "pbd-bvt";
   ] in
