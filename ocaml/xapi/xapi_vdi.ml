@@ -1069,6 +1069,9 @@ let get_nbd_info ~__context ~self =
   let exportname = Printf.sprintf "/%s?session_id=%s" vdi_uuid session_id in
 
   hosts_with_attached_pbds |> Valid_ref_list.flat_map (fun host ->
+    let ips = get_ips host in
+    (* Check if empty: avoid inter-host calls and other work if so. *)
+    if ips = [] then [] else
     let cert = Helpers.call_api_functions ~__context
       (fun rpc session_id -> Client.Host.get_server_certificate ~rpc ~session_id ~host) in
     let port = 10809L in
@@ -1081,7 +1084,7 @@ let get_nbd_info ~__context ~self =
       vdi_nbd_server_info_cert = cert;
       vdi_nbd_server_info_subject = subject;
     } in
-    get_ips host |> List.map
+    ips |> List.map
      (fun addr -> API.{template with vdi_nbd_server_info_address = addr})
   )
 
