@@ -2706,6 +2706,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module Host_cpu = struct
   end
 
+  module Vdi_nbd_server_info = struct
+  end
+
   module Network = struct
 
     (* Don't forward. These are just db operations. Networks are "attached" when required by hosts that read db entries.
