@@ -124,7 +124,7 @@ module Make(IO:IO) = struct
           return (Buffer.contents body) in
       loop () >>= fun body ->
       (* for debugging -- *)
-         (* incr counter;
+      (* incr counter;
          let fd = Unix.openfile (Printf.sprintf "/tmp/response.%d.xml" !counter) [ Unix.O_WRONLY; Unix.O_CREAT ] 0o644 in
          let (_: int) = Unix.write fd body 0 (String.length body) in
          Unix.close fd; *)

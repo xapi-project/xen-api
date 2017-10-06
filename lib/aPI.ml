@@ -10,34 +10,34 @@ type string_list = string list [@@deriving rpc]
 module Ref = struct
   (* BEGIN ref.ml from xen-api repository *)
   type 'a t = string
-  
+
   let ref_prefix = "OpaqueRef:"
-  
+
   let make () =
     let uuid = Uuidm.v `V4 |> Uuidm.to_string in
     ref_prefix ^ uuid
-  
+
   let null = ref_prefix ^ "NULL"
-  
+
   let string_of x = x
-  
+
   let of_string x = x
-  
+
   (* very ugly hack to be able to distinguish dummy and real tasks. Moreover, dummy tasks have their name *)
   (* embedded into the reference .... *)
-  
+
   (* a dummy reference is a reference of an object which is not in database *)
   let dummy_sep = "|"
   let dummy_prefix = "DummyRef:"
-  
-  
+
+
   let make_dummy task_name =
     let uuid = Uuidm.v `V4 |> Uuidm.to_string in
     dummy_prefix ^ dummy_sep ^ uuid ^ dummy_sep ^ task_name
-  
+
   let is_dummy x =
     Astring.String.is_prefix ~affix:dummy_prefix x
-  
+
   let cut_in_three ~sep str =
     let (>>=) opt f =
       match opt with
@@ -47,23 +47,23 @@ module Ref = struct
     let open Astring in
     String.cut ~sep str
     >>= fun (head, tail) ->
-      String.cut ~sep tail
+    String.cut ~sep tail
     >>= fun (head', tail) ->
-      Some (head, head', tail)
-  
+    Some (head, head', tail)
+
   let name_of_dummy x =
     match cut_in_three ~sep:dummy_sep x with
     | Some(_, _, name) -> name
     | None -> failwith (
         Printf.sprintf "Ref.name_of_dummy: %s is not a valid dummy reference" x)
-  
+
   (* we do not show the name when we pretty print the dummy reference *)
   let pretty_string_of_dummy x =
     match cut_in_three ~sep:dummy_sep x with
     | Some (_, uuid, _) -> dummy_prefix ^ uuid
     | None -> failwith (
-      Printf.sprintf "Ref.pretty_string_of_dummy: %s is not a valid dummy reference" x)
-  
+        Printf.sprintf "Ref.pretty_string_of_dummy: %s is not a valid dummy reference" x)
+
   let really_pretty_and_small x =
     let s, prelen, c =
       if is_dummy x then
