@@ -34,11 +34,10 @@ let start session_id =
     (* generate list of SRs attached to a host *)
     let list_of_attached_srs =
       let is_attached sr =
-        let pbds = SR.get_PBDs ~session_id ~rpc:!rpc ~self:sr in
-        List.fold_left (||) false
-          (List.map (fun pbd ->
-               PBD.get_currently_attached ~session_id ~rpc:!rpc ~self:pbd
-             ) pbds) in
+        List.exists
+          (fun pbd ->
+             PBD.get_currently_attached ~session_id ~rpc:!rpc ~self:pbd
+          ) (SR.get_PBDs ~session_id ~rpc:!rpc ~self:sr) in
       List.filter is_attached (SR.get_all ~session_id ~rpc:!rpc) in
 
     (* find lvm SR (that passes data_destroy) to attach new VDI *)
@@ -48,13 +47,16 @@ let start session_id =
            && (not (SR.get_is_tools_sr ~session_id ~rpc:!rpc ~self:sr))
         ) list_of_attached_srs |> List.hd in
 
+    let sR_operations =
+      SR.get_allowed_operations ~session_id ~rpc:!rpc ~self:sR in
+
     let vDI = VDI.create ~session_id ~rpc:!rpc ~name_label:"qt-cbt"
         ~name_description:"VDI for CBT quicktest" ~_type:`user ~sR
         ~sharable:false ~other_config:[] ~read_only:false ~sm_config:[]
         ~virtual_size:(2L ** mib) ~xenstore_data:[] ~tags:[] in
 
     (* Test enable/disable CBT, test cbt_enabled:false for new VDI *)
-    let enable_disable_cbt_test vDI =
+    let enable_disable_cbt_test ~vDI =
       let enable_cbt_test = make_test "Testing VDI.enable/disable_CBT" 4 in
       let get_cbt_status vDI = VDI.get_cbt_enabled ~session_id ~rpc:!rpc ~self:vDI in
       let test = enable_cbt_test in
@@ -71,21 +73,27 @@ let start session_id =
         test_assert ~test
           (not (get_cbt_status vDI)) (* disable_cbt fails *)
           ~msg:"VDI.disable_CBT failed";
-        success enable_cbt_test;
+        success enable_cbt_test
       with e -> report_failure e "enable/disable CBT" enable_cbt_test in
 
-    (* Call unit tests *)
-    let run_tests ~vDI =
-      List.iter (fun test -> test vDI)
-        [ enable_disable_cbt_test
+    (* Call unit tests if and only if SR supports required operations *)
+    let run_tests ~vDI ~sR_operations =
+      List.iter (fun (test, required_operations) ->
+          if List.for_all
+              (fun x -> List.mem x sR_operations)
+              required_operations
+          then test ~vDI
+          else ignore ())
+        [ enable_disable_cbt_test , [`vdi_enable_cbt ; `vdi_disable_cbt]
         ]; in
 
-    (* Finally, destroy VDI regardless of how test suite progresses *)
+    (* Finally, destroy VDI regardless of test suite result *)
     Xapi_stdext_pervasives.Pervasiveext.finally
-      (fun () -> run_tests ~vDI)
+      (fun () -> run_tests ~vDI ~sR_operations)
       (fun () -> VDI.destroy ~session_id ~rpc:!rpc ~self:vDI);
 
     (* Overall test will fail if VDI.destroy messes up, or any other exception is thrown *)
+    debug cbt_test "Finished testing changed block tracking\n";
     success cbt_test
   with
   | (Failure hd) -> failed cbt_test "Could not find lvm SR, cannot create VDI"
