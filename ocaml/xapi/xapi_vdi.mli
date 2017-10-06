@@ -221,3 +221,9 @@ val list_changed_blocks :
   __context:Context.t -> vdi_from:API.ref_VDI -> vdi_to:API.ref_VDI -> string
 val get_nbd_info :
   __context:Context.t -> self:API.ref_VDI -> API.vdi_nbd_server_info_t_set
+val _get_nbd_info :
+  __context:Context.t -> self:API.ref_VDI -> get_server_certificate:(host : [ `host ] Ref.t -> string) -> API.vdi_nbd_server_info_t_set
+(** This version of {!get_nbd_info} is only here for unit testing: a mock
+    [get_server_certificate] function can be provided to avoid querying the real
+    certificate using the Client module, which is what {!get_nbd_info} does,
+    which would cause the unit test to fail. *)
