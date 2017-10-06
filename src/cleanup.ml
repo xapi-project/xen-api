@@ -56,12 +56,13 @@ module VBD = struct
 
     let with_tracking rpc session_id vbd f =
       Lwt_mutex.with_lock vbds_to_clean_up_mutex (fun () -> Lwt.wrap (fun () ->
-          vbds_to_clean_up := StringSet.add vbd !vbds_to_clean_up))
+          vbds_to_clean_up := StringSet.add (API.Ref.string_of vbd) !vbds_to_clean_up))
       >>= fun () ->
       f ()
       >>= fun () ->
       Lwt_mutex.with_lock vbds_to_clean_up_mutex (fun () ->
-          vbds_to_clean_up := StringSet.remove vbd !vbds_to_clean_up; Lwt.return_unit)
+          vbds_to_clean_up := StringSet.remove (API.Ref.string_of vbd) !vbds_to_clean_up; 
+          Lwt.return_unit)
 
     (* Currently when the program is interrupted with a SIGNAL, we don't
        remove the VBDs that we clean up from the persistent VBD list. However,
@@ -73,7 +74,7 @@ module VBD = struct
       |> Lwt_list.iter_s (fun vbd ->
           ignore_exn_log_error (Printf.sprintf "Caught exception while cleaning up VBD with ref %s" vbd) (fun () ->
               Lwt_log.warning_f "Cleaning up VBD with ref %s" vbd >>= fun () ->
-              cleanup_vbd rpc session_id vbd)
+              cleanup_vbd rpc session_id (API.Ref.of_string vbd))
         )
   end
 
@@ -132,16 +133,16 @@ module VBD = struct
         Runtime.with_tracking rpc session_id vbd (fun () ->
             Lwt.finalize
               (fun () ->
-                 Lwt_log.notice_f "Plugging VBD %s" vbd >>= fun () ->
+                 Lwt_log.notice_f "Plugging VBD %s" (API.Ref.string_of vbd) >>= fun () ->
                  Xen_api.VBD.plug ~rpc ~session_id ~self:vbd >>= fun () ->
                  Lwt.finalize
                    (fun () -> f vbd)
                    (fun () ->
-                      Lwt_log.notice_f "Unplugging VBD %s" vbd >>= fun () ->
+                      Lwt_log.notice_f "Unplugging VBD %s" (API.Ref.string_of vbd) >>= fun () ->
                       Xen_api.VBD.unplug ~rpc ~session_id ~self:vbd)
               )
               (fun () ->
-                 Lwt_log.notice_f "Destroying VBD %s" vbd >>= fun () ->
+                 Lwt_log.notice_f "Destroying VBD %s" (API.Ref.string_of vbd) >>= fun () ->
                  Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd
               )
           )
