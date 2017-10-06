@@ -87,35 +87,6 @@ let test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi () =
     Api_errors.(Server_error (vdi_incompatible_type, [Ref.string_of self; Record_util.vdi_type_to_string `cbt_metadata]))
     (fun () -> Xapi_vdi.set_metadata_of_pool ~__context ~self ~value:pool)
 
-let test_clone_and_snapshot_correctly_sets_cbt_enabled_field () =
-  let __context = Test_common.make_test_database () in
-  let host = Helpers.get_localhost ~__context in
-  let assert_cbt_enabled_field_is ~vdi ~value ~msg =
-    OUnit.assert_equal ~msg value (Db.VDI.get_cbt_enabled ~__context ~self:vdi) in
-
-  let sR = Test_common.make_sr ~__context () in
-  let _: _ API.Ref.t = Test_common.make_pbd ~__context ~host ~sR () in
-  let vdi =
-    let uuid = Test_common.make_uuid () in
-    Test_common.make_vdi ~__context ~sR ~uuid ~managed:true ()
-  in
-  let stub _ ~dbg ~sr ~vdi_info =
-    let uuid = Test_common.make_uuid () in
-    Storage_interface.{ default_vdi_info with vdi = uuid }
-  in
-  register_smapiv2_server ~vdi_snapshot:stub ~vdi_clone:stub (Db.SR.get_uuid ~__context ~self:sR);
-
-  let snapshot = Xapi_vdi.snapshot ~__context ~vdi ~driver_params:[] in
-  assert_cbt_enabled_field_is ~vdi:snapshot ~value:false ~msg:"The cbt_enabled property should be inherited from the snapshotted VDI - it should be false for the snapshot of a VDI with CBT disabled.";
-  let clone = Xapi_vdi.clone ~__context ~vdi ~driver_params:[] in
-  assert_cbt_enabled_field_is ~vdi:clone ~value:false ~msg:"CBT should always be disabled on the VDI created by VDI.clone";
-
-  Db.VDI.set_cbt_enabled ~__context ~self:vdi ~value:true;
-  let snapshot = Xapi_vdi.snapshot ~__context ~vdi ~driver_params:[] in
-  assert_cbt_enabled_field_is ~vdi:snapshot ~value:true ~msg:"The cbt_enabled property should be inherited from the snapshotted VDI - it should be true for the snapshot of a VDI with CBT enabled.";
-  let clone = Xapi_vdi.clone ~__context ~vdi ~driver_params:[] in
-  assert_cbt_enabled_field_is ~vdi:clone ~value:false ~msg:"CBT should always be disabled on the VDI created by VDI.clone"
-
 let test_get_nbd_info =
   let make_host __context sR ?(pbd_attached=true) pifs () =
     let host = Test_common.make_host ~__context () in
@@ -532,7 +503,6 @@ let test =
   "test_vdi_cbt" >:::
   [ "test_cbt_enable_disable" >:: test_cbt_enable_disable
   ; "test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi" >:: test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi
-  ; "test_clone_and_snapshot_correctly_sets_cbt_enabled_field" >:: test_clone_and_snapshot_correctly_sets_cbt_enabled_field
   ; test_get_nbd_info
   ; "test_allowed_operations_updated_when_necessary" >:: test_allowed_operations_updated_when_necessary
   ; test_data_destroy
