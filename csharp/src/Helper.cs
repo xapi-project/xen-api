@@ -281,6 +281,16 @@ namespace XenAPI
             return result;
         }
 
+        internal static List<Vdi_nbd_server_info> Proxy_Vdi_nbd_server_infoArrayToVdi_nbd_server_infoList(Proxy_Vdi_nbd_server_info[] input)
+        {
+            List<Vdi_nbd_server_info> result = new List<Vdi_nbd_server_info>();
+            foreach (Proxy_Vdi_nbd_server_info pd in input)
+            {
+                result.Add(new Vdi_nbd_server_info(pd));
+            }
+            return result;
+        }
+
         internal static Object EnumParseDefault(Type t, string s)
         {
             try

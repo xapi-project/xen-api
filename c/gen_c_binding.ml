@@ -558,8 +558,7 @@ and abstract_type record = function
   | DateTime    -> "abstract_type_datetime"
   | Set (Enum(n, _)) ->
     sprintf "%s_set_abstract_type_" (typename n)
-  | Set (Record "event") ->
-    "xen_event_record_set_abstract_type_"
+  | Set (Record n) -> sprintf "%s_set_abstract_type_" (record_typename n)
   | Set memtype -> (abstract_type record memtype) ^ "_set"
   | Map(Ref(_), Ref(_)) ->
     if record then "abstract_type_string_ref_map" else "abstract_type_string_string_map"
@@ -1157,8 +1156,7 @@ const abstract_type %s_abstract_type_ =
 
 " record_tn record_fields record_tn record_tn record_tn record_tn;
 
-  if classname = "event" then
-    print
+  print
       "const abstract_type %s_set_abstract_type_ =
     {
        .typename = SET,
@@ -1306,11 +1304,12 @@ and c_type_of_ty needed record = function
   | Set(String) ->
     needed := StringSet.add "string_set" !needed;
     "struct xen_string_set *"
-  | Set (Record "event") -> "struct xen_event_record_set *"
+  | Set (Record n) ->
+    needed := StringSet.add (n ^ "_decl") !needed;
+    sprintf "struct %s_set *" (record_typename n)
   | Set (Int)            ->
     needed := StringSet.add "int_set" !needed;
     "struct xen_int_set *"
-  | Set _                -> "SET_DONT_KNOW"
   | Map(l, r) as x ->
     let n = mapname l r in
     needed := StringSet.add n !needed;
