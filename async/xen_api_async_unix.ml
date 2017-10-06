@@ -32,18 +32,16 @@ module IO = struct
   let iter fn x = Deferred.List.iter x ~f:fn
 
   let read_line (_, ic) =
-    Reader.read_line ic >>=
-    function
-    |`Ok s -> return (Some s)
-    |`Eof -> return None
+    Reader.read_line ic
+    >>| function
+    | `Ok s -> Some s
+    | `Eof -> None
 
-  let read =
-    let buf = String.create 4096 in
-    fun (_, ic) len ->
-      Reader.read ic ~len buf >>=
-      function
-      |`Ok len' -> return (String.sub buf 0 len')
-      |`Eof -> return ""
+  let read (_, ic) len =
+    let buf = Bytes.create len in
+    Reader.read ic ~len buf >>| function
+    | `Ok len' -> String.sub buf ~pos:0 ~len:len'
+    | `Eof -> ""
 
   let read_exactly (_, ic) len =
     let buf = String.create len in
@@ -74,9 +72,9 @@ module IO = struct
       begin match Uri.host uri with
         | Some host ->
           Tcp.connect (Tcp.to_host_and_port host port)
-          >>= fun (_, ic, oc) ->
-          return (Ok (((fun () -> Reader.close ic), ic),
-                      ((fun () -> Writer.close oc), oc)))
+          >>| fun (_, ic, oc) ->
+          Ok (((fun () -> Reader.close ic), ic),
+              ((fun () -> Writer.close oc), oc))
         | None ->
           return (Error(Failed_to_resolve_hostname ""))
       end
@@ -110,14 +108,12 @@ let do_it uri string =
     failwith "XXX: figure out how core/async handles errors"
 
 let make ?(timeout=30.) uri call =
-  let (>>=) = Deferred.(>>=) in
   let req = Xmlrpc.string_of_call call in
-  do_it uri req >>= fun x -> return (Xmlrpc.response_of_string x)
+  do_it uri req >>| Xmlrpc.response_of_string
 
 let make_json ?(timeout=30.) uri call =
-  let (>>=) = Deferred.(>>=) in
   let req = Jsonrpc.string_of_call call in
-  do_it uri req >>= fun x -> return (Jsonrpc.response_of_string x)
+  do_it uri req >>| Jsonrpc.response_of_string
 
 
 module Client = Client.ClientF(Deferred)

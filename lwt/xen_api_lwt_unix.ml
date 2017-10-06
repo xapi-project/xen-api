@@ -127,12 +127,12 @@ let do_it uri string =
   let connection = M.make uri in
   Lwt.finalize
     (fun () ->
-      M.rpc connection string >>= fun result ->
-      match result with
-      | Ok x -> return x
-      | Error e ->
-        Printf.fprintf stderr "Caught: %s\n%!" (exn_to_string e);
-        fail e)
+       M.rpc connection string >>= fun result ->
+       match result with
+       | Ok x -> return x
+       | Error e ->
+         Printf.fprintf stderr "Caught: %s\n%!" (exn_to_string e);
+         fail e)
     (fun () -> M.disconnect connection)
 
 let make ?(timeout=30.) uri call =

@@ -113,18 +113,20 @@ module Make(IO:IO) = struct
         Response.read_body_chunk reader
         >>= function
         | Cohttp.Transfer.Chunk x ->
+          (* Printf.eprintf "Chunk: %s\n%!" x; *)
           Buffer.add_string body x;
           loop ()
         | Cohttp.Transfer.Final_chunk x  ->
+          (* Printf.eprintf "Chunk: %s\n%!" x; *)
           Buffer.add_string body x;
           return (Buffer.contents body)
         | Cohttp.Transfer.Done ->
           return (Buffer.contents body) in
       loop () >>= fun body ->
-      (* for debugging --
-         incr counter;
+      (* for debugging -- *)
+      (* incr counter;
          let fd = Unix.openfile (Printf.sprintf "/tmp/response.%d.xml" !counter) [ Unix.O_WRONLY; Unix.O_CREAT ] 0o644 in
-         let (_: int) = Unix.write fd result 0 (String.length result) in
+         let (_: int) = Unix.write fd body 0 (String.length body) in
          Unix.close fd; *)
       match Cohttp.Response.status response with
       | `OK ->
