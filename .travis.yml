@@ -14,7 +14,7 @@ script:
   - cp xen-api-sdk.opam opam && bash -ex .travis-opam.sh
 env:
   global:
-    - OCAML_VERSION=4.02
+    - OCAML_VERSION=4.04
     - TESTS=false
     - INSTALL=false
   matrix:
