@@ -1,0 +1,10 @@
+(executable
+ ((name xen_api_test)
+  (libraries
+   (oUnit
+    xen-api-client))))
+
+(alias
+ ((name runtest)
+  (deps (xen_api_test.exe))
+  (action (run ${<}))))
