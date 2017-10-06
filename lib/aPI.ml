@@ -7,7 +7,25 @@ let response_of_fault code =
 include Rpc
 type string_list = string list [@@deriving rpc]
 
-module Ref = struct
+module type REF = sig
+  type 'a t
+
+  val ref_prefix : string
+  val make : unit -> 'a t
+  val null : 'a t
+  val string_of : 'a t -> string
+  val of_string : string -> 'a t
+
+  val make_dummy : string -> 'a t
+  val is_dummy : 'a t -> bool
+  val name_of_dummy : 'a t -> string
+  val pretty_string_of_dummy : 'a t -> string
+  val really_pretty_and_small : 'a t -> string
+
+  val rpc_of_t: 'b -> 'a t -> Rpc.t
+  val t_of_rpc: 'b -> Rpc.t -> 'a t
+end
+module Ref: REF = struct
   (* BEGIN ref.ml from xen-api repository *)
   type 'a t = string
 
