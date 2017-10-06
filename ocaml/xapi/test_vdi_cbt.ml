@@ -117,8 +117,8 @@ let test_clone_and_snapshot_correctly_sets_cbt_enabled_field () =
   assert_cbt_enabled_field_is ~vdi:clone ~value:false ~msg:"CBT should always be disabled on the VDI created by VDI.clone"
 
 let test_get_nbd_info =
-  let make_host __context sR ?(pbd_attached=true) pifs () =
-    let host = Test_common.make_host ~__context () in
+  let make_host __context sR ?(pbd_attached=true) ?hostname pifs () =
+    let host = Test_common.make_host ~__context ?hostname () in
     let _: _ API.Ref.t = Test_common.make_pbd ~__context ~host ~sR ~currently_attached:pbd_attached () in
     List.iter (function (network, iP, iPv6, attached) ->
         let self = Test_common.make_pif ~__context ~network ~host ~iP ~iPv6 () in
@@ -131,7 +131,7 @@ let test_get_nbd_info =
     let __context = Mock.make_context_with_new_db "Mock context" in
     let session_id = Test_common.make_session ~__context () in
     let __context = Context.make ~__context ~session_id "test" in
-    let make_host = make_host __context in
+    let make_host ?hostname = make_host __context ?hostname in
 
     let sr_of_vdi = Test_common.make_sr ~__context () in
     let network = Test_common.make_network ~__context () in
@@ -140,20 +140,23 @@ let test_get_nbd_info =
     (__context, make_host, sr_of_vdi, network, vdi)
   in
 
-(*
   let test_returns_correct_uris () =
     let (__context, make_host, sr_of_vdi, network_1, self) = setup_test () in
     let uuid = Db.VDI.get_uuid ~__context ~self in
     let other_sr = Test_common.make_sr ~__context () in
-    let network_2 = Test_common.make_network ~__context () in
+    Db.Network.set_purpose ~__context ~self:network_1 ~value:[`nbd];
+    let network_2 = Test_common.make_network ~__context ~purpose:[`nbd] () in
+    let network_3 = Test_common.make_network ~__context ~purpose:[] () in
 
     (* Hosts connected to both the VDI's SR and a network *)
-    let _: _ API.Ref.t = make_host
+    let host1 = make_host
+        ~hostname:"host1"
         sr_of_vdi
         [(network_1, "92.40.98.91", [], true); (network_1, "92.40.98.92", [], true);
          (* this PIF is not currently attached: *)
          (network_2, "92.40.98.93", ["10e1:bdb8:05a3:0002:03ae:8a24:0371:0001"], false)] () in
-    let _: _ API.Ref.t = make_host
+    let host2 = make_host
+        ~hostname:"host2"
         sr_of_vdi
         [(network_2, "92.40.98.94", ["10e1:bdb8:05a3:0002:03ae:8a24:0371:0002";"10e1:bdb8:05a3:0002:03ae:8a24:0371:0003"], true)] () in
     (* Hosts not connected to a network or without an IP address *)
@@ -164,9 +167,16 @@ let test_get_nbd_info =
     let _: _ API.Ref.t = make_host other_sr [(network_1, "92.40.98.97", ["10e1:bdb8:05a3:0002:03ae:8a24:0371:0005"], true)] () in
     (* Hosts not connected to either *)
     let _: _ API.Ref.t = make_host sr_of_vdi [] () in
+    (* NBD is not allowed on network_3 *)
+    let _: _ API.Ref.t = make_host sr_of_vdi [(network_3, "92.40.98.98", ["10e1:bdb8:05a3:0002:03ae:8a24:0371:0006";"10e1:bdb8:05a3:0002:03ae:8a24:0371:0007"], true)] () in
 
-    (* XXX Work is needed here: this fails because get_nbd_info makes XenAPI call host_get_server_certificate *)
-    let nbd_info = Xapi_vdi.get_nbd_info ~__context ~self in
+    let get_server_certificate ~host =
+      if host = host1 then "host1_cert"
+      else if host = host2 then "host2_cert"
+      else failwith (Printf.sprintf "unexpected host: %s" (Ref.string_of host))
+    in
+
+    let nbd_info = Xapi_vdi._get_nbd_info ~__context ~self ~get_server_certificate in
 
     let session_id = Context.get_session_id __context |> Ref.string_of in
     let expected:(API.vdi_nbd_server_info_t_set) =
@@ -176,39 +186,37 @@ let test_get_nbd_info =
         { vdi_nbd_server_info_exportname;
           vdi_nbd_server_info_address = "92.40.98.91";
           vdi_nbd_server_info_port;
-          vdi_nbd_server_info_cert = "fake cert contents";
-          vdi_nbd_server_info_subject = "subject of cert"
+          vdi_nbd_server_info_cert = "host1_cert";
+          vdi_nbd_server_info_subject = "host1"
         };
         { vdi_nbd_server_info_exportname = "/" ^ uuid ^ "?session_id=" ^ session_id;
           vdi_nbd_server_info_address = "92.40.98.92";
           vdi_nbd_server_info_port;
-          vdi_nbd_server_info_cert = "fake cert contents";
-          vdi_nbd_server_info_subject = "subject of cert"
+          vdi_nbd_server_info_cert = "host1_cert";
+          vdi_nbd_server_info_subject = "host1"
         };
         { vdi_nbd_server_info_exportname = "/" ^ uuid ^ "?session_id=" ^ session_id;
           vdi_nbd_server_info_address = "92.40.98.94";
           vdi_nbd_server_info_port;
-          vdi_nbd_server_info_cert = "fake cert contents";
-          vdi_nbd_server_info_subject = "subject of cert"
+          vdi_nbd_server_info_cert = "host2_cert";
+          vdi_nbd_server_info_subject = "host2"
         };
         { vdi_nbd_server_info_exportname = "/" ^ uuid ^ "?session_id=" ^ session_id;
           vdi_nbd_server_info_address = "[10e1:bdb8:05a3:0002:03ae:8a24:0371:0002]";
           vdi_nbd_server_info_port;
-          vdi_nbd_server_info_cert = "fake cert contents";
-          vdi_nbd_server_info_subject = "subject of cert"
+          vdi_nbd_server_info_cert = "host2_cert";
+          vdi_nbd_server_info_subject = "host2"
         };
         { vdi_nbd_server_info_exportname = "/" ^ uuid ^ "?session_id=" ^ session_id;
           vdi_nbd_server_info_address = "[10e1:bdb8:05a3:0002:03ae:8a24:0371:0003]";
           vdi_nbd_server_info_port;
-          vdi_nbd_server_info_cert = "fake cert contents";
-          vdi_nbd_server_info_subject = "subject of cert"
+          vdi_nbd_server_info_cert = "host2_cert";
+          vdi_nbd_server_info_subject = "host2"
         };
       ]
     in
-    OUnit.assert_equal expected nbd_info
-    (* XXX This needs to be something like Ounit_comparators.VdiNbdServerInfoSet.(assert_equal (of_list expected) (of_list nbd_info)) *)
+    Ounit_comparators.VdiNbdServerInfoSet.(assert_equal (of_list expected) (of_list nbd_info))
   in
-*)
 
   let test_returns_empty_list_when_no_host_is_connected_to_sr () =
     let (__context, make_host, sr_of_vdi, network, self) = setup_test () in
@@ -238,9 +246,8 @@ let test_get_nbd_info =
 
   let open OUnit in
   "test_get_nbd_info" >:::
-  [
-  (*"test_returns_correct_uris" >:: test_returns_correct_uris *)
-    "test_returns_empty_list_when_no_host_is_connected_to_sr" >:: test_returns_empty_list_when_no_host_is_connected_to_sr
+  [ "test_returns_correct_uris" >:: test_returns_correct_uris
+  ; "test_returns_empty_list_when_no_host_is_connected_to_sr" >:: test_returns_empty_list_when_no_host_is_connected_to_sr
   ; "test_returns_empty_list_when_no_host_is_connected_to_network" >:: test_returns_empty_list_when_no_host_is_connected_to_network
   ; "test_disallowed_for_cbt_metadata_vdi" >:: test_disallowed_for_cbt_metadata_vdi
   ]

@@ -1024,7 +1024,7 @@ let list_changed_blocks ~__context ~vdi_from ~vdi_to =
        C.VDI.list_changed_blocks ~dbg:(Ref.string_of task) ~sr ~vdi_from ~vdi_to
     )
 
-let get_nbd_info ~__context ~self =
+let _get_nbd_info ~__context ~self ~get_server_certificate =
   if (Db.VDI.get_type ~__context ~self) = `cbt_metadata then begin
     error "VDI.get_nbd_info: called with a VDI of type cbt_metadata (at %s)" __LOC__;
     raise (Api_errors.Server_error (Api_errors.vdi_incompatible_type, [ Ref.string_of self; Record_util.vdi_type_to_string `cbt_metadata ]))
@@ -1072,8 +1072,7 @@ let get_nbd_info ~__context ~self =
     let ips = get_ips host in
     (* Check if empty: avoid inter-host calls and other work if so. *)
     if ips = [] then [] else
-    let cert = Helpers.call_api_functions ~__context
-      (fun rpc session_id -> Client.Host.get_server_certificate ~rpc ~session_id ~host) in
+    let cert = get_server_certificate ~host in
     let port = 10809L in
     (* Stopgap measure: use hostname instead of reading a subject out of the cert. *)
     let subject = Db.Host.get_hostname ~__context ~self:host in
@@ -1087,5 +1086,12 @@ let get_nbd_info ~__context ~self =
     ips |> List.map
      (fun addr -> API.{template with vdi_nbd_server_info_address = addr})
   )
+
+let get_nbd_info ~__context ~self =
+    let get_server_certificate ~host = Helpers.call_api_functions
+        ~__context
+        (fun rpc session_id -> Client.Host.get_server_certificate ~rpc ~session_id ~host)
+    in
+    _get_nbd_info ~__context ~self ~get_server_certificate
 
 (* let pool_migrate = "See Xapi_vm_migrate.vdi_pool_migrate!" *)
