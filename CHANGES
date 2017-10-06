@@ -1,3 +1,11 @@
+0.10.0 (06-Oct-2017)
+* Add signature for Ref module: now Ref.t is an opaque type instead of a
+  string, parameterized by the XenAPI class
+* Update XenAPI bindings based on xen-api#6388e7710
+* Fix async bindings
+* Fix an Lwt client issue where it did not work with encrypted (https) connections
+* Fix an issue where all calls of the type get_record, get_all_record were failing
+
 0.9.16 (30-Aug-2017)
 * Fix connection leak in Lwt client, now XenAPI calls close their connections
 
