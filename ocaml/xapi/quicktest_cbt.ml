@@ -41,14 +41,7 @@ let start session_id =
       List.filter is_attached (SR.get_all ~session_id ~rpc:!rpc) in
 
     (* find lvm SR (that passes data_destroy) to attach new VDI *)
-    let sR = List.filter
-        (fun sr ->
-           ((SR.get_type ~session_id ~rpc:!rpc ~self:sr) = "lvm")
-           && (not (SR.get_is_tools_sr ~session_id ~rpc:!rpc ~self:sr))
-        ) list_of_attached_srs |> List.hd in
-
-    let sR_operations =
-      SR.get_allowed_operations ~session_id ~rpc:!rpc ~self:sR in
+    let sR = list_of_attached_srs |> List.hd in
 
     let vDI = VDI.create ~session_id ~rpc:!rpc ~name_label:"qt-cbt"
         ~name_description:"VDI for CBT quicktest" ~_type:`user ~sR
@@ -77,7 +70,9 @@ let start session_id =
       with e -> report_failure e "enable/disable CBT" enable_cbt_test in
 
     (* Call unit tests if and only if SR supports required operations *)
-    let run_tests ~vDI ~sR_operations =
+    let run_tests ~vDI ~sR =
+      let sR_operations =
+        SR.get_allowed_operations ~session_id ~rpc:!rpc ~self:sR in
       List.iter (fun (test, required_operations) ->
           if List.for_all
               (fun x -> List.mem x sR_operations)
@@ -89,11 +84,11 @@ let start session_id =
 
     (* Finally, destroy VDI regardless of test suite result *)
     Xapi_stdext_pervasives.Pervasiveext.finally
-      (fun () -> run_tests ~vDI ~sR_operations)
+      (fun () -> run_tests ~vDI ~sR)
       (fun () -> VDI.destroy ~session_id ~rpc:!rpc ~self:vDI);
 
     (* Overall test will fail if VDI.destroy messes up, or any other exception is thrown *)
-    debug cbt_test "Finished testing changed block tracking\n";
+    debug cbt_test "Finished testing changed block tracking";
     success cbt_test
   with
   | (Failure hd) -> failed cbt_test "Could not find lvm SR, cannot create VDI"
