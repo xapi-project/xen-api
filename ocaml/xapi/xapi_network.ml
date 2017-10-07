@@ -334,8 +334,8 @@ let with_networks_attached_for_vm ~__context ?host ~vm f =
  * with logic for additional purposes, which may be useful in future. *)
 let assert_can_add_purpose ~__context ~network ~current newval =
   let sop (*string-of-porpoise*) = Record_util.network_purpose_to_string in
-  let reject str =
-    raise Api_errors.(Server_error (network_incompatible_purposes, [ (sop newval); str ]))
+  let reject conflicting =
+    raise Api_errors.(Server_error (network_incompatible_purposes, [ (sop newval); (sop conflicting) ]))
   in
   let assert_no_net_has_bad_porpoise bads =
     (* Sadly we can't use Db.Network.get_refs_where because the expression
@@ -346,7 +346,7 @@ let assert_can_add_purpose ~__context ~network ~current newval =
       List.iter (fun suspect ->
         if (List.mem suspect bads) then (
           info "Cannot set new network purpose %s when there is a network with purpose %s" (sop newval) (sop suspect);
-          reject (sop suspect)
+          reject suspect
         )
       )
     )
