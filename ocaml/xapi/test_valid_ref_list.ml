@@ -23,6 +23,26 @@ let test_exists =
       OUnit.assert_equal false (Valid_ref_list.exists f l)
     )
 
+let test_filter =
+  with_vm_list (fun __context ->
+      function
+      | [vm1; vm2; vm3; vm4] as l ->
+        let assert_equal l1 l2 =
+          let as_strings = List.map Ref.string_of in
+          assert_equal (l1 |> as_strings) (l2 |> as_strings)
+        in
+        let f vm = Db.VM.get_name_label ~__context ~self:vm = "c" in
+        assert_equal [] (Valid_ref_list.filter f l);
+        let f vm = Db.VM.get_name_label ~__context ~self:vm = "d" in
+        assert_equal [vm4] (Valid_ref_list.filter f l);
+        let f vm =
+          let name = Db.VM.get_name_label ~__context ~self:vm in
+          name = "a" || name = "d"
+        in
+        assert_equal [vm1; vm4] (Valid_ref_list.filter f l)
+      | _ -> failwith "The test list should contain 4 VMs"
+    )
+
 let test_for_all =
   with_vm_list (fun __context l ->
       let f vm =
@@ -50,10 +70,14 @@ let test_flat_map =
     )
 
 let test =
+  (* We do not open the OUnit module here, because OUnit also has a test_filter
+     function, which would conflict with our test_filter unit test function and
+     cause a compilation error. *)
   let ((>:::), (>::)) = OUnit.((>:::), (>::)) in
-  "test_safe_list" >:::
+  "test_valid_ref_list" >:::
   [ "test_map" >:: test_map
   ; "test_exists" >:: test_exists
+  ; "test_filter" >:: test_filter
   ; "test_for_all" >:: test_for_all
   ; "test_flat_map" >:: test_flat_map
   ]
