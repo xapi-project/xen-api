@@ -2,18 +2,17 @@ language: c
 sudo: required
 install:
   - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
-  - wget https://raw.githubusercontent.com/simonjbeaumont/ocaml-travis-coveralls/master/travis-coveralls.sh
 script:
   - bash -ex .travis-opam.sh
-  - if [ ! -z "${XS_COV}" ]; then bash -ex travis-coveralls.sh || true; fi
 env:
   global:
     - OCAML_VERSION=4.04
+    - PINS="xen-api-client:."
     - PACKAGE=xen-api-client
-    # WARNING: Don't set TESTS=true here (which is the default) as that env var
-    # is already used by the Makefile for OASIS configuration.
   matrix:
-    - BASE_REMOTE=git://github.com/xapi-project/xs-opam XS_COV=1
+    - BASE_REMOTE=git://github.com/xapi-project/xs-opam POST_INSTALL_HOOK="env TRAVIS=$TRAVIS TRAVIS_JOB_ID=$TRAVIS_JOB_ID bash -ex .coverage.sh"
+    - PACKAGE=xen-api-client-async BASE_REMOTE=git://github.com/xapi-project/xs-opam POST_INSTALL_HOOK="make async-examples"
+    - PACKAGE=xen-api-client-lwt BASE_REMOTE=git://github.com/xapi-project/xs-opam POST_INSTALL_HOOL="make lwt-examples"
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
 matrix:
   fast_finish: true

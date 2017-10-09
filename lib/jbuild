@@ -15,6 +15,14 @@ let flags = function
     in
     go ic ""
 
+
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+
 let flags = flags ["ppx_deriving_rpc"]
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
@@ -23,6 +31,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (public_name xen-api-client)
   (flags (:standard -w -39 %s))
   (wrapped false)
+  %s
   (libraries
    (astring
     cohttp
@@ -32,4 +41,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     uri
     uuidm
     xmlm))))
-|} flags
+|} flags coverage_rewriter
