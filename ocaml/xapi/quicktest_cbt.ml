@@ -26,6 +26,15 @@ let start session_id =
     try assert op with assert_failure -> failed test msg in
 
   (* Overall test suite runs smaller unit tests *)
+  let test_compare ~test l_op r_op ~msg =
+    let op = (l_op = r_op) in test_assert ~test op ~msg in
+
+  let name_description = "VDI for CBT quicktest" in
+  let make_vdi_from sR = (* SR has VDI.create as allowed *)
+    VDI.create ~session_id ~rpc:!rpc ~name_label:"qt-cbt" ~name_description ~_type:`user
+      ~sharable:false ~other_config:[] ~read_only:false ~sm_config:[] ~virtual_size:(2L ** mib)
+      ~xenstore_data:[] ~tags:[] ~sR in
+
   let cbt_test = make_test "Testing changed block tracking" 2 in
   try
     start cbt_test;
