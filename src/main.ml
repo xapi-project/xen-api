@@ -27,14 +27,14 @@ let require name arg = match arg with
 let require_str name arg =
   require name (if arg = "" then None else Some arg)
 
-let with_attached_vdi vDI read_write rpc session_id f =
+let with_attached_vdi vDI rpc session_id f =
   Lwt_log.notice "Looking up control domain UUID in xensource inventory" >>= fun () ->
   Inventory.inventory_filename := Consts.xensource_inventory_filename;
   let control_domain_uuid = Inventory.lookup Inventory._control_domain_uuid in
   Lwt_log.notice "Found control domain UUID" >>= fun () ->
   Xen_api.VM.get_by_uuid ~rpc ~session_id ~uuid:control_domain_uuid
   >>= fun control_domain ->
-  Cleanup.VBD.with_vbd ~vDI ~vM:control_domain ~mode:(if read_write then `RW else `RO) ~rpc ~session_id (fun vbd ->
+  Cleanup.VBD.with_vbd ~vDI ~vM:control_domain ~mode:`RO ~rpc ~session_id (fun vbd ->
       Xen_api.VBD.get_device ~rpc ~session_id ~self:vbd
       >>= fun device ->
       f ("/dev/" ^ device))
@@ -63,9 +63,9 @@ let handle_connection fd tls_role =
     >>= fun vdi_ref ->
     Xen_api.VDI.get_record ~rpc ~session_id ~self:vdi_ref
     >>= fun vdi_rec ->
-    with_attached_vdi vdi_ref (not vdi_rec.API.vDI_read_only) rpc session_id
+    with_attached_vdi vdi_ref rpc session_id
       (fun filename ->
-         Cleanup.Block.with_block filename (Nbd_lwt_unix.Server.serve t (module Block))
+         Cleanup.Block.with_block filename (Nbd_lwt_unix.Server.serve t ~read_only:true (module Block))
       )
   in
 
