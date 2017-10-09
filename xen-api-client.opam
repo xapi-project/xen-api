@@ -16,7 +16,7 @@ build: [[ "jbuilder" "build" "-p" name ]]
 build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
 
 depends: [
-  "jbuilder" {build & >= "v1.0+beta11"}
+  "jbuilder" {build & >= "1.0+beta11"}
   "astring"
   "cohttp" {>= "0.12.0" & < "0.22.0"}
   "ounit" {test}

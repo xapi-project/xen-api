@@ -15,7 +15,7 @@ tags: [
 build: [[ "jbuilder" "build" "-p" name ]]
 
 depends: [
-  "jbuilder" {build & >= "v1.0+beta11"}
+  "jbuilder" {build & >= "1.0+beta11"}
   "astring"
   "cohttp" {>= "0.12.0" & < "0.22.0"}
   "cstruct" {>= "1.0.1" & < "3.0.0"}
@@ -25,5 +25,6 @@ depends: [
   "ssl"
   "uri"
   "uuidm"
+  "xen-api-client"
   "xmlm"
 ]
