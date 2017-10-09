@@ -94,18 +94,21 @@ module M = Make(IO)
 let exn_to_string = function
   | Api_errors.Server_error(code, params) ->
     Printf.sprintf "%s %s" code (String.concat ~sep:" " params)
-  | e -> "XXX: figure out how core/async handles errors"
+  | e -> Printf.sprintf "Caught unexpected exception: %s" (Exn.to_string e)
 
 let do_it uri string =
   let uri = Uri.of_string uri in
   let connection = M.make uri in
   let (>>=) = Deferred.(>>=) in
-  M.rpc connection string
-  >>= function
-  | Ok x -> return x
-  | Error e ->
-    eprintf "Caught: %s\n%!" (exn_to_string e);
-    failwith "XXX: figure out how core/async handles errors"
+  Monitor.protect (fun () ->
+      M.rpc connection string
+      >>= function
+      | Ok x -> return x
+      | Error e ->
+        eprintf "Caught: %s\n%!" (exn_to_string e);
+        Exn.reraise e "connection error"
+    )
+    ~finally:(fun () -> M.disconnect connection)
 
 let make ?(timeout=30.) uri call =
   let req = Xmlrpc.string_of_call call in
