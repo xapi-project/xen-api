@@ -140,7 +140,7 @@ let test_get_nbd_info =
     (__context, make_host, sr_of_vdi, network, vdi)
   in
 
-  let test_returns_correct_uris () =
+  let test_returns_correct_infos () =
     let (__context, make_host, sr_of_vdi, network_1, self) = setup_test () in
     let uuid = Db.VDI.get_uuid ~__context ~self in
     let other_sr = Test_common.make_sr ~__context () in
@@ -246,7 +246,7 @@ let test_get_nbd_info =
 
   let open OUnit in
   "test_get_nbd_info" >:::
-  [ "test_returns_correct_uris" >:: test_returns_correct_uris
+  [ "test_returns_correct_infos" >:: test_returns_correct_infos
   ; "test_returns_empty_list_when_no_host_is_connected_to_sr" >:: test_returns_empty_list_when_no_host_is_connected_to_sr
   ; "test_returns_empty_list_when_no_host_is_connected_to_network" >:: test_returns_empty_list_when_no_host_is_connected_to_network
   ; "test_disallowed_for_cbt_metadata_vdi" >:: test_disallowed_for_cbt_metadata_vdi
