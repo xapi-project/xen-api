@@ -1,3 +1,6 @@
+OPAM_PREFIX=$(DESTDIR)$(shell opam config var prefix)
+OPAM_LIBDIR=$(DESTDIR)$(shell opam config var lib)
+
 .PHONY: build release install uninstall clean test doc reindent
 
 build:
@@ -7,7 +10,7 @@ release:
 	    jbuilder build @install
 
 install:
-	    jbuilder install
+	    jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
 
 uninstall:
 	    jbuilder uninstall
