@@ -1498,9 +1498,9 @@ let _ =
   error Api_errors.usb_group_contains_no_pusbs ["usb_group"]
     ~doc:"The USB group does not contain any PUSBs." ();
   error Api_errors.too_many_vusbs [ "number" ]
-    ~doc:"You reached the maximal number of VUSBs." ();
+    ~doc:"The VM has too many VUSBs." ();
   error Api_errors.vm_has_vusbs ["VM"]
-    ~doc:"The VM has VUSB attached" ()
+    ~doc:"The operation is not allowed when the VM has VUSBs." ()
 
 let _ =
   message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();

@@ -35,8 +35,8 @@ let create ~__context ~vM ~uSB_group ~other_config =
   (* We won't attach VUSB when VM ha_restart_priority is set to 'restart'  *)
   let ha_restart_priority = Db.VM.get_ha_restart_priority ~__context ~self:vM in
   match ha_restart_priority with
-    | "restart" -> raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
-                      [Printf.sprintf "VM %s ha_restart_priority has been set to 'restart', can not create VUSB for it. " (Ref.string_of vM)]))
+    | hp when hp = Constants.ha_restart -> raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
+        [Printf.sprintf "VM %s ha_restart_priority has been set to 'restart', can not create VUSB for it. " (Ref.string_of vM)]))
     | _ -> ();
   Mutex.execute m (fun () ->
       Db.VUSB.create ~__context ~ref:vusb ~uuid ~current_operations:[] ~allowed_operations:[] ~vM ~uSB_group
