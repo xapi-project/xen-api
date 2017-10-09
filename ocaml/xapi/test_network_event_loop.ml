@@ -131,7 +131,29 @@ let test_network_event_loop ~no_networks_at_start () =
   (* Test that transient failures in the script won't stop the event loop, and
      that we will eventually process the event we missed, and update the
      firewall with the correct list of interfaces, even if it is the empty list *)
-  assert_received_params "no network is connected to this host now, we should have noticed this after the transient failure" []
+  assert_received_params "no network is connected to this host now, we should have noticed this after the transient failure" [];
+
+  (* Add a new network "network4" with a PIF connected to this host on which NBD is not allowed *)
+  received_params := None;
+  let network4 = Test_common.make_network ~__context ~purpose:[] ~bridge:"bridge4" () in
+  assert_not_called "network4 has no PIF connected to this host" ();
+  let _ : _ API.Ref.t = Test_common.make_pif ~__context ~network:network4 ~host:localhost ~device:"network4_pif1" () in
+  assert_not_called "NBD is not allowed on network4" ();
+
+  (* Now enable secure NBD on network4 *)
+  received_params := None;
+  Db.Network.set_purpose ~__context ~self:network4 ~value:[`nbd];
+  assert_received_params "NBD has been enabled on network4" ["bridge4"];
+
+  (* Disable NBD on network4 *)
+  received_params := None;
+  Db.Network.set_purpose ~__context ~self:network4 ~value:[];
+  assert_received_params "NBD has been disabled on network4" [];
+
+  (* Now enable insecure NBD on network4 *)
+  received_params := None;
+  Db.Network.set_purpose ~__context ~self:network4 ~value:[`insecure_nbd];
+  assert_received_params "NBD has been enabled on network4" ["bridge4"]
 
 let test =
   let ((>:::), (>::)) = OUnit.((>:::), (>::)) in
