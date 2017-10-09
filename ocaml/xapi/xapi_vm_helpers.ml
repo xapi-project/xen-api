@@ -1068,9 +1068,9 @@ let with_vm_operation ~__context ~self ~doc ~op ?(strict=true) ?policy f =
          _ -> ())
 
 (* Device Model Profiles *)
-let ensure_device_model_profile_present ~__context ~hVM_boot_policy platform =
+let ensure_device_model_profile_present ~__context ~hVM_boot_policy ?(default_value=Vm_platform.default_device_model_default_value) platform =
   let is_hvm = hVM_boot_policy <> "" in
-  let default = Vm_platform.(device_model, default_device_model_default_value) in
+  let default = Vm_platform.(device_model, default_value) in
   if not is_hvm || List.mem_assoc Vm_platform.device_model platform then
     platform
   else (* only add device-model to an HVM VM platform if it is not already there *)
