@@ -521,6 +521,21 @@ let upgrade_vswitch_controller = {
         ignore (Xapi_sdn_controller.introduce ~__context ~protocol:`ssl ~address ~port:6632L)
 }
 
+let default_vm_platform_device_model = {
+  description = "Initialising unset VM.platform.device-model profiles";
+  version = (fun x -> x <= inverness);                             (* initialise only for upgrades from previous versions before jura *)
+  fn = fun ~__context ->
+    Db.VM.get_all ~__context
+    |> List.iter (fun vm ->
+         Db.VM.get_platform ~__context ~self:vm
+         |> Xapi_vm_helpers.ensure_device_model_profile_present ~__context
+            ~hVM_boot_policy:(Db.VM.get_HVM_boot_policy ~__context ~self:vm)
+            ~default_value:Vm_platform.fallback_device_model_stage_1 (* fallback device model profile from previous version before jura *)
+         |> fun value ->
+            Db.VM.set_platform ~__context ~self:vm ~value
+       )
+}
+
 let rules = [
   upgrade_alert_priority;
   update_mail_min_priority;
@@ -544,6 +559,7 @@ let rules = [
   update_tools_sr_pbd_device_config;
   upgrade_recommendations_for_gpu_passthru;
   upgrade_vswitch_controller;
+  default_vm_platform_device_model;
 ]
 
 (* Maybe upgrade most recent db *)

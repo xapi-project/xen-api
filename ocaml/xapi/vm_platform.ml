@@ -46,6 +46,7 @@ let nested_virt = "nested-virt"
 
 (* The default value of device model should be set as
    'qemu-trad', 'qemu-upstream-compat', 'qemu-upstream' according to QEMU-upstream feature release stages *)
+let fallback_device_model_stage_1      = "qemu-trad"
 let default_device_model_default_value = "qemu-trad"
 
 (* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
