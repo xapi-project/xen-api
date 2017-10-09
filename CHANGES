@@ -1,3 +1,8 @@
+0.11.0 (09-Oct-2017)
+* Fix connection leak in Async client, now XenAPI calls close their connections
+* Add system to regenerate bindings from a version of xapi using jbuilder
+* Port to jbuilder and split into three separate libraries
+
 0.10.0 (06-Oct-2017)
 * Add signature for Ref module: now Ref.t is an opaque type instead of a
   string, parameterized by the XenAPI class
