@@ -37,7 +37,7 @@ depends: [
   "xapi-forkexecd"
   "vhd-format"
   "nbd"
-  "oclock"
+  "mtime"
   "ounit"
   "rpc"
   "ssl"

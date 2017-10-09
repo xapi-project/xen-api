@@ -14,7 +14,7 @@
 (* Imperative priority queue *)
 
 type 'a event = { ev: 'a;
-                  time: float }
+                  time: Mtime.t }
 
 type 'a t = {mutable size : int; mutable data : 'a event array }
 
@@ -47,8 +47,9 @@ let add h x =
   let d = h.data in
   (* moving [x] up in the heap *)
   let rec moveup i =
+    let (>>) = Mtime.is_later in
     let fi = (i - 1) / 2 in
-    if i > 0 && (d.(fi).time > x.time) then begin
+    if i > 0 && (d.(fi).time >> x.time) then begin
       d.(i) <- d.(fi);
       moveup fi
     end else
@@ -70,12 +71,13 @@ let remove h s =
   (* moving [x] down in the heap *)
   let rec movedown i =
     let j = 2 * i + 1 in
+    let (<<) = Mtime.is_earlier in
     if j < n then
       let j =
         let j' = j + 1 in
         if j' < n && (d.(j').time < d.(j).time) then j' else j
       in
-      if (d.(j).time < x.time) then begin
+      if (d.(j).time << x.time) then begin
         d.(i) <- d.(j);
         movedown j
       end else

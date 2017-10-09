@@ -727,8 +727,8 @@ let reqs_outstanding_timeout = 150.0 (* Tapdisk should time out after 2 mins. We
 let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
   let open State.Send_state in
   let id = State.mirror_id_of (sr,vdi) in
-  let start_time = Oclock.gettime Oclock.monotonic in
-  let get_delta () = (Int64.to_float (Int64.sub (Oclock.gettime Oclock.monotonic) start_time)) /. 1.0e9 in
+  let start = Mtime_clock.counter () in
+  let get_delta () = Mtime_clock.count start |> Mtime.Span.to_s in
   State.find_active_local_mirror id |>
   Opt.iter (fun s ->
       try

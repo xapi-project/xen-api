@@ -30,9 +30,26 @@ let delay = Delay.make ()
 let (queue : (t Ipq.t)) = Ipq.create 50
 let lock = Mutex.create ()
 
+module Clock = struct
+  (** time span of s seconds *)
+  let span s =
+    Mtime.(Span.of_uint64_ns (Int64.of_float (s *. s_to_ns)))
+
+  let add_span clock secs =
+    match Mtime.add_span clock (span secs) with
+    | Some t -> t
+    | None ->
+      raise
+        Api_errors.(Server_error(internal_error,["clock overflow";__LOC__]))
+end
+
 let add_to_queue ?(signal=true) name ty start newfunc =
   Mutex.execute lock (fun () ->
-      Ipq.add queue { Ipq.ev={ func=newfunc; ty=ty; name=name}; Ipq.time=((Unix.gettimeofday ()) +. start) });
+      let (++) = Clock.add_span in
+      Ipq.add queue
+        { Ipq.ev={ func=newfunc; ty=ty; name=name}
+        ; Ipq.time=((Mtime_clock.now ()) ++ start)
+        });
   if signal then Delay.signal delay
 
 let remove_from_queue name =
@@ -52,7 +69,7 @@ let loop () =
       else
         begin
           let next = Mutex.execute lock (fun () -> Ipq.maximum queue) in
-          let now = Unix.gettimeofday () in
+          let now = Mtime_clock.now () in
           if next.Ipq.time < now then begin
             let todo = (Mutex.execute lock (fun () -> Ipq.pop_maximum queue)).Ipq.ev in
             (try todo.func () with _ -> ());
@@ -61,7 +78,10 @@ let loop () =
             | Periodic timer -> add_to_queue ~signal:false todo.name todo.ty timer todo.func
           end else begin
             (* Sleep until next event. *)
-            let sleep = next.Ipq.time -. now +. 0.001 in
+            let sleep =
+              Mtime.(span next.Ipq.time now)
+              |> Mtime.Span.add (Clock.span 0.001)
+              |> Mtime.Span.to_s in
             try
               ignore(Delay.wait delay sleep)
             with e ->
