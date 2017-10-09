@@ -25,10 +25,6 @@ let start session_id =
   let test_assert ~test op ~msg =
     try assert op with assert_failure -> failed test msg in
 
-  (* Overall test suite runs smaller unit tests *)
-  let test_compare ~test l_op r_op ~msg =
-    let op = (l_op = r_op) in test_assert ~test op ~msg in
-
   let name_description = "VDI for CBT quicktest" in
   let make_vdi_from sR = (* SR has VDI.create as allowed *)
     VDI.create ~session_id ~rpc:!rpc ~name_label:"qt-cbt" ~name_description ~_type:`user
@@ -60,42 +56,36 @@ let start session_id =
         success enable_cbt_test
       with e -> report_failure e "enable/disable CBT" enable_cbt_test in
 
-    let name_description = "VDI for CBT quicktest" in
-    let make_vdi_from sR = (* SR has VDI.create as allowed *)
-      VDI.create ~session_id ~rpc:!rpc ~name_label:"qt-cbt" ~name_description ~_type:`user
-        ~sharable:false ~other_config:[] ~read_only:false ~sm_config:[] ~virtual_size:(2L ** mib)
-        ~xenstore_data:[] ~tags:[] ~sR in
-
     let run_test_suite ~sR ~vDI =
       let sr_ops = (SR.get_allowed_operations ~session_id ~rpc:!rpc ~self:sR) in
-      List.iter
+      [ (fun () -> enable_disable_cbt_test ~vDI), [ `vdi_enable_cbt ; `vdi_disable_cbt ]
+      ]
+      |> List.iter
         (fun (test,list_vdi_ops) ->
            if List.for_all (fun vdi_op -> List.mem vdi_op sr_ops) list_vdi_ops
-           then test ();
-        ) [ (fun () -> enable_disable_cbt_test ~vDI), [ `vdi_enable_cbt ; `vdi_disable_cbt ]
-          ]
-    ; in
+           then test ())
+    in
 
     (* Try running test suite, definitively destroy all VDIs created, regardless of success or errors *)
     let handle_storage_objects ~sR ~vDI =
       Xapi_stdext_pervasives.Pervasiveext.finally
         (fun () -> run_test_suite ~sR ~vDI)
         (fun () ->
-           List.filter (fun vdi -> (VDI.get_name_label ~session_id ~rpc:!rpc ~self:vdi = "qt-cbt")
-                                   && (VDI.get_name_description ~session_id ~rpc:!rpc ~self:vdi = name_description)
-                       )  (VDI.get_all ~session_id ~rpc:!rpc)
+           (VDI.get_all ~session_id ~rpc:!rpc)
+           |> List.filter (fun vdi -> (VDI.get_name_label ~session_id ~rpc:!rpc ~self:vdi = "qt-cbt")
+                                      && (VDI.get_name_description ~session_id ~rpc:!rpc ~self:vdi = name_description))
            |> List.iter (fun vdi -> VDI.destroy ~session_id ~rpc:!rpc ~self:vdi);
         ) in
 
     (* Obtain list of SRs capable of creating VDIs, and run them all through test suite *)
-    let srs_can_create_vdi =
-      List.filter (fun sR -> List.mem `vdi_create (SR.get_allowed_operations ~session_id ~rpc:!rpc ~self:sR)
-                  ) (SR.get_all ~session_id ~rpc:!rpc) in
-    List.iteri (fun i sR ->
-        debug cbt_test (Printf.sprintf "Testing SR %d of %d" (i+1) (List.length srs_can_create_vdi));
+    (SR.get_all ~session_id ~rpc:!rpc)
+    |> List.filter (fun sR -> (List.mem `vdi_create (SR.get_allowed_operations ~session_id ~rpc:!rpc ~self:sR))
+                              && (SR.get_type ~session_id ~rpc:!rpc ~self:sR <> "iso"))
+    |> List.iteri (fun i sR ->
+        debug cbt_test (Printf.sprintf "Testing SR: \"%s\"" (SR.get_name_label ~session_id ~rpc:!rpc ~self:sR));
         let vDI = make_vdi_from sR in
         handle_storage_objects ~sR ~vDI
-      ) srs_can_create_vdi;
+      );
 
     (* Overall test will fail if VDI.destroy messes up, or any other exception is thrown *)
     debug cbt_test "Finished testing changed block tracking";
