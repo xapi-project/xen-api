@@ -16,6 +16,6 @@ depends: [
   "uri"
   "uuidm"
   "xapi-inventory"
-  "xen-api-client"
+  "xen-api-client-lwt"
 ]
 tags: [ "org:mirage" "org:xapi-project" ]
