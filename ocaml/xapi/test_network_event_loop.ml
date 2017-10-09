@@ -1,4 +1,4 @@
-let test_network_event_loop ~no_networks_at_start () =
+let test_network_event_loop ~no_nbd_networks_at_start () =
   let __context, _ = Test_event_common.event_setup_common () in
   (* We need to set test_mode to true to ensure that the event loop will use
      the local Xapi_events.from function instead of the Client module, which
@@ -9,7 +9,7 @@ let test_network_event_loop ~no_networks_at_start () =
   let other_host = Test_common.make_host ~__context () in
 
   (* We have to wait for a bit for the event loop to notice the changes, without a delay the test will fail. *)
-  let delay = 0.1 in
+  let delay = 0.2 in
   let network_event_loop_wait_after_failure_seconds = 0.4 in
   let received_params = ref None in
 
@@ -41,18 +41,20 @@ let test_network_event_loop ~no_networks_at_start () =
     OUnit.assert_equal ~msg:("update_firewall shouldn't have been called: " ^ msg) None !received_params
   in
 
-  if no_networks_at_start then begin
+  let network1 = Test_common.make_network ~__context ~bridge:"bridge1" () in
+
+  if no_nbd_networks_at_start then begin
     received_params := None;
     let _ : Thread.t = start_event_loop () in
-    assert_not_called "There are no networks" ()
+    assert_received_params "The event loop should always update the firewall state at startup, even if no networks are allowed for NBD" []
   end;
 
   (* Add a new network "network1" with a PIF connected to this host *)
   received_params := None;
-  let network1 = Test_common.make_network ~__context ~purpose:[`nbd] ~bridge:"bridge1" () in
+  Db.Network.set_purpose ~__context ~self:network1 ~value:[`nbd];
   assert_not_called "network1 has no PIF connected to this host" ();
   let pif1 = Test_common.make_pif ~__context ~network:network1 ~host:localhost ~device:"network1_pif1" () in
-  if not no_networks_at_start then begin
+  if not no_nbd_networks_at_start then begin
     let _ : Thread.t = start_event_loop () in ()
   end;
   assert_received_params "network1 is now connected to this host with pif1" ["bridge1"];
@@ -158,6 +160,6 @@ let test_network_event_loop ~no_networks_at_start () =
 let test =
   let ((>:::), (>::)) = OUnit.((>:::), (>::)) in
   "test_network_event_loop" >:::
-  [ "test_network_event_loop_with_no_networks_at_start" >:: (test_network_event_loop ~no_networks_at_start:true)
-  ; "test_network_event_loop_with_some_networks_at_start" >:: (test_network_event_loop ~no_networks_at_start:false)
+  [ "test_network_event_loop_with_no_networks_at_start" >:: (test_network_event_loop ~no_nbd_networks_at_start:true)
+  ; "test_network_event_loop_with_some_networks_at_start" >:: (test_network_event_loop ~no_nbd_networks_at_start:false)
   ]

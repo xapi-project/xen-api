@@ -9,9 +9,9 @@ let _watch_networks __context ~update_firewall ~wait_after_failure_seconds =
   (* We keep track of the network objects in the database using this event loop. *)
   let classes = ["network"] in
   (* We keep track of the interfaces that we last passed to the firewall script
-     to allow NBD traffic on them. At startup, NBD is blocked on all
-     interfaces. *)
-  let allowed_interfaces = [] in
+     to allow NBD traffic on them. At startup, we don't know on which
+     interfaces NBD is allowed, and we always update the firewall. *)
+  let allowed_interfaces = None in
 
   let api_timeout = 60. in
   let timeout = 30. +. api_timeout +. !Db_globs.master_connection_reset_timeout in
@@ -35,6 +35,7 @@ let _watch_networks __context ~update_firewall ~wait_after_failure_seconds =
         let localhost = Helpers.get_localhost ~__context in
         let pifs = Db.Host.get_PIFs ~__context ~self:localhost in
         let allowed_connected_networks =
+          (* We use Valid_ref_list to continue processing the list in case some network refs are null or invalid *)
           Valid_ref_list.filter_map
             (fun pif ->
                let network = Db.PIF.get_network ~__context ~self:pif in
@@ -48,15 +49,22 @@ let _watch_networks __context ~update_firewall ~wait_after_failure_seconds =
         in
         let allowed_local_bridges = List.map (fun network -> Db.Network.get_bridge ~__context ~self:network) allowed_connected_networks in
         let allowed_local_bridges = List.filter ((<>) "") allowed_local_bridges in
-        let devices = allowed_local_bridges in
-        let interface_list = String.concat ", " devices in
-        if not (Xapi_stdext_std.Listext.List.set_equiv devices allowed_interfaces) then begin
+        let interfaces = allowed_local_bridges in
+        let needs_firewall_update = match allowed_interfaces with
+          | Some allowed_interfaces ->
+            not (Xapi_stdext_std.Listext.List.set_equiv interfaces allowed_interfaces)
+          | None ->
+            (* We've just started the event loop, and we do not know the state of the firewall. *)
+            true
+        in
+        let interface_list = String.concat ", " interfaces in
+        if needs_firewall_update then begin
           D.debug "Updating the firewall to use the following interfaces for NBD: [%s]" interface_list;
-          update_firewall devices
+          update_firewall interfaces
         end else begin
           D.debug "Not updating the firewall, because the set of interfaces to use for NBD did not change: [%s]" interface_list
         end;
-        (token, devices)
+        (token, Some interfaces)
       with
       | Api_errors.Server_error (code, _) as e when code = Api_errors.events_lost ->
         D.warn "Lost events: %s" (ExnHelper.string_of_exn e);
