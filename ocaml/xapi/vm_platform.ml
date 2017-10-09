@@ -50,7 +50,7 @@ let fallback_device_model_stage_1      = "qemu-trad"
 let fallback_device_model_stage_2      = fallback_device_model_stage_1
 let fallback_device_model_stage_3      = "qemu-upstream-compat"
 let fallback_device_model_stage_4      = fallback_device_model_stage_3
-let default_device_model_default_value = fallback_device_model_stage_1
+let fallback_device_model_default_value = fallback_device_model_stage_1
 
 (* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 let filtered_flags = [
