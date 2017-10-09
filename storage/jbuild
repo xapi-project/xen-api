@@ -1,0 +1,81 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+  | [] -> ""
+  | pkgs ->
+    let cmd = "ocamlfind ocamlc -verbose" ^ (
+        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+      ) in
+    let ic = Unix.open_process_in
+        (cmd ^ " | grep -oEe '-ppx? (\"([^\"\\]|\\.)+\"|\\w+)'")
+    in
+    let rec go ic acc =
+      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+    in
+    go ic ""
+
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+
+let rewriters_camlp4 = ["rpclib.idl -syntax camlp4o"]
+let rewriters_ppx = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(jbuild_version 1)
+
+(library
+ ((name xcp_storage_interface_types)
+  (public_name xcp.storage.interface.types)
+  (flags (:standard -w -39 %s))
+  (modules (vdi_automaton))
+  (libraries
+   (rpclib
+    threads
+    xcp))
+  (wrapped false)
+  %s))
+
+(library
+ ((name xcp_storage_interface)
+  (public_name xcp.storage.interface)
+  (flags (:standard -w -39 %s))
+  (modules (storage_interface))
+  (libraries
+   (rpclib
+    threads
+    xcp
+    xcp_storage_interface_types))
+  (wrapped false)
+  %s))
+
+(library
+ ((name xcp_storage)
+  (public_name xcp.storage)
+  (flags (:standard -w -39 %s))
+  (modules (:standard \ storage_interface storage_test vdi_automaton))
+  (libraries
+   (rpclib
+    threads
+    xapi-stdext-date
+    xcp
+    xcp_storage_interface
+    xcp_storage_interface_types))
+  (wrapped false)
+  %s))
+
+(executable
+ ((name storage_test)
+  (flags (:standard -w -39 %s))
+  (modules (storage_test))
+  (libraries
+   (cmdliner
+    oUnit
+    xcp
+    xcp_storage))
+  %s))
+|} (flags rewriters_ppx) coverage_rewriter (flags rewriters_camlp4) coverage_rewriter (flags rewriters_ppx) coverage_rewriter (flags rewriters_ppx) coverage_rewriter

@@ -5,38 +5,30 @@ bug-reports: "https://github.com/xapi-project/xcp-idl/issues"
 dev-repo: "git://github.com/xapi-project/xcp-idl"
 maintainer: "xen-api@lists.xen.org"
 tags: [ "org:xapi-project" ]
-build: [
-  [make "all"]
-]
-build-test: [
-  [make "test"]
-]
-install: [
-  [make "install"]
-]
-remove: [
-  ["ocamlfind" "remove" "xcp"]
-]
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build-test: ["jbuilder" "runtest" "-p" name]
 depends: [
-  "ocamlfind" {build}
-  "ocamlbuild" {build}
   "base-threads"
   "base-unix"
-  "uri"
-  "re"
   "cmdliner"
   "cohttp" {< "0.22.0"}
-  "xmlm"
-  "rpc" {>= "1.9.51"}
-  "message-switch"
-  "xapi-stdext"
-  "xapi-rrd"
-  "xapi-inventory"
-  "xapi-backtrace"
   "fd-send-recv"
-  "lwt" {< "3.0.0"}
+  "jbuilder" {build & >= "1.0+beta11"}
+  "lwt" {< "3.0.0" & >= "2.7.1"}
+  "message-switch"
+  "ocamlfind" {build}
   "ounit" {>= "2.0.0"}
   "ppx_sexp_conv"
+  "re"
+  "rpc" {>= "1.9.51"}
   "sexplib"
+  "uri"
+  "xapi-backtrace"
+  "xapi-inventory"
+  "xapi-rrd"
+  "xapi-stdext-date"
+  "xapi-stdext-monadic"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-threads"
+  "xmlm"
 ]
-

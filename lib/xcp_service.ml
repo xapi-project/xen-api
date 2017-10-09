@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext
+open Xapi_stdext_monadic
 module StringSet = Set.Make(String)
 
 (* Server configuration. We have built-in (hopefully) sensible defaults,
@@ -263,7 +263,7 @@ let canonicalise x =
 		(* Search the PATH and XCP_PATH for the executable *)
 		let paths = split_c ':' (Sys.getenv "PATH") in
 		let first_hit = List.fold_left (fun found path -> match found with
-			| Some hit -> found
+			| Some _hit -> found
 			| None ->
 				let possibility = Filename.concat path x in
 				if Sys.file_exists possibility
@@ -301,7 +301,7 @@ let startswith prefix x =
         let prefix' = String.length prefix and x' = String.length x in
         prefix' <= x' && (String.sub x 0 prefix' = prefix)
 
-let configure_common ~name ~version ~doc ~options ~resources arg_parse_fn =
+let configure_common ~options ~resources arg_parse_fn =
 	let resources = default_resources @ resources in
 	let config_spec = common_options @ options @ (to_opt resources) in
 
@@ -344,7 +344,7 @@ let configure_common ~name ~version ~doc ~options ~resources arg_parse_fn =
 
 let configure ?(options=[]) ?(resources=[]) () =
   try
-    configure_common ~name:"Unknown" ~version:"Unknown" ~doc:"Unknown" ~options ~resources
+    configure_common ~options ~resources
       (fun config_spec ->
         Arg.parse (Arg.align (arg_spec config_spec))
           (fun _ -> failwith "Invalid argument")
@@ -360,7 +360,7 @@ type ('a, 'b) error = [
 
 let configure2 ~name ~version ~doc ?(options=[]) ?(resources=[]) () =
   try
-    configure_common ~name ~version ~doc ~options ~resources
+    configure_common ~options ~resources
       (fun config_spec ->
         match Term.eval (command_of ~name ~version ~doc config_spec) with
         | `Ok () -> ()
@@ -370,33 +370,6 @@ let configure2 ~name ~version ~doc ?(options=[]) ?(resources=[]) () =
     `Ok ()
   with Failure m ->
     `Error m
-
-type 'a handler =
-	(string -> Rpc.call) ->
-	(Rpc.response -> string) ->
-	('a -> Rpc.call -> Rpc.response) ->
-	Unix.file_descr ->
-	'a->
-	unit
-
-(* Apply a binary message framing protocol where the first 16 bytes are an integer length
-   stored as an ASCII string *)
-let binary_handler call_of_string string_of_response process s context =
-	let ic = Unix.in_channel_of_descr s in
-	let oc = Unix.out_channel_of_descr s in
-	(* Read a 16 byte length encoded as a string *)
-	let len_buf = String.make 16 '\000' in
-	really_input ic len_buf 0 (String.length len_buf);
-	let len = int_of_string len_buf in
-	let msg_buf = String.make len '\000' in
-	really_input ic msg_buf 0 (String.length msg_buf);
-	let (request: Rpc.call) = call_of_string msg_buf in
-	let (result: Rpc.response) = process context request in
-	let msg_buf = string_of_response result in
-	let len_buf = Printf.sprintf "%016d" (String.length msg_buf) in
-	output_string oc len_buf;
-	output_string oc msg_buf;
-	flush oc
 
 let http_handler call_of_string string_of_response process s =
 	let ic = Unix.in_channel_of_descr s in
@@ -439,23 +412,13 @@ let http_handler call_of_string string_of_response process s =
 				"content-length", string_of_int content_length;
 			] in
 			let response = Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers ~encoding:(Cohttp.Transfer.Fixed (Int64.of_int content_length)) () in
-			Response.write (fun t -> ()) response oc
+			Response.write (fun _t -> ()) response oc
 		end
 
-let ign_thread (t:Thread.t) = ignore t
 let ign_int (t:int)         = ignore t
-let ign_string (t:string)   = ignore t
 
 let default_raw_fn rpc_fn s =
 	http_handler Xmlrpc.call_of_string Xmlrpc.string_of_response rpc_fn s
-
-let accept_forever sock f =
-	ign_thread (Thread.create (fun () ->
-		while true do
-			let this_connection, _ = Unix.accept sock in
-			ign_thread (Thread.create (fun c -> finally (fun () -> f c)  (fun () -> Unix.close c)) this_connection)
-		done
-	) ())
 
 let mkdir_rec dir perm =
 	let rec p_mkdir dir =
@@ -567,11 +530,3 @@ let maybe_daemonize ?start_fn () =
 		daemonize ?start_fn ()
 	else
 		Opt.iter (fun fn -> fn ()) start_fn
-
-let wait_forever () =
-	while true do
-		try
-			Thread.delay 60.
-		with e ->
-			debug "Thread.delay caught: %s" (Printexc.to_string e)
-	done

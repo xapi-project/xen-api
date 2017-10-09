@@ -55,14 +55,14 @@ module T = Task_server.Task(TestInterface)
 (* Test that we can add a task and retrieve it from the task list *)
 let test_add () =
   let t = T.empty () in
-  let task = T.add t "dbg" (fun task -> Some "done") in
+  let task = T.add t "dbg" (fun _task -> Some "done") in
   let ts = T.list t in
   assert_bool "Task in task list" (List.mem task ts)
 
 (* Test that destroying a task removes it from the task list *)
 let test_destroy () =
   let t = T.empty () in
-  let task = T.add t "dbg" (fun task -> Some "done") in
+  let task = T.add t "dbg" (fun _task -> Some "done") in
   T.destroy task;
   let ts = T.list t in
   assert_bool "Task not in task list" (not (List.mem task ts))
@@ -74,7 +74,7 @@ let test_run () =
   let t = T.empty () in
   let start = Unix.gettimeofday () in
   Thread.delay 0.001;
-  let task = T.add t "dbg" (fun task -> Thread.delay 0.001; Some "done") in
+  let task = T.add t "dbg" (fun _task -> Thread.delay 0.001; Some "done") in
   T.run task;
   let t' = T.to_interface_task task in
   assert_bool "Task ctime" (t'.TestInterface.Task.ctime > start);
@@ -89,7 +89,7 @@ let test_run () =
 let test_raise () =
   Debug.disable "task_server";
   let t = T.empty () in
-  let task = T.add t "dbg" (fun task -> raise (TestInterface.Internal_error "test")) in
+  let task = T.add t "dbg" (fun _task -> raise (TestInterface.Internal_error "test")) in
   T.run task;
   let t' = T.to_interface_task task in
   assert_bool "Task result"
@@ -224,13 +224,13 @@ let test_subtasks () =
       (fun task ->
         let _ : int = T.with_subtask task "subtask1" (fun () -> 0) in
          Some "done") in
-  let id = T.id_of_handle task in
+  let _id = T.id_of_handle task in
   T.run task;
   assert_bool "Subtasks"
     ((List.hd (T.to_interface_task task).TestInterface.Task.subtasks |> fst) = "subtask1");
   assert_bool "Task result"
     (match (T.to_interface_task task).TestInterface.Task.state with
-     | TestInterface.Task.Completed {TestInterface.Task.result=Some r; duration} ->
+     | TestInterface.Task.Completed {TestInterface.Task.result=Some r; duration=_} ->
        r = "done"
      | _ -> false)
 
@@ -290,7 +290,7 @@ let test_cancel_trigger () =
      | _ -> false);
   assert_bool "Task result"
     (match (T.to_interface_task task1).TestInterface.Task.state with
-     | TestInterface.Task.Completed {TestInterface.Task.result=Some r; duration} ->
+     | TestInterface.Task.Completed {TestInterface.Task.result=Some r; duration=_} ->
        r = "done"
       | _ -> false);
   assert_bool "cancel points xxx" (!xxx = 0);

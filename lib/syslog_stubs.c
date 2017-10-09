@@ -25,10 +25,6 @@ static int __syslog_level_table[] = {
 	LOG_NOTICE, LOG_INFO, LOG_DEBUG
 };
 
-static int __syslog_options_table[] = {
-	LOG_CONS, LOG_NDELAY, LOG_NOWAIT, LOG_ODELAY, LOG_PERROR, LOG_PID
-};
-
 static int __syslog_facility_table[] = {
 	LOG_AUTH, LOG_AUTHPRIV, LOG_CRON, LOG_DAEMON, LOG_FTP, LOG_KERN,
 	LOG_LOCAL0, LOG_LOCAL1, LOG_LOCAL2, LOG_LOCAL3,
@@ -57,7 +53,7 @@ value stub_openlog(value ident, value option, value facility)
 value stub_syslog(value facility, value level, value msg)
 {
 	CAMLparam3(facility, level, msg);
-	const char *c_msg = strdup(String_val(msg));
+	char *c_msg = strdup(String_val(msg));
 	int c_facility = __syslog_facility_table[Int_val(facility)]
 	               | __syslog_level_table[Int_val(level)];
 

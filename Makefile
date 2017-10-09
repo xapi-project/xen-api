@@ -1,34 +1,29 @@
-.PHONY: all clean install build
-all: build doc
+.PHONY: build release install uninstall clean test doc reindent
 
-NAME=xcp
-J=4
+build:
+	    jbuilder build @install --dev -j $$(getconf _NPROCESSORS_ONLN)
 
-export OCAMLRUNPARAM=b
+release:
+	    jbuilder build @install
 
-setup.bin: setup.ml
-	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
-	@rm -f setup.cmx setup.cmi setup.o setup.cmo
+install:
+	    jbuilder install
 
-setup.data: setup.bin
-	@./setup.bin -configure
-
-build: setup.data setup.bin
-	@./setup.bin -build -j $(J)
-
-doc: setup.data setup.bin
-	@./setup.bin -doc -j $(J)
-
-install: setup.bin
-	@./setup.bin -install
-
-test: setup.bin build
-	@./setup.bin -test -verbose true
-
-reinstall: setup.bin
-	@ocamlfind remove $(NAME) || true
-	@./setup.bin -reinstall
+uninstall:
+	    jbuilder uninstall
 
 clean:
-	@ocamlbuild -clean
-	@rm -f setup.data setup.log setup.bin
+	    jbuilder clean
+
+test:
+	    jbuilder runtest --dev -j $$(getconf _NPROCESSORS_ONLN)
+
+# requires odoc
+doc:
+	    jbuilder build @doc
+
+gh-pages:
+	    bash .docgen.sh
+
+reindent:
+	    git ls-files '*.ml' '*.mli' | xargs ocp-indent --syntax cstruct -i

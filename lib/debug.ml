@@ -15,6 +15,7 @@
 
 module Mutex = struct
   include Mutex
+
   (** execute the function f with the mutex hold *)
   let execute lock f =
     Mutex.lock lock;
@@ -114,7 +115,7 @@ let format include_time brand priority message =
   let name = match ThreadLocalTable.find names with Some x -> x | None -> "" in
   let task = match ThreadLocalTable.find tasks with Some x -> x | None -> "" in
 
-  Printf.sprintf "[%s%.5s|%s|%d %s|%s|%s] %s"
+  Printf.sprintf "[%s%5s|%s|%d %s|%s|%s] %s"
     (if include_time then gettimestring () else "")
     priority host id name task brand message
 
@@ -164,7 +165,7 @@ let rec split_c c str =
     String.sub str 0 i :: (split_c c (String.sub str (i+1) (String.length str - i - 1)))
   with Not_found -> [str]
 
-let log_backtrace exn bt =
+let log_backtrace exn _bt =
   Backtrace.is_important exn;
   let all = split_c '\n' (Backtrace.(to_string_hum (remove exn))) in
   (* Write to the log line at a time *)

@@ -1,8 +1,6 @@
 let my_domid = 0 (* TODO: figure this out *)
 
-exception Short_write of int * int
 exception End_of_file
-exception No_useful_protocol
 exception Channel_setup_failed
 
 module CBuf = struct
@@ -40,7 +38,7 @@ module CBuf = struct
     (* Offset of the character after the substring *)
     let next = min (String.length x.buffer) (x.start + x.len) in
     let len = next - x.start in
-    let written = try Unix.single_write fd x.buffer x.start len with e -> x.w_closed <- true; len in
+    let written = try Unix.single_write fd x.buffer x.start len with _e -> x.w_closed <- true; len in
     drop x written
 
   let read (x: t) fd =
@@ -92,11 +90,7 @@ let finally f g =
     g ();
     raise e
 
-let file_descr_of_int (x: int) : Unix.file_descr =
-  Obj.magic x (* Keep this in sync with ocaml's file_descr type *)
-
 let ip = ref "127.0.0.1"
-let unix = ref "/tmp"
 
 let send proxy_socket =
   let to_close = ref [] in
@@ -149,7 +143,7 @@ let send proxy_socket =
           (fun () -> 
             let readable, _, _ = Unix.select [ s_ip; s_unix ] [] [] (-1.0) in
             if List.mem s_unix readable then begin
-              let fd, peer = Unix.accept s_unix in
+              let fd, _peer = Unix.accept s_unix in
               to_close := fd :: !to_close;
               let buffer = String.make (String.length token) '\000' in
               let n = Unix.recv fd buffer 0 (String.length buffer) [] in
@@ -159,7 +153,7 @@ let send proxy_socket =
                 ()
               end
             end else if List.mem s_ip readable then begin
-              let fd, peer = Unix.accept s_ip in
+              let fd, _peer = Unix.accept s_ip in
 
               List.iter close !to_close;
               to_close := fd :: !to_close;

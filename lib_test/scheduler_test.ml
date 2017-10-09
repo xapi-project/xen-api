@@ -97,7 +97,7 @@ let test_one_shot_cancel () =
    a test function that has been injected *)
 let test_dump () =
   let after = ref None in
-  let before = Unix.gettimeofday () in
+  let _before = Unix.gettimeofday () in
   let _ = Scheduler.one_shot global_scheduler (Scheduler.Delta 1) "test_dump"
       (fun () -> after := Some (Unix.gettimeofday ())) in
   let dump = Scheduler.Dump.make global_scheduler in

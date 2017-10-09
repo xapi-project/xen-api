@@ -46,6 +46,7 @@ let split_colon str =
     [str]
 
 (* Use HTTP to frame RPC messages *)
+[@@@ocaml.warning "-27"]
 let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset") url call =
 	let uri = Uri.of_string (url ()) in
 	let req = string_of_call call in

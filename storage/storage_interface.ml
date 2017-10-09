@@ -26,7 +26,6 @@ let set_sockets_dir x =
 
 let uri () = "file:" ^ !default_path
 
-open Vdi_automaton
 
 (** Primary key identifying the SR *)
 type sr = string
@@ -81,7 +80,7 @@ let default_vdi_info = {
     ty = "user";
     metadata_of_pool = "";
     is_a_snapshot = false;
-    snapshot_time = Stdext.Date.to_string Stdext.Date.never;
+    snapshot_time = Xapi_stdext_date.Date.to_string Xapi_stdext_date.Date.never;
     snapshot_of = "";
     read_only = false;
     virtual_size = 0L;

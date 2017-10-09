@@ -14,9 +14,9 @@
 (**
  * @group Xenops
 *)
-open Stdext
-open Threadext
-open Pervasiveext
+open Xapi_stdext_monadic
+open Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_threads.Threadext
 
 
 module D = Debug.Make(struct let name = "task_server" end)
@@ -176,8 +176,6 @@ module Task = functor (Interface : INTERFACE) -> struct
       item.backtrace <- Backtrace.remove e;
       let e = e |> Interface.exnty_of_exn |> Interface.Exception.rpc_of_exnty in
       item.state <- Interface.Task.Failed e
-
-  let exists_locked tasks id = SMap.mem id !(tasks.task_map)
 
   let find_locked tasks id =
     try

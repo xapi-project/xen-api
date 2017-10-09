@@ -100,7 +100,7 @@ let test_2_way_convert =
 					let equal_linux old_t new_t =
 						match spec old_t, spec new_t with
 						| (Ide, disk1, partition1), (Xen, disk2, partition2)
-							when disk1 = disk2 && partition2 = partition2 -> true
+							when disk1 = disk2 && partition1 = partition2 -> true
 						| old_spec, new_spec -> old_spec = new_spec
 					in
 					let original = of_disk_number hvm disk_number in

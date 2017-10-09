@@ -1,11 +1,8 @@
 (******************************************************************************)
 (* Object update tracking                                                     *)
 
-open Stdext
-open Pervasiveext
-
-module D = Debug.Make(struct let name = "updates" end)
-open D
+open Xapi_stdext_monadic
+open Xapi_stdext_pervasives.Pervasiveext
 
 module type INTERFACE = sig
   val service_name : string
@@ -86,7 +83,7 @@ module Updates = functor(Interface : INTERFACE) -> struct
     let get from t =
       (* [from] is the id of the most recent event already seen *)
       let get_from_map map =
-        let before, after = M.partition (fun _ time -> time <= from) map in
+        let _before, after = M.partition (fun _ time -> time <= from) map in
         let xs, last = M.fold (fun key v (acc, m) -> (key, v) :: acc, max m v) after ([], from) in
         let xs = List.sort (fun (_, v1) (_, v2) -> compare v1 v2) xs
                  |> List.map fst
@@ -114,7 +111,7 @@ module Updates = functor(Interface : INTERFACE) -> struct
 (*    let fold f t init = M.fold f t.map init *)
   end
 
-  open Stdext.Threadext
+  open Xapi_stdext_threads.Threadext
 
   module U = UpdateRecorder(struct type t = Interface.Dynamic.id let compare = compare end)
 
@@ -165,7 +162,7 @@ module Updates = functor(Interface : INTERFACE) -> struct
               )
           ) (fun () -> Opt.iter (Scheduler.cancel t.s) id))
 
-  let last_id dbg t =
+  let last_id _dbg t =
     Mutex.execute t.m
       (fun () ->
          U.last_id t.u
@@ -174,7 +171,7 @@ module Updates = functor(Interface : INTERFACE) -> struct
   let add x t =
     Mutex.execute t.m
       (fun () ->
-         let result, id = U.add x t.u in
+         let result, _id = U.add x t.u in
          t.u <- result;
          Condition.broadcast t.c
       )
@@ -182,7 +179,7 @@ module Updates = functor(Interface : INTERFACE) -> struct
   let remove x t =
     Mutex.execute t.m
       (fun () ->
-         let result, id = U.remove x t.u in
+         let result, _id = U.remove x t.u in
          t.u <- result;
          Condition.broadcast t.c
       )
@@ -190,7 +187,7 @@ module Updates = functor(Interface : INTERFACE) -> struct
   let filter f t =
     Mutex.execute t.m
       (fun () ->
-         let result, id = U.filter (fun x y -> f x) t.u in
+         let result, _id = U.filter (fun x _y -> f x) t.u in
          t.u <- result;
          Condition.broadcast t.c
       )
@@ -198,14 +195,14 @@ module Updates = functor(Interface : INTERFACE) -> struct
   let inject_barrier id filter t =
     Mutex.execute t.m
       (fun () ->
-         let result, id = U.inject_barrier id filter t.u in
+         let result, _id = U.inject_barrier id filter t.u in
          t.u <- result;
          Condition.broadcast t.c)
 
   let remove_barrier id t =
     Mutex.execute t.m
       (fun () ->
-         let result, id = U.remove_barrier id t.u in
+         let result, _id = U.remove_barrier id t.u in
          t.u <- result;
          Condition.broadcast t.c)
 

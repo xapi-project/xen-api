@@ -55,7 +55,6 @@ module Unbuffered_IO = struct
         if c = x.marker.[x.i] then x.i <- x.i + 1 else x.i <- 0
       let remaining x = String.length x.marker - x.i
       let matched x = x.i = String.length x.marker
-      let to_string x = Printf.sprintf "%d" x.i
     end in
     let marker = Scanner.make end_of_headers in
 
@@ -119,7 +118,7 @@ module Unbuffered_IO = struct
 
   let write oc x = ignore(Unix.write oc x 0 (String.length x))
 
-  let flush oc = ()
+  let flush _oc = ()
 end
 
 module Buffered_IO = struct

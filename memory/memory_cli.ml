@@ -1,8 +1,6 @@
 (* Memory CLI *)
 
 open Memory_interface
-open Xcp_client
-open Memory_client
 
 module Cmds = API(Cmdlinergen.Gen ())
 
