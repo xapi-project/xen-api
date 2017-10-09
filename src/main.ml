@@ -80,25 +80,42 @@ let handle_connection fd tls_role =
     )
 
 (* TODO use the version from nbd repository *)
-let init_tls_get_server_ctx ~certfile ~ciphersuites no_tls =
-  if no_tls then None
-  else (
-    let certfile = require_str "certfile" certfile in
-    let ciphersuites = require_str "ciphersuites" ciphersuites in
-    Some (Nbd_lwt_unix.TlsServer
-      (Nbd_lwt_unix.init_tls_get_ctx ~certfile ~ciphersuites)
-    )
+let init_tls_get_server_ctx ~certfile ~ciphersuites =
+  let certfile = require_str "certfile" certfile in
+  let ciphersuites = require_str "ciphersuites" ciphersuites in
+  Some (Nbd_lwt_unix.TlsServer
+    (Nbd_lwt_unix.init_tls_get_ctx ~certfile ~ciphersuites)
   )
 
-let main port certfile ciphersuites no_tls =
+let xapi_says_use_tls () =
+  let refuse log msg = (
+    log msg >>=
+    (fun () -> Lwt.fail_with msg)
+  ) in
+  let ask_xapi rpc session_id =
+    Xen_api.Network.get_all_records ~rpc ~session_id >>=
+    fun all_nets ->
+    let all_porpoises = List.map (fun (_str, net) -> net.API.network_purpose) all_nets |>
+    List.flatten in
+    let tls = List.mem `nbd all_porpoises in
+    let no_tls = List.mem `insecure_nbd all_porpoises in
+    match tls, no_tls with
+    | true, true -> refuse Lwt_log.error "Contradictory XenServer configuration: nbd and insecure_nbd network purposes! Refusing connection."
+    | true, false -> Lwt.return true
+    | false, true -> Lwt.return false
+    | false, false -> refuse Lwt_log.warning "Refusing connection: no network has purpose nbd or insecure_nbd:"
+  in
+  Local_xapi_session.with_session ask_xapi
+
+let main port certfile ciphersuites =
   let t () =
-    Lwt_log.notice_f "Starting xapi-nbd: port = '%d'; certfile = '%s'; ciphersuites = '%s' no_tls = '%b'" port certfile ciphersuites no_tls >>= fun () ->
+    Lwt_log.notice_f "Starting xapi-nbd: port = '%d'; certfile = '%s'; ciphersuites = '%s'" port certfile ciphersuites >>= fun () ->
     (* We keep a persistent record of the VBDs that we've created but haven't
        yet cleaned up. At startup we go through this list in case some VBDs
        got leaked after the previous run due to a crash and clean them up. *)
     Cleanup.Persistent.cleanup () >>= fun () ->
     Lwt_log.notice "Initialising TLS" >>= fun () ->
-    let tls_role = init_tls_get_server_ctx ~certfile ~ciphersuites no_tls in
+    let tls_server_role = init_tls_get_server_ctx ~certfile ~ciphersuites in
     let sock = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
     Lwt.finalize
       (fun () ->
@@ -117,7 +134,13 @@ let main port certfile ciphersuites no_tls =
              ignore_exn_log_error "Caught exception while handling client"
                (fun () ->
                   Lwt.finalize
-                    (fun () -> handle_connection fd tls_role)
+                    (fun () -> (
+                      xapi_says_use_tls () >>=
+                      fun tls -> (
+                        let tls_role = if tls then tls_server_role else None in
+                        handle_connection fd tls_role)
+                      )
+                    )
                     (* ignore the exception resulting from double-closing the socket *)
                     (ignore_exn_delayed (fun () -> Lwt_unix.close fd))
                )
@@ -158,9 +181,6 @@ let certfile =
 let ciphersuites =
   let doc = "Set of ciphersuites for TLS (specified in the format accepted by OpenSSL, stunnel etc.)" in
   Arg.(value & opt string "!EXPORT:RSA+AES128-SHA256" & info ["ciphersuites"] ~doc)
-let no_tls =
-  let doc = "Use NOTLS mode (refusing TLS) instead of the default FORCEDTLS." in
-  Arg.(value & flag & info ["no-tls"] ~doc)
 
 let cmd =
   let doc = "Expose VDIs over authenticated NBD connections" in
@@ -168,12 +188,12 @@ let cmd =
     `S "DESCRIPTION";
     `P "Expose all accessible VDIs over NBD. Every VDI is addressible through a URI, where the URI will be authenticated by xapi.";
   ] @ help in
-  (* TODO for port, certfile, ciphersuites and no_tls: use definitions from nbd repository. *)
+  (* TODO for port, certfile, ciphersuites: use definitions from nbd repository. *)
   (* But consider making ciphersuites mandatory here in a local definition. *)
   let port =
     let doc = "Local port to listen for connections on" in
     Arg.(value & opt int Consts.standard_nbd_port & info [ "port" ] ~doc) in
-  Term.(ret (pure main $ port $ certfile $ ciphersuites $ no_tls)),
+  Term.(ret (pure main $ port $ certfile $ ciphersuites)),
   Term.info "xapi-nbd" ~version:"1.0.0" ~doc ~man ~sdocs:_common_options
 
 let setup_logging () =
