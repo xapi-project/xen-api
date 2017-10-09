@@ -21,8 +21,6 @@ let _watch_networks __context ~update_firewall ~wait_after_failure_seconds =
            Client.Client.Event.from ~rpc ~session_id ~classes ~token ~timeout |> Event_types.event_from_of_rpc)
         ~test_fn:(fun () -> Xapi_event.from ~__context ~classes ~token ~timeout |> Event_types.parse_event_from)
     in
-    let events = from.Event_types.events in
-    List.iter (fun event -> D.debug "got event %s" (Event_types.string_of_event event)) events;
     from.Event_types.token
   in
 
