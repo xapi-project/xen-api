@@ -15,6 +15,6 @@
     uuidm
     vbd_store
     xcp-inventory
-    xen-api-client.lwt))
+    xen-api-client-lwt))
  )
 )

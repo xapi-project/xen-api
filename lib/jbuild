@@ -11,7 +11,7 @@
    (consts
     lwt
     lwt.unix
-    xen-api-client.lwt
+    xen-api-client-lwt
    )
   )
  )
