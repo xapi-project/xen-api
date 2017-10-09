@@ -23,7 +23,7 @@ let test_exists =
       OUnit.assert_equal false (Valid_ref_list.exists f l)
     )
 
-let test_filter =
+let test_valid_ref_filter =
   with_vm_list (fun __context ->
       function
       | [vm1; vm2; vm3; vm4] as l ->
@@ -70,14 +70,11 @@ let test_flat_map =
     )
 
 let test =
-  (* We do not open the OUnit module here, because OUnit also has a test_filter
-     function, which would conflict with our test_filter unit test function and
-     cause a compilation error. *)
   let ((>:::), (>::)) = OUnit.((>:::), (>::)) in
   "test_valid_ref_list" >:::
   [ "test_map" >:: test_map
   ; "test_exists" >:: test_exists
-  ; "test_filter" >:: test_filter
+  ; "test_filter" >:: test_valid_ref_filter
   ; "test_for_all" >:: test_for_all
   ; "test_flat_map" >:: test_flat_map
   ]
