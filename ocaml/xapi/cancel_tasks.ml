@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+(* TODO: add code here for the cluster and cluster_host records? *)
+
 module D=Debug.Make(struct let name="dbsync" end)
 open D
 

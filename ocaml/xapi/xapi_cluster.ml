@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2017 Citrix Systems Inc.
+ * Copyright (C) Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -11,19 +11,22 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* Module that defines API functions for VDI objects
- * @group XenAPI functions
-*)
 
 module D=Debug.Make(struct let name="xapi_cluster" end)
 open D
 open Cluster_interface
 
+(* TODO: move anything "generic" to Xapi_cluster_helpers, or a new Xapi_clustering file/module *)
+(* TODO: update allowed_operations on cluster creation *)
+(* TODO: update allowed_operations on boot/toolstack-restart *)
+
 let assert_cluster_can_be_created ~__context =
   if Db.Cluster.get_all ~__context <> [] then
-    failwith "Cluster cannot be created because it already exists"
+    failwith "Cluster cannot be created because it already exists" (* TODO: replace with API error? *)
 
 let create ~__context ~network ~cluster_stack ~pool_auto_join =
+  (* TODO: take cluster lock *)
+  (* TODO: concurrency; update/use allowed/current_operations via message_forwarding *)
   assert_cluster_can_be_created ~__context;
   let cluster_ref = Ref.make () in
   let cluster_host_ref = Ref.make () in
@@ -36,7 +39,6 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join =
 
   let ip = Xapi_cluster_host.ip_of_host ~__context ~network ~host in
 
-  (* TODO: locking*)
   let result = Cluster_client.LocalClient.create (Cluster_client.rpc (fun () -> "")) ip in
   match result with
   | Result.Ok cluster_token ->
@@ -51,6 +53,9 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join =
   | Result.Error error -> Xapi_cluster_host.handle_error error
 
 let destroy ~__context ~self =
+  (* TODO: take cluster lock ?? *)
+  (* TODO: concurrency; update/use allowed/current_operations via message_forwarding ?? (not mentioned in design; should it be?) *)
+  (* TODO: debug/error/info logging *)
   (* TODO: call xapi-clusterd.Local.destroy *)
   (* TODO: destroy member records *)
   Db.Cluster.destroy ~__context ~self
@@ -65,7 +70,7 @@ let pool_create ~__context ~pool ~cluster_stack ~network =
 
   List.iter (fun host ->
       if master <> host then
-        (* We need to run this code to the slave *)
+        (* We need to run this code on the slave *)
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             let cluster_host_ref = Client.Client.Cluster_host.create ~rpc ~session_id ~cluster ~host in
             D.debug "Created Cluster_host: %s" (Ref.string_of cluster_host_ref);

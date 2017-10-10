@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2017 Citrix Systems Inc.
+ * Copyright (C) Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -11,13 +11,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* Module that defines API functions for VDI objects
- * @group XenAPI functions
-*)
 
 module D=Debug.Make(struct let name="xapi_cluster_host" end)
 open D
 open Cluster_interface
+
+(* TODO: move anything "generic" to Xapi_cluster_host_helpers, or a new Xapi_clustering file/module *)
+(* TODO: update allowed_operations on cluster_host creation *)
+(* TODO: update allowed_operations on boot/toolstack-restart *)
 
 let ip_of_host ~__context ~network ~host =
   debug "Looking up PIF for network %s" (Ref.string_of network);
@@ -37,6 +38,7 @@ let ip_of_host ~__context ~network ~host =
     failwith msg
 
 let handle_error error =
+  (* TODO: replace with API errors? *)
   match error with
   | InternalError message -> failwith ("Internal Error: " ^ message)
   | Unix_error message -> failwith ("Unix Error: " ^ message)
@@ -47,6 +49,9 @@ let assert_cluster_host_can_be_created ~__context ~host =
     failwith "Cluster cannot be created because it already exists"
 
 let create ~__context ~cluster ~host =
+  (* TODO: take cluster lock and then network lock *)
+  (* TODO: concurrency; update/use allowed/current_operations via message_forwarding *)
+  assert_cluster_host_can_be_created ~__context ~host;
   let ref = Ref.make () in
   let uuid = Uuidm.to_string (Uuidm.create `V4) in
   let network = Db.Cluster.get_network ~__context ~self:cluster in
@@ -67,10 +72,40 @@ let destroy ~__context ~self =
   Db.Cluster_host.destroy ~__context ~self
 
 let enable ~__context ~self =
-  raise (Api_errors.Server_error (Api_errors.not_implemented, [ "enable" ]))
+  (* TODO: take cluster lock *)
+  (* TODO: debug/error/info logging *)
+  let host = Db.Cluster_host.get_host ~__context ~self in
+  let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+  let network = Db.Cluster.get_network ~__context ~self:cluster in
+  let ip = ip_of_host ~__context ~network ~host in
+  let result = Cluster_client.LocalClient.enable (Cluster_client.rpc (fun () -> "")) ip in
+  match result with
+  | Result.Ok () ->
+    Db.Cluster_host.set_enabled ~__context ~self ~value:true
+  | Result.Error error -> handle_error error
 
 let disable ~__context ~self =
-  raise (Api_errors.Server_error (Api_errors.not_implemented, [ "disable" ]))
+  (* TODO: take cluster lock *)
+  (* TODO: debug/error/info logging *)
+  let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+  let cluster_stack = Db.Cluster.get_cluster_stack ~__context ~self:cluster in
+  let host = Db.Cluster_host.get_host ~__context ~self in
+  let pbds = Db.Host.get_PBDs ~__context ~self:host in
+  let srs = List.map (fun pbd -> Db.PBD.get_SR ~__context ~self:pbd) pbds in
+  List.iter (fun sr ->
+      let sr_type = Db.SR.get_type ~__context ~self:sr in
+      let matching_sms = Db.SM.get_records_where ~__context
+        ~expr:Db_filter_types.(Eq(Field "type", Literal sr_type)) in
+      List.iter (fun (sm_ref, sm_rec) ->
+          if List.mem cluster_stack sm_rec.API.sM_required_cluster_stack then
+            failwith (Printf.sprintf "Host has attached SR whose SM requires cluster stack %s" cluster_stack) (* TODO: replace with API error *)
+        ) matching_sms
+    ) srs;
+  let result = Cluster_client.LocalClient.disable (Cluster_client.rpc (fun () -> "")) () in
+  match result with
+  | Result.Ok () ->
+    Db.Cluster_host.set_enabled ~__context ~self ~value:false
+  | Result.Error error -> handle_error error
 
 let sync_required ~__context =
   let clusters = Db.Cluster.get_all_records ~__context in
