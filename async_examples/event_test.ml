@@ -15,7 +15,6 @@
 open Core.Std
 open Async.Std
 
-open Xen_api
 open Xen_api_async_unix
 
 let uri = ref "http://127.0.0.1/"
@@ -41,10 +40,11 @@ let info fmt =
     (fun txt ->
        eprintf "%s\n%!" txt
     ) fmt
+
 let exn_to_string = function
   | Api_errors.Server_error(code, params) ->
     Printf.sprintf "%s %s" code (String.concat ~sep:" " params)
-  | e -> failwith "XXX: figure out core/async error handling"
+  | e -> failwith (Printf.sprintf "Unexpected error: %s" (Exn.to_string e))
 
 let watch_events rpc session_id =
   let open Event_types in
@@ -74,7 +74,7 @@ let watch_events rpc session_id =
 
   let compare () =
     let open Event_types in
-    Event.from rpc session_id ["*"] "" 0. >>= fun rpc ->
+    Event.from ~rpc ~session_id ~classes:["*"] ~token:"" ~timeout:0. >>= fun rpc ->
     let e = event_from_of_rpc rpc in
     if e.events = [] then error "Empty list of events";
     let current = List.fold_left ~init:StringMap.empty ~f:update e.events in
@@ -82,7 +82,7 @@ let watch_events rpc session_id =
         | key, `Left _ -> error "Replica has extra table: %s" key
         | key, `Right _ -> error "Replica has missing table: %s" key
         | _, `Unequal(_,_) -> ()
-      ) (StringMap.symmetric_diff !root current (fun _ _ -> true));
+      ) (StringMap.symmetric_diff !root current ~data_equal:(fun _ _ -> true));
     List.iter ~f:(fun key ->
         match StringMap.find !root key with
         | None ->
@@ -93,12 +93,12 @@ let watch_events rpc session_id =
               | r, `Left rpc -> error "Replica has extra object: %s: %s" r (Jsonrpc.to_string rpc)
               | r, `Right rpc -> error "Replica has missing object: %s: %s" r (Jsonrpc.to_string rpc)
               | r, `Unequal(rpc1, rpc2) -> error "Replica has out-of-sync object: %s: %s <> %s" r (Jsonrpc.to_string rpc1) (Jsonrpc.to_string rpc2)
-            ) (StringMap.symmetric_diff root_table current_table (fun a b -> a = b))
+            ) (StringMap.symmetric_diff root_table current_table ~data_equal:(fun a b -> a = b))
       ) (StringMap.keys current);
     return () in
 
   let rec loop token =
-    Event.from rpc session_id ["*"] token 30. >>= fun rpc ->
+    Event.from ~rpc ~session_id ~classes:["*"] ~token ~timeout:30. >>= fun rpc ->
     debug "received event: %s" (Jsonrpc.to_string rpc);
     let e = event_from_of_rpc rpc in
     List.iter ~f:(fun ev -> root := update !root ev) e.events;
@@ -111,13 +111,13 @@ let watch_events rpc session_id =
 
 let main () =
   let rpc = make !uri in
-  Session.login_with_password rpc !username !password "1.0" "event_test"
+  Session.login_with_password ~rpc ~uname:!username ~pwd:!password ~version:"1.0" ~originator:"event_test"
   >>= fun session_id ->
   let a = watch_events rpc session_id in
   let b = watch_events rpc session_id in
   a >>= fun () ->
   b >>= fun () ->
-  Session.logout rpc session_id
+  Session.logout ~rpc ~session_id
   >>= fun () ->
   shutdown 0;
   return ()

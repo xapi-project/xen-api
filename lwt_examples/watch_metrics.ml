@@ -12,9 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Lwt
-
-open Xen_api
 open Xen_api_lwt_unix
 
 let uri = ref "http://127.0.0.1/"
@@ -30,12 +27,13 @@ let exn_to_string = function
 
 let main () =
   let rpc = make !uri in
-  Session.login_with_password rpc !username !password "1.0" "watch_metrics" >>= fun session_id ->
+  Session.login_with_password ~rpc ~uname:!username ~pwd:!password ~version:"1.0" ~originator:"watch_metrics"
+  >>= fun session_id ->
   Lwt.finalize
     (fun () ->
-       Host.get_all rpc session_id >>= fun hosts ->
+       Host.get_all ~rpc ~session_id >>= fun hosts ->
        let host = List.hd hosts in
-       Host.get_data_sources rpc session_id host >>= fun dsl ->
+       Host.get_data_sources ~rpc ~session_id ~host >>= fun dsl ->
 
        let rec loop start =
          let open Cohttp_lwt_unix in
@@ -56,7 +54,7 @@ let main () =
          Printf.eprintf "%s\n%!" (Rrd_updates.string_of update);
          Array.iter (fun legend ->
              match Xen_api_metrics.Legend.of_string legend with
-             | `Ok ((name, cf, `Host, uuid) as legend') ->
+             | `Ok ((_name, _cf, `Host, _uuid) as legend') ->
                if Xen_api_metrics.Legend.find_data_source dsl legend' = None
                then Printf.fprintf stderr "Failed to find host data source: %s\n" legend
              | `Ok _ -> ()
@@ -67,7 +65,7 @@ let main () =
          >>= fun () ->
          loop update.Rrd_updates.end_time in
        loop (Int64.of_int !start))
-    (fun () -> Session.logout rpc session_id)
+    (fun () -> Session.logout ~rpc ~session_id)
 
 let _ =
   Arg.parse [
