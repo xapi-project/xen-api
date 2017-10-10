@@ -153,6 +153,10 @@ type result =
   | Xenguest_result of (nativeint * nativeint)
   | Vgpu_result
 
+let emu_of_result = function
+  | Xenguest_result _ -> Xenguest
+  | Vgpu_result -> Vgpu
+
 let parse_result res =
   match Stdext.Xstringext.String.split ' ' res with
   | [emu; store; console] when emu_of_string emu = Xenguest ->

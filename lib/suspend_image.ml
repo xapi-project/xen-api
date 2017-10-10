@@ -23,11 +23,13 @@ let (|>) x f = f x
 
 open M
 
-let wrap f =
+let wrap_exn f =
   try
-    return (f ())
+    f ()
   with e ->
     `Error e
+
+let wrap f = wrap_exn (fun () -> return (f ()))
 
 module Xenops_record = struct
   open Sexplib

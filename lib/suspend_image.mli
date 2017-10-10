@@ -49,3 +49,6 @@ val write_header : Unix.file_descr -> header -> [`Ok of unit | `Error of exn]
 val read_header : Unix.file_descr -> [`Ok of header | `Error of exn]
 
 val with_conversion_script : Xenops_task.Xenops_task.task_handle -> string -> bool -> Unix.file_descr -> (Unix.file_descr -> 'a) -> [`Ok of 'a | `Error of exn]
+
+val wrap : (unit -> 'a) -> [`Ok of 'a | `Error of exn]
+val wrap_exn : (unit -> [`Ok of 'a | `Error of exn]) -> [`Ok of 'a | `Error of exn]

@@ -886,17 +886,6 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
       error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid res;
       raise Domain_restore_failed
 
-  let restore_vgpu_record cnx domid uuid =
-    let open Emu_manager in
-    send_restore cnx Vgpu;
-    let res = receive_success cnx in
-    match parse_result res with
-    | Vgpu_result ->
-      debug "VM = %s; domid = %d; restored vGPU state" (Uuid.to_string uuid) domid;
-    | _                          ->
-      error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid res;
-      raise Suspend_image_failure
-
   let consume_qemu_record fd limit domid uuid =
     if limit > 1_048_576L then begin (* 1MB *)
       error "VM = %s; domid = %d; QEMU record length in header too large (%Ld bytes)"
@@ -969,8 +958,41 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
       store_mfn, console_mfn
     | `Ok Structured ->
       let open Suspend_image.M in
+      let open Emu_manager in
+      let fds =
+        match vgpu_fd with
+        | Some fd when fd <> main_fd -> [main_fd; fd]
+        | _ -> [main_fd]
+      in
       with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras manager_path domid uuid main_fd vgpu_fd (fun cnx ->
+          (* Maintain a list of results returned by emu-manager that are expected
+           * by the reader threads. Contains the emu for which a result is wanted
+           * plus an event channel for waking up the reader once the result is in. *)
+          let thread_requests = ref [] in
+          let thread_requests_m = Mutex.create () in
+          let emu_manager_send_m = Mutex.create () in
+          let restore_and_wait emu =
+            (* Called by a reader thread to send a "restore" request to emu-manager
+             * and wait for the result. Results from emu-manager come in on the main
+             * thread, and collected there. All we need to do here is block until
+             * this has happened before sending the next request to emu-manager. *)
+            let wakeup = Event.new_channel () in
+            Mutex.execute thread_requests_m (fun () ->
+                thread_requests := (emu, wakeup) :: !thread_requests
+              );
+            wrap (fun () -> Mutex.execute emu_manager_send_m (fun () ->
+                send_restore cnx emu
+              )) >>= fun () ->
+            debug "Sent restore:%s to emu-manager. Waiting for result..." (string_of_emu emu);
+            (* Block until woken up by the main thread once the result has been received. *)
+            Event.receive wakeup |> Event.sync;
+            Mutex.execute thread_requests_m (fun () ->
+                thread_requests := List.remove_assoc emu !thread_requests
+              );
+            return ()
+          in
           let rec process_header fd res =
+            (* Read and process the next bit from the suspend-image fd. *)
             debug "Reading next header... (fd=%d)" (Obj.magic fd);
             read_header fd >>= function
             | Xenops, len ->
@@ -982,39 +1004,97 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
               process_header fd res
             | Libxc, _ ->
               debug "Read Libxc record header";
-              let res = restore_libxc_record cnx domid uuid in
-              process_header fd (return (Some res))
+              restore_and_wait Xenguest >>= fun () ->
+              debug "Restored Libxc state";
+              process_header fd res
             | Libxc_legacy, _ ->
               debug "Read Libxc_legacy record header";
-              let res = restore_libxc_record cnx domid uuid in
-              process_header fd (return (Some res))
+              restore_and_wait Xenguest >>= fun () ->
+              debug "Restored Libxc state";
+              process_header fd res
             | Qemu_trad, len ->
               debug "Read Qemu_trad header (length=%Ld)" len;
               consume_qemu_record fd len domid uuid;
               process_header fd res
             | Demu, _ ->
-              debug "Read Demu header";
-              restore_vgpu_record cnx domid uuid;
+              debug "Read DEMU header";
+              restore_and_wait Vgpu >>= fun () ->
+              debug "Restored DEMU state";
               process_header fd res
             | End_of_image, _ ->
               debug "Read suspend image footer";
               res
-            | _ -> failwith "Unsupported"
+            | _ -> `Error Suspend_image_failure
+          in
+          let handle_results () =
+            (* Wait for results coming in from emu-manager, and match them
+             * up with requests from the reader threads.
+             * Emu-manager exits when it is done, so we stop when receiving
+             * an EOF on the control channel. *)
+            let rec loop results =
+              try
+                debug "Waiting for response from emu-manager";
+                return (receive_success cnx) >>= fun response ->
+                debug "Received response from emu-manager: %s" response;
+                wrap (fun () -> parse_result response) >>= fun result ->
+                let emu = emu_of_result result in
+                (* Wake up the reader that has requested a result for this emu *)
+                if List.mem_assoc emu !thread_requests then begin
+                  let wakeup = List.assoc emu !thread_requests in
+                  Event.send wakeup () |> Event.sync;
+                  loop (result :: results)
+                end else begin
+                  error "Received unexpected response from emu-manager";
+                  `Error Domain_restore_failed
+                end
+              with End_of_file ->
+                debug "Finished emu-manager result processing";
+                return results
+            in
+            loop [] >>= fun results ->
+            (* We are only really interested in the result from xenguest *)
+            List.fold_left (function acc -> function
+                | Xenguest_result (store, console) -> return (Some (store, console))
+                | _ -> acc
+              ) (return None) results
+          in
+          let start_reader_thread fd =
+            (* Start a reader thread on the given fd. Add a channel back to the
+             * main thread for status reporting *)
+            debug "Starting reader thread (fd=%d)" (Obj.magic fd);
+            let ch = Event.new_channel () in
+            let th = Thread.create (fun () ->
+                wrap_exn (fun () -> process_header fd (return ()))
+                |> Event.send ch
+                |> Event.sync
+              ) () in
+            th, ch
+          in
+          let receive_thread_status threads_and_channels =
+            (* Receive the status from all reader threads and let them exit *)
+            fold (fun (th, ch) _ ->
+                let status = Event.receive ch |> Event.sync in
+                Thread.join th;
+                status
+              ) threads_and_channels () >>= fun () ->
+            debug "Reader threads completed successfully";
+            return ()
           in
           let res =
-            match vgpu_fd with
-            | Some fd when fd <> main_fd ->
-              debug "Starting vGPU resume thread";
-              let th = Thread.create (process_header fd) (return None) in
-              let res = process_header main_fd (return None) in
-              Thread.join th;
-              debug "vGPU resume thread finished";
-              res
-            | _ ->
-              process_header main_fd (return None)
+            (* Start a reader thread on each fd *)
+            let threads_and_channels = List.map start_reader_thread fds in
+            (* Handle results returned by emu-manager *)
+            handle_results () >>= fun result ->
+            (* Wait for reader threads to complete *)
+            receive_thread_status threads_and_channels >>= fun () ->
+            (* And we are done! *)
+            return result
           in
           begin match res with
-            | `Ok (Some (store_mfn, console_mfn)) -> store_mfn, console_mfn
+            | `Ok (Some (store_mfn, console_mfn)) ->
+              debug "VM = %s; domid = %d; store_mfn = %nd; console_mfn = %nd"
+                (Uuid.to_string uuid) domid store_mfn console_mfn;
+              store_mfn, console_mfn
             | `Ok None -> failwith "Well formed, but useless stream"
             | `Error e -> raise e
           end
