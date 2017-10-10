@@ -12,7 +12,6 @@ depends: [
   "jbuilder" {build & >= "1.0+beta11"}
   "cdrom"
   "fd-send-recv"
-  "mustache"
   "nbd"
   "mtime"
   "opasswd"
@@ -38,7 +37,6 @@ depends: [
   "xapi-test-utils"
   "xapi-types"
   "xapi-xenopsd"
-  "xen-api-client"
   "xenctrl"
   "xenstore"
 ]
