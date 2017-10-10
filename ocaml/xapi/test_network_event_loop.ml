@@ -90,7 +90,7 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
   (* Add a new network "network3" with a PIF connected to another host *)
   received_params := None;
   let network3 = Test_common.make_network ~__context ~purpose:[`nbd] ~bridge:"bridge3" () in
-  assert_not_called "network3 has no PIF connected to this host" ();
+  assert_not_called "network3 has no PIFs at all" ();
   let _ : _ API.Ref.t = Test_common.make_pif ~__context ~network:network3 ~host:other_host ~device:"network3_pif1" () in
   assert_not_called "pif1 of network3 is connected to another host" ();
 
