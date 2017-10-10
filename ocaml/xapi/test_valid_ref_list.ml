@@ -74,18 +74,18 @@ let test_filter_map =
       function
       | [vm1; vm2; vm3; vm4] as l ->
         let f vm =
-          let l = Db.VM.get_name_label ~__context ~self:vm in
-          if l = "c" then Some l else None
+          let n = Db.VM.get_name_label ~__context ~self:vm in
+          if n = "c" then Some n else None
         in
         assert_equal [] (Valid_ref_list.filter_map f l);
         let f vm =
-          let l = Db.VM.get_name_label ~__context ~self:vm in
-          if l = "d" then Some l else None
+          let n = Db.VM.get_name_label ~__context ~self:vm in
+          if n = "d" then Some n else None
         in
         assert_equal ["d"] (Valid_ref_list.filter_map f l);
         let f vm =
-          let l = Db.VM.get_name_label ~__context ~self:vm in
-          if l = "a" || l = "d" then Some l else None
+          let n = Db.VM.get_name_label ~__context ~self:vm in
+          if n = "a" || n = "d" then Some n else None
         in
         assert_equal ["a"; "d"] (Valid_ref_list.filter_map f l)
       | _ -> failwith "The test list should contain 4 VMs"
