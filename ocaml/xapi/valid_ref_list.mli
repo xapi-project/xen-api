@@ -9,3 +9,8 @@ val for_all : ('a -> bool) -> 'a list -> bool
 val map : ('a -> 'b) -> 'a list -> 'b list
 
 val flat_map : ('a -> 'b list) -> 'a list -> 'b list
+
+val filter_map : ('a -> 'b option) -> 'a list -> 'b list
+(** [filter_map f l] applies [f] to each element of [l], and skips the elements
+    of [l] for which [f] returns [None], and keeps the output [x] when [f]
+    returns [Some x]. *)
