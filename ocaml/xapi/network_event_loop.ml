@@ -44,7 +44,6 @@ let _watch_networks __context ~update_firewall ~wait_after_failure_seconds =
             pifs
         in
         let allowed_local_bridges = List.map (fun network -> Db.Network.get_bridge ~__context ~self:network) allowed_connected_networks in
-        let allowed_local_bridges = List.filter ((<>) "") allowed_local_bridges in
         let interfaces = allowed_local_bridges in
         let needs_firewall_update = match allowed_interfaces with
           | Some allowed_interfaces ->
