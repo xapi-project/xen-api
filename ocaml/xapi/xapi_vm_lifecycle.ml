@@ -369,11 +369,11 @@ let check_operation_error ~__context ~ref =
 
   (fun ~op ~strict ->
 
-  (* Check if the operation has been explicitly blocked by the/a user *)
   let current_error = None in
 
   let check c f = match c with | Some e -> Some e | None -> f () in
 
+  (* Check if the operation has been explicitly blocked by the/a user *)
   let current_error = check current_error (fun () ->
       Opt.map (fun v -> Api_errors.operation_blocked, [ref_str; v])
         (assoc_opt op vmr.Db_actions.vM_blocked_operations)) in

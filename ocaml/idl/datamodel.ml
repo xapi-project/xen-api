@@ -10279,14 +10279,6 @@ module Cluster = struct
           ~ty:String "cluster_stack" ~default_value:(Some (VString "corosync"))
           "Simply the string 'corosync'. No other cluster stacks are currently supported"
 
-(* TODO:  Figure out if we really need this field and what type it should be.
-  The problem is that at the moment we need to specify a relationship between this field
-  and a field in cluster_host, but there is no cluster field to complete the relationship.
-        ; field   ~qualifier:StaticRO ~lifecycle
-          ~ty:(Set (Ref _cluster_host)) "live_members" ~default_value:(Some (VSet []))
-          "A list of the hosts corosync is currently able to talk to"
-*)
-
         ] @ (allowed_and_current_operations cluster_operation) @ [
 
           field   ~qualifier:StaticRO ~lifecycle
@@ -10337,7 +10329,7 @@ module Cluster_host = struct
 
     let enable = call
     ~name:"enable"
-    ~doc:"Enable a host for an existing cluster."
+    ~doc:"Enable cluster membership for a disabled cluster host."
     ~params:
       [ Ref _cluster_host, "self", "the cluster_host to enable"
       ]
@@ -10347,7 +10339,7 @@ module Cluster_host = struct
 
     let disable = call
     ~name:"disable"
-    ~doc:"Disable a host in existing cluster."
+    ~doc:"Disable cluster membership for an enabled cluster host."
     ~params:
       [ Ref _cluster_host, "self", "the cluster_host to disable"
       ]
@@ -10380,7 +10372,10 @@ let obj =
 
       ; field   ~qualifier:StaticRO ~lifecycle
         ~ty:Bool "enabled" ~default_value:(Some (VBool false))
-        "Whether clustering should be enabled on this host"
+        "Whether the cluster host believes that clustering should be enabled on this host"
+
+      (* TODO: add `live` member to represent whether corosync believes that this
+               cluster host actually is enabled *)
 
       ] @ (allowed_and_current_operations cluster_host_operation) @ [
 
