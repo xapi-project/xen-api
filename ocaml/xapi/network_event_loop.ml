@@ -23,11 +23,12 @@ let _watch_networks __context ~update_firewall ~wait_after_failure_seconds =
     from.Event_types.token
   in
 
+  let localhost = Helpers.get_localhost ~__context in
+
   let rec loop ~token ~allowed_interfaces =
     let (token, allowed_interfaces) =
       try
         let token = wait_for_network_change ~token in
-        let localhost = Helpers.get_localhost ~__context in
         let pifs = Db.Host.get_PIFs ~__context ~self:localhost in
         let allowed_connected_networks =
           (* We use Valid_ref_list to continue processing the list in case some network refs are null or invalid *)
