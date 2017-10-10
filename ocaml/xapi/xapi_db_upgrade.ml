@@ -55,6 +55,7 @@ let dundee = Datamodel.dundee_release_schema_major_vsn, Datamodel.dundee_release
 let ely = Datamodel.ely_release_schema_major_vsn, Datamodel.ely_release_schema_minor_vsn
 let falcon = Datamodel.falcon_release_schema_major_vsn, Datamodel.falcon_release_schema_minor_vsn
 let inverness = Datamodel.inverness_release_schema_major_vsn, Datamodel.inverness_release_schema_minor_vsn
+let jura = Datamodel.jura_release_schema_major_vsn, Datamodel.jura_release_schema_minor_vsn
 
 (* This is to support upgrade from Dundee tech-preview versions *)
 let vsn_with_meaningful_has_vendor_device = Datamodel.meaningful_vm_has_vendor_device_schema_major_vsn, Datamodel.meaningful_vm_has_vendor_device_schema_minor_vsn
@@ -523,7 +524,7 @@ let upgrade_vswitch_controller = {
 
 let default_vm_platform_device_model = {
   description = "Initialising unset VM.platform.device-model profiles";
-  version = (fun x -> x <= inverness);                             (* initialise only for upgrades from previous versions before jura *)
+  version = (fun x -> x < jura);                                     (* initialise only for upgrades from previous versions before jura *)
   fn = fun ~__context ->
     Db.VM.get_all ~__context
     |> List.iter (fun vm ->

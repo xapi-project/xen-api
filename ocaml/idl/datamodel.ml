@@ -90,6 +90,9 @@ let falcon_release_schema_minor_vsn = 120
 let inverness_release_schema_major_vsn = 5
 let inverness_release_schema_minor_vsn = 133
 
+let jura_release_schema_major_vsn = 5
+let jura_release_schema_minor_vsn = schema_minor_vsn (* TODO: make it a constant when jura is released *)
+
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
 let tech_preview_releases = [
