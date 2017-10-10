@@ -4,55 +4,41 @@ authors: [ "xen-api@lists.xen.org" ]
 homepage: "https://github.com/xapi-project/xen-api"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 dev-repo: "https://github.com/xapi-project/xen-api.git"
-build: [
-  ["./configure"]
-  [make]
-]
-install: [
-    ["oasis" "setup"]
-    ["ocaml" "setup.ml" "-install"]
-]
-build-test: [make "test"]
-remove: [
-    ["oasis" "setup"]
-    ["ocaml" "setup.ml" "-uninstall"]
-    ["ocamlfind" "remove" "xapi"]
-    ["ocamlfind" "remove" "xapi-client"]
-    ["ocamlfind" "remove" "xapi-cli-protocol"]
-    ["ocamlfind" "remove" "xapi-consts"]
-    ["ocamlfind" "remove" "xapi-datamodel"]
-    ["ocamlfind" "remove" "xapi-database"]
-    ["ocamlfind" "remove" "xapi-types"]
-]
+
+build: [[ "jbuilder" "build" "-p" name ]]
+build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
+
 depends: [
-  "oasis" {build}
-  "ocamlfind" {build}
-  "xapi-test-utils"
-  "xapi-idl"
-  "xapi-libs-transitional"
-  "xen-api-client"
-  "xapi-netdev"
+  "jbuilder" {build & >= "1.0+beta11"}
   "cdrom"
   "fd-send-recv"
-  "xapi-forkexecd"
-  "vhd-format"
   "nbd"
   "mtime"
+  "opasswd"
   "ounit"
+  "pci"
   "rpc"
+  "sha"
   "ssl"
-  "xapi-stdext"
-  "xapi-tapctl"
+  "stdext"
+  "tar-format"
+  "vhd-format"
+  "xapi-cli-protocol"
+  "xapi-client"
+  "xapi-consts"
+  "xapi-database"
+  "xapi-datamodel"
+  "xapi-forkexecd"
+  "xapi-idl"
+  "xapi-inventory"
+  "xapi-libs-transitional"
+  "xapi-netdev"
+  "xapi-rrdd-plugin"
+  "xapi-test-utils"
+  "xapi-types"
+  "xapi-xenopsd"
   "xenctrl"
   "xenstore"
-  "xapi-inventory"
-  "tar-format"
-  "opasswd"
-  "xapi-rrdd-plugin"
-  "pci"
-  "sha"
-  "xapi-xenopsd"
-  "mustache"
 ]
 depexts: [
   [["centos"] ["pam-devel"]]

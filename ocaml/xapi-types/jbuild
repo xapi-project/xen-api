@@ -30,13 +30,13 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (public_name xapi-types)
   (flags (:standard %s))
   (libraries (
-   xapi-consts
-   rpclib
-   ppx_deriving_rpc
-   stdext
-   threads
+   astring
    http-svr
-   uuid
+   ppx_deriving_rpc
+   rpclib
+   threads
+   uuidm
+   xapi-consts
   ))
   (wrapped false)
  )
