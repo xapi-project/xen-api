@@ -376,7 +376,7 @@ let assert_usbs_available ~__context ~self ~host =
       let usb_group = Db.VUSB.get_USB_group ~__context ~self:vusb in
       let pusb = List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group) in
       let usb_host = Db.PUSB.get_host ~__context ~self:pusb in
-      assert (usb_host == host)
+      assert (usb_host = host)
     with _ -> raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
       [Printf.sprintf "VUSB %s is not available on Host %s"
         (Ref.string_of vusb)
