@@ -1,4 +1,5 @@
 module D=Debug.Make(struct let name="network_event_loop" end)
+open D
 
 module StringMap = Map.Make(struct type t = string let compare = compare end)
 
@@ -55,21 +56,21 @@ let _watch_networks __context ~update_firewall ~wait_after_failure_seconds =
         in
         let interface_list = String.concat ", " interfaces in
         if needs_firewall_update then begin
-          D.debug "Updating the firewall to use the following interfaces for NBD: [%s]" interface_list;
+          debug "Updating the firewall to use the following interfaces for NBD: [%s]" interface_list;
           update_firewall interfaces
         end else begin
-          D.debug "Not updating the firewall, because the set of interfaces to use for NBD did not change: [%s]" interface_list
+          debug "Not updating the firewall, because the set of interfaces to use for NBD did not change: [%s]" interface_list
         end;
         (token, Some interfaces)
       with
       | Api_errors.Server_error (code, _) as e when code = Api_errors.events_lost ->
-        D.warn "Lost events: %s" (ExnHelper.string_of_exn e);
+        warn "Lost events: %s" (ExnHelper.string_of_exn e);
         ("", allowed_interfaces)
       | e ->
         (* In case of failures, for example due to the script, which updates
            the firewall rules, we start from scratch to ensure that we will
            process the missed events. *)
-        D.error "Caught %s listening to events on network objects" (ExnHelper.string_of_exn e);
+        error "Caught %s listening to events on network objects" (ExnHelper.string_of_exn e);
         Thread.delay wait_after_failure_seconds;
         ("", allowed_interfaces)
     in
@@ -77,7 +78,7 @@ let _watch_networks __context ~update_firewall ~wait_after_failure_seconds =
     loop ~token ~allowed_interfaces
   in
 
-  D.debug "Listening to events on network objects";
+  debug "Listening to events on network objects";
   loop ~token:"" ~allowed_interfaces
 
 let update_firewall interfaces_allowed_for_nbd =
