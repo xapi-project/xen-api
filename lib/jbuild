@@ -40,5 +40,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     rrd
     uri
     uuidm
-    xmlm))))
+    xmlm
+    xapi-client
+    xapi-types))))
 |} flags coverage_rewriter

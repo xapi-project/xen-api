@@ -24,6 +24,8 @@ depends: [
   "rpc" {>= "1.9.51"}
   "uri"
   "uuidm"
+  "xapi-client"
   "xapi-rrd"
+  "xapi-types"
   "xmlm"
 ]
