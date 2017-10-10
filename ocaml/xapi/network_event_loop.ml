@@ -1,8 +1,6 @@
 module D=Debug.Make(struct let name="network_event_loop" end)
 open D
 
-module StringMap = Map.Make(struct type t = string let compare = compare end)
-
 let _watch_networks __context ~update_firewall ~wait_after_failure_seconds =
 
   (* We keep track of the network objects in the database using this event loop. *)
