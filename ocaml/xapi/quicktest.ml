@@ -882,7 +882,7 @@ let _ =
           maybe_run_test "pbd-bvt" (fun () -> Quicktest_bvt.start s !rpc);
           maybe_run_test "cbt" (fun () -> Quicktest_cbt.start s);
           maybe_run_test "vm-placement" Quicktest_vm_placement.run_from_within_quicktest;
-    (*      maybe_run_test "storage" (fun () -> Quicktest_storage.go s); *)
+          maybe_run_test "storage" (fun () -> Quicktest_storage.go s);
           if not !using_unix_domain_socket then maybe_run_test "http" Quicktest_http.run_from_within_quicktest;
           maybe_run_test "event" event_next_unblocking_test;
           maybe_run_test "event" (fun () -> event_next_test s);

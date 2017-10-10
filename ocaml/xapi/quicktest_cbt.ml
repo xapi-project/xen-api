@@ -23,7 +23,9 @@ let start session_id =
                    (ExnHelper.string_of_exn error)) in
 
   let test_assert ~test op ~msg =
-    try assert op with assert_failure -> failed test msg in
+    try assert op with (Assert_failure _) ->
+      debug test msg;
+      raise (Failure "test assertion failed") in
 
   let name_description = "VDI for CBT quicktest" in
   let make_vdi_from sR = (* SR has VDI.create as allowed *)
@@ -39,22 +41,23 @@ let start session_id =
     (* Test enable/disable CBT, test cbt_enabled:false for new VDI *)
     let enable_disable_cbt_test ~vDI =
       let enable_cbt_test = make_test "Testing VDI.enable/disable_CBT" 4 in
-      let test = enable_cbt_test in
       try
         start enable_cbt_test;
-        test_assert ~test
+        test_assert ~test:enable_cbt_test
           (not (VDI.get_cbt_enabled ~session_id ~rpc:!rpc ~self:vDI))
           ~msg:"VDI.cbt_enabled field should be set to false for new VDIs, but wasn't ";
         VDI.enable_cbt ~session_id ~rpc:!rpc ~self:vDI;
-        test_assert ~test
+        test_assert ~test:enable_cbt_test
           (get_cbt_status vDI)
           ~msg:"VDI.enable_cbt failed";
         VDI.disable_cbt ~session_id ~rpc:!rpc ~self:vDI;
-        test_assert ~test
+        test_assert ~test:enable_cbt_test
           (not (get_cbt_status vDI)) (* disable_cbt fails *)
           ~msg:"VDI.disable_CBT failed";
         success enable_cbt_test
-      with e -> report_failure e "enable/disable CBT" enable_cbt_test in
+      with
+      | (Failure "test assertion failed") -> failed enable_cbt_test ""
+      | e -> report_failure e "enable/disable CBT" enable_cbt_test in
 
     let run_test_suite ~sR ~vDI =
       let sr_ops = (SR.get_allowed_operations ~session_id ~rpc:!rpc ~self:sR) in
