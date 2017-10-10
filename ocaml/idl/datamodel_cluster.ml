@@ -84,13 +84,6 @@ let t =
           ~ty:String "cluster_stack" ~default_value:(Some (VString "corosync"))
           "Simply the string 'corosync'. No other cluster stacks are currently supported"
 
-      (* TODO:  Figure out if we really need this field and what type it should be.
-         The problem is that at the moment we need to specify a relationship between this field
-         and a field in cluster_host, but there is no cluster field to complete the relationship.
-              ; field   ~qualifier:StaticRO ~lifecycle
-                ~ty:(Set (Ref _cluster_host)) "live_members" ~default_value:(Some (VSet []))
-                "A list of the hosts corosync is currently able to talk to"
-      *)
       ] @ (allowed_and_current_operations cluster_operation) @ [
 
        field   ~qualifier:StaticRO ~lifecycle

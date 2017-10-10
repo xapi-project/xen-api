@@ -37,7 +37,7 @@ let destroy = call
 
 let enable = call
     ~name:"enable"
-    ~doc:"Enable a host for an existing cluster."
+    ~doc:"Enable cluster membership for a disabled cluster host."
     ~params:
       [ Ref _cluster_host, "self", "the cluster_host to enable"
       ]
@@ -47,7 +47,7 @@ let enable = call
 
 let disable = call
     ~name:"disable"
-    ~doc:"Disable a host in existing cluster."
+    ~doc:"Disable cluster membership for an enabled cluster host."
     ~params:
       [ Ref _cluster_host, "self", "the cluster_host to disable"
       ]
@@ -80,7 +80,10 @@ let t =
 
       ; field   ~qualifier:StaticRO ~lifecycle
           ~ty:Bool "enabled" ~default_value:(Some (VBool false))
-          "Whether clustering should be enabled on this host"
+          "Whether the cluster host believes that clustering should be enabled on this host"
+
+      (* TODO: add `live` member to represent whether corosync believes that this
+               cluster host actually is enabled *)
       
       ] @ (allowed_and_current_operations cluster_host_operation) @ [
 
