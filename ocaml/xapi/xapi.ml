@@ -913,7 +913,7 @@ let server_init() =
           (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)
           "resynchronising VM state", [], (fun () -> Xapi_xenops.on_xapi_restart ~__context);
           "listening to events from xapi", [], (fun () -> if not (!noevents) then ignore (Thread.create Xapi_xenops.events_from_xapi ()));
-          "listening to events from xapi", [], (fun () -> ignore (Thread.create Network_event_loop.watch_networks ()));
+          "watching networks for NBD-related changes", [Startup.OnThread], Network_event_loop.watch_networks_for_nbd_changes;
           (* CA-175353: moving VIFs between networks requires VMs to be resynced *)
           "Synchronising bonds on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_bonds_from_master ~__context;
           "Synchronising VLANs on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_vlans_from_master ~__context;

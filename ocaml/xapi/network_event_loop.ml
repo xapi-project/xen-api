@@ -1,7 +1,7 @@
 module D=Debug.Make(struct let name="network_event_loop" end)
 open D
 
-let _watch_networks __context ~update_firewall ~wait_after_failure_seconds =
+let _watch_networks_for_nbd_changes __context ~update_firewall ~wait_after_failure_seconds =
 
   (* We keep track of the network objects in the database using this event loop. *)
   let classes = ["network"] in
@@ -82,5 +82,5 @@ let update_firewall interfaces_allowed_for_nbd =
   let args = "set" :: interfaces_allowed_for_nbd in
   Forkhelpers.execute_command_get_output !Xapi_globs.nbd_firewall_config_script args |> ignore
 
-let watch_networks () =
-  Server_helpers.exec_with_new_task "watching changes in network objects" (_watch_networks ~update_firewall ~wait_after_failure_seconds:5.0)
+let watch_networks_for_nbd_changes () =
+  Server_helpers.exec_with_new_task "watching networks for NBD-related changes" (_watch_networks_for_nbd_changes ~update_firewall ~wait_after_failure_seconds:5.0)

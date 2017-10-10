@@ -14,10 +14,10 @@
     reregister and continue without waiting.
 *)
 
-val watch_networks : unit -> unit
+val watch_networks_for_nbd_changes : unit -> unit
 
-val _watch_networks : Context.t -> update_firewall:(string list -> unit) -> wait_after_failure_seconds:float -> unit
-(** This version of {!watch_networks} is for unit testing purposes -
-    it calls the [update_firewall] function, instead of invoking a script, and
-    how many seconds it waits after failures is specified by
+val _watch_networks_for_nbd_changes : Context.t -> update_firewall:(string list -> unit) -> wait_after_failure_seconds:float -> unit
+(** This version of {!watch_networks_for_nbd_changes} is for unit testing
+    purposes - it calls the [update_firewall] function, instead of invoking a
+    script, and how many seconds it waits after failures is specified by
     [wait_after_failure_seconds]. *)

@@ -18,7 +18,7 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
 
   let start_event_loop = Thread.create
       (fun () ->
-         Network_event_loop._watch_networks
+         Network_event_loop._watch_networks_for_nbd_changes
            __context
            ~update_firewall:(fun pifs ->
                if !fail_firewall_update then failwith "Failed to update firewall";
