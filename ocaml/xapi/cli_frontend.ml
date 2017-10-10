@@ -2896,6 +2896,22 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.Cluster_host.create;
       flags=[Hidden];
     };
+    "cluster-host-disable",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Disable cluster membership for an enabled cluster host";
+      implementation=No_fd Cli_operations.Cluster_host.disable;
+      flags=[];
+    };
+    "cluster-host-enable",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Enable cluster membership for a disabled cluster host";
+      implementation=No_fd Cli_operations.Cluster_host.enable;
+      flags=[];
+    };
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t =

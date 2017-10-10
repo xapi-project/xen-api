@@ -4282,6 +4282,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Cluster.pool_create";
       let local_fn = Local.Cluster.pool_create ~pool ~cluster_stack ~network in
       let master = Helpers.get_master ~__context in
+      (* TODO: concurrency via `with_pool_operation`, using new `cluster_create` pool operation *)
       do_op_on ~__context ~local_fn ~host:master
         (fun session_id rpc -> Client.Cluster.pool_create rpc session_id pool cluster_stack network)
   end
@@ -4302,11 +4303,21 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let enable ~__context ~self =
       info "Cluster_host.enable";
-      Local.Cluster_host.enable ~__context ~self
+      let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+      Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster.enable" ~op:`enable
+        (fun () ->
+           Xapi_cluster_host_helpers.with_cluster_host_operation ~__context ~self ~doc:"Cluster_host.enable" ~op:`enable
+             (fun () ->
+                Local.Cluster_host.enable ~__context ~self))
 
     let disable ~__context ~self =
       info "Cluster_host.disable";
-      Local.Cluster_host.disable ~__context ~self
+      let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+      Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster.disable" ~op:`disable
+        (fun () ->
+           Xapi_cluster_host_helpers.with_cluster_host_operation ~__context ~self ~doc:"Cluster_host.disable" ~op:`disable
+             (fun () ->
+                Local.Cluster_host.disable ~__context ~self))
   end
 
 end
