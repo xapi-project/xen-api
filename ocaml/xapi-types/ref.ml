@@ -11,7 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext
 
 (** Internally, a reference is simply a string. *)
 type 'a t = string
@@ -19,7 +18,7 @@ type 'a t = string
 let ref_prefix = "OpaqueRef:"
 
 let make () =
-  let uuid = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+  let uuid = Uuidm.v `V4 |> Uuidm.to_string in
   ref_prefix ^ uuid
 
 let null = ref_prefix ^ "NULL"
@@ -32,28 +31,41 @@ let of_string x = x
 (* embedded into the reference .... *)
 
 (* a dummy reference is a reference of an object which is not in database *)
-let dummy_sep = '|'
+let dummy_sep = "|"
 let dummy_prefix = "DummyRef:"
 
-open Xstringext
-
 let make_dummy task_name =
-  let uuid = Uuid.string_of_uuid (Uuid.make_uuid ()) in
-  dummy_prefix ^ String.of_char dummy_sep ^ uuid ^ String.of_char dummy_sep ^ task_name
+  let uuid = Uuidm.v `V4 |> Uuidm.to_string in
+  dummy_prefix ^ dummy_sep ^ uuid ^ dummy_sep ^ task_name
 
 let is_dummy x =
-  String.startswith dummy_prefix x
+  Astring.String.is_prefix ~affix:dummy_prefix x
+
+let cut_in_three ~sep str =
+  let (>>=) opt f =
+    match opt with
+    | Some value -> f value
+    | None -> None
+  in
+  let open Astring in
+  String.cut ~sep str
+  >>= fun (head, tail) ->
+  String.cut ~sep tail
+  >>= fun (head', tail) ->
+  Some (head, head', tail)
 
 let name_of_dummy x =
-  match String.split ~limit:3 dummy_sep x with
-  | [_;_;name] -> name
-  | l -> failwith (Printf.sprintf "Ref.name_of_dummy: %s is not a valid dummy reference (%i)" x (List.length l))
+  match cut_in_three ~sep:dummy_sep x with
+  | Some(_, _, name) -> name
+  | None -> failwith (
+      Printf.sprintf "Ref.name_of_dummy: %s is not a valid dummy reference" x)
 
 (* we do not show the name when we pretty print the dummy reference *)
 let pretty_string_of_dummy x =
-  match String.split ~limit:3 dummy_sep x with
-  | [_;uuid;_] -> dummy_prefix ^ uuid
-  | l -> failwith (Printf.sprintf "Ref.pretty_string_of_dummy: %s is not a valid dummy reference (%i)" x (List.length l))
+  match cut_in_three ~sep:dummy_sep x with
+  | Some (_, uuid, _) -> dummy_prefix ^ uuid
+  | None -> failwith (
+      Printf.sprintf "Ref.pretty_string_of_dummy: %s is not a valid dummy reference" x)
 
 let really_pretty_and_small x =
   let s, prelen, c =
@@ -63,10 +75,10 @@ let really_pretty_and_small x =
       (string_of x, String.length ref_prefix, 'R')
   in
   try
-    let r = String.create 14 in
-    r.[0] <- c; r.[1] <- ':';
-    for i = 0 to 7 do r.[i + 2] <- s.[prelen + i]; done;
-    for i = 0 to 3 do r.[i + 10] <- s.[prelen + 8 + 1 + i]; done;
+    let r = Bytes.create 14 in
+    Bytes.set r 0 c; Bytes.set r 1 ':';
+    for i = 0 to 7 do Bytes.set r (i + 2) s.[prelen + i]; done;
+    for i = 0 to 3 do Bytes.set r (i + 10)  s.[prelen + 8 + 1 + i]; done;
     r
   with _ ->
     s
