@@ -524,7 +524,7 @@ let upgrade_vswitch_controller = {
 
 let default_vm_platform_device_model = {
   description = "Initialising unset VM.platform.device-model profiles";
-  version = (fun x -> x <= inverness);                             (* initialise only for upgrades from previous versions before jura *)
+  version = (fun x -> x < jura);                                     (* initialise only for upgrades from previous versions before jura *)
   fn = fun ~__context ->
     Db.VM.get_all ~__context
     |> List.iter (fun vm ->
