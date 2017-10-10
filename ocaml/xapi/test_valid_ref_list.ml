@@ -69,6 +69,29 @@ let test_flat_map =
       assert_equal ["a"; "d_a"; "d"; "d_d"] (Valid_ref_list.flat_map f l)
     )
 
+let test_filter_map =
+  with_vm_list (fun __context ->
+      function
+      | [vm1; vm2; vm3; vm4] as l ->
+        let f vm =
+          let n = Db.VM.get_name_label ~__context ~self:vm in
+          if n = "c" then Some n else None
+        in
+        assert_equal [] (Valid_ref_list.filter_map f l);
+        let f vm =
+          let n = Db.VM.get_name_label ~__context ~self:vm in
+          if n = "d" then Some n else None
+        in
+        assert_equal ["d"] (Valid_ref_list.filter_map f l);
+        let f vm =
+          let n = Db.VM.get_name_label ~__context ~self:vm in
+          if n = "a" || n = "d" then Some n else None
+        in
+        assert_equal ["a"; "d"] (Valid_ref_list.filter_map f l)
+      | _ -> failwith "The test list should contain 4 VMs"
+    )
+
+
 let test =
   let ((>:::), (>::)) = OUnit.((>:::), (>::)) in
   "test_valid_ref_list" >:::
@@ -77,4 +100,5 @@ let test =
   ; "test_filter" >:: test_valid_ref_filter
   ; "test_for_all" >:: test_for_all
   ; "test_flat_map" >:: test_flat_map
+  ; "test_filter_map" >:: test_filter_map
   ]
