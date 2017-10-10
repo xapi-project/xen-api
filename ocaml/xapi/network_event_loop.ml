@@ -1,7 +1,7 @@
 module D=Debug.Make(struct let name="network_event_loop" end)
 open D
 
-let _watch_networks_for_nbd_changes __context ~update_firewall ~wait_after_failure_seconds =
+let _watch_networks_for_nbd_changes __context ~update_firewall ~wait_after_event_seconds ~wait_after_failure_seconds =
 
   (* We keep track of the network objects in the database using this event loop. *)
   let classes = ["network"] in
@@ -58,6 +58,8 @@ let _watch_networks_for_nbd_changes __context ~update_firewall ~wait_after_failu
         end else begin
           debug "Not updating the firewall, because the set of interfaces to use for NBD did not change: [%s]" interface_list
         end;
+        (* Wait for a bit after we processed the event for rate-limiting the database queries *)
+        Thread.delay wait_after_event_seconds;
         (token, Some interfaces)
       with
       | Api_errors.Server_error (code, _) as e when code = Api_errors.events_lost ->
@@ -83,4 +85,4 @@ let update_firewall interfaces_allowed_for_nbd =
   Forkhelpers.execute_command_get_output !Xapi_globs.nbd_firewall_config_script args |> ignore
 
 let watch_networks_for_nbd_changes () =
-  Server_helpers.exec_with_new_task "watching networks for NBD-related changes" (_watch_networks_for_nbd_changes ~update_firewall ~wait_after_failure_seconds:5.0)
+  Server_helpers.exec_with_new_task "watching networks for NBD-related changes" (_watch_networks_for_nbd_changes ~update_firewall ~wait_after_event_seconds:5.0 ~wait_after_failure_seconds:5.0)

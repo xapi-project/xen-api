@@ -7,16 +7,17 @@
     After each event on a network object in the database, we decide on
     which interfaces the NBD port should be enabled on this host. If this
     set of interfaces did not change, that is, last time we've updated the
-    firewall with the same set of interfaces, then we do not call the
-    script again.
-    In case of failures other than EVENTS_LOST, we wait for 5 seconds and then
-    reregister and continue the event loop. In case of EVENTS_LOST, we
-    reregister and continue without waiting.
+    firewall with the same set of interfaces, then we do not call the script
+    again. We wait for 5 seconds after each event has been processed, to
+    rate-limit the event loop and its database queries.
+    In case of failures other than EVENTS_LOST, we wait for an additional 5
+    seconds and then reregister and continue the event loop. In case of
+    EVENTS_LOST, we reregister and continue without waiting.
 *)
 
 val watch_networks_for_nbd_changes : unit -> unit
 
-val _watch_networks_for_nbd_changes : Context.t -> update_firewall:(string list -> unit) -> wait_after_failure_seconds:float -> unit
+val _watch_networks_for_nbd_changes : Context.t -> update_firewall:(string list -> unit) -> wait_after_event_seconds:float -> wait_after_failure_seconds:float -> unit
 (** This version of {!watch_networks_for_nbd_changes} is for unit testing
     purposes - it calls the [update_firewall] function, instead of invoking a
     script, and how many seconds it waits after failures is specified by

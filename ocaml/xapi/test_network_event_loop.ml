@@ -24,6 +24,7 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
                if !fail_firewall_update then failwith "Failed to update firewall";
                received_params := Some pifs
              )
+           ~wait_after_event_seconds:0.0
            ~wait_after_failure_seconds:network_event_loop_wait_after_failure_seconds
       )
   in
