@@ -207,6 +207,12 @@ let tools_sr_description () = tools_sr_name () ^ " ISOs"
 
 let tools_sr_dir = ref "/opt/xensource/packages/iso"
 
+let tools_sr_pbd_device_config = [
+  "path", !tools_sr_dir; (* for ffs *)
+  "location", !tools_sr_dir; (* for legacy iso *)
+  "legacy_mode", "true"
+]
+
 let default_template_key = "default_template"
 let linux_template_key = "linux_template"
 let base_template_name_key = "base_template_name"

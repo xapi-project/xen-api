@@ -120,13 +120,8 @@ let create_tools_sr __context name_label name_description sr_introduce maybe_cre
     Db.SR.set_other_config ~__context ~self:sr ~value:other_config;
     Db.SR.set_is_tools_sr ~__context ~self:sr ~value:true;
     (* Master has created this shared SR, lets make PBDs for all of the slaves too. Nb. device-config is same for all hosts *)
-    let device_config = [
-      "path", !Xapi_globs.tools_sr_dir; (* for ffs *)
-      "location", !Xapi_globs.tools_sr_dir; (* for legacy iso *)
-      "legacy_mode", "true"
-    ] in
     let hosts = Db.Host.get_all ~__context in
-    List.iter (fun host -> ignore (maybe_create_pbd sr device_config host)) hosts;
+    List.iter (fun host -> ignore (maybe_create_pbd sr Xapi_globs.tools_sr_pbd_device_config host)) hosts;
     sr
   in
   let other_config = [
