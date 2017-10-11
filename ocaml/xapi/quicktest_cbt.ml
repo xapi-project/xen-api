@@ -27,7 +27,7 @@ let start session_id =
   (* Define own exception to return error message to the test try/with and fail within that,
    * as calling 'failed test' in a function called within the test leads to Hashtbl problems *)
   let test_assert ~test op ~msg =
-    try assert op with (Assert_failure _) -> raise (Test_assertion_failed msg) in
+    if not op then raise (Test_assertion_failed msg) in
 
   let name_description = "VDI for CBT quicktest" in
   let make_vdi_from sR = (* SR has VDI.create as allowed *)
