@@ -56,6 +56,8 @@ type feature =
   | Live_set_vcpus
   | PVS_proxy
   | IGMP_snooping
+  | RPU
+  | Pool_size
 [@@deriving rpc]
 
 type orientation = Positive | Negative
@@ -101,6 +103,8 @@ let keys_of_features =
     Live_set_vcpus, ("restrict_set_vcpus_number_live", Negative, "Live_set_vcpus");
     PVS_proxy, ("restrict_pvs_proxy", Negative, "PVS_proxy");
     IGMP_snooping, ("restrict_igmp_snooping", Negative, "IGMP_snooping");
+    RPU, ("restrict_rpu", Negative, "RPU");
+    Pool_size, ("restrict_pool_size", Negative, "Pool_size");
   ]
 
 (* A list of features that must be considered "enabled" by `of_assoc_list`

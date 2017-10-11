@@ -30,6 +30,9 @@ let _ = Db_globs.restart_fn := (fun () -> D.info "Executing Db_globs.restart_fn:
 
 let pool_secret = ref ""
 
+(* The maximum pool size is restricted to 3 hosts for the pool which does not have Pool_size feature *)
+let restricted_pool_size = 3
+
 let localhost_ref : [`host] Ref.t ref = ref Ref.null
 
 (* xapi version *)

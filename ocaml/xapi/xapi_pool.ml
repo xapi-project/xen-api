@@ -111,6 +111,13 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
         raise (Api_errors.Server_error (code, ["The pool uses v6d. Pool edition list = " ^ pool_edn_list_str]))
   in
 
+  (* The maximum pool size allowed must be restricted to 3 hosts for the pool which does not have Pool_size feature *)
+  let assert_pool_size_unrestricted () =
+    if (not (Pool_features.is_enabled ~__context Features.Pool_size)) &&
+      (List.length (Client.Host.get_all ~rpc ~session_id) >= Xapi_globs.restricted_pool_size) then
+      raise (Api_errors.Server_error(Api_errors.license_restriction, [Features.name_of_feature Features.Pool_size]))
+  in
+
   let assert_api_version_matches () =
     let master = get_master rpc session_id in
     let candidate_slave = Helpers.get_localhost ~__context in
@@ -417,6 +424,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   in
 
   (* call pre-join asserts *)
+  assert_pool_size_unrestricted ();
   assert_management_interface_exists ();
   ha_is_not_enable_on_me ();
   ha_is_not_enable_on_the_distant_pool ();
