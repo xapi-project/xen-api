@@ -20,9 +20,9 @@ let start session_id =
   let open Client in
 
   (* Helper for test failure due to unexpected error *)
-  let report_failure error test_name test =
-    raise Test_failed (Printf.sprintf "%s failed: %s" test_name
-                         (ExnHelper.string_of_exn error)) in
+  let report_failure error test =
+    failed test (Printf.sprintf "%s failed: %s" test.name
+                   (ExnHelper.string_of_exn error)) in
 
   (* Define exception so that if test fails, exception is passed to try-with statement and fails there
    * so that the test only fails once and doesn't erroneously assume the test never started *)
@@ -60,7 +60,7 @@ let start session_id =
         start enable_cbt_test;
         test_assert ~test:enable_cbt_test
           (not (VDI.get_cbt_enabled ~session_id ~rpc:!rpc ~self:vDI))
-          ~msg:"VDI.cbt_enabled field should be set to false for new VDIs, but wasn't ";
+          ~msg:"VDI.cbt_enabled field should be set to false for new VDIs";
         VDI.enable_cbt ~session_id ~rpc:!rpc ~self:vDI;
         test_assert ~test:enable_cbt_test
           (get_cbt_status vDI)
@@ -72,7 +72,7 @@ let start session_id =
         success enable_cbt_test
       with
       | Test_failed msg -> failed enable_cbt_test msg
-      | e -> report_failure e "enable/disable CBT" enable_cbt_test in
+      | e -> report_failure e enable_cbt_test in
 
     (* For each test, check the given sR is capable of the associated operations
      * If not, skip that test, otherwise run it *)
@@ -118,4 +118,4 @@ let start session_id =
     debug cbt_test "Finished testing changed block tracking";
     success cbt_test
   with
-  | e -> report_failure e "CBT" cbt_test
+  | e -> report_failure e cbt_test
