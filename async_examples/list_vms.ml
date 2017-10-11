@@ -33,7 +33,7 @@ let main () =
   VM.get_all_records ~rpc ~session_id
   >>= fun vms ->
   List.iter
-    ~f:(fun (_vm, vm_rec) ->
+    ~f:(fun (_, vm_rec) ->
         printf "VM %s\n%!" vm_rec.API.vM_name_label
       ) vms;
   Session.logout ~rpc ~session_id
