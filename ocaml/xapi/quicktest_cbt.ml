@@ -14,6 +14,8 @@
 
 open Client
 open Quicktest_common
+exception Test_assertion_failed of string
+
 let start session_id =
   let open Client in
 
@@ -22,10 +24,10 @@ let start session_id =
     failed test (Printf.sprintf "%s failed: %s" test_name
                    (ExnHelper.string_of_exn error)) in
 
+  (* Define own exception to return error message to the test try/with and fail within that,
+   * as calling 'failed test' in a function called within the test leads to Hashtbl problems *)
   let test_assert ~test op ~msg =
-    try assert op with (Assert_failure _) ->
-      debug test msg;
-      raise (Failure "test assertion failed") in
+    try assert op with (Assert_failure _) -> raise (Test_assertion_failed msg) in
 
   let name_description = "VDI for CBT quicktest" in
   let make_vdi_from sR = (* SR has VDI.create as allowed *)
@@ -56,7 +58,7 @@ let start session_id =
           ~msg:"VDI.disable_CBT failed";
         success enable_cbt_test
       with
-      | (Failure "test assertion failed") -> failed enable_cbt_test ""
+      | Test_assertion_failed msg -> failed enable_cbt_test msg
       | e -> report_failure e "enable/disable CBT" enable_cbt_test in
 
     let run_test_suite ~sR ~vDI =
