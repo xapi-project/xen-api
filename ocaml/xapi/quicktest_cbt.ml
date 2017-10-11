@@ -15,59 +15,59 @@
 open Client
 open Quicktest_common
 exception Test_failed of string
+open Client
 
-let start session_id =
-  let open Client in
+(* Helper for test failure due to unexpected error *)
+let report_failure error test =
+  failed test (Printf.sprintf "%s failed: %s" test.name
+                 (ExnHelper.string_of_exn error))
 
-  (* Helper for test failure due to unexpected error *)
-  let report_failure error test =
-    failed test (Printf.sprintf "%s failed: %s" test.name
-                   (ExnHelper.string_of_exn error)) in
+(* Define exception so that if test fails, exception is passed to try-with statement and fails there
+ * so that the test only fails once and doesn't erroneously assume the test never started *)
+let test_assert ~test op ~msg =
+  if not op then raise (Test_failed msg)
 
-  (* Define exception so that if test fails, exception is passed to try-with statement and fails there
-   * so that the test only fails once and doesn't erroneously assume the test never started *)
-  let test_assert ~test op ~msg =
-    if not op then raise (Test_failed msg) in
+let name_description = "VDI for CBT quicktest"
+let make_vdi_from ~session_id ~sR = (* SR has VDI.create as allowed *)
+  VDI.create
+    ~sR
+    ~session_id
+    ~rpc:!rpc
+    ~name_label:"qt-cbt"
+    ~name_description
+    ~_type:`user
+    ~sharable:false
+    ~read_only:false
+    ~virtual_size:(4L ** mib)
+    ~xenstore_data:[]
+    ~other_config:[]
+    ~tags:[]
+    ~sm_config:[]
 
-  let name_description = "VDI for CBT quicktest" in
-  let make_vdi_from sR = (* SR has VDI.create as allowed *)
-    VDI.create
-      ~sR
-      ~session_id
-      ~rpc:!rpc
-      ~name_label:"qt-cbt"
-      ~name_description
-      ~_type:`user
-      ~sharable:false
-      ~read_only:false
-      ~virtual_size:(4L ** mib)
-      ~xenstore_data:[]
-      ~other_config:[]
-      ~tags:[]
-      ~sm_config:[]
-  in
 
-  (* overall test, runs smaller unit tests *)
-  let cbt_test = make_test "Testing changed block tracking" 2 in
+(* overall test, runs smaller unit tests *)
+let cbt_test = make_test "Testing changed block tracking" 2
+
+let test ~session_id =
   try
     start cbt_test;
-    let get_cbt_status vDI = VDI.get_cbt_enabled ~session_id ~rpc:!rpc ~self:vDI in
+    let get_cbt_status ~session_id ~vDI = VDI.get_cbt_enabled ~session_id ~rpc:!rpc ~self:vDI in
 
     (* Test enable/disable CBT, test cbt_enabled:false for new VDI *)
-    let enable_disable_cbt_test ~vDI =
+    let enable_disable_cbt_test ~session_id ~vDI =
       let enable_cbt_test = make_test "Testing VDI.enable/disable_CBT" 4 in
       try
         start enable_cbt_test;
         test_assert ~test:enable_cbt_test
-          (not (VDI.get_cbt_enabled ~session_id ~rpc:!rpc ~self:vDI))
+          (not (get_cbt_status ~session_id ~vDI))
           ~msg:"VDI.cbt_enabled field should be set to false for new VDIs";
         VDI.enable_cbt ~session_id ~rpc:!rpc ~self:vDI;
         test_assert ~test:enable_cbt_test
-          (get_cbt_status vDI)
+          (get_cbt_status ~session_id ~vDI)
           ~msg:"VDI.enable_cbt failed";
         VDI.disable_cbt ~session_id ~rpc:!rpc ~self:vDI;
         test_assert ~test:enable_cbt_test
-          (not (get_cbt_status vDI)) (* disable_cbt fails *)
+          (not (get_cbt_status ~session_id ~vDI)) (* disable_cbt fails *)
           ~msg:"VDI.disable_CBT failed";
         success enable_cbt_test
       with
@@ -76,9 +76,9 @@ let start session_id =
 
     (* For each test, check the given sR is capable of the associated operations
      * If not, skip that test, otherwise run it *)
-    let run_test_suite ~sR ~vDI =
+    let run_test_suite ~session_id ~sR ~vDI =
       let sr_ops = (SR.get_allowed_operations ~session_id ~rpc:!rpc ~self:sR) in
-      [ (fun () -> enable_disable_cbt_test ~vDI) ,
+      [ (fun () -> enable_disable_cbt_test ~session_id ~vDI) ,
         [ `vdi_enable_cbt ; `vdi_disable_cbt ]
       ]
       |> List.iter
@@ -89,9 +89,9 @@ let start session_id =
         ) in
 
     (* Try running test suite, definitively destroy all VDIs created, regardless of success or errors *)
-    let handle_storage_objects ~sR ~vDI =
+    let handle_storage_objects ~session_id ~sR ~vDI =
       Xapi_stdext_pervasives.Pervasiveext.finally
-        (fun () -> run_test_suite ~sR ~vDI)
+        (fun () -> run_test_suite ~session_id ~sR ~vDI)
         (fun () ->
            (VDI.get_all ~session_id ~rpc:!rpc)
            |> List.filter
@@ -110,8 +110,8 @@ let start session_id =
     |> List.iter
       (fun sR ->
          debug cbt_test (Printf.sprintf "Testing SR: \"%s\"" (SR.get_name_label ~session_id ~rpc:!rpc ~self:sR));
-         let vDI = make_vdi_from sR in
-         handle_storage_objects ~sR ~vDI
+         let vDI = make_vdi_from ~session_id ~sR in
+         handle_storage_objects ~session_id ~sR ~vDI
       );
 
     (* Overall test will fail if VDI.destroy messes up, or any other exception is thrown *)
