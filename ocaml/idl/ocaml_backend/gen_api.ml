@@ -126,6 +126,42 @@ let add_set_enums types =
           if List.exists (fun ty2 -> ty2 = DT.Set ty) types then [ty] else [DT.Set ty; ty]
         | _ -> [ty]) types)
 
+(* Returns a list of type sorted such that the first elements in the
+   list have nothing depending on them. Later elements in the list may
+   depend upon types earlier in the list *)
+let toposort_types highapi types =
+  let rec inner result remaining =
+    let rec references name = function
+      | DT.String
+      | DT.Int
+      | DT.Float
+      | DT.Bool
+      | DT.DateTime
+      | DT.Ref _
+      | DT.Enum _ -> false
+      | DT.Set ty -> references name ty
+      | DT.Map (ty, ty') -> (references name ty) || (references name ty')
+      | DT.Record record when record = name -> true
+      | DT.Record record ->
+        let all_fields = DU.fields_of_obj (Dm_api.get_obj_by_name highapi ~objname:record) in
+        List.exists (fun fld -> references name fld.DT.ty) all_fields
+    in
+    let (ty_ref,ty_not_ref) =
+      List.partition (fun ty -> match ty with
+      | DT.Record name ->
+        let referencing = List.filter (references name) remaining in
+        List.length referencing > 1
+      | _ -> false) remaining
+    in
+    if List.length ty_ref > 0
+    then inner (result @ ty_not_ref) ty_ref
+    else (result @ ty_not_ref)
+  in
+  let result = inner [] types in
+  assert(List.length result = List.length types);
+  assert(List.sort compare result = List.sort compare types);
+  result
+
 let gen_client_types highapi =
   let all_types = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
   let all_types = add_set_enums all_types in
@@ -157,7 +193,7 @@ let gen_client_types highapi =
           "let on_dict f = function | Rpc.Dict x -> f x | _ -> failwith \"Expected Dictionary\""
         ];
         gen_non_record_type highapi all_types;
-        gen_record_type ~with_module:true highapi all_types;
+        gen_record_type ~with_module:true highapi (toposort_types highapi all_types);
         O.Signature.strings_of (Gen_client.gen_signature highapi);
         [ "module Legacy = struct";
           "open XMLRPC";
