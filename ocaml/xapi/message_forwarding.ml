@@ -852,13 +852,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            Db.VGPU.set_scheduled_to_be_resident_on ~__context
              ~self:vgpu
              ~value:Ref.null)
-        (Db.VM.get_VGPUs ~__context ~self:vm);
-      List.iter
-        (fun vusb ->
-           Db.VUSB.set_attached ~__context
-             ~self:vusb
-             ~value:Ref.null)
-        (Db.VM.get_VUSBs ~__context ~self:vm)
+        (Db.VM.get_VGPUs ~__context ~self:vm)
 
     (* Notes on memory checking/reservation logic:
        		   When computing the hosts free memory we consider all VMs resident_on (ie running
