@@ -17,4 +17,3 @@ let map f = Stdext.Listext.List.filter_map (default_on_missing_ref (fun x -> Som
 let flat_map f l = List.map (default_on_missing_ref f []) l |> List.flatten
 
 let filter_map f l = map f l |> List.filter ((<>) None) |> List.map Xapi_stdext_monadic.Opt.unbox
-
