@@ -53,7 +53,7 @@ let destroy ~__context ~self =
   let r = Db.VUSB.get_record_internal ~__context ~self in
   let vm = r.Db_actions.vUSB_VM in
   (* Force the user to unplug first *)
-  if not (Db.is_valid_ref __context r.Db_actions.vUSB_attached) then
-   raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
+  if Db.is_valid_ref __context r.Db_actions.vUSB_attached then
+    raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
                                       [Printf.sprintf "VUSB '%s' still attached to '%s'" r.Db_actions.vUSB_uuid (Db.VM.get_uuid __context vm)]));
   Db.VUSB.destroy ~__context ~self
