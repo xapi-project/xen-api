@@ -31,9 +31,21 @@ let start session_id =
 
   let name_description = "VDI for CBT quicktest" in
   let make_vdi_from sR = (* SR has VDI.create as allowed *)
-    VDI.create ~session_id ~rpc:!rpc ~name_label:"qt-cbt" ~name_description ~_type:`user
-      ~sharable:false ~other_config:[] ~read_only:false ~sm_config:[] ~virtual_size:(2L ** mib)
-      ~xenstore_data:[] ~tags:[] ~sR in
+    VDI.create
+      ~sR
+      ~session_id
+      ~rpc:!rpc
+      ~name_label:"qt-cbt"
+      ~name_description
+      ~_type:`user
+      ~sharable:false
+      ~read_only:false
+      ~virtual_size:(2L ** mib)
+      ~xenstore_data:[]
+      ~other_config:[]
+      ~tags:[]
+      ~sm_config:[]
+  in
 
   let cbt_test = make_test "Testing changed block tracking" 2 in
   try
@@ -63,7 +75,8 @@ let start session_id =
 
     let run_test_suite ~sR ~vDI =
       let sr_ops = (SR.get_allowed_operations ~session_id ~rpc:!rpc ~self:sR) in
-      [ (fun () -> enable_disable_cbt_test ~vDI), [ `vdi_enable_cbt ; `vdi_disable_cbt ]
+      [ (fun () -> enable_disable_cbt_test ~vDI) ,
+        [ `vdi_enable_cbt ; `vdi_disable_cbt ]
       ]
       |> List.iter
         (fun (test,list_vdi_ops) ->
