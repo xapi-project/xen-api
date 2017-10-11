@@ -24,8 +24,8 @@ let start session_id =
     raise Test_failed (Printf.sprintf "%s failed: %s" test_name
                          (ExnHelper.string_of_exn error)) in
 
-  (* Define exception to return error message to the test try/with and fail within that,
-   * as calling 'failed test' in a function called within the test leads to Hashtbl problems *)
+  (* Define exception so that if test fails, exception is passed to try-with statement and fails there
+   * so that the test only fails once and doesn't erroneously assume the test never started *)
   let test_assert ~test op ~msg =
     if not op then raise (Test_failed msg) in
 
