@@ -1737,7 +1737,7 @@ module ClientF = functor(X : IO) ->struct
 
         rpc_wrapper rpc "Async.network.attach" [ session_id; network; host ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
-      let pool_introduce ~rpc ~session_id ~name_label ~name_description ~mTU ~other_config ~bridge ~managed =
+      let pool_introduce ~rpc ~session_id ~name_label ~name_description ~mTU ~other_config ~bridge ~managed ~purpose =
         let session_id = rpc_of_ref_session session_id in
         let name_label = rpc_of_string name_label in
         let name_description = rpc_of_string name_description in
@@ -1745,8 +1745,9 @@ module ClientF = functor(X : IO) ->struct
         let other_config = rpc_of_string_to_string_map other_config in
         let bridge = rpc_of_string bridge in
         let managed = rpc_of_bool managed in
+        let purpose = rpc_of_network_purpose_set purpose in
 
-        rpc_wrapper rpc "Async.network.pool_introduce" [ session_id; name_label; name_description; mTU; other_config; bridge; managed ] >>= fun x -> return (ref_task_of_rpc  x)
+        rpc_wrapper rpc "Async.network.pool_introduce" [ session_id; name_label; name_description; mTU; other_config; bridge; managed; purpose ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let create_new_blob ~rpc ~session_id ~network ~name ~mime_type ~public =
         let session_id = rpc_of_ref_session session_id in
@@ -1777,6 +1778,20 @@ module ClientF = functor(X : IO) ->struct
         let vm = rpc_of_ref_VM vm in
 
         rpc_wrapper rpc "Async.network.detach_for_vm" [ session_id; host; vm ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let add_purpose ~rpc ~session_id ~self ~value =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_network self in
+        let value = rpc_of_network_purpose value in
+
+        rpc_wrapper rpc "Async.network.add_purpose" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
+      (**  *)
+      let remove_purpose ~rpc ~session_id ~self ~value =
+        let session_id = rpc_of_ref_session session_id in
+        let self = rpc_of_ref_network self in
+        let value = rpc_of_network_purpose value in
+
+        rpc_wrapper rpc "Async.network.remove_purpose" [ session_id; self; value ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
@@ -2515,18 +2530,12 @@ module ClientF = functor(X : IO) ->struct
 
         rpc_wrapper rpc "Async.VDI.data_destroy" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
-      let export_changed_blocks ~rpc ~session_id ~vdi_from ~vdi_to =
+      let list_changed_blocks ~rpc ~session_id ~vdi_from ~vdi_to =
         let session_id = rpc_of_ref_session session_id in
         let vdi_from = rpc_of_ref_VDI vdi_from in
         let vdi_to = rpc_of_ref_VDI vdi_to in
 
-        rpc_wrapper rpc "Async.VDI.export_changed_blocks" [ session_id; vdi_from; vdi_to ] >>= fun x -> return (ref_task_of_rpc  x)
-      (**  *)
-      let get_nbd_info ~rpc ~session_id ~self =
-        let session_id = rpc_of_ref_session session_id in
-        let self = rpc_of_ref_VDI self in
-
-        rpc_wrapper rpc "Async.VDI.get_nbd_info" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
+        rpc_wrapper rpc "Async.VDI.list_changed_blocks" [ session_id; vdi_from; vdi_to ] >>= fun x -> return (ref_task_of_rpc  x)
       (**  *)
       let create_from_record ~rpc ~session_id ~value =
         create
@@ -3015,6 +3024,8 @@ module ClientF = functor(X : IO) ->struct
         let self = rpc_of_ref_SDN_controller self in
 
         rpc_wrapper rpc "Async.SDN_controller.forget" [ session_id; self ] >>= fun x -> return (ref_task_of_rpc  x)
+    end
+    module Vdi_nbd_server_info = struct
     end
   end
   module Session = struct
@@ -9147,6 +9158,12 @@ module ClientF = functor(X : IO) ->struct
 
       rpc_wrapper rpc "network.get_assigned_ips" [ session_id; self ] >>= fun x -> return (ref_VIF_to_string_map_of_rpc  x)
     (**  *)
+    let get_purpose ~rpc ~session_id ~self =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_network self in
+
+      rpc_wrapper rpc "network.get_purpose" [ session_id; self ] >>= fun x -> return (network_purpose_set_of_rpc  x)
+    (**  *)
     let set_name_label ~rpc ~session_id ~self ~value =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_network self in
@@ -9218,7 +9235,7 @@ module ClientF = functor(X : IO) ->struct
 
       rpc_wrapper rpc "network.attach" [ session_id; network; host ] >>= fun x -> return (ignore x)
     (**  *)
-    let pool_introduce ~rpc ~session_id ~name_label ~name_description ~mTU ~other_config ~bridge ~managed =
+    let pool_introduce ~rpc ~session_id ~name_label ~name_description ~mTU ~other_config ~bridge ~managed ~purpose =
       let session_id = rpc_of_ref_session session_id in
       let name_label = rpc_of_string name_label in
       let name_description = rpc_of_string name_description in
@@ -9226,8 +9243,9 @@ module ClientF = functor(X : IO) ->struct
       let other_config = rpc_of_string_to_string_map other_config in
       let bridge = rpc_of_string bridge in
       let managed = rpc_of_bool managed in
+      let purpose = rpc_of_network_purpose_set purpose in
 
-      rpc_wrapper rpc "network.pool_introduce" [ session_id; name_label; name_description; mTU; other_config; bridge; managed ] >>= fun x -> return (ref_network_of_rpc  x)
+      rpc_wrapper rpc "network.pool_introduce" [ session_id; name_label; name_description; mTU; other_config; bridge; managed; purpose ] >>= fun x -> return (ref_network_of_rpc  x)
     (**  *)
     let create_new_blob ~rpc ~session_id ~network ~name ~mime_type ~public =
       let session_id = rpc_of_ref_session session_id in
@@ -9258,6 +9276,20 @@ module ClientF = functor(X : IO) ->struct
       let vm = rpc_of_ref_VM vm in
 
       rpc_wrapper rpc "network.detach_for_vm" [ session_id; host; vm ] >>= fun x -> return (ignore x)
+    (**  *)
+    let add_purpose ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_network self in
+      let value = rpc_of_network_purpose value in
+
+      rpc_wrapper rpc "network.add_purpose" [ session_id; self; value ] >>= fun x -> return (ignore x)
+    (**  *)
+    let remove_purpose ~rpc ~session_id ~self ~value =
+      let session_id = rpc_of_ref_session session_id in
+      let self = rpc_of_ref_network self in
+      let value = rpc_of_network_purpose value in
+
+      rpc_wrapper rpc "network.remove_purpose" [ session_id; self; value ] >>= fun x -> return (ignore x)
     (**  *)
     let get_all ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
@@ -11691,18 +11723,18 @@ module ClientF = functor(X : IO) ->struct
 
       rpc_wrapper rpc "VDI.data_destroy" [ session_id; self ] >>= fun x -> return (ignore x)
     (**  *)
-    let export_changed_blocks ~rpc ~session_id ~vdi_from ~vdi_to =
+    let list_changed_blocks ~rpc ~session_id ~vdi_from ~vdi_to =
       let session_id = rpc_of_ref_session session_id in
       let vdi_from = rpc_of_ref_VDI vdi_from in
       let vdi_to = rpc_of_ref_VDI vdi_to in
 
-      rpc_wrapper rpc "VDI.export_changed_blocks" [ session_id; vdi_from; vdi_to ] >>= fun x -> return (string_of_rpc  x)
+      rpc_wrapper rpc "VDI.list_changed_blocks" [ session_id; vdi_from; vdi_to ] >>= fun x -> return (string_of_rpc  x)
     (**  *)
     let get_nbd_info ~rpc ~session_id ~self =
       let session_id = rpc_of_ref_session session_id in
       let self = rpc_of_ref_VDI self in
 
-      rpc_wrapper rpc "VDI.get_nbd_info" [ session_id; self ] >>= fun x -> return (string_set_of_rpc  x)
+      rpc_wrapper rpc "VDI.get_nbd_info" [ session_id; self ] >>= fun x -> return (vdi_nbd_server_info_t_set_of_rpc  x)
     (**  *)
     let get_all ~rpc ~session_id =
       let session_id = rpc_of_ref_session session_id in
@@ -14198,6 +14230,8 @@ module ClientF = functor(X : IO) ->struct
       let session_id = rpc_of_ref_session session_id in
 
       rpc_wrapper rpc "SDN_controller.get_all_records" [ session_id ] >>= fun x -> return (ref_SDN_controller_to_sDN_controller_t_map_of_rpc  x)
+  end
+  module Vdi_nbd_server_info = struct
   end
 
 end

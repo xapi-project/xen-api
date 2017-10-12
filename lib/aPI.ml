@@ -151,7 +151,7 @@ type ref_PIF = [`PIF] Ref.t [@@deriving rpc]
 type ref_secret = [`secret] Ref.t [@@deriving rpc]
 type ref_message = [`message] Ref.t [@@deriving rpc]
 type datetime = Date.iso8601 [@@deriving rpc]
-type cls = [ `VM | `Host | `SR | `Pool | `VMPP | `VMSS | `PVS_proxy ] [@@deriving rpc]
+type cls = [ `VM | `Host | `SR | `Pool | `VMPP | `VMSS | `PVS_proxy | `VDI ] [@@deriving rpc]
 type cls_set = cls list [@@deriving rpc]
 type ref_blob = [`blob] Ref.t [@@deriving rpc]
 type ref_user = [`user] Ref.t [@@deriving rpc]
@@ -175,13 +175,13 @@ type on_boot_set = on_boot list [@@deriving rpc]
 type ref_pool = [`pool] Ref.t [@@deriving rpc]
 type vdi_type = [ `system | `user | `ephemeral | `suspend | `crashdump | `ha_statefile | `metadata | `redo_log | `rrd | `pvs_cache | `cbt_metadata ] [@@deriving rpc]
 type vdi_type_set = vdi_type list [@@deriving rpc]
-type vdi_operations = [ `clone | `copy | `resize | `resize_online | `snapshot | `mirror | `destroy | `forget | `update | `force_unlock | `generate_config | `enable_cbt | `disable_cbt | `data_destroy | `export_changed_blocks | `set_on_boot | `blocked ] [@@deriving rpc]
+type vdi_operations = [ `clone | `copy | `resize | `resize_online | `snapshot | `mirror | `destroy | `forget | `update | `force_unlock | `generate_config | `enable_cbt | `disable_cbt | `data_destroy | `list_changed_blocks | `set_on_boot | `blocked ] [@@deriving rpc]
 type string_to_vdi_operations_map = (string * vdi_operations) list [@@deriving rpc]
 type vdi_operations_set = vdi_operations list [@@deriving rpc]
 type ref_LVHD = [`LVHD] Ref.t [@@deriving rpc]
 type ref_DR_task = [`DR_task] Ref.t [@@deriving rpc]
 type string_to_ref_blob_map = (string * ref_blob) list [@@deriving rpc]
-type storage_operations = [ `scan | `destroy | `forget | `plug | `unplug | `update | `vdi_create | `vdi_introduce | `vdi_destroy | `vdi_resize | `vdi_clone | `vdi_snapshot | `vdi_mirror | `vdi_enable_cbt | `vdi_disable_cbt | `vdi_data_destroy | `vdi_export_changed_blocks | `vdi_set_on_boot | `pbd_create | `pbd_destroy ] [@@deriving rpc]
+type storage_operations = [ `scan | `destroy | `forget | `plug | `unplug | `update | `vdi_create | `vdi_introduce | `vdi_destroy | `vdi_resize | `vdi_clone | `vdi_snapshot | `vdi_mirror | `vdi_enable_cbt | `vdi_disable_cbt | `vdi_data_destroy | `vdi_list_changed_blocks | `vdi_set_on_boot | `pbd_create | `pbd_destroy ] [@@deriving rpc]
 type string_to_storage_operations_map = (string * storage_operations) list [@@deriving rpc]
 type storage_operations_set = storage_operations list [@@deriving rpc]
 type ref_SM = [`SM] Ref.t [@@deriving rpc]
@@ -214,8 +214,10 @@ type vif_locking_mode_set = vif_locking_mode list [@@deriving rpc]
 type vif_operations = [ `attach | `plug | `unplug ] [@@deriving rpc]
 type string_to_vif_operations_map = (string * vif_operations) list [@@deriving rpc]
 type vif_operations_set = vif_operations list [@@deriving rpc]
+type network_purpose = [ `nbd | `insecure_nbd ] [@@deriving rpc]
 type network_default_locking_mode = [ `unlocked | `disabled ] [@@deriving rpc]
 type network_default_locking_mode_set = network_default_locking_mode list [@@deriving rpc]
+type network_purpose_set = network_purpose list [@@deriving rpc]
 type ref_VIF_to_string_map = (ref_VIF * string) list [@@deriving rpc]
 type network_operations = [ `attaching ] [@@deriving rpc]
 type string_to_network_operations_map = (string * network_operations) list [@@deriving rpc]
@@ -355,6 +357,8 @@ let rpc_of_event_operation x = match x with | `add -> Rpc.String "add" | `del ->
 let event_operation_of_rpc x = match x with | Rpc.String "add" -> `add | Rpc.String "del" -> `del | Rpc.String "mod" -> `_mod | _ -> failwith "Unmarshalling error"
 
 type event_operation_set = event_operation list [@@deriving rpc]
+type ref_vdi_nbd_server_info = [`vdi_nbd_server_info] Ref.t [@@deriving rpc]
+type ref_vdi_nbd_server_info_set = [`vdi_nbd_server_info] Ref.t list [@@deriving rpc]
 type ref_data_source = [`data_source] Ref.t [@@deriving rpc]
 type ref_data_source_set = [`data_source] Ref.t list [@@deriving rpc]
 type ref_user_set = [`user] Ref.t list [@@deriving rpc]
@@ -551,9 +555,9 @@ let vIF_t_of_rpc x = on_dict (fun x -> { vIF_uuid = string_of_rpc (List.assoc "u
 type ref_VIF_to_vIF_t_map = (ref_VIF * vIF_t) list [@@deriving rpc]
 type vIF_t_set = vIF_t list [@@deriving rpc]
 
-type network_t = { network_uuid : string; network_name_label : string; network_name_description : string; network_allowed_operations : network_operations_set; network_current_operations : string_to_network_operations_map; network_VIFs : ref_VIF_set; network_PIFs : ref_PIF_set; network_MTU : int64; network_other_config : string_to_string_map; network_bridge : string; network_managed : bool; network_blobs : string_to_ref_blob_map; network_tags : string_set; network_default_locking_mode : network_default_locking_mode; network_assigned_ips : ref_VIF_to_string_map }
-let rpc_of_network_t x = Rpc.Dict [ "uuid",rpc_of_string x.network_uuid; "name_label",rpc_of_string x.network_name_label; "name_description",rpc_of_string x.network_name_description; "allowed_operations",rpc_of_network_operations_set x.network_allowed_operations; "current_operations",rpc_of_string_to_network_operations_map x.network_current_operations; "VIFs",rpc_of_ref_VIF_set x.network_VIFs; "PIFs",rpc_of_ref_PIF_set x.network_PIFs; "MTU",rpc_of_int64 x.network_MTU; "other_config",rpc_of_string_to_string_map x.network_other_config; "bridge",rpc_of_string x.network_bridge; "managed",rpc_of_bool x.network_managed; "blobs",rpc_of_string_to_ref_blob_map x.network_blobs; "tags",rpc_of_string_set x.network_tags; "default_locking_mode",rpc_of_network_default_locking_mode x.network_default_locking_mode; "assigned_ips",rpc_of_ref_VIF_to_string_map x.network_assigned_ips ]
-let network_t_of_rpc x = on_dict (fun x -> { network_uuid = string_of_rpc (List.assoc "uuid" x); network_name_label = string_of_rpc (List.assoc "name_label" x); network_name_description = string_of_rpc (List.assoc "name_description" x); network_allowed_operations = network_operations_set_of_rpc (List.assoc "allowed_operations" x); network_current_operations = string_to_network_operations_map_of_rpc (List.assoc "current_operations" x); network_VIFs = ref_VIF_set_of_rpc (List.assoc "VIFs" x); network_PIFs = ref_PIF_set_of_rpc (List.assoc "PIFs" x); network_MTU = int64_of_rpc (List.assoc "MTU" x); network_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); network_bridge = string_of_rpc (List.assoc "bridge" x); network_managed = bool_of_rpc (List.assoc "managed" x); network_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); network_tags = string_set_of_rpc (List.assoc "tags" x); network_default_locking_mode = network_default_locking_mode_of_rpc (List.assoc "default_locking_mode" x); network_assigned_ips = ref_VIF_to_string_map_of_rpc (List.assoc "assigned_ips" x) }) x
+type network_t = { network_uuid : string; network_name_label : string; network_name_description : string; network_allowed_operations : network_operations_set; network_current_operations : string_to_network_operations_map; network_VIFs : ref_VIF_set; network_PIFs : ref_PIF_set; network_MTU : int64; network_other_config : string_to_string_map; network_bridge : string; network_managed : bool; network_blobs : string_to_ref_blob_map; network_tags : string_set; network_default_locking_mode : network_default_locking_mode; network_assigned_ips : ref_VIF_to_string_map; network_purpose : network_purpose_set }
+let rpc_of_network_t x = Rpc.Dict [ "uuid",rpc_of_string x.network_uuid; "name_label",rpc_of_string x.network_name_label; "name_description",rpc_of_string x.network_name_description; "allowed_operations",rpc_of_network_operations_set x.network_allowed_operations; "current_operations",rpc_of_string_to_network_operations_map x.network_current_operations; "VIFs",rpc_of_ref_VIF_set x.network_VIFs; "PIFs",rpc_of_ref_PIF_set x.network_PIFs; "MTU",rpc_of_int64 x.network_MTU; "other_config",rpc_of_string_to_string_map x.network_other_config; "bridge",rpc_of_string x.network_bridge; "managed",rpc_of_bool x.network_managed; "blobs",rpc_of_string_to_ref_blob_map x.network_blobs; "tags",rpc_of_string_set x.network_tags; "default_locking_mode",rpc_of_network_default_locking_mode x.network_default_locking_mode; "assigned_ips",rpc_of_ref_VIF_to_string_map x.network_assigned_ips; "purpose",rpc_of_network_purpose_set x.network_purpose ]
+let network_t_of_rpc x = on_dict (fun x -> { network_uuid = string_of_rpc (List.assoc "uuid" x); network_name_label = string_of_rpc (List.assoc "name_label" x); network_name_description = string_of_rpc (List.assoc "name_description" x); network_allowed_operations = network_operations_set_of_rpc (List.assoc "allowed_operations" x); network_current_operations = string_to_network_operations_map_of_rpc (List.assoc "current_operations" x); network_VIFs = ref_VIF_set_of_rpc (List.assoc "VIFs" x); network_PIFs = ref_PIF_set_of_rpc (List.assoc "PIFs" x); network_MTU = int64_of_rpc (List.assoc "MTU" x); network_other_config = string_to_string_map_of_rpc (List.assoc "other_config" x); network_bridge = string_of_rpc (List.assoc "bridge" x); network_managed = bool_of_rpc (List.assoc "managed" x); network_blobs = string_to_ref_blob_map_of_rpc (List.assoc "blobs" x); network_tags = string_set_of_rpc (List.assoc "tags" x); network_default_locking_mode = network_default_locking_mode_of_rpc (List.assoc "default_locking_mode" x); network_assigned_ips = ref_VIF_to_string_map_of_rpc (List.assoc "assigned_ips" x); network_purpose = network_purpose_set_of_rpc (List.assoc "purpose" x) }) x
 type ref_network_to_network_t_map = (ref_network * network_t) list [@@deriving rpc]
 type network_t_set = network_t list [@@deriving rpc]
 
@@ -682,6 +686,12 @@ let rpc_of_data_source_t x = Rpc.Dict [ "name_label",rpc_of_string x.data_source
 let data_source_t_of_rpc x = on_dict (fun x -> { data_source_name_label = string_of_rpc (List.assoc "name_label" x); data_source_name_description = string_of_rpc (List.assoc "name_description" x); data_source_enabled = bool_of_rpc (List.assoc "enabled" x); data_source_standard = bool_of_rpc (List.assoc "standard" x); data_source_units = string_of_rpc (List.assoc "units" x); data_source_min = float_of_rpc (List.assoc "min" x); data_source_max = float_of_rpc (List.assoc "max" x); data_source_value = float_of_rpc (List.assoc "value" x) }) x
 type ref_data_source_to_data_source_t_map = (ref_data_source * data_source_t) list [@@deriving rpc]
 type data_source_t_set = data_source_t list [@@deriving rpc]
+
+type vdi_nbd_server_info_t = { vdi_nbd_server_info_exportname : string; vdi_nbd_server_info_address : string; vdi_nbd_server_info_port : int64; vdi_nbd_server_info_cert : string; vdi_nbd_server_info_subject : string }
+let rpc_of_vdi_nbd_server_info_t x = Rpc.Dict [ "exportname",rpc_of_string x.vdi_nbd_server_info_exportname; "address",rpc_of_string x.vdi_nbd_server_info_address; "port",rpc_of_int64 x.vdi_nbd_server_info_port; "cert",rpc_of_string x.vdi_nbd_server_info_cert; "subject",rpc_of_string x.vdi_nbd_server_info_subject ]
+let vdi_nbd_server_info_t_of_rpc x = on_dict (fun x -> { vdi_nbd_server_info_exportname = string_of_rpc (List.assoc "exportname" x); vdi_nbd_server_info_address = string_of_rpc (List.assoc "address" x); vdi_nbd_server_info_port = int64_of_rpc (List.assoc "port" x); vdi_nbd_server_info_cert = string_of_rpc (List.assoc "cert" x); vdi_nbd_server_info_subject = string_of_rpc (List.assoc "subject" x) }) x
+type ref_vdi_nbd_server_info_to_vdi_nbd_server_info_t_map = (ref_vdi_nbd_server_info * vdi_nbd_server_info_t) list [@@deriving rpc]
+type vdi_nbd_server_info_t_set = vdi_nbd_server_info_t list [@@deriving rpc]
 
 type message_t = { message_uuid : string; message_name : string; message_priority : int64; message_cls : cls; message_obj_uuid : string; message_timestamp : datetime; message_body : string }
 let rpc_of_message_t x = Rpc.Dict [ "uuid",rpc_of_string x.message_uuid; "name",rpc_of_string x.message_name; "priority",rpc_of_int64 x.message_priority; "cls",rpc_of_cls x.message_cls; "obj_uuid",rpc_of_string x.message_obj_uuid; "timestamp",rpc_of_datetime x.message_timestamp; "body",rpc_of_string x.message_body ]
@@ -964,11 +974,13 @@ module type API = sig
       val create : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> mTU:int64 -> other_config:string_to_string_map -> bridge:string -> managed:bool -> tags:string_set -> ref_task
       val destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> ref_task
       val attach : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> network:ref_network -> host:ref_host -> ref_task
-      val pool_introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> mTU:int64 -> other_config:string_to_string_map -> bridge:string -> managed:bool -> ref_task
+      val pool_introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> mTU:int64 -> other_config:string_to_string_map -> bridge:string -> managed:bool -> purpose:network_purpose_set -> ref_task
       val create_new_blob : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> network:ref_network -> name:string -> mime_type:string -> public:bool -> ref_task
       val set_default_locking_mode : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> network:ref_network -> value:network_default_locking_mode -> ref_task
       val attach_for_vm : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> vm:ref_VM -> ref_task
       val detach_for_vm : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> vm:ref_VM -> ref_task
+      val add_purpose : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> value:network_purpose -> ref_task
+      val remove_purpose : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> value:network_purpose -> ref_task
       val create_from_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> value:network_t -> ref_task
     end
     module VIF : sig
@@ -1071,8 +1083,7 @@ module type API = sig
       val disable_cbt : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VDI -> ref_task
       val set_cbt_enabled : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VDI -> value:bool -> ref_task
       val data_destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VDI -> ref_task
-      val export_changed_blocks : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vdi_from:ref_VDI -> vdi_to:ref_VDI -> ref_task
-      val get_nbd_info : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VDI -> ref_task
+      val list_changed_blocks : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vdi_from:ref_VDI -> vdi_to:ref_VDI -> ref_task
       val create_from_record : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> value:vDI_t -> ref_task
     end
     module VBD : sig
@@ -1180,6 +1191,8 @@ module type API = sig
     module SDN_controller : sig
       val introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> protocol:sdn_controller_protocol -> address:string -> port:int64 -> ref_task
       val forget : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_SDN_controller -> ref_task
+    end
+    module Vdi_nbd_server_info : sig
     end
   end
   module Session : sig
@@ -2159,6 +2172,7 @@ module type API = sig
     val get_tags : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> string_set
     val get_default_locking_mode : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> network_default_locking_mode
     val get_assigned_ips : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> ref_VIF_to_string_map
+    val get_purpose : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> network_purpose_set
     val set_name_label : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> value:string -> unit
     val set_name_description : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> value:string -> unit
     val set_MTU : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> value:int64 -> unit
@@ -2169,11 +2183,13 @@ module type API = sig
     val add_tags : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> value:string -> unit
     val remove_tags : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> value:string -> unit
     val attach : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> network:ref_network -> host:ref_host -> unit
-    val pool_introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> mTU:int64 -> other_config:string_to_string_map -> bridge:string -> managed:bool -> ref_network
+    val pool_introduce : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> name_label:string -> name_description:string -> mTU:int64 -> other_config:string_to_string_map -> bridge:string -> managed:bool -> purpose:network_purpose_set -> ref_network
     val create_new_blob : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> network:ref_network -> name:string -> mime_type:string -> public:bool -> ref_blob
     val set_default_locking_mode : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> network:ref_network -> value:network_default_locking_mode -> unit
     val attach_for_vm : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> vm:ref_VM -> unit
     val detach_for_vm : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> host:ref_host -> vm:ref_VM -> unit
+    val add_purpose : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> value:network_purpose -> unit
+    val remove_purpose : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_network -> value:network_purpose -> unit
     val get_all : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_network_set
     val get_all_records_where : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> expr:string -> ref_network_to_network_t_map
     val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_network_to_network_t_map
@@ -2549,8 +2565,8 @@ module type API = sig
     val disable_cbt : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VDI -> unit
     val set_cbt_enabled : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VDI -> value:bool -> unit
     val data_destroy : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VDI -> unit
-    val export_changed_blocks : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vdi_from:ref_VDI -> vdi_to:ref_VDI -> string
-    val get_nbd_info : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VDI -> string_set
+    val list_changed_blocks : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> vdi_from:ref_VDI -> vdi_to:ref_VDI -> string
+    val get_nbd_info : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> self:ref_VDI -> vdi_nbd_server_info_t_set
     val get_all : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_VDI_set
     val get_all_records_where : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> expr:string -> ref_VDI_to_vDI_t_map
     val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_VDI_to_vDI_t_map
@@ -2987,5 +3003,9 @@ module type API = sig
     val get_all_records_where : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> expr:string -> ref_SDN_controller_to_sDN_controller_t_map
     val get_all_records : rpc:(Rpc.call -> Rpc.response) -> session_id:ref_session -> ref_SDN_controller_to_sDN_controller_t_map
   end
+  module Vdi_nbd_server_info : sig
+  end
 
 end
+
+
