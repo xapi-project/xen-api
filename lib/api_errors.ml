@@ -99,6 +99,8 @@ let operation_not_allowed = "OPERATION_NOT_ALLOWED"
 let operation_blocked = "OPERATION_BLOCKED"
 let network_already_connected = "NETWORK_ALREADY_CONNECTED"
 let network_unmanaged = "NETWORK_UNMANAGED"
+let network_incompatible_purposes = "NETWORK_INCOMPATIBLE_PURPOSES"
+
 let cannot_destroy_system_network = "CANNOT_DESTROY_SYSTEM_NETWORK"
 let pif_is_physical = "PIF_IS_PHYSICAL"
 let pif_is_vlan = "PIF_IS_VLAN"
