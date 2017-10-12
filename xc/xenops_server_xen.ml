@@ -57,7 +57,11 @@ let choose_alternative kind default platformdata =
   end else default
 
 (* We allow qemu-dm to be overriden via a platform flag *)
-let choose_qemu_dm x = choose_alternative _device_model !Resources.qemu_dm_wrapper x
+let choose_qemu_dm x = Device.(
+    if List.mem_assoc _device_model x
+    then Profile.of_string (List.assoc _device_model x)
+    else Profile.fallback
+  )
 
 (* We allow xenguest to be overriden via a platform flag *)
 let choose_xenguest x = choose_alternative _xenguest !Xc_resources.xenguest x
@@ -1047,6 +1051,7 @@ module VM = struct
       (fun ()->
          (* Finally, discard any device caching for the domid destroyed *)
          DeviceCache.discard device_cache di.Xenctrl.domid;
+         Device.(Qemu.SignalMask.unset Qemu.signal_mask di.Xenctrl.domid);
       )
     ) Oldest
 
@@ -1329,7 +1334,7 @@ module VM = struct
     let vmextra = DB.read_exn vm.Vm.id in
     let qemu_dm = choose_qemu_dm vm.Vm.platformdata in
     let xenguest = choose_xenguest vm.Vm.platformdata in
-    debug "chosen qemu_dm = %s" qemu_dm;
+    debug "chosen qemu_dm = %s" (Device.Profile.wrapper_of qemu_dm);
     debug "chosen xenguest = %s" xenguest;
     try
       Opt.iter (fun info ->
@@ -1339,15 +1344,15 @@ module VM = struct
             Opt.iter
               (fun stubdom_domid ->
                  Stubdom.build task ~xc ~xs ~store_domid ~console_domid info xenguest di.Xenctrl.domid stubdom_domid;
-                 Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info stubdom_domid
+                 Device.Dm.start_vnconly task ~xs ~dm:qemu_dm info stubdom_domid
               ) (get_stubdom ~xs di.Xenctrl.domid);
           | Vm.HVM { Vm.qemu_stubdom = false } ->
             (if saved_state then Device.Dm.restore else Device.Dm.start)
-              task ~xs ~dmpath:qemu_dm info di.Xenctrl.domid
+              task ~xs ~dm:qemu_dm info di.Xenctrl.domid
           | Vm.PV _ ->
             Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
             Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
-            Device.Dm.start_vnconly task ~xs ~dmpath:qemu_dm info di.Xenctrl.domid
+            Device.Dm.start_vnconly task ~xs ~dm:qemu_dm info di.Xenctrl.domid
         ) (create_device_model_config vm vmextra vbds vifs vgpus);
       match vm.Vm.ty with
       | Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
@@ -1363,16 +1368,6 @@ module VM = struct
       (fun xc xs task vm di ->
 
          let domid = di.Xenctrl.domid in
-
-         (* As per comment on CA-217805 *)
-         let use_poweroff =
-           try
-             xs.Xs.read (xs.Xs.getdomainpath domid ^ "/control/feature-poweroff") = "1"
-           with _ -> false
-         in
-
-         let reason = match reason, use_poweroff with Domain.Halt, true -> Domain.PowerOff | x, _ -> x in
-
          try
            Domain.shutdown ~xc ~xs domid reason;
            Domain.shutdown_wait_for_ack task ~timeout:ack_delay ~xc ~xs domid reason;
@@ -2810,6 +2805,7 @@ module Actions = struct
       sprintf "/local/domain/%d/memory/uncooperative" domid;
       sprintf "/local/domain/%d/console/vnc-port" domid;
       sprintf "/local/domain/%d/console/tc-port" domid;
+      Device.Qemu.pid_path_signal domid;
       sprintf "/local/domain/%d/control" domid;
       sprintf "/local/domain/%d/device" domid;
       sprintf "/local/domain/%d/rrd" domid;
@@ -2860,6 +2856,21 @@ module Actions = struct
     Cancel_utils.on_shutdown ~xs domid;
     (* Finally, discard any device caching for the domid destroyed *)
     DeviceCache.discard device_cache domid
+
+  let qemu_disappeared di xc xs =
+    match !Xenopsd.action_after_qemu_crash with
+    | None -> ()
+    | Some action -> begin
+        debug "action-after-qemu-crash=%s" action;
+        match action with
+        | "poweroff" ->
+          (* we do not expect a HVM guest to survive qemu disappearing, so kill the VM *)
+          Domain.set_action_request ~xs di.Xenctrl.domid (Some "poweroff")
+        | "pause" ->
+          (* useful for debugging qemu *)
+          Domain.pause ~xc di.Xenctrl.domid
+        | _ -> ()
+      end
 
   let add_device_watch xs device =
     let open Device_common in
@@ -2922,6 +2933,24 @@ module Actions = struct
             debug "Unknown device kind: '%s'" x;
             None in
         Opt.iter (fun x -> Updates.add x internal_updates) update in
+
+    let fire_event_on_qemu domid =
+      let d = int_of_string domid in
+      let open Xenstore_watch in
+      if not(IntMap.mem d domains)
+      then debug "Ignoring qemu-pid-signal watch on shutdown domain %d" d
+      else begin
+        let signal = try Some (xs.Xs.read (Device.Qemu.pid_path_signal d)) with _ -> None in
+        match signal with
+        | None -> ()
+        | Some signal ->
+          debug "Received unexpected qemu-pid-signal %s for domid %d" signal d;
+          let di = IntMap.find d domains in
+          let id = Uuidm.to_string (uuid_of_di di) in
+          qemu_disappeared di xc xs;
+          Updates.add (Dynamic.Vm id) internal_updates
+      end
+    in
 
     let register_rrd_plugin ~domid ~name ~grant_refs ~protocol =
       debug
@@ -2996,6 +3025,8 @@ module Actions = struct
             "Failed to deregister RRD plugin: caught %s"
             (Printexc.to_string e)
       end
+    | "local" :: "domain" :: domid :: "qemu-pid-signal" :: [] ->
+      fire_event_on_qemu domid
     | "local" :: "domain" :: domid :: _ ->
       fire_event_on_vm domid
     | "vm" :: uuid :: "rtc" :: "timeoffset" :: [] ->
@@ -3088,6 +3119,7 @@ let init () =
        xs.Xs.setperms xe_key { Xs_protocol.ACL.owner = 0; other = Xs_protocol.ACL.READ; acl = [] }
     );
 
+  Device.Backend.init();
   debug "xenstore is responding to requests";
   let () = Watcher.create_watcher_thread () in
   ()

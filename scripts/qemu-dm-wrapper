@@ -61,43 +61,21 @@ def enable_core_dumps():
         setrlimit(RLIMIT_CORE, (limit, hardlimit))
         return limit
 
-def qemu_dm_upstream():
-    return '/usr/lib64/xen/bin/qemu-wrapper'
-
-def qemu_dm_trad():
+def main(argv):
+    qemu_env = os.environ
     qemu_dm_list = ['/usr/lib/xen/bin/qemu-dm',
                     '/usr/lib64/xen/bin/qemu-dm',
                     '/usr/lib/xen-4.1/bin/qemu-dm',
                     '/usr/lib/xen-4.2/bin/qemu-dm',
                     '/usr/lib/xen-4.4/bin/qemu-dm']
+    qemu_dm = None
     for loc in qemu_dm_list:
         if os.path.exists(loc):
-            return loc
-    raise Exception("Cannot find qemu-dm in %s" % qemu_dm_list)
+            qemu_dm = loc
+    if qemu_dm is None:
+        raise Exception("Cannot find qemu-dm in %s" % qemu_dm_list)
 
-def qemu_dm_path(domid, argv):
-    up_qemu = 0
-
-    try:
-        qemu_v = xenstore_read("/local/domain/%d/vm-data/up-qemu" % domid)
-    except RuntimeError:
-        qemu_v = "0"
-    if qemu_v == "1":
-        up_qemu = 1
-    elif qemu_v == "2":
-        for arg in argv:
-            if arg == "-loadvm":
-                up_qemu = 1
-
-    if up_qemu:
-        return qemu_dm_upstream()
-    else:
-        return qemu_dm_trad()
-
-def main(argv):
-    qemu_env = os.environ
     domid = int(argv[1])
-    qemu_dm = qemu_dm_path(domid, argv)
     qemu_args = ['qemu-dm-%d'%domid] + argv[2:]
 
     # Workaround http://unix.stackexchange.com/questions/39495/domain-ubuntu-hvm-does-not-exists-xen-ubuntu-hvm-guest-os-installation-pro

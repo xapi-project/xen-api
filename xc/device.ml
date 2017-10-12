@@ -32,6 +32,33 @@ exception Cdrom
 module D = Debug.Make(struct let name = "xenops" end)
 open D
 
+(** Definition of available qemu profiles, used by the qemu backend implementations *)
+module Profile = struct
+  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream
+  let fallback = Qemu_trad
+  let all = [ Qemu_trad; Qemu_upstream_compat; Qemu_upstream ]
+  module Name = struct
+    let qemu_trad            = "qemu-trad"
+    let qemu_upstream_compat = "qemu-upstream-compat"
+    let qemu_upstream        = "qemu-upstream"
+  end
+  let wrapper_of = function
+    | Qemu_trad            -> !Resources.qemu_dm_wrapper
+    | Qemu_upstream_compat -> !Resources.upstream_compat_qemu_dm_wrapper
+    | Qemu_upstream        -> !Resources.upstream_compat_qemu_dm_wrapper
+  let string_of  = function
+    | Qemu_trad              -> Name.qemu_trad
+    | Qemu_upstream_compat   -> Name.qemu_upstream_compat
+    | Qemu_upstream          -> Name.qemu_upstream
+  let of_string  = function
+    | x when x = Name.qemu_trad            -> Qemu_trad
+    | x when x = Name.qemu_upstream_compat -> Qemu_upstream_compat
+    | x when x = Name.qemu_upstream        -> Qemu_upstream
+    | x -> debug "unknown device-model profile %s: defaulting to fallback: %s" x (string_of fallback);
+      fallback
+  let of_domid x = if is_upstream_qemu x then Qemu_upstream else Qemu_trad
+end
+
 (* keys read by vif udev script (keep in sync with api:scripts/vif) *)
 let vif_udev_keys = "promiscuous" :: (List.map (fun x -> "ethtool-" ^ x) [ "rx"; "tx"; "sg"; "tso"; "ufo"; "gso" ])
 
@@ -283,7 +310,8 @@ end
 (****************************************************************************************)
 (** Disks:                                                                              *)
 
-module Vbd = struct
+(** Vbd_Common contains the private Vbd functions that are common between the qemu profile backends *)
+module Vbd_Common = struct
 
   type shutdown_mode =
     | Classic (** no signal that backend has flushed, rely on (eg) SM vdi_deactivate for safety *)
@@ -881,7 +909,18 @@ module type DAEMONPIDPATH = sig
 end
 
 module DaemonMgmt (D : DAEMONPIDPATH) = struct
+  module SignalMask = struct
+    module H = Hashtbl
+    type t = (int, bool) H.t
+    let create () = H.create 16
+    let set tbl key = H.replace tbl key true
+    let unset tbl key = H.remove tbl key
+    let has tbl key = H.mem tbl key
+  end
+  let signal_mask = SignalMask.create ()
+
   let pid_path = D.pid_path
+  let pid_path_signal domid = (pid_path domid) ^ "-signal"
   let pid ~xs domid =
     try
       let pid = xs.Xs.read (pid_path domid) in
@@ -1360,26 +1399,11 @@ module Vkbd = struct
 
 end
 
-let hard_shutdown (task: Xenops_task.task_handle) ~xs (x: device) = match x.backend.kind with
-  | Vif -> Vif.hard_shutdown task ~xs x
-  | Vbd _ | Tap -> Vbd.hard_shutdown task ~xs x
-  | Pci -> PCI.hard_shutdown task ~xs x
-  | Vfs -> Vfs.hard_shutdown task ~xs x
-  | Vfb -> Vfb.hard_shutdown task ~xs x
-  | Vkbd -> Vkbd.hard_shutdown task ~xs x
-
-let clean_shutdown (task: Xenops_task.task_handle) ~xs (x: device) = match x.backend.kind with
-  | Vif -> Vif.clean_shutdown task ~xs x
-  | Vbd _ | Tap -> Vbd.clean_shutdown task ~xs x
-  | Pci -> PCI.clean_shutdown task ~xs x
-  | Vfs -> Vfs.clean_shutdown task ~xs x
-  | Vfb -> Vfb.clean_shutdown task ~xs x
-  | Vkbd -> Vkbd.clean_shutdown task ~xs x
-
 
 let can_surprise_remove ~xs (x: device) = Generic.can_surprise_remove ~xs x
 
-module Dm = struct
+(** Dm_Common contains the private Dm functions that are common between the qemu profile backends. *)
+module Dm_Common = struct
 
   (* An example one:
      /usr/lib/xen/bin/qemu-dm -d 39 -m 256 -boot cd -serial pty -usb -usbdevice tablet -domain-name bee94ac1-8f97-42e0-bf77-5cb7a6b664ee -net nic,vlan=1,macaddr=00:16:3E:76:CE:44,model=rtl8139 -net tap,vlan=1,bridge=xenbr0 -vnc 39 -k en-us -vnclisten 127.0.0.1
@@ -1434,11 +1458,10 @@ module Dm = struct
     extras: (string * string option) list;
   }
 
-
-  let get_vnc_port ~xs domid =
-    if not (Qemu.is_running ~xs domid)
-    then None
-    else (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
+  let get_vnc_port ~xs domid ~f =
+    match Qemu.is_running ~xs domid with
+    | true  -> f ()
+    | false -> None
 
   let get_tc_port ~xs domid =
     if not (Qemu.is_running ~xs domid)
@@ -1729,7 +1752,401 @@ module Dm = struct
 
   let gimtool_m = Mutex.create ()
 
-  let start_vgpu ~xs task ?restore_fd domid vgpus vcpus =
+  let resume (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
+    signal task ~xs ~qemu_domid ~domid "continue" ~wait_for:"running"
+
+  (* Called by every domain destroy, even non-HVM *)
+  let stop ~xs ~qemu_domid domid  =
+    let qemu_pid_path = Qemu.pid_path domid
+    in
+    let stop_qemu () = (match (Qemu.pid ~xs domid) with
+        | None -> () (* nothing to do *)
+        | Some qemu_pid ->
+          debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid;
+          let open Generic in
+          best_effort "signalling that qemu is ending as expected, mask further signals"
+            (fun () -> Qemu.SignalMask.set Qemu.signal_mask domid);
+          best_effort "killing qemu-dm"
+            (fun () -> really_kill qemu_pid);
+          best_effort "removing qemu-pid from xenstore"
+            (fun () -> xs.Xs.rm qemu_pid_path);
+          best_effort "unmasking signals, qemu-pid is already gone from xenstore"
+            (fun () -> Qemu.SignalMask.unset Qemu.signal_mask domid);
+          (* best effort to delete the qemu chroot dir; we
+             			       deliberately want this to fail if the dir is not
+             			       empty cos it may contain core files that bugtool
+             			       will pick up; the xapi init script cleans out this
+             			       directory with "rm -rf" on boot *)
+          best_effort "removing core files from /var/xen/qemu"
+            (fun () -> Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)));
+          best_effort "removing device model path from xenstore"
+            (fun () -> xs.Xs.rm (device_model_path ~qemu_domid domid)))
+    in
+    let stop_vgpu () = match (Vgpu.pid ~xs domid) with
+      | None -> ()
+      | Some vgpu_pid ->
+        debug "vgpu: stopping vgpu with SIGTERM (domid = %d pid = %d)" domid vgpu_pid;
+        let open Generic in
+        best_effort "killing vgpu"
+          (fun () -> really_kill vgpu_pid)
+    in
+    stop_vgpu ();
+    stop_qemu ()
+
+end (* End of module Dm_Common *)
+
+
+(** Implementation of the qemu profile backends *)
+module Backend = struct
+
+  (** Common signature for all the profile backends *)
+  module type Intf = sig
+
+    (** Vbd functions that use the dispatcher to choose between different profile backends *)
+    module Vbd: sig
+      val qemu_media_change : xs:Xenstore.Xs.xsh -> device -> string -> string -> unit
+    end
+
+    (** Dm functions that use the dispatcher to choose between different profile backends *)
+    module Dm: sig
+
+      module Event: sig
+        val init : unit -> unit
+      end
+
+      (** [get_vnc_port xenstore domid] returns the dom0 tcp port in which the vnc server for [domid] can be found *)
+      val get_vnc_port : xs:Xenstore.Xs.xsh -> int -> int option
+
+      (** [suspend task xenstore qemu_domid xc] suspends a domain *)
+      val suspend: Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
+
+      (** [init_daemon task path args name domid xenstore ready_path ready_val timeout cancel] returns a forkhelper pid after starting the qemu daemon in dom0 *)
+      val init_daemon: task:Xenops_task.task_handle -> path:string -> args:string list -> name:string -> domid:int -> xs:Xenstore.Xs.xsh -> ready_path:Watch.path -> ?ready_val:string -> timeout:float -> cancel:Cancel_utils.key -> ?fds:(string * Unix.file_descr) list -> 'a -> Forkhelpers.pidty
+
+      (** [stop xenstore qemu_domid domid] stops a domain *)
+      val stop: xs:Xenstore.Xs.xsh -> qemu_domid:int -> int -> unit
+
+      (** [with_dirty_log domid f] executes f in a context where the dirty log is enabled *)
+      val with_dirty_log: int -> f:(unit -> unit) -> unit
+    end
+  end
+
+  (** Implementation of the backend common signature for the qemu-trad backend *)
+  module Qemu_trad : Intf = struct
+
+    (** Implementation of the Vbd functions that use the dispatcher for the qemu-trad backend *)
+    module Vbd = struct
+      let qemu_media_change = Vbd_Common.qemu_media_change
+    end
+
+    (** Implementation of the Dm functions that use the dispatcher for the qemu-trad backend *)
+    module Dm = struct
+
+      module Event = struct
+        let init () = ()
+      end
+
+      let get_vnc_port ~xs domid =
+        Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
+            (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
+          )
+
+      let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
+        Dm_Common.signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
+
+      let init_daemon = Dm_Common.init_daemon
+      let stop        = Dm_Common.stop
+
+      let with_dirty_log domid ~f = f()
+
+    end (* Backend.Qemu_trad.Dm *)
+  end (* Backend.Qemu_trad *)
+
+  (** Implementation of the backend common signature for the qemu-upstream-compat backend *)
+  module Qemu_upstream_compat : Intf  = struct
+
+    (** Implementation of the Vbd functions that use the dispatcher for the qemu-upstream-compat backend *)
+    module Vbd = struct
+      let qemu_media_change ~xs device _type params =
+        Vbd_Common.qemu_media_change ~xs device _type params;
+        let open Qmp in
+        let cd = "ide1-cd1" in
+        if params = "" then
+          let qmp_cmd = Command(None, Eject (cd, Some true)) in
+          qmp_write device.frontend.domid qmp_cmd
+        else
+          try
+            let c = Qmp_protocol.connect (qmp_libxl_path device.frontend.domid) in
+            finally
+              (fun () ->
+                 let fd_of_c = Qmp_protocol.to_fd c in
+                 let fd_of_cd = Unix.openfile params [ Unix.O_RDONLY ] 0o640 in
+                 finally
+                   (fun () -> ignore(Fd_send_recv.send_fd fd_of_c " " 0 1 [] fd_of_cd))
+                   (fun () -> Unix.close fd_of_cd);
+
+                 let qmp_cmd = Command (None, Add_fd None) in
+                 Qmp_protocol.negotiate c;
+                 Qmp_protocol.write c qmp_cmd;
+                 let fd_info = match Qmp_protocol.read c with
+                   | Success (None, Fd_info x) -> x
+                   | _ -> raise (Internal_error (Printf.sprintf "Get unexpected result after sending Qmp message: %s" (string_of_message qmp_cmd)))
+                 in
+                 finally
+                   (fun () ->
+                      Qmp_protocol.write c (Command (None, Blockdev_change_medium (cd, "/dev/fdset/" ^ (string_of_int fd_info.fdset_id)))))
+                   (fun () ->
+                      Qmp_protocol.write c (Command (None, Remove_fd fd_info.fdset_id))))
+              (fun () -> Qmp_protocol.close c)
+          with
+          | Unix.Unix_error(Unix.ECONNREFUSED, "connect", p) -> raise(Internal_error (Printf.sprintf "Failed to connnect qmp socket: %s" p))
+          | Unix.Unix_error(Unix.ENOENT, "open", p) -> raise(Internal_error (Printf.sprintf "Failed to open CD Image: %s" p))
+          | Internal_error(_) as e -> raise e
+          | e -> raise(Internal_error (Printf.sprintf "Get unexpected error trying to change CD: %s" (Printexc.to_string e)))
+
+    end (* Backend.Qemu_upstream_compat.Vbd *)
+
+    (** Implementation of the Dm functions that use the dispatcher for the qemu-upstream-compat backend *)
+    module Dm = struct
+
+      (** Handler for the QMP events in upstream qemu *)
+      module QMP_Event = struct
+        open Qmp
+
+        let (>>=) m f = match m with | Some x -> f x | None -> ()
+        let (>>|) m f = match m with | Some _ -> () | None -> f ()
+
+        (** Efficient lookup table between file descriptors, channels and domain ids *)
+        module Lookup = struct
+          let ftod, dtoc = Hashtbl.create 16, Hashtbl.create 16
+          let add c domid =
+            Hashtbl.replace ftod (Qmp_protocol.to_fd c) domid;
+            Hashtbl.replace dtoc domid c
+          let remove c domid =
+            Hashtbl.remove ftod (Qmp_protocol.to_fd c);
+            Hashtbl.remove dtoc domid
+          let domid_of fd = try Some (Hashtbl.find ftod fd) with Not_found -> None
+          let channel_of domid = try Some (Hashtbl.find dtoc domid) with Not_found -> None
+        end
+
+        (** File-descriptor event monitor implementation for the epoll library *)
+        module Monitor = struct
+          module Epoll = Core.Linux_ext.Epoll
+          module Flags = Core.Linux_ext.Epoll.Flags
+          let create () = (Core.Std.Or_error.ok_exn Epoll.create) ~num_file_descrs:1001 ~max_ready_events:1
+          let add m fd = Epoll.set m fd Flags.in_
+          let remove m fd = Epoll.remove m fd
+          let wait m = Epoll.wait m ~timeout:`Never
+          let with_event m fn = function
+            | `Ok -> Epoll.iter_ready m ~f:(fun fd flags -> fn fd (flags = Flags.in_))
+            | `Timeout -> debug "Shouldn't receive epoll timeout event in qmp_event_thread"
+        end
+        let m = Monitor.create ()
+
+        let monitor_path domid = qmp_event_path domid
+        let debug_exn msg e = debug "%s: %s" msg (Printexc.to_string e)
+
+        let remove domid =
+          Lookup.channel_of domid >>= fun c ->
+          try 
+            finally
+              (fun () ->
+                 Lookup.remove c domid;
+                 Monitor.remove m (Qmp_protocol.to_fd c);
+                 debug "Removed QMP Event fd for domain %d" domid)
+              (fun () -> Qmp_protocol.close c)
+          with e -> debug_exn (Printf.sprintf "Got exception trying to remove qmp on domain-%d" domid) e
+
+        let add domid =
+          try
+            Lookup.channel_of domid >>| fun () ->
+            let c = Qmp_protocol.connect (monitor_path domid) in
+            Qmp_protocol.negotiate c;
+            Lookup.add c domid;
+            Monitor.add m (Qmp_protocol.to_fd c);
+            debug "Added QMP Event fd for domain %d" domid
+          with e ->
+            debug_exn (Printf.sprintf "QMP domain-%d: negotiation failed: removing socket" domid) e;
+            remove domid
+
+        let qmp_event_handle domid qmp_event =
+          (* This function will be extended to handle qmp events *)
+          debug "Got QMP event, domain-%d: %s" domid qmp_event.event;
+
+          let rtc_change timeoffset =
+            with_xs (fun xs ->
+                let timeoffset_key = sprintf "/vm/%s/rtc/timeoffset" (Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid)) in
+                try
+                  let rtc = xs.Xs.read timeoffset_key in
+                  xs.Xs.write timeoffset_key Int64.(add timeoffset (of_string rtc) |> to_string)
+                with e -> error "Failed to process RTC_CHANGE for domain %d: %s" domid (Printexc.to_string e)
+              )
+          in
+
+          let xen_platform_pv_driver_info pv_info =
+            with_xs (fun xs ->
+                let is_hvm_linux { product_num; build_num } =
+                  let _XEN_IOPORT_LINUX_PRODNUM = 3 in (* from Linux include/xen/platform_pci.h *)
+                  (product_num = _XEN_IOPORT_LINUX_PRODNUM) && (build_num <= 0xff)
+                in
+                if is_hvm_linux pv_info then
+                  begin
+                    let write_local_domain prefix x = xs.Xs.write (Printf.sprintf "/local/domain/%d/%s%s" domid prefix x) "1" in
+                    List.iter (write_local_domain "control/feature-") ["suspend"; "poweroff"; "reboot"; "vcpu-hotplug"];
+                    List.iter (write_local_domain "data/") ["updated"]
+                  end
+              )
+          in
+
+          qmp_event.data |> function
+          | Some (RTC_CHANGE timeoffset)         -> rtc_change timeoffset
+          | Some (XEN_PLATFORM_PV_DRIVER_INFO x) -> xen_platform_pv_driver_info x
+          | _ -> () (* unhandled QMP events *)
+
+        let qmp_event_thread () =
+          debug "Starting QMP_Event thread";
+          (* Add the existing qmp sockets first *)
+          Sys.readdir var_run_xen_path
+          |> Array.to_list
+          |> List.iter (fun x -> try Scanf.sscanf x "qmp-event-%d" add with _ -> ());
+
+          while true do
+            try
+              Monitor.wait m |> Monitor.with_event m (fun fd is_flag_in ->
+                  Lookup.domid_of fd >>= fun domid ->
+                  if is_flag_in then
+                    Lookup.channel_of domid >>= fun c ->
+                    try
+                      match Qmp_protocol.read c with
+                      | Event e -> qmp_event_handle domid e
+                      | msg -> debug "Got non-event message, domain-%d: %s" domid (string_of_message msg)
+                    with End_of_file ->
+                      debug "domain-%d: end of file, close qmp socket" domid;
+                      remove domid
+                       | e ->
+                         debug_exn (Printf.sprintf "domain-%d: close qmp socket" domid) e;
+                         remove domid
+                  else begin
+                    debug "EPOLL error on domain-%d, close qmp socket" domid;
+                    remove domid
+                  end
+                )
+            with e ->
+              debug_exn "Exception in qmp_event_thread: %s" e;
+          done
+
+      end (* Qemu_upstream_compat.Dm.QMP_Event *)
+
+      module Event = struct
+        let init () = ignore(Thread.create QMP_Event.qmp_event_thread ())
+      end
+
+      let get_vnc_port ~xs domid =
+        Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
+            let open Qmp in
+            let qmp_cmd = Command (None, Query_vnc) in
+            let parse_qmp_message = function
+              | Success (None, Vnc vnc) -> (try Some vnc.service with _ -> None)
+              | _ -> debug "Get unexpected result after sending Qmp message: %s" (string_of_message qmp_cmd); None
+            in
+            let qmp_cmd_result = qmp_write_and_read domid qmp_cmd in
+            match qmp_cmd_result with
+            | Some qmp_message -> parse_qmp_message qmp_message
+            | None -> debug "Fail to get result after sending Qmp message: %s" (string_of_message qmp_cmd); None
+          )
+
+      let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
+        let file = sprintf qemu_save_path domid in
+        qmp_write domid (Qmp.Command(None, Qmp.Xen_save_devices_state file))
+
+      let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ?(fds=[]) _ =
+        let pid = Dm_Common.init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ~fds () in
+        QMP_Event.add domid;
+        pid
+
+      let stop ~xs ~qemu_domid domid  =
+        Dm_Common.stop ~xs ~qemu_domid domid;
+        QMP_Event.remove domid;
+        xs.Xs.rm (sprintf "/libxl/%d" domid)
+
+      let with_dirty_log domid ~f =
+        finally
+          (fun() ->
+             qmp_write domid (Qmp.Command(None, Qmp.Xen_set_global_dirty_log true));
+             f()
+          )
+          (fun() ->
+             qmp_write domid (Qmp.Command(None, Qmp.Xen_set_global_dirty_log false));
+          )
+
+    end (* Backend.Qemu_upstream_compat.Dm *)
+  end (* Backend.Qemu_upstream *)
+
+  (** Implementation of the backend common signature for the qemu-upstream backend *)
+  module Qemu_upstream  = Qemu_upstream_compat
+  (** Until the stage 4 defined in the qemu upstream design is implemented, qemu_upstream behaves as qemu_upstream_compat *)
+
+  let of_profile p = match p with
+    | Profile.Qemu_trad            -> (module Qemu_trad            : Intf)
+    | Profile.Qemu_upstream_compat -> (module Qemu_upstream_compat : Intf)
+    | Profile.Qemu_upstream        -> (module Qemu_upstream        : Intf)
+
+  let of_domid x = of_profile (Profile.of_domid x)
+
+  let init() =
+    Qemu_upstream.Dm.Event.init()
+end
+
+(*
+ *  Functions using the backend dispatcher
+ *)
+
+(** Vbd module conforming to the corresponding public mli interface *)
+module Vbd = struct
+  include Vbd_Common
+
+  let media_eject ~xs device =
+    let module Q = (val Backend.of_domid device.frontend.domid) in
+    Q.Vbd.qemu_media_change ~xs device "" ""
+
+  let media_insert ~xs ~phystype ~params device =
+    let _type = backendty_of_physty phystype in
+    let module Q = (val Backend.of_domid device.frontend.domid) in
+    Q.Vbd.qemu_media_change ~xs device _type params
+
+end (* Vbd *)
+
+(** Dm module conforming to the corresponding public mli interface *)
+module Dm = struct
+  include Dm_Common
+
+  let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ?(fds=[]) profile =
+    (* init_daemon must decide the backend based on a profile because the qemu daemon is not running
+       at the moment and Backend.of_domid uses is_upstream_qemu which depends on a running qemu.
+    *)
+    let module Q = (val Backend.of_profile profile) in
+    Q.Dm.init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ~fds ()
+
+  let get_vnc_port ~xs domid =
+    let module Q = (val Backend.of_domid domid) in
+    Q.Dm.get_vnc_port ~xs domid
+
+  let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
+    let module Q = (val Backend.of_domid domid) in
+    Q.Dm.suspend task ~xs ~qemu_domid domid
+
+  let stop ~xs ~qemu_domid domid  =
+    let module Q = (val Backend.of_domid domid) in
+    Q.Dm.stop ~xs ~qemu_domid domid
+
+  let with_dirty_log domid ~f =
+    let module Q = (val Backend.of_domid domid) in
+    Q.Dm.with_dirty_log domid ~f
+
+
+  (* the following functions depend on the functions above that use the qemu backend Q *)
+
+  let start_vgpu ~xs task ?restore_fd domid vgpus vcpus profile =
     let open Xenops_interface.Vgpu in
     match vgpus with
     | [{physical_pci_address = pci; implementation = Nvidia vgpu}] ->
@@ -1752,7 +2169,7 @@ module Dm = struct
         let args = vgpu_args_of_nvidia domid vcpus vgpu pci fds in
         let vgpu_pid = init_daemon ~task ~path:!Xc_resources.vgpu ~args
             ~name:"vgpu" ~domid ~xs ~ready_path:state_path ~timeout:!Xenopsd.vgpu_ready_timeout
-            ~cancel ~fds () in
+            ~cancel ~fds profile in
         Forkhelpers.dontwaitpid vgpu_pid
       end else
         info "Daemon %s is already running for domain %d" !Xc_resources.vgpu domid;
@@ -1781,86 +2198,95 @@ module Dm = struct
         )
     | _ -> failwith "Unsupported vGPU configuration"
 
-  let __start (task: Xenops_task.task_handle) ~xs ~dmpath ?(timeout = !Xenopsd.qemu_dm_ready_timeout) l info domid =
+  let __start (task: Xenops_task.task_handle) ~xs ~dm ?(timeout = !Xenopsd.qemu_dm_ready_timeout) l info domid =
     debug "Device.Dm.start domid=%d args: [%s]" domid (String.concat " " l);
 
     (* start vgpu emulation if appropriate *)
     let () = match info.disp with
       | VNC (Vgpu vgpus, _, _, _, _)
       | SDL (Vgpu vgpus, _) ->
-        start_vgpu ~xs task domid vgpus info.vcpus
+        start_vgpu ~xs task domid vgpus info.vcpus dm
       | _ -> ()
     in
 
     (* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
+
     let args = (prepend_wrapper_args domid l) in
     let qemu_domid = 0 in (* See stubdom.ml for the corresponding kernel code *)
     let ready_path =
       Printf.sprintf "/local/domain/%d/device-model/%d/state" qemu_domid domid in
     let cancel = Cancel_utils.Qemu (qemu_domid, domid) in
-    let qemu_pid = init_daemon ~task ~path:dmpath ~args ~name:"qemu-dm" ~domid
-        ~xs ~ready_path ~ready_val:"running" ~timeout ~cancel () in
-    (* At this point we expect qemu to outlive us; we will never call waitpid *)
-    Forkhelpers.dontwaitpid qemu_pid
+    let qemu_pid = init_daemon ~task ~path:(Profile.wrapper_of dm) ~args ~name:"qemu-dm" ~domid
+        ~xs ~ready_path ~ready_val:"running" ~timeout ~cancel dm in
+    match !Xenopsd.action_after_qemu_crash with
+    | None ->
+      (* At this point we expect qemu to outlive us; we will never call waitpid *)
+      Forkhelpers.dontwaitpid qemu_pid
+    | Some _ ->
+      (* We register a callback to be run asynchronously in case qemu fails/crashes or is killed *)
+      let waitpid_async x ~callback =
+        ignore(Thread.create (fun x->callback (try Forkhelpers.waitpid_fail_if_bad_exit x; None with e -> Some e)) x)
+      in
+      waitpid_async qemu_pid ~callback:(fun qemu_crash -> Forkhelpers.(
+          debug "Finished waiting qemu pid=%d for domid=%d" (getpid qemu_pid) domid;
+          let crash_reason = match qemu_crash with
+            | None -> debug "domid=%d qemu-pid=%d: detected exit=0" domid (getpid qemu_pid);
+              "exit:0"
+            | Some e -> begin match e with
+                | Subprocess_failed x -> (* exit n *)
+                  debug "domid=%d qemu-pid=%d: detected exit=%d" domid (getpid qemu_pid) x;
+                  Printf.sprintf "exit:%d" x
+                | Subprocess_killed x -> (* qemu received signal/crashed *)
+                  debug "domid=%d qemu-pid=%d: detected signal=%d" domid (getpid qemu_pid) x;
+                  Printf.sprintf "signal:%d" x
+                | e -> debug "domid=%d qemu-pid=%d: detected unknown exception %s" domid (getpid qemu_pid) (Printexc.to_string e);
+                  Printf.sprintf "unknown"
+              end
+          in
+          if not (Qemu.SignalMask.has Qemu.signal_mask domid) then
+            match (Qemu.pid ~xs domid) with
+            | None -> (* after expected qemu stop or domain xs tree destroyed: this event arrived too late, nothing to do *)
+              debug "domid=%d qemu-pid=%d: already removed from xenstore during domain destroy" domid (getpid qemu_pid);
+            | Some _ ->
+              (* before expected qemu stop: qemu-pid is available in domain xs tree: signal action to take *)
+              xs.Xs.write (Qemu.pid_path_signal domid) crash_reason
+        ))
 
-  let start (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
+  let start (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =
     let l = cmdline_of_info info false domid in
-    debug "Called Dm.start";
-    __start task ~xs ~dmpath ?timeout l info domid
-  let restore (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
+    __start task ~xs ~dm ?timeout l info domid
+
+  let restore (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =
     let l = cmdline_of_info info true domid in
-    debug "Called Dm.restore";
-    __start task ~xs ~dmpath ?timeout l info domid
+    __start task ~xs ~dm ?timeout l info domid
 
-  let start_vnconly (task: Xenops_task.task_handle) ~xs ~dmpath ?timeout info domid =
+  let start_vnconly (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =
     let l = vnconly_cmdline ~info domid in
-    debug "Called Dm.start_vnconly";
-    __start task ~xs ~dmpath ?timeout l info domid
-
-  (* suspend/resume is a done by sending signals to qemu *)
-  let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
-    signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
-  let resume (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
-    signal task ~xs ~qemu_domid ~domid "continue" ~wait_for:"running"
-
-  (* Called by every domain destroy, even non-HVM *)
-  let stop ~xs ~qemu_domid domid  =
-    let qemu_pid_path = Qemu.pid_path domid
-    in
-    let stop_qemu () = (match (Qemu.pid ~xs domid) with
-        | None -> () (* nothing to do *)
-        | Some qemu_pid ->
-          debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid;
-          let open Generic in
-          best_effort "killing qemu-dm"
-            (fun () -> really_kill qemu_pid);
-          best_effort "removing qemu-pid from xenstore"
-            (fun () -> xs.Xs.rm qemu_pid_path);
-          (* best effort to delete the qemu chroot dir; we
-             			       deliberately want this to fail if the dir is not
-             			       empty cos it may contain core files that bugtool
-             			       will pick up; the xapi init script cleans out this
-             			       directory with "rm -rf" on boot *)
-          best_effort "removing core files from /var/xen/qemu"
-            (fun () -> Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)));
-          best_effort "removing device model path from xenstore"
-            (fun () -> xs.Xs.rm (device_model_path ~qemu_domid domid)))
-    in
-    let stop_vgpu () = match (Vgpu.pid ~xs domid) with
-      | None -> ()
-      | Some vgpu_pid ->
-        debug "vgpu: stopping vgpu with SIGTERM (domid = %d pid = %d)" domid vgpu_pid;
-        let open Generic in
-        best_effort "killing vgpu"
-          (fun () -> really_kill vgpu_pid)
-    in
-    stop_vgpu ();
-    stop_qemu ()
+    __start task ~xs ~dm ?timeout l info domid
 
   let restore_vgpu (task: Xenops_task.task_handle) ~xs restore_fd domid vgpu vcpus =
     debug "Called Dm.restore_vgpu";
+    start_vgpu ~xs task ~restore_fd domid [vgpu] vcpus Profile.Qemu_trad
 
-end (* End of module Dm *)
+end (* Dm *)
+
+(* functions depending on modules Vif, Vbd, Pci, Vfs, Vfb, Vkbd, Dm *)
+
+let hard_shutdown (task: Xenops_task.task_handle) ~xs (x: device) = match x.backend.kind with
+  | Vif -> Vif.hard_shutdown task ~xs x
+  | Vbd _ | Tap -> Vbd.hard_shutdown task ~xs x
+  | Pci -> PCI.hard_shutdown task ~xs x
+  | Vfs -> Vfs.hard_shutdown task ~xs x
+  | Vfb -> Vfb.hard_shutdown task ~xs x
+  | Vkbd -> Vkbd.hard_shutdown task ~xs x
+
+let clean_shutdown (task: Xenops_task.task_handle) ~xs (x: device) = match x.backend.kind with
+  | Vif -> Vif.clean_shutdown task ~xs x
+  | Vbd _ | Tap -> Vbd.clean_shutdown task ~xs x
+  | Pci -> PCI.clean_shutdown task ~xs x
+  | Vfs -> Vfs.clean_shutdown task ~xs x
+  | Vfb -> Vfb.clean_shutdown task ~xs x
+  | Vkbd -> Vkbd.clean_shutdown task ~xs x
 
 let get_vnc_port ~xs domid = 
   (* Check whether a qemu exists for this domain *)

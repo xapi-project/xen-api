@@ -1068,7 +1068,7 @@ let restore_vgpu (task: Xenops_task.task_handle) ~xc ~xs domid fd vgpu vcpus =
 
 type suspend_flag = Live | Debug
 
-let write_libxc_record ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest_path ~domid
+let write_libxc_record' ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest_path ~domid
     ~uuid ~fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback =
   let fd_uuid = Uuid.(to_string (create `V4)) in
 
@@ -1155,6 +1155,13 @@ let write_libxc_record ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest_p
        | _                       ->
          error "VM = %s; domid = %d; xenguesthelper protocol failure" (Uuid.to_string uuid) domid;
     )
+
+let write_libxc_record ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest_path ~domid
+    ~uuid ~fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback =
+  Device.Dm.with_dirty_log domid (fun () ->
+      write_libxc_record' ~task ~xc ~xs ~hvm ~xenguest_path ~domid
+        ~uuid ~fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback
+  )
 
 let write_qemu_record domid uuid legacy_libxc fd =
   let file = sprintf qemu_save_path domid in

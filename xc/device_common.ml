@@ -321,6 +321,10 @@ let qemu_restore_path : (_, _, _) format = "/var/lib/xen/qemu-resume.%d"
 let demu_save_path : (_, _, _) format = "/var/lib/xen/demu-save.%d"
 let demu_restore_path : (_, _, _) format = "/var/lib/xen/demu-resume.%d"
 
+let var_run_xen_path = "/var/run/xen"
+let qmp_libxl_path = (sprintf "%s/qmp-libxl-%d") var_run_xen_path
+let qmp_event_path = (sprintf "%s/qmp-event-%d") var_run_xen_path
+
 (* Where qemu writes its state and is signalled *)
 let device_model_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d" qemu_domid domid
 
@@ -328,3 +332,27 @@ let xenops_domain_path = "/xenops/domain"
 let xenops_path_of_domain domid = sprintf "%s/%d" xenops_domain_path domid
 let xenops_vgpu_path domid devid =
   sprintf "%s/device/vgpu/%d" (xenops_path_of_domain domid) devid
+
+let is_upstream_qemu domid =
+  try
+    with_xs (fun xs -> xs.Xs.read (sprintf "/libxl/%d/dm-version" domid)) = "qemu_xen"
+  with _ -> false
+
+let qmp_write_and_read domid ?(read_result=true) cmd  =
+  try
+    let open Qmp in
+    let c = Qmp_protocol.connect (qmp_libxl_path domid) in
+    finally
+      (fun () ->
+         Qmp_protocol.negotiate c;
+         Qmp_protocol.write c cmd;
+         if read_result then
+           Some (Qmp_protocol.read c)
+         else None
+      )
+      (fun () -> Qmp_protocol.close c)
+  with e ->
+    error "Caught exception attempting to write qmp message: %s" (Printexc.to_string e);
+    None
+
+let qmp_write domid cmd = qmp_write_and_read ~read_result:false domid cmd |> ignore

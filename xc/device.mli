@@ -21,6 +21,34 @@ exception Device_not_found
 
 exception Cdrom
 
+(** Definition of available qemu profiles, used by the qemu backend implementations *)
+module Profile: sig
+  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream
+  (** available qemu profiles *)
+
+  (** the fallback profile in case an invalid profile string is provided to [of_string] *)
+  val fallback : t
+
+  (** all available profiles *)
+  val all: t list
+
+  (** Valid names for a profile, used to define valid values for VM.platform.device-model *)
+  module Name: sig
+    val qemu_trad: string
+    val qemu_upstream_compat: string
+    val qemu_upstream: string
+  end
+
+  (** [wrapper_of profile] returns the qemu wrapper script path of a profile *)
+  val wrapper_of: t -> string
+
+  (** [string_of  profile] returns the profile name of a profile *)
+  val string_of : t -> string
+
+  (** [of_string  profile_name] returns the profile of a profile name, and [fallback] if an invalid name is provided. *)
+  val of_string : string -> t
+end
+
 module Generic :
 sig
   val rm_device_state : xs:Xenstore.Xs.xsh -> device -> unit
@@ -115,6 +143,15 @@ end
 
 module Qemu :
 sig
+  module SignalMask: sig
+    type t
+    val create: unit -> t
+    val set: t -> int -> unit
+    val unset: t -> int -> unit
+    val has: t -> int -> bool
+  end
+  val signal_mask : SignalMask.t
+  val pid_path_signal : Xenctrl.domid -> string
   val pid : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
   val is_running : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> bool
 end
@@ -218,13 +255,19 @@ sig
 
   val cmdline_of_info: info -> bool -> int -> string list
 
-  val start : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
-  val start_vnconly : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
-  val restore : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
+  val start : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dm:Profile.t -> ?timeout:float -> info -> Xenctrl.domid -> unit
+  val start_vnconly : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dm:Profile.t -> ?timeout:float -> info -> Xenctrl.domid -> unit
+  val restore : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dm:Profile.t -> ?timeout:float -> info -> Xenctrl.domid -> unit
   val suspend : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
   val resume : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
   val stop : xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
   val restore_vgpu : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> Unix.file_descr -> Xenctrl.domid  -> Xenops_interface.Vgpu.t -> int -> unit
+
+  val with_dirty_log: int -> f:(unit -> unit) -> unit
+end
+
+module Backend: sig
+  val init : unit -> unit
 end
 
 val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
