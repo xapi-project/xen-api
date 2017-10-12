@@ -74,7 +74,7 @@ let start_thread f =
           ()
       done) ())
 
-let scan ~__context =
+let scan ~__context ~host =
   (* notify that scan is required. *)
   Mutex.execute mutex (fun () ->
       scan_required := true;
@@ -87,7 +87,7 @@ let scan_thread ~__context =
     scan_start ~__context usbs
   in
   start_thread f;
-  scan ~__context
+  scan ~__context ~host:(Helpers.get_localhost ~__context)
 
 let get_sm_usb_path ~__context vdi =
   try

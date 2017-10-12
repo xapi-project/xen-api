@@ -4977,7 +4977,9 @@ end
 
 module PUSB = struct
   let scan printer rpc session_id params =
-  Client.PUSB.scan rpc session_id
+  let host_uuid = List.assoc "host-uuid" params in
+  let host = Client.Host.get_by_uuid rpc session_id host_uuid in
+  Client.PUSB.scan rpc session_id host
 end
 
 module VUSB = struct
