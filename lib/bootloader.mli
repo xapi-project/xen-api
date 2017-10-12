@@ -36,11 +36,11 @@ type t = {
 
 (** Extract the default kernel from the disk *)
 val extract: Xenops_task.Xenops_task.task_handle -> bootloader:string -> disk:string
-	-> ?legacy_args:string
-	-> ?extra_args:string
-	-> ?pv_bootloader_args:string
-	-> vm:string
-	-> unit -> t
+  -> ?legacy_args:string
+  -> ?extra_args:string
+  -> ?pv_bootloader_args:string
+  -> vm:string
+  -> unit -> t
 
 (** Delete the extracted kernel *)
 val delete: t -> unit

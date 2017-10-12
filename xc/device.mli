@@ -23,69 +23,69 @@ exception Cdrom
 
 module Generic :
 sig
-	val rm_device_state : xs:Xenstore.Xs.xsh -> device -> unit
-	val exists : xs:Xenstore.Xs.xsh -> device -> bool
-	val get_private_key: xs:Xenstore.Xs.xsh -> device -> string -> string
+  val rm_device_state : xs:Xenstore.Xs.xsh -> device -> unit
+  val exists : xs:Xenstore.Xs.xsh -> device -> bool
+  val get_private_key: xs:Xenstore.Xs.xsh -> device -> string -> string
 end
 
 module Vbd :
 sig
-	type mode = ReadOnly | ReadWrite
-	val string_of_mode : mode -> string
-	val mode_of_string : string -> mode
+  type mode = ReadOnly | ReadWrite
+  val string_of_mode : mode -> string
+  val mode_of_string : string -> mode
 
-	type physty = File | Phys | Qcow | Vhd | Aio
-	val string_of_physty : physty -> string
-	val physty_of_string : string -> physty
-	val uses_blktap : phystype:physty -> bool
+  type physty = File | Phys | Qcow | Vhd | Aio
+  val string_of_physty : physty -> string
+  val physty_of_string : string -> physty
+  val uses_blktap : phystype:physty -> bool
 
-	type devty = CDROM | Disk | Floppy
-	val string_of_devty : devty -> string
-	val devty_of_string : string -> devty
+  type devty = CDROM | Disk | Floppy
+  val string_of_devty : devty -> string
+  val devty_of_string : string -> devty
 
-	type t = {
-		mode:mode;
-		device_number: Device_number.t option;
-		phystype: physty;
-		params: string;
-		dev_type: devty;
-		unpluggable: bool;
-		protocol: protocol option;
-		kind: Device_common.kind;
-		extra_backend_keys: (string * string) list;
-		extra_private_keys: (string * string) list;
-		backend_domid: int;
-	}
+  type t = {
+    mode:mode;
+    device_number: Device_number.t option;
+    phystype: physty;
+    params: string;
+    dev_type: devty;
+    unpluggable: bool;
+    protocol: protocol option;
+    kind: Device_common.kind;
+    extra_backend_keys: (string * string) list;
+    extra_private_keys: (string * string) list;
+    backend_domid: int;
+  }
 
-	val add : Xenops_task.task_handle -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool -> t -> Xenctrl.domid -> device
+  val add : Xenops_task.task_handle -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool -> t -> Xenctrl.domid -> device
 
-	val release : Xenops_task.task_handle -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> device -> unit
-	val media_eject : xs:Xenstore.Xs.xsh -> device -> unit
-	val media_insert : xs:Xenstore.Xs.xsh -> phystype:physty -> params:string -> device -> unit
-	val media_is_ejected : xs:Xenstore.Xs.xsh -> device -> bool
+  val release : Xenops_task.task_handle -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> device -> unit
+  val media_eject : xs:Xenstore.Xs.xsh -> device -> unit
+  val media_insert : xs:Xenstore.Xs.xsh -> phystype:physty -> params:string -> device -> unit
+  val media_is_ejected : xs:Xenstore.Xs.xsh -> device -> bool
 
-	val clean_shutdown_async : xs:Xenstore.Xs.xsh -> device -> unit
-	val clean_shutdown_wait : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> ignore_transients:bool -> device -> unit
+  val clean_shutdown_async : xs:Xenstore.Xs.xsh -> device -> unit
+  val clean_shutdown_wait : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> ignore_transients:bool -> device -> unit
 
-	(* For migration: *)
-	val hard_shutdown_request : xs:Xenstore.Xs.xsh -> device -> unit
-	val hard_shutdown_complete : xs:Xenstore.Xs.xsh -> device -> unit Watch.t
-	val hard_shutdown_wait : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> timeout:float -> device -> unit
+  (* For migration: *)
+  val hard_shutdown_request : xs:Xenstore.Xs.xsh -> device -> unit
+  val hard_shutdown_complete : xs:Xenstore.Xs.xsh -> device -> unit Watch.t
+  val hard_shutdown_wait : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> timeout:float -> device -> unit
 end
 
 module Vif :
 sig
-	val add : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> devid:int -> netty:Netman.netty
-	       -> mac:string -> carrier:bool
-	       -> ?mtu:int -> ?rate:(int64 * int64) option
-	       -> ?protocol:protocol -> ?backend_domid:Xenctrl.domid
-	       -> ?other_config:((string * string) list)
-	       -> ?extra_private_keys:(string * string) list
-	       -> ?extra_xenserver_keys:(string * string) list -> Xenctrl.domid
-	       -> device
-	val set_carrier : xs:Xenstore.Xs.xsh -> device -> bool -> unit
-	val release : Xenops_task.task_handle -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> device -> unit
-	val move : xs:Xenstore.Xs.xsh -> device -> string -> unit
+  val add : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> devid:int -> netty:Netman.netty
+    -> mac:string -> carrier:bool
+    -> ?mtu:int -> ?rate:(int64 * int64) option
+    -> ?protocol:protocol -> ?backend_domid:Xenctrl.domid
+    -> ?other_config:((string * string) list)
+    -> ?extra_private_keys:(string * string) list
+    -> ?extra_xenserver_keys:(string * string) list -> Xenctrl.domid
+    -> device
+  val set_carrier : xs:Xenstore.Xs.xsh -> device -> bool -> unit
+  val release : Xenops_task.task_handle -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> device -> unit
+  val move : xs:Xenstore.Xs.xsh -> device -> string -> unit
 end
 
 val clean_shutdown : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> device -> unit
@@ -95,136 +95,136 @@ val can_surprise_remove : xs:Xenstore.Xs.xsh -> device -> bool
 
 module Vcpu :
 sig
-	val add : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
-	val del : xs:Xenstore.Xs.xsh -> devid:int -> int -> unit
-	val set : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
-	val status : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool
+  val add : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
+  val del : xs:Xenstore.Xs.xsh -> devid:int -> int -> unit
+  val set : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
+  val status : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool
 end
 
 module PV_Vnc :
 sig
-	exception Failed_to_start
-	val save : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
-	val get_statefile : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> string option
-	val start : ?statefile:string -> xs:Xenstore.Xs.xsh -> ?ip:string -> Xenctrl.domid -> unit
-	val stop : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+  exception Failed_to_start
+  val save : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+  val get_statefile : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> string option
+  val start : ?statefile:string -> xs:Xenstore.Xs.xsh -> ?ip:string -> Xenctrl.domid -> unit
+  val stop : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
 
-	val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
-	val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+  val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+  val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 end
 
 module Qemu :
 sig
-	val pid : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
-	val is_running : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> bool
+  val pid : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+  val is_running : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> bool
 end
 
 module Vgpu :
 sig
-	val pid : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
-	val is_running : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> bool
+  val pid : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+  val is_running : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> bool
 end
 
 module PCI :
 sig
-	open Xenops_interface.Pci
+  open Xenops_interface.Pci
 
-	type t = {
-		address: address;
-		irq: int;
-		resources: (int64 * int64 * int64) list;
-		driver: string;
-	}
+  type t = {
+    address: address;
+    irq: int;
+    resources: (int64 * int64 * int64) list;
+    driver: string;
+  }
 
-	type supported_driver =
-		| I915
-		| Nvidia
-		| Pciback
+  type supported_driver =
+    | I915
+    | Nvidia
+    | Pciback
 
-	exception Cannot_use_pci_with_no_pciback of t list
+  exception Cannot_use_pci_with_no_pciback of t list
 
-	val add : xs:Xenstore.Xs.xsh -> address list -> Xenctrl.domid -> unit
-	val release : address list -> Xenctrl.domid -> unit
-	val reset : xs:Xenstore.Xs.xsh -> address -> unit
-	val bind : address list -> supported_driver -> unit
-	val list : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> (int * address) list
+  val add : xs:Xenstore.Xs.xsh -> address list -> Xenctrl.domid -> unit
+  val release : address list -> Xenctrl.domid -> unit
+  val reset : xs:Xenstore.Xs.xsh -> address -> unit
+  val bind : address list -> supported_driver -> unit
+  val list : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> (int * address) list
 end
 
 module Vfs :
 sig
-	val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> ?backend_domid:int -> Xenctrl.domid -> unit
+  val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> ?backend_domid:int -> Xenctrl.domid -> unit
 end
 
 module Vfb :
 sig
-	val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> ?backend_domid:int -> ?protocol:protocol -> Xenctrl.domid -> unit
+  val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> ?backend_domid:int -> ?protocol:protocol -> Xenctrl.domid -> unit
 end
 
 module Vkbd :
 sig
-	val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> ?backend_domid:int -> ?protocol:protocol -> Xenctrl.domid -> unit
+  val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> ?backend_domid:int -> ?protocol:protocol -> Xenctrl.domid -> unit
 end
 
 module Dm :
 sig
-	type usb_opt =
-		| Enabled of string list
-		| Disabled
-	type disp_intf_opt =
-		| Std_vga
-		| Cirrus
-		| Vgpu of Xenops_interface.Vgpu.t list
-		| GVT_d
+  type usb_opt =
+    | Enabled of string list
+    | Disabled
+  type disp_intf_opt =
+    | Std_vga
+    | Cirrus
+    | Vgpu of Xenops_interface.Vgpu.t list
+    | GVT_d
 
-	type disp_opt =
-		| NONE
-		| VNC of disp_intf_opt * string option * bool * int * string option (* IP address, auto-allocate, port if previous false, keymap *)
-		| SDL of disp_intf_opt * string (* X11 display *)
+  type disp_opt =
+    | NONE
+    | VNC of disp_intf_opt * string option * bool * int * string option (* IP address, auto-allocate, port if previous false, keymap *)
+    | SDL of disp_intf_opt * string (* X11 display *)
 
-	type media = Disk | Cdrom
+  type media = Disk | Cdrom
 
-	type info = {
-		memory: int64;
-		boot: string;
-		serial: string option;
-		monitor: string option;
-		vcpus: int;
-		usb: usb_opt;
-		parallel: string option;
-		nics: (string * string * int) list;
-		disks: (int * string * media) list;
-		acpi: bool;
-		disp: disp_opt;
-		pci_emulations: string list;
-		pci_passthrough: bool;
+  type info = {
+    memory: int64;
+    boot: string;
+    serial: string option;
+    monitor: string option;
+    vcpus: int;
+    usb: usb_opt;
+    parallel: string option;
+    nics: (string * string * int) list;
+    disks: (int * string * media) list;
+    acpi: bool;
+    disp: disp_opt;
+    pci_emulations: string list;
+    pci_passthrough: bool;
 
-		(* Xenclient extras *)
-		xenclient_enabled: bool;
-		hvm: bool;
-		sound: string option;
-		power_mgmt: int option;
-		oem_features: int option;
-		inject_sci: int option;
-		video_mib: int;
+    (* Xenclient extras *)
+    xenclient_enabled: bool;
+    hvm: bool;
+    sound: string option;
+    power_mgmt: int option;
+    oem_features: int option;
+    inject_sci: int option;
+    video_mib: int;
 
-		extras: (string * string option) list;
-	}
+    extras: (string * string option) list;
+  }
 
-	val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
-	val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+  val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+  val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 
-	val signal : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> domid:Xenctrl.domid -> ?wait_for:string -> ?param:string
-	          -> string -> unit
+  val signal : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> domid:Xenctrl.domid -> ?wait_for:string -> ?param:string
+    -> string -> unit
 
-	val cmdline_of_info: info -> bool -> int -> string list
+  val cmdline_of_info: info -> bool -> int -> string list
 
-	val start : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
-	val start_vnconly : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
-	val restore : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
-	val suspend : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
-	val resume : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
-	val stop : xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
-	val restore_vgpu : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> Unix.file_descr -> Xenctrl.domid  -> Xenops_interface.Vgpu.t -> int -> unit
+  val start : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
+  val start_vnconly : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
+  val restore : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dmpath:string -> ?timeout:float -> info -> Xenctrl.domid -> unit
+  val suspend : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
+  val resume : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
+  val stop : xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
+  val restore_vgpu : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> Unix.file_descr -> Xenctrl.domid  -> Xenops_interface.Vgpu.t -> int -> unit
 end
 
 val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
