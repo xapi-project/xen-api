@@ -40,7 +40,8 @@ let test_scan_with_usb_add_and_remove () =
   in
   (* add usb*)
   start_thread ~__context test_pusb;
-  Xapi_pusb.scan ~__context;
+  let host = Helpers.get_localhost ~__context in
+  Xapi_pusb.scan ~__context ~host;
   Thread.delay 1.0;
   (* delete PUSB from DB*)
   List.iter (fun (self, _) ->
@@ -48,7 +49,7 @@ let test_scan_with_usb_add_and_remove () =
                   Db.PUSB.destroy ~__context ~self;
                   Db.USB_group.destroy ~__context ~self:usb_group) (Db.PUSB.get_all_records ~__context);
 
-  Xapi_pusb.scan ~__context;
+  Xapi_pusb.scan ~__context ~host;
   Thread.delay 1.0;
   assert_equal 1 (List.length (Db.PUSB.get_all_records ~__context))
 
