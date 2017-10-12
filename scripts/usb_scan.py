@@ -50,7 +50,7 @@ def hex_equal(h1, h2):
 
     :param h1:(str) lhs hex string
     :param h2:(str) rhs hex string
-    :return: bool, if equal
+    :return:(bool), if equal
     """
     try:
         return int(h1, 16) == int(h2, 16)
@@ -158,11 +158,11 @@ class UsbDevice(UsbObject):
     _CONF_VALUE = "bConfigurationValue"
     _NUM_INTERFACES = "bNumInterfaces"
 
-    _PROPS_1 = [_DESC_VENDOR, _DESC_PRODUCT]
-    _PROPS_2 = [_VERSION, _ID_VENDOR, _ID_PRODUCT, _BCD_DEVICE, _SERIAL,
-                _CLASS, _CONF_VALUE, _NUM_INTERFACES]
-    _PROPS = _PROPS_1 + _PROPS_2
-    _PROPS_NONABLE = _PROPS_1 + [_SERIAL]
+    _PRODUCT_DESC = [_DESC_VENDOR, _DESC_PRODUCT]
+    _PRODUCT_DETAILS = [_VERSION, _ID_VENDOR, _ID_PRODUCT, _BCD_DEVICE, _SERIAL,
+                        _CLASS, _CONF_VALUE, _NUM_INTERFACES]
+    _PROPS = _PRODUCT_DESC + _PRODUCT_DETAILS
+    _PROPS_NONABLE = _PRODUCT_DESC + [_SERIAL]
 
     def __init__(self, node, props1, props2):
         """ initialise UsbDevice, set node and properties
@@ -175,10 +175,10 @@ class UsbDevice(UsbObject):
         """
         super(UsbDevice, self).__init__(node)
 
-        for p in self._PROPS_1:
+        for p in self._PRODUCT_DESC:
             if props1.get(p) is not None:
                 self[p] = props1.get(p)
-        for p in self._PROPS_2:
+        for p in self._PRODUCT_DETAILS:
             if props2.get(p) is not None:
                 self[p] = props2.get(p)
         for p in self._PROPS_NONABLE:
@@ -199,7 +199,7 @@ class UsbDevice(UsbObject):
         # usb_descriptor_attr_le16(idVendor, "%04x\n");
         # usb_descriptor_attr_le16(idProduct, "%04x\n");
         # usb_descriptor_attr_le16(bcdDevice, "%04x\n");
-        for p in [self._ID_VENDOR, self._ID_PRODUCT, self._ID_PRODUCT]:
+        for p in [self._ID_VENDOR, self._ID_PRODUCT, self._BCD_DEVICE]:
             if not self.validate_int(self[p], 16):
                 return False
         # usb_actconfig_show(bConfigurationValue, "%u\n");
@@ -235,6 +235,7 @@ class UsbDevice(UsbObject):
         :return: None
         """
         if interface in self.interfaces:
+            log_wrapper("removing interface: " + interface)
             self.interfaces.remove(interface)
 
     def get_all_interfaces(self):
@@ -392,6 +393,19 @@ class Policy(object):
         log_list_wrapper(self.rule_list)
         log_wrapper("=== rule list end")
 
+    def check_hex_length(self, name, value):
+        if name in [self._CLASS, self._SUBCLASS, self._PROTOCOL]:
+            return 2 == len(value)
+        if name in [self._ID_VENDOR, self._ID_PRODUCT, self._BCD_DEVICE]:
+            return 4 == len(value)
+        return False
+
+    @staticmethod
+    def log_parse_error(pos, end, target, line):
+        log.error(
+            "Malformed policy rule, unable to parse '{}'. Ignored line: {}"
+            .format(target[pos:end], line))
+
     def parse_line(self, line):
         """ parse one line of policy file, generate rule, and append it to
         self.rule_list
@@ -410,49 +424,61 @@ class Policy(object):
         # 1. remove comments
         # ^([^#]*)(#.*)?$
         i = line.find("#")
-        if i != -1:
+        if i > 0:
             line = line[0:i]
+        elif i == 0:
+            return
 
         # 2. split action and match field
         # ^\s*(ALLOW|DENY)\s*:\s*([^:]*)$
-        if ":" not in line:
-            return
-        parts = line.split(":")
-        n = len(parts)
-        if n == 0 or n > 2:
+        try:
+            (action, target) = [part.strip() for part in line.split(":")]
+        except ValueError as e:
+            if line.rstrip():
+                log.error(
+                    "Caught error {}. Ignoring malformed rule line: {}"
+                    .format(str(e), line))
             return
 
         # 3. parse action
         # \s*(ALLOW|DENY)\s*
         rule = {}
-        action = parts[0].strip()
         if action.lower() == "allow":
             rule[self._ALLOW] = True
         elif action.lower() == "deny":
             rule[self._ALLOW] = False
         else:
+            log.error("Malformed action'{}', ignoring rule line: {}".format(
+                action, line))
             return
 
         # 4. parse key=value pairs
         # pattern = r"\s*(class|subclass|prot|vid|pid|rel)\s*=\s*([0-9a-f]+)"
-        if n == 2:
-            beg, target = 0, parts[1].strip()
-            for matchNum, match in enumerate(re.finditer(self._PATTERN, target,
-                                                         re.IGNORECASE)):
-                if beg != match.start():
-                    log_wrapper("policy line ignored: " + line)
-                    return
-                beg = match.end()
-                if len(match.groups()) != 2 \
-                        or not match.groups()[0] \
-                        or not match.groups()[1]:
-                    log_wrapper("policy line ignored: " + line)
-                    return
-                if match.groups()[0].lower() not in self.rule_list:
-                    rule[match.groups()[0].lower()] = match.groups()[1].lower()
-            if beg != len(target):
-                log_wrapper("policy line ignored: " + line)
+        last_end = 0
+        for matchNum, match in enumerate(re.finditer(self._PATTERN, target,
+                                                     re.IGNORECASE)):
+            tmp_end = last_end
+            last_end = match.end()
+            if tmp_end != match.start():
+                self.log_parse_error(tmp_end, match.start(), target, line)
                 return
+            if len(match.groups()) != 2 or not all(match.groups()):
+                self.log_parse_error(match.start(), match.end(), target, line)
+                return
+            try:
+                (name, value) = [part.lower() for part in match.groups()]
+                if not self.check_hex_length(name, value):
+                    log.error("hex'{}' length error, ignore line {}".format(
+                              str(value), line))
+                    return
+                if name not in self.rule_list:
+                    rule[name] = value
+            except AttributeError:
+                self.log_parse_error(match.start(), match.end(), target, line)
+                return
+        if last_end != len(target):
+            self.log_parse_error(last_end, len(target) + 1, target, line)
+            return
 
         self.rule_list.append(rule)
 
@@ -551,15 +577,30 @@ def to_pusb(device):
     """ convert UsbDevice to pusb dict
 
     Example pusb dict:
-    [{"product-desc": "", "product-id": "383c", "description":
-    "Lenovo_H8RU2TGE", "vendor-desc": "Lenovo", "version": "2.00", "vendor-id":
-    "17ef", "path": "1-2", "serial": "H8RU2TGE"}, {"product-desc":
-    "TransMemory-Mini / Kingston DataTraveler 2.0 Stick (2GB)",
-    "product-id": "6544", "description":"Toshiba Corp._TransMemory-Mini /
-    Kingston DataTraveler 2.0 Stick (2GB)_9875B1B3F9F4CD301917964B",
-      "vendor-desc": "Toshiba Corp.", "version": "2.00", "vendor-id": "0930",
-      "path": "4-1.2", "serial": "9875B1B3F9F4CD301917964B"}]
-
+    [
+      {
+        "product-desc": "",
+        "product-id": "383c",
+        "description": "Lenovo_H8RU2TGE",
+        "vendor-desc": "Lenovo",
+        "version": "2.00",
+        "vendor-id": "17ef",
+        "path": "1-2",
+        "serial": "H8RU2TGE"
+      },
+      {
+        "product-desc":
+           "TransMemory-Mini / Kingston DataTraveler 2.0 Stick (2GB)",
+        "product-id": "6544",
+        "description":"Toshiba Corp._TransMemory-Mini /
+            Kingston DataTraveler 2.0 Stick (2GB)_9875B1B3F9F4CD301917964B",
+        "vendor-desc": "Toshiba Corp.",
+        "version": "2.00",
+        "vendor-id": "0930",
+        "path": "4-1.2",
+        "serial": "9875B1B3F9F4CD301917964B"
+      }
+    ]
     :param device:(UsbDevice) the device to convert
     :return:(dict) the key value pairs for pusb
     """
@@ -572,7 +613,8 @@ def to_pusb(device):
     pusb["product-id"] = device[UsbDevice._ID_PRODUCT]
     pusb["vendor-desc"] = device[UsbDevice._DESC_VENDOR]
     pusb["product-desc"] = device[UsbDevice._DESC_PRODUCT]
-    pusb["serial"] = device[UsbDevice._SERIAL]
+    # strip serial due to CA-268761
+    pusb["serial"] = device[UsbDevice._SERIAL].strip()
 
     pusb["description"] = pusb["vendor-desc"]
     if pusb["product-desc"]:
