@@ -538,15 +538,6 @@ let check_operation_error ~__context ~ref ~op ~strict =
       then Some (Api_errors.not_system_domain, [ ref_str ])
       else None) in
 
-  (* For storage migration, check if any of the VM's VDIs has CBT enabled *)
-  let current_error = check current_error (fun () ->
-      let is_cbt_enabled vdi = try Db.VDI.get_cbt_enabled ~__context ~self:vdi with _ -> false in
-      if op = `migrate_send && List.exists is_cbt_enabled vdis then begin
-        let vdi = List.find is_cbt_enabled vdis in
-        Some (Api_errors.vdi_cbt_enabled, [ Ref.string_of vdi ])
-      end else None
-    ) in
-
   let current_error = check current_error (fun () ->
     if Helpers.rolling_upgrade_in_progress ~__context &&
        not (List.mem op Xapi_globs.rpu_allowed_vm_operations)

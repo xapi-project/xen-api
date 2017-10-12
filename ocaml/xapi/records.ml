@@ -210,7 +210,7 @@ let message_record rpc session_id message =
         make_field ~name:"uuid"         ~get:(fun () -> (x ()).API.message_uuid) ();
         make_field ~name:"name"         ~get:(fun () -> (x ()).API.message_name) ();
         make_field ~name:"priority"     ~get:(fun () -> Int64.to_string (x ()).API.message_priority) ();
-        make_field ~name:"class"        ~get:(fun () -> match (x ()).API.message_cls with `VM -> "VM" | `Host -> "Host" | `SR -> "SR" | `Pool -> "Pool" | `VMPP -> "VMPP" | `VMSS -> "VMSS" | `PVS_proxy -> "PVS_proxy") ();
+        make_field ~name:"class"        ~get:(fun () -> Xapi_message.class_to_string (x ()).API.message_cls) ();
         make_field ~name:"obj-uuid"     ~get:(fun () -> (x ()).API.message_obj_uuid) ();
         make_field ~name:"timestamp"    ~get:(fun () -> Date.to_string (x ()).API.message_timestamp) ();
         make_field ~name:"body"         ~get:(fun () -> (x ()).API.message_body) ();
@@ -443,6 +443,15 @@ let net_record rpc session_id net =
         ~get:(fun () -> Record_util.network_default_locking_mode_to_string (x ()).API.network_default_locking_mode)
         ~set:(fun value -> Client.Network.set_default_locking_mode rpc session_id net
                  (Record_util.string_to_network_default_locking_mode value)) ();
+
+      make_field ~name:"purpose"
+        ~get:(fun () -> (x ()).API.network_purpose |> List.map Record_util.network_purpose_to_string |> (String.concat ", "))
+        ~get_set:(fun () -> (x ()).API.network_purpose |> List.map Record_util.network_purpose_to_string)
+        ~add_to_set:(fun s -> Client.Network.add_purpose rpc session_id net
+                        (Record_util.string_to_network_purpose s))
+        ~remove_from_set:(fun s -> Client.Network.remove_purpose rpc session_id net
+                             (Record_util.string_to_network_purpose s)) ();
+
     ]}
 
 

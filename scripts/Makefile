@@ -63,6 +63,7 @@ install:
 	mkdir -p $(DESTDIR)/etc/sysconfig
 	$(IPROG) sysconfig-xapi $(DESTDIR)/etc/sysconfig/xapi
 	$(IPROG) generate_ssl_cert $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) nbd-firewall-config.sh $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) fix_firewall.sh $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) debug_ha_query_liveset $(DESTDIR)$(OPTDIR)/debug

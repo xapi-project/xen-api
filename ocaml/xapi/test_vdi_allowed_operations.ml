@@ -17,6 +17,8 @@ open Test_common
 
 (* Helpers for testing Xapi_vdi.check_operation_error *)
 
+let for_vdi_operations ops f () = List.iter f ops
+
 let setup_test ~__context ?sm_fun ?vdi_fun () =
   let run f x = match f with Some f -> ignore(f x) | None -> () in
 
@@ -167,7 +169,7 @@ let test_ca126097 () =
 
 (** Tests for the checks related to changed block tracking *)
 let test_cbt =
-  let all_cbt_operations = [`enable_cbt; `disable_cbt] in
+  let all_cbt_operations = [`enable_cbt; `disable_cbt; `data_destroy; `list_changed_blocks] in
   let for_vdi_operations ops f () = ops |> List.iter f in
   let for_cbt_enable_disable = for_vdi_operations [`enable_cbt; `disable_cbt] in
 
@@ -262,6 +264,115 @@ let test_cbt =
       )
   in
 
+
+  let test_vdi_data_destroy () =
+    let __context = Mock.make_context_with_new_db "Mock context" in
+
+    (* change VDI properties so that data_destroy passes *)
+    let pass_data_destroy vdi =
+      let sr = Db.VDI.get_SR ~__context ~self:vdi in
+      Db.SR.set_is_tools_sr ~__context ~self:sr ~value:false;
+      Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:true;
+      Db.VDI.set_managed ~__context ~self:vdi ~value:true;
+      Db.VDI.set_cbt_enabled ~__context ~self:vdi ~value:true in
+
+    (* change VDI properties one by one so data_destroy only fails for the indicated reason *)
+    List.iter (fun (vdi_fun, api_error) ->
+        run_assert_equal_with_vdi ~__context ~vdi_fun `data_destroy api_error)
+
+      (* ensure VDI.data_destroy works before introducing errors *)
+      [
+        (fun vdi -> pass_data_destroy vdi;
+        ) ,         None ;
+
+        (fun vdi -> pass_data_destroy vdi;
+          Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:false
+        ) ,         Some (Api_errors.operation_not_allowed , []) ;
+
+        (fun vdi -> pass_data_destroy vdi;
+          let sr = Db.VDI.get_SR ~__context ~self:vdi in
+          Db.SR.set_is_tools_sr ~__context ~self:sr ~value:true
+        ) ,         Some (Api_errors.sr_operation_not_supported , []) ;
+
+        (fun vdi -> pass_data_destroy vdi;
+          Db.VDI.set_cbt_enabled ~__context ~self:vdi ~value:false
+        ) ,         Some (Api_errors.vdi_no_cbt_metadata , []) ;
+
+        (fun vdi -> pass_data_destroy vdi;
+          Db.VDI.set_type ~__context ~self:vdi ~value:`cbt_metadata
+        ) ,         None ;
+
+
+        (* VDI.data_destroy should wait a bit for the VDIs to be unplugged and
+           destroyed, instead of failing immediately in check_operation_error,
+           therefore the following checks are performed in the implementation
+           instead. *)
+
+        (fun vdi -> let vM =
+                      Test_common.make_vm ~__context () in
+          let _: _ API.Ref.t = Test_common.make_vbd ~__context ~vDI:vdi ~vM ~currently_attached:true () in
+          pass_data_destroy vdi
+        ),
+        None;
+
+        (fun vdi ->
+           (* Set up the fields corresponding to a VM snapshot *)
+           let vM = Test_common.make_vm ~__context ~is_a_template:true () in
+           Db.VM.set_is_a_snapshot ~__context ~self:vM ~value:true;
+           Db.VM.set_power_state ~__context ~self:vM ~value:`Suspended;
+           let _: _ API.Ref.t = Test_common.make_vbd ~__context ~vDI:vdi ~vM ~currently_attached:false () in
+           pass_data_destroy vdi
+        ),
+        None;
+
+        (fun vdi ->
+           let vM = Test_common.make_vm ~__context () in
+           let _: _ API.Ref.t = Test_common.make_vbd ~__context ~vDI:vdi ~vM ~currently_attached:false () in
+           pass_data_destroy vdi
+        ),
+        None
+      ] in
+
+  let test_vdi_list_changed_blocks () =
+    let __context = Mock.make_context_with_new_db "Mock context" in
+
+    let test_cbt_enabled_snapshot_vdi_linked_to_vm_snapshot ~vbd_currently_attached =
+      ( (fun vDI ->
+            let vM = Test_common.make_vm ~__context ~is_a_template:true () in
+            (* Set up the fields corresponding to a VM snapshot *)
+            Db.VM.set_is_a_snapshot ~__context ~self:vM ~value:true;
+            Db.VM.set_power_state ~__context ~self:vM ~value:`Suspended;
+            let (_: API.ref_VBD) = Test_common.make_vbd ~__context ~vM ~vDI ~currently_attached:vbd_currently_attached () in
+            Db.VDI.set_cbt_enabled ~__context ~self:vDI ~value:true;
+            Db.VDI.set_is_a_snapshot ~__context ~self:vDI ~value:true)
+      , None)
+    in
+
+    List.iter (fun (vdi_fun,api_error) -> run_assert_equal_with_vdi ~__context
+                  ~vdi_fun `list_changed_blocks api_error)
+      [
+        (* check correct error is thrown with live VDI *)
+        ( (fun vDI ->
+              let vM = Test_common.make_vm ~__context () in
+              let _: _ API.Ref.t = Test_common.make_vbd ~__context ~currently_attached:true ~vM ~vDI () in ()
+            ) ,    Some (Api_errors.vdi_in_use , []) ) ;
+
+        (* positive test checks no errors thrown for cbt_metadata or cbt_enabled VDIs *)
+        ( (fun vDI -> Db.VDI.set_cbt_enabled ~__context ~self:vDI ~value:true;
+            Db.VDI.set_type ~__context ~self:vDI ~value:`cbt_metadata
+          ) ,   None ) ;
+
+        ( (fun vDI -> Db.VDI.set_cbt_enabled ~__context ~self:vDI ~value:true
+          ) ,  None  ) ;
+
+        test_cbt_enabled_snapshot_vdi_linked_to_vm_snapshot ~vbd_currently_attached:false;
+
+        (* Test that list_changed_blocks is allowed on snapshot VDIs attached to VM snapshots with currently_attached = true *)
+        test_cbt_enabled_snapshot_vdi_linked_to_vm_snapshot ~vbd_currently_attached:true;
+
+      ]
+  in
+
   "test_cbt" >:::
   [ "test_sm_feature_check" >:: test_sm_feature_check
   ; "test_cbt_enable_disable_not_allowed_for_snapshot" >:: test_cbt_enable_disable_not_allowed_for_snapshot
@@ -270,6 +381,8 @@ let test_cbt =
   ; "test_cbt_enable_disable_can_be_performed_live" >:: test_cbt_enable_disable_can_be_performed_live
   ; "test_cbt_metadata_vdi_type_check" >:: test_cbt_metadata_vdi_type_check
   ; "test_vdi_cbt_enabled_check" >:: test_vdi_cbt_enabled_check
+  ; "test_vdi_data_destroy" >:: test_vdi_data_destroy
+  ; "test_vdi_list_changed_blocks" >:: test_vdi_list_changed_blocks
   ]
 
 (** The set of allowed operations must be restricted during rolling pool
@@ -304,7 +417,7 @@ let test_operations_restricted_during_rpu =
     Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress;
     Xapi_vdi.update_allowed_operations ~__context ~self
     (* CA-260245: at present update_allowed_operations excludes the cbt operations unconditionally.
-    OUnit.assert_bool "update_allowed_operations should consider `enable_cbt when RPU is not running" (List.mem `enable_cbt (Db.VDI.get_allowed_operations ~__context ~self))
+       OUnit.assert_bool "update_allowed_operations should consider `enable_cbt when RPU is not running" (List.mem `enable_cbt (Db.VDI.get_allowed_operations ~__context ~self))
     *)
   in
 
@@ -312,6 +425,29 @@ let test_operations_restricted_during_rpu =
   [ "test_check_operation_error" >:: test_check_operation_error
   ; "test_update_allowed_operations" >:: test_update_allowed_operations
   ]
+
+(* Xapi_vdi.check_operation_error should not throw an
+   exception in case of invalid references, as it is called from
+   the message forwarding layer. *)
+let test_null_vm =
+  let test_null_vm op =
+    let __context = Mock.make_context_with_new_db "Mock context" in
+    let vdi_ref, vdi_record = setup_test
+        ~__context
+        ~vdi_fun:(fun vDI ->
+            (* VBDs with invalid VM refs are not valid - they can only
+               temporarily exist, and the next DB GC pass should remove
+               them. *)
+            let (_: API.ref_VBD) = Test_common.make_vbd ~__context ~vM:Ref.null ~vDI () in
+            ())
+        ()
+    in
+    (* This shouldn't throw an exception *)
+    let _: _ option = Xapi_vdi.check_operation_error ~__context false vdi_record vdi_ref op in
+    ()
+  in
+  for_vdi_operations Xapi_vdi_helpers.all_ops test_null_vm
+
 
 let test =
   "test_vdi_allowed_operations" >:::
@@ -322,4 +458,5 @@ let test =
     "test_ca126097" >:: test_ca126097;
     test_cbt;
     test_operations_restricted_during_rpu;
+    "test_null_vm" >:: test_null_vm
   ]

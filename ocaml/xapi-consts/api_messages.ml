@@ -121,6 +121,11 @@ let vmss_license_error = addMessage "VMSS_LICENSE_ERROR" 3L (*'This operation is
 let vmss_xapi_logon_failure = addMessage "VMSS_XAPI_LOGON_FAILURE" 3L (*'Could not login to API session.'*)
 let vmss_snapshot_missed_event = addMessage "VMSS_SNAPSHOT_MISSED_EVENT" 3L (*'A scheduled snapshot event was missed due to another on-going scheduled snapshot run. This is unexpected behaviour, please re-configure your schedule snapshot',*)
 
+(* VDI message types *)
+let vdi_cbt_metadata_inconsistent = addMessage "VDI_CBT_METADATA_INCONSISTENT" 3L (*'The VDI's cbt metadata is inconsistent'*)
+let vdi_cbt_snapshot_failed = addMessage "VDI_CBT_SNAPSHOT_FAILED" 3L (*'Failed to snapshot the cbt enabled VDI'*)
+let vdi_cbt_resize_failed = addMessage "VDI_CBT_RESIZE_FAILED" 3L (*'Resizing of the cbt enabled VDI failed'*)
+
 let bond_status_changed = addMessage "BOND_STATUS_CHANGED" 3L (* A link in a bond went down or came back up *) (* Previously missing from table *)
 
 let host_cpu_features_down = addMessage "HOST_CPU_FEATURES_DOWN" 3L

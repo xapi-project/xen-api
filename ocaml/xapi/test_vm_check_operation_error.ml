@@ -26,13 +26,19 @@ let test_operation_checks_allowed () =
         (fun op -> OUnit.assert_equal None (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref ~op ~strict:true))
     )
 
-let test_migration_disallowed_when_cbt_enabled () =
-  with_test_vm (fun __context vm_ref ->
-      let vdi_ref = Test_common.make_vdi ~__context ~cbt_enabled:true () in
-      let () = ignore(Test_common.make_vbd ~__context ~vM:vm_ref ~vDI:vdi_ref ()) in
+(* The check_operation_error function, which is called from the message
+   forwarding layer, should allow the `migrate_send operation, because the VDIs
+   with CBT enabled may not be moved at all - maybe they are mapped to their own
+   SRs in the VDI-to-SR map. However, the check_operation_error does not know
+   the parameters of the migrate_send XenAPI call, so this check is performed in
+   the implementation instead, and not in message forwarding. *)
+let test_migration_allowed_when_cbt_enabled_vdis_are_not_moved () =
+  with_test_vm (fun __context vM ->
+      let vDI = Test_common.make_vdi ~__context ~cbt_enabled:true () in
+      let _: _ API.Ref.t = Test_common.make_vbd ~__context ~vM ~vDI () in
       OUnit.assert_equal
-        (Some(Api_errors.vdi_cbt_enabled, [ Ref.string_of vdi_ref ]))
-        (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref ~op:`migrate_send ~strict:true)
+        None
+        (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vM ~op:`migrate_send ~strict:true)
     )
 
 let test_sxm_disallowed_when_rum () =
@@ -54,6 +60,6 @@ let test =
   "test_vm_check_operation_error" >:::
   [ "test_null_vdi" >:: test_null_vdi
   ; "test_operation_checks_allowed" >:: test_operation_checks_allowed
-  ; "test_migration_disallowed_when_cbt_enabled" >:: test_migration_disallowed_when_cbt_enabled
+  ; "test_migration_allowed_when_cbt_enabled_vdis_are_not_moved" >:: test_migration_allowed_when_cbt_enabled_vdis_are_not_moved
   ; "test_sxm_disallowed_when_rum" >:: test_sxm_disallowed_when_rum
   ]

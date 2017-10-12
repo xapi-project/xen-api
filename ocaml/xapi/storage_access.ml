@@ -102,6 +102,7 @@ module SMAPIv1 = struct
         then Db.VDI.get_uuid ~__context ~self:vdi_rec.API.vDI_snapshot_of
         else "";
       read_only = vdi_rec.API.vDI_read_only;
+      cbt_enabled = vdi_rec.API.vDI_cbt_enabled;
       virtual_size = vdi_rec.API.vDI_virtual_size;
       physical_utilisation = vdi_rec.API.vDI_physical_utilisation;
       persistent = vdi_rec.API.vDI_on_boot = `persist;
@@ -848,18 +849,18 @@ module SMAPIv1 = struct
       call_cbt_function context ~f:Sm.vdi_data_destroy ~f_name:"VDI.data_destroy" ~dbg ~sr ~vdi;
       set_content_id context ~dbg ~sr ~vdi ~content_id:"/No content: this is a cbt_metadata VDI/"
 
-    let export_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to =
+    let list_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to =
       try
-        Server_helpers.exec_with_new_task "VDI.export_changed_blocks" ~subtask_of:(Ref.of_string dbg)
+        Server_helpers.exec_with_new_task "VDI.list_changed_blocks" ~subtask_of:(Ref.of_string dbg)
           (fun __context ->
              let vdi_from = find_vdi ~__context sr vdi_from |> fst in
-             for_vdi ~dbg ~sr ~vdi:vdi_to "VDI.export_changed_blocks"
+             for_vdi ~dbg ~sr ~vdi:vdi_to "VDI.list_changed_blocks"
                (fun device_config _type sr vdi_to ->
-                  Sm.vdi_export_changed_blocks device_config _type sr ~vdi_from ~vdi_to
+                  Sm.vdi_list_changed_blocks device_config _type sr ~vdi_from ~vdi_to
                ))
       with
       | Smint.Not_implemented_in_backend ->
-        raise (Unimplemented "VDI.export_changed_blocks")
+        raise (Unimplemented "VDI.list_changed_blocks")
       | Api_errors.Server_error(code, params) ->
         raise (Backend_error(code, params))
       | Sm.MasterOnly -> redirect sr

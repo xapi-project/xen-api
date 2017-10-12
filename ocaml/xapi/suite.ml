@@ -67,6 +67,8 @@ let base_suite =
     Test_vlan.test;
     Test_xapi_vbd_helpers.test;
     Test_sr_update_vdis.test;
+    Test_valid_ref_list.test;
+    Test_network_event_loop.test;
   ]
 
 let handlers = [

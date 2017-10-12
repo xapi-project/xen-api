@@ -807,6 +807,8 @@ let update_issue_script = ref "update-issue"
 
 let kill_process_script = ref "killall"
 
+let nbd_firewall_config_script = ref "/opt/xensource/libexec/nbd-firewall-config.sh"
+
 let disable_logging_for= ref []
 
 let igd_passthru_vendor_whitelist = ref []
@@ -1078,6 +1080,7 @@ module Resources = struct
     "non-managed-pifs", non_managed_pifs, "Executed during PIF.scan to find out which NICs should not be managed by xapi";
     "update-issue", update_issue_script, "Running update-service when configuring the management interface";
     "killall", kill_process_script, "Executed to kill process";
+    "nbd-firewall-config", nbd_firewall_config_script, "Executed after NBD-related networking changes to configure the firewall for NBD";
   ]
   let essential_files = [
     "pool_config_file", pool_config_file, "Pool configuration file";
