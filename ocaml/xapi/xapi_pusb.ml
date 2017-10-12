@@ -123,8 +123,7 @@ let set_passthrough_enabled ~__context ~self ~value =
          (* If the USB is passthroughed to vm, need to unplug it firstly*)
          if attached <> Ref.null then begin
            let vm = Db.VUSB.get_VM ~__context ~self:attached in
-           raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
-             [Printf.sprintf "USB '%s' is attached to '%s.'" (Ref.string_of self) (Ref.string_of vm)]))
+           raise (Api_errors.Server_error(Api_errors.usb_already_attached, [Ref.string_of self; Ref.string_of vm]))
          end;
          let usb_group = Db.PUSB.get_USB_group ~__context ~self in
          let vusbs = Db.USB_group.get_VUSBs ~__context ~self:usb_group in
