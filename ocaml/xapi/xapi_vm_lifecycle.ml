@@ -17,6 +17,7 @@
 
 open Stdext
 open Listext
+open Db.LazyMemo
 
 module D = Debug.Make(struct let name="xapi" end)
 open D
@@ -203,14 +204,14 @@ let check_op_for_feature ~__context ~vmr ~vmgmr ~power_state ~op ~ref ~strict =
   if power_state <> `Running ||
      (* PV guests offer support implicitly *)
      not (Helpers.has_booted_hvm_of_record ~__context vmr) ||
-     Xapi_pv_driver_version.(has_pv_drivers (of_guest_metrics vmgmr)) (* Full PV drivers imply all features *)
+     Xapi_pv_driver_version.(has_pv_drivers (of_guest_metrics !!vmgmr)) (* Full PV drivers imply all features *)
   then None
   else
     let some_err e =
       Some (e, [ Ref.string_of ref ])
     in
     let lack_feature feature =
-      not (has_feature ~vmgmr ~feature)
+      not (has_feature ~vmgmr:!!vmgmr ~feature)
     in
     match op with
     | `clean_shutdown
@@ -335,26 +336,23 @@ let check_snapshot_schedule ~vmr ~ref_str = function
  * running - in which case we use the current values from the database.
  **)
 
-let nomigrate ~__context vm metrics =
+let nomigrate ~__context metrics platformdata =
   try
-    Db.VM_metrics.get_nomigrate ~__context ~self:metrics
+    Db.VM_metrics.get_nomigrate ~__context ~self:!!metrics
   with _ ->
-    let platformdata = Db.VM.get_platform ~__context ~self:vm in
     let key = "nomigrate" in
-    Vm_platform.is_true ~key ~platformdata ~default:false
+    Vm_platform.is_true ~key ~platformdata:!!platformdata ~default:false
 
-let nested_virt ~__context vm metrics =
+let nested_virt ~__context metrics platformdata =
   try
-    Db.VM_metrics.get_nested_virt ~__context ~self:metrics
+    Db.VM_metrics.get_nested_virt ~__context ~self:!!metrics
   with _ ->
-    let platformdata = Db.VM.get_platform ~__context ~self:vm in
     let key = "nested-virt" in
-    Vm_platform.is_true ~key ~platformdata ~default:false
+    Vm_platform.is_true ~key ~platformdata:!!platformdata ~default:false
 
-let is_mobile ~__context vm strict =
-  let metrics = Db.VM.get_metrics ~__context ~self:vm in
-  (not @@ nomigrate ~__context vm metrics
-   && not @@ nested_virt ~__context vm metrics)
+let is_mobile ~__context strict metrics platformdata =
+  (not @@ nomigrate ~__context metrics platformdata
+   && not @@ nested_virt ~__context metrics platformdata)
   || not strict
 
 let maybe_get_guest_metrics ~__context ~ref =
@@ -368,13 +366,32 @@ let maybe_get_guest_metrics ~__context ~ref =
     The "strict" param sets whether we require feature-flags for ops that need guest
     support: ops in the suspend-like and shutdown-like categories. *)
 let check_operation_error ~__context ~ref =
+  (* we always need to retrieve this *)
   let vmr = Db.VM.get_record_internal ~__context ~self:ref in
-  let vmgmr = maybe_get_guest_metrics ~__context ~ref:(vmr.Db_actions.vM_guest_metrics) in
-  let ref_str = Ref.string_of ref in
+  let is_appliance = Db.is_valid_ref __context vmr.Db_actions.vM_appliance in
+  let has_protection_policy = Db.is_valid_ref __context vmr.Db_actions.vM_protection_policy in
+  let has_snapshot_schedule = Db.is_valid_ref __context vmr.Db_actions.vM_snapshot_schedule in
   let power_state = vmr.Db_actions.vM_power_state in
   let is_template = vmr.Db_actions.vM_is_a_template in
   let is_snapshot = vmr.Db_actions.vM_is_a_snapshot in
-  let vdis = List.filter_map (fun vbd -> try Some (Db.VBD.get_VDI ~__context ~self:vbd) with _ -> None) vmr.Db_actions.vM_VBDs |> List.filter (Db.is_valid_ref __context) in
+  let ref_str = Ref.string_of ref in
+  let vmgmr = memoU (fun () -> maybe_get_guest_metrics ~__context ~ref:(vmr.Db_actions.vM_guest_metrics)) in
+  let vdis = memoU (fun () -> List.filter_map (fun vbd ->
+      try Some (Db.VBD.get_VDI ~__context ~self:vbd)
+      with _ -> None) vmr.Db_actions.vM_VBDs
+      |> List.filter (Db.is_valid_ref __context)) in
+  let vdis_reset_and_caching = List.filter_map (fun vdi ->
+             try
+               let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
+               Some ((assoc_opt "on_boot" sm_config = Some "reset"), (bool_of_assoc "caching" sm_config))
+             with _ -> None) $! vdis in
+  let metrics = memoU (fun () -> Db.VM.get_metrics ~__context ~self:ref) in
+  let vm_ref = memoU (fun () ->
+    Db.VM.get_by_uuid ~__context ~uuid:vmr.Db_actions.vM_uuid) in
+  let platformdata = memoU (fun () ->
+    Db.VM.get_platform ~__context ~self:ref) in
+  let rolling_upgrade_in_progress = memoU (fun () ->
+    Helpers.rolling_upgrade_in_progress ~__context) in
 
   (fun ~op ~strict ->
 
@@ -430,17 +447,16 @@ let check_operation_error ~__context ~ref =
          | `checkpoint
          | `pool_migrate
          | `migrate_send
-           when not (is_mobile ~__context ref strict) ->
+           when not (is_mobile ~__context strict metrics platformdata) ->
            Some (Api_errors.vm_is_immobile, [ref_str])
          | _ -> None
        ) in
 
      let current_error =
-       let metrics = Db.VM.get_metrics ~__context ~self:ref in
        check current_error (fun () ->
            match op with
            | `changing_dynamic_range
-             when nested_virt ~__context ref metrics && strict ->
+             when nested_virt ~__context metrics platformdata && strict ->
              Some (Api_errors.vm_is_using_nested_virt, [ref_str])
            | _ -> None
          ) in
@@ -450,8 +466,7 @@ let check_operation_error ~__context ~ref =
      (* FIXME: Instead of special-casing for the control domain here, *)
      (* make use of the Helpers.ballooning_enabled_for_vm function.   *)
      let current_error = check current_error (fun () ->
-         let vm_ref () = Db.VM.get_by_uuid ~__context ~uuid:vmr.Db_actions.vM_uuid in
-         if (op = `changing_VCPUs || op = `destroy) && Helpers.is_domain_zero ~__context (vm_ref ())
+         if (op = `changing_VCPUs || op = `destroy) && Helpers.is_domain_zero ~__context !!vm_ref
          then Some (Api_errors.operation_not_allowed, ["This operation is not allowed on dom0"])
          else if vmr.Db_actions.vM_is_control_domain
               && op <> `data_source_op
@@ -479,25 +494,20 @@ let check_operation_error ~__context ~ref =
             (Pervasiveext.maybe_with_default true
                (fun gm -> let other = gm.Db_actions.vM_guest_metrics_other in
                  not (List.mem_assoc "feature-quiesce" other || List.mem_assoc "feature-snapshot" other))
-               vmgmr)
+               !!vmgmr)
          then Some (Api_errors.vm_snapshot_with_quiesce_not_supported, [ ref_str ])
          else None) in
 
      (* Check for an error due to VDI caching/reset behaviour *)
      let current_error = check current_error (fun () ->
-         let vdis_reset_and_caching = List.filter_map (fun vdi ->
-             try
-               let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
-               Some ((assoc_opt "on_boot" sm_config = Some "reset"), (bool_of_assoc "caching" sm_config))
-             with _ -> None) vdis in
          if op = `checkpoint || op = `snapshot || op = `suspend || op = `snapshot_with_quiesce
          then (* If any vdi exists with on_boot=reset, then disallow checkpoint, snapshot, suspend *)
-           if List.exists fst vdis_reset_and_caching
+           if List.exists fst !!vdis_reset_and_caching
            then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation,[])
            else None
          else if op = `pool_migrate then
            (* If any vdi exists with on_boot=reset and caching is enabled, disallow migrate *)
-           if List.exists (fun (reset,caching) -> reset && caching) vdis_reset_and_caching
+           if List.exists (fun (reset,caching) -> reset && caching) !!vdis_reset_and_caching
            then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation,[])
            else None
          else None) in
@@ -516,19 +526,19 @@ let check_operation_error ~__context ~ref =
 
      (* Check for errors caused by VM being in an appliance. *)
      let current_error = check current_error (fun () ->
-         if Db.is_valid_ref __context vmr.Db_actions.vM_appliance
+         if is_appliance
          then check_appliance ~vmr ~op ~ref_str
          else None) in
 
      (* Check for errors caused by VM being assigned to a protection policy. *)
      let current_error = check current_error (fun () ->
-         if Db.is_valid_ref __context vmr.Db_actions.vM_protection_policy
+         if has_protection_policy
          then check_protection_policy ~vmr ~op ~ref_str
          else None) in
 
      (* Check for errors caused by VM being assigned to a snapshot schedule. *)
      let current_error = check current_error (fun () ->
-         if Db.is_valid_ref __context vmr.Db_actions.vM_snapshot_schedule
+         if has_snapshot_schedule
          then check_snapshot_schedule ~vmr ~ref_str op
          else None) in
 
@@ -539,8 +549,8 @@ let check_operation_error ~__context ~ref =
          else None) in
 
      let current_error = check current_error (fun () ->
-         if Helpers.rolling_upgrade_in_progress ~__context &&
-            not (List.mem op Xapi_globs.rpu_allowed_vm_operations)
+         if not (List.mem op Xapi_globs.rpu_allowed_vm_operations) &&
+            !!rolling_upgrade_in_progress
          then Some (Api_errors.not_supported_during_upgrade, [])
          else None)
      in
