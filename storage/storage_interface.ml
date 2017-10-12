@@ -63,6 +63,7 @@ type vdi_info = {
     snapshot_of: vdi;
     (* managed: workaround via XenAPI *)
     read_only: bool;
+    cbt_enabled: bool;
     (* missing: workaround via XenAPI *)
     virtual_size: int64;
     physical_utilisation: int64;
@@ -83,6 +84,7 @@ let default_vdi_info = {
     snapshot_time = Xapi_stdext_date.Date.to_string Xapi_stdext_date.Date.never;
     snapshot_of = "";
     read_only = false;
+    cbt_enabled = false;
     virtual_size = 0L;
     physical_utilisation = 0L;
     persistent = true;
@@ -412,8 +414,8 @@ module VDI = struct
   (** [data_destroy dbg sr vdi] deletes the data of the snapshot [vdi] without deleting its changed block tracking metadata *)
   external data_destroy: dbg:debug_info -> sr:sr -> vdi:vdi -> unit = ""
 
-  (** [export_changed_blocks dbg sr vdi_from vdi_to] returns the blocks that have changed between [vdi_from] and [vdi_to] as a base64-encoded bitmap string *)
-  external export_changed_blocks: dbg:debug_info -> sr:sr -> vdi_from:vdi -> vdi_to:vdi -> string = ""
+  (** [list_changed_blocks dbg sr vdi_from vdi_to] returns the blocks that have changed between [vdi_from] and [vdi_to] as a base64-encoded bitmap string *)
+  external list_changed_blocks: dbg:debug_info -> sr:sr -> vdi_from:vdi -> vdi_to:vdi -> string = ""
 
 end
 

@@ -80,7 +80,7 @@ module VDI = struct
   let enable_cbt ctx ~dbg ~sr ~vdi = u "VDI.enable_cbt"
   let disable_cbt ctx ~dbg ~sr ~vdi = u "VDI.disable_cbt"
   let data_destroy ctx ~dbg ~sr ~vdi = u "VDI.data_destroy"
-  let export_changed_blocks ctx ~dbg ~sr ~vdi_from ~vdi_to = u "VDI.export_changed_blocks"
+  let list_changed_blocks ctx ~dbg ~sr ~vdi_from ~vdi_to = u "VDI.list_changed_blocks"
 end
 
 let get_by_name ctx ~dbg ~name = u "get_by_name"

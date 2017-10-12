@@ -53,6 +53,7 @@ let default_vdi_info = {
   snapshot_time = "19700101T00:00:00Z";
   snapshot_of = "";
   read_only = false;
+  cbt_enabled = false;
   virtual_size = 0L;
   physical_utilisation = 0L;
   persistent = true;
