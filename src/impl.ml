@@ -201,7 +201,7 @@ let stream_human common _ s _ _ ?(progress = no_progress_bar) () =
 
 let stream_nbd common c s prezeroed _ ?(progress = no_progress_bar) () =
   let open Nbd_lwt_unix in
-  let c = { Nbd.Channel.read = c.Channels.really_read; write = c.Channels.really_write; close = c.Channels.close } in
+  let c = { Nbd.Channel.read = c.Channels.really_read; write = c.Channels.really_write; close = c.Channels.close; is_tls = false } in
 
   Client.negotiate c "" >>= fun (server, size, flags) ->
   (* Work to do is: non-zero data to write + empty sectors if the
