@@ -27,6 +27,9 @@ let report_failure error test =
 let test_assert ~test op ~msg =
   if not op then raise (Test_failed msg)
 
+let test_compare ~test left_op right_op ~msg =
+  let op = (left_op = right_op) in test_assert ~test op ~msg
+
 let get_cbt_status ~session_id ~vDI = VDI.get_cbt_enabled ~session_id ~rpc:!rpc ~self:vDI
 
 let name_description = "VDI for CBT quicktest"
@@ -70,6 +73,89 @@ let enable_disable_cbt_test ~session_id ~vDI =
   | Test_failed msg -> failed enable_cbt_test msg
   | e -> report_failure e enable_cbt_test
 
+(* Test data_destroy and snapshot update the necessary fields *)
+let vdi_data_destroy_test ~session_id ~vDI =
+  let data_destroy_test = make_test "Testing VDI.data_destroy" 4 in
+  try
+    start data_destroy_test;
+    debug data_destroy_test "Enabling CBT on original VDI";
+    VDI.enable_cbt ~session_id ~rpc:!rpc ~self:vDI;
+    test_assert ~test:data_destroy_test
+      (get_cbt_status ~session_id ~vDI)
+      ~msg:"VDI.enable_cbt failed";
+
+    debug data_destroy_test "Snapshotting original VDI.";
+    let newvdi = VDI.snapshot ~session_id ~rpc:!rpc ~vdi:vDI ~driver_params:[] in
+    test_assert ~test:data_destroy_test
+      (get_cbt_status ~session_id ~vDI:newvdi)
+      ~msg:"VDI.snapshot failed, cbt_enabled field didn't carry over";
+
+    debug data_destroy_test "Destroying snapshot VDI data";
+    VDI.data_destroy ~session_id ~rpc:!rpc ~self:newvdi;
+    test_compare ~test:data_destroy_test
+      (VDI.get_type ~session_id ~rpc:!rpc ~self:newvdi)
+      `cbt_metadata
+      ~msg:"VDI.data_destroy failed to update VDI.type";
+
+    let content_id_str = "/No content: this is a cbt_metadata VDI/" in
+    test_compare ~test:data_destroy_test
+      (VDI.get_other_config ~session_id ~rpc:!rpc ~self:newvdi |> List.assoc "content_id")
+      content_id_str
+      ~msg:"VDI.data_destroy failed to update VDI.content_id";
+
+    success data_destroy_test
+  with
+  | Test_failed msg -> failed data_destroy_test msg
+  | e -> report_failure e data_destroy_test
+
+(* Check VDI.(copy, clone, and snapshot) all properly update cbt_enabled
+ * Debug output included as VDI operations are expensive and take longer than other calls *)
+let vdi_clone_copy_snapshot_test ~session_id ~sR ~vDI =
+  let vdi_duplicate_test = make_test "Testing VDI.{clone,copy,snapshot}" 4 in
+  try
+    start vdi_duplicate_test;
+    debug vdi_duplicate_test "Enabling CBT on original VDI";
+    VDI.enable_cbt ~session_id ~rpc:!rpc ~self:vDI;
+    test_assert ~test:vdi_duplicate_test
+      (get_cbt_status ~session_id ~vDI)
+      ~msg:"VDI.enable_cbt failed";
+
+    debug vdi_duplicate_test "Cloning VDI";
+    let vdi_clone = VDI.clone ~session_id ~rpc:!rpc ~vdi:vDI ~driver_params:[] in
+    test_assert ~test:vdi_duplicate_test
+      (not (get_cbt_status ~session_id ~vDI:vdi_clone))
+      ~msg:"VDI.clone failed to set cbt_enabled to false";
+
+    debug vdi_duplicate_test "Snapshotting VDI";
+    let vdi_snapshot = VDI.snapshot ~session_id ~rpc:!rpc ~vdi:vDI ~driver_params:[] in
+    test_assert ~test:vdi_duplicate_test
+      (get_cbt_status ~session_id ~vDI:vdi_snapshot)
+      ~msg:"VDI.snapshot failed to update cbt_enabled";
+
+    (* Test VDI.copy for copying from existing to fresh VDI in same SR *)
+    debug vdi_duplicate_test "Copying VDI into a freshly created VDI in same SR";
+    let vdi_copy_fresh = VDI.copy ~session_id ~rpc:!rpc ~vdi:vDI ~base_vdi:(Ref.null) ~into_vdi:(Ref.null) ~sr:sR in
+    test_assert ~test:vdi_duplicate_test
+      (not (get_cbt_status ~session_id ~vDI:vdi_copy_fresh))
+      ~msg:"VDI.copy failed to initialise cbt_enabled to false";
+
+    (* Test VDI.copy for copying from one existing to another *)
+    debug vdi_duplicate_test "Copying VDI into existing VDI";
+    let into_vdi = make_vdi_from ~session_id ~sR in
+    let vdi_copy_existing = VDI.copy ~session_id ~rpc:!rpc ~vdi:vDI ~base_vdi:(Ref.null) ~into_vdi ~sr:(Ref.null) in
+    test_assert ~test:vdi_duplicate_test
+      (not (get_cbt_status ~session_id ~vDI:vdi_copy_existing))
+      ~msg:"VDI.copy failed to initialise cbt_enabled to false";
+    (* Test VDI copied into *)
+    test_assert ~test:vdi_duplicate_test
+      (not (get_cbt_status ~session_id ~vDI:into_vdi))
+      ~msg:"VDI.copy failed to initialise cbt_enabled to false";
+
+    success vdi_duplicate_test
+  with
+  | Test_failed msg -> failed vdi_duplicate_test msg
+  | e -> report_failure e vdi_duplicate_test
+
 
 (* Overall test executes individual unit tests *)
 let test ~session_id =
@@ -83,6 +169,10 @@ let test ~session_id =
       let sr_ops = (SR.get_allowed_operations ~session_id ~rpc:!rpc ~self:sR) in
       [ (fun () -> enable_disable_cbt_test ~session_id ~vDI) ,
         [ `vdi_enable_cbt ; `vdi_disable_cbt ]
+      ; (fun () -> vdi_data_destroy_test ~session_id ~vDI) ,
+        [ `vdi_enable_cbt ; `vdi_data_destroy ; `vdi_snapshot ]
+      ; (fun () -> vdi_clone_copy_snapshot_test ~session_id ~sR ~vDI),
+        [ `vdi_enable_cbt ; `vdi_create ; `vdi_clone ; `vdi_snapshot ]
       ]
       |> List.iter
         (fun (test,list_vdi_ops) ->
@@ -104,7 +194,7 @@ let test ~session_id =
            |> List.iter (fun vdi -> VDI.destroy ~session_id ~rpc:!rpc ~self:vdi)
         ) in
 
-    (* Obtain list of SRs capable of creating VDIs, and run them all through test suite *)
+    (* Run test stuite on SRs that are CBT-capable and can create VDIs *)
     (SR.get_all ~session_id ~rpc:!rpc)
     |> List.filter
       (fun sR -> (List.mem `vdi_create (SR.get_allowed_operations ~session_id ~rpc:!rpc ~self:sR))
