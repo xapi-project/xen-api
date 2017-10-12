@@ -12,10 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Client
+open Client (* import module *)
 open Quicktest_common
 exception Test_failed of string
-open Client
+open Client (* import namespace, don't have to type Client.VDI.function each time *)
 
 (* Helper for test failure due to unexpected error *)
 let report_failure error test =
@@ -26,6 +26,8 @@ let report_failure error test =
  * so that the test only fails once and doesn't erroneously assume the test never started *)
 let test_assert ~test op ~msg =
   if not op then raise (Test_failed msg)
+
+let get_cbt_status ~session_id ~vDI = VDI.get_cbt_enabled ~session_id ~rpc:!rpc ~self:vDI
 
 let name_description = "VDI for CBT quicktest"
 let make_vdi_from ~session_id ~sR = (* SR has VDI.create as allowed *)
@@ -45,34 +47,35 @@ let make_vdi_from ~session_id ~sR = (* SR has VDI.create as allowed *)
     ~sm_config:[]
 
 
-(* overall test, runs smaller unit tests *)
-let cbt_test = make_test "Testing changed block tracking" 2
+(**** Test declarations ****)
 
+(* Test enable/disable CBT, test cbt_enabled:false for new VDI *)
+let enable_disable_cbt_test ~session_id ~vDI =
+  let enable_cbt_test = make_test "Testing VDI.enable/disable_CBT" 4 in
+  try
+    start enable_cbt_test;
+    test_assert ~test:enable_cbt_test
+      (not (get_cbt_status ~session_id ~vDI))
+      ~msg:"VDI.cbt_enabled field should be set to false for new VDIs";
+    VDI.enable_cbt ~session_id ~rpc:!rpc ~self:vDI;
+    test_assert ~test:enable_cbt_test
+      (get_cbt_status ~session_id ~vDI)
+      ~msg:"VDI.enable_cbt failed";
+    VDI.disable_cbt ~session_id ~rpc:!rpc ~self:vDI;
+    test_assert ~test:enable_cbt_test
+      (not (get_cbt_status ~session_id ~vDI)) (* disable_cbt fails *)
+      ~msg:"VDI.disable_CBT failed";
+    success enable_cbt_test
+  with
+  | Test_failed msg -> failed enable_cbt_test msg
+  | e -> report_failure e enable_cbt_test
+
+
+(* Overall test executes individual unit tests *)
 let test ~session_id =
+  let cbt_test = make_test "Testing changed block tracking" 2 in
   try
     start cbt_test;
-    let get_cbt_status ~session_id ~vDI = VDI.get_cbt_enabled ~session_id ~rpc:!rpc ~self:vDI in
-
-    (* Test enable/disable CBT, test cbt_enabled:false for new VDI *)
-    let enable_disable_cbt_test ~session_id ~vDI =
-      let enable_cbt_test = make_test "Testing VDI.enable/disable_CBT" 4 in
-      try
-        start enable_cbt_test;
-        test_assert ~test:enable_cbt_test
-          (not (get_cbt_status ~session_id ~vDI))
-          ~msg:"VDI.cbt_enabled field should be set to false for new VDIs";
-        VDI.enable_cbt ~session_id ~rpc:!rpc ~self:vDI;
-        test_assert ~test:enable_cbt_test
-          (get_cbt_status ~session_id ~vDI)
-          ~msg:"VDI.enable_cbt failed";
-        VDI.disable_cbt ~session_id ~rpc:!rpc ~self:vDI;
-        test_assert ~test:enable_cbt_test
-          (not (get_cbt_status ~session_id ~vDI)) (* disable_cbt fails *)
-          ~msg:"VDI.disable_CBT failed";
-        success enable_cbt_test
-      with
-      | Test_failed msg -> failed enable_cbt_test msg
-      | e -> report_failure e enable_cbt_test in
 
     (* For each test, check the given sR is capable of the associated operations
      * If not, skip that test, otherwise run it *)
@@ -91,8 +94,8 @@ let test ~session_id =
     (* Try running test suite, definitively destroy all VDIs created, regardless of success or errors *)
     let handle_storage_objects ~session_id ~sR ~vDI =
       Xapi_stdext_pervasives.Pervasiveext.finally
-        (fun () -> run_test_suite ~session_id ~sR ~vDI)
-        (fun () ->
+        (fun () -> run_test_suite ~session_id ~sR ~vDI) (* try running test suite *)
+        (fun () ->                                      (* no matter what, destroy all VDIs created during test *)
            (VDI.get_all ~session_id ~rpc:!rpc)
            |> List.filter
              (fun vdi -> (VDI.get_name_label ~session_id ~rpc:!rpc ~self:vdi = "qt-cbt")
