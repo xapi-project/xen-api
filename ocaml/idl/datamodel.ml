@@ -1501,6 +1501,8 @@ let _ =
     ~doc:"The VM has too many VUSBs." ();
   error Api_errors.usb_group_conflict [ "USB_group" ]
     ~doc:"The USB_group must contain no vusb when creating VUSB object as now USB_group only have one PUSB." ();
+  error Api_errors.usb_already_attached [ "PUSB"; "VM" ]
+    ~doc:"The USB device is currently attached to a VM." ();
   error Api_errors.vm_has_vusbs ["VM"]
     ~doc:"The operation is not allowed when the VM has VUSBs." ()
 
