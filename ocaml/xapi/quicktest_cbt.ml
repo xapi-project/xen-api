@@ -27,6 +27,9 @@ let report_failure error test =
 let test_assert ~test op ~msg =
   if not op then raise (Test_failed msg)
 
+let test_compare ~test left_op right_op ~msg =
+  let op = (left_op = right_op) in test_assert ~test op ~msg
+
 let get_cbt_status ~session_id ~vDI = VDI.get_cbt_enabled ~session_id ~rpc:!rpc ~self:vDI
 
 let name_description = "VDI for CBT quicktest"
@@ -49,27 +52,46 @@ let make_vdi_from ~session_id ~sR = (* SR has VDI.create as allowed *)
 
 (**** Test declarations ****)
 
-(* Test enable/disable CBT, test cbt_enabled:false for new VDI *)
-let enable_disable_cbt_test ~session_id ~vDI =
-  let enable_cbt_test = make_test "Testing VDI.enable/disable_CBT" 4 in
+(* Test data_destroy and snapshot update the necessary fields *)
+let vdi_data_destroy_test ~session_id ~vDI =
+  let data_destroy_test = make_test "Testing VDI.data_destroy" 4 in
   try
-    start enable_cbt_test;
-    test_assert ~test:enable_cbt_test
-      (not (get_cbt_status ~session_id ~vDI))
-      ~msg:"VDI.cbt_enabled field should be set to false for new VDIs";
+    start data_destroy_test;
+    debug data_destroy_test "Enabling CBT on original VDI";
     VDI.enable_cbt ~session_id ~rpc:!rpc ~self:vDI;
-    test_assert ~test:enable_cbt_test
+    test_assert ~test:data_destroy_test
       (get_cbt_status ~session_id ~vDI)
       ~msg:"VDI.enable_cbt failed";
-    VDI.disable_cbt ~session_id ~rpc:!rpc ~self:vDI;
-    test_assert ~test:enable_cbt_test
-      (not (get_cbt_status ~session_id ~vDI)) (* disable_cbt fails *)
-      ~msg:"VDI.disable_CBT failed";
-    success enable_cbt_test
-  with
-  | Test_failed msg -> failed enable_cbt_test msg
-  | e -> report_failure e enable_cbt_test
 
+    debug data_destroy_test "Snapshotting original VDI.";
+    let newvdi = VDI.snapshot ~session_id ~rpc:!rpc ~vdi:vDI ~driver_params:[] in
+    test_assert ~test:data_destroy_test
+      (get_cbt_status ~session_id ~vDI:newvdi)
+      ~msg:"VDI.snapshot failed, cbt_enabled field didn't carry over";
+
+    debug data_destroy_test "Disabling CBT on original VDI";
+    VDI.disable_cbt ~session_id ~rpc:!rpc ~self:vDI;
+    test_assert ~test:data_destroy_test
+      (not (get_cbt_status ~session_id ~vDI))
+      ~msg:"VDI.disable_cbt failed";
+
+    debug data_destroy_test "Destroying snapshot VDI data";
+    VDI.data_destroy ~session_id ~rpc:!rpc ~self:newvdi;
+    test_compare ~test:data_destroy_test
+      (VDI.get_type ~session_id ~rpc:!rpc ~self:newvdi)
+      `cbt_metadata
+      ~msg:"VDI.data_destroy failed to update VDI.type";
+
+    let content_id_str = "/No content: this is a cbt_metadata VDI/" in
+    test_compare ~test:data_destroy_test
+      (VDI.get_other_config ~session_id ~rpc:!rpc ~self:newvdi |> List.assoc "content_id")
+      content_id_str
+      ~msg:(Printf.sprintf "VDI.data_destroy failed to update VDI.content_id to \"%s\"" content_id_str);
+
+    success data_destroy_test
+  with
+  | Test_failed msg -> failed data_destroy_test msg
+  | e -> report_failure e data_destroy_test
 
 (* Overall test executes individual unit tests *)
 let test ~session_id =
@@ -81,13 +103,17 @@ let test ~session_id =
      * If not, skip that test, otherwise run it *)
     let run_test_suite ~session_id ~sR ~vDI =
       let sr_ops = (SR.get_allowed_operations ~session_id ~rpc:!rpc ~self:sR) in
-      [ (fun () -> enable_disable_cbt_test ~session_id ~vDI) ,
-        [ `vdi_enable_cbt ; `vdi_disable_cbt ]
+      [
+        (fun ~vDI -> vdi_data_destroy_test ~session_id ~vDI) ,
+        [ `vdi_enable_cbt ; `vdi_data_destroy ; `vdi_snapshot ]
       ]
       |> List.iter
-        (fun (test,list_vdi_ops) ->
+        (fun (test , list_vdi_ops) ->
            if List.for_all (fun vdi_op -> List.mem vdi_op sr_ops) list_vdi_ops
-           then test ()
+           then begin
+             debug cbt_test "Creating VDI...";
+             let vDI = make_vdi_from ~session_id ~sR in
+             test ~vDI end
            else debug cbt_test "SR lacks capabilities for this test, skipping"
         ) in
 
@@ -101,7 +127,8 @@ let test ~session_id =
              (fun vdi -> (VDI.get_name_label ~session_id ~rpc:!rpc ~self:vdi = "qt-cbt")
                          && (VDI.get_name_description ~session_id ~rpc:!rpc ~self:vdi = name_description)
              )
-           |> List.iter (fun vdi -> VDI.destroy ~session_id ~rpc:!rpc ~self:vdi)
+           |> List.iter (fun vdi -> VDI.destroy ~session_id ~rpc:!rpc ~self:vdi);
+           debug cbt_test "Successfully destroyed all VDIs created for CBT test"
         ) in
 
     (* Obtain list of SRs capable of creating VDIs, and run them all through test suite *)
