@@ -31,7 +31,7 @@ let create ~__context ~vM ~uSB_group ~other_config =
   (* Currently USB_group only have one PUSB. So when vusb is created with a USB_group,
       another vusb can not create with the same USB_group. *)
   if vusbs <> [] then
-    raise (Api_errors.Server_error(Api_errors.too_many_vusbs, ["1"]));
+    raise (Api_errors.Server_error(Api_errors.usb_group_conflict, [Ref.string_of uSB_group]));
   (* We won't attach VUSB when VM ha_restart_priority is set to 'restart'  *)
   let ha_restart_priority = Db.VM.get_ha_restart_priority ~__context ~self:vM in
   match ha_restart_priority with
