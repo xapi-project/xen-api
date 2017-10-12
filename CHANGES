@@ -1,3 +1,6 @@
+0.12.0 (12-Oct-2017)
+* Update XenAPI bindings based on xen-api#057800e
+
 0.11.0 (09-Oct-2017)
 * Fix connection leak in Async client, now XenAPI calls close their connections
 * Add system to regenerate bindings from a version of xapi using jbuilder
