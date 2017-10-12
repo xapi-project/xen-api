@@ -2842,7 +2842,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
     "pusb-scan",
     {
-      reqd=[];
+      reqd=["host-uuid"];
       optn=[];
       help="Scan PUSB and update.";
       implementation=No_fd Cli_operations.PUSB.scan;
