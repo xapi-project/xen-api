@@ -109,7 +109,12 @@ module Sysfs = struct
 				(fun () -> close_in inchan)
 		with
 		| End_of_file -> ""
-		| exn -> error "%s" (Printexc.to_string exn); raise (Read_error file)
+		(* Match the exception when the device state if off *)
+		| Sys_error("Invalid argument") -> raise (Read_error file)
+		| exn ->
+			error "Error in read one line of file: %s, exception %s\n%s"
+				file (Printexc.to_string exn) (Printexc.get_backtrace ());
+			raise (Read_error file)
 
 	let write_one_line file l =
 		let outchan = open_out file in
