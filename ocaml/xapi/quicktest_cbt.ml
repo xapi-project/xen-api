@@ -194,7 +194,7 @@ let test ~session_id =
            |> List.iter (fun vdi -> VDI.destroy ~session_id ~rpc:!rpc ~self:vdi)
         ) in
 
-    (* Obtain list of CBT-capable SRs able to create VDIs (i.e. not iso), and run them all through test suite *)
+    (* Run test stuite on SRs that are CBT-capable and can create VDIs *)
     (SR.get_all ~session_id ~rpc:!rpc)
     |> List.filter
       (fun sR -> (List.mem `vdi_create (SR.get_allowed_operations ~session_id ~rpc:!rpc ~self:sR))
