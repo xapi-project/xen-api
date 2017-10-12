@@ -1,15 +1,14 @@
 #!/bin/bash
 #
-# Copyright (c) Citrix Systems 2007, 2008. All rights reserved.
+# Copyright (c) Citrix Systems 2007, 2008, 2017. All rights reserved.
 #
-# Generate a ssl certificate file to use with stunnel
+# Generate a TLS certificate file to use with stunnel etc.
 #
-
-DIR=/tmp/ssl-generation-$$
+set -e
 FILE=$1
 CN=$2
-
-if [ -z "${CN}" ]; then
+set -eu
+if [ -z "${CN}" -o -z "${FILE}" ]; then
 	echo "usage: $0 <certname> <cn>"
 	exit 2
 fi
@@ -19,30 +18,70 @@ if [ -e ${FILE} ]; then
 	exit 3
 fi
 
-mkdir -p ${DIR}
-chmod 700 ${DIR}
+dnsnames=$((hostname -A; hostname -f) | sort | uniq)
+
+DIR=$(mktemp -d tls-cert-generation-XXXXXXXXXX --tmpdir)
+
+function cleanup {
+	rm -rf "${DIR}"
+}
+trap cleanup ERR EXIT
 
 pushd ${DIR}
 
-#config
+# config file written so as to give the same behaviour with the
+# openssl "req" and "x509" commands (because x509 fails to include
+# extension sections when creating a certificate from a CSR).
 cat <<@eof >config
+extensions = ext_section # For openssl x509 command
 [req] # openssl req params
 prompt = no
 distinguished_name = dn-param
+req_extensions = ext_section
 [dn-param] # DN fields
 CN = ${CN}
+[ ext_section ]
+subjectAltName = @alt_names
+[alt_names]
 @eof
 
+i=0
+for x in $dnsnames
+do
+	let i=i+1
+	echo "DNS.${i}=${x}" >> config
+done
+
 openssl genrsa 1024 > privkey.rsa
-openssl req -batch -new -x509 -key privkey.rsa -days 3650 -config config -out cert.csr
+
+# Generate certificate-signing-request
+openssl req -batch -new -key privkey.rsa -days 3650 -config config -out cert.csr
+
+# Sign it, creating a certificate.
+# Due to a bug in openssl x509, the extensions in the CSR are ignored
+# so we have to re-specify them using the -extfile option.
+# (Trying to do this in one step by passing -x509 to the "req" command ignores
+# the extensions too, but "req" does not allow the -extfile option.)
+openssl x509 -extfile config -req -signkey privkey.rsa -in cert.csr -outform PEM -out signedpubcert.pem -days 3650
+
 openssl dhparam 512 > dh.pem
 
 popd
 
-(cat ${DIR}/privkey.rsa; echo ""; cat ${DIR}/cert.csr; \
- echo ""; cat ${DIR}/dh.pem) > ${FILE}
-chmod 400 ${FILE}
+tmpcert="${DIR}/tmpcertcombined.pem"
 
-rm -rf ${DIR}
+(cat ${DIR}/privkey.rsa; echo ""; cat ${DIR}/signedpubcert.pem; \
+ echo ""; cat ${DIR}/dh.pem) > "${tmpcert}"
 
-exit 0
+# Set up tmpcert the way we want it, then use mv to ensure that FILE
+# appears as an atomic event.
+chmod 400 "${tmpcert}"
+mv --no-clobber "${tmpcert}" "${FILE}"
+# Now check whether the mv succeeded (since it returns a 0 exit-code even if FILE existed already).
+if [ -e "${tmpcert}" ]; then
+	# It still exists in original location: it has not been moved.
+	echo "File has been created just now by someone else: cannot overwrite";
+	exit 3 # Rely on the EXIT trap to clean up.
+fi
+
+exit 0 # Rely on the EXIT trap to clean up.

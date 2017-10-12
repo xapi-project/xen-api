@@ -220,10 +220,10 @@ let vdi_data_destroy dconf driver sr vdi =
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_data_destroy" [] in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_export_changed_blocks dconf driver sr ~vdi_from ~vdi_to =
-  debug "vdi_export_changed_blocks" driver (sprintf "sr=%s vdi_from=%s vdi_to=%s" (Ref.string_of sr) (Ref.string_of vdi_from) (Ref.string_of vdi_to));
+let vdi_list_changed_blocks dconf driver sr ~vdi_from ~vdi_to =
+  debug "vdi_list_changed_blocks" driver (sprintf "sr=%s vdi_from=%s vdi_to=%s" (Ref.string_of sr) (Ref.string_of vdi_from) (Ref.string_of vdi_to));
   srmaster_only dconf;
-  let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi_from dconf "vdi_export_changed_blocks" [ Ref.string_of vdi_to ] in
+  let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi_from dconf "vdi_list_changed_blocks" [ Ref.string_of vdi_to ] in
   Sm_exec.parse_string (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
 let session_has_internal_sr_access ~__context ~sr =

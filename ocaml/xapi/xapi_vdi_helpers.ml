@@ -24,6 +24,26 @@ open Threadext
 module D=Debug.Make(struct let name="xapi" end)
 open D
 
+let all_ops : API.vdi_operations_set =
+  [ `blocked
+  ; `clone
+  ; `copy
+  ; `data_destroy
+  ; `destroy
+  ; `disable_cbt
+  ; `enable_cbt
+  ; `force_unlock
+  ; `forget
+  ; `generate_config
+  ; `list_changed_blocks
+  ; `mirror
+  ; `resize
+  ; `resize_online
+  ; `set_on_boot
+  ; `snapshot
+  ; `update
+  ]
+
 (* CA-26514: Block operations on 'unmanaged' VDIs *)
 let assert_managed ~__context ~vdi =
   if not (Db.VDI.get_managed ~__context ~self:vdi)

@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 132
+let schema_minor_vsn = 133
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -88,7 +88,7 @@ let falcon_release_schema_major_vsn = 5
 let falcon_release_schema_minor_vsn = 120
 
 let inverness_release_schema_major_vsn = 5
-let inverness_release_schema_minor_vsn = 131
+let inverness_release_schema_minor_vsn = 133
 
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
@@ -170,7 +170,7 @@ let _pvs_proxy = "PVS_proxy"
 let _pvs_cache_storage = "PVS_cache_storage"
 let _feature = "Feature"
 let _sdn_controller = "SDN_controller"
-
+let _vdi_nbd_server_info = "vdi_nbd_server_info"
 
 (** All the various static role names *)
 
@@ -566,6 +566,8 @@ let _ =
     ~doc:"You tried to create a PIF, but the network you tried to attach it to is already attached to some other PIF, and so the creation failed." ();
   error Api_errors.cannot_destroy_system_network [ "network" ]
     ~doc:"You tried to destroy a system network: these cannot be destroyed." ();
+  error Api_errors.network_incompatible_purposes ["new_purpose"; "conflicting_purpose"]
+    ~doc:"You tried to add a purpose to a network but the new purpose is not compatible with an existing purpose of the network or other networks." ();
   error Api_errors.pif_is_physical ["PIF"]
     ~doc:"You tried to destroy a PIF, but it represents an aspect of the physical host configuration, and so cannot be destroyed.  The parameter echoes the PIF handle you gave." ();
   error Api_errors.pif_is_vlan ["PIF"]
@@ -4698,12 +4700,12 @@ let host_certificate_sync = call
 
 let host_get_server_certificate = call
     ~in_oss_since:None
-    ~in_product_since:rel_george
+    ~lifecycle:[Published, rel_george, ""; Changed, rel_inverness, "Now available to all RBAC roles."]
     ~name:"get_server_certificate"
-    ~doc:"Get the installed server SSL certificate."
+    ~doc:"Get the installed server public TLS certificate."
     ~params:[Ref _host, "host", "The host"]
-    ~result:(String,"The installed server SSL certificate, in PEM form.")
-    ~allowed_roles:_R_POOL_OP
+    ~result:(String,"The installed server public TLS certificate, in PEM form.")
+    ~allowed_roles:_R_READ_ONLY
     ()
 
 let host_display =
@@ -5190,6 +5192,13 @@ let network_attach = call
     ~allowed_roles:_R_POOL_OP
     ()
 
+let network_purpose = Enum ("network_purpose", [
+  "nbd", "Network Block Device service using TLS";
+  "insecure_nbd", "Network Block Device service without integrity or confidentiality: NOT RECOMMENDED";
+  (* We should (re-)add other purposes as and when we write code with behaviour that depends on them,
+   * e.g. management, storage, guest, himn... unmanaged? *)
+])
+
 let network_introduce_params first_rel =
   [
     {param_type=String; param_name="name_label"; param_doc=""; param_release=first_rel; param_default=None};
@@ -5198,6 +5207,7 @@ let network_introduce_params first_rel =
     {param_type=Map(String,String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=String; param_name="bridge"; param_doc=""; param_release=first_rel; param_default=None};
     {param_type=Bool; param_name="managed"; param_doc=""; param_release=falcon_release; param_default=None};
+    {param_type=Set(network_purpose); param_name="purpose"; param_doc=""; param_release=inverness_release; param_default=None};
   ]
 
 (* network pool introduce is used to copy network records on pool join -- it's the network analogue of VDI/PIF.pool_introduce *)
@@ -5261,6 +5271,29 @@ let network_detach_for_vm = call
     ~allowed_roles:_R_VM_POWER_ADMIN
     ()
 
+let network_add_purpose = call
+  ~name:"add_purpose"
+  ~doc:"Give a network a new purpose (if not present already)"
+  ~params:[
+    Ref _network, "self", "The network";
+    network_purpose, "value", "The purpose to add";
+  ]
+  ~errs:[Api_errors.network_incompatible_purposes]
+  ~in_product_since:rel_inverness
+  ~allowed_roles:_R_POOL_ADMIN
+  ()
+
+let network_remove_purpose = call
+  ~name:"remove_purpose"
+  ~doc:"Remove a purpose from a network (if present)"
+  ~params:[
+    Ref _network, "self", "The network";
+    network_purpose, "value", "The purpose to remove";
+  ]
+  ~in_product_since:rel_inverness
+  ~allowed_roles:_R_POOL_ADMIN
+  ()
+
 (** A virtual network *)
 let network =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_network ~descr:"A virtual network" ~gen_events:true
@@ -5268,7 +5301,7 @@ let network =
     ~messages_default_allowed_roles:_R_VM_ADMIN (* vm admins can create/destroy networks without PIFs *)
     ~doc_tags:[Networking]
     ~messages:[network_attach; network_pool_introduce; network_create_new_blob; network_set_default_locking_mode;
-               network_attach_for_vm; network_detach_for_vm]
+               network_attach_for_vm; network_detach_for_vm; network_add_purpose; network_remove_purpose]
     ~contents:
       ([
         uid _network;
@@ -5283,7 +5316,8 @@ let network =
           field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this network";
           field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
           field ~qualifier:DynamicRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "unlocked")) ~ty:network_default_locking_mode "default_locking_mode" "The network will use this value to determine the behaviour of all VIFs where locking_mode = default";
-          field ~qualifier:DynamicRO ~in_product_since:rel_creedence ~default_value:(Some (VMap [])) ~ty:(Map (Ref _vif, String)) "assigned_ips" "The IP addresses assigned to VIFs on networks that have active xapi-managed DHCP"
+          field ~qualifier:DynamicRO ~in_product_since:rel_creedence ~default_value:(Some (VMap [])) ~ty:(Map (Ref _vif, String)) "assigned_ips" "The IP addresses assigned to VIFs on networks that have active xapi-managed DHCP";
+          field ~qualifier:DynamicRO ~in_product_since:rel_inverness ~default_value:(Some (VSet [])) ~ty:(Set network_purpose) "purpose" "Set of purposes for which the server will use this network";
         ])
     ()
 
@@ -6028,7 +6062,7 @@ let storage_operations =
           "vdi_enable_cbt", "Enabling changed block tracking for a VDI";
           "vdi_disable_cbt", "Disabling changed block tracking for a VDI";
           "vdi_data_destroy", "Deleting the data of the VDI";
-          "vdi_export_changed_blocks", "Exporting a bitmap that shows the changed blocks between two VDIs";
+          "vdi_list_changed_blocks", "Exporting a bitmap that shows the changed blocks between two VDIs";
           "vdi_set_on_boot", "Setting the on_boot field of the VDI";
           "pbd_create", "Creating a PBD for this SR";
           "pbd_destroy", "Destroying one of this SR's PBDs"; ])
@@ -6354,7 +6388,7 @@ let vdi_operations =
           "enable_cbt", "Enabling changed block tracking for a VDI";
           "disable_cbt", "Disabling changed block tracking for a VDI";
           "data_destroy", "Deleting the data of the VDI";
-          "export_changed_blocks", "Exporting a bitmap that shows the changed blocks between two VDIs";
+          "list_changed_blocks", "Exporting a bitmap that shows the changed blocks between two VDIs";
           "set_on_boot", "Setting the on_boot field of the VDI";
           "blocked", "Operations on this VDI are temporarily blocked";
         ])
@@ -6629,8 +6663,8 @@ let vdi_data_destroy = call
     ~allowed_roles:_R_VM_ADMIN
     ()
 
-let vdi_export_changed_blocks = call
-    ~name:"export_changed_blocks"
+let vdi_list_changed_blocks = call
+    ~name:"list_changed_blocks"
     ~in_oss_since:None
     ~in_product_since:rel_inverness
     ~params:
@@ -6645,20 +6679,48 @@ let vdi_export_changed_blocks = call
       ; Api_errors.vdi_in_use
       ]
     ~result:(String, "A base64 string-encoding of the bitmap showing which blocks differ in the two VDIs.")
-    ~doc:"Reports which blocks differ in the two VDIs. This operation is not allowed when vdi_to is attached to a VM."
+    ~doc:"Compare two VDIs in 64k block increments and report which blocks differ. This operation is not allowed when vdi_to is attached to a VM."
     ~allowed_roles:_R_VM_OP
     ()
+
+module Vdi_nbd_server_info = struct
+  let vdi_nbd_server_info =
+    let lifecycle = [Published, rel_inverness, ""] in
+    create_obj
+      ~in_db:false
+      ~persist:PersistNothing
+      ~gen_constructor_destructor:false
+      ~lifecycle
+      ~in_oss_since:None
+      ~name:_vdi_nbd_server_info
+      ~descr:"Details for connecting to a VDI using the Network Block Device protocol"
+      ~gen_events:false
+      ~messages:[]
+      ~doccomments:[]
+      ~messages_default_allowed_roles:(Some []) (* No messages, so no roles allowed to use them *)
+      ~contents:
+      [ (* uid _vdi_nbd_server_info; The uuid is not needed here and only adds inconvenience. *)
+        field ~qualifier:DynamicRO ~lifecycle ~ty:String "exportname" "The exportname to request over NBD. This holds details including an authentication token, so it must be protected appropriately. Clients should regard the exportname as an opaque string or token.";
+        field ~qualifier:DynamicRO ~lifecycle ~ty:String "address" "An address on which the server can be reached; this can be IPv4, IPv6, or a DNS name.";
+        field ~qualifier:DynamicRO ~lifecycle ~ty:Int "port" "The TCP port";
+        field ~qualifier:DynamicRO ~lifecycle ~ty:String "cert" "The TLS certificate of the server";
+        field ~qualifier:DynamicRO ~lifecycle ~ty:String "subject" "For convenience, this redundant field holds a subject of the certificate.";
+      ] ()
+end
+let vdi_nbd_server_info = Vdi_nbd_server_info.vdi_nbd_server_info
 
 let vdi_get_nbd_info = call
     ~name:"get_nbd_info"
     ~in_oss_since:None
     ~in_product_since:rel_inverness
-    ~params:[Ref _vdi, "self", "The VDI to access via NBD."]
+    ~params:[Ref _vdi, "self", "The VDI to access via Network Block Device protocol"]
     ~errs: [Api_errors.vdi_incompatible_type]
-    ~result:(Set String, "The list of URIs.")
-    ~doc:"Get a list of URIs specifying how to access this VDI via the NBD server of XenServer. A URI will be returned for each PIF of each host that is connected to the VDI's SR. An empty list is returned in case no network has a PIF on a host with access to the relevant SR. To access the given VDI, any of the returned URIs can be passed to the NBD server running at the IP address and port specified by that URI as the export name."
+    ~result:(Set (Record _vdi_nbd_server_info), "The details necessary for connecting to the VDI over NBD. This includes an authentication token, so must be treated as sensitive material and must not be sent over insecure networks.")
+    ~doc:"Get details specifying how to access this VDI via a Network Block Device server. For each of a set of NBD server addresses on which the VDI is available, the return value set contains a vdi_nbd_server_info object that contains an exportname to request once the NBD connection is established, and connection details for the address. An empty list is returned if there is no network that has a PIF on a host with access to the relevant SR, or if no such network has been assigned an NBD-related purpose in its purpose field. To access the given VDI, any of the vdi_nbd_server_info objects can be used to make a connection to a server, and then the VDI will be available by requesting the exportname."
+    ~flags:[`Session] (* no async *)
     ~allowed_roles:_R_VM_ADMIN
     ()
+
 
 (** A virtual disk *)
 let vdi =
@@ -6696,7 +6758,7 @@ let vdi =
                vdi_disable_cbt;
                vdi_set_cbt_enabled;
                vdi_data_destroy;
-               vdi_export_changed_blocks;
+               vdi_list_changed_blocks;
                vdi_get_nbd_info;
               ]
     ~contents:
@@ -8913,6 +8975,7 @@ let message =
                    "VMPP","VMPP";
                    "VMSS", "VMSS";
                    "PVS_proxy","PVS_proxy";
+                   "VDI","VDI";
                  ])
   in
   let create = call
@@ -9925,6 +9988,7 @@ let all_system =
     pvs_cache_storage;
     feature;
     sdn_controller;
+    vdi_nbd_server_info;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -10103,6 +10167,7 @@ let expose_get_all_messages_for = [
   _pvs_cache_storage;
   _feature;
   _sdn_controller;
+  (* _vdi_nbd_server_info must NOT be included here *)
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]

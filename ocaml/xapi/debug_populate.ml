@@ -33,8 +33,8 @@ let rec make_networks __context i =
   if i=0 then ()
   else
     begin
-      let nw_ref =
-        Xapi_network.create ~__context ~name_label:("Network-"^(string_of_int i)) ~name_description:"dummy" ~mTU:1500L ~other_config:[] ~bridge:"" ~managed:true ~tags:[] in
+      let nw_ref = Xapi_network.create ~__context ~name_label:("Network-"^(string_of_int i)) ~name_description:"dummy"
+        ~mTU:1500L ~other_config:[] ~bridge:"" ~managed:true ~tags:[] in
       nws := nw_ref :: !nws;
       make_networks __context (i-1)
     end

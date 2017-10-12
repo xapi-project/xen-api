@@ -58,6 +58,7 @@ type feature =
   | IGMP_snooping                (** Enable the use of IGMP snooping feature. *)
   | RPU                          (** Enable use of Rolling Pool Upgrade *)
   | Pool_size                    (** Enable use of Pooling for more than 3 Hosts *)
+  | CBT                          (** Enable the use of CBT *)
 
 (** Convert RPC into {!feature}s *)
 val feature_of_rpc : Rpc.t -> feature

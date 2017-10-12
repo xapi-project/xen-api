@@ -112,7 +112,7 @@ let vdi_operation_to_string: API.vdi_operations -> string = function
   | `enable_cbt -> "enable_cbt"
   | `disable_cbt -> "disable_cbt"
   | `data_destroy -> "data_destroy"
-  | `export_changed_blocks -> "export_changed_blocks"
+  | `list_changed_blocks -> "list_changed_blocks"
   | `set_on_boot -> "set_on_boot"
   | `blocked -> "blocked"
 
@@ -134,7 +134,7 @@ let sr_operation_to_string: API.storage_operations -> string = function
   | `vdi_disable_cbt -> "VDI.disable_cbt"
   | `vdi_set_on_boot -> "VDI.set_on_boot"
   | `vdi_data_destroy -> "VDI.data_destroy"
-  | `vdi_export_changed_blocks -> "VDI.export_changed_blocks"
+  | `vdi_list_changed_blocks -> "VDI.list_changed_blocks"
   | `pbd_create -> "PBD.create"
   | `pbd_destroy -> "PBD.destroy"
 
@@ -197,6 +197,15 @@ let string_to_network_default_locking_mode = function
   | "unlocked" -> `unlocked
   | "disabled" -> `disabled
   | s -> raise (Record_failure ("Expected 'unlocked' or 'disabled', got "^s))
+
+let network_purpose_to_string: API.network_purpose -> string = function
+  | `nbd -> "nbd"
+  | `insecure_nbd -> "insecure_nbd"
+
+let string_to_network_purpose: string -> API.network_purpose = function
+  | "nbd" -> `nbd
+  | "insecure_nbd" -> `insecure_nbd
+  | s -> raise (Record_failure ("Expected a network purpose string; got "^s))
 
 let vm_appliance_operation_to_string = function
   | `start -> "start"

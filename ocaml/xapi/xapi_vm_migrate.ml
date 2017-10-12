@@ -134,6 +134,19 @@ let assert_sr_support_operations ~__context ~vdi_map ~remote ~ops =
       op_supported_on_dest_sr sr ops sm_record remote;
     )
 
+(** Check that none of the VDIs that are mapped to a different SR have CBT
+    enabled. This function must be called with the complete [vdi_map],
+    which contains all the VDIs of the VM.
+    [check_vdi_map] should be called before this function to verify that this
+    is the case. *)
+let assert_no_cbt_enabled_vdi_migrated ~__context ~vdi_map =
+  List.iter (fun (vdi, target_sr) ->
+      if (Db.VDI.get_cbt_enabled ~__context ~self:vdi) then begin
+        if (target_sr <> (Db.VDI.get_SR ~__context ~self:vdi)) then
+          raise Api_errors.(Server_error(vdi_cbt_enabled, [Ref.string_of vdi]))
+      end
+    ) vdi_map
+
 let assert_licensed_storage_motion ~__context =
   Pool_features.assert_enabled ~__context ~f:Features.Storage_motion
 
@@ -774,8 +787,10 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
             are 'snapshot_of' a specified VDI go to the same place. suspend VDIs
             that are unspecified go to the suspend_sr_ref defined above *)
 
+  let extra_vdis = suspends_vdis @ snapshots_vdis in
+
   let extra_vdi_map =
-    List.filter_map
+    List.map
       (fun vconf ->
          let dest_sr_ref =
            let is_mapped = List.mem_assoc vconf.vdi vdi_map
@@ -804,10 +819,15 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
              error "%s VDI not in VDI->SR map and no remote default SR is set" log_prefix;
              raise (Api_errors.Server_error(Api_errors.vdi_not_in_map, [ Ref.string_of vconf.vdi ]))
            end in
-         Some (vconf.vdi, dest_sr_ref))
-      (suspends_vdis @ snapshots_vdis) in
+         (vconf.vdi, dest_sr_ref))
+      extra_vdis in
 
   let vdi_map = vdi_map @ extra_vdi_map in
+  let all_vdis = vms_vdis @ extra_vdis in
+
+  (* The vdi_map should be complete at this point - it should include all the
+     VDIs in the all_vdis list. *)
+  assert_no_cbt_enabled_vdi_migrated ~__context ~vdi_map;
 
   let dbg = Context.string_of_task __context in
   let open Xapi_xenops_queue in
@@ -833,7 +853,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
         let t2 = Date.to_float (Db.VDI.get_snapshot_time ~__context ~self:v2.vdi) in
         compare t1 t2
       else r in
-    let all_vdis = List.concat [suspends_vdis; snapshots_vdis; vms_vdis] |> List.sort compare_fun in
+    let all_vdis = all_vdis |> List.sort compare_fun in
 
     let total_size = List.fold_left (fun acc vconf -> Int64.add acc vconf.size) 0L all_vdis in
     let so_far = ref 0L in
@@ -1053,12 +1073,6 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   let vms_vdis = List.filter_map (vdi_filter __context true) vbds in
   check_vdi_map ~__context vms_vdis vdi_map;
 
-  (* Prevent SXM when the VM has a VDI on which changed block tracking is enabled *)
-  List.iter (fun vconf ->
-      let vdi = vconf.vdi in
-      if (Db.VDI.get_cbt_enabled ~__context ~self:vdi) then
-        raise Api_errors.(Server_error(vdi_cbt_enabled, [Ref.string_of vdi]))) vms_vdis ;
-
   let migration_type =
     try
       ignore(Db.Host.get_uuid ~__context ~self:remote.dest_host);
@@ -1073,7 +1087,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   let required_sr_operations = [Smint.Vdi_mirror; Smint.Vdi_snapshot] in
   let host_from = Helpers.LocalObject source_host_ref in
 
-  match migration_type with
+  begin match migration_type with
   | `intra_pool ->
     (* Prevent VMs from being migrated onto a host with a lower platform version *)
     let host_to = Helpers.LocalObject remote.dest_host in
@@ -1087,7 +1101,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
     Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:remote.dest_host ~snapshot ~do_sr_check:false ();
     if vif_map <> [] then
       raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [
-          "VIF mapping is not allowed for intra-pool migration"]))
+          "VIF mapping is not allowed for intra-pool migration"]));
 
   | `cross_pool ->
     (* Prevent VMs from being migrated onto a host with a lower platform version *)
@@ -1139,6 +1153,10 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
         raise Api_errors.(Server_error(internal_error, ["assert_can_migrate: inter_pool_metadata_transfer returned a nonempty list"]))
     with Xmlrpc_client.Connection_reset ->
       raise (Api_errors.Server_error(Api_errors.cannot_contact_host, [remote.remote_ip]))
+  end;
+
+  (* check_vdi_map above has already verified that all VDIs are in the vdi_map *)
+  assert_no_cbt_enabled_vdi_migrated ~__context ~vdi_map
 
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
   with_migrate (fun () ->
