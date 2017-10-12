@@ -6717,6 +6717,7 @@ let vdi_get_nbd_info = call
     ~errs: [Api_errors.vdi_incompatible_type]
     ~result:(Set (Record _vdi_nbd_server_info), "The details necessary for connecting to the VDI over NBD. This includes an authentication token, so must be treated as sensitive material and must not be sent over insecure networks.")
     ~doc:"Get details specifying how to access this VDI via a Network Block Device server. For each of a set of NBD server addresses on which the VDI is available, the return value set contains a vdi_nbd_server_info object that contains an exportname to request once the NBD connection is established, and connection details for the address. An empty list is returned if there is no network that has a PIF on a host with access to the relevant SR, or if no such network has been assigned an NBD-related purpose in its purpose field. To access the given VDI, any of the vdi_nbd_server_info objects can be used to make a connection to a server, and then the VDI will be available by requesting the exportname."
+    ~flags:[`Session] (* no async *)
     ~allowed_roles:_R_VM_ADMIN
     ()
 
