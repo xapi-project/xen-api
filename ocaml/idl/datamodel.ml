@@ -9883,7 +9883,9 @@ module PUSB = struct
   let scan = call
       ~name:"scan"
       ~lifecycle
-      ~params:[]
+      ~params:[
+        Ref _host, "host", "The host";
+      ]
       ~allowed_roles:_R_POOL_OP
       ()
 

@@ -4163,6 +4163,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
   module PUSB = struct
     include Local.PUSB
+    let scan ~__context ~host =
+      info "PUSB.scan: host = '%s'" (host_uuid ~__context host);
+      let local_fn = Local.PUSB.scan ~host in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.PUSB.scan rpc session_id host)
+
 
   end
 
