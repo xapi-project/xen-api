@@ -1503,6 +1503,8 @@ let _ =
     ~doc:"USB_groups are currently restricted to contain no more than one VUSB." ();
   error Api_errors.usb_already_attached [ "PUSB"; "VM" ]
     ~doc:"The USB device is currently attached to a VM." ();
+  error Api_errors.passthrough_not_enabled [ "PUSB"]
+    ~doc:"The passthrough_enabled must be true before passthrough usb to vm." ();
   error Api_errors.vm_has_vusbs ["VM"]
     ~doc:"The operation is not allowed when the VM has VUSBs." ()
 
