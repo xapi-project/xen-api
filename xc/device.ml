@@ -1404,7 +1404,10 @@ module Vusb = struct
     | _ ->()
 
   let vusb_plug ~xs ~domid ~id ~hostbus ~hostport ~version =
-    debug "Vusb plugged: vusb device plugged ";
+    let device_model = Profile.of_domid domid in
+    if device_model = Profile.Qemu_trad then
+      raise (Internal_error (Printf.sprintf "Failed to plug VUSB %s because domain %d uses device-model profile %s." id domid (Profile.string_of device_model)));
+    debug "Vusb plugged: vusb device %s plugged" id;
     let get_bus v =
       if String.startswith "1" v then
          "usb-bus.0"
