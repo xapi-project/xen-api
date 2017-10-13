@@ -66,7 +66,7 @@ let map2_unlikely f s =
     s
 
 let protect_fn = function
-  |  ' ', Some ' ' -> Replace (protect_char, '_' )
+  |  ' ',       _  -> Expand  (protect_char, '.' )
   | '\t',       _  -> Expand  (protect_char, 't' )
   | '\n',       _  -> Expand  (protect_char, 'n' )
   | '\r',       _  -> Expand  (protect_char, 'r' )
@@ -75,7 +75,9 @@ let protect_fn = function
   |   _ ,       _  -> No_change
 
 let unprotect_fn = function
+  (* CA-268761: this is only for backward compatibility *)
   | c, Some '_' when c=protect_char -> Replace (' ', ' ')
+  | c, Some '.' when c=protect_char -> Compress ' '
   | c, Some 't' when c=protect_char -> Compress '\t'
   | c, Some 'n' when c=protect_char -> Compress '\n'
   | c, Some 'r' when c=protect_char -> Compress '\r'
