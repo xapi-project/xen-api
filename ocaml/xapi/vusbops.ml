@@ -42,6 +42,9 @@ let allocate_vusb_to_usb ~__context vm host vusb =
   match pusbs with
   | [] -> raise (Api_errors.Server_error (Api_errors.vm_requires_vusb, [ Ref.string_of vm; Ref.string_of vusb.usb_group_ref;]))
   | pusb :: _ ->
+    let passthrough_enabled = Db.PUSB.get_passthrough_enabled ~__context ~self:pusb in
+    if not passthrough_enabled then
+      raise (Api_errors.Server_error (Api_errors.passthrough_not_enabled, [ Ref.string_of pusb]));
     Db.VUSB.set_attached ~__context ~self:vusb.vusb_ref ~value:pusb;
     Db.PUSB.set_attached ~__context ~self:pusb ~value:vusb.vusb_ref
 
