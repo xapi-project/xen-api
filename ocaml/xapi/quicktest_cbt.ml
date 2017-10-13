@@ -101,7 +101,7 @@ let vdi_data_destroy_test ~session_id ~vDI =
     test_compare ~test:data_destroy_test
       (VDI.get_other_config ~session_id ~rpc:!rpc ~self:newvdi |> List.assoc "content_id")
       content_id_str
-      ~msg:"VDI.data_destroy failed to update VDI.content_id";
+      ~msg:(Printf.sprintf "VDI.data_destroy failed to update VDI.content_id to \"%s\"" content_id_str);
 
     success data_destroy_test
   with
