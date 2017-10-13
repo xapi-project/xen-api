@@ -23,6 +23,7 @@ let m = Mutex.create ()
 let create ~__context ~vM ~uSB_group ~other_config =
   let vusb = Ref.make () in
   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  Pool_features.assert_enabled ~__context ~f:Features.USB_passthrough;
   let attached_vusbs = Db.VM.get_VUSBs ~__context ~self:vM in
   (* At most 6 VUSBS can be attached to one vm *)
   if List.length attached_vusbs > 5 then
@@ -31,7 +32,7 @@ let create ~__context ~vM ~uSB_group ~other_config =
   (* Currently USB_group only have one PUSB. So when vusb is created with a USB_group,
       another vusb can not create with the same USB_group. *)
   if vusbs <> [] then
-    raise (Api_errors.Server_error(Api_errors.too_many_vusbs, ["1"]));
+    raise (Api_errors.Server_error(Api_errors.usb_group_conflict, [Ref.string_of uSB_group]));
   (* We won't attach VUSB when VM ha_restart_priority is set to 'restart'  *)
   let ha_restart_priority = Db.VM.get_ha_restart_priority ~__context ~self:vM in
   match ha_restart_priority with

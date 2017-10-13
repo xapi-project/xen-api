@@ -1499,6 +1499,10 @@ let _ =
     ~doc:"The USB group does not contain any PUSBs." ();
   error Api_errors.too_many_vusbs [ "number" ]
     ~doc:"The VM has too many VUSBs." ();
+  error Api_errors.usb_group_conflict [ "USB_group" ]
+    ~doc:"USB_groups are currently restricted to contain no more than one VUSB." ();
+  error Api_errors.usb_already_attached [ "PUSB"; "VM" ]
+    ~doc:"The USB device is currently attached to a VM." ();
   error Api_errors.vm_has_vusbs ["VM"]
     ~doc:"The operation is not allowed when the VM has VUSBs." ()
 
@@ -9883,7 +9887,9 @@ module PUSB = struct
   let scan = call
       ~name:"scan"
       ~lifecycle
-      ~params:[]
+      ~params:[
+        Ref _host, "host", "The host";
+      ]
       ~allowed_roles:_R_POOL_OP
       ()
 

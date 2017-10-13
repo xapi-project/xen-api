@@ -74,8 +74,9 @@ let start_thread f =
           ()
       done) ())
 
-let scan ~__context =
+let scan ~__context ~host =
   (* notify that scan is required. *)
+  Pool_features.assert_enabled ~__context ~f:Features.USB_passthrough;
   Mutex.execute mutex (fun () ->
       scan_required := true;
       Condition.broadcast cond
@@ -87,7 +88,7 @@ let scan_thread ~__context =
     scan_start ~__context usbs
   in
   start_thread f;
-  scan ~__context
+  scan ~__context ~host:(Helpers.get_localhost ~__context)
 
 let get_sm_usb_path ~__context vdi =
   try
@@ -123,8 +124,7 @@ let set_passthrough_enabled ~__context ~self ~value =
          (* If the USB is passthroughed to vm, need to unplug it firstly*)
          if attached <> Ref.null then begin
            let vm = Db.VUSB.get_VM ~__context ~self:attached in
-           raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
-             [Printf.sprintf "USB '%s' is attached to '%s.'" (Ref.string_of self) (Ref.string_of vm)]))
+           raise (Api_errors.Server_error(Api_errors.usb_already_attached, [Ref.string_of self; Ref.string_of vm]))
          end;
          let usb_group = Db.PUSB.get_USB_group ~__context ~self in
          let vusbs = Db.USB_group.get_VUSBs ~__context ~self:usb_group in
