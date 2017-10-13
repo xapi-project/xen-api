@@ -30,19 +30,10 @@ import pyudev
 import re
 import traceback
 
-# True to print log to user.log
-__DIAGNOSTIC = False
-log.logToSyslog(level=logging.DEBUG)
 
-
-def log_wrapper(s):
-    if __DIAGNOSTIC:
-        log.debug(str(s))
-
-
-def log_list_wrapper(l):
+def log_list(l):
     for s in l:
-        log_wrapper(s)
+        log.debug(s)
 
 
 def hex_equal(h1, h2):
@@ -144,7 +135,6 @@ class UsbDevice(UsbObject):
     """ Class for USB device, save USB properties in UsbObject dict
 
     interfaces:([UsbInterface]) list of USB interfaces belonging to this device
-    allow:(bool) if passthrough is permitted
     """
     _DESC_VENDOR = "ID_VENDOR_FROM_DATABASE"
     _DESC_PRODUCT = "ID_MODEL_FROM_DATABASE"
@@ -186,13 +176,11 @@ class UsbDevice(UsbObject):
                 self[p] = ""
 
         self.interfaces = set()
-        self.allow = False
 
     def debug_str(self, level=0):
         s = super(UsbDevice, self).debug_str(level)
         for i in self.interfaces:
             s += i.debug_str(level + 1)
-        s += self.indent(level + 1) + "Allow: " + str(self.allow)
         return s
 
     def is_initialized(self):
@@ -224,7 +212,7 @@ class UsbDevice(UsbObject):
         :return: None
         """
         if interface in self.interfaces:
-            log_wrapper("overriding existing interface: " + interface)
+            log.debug("overriding existing interface: " + interface)
             self.interfaces.remove(interface)
         self.interfaces.add(interface)
 
@@ -235,7 +223,7 @@ class UsbDevice(UsbObject):
         :return: None
         """
         if interface in self.interfaces:
-            log_wrapper("removing interface: " + interface)
+            log.debug("removing interface: " + interface)
             self.interfaces.remove(interface)
 
     def get_all_interfaces(self):
@@ -252,21 +240,6 @@ class UsbDevice(UsbObject):
         """
         n = int(self[self._NUM_INTERFACES])
         return n > 0 and n == len(self.interfaces)
-
-    def is_allow(self):
-        """ getter for self.allow
-
-        :return:(bool), if it can be passed through
-        """
-        return self.allow
-
-    def set_allow(self, allow):
-        """setter for self.allow
-
-        :param allow:(bool) if it can be passed through
-        :return: None
-        """
-        self.allow = allow
 
 
 class UsbInterface(UsbObject):
@@ -310,7 +283,7 @@ class UsbInterface(UsbObject):
         return super(UsbInterface, self).is_initialized()
 
     def is_child_of(self, parent):
-        if type(parent) is UsbDevice and parent.is_initialized():
+        if isinstance(parent, UsbDevice) and parent.is_initialized():
             conf_value = parent[UsbDevice._CONF_VALUE]
             pattern = r"^{}:{}\.\d+$".format(re.escape(parent.get_node()),
                                              re.escape(conf_value))
@@ -326,14 +299,14 @@ def get_usb_info():
         if device.is_initialized() and not device.is_class_hub():
             devices.append(device)
         else:
-            log_wrapper("ignore usb device:" + str(device))
+            log.debug("ignore usb device:" + str(device))
 
     for d in context.list_devices(subsystem="usb", DEVTYPE="usb_interface"):
         interface = UsbInterface(d.sys_name, d.attributes)
         if interface.is_initialized() and not interface.is_class_hub():
             interfaces.append(interface)
         else:
-            log_wrapper("ignore usb interface:" + str(interface))
+            log.debug("ignore usb interface:" + str(interface))
 
     return devices, interfaces
 
@@ -380,18 +353,18 @@ class Policy(object):
         self.rule_list = []
         try:
             with open(self._PATH, "r") as f:
-                log_wrapper("=== policy file begin")
+                log.debug("=== policy file begin")
                 for line in f:
-                    log_wrapper(line[0:-1])
+                    log.debug(line[0:-1])
                     self.parse_line(line)
-                log_wrapper("=== policy file end")
+                log.debug("=== policy file end")
         except IOError:
             # without policy file, no device will be allowed to passed through
-            log_wrapper(traceback.format_exc())
+            log.debug(traceback.format_exc())
 
-        log_wrapper("=== rule list begin")
-        log_list_wrapper(self.rule_list)
-        log_wrapper("=== rule list end")
+        log.debug("=== rule list begin")
+        log_list(self.rule_list)
+        log.debug("=== rule list end")
 
     def check_hex_length(self, name, value):
         if name in [self._CLASS, self._SUBCLASS, self._PROTOCOL]:
@@ -457,25 +430,35 @@ class Policy(object):
         last_end = 0
         for matchNum, match in enumerate(re.finditer(self._PATTERN, target,
                                                      re.IGNORECASE)):
-            tmp_end = last_end
-            last_end = match.end()
-            if tmp_end != match.start():
-                self.log_parse_error(tmp_end, match.start(), target, line)
+            if last_end != match.start():
+                self.log_parse_error(last_end, match.start(), target, line)
                 return
-            if len(match.groups()) != 2 or not all(match.groups()):
-                self.log_parse_error(match.start(), match.end(), target, line)
-                return
+
             try:
-                (name, value) = [part.lower() for part in match.groups()]
-                if not self.check_hex_length(name, value):
-                    log.error("hex'{}' length error, ignore line {}".format(
-                              str(value), line))
-                    return
-                if name not in self.rule_list:
-                    rule[name] = value
+                name, value = [part.lower() for part in match.groups()]
+            # This can happen if `part` is None
             except AttributeError:
                 self.log_parse_error(match.start(), match.end(), target, line)
                 return
+            # This should never happen, because the regexp has exactly two
+            # matching groups
+            except ValueError:
+                self.log_parse_error(match.start(), match.end(), target, line)
+                return
+
+            if not self.check_hex_length(name, value):
+                log.error("hex'{}' length error, ignore line {}".format(
+                    str(value), line))
+                return
+
+            if name in rule:
+                log.error("duplicated tag'{}' found, ignore line {}".
+                          format(name, line))
+                return
+
+            rule[name] = value
+            last_end = match.end()
+
         if last_end != len(target):
             self.log_parse_error(last_end, len(target) + 1, target, line)
             return
@@ -493,18 +476,18 @@ class Policy(object):
         :return:(bool) if they match
         """
         for k in [k for k in rule if k in self._KEY_MAP_DEVICE]:
-            log_wrapper("check {} props[{}] against {}".format(
+            log.debug("check {} props[{}] against {}".format(
                 interface.get_node(), k, str(rule)))
             if not hex_equal(rule[k], device[self._KEY_MAP_DEVICE[k]]):
                 return False
 
         for k in [k for k in rule if k in self._KEY_MAP_INTERFACE]:
-            log_wrapper("check {} props[{}] against {}".format(
+            log.debug("check {} props[{}] against {}".format(
                 interface.get_node(), k, str(rule)))
             if not hex_equal(rule[k], interface[self._KEY_MAP_INTERFACE[k]]):
                 return False
 
-        log_wrapper("found matching rule: " + str(rule))
+        log.debug("found matching rule: " + str(rule))
         return True
 
     def check(self, device):
@@ -544,23 +527,23 @@ class Policy(object):
         :param device:(UsbDevice) the device to check
         :return:(bool) if allow pass through
         """
-        log_wrapper("policy check: " + device.get_node())
+        log.debug("policy check: " + device.get_node())
         for i in device.get_all_interfaces():
             allow_interface = False
             for r in self.rule_list:
                 if self.match_device_interface(r, device, i):
                     if r[self._ALLOW]:
-                        log_wrapper("allow " + i.get_node())
+                        log.debug("allow " + i.get_node())
                         allow_interface = True
                         break
                     else:
-                        log_wrapper("deny " + i.get_node())
+                        log.debug("deny " + i.get_node())
                         return False
             if not allow_interface:
-                log_wrapper("deny " + i.get_node() + ", no matching rule")
+                log.debug("deny " + i.get_node() + ", no matching rule")
                 return False
 
-        log_wrapper("allow " + device.get_node())
+        log.debug("allow " + device.get_node())
         return True
 
 
@@ -628,14 +611,16 @@ def to_pusb(device):
 if __name__ == "__main__":
     args = parse_args()
     if args.diagnostic:
-        __DIAGNOSTIC = True
+        log.logToSyslog(level=logging.DEBUG)
+    else:
+        log.logToSyslog(level=logging.WARNING)
 
     # get usb info
     devices, interfaces = get_usb_info()
 
     # debug info
-    log_list_wrapper(devices)
-    log_list_wrapper(interfaces)
+    log_list(devices)
+    log_list(interfaces)
 
     # match interface to device
     for i in interfaces:
@@ -643,18 +628,11 @@ if __name__ == "__main__":
             if i.is_child_of(d):
                 d.add_interface(i)
 
-    log_list_wrapper(devices)
+    log_list(devices)
 
     # do policy check
     policy = Policy()
-    pusbs = []
-    for d in devices:
-        if d.is_ready():
-            d.set_allow(policy.check(d))
-            if d.is_allow():
-                pusbs.append(to_pusb(d))
-        else:
-            log_wrapper("ignore not ready device: " + str(d))
+    pusbs = [to_pusb(d) for d in devices if d.is_ready() and policy.check(d)]
 
     # pass pusbs in json to XAPI
     print(json.dumps(pusbs))
