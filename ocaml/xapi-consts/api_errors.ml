@@ -582,3 +582,6 @@ let too_many_vusbs = "TOO_MANY_VUSBS"
 let passthrough_not_enabled = "PASSTHROUGH_NOT_ENABLED"
 let pusb_vdi_conflict = "PUSB_VDI_CONFLICT"
 let vm_has_vusbs = "VM_HAS_VUSBS"
+
+let cluster_create_in_progress = "CLUSTER_CREATE_IN_PROGRESS"
+let cluster_already_exists = "CLUSTER_ALREADY_EXISTS"
