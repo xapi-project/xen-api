@@ -52,8 +52,9 @@ module Vm_memory_constraints : T = struct
   include Vm_memory_constraints.Vm_memory_constraints
 
   let nested_virt ~__context vm =
-    let metrics = Db.VM.get_metrics ~__context ~self:vm in
-    Xapi_vm_lifecycle.nested_virt ~__context vm metrics
+    let metrics = Db.LazyMemo.memoU (fun () -> Db.VM.get_metrics ~__context ~self:vm) in
+    let platformdata = Db.LazyMemo.memoU (fun () -> Db.VM.get_platform ~__context ~self:vm) in
+    Xapi_vm_lifecycle.nested_virt ~__context metrics platformdata
 
   let order_constraint =
     "Memory limits must satisfy: \

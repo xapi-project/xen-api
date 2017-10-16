@@ -75,16 +75,6 @@ let safe_i64_of_string field str =
 let safe_bool_of_string field str =
   try bool_of_string str with _ -> raise (Record_util.Record_failure ("Failed to parse parameter '"^field^"': expecting a boolean (true or false)"))
 
-(* local lazy caches of objects *)
-type 'a lzy = Got of 'a | ToGet of (unit -> 'a)
-
-let lzy_get a =
-  match !a with
-  | Got x -> x
-  | ToGet f -> let x = f () in a := Got x; x
-
-(* End of cache code *)
-
 exception CLI_failed_to_find_param of string
 let field_lookup recs name = match List.filter (fun x -> x.name = name) recs with
   | [ x ] -> x
