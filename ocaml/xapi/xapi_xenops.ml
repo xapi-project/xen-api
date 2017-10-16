@@ -1957,6 +1957,7 @@ let update_vusb ~__context (id: (string * string)) =
           let pusb, pusb_r =
             Db.VM.get_VUSBs ~__context ~self:vm
             |> List.map (fun vusb -> Db.VUSB.get_attached ~__context ~self:vusb)
+            |> List.filter (fun attached -> Db.is_valid_ref __context attached)
             |> List.map (fun self -> self, Db.PUSB.get_record ~__context ~self)
             |> List.find (fun (_, pusbr) -> "vusb" ^ pusbr.API.pUSB_path= (snd id))
           in
