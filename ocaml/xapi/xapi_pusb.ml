@@ -76,7 +76,6 @@ let start_thread f =
 
 let scan ~__context ~host =
   (* notify that scan is required. *)
-  Pool_features.assert_enabled ~__context ~f:Features.USB_passthrough;
   Mutex.execute mutex (fun () ->
       scan_required := true;
       Condition.broadcast cond
