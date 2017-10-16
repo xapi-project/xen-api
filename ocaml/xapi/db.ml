@@ -40,7 +40,7 @@ module LazyMemo : sig
       i.e. this is a shorter syntax for [memo f !!v] *)
   val ($!) : ('a -> 'b) -> 'a t -> 'b t
 end = struct
-  type 'a t = 'a Records.lzy ref
+  type 'a t = 'a Db_cache.lzy ref
 
 (* Lazy.t is not thread-safe (it can raise Lazy.undefined), so use a ref instead.
    We only want to initiate the (potentially RPC) call when we know we are
@@ -49,11 +49,11 @@ end = struct
    same value multiple times, but in assert_valid you only need some values for
    the current operation.
 *)
-  let memo f v = ref (Records.ToGet (fun () -> f v))
+  let memo f v = ref (Db_cache.ToGet (fun () -> f v))
 
-  let memoU f = ref (Records.ToGet f)
+  let memoU f = ref (Db_cache.ToGet f)
 
-  let (!!) = Records.lzy_get
+  let (!!) = Db_cache.lzy_get
 
   let ($!) f v = memo f !!v
 end

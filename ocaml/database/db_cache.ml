@@ -46,3 +46,13 @@ let apply_delta_to_cache entry db_ref =
   | Redo_log.WriteField(tblname, objref, fldname, newval) ->
     debug "Redoing write_field %s (%s) [%s -> %s]" tblname objref fldname newval;
     DB.write_field db_ref tblname objref fldname newval
+
+(* local lazy caches of objects *)
+type 'a lzy = Got of 'a | ToGet of (unit -> 'a)
+
+let lzy_get a =
+  match !a with
+  | Got x -> x
+  | ToGet f -> let x = f () in a := Got x; x
+
+(* End of cache code *)
