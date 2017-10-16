@@ -1508,6 +1508,8 @@ let _ =
     ~doc:"The USB device is currently attached to a VM." ();
   error Api_errors.passthrough_not_enabled [ "PUSB"]
     ~doc:"The passthrough_enabled must be true before passthrough usb to vm." ();
+  error Api_errors.pusb_vdi_conflict [ "PUSB"; "VDI" ]
+    ~doc:"The PUSB and corresponding VDI conflicts as this vdi has vdb bound." ();
   error Api_errors.vm_has_vusbs ["VM"]
     ~doc:"The operation is not allowed when the VM has VUSBs." ()
 
