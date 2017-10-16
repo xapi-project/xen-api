@@ -173,13 +173,13 @@ let test_get_nbd_info =
           vdi_nbd_server_info_subject = "host2"
         };
         { vdi_nbd_server_info_exportname = "/" ^ uuid ^ "?session_id=" ^ session_id;
-          vdi_nbd_server_info_address = "[10e1:bdb8:05a3:0002:03ae:8a24:0371:0002]";
+          vdi_nbd_server_info_address = "10e1:bdb8:05a3:0002:03ae:8a24:0371:0002";
           vdi_nbd_server_info_port;
           vdi_nbd_server_info_cert = "host2_cert";
           vdi_nbd_server_info_subject = "host2"
         };
         { vdi_nbd_server_info_exportname = "/" ^ uuid ^ "?session_id=" ^ session_id;
-          vdi_nbd_server_info_address = "[10e1:bdb8:05a3:0002:03ae:8a24:0371:0003]";
+          vdi_nbd_server_info_address = "10e1:bdb8:05a3:0002:03ae:8a24:0371:0003";
           vdi_nbd_server_info_port;
           vdi_nbd_server_info_cert = "host2_cert";
           vdi_nbd_server_info_subject = "host2"

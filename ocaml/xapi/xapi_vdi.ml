@@ -1047,7 +1047,7 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
   let get_ips host =
     let get_ips pif =
       let not_empty = (<>) "" in
-      let v6_ips = Db.PIF.get_IPv6 ~__context ~self:pif |> List.filter not_empty |> List.map (fun s -> "[" ^ s ^ "]") in
+      let v6_ips = Db.PIF.get_IPv6 ~__context ~self:pif |> List.filter not_empty in
       let v4_ip = Db.PIF.get_IP ~__context ~self:pif in
       if not_empty v4_ip then v4_ip :: v6_ips else v6_ips
     in
