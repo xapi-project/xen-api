@@ -49,7 +49,6 @@ let allocate_vusb_to_usb ~__context vm host vusb =
     Db.PUSB.set_attached ~__context ~self:pusb ~value:vusb.vusb_ref
 
 let add_vusbs_to_vm ~__context host vm vusbs =
-  Pool_features.assert_enabled ~__context ~f:Features.USB_passthrough;
   List.iter (fun vusb -> allocate_vusb_to_usb ~__context vm host vusb) vusbs
 
 (* Note that this function is called from Message_forwarding.allocate_vm_to_host,
