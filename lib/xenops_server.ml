@@ -889,6 +889,9 @@ let rec atomics_of_operation = function
 		]
 	| VM_shutdown (id, timeout) ->
 		(Opt.default [] (Opt.map (fun x -> [ VM_shutdown_domain(id, PowerOff, x) ]) timeout)
+		(* When shutdown vm, need to unplug vusb from vm. *)
+		) @ (List.map (fun vusb -> VUSB_unplug vusb.Vusb.id)
+			(VUSB_DB.vusbs id)
 		) @ simplify ([
 			(* At this point we have a shutdown domain (ie Needs_poweroff) *)
 			VM_destroy_device_model id;
