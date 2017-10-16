@@ -1393,6 +1393,15 @@ module Vkbd = struct
 end
 
 module Vusb = struct
+  let call_usb_reset hostbus hostport =
+    let usb_reset_script = "/opt/xensource/libexec/usb_reset.py" in
+    try
+      info "Reset USB device with hostbus %s and hostport %s before passthrough to vm." hostbus hostport;
+      ignore (Forkhelpers.execute_command_get_output usb_reset_script [ hostbus ^ "-" ^ hostport ])
+    with _ ->
+      error "Failed to reset USB device with hostbus %s and hostport %s." hostbus hostport;
+      failwith "Call to usb reset failed."
+
   let vusb_controller_plug ~xs ~domid ~driver ~driver_id =
     let is_running = Qemu.is_running ~xs domid in
     match is_running with
@@ -1408,6 +1417,8 @@ module Vusb = struct
     if device_model = Profile.Qemu_trad then
       raise (Internal_error (Printf.sprintf "Failed to plug VUSB %s because domain %d uses device-model profile %s." id domid (Profile.string_of device_model)));
     debug "Vusb plugged: vusb device %s plugged" id;
+    (* Need to reset USB device before passthrough to vm according to CP-24616 *)
+    call_usb_reset hostbus hostport;
     let get_bus v =
       if String.startswith "1" v then
          "usb-bus.0"

@@ -1959,7 +1959,6 @@ module VUSB = struct
 				let emulator_pid = Device.Qemu.pid ~xs frontend_domid in
 				debug "Qom list to get vusb state";
 				let peripherals = Device.Vusb.qom_list ~xs ~domid:frontend_domid in
-				debug "qom list result head %s" (List.hd peripherals);
 				let found = List.mem (snd vusb.Vusb.id)  peripherals in
 				match emulator_pid, found with
 				| Some pid, true -> {plugged = true}
