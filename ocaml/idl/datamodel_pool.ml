@@ -3,9 +3,10 @@ open Datamodel_roles
 open Datamodel_types
 
   let operations =
-    Enum ("pool_allowed_operations",
+    Enum ("pool_allowed_operations", (* FIXME: This should really be called `pool_operations`, to avoid confusion with the Pool.allowed_operations field *)
           [ "ha_enable", "Indicates this pool is in the process of enabling HA";
             "ha_disable", "Indicates this pool is in the process of disabling HA";
+	    "cluster_create", "Indicates this pool is in the process of creating a cluster";
           ])
 
   let enable_ha = call
