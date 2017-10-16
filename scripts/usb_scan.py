@@ -28,6 +28,7 @@ import xcp.logger as log
 import logging
 import pyudev
 import re
+import sys
 import traceback
 
 
@@ -374,10 +375,15 @@ class Policy(object):
         return False
 
     @staticmethod
-    def log_parse_error(pos, end, target, line):
-        log.error(
-            "Malformed policy rule, unable to parse '{}'. Ignored line: {}"
-            .format(target[pos:end], line))
+    def log_exit(m):
+        log.error(m)
+        sys.exit(m)
+
+    @staticmethod
+    def parse_error(pos, end, target, line):
+        Policy.log_exit(
+            "Malformed policy rule, unable to parse '{}'. Ignored line: {}" \
+                .format(target[pos:end], line))
 
     def parse_line(self, line):
         """ parse one line of policy file, generate rule, and append it to
@@ -400,17 +406,18 @@ class Policy(object):
         if i > 0:
             line = line[0:i]
         elif i == 0:
+            # full length comment, just return
             return
 
         # 2. split action and match field
         # ^\s*(ALLOW|DENY)\s*:\s*([^:]*)$
         try:
-            (action, target) = [part.strip() for part in line.split(":")]
+            action, target = [part.strip() for part in line.split(":")]
         except ValueError as e:
             if line.rstrip():
-                log.error(
-                    "Caught error {}. Ignoring malformed rule line: {}"
-                    .format(str(e), line))
+                self.log_exit("Caught error {}. Ignoring malformed rule line:"
+                              "{}".format(str(e), line))
+            # empty line, just return
             return
 
         # 3. parse action
@@ -421,9 +428,8 @@ class Policy(object):
         elif action.lower() == "deny":
             rule[self._ALLOW] = False
         else:
-            log.error("Malformed action'{}', ignoring rule line: {}".format(
+            self.log_exit("Malformed action'{}', ignoring rule line: {}".format(
                 action, line))
-            return
 
         # 4. parse key=value pairs
         # pattern = r"\s*(class|subclass|prot|vid|pid|rel)\s*=\s*([0-9a-f]+)"
@@ -431,37 +437,31 @@ class Policy(object):
         for matchNum, match in enumerate(re.finditer(self._PATTERN, target,
                                                      re.IGNORECASE)):
             if last_end != match.start():
-                self.log_parse_error(last_end, match.start(), target, line)
-                return
+                self.parse_error(last_end, match.start(), target, line)
 
             try:
                 name, value = [part.lower() for part in match.groups()]
             # This can happen if `part` is None
             except AttributeError:
-                self.log_parse_error(match.start(), match.end(), target, line)
-                return
+                self.parse_error(match.start(), match.end(), target, line)
             # This should never happen, because the regexp has exactly two
             # matching groups
             except ValueError:
-                self.log_parse_error(match.start(), match.end(), target, line)
-                return
+                self.parse_error(match.start(), match.end(), target, line)
 
             if not self.check_hex_length(name, value):
-                log.error("hex'{}' length error, ignore line {}".format(
+                self.log_exit("hex'{}' length error, ignore line {}".format(
                     str(value), line))
-                return
 
             if name in rule:
-                log.error("duplicated tag'{}' found, ignore line {}".
-                          format(name, line))
-                return
+                self.log_exit("duplicated tag'{}' found, ignore line {}".
+                              format(name, line))
 
             rule[name] = value
             last_end = match.end()
 
         if last_end != len(target):
-            self.log_parse_error(last_end, len(target) + 1, target, line)
-            return
+            self.parse_error(last_end, len(target) + 1, target, line)
 
         self.rule_list.append(rule)
 
@@ -616,7 +616,11 @@ if __name__ == "__main__":
         log.logToSyslog(level=logging.WARNING)
 
     # get usb info
-    devices, interfaces = get_usb_info()
+    try:
+        devices, interfaces = get_usb_info()
+    except Exception as e:
+        log.error("Failed to get usb info: {}".format(str(e)))
+        exit(1)
 
     # debug info
     log_list(devices)
