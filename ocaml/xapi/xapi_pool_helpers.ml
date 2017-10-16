@@ -20,7 +20,7 @@ open Db_filter
 open Record_util
 open Api_errors
 
-let all_operations = [ `ha_enable; `ha_disable ]
+let all_operations = [ `ha_enable; `ha_disable; `cluster_create ]
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
 let valid_operations ~__context record _ref' =
@@ -34,17 +34,26 @@ let valid_operations ~__context record _ref' =
         if Hashtbl.find table op = None
         then Hashtbl.replace table op (Some(code, params))) ops in
 
-  (* HA enable or disable cannot run if HA enable is in progress *)
+  (* HA enable, HA disable nor cluster create can run if HA enable is in progress *)
   if List.mem `ha_enable current_ops
   then begin
     set_errors Api_errors.ha_enable_in_progress [] [ `ha_enable ];
-    set_errors Api_errors.ha_enable_in_progress [] [ `ha_disable ]
+    set_errors Api_errors.ha_enable_in_progress [] [ `ha_disable ];
+    set_errors Api_errors.ha_enable_in_progress [] [ `cluster_create ]
   end;
-  (* HA enable or disable cannot run if HA disable is in progress *)
+  (* HA enable, HA disable nor cluster create can run if HA enable is in progress *)
   if List.mem `ha_disable current_ops
   then begin
     set_errors Api_errors.ha_disable_in_progress [] [ `ha_enable ];
-    set_errors Api_errors.ha_disable_in_progress [] [ `ha_disable ]
+    set_errors Api_errors.ha_disable_in_progress [] [ `ha_disable ];
+    set_errors Api_errors.ha_disable_in_progress [] [ `cluster_create ]
+  end;
+  (* HA enable, HA disable nor cluster create can run if cluster create is in progress *)
+  if List.mem `cluster_create current_ops
+  then begin
+    set_errors Api_errors.cluster_create_in_progress [] [ `ha_enable ];
+    set_errors Api_errors.cluster_create_in_progress [] [ `ha_disable ];
+    set_errors Api_errors.cluster_create_in_progress [] [ `cluster_create ]
   end;
 
   (* HA disable cannot run if HA is already disabled on a pool *)
@@ -54,6 +63,14 @@ let valid_operations ~__context record _ref' =
     set_errors Api_errors.ha_is_enabled [] [ `ha_enable ]
   else
     set_errors Api_errors.ha_not_enabled [] [ `ha_disable ];
+
+  (* cluster create cannot run if a cluster already exists on the pool *)
+  begin match Db.Cluster.get_all ~__context with
+    | [_] -> set_errors Api_errors.cluster_already_exists [] [ `cluster_create ]
+    (* indicates a bug or a need to update this code (if we ever support multiple clusters in the pool *)
+    | _::_ -> failwith "Multiple clusters exist in the pool"
+    | _ -> ()
+  end;
 
   table
 

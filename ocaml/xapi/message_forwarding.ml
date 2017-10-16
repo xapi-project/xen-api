@@ -4268,8 +4268,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Cluster.create";
       let local_fn = Local.Cluster.create ~network ~cluster_stack ~pool_auto_join in
       let master = Helpers.get_master ~__context in
-      do_op_on ~__context ~local_fn ~host:master
-        (fun session_id rpc -> Client.Cluster.create rpc session_id network cluster_stack pool_auto_join)
+      let pool = Db.Pool.get_all ~__context |> List.hd in (* assumes 1 pool in DB *)
+      Pool.with_pool_operation ~__context ~self:pool ~doc:"Cluster.create" ~op:`cluster_create
+        (fun () ->
+           do_op_on ~__context ~local_fn ~host:master
+             (fun session_id rpc -> Client.Cluster.create rpc session_id network cluster_stack pool_auto_join))
 
     let destroy ~__context ~self =
       info "Cluster.destroy";
@@ -4282,7 +4285,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Cluster.pool_create";
       let local_fn = Local.Cluster.pool_create ~pool ~cluster_stack ~network in
       let master = Helpers.get_master ~__context in
-      (* TODO: concurrency via `with_pool_operation`, using new `cluster_create` pool operation *)
       do_op_on ~__context ~local_fn ~host:master
         (fun session_id rpc -> Client.Cluster.pool_create rpc session_id pool cluster_stack network)
   end
@@ -4291,8 +4293,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let create ~__context ~cluster ~host =
       info "Cluster_host.create";
       let local_fn = Local.Cluster_host.create ~cluster ~host in
-      do_op_on ~__context ~local_fn ~host
-        (fun session_id rpc -> Client.Cluster_host.create rpc session_id cluster host)
+      Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster.add" ~op:`add
+        (fun () ->
+           do_op_on ~__context ~local_fn ~host
+             (fun session_id rpc -> Client.Cluster_host.create rpc session_id cluster host))
 
     let destroy ~__context ~self =
       info "Cluster_host.destroy";

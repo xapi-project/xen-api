@@ -1516,7 +1516,13 @@ let _ =
   error Api_errors.pusb_vdi_conflict [ "PUSB"; "VDI" ]
     ~doc:"The VDI corresponding to this PUSB has existing VBDs." ();
   error Api_errors.vm_has_vusbs ["VM"]
-    ~doc:"The operation is not allowed when the VM has VUSBs." ()
+    ~doc:"The operation is not allowed when the VM has VUSBs." ();
+
+  (* clustering errors *)
+  error Api_errors.cluster_create_in_progress []
+    ~doc:"The operation could not be performed because cluster creation is in progress." ();
+  error Api_errors.cluster_already_exists []
+    ~doc:"A cluster already exists in the pool." ()
 
 let _ =
   message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();
@@ -6967,9 +6973,10 @@ let crashdump =
     ()
 
 let pool_operations =
-  Enum ("pool_allowed_operations",
+  Enum ("pool_allowed_operations", (* FIXME: This should really be called `pool_operations`, to avoid confusion with the Pool.allowed_operations field *)
         [ "ha_enable", "Indicates this pool is in the process of enabling HA";
           "ha_disable", "Indicates this pool is in the process of disabling HA";
+          "cluster_create", "Indicates this pool is in the process of creating a cluster";
         ])
 
 let pool_enable_ha = call
