@@ -20,14 +20,8 @@ open Cluster_interface
 (* TODO: update allowed_operations on cluster creation *)
 (* TODO: update allowed_operations on boot/toolstack-restart *)
 
-let assert_cluster_can_be_created ~__context =
-  if Db.Cluster.get_all ~__context <> [] then
-    failwith "Cluster cannot be created because it already exists" (* TODO: replace with API error? *)
-
 let create ~__context ~network ~cluster_stack ~pool_auto_join =
   (* TODO: take cluster lock *)
-  (* TODO: concurrency; update/use allowed/current_operations via message_forwarding *)
-  assert_cluster_can_be_created ~__context;
   let cluster_ref = Ref.make () in
   let cluster_host_ref = Ref.make () in
   let cluster_uuid = Uuidm.to_string (Uuidm.create `V4) in
@@ -60,6 +54,7 @@ let destroy ~__context ~self =
   (* TODO: destroy member records *)
   Db.Cluster.destroy ~__context ~self
 
+(* helper function; concurrency checks are done in implementation of Cluster.create and Cluster_host.create *)
 let pool_create ~__context ~pool ~cluster_stack ~network =
   let master = Db.Pool.get_master ~__context ~self:pool in
   let hosts = Db.Host.get_all ~__context in

@@ -46,11 +46,10 @@ let handle_error error =
 let assert_cluster_host_can_be_created ~__context ~host =
   if Db.Cluster_host.get_refs_where ~__context
       ~expr:Db_filter_types.(Eq(Literal (Ref.string_of host),Field "host")) <> [] then
-    failwith "Cluster cannot be created because it already exists"
+    failwith "Cluster host cannot be created because it already exists"
 
 let create ~__context ~cluster ~host =
   (* TODO: take cluster lock and then network lock *)
-  (* TODO: concurrency; update/use allowed/current_operations via message_forwarding *)
   assert_cluster_host_can_be_created ~__context ~host;
   let ref = Ref.make () in
   let uuid = Uuidm.to_string (Uuidm.create `V4) in
