@@ -2023,17 +2023,19 @@ let on_xapi_restart ~__context =
       let vm = vm_of_id ~__context id in
       let xapi_power_state =
         xenapi_of_xenops_power_state (Some state.Vm.power_state) in
-      Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:xapi_power_state;
       match xapi_power_state with
       | `Running | `Paused ->
+        Xapi_vm_lifecycle.force_state_reset ~__context
+          ~self:vm ~value:xapi_power_state;
         Db.VM.set_resident_on ~__context ~self:vm ~value:localhost;
         add_caches id;
         refresh_vm ~__context ~self:vm;
       | `Suspended | `Halted ->
         let module Client = (val make_client queue_name : XENOPS) in
         Client.VM.remove dbg id;
-        if List.exists (fun (id', _) -> id' = id) resident_vms_in_db
-        then Db.VM.set_resident_on ~__context ~self:vm ~value:Ref.null;
+        if List.exists (fun (id', _) -> id' = id) resident_vms_in_db then
+          Xapi_vm_lifecycle.force_state_reset ~__context
+            ~self:vm ~value:xapi_power_state;
     ) xenopsd_vms_in_xapi;
 
   (* Sync VM state in Xapi for VMs not running on this host *)
