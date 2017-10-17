@@ -90,8 +90,11 @@ let get_local_usb usbs =
 let get_script_stdout () =
   (** usb_scan is a script that will get all the usb details in current host, which will return json format data *)
   let usb_scan_script = "/opt/xensource/libexec/usb_scan.py" in
-  let stdout, stderr = Forkhelpers.execute_command_get_output usb_scan_script [] in
-  stdout
+  try
+    let stdout, stderr = Forkhelpers.execute_command_get_output usb_scan_script [] in
+    stdout
+  with Forkhelpers.Spawn_internal_error(stdout, stderr, Unix.WEXITED n) ->
+    raise Api_errors.(Server_error(internal_error, [Printf.sprintf "%s exitted with %d" usb_scan_script n]))
 
 let get_usbs stdout =
   let extract_devices json =
