@@ -10,6 +10,7 @@ build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
 
 depends: [
   "jbuilder" {build & >= "1.0+beta11"}
+  "x509"
   "cdrom"
   "fd-send-recv"
   "nbd"
