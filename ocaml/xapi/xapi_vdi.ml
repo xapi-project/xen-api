@@ -1072,8 +1072,13 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
     if ips = [] then [] else
     let cert = get_server_certificate ~host in
     let port = 10809L in
-    (* Stopgap measure: use hostname instead of reading a subject out of the cert. *)
-    let subject = Db.Host.get_hostname ~__context ~self:host in
+    let subject = match Certificates.hostnames_of_pem_cert cert with
+      | [] -> (
+          error "Found no subject DNS names in this hosts's certificate. Returning empty string as subject.";
+          ""
+        )
+      | name :: _ -> name
+    in
     let template = API.{
       vdi_nbd_server_info_exportname = exportname;
       vdi_nbd_server_info_address = "";

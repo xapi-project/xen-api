@@ -289,3 +289,8 @@ let get_server_certificate () =
     warn "Exception reading server certificate: %s"
       (ExnHelper.string_of_exn e);
     raise_library_corrupt()
+
+let hostnames_of_pem_cert pem =
+  Cstruct.of_string pem |>
+  X509.Encoding.Pem.Certificate.of_pem_cstruct1 |>
+  X509.hostnames
