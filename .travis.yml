@@ -11,7 +11,7 @@ before_install:
 install:
   - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
 script:
-  - cp xen-api-sdk.opam opam && bash -ex .travis-opam.sh
+  - cp xen-api-sdk.opam opam && ulimit -s 16384 && bash -ex .travis-opam.sh
 env:
   global:
     - OCAML_VERSION=4.04

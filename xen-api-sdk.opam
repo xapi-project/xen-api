@@ -10,6 +10,6 @@ tags: [ "org:xapi-project" ]
 build: [[ "jbuilder" "build" "-p" name ]]
 depends: [
   "jbuilder" {build}
-  "xapi"
+  "xapi-datamodel"
   "mustache"
 ]
