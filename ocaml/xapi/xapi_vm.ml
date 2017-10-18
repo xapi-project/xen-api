@@ -250,6 +250,12 @@ let start ~__context ~vm ~start_paused ~force =
     debug "Setting ha_always_run on vm=%s as true during VM.start" (Ref.string_of vm)
   end;
 
+  (* Check to see if we're using correct device-model when vm has VUSBs*)
+
+  let vusbs = Db.VM.get_VUSBs ~__context ~self:vm in
+  if vusbs <> [] then
+    Vm_platform.check_restricted_device_model ~__context vmr.API.vM_platform;
+
   if not force then
     assert_memory_constraints ~__context ~vm vmr.API.vM_platform;
 

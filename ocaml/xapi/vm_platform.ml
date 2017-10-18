@@ -100,6 +100,14 @@ let is_true ~key ~platformdata ~default =
   with Not_found ->
     default
 
+let is_valid_device_model ~key ~platformdata =
+  try
+    match List.assoc key platformdata with
+    | "qemu-upstream-compat" -> true
+    | _ -> false
+  with Not_found ->
+    false
+
 let sanity_check ~platformdata ~vcpu_max ~vcpu_at_startup ~hvm ~filter_out_unknowns =
   (* Filter out unknown flags, if applicable *)
   let platformdata =
@@ -166,3 +174,10 @@ let check_restricted_flags ~__context platform =
 
   if is_true nested_virt platform false
   then Pool_features.assert_enabled ~__context ~f:Features.Nested_virt
+
+let check_restricted_device_model ~__context platform =
+  if not (is_valid_device_model device_model platform) then
+    raise (Api_errors.Server_error(Api_errors.invalid_value,
+            [Printf.sprintf "platform:%s when vm has VUSBs" device_model
+            ; try List.assoc device_model platform with _ -> "undefined"])
+          )
