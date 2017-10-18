@@ -37,6 +37,11 @@ def log_list(l):
         log.debug(s)
 
 
+def log_exit(m):
+    log.error(m)
+    sys.exit(m)
+
+
 def hex_equal(h1, h2):
     """ check if the value of hex string are equal
 
@@ -375,15 +380,10 @@ class Policy(object):
         return False
 
     @staticmethod
-    def log_exit(m):
-        log.error(m)
-        sys.exit(m)
-
-    @staticmethod
     def parse_error(pos, end, target, line):
-        Policy.log_exit(
-            "Malformed policy rule, unable to parse '{}'. Ignored line: {}" \
-                .format(target[pos:end], line))
+        log_exit(
+            "Malformed policy rule, unable to parse '{}'. Ignored line: {}"
+            .format(target[pos:end], line))
 
     def parse_line(self, line):
         """ parse one line of policy file, generate rule, and append it to
@@ -415,8 +415,8 @@ class Policy(object):
             action, target = [part.strip() for part in line.split(":")]
         except ValueError as e:
             if line.rstrip():
-                self.log_exit("Caught error {}. Ignoring malformed rule line:"
-                              "{}".format(str(e), line))
+                log_exit("Caught error {}. Ignoring malformed rule line: {}"
+                         .format(str(e), line))
             # empty line, just return
             return
 
@@ -428,7 +428,7 @@ class Policy(object):
         elif action.lower() == "deny":
             rule[self._ALLOW] = False
         else:
-            self.log_exit("Malformed action'{}', ignoring rule line: {}".format(
+            log_exit("Malformed action'{}', ignoring rule line: {}".format(
                 action, line))
 
         # 4. parse key=value pairs
@@ -450,12 +450,12 @@ class Policy(object):
                 self.parse_error(match.start(), match.end(), target, line)
 
             if not self.check_hex_length(name, value):
-                self.log_exit("hex'{}' length error, ignore line {}".format(
+                log_exit("hex'{}' length error, ignore line {}".format(
                     str(value), line))
 
             if name in rule:
-                self.log_exit("duplicated tag'{}' found, ignore line {}".
-                              format(name, line))
+                log_exit("duplicated tag'{}' found, ignore line {}".
+                         format(name, line))
 
             rule[name] = value
             last_end = match.end()
@@ -619,8 +619,7 @@ if __name__ == "__main__":
     try:
         devices, interfaces = get_usb_info()
     except Exception as e:
-        log.error("Failed to get usb info: {}".format(str(e)))
-        exit(1)
+        log_exit("Failed to get usb info: {}".format(str(e)))
 
     # debug info
     log_list(devices)
