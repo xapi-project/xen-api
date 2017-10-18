@@ -108,6 +108,9 @@ let set_passthrough_enabled ~__context ~self ~value =
            List.iter (fun rf ->
              try
                if (get_sm_usb_path ~__context rf) = pusb_path then begin
+                 let vbds = Db.VDI.get_VBDs ~__context ~self:rf in
+                 if vbds <> [] then
+                   raise (Api_errors.Server_error(Api_errors.pusb_vdi_conflict, [ Ref.string_of self; Ref.string_of rf ]));
                  Xapi_vdi.forget ~__context ~vdi:rf
                end;
              with e ->
