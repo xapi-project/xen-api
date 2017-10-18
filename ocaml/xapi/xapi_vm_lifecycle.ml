@@ -519,6 +519,7 @@ let check_operation_error ~__context ~ref ~op ~strict =
     match op with
       | `suspend
       | `snapshot
+      | `checkpoint
       | `migrate_send
       | `pool_migrate when vmr.Db_actions.vM_VUSBs <> [] -> Some (Api_errors.vm_has_vusbs, [ref_str])
       | _ -> None) in
