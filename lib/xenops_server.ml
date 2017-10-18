@@ -1677,8 +1677,6 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
       debug "VM.receive_memory %s" id;
       Sockopt.set_sock_keepalives s;
       let open Xenops_migrate in
-      (*			let state = B.VM.get_state (VM_DB.read_exn id) in
-        			debug "VM.receive_memory %s power_state = %s" id (state.Vm.power_state |> rpc_of_power_state |> Jsonrpc.to_string);*)
 
       (* set up the destination domain *)
       debug "VM.receive_memory creating domain and restoring VIFs";
