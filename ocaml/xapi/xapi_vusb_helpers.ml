@@ -98,3 +98,10 @@ let assert_operation_valid ~__context ~self ~(op:API.vusb_operations) =
   let all = Db.VUSB.get_record_internal ~__context ~self in
   let table = valid_operations ~__context all self in
   throw_error table op
+
+let clear_current_operations ~__context ~self =
+  if (Db.VUSB.get_current_operations ~__context ~self)<>[] then
+    begin
+      Db.VUSB.set_current_operations ~__context ~self ~value:[];
+      update_allowed_operations ~__context ~self
+    end
