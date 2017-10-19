@@ -2729,7 +2729,15 @@ let shutdown ~__context ~self timeout =
               raise Api_errors.(Server_error(internal_error, [
                   Printf.sprintf "shutdown: The VBD %s is still attached to VM %s"
                     (Ref.string_of vbd) (Ref.string_of self)]))
-         ) (Db.VM.get_VBDs ~__context ~self)
+         ) (Db.VM.get_VBDs ~__context ~self);
+       List.iter
+         (fun vusb ->
+            let attached = Db.VUSB.get_attached ~__context ~self:vusb in
+            if attached <> Ref.null then begin
+              Db.VUSB.set_attached ~__context ~self:vusb ~value:Ref.null;
+              Db.PUSB.set_attached ~__context ~self:attached ~value:Ref.null
+            end
+         ) (Db.VM.get_VUSBs ~__context ~self);
     )
 
 let suspend ~__context ~self =
