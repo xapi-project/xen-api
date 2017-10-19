@@ -694,6 +694,7 @@ let build_linux (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_do
 		"serial/0/limit",    string_of_int 65536;
 		"console/port",      string_of_int console_port;
 		"console/ring-ref",  sprintf "%nu" console_mfn;
+		"console/limit",     string_of_int 65536;
 	] in
 	let vm_stuff = [] in
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
@@ -775,6 +776,7 @@ let build_hvm (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domi
 		"serial/0/limit",    string_of_int 65536;
 		"console/port",      string_of_int console_port;
 		"console/ring-ref",  sprintf "%nu" console_mfn;
+		"console/limit",     string_of_int 65536;
 	] in
 (*
 	let store_mfn =
@@ -994,6 +996,7 @@ let pv_restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_dom
 		"serial/0/limit",    string_of_int 65536;
 		"console/port",     string_of_int console_port;
 		"console/ring-ref", sprintf "%nu" console_mfn;
+		"console/limit",    string_of_int 65536;
 	] in
 	let vm_stuff = [] in
 	build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
@@ -1029,6 +1032,7 @@ let hvm_restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_do
 		"serial/0/limit",    string_of_int 65536;
 		"console/port",     string_of_int console_port;
 		"console/ring-ref", sprintf "%nu" console_mfn;
+		"console/limit",    string_of_int 65536;
 	] in
 	let vm_stuff = [
 		"rtc/timeoffset",    timeoffset;
