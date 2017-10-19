@@ -279,6 +279,11 @@ let safe_destroy_vdi ~__context ~rpc ~session_id vdi =
       Client.VDI.destroy rpc session_id vdi
   end
 
+let safe_destroy_vusb ~__context ~rpc ~session_id vusb =
+  if Db.is_valid_ref __context vusb then begin
+    Client.VUSB.destroy rpc session_id vusb
+  end
+
 (* Copy the VBDs and VIFs from a source VM to a dest VM and then delete the old disks. *)
 (* This operation destroys the data of the dest VM.                                    *)
 let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
@@ -304,6 +309,7 @@ let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
   let vm_VIFs = Db.VM.get_VIFs ~__context ~self:vm in
   let vm_VGPUs = Db.VM.get_VGPUs ~__context ~self:vm in
   let vm_suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:vm in
+  let vm_VUSBs = Db.VM.get_VUSBs ~__context ~self:vm in
 
   (* clone all the disks of the snapshot *)
   Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -369,6 +375,10 @@ let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
           List.map (fun vif -> Xapi_vif_helpers.copy ~__context ~vm ~preserve_mac_address:true vif) snap_VIFs in
         TaskHelper.set_progress ~__context 0.8;
 
+        debug "Cleaning up the old VUSBs";
+        (* As snapshot is not allowed when vm has VUSBs, so no need to set up new VUSBs.*)
+        List.iter (safe_destroy_vusb ~__context ~rpc ~session_id) vm_VUSBs;
+
         debug "Cleaning up the old VGPUs";
         List.iter (safe_destroy_vgpu ~__context ~rpc ~session_id) vm_VGPUs;
 
@@ -413,7 +423,7 @@ let do_not_copy = [
   (* Global persistent fields should keep *)
   "snapshots"; "tags"; "affinity";
   (* Current fields should remain to get destroyed during revert process *)
-  "consoles"; "VBDs"; "VIFs"; "VGPUs";
+  "consoles"; "VBDs"; "VIFs"; "VGPUs"; "VUSBs";
   (* Stateful fields that will be reset anyway *)
   "power_state";
 ]
