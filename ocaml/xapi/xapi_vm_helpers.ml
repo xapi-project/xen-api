@@ -74,6 +74,9 @@ let set_is_a_template ~__context ~self ~value =
            		 *
            		 * We don't want templates to have this flag, or HA will try to start them. *)
     else Db.VM.set_ha_always_run ~__context ~self ~value:false;
+    (* Detach all VUSBs before set VM as a template *)
+    let vusbs = Db.VM.get_VUSBs ~__context ~self in
+    List.iter (fun vusb -> try Db.VUSB.destroy ~__context ~self:vusb with _ -> ()) vusbs;
     (* delete the vm metrics associated with the vm if it exists, when we templat'ize it *)
     try Db.VM_metrics.destroy ~__context ~self:m with _ -> ()
   end;
