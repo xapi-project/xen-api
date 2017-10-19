@@ -29,6 +29,14 @@ module VdiNbdServerInfoDiff = struct
   let pp_print_sep = OUnitDiff.pp_comma_separator
 end
 
+module NetworkPurposeDiff = struct
+  type t = API.network_purpose
+  let compare = compare
+  let pp_printer formatter purpose = Format.pp_print_string formatter (Record_util.network_purpose_to_string purpose)
+  let pp_print_sep = OUnitDiff.pp_comma_separator
+end
+
 module StringSet = OUnitDiff.SetMake(StringDiff)
+module NetworkPurposeSet = OUnitDiff.SetMake(NetworkPurposeDiff)
 module StringList = OUnitDiff.ListSimpleMake(StringDiff)
 module VdiNbdServerInfoSet = OUnitDiff.SetMake(VdiNbdServerInfoDiff)
