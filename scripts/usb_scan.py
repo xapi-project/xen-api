@@ -29,7 +29,6 @@ import logging
 import pyudev
 import re
 import sys
-import traceback
 
 
 def log_list(l):
@@ -364,9 +363,9 @@ class Policy(object):
                     log.debug(line[0:-1])
                     self.parse_line(line)
                 log.debug("=== policy file end")
-        except IOError:
+        except IOError as e:
             # without policy file, no device will be allowed to passed through
-            log.debug(traceback.format_exc())
+            log_exit("Caught error {}, policy file error".format(str(e)))
 
         log.debug("=== rule list begin")
         log_list(self.rule_list)
@@ -382,7 +381,7 @@ class Policy(object):
     @staticmethod
     def parse_error(pos, end, target, line):
         log_exit(
-            "Malformed policy rule, unable to parse '{}'. Ignored line: {}"
+            "Malformed policy rule, unable to parse '{}', malformed line: {}"
             .format(target[pos:end], line))
 
     def parse_line(self, line):
@@ -415,7 +414,7 @@ class Policy(object):
             action, target = [part.strip() for part in line.split(":")]
         except ValueError as e:
             if line.rstrip():
-                log_exit("Caught error {}. Ignoring malformed rule line: {}"
+                log_exit("Caught error {}, malformed line: {}"
                          .format(str(e), line))
             # empty line, just return
             return
@@ -428,7 +427,7 @@ class Policy(object):
         elif action.lower() == "deny":
             rule[self._ALLOW] = False
         else:
-            log_exit("Malformed action'{}', ignoring rule line: {}".format(
+            log_exit("Malformed action'{}', malformed line: {}".format(
                 action, line))
 
         # 4. parse key=value pairs
@@ -450,11 +449,11 @@ class Policy(object):
                 self.parse_error(match.start(), match.end(), target, line)
 
             if not self.check_hex_length(name, value):
-                log_exit("hex'{}' length error, ignore line {}".format(
+                log_exit("hex'{}' length error, malformed line {}".format(
                     str(value), line))
 
             if name in rule:
-                log_exit("duplicated tag'{}' found, ignore line {}".
+                log_exit("duplicated tag'{}' found, malformed line {}".
                          format(name, line))
 
             rule[name] = value
