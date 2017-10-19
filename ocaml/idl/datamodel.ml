@@ -9958,7 +9958,7 @@ module PUSB = struct
       ~params:[
         Ref _host, "host", "The host";
       ]
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:_R_POOL_ADMIN
       ()
 
   let set_passthrough_enabled = call
@@ -9968,7 +9968,7 @@ module PUSB = struct
         Ref _pusb, "self",  "this PUSB";
         Bool,     "value", "passthrough is enabled when true and disabled with false"
       ]
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:_R_POOL_ADMIN
       ()
 
 
@@ -9983,7 +9983,7 @@ module PUSB = struct
       ~lifecycle
       ~persist:PersistEverything
       ~in_oss_since:None
-      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages_default_allowed_roles:_R_POOL_ADMIN
       ~contents:
         [
          uid    _pusb ~lifecycle;
@@ -10024,7 +10024,7 @@ module USB_group = struct
         {param_type=(Map (String, String)); param_name="other_config"; param_doc=""; param_release=inverness_release; param_default=Some (VMap [])}
       ]
       ~result:(Ref _usb_group, "")
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:_R_POOL_ADMIN
       ()
 
   let destroy = call
@@ -10033,7 +10033,7 @@ module USB_group = struct
       ~params:[
         Ref _usb_group, "self", "The USB group to destroy"
       ]
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:_R_POOL_ADMIN
       ()
 
   let obj =
@@ -10045,7 +10045,7 @@ module USB_group = struct
       ~gen_events:true
       ~in_db:true
       ~lifecycle
-      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages_default_allowed_roles:_R_POOL_ADMIN
       ~persist:PersistEverything
       ~in_oss_since:None
       ~contents:[
@@ -10085,7 +10085,7 @@ module VUSB = struct
       ~lifecycle
       ~doc:"Create a new VUSB record in the database only"
       ~result:(Ref _vusb, "The ref of the newly created VUSB record.")
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:_R_POOL_ADMIN
       ()
 
   let unplug = call
@@ -10093,7 +10093,7 @@ module VUSB = struct
       ~doc:"Unplug the vusb device from the vm."
       ~params: [ Ref _vusb, "self", "vusb deivce"]
       ~lifecycle
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:_R_POOL_ADMIN
       ()
 
   let destroy = call
@@ -10102,7 +10102,7 @@ module VUSB = struct
       ~params:[ Ref _vusb, "self", "The VUSB to destroy about" ]
       ~doc:"Removes a VUSB record from the database"
       ~lifecycle
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:_R_POOL_ADMIN
       ()
 
   let obj =
@@ -10116,7 +10116,7 @@ module VUSB = struct
       ~lifecycle
       ~persist:PersistEverything
       ~in_oss_since:None
-      ~messages_default_allowed_roles:_R_VM_ADMIN
+      ~messages_default_allowed_roles:_R_POOL_ADMIN
       ~contents:
        ([
          uid    _vusb ~lifecycle;
