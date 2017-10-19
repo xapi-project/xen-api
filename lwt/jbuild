@@ -4,7 +4,6 @@
   (libraries
    (cohttp
     cstruct
-    cstruct.lwt
     lwt
     lwt.ssl
     lwt.unix
