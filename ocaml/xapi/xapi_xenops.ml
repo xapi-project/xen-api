@@ -2597,7 +2597,11 @@ let maybe_cleanup_vm ~__context ~self =
   end
 
 let clear_vusb_attched ~__context ~self =
-  List.iter (fun vusb -> Db.VUSB.set_attached ~__context ~self:vusb ~value:Ref.null) (Db.VM.get_VUSBs ~__context ~self)
+  List.iter (fun vusb -> let pusb = Db.VUSB.get_attached ~__context ~self:vusb in
+              Db.VUSB.set_attached ~__context ~self:vusb ~value:Ref.null;
+              if Db.is_valid_ref __context pusb then
+                Db.PUSB.set_attached ~__context ~self:pusb ~value:Ref.null
+            ) (Db.VM.get_VUSBs ~__context ~self)
 
 let start ~__context ~self paused force =
   let dbg = Context.string_of_task __context in
