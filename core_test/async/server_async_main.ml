@@ -16,8 +16,8 @@
 
 module P = Printf
 
-open Core.Std
-open Async.Std
+open Core
+open Async
 
 open Message_switch_core.Protocol
 open Message_switch_async.Protocol_async

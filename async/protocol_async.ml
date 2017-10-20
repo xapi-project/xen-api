@@ -17,8 +17,8 @@
 let whoami () = Printf.sprintf "%s:%d"
     (Filename.basename Sys.argv.(0)) (Unix.getpid ())
 
-open Core.Std
-open Async.Std
+open Core
+open Async
 open Message_switch_core.Protocol
 open Cohttp
 open Cohttp_async
