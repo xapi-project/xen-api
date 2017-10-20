@@ -412,6 +412,7 @@ end
 module type VENDOR = sig
   type vgpu_conf
   val vendor_id : int
+  val pt_when_vgpu: bool
   val whitelist_file : unit -> string
   val device_id_of_conf : vgpu_conf -> int
   val read_whitelist_line : line:string -> vgpu_conf option
@@ -463,14 +464,18 @@ module Vendor = functor (V : VENDOR) -> struct
       ~is_system_display_device
       ~is_host_display_enabled
       ~is_pci_hidden =
-    let types =
-      let passthrough_types =
-        if is_system_display_device && (is_host_display_enabled || not is_pci_hidden)
-        then []
-        else [passthrough_gpu]
-      in
-      passthrough_types @
-      (make_vgpu_types ~__context ~pci ~whitelist:(V.whitelist_file ()))
+    let vgpu_types =
+      make_vgpu_types ~__context ~pci ~whitelist:(V.whitelist_file ())
+    in
+    let passthrough_types =
+      if is_system_display_device && (is_host_display_enabled || not is_pci_hidden)
+      then []
+      else [passthrough_gpu]
+    in
+    let types = match V.pt_when_vgpu, passthrough_types, vgpu_types with
+      | false, passthrough_types, [] -> passthrough_types
+      | false, _, vgpu_types -> vgpu_types
+      | true, passthrough_types, vgpu_types -> passthrough_types @ vgpu_types
     in
     List.map (find_or_create ~__context) types
 end
@@ -487,6 +492,7 @@ module Vendor_intel = struct
   }
 
   let vendor_id = 0x8086
+  let pt_when_vgpu = true
   let whitelist_file () = !Xapi_globs.gvt_g_whitelist
   let device_id_of_conf conf = conf.identifier.Identifier.pdev_id
 
@@ -584,6 +590,7 @@ module Vendor_amd = struct
   }
 
   let vendor_id = 0x1002
+  let pt_when_vgpu = false
   let whitelist_file () = !Xapi_globs.mxgpu_whitelist
   let device_id_of_conf conf = conf.identifier.Identifier.pdev_id
 
@@ -640,6 +647,7 @@ module Vendor_amd = struct
         identifier = MxGPU conf.identifier;
         experimental = conf.experimental;
       }
+
 end
 
 module Intel = Vendor(Vendor_intel)
