@@ -24,7 +24,7 @@ let create ~__context ~uSB_group ~host ~other_config ~path
   let pusb = Ref.make () and uuid = Uuid.make_uuid () in
   let host = Helpers.get_localhost ~__context in
   Db.PUSB.create ~__context ~ref:pusb ~uuid:(Uuid.to_string uuid)
-    ~uSB_group ~host ~attached:Ref.null ~other_config ~path ~vendor_id ~vendor_desc ~product_id
+    ~uSB_group ~host ~other_config ~path ~vendor_id ~vendor_desc ~product_id
     ~product_desc ~serial ~version ~description ~passthrough_enabled:false;
   debug "PUSB ref='%s' created" (Ref.string_of pusb);
   pusb
@@ -122,16 +122,17 @@ let set_passthrough_enabled ~__context ~self ~value =
        Db.PUSB.set_passthrough_enabled ~__context ~self ~value
      | false ->
        try
-         let attached = Db.PUSB.get_attached ~__context ~self in
-         (* If the USB is passthroughed to vm, need to unplug it firstly*)
-         if attached <> Ref.null then begin
-           let vm = Db.VUSB.get_VM ~__context ~self:attached in
-           raise (Api_errors.Server_error(Api_errors.usb_already_attached, [Ref.string_of self; Ref.string_of vm]))
-         end;
          let usb_group = Db.PUSB.get_USB_group ~__context ~self in
          let vusbs = Db.USB_group.get_VUSBs ~__context ~self:usb_group in
-         (* If vusb has been created, need to destroy it. *)
-         List.iter (fun vusb -> Xapi_vusb.destroy ~__context ~self:vusb) vusbs;
+         (* If the USB is passthroughed to vm, need to unplug it firstly*)
+         if vusbs <> [] then begin
+           let currently_attached = Db.VUSB.get_currently_attached ~__context ~self:(List.hd vusbs) in
+           if currently_attached then
+             let vm = Db.VUSB.get_VM ~__context ~self:(List.hd vusbs) in
+             raise (Api_errors.Server_error(Api_errors.usb_already_attached, [Ref.string_of self; Ref.string_of vm]))
+           (* If vusb has been created, need to destroy it. *)
+         end;
+         List.iter (fun vusb -> Db.VUSB.destroy ~__context ~self:vusb) vusbs;
          debug "set passthrough_enabled %b." value;
          Db.PUSB.set_passthrough_enabled ~__context ~self ~value;
          (* Re-display the removed vdi records. There is a problem here that

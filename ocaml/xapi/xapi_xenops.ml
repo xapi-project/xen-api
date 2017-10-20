@@ -695,9 +695,8 @@ module MD = struct
   let vusbs_of_vm ~__context (vmref, vm) =
     vm.API.vM_VUSBs
     |> List.map (fun self -> Db.VUSB.get_record ~__context ~self)
-    (* get attached PUSBs. *)
-    |> List.filter (fun vusb -> vusb.API.vUSB_attached <> Ref.null)
-    |> List.map (fun vusb -> Db.PUSB.get_record ~__context ~self:vusb.API.vUSB_attached)
+    |> List.map (fun vusb -> Db.USB_group.get_record ~__context ~self:vusb.API.vUSB_USB_group)
+    |> List.map (fun usb_group -> Db.PUSB.get_record ~__context ~self:(List.hd usb_group.API.uSB_group_PUSBs))
     |> List.map (fun pusb -> of_vusb ~__context ~vm ~pusb)
 
   let of_vm ~__context (vmref, vm) vbds pci_passthrough vgpu =
@@ -1956,21 +1955,19 @@ let update_vusb ~__context (id: (string * string)) =
         else begin
           let pusb, pusb_r =
             Db.VM.get_VUSBs ~__context ~self:vm
-            |> List.map (fun vusb -> Db.VUSB.get_attached ~__context ~self:vusb)
-            |> List.filter (fun attached -> Db.is_valid_ref __context attached)
+            |> List.map (fun self -> Db.VUSB.get_USB_group ~__context ~self)
+            |> List.map (fun usb_group -> List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group))
             |> List.map (fun self -> self, Db.PUSB.get_record ~__context ~self)
             |> List.find (fun (_, pusbr) -> "vusb" ^ pusbr.API.pUSB_path= (snd id))
           in
-          let vusb = Db.PUSB.get_attached ~__context ~self:pusb in
+          let usb_group = Db.PUSB.get_USB_group ~__context ~self:pusb in
+          let vusb = List.hd (Db.USB_group.get_VUSBs ~__context ~self:usb_group) in
+
           Opt.iter
             (fun (ub, state) ->
                debug "xenopsd event: Updating USB %s.%s; plugged <- %b" (fst id) (snd id)  state.plugged;
-               if not state.plugged then begin
-                 Db.VUSB.set_attached ~__context ~self:vusb ~value:Ref.null;
-                 Db.PUSB.set_attached ~__context ~self:pusb ~value:Ref.null;
-                 debug "VUSB.remove %s.%s" (fst id) (snd id);
-                 (try Client.VUSB.remove dbg id with e -> debug "VUSB.remove failed: %s" (Printexc.to_string e))
-               end
+               let currently_attached = state.plugged in
+               Db.VUSB.set_currently_attached ~__context ~self:vusb ~value:currently_attached;
             ) info;
           Xenops_cache.update_vusb id (Opt.map snd info);
           Xapi_vusb_helpers.update_allowed_operations ~__context ~self:vusb
@@ -2596,9 +2593,6 @@ let maybe_cleanup_vm ~__context ~self =
     Xenopsd_metadata.delete ~__context id;
   end
 
-let clear_vusb_attched ~__context ~self =
-  List.iter (fun vusb -> Db.VUSB.set_attached ~__context ~self:vusb ~value:Ref.null) (Db.VM.get_VUSBs ~__context ~self)
-
 let start ~__context ~self paused force =
   let dbg = Context.string_of_task __context in
   let queue_name = queue_of_vm ~__context ~self in
@@ -2652,9 +2646,6 @@ let start ~__context ~self paused force =
         check_power_state_is ~__context ~self ~expected:(if paused then `Paused else `Running)
       with e ->
         error "Caught exception starting VM: %s" (string_of_exn e);
-        (* when vm start failed, we need to clear the attached field of vusb.
-           Now we handle it in the exception, but need to fix it later.*)
-        clear_vusb_attched ~__context ~self;
         set_resident_on ~__context ~self;
         raise e
     )
@@ -3130,9 +3121,10 @@ let task_cancel ~__context ~self =
 
 let md_of_vusb ~__context ~self =
   let vm = Db.VUSB.get_VM ~__context ~self in
-  let vusb = Db.VUSB.get_record ~__context ~self in
-  let pusb =Db.PUSB.get_record ~__context ~self:vusb.API.vUSB_attached in
-  MD.of_vusb ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~pusb:pusb
+  let usb_group = Db.VUSB.get_USB_group ~__context ~self in
+  let pusb = List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group) in
+  let pusbr =Db.PUSB.get_record ~__context ~self:pusb in
+  MD.of_vusb ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~pusb:pusbr
 
 let vusb_unplug_hvm ~__context ~self =
   let vm = Db.VUSB.get_VM ~__context ~self in
@@ -3146,7 +3138,7 @@ let vusb_unplug_hvm ~__context ~self =
        let module Client = (val make_client queue_name : XENOPS) in
        Client.VUSB.unplug dbg vusb.Vusb.id |> sync_with_task __context queue_name;
        Events_from_xenopsd.wait queue_name dbg (fst vusb.Vusb.id) ();
-       if (Db.VUSB.get_attached ~__context ~self <> Ref.null) then
+       if (Db.VUSB.get_currently_attached ~__context ~self) then
          raise Api_errors.(Server_error(internal_error, [
              Printf.sprintf "vusb_unplug: Unable to unplug VUSB %s" (Ref.string_of self)]))
     )

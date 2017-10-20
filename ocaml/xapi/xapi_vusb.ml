@@ -41,7 +41,7 @@ let create ~__context ~vM ~uSB_group ~other_config =
     | _ -> ();
   Mutex.execute m (fun () ->
       Db.VUSB.create ~__context ~ref:vusb ~uuid ~current_operations:[] ~allowed_operations:[] ~vM ~uSB_group
-      ~other_config ~attached:Ref.null;
+      ~other_config ~currently_attached:false;
   );
   debug "VUSB ref='%s' created VM = '%s'" (Ref.string_of vusb) (Ref.string_of vM);
   vusb
@@ -54,7 +54,7 @@ let destroy ~__context ~self =
   let r = Db.VUSB.get_record_internal ~__context ~self in
   let vm = r.Db_actions.vUSB_VM in
   (* Force the user to unplug first *)
-  if Db.is_valid_ref __context r.Db_actions.vUSB_attached then
+  if r.Db_actions.vUSB_currently_attached then
     raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
                                       [Printf.sprintf "VUSB '%s' still attached to '%s'" r.Db_actions.vUSB_uuid (Db.VM.get_uuid __context vm)]));
   Db.VUSB.destroy ~__context ~self

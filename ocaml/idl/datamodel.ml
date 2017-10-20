@@ -9988,7 +9988,6 @@ module PUSB = struct
         [
          uid    _pusb ~lifecycle;
          field ~qualifier:StaticRO ~ty:(Ref _usb_group) ~lifecycle "USB_group" "USB group the PUSB is contained in" ~default_value:(Some (VRef null_ref));
-         field ~qualifier:DynamicRO ~ty:(Ref _vusb) ~lifecycle "attached" "VUSB running on this PUSB";
          field ~qualifier:StaticRO ~ty:(Ref _host) ~lifecycle "host" "Physical machine that owns the USB device" ~default_value:(Some (VRef null_ref));
          field ~qualifier:StaticRO ~ty:String ~lifecycle "path" "port path of USB device"~default_value:(Some (VString ""));
          field ~qualifier:StaticRO ~ty:String ~lifecycle "vendor_id" "vendor id of the USB device" ~default_value:(Some (VString ""));
@@ -10124,7 +10123,7 @@ module VUSB = struct
          field ~qualifier:DynamicRO ~ty:(Ref _vm) ~lifecycle "VM" "VM that owns the VUSB";
          field ~qualifier:DynamicRO ~ty:(Ref _usb_group) ~lifecycle "USB_group" "USB group used by the VUSB";
          field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle "other_config" "Additional configuration" ~default_value:(Some (VMap []));
-         field ~qualifier:DynamicRO ~ty:(Ref _pusb) ~lifecycle "attached" "The PUSB on which this VUSB is running" ~default_value:(Some (VRef null_ref));
+         field ~qualifier:DynamicRO ~ty:Bool  "currently_attached" "is the device currently attached" ~default_value:(Some (VBool false));
         ])
       ~messages:
         [ create
@@ -10295,7 +10294,6 @@ let all_relations =
     (_pusb, "USB_group"), (_usb_group, "PUSBs");
     (_vusb, "USB_group"), (_usb_group, "VUSBs");
     (_vusb, "VM"), (_vm, "VUSBs");
-    (_vusb, "attached"), (_pusb, "attached");
 
     (_feature, "host"), (_host, "features");
   ]
