@@ -10,9 +10,9 @@ depends: [
   "jbuilder" {build}
   "alcotest" {test}
   "cmdliner"
-  "lwt" {< "3.0.0"}
+  "lwt" {>= "3.0.0"}
   "mirage-block-unix"
-  "nbd" {>= "2.0.1"}
+  "nbd-lwt-unix"
   "uri"
   "uuidm"
   "xapi-inventory"
