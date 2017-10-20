@@ -173,7 +173,7 @@ let make_server config =
       Block.connect ~buffered:true redo_log_path
       >>= fun block ->
       let open Lwt_result in
-      Redo_log.start ~flush_interval:5. block (process_redo_log statedir)
+      Redo_log.start ~flush_interval:5_000_000_000L block (process_redo_log statedir)
       >>= fun redo_log ->
       info "Redo-log playback complete: everything should be in sync";
       queues := !on_disk_queues; (* everything should be in sync *)
