@@ -125,7 +125,11 @@ let set_passthrough_enabled ~__context ~self ~value =
          let usb_group = Db.PUSB.get_USB_group ~__context ~self in
          let vusbs = Db.USB_group.get_VUSBs ~__context ~self:usb_group in
          (* If the USB is passthroughed to vm, need to unplug it firstly*)
-         if vusbs <> [] then begin
+         match vusbs with
+         | [] -> ()
+         | _ :: _ :: _ -> raise Api_errors.(Server_error(internal_error,
+                            [Printf.sprintf "too many vusb on the USB_group: %s" (Ref.string_of usb_group)]))
+         | [vusb] -> begin
            let currently_attached = Db.VUSB.get_currently_attached ~__context ~self:(List.hd vusbs) in
            if currently_attached then
              let vm = Db.VUSB.get_VM ~__context ~self:(List.hd vusbs) in

@@ -1312,3 +1312,19 @@ let retry ~__context ~doc ?(policy = Policy.standard) f =
 
 let retry_with_global_lock ~__context ~doc ?policy f =
   retry ~__context ~doc ?policy (fun () -> with_global_lock f)
+
+let get_first_pusb ~__context usb_group =
+  try
+    List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group)
+  with _ ->
+    raise Api_errors.(Server_error(internal_error,
+      [Printf.sprintf "there is no PUSB associated with the USB_group: %s"
+      (Ref.string_of usb_group)]))
+
+let get_first_vusb ~__context usb_group =
+  try
+    List.hd (Db.USB_group.get_VUSBs ~__context ~self:usb_group)
+  with _ ->
+    raise Api_errors.(Server_error(internal_error,
+      [Printf.sprintf "there is no VUSB associated with the USB_group: %s"
+      (Ref.string_of usb_group)]))
