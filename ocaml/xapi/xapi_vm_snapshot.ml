@@ -286,7 +286,7 @@ let safe_destroy_vusb ~__context ~rpc ~session_id vusb =
 
 (* Copy the VBDs and VIFs from a source VM to a dest VM and then delete the old disks. *)
 (* This operation destroys the data of the dest VM.                                    *)
-let update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm =
+let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
   let snap_VBDs = Db.VM.get_VBDs ~__context ~self:snapshot in
   let snap_VBDs_disk, snap_VBDs_CD =
     List.partition
@@ -468,7 +468,7 @@ let revert ~__context ~snapshot ~vm =
   try
     let power_state = Db.VM.get_power_state ~__context ~self:snapshot in
 
-    update_vifs_vbds_and_vgpus ~__context ~snapshot ~vm;
+    update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm;
     update_guest_metrics ~__context ~snapshot ~vm;
     update_parent ~__context ~snapshot ~vm;
     TaskHelper.set_progress ~__context 1.;
