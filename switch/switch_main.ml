@@ -213,7 +213,7 @@ let make_server config =
     >>= fun _ ->
     let conn_id_s = Cohttp.Connection.to_string conn_id in
     let open Message_switch_core.Protocol in
-    Cohttp_lwt_body.to_string body >>= fun body ->
+    Cohttp_lwt.Body.to_string body >>= fun body ->
     let uri = Cohttp.Request.uri req in
     let path = Uri.path uri in
     match In.of_request body (Cohttp.Request.meth req) path with

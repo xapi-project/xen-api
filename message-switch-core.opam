@@ -13,7 +13,8 @@ build: [
 depends: [
   "jbuilder" {build}
   "ocamlfind" {build}
-  "cohttp" {>= "0.21.1" & < "0.22.0"}
+  "base-unix"
+  "cohttp" {>= "0.21.1"}
   "rpc" {>= "1.9.51"}
   "sexplib"
   "ppx_sexp_conv"

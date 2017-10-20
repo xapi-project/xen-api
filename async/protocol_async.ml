@@ -29,7 +29,7 @@ module M = struct
   let whoami = whoami
 
   module IO = struct
-    include Cohttp_async_io
+    include Cohttp_async.Io
 
     let map f t = Deferred.map ~f t
     let iter f t = Deferred.List.iter t ~f
