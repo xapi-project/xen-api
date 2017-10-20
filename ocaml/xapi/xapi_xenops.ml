@@ -694,9 +694,9 @@ module MD = struct
 
   let vusbs_of_vm ~__context (vmref, vm) =
     vm.API.vM_VUSBs
-    |> List.map (fun self -> Db.VUSB.get_record ~__context ~self)
-    |> List.map (fun vusb -> Db.USB_group.get_record ~__context ~self:vusb.API.vUSB_USB_group)
-    |> List.map (fun usb_group -> Db.PUSB.get_record ~__context ~self:(List.hd usb_group.API.uSB_group_PUSBs))
+    |> List.map (fun self -> Db.VUSB.get_USB_group ~__context ~self)
+    |> List.map (fun usb_group -> Helpers.get_first_pusb ~__context usb_group)
+    |> List.map (fun self -> Db.PUSB.get_record ~__context ~self)
     |> List.map (fun pusb -> of_vusb ~__context ~vm ~pusb)
 
   let of_vm ~__context (vmref, vm) vbds pci_passthrough vgpu =
@@ -1956,12 +1956,12 @@ let update_vusb ~__context (id: (string * string)) =
           let pusb, pusb_r =
             Db.VM.get_VUSBs ~__context ~self:vm
             |> List.map (fun self -> Db.VUSB.get_USB_group ~__context ~self)
-            |> List.map (fun usb_group -> List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group))
+            |> List.map (fun usb_group -> Helpers.get_first_pusb ~__context usb_group)
             |> List.map (fun self -> self, Db.PUSB.get_record ~__context ~self)
             |> List.find (fun (_, pusbr) -> "vusb" ^ pusbr.API.pUSB_path= (snd id))
           in
           let usb_group = Db.PUSB.get_USB_group ~__context ~self:pusb in
-          let vusb = List.hd (Db.USB_group.get_VUSBs ~__context ~self:usb_group) in
+          let vusb = Helpers.get_first_vusb ~__context usb_group in
 
           Opt.iter
             (fun (ub, state) ->
@@ -3122,7 +3122,7 @@ let task_cancel ~__context ~self =
 let md_of_vusb ~__context ~self =
   let vm = Db.VUSB.get_VM ~__context ~self in
   let usb_group = Db.VUSB.get_USB_group ~__context ~self in
-  let pusb = List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group) in
+  let pusb = Helpers.get_first_pusb ~__context usb_group in
   let pusbr =Db.PUSB.get_record ~__context ~self:pusb in
   MD.of_vusb ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~pusb:pusbr
 
