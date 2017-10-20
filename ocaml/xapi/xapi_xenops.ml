@@ -2596,9 +2596,6 @@ let maybe_cleanup_vm ~__context ~self =
     Xenopsd_metadata.delete ~__context id;
   end
 
-let clear_vusb_attched ~__context ~self =
-  List.iter (fun vusb -> Db.VUSB.set_attached ~__context ~self:vusb ~value:Ref.null) (Db.VM.get_VUSBs ~__context ~self)
-
 let start ~__context ~self paused force =
   let dbg = Context.string_of_task __context in
   let queue_name = queue_of_vm ~__context ~self in
@@ -2652,9 +2649,6 @@ let start ~__context ~self paused force =
         check_power_state_is ~__context ~self ~expected:(if paused then `Paused else `Running)
       with e ->
         error "Caught exception starting VM: %s" (string_of_exn e);
-        (* when vm start failed, we need to clear the attached field of vusb.
-           Now we handle it in the exception, but need to fix it later.*)
-        clear_vusb_attched ~__context ~self;
         set_resident_on ~__context ~self;
         raise e
     )
