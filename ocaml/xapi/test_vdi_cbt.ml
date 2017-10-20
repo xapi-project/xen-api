@@ -141,9 +141,40 @@ let test_get_nbd_info =
     (* NBD is not allowed on network_3 *)
     let _: _ API.Ref.t = make_host sr_of_vdi [(network_3, "92.40.98.98", ["10e1:bdb8:05a3:0002:03ae:8a24:0371:0006";"10e1:bdb8:05a3:0002:03ae:8a24:0371:0007"], true)] () in
 
+    let host1_cert = "-----BEGIN CERTIFICATE-----
+MIIBwTCCASqgAwIBAgIJAKl3gkjAjMdWMA0GCSqGSIb3DQEBCwUAMBIxEDAOBgNV
+BAMTB0hvc3RPbmUwHhcNMTcxMDIwMTU0NzE1WhcNMjcxMDE4MTU0NzE1WjASMRAw
+DgYDVQQDEwdIb3N0T25lMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDHL9+o
+102DHs2ZSYFlKeg8sCsKNPr3x2UziG6fvyE6FWtZR0scToxXU8SaAdrDE0floLsy
+TaF+aX1yUfFTA/SqeQ6E78rCRwf30IVJ8gE75oDzjqB0k7jm4lLFJARhiio0WIFy
+/AKitLBZ8o9gD54EtZ7IuhXonMUDZrCBQ8cSOQIDAQABox8wHTAbBgNVHREEFDAS
+ghBob3N0MS5kb21haW4udGxkMA0GCSqGSIb3DQEBCwUAA4GBAAwsd/Sn9jXM4+G+
+qPfHEt6aRLrVbEV5jepgSuatrnCV+duykXjPMMhp3e8+5Q1rbYC/f43UHaFp7QlD
+9d3e/mjzWhfgyBiNjE1Cbd06ZAHKsV1SaU6Y+TVMEOWg0HMishBt80w1dTrQeBOF
+UPwgCGaWtsuDCBHHwHFij3Blm2fd
+-----END CERTIFICATE-----
+"
+    in
+    let host2_cert = "-----BEGIN CERTIFICATE-----
+MIIBwTCCASqgAwIBAgIJAIhSYyKmHX1lMA0GCSqGSIb3DQEBCwUAMBIxEDAOBgNV
+BAMTB0hvc3RUd28wHhcNMTcxMDIwMTU0NzM4WhcNMjcxMDE4MTU0NzM4WjASMRAw
+DgYDVQQDEwdIb3N0VHdvMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCv4Rji
+4mj33QJblsaiQAMVhszuYNg40iI45CaJ9A8VWUw8daqLPEzJZzc6kQemGjaUtLZb
+eYX3vVYMyONjRXstPoiTdTWS1slOV/eQnbJ4N9Lt28aDFvtxBKLByavPK6Km2QdV
+7E1LeZBdYakvABI3QOO38vQ+VVbewSqQlHiemwIDAQABox8wHTAbBgNVHREEFDAS
+ghBob3N0Mi5kb21haW4udGxkMA0GCSqGSIb3DQEBCwUAA4GBAEMsmwc2vioVG7Qf
+vBPXurSr1RittWb0OjzCwevx0fpTjNGFTBTbZJaVrtscPyaI/MZhcRCRJ125E87Q
+Dk813cqiwTs4L2600lHqh3pTUL9X59jwmPqGdgelpQ8hY7uIeAocAiuWVGD42ZZA
+mffVFwXJ7B8kLP5BeRyBi6nwLhjd
+-----END CERTIFICATE-----
+"
+    in
+    let host1_subject = "host1.domain.tld" in
+    let host2_subject = "host2.domain.tld" in
+
     let get_server_certificate ~host =
-      if host = host1 then "host1_cert"
-      else if host = host2 then "host2_cert"
+      if host = host1 then host1_cert
+      else if host = host2 then host2_cert
       else failwith (Printf.sprintf "unexpected host: %s" (Ref.string_of host))
     in
 
@@ -157,32 +188,32 @@ let test_get_nbd_info =
         { vdi_nbd_server_info_exportname;
           vdi_nbd_server_info_address = "92.40.98.91";
           vdi_nbd_server_info_port;
-          vdi_nbd_server_info_cert = "host1_cert";
-          vdi_nbd_server_info_subject = "host1"
+          vdi_nbd_server_info_cert = host1_cert;
+          vdi_nbd_server_info_subject = host1_subject
         };
         { vdi_nbd_server_info_exportname = "/" ^ uuid ^ "?session_id=" ^ session_id;
           vdi_nbd_server_info_address = "92.40.98.92";
           vdi_nbd_server_info_port;
-          vdi_nbd_server_info_cert = "host1_cert";
-          vdi_nbd_server_info_subject = "host1"
+          vdi_nbd_server_info_cert = host1_cert;
+          vdi_nbd_server_info_subject = host1_subject
         };
         { vdi_nbd_server_info_exportname = "/" ^ uuid ^ "?session_id=" ^ session_id;
           vdi_nbd_server_info_address = "92.40.98.94";
           vdi_nbd_server_info_port;
-          vdi_nbd_server_info_cert = "host2_cert";
-          vdi_nbd_server_info_subject = "host2"
+          vdi_nbd_server_info_cert = host2_cert;
+          vdi_nbd_server_info_subject = host2_subject
         };
         { vdi_nbd_server_info_exportname = "/" ^ uuid ^ "?session_id=" ^ session_id;
           vdi_nbd_server_info_address = "10e1:bdb8:05a3:0002:03ae:8a24:0371:0002";
           vdi_nbd_server_info_port;
-          vdi_nbd_server_info_cert = "host2_cert";
-          vdi_nbd_server_info_subject = "host2"
+          vdi_nbd_server_info_cert = host2_cert;
+          vdi_nbd_server_info_subject = host2_subject
         };
         { vdi_nbd_server_info_exportname = "/" ^ uuid ^ "?session_id=" ^ session_id;
           vdi_nbd_server_info_address = "10e1:bdb8:05a3:0002:03ae:8a24:0371:0003";
           vdi_nbd_server_info_port;
-          vdi_nbd_server_info_cert = "host2_cert";
-          vdi_nbd_server_info_subject = "host2"
+          vdi_nbd_server_info_cert = host2_cert;
+          vdi_nbd_server_info_subject = host2_subject
         };
       ]
     in
