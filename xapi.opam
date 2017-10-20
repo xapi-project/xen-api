@@ -22,7 +22,7 @@ depends: [
   "sha"
   "ssl"
   "stdext"
-  "tar-format"
+  "tar-unix"
   "vhd-format"
   "x509"
   "xapi-cli-protocol"
