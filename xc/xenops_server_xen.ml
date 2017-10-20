@@ -1951,7 +1951,7 @@ end
 module VUSB = struct
 	open Vusb
 
-	let id_of vusb =snd vusb.id
+	let id_of vusb = snd vusb.id
 
 	let get_state vm vusb =
 		on_frontend
@@ -1981,10 +1981,13 @@ module VUSB = struct
 			) Newest vm
 
 	let unplug task vm vusb =
-		on_frontend
-			(fun xc xs frontend_domid hvm ->
-				Device.Vusb.vusb_unplug ~xs ~domid:frontend_domid ~id:(snd vusb.Vusb.id);
-			) Newest vm
+		try
+			on_frontend
+				(fun xc xs frontend_domid hvm ->
+					Device.Vusb.vusb_unplug ~xs ~domid:frontend_domid ~id:(snd vusb.Vusb.id);
+				) Newest vm
+		with (Does_not_exist(_,_)) ->
+			debug "VM = %s; VUSB = %s; Ignoring missing domain" vm (id_of vusb)
 
 end
 
