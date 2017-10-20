@@ -1761,7 +1761,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 					Some Needs_unplug
 				end in
 			let operations_of_request = function
-				| Needs_unplug -> Some (Atomic(VBD_unplug (id, true)))
+				| Needs_unplug -> Some (Atomic(VUSB_unplug id))
 				| Needs_set_qos -> None in
 			let operations = List.filter_map operations_of_request (Opt.to_list request) in
 			List.iter (fun x -> perform x t) operations;
