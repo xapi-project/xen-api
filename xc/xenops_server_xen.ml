@@ -88,7 +88,8 @@ module VmExtra = struct
 		ty: Vm.builder_info option;
 		last_start_time: float;
 		nomigrate: bool;  (* platform:nomigrate   at boot time *)
-		nested_virt: bool (* platform:nested_virt at boot time *)
+		nested_virt: bool;(* platform:nested_virt at boot time *)
+		profile: Device.Profile.t option
 	} [@@deriving rpc]
 
 	let default_persistent_t =
@@ -97,6 +98,7 @@ module VmExtra = struct
 		; last_start_time = 0.0
 		; nomigrate = false
 		; nested_virt = false
+		; profile = None
 		}
 
 	(* override rpc code generated for persistent_t. It is important that
@@ -721,6 +723,10 @@ module VM = struct
 
 	let will_be_hvm vm = match vm.ty with HVM _ -> true | _ -> false
 
+	let profile_of ~vm = if will_be_hvm vm
+		then Some (choose_qemu_dm vm.Xenops_interface.Vm.platformdata)
+		else None
+
 	let compute_overhead domain =
 		let static_max_mib = Memory.mib_of_bytes_used domain.VmExtra.memory_static_max in
 		let memory_overhead_mib =
@@ -780,7 +786,8 @@ module VM = struct
 			   any cached PV driver information will be kept. *)
 			last_start_time = 0.;
 			nomigrate = false;
-			nested_virt = false
+			nested_virt = false;
+			profile = profile_of ~vm;
 		} |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
 
 	let mkints n =
@@ -889,6 +896,7 @@ module VM = struct
 								  ~key:"nested-virt"
 								  ~platformdata:vm.Xenops_interface.Vm.platformdata
 								  ~default:false
+								; profile = profile_of ~vm
 								} in
 							let non_persistent = generate_non_persistent_state xc xs vm in
 							persistent, non_persistent

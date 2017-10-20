@@ -34,7 +34,7 @@ open D
 
 (** Definition of available qemu profiles, used by the qemu backend implementations *)
 module Profile = struct
-  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream
+  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream [@@deriving rpc]
   let fallback = Qemu_trad
   let all = [ Qemu_trad; Qemu_upstream_compat; Qemu_upstream ]
   module Name = struct
