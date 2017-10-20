@@ -55,13 +55,8 @@ let valid_operations ~__context record _ref': table =
 
   let vm = Db.VUSB.get_VM ~__context ~self:_ref' in
   let power_state = Db.VM.get_power_state ~__context ~self:vm in
-  let plugged =
-    if record.Db_actions.vUSB_attached <> Ref.null then
-      true
-    else
-      false
-  in
-  (match power_state, plugged with
+
+  (match power_state, record.Db_actions.vUSB_currently_attached with
    | `Running, true -> set_errors Api_errors.device_already_attached [ _ref ] [ `plug]
    | `Running, false -> set_errors Api_errors.device_already_detached [ _ref ] [ `unplug]
    | _,_ ->
@@ -98,3 +93,9 @@ let assert_operation_valid ~__context ~self ~(op:API.vusb_operations) =
   let all = Db.VUSB.get_record_internal ~__context ~self in
   let table = valid_operations ~__context all self in
   throw_error table op
+
+let clear_current_operations ~__context ~self =
+  if (Db.VUSB.get_current_operations ~__context ~self) <> [] then begin
+    Db.VUSB.set_current_operations ~__context ~self ~value:[];
+    update_allowed_operations ~__context ~self
+  end

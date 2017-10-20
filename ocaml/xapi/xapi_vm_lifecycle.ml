@@ -629,6 +629,11 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
            Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:pci ~value:Ref.null
       )
       (Db.PCI.get_all ~__context);
+    List.iter
+      (fun vusb ->
+         Db.VUSB.set_currently_attached ~__context ~self:vusb ~value:false;
+         Xapi_vusb_helpers.clear_current_operations ~__context ~self:vusb;
+      ) (Db.VM.get_VUSBs ~__context ~self);
     (* Blank the requires_reboot flag *)
     Db.VM.set_requires_reboot ~__context ~self ~value:false
   end;

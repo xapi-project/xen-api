@@ -884,9 +884,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       try
         Vgpuops.create_vgpus ~__context host (vm, snapshot)
           (Helpers.will_boot_hvm ~__context ~self:vm);
-        (* Allocate vusb to vm *)
-        Vusbops.create_vusbs ~__context host (vm, snapshot)
-          (Helpers.will_boot_hvm ~__context ~self:vm)
       with e ->
         clear_scheduled_to_be_resident_on ~__context ~vm;
         raise e

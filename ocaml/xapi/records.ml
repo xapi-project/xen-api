@@ -2035,7 +2035,6 @@ let pusb_record rpc session_id pusb =
         make_field ~name:"description" ~get:(fun () -> (x ()).API.pUSB_description) ();
         make_field ~name:"passthrough-enabled" ~get:(fun () -> string_of_bool ((x ()).API.pUSB_passthrough_enabled))
           ~set:(fun passthrough_enabled -> Client.PUSB.set_passthrough_enabled rpc session_id pusb (safe_bool_of_string "passthrough-enabled" passthrough_enabled)) ();
-        make_field ~name:"attached"  ~get:(fun () -> get_uuid_from_ref (x ()).API.pUSB_attached) ();
       ]
   }
 
@@ -2059,6 +2058,7 @@ let usb_group_record rpc session_id usb_group =
         ~get_set:(fun () -> (List.map (fun vusb -> get_uuid_from_ref vusb) (x ()).API.uSB_group_VUSBs)) ();
       make_field ~name:"PUSB-uuids" ~get:(fun () -> String.concat "; " (List.map (fun pusb -> get_uuid_from_ref pusb) (x ()).API.uSB_group_PUSBs))
         ~get_set:(fun () -> (List.map (fun pusb -> get_uuid_from_ref pusb) (x ()).API.uSB_group_PUSBs)) ();
+
       make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.uSB_group_other_config)
         ~add_to_map:(fun k v -> Client.USB_group.add_to_other_config rpc session_id usb_group k v)
         ~remove_from_map:(fun k -> Client.USB_group.remove_from_other_config rpc session_id usb_group k)
@@ -2086,12 +2086,12 @@ let vusb_record rpc session_id vusb =
         ~add_to_map:(fun k v -> Client.VUSB.add_to_other_config rpc session_id vusb k v)
         ~remove_from_map:(fun k -> Client.VUSB.remove_from_other_config rpc session_id vusb k)
         ~get_map:(fun () -> (x ()).API.vUSB_other_config) ();
-      make_field ~name:"attached" ~get:(fun () -> try get_uuid_from_ref (x ()).API.vUSB_attached with _ -> nid) ();
-       make_field ~name:"allowed-operations"
-          ~get:(fun () -> String.concat "; " (List.map Record_util.vusb_operation_to_string (x ()).API.vUSB_allowed_operations))
-          ~get_set:(fun () -> List.map Record_util.vusb_operation_to_string (x ()).API.vUSB_allowed_operations) ();
-        make_field ~name:"current-operations"
-          ~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.vusb_operation_to_string b) (x ()).API.vUSB_current_operations))
-          ~get_set:(fun () -> List.map (fun (a,b) -> Record_util.vusb_operation_to_string b) (x ()).API.vUSB_current_operations) ();
+      make_field ~name:"currently-attached" ~get:(fun () -> string_of_bool ((x ()).API.vUSB_currently_attached)) ();
+      make_field ~name:"allowed-operations"
+        ~get:(fun () -> String.concat "; " (List.map Record_util.vusb_operation_to_string (x ()).API.vUSB_allowed_operations))
+        ~get_set:(fun () -> List.map Record_util.vusb_operation_to_string (x ()).API.vUSB_allowed_operations) ();
+      make_field ~name:"current-operations"
+        ~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.vusb_operation_to_string b) (x ()).API.vUSB_current_operations))
+        ~get_set:(fun () -> List.map (fun (a,b) -> Record_util.vusb_operation_to_string b) (x ()).API.vUSB_current_operations) ();
     ]
   }
