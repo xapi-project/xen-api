@@ -24,27 +24,27 @@ let create ~__context ~vM ~uSB_group ~other_config =
   let vusb = Ref.make () in
   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
   Pool_features.assert_enabled ~__context ~f:Features.USB_passthrough;
-  let attached_vusbs = Db.VM.get_VUSBs ~__context ~self:vM in
-  (* At most 6 VUSBS can be attached to one vm *)
-  if List.length attached_vusbs > 5 then
-    raise (Api_errors.Server_error (Api_errors.too_many_vusbs, ["6"]));
-  let vusbs = Db.USB_group.get_VUSBs ~__context ~self:uSB_group in
-  (* Currently USB_group only have one PUSB. So when vusb is created with a USB_group,
-      another vusb can not create with the same USB_group. *)
-  if vusbs <> [] then
-    raise (Api_errors.Server_error(Api_errors.usb_group_conflict, [Ref.string_of uSB_group]));
-  (* We won't attach VUSB when VM ha_restart_priority is set to 'restart'  *)
-  let ha_restart_priority = Db.VM.get_ha_restart_priority ~__context ~self:vM in
-  match ha_restart_priority with
-    | hp when hp = Constants.ha_restart -> raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
-        [Printf.sprintf "VM %s ha_restart_priority has been set to 'restart', can not create VUSB for it. " (Ref.string_of vM)]))
-    | _ -> ();
   Mutex.execute m (fun () ->
+    let attached_vusbs = Db.VM.get_VUSBs ~__context ~self:vM in
+    (* At most 6 VUSBS can be attached to one vm *)
+    if List.length attached_vusbs > 5 then
+      raise (Api_errors.Server_error (Api_errors.too_many_vusbs, ["6"]));
+    let vusbs = Db.USB_group.get_VUSBs ~__context ~self:uSB_group in
+    (* Currently USB_group only have one PUSB. So when vusb is created with a USB_group,
+        another vusb can not create with the same USB_group. *)
+    if vusbs <> [] then
+      raise (Api_errors.Server_error(Api_errors.usb_group_conflict, [Ref.string_of uSB_group]));
+    (* We won't attach VUSB when VM ha_restart_priority is set to 'restart'  *)
+    let ha_restart_priority = Db.VM.get_ha_restart_priority ~__context ~self:vM in
+    match ha_restart_priority with
+    | hp when hp = Constants.ha_restart -> raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
+      [Printf.sprintf "VM %s ha_restart_priority has been set to 'restart', can not create VUSB for it. " (Ref.string_of vM)]))
+    | _ ->
       Db.VUSB.create ~__context ~ref:vusb ~uuid ~current_operations:[] ~allowed_operations:[] ~vM ~uSB_group
-      ~other_config ~currently_attached:false;
-  );
-  debug "VUSB ref='%s' created VM = '%s'" (Ref.string_of vusb) (Ref.string_of vM);
-  vusb
+        ~other_config ~currently_attached:false;
+      debug "VUSB ref='%s' created VM = '%s'" (Ref.string_of vusb) (Ref.string_of vM);
+      vusb
+  )
 
 let unplug ~__context ~self =
   Xapi_xenops.vusb_unplug ~__context ~self
