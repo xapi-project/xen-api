@@ -171,10 +171,6 @@ let make_server config =
       on_disk_queues := qs;
       info "Reading the redo-log from %s" redo_log_path;
       Block.connect ~buffered:true redo_log_path
-      >>= (function
-          | `Ok block -> Lwt.return block
-          | `Error `Unknown s -> Lwt.fail (Failure (Printf.sprintf "Unexpected failure when opening block: %s" s))
-          | `Error _ -> Lwt.fail (Failure "Other error"))
       >>= fun block ->
       let open Lwt_result in
       Redo_log.start ~flush_interval:5. block (process_redo_log statedir)
