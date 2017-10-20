@@ -24,18 +24,17 @@ let create ~__context ~name_label ~name_description ~other_config =
 let destroy ~__context ~self =
   let vusbs = Db.USB_group.get_VUSBs ~__context ~self in
   let connected = List.filter (fun self ->
-      Db.VUSB.get_attached ~__context ~self <> Ref.null
+      Db.VUSB.get_currently_attached ~__context ~self
     ) vusbs in
   if connected <> [] then
     raise (Api_errors.Server_error (Api_errors.usb_group_contains_vusb, List.map Ref.string_of connected));
-
   let pusbs = Db.USB_group.get_PUSBs ~__context ~self in
   if pusbs <> [] then
     raise (Api_errors.Server_error (Api_errors.usb_group_contains_pusb, List.map Ref.string_of pusbs));
 
   (* Destroy all vUSBs *)
   List.iter (fun vusb ->
-      Helpers.log_exn_continue (Printf.sprintf "destroying VUSB: %s" (Ref.string_of vusb))
-        (fun vusb -> Db.VUSB.destroy ~__context ~self:vusb) vusb) vusbs;
+    Helpers.log_exn_continue (Printf.sprintf "destroying VUSB: %s" (Ref.string_of vusb))
+      (fun vusb -> Db.VUSB.destroy ~__context ~self:vusb) vusb) vusbs;
 
   Db.USB_group.destroy ~__context ~self
