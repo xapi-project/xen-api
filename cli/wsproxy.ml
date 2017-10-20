@@ -28,7 +28,7 @@ let start path handler =
   Lwt.catch
     (fun () -> Lwt_unix.unlink fd_sock_path)
     (fun _ -> Lwt.return_unit) >>= fun () ->
-  let () = Lwt_unix.bind fd_sock (Unix.ADDR_UNIX fd_sock_path) in
+  Lwt_unix.bind fd_sock (Unix.ADDR_UNIX fd_sock_path) >>= fun () ->
   let () = Lwt_unix.listen fd_sock 5 in
 
   let rec loop () =
