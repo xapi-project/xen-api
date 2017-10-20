@@ -14,20 +14,14 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-let use_mtime () = Mtime.Span.to_uint64_ns (Mtime_clock.elapsed ())
+include Mtime_clock
 
-let use_timeofday () = Int64.of_float (Unix.gettimeofday () *. Mtime.s_to_ns)
+type +'a io = 'a Lwt.t
 
-let ns =
-  try
-    Mtime_clock.now () |> ignore;
-    use_mtime
-  with Sys_error e -> begin
-      Logging.warn "Error: %s. No monotonic clock source: falling back to calendar time" e;
-      use_timeofday
-    end
+type t = unit
 
-include Unix
-let time = gettimeofday
+let disconnect () = Lwt.return_unit
 
-let s () = Int64.to_float (ns ()) /. 1e9
+let connect () = Lwt.return_unit
+
+let ns () = Mtime.Span.to_uint64_ns (Mtime_clock.elapsed ())
