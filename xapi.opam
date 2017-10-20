@@ -10,7 +10,6 @@ build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
 
 depends: [
   "jbuilder" {build & >= "1.0+beta11"}
-  "x509"
   "cdrom"
   "fd-send-recv"
   "nbd"
@@ -24,6 +23,7 @@ depends: [
   "stdext"
   "tar-format"
   "vhd-format"
+  "x509"
   "xapi-cli-protocol"
   "xapi-client"
   "xapi-consts"
