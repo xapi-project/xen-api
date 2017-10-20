@@ -1367,10 +1367,13 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
       (* Close all streams *)
       let fds = Stdext.Listext.List.setify (main_fd :: Opt.to_list vgpu_fd) in
       fold (fun fd () -> write_header fd (End_of_image, 0L)) fds ()
-    in match res with
+    in (match res with
+    | `Error e -> raise e
     | `Ok () ->
       debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid
-    | `Error e -> raise e
+    );
+    (* device model not needed anymore after suspend image has been created *)
+    (if hvm then Device.Dm.stop ~xs ~qemu_domid ~dm domid)
 
 end
 
@@ -1783,10 +1786,13 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
       (if vgpu then write_demu_record domid uuid main_fd else return ()) >>= fun () ->
       debug "Writing End_of_image footer";
       write_header main_fd (End_of_image, 0L)
-    in match res with
+    in (match res with
+    | `Error e -> raise e
     | `Ok () ->
       debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid
-    | `Error e -> raise e
+    );
+    (* device model not needed anymore after suspend image has been created *)
+    (if hvm then Device.Dm.stop ~xs ~qemu_domid ~dm domid)
 
 end
 
