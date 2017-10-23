@@ -235,7 +235,7 @@ module Datapath_plugins = struct
   let supports_feature scheme feature =
     match Hashtbl.find !table scheme with
     | None -> false
-    | Some query_result -> List.mem query_result.Storage.Plugin.Types.features feature
+    | Some query_result -> List.mem query_result.Storage.Plugin.Types.features feature ~equal:String.equal
 end
 
 let vdi_of_volume x =
@@ -371,7 +371,7 @@ let process root_dir name x =
     (* If we have the ability to clone a disk then we can provide
        clone on boot. *)
     let features =
-      if List.mem features "VDI_CLONE"
+      if List.mem features "VDI_CLONE" ~equal:String.equal
       then "VDI_RESET_ON_BOOT/2" :: features
       else features in
     let response = {
@@ -576,7 +576,7 @@ let process root_dir name x =
     >>= fun response ->
     (* Filter out volumes which are clone-on-boot transients *)
     let transients = List.fold ~f:(fun set x ->
-      match List.Assoc.find x.Storage.Volume.Types.keys _clone_on_boot_key with
+      match List.Assoc.find x.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
       | None -> set
       | Some transient -> Set.add set transient
     ) ~init:(Set.empty ~comparator:String.comparator) response in
@@ -608,7 +608,7 @@ let process root_dir name x =
     stat root_dir name args.Args.VDI.Destroy.dbg sr args.Args.VDI.Destroy.vdi
     >>= fun response ->
     (* Destroy any clone-on-boot volume that might exist *)
-    ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key with
+    ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
       | None ->
         return (Ok ())
       | Some temporary ->
@@ -714,7 +714,7 @@ let process root_dir name x =
     stat root_dir name args.Args.VDI.Attach.dbg sr args.Args.VDI.Attach.vdi
     >>= fun response ->
     (* If we have a clone-on-boot volume then use that instead *)
-    ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key with
+    ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
       | None ->
         return (Ok response)
       | Some temporary ->
@@ -748,7 +748,7 @@ let process root_dir name x =
     stat root_dir name args.Args.VDI.Activate.dbg sr args.Args.VDI.Activate.vdi
     >>= fun response ->
     (* If we have a clone-on-boot volume then use that instead *)
-    ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key with
+    ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
       | None ->
         return (Ok response)
       | Some temporary ->
@@ -771,7 +771,7 @@ let process root_dir name x =
     (* Discover the URIs using Volume.stat *)
     stat root_dir name args.Args.VDI.Deactivate.dbg sr args.Args.VDI.Deactivate.vdi
     >>= fun response ->
-    ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key with
+    ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
       | None ->
         return (Ok response)
       | Some temporary ->
@@ -794,7 +794,7 @@ let process root_dir name x =
     (* Discover the URIs using Volume.stat *)
     stat root_dir name args.Args.VDI.Detach.dbg sr args.Args.VDI.Detach.vdi
     >>= fun response ->
-    ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key with
+    ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
       | None ->
         return (Ok response)
       | Some temporary ->
@@ -858,7 +858,7 @@ let process root_dir name x =
     end else if not persistent then begin
       (* We create a non-persistent disk here with Volume.clone, and store
          the name of the cloned disk in the metadata of the original. *)
-      ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key with
+      ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
         | None ->
           return (Ok ())
         | Some temporary ->
@@ -890,7 +890,7 @@ let process root_dir name x =
       >>= fun () ->
       Deferred.Result.return (R.success (Args.VDI.Epoch_end.rpc_of_response ()))
     end else begin
-      match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key with
+      match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
       | None ->
         Deferred.Result.return (R.success (Args.VDI.Epoch_end.rpc_of_response ()))
       | Some temporary ->
@@ -931,7 +931,7 @@ let get_ok = function
 let rec diff a b = match a with
   | [] -> []
   | a :: aa ->
-    if List.mem b a then diff aa b else a :: (diff aa b)
+    if List.mem b a ~equal:(=) then diff aa b else a :: (diff aa b)
 
 let watch_volume_plugins ~root_dir ~switch_path ~pipe =
   let create switch_path root_dir name =
