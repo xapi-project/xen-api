@@ -64,12 +64,12 @@ val string_of_kind : kind -> string
 val kind_of_string : string -> kind
 
 (** [list_backends xs domid] returns a list of devices where there is a
-	backend in [domid]. This function only reads data stored in the backend
+    	backend in [domid]. This function only reads data stored in the backend
     directory.*)
 val list_backends : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> device list
 
 (** [list_frontends xs domid] returns a list of devices where there is a
-	frontend in [domid]. This function only reads data stored in the frontend
+    	frontend in [domid]. This function only reads data stored in the frontend
     directory.*)
 val list_frontends : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> device list
 

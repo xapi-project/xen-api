@@ -27,42 +27,42 @@ let catch_invalid message f x =
     raise e
 
 let readdir ?(full_paths=true) ~xs path =
-	print_debug "Calling list of <%s>" path;
-	let paths = xs.Xs.directory path in
-	print_debug "paths = [ %s ]" (String.concat "  " paths);
-	if paths = [ "" ] then [] (* empty directory *)
-	else (if full_paths (* Note "//" is an Invalid path *)
-	      then List.map (fun x -> (if path = "/" then "" else path) ^ "/" ^ x) paths
-	      else paths)
+  print_debug "Calling list of <%s>" path;
+  let paths = xs.Xs.directory path in
+  print_debug "paths = [ %s ]" (String.concat "  " paths);
+  if paths = [ "" ] then [] (* empty directory *)
+  else (if full_paths (* Note "//" is an Invalid path *)
+        then List.map (fun x -> (if path = "/" then "" else path) ^ "/" ^ x) paths
+        else paths)
 
 let ls ~xs = function
   | [ path ] ->
-      print_endline ("Contents of " ^ path ^ ":");
-      let paths = readdir xs path in
-      print_debug "paths = [ %s ]" (String.concat "  " paths);
-      let longest = List.fold_left max 0 (List.map String.length paths) in
-(*      let perms = List.map (fun x -> catch_invalid (Printf.sprintf "getperms %s" x) xs.Xs.getperms x)
-	paths in *)
-      List.iter (fun path ->
-                   let perm = catch_invalid (Printf.sprintf "getperms %s" path)
-		                            xs.Xs.getperms path in
-		   print_string "    ";
-		   print_string path;
-		   for i = String.length path to longest + 5
-                   do
-                      print_string " "
-                   done;
-		   print_endline (Xsraw.string_of_perms perm)) paths
+    print_endline ("Contents of " ^ path ^ ":");
+    let paths = readdir xs path in
+    print_debug "paths = [ %s ]" (String.concat "  " paths);
+    let longest = List.fold_left max 0 (List.map String.length paths) in
+    (*      let perms = List.map (fun x -> catch_invalid (Printf.sprintf "getperms %s" x) xs.Xs.getperms x)
+            	paths in *)
+    List.iter (fun path ->
+        let perm = catch_invalid (Printf.sprintf "getperms %s" path)
+            xs.Xs.getperms path in
+        print_string "    ";
+        print_string path;
+        for i = String.length path to longest + 5
+        do
+          print_string " "
+        done;
+        print_endline (Xsraw.string_of_perms perm)) paths
   | _ -> failwith "ls takes exactly one argument"
 
 let debug ~xs commands = 
-	let contents = xs.Xs.debug commands in
-	print_endline contents
+  let contents = xs.Xs.debug commands in
+  print_endline contents
 
 let read ~xs = function
   | [ path ] ->
-      let contents = xs.Xs.read path in
-      print_endline contents
+    let contents = xs.Xs.read path in
+    print_endline contents
   | _ -> failwith "read takes exactly one argument"
 
 let rm ~xs = function
@@ -75,38 +75,38 @@ let mkdir ~xs = function
 
 let watch ~xs = function
   | [ path ] ->
-      xs.Xs.watch path "1";
-      print_debug "Added watch to path: %s" path;
-      while true do
-	let x, _ = Xs.read_watchevent xs in
-	Printf.printf "%s\n" x;
-	flush stdout
-      done
+    xs.Xs.watch path "1";
+    print_debug "Added watch to path: %s" path;
+    while true do
+      let x, _ = Xs.read_watchevent xs in
+      Printf.printf "%s\n" x;
+      flush stdout
+    done
   | _ -> failwith "watch takes exactly one argument"
 
 let write ~xs = function
   | [ path; data ] ->
-      xs.Xs.write path data
+    xs.Xs.write path data
   | _ -> failwith "write takes a path and a value to write"
 
 let functions = [ "ls", (ls, "List a directory");
-		  "rm", (rm, "Remove a path");
-		  "mkdir", (mkdir, "Make a directory");
-		  "read", (read, "Read a value from a path");
-		  "write", (write, "Write a value to a path");
-		  "watch", (watch, "Watch a path");
-		  "debug", (debug, "Debug commands");
-		]
+                  "rm", (rm, "Remove a path");
+                  "mkdir", (mkdir, "Make a directory");
+                  "read", (read, "Read a value from a path");
+                  "write", (write, "Write a value to a path");
+                  "watch", (watch, "Watch a path");
+                  "debug", (debug, "Debug commands");
+                ]
 
 let available_commands () =
-	String.concat "\n" (List.map (fun (command, (_, descr)) -> command ^ ": " ^ descr) functions)
+  String.concat "\n" (List.map (fun (command, (_, descr)) -> command ^ ": " ^ descr) functions)
 
 let _ =
   let paths = ref [] in
   let mode = ref "" in
   Arg.parse []
     (fun x -> if !mode = "" then mode := x
-		else paths := x :: !paths)
+      else paths := x :: !paths)
     (Printf.sprintf "Manipulate xenstore\nAvailable commands are:\n%s\n" (available_commands ()));
   let paths = List.rev !paths in
   let mode = !mode in
