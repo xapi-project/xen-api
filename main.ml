@@ -26,7 +26,7 @@ let log level fmt =
   Printf.ksprintf (fun s ->
     if !use_syslog then begin
       (* FIXME: this is synchronous and will block other I/O *)
-      Core.Syslog.syslog ~level ~facility:Core.Syslog.Facility.DAEMON s;
+      Core.Unix.Syslog.syslog ~level ~facility:Core.Unix.Syslog.Facility.DAEMON s;
     end else begin
       let w = Lazy.force Writer.stderr in
       Writer.write w s;
@@ -34,10 +34,10 @@ let log level fmt =
     end
   ) fmt
 
-let debug fmt = log Core.Syslog.Level.DEBUG   fmt
-let info  fmt = log Core.Syslog.Level.INFO    fmt
-let warn  fmt = log Core.Syslog.Level.WARNING fmt
-let error fmt = log Core.Syslog.Level.ERR     fmt
+let debug fmt = log Core.Unix.Syslog.Level.DEBUG   fmt
+let info  fmt = log Core.Unix.Syslog.Level.INFO    fmt
+let warn  fmt = log Core.Unix.Syslog.Level.WARNING fmt
+let error fmt = log Core.Unix.Syslog.Level.ERR     fmt
 
 module RRD = struct
   open Message_switch_async.Protocol_async
