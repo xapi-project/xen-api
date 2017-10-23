@@ -15,8 +15,8 @@ module U = Unix
 module R = Rpc
 module B = Backtrace
 
-open Core.Std
-open Async.Std
+open Core
+open Async
 
 open Xapi_storage_script_types
 
