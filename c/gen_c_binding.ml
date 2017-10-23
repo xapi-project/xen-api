@@ -139,9 +139,16 @@ let rec main() =
 
   TypeSet.iter (gen_map write_enum_map_internal_decl internal_decl_filename include_dir) !enum_maps;
 
+  let class_records = filtered_classes |>
+    List.map (fun {name} -> record_typename name) |>
+    List.sort String.compare
+  in
+  let json1 =`O ["api_class_records", `A (List.map (fun x -> `O ["api_class_record", `String x];) class_records); ] in
+  render_file ("xen_internal.mustache", "include/xen_internal.h") json1 templates_dir destdir;
+
   let sorted_headers = List.sort String.compare (List.map decl_filename !all_headers) in
-  let json = `O ["api_headers", `A (List.map (fun x -> `O ["api_header", `String x];) sorted_headers); ] in
-  render_file ("xen_all.h.mustache", "include/xen/api/xen_all.h") json templates_dir destdir
+  let json2 = `O ["api_headers", `A (List.map (fun x -> `O ["api_header", `String x];) sorted_headers); ] in
+  render_file ("xen_all.h.mustache", "include/xen/api/xen_all.h") json2 templates_dir destdir
 
 
 and gen_class f g clas targetdir =
@@ -1157,7 +1164,7 @@ const abstract_type %s_abstract_type_ =
 " record_tn record_fields record_tn record_tn record_tn record_tn;
 
   print
-      "const abstract_type %s_set_abstract_type_ =
+    "const abstract_type %s_set_abstract_type_ =
     {
        .typename = SET,
         .child = &%s_abstract_type_

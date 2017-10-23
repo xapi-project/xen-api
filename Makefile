@@ -55,7 +55,6 @@ clean:
 c: build
 	_build/default/c/gen_c_binding.exe -d _build/default/c/autogen -t c/templates
 #source
-	cp c/xen_internal.h c/sources/xen_event_internal.h _build/default/c/autogen/include
 	cp c/xen_common.h c/xen_string_set.h c/xen_int_set.h c/sources/xen_event_batch.h _build/default/c/autogen/include/xen/api
 	cp c/xen_common.c c/xen_string_set.c c/xen_int_set.c c/sources/xen_event_batch.c _build/default/c/autogen/src
 #tests

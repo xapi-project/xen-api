@@ -486,12 +486,21 @@ namespace XenAPI
   print ";
         }
 
+        internal static List<%s> ProxyArrayToObjectList(Proxy_%s[] input)
+        {
+            var result = new List<%s>();
+            foreach (var item in input)
+                result.Add(new %s(item));
+
+            return result;
+        }
+
         public override string SaveChanges(Session session, string opaqueRef, %s server)
         {
             if (opaqueRef == null)
             {
 "
-    exposed_class_name;
+  exposed_class_name exposed_class_name exposed_class_name exposed_class_name exposed_class_name;
 
   if cls.gen_constructor_destructor then
     print
@@ -1228,8 +1237,8 @@ and convert_from_hashtable fname ty =
     sprintf "new %s((Proxy_%s)table[%s])"
       (exposed_class_name name) (exposed_class_name name) field
   | Set(Record name)    ->
-    sprintf "Helper.Proxy_%sArrayTo%sList(Marshalling.ParseStringArray(%s))"
-      (exposed_class_name name) (exposed_class_name name) field
+    sprintf "%s.ProxyArrayToObjectList(Marshalling.ParseStringArray(%s))"
+      (exposed_class_name name) field
   | Set(Int)            -> sprintf "Marshalling.ParseLongArray(table, %s)" field
   | _                   -> assert false
 
@@ -1257,8 +1266,8 @@ and simple_convert_from_proxy thing ty =
     sprintf "new %s((Proxy_%s)%s)"
       (exposed_class_name name) (exposed_class_name name) thing
   | Set(Record name)    ->
-    sprintf "Helper.Proxy_%sArrayTo%sList(%s)"
-      (exposed_class_name name) (exposed_class_name name) thing
+    sprintf "%s.ProxyArrayToObjectList(%s)"
+      (exposed_class_name name) thing
   | Set(Int)            ->
     sprintf "Helper.StringArrayToLongArray(%s)" thing
   | _                   -> assert false

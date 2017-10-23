@@ -107,7 +107,10 @@ extern const abstract_type abstract_type_int_string_set_map;
 extern const abstract_type abstract_type_string_string_set_map;
 extern const abstract_type abstract_type_string_string_string_map_map;
 
-extern const abstract_type xen_vdi_nbd_server_info_record_set_abstract_type_;
+{{#api_class_records}}
+extern const abstract_type {{api_class_record}}_abstract_type_;
+extern const abstract_type {{api_class_record}}_set_abstract_type_;
+{{/api_class_records}}
 
 
 typedef struct abstract_value

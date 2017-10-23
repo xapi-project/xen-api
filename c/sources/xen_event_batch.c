@@ -29,7 +29,6 @@
  */
 
 #include "xen_internal.h"
-#include "xen_event_internal.h"
 #include <xen/api/xen_common.h>
 #include <xen/api/xen_event_batch.h>
 
