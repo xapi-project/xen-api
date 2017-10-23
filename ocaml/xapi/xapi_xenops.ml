@@ -671,6 +671,34 @@ module MD = struct
         )
         [] vm.API.vM_VGPUs
 
+  let of_vusb ~__context ~vm ~pusb =
+    let open Vusb in
+    try
+      let path = pusb.API.pUSB_path in
+      let pathList= Xstringext.String.split '-' path in
+      let hostbus = List.nth pathList 0 in
+      let hostport = List.nth pathList 1 in
+      (* Here version can be 1.10/2.00/3.00. *)
+      let version = pusb.API.pUSB_version in
+      {
+        id = (vm.API.vM_uuid, "vusb"^path);
+        hostbus = hostbus;
+        hostport = hostport;
+        version = version;
+        path = path;
+      }
+    with
+      | e ->
+      error "Caught %s: while getting PUSB path %s" (Printexc.to_string e) pusb.API.pUSB_path;
+      raise e
+
+  let vusbs_of_vm ~__context (vmref, vm) =
+    vm.API.vM_VUSBs
+    |> List.map (fun self -> Db.VUSB.get_USB_group ~__context ~self)
+    |> List.map (fun usb_group -> Helpers.get_first_pusb ~__context usb_group)
+    |> List.map (fun self -> Db.PUSB.get_record ~__context ~self)
+    |> List.map (fun pusb -> of_vusb ~__context ~vm ~pusb)
+
   let of_vm ~__context (vmref, vm) vbds pci_passthrough vgpu =
     let on_crash_behaviour = function
       | `preserve -> [ Vm.Pause ]
@@ -903,6 +931,7 @@ let create_metadata ~__context ~upgrade ~self =
   let vifs' = List.map (fun vif -> MD.of_vif ~__context ~vm ~vif) vifs in
   let pcis = MD.pcis_of_vm ~__context (self, vm) in
   let vgpus = MD.vgpus_of_vm ~__context (self, vm) in
+  let vusbs = MD.vusbs_of_vm ~__context (self, vm) in
   let domains =
     (* For suspended VMs, we may need to translate the last_booted_record from the old format. *)
     if vm.API.vM_power_state = `Suspended || upgrade then begin
@@ -915,6 +944,7 @@ let create_metadata ~__context ~upgrade ~self =
     vifs = vifs';
     pcis = pcis;
     vgpus = vgpus;
+    vusbs = vusbs;
     domains = domains
   }
 
@@ -973,6 +1003,7 @@ module Xenops_cache = struct
     vifs: (Vif.id * Vif.state) list;
     pcis: (Pci.id * Pci.state) list;
     vgpus: (Vgpu.id * Vgpu.state) list;
+    vusbs: (Vusb.id * Vusb.state) list;
   }
   let empty = {
     vm = None;
@@ -980,6 +1011,7 @@ module Xenops_cache = struct
     vifs = [];
     pcis = [];
     vgpus = [];
+    vusbs = [];
   }
 
   let cache = Hashtbl.create 10 (* indexed by Vm.id *)
@@ -1037,6 +1069,11 @@ module Xenops_cache = struct
       else None
     | _ -> None
 
+  let find_vusb id : Vusb.state option =
+    match find (fst id) with
+    | Some { vusbs = vusbs } when List.mem_assoc id vusbs -> Some (List.assoc id vusbs)
+    | _ -> None
+
   let update id t =
     Mutex.execute metadata_m
       (fun () ->
@@ -1064,6 +1101,11 @@ module Xenops_cache = struct
     let existing = Opt.default empty (find (fst id)) in
     let vgpus' = List.filter (fun (vgpu_id, _) -> vgpu_id <> id) existing.vgpus in
     update (fst id) { existing with vgpus = Opt.default vgpus' (Opt.map (fun info -> (id, info) :: vgpus') info) }
+
+  let update_vusb id info =
+    let existing = Opt.default empty (find (fst id)) in
+    let vusbs' = List.filter (fun (vusb_id, _) -> vusb_id <> id) existing.vusbs in
+    update (fst id) { existing with vusbs = Opt.default vusbs' (Opt.map (fun info -> (id, info) :: vusbs') info) }
 
   let update_vm id info =
     let existing = Opt.default empty (find id) in
@@ -1893,6 +1935,46 @@ let update_vgpu ~__context id =
   with e ->
     error "xenopsd event: Caught %s while updating VGPU" (string_of_exn e)
 
+let update_vusb ~__context (id: (string * string)) =
+  try
+    let open Vusb in
+    if Events_from_xenopsd.are_suppressed (fst id)
+    then debug "xenopsd event: ignoring event for VM (VM %s migrating away)" (fst id)
+    else
+      let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
+      let localhost = Helpers.get_localhost ~__context in
+      if Db.VM.get_resident_on ~__context ~self:vm <> localhost
+      then debug "xenopsd event: ignoring event for VUSB (VM %s not resident)" (fst id)
+      else
+        let previous = Xenops_cache.find_vusb id in
+        let dbg = Context.string_of_task __context in
+        let module Client = (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS) in
+        let info = try Some(Client.VUSB.stat dbg id) with _ -> None in
+        if Opt.map snd info = previous
+        then debug "xenopsd event: ignoring event for VUSB %s.%s: metadata has not changed" (fst id) (snd id)
+        else begin
+          let pusb, pusb_r =
+            Db.VM.get_VUSBs ~__context ~self:vm
+            |> List.map (fun self -> Db.VUSB.get_USB_group ~__context ~self)
+            |> List.map (fun usb_group -> Helpers.get_first_pusb ~__context usb_group)
+            |> List.map (fun self -> self, Db.PUSB.get_record ~__context ~self)
+            |> List.find (fun (_, pusbr) -> "vusb" ^ pusbr.API.pUSB_path= (snd id))
+          in
+          let usb_group = Db.PUSB.get_USB_group ~__context ~self:pusb in
+          let vusb = Helpers.get_first_vusb ~__context usb_group in
+
+          Opt.iter
+            (fun (ub, state) ->
+               debug "xenopsd event: Updating USB %s.%s; plugged <- %b" (fst id) (snd id)  state.plugged;
+               let currently_attached = state.plugged in
+               Db.VUSB.set_currently_attached ~__context ~self:vusb ~value:currently_attached;
+            ) info;
+          Xenops_cache.update_vusb id (Opt.map snd info);
+          Xapi_vusb_helpers.update_allowed_operations ~__context ~self:vusb
+        end
+  with e ->
+    error "xenopsd event: Caught %s while updating VUSB" (string_of_exn e)
+
 exception Not_a_xenops_task
 let wrap queue_name id = TaskHelper.Xenops (queue_name, id)
 let unwrap x = match x with | TaskHelper.Xenops (queue_name, id) -> queue_name, id | _ -> raise Not_a_xenops_task
@@ -1970,6 +2052,10 @@ let rec events_watch ~__context cancel queue_name from =
                debug "xenops event on VGPU %s.%s" (fst id) (snd id);
                update_vgpu ~__context id
              end
+           | Vusb id ->
+             if Events_from_xenopsd.are_suppressed (fst id)
+             then debug "ignoring xenops event on Vusb %s.%s" (fst id) (snd id);
+             update_vusb ~__context id
            | Task id ->
              debug "xenops event on Task %s" id;
              update_task ~__context queue_name id
@@ -3032,3 +3118,43 @@ let task_cancel ~__context ~self =
   with
   | Not_found -> false
   | Not_a_xenops_task -> false
+
+let md_of_vusb ~__context ~self =
+  let vm = Db.VUSB.get_VM ~__context ~self in
+  let usb_group = Db.VUSB.get_USB_group ~__context ~self in
+  let pusb = Helpers.get_first_pusb ~__context usb_group in
+  let pusbr =Db.PUSB.get_record ~__context ~self:pusb in
+  MD.of_vusb ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~pusb:pusbr
+
+let vusb_unplug_hvm ~__context ~self =
+  let vm = Db.VUSB.get_VM ~__context ~self in
+  let queue_name = queue_of_vm ~__context ~self:vm in
+  transform_xenops_exn ~__context ~vm queue_name
+    (fun () ->
+       assert_resident_on ~__context ~self:vm;
+       let vusb = md_of_vusb ~__context ~self in
+       info "xenops: VUSB.unplug %s.%s" (fst vusb.Vusb.id) (snd vusb.Vusb.id);
+       let dbg = Context.string_of_task __context in
+       let module Client = (val make_client queue_name : XENOPS) in
+       Client.VUSB.unplug dbg vusb.Vusb.id |> sync_with_task __context queue_name;
+       Events_from_xenopsd.wait queue_name dbg (fst vusb.Vusb.id) ();
+       if (Db.VUSB.get_currently_attached ~__context ~self) then
+         raise Api_errors.(Server_error(internal_error, [
+             Printf.sprintf "vusb_unplug: Unable to unplug VUSB %s" (Ref.string_of self)]))
+    )
+
+let vusb_plugable ~__context ~self =
+  let dbg = Context.string_of_task __context in
+  let vm = Db.VUSB.get_VM ~__context ~self in
+  let id = Db.VM.get_uuid ~__context ~self:vm in
+  let queue_name = queue_of_vm ~__context ~self:vm in
+  let module Client = (val make_client queue_name : XENOPS) in
+  let _, state = Client.VM.stat dbg id in
+  state.Vm.hvm
+
+let vusb_unplug ~__context ~self =
+  if vusb_plugable ~__context ~self then
+    vusb_unplug_hvm ~__context ~self
+  else
+    raise Api_errors.(Server_error(internal_error, [
+             Printf.sprintf "vusb_unplug: Unable to unplug vusb %s" (Ref.string_of self)]))

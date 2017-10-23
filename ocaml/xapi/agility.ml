@@ -60,6 +60,10 @@ let caching_vm_t_assert_agile ~__context (ok_srs, ok_networks) vm vm_t =
   if vm_t.API.vM_VGPUs <> [] then
     raise (Api_errors.Server_error
              (Api_errors.vm_has_vgpu, [Ref.string_of vm]));
+  (* Any kind of VUSB means that the VM is not agile. *)
+  if vm_t.API.vM_VUSBs <> [] then
+    raise (Api_errors.Server_error
+             (Api_errors.vm_has_vusbs, [Ref.string_of vm]));
   (* All referenced VDIs should be in shared SRs *)
   let check_vbd ok_srs vbd =
     if Db.VBD.get_empty ~__context ~self:vbd

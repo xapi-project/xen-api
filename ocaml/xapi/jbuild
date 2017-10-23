@@ -99,6 +99,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    rrdd-plugin
    xenopsd
    netdev
+   yojson
   ))
  )
 )

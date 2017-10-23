@@ -83,6 +83,9 @@ install:
 	mkdir -p $(DESTDIR)/etc/pam.d
 	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi
 	$(IPROG) upload-wrapper logs-download $(DESTDIR)$(LIBEXECDIR)
+	$(IDATA) usb-policy.conf $(DESTDIR)$(ETCDIR)
+	$(IPROG) usb_reset.py $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) usb_scan.py $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/iso #omg XXX
 	$(IPROG) interface-reconfigure $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) InterfaceReconfigure.py $(DESTDIR)$(LIBEXECDIR)

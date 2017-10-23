@@ -74,6 +74,9 @@ let set_is_a_template ~__context ~self ~value =
            		 *
            		 * We don't want templates to have this flag, or HA will try to start them. *)
     else Db.VM.set_ha_always_run ~__context ~self ~value:false;
+    (* Detach all VUSBs before set VM as a template *)
+    let vusbs = Db.VM.get_VUSBs ~__context ~self in
+    List.iter (fun vusb -> try Db.VUSB.destroy ~__context ~self:vusb with _ -> ()) vusbs;
     (* delete the vm metrics associated with the vm if it exists, when we templat'ize it *)
     try Db.VM_metrics.destroy ~__context ~self:m with _ -> ()
   end;
@@ -158,6 +161,8 @@ let destroy  ~__context ~self =
   (try Db.VM_metrics.destroy ~__context ~self:vm_metrics with _ -> ());
   let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self in
   (try Db.VM_guest_metrics.destroy ~__context ~self:vm_guest_metrics with _ -> ());
+  let vusbs = Db.VM.get_VUSBs ~__context ~self in
+  List.iter (fun vusb -> try Db.VUSB.destroy ~__context ~self:vusb with _ -> ()) vusbs;
 
   Db.VM.destroy ~__context ~self
 
@@ -367,6 +372,21 @@ let assert_gpus_available ~__context ~self ~host =
         Ref.string_of (List.hd not_available)
       ]))
 
+let assert_usbs_available ~__context ~self ~host =
+  Db.VM.get_VUSBs ~__context ~self
+  |> List.iter (fun vusb ->
+    try
+      let usb_group = Db.VUSB.get_USB_group ~__context ~self:vusb in
+      let pusb = List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group) in
+      let usb_host = Db.PUSB.get_host ~__context ~self:pusb in
+      assert (usb_host = host)
+    with _ -> raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
+      [Printf.sprintf "VUSB %s is not available on Host %s"
+        (Ref.string_of vusb)
+        (Ref.string_of host)
+      ]))
+    )
+
 let assert_host_supports_hvm ~__context ~self ~host =
   (* For now we say that a host supports HVM if any of    *)
   (* the capability strings contains the substring "hvm". *)
@@ -441,6 +461,7 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(
   if vm_needs_iommu ~__context ~self then
     assert_host_has_iommu ~__context ~host;
   assert_gpus_available ~__context ~self ~host;
+  assert_usbs_available ~__context ~self ~host;
   if Helpers.will_boot_hvm ~__context ~self then
     assert_host_supports_hvm ~__context ~self ~host;
   if do_memory_check then

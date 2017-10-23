@@ -38,7 +38,7 @@ exception InvalidOperation of string
 let assert_operation_valid = Xapi_vm_lifecycle.assert_operation_valid ~strict:true
 
 let update_allowed_operations ~__context ~self =
-  Helpers.log_exn_continue "updating allowed operations of VBDs/VIFs/VDIs in VM.update_allowed_operations"
+  Helpers.log_exn_continue "updating allowed operations of VBDs/VIFs/VDIs/VUSBs in VM.update_allowed_operations"
     (fun () ->
        List.iter
          (fun vbd ->
@@ -50,7 +50,11 @@ let update_allowed_operations ~__context ~self =
        List.iter
          (fun vif ->
             Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif)
-         (Db.VM.get_VIFs ~__context ~self)
+         (Db.VM.get_VIFs ~__context ~self);
+       List.iter
+         (fun vusb ->
+            Xapi_vusb_helpers.update_allowed_operations ~__context ~self:vusb)
+         (Db.VM.get_VUSBs ~__context ~self)
     ) ();
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
 
@@ -245,6 +249,12 @@ let start ~__context ~vm ~start_paused ~force =
     Db.VM.set_ha_always_run ~__context ~self:vm ~value:true;
     debug "Setting ha_always_run on vm=%s as true during VM.start" (Ref.string_of vm)
   end;
+
+  (* Check to see if we're using correct device-model when vm has VUSBs*)
+
+  let vusbs = Db.VM.get_VUSBs ~__context ~self:vm in
+  if vusbs <> [] then
+    Vm_platform.check_restricted_device_model ~__context vmr.API.vM_platform;
 
   if not force then
     assert_memory_constraints ~__context ~vm vmr.API.vM_platform;

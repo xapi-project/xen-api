@@ -2009,3 +2009,89 @@ let sdn_controller_record rpc session_id sdn_controller =
         make_field ~name:"port"                ~get:(fun () -> Int64.to_string (x ()).API.sDN_controller_port) ();
       ]}
 
+let pusb_record rpc session_id pusb =
+  let _ref = ref pusb in
+  let empty_record = ToGet (fun () -> Client.PUSB.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  { setref=(fun r -> _ref := r; record := empty_record );
+    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
+    record=x;
+    getref=(fun () -> !_ref);
+    fields =
+      [
+        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pUSB_uuid) ();
+        make_field ~name:"usb-group-uuid"
+        ~get:(fun () -> try get_uuid_from_ref (x ()).API.pUSB_USB_group with _ -> nid) ();
+        make_field ~name:"host-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.pUSB_host) ();
+        make_field ~name:"host-name-label" ~get:(fun () -> try get_name_from_ref (x ()).API.pUSB_host with _ -> nid) ();
+        make_field ~name:"path" ~get:(fun () -> (x ()).API.pUSB_path) ();
+        make_field ~name:"vendor-id" ~get:(fun () -> (x ()).API.pUSB_vendor_id) ();
+        make_field ~name:"vendor-desc" ~get:(fun () -> (x ()).API.pUSB_vendor_desc) ();
+        make_field ~name:"product-id" ~get:(fun () -> (x ()).API.pUSB_product_id) ();
+        make_field ~name:"product-desc" ~get:(fun () -> (x ()).API.pUSB_product_desc) ();
+        make_field ~name:"serial" ~get:(fun () -> (x ()).API.pUSB_serial) ();
+        make_field ~name:"version" ~get:(fun () -> (x ()).API.pUSB_version) ();
+        make_field ~name:"description" ~get:(fun () -> (x ()).API.pUSB_description) ();
+        make_field ~name:"passthrough-enabled" ~get:(fun () -> string_of_bool ((x ()).API.pUSB_passthrough_enabled))
+          ~set:(fun passthrough_enabled -> Client.PUSB.set_passthrough_enabled rpc session_id pusb (safe_bool_of_string "passthrough-enabled" passthrough_enabled)) ();
+      ]
+  }
+
+let usb_group_record rpc session_id usb_group =
+  let _ref = ref usb_group in
+  let empty_record = ToGet (fun () -> Client.USB_group.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  {
+    setref = (fun r -> _ref := r; record := empty_record );
+    setrefrec = (fun (a,b) -> _ref := a; record := Got b);
+    record = x;
+    getref = (fun () -> !_ref);
+    fields = [
+      make_field ~name:"uuid" ~get:(fun () -> (x ()).API.uSB_group_uuid) ();
+      make_field ~name:"name-label" ~get:(fun () -> (x ()).API.uSB_group_name_label)
+        ~set:(fun x -> Client.USB_group.set_name_label rpc session_id usb_group x) ();
+      make_field ~name:"name-description" ~get:(fun () -> (x ()).API.uSB_group_name_description)
+        ~set:(fun x -> Client.USB_group.set_name_description rpc session_id usb_group x) ();
+      make_field ~name:"VUSB-uuids" ~get:(fun () -> String.concat "; " (List.map (fun vusb -> get_uuid_from_ref vusb) (x ()).API.uSB_group_VUSBs))
+        ~get_set:(fun () -> (List.map (fun vusb -> get_uuid_from_ref vusb) (x ()).API.uSB_group_VUSBs)) ();
+      make_field ~name:"PUSB-uuids" ~get:(fun () -> String.concat "; " (List.map (fun pusb -> get_uuid_from_ref pusb) (x ()).API.uSB_group_PUSBs))
+        ~get_set:(fun () -> (List.map (fun pusb -> get_uuid_from_ref pusb) (x ()).API.uSB_group_PUSBs)) ();
+
+      make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.uSB_group_other_config)
+        ~add_to_map:(fun k v -> Client.USB_group.add_to_other_config rpc session_id usb_group k v)
+        ~remove_from_map:(fun k -> Client.USB_group.remove_from_other_config rpc session_id usb_group k)
+        ~get_map:(fun () -> (x ()).API.uSB_group_other_config) ();
+    ]
+  }
+
+let vusb_record rpc session_id vusb =
+  let _ref = ref vusb in
+  let empty_record = ToGet (fun () -> Client.VUSB.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  {
+    setref = (fun r -> _ref := r; record := empty_record );
+    setrefrec = (fun (a,b) -> _ref := a; record := Got b);
+    record = x;
+    getref = (fun () -> !_ref);
+    fields = [
+      make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vUSB_uuid) ();
+      make_field ~name:"vm-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.vUSB_VM) ();
+      make_field ~name:"vm-name-label" ~get:(fun () -> get_name_from_ref (x ()).API.vUSB_VM) ();
+      make_field ~name:"usb-group-uuid" ~get:(fun () -> try get_uuid_from_ref (x ()).API.vUSB_USB_group with _ -> nid) ();
+      make_field ~name:"usb-group-name-label" ~get:(fun () -> try get_name_from_ref (x ()).API.vUSB_USB_group with _ -> nid) ();
+      make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vUSB_other_config)
+        ~add_to_map:(fun k v -> Client.VUSB.add_to_other_config rpc session_id vusb k v)
+        ~remove_from_map:(fun k -> Client.VUSB.remove_from_other_config rpc session_id vusb k)
+        ~get_map:(fun () -> (x ()).API.vUSB_other_config) ();
+      make_field ~name:"currently-attached" ~get:(fun () -> string_of_bool ((x ()).API.vUSB_currently_attached)) ();
+      make_field ~name:"allowed-operations"
+        ~get:(fun () -> String.concat "; " (List.map Record_util.vusb_operation_to_string (x ()).API.vUSB_allowed_operations))
+        ~get_set:(fun () -> List.map Record_util.vusb_operation_to_string (x ()).API.vUSB_allowed_operations) ();
+      make_field ~name:"current-operations"
+        ~get:(fun () -> String.concat "; " (List.map (fun (a,b) -> Record_util.vusb_operation_to_string b) (x ()).API.vUSB_current_operations))
+        ~get_set:(fun () -> List.map (fun (a,b) -> Record_util.vusb_operation_to_string b) (x ()).API.vUSB_current_operations) ();
+    ]
+  }

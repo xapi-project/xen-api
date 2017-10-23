@@ -821,6 +821,9 @@ let gen_cmds rpc session_id =
     ; Client.Feature.(mk get_all get_all_records_where get_by_uuid feature_record "feature" []
         ["uuid"; "name-label"; "name-description"; "enabled"; "experimental"; "version"; "host-uuid"] rpc session_id)
     ; Client.SDN_controller.(mk get_all get_all_records_where get_by_uuid sdn_controller_record "sdn-controller" [] ["uuid"; "protocol"; "address"; "port"] rpc session_id)
+    ; Client.PUSB.(mk get_all get_all_records_where get_by_uuid pusb_record "pusb" [] ["uuid"; "path"; "product-id"; "product-desc"; "vendor-id"; "vendor-desc"; "serial"; "version";"description"] rpc session_id)
+    ; Client.USB_group.(mk get_all get_all_records_where get_by_uuid usb_group_record "usb-group" [] ["uuid";"name-label";"name-description"] rpc session_id)
+    ; Client.VUSB.(mk get_all get_all_records_where get_by_uuid vusb_record "vusb" [] ["uuid";"vm-uuid"; "usb-group-uuid"] rpc session_id)
     ]
 
 (* NB, might want to put these back in at some point
@@ -4970,4 +4973,28 @@ module SDN_controller = struct
     let uuid = List.assoc "uuid" params in
     let ref = Client.SDN_controller.get_by_uuid rpc session_id uuid in
     Client.SDN_controller.forget rpc session_id ref
+end
+
+module PUSB = struct
+  let scan printer rpc session_id params =
+  let host_uuid = List.assoc "host-uuid" params in
+  let host = Client.Host.get_by_uuid rpc session_id host_uuid in
+  Client.PUSB.scan rpc session_id host
+end
+
+module VUSB = struct
+  let create printer rpc session_id params =
+    let vM = Client.VM.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "vm-uuid" params) in
+    let uSB_group = Client.USB_group.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "usb-group-uuid" params) in
+    let vusb = Client.VUSB.create ~rpc ~session_id ~vM ~uSB_group ~other_config:[] in
+    let uuid = Client.VUSB.get_uuid rpc session_id vusb in
+    printer (Cli_printer.PList [uuid])
+
+  let unplug printer rpc session_id params =
+    let vusb = Client.VUSB.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "uuid" params) in
+    Client.VUSB.unplug rpc session_id vusb
+
+  let destroy printer rpc session_id params =
+    let vusb = Client.VUSB.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+    ignore(Client.VUSB.destroy rpc session_id vusb)
 end
