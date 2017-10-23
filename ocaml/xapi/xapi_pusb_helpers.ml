@@ -126,8 +126,8 @@ let destroy_pusb ~__context pusb =
     let currently_attached = Db.VUSB.get_currently_attached ~__context ~self:vusb in
     if currently_attached then
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.VUSB.unplug rpc session_id vusb)
+        Client.Client.VUSB.unplug rpc session_id vusb);
+    Db.VUSB.destroy ~__context ~self:vusb
   ) vusbs;
-  List.iter (fun vusb -> Db.VUSB.destroy ~__context ~self:vusb) vusbs;
   Db.PUSB.destroy ~__context ~self:pusb;
   Db.USB_group.destroy ~__context ~self:usb_group

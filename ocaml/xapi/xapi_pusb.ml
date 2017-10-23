@@ -49,7 +49,7 @@ let scan_start ~__context usbs =
   |> List.iter (fun (self, _) ->
                   try
                     Xapi_pusb_helpers.destroy_pusb ~__context self;
-                  with _ -> error "failure while removing PUSB: %s" (Ref.string_of self);
+                  with e -> error "Caught exception while removing PUSB %s: %s" (Ref.string_of self) (Printexc.to_string e);
                 )
 
 let cond = Condition.create ()
