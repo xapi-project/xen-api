@@ -118,3 +118,16 @@ let find_or_create ~__context pusb =
   let name_label = "Group of " ^ pusb_rec.Db_actions.pUSB_vendor_id ^ " " ^ pusb_rec.Db_actions.pUSB_product_id ^ " USBs" in
   let group = Xapi_usb_group.create ~__context ~name_label ~name_description:"" ~other_config:[] in
   group
+
+let destroy_pusb ~__context pusb =
+  let usb_group = Db.PUSB.get_USB_group ~__context ~self:pusb in
+  let vusbs = Db.USB_group.get_VUSBs ~__context ~self:usb_group in
+  List.iter (fun vusb ->
+    let currently_attached = Db.VUSB.get_currently_attached ~__context ~self:vusb in
+    if currently_attached then
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+        Client.Client.VUSB.unplug rpc session_id vusb);
+    Db.VUSB.destroy ~__context ~self:vusb
+  ) vusbs;
+  Db.PUSB.destroy ~__context ~self:pusb;
+  Db.USB_group.destroy ~__context ~self:usb_group

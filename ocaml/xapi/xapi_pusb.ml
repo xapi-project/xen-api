@@ -47,11 +47,10 @@ let scan_start ~__context usbs =
 
   List.filter (fun (rf, rc) -> USBSet.mem (extract_known_usb_info rc) (USBSet.diff known_usb local_usb)) (Db.PUSB.get_all_records ~__context)
   |> List.iter (fun (self, _) ->
-                  let usb_group = Db.PUSB.get_USB_group ~__context ~self in
-                  Db.PUSB.destroy ~__context ~self;
-                  let vusbs = Db.USB_group.get_VUSBs ~__context ~self:usb_group in
-                  List.iter (fun vusb -> Db.VUSB.destroy ~__context ~self:vusb) vusbs;
-                  Db.USB_group.destroy ~__context ~self:usb_group)
+                  try
+                    Xapi_pusb_helpers.destroy_pusb ~__context self;
+                  with e -> error "Caught exception while removing PUSB %s: %s" (Ref.string_of self) (Printexc.to_string e);
+                )
 
 let cond = Condition.create ()
 let mutex = Mutex.create ()
