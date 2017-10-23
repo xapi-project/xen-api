@@ -684,6 +684,13 @@ module VGPU = struct
 	let get_state vm vgpu = failwith "Not implemented"
 end
 
+module VUSB = struct
+	let plug _ vm vusb = ()
+	let unplug _ vm vusb = ()
+	let get_state vm vusb = failwith "Not implemented"
+	let get_device_action_request vm vusb = failwith "Not implemented"
+end
+
 let set_active_device path active =
 	with_xs
 		(fun xs ->
@@ -2098,7 +2105,7 @@ module VM = struct
 	) Newest task vm
 
 	(*let create task memory_upper_bound vm vbds =*)
-	let build ?restore_fd task vm vbds vifs vgpus extras force =
+	let build ?restore_fd task vm vbds vifs vgpus vusbs extras force =
 		let memory_upper_bound = None in
 		let k = vm.Vm.id in
 
@@ -2619,7 +2626,7 @@ module VM = struct
 					error "VM = %s; read invalid save file signature: \"%s\"" vm.Vm.id read_signature;
 					raise Restore_signature_mismatch
 				end;
-				build ~restore_fd:fd task vm vbds vifs [] extras false
+				build ~restore_fd:fd task vm vbds vifs [] [] extras false
 			)
 		)
 

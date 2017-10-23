@@ -68,8 +68,8 @@ module type S = sig
 		val add: Vm.t -> unit
 		val remove: Vm.t -> unit
 		val create: Xenops_task.task_handle -> int64 option -> Vm.t -> unit
-		val build: ?restore_fd:Unix.file_descr -> Xenops_task.task_handle -> Vm.t -> Vbd.t list -> Vif.t list -> Vgpu.t list -> string list -> bool ->  unit (* XXX cancel *)
-		val create_device_model: Xenops_task.task_handle -> Vm.t -> Vbd.t list -> Vif.t list -> Vgpu.t list -> bool -> unit
+		val build: ?restore_fd:Unix.file_descr -> Xenops_task.task_handle -> Vm.t -> Vbd.t list -> Vif.t list -> Vgpu.t list -> Vusb.t list-> string list -> bool ->  unit (* XXX cancel *)
+		val create_device_model: Xenops_task.task_handle -> Vm.t -> Vbd.t list -> Vif.t list -> Vgpu.t list -> Vusb.t list -> bool -> unit
 		val destroy_device_model: Xenops_task.task_handle -> Vm.t -> unit
 		val destroy: Xenops_task.task_handle -> Vm.t -> unit
 		val pause: Xenops_task.task_handle -> Vm.t -> unit
@@ -139,6 +139,12 @@ module type S = sig
 	end
 	module VGPU : sig
 		val get_state: Vm.id -> Vgpu.t -> Vgpu.state
+	end
+	module VUSB :sig
+		val plug: Xenops_task.task_handle -> Vm.id -> Vusb.t -> unit
+		val unplug: Xenops_task.task_handle -> Vm.id -> Vusb.t -> unit
+		val get_state: Vm.id -> Vusb.t -> Vusb.state
+		val get_device_action_request: Vm.id -> Vusb.t -> device_action_request option
 	end
 	module UPDATES : sig
 		val get: Updates.id option -> int option -> Dynamic.barrier list * Dynamic.id list * Updates.id

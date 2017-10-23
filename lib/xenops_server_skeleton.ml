@@ -114,6 +114,12 @@ end
 module VGPU = struct
 	let get_state _ _ = unplugged_vgpu
 end
+module VUSB = struct
+	let plug _ _ _  = unimplemented "VUSB.plug"
+	let unplug _ _ _ = unimplemented "VUSB.unplug"
+	let get_state _ _ = unplugged_vusb
+	let get_device_action_request _ _ = None
+end
 module UPDATES  = struct
 	let get _ _ = while true do Thread.delay 5. done; assert false
 end
