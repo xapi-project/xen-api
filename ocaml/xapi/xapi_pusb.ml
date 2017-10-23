@@ -125,17 +125,17 @@ let set_passthrough_enabled ~__context ~self ~value =
          let usb_group = Db.PUSB.get_USB_group ~__context ~self in
          let vusbs = Db.USB_group.get_VUSBs ~__context ~self:usb_group in
          (* If the USB is passthroughed to vm, need to unplug it firstly*)
-         match vusbs with
-         | [] -> ()
-         | _ :: _ :: _ -> raise Api_errors.(Server_error(internal_error,
-                            [Printf.sprintf "too many vusb on the USB_group: %s" (Ref.string_of usb_group)]))
-         | [vusb] -> begin
-           let currently_attached = Db.VUSB.get_currently_attached ~__context ~self:(List.hd vusbs) in
-           if currently_attached then
-             let vm = Db.VUSB.get_VM ~__context ~self:(List.hd vusbs) in
-             raise (Api_errors.Server_error(Api_errors.usb_already_attached, [Ref.string_of self; Ref.string_of vm]))
-           (* If vusb has been created, need to destroy it. *)
-         end;
+         let _ = match vusbs with
+           | [] -> ()
+           | _ :: _ :: _ -> raise Api_errors.(Server_error(internal_error,
+                              [Printf.sprintf "too many vusb on the USB_group: %s" (Ref.string_of usb_group)]))
+           | [vusb] ->
+             let currently_attached = Db.VUSB.get_currently_attached ~__context ~self:vusb in
+             if currently_attached then
+               let vm = Db.VUSB.get_VM ~__context ~self:vusb in
+               raise (Api_errors.Server_error(Api_errors.usb_already_attached, [Ref.string_of self; Ref.string_of vm]))
+         in
+         (* If vusb has been created, need to destroy it. *)
          List.iter (fun vusb -> Db.VUSB.destroy ~__context ~self:vusb) vusbs;
          debug "set passthrough_enabled %b." value;
          Db.PUSB.set_passthrough_enabled ~__context ~self ~value;
