@@ -23,7 +23,7 @@ let mib x = List.fold_left Int64.mul x [1024L; 1024L]
 module NvidiaTest = struct
   let string_of_vgpu_conf conf =
     let open Identifier in
-    let open Nvidia in
+    let open Nvidia_old in
     Printf.sprintf "%04x %s %04x %04x %Ld"
       conf.identifier.pdev_id
       (match conf.identifier.psubdev_id with
@@ -39,17 +39,17 @@ module NvidiaTest = struct
   module OfConfFile = Generic.Make(struct
       module Io = struct
         type input_t = string
-        type output_t = Nvidia.vgpu_conf
+        type output_t = Nvidia_old.vgpu_conf
 
         let string_of_input_t x = x
         let string_of_output_t = string_of_vgpu_conf
       end
 
-      let transform = Nvidia.of_conf_file
+      let transform = Nvidia_old.of_conf_file
 
       let tests = [
         "test_data/test_vgpu_subdevid.conf",
-        Nvidia.({
+        Nvidia_old.({
             identifier = Identifier.({
                 pdev_id = 0x3333;
                 psubdev_id = Some 0x4444;
@@ -64,7 +64,7 @@ module NvidiaTest = struct
             file_path = "test_data/test_vgpu_subdevid.conf";
           });
         "test_data/test_vgpu_nosubdevid.conf",
-        Nvidia.({
+        Nvidia_old.({
             identifier = Identifier.({
                 pdev_id = 0x3333;
                 psubdev_id = None;
@@ -81,13 +81,117 @@ module NvidiaTest = struct
       ]
     end)
 
+  let string_of_vgpu_conf conf =
+    let open Identifier in
+    let open Vendor_nvidia in
+    Printf.sprintf "%04x %s %04x %04x %Ld %Ld %Ld %Ldx%Ld"
+      conf.identifier.pdev_id
+      (match conf.identifier.psubdev_id with
+       | Some id -> Printf.sprintf "Some %04x" id
+       | None -> "None")
+      conf.identifier.vdev_id
+      conf.identifier.vsubdev_id
+      conf.framebufferlength
+      conf.num_heads
+      conf.max_instance
+      conf.max_x
+      conf.max_y
+
+  module ReadWhitelist = Generic.Make(struct
+      module Io = struct
+        type input_t = (string * int) (* whitelist * device_id *)
+        type output_t = Vendor_nvidia.vgpu_conf list
+
+        let string_of_input_t (whitelist, device_id) =
+          Printf.sprintf "(%s, %04x)" whitelist device_id
+        let string_of_output_t =
+          Test_printers.list string_of_vgpu_conf
+      end
+
+      let transform (whitelist, device_id) =
+        Vendor_nvidia.read_whitelist ~whitelist ~device_id
+
+      let tests = [
+        ("test_data/this-file-is-not-there.xml", 0x3333),
+        [];
+        ("test_data/nvidia-whitelist.xml", 0x4444),
+        [];
+        ("test_data/nvidia-whitelist.xml", 0x3333),
+        [
+          Vendor_nvidia.({
+              identifier = Identifier.({
+                  pdev_id = 0x3333;
+                  psubdev_id = Some 0x4444;
+                  vdev_id = 0x1111;
+                  vsubdev_id = 0x2222;
+                });
+              framebufferlength = 0x10000000L;
+              num_heads = 2L;
+              max_instance = 8L;
+              max_x = 1920L;
+              max_y = 1200L;
+              file_path = "test_data/nvidia-whitelist.xml";
+            })
+        ];
+        ("test_data/nvidia-whitelist.xml", 0x3334),
+        [
+          Vendor_nvidia.({
+              identifier = Identifier.({
+                  pdev_id = 0x3334;
+                  psubdev_id = None;
+                  vdev_id = 0x1111;
+                  vsubdev_id = 0x2222;
+                });
+              framebufferlength = 0x10000000L;
+              num_heads = 2L;
+              max_instance = 8L;
+              max_x = 1920L;
+              max_y = 1200L;
+              file_path = "test_data/nvidia-whitelist.xml";
+            })
+        ];
+        ("test_data/nvidia-whitelist.xml", 0x3335),
+        [
+          Vendor_nvidia.({
+              identifier = Identifier.({
+                  pdev_id = 0x3335;
+                  psubdev_id = Some 0x4445;
+                  vdev_id = 0x1112;
+                  vsubdev_id = 0x2223;
+                });
+              framebufferlength = 0x20000000L;
+              num_heads = 4L;
+              max_instance = 8L;
+              max_x = 2400L;
+              max_y = 1600L;
+              file_path = "test_data/nvidia-whitelist.xml";
+            });
+          Vendor_nvidia.({
+              identifier = Identifier.({
+                  pdev_id = 0x3335;
+                  psubdev_id = Some 0x4445;
+                  vdev_id = 0x1111;
+                  vsubdev_id = 0x2222;
+                });
+              framebufferlength = 0x10000000L;
+              num_heads = 2L;
+              max_instance = 16L;
+              max_x = 1920L;
+              max_y = 1200L;
+              file_path = "test_data/nvidia-whitelist.xml";
+            })
+        ];
+        
+      ]
+    end)
+
   (* This test generates a lot of print --- set skip to false to enable *)
   let skip = true
 
   let print_nv_types () =
     skip_if skip "Generates print...";
     try
-      let open Nvidia in
+      let open Nvidia_old in
       if (Sys.file_exists conf_dir
           && Sys.is_directory conf_dir) then
         begin
@@ -176,7 +280,7 @@ module IntelTest = struct
       end
 
       let transform (whitelist, device_id) =
-        Intel.read_whitelist ~whitelist ~device_id |> List.rev
+        Vendor_intel.read_whitelist ~whitelist ~device_id |> List.rev
 
       let tests = [
         ("test_data/gvt-g-whitelist-empty", 0x1234), [];
@@ -299,7 +403,7 @@ module AMDTest = struct
       end
 
       let transform (whitelist, device_id) =
-        AMD.read_whitelist ~whitelist ~device_id |> List.rev
+        Vendor_amd.read_whitelist ~whitelist ~device_id |> List.rev
 
       let tests = [
         ("test_data/mxgpu-whitelist-empty", 0x1234), [];
@@ -442,6 +546,7 @@ let test =
   "test_vgpu_type" >:::
   [
     "nvidia_test_of_conf_file" >::: NvidiaTest.OfConfFile.tests;
+    "nvidia_read_whitelist" >::: NvidiaTest.ReadWhitelist.tests;
     "nvidia_print_nv_types" >:: NvidiaTest.print_nv_types;
     "intel_read_whitelist_line" >::: IntelTest.ReadWhitelistLine.tests;
     "intel_read_whitelist" >::: IntelTest.ReadWhitelist.tests;
