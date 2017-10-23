@@ -61,7 +61,7 @@ module RRD = struct
   module Client = Rrd_interface.ClientM(struct
     type 'a t = 'a Deferred.t
     let return = return
-    let bind = Deferred.bind
+    let bind a f = Deferred.bind a ~f
     let fail = raise
     let rpc call = json_switch_rpc !Rrd_interface.queue_name call
 end)
