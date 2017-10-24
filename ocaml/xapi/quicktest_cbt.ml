@@ -60,44 +60,45 @@ let make_vdi_from ~session_id ~sR =
 
 (* Test enable/disable_cbt, data_destroy, and snapshot update the necessary fields *)
 let vdi_data_destroy_test ~session_id ~vDI =
-  let data_destroy_test = make_test "Testing VDI.{enable/disable_cbt, data_destroy, snapshot}" 4 in
+  let test = make_test "Testing VDI.{enable/disable_cbt, data_destroy, snapshot}" 4 in
   try
-    start data_destroy_test;
-    debug data_destroy_test "Enabling CBT on original VDI";
+    start test;
+    let debug_test msg = debug test msg in
+    debug_test "Enabling CBT on original VDI";
     VDI.enable_cbt ~session_id ~rpc:!rpc ~self:vDI;
-    test_assert ~test:data_destroy_test
+    test_assert ~test
       (get_cbt_status ~session_id ~vDI)
       ~msg:"VDI.enable_cbt failed";
 
-    debug data_destroy_test "Snapshotting original VDI";
+    debug_test "Snapshotting original VDI";
     let newvdi = VDI.snapshot ~session_id ~rpc:!rpc ~vdi:vDI ~driver_params:[] in
-    test_assert ~test:data_destroy_test
+    test_assert ~test
       (get_cbt_status ~session_id ~vDI:newvdi)
       ~msg:"VDI.snapshot failed, cbt_enabled field didn't carry over";
 
-    debug data_destroy_test "Disabling CBT on original VDI";
+    debug_test "Disabling CBT on original VDI";
     VDI.disable_cbt ~session_id ~rpc:!rpc ~self:vDI;
-    test_assert ~test:data_destroy_test
+    test_assert ~test
       (not (get_cbt_status ~session_id ~vDI))
       ~msg:"VDI.disable_cbt failed";
 
-    debug data_destroy_test "Destroying snapshot VDI data";
+    debug_test "Destroying snapshot VDI data";
     VDI.data_destroy ~session_id ~rpc:!rpc ~self:newvdi;
-    test_compare ~test:data_destroy_test
+    test_compare ~test
       (VDI.get_type ~session_id ~rpc:!rpc ~self:newvdi)
       `cbt_metadata
       ~msg:"VDI.data_destroy failed to update VDI.type";
 
     let content_id_str = "/No content: this is a cbt_metadata VDI/" in
-    test_compare ~test:data_destroy_test
+    test_compare ~test
       (VDI.get_other_config ~session_id ~rpc:!rpc ~self:newvdi |> List.assoc "content_id")
       content_id_str
       ~msg:(Printf.sprintf "VDI.data_destroy failed to update VDI.content_id to \"%s\"" content_id_str);
 
-    success data_destroy_test
+    success test
   with
-  | Test_failed msg -> failed data_destroy_test msg
-  | e -> report_failure e data_destroy_test
+  | Test_failed msg -> failed test msg
+  | e -> report_failure e test
 
 
 (* ****************
