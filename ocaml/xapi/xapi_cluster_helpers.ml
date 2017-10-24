@@ -37,7 +37,7 @@ let report_concurrent_operations_error ~current_ops ~ref_str =
   in
   Some (Api_errors.other_operation_in_progress, ["Cluster." ^ current_ops_str; ref_str])
 
-(** Take an internal Cluster_host record and a proposed operation. Return None iff the operation
+(** Take an internal Cluster record and a proposed operation. Return None iff the operation
     would be acceptable; otherwise Some (Api_errors.<something>, [list of strings])
     corresponding to the first error found. Checking stops at the first error. *)
 let get_operation_error ~__context ~self ~op =
