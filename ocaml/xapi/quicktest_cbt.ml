@@ -71,9 +71,9 @@ let vdi_data_destroy_test ~session_id ~vDI =
       ~msg:"VDI.enable_cbt failed";
 
     debug_test "Snapshotting original VDI";
-    let newvdi = VDI.snapshot ~session_id ~rpc:!rpc ~vdi:vDI ~driver_params:[] in
+    let snapshot = VDI.snapshot ~session_id ~rpc:!rpc ~vdi:vDI ~driver_params:[] in
     test_assert ~test
-      (get_cbt_status ~session_id ~vDI:newvdi)
+      (get_cbt_status ~session_id ~vDI:snapshot)
       ~msg:"VDI.snapshot failed, cbt_enabled field didn't carry over";
 
     debug_test "Disabling CBT on original VDI";
@@ -83,15 +83,18 @@ let vdi_data_destroy_test ~session_id ~vDI =
       ~msg:"VDI.disable_cbt failed";
 
     debug_test "Destroying snapshot VDI data";
-    VDI.data_destroy ~session_id ~rpc:!rpc ~self:newvdi;
+    VDI.data_destroy ~session_id ~rpc:!rpc ~self:snapshot;
     test_compare ~test
-      (VDI.get_type ~session_id ~rpc:!rpc ~self:newvdi)
+      (VDI.get_type ~session_id ~rpc:!rpc ~self:snapshot)
       `cbt_metadata
       ~msg:"VDI.data_destroy failed to update VDI.type";
+    test_assert ~test
+      (get_cbt_status ~session_id ~vDI:snapshot)
+      ~msg:"VDI snapshot cbt_enabled field erroneously set to false";
 
     let content_id_str = "/No content: this is a cbt_metadata VDI/" in
     test_compare ~test
-      (VDI.get_other_config ~session_id ~rpc:!rpc ~self:newvdi |> List.assoc "content_id")
+      (VDI.get_other_config ~session_id ~rpc:!rpc ~self:snapshot |> List.assoc "content_id")
       content_id_str
       ~msg:(Printf.sprintf "VDI.data_destroy failed to update VDI.content_id to \"%s\"" content_id_str);
 
