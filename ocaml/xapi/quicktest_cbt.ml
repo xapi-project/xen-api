@@ -66,7 +66,7 @@ let vdi_data_destroy_test ~session_id ~vDI =
   let test = make_test "Testing VDI.{enable/disable_cbt, data_destroy, snapshot}" 4 in
   try
     start test;
-    let debug_test msg = debug test msg in
+    let debug_test = debug test in
     debug_test "Enabling CBT on original VDI";
     VDI.enable_cbt ~session_id ~rpc:!rpc ~self:vDI;
     test_assert ~test
