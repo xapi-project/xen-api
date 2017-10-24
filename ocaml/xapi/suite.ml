@@ -69,6 +69,7 @@ let base_suite =
     Test_network.test;
     Test_pusb.test;
     Test_cluster_host.test;
+    Test_clustering_allowed_operations.test;
   ]
 
 let () =
