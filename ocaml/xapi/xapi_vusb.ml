@@ -24,6 +24,10 @@ let create ~__context ~vM ~uSB_group ~other_config =
   let vusb = Ref.make () in
   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
   Pool_features.assert_enabled ~__context ~f:Features.USB_passthrough;
+  if Db.VM.get_is_a_template ~__context ~self:vM then
+    raise (Api_errors.Server_error(Api_errors.vm_is_template, [Ref.string_of vM]));
+  if not (Helpers.will_boot_hvm ~__context ~self:vM) then
+    raise (Api_errors.Server_error (Api_errors.vm_hvm_required, [Ref.string_of vM]));
   Mutex.execute m (fun () ->
     let attached_vusbs = Db.VM.get_VUSBs ~__context ~self:vM in
     (* At most 6 VUSBS can be attached to one vm *)
