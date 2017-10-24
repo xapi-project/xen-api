@@ -12,27 +12,27 @@
  * GNU Lesser General Public License for more details.
  *)
 module M : sig
-	type ('a, 'b) t = [ `Ok of 'a | `Error of 'b ]
-	val (>>=) : ('a, 'b) t -> ('a -> ('c, 'b) t) -> ('c, 'b) t
-	val return : 'a -> ('a, 'b) t
+  type ('a, 'b) t = [ `Ok of 'a | `Error of 'b ]
+  val (>>=) : ('a, 'b) t -> ('a -> ('c, 'b) t) -> ('c, 'b) t
+  val return : 'a -> ('a, 'b) t
 end
 
 module Xenops_record : sig
-	type t
-	val make : ?vm_str:string -> ?xs_subtree:(string * string) list -> unit -> t
-	val to_string : t -> string
-	val of_string : string -> t
+  type t
+  val make : ?vm_str:string -> ?xs_subtree:(string * string) list -> unit -> t
+  val to_string : t -> string
+  val of_string : string -> t
 end
 
 type header_type =
-	| Xenops
-	| Libxc
-	| Libxl
-	| Libxc_legacy
-	| Qemu_trad
-	| Qemu_xen
-	| Demu
-	| End_of_image
+  | Xenops
+  | Libxc
+  | Libxl
+  | Libxc_legacy
+  | Qemu_trad
+  | Qemu_xen
+  | Demu
+  | End_of_image
 
 type format = Structured | Legacy
 type header = header_type * int64

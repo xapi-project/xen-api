@@ -1,4 +1,4 @@
-.PHONY: all clean install build test libinstall reinstall uninstall distclean
+.PHONY: all clean install build test libinstall reinstall uninstall distclean reindent
 all: build
 
 NAME=xenopsd
@@ -122,3 +122,6 @@ report:
 	bisect-ppx-report -I _build -html $(COVERAGE) /tmp/bisect-xenops*out
 
 .PHONY: report
+
+reindent:
+	git ls-files '*.ml' '*.mli' | xargs ocp-indent --syntax cstruct -i

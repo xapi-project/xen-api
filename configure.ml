@@ -105,8 +105,8 @@ let find_xentoollog verbose =
   found
 
 let yesno_of_bool = function
- | true -> "YES"
- | false -> "NO"
+  | true -> "YES"
+  | false -> "NO"
 
 let configure bindir sbindir libexecdir scriptsdir etcdir mandir coverage =
   let xenctrl = find_ocamlfind false "xenctrl" in

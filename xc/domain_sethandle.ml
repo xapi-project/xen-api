@@ -18,15 +18,15 @@ let domid = ref None
 let handle = ref None
 
 let _ =
-	Arg.parse (Arg.align [
-		"-domid", Arg.Int (fun i -> domid := Some i),
-			" the domain id whose handle we will change";
-		"-handle", Arg.String (fun i -> handle := Some i),
-			" the new handle value";
-		]) (fun x -> Printf.printf "Warning, ignoring unknown argument: %s" x)
-		"Set a domain's handle";
-	match !domid, !handle with
-		| Some domid, Some handle ->
-			Xenctrl.domain_sethandle xc domid handle
-		| _, _ ->
-			failwith "Must have -domid and -handle arguments"
+  Arg.parse (Arg.align [
+      "-domid", Arg.Int (fun i -> domid := Some i),
+      " the domain id whose handle we will change";
+      "-handle", Arg.String (fun i -> handle := Some i),
+      " the new handle value";
+    ]) (fun x -> Printf.printf "Warning, ignoring unknown argument: %s" x)
+    "Set a domain's handle";
+  match !domid, !handle with
+  | Some domid, Some handle ->
+    Xenctrl.domain_sethandle xc domid handle
+  | _, _ ->
+    failwith "Must have -domid and -handle arguments"
