@@ -15,6 +15,11 @@ let sbindir =
 let libexecdir =
   let doc = "Set the directory for installing helper executables" in
   Arg.(value & opt string "/usr/lib/xenopsd" & info ["libexecdir"] ~docv:"LIBEXECDIR" ~doc)
+
+let qemu_wrapper_dir =
+  let doc = "Set the directory for installing xen helper executables" in
+  Arg.(value & opt string "/usr/lib/xenopsd" & info ["qemu_wrapper_dir"] ~docv:"QEMU_WRAPPER_DIR" ~doc)
+
 let coverage =
   let doc = "Enable coverage profiling" in
   Arg.(value & flag & info ["enable-coverage"] ~doc)
@@ -105,10 +110,10 @@ let find_xentoollog verbose =
   found
 
 let yesno_of_bool = function
- | true -> "YES"
- | false -> "NO"
+  | true -> "YES"
+  | false -> "NO"
 
-let configure bindir sbindir libexecdir scriptsdir etcdir mandir coverage =
+let configure bindir sbindir libexecdir qemu_wrapper_dir scriptsdir etcdir mandir coverage =
   let xenctrl = find_ocamlfind false "xenctrl" in
   let xenlight = find_ocamlfind false "xenlight" in
   let xen45 = find_seriallist () in
@@ -119,6 +124,7 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir coverage =
     ; p "\tbindir=%s"     bindir
     ; p "\tsbindir=%s"    sbindir
     ; p "\tlibexecdir=%s" libexecdir
+    ; p "\tqemu_wrapper_dir=%s" qemu_wrapper_dir
     ; p "\tscriptsdir=%s" scriptsdir
     ; p "\tetcdir=%s"     etcdir
     ; p "\tmandir=%s"     mandir
@@ -136,6 +142,7 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir coverage =
       Printf.sprintf "BINDIR=%s" bindir;
       Printf.sprintf "SBINDIR=%s" sbindir;
       Printf.sprintf "LIBEXECDIR=%s" libexecdir;
+      Printf.sprintf "QEMU_WRAPPER_DIR=%s" qemu_wrapper_dir;
       Printf.sprintf "SCRIPTSDIR=%s" scriptsdir;
       Printf.sprintf "ETCDIR=%s" etcdir;
       Printf.sprintf "MANDIR=%s" mandir;
@@ -156,11 +163,11 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir coverage =
     ] in
   output_file config_ml configmllines
 
-let configure_t = Term.(pure configure $ bindir $ sbindir $ libexecdir $ scriptsdir $ etcdir $ mandir $ coverage)
+let configure_t = Term.(pure configure $ bindir $ sbindir $ libexecdir $ qemu_wrapper_dir $ scriptsdir $ etcdir $ mandir $ coverage)
 
-let () = 
-  match 
-    Term.eval (configure_t, info) 
+let () =
+  match
+    Term.eval (configure_t, info)
   with
-  | `Error _ -> exit 1 
+  | `Error _ -> exit 1
   | _ -> exit 0

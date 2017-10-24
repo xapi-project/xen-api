@@ -83,7 +83,8 @@ endif
 	install -D ./scripts/common.py $(DESTDIR)/$(LIBEXECDIR)/common.py
 	install -D ./scripts/igmp_query_injector.py $(DESTDIR)/$(LIBEXECDIR)/igmp_query_injector.py
 	install -D ./set_domain_uuid.native $(DESTDIR)/$(LIBEXECDIR)/set-domain-uuid
-	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) LIBEXECDIR=$(LIBEXECDIR) ETCDIR=$(ETCDIR) ./scripts/make-custom-xenopsd.conf
+	install -D ./scripts/qemu-wrapper $(DESTDIR)/$(QEMU_WRAPPER_DIR)/qemu-wrapper
+	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) QEMU_WRAPPER_DIR=$(QEMU_WRAPPER_DIR) LIBEXECDIR=$(LIBEXECDIR) ETCDIR=$(ETCDIR) ./scripts/make-custom-xenopsd.conf
 
 reinstall: install
 	@ocamlfind remove $(NAME) || true
@@ -108,6 +109,7 @@ uninstall:
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/setup-pvs-proxy-rules
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/common.py*
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/igmp_query_injector.py*
+	rm -f $(DESTDIR)/$(QEMU_WRAPPER_DIR)/qemu-wrapper
 
 .PHONY: release
 release:
@@ -116,7 +118,7 @@ release:
 	mv _oasis.tmp _oasis
 	oasis setup
 
-# make report   - create coverage/index.html 
+# make report   - create coverage/index.html
 
 report:
 	bisect-ppx-report -I _build -html $(COVERAGE) /tmp/bisect-xenops*out

@@ -1,0 +1,417 @@
+#! /usr/bin/python
+#
+# Copyright (C) 2016 Citrix Systems R&D Ltd.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published
+# by the Free Software Foundation; version 2.1 only. with the special
+# exception on linking described in file LICENSE.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+
+import os
+import re
+import sys
+import socket
+import tempfile
+import errno
+import stat
+import pwd
+import grp
+from subprocess import call
+
+import xen.lowlevel.xs as xs
+
+import qemu_trad_image
+
+#
+# Constants from Xen's public/hvm/e820.h
+#
+HVM_BELOW_4G_RAM_END = 0xf0000000
+HVM_BELOW_4G_MMIO_START = HVM_BELOW_4G_RAM_END
+HVM_BELOW_4G_MMIO_LENGTH = (1 << 32) - HVM_BELOW_4G_MMIO_START
+
+dic_mac = {}
+
+xenstore = xs.xs()
+
+# Set cgroup_slice to the name of the cgroup slice the qemu-dm process
+# should live in.
+#  - None means leave in the same slice as the parent process.
+#  - '' means move it into the default slice.
+#  - 'system.slice' means move it into the system slice, etc.
+# If the nominated slice does not already exist, the process will be
+# left in its parent's slice.
+cgroup_slice = ''
+
+def enable_core_dumps():
+    from resource import getrlimit, RLIMIT_CORE, setrlimit
+
+    limit = 64 * 1024 * 1024
+    oldlimits = getrlimit(RLIMIT_CORE)
+    hardlimit = oldlimits[1]
+    if limit > hardlimit:
+        hardlimit = limit
+        setrlimit(RLIMIT_CORE, (limit, hardlimit))
+        return limit
+
+def xenstore_read(path):
+    return xenstore.read("", path)
+
+def xenstore_write(path, value):
+    return xenstore.write("", path, value)
+
+def xenstore_ls(path):
+    return xenstore.ls("", path)
+
+def get_drive_args(dom):
+    args = []
+    index_map = dict(('xvd' + chr(ord('a') + i), i) for i in range(4))
+    vbd3 = "/local/domain/0/backend/vbd3/" + dom
+
+    medialist = xenstore_ls(vbd3)
+    if not medialist:
+        return args
+
+    for num in medialist:
+        dev = xenstore_read("%s/%s/dev" % (vbd3, num))
+        if dev not in index_map:
+            continue
+
+        path = ''
+        path_str = ''
+        keys = xenstore_ls("%s/%s" % (vbd3, num))
+        if "params" in keys:
+            path = xenstore_read("%s/%s/params" % (vbd3, num))
+            path_str = 'file=%s,' % path
+
+        # XXX This is a heuristic to determine if the disk is a CD. We should be told
+        # by the toolstack.
+        mode = xenstore_read("%s/%s/mode" % (vbd3, num))
+        media = 'cdrom' if dev == 'xvdd' and mode == 'r' else 'disk'
+        forcelba = 'on' if media == 'disk' else 'off'
+
+        format_str = ',format=raw' if path != '' else ''
+
+        if mode == 'r' and media != 'cdrom':
+            continue
+
+        # XXX What should cache=... be set to?
+        args.extend(["-drive", "%sif=ide,index=%d,media=%s%s,force-lba=%s" %
+                     (path_str, index_map[dev], media, format_str, forcelba)])
+
+    return args
+
+def main(argv):
+    f = sys.stdout
+
+    f.write("Arguments: %s\n" % " ".join(argv[1:]))
+
+    for n in range(len(argv)):
+        if argv[n] == "-d":
+            domid = int(argv[n+1])
+            break
+
+    qemu_dm = '/usr/lib64/xen/bin/qemu-system-i386'
+    drive_args = get_drive_args('%d' % domid)
+    qemu_args = ['qemu-dm-%d' % domid]
+
+    # read the size of lower MMIO hole provisioned by xenguest
+    mmio_start = HVM_BELOW_4G_MMIO_START
+    mmio_size = xenstore_read("/local/domain/%d/data/mmio-hole-size" % domid)
+    if mmio_size:
+        mmio_start = (1 << 32) - int(mmio_size)
+
+    # don't allow hvmloader to change the lower MMIO hole size
+    xenstore_write("/local/domain/%d/hvmloader/allow-memory-relocate" % domid, "0")
+    # prepare the correct set of ACPI tables in hvmloader
+    xenstore_write("/local/domain/%d/platform/device-model" % domid, "qemu_xen")
+
+    trad_compat = 'true'
+    igdpt = ''
+
+    if "-gfx_passthru" in argv[1:]:
+        igdpt = ',igd-passthru=on'
+
+    qemu_args.extend(['-machine',
+                      'pc-0.10,accel=xen,max-ram-below-4g=%lu,'
+                      'allow-unassigned=true,trad_compat=%s%s'
+                      % (mmio_start, trad_compat, igdpt)])
+    qemu_args.extend(['-display', 'none', '-nodefaults'])
+
+    platform_device = True
+    disable_pf = xenstore_read("/local/domain/%d/vm-data/disable_pf" % domid)
+    if disable_pf and int(disable_pf) == 1:
+        platform_device = False
+
+    if platform_device:
+        device_id = xenstore_read("/local/domain/%d/platform/device_id" % domid)
+        if not device_id:
+            device_id = "0001"
+        qemu_args.extend(['-device',
+                          'xen-platform,addr=3,device-id=0x%s,revision=0x2,'
+                          'class-id=0x0100,subvendor_id=0x5853,subsystem_id=0x%s'
+                          % (device_id, device_id)])
+
+    # enable qmp for debugging
+    # qemu_args.extend(['-qmp'] + ['tcp:localhost:4444,server,nowait'])
+
+    # qemu_args.extend(['-chardev'] + ['socket,id=libxl-cmd,'
+    #                   'path=/var/run/xen/qmp-libxl-%d,server,nowait' % domid])
+
+    qemu_args.extend(['-qmp'] + ['unix:/var/run/xen/qmp-libxl-%d,server,nowait'
+                                 % domid])
+
+    qemu_args.extend(['-qmp'] + ['unix:/var/run/xen/qmp-event-%d,server,nowait'
+                                 % domid])
+
+    # enable parallel for legacy reasons
+    qemu_args.extend(['-parallel', 'null'])
+
+    qemu_args.extend(argv[2:])
+    qemu_args.extend(drive_args)
+
+    n = 0
+
+    vga_type = 'cirrus-vga'
+    vgamem_mb = 4
+    vga_extra_props = ["rombar=1,romfile=", "subvendor_id=0x5853,subsystem_id=0x0001"]
+    upgraded_save_image = None
+    serial_c = ''
+    tmp_serial_c = ''
+
+    while n < len(qemu_args):
+        p = qemu_args[n]
+
+        if p == "--syslog":
+            del qemu_args[n]
+            continue
+
+        if p == "-vncunused":
+            del qemu_args[n]
+            continue
+
+        if p == "-priv":
+            del qemu_args[n]
+            continue
+
+        if p == "-acpi":
+            del qemu_args[n]
+            continue
+
+        if p == "-gfx_passthru":
+            del qemu_args[n]
+            continue
+
+        if p == "-videoram":
+            vgamem_mb = int(qemu_args[n+1])
+            del qemu_args[n]
+            del qemu_args[n]
+            continue
+
+        if p == "-vcpus":
+            qemu_args[n] = "-smp"
+            qemu_args[n+1] = "maxcpus=" + qemu_args[n+1]
+            n += 2
+            continue
+
+        if p == "-net":
+            n += 1
+            if qemu_args[n].startswith("nic,"):
+                vm_uuid = re.search(r'\/vm\/(.*)', xenstore_read("/local/domain/%d/vm" % domid)).group(1)
+                nic_mac = re.search(r'macaddr=(.*),', qemu_args[n]).group(1)
+                # we suppose that the output of next command is always in same order
+                nic_addrs = os.popen('xe vif-list vm-uuid=' + vm_uuid + ' MAC=' + nic_mac + ' params="device" --minimal').read().rstrip()
+                nic_addrs = nic_addrs.split(',')  
+                if dic_mac.has_key(nic_mac):
+                   dic_mac[nic_mac] += 1
+                   count = dic_mac[nic_mac]
+                   nic_addr = int(nic_addrs[count])
+                else:
+                   dic_mac[nic_mac] = 0
+                   nic_addr = int(nic_addrs[0])                
+                nic_addr += 4
+                qemu_args[n - 1] = '-device'
+                qemu_args[n] = re.sub(r'^nic,', '', qemu_args[n])
+                qemu_args[n] = qemu_args[n].replace('vlan=', 'netdev=tapnet')
+                model = re.search(r',model=([^,]+)', qemu_args[n]).group(1)
+                qemu_args[n] = re.sub(r',model=([^,]+)', '', qemu_args[n])
+                qemu_args[n] = re.sub(r',macaddr=', ',mac=', qemu_args[n])
+                qemu_args[n] = model + ',' +  qemu_args[n] + ",addr=" + str(nic_addr)
+                n += 1
+                continue
+
+            if qemu_args[n].startswith("tap,"):
+                qemu_args[n - 1] = '-netdev'
+                qemu_args[n] = re.sub(r',vlan=', ',id=tapnet', qemu_args[n])
+                qemu_args[n] = re.sub(r'bridge=[^,]+,', '', qemu_args[n])
+                qemu_args[n] += ",script=no,downscript=no"
+
+        if p == "-usbdevice":
+            if qemu_args[n+1] == "tablet":
+                qemu_args[n] = "-device"
+                qemu_args[n+1] = "usb-tablet,port=2"
+
+        if p == "-d":
+            qemu_args[n] = "-xen-domid"
+
+        if p == "-m":
+            ram_size_mb = int(qemu_args[n+1])
+            qemu_args[n+1] = "size=%d" % ram_size_mb
+            n += 2
+            continue
+
+        if p == "-serial":
+            try:
+                serial_c = xenstore_read("/local/logconsole/@")
+            except:
+                pass
+            if serial_c:
+                if '%d' in serial_c:
+                    tmp_serial_c = serial_c  % (domid)
+                    qemu_args[n+1] = "file:" + tmp_serial_c
+                else:
+                    qemu_args[n+1] = "file:" + serial_c
+            n+=2
+            continue
+
+        if p == "-boot":
+            qemu_args[n+1] = "order=" + qemu_args[n+1]
+            n += 2
+            continue
+
+        if p == "-std-vga":
+            vga_type = 'VGA'
+            vga_extra_props += ['qemu-extended-regs=false']
+            del qemu_args[n]
+            continue
+
+        if p == "-vgpu":
+            vga_type = 'vgpu'
+            del qemu_args[n]
+            continue
+
+        if p == "-xengt":
+            vga_type = 'xengt'
+            del qemu_args[n]
+            continue
+
+        if p == "-vnc":
+            # Pass QEMU a range of ports, then use QMP to find the port it picked.
+            # There is a hack here
+            #    Disable lock-key-sync
+            #    lock-key-sync expects vnclient to send different keysym for
+            #    alphabet keys (different for lowercase and uppercase). XC
+            #    can't do it atm, disable lock-key-sync
+            qemu_args[n+1] = "127.0.0.1:1,to=1000,lock-key-sync=off"
+            n += 2
+            continue
+
+        if p == "-loadvm":
+            loadvm_path = qemu_args[n+1]
+            if qemu_trad_image.is_trad_image(loadvm_path):
+                f.write("QEMU Traditional image detected. Upgrading...\n")
+
+                loadvm_file = open(loadvm_path, "rb")
+                incoming_file = tempfile.TemporaryFile()
+                upgraded_save_image = qemu_trad_image.convert_file(loadvm_file, incoming_file)
+                loadvm_file.close()
+
+                incoming_file.seek(0)
+                incoming_fd = os.dup(incoming_file.fileno())
+            else:
+                incoming_fd = os.open(loadvm_path, os.O_RDONLY)
+            qemu_args[n] = "-incoming"
+            qemu_args[n+1] = "fd:%d" % incoming_fd
+
+        n += 1
+
+    if vga_type == 'vgpu':
+        qemu_args += ["-device", "vgpu"]
+    elif vga_type == 'xengt':
+        qemu_args += ["-vga", "xengt"]
+    else:
+        qemu_args += ["-device", ",".join([vga_type, "vgamem_mb=%d" % vgamem_mb] \
+                                          + vga_extra_props)]
+
+    has_device = xenstore_read("/local/domain/%d/control/has-vendor-device" % domid)
+    if has_device and int(has_device) == 1:
+        qemu_args += ["-device", "xen-pvdevice,device-id=0xc000"]
+
+    qemu_args += ["-global", "PIIX4_PM.revision_id=0x1"]
+    qemu_args += ["-global", "ide-hd.ver=0.10.2"]
+
+    for driver in ["piix3-ide-xen", "piix3-usb-uhci", "rtl8139"]:
+        qemu_args += ["-global", "%s.subvendor_id=0x5853" % driver,
+                      "-global", "%s.subsystem_id=0x0001" % driver]
+
+    qemu_args += ["-trace", "enable=xen_platform_log"]
+    s1, s2 = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+    qemu_args += ["-vnc-clipboard-socket-fd", str(s1.fileno())]
+    #qemu_args += ["-trace", "events=/root/trace"]
+    #qemu_args += ["-monitor", "tcp:127.0.0.1:7777,server,nowait"]
+
+    depriv = False
+    if depriv:
+        try:
+            os.makedirs("/var/lib/xen/root-%d/dev" % domid, 0755)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+
+        try:
+            os.mknod("/var/lib/xen/root-%d/dev/null" % domid, 0644 | stat.S_IFCHR, os.makedev(1, 3))
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+
+        qemu_args += ["-xen-domid-restrict"]
+        qemu_args += ["-chroot", "/var/lib/xen/root-%d" % domid]
+
+        uid = pwd.getpwnam('qemu_base').pw_uid + domid
+        gid = grp.getgrnam('qemu_base').gr_gid + domid
+        qemu_args += ["-runas", "%d.%d" % (uid, gid)]
+
+    xenstore_write("/libxl/%d/dm-version" % domid, "qemu_xen")
+
+    f.write("Exec: %s %s\n" % (qemu_dm, " ".join(qemu_args)))
+
+    # set up library preload path for qemu such that it can use jemalloc
+    qemu_env = os.environ
+    if not qemu_env.has_key("LD_PRELOAD"):
+       qemu_env["LD_PRELOAD"] = "/usr/lib64/libjemalloc.so.1"
+    else:
+       qemu_env["LD_PRELOAD"] = "/usr/lib64/libjemalloc.so.1:" + qemu_env["LD_PRELOAD"]
+
+    clipboardd = '/opt/xensource/libexec/xs-clipboardd'
+    call([clipboardd, "-d", str(domid), "-s", str(s2.fileno())], preexec_fn = lambda : (s1.close()))
+
+    s2.close()
+
+    core_dump_limit = enable_core_dumps()
+    f.write("core dump limit: %d\n" % core_dump_limit)
+
+    pid = os.getpid()
+    xenstore_write("/local/domain/%d/qemu-pid" % domid, "%d" % pid)
+
+    if cgroup_slice is not None:
+        # Move to nominated cgroup slice
+        f.write("Moving to cgroup slice '%s'\n" % cgroup_slice)
+        try:
+            # Note the default slice uses /sys/fs/cgroup/cpu/tasks but
+            # other.slice uses /sys/fs/cgroup/cpu/other.slice/tasks.
+            g = open("/sys/fs/cgroup/cpu/%s/tasks" % cgroup_slice, 'w')
+            g.write(str(pid))
+            g.close()
+        except IOError, e:
+            print "Warning: writing pid to '%s' tasks file: %s" \
+                % (cgroup_slice, e)
+
+    f.flush()
+    os.execve(qemu_dm, qemu_args, qemu_env)
+
+if __name__ == '__main__':
+    raise SystemExit(main(sys.argv))
