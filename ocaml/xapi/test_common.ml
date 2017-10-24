@@ -411,3 +411,20 @@ let make_client_params ~__context =
     session_id
   in
   (rpc, session_id)
+
+let make_cluster_host ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
+    ?(cluster=Ref.null) ?(host=Ref.null) ?(enabled=true)
+    ?(allowed_operations=[]) ?(current_operations=[]) ?(other_config=[]) () =
+  Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~enabled
+    ~allowed_operations ~current_operations ~other_config;
+  ref
+
+let make_cluster_and_cluster_host ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
+    ?(network=Ref.null) ?(cluster_token="") ?(cluster_stack="corosync")
+    ?(allowed_operations=[]) ?(current_operations=[]) ?(pool_auto_join=true)
+    ?(cluster_config=[]) ?(other_config=[]) () =
+  Db.Cluster.create ~__context ~ref ~uuid ~network ~cluster_token
+    ~cluster_stack ~allowed_operations ~current_operations ~pool_auto_join
+    ~cluster_config ~other_config;
+  let cluster_host_ref = make_cluster_host ~__context ~cluster:ref () in
+  ref, cluster_host_ref
