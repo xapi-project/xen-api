@@ -555,26 +555,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module Pool = struct
     include Local.Pool
 
-    (** Add to the Pool's current operations, call a function and then remove from the
-        			current operations. Ensure the allowed_operations are kept up to date. *)
-    let with_pool_operation ~__context ~self ~doc ~op f =
-      let task_id = Ref.string_of (Context.get_task_id __context) in
-      Helpers.retry_with_global_lock ~__context ~doc
-        (fun () ->
-           Xapi_pool_helpers.assert_operation_valid ~__context ~self ~op;
-           Db.Pool.add_to_current_operations ~__context ~self ~key:task_id ~value:op);
-      Xapi_pool_helpers.update_allowed_operations ~__context ~self;
-      (* Then do the action with the lock released *)
-      finally f
-        (* Make sure to clean up at the end *)
-        (fun () ->
-           try
-             Db.Pool.remove_from_current_operations ~__context ~self ~key:task_id;
-             Xapi_pool_helpers.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel_common._pool, Ref.string_of self);
-           with
-             _ -> ())
-
     let eject ~__context ~host =
       info "Pool.eject: pool = '%s'; host = '%s'" (current_pool_uuid ~__context) (host_uuid ~__context host);
       let local_fn = Local.Pool.eject ~host in
@@ -597,7 +577,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (String.concat ", " (List.map Ref.string_of heartbeat_srs))
         (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) configuration));
       let pool = Helpers.get_pool ~__context in
-      with_pool_operation ~__context ~doc:"Pool.ha_enable" ~self:pool ~op:`ha_enable
+      Xapi_pool_helpers.with_pool_operation ~__context ~doc:"Pool.ha_enable" ~self:pool ~op:`ha_enable
         (fun () ->
            Local.Pool.enable_ha __context heartbeat_srs configuration
         )
@@ -605,7 +585,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let disable_ha ~__context =
       info "Pool.disable_ha: pool = '%s'" (current_pool_uuid ~__context);
       let pool = Helpers.get_pool ~__context in
-      with_pool_operation ~__context ~doc:"Pool.ha_disable" ~self:pool ~op:`ha_disable
+      Xapi_pool_helpers.with_pool_operation ~__context ~doc:"Pool.ha_disable" ~self:pool ~op:`ha_disable
         (fun () ->
            Local.Pool.disable_ha __context
         )
@@ -4252,5 +4232,4 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "VUSB.destroy: VUSB = '%s'" (vusb_uuid ~__context self);
       Local.VUSB.destroy ~__context ~self
   end
-
 end
