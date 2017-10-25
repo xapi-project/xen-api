@@ -12,13 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Cluster_interface
 open Xapi_clustering
 
 module D=Debug.Make(struct let name="xapi_cluster" end)
 open D
 
-(* TODO: move anything "generic" to Xapi_cluster_helpers, or a new Xapi_clustering file/module *)
 (* TODO: update allowed_operations on cluster creation *)
 (* TODO: update allowed_operations on boot/toolstack-restart *)
 
@@ -33,7 +31,7 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join =
       let pool = Db.Pool.get_all ~__context |> List.hd in
       let host = Db.Pool.get_master ~__context ~self:pool in
 
-      let ip = Xapi_cluster_host.ip_of_host ~__context ~network ~host in
+      let ip = ip_of_host ~__context ~network ~host in
 
       let result = Cluster_client.LocalClient.create (Cluster_client.rpc (fun () -> "")) ip in
       match result with
@@ -46,7 +44,7 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join =
           ~current_operations:[] ~allowed_operations:[] ~other_config:[];
         D.debug "Created Cluster: %s and Cluster_host: %s" (Ref.string_of cluster_ref) (Ref.string_of cluster_host_ref);
         cluster_ref
-      | Result.Error error -> Xapi_cluster_host.handle_error error
+      | Result.Error error -> handle_error error
     )
 
 let destroy ~__context ~self =
