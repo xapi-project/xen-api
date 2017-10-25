@@ -12,43 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Cluster_interface
 open Xapi_clustering
 
 module D=Debug.Make(struct let name="xapi_cluster_host" end)
 open D
 
-(* TODO: move anything "generic" to Xapi_cluster_host_helpers, or a new Xapi_clustering file/module *)
 (* TODO: update allowed_operations on cluster_host creation *)
 (* TODO: update allowed_operations on boot/toolstack-restart *)
-
-let ip_of_host ~__context ~network ~host =
-  debug "Looking up PIF for network %s" (Ref.string_of network);
-  let pifs = Db.PIF.get_records_where ~__context
-      ~expr:Db_filter_types.(And (Eq(Literal (Ref.string_of host),Field "host"),
-                                  Eq(Literal (Ref.string_of network),Field "network"))) in
-  match pifs with
-  | [(ref, record)] ->
-    let ip = record.API.pIF_IP in
-    if ip = "" then failwith (Printf.sprintf "PIF %s does not have any IP" (Ref.string_of ref));
-    if not record.API.pIF_disallow_unplug then failwith (Printf.sprintf "PIF %s allows unplug" (Ref.string_of ref));
-    debug "Got IP %s for host %s" ip (Ref.string_of host);
-    Cluster_interface.IPv4 ip
-  | _ ->
-    let msg = Printf.sprintf "No PIF found for host:%s and network:%s" (Ref.string_of host) (Ref.string_of network) in
-    debug "%s" msg;
-    failwith msg
-
-let handle_error error =
-  (* TODO: replace with API errors? *)
-  match error with
-  | InternalError message -> failwith ("Internal Error: " ^ message)
-  | Unix_error message -> failwith ("Unix Error: " ^ message)
-
-let assert_cluster_host_can_be_created ~__context ~host =
-  if Db.Cluster_host.get_refs_where ~__context
-      ~expr:Db_filter_types.(Eq(Literal (Ref.string_of host),Field "host")) <> [] then
-    failwith "Cluster host cannot be created because it already exists"
 
 let create ~__context ~cluster ~host =
   (* TODO: take network lock *)
