@@ -124,4 +124,4 @@ report:
 .PHONY: report
 
 reindent:
-	ocp-indent --inplace **/*.ml*
+	git ls-files '*.ml' '*.mli' | xargs ocp-indent --syntax cstruct -i
