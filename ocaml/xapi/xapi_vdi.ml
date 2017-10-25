@@ -1072,12 +1072,16 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
     if ips = [] then [] else
     let cert = get_server_certificate ~host in
     let port = 10809L in
-    let subject = try match Certificates.hostnames_of_pem_cert cert with
+    let rec seek = function
       | [] -> (
           error "Found no subject DNS names in this hosts's certificate. Returning empty string as subject.";
           ""
         )
-      | name :: _ -> name
+      | last :: [] -> last (* Better to return a possible wildcard than nothing *)
+      | name :: xs -> if (String.contains name '*') then seek xs else name
+    in
+    let subject = try
+      seek (Certificates.hostnames_of_pem_cert cert)
     with e -> (
       error "get_nbd_info: failed to read subject from TLS certificate! Falling back to Host.hostname. Exn was %s" (ExnHelper.string_of_exn e);
       Db.Host.get_hostname ~__context ~self:host
