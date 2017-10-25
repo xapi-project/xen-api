@@ -398,6 +398,17 @@ let update_guest_metrics ~__context ~vm ~snapshot =
     Db.VM.set_guest_metrics ~__context ~self:vm ~value:new_gm
   end
 
+let update_metrics ~__context ~vm ~snapshot =
+  let snap_m = Db.VM.get_metrics ~__context ~self:snapshot in
+  let vm_m = Db.VM.get_metrics ~__context ~self:vm in
+
+  debug "Reverting the metrics";
+  if Db.is_valid_ref __context vm_m then Db.VM_metrics.destroy ~__context ~self:vm_m;
+  if Db.is_valid_ref __context snap_m then begin
+    let new_m = Xapi_vm_helpers.copy_metrics ~__context ~vm:snapshot in
+    Db.VM.set_metrics ~__context ~self:vm ~value:new_m
+  end
+
 let update_parent ~__context ~vm ~snapshot =
   Db.VM.set_parent ~__context ~self:vm ~value:snapshot
 
@@ -409,6 +420,7 @@ let do_not_copy = [
   Db_names.parent;
   Db_names.current_operations;
   Db_names.allowed_operations;
+  Db_names.metrics;
   Db_names.guest_metrics;
   Db_names.resident_on;
   Db_names.domid;
@@ -465,6 +477,7 @@ let revert ~__context ~snapshot ~vm =
 
     update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm;
     update_guest_metrics ~__context ~snapshot ~vm;
+    update_metrics ~__context ~snapshot ~vm;
     update_parent ~__context ~snapshot ~vm;
     TaskHelper.set_progress ~__context 1.;
 
