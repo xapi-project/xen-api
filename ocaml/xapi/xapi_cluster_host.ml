@@ -12,9 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Cluster_interface
+open Xapi_clustering
+
 module D=Debug.Make(struct let name="xapi_cluster_host" end)
 open D
-open Cluster_interface
 
 (* TODO: move anything "generic" to Xapi_cluster_host_helpers, or a new Xapi_clustering file/module *)
 (* TODO: update allowed_operations on cluster_host creation *)
@@ -49,62 +51,66 @@ let assert_cluster_host_can_be_created ~__context ~host =
     failwith "Cluster host cannot be created because it already exists"
 
 let create ~__context ~cluster ~host =
-  (* TODO: take cluster lock and then network lock *)
-  assert_cluster_host_can_be_created ~__context ~host;
-  let ref = Ref.make () in
-  let uuid = Uuidm.to_string (Uuidm.create `V4) in
-  let network = Db.Cluster.get_network ~__context ~self:cluster in
-  let cluster_token = Db.Cluster.get_cluster_token ~__context ~self:cluster in
-  let ip = ip_of_host ~__context ~network ~host in
-  let ip_list = List.map (fun cluster_host ->
-      ip_of_host ~__context ~network ~host:(Db.Cluster_host.get_host ~__context ~self:cluster_host)
-    ) (Db.Cluster.get_cluster_hosts ~__context ~self:cluster) in
-  let result = Cluster_client.LocalClient.join (Cluster_client.rpc (fun () -> "")) cluster_token ip ip_list in
-  match result with
-  | Result.Ok () ->
-    Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~enabled:false
-      ~current_operations:[] ~allowed_operations:[] ~other_config:[];
-    ref
-  | Result.Error error -> handle_error error
+  (* TODO: take network lock *)
+  with_clustering_lock (fun () ->
+      assert_cluster_host_can_be_created ~__context ~host;
+      let ref = Ref.make () in
+      let uuid = Uuidm.to_string (Uuidm.create `V4) in
+      let network = Db.Cluster.get_network ~__context ~self:cluster in
+      let cluster_token = Db.Cluster.get_cluster_token ~__context ~self:cluster in
+      let ip = ip_of_host ~__context ~network ~host in
+      let ip_list = List.map (fun cluster_host ->
+          ip_of_host ~__context ~network ~host:(Db.Cluster_host.get_host ~__context ~self:cluster_host)
+        ) (Db.Cluster.get_cluster_hosts ~__context ~self:cluster) in
+      let result = Cluster_client.LocalClient.join (Cluster_client.rpc (fun () -> "")) cluster_token ip ip_list in
+      match result with
+      | Result.Ok () ->
+        Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~enabled:false
+          ~current_operations:[] ~allowed_operations:[] ~other_config:[];
+        ref
+      | Result.Error error -> handle_error error
+    )
 
 let destroy ~__context ~self =
   Db.Cluster_host.destroy ~__context ~self
 
 let enable ~__context ~self =
-  (* TODO: take cluster lock *)
   (* TODO: debug/error/info logging *)
-  let host = Db.Cluster_host.get_host ~__context ~self in
-  let cluster = Db.Cluster_host.get_cluster ~__context ~self in
-  let network = Db.Cluster.get_network ~__context ~self:cluster in
-  let ip = ip_of_host ~__context ~network ~host in
-  let result = Cluster_client.LocalClient.enable (Cluster_client.rpc (fun () -> "")) ip in
-  match result with
-  | Result.Ok () ->
-    Db.Cluster_host.set_enabled ~__context ~self ~value:true
-  | Result.Error error -> handle_error error
+  with_clustering_lock (fun () ->
+      let host = Db.Cluster_host.get_host ~__context ~self in
+      let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+      let network = Db.Cluster.get_network ~__context ~self:cluster in
+      let ip = ip_of_host ~__context ~network ~host in
+      let result = Cluster_client.LocalClient.enable (Cluster_client.rpc (fun () -> "")) ip in
+      match result with
+      | Result.Ok () ->
+        Db.Cluster_host.set_enabled ~__context ~self ~value:true
+      | Result.Error error -> handle_error error
+    )
 
 let disable ~__context ~self =
-  (* TODO: take cluster lock *)
   (* TODO: debug/error/info logging *)
-  let cluster = Db.Cluster_host.get_cluster ~__context ~self in
-  let cluster_stack = Db.Cluster.get_cluster_stack ~__context ~self:cluster in
-  let host = Db.Cluster_host.get_host ~__context ~self in
-  let pbds = Db.Host.get_PBDs ~__context ~self:host in
-  let srs = List.map (fun pbd -> Db.PBD.get_SR ~__context ~self:pbd) pbds in
-  List.iter (fun sr ->
-      let sr_type = Db.SR.get_type ~__context ~self:sr in
-      let matching_sms = Db.SM.get_records_where ~__context
-        ~expr:Db_filter_types.(Eq(Field "type", Literal sr_type)) in
-      List.iter (fun (sm_ref, sm_rec) ->
-          if List.mem cluster_stack sm_rec.API.sM_required_cluster_stack then
-            failwith (Printf.sprintf "Host has attached SR whose SM requires cluster stack %s" cluster_stack) (* TODO: replace with API error *)
-        ) matching_sms
-    ) srs;
-  let result = Cluster_client.LocalClient.disable (Cluster_client.rpc (fun () -> "")) () in
-  match result with
-  | Result.Ok () ->
-    Db.Cluster_host.set_enabled ~__context ~self ~value:false
-  | Result.Error error -> handle_error error
+  with_clustering_lock (fun () ->
+      let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+      let cluster_stack = Db.Cluster.get_cluster_stack ~__context ~self:cluster in
+      let host = Db.Cluster_host.get_host ~__context ~self in
+      let pbds = Db.Host.get_PBDs ~__context ~self:host in
+      let srs = List.map (fun pbd -> Db.PBD.get_SR ~__context ~self:pbd) pbds in
+      List.iter (fun sr ->
+          let sr_type = Db.SR.get_type ~__context ~self:sr in
+          let matching_sms = Db.SM.get_records_where ~__context
+              ~expr:Db_filter_types.(Eq(Field "type", Literal sr_type)) in
+          List.iter (fun (sm_ref, sm_rec) ->
+              if List.mem cluster_stack sm_rec.API.sM_required_cluster_stack then
+                failwith (Printf.sprintf "Host has attached SR whose SM requires cluster stack %s" cluster_stack) (* TODO: replace with API error *)
+            ) matching_sms
+        ) srs;
+      let result = Cluster_client.LocalClient.disable (Cluster_client.rpc (fun () -> "")) () in
+      match result with
+      | Result.Ok () ->
+        Db.Cluster_host.set_enabled ~__context ~self ~value:false
+      | Result.Error error -> handle_error error
+    )
 
 let sync_required ~__context =
   let clusters = Db.Cluster.get_all_records ~__context in
