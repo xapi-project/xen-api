@@ -21,3 +21,6 @@ let wait_for_xapi_timeout_seconds = 300.0
 
 (** We sleep for this many seconds before the next login attempt. *)
 let wait_for_xapi_retry_delay_seconds = 4.0
+
+(** Allow no more than this many client connections. *)
+let connection_limit = 16

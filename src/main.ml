@@ -125,6 +125,17 @@ let main port certfile ciphersuites =
          Lwt_unix.bind sock sockaddr;
          Lwt_unix.listen sock 5;
          Lwt_log.notice "Listening for incoming connections" >>= fun () ->
+
+         let conn_count = ref 0 in
+         let conn_m = Lwt_mutex.create () in
+         let inc_conn ?(i=1) () = Lwt_mutex.with_lock conn_m (fun () ->
+           conn_count := !conn_count + i;
+           if !conn_count > Consts.connection_limit && i > 0
+           then Lwt.fail_with ("Server busy: already at maximum "^(string_of_int Consts.connection_limit)^" connections.")
+           else Lwt.return ()
+         ) in
+         let dec_conn () = inc_conn ~i:(-1) () in
+
          let rec loop () =
            Lwt_unix.accept sock
            >>= fun (fd, _) ->
@@ -135,14 +146,18 @@ let main port certfile ciphersuites =
                (fun () ->
                   Lwt.finalize
                     (fun () -> (
-                      xapi_says_use_tls () >>=
+                      inc_conn () >>=
+                      xapi_says_use_tls >>=
                       fun tls -> (
                         let tls_role = if tls then tls_server_role else None in
                         handle_connection fd tls_role)
                       )
                     )
                     (* ignore the exception resulting from double-closing the socket *)
-                    (ignore_exn_delayed (fun () -> Lwt_unix.close fd))
+                    (fun () ->
+                      ignore_exn_delayed (fun () -> Lwt_unix.close fd) () >>=
+                      dec_conn
+                    )
                )
            in
            loop ()
