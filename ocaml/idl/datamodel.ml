@@ -6730,7 +6730,7 @@ module Vdi_nbd_server_info = struct
         field ~qualifier:DynamicRO ~lifecycle ~ty:String "address" "An address on which the server can be reached; this can be IPv4, IPv6, or a DNS name.";
         field ~qualifier:DynamicRO ~lifecycle ~ty:Int "port" "The TCP port";
         field ~qualifier:DynamicRO ~lifecycle ~ty:String "cert" "The TLS certificate of the server";
-        field ~qualifier:DynamicRO ~lifecycle ~ty:String "subject" "For convenience, this redundant field holds a subject of the certificate.";
+        field ~qualifier:DynamicRO ~lifecycle ~ty:String "subject" "For convenience, this redundant field holds a DNS (hostname) subject of the certificate. This can be a wildcard, but only for a certificate that has a wildcard subject and no concrete hostname subjects.";
       ] ()
 end
 let vdi_nbd_server_info = Vdi_nbd_server_info.vdi_nbd_server_info
