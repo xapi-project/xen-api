@@ -82,10 +82,9 @@ module Domain = struct
     else
       try
         let di = Xenctrl.domain_getinfo xc domid in
-        let maxmem = Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.max_memory_pages) in
         let d = { path = Printf.sprintf "/local/domain/%d" domid;
                   hvm = di.Xenctrl.hvm_guest;
-                  maxmem = maxmem;
+                  maxmem = maxmem_of_dominfo di;
                   keys = Hashtbl.create 10 } in
         Hashtbl.replace cache domid d;
         Some d
