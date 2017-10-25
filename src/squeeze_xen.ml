@@ -68,6 +68,12 @@ module Domain = struct
   let cache = Hashtbl.create 10
 
   let m = Mutex.create ()
+
+  let maxmem_of_dominfo di =
+    let memory_max_kib = Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.max_memory_pages) in
+    (* Misc other stuff appears in max_memory_pages *)
+    max 0L (memory_max_kib -* (xen_max_offset_kib di.Xenctrl.hvm_guest))
+
   (* get_per_domain can return None if the domain is deleted by
      	 someone else while we are processing some other event handlers *)
   let get_per_domain xc domid =
@@ -450,9 +456,7 @@ let make_host ~verbose ~xc =
                   with _ -> 0L
                 else 0L in
               (* dom0 is special for some reason *)
-              let memory_max_kib = if di.Xenctrl.domid = 0 then 0L else Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.max_memory_pages) in
-              (* Misc other stuff appears in max_memory_pages *)
-              let memory_max_kib = max 0L (memory_max_kib -* (xen_max_offset_kib di.Xenctrl.hvm_guest)) in
+              let memory_max_kib = if di.Xenctrl.domid = 0 then 0L else Domain.maxmem_of_dominfo di in
               let can_balloon = Domain.get_feature_balloon cnx di.Xenctrl.domid in
               let has_guest_agent = Domain.get_guest_agent cnx di.Xenctrl.domid in
               let has_booted = can_balloon || has_guest_agent in
