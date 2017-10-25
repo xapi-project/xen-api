@@ -12,39 +12,42 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Cluster_interface
+open Xapi_clustering
+
 module D=Debug.Make(struct let name="xapi_cluster" end)
 open D
-open Cluster_interface
 
 (* TODO: move anything "generic" to Xapi_cluster_helpers, or a new Xapi_clustering file/module *)
 (* TODO: update allowed_operations on cluster creation *)
 (* TODO: update allowed_operations on boot/toolstack-restart *)
 
 let create ~__context ~network ~cluster_stack ~pool_auto_join =
-  (* TODO: take cluster lock *)
-  let cluster_ref = Ref.make () in
-  let cluster_host_ref = Ref.make () in
-  let cluster_uuid = Uuidm.to_string (Uuidm.create `V4) in
-  let cluster_host_uuid = Uuidm.to_string (Uuidm.create `V4) in
-  (* For now we assume we have only one pool
-     TODO: get master ref explicitely passed in as parameter*)
-  let pool = Db.Pool.get_all ~__context |> List.hd in
-  let host = Db.Pool.get_master ~__context ~self:pool in
+  with_clustering_lock (fun () ->
+      let cluster_ref = Ref.make () in
+      let cluster_host_ref = Ref.make () in
+      let cluster_uuid = Uuidm.to_string (Uuidm.create `V4) in
+      let cluster_host_uuid = Uuidm.to_string (Uuidm.create `V4) in
+      (* For now we assume we have only one pool
+         TODO: get master ref explicitely passed in as parameter*)
+      let pool = Db.Pool.get_all ~__context |> List.hd in
+      let host = Db.Pool.get_master ~__context ~self:pool in
 
-  let ip = Xapi_cluster_host.ip_of_host ~__context ~network ~host in
+      let ip = Xapi_cluster_host.ip_of_host ~__context ~network ~host in
 
-  let result = Cluster_client.LocalClient.create (Cluster_client.rpc (fun () -> "")) ip in
-  match result with
-  | Result.Ok cluster_token ->
-    D.debug "Got OK from LocalClient.create";
-    Db.Cluster.create ~__context ~ref:cluster_ref ~uuid:cluster_uuid ~network ~cluster_token ~cluster_stack
-      ~pool_auto_join ~current_operations:[] ~allowed_operations:[] ~cluster_config:[]
-      ~other_config:[];
-    Db.Cluster_host.create ~__context ~ref:cluster_host_ref ~uuid:cluster_host_uuid ~cluster:cluster_ref ~host ~enabled:true
-      ~current_operations:[] ~allowed_operations:[] ~other_config:[];
-    D.debug "Created Cluster: %s and Cluster_host: %s" (Ref.string_of cluster_ref) (Ref.string_of cluster_host_ref);
-    cluster_ref
-  | Result.Error error -> Xapi_cluster_host.handle_error error
+      let result = Cluster_client.LocalClient.create (Cluster_client.rpc (fun () -> "")) ip in
+      match result with
+      | Result.Ok cluster_token ->
+        D.debug "Got OK from LocalClient.create";
+        Db.Cluster.create ~__context ~ref:cluster_ref ~uuid:cluster_uuid ~network ~cluster_token ~cluster_stack
+          ~pool_auto_join ~current_operations:[] ~allowed_operations:[] ~cluster_config:[]
+          ~other_config:[];
+        Db.Cluster_host.create ~__context ~ref:cluster_host_ref ~uuid:cluster_host_uuid ~cluster:cluster_ref ~host ~enabled:true
+          ~current_operations:[] ~allowed_operations:[] ~other_config:[];
+        D.debug "Created Cluster: %s and Cluster_host: %s" (Ref.string_of cluster_ref) (Ref.string_of cluster_host_ref);
+        cluster_ref
+      | Result.Error error -> Xapi_cluster_host.handle_error error
+    )
 
 let destroy ~__context ~self =
   (* TODO: take cluster lock ?? *)
