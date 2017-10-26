@@ -2164,16 +2164,16 @@ module Dm = struct
     let module Q = (val Backend.of_domid domid) in
     Q.Dm.get_vnc_port ~xs domid
 
-  let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
-    let module Q = (val Backend.of_domid domid) in
+  let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid ~dm domid =
+    let module Q = (val Backend.of_profile dm) in
     Q.Dm.suspend task ~xs ~qemu_domid domid
 
   let stop ~xs ~qemu_domid ~dm domid =
     let module Q = (val Backend.of_profile dm) in
     Q.Dm.stop ~xs ~qemu_domid domid
 
-  let with_dirty_log domid ~f =
-    let module Q = (val Backend.of_domid domid) in
+  let with_dirty_log dm domid ~f =
+    let module Q = (val Backend.of_profile dm) in
     Q.Dm.with_dirty_log domid ~f
 
   let cmdline_of_info ~xs ~dm info restore domid =

@@ -1051,7 +1051,7 @@ let restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid 
 
 type suspend_flag = Live | Debug
 
-let write_libxc_record' (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback =
+let write_libxc_record' (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~dm xenguest_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback =
 	let fd_uuid = Uuid.(to_string (create `V4)) in
 
 	let cmdline_to_flag flag =
@@ -1111,7 +1111,7 @@ let write_libxc_record' (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_pa
 		do_suspend_callback ();
 		if hvm then (
 			debug "VM = %s; domid = %d; suspending qemu-dm" (Uuid.to_string uuid) domid;
-			Device.Dm.suspend task ~xs ~qemu_domid domid;
+			Device.Dm.suspend task ~xs ~qemu_domid ~dm domid;
 		);
 		XenguestHelper.send cnx "done\n";
 
@@ -1127,9 +1127,9 @@ let write_libxc_record' (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_pa
 			error "VM = %s; domid = %d; xenguesthelper protocol failure" (Uuid.to_string uuid) domid;
 	)
 
-let write_libxc_record (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback =
-	Device.Dm.with_dirty_log domid (fun () ->
-		write_libxc_record' task ~xc ~xs ~hvm xenguest_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback
+let write_libxc_record (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~dm xenguest_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback =
+	Device.Dm.with_dirty_log dm domid (fun () ->
+		write_libxc_record' task ~xc ~xs ~hvm ~dm xenguest_path domid uuid fd flags progress_callback qemu_domid do_suspend_callback
 	)
 
 let write_qemu_record domid uuid legacy_libxc fd =
@@ -1176,7 +1176,7 @@ let write_demu_record domid uuid fd =
  * and is in charge to suspend the domain when called. the whole domain
  * context is saved to fd
  *)
-let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path vm_str domid fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~dm xenguest_path vm_str domid fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
 	let module DD = Debug.Make(struct let name = "mig64" end) in
 	let open DD in
 	let uuid = get_uuid ~xc domid in
@@ -1205,7 +1205,7 @@ let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm xenguest_path vm_str do
 		let libxc_header = (if legacy_libxc then Libxc_legacy else Libxc) in
 		write_header fd (libxc_header, 0L) >>= fun () ->
 		debug "Writing Libxc record";
-		write_libxc_record task ~xc ~xs ~hvm xenguest_path domid uuid fd flags
+		write_libxc_record task ~xc ~xs ~hvm ~dm xenguest_path domid uuid fd flags
 			progress_callback qemu_domid do_suspend_callback;
 		(* Qemu record (if this is a hvm domain) *)
 		(* Currently Qemu suspended inside above call with the libxc memory
