@@ -1351,7 +1351,7 @@ module VM = struct
 
 	let create_device_model_exn vbds vifs vgpus saved_state xc xs task vm di =
 		let vmextra = DB.read_exn vm.Vm.id in
-		let qemu_dm = choose_qemu_dm vm.Vm.platformdata in
+		let qemu_dm = dm_of ~vm in
 		let xenguest = choose_xenguest vm.Vm.platformdata in
 		debug "chosen qemu_dm = %s" (Device.Profile.wrapper_of qemu_dm);
 		debug "chosen xenguest = %s" xenguest;
