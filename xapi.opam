@@ -12,8 +12,8 @@ depends: [
   "jbuilder" {build & >= "1.0+beta11"}
   "cdrom"
   "fd-send-recv"
-  "nbd"
   "mtime"
+  "nbd"
   "opasswd"
   "ounit"
   "pci"
