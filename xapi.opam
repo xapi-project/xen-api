@@ -35,6 +35,7 @@ depends: [
   "xapi-libs-transitional"
   "xapi-netdev"
   "xapi-rrdd-plugin"
+  "xapi-tapctl"
   "xapi-test-utils"
   "xapi-types"
   "xapi-xenopsd"
