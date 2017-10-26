@@ -718,6 +718,15 @@ module HOST = struct
 			(fun xc _ -> Xenctrl.upgrade_oldstyle_featuremask xc features is_hvm)
 end
 
+let dm_of ~vm = Mutex.execute dB_m (fun () ->
+	try
+		let vmextra = DB.read_exn vm in
+		match VmExtra.(vmextra.persistent.profile) with
+			| None -> Device.Profile.fallback
+			| Some x -> x
+	with _ -> Device.Profile.fallback
+	)
+
 module VM = struct
 	open Vm
 
@@ -726,6 +735,8 @@ module VM = struct
 	let profile_of ~vm = if will_be_hvm vm
 		then Some (choose_qemu_dm vm.Xenops_interface.Vm.platformdata)
 		else None
+
+	let dm_of ~vm = dm_of vm.Vm.id
 
 	let compute_overhead domain =
 		let static_max_mib = Memory.mib_of_bytes_used domain.VmExtra.memory_static_max in
