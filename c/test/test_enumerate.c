@@ -121,7 +121,7 @@ call_func(const void *data, size_t len, void *user_handle,
     if (!curl)
         return -1;
 
-    xen_comms comms ={
+    xen_comms comms = {
         .func = result_func,
         .handle = result_handle
     };
@@ -136,6 +136,8 @@ call_func(const void *data, size_t len, void *user_handle,
     curl_easy_setopt(curl, CURLOPT_POST, 1);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, len);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0);
 
     CURLcode result = curl_easy_perform(curl);
 
@@ -394,15 +396,13 @@ main(int argc, char **argv)
     char *username = argv[2];
     char *password = argv[3];
 
-    xen_session *session;
-
     struct xen_vm_set *vm_set = 0;
 
     xmlInitParser();
     xen_init();
     curl_global_init(CURL_GLOBAL_ALL);
 
-    session = xen_session_login_with_password(call_func, NULL, username,
+    xen_session *session = xen_session_login_with_password(call_func, NULL, username,
             password, xen_api_latest_version);
 
     /* get all vm entries */

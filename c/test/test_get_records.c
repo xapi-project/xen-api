@@ -176,8 +176,12 @@ int main(int argc, char **argv)
     }
     
     xen_host_xen_host_record_map_free(hostRecords);
-    
+
     /* Print some info for templates */
+    /* Also choose a template to use further down */
+
+    char chosenUuid[256];
+    chosenUuid[0] = '\0';
     
     xen_vm_xen_vm_record_map *vmRecords;    
     if (!xen_vm_get_all_records(session, &vmRecords))
@@ -192,6 +196,12 @@ int main(int argc, char **argv)
         xen_vm_record *rec = vmRecords->contents[i].val;        
         if (!rec->is_a_template)
             continue;
+
+        if (chosenUuid[0] == '\0')
+        {
+            strncpy(chosenUuid, rec->uuid, sizeof (chosenUuid) - 1);
+            chosenUuid[sizeof (chosenUuid) - 1] = '\0';
+        }
         
         printf("VM: %s, vCPUs max: %" PRId64 "\n", rec->name_label, rec->vcpus_max);
     }
@@ -201,8 +211,8 @@ int main(int argc, char **argv)
     /* clone the first vm, add a blocked operation to the clone
      * and then print out its allowed and blocked oeprations */
 
-    struct xen_vm_set *vms;
-    if (!xen_vm_get_all(session, &vms) || vms->size < 1)
+    xen_vm orig;
+    if (!xen_vm_get_by_uuid(session, &orig, chosenUuid))
     {
         print_error(session);
         CLEANUP;
@@ -210,8 +220,7 @@ int main(int argc, char **argv)
     }
 
     xen_vm clone;
-    xen_vm_clone(session, &clone, vms->contents[0], "clonedVM");
-    xen_vm_set_free(vms);
+    xen_vm_clone(session, &clone, orig, "clonedVM");
 
     xen_vm_add_to_blocked_operations(session, clone, XEN_VM_OPERATIONS_POOL_MIGRATE, "123");
 
