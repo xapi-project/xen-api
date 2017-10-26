@@ -263,7 +263,7 @@ sig
 	val restore : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dm:Profile.t -> ?timeout:float -> info -> Xenctrl.domid -> unit
 	val suspend : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
 	val resume : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
-	val stop : xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
+	val stop : xs:Xenstore.Xs.xsh -> qemu_domid:int -> dm:Profile.t -> Xenctrl.domid -> unit
 
 	val with_dirty_log: int -> f:(unit -> unit) -> unit
 end

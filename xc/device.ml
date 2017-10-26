@@ -2168,8 +2168,8 @@ module Dm = struct
     let module Q = (val Backend.of_domid domid) in
     Q.Dm.suspend task ~xs ~qemu_domid domid
 
-  let stop ~xs ~qemu_domid domid  =
-    let module Q = (val Backend.of_domid domid) in
+  let stop ~xs ~qemu_domid ~dm domid =
+    let module Q = (val Backend.of_profile dm) in
     Q.Dm.stop ~xs ~qemu_domid domid
 
   let with_dirty_log domid ~f =

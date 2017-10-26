@@ -100,7 +100,7 @@ val shutdown_wait_for_ack: Xenops_task.Xenops_task.task_handle -> timeout:float 
 val sysrq: xs:Xenstore.Xs.xsh -> domid -> char -> unit
 
 (** destroy a domain *)
-val destroy: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> domid -> unit
+val destroy: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> dm:Device.Profile.t -> domid -> unit
 
 (** Pause a domain *)
 val pause: xc: Xenctrl.handle -> domid -> unit

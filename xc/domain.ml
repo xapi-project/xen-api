@@ -370,7 +370,7 @@ let sysrq ~xs domid key =
 	let path = xs.Xs.getdomainpath domid ^ "/control/sysrq" in
 	xs.Xs.write path (String.make 1 key)
 
-let destroy (task: Xenops_task.task_handle) ~xc ~xs ~qemu_domid domid =
+let destroy (task: Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
 	let dom_path = xs.Xs.getdomainpath domid in
 	let xenops_dom_path = xenops_path_of_domain domid in
 	let uuid = get_uuid ~xc domid in
@@ -420,7 +420,7 @@ let destroy (task: Xenops_task.task_handle) ~xc ~xs ~qemu_domid domid =
 	log_exn_continue "Xenctrl.domain_destroy" (Xenctrl.domain_destroy xc) domid;
 
 	log_exn_continue "Error stoping device-model, already dead ?"
-	                 (fun () -> Device.Dm.stop ~xs ~qemu_domid domid) ();
+	                 (fun () -> Device.Dm.stop ~xs ~qemu_domid ~dm domid) ();
 	log_exn_continue "Error stoping vncterm, already dead ?"
 	                 (fun () -> Device.PV_Vnc.stop ~xs domid) ();
 
