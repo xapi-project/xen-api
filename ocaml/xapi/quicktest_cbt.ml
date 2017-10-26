@@ -169,12 +169,14 @@ let test ~session_id =
       ]
       |> List.iter
         (fun (test , list_vdi_ops) ->
-           if List.for_all (fun vdi_op -> List.mem vdi_op sr_ops) list_vdi_ops
-           then begin
-             debug cbt_test "Creating VDI. . .";
-             let vDI = make_vdi_from ~sR ~session_id in
-             test ~vDI end
-           else debug cbt_test "SR lacks capabilities for this test, skipping"
+           begin
+             if List.for_all (fun vdi_op -> List.mem vdi_op sr_ops) list_vdi_ops
+             then begin
+               debug cbt_test "Creating VDI. . .";
+               let vDI = make_vdi_from ~sR ~session_id in
+               test ~vDI end
+             else debug cbt_test "SR lacks capabilities for this test, skipping"
+           end
         ) in
 
     (* Try running test suite, clean up newly-created VDIs regardless of exceptions thrown in test suite *)
@@ -191,7 +193,7 @@ let test ~session_id =
                )
              |> List.iter (fun vdi -> VDI.destroy ~session_id ~rpc:!rpc ~self:vdi);
              debug cbt_test "Successfully destroyed all VDIs created for CBT test\n"
-         end
+           end
         ) in
 
     (* Obtain list of SRs capable of creating VDIs, and run them all through test suite *)
