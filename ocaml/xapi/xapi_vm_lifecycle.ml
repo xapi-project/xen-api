@@ -23,56 +23,6 @@ open D
 
 module Rrdd = Rrd_client.Client
 
-let all_vm_operations =
-  [ `assert_operation_valid
-  ; `awaiting_memory_live
-  ; `call_plugin
-  ; `changing_VCPUs
-  ; `changing_VCPUs_live
-  ; `changing_dynamic_range
-  ; `changing_memory_limits
-  ; `changing_memory_live
-  ; `changing_shadow_memory
-  ; `changing_shadow_memory_live
-  ; `changing_static_range
-  ; `checkpoint
-  ; `clean_reboot
-  ; `clean_shutdown
-  ; `clone
-  ; `copy
-  ; `create_template
-  ; `csvm
-  ; `data_source_op
-  ; `destroy
-  ; `export
-  ; `get_boot_record
-  ; `hard_reboot
-  ; `hard_shutdown
-  ; `import
-  ; `make_into_template
-  ; `metadata_export
-  ; `migrate_send
-  ; `pause
-  ; `pool_migrate
-  ; `power_state_reset
-  ; `provision
-  ; `query_services
-  ; `resume
-  ; `resume_on
-  ; `revert
-  ; `reverting
-  ; `send_sysrq
-  ; `send_trigger
-  ; `shutdown
-  ; `snapshot
-  ; `snapshot_with_quiesce
-  ; `start
-  ; `start_on
-  ; `suspend
-  ; `unpause
-  ; `update_allowed_operations
-  ]
-
 let assoc_opt key assocs = Opt.of_exception (fun () -> List.assoc key assocs)
 let bool_of_assoc key assocs = match assoc_opt key assocs with
   | Some v -> v = "1" || String.lowercase v = "true"
@@ -573,7 +523,14 @@ let update_allowed_operations ~__context ~self =
     | None -> op :: accu
     | _    -> accu
   in
-  let allowed = List.fold_left check [] all_vm_operations in
+  let allowed =
+    List.fold_left check []
+      [`snapshot; `copy; `clone; `revert; `checkpoint; `snapshot_with_quiesce;
+       `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
+       `hard_shutdown; `hard_reboot; `suspend; `resume; `resume_on; `export; `destroy;
+       `provision; `changing_VCPUs_live; `pool_migrate; `migrate_send; `make_into_template; `changing_static_range;
+       `changing_shadow_memory; `changing_dynamic_range]
+  in
   (* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
   let allowed =
     if Helpers.rolling_upgrade_in_progress ~__context
