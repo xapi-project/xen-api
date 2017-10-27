@@ -12,8 +12,8 @@ depends: [
   "jbuilder" {build & >= "1.0+beta11"}
   "cdrom"
   "fd-send-recv"
-  "nbd"
   "mtime"
+  "nbd"
   "opasswd"
   "ounit"
   "pci"
@@ -35,6 +35,7 @@ depends: [
   "xapi-libs-transitional"
   "xapi-netdev"
   "xapi-rrdd-plugin"
+  "xapi-tapctl"
   "xapi-test-utils"
   "xapi-types"
   "xapi-xenopsd"
