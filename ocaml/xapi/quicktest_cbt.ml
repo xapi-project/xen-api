@@ -83,7 +83,8 @@ let test_vdi_update ~test ~session_id ~vDI =
  * ******************)
 
 (* Note that tests including expensive VDI operations (snapshot, clone, copy etc)
- * output debug info at most steps to justify waiting time to user *)
+ * output debug info at most steps to justify waiting time to user
+ * with the exception of VDI.update, which is called after every VDI operation *)
 
 (* Test enable/disable_cbt, data_destroy, and snapshot update the necessary fields *)
 let vdi_data_destroy_test ~session_id ~vDI =
@@ -94,21 +95,27 @@ let vdi_data_destroy_test ~session_id ~vDI =
     VDI.enable_cbt ~session_id ~rpc:!rpc ~self:vDI;
     assert_cbt_status true ~session_id ~test ~vDI
       ~msg:"VDI.enable_cbt failed";
+    test_vdi_update ~session_id ~test ~vDI;
 
     debug test "Snapshotting original VDI with CBT enabled";
     let snapshot = VDI.snapshot ~session_id ~rpc:!rpc ~vdi:vDI ~driver_params:[] in
     assert_cbt_status true ~session_id ~test ~vDI:snapshot
       ~msg:"VDI.snapshot failed, cbt_enabled field didn't carry over";
+    test_vdi_update ~session_id ~test ~vDI;
 
     debug test "Disabling CBT on original VDI";
     VDI.disable_cbt ~session_id ~rpc:!rpc ~self:vDI;
     assert_cbt_status false ~session_id ~test ~vDI
       ~msg:"VDI.disable_cbt failed";
+    test_vdi_update ~session_id ~test ~vDI;
 
     debug test "Snapshotting original VDI with CBT disabled";
     let snapshot_no_cbt = VDI.snapshot ~session_id ~rpc:!rpc ~vdi:vDI ~driver_params:[] in
     assert_cbt_status false ~session_id ~test ~vDI:snapshot_no_cbt
       ~msg:"VDI.snapshot failed, cbt_enabled field didn't carry over";
+    List.iter
+      (fun vDI -> test_vdi_update ~session_id ~test ~vDI)
+      [snapshot_no_cbt ; vDI];
 
     debug test "Destroying snapshot VDI data";
     VDI.data_destroy ~session_id ~rpc:!rpc ~self:snapshot;
@@ -118,6 +125,7 @@ let vdi_data_destroy_test ~session_id ~vDI =
       ~msg:"VDI.data_destroy failed to update VDI.type";
     assert_cbt_status true ~session_id ~test ~vDI:snapshot
       ~msg:"VDI snapshot cbt_enabled field erroneously set to false";
+    test_vdi_update ~session_id ~test ~vDI:snapshot;
 
     let content_id_str = "/No content: this is a cbt_metadata VDI/" in
     test_compare ~test
@@ -160,7 +168,9 @@ let vdi_clone_copy_test ~session_id ~sR ~vDI =
     ; false , into_vdi , "VDI.copy failed to initialise cbt_enabled to false"
     ; false , vdi_copy_fresh , "VDI.copy erroneously reset the copied VDI's cbt_enabled field to true"
     ] |> List.iter
-      ( fun (boolean, vDI, msg) -> assert_cbt_status boolean ~test ~session_id ~vDI ~msg);
+      ( fun (boolean, vDI, msg) ->
+          assert_cbt_status boolean ~test ~session_id ~vDI ~msg;
+          test_vdi_update ~session_id ~test ~vDI);
 
     success test
   with
