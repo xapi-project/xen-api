@@ -1372,8 +1372,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
     | `Ok () ->
       debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid
     );
-    (* device model not needed anymore after suspend image has been created *)
-    (if hvm then Device.Dm.stop ~xs ~qemu_domid ~dm domid)
+    (if hvm then Device.Dm.after_suspend_image ~xs ~dm ~qemu_domid domid)
 
 end
 
@@ -1791,8 +1790,7 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
     | `Ok () ->
       debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid
     );
-    (* device model not needed anymore after suspend image has been created *)
-    (if hvm then Device.Dm.stop ~xs ~qemu_domid ~dm domid)
+    (if hvm then Device.Dm.after_suspend_image ~xs ~dm ~qemu_domid domid)
 
 end
 
