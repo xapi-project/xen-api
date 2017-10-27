@@ -91,8 +91,8 @@ sig
 	val add : Xenops_task.task_handle -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool -> t -> Xenctrl.domid -> device
 
 	val release : Xenops_task.task_handle -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> device -> unit
-	val media_eject : xs:Xenstore.Xs.xsh -> device -> unit
-	val media_insert : xs:Xenstore.Xs.xsh -> phystype:physty -> params:string -> device -> unit
+	val media_eject : xs:Xenstore.Xs.xsh -> dm:Profile.t -> device -> unit
+	val media_insert : xs:Xenstore.Xs.xsh -> dm:Profile.t -> phystype:physty -> params:string -> device -> unit
 	val media_is_ejected : xs:Xenstore.Xs.xsh -> device -> bool
 
 	val clean_shutdown_async : xs:Xenstore.Xs.xsh -> device -> unit

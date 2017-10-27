@@ -2138,13 +2138,13 @@ end
 module Vbd = struct
   include Vbd_Common
 
-  let media_eject ~xs device =
-    let module Q = (val Backend.of_domid device.frontend.domid) in
+  let media_eject ~xs ~dm device =
+    let module Q = (val Backend.of_profile dm) in
     Q.Vbd.qemu_media_change ~xs device "" ""
 
-  let media_insert ~xs ~phystype ~params device =
+  let media_insert ~xs ~dm ~phystype ~params device =
     let _type = backendty_of_physty phystype in
-    let module Q = (val Backend.of_domid device.frontend.domid) in
+    let module Q = (val Backend.of_profile dm) in
     Q.Vbd.qemu_media_change ~xs device _type params
 
 end (* Vbd *)

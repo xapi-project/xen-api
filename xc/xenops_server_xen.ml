@@ -2213,7 +2213,7 @@ module VBD = struct
 					let phystype = Device.Vbd.Phys in
 					(* We store away the disk so we can implement VBD.stat *)
 					xs.Xs.write (vdi_path_of_device ~xs device) (disk |> rpc_of_disk |> Jsonrpc.to_string);
-					Device.Vbd.media_insert ~xs ~phystype ~params:vdi.attach_info.Storage_interface.params device;
+					Device.Vbd.media_insert ~xs ~dm:(dm_of ~vm) ~phystype ~params:vdi.attach_info.Storage_interface.params device;
 					Device_common.add_backend_keys ~xs device "sm-data" vdi.attach_info.Storage_interface.xenstore_data
 				end
 			) Newest vm
@@ -2222,7 +2222,7 @@ module VBD = struct
 		on_frontend
 			(fun xc xs frontend_domid hvm ->
 				let (device: Device_common.device) = device_by_id xc xs vm (device_kind_of ~xs vbd) Oldest (id_of vbd) in
-				Device.Vbd.media_eject ~xs device;
+				Device.Vbd.media_eject ~xs ~dm:(dm_of ~vm) device;
 				safe_rm xs (vdi_path_of_device ~xs device);
 				safe_rm xs (Device_common.backend_path_of_device ~xs device ^ "/sm-data");
 				Storage.dp_destroy task (Storage.id_of (string_of_int (frontend_domid_of_device device)) vbd.Vbd.id)
