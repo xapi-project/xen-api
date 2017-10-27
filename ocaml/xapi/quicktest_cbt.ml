@@ -110,7 +110,7 @@ let vdi_data_destroy_test ~session_id ~vDI =
   | Test_failed msg -> failed test msg
   | e -> report_failure e test
 
-(* Check VDI.(copy, clone, and snapshot) all properly update cbt_enabled
+(* Check VDI.(copy, clone) all properly update cbt_enabled
  * Debug output included as VDI operations are expensive and take longer than other calls *)
 let vdi_clone_copy_test ~session_id ~sR ~vDI =
   let test = make_test "Testing VDI.clone and VDI.copy" 4 in
@@ -165,7 +165,8 @@ let test ~session_id =
         (fun ~vDI -> vdi_data_destroy_test ~session_id ~vDI) ,
         [ `vdi_enable_cbt ; `vdi_disable_cbt ; `vdi_data_destroy ; `vdi_snapshot ]
       ; (fun ~vDI -> vdi_clone_copy_test ~session_id ~sR ~vDI),
-        [ `vdi_enable_cbt ; `vdi_create ; `vdi_clone ; `vdi_snapshot ]
+        (* can't check SR allowed ops for VDI.copy, only shows up in VDI allowed ops *)
+        [ `vdi_enable_cbt ; `vdi_create ; `vdi_clone ]
       ]
       |> List.iter
         (fun (test , list_vdi_ops) ->
