@@ -90,6 +90,9 @@ let falcon_release_schema_minor_vsn = 120
 let inverness_release_schema_major_vsn = 5
 let inverness_release_schema_minor_vsn = 133
 
+let jura_release_schema_major_vsn = 5
+let jura_release_schema_minor_vsn = 134
+
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
 let tech_preview_releases = [
@@ -6877,6 +6880,7 @@ let vdi =
          field ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "metadata_latest" "Whether this VDI contains the latest known accessible metadata for the pool";
          field ~lifecycle:[Published, rel_dundee, ""] ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "is_tools_iso" "Whether this VDI is a Tools ISO";
          field ~lifecycle:[Published, rel_inverness, ""] ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "cbt_enabled" "True if changed blocks are tracked for this VDI" ~doc_tags:[Snapshots];
+         field ~lifecycle:[Prototyped, rel_jura, ""] ~qualifier:DynamicRO ~ty:(Ref _host) ~default_value:(Some (VRef null_ref)) "activated_on" "The host on which this VDI is activated, if any"
        ])
     ()
 
