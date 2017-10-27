@@ -18,7 +18,7 @@ for developers wishing to use libxenserver.
 For community content, blogs, and downloads, visit
 http://xenserver.org/partners/developing-products-for-xenserver.html.
 
-libxenserver is free sofware. You can redistribute and modify it under the
+libxenserver is free software. You can redistribute and modify it under the
 terms of the BSD license. See COPYING for details.
 
 This library is accompanied by a number of test programs that can be used as
@@ -42,6 +42,9 @@ it is not required to do so, and you may use a different network layer if you
 prefer.
 
 On Debian, these are packaged as libxml2-dev and libcurl3-dev.
+
+(Note that libxml2 depends on libiconv, which may not be installed by default
+on all systems.)
 
 
 Folder structure

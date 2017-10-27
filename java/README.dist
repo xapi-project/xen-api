@@ -19,7 +19,7 @@ wishing to use XenServerJava.
 For community content, blogs, and downloads, visit
 http://xenserver.org/partners/developing-products-for-xenserver.html.
 
-XenServerJava is free sofware. You can redistribute and modify it under the
+XenServerJava is free software. You can redistribute and modify it under the
 terms of the BSD license. See LICENSE.txt for details.
 
 This library is accompanied a number of test programs that can be used ass
@@ -64,6 +64,6 @@ From XenServerJava/src do:
 
 To build and run the tests, copy them from XenServerJava/samples to
 XenServerJava/src, then from XenServerJava/src "make all" and
-$ java RunTests <host> <username> <password> [nfs server] [nfs path]
 
-
+$ CLS_PATH=:xmlrpc-client-3.1.3.jar:xmlrpc-common-3.1.3.jar:ws-commons-util-1.0.2.jar
+$ java -cp $CLS_PATH RunTests <host> <username> <password> [nfs server] [nfs path]

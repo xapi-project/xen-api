@@ -1,19 +1,19 @@
 /*
  * Copyright (c) Citrix Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -140,7 +140,7 @@ namespace XenAPI
         }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="opaqueRefs">Must not be null.</param>
@@ -267,26 +267,6 @@ namespace XenAPI
             foreach (Proxy_Message pm in input)
             {
                 result.Add(new Message(pm));
-            }
-            return result;
-        }
-
-        internal static List<Data_source> Proxy_Data_sourceArrayToData_sourceList(Proxy_Data_source[] input)
-        {
-            List<Data_source> result = new List<Data_source>();
-            foreach (Proxy_Data_source pd in input)
-            {
-                result.Add(new Data_source(pd));
-            }
-            return result;
-        }
-
-        internal static List<Vdi_nbd_server_info> Proxy_Vdi_nbd_server_infoArrayToVdi_nbd_server_infoList(Proxy_Vdi_nbd_server_info[] input)
-        {
-            List<Vdi_nbd_server_info> result = new List<Vdi_nbd_server_info>();
-            foreach (Proxy_Vdi_nbd_server_info pd in input)
-            {
-                result.Add(new Vdi_nbd_server_info(pd));
             }
             return result;
         }
