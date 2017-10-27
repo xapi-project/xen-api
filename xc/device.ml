@@ -56,7 +56,6 @@ module Profile = struct
     | x when x = Name.qemu_upstream        -> Qemu_upstream
     | x -> debug "unknown device-model profile %s: defaulting to fallback: %s" x (string_of fallback);
       fallback
-  let of_domid x = if is_upstream_qemu x then Qemu_upstream else Qemu_trad
 end
 
 (* keys read by vif udev script (keep in sync with api:scripts/vif) *)
@@ -2124,8 +2123,6 @@ module Backend = struct
     | Profile.Qemu_upstream_compat -> (module Qemu_upstream_compat : Intf)
     | Profile.Qemu_upstream        -> (module Qemu_upstream        : Intf)
 
-  let of_domid x = of_profile (Profile.of_domid x)
-
   let init() =
     Qemu_upstream.Dm.Event.init()
 end
@@ -2154,9 +2151,6 @@ module Dm = struct
   include Dm_Common
 
   let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel profile =
-    (* init_daemon must decide the backend based on a profile because the qemu daemon is not running
-       at the moment and Backend.of_domid uses is_upstream_qemu which depends on a running qemu.
-    *)
     let module Q = (val Backend.of_profile profile) in
     Q.Dm.init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ()
 
