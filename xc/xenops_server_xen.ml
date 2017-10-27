@@ -1658,7 +1658,7 @@ module VM = struct
 						end
 					| Some di ->
 						let vnc = Opt.map (fun port -> { Vm.protocol = Vm.Rfb; port = port; path = "" })
-							(Device.get_vnc_port ~xs di.Xenctrl.domid) in
+							(Device.get_vnc_port ~xs ~dm:(dm_of ~vm) di.Xenctrl.domid) in
 						let tc = Opt.map (fun port -> { Vm.protocol = Vm.Vt100; port = port; path = "" })
 							(Device.get_tc_port ~xs di.Xenctrl.domid) in
 						let local x = Printf.sprintf "/local/domain/%d/%s" di.Xenctrl.domid x in

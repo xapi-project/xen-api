@@ -2160,8 +2160,8 @@ module Dm = struct
     let module Q = (val Backend.of_profile profile) in
     Q.Dm.init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ()
 
-  let get_vnc_port ~xs domid =
-    let module Q = (val Backend.of_domid domid) in
+  let get_vnc_port ~xs ~dm domid =
+    let module Q = (val Backend.of_profile dm) in
     Q.Dm.get_vnc_port ~xs domid
 
   let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid ~dm domid =
@@ -2295,11 +2295,11 @@ let clean_shutdown (task: Xenops_task.task_handle) ~xs (x: device) = match x.bac
   | Vfb -> Vfb.clean_shutdown task ~xs x
   | Vkbd -> Vkbd.clean_shutdown task ~xs x
 
-let get_vnc_port ~xs domid =
+let get_vnc_port ~xs ~dm domid =
   (* Check whether a qemu exists for this domain *)
   let qemu_exists = Qemu.is_running ~xs domid in
   if qemu_exists
-  then Dm.get_vnc_port ~xs domid
+  then Dm.get_vnc_port ~xs ~dm domid
   else PV_Vnc.get_vnc_port ~xs domid
 
 let get_tc_port ~xs domid =

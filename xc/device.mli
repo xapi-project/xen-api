@@ -250,7 +250,7 @@ sig
 		extras: (string * string option) list;
 	}
 
-	val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+	val get_vnc_port : xs:Xenstore.Xs.xsh -> dm:Profile.t -> Xenctrl.domid -> int option
 	val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 
 	val signal : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> domid:Xenctrl.domid -> ?wait_for:string -> ?param:string
@@ -272,5 +272,5 @@ module Backend: sig
 	val init : unit -> unit
 end
 
-val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+val get_vnc_port : xs:Xenstore.Xs.xsh -> dm:Profile.t -> Xenctrl.domid -> int option
 val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
