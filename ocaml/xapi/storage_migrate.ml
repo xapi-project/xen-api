@@ -25,11 +25,11 @@ open Pervasiveext
 open Xmlrpc_client
 open Threadext
 
-let local_url () = Http.Url.(Http { host="127.0.0.1"; auth=None; port=None; ssl=false }, { uri = "/services/SM"; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
-let remote_url ip = Http.Url.(Http { host=ip; auth=None; port=None; ssl=true }, { uri = "/services/SM"; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
-
 open Storage_interface
 open Storage_task
+open Storage_utils
+
+let local_url () = Http.Url.(Http { host="127.0.0.1"; auth=None; port=None; ssl=false }, { uri = Constants.sm_uri; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
 
 module State = struct
 
@@ -203,32 +203,20 @@ module State = struct
     | _ -> failwith "Bad id"
 end
 
-let rec rpc ~srcstr ~dststr url call =
-  let result = XMLRPC_protocol.rpc ~transport:(transport_of_url url)
-      ~srcstr ~dststr ~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url)) call
-  in
-  if not result.Rpc.success then begin
-    debug "Got failure: checking for redirect";
-    debug "Call was: %s" (Rpc.string_of_call call);
-    debug "result.contents: %s" (Jsonrpc.to_string result.Rpc.contents);
-    match Storage_interface.Exception.exnty_of_rpc result.Rpc.contents with
-    | Storage_interface.Exception.Redirect (Some ip) ->
-      let open Http.Url in
-      let newurl =
-        match url with
-        | (Http h, d) ->
-          (Http {h with host=ip}, d)
-        | _ ->
-          remote_url ip in
-      debug "Redirecting to ip: %s" ip;
-      let r = rpc ~srcstr ~dststr newurl call in
-      debug "Successfully redirected. Returning";
-      r
+(* We are making an RPC to a host that is potentially part of a different pool.
+   It can tell us that we need to send the RPC elsewhere instead (e.g. to its master),
+   so use the [redirectable_rpc] helper here *)
+let rpc ~srcstr ~dststr url =
+  let remote_url_of_ip ip =
+    let open Http.Url in
+    match url with
+    | (Http h, d) ->
+       (Http {h with host=ip}, d)
     | _ ->
-      debug "Not a redirect";
-      result
-  end
-  else result
+       remote_url ip
+  in
+  let local_fn = Helpers.make_remote_rpc_of_url ~srcstr ~dststr url in
+  Storage_utils.redirectable_rpc ~srcstr ~dststr ~remote_url_of_ip ~local_fn
 
 let vdi_info x =
   match x with

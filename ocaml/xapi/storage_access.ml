@@ -936,6 +936,12 @@ let check_queue_exists queue_name =
     let driver = String.sub queue_name prefix_len (String.length queue_name - prefix_len) in
     raise Api_errors.(Server_error(sr_unknown_driver,[driver]))
 
+(* RPC calls done during startup and received through remote interface:
+   there is no need to redirect here, let the caller handle it.
+   The destination uri needs to be local as [xml_http_rpc] doesn't support https calls,
+   only file and http.
+   Cross-host https calls are only supported by XMLRPC_protocol.rpc
+ *)
 let external_rpc queue_name uri =
   let open Xcp_client in
   if !use_switch then check_queue_exists queue_name;
@@ -1074,7 +1080,15 @@ let unbind ~__context ~pbd =
   let service = make_service uuid ty in
   System_domains.unregister_service service
 
-let rpc call = Storage_mux.Server.process None call
+(* Internal SM calls: need to handle redirection, we are the toplevel caller.
+   The SM can decide that a call needs to be run elsewhere, e.g.
+   for a SMAPIv3 plugin the snapshot should be run on the node that has the VDI activated.
+ *)
+let rpc =
+  let srcstr = Xcp_client.get_user_agent() in
+  let local_fn = Storage_mux.Server.process None in
+  let remote_url_of_ip = Storage_utils.remote_url in
+  Storage_utils.redirectable_rpc ~srcstr ~dststr:"smapiv2" ~remote_url_of_ip ~local_fn
 
 module Client = Client(struct let rpc = rpc end)
 

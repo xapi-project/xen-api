@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Storage manager interface
+(** Storage manager SMAPIv1 interface
  * @group Storage
 *)
 

@@ -964,6 +964,7 @@ let initialise () =
 module Local_domain_socket = struct
   let path = Filename.concat "/var/lib/xcp" "storage"
 
+  (* receives external requests on Constants.sm_uri *)
   let xmlrpc_handler process req bio _ =
     let body = Http_svr.read_body req bio in
     let s = Buf_io.fd_of bio in
