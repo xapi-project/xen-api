@@ -452,6 +452,7 @@ let introduce_dbonly  ~__context ~uuid ~name_label ~name_description ~sR ~_type 
     ~on_boot:`persist ~allow_caching:false
     ~metadata_of_pool ~metadata_latest:false
     ~is_tools_iso:false
+    ~activated_on:Ref.null
     ~cbt_enabled;
   ref
 
