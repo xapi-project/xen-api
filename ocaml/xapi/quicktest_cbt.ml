@@ -64,7 +64,7 @@ let test_vdi_update ~test ~session_id ~vDI =
     let list_bools =
       [ VDI.get_cbt_enabled , "cbt-enabled"
       ; VDI.get_is_a_snapshot , "is-a-snapshot"
-      ; VDI.get_managed , "mananged"
+      ; VDI.get_managed , "managed"
         (* compiler complains if ~session_id and ~rpc switch order *)
       ] |> List.map (fun (getter,label) -> ( getter ~rpc:!rpc ~session_id ~self:vDI , label)) in
     ( (VDI.get_type ~session_id ~rpc:!rpc ~self:vDI , "type" ), list_bools ) in
