@@ -60,19 +60,19 @@ let make_vdi_from ~session_id ~sR =
 (* Helper for calling VDI.update and comparing changes in fields
  * after making an API call on a VDI *)
 let test_vdi_update ~test ~session_id vDI =
-  let list_bools_of vDI =
-    let list_bools =
+  let list_fields_labels_of vDI =
+    let list_fields_labels =
       [ VDI.get_cbt_enabled , "cbt-enabled"
       ; VDI.get_is_a_snapshot , "is-a-snapshot"
       ; VDI.get_managed , "managed"
         (* compiler complains if ~session_id and ~rpc switch order *)
       ] |> List.map (fun (getter,label) -> ( getter ~rpc:!rpc ~session_id ~self:vDI , label)) in
-    ( (VDI.get_type ~session_id ~rpc:!rpc ~self:vDI , "type" ), list_bools ) in
+    ( (VDI.get_type ~session_id ~rpc:!rpc ~self:vDI , "type" ), list_fields_labels ) in
 
   (* Call a VDI function like enable_CBT, check fields after,  *)
-  let vdi_before = list_bools_of vDI in
+  let vdi_before = list_fields_labels_of vDI in
   VDI.update ~session_id ~rpc:!rpc ~vdi:vDI;
-  let vdi_after = list_bools_of vDI in
+  let vdi_after = list_fields_labels_of vDI in
   let validate (fd, label) (_fd, _) =
     test_compare ~test fd _fd ~msg:(Printf.sprintf "VDI update failed: incorrect %s value" label) in
   validate (fst vdi_before) (fst vdi_after);
