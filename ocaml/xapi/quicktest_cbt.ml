@@ -101,9 +101,7 @@ let vdi_data_destroy_test ~session_id ~vDI =
     let snapshot = VDI.snapshot ~session_id ~rpc:!rpc ~vdi:vDI ~driver_params:[] in
     assert_cbt_status true ~session_id ~test ~vDI:snapshot
       ~msg:"VDI.snapshot failed, cbt_enabled field didn't carry over";
-    List.iter
-      (fun vDI -> test_vdi_update ~session_id ~test vDI)
-      [snapshot ; vDI];
+    List.iter (test_vdi_update ~session_id ~test) [snapshot ; vDI];
 
     debug test "Disabling CBT on original VDI";
     VDI.disable_cbt ~session_id ~rpc:!rpc ~self:vDI;
@@ -115,9 +113,7 @@ let vdi_data_destroy_test ~session_id ~vDI =
     let snapshot_no_cbt = VDI.snapshot ~session_id ~rpc:!rpc ~vdi:vDI ~driver_params:[] in
     assert_cbt_status false ~session_id ~test ~vDI:snapshot_no_cbt
       ~msg:"VDI.snapshot failed, cbt_enabled field didn't carry over";
-    List.iter
-      (fun vDI -> test_vdi_update ~session_id ~test vDI)
-      [snapshot_no_cbt ; vDI];
+    List.iter (test_vdi_update ~session_id ~test) [snapshot_no_cbt ; vDI];
 
     debug test "Destroying snapshot VDI data";
     VDI.data_destroy ~session_id ~rpc:!rpc ~self:snapshot;
