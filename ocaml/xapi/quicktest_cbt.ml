@@ -136,7 +136,7 @@ let vdi_data_destroy_test ~session_id ~vDI =
   | Test_failed msg -> failed test msg
   | e -> report_failure e test
 
-(* Check VDI.(copy, clone) all properly update cbt_enabled
+(* Check VDI.{copy, clone} all properly update cbt_enabled
  * Debug output included as VDI operations are expensive and take longer than other calls *)
 let vdi_clone_copy_test ~session_id ~sR ~vDI =
   let test = make_test "Testing VDI.clone and VDI.copy" 4 in
@@ -149,8 +149,6 @@ let vdi_clone_copy_test ~session_id ~sR ~vDI =
 
     debug test "Cloning VDI";
     let vdi_clone = VDI.clone ~session_id ~rpc:!rpc ~vdi:vDI ~driver_params:[] in
-    assert_cbt_status false ~test ~session_id ~vDI:vdi_clone
-      ~msg:"VDI.clone failed to set cbt_enabled to false";
 
     (* Test VDI.copy for copying from existing to fresh VDI in same SR *)
     debug test "Copying VDI into a freshly created VDI in same SR";
@@ -165,7 +163,7 @@ let vdi_clone_copy_test ~session_id ~sR ~vDI =
     [ true , vDI , "VDI.copy erroneously reset the original VDI's cbt_enabled to false"
     ; false , into_vdi , "VDI.copy failed to initialise cbt_enabled to false"
     ; false , vdi_copy_fresh , "VDI.copy erroneously reset the copied VDI's cbt_enabled field to true"
-    ; false , vdi_clone , "VDI.copy erroneously reset the cloned VDI's cbt_enabled field to true"
+    ; false , vdi_clone , "VDI.clone failed to set cbt_enabled to false";
     ] |> List.iter
       ( fun (boolean, vDI, msg) ->
           assert_cbt_status boolean ~test ~session_id ~vDI ~msg;
