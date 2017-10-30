@@ -856,6 +856,7 @@ let _ =
     "-iso-sr-path", Arg.String (fun x -> Quicktest_storage.iso_path := x), "Path to ISO SR";
     "-single", Arg.String (fun x -> tests_to_run := [ x ]), Printf.sprintf "Only run one test (possibilities are %s)" (String.concat ", " all_tests) ;
     "-all", Arg.Unit (fun () -> tests_to_run := all_tests), Printf.sprintf "Run all tests (%s)" (String.concat ", " all_tests);
+    "-only-sr", Arg.String (fun x -> Quicktest_storage.only_sr_name := Some x), "Run tests only on SR with specified name";
     "-nocolour", Arg.Clear Quicktest_common.use_colour, "Don't use colour in the output" ]
     (fun x -> match !host, !username, !password with
        | "", _, _ -> host := x; rpc := rpc_remote; using_unix_domain_socket := false;
