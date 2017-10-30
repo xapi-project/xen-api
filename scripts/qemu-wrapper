@@ -218,38 +218,6 @@ def main(argv):
             n += 2
             continue
 
-        if p == "-net":
-            n += 1
-            if qemu_args[n].startswith("nic,"):
-                vm_uuid = re.search(r'\/vm\/(.*)', xenstore_read("/local/domain/%d/vm" % domid)).group(1)
-                nic_mac = re.search(r'macaddr=(.*),', qemu_args[n]).group(1)
-                # we suppose that the output of next command is always in same order
-                nic_addrs = os.popen('xe vif-list vm-uuid=' + vm_uuid + ' MAC=' + nic_mac + ' params="device" --minimal').read().rstrip()
-                nic_addrs = nic_addrs.split(',')  
-                if dic_mac.has_key(nic_mac):
-                   dic_mac[nic_mac] += 1
-                   count = dic_mac[nic_mac]
-                   nic_addr = int(nic_addrs[count])
-                else:
-                   dic_mac[nic_mac] = 0
-                   nic_addr = int(nic_addrs[0])                
-                nic_addr += 4
-                qemu_args[n - 1] = '-device'
-                qemu_args[n] = re.sub(r'^nic,', '', qemu_args[n])
-                qemu_args[n] = qemu_args[n].replace('vlan=', 'netdev=tapnet')
-                model = re.search(r',model=([^,]+)', qemu_args[n]).group(1)
-                qemu_args[n] = re.sub(r',model=([^,]+)', '', qemu_args[n])
-                qemu_args[n] = re.sub(r',macaddr=', ',mac=', qemu_args[n])
-                qemu_args[n] = model + ',' +  qemu_args[n] + ",addr=" + str(nic_addr)
-                n += 1
-                continue
-
-            if qemu_args[n].startswith("tap,"):
-                qemu_args[n - 1] = '-netdev'
-                qemu_args[n] = re.sub(r',vlan=', ',id=tapnet', qemu_args[n])
-                qemu_args[n] = re.sub(r'bridge=[^,]+,', '', qemu_args[n])
-                qemu_args[n] += ",script=no,downscript=no"
-
         if p == "-usbdevice":
             if qemu_args[n+1] == "tablet":
                 qemu_args[n] = "-device"

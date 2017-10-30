@@ -19,6 +19,7 @@ val create: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> Xenctrl.
 val build: Xenops_task.Xenops_task.task_handle
   -> xc:Xenctrl.handle
   -> xs:Xenstore.Xs.xsh
+  -> dm:Device.Profile.t
   -> store_domid:int
   -> console_domid:int
   -> Device.Dm.info

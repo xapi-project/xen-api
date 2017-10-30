@@ -46,7 +46,7 @@ let create ~xc ~xs domid =
     Domain.set_machine_address_size ~xc stubdom_domid (Some 32);
 	stubdom_domid
 
-let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid info xenguest domid stubdom_domid =
+let build (task: Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid ~console_domid info xenguest domid stubdom_domid =
     (* Now build it as a PV domain *)
     let (_: Domain.domarch) = Domain.build task ~xc ~xs ~store_domid ~console_domid ~timeoffset:"" ~extras:[] {
         Domain.memory_max=memory_kib;
@@ -77,7 +77,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid in
     let path = Printf.sprintf "/vm/%s/image/dmargs" guest_uuid_str in
 	(* Remove any 'pty' references from the arguments: XXX why? *)
 	let info' = { info with Device.Dm.serial = None; monitor = None } in
-	let args = Device.Dm.cmdline_of_info info' false domid in
+	let args = Device.Dm.cmdline_of_info ~xs ~dm info' false domid in
     xs.Xs.write path (String.concat " " args);
     debug "jjd27: written qemu-dm args into xenstore at %s: [%s]" path (String.concat " " args);
 
@@ -98,7 +98,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid in
 	(* VKBD is needed for keyboard input via the stubdom *)
 	Device.Vkbd.add ~xc ~xs stubdom_domid;
 
-	(* XXX: 
+	(* XXX:
     (* Add a place for qemu to record the dm state in XenStore, with appropriate permissions *)
     List.iter (fun domid -> Device.Dm.init ~xs ~domid) [stubdom_domid; domid];
 	*)

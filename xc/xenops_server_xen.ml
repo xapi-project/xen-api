@@ -1343,7 +1343,7 @@ module VM = struct
 						if saved_state then failwith "Cannot resume with stubdom yet";
 						Opt.iter
 							(fun stubdom_domid ->
-								Stubdom.build task ~xc ~xs ~store_domid ~console_domid info xenguest di.Xenctrl.domid stubdom_domid;
+								Stubdom.build task ~xc ~xs ~dm:qemu_dm ~store_domid ~console_domid info xenguest di.Xenctrl.domid stubdom_domid;
 								Device.Dm.start_vnconly task ~xs ~dm:qemu_dm info stubdom_domid
 							) (get_stubdom ~xs di.Xenctrl.domid);
 					| Vm.HVM { Vm.qemu_stubdom = false } ->
@@ -1476,7 +1476,7 @@ module VM = struct
 				(* Not currently ballooning *)
 				| None | Some "0" -> ()
 				(* Ballooning in progress, we need to wait *)
-				| Some _ -> 
+				| Some _ ->
 					let watches = [ Watch.value_to_become balloon_active_path "0"
 					              ; Watch.key_to_disappear balloon_active_path ]
 					in

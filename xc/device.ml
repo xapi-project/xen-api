@@ -44,7 +44,7 @@ module Profile = struct
   end
   let wrapper_of = function
     | Qemu_trad            -> !Resources.qemu_dm_wrapper
-    | Qemu_upstream_compat -> !Resources.upstream_compat_qemu_dm_wrapper
+    | Qemu_upstream_compat
     | Qemu_upstream        -> !Resources.upstream_compat_qemu_dm_wrapper
   let string_of  = function
     | Qemu_trad              -> Name.qemu_trad
@@ -1567,35 +1567,13 @@ module Dm_Common = struct
     in
     disp_options, wait_for_port
 
-  let cmdline_of_info info restore domid =
+  let cmdline_of_info ~xs ~dm info restore domid =
     let usb' =
       match info.usb with
       | Disabled -> []
       | Enabled devices ->
         ("-usb" :: (List.concat (List.map (fun device ->
              [ "-usbdevice"; device ]) devices))) in
-    (* Sort the VIF devices by devid *)
-    let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.nics in
-    if List.length nics > max_emulated_nics then debug "Limiting the number of emulated NICs to %d" max_emulated_nics;
-    (* Take the first 'max_emulated_nics' elements from the list. *)
-    let rec take n xs = match n, xs with
-      | 0, _ -> []
-      | _, [] -> [] (* return a short list *)
-      | n, x :: xs -> x :: (take (n - 1) xs) in
-    let nics = take max_emulated_nics nics in
-
-    (* qemu need a different id for every vlan, or things get very bad *)
-    let nics' =
-      if List.length nics > 0 then
-        let vlan_id = ref 0 in
-        List.map (fun (mac, bridge, devid) ->
-            let r = [
-              "-net"; sprintf "nic,vlan=%d,macaddr=%s,model=rtl8139" !vlan_id mac;
-              "-net"; sprintf "tap,vlan=%d,bridge=%s,ifname=%s" !vlan_id bridge (Printf.sprintf "tap%d.%d" domid devid)] in
-            incr vlan_id;
-            r
-          ) nics
-      else [["-net"; "none"]] in
 
     let disks' = List.map (fun (index, file, media) -> [
           "-drive"; sprintf "file=%s,if=ide,index=%d,media=%s" file index (string_of_media media)
@@ -1610,7 +1588,7 @@ module Dm_Common = struct
       "-boot"; info.boot;
     ] @ (Opt.default [] (Opt.map (fun x -> [ "-serial"; x ]) info.serial)) @ [
       "-vcpus"; string_of_int info.vcpus;
-    ] @ disp_options @ usb' @ List.concat nics' @ List.concat disks'
+    ] @ disp_options @ usb' @ List.concat disks'
     @ (if info.acpi then [ "-acpi" ] else [])
     @ (if restore then [ "-loadvm"; restorefile ] else [])
     @ (List.fold_left (fun l pci -> "-pciemulation" :: pci :: l) [] (List.rev info.pci_emulations))
@@ -1834,6 +1812,9 @@ module Backend = struct
 
       (** [with_dirty_log domid f] executes f in a context where the dirty log is enabled *)
       val with_dirty_log: int -> f:(unit -> unit) -> unit
+
+      (** [cmdline_of_info xenstore info restore domid] creates the command line arguments to pass to the qemu wrapper script *)
+      val cmdline_of_info: xs:Xenstore.Xs.xsh -> dm:Profile.t -> Dm_Common.info -> bool -> int -> string list
     end
   end
 
@@ -1865,6 +1846,26 @@ module Backend = struct
       let stop        = Dm_Common.stop
 
       let with_dirty_log domid ~f = f()
+
+      let cmdline_of_info ~xs ~dm info restore domid =
+        let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid in
+        (* Sort the VIF devices by devid *)
+        let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.Dm_Common.nics in
+        if List.length nics > Dm_Common.max_emulated_nics then debug "Limiting the number of emulated NICs to %d" Dm_Common.max_emulated_nics;
+        (* Take the first 'max_emulated_nics' elements from the list. *)
+        let nics = Xapi_stdext_std.Listext.List.take Dm_Common.max_emulated_nics nics in
+
+        (* qemu need a different id for every vlan, or things get very bad *)
+        let nics' =
+          if nics <> [] then
+            List.mapi (fun vlan_id (mac, bridge, devid) ->
+                [
+                  "-net"; sprintf "nic,vlan=%d,macaddr=%s,model=rtl8139" vlan_id mac;
+                  "-net"; sprintf "tap,vlan=%d,bridge=%s,ifname=tap%d.%d" vlan_id bridge domid devid
+                ]
+              ) nics
+          else [["-net"; "none"]] in
+        common @ (List.concat nics')
 
     end (* Backend.Qemu_trad.Dm *)
   end (* Backend.Qemu_trad *)
@@ -2087,6 +2088,30 @@ module Backend = struct
              qmp_write domid (Qmp.Command(None, Qmp.Xen_set_global_dirty_log false));
           )
 
+      let cmdline_of_info ~xs ~dm info restore domid =
+        let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid in
+
+        (* Sort the VIF devices by devid *)
+        let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.Dm_Common.nics in
+        if List.length nics > Dm_Common.max_emulated_nics then
+          debug "Limiting the number of emulated NICs to %d" Dm_Common.max_emulated_nics;
+        (* Take the first 'max_emulated_nics' elements from the list. *)
+        let nics = Xapi_stdext_std.Listext.List.take Dm_Common.max_emulated_nics nics in
+
+        let nics' =
+          if nics <> [] then
+            List.map (fun (mac, bridge, devid) ->
+                [
+                  "-device"; sprintf "rtl8139,netdev=tapnet%d,mac=%s,addr=%d" devid mac (devid + 4);
+                  "-netdev"; sprintf "tap,id=tapnet%d,ifname=tap%d.%d,script=no,downscript=no" devid domid devid
+                ]
+              )
+              nics
+          else
+            [["-net"; "none"]]
+        in
+        common @ (List.concat nics')
+
     end (* Backend.Qemu_upstream_compat.Dm *)
   end (* Backend.Qemu_upstream *)
 
@@ -2150,6 +2175,10 @@ module Dm = struct
   let with_dirty_log domid ~f =
     let module Q = (val Backend.of_domid domid) in
     Q.Dm.with_dirty_log domid ~f
+
+  let cmdline_of_info ~xs ~dm info restore domid =
+    let module Q = (val Backend.of_profile dm) in
+    Q.Dm.cmdline_of_info ~xs ~dm info restore domid
 
 
   (* the following functions depend on the functions above that use the qemu backend Q *)
@@ -2235,11 +2264,11 @@ module Dm = struct
         ))
 
   let start (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =
-    let l = cmdline_of_info info false domid in
+    let l = cmdline_of_info ~xs ~dm info false domid in
     __start task ~xs ~dm ?timeout l info domid
 
   let restore (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =
-    let l = cmdline_of_info info true domid in
+    let l = cmdline_of_info ~xs ~dm info true domid in
     __start task ~xs ~dm ?timeout l info domid
 
   let start_vnconly (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =

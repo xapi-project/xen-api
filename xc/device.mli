@@ -253,7 +253,7 @@ sig
 	val signal : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> domid:Xenctrl.domid -> ?wait_for:string -> ?param:string
 	          -> string -> unit
 
-	val cmdline_of_info: info -> bool -> int -> string list
+	val cmdline_of_info: xs:Xenstore.Xs.xsh -> dm:Profile.t -> info -> bool -> int -> string list
 
 	val start : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dm:Profile.t -> ?timeout:float -> info -> Xenctrl.domid -> unit
 	val start_vnconly : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dm:Profile.t -> ?timeout:float -> info -> Xenctrl.domid -> unit
