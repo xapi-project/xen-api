@@ -1016,6 +1016,16 @@ let get_all_plugged_srs ~__context =
   let pbds_plugged_in = List.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds in
   List.setify (List.map (fun self -> Db.PBD.get_SR ~__context ~self) pbds_plugged_in)
 
+let get_all_plugged_srs_local ~__context =
+  let localhost = get_localhost __context in
+  let localhost = Ref.string_of localhost in
+  let my_pbds_plugged_in = Db.PBD.get_refs_where  ~__context ~expr:(And (
+    Eq (Field "host", Literal localhost),
+    Eq (Field "currently_attached", Literal "true")
+  ))
+  in
+  List.setify (List.map (fun self -> Db.PBD.get_SR ~__context ~self) my_pbds_plugged_in)
+
 let find_health_check_task ~__context ~sr =
   Db.Task.get_refs_where ~__context ~expr:(And (
       Eq (Field "name__label", Literal Xapi_globs.sr_health_check_task_label),
