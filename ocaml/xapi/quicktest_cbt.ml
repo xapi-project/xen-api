@@ -73,8 +73,8 @@ let test_vdi_update ~test ~session_id vDI =
   let vdi_before = list_fields_labels_of vDI in
   VDI.update ~session_id ~rpc:!rpc ~vdi:vDI;
   let vdi_after = list_fields_labels_of vDI in
-  let validate (fd, label) (_fd, _) =
-    test_compare ~test fd _fd ~msg:(Printf.sprintf "VDI update failed: incorrect %s value" label) in
+  let validate (fd_a, label) (fd_b, _) =
+    test_compare ~test fd_a fd_b ~msg:(Printf.sprintf "VDI update failed: incorrect %s value" label) in
   validate (fst vdi_before) (fst vdi_after);
   List.iter2 validate (snd vdi_before) (snd vdi_after)
 
