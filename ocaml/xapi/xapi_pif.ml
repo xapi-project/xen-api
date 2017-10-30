@@ -262,6 +262,24 @@ let assert_no_other_local_pifs ~__context ~host ~network =
                 (Api_errors.network_already_connected,
                  [Ref.string_of host; Ref.string_of (List.hd other_pifs)]))
 
+let assert_fcoe_not_in_use ~__context pif =
+  let interface = Db.PIF.get_device ~__context ~self:pif in
+  let output, _ = Forkhelpers.execute_command_get_output !Xapi_globs.fcoe_driver ["-t"; interface] in
+  debug "Scsi ids on %s are: %s" interface output;
+  let fcoe_scsids = Str.split (Str.regexp " ") output in
+  Helpers.get_my_pbds __context |> List.iter (fun (pbd, pbd_rec) ->
+      let sr = pbd_rec.API.pBD_SR in
+      match Db.SR.get_type ~__context ~self:sr with
+      | "lvmofcoe" ->(
+        try
+          let scsid = List.assoc "SCSIid" pbd_rec.API.pBD_device_config in
+          if List.mem scsid fcoe_scsids then raise (Api_errors.Server_error(Api_errors.pif_has_fcoe_sr_in_use, [Ref.string_of pif; Ref.string_of sr]))
+        with Not_found ->
+          ()
+      )
+      | _ -> ()
+    )
+
 let find_or_create_network (bridge: string) (device: string) ~__context =
   let nets = Db.Network.get_refs_where ~__context ~expr:(Eq (Field "bridge", Literal bridge)) in
   match nets with
@@ -759,6 +777,8 @@ let rec unplug ~__context ~self =
   let network = Db.PIF.get_network ~__context ~self in
   Xapi_network_attach_helpers.assert_network_has_no_vifs_in_use_on_me ~__context ~host:(Helpers.get_localhost ~__context) ~network;
   Xapi_network_attach_helpers.assert_pif_disallow_unplug_not_set ~__context self;
+  if Db.PIF.get_capabilities ~__context ~self |> List.mem "fcoe" then
+    assert_fcoe_not_in_use ~__context self;
 
   let tunnel = Db.PIF.get_tunnel_transport_PIF_of ~__context ~self in
   if tunnel <> []
