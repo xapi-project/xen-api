@@ -56,7 +56,7 @@ let _ =
     ("Generates Java bindings for the XenAPI. See -help.")
 
 let open_source = !open_source'
-let destdir = Filename.concat !destdir' "com/xensource/xenapi"
+let destdir = !destdir'
 let templdir = !templdir'
 
 (*Filter out all the bits of the data model we don't want to put in the api.
@@ -981,11 +981,26 @@ public class Types
 
 (* Now run it *)
 
-let populate_releases ()=
-  render_file ("APIVersion.mustache", "APIVersion.java") json_releases templdir destdir
+let populate_releases class_dir =
+  render_file ("APIVersion.mustache", "APIVersion.java") json_releases templdir class_dir
+
+let gen_get_all_records_test classes =
+  let class_records =
+    classes |>
+    List.filter (fun {obj_lifecycle;} ->
+      not (List.exists (fun (x, _, _) -> x = Removed) obj_lifecycle)) |>
+    List.filter (fun {messages;} ->
+        List.exists (fun x -> x.msg_name = "get_all_records") messages) |>
+    List.map (fun {name;} -> class_case name) |>
+    List.sort String.compare
+  in
+  let json =`O ["api_class_records", `A (List.map (fun x -> `O ["api_class_record", `String x];) class_records); ] in
+  render_file ("GetAllRecordsOfAllTypes.mustache", "samples/GetAllRecordsOfAllTypes.java") json templdir destdir
 
 let _ =
   Unixext.mkdir_rec destdir  0o755;
-  List.iter (fun x-> gen_class x destdir) classes;
-  gen_types_class destdir;
-  populate_releases ()
+  let class_dir = Filename.concat destdir "com/xensource/xenapi" in
+  List.iter (fun x-> gen_class x class_dir) classes;
+  gen_types_class class_dir;
+  populate_releases class_dir;
+  gen_get_all_records_test classes
