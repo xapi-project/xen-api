@@ -721,7 +721,7 @@ let _data_destroy ~__context ~self ~timeout =
 
 let data_destroy = _data_destroy ~timeout:4.0
 
-let resize_online ~__context ~vdi ~size =
+let resize ~__context ~vdi ~size =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
   Xapi_vdi_helpers.assert_managed ~__context ~vdi;
   Storage_access.transform_storage_exn
@@ -734,8 +734,6 @@ let resize_online ~__context ~vdi ~size =
        let new_size = C.VDI.resize ~dbg ~sr ~vdi:vdi' ~new_size:size in
        Db.VDI.set_virtual_size ~__context ~self:vdi ~value:new_size
     )
-
-let resize = resize_online
 
 let generate_config ~__context ~host ~vdi =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi);
