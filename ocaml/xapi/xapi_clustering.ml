@@ -43,12 +43,15 @@ let pif_of_host ~__context network host =
     debug "%s" msg;
     failwith msg
 
-let ip_of_pif ~__context (ref,record) =
+let ip_of_pif (ref,record) =
   let ip = record.API.pIF_IP in
   if ip = "" then failwith (Printf.sprintf "PIF %s does not have any IP" (Ref.string_of ref));
-  if not record.API.pIF_disallow_unplug then failwith (Printf.sprintf "PIF %s allows unplug" (Ref.string_of ref));
   debug "Got IP %s for PIF %s" ip (Ref.string_of ref);
   Cluster_interface.IPv4 ip
+
+let assert_pif_permaplugged (ref,record) =
+  if not record.API.pIF_disallow_unplug then failwith (Printf.sprintf "PIF %s allows unplug" (Ref.string_of ref));
+  if not record.pIF_currently_attached then failwith (Printf.sprintf "PIF %s not plugged" (Ref.string_of ref))
 
 let handle_error error =
   (* TODO: replace with API errors? *)

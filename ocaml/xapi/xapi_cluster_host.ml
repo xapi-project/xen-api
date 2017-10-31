@@ -20,6 +20,10 @@ open D
 (* TODO: update allowed_operations on cluster_host creation *)
 (* TODO: update allowed_operations on boot/toolstack-restart *)
 
+let check_pif_prerequisites pif =
+  assert_pif_permaplugged pif;
+  ignore(ip_of_pif pif)
+
 let create ~__context ~cluster ~host =
   (* TODO: take network lock *)
   with_clustering_lock (fun () ->
@@ -28,11 +32,13 @@ let create ~__context ~cluster ~host =
       let uuid = Uuidm.to_string (Uuidm.create `V4) in
       let network = Db.Cluster.get_network ~__context ~self:cluster in
       let cluster_token = Db.Cluster.get_cluster_token ~__context ~self:cluster in
-      let ip = pif_of_host ~__context network host |> ip_of_pif ~__context in
+      let pif = pif_of_host ~__context network host in
+      check_pif_prerequisites pif;
+      let ip = ip_of_pif pif in
       let ip_list = List.map (fun cluster_host ->
           Db.Cluster_host.get_host ~__context ~self:cluster_host |>
           pif_of_host ~__context network |>
-          ip_of_pif ~__context
+          ip_of_pif
         ) (Db.Cluster.get_cluster_hosts ~__context ~self:cluster) in
       let result = Cluster_client.LocalClient.join (Cluster_client.rpc (fun () -> "")) cluster_token ip ip_list in
       match result with
@@ -52,7 +58,9 @@ let enable ~__context ~self =
       let host = Db.Cluster_host.get_host ~__context ~self in
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       let network = Db.Cluster.get_network ~__context ~self:cluster in
-      let ip = pif_of_host ~__context network host |> ip_of_pif ~__context in
+      let pif = pif_of_host ~__context network host in
+      check_pif_prerequisites pif;
+      let ip = ip_of_pif pif in
       let result = Cluster_client.LocalClient.enable (Cluster_client.rpc (fun () -> "")) ip in
       match result with
       | Result.Ok () ->
@@ -103,9 +111,12 @@ let sync_required ~__context =
     end
   | _ -> failwith "Internal error: Cannot have more than one Cluster object per pool currently"
 
-let sync_cluster_hosts ~__context =
+let create_as_necessary ~__context =
   match sync_required ~__context with
   | Some (cluster_ref, localhost) ->
+    let network = Db.Cluster.get_network ~__context ~self:cluster_ref in
+    let pif = Xapi_clustering.pif_of_host ~__context localhost network in
+    check_pif_prerequisites pif;
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         Client.Client.Cluster_host.create rpc session_id cluster_ref localhost) |> ignore
   | None -> ()
