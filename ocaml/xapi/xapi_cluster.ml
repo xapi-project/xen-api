@@ -31,7 +31,7 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join =
       let pool = Db.Pool.get_all ~__context |> List.hd in
       let host = Db.Pool.get_master ~__context ~self:pool in
 
-      let ip = pif_of_host ~__context network host |> ip_of_pif ~__context in
+      let ip = pif_of_host ~__context network host |> ip_of_pif in
 
       let result = Cluster_client.LocalClient.create (Cluster_client.rpc (fun () -> "")) ip in
       match result with
