@@ -71,3 +71,33 @@ let get_sms_requiring_cluster_stack ~__context ~sr_sm_type ~cluster_stack =
       ~expr:Db_filter_types.(Eq(Field "type", Literal sr_sm_type)) in
   List.filter (fun (sm_ref, sm_rec) ->
       List.mem cluster_stack sm_rec.API.sM_required_cluster_stack) sms_matching_sr_type
+
+let find_cluster_host ~__context ~host =
+  match Db.Cluster_host.get_refs_where ~__context
+          ~expr:(Db_filter_types.(Eq (Field "host", Literal (Ref.string_of host)))) with
+  | [ref] -> Some ref
+  | _::_  -> (* should never happen; this indicates a bug *)
+    let msg = "Multiple cluster_hosts found for host" in
+    error "%s %s" msg (Db.Host.get_uuid ~__context ~self:host);
+    raise Api_errors.(Server_error(internal_error, [msg; (Ref.string_of host)]))
+  | _ -> None
+
+let assert_cluster_host_enabled ~__context ~self ~expected =
+  let actual = Db.Cluster_host.get_enabled ~__context ~self in
+  if actual <> expected then
+    let to_str = function
+      | true  -> "enabled"
+      | false -> "disabled" in
+    (* TODO: replace with API error? *)
+    failwith (Printf.sprintf "Cluster_host %s is %s, but needs to be %s."
+                (Db.Cluster_host.get_uuid ~__context ~self) (to_str actual) (to_str expected))
+
+let assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type =
+  find_cluster_host ~__context ~host
+  |> Stdext.Opt.iter (fun cluster_host ->
+      let cluster = Db.Cluster_host.get_cluster ~__context ~self:cluster_host in
+      let cluster_stack = Db.Cluster.get_cluster_stack ~__context ~self:cluster in
+      match get_sms_requiring_cluster_stack ~__context ~sr_sm_type ~cluster_stack with
+      | _::_ ->
+        assert_cluster_host_enabled ~__context ~self:cluster_host ~expected:true
+      | _ -> ())

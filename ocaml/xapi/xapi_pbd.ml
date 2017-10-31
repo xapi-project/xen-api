@@ -121,28 +121,30 @@ let plug ~__context ~self =
   let query_result = Storage_access.bind ~__context ~pbd:self in
   let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
   if not currently_attached then
-    begin
-      let sr = Db.PBD.get_SR ~__context ~self in
-      check_sharing_constraint ~__context ~sr;
-      let dbg = Ref.string_of (Context.get_task_id __context) in
-      let device_config = Db.PBD.get_device_config ~__context ~self in
-      Storage_access.transform_storage_exn
-        (fun () -> C.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) device_config);
-      Db.PBD.set_currently_attached ~__context ~self ~value:true;
+    Xapi_clustering.with_clustering_lock (fun () ->
+        let sr = Db.PBD.get_SR ~__context ~self in
+        let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
+        let host = Db.PBD.get_host ~__context ~self in
+        Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type;
+        check_sharing_constraint ~__context ~sr;
+        let dbg = Ref.string_of (Context.get_task_id __context) in
+        let device_config = Db.PBD.get_device_config ~__context ~self in
+        Storage_access.transform_storage_exn
+          (fun () -> C.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) device_config);
+        Db.PBD.set_currently_attached ~__context ~self ~value:true;
 
-      Xapi_sr_operations.sr_health_check ~__context ~self:sr;
+        Xapi_sr_operations.sr_health_check ~__context ~self:sr;
 
-      (* When the plugin is registered it is possible to query the capabilities etc *)
-      Xapi_sm.register_plugin ~__context query_result;
+        (* When the plugin is registered it is possible to query the capabilities etc *)
+        Xapi_sm.register_plugin ~__context query_result;
 
-      (* The allowed-operations depend on the capabilities *)
-      Xapi_sr_operations.update_allowed_operations ~__context ~self:sr;
-    end
+        (* The allowed-operations depend on the capabilities *)
+        Xapi_sr_operations.update_allowed_operations ~__context ~self:sr)
 
 let unplug ~__context ~self =
   let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
   if currently_attached then
-    begin
+    Xapi_clustering.with_clustering_lock (fun () ->
       let host = Db.PBD.get_host ~__context ~self in
       let sr = Db.PBD.get_SR ~__context ~self in
       if Db.Host.get_enabled ~__context ~self:host
@@ -190,8 +192,7 @@ let unplug ~__context ~self =
 
       Xapi_sr_operations.stop_health_check_thread ~__context ~self:sr;
 
-      Xapi_sr_operations.update_allowed_operations ~__context ~self:sr;
-    end
+      Xapi_sr_operations.update_allowed_operations ~__context ~self:sr)
 
 let destroy ~__context ~self =
   if Db.PBD.get_currently_attached ~__context ~self
