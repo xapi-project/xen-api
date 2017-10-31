@@ -1051,6 +1051,14 @@ module VM = struct
 		let vbds = List.filter (fun device -> match Device_common.(device.frontend.kind) with Device_common.Vbd _ -> true | _ -> false) devices in
 		let dps = List.map (fun device -> Device.Generic.get_private_key ~xs device _dp_id) vbds in
 
+		Domain.destroy task ~xc ~xs ~qemu_domid ~dm:(dm_of ~vm) domid;
+		(* Detach any remaining disks *)
+		List.iter (fun dp ->
+			try
+				Storage.dp_destroy task dp
+			with e ->
+		        warn "Ignoring exception in VM.destroy: %s" (Printexc.to_string e)) dps
+		;
 		(* Normally we throw-away our domain-level information. If the domain
 		   has suspended then we preserve it. *)
 		if di.Xenctrl.shutdown && (Domain.shutdown_reason_of_int di.Xenctrl.shutdown_code = Domain.Suspend)
@@ -1059,13 +1067,6 @@ module VM = struct
 			debug "VM = %s; domid = %d; will not have domain-level information preserved" vm.Vm.id di.Xenctrl.domid;
 			if DB.exists vm.Vm.id then DB.remove vm.Vm.id;
 		end;
-		Domain.destroy task ~xc ~xs ~qemu_domid ~dm:(dm_of ~vm) domid;
-		(* Detach any remaining disks *)
-		List.iter (fun dp ->
-			try
-				Storage.dp_destroy task dp
-			with e ->
-		        warn "Ignoring exception in VM.destroy: %s" (Printexc.to_string e)) dps
 		)
 		(fun ()->
 			(* Finally, discard any device caching for the domid destroyed *)
