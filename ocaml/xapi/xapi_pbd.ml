@@ -121,77 +121,78 @@ let plug ~__context ~self =
   let query_result = Storage_access.bind ~__context ~pbd:self in
   let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
   if not currently_attached then
-    begin
-      let sr = Db.PBD.get_SR ~__context ~self in
-      check_sharing_constraint ~__context ~sr;
-      let dbg = Ref.string_of (Context.get_task_id __context) in
-      let device_config = Db.PBD.get_device_config ~__context ~self in
-      Storage_access.transform_storage_exn
-        (fun () -> C.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) device_config);
-      Db.PBD.set_currently_attached ~__context ~self ~value:true;
+    Xapi_clustering.with_clustering_lock (fun () ->
+        let sr = Db.PBD.get_SR ~__context ~self in
+        let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
+        let host = Db.PBD.get_host ~__context ~self in
+        Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type;
+        check_sharing_constraint ~__context ~sr;
+        let dbg = Ref.string_of (Context.get_task_id __context) in
+        let device_config = Db.PBD.get_device_config ~__context ~self in
+        Storage_access.transform_storage_exn
+          (fun () -> C.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) device_config);
+        Db.PBD.set_currently_attached ~__context ~self ~value:true;
 
-      Xapi_sr_operations.sr_health_check ~__context ~self:sr;
+        Xapi_sr_operations.sr_health_check ~__context ~self:sr;
 
-      (* When the plugin is registered it is possible to query the capabilities etc *)
-      Xapi_sm.register_plugin ~__context query_result;
+        (* When the plugin is registered it is possible to query the capabilities etc *)
+        Xapi_sm.register_plugin ~__context query_result;
 
-      (* The allowed-operations depend on the capabilities *)
-      Xapi_sr_operations.update_allowed_operations ~__context ~self:sr;
-    end
+        (* The allowed-operations depend on the capabilities *)
+        Xapi_sr_operations.update_allowed_operations ~__context ~self:sr)
 
 let unplug ~__context ~self =
   let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
   if currently_attached then
-    begin
-      let host = Db.PBD.get_host ~__context ~self in
-      let sr = Db.PBD.get_SR ~__context ~self in
-      if Db.Host.get_enabled ~__context ~self:host
-      then abort_if_storage_attached_to_protected_vms ~__context ~self;
+    Xapi_clustering.with_clustering_lock (fun () ->
+        let host = Db.PBD.get_host ~__context ~self in
+        let sr = Db.PBD.get_SR ~__context ~self in
+        if Db.Host.get_enabled ~__context ~self:host
+        then abort_if_storage_attached_to_protected_vms ~__context ~self;
 
-      (* If HA is enabled, prevent a PBD whose SR contains a statefile being unplugged *)
-      let pool = Helpers.get_pool ~__context in
-      if Db.Pool.get_ha_enabled ~__context ~self:pool then begin
-        let statefiles = Db.Pool.get_ha_statefiles ~__context ~self:pool in
-        let statefile_srs = List.map (fun self -> Db.VDI.get_SR ~__context ~self:(Ref.of_string self)) statefiles in
-        if List.mem sr statefile_srs
-        then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []))
-      end;
+        (* If HA is enabled, prevent a PBD whose SR contains a statefile being unplugged *)
+        let pool = Helpers.get_pool ~__context in
+        if Db.Pool.get_ha_enabled ~__context ~self:pool then begin
+          let statefiles = Db.Pool.get_ha_statefiles ~__context ~self:pool in
+          let statefile_srs = List.map (fun self -> Db.VDI.get_SR ~__context ~self:(Ref.of_string self)) statefiles in
+          if List.mem sr statefile_srs
+          then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []))
+        end;
 
-      let vdis = get_active_vdis_by_pbd ~__context ~self in
-      let non_metadata_vdis = List.filter (fun vdi -> Db.VDI.get_type ~__context ~self:vdi <> `metadata) vdis in
-      if List.length non_metadata_vdis > 0
-      then raise (Api_errors.Server_error(Api_errors.vdi_in_use,List.map Ref.string_of non_metadata_vdis));
+        let vdis = get_active_vdis_by_pbd ~__context ~self in
+        let non_metadata_vdis = List.filter (fun vdi -> Db.VDI.get_type ~__context ~self:vdi <> `metadata) vdis in
+        if List.length non_metadata_vdis > 0
+        then raise (Api_errors.Server_error(Api_errors.vdi_in_use,List.map Ref.string_of non_metadata_vdis));
 
-      if Helpers.i_am_srmaster ~__context ~sr then begin
-        let (metadata_vdis_of_this_pool, metadata_vdis_of_foreign_pool) =
-          partition_metadata_vdis_by_pool ~__context ~sr
-        in
-        (* Remove all foreign metadata VDIs from the cache so that the metadata_latest of remaining VDIs can be updated. *)
-        Xapi_dr.remove_vdis_from_cache ~__context ~vdis:metadata_vdis_of_foreign_pool;
-        (* Set all the removed metadata VDIs of foreign pools to have metadata_latest = false. *)
-        (* This enables the metadata_latest flag to indicate whether we can recover VMs from a VDI. *)
-        List.iter
-          (fun vdi -> Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false)
-          metadata_vdis_of_foreign_pool;
-        (* Disable metadata replication to VDIs in the SR. *)
-        List.iter
-          (fun vdi ->
-             debug "Automatically disabling database replication to VDI %s" (Ref.string_of vdi);
-             Xapi_vdi_helpers.disable_database_replication ~__context ~vdi)
-          metadata_vdis_of_this_pool
-      end;
-      let dbg = Ref.string_of (Context.get_task_id __context) in
-      let uuid = Db.SR.get_uuid ~__context ~self:sr in
-      Storage_access.transform_storage_exn
-        (fun () -> C.SR.detach dbg uuid);
+        if Helpers.i_am_srmaster ~__context ~sr then begin
+          let (metadata_vdis_of_this_pool, metadata_vdis_of_foreign_pool) =
+            partition_metadata_vdis_by_pool ~__context ~sr
+          in
+          (* Remove all foreign metadata VDIs from the cache so that the metadata_latest of remaining VDIs can be updated. *)
+          Xapi_dr.remove_vdis_from_cache ~__context ~vdis:metadata_vdis_of_foreign_pool;
+          (* Set all the removed metadata VDIs of foreign pools to have metadata_latest = false. *)
+          (* This enables the metadata_latest flag to indicate whether we can recover VMs from a VDI. *)
+          List.iter
+            (fun vdi -> Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false)
+            metadata_vdis_of_foreign_pool;
+          (* Disable metadata replication to VDIs in the SR. *)
+          List.iter
+            (fun vdi ->
+               debug "Automatically disabling database replication to VDI %s" (Ref.string_of vdi);
+               Xapi_vdi_helpers.disable_database_replication ~__context ~vdi)
+            metadata_vdis_of_this_pool
+        end;
+        let dbg = Ref.string_of (Context.get_task_id __context) in
+        let uuid = Db.SR.get_uuid ~__context ~self:sr in
+        Storage_access.transform_storage_exn
+          (fun () -> C.SR.detach dbg uuid);
 
-      Storage_access.unbind ~__context ~pbd:self;
-      Db.PBD.set_currently_attached ~__context ~self ~value:false;
+        Storage_access.unbind ~__context ~pbd:self;
+        Db.PBD.set_currently_attached ~__context ~self ~value:false;
 
-      Xapi_sr_operations.stop_health_check_thread ~__context ~self:sr;
+        Xapi_sr_operations.stop_health_check_thread ~__context ~self:sr;
 
-      Xapi_sr_operations.update_allowed_operations ~__context ~self:sr;
-    end
+        Xapi_sr_operations.update_allowed_operations ~__context ~self:sr)
 
 let destroy ~__context ~self =
   if Db.PBD.get_currently_attached ~__context ~self
