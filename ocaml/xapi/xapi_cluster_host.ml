@@ -125,14 +125,12 @@ let disable ~__context ~self =
       let pbds = Db.Host.get_PBDs ~__context ~self:host in
       let srs = List.map (fun pbd -> Db.PBD.get_SR ~__context ~self:pbd) pbds in
       List.iter (fun sr ->
-          let sr_type = Db.SR.get_type ~__context ~self:sr in
-          let matching_sms = Db.SM.get_records_where ~__context
-              ~expr:Db_filter_types.(Eq(Field "type", Literal sr_type)) in
-          List.iter (fun (sm_ref, sm_rec) ->
-              if List.mem cluster_stack sm_rec.API.sM_required_cluster_stack then
-                failwith (Printf.sprintf "Host has attached SR whose SM requires cluster stack %s" cluster_stack) (* TODO: replace with API error *)
-            ) matching_sms
-        ) srs;
+          let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
+          match get_sms_requiring_cluster_stack ~__context ~sr_sm_type ~cluster_stack with
+          | _::_ ->
+            (* TODO: replace with API error *)
+            failwith (Printf.sprintf "Host has attached SR whose SM requires cluster stack %s" cluster_stack)
+          | _ -> ()) srs;
       let result = Cluster_client.LocalClient.disable (Cluster_client.rpc (fun () -> "")) () in
       match result with
       | Result.Ok () ->
