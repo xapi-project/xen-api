@@ -585,3 +585,5 @@ let vm_has_vusbs = "VM_HAS_VUSBS"
 
 let cluster_create_in_progress = "CLUSTER_CREATE_IN_PROGRESS"
 let cluster_already_exists = "CLUSTER_ALREADY_EXISTS"
+let clustering_enabled = "CLUSTERING_ENABLED"
+let clustering_disabled = "CLUSTERING_DISABLED"
