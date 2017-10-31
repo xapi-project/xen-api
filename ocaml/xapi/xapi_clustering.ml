@@ -85,12 +85,9 @@ let find_cluster_host ~__context ~host =
 let assert_cluster_host_enabled ~__context ~self ~expected =
   let actual = Db.Cluster_host.get_enabled ~__context ~self in
   if actual <> expected then
-    let to_str = function
-      | true  -> "enabled"
-      | false -> "disabled" in
-    (* TODO: replace with API error? *)
-    failwith (Printf.sprintf "Cluster_host %s is %s, but needs to be %s."
-                (Db.Cluster_host.get_uuid ~__context ~self) (to_str actual) (to_str expected))
+    match expected with
+    | true  -> raise Api_errors.(Server_error(clustering_disabled, [Ref.string_of self]))
+    | false -> raise Api_errors.(Server_error(clustering_enabled, [Ref.string_of self]))
 
 let assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type =
   find_cluster_host ~__context ~host
