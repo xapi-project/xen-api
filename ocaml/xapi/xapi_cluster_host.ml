@@ -28,9 +28,11 @@ let create ~__context ~cluster ~host =
       let uuid = Uuidm.to_string (Uuidm.create `V4) in
       let network = Db.Cluster.get_network ~__context ~self:cluster in
       let cluster_token = Db.Cluster.get_cluster_token ~__context ~self:cluster in
-      let ip = ip_of_host ~__context ~network ~host in
+      let ip = pif_of_host ~__context network host |> ip_of_pif ~__context in
       let ip_list = List.map (fun cluster_host ->
-          ip_of_host ~__context ~network ~host:(Db.Cluster_host.get_host ~__context ~self:cluster_host)
+          Db.Cluster_host.get_host ~__context ~self:cluster_host |>
+          pif_of_host ~__context network |>
+          ip_of_pif ~__context
         ) (Db.Cluster.get_cluster_hosts ~__context ~self:cluster) in
       let result = Cluster_client.LocalClient.join (Cluster_client.rpc (fun () -> "")) cluster_token ip ip_list in
       match result with
@@ -50,7 +52,7 @@ let enable ~__context ~self =
       let host = Db.Cluster_host.get_host ~__context ~self in
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       let network = Db.Cluster.get_network ~__context ~self:cluster in
-      let ip = ip_of_host ~__context ~network ~host in
+      let ip = pif_of_host ~__context network host |> ip_of_pif ~__context in
       let result = Cluster_client.LocalClient.enable (Cluster_client.rpc (fun () -> "")) ip in
       match result with
       | Result.Ok () ->
