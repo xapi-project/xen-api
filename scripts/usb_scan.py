@@ -607,6 +607,28 @@ def to_pusb(device):
     return pusb
 
 
+def make_pusbs_list(devices, interfaces):
+    """ check the USB devices and interfaces against policy file,
+    and return the pusb list that can be passed through
+
+    :param devices:([UsbDevice]) USB device list we found in host
+    :param interfaces:([UsbInterface]) USB interface list found in host
+    :return:([pusb]) the pusb list that can be passed through
+    """
+
+    # match interface to device
+    for i in interfaces:
+        for d in devices:
+            if i.is_child_of(d):
+                d.add_interface(i)
+
+    log_list(devices)
+
+    # do policy check
+    policy = Policy()
+    return [to_pusb(d) for d in devices if d.is_ready() and policy.check(d)]
+
+
 if __name__ == "__main__":
     args = parse_args()
     if args.diagnostic:
@@ -624,17 +646,7 @@ if __name__ == "__main__":
     log_list(devices)
     log_list(interfaces)
 
-    # match interface to device
-    for i in interfaces:
-        for d in devices:
-            if i.is_child_of(d):
-                d.add_interface(i)
-
-    log_list(devices)
-
-    # do policy check
-    policy = Policy()
-    pusbs = [to_pusb(d) for d in devices if d.is_ready() and policy.check(d)]
+    pusbs = make_pusbs_list(devices, interfaces)
 
     # pass pusbs in json to XAPI
     print(json.dumps(pusbs))
