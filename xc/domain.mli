@@ -100,7 +100,7 @@ val shutdown_wait_for_ack: Xenops_task.Xenops_task.task_handle -> timeout:float 
 val sysrq: xs:Xenstore.Xs.xsh -> domid -> char -> unit
 
 (** destroy a domain *)
-val destroy: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> domid -> unit
+val destroy: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> dm:Device.Profile.t -> domid -> unit
 
 (** Pause a domain *)
 val pause: xc: Xenctrl.handle -> domid -> unit
@@ -154,7 +154,7 @@ val restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xe
 type suspend_flag = Live | Debug
 
 (** suspend a domain into the file descriptor *)
-val suspend: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> string -> string -> domid
+val suspend: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> dm:Device.Profile.t -> string -> string -> domid
           -> Unix.file_descr -> suspend_flag list
           -> ?progress_callback: (float -> unit)
 		  -> qemu_domid: int

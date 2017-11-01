@@ -88,7 +88,8 @@ module VmExtra = struct
 		ty: Vm.builder_info option;
 		last_start_time: float;
 		nomigrate: bool;  (* platform:nomigrate   at boot time *)
-		nested_virt: bool (* platform:nested_virt at boot time *)
+		nested_virt: bool;(* platform:nested_virt at boot time *)
+		profile: Device.Profile.t option
 	} [@@deriving rpc]
 
 	let default_persistent_t =
@@ -97,6 +98,7 @@ module VmExtra = struct
 		; last_start_time = 0.0
 		; nomigrate = false
 		; nested_virt = false
+		; profile = None
 		}
 
 	(* override rpc code generated for persistent_t. It is important that
@@ -716,10 +718,25 @@ module HOST = struct
 			(fun xc _ -> Xenctrl.upgrade_oldstyle_featuremask xc features is_hvm)
 end
 
+let dm_of ~vm = Mutex.execute dB_m (fun () ->
+	try
+		let vmextra = DB.read_exn vm in
+		match VmExtra.(vmextra.persistent.profile) with
+			| None -> Device.Profile.fallback
+			| Some x -> x
+	with _ -> Device.Profile.fallback
+	)
+
 module VM = struct
 	open Vm
 
 	let will_be_hvm vm = match vm.ty with HVM _ -> true | _ -> false
+
+	let profile_of ~vm = if will_be_hvm vm
+		then Some (choose_qemu_dm vm.Xenops_interface.Vm.platformdata)
+		else None
+
+	let dm_of ~vm = dm_of vm.Vm.id
 
 	let compute_overhead domain =
 		let static_max_mib = Memory.mib_of_bytes_used domain.VmExtra.memory_static_max in
@@ -780,7 +797,8 @@ module VM = struct
 			   any cached PV driver information will be kept. *)
 			last_start_time = 0.;
 			nomigrate = false;
-			nested_virt = false
+			nested_virt = false;
+			profile = profile_of ~vm;
 		} |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
 
 	let mkints n =
@@ -889,6 +907,7 @@ module VM = struct
 								  ~key:"nested-virt"
 								  ~platformdata:vm.Xenops_interface.Vm.platformdata
 								  ~default:false
+								; profile = profile_of ~vm
 								} in
 							let non_persistent = generate_non_persistent_state xc xs vm in
 							persistent, non_persistent
@@ -1013,7 +1032,7 @@ module VM = struct
 		let domid = di.Xenctrl.domid in
 		let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
 		log_exn_continue "Error stoping device-model, already dead ?"
-			(fun () -> Device.Dm.stop ~xs ~qemu_domid domid) ();
+			(fun () -> Device.Dm.stop ~xs ~qemu_domid ~dm:(dm_of ~vm) domid) ();
 		log_exn_continue "Error stoping vncterm, already dead ?"
 			(fun () -> Device.PV_Vnc.stop ~xs domid) ();
 		(* If qemu is in a different domain to storage, detach disks *)
@@ -1025,13 +1044,21 @@ module VM = struct
 		(* We need to clean up the stubdom before the primary otherwise we deadlock *)
 		Opt.iter
 			(fun stubdom_domid ->
-				Domain.destroy task ~xc ~xs ~qemu_domid stubdom_domid
+				Domain.destroy task ~xc ~xs ~qemu_domid ~dm:(dm_of ~vm) stubdom_domid
 			) (get_stubdom ~xs domid);
 
 		let devices = Device_common.list_frontends ~xs domid in
 		let vbds = List.filter (fun device -> match Device_common.(device.frontend.kind) with Device_common.Vbd _ -> true | _ -> false) devices in
 		let dps = List.map (fun device -> Device.Generic.get_private_key ~xs device _dp_id) vbds in
 
+		Domain.destroy task ~xc ~xs ~qemu_domid ~dm:(dm_of ~vm) domid;
+		(* Detach any remaining disks *)
+		List.iter (fun dp ->
+			try
+				Storage.dp_destroy task dp
+			with e ->
+		        warn "Ignoring exception in VM.destroy: %s" (Printexc.to_string e)) dps
+		;
 		(* Normally we throw-away our domain-level information. If the domain
 		   has suspended then we preserve it. *)
 		if di.Xenctrl.shutdown && (Domain.shutdown_reason_of_int di.Xenctrl.shutdown_code = Domain.Suspend)
@@ -1040,13 +1067,6 @@ module VM = struct
 			debug "VM = %s; domid = %d; will not have domain-level information preserved" vm.Vm.id di.Xenctrl.domid;
 			if DB.exists vm.Vm.id then DB.remove vm.Vm.id;
 		end;
-		Domain.destroy task ~xc ~xs ~qemu_domid domid;
-		(* Detach any remaining disks *)
-		List.iter (fun dp ->
-			try
-				Storage.dp_destroy task dp
-			with e ->
-		        warn "Ignoring exception in VM.destroy: %s" (Printexc.to_string e)) dps
 		)
 		(fun ()->
 			(* Finally, discard any device caching for the domid destroyed *)
@@ -1332,7 +1352,7 @@ module VM = struct
 
 	let create_device_model_exn vbds vifs vgpus saved_state xc xs task vm di =
 		let vmextra = DB.read_exn vm.Vm.id in
-		let qemu_dm = choose_qemu_dm vm.Vm.platformdata in
+		let qemu_dm = dm_of ~vm in
 		let xenguest = choose_xenguest vm.Vm.platformdata in
 		debug "chosen qemu_dm = %s" (Device.Profile.wrapper_of qemu_dm);
 		debug "chosen xenguest = %s" xenguest;
@@ -1504,7 +1524,7 @@ module VM = struct
 				with_data ~xc ~xs task data true
 					(fun fd ->
 						let vm_str = Vm.sexp_of_t vm |> Sexplib.Sexp.to_string in
-						Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid (choose_xenguest vm.Vm.platformdata) vm_str domid fd flags'
+						Domain.suspend task ~xc ~xs ~hvm ~dm:(dm_of ~vm) ~progress_callback ~qemu_domid (choose_xenguest vm.Vm.platformdata) vm_str domid fd flags'
 							(fun () ->
 								(* SCTX-2558: wait more for ballooning if needed *)
 								wait_ballooning task vm;
@@ -1589,7 +1609,7 @@ module VM = struct
 								if try ignore(Xenctrl.domain_getinfo xc di.Xenctrl.domid); false with _ -> true then begin
 									try
 										debug "VM %s: libxenguest has destroyed domid %d; cleaning up xenstore for consistency" vm.Vm.id di.Xenctrl.domid;
-										Domain.destroy task ~xc ~xs ~qemu_domid di.Xenctrl.domid;
+										Domain.destroy task ~xc ~xs ~qemu_domid ~dm:(dm_of ~vm) di.Xenctrl.domid;
 									with e -> debug "Domain.destroy failed. Re-raising original error."
 								end;
 								raise e
@@ -1639,7 +1659,7 @@ module VM = struct
 						end
 					| Some di ->
 						let vnc = Opt.map (fun port -> { Vm.protocol = Vm.Rfb; port = port; path = "" })
-							(Device.get_vnc_port ~xs di.Xenctrl.domid) in
+							(Device.get_vnc_port ~xs ~dm:(dm_of ~vm) di.Xenctrl.domid) in
 						let tc = Opt.map (fun port -> { Vm.protocol = Vm.Vt100; port = port; path = "" })
 							(Device.get_tc_port ~xs di.Xenctrl.domid) in
 						let local x = Printf.sprintf "/local/domain/%d/%s" di.Xenctrl.domid x in
@@ -2194,7 +2214,7 @@ module VBD = struct
 					let phystype = Device.Vbd.Phys in
 					(* We store away the disk so we can implement VBD.stat *)
 					xs.Xs.write (vdi_path_of_device ~xs device) (disk |> rpc_of_disk |> Jsonrpc.to_string);
-					Device.Vbd.media_insert ~xs ~phystype ~params:vdi.attach_info.Storage_interface.params device;
+					Device.Vbd.media_insert ~xs ~dm:(dm_of ~vm) ~phystype ~params:vdi.attach_info.Storage_interface.params device;
 					Device_common.add_backend_keys ~xs device "sm-data" vdi.attach_info.Storage_interface.xenstore_data
 				end
 			) Newest vm
@@ -2203,7 +2223,7 @@ module VBD = struct
 		on_frontend
 			(fun xc xs frontend_domid hvm ->
 				let (device: Device_common.device) = device_by_id xc xs vm (device_kind_of ~xs vbd) Oldest (id_of vbd) in
-				Device.Vbd.media_eject ~xs device;
+				Device.Vbd.media_eject ~xs ~dm:(dm_of ~vm) device;
 				safe_rm xs (vdi_path_of_device ~xs device);
 				safe_rm xs (Device_common.backend_path_of_device ~xs device ^ "/sm-data");
 				Storage.dp_destroy task (Storage.id_of (string_of_int (frontend_domid_of_device device)) vbd.Vbd.id)

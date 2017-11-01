@@ -26,6 +26,9 @@ module Profile: sig
 	type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream
 	(** available qemu profiles *)
 
+	val rpc_of_t: t -> Rpc.t
+	val t_of_rpc: Rpc.t -> t
+
 	(** the fallback profile in case an invalid profile string is provided to [of_string] *)
 	val fallback : t
 
@@ -88,8 +91,8 @@ sig
 	val add : Xenops_task.task_handle -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool -> t -> Xenctrl.domid -> device
 
 	val release : Xenops_task.task_handle -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> device -> unit
-	val media_eject : xs:Xenstore.Xs.xsh -> device -> unit
-	val media_insert : xs:Xenstore.Xs.xsh -> phystype:physty -> params:string -> device -> unit
+	val media_eject : xs:Xenstore.Xs.xsh -> dm:Profile.t -> device -> unit
+	val media_insert : xs:Xenstore.Xs.xsh -> dm:Profile.t -> phystype:physty -> params:string -> device -> unit
 	val media_is_ejected : xs:Xenstore.Xs.xsh -> device -> bool
 
 	val clean_shutdown_async : xs:Xenstore.Xs.xsh -> device -> unit
@@ -247,7 +250,7 @@ sig
 		extras: (string * string option) list;
 	}
 
-	val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+	val get_vnc_port : xs:Xenstore.Xs.xsh -> dm:Profile.t -> Xenctrl.domid -> int option
 	val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 
 	val signal : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> domid:Xenctrl.domid -> ?wait_for:string -> ?param:string
@@ -258,16 +261,16 @@ sig
 	val start : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dm:Profile.t -> ?timeout:float -> info -> Xenctrl.domid -> unit
 	val start_vnconly : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dm:Profile.t -> ?timeout:float -> info -> Xenctrl.domid -> unit
 	val restore : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dm:Profile.t -> ?timeout:float -> info -> Xenctrl.domid -> unit
-	val suspend : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
+	val suspend : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> dm:Profile.t -> Xenctrl.domid -> unit
 	val resume : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
-	val stop : xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
+	val stop : xs:Xenstore.Xs.xsh -> qemu_domid:int -> dm:Profile.t -> Xenctrl.domid -> unit
 
-	val with_dirty_log: int -> f:(unit -> unit) -> unit
+	val with_dirty_log: Profile.t -> int -> f:(unit -> unit) -> unit
 end
 
 module Backend: sig
 	val init : unit -> unit
 end
 
-val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+val get_vnc_port : xs:Xenstore.Xs.xsh -> dm:Profile.t -> Xenctrl.domid -> int option
 val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option

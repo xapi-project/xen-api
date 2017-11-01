@@ -34,7 +34,7 @@ open D
 
 (** Definition of available qemu profiles, used by the qemu backend implementations *)
 module Profile = struct
-  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream
+  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream [@@deriving rpc]
   let fallback = Qemu_trad
   let all = [ Qemu_trad; Qemu_upstream_compat; Qemu_upstream ]
   module Name = struct
@@ -56,7 +56,6 @@ module Profile = struct
     | x when x = Name.qemu_upstream        -> Qemu_upstream
     | x -> debug "unknown device-model profile %s: defaulting to fallback: %s" x (string_of fallback);
       fallback
-  let of_domid x = if is_upstream_qemu x then Qemu_upstream else Qemu_trad
 end
 
 (* keys read by vif udev script (keep in sync with api:scripts/vif) *)
@@ -2125,8 +2124,6 @@ module Backend = struct
     | Profile.Qemu_upstream_compat -> (module Qemu_upstream_compat : Intf)
     | Profile.Qemu_upstream        -> (module Qemu_upstream        : Intf)
 
-  let of_domid x = of_profile (Profile.of_domid x)
-
   let init() =
     Qemu_upstream.Dm.Event.init()
 end
@@ -2139,13 +2136,13 @@ end
 module Vbd = struct
   include Vbd_Common
 
-  let media_eject ~xs device =
-    let module Q = (val Backend.of_domid device.frontend.domid) in
+  let media_eject ~xs ~dm device =
+    let module Q = (val Backend.of_profile dm) in
     Q.Vbd.qemu_media_change ~xs device "" ""
 
-  let media_insert ~xs ~phystype ~params device =
+  let media_insert ~xs ~dm ~phystype ~params device =
     let _type = backendty_of_physty phystype in
-    let module Q = (val Backend.of_domid device.frontend.domid) in
+    let module Q = (val Backend.of_profile dm) in
     Q.Vbd.qemu_media_change ~xs device _type params
 
 end (* Vbd *)
@@ -2155,26 +2152,23 @@ module Dm = struct
   include Dm_Common
 
   let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel profile =
-    (* init_daemon must decide the backend based on a profile because the qemu daemon is not running
-       at the moment and Backend.of_domid uses is_upstream_qemu which depends on a running qemu.
-    *)
     let module Q = (val Backend.of_profile profile) in
     Q.Dm.init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ()
 
-  let get_vnc_port ~xs domid =
-    let module Q = (val Backend.of_domid domid) in
+  let get_vnc_port ~xs ~dm domid =
+    let module Q = (val Backend.of_profile dm) in
     Q.Dm.get_vnc_port ~xs domid
 
-  let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
-    let module Q = (val Backend.of_domid domid) in
+  let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid ~dm domid =
+    let module Q = (val Backend.of_profile dm) in
     Q.Dm.suspend task ~xs ~qemu_domid domid
 
-  let stop ~xs ~qemu_domid domid  =
-    let module Q = (val Backend.of_domid domid) in
+  let stop ~xs ~qemu_domid ~dm domid =
+    let module Q = (val Backend.of_profile dm) in
     Q.Dm.stop ~xs ~qemu_domid domid
 
-  let with_dirty_log domid ~f =
-    let module Q = (val Backend.of_domid domid) in
+  let with_dirty_log dm domid ~f =
+    let module Q = (val Backend.of_profile dm) in
     Q.Dm.with_dirty_log domid ~f
 
   let cmdline_of_info ~xs ~dm info restore domid =
@@ -2296,11 +2290,11 @@ let clean_shutdown (task: Xenops_task.task_handle) ~xs (x: device) = match x.bac
   | Vfb -> Vfb.clean_shutdown task ~xs x
   | Vkbd -> Vkbd.clean_shutdown task ~xs x
 
-let get_vnc_port ~xs domid =
+let get_vnc_port ~xs ~dm domid =
   (* Check whether a qemu exists for this domain *)
   let qemu_exists = Qemu.is_running ~xs domid in
   if qemu_exists
-  then Dm.get_vnc_port ~xs domid
+  then Dm.get_vnc_port ~xs ~dm domid
   else PV_Vnc.get_vnc_port ~xs domid
 
 let get_tc_port ~xs domid =
