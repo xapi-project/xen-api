@@ -341,6 +341,7 @@ let is_upstream_qemu domid =
 let qmp_write_and_read domid ?(read_result=true) cmd  =
   try
     let open Qmp in
+    debug "QMP.Command for domid %d: %s" domid (string_of_message cmd);
     let c = Qmp_protocol.connect (qmp_libxl_path domid) in
     finally
       (fun () ->

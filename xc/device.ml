@@ -2066,7 +2066,8 @@ module Backend = struct
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
         Dm_Common.suspend task ~xs ~qemu_domid domid;
         let file = sprintf qemu_save_path domid in
-        qmp_write domid (Qmp.Command(None, Qmp.Xen_save_devices_state file))
+        qmp_write domid Qmp.(Command(None, Stop));
+        qmp_write domid Qmp.(Command(None, Xen_save_devices_state file))
 
       let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel _ =
         let pid = Dm_Common.init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel () in
@@ -2081,11 +2082,11 @@ module Backend = struct
       let with_dirty_log domid ~f =
         finally
           (fun() ->
-             qmp_write domid (Qmp.Command(None, Qmp.Xen_set_global_dirty_log true));
+             qmp_write domid Qmp.(Command(None, Xen_set_global_dirty_log true));
              f()
           )
           (fun() ->
-             qmp_write domid (Qmp.Command(None, Qmp.Xen_set_global_dirty_log false));
+             qmp_write domid Qmp.(Command(None, Xen_set_global_dirty_log false));
           )
 
       let cmdline_of_info ~xs ~dm info restore domid =
