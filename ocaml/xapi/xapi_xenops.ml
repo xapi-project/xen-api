@@ -561,12 +561,13 @@ module MD = struct
     in
     let implementation =
       Nvidia {
-        physical_pci_address;
+        physical_pci_address = None; (* unused *)
         config_file;
       }
     in {
       id = (vm.API.vM_uuid, vgpu.Db_actions.vGPU_device);
       position = int_of_string vgpu.Db_actions.vGPU_device;
+      physical_pci_address;
       implementation;
     }
 
@@ -581,7 +582,7 @@ module MD = struct
     try
       let implementation =
         GVT_g {
-          physical_pci_address;
+          physical_pci_address = None; (* unused *)
           low_gm_sz =
             List.assoc Xapi_globs.vgt_low_gm_sz internal_config
             |> Int64.of_string;
@@ -600,6 +601,7 @@ module MD = struct
       in {
         id = (vm.API.vM_uuid, vgpu.Db_actions.vGPU_device);
         position = int_of_string vgpu.Db_actions.vGPU_device;
+        physical_pci_address;
         implementation;
       }
     with
@@ -608,6 +610,8 @@ module MD = struct
 
   let of_mxgpu_vgpu ~__context vm vgpu =
     let open Vgpu in
+    (* Get the PCI address. *)
+    let physical_pci_address = get_target_pci_address ~__context vgpu in
     let vgpu_type = vgpu.Db_actions.vGPU_type in
     let internal_config =
       Db.VGPU_type.get_internal_config ~__context ~self:vgpu_type in
@@ -616,7 +620,7 @@ module MD = struct
     try
       let implementation =
         MxGPU {
-          physical_function = get_target_pci_address ~__context vgpu;
+          physical_function = None; (* unused *)
           vgpus_per_pgpu =
             List.assoc Xapi_globs.mxgpu_vgpus_per_pgpu internal_config
             |> Int64.of_string;
@@ -625,6 +629,7 @@ module MD = struct
       in {
         id = (vm.API.vM_uuid, vgpu.Db_actions.vGPU_device);
         position = int_of_string vgpu.Db_actions.vGPU_device;
+        physical_pci_address;
         implementation;
       }
     with
@@ -641,14 +646,15 @@ module MD = struct
          			 * from the VM platform keys. *)
       let implementation =
         Nvidia {
-          physical_pci_address =
-            Xenops_interface.Pci.address_of_string
-              (List.assoc Vm_platform.vgpu_pci_id vm.API.vM_platform);
+          physical_pci_address = None; (* unused *)
           config_file = List.assoc Vm_platform.vgpu_config vm.API.vM_platform;
         }
       in [{
           id = (vm.API.vM_uuid, "0");
           position = 0;
+          physical_pci_address =
+            Xenops_interface.Pci.address_of_string
+              (List.assoc Vm_platform.vgpu_pci_id vm.API.vM_platform);
           implementation;
         }]
     end else
@@ -901,27 +907,8 @@ let apply_guest_agent_config ~__context config =
   let module Client = (val make_client (default_xenopsd ()): XENOPS) in
   Client.HOST.update_guest_agent_features dbg features
 
-(* If a VM was suspended pre-xenopsd it won't have a last_booted_record of the format understood by xenopsd. *)
-(* If we can parse the last_booted_record according to the old syntax, update it before attempting to resume. *)
-let generate_xenops_state ~__context ~self ~vm ~vbds ~pcis ~vgpus =
-  try
-    let vm_to_resume = {
-      (Helpers.parse_boot_record vm.API.vM_last_booted_record) with
-      API.vM_VBDs = vm.API.vM_VBDs
-    } in
-    debug "Successfully parsed old last_booted_record format - translating to new format so that xenopsd can resume the VM.";
-    let module Client = (val make_client (queue_of_vmr vm): XENOPS) in
-    let vm = MD.of_vm ~__context
-        (self, vm_to_resume) vbds (pcis <> []) (vgpus <> [])
-    in
-    let dbg = Context.string_of_task __context in
-    Client.VM.generate_state_string dbg vm
-  with Xml.Error _ ->
-    debug "last_booted_record is not of the old format, so we should be able to resume the VM.";
-    vm.API.vM_last_booted_record
-
 (* Create an instance of Metadata.t, suitable for uploading to the xenops service *)
-let create_metadata ~__context ~upgrade ~self =
+let create_metadata ~__context ~self =
   let vm = Db.VM.get_record ~__context ~self in
   let vbds = List.filter (fun vbd -> vbd.API.vBD_currently_attached)
       (List.map (fun self -> Db.VBD.get_record ~__context ~self) vm.API.vM_VBDs) in
@@ -933,11 +920,12 @@ let create_metadata ~__context ~upgrade ~self =
   let vgpus = MD.vgpus_of_vm ~__context (self, vm) in
   let vusbs = MD.vusbs_of_vm ~__context (self, vm) in
   let domains =
-    (* For suspended VMs, we may need to translate the last_booted_record from the old format. *)
-    if vm.API.vM_power_state = `Suspended || upgrade then begin
-      (* We need to recall the currently_attached devices *)
-      Some(generate_xenops_state ~__context ~self ~vm ~vbds ~pcis ~vgpus)
-    end else None in
+    (* For suspended VMs, the last_booted_record contains the "live" xenopsd state. *)
+    if vm.API.vM_power_state = `Suspended then
+      Some vm.API.vM_last_booted_record
+    else
+      None
+  in
   let open Metadata in {
     vm = MD.of_vm ~__context (self, vm) vbds (pcis <> []) (vgpus <> []);
     vbds = vbds';
@@ -1134,9 +1122,9 @@ module Xenopsd_metadata = struct
       end
     end
 
-  let push ~__context ~upgrade ~self =
+  let push ~__context ~self =
     Mutex.execute metadata_m (fun () ->
-        let md = create_metadata ~__context ~upgrade ~self in
+        let md = create_metadata ~__context ~self in
         let txt = md |> Metadata.rpc_of_t |> Jsonrpc.to_string in
         info "xenops: VM.import_metadata %s" txt;
         let dbg = Context.string_of_task __context in
@@ -1196,7 +1184,7 @@ module Xenopsd_metadata = struct
          let dbg = Context.string_of_task __context in
          if vm_exists_in_xenopsd queue_name dbg id
          then
-           let txt = create_metadata ~__context ~upgrade:false ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
+           let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
            begin match Xapi_cache.find_nolock id with
              | Some old when old = txt -> ()
              | _ ->
@@ -2614,7 +2602,7 @@ let start ~__context ~self paused force =
       let module Client = (val make_client queue_name : XENOPS) in
       debug "Sending VM %s configuration to xenopsd" (Ref.string_of self);
       try
-        let id = Xenopsd_metadata.push ~__context ~upgrade:false ~self in
+        let id = Xenopsd_metadata.push ~__context ~self in
         Xapi_network.with_networks_attached_for_vm ~__context ~vm:self (fun () ->
             info "xenops: VM.start %s" id;
             if not paused then begin
@@ -2733,7 +2721,16 @@ let suspend ~__context ~self =
        let module Client = (val make_client queue_name : XENOPS) in
        let vm_t, state = Client.VM.stat dbg id in
        (* XXX: this needs to be at boot time *)
-       let space_needed = Int64.(add (of_float (to_float vm_t.Vm.memory_static_max *. 1.2 *. 1.05)) 104857600L) in
+       let space_needed =
+         let ram = Int64.(of_float (to_float vm_t.Vm.memory_static_max *. 1.2 *. 1.05)) in
+         let vgpu =
+           Db.VM.get_VGPUs ~__context ~self
+           |> List.map (fun self -> Db.VGPU.get_type ~__context ~self)
+           |> List.map (fun self -> Db.VGPU_type.get_framebuffer_size ~__context ~self)
+           |> List.fold_left Int64.add 0L
+         in
+         Int64.(ram |> add vgpu |> add 104857600L)
+       in
        let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm:self in
        let sm_config = [
          Xapi_globs._sm_vm_hint, id;
@@ -2800,7 +2797,7 @@ let resume ~__context ~self ~start_paused ~force =
            Events_from_xenopsd.with_suppressed queue_name dbg vm_id
              (fun () ->
                 debug "Sending VM %s configuration to xenopsd" (Ref.string_of self);
-                let id = Xenopsd_metadata.push ~__context ~upgrade:false ~self in
+                let id = Xenopsd_metadata.push ~__context ~self in
                 Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
                   (fun () ->
                      info "xenops: VM.resume %s from %s" id (disk |> rpc_of_disk |> Jsonrpc.to_string);

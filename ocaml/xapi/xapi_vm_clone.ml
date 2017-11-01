@@ -232,33 +232,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
     then (Xapi_globs.base_template_name_key, all.Db_actions.vM_name_label) :: other_config
     else other_config
   in
-  (* Copy the old metrics if available, otherwise generate a fresh one *)
-  let m =
-    if Db.is_valid_ref __context all.Db_actions.vM_metrics
-    then Some (Db.VM_metrics.get_record_internal ~__context ~self:all.Db_actions.vM_metrics)
-    else None
-  in
-  let metrics = Ref.make ()
-  and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-  Db.VM_metrics.create ~__context
-    ~ref:metrics
-    ~uuid:metrics_uuid
-    ~memory_actual:(default 0L (may (fun x -> x.Db_actions.vM_metrics_memory_actual) m))
-    ~vCPUs_number:(default 0L (may (fun x -> x.Db_actions.vM_metrics_VCPUs_number) m))
-    ~vCPUs_utilisation:(default [(0L, 0.)] (may (fun x -> x.Db_actions.vM_metrics_VCPUs_utilisation) m))
-    ~vCPUs_CPU:(default [] (may (fun x -> x.Db_actions.vM_metrics_VCPUs_CPU) m))
-    ~vCPUs_params:(default [] (may (fun x -> x.Db_actions.vM_metrics_VCPUs_params) m))
-    ~vCPUs_flags:(default [] (may (fun x -> x.Db_actions.vM_metrics_VCPUs_flags) m))
-    ~start_time:(default Date.never (may (fun x -> x.Db_actions.vM_metrics_start_time) m))
-    ~install_time:(default Date.never (may (fun x -> x.Db_actions.vM_metrics_install_time) m))
-    ~state:(default [] (may (fun x -> x.Db_actions.vM_metrics_state) m))
-    ~last_updated:(default Date.never (may (fun x -> x.Db_actions.vM_metrics_last_updated) m))
-    ~other_config:(default [] (may (fun x -> x.Db_actions.vM_metrics_other_config) m))
-    ~nomigrate:(default false (may (fun x -> x.Db_actions.vM_metrics_nomigrate) m))
-    ~hvm:(default false (may (fun x -> x.Db_actions.vM_metrics_hvm) m))
-    ~nested_virt:(default false (may (fun x -> x.Db_actions.vM_metrics_nested_virt) m))
-  ;
-
+  let metrics = Xapi_vm_helpers.copy_metrics ~__context ~vm in
   let guest_metrics = Xapi_vm_helpers.copy_guest_metrics ~__context ~vm in
 
   (* compute the parent VM *)

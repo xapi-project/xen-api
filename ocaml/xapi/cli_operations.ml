@@ -2755,7 +2755,7 @@ let vm_retrieve_wlb_recommendations printer rpc session_id params =
     failwith ("Parameter '"^name^"' is not a field of the VM class. Failed to select VM for operation.")
 
 let vm_migrate_sxm_params = ["remote-master"; "remote-username"; "vif"; "remote-password";
-                             "remote-network"; "vdi"]
+                             "remote-network"; "vdi"; "vgpu"]
 
 let vm_migrate printer rpc session_id params =
   (* Hack to match host-uuid and host-name for backwards compatibility *)
@@ -2825,6 +2825,11 @@ let vm_migrate printer rpc session_id params =
              let vdi = Client.VDI.get_by_uuid rpc session_id vdi_uuid in
              let sr = Client.SR.get_by_uuid remote_rpc remote_session sr_uuid in
              vdi,sr) (read_map_params "vdi" params) in
+         
+         let vgpu_map = List.map (fun (vgpu_uuid,gpu_group_uuid) ->
+             let vgpu = Client.VGPU.get_by_uuid rpc session_id vgpu_uuid in
+             let gpu_group = Client.GPU_group.get_by_uuid remote_rpc remote_session gpu_group_uuid in
+             vgpu,gpu_group) (read_map_params "vgpu" params) in
 
          let default_sr =
            try let pools = Client.Pool.get_all remote_rpc remote_session in
@@ -2864,7 +2869,7 @@ let vm_migrate printer rpc session_id params =
            vdi_map ;
          let token = Client.Host.migrate_receive remote_rpc remote_session host network options in
          let new_vm =
-           do_vm_op ~include_control_vms:false ~include_template_vms:true printer rpc session_id (fun vm -> Client.VM.migrate_send rpc session_id (vm.getref ()) token true vdi_map vif_map options)
+           do_vm_op ~include_control_vms:false ~include_template_vms:true printer rpc session_id (fun vm -> Client.VM.migrate_send rpc session_id (vm.getref ()) token true vdi_map vif_map options vgpu_map)
              params (["host"; "host-uuid"; "host-name"; "live"; "force"; "copy"] @ vm_migrate_sxm_params) |> List.hd in
          if get_bool_param params "copy" then
            printer (Cli_printer.PList [Client.VM.get_uuid remote_rpc remote_session new_vm])

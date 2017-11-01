@@ -22,6 +22,8 @@ open Xapi_vm_memory_constraints
 open Xapi_network_attach_helpers
 open Listext
 open Fun
+open Pervasiveext
+
 module XenAPI = Client.Client
 
 module D=Debug.Make(struct let name="xapi" end)
@@ -35,10 +37,9 @@ let db_set_in_other_config ~__context ~self ~key ~value =
   Db.VM.add_to_other_config ~__context ~self ~key ~value
 
 let compute_memory_overhead ~__context ~vm =
-  let snapshot = match Db.VM.get_power_state ~__context ~self:vm with
-    | `Paused | `Running | `Suspended -> Helpers.get_boot_record ~__context ~self:vm
-    | `Halted | _ -> Db.VM.get_record ~__context ~self:vm in
-  Memory_check.vm_compute_memory_overhead snapshot
+  let vm_record = Db.VM.get_record ~__context ~self:vm in
+  let hvm = Helpers.is_hvm ~__context ~self:vm in
+  Memory_check.vm_compute_memory_overhead vm_record hvm
 
 let update_memory_overhead ~__context ~vm = Db.VM.set_memory_overhead ~__context ~self:vm ~value:(compute_memory_overhead ~__context ~vm)
 
@@ -853,7 +854,38 @@ let delete_guest_metrics ~__context ~self:vm =
   Db.VM.set_guest_metrics ~__context ~self:vm ~value:Ref.null;
   (try Db.VM_guest_metrics.destroy ~__context ~self:guest_metrics with _ -> ())
 
+let copy_metrics ~__context ~vm =
+  (* Copy the old metrics if available, otherwise generate a fresh one *)
+  let m =
+    let mref = Db.VM.get_metrics ~__context ~self:vm in
+    if Db.is_valid_ref __context mref
+    then Some (Db.VM_metrics.get_record_internal ~__context ~self:mref)
+    else None
+  in
+  let metrics = Ref.make ()
+  and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  Db.VM_metrics.create ~__context
+    ~ref:metrics
+    ~uuid:metrics_uuid
+    ~memory_actual:(default 0L (may (fun x -> x.Db_actions.vM_metrics_memory_actual) m))
+    ~vCPUs_number:(default 0L (may (fun x -> x.Db_actions.vM_metrics_VCPUs_number) m))
+    ~vCPUs_utilisation:(default [(0L, 0.)] (may (fun x -> x.Db_actions.vM_metrics_VCPUs_utilisation) m))
+    ~vCPUs_CPU:(default [] (may (fun x -> x.Db_actions.vM_metrics_VCPUs_CPU) m))
+    ~vCPUs_params:(default [] (may (fun x -> x.Db_actions.vM_metrics_VCPUs_params) m))
+    ~vCPUs_flags:(default [] (may (fun x -> x.Db_actions.vM_metrics_VCPUs_flags) m))
+    ~start_time:(default Date.never (may (fun x -> x.Db_actions.vM_metrics_start_time) m))
+    ~install_time:(default Date.never (may (fun x -> x.Db_actions.vM_metrics_install_time) m))
+    ~state:(default [] (may (fun x -> x.Db_actions.vM_metrics_state) m))
+    ~last_updated:(default Date.never (may (fun x -> x.Db_actions.vM_metrics_last_updated) m))
+    ~other_config:(default [] (may (fun x -> x.Db_actions.vM_metrics_other_config) m))
+    ~nomigrate:(default false (may (fun x -> x.Db_actions.vM_metrics_nomigrate) m))
+    ~hvm:(default false (may (fun x -> x.Db_actions.vM_metrics_hvm) m))
+    ~nested_virt:(default false (may (fun x -> x.Db_actions.vM_metrics_nested_virt) m))
+  ;
+  metrics
+
 let copy_guest_metrics ~__context ~vm =
+  (* Copy the old metrics if available, otherwise return Ref.null *)
   try
     let gm = Db.VM.get_guest_metrics ~__context ~self:vm in
     let all = Db.VM_guest_metrics.get_record ~__context ~self:gm in

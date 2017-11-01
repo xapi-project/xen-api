@@ -458,54 +458,6 @@ let rolling_upgrade_in_progress ~__context =
   with _ ->
     false
 
-let parse_boot_record ~string:lbr =
-  match Xmlrpc_sexpr.sexpr_str_to_xmlrpc lbr with
-  | None     -> API.Legacy.From.vM_t "ret_val" (Xml.parse_string lbr)
-  | Some xml -> API.Legacy.From.vM_t "ret_val" xml
-
-(** Fetch the configuration the VM was booted with *)
-let get_boot_record_of_record ~__context ~string:lbr ~uuid:current_vm_uuid =
-  try
-    parse_boot_record lbr
-  with e ->
-    (* warn "Warning: exception '%s' parsing last booted record (%s) - returning current record instead" lbr (ExnHelper.string_of_exn e); *)
-    Db.VM.get_record ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:current_vm_uuid)
-
-let get_boot_record ~__context ~self =
-  let r = Db.VM.get_record_internal ~__context ~self in
-  let lbr = get_boot_record_of_record ~__context ~string:r.Db_actions.vM_last_booted_record ~uuid:r.Db_actions.vM_uuid in
-  (* CA-31903: we now use an unhealthy mix of fields from the boot_records and the live VM.
-     In particular the VM is currently using dynamic_min and max from the live VM -- not the boot-time settings. *)
-  { lbr with
-    API.vM_memory_target = 0L;
-    API.vM_memory_dynamic_min = r.Db_actions.vM_memory_dynamic_min;
-    API.vM_memory_dynamic_max = r.Db_actions.vM_memory_dynamic_max;
-  }
-
-
-let set_boot_record ~__context ~self newbootrec =
-  (* blank last_booted_record field in newbootrec, so we don't just keep encapsulating
-     old last_boot_records in new snapshots! *)
-  let newbootrec = {newbootrec with API.vM_last_booted_record=""; API.vM_bios_strings=[]} in
-  if rolling_upgrade_in_progress ~__context then
-    begin
-      (* during a rolling upgrade, there might be slaves in the pool
-         who have not yet been upgraded to understand sexprs, so
-         let's still talk using the legacy xmlrpc format.
-      *)
-      let xml = Xml.to_string (API.Legacy.To.vM_t newbootrec) in
-      Db.VM.set_last_booted_record ~__context ~self ~value:xml
-    end
-  else
-    begin
-      (* if it's not a rolling upgrade, then we know everyone
-         else in the pool will understand s-expressions.
-      *)
-      let sexpr = Xmlrpc_sexpr.xmlrpc_to_sexpr_str (API.Legacy.To.vM_t newbootrec) in
-      Db.VM.set_last_booted_record ~__context ~self ~value:sexpr
-    end;
-  ()
-
 (** Inspect the current configuration of a VM and return a boot_method type *)
 let boot_method_of_vm ~__context ~vm =
   if vm.API.vM_HVM_boot_policy <> "" then begin
@@ -545,20 +497,18 @@ let boot_method_of_vm ~__context ~vm =
 
 (** Returns true if the supplied VM configuration is HVM.
     NB that just because a VM's current configuration looks like HVM doesn't imply it
-    actually booted that way; you must check the boot_record to be sure *)
-let is_hvm (x: API.vM_t) = x.API.vM_HVM_boot_policy <> ""
+    actually booted that way; you must check the VM_metrics to be sure *)
+let will_boot_hvm_from_record (x: API.vM_t) = x.API.vM_HVM_boot_policy <> ""
 
 let will_boot_hvm ~__context ~self = Db.VM.get_HVM_boot_policy ~__context ~self <> ""
 
 let has_booted_hvm ~__context ~self =
-  let boot_record = get_boot_record ~__context ~self in
-  boot_record.API.vM_HVM_boot_policy <> ""
+  Db.VM_metrics.get_hvm ~__context ~self:(Db.VM.get_metrics ~__context ~self)
 
-let has_booted_hvm_of_record ~__context r =
-  let boot_record =
-    get_boot_record_of_record ~__context
-      ~string:r.Db_actions.vM_last_booted_record ~uuid:r.Db_actions.vM_uuid in
-  boot_record.API.vM_HVM_boot_policy <> ""
+let is_hvm ~__context ~self =
+  match Db.VM.get_power_state ~__context ~self with
+  | `Paused | `Running | `Suspended -> has_booted_hvm ~__context ~self
+  | `Halted | _ -> will_boot_hvm ~__context ~self
 
 let is_running ~__context ~self = Db.VM.get_domid ~__context ~self <> -1L
 

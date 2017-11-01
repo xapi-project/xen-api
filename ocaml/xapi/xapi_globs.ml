@@ -817,6 +817,8 @@ let nbd_firewall_config_script = ref "/opt/xensource/libexec/nbd-firewall-config
 
 let disable_logging_for= ref []
 
+let nvidia_whitelist = ref "/usr/share/nvidia/vgpu/vgpuConfig.xml"
+
 let igd_passthru_vendor_whitelist = ref []
 
 let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
@@ -982,6 +984,9 @@ let other_options = [
 
   "xenopsd-default", Arg.Set_string default_xenopsd,
   (fun () -> !default_xenopsd), "default xenopsd to use";
+
+  "nvidia-whitelist", Arg.Set_string nvidia_whitelist,
+  (fun () -> !nvidia_whitelist), "path to the NVidia vGPU whitelist file";
 
   gen_list_option "igd-passthru-vendor-whitelist"
     "list of PCI vendor IDs for integrated graphics passthrough (space-separated)"

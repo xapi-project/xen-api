@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE vgpu SYSTEM "http://www.nvidia.com/dtd/vgpuConfig.dtd">
+
+<vgpuconfig>
+  <version>1.0</version>
+  <globalSettings>
+    <homogeneousVgpus>ignore me</homogeneousVgpus>
+    <pluginSoName>ignore me as well</pluginSoName>
+  </globalSettings>
+  <vgpuType id="11" name="TYPE FOO1" class="NVS">
+    <devId vendorId="0x10de" deviceId="0x1111" subsystemVendorId="0x10de" subsystemId="0x2222"></devId>
+    <framebuffer>0x10000000</framebuffer>
+    <numHeads>2</numHeads>
+    <display width="1920" height="1200"></display>
+    <moreData>0x400000</moreData>
+    <evenMoreData>0x6000000</evenMoreData>
+  </vgpuType>
+  <vgpuType id="20" name="TYPE FOO2" class="NVS">
+    <devId vendorId="0x10de" deviceId="0x1112" subsystemVendorId="0x10de" subsystemId="0x2223"></devId>
+    <framebuffer>0x20000000</framebuffer>
+    <numHeads>4</numHeads>
+    <display width="2400" height="1600"></display>
+    <moreData>0x400000</moreData>
+    <evenMoreData>0x6000000</evenMoreData>
+  </vgpuType>
+  <vgpuType id="21" name="TYPE FOO3" class="NVS">
+    <devId vendorId="0x10de" deviceId="0x1111" subsystemVendorId="0x10de" subsystemId="0x2222"></devId>
+    <framebuffer>0x10000000</framebuffer>
+    <numHeads>2</numHeads>
+    <display width="1920" height="1200"></display>
+    <moreData>0x400000</moreData>
+    <evenMoreData>0x6000000</evenMoreData>
+  </vgpuType>
+  <pgpu>
+    <devId vendorId="0x10de" deviceId="0x3333" subsystemVendorId="0x10de" subsystemId="0x4444"></devId>
+    <supportedVgpu vgpuId="11">
+      <maxVgpus>8</maxVgpus>
+      <digest type="signature">ignore me</digest>
+    </supportedVgpu>
+  </pgpu>
+  <pgpu>
+    <devId vendorId="0x10de" deviceId="0x3334" subsystemVendorId="0x10de" subsystemId="0x0"></devId>
+    <supportedVgpu vgpuId="11">
+      <maxVgpus>8</maxVgpus>
+      <digest type="signature">ignore me</digest>
+    </supportedVgpu>
+  </pgpu>
+  <pgpu>
+    <devId vendorId="0x10de" deviceId="0x3335" subsystemVendorId="0x10de" subsystemId="0x4445"></devId>
+    <supportedVgpu vgpuId="20">
+      <maxVgpus>8</maxVgpus>
+      <digest type="signature">ignore me</digest>
+    </supportedVgpu>
+    <supportedVgpu vgpuId="21">
+      <maxVgpus>16</maxVgpus>
+      <digest type="signature">ignore me</digest>
+    </supportedVgpu>
+  </pgpu>
+</vgpuconfig>

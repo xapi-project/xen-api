@@ -29,6 +29,29 @@ let calculate_max_capacities ~__context ~pCI ~size ~supported_VGPU_types =
        vgpu_type, max_capacity)
     supported_VGPU_types
 
+let fetch_compatibility_metadata ~__context ~pgpu_pci =
+  if Db.PCI.get_vendor_id ~__context ~self:pgpu_pci =
+    Xapi_pci.id_of_int Xapi_vgpu_type.Nvidia.vendor_id
+  then (
+     let dbg = Context.string_of_task __context in
+     let pgpu_pci_address = Db.PCI.get_pci_id ~__context ~self:pgpu_pci in
+     Xapi_gpumon.Nvidia.get_pgpu_compatibility_metadata ~dbg ~pgpu_pci_address
+  ) else []
+
+let maybe_fetch_compatibility_metadata ~__context ~pgpu_pci =
+  try fetch_compatibility_metadata ~__context ~pgpu_pci
+  with
+  | Gpumon_interface.NvmlInterfaceNotAvailable -> []
+  | err ->
+    debug "fetch_compatibility_metadata for pgpu_pci:%s failed with %s"
+      (Ref.string_of pgpu_pci) (Printexc.to_string err);
+    []
+
+let populate_compatibility_metadata ~__context ~pgpu ~pgpu_pci =
+  let () = Db.PGPU.set_compatibility_metadata ~__context ~self:pgpu
+    ~value:(maybe_fetch_compatibility_metadata ~__context ~pgpu_pci)
+  in ()
+
 let create ~__context ~pCI ~gPU_group ~host ~other_config
     ~supported_VGPU_types ~size ~dom0_access
     ~is_system_display_device =
@@ -40,7 +63,8 @@ let create ~__context ~pCI ~gPU_group ~host ~other_config
   Db.PGPU.create ~__context ~ref:pgpu ~uuid ~pCI
     ~gPU_group ~host ~other_config ~size
     ~supported_VGPU_max_capacities ~dom0_access
-    ~is_system_display_device;
+    ~is_system_display_device
+    ~compatibility_metadata:(maybe_fetch_compatibility_metadata ~__context ~pgpu_pci:pCI);
   Db.PGPU.set_supported_VGPU_types ~__context
     ~self:pgpu ~value:supported_VGPU_types;
   Db.PGPU.set_enabled_VGPU_types ~__context
@@ -181,6 +205,7 @@ let update_gpus ~__context =
           Db.PGPU.set_is_system_display_device ~__context
             ~self:rf
             ~value:is_system_display_device;
+          populate_compatibility_metadata ~__context ~pgpu:rf ~pgpu_pci:pci;
           (rf, rc)
         with Not_found ->
           (* If a new PCI has appeared then we know this is a system boot.

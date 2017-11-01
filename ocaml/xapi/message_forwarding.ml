@@ -866,6 +866,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     (* Reserves the resources for a VM by setting it as 'scheduled_to_be_resident_on' a host *)
     let allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op () =
+      info "Reserve resources for VM %s on host %s" (Ref.string_of vm) (Ref.string_of host);
       begin match host_op with
         | Some x ->
           let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -873,11 +874,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
           Db.Host.add_to_current_operations ~__context ~self:host ~key:task_id ~value:x;
           Xapi_host_helpers.update_allowed_operations ~__context ~self:host
         | None -> ()
-      end;
-      (* Make sure the last_booted record has useful values for later use in memory checking
-         			   code. *)
-      if snapshot.API.vM_power_state = `Halted then begin
-        Helpers.set_boot_record ~__context ~self:vm snapshot
       end;
       (* Once this is set concurrent VM.start calls will start checking the memory used by this VM *)
       Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:host;
@@ -1605,7 +1601,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
           (fun () ->
              with_vbds_marked ~__context ~vm ~doc:"VM.resume" ~op:`attach
                (fun vbds ->
-                  let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+                  let snapshot = Db.VM.get_record ~__context ~self:vm in
                   let (), host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_resume
                       (fun session_id rpc -> Client.VM.resume rpc session_id vm start_paused force) in
                   host
@@ -1636,7 +1632,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun () ->
            with_vbds_marked ~__context ~vm ~doc:"VM.resume_on" ~op:`attach
              (fun vbds ->
-                let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+                let snapshot = Db.VM.get_record ~__context ~self:vm in
                 reserve_memory_for_vm ~__context ~vm ~host ~snapshot ~host_op:`vm_resume
                   (fun () ->
                      do_op_on ~local_fn ~__context ~host
@@ -1689,7 +1685,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
                raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []));
 
            (* Make sure the target has enough memory to receive the VM *)
-           let snapshot = Helpers.get_boot_record ~__context ~self:vm in
+           let snapshot = Db.VM.get_record ~__context ~self:vm in
            (* MTC:  An MTC-protected VM has a peer VM on the destination host to which
               					   it migrates to.  When reserving memory, we must substitute the source VM
               					   with this peer VM.  If is not an MTC-protected VM, then this call will
@@ -1708,24 +1704,48 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       update_vif_operations ~__context ~vm;
       Cpuid_helpers.update_cpu_flags ~__context ~vm ~host
 
-    let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
+    let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options =
+      info "VM.assert_can_migrate_sender: VM = '%s'" (vm_uuid ~__context vm);
+      let local_fn = Local.VM.assert_can_migrate_sender ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options in
+      forward_vm_op ~local_fn ~__context ~vm
+        (fun session_id rpc -> Client.VM.assert_can_migrate_sender rpc session_id vm dest live vdi_map vif_map vgpu_map options)
+
+    let assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options ~vgpu_map =
+      info "VM.assert_can_migrate: VM = '%s'" (vm_uuid ~__context vm);
+      (* Run the checks that can be done using just the DB directly on the master *)
+      Local.VM.assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options;
+      (* Run further checks on the sending host *)
+      assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options
+
+    let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options ~vgpu_map =
       info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm);
-      let local_fn = Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~options in
+      let local_fn = Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options in
       let forwarder =
-        if Xapi_vm_lifecycle.is_live ~__context ~self:vm then forward_vm_op else
+        if Xapi_vm_lifecycle.is_live ~__context ~self:vm then
+          let host = List.assoc Xapi_vm_migrate._host dest |> Ref.of_string in
+          if Db.is_valid_ref __context host then
+            (* Intra-pool: reserve resources on the destination host, then
+             * forward the call to the source. *)
+            let snapshot = Db.VM.get_record ~__context ~self:vm in
+            (fun ~local_fn ~__context ~vm op ->
+              allocate_vm_to_host ~__context ~vm ~host ~snapshot ~host_op:`vm_migrate ();
+              forward_vm_op ~local_fn ~__context ~vm op)
+          else
+            (* Cross pool: just forward to the source host. Resources on the
+             * destination will be reserved separately. *)
+            forward_vm_op
+        else
           let snapshot = Db.VM.get_record ~__context ~self:vm in
           (fun ~local_fn ~__context ~vm op ->
              fst (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_migrate op)) in
       with_vm_operation ~__context ~self:vm ~doc:"VM.migrate_send" ~op:`migrate_send
         (fun () ->
-           Local.VM.assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options;
+           Server_helpers.exec_with_subtask ~__context "VM.assert_can_migrate" (fun ~__context ->
+             assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options
+           );
            forwarder ~local_fn ~__context ~vm
-             (fun session_id rpc -> Client.VM.migrate_send rpc session_id vm dest live vdi_map vif_map options)
+             (fun session_id rpc -> Client.VM.migrate_send rpc session_id vm dest live vdi_map vif_map options vgpu_map)
         )
-
-    let assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
-      info "VM.assert_can_migrate: VM = '%s'" (vm_uuid ~__context vm);
-      Local.VM.assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options
 
     let send_trigger ~__context ~vm ~trigger =
       info "VM.send_trigger: VM = '%s'; trigger = '%s'" (vm_uuid ~__context vm) trigger;
@@ -2657,6 +2677,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun session_id rpc ->
            Client.Host.mxgpu_vf_setup rpc session_id host)
 
+    let allocate_resources_for_vm ~__context ~self ~vm ~live =
+      info "Host.host_allocate_resources_for_vm: host = %s; VM = %s"
+        (host_uuid ~__context self) (vm_uuid ~__context vm);
+      let snapshot = Db.VM.get_record ~__context ~self:vm in
+      VM.allocate_vm_to_host ~__context ~vm ~host:self ~snapshot ()
   end
 
   module Host_crashdump = struct
@@ -3561,7 +3586,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun () ->
            let snapshot, host =
              if Xapi_vm_lifecycle.is_live ~__context ~self:vm then
-               (Helpers.get_boot_record ~__context ~self:vm,
+               (Db.VM.get_record ~__context ~self:vm,
                 Db.VM.get_resident_on ~__context ~self:vm)
              else
                let snapshot = Db.VM.get_record ~__context ~self:vm in

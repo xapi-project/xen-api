@@ -676,6 +676,10 @@ let _ =
     ~doc:"VGPU type is not one of the PGPU's supported types." ();
   error Api_errors.vgpu_type_not_compatible_with_running_type ["pgpu"; "type"; "running_type"]
     ~doc:"VGPU type is not compatible with one or more of the VGPU types currently running on this PGPU" ();
+  error Api_errors.vgpu_destination_incompatible ["reason"; "vgpu"; "host"]
+    ~doc:"The VGPU is not compatible with any PGPU in the destination." ();
+  error Api_errors.nvidia_tools_error ["host"]
+    ~doc:"Nvidia tools error. Please ensure that the latest Nvidia tools are installed" ();
 
   error Api_errors.openvswitch_not_active []
     ~doc:"This operation needs the OpenVSwitch networking backend to be enabled on all hosts in the pool." ();
@@ -1683,7 +1687,7 @@ let rrd_cf_type = Enum ("rrd_cf_type",
 let vm_get_boot_record = call
     ~name:"get_boot_record"
     ~in_oss_since:None
-    ~in_product_since:rel_rio
+    ~lifecycle:[Published, rel_rio, ""; Deprecated, rel_inverness, "Use the current VM record/fields instead"]
     ~doc:"Returns a record describing the VM's dynamic state, initialised when the VM boots and updated to reflect runtime configuration changes e.g. CPU hotplug"
     ~result:(Record _vm, "A record describing the VM")
     ~params:[Ref _vm, "self", "The VM whose boot-time state to return"]
@@ -2509,12 +2513,15 @@ let vm_migrate_send = call
     ~name: "migrate_send"
     ~in_product_since:rel_tampa
     ~doc: "Migrate the VM to another host.  This can only be called when the specified VM is in the Running state."
-    ~params:[Ref _vm, "vm", "The VM";
-             Map(String,String), "dest", "The result of a Host.migrate_receive call.";
-             Bool, "live", "Live migration";
-             Map (Ref _vdi, Ref _sr), "vdi_map", "Map of source VDI to destination SR";
-             Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
-             Map (String, String), "options", "Other parameters"]
+    ~versioned_params:
+      [{param_type=Ref _vm; param_name="vm"; param_doc="The VM"; param_release=tampa_release; param_default=None};
+       {param_type=Map(String,String); param_name="dest"; param_doc="The result of a Host.migrate_receive call."; param_release=tampa_release;  param_default=None};
+       {param_type=Bool; param_name="live"; param_doc="Live migration"; param_release=tampa_release; param_default=None};
+       {param_type=Map (Ref _vdi, Ref _sr); param_name="vdi_map"; param_doc="Map of source VDI to destination SR"; param_release=tampa_release; param_default=None};
+       {param_type=Map (Ref _vif, Ref _network); param_name="vif_map"; param_doc="Map of source VIF to destination network"; param_release=tampa_release; param_default=None};
+       {param_type=Map (String, String); param_name="options"; param_doc="Other parameters"; param_release=tampa_release; param_default=None};
+       {param_type=Map (Ref _vgpu, Ref _gpu_group); param_name="vgpu_map"; param_doc="Map of source vGPU to destination GPU group"; param_release=inverness_release; param_default=Some (VMap [])}
+      ]
     ~result:(Ref _vm, "The reference of the newly created VM in the destination pool")
     ~errs:[Api_errors.vm_bad_power_state; Api_errors.license_restriction]
     ~allowed_roles:_R_VM_POWER_ADMIN
@@ -2524,15 +2531,33 @@ let vm_assert_can_migrate = call
     ~name:"assert_can_migrate"
     ~in_product_since:rel_tampa
     ~doc:"Assert whether a VM can be migrated to the specified destination."
+    ~versioned_params:
+      [{param_type=Ref _vm; param_name="vm"; param_doc="The VM"; param_release=tampa_release; param_default=None};
+       {param_type=Map(String,String); param_name="dest"; param_doc="The result of a VM.migrate_receive call."; param_release=tampa_release;  param_default=None};
+       {param_type=Bool; param_name="live"; param_doc="Live migration"; param_release=tampa_release; param_default=None};
+       {param_type=Map (Ref _vdi, Ref _sr); param_name="vdi_map"; param_doc="Map of source VDI to destination SR"; param_release=tampa_release; param_default=None};
+       {param_type=Map (Ref _vif, Ref _network); param_name="vif_map"; param_doc="Map of source VIF to destination network"; param_release=tampa_release; param_default=None};
+       {param_type=Map (String, String); param_name="options"; param_doc="Other parameters"; param_release=tampa_release; param_default=None};
+       {param_type=Map (Ref _vgpu, Ref _gpu_group); param_name="vgpu_map"; param_doc="Map of source vGPU to destination GPU group"; param_release=inverness_release; param_default=Some (VMap [])}
+      ]
+    ~allowed_roles:_R_VM_POWER_ADMIN
+    ~errs:[Api_errors.license_restriction]
+    ()
+
+let vm_assert_can_migrate_sender = call
+    ~name:"assert_can_migrate_sender"
+    ~lifecycle:[]
+    ~doc:"Assertions for VM.assert_can_migrate that must be done on the sending host."
     ~params:[
       Ref _vm, "vm", "The VM";
       Map(String,String), "dest", "The result of a VM.migrate_receive call.";
       Bool, "live", "Live migration";
       Map (Ref _vdi, Ref _sr), "vdi_map", "Map of source VDI to destination SR";
       Map (Ref _vif, Ref _network), "vif_map", "Map of source VIF to destination network";
+      Map (Ref _vgpu, Ref _gpu_group), "vgpu_map", "Map of source vGPU to destination GPU group";
       Map (String, String), "options", "Other parameters" ]
     ~allowed_roles:_R_VM_POWER_ADMIN
-    ~errs:[Api_errors.license_restriction]
+    ~hide_from_docs:true
     ()
 
 let vm_s3_suspend = call
@@ -4999,6 +5024,19 @@ let host_mxgpu_vf_setup = call
     ~allowed_roles:_R_VM_OP
     ()
 
+let host_allocate_resources_for_vm = call
+    ~name:"allocate_resources_for_vm"
+    ~lifecycle:[Published, rel_inverness, ""]
+    ~doc:"Reserves the resources for a VM by setting the 'scheduled_to_be_resident_on' fields"
+    ~params:[
+      Ref _host, "self", "The host";
+      Ref _vm, "vm", "The VM";
+      Bool, "live", "Is this part of a live migration?"
+    ]
+    ~hide_from_docs:true
+    ~allowed_roles:_R_VM_OP
+    ()
+
 (** Hosts *)
 let host =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -5090,6 +5128,7 @@ let host =
                 host_set_ssl_legacy;
                 host_apply_guest_agent_config;
                 host_mxgpu_vf_setup;
+                host_allocate_resources_for_vm;
                ]
     ~contents:
       ([ uid _host;
@@ -8023,6 +8062,7 @@ let vm =
                 vm_maximise_memory;
                 vm_migrate_send;
                 vm_assert_can_migrate;
+                vm_assert_can_migrate_sender;
                 vm_get_boot_record;
                 vm_get_data_sources; vm_record_data_source; vm_query_data_source; vm_forget_data_source_archives;
                 assert_operation_valid vm_operations _vm _self;
@@ -9375,6 +9415,7 @@ let pgpu =
       field ~qualifier:DynamicRO ~ty:(Map (Ref _vgpu_type, Int)) ~lifecycle:[Published, rel_vgpu_productisation, ""] ~default_value:(Some (VMap [])) "supported_VGPU_max_capacities" "A map relating each VGPU type supported on this GPU to the maximum number of VGPUs of that type which can run simultaneously on this GPU";
       field ~qualifier:DynamicRO ~ty:(pgpu_dom0_access) ~lifecycle:[Published, rel_cream, ""] ~default_value:(Some (VEnum "enabled")) "dom0_access" "The accessibility of this device from dom0";
       field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_cream, ""] ~default_value:(Some (VBool false)) "is_system_display_device" "Is this device the system display device";
+      field ~qualifier:DynamicRO ~ty:(Map (String,String)) ~lifecycle:[Published, rel_inverness, ""] ~default_value:(Some (VMap [])) "compatibility_metadata" "PGPU metadata to determine whether a VGPU can migrate between two PGPUs";
     ]
     ()
 
@@ -9529,7 +9570,7 @@ let vgpu =
       field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
       field ~qualifier:DynamicRO ~ty:(Ref _vgpu_type) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "type" "Preset type for this VGPU" ~default_value:(Some (VRef null_ref));
       field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "resident_on" "The PGPU on which this VGPU is running" ~default_value:(Some (VRef null_ref));
-      field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_dundee, ""] ~internal_only:true "scheduled_to_be_resident_on" "The PGPU on which this VGPU is scheduled to run" ~default_value:(Some (VRef null_ref));
+      field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_dundee, ""] "scheduled_to_be_resident_on" "The PGPU on which this VGPU is scheduled to run" ~default_value:(Some (VRef null_ref));
     ]
     ()
 

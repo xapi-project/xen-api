@@ -96,6 +96,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    xcp.network
    xcp.v6
    xcp.memory
+   xcp.gpumon
    xcp.updates
    rrdd-plugin
    xenopsd

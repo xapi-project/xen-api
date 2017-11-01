@@ -234,6 +234,27 @@ let assert_can_live_import __context rpc session_id vm_record =
   if vm_record.API.vM_power_state = `Running || vm_record.API.vM_power_state = `Paused
   then assert_memory_available ()
 
+(* Assert that the local host, which is the host we are live-migrating the VM to,
+ * has free capacity on a PGPU from the given VGPU's GPU group. *)
+let assert_can_live_import_vgpu ~__context vgpu_record =
+  let host = Helpers.get_localhost ~__context in
+  let local_pgpus = Db.PGPU.get_refs_where ~__context ~expr:Db_filter_types.(And
+    (Eq (Field "GPU_group", Literal (Ref.string_of vgpu_record.API.vGPU_GPU_group)),
+     Eq (Field "host", Literal (Ref.string_of host))
+    )
+  ) in
+  let capacity_exists =
+    List.exists (fun pgpu ->
+      try Xapi_pgpu_helpers.assert_capacity_exists_for_VGPU_type ~__context ~self:pgpu ~vgpu_type:vgpu_record.API.vGPU_type; true
+      with _ -> false
+    ) local_pgpus
+  in
+  if not capacity_exists then
+    raise Api_errors.(Server_error (vm_requires_gpu, [
+        Ref.string_of vgpu_record.API.vGPU_VM;
+        Ref.string_of vgpu_record.API.vGPU_GPU_group
+      ]))
+
 (* The signature for a set of functions which we must provide to be able to import an object type. *)
 module type HandlerTools = sig
   (* A type which represents how we should deal with the import of an object. *)
@@ -413,8 +434,9 @@ module VM : HandlerTools = struct
         if vm_has_field ~x ~name:"has_vendor_device" then vm_record else (
           {vm_record with API.vM_has_vendor_device = false;}
         ) in
-      let vm_record = {vm_record with API.
-                                   vM_memory_overhead = Memory_check.vm_compute_memory_overhead vm_record
+      let vm_record = {vm_record with
+                        API.vM_memory_overhead = Memory_check.vm_compute_memory_overhead
+                         ~vm_record ~hvm:(Helpers.will_boot_hvm_from_record vm_record)
                       } in
       let vm_record = {vm_record with API.vM_protection_policy = Ref.null} in
       (* Full restore preserves UUIDs, so if we are replacing an existing VM the version number should be incremented *)
@@ -932,10 +954,10 @@ module VBD : HandlerTools = struct
       (* If the VBD is supposed to be attached to a PV guest (which doesn't support
          				 currently_attached empty drives) then throw a fatal error. *)
       let original_vm = API.Legacy.From.vM_t "" (find_in_export (Ref.string_of vbd_record.API.vBD_VM) state.export) in
-
-      let has_booted_hvm =
-        let lbr = try Helpers.parse_boot_record original_vm.API.vM_last_booted_record with _ -> original_vm in
-        lbr.API.vM_HVM_boot_policy <> "" in
+      (* Note: the following is potentially inaccurate: the find out whether a running or
+       * suspended VM has booted HVM, we must consult the VM metrics, but those aren't
+       * available in the exported metadata. *)
+      let has_booted_hvm = Helpers.will_boot_hvm_from_record original_vm in
 
       (* In the case of dry_run live migration, don't check for
          				 missing disks as CDs will be ejected before the real migration. *)
@@ -1191,17 +1213,34 @@ module VGPU : HandlerTools = struct
       let vm = log_reraise
           ("Failed to find VGPU's VM: " ^ (Ref.string_of vgpu_record.API.vGPU_VM))
           (lookup vgpu_record.API.vGPU_VM) state.table in
-      let group = log_reraise
+      let group =
+        (* If we find the cross-pool migration key, attach the vgpu to the provided gpu_group... *)
+        if List.mem_assoc Constants.storage_migrate_vgpu_map_key vgpu_record.API.vGPU_other_config
+        then Ref.of_string (List.assoc Constants.storage_migrate_vgpu_map_key vgpu_record.API.vGPU_other_config)
+        else
+          (* ...otherwise fall back to looking up the vgpu from the state table. *)
+          log_reraise
           ("Failed to find VGPU's GPU group: " ^ (Ref.string_of vgpu_record.API.vGPU_GPU_group))
           (lookup vgpu_record.API.vGPU_GPU_group) state.table in
       let _type = log_reraise
           ("Failed to find VGPU's type: " ^ (Ref.string_of vgpu_record.API.vGPU_type))
           (lookup vgpu_record.API.vGPU_type) state.table in
+      (* Make sure we remove the cross-pool migration VGPU mapping key from the other_config
+       * before creating a VGPU - otherwise we'll risk sending this key on to another pool
+       * during a future cross-pool migration and it won't make sense. *)
+      let other_config =
+        List.filter
+          (fun (k, _) -> k <> Constants.storage_migrate_vgpu_map_key)
+          vgpu_record.API.vGPU_other_config
+      in
       let vgpu_record = { vgpu_record with
                           API.vGPU_VM = vm;
                           API.vGPU_GPU_group = group;
                           API.vGPU_type = _type;
+                          API.vGPU_other_config = other_config;
                         } in
+      if is_live config then
+        assert_can_live_import_vgpu ~__context vgpu_record;
       Create vgpu_record
 
   let handle_dry_run __context config rpc session_id state x precheck_result =

@@ -135,3 +135,83 @@ let assert_capacity_exists_for_VGPU_type ~__context ~self ~vgpu_type =
   match get_remaining_capacity_internal ~__context ~self ~vgpu_type with
   | Either.Left e -> raise e
   | Either.Right capacity -> ()
+
+let assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu_map ~host ?remote () =
+  let module XenAPI = Client.Client in
+  (* Helpers to forward the call to a remote pool when needed *)
+  let has_implementation implementation vgpu_type =
+    let dest_implementation = 
+      match remote with
+      | None -> Db.VGPU_type.get_implementation ~__context ~self:vgpu_type
+      | Some (rpc, session_id) -> XenAPI.VGPU_type.get_implementation rpc session_id vgpu_type
+    in implementation = dest_implementation
+  in
+  let get_supported_vgpu_types pgpu = 
+    match remote with
+    | None -> Db.PGPU.get_supported_VGPU_types ~__context ~self:pgpu
+    | Some (rpc, session_id) -> XenAPI.PGPU.get_supported_VGPU_types rpc session_id pgpu
+  in
+  let get_pgpus_of_host host =
+    match remote with
+    | None -> Db.Host.get_PGPUs ~__context ~self:host
+    | Some (rpc, session_id) -> XenAPI.Host.get_PGPUs rpc session_id host
+  in
+  let get_pgpus_of_gpu_group gpu_group =
+    match remote with
+    | None -> Db.GPU_group.get_PGPUs ~__context ~self:gpu_group
+    | Some (rpc, session_id) -> XenAPI.GPU_group.get_PGPUs rpc session_id gpu_group
+  in
+  let get_compatibility_metadata pgpu =
+    match remote with
+    | None -> Db.PGPU.get_compatibility_metadata ~__context ~self:pgpu
+    | Some (rpc, session_id) ->XenAPI.PGPU.get_compatibility_metadata rpc session_id pgpu
+  in
+  (* extract vgpu implementation *)
+  let vgpu_impl vgpu = 
+    vgpu
+    |> (fun self -> Db.VGPU.get_type ~__context ~self)
+    |> (fun self -> Db.VGPU_type.get_implementation ~__context ~self)
+  in
+  (* get first pgpu with the correct implementation, the vgpu is needed for the error metadata *)
+  let rec get_first_pgpu_of_implementation vgpu implementation = function
+    | [] -> 
+      debug "No compatible pGPU found on host %s, needed by VM %s" (Ref.string_of host) (Ref.string_of vm);
+      let pgpu_group = Db.VGPU.get_GPU_group ~__context ~self:vgpu in
+      raise Api_errors.(Server_error (vm_requires_gpu, [Ref.string_of vm; Ref.string_of pgpu_group]))
+    | pgpu :: rest -> 
+      let supported = 
+        get_supported_vgpu_types pgpu
+        |> List.exists (has_implementation implementation)
+      in
+      if supported then pgpu
+      else get_first_pgpu_of_implementation vgpu implementation rest
+  in
+  let test_nvidia_compatibility vgpu pgpu = 
+    let pgpu_metadata =
+      let key = Xapi_gpumon.Nvidia.key in
+      try
+        get_compatibility_metadata pgpu
+        |> List.assoc key
+      with Not_found -> 
+        debug "Key %s is missing from the compatibility_metadata for pgpu %s on the host %s." key (Ref.string_of pgpu) (Ref.string_of host);
+        raise Api_errors.(Server_error (nvidia_tools_error, [Ref.string_of host]))
+    in
+    Xapi_gpumon.Nvidia.assert_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu ~dest_host:host ~encoded_pgpu_metadata:pgpu_metadata
+  in
+  let test_compatibility vgpu pgpus =
+    match vgpu_impl vgpu with
+      | `passthrough | `gvt_g | `mxgpu -> ()
+      | `nvidia as impl -> 
+        let pgpu = get_first_pgpu_of_implementation vgpu impl pgpus
+        in test_nvidia_compatibility vgpu pgpu
+  in
+  match vgpu_map with
+  | [] ->
+    let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
+    let pgpus = get_pgpus_of_host host in
+    List.iter (fun vgpu -> test_compatibility vgpu pgpus) vgpus
+  | vgpus ->
+    List.iter (fun (vgpu, gpu_group) ->
+      let pgpus = get_pgpus_of_gpu_group gpu_group in
+      test_compatibility vgpu pgpus
+      ) vgpus

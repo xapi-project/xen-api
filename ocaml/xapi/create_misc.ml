@@ -173,7 +173,6 @@ let (+++) = Int64.add
 (**     1. The domain zero record.                                     *)
 (**     2. The domain zero console record.                             *)
 (**     3. The domain zero guest metrics record.                       *)
-(**     4. The domain zero shadow record.                              *)
 (** This function makes sure there is exactly one record of each type. *)
 (** It updates existing records if they are found, or else creates new *)
 (** records for any records that are missing.                          *)
@@ -181,8 +180,7 @@ let rec ensure_domain_zero_records ~__context ~host (host_info: host_info) : uni
   maybe_upgrade_domain_zero_record ~__context ~host host_info;
   let domain_zero_ref = ensure_domain_zero_record ~__context host_info in
   ensure_domain_zero_console_record ~__context ~domain_zero_ref;
-  ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref host_info;
-  ensure_domain_zero_shadow_record ~__context ~domain_zero_ref
+  ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref host_info
 
 and maybe_upgrade_domain_zero_record ~__context ~host (host_info: host_info) =
   try
@@ -229,11 +227,6 @@ and ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref (host_in
       Db.VM.set_metrics ~__context ~self:domain_zero_ref ~value:metrics_ref
     end
 
-and ensure_domain_zero_shadow_record ~__context ~domain_zero_ref : unit =
-  (* Always create a new shadow record. *)
-  let domain_zero_record = Db.VM.get_record ~__context ~self:domain_zero_ref in
-  Helpers.set_boot_record ~__context ~self:domain_zero_ref domain_zero_record
-
 and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
   (* Determine domain 0 memory constraints. *)
   let memory = create_domain_zero_memory_constraints host_info in
@@ -246,8 +239,24 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
   let uuid = host_info.dom0_uuid in
   (* FIXME: Assume dom0 has 1 vCPU per Host_cpu for now *)
   let vcpus = calculate_domain_zero_vcpu_count ~__context in
-  let metrics = Ref.make () in
-  (* Now create the database record. *)
+  let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let vCPUs_utilisation = [(0L, 0.)] in
+  (* Now create the database records. *)
+  Db.VM_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
+    ~memory_actual:0L ~vCPUs_number:0L
+    ~vCPUs_utilisation
+    ~vCPUs_CPU:[]
+    ~vCPUs_params:[]
+    ~vCPUs_flags:[]
+    ~state:[]
+    ~start_time:Date.never
+    ~install_time:Date.never
+    ~last_updated:Date.never
+    ~other_config:[]
+    ~hvm:false
+    ~nested_virt:false
+    ~nomigrate:false
+  ;
   Db.VM.create ~__context ~ref:domain_zero_ref
     ~name_label:("Control domain on host: " ^ host_info.hostname) ~uuid
     ~name_description:"The domain which manages physical devices and manages other domains"

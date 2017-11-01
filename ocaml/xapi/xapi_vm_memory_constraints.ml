@@ -94,14 +94,13 @@ module Vm_memory_constraints : T = struct
     extract vm_record
 
   let get_live ~__context ~vm_ref =
-    let live_record = Db.VM.get_record ~__context ~self:vm_ref in
-    let boot_record = Helpers.get_boot_record ~__context ~self:vm_ref in
+    let vm_record = Db.VM.get_record ~__context ~self:vm_ref in
     {
-      static_min  = boot_record.API.vM_memory_static_min;
-      dynamic_min = live_record.API.vM_memory_dynamic_min;
-      target      = live_record.API.vM_memory_target;
-      dynamic_max = live_record.API.vM_memory_dynamic_max;
-      static_max  = boot_record.API.vM_memory_static_max;
+      static_min  = vm_record.API.vM_memory_static_min;
+      dynamic_min = vm_record.API.vM_memory_dynamic_min;
+      target      = vm_record.API.vM_memory_target;
+      dynamic_max = vm_record.API.vM_memory_dynamic_max;
+      static_max  = vm_record.API.vM_memory_static_max;
     }
 
   let set ~__context ~vm_ref ~constraints =
