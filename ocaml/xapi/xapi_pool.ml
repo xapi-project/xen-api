@@ -113,8 +113,18 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
 
   (* The maximum pool size allowed must be restricted to 3 hosts for the pool which does not have Pool_size feature *)
   let assert_pool_size_unrestricted () =
-    if (not (Pool_features.is_enabled ~__context Features.Pool_size)) &&
-      (List.length (Client.Host.get_all ~rpc ~session_id) >= Xapi_globs.restricted_pool_size) then
+    let allowed =
+      let dom0 = Helpers.get_domain_zero ~__context in
+      Db.VM.get_records_where ~__context
+        ~expr:(Eq(Field "is_control_domain", Literal "true"))
+      |> List.exists (fun (vmref, vmrec) ->
+          (vmref <> dom0) &&
+          (Xapi_stdext_std.Xstringext.String.endswith "-CVM" vmrec.API.vM_name_label)
+        )
+    in
+    if (not allowed) &&
+       (not (Pool_features.is_enabled ~__context Features.Pool_size)) &&
+       (List.length (Client.Host.get_all ~rpc ~session_id) >= Xapi_globs.restricted_pool_size) then
       raise (Api_errors.Server_error(Api_errors.license_restriction, [Features.name_of_feature Features.Pool_size]))
   in
 
