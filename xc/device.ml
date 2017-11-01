@@ -2066,6 +2066,7 @@ module Backend = struct
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
         Dm_Common.suspend task ~xs ~qemu_domid domid;
         let file = sprintf qemu_save_path domid in
+        qmp_write domid (Qmp.Command(None, Qmp.Stop));
         qmp_write domid (Qmp.Command(None, Qmp.Xen_save_devices_state file))
 
       let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel _ =
