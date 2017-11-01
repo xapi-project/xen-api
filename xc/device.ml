@@ -2132,9 +2132,32 @@ module Backend = struct
           )
 
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
-        let file = sprintf qemu_save_path domid in
-        qmp_write domid Qmp.(Command(None, Stop));
-        qmp_write domid Qmp.(Command(None, Xen_save_devices_state file))
+        let open Qmp in
+        let c = Qmp_protocol.connect (qmp_libxl_path domid) in
+        finally
+          (fun () ->
+             let fd_of_c = Qmp_protocol.to_fd c in
+             let save_file = sprintf qemu_save_path domid in
+             let fd_of_save_file = Unix.openfile save_file [ Unix.O_WRONLY; Unix.O_CREAT ] 0o660 in
+             finally
+               (fun () -> ignore(Fd_send_recv.send_fd fd_of_c " " 0 1 [] fd_of_save_file))
+               (fun () -> Unix.close fd_of_save_file);
+
+             let qmp_cmd = Command (None, Add_fd None) in
+             Qmp_protocol.negotiate c;
+             Qmp_protocol.write c qmp_cmd;
+             let fd_info = match Qmp_protocol.read c with
+               | Success (None, Fd_info x) -> x
+               | _ -> raise (Internal_error (sprintf "Get unexpected result after sending Qmp message: %s" (string_of_message qmp_cmd)))
+             in
+             finally
+               (fun () ->
+                  let path = sprintf "/dev/fdset/%d" fd_info.fdset_id in
+                  Qmp_protocol.write c (Command (None, Stop));
+                  Qmp_protocol.write c (Command (None, Xen_save_devices_state path)))
+               (fun () ->
+                  Qmp_protocol.write c (Command (None, Remove_fd fd_info.fdset_id))))
+          (fun () -> Qmp_protocol.close c)
 
       let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ?(fds=[]) _ =
         let pid = Dm_Common.init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ~fds () in
