@@ -305,22 +305,11 @@ let call_api_functions_internal ~__context f =
          with e ->
            debug "Helpers.call_api_functions failed to logout: %s (ignoring)" (Printexc.to_string e))
 
-
-(* Note: `test_fn` here is a mechanism for providing an alternative to an API
-   call _only for unit testing_ - if !test_mode above is true this function will
-   call the test code instead of `f`, as API calls currently do not work in the
-   unit test context. This is ONLY intended as a LAST RESORT mechanism if
-   there's no other way of achieving this effect. We should move the code in
-   the direction where this sort of thing is unnecessary. *)
-let test_mode = ref false
-let call_api_functions ~__context ?test_fn f =
-  if not !test_mode
-  then call_api_functions_internal ~__context f
-  else begin
-    match test_fn with
-    | Some fn -> fn ()
-    | None -> failwith "Test mode API function unset"
-  end
+let call_api_functions ~__context f =
+  match Context.get_test_rpc __context with
+  | Some rpc -> f rpc (Ref.of_string "fake_session")
+  | None ->
+    call_api_functions_internal ~__context f
 
 let call_emergency_mode_functions hostname f =
   let open Xmlrpc_client in

@@ -619,7 +619,6 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
       Helpers.call_api_functions ~__context
         (fun rpc session_id ->
            Client.Event.from ~rpc ~session_id ~classes ~token ~timeout |> Event_types.event_from_of_rpc)
-        ~test_fn:(fun () -> Xapi_event.from ~__context ~classes ~token ~timeout |> Event_types.parse_event_from)
     in
     List.iter (fun event -> debug "wait_for_vbds_to_be_unplugged_and_destroyed: got event %s" (Event_types.string_of_event event)) from.Event_types.events;
     (from.Event_types.token, most_recent_vbds_field from.Event_types.events)
@@ -1002,7 +1001,7 @@ let enable_cbt ~__context ~self =
 
 let disable_cbt = change_cbt_status ~new_cbt_enabled:false ~caller_name:"VDI.disable_cbt"
 
-let set_cbt_enabled ~__context ~self ~value = 
+let set_cbt_enabled ~__context ~self ~value =
   if Db.VDI.get_cbt_enabled ~__context ~self <> value then begin
     Db.VDI.set_cbt_enabled ~__context ~self ~value:value;
     update_allowed_operations ~__context ~self
