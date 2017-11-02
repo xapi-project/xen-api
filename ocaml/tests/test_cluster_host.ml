@@ -27,14 +27,14 @@ let test_dbsync_join () =
   let __context = Test_common.make_test_database () in
   let cluster = create_cluster ~__context true in
   let localhost = Helpers.get_localhost ~__context in
-  let result = sync_required ~__context in
-  OUnit.assert_equal result (Some (cluster,localhost))
+  let result = sync_required ~__context ~host:localhost in
+  OUnit.assert_equal result (Some (cluster))
 
 let test_dbsync_nojoin () =
   let __context = Test_common.make_test_database () in
   let _cluster = create_cluster ~__context false in
-  let _localhost = Helpers.get_localhost ~__context in
-  let result = sync_required ~__context in
+  let localhost = Helpers.get_localhost ~__context in
+  let result = sync_required ~__context ~host:localhost in
   OUnit.assert_equal result None
 
 open OUnit
