@@ -2889,6 +2889,14 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.Cluster.pool_create;
       flags=[];
     };
+    "cluster-pool-resync",
+    {
+      reqd=["cluster-uuid"];
+      optn=[];
+      help="Resync a cluster across a pool";
+      implementation=No_fd Cli_operations.Cluster.pool_resync;
+      flags=[];
+    };
     "cluster-create",
     {
       reqd=["network-uuid"];
