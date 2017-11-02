@@ -93,6 +93,7 @@ let start_server handlers =
   Xapi.listen_unix_socket "/tmp/xapi-test/xapi-unit-test-socket"
 
 let harness_init () =
+  Debug.log_to_stdout ();
   Printexc.record_backtrace true;
   Xcp_client.use_switch := false;
   Pool_role.set_pool_role_for_test ();
