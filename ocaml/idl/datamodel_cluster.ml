@@ -53,6 +53,14 @@ let pool_create = call
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+let pool_resync = call
+  ~name:"pool_resync"
+  ~doc:"Resynchronise the cluster_host objects across the pool. Creates them where they need creating and then plugs them"
+  ~params:[ Ref _cluster, "cluster", "The cluster to resync"]
+  ~lifecycle
+  ~allowed_roles:_R_POOL_ADMIN
+  ()
+
 let t =
   create_obj
     ~name: _cluster
@@ -102,5 +110,6 @@ let t =
       [ create
       ; destroy
       ; pool_create
+      ; pool_resync
       ]
     ()
