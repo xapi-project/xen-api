@@ -4234,27 +4234,21 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module Cluster = struct
     let create ~__context ~network ~cluster_stack ~pool_auto_join =
       info "Cluster.create";
-      let local_fn = Local.Cluster.create ~network ~cluster_stack ~pool_auto_join in
-      let master = Helpers.get_master ~__context in
       let pool = Db.Pool.get_all ~__context |> List.hd in (* assumes 1 pool in DB *)
       Xapi_pool_helpers.with_pool_operation ~__context ~self:pool ~doc:"Cluster.create" ~op:`cluster_create
-        (fun () ->
-           do_op_on ~__context ~local_fn ~host:master
-             (fun session_id rpc -> Client.Cluster.create rpc session_id network cluster_stack pool_auto_join))
+        (fun () -> Local.Cluster.create ~__context ~network ~cluster_stack ~pool_auto_join)
 
     let destroy ~__context ~self =
       info "Cluster.destroy";
-      let local_fn = Local.Cluster.destroy ~self in
-      let master = Helpers.get_master ~__context in
-      do_op_on ~__context ~local_fn ~host:master
-        (fun session_id rpc -> Client.Cluster.destroy rpc session_id self)
+      Local.Cluster.destroy ~__context ~self
 
     let pool_create ~__context ~pool ~cluster_stack ~network =
       info "Cluster.pool_create";
-      let local_fn = Local.Cluster.pool_create ~pool ~cluster_stack ~network in
-      let master = Helpers.get_master ~__context in
-      do_op_on ~__context ~local_fn ~host:master
-        (fun session_id rpc -> Client.Cluster.pool_create rpc session_id pool cluster_stack network)
+      Local.Cluster.pool_create ~__context ~pool ~cluster_stack ~network
+
+    let pool_resync ~__context ~cluster =
+      info "Cluster.pool_resync";
+      Local.Cluster.pool_resync ~__context ~cluster
   end
 
   module Cluster_host = struct
