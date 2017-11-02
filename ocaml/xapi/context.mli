@@ -121,3 +121,5 @@ val __make_task :
    ?subtask_of:API.ref_task -> string -> API.ref_task * API.ref_task Uuid.t)
     ref
 
+val set_test_rpc : t -> (Rpc.call -> Rpc.response) -> unit
+val get_test_rpc : t -> (Rpc.call -> Rpc.response) option
