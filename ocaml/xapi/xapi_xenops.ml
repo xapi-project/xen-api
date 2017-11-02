@@ -1647,7 +1647,6 @@ let update_vm ~__context id =
           Xenops_cache.update_vm id (Opt.map snd info);
           if !should_update_allowed_operations then
             Helpers.call_api_functions ~__context
-              ~test_fn:(fun () -> Xapi_vm_lifecycle.update_allowed_operations ~__context ~self)
               (fun rpc session_id -> XenAPI.VM.update_allowed_operations ~rpc ~session_id ~self);
         end
   with e ->
@@ -2422,7 +2421,7 @@ let set_resident_on ~__context ~self =
   debug "VM %s set_resident_on" id;
   let localhost = Helpers.get_localhost ~__context in
   Helpers.call_api_functions ~__context
-    ~test_fn:(fun () -> Db.VM.set_resident_on ~__context ~self ~value:localhost)
+
     (fun rpc session_id -> XenAPI.VM.atomic_set_resident_on rpc session_id self localhost);
   debug "Signalling xenapi event thread to re-register, and xenopsd events to sync";
   refresh_vm ~__context ~self;

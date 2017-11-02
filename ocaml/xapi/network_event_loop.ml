@@ -32,7 +32,6 @@ let _watch_networks_for_nbd_changes __context ~update_firewall ~wait_after_event
       Helpers.call_api_functions ~__context
         (fun rpc session_id ->
            Client.Client.Event.from ~rpc ~session_id ~classes ~token ~timeout |> Event_types.event_from_of_rpc)
-        ~test_fn:(fun () -> Xapi_event.from ~__context ~classes ~token ~timeout |> Event_types.parse_event_from)
     in
     from.Event_types.token
   in
