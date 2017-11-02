@@ -261,9 +261,6 @@ mffVFwXJ7B8kLP5BeRyBi6nwLhjd
 let setup_test_for_data_destroy ?(vdi_data_destroy=(fun _ ~dbg ~sr ~vdi -> ())) () =
   (* data_destroy uses the event mechanism, this is required to make the unit test work *)
   let __context, _ = Test_event.event_setup_common () in
-  (* data_destroy uses the Client module to watch for events, we need to ensure
-     the local function is called instead to make the unit test work. *)
-  Helpers.test_mode := true;
 
   let sR = make_mock_server_infrastructure ~__context in
   let vdi = Test_common.make_vdi ~__context ~is_a_snapshot:true ~managed:true ~cbt_enabled:true ~sR () in
@@ -280,9 +277,8 @@ let test_allowed_operations_updated_when_necessary () =
   (* Populate the allowed_operations list after creating the VDI *)
   Xapi_vdi.update_allowed_operations ~__context ~self;
   assert_allowed_operations "contains `copy for a newly-created VDI" (fun ops -> List.mem `copy ops);
-  let (rpc, session_id) = Test_common.make_client_params ~__context in
-  (* Call data_destroy through the client, as allowed_operations may be updated in the message forwarding layer *)
-  Client.Client.VDI.data_destroy ~rpc ~session_id ~self;
+  (* Call data_destroy through the the message forwarding layer *)
+  Api_server.Forwarder.VDI.data_destroy ~__context ~self;
   assert_allowed_operations "does not contain `copy after VDI has been data-destroyed" (fun ops -> not @@ List.mem `copy ops)
 
 let test_data_destroy =
@@ -344,7 +340,7 @@ let test_data_destroy =
       (Db.VDI.get_type ~__context ~self:vdi)
   in
 
-  (** If [realistic_timing] is true, the tests will use the Client module and
+  (** If [realistic_timing] is true, the tests will use the Message_forwarding module and
       the original timeouts, otherwise they will call the implementation in
       Xapi_vdi directly with a smaller timeout to make the tests faster. The
       former leads to more comprehensive tests, as it goes through message
@@ -368,8 +364,7 @@ let test_data_destroy =
     let uses_client = realistic_timing in
     let call_data_destroy ~__context ~self =
       if uses_client then begin
-        let (rpc, session_id) = Test_common.make_client_params ~__context in
-        Client.Client.VDI.data_destroy ~rpc ~session_id ~self
+        Api_server.Forwarder.VDI.data_destroy ~__context ~self
       end else
         Xapi_vdi._data_destroy ~__context ~self ~timeout
     in
