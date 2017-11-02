@@ -44,6 +44,7 @@ type t = { session_id: API.ref_session option;
            task_name: string; (* Name for dummy task FIXME: used only for dummy task, as real task as their name in the database *)
            database: Db_ref.t;
            dbg: string;
+           mutable test_rpc: (Rpc.call -> Rpc.response) option
          }
 
 let get_session_id x =
@@ -114,6 +115,7 @@ let get_initial () =
     task_name = "initial_task";
     database = default_database ();
     dbg = "initial_task";
+    test_rpc = None;
   }
 
 (* ref fn used to break the cyclic dependency between context, db_actions and taskhelper *)
@@ -180,6 +182,7 @@ let from_forwarded_task ?(__context=get_initial ()) ?(http_other_config=[]) ?ses
     task_name = task_name;
     database = default_database ();
     dbg = dbg;
+    test_rpc = None;
   }
 
 let make ?(__context=get_initial ()) ?(http_other_config=[]) ?(quiet=false) ?subtask_of ?session_id ?(database=default_database ()) ?(task_in_database=false) ?task_description ?(origin=Internal) task_name =
@@ -213,6 +216,7 @@ let make ?(__context=get_initial ()) ?(http_other_config=[]) ?(quiet=false) ?sub
     forwarded_task = false;
     task_name = task_name;
     dbg = dbg;
+    test_rpc = None;
   }
 
 let get_http_other_config http_req =
@@ -235,3 +239,7 @@ let of_http_req ?session_id ~generate_task_for ~supports_async ~label ~http_req 
     else
       make ?session_id ~http_other_config ~origin:(Http(http_req,fd)) label
 
+let set_test_rpc context rpc =
+  context.test_rpc <- Some rpc
+
+let get_test_rpc context = context.test_rpc
