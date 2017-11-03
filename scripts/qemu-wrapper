@@ -358,6 +358,8 @@ def main(argv):
         gid = grp.getgrnam('qemu_base').gr_gid + domid
         qemu_args += ["-runas", "%d.%d" % (uid, gid)]
 
+    qemu_args += ["-sandbox", "on,obsolete=deny,elevateprivileges=allow,spawn=deny,resourcecontrol=deny"]
+
     xenstore_write("/libxl/%d/dm-version" % domid, "qemu_xen")
 
     f.write("Exec: %s %s\n" % (qemu_dm, " ".join(qemu_args)))
