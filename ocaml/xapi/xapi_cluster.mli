@@ -35,11 +35,10 @@ val pool_create : __context:Context.t -> pool:API.ref_pool ->
     that creates the Cluster object and then creates Cluster_host objects for
     all hosts in the pool. *)
 
-val pool_resync : __context:Context.t -> cluster:API.ref_Cluster -> unit
-(** [pool_resync ~__context ~self] is the implementation of the XenAPI
-    method 'Cluster.pool_resync'. The purpose of this function is to help
-    after the failure to create Cluster_host objects. It should create all
-    necessary Cluster_host objects (ie., one for each host in the pool
-    if the Cluster has [pool_auto_join] set. If there is a failure, this
-    function must return an error that enables the administrator to fix
-    the problem. *)
+val pool_resync : __context:Context.t -> self:API.ref_Cluster -> unit
+(** [pool_resync ~__context ~self] is the implementation of the XenAPI method
+    'Cluster.pool_resync'. The purpose of this function is to help after the
+    failure to create Cluster_host objects. It should create all necessary
+    Cluster_host objects (ie., one for each host in the pool if the Cluster
+    has [pool_auto_join] set. If there is a failure, this function must return
+    an error that enables the administrator to fix the problem. *)
