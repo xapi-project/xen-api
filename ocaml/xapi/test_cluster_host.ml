@@ -47,6 +47,13 @@ let pif_plug_rpc __context call =
     let self = ref_PIF_of_rpc self_rpc in
     Db.PIF.set_currently_attached ~__context ~self ~value:true;
     Rpc.{success=true; contents = Rpc.String ""}
+  | "Cluster_host.create", [session_id_rpc;cluster_rpc;host_rpc] ->
+    let open API in
+    let _session_id = ref_session_of_rpc session_id_rpc in
+    let cluster = ref_Cluster_of_rpc cluster_rpc in
+    let host = ref_host_of_rpc host_rpc in
+    ignore(Test_common.make_cluster_host ~__context ~cluster ~host ());
+    Rpc.{success=true; contents = Rpc.String ""}
   | _ -> failwith "Unexpected RPC"
 
 
@@ -110,6 +117,23 @@ let test_fix_prereq () =
   Xapi_cluster_host.fix_pif_prerequisites ~__context pif;
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
   assert_equal (Xapi_cluster_host.check_pif_prerequisites pif) ()
+
+let test_create_as_necessary () =
+  let __context = Test_common.make_test_database () in
+  Context.set_test_rpc __context (pif_plug_rpc __context);
+  let cluster = create_cluster ~__context true in
+  let network = Db.Cluster.get_network ~__context ~self:cluster in
+  let localhost = Helpers.get_localhost ~__context in
+  let pifref = Test_common.make_pif ~__context ~network ~host:localhost () in
+  Db.PIF.set_IP ~__context ~self:pifref ~value:"1.1.1.1";
+  let _pif = Xapi_clustering.pif_of_host ~__context network localhost in
+  let result = sync_required ~__context ~host:localhost in
+  OUnit.assert_equal result (Some cluster);
+  Xapi_cluster_host.create_as_necessary ~__context ~host:localhost;
+  let result = sync_required ~__context ~host:localhost in
+  OUnit.assert_equal result None
+
+
 let test =
   "test_cluster_host" >:::
   [
@@ -117,4 +141,5 @@ let test =
     "test_dbsync_nojoin" >:: test_dbsync_nojoin;
     "test_prerequisites" >:: test_prereq;
     "test_fix_prerequisites" >:: test_fix_prereq;
+    "test_create_as_necessary" >:: test_create_as_necessary;
   ]
