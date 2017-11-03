@@ -1680,7 +1680,9 @@ module VM = struct
                halted_vm
            end
          | Some di ->
-           let vnc = Opt.map (fun port -> { Vm.protocol = Vm.Rfb; port = port; path = "" })
+           let vnc = Opt.map (function
+                 | Device.Socket.Port port -> { Vm.protocol = Vm.Rfb; port = port; path = "" }
+                 | Device.Socket.Unix path -> { Vm.protocol = Vm.Rfb; port = 0 ; path = path })
                (Device.get_vnc_port ~xs ~dm:(dm_of ~vm) di.Xenctrl.domid) in
            let tc = Opt.map (fun port -> { Vm.protocol = Vm.Vt100; port = port; path = "" })
                (Device.get_tc_port ~xs di.Xenctrl.domid) in

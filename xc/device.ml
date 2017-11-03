@@ -61,6 +61,11 @@ module Profile = struct
   let of_domid x = if is_upstream_qemu x then Qemu_upstream else Qemu_trad
 end
 
+(** Represent an IPC endpoint *)
+module Socket = struct
+  type t = Unix of string | Port of int
+end
+
 (* keys read by vif udev script (keep in sync with api:scripts/vif) *)
 let vif_udev_keys = "promiscuous" :: (List.map (fun x -> "ethtool-" ^ x) [ "rx"; "tx"; "sg"; "tso"; "ufo"; "gso" ])
 
@@ -827,7 +832,7 @@ module PV_Vnc = struct
   let get_vnc_port ~xs domid =
     if not (is_vncterm_running ~xs domid)
     then None
-    else (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
+    else (try Some(Socket.Port (int_of_string (xs.Xs.read (Generic.vnc_port_path domid)))) with _ -> None)
 
   let get_tc_port ~xs domid =
     if not (is_vncterm_running ~xs domid)
@@ -1542,6 +1547,8 @@ module Dm_Common = struct
     extras: (string * string option) list;
   }
 
+  let vnc_socket_path = (sprintf "%s/vnc-%d") Device_common.var_run_xen_path
+
   let get_vnc_port ~xs domid ~f =
     match Qemu.is_running ~xs domid with
     | true  -> f ()
@@ -1868,7 +1875,7 @@ module Backend = struct
       end
 
       (** [get_vnc_port xenstore domid] returns the dom0 tcp port in which the vnc server for [domid] can be found *)
-      val get_vnc_port : xs:Xenstore.Xs.xsh -> int -> int option
+      val get_vnc_port : xs:Xenstore.Xs.xsh -> int -> Socket.t option
 
       (** [suspend task xenstore qemu_domid xc] suspends a domain *)
       val suspend: Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
@@ -1904,7 +1911,7 @@ module Backend = struct
 
       let get_vnc_port ~xs domid =
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
-            (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
+            (try Some(Socket.Port (int_of_string (xs.Xs.read (Generic.vnc_port_path domid)))) with _ -> None)
           )
 
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
@@ -2119,17 +2126,8 @@ module Backend = struct
 
       let get_vnc_port ~xs domid =
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
-            let open Qmp in
-            let qmp_cmd = Command (None, Query_vnc) in
-            let parse_qmp_message = function
-              | Success (None, Vnc vnc) -> (try Some vnc.service with _ -> None)
-              | _ -> debug "Get unexpected result after sending Qmp message: %s" (string_of_message qmp_cmd); None
-            in
-            let qmp_cmd_result = qmp_write_and_read domid qmp_cmd in
-            match qmp_cmd_result with
-            | Some qmp_message -> parse_qmp_message qmp_message
-            | None -> debug "Fail to get result after sending Qmp message: %s" (string_of_message qmp_cmd); None
-          )
+            Some (Socket.Unix (Dm_Common.vnc_socket_path domid))
+        )
 
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
         let file = sprintf qemu_save_path domid in
