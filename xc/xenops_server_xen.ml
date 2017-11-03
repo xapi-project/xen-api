@@ -1891,6 +1891,8 @@ module VM = struct
         end
       | _ -> persistent
     in
+    let persistent = { persistent with VmExtra.profile = profile_of ~vm } in
+    debug "vm %s: persisting metadata %s" k (persistent |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string);
     let non_persistent = match DB.read k with
       | None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm)
       | Some vmextra -> vmextra.VmExtra.non_persistent
