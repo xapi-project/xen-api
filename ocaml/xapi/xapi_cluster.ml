@@ -74,8 +74,8 @@ let pool_create ~__context ~pool ~cluster_stack ~network =
 
   cluster
 
-let pool_resync ~__context ~cluster =
-  let pool_auto_join = Db.Cluster.get_pool_auto_join ~__context ~self:cluster in
+let pool_resync ~__context ~self =
+  let pool_auto_join = Db.Cluster.get_pool_auto_join ~__context ~self in
   if pool_auto_join then begin
     Helpers.call_api_functions ~__context (fun rpc session_id ->
       Db.Host.get_all ~__context |> List.iter (fun host -> Xapi_cluster_host.create_as_necessary ~__context ~host))
