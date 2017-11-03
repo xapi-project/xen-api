@@ -10260,7 +10260,7 @@ module Cluster = struct
   let pool_resync = call
     ~name:"pool_resync"
     ~doc:"Resynchronise the cluster_host objects across the pool. Creates them where they need creating and then plugs them"
-    ~params:[ Ref _cluster, "cluster", "The cluster to resync"]
+    ~params:[ Ref _cluster, "self", "The cluster to resync"]
     ~lifecycle
     ~allowed_roles:_R_POOL_ADMIN
     ()
