@@ -30,7 +30,9 @@ let with_clustering_lock f =
             f ())
          (fun () -> debug "Function execution finished; returned host-local clustering lock."))
 
-let pif_of_host ~__context network host =
+(* Note we have to add type annotations to network/host here because they're only used in the context of
+  Db.PIF.get_records_where, and they're just strings there *)
+let pif_of_host ~__context (network : API.ref_network) (host : API.ref_host) =
   debug "Looking up PIF for network %s" (Ref.string_of network);
   let pifs = Db.PIF.get_records_where ~__context
       ~expr:Db_filter_types.(And (Eq(Literal (Ref.string_of host),Field "host"),
