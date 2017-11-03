@@ -69,7 +69,7 @@ let test_prereq () =
     (Failure exn)
     (fun () ->
       try
-        Xapi_cluster_host.check_pif_prerequisites pif
+        Xapi_cluster_host.assert_pif_prerequisites pif
       with _ ->
         failwith exn);
   (* Put in IPv4 info *)
@@ -79,7 +79,7 @@ let test_prereq () =
     (Failure exn)
     (fun () ->
       try
-        Xapi_cluster_host.check_pif_prerequisites pif
+        Xapi_cluster_host.assert_pif_prerequisites pif
       with _ ->
         failwith exn);
   Db.PIF.set_currently_attached ~__context ~self:pifref ~value:true;
@@ -88,12 +88,12 @@ let test_prereq () =
     (Failure exn)
     (fun () ->
       try
-        Xapi_cluster_host.check_pif_prerequisites pif
+        Xapi_cluster_host.assert_pif_prerequisites pif
       with _ ->
         failwith exn);
   Db.PIF.set_disallow_unplug ~__context ~self:pifref ~value:true;
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
-  assert_equal (Xapi_cluster_host.check_pif_prerequisites pif) ()
+  assert_equal (Xapi_cluster_host.assert_pif_prerequisites pif) ()
 
 
 let test_fix_prereq () =
@@ -116,7 +116,7 @@ let test_fix_prereq () =
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
   Xapi_cluster_host.fix_pif_prerequisites ~__context pif;
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
-  assert_equal (Xapi_cluster_host.check_pif_prerequisites pif) ()
+  assert_equal (Xapi_cluster_host.assert_pif_prerequisites pif) ()
 
 let test_create_as_necessary () =
   let __context = Test_common.make_test_database () in

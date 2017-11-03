@@ -24,7 +24,7 @@ open D
    1. Be plugged
    2. Be disallow_unplug
    3. Have an IPv4 address *)
-let check_pif_prerequisites pif =
+let assert_pif_prerequisites pif =
   assert_pif_permaplugged pif;
   ignore(ip_of_pif pif)
 
@@ -44,6 +44,34 @@ let fix_pif_prerequisites ~__context (pif_ref,pif_rec) =
     Db.PIF.set_disallow_unplug ~__context ~self:pif_ref ~value:true
   end
 
+let sync_required ~__context ~host =
+  let clusters = Db.Cluster.get_all_records ~__context in
+  match clusters with
+  | [] -> None
+  | [cluster_ref, cluster_rec] -> begin
+      let expr = Db_filter_types.(And (Eq (Field "host", Literal (Ref.string_of host)),
+                                       Eq (Field "cluster", Literal (Ref.string_of cluster_ref)))) in
+      let my_cluster_hosts = Db.Cluster_host.get_internal_records_where ~__context ~expr in
+      match my_cluster_hosts with
+      | [(_ref,_rec)] -> None
+      | [] ->
+        if cluster_rec.API.cluster_pool_auto_join
+        then Some cluster_ref
+        else None
+      | _ -> failwith "Internal error: More than one cluster_host object associated with this host"
+    end
+  | _ -> failwith "Internal error: Cannot have more than one Cluster object per pool currently"
+
+let create_as_necessary ~__context ~host =
+  match sync_required ~__context ~host with
+  | Some cluster_ref ->
+    let network = Db.Cluster.get_network ~__context ~self:cluster_ref in
+    let pif = Xapi_clustering.pif_of_host ~__context network host in
+    fix_pif_prerequisites ~__context pif;
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
+        Client.Client.Cluster_host.create rpc session_id cluster_ref host) |> ignore
+  | None -> ()
+
 let create ~__context ~cluster ~host =
   (* TODO: take network lock *)
   with_clustering_lock (fun () ->
@@ -53,7 +81,7 @@ let create ~__context ~cluster ~host =
       let network = Db.Cluster.get_network ~__context ~self:cluster in
       let cluster_token = Db.Cluster.get_cluster_token ~__context ~self:cluster in
       let pif = pif_of_host ~__context network host in
-      check_pif_prerequisites pif;
+      assert_pif_prerequisites pif;
       let ip = ip_of_pif pif in
       let ip_list = List.map (fun cluster_host ->
           Db.Cluster_host.get_host ~__context ~self:cluster_host |>
@@ -79,7 +107,7 @@ let enable ~__context ~self =
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       let network = Db.Cluster.get_network ~__context ~self:cluster in
       let pif = pif_of_host ~__context network host in
-      check_pif_prerequisites pif;
+      assert_pif_prerequisites pif;
       let ip = ip_of_pif pif in
       let result = Cluster_client.LocalClient.enable (Cluster_client.rpc (fun () -> "")) ip in
       match result with
@@ -111,31 +139,3 @@ let disable ~__context ~self =
         Db.Cluster_host.set_enabled ~__context ~self ~value:false
       | Result.Error error -> handle_error error
     )
-
-let sync_required ~__context ~host =
-  let clusters = Db.Cluster.get_all_records ~__context in
-  match clusters with
-  | [] -> None
-  | [cluster_ref, cluster_rec] -> begin
-      let expr = Db_filter_types.(And (Eq (Field "host", Literal (Ref.string_of host)),
-                                       Eq (Field "cluster", Literal (Ref.string_of cluster_ref)))) in
-      let my_cluster_hosts = Db.Cluster_host.get_internal_records_where ~__context ~expr in
-      match my_cluster_hosts with
-      | [(_ref,_rec)] -> None
-      | [] ->
-        if cluster_rec.API.cluster_pool_auto_join
-        then Some cluster_ref
-        else None
-      | _ -> failwith "Internal error: More than one cluster_host object associated with this host"
-    end
-  | _ -> failwith "Internal error: Cannot have more than one Cluster object per pool currently"
-
-let create_as_necessary ~__context ~host =
-  match sync_required ~__context ~host with
-  | Some cluster_ref ->
-    let network = Db.Cluster.get_network ~__context ~self:cluster_ref in
-    let pif = Xapi_clustering.pif_of_host ~__context network host in
-    fix_pif_prerequisites ~__context pif;
-    Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.Cluster_host.create rpc session_id cluster_ref host) |> ignore
-  | None -> ()
