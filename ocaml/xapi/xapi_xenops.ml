@@ -2080,11 +2080,14 @@ let refresh_vm ~__context ~self =
 let resync_resident_on ~__context =
   let dbg = Context.string_of_task __context in
   let localhost = Helpers.get_localhost ~__context in
+  let domain0 = Helpers.get_domain_zero ~__context in
 
-  (* Get a list of all the ids of VMs that Xapi thinks are resident here *)
+  (* Get a list of all the ids of VMs that Xapi thinks are resident here
+     (apart from domain0, which is not managed by xenopsd and is therefore
+     irrelevant here) *)
   let resident_vms_in_db =
     Db.Host.get_resident_VMs ~__context ~self:localhost
-    |> List.filter (fun self -> not (Db.VM.get_is_control_domain ~__context ~self))
+    |> List.filter (fun self -> self <> domain0 )
     |> List.map (fun self -> (id_of_vm ~__context ~self, self)) in
 
   (* Get a list of VMs that the xenopsds know about with their xenopsd client *)
@@ -2187,10 +2190,10 @@ let resync_resident_on ~__context =
 let resync_all_vms ~__context =
   (* This should now be correct *)
   let localhost = Helpers.get_localhost ~__context in
+  let domain0 = Helpers.get_domain_zero ~__context in
   let resident_vms_in_db =
-    List.filter (fun self ->
-        not (Db.VM.get_is_control_domain ~__context ~self)
-      ) (Db.Host.get_resident_VMs ~__context ~self:localhost)
+    Db.Host.get_resident_VMs ~__context ~self:localhost |>
+    List.filter (fun self -> self <> domain0)
   in
   List.iter (fun vm -> refresh_vm ~__context ~self:vm) resident_vms_in_db
 

@@ -44,7 +44,7 @@ let make_localhost ~__context ?(features=Features.all_features) () =
     linux_verstring = "something";
     hostname = "localhost";
     uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid;
-    dom0_uuid = "dom0-uuid";
+    dom0_uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid;
     oem_manufacturer = None;
     oem_model = None;
     oem_build_number = None;
@@ -73,6 +73,7 @@ let make_localhost ~__context ?(features=Features.all_features) () =
 (** Make a simple in-memory database containing a single host and dom0 VM record. *)
 let make_test_database ?(conn=Mock.Database.conn) ?(reuse=false) ?features () =
   let __context = Mock.make_context_with_new_db ~conn ~reuse "mock" in
+  Helpers.domain_zero_ref_cache := None;
   make_localhost ~__context ?features ();
   __context
 

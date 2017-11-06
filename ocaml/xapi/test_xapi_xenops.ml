@@ -53,10 +53,11 @@ let unsetup_simulator () =
     Xcp_client.use_switch := false;
   end
 
-let test_xapi_restart () =
+
+let test_xapi_restart_inner () =
+  Debug.log_to_stdout ();
   let __context = make_test_database () in
   setup_simulator ();
-  Debug.log_to_stdout ();
   Helpers.test_mode := true;
   let open Xenops_interface in
   let open Xapi_xenops_queue in
@@ -72,11 +73,14 @@ let test_xapi_restart () =
           | Api_errors.Server_error (x,[]) when x = Api_errors.task_cancelled -> ()
           | e -> raise e) () in
     (cancel,th) in
+  let vm0 = Helpers.get_domain_zero ~__context in
   let vm1 = make_vm ~__context ~name_label:"vm1" () in
   let vm2 = make_vm ~__context ~name_label:"vm2" () in
   let vm3 = make_vm ~__context ~name_label:"vm3" () in
   let vm4 = make_vm ~__context ~name_label:"vm4" () in
   let vm5 = make_vm ~__context ~name_label:"vm5" () in
+  let vm6 = make_vm ~__context ~name_label:"vm6" () in
+  let vm7 = make_vm ~__context ~name_label:"vm7" () in
   let host2 = make_host ~__context ~name_label:"host2" ~hostname:"localhost2" () in
   let flags = [
     Xapi_globs.cpu_info_vendor_key, "AuthenticAMD";
@@ -86,39 +90,69 @@ let test_xapi_restart () =
     Db.VM.set_last_boot_CPU_flags ~__context ~self:vm ~value:flags;
     Db.VM.add_to_other_config ~__context ~self:vm ~key:"xenops" ~value:"simulator"
   in
-  List.iter add_flags [vm1; vm2; vm3; vm4; vm5];
+  List.iter add_flags [vm1; vm2; vm3; vm4; vm5; vm6; vm7];
 
   try
-(* Start all 4 VMs *)
+    (* Domain zero is running but not in xenopsd *)
+    Db.VM.set_is_control_domain ~__context ~self:vm0 ~value:true;
+    Db.VM.set_resident_on ~__context ~self:vm0 ~value:(Helpers.get_localhost ~__context);
+    Db.VM.set_power_state ~__context ~self:vm0 ~value:(`Running);
+
+    (* Start all 7 VMs *)
     Xapi_xenops.start ~__context ~self:vm1 false false;
     Xapi_xenops.start ~__context ~self:vm2 false false;
     Xapi_xenops.start ~__context ~self:vm3 false false;
     Xapi_xenops.start ~__context ~self:vm4 false false;
     Xapi_xenops.start ~__context ~self:vm5 false false;
+    Xapi_xenops.start ~__context ~self:vm6 false false;
+    Xapi_xenops.start ~__context ~self:vm7 false false;
 
-(* Kill the event thread *)
+    (* vm6 is a ntnx CVM *)
+    Db.VM.set_is_control_domain ~__context ~self:vm6 ~value:true;
+
+    (* Kill the event thread *)
     cancel := true;
     Client.UPDATES.inject_barrier "dbg" (Xapi_xenops.id_of_vm ~__context ~self:vm1) 0;
     let before = Unix.gettimeofday () in
     Thread.join th;
     let after = Unix.gettimeofday () in
     debug "Elapsed time for thread death: %f\n%!" (after -. before);
-(* Check they're running *)
+    (* Check they're running *)
     let is_resident vm =
       Db.VM.get_resident_on ~__context ~self:vm = Helpers.get_localhost ~__context
     in
-    assert_bool "Running here" (is_resident vm1);
-    assert_bool "Running here" (is_resident vm2);
-    assert_bool "Running here" (is_resident vm3);
-    assert_bool "Running here" (is_resident vm4);
-    assert_bool "Running here" (is_resident vm5);
+    let is_running_in_xenopsd vm =
+      try
+        let (_,stat) = Client.VM.stat "dbg" (Xapi_xenops.id_of_vm ~__context ~self:vm) in
+        stat.Vm.power_state = Running
+      with (Does_not_exist _) ->
+        false
+    in
+    let assert_correct_state (vm, running) =
+      let name = Db.VM.get_name_label ~__context ~self:vm in
+      assert_bool
+        (Printf.sprintf "State is correct in xapi (%s)" name)
+        (running = (is_resident vm));
+      assert_bool
+        (Printf.sprintf "State is correct in xenopsd (%s)" name)
+        (running = (is_running_in_xenopsd vm))
+    in
 
-(* Simulate various out-of-band VM operations by resetting the xapi state to halted, and stop one that was running *)
+    List.iter (fun vm -> assert_correct_state (vm, true)) [vm1; vm2; vm3; vm4; vm5; vm6; vm7];
+
+    (* Simulate various out-of-band VM operations by resetting the xapi state to halted, and stop one that was running *)
     Db.VM.set_resident_on ~__context ~self:vm1 ~value:(Ref.null);
+    Db.VM.set_name_label ~__context ~self:vm1 ~value:"vm1: resident-on set to null";
     Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm2 ~value:`Halted;
+    Db.VM.set_name_label ~__context ~self:vm2 ~value:"vm2: force_state_reset to halted";
     ignore(Client.VM.shutdown "dbg" (Xapi_xenops.id_of_vm ~__context ~self:vm3) None);
+    Db.VM.set_name_label ~__context ~self:vm3 ~value:"vm3: shutdown in xenopsd while xapi was off";
     Db.VM.set_resident_on ~__context ~self:vm4 ~value:host2;
+    Db.VM.set_name_label ~__context ~self:vm4 ~value:"vm4: xapi thinks it's running somewhere else";
     Db.VM.destroy ~__context ~self:vm5;
+    Db.VM.set_name_label ~__context ~self:vm6 ~value:"vm6: is_control_domain=true";
+    ignore(Client.VM.shutdown "dbg" (Xapi_xenops.id_of_vm ~__context ~self:vm7) None);
+    Db.VM.set_name_label ~__context ~self:vm7 ~value:"vm7: shutdown in xenopsd while xapi was off (and is_control_domain)";
 
     (* Now run the on_xapi_restart logic *)
     debug "Resync resident on";
@@ -144,17 +178,18 @@ let test_xapi_restart () =
     debug "Elapsed time for thread death: %f\n%!" (after -. before);
 
     (* And check that the right thing has happened *)
-    assert_bool "Running here" (is_resident vm1);
-    assert_bool "Running here" (is_resident vm2);
-    assert_bool "Not running here" (not (is_resident vm3));
-    assert_bool "Not running here" (not (is_resident vm4));
+    List.iter assert_correct_state
+      [vm1, true; vm2, true; vm3, false; vm4, false; vm6, true; vm7, false];
 
-    unsetup_simulator ()
   with e ->
     Printf.printf "Caught: %s\n" (Printexc.to_string e);
     Printf.printf "Backtrace: %s\n%!" (Backtrace.to_string_hum (Backtrace.get e));
-      raise e
+    raise e
 
+let test_xapi_restart () =
+  Stdext.Pervasiveext.finally
+    test_xapi_restart_inner
+    unsetup_simulator
 
 let test_nested_virt_licensing () =
   let __context = make_test_database () in
