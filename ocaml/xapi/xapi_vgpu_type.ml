@@ -456,7 +456,7 @@ module Vendor = functor (V : VENDOR) -> struct
       ~is_pci_hidden =
     let vgpu_types = make_vgpu_types ~__context ~pci in
     (* Temporarily fall back to old nvidia module *)
-    if vgpu_types = [] && vendor_id = Nvidia_old.vendor_id then begin
+    if vendor_id = Nvidia_old.vendor_id then begin
       info "Temporarily fall back to old nvidia conf file parser";
       Nvidia_old.find_or_create_supported_types ~__context ~pci
         ~is_system_display_device
