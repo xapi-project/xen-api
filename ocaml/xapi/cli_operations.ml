@@ -2690,6 +2690,7 @@ let snapshot_copy printer rpc session_id params =
 let snapshot_destroy printer rpc session_id params =
   let snap_uuid = get_snapshot_uuid params in
   let snap_ref = Client.VM.get_by_uuid rpc session_id snap_uuid in
+  if not (Client.VM.get_is_a_snapshot rpc session_id snap_ref) then failwith "This operation can only destroy VM snapshot.";
   if Client.VM.get_power_state rpc session_id snap_ref <> `Halted then Client.VM.hard_shutdown ~rpc ~session_id ~vm:snap_ref;
   Client.VM.destroy ~rpc ~session_id ~self:snap_ref
 
