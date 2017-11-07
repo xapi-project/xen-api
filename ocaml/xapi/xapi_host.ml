@@ -1766,3 +1766,6 @@ let mxgpu_vf_setup ~__context ~host =
 let allocate_resources_for_vm ~__context ~self ~vm ~live =
   (* Implemented entirely in Message_forwarding *)
   ()
+
+let set_iscsi_iqn ~__context ~host ~value =
+  Db.Host.set_iscsi_iqn ~__context ~self:host ~value
