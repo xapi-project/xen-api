@@ -1240,6 +1240,8 @@ let host_record rpc session_id host =
       make_field ~name:"features"
         ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.host_features))
         ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.host_features) ();
+      make_field ~name:"iscsi_iqn"
+        ~get:(fun () -> (x ()).API.host_iscsi_iqn) ~set:(fun s -> Client.Host.set_iscsi_iqn rpc session_id host s) ();
     ]}
 
 let vdi_record rpc session_id vdi =
