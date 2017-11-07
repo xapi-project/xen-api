@@ -626,6 +626,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~virtual_hardware_platform_versions:(if host_is_us then Xapi_globs.host_virtual_hardware_platform_versions else [0L])
     ~control_domain:Ref.null
     ~updates_requiring_reboot:[]
+    ~iscsi_iqn:""
   ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
@@ -795,7 +796,7 @@ let management_reconfigure ~__context ~pif =
   let net = Db.PIF.get_network ~__context ~self:pif in
   let bridge = Db.Network.get_bridge ~__context ~self:net in
   let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:pif in
-  
+
   if Db.PIF.get_managed ~__context ~self:pif = true then begin
     Xapi_pif.assert_usable_for_management ~__context ~primary_address_type ~self:pif;
     try
