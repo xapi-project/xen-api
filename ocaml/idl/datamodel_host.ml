@@ -1400,6 +1400,8 @@ let host_query_ha = call ~flags:[`Session]
            field ~qualifier:DynamicRO ~in_product_since:rel_cream ~default_value:(Some (VSet [VInt 0L])) ~ty:(Set (Int)) "virtual_hardware_platform_versions" "The set of versions of the virtual hardware platform that the host can offer to its guests";
            field ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref)) ~in_product_since:rel_ely ~ty:(Ref _vm) "control_domain" "The control domain (domain 0)";
            field ~qualifier:DynamicRO ~lifecycle:[Published, rel_ely, ""] ~ty:(Set (Ref _pool_update)) ~ignore_foreign_key:true "updates_requiring_reboot" "List of updates which require reboot";
-           field ~qualifier:DynamicRO ~lifecycle:[Published, rel_falcon, ""] ~ty:(Set (Ref _feature)) "features" "List of features available on this host"
+         field ~qualifier:DynamicRO ~lifecycle:[Published, rel_falcon, ""] ~ty:(Set (Ref _feature)) "features" "List of features available on this host";
+         field ~qualifier:StaticRO ~lifecycle:[Published, rel_kolkata, ""] ~default_value:(Some (VString "")) ~ty:String "iscsi_iqn" "The initiator IQN for the host";
+         field ~qualifier:StaticRO ~lifecycle:[Published, rel_kolkata, ""] ~default_value:(Some (VBool false)) ~ty:Bool "multipathing" "Specifies whether multipathing is enabled";
          ])
       ()
