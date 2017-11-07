@@ -267,17 +267,6 @@ def main(argv):
             del qemu_args[n]
             continue
 
-        if p == "-vnc":
-            # Pass QEMU a range of ports, then use QMP to find the port it picked.
-            # There is a hack here
-            #    Disable lock-key-sync
-            #    lock-key-sync expects vnclient to send different keysym for
-            #    alphabet keys (different for lowercase and uppercase). XC
-            #    can't do it atm, disable lock-key-sync
-            qemu_args[n+1] = "127.0.0.1:1,to=1000,lock-key-sync=off"
-            n += 2
-            continue
-
         if p == "-loadvm":
             loadvm_path = qemu_args[n+1]
             if qemu_trad_image.is_trad_image(loadvm_path):

@@ -64,6 +64,9 @@ end
 (** Represent an IPC endpoint *)
 module Socket = struct
   type t = Unix of string | Port of int
+  module Unix = struct
+    let path x = "unix:" ^ x
+  end
 end
 
 (* keys read by vif udev script (keep in sync with api:scripts/vif) *)
@@ -1619,7 +1622,7 @@ module Dm_Common = struct
     try Some (xs.Xs.read statepath)
     with _ -> None
 
-  let cmdline_of_disp info =
+  let cmdline_of_disp ?domid info =
     let vga_type_opts x =
       let open Xenops_interface.Vgpu in
       match x with
@@ -1643,12 +1646,21 @@ module Dm_Common = struct
       | GVT_d -> ["-std-vga"; "-gfx_passthru"]
     in
     let videoram_opt = ["-videoram"; string_of_int info.video_mib] in
-    let vnc_opts_of ip_addr_opt auto port keymap =
+    let vnc_opts_of ip_addr_opt auto port keymap ~domid =
+      let ip_addr = Opt.default "127.0.0.1" ip_addr_opt in
+      let vnc_arg = match domid with
+        | None when auto -> Printf.sprintf "%s:1"  ip_addr
+        | None           -> Printf.sprintf "%s:%d" ip_addr port
+          (*
+              Disable lock-key-sync
+              #  lock-key-sync expects vnclient to send different keysym for
+              #  alphabet keys (different for lowercase and uppercase). XC
+              #  can't do it at the moment, so disable lock-key-sync
+          *)
+        | Some domid     -> Printf.sprintf "%s,lock-key-sync=off" (Socket.Unix.path (vnc_socket_path domid))
+      in
       let unused_opt = if auto then ["-vncunused"] else [] in
-      let vnc_opt =
-        let ip_addr = Opt.default "127.0.0.1" ip_addr_opt
-        and port = if auto then "1" else string_of_int port in
-        ["-vnc"; ip_addr ^ ":" ^ port] in
+      let vnc_opt = ["-vnc"; vnc_arg] in
       let keymap_opt = match keymap with Some k -> ["-k"; k] | None -> [] in
       List.flatten [unused_opt; vnc_opt; keymap_opt]
     in
@@ -1660,12 +1672,12 @@ module Dm_Common = struct
         ([], false)
       | VNC (disp_intf, ip_addr_opt, auto, port, keymap) ->
         let vga_type_opts = vga_type_opts disp_intf in
-        let vnc_opts = vnc_opts_of ip_addr_opt auto port keymap in
+        let vnc_opts = vnc_opts_of ip_addr_opt auto port keymap ~domid in
         (vga_type_opts @ videoram_opt @ vnc_opts), true
     in
     disp_options, wait_for_port
 
-  let cmdline_of_info ~xs ~dm info restore domid =
+  let cmdline_of_info ~xs ~dm info restore ?(domid_for_vnc=false) domid =
     let usb' =
       match info.usb with
       | Disabled -> []
@@ -1678,7 +1690,10 @@ module Dm_Common = struct
         ]) info.disks in
 
     let restorefile = sprintf qemu_restore_path domid in
-    let disp_options, wait_for_port = cmdline_of_disp info in
+    let disp_options, wait_for_port = if domid_for_vnc
+      then cmdline_of_disp info ~domid
+      else cmdline_of_disp info
+    in
 
     [
       "-d"; string_of_int domid;
@@ -2155,7 +2170,7 @@ module Backend = struct
           )
 
       let cmdline_of_info ~xs ~dm info restore domid =
-        let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid in
+        let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid ~domid_for_vnc:true in
 
         (* Sort the VIF devices by devid *)
         let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.Dm_Common.nics in
