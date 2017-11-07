@@ -835,6 +835,7 @@ module type SUSPEND_RESTORE = sig
     -> xc: Xenctrl.handle
     -> xs: Xenstore.Xs.xsh
     -> hvm: bool
+    -> dm:Device.Profile.t
     -> manager_path: string
     -> string
     -> domid
@@ -843,7 +844,7 @@ module type SUSPEND_RESTORE = sig
     -> suspend_flag list
     -> ?progress_callback: (float -> unit)
     -> qemu_domid: int
-    -> (unit -> unit)
+    -> (unit -> 'a)
     -> unit
 end
 
@@ -1197,7 +1198,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
       ~static_max_kib:info.memory_max ~target_kib:info.memory_target ~vcpus:info.vcpus ~extras
       manager_path domid fd vgpu_fd
 
-  let suspend_emu_manager' ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~manager_path ~domid
+  let suspend_emu_manager' ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~dm ~manager_path ~domid
       ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback =
     let open Suspend_image in let open Suspend_image.M in
     let open Emu_manager in
@@ -1269,7 +1270,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
             do_suspend_callback ();
             if hvm then (
               debug "VM = %s; domid = %d; suspending qemu-dm" (Uuid.to_string uuid) domid;
-              Device.Dm.suspend task ~xs ~qemu_domid domid;
+              Device.Dm.suspend task ~xs ~qemu_domid ~dm domid;
             );
             send_done cnx;
             wait_for_message ()
@@ -1302,10 +1303,10 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
         wait_for_message ()
       )
 
-  let suspend_emu_manager ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~manager_path ~domid
+  let suspend_emu_manager ~(task: Xenops_task.task_handle) ~xc ~xs ~hvm ~dm ~manager_path ~domid
       ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback =
-    Device.Dm.with_dirty_log domid ~f:(fun () ->
-        suspend_emu_manager' ~task ~xc ~xs ~hvm ~manager_path ~domid
+    Device.Dm.with_dirty_log dm domid ~f:(fun () ->
+        suspend_emu_manager' ~task ~xc ~xs ~hvm ~dm ~manager_path ~domid
           ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback
       )
 
@@ -1330,7 +1331,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
    * and is in charge to suspend the domain when called. the whole domain
    * context is saved to fd
   *)
-  let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~manager_path vm_str domid main_fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+  let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~dm ~manager_path vm_str domid main_fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
     let module DD = Debug.Make(struct let name = "mig64" end) in
     let open DD in
     let uuid = get_uuid ~xc domid in
@@ -1353,7 +1354,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
       write_header main_fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
       debug "Writing Xenops record contents";
       Io.write main_fd xenops_record;
-      suspend_emu_manager ~task ~xc ~xs ~hvm ~manager_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
+      suspend_emu_manager ~task ~xc ~xs ~hvm ~dm ~manager_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
         ~progress_callback ~qemu_domid ~do_suspend_callback >>= fun () ->
       (* Qemu record (if this is a hvm domain) *)
       (* Currently Qemu suspended inside above call with the libxc memory
@@ -1741,7 +1742,7 @@ let write_demu_record domid uuid fd =
  * and is in charge to suspend the domain when called. the whole domain
  * context is saved to fd
  *)
-let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~dm manager_path vm_str domid fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~dm ~manager_path vm_str domid main_fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
 	let module DD = Debug.Make(struct let name = "mig64" end) in
 	let open DD in
 	let uuid = get_uuid ~xc domid in
@@ -1749,7 +1750,7 @@ let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~dm manager_path vm_str
 	let open Suspend_image in let open Suspend_image.M in
 	(* Suspend image signature *)
 	debug "Writing save signature: %s" save_signature;
-	Io.write fd save_signature;
+	Io.write main_fd save_signature;
 	(* CA-248130: originally, [xs_subtree] contained [xenstore_read_dir t
 	 * (xs.Xs.getdomainpath domid)] and this data was written to [fd].
 	 * However, on the receiving side this data is never used. As a
@@ -1761,27 +1762,27 @@ let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~dm manager_path vm_str
       Xenops_record.(to_string (make ~xs_subtree ~vm_str ())) >>= fun xenops_record ->
 	let xenops_rec_len = String.length xenops_record in
 		debug "Writing Xenops header (length=%d)" xenops_rec_len;
-		write_header fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
+		write_header main_fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
 		debug "Writing Xenops record contents";
-		Io.write fd xenops_record;
+		Io.write main_fd xenops_record;
 		(* Libxc record *)
       let legacy_libxc = not (XenguestHelper.supports_feature manager_path "migration-v2") in
 		debug "Writing Libxc%s header" (if legacy_libxc then "_legacy" else "");
 		let libxc_header = (if legacy_libxc then Libxc_legacy else Libxc) in
-		write_header fd (libxc_header, 0L) >>= fun () ->
+		write_header main_fd (libxc_header, 0L) >>= fun () ->
 		debug "Writing Libxc record";
-		write_libxc_record task ~xc ~xs ~hvm ~dm manager_path domid uuid fd flags
+		write_libxc_record task ~xc ~xs ~hvm ~dm manager_path domid uuid main_fd flags
 			progress_callback qemu_domid do_suspend_callback;
 		(* Qemu record (if this is a hvm domain) *)
 		(* Currently Qemu suspended inside above call with the libxc memory
 		* image, we should try putting it below in the relevant section of the
 		* suspend-image-writing *)
-		(if hvm then write_qemu_record domid uuid legacy_libxc fd else return ()) >>= fun () ->
+		(if hvm then write_qemu_record domid uuid legacy_libxc main_fd else return ()) >>= fun () ->
 		debug "Qemu record written";
 		let vgpu = Sys.file_exists (sprintf demu_save_path domid) in
-		(if vgpu then write_demu_record domid uuid fd else return ()) >>= fun () ->
+		(if vgpu then write_demu_record domid uuid main_fd else return ()) >>= fun () ->
 		debug "Writing End_of_image footer";
-		write_header fd (End_of_image, 0L)
+		write_header main_fd (End_of_image, 0L)
 	in match res with
 	| `Ok () ->
 		debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid
@@ -1810,14 +1811,14 @@ let restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid 
   restore task xc xs store_domid console_domid no_incr_generationid timeoffset extras info domid fd vgpu_fd
 
 
-let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~xenguest_path ~emu_manager_path vm_str domid fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+let suspend (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~dm ~xenguest_path ~emu_manager_path vm_str domid fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
   let suspend =
     if use_emu_manager () then
       Suspend_restore_emu_manager.suspend ~manager_path:emu_manager_path
     else
       Suspend_restore_xenguest.suspend ~manager_path:xenguest_path
   in
-  suspend task ~xc ~xs ~hvm vm_str domid fd vgpu_fd flags ~progress_callback ~qemu_domid do_suspend_callback
+  suspend task ~xc ~xs ~hvm ~dm vm_str domid fd vgpu_fd flags ~progress_callback ~qemu_domid do_suspend_callback
 
 let send_s3resume ~xc domid =
 	let uuid = get_uuid ~xc domid in

@@ -67,6 +67,8 @@ let choose_qemu_dm x = Device.(
 (* We allow xenguest to be overriden via a platform flag *)
 let choose_xenguest x = choose_alternative _xenguest !Xc_resources.xenguest x
 
+(* We allow emu-manager to be overriden via a platform flag *)
+let choose_emu_manager x = choose_alternative _emu_manager !Xc_resources.emu_manager x
 
 type qemu_frontend =
 	| Name of string (* block device path or bridge name *)
@@ -1146,7 +1148,7 @@ module VM = struct
 
 	(* NB: the arguments which affect the qemu configuration must be saved and
 	   restored with the VM. *)
-	let create_device_model_config vm vmextra vbds vifs vgpus = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
+	let create_device_model_config vm vmextra vbds vifs vgpus vusbs = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
 		| { VmExtra.build_info = None }, _
 		| { VmExtra.ty = None }, _ -> raise (Domain_not_built)
 		| {
@@ -1497,7 +1499,7 @@ module VM = struct
 				(* Not currently ballooning *)
 				| None | Some "0" -> ()
 				(* Ballooning in progress, we need to wait *)
-				| Some _ -> 
+				| Some _ ->
 					let watches = [ Watch.value_to_become balloon_active_path "0"
 					              ; Watch.key_to_disappear balloon_active_path ]
 					in
