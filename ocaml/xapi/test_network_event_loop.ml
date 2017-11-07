@@ -14,7 +14,6 @@
 
 let test_network_event_loop ~no_nbd_networks_at_start () =
   let __context, _ = Test_event_common.event_setup_common () in
-  Context.set_test_rpc __context (Mock_rpc.rpc __context);
 
   let localhost = Helpers.get_localhost ~__context in
   let other_host = Test_common.make_host ~__context () in
