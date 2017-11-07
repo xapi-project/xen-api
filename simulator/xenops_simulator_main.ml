@@ -14,8 +14,8 @@
 
 (* Start the program with the simulator backend *)
 let _ =
-	Coverage.init "xenops-simulator";
-	Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".simulator";
-	Xenops_utils.set_root "xenopsd/simulator";
-	Xenopsd.configure ();
-	Xenopsd.main (module Xenops_server_simulator: Xenops_server_plugin.S)
+  Coverage.init "xenops-simulator";
+  Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".simulator";
+  Xenops_utils.set_root "xenopsd/simulator";
+  Xenopsd.configure ();
+  Xenopsd.main (module Xenops_server_simulator: Xenops_server_plugin.S)

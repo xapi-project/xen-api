@@ -14,8 +14,8 @@
 
 external _set_sock_keepalives : Unix.file_descr -> int -> int -> int -> unit = "stub_sockopt_set_sock_keepalives"
 let set_sock_keepalives ?(count=5) ?(idle=30) ?(interval=2) fd =
-    let open Unix in
-    if (fstat fd).st_kind = S_SOCK then begin
-        setsockopt fd SO_KEEPALIVE true;
-        _set_sock_keepalives fd count idle interval
-    end
+  let open Unix in
+  if (fstat fd).st_kind = S_SOCK then begin
+    setsockopt fd SO_KEEPALIVE true;
+    _set_sock_keepalives fd count idle interval
+  end

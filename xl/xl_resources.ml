@@ -29,14 +29,14 @@ let vnc_dir = ref ""
 open Unix
 
 let essentials = [
-	X_OK, "vbd-xl-script", vbd_script, "path to the vbd-xl backend script";
-	X_OK, "vif-xl-script", vif_script, "path to the vif-xl backend script";
-	X_OK, "vncterm", vncterm, "path to the vncterm binary";
-	X_OK, "xenguest", xenguest, "path to the xenguest binary";
-	X_OK, "mount", mount, "path to the mount binary";
-	X_OK, "umount", umount, "path to the umount binary";
-	X_OK, "ionice", ionice, "path to the ionice binary";
-	X_OK, "setup-vif-rules", setup_vif_rules, "path to the setup-vif-rules script";
+  X_OK, "vbd-xl-script", vbd_script, "path to the vbd-xl backend script";
+  X_OK, "vif-xl-script", vif_script, "path to the vif-xl backend script";
+  X_OK, "vncterm", vncterm, "path to the vncterm binary";
+  X_OK, "xenguest", xenguest, "path to the xenguest binary";
+  X_OK, "mount", mount, "path to the mount binary";
+  X_OK, "umount", umount, "path to the umount binary";
+  X_OK, "ionice", ionice, "path to the ionice binary";
+  X_OK, "setup-vif-rules", setup_vif_rules, "path to the setup-vif-rules script";
 ] @ Resources.network_configuration
 
 let nonessentials = [

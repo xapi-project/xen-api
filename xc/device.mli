@@ -264,12 +264,20 @@ sig
 	val suspend : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> dm:Profile.t -> Xenctrl.domid -> unit
 	val resume : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
 	val stop : xs:Xenstore.Xs.xsh -> qemu_domid:int -> dm:Profile.t -> Xenctrl.domid -> unit
-
-	val with_dirty_log: Profile.t -> int -> f:(unit -> unit) -> unit
+  val restore_vgpu : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid  -> Xenops_interface.Vgpu.t -> int -> unit
+	
+val with_dirty_log: Profile.t -> int -> f:(unit -> 'a) -> 'a
 end
 
 module Backend: sig
 	val init : unit -> unit
+end
+
+module Vusb :
+sig
+  val vusb_plug : xs:Xenstore.Xs.xsh -> domid:Xenctrl.domid -> id:string -> hostbus:string -> hostport: string -> version: string-> unit
+  val vusb_unplug : xs:Xenstore.Xs.xsh -> domid:Xenctrl.domid -> id:string -> unit
+  val qom_list : xs:Xenstore.Xs.xsh -> domid:Xenctrl.domid -> string list
 end
 
 val get_vnc_port : xs:Xenstore.Xs.xsh -> dm:Profile.t -> Xenctrl.domid -> int option

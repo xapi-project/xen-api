@@ -26,5 +26,5 @@ let _ =
   (try ignore(Xenctrl.watchdog xc 2 0l) with _ -> ());
   (* set a very short timeout *)
   Xenctrl.watchdog xc 0 0l
-  (* boom? *)
+(* boom? *)
 

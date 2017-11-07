@@ -36,6 +36,7 @@ let console_domid = 0
 
 let _device_model = "device-model"
 let _xenguest = "xenguest"
+let _emu_manager = "emu-manager"
 
 let run cmd args =
 	debug "%s %s" cmd (String.concat " " args);
@@ -1252,7 +1253,7 @@ module VM = struct
                 with Memory_interface.MemoryError Memory_interface.No_reservation ->
                         error "Please check if memory reservation for domain %d is present, if so manually remove it" domid
 
-	let build_domain_exn xc xs domid task vm vbds vifs vgpus extras force =
+  let build_domain_exn xc xs domid task vm vbds vifs vgpus vusbs extras force =
 		let open Memory in
 		let initial_target = get_initial_target ~xs domid in
 		let make_build_info kernel priv = {
@@ -1316,12 +1317,12 @@ module VM = struct
 		) (fun () -> Opt.iter Bootloader.delete !kernel_to_cleanup)
 
 
-	let build_domain vm vbds vifs vgpus extras force xc xs task _ di =
+  let build_domain vm vbds vifs vgpus vusbs extras force xc xs task _ di =
 		let domid = di.Xenctrl.domid in
                 finally
                     (fun () ->
                             try
-                              build_domain_exn xc xs domid task vm vbds vifs vgpus extras force;
+           build_domain_exn xc xs domid task vm vbds vifs vgpus vusbs extras force;
                             with
                                     | Bootloader.Bad_sexpr x ->
                                             let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_sexpr %s" vm.Vm.id domid x in
@@ -1348,9 +1349,9 @@ module VM = struct
                                             raise e
                     ) (fun () -> clean_memory_reservation task di.Xenctrl.domid)
 
-	let build ?restore_fd task vm vbds vifs vgpus extras force = on_domain (build_domain vm vbds vifs vgpus extras force) Newest task vm
+  let build ?restore_fd task vm vbds vifs vgpus vusbs extras force = on_domain (build_domain vm vbds vifs vgpus vusbs extras force) Newest task vm
 
-	let create_device_model_exn vbds vifs vgpus saved_state xc xs task vm di =
+  let create_device_model_exn vbds vifs vgpus vusbs saved_state xc xs task vm di =
 		let vmextra = DB.read_exn vm.Vm.id in
 		let qemu_dm = dm_of ~vm in
 		let xenguest = choose_xenguest vm.Vm.platformdata in
@@ -1373,14 +1374,14 @@ module VM = struct
 						Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
 						Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
 						Device.Dm.start_vnconly task ~xs ~dm:qemu_dm info di.Xenctrl.domid
-			) (create_device_model_config vm vmextra vbds vifs vgpus);
+        ) (create_device_model_config vm vmextra vbds vifs vgpus vusbs);
 			match vm.Vm.ty with
 				| Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
 				| _ -> ()
 		with Device.Ioemu_failed (name, msg) ->
 			raise (Failed_to_start_emulator (vm.Vm.id, name, msg))
 
-	let create_device_model task vm vbds vifs vgpus saved_state = on_domain (create_device_model_exn vbds vifs vgpus saved_state) Newest task vm
+  let create_device_model task vm vbds vifs vgpus vusbs saved_state = on_domain (create_device_model_exn vbds vifs vgpus vusbs saved_state) Newest task vm
 
 	let request_shutdown task vm reason ack_delay =
 		let reason = shutdown_reason reason in
@@ -1496,7 +1497,7 @@ module VM = struct
 				(* Not currently ballooning *)
 				| None | Some "0" -> ()
 				(* Ballooning in progress, we need to wait *)
-				| Some _ ->
+				| Some _ -> 
 					let watches = [ Watch.value_to_become balloon_active_path "0"
 					              ; Watch.key_to_disappear balloon_active_path ]
 					in
@@ -1508,7 +1509,7 @@ module VM = struct
 						raise Xenops_interface.Ballooning_timeout_before_migration
 			) Oldest task vm
 
-	let save task progress_callback vm flags data =
+  let save task progress_callback vm flags data vgpu_data =
 		let flags' =
 			List.map
 				(function
@@ -1524,7 +1525,16 @@ module VM = struct
 				with_data ~xc ~xs task data true
 					(fun fd ->
 						let vm_str = Vm.sexp_of_t vm |> Sexplib.Sexp.to_string in
-						Domain.suspend task ~xc ~xs ~hvm ~dm:(dm_of ~vm) ~progress_callback ~qemu_domid (choose_xenguest vm.Vm.platformdata) vm_str domid fd flags'
+              let vgpu_fd =
+                match vgpu_data with
+                | Some (FD vgpu_fd) -> Some vgpu_fd
+                | Some disk when disk = data -> Some fd (* Don't open the file twice *)
+                | Some other_disk -> None (* We don't support this *)
+                | None -> None
+              in
+              let xenguest_path = choose_xenguest vm.Vm.platformdata in
+              let emu_manager_path = choose_emu_manager vm.Vm.platformdata in
+              Domain.suspend task ~xc ~xs ~hvm ~dm:(dm_of ~vm) ~progress_callback ~qemu_domid ~xenguest_path ~emu_manager_path vm_str domid fd vgpu_fd flags'
 							(fun () ->
 								(* SCTX-2558: wait more for ballooning if needed *)
 								wait_ballooning task vm;
@@ -1577,7 +1587,7 @@ module VM = struct
 		let pid = Forkhelpers.safe_close_and_exec None None None [] !Xc_resources.igmp_query_injector_script ("--wait-vif-connected":: (string_of_int !Xenopsd.vif_ready_for_igmp_query_timeout) :: vif_names) in
 		Forkhelpers.dontwaitpid pid
 
-	let restore task progress_callback vm vbds vifs data extras =
+  let restore task progress_callback vm vbds vifs data vgpu_data extras =
 		on_domain
 			(fun xc xs task vm di ->
 				finally
@@ -1601,7 +1611,17 @@ module VM = struct
 							try
 								with_data ~xc ~xs task data false
 									(fun fd ->
-										Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *) ~timeoffset ~extras build_info (choose_xenguest vm.Vm.platformdata) domid fd
+                       let vgpu_fd =
+                         match vgpu_data with
+                         | Some (FD vgpu_fd) -> Some vgpu_fd
+                         | Some disk when disk = data -> Some fd (* Don't open the file twice *)
+                         | Some other_disk -> None (* We don't support this *)
+                         | None -> None
+                       in
+                       let xenguest_path = choose_xenguest vm.Vm.platformdata in
+                       let emu_manager_path = choose_emu_manager vm.Vm.platformdata in
+                       Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *)
+                         ~timeoffset ~extras build_info ~xenguest_path ~emu_manager_path domid fd vgpu_fd
 									);
 							with e ->
 								error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
@@ -1953,11 +1973,26 @@ module VGPU = struct
 
 	let id_of vgpu = snd vgpu.id
 
+  let start task vm vgpu saved_state =
+    on_frontend
+      (fun _ xs frontend_domid _ ->
+         let vmextra = DB.read_exn vm in
+         let vcpus = match vmextra.VmExtra.persistent with
+           | { VmExtra.build_info = None } ->
+             error "VM = %s; No stored build_info: cannot safely restore" vm;
+             raise (Does_not_exist("build_info", vm))
+           | { VmExtra.build_info = Some build_info } ->
+             build_info.Domain.vcpus
+         in
+         Device.Dm.restore_vgpu task ~xs frontend_domid vgpu vcpus
+      ) Newest vm
+
 	let get_state vm vgpu =
 		on_frontend
 			(fun _ xs frontend_domid _ ->
 				let emulator_pid =
 					match vgpu.implementation with
+           | Empty
 					| MxGPU _
 					| GVT_g _ -> Device.Qemu.pid ~xs frontend_domid
 					| Nvidia _ -> Device.Vgpu.pid ~xs frontend_domid
@@ -1966,6 +2001,49 @@ module VGPU = struct
 				| Some pid -> {plugged = true; emulator_pid}
 				| None -> {plugged = false; emulator_pid})
 			Newest vm
+end
+
+module VUSB = struct
+  open Vusb
+
+  let id_of vusb = snd vusb.id
+
+  let get_state vm vusb =
+    on_frontend
+      (fun _ xs frontend_domid _ ->
+         let emulator_pid = Device.Qemu.pid ~xs frontend_domid in
+         debug "Qom list to get vusb state";
+         let peripherals = Device.Vusb.qom_list ~xs ~domid:frontend_domid in
+         let found = List.mem (snd vusb.Vusb.id)  peripherals in
+         match emulator_pid, found with
+         | Some pid, true -> {plugged = true}
+         | _,_ -> {plugged = false})
+      Newest vm
+
+  let get_device_action_request vm vusb =
+    let state = get_state vm vusb in
+    (* If it has disappeared from qom-list then we assume unplug is needed if only
+       		   to release resources *)
+    if not state.plugged then Some Needs_unplug else None
+
+  let plug task vm vusb =
+    on_frontend
+      (fun xc xs frontend_domid hvm ->
+         if not hvm
+         then info "VM = %s; vusb device will no plug to  a PV guest" vm
+         else
+           Device.Vusb.vusb_plug ~xs ~domid:frontend_domid ~id:(snd vusb.Vusb.id) ~hostbus:vusb.Vusb.hostbus ~hostport:vusb.Vusb.hostport ~version:vusb.Vusb.version;
+      ) Newest vm
+
+  let unplug task vm vusb =
+    try
+      on_frontend
+        (fun xc xs frontend_domid hvm ->
+           Device.Vusb.vusb_unplug ~xs ~domid:frontend_domid ~id:(snd vusb.Vusb.id);
+        ) Newest vm
+    with (Does_not_exist(_,_)) ->
+      debug "VM = %s; VUSB = %s; Ignoring missing domain" vm (id_of vusb)
+
 end
 
 let set_active_device path active =

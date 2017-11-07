@@ -98,7 +98,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid ~console_domi
 	(* VKBD is needed for keyboard input via the stubdom *)
 	Device.Vkbd.add ~xc ~xs stubdom_domid;
 
-	(* XXX:
+	(* XXX: 
     (* Add a place for qemu to record the dm state in XenStore, with appropriate permissions *)
     List.iter (fun domid -> Device.Dm.init ~xs ~domid) [stubdom_domid; domid];
 	*)

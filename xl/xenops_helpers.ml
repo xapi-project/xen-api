@@ -23,8 +23,8 @@ let with_xs f =
 	finally (fun () -> f xs) (fun () -> Xs.close xs)
 *)
 let with_xc_and_xs f =
-	Xenctrl.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
+  Xenctrl.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
 
 let with_xc_and_xs_final f cf =
-	with_xc_and_xs (fun xc xs -> finally (fun () -> f xc xs) cf)
+  with_xc_and_xs (fun xc xs -> finally (fun () -> f xc xs) cf)
 

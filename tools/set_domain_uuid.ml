@@ -6,7 +6,7 @@ let is_uuid_valid uuid =
   match Uuidm.of_string uuid with
   | None -> false
   | Some _ -> true
- 
+
 let set domain uuid =
   if not (is_uuid_valid uuid) then begin
     `Error (false, "Invalid uuid");

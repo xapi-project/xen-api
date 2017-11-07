@@ -14,9 +14,9 @@
 
 module PV_Vnc :
 sig
-	exception Failed_to_start
-	val start : ?statefile:string -> xs:Xenstore.Xs.xsh -> ?ip:string -> Xenctrl.domid -> unit
-	val stop : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+  exception Failed_to_start
+  val start : ?statefile:string -> xs:Xenstore.Xs.xsh -> ?ip:string -> Xenctrl.domid -> unit
+  val stop : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
 end
 
 val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option

@@ -19,16 +19,16 @@ open Xenops_utils
    given only an interface name (e.g. "tapX.Y" or "fooUUID"?) *)
 
 module Interface = struct
-	type t = {
-		name: string;
-		vif: Vif.id;
-	} [@@deriving rpc]
+  type t = {
+    name: string;
+    vif: Vif.id;
+  } [@@deriving rpc]
 end
 
 module DB = TypedTable(struct
-	include Interface
-	let namespace = "interface"
-	type key = string
-	let key x = [ x ]
-end)
+    include Interface
+    let namespace = "interface"
+    type key = string
+    let key x = [ x ]
+  end)
 

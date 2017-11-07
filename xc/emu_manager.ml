@@ -14,13 +14,10 @@
 open Xenops_utils
 open Xenops_task
 
-module D = Debug.Make(struct let name = "xenguesthelper" end)
+module D = Debug.Make(struct let name = "emu-manager" end)
 open D
 
-(** Where to place the last xenguesthelper debug log (just in case) *)
-let last_log_file = "/tmp/xenguesthelper-log"
-
-(* Exceptions which may propagate from the xenguest binary *)
+(* Exceptions which may propagate from the emu-manager binary *)
 exception Xenctrl_dom_allocate_failure of int * string
 exception Xenctrl_dom_linux_build_failure of int * string
 exception Xenctrl_domain_save_failure of int * string
@@ -33,7 +30,7 @@ exception Domain_builder_error of string (* function name *) * int (* error code
     underlying fds as integers to the forked helper on the commandline. *)
 type t = in_channel * out_channel * Unix.file_descr * Unix.file_descr * Forkhelpers.pidty
 
-(** Fork and run a xenguest helper with particular args, leaving 'fds' open 
+(** Fork and run a emu-manager with particular args, leaving 'fds' open
     (in addition to internal control I/O fds) *)
 let connect path domid (args: string list) (fds: (string * Unix.file_descr) list) : t =
   debug "connect: args = [ %s ]" (String.concat " " args);
@@ -84,7 +81,7 @@ let with_connection (task: Xenops_task.task_handle) path domid (args: string lis
     let _, _, _, _, pid = t in
     let pid = Forkhelpers.getpid pid in
     cancelled := true;
-    info "Cancelling task %s by killing xenguest subprocess pid: %d" (Xenops_task.id_of_handle task) pid;
+    info "Cancelling task %s by killing emu-manager subprocess pid: %d" (Xenops_task.id_of_handle task) pid;
     try Unix.kill pid Sys.sigkill with _ -> () in
   finally
     (fun () ->
@@ -99,29 +96,47 @@ let with_connection (task: Xenops_task.task_handle) path domid (args: string lis
          )
     ) (fun () -> disconnect t)
 
+type emu = Xenguest | Vgpu
+
+let emu_of_string = function
+  | "xenguest" -> Xenguest
+  | "vgpu" -> Vgpu
+  | _ -> failwith "unknown emu"
+
+let string_of_emu = function
+  | Xenguest -> "xenguest"
+  | Vgpu -> "vgpu"
+
 (** immediately write a command to the control channel *)
 let send (_, out, _, _, _) txt = output_string out txt; flush out
 
-(** Keep this in sync with xenguest_main *)
+let send_done cnx =
+  send cnx "done\n"
+
+let send_restore cnx emu =
+  send cnx (Printf.sprintf "restore:%s\n" (string_of_emu emu))
+
 type message =
-  | Stdout of string (* captured stdout from libxenguest *)
-  | Stderr of string (* captured stderr from libxenguest *)
+  | Stdout of string (* captured stdout from emu-manager *)
+  | Stderr of string (* captured stderr from emu-manager *)
   | Error of string  (* an actual error that we detected *)
   | Suspend          (* request the caller suspends the domain *)
   | Info of string   (* some info that we want to send back *)
   | Result of string (* the result of the operation *)
+  | Prepare of string (* request the caller to prepare for the next step *)
 
 let string_of_message = function
-  | Stdout x -> "stdout:" ^ (String.escaped x)
-  | Stderr x -> "stderr:" ^ (String.escaped x)
-  | Error x  -> "error:" ^ (String.escaped x)
-  | Suspend  -> "suspend:"
-  | Info x   -> "info:" ^ (String.escaped x)
-  | Result x -> "result:" ^ (String.escaped x)
+  | Stdout x  -> "stdout:" ^ (String.escaped x)
+  | Stderr x  -> "stderr:" ^ (String.escaped x)
+  | Error x   -> "error:" ^ (String.escaped x)
+  | Suspend   -> "suspend:"
+  | Info x    -> "info:" ^ (String.escaped x)
+  | Result x  -> "result:" ^ (String.escaped x)
+  | Prepare x -> "prepare:" ^ (String.escaped x)
 
 let message_of_string x =
   if not(String.contains x ':') 
-  then failwith (Printf.sprintf "Failed to parse message from xenguesthelper [%s]" x);
+  then failwith (Printf.sprintf "Failed to parse message from emu-manager [%s]" x);
   let i = String.index x ':' in
   let prefix = String.sub x 0 i
   and suffix = String.sub x (i + 1) (String.length x - i - 1) in match prefix with
@@ -131,7 +146,24 @@ let message_of_string x =
   | "suspend" -> Suspend
   | "info" -> Info suffix
   | "result" -> Result suffix
+  | "prepare" -> Prepare suffix
   | _ -> Error "uncaught exception"
+
+type result =
+  | Xenguest_result of (nativeint * nativeint)
+  | Vgpu_result
+
+let emu_of_result = function
+  | Xenguest_result _ -> Xenguest
+  | Vgpu_result -> Vgpu
+
+let parse_result res =
+  match Stdext.Xstringext.String.split ' ' res with
+  | [emu; store; console] when emu_of_string emu = Xenguest ->
+    Xenguest_result (Nativeint.of_string store, Nativeint.of_string console)
+  | [emu]                 when emu_of_string emu = Vgpu ->
+    Vgpu_result
+  | _ -> failwith "Unknown result type"
 
 (** return the next output line from the control channel *)
 let receive (infd, _, _, _, _) = message_of_string (input_line infd)
@@ -182,8 +214,9 @@ let receive_success ?(debug_callback=(fun s -> debug "%s" s)) cnx =
       | [ "xc_domain_save"    ; code; msg ] -> raise (Xenctrl_domain_save_failure     (int_of_string code, msg))
       | [ "xc_domain_resume"  ; code; msg ] -> raise (Xenctrl_domain_resume_failure   (int_of_string code, msg))
       | [ "xc_domain_restore" ; code; msg ] -> raise (Xenctrl_domain_restore_failure  (int_of_string code, msg))
-      | _ -> failwith (Printf.sprintf "Error from xenguesthelper: " ^ x)
+      | _ -> failwith (Printf.sprintf "Error from emu-manager: " ^ x)
     end
-  | Suspend -> failwith "xenguesthelper protocol failure; not expecting Suspend"
+  | Suspend -> failwith "emu-manager protocol failure; not expecting Suspend"
+  | Prepare _ -> failwith "emu-manager protocol failure; not expecting Prepare"
   | Result x -> x
   | Stdout _ | Stderr _ | Info _ -> assert false

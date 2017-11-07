@@ -29,41 +29,41 @@ let cpu_info_file = ref "/etc/xensource/boot_time_cpus"
 open Unix
 
 let hvm_guests = [
-	R_OK, "hvmloader", hvmloader, "path to the hvmloader binary for HVM guests";
-	X_OK, "qemu-dm-wrapper", qemu_dm_wrapper, "path to the qemu-dm-wrapper script";
-	X_OK, "qemu-system-i386", qemu_system_i386, "path to the qemu-system-i386 binary";
-	X_OK, "upstream-compat-qemu-dm-wrapper", upstream_compat_qemu_dm_wrapper, "path to the upstream compat qemu-dm-wrapper script";
+  R_OK, "hvmloader", hvmloader, "path to the hvmloader binary for HVM guests";
+  X_OK, "qemu-dm-wrapper", qemu_dm_wrapper, "path to the qemu-dm-wrapper script";
+  X_OK, "qemu-system-i386", qemu_system_i386, "path to the qemu-system-i386 binary";
+  X_OK, "upstream-compat-qemu-dm-wrapper", upstream_compat_qemu_dm_wrapper, "path to the upstream compat qemu-dm-wrapper script";
 ]
 
 let pv_guests = [
-	X_OK, "pygrub", pygrub, "path to the pygrub bootloader binary";
-	X_OK, "eliloader", eliloader, "path to the eliloader bootloader binary";
+  X_OK, "pygrub", pygrub, "path to the pygrub bootloader binary";
+  X_OK, "eliloader", eliloader, "path to the eliloader bootloader binary";
 ]
 
 (* libvirt xc *)
 let network_configuration = [
-	R_OK, "network-conf", network_conf, "path to the network backend switch";
+  R_OK, "network-conf", network_conf, "path to the network backend switch";
 ]
 
 let essentials = [
-	X_OK, "chgrp", chgrp, "path to the chgrp binary";
-	X_OK, "modprobe", modprobe, "path to the modprobe binary";
-	X_OK, "rmmod", rmmod, "path to the rmmod binary";
+  X_OK, "chgrp", chgrp, "path to the chgrp binary";
+  X_OK, "modprobe", modprobe, "path to the modprobe binary";
+  X_OK, "rmmod", rmmod, "path to the rmmod binary";
 ]
 
 let nonessentials = [
-	X_OK, "convert-legacy-stream", legacy_conv_tool, "path to convert-legacy-stream tool";
-	R_OK, "cpu-info-file", cpu_info_file, "Where to cache boot-time CPU info";
+  X_OK, "convert-legacy-stream", legacy_conv_tool, "path to convert-legacy-stream tool";
+  R_OK, "cpu-info-file", cpu_info_file, "Where to cache boot-time CPU info";
 ]
 
 let make_resources ~essentials ~nonessentials =
-	let open Xcp_service in
-	List.map (fun (perm, name, path, description) -> {
-		essential = true;
-		name; description; path;
-		perms = [ perm ]
-	}) essentials @ (List.map (fun (perm, name, path, description) -> {
-		essential = false;
-		name; description; path;
-		perms = [ perm ]
-	}) nonessentials)
+  let open Xcp_service in
+  List.map (fun (perm, name, path, description) -> {
+        essential = true;
+        name; description; path;
+        perms = [ perm ]
+      }) essentials @ (List.map (fun (perm, name, path, description) -> {
+        essential = false;
+        name; description; path;
+        perms = [ perm ]
+      }) nonessentials)

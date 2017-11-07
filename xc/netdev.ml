@@ -17,5 +17,5 @@ module D = Debug.Make(struct let name = "netdev" end)
 open D
 
 type network =
-	| Bridge of string
-	| VSwitch of string
+  | Bridge of string
+  | VSwitch of string

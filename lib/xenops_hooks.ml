@@ -60,19 +60,19 @@ let execute_hook ~script_name ~args ~reason =
   let scripts = list_individual_hooks ~script_name in
 
   let script_dir = hooks_dir^script_name^"/" in
-    Array.iter
-      (fun script->
-	 try
-	   debug "Executing hook '%s/%s' with args [ %s ]" script_name script (String.concat "; " args);
-	   ignore (Forkhelpers.execute_command_get_output (script_dir^script) args);
-	 with
-	   Forkhelpers.Spawn_internal_error (_,stdout,Unix.WEXITED i) (* i<>0 since that case does not generate exn *) ->
-	     if i=exitcode_log_and_continue then
-	       debug "Hook '%s/%s' with args [ %s ] logged '%s'" script_name script (String.concat "; " args) (String.escaped stdout)
-	     else
-	       raise (Hook_failed(script_name^"/"^script, reason, stdout, string_of_int i))
-		     )
-      scripts
+  Array.iter
+    (fun script->
+       try
+         debug "Executing hook '%s/%s' with args [ %s ]" script_name script (String.concat "; " args);
+         ignore (Forkhelpers.execute_command_get_output (script_dir^script) args);
+       with
+         Forkhelpers.Spawn_internal_error (_,stdout,Unix.WEXITED i) (* i<>0 since that case does not generate exn *) ->
+         if i=exitcode_log_and_continue then
+           debug "Hook '%s/%s' with args [ %s ] logged '%s'" script_name script (String.concat "; " args) (String.escaped stdout)
+         else
+           raise (Hook_failed(script_name^"/"^script, reason, stdout, string_of_int i))
+    )
+    scripts
 
 let execute_vm_hook ~id ~reason =
   execute_hook ~args:[ "-vmuuid"; id ] ~reason
@@ -97,26 +97,26 @@ let vm_post_destroy ~reason ~id =
   execute_vm_hook ~script_name:scriptname__vm_post_destroy ~reason ~id
 
 type script =
-	| VM_pre_destroy
-	| VM_pre_migrate
-	| VM_post_migrate
-	| VM_pre_suspend
-	| VM_pre_start
-	| VM_pre_reboot
-	| VM_pre_resume
-	| VM_post_resume
-	| VM_post_destroy
-[@@deriving rpc]
+  | VM_pre_destroy
+  | VM_pre_migrate
+  | VM_post_migrate
+  | VM_pre_suspend
+  | VM_pre_start
+  | VM_pre_reboot
+  | VM_pre_resume
+  | VM_post_resume
+  | VM_post_destroy
+  [@@deriving rpc]
 
 let vm ~script ~reason ~id =
-	let script_name = match script with
-		| VM_pre_destroy  -> scriptname__vm_pre_destroy
-		| VM_pre_migrate  -> scriptname__vm_pre_migrate
-		| VM_post_migrate -> scriptname__vm_post_migrate
-		| VM_pre_suspend -> scriptname__vm_pre_suspend
-		| VM_pre_start    -> scriptname__vm_pre_start
-		| VM_pre_reboot   -> scriptname__vm_pre_reboot
-		| VM_pre_resume   -> scriptname__vm_pre_resume
-		| VM_post_resume  -> scriptname__vm_post_resume
-		| VM_post_destroy -> scriptname__vm_post_destroy in
-	execute_vm_hook ~script_name ~reason ~id
+  let script_name = match script with
+    | VM_pre_destroy  -> scriptname__vm_pre_destroy
+    | VM_pre_migrate  -> scriptname__vm_pre_migrate
+    | VM_post_migrate -> scriptname__vm_post_migrate
+    | VM_pre_suspend -> scriptname__vm_pre_suspend
+    | VM_pre_start    -> scriptname__vm_pre_start
+    | VM_pre_reboot   -> scriptname__vm_pre_reboot
+    | VM_pre_resume   -> scriptname__vm_pre_resume
+    | VM_post_resume  -> scriptname__vm_post_resume
+    | VM_post_destroy -> scriptname__vm_post_destroy in
+  execute_vm_hook ~script_name ~reason ~id
