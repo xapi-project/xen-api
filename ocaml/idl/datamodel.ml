@@ -3444,7 +3444,7 @@ let vdi_resize_online = call
     ~in_product_since:rel_rio
     ~lifecycle: [
       Published, rel_rio, "";
-      Removed, rel_inverness, "Remove feature of online VDI resize because it is not supported by any of the storage backends."
+      Removed, rel_inverness, "Online VDI resize is not supported by any of the storage backends."
     ]
     ~params:[Ref _vdi, "vdi", "The VDI to resize"; Int, "size", "The new size of the VDI" ]
     ~doc:"Resize the VDI which may or may not be attached to running guests."
