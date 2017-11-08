@@ -266,3 +266,49 @@ module Host_requires_reboot = struct
         Unixext.touch_file Xapi_globs.requires_reboot_file
       )
 end
+
+module InitiatorName = struct
+
+  let make_initiatorname_config iqn hostname =
+    Printf.sprintf
+      "InitiatorName=%s\nInitiatorAlias=%s\n"
+      iqn hostname
+
+  let set_initiator_name iqn =
+    let hostname = Unix.gethostname () in
+    let config_file = make_initiatorname_config iqn hostname in
+    Unixext.write_string_to_file !Xapi_globs.iscsi_initiator_config_file config_file
+
+  let watch_other_configs ~__context delay =
+    let loop token =
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          let events =
+            Client.Client.Event.from rpc session_id ["host"] token delay |>
+            Event_types.event_from_of_rpc
+          in
+          List.iter (fun ev ->
+              match Event_helper.record_of_event ev with
+                | Event_helper.Host (host_ref, Some host_rec) ->
+                  let oc = host_rec.API.host_other_config in
+                  if List.mem_assoc "iscsi_iqn" oc &&
+                     host_rec.API.host_iscsi_iqn <> (List.assoc "iscsi_iqn" oc)
+                  then Client.Client.Host.set_iscsi_iqn rpc session_id host_ref (List.assoc "iscsi_iqn" oc)
+                | _ -> ())
+              events.Event_types.events;
+          events.Event_types.token)
+    in
+    loop
+
+  let start_watcher_thread ~__context =
+    Thread.create (fun () ->
+      let loop = watch_other_configs ~__context 30.0 in
+      while true do
+        begin
+          try
+            let rec inner token = inner (loop token) in inner ""
+          with e ->
+            error "Caught exception in InitiatorName.start_watcher_thread: %s" (Printexc.to_string e);
+            Thread.delay 5.0;
+        end;
+      done) () |> ignore
+end
