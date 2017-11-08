@@ -154,8 +154,6 @@ val _data_destroy : __context:Context.t -> self:[ `VDI ] API.Ref.t -> timeout:fl
     for waiting for the VDI's VBDs to disappear is configurable to enable faster
     unit tests. *)
 
-val resize_online :
-  __context:Context.t -> vdi:[ `VDI ] API.Ref.t -> size:int64 -> unit
 val resize :
   __context:Context.t -> vdi:[ `VDI ] API.Ref.t -> size:int64 -> unit
 val generate_config :
