@@ -111,7 +111,7 @@ let run cmd args =
 type qemu_frontend =
   | Name of string (* block device path or bridge name *)
   | Device of Device_common.device
-  [@@deriving rpc]
+[@@deriving rpc]
 
 type attached_vdi = {
   domid: int;
@@ -144,7 +144,7 @@ module Domain = struct
   } [@@deriving rpc]
 
   type builder_spec_info = BuildHVM of build_hvm_info | BuildPV of build_pv_info
-    [@@deriving rpc]
+  [@@deriving rpc]
 
   type build_info = {
     memory_max: int64;    (* memory max in kilobytes *)
@@ -2818,31 +2818,31 @@ let _releaseDomain = "@releaseDomain"
 let store_rtc_timeoffset vm timeoffset =
   Opt.iter
     (function { VmExtra.persistent; non_persistent } ->
-    match persistent with
-    | { VmExtra.ty = Some ( Vm.HVM hvm_info ) } ->
-      let persistent = { persistent with VmExtra.ty = Some (Vm.HVM { hvm_info with Vm.timeoffset = timeoffset }) } in
-      debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset;
-      DB.write vm { VmExtra.persistent; non_persistent }
-    | _ -> ()
+     match persistent with
+     | { VmExtra.ty = Some ( Vm.HVM hvm_info ) } ->
+       let persistent = { persistent with VmExtra.ty = Some (Vm.HVM { hvm_info with Vm.timeoffset = timeoffset }) } in
+       debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset;
+       DB.write vm { VmExtra.persistent; non_persistent }
+     | _ -> ()
     ) (DB.read vm)
 
 let maybe_update_pv_drivers_detected ~xc ~xs domid path =
   let vm = get_uuid domid in
   Opt.iter
     (function { VmExtra.persistent; non_persistent } ->
-      if not non_persistent.VmExtra.pv_drivers_detected then begin
-        (* If the new value for this device is 4 then PV drivers are present *)
-        try
-          let value = xs.Xs.read path in
-          if value = "4" (* connected *) then begin
-            let non_persistent = { non_persistent with VmExtra.pv_drivers_detected = true } in
-            debug "VM = %s; found PV driver evidence on %s (value = %s)" vm path value;
-            DB.write vm { VmExtra.persistent; non_persistent }
-          end
-        with Xs_protocol.Enoent _ ->
-          warn "Watch event on %s fired but couldn't read from it" path;
-          () (* the path must have disappeared immediately after the watch fired. Let's treat this as if we never saw it. *)
-      end
+       if not non_persistent.VmExtra.pv_drivers_detected then begin
+         (* If the new value for this device is 4 then PV drivers are present *)
+         try
+           let value = xs.Xs.read path in
+           if value = "4" (* connected *) then begin
+             let non_persistent = { non_persistent with VmExtra.pv_drivers_detected = true } in
+             debug "VM = %s; found PV driver evidence on %s (value = %s)" vm path value;
+             DB.write vm { VmExtra.persistent; non_persistent }
+           end
+         with Xs_protocol.Enoent _ ->
+           warn "Watch event on %s fired but couldn't read from it" path;
+           () (* the path must have disappeared immediately after the watch fired. Let's treat this as if we never saw it. *)
+       end
     ) (DB.read vm)
 
 module IntMap = Map.Make(struct type t = int let compare = compare end)

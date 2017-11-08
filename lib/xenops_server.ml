@@ -108,7 +108,7 @@ type atomic =
   | VM_delay of (Vm.id * float) (** used to suppress fast reboot loops *)
   | Parallel of Vm.id * string * atomic list
 
-  [@@deriving rpc]
+[@@deriving rpc]
 
 let string_of_atomic x = x |> rpc_of_atomic |> Jsonrpc.to_string
 
@@ -133,7 +133,7 @@ type operation =
   | VIF_check_state of Vif.id
   | VUSB_check_state of Vusb.id
   | Atomic of atomic
-  [@@deriving rpc]
+[@@deriving rpc]
 
 let string_of_operation x = x |> rpc_of_operation |> Jsonrpc.to_string
 
@@ -896,7 +896,7 @@ let rec atomics_of_operation = function
                   (* Plug USB device into HVM guests via qemu .*)
                  ) @ simplify (List.map (fun vusb -> VUSB_plug vusb.Vusb.id)
                                  (VUSB_DB.vusbs id)
-                 ) @ [
+                              ) @ [
       (* At this point the domain is considered survivable. *)
       VM_set_domain_action_request(id, None)
     ]
@@ -905,7 +905,7 @@ let rec atomics_of_operation = function
     (* When shutdown vm, need to unplug vusb from vm. *)
     ) @ (List.map (fun vusb -> VUSB_unplug vusb.Vusb.id)
            (VUSB_DB.vusbs id)
-    ) @ simplify ([
+        ) @ simplify ([
         (* At this point we have a shutdown domain (ie Needs_poweroff) *)
         VM_destroy_device_model id;
       ] @ (

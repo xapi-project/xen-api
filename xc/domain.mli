@@ -29,28 +29,28 @@ exception Timeout_backend
 exception Could_not_read_file of string (* eg linux kernel/ initrd *)
 
 type create_info = {
-	ssidref: int32;
-	hvm: bool;
-	hap: bool;
-	name: string;
-	xsdata: (string * string) list;
-	platformdata: (string * string) list;
-	bios_strings: (string * string) list;
-	has_vendor_device: bool;
+  ssidref: int32;
+  hvm: bool;
+  hap: bool;
+  name: string;
+  xsdata: (string * string) list;
+  platformdata: (string * string) list;
+  bios_strings: (string * string) list;
+  has_vendor_device: bool;
 }
 val create_info_of_rpc: Rpc.t -> create_info
 val rpc_of_create_info: create_info -> Rpc.t
 
 type build_hvm_info = {
-	shadow_multiplier: float;
-	video_mib: int;
+  shadow_multiplier: float;
+  video_mib: int;
 }
 val build_hvm_info_of_rpc: Rpc.t -> build_hvm_info
 val rpc_of_build_hvm_info: build_hvm_info -> Rpc.t
 
 type build_pv_info = {
-	cmdline: string;
-	ramdisk: string option;
+  cmdline: string;
+  ramdisk: string option;
 }
 val build_pv_info_of_rpc: Rpc.t -> build_pv_info
 val rpc_of_build_pv_info: build_pv_info -> Rpc.t
@@ -60,11 +60,11 @@ val builder_spec_info_of_rpc: Rpc.t -> builder_spec_info
 val rpc_of_builder_spec_info: builder_spec_info -> Rpc.t
 
 type build_info = {
-	memory_max: int64;    (* memory max in kilobytes *)
-	memory_target: int64; (* memory target in kilobytes *)
-	kernel: string;       (* in hvm case, point to hvmloader *)
-	vcpus: int;           (* vcpus max *)
-	priv: builder_spec_info;
+  memory_max: int64;    (* memory max in kilobytes *)
+  memory_target: int64; (* memory target in kilobytes *)
+  kernel: string;       (* in hvm case, point to hvmloader *)
+  vcpus: int;           (* vcpus max *)
+  priv: builder_spec_info;
 }
 val build_info_of_rpc: Rpc.t -> build_info
 val rpc_of_build_info: build_info -> Rpc.t
@@ -111,7 +111,7 @@ val pause: xc: Xenctrl.handle -> domid -> unit
 val unpause: xc: Xenctrl.handle -> domid -> unit
 
 (** [set_action_request xs domid None] declares this domain is fully intact.
-	Any other string is a hint to the toolstack that the domain is still broken. *)
+    	Any other string is a hint to the toolstack that the domain is still broken. *)
 val set_action_request: xs:Xenstore.Xs.xsh -> domid -> string option -> unit
 
 val get_action_request: xs:Xenstore.Xs.xsh -> domid -> string option
@@ -120,16 +120,16 @@ val get_action_request: xs:Xenstore.Xs.xsh -> domid -> string option
 
 (** Builds a linux guest in a fresh domain created with 'make' *)
 val build_linux: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> static_max_kib:Int64.t
-              -> target_kib:Int64.t -> kernel:string -> cmdline:string
-              -> ramdisk:string option -> vcpus:int -> extras:string list -> string -> domid -> bool
-              -> domarch
+  -> target_kib:Int64.t -> kernel:string -> cmdline:string
+  -> ramdisk:string option -> vcpus:int -> extras:string list -> string -> domid -> bool
+  -> domarch
 
 (** build an hvm domain in a fresh domain created with 'make' *)
 val build_hvm: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> static_max_kib:Int64.t
-            -> target_kib:Int64.t -> shadow_multiplier:float
-            -> vcpus:int -> kernel:string
-            -> timeoffset:string -> video_mib:int -> extras:string list -> string -> domid -> bool
-            -> domarch
+  -> target_kib:Int64.t -> shadow_multiplier:float
+  -> vcpus:int -> kernel:string
+  -> timeoffset:string -> video_mib:int -> extras:string list -> string -> domid -> bool
+  -> domarch
 
 (** Restore a domain using the info provided *)
 val build: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> timeoffset:string -> extras:string list -> build_info -> string -> domid -> bool -> domarch
@@ -143,7 +143,7 @@ val restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xe
   -> timeoffset:string -> extras:string list -> build_info
   -> xenguest_path:string -> emu_manager_path:string -> domid
   -> Unix.file_descr -> Unix.file_descr option
-          -> unit
+  -> unit
 
 type suspend_flag = Live | Debug
 

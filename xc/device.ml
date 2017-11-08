@@ -55,7 +55,7 @@ module Profile = struct
     | x when x = Name.qemu_upstream_compat -> Qemu_upstream_compat
     | x when x = Name.qemu_upstream        -> Qemu_upstream
     | x -> debug "unknown device-model profile %s: defaulting to fallback: %s" x (string_of fallback);
-       fallback
+      fallback
 
   (* XXX remove again *)
   let of_domid x = if is_upstream_qemu x then Qemu_upstream else Qemu_trad
@@ -1904,8 +1904,8 @@ module Backend = struct
 
       let get_vnc_port ~xs domid =
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
-          (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
-        )
+            (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
+          )
 
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
         Dm_Common.signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
@@ -1985,110 +1985,110 @@ module Backend = struct
     (** Implementation of the Dm functions that use the dispatcher for the qemu-upstream-compat backend *)
     module Dm = struct
 
-        (** Handler for the QMP events in upstream qemu *)
-        module QMP_Event = struct
-          open Qmp
+      (** Handler for the QMP events in upstream qemu *)
+      module QMP_Event = struct
+        open Qmp
 
-          let (>>=) m f = match m with | Some x -> f x | None -> ()
-          let (>>|) m f = match m with | Some _ -> () | None -> f ()
+        let (>>=) m f = match m with | Some x -> f x | None -> ()
+        let (>>|) m f = match m with | Some _ -> () | None -> f ()
 
-          (** Efficient lookup table between file descriptors, channels and domain ids *)
-          module Lookup = struct
-            let ftod, dtoc = Hashtbl.create 16, Hashtbl.create 16
-            let add c domid =
-              Hashtbl.replace ftod (Qmp_protocol.to_fd c) domid;
-              Hashtbl.replace dtoc domid c
-            let remove c domid =
-              Hashtbl.remove ftod (Qmp_protocol.to_fd c);
-              Hashtbl.remove dtoc domid
-            let domid_of fd = try Some (Hashtbl.find ftod fd) with Not_found -> None
-            let channel_of domid = try Some (Hashtbl.find dtoc domid) with Not_found -> None
-          end
+        (** Efficient lookup table between file descriptors, channels and domain ids *)
+        module Lookup = struct
+          let ftod, dtoc = Hashtbl.create 16, Hashtbl.create 16
+          let add c domid =
+            Hashtbl.replace ftod (Qmp_protocol.to_fd c) domid;
+            Hashtbl.replace dtoc domid c
+          let remove c domid =
+            Hashtbl.remove ftod (Qmp_protocol.to_fd c);
+            Hashtbl.remove dtoc domid
+          let domid_of fd = try Some (Hashtbl.find ftod fd) with Not_found -> None
+          let channel_of domid = try Some (Hashtbl.find dtoc domid) with Not_found -> None
+        end
 
-          (** File-descriptor event monitor implementation for the epoll library *)
-          module Monitor = struct
-            module Epoll = Core.Linux_ext.Epoll
-            module Flags = Core.Linux_ext.Epoll.Flags
-            let create () = (Core.Std.Or_error.ok_exn Epoll.create) ~num_file_descrs:1001 ~max_ready_events:1
-            let add m fd = Epoll.set m fd Flags.in_
-            let remove m fd = Epoll.remove m fd
-            let wait m = Epoll.wait m ~timeout:`Never
-            let with_event m fn = function
-              | `Ok -> Epoll.iter_ready m ~f:(fun fd flags -> fn fd (flags = Flags.in_))
-              | `Timeout -> debug "Shouldn't receive epoll timeout event in qmp_event_thread"
-          end
-          let m = Monitor.create ()
+        (** File-descriptor event monitor implementation for the epoll library *)
+        module Monitor = struct
+          module Epoll = Core.Linux_ext.Epoll
+          module Flags = Core.Linux_ext.Epoll.Flags
+          let create () = (Core.Std.Or_error.ok_exn Epoll.create) ~num_file_descrs:1001 ~max_ready_events:1
+          let add m fd = Epoll.set m fd Flags.in_
+          let remove m fd = Epoll.remove m fd
+          let wait m = Epoll.wait m ~timeout:`Never
+          let with_event m fn = function
+            | `Ok -> Epoll.iter_ready m ~f:(fun fd flags -> fn fd (flags = Flags.in_))
+            | `Timeout -> debug "Shouldn't receive epoll timeout event in qmp_event_thread"
+        end
+        let m = Monitor.create ()
 
-          let monitor_path domid = qmp_event_path domid
-          let debug_exn msg e = debug "%s: %s" msg (Printexc.to_string e)
+        let monitor_path domid = qmp_event_path domid
+        let debug_exn msg e = debug "%s: %s" msg (Printexc.to_string e)
 
-          let remove domid =
-            Lookup.channel_of domid >>= fun c ->
-            try
-              finally
-                (fun () ->
-                   Lookup.remove c domid;
-                   Monitor.remove m (Qmp_protocol.to_fd c);
-                   debug "Removed QMP Event fd for domain %d" domid)
-                (fun () -> Qmp_protocol.close c)
-            with e -> debug_exn (Printf.sprintf "Got exception trying to remove qmp on domain-%d" domid) e
+        let remove domid =
+          Lookup.channel_of domid >>= fun c ->
+          try
+            finally
+              (fun () ->
+                 Lookup.remove c domid;
+                 Monitor.remove m (Qmp_protocol.to_fd c);
+                 debug "Removed QMP Event fd for domain %d" domid)
+              (fun () -> Qmp_protocol.close c)
+          with e -> debug_exn (Printf.sprintf "Got exception trying to remove qmp on domain-%d" domid) e
 
-          let add domid =
-            try
-              Lookup.channel_of domid >>| fun () ->
-              let c = Qmp_protocol.connect (monitor_path domid) in
-              Qmp_protocol.negotiate c;
-              Lookup.add c domid;
-              Monitor.add m (Qmp_protocol.to_fd c);
-              debug "Added QMP Event fd for domain %d" domid
-            with e ->
-              debug_exn (Printf.sprintf "QMP domain-%d: negotiation failed: removing socket" domid) e;
-              remove domid
+        let add domid =
+          try
+            Lookup.channel_of domid >>| fun () ->
+            let c = Qmp_protocol.connect (monitor_path domid) in
+            Qmp_protocol.negotiate c;
+            Lookup.add c domid;
+            Monitor.add m (Qmp_protocol.to_fd c);
+            debug "Added QMP Event fd for domain %d" domid
+          with e ->
+            debug_exn (Printf.sprintf "QMP domain-%d: negotiation failed: removing socket" domid) e;
+            remove domid
 
-          let qmp_event_handle domid qmp_event =
-            (* This function will be extended to handle qmp events *)
-            debug "Got QMP event, domain-%d: %s" domid qmp_event.event;
+        let qmp_event_handle domid qmp_event =
+          (* This function will be extended to handle qmp events *)
+          debug "Got QMP event, domain-%d: %s" domid qmp_event.event;
 
-            let rtc_change timeoffset =
-              with_xs (fun xs ->
+          let rtc_change timeoffset =
+            with_xs (fun xs ->
                 let timeoffset_key = sprintf "/vm/%s/rtc/timeoffset" (Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid)) in
                 try
                   let rtc = xs.Xs.read timeoffset_key in
                   xs.Xs.write timeoffset_key Int64.(add timeoffset (of_string rtc) |> to_string)
                 with e -> error "Failed to process RTC_CHANGE for domain %d: %s" domid (Printexc.to_string e)
               )
-            in
+          in
 
-            let xen_platform_pv_driver_info pv_info =
-              with_xs (fun xs ->
+          let xen_platform_pv_driver_info pv_info =
+            with_xs (fun xs ->
                 let is_hvm_linux { product_num; build_num } =
                   let _XEN_IOPORT_LINUX_PRODNUM = 3 in (* from Linux include/xen/platform_pci.h *)
                   (product_num = _XEN_IOPORT_LINUX_PRODNUM) && (build_num <= 0xff)
                 in
                 if is_hvm_linux pv_info then
-                begin
-                  let write_local_domain prefix x = xs.Xs.write (Printf.sprintf "/local/domain/%d/%s%s" domid prefix x) "1" in
-                  List.iter (write_local_domain "control/feature-") ["suspend"; "poweroff"; "reboot"; "vcpu-hotplug"];
-                  List.iter (write_local_domain "data/") ["updated"]
-                end
+                  begin
+                    let write_local_domain prefix x = xs.Xs.write (Printf.sprintf "/local/domain/%d/%s%s" domid prefix x) "1" in
+                    List.iter (write_local_domain "control/feature-") ["suspend"; "poweroff"; "reboot"; "vcpu-hotplug"];
+                    List.iter (write_local_domain "data/") ["updated"]
+                  end
               )
-            in
+          in
 
-            qmp_event.data |> function
-            | Some (RTC_CHANGE timeoffset)         -> rtc_change timeoffset
-            | Some (XEN_PLATFORM_PV_DRIVER_INFO x) -> xen_platform_pv_driver_info x
-            | _ -> () (* unhandled QMP events *)
+          qmp_event.data |> function
+          | Some (RTC_CHANGE timeoffset)         -> rtc_change timeoffset
+          | Some (XEN_PLATFORM_PV_DRIVER_INFO x) -> xen_platform_pv_driver_info x
+          | _ -> () (* unhandled QMP events *)
 
-          let qmp_event_thread () =
-            debug "Starting QMP_Event thread";
-            (* Add the existing qmp sockets first *)
-            Sys.readdir var_run_xen_path
-            |> Array.to_list
-            |> List.iter (fun x -> try Scanf.sscanf x "qmp-event-%d" add with _ -> ());
+        let qmp_event_thread () =
+          debug "Starting QMP_Event thread";
+          (* Add the existing qmp sockets first *)
+          Sys.readdir var_run_xen_path
+          |> Array.to_list
+          |> List.iter (fun x -> try Scanf.sscanf x "qmp-event-%d" add with _ -> ());
 
-            while true do
-              try
-                Monitor.wait m |> Monitor.with_event m (fun fd is_flag_in ->
+          while true do
+            try
+              Monitor.wait m |> Monitor.with_event m (fun fd is_flag_in ->
                   Lookup.domid_of fd >>= fun domid ->
                   if is_flag_in then
                     Lookup.channel_of domid >>= fun c ->
@@ -2099,37 +2099,37 @@ module Backend = struct
                     with End_of_file ->
                       debug "domain-%d: end of file, close qmp socket" domid;
                       remove domid
-                    | e ->
-                      debug_exn (Printf.sprintf "domain-%d: close qmp socket" domid) e;
-                      remove domid
+                       | e ->
+                         debug_exn (Printf.sprintf "domain-%d: close qmp socket" domid) e;
+                         remove domid
                   else begin
                     debug "EPOLL error on domain-%d, close qmp socket" domid;
                     remove domid
                   end
-                  )
-              with e ->
-                debug_exn "Exception in qmp_event_thread: %s" e;
-            done
+                )
+            with e ->
+              debug_exn "Exception in qmp_event_thread: %s" e;
+          done
 
-        end (* Qemu_upstream_compat.Dm.QMP_Event *)
+      end (* Qemu_upstream_compat.Dm.QMP_Event *)
 
-        module Event = struct
-          let init () = ignore(Thread.create QMP_Event.qmp_event_thread ())
-        end
+      module Event = struct
+        let init () = ignore(Thread.create QMP_Event.qmp_event_thread ())
+      end
 
       let get_vnc_port ~xs domid =
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
-          let open Qmp in
-          let qmp_cmd = Command (None, Query_vnc) in
-          let parse_qmp_message = function
-            | Success (None, Vnc vnc) -> (try Some vnc.service with _ -> None)
-            | _ -> debug "Get unexpected result after sending Qmp message: %s" (string_of_message qmp_cmd); None
-          in
-          let qmp_cmd_result = qmp_write_and_read domid qmp_cmd in
-          match qmp_cmd_result with
-          | Some qmp_message -> parse_qmp_message qmp_message
-          | None -> debug "Fail to get result after sending Qmp message: %s" (string_of_message qmp_cmd); None
-        )
+            let open Qmp in
+            let qmp_cmd = Command (None, Query_vnc) in
+            let parse_qmp_message = function
+              | Success (None, Vnc vnc) -> (try Some vnc.service with _ -> None)
+              | _ -> debug "Get unexpected result after sending Qmp message: %s" (string_of_message qmp_cmd); None
+            in
+            let qmp_cmd_result = qmp_write_and_read domid qmp_cmd in
+            match qmp_cmd_result with
+            | Some qmp_message -> parse_qmp_message qmp_message
+            | None -> debug "Fail to get result after sending Qmp message: %s" (string_of_message qmp_cmd); None
+          )
 
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
         let file = sprintf qemu_save_path domid in
@@ -2254,17 +2254,17 @@ module Dm = struct
       let state_path = Printf.sprintf "/local/domain/%d/vgpu/state" domid in
       let cancel = Cancel_utils.Vgpu domid in
       if not (Vgpu.is_running ~xs domid) then begin
-      (* The below line does nothing if the device is already bound to the
-         		 * nvidia driver. We rely on xapi to refrain from attempting to run
-         		 * a vGPU on a device which is passed through to a guest. *)
+        (* The below line does nothing if the device is already bound to the
+           		 * nvidia driver. We rely on xapi to refrain from attempting to run
+           		 * a vGPU on a device which is passed through to a guest. *)
         debug "start_vgpu: got VGPU with physical pci address %s"
           (Xenops_interface.Pci.string_of_address pci);
         PCI.bind [pci] PCI.Nvidia;
         let args = vgpu_args_of_nvidia domid vcpus vgpu pci restore in
-      let vgpu_pid = init_daemon ~task ~path:!Xc_resources.vgpu ~args
+        let vgpu_pid = init_daemon ~task ~path:!Xc_resources.vgpu ~args
             ~name:"vgpu" ~domid ~xs ~ready_path:state_path ~timeout:!Xenopsd.vgpu_ready_timeout
             ~cancel ~fds:[] profile in
-      Forkhelpers.dontwaitpid vgpu_pid
+        Forkhelpers.dontwaitpid vgpu_pid
       end else
         info "Daemon %s is already running for domain %d" !Xc_resources.vgpu domid;
 
