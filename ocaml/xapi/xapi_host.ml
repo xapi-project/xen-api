@@ -1769,5 +1769,19 @@ let allocate_resources_for_vm ~__context ~self ~vm ~live =
   ()
 
 let set_iscsi_iqn ~__context ~host ~value =
+  (* Note, the following sequence is carefully written - see the
+     other-config watcher thread in xapi_host_helpers.ml *)
+  Db.Host.remove_from_other_config ~__context ~self:host ~key:"iscsi_iqn";
+  (* we need to first set the iscsi_iqn field and then the other-config field:
+   * setting the other-config field triggers and update on the iscsi_iqn
+   * field if they are different
+   *
+   * we want to keep the legacy `other_config:iscsi_iqn` and the new `iscsi_iqn`
+   * fields in sync:
+   * when you update the `iscsi_iqn` field we want to update `other_config`,
+   * but when updating `other_config` we want to update `iscsi_iqn` too.
+   * we have to be careful not to introduce an infinite loop of updates.
+   * *)
   Db.Host.set_iscsi_iqn ~__context ~self:host ~value;
+  Db.Host.add_to_other_config ~__context ~self:host ~key:"iscsi_iqn" ~value;
   Xapi_host_helpers.InitiatorName.set_initiator_name value
