@@ -818,6 +818,7 @@ let server_init() =
           "hi-level database upgrade", [ Startup.OnlyMaster ], Xapi_db_upgrade.hi_level_db_upgrade_rules ~__context;
           "bringing up management interface", [], bring_up_management_if ~__context;
           "Starting periodic scheduler", [Startup.OnThread], Xapi_periodic_scheduler.loop;
+          "Starting Host.iscsi_iqn other-config watcher", [Startup.OnlyMaster], (fun () -> Xapi_host_helpers.InitiatorName.start_watcher_thread ~__context);
           "Remote requests", [Startup.OnThread], Remote_requests.handle_requests;
         ];
         begin match Pool_role.get_role () with
