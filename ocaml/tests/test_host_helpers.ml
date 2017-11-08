@@ -54,10 +54,30 @@ let test_different_keys () =
   let _token = watcher token in
   assert_equal !calls []
 
+let test_host_set_iscsi_iqn () =
+  (* Test3: verify that sequence of DB calls in Host.set_iscsi_iqn don't cause the
+     watcher to invoke further calls *)
+  let (__context, calls, host1, host2, watcher, token) = setup_test_oc_watcher () in
+  Db.Host.add_to_other_config ~__context ~self:host1 ~key:"iscsi_iqn" ~value:"test1";
+  let token = watcher token in
+  assert_equal !calls [host1, "test1"];
+  calls := [];
+  Db.Host.remove_from_other_config ~__context ~self:host1 ~key:"iscsi_iqn";
+  let token = watcher token in
+  assert_equal !calls [];
+  Db.Host.set_iscsi_iqn ~__context ~self:host1 ~value:"test2";
+  let token = watcher token in
+  assert_equal !calls [];
+  Db.Host.add_to_other_config ~__context ~self:host1 ~key:"iscsi_iqn" ~value:"test2";
+  let _token = watcher token in
+  assert_equal !calls []
+
+
 let test =
   "iscsiinitiator" >:::
   [
     "test_host1" >:: test_host1;
     "test_host2" >:: test_host2;
     "test_different_keys" >:: test_different_keys;
+    "test_host_set_iscsi_iqn" >:: test_host_set_iscsi_iqn;
   ]
