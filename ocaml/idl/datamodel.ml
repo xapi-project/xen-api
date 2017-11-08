@@ -3441,7 +3441,10 @@ let vdi_resize = call
 let vdi_resize_online = call
     ~name:"resize_online"
     ~in_oss_since:None
-    ~in_product_since:rel_rio
+    ~lifecycle: [
+      Published, rel_rio, "";
+      Removed, rel_inverness, "Online VDI resize is not supported by any of the storage backends."
+    ]
     ~params:[Ref _vdi, "vdi", "The VDI to resize"; Int, "size", "The new size of the VDI" ]
     ~doc:"Resize the VDI which may or may not be attached to running guests."
     ~allowed_roles:_R_VM_ADMIN
