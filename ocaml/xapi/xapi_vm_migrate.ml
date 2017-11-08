@@ -234,8 +234,7 @@ let infer_vgpu_map ~__context ?remote vm =
     ) vgpus
 
 let pool_migrate ~__context ~vm ~host ~options =
-  if (not (Pool_features.is_enabled ~__context Features.Xen_motion)) then
-    raise (Api_errors.Server_error(Api_errors.license_restriction, []));
+  Pool_features.assert_enabled ~__context ~f:Features.Xen_motion;
   let dbg = Context.string_of_task __context in
   let open Xapi_xenops_queue in
   let queue_name = queue_of_vm ~__context ~self:vm in
