@@ -22,6 +22,9 @@ import stat
 import pwd
 import grp
 from subprocess import call
+import ctypes
+import ctypes.util
+import os
 
 import xen.lowlevel.xs as xs
 
@@ -46,6 +49,18 @@ xenstore = xs.xs()
 # If the nominated slice does not already exist, the process will be
 # left in its parent's slice.
 cgroup_slice = ''
+
+CLONE_NEWNS = 0x00020000 # mount namespace
+CLONE_NEWNET = 0x40000000 # network namespace
+CLONE_NEWIPC = 0x08000000 # IPC namespace
+
+def unshare(flags):
+    libc = ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
+    unshare_prototype = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int, use_errno=True)
+    unshare = unshare_prototype(('unshare', libc))
+    ret = unshare(flags)
+    if ret < 0:
+        raise OSError(ctypes.get_errno(), os.strerror(ctypes.get_errno()))
 
 def enable_core_dumps():
     from resource import getrlimit, RLIMIT_CORE, setrlimit
@@ -343,6 +358,8 @@ def main(argv):
         gid = grp.getgrnam('qemu_base').gr_gid + domid
         qemu_args += ["-runas", "%d.%d" % (uid, gid)]
 
+    qemu_args += ["-sandbox", "on,obsolete=deny,elevateprivileges=allow,spawn=deny,resourcecontrol=deny"]
+
     xenstore_write("/libxl/%d/dm-version" % domid, "qemu_xen")
 
     f.write("Exec: %s %s\n" % (qemu_dm, " ".join(qemu_args)))
@@ -377,6 +394,8 @@ def main(argv):
         except IOError, e:
             print "Warning: writing pid to '%s' tasks file: %s" \
                 % (cgroup_slice, e)
+
+    unshare(CLONE_NEWNET | CLONE_NEWNS | CLONE_NEWIPC)
 
     f.flush()
     os.execve(qemu_dm, qemu_args, qemu_env)
