@@ -3441,7 +3441,6 @@ let vdi_resize = call
 let vdi_resize_online = call
     ~name:"resize_online"
     ~in_oss_since:None
-    ~in_product_since:rel_rio
     ~lifecycle: [
       Published, rel_rio, "";
       Removed, rel_inverness, "Online VDI resize is not supported by any of the storage backends."
