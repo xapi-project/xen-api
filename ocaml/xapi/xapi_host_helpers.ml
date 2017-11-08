@@ -288,11 +288,16 @@ module InitiatorName = struct
           in
           List.iter (fun ev ->
               match Event_helper.record_of_event ev with
-                | Event_helper.Host (host_ref, Some host_rec) ->
+                | Event_helper.Host (host_ref, Some host_rec) -> begin
                   let oc = host_rec.API.host_other_config in
-                  if List.mem_assoc "iscsi_iqn" oc &&
-                     host_rec.API.host_iscsi_iqn <> (List.assoc "iscsi_iqn" oc)
-                  then Client.Client.Host.set_iscsi_iqn rpc session_id host_ref (List.assoc "iscsi_iqn" oc)
+                  let iscsi_iqn = try Some (List.assoc "iscsi_iqn" oc) with _ -> None in
+                  match iscsi_iqn with
+                  | None -> ()
+                  | Some "" -> ()
+                  | Some iqn when iqn <> host_rec.API.host_iscsi_iqn ->
+                      Client.Client.Host.set_iscsi_iqn rpc session_id host_ref (List.assoc "iscsi_iqn" oc)
+                  | _ -> ()
+                  end
                 | _ -> ())
               events.Event_types.events;
           events.Event_types.token)

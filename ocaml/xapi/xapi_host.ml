@@ -1749,5 +1749,9 @@ let allocate_resources_for_vm ~__context ~self ~vm ~live =
   ()
 
 let set_iscsi_iqn ~__context ~host ~value =
+  (* Note, the following sequence is carefully written - see the
+     other-config watcher thread in xapi_host_helpers.ml *)
+  Db.Host.remove_from_other_config ~__context ~self:host ~key:"iscsi_iqn";
   Db.Host.set_iscsi_iqn ~__context ~self:host ~value;
+  Db.Host.add_to_other_config ~__context ~self:host ~key:"iscsi_iqn" ~value;
   Xapi_host_helpers.InitiatorName.set_initiator_name value
