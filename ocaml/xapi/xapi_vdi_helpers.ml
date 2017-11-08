@@ -275,15 +275,15 @@ let find_vdi ~__context sr vdi =
 
 let get_activated_on ~__context ~vdi =
   let activated_on_ref = Db.VDI.get_activated_on ~__context ~self:vdi in
-  let address = Db.Host.get_address ~__context ~self:activated_on_ref in
-  activated_on_ref, address
+  activated_on_ref
 
 let get_activated_elsewhere ~__context ~vdi =
   (* TODO: maybe just get all the live members in the cluster and check superstate for ActivatedRW using stat_vdi *)
-  let activated_on_ref, address = get_activated_on ~__context ~vdi in
+  let activated_on_ref = get_activated_on ~__context ~vdi in
   let localhost = !Xapi_globs.localhost_ref in
   debug "VDI activated on %s, we are %s" (Ref.string_of activated_on_ref)
     (Ref.string_of localhost);
   if activated_on_ref <> Ref.null && activated_on_ref <> localhost then
+    let address = Db.Host.get_address ~__context ~self:activated_on_ref in
     Some address
   else None
