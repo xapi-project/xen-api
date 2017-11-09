@@ -69,6 +69,7 @@ type vdi_info = {
     physical_utilisation: int64;
     (* xenstore_data: workaround via XenAPI *)
 	persistent: bool;
+    sharable: bool;
     sm_config: (string * string) list;
 }
 
@@ -88,6 +89,7 @@ let default_vdi_info = {
     virtual_size = 0L;
     physical_utilisation = 0L;
     persistent = true;
+    sharable = false;
     sm_config = [];
 }
 
