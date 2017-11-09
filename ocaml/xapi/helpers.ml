@@ -1016,7 +1016,7 @@ let get_all_plugged_srs ~__context =
     Eq (Field "currently_attached", Literal "true")) in
   List.setify (List.map (fun self -> Db.PBD.get_SR ~__context ~self) pbds_plugged_in)
 
-let get_all_plugged_srs_local ~__context =
+let get_local_plugged_srs ~__context =
   let localhost = get_localhost __context in
   let localhost = Ref.string_of localhost in
   let my_pbds_plugged_in = Db.PBD.get_refs_where  ~__context ~expr:(And (

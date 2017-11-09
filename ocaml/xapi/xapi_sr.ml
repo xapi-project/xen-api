@@ -665,7 +665,7 @@ let physical_utilisation_thread ~__context () =
   let sr_cache : bool SRMap.t ref = ref SRMap.empty in
 
   let srs_to_update () =
-    let plugged_srs = Helpers.get_all_plugged_srs_local ~__context in
+    let plugged_srs = Helpers.get_local_plugged_srs ~__context in
     (* Remove SRs that are no longer plugged *)
     sr_cache := SRMap.filter (fun sr _ -> List.mem sr plugged_srs) !sr_cache;
     (* Cache wether we should manage stats for newly plugged SRs *)
