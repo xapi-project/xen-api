@@ -1884,6 +1884,9 @@ module Backend = struct
 
       (** [cmdline_of_info xenstore info restore domid] creates the command line arguments to pass to the qemu wrapper script *)
       val cmdline_of_info: xs:Xenstore.Xs.xsh -> dm:Profile.t -> Dm_Common.info -> bool -> int -> string list
+
+      (** [after_suspend_image xs qemu_domid domid] hook to execute actions after the suspend image has been created *)
+      val after_suspend_image: xs:Xenstore.Xs.xsh -> qemu_domid:int -> int -> unit
     end
   end
 
@@ -1934,6 +1937,8 @@ module Backend = struct
               ) nics
           else [["-net"; "none"]] in
         common @ (List.concat nics')
+
+      let after_suspend_image ~xs ~qemu_domid domid = ()
 
     end (* Backend.Qemu_trad.Dm *)
   end (* Backend.Qemu_trad *)
@@ -2203,6 +2208,10 @@ module Backend = struct
         in
         common @ (List.concat nics')
 
+      let after_suspend_image ~xs ~qemu_domid domid =
+        (* device model not needed anymore after suspend image has been created *)
+        stop ~xs ~qemu_domid domid
+
     end (* Backend.Qemu_upstream_compat.Dm *)
   end (* Backend.Qemu_upstream *)
 
@@ -2266,6 +2275,9 @@ module Dm = struct
     let module Q = (val Backend.of_profile dm) in
     Q.Dm.cmdline_of_info ~xs ~dm info restore domid
 
+  let after_suspend_image ~xs ~dm ~qemu_domid domid =
+    let module Q = (val Backend.of_profile dm) in
+    Q.Dm.after_suspend_image ~xs ~qemu_domid domid
 
   (* the following functions depend on the functions above that use the qemu backend Q *)
 

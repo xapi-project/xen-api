@@ -267,6 +267,7 @@ sig
   val restore_vgpu : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid  -> Xenops_interface.Vgpu.t -> int -> unit
 
   val with_dirty_log: Profile.t -> int -> f:(unit -> 'a) -> 'a
+  val after_suspend_image: xs:Xenstore.Xs.xsh -> dm:Profile.t -> qemu_domid:int -> int -> unit
 end
 
 module Backend: sig
