@@ -44,7 +44,7 @@ let plug ~__context ~self =
   let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
   if System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = vm && not force_loopback_vbd then begin
     debug "VBD.plug of loopback VBD '%s'" (Ref.string_of self);
-    Storage_access.attach_and_activate ~__context ~vbd:self ~domid ~hvm
+    Storage_access.attach_and_activate ~__context ~vbd:self ~domid
       (fun attach_info ->
          let params = attach_info.Storage_interface.params in
          let prefix = "/dev/" in

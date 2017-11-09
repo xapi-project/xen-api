@@ -1300,7 +1300,7 @@ let reset ~__context ~vm =
     [attach_info] is the result of attaching a VDI which is also activated.
     This should be used everywhere except the migrate code, where we want fine-grained
     control of the ordering of attach/activate/deactivate/detach *)
-let attach_and_activate ~__context ~vbd ~domid ~hvm f =
+let attach_and_activate ~__context ~vbd ~domid f =
   transform_storage_exn
     (fun () ->
        let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in
