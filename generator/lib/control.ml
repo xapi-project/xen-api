@@ -74,6 +74,11 @@ let api =
             "volume are created read-only; for example because they are snapshots";
             "of some other VDI.";
           ];
+          "sharable", Basic Boolean, String.concat " " [
+            "Indicates whether the VDI can be attached by";
+            "multiple hosts at once.";
+            "This is used for example by the HA statefile and XAPI redo log."
+          ];
           "virtual_size", Basic Int64, String.concat " " [
             "Size of the volume from the perspective of a VM (in bytes)";
           ];
@@ -235,6 +240,15 @@ let api =
                     "characteristics of the implementation this may be rounded";
                     "up to (for example) the nearest convenient block size. The";
                     "created disk will not be smaller than this size.";
+                  ]
+                };
+                {
+                  Arg.name = "sharable";
+                  ty = Basic Boolean;
+                  description = String.concat " " [
+                    "Indicates whether the VDI can be attached by";
+                    "multiple hosts at once.";
+                    "This is used for example by the HA statefile and XAPI redo log."
                   ]
                 };
               ];
