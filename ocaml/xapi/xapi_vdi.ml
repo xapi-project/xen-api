@@ -408,6 +408,7 @@ let create ~__context ~name_label ~name_description
     ty = vdi_type;
     read_only = read_only;
     virtual_size = virtual_size;
+    sharable = sharable;
     sm_config = sm_config;
   } in
   let module C = Client(struct let rpc = rpc end) in
