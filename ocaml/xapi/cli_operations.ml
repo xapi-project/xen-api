@@ -2667,7 +2667,8 @@ let get_snapshot_uuid params =
 
 let get_snapshotVM_by_uuid rpc session_id snap_uuid =
   let snap_ref = Client.VM.get_by_uuid rpc session_id snap_uuid in
-  if not (Client.VM.get_is_a_snapshot rpc session_id snap_ref) then failwith "This operation can only be done on VM snapshot.";
+  if not (Client.VM.get_is_a_snapshot rpc session_id snap_ref) then
+    failwith (Printf.sprintf "This operation can only be performed on a VM snapshot. %s is not a VM snapshot." snap_uuid);
   snap_ref
 
 let snapshot_revert printer rpc session_id params =
@@ -3826,6 +3827,9 @@ let vm_export_aux obj_type fd printer rpc session_id params =
   let num = ref 1 in
   let uuid = List.assoc (obj_type ^ "-uuid") params in
   let ref = Client.VM.get_by_uuid rpc session_id uuid in
+  if obj_type = "snapshot" then
+    if not (Client.VM.get_is_a_snapshot rpc session_id ref) then 
+      failwith (Printf.sprintf "This operation can only be performed on a VM snapshot. %s is not a VM snapshot." uuid);
   export_common fd printer rpc session_id params filename num use_compression preserve_power_state (vm_record rpc session_id ref)
 
 let vm_copy_bios_strings printer rpc session_id params =
