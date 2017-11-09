@@ -255,6 +255,7 @@ let vdi_of_volume x =
   virtual_size = x.Xapi_storage.Volume.Types.virtual_size;
   physical_utilisation = x.Xapi_storage.Volume.Types.physical_utilisation;
   sm_config = [];
+  sharable = x.Storage.Volume.Types.sharable;
   persistent = true;
 }
 
@@ -597,7 +598,8 @@ let process root_dir name x =
       sr
       vdi_info.name_label
       vdi_info.name_description
-      vdi_info.virtual_size in
+      vdi_info.virtual_size
+      vdi_info.sharable in
     let args = Xapi_storage.Volume.Types.Volume.Create.In.rpc_of_t args in
     fork_exec_rpc root_dir (script root_dir name `Volume "Volume.create") args Xapi_storage.Volume.Types.Volume.Create.Out.t_of_rpc
     >>= fun response ->
