@@ -106,6 +106,7 @@ module SMAPIv1 = struct
       virtual_size = vdi_rec.API.vDI_virtual_size;
       physical_utilisation = vdi_rec.API.vDI_physical_utilisation;
       persistent = vdi_rec.API.vDI_on_boot = `persist;
+      sharable = vdi_rec.API.vDI_sharable;
       sm_config = vdi_rec.API.vDI_sm_config;
     }
 
