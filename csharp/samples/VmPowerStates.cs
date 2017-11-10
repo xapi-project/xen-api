@@ -31,20 +31,34 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using XenAPI;
 
 
-namespace GetVmRecords
+namespace XenSdkSample
 {
-    class VmPowerStates
+    class VmPowerStates : TestBase
     {
-        public static void Run(Session session)
+        public VmPowerStates(OutputLogger logger, Session session)
+            : base(logger, session)
         {
-            System.Console.WriteLine("*** Powercycle a VM ***");
+        }
 
+        public override string Name
+        {
+            get { return "VmPowerStates"; }
+        }
+
+        public override string Description
+        {
+            get { return "Powercycle a VM"; }
+        }
+
+        protected override void TestCore()
+        {
             // Choose a VM at random which is not a template or control domain and which is currently switched off.
 
-            var vmRecords = VM.get_all_records(session);
+            var vmRecords = VM.get_all_records(_session);
 
             var vmRef = (from KeyValuePair<XenRef<VM>, VM> kvp in vmRecords
                 let theVm = kvp.Value
@@ -53,53 +67,47 @@ namespace GetVmRecords
 
             if (vmRef == null)
             {
-                System.Console.WriteLine("Cannot find a halted VM. Please create one");
-                return;
+                var msg = "Cannot find a halted VM. Please create one.";
+                _logger.Log(msg);
+                throw new Exception(msg);
             }
 
-            // clone the vm
-            VM vm = VM.get_record(session, vmRef);
-            System.Console.WriteLine("Cloning VM '{0}'...", vm.name_label);
-            string cloneVm = VM.clone(session, vmRef, string.Format("Cloned VM (from '{0}')", vm.name_label));
-            System.Console.WriteLine("Cloned VM; new VM is {0}", cloneVm);
+            //to avoid playing with existing data, clone the VM and powercycle its clone
 
-            // set its description
-            VM.set_name_description(session, cloneVm, "Another cloned VM");
-            System.Console.WriteLine("VM name: {0} Description: {1} Power State: {2}",
-                VM.get_name_label(session, cloneVm),
-                VM.get_name_description(session, cloneVm),
-                VM.get_power_state(session, cloneVm));
+            VM vm = VM.get_record(_session, vmRef);
 
-            // start the clone in a paused state
-            System.Console.WriteLine("Starting VM paused...");
-            VM.start(session, cloneVm, true, true);
-            System.Console.WriteLine("VM Power State: {0}", VM.get_power_state(session, cloneVm));
+            _logger.Log("Cloning VM '{0}'...", vm.name_label);
+            string cloneVmRef = VM.clone(_session, vmRef, string.Format("Cloned VM (from '{0}')", vm.name_label));
+            _logger.Log("Cloned VM; new VM's ref is {0}", cloneVmRef);
 
-            // unpause it
-            System.Console.WriteLine("Unpausing VM...");
-            VM.unpause(session, cloneVm);
-            System.Console.WriteLine("VM Power State: {0}", VM.get_power_state(session, cloneVm));
+            VM.set_name_description(_session, cloneVmRef, "Another cloned VM");
+            VM cloneVm = VM.get_record(_session, cloneVmRef);
+            _logger.Log("Clone VM's Name: {0}, Description: {1}, Power State: {2}", cloneVm.name_label,
+                cloneVm.name_description, cloneVm.power_state);
 
-            // now suspend it
-            System.Console.WriteLine("Suspending VM...");
-            VM.suspend(session, cloneVm);
-            System.Console.WriteLine("VM Power State: {0}", VM.get_power_state(session, cloneVm));
+            _logger.Log("Starting VM in paused state...");
+            VM.start(_session, cloneVmRef, true, true);
+            _logger.Log("VM Power State: {0}", VM.get_power_state(_session, cloneVmRef));
 
-            // and then resume
-            System.Console.WriteLine("Resuming VM...");
-            VM.resume(session, cloneVm, false, true);
-            System.Console.WriteLine("VM Power State: {0}", VM.get_power_state(session, cloneVm));
+            _logger.Log("Unpausing VM...");
+            VM.unpause(_session, cloneVmRef);
+            _logger.Log("VM Power State: {0}", VM.get_power_state(_session, cloneVmRef));
 
-            // and then shutdown
-            System.Console.WriteLine("Forcing shutdown VM...");
-            VM.hard_shutdown(session, cloneVm);
-            System.Console.WriteLine("VM Power State: {0}", VM.get_power_state(session, cloneVm));
+            _logger.Log("Suspending VM...");
+            VM.suspend(_session, cloneVmRef);
+            _logger.Log("VM Power State: {0}", VM.get_power_state(_session, cloneVmRef));
 
-            // now destroy it
-            System.Console.WriteLine("Destroying VM...");
-            VM.destroy(session, cloneVm);
-            System.Console.WriteLine("VM destroyed.");
+            _logger.Log("Resuming VM...");
+            VM.resume(_session, cloneVmRef, false, true);
+            _logger.Log("VM Power State: {0}", VM.get_power_state(_session, cloneVmRef));
 
+            _logger.Log("Forcing shutdown VM...");
+            VM.hard_shutdown(_session, cloneVmRef);
+            _logger.Log("VM Power State: {0}", VM.get_power_state(_session, cloneVmRef));
+
+            _logger.Log("Destroying VM...");
+            VM.destroy(_session, cloneVmRef);
+            _logger.Log("VM destroyed.");
         }
     }
 }

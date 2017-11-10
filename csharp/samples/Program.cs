@@ -29,9 +29,10 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Net;
-using System.Text;
 using XenAPI;
+using XenSdkSample;
 
 namespace GetVmRecords
 {
@@ -39,38 +40,60 @@ namespace GetVmRecords
     {
         public static void Main(string[] args)
         {
-            if (args.Length < 3)
+            using (var outputLogger = new OutputLogger())
             {
-                System.Console.WriteLine("Required arguments: host-ip username password");
-                System.Console.WriteLine("Press any key to exit");
-                System.Console.ReadKey();
-                return;
+                if (args.Length < 3)
+                {
+                    outputLogger.Log("Required arguments: host-ip username password");
+                    return;
+                }
+
+                //Trust all certificates. This is a test workaround. DO NOT USE IN PRODUCTION CODE!
+                ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
+
+                Session session = null;
+                try
+                {
+                    string hostname = args[0], username = args[1], password = args[2];
+                    session = new Session(hostname, 443); //using the default port
+                    session.login_with_password(username, password, "", "XenSdkSample");
+
+                    int pass = 0, fail = 0;
+
+                    var testList = new List<TestBase>
+                    {
+                        new GetVariousRecords(outputLogger, session),
+                        new VmPowerStates(outputLogger, session)
+                    };
+
+                    using (var resultLogger = new ResultLogger())
+                    {
+                        resultLogger.Initialise();
+                        foreach (var test in testList)
+                        {
+                            try
+                            {
+                                test.Run();
+                                pass++;
+                                resultLogger.LogTest(test.Name, true, "");
+                            }
+                            catch (Exception e)
+                            {
+                                fail++;
+                                resultLogger.LogTest(test.Name, false, e.Message);
+                            }
+                        }
+
+                        resultLogger.Finalise(testList.Count, pass, fail);
+                    }
+                }
+                finally
+                {
+                    if (session != null)
+                        session.logout();
+                }
             }
-
-            string hostname = args[0];
-            string username = args[1];
-            string password = args[2];
-
-            // Establish a session
-            // Trust all certificates: DO NOT USE IN PRODUCTION CODE!
-            ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
-
-            Session session = new Session(hostname, 443); //using the default port
-
-            try
-            {
-                session.login_with_password(username, password, "", "XenSdkSample");
-                GetVariousRecords.Run(session);
-                VmPowerStates.Run(session);
-            }
-            finally
-            {
-                session.logout();
-            }
-
-            System.Console.WriteLine("Press any key to exit");
-            System.Console.ReadKey();
         }
     }
 }
