@@ -2665,16 +2665,22 @@ let get_snapshot_uuid params =
   then List.assoc "uuid" params
   else raise (failwith "Required parameter not found: snapshot-uuid or uuid.")
 
+let get_snapshotVM_by_uuid rpc session_id snap_uuid =
+  let snap_ref = Client.VM.get_by_uuid rpc session_id snap_uuid in
+  if not (Client.VM.get_is_a_snapshot rpc session_id snap_ref) then
+    failwith (Printf.sprintf "This operation can only be performed on a VM snapshot. %s is not a VM snapshot." snap_uuid);
+  snap_ref
+
 let snapshot_revert printer rpc session_id params =
   let snap_uuid = get_snapshot_uuid params in
-  let snap_ref = Client.VM.get_by_uuid rpc session_id snap_uuid in
+  let snap_ref = get_snapshotVM_by_uuid rpc session_id snap_uuid in
   Client.VM.revert ~rpc ~session_id ~snapshot:snap_ref
 
 let snapshot_op op printer rpc session_id params =
   let new_name = List.assoc "new-name-label" params in
   let desc = if List.mem_assoc "new-name-description" params then Some (List.assoc "new-name-description" params) else None in
   let uuid = get_snapshot_uuid params in
-  let ref = Client.VM.get_by_uuid ~rpc ~session_id ~uuid in
+  let ref = get_snapshotVM_by_uuid rpc session_id uuid in
   let new_ref = op ~rpc ~session_id ~vm:ref ~new_name in
   ignore (may (fun desc -> Client.VM.set_name_description rpc session_id new_ref desc) desc);
   let new_uuid = Client.VM.get_uuid ~rpc ~session_id ~self:new_ref in
@@ -2689,13 +2695,13 @@ let snapshot_copy printer rpc session_id params =
 
 let snapshot_destroy printer rpc session_id params =
   let snap_uuid = get_snapshot_uuid params in
-  let snap_ref = Client.VM.get_by_uuid rpc session_id snap_uuid in
+  let snap_ref = get_snapshotVM_by_uuid rpc session_id snap_uuid in
   if Client.VM.get_power_state rpc session_id snap_ref <> `Halted then Client.VM.hard_shutdown ~rpc ~session_id ~vm:snap_ref;
   Client.VM.destroy ~rpc ~session_id ~self:snap_ref
 
 let snapshot_uninstall fd printer rpc session_id params =
   let snap_uuid = get_snapshot_uuid params in
-  let snap_ref = Client.VM.get_by_uuid rpc session_id snap_uuid in
+  let snap_ref = get_snapshotVM_by_uuid rpc session_id snap_uuid in
   vm_uninstall_common fd printer rpc session_id params [snap_ref]
 
 let vm_copy printer rpc session_id params =
@@ -2715,7 +2721,7 @@ let snapshot_reset_powerstate printer rpc session_id params =
   if not (List.mem_assoc "force" params) then
     failwith "This operation is extremely dangerous and may cause data loss. This operation must be forced (use --force).";
   let snapshot_uuid = get_snapshot_uuid params in
-  let snapshot = Client.VM.get_by_uuid rpc session_id snapshot_uuid in
+  let snapshot = get_snapshotVM_by_uuid rpc session_id snapshot_uuid in
   Client.VM.power_state_reset rpc session_id snapshot
 
 let vm_shutdown printer rpc session_id params =
@@ -2922,7 +2928,7 @@ let vm_disk_list is_cd_list printer rpc session_id params =
 
 let snapshot_disk_list is_cd_list printer rpc session_id params =
   let snapshot_uuid = get_snapshot_uuid params in
-  let snapshot_ref = Client.VM.get_by_uuid rpc session_id snapshot_uuid in
+  let snapshot_ref = get_snapshotVM_by_uuid rpc session_id snapshot_uuid in
   let snapshot = vm_record rpc session_id snapshot_ref in
   vm_disk_list_aux snapshot is_cd_list printer rpc session_id params
 
@@ -3821,6 +3827,9 @@ let vm_export_aux obj_type fd printer rpc session_id params =
   let num = ref 1 in
   let uuid = List.assoc (obj_type ^ "-uuid") params in
   let ref = Client.VM.get_by_uuid rpc session_id uuid in
+  if obj_type = "snapshot" then
+    if not (Client.VM.get_is_a_snapshot rpc session_id ref) then 
+      failwith (Printf.sprintf "This operation can only be performed on a VM snapshot. %s is not a VM snapshot." uuid);
   export_common fd printer rpc session_id params filename num use_compression preserve_power_state (vm_record rpc session_id ref)
 
 let vm_copy_bios_strings printer rpc session_id params =
