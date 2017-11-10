@@ -270,9 +270,14 @@ end
 module InitiatorName = struct
 
   let make_initiatorname_config iqn hostname =
+    let hostname_chopped =
+      if String.length hostname > 30
+      then String.sub hostname 0 30
+      else hostname
+    in
     Printf.sprintf
       "InitiatorName=%s\nInitiatorAlias=%s\n"
-      iqn hostname
+      iqn hostname_chopped
 
   let set_initiator_name iqn =
     let hostname = Unix.gethostname () in
