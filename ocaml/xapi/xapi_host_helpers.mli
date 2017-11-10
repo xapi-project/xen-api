@@ -118,5 +118,6 @@ module InitiatorName : sig
   val start_watcher_thread : __context:Context.t -> unit
   (** [start_watcher_thread ~__context] will start a thread that watches the
       other-config field of all hosts and keeps the iscsi_iqn value in sync
-      with the first-class field Host.iscsi_iqn. *)
+      with the first-class field Host.iscsi_iqn. As with watch_other_configs,
+      this function must only be run on the master. *)
 end
