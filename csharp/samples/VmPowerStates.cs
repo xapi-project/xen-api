@@ -56,18 +56,20 @@ namespace XenSdkSample
 
         protected override void TestCore()
         {
-            // Choose a VM at random which is not a template or control domain and which is currently switched off.
+            // Choose a linux VM at random which is not a template or control domain and which is currently switched off.
 
             var vmRecords = VM.get_all_records(_session);
 
             var vmRef = (from KeyValuePair<XenRef<VM>, VM> kvp in vmRecords
                 let theVm = kvp.Value
-                where !theVm.is_a_template && !theVm.is_control_domain && theVm.power_state == vm_power_state.Halted
+                where !theVm.is_a_template && !theVm.is_control_domain
+                      && !theVm.name_label.ToLower().Contains("windows")
+                      && theVm.power_state == vm_power_state.Halted
                 select kvp.Key).FirstOrDefault();
 
             if (vmRef == null)
             {
-                var msg = "Cannot find a halted VM. Please create one.";
+                var msg = "Cannot find a halted linux VM. Please create one.";
                 _logger.Log(msg);
                 throw new Exception(msg);
             }
@@ -93,6 +95,20 @@ namespace XenSdkSample
             VM.unpause(_session, cloneVmRef);
             _logger.Log("VM Power State: {0}", VM.get_power_state(_session, cloneVmRef));
 
+            // here we need to delay for a bit until the suspend feauture is written
+            // in the guest metrics; this check should be enough for most guests;
+            // let's try a certain number of times with 5sec sleeps inbetween
+            int max = 5;
+            for (int i = 0; i < max; i++)
+            {
+                cloneVm = VM.get_record(_session, cloneVmRef);
+                var metrics = VM_guest_metrics.get_record(_session, cloneVm.guest_metrics);
+                if (metrics.other.ContainsKey("feature-suspend") && metrics.other["feature-suspend"] == "1")
+                    break;
+                _logger.Log("Checked for feature-suspend count {0} out of {1}; will re-try in 5sec.", i + 1, max);
+                Thread.Sleep(5000);
+            }
+
             _logger.Log("Suspending VM...");
             VM.suspend(_session, cloneVmRef);
             _logger.Log("VM Power State: {0}", VM.get_power_state(_session, cloneVmRef));
@@ -105,8 +121,19 @@ namespace XenSdkSample
             VM.hard_shutdown(_session, cloneVmRef);
             _logger.Log("VM Power State: {0}", VM.get_power_state(_session, cloneVmRef));
 
+            cloneVm = VM.get_record(_session, cloneVmRef);
+            var vdis = (from vbd in cloneVm.VBDs
+                let vdi = VBD.get_VDI(_session, vbd)
+                where vdi.opaque_ref != "OpaqueRef:NULL"
+                select vdi).ToList();
+
             _logger.Log("Destroying VM...");
             VM.destroy(_session, cloneVmRef);
+
+            _logger.Log("Destroying VM's disks...");
+            foreach (var vdi in vdis)
+                VDI.destroy(_session, vdi);
+
             _logger.Log("VM destroyed.");
         }
     }
