@@ -279,7 +279,7 @@ module InitiatorName = struct
     in
     Printf.sprintf
       "InitiatorName=%s\nInitiatorAlias=%s\n"
-      iqn hostname
+      iqn hostname_chopped
 
   let set_initiator_name iqn =
     let hostname = Unix.gethostname () in
