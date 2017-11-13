@@ -70,6 +70,7 @@ end
 
 let _nonpersistent = "NONPERSISTENT"
 let _clone_on_boot_key = "clone-on-boot"
+let _vdi_type_key = "vdi-type"
 
 let backend_error name args =
   let open Storage_interface in
@@ -239,13 +240,16 @@ module Datapath_plugins = struct
 end
 
 let vdi_of_volume x =
+  let ty = match List.Assoc.find x.Xapi_storage.Volume.Types.keys _vdi_type_key ~equal:String.equal with
+    | None -> "";
+    | Some v -> v in
   let open Storage_interface in {
   vdi = x.Xapi_storage.Volume.Types.key;
   uuid = x.Xapi_storage.Volume.Types.uuid;
   content_id = "";
   name_label = x.Xapi_storage.Volume.Types.name;
   name_description = x.Xapi_storage.Volume.Types.description;
-  ty = "";
+  ty = ty;
   metadata_of_pool = "";
   is_a_snapshot = false;
   snapshot_time = "19700101T00:00:00Z";
@@ -255,7 +259,7 @@ let vdi_of_volume x =
   virtual_size = x.Xapi_storage.Volume.Types.virtual_size;
   physical_utilisation = x.Xapi_storage.Volume.Types.physical_utilisation;
   sm_config = [];
-  sharable = x.Storage.Volume.Types.sharable;
+  sharable = x.Xapi_storage.Volume.Types.sharable;
   persistent = true;
 }
 
@@ -283,6 +287,14 @@ let unset root_dir name dbg sr vdi k =
   let args = Xapi_storage.Volume.Types.Volume.Unset.In.make dbg sr vdi k in
   let args = Xapi_storage.Volume.Types.Volume.Unset.In.rpc_of_t args in
   fork_exec_rpc root_dir (script root_dir name `Volume "Volume.unset") args Xapi_storage.Volume.Types.Volume.Unset.Out.t_of_rpc
+
+let update_keys root_dir name dbg sr key value response =
+  let open Deferred.Result.Monad_infix in
+  match value with
+  | None -> Deferred.Result.return response
+  | Some value ->
+     set root_dir name dbg sr response.Xapi_storage.Volume.Types.key key value >>= fun () ->
+     Deferred.Result.return { response with keys = (key, value) :: response.keys }
 
 let choose_datapath ?(persistent = true) response =
   (* We can only use a URI with a valid scheme, since we use the scheme
@@ -593,8 +605,9 @@ let process root_dir name x =
     Attached_SRs.find args.Args.VDI.Create.sr
     >>= fun sr ->
     let vdi_info = args.Args.VDI.Create.vdi_info in
+    let dbg = args.Args.VDI.Create.dbg in
     let args = Xapi_storage.Volume.Types.Volume.Create.In.make
-      args.Args.VDI.Create.dbg
+      dbg
       sr
       vdi_info.name_label
       vdi_info.name_description
@@ -602,6 +615,7 @@ let process root_dir name x =
       vdi_info.sharable in
     let args = Xapi_storage.Volume.Types.Volume.Create.In.rpc_of_t args in
     fork_exec_rpc root_dir (script root_dir name `Volume "Volume.create") args Xapi_storage.Volume.Types.Volume.Create.Out.t_of_rpc
+    >>= update_keys root_dir name dbg sr _vdi_type_key (match vdi_info.ty with "" -> None | s -> Some s)
     >>= fun response ->
     let response = vdi_of_volume response in
     Deferred.Result.return (R.success (Args.VDI.Create.rpc_of_response response))
