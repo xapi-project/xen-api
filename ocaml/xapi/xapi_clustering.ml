@@ -66,7 +66,7 @@ let assert_cluster_host_can_be_created ~__context ~host =
       ~expr:Db_filter_types.(Eq(Literal (Ref.string_of host),Field "host")) <> [] then
     failwith "Cluster host cannot be created because it already exists"
 
-let get_sms_requiring_cluster_stack ~__context ~sr_sm_type ~cluster_stack =
+let get_sms_of_type_requiring_cluster_stack ~__context ~sr_sm_type ~cluster_stack =
   let sms_matching_sr_type = Db.SM.get_records_where ~__context
       ~expr:Db_filter_types.(Eq(Field "type", Literal sr_sm_type)) in
   List.filter (fun (sm_ref, sm_rec) ->
@@ -94,7 +94,7 @@ let assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type
   |> Stdext.Opt.iter (fun cluster_host ->
       let cluster = Db.Cluster_host.get_cluster ~__context ~self:cluster_host in
       let cluster_stack = Db.Cluster.get_cluster_stack ~__context ~self:cluster in
-      match get_sms_requiring_cluster_stack ~__context ~sr_sm_type ~cluster_stack with
+      match get_sms_of_type_requiring_cluster_stack ~__context ~sr_sm_type ~cluster_stack with
       | _::_ ->
         assert_cluster_host_enabled ~__context ~self:cluster_host ~expected:true
       | _ -> ())
