@@ -1,7 +1,12 @@
+(rule
+ ((targets (build_info.ml))
+  (action  (with-stdout-to ${@} (run "date" "+let date=\"%Y-%m-%d\"")))))
+
 (library
  ((name xapi_version)
   (modules (
    xapi_version
+   build_info
   ))
   (libraries (
    xcp
