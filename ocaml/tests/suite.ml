@@ -65,6 +65,7 @@ let base_suite =
     Test_host_helpers.test;
     Test_cluster_host.test;
     Test_clustering_allowed_operations.test;
+    Test_clustering.test;
   ]
 
 let () =
