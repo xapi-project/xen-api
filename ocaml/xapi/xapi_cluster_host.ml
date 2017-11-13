@@ -126,7 +126,7 @@ let disable ~__context ~self =
       let srs = List.map (fun pbd -> Db.PBD.get_SR ~__context ~self:pbd) pbds in
       List.iter (fun sr ->
           let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
-          match get_sms_requiring_cluster_stack ~__context ~sr_sm_type ~cluster_stack with
+          match get_sms_of_type_requiring_cluster_stack ~__context ~sr_sm_type ~cluster_stack with
           | _::_ ->
             (* TODO: replace with API error *)
             failwith (Printf.sprintf "Host has attached SR whose SM requires cluster stack %s" cluster_stack)
