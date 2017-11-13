@@ -8,6 +8,6 @@
 
 let git_id = ""
 let hostname = "localhost"
-let date = "1970-01-01"
+let date = Build_info.date
 let xapi_version_major = 1
 let xapi_version_minor = 20
