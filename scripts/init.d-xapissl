@@ -27,6 +27,17 @@ XAPISSL_LOCK="/var/lock/xapissl"
 BACK_COMPAT=0
 [ "${3}" = back_compat_6_5 ] && BACK_COMPAT=1
 
+# Check if there is request to overwrite permfile
+_PARAM="${4}"
+if [ "${_PARAM}" != "" ];
+then
+        _PERMFILE=`echo "${_PARAM}" | grep "permfile=" |cut -d"=" -f2`
+        if [ "${_PERMFILE}" != "" ] && [ -e "${_PERMFILE}" ]
+        then
+            PEMFILE="${_PERMFILE}"
+        fi
+fi
+
 # If stunnel4 exists, use it. Otherwise use stunnel.
 [ $(which stunnel4) ] && STUNNEL=$(which stunnel4)
 [ -z ${STUNNEL} ] && STUNNEL=$(which stunnel)
