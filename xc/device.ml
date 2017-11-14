@@ -1693,21 +1693,30 @@ module Dm_Common = struct
       then cmdline_of_disp info ~domid
       else cmdline_of_disp info
     in
-
-    [
-      "-d"; string_of_int domid;
-      "-m"; Int64.to_string (Int64.div info.memory 1024L);
-      "-boot"; info.boot;
-    ] @ (Opt.default [] (Opt.map (fun x -> [ "-serial"; x ]) info.serial)) @ [
-      "-vcpus"; string_of_int info.vcpus;
-    ] @ disp_options @ usb' @ List.concat disks'
-    @ (if info.acpi then [ "-acpi" ] else [])
-    @ (if restore then [ "-loadvm"; restorefile ] else [])
-    @ (List.fold_left (fun l pci -> "-pciemulation" :: pci :: l) [] (List.rev info.pci_emulations))
-    @ (if info.pci_passthrough then ["-priv"] else [])
-    @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] info.extras)
-    @ (Opt.default [] (Opt.map (fun x -> [ "-monitor"; x ]) info.monitor))
-    @ (Opt.default [] (Opt.map (fun x -> [ "-parallel"; x]) info.parallel))
+    List.concat
+      [ [ "-d"; string_of_int domid
+        ; "-m"; Int64.to_string (Int64.div info.memory 1024L)
+        ; "-boot"; info.boot
+        ]
+      ; ( info.serial |> function None -> [] | Some x -> [ "-serial"; x ])
+      ; [ "-vcpus"; string_of_int info.vcpus]
+      ; disp_options
+      ; usb'
+      ; List.concat disks'
+      ; ( info.acpi |> function false -> [] | true -> [ "-acpi" ])
+      ; ( restore   |> function false -> [] | true -> [ "-loadvm"; restorefile ])
+      ; ( info.pci_emulations
+           |> List.map (fun pci -> ["-pciemulation"; pci])
+           |> List.concat
+        )
+      ; ( info.pci_passthrough |> function false -> [] | true -> ["-priv"])
+      ; ( (List.rev info.extras)
+           |> List.map (function (k,None) -> ["-"^k] | (k,Some v) -> ["-"^k; v])
+           |> List.concat
+        )
+      ; ( info.monitor  |> function None -> [] | Some x -> [ "-monitor";  x])
+      ; ( info.parallel |> function None -> [] | Some x -> [ "-parallel"; x])
+      ]
 
   let vnconly_cmdline ~info ?(extras=[]) domid =
     let disp_options, _ = cmdline_of_disp info in
