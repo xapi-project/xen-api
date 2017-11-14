@@ -106,3 +106,19 @@ let assert_operation_host_target_is_localhost ~__context ~host =
   if host <> Helpers.get_localhost ~__context then
     let msg = "A clustering operation was attempted from the wrong host" in
     raise Api_errors.(Server_error (internal_error, [msg]))
+
+let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self =
+  let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+  let cluster_stack = Db.Cluster.get_cluster_stack ~__context ~self:cluster in
+  let host = Db.Cluster_host.get_host ~__context ~self in
+  let pbds = List.filter (fun pbd ->
+      Db.PBD.get_currently_attached ~__context ~self:pbd)
+      (Db.Host.get_PBDs ~__context ~self:host) in
+  let srs = List.map (fun pbd -> Db.PBD.get_SR ~__context ~self:pbd) pbds in
+  List.iter (fun sr ->
+      let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
+      match get_sms_of_type_requiring_cluster_stack ~__context ~sr_sm_type ~cluster_stack with
+      | _::_ ->
+        (* TODO: replace with API error *)
+        failwith (Printf.sprintf "Host has attached SR whose SM requires cluster stack %s" cluster_stack)
+      | _ -> ()) srs
