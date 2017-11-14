@@ -5084,7 +5084,7 @@ module Cluster_host = struct
     let cluster_uuid = List.assoc "cluster-uuid" params in
     let host_uuid = List.assoc "host-uuid" params in
     let cluster_ref = Client.Cluster.get_by_uuid rpc session_id cluster_uuid in
-    let host_ref = Client.Cluster.get_by_uuid rpc session_id host_uuid in
+    let host_ref = Client.Host.get_by_uuid rpc session_id host_uuid in
     let cluster_host = Client.Cluster_host.create rpc session_id cluster_ref host_ref in
     let uuid = Client.Cluster_host.get_uuid ~rpc ~session_id ~self:cluster_host in
     printer (Cli_printer.PList [uuid])
