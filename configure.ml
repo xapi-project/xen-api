@@ -102,6 +102,7 @@ let find_xentoollog verbose =
   if Sys.file_exists c_file then Sys.remove c_file;
   if Sys.file_exists exe_file then Sys.remove exe_file;
   Printf.printf "Looking for xentoollog: %s\n" (if found then "found" else "missing");
+  output_file "xentoollog_flags" (if found then ["-L/lib64"; "-lxentoollog"] else []);
   found
 
 let yesno_of_bool = function
@@ -142,8 +143,8 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir coverage =
       Printf.sprintf "ENABLE_XEN=--%s-xen" (if xenctrl then "enable" else "disable");
       Printf.sprintf "ENABLE_XENLIGHT=--%s-xenlight" (if xenlight then "enable" else "disable");
       Printf.sprintf "ENABLE_XENTOOLLOG=--%s-xentoollog" (if xentoollog then "enable" else "disable");
-      Printf.sprintf "BISECT_COVERAGE=%s" (yesno_of_bool coverage);
-      "export BISECT_COVERAGE"
+      Printf.sprintf "BISECT_ENABLE=%s" (yesno_of_bool coverage);
+      "export BISECT_ENABLE"
     ] in
   output_file config_mk lines;
   (* Expand @LIBEXEC@ in udev rules *)
@@ -158,9 +159,9 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir coverage =
 
 let configure_t = Term.(pure configure $ bindir $ sbindir $ libexecdir $ scriptsdir $ etcdir $ mandir $ coverage)
 
-let () = 
-  match 
-    Term.eval (configure_t, info) 
+let () =
+  match
+    Term.eval (configure_t, info)
   with
-  | `Error _ -> exit 1 
+  | `Error _ -> exit 1
   | _ -> exit 0

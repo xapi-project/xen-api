@@ -23,7 +23,7 @@
 #include <sys/ioctl.h>
 #include <sys/statvfs.h>
 #if defined(__linux__)
-# include <linux/fs.h> 
+# include <linux/fs.h>
 #endif
 
 #include <caml/mlvalues.h>
@@ -50,12 +50,12 @@ CAMLprim value stub_sockopt_set_sock_keepalives(value fd, value count, value idl
 	int c_fd = Int_val(fd);
 	int optval;
 	socklen_t optlen=sizeof(optval);
-	
+
 	optval = Int_val(count);
 	if(setsockopt(c_fd, TCP_LEVEL, TCP_KEEPCNT, &optval, optlen) < 0) {
 	  uerror("setsockopt(TCP_KEEPCNT)", Nothing);
 	}
-#if defined(__linux__)	
+#if defined(__linux__)
 	optval = Int_val(idle);
 	if(setsockopt(c_fd, TCP_LEVEL, TCP_KEEPIDLE, &optval, optlen) < 0) {
 	  uerror("setsockopt(TCP_KEEPIDLE)", Nothing);

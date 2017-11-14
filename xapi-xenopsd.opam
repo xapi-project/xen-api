@@ -1,29 +1,20 @@
 opam-version: "1.2"
+name: xapi-xenopsd
 maintainer: "xen-api@lists.xen.org"
 authors: "xen-api@lists.xen.org"
 homepage: "https://github.com/xapi-project/xenopsd"
-build: [
-	["./configure"]
-	[make]
-]
-install: [
- 	["./setup.bin" "-install"]
-]
-remove: [
-        ["make" "setup.data"]
-        ["./setup.bin" "-uninstall"]
-        ["ocamlfind" "remove" "xenopsd"]
-]
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
 depends: [
-  "oasis" {build}
-  "ocamlfind" {build}
+  "jbuilder" {build}
+  "base"
   "bisect_ppx"
   "cohttp"
   "core"
   "ezxenstore"
   "fd-send-recv"
   "oclock"
-  "ounit"
+  "ounit" {test}
   "qmp"
   "re"
   "rpc"
@@ -39,4 +30,5 @@ depends: [
   "xenstore"
   "xenstore_transport"
   "xmlm"
+  "xcp"
 ]

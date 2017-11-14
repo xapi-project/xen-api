@@ -1,0 +1,11 @@
+opam-version: "1.2"
+name: xapi-xenopsd-xc
+maintainer: "xen-api@lists.xen.org"
+authors: "xen-api@lists.xen.org"
+homepage: "https://github.com/xapi-project/xenopsd"
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
+depends: [
+  "jbuilder" {build}
+  "xapi-xenopsd"
+]

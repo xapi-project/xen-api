@@ -1457,7 +1457,7 @@ module VM = struct
               finally
                 (fun () -> f fd)
                 (fun () ->
-                   try Fsync.fsync fd;
+                   try Xapi_stdext_unix.Unixext.fsync fd;
                    with Unix.Unix_error(Unix.EIO, _, _) ->
                      error "Caught EIO in fsync after suspend; suspend image may be corrupt";
                      raise (IO_error)
@@ -1480,7 +1480,7 @@ module VM = struct
          (* Not currently ballooning *)
          | None | Some "0" -> ()
          (* Ballooning in progress, we need to wait *)
-         | Some _ -> 
+         | Some _ ->
            let watches = [ Watch.value_to_become balloon_active_path "0"
                          ; Watch.key_to_disappear balloon_active_path ]
            in
