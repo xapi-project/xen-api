@@ -190,10 +190,6 @@ def main(argv):
             del qemu_args[n]
             continue
 
-        if p == "-vncunused":
-            del qemu_args[n]
-            continue
-
         if p == "-priv":
             del qemu_args[n]
             continue

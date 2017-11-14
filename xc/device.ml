@@ -1648,18 +1648,17 @@ module Dm_Common = struct
     let videoram_opt = ["-videoram"; string_of_int info.video_mib] in
     let vnc_opts_of ip_addr_opt auto port keymap ~domid =
       let ip_addr = Opt.default "127.0.0.1" ip_addr_opt in
-      let vnc_arg = match domid with
-        | None when auto -> Printf.sprintf "%s:1"  ip_addr
-        | None           -> Printf.sprintf "%s:%d" ip_addr port
+      let unused_opt, vnc_arg = match domid with
+        | None when auto -> ["-vncunused"], Printf.sprintf "%s:1"  ip_addr
+        | None           -> [], Printf.sprintf "%s:%d" ip_addr port
           (*
               Disable lock-key-sync
               #  lock-key-sync expects vnclient to send different keysym for
               #  alphabet keys (different for lowercase and uppercase). XC
               #  can't do it at the moment, so disable lock-key-sync
           *)
-        | Some domid     -> Printf.sprintf "%s,lock-key-sync=off" (Socket.Unix.path (vnc_socket_path domid))
+        | Some domid     -> [], Printf.sprintf "%s,lock-key-sync=off" (Socket.Unix.path (vnc_socket_path domid))
       in
-      let unused_opt = if auto then ["-vncunused"] else [] in
       let vnc_opt = ["-vnc"; vnc_arg] in
       let keymap_opt = match keymap with Some k -> ["-k"; k] | None -> [] in
       List.flatten [unused_opt; vnc_opt; keymap_opt]
