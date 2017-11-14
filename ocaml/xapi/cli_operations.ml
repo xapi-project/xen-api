@@ -5098,4 +5098,9 @@ module Cluster_host = struct
     let uuid = List.assoc "uuid" params in
     let ref = Client.Cluster_host.get_by_uuid rpc session_id uuid in
     Client.Cluster_host.disable rpc session_id ref
+
+  let destroy printer rpc session_id params =
+    let uuid = List.assoc "uuid" params in
+    let ref = Client.Cluster_host.get_by_uuid rpc session_id uuid in
+    Client.Cluster_host.destroy rpc session_id ref
 end
