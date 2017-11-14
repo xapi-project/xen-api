@@ -2640,9 +2640,15 @@ let vm_uninstall fd printer rpc session_id params =
   let snapshots = List.flatten (List.map (fun vm -> Client.VM.get_snapshots rpc session_id vm) vms) in
   vm_uninstall_common fd printer rpc session_id params (vms @ snapshots)
 
+let get_templateVM_by_uuid rpc session_id template_uuid =
+  let template_ref = Client.VM.get_by_uuid rpc session_id template_uuid in
+  if not (Client.VM.get_is_a_template rpc session_id template_ref) then
+    failwith (Printf.sprintf "This operation can only be performed on a VM template. %s is not a VM template." template_uuid);
+  template_ref
+
 let template_uninstall fd printer rpc session_id params =
   let uuid = List.assoc "template-uuid" params in
-  let vm = Client.VM.get_by_uuid rpc session_id uuid in
+  let vm = get_templateVM_by_uuid rpc session_id uuid in
   vm_uninstall_common fd printer rpc session_id params [ vm ]
 
 let vm_clone_aux clone_op cloned_string printer include_template_vms rpc session_id params =
@@ -3827,6 +3833,9 @@ let vm_export_aux obj_type fd printer rpc session_id params =
   let num = ref 1 in
   let uuid = List.assoc (obj_type ^ "-uuid") params in
   let ref = Client.VM.get_by_uuid rpc session_id uuid in
+  if obj_type = "template" then
+    if not (Client.VM.get_is_a_template rpc session_id ref) then
+      failwith (Printf.sprintf "This operation can only be performed on a VM template. %s is not a VM template." uuid);
   if obj_type = "snapshot" then
     if not (Client.VM.get_is_a_snapshot rpc session_id ref) then 
       failwith (Printf.sprintf "This operation can only be performed on a VM snapshot. %s is not a VM snapshot." uuid);
