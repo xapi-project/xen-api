@@ -80,10 +80,10 @@ let api =
        (filter obj_filter field_filter message_filter Datamodel.all_api))
 
 let classes_with_records =
-    Datamodel_utils.add_implicit_messages ~document_order:false Datamodel.all_api
-    |> objects_of_api
-    |> List.filter (fun x -> List.exists (fun y-> y.msg_name = "get_all_records") x.messages)
-    |> List.map (fun x-> x.name)
+  Datamodel_utils.add_implicit_messages ~document_order:false Datamodel.all_api
+  |> objects_of_api
+  |> List.filter (fun x -> List.exists (fun y-> y.msg_name = "get_all_records") x.messages)
+  |> List.map (fun x-> x.name)
 
 let classes = objects_of_api api
 let maps = ref TypeSet.empty

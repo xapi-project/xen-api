@@ -500,7 +500,7 @@ namespace XenAPI
             if (opaqueRef == null)
             {
 "
-  exposed_class_name exposed_class_name exposed_class_name exposed_class_name exposed_class_name;
+    exposed_class_name exposed_class_name exposed_class_name exposed_class_name exposed_class_name;
 
   if cls.gen_constructor_destructor then
     print
@@ -1331,11 +1331,11 @@ and gen_i18n_errors () =
   Friendly_error_names.parse_resx resx_file;
   let errors = Friendly_error_names.friendly_names_all Datamodel.errors in
   let json = `O [
-    "i18n_errors", `A (List.map (fun (x, y) ->
-      `O [
-        "i18n_error_key", `String x;
-        "i18n_error_description", `String y;
-      ];) errors);
+      "i18n_errors", `A (List.map (fun (x, y) ->
+          `O [
+            "i18n_error_key", `String x;
+            "i18n_error_description", `String y;
+          ];) errors);
     ]
   in
   render_file ("FriendlyErrorNames.mustache", "FriendlyErrorNames.resx") json templdir destdir

@@ -140,8 +140,8 @@ let rec main() =
   TypeSet.iter (gen_map write_enum_map_internal_decl internal_decl_filename include_dir) !enum_maps;
 
   let class_records = filtered_classes |>
-    List.map (fun {name} -> record_typename name) |>
-    List.sort String.compare
+                      List.map (fun {name} -> record_typename name) |>
+                      List.sort String.compare
   in
   let json1 =`O ["api_class_records", `A (List.map (fun x -> `O ["api_class_record", `String x];) class_records); ] in
   render_file ("xen_internal.mustache", "include/xen_internal.h") json1 templates_dir destdir;

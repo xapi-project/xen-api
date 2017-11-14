@@ -50,7 +50,10 @@ build:
 clean:
 	jbuilder clean
 
-.PHONY: build clean
+reindent:
+	git ls-files '*.ml*' '**/*.ml*' | xargs ocp-indent --inplace
+
+.PHONY: build clean reindent
 
 c: build
 	_build/default/c/gen_c_binding.exe -d _build/default/c/autogen -t c/templates
