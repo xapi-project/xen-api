@@ -30,9 +30,9 @@ BACK_COMPAT=0
 # Check if there is request to overwrite permfile
 _PARAM="${4}"
 if [ -n "${_PARAM}" ]; then
-    _PERMFILE="${_PARAM#*=}"
-    if [ -n "${_PERMFILE}" ] && [ -e "${_PERMFILE}" ]; then
-        PEMFILE="${_PERMFILE}"
+    _PEMFILE="${_PARAM#*=}"
+    if [ -n "${_PEMFILE}" -a -e "${_PEMFILE}" ]; then
+        PEMFILE="${_PEMFILE}"
     fi
 fi
 

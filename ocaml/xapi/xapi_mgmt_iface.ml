@@ -47,7 +47,7 @@ let restart_stunnel_nomutex ~__context ~accept =
   in
   let xapissl_args = List.concat
   [ [ "restart"; accept ]
-  ; (back_compat ~__context)
+  ; back_compat ~__context
   ; ["permfile=" ^ !Xapi_globs.server_cert_path]
   ] in
   let (_ : Thread.t) = Thread.create (fun () ->
