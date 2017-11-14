@@ -3833,11 +3833,9 @@ let vm_export_aux obj_type fd printer rpc session_id params =
   let num = ref 1 in
   let uuid = List.assoc (obj_type ^ "-uuid") params in
   let ref = Client.VM.get_by_uuid rpc session_id uuid in
-  if obj_type = "template" then
-    if not (Client.VM.get_is_a_template rpc session_id ref) then
+  if obj_type = "template" && not (Client.VM.get_is_a_template rpc session_id ref) then
       failwith (Printf.sprintf "This operation can only be performed on a VM template. %s is not a VM template." uuid);
-  if obj_type = "snapshot" then
-    if not (Client.VM.get_is_a_snapshot rpc session_id ref) then 
+  if obj_type = "snapshot" && not (Client.VM.get_is_a_snapshot rpc session_id ref) then 
       failwith (Printf.sprintf "This operation can only be performed on a VM snapshot. %s is not a VM snapshot." uuid);
   export_common fd printer rpc session_id params filename num use_compression preserve_power_state (vm_record rpc session_id ref)
 
