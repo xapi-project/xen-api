@@ -99,18 +99,18 @@ let reserved_words = function
   | s -> s
 
 (* Given a XenAPI on-the-wire representation of an enum value, return the Java enum *)
-let enum_of_wire x = global_replace (regexp_string "-") "_" (String.uppercase x)
+let enum_of_wire x = global_replace (regexp_string "-") "_" (String.uppercase_ascii x)
 
 let second_character_is_uppercase s =
   if (String.length s < 2)
   then false
   else let second_char = String.sub s 1 1 in
-    (second_char = String.uppercase second_char);;
+    (second_char = String.uppercase_ascii second_char);;
 
 let transform s =
   if (second_character_is_uppercase s)
   then s
-  else String.capitalize (reserved_words (String.uncapitalize s));;
+  else String.capitalize_ascii (reserved_words (String.uncapitalize_ascii s));;
 
 let class_case x =
   String.concat ""
@@ -130,17 +130,17 @@ let camel_case s =
       let h' = if String.length h > 1
         then
           let sndchar = String.sub h 1 1 in
-          if sndchar = String.uppercase sndchar
+          if sndchar = String.uppercase_ascii sndchar
           then h
-          else String.uncapitalize h
-        else String.uncapitalize h in
+          else String.uncapitalize_ascii h
+        else String.uncapitalize_ascii h in
       h' ^ (String.concat "" tl)
   in
   keyword_map result
 
 let exception_class_case x =
   String.concat ""
-    (List.map (fun s -> String.capitalize (String.lowercase s)) (String.split '_' x))
+    (List.map (fun s -> String.capitalize_ascii (String.lowercase_ascii s)) (String.split '_' x))
 
 
 
@@ -245,7 +245,7 @@ let gen_method_return_cast message =  match message.msg_result with
   | Some (ty, _) -> sprintf " Types.%s(result)" (get_marshall_function ty);;
 
 let gen_method_return file cls message =
-  if (String.lowercase cls.name) = "event" && (String.lowercase message.msg_name) = "from" then
+  if (String.lowercase_ascii cls.name) = "event" && (String.lowercase_ascii message.msg_name) = "from" then
     fprintf file "            return Types.toEventBatch(result);\n"
   else
     fprintf file "            return%s;\n" (gen_method_return_cast message)
@@ -258,7 +258,7 @@ let rec range = function
 (* Here is the main method generating function.*)
 let gen_method file cls message params async_version =
   let deprecated_string = get_method_deprecated_string message in
-  let return_type = if (String.lowercase cls.name) = "event" && (String.lowercase message.msg_name) = "from" then "EventBatch"
+  let return_type = if (String.lowercase_ascii cls.name) = "event" && (String.lowercase_ascii message.msg_name) = "from" then "EventBatch"
     else get_java_type_or_void message.msg_result in
   let method_static =  if is_method_static message then "static " else "" in
   let method_name = camel_case message.msg_name in
@@ -581,7 +581,7 @@ let generate_snapshot_hack file =
   fprintf file "        {\n";
   List.iter
     (fun x ->
-       (fprintf file "                case %17s: b = %25s(a); break;\n" (String.uppercase x) (get_marshall_function(Record(x)))))
+       (fprintf file "                case %17s: b = %25s(a); break;\n" (String.uppercase_ascii x) (get_marshall_function(Record(x)))))
     (List.map (fun x -> x.name) (List.filter (fun x -> not (class_is_empty x)) classes));
   fprintf file "                default: throw new RuntimeException(\"Internal error in auto-generated code whilst unmarshalling event snapshot\");\n";
   fprintf file "        }\n";

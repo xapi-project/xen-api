@@ -507,7 +507,7 @@ namespace XenAPI
       "                Proxy_%s p = this.ToProxy();
                 return session.proxy.%s_create(session.uuid, p).parse();
 "
-      exposed_class_name (String.lowercase exposed_class_name)
+      exposed_class_name (String.lowercase_ascii exposed_class_name)
   else
     print
       "                System.Diagnostics.Debug.Assert(false, \"Cannot create instances of this type on the server\");
@@ -696,36 +696,36 @@ and get_params_doc msg classname params =
   let sessionDoc = "\n        /// <param name=\"session\">The session</param>" in
   let refDoc =  if is_method_static msg then ""
     else if (msg.msg_name = "get_by_permission") then
-      sprintf "\n        /// <param name=\"_%s\">The opaque_ref of the given permission</param>" (String.lowercase classname)
+      sprintf "\n        /// <param name=\"_%s\">The opaque_ref of the given permission</param>" (String.lowercase_ascii classname)
     else if (msg.msg_name = "revert") then
-      sprintf "\n        /// <param name=\"_%s\">The opaque_ref of the given snapshotted state</param>" (String.lowercase classname)
+      sprintf "\n        /// <param name=\"_%s\">The opaque_ref of the given snapshotted state</param>" (String.lowercase_ascii classname)
     else sprintf "\n        /// <param name=\"_%s\">The opaque_ref of the given %s</param>"
-        (String.lowercase classname) (String.lowercase classname) in
+        (String.lowercase_ascii classname) (String.lowercase_ascii classname) in
   String.concat "" (sessionDoc::(refDoc::(List.map (fun x -> get_param_doc msg x) params)))
 
 and get_param_doc msg x =
   let publishInfo = get_published_info_param msg x in
-  sprintf "\n        /// <param name=\"_%s\">%s%s</param>" (String.lowercase x.param_name) x.param_doc
+  sprintf "\n        /// <param name=\"_%s\">%s%s</param>" (String.lowercase_ascii x.param_name) x.param_doc
     (if publishInfo = "" then "" else " "^publishInfo)
 
 and exposed_params message classname params =
   let exposedParams = List.map exposed_param params in
-  let refParam = sprintf "string _%s" (String.lowercase classname) in
+  let refParam = sprintf "string _%s" (String.lowercase_ascii classname) in
   let exposedParams = if is_method_static message then exposedParams else refParam::exposedParams in
   String.concat ", " ("Session session"::exposedParams)
 
 and exposed_param p =
-  sprintf "%s _%s" (internal_type p.param_type) (String.lowercase p.param_name)
+  sprintf "%s _%s" (internal_type p.param_type) (String.lowercase_ascii p.param_name)
 
 and exposed_call_params message classname params =
   let exposedParams = List.map exposed_call_param params in
-  let name = String.lowercase classname in
+  let name = String.lowercase_ascii classname in
   let refParam = sprintf "_%s ?? \"\"" name in
   let exposedParams = if is_method_static message then exposedParams else refParam::exposedParams in
   String.concat ", " ("session.uuid"::exposedParams)
 
 and exposed_call_param p =
-  convert_to_proxy (sprintf "_%s" (String.lowercase p.param_name)) p.param_type
+  convert_to_proxy (sprintf "_%s" (String.lowercase_ascii p.param_name)) p.param_type
 
 
 (* 'messages' are methods, 'contents' are fields *)
@@ -919,14 +919,14 @@ and gen_proxy_method out_chan classname message params =
 
 
 and proxy_params message classname params =
-  let refParam = sprintf "string _%s" (String.lowercase classname) in
+  let refParam = sprintf "string _%s" (String.lowercase_ascii classname) in
   let args = List.map proxy_param params in
   let args = if is_method_static message then args else refParam::args in
   let args = if message.msg_session then "string session" :: args else args in
   String.concat ", " args
 
 and proxy_param p =
-  sprintf "%s _%s" (proxy_type p.param_type) (String.lowercase p.param_name)
+  sprintf "%s _%s" (proxy_type p.param_type) (String.lowercase_ascii p.param_name)
 
 
 and ctor_fields fields =
@@ -1026,7 +1026,7 @@ and gen_enum_line content =
 
 and has_unknown_entry contents =
   let rec f = function
-    | x :: xs -> if String.lowercase (fst x) = "unknown" then true else f xs
+    | x :: xs -> if String.lowercase_ascii (fst x) = "unknown" then true else f xs
     | []      -> false
   in
   f contents
@@ -1295,11 +1295,11 @@ and convert_to_proxy thing ty = (*function*)
 
 
 and proxy_msg_name classname msg =
-  sprintf "%s_%s" (String.lowercase classname) (String.lowercase msg.msg_name)
+  sprintf "%s_%s" (String.lowercase_ascii classname) (String.lowercase_ascii msg.msg_name)
 
 
 and exposed_class_name classname =
-  String.capitalize classname
+  String.capitalize_ascii classname
 
 and escaped = function
   | "params" -> "paramz"

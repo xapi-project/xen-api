@@ -47,26 +47,26 @@ let rec pascal_case_ s =
   | h::tl ->
     let h' = if String.length h > 1 then
         let sndchar = String.sub h 1 1 in
-        if sndchar = String.uppercase sndchar then h
-        else String.capitalize h
-      else String.uncapitalize h
+        if sndchar = String.uppercase_ascii sndchar then h
+        else String.capitalize_ascii h
+      else String.uncapitalize_ascii h
     in
     h' ^ (String.concat "" tl)
 
 and pascal_case s =
   let str = pascal_case_ s in
   if(String.length str > 3
-     && ((String.lowercase (String.sub str 0 3)) = "set"
-         || (String.lowercase (String.sub str 0 3)) = "get"))
+     && ((String.lowercase_ascii (String.sub str 0 3)) = "set"
+         || (String.lowercase_ascii (String.sub str 0 3)) = "get"))
   then String.sub str 3 ((String.length str) - 3)
   else str
 
 and transform s =
-  String.capitalize (String.uncapitalize s)
+  String.capitalize_ascii (String.uncapitalize_ascii s)
 
 and lower_and_underscore_first s =
   sprintf "_%s%s"
-    (String.uncapitalize (String.sub s 0 1))
+    (String.uncapitalize_ascii (String.sub s 0 1))
     (String.sub s 1 ((String.length s) - 1))
 
 and ocaml_class_to_csharp_property classname =
@@ -78,16 +78,16 @@ and ocaml_class_to_csharp_class classname =
 
 and ocaml_class_to_csharp_local_var classname =
   if classname = "event" then "evt"
-  else String.lowercase (exposed_class_name classname)
+  else String.lowercase_ascii (exposed_class_name classname)
 
 and ocaml_field_to_csharp_local_var field =
-  String.lowercase (full_name field)
+  String.lowercase_ascii (full_name field)
 
 and ocaml_field_to_csharp_property field =
   ocaml_class_to_csharp_property (full_name field)
 
 and exposed_class_name classname =
-  match String.lowercase(classname) with
+  match String.lowercase_ascii(classname) with
   | "vm"  -> "VM"
   | "vdi" -> "VDI"
   | "vbd" -> "VBD"
@@ -96,7 +96,7 @@ and exposed_class_name classname =
   | "vif" -> "VIF"
   | "pif" -> "PIF"
   | "url" -> "Url_"
-  |  _     -> String.capitalize classname
+  |  _     -> String.capitalize_ascii classname
 
 and qualified_class_name classname =
   "XenAPI."^(exposed_class_name classname)

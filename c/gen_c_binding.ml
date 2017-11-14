@@ -233,7 +233,7 @@ and write_decl {name=classname; contents=contents; description=description;
 
   if classname <> "event" then
     begin
-      print "%s\n\n" (decl_free tn (String.lowercase classname) false "handle");
+      print "%s\n\n" (decl_free tn (String.lowercase_ascii classname) false "handle");
       print "%s\n" (decl_set tn false);
     end;
   print "%s\n" record;
@@ -690,7 +690,7 @@ extern enum %s
 and enum_entry enum_name = function
     (n, c) ->
     sprintf "%s\n    XEN_%s_%s" (Helper.comment true ~indent:4 c)
-      (String.uppercase enum_name) (String.replace "-" "_" (String.uppercase n))
+      (String.uppercase_ascii enum_name) (String.replace "-" "_" (String.uppercase_ascii n))
 
 
 and write_enum_impl name contents out_chan =
@@ -1085,7 +1085,7 @@ and failure_lookup_entry name _ acc =
   (sprintf "\"%s\"" name) :: acc
 
 and failure_enum name =
-  "XEN_API_FAILURE_" ^ (String.uppercase name)
+  "XEN_API_FAILURE_" ^ (String.uppercase_ascii name)
 
 
 and write_impl {name=classname; contents=contents; messages=messages} out_chan =
@@ -1365,35 +1365,35 @@ and name_of_ty = function
 
 and decl_filename name =
   let dir = (if String.endswith "internal" name then "" else "xen/api/") in
-  sprintf "%sxen_%s.h" dir (String.lowercase name)
+  sprintf "%sxen_%s.h" dir (String.lowercase_ascii name)
 
 
 and predecl_filename name =
-  sprintf "xen/api/xen_%s_decl.h" (String.lowercase name)
+  sprintf "xen/api/xen_%s_decl.h" (String.lowercase_ascii name)
 
 
 and internal_decl_filename name =
-  sprintf "xen_%s_internal.h" (String.lowercase name)
+  sprintf "xen_%s_internal.h" (String.lowercase_ascii name)
 
 
 and impl_filename name =
-  sprintf "xen_%s.c" (String.lowercase name)
+  sprintf "xen_%s.c" (String.lowercase_ascii name)
 
 
 and internal_impl_filename name =
-  sprintf "xen_%s_internal.c" (String.lowercase name)
+  sprintf "xen_%s_internal.c" (String.lowercase_ascii name)
 
 
 and protector classname =
-  sprintf "XEN_%s_H" (String.uppercase classname)
+  sprintf "XEN_%s_H" (String.uppercase_ascii classname)
 
 
 and typename classname =
-  sprintf "xen_%s" (String.lowercase classname)
+  sprintf "xen_%s" (String.lowercase_ascii classname)
 
 
 and variablename classname =
-  sprintf "%s" (String.lowercase classname)
+  sprintf "%s" (String.lowercase_ascii classname)
 
 
 and record_typename classname =
@@ -1405,24 +1405,24 @@ and record_opt_typename classname =
 
 
 and messagename classname name =
-  sprintf "xen_%s_%s" (String.lowercase classname)
-    (String.lowercase name)
+  sprintf "xen_%s_%s" (String.lowercase_ascii classname)
+    (String.lowercase_ascii name)
 
 
 and messagename_async classname name =
-  sprintf "xen_%s_%s_async" (String.lowercase classname)
-    (String.lowercase name)
+  sprintf "xen_%s_%s_async" (String.lowercase_ascii classname)
+    (String.lowercase_ascii name)
 
 and keyword_map name =
   let keywords = ["class","XEN_CLAZZ"; "public", "pubblic"] in
   if List.mem_assoc name keywords then List.assoc name keywords else name
 
 and paramname name =
-  keyword_map (String.lowercase name)
+  keyword_map (String.lowercase_ascii name)
 
 
 and fieldname name =
-  keyword_map (String.lowercase name)
+  keyword_map (String.lowercase_ascii name)
 
 
 and print_h_header out_chan protect =

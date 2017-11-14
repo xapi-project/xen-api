@@ -179,7 +179,7 @@ and gen_arg_param = function
   | String_query_arg x -> sprintf "
         [Parameter%s]
         public string %s { get; set; }\n"
-                            (if (String.lowercase x) = "uuid" then
+                            (if (String.lowercase_ascii x) = "uuid" then
                                "(ValueFromPipelineByPropertyName = true)"
                              else "")
                             (pascal_case_ x)
@@ -548,7 +548,7 @@ and create_param_parse param paramName =
   match param.param_type with
   | Ref name -> sprintf "
             string %s = %s.opaque_ref;\n"
-                  (String.lowercase param.param_name) paramName
+                  (String.lowercase_ascii param.param_name) paramName
   | _ -> ""
 
 and gen_make_record message obj classname =
@@ -1218,7 +1218,7 @@ and print_dynamic_param_members classname params commonVerb =
       print_dynamic_param_members classname tl commonVerb
     else (
       let publicProperty =
-        (if commonVerb = "Invoke" && (List.mem (String.lowercase hd.param_name) ["name";"uuid"]) then
+        (if commonVerb = "Invoke" && (List.mem (String.lowercase_ascii hd.param_name) ["name";"uuid"]) then
            (ocaml_class_to_csharp_property hd.param_name)^"Param"
          else ocaml_class_to_csharp_property hd.param_name) in
       let theType = obj_internal_type hd.param_type in
@@ -1630,7 +1630,7 @@ and gen_param_list classname params message commonVerb =
   let get_param_name = fun x ->
     (if is_class x classname then
        ocaml_class_to_csharp_local_var classname
-     else if (commonVerb = "Invoke") && (List.mem (String.lowercase x.param_name) ["name";"uuid"]) then
+     else if (commonVerb = "Invoke") && (List.mem (String.lowercase_ascii x.param_name) ["name";"uuid"]) then
        sprintf "contxt.%s" (ocaml_class_to_csharp_property x.param_name)^"Param"
      else if commonVerb = "Invoke" then
        sprintf "contxt.%s" (ocaml_class_to_csharp_property x.param_name)
@@ -1689,8 +1689,8 @@ and explode_array name length result =
   done
 
 and is_class param classname =
-  (String.lowercase param.param_name) = "self" ||
-  (String.lowercase param.param_name) = (String.lowercase classname)
+  (String.lowercase_ascii param.param_name) = "self" ||
+  (String.lowercase_ascii param.param_name) = (String.lowercase_ascii classname)
 
 let _ =
   main()
