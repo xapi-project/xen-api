@@ -1531,7 +1531,9 @@ let _ =
   error Api_errors.clustering_enabled ["cluster_host"]
     ~doc:"An operation was attempted while clustering was enabled on the cluster_host." ();
   error Api_errors.clustering_disabled ["cluster_host"]
-    ~doc:"An operation was attempted while clustering was disabled on the cluster_host." ()
+    ~doc:"An operation was attempted while clustering was disabled on the cluster_host." ();
+  error Api_errors.cluster_does_not_have_one_node []
+    ~doc:"The cluster does not have only one node." ()
 
 let _ =
   message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();
