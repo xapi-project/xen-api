@@ -191,7 +191,7 @@ let probe ~__context ~host ~device_config ~_type ~sm_config =
 (* Create actually makes the SR on disk, and introduces it into db, and creates PBD record for current host *)
 let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~name_description
     ~_type ~content_type ~shared ~sm_config =
-  Xapi_clustering.with_clustering_lock (fun () ->
+  let pbds, sr_ref = Xapi_clustering.with_clustering_lock (fun () ->
       Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:_type;
       Helpers.assert_rolling_upgrade_not_in_progress ~__context ;
       debug "SR.create name_label=%s sm_config=[ %s ]" name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
@@ -228,10 +228,19 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
              (fun self ->
                 try
                   Db.PBD.set_device_config ~__context ~self ~value:device_config;
-                  Client.PBD.plug ~rpc ~session_id ~self
-                with e -> warn "Could not plug PBD '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
+                with e -> warn "Could not set PBD device-config '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
              pbds);
-      sr_ref)
+      pbds, sr_ref
+    ) in
+  Helpers.call_api_functions ~__context
+    (fun rpc session_id ->
+      List.iter
+        (fun self ->
+          try
+            Client.PBD.plug ~rpc ~session_id ~self
+          with e -> warn "Could not plug PBD '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
+        pbds);
+  sr_ref
 
 let check_no_pbds_attached ~__context ~sr =
   let all_pbds_attached_to_this_sr =
