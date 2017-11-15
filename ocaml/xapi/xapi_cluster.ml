@@ -48,12 +48,15 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join =
     )
 
 let destroy ~__context ~self =
-  (* TODO: take cluster lock ?? *)
-  (* TODO: concurrency; update/use allowed/current_operations via message_forwarding ?? (not mentioned in design; should it be?) *)
-  (* TODO: debug/error/info logging *)
-  (* TODO: call xapi-clusterd.Local.destroy *)
-  (* TODO: destroy member records *)
-  Db.Cluster.destroy ~__context ~self
+  assert_cluster_has_one_node ~__context ~self;
+  let cluster_host = Db.Cluster.get_cluster_hosts ~__context ~self |> List.hd in
+  assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self:cluster_host;
+  let result = Cluster_client.LocalClient.destroy (Cluster_client.rpc (fun () -> "")) () in
+  match result with
+  | Result.Ok () ->
+    Db.Cluster_host.destroy ~__context ~self:cluster_host;
+    Db.Cluster.destroy ~__context ~self
+  | Result.Error error -> handle_error error
 
 (* helper function; concurrency checks are done in implementation of Cluster.create and Cluster_host.create *)
 let pool_create ~__context ~pool ~cluster_stack ~network =
