@@ -625,8 +625,8 @@ let build_post ~xc ~xs ~vcpus ~static_max_mib ~target_mib domid
   debug "VM = %s; domid = %d; @introduceDomain" (Uuid.to_string uuid) domid;
   xs.Xs.introduce domid store_mfn store_port
 
-(** build a linux type of domain *)
-let build_linux (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
+(** build a PV domain *)
+let build_pv (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
     ~vcpus ~extras xenguest_path domid force =
   let uuid = get_uuid ~xc domid in
   assert_file_is_readable kernel;
@@ -801,7 +801,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
       ~shadow_multiplier:hvminfo.shadow_multiplier ~vcpus:info.vcpus
       ~kernel:info.kernel ~timeoffset ~video_mib:hvminfo.video_mib ~extras xenguest_path domid force
   | BuildPV pvinfo   ->
-    build_linux task ~xc ~xs ~store_domid ~console_domid ~static_max_kib:info.memory_max ~target_kib:info.memory_target
+    build_pv task ~xc ~xs ~store_domid ~console_domid ~static_max_kib:info.memory_max ~target_kib:info.memory_target
       ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
       ~vcpus:info.vcpus ~extras xenguest_path domid force
 

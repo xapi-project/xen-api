@@ -118,8 +118,8 @@ val get_action_request: xs:Xenstore.Xs.xsh -> domid -> string option
 
 (* val create_channels : xc:Xenctrl.handle -> domid -> int * int *)
 
-(** Builds a linux guest in a fresh domain created with 'make' *)
-val build_linux: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> static_max_kib:Int64.t
+(** Builds a PV guest in a fresh domain created with 'make' *)
+val build_pv: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> static_max_kib:Int64.t
   -> target_kib:Int64.t -> kernel:string -> cmdline:string
   -> ramdisk:string option -> vcpus:int -> extras:string list -> string -> domid -> bool
   -> domarch
