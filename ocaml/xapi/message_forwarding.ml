@@ -4259,7 +4259,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let destroy ~__context ~self =
       info "Cluster.destroy";
-      Local.Cluster.destroy ~__context ~self
+      Xapi_cluster_helpers.with_cluster_operation ~__context ~self ~doc:"Cluster.destroy" ~op:`destroy
+        (fun () ->
+           Local.Cluster.destroy ~__context ~self)
 
     let pool_create ~__context ~pool ~cluster_stack ~network =
       info "Cluster.pool_create";
