@@ -1515,7 +1515,9 @@ let _ =
   error Api_errors.pusb_vdi_conflict [ "PUSB"; "VDI" ]
     ~doc:"The VDI corresponding to this PUSB has existing VBDs." ();
   error Api_errors.vm_has_vusbs ["VM"]
-    ~doc:"The operation is not allowed when the VM has VUSBs." ()
+    ~doc:"The operation is not allowed when the VM has VUSBs." ();
+  error Api_errors.pusb_not_in_possible_hosts [ "pusb"; "possible_hosts" ]
+    ~doc:"The VM can't boot on the host that belongs to the pusb; it can boot only on the following hosts." ()
 
 let _ =
   message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();
