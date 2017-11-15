@@ -34,6 +34,14 @@ let create ~__context ~vM ~uSB_group ~other_config =
         another vusb can not create with the same USB_group. *)
     if vusbs <> [] then
       raise (Api_errors.Server_error(Api_errors.usb_group_conflict, [Ref.string_of uSB_group]));
+
+    (* All USBs that will be attached to the VM must be on the same host, as USB from host A can
+      not attach to the vm resident on host B. *)
+    let possible_hosts = Xapi_vm.get_possible_hosts ~__context ~vm:vM in
+    let pusb = Helpers.get_first_pusb ~__context uSB_group in
+    let host = Db.PUSB.get_host ~__context ~self:pusb in
+    if not (List.mem host possible_hosts) then
+      raise (Api_errors.Server_error (Api_errors.pusb_not_in_possible_hosts, [Ref.string_of pusb; String.concat ";" (List.map Ref.string_of possible_hosts)]));
     (* We won't attach VUSB when VM ha_restart_priority is set to 'restart'  *)
     let ha_restart_priority = Db.VM.get_ha_restart_priority ~__context ~self:vM in
     match ha_restart_priority with
