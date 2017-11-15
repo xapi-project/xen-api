@@ -2905,6 +2905,14 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.Cluster.create;
       flags=[Hidden];
     };
+    "cluster-destroy",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Destroy the pool-wide cluster";
+      implementation=No_fd Cli_operations.Cluster.destroy;
+      flags=[];
+    };
     "cluster-host-create",
     {
       reqd=["cluster-uuid";"host-uuid"];
