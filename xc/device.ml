@@ -61,6 +61,14 @@ module Profile = struct
   let of_domid x = if is_upstream_qemu x then Qemu_upstream else Qemu_trad
 end
 
+(** Represent an IPC endpoint *)
+module Socket = struct
+  type t = Unix of string | Port of int
+  module Unix = struct
+    let path x = "unix:" ^ x
+  end
+end
+
 (* keys read by vif udev script (keep in sync with api:scripts/vif) *)
 let vif_udev_keys = "promiscuous" :: (List.map (fun x -> "ethtool-" ^ x) [ "rx"; "tx"; "sg"; "tso"; "ufo"; "gso" ])
 
@@ -827,7 +835,7 @@ module PV_Vnc = struct
   let get_vnc_port ~xs domid =
     if not (is_vncterm_running ~xs domid)
     then None
-    else (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
+    else (try Some(Socket.Port (int_of_string (xs.Xs.read (Generic.vnc_port_path domid)))) with _ -> None)
 
   let get_tc_port ~xs domid =
     if not (is_vncterm_running ~xs domid)
@@ -1542,6 +1550,8 @@ module Dm_Common = struct
     extras: (string * string option) list;
   }
 
+  let vnc_socket_path = (sprintf "%s/vnc-%d") Device_common.var_run_xen_path
+
   let get_vnc_port ~xs domid ~f =
     match Qemu.is_running ~xs domid with
     | true  -> f ()
@@ -1612,7 +1622,7 @@ module Dm_Common = struct
     try Some (xs.Xs.read statepath)
     with _ -> None
 
-  let cmdline_of_disp info =
+  let cmdline_of_disp ?domid info =
     let vga_type_opts x =
       let open Xenops_interface.Vgpu in
       match x with
@@ -1636,12 +1646,20 @@ module Dm_Common = struct
       | GVT_d -> ["-std-vga"; "-gfx_passthru"]
     in
     let videoram_opt = ["-videoram"; string_of_int info.video_mib] in
-    let vnc_opts_of ip_addr_opt auto port keymap =
-      let unused_opt = if auto then ["-vncunused"] else [] in
-      let vnc_opt =
-        let ip_addr = Opt.default "127.0.0.1" ip_addr_opt
-        and port = if auto then "1" else string_of_int port in
-        ["-vnc"; ip_addr ^ ":" ^ port] in
+    let vnc_opts_of ip_addr_opt auto port keymap ~domid =
+      let ip_addr = Opt.default "127.0.0.1" ip_addr_opt in
+      let unused_opt, vnc_arg = match domid with
+        | None when auto -> ["-vncunused"], Printf.sprintf "%s:1"  ip_addr
+        | None           -> [], Printf.sprintf "%s:%d" ip_addr port
+          (*
+              Disable lock-key-sync
+              #  lock-key-sync expects vnclient to send different keysym for
+              #  alphabet keys (different for lowercase and uppercase). XC
+              #  can't do it at the moment, so disable lock-key-sync
+          *)
+        | Some domid     -> [], Printf.sprintf "%s,lock-key-sync=off" (Socket.Unix.path (vnc_socket_path domid))
+      in
+      let vnc_opt = ["-vnc"; vnc_arg] in
       let keymap_opt = match keymap with Some k -> ["-k"; k] | None -> [] in
       List.flatten [unused_opt; vnc_opt; keymap_opt]
     in
@@ -1653,12 +1671,12 @@ module Dm_Common = struct
         ([], false)
       | VNC (disp_intf, ip_addr_opt, auto, port, keymap) ->
         let vga_type_opts = vga_type_opts disp_intf in
-        let vnc_opts = vnc_opts_of ip_addr_opt auto port keymap in
+        let vnc_opts = vnc_opts_of ip_addr_opt auto port keymap ~domid in
         (vga_type_opts @ videoram_opt @ vnc_opts), true
     in
     disp_options, wait_for_port
 
-  let cmdline_of_info ~xs ~dm info restore domid =
+  let cmdline_of_info ~xs ~dm info restore ?(domid_for_vnc=false) domid =
     let usb' =
       match info.usb with
       | Disabled -> []
@@ -1671,22 +1689,34 @@ module Dm_Common = struct
         ]) info.disks in
 
     let restorefile = sprintf qemu_restore_path domid in
-    let disp_options, wait_for_port = cmdline_of_disp info in
-
-    [
-      "-d"; string_of_int domid;
-      "-m"; Int64.to_string (Int64.div info.memory 1024L);
-      "-boot"; info.boot;
-    ] @ (Opt.default [] (Opt.map (fun x -> [ "-serial"; x ]) info.serial)) @ [
-      "-vcpus"; string_of_int info.vcpus;
-    ] @ disp_options @ usb' @ List.concat disks'
-    @ (if info.acpi then [ "-acpi" ] else [])
-    @ (if restore then [ "-loadvm"; restorefile ] else [])
-    @ (List.fold_left (fun l pci -> "-pciemulation" :: pci :: l) [] (List.rev info.pci_emulations))
-    @ (if info.pci_passthrough then ["-priv"] else [])
-    @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] info.extras)
-    @ (Opt.default [] (Opt.map (fun x -> [ "-monitor"; x ]) info.monitor))
-    @ (Opt.default [] (Opt.map (fun x -> [ "-parallel"; x]) info.parallel))
+    let disp_options, wait_for_port = if domid_for_vnc
+      then cmdline_of_disp info ~domid
+      else cmdline_of_disp info
+    in
+    List.concat
+      [ [ "-d"; string_of_int domid
+        ; "-m"; Int64.to_string (Int64.div info.memory 1024L)
+        ; "-boot"; info.boot
+        ]
+      ; ( info.serial |> function None -> [] | Some x -> [ "-serial"; x ])
+      ; [ "-vcpus"; string_of_int info.vcpus]
+      ; disp_options
+      ; usb'
+      ; List.concat disks'
+      ; ( info.acpi |> function false -> [] | true -> [ "-acpi" ])
+      ; ( restore   |> function false -> [] | true -> [ "-loadvm"; restorefile ])
+      ; ( info.pci_emulations
+           |> List.map (fun pci -> ["-pciemulation"; pci])
+           |> List.concat
+        )
+      ; ( info.pci_passthrough |> function false -> [] | true -> ["-priv"])
+      ; ( (List.rev info.extras)
+           |> List.map (function (k,None) -> ["-"^k] | (k,Some v) -> ["-"^k; v])
+           |> List.concat
+        )
+      ; ( info.monitor  |> function None -> [] | Some x -> [ "-monitor";  x])
+      ; ( info.parallel |> function None -> [] | Some x -> [ "-parallel"; x])
+      ]
 
   let vnconly_cmdline ~info ?(extras=[]) domid =
     let disp_options, _ = cmdline_of_disp info in
@@ -1868,7 +1898,7 @@ module Backend = struct
       end
 
       (** [get_vnc_port xenstore domid] returns the dom0 tcp port in which the vnc server for [domid] can be found *)
-      val get_vnc_port : xs:Xenstore.Xs.xsh -> int -> int option
+      val get_vnc_port : xs:Xenstore.Xs.xsh -> int -> Socket.t option
 
       (** [suspend task xenstore qemu_domid xc] suspends a domain *)
       val suspend: Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
@@ -1907,7 +1937,7 @@ module Backend = struct
 
       let get_vnc_port ~xs domid =
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
-            (try Some(int_of_string (xs.Xs.read (Generic.vnc_port_path domid))) with _ -> None)
+            (try Some(Socket.Port (int_of_string (xs.Xs.read (Generic.vnc_port_path domid)))) with _ -> None)
           )
 
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
@@ -2124,17 +2154,8 @@ module Backend = struct
 
       let get_vnc_port ~xs domid =
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
-            let open Qmp in
-            let qmp_cmd = Command (None, Query_vnc) in
-            let parse_qmp_message = function
-              | Success (None, Vnc vnc) -> (try Some vnc.service with _ -> None)
-              | _ -> debug "Get unexpected result after sending Qmp message: %s" (string_of_message qmp_cmd); None
-            in
-            let qmp_cmd_result = qmp_write_and_read domid qmp_cmd in
-            match qmp_cmd_result with
-            | Some qmp_message -> parse_qmp_message qmp_message
-            | None -> debug "Fail to get result after sending Qmp message: %s" (string_of_message qmp_cmd); None
-          )
+            Some (Socket.Unix (Dm_Common.vnc_socket_path domid))
+        )
 
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
         let open Qmp in
@@ -2185,7 +2206,7 @@ module Backend = struct
           )
 
       let cmdline_of_info ~xs ~dm info restore domid =
-        let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid in
+        let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid ~domid_for_vnc:true in
 
         (* Sort the VIF devices by devid *)
         let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.Dm_Common.nics in
