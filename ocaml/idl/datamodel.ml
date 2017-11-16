@@ -174,8 +174,7 @@ let _vdi_nbd_server_info = "vdi_nbd_server_info"
 let _pusb = "PUSB"
 let _usb_group = "USB_group"
 let _vusb = "VUSB"
-
-
+let _net_sriov = "NET_sriov"
 (** All the various static role names *)
 
 let role_pool_admin = "pool-admin"
@@ -5637,6 +5636,8 @@ let pif =
       field ~in_oss_since:None ~ty:(Set(Ref _bond)) ~in_product_since:rel_miami ~qualifier:DynamicRO "bond_master_of" "Indicates this PIF represents the results of a bond";
       field ~in_oss_since:None ~ty:(Ref _vlan) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_master_of" "Indicates wich VLAN this interface receives untagged traffic from" ~default_value:(Some (VRef ""));
       field ~in_oss_since:None ~ty:(Set(Ref _vlan)) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_slave_of" "Indicates which VLANs this interface transmits tagged traffic to";
+      field ~in_oss_since:None ~ty:(Ref _net_sriov) ~in_product_since:rel_jura ~qualifier:DynamicRO "sriov_master_of" "Indicates which net_sriov this interface is physical of" ~default_value:(Some (VRef ""));
+      field ~in_oss_since:None ~ty:(Ref _net_sriov) ~in_product_since:rel_jura ~qualifier:DynamicRO "sriov_slave_of" "Indicates which net_sriov this interface is logical of" ~default_value:(Some (VRef ""));
       field ~in_oss_since:None ~ty:Bool ~in_product_since:rel_miami ~qualifier:DynamicRO "management" "Indicates whether the control software is listening for connections on this interface" ~default_value:(Some (VBool false));
       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "Additional configuration";
       field ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "disallow_unplug" "Prevent this PIF from being unplugged; set this to notify the management tool-stack that the PIF has a special use and should not be unplugged under any circumstances (e.g. because you're running storage traffic over it)";
@@ -6069,6 +6070,7 @@ let vif =
          field ~ty:vif_ipv6_configuration_mode ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_configuration_mode" "Determines whether IPv6 addresses are configured on the VIF" ~default_value:(Some (VEnum "None"));
          field ~ty:(Set (String)) ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_addresses" "IPv6 addresses in CIDR format" ~default_value:(Some (VSet []));
          field ~ty:String ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_gateway" "IPv6 gateway (the empty string means that no gateway is set)" ~default_value:(Some (VString ""));
+         field ~ty:(Ref _pci) ~in_product_since:rel_jura ~qualifier:DynamicRO "attached_pci" "pci of which this vif attached (sriov vif)" ~default_value:(Some (VRef null_ref));
        ])
     ()
 
@@ -9203,6 +9205,50 @@ let alert =
     ()
 *)
 
+let net_sriov_create = call
+    ~name:"create"
+    ~doc:"Create a net-sriov on specified pif"
+    ~params:[Ref _pif, "pif", "PIF which to enable sriov";
+             Ref _network, "network", "Network to link SRIOV"]
+    ~result:(Ref _net_sriov, "The reference of the created SRIOV object")
+    ~in_product_since:rel_jura
+    ~allowed_roles:_R_POOL_OP
+    ()
+
+let net_sriov_destroy = call
+    ~name:"destroy"
+    ~doc:"Destroy a net-sriov"
+    ~params:[Ref _net_sriov, "self", "SRIOV to destroy"]
+    ~in_product_since:rel_jura
+    ~allowed_roles:_R_POOL_OP
+    ()
+
+(** network sriov **)
+module NET_sriov = struct
+  let obj =
+    create_obj
+      ~name:_net_sriov
+      ~descr:"network-sriov which connects logical pif and physical pif"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle:[Published, rel_jura, ""]
+      ~messages:[net_sriov_create; net_sriov_destroy]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~contents:
+        ([
+          uid _net_sriov;
+          field ~qualifier:StaticRO ~ty:(Ref _pif) ~in_product_since:rel_jura "physical_PIF" "physical pif which the ner_sriov created" ~default_value:(Some (VRef ""));
+          field ~qualifier:StaticRO ~ty:(Ref _pif) ~in_product_since:rel_jura "logical_PIF" "logical pif after sriov enabled for physical pif" ~default_value:(Some (VRef ""));
+          field ~qualifier:RW ~ty:(Map(String, String)) ~in_product_since:rel_jura "other_config" "additional configuration" ~default_value:(Some (VMap []));
+        ])
+      ()
+end
+let net_sriov = NET_sriov.obj
+
 (** PCI devices *)
 
 let pci =
@@ -10248,6 +10294,7 @@ let all_system =
     pusb;
     usb_group;
     vusb;
+    net_sriov;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -10431,6 +10478,7 @@ let expose_get_all_messages_for = [
   _pvs_cache_storage;
   _feature;
   _sdn_controller;
+  _net_sriov;
   (* _vdi_nbd_server_info must NOT be included here *)
   _pusb;
   _usb_group;

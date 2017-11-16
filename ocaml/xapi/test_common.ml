@@ -182,7 +182,7 @@ let make_vif ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
     ~currently_attached ~status_code ~status_detail ~runtime_properties
     ~other_config ~metrics ~locking_mode ~ipv4_allowed ~ipv6_allowed
     ~ipv4_configuration_mode ~ipv4_addresses ~ipv4_gateway
-    ~ipv6_configuration_mode ~ipv6_addresses ~ipv6_gateway;
+    ~ipv6_configuration_mode ~ipv6_addresses ~ipv6_gateway ~attached_pci:Ref.null;
   ref
 
 let make_pool ~__context ~master ?(name_label="") ?(name_description="")
