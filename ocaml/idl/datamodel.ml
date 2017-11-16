@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 133
+let schema_minor_vsn = 134
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -174,8 +174,7 @@ let _vdi_nbd_server_info = "vdi_nbd_server_info"
 let _pusb = "PUSB"
 let _usb_group = "USB_group"
 let _vusb = "VUSB"
-
-
+let _network_sriov = "Network_sriov"
 (** All the various static role names *)
 
 let role_pool_admin = "pool-admin"
@@ -5643,6 +5642,8 @@ let pif =
       field ~in_oss_since:None ~ty:(Set(Ref _bond)) ~in_product_since:rel_miami ~qualifier:DynamicRO "bond_master_of" "Indicates this PIF represents the results of a bond";
       field ~in_oss_since:None ~ty:(Ref _vlan) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_master_of" "Indicates wich VLAN this interface receives untagged traffic from" ~default_value:(Some (VRef ""));
       field ~in_oss_since:None ~ty:(Set(Ref _vlan)) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_slave_of" "Indicates which VLANs this interface transmits tagged traffic to";
+      field ~in_oss_since:None ~ty:(Set(Ref _network_sriov)) ~in_product_since:rel_kolkata ~qualifier:DynamicRO "sriov_physical_PIF_of" "Indicates which network_sriov this interface is physical of";
+      field ~in_oss_since:None ~ty:(Ref _network_sriov) ~in_product_since:rel_kolkata ~qualifier:DynamicRO "sriov_logical_PIF_of" "Indicates which network_sriov this interface is logical of" ~default_value:(Some (VRef ""));
       field ~in_oss_since:None ~ty:Bool ~in_product_since:rel_miami ~qualifier:DynamicRO "management" "Indicates whether the control software is listening for connections on this interface" ~default_value:(Some (VBool false));
       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "Additional configuration";
       field ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "disallow_unplug" "Prevent this PIF from being unplugged; set this to notify the management tool-stack that the PIF has a special use and should not be unplugged under any circumstances (e.g. because you're running storage traffic over it)";
@@ -6075,6 +6076,7 @@ let vif =
          field ~ty:vif_ipv6_configuration_mode ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_configuration_mode" "Determines whether IPv6 addresses are configured on the VIF" ~default_value:(Some (VEnum "None"));
          field ~ty:(Set (String)) ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_addresses" "IPv6 addresses in CIDR format" ~default_value:(Some (VSet []));
          field ~ty:String ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_gateway" "IPv6 gateway (the empty string means that no gateway is set)" ~default_value:(Some (VString ""));
+         field ~ty:(Ref _pci) ~in_product_since:rel_kolkata ~internal_only:true ~qualifier:DynamicRO "reserved_pci" "pci of network SR-IOV VF which is reserved for this vif" ~default_value:(Some (VRef null_ref));
        ])
     ()
 
@@ -9209,6 +9211,61 @@ let alert =
     ()
 *)
 
+
+(** network sriov **)
+module Network_sriov = struct
+  let lifecycle = [Published, rel_kolkata, ""]
+
+  let configuration_mode = Enum ("configuration_mode",
+    [
+      "sysfs", "Configure network sriov by sysfs, do not need reboot";
+      "modprobe", "Configure network sriov by modbrope, need reboot";
+      "unknown", "Unknown mode";
+    ])
+
+  let create = call
+      ~name:"create"
+      ~doc:"Create a network-sriov based on the specific PIF, it will automatically create a logical PIF to connect the specific network."
+      ~params:[Ref _pif, "pif", "PIF on which to enable SRIOV";
+               Ref _network, "network", "Network to link SRIOV"]
+      ~result:(Ref _network_sriov, "The reference of the created SRIOV object")
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let destroy = call
+      ~name:"destroy"
+      ~doc:"Destroy a network-sriov, will destroy the logical PIF accordingly."
+      ~params:[Ref _network_sriov, "self", "SRIOV to destroy"]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let obj =
+    create_obj
+      ~name:_network_sriov
+      ~descr:"network-sriov which connects logical pif and physical pif"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle
+      ~messages:[create; destroy;]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~contents:
+        ([
+          uid _network_sriov;
+          field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle "physical_PIF" "physical PIF which the network_sriov created" ~default_value:(Some (VRef ""));
+          field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle "logical_PIF" "logical PIF after sriov enabled for physical pif" ~default_value:(Some (VRef ""));
+          field ~qualifier:DynamicRO ~ty:Bool ~lifecycle "requires_reboot" "True if sriov enable needs to reboot dom0" ~default_value:(Some (VBool false));
+          field ~qualifier:DynamicRO ~ty:configuration_mode ~lifecycle "configuration_mode" "The mode for configure network sriov" ~default_value:(Some (VEnum "unknown"));
+        ])
+      ()
+end
+let network_sriov = Network_sriov.obj
+
 (** PCI devices *)
 
 let pci =
@@ -10254,6 +10311,7 @@ let all_system =
     pusb;
     usb_group;
     vusb;
+    network_sriov;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -10346,6 +10404,7 @@ let all_relations =
     (_vusb, "VM"), (_vm, "VUSBs");
 
     (_feature, "host"), (_host, "features");
+    (_network_sriov, "physical_PIF"), (_pif, "sriov_physical_PIF_of");
   ]
 
 (** the full api specified here *)
@@ -10437,6 +10496,7 @@ let expose_get_all_messages_for = [
   _pvs_cache_storage;
   _feature;
   _sdn_controller;
+  _network_sriov;
   (* _vdi_nbd_server_info must NOT be included here *)
   _pusb;
   _usb_group;

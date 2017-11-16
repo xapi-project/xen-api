@@ -336,6 +336,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         Ref.string_of bond
     with _ -> "invalid"
 
+  let network_sriov_uuid ~__context sriov =
+    try if Pool_role.is_master () then
+        Db.Network_sriov.get_uuid __context sriov
+      else
+        Ref.string_of sriov
+    with _ -> "invalid"
 
   let pif_uuid ~__context pif =
     try if Pool_role.is_master () then
@@ -4261,6 +4267,21 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let destroy ~__context ~self =
       info "VUSB.destroy: VUSB = '%s'" (vusb_uuid ~__context self);
       Local.VUSB.destroy ~__context ~self
+  end
+
+  module Network_sriov = struct
+    let create ~__context ~pif ~network =
+      info "Network_sriov.create : pif = '%s' , network = '%s' " (pif_uuid ~__context pif) (network_uuid ~__context network);
+      let local_fn = Local.Network_sriov.create ~pif ~network in
+      let host = Db.PIF.get_host ~__context ~self:pif in
+      do_op_on ~__context ~local_fn ~host (fun session_id rpc -> Client.Network_sriov.create rpc session_id pif network)
+
+    let destroy ~__context ~self =
+      info "Network_sriov.destroy : network_sriov = '%s'" (network_sriov_uuid ~__context self);
+      let local_fn = Local.Network_sriov.destroy ~self in
+      let physical_pif = Db.Network_sriov.get_physical_PIF ~__context ~self in
+      let host = Db.PIF.get_host ~__context ~self:physical_pif in
+      do_op_on ~__context ~local_fn ~host (fun session_id rpc -> Client.Network_sriov.destroy rpc session_id self)
   end
 
 end
