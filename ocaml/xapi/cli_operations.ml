@@ -824,6 +824,7 @@ let gen_cmds rpc session_id =
     ; Client.PUSB.(mk get_all get_all_records_where get_by_uuid pusb_record "pusb" [] ["uuid"; "path"; "product-id"; "product-desc"; "vendor-id"; "vendor-desc"; "serial"; "version";"description"] rpc session_id)
     ; Client.USB_group.(mk get_all get_all_records_where get_by_uuid usb_group_record "usb-group" [] ["uuid";"name-label";"name-description"] rpc session_id)
     ; Client.VUSB.(mk get_all get_all_records_where get_by_uuid vusb_record "vusb" [] ["uuid";"vm-uuid"; "usb-group-uuid"] rpc session_id)
+    ; Client.NET_sriov.(mk get_all get_all_records_where get_by_uuid net_sriov_record "net-sriov" [] ["uuid"; "physical-pif"; "logical-pif"] rpc session_id)
     ]
 
 (* NB, might want to put these back in at some point
@@ -3957,6 +3958,19 @@ let tunnel_destroy printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let tunnel = Client.Tunnel.get_by_uuid rpc session_id uuid in
   Client.Tunnel.destroy rpc session_id tunnel
+
+module NET_sriov = struct
+  let sriov_create printer rpc session_id params =
+    let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "pif-uuid" params) in
+    let network = Client.Network.get_by_uuid rpc session_id (List.assoc "network-uuid" params) in
+    let sriov = Client.NET_sriov.create rpc session_id pif network in
+    let uuid = Client.NET_sriov.get_uuid rpc session_id sriov in
+    printer (Cli_printer.PList [uuid])
+
+  let sriov_destroy printer rpc session_id params =
+    let sriov = Client.NET_sriov.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+    ignore(Client.NET_sriov.destroy rpc session_id sriov)
+end
 
 let pif_reconfigure_ip printer rpc session_id params =
   let read_optional_case_insensitive key =

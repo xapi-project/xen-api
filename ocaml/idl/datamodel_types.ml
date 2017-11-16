@@ -58,6 +58,7 @@ let rel_ely = "ely"
 let rel_falcon = "falcon"
 let rel_honolulu = "honolulu"
 let rel_inverness = "inverness"
+let rel_jura = "jura"
 
 type api_release = {
     code_name: string option;
@@ -192,6 +193,12 @@ let release_order_full = [{
     }; {
       code_name     = Some rel_inverness;
       (** TODO replace with the actual version numbers when Inverness is released *)
+      version_major = 2;
+      version_minor = 7;
+      branding   = "Unreleased";
+    };{
+      code_name     = Some rel_jura;
+      (** TODO replace with the actual version numbers when Jura is released *)
       version_major = 2;
       version_minor = 7;
       branding   = "Unreleased";
