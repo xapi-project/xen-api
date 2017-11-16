@@ -1279,14 +1279,14 @@ module VM = struct
                    } in
                  ((make_build_info b.Bootloader.kernel_path builder_spec_info), "")
               ) in
-        let arch = Domain.build task ~xc ~xs ~store_domid ~console_domid ~timeoffset ~extras build_info (choose_xenguest vm.Vm.platformdata) domid force in
+        Domain.build task ~xc ~xs ~store_domid ~console_domid ~timeoffset ~extras build_info (choose_xenguest vm.Vm.platformdata) domid force;
         Int64.(
           let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
           and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
           Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
         );
 
-        debug "VM = %s; domid = %d; Domain built with architecture %s" vm.Vm.id domid (Domain.string_of_domarch arch);
+        debug "VM = %s; domid = %d; Domain build completed" vm.Vm.id domid;
         let k = vm.Vm.id in
         let d = DB.read_exn vm.Vm.id in
         let persistent = { d.VmExtra.persistent with

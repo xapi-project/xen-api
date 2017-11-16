@@ -120,20 +120,6 @@ let xenstore_read_dir t path =
   in
   inner [] [path] |> List.fast_sort compare
 
-type domarch = Arch_HVM | Arch_native | Arch_X64 | Arch_X32
-
-let string_of_domarch = function
-  | Arch_HVM    -> "hvm"
-  | Arch_native -> ""
-  | Arch_X64    -> "x64"
-  | Arch_X32    -> "x32"
-
-let domarch_of_string = function
-  | "hvm" -> Arch_HVM
-  | "x64" -> Arch_X64
-  | "x32" -> Arch_X32
-  | _     -> Arch_native
-
 let get_uuid ~xc domid =
   Xenctrl_uuid.uuid_of_handle (Xenctrl.domain_getinfo xc domid).Xenctrl.handle
 
@@ -676,18 +662,11 @@ let build_pv (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
       ] @ force_arg @ extras) []
       XenguestHelper.receive_success in
 
-  let store_mfn, console_mfn, protocol =
-    (* the "protocol" (ie the domU architecture) was only needed for very
-       		   old kernels which had bugs preventing them succesfully autonegotiating
-       		   the 64-bit version of the protocol. If we don't know the architecture,
-       		   it should be safe to assume "native" i.e. let the domU do its thing. *)
+  let store_mfn, console_mfn =
     match Stdext.Xstringext.String.split ' ' line with
-    | [ store_mfn; console_mfn; protocol ] ->
-      debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s; protocol = %s" (Uuid.to_string uuid) domid store_mfn console_mfn protocol;
-      Nativeint.of_string store_mfn, Nativeint.of_string console_mfn, protocol
-    | [ store_mfn; console_mfn ] ->
-      debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s; protocol unavailable, assuming 'native'" (Uuid.to_string uuid) domid store_mfn console_mfn;
-      Nativeint.of_string store_mfn, Nativeint.of_string console_mfn, ""
+    | store_mfn :: console_mfn :: _ ->
+      debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s" (Uuid.to_string uuid) domid store_mfn console_mfn;
+      Nativeint.of_string store_mfn, Nativeint.of_string console_mfn
     | _ ->
       error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid line;
       raise Domain_build_failed in
@@ -700,11 +679,7 @@ let build_pv (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
   ] in
   let vm_stuff = [] in
   build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-    domid store_mfn store_port local_stuff vm_stuff;
-  match protocol with
-  | "x86_32-abi" -> Arch_X32
-  | "x86_64-abi" -> Arch_X64
-  | _            -> Arch_native
+    domid store_mfn store_port local_stuff vm_stuff
 
 (** build hvm type of domain *)
 let build_hvm (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
@@ -790,9 +765,7 @@ let build_hvm (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domi
   ] in
 
   build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-    domid store_mfn store_port local_stuff vm_stuff;
-
-  Arch_HVM
+    domid store_mfn store_port local_stuff vm_stuff
 
 let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~timeoffset ~extras info xenguest_path domid force =
   match info.priv with

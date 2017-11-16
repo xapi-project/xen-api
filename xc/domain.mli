@@ -69,11 +69,6 @@ type build_info = {
 val build_info_of_rpc: Rpc.t -> build_info
 val rpc_of_build_info: build_info -> Rpc.t
 
-type domarch = Arch_HVM | Arch_native | Arch_X64 | Arch_X32
-
-val string_of_domarch : domarch -> string
-val domarch_of_string : string -> domarch
-
 (** Create a fresh (empty) domain with a specific UUID, returning the domain ID *)
 val make: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> create_info -> Uuidm.t -> domid
 
@@ -117,7 +112,7 @@ val set_action_request: xs:Xenstore.Xs.xsh -> domid -> string option -> unit
 val get_action_request: xs:Xenstore.Xs.xsh -> domid -> string option
 
 (** Restore a domain using the info provided *)
-val build: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> timeoffset:string -> extras:string list -> build_info -> string -> domid -> bool -> domarch
+val build: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> timeoffset:string -> extras:string list -> build_info -> string -> domid -> bool -> unit
 
 (** resume a domain either cooperative or not *)
 val resume: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> cooperative: bool -> qemu_domid:int -> domid -> unit

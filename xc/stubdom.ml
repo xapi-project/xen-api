@@ -48,7 +48,7 @@ let create ~xc ~xs domid =
 
 let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid info xenguest domid stubdom_domid =
   (* Now build it as a PV domain *)
-  let (_: Domain.domarch) = Domain.build task ~xc ~xs ~store_domid ~console_domid ~timeoffset:"" ~extras:[] {
+  let () = Domain.build task ~xc ~xs ~store_domid ~console_domid ~timeoffset:"" ~extras:[] {
       Domain.memory_max=memory_kib;
       Domain.memory_target=memory_kib;
       Domain.kernel="/usr/lib/xen/boot/ioemu-stubdom.gz";
