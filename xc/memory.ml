@@ -131,6 +131,14 @@ module Linux_memory_model_data : MEMORY_MODEL_DATA = struct
   let extra_external_mib = 1L
 end
 
+type memory_config = {
+  build_max_mib : int64;
+  build_start_mib : int64;
+  xen_max_mib : int64;
+  shadow_mib : int64;
+  required_host_free_mib : int64;
+}
+
 module Memory_model (D : MEMORY_MODEL_DATA) = struct
 
   let build_max_mib static_max_mib video_mib = static_max_mib --- (Int64.of_int video_mib)
@@ -161,6 +169,14 @@ module Memory_model (D : MEMORY_MODEL_DATA) = struct
 
   let shadow_multiplier_default = 1.0
 
+  let full_config static_max_mib video_mib target_mib vcpus shadow_multiplier =
+    {
+      build_max_mib = build_max_mib static_max_mib video_mib;
+      build_start_mib = build_start_mib target_mib video_mib;
+      xen_max_mib = xen_max_mib static_max_mib;
+      shadow_mib = shadow_mib static_max_mib vcpus shadow_multiplier;
+      required_host_free_mib = footprint_mib target_mib static_max_mib vcpus shadow_multiplier;
+    }
 end
 
 module HVM = Memory_model (HVM_memory_model_data)

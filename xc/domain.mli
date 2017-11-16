@@ -55,7 +55,9 @@ type build_pv_info = {
 val build_pv_info_of_rpc: Rpc.t -> build_pv_info
 val rpc_of_build_pv_info: build_pv_info -> Rpc.t
 
-type builder_spec_info = BuildHVM of build_hvm_info | BuildPV of build_pv_info
+type builder_spec_info =
+  | BuildHVM of build_hvm_info
+  | BuildPV of build_pv_info
 val builder_spec_info_of_rpc: Rpc.t -> builder_spec_info
 val rpc_of_builder_spec_info: builder_spec_info -> Rpc.t
 

@@ -46,7 +46,9 @@ type build_pv_info = {
   ramdisk: string option;
 } [@@deriving rpc]
 
-type builder_spec_info = BuildHVM of build_hvm_info | BuildPV of build_pv_info
+type builder_spec_info =
+  | BuildHVM of build_hvm_info
+  | BuildPV of build_pv_info
   [@@deriving rpc]
 
 type build_info = {
@@ -527,17 +529,19 @@ let create_channels ~xc uuid domid =
   debug "VM = %s; domid = %d; store evtchn = %d; console evtchn = %d" (Uuid.to_string uuid) domid store console;
   store, console
 
-let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib domid =
+let build_pre ~xc ~xs ~vcpus ~memory domid =
+  let open Memory in
   let uuid = get_uuid ~xc domid in
-  debug "VM = %s; domid = %d; waiting for %Ld MiB of free host memory" (Uuid.to_string uuid) domid required_host_free_mib;
+  debug "VM = %s; domid = %d; waiting for %Ld MiB of free host memory"
+    (Uuid.to_string uuid) domid memory.required_host_free_mib;
   (* CA-39743: Wait, if necessary, for the Xen scrubber to catch up. *)
-  if not(wait_xen_free_mem ~xc (Memory.kib_of_mib required_host_free_mib)) then begin
+  if not(wait_xen_free_mem ~xc (Memory.kib_of_mib memory.required_host_free_mib)) then begin
     error "VM = %s; domid = %d; Failed waiting for Xen to free %Ld MiB"
-      (Uuid.to_string uuid) domid required_host_free_mib;
-    raise (Not_enough_memory (Memory.bytes_of_mib required_host_free_mib))
+      (Uuid.to_string uuid) domid memory.required_host_free_mib;
+    raise (Not_enough_memory (Memory.bytes_of_mib memory.required_host_free_mib))
   end;
 
-  let shadow_mib = Int64.to_int shadow_mib in
+  let shadow_mib = Int64.to_int memory.shadow_mib in
 
   let dom_path = xs.Xs.getdomainpath domid in
   let read_platform flag = xs.Xs.read (dom_path ^ "/platform/" ^ flag) in
@@ -566,7 +570,7 @@ let build_pre ~xc ~xs ~vcpus ~xen_max_mib ~shadow_mib ~required_host_free_mib do
     );
 
   if not (Xenctrl.((domain_getinfo xc domid).hvm_guest)) then begin
-    let kib = Memory.kib_of_mib xen_max_mib in
+    let kib = Memory.kib_of_mib memory.xen_max_mib in
     log_reraise (Printf.sprintf "domain_set_memmap_limit %Ld KiB" kib) (fun () ->
         Xenctrl.domain_set_memmap_limit xc domid kib
       )
@@ -586,6 +590,65 @@ let resume_post ~xc ~xs domid =
   let store_port = int_of_string (xs.Xs.read (dom_path ^ "/store/port")) in
   debug "VM = %s; domid = %d; @introduceDomain" (Uuid.to_string uuid) domid;
   xs.Xs.introduce domid store_mfn store_port
+
+let xenguest_args_base ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory =
+  [
+    "-domid"; string_of_int domid;
+    "-store_port"; string_of_int store_port;
+    "-store_domid"; string_of_int store_domid;
+    "-console_port"; string_of_int console_port;
+    "-console_domid"; string_of_int console_domid;
+    "-mem_max_mib"; Int64.to_string memory.Memory.build_max_mib;
+    "-mem_start_mib"; Int64.to_string memory.Memory.build_start_mib;
+    "-fork"; "true";
+  ]
+
+let xenguest_args_hvm ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
+    ~kernel =
+  [
+    "-mode"; "hvm_build";
+    "-image"; kernel;
+  ]
+  @ xenguest_args_base ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
+
+let xenguest_args_pv ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
+    ~kernel ~cmdline ~ramdisk =
+  [
+    "-mode"; "linux_build";
+    "-image"; kernel;
+    "-cmdline"; cmdline;
+    "-ramdisk"; (match ramdisk with Some x -> x | None -> "");
+    "-features"; "";
+    "-flags"; "0";
+  ]
+  @ xenguest_args_base ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
+
+let xenguest task xenguest_path domid uuid args =
+  let line = XenguestHelper.(with_connection task xenguest_path domid args [] receive_success) in
+  match Stdext.Xstringext.String.split ' ' line with
+  | store_mfn :: console_mfn :: _ ->
+    debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s" (Uuid.to_string uuid) domid store_mfn console_mfn;
+    Nativeint.of_string store_mfn, Nativeint.of_string console_mfn
+  | _ ->
+    error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid line;
+    raise Domain_build_failed
+
+let correct_shadow_allocation xc domid uuid shadow_mib =
+  (* The domain builder may reduce our shadow allocation under our feet.
+   * Detect this and override. *)
+  let requested_shadow_mib = Int64.to_int shadow_mib in
+  let actual_shadow_mib = Xenctrl.shadow_allocation_get xc domid in
+  if actual_shadow_mib < requested_shadow_mib then begin
+    warn
+      "VM = %s; domid = %d; HVM domain builder reduced our \
+       shadow memory from %d to %d MiB; reverting"
+      (Uuid.to_string uuid) domid
+      requested_shadow_mib actual_shadow_mib;
+    Xenctrl.shadow_allocation_set xc domid requested_shadow_mib;
+    let shadow = Xenctrl.shadow_allocation_get xc domid in
+    debug "VM = %s; domid = %d; Domain now has %d MiB of shadow"
+      (Uuid.to_string uuid) domid shadow;
+  end
 
 (* puts value in store after the domain build succeed *)
 let build_post ~xc ~xs ~vcpus ~static_max_mib ~target_mib domid
@@ -611,80 +674,23 @@ let build_post ~xc ~xs ~vcpus ~static_max_mib ~target_mib domid
   debug "VM = %s; domid = %d; @introduceDomain" (Uuid.to_string uuid) domid;
   xs.Xs.introduce domid store_mfn store_port
 
-(** build a PV domain *)
-let build_pv (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib ~kernel ~cmdline ~ramdisk
-    ~vcpus ~extras xenguest_path domid force =
-  let uuid = get_uuid ~xc domid in
-  assert_file_is_readable kernel;
-  maybe assert_file_is_readable ramdisk;
-
-  (* Convert memory configuration values into the correct units. *)
-  let static_max_mib = Memory.mib_of_kib_used static_max_kib in
-  let target_mib     = Memory.mib_of_kib_used target_kib in
-
-  (* Sanity check. *)
-  assert (target_mib <= static_max_mib);
-
-  (* Adapt memory configuration values for Xen and the domain builder. *)
-  let video_mib = 0 in
-  let build_max_mib =
-    Memory.Linux.build_max_mib static_max_mib video_mib in
-  let build_start_mib =
-    Memory.Linux.build_start_mib target_mib video_mib in
-  let xen_max_mib =
-    Memory.Linux.xen_max_mib static_max_mib in
-  let shadow_multiplier =
-    Memory.Linux.shadow_multiplier_default in
-  let shadow_mib =
-    Memory.Linux.shadow_mib static_max_mib vcpus shadow_multiplier in
-  let required_host_free_mib =
-    Memory.Linux.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
-
-  let store_port, console_port = build_pre ~xc ~xs
-      ~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
-  let force_arg = if force then ["--force"] else [] in
-  let line = XenguestHelper.with_connection task xenguest_path domid
-      ([
-        "-mode"; "linux_build";
-        "-domid"; string_of_int domid;
-        "-mem_max_mib"; Int64.to_string build_max_mib;
-        "-mem_start_mib"; Int64.to_string build_start_mib;
-        "-image"; kernel;
-        "-ramdisk"; (match ramdisk with Some x -> x | None -> "");
-        "-cmdline"; cmdline;
-        "-features"; "";
-        "-flags"; "0";
-        "-store_port"; string_of_int store_port;
-        "-store_domid"; string_of_int store_domid;
-        "-console_port"; string_of_int console_port;
-        "-console_domid"; string_of_int console_domid;
-        "-fork"; "true";
-      ] @ force_arg @ extras) []
-      XenguestHelper.receive_success in
-
-  let store_mfn, console_mfn =
-    match Stdext.Xstringext.String.split ' ' line with
-    | store_mfn :: console_mfn :: _ ->
-      debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s" (Uuid.to_string uuid) domid store_mfn console_mfn;
-      Nativeint.of_string store_mfn, Nativeint.of_string console_mfn
-    | _ ->
-      error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid line;
-      raise Domain_build_failed in
-
-  let local_stuff = [
+let console_keys console_port console_mfn =
+  [
     "serial/0/limit",    string_of_int 65536;
     "console/port",      string_of_int console_port;
     "console/ring-ref",  sprintf "%nu" console_mfn;
     "console/limit",     string_of_int 65536;
-  ] in
-  let vm_stuff = [] in
-  build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-    domid store_mfn store_port local_stuff vm_stuff
+  ]
 
-(** build hvm type of domain *)
-let build_hvm (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~static_max_kib ~target_kib ~shadow_multiplier ~vcpus
-    ~kernel ~timeoffset ~video_mib ~extras xenguest_path domid force =
+let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~timeoffset
+    ~extras info xenguest_path domid force =
   let uuid = get_uuid ~xc domid in
+  let static_max_kib = info.memory_max in
+  let target_kib = info.memory_target in
+  let vcpus = info.vcpus in
+  let kernel = info.kernel in
+  let force_arg = if force then ["--force"] else [] in
+  
   assert_file_is_readable kernel;
 
   (* Convert memory configuration values into the correct units. *)
@@ -694,89 +700,40 @@ let build_hvm (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domi
   (* Sanity check. *)
   assert (target_mib <= static_max_mib);
 
-  (* Adapt memory configuration values for Xen and the domain builder. *)
-  let build_max_mib =
-    Memory.HVM.build_max_mib static_max_mib video_mib in
-  let build_start_mib =
-    Memory.HVM.build_start_mib target_mib video_mib in
-  let xen_max_mib =
-    Memory.HVM.xen_max_mib static_max_mib in
-  let shadow_mib =
-    Memory.HVM.shadow_mib static_max_mib vcpus shadow_multiplier in
-  let required_host_free_mib =
-    Memory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
+  let store_mfn, store_port, console_mfn, console_port, vm_stuff =
+    match info.priv with
+    | BuildHVM hvminfo ->
+      let shadow_multiplier = hvminfo.shadow_multiplier in
+      let video_mib = hvminfo.video_mib in
+      let memory = Memory.HVM.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
+      maybe_ca_140252_workaround ~xc ~vcpus domid;
+      let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
+      let store_mfn, console_mfn =
+        let args = xenguest_args_hvm ~domid ~store_port ~store_domid ~console_port
+          ~console_domid ~memory ~kernel
+          @ force_arg @ extras in
+        xenguest task xenguest_path domid uuid args
+      in
+      correct_shadow_allocation xc domid uuid memory.Memory.shadow_mib;
+      store_mfn, store_port, console_mfn, console_port, ["rtc/timeoffset", timeoffset]
 
-  maybe_ca_140252_workaround ~xc ~vcpus domid;
-  let store_port, console_port = build_pre ~xc ~xs
-      ~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
-  let force_arg = if force then ["--force"] else [] in
-  let line = XenguestHelper.with_connection task xenguest_path domid
-      ([
-        "-mode"; "hvm_build";
-        "-domid"; string_of_int domid;
-        "-store_port"; string_of_int store_port;
-        "-store_domid"; string_of_int store_domid;
-        "-console_port"; string_of_int console_port;
-        "-console_domid"; string_of_int console_domid;
-        "-image"; kernel;
-        "-mem_max_mib"; Int64.to_string build_max_mib;
-        "-mem_start_mib"; Int64.to_string build_start_mib;
-        "-fork"; "true";
-      ] @ force_arg @ extras) [] XenguestHelper.receive_success in
-
-  (* XXX: domain builder will reduce our shadow allocation under our feet.
-     	   Detect this and override. *)
-  let requested_shadow_mib = Int64.to_int shadow_mib in
-  let actual_shadow_mib = Xenctrl.shadow_allocation_get xc domid in
-  if actual_shadow_mib < requested_shadow_mib then begin
-    warn
-      "VM = %s; domid = %d; HVM domain builder reduced our \
-       			shadow memory from %d to %d MiB; reverting"
-      (Uuid.to_string uuid) domid
-      requested_shadow_mib actual_shadow_mib;
-    Xenctrl.shadow_allocation_set xc domid requested_shadow_mib;
-    let shadow = Xenctrl.shadow_allocation_get xc domid in
-    debug "VM = %s; domid = %d; Domain now has %d MiB of shadow"
-      (Uuid.to_string uuid) domid shadow;
-  end;
-
-  let store_mfn, console_mfn =
-    match Stdext.Xstringext.String.split ' ' line with
-    | [ store_mfn; console_mfn] ->
-      debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s" (Uuid.to_string uuid) domid store_mfn console_mfn;
-      Nativeint.of_string store_mfn, Nativeint.of_string console_mfn
-    | _ ->
-      error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid line;
-      raise Domain_build_failed in
-
-  let local_stuff = [
-    "serial/0/limit",    string_of_int 65536;
-    "console/port",      string_of_int console_port;
-    "console/ring-ref",  sprintf "%nu" console_mfn;
-    "console/limit",     string_of_int 65536;
-  ] in
-(*
-	let store_mfn =
-		try Nativeint.of_string line
-		with _ -> raise Domain_build_failed in
-*)
-  let vm_stuff = [
-    "rtc/timeoffset",    timeoffset;
-  ] in
-
+    | BuildPV pvinfo  ->
+      let shadow_multiplier = Memory.Linux.shadow_multiplier_default in
+      let video_mib = 0 in
+      let memory = Memory.Linux.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
+      maybe assert_file_is_readable pvinfo.ramdisk;
+      let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
+      let store_mfn, console_mfn =
+        let args = xenguest_args_pv ~domid ~store_port ~store_domid ~console_port
+          ~console_domid ~memory ~kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
+          @ force_arg @ extras in
+        xenguest task xenguest_path domid uuid args
+      in
+      store_mfn, store_port, console_mfn, console_port, []
+  in
+  let local_stuff = console_keys console_port console_mfn in
   build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
     domid store_mfn store_port local_stuff vm_stuff
-
-let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~timeoffset ~extras info xenguest_path domid force =
-  match info.priv with
-  | BuildHVM hvminfo ->
-    build_hvm task ~xc ~xs ~store_domid ~console_domid ~static_max_kib:info.memory_max ~target_kib:info.memory_target
-      ~shadow_multiplier:hvminfo.shadow_multiplier ~vcpus:info.vcpus
-      ~kernel:info.kernel ~timeoffset ~video_mib:hvminfo.video_mib ~extras xenguest_path domid force
-  | BuildPV pvinfo   ->
-    build_pv task ~xc ~xs ~store_domid ~console_domid ~static_max_kib:info.memory_max ~target_kib:info.memory_target
-      ~kernel:info.kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
-      ~vcpus:info.vcpus ~extras xenguest_path domid force
 
 let resume (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~cooperative ~qemu_domid domid =
   if not cooperative
@@ -1094,35 +1051,21 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
     (* Convert memory configuration values into the correct units. *)
     let static_max_mib = Memory.mib_of_kib_used static_max_kib in
     let target_mib     = Memory.mib_of_kib_used target_kib in
+    let shadow_multiplier = Memory.Linux.shadow_multiplier_default in
+    let video_mib = 0 in
+    let memory = Memory.Linux.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
 
     (* Sanity check. *)
     assert (target_mib <= static_max_mib);
 
-    (* Adapt memory configuration values for Xen and the domain builder. *)
-    let xen_max_mib =
-      Memory.Linux.xen_max_mib static_max_mib in
-    let shadow_multiplier =
-      Memory.Linux.shadow_multiplier_default in
-    let shadow_mib =
-      Memory.Linux.shadow_mib static_max_mib vcpus shadow_multiplier in
-    let required_host_free_mib =
-      Memory.Linux.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
-
-    let store_port, console_port = build_pre ~xc ~xs
-        ~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
-
+    let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
     let store_mfn, console_mfn = restore_common task ~xc ~xs ~hvm:false
         ~store_port ~store_domid
         ~console_port ~console_domid
         ~no_incr_generationid
         ~vcpus ~extras manager_path domid fd vgpu_fd in
 
-    let local_stuff = [
-      "serial/0/limit",    string_of_int 65536;
-      "console/port",     string_of_int console_port;
-      "console/ring-ref", sprintf "%nu" console_mfn;
-      "console/limit",    string_of_int 65536;
-    ] in
+    let local_stuff = console_keys console_port console_mfn in
     let vm_stuff = [] in
     build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
       domid store_mfn store_port local_stuff vm_stuff
@@ -1134,33 +1077,20 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
     (* Convert memory configuration values into the correct units. *)
     let static_max_mib = Memory.mib_of_kib_used static_max_kib in
     let target_mib     = Memory.mib_of_kib_used target_kib in
+    let video_mib = 0 in
+    let memory = Memory.HVM.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
 
     (* Sanity check. *)
     assert (target_mib <= static_max_mib);
 
-    (* Adapt memory configuration values for Xen and the domain builder. *)
-    let xen_max_mib =
-      Memory.HVM.xen_max_mib static_max_mib in
-    let shadow_mib =
-      Memory.HVM.shadow_mib static_max_mib vcpus shadow_multiplier in
-    let required_host_free_mib =
-      Memory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
-
     maybe_ca_140252_workaround ~xc ~vcpus domid;
-    let store_port, console_port = build_pre ~xc ~xs
-        ~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
-
+    let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
     let store_mfn, console_mfn = restore_common task ~xc ~xs ~hvm:true
         ~store_port ~store_domid
         ~console_port ~console_domid
         ~no_incr_generationid
         ~vcpus ~extras manager_path domid fd vgpu_fd in
-    let local_stuff = [
-      "serial/0/limit",    string_of_int 65536;
-      "console/port",     string_of_int console_port;
-      "console/ring-ref", sprintf "%nu" console_mfn;
-      "console/limit",    string_of_int 65536;
-    ] in
+    let local_stuff = console_keys console_port console_mfn in
     let vm_stuff = [
       "rtc/timeoffset",    timeoffset;
     ] in
@@ -1518,34 +1448,21 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
     (* Convert memory configuration values into the correct units. *)
     let static_max_mib = Memory.mib_of_kib_used static_max_kib in
     let target_mib     = Memory.mib_of_kib_used target_kib in
+    let shadow_multiplier = Memory.Linux.shadow_multiplier_default in
+    let video_mib = 0 in
+    let memory = Memory.Linux.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
 
     (* Sanity check. *)
     assert (target_mib <= static_max_mib);
 
-    (* Adapt memory configuration values for Xen and the domain builder. *)
-    let xen_max_mib =
-      Memory.Linux.xen_max_mib static_max_mib in
-    let shadow_multiplier =
-      Memory.Linux.shadow_multiplier_default in
-    let shadow_mib =
-      Memory.Linux.shadow_mib static_max_mib vcpus shadow_multiplier in
-    let required_host_free_mib =
-      Memory.Linux.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
-
-    let store_port, console_port = build_pre ~xc ~xs
-        ~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
-
+    let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
     let store_mfn, console_mfn = restore_common task ~xc ~xs ~hvm:false
         ~store_port ~store_domid
         ~console_port ~console_domid
         ~no_incr_generationid
         ~vcpus ~extras manager_path domid fd in
 
-    let local_stuff = [
-      "serial/0/limit",    string_of_int 65536;
-      "console/port",     string_of_int console_port;
-      "console/ring-ref", sprintf "%nu" console_mfn;
-    ] in
+    let local_stuff = console_keys console_port console_mfn in
     let vm_stuff = [] in
     build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
       domid store_mfn store_port local_stuff vm_stuff
@@ -1555,33 +1472,20 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
     (* Convert memory configuration values into the correct units. *)
     let static_max_mib = Memory.mib_of_kib_used static_max_kib in
     let target_mib     = Memory.mib_of_kib_used target_kib in
+    let video_mib = 0 in
+    let memory = Memory.HVM.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
 
     (* Sanity check. *)
     assert (target_mib <= static_max_mib);
 
-    (* Adapt memory configuration values for Xen and the domain builder. *)
-    let xen_max_mib =
-      Memory.HVM.xen_max_mib static_max_mib in
-    let shadow_mib =
-      Memory.HVM.shadow_mib static_max_mib vcpus shadow_multiplier in
-    let required_host_free_mib =
-      Memory.HVM.footprint_mib target_mib static_max_mib vcpus shadow_multiplier in
-
     maybe_ca_140252_workaround ~xc ~vcpus domid;
-    let store_port, console_port = build_pre ~xc ~xs
-        ~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
-
+    let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
     let store_mfn, console_mfn = restore_common task ~xc ~xs ~hvm:true
         ~store_port ~store_domid
         ~console_port ~console_domid
         ~no_incr_generationid
         ~vcpus ~extras manager_path domid fd in
-    let local_stuff = [
-      "serial/0/limit",    string_of_int 65536;
-      "console/port",     string_of_int console_port;
-      "console/ring-ref", sprintf "%nu" console_mfn;
-      "console/limit",    string_of_int 65536;
-    ] in
+    let local_stuff = console_keys console_port console_mfn in
     let vm_stuff = [
       "rtc/timeoffset",    timeoffset;
     ] in
