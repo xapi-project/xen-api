@@ -116,21 +116,6 @@ val set_action_request: xs:Xenstore.Xs.xsh -> domid -> string option -> unit
 
 val get_action_request: xs:Xenstore.Xs.xsh -> domid -> string option
 
-(* val create_channels : xc:Xenctrl.handle -> domid -> int * int *)
-
-(** Builds a PV guest in a fresh domain created with 'make' *)
-val build_pv: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> static_max_kib:Int64.t
-  -> target_kib:Int64.t -> kernel:string -> cmdline:string
-  -> ramdisk:string option -> vcpus:int -> extras:string list -> string -> domid -> bool
-  -> domarch
-
-(** build an hvm domain in a fresh domain created with 'make' *)
-val build_hvm: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> static_max_kib:Int64.t
-  -> target_kib:Int64.t -> shadow_multiplier:float
-  -> vcpus:int -> kernel:string
-  -> timeoffset:string -> video_mib:int -> extras:string list -> string -> domid -> bool
-  -> domarch
-
 (** Restore a domain using the info provided *)
 val build: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> timeoffset:string -> extras:string list -> build_info -> string -> domid -> bool -> domarch
 
