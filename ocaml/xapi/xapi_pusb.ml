@@ -31,10 +31,12 @@ let create ~__context ~uSB_group ~host ~other_config ~path
 
 let scan_start ~__context usbs =
   let host = Helpers.get_localhost ~__context in
-  let known_usb =
+  let local_pusb_records =
     Db.PUSB.get_all_records ~__context
     |> List.filter (fun (rf, rc) -> rc.API.pUSB_host = host)
-    |> get_known_usb
+  in
+  let known_usb =
+    local_pusb_records |> get_known_usb
   in
   let local_usb = get_local_usb usbs in
   (* Create the newly added pusbs *)
@@ -45,7 +47,7 @@ let scan_start ~__context usbs =
                Db.PUSB.set_USB_group ~__context ~self ~value:group
   ) (USBSet.diff local_usb known_usb);
 
-  List.filter (fun (rf, rc) -> USBSet.mem (extract_known_usb_info rc) (USBSet.diff known_usb local_usb)) (Db.PUSB.get_all_records ~__context)
+  List.filter (fun (rf, rc) -> USBSet.mem (extract_known_usb_info rc) (USBSet.diff known_usb local_usb)) local_pusb_records
   |> List.iter (fun (self, _) ->
                   try
                     Xapi_pusb_helpers.destroy_pusb ~__context self;
