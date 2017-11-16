@@ -91,7 +91,7 @@ let create ~__context ~cluster ~host =
       let result = Cluster_client.LocalClient.join (Cluster_client.rpc (fun () -> "")) cluster_token ip ip_list in
       match result with
       | Result.Ok () ->
-        Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~enabled:false
+        Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~enabled:true
           ~current_operations:[] ~allowed_operations:[] ~other_config:[];
         ref
       | Result.Error error -> handle_error error
