@@ -235,8 +235,8 @@ let create ~__context ~device ~network ~vM
            ~runtime_properties:[] ~other_config
            ~metrics ~locking_mode
            ~ipv4_allowed ~ipv6_allowed
-           ~ipv4_configuration_mode ~ipv4_addresses ~ipv4_gateway 
-           ~ipv6_configuration_mode ~ipv6_addresses ~ipv6_gateway in ()
+           ~ipv4_configuration_mode ~ipv4_addresses ~ipv4_gateway
+           ~ipv6_configuration_mode ~ipv6_addresses ~ipv6_gateway ~attached_pci:Ref.null in ()
     );
   update_allowed_operations ~__context ~self:ref;
   debug "VIF ref='%s' created (VM = '%s'; MAC address = '%s')" (Ref.string_of ref) (Ref.string_of vM) mAC; 
