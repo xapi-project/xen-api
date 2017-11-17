@@ -31,23 +31,23 @@ let create ~__context ~uSB_group ~host ~other_config ~path
 
 let scan_start ~__context usbs =
   let host = Helpers.get_localhost ~__context in
-  let local_pusb_records =
+  let known_pusbs_in_db =
     Db.PUSB.get_all_records ~__context
     |> List.filter (fun (rf, rc) -> rc.API.pUSB_host = host)
   in
-  let known_usb =
-    local_pusb_records |> get_known_usb
+  let known_usb_set =
+    known_pusbs_in_db |> get_known_usb
   in
-  let local_usb = get_local_usb usbs in
+  let local_usb_set = get_local_usb usbs in
   (* Create the newly added pusbs *)
   USBSet.iter (fun s -> let self = create ~__context ~uSB_group:(Ref.null) ~host ~other_config:[] ~path:s.USB.path ~vendor_id:s.USB.vendor_id
                    ~vendor_desc:s.USB.vendor_desc ~product_id:s.USB.product_id ~product_desc:s.USB.product_desc ~serial:s.USB.serial
                    ~version:s.USB.version ~description:s.USB.description in
                let group = Xapi_pusb_helpers.find_or_create ~__context self in
                Db.PUSB.set_USB_group ~__context ~self ~value:group
-  ) (USBSet.diff local_usb known_usb);
+  ) (USBSet.diff local_usb_set known_usb_set);
 
-  List.filter (fun (rf, rc) -> USBSet.mem (extract_known_usb_info rc) (USBSet.diff known_usb local_usb)) local_pusb_records
+  List.filter (fun (rf, rc) -> USBSet.mem (extract_known_usb_info rc) (USBSet.diff known_usb_set local_usb_set)) known_pusbs_in_db
   |> List.iter (fun (self, _) ->
                   try
                     Xapi_pusb_helpers.destroy_pusb ~__context self;
