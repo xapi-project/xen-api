@@ -25,6 +25,8 @@ from subprocess import call
 import ctypes
 import ctypes.util
 import os
+import fcntl
+import struct
 
 import xen.lowlevel.xs as xs
 
@@ -37,7 +39,15 @@ HVM_BELOW_4G_RAM_END = 0xf0000000
 HVM_BELOW_4G_MMIO_START = HVM_BELOW_4G_RAM_END
 HVM_BELOW_4G_MMIO_LENGTH = (1 << 32) - HVM_BELOW_4G_MMIO_START
 
+# Constants from linux/iftun.h
+TUNSETIFF = 0x400454ca
+TUNGETFEATURES = 0x800454cf
+IFF_TAP = 0x0002
+IFF_NO_PI = 0x1000
+IFF_ONE_QUEUE = 0x2000
+
 dic_mac = {}
+open_fds = []
 
 xenstore = xs.xs()
 
@@ -119,6 +129,25 @@ def get_drive_args(dom):
                      (path_str, index_map[dev], media, format_str, forcelba)])
 
     return args
+
+def close_fds():
+    for i in open_fds:
+        os.close(i)
+
+def get_tap_fd(ifname):
+    fd = os.open("/dev/net/tun", os.O_RDWR)
+
+    features = fcntl.ioctl(fd, TUNGETFEATURES, struct.pack('I', 0))
+    features = struct.unpack('I', features)[0]
+
+    ifr = struct.pack('16sH', ifname, IFF_TAP | IFF_NO_PI | (features & IFF_ONE_QUEUE))
+    fcntl.ioctl(fd, TUNSETIFF, ifr)
+
+    fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+    fl |= os.O_NONBLOCK
+    fcntl.fcntl(fd, fcntl.F_SETFL, fl)
+
+    return fd
 
 def main(argv):
     f = sys.stdout
@@ -243,6 +272,15 @@ def main(argv):
             n += 2
             continue
 
+        if p == "-netdev":
+            m = re.search(r',ifname=(tap[0-9]+\.[0-9]+)', qemu_args[n+1])
+            tapfd = get_tap_fd(m.group(1))
+            open_fds.append(tapfd)
+            f.write('open tapfd %d %s\n' % (tapfd, m.group(1)))
+            qemu_args[n+1] = re.sub(r',ifname=tap[0-9]+\.[0-9]+,script=no,downscript=no', ',fd=%d' % tapfd, qemu_args[n+1])
+            n += 2
+            continue
+
         if p == "-serial":
             try:
                 serial_c = xenstore_read("/local/logconsole/@")
@@ -317,6 +355,7 @@ def main(argv):
 
     qemu_args += ["-trace", "enable=xen_platform_log"]
     s1, s2 = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+    open_fds.append(s1.fileno())
     qemu_args += ["-vnc-clipboard-socket-fd", str(s1.fileno())]
     #qemu_args += ["-trace", "events=/root/trace"]
     #qemu_args += ["-monitor", "tcp:127.0.0.1:7777,server,nowait"]
@@ -356,7 +395,7 @@ def main(argv):
        qemu_env["LD_PRELOAD"] = "/usr/lib64/libjemalloc.so.1:" + qemu_env["LD_PRELOAD"]
 
     clipboardd = '/opt/xensource/libexec/xs-clipboardd'
-    call([clipboardd, "-d", str(domid), "-s", str(s2.fileno())], preexec_fn = lambda : (s1.close()))
+    call([clipboardd, "-d", str(domid), "-s", str(s2.fileno())], preexec_fn = lambda : (close_fds()))
 
     s2.close()
 
