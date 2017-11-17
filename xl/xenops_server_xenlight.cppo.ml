@@ -1807,6 +1807,7 @@ module VM = struct
           Domain.cmdline = "";
           ramdisk = None;
         }
+      | PVinPVH _ -> failwith "not implemented"
     in
     let build_info = {
       Domain.memory_max = vm.memory_static_max /// 1024L;
@@ -2177,6 +2178,7 @@ module VM = struct
                   (Memory.HVM.shadow_mib (max_memkb /// 1024L) max_vcpus hvm_info.shadow_multiplier)
                   1024L
               | PV _ -> 0L, 0L
+              | PVinPVH _ -> failwith "not implemented"
             in
             let b_info =
               let open Xenlight.Domain_build_info in
@@ -2273,6 +2275,7 @@ module VM = struct
                      bootloader_args = (*i.bootloader_args :: i.legacy_args :: i.extra_args ::*) [];
                    }
     }
+    | PVinPVH _ -> failwith "not implemented"
 in
 let k = vm.Vm.id in
 let d = DB.read_exn vm.Vm.id in
@@ -2284,7 +2287,7 @@ DB.write k {
   VmExtra.persistent = persistent;
   VmExtra.non_persistent = d.VmExtra.non_persistent;
 };
-let hvm = match vm.ty with HVM _ -> true | PV _ -> false in
+let hvm = match vm.ty with HVM _ | PVinPVH _ -> true | PV _ -> false in
 
 (* devices *)
 let disks, vbds_extra = List.split (List.map (fun vbd ->

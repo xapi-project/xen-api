@@ -769,6 +769,8 @@ module VM = struct
           Domain.cmdline = "";
           ramdisk = None;
         }
+      | PVinPVH _ ->
+        failwith "This domain type did not exist pre-xenopsd"
     in
     let build_info = {
       Domain.memory_max = vm.memory_static_max /// 1024L;
@@ -806,7 +808,7 @@ module VM = struct
     in List.rev $ helper n [] list
 
   let generate_non_persistent_state xc xs vm =
-    let hvm = match vm.ty with HVM _ -> true | _ -> false in
+    let hvm = match vm.ty with HVM _ | PVinPVH _ -> true | PV _ -> false in
     (* XXX add per-vcpu information to the platform data *)
     (* VCPU configuration *)
     let pcpus = Xenctrlext.get_max_nr_cpus xc in
@@ -1189,6 +1191,11 @@ module VM = struct
         Some (make ~hvm:false ~vnc_ip ())
       | PV { framebuffer = true; framebuffer_ip=None } ->
         Some (make ~hvm:false ())
+      | PVinPVH { framebuffer = false } -> None
+      | PVinPVH { framebuffer = true; framebuffer_ip=Some vnc_ip } ->
+        Some (make ~hvm:true ~vnc_ip ())
+      | PVinPVH { framebuffer = true; framebuffer_ip=None } ->
+        Some (make ~hvm:true ())
       | HVM hvm_info ->
         let disks = List.filter_map (fun vbd ->
             let id = vbd.Vbd.id in
@@ -1246,6 +1253,8 @@ module VM = struct
       vcpus = vm.vcpu_max;
       priv = priv;
     } in
+    let pvinpvh_xen = "" in
+    let pvinpvh_xen_cmdline = "" in
     (* We should prevent leaking files in our filesystem *)
     let kernel_to_cleanup = ref None in
     finally (fun () ->
@@ -1257,6 +1266,7 @@ module VM = struct
                 video_mib = hvm_info.video_mib;
               } in
             ((make_build_info !Resources.hvmloader builder_spec_info), hvm_info.timeoffset)
+
           | PV { boot = Direct direct } ->
             let builder_spec_info = Domain.BuildPV {
                 Domain.cmdline = direct.cmdline;
@@ -1278,6 +1288,40 @@ module VM = struct
                      ramdisk = b.Bootloader.initrd_path;
                    } in
                  ((make_build_info b.Bootloader.kernel_path builder_spec_info), "")
+              )
+          | PVinPVH { boot = Direct direct } ->
+            let builder_spec_info = Domain.BuildPVH Domain.{
+                cmdline = pvinpvh_xen_cmdline;
+                modules = (direct.kernel, Some direct.cmdline) ::
+                          (match direct.ramdisk with
+                           | Some r -> [r, None]
+                           | None -> []
+                          );
+                shadow_multiplier = 1.;
+                video_mib = 4;
+              } in
+            ((make_build_info pvinpvh_xen builder_spec_info), "")
+          | PVinPVH { boot = Indirect { devices = [] } } ->
+            raise (No_bootable_device)
+          | PVinPVH { boot = Indirect ( { devices = d :: _ } as i ) } ->
+            with_disk ~xc ~xs task d false
+              (fun dev ->
+                 let b = Bootloader.extract task ~bootloader:i.bootloader
+                     ~legacy_args:i.legacy_args ~extra_args:i.extra_args
+                     ~pv_bootloader_args:i.bootloader_args
+                     ~disk:dev ~vm:vm.Vm.id () in
+                 kernel_to_cleanup := Some b;
+                 let builder_spec_info = Domain.BuildPVH Domain.{
+                     cmdline = pvinpvh_xen_cmdline;
+                     modules = (b.Bootloader.kernel_path, Some b.Bootloader.kernel_args) ::
+                               (match b.Bootloader.initrd_path with
+                                | Some r -> [r, None]
+                                | None -> []
+                               );
+                     shadow_multiplier = 1.;
+                     video_mib = 4;
+                   } in
+                 ((make_build_info pvinpvh_xen builder_spec_info), "")
               ) in
         Domain.build task ~xc ~xs ~store_domid ~console_domid ~timeoffset ~extras build_info (choose_xenguest vm.Vm.platformdata) domid force;
         Int64.(
@@ -1357,9 +1401,15 @@ module VM = struct
             Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
             Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
             Device.Dm.start_vnconly task ~xs ~dm:qemu_dm info di.Xenctrl.domid
+          | Vm.PVinPVH _ ->
+            Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
+            Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
+            Device.Dm.start_vnconly task ~xs ~dm:qemu_dm info di.Xenctrl.domid
         ) (create_device_model_config vm vmextra vbds vifs vgpus vusbs);
       match vm.Vm.ty with
-      | Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
+      | Vm.PV { vncterm = true; vncterm_ip = ip }
+      | Vm.PVinPVH { vncterm = true; vncterm_ip = ip } ->
+        Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
       | _ -> ()
     with Device.Ioemu_failed (name, msg) ->
       raise (Failed_to_start_emulator (vm.Vm.id, name, msg))
