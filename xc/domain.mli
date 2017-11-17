@@ -55,9 +55,19 @@ type build_pv_info = {
 val build_pv_info_of_rpc: Rpc.t -> build_pv_info
 val rpc_of_build_pv_info: build_pv_info -> Rpc.t
 
+type build_pvh_info = {
+  cmdline: string;                        (* cmdline for the kernel (image) *)
+  modules: (string * string option) list; (* list of modules plus optional cmdlines *)
+  shadow_multiplier: float;
+  video_mib: int;
+}
+val build_pvh_info_of_rpc: Rpc.t -> build_pvh_info
+val rpc_of_build_pvh_info: build_pvh_info -> Rpc.t
+
 type builder_spec_info =
   | BuildHVM of build_hvm_info
   | BuildPV of build_pv_info
+  | BuildPVH of build_pvh_info
 val builder_spec_info_of_rpc: Rpc.t -> builder_spec_info
 val rpc_of_builder_spec_info: builder_spec_info -> Rpc.t
 

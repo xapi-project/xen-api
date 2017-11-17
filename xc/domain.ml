@@ -46,9 +46,17 @@ type build_pv_info = {
   ramdisk: string option;
 } [@@deriving rpc]
 
+type build_pvh_info = {
+  cmdline: string;                        (* cmdline for the kernel (image) *)
+  modules: (string * string option) list; (* list of modules plus optional cmdlines *)
+  shadow_multiplier: float;
+  video_mib: int;
+} [@@deriving rpc]
+
 type builder_spec_info =
   | BuildHVM of build_hvm_info
   | BuildPV of build_pv_info
+  | BuildPVH of build_pvh_info
   [@@deriving rpc]
 
 type build_info = {
@@ -623,6 +631,24 @@ let xenguest_args_pv ~domid ~store_port ~store_domid ~console_port ~console_domi
   ]
   @ xenguest_args_base ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
 
+let xenguest_args_pvh ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
+    ~kernel ~cmdline ~modules =
+  let module_args =
+    List.map (fun (m, c) ->
+      "-module" :: m ::
+      (match c with Some x -> "-cmdline" :: x :: [] | None -> [])
+    ) modules |> List.flatten
+  in
+  [
+    "-mode"; "pvh_build";
+    "-image"; kernel;
+    "-cmdline"; cmdline;
+    "-features"; "";
+    "-flags"; "0";
+  ]
+  @ module_args
+  @ xenguest_args_base ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
+
 let xenguest task xenguest_path domid uuid args =
   let line = XenguestHelper.(with_connection task xenguest_path domid args [] receive_success) in
   match Stdext.Xstringext.String.split ' ' line with
@@ -730,6 +756,22 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
         xenguest task xenguest_path domid uuid args
       in
       store_mfn, store_port, console_mfn, console_port, []
+
+    | BuildPVH pvhinfo ->
+      let shadow_multiplier = pvhinfo.shadow_multiplier in
+      let video_mib = pvhinfo.video_mib in
+      let memory = Memory.HVM.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
+      maybe_ca_140252_workaround ~xc ~vcpus domid;
+      let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
+      let store_mfn, console_mfn =
+        let args = xenguest_args_pvh ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
+            ~kernel ~cmdline:pvhinfo.cmdline ~modules:pvhinfo.modules
+          @ force_arg @ extras in
+        xenguest task xenguest_path domid uuid args
+      in
+      correct_shadow_allocation xc domid uuid memory.Memory.shadow_mib;
+      store_mfn, store_port, console_mfn, console_port, ["rtc/timeoffset", timeoffset]
+
   in
   let local_stuff = console_keys console_port console_mfn in
   build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
@@ -1105,6 +1147,8 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
         hvm_restore task ~shadow_multiplier:hvminfo.shadow_multiplier
           ~timeoffset
       | BuildPV pvinfo   ->
+        pv_restore task
+      | BuildPVH _   ->
         pv_restore task
     in
     restore_fct ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid
@@ -1499,6 +1543,8 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
         hvm_restore task ~shadow_multiplier:hvminfo.shadow_multiplier
           ~timeoffset
       | BuildPV pvinfo   ->
+        pv_restore task
+      | BuildPVH _   ->
         pv_restore task
     in
     restore_fct ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid
