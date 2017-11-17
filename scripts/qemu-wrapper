@@ -274,8 +274,9 @@ def main(argv):
             continue
 
         if p == "-xengt":
-            vga_type = 'xengt'
-            del qemu_args[n]
+            vga_type = 'VGA'
+            vga_extra_props += ['qemu-extended-regs=false']
+            n += 1
             continue
 
         if p == "-loadvm":
@@ -299,8 +300,6 @@ def main(argv):
 
     if vga_type == 'vgpu':
         qemu_args += ["-device", "vgpu"]
-    elif vga_type == 'xengt':
-        qemu_args += ["-vga", "xengt"]
     else:
         qemu_args += ["-device", ",".join([vga_type, "vgamem_mb=%d" % vgamem_mb] \
                                           + vga_extra_props)]
