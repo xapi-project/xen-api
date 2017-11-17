@@ -929,7 +929,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
       let (store_mfn, console_mfn) =
         begin match
             with_conversion_script task "Emu_manager" hvm main_fd (fun pipe_r ->
-                with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras manager_path domid uuid main_fd vgpu_fd (fun cnx ->
+                with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras manager_path domid uuid pipe_r vgpu_fd (fun cnx ->
                     restore_libxc_record cnx domid uuid
                   )
               )
