@@ -30,6 +30,11 @@ let create ~__context ~uSB_group ~host ~other_config ~path
   pusb
 
 let scan_start ~__context usbs =
+  (* We compute two sets and operate on them:
+     (1) Local USB devices that are not yet in the database - we create entries for them.
+     (2) USB devices only present in the database for the local host - we delete
+     them from the database.
+  *)
   let host = Helpers.get_localhost ~__context in
   let known_pusbs_in_db =
     Db.PUSB.get_all_records ~__context
