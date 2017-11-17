@@ -1596,6 +1596,7 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
       "serial/0/limit",    string_of_int 65536;
       "console/port",     string_of_int console_port;
       "console/ring-ref", sprintf "%nu" console_mfn;
+      "console/limit",    string_of_int 65536;
     ] in
     let vm_stuff = [
       "rtc/timeoffset",    timeoffset;
