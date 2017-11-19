@@ -886,6 +886,7 @@ let copy_metrics ~__context ~vm =
     ~nomigrate:(default false (may (fun x -> x.Db_actions.vM_metrics_nomigrate) m))
     ~hvm:(default false (may (fun x -> x.Db_actions.vM_metrics_hvm) m))
     ~nested_virt:(default false (may (fun x -> x.Db_actions.vM_metrics_nested_virt) m))
+    ~current_domain_type:(default `unspecified (may (fun x -> x.Db_actions.vM_metrics_current_domain_type) m))
   ;
   metrics
 

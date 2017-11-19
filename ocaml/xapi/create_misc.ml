@@ -256,6 +256,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
     ~hvm:false
     ~nested_virt:false
     ~nomigrate:false
+    ~current_domain_type:`unspecified
   ;
   Db.VM.create ~__context ~ref:domain_zero_ref
     ~name_label:("Control domain on host: " ^ host_info.hostname) ~uuid
@@ -291,6 +292,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
     ~hardware_platform_version:0L
     ~has_vendor_device:false
     ~requires_reboot:false ~reference_label:""
+    ~domain_type:`unspecified
   ;
   Db.Host.set_control_domain ~__context ~self:localhost ~value:domain_zero_ref;
   Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref
@@ -344,6 +346,7 @@ and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref 
     ~hvm:false
     ~nomigrate:false
     ~nested_virt:false
+    ~current_domain_type:`unspecified
   ;
 
 and update_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
