@@ -7,7 +7,7 @@ open Datamodel_roles
               You do not have to bump vsn if you change/add/remove a message *)
 
 let schema_major_vsn = 5
-let schema_minor_vsn = 134
+let schema_minor_vsn = 140
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -78,6 +78,9 @@ let falcon_release_schema_minor_vsn = 120
 
 let inverness_release_schema_major_vsn = 5
 let inverness_release_schema_minor_vsn = 133
+
+let jura_release_schema_major_vsn = 5
+let jura_release_schema_minor_vsn = 134
 
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)

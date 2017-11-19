@@ -477,6 +477,7 @@ let create ~__context ~name_label ~name_description
     ~generation_id
     ~hardware_platform_version
     ~has_vendor_device ~reference_label
+    ~domain_type
   : API.ref_VM =
 
   if has_vendor_device then
@@ -511,8 +512,10 @@ let create ~__context ~name_label ~name_description
     ~hvm:false
     ~nested_virt:false
     ~nomigrate:false
+    ~current_domain_type:`unspecified
   ;
   let platform = platform |> (Xapi_vm_helpers.ensure_device_model_profile_present ~__context ~hVM_boot_policy) in
+  let domain_type = if domain_type = `unspecified then derive_domain_type ~hVM_boot_policy else domain_type in
   Db.VM.create ~__context ~ref:vm_ref ~uuid:(Uuid.to_string uuid)
     ~power_state:(`Halted) ~allowed_operations:[]
     ~current_operations:[]
@@ -562,6 +565,7 @@ let create ~__context ~name_label ~name_description
     ~hardware_platform_version
     ~has_vendor_device
     ~requires_reboot:false ~reference_label
+    ~domain_type
   ;
   Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;

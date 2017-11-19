@@ -60,6 +60,10 @@ let make __context rpc session_id srid (vms, vdis) =
             other_platform
         in
 
+        let hVM_boot_policy = if vm.is_hvm then "BIOS order" else "" in
+        let hVM_boot_params = if vm.is_hvm then [("order","cd")] else [] in
+        let domain_type = Xapi_vm_helpers.derive_domain_type ~hVM_boot_policy in
+
         let vm_ref = Client.VM.create ~rpc ~session_id ~name_label:(vm.vm_name ^ " import")
             ~blocked_operations:[]
             ~name_description:vm.description ~user_version ~is_a_template:false
@@ -73,8 +77,9 @@ let make __context rpc session_id srid (vms, vdis) =
             ~vCPUs_params:[]
             ~actions_after_shutdown:`destroy ~actions_after_reboot:`restart
             ~actions_after_crash:`destroy
-            ~hVM_boot_policy:(if vm.is_hvm then "BIOS order" else "")
-            ~hVM_boot_params:(if vm.is_hvm then [("order","cd")] else [])
+            ~hVM_boot_policy
+            ~domain_type
+            ~hVM_boot_params
             ~hVM_shadow_multiplier:1.
             ~platform
             ~pV_kernel:"" ~pV_ramdisk:"" ~pV_bootloader:"pygrub"

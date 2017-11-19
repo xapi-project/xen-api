@@ -3231,6 +3231,11 @@ module VM_metrics = struct
             ~ty:Bool ~qualifier:DynamicRO
             "nomigrate" "VM is immobile and can't migrate between hosts"
             ~persist:false
+        ; field ~lifecycle:[Published, rel_jura, ""] ~default_value:(Some (VEnum "unspecified"))
+            ~ty:Datamodel_vm.domain_type ~qualifier:DynamicRO
+            "current_domain_type" "The current domain type of the VM (for running,\
+             suspended, or paused VMs). The last-known domain type for halted VMs."
+            ~persist:false
         ]
       ()
 end

@@ -141,7 +141,8 @@ val create :
   generation_id:string ->
   hardware_platform_version:int64 ->
   has_vendor_device:bool ->
-  reference_label:string
+  reference_label:string ->
+  domain_type:API.domain_type
   -> API.ref_VM
 val destroy : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val clone :

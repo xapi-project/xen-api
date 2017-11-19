@@ -1192,6 +1192,12 @@ let update_allowed_operations = call
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+let domain_type =
+  Enum ("domain_type", [ "hvm", "HVM; Fully Virtualised";
+                         "pv", "PV: Paravirtualised";
+                         "pv_in_pvh", "PV inside a PVH container";
+                         "unspecified", "Not specified or unknown domain type" ])
+
   (** VM (or 'guest') configuration: *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm ~descr:"A virtual machine (or 'guest')."
@@ -1360,7 +1366,8 @@ let update_allowed_operations = call
              ~ty:Bool "has_vendor_device" "When an HVM guest starts, this controls the presence of the emulated C000 PCI device which triggers Windows Update to fetch or update PV drivers.";
            field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_ely, ""] ~default_value:(Some (VBool false))
              "requires_reboot" "Indicates whether a VM requires a reboot in order to update its configuration, e.g. its memory allocation.";
-           field ~qualifier:StaticRO ~ty:String ~in_product_since:rel_ely ~default_value:(Some (VString "")) "reference_label" "Textual reference to the template used to create a VM. This can be used by clients in need of an immutable reference to the template since the latter's uuid and name_label may change, for example, after a package installation or upgrade."
+           field ~qualifier:StaticRO ~ty:String ~in_product_since:rel_ely ~default_value:(Some (VString "")) "reference_label" "Textual reference to the template used to create a VM. This can be used by clients in need of an immutable reference to the template since the latter's uuid and name_label may change, for example, after a package installation or upgrade.";
+           field ~qualifier:StaticRO ~ty:domain_type ~lifecycle:[Published, rel_jura, ""] ~default_value:(Some (VEnum "unspecified")) "domain_type" "The type of domain that will be created when the VM is started";
          ])
       ()
 

@@ -43,6 +43,14 @@ let compute_memory_overhead ~__context ~vm =
 
 let update_memory_overhead ~__context ~vm = Db.VM.set_memory_overhead ~__context ~self:vm ~value:(compute_memory_overhead ~__context ~vm)
 
+(* To support clients that are not aware of the newer domain_type field yet and
+ * have set (only) the old HVM_boot_policy field. *)
+let derive_domain_type ~hVM_boot_policy =
+  if hVM_boot_policy = "" then
+    `pv
+  else
+    `hvm
+
 (* Overrides for database set functions: ************************************************)
 let set_actions_after_crash ~__context ~self ~value =
   Db.VM.set_actions_after_crash ~__context ~self ~value
@@ -886,6 +894,7 @@ let copy_metrics ~__context ~vm =
     ~nomigrate:(default false (may (fun x -> x.Db_actions.vM_metrics_nomigrate) m))
     ~hvm:(default false (may (fun x -> x.Db_actions.vM_metrics_hvm) m))
     ~nested_virt:(default false (may (fun x -> x.Db_actions.vM_metrics_nested_virt) m))
+    ~current_domain_type:(default `unspecified (may (fun x -> x.Db_actions.vM_metrics_current_domain_type) m))
   ;
   metrics
 
