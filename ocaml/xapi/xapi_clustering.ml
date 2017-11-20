@@ -98,3 +98,11 @@ let assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type
       | _::_ ->
         assert_cluster_host_enabled ~__context ~self:cluster_host ~expected:true
       | _ -> ())
+
+(* certain cluster_host operations (such as enable, disable) must run on the host on which it is
+   operating on in order to work correctly, as they must communicate directly to the local
+   xapi-clusterd daemon running on the target host *)
+let assert_operation_host_target_is_localhost ~__context ~host =
+  if host <> Helpers.get_localhost ~__context then
+    let msg = "A clustering operation was attempted from the wrong host" in
+    raise Api_errors.(Server_error (internal_error, [msg]))
