@@ -191,7 +191,7 @@ let di_of_uuid ~xc ~xs domain_selection uuid =
            with e ->
              warn "Caught exception trying to find creation time of domid %d (uuid %s)" x.domid uuid';
              warn "Defaulting to 'now'";
-             Oclock.gettime Oclock.monotonic
+             Mtime.to_uint64_ns (Mtime_clock.now ())
          in
          compare (create_time a) (create_time b)
       ) possible in

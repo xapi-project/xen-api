@@ -9,12 +9,10 @@ build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 depends: [
   "jbuilder" {build}
   "xapi-xenopsd"
-  "bisect_ppx"
   "cohttp"
   "core"
   "ezxenstore"
   "fd-send-recv"
-  "oclock"
   "qmp"
   "re"
   "rpc"
@@ -30,6 +28,5 @@ depends: [
   "xenstore"
   "xenstore_transport"
   "xmlm"
-  "xcp"
   "odoc" {doc}
 ]

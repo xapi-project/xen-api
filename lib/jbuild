@@ -70,8 +70,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xenstore.unix
     xenstore_transport
     xenstore_transport.unix
-    oclock
-    core
+     core
   ))
 ))
 |} version flags coverage_rewriter
