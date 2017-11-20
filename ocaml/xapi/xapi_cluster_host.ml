@@ -75,6 +75,7 @@ let create_as_necessary ~__context ~host =
 let create ~__context ~cluster ~host =
   (* TODO: take network lock *)
   with_clustering_lock (fun () ->
+      assert_operation_host_target_is_localhost ~__context ~host;
       assert_cluster_host_can_be_created ~__context ~host;
       let ref = Ref.make () in
       let uuid = Uuidm.to_string (Uuidm.create `V4) in
@@ -98,12 +99,15 @@ let create ~__context ~cluster ~host =
     )
 
 let destroy ~__context ~self =
+  let host = Db.Cluster_host.get_host ~__context ~self in
+  assert_operation_host_target_is_localhost ~__context ~host;
   Db.Cluster_host.destroy ~__context ~self
 
 let enable ~__context ~self =
   (* TODO: debug/error/info logging *)
   with_clustering_lock (fun () ->
       let host = Db.Cluster_host.get_host ~__context ~self in
+      assert_operation_host_target_is_localhost ~__context ~host;
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       let network = Db.Cluster.get_network ~__context ~self:cluster in
       let pif = pif_of_host ~__context network host in
@@ -119,9 +123,10 @@ let enable ~__context ~self =
 let disable ~__context ~self =
   (* TODO: debug/error/info logging *)
   with_clustering_lock (fun () ->
+      let host = Db.Cluster_host.get_host ~__context ~self in
+      assert_operation_host_target_is_localhost ~__context ~host;
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       let cluster_stack = Db.Cluster.get_cluster_stack ~__context ~self:cluster in
-      let host = Db.Cluster_host.get_host ~__context ~self in
       let pbds = Db.Host.get_PBDs ~__context ~self:host in
       let srs = List.map (fun pbd -> Db.PBD.get_SR ~__context ~self:pbd) pbds in
       List.iter (fun sr ->

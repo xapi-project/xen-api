@@ -4277,20 +4277,26 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let enable ~__context ~self =
       info "Cluster_host.enable";
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+      let local_fn = Local.Cluster_host.enable ~self in
+      let host = Db.Cluster_host.get_host ~__context ~self in
       Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster.enable" ~op:`enable
         (fun () ->
            Xapi_cluster_host_helpers.with_cluster_host_operation ~__context ~self ~doc:"Cluster_host.enable" ~op:`enable
              (fun () ->
-                Local.Cluster_host.enable ~__context ~self))
+                do_op_on ~__context ~local_fn ~host
+                  (fun session_id rpc -> Client.Cluster_host.enable rpc session_id self)))
 
     let disable ~__context ~self =
       info "Cluster_host.disable";
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+      let local_fn = Local.Cluster_host.disable ~self in
+      let host = Db.Cluster_host.get_host ~__context ~self in
       Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster.disable" ~op:`disable
         (fun () ->
            Xapi_cluster_host_helpers.with_cluster_host_operation ~__context ~self ~doc:"Cluster_host.disable" ~op:`disable
              (fun () ->
-                Local.Cluster_host.disable ~__context ~self))
+                do_op_on ~__context ~local_fn ~host
+                  (fun session_id rpc -> Client.Cluster_host.disable rpc session_id self)))
   end
 
 end
