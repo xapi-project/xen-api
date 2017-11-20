@@ -15,4 +15,5 @@ depends: [
   "xapi-database"
   "xapi-libs-transitional"
   "xenstore"
+  "mustache"
 ]
