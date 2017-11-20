@@ -249,3 +249,4 @@ val assert_can_set_has_vendor_device : __context:Context.t -> self:API.ref_VM ->
 
 val import : __context:Context.t -> url:string -> sr:API.ref_SR -> full_restore:bool -> force:bool -> API.ref_VM list
 val set_domain_type : __context:Context.t -> self:API.ref_VM -> value:API.domain_type -> unit
+val set_HVM_boot_policy : __context:Context.t -> self:API.ref_VM -> value:string -> unit

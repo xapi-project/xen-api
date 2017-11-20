@@ -2072,6 +2072,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (Record_util.domain_type_to_string value);
       Local.VM.set_domain_type ~__context ~self ~value
 
+    let set_HVM_boot_policy ~__context ~self ~value =
+      info "VM.set_HVM_boot_policy: self = '%s'; value = '%s';"
+        (vm_uuid ~__context self) value;
+      Local.VM.set_HVM_boot_policy ~__context ~self ~value
   end
 
   module VM_metrics = struct

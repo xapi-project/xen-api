@@ -1245,3 +1245,7 @@ let set_domain_type ~__context ~self ~value =
     invalid_value "domain_type" (Record_util.domain_type_to_string value);
   Db.VM.set_domain_type ~__context ~self ~value;
   Db.VM.set_HVM_boot_policy ~__context ~self ~value:(derive_hvm_boot_policy ~domain_type:value)
+
+let set_HVM_boot_policy ~__context ~self ~value =
+  Db.VM.set_domain_type ~__context ~self ~value:(derive_domain_type ~hVM_boot_policy:value);
+  Db.VM.set_HVM_boot_policy ~__context ~self ~value

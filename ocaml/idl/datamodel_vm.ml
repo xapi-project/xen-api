@@ -17,7 +17,10 @@ open Datamodel_types
   (** HVM domain booting *)
   let hvm =
     [
-      field "boot_policy" "HVM boot policy";
+      field
+        ~qualifier:StaticRO
+        ~lifecycle:[Published, rel_rio, ""; Deprecated, rel_kolkata, "Replaced by VM.domain_type"]
+        "boot_policy" "HVM boot policy";
       field ~ty:(Map(String, String)) "boot_params" "HVM boot params";
       field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None ~ty:Float ~in_product_since:rel_miami ~qualifier:StaticRO "shadow_multiplier" "multiplier applied to the amount of shadow that will be made available to the guest" ~default_value:(Some (VFloat 1.))
     ]
@@ -1209,6 +1212,17 @@ let set_domain_type = call ~flags:[`Session]
   ~allowed_roles:_R_VM_ADMIN
   ()
 
+let set_HVM_boot_policy = call ~flags:[`Session]
+  ~name:"set_HVM_boot_policy"
+  ~lifecycle:[Published, rel_rio, ""; Deprecated, rel_kolkata, "Replaced by VM.set_domain_type"]
+  ~params:[
+    Ref _vm, "self", "The VM";
+    String, "value", "The new HVM boot policy"
+  ]
+  ~doc:"Set the VM.HVM_boot_policy field of the given VM, which will take effect when it is next started"
+  ~allowed_roles:_R_VM_ADMIN
+  ()
+
   (** VM (or 'guest') configuration: *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm ~descr:"A virtual machine (or 'guest')."
@@ -1286,6 +1300,7 @@ let set_domain_type = call ~flags:[`Session]
                   import;
                   set_actions_after_crash;
                   set_domain_type;
+                  set_HVM_boot_policy;
                 ]
       ~contents:
         ([ uid _vm;
