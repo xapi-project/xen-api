@@ -239,24 +239,8 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
   let uuid = host_info.dom0_uuid in
   (* FIXME: Assume dom0 has 1 vCPU per Host_cpu for now *)
   let vcpus = calculate_domain_zero_vcpu_count ~__context in
-  let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-  let vCPUs_utilisation = [(0L, 0.)] in
-  (* Now create the database records. *)
-  Db.VM_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
-    ~memory_actual:0L ~vCPUs_number:0L
-    ~vCPUs_utilisation
-    ~vCPUs_CPU:[]
-    ~vCPUs_params:[]
-    ~vCPUs_flags:[]
-    ~state:[]
-    ~start_time:Date.never
-    ~install_time:Date.never
-    ~last_updated:Date.never
-    ~other_config:[]
-    ~hvm:false
-    ~nested_virt:false
-    ~nomigrate:false
-  ;
+  let metrics = Ref.make () in
+  (* Now create the database record. *)
   Db.VM.create ~__context ~ref:domain_zero_ref
     ~name_label:("Control domain on host: " ^ host_info.hostname) ~uuid
     ~name_description:"The domain which manages physical devices and manages other domains"
