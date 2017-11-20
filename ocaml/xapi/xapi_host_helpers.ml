@@ -270,6 +270,8 @@ end
 module InitiatorName = struct
 
   let make_initiatorname_config iqn hostname =
+    (* CA-18000: there is a 30 character limit to the initiator when talking to
+       Dell MD3000i filers, so we limit the size of the initiator name in all cases *)
     let hostname_chopped =
       if String.length hostname > 30
       then String.sub hostname 0 30
