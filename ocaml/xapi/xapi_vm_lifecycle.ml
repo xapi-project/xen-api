@@ -246,26 +246,20 @@ let check_vgpu ~__context ~op ~ref_str ~vgpus =
       List.assoc "restrict_vgpu_migration" restrictions = "false"
     with Not_found -> false
   in
-  let is_nvidia_vgpu vgpu =
+  let is_suspendable vgpu =
     Db.VGPU.get_type ~__context ~self:vgpu
     |> fun self -> Db.VGPU_type.get_implementation ~__context ~self
     |> function
-    | `nvidia -> true
-    | _       -> false
-  in
-  let is_suspendable vgpu =
-    match Db.VGPU.get_resident_on ~__context ~self:vgpu with
-    | pgpu when not (Db.is_valid_ref __context pgpu) -> false
-    | self -> Db.PGPU.get_compatibility_metadata ~__context ~self
-      |> function
-      | [] -> false (* no meta data: we can't check compatibility *)
-      | _  -> true
+    | `nvidia ->
+      let pgpu = Db.VGPU.get_resident_on ~__context ~self:vgpu in
+      Db.is_valid_ref __context pgpu &&
+      (Db.PGPU.get_compatibility_metadata ~__context ~self:pgpu
+        |> List.mem_assoc Xapi_gpumon.Nvidia.key)
+    | _ -> false
   in
   match op with
   | `pool_migrate | `migrate_send | `suspend | `checkpoint
-    when
-      vgpu_migration_enabled ()
-      && List.for_all is_nvidia_vgpu vgpus
+    when vgpu_migration_enabled ()
       && List.for_all is_suspendable vgpus -> None
   | `pool_migrate | `migrate_send | `suspend | `checkpoint ->
     Some (Api_errors.vm_has_vgpu, [ref_str])
