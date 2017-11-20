@@ -1239,3 +1239,9 @@ let set_has_vendor_device ~__context ~self ~value =
   assert_can_set_has_vendor_device ~__context ~self ~value;
   Db.VM.set_has_vendor_device ~__context ~self ~value;
   update_vm_virtual_hardware_platform_version ~__context ~vm:self
+
+let set_domain_type ~__context ~self ~value =
+  if value = `unspecified then
+    invalid_value "domain_type" (Record_util.domain_type_to_string value);
+  Db.VM.set_domain_type ~__context ~self ~value;
+  Db.VM.set_HVM_boot_policy ~__context ~self ~value:(derive_hvm_boot_policy ~domain_type:value)

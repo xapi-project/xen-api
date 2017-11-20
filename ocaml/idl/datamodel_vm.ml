@@ -1198,6 +1198,17 @@ let domain_type =
                          "pv_in_pvh", "PV inside a PVH container";
                          "unspecified", "Not specified or unknown domain type" ])
 
+let set_domain_type = call ~flags:[`Session]
+  ~name:"set_domain_type"
+  ~lifecycle:[Published, rel_kolkata, ""]
+  ~params:[
+    Ref _vm, "self", "The VM";
+    domain_type, "value", "The new domain type"
+  ]
+  ~doc:"Set the VM.domain_type field of the given VM, which will take effect when it is next started"
+  ~allowed_roles:_R_VM_ADMIN
+  ()
+
   (** VM (or 'guest') configuration: *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm ~descr:"A virtual machine (or 'guest')."
@@ -1274,6 +1285,7 @@ let domain_type =
                   set_has_vendor_device;
                   import;
                   set_actions_after_crash;
+                  set_domain_type;
                 ]
       ~contents:
         ([ uid _vm;

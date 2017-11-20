@@ -51,6 +51,12 @@ let derive_domain_type ~hVM_boot_policy =
   else
     `hvm
 
+let derive_hvm_boot_policy ~domain_type =
+  if domain_type = `hvm then
+    Constants.hvm_boot_policy_bios_order
+  else
+    ""
+
 (* Overrides for database set functions: ************************************************)
 let set_actions_after_crash ~__context ~self ~value =
   Db.VM.set_actions_after_crash ~__context ~self ~value

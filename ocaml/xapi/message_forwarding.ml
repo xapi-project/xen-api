@@ -2066,6 +2066,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let host = Db.PBD.get_host ~__context ~self:pbd in
       do_op_on ~local_fn:(Local.VM.import ~url ~sr ~full_restore ~force) ~__context ~host (fun session_id rpc -> Client.VM.import rpc session_id url sr full_restore force)
 
+    let set_domain_type ~__context ~self ~value =
+      info "VM.set_domain_type: self = '%s'; value = '%s';"
+        (vm_uuid ~__context self)
+        (Record_util.domain_type_to_string value);
+      Local.VM.set_domain_type ~__context ~self ~value
+
   end
 
   module VM_metrics = struct
