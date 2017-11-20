@@ -3,6 +3,7 @@
 (executable (
   (name dbgring)
   (libraries (
+    xapi-xenopsd
     xenctrl
     xenstore
     xenstore.unix

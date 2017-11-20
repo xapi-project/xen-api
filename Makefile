@@ -6,7 +6,7 @@ OPAM_LIBDIR=$(DESTDIR)$(shell opam config var lib)
 .PHONY: build clean release test reindent install uninstall
 
 build:
-	jbuilder build @install
+	jbuilder build @install --dev
 
 clean:
 	jbuilder clean
@@ -19,6 +19,9 @@ test:
 
 reindent:
 	git ls-files '*.ml*' '**/*.ml*' | xargs ocp-indent --syntax cstruct -i
+
+doc:
+	jbuilder build @doc
 
 install:
 	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-xenopsd
@@ -65,3 +68,5 @@ uninstall:
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/setup-pvs-proxy-rules
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/common.py*
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/igmp_query_injector.py*
+
+.DEFAULT_GOAL := release
