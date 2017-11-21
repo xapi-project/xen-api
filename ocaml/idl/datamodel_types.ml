@@ -180,10 +180,9 @@ let release_order_full = [{
       branding   = "XenServer 7.1";
     }; {
       code_name     = Some rel_honolulu;
-      (** TODO replace with the actual version numbers when Honolulu is released *)
       version_major = 2;
       version_minor = 6;
-      branding   = "Unreleased";
+      branding   = "XenServer 7.1 CU1";
     }; {
       code_name     = Some rel_falcon;
       version_major = 2;
@@ -191,12 +190,13 @@ let release_order_full = [{
       branding   = "XenServer 7.2";
     }; {
       code_name     = Some rel_inverness;
-      (** TODO replace with the actual version numbers when Inverness is released *)
       version_major = 2;
-      version_minor = 7;
-      branding   = "Unreleased";
+      version_minor = 8;
+      branding   = "XenServer 7.3";
     };
   ]
+(* When you add a new release, use the version number of the latest release,
+   and "Unreleased" for the branding, until the actual values are finalised. *)
 
 let release_order =
   List.filter (fun x -> x.code_name <> None) release_order_full
