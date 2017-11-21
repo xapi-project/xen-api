@@ -657,7 +657,7 @@ let build_linux (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_do
   let store_port, console_port = build_pre ~xc ~xs
       ~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
   let force_arg = if force then ["--force"] else [] in
-  let line = Emu_manager.with_connection task xenguest_path domid
+  let line = XenguestHelper.with_connection task xenguest_path domid
       ([
         "-mode"; "linux_build";
         "-domid"; string_of_int domid;
@@ -674,7 +674,7 @@ let build_linux (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_do
         "-console_domid"; string_of_int console_domid;
         "-fork"; "true";
       ] @ force_arg @ extras) []
-      Emu_manager.receive_success in
+      XenguestHelper.receive_success in
 
   let store_mfn, console_mfn, protocol =
     (* the "protocol" (ie the domU architecture) was only needed for very
@@ -735,7 +735,7 @@ let build_hvm (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domi
   let store_port, console_port = build_pre ~xc ~xs
       ~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
   let force_arg = if force then ["--force"] else [] in
-  let line = Emu_manager.with_connection task xenguest_path domid
+  let line = XenguestHelper.with_connection task xenguest_path domid
       ([
         "-mode"; "hvm_build";
         "-domid"; string_of_int domid;
@@ -747,7 +747,7 @@ let build_hvm (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domi
         "-mem_max_mib"; Int64.to_string build_max_mib;
         "-mem_start_mib"; Int64.to_string build_start_mib;
         "-fork"; "true";
-      ] @ force_arg @ extras) [] Emu_manager.receive_success in
+      ] @ force_arg @ extras) [] XenguestHelper.receive_success in
 
   (* XXX: domain builder will reduce our shadow allocation under our feet.
      	   Detect this and override. *)
