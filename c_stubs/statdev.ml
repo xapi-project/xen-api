@@ -1,4 +1,4 @@
-/*
+(*
  * Copyright (C) 2006-2009 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -10,19 +10,10 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- */
-#include <unistd.h>
+ *)
+external _get_major_minor : string -> int * int * int = "stub_statdev_get_major_minor"
 
-#include <caml/mlvalues.h>
-#include <caml/memory.h>
-#include <caml/alloc.h>
-#include <caml/fail.h>
-#include <caml/unixsupport.h>
-
-CAMLprim value stub_unixext_fsync (value fd)
-{
-	CAMLparam1(fd);
-	int c_fd = Int_val(fd);
-	if (fsync(c_fd) != 0) uerror("fsync", Nothing);
-	CAMLreturn(Val_unit);
-}
+let get_major_minor path =
+  let errno, major, minor = _get_major_minor path in
+  if errno <> 0 then failwith (Printf.sprintf "Cannot stat path: %s (errno = %d)" path errno);
+  major, minor

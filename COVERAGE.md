@@ -1,4 +1,3 @@
-
 # Coverage Analysis
 
 This project can be compiled for coverage analysis using [bisect_ppx]. By
@@ -7,7 +6,7 @@ default, this is not done. To compile for coverage analysis, do:
     ./configure --enable-coverage
     make
 
-This sets the `BISECT_COVERAGE` make and environment variable, which adds a dependency
+This sets the `BISECT_ENABLE` make and environment variable, which adds a dependency
 on `bisect_ppx` at `make setup.ml` time.
 This ensures that a proper dependency gets added to the META file, so that other
 projects can successfully link `xenopsd` even if they are themselves not built
@@ -44,8 +43,4 @@ top-level directory:
 
 This creates an HTML document in [coverage/](./coverage].
 
-[bisect_ppx]:	https://github.com/aantron/bisect_ppx
-
-
-
-
+[bisect_ppx]: https://github.com/aantron/bisect_ppx

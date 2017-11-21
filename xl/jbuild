@@ -1,0 +1,80 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+  | [] -> ""
+  | pkgs ->
+    let cmd = "ocamlfind ocamlc -verbose" ^ (
+        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+      ) in
+    let ic = Unix.open_process_in
+        (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
+    in
+    let rec go ic acc =
+      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+    in
+    go ic ""
+
+let flags = flags ["ppx_deriving_rpc"; "ppx_sexp_conv"]
+
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(jbuild_version 1)
+
+(rule (
+  (targets (xenops_server_xenlight.ml))
+  (deps (xenops_server_xenlight.cppo.ml ../config.ml))
+  (action (
+    chdir ${ROOT}
+    (run ${bin:cppo} -V OCAML:${ocaml_version} ${<} -o ${@})
+  ))
+))
+
+(executable (
+  (name xenops_xl_main)
+  (public_name xenopsd-xenlight)
+  (package xapi-xenopsd-xenlight)
+  (flags (:standard -warn-error +a-3 %s))
+  %s
+  (libraries (
+    xenlight
+    xenctrl
+    xapi-xenopsd
+    xenstore
+    xenstore.unix
+    xenstore_transport
+    xenstore_transport.unix
+    rpclib
+    forkexec
+    xcp
+    xcp.storage
+    xcp.memory
+    sexplib
+    xcp-inventory
+    ezxenstore
+    profiling
+    ppx_deriving_rpc
+    ppx_sexp_conv
+  ))
+))
+
+(rule (
+  (targets (xenopsd-xenlight.1))
+  (deps (xenops_xl_main.exe))
+  (action (
+    with-stdout-to ${@} (run ${<} --help=groff)
+  ))
+))
+
+(install (
+  (section man)
+  (files (xenopsd-xenlight.1))
+  (package xapi-xenopsd-xenlight)
+))
+|} flags coverage_rewriter

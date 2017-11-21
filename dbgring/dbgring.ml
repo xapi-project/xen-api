@@ -70,7 +70,7 @@ let int_from_page ss n =
   int_of_string ("0x"^ b2 ^ b1) mod ring_size
 
 let _ =
-  let domid, mfn = 
+  let domid, mfn =
     try int_of_string Sys.argv.(1), Nativeint.of_string Sys.argv.(2)
     with _ -> 0, Nativeint.zero
   in

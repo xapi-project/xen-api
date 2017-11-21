@@ -202,7 +202,7 @@ let make ~xc ~xs vm_info uuid =
     let zeroperm = Xenbus_utils.rwperm_for_guest 0 in
     debug "VM = %s; creating xenstored tree: %s" (Uuid.to_string uuid) dom_path;
 
-    let create_time = Oclock.gettime Oclock.monotonic in
+    let create_time = Mtime.to_uint64_ns (Mtime_clock.now ()) in
     Xs.transaction xs (fun t ->
         (* Clear any existing rubbish in xenstored *)
         t.Xst.rm dom_path;
