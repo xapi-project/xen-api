@@ -514,8 +514,8 @@ let create ~__context ~name_label ~name_description
     ~nomigrate:false
     ~current_domain_type:`unspecified
   ;
-  let platform = platform |> (Xapi_vm_helpers.ensure_device_model_profile_present ~__context ~hVM_boot_policy) in
   let domain_type = if domain_type = `unspecified then derive_domain_type ~hVM_boot_policy else domain_type in
+  let platform = platform |> (Xapi_vm_helpers.ensure_device_model_profile_present ~__context ~domain_type) in
   Db.VM.create ~__context ~ref:vm_ref ~uuid:(Uuid.to_string uuid)
     ~power_state:(`Halted) ~allowed_operations:[]
     ~current_operations:[]

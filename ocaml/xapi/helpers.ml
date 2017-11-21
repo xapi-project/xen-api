@@ -497,12 +497,20 @@ let boot_method_of_vm ~__context ~vm =
   | `unspecified ->
     raise Api_errors.(Server_error (internal_error, ["unspecified domain type"]))
 
+let will_boot_hvm_from_domain_type = function
+  | `hvm | `pv_in_pvh  -> true
+  | `pv  | `unspecified  -> false
+
 (** Returns true if the supplied VM configuration is HVM.
     NB that just because a VM's current configuration looks like HVM doesn't imply it
     actually booted that way; you must check the VM_metrics to be sure *)
-let will_boot_hvm_from_record (x: API.vM_t) = x.API.vM_HVM_boot_policy <> ""
+let will_boot_hvm_from_record (x: API.vM_t) =
+  x.API.vM_domain_type
+  |> will_boot_hvm_from_domain_type
 
-let will_boot_hvm ~__context ~self = Db.VM.get_HVM_boot_policy ~__context ~self <> ""
+let will_boot_hvm ~__context ~self =
+  Db.VM.get_domain_type ~__context ~self
+  |> will_boot_hvm_from_domain_type
 
 let has_booted_hvm ~__context ~self =
   Db.VM_metrics.get_hvm ~__context ~self:(Db.VM.get_metrics ~__context ~self)

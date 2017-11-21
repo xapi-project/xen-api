@@ -45,7 +45,7 @@ let testcases =
 
 let test (nv, nm, force, permitted) op =
   let __context = make_test_database () in
-  let vm        = make_vm ~__context ~hVM_boot_policy:"" () in
+  let vm        = make_vm ~__context () in
   let metrics   = Db.VM.get_metrics ~__context ~self:vm in
   let strict    = not force in
   ( Db.VM.set_power_state ~__context ~self:vm ~value:`Running

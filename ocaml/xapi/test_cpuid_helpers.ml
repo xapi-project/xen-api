@@ -379,12 +379,15 @@ module Modifiers = Generic.Make (struct
   end)
 
 
+let domain_type : API.domain_type Test_printers.printer =
+  Record_util.domain_type_to_string
+
 module ResetCPUFlags = Generic.Make(Generic.EncapsulateState(struct
                                       module Io = struct
-                                        type input_t = (string * string) list
+                                        type input_t = (string * API.domain_type) list
                                         type output_t = string list
 
-                                        let string_of_input_t = Test_printers.(list (pair string string))
+                                        let string_of_input_t = Test_printers.(list (pair string domain_type))
                                         let string_of_output_t = Test_printers.(list string)
                                       end
                                       module State = Test_state.XapiDb
@@ -404,9 +407,9 @@ module ResetCPUFlags = Generic.Make(Generic.EncapsulateState(struct
                                         Db.Pool.set_cpu_info ~__context ~self:(Db.Pool.get_all ~__context |> List.hd) ~value:cpu_info;
 
                                         let vms = List.map
-                                            (fun (name_label, hVM_boot_policy) ->
+                                            (fun (name_label, domain_type) ->
                                                Test_common.make_vm ~__context ~name_label
-                                                 ~hVM_boot_policy ())
+                                                 ~domain_type ())
                                             cases in
                                         List.iter (fun vm -> Cpuid_helpers.reset_cpu_flags ~__context ~vm) vms
 
@@ -421,20 +424,20 @@ module ResetCPUFlags = Generic.Make(Generic.EncapsulateState(struct
 
                                       (* Tuples of ((features_hvm * features_pv) list, (expected last_boot_CPU_flags) *)
                                       let tests = [
-                                        (["a", "BIOS order"], [features_hvm]);
-                                        (["a", ""], [features_pv]);
-                                        (["a", "BIOS order"; "b", ""], [features_hvm; features_pv]);
+                                        (["a", `hvm], [features_hvm]);
+                                        (["a", `pv], [features_pv]);
+                                        (["a", `hvm; "b", `pv], [features_hvm; features_pv]);
                                       ]
                                     end))
 
 
 module AssertVMIsCompatible = Generic.Make(Generic.EncapsulateState(struct
                                              module Io = struct
-                                               type input_t = string * string * (string * string) list
+                                               type input_t = string * API.domain_type * (string * string) list
                                                type output_t = (exn, unit) Either.t
 
                                                let string_of_input_t =
-                                                 Test_printers.(tuple3 string string (assoc_list string string))
+                                                 Test_printers.(tuple3 string domain_type (assoc_list string string))
                                                let string_of_output_t = Test_printers.(either exn unit)
                                              end
                                              module State = Test_state.XapiDb
@@ -442,7 +445,7 @@ module AssertVMIsCompatible = Generic.Make(Generic.EncapsulateState(struct
                                              let features_hvm = "feedface-feedface"
                                              let features_pv  = "deadbeef-deadbeef"
 
-                                             let load_input __context (name_label, hVM_boot_policy, last_boot_flags) =
+                                             let load_input __context (name_label, domain_type, last_boot_flags) =
                                                let cpu_info = [
                                                  "cpu_count", "1";
                                                  "socket_count", "1";
@@ -453,7 +456,7 @@ module AssertVMIsCompatible = Generic.Make(Generic.EncapsulateState(struct
                                                List.iter (fun self -> Db.Host.set_cpu_info ~__context ~self ~value:cpu_info) (Db.Host.get_all ~__context);
                                                Db.Pool.set_cpu_info ~__context ~self:(Db.Pool.get_all ~__context |> List.hd) ~value:cpu_info;
 
-                                               let self = Test_common.make_vm ~__context ~name_label ~hVM_boot_policy () in
+                                               let self = Test_common.make_vm ~__context ~name_label ~domain_type () in
                                                Db.VM.set_last_boot_CPU_flags ~__context ~self ~value:last_boot_flags;
                                                Db.VM.set_power_state ~__context ~self ~value:`Running
 
@@ -469,19 +472,19 @@ module AssertVMIsCompatible = Generic.Make(Generic.EncapsulateState(struct
 
                                              let tests = [
                                                (* HVM *)
-                                               ("a", "BIOS order",
+                                               ("a", `hvm,
                                                 Xapi_globs.([cpu_info_vendor_key, "Abacus";
                                                              cpu_info_features_key, features_hvm])),
                                                Either.Right ();
 
-                                               ("a", "BIOS order",
+                                               ("a", `hvm,
                                                 Xapi_globs.([cpu_info_vendor_key, "Abacus";
                                                              cpu_info_features_key, "cafecafe-cafecafe"])),
                                                Either.Left Api_errors.(Server_error
                                                                          (vm_incompatible_with_this_host,
                                                                           ["VM last booted on a CPU with features this host's CPU does not have."]));
 
-                                               ("a", "BIOS order",
+                                               ("a", `hvm,
                                                 Xapi_globs.([cpu_info_vendor_key, "Napier's Bones";
                                                              cpu_info_features_key, features_hvm])),
                                                Either.Left Api_errors.(Server_error
@@ -489,19 +492,19 @@ module AssertVMIsCompatible = Generic.Make(Generic.EncapsulateState(struct
                                                                           ["VM last booted on a host which had a CPU from a different vendor."]));
 
                                                (* PV *)
-                                               ("a", "",
+                                               ("a", `pv,
                                                 Xapi_globs.([cpu_info_vendor_key, "Abacus";
                                                              cpu_info_features_key, features_pv])),
                                                Either.Right ();
 
-                                               ("a", "",
+                                               ("a", `pv,
                                                 Xapi_globs.([cpu_info_vendor_key, "Abacus";
                                                              cpu_info_features_key, "cafecafe-cafecafe"])),
                                                Either.Left Api_errors.(Server_error
                                                                          (vm_incompatible_with_this_host,
                                                                           ["VM last booted on a CPU with features this host's CPU does not have."]));
 
-                                               ("a", "",
+                                               ("a", `pv,
                                                 Xapi_globs.([cpu_info_vendor_key, "Napier's Bones";
                                                              cpu_info_features_key, features_pv])),
                                                Either.Left Api_errors.(Server_error

@@ -458,7 +458,7 @@ module VM : HandlerTools = struct
       let vm_record = {
         vm_record with API.vM_platform =
                          (Xapi_vm_helpers.ensure_device_model_profile_present ~__context
-                            ~hVM_boot_policy:vm_record.API.vM_HVM_boot_policy
+                            ~domain_type:vm_record.API.vM_domain_type
                             vm_record.API.vM_platform)
       }
       in
