@@ -6,7 +6,7 @@ OPAM_LIBDIR=$(DESTDIR)$(shell opam config var lib)
 .PHONY: build clean test doc reindent install uninstall
 
 build:
-	jbuilder build @install
+	jbuilder build @install -j $$(getconf _NPROCESSORS_ONLN)
 
 clean:
 	jbuilder clean
