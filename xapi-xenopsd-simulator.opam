@@ -28,5 +28,4 @@ depends: [
   "xenstore"
   "xenstore_transport"
   "xmlm"
-  "odoc" {doc}
 ]

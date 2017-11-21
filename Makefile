@@ -20,6 +20,7 @@ test:
 reindent:
 	git ls-files '*.ml*' '**/*.ml*' | xargs ocp-indent --syntax cstruct -i
 
+#requires odoc
 doc:
 	jbuilder build @doc
 
