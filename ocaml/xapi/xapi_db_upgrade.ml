@@ -55,6 +55,7 @@ let dundee = Datamodel_common.dundee_release_schema_major_vsn, Datamodel_common.
 let ely = Datamodel_common.ely_release_schema_major_vsn, Datamodel_common.ely_release_schema_minor_vsn
 let falcon = Datamodel_common.falcon_release_schema_major_vsn, Datamodel_common.falcon_release_schema_minor_vsn
 let inverness = Datamodel_common.inverness_release_schema_major_vsn, Datamodel_common.inverness_release_schema_minor_vsn
+let jura = Datamodel_common.jura_release_schema_major_vsn, Datamodel_common.jura_release_schema_minor_vsn
 
 (* This is to support upgrade from Dundee tech-preview versions *)
 let vsn_with_meaningful_has_vendor_device = Datamodel_common.meaningful_vm_has_vendor_device_schema_major_vsn, Datamodel_common.meaningful_vm_has_vendor_device_schema_minor_vsn
@@ -521,7 +522,22 @@ let upgrade_vswitch_controller = {
         ignore (Xapi_sdn_controller.introduce ~__context ~protocol:`ssl ~address ~port:6632L)
 }
 
+let upgrade_domain_type = {
+  description = "Set domain_type for all VMs/snapshots/templates";
+  version = (fun x -> x <= jura);
+  fn = fun ~__context ->
+    List.iter
+      (fun (vm, vmr) ->
+        let domain_type =
+          Xapi_vm_helpers.derive_domain_type
+            ~hVM_boot_policy:vmr.API.vM_HVM_boot_policy in
+        Db.VM.set_domain_type ~__context ~self:vm ~value:domain_type
+      )
+      (Db.VM.get_all_records ~__context)
+}
+
 let rules = [
+  upgrade_domain_type;
   upgrade_alert_priority;
   update_mail_min_priority;
   upgrade_vm_memory_overheads;
