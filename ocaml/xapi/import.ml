@@ -389,6 +389,16 @@ module VM : HandlerTools = struct
     (* This function assumes we've already checked for and dealt with any existing VM with the same UUID. *)
     let do_import vm_record =
       let task_id = Ref.string_of (Context.get_task_id __context) in
+
+      (* Ensure that the domain_type is set correctly *)
+      let vm_record =
+        if vm_record.API.vM_domain_type = `unspecified then
+          {vm_record with API.vM_domain_type =
+            Xapi_vm_helpers.derive_domain_type ~hVM_boot_policy:vm_record.API.vM_HVM_boot_policy}
+        else
+          vm_record
+      in
+
       (* Remove the grant guest API access key unconditionally (it's only for our RHEL4 templates atm) *)
       let other_config = List.filter
           (fun (key, _) -> key <> Xapi_globs.grant_api_access) vm_record.API.vM_other_config in
