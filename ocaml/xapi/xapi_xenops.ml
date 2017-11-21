@@ -215,8 +215,8 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       with _ -> []
   in
 
-  match Helpers.boot_method_of_vm ~__context ~vm with
-  | Helpers.HVM { Helpers.timeoffset = t } -> HVM {
+  let make_hvm_boot_record { Helpers.timeoffset = t } =
+    {
       hap = true;
       shadow_multiplier = vm.API.vM_HVM_shadow_multiplier;
       timeoffset = timeoffset;
@@ -257,7 +257,9 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       qemu_disk_cmdline = bool vm.API.vM_platform false "qemu_disk_cmdline";
       qemu_stubdom = bool vm.API.vM_platform false "qemu_stubdom";
     }
-  | Helpers.DirectPV { Helpers.kernel = k; kernel_args = ka; ramdisk = initrd } ->
+  in
+
+  let make_direct_pv_boot_record { Helpers.kernel = k; kernel_args = ka; ramdisk = initrd } =
     let k = if is_boot_file_whitelisted k then k else begin
         debug "kernel %s is not in the whitelist: ignoring" k;
         ""
@@ -268,7 +270,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
           ""
         end
       ) initrd in
-    PV {
+    {
       boot = Direct { kernel = k; cmdline = ka; ramdisk = initrd };
       framebuffer = bool vm.API.vM_platform false "pvfb";
       framebuffer_ip = None; (* None PR-1255 *)
@@ -278,8 +280,10 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       end;
       vncterm_ip = None (*None PR-1255*);
     }
-  | Helpers.IndirectPV { Helpers.bootloader = b; extra_args = e; legacy_args = l; pv_bootloader_args = p; vdis = vdis } ->
-    PV {
+  in
+
+  let make_indirect_pv_boot_record { Helpers.bootloader = b; extra_args = e; legacy_args = l; pv_bootloader_args = p; vdis = vdis } =
+    {
       boot = Indirect { bootloader = b; extra_args = e; legacy_args = l; bootloader_args = p; devices = List.filter_map (fun x -> disk_of_vdi ~__context ~self:x) vdis };
       framebuffer = bool vm.API.vM_platform false "pvfb";
       framebuffer_ip = None; (* None PR-1255 *)
@@ -289,6 +293,14 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       end;
       vncterm_ip = None (*None PR-1255*);
     }
+  in
+
+  match Helpers.boot_method_of_vm ~__context ~vm with
+  | Helpers.HVM options ->             HVM (make_hvm_boot_record options)
+  | Helpers.DirectPV options ->        PV (make_direct_pv_boot_record options)
+  | Helpers.IndirectPV options ->      PV (make_indirect_pv_boot_record options)
+  | Helpers.DirectPVinPVH options ->   PVinPVH (make_direct_pv_boot_record options)
+  | Helpers.IndirectPVinPVH options -> PVinPVH (make_indirect_pv_boot_record options)
 
 module MD = struct
   (** Convert between xapi DB records and xenopsd records *)

@@ -422,6 +422,8 @@ type boot_method =
   | HVM of hvm_boot_t
   | DirectPV of direct_pv_boot_t
   | IndirectPV of indirect_pv_boot_t
+  | DirectPVinPVH of direct_pv_boot_t
+  | IndirectPVinPVH of indirect_pv_boot_t
 
 let string_of_option opt = match opt with None -> "(none)" | Some s -> s
 
@@ -432,6 +434,13 @@ let string_of_boot_method = function
       x.kernel x.kernel_args (string_of_option x.ramdisk)
   | IndirectPV x ->
     Printf.sprintf "Indirect PV boot via bootloader %s; extra_args = %s; legacy_args = %s; bootloader_args = %s; VDIs = [ %s ]"
+      x.bootloader x.extra_args x.legacy_args x.pv_bootloader_args
+      (String.concat "; " (List.map Ref.string_of  x.vdis))
+  | DirectPVinPVH x ->
+    Printf.sprintf "Direct PVinPVH boot with kernel = %s; args = %s; ramdisk = %s"
+      x.kernel x.kernel_args (string_of_option x.ramdisk)
+  | IndirectPVinPVH x ->
+    Printf.sprintf "Indirect PVinPVH boot via bootloader %s; extra_args = %s; legacy_args = %s; bootloader_args = %s; VDIs = [ %s ]"
       x.bootloader x.extra_args x.legacy_args x.pv_bootloader_args
       (String.concat "; " (List.map Ref.string_of  x.vdis))
 
@@ -449,40 +458,44 @@ let rolling_upgrade_in_progress ~__context =
 
 (** Inspect the current configuration of a VM and return a boot_method type *)
 let boot_method_of_vm ~__context ~vm =
-  if vm.API.vM_HVM_boot_policy <> "" then begin
-    (* hvm_boot describes the HVM boot order. How? as a qemu-dm -boot param? *)
+  let hvm_options () =
     let timeoffset = try List.assoc "timeoffset" vm.API.vM_platform with _ -> "0" in
-    HVM { timeoffset = timeoffset }
-  end else begin
-    (* PV *)
-    if vm.API.vM_PV_bootloader = "" then begin
-      let kern = vm.API.vM_PV_kernel
-      and args = vm.API.vM_PV_args
-      and ramdisk = if vm.API.vM_PV_ramdisk <> "" then (Some vm.API.vM_PV_ramdisk) else None in
-      DirectPV { kernel = kern; kernel_args = args; ramdisk = ramdisk }
-    end else begin
-      (* Extract the default kernel from the boot disk via bootloader *)
-      (* NB We allow multiple bootable VDIs, in which case the
-         bootloader gets to choose. Note that a VM may have no
-         bootable VDIs; this might happen for example if the
-         bootloader intends to PXE boot *)
-      let bootable = List.filter
-          (fun self -> Db.VBD.get_bootable ~__context ~self)
-          vm.API.vM_VBDs in
-      let non_empty = List.filter
-          (fun self -> not (Db.VBD.get_empty ~__context ~self))
-          bootable in
-      let boot_vdis =
-        List.map
-          (fun self -> Db.VBD.get_VDI ~__context ~self) non_empty in
-      IndirectPV
-        { bootloader = vm.API.vM_PV_bootloader;
-          extra_args = vm.API.vM_PV_args;
-          legacy_args = vm.API.vM_PV_legacy_args;
-          pv_bootloader_args = vm.API.vM_PV_bootloader_args;
-          vdis = boot_vdis }
-    end
-  end
+    { timeoffset }
+  in
+  let direct_pv_options () =
+    let kernel = vm.API.vM_PV_kernel
+    and kernel_args = vm.API.vM_PV_args
+    and ramdisk = if vm.API.vM_PV_ramdisk <> "" then (Some vm.API.vM_PV_ramdisk) else None in
+    { kernel; kernel_args; ramdisk }
+  in
+  let indirect_pv_options () =
+    (* Extract the default kernel from the boot disk via bootloader *)
+    (* NB We allow multiple bootable VDIs, in which case the
+       bootloader gets to choose. Note that a VM may have no
+       bootable VDIs; this might happen for example if the
+       bootloader intends to PXE boot *)
+    let boot_vdis =
+      List.filter
+        (fun self -> Db.VBD.get_bootable ~__context ~self)
+        vm.API.vM_VBDs
+      |> List.filter (fun self -> not (Db.VBD.get_empty ~__context ~self))
+      |> List.map (fun self -> Db.VBD.get_VDI ~__context ~self)
+    in
+    { bootloader = vm.API.vM_PV_bootloader;
+      extra_args = vm.API.vM_PV_args;
+      legacy_args = vm.API.vM_PV_legacy_args;
+      pv_bootloader_args = vm.API.vM_PV_bootloader_args;
+      vdis = boot_vdis }
+  in
+  let direct_boot = vm.API.vM_PV_bootloader = "" in
+  match vm.API.vM_domain_type with
+  | `hvm ->                        HVM (hvm_options ())
+  | `pv when direct_boot ->        DirectPV (direct_pv_options ())
+  | `pv ->                         IndirectPV (indirect_pv_options ())
+  | `pv_in_pvh when direct_boot -> DirectPVinPVH (direct_pv_options ())
+  | `pv_in_pvh ->                  IndirectPVinPVH (indirect_pv_options ())
+  | `unspecified ->
+    raise Api_errors.(Server_error (internal_error, ["unspecified domain type"]))
 
 (** Returns true if the supplied VM configuration is HVM.
     NB that just because a VM's current configuration looks like HVM doesn't imply it
