@@ -889,7 +889,7 @@ let call_plugin_latest_m = Mutex.create ()
 let record_call_plugin_latest vm =
   let interval = Int64.of_float (!Xapi_globs.vm_call_plugin_interval *. 1e9) in
   Mutex.execute call_plugin_latest_m (fun () ->
-      let now = Oclock.gettime Oclock.monotonic in
+      let now = Mtime.to_uint64_ns (Mtime_clock.now ()) in
       (* First do a round of GC *)
       let to_gc = ref [] in
       Hashtbl.iter
