@@ -43,23 +43,17 @@ let permanent_vdi_attach ~__context ~vdi ~reason =
 let permanent_vdi_detach ~__context ~vdi =
   info "permanent_vdi_detach: vdi = %s; sr = %s"
     (Ref.string_of vdi) (Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi));
-  Sm.call_sm_vdi_functions ~__context ~vdi
-    (fun srconf srtype sr -> Sm.vdi_detach srconf srtype sr vdi);
+  let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
   ignore(Helpers.call_script !Xapi_globs.static_vdis
-           [ "del"; Db.VDI.get_uuid ~__context ~self:vdi ])
+           [ "detach"; vdi_uuid ]);
+  ignore(Helpers.call_script !Xapi_globs.static_vdis
+           [ "del"; vdi_uuid ])
 
 (** Detach the VDI (by uuid) now and destroy the static configuration *)
 let permanent_vdi_detach_by_uuid ~__context ~uuid =
   info "permanent_vdi_detach: vdi-uuid = %s" uuid;
-  begin
-    try
-      (* This might fail because the VDI has been destroyed *)
-      let vdi = Db.VDI.get_by_uuid ~__context ~uuid in
-      Sm.call_sm_vdi_functions ~__context ~vdi
-        (fun srconf srtype sr -> Sm.vdi_detach srconf srtype sr vdi)
-    with e ->
-      warn "Ignoring exception calling SM vdi_detach for VDI uuid %s: %s (possibly VDI has been deleted while we were offline" uuid (ExnHelper.string_of_exn e)
-  end;
+  (* This might fail because the VDI has been destroyed *)
+  ignore(Helpers.call_script !Xapi_globs.static_vdis [ "detach"; uuid ]);
   ignore(Helpers.call_script !Xapi_globs.static_vdis [ "del"; uuid ])
 
 let detach_only vdi =
