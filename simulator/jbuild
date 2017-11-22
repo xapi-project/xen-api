@@ -6,7 +6,7 @@
   (package xapi-xenopsd-simulator)
   (flags (:standard -warn-error +a-3))
   (libraries (
-    xenopsd
+    xapi-xenopsd
     profiling
   ))
 ))
