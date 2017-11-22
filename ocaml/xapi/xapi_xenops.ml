@@ -1571,6 +1571,23 @@ let update_vm ~__context id =
               )
               info
           end;
+          if different (fun x -> x.domain_type) then begin
+            Opt.iter
+              (fun (_, state) ->
+                 let metrics = Db.VM.get_metrics ~__context ~self in
+                 let domain_type = match state.Vm.domain_type with
+                   | Domain_HVM       -> `hvm
+                   | Domain_PV        -> `pv
+                   | Domain_PVinPVH   -> `pv_in_pvh
+                   | Domain_undefined -> `unspecified
+                 in
+                 debug "xenopsd event: Updating VM %s current_domain_type <- %s"
+                   id (Record_util.domain_type_to_string domain_type);
+                 Db.VM_metrics.set_current_domain_type ~__context ~self:metrics
+                   ~value:domain_type;
+              )
+              info
+          end;
           let update_pv_drivers_detected () =
             Opt.iter
               (fun (_, state) ->
