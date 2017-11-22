@@ -45,6 +45,12 @@ module Nvidia = struct
     * pgpu_metadata = metadata of the pGPU to check compatibility for. *)
   external get_pgpu_vm_compatibility: debug_info -> pgpu_address -> domid -> nvidia_pgpu_metadata -> compatibility = ""
 
+  (** Check compatibility between a pGPU (on a host) and a list of vGPUs
+   * (assigned to a VM). The use case is VM.suspend/VM.resume: before
+   * VM.resume [nvidia_vgpu_metadata] of the suspended VM is checked
+   * against the [nvidia_pgpu_metadata] on the host where the VM is
+   * resumed. A VM may use several vGPUs.
+   *)
   external get_pgpu_vgpu_compatibility
     : debug_info
     -> nvidia_pgpu_metadata
