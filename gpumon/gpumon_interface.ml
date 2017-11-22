@@ -24,6 +24,7 @@ type compatibility = Compatible | Incompatible of incompatibility_reason list
 
 type pgpu_address = string
 type nvidia_pgpu_metadata = string
+type nvidia_vgpu_metadata = string
 
 (** Exception raised when gpumon is unable to load the nvml nvidia library *)
 exception NvmlInterfaceNotAvailable
@@ -43,4 +44,11 @@ module Nvidia = struct
     * domid = domain ID of the VM in which the vGPU(s) is running.
     * pgpu_metadata = metadata of the pGPU to check compatibility for. *)
   external get_pgpu_vm_compatibility: debug_info -> pgpu_address -> domid -> nvidia_pgpu_metadata -> compatibility = ""
+
+  external get_pgpu_vgpu_compatibility
+    : debug_info
+    -> nvidia_pgpu_metadata
+    -> nvidia_vgpu_metadata list
+    -> compatibility
+    = ""
 end
