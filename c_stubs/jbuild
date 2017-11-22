@@ -2,6 +2,7 @@
 
 (library (
   (name c_stubs)
+  (public_name xapi-xenopsd.c_stubs)
   (wrapped false)
   (c_names (
     poll_stubs
