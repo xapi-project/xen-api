@@ -1794,7 +1794,8 @@ module VM = struct
              nested_virt = begin match vme with
                | None   -> false
                | Some x -> x.VmExtra.persistent.VmExtra.nested_virt
-             end
+             end;
+             domain_type = if di.Xenctrl.hvm_guest then Domain_HVM else Domain_PV;
            }
       )
 

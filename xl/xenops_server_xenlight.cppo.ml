@@ -2734,7 +2734,8 @@ let get_state vm =
            nested_virt = begin match vme with
              | None   -> false
              | Some x -> x.VmExtra.persistent.VmExtra.nested_virt
-           end
+           end;
+           domain_type = if hvm then Domain_HVM else Domain_PVinPVH;
          }
     )
 
