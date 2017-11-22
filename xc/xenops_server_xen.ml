@@ -1253,8 +1253,6 @@ module VM = struct
       vcpus = vm.vcpu_max;
       priv = priv;
     } in
-    let pvinpvh_xen = "" in
-    let pvinpvh_xen_cmdline = "" in
     (* We should prevent leaking files in our filesystem *)
     let kernel_to_cleanup = ref None in
     finally (fun () ->
@@ -1291,7 +1289,7 @@ module VM = struct
               )
           | PVinPVH { boot = Direct direct } ->
             let builder_spec_info = Domain.BuildPVH Domain.{
-                cmdline = pvinpvh_xen_cmdline;
+                cmdline = !Xenopsd.pvinpvh_xen_cmdline;
                 modules = (direct.kernel, Some direct.cmdline) ::
                           (match direct.ramdisk with
                            | Some r -> [r, None]
@@ -1300,7 +1298,7 @@ module VM = struct
                 shadow_multiplier = 1.;
                 video_mib = 4;
               } in
-            ((make_build_info pvinpvh_xen builder_spec_info), "")
+            ((make_build_info !Resources.pvinpvh_xen builder_spec_info), "")
           | PVinPVH { boot = Indirect { devices = [] } } ->
             raise (No_bootable_device)
           | PVinPVH { boot = Indirect ( { devices = d :: _ } as i ) } ->
@@ -1312,7 +1310,7 @@ module VM = struct
                      ~disk:dev ~vm:vm.Vm.id () in
                  kernel_to_cleanup := Some b;
                  let builder_spec_info = Domain.BuildPVH Domain.{
-                     cmdline = pvinpvh_xen_cmdline;
+                     cmdline = !Xenopsd.pvinpvh_xen_cmdline;
                      modules = (b.Bootloader.kernel_path, Some b.Bootloader.kernel_args) ::
                                (match b.Bootloader.initrd_path with
                                 | Some r -> [r, None]
@@ -1321,7 +1319,7 @@ module VM = struct
                      shadow_multiplier = 1.;
                      video_mib = 4;
                    } in
-                 ((make_build_info pvinpvh_xen builder_spec_info), "")
+                 ((make_build_info !Resources.pvinpvh_xen builder_spec_info), "")
               ) in
         Domain.build task ~xc ~xs ~store_domid ~console_domid ~timeoffset ~extras build_info (choose_xenguest vm.Vm.platformdata) domid force;
         Int64.(
@@ -2169,7 +2167,7 @@ module VBD = struct
     else on_frontend
         (fun xc xs frontend_domid hvm ->
            if vbd.backend = None && not hvm
-           then info "VM = %s; an empty CDROM drive on a PV guest is simulated by unplugging the whole drive" vm
+           then info "VM = %s; an empty CDROM drive on PV and PVinPVH guests is simulated by unplugging the whole drive" vm
            else begin
              let vdi = attach_and_activate task xc xs frontend_domid vbd vbd.backend in
 
