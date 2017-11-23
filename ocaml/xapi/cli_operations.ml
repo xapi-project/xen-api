@@ -2843,15 +2843,34 @@ let vm_migrate printer rpc session_id params =
              let gpu_group = Client.GPU_group.get_by_uuid remote_rpc remote_session gpu_group_uuid in
              vgpu,gpu_group) (read_map_params "vgpu" params) in
 
-         let default_sr =
-           try let pools = Client.Pool.get_all remote_rpc remote_session in
-             printer (Cli_printer.PMsg "Selecting remote pool's default SR for migrating VDIs") ;
-             Some (Client.Pool.get_default_SR remote_rpc remote_session (List.hd pools))
+         let preferred_sr =
+           try
+             let query = Printf.sprintf "(field \"host\"=\"%s\") and (field \"currently_attached\"=\"true\")" (Ref.string_of host) in
+             let host_pbds = Client.PBD.get_all_records_where remote_rpc remote_session query in
+             let srs = List.map (fun (pbd_ref, pbd_rec) -> sr_record remote_rpc remote_session pbd_rec.API.pBD_SR) host_pbds in
+             let (sr, free_space) = List.fold_left (fun (sr, free_space) sr' ->
+               let sr_rec' = sr'.record () in
+               if sr_rec'.API.sR_content_type = "iso" then (sr, free_space)
+               else
+                 let free_space' = Int64.sub sr_rec'.API.sR_physical_size sr_rec'.API.sR_physical_utilisation in
+                 match sr with
+                 | None -> (Some sr', free_space')
+                 | Some sr ->
+                   let sr_rec = sr.record () in
+                   match sr_rec.API.sR_shared, sr_rec'.API.sR_shared with
+                   | true, false -> (Some sr, free_space)
+                   | false, true -> (Some sr', free_space')
+                   | _ -> if (free_space' > free_space) then (Some sr', free_space')
+                          else (Some sr, free_space)
+               ) (None, Int64.zero) srs in
+             match sr with
+             | Some sr -> Some (sr.getref ())
+             | _ -> None
            with _ -> None in
 
-         let vdi_map = match default_sr with
+         let vdi_map = match preferred_sr with
            | None -> vdi_map
-           | Some default_sr ->
+           | Some preferred_sr ->
              let vms = select_vms ~include_template_vms:true rpc session_id params
                  ( "host" :: "host-uuid" :: "host-name" :: "live" :: "force" :: "copy"
                    :: vm_migrate_sxm_params ) in
@@ -2864,7 +2883,7 @@ let vm_migrate printer rpc session_id params =
              let overrides = List.map (fun vdi ->
                  if List.mem_assoc vdi vdi_map
                  then (vdi, List.assoc vdi vdi_map)
-                 else (vdi, default_sr)
+                 else (vdi, preferred_sr)
                ) vdis in
              let filtered_orig_list = List.filter (fun (vdi,_) ->
                  not (List.mem_assoc vdi overrides)) vdi_map in
