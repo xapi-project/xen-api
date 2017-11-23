@@ -168,6 +168,12 @@ let uuid_of_vm vm = uuid_of_string vm.Vm.id
 
 let uuid_of_di di = Xenctrl_uuid.uuid_of_handle di.Xenctrl.handle
 
+let domain_type_of_di di =
+  if di.Xenctrl.hvm_guest then
+    Vm.Domain_HVM
+  else
+    Vm.Domain_PV
+
 (* During a live migrate, there will be multiple domains with the same uuid.
    The convention is: we construct things on the newest domain (e.g. VBD.plug)
    and we destroy things on the oldest domain (e.g. VBD.unplug). In the normal
@@ -1548,7 +1554,13 @@ module VM = struct
         ) flags in
     on_domain
       (fun xc xs (task:Xenops_task.task_handle) vm di ->
-         let hvm = di.Xenctrl.hvm_guest in
+         let domain_type =
+           match domain_type_of_di di with
+           | Vm.Domain_HVM -> `hvm
+           | Vm.Domain_PV -> `pv
+           | Vm.Domain_PVinPVH -> `pvh
+           | Vm.Domain_undefined -> failwith "undefined domain type: cannot save"
+         in
          let domid = di.Xenctrl.domid in
 
          let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
@@ -1565,7 +1577,7 @@ module VM = struct
               in
               let xenguest_path = choose_xenguest vm.Vm.platformdata in
               let emu_manager_path = choose_emu_manager vm.Vm.platformdata in
-              Domain.suspend task ~xc ~xs ~hvm ~progress_callback ~qemu_domid ~xenguest_path ~emu_manager_path vm_str domid fd vgpu_fd flags'
+              Domain.suspend task ~xc ~xs ~domain_type ~progress_callback ~qemu_domid ~xenguest_path ~emu_manager_path vm_str domid fd vgpu_fd flags'
                 (fun () ->
                    (* SCTX-2558: wait more for ballooning if needed *)
                    wait_ballooning task vm;

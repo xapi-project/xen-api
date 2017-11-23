@@ -140,7 +140,8 @@ val restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xe
 type suspend_flag = Live | Debug
 
 (** suspend a domain into the file descriptor *)
-val suspend: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool
+val suspend: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh
+  -> domain_type: [`hvm | `pv | `pvh]
   -> xenguest_path:string -> emu_manager_path:string -> string -> domid
   -> Unix.file_descr
   -> Unix.file_descr option
