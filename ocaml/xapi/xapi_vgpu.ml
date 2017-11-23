@@ -21,12 +21,12 @@ let m = Mutex.create ()
 let valid_device device =
   device = "0"
 
-let create ~__context  ~vM ~gPU_group ~device ~other_config ~_type =
+let create' ~__context  ~vM ~gPU_group ~device ~other_config ~_type ~expected_vm_state =
   let vgpu = Ref.make () in
   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
   if not (Pool_features.is_enabled ~__context Features.GPU) then
     raise (Api_errors.Server_error (Api_errors.feature_restricted, []));
-  Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vM ~expected:`Halted;
+  Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vM ~expected:expected_vm_state;
   if not(valid_device device) then
     raise (Api_errors.Server_error (Api_errors.invalid_device, [device]));
 
@@ -56,6 +56,8 @@ let create ~__context  ~vM ~gPU_group ~device ~other_config ~_type =
   debug "VGPU ref='%s' created (VM = '%s', type = '%s')" (Ref.string_of vgpu) (Ref.string_of vM) (Ref.string_of _type);
   vgpu
 
+let create = create' ~expected_vm_state:`Halted
+
 let destroy ~__context ~self =
   let vm = Db.VGPU.get_VM ~__context ~self in
   if Helpers.is_running ~__context ~self:vm then
@@ -66,12 +68,13 @@ let atomic_set_resident_on ~__context ~self ~value = assert false
 
 let copy ~__context ~vm vgpu =
   let all = Db.VGPU.get_record ~__context ~self:vgpu in
-  let vgpu = create ~__context
+  let vgpu = create' ~__context
       ~device:all.API.vGPU_device
       ~gPU_group:all.API.vGPU_GPU_group
       ~vM:vm
       ~other_config:all.API.vGPU_other_config
       ~_type:all.API.vGPU_type
+      ~expected_vm_state:(vm |> fun self -> Db.VM.get_power_state ~__context ~self)
   in
   if all.API.vGPU_currently_attached then
     Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:true;
