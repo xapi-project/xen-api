@@ -11,6 +11,10 @@ let path name default docv doc =
   let doc = Printf.sprintf "Set the path for %s" doc in
   Arg.(value & opt string default & info [name] ~docv ~doc)
 
+let coverage =
+  let doc = "Enable coverage profiling" in
+  Arg.(value & flag & info ["enable-coverage"] ~doc)
+
 let disable_warn_error =
   let doc = "Disable -warn-error (default is enabled for development)" in
   Arg.(value & flag & info [ "disable-warn-error" ] ~doc)
@@ -43,7 +47,12 @@ let output_file filename lines =
   List.iter (output_string oc) lines;
   close_out oc
 
+let yesno_of_bool = function
+  | true -> "YES"
+  | false -> "NO"
+
 let configure
+    coverage
     disable_warn_error
     varpatchdir
     etcdir
@@ -65,6 +74,7 @@ let configure
 
   (* Write config.mk *)
   let vars = [
+    "BISECT_ENABLE", yesno_of_bool coverage;
     "DISABLE_WARN_ERROR", string_of_bool disable_warn_error;
     "VARPATCHDIR", varpatchdir;
     "ETCDIR", etcdir;
@@ -98,7 +108,7 @@ let configure
   output_file config_mk (header @ lines @ [export])
 
 let configure_t =
-  Term.(pure configure $ disable_warn_error $ varpatchdir $ etcdir $
+  Term.(pure configure $ coverage $ disable_warn_error $ varpatchdir $ etcdir $
         optdir $ plugindir $ extensiondir $ hooksdir $ inventory $
         xapiconf $ libexecdir $ scriptsdir $ sharedir $ webdir $
         cluster_stack_root $ bindir $ sbindir $ udevdir $ docdir )
