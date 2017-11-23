@@ -33,6 +33,7 @@ open Pervasiveext
 open Printf
 open Datamodel_types
 
+type wireProtocol = XmlRpc | JsonRpc
 
 let rec list_distinct list =
   match list with

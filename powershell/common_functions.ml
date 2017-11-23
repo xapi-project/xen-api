@@ -120,10 +120,6 @@ and escaped = function
 
 and full_name field =
   escaped (String.concat "_" field.full_name)
-
-and full_description field =
-  field.field_description
-
 and is_readonly field =
   match field.qualifier with
   | RW   -> "false"

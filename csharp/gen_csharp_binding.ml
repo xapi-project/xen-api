@@ -35,6 +35,7 @@ open Xstringext
 
 open Datamodel
 open Datamodel_types
+open Datamodel_utils
 open Dm_api
 
 open CommonFunctions
@@ -117,9 +118,10 @@ let joined sep f l =
     (List.filter (fun x -> String.compare x "" != 0) r)
 
 
-let escape s =
+let escape_xml s =
   let esc_char = function
-    | '"' -> "\\\""
+    | '<' -> "&lt;"
+    | '>' -> "&gt;"
     | c -> String.make 1 c
   in
   String.concat "" (List.map esc_char (String.explode s))
@@ -129,8 +131,10 @@ let enum_of_wire = String.replace "-" "_"
 let api_members = ref []
 
 let rec main() =
-  gen_proxy();
-  List.iter (fun x -> if generated x then gen_class_file x) classes;
+  gen_proxy CommonFunctions.XmlRpc;
+  gen_proxy CommonFunctions.JsonRpc;
+  let filtered_classes = List.filter (fun x-> generated x) classes in
+  List.iter gen_class_file filtered_classes;
   TypeSet.iter gen_enum !enums;
   gen_maps();
   gen_http_actions();
@@ -324,6 +328,10 @@ and gen_class out_chan cls =
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Globalization;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 
 
 namespace XenAPI
@@ -335,7 +343,7 @@ namespace XenAPI
     {"
 
     Licence.bsd_two_clause
-    cls.description (if publishedInfo = "" then "" else "\n    /// "^publishedInfo)
+    (escape_xml cls.description) (if publishedInfo = "" then "" else "\n    /// "^publishedInfo)
     exposed_class_name exposed_class_name;
 
   (* Generate bits for Message type *)
@@ -498,16 +506,14 @@ namespace XenAPI
         public override string SaveChanges(Session session, string opaqueRef, %s server)
         {
             if (opaqueRef == null)
-            {
-"
+            {"
     exposed_class_name exposed_class_name exposed_class_name exposed_class_name exposed_class_name;
 
   if cls.gen_constructor_destructor then
-    print
-      "                Proxy_%s p = this.ToProxy();
-                return session.proxy.%s_create(session.uuid, p).parse();
+    print "
+                var reference = create(session, this);
+                return reference == null ? null : reference.opaque_ref;
 "
-      exposed_class_name (String.lowercase_ascii exposed_class_name)
   else
     print
       "                System.Diagnostics.Debug.Assert(false, \"Cannot create instances of this type on the server\");
@@ -650,7 +656,8 @@ and gen_exposed_method out_chan cls msg curParams =
   let exposed_ret_type = exposed_type_opt msg.msg_result in
   let paramSignature = exposed_params msg classname curParams in
   let paramsDoc = get_params_doc msg classname curParams in
-  let callParams = exposed_call_params msg classname curParams in
+  let callParams = exposed_call_params ~json:false msg classname curParams in
+  let jsonCallParams = exposed_call_params ~json:true msg classname curParams in
   let publishInfo = get_published_info_message msg cls in
   let deprecatedInfo = get_deprecated_info_message msg in
   let deprecatedAttribute = get_deprecated_attribute msg in
@@ -662,7 +669,10 @@ and gen_exposed_method out_chan cls msg curParams =
         /// </summary>%s%s
         public static %s %s(%s)
         {
-            %s;
+            if (session.JsonRpcClient != null)
+                %s;
+            else
+                %s;
         }\n"
     msg.msg_doc (if publishInfo = "" then "" else "\n        /// "^publishInfo)
     deprecatedInfoString
@@ -670,6 +680,7 @@ and gen_exposed_method out_chan cls msg curParams =
     deprecatedAttributeString
     exposed_ret_type
     msg.msg_name paramSignature
+    (json_return_opt (sprintf "session.JsonRpcClient.%s(%s)" proxyMsgName jsonCallParams) msg.msg_result)
     (convert_from_proxy_opt (sprintf "session.proxy.%s(%s).parse()" proxyMsgName callParams) msg.msg_result);
   if msg.msg_async then
     print "
@@ -678,13 +689,17 @@ and gen_exposed_method out_chan cls msg curParams =
         /// </summary>%s%s
         public static XenRef<Task> async_%s(%s)
         {
-            return XenRef<Task>.Create(session.proxy.async_%s(%s).parse());
+          if (session.JsonRpcClient != null)
+              return session.JsonRpcClient.async_%s(%s);
+          else
+              return XenRef<Task>.Create(session.proxy.async_%s(%s).parse());
         }\n"
       msg.msg_doc (if publishInfo = "" then "" else "\n        /// "^publishInfo)
       deprecatedInfoString
       paramsDoc
       deprecatedAttributeString
       msg.msg_name paramSignature
+      proxyMsgName jsonCallParams
       proxyMsgName callParams
 
 and returns_xenobject msg =
@@ -705,7 +720,7 @@ and get_params_doc msg classname params =
 
 and get_param_doc msg x =
   let publishInfo = get_published_info_param msg x in
-  sprintf "\n        /// <param name=\"_%s\">%s%s</param>" (String.lowercase_ascii x.param_name) x.param_doc
+  sprintf "\n        /// <param name=\"_%s\">%s%s</param>" (String.lowercase_ascii x.param_name) (escape_xml x.param_doc)
     (if publishInfo = "" then "" else " "^publishInfo)
 
 and exposed_params message classname params =
@@ -717,15 +732,17 @@ and exposed_params message classname params =
 and exposed_param p =
   sprintf "%s _%s" (internal_type p.param_type) (String.lowercase_ascii p.param_name)
 
-and exposed_call_params message classname params =
-  let exposedParams = List.map exposed_call_param params in
+and exposed_call_params ~json message classname params =
+  let exposed_call_param json p =
+    let pName = String.lowercase_ascii p.param_name in
+    if json then sprintf "_%s" pName
+    else convert_to_proxy (sprintf "_%s" pName) p.param_type
+  in
+  let exposedParams = List.map (exposed_call_param json) params in
   let name = String.lowercase_ascii classname in
-  let refParam = sprintf "_%s ?? \"\"" name in
+  let refParam = if json then sprintf "_%s" name else sprintf "_%s ?? \"\"" name in
   let exposedParams = if is_method_static message then exposedParams else refParam::exposedParams in
   String.concat ", " ("session.uuid"::exposedParams)
-
-and exposed_call_param p =
-  convert_to_proxy (sprintf "_%s" (String.lowercase_ascii p.param_name)) p.param_type
 
 
 (* 'messages' are methods, 'contents' are fields *)
@@ -787,11 +804,12 @@ and gen_exposed_field out_chan cls content =
     print "
         /// <summary>
         /// %s%s
-        /// </summary>
+        /// </summary>%s
         public virtual %s %s
         {
-            get { return _%s; }" fr.field_description
+            get { return _%s; }" (escape_xml fr.field_description)
       (if publishInfo = "" then "" else "\n        /// "^publishInfo)
+      (json_serialization_attr fr.ty)
       (exposed_type fr.ty) full_name_fr full_name_fr;
 
     print
@@ -808,24 +826,29 @@ and gen_exposed_field out_chan cls content =
         }" comp full_name_fr full_name_fr;
 
     print "
-        private %s _%s;\n" (exposed_type fr.ty) full_name_fr
+        private %s _%s%s;\n" (exposed_type fr.ty) full_name_fr
+      (get_default_value_opt fr)
 
   | Namespace (_, c) -> List.iter (gen_exposed_field out_chan cls) c
 
 (* ------------------- category: proxy classes *)
 
-and gen_proxy() =
-  let out_chan = open_out (Filename.concat destdir "Proxy.cs")
+and gen_proxy protocol =
+  let output_file =
+    match protocol with
+    | CommonFunctions.XmlRpc -> "Proxy.cs"
+    | CommonFunctions.JsonRpc -> "JsonRpcClient.cs"
   in
-  finally (fun () -> gen_proxy' out_chan)
+  let out_chan = open_out (Filename.concat destdir output_file)
+  in
+  finally (fun () -> gen_proxy' protocol out_chan)
     (fun () -> close_out out_chan)
 
-
-and gen_proxy' out_chan =
+and gen_proxy' protocol out_chan =
   let print format = fprintf out_chan format in
-
-  (* NB the Event methods below must be manually written out since the class is hand-written not autogenerated *)
-  print "%s
+  print "%s" Licence.bsd_two_clause;
+  match protocol with
+  | CommonFunctions.XmlRpc -> print "
 
 using System;
 using System.Collections;
@@ -869,64 +892,182 @@ namespace XenAPI
         [XmlRpcMethod(\"event.from\")]
         Response<Events>
         event_from(string session, string [] _classes, string _token, double _timeout);
-" Licence.bsd_two_clause;
-
-  List.iter
-    (fun x -> if proxy_generated x then gen_proxy_for_class out_chan x) classes;
-  print
-    "    }
+";
+    List.iter (fun x -> if proxy_generated x then gen_proxy_for_class protocol out_chan x) classes;
+    print
+      "    }
 
 ";
+    List.iter (fun x -> if proxy_generated x then gen_proxyclass out_chan x) classes;
+    print
+      "}
+"
+  | CommonFunctions.JsonRpc -> print "
 
-  List.iter (fun x -> if proxy_generated x then gen_proxyclass out_chan x) classes;
+using System;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Linq;
 
-  print
-    "}
+
+namespace XenAPI
+{
+    public partial class JsonRpcClient
+    {
+        public Event event_get_record(string session, string _event)
+        {
+            var converters = new List<JsonConverter> {};
+            var serializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = converters });
+            return Rpc<Event>(\"event.get_record\", new JArray(session, _event ?? \"\"), serializer);
+        }
+
+        public string event_get_by_uuid(string session, string _uuid)
+        {
+            var converters = new List<JsonConverter> {};
+            var serializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = converters });
+            return Rpc<string>(\"event.get_by_uuid\", new JArray(session, _uuid ?? \"\"), serializer);
+        }
+
+        public long event_get_id(string session, string _event)
+        {
+            var converters = new List<JsonConverter> {};
+            var serializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = converters });
+            return Rpc<long>(\"event.get_id\", new JArray(session, _event ?? \"\"), serializer);
+        }
+
+        public void event_set_id(string session, string _event, long _id)
+        {
+            var converters = new List<JsonConverter> {};
+            var serializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = converters });
+            Rpc(\"event.set_id\", new JArray(session, _event ?? \"\", _id), serializer);
+        }
+
+        public void event_register(string session, string[] _classes)
+        {
+            var converters = new List<JsonConverter> {};
+            var serializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = converters });
+            Rpc(\"event.register\", new JArray(session, JArray.FromObject(_classes ?? new string[] {})), serializer);
+        }
+
+        public void event_unregister(string session, string[] _classes)
+        {
+            var converters = new List<JsonConverter> {};
+            var serializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = converters });
+            Rpc(\"event.unregister\", new JArray(session, JArray.FromObject(_classes ?? new string[] {})), serializer);
+        }
+
+        public EventBatch event_from(string session, string[] _classes, string _token, double _timeout)
+        {
+            var converters = new List<JsonConverter> {};
+            var serializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = converters });
+            return Rpc<EventBatch>(\"event.from\", new JArray(session, JArray.FromObject(_classes ?? new string[] {}), _token ?? \"\", _timeout), serializer);
+        }
+";
+    List.iter (fun x -> if proxy_generated x then gen_proxy_for_class protocol out_chan x) classes;
+    print "
+    }
+}
 "
 
-
-and gen_proxy_for_class out_chan {name=classname; messages=messages} =
+and gen_proxy_for_class protocol out_chan {name=classname; messages=messages} =
   (* Generate each of the proxy methods (but not the internal-only ones that are marked hide_from_docs) *)
-  List.iter (gen_proxy_method_overloads out_chan classname) (List.filter (fun x -> not x.msg_hide_from_docs) messages);
+  List.iter (gen_proxy_method_overloads protocol out_chan classname) (List.filter (fun x -> not x.msg_hide_from_docs) messages);
   if (not (List.exists (fun msg -> String.compare msg.msg_name "get_all_records" = 0) messages)) then
-    gen_proxy_method out_chan classname (get_all_records_method classname) []
+    gen_proxy_method protocol out_chan classname (get_all_records_method classname) []
 
-and gen_proxy_method_overloads out_chan classname message =
-  let generator = fun x -> gen_proxy_method out_chan classname message x in
+and gen_proxy_method_overloads protocol out_chan classname message =
+  let generator = fun x -> gen_proxy_method protocol out_chan classname message x in
   gen_overload out_chan classname message generator
 
-and gen_proxy_method out_chan classname message params =
+and gen_proxy_method protocol out_chan classname message params =
   let print format = fprintf out_chan format in
   let proxy_ret_type = proxy_type_opt message.msg_result in
   let proxy_msg_name = proxy_msg_name classname message in
-  let proxyParams = proxy_params message classname params in
-
-  print "
+  let proxyParams = proxy_params ~with_types:true ~json:false message classname params in
+  let paramsJsonWithTypes = proxy_params ~with_types:true ~json:true message classname params in
+  let paramsJsonNoTypes = proxy_params ~with_types:false ~json:true message classname params in
+  match protocol with
+  | CommonFunctions.XmlRpc ->
+    print "
         [XmlRpcMethod(\"%s.%s\")]
         Response<%s>
         %s(%s);
-" classname message.msg_name
-    proxy_ret_type
-    proxy_msg_name proxyParams;
+" classname message.msg_name proxy_ret_type proxy_msg_name proxyParams;
 
-  if message.msg_async then
-    print "
+    if message.msg_async then
+      print "
         [XmlRpcMethod(\"Async.%s.%s\")]
         Response<string>
         async_%s(%s);
-" classname message.msg_name
-      proxy_msg_name proxyParams;
+" classname message.msg_name proxy_msg_name proxyParams;
+
+  | CommonFunctions.JsonRpc ->
+    let return_word =
+      match message.msg_result with
+      | Some (typ, _) -> "return "
+      | None -> ""
+    in
+    let param_converters = List.map (fun x -> json_converter x.param_type) params in
+    let converters = (json_converter_opt message.msg_result)::param_converters |> List.filter (fun x-> x <> "") in
+    let async_converters = "new XenRefConverter<Task>()":: param_converters |> List.filter (fun x-> x <> "") in
+    print "
+        public %s %s(%s)
+        {
+            var converters = new List<JsonConverter> {%s};
+            var serializer = JsonSerializer.Create(new JsonSerializerSettings {Converters = converters});
+            %sRpc%s(\"%s.%s\", new JArray(%s), serializer);
+        }
+" (exposed_type_opt message.msg_result) proxy_msg_name paramsJsonWithTypes
+      (String.concat ", " converters)
+      return_word (json_deserialise_opt message.msg_result) classname message.msg_name
+      paramsJsonNoTypes;
+
+    if message.msg_async then
+      print "
+        public XenRef<Task> async_%s(%s)
+        {
+            var converters = new List<JsonConverter> {%s};
+            var serializer = JsonSerializer.Create(new JsonSerializerSettings {Converters = converters});
+            return Rpc<XenRef<Task>>(\"Async.%s.%s\", new JArray(%s), serializer);
+        }
+" proxy_msg_name paramsJsonWithTypes (String.concat ", " async_converters)
+        classname message.msg_name paramsJsonNoTypes
 
 
-and proxy_params message classname params =
-  let refParam = sprintf "string _%s" (String.lowercase_ascii classname) in
-  let args = List.map proxy_param params in
+and proxy_params ~with_types ~json message classname params =
+  let refParam =
+    if json then
+      sprintf (if with_types then "string _%s" else "_%s ?? \"\"") (String.lowercase_ascii classname)
+    else
+      sprintf (if with_types then "string _%s" else "_%s") (String.lowercase_ascii classname)
+  in
+  let args = List.map (proxy_param ~with_types ~json) params in
   let args = if is_method_static message then args else refParam::args in
-  let args = if message.msg_session then "string session" :: args else args in
+  let args =
+    if message.msg_session then (if with_types then "string session" else "session") :: args
+    else args
+  in
   String.concat ", " args
 
-and proxy_param p =
-  sprintf "%s _%s" (proxy_type p.param_type) (String.lowercase_ascii p.param_name)
+and proxy_param ~with_types ~json p =
+  if json then (
+    if with_types then (
+      let exposed_type_json = function
+        | Ref name -> "string"
+        | _ as x -> exposed_type x
+      in
+      sprintf "%s _%s" (exposed_type_json p.param_type) (String.lowercase_ascii p.param_name)
+    )
+    else
+      json_param p
+  )
+  else (
+    if with_types then
+      sprintf "%s _%s" (proxy_type p.param_type) (String.lowercase_ascii p.param_name)
+    else
+      sprintf "_%s" (String.lowercase_ascii p.param_name)
+  )
 
 
 and ctor_fields fields =
@@ -981,15 +1122,15 @@ and gen_enum' name contents out_chan =
 
   print "%s
 
-using System;
-using System.Collections.Generic;
+using Newtonsoft.Json;
 
 
 namespace XenAPI
 {
+    [JsonConverter(typeof(%sConverter))]
     public enum %s
     {
-        " Licence.bsd_two_clause name;
+        " Licence.bsd_two_clause name name;
 
   print "%s" (joined ", " gen_enum_line contents);
 
@@ -1003,9 +1144,17 @@ namespace XenAPI
     {
         public static string ToString(%s x)
         {
+            return x.StringOf();
+        }
+    }
+
+    public static partial class EnumExt
+    {
+        public static string StringOf(this %s x)
+        {
             switch (x)
             {
-" name name;
+" name name name;
 
   List.iter (fun (wire, _) ->
       print "                case %s.%s:\n                    return \"%s\";\n" name (enum_of_wire wire) wire
@@ -1016,8 +1165,16 @@ namespace XenAPI
             }
         }
     }
+
+    internal class %sConverter : XenEnumConverter
+    {
+        public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+        {
+            writer.WriteValue(((%s)value).StringOf());
+        }
+    }
 }
-"
+" name name
 
 
 and gen_enum_line content =
@@ -1050,13 +1207,14 @@ and gen_maps' out_chan =
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using CookComputing.XmlRpc;
 
 
 namespace XenAPI
 {
     internal class Maps
-    {
-" Licence.bsd_two_clause;
+    {"
+    Licence.bsd_two_clause;
 
   TypeSet.iter (gen_map_conversion out_chan) !maps;
 
@@ -1073,9 +1231,8 @@ and gen_map_conversion out_chan = function
     let er = exposed_type r in
     let er_literal = exposed_type_as_literal r in
 
-    print
-      "        internal static Dictionary<%s, %s>
-        convert_from_proxy_%s_%s(Object o)
+    print "
+        internal static Dictionary<%s, %s> convert_from_proxy_%s_%s(Object o)
         {
             Hashtable table = (Hashtable)o;
             Dictionary<%s, %s> result = new Dictionary<%s, %s>();
@@ -1098,10 +1255,9 @@ and gen_map_conversion out_chan = function
             return result;
         }
 
-        internal static Hashtable
-        convert_to_proxy_%s_%s(Dictionary<%s, %s> table)
+        internal static Hashtable convert_to_proxy_%s_%s(Dictionary<%s, %s> table)
         {
-            CookComputing.XmlRpc.XmlRpcStruct result = new CookComputing.XmlRpc.XmlRpcStruct();
+            var result = new XmlRpcStruct();
             if (table != null)
             {
                 foreach (%s key in table.Keys)
@@ -1273,7 +1429,7 @@ and simple_convert_from_proxy thing ty =
   | _                   -> assert false
 
 
-and convert_to_proxy thing ty = (*function*)
+and convert_to_proxy thing ty =
   match ty with
   | DateTime            -> thing
   | Int                 -> sprintf "%s.ToString()" thing
@@ -1290,7 +1446,6 @@ and convert_to_proxy thing ty = (*function*)
     sprintf "%s(%s)"
       (sanitise_function_name (sprintf "Maps.convert_to_proxy_%s_%s" (exposed_type_as_literal u) (exposed_type_as_literal v))) thing
   | Record name         -> sprintf "%s.ToProxy()" thing
-
   | _                   -> assert false
 
 
@@ -1310,10 +1465,6 @@ and escaped = function
 and full_name field =
   escaped (String.concat "_" field.full_name)
 
-and full_description field =
-  field.field_description
-
-
 and is_readonly field =
   match field.qualifier with
     RW   -> "false"
@@ -1325,6 +1476,90 @@ and is_static_readonly field =
     StaticRO     -> "true"
   | DynamicRO    -> "false"
   | _            -> "false"
+
+and json_param p =
+  let thing = String.lowercase_ascii p.param_name in
+  match p.param_type with
+  | Int
+  | Float
+  | Bool
+  | DateTime       -> sprintf "_%s" thing
+  | String
+  | Ref _          -> sprintf "_%s ?? \"\"" thing
+  | Enum _         -> sprintf "_%s.StringOf()" thing
+  | Set (Ref name) -> sprintf "_%s == null ? new JArray() : JArray.FromObject(_%s, serializer)" thing thing
+  | Set u          -> sprintf "_%s == null ? new JArray() : JArray.FromObject(_%s)" thing thing
+  | Map (u, v)     -> sprintf "_%s == null ? new JObject() : JObject.FromObject(_%s, serializer)" thing thing
+  | Record name    -> sprintf "JObject.FromObject(_%s)" thing
+
+and json_deserialise_opt = function
+  | Some (typ, _) -> sprintf "<%s>" (exposed_type typ)
+  | None -> ""
+
+and json_converter = function
+  | DateTime              -> "new XenDateTimeConverter()"
+  | Enum (name, _)        -> sprintf "new %sConverter()" name
+  | Ref name              -> sprintf "new XenRefConverter<%s>()" (exposed_class_name name)
+  | Set (Ref name)        -> sprintf "new XenRefListConverter<%s>()" (exposed_class_name name)
+  | Map (Ref u, Record v) -> sprintf "new XenRefXenObjectMapConverter<%s>()" (exposed_class_name u)
+  | Map (Ref u, Ref v)    -> sprintf "new XenRefXenRefMapConverter<%s, %s>()" (exposed_class_name u) (exposed_class_name v)
+  | Map (Ref u, String)   -> sprintf "new XenRefStringMapConverter<%s>()" (exposed_class_name u)
+  | Map (Ref u, Set(String)) -> sprintf "new XenRefStringSetMapConverter<%s>()" (exposed_class_name u)
+  | Map (String, Ref v)   -> sprintf "new StringXenRefMapConverter<%s>()" (exposed_class_name v)
+  | _                     -> ""
+
+and json_converter_opt = function
+  | Some (typ, _) -> json_converter typ
+  | None -> ""
+
+and json_return_opt thing = function
+  | Some (typ, _) -> "return " ^ thing
+  | None -> thing
+
+and json_serialization_attr = function
+  | DateTime              -> sprintf "\n        [JsonConverter(typeof(XenDateTimeConverter))]"
+  | Enum (name, _)        -> sprintf "\n        [JsonConverter(typeof(%sConverter))]" name
+  | Ref name              -> sprintf "\n        [JsonConverter(typeof(XenRefConverter<%s>))]" (exposed_class_name name)
+  | Set (Ref name)        -> sprintf "\n        [JsonConverter(typeof(XenRefListConverter<%s>))]" (exposed_class_name name)
+  | Map (Ref u, Record v) -> sprintf "\n        [JsonConverter(typeof(XenRefObjectMapConverter<%s>))]" (exposed_class_name u)
+  | Map (Ref u, Ref v)    -> sprintf "\n        [JsonConverter(typeof(XenRefXenRefMapConverter<%s, %s>))]" (exposed_class_name u) (exposed_class_name v)
+  | Map (Ref u, String)   -> sprintf "\n        [JsonConverter(typeof(XenRefStringMapConverter<%s>))]" (exposed_class_name u)
+  | Map (String, Ref v)   -> sprintf "\n        [JsonConverter(typeof(StringXenRefMapConverter<%s>))]" (exposed_class_name v)
+  | _                     -> ""
+
+and get_default_value_opt field =
+  let rec get_default_value = function
+    | VString y -> ["\"" ^ y ^ "\""]
+    | VInt y -> [Int64.to_string y]
+    | VFloat y -> [sprintf "%.3f" y]
+    | VBool y -> [string_of_bool y]
+    | VDateTime y -> [Printf.sprintf "DateTime.ParseExact(\"%s\", \"yyyyMMddTHH:mm:ssZ\", CultureInfo.InvariantCulture)" (Date.to_string y)]
+    | VEnum y -> [enum_of_wire y]
+    | VMap y -> List.map (fun (a, b) -> sprintf "{%s, %s}" (String.concat ", " (get_default_value a)) (String.concat ", " (get_default_value b))) y
+    | VSet y -> List.map (fun x -> String.concat ", " (get_default_value x)) y
+    | VRef y -> if y = "" then ["Helper.NullOpaqueRef"] else [sprintf "\"%s\"" y]
+    | VCustom (_,y) -> get_default_value y
+  in
+  match field.default_value with
+  | Some y -> get_default_value_per_type field.ty (get_default_value y)
+  | None -> get_default_value_per_type field.ty []
+
+and get_default_value_per_type ty thing =
+  match ty with
+  | DateTime
+  | Int
+  | Bool
+  | Float          -> if thing = [] then "" else sprintf " = %s" (String.concat ", " thing)
+  | Ref _          -> sprintf " = new %s(%s)" (exposed_type ty) (if thing = [] then "Helper.NullOpaqueRef" else (String.concat ", " thing))
+  | String         -> sprintf " = %s" (if thing = [] then "\"\"" else (String.concat ", " thing))
+  | Enum (name,_)  -> if thing = [] then "" else sprintf " = %s.%s" name (String.concat ", " thing)
+  | Set(Int)
+  | Set(String)    -> sprintf " = {%s}" (String.concat ", " thing)
+  | Set (Ref name) -> sprintf " = new %s() {%s}" (exposed_type ty)
+                        (if thing = [] then "" else String.concat ", " (List.map (fun x-> sprintf "new XenRef<%s>(%s)" (exposed_class_name name) x) thing))
+  | Set _          -> sprintf " = new %s() {%s}" (exposed_type ty) (String.concat ", " thing)
+  | Map(u, v)      -> sprintf " = new Dictionary<%s, %s>() {%s}" (exposed_type u) (exposed_type v) (String.concat ", " thing)
+  | Record name    -> sprintf " = new %s()" (exposed_type ty)
 
 and gen_i18n_errors () =
   Friendly_error_names.parse_sr_xml sr_xml;
