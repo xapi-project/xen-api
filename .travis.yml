@@ -7,7 +7,6 @@ env:
     - OCAML_VERSION=4.04.2
     - DISTRO=debian-stable
     - PACKAGE=xapi-nbd
-    - PINS="nbd:git://github.com/xapi-project/nbd.git#bugfix-v2.x xen-api-client:git://github.com/xapi-project/xen-api-client#feature/CBT xen-api-client-lwt:git://github.com/xapi-project/xen-api-client#feature/CBT xen-api-client-async:git://github.com/xapi-project/xen-api-client#feature/CBT"
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
