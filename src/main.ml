@@ -61,8 +61,6 @@ let handle_connection fd tls_role =
     let vdi_uuid = if path <> "" then String.sub path 1 (String.length path - 1) else path in
     Xen_api.VDI.get_by_uuid ~rpc ~session_id ~uuid:vdi_uuid
     >>= fun vdi_ref ->
-    Xen_api.VDI.get_record ~rpc ~session_id ~self:vdi_ref
-    >>= fun vdi_rec ->
     with_attached_vdi vdi_ref rpc session_id
       (fun filename ->
          Cleanup.Block.with_block filename (Nbd_lwt_unix.Server.serve t ~read_only:true (module Block))
