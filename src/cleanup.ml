@@ -163,6 +163,14 @@ module Block = struct
 end
 
 module Runtime = struct
+  (* Exceptions raised from signal handlers are not caught by the Lwt.finalize
+     functions unfortunately, therefore just raising an exception from the
+     signal handlers is not enough: We need to use a global reference instead
+     to collect the things to be cleaned up, and add cleanup code to the signal
+     handlers. It is still necessary to raise an exception from the signal
+     handlers to stop the program.
+     See https://github.com/ocsigen/lwt/issues/451 for details. *)
+
   let cleanup_resources signal =
     let cleanup () =
       Lwt_log.warning_f "Caught signal %d, cleaning up" signal >>= fun () ->
