@@ -1111,7 +1111,7 @@ module VM = struct
     ) Newest task vm
 
   let set_shadow_multiplier task vm target = on_domain (fun xc xs _ _ di ->
-      if not di.Xenctrl.hvm_guest then raise (Unimplemented "shadow_multiplier for PV domains");
+      if domain_type_of_di di = Vm.Domain_PV then raise (Unimplemented "shadow_multiplier for PV domains");
       let domid = di.Xenctrl.domid in
       let static_max_mib = Memory.mib_of_bytes_used vm.Vm.memory_static_max in
       let newshadow = Int64.to_int (Memory.HVM.shadow_mib static_max_mib vm.Vm.vcpu_max target) in
@@ -1805,7 +1805,7 @@ module VM = struct
                | None   -> false
                | Some x -> x.VmExtra.persistent.VmExtra.nested_virt
              end;
-             domain_type = if di.Xenctrl.hvm_guest then Domain_HVM else Domain_PV;
+             domain_type = domain_type_of_di di;
            }
       )
 
@@ -1948,7 +1948,7 @@ let on_frontend f domain_selection frontend =
        let frontend_di = match frontend |> uuid_of_string |> di_of_uuid ~xc ~xs domain_selection with
          | None -> raise (Does_not_exist ("domain", frontend))
          | Some x -> x in
-       f xc xs frontend_di.Xenctrl.domid frontend_di.Xenctrl.hvm_guest
+       f xc xs frontend_di.Xenctrl.domid (domain_type_of_di frontend_di)
     )
 
 module PCI = struct
@@ -1976,7 +1976,7 @@ module PCI = struct
 
   let plug task vm pci =
     on_frontend
-      (fun xc xs frontend_domid hvm ->
+      (fun xc xs frontend_domid _ ->
          (* Make sure the backend defaults are set *)
          let vm_t = DB.read_exn vm in
          let non_persistent = vm_t.VmExtra.non_persistent in
@@ -1999,11 +1999,11 @@ module PCI = struct
   let unplug task vm pci =
     try
       on_frontend
-        (fun xc xs frontend_domid hvm ->
+        (fun xc xs frontend_domid domain_type ->
            try
-             if hvm
+             if domain_type = Vm.Domain_HVM
              then Device.PCI.release [ pci.address ] frontend_domid
-             else error "VM = %s; PCI.unplug for PV guests is unsupported" vm
+             else error "VM = %s; PCI.unplug is only supported for HVM guests" vm
            with Not_found ->
              debug "VM = %s; PCI.unplug %s.%s caught Not_found: assuming device is unplugged already" vm (fst pci.id) (snd pci.id)
         ) Oldest vm
@@ -2072,9 +2072,9 @@ module VUSB = struct
 
   let plug task vm vusb =
     on_frontend
-      (fun xc xs frontend_domid hvm ->
-         if not hvm
-         then info "VM = %s; vusb device will no plug to  a PV guest" vm
+      (fun xc xs frontend_domid domain_type ->
+         if domain_type <> Vm.Domain_HVM
+         then info "VM = %s; USB passthrough is only supported for HVM guests" vm
          else
            Device.Vusb.vusb_plug ~xs ~domid:frontend_domid ~id:(snd vusb.Vusb.id) ~hostbus:vusb.Vusb.hostbus ~hostport:vusb.Vusb.hostport ~version:vusb.Vusb.version;
       ) Newest vm
@@ -2082,7 +2082,7 @@ module VUSB = struct
   let unplug task vm vusb =
     try
       on_frontend
-        (fun xc xs frontend_domid hvm ->
+        (fun xc xs frontend_domid _ ->
            Device.Vusb.vusb_unplug ~xs ~domid:frontend_domid ~id:(snd vusb.Vusb.id);
         ) Newest vm
     with (Does_not_exist(_,_)) ->
@@ -2177,8 +2177,8 @@ module VBD = struct
     if not(get_active vm vbd)
     then debug "VBD %s.%s is not active: not plugging into VM" (fst vbd.Vbd.id) (snd vbd.Vbd.id)
     else on_frontend
-        (fun xc xs frontend_domid hvm ->
-           if vbd.backend = None && not hvm
+        (fun xc xs frontend_domid domain_type ->
+           if vbd.backend = None && domain_type <> Vm.Domain_HVM
            then info "VM = %s; an empty CDROM drive on PV and PVinPVH guests is simulated by unplugging the whole drive" vm
            else begin
              let vdi = attach_and_activate task xc xs frontend_domid vbd vbd.backend in
@@ -2216,7 +2216,7 @@ module VBD = struct
              } in
              let device =
                Xenops_task.with_subtask task (Printf.sprintf "Vbd.add %s" (id_of vbd))
-                 (fun () -> Device.Vbd.add task ~xc ~xs ~hvm x frontend_domid) in
+                 (fun () -> Device.Vbd.add task ~xc ~xs ~hvm:(domain_type = Vm.Domain_HVM) x frontend_domid) in
 
              (* We store away the disk so we can implement VBD.stat *)
              Opt.iter (fun disk -> xs.Xs.write (vdi_path_of_device ~xs device) (disk |> rpc_of_disk |> Jsonrpc.to_string)) vbd.backend;
@@ -2327,8 +2327,8 @@ module VBD = struct
 
   let insert task vm vbd disk =
     on_frontend
-      (fun xc xs frontend_domid hvm ->
-         if not hvm
+      (fun xc xs frontend_domid domain_type ->
+         if domain_type <> Vm.Domain_HVM
          then plug task vm { vbd with backend = Some disk }
          else begin
            let (device: Device_common.device) = device_by_id xc xs vm (device_kind_of ~xs vbd) Newest (id_of vbd) in
@@ -2343,7 +2343,7 @@ module VBD = struct
 
   let eject task vm vbd =
     on_frontend
-      (fun xc xs frontend_domid hvm ->
+      (fun xc xs frontend_domid _ ->
          let (device: Device_common.device) = device_by_id xc xs vm (device_kind_of ~xs vbd) Oldest (id_of vbd) in
          Device.Vbd.media_eject ~xs device;
          safe_rm xs (vdi_path_of_device ~xs device);
@@ -2555,7 +2555,7 @@ module VIF = struct
     if not(get_active vm vif)
     then debug "VIF %s.%s is not active: not plugging into VM" (fst vif.Vif.id) (snd vif.Vif.id)
     else on_frontend
-        (fun xc xs frontend_domid hvm ->
+        (fun xc xs frontend_domid _ ->
            let backend_domid = backend_domid_of xc xs vif in
            (* Remember the VIF id with the device *)
            let id = _device_id Device_common.Vif, id_of vif in
@@ -2712,7 +2712,7 @@ module VIF = struct
          ignore (run !Xc_resources.setup_vif_rules ["classic"; vif_interface_name; vm; devid; "filter"]);
          (* Update rules for the tap device if the VM has booted HVM with no PV drivers. *)
          let di = Xenctrl.domain_getinfo xc device.frontend.domid in
-         if di.Xenctrl.hvm_guest
+         if domain_type_of_di di = Vm.Domain_HVM
          then ignore (run !Xc_resources.setup_vif_rules ["classic"; tap_interface_name; vm; devid; "filter"])
       )
 
@@ -2798,7 +2798,7 @@ module VIF = struct
            let di = Xenctrl.domain_getinfo xc device.frontend.domid in
            ignore (run !Xc_resources.setup_pvs_proxy_rules [action; "vif"; vif_interface_name;
                                                             private_path; hotplug_path]);
-           if di.Xenctrl.hvm_guest then
+           if domain_type_of_di di = Vm.Domain_HVM then
              try
                ignore (run !Xc_resources.setup_pvs_proxy_rules [action; "tap"; tap_interface_name;
                                                                 private_path; hotplug_path])
