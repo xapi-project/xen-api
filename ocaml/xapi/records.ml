@@ -2184,7 +2184,5 @@ let cluster_host_record rpc session_id cluster_host =
       ; make_field ~name:"other_config"
           ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.cluster_host_other_config)
           ~get_map:(fun () -> (x ()).API.cluster_host_other_config)
-          ~add_to_map:(fun k v -> Client.Cluster.add_to_other_config rpc session_id cluster_host k v)
-          ~remove_from_map:(fun k -> Client.Cluster.remove_from_other_config rpc session_id cluster_host k)
           ()
       ]}
