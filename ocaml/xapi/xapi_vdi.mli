@@ -165,7 +165,7 @@ val clone :
 val copy :
   __context:Context.t ->
   vdi:[ `VDI ] API.Ref.t ->
-  sr:'a Ref.t ->
+  sr:[<`SR] Ref.t ->
   base_vdi:API.ref_VDI ->
   into_vdi:[ `VDI ] API.Ref.t Client.Id.t -> [ `VDI ] API.Ref.t Client.Id.t
 val force_unlock : __context:'a -> vdi:'b -> 'c
