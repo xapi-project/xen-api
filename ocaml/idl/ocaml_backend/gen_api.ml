@@ -143,8 +143,8 @@ let gen_client_types highapi =
         ]; [
           "module Ref = struct";
           "  include Ref";
-          "  let rpc_of_t _ x = rpc_of_string (Ref.string_of x)";
-          "  let t_of_rpc _ x = of_string (string_of_rpc x);";
+          "  let rpc_of_t (_:'a -> Rpc.t) (x: 'a Ref.t) = rpc_of_string (Ref.string_of x)";
+          "  let t_of_rpc (_:Rpc.t -> 'a) x : 'a t = of_string (string_of_rpc x);";
           "end";
         ]; [
           "module Date = struct";
