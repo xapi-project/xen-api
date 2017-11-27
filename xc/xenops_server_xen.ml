@@ -1259,6 +1259,10 @@ module VM = struct
       vcpus = vm.vcpu_max;
       priv = priv;
     } in
+    let pvinpvh_xen_cmdline =
+      try List.assoc "pvinpvh-xen-cmdline" vm.Vm.platformdata
+      with Not_found -> !Xenopsd.pvinpvh_xen_cmdline
+    in
     (* We should prevent leaking files in our filesystem *)
     let kernel_to_cleanup = ref None in
     finally (fun () ->
@@ -1294,8 +1298,9 @@ module VM = struct
                  ((make_build_info b.Bootloader.kernel_path builder_spec_info), "")
               )
           | PVinPVH { boot = Direct direct } ->
+            debug "Checking xen cmdline";
             let builder_spec_info = Domain.BuildPVH Domain.{
-                cmdline = !Xenopsd.pvinpvh_xen_cmdline;
+                cmdline = pvinpvh_xen_cmdline;
                 modules = (direct.kernel, Some direct.cmdline) ::
                           (match direct.ramdisk with
                            | Some r -> [r, None]
@@ -1316,7 +1321,7 @@ module VM = struct
                      ~disk:dev ~vm:vm.Vm.id () in
                  kernel_to_cleanup := Some b;
                  let builder_spec_info = Domain.BuildPVH Domain.{
-                     cmdline = !Xenopsd.pvinpvh_xen_cmdline;
+                     cmdline = pvinpvh_xen_cmdline;
                      modules = (b.Bootloader.kernel_path, Some b.Bootloader.kernel_args) ::
                                (match b.Bootloader.initrd_path with
                                 | Some r -> [r, None]
