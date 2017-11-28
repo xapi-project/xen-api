@@ -61,8 +61,6 @@ let handle_connection fd tls_role =
     let vdi_uuid = if path <> "" then String.sub path 1 (String.length path - 1) else path in
     Xen_api.VDI.get_by_uuid ~rpc ~session_id ~uuid:vdi_uuid
     >>= fun vdi_ref ->
-    Xen_api.VDI.get_record ~rpc ~session_id ~self:vdi_ref
-    >>= fun vdi_rec ->
     with_attached_vdi vdi_ref rpc session_id
       (fun filename ->
          Cleanup.Block.with_block filename (Nbd_lwt_unix.Server.serve t ~read_only:true (module Block))
@@ -219,7 +217,9 @@ let setup_logging () =
 let () =
   (* We keep track of the VBDs we've created but haven't yet cleaned up, and
      when we receive a SIGTERM or SIGINT signal, we clean up these leftover
-     VBDs first and then fail with an exception. *)
+     VBDs first and then fail with an exception.
+     This means that when systemd stops the service with SIGTERM, it will be
+     in the failed state, and a backtrace will show up in the logs. *)
   Cleanup.Runtime.register_signal_handler ();
   setup_logging ();
   match Term.eval cmd with
