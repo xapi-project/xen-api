@@ -186,7 +186,22 @@ let make ~xc ~xs vm_info uuid =
         default_flags
       end
     end else [] in
-  let domid = Xenctrl.domain_create xc vm_info.ssidref flags (Uuidm.to_string uuid) in
+  let emulation_flags =
+    if vm_info.hvm
+    then Xenctrl.[
+        X86_EMU_LAPIC;
+        X86_EMU_HPET;
+        X86_EMU_PM;
+        X86_EMU_RTC;
+        X86_EMU_IOAPIC;
+        X86_EMU_PIC;
+        X86_EMU_VGA;
+        X86_EMU_IOMMU;
+        X86_EMU_PIT;
+        X86_EMU_USE_PIRQ]
+    else []
+  in
+  let domid = Xenctrl.domain_create xc vm_info.ssidref flags (Uuidm.to_string uuid) Xenctrl.(X86 {emulation_flags}) in
   let name = if vm_info.name <> "" then vm_info.name else sprintf "Domain-%d" domid in
   try
     let dom_path = xs.Xs.getdomainpath domid in
