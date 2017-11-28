@@ -42,7 +42,7 @@ val make_driver_params:
  * same order as the [vbds] parameter. *)
 val safe_clone_disks:
   (Rpc.call -> Rpc.response Client.Id.t) ->
-  'a Ref.t ->
+  [<`session] Ref.t ->
   disk_op_t ->
   __context:Context.t ->
   [ `VBD ] API.Ref.t list ->
@@ -52,10 +52,10 @@ val safe_clone_disks:
 val clone_single_vdi:
   ?progress:int64 * int64 * float ->
   (Rpc.call -> Rpc.response Client.Id.t) ->
-  'a Ref.t ->
+  [<`session] Ref.t ->
   disk_op_t ->
   __context:Context.t ->
-  'b Ref.t -> (string * string) list ->
+  [<`VDI] Ref.t -> (string * string) list ->
   API.ref_VDI
 
 (* NB this function may be called when the VM is suspended for copy/clone operations. Snapshot can be done in live.*)
