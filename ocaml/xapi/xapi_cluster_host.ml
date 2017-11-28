@@ -101,7 +101,7 @@ let create ~__context ~cluster ~host =
 let destroy ~__context ~self =
   let host = Db.Cluster_host.get_host ~__context ~self in
   assert_operation_host_target_is_localhost ~__context ~host;
-  assert_cluster_host_enabled ~__context ~self ~expected:false;
+  assert_cluster_host_enabled ~__context ~self ~expected:true;
   let result = Cluster_client.LocalClient.leave (Cluster_client.rpc (fun () -> "")) () in
   match result with
   | Result.Ok () ->
