@@ -1,19 +1,19 @@
 /*
  * Copyright (c) Citrix Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -55,7 +55,7 @@ namespace XenAPI
                 this.redirect = redirect;
                 this.uri = uri;
             }
-            
+
             public TooManyRedirectsException() : base() { }
 
             public TooManyRedirectsException(string message) : base(message) { }
@@ -137,7 +137,7 @@ namespace XenAPI
         }
 
         /// <summary>
-        /// The authentication scheme to use for authenticating to a proxy server. 
+        /// The authentication scheme to use for authenticating to a proxy server.
         /// Defaults to Digest.
         /// </summary>
         public static ProxyAuthenticationMethod CurrentProxyAuthenticationMethod = ProxyAuthenticationMethod.Digest;
@@ -177,7 +177,6 @@ namespace XenAPI
         /// <summary>
         /// Read HTTP headers, doing any redirects as necessary
         /// </summary>
-        /// <param name="stream"></param>
         /// <returns>True if a redirect has occurred - headers will need to be resent.</returns>
         private static bool ReadHttpHeaders(ref Stream stream, IWebProxy proxy, bool nodelay, int timeout_ms, List<string> headers = null)
         {
@@ -340,7 +339,8 @@ namespace XenAPI
         /// Build a URI from a hostname, a path, and some query arguments
         /// </summary>
         /// <param name="args">An even-length array, alternating argument names and values</param>
-        /// <returns></returns>
+        /// <param name="hostname"></param>
+        /// <param name="path"></param>
         public static Uri BuildUri(string hostname, string path, params object[] args)
         {
             // The last argument may be an object[] in its own right, in which case we need
@@ -414,12 +414,13 @@ namespace XenAPI
         }
 
         /// <summary>
-        /// This function will connect a stream to a uri (host and port), 
+        /// This function will connect a stream to a uri (host and port),
         /// negotiating proxies and SSL
         /// </summary>
         /// <param name="uri"></param>
+        /// <param name="proxy"></param>
+        /// <param name="nodelay"></param>
         /// <param name="timeout_ms">Timeout, in ms. 0 for no timeout.</param>
-        /// <returns></returns>
         public static Stream ConnectStream(Uri uri, IWebProxy proxy, bool nodelay, int timeout_ms)
         {
             IMockWebProxy mockProxy = proxy != null ? proxy as IMockWebProxy : null;
@@ -485,7 +486,7 @@ namespace XenAPI
                     Uri proxyURI = proxy.GetProxy(uri);
                     stream = ConnectSocket(proxyURI, nodelay, timeout_ms);
                 }
-            
+
                 if (proxy.Credentials == null)
                     throw new BadServerResponseException(string.Format("Received error code {0} from the server", initialResponse[0]));
                 NetworkCredential credentials = proxy.Credentials.GetCredential(uri, null);
@@ -507,7 +508,7 @@ namespace XenAPI
                 {
                     if (string.IsNullOrEmpty(digestField))
                         throw new ProxyServerAuthenticationException("Digest authentication scheme is not supported/enabled by the proxy server.");
-                    
+
                     string authenticationFieldReply = string.Format(
                         "Proxy-Authorization: Digest username=\"{0}\", uri=\"{1}:{2}\"",
                         credentials.UserName, uri.Host, uri.Port);

@@ -1,19 +1,19 @@
 /*
  * Copyright (c) Citrix Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -31,6 +31,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using Newtonsoft.Json;
 
 namespace XenAPI
 {
@@ -43,26 +44,20 @@ namespace XenAPI
         public abstract void UpdateFrom(S update);
 
         /// <summary>
-        /// Save any changed fields to the server. 
+        /// Save any changed fields to the server.
         /// This method is usually invoked on a thread pool thread.
         /// </summary>
-        /// <param name="serverObject">Changes are sent to the server if the field in "this" is different from serverObject.
-        /// Can be the object in the cache, or another reference object that we want to save changes to.</param>
+        /// <param name="session"></param>
+        /// <param name="serverOpaqueRef"/>
+        /// <param name="serverObject">Changes are sent to the server if the field in "this"
+        /// is different from serverObject. Can be the object in the cache, or another reference
+        /// object that we want to save changes to.</param>
         public abstract string SaveChanges(Session session, string serverOpaqueRef, S serverObject);
 
-        private string _opaque_ref = null;
-        public string opaque_ref
-        {
-            get { return _opaque_ref; }
-            set { _opaque_ref = value; }
-        }
+        public string opaque_ref { get; set; }
 
-        private bool _changed = false;
-        public bool Changed
-        {
-            get { return _changed; }
-            set { _changed = value; }
-        }
+        [JsonIgnore]
+        public bool Changed { get; set; }
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -70,7 +65,7 @@ namespace XenAPI
         {
             if (PropertyChanged != null)
             {
-                PropertyChanged(this, new System.ComponentModel.PropertyChangedEventArgs(info));
+                PropertyChanged(this, new PropertyChangedEventArgs(info));
             }
         }
 
