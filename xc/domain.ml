@@ -1045,6 +1045,11 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
                   loop (result :: results)
                 end else begin
                   error "Received unexpected response from emu-manager";
+                  (* Exhaust the thread_requests before returning the error,
+                   * this prevenst leaking blocked results threads *)
+                  List.iter (fun (emu, wakeup) ->
+                    Event.send wakeup () |> Event.sync)
+                    !thread_requests;
                   `Error Domain_restore_failed
                 end
               with End_of_file ->
