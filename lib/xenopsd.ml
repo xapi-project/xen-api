@@ -42,7 +42,7 @@ let vif_ready_for_igmp_query_timeout = ref 120
 
 let feature_flags_path = ref "/etc/xenserver/features.d"
 
-let pvinpvh_xen_cmdline = ref ""
+let pvinpvh_xen_cmdline = ref "pv-in-pvh"
 
 let options = [
   "queue", Arg.Set_string Xenops_interface.queue_name, (fun () -> !Xenops_interface.queue_name), "Listen on a specific queue";
