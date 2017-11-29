@@ -127,6 +127,10 @@ let is_himn_req req =
      | None -> false)
   | None -> false
 
+(* The API does not use the error.code and only retains it for compliance with
+  the JSON-RPC v2.0 specs. We set this always to a non-zero value because
+  some JsonRpc clients consider error.code 0 as no error*)
+let error_code_lit = 1L
 
 let json_of_error_object ?(data=None) code message =
   let data_json = match data with Some d -> ["data", d] | None -> [] in
@@ -160,7 +164,7 @@ let callback1 ?(json_rpc_version=Jsonrpc.V1) is_json req fd body call =
             | Rpc.Enum ((Rpc.String s)::tl) -> s, (Rpc.Enum tl)
             | _ -> "", response.Rpc.contents
           in
-          {response with Rpc.contents = json_of_error_object ~data:(Some data) 0L message}
+          {response with Rpc.contents = json_of_error_object ~data:(Some data) error_code_lit message}
         end
       else
         response in
