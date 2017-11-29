@@ -1076,23 +1076,29 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
             th, ch
           in
           let receive_thread_status threads_and_channels =
-            (* Receive the status from all reader threads and let them exit *)
-            fold (fun (th, ch) _ ->
+            (* Receive the status from all reader threads and let them exit.
+             * This happens in two steps to make sure that we are unblocking
+             * and closing all threads also in case of errors. *)
+            List.map (fun (th, ch) _ ->
                 let status = Event.receive ch |> Event.sync in
                 Thread.join th;
                 status
-              ) threads_and_channels () >>= fun () ->
+              ) threads_and_channels
+            |> fun statuses -> fold (fun x -> x) statuses ()
+            >>= fun () ->
             debug "Reader threads completed successfully";
             return ()
           in
+          (* Start a reader thread on each fd *)
+          let threads_and_channels = List.map start_reader_thread fds in
+          (* Handle results returned by emu-manager *)
+          let emu_manager_results = handle_results () in
+          (* Wait for reader threads to complete *)
+          let thread_status = receive_thread_status threads_and_channels in
+          (* Chain all together, and we are done! *)
           let res =
-            (* Start a reader thread on each fd *)
-            let threads_and_channels = List.map start_reader_thread fds in
-            (* Handle results returned by emu-manager *)
-            handle_results () >>= fun result ->
-            (* Wait for reader threads to complete *)
-            receive_thread_status threads_and_channels >>= fun () ->
-            (* And we are done! *)
+            emu_manager_results >>= fun result ->
+            thread_status >>= fun () ->
             return result
           in
           begin match res with
