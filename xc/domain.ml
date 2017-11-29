@@ -1094,7 +1094,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
           (* Handle results returned by emu-manager *)
           let emu_manager_results = handle_results () in
           (* Wait for reader threads to complete *)
-          let thread_status = receive_thread_status threads_and_channels in
+          let[@inlined never] thread_status = receive_thread_status threads_and_channels in
           (* Chain all together, and we are done! *)
           let res =
             emu_manager_results >>= fun result ->
