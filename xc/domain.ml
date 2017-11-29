@@ -25,6 +25,50 @@ open Xenops_task
 module D = Debug.Make(struct let name = "xenops" end)
 open D
 
+type xen_arm_arch_domainconfig = Xenctrl.xen_arm_arch_domainconfig = {
+  gic_version: int;
+  nr_spis: int;
+  clock_frequency: int32;
+} [@@deriving rpc]
+
+type x86_arch_emulation_flags = Xenctrl.x86_arch_emulation_flags =
+| X86_EMU_LAPIC
+| X86_EMU_HPET
+| X86_EMU_PM
+| X86_EMU_RTC
+| X86_EMU_IOAPIC
+| X86_EMU_PIC
+| X86_EMU_VGA
+| X86_EMU_IOMMU
+| X86_EMU_PIT
+| X86_EMU_USE_PIRQ [@@deriving rpc]
+
+type xen_x86_arch_domainconfig = Xenctrl.xen_x86_arch_domainconfig = {
+  emulation_flags: x86_arch_emulation_flags list;
+} [@@deriving rpc]
+
+type arch_domainconfig = Xenctrl.arch_domainconfig =
+  | ARM of xen_arm_arch_domainconfig
+  | X86 of xen_x86_arch_domainconfig
+[@@deriving rpc]
+
+let emulation_flags_all = [
+    X86_EMU_LAPIC
+  ; X86_EMU_HPET
+  ; X86_EMU_PM
+  ; X86_EMU_RTC
+  ; X86_EMU_IOAPIC
+  ; X86_EMU_PIC
+  ; X86_EMU_VGA
+  ; X86_EMU_IOMMU
+  ; X86_EMU_PIT
+  ; X86_EMU_USE_PIRQ
+]
+
+let emulation_flags_pvh = [
+  X86_EMU_LAPIC
+]
+
 type create_info = {
   ssidref: int32;
   hvm: bool;
@@ -164,7 +208,7 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib : 
   wait 0
 
 
-let make ~xc ~xs vm_info uuid =
+let make ~xc ~xs vm_info domain_config uuid =
   let flags = if vm_info.hvm then begin
       let default_flags =
         (if vm_info.hvm then [ Xenctrl.CDF_HVM ] else []) @
@@ -186,22 +230,8 @@ let make ~xc ~xs vm_info uuid =
         default_flags
       end
     end else [] in
-  let emulation_flags =
-    if vm_info.hvm
-    then Xenctrl.[
-        X86_EMU_LAPIC;
-        X86_EMU_HPET;
-        X86_EMU_PM;
-        X86_EMU_RTC;
-        X86_EMU_IOAPIC;
-        X86_EMU_PIC;
-        X86_EMU_VGA;
-        X86_EMU_IOMMU;
-        X86_EMU_PIT;
-        X86_EMU_USE_PIRQ]
-    else []
-  in
-  let domid = Xenctrl.domain_create xc vm_info.ssidref flags (Uuidm.to_string uuid) Xenctrl.(X86 {emulation_flags}) in
+  debug "Domain_config: [%s]" (rpc_of_arch_domainconfig domain_config |> Jsonrpc.to_string);
+  let domid = Xenctrl.domain_create xc vm_info.ssidref flags (Uuidm.to_string uuid) domain_config in
   let name = if vm_info.name <> "" then vm_info.name else sprintf "Domain-%d" domid in
   try
     let dom_path = xs.Xs.getdomainpath domid in
@@ -731,7 +761,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
   let vcpus = info.vcpus in
   let kernel = info.kernel in
   let force_arg = if force then ["--force"] else [] in
-  
+
   assert_file_is_readable kernel;
 
   (* Convert memory configuration values into the correct units. *)

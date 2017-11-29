@@ -28,6 +28,37 @@ exception Emu_manager_failure of string (* an actual error is reported to us *)
 exception Timeout_backend
 exception Could_not_read_file of string (* eg linux kernel/ initrd *)
 
+type xen_arm_arch_domainconfig = Xenctrl.xen_arm_arch_domainconfig = {
+  gic_version: int;
+  nr_spis: int;
+  clock_frequency: int32;
+}
+
+type x86_arch_emulation_flags = Xenctrl.x86_arch_emulation_flags =
+| X86_EMU_LAPIC
+| X86_EMU_HPET
+| X86_EMU_PM
+| X86_EMU_RTC
+| X86_EMU_IOAPIC
+| X86_EMU_PIC
+| X86_EMU_VGA
+| X86_EMU_IOMMU
+| X86_EMU_PIT
+| X86_EMU_USE_PIRQ
+
+val emulation_flags_pvh : x86_arch_emulation_flags list
+val emulation_flags_all : x86_arch_emulation_flags list
+
+type xen_x86_arch_domainconfig = Xenctrl.xen_x86_arch_domainconfig = {
+  emulation_flags: x86_arch_emulation_flags list;
+}
+
+type arch_domainconfig = Xenctrl.arch_domainconfig =
+  | ARM of xen_arm_arch_domainconfig
+  | X86 of xen_x86_arch_domainconfig
+val rpc_of_arch_domainconfig : arch_domainconfig -> Rpc.t
+val arch_domainconfig_of_rpc : Rpc.t -> arch_domainconfig
+
 type create_info = {
   ssidref: int32;
   hvm: bool;
@@ -82,7 +113,7 @@ val build_info_of_rpc: Rpc.t -> build_info
 val rpc_of_build_info: build_info -> Rpc.t
 
 (** Create a fresh (empty) domain with a specific UUID, returning the domain ID *)
-val make: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> create_info -> Uuidm.t -> domid
+val make: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> create_info -> arch_domainconfig -> Uuidm.t -> domid
 
 (** 'types' of shutdown request *)
 type shutdown_reason = PowerOff | Reboot | Suspend | Crash | Halt | S3Suspend | Unknown of int

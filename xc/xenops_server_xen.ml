@@ -82,6 +82,16 @@ type attached_vdi = {
 } [@@deriving rpc]
 
 module VmExtra = struct
+
+  let domain_config_of_vm vm =
+    let open Vm in
+    let open Domain in
+    match vm.ty with
+    | PV _      -> X86 { emulation_flags = [] }
+    | PVinPVH _ -> X86 { emulation_flags = emulation_flags_pvh }
+    | HVM _     -> X86 { emulation_flags = emulation_flags_all }
+
+
   (** Extra data we store per VM. The persistent data is preserved when
       		the domain is suspended so it can be re-used in the following 'create'
       		which is part of 'resume'. The non-persistent data will be regenerated.
@@ -91,6 +101,7 @@ module VmExtra = struct
     build_info: Domain.build_info option;
     ty: Vm.builder_info option;
     last_start_time: float;
+    domain_config: Domain.arch_domainconfig option;
     nomigrate: bool;  (* platform:nomigrate   at boot time *)
     nested_virt: bool (* platform:nested_virt at boot time *)
   } [@@deriving rpc]
@@ -99,6 +110,7 @@ module VmExtra = struct
     { build_info = None
     ; ty = None
     ; last_start_time = 0.0
+    ; domain_config = None
     ; nomigrate = false
     ; nested_virt = false
     }
@@ -791,6 +803,7 @@ module VM = struct
       (* Earlier than the PV drivers update time, therefore
          			   any cached PV driver information will be kept. *)
       last_start_time = 0.;
+      domain_config = None;
       nomigrate = false;
       nested_virt = false
     } |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
@@ -893,6 +906,7 @@ module VM = struct
                  { VmExtra.build_info = None
                  ; ty = None
                  ; last_start_time = Unix.gettimeofday ()
+                 ; domain_config = Some (VmExtra.domain_config_of_vm vm)
                  ; nomigrate = Platform.is_true
                        ~key:"nomigrate"
                        ~platformdata:vm.Xenops_interface.Vm.platformdata
@@ -933,7 +947,12 @@ module VM = struct
                 VmExtra.persistent = persistent;
                 VmExtra.non_persistent = non_persistent
               };
-              let domid = Domain.make ~xc ~xs non_persistent.VmExtra.create_info (uuid_of_vm vm) in
+              let domain_config =
+                match persistent.VmExtra.domain_config with
+                | Some dc -> dc
+                | None -> failwith "Need a domain config"
+              in
+              let domid = Domain.make ~xc ~xs non_persistent.VmExtra.create_info domain_config (uuid_of_vm vm) in
               Mem.transfer_reservation_to_domain dbg domid reservation_id;
               begin match vm.Vm.ty with
                 | Vm.HVM { Vm.qemu_stubdom = true } ->
