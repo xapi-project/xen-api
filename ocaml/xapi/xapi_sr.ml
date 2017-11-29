@@ -353,6 +353,8 @@ let update ~__context ~sr =
     (fun () ->
        let sr' = Db.SR.get_uuid ~__context ~self:sr in
        let sr_info = C.SR.stat ~dbg:(Ref.string_of task) ~sr:sr' in
+       Db.SR.set_name_label ~__context ~self:sr ~value:sr_info.name_label;
+       Db.SR.set_name_description ~__context ~self:sr ~value:sr_info.name_description;
        Db.SR.set_physical_size ~__context ~self:sr ~value:sr_info.total_space;
        Db.SR.set_physical_utilisation ~__context ~self:sr ~value:(Int64.sub sr_info.total_space sr_info.free_space);
        Db.SR.set_clustered ~__context ~self:sr ~value:sr_info.clustered;
