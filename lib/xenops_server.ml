@@ -1680,29 +1680,34 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
 
       (* set up the destination domain *)
       debug "VM.receive_memory creating domain and restoring VIFs";
-      (try
-         perform_atomics (
-           simplify [VM_create (id, Some memory_limit);] @
-           (* Perform as many operations as possible on the destination domain before pausing the original domain *)
-           (atomics_of_operation (VM_restore_vifs id))
-         ) t;
-         Handshake.send s Handshake.Success
-       with e ->
-         Handshake.send s (Handshake.Error (Printexc.to_string e));
-         raise e
-      );
-      debug "VM.receive_memory: Synchronisation point 1";
 
-      debug "VM.receive_memory restoring VM";
-      (* Check if there is a separate vGPU data channel *)
-      let vgpu_info = Stdext.Opt.of_exception (fun () -> Hashtbl.find vgpu_receiver_sync id) in
-      perform_atomics (
-        List.map (fun vgpu_id -> VGPU_start (vgpu_id, true)) (VGPU_DB.ids id) @ [
-          VM_restore (id, FD s, Opt.map (fun x -> FD x.vgpu_fd) vgpu_info);
-        ]) t;
-      debug "VM.receive_memory restore complete";
-      (* Tell the vGPU receive thread that we're done *)
-      Opt.iter (fun x -> Event.send x.vgpu_channel () |> Event.sync) vgpu_info;
+      finally (fun ()->
+        (try
+           perform_atomics (
+             simplify [VM_create (id, Some memory_limit);] @
+             (* Perform as many operations as possible on the destination domain before pausing the original domain *)
+             (atomics_of_operation (VM_restore_vifs id))
+           ) t;
+           Handshake.send s Handshake.Success
+         with e ->
+           Handshake.send s (Handshake.Error (Printexc.to_string e));
+           raise e
+        );
+        debug "VM.receive_memory: Synchronisation point 1";
+
+        debug "VM.receive_memory restoring VM";
+        (* Check if there is a separate vGPU data channel *)
+        let vgpu_info = Stdext.Opt.of_exception (fun () -> Hashtbl.find vgpu_receiver_sync id) in
+        perform_atomics (
+          List.map (fun vgpu_id -> VGPU_start (vgpu_id, true)) (VGPU_DB.ids id) @ [
+            VM_restore (id, FD s, Opt.map (fun x -> FD x.vgpu_fd) vgpu_info);
+          ]) t;
+        debug "VM.receive_memory restore complete";
+      ) (fun ()->
+        (* Tell the vGPU receive thread that we're done, so that it can clean up vgpu_receiver_sync id and terminate *)
+        let vgpu_info = Stdext.Opt.of_exception (fun () -> Hashtbl.find vgpu_receiver_sync id) in
+        Opt.iter (fun x -> Event.send x.vgpu_channel () |> Event.sync) vgpu_info;
+      );
       debug "VM.receive_memory: Synchronisation point 2";
 
       begin try
