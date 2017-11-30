@@ -98,3 +98,28 @@ module Nvidia = struct
             ]))
 
 end (* Nvidia *)
+
+(** [update_vgpu_metadata] updates the compatibility metadata of all vGPUs
+ * of [vm]. Currently only NVIDIA vGPUs provide real meta data *)
+let update_vgpu_metadata ~__context ~vm =
+  Db.VM.get_VGPUs ~__context ~self:vm
+  |> List.filter (fun vgpu -> Db.is_valid_ref __context vgpu)
+  |> List.iter (fun vgpu ->
+      let value =
+        if Nvidia.is_nvidia ~__context ~vgpu then
+          Nvidia.get_vgpu_compatibility_metadata ~__context ~vgpu
+        else [] in
+      Db.VGPU.set_compatibility_metadata ~__context ~self:vgpu ~value)
+
+(** [clear_vgpu_metadata] removes compatibility metadata from all
+ * vgpus of [vm]. *)
+let clear_vgpu_metadata ~__context ~vm =
+  Db.VM.get_VGPUs ~__context ~self:vm
+  |> List.filter (fun vgpu -> Db.is_valid_ref __context vgpu)
+  |> List.iter (fun vgpu ->
+    Db.VGPU.get_compatibility_metadata ~__context ~self:vgpu
+    |> List.filter (fun (k,_) -> k <> Nvidia.key)
+    |> fun value ->
+        Db.VGPU.set_compatibility_metadata ~__context ~self:vgpu ~value)
+
+
