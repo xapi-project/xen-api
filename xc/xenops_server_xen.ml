@@ -180,10 +180,29 @@ let uuid_of_vm vm = uuid_of_string vm.Vm.id
 
 let uuid_of_di di = Xenctrl_uuid.uuid_of_handle di.Xenctrl.handle
 
+(* Here we check the type of a domain. PV is simple. HVM is defined
+   as a VM in an HVM container with _all_ emulation flags. A PVinPVH
+   domain is an HVM container with less than all emulation flags. *)
+module ArchFlagsSet = Set.Make(struct type t=Xenctrl.x86_arch_emulation_flags let compare=compare end)
 let domain_type_of_di di =
-  if di.Xenctrl.hvm_guest then
+  let open ArchFlagsSet in
+  let open Xenctrl in
+  let emu_flags_set =
+    of_list
+      (match di.arch_config with
+       | X86 { emulation_flags } -> emulation_flags
+       | ARM _ -> [])
+  in
+  let emu_flags_all =
+    of_list Domain.emulation_flags_all
+  in
+  let all_flags = diff emu_flags_all emu_flags_set |> is_empty in
+  match di.hvm_guest, all_flags with
+  | true, true ->
     Vm.Domain_HVM
-  else
+  | true, false ->
+    Vm.Domain_PVinPVH
+  | _, _ ->
     Vm.Domain_PV
 
 (* During a live migrate, there will be multiple domains with the same uuid.
