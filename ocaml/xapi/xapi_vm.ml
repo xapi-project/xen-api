@@ -422,6 +422,7 @@ let power_state_reset ~__context ~vm =
 let suspend ~__context ~vm =
   Db.VM.set_ha_always_run ~__context ~self:vm ~value:false;
   debug "Setting ha_always_run on vm=%s as false during VM.suspend" (Ref.string_of vm);
+  Xapi_gpumon.update_vgpu_metadata ~__context ~vm;
   Xapi_xenops.suspend ~__context ~self:vm;
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
   log_and_ignore_exn (fun () -> Rrdd.archive_rrd ~vm_uuid ~remote_address:(try Some (Pool_role.get_master_address ()) with _ -> None))
