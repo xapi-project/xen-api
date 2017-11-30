@@ -420,7 +420,8 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
            ~sR:sr ~virtual_size:vdi.virtual_size
            ~physical_utilisation:vdi.physical_utilisation
            ~_type:(try Storage_utils.vdi_type_of_string vdi.ty with _ -> `user)
-           ~sharable:false ~read_only:vdi.read_only
+           ~sharable:vdi.sharable
+           ~read_only:vdi.read_only
            ~xenstore_data:[] ~sm_config:[]
            ~other_config:[] ~storage_lock:false ~location:vdi.vdi
            ~managed:true ~missing:false ~parent:Ref.null ~tags:[]
@@ -491,6 +492,10 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
        if v.API.vDI_cbt_enabled <> vi.cbt_enabled then begin
          debug "%s cbt_enabled <- %b" (Ref.string_of r) vi.cbt_enabled;
          Db.VDI.set_cbt_enabled ~__context ~self:r ~value:vi.cbt_enabled
+       end;
+       if v.API.vDI_sharable <> vi.sharable then begin
+         debug "%s sharable <- %b" (Ref.string_of r) vi.sharable;
+         Db.VDI.set_sharable ~__context ~self:r ~value:vi.sharable
        end
     ) to_update
 
