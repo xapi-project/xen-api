@@ -92,9 +92,64 @@ let test_update_new_vdi_and_snapshot () =
   let vdi_snapshot = Db.VDI.get_by_uuid ~__context ~uuid:vdi_snapshot_uuid in
   assert_snapshot_of_is_not_null ~__context ~vdi_snapshot
 
+(* CA-274152 *)
+(* Tests that the sharable field of the VDIs is properly set to reflect the
+   values returned by the storage layer. This is particularly important in case
+   of SMAPIv3 plugins that are not backed by xapi's database, in that case xapi
+   really needs to check the vdi_info records returned from the storage layer
+   and update the database if necessary, to keep the VDIs' fields in sync. *)
+let test_sharable_field_correctly_set =
+  let test_sharable_field_updated_for_existing_vdi () =
+    let __context, sr = create_base_environment () in
+    let vdi_uuid = Test_common.make_uuid () in
+
+    (* In Xapi's database, the sharable field is incorrect: it is false *)
+    let vdi = Test_common.make_vdi ~__context ~sR:sr ~uuid:vdi_uuid ~location:vdi_uuid ~sharable:false () in
+
+    (* SR.scan returned the correct vdi_info with the up-to-date sharable field *)
+    let vdi_sr_record = Storage_interface.({ default_vdi_info with
+      vdi = vdi_uuid;
+      uuid = Some vdi_uuid;
+      sharable = true;
+    }) in
+
+    (* When we call this function from our SR.scan XenAPI call for example, it should
+       update the VDI's sharable field to the correct value returned by the
+       storage layer. *)
+    let vdi_record = Db.VDI.get_record ~__context ~self:vdi in
+    Xapi_sr.update_vdis ~__context ~sr [(vdi, vdi_record)] [vdi_sr_record];
+    OUnit.assert_equal true (Db.VDI.get_sharable ~__context ~self:vdi)
+  in
+
+  let test_sharable_field_correct_for_new_vdi () =
+    let __context, sr = create_base_environment () in
+    let vdi_uuid = Test_common.make_uuid () in
+
+    (* We do not have this VDI in xapi's database. SR.scan returned it with the
+       correct vdi_info containing the up-to-date sharable field. *)
+    let vdi_sr_record = Storage_interface.({ default_vdi_info with
+      vdi = vdi_uuid;
+      uuid = Some vdi_uuid;
+      sharable = true;
+    }) in
+
+    (* When we call this function from our SR.scan XenAPI call for example, it should
+       add the VDI to xapi's database with the correct sharable field returned
+       by the storage layer. *)
+    Xapi_sr.update_vdis ~__context ~sr [] [vdi_sr_record];
+    let vdi = Db.VDI.get_by_uuid ~__context ~uuid:vdi_uuid in
+    OUnit.assert_equal true (Db.VDI.get_sharable ~__context ~self:vdi)
+  in
+
+  "test_sharable_field_correctly_updated" >:::
+  [ "test_sharable_field_updated_for_existing_vdi" >:: test_sharable_field_updated_for_existing_vdi
+  ; "test_sharable_field_correct_for_new_vdi" >:: test_sharable_field_correct_for_new_vdi
+  ]
+
 let test =
   "test_sr_update_vdis" >:::
   [
     "test_update_existing_snapshot" >:: test_update_existing_snapshot;
     "test_update_new_vdi_and_snapshot" >:: test_update_new_vdi_and_snapshot;
+    test_sharable_field_correctly_set
   ]
