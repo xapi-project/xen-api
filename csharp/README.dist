@@ -36,10 +36,16 @@ This library requires .NET 4.5 or greater.
 Dependencies
 ------------
 
-XenServer.NET is dependent upon XML-RPC.NET by Charles Cook (see http://www.xml-rpc.net).
-XML-RPC.NET is licensed under the MIT X11 license; see
-LICENSE.CookComputing.XmlRpcV2.txt for details. The library
-(CookComputing.XmlRpcV2.dll) is shipped with XenServer.NET.
+XenServer.NET is dependent upon the following libraries:
+
+- XML-RPC.NET by Charles Cook (see http://www.xml-rpc.net).
+  XML-RPC.NET is licensed under the MIT X11 license; see
+  LICENSE.CookComputing.XmlRpcV2.txt for details. The library
+  (CookComputing.XmlRpcV2.dll) is shipped with XenServer.NET.
+
+- Newtonsoft JSON.NET by James Newton-King (see https://www.newtonsoft.com/).
+  JSON.NET is licensed under the MIT license; see LICENSE.Newtonsoft.Json.txt
+  for details. The library (Newtonsoft.Json.dll) is shipped with XenServer.NET.
 
 
 Downloads
