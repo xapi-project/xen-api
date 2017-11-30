@@ -320,13 +320,8 @@ let main ({ Config.daemonize; path; pidfile } as config) =
       | _ ->
         () );
 
-    if daemonize
-    then begin
-      info "Daemonizing...";
-      ignore (Daemon.notify Daemon.State.Ready);
-      Lwt_daemon.daemonize ();
-      info "Daemonized!"
-    end;
+    info "Logs redirected to syslog";
+    Lwt_log.default := Lwt_log.syslog ~facility:`Daemon ();
 
     let (_ : unit Lwt.t) =
       match pidfile with
