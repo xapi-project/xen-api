@@ -1793,6 +1793,13 @@ let vgpu_record rpc session_id vgpu =
       make_field ~name:"type-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.vGPU_type) ();
       make_field ~name:"type-model-name" ~get:(fun () -> try Client.VGPU_type.get_model_name rpc session_id ((x ()).API.vGPU_type) with _ -> nid) ();
       make_field ~name:"resident-on" ~get:(fun () -> try get_uuid_from_ref (x ()).API.vGPU_resident_on with _ -> nid) ();
+      make_field ~name:"compatibility-metadata"
+        ~get:(fun () ->
+          ((x ()).API.vGPU_compatibility_metadata)
+          |> List.map (fun (k,v) -> Printf.sprintf
+            "%s:(%d bytes)" k (String.length v))
+          |> String.concat "; "
+         ) ();
     ]
   }
 
