@@ -3,5 +3,5 @@
   (public_name list_domains)
   (package xapi-xenops-utils)
   (flags (:standard -bin-annot))
-  (libraries (xapi-xenops))
+  (libraries (xenops))
  ))

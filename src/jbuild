@@ -1,6 +1,6 @@
 (library
  ((name xenops)
-  (public_name xapi-xenops)
+  (public_name xenops)
   (wrapped false)
   (flags (:standard -bin-annot))
   (libraries (ezxenstore
