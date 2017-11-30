@@ -196,7 +196,7 @@ let test ~session_id =
         ) in
 
     (* Obtain list of SRs capable of creating VDIs, and run them all through test suite *)
-    (SR.get_all ~session_id ~rpc:!rpc)
+    Quicktest_storage.list_srs session_id
     |> List.filter
       (fun sR -> (List.mem `vdi_create (SR.get_allowed_operations ~session_id ~rpc:!rpc ~self:sR))
                  && (SR.get_type ~session_id ~rpc:!rpc ~self:sR <> "iso")
