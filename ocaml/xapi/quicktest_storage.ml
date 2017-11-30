@@ -622,5 +622,6 @@ let go s =
   let srs = list_srs s in
   debug test (Printf.sprintf "Found %d SRs" (List.length srs));
   success test;
-  packages_iso_test s;
+  if !only_sr_name = None then
+    packages_iso_test s;
   List.iter (foreach_sr s) srs
