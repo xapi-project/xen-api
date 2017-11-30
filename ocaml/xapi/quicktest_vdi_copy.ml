@@ -142,5 +142,10 @@ let start session_id sr =
        done;
        debug t "1MiB - 1 sector is full of 'a's";
     );
+
+  debug t "Destroying VDI (cleanup)";
+  List.iter (fun self -> Client.VDI.destroy ~rpc:!rpc ~session_id ~self)
+    [ original; snapshot; snapshot_backup; delta_backup ];
+
   success t
 
