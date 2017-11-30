@@ -311,12 +311,24 @@ let make_gpu_group ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
     ~gPU_types ~other_config ~allocation_algorithm;
   ref
 
-let make_vgpu ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(vM=Ref.null)
-    ?(gPU_group=Ref.null) ?(device="0") ?(currently_attached=false)
-    ?(other_config=[]) ?(_type=Ref.null) ?(resident_on=Ref.null)
-    ?(scheduled_to_be_resident_on=Ref.null) () =
-  Db.VGPU.create ~__context ~ref ~uuid ~vM ~gPU_group ~device ~currently_attached
-    ~other_config ~_type ~resident_on ~scheduled_to_be_resident_on;
+let make_vgpu ~__context
+    ?(ref=Ref.make ())
+    ?(uuid=make_uuid ())
+    ?(vM=Ref.null)
+    ?(gPU_group=Ref.null)
+    ?(device="0")
+    ?(currently_attached=false)
+    ?(other_config=[])
+    ?(_type=Ref.null)
+    ?(resident_on=Ref.null)
+    ?(scheduled_to_be_resident_on=Ref.null)
+    ?(compatibility_metadata=[])
+    () =
+  Db.VGPU.create ~__context
+    ~ref ~uuid ~vM ~gPU_group ~device ~currently_attached
+    ~other_config ~_type ~resident_on ~scheduled_to_be_resident_on
+    ~compatibility_metadata
+    ;
   ref
 
 let make_vgpu_type ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
