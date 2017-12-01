@@ -69,13 +69,7 @@ namespace XenAPI
 
         #region Constructors
 
-        [Obsolete("Please use Session(string url, int timeout = STANDARD_TIMEOUT) instead")]
         public Session(int timeout, string url)
-            : this(url, timeout)
-        {
-        }
-
-        public Session(string url, int timeout = STANDARD_TIMEOUT)
         {
             proxy = XmlRpcProxyGen.Create<Proxy>();
             proxy.Url = url;
@@ -87,14 +81,18 @@ namespace XenAPI
             proxy.Proxy = Proxy;
         }
 
-        [Obsolete("Please use Session(string host, int port, int timeout = STANDARD_TIMEOUT) instead")]
-        public Session(int timeout, string host, int port)
-            : this(host, port, timeout)
+        public Session(string url)
+            : this(STANDARD_TIMEOUT, url)
         {
         }
 
-        public Session(string host, int port, int timeout = STANDARD_TIMEOUT)
-            : this(GetUrl(host, port), timeout)
+        public Session(int timeout, string host, int port)
+            : this(timeout, GetUrl(host, port))
+        {
+        }
+
+        public Session(string host, int port)
+            : this(STANDARD_TIMEOUT, host, port)
         {
         }
 
