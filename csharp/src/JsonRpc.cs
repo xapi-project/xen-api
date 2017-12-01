@@ -32,7 +32,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
-using System.Runtime.Remoting.Messaging;
 using System.Threading;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -212,7 +211,9 @@ namespace XenAPI
             // for performance reasons it's preferable to deserialize directly
             // from the Stream rather than allocating strings inbetween
             // therefore the latter will be done only in DEBUG mode
+#if DEBUG
             var settings = new JsonSerializerSettings {Formatting = Formatting.Indented, Converters = serializer.Converters};
+#endif
 
             using (var str = webRequest.GetRequestStream())
             using (var sw = new StreamWriter(str))

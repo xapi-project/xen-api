@@ -32,6 +32,8 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
 
 namespace XenAPI
 {
@@ -72,6 +74,11 @@ namespace XenAPI
         public void ClearEventListeners()
         {
             PropertyChanged = null;
+        }
+
+        public JObject ToJObject()
+        {
+            return JObject.FromObject(this);
         }
     }
 }

@@ -1490,7 +1490,7 @@ and json_param p =
   | Set (Ref name) -> sprintf "_%s == null ? new JArray() : JArray.FromObject(_%s, serializer)" thing thing
   | Set u          -> sprintf "_%s == null ? new JArray() : JArray.FromObject(_%s)" thing thing
   | Map (u, v)     -> sprintf "_%s == null ? new JObject() : JObject.FromObject(_%s, serializer)" thing thing
-  | Record name    -> sprintf "JObject.FromObject(_%s)" thing
+  | Record name    -> sprintf "_%s.ToJObject()" thing
 
 and json_deserialise_opt = function
   | Some (typ, _) -> sprintf "<%s>" (exposed_type typ)

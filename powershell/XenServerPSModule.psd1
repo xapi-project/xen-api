@@ -1,19 +1,19 @@
 #
 # Copyright (c) Citrix Systems, Inc.
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
-# 
+#
 #   1) Redistributions of source code must retain the above copyright
 #      notice, this list of conditions and the following disclaimer.
-# 
+#
 #   2) Redistributions in binary form must reproduce the above
 #      copyright notice, this list of conditions and the following
 #      disclaimer in the documentation and/or other materials
 #      provided with the distribution.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 # LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -53,14 +53,18 @@ ModuleToProcess = 'XenServerPowerShell.dll'
 RequiredModules = @()
 NestedModules = @()
 ModuleList = @('XenServerPowerShell.dll')
-RequiredAssemblies = @('CookComputing.XmlRpcV2.dll','XenServer.dll')
+RequiredAssemblies = @('CookComputing.XmlRpcV2.dll',
+                       'Newtonsoft.Json.dll',
+                       'XenServer.dll')
 ScriptsToProcess = @('Initialize-Environment.ps1')
 TypesToProcess = @('XenServer.types.ps1xml')
 FormatsToProcess = @('XenServer.format.ps1xml')
 FileList = @('about_XenServer.help.txt',
              'CookComputing.XmlRpcV2.dll',
+             'Newtonsoft.Json.dll',
              'Initialize-Environment.ps1',
              'LICENSE.CookComputing.XmlRpcV2.txt',
+             'LICENSE.Newtonsoft.Json.txt',
              'LICENSE.txt',
              'README.txt',
              'XenServer.dll',
