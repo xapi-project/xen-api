@@ -77,8 +77,9 @@ B. To build the source code:
   3. You should now be ready to build the source code.
 
 C. To run the examples:
-  1. Copy XenServer.dll and CookComputing.XmlRpcV2.dll from the bin folder into
-     the samples folder at the same level as the XenSdkSample.csproj file.
+  1. Copy XenServer.dll, CookComputing.XmlRpcV2.dll, and Newtonsoft.Json.dll
+     from the bin folder into the samples folder at the same level as the
+     XenSdkSample.csproj file.
   2. Open XenSdkSample.sln inside Visual Studio (2013 or greater).
   3. You should now be ready to compile the solution and run the examples.
      The solution project is a console application expecting the parameters
