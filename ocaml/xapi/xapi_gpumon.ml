@@ -54,7 +54,7 @@ module Nvidia = struct
     |> (fun self -> Db.VGPU.get_type ~__context ~self)
     |> (fun self -> Db.VGPU_type.get_implementation ~__context ~self)
 
-  (** [is_nvdia] is true, if [vgpu] is an NVDIA vGPU *)
+  (** [is_nvidia] is true, if [vgpu] is an NVIDIA vGPU *)
   let is_nvidia ~__context ~vgpu =
     vgpu_impl ~__context vgpu = `nvidia
 
@@ -135,7 +135,7 @@ module Nvidia = struct
             ]))
 
   (** Predicate [vgpu_pgpu_are_compatible] checks that vGPU and pGPU are
-   * comatible according to their abstract compatibility metadata. This
+   * compatible according to their abstract compatibility metadata. This
    * code can run on any host. If no vGPU or pGPU metadata is
    * available, compatibility is assumed.
    *)
