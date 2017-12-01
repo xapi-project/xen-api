@@ -334,12 +334,17 @@ let assert_host_has_iommu ~__context ~host =
     raise (Api_errors.Server_error (Api_errors.vm_requires_iommu, [Ref.string_of host]))
 
 let assert_gpus_available ~__context ~self ~host =
+  let this = "assert_gpus_available" in
   let vgpus = Db.VM.get_VGPUs ~__context ~self in
   let reqd_groups =
     List.map (fun self -> Db.VGPU.get_GPU_group ~__context ~self) vgpus in
   let is_pgpu_available pgpu vgpu =
-    try Xapi_pgpu.assert_can_run_VGPU ~__context ~self:pgpu ~vgpu; true
-    with _ -> false
+    try
+      Xapi_pgpu.assert_can_run_VGPU ~__context ~self:pgpu ~vgpu;
+      Xapi_gpumon.Nvidia.vgpu_pgpu_are_compatible ~__context ~vgpu ~pgpu
+    with e ->
+      debug "%s (%s) exception: %s" this __LOC__ (Printexc.to_string e);
+      false
   in
   let can_run_vgpu_on host vgpu =
     let group = Db.VGPU.get_GPU_group ~__context ~self:vgpu in
