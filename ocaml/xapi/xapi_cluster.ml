@@ -21,13 +21,14 @@ open D
 (* TODO: update allowed_operations on boot/toolstack-restart *)
 
 let create ~__context ~network ~cluster_stack ~pool_auto_join =
+  Pool_features.assert_enabled ~__context ~f:Features.Corosync;
   with_clustering_lock (fun () ->
       let cluster_ref = Ref.make () in
       let cluster_host_ref = Ref.make () in
       let cluster_uuid = Uuidm.to_string (Uuidm.create `V4) in
       let cluster_host_uuid = Uuidm.to_string (Uuidm.create `V4) in
       (* For now we assume we have only one pool
-         TODO: get master ref explicitely passed in as parameter*)
+         TODO: get master ref explicitly passed in as parameter*)
       let pool = Db.Pool.get_all ~__context |> List.hd in
       let host = Db.Pool.get_master ~__context ~self:pool in
 
