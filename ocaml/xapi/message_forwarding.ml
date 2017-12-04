@@ -4270,6 +4270,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Cluster.pool_create";
       Local.Cluster.pool_create ~__context ~pool ~cluster_stack ~network
 
+    let pool_destroy ~__context ~self =
+      info "Cluster.pool_destroy";
+      Local.Cluster.pool_destroy ~__context ~self
+
     let pool_resync ~__context ~self =
       info "Cluster.pool_resync";
       Local.Cluster.pool_resync ~__context ~self

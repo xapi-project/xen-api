@@ -77,6 +77,30 @@ let pool_create ~__context ~pool ~cluster_stack ~network =
 
   cluster
 
+(* Helper function; concurrency checks are done in implementation of Cluster.destroy and Cluster_host.destroy *)
+let pool_destroy ~__context ~self =
+  (* For now we assume we have only one pool, and that the cluster is the same as the pool.
+     This means that the pool master must be a member of this cluster. *)
+  let master = Helpers.get_master ~__context in
+  let master_cluster_host =
+    Xapi_clustering.find_cluster_host ~__context ~host:master
+    |> Xapi_stdext_monadic.Opt.unbox
+  in
+  let slave_cluster_hosts =
+    Db.Cluster.get_cluster_hosts ~__context ~self |> List.filter ((<>) master_cluster_host)
+  in
+  (* First destroy the Cluster_host objects of the slaves *)
+  List.iter
+    (fun cluster_host ->
+       (* We need to run this code on the slave *)
+       Helpers.call_api_functions ~__context (fun rpc session_id ->
+           Client.Client.Cluster_host.destroy ~rpc ~session_id ~self:cluster_host)
+    )
+    slave_cluster_hosts;
+  (* Then destroy the Cluster_host of the pool master and the Cluster itself *)
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      Client.Client.Cluster.destroy ~rpc ~session_id ~self)
+
 let pool_resync ~__context ~self =
   let pool_auto_join = Db.Cluster.get_pool_auto_join ~__context ~self in
   if pool_auto_join then begin
