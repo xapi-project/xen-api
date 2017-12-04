@@ -2854,17 +2854,15 @@ let vm_migrate printer rpc session_id params =
                pbd_rec.API.pBD_SR, Client.SR.get_record remote_rpc remote_session pbd_rec.API.pBD_SR) host_pbds in
              (* In the following loop, the current SR:sr' will be compared with previous checked ones, 
                 first if it is an ISO type, then pass this one for selection, then the only shared one from this and
-                prevoius one will be valued, and if not that case (both shared or none shared), choose the one with
+                previous one will be valued, and if not that case (both shared or none shared), choose the one with
                 more space available *)
-             let (sr, free_space) = List.fold_left (fun (sr, free_space) sr' ->
-               let sr_rec' = snd sr' in
+             let (sr, _) = List.fold_left (fun (sr, free_space) ((_, sr_rec') as sr') ->
                if sr_rec'.API.sR_content_type = "iso" then (sr, free_space)
                else
                  let free_space' = Int64.sub sr_rec'.API.sR_physical_size sr_rec'.API.sR_physical_utilisation in
                  match sr with
                  | None -> (Some sr', free_space')
-                 | Some sr ->
-                   let sr_rec = snd sr in
+                 | Some ((_, sr_rec) as sr) ->
                    match sr_rec.API.sR_shared, sr_rec'.API.sR_shared with
                    | true, false -> (Some sr, free_space)
                    | false, true -> (Some sr', free_space')
@@ -2872,7 +2870,7 @@ let vm_migrate printer rpc session_id params =
                           else (Some sr, free_space)
                ) (None, Int64.zero) srs in
              match sr with
-             | Some sr -> Some (fst sr)
+             | Some (sr_ref, _) -> Some sr_ref
              | _ -> None
            with _ -> None in
 
