@@ -23,7 +23,6 @@ open Mswitch
 module Config = struct
   type t = {
     path: string;
-    daemonize: bool;
     pidfile: string option;
     configfile: string option;
     statedir: string option;
@@ -31,13 +30,12 @@ module Config = struct
 
   let default = {
     path = "/var/run/message-switch/sock";
-    daemonize = false;
     pidfile = None;
     configfile = None;
     statedir = None;
   }
 
-  let make daemonize path pidfile configfile statedir =
+  let make path pidfile configfile statedir =
     (* First load any config file *)
     let config = match configfile with
     | None -> default
@@ -45,14 +43,10 @@ module Config = struct
     let d a = function None -> a | Some b -> b in
     (* Second apply any command-line overrides *)
     let path = d config.path path in
-    let daemonize = config.daemonize || daemonize in
-    { daemonize; path; pidfile; configfile; statedir }
+    { path; pidfile; configfile; statedir }
 
   let term =
     let open Cmdliner in
-    let daemon =
-      let doc = "Detach from the terminal and run as a daemon" in
-      Arg.(value & flag & info [ "daemon" ] ~doc) in
     let path =
       let doc = "Path to create the listening Unix domain socket" in
       Arg.(value & opt (some string) None & info [ "path" ] ~doc) in
@@ -65,7 +59,7 @@ module Config = struct
     let statedir =
       let doc = "Directory containing state files" in
       Arg.(value & opt (some string) default.statedir & info [ "statedir" ] ~doc) in
-    Term.(pure make $ daemon $ path $ pidfile $ configfile $ statedir)
+    Term.(pure make $ path $ pidfile $ configfile $ statedir)
 end
 
 (* Let's try to adopt the conventions of Rresult.R *)
@@ -307,7 +301,7 @@ let make_server config =
 exception Not_a_directory of string
 exception Does_not_exist of string
 
-let main ({ Config.daemonize; path; pidfile } as config) =
+let main ({ Config.path; pidfile } as config) =
   info "Starting with configuration:";
   info "%s" (Sexplib.Sexp.to_string (Config.sexp_of_t config));
   try
