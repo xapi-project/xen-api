@@ -2883,7 +2883,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
     "cluster-pool-create",
     {
-      reqd=["pool-uuid";"network-uuid"];
+      reqd=["network-uuid"];
       optn=["cluster-stack"];
       help="Create pool-wide cluster";
       implementation=No_fd Cli_operations.Cluster.pool_create;

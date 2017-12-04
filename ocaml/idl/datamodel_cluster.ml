@@ -45,9 +45,8 @@ let pool_create = call
     ~doc:"Attempt to create a Cluster from the entire pool"
     ~result:(Ref _cluster, "the new Cluster")
     ~params:
-      [ Ref _pool,    "pool",          "The pool to create a Cluster from"
+      [ Ref _network, "network",       "the single network on which corosync carries out its inter-host communications"
       ; String,       "cluster_stack", "simply the string 'corosync'. No other cluster stacks are currently supported"
-      ; Ref _network, "network",       "the single network on which corosync carries out its inter-host communications"
       ]
     ~lifecycle
     ~allowed_roles:_R_POOL_ADMIN
