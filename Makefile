@@ -22,6 +22,5 @@ clean:
 	jbuilder clean
 
 reindent:
-	ocp-indent --inplace **/*.ml
+	git ls-files '**/*.ml' | xargs ocp-indent --inplace
 
-.DEFAULT_GOAL := release
