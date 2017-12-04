@@ -15,8 +15,9 @@ script:
     - bash -ex .travis-opam.sh
 env:
   global:
-    - OCAML_VERSION=4.02
+    - OCAML_VERSION=4.04
     - PACKAGE=xapi-xenops
+    - PINS="xapi-xenops:. xapi-xenops-utils:. xenops:."
   matrix:
     - BASE_REMOTE=/tmp/xs-opam
     - EXTRA_REMOTES=/tmp/xs-opam

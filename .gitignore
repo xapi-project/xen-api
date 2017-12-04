@@ -1,1 +1,3 @@
-dist/
+_build
+.merlin
+*.install

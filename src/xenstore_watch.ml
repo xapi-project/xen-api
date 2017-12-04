@@ -127,7 +127,7 @@ module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
 			domains := domains')
 		  in
 		  
-		  let process_one_watch (path, token) =
+		  let process_one_watch (path, _token) =
 		    if path = _introduceDomain || path = _releaseDomain
 		    then look_for_different_domains ()
 		    else 

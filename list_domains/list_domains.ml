@@ -53,8 +53,8 @@ let hashtbl_of_domaininfo x : (string, string) Hashtbl.t =
   let shadow_mib =
     try Some (Int64.of_int (Xenctrl.shadow_allocation_get xc_handle x.domid))
     with _ -> None in
-  let open Stdext.Pervasiveext in
-  let open Stdext in
+  let open Xapi_stdext_pervasives.Pervasiveext in
+  let open Xapi_stdext_monadic in
   let shadow_bytes = may Memory.bytes_of_mib shadow_mib in
   let shadow_pages = may Memory.pages_of_mib shadow_mib in
   Hashtbl.add table "shadow bytes" (Opt.default "N/A" (may Int64.to_string shadow_bytes));

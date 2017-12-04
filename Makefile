@@ -1,41 +1,26 @@
-.PHONY: all clean install build
-all: build doc
+OPAM_PREFIX?=$(DESTDIR)$(shell opam config var prefix)
+OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
 
-NAME=xenops
-J=4
+.PHONY: release build install uninstall clean reindent
 
-export OCAMLRUNPARAM=b
+build:
+	jbuilder build @install --dev
 
-setup.ml: _oasis
-	@oasis setup
+release:
+	jbuilder build @install
 
-setup.bin: setup.ml
-	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
-	@rm -f setup.cmx setup.cmi setup.o setup.cmo
-
-setup.data: setup.bin
-	@./setup.bin -configure --enable-tests
-
-build: setup.data setup.bin
-	@./setup.bin -build -j $(J)
-
-doc: setup.data setup.bin
-	@./setup.bin -doc -j $(J)
-
-install: setup.bin
-	install -m 755 list_domains.native ${BINDIR}/list_domains
-	@./setup.bin -install
+install:
+	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xenops
+	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-xenops
+	install -D _build/install/default/bin/list_domains $(DESTDIR)$(BINDIR)/list_domains
 
 uninstall:
-	@ocamlfind remove $(NAME) || true
-
-test: setup.bin build
-	@./setup.bin -test
-
-reinstall: setup.bin
-	@ocamlfind remove $(NAME) || true
-	@./setup.bin -reinstall
+	jbuilder uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
+	rm -f $(DESTDIR)$(BINDIR)/list_domains
 
 clean:
-	@ocamlbuild -clean
-	@rm -f setup.data setup.log setup.bin
+	jbuilder clean
+
+reindent:
+	git ls-files '**/*.ml' | xargs ocp-indent --inplace
+

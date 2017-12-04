@@ -4,22 +4,7 @@ authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xenops/issues"
 dev-repo: "git://github.com/xapi-project/xenops.git"
-build: [
-  [make]
-]
-install: [
-  [make "PREFIX=%{prefix}%" "BINDIR=%{bin}%" "install"]
-]
-remove: [
-  [make "PREFIX=%{prefix}%" "BINDIR=%{bin}%" "uninstall"]
-]
 depends: [
-  "oasis" {build}
-  "xapi-stdext" {>= "2.0.0"}
-  "xapi-libs-transitional"
-  "xenctrl"
-  "xenstore"
-  "xenstore_transport"
-  "ezxenstore"
+  "xenops"
 ]
 available: [ocaml-version >= "4.01.0"]

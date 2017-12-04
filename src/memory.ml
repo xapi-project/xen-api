@@ -13,10 +13,8 @@
  *)
 (** Functions relating to memory requirements of Xen domains *)
 
-open Printf
-
-module D = Debug.Make(struct let name = "xenops" end)
-open D
+(* module D = Debug.Make(struct let name = "xenops" end)
+open D *)
 
 let ( +++ ) = Int64.add
 let ( --- ) = Int64.sub

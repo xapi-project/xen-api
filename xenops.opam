@@ -1,0 +1,17 @@
+opam-version: "1.2"
+maintainer: "john.else@citrix.com"
+authors: "xen-api@lists.xen.org"
+homepage: "https://xapi-project.github.io/"
+bug-reports: "https://github.com/xapi-project/xenops/issues"
+dev-repo: "git://github.com/xapi-project/xenops.git"
+build:  [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+depends: [
+  "jbuilder" {build & >= "1.0+beta10"}
+  "ezxenstore"
+  "xapi-stdext-pervasives"
+  "xapi-libs-transitional"
+  "xenctrl"
+  "xenstore"
+  "xenstore_transport"
+]
+available: [ocaml-version >= "4.01.0"]

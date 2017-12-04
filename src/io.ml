@@ -13,7 +13,7 @@
  *)
 (* read size bytes and return the completed buffer *)
 let read fd size =
-	let buf = String.create size in
+	let buf = Bytes.create size in
 	let i = ref size in
 	while !i <> 0
 	do
@@ -43,10 +43,11 @@ let connect host port =
 (** Write an integer to an fd as 4 bytes, most significant first *)
 let write_int fd x = 
 	let buffer = "\000\000\000\000" in
-	buffer.[0] <- char_of_int ((x lsr 24) land 0xff);
-	buffer.[1] <- char_of_int ((x lsr 16) land 0xff);
-	buffer.[2] <- char_of_int ((x lsr 8) land 0xff);
-	buffer.[3] <- char_of_int ((x lsr 0) land 0xff);
+	let put_in = Bytes.set buffer in
+	char_of_int ((x lsr 24) land 0xff) |> put_in 0;
+	char_of_int ((x lsr 16) land 0xff) |> put_in 1;
+	char_of_int ((x lsr 8) land 0xff)  |> put_in 2;
+	char_of_int ((x lsr 0) land 0xff)  |> put_in 3;
 	write fd buffer
 
 (** Read a 4-byte most significant first integer from an fd *)
