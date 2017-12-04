@@ -28,9 +28,9 @@ val destroy : __context:Context.t -> self:API.ref_Cluster -> unit
 (** [destroy ~__context ~self] is the implementation of the XenAPI method
     'Cluster.destroy'. It is the destructor of the Cluster object *)
 
-val pool_create : __context:Context.t -> pool:API.ref_pool ->
-  cluster_stack:string -> network:API.ref_network -> API.ref_Cluster
-(** [pool_create ~__context ~pool ~cluster_stack ~network] is the implementation
+val pool_create : __context:Context.t -> network:API.ref_network ->
+  cluster_stack:string -> API.ref_Cluster
+(** [pool_create ~__context ~network ~cluster_stack] is the implementation
     of the XenAPI method 'Cluster.pool_create'. This is a convenience function
     that creates the Cluster object and then creates Cluster_host objects for
     all hosts in the pool. *)

@@ -59,8 +59,8 @@ let destroy ~__context ~self =
   | Result.Error error -> handle_error error
 
 (* helper function; concurrency checks are done in implementation of Cluster.create and Cluster_host.create *)
-let pool_create ~__context ~pool ~cluster_stack ~network =
-  let master = Db.Pool.get_master ~__context ~self:pool in
+let pool_create ~__context ~network ~cluster_stack =
+  let master = Helpers.get_master ~__context in
   let hosts = Db.Host.get_all ~__context in
 
   let cluster = Helpers.call_api_functions ~__context (fun rpc session_id ->
