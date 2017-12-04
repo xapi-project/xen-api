@@ -166,4 +166,4 @@ Executable switch
   MainIs:             switch_main.ml
   Custom:             true
   Install:            false
-  BuildDepends:       message_switch, message_switch.lwt, message_switch.server, lwt, lwt.unix, cohttp, cohttp.lwt, systemd
+  BuildDepends:       message_switch, message_switch.lwt, message_switch.server, lwt, lwt.unix, cohttp, cohttp.lwt
