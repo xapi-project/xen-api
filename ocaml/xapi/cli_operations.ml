@@ -5064,6 +5064,11 @@ module Cluster = struct
     let uuid = Client.Cluster.get_uuid ~rpc ~session_id ~self:cluster in
     printer (Cli_printer.PList [uuid])
 
+  let pool_destroy _printer rpc session_id params =
+    let cluster_uuid = List.assoc "cluster-uuid" params in
+    let cluster_ref = Client.Cluster.get_by_uuid rpc session_id cluster_uuid in
+    Client.Cluster.pool_destroy ~rpc ~session_id ~self:cluster_ref
+
   let pool_resync printer rpc session_id params =
     let cluster = List.assoc "cluster-uuid" params in
     let cluster_ref = Client.Cluster.get_by_uuid rpc session_id cluster in

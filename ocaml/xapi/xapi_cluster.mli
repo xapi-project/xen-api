@@ -35,6 +35,12 @@ val pool_create : __context:Context.t -> pool:API.ref_pool ->
     that creates the Cluster object and then creates Cluster_host objects for
     all hosts in the pool. *)
 
+val pool_destroy : __context:Context.t -> self:API.ref_Cluster -> unit
+(** [pool_destroy ~__context ~pool ~self] is the implementation of the XenAPI
+    method 'Cluster.pool_create'. This is a convenience function that destroys
+    the Cluster_host objects for all hosts in the pool and then destroys the
+    Cluster object. *)
+
 val pool_resync : __context:Context.t -> self:API.ref_Cluster -> unit
 (** [pool_resync ~__context ~self] is the implementation of the XenAPI method
     'Cluster.pool_resync'. The purpose of this function is to help after the
