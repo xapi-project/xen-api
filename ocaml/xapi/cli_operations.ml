@@ -2843,15 +2843,40 @@ let vm_migrate printer rpc session_id params =
              let gpu_group = Client.GPU_group.get_by_uuid remote_rpc remote_session gpu_group_uuid in
              vgpu,gpu_group) (read_map_params "vgpu" params) in
 
-         let default_sr =
-           try let pools = Client.Pool.get_all remote_rpc remote_session in
-             printer (Cli_printer.PMsg "Selecting remote pool's default SR for migrating VDIs") ;
-             Some (Client.Pool.get_default_SR remote_rpc remote_session (List.hd pools))
+         let preferred_sr =
+           (* The preferred SR is determined to be as the SR that the destine host has a PDB attached to it,
+              and among the choices of that the shared is preferred first(as it is recommended to have shared storage
+              in pool to host VMs), and then the one with the maximum available space *)
+           try
+             let query = Printf.sprintf {|(field "host"="%s") and (field "currently_attached"="true")|} (Ref.string_of host) in
+             let host_pbds = Client.PBD.get_all_records_where remote_rpc remote_session query in
+             let srs = List.map (fun (pbd_ref, pbd_rec) -> 
+               pbd_rec.API.pBD_SR, Client.SR.get_record remote_rpc remote_session pbd_rec.API.pBD_SR) host_pbds in
+             (* In the following loop, the current SR:sr' will be compared with previous checked ones, 
+                first if it is an ISO type, then pass this one for selection, then the only shared one from this and
+                previous one will be valued, and if not that case (both shared or none shared), choose the one with
+                more space available *)
+             let (sr, _) = List.fold_left (fun (sr, free_space) ((_, sr_rec') as sr') ->
+               if sr_rec'.API.sR_content_type = "iso" then (sr, free_space)
+               else
+                 let free_space' = Int64.sub sr_rec'.API.sR_physical_size sr_rec'.API.sR_physical_utilisation in
+                 match sr with
+                 | None -> (Some sr', free_space')
+                 | Some ((_, sr_rec) as sr) ->
+                   match sr_rec.API.sR_shared, sr_rec'.API.sR_shared with
+                   | true, false -> (Some sr, free_space)
+                   | false, true -> (Some sr', free_space')
+                   | _ -> if (free_space' > free_space) then (Some sr', free_space')
+                          else (Some sr, free_space)
+               ) (None, Int64.zero) srs in
+             match sr with
+             | Some (sr_ref, _) -> Some sr_ref
+             | _ -> None
            with _ -> None in
 
-         let vdi_map = match default_sr with
+         let vdi_map = match preferred_sr with
            | None -> vdi_map
-           | Some default_sr ->
+           | Some preferred_sr ->
              let vms = select_vms ~include_template_vms:true rpc session_id params
                  ( "host" :: "host-uuid" :: "host-name" :: "live" :: "force" :: "copy"
                    :: vm_migrate_sxm_params ) in
@@ -2864,7 +2889,7 @@ let vm_migrate printer rpc session_id params =
              let overrides = List.map (fun vdi ->
                  if List.mem_assoc vdi vdi_map
                  then (vdi, List.assoc vdi vdi_map)
-                 else (vdi, default_sr)
+                 else (vdi, preferred_sr)
                ) vdis in
              let filtered_orig_list = List.filter (fun (vdi,_) ->
                  not (List.mem_assoc vdi overrides)) vdi_map in
