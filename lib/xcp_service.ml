@@ -360,6 +360,7 @@ type ('a, 'b) error = [
 
 let configure2 ~name ~version ~doc ?(options=[]) ?(resources=[]) () =
   try
+    Xcp_coverage.init name;
     configure_common ~options ~resources
       (fun config_spec ->
         match Term.eval (command_of ~name ~version ~doc config_spec) with

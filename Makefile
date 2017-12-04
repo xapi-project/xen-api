@@ -30,3 +30,6 @@ gh-pages:
 
 reindent:
 	    git ls-files '*.ml' '*.mli' | xargs ocp-indent --syntax cstruct -i
+
+runtime-coverage:
+	    BISECT_RUNTIME=YES make

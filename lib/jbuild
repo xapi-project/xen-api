@@ -22,11 +22,25 @@ let coverage_rewriter =
   else
     ""
 
+let runtime_coverage_enabled, coverage_dep =
+  let use_bisect_runtime = match Unix.getenv "BISECT_RUNTIME" with
+    | "YES" -> true
+    | _ -> false
+    | exception Not_found -> false in
+  if use_bisect_runtime then
+    "enabled.ml", "bisect_ppx.runtime"
+  else
+    "disabled.ml", ""
+
 let rewriters = ["ppx_deriving_rpc"]
 let flags = flags rewriters
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (jbuild_version 1)
+
+(rule
+  ((targets (xcp_coverage.ml))
+   (action (copy coverage/%s ${@}))))
 
 (library
  ((name xcp)
@@ -35,7 +49,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (modules (:standard \ channel_helper scheduler task_server updates))
   (c_names (syslog_stubs))
   (libraries
-   (cmdliner
+   (%s
+    cmdliner
     cohttp
     fd-send-recv
     message_switch.unix
@@ -80,4 +95,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (alias
  ((name runtest)
   (deps (channel_helper.exe))))
-|} flags coverage_rewriter flags coverage_rewriter flags
+|} runtime_coverage_enabled flags coverage_dep coverage_rewriter flags coverage_rewriter flags
