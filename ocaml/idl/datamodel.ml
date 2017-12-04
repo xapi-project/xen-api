@@ -10276,6 +10276,16 @@ module Cluster = struct
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+  let pool_destroy = call
+    ~name:"pool_destroy"
+    ~doc:"Attempt to destroy the Cluster_host objects for all hosts in the pool and then destroy the Cluster."
+    ~params:
+      [ Ref _cluster, "self", "The cluster to destroy."
+      ]
+    ~lifecycle
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
   let pool_resync = call
     ~name:"pool_resync"
     ~doc:"Resynchronise the cluster_host objects across the pool. Creates them where they need creating and then plugs them"
@@ -10333,6 +10343,7 @@ module Cluster = struct
         [ create
         ; destroy
         ; pool_create
+        ; pool_destroy
         ; pool_resync
         ]
       ()

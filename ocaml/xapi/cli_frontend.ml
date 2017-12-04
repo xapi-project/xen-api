@@ -2880,6 +2880,14 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.Cluster.pool_create;
       flags=[];
     };
+    "cluster-pool-destroy",
+    {
+      reqd=["cluster-uuid"];
+      optn=[];
+      help="Destroy pool-wide cluster";
+      implementation=No_fd Cli_operations.Cluster.pool_destroy;
+      flags=[];
+    };
     "cluster-pool-resync",
     {
       reqd=["cluster-uuid"];
