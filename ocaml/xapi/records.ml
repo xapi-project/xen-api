@@ -217,6 +217,21 @@ let message_record rpc session_id message =
       ]
   }
 
+let net_sriov_record rpc session_id net_sriov =
+  let _ref = ref net_sriov in
+  let empty_record = ToGet (fun () -> Client.NET_sriov.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  { setref=(fun r -> _ref := r; record := empty_record );
+    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
+    record=x;
+    getref=(fun () -> !_ref);
+    fields =
+      [
+        make_field ~name:"uuid"                     ~get:(fun () -> (x ()).API.nET_sriov_uuid) ();
+        make_field ~name:"physical-pif-uuid"        ~get:(fun () -> get_uuid_from_ref (x ()).API.nET_sriov_physical_PIF) ();
+        make_field ~name:"logical-pif-uuid"         ~get:(fun () -> get_uuid_from_ref (x ()).API.nET_sriov_logical_PIF) ();
+      ]}
 
 let pif_record rpc session_id pif =
   let _ref = ref pif in
@@ -242,6 +257,8 @@ let pif_record rpc session_id pif =
         make_field ~name:"VLAN"         ~get:(fun () -> (Int64.to_string (x ()).API.pIF_VLAN)) ();
         make_field ~name:"bond-master-of" ~get:(fun () -> String.concat "; " (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.pIF_bond_master_of)) ();
         make_field ~name:"bond-slave-of"  ~get:(fun () -> get_uuid_from_ref (x ()).API.pIF_bond_slave_of) ();
+        make_field ~name:"sriov-physical-of" ~get:(fun () -> get_uuid_from_ref (x ()).API.pIF_sriov_physical_of) ();
+        make_field ~name:"sriov-logical-of"  ~get:(fun () -> get_uuid_from_ref (x ()).API.pIF_sriov_logical_of) ();
         make_field ~name:"tunnel-access-PIF-of" ~get:(fun () -> String.concat "; " (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.pIF_tunnel_access_PIF_of)) ();
         make_field ~name:"tunnel-transport-PIF-of"  ~get:(fun () -> String.concat "; " (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.pIF_tunnel_transport_PIF_of)) ();
         make_field ~name:"management"   ~get:(fun () -> string_of_bool ((x ()).API.pIF_management)) ();
@@ -404,6 +421,7 @@ let vif_record rpc session_id vif =
         make_field ~name:"ipv6-configuration-mode" ~get:(fun () -> Record_util.vif_ipv6_configuration_mode_to_string (x ()).API.vIF_ipv6_configuration_mode) ();
         make_field ~name:"ipv6-addresses" ~get:(fun () -> String.concat "; " (x ()).API.vIF_ipv6_addresses) ();
         make_field ~name:"ipv6-gateway" ~get:(fun () -> (x ()).API.vIF_ipv6_gateway) ();
+        make_field ~name:"attached_pci" ~get:(fun () -> try get_uuid_from_ref (x ()).API.vIF_attached_pci with _ -> nid) ();
       ]}
 
 

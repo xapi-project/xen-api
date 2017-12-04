@@ -35,7 +35,8 @@ let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =
     ~device ~device_name:device ~network ~host ~mAC:vlan_mac ~mTU ~vLAN:tag ~metrics
     ~physical:false ~currently_attached:false ~igmp_snooping_status:`unknown
     ~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
-    ~vLAN_master_of:vlan ~management:false ~other_config:[] ~disallow_unplug:false
+    ~vLAN_master_of:vlan ~sriov_physical_of:Ref.null ~sriov_logical_of:Ref.null ~management:false
+    ~other_config:[] ~disallow_unplug:false
     ~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true
     ~properties:[] ~capabilities:[];
 
