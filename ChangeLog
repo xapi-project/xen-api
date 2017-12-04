@@ -1,3 +1,10 @@
+2.0.0 (04-Dec-2017)
+* Update stdext dependency
+* Fix compilation warnings
+* Port to jbuilder
+* Remove unused modules
+* Remove cpuid_check
+
 1.0.1 (23-Jun-2016):
 * Use stdext 2.0.0
 
