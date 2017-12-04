@@ -257,8 +257,8 @@ let pif_record rpc session_id pif =
         make_field ~name:"VLAN"         ~get:(fun () -> (Int64.to_string (x ()).API.pIF_VLAN)) ();
         make_field ~name:"bond-master-of" ~get:(fun () -> String.concat "; " (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.pIF_bond_master_of)) ();
         make_field ~name:"bond-slave-of"  ~get:(fun () -> get_uuid_from_ref (x ()).API.pIF_bond_slave_of) ();
-        make_field ~name:"sriov-master-of" ~get:(fun () -> get_uuid_from_ref (x ()).API.pIF_sriov_master_of) ();
-        make_field ~name:"sriov-slave-of"  ~get:(fun () -> get_uuid_from_ref (x ()).API.pIF_sriov_slave_of) ();
+        make_field ~name:"sriov-physical-of" ~get:(fun () -> get_uuid_from_ref (x ()).API.pIF_sriov_physical_of) ();
+        make_field ~name:"sriov-logical-of"  ~get:(fun () -> get_uuid_from_ref (x ()).API.pIF_sriov_logical_of) ();
         make_field ~name:"tunnel-access-PIF-of" ~get:(fun () -> String.concat "; " (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.pIF_tunnel_access_PIF_of)) ();
         make_field ~name:"tunnel-transport-PIF-of"  ~get:(fun () -> String.concat "; " (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.pIF_tunnel_transport_PIF_of)) ();
         make_field ~name:"management"   ~get:(fun () -> string_of_bool ((x ()).API.pIF_management)) ();

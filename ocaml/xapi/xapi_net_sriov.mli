@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** Create a SRIOV. *)
+(** Create a net-sriov object on the specific PIF and network, it will internally create a logical PIF to connect the net-sriov and network. Topo: physical PIF - net-sriov - logical PIF - network *)
 val create :
   __context:Context.t ->
   pif:[ `PIF ] Ref.t ->
@@ -20,7 +20,7 @@ val create :
   [ `NET_sriov ] Ref.t
 
 
-(** Destroy a SRIOV. *)
+(** Destroy a net-sriov object, and it will automatically destroy the logical PIF that bonded with it. *)
 val destroy : __context:Context.t -> self:[ `NET_sriov ] Ref.t -> unit
 
 

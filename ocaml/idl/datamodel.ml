@@ -18,7 +18,7 @@ open Datamodel_types
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
               You do not have to bump vsn if you change/add/remove a message *)
 let schema_major_vsn = 5
-let schema_minor_vsn = 133
+let schema_minor_vsn = 134
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -5636,8 +5636,8 @@ let pif =
       field ~in_oss_since:None ~ty:(Set(Ref _bond)) ~in_product_since:rel_miami ~qualifier:DynamicRO "bond_master_of" "Indicates this PIF represents the results of a bond";
       field ~in_oss_since:None ~ty:(Ref _vlan) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_master_of" "Indicates wich VLAN this interface receives untagged traffic from" ~default_value:(Some (VRef ""));
       field ~in_oss_since:None ~ty:(Set(Ref _vlan)) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_slave_of" "Indicates which VLANs this interface transmits tagged traffic to";
-      field ~in_oss_since:None ~ty:(Ref _net_sriov) ~in_product_since:rel_jura ~qualifier:DynamicRO "sriov_master_of" "Indicates which net_sriov this interface is physical of" ~default_value:(Some (VRef ""));
-      field ~in_oss_since:None ~ty:(Ref _net_sriov) ~in_product_since:rel_jura ~qualifier:DynamicRO "sriov_slave_of" "Indicates which net_sriov this interface is logical of" ~default_value:(Some (VRef ""));
+      field ~in_oss_since:None ~ty:(Ref _net_sriov) ~in_product_since:rel_jura ~qualifier:DynamicRO "sriov_physical_of" "Indicates which net_sriov this interface is physical of" ~default_value:(Some (VRef ""));
+      field ~in_oss_since:None ~ty:(Ref _net_sriov) ~in_product_since:rel_jura ~qualifier:DynamicRO "sriov_logical_of" "Indicates which net_sriov this interface is logical of" ~default_value:(Some (VRef ""));
       field ~in_oss_since:None ~ty:Bool ~in_product_since:rel_miami ~qualifier:DynamicRO "management" "Indicates whether the control software is listening for connections on this interface" ~default_value:(Some (VBool false));
       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "Additional configuration";
       field ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "disallow_unplug" "Prevent this PIF from being unplugged; set this to notify the management tool-stack that the PIF has a special use and should not be unplugged under any circumstances (e.g. because you're running storage traffic over it)";
@@ -6070,7 +6070,7 @@ let vif =
          field ~ty:vif_ipv6_configuration_mode ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_configuration_mode" "Determines whether IPv6 addresses are configured on the VIF" ~default_value:(Some (VEnum "None"));
          field ~ty:(Set (String)) ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_addresses" "IPv6 addresses in CIDR format" ~default_value:(Some (VSet []));
          field ~ty:String ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_gateway" "IPv6 gateway (the empty string means that no gateway is set)" ~default_value:(Some (VString ""));
-         field ~ty:(Ref _pci) ~in_product_since:rel_jura ~qualifier:DynamicRO "attached_pci" "pci of which this vif attached (sriov vif)" ~default_value:(Some (VRef null_ref));
+         field ~ty:(Ref _pci) ~in_product_since:rel_jura ~qualifier:DynamicRO "attached_pci" "pci where this vif is attached" ~default_value:(Some (VRef null_ref));
        ])
     ()
 
@@ -9207,8 +9207,8 @@ let alert =
 
 let net_sriov_create = call
     ~name:"create"
-    ~doc:"Create a net-sriov on specified pif"
-    ~params:[Ref _pif, "pif", "PIF which to enable sriov";
+    ~doc:"Create a net-sriov on the specified PIF"
+    ~params:[Ref _pif, "pif", "PIF on which to enable SRIOV";
              Ref _network, "network", "Network to link SRIOV"]
     ~result:(Ref _net_sriov, "The reference of the created SRIOV object")
     ~in_product_since:rel_jura
@@ -9241,9 +9241,8 @@ module NET_sriov = struct
       ~contents:
         ([
           uid _net_sriov;
-          field ~qualifier:StaticRO ~ty:(Ref _pif) ~in_product_since:rel_jura "physical_PIF" "physical pif which the ner_sriov created" ~default_value:(Some (VRef ""));
-          field ~qualifier:StaticRO ~ty:(Ref _pif) ~in_product_since:rel_jura "logical_PIF" "logical pif after sriov enabled for physical pif" ~default_value:(Some (VRef ""));
-          field ~qualifier:RW ~ty:(Map(String, String)) ~in_product_since:rel_jura "other_config" "additional configuration" ~default_value:(Some (VMap []));
+          field ~qualifier:StaticRO ~ty:(Ref _pif) ~in_product_since:rel_jura "physical_PIF" "physical PIF which the net_sriov created" ~default_value:(Some (VRef ""));
+          field ~qualifier:StaticRO ~ty:(Ref _pif) ~in_product_since:rel_jura "logical_PIF" "logical PIF after sriov enabled for physical pif" ~default_value:(Some (VRef ""));
         ])
       ()
 end

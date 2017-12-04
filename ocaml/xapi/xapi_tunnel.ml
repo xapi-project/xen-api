@@ -41,7 +41,7 @@ let create_internal ~__context ~transport_PIF ~network ~host =
     ~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics
     ~physical:false ~currently_attached:false ~igmp_snooping_status:`unknown
     ~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
-    ~vLAN_master_of:Ref.null ~sriov_master_of:Ref.null ~sriov_slave_of:Ref.null
+    ~vLAN_master_of:Ref.null ~sriov_physical_of:Ref.null ~sriov_logical_of:Ref.null
     ~management:false ~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
     ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true ~properties:[] ~capabilities:[];
   Db.Tunnel.create ~__context ~ref:tunnel ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
