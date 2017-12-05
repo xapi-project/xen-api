@@ -17,7 +17,6 @@ open Xapi_clustering
 module D=Debug.Make(struct let name="xapi_cluster" end)
 open D
 
-(* TODO: update allowed_operations on cluster creation *)
 (* TODO: update allowed_operations on boot/toolstack-restart *)
 
 let create ~__context ~network ~cluster_stack ~pool_auto_join =
@@ -42,6 +41,7 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join =
           ~other_config:[];
         Db.Cluster_host.create ~__context ~ref:cluster_host_ref ~uuid:cluster_host_uuid ~cluster:cluster_ref ~host ~enabled:true
           ~current_operations:[] ~allowed_operations:[] ~other_config:[];
+        Xapi_cluster_host_helpers.update_allowed_operations ~__context ~self:cluster_host_ref;
         D.debug "Created Cluster: %s and Cluster_host: %s" (Ref.string_of cluster_ref) (Ref.string_of cluster_host_ref);
         cluster_ref
       | Result.Error error -> handle_error error
