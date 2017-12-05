@@ -17,7 +17,6 @@ open Xapi_clustering
 module D=Debug.Make(struct let name="xapi_cluster_host" end)
 open D
 
-(* TODO: update allowed_operations on cluster_host creation *)
 (* TODO: update allowed_operations on boot/toolstack-restart *)
 
 (* A PIF being used for clustering must:

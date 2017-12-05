@@ -4255,7 +4255,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Cluster.create";
       let pool = Db.Pool.get_all ~__context |> List.hd in (* assumes 1 pool in DB *)
       Xapi_pool_helpers.with_pool_operation ~__context ~self:pool ~doc:"Cluster.create" ~op:`cluster_create
-        (fun () -> Local.Cluster.create ~__context ~network ~cluster_stack ~pool_auto_join)
+        (fun () ->
+           let cluster = Local.Cluster.create ~__context ~network ~cluster_stack ~pool_auto_join in
+           Xapi_cluster_helpers.update_allowed_operations ~__context ~self:cluster;
+           cluster
+        )
 
     let destroy ~__context ~self =
       info "Cluster.destroy";
@@ -4282,8 +4286,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.Cluster_host.create ~cluster ~host in
       Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster.add" ~op:`add
         (fun () ->
-           do_op_on ~__context ~local_fn ~host
-             (fun session_id rpc -> Client.Cluster_host.create rpc session_id cluster host))
+           let cluster_host = do_op_on ~__context ~local_fn ~host
+             (fun session_id rpc -> Client.Cluster_host.create rpc session_id cluster host) in
+           Xapi_cluster_host_helpers.update_allowed_operations ~__context ~self:cluster_host;
+           cluster_host
+        )
 
     let destroy ~__context ~self =
       info "Cluster_host.destroy";
