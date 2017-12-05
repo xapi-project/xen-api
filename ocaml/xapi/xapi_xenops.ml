@@ -2819,6 +2819,10 @@ let resume ~__context ~self ~start_paused ~force =
        end;
        set_resident_on ~__context ~self;
        Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null;
+       (* Clearing vGPU metadata should happen as late as possible
+        * to make sure we only do it on a successful resume
+        *)
+       Xapi_gpumon.clear_vgpu_metadata ~__context ~vm:self;
        Helpers.call_api_functions ~__context
          (fun rpc session_id ->
             XenAPI.VDI.destroy rpc session_id vdi

@@ -52,7 +52,9 @@ let create' ~__context  ~vM ~gPU_group ~device ~other_config ~_type ~powerstate_
 
       Db.VGPU.create ~__context ~ref:vgpu ~uuid ~vM ~gPU_group ~device
         ~currently_attached:false ~other_config ~_type ~resident_on:Ref.null
-        ~scheduled_to_be_resident_on:Ref.null;
+        ~scheduled_to_be_resident_on:Ref.null
+        ~compatibility_metadata:[]
+        ;
     );
   debug "VGPU ref='%s' created (VM = '%s', type = '%s')" (Ref.string_of vgpu) (Ref.string_of vM) (Ref.string_of _type);
   vgpu
