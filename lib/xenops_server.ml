@@ -1660,6 +1660,8 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
                  do_request vgpu_fd [] vgpu_url;
                  Handshake.recv_success vgpu_fd;
                  debug "VM.migrate: Synchronisation point 1-vgpu";
+                 Handshake.send ~verbose:true mem_fd Handshake.Success;
+                 debug "VM.migrate: Synchronisation point 1-vgpu ACK";
                  first_handshake ();
                  save ~vgpu_fd:(FD vgpu_fd) ();
                );
@@ -1682,6 +1684,21 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
       debug "VM.receive_memory creating domain and restoring VIFs";
 
       finally (fun ()->
+
+        (* If we have a vGPU, wait for the vgpu-1 ACK, which indicates that the vgpu_receiver_sync entry for
+           this vm id has already been initialised by the parallel receive_vgpu thread in this receiving host
+         *)
+        (match VGPU_DB.ids id with
+         | [] -> ()
+         | _  -> begin
+           Handshake.recv_success s;
+           debug "VM.receive_memory: Synchronisation point 1-vgpu ACK";
+           (* After this point, vgpu_receiver_sync is initialised by the corresponding receive_vgpu thread
+              and therefore can be used by this VM_receive_memory thread
+            *)
+         end
+        );
+
         (try
            perform_atomics (
              simplify [VM_create (id, Some memory_limit);] @
