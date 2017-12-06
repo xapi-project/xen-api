@@ -1,0 +1,8 @@
+v1.0.0..
+
+- Port to jbuilder
+- Library renamed as internal xapi library for easier
+  integration and used only at compile time
+
+The changes will be submitted for the upstream project as a PR in the future
+
