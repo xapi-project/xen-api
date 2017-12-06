@@ -60,7 +60,6 @@ type feature =
   | Pool_size                    (** Enable use of Pooling for more than 3 Hosts *)
   | CBT                          (** Enable the use of CBT *)
   | USB_passthrough              (** Enable the use of USB passthrough. *)
-  | Corosync                     (** Enable the use of corosync. *)
 
 (** Convert RPC into {!feature}s *)
 val feature_of_rpc : Rpc.t -> feature
