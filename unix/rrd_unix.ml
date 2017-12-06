@@ -101,8 +101,8 @@ let with_out_channel_output fd f =
   let oc = Unix.out_channel_of_descr fd in
   finally
     (fun () ->
-      let output = Xmlm.make_output (`Channel oc) in
-      f output)
+       let output = Xmlm.make_output (`Channel oc) in
+       f output)
     (fun () -> flush oc)
 
 let xml_to_fd rrd fd =

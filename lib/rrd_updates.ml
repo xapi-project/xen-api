@@ -71,7 +71,7 @@ let create rra_timestep rras first_rra last_cdp_time first_cdp_time start legend
   in
 
   let data = Array.of_list (do_data 0 []) in
-  
+
   { start_time = first_cdp_time;
     step       = rra_timestep;
     end_time   = last_cdp_time;
@@ -86,13 +86,13 @@ let xml_of t output =
     Xmlm.output output (`El_end) 
   in
   let data dat () = Xmlm.output output (`Data dat) in  
-  
+
   let xml_of_row row =
     let values = List.map (fun v ->
         tag "v" [data (Utils.f_to_s v)]) (Array.to_list row.row_data) in
     tag "row" ((tag "t" [data (Printf.sprintf "%Ld" row.time)])::values)
   in
-  
+
   let rows = List.map xml_of_row (Array.to_list t.data) in
   let mydata = tag "data" rows in
 
@@ -138,7 +138,7 @@ let of_xml input =
         (meta, rows, columns)
       ) i
   in
-  
+
   accept (`Dtd None) input;
   read_block "xport" (fun i ->
       let meta, _, _ = read_meta i in
@@ -164,8 +164,8 @@ let json_of_t t =
   do_data t.data.(Array.length t.data - 1);
   Printf.bprintf buffer "]}";
   Buffer.contents buffer
-  
-  
+
+
 (** Export data from a bunch of rrds. Specify a prefix per rrd to be
     put onto legend. Note that each rrd *must* have the same timestep
     and have been updated at the same time, and *must* have

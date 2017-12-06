@@ -417,7 +417,7 @@ let rrd_create dss rras timestep inittime =
     correctly at the moment!
 
     now = Unix.gettimeofday ()
- *)
+*)
 
 let rrd_add_ds rrd now newds =
   if List.mem newds.ds_name (ds_names rrd) then rrd else
