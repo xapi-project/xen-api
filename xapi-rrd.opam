@@ -7,9 +7,6 @@ dev-repo: "https://github.com/xapi-project/xcp-rrd.git"
 tags: [
   "org:xapi-project"
 ]
-build: ["jbuilder" "build" "-p" name "-j" jobs]
 depends: [
-  "jbuilder" {build & >= "1.0+beta10"}
-  "rpc" {>= "1.9.51"}
-  "xmlm"
+    "rrd"
 ]

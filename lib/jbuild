@@ -8,7 +8,7 @@ let flags = function
     List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
   ) in
   let ic = Unix.open_process_in
-    (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\w+)'")
+    (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
   in
   let rec go ic acc =
     try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
@@ -18,7 +18,7 @@ let flags = function
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (library
  ((name rrd)
-  (public_name xapi-rrd)
+  (public_name rrd)
   (flags (:standard -w -34-39 %s))
   (wrapped false)
   (libraries (rpclib.json xmlm))

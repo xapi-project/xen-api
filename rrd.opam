@@ -8,13 +8,12 @@ tags: [
   "org:xapi-project"
 ]
 build: ["jbuilder" "build" "-p" name "-j" jobs]
-build-test: ["jbuilder" "runtest" "-p" name]
 depends: [
   "jbuilder" {build & >= "1.0+beta10"}
   "base-bigarray"
   "base-unix"
-  "uuidm"
-  "xapi-rrd"
+  "rpc" {>= "1.9.51"}
   "xmlm"
+  "uuidm"
   "ounit" {test}
 ]

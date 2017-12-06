@@ -1,11 +1,10 @@
 (executable
  ((name unit_tests)
   (modules (unit_tests))
-  (libraries (bigarray oUnit unix xapi-rrd xapi-rrd-unix))
+  (libraries (bigarray oUnit unix rrd rrd.unix))
  ))
 
 (alias
  ((name    runtest)
-  (package xapi-rrd-unix)
   (deps    (unit_tests.exe))
   (action  (run ${<}))))
