@@ -133,6 +133,27 @@ let test_create_as_necessary () =
   let result = sync_required ~__context ~host:localhost in
   OUnit.assert_equal result None
 
+(* CA-275728 *)
+let test_destroy_forbidden_when_sr_attached () =
+  let __context = Test_common.make_test_database () in
+  let cluster_stack = "mock_cluster_stack" in
+  let host = Helpers.get_localhost ~__context in
+  let cluster_host =
+    let (_, cluster_host) = Test_common.make_cluster_and_cluster_host ~__context ~cluster_stack () in
+    Db.Cluster_host.set_host ~__context ~self:cluster_host ~value:host;
+    cluster_host
+  in
+  let sR =
+    let sr_type = "mock_sr_type" in
+    let _sm : _ API.Ref.t = Test_common.make_sm ~__context ~_type:sr_type ~required_cluster_stack:[cluster_stack] () in
+    Test_common.make_sr ~__context ~_type:sr_type ()
+  in
+  let _pbd : _ API.Ref.t = Test_common.make_pbd ~__context ~host ~sR ~currently_attached:true () in
+  OUnit.assert_raises
+    (* TODO: update this when the exceptions are finalized *)
+    (Failure ("Host has attached SR whose SM requires cluster stack " ^ cluster_stack))
+    (fun () -> Xapi_cluster_host.destroy ~__context ~self:cluster_host)
+
 
 let test =
   "test_cluster_host" >:::
@@ -142,4 +163,5 @@ let test =
     "test_prerequisites" >:: test_prereq;
     "test_fix_prerequisites" >:: test_fix_prereq;
     "test_create_as_necessary" >:: test_create_as_necessary;
+    "test_destroy_forbidden_when_sr_attached" >:: test_destroy_forbidden_when_sr_attached;
   ]
