@@ -40,6 +40,7 @@ let query _ _ _ = {
   features = [];
   instance_id = instance_id;
 }
+let cookie_vgpu_migration = "vgpu_migration"
 
 let backend = ref None
 let get_backend () = match !backend with
@@ -1657,7 +1658,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
            | [vgpu_id] ->
              let vgpu_url = make_url "/migrate-vgpu/" (VGPU_DB.string_of_id vgpu_id) in
              Open_uri.with_open_uri vgpu_url (fun vgpu_fd ->
-                 do_request vgpu_fd [] vgpu_url;
+                 do_request vgpu_fd [cookie_vgpu_migration, ""] vgpu_url;
                  Handshake.recv_success vgpu_fd;
                  debug "VM.migrate: Synchronisation point 1-vgpu";
                  Handshake.send ~verbose:true mem_fd Handshake.Success;
@@ -2363,6 +2364,18 @@ module VM = struct
          let vm_id = VGPU_DB.vm_of vgpu_id in
          match context.transferred_fd with
          | Some transferred_fd ->
+
+           (* prevent vgpu-migration from pre-Jura to Jura and later *)
+           if not (List.mem_assoc cookie_vgpu_migration cookies) then
+               begin
+                  (* only Jura and later hosts send this cookie; fail the migration from pre-Jura hosts *)
+                  let msg = Printf.sprintf "VM.migrate: version of sending host incompatible with receiving host: no cookie %s" cookie_vgpu_migration in
+                  Xenops_migrate.(Handshake.send ~verbose:true transferred_fd (Handshake.Error msg));
+                  debug "VM.receive_vgpu: Synchronisation point 1-vgpu ERR %s" msg;
+                  raise (Internal_error msg)
+               end
+           ;
+
            debug "VM.receive_vgpu: passed fd %d" (Obj.magic transferred_fd);
            (* Store away the fd for VM_receive_memory/restore to use *)
            let info = {
