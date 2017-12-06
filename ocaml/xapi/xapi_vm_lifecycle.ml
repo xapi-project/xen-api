@@ -258,7 +258,7 @@ let check_vgpu ~__context ~op ~ref_str ~vgpus =
     | _ -> false
   in
   match op with
-  | `pool_migrate | `migrate_send | `suspend | `checkpoint
+  | `pool_migrate | `migrate_send | `suspend
     when vgpu_migration_enabled ()
       && List.for_all is_suspendable vgpus -> None
   | `pool_migrate | `migrate_send | `suspend | `checkpoint ->
