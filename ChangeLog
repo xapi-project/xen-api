@@ -1,3 +1,8 @@
+1.1.0 (06-Dec-2017):
+* Updated dependencies
+* Code cleanup
+* Port to jbuilder
+
 1.0.1 (16-Jun-2017):
 * Use new ppx deriver in place of old camlp4 one
 * Fix deprecation warnings
