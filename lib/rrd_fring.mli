@@ -38,12 +38,12 @@ val peek : t -> int -> float
 val top : t -> float
 
 (** iterate over nb element of the ring, starting from the top *)
-val iter_nb : t -> (float -> 'a) -> int -> unit
+val iter_nb : t -> (float -> unit) -> int -> unit
 
-val raw_iter : t -> (float -> 'a) -> unit
+val raw_iter : t -> (float -> unit) -> unit
 
 (** iterate over all elements of the ring, starting from the top *)
-val iter : t -> (float -> 'a) -> unit
+val iter : t -> (float -> unit) -> unit
 
 (** get array of latest [nb] value *)
 val get_nb : t -> int -> float array
