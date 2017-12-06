@@ -1,0 +1,5 @@
+(executable
+ ((name rrddump)
+  (public_name rrddump)
+  (libraries (xapi-stdext-unix threads rrd.unix))
+ ))

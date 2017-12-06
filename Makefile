@@ -1,36 +1,20 @@
-SETUP = ocaml setup.ml
 
-build: setup.data
-	$(SETUP) -build $(BUILDFLAGS)
+.PHONY: build release install uninstall clean reindent
 
-doc: setup.data build
-	$(SETUP) -doc $(DOCFLAGS)
+build:
+	jbuilder build @install --dev
 
-test: setup.data build
-	$(SETUP) -test $(TESTFLAGS)
+release:
+	jbuilder build @install
 
-all:
-	$(SETUP) -all $(ALLFLAGS)
+install:
+	jbuilder install
 
-install: setup.data
-	install rrddump.native $(DESTDIR)/$(PREFIX)/bin/rrddump
-
-uninstall: setup.data
-	rm -f $(PREFIX)/bin/rrddump
-
-reinstall: setup.data
-	$(SETUP) -reinstall $(REINSTALLFLAGS)
+uninstall:
+	jbuilder uninstall
 
 clean:
-	$(SETUP) -clean $(CLEANFLAGS)
+	jbuilder clean
 
-distclean:
-	$(SETUP) -distclean $(DISTCLEANFLAGS)
-
-setup.data:
-	$(SETUP) -configure $(CONFIGUREFLAGS)
-
-configure:
-	$(SETUP) -configure $(CONFIGUREFLAGS)
-
-.PHONY: build doc test all install uninstall reinstall clean distclean configure
+reindent:
+	ocp-indent --inplace **/*.ml
