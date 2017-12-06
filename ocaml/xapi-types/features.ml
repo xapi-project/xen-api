@@ -60,6 +60,7 @@ type feature =
   | Pool_size
   | CBT
   | USB_passthrough
+  | Corosync
 [@@deriving rpc]
 
 type orientation = Positive | Negative
@@ -109,6 +110,7 @@ let keys_of_features =
     Pool_size, ("restrict_pool_size", Negative, "Pool_size");
     CBT, ("restrict_cbt", Negative, "CBT");
     USB_passthrough, ("restrict_usb_passthrough", Negative, "USB_passthrough");
+    Corosync, ("restrict_corosync", Negative, "Corosync");
   ]
 
 (* A list of features that must be considered "enabled" by `of_assoc_list`
