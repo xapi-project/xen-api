@@ -9,7 +9,7 @@ build-test: ["jbuilder" "runtest" "-p" name]
 depends: [
   "jbuilder" {build}
   "base-threads" {build}
-  "xapi" {build}
+  "xapi-client" {build}
   "xapi-idl" {build}
   "xapi-rrd" {build}
 ]
