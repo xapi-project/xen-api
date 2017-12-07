@@ -154,12 +154,11 @@ let assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu ~pgpu ~ho
   in
   let test_nvidia_compatibility vgpu pgpu = 
     let pgpu_metadata =
-      let key = Xapi_gpumon.Nvidia.key in
       try
         get_compatibility_metadata pgpu
-        |> List.assoc key
+        |> List.assoc Xapi_gpumon.Nvidia.key
       with Not_found -> 
-        debug "Key %s is missing from the compatibility_metadata for pgpu %s on the host %s." key (Ref.string_of pgpu) (Ref.string_of host);
+        debug "Key %s is missing from the compatibility_metadata for pgpu %s on the host %s." Xapi_gpumon.Nvidia.key (Ref.string_of pgpu) (Ref.string_of host);
         raise Api_errors.(Server_error (nvidia_tools_error, [Ref.string_of host]))
     in
     Xapi_gpumon.Nvidia.assert_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu ~dest_host:host ~encoded_pgpu_metadata:pgpu_metadata
@@ -211,12 +210,11 @@ let assert_destination_has_pgpu_compatible_with_vm ~__context ~vm ~vgpu_map ~hos
     match vgpu_impl ~__context vgpu with
     | `passthrough | `gvt_g | `mxgpu -> ()
     | `nvidia ->
-      let pgpu_types =
-        Db.VGPU.get_GPU_group ~__context ~self:vgpu
-        |> fun self -> Db.GPU_group.get_GPU_types ~__context ~self
-      in
-      let pgpu = get_first_suitable_pgpu pgpu_types vgpu pgpus
-      in assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu ~pgpu ~host ?remote ()
+      Db.VGPU.get_GPU_group ~__context ~self:vgpu
+      |> fun self -> Db.GPU_group.get_GPU_types ~__context ~self
+      |> fun pgpu_types -> get_first_suitable_pgpu pgpu_types vgpu pgpus
+      |> fun pgpu ->
+        assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu ~pgpu ~host ?remote ()
   in
   let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
   let _mapped, unmapped = List.partition (fun vgpu -> List.mem_assoc vgpu vgpu_map) vgpus in
