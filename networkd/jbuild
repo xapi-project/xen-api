@@ -1,0 +1,41 @@
+(rule 
+  ((targets  (version.ml))
+   (deps     (../VERSION))
+   (action   (with-stdout-to ${@} (bash "cat ${<} | sed s/^/\"let version = \"\\\"/ | sed s/$/\\\"/")))
+  )
+)
+
+(rule
+ ((targets (xcp-networkd.1))
+  (deps    (networkd.exe))
+  (action  (with-stdout-to ${@} (run ${<} "--help=groff")))
+ )
+)
+
+(executable
+ ((name networkd)
+  (public_name xcp-networkd)
+  (package xcp-networkd)
+  (flags (:standard -bin-annot -warn-error +a-33-6-9-27))
+  (libraries (networklibs
+              profiling
+              threads
+              rpclib
+              rpclib.unix
+              forkexec
+              stdext
+              xcp-inventory
+              xen-api-client
+              xcp
+              xcp.network
+              netlink
+              systemd)
+  )
+ )
+)
+
+(alias
+ ((name    man)
+  (deps    (xcp-networkd.1))
+ )
+)

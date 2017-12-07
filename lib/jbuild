@@ -1,0 +1,15 @@
+(jbuild_version 1)
+
+(library
+ ((name networklibs)
+  (flags (:standard :standard -bin-annot -warn-error +a-6-27-33-52))
+  (libraries (forkexec
+              threads
+              rpclib
+              stdext
+              xcp-inventory
+              xcp.network
+              systemd))
+  (wrapped false)
+ )
+)

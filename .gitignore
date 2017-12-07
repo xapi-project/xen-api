@@ -6,5 +6,7 @@ xcp-networkd.1
 *.native
 setup.data
 setup.log
+*.merlin
+*.install
 dist/
 _build/

@@ -1,6 +1,0 @@
-# START_COVERAGE
-# coverage analysis with bisect_ppx
-# compile and link with package bisect_ppx
-<**/*.ml{,i,y}>: pkg_bisect_ppx
-<**/*.native>:   pkg_bisect_ppx
-# END_COVERAGE

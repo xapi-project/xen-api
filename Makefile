@@ -1,67 +1,36 @@
 BINDIR ?= /usr/bin
 SBINDIR ?= /usr/sbin
-ETCDIR ?= /etc
 MANDIR ?= /usr/share/man/man1
-all: build doc
 
-.PHONY: test install uninstall clean
+.PHONY: build release install uninstall clean test doc reindent
 
-export OCAMLRUNPARAM=b
-J=4
+build:
+	jbuilder build @networkd/man @install --dev
 
-setup.bin: setup.ml
-	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
-	@rm -f setup.cmx setup.cmi setup.o setup.cmo
-
-setup.data: setup.bin
-	@./setup.bin -configure --enable-tests
-
-build: setup.data setup.bin networkd/version.ml
-	@./setup.bin -build -j $(J)
-	mv networkd.native xcp-networkd
-	./xcp-networkd --help=groff > xcp-networkd.1
-
-networkd/version.ml: VERSION
-	echo "let version = \"$(shell cat VERSION)\"" > networkd/version.ml
-
-doc: setup.data setup.bin
-	@./setup.bin -doc -j $(J)
-
-test: setup.bin build
-	@./setup.bin -test
+release:
+	jbuilder build @install
 
 install:
 	mkdir -p $(DESTDIR)$(SBINDIR)
-	install xcp-networkd $(DESTDIR)$(SBINDIR)/xcp-networkd
+	cp _build/default/networkd/networkd.exe $(DESTDIR)$(SBINDIR)/xcp-networkd
 	mkdir -p $(DESTDIR)$(MANDIR)
-	install xcp-networkd.1 $(DESTDIR)$(MANDIR)/xcp-networkd.1
+	cp _build/default/networkd/xcp-networkd.1 $(DESTDIR)$(MANDIR)/xcp-networkd.1
 	mkdir -p $(DESTDIR)$(BINDIR)
-	install networkd_db.native $(DESTDIR)$(BINDIR)/networkd_db
+	cp _build/default/networkd_db/networkd_db.exe $(DESTDIR)$(BINDIR)/networkd_db
 
 uninstall:
-	rm -f $(DESTDIR)$(SBINDIR)/xcp-networkd
-	rm -f $(DESTDIR)$(MANDIR)/xcp-networkd.1
-	rm -f $(DESTDIR)$(SBINDIR)/networkd_db
-
+ 	rm -f $(DESTDIR)$(SBINDIR)/xcp-networkd
+ 	rm -f $(DESTDIR)$(MANDIR)/xcp-networkd.1
+ 	rm -f $(DESTDIR)$(SBINDIR)/networkd_db
 clean:
-	@ocamlbuild -clean
-	@rm -f setup.data setup.log setup.bin
-	rm networkd/version.ml
-	rm xcp-networkd.1
+	jbuilder clean
 
+test:
+	_build/default/test/network_test.exe
 
-# make coverage - prepares for building with coverage analysis
-# make uncover  - reverses the setup from "make coverage"
-# make report   - create coverage/index.html 
+# requires odoc
+doc:
+	jbuilder build @doc
 
-coverage: _tags _tags.coverage 
-	test ! -f _tags.orig && mv _tags _tags.orig || true
-	cat _tags.coverage _tags.orig > _tags
-
-uncover: _tags.orig
-	mv _tags.orig _tags
-
-report:
-	bisect-ppx-report -I _build -html coverage /tmp/bisect-network*out
-
-.PHONY: report coverage uncover
+reindent:
+	ocp-indent --inplace **/*.ml*

@@ -1,0 +1,13 @@
+(executable
+ ((name network_test)
+  (public_name network-test)
+  (package xcp-networkd)
+  (flags (:standard -bin-annot -warn-error +a-27))
+  (libraries (profiling
+              stdext
+              oUnit
+              networklibs
+              xapi-test-utils)
+  )
+ )
+)

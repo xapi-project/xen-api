@@ -1,0 +1,14 @@
+(executable
+ ((name network_cli)
+  (public_name networkd-cli)
+  (package xcp-networkd)
+  (flags (:standard -bin-annot -warn-error +a-6))
+  (libraries (profiling
+              cmdliner
+              stdext
+              networklibs
+              xcp
+              xcp.network)
+  )
+ )
+)
