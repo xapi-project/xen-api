@@ -247,15 +247,14 @@ let pool_migrate ~__context ~vm ~host ~options =
 
   (* Check pGPU compatibility for Nvidia vGPUs - at this stage we already know
    * the vgpu <-> pgpu mapping. *)
-  let vgpus_map = List.map
-      (fun vgpu ->
-         let pgpu = Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu in
-         vgpu, pgpu)
-      (Db.VM.get_VGPUs ~__context ~self:vm)
-  in
-  List.iter (fun (vgpu, pgpu) ->
-      Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~host ~vgpu ~pgpu ()
-    ) vgpus_map;
+  Db.VM.get_VGPUs ~__context ~self:vm
+  |> List.map
+    (fun vgpu ->
+       vgpu, Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu)
+  |> List.iter (fun (vgpu, pgpu) ->
+      Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context
+        ~vm ~host ~vgpu ~pgpu ()
+    );
 
   Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid (fun () ->
       try
