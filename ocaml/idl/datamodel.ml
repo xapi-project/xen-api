@@ -2433,8 +2433,8 @@ let set_vcpus_number_live = call
     ~name:"set_VCPUs_number_live"
     ~in_product_since:rel_rio
     ~lifecycle:[
-        Published, rel_rio, "Set the number of VCPUs for a running VM";
-        Changed, rel_ely, "Unless the feature is explicitly enabled for every host in the pool, this fails with Api_errors.license_restriction.";
+      Published, rel_rio, "Set the number of VCPUs for a running VM";
+      Changed, rel_ely, "Unless the feature is explicitly enabled for every host in the pool, this fails with Api_errors.license_restriction.";
     ]
     ~doc:"Set the number of VCPUs for a running VM"
     ~params:[Ref _vm, "self", "The VM";
@@ -2624,15 +2624,15 @@ let vm_set_protection_policy = call
     ()
 
 let vm_set_snapshot_schedule = call
-  ~name:"set_snapshot_schedule"
-  ~in_oss_since:None
-  ~in_product_since:rel_falcon
-  ~doc:"Set the value of the snapshot schedule field"
-  ~params:[Ref _vm, "self", "The VM";
-    Ref _vmss, "value", "The value"]
-  ~flags:[`Session]
-  ~allowed_roles:_R_POOL_OP
-  ()
+    ~name:"set_snapshot_schedule"
+    ~in_oss_since:None
+    ~in_product_since:rel_falcon
+    ~doc:"Set the value of the snapshot schedule field"
+    ~params:[Ref _vm, "self", "The VM";
+             Ref _vmss, "value", "The value"]
+    ~flags:[`Session]
+    ~allowed_roles:_R_POOL_OP
+    ()
 
 let vm_set_start_delay = call
     ~name:"set_start_delay"
@@ -4022,7 +4022,7 @@ let task_set_status = call ~flags:[`Session]
     ~name:"set_status"
     ~doc:"Set the task status"
     ~params:[Ref _task, "self", "Reference to the task object";
-     status_type, "value", "task status value to be set"]
+             status_type, "value", "task status value to be set"]
     ~allowed_roles:_R_READ_ONLY (* POOL_OP can set status for any tasks, others can set status only for owned tasks *)
     ()
 
@@ -4312,18 +4312,18 @@ let pool_update =
         field     ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _vdi) "vdi" "VDI the update was uploaded to";
         field     ~in_product_since:rel_ely ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host)) "hosts" "The hosts that have applied this update.";
         field     ~in_product_since:rel_inverness
-                  ~default_value:(Some (VMap []))
-                  ~in_oss_since:None
-                  ~ty:(Map(String, String))
-                  "other_config"
-                  "additional configuration";
+          ~default_value:(Some (VMap []))
+          ~in_oss_since:None
+          ~ty:(Map(String, String))
+          "other_config"
+          "additional configuration";
         field     ~in_product_since:rel_inverness
-                  ~default_value:(Some (VBool false))
-                  ~in_oss_since:None
-                  ~qualifier:StaticRO
-                  ~ty:Bool
-                  "enforce_homogeneity"
-                  "Flag - if true, all hosts in a pool must apply this update";
+          ~default_value:(Some (VBool false))
+          ~in_oss_since:None
+          ~qualifier:StaticRO
+          ~ty:Bool
+          "enforce_homogeneity"
+          "Flag - if true, all hosts in a pool must apply this update";
       ]
     ()
 
@@ -5261,11 +5261,11 @@ let network_attach = call
     ()
 
 let network_purpose = Enum ("network_purpose", [
-  "nbd", "Network Block Device service using TLS";
-  "insecure_nbd", "Network Block Device service without integrity or confidentiality: NOT RECOMMENDED";
-  (* We should (re-)add other purposes as and when we write code with behaviour that depends on them,
-   * e.g. management, storage, guest, himn... unmanaged? *)
-])
+    "nbd", "Network Block Device service using TLS";
+    "insecure_nbd", "Network Block Device service without integrity or confidentiality: NOT RECOMMENDED";
+    (* We should (re-)add other purposes as and when we write code with behaviour that depends on them,
+     * e.g. management, storage, guest, himn... unmanaged? *)
+  ])
 
 let network_introduce_params first_rel =
   [
@@ -5340,27 +5340,27 @@ let network_detach_for_vm = call
     ()
 
 let network_add_purpose = call
-  ~name:"add_purpose"
-  ~doc:"Give a network a new purpose (if not present already)"
-  ~params:[
-    Ref _network, "self", "The network";
-    network_purpose, "value", "The purpose to add";
-  ]
-  ~errs:[Api_errors.network_incompatible_purposes]
-  ~in_product_since:rel_inverness
-  ~allowed_roles:_R_POOL_ADMIN
-  ()
+    ~name:"add_purpose"
+    ~doc:"Give a network a new purpose (if not present already)"
+    ~params:[
+      Ref _network, "self", "The network";
+      network_purpose, "value", "The purpose to add";
+    ]
+    ~errs:[Api_errors.network_incompatible_purposes]
+    ~in_product_since:rel_inverness
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
 
 let network_remove_purpose = call
-  ~name:"remove_purpose"
-  ~doc:"Remove a purpose from a network (if present)"
-  ~params:[
-    Ref _network, "self", "The network";
-    network_purpose, "value", "The purpose to remove";
-  ]
-  ~in_product_since:rel_inverness
-  ~allowed_roles:_R_POOL_ADMIN
-  ()
+    ~name:"remove_purpose"
+    ~doc:"Remove a purpose from a network (if present)"
+    ~params:[
+      Ref _network, "self", "The network";
+      network_purpose, "value", "The purpose to remove";
+    ]
+    ~in_product_since:rel_inverness
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
 
 (** A virtual network *)
 let network =
@@ -6767,13 +6767,13 @@ module Vdi_nbd_server_info = struct
       ~doccomments:[]
       ~messages_default_allowed_roles:(Some []) (* No messages, so no roles allowed to use them *)
       ~contents:
-      [ (* uid _vdi_nbd_server_info; The uuid is not needed here and only adds inconvenience. *)
-        field ~qualifier:DynamicRO ~lifecycle ~ty:String "exportname" "The exportname to request over NBD. This holds details including an authentication token, so it must be protected appropriately. Clients should regard the exportname as an opaque string or token.";
-        field ~qualifier:DynamicRO ~lifecycle ~ty:String "address" "An address on which the server can be reached; this can be IPv4, IPv6, or a DNS name.";
-        field ~qualifier:DynamicRO ~lifecycle ~ty:Int "port" "The TCP port";
-        field ~qualifier:DynamicRO ~lifecycle ~ty:String "cert" "The TLS certificate of the server";
-        field ~qualifier:DynamicRO ~lifecycle ~ty:String "subject" "For convenience, this redundant field holds a DNS (hostname) subject of the certificate. This can be a wildcard, but only for a certificate that has a wildcard subject and no concrete hostname subjects.";
-      ] ()
+        [ (* uid _vdi_nbd_server_info; The uuid is not needed here and only adds inconvenience. *)
+          field ~qualifier:DynamicRO ~lifecycle ~ty:String "exportname" "The exportname to request over NBD. This holds details including an authentication token, so it must be protected appropriately. Clients should regard the exportname as an opaque string or token.";
+          field ~qualifier:DynamicRO ~lifecycle ~ty:String "address" "An address on which the server can be reached; this can be IPv4, IPv6, or a DNS name.";
+          field ~qualifier:DynamicRO ~lifecycle ~ty:Int "port" "The TCP port";
+          field ~qualifier:DynamicRO ~lifecycle ~ty:String "cert" "The TLS certificate of the server";
+          field ~qualifier:DynamicRO ~lifecycle ~ty:String "subject" "For convenience, this redundant field holds a DNS (hostname) subject of the certificate. This can be a wildcard, but only for a certificate that has a wildcard subject and no concrete hostname subjects.";
+        ] ()
 end
 let vdi_nbd_server_info = Vdi_nbd_server_info.vdi_nbd_server_info
 
@@ -7119,7 +7119,7 @@ let pool_management_reconfigure = call
     ~in_oss_since:None
     ~in_product_since:rel_inverness
     ~params:[
-             Ref _network, "network", "The network";
+      Ref _network, "network", "The network";
     ]
     ~doc:"Reconfigure the management network interface for all Hosts in the Pool"
     ~errs:[ Api_errors.ha_is_enabled;
@@ -8637,111 +8637,111 @@ let vmpp =
 
 (* VM schedule snapshot *)
 let vmss_snapshot_now = call ~flags:[`Session]
-  ~name:"snapshot_now"
-  ~in_oss_since:None
-  ~in_product_since:rel_falcon
-  ~params:[Ref _vmss, "vmss", "Snapshot Schedule to execute";]
-  ~doc:"This call executes the snapshot schedule immediately"
-  ~allowed_roles:_R_POOL_OP
-  ~result:(String, "An XMLRPC result")
-  ()
+    ~name:"snapshot_now"
+    ~in_oss_since:None
+    ~in_product_since:rel_falcon
+    ~params:[Ref _vmss, "vmss", "Snapshot Schedule to execute";]
+    ~doc:"This call executes the snapshot schedule immediately"
+    ~allowed_roles:_R_POOL_OP
+    ~result:(String, "An XMLRPC result")
+    ()
 
 let vmss_type = Enum ("vmss_type",
-  [
-    "snapshot", "The snapshot is a disk snapshot";
-    "checkpoint", "The snapshot is a checkpoint";
-    "snapshot_with_quiesce", "The snapshot is a VSS";
-  ])
+                      [
+                        "snapshot", "The snapshot is a disk snapshot";
+                        "checkpoint", "The snapshot is a checkpoint";
+                        "snapshot_with_quiesce", "The snapshot is a VSS";
+                      ])
 
 let vmss_frequency = Enum ("vmss_frequency",
-  [
-    "hourly", "Hourly snapshots";
-    "daily", "Daily snapshots";
-    "weekly", "Weekly snapshots";
-  ])
+                           [
+                             "hourly", "Hourly snapshots";
+                             "daily", "Daily snapshots";
+                             "weekly", "Weekly snapshots";
+                           ])
 
 let vmss_schedule_min = "min"
 let vmss_schedule_hour = "hour"
 let vmss_schedule_days = "days"
 
 let vmss_set_retained_snapshots = call ~flags:[`Session]
-  ~name:"set_retained_snapshots"
-  ~in_oss_since:None
-  ~in_product_since:rel_falcon
-  ~allowed_roles:_R_POOL_OP
-  ~params:[
-    Ref _vmss, "self", "The schedule snapshot";
-    Int, "value", "the value to set"
-  ]
-  ()
+    ~name:"set_retained_snapshots"
+    ~in_oss_since:None
+    ~in_product_since:rel_falcon
+    ~allowed_roles:_R_POOL_OP
+    ~params:[
+      Ref _vmss, "self", "The schedule snapshot";
+      Int, "value", "the value to set"
+    ]
+    ()
 
 let vmss_set_frequency = call ~flags:[`Session]
-  ~name:"set_frequency"
-  ~in_oss_since:None
-  ~in_product_since:rel_falcon
-  ~params:[
-    Ref _vmss, "self", "The snapshot schedule";
-    vmss_frequency, "value", "the snapshot schedule frequency"
-  ]
-  ~doc:"Set the value of the frequency field"
-  ~allowed_roles:_R_POOL_OP
-  ()
+    ~name:"set_frequency"
+    ~in_oss_since:None
+    ~in_product_since:rel_falcon
+    ~params:[
+      Ref _vmss, "self", "The snapshot schedule";
+      vmss_frequency, "value", "the snapshot schedule frequency"
+    ]
+    ~doc:"Set the value of the frequency field"
+    ~allowed_roles:_R_POOL_OP
+    ()
 
 let vmss_set_schedule = call ~flags:[`Session]
-  ~name:"set_schedule"
-  ~in_oss_since:None
-  ~in_product_since:rel_falcon
-  ~allowed_roles:_R_POOL_OP
-  ~params:[
-    Ref _vmss, "self", "The snapshot schedule";
-    Map(String,String), "value", "the value to set"
-  ]
-  ()
+    ~name:"set_schedule"
+    ~in_oss_since:None
+    ~in_product_since:rel_falcon
+    ~allowed_roles:_R_POOL_OP
+    ~params:[
+      Ref _vmss, "self", "The snapshot schedule";
+      Map(String,String), "value", "the value to set"
+    ]
+    ()
 
 let vmss_set_last_run_time = call ~flags:[`Session]
-  ~name:"set_last_run_time"
-  ~in_oss_since:None
-  ~in_product_since:rel_falcon
-  ~allowed_roles:_R_LOCAL_ROOT_ONLY
-  ~params:[
-    Ref _vmss, "self", "The snapshot schedule";
-    DateTime, "value", "the value to set"
-  ]
-  ()
+    ~name:"set_last_run_time"
+    ~in_oss_since:None
+    ~in_product_since:rel_falcon
+    ~allowed_roles:_R_LOCAL_ROOT_ONLY
+    ~params:[
+      Ref _vmss, "self", "The snapshot schedule";
+      DateTime, "value", "the value to set"
+    ]
+    ()
 
 let vmss_add_to_schedule = call ~flags:[`Session]
-  ~name:"add_to_schedule"
-  ~in_oss_since:None
-  ~in_product_since:rel_falcon
-  ~allowed_roles:_R_POOL_OP
-  ~params:[
-    Ref _vmss, "self", "The snapshot schedule";
-    String, "key", "the key to add";
-    String, "value", "the value to add";
-  ]
-  ()
+    ~name:"add_to_schedule"
+    ~in_oss_since:None
+    ~in_product_since:rel_falcon
+    ~allowed_roles:_R_POOL_OP
+    ~params:[
+      Ref _vmss, "self", "The snapshot schedule";
+      String, "key", "the key to add";
+      String, "value", "the value to add";
+    ]
+    ()
 
 let vmss_remove_from_schedule = call ~flags:[`Session]
-  ~name:"remove_from_schedule"
-  ~in_oss_since:None
-  ~in_product_since:rel_falcon
-  ~allowed_roles:_R_POOL_OP
-  ~params:[
-    Ref _vmss, "self", "The snapshot schedule";
-    String, "key", "the key to remove";
-  ]
-  ()
+    ~name:"remove_from_schedule"
+    ~in_oss_since:None
+    ~in_product_since:rel_falcon
+    ~allowed_roles:_R_POOL_OP
+    ~params:[
+      Ref _vmss, "self", "The snapshot schedule";
+      String, "key", "the key to remove";
+    ]
+    ()
 
 let vmss_set_type = call ~flags:[`Session]
-  ~name:"set_type"
-  ~in_oss_since:None
-  ~in_product_since:rel_falcon
-  ~allowed_roles:_R_POOL_OP
-  ~params:[
-    Ref _vmss, "self", "The snapshot schedule";
-    vmss_type, "value", "the snapshot schedule type"
-  ]
-  ()
+    ~name:"set_type"
+    ~in_oss_since:None
+    ~in_product_since:rel_falcon
+    ~allowed_roles:_R_POOL_OP
+    ~params:[
+      Ref _vmss, "self", "The snapshot schedule";
+      vmss_type, "value", "the snapshot schedule type"
+    ]
+    ()
 
 let vmss =
   create_obj ~in_db:true ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vmss ~descr:"VM Snapshot Schedule"
@@ -8759,18 +8759,18 @@ let vmss =
       vmss_set_last_run_time;
       vmss_set_type;
     ]
-  ~contents:[
-    uid _vmss;
-    namespace ~name:"name" ~contents:(names None RW) ();
-    field ~qualifier:RW ~ty:Bool "enabled" "enable or disable this snapshot schedule" ~default_value:(Some (VBool true));
-    field ~qualifier:StaticRO ~ty:vmss_type "type" "type of the snapshot schedule";
-    field ~qualifier:StaticRO ~ty:Int "retained_snapshots" "maximum number of snapshots that should be stored at any time" ~default_value:(Some (VInt 7L));
-    field ~qualifier:StaticRO ~ty:vmss_frequency "frequency" "frequency of taking snapshot from snapshot schedule";
-    field ~qualifier:StaticRO ~ty:(Map (String,String)) "schedule" "schedule of the snapshot containing 'hour', 'min', 'days'. Date/time-related information is in Local Timezone" ~default_value:(Some (VMap []));
-    field ~qualifier:DynamicRO ~ty:DateTime "last_run_time" "time of the last snapshot" ~default_value:(Some(VDateTime(Date.of_float 0.)));
-    field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs attached to this snapshot schedule";
-  ]
-  ()
+    ~contents:[
+      uid _vmss;
+      namespace ~name:"name" ~contents:(names None RW) ();
+      field ~qualifier:RW ~ty:Bool "enabled" "enable or disable this snapshot schedule" ~default_value:(Some (VBool true));
+      field ~qualifier:StaticRO ~ty:vmss_type "type" "type of the snapshot schedule";
+      field ~qualifier:StaticRO ~ty:Int "retained_snapshots" "maximum number of snapshots that should be stored at any time" ~default_value:(Some (VInt 7L));
+      field ~qualifier:StaticRO ~ty:vmss_frequency "frequency" "frequency of taking snapshot from snapshot schedule";
+      field ~qualifier:StaticRO ~ty:(Map (String,String)) "schedule" "schedule of the snapshot containing 'hour', 'min', 'days'. Date/time-related information is in Local Timezone" ~default_value:(Some (VMap []));
+      field ~qualifier:DynamicRO ~ty:DateTime "last_run_time" "time of the last snapshot" ~default_value:(Some(VDateTime(Date.of_float 0.)));
+      field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs attached to this snapshot schedule";
+    ]
+    ()
 
 (* VM appliance *)
 let vm_appliance_operations = Enum ("vm_appliance_operation",
@@ -9898,8 +9898,8 @@ end
 let pvs_cache_storage = PVS_cache_storage.obj
 
 (* ---------------
-  Features
-  ----------------*)
+   Features
+   ----------------*)
 
 (** A new piece of functionality *)
 let feature =
@@ -10030,19 +10030,19 @@ module PUSB = struct
       ~messages_default_allowed_roles:_R_POOL_ADMIN
       ~contents:
         [
-         uid    _pusb ~lifecycle;
-         field ~qualifier:StaticRO ~ty:(Ref _usb_group) ~lifecycle "USB_group" "USB group the PUSB is contained in" ~default_value:(Some (VRef null_ref));
-         field ~qualifier:StaticRO ~ty:(Ref _host) ~lifecycle "host" "Physical machine that owns the USB device" ~default_value:(Some (VRef null_ref));
-         field ~qualifier:StaticRO ~ty:String ~lifecycle "path" "port path of USB device"~default_value:(Some (VString ""));
-         field ~qualifier:StaticRO ~ty:String ~lifecycle "vendor_id" "vendor id of the USB device" ~default_value:(Some (VString ""));
-         field ~qualifier:StaticRO ~ty:String ~lifecycle "vendor_desc" "vendor description of the USB device" ~default_value:(Some (VString ""));
-         field ~qualifier:StaticRO ~ty:String ~lifecycle "product_id" "product id of the USB device" ~default_value:(Some (VString ""));
-         field ~qualifier:StaticRO ~ty:String ~lifecycle "product_desc" "product description of the USB device" ~default_value:(Some (VString ""));
-         field ~qualifier:StaticRO ~ty:String ~lifecycle "serial" "serial of the USB device" ~default_value:(Some (VString ""));
-         field ~qualifier:StaticRO ~ty:String ~lifecycle "version" "USB device version" ~default_value:(Some (VString ""));
-         field ~qualifier:StaticRO ~ty:String ~lifecycle "description" "USB device description" ~default_value:(Some (VString ""));
-         field ~qualifier:DynamicRO ~ty:Bool ~lifecycle "passthrough_enabled" "enabled for passthrough" ~default_value:(Some (VBool false));
-         field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_inverness, ""] "other_config" "additional configuration" ~default_value:(Some (VMap []));
+          uid    _pusb ~lifecycle;
+          field ~qualifier:StaticRO ~ty:(Ref _usb_group) ~lifecycle "USB_group" "USB group the PUSB is contained in" ~default_value:(Some (VRef null_ref));
+          field ~qualifier:StaticRO ~ty:(Ref _host) ~lifecycle "host" "Physical machine that owns the USB device" ~default_value:(Some (VRef null_ref));
+          field ~qualifier:StaticRO ~ty:String ~lifecycle "path" "port path of USB device"~default_value:(Some (VString ""));
+          field ~qualifier:StaticRO ~ty:String ~lifecycle "vendor_id" "vendor id of the USB device" ~default_value:(Some (VString ""));
+          field ~qualifier:StaticRO ~ty:String ~lifecycle "vendor_desc" "vendor description of the USB device" ~default_value:(Some (VString ""));
+          field ~qualifier:StaticRO ~ty:String ~lifecycle "product_id" "product id of the USB device" ~default_value:(Some (VString ""));
+          field ~qualifier:StaticRO ~ty:String ~lifecycle "product_desc" "product description of the USB device" ~default_value:(Some (VString ""));
+          field ~qualifier:StaticRO ~ty:String ~lifecycle "serial" "serial of the USB device" ~default_value:(Some (VString ""));
+          field ~qualifier:StaticRO ~ty:String ~lifecycle "version" "USB device version" ~default_value:(Some (VString ""));
+          field ~qualifier:StaticRO ~ty:String ~lifecycle "description" "USB device description" ~default_value:(Some (VString ""));
+          field ~qualifier:DynamicRO ~ty:Bool ~lifecycle "passthrough_enabled" "enabled for passthrough" ~default_value:(Some (VBool false));
+          field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_inverness, ""] "other_config" "additional configuration" ~default_value:(Some (VMap []));
         ]
       ~messages:
         [
@@ -10111,11 +10111,11 @@ module VUSB = struct
 
   let vusb_operations =
     Enum ("vusb_operations",
-        [
-          "attach", "Attempting to attach this VUSB to a VM";
-          "plug", "Attempting to plug this VUSB into a VM";
-          "unplug", "Attempting to hot unplug this VUSB";
-        ])
+          [
+            "attach", "Attempting to attach this VUSB to a VM";
+            "plug", "Attempting to plug this VUSB into a VM";
+            "unplug", "Attempting to hot unplug this VUSB";
+          ])
 
   let create = call
       ~name:"create"
@@ -10161,14 +10161,14 @@ module VUSB = struct
       ~in_oss_since:None
       ~messages_default_allowed_roles:_R_POOL_ADMIN
       ~contents:
-       ([
-         uid    _vusb ~lifecycle;
+        ([
+          uid    _vusb ~lifecycle;
         ] @ (allowed_and_current_operations vusb_operations) @ [
-         field ~qualifier:DynamicRO ~ty:(Ref _vm) ~lifecycle "VM" "VM that owns the VUSB";
-         field ~qualifier:DynamicRO ~ty:(Ref _usb_group) ~lifecycle "USB_group" "USB group used by the VUSB";
-         field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle "other_config" "Additional configuration" ~default_value:(Some (VMap []));
-         field ~qualifier:DynamicRO ~ty:Bool  "currently_attached" "is the device currently attached" ~default_value:(Some (VBool false));
-        ])
+            field ~qualifier:DynamicRO ~ty:(Ref _vm) ~lifecycle "VM" "VM that owns the VUSB";
+            field ~qualifier:DynamicRO ~ty:(Ref _usb_group) ~lifecycle "USB_group" "USB group used by the VUSB";
+            field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+            field ~qualifier:DynamicRO ~ty:Bool  "currently_attached" "is the device currently attached" ~default_value:(Some (VBool false));
+          ])
       ~messages:
         [ create
         ; unplug
