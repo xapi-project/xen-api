@@ -1,0 +1,5 @@
+(executable
+ ((name lspci)
+  (flags (:standard -safe-string))
+  (libraries (pci))
+))

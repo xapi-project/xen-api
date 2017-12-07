@@ -1,0 +1,25 @@
+(rule
+ ((targets (ffi_generated.ml))
+  (deps (../stubgen/ffi_stubgen.exe))
+  (action (bash "${<} -ml > ffi_generated.ml"))))
+
+(rule
+ ((targets (ffi_generated_stubs.c))
+  (deps (../stubgen/ffi_stubgen.exe))
+  (action (bash "${<} -c > ffi_generated_stubs.c"))))
+
+(rule
+ ((targets (ffi_generated_types.ml))
+  (deps (../stubgen/ffi_ml_types_stubgen.exe))
+  (action (bash "${<} -c > ffi_generated_types.ml"))))
+
+(library
+ ((name pci)
+  ;(public_name xapi.pci)
+  (c_names (ffi_generated_stubs))
+  (c_flags (-lpci))
+  (c_library_flags (-lpci))
+  (libraries (pci_bindings
+              ctypes.stubs))
+
+))
