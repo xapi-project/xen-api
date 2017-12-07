@@ -238,7 +238,7 @@ let assert_destination_has_pgpu_compatible_with_vm ~__context ~vm ~vgpu_map ~hos
     ) vgpu_map;
 
   (* Check that there is a potential pgpu candidate for each of the other vgpus *)
+  let pgpus = get_pgpus_of_host host in
   List.iter (fun vgpu -> 
-      let pgpus = get_pgpus_of_host host in
       test_compatibility vgpu pgpus
     ) unmapped
