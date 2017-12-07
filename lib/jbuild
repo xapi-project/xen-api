@@ -2,7 +2,7 @@
 
 (library
  ((name networklibs)
-  (flags (:standard :standard -bin-annot -warn-error +a-6-27-33-52))
+  (flags (:standard :standard -bin-annot))
   (libraries (forkexec
               threads
               rpclib

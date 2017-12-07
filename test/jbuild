@@ -1,8 +1,6 @@
 (executable
  ((name network_test)
-  (public_name network-test)
-  (package xcp-networkd)
-  (flags (:standard -bin-annot -warn-error +a-27))
+  (flags (:standard -bin-annot))
   (libraries (profiling
               stdext
               oUnit
@@ -11,3 +9,8 @@
   )
  )
 )
+
+(alias
+ ((name    runtest)
+  (deps    (network_test.exe))
+  (action  (chdir ../../.. (run ${<})))))

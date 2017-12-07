@@ -2,7 +2,7 @@
  ((name network_cli)
   (public_name networkd-cli)
   (package xcp-networkd)
-  (flags (:standard -bin-annot -warn-error +a-6))
+  (flags (:standard -bin-annot))
   (libraries (profiling
               cmdliner
               stdext

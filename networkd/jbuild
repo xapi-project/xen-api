@@ -16,7 +16,7 @@
  ((name networkd)
   (public_name xcp-networkd)
   (package xcp-networkd)
-  (flags (:standard -bin-annot -warn-error +a-33-6-9-27))
+  (flags (:standard -bin-annot))
   (libraries (networklibs
               profiling
               threads

@@ -1,12 +1,3 @@
-*.swp
-setup.bin
-networkd/version.ml
-xcp-networkd
-xcp-networkd.1
-*.native
-setup.data
-setup.log
+_build/
 *.merlin
 *.install
-dist/
-_build/
