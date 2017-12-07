@@ -1,0 +1,21 @@
+opam-version: "1"
+maintainer: "jonathan.ludlam@eu.citrix.com"
+
+build: [
+  "jbuilder" "build" "-p" name "-j" jobs
+]
+
+build-test: ["jbuilder" "runtest" "-p" name]
+
+depends: [
+  "jbuilder" {build}
+  "netlink"
+  "rpc"
+  "systemd"
+  "xapi-forkexecd"
+  "xapi-idl"
+  "xapi-inventory"
+  "xapi-libs-transitional"
+  "xapi-stdext" {>= "3.0.0"}
+  "xen-api-client"
+]

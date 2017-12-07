@@ -1,0 +1,13 @@
+(executable
+ ((name networkd_db)
+  (public_name networkd_db)
+  (package xcp-networkd)
+  (flags (:standard -bin-annot))
+  (libraries (profiling
+              networklibs
+              stdext
+              threads
+              xcp.network)
+  )
+ )
+)

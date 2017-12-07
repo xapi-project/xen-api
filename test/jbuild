@@ -1,0 +1,16 @@
+(executable
+ ((name network_test)
+  (flags (:standard -bin-annot))
+  (libraries (profiling
+              stdext
+              oUnit
+              networklibs
+              xapi-test-utils)
+  )
+ )
+)
+
+(alias
+ ((name    runtest)
+  (deps    (network_test.exe))
+  (action  (chdir ../../.. (run ${<})))))
