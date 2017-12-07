@@ -246,8 +246,16 @@ let pool_migrate ~__context ~vm ~host ~options =
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
   let xenops_vgpu_map = infer_vgpu_map ~__context vm in
 
-  (* Check pGPU compatibility for Nvidia vGPUs *)
-  Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~host ~vgpu_map:[] ();
+  (* Check pGPU compatibility for Nvidia vGPUs - at this stage we already know
+   * the vgpu <-> pgpu mapping. *)
+  Db.VM.get_VGPUs ~__context ~self:vm
+  |> List.map
+    (fun vgpu ->
+       vgpu, Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu)
+  |> List.iter (fun (vgpu, pgpu) ->
+      Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context
+        ~vm ~host ~vgpu ~pgpu ()
+    );
 
   Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid (fun () ->
       try
@@ -1244,7 +1252,7 @@ let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu
     | `intra_pool -> None
     | `cross_pool -> Some (remote.rpc, remote.session)
   in
-  Xapi_pgpu_helpers.assert_destination_pgpu_is_compatible_with_vm ~__context
+  Xapi_pgpu_helpers.assert_destination_has_pgpu_compatible_with_vm ~__context
     ~vm ~vgpu_map ~host:remote.dest_host ?remote:remote_for_migration_type ()
 
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options ~vgpu_map =
