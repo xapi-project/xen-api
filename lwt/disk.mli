@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Lwt
-
 type authentication =
   | Session_id of string
   (** use an existing session_id *)

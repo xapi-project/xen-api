@@ -22,14 +22,12 @@ module IO = struct
 
   type 'a t = 'a Deferred.t
   let (>>=) = Deferred.(>>=)
-  let (>>) m n = m >>= fun _ -> n
+  (* let (>>) m n = m >>= fun _ -> n *)
   let return = Deferred.return
 
   type ic = (unit -> unit Deferred.t) * Reader.t
   type oc = (unit -> unit Deferred.t) * Writer.t
   type conn = unit
-
-  let iter fn x = Deferred.List.iter x ~f:fn
 
   let read_line (_, ic) =
     Reader.read_line ic
@@ -43,21 +41,21 @@ module IO = struct
     | `Ok len' -> String.sub buf ~pos:0 ~len:len'
     | `Eof -> ""
 
-  let read_exactly (_, ic) len =
+  (* let read_exactly (_, ic) len =
     let buf = String.create len in
     Reader.really_read ic ~pos:0 ~len buf >>=
     function
     |`Ok -> return (Some buf)
-    |`Eof _ -> return None
+    |`Eof _ -> return None *)
 
   let write (_, oc) buf =
     Writer.write oc buf;
     return ()
 
-  let write_line (_, oc) buf =
+  (* let write_line (_, oc) buf =
     Writer.write oc buf;
     Writer.write oc "\r\n";
-    return ()
+    return () *)
 
   let flush (_, oc) =
     Async.Std.Writer.flushed oc
@@ -110,10 +108,14 @@ let do_it uri string =
     )
     ~finally:(fun () -> M.disconnect connection)
 
+(* TODO: modify do_it to accept the timeout and remove the warnings *)
+
+[@@@ocaml.warning "-27"]
 let make ?(timeout=30.) uri call =
   let req = Xmlrpc.string_of_call call in
   do_it uri req >>| Xmlrpc.response_of_string
 
+[@@@ocaml.warning "-27"]
 let make_json ?(timeout=30.) uri call =
   let req = Jsonrpc.string_of_call call in
   do_it uri req >>| Jsonrpc.response_of_string

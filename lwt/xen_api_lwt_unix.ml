@@ -26,8 +26,6 @@ module Lwt_unix_IO = struct
   type oc = (unit -> unit Lwt.t) * Lwt_io.output_channel
   type conn = Lwt_unix.file_descr
 
-  let iter fn x = Lwt_list.iter_s fn x
-
   let read_line (_, ic) = Lwt_io.read_line_opt ic
 
   let read (_, ic) count =
@@ -37,7 +35,7 @@ module Lwt_unix_IO = struct
         | End_of_file -> return ""
         | e -> Lwt.fail e)
 
-  let read_exactly (_, ic) buf off len =
+  (* let read_exactly (_, ic) buf off len =
     Lwt.catch
       (fun () -> Lwt_io.read_into_exactly ic buf off len >> return true)
       (function
@@ -45,14 +43,14 @@ module Lwt_unix_IO = struct
         | e -> Lwt.fail e)
 
   let read_exactly ic len =
-    let buf = String.create len in
+    let buf = Bytes.create len in
     read_exactly ic buf 0 len >>= function
     | true -> return (Some buf)
-    | false -> return None
+    | false -> return None *)
 
   let write (_, oc) = Lwt_io.write oc
 
-  let write_line (_, oc) = Lwt_io.write_line oc
+  (* let write_line (_, oc) = Lwt_io.write_line oc *)
 
   let flush (_, oc) = Lwt_io.flush oc
 
@@ -135,11 +133,15 @@ let do_it uri string =
          fail e)
     (fun () -> M.disconnect connection)
 
+(* TODO: modify do_it to accept the timeout and remove the warnings *)
+
+[@@@ocaml.warning "-27"]
 let make ?(timeout=30.) uri call =
   let string = Xmlrpc.string_of_call call in
   do_it uri string >>= fun result ->
   Lwt.return (Xmlrpc.response_of_string result)
 
+[@@@ocaml.warning "-27"]
 let make_json ?(timeout=30.) uri call =
   let string = Jsonrpc.string_of_call call in
   do_it uri string >>= fun result ->

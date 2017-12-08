@@ -15,7 +15,6 @@
 open Core.Std
 open Async.Std
 
-open Xen_api
 open Xen_api_async_unix
 
 let uri = ref "http://127.0.0.1/"
@@ -25,19 +24,19 @@ let password = ref "password"
 let exn_to_string = function
   | Api_errors.Server_error(code, params) ->
     Printf.sprintf "%s %s" code (String.concat ~sep:" " params)
-  | e -> failwith "XXX: figure out core/async error handling"
+  | e -> failwith (Printf.sprintf "Unhandled exception: %s" (Exn.to_string e))
 
 let main () =
   let rpc = make !uri in
-  Session.login_with_password rpc !username !password "1.0" "list_vms"
+  Session.login_with_password ~rpc ~uname:!username ~pwd:!password ~version:"1.0" ~originator:"list_vms"
   >>= fun session_id ->
-  VM.get_all_records rpc session_id
+  VM.get_all_records ~rpc ~session_id
   >>= fun vms ->
   List.iter
-    ~f:(fun (vm, vm_rec) ->
+    ~f:(fun (_, vm_rec) ->
         printf "VM %s\n%!" vm_rec.API.vM_name_label
       ) vms;
-  Session.logout rpc session_id
+  Session.logout ~rpc ~session_id
   >>= fun () ->
   shutdown 0;
   return ()

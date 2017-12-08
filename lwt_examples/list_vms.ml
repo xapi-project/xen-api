@@ -12,9 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Lwt
-
-open Xen_api
 open Xen_api_lwt_unix
 
 let uri = ref "http://127.0.0.1/jsonrpc"
@@ -29,16 +26,17 @@ let exn_to_string = function
 
 let main () =
   let rpc = if !json then make_json !uri else make !uri in
-  Session.login_with_password rpc !username !password "1.0" "list_vms" >>= fun session_id ->
+  Session.login_with_password ~rpc ~uname:!username ~pwd:!password ~version:"1.0" ~originator:"list_vms"
+  >>= fun session_id ->
   Lwt.finalize
     (fun () ->
-       VM.get_all_records rpc session_id >>= fun vms ->
+       VM.get_all_records ~rpc ~session_id >>= fun vms ->
        List.iter
-         (fun (vm, vm_rec) ->
+         (fun (_vm, vm_rec) ->
             Printf.printf "VM %s\n" vm_rec.API.vM_name_label
          ) vms;
        return ())
-    (fun () -> Session.logout rpc session_id)
+    (fun () -> Session.logout ~rpc ~session_id)
 
 let _ =
   Arg.parse [

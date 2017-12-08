@@ -59,7 +59,7 @@ module Fake_IO = struct
       end)
 
   let read_exactly ic len =
-    let buf = String.create len in
+    let buf = Bytes.create len in
     read_exactly ic buf 0 len >>= function
     | true -> return (Some buf)
     | false -> return None
@@ -67,7 +67,7 @@ module Fake_IO = struct
 
   let write oc string = Queue.push string oc; return ()
 
-  let flush oc = return ()
+  let flush _oc = return ()
 
   type connection = {
     address: Uri.t;
@@ -104,13 +104,13 @@ let test_login_fail _ =
     let xml = Xmlrpc.string_of_call req in
     M.rpc (M.make (Uri.of_string "http://127.0.0.1/")) xml
     >>= function
-    | Ok x -> failwith "should have failed with No_response"
+    | Ok _ -> failwith "should have failed with No_response"
     | Error e -> raise e in
   timeofday := 0.;
   num_sleeps := 0;
   begin
     try
-      let _session_id = C.Session.login_with_password rpc "root" "password" "1.0" "xen-api test" in
+      let _session_id = C.Session.login_with_password ~rpc:rpc ~uname:"root" ~pwd:"password" ~version:"1.0" ~originator:"xen-api test" in
       ()
     with Xen_api.No_response -> ()
   end;
@@ -141,7 +141,7 @@ let test_login_success _ =
     >>= function
     | Ok x -> Xmlrpc.response_of_string x
     | Error e -> raise e in
-  let session_id' = C.Session.login_with_password rpc "root" "password" "1.0" "xen-api test" in
+  let session_id' = C.Session.login_with_password ~rpc ~uname:"root" ~pwd:"password" ~version:"1.0" ~originator:"xen-api test" in
   assert_equal ~msg:"session_id" session_id (API.Ref.string_of session_id')
 
 let _ =

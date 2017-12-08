@@ -27,7 +27,7 @@ type t = {
 
 exception Impossible_to_seek
 
-let complete name offset op fd buffer =
+let complete _name _offset op fd buffer =
   let open Lwt in
   let ofs = buffer.Cstruct.off in
   let len = buffer.Cstruct.len in

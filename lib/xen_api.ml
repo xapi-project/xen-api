@@ -87,7 +87,6 @@ module Make(IO:IO) = struct
   let counter = ref 0
 
   let one_attempt t (ic, oc) request =
-    let open Printf in
     let body = request in
 
     let headers = Cohttp.Header.of_list [

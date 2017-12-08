@@ -14,7 +14,6 @@
 
 open Lwt
 
-open Xen_api
 open Xen_api_lwt_unix
 
 let uri = ref "http://127.0.0.1/"
@@ -30,12 +29,13 @@ let main filename =
   Lwt_unix.LargeFile.stat filename >>= fun stats ->
   let virtual_size = stats.Lwt_unix.LargeFile.st_size in
   let rpc = make !uri in
-  Session.login_with_password rpc !username !password "1.0" "upload_disk" >>= fun session_id ->
+  Session.login_with_password ~rpc ~uname:!username ~pwd:!password ~version:"1.0" ~originator:"upload_disk"
+  >>= fun session_id ->
   Lwt.finalize
     (fun () ->
-       Pool.get_all rpc session_id >>= fun pools ->
+       Pool.get_all ~rpc ~session_id >>= fun pools ->
        let pool = List.hd pools in
-       Pool.get_default_SR rpc session_id pool >>= fun sr ->
+       Pool.get_default_SR ~rpc ~session_id ~self:pool >>= fun sr ->
        (VDI.create ~rpc ~session_id ~name_label:"upload_disk" ~name_description:""
           ~sR:sr ~virtual_size ~_type:`user ~sharable:false ~read_only:false
           ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[]) >>= fun vdi ->
@@ -61,12 +61,12 @@ let main filename =
              ic.Data_channel.close ())
           (fun e ->
              Printf.fprintf stderr "Caught: %s, cleaning up\n%!" (Printexc.to_string e);
-             VDI.destroy rpc session_id vdi >>= fun () ->
+             VDI.destroy ~rpc ~session_id ~self:vdi >>= fun () ->
              fail e)) >>= fun () ->
-       VDI.get_uuid rpc session_id vdi >>= fun uuid ->
+       VDI.get_uuid ~rpc ~session_id ~self:vdi >>= fun uuid ->
        Printf.printf "%s\n" uuid;
        return ())
-    (fun () -> Session.logout rpc session_id)
+    (fun () -> Session.logout ~rpc ~session_id)
 
 let _ =
   let filename = ref "" in

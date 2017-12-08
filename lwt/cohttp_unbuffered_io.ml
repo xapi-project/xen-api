@@ -15,8 +15,6 @@
  *
  *)
 
-open Lwt
-
 type 'a t = 'a Lwt.t
 let iter fn x = Lwt_list.iter_s fn x
 let return = Lwt.return
@@ -63,7 +61,7 @@ let read_http_headers c =
       if c = x.marker.[x.i] then x.i <- x.i + 1 else x.i <- 0
     let remaining x = String.length x.marker - x.i
     let matched x = x.i = String.length x.marker
-    let to_string x = Printf.sprintf "%d" x.i
+    (* let to_string x = Printf.sprintf "%d" x.i *)
   end in
   let marker = Scanner.make end_of_headers in
 
@@ -110,7 +108,7 @@ let read_into_exactly ic buf ofs len =
   return true
 
 let read_exactly ic len =
-  let buf = String.create len in
+  let buf = Bytes.create len in
   read_into_exactly ic buf 0 len >>= function
   | true -> return (Some buf)
   | false -> return None
@@ -125,5 +123,5 @@ let write oc x =
   Cstruct.blit_from_string x 0 buf 0 (String.length x);
   oc.Data_channel.really_write buf
 
-let flush oc =
+let flush _oc =
   return ()

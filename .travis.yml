@@ -1,14 +1,16 @@
 language: c
 sudo: required
 install:
-  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
 script:
-  - bash -ex .travis-opam.sh
+  - bash -ex .travis-docker.sh
 env:
   global:
-    - OCAML_VERSION=4.04
+    - OCAML_VERSION=4.04.2
     - PINS="xen-api-client:."
     - PACKAGE=xen-api-client
+    - DISTRO="debian-unstable"
+    - PRE_INSTALL_HOOK="echo 'ulimit -s 16384' > /etc/profile.d/custom.sh"
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam POST_INSTALL_HOOK="env TRAVIS=$TRAVIS TRAVIS_JOB_ID=$TRAVIS_JOB_ID bash -ex .coverage.sh"
     - PACKAGE=xen-api-client-async BASE_REMOTE=git://github.com/xapi-project/xs-opam POST_INSTALL_HOOK="make async-examples"

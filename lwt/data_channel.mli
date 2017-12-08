@@ -15,8 +15,6 @@
  *
  *)
 
-open Lwt
-
 type t = {
   really_read: Cstruct.t -> unit Lwt.t;
   (** [really_read buffer] reads a whole [buffer] of data from the channel *)
