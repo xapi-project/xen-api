@@ -27,7 +27,7 @@ doc-json:
 	_build/default/ocaml/idl/json_backend/gen_json.exe
 
 reindent:
-	ocp-indent --inplace **/*.ml*
+	git ls-files '*.ml*' '**/*.ml*' | xargs ocp-indent --syntax cstruct -i
 
 install: build doc
 	mkdir -p $(DESTDIR)$(SBINDIR)

@@ -58,142 +58,148 @@ let rel_ely = "ely"
 let rel_falcon = "falcon"
 let rel_honolulu = "honolulu"
 let rel_inverness = "inverness"
+let rel_kolkata = "kolkata"
 
 type api_release = {
-    code_name: string option;
-    version_major: int;
-    version_minor: int;
-    branding: string;
+  code_name: string option;
+  version_major: int;
+  version_minor: int;
+  branding: string;
 }
 
 (* When you add a new release, use the version number of the latest release,
    and "Unreleased" for the branding, until the actual values are finalised. *)
 let release_order_full = [{
-      code_name     = Some rel_rio;
-      version_major = 1;
-      version_minor = 1;
-      branding   = "XenServer 4.0";
-    }; {
-      code_name     = Some rel_miami;
-      version_major = 1;
-      version_minor = 2;
-      branding   = "XenServer 4.1";
-    }; {
-      code_name     = Some rel_symc;
-      version_major = 1;
-      version_minor = 2;
-      branding   = "XenServer 4.1.1";
-    }; {
-      code_name     = Some rel_orlando;
-      version_major = 1;
-      version_minor = 3;
-      branding   = "XenServer 5.0";
-    }; {
-      code_name     = Some rel_orlando_update_1;
-      version_major = 1;
-      version_minor = 3;
-      branding   = "XenServer 5.0 Update 1";
-    }; {
-      code_name     = None;
-      version_major = 1;
-      version_minor = 4;
-      branding   = "Unreleased";
-    }; {
-      code_name     = None;
-      version_major = 1;
-      version_minor = 5;
-      branding   = "XenServer 5.0 update 3";
-    }; {
-      code_name     = Some rel_george;
-      version_major = 1;
-      version_minor = 6;
-      branding   = "XenServer 5.5";
-    }; {
-      code_name     = Some rel_midnight_ride;
-      version_major = 1;
-      version_minor = 7;
-      branding   = "XenServer 5.6";
-    }; {
-      code_name     = Some rel_cowley;
-      version_major = 1;
-      version_minor = 8;
-      branding   = "XenServer 5.6 FP1";
-    }; {
-      code_name     = Some rel_boston;
-      version_major = 1;
-      version_minor = 9;
-      branding   = "XenServer 6.0";
-    }; {
-      code_name     = Some rel_tampa;
-      version_major = 1;
-      version_minor = 10;
-      branding   = "XenServer 6.1";
-    }; {
-      code_name     = Some rel_clearwater;
-      version_major = 2;
-      version_minor = 0;
-      branding   = "XenServer 6.2";
-    }; {
-      code_name     = Some rel_vgpu_tech_preview;
-      version_major = 2;
-      version_minor = 0;
-      branding   = "XenServer 6.2 SP1 Tech-Preview";
-    }; {
-      code_name     = Some rel_vgpu_productisation;
-      version_major = 2;
-      version_minor = 1;
-      branding   = "XenServer 6.2 SP1";
-    }; {
-      code_name     = Some rel_clearwater_felton;
-      version_major = 2;
-      version_minor = 2;
-      branding   = "XenServer 6.2 SP1 Hotfix 4";
-    }; {
-      code_name     = Some rel_clearwater_whetstone;
-      version_major = 2;
-      version_minor = 2;
-      branding   = "XenServer 6.2 SP1 Hotfix 11";
-    }; {
-      code_name     = Some rel_creedence;
-      version_major = 2;
-      version_minor = 3;
-      branding   = "XenServer 6.5";
-    }; {
-      code_name     = Some rel_cream;
-      version_major = 2;
-      version_minor = 4;
-      branding   = "XenServer 6.5 SP1";
-    }; {
-      code_name     = Some rel_indigo;
-      version_major = 2;
-      version_minor = 4;
-      branding   = "XenServer 6.5 SP1 Hotfix 31";
-    }; {
-      code_name     = Some rel_dundee;
-      version_major = 2;
-      version_minor = 5;
-      branding   = "XenServer 7.0";
-    }; {
-      code_name     = Some rel_ely;
-      version_major = 2;
-      version_minor = 6;
-      branding   = "XenServer 7.1";
-    }; {
-      code_name     = Some rel_honolulu;
-      version_major = 2;
-      version_minor = 6;
-      branding   = "XenServer 7.1 CU1";
-    }; {
-      code_name     = Some rel_falcon;
-      version_major = 2;
-      version_minor = 7;
-      branding   = "XenServer 7.2";
-    }; {
-      code_name     = Some rel_inverness;
-      version_major = 2;
-      version_minor = 8;
-      branding   = "XenServer 7.3";
-    };
+    code_name     = Some rel_rio;
+    version_major = 1;
+    version_minor = 1;
+    branding   = "XenServer 4.0";
+  }; {
+     code_name     = Some rel_miami;
+     version_major = 1;
+     version_minor = 2;
+     branding   = "XenServer 4.1";
+   }; {
+     code_name     = Some rel_symc;
+     version_major = 1;
+     version_minor = 2;
+     branding   = "XenServer 4.1.1";
+   }; {
+     code_name     = Some rel_orlando;
+     version_major = 1;
+     version_minor = 3;
+     branding   = "XenServer 5.0";
+   }; {
+     code_name     = Some rel_orlando_update_1;
+     version_major = 1;
+     version_minor = 3;
+     branding   = "XenServer 5.0 Update 1";
+   }; {
+     code_name     = None;
+     version_major = 1;
+     version_minor = 4;
+     branding   = "Unreleased";
+   }; {
+     code_name     = None;
+     version_major = 1;
+     version_minor = 5;
+     branding   = "XenServer 5.0 update 3";
+   }; {
+     code_name     = Some rel_george;
+     version_major = 1;
+     version_minor = 6;
+     branding   = "XenServer 5.5";
+   }; {
+     code_name     = Some rel_midnight_ride;
+     version_major = 1;
+     version_minor = 7;
+     branding   = "XenServer 5.6";
+   }; {
+     code_name     = Some rel_cowley;
+     version_major = 1;
+     version_minor = 8;
+     branding   = "XenServer 5.6 FP1";
+   }; {
+     code_name     = Some rel_boston;
+     version_major = 1;
+     version_minor = 9;
+     branding   = "XenServer 6.0";
+   }; {
+     code_name     = Some rel_tampa;
+     version_major = 1;
+     version_minor = 10;
+     branding   = "XenServer 6.1";
+   }; {
+     code_name     = Some rel_clearwater;
+     version_major = 2;
+     version_minor = 0;
+     branding   = "XenServer 6.2";
+   }; {
+     code_name     = Some rel_vgpu_tech_preview;
+     version_major = 2;
+     version_minor = 0;
+     branding   = "XenServer 6.2 SP1 Tech-Preview";
+   }; {
+     code_name     = Some rel_vgpu_productisation;
+     version_major = 2;
+     version_minor = 1;
+     branding   = "XenServer 6.2 SP1";
+   }; {
+     code_name     = Some rel_clearwater_felton;
+     version_major = 2;
+     version_minor = 2;
+     branding   = "XenServer 6.2 SP1 Hotfix 4";
+   }; {
+     code_name     = Some rel_clearwater_whetstone;
+     version_major = 2;
+     version_minor = 2;
+     branding   = "XenServer 6.2 SP1 Hotfix 11";
+   }; {
+     code_name     = Some rel_creedence;
+     version_major = 2;
+     version_minor = 3;
+     branding   = "XenServer 6.5";
+   }; {
+     code_name     = Some rel_cream;
+     version_major = 2;
+     version_minor = 4;
+     branding   = "XenServer 6.5 SP1";
+   }; {
+     code_name     = Some rel_indigo;
+     version_major = 2;
+     version_minor = 4;
+     branding   = "XenServer 6.5 SP1 Hotfix 31";
+   }; {
+     code_name     = Some rel_dundee;
+     version_major = 2;
+     version_minor = 5;
+     branding   = "XenServer 7.0";
+   }; {
+     code_name     = Some rel_ely;
+     version_major = 2;
+     version_minor = 6;
+     branding   = "XenServer 7.1";
+   }; {
+     code_name     = Some rel_honolulu;
+     version_major = 2;
+     version_minor = 6;
+     branding   = "XenServer 7.1 CU1";
+   }; {
+     code_name     = Some rel_falcon;
+     version_major = 2;
+     version_minor = 7;
+     branding   = "XenServer 7.2";
+   }; {
+     code_name     = Some rel_inverness;
+     version_major = 2;
+     version_minor = 8;
+     branding   = "XenServer 7.3";
+   }; {
+     code_name     = Some rel_kolkata;
+     version_major = 2;
+     version_minor = 10;
+     branding   = "Unreleased";
+   };
   ]
 (* When you add a new release, use the version number of the latest release,
    and "Unreleased" for the branding, until the actual values are finalised. *)
@@ -226,7 +232,7 @@ type ty =
   | Map of ty * ty
   | Ref of string
   | Record of string
-[@@deriving rpc]
+  [@@deriving rpc]
 
 type api_value =
     VString of string
@@ -239,7 +245,7 @@ type api_value =
   | VSet of api_value list
   | VRef of string
   | VCustom of string * api_value
-[@@deriving rpc]
+  [@@deriving rpc]
 
 (* For convenience, we use the same value here as is defined in the Ref module in
  * xapi-types. It's not terribly important, since all refs should be validated before
@@ -255,7 +261,7 @@ type qualifier =
   | RW        (** Implicitly static: set in constructor and updatable through API *)
   | StaticRO  (** Specified in constructor; no autogenerated setter in XenAPI. *)
   | DynamicRO (** Initial value is a default; no autogenerated setter in XenAPI. *)
-[@@deriving rpc]
+  [@@deriving rpc]
 
 (** Release keeps track of which versions of opensource/internal products fields and messages are included in *)
 type release = {
@@ -273,7 +279,7 @@ type lifecycle_change =
   | Removed
 
 and lifecycle_transition = lifecycle_change * string * string
-[@@deriving rpc]
+  [@@deriving rpc]
 
 (** Messages are tagged with one of these indicating whether the message was
     specified explicitly in the datamodel, or is one of the automatically
@@ -391,7 +397,7 @@ let default_message = {
 type content =
   | Field of field                     (** An individual field *)
   | Namespace of string * content list (** A nice namespace for a group of fields *)
-[@@deriving rpc]
+  [@@deriving rpc]
 
 (* Note: there used be more than 2 persist_options -- that's why it isn't a bool.
    I figured even though there's only 2 now I may as well leave it as an enumeration type.. *)
