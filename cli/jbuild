@@ -1,7 +1,7 @@
 (executable
  ((name network_cli)
   (public_name networkd-cli)
-  (package xcp-networkd)
+  (package xapi-networkd)
   (flags (:standard -bin-annot))
   (libraries (profiling
               cmdliner

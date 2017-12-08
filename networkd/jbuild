@@ -14,8 +14,8 @@
 
 (executable
  ((name networkd)
-  (public_name xcp-networkd)
-  (package xcp-networkd)
+  (public_name xapi-networkd)
+  (package xapi-networkd)
   (flags (:standard -bin-annot))
   (libraries (networklibs
               profiling
