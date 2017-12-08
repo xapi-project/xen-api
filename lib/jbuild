@@ -12,14 +12,14 @@ let coverage_rewriter ~full =
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (library
  ((name rrd_transport)
-  (public_name xapi-rrd-transport)
+  (public_name rrd-transport)
   (wrapped false)
   (libraries (astring
               bigarray
               crc
               cstruct
+              rrd
               threads
-              xapi-rrd
               xcp.rrd
               xen-gnt
               xen-gnt.unix))

@@ -11,7 +11,7 @@ let coverage_rewriter ~full =
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (executables
  ((names (test_unit test_scale))
-  (libraries (oUnit xapi-rrd-transport))
+  (libraries (oUnit rrd-transport))
   %s
  ))
 

@@ -8,6 +8,11 @@ build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 build-test: ["jbuilder" "runtest" "-p" name]
 depends: [
   "jbuilder" {build & >= "1.0+beta10"}
-  "cmdliner"
-  "xapi-rrd-transport" {>= "2.0.0"}
+  "bigarray"
+  "cstruct" {< "3.0.0"}
+  "crc"
+  "astring"
+  "xapi-idl" {>= "1.0.0"}
+  "xapi-rrd" {>= "1.0.0"}
+  "xen-gnt" {< "3.0.0"}
 ]
