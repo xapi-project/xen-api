@@ -10,7 +10,7 @@ build:
 
 install: build
 	mkdir -p $(DESTDIR)$(BINDIR)
-	install -m 755 _build/install/default/bin/rrd2csv.exe $(DESTDIR)$(BINDIR)/rrd2csv
+	install -m 755 _build/install/default/bin/rrd2csv $(DESTDIR)$(BINDIR)/rrd2csv
 	mkdir -p $(DESTDIR)$(MANDIR)
 	install -m 644 man/rrd2csv.1.man $(DESTDIR)$(MANDIR)/rrd2csv.1.man
 
