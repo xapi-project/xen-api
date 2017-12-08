@@ -21,11 +21,11 @@ exception Payload_too_large
 exception Read_error
 
 type payload = {
-	timestamp: int64;
-	datasources : (Rrd.ds_owner * Ds.ds) list;
+  timestamp: int64;
+  datasources : (Rrd.ds_owner * Ds.ds) list;
 }
 
 type protocol = {
-	make_payload_reader: unit -> (Cstruct.t -> payload);
-	make_payload_writer: unit -> ((int -> Cstruct.t) -> payload -> unit);
+  make_payload_reader: unit -> (Cstruct.t -> payload);
+  make_payload_writer: unit -> ((int -> Cstruct.t) -> payload -> unit);
 }

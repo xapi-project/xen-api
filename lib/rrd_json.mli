@@ -13,7 +13,7 @@
  *)
 
 val json_of_ds: ?owner:Rrd.ds_owner ->
-	?rshift:int -> Ds.ds -> Buffer.t -> unit
+  ?rshift:int -> Ds.ds -> Buffer.t -> unit
 
 val json_of_dss: header:string -> int64 -> (Rrd.ds_owner * Ds.ds) list -> string
 
