@@ -66,7 +66,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (package xapi)
   (flags (:standard -bin-annot %s -warn-error +a-3-4-6-9-27-28-29-52))
   (libraries (
-   oPasswd
+   opasswd
    pam
    pciutil
    pci
