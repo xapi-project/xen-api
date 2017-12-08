@@ -8,9 +8,10 @@ script:
   - bash -ex .travis-docker.sh
 env:
   global:
-    - OCAML_VERSION=4.02.3
+    - OCAML_VERSION=4.04.2
     - DISTRO=debian-stable
-    - PACKAGE=xapi-rrd-transport
+    - PINS="rrd-transport:. xapi-rrd-transport:. xapi-rrd-transport-utils:."
+    - PACKAGE=rrd-transport
   matrix:
     # We need to pass some Travis environment variables to the container to
     # enable uploading to coveralls and detection of Travis CI.
