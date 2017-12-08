@@ -618,6 +618,8 @@ let sort_by_schwarzian ?(descending=false) f list =
   List.sort (fun (_, x') (_, y') -> comp x' y') |>
   List.map (fun (x, _) -> x)
 
+let platform_version_inverness = [2;4;0]
+
 let version_string_of : __context:Context.t -> [`host] api_object -> string =
   fun ~__context host ->
     try

@@ -246,6 +246,22 @@ let check_vgpu ~__context ~op ~ref_str ~vgpus =
       List.assoc "restrict_vgpu_migration" restrictions = "false"
     with Not_found -> false
   in
+  let is_migratable vgpu =
+    try
+      (* Prevent VMs with VGPU from being migrated from pre-Jura to Jura and later hosts during RPU *)
+      let host_from = Db.VGPU.get_VM ~__context ~self:vgpu
+        |> fun vm -> Db.VM.get_resident_on ~__context ~self:vm
+        |> fun host -> Helpers.LocalObject host
+      in
+      (* true if platform version of host_from more than inverness' 2.4.0 *)
+      Helpers.(compare_int_lists (version_of ~__context host_from) platform_version_inverness) > 0
+    with e ->
+      begin
+        debug "is_migratable: %s" (ExnHelper.string_of_exn e);
+        (* best effort: yes if not possible to decide *)
+        true
+      end
+  in
   let is_suspendable vgpu =
     Db.VGPU.get_type ~__context ~self:vgpu
     |> fun self -> Db.VGPU_type.get_implementation ~__context ~self
@@ -258,7 +274,11 @@ let check_vgpu ~__context ~op ~ref_str ~vgpus =
     | _ -> false
   in
   match op with
-  | `pool_migrate | `migrate_send | `suspend
+  | `pool_migrate | `migrate_send
+    when vgpu_migration_enabled ()
+      && List.for_all is_migratable  vgpus
+      && List.for_all is_suspendable vgpus -> None
+  | `suspend
     when vgpu_migration_enabled ()
       && List.for_all is_suspendable vgpus -> None
   | `pool_migrate | `migrate_send | `suspend | `checkpoint ->
