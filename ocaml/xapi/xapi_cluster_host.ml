@@ -118,7 +118,13 @@ let enable ~__context ~self =
       let pif = pif_of_host ~__context network host in
       assert_pif_prerequisites pif;
       let ip = ip_of_pif pif in
-      let result = Cluster_client.LocalClient.enable (Cluster_client.rpc (fun () -> "")) ip in
+      let init_config = {
+        Cluster_idl.Interface.local_ip = ip;
+        token_timeout_ms = None;
+        token_coefficient_ms = None;
+        name = None
+      } in (* TODO: Pass these through from CLI *)
+      let result = Cluster_client.LocalClient.enable (Cluster_client.rpc (fun () -> "")) init_config in
       match result with
       | Result.Ok () ->
         Db.Cluster_host.set_enabled ~__context ~self ~value:true
