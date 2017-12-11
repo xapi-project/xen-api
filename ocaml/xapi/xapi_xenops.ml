@@ -306,7 +306,12 @@ module MD = struct
   (** Convert between xapi DB records and xenopsd records *)
 
   let of_vbd ~__context ~vm ~vbd =
-    let hvm = Helpers.will_boot_hvm_from_record vm in
+    let hvm = match vm.API.vM_domain_type with
+      | `hvm -> true
+      | `pv_in_pvh
+      | `pv
+      | `unspecified -> false
+    in
     let device_number = Device_number.of_string hvm vbd.API.vBD_userdevice in
     let open Vbd in
     let ty = vbd.API.vBD_qos_algorithm_type in
