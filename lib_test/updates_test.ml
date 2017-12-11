@@ -155,16 +155,30 @@ let test_filter () =
     (List.nth updates1 0 = update_a &&
      List.length updates1 = 1)
 
-(* Check that a dumped updates.t value has the correct json representation.
-   Note that the dumped json contains embedded strings containing json... *)
+(* Check that a dumped updates.t value has the correct Rpc representation.
+   Note that the dumped Rpc contains embedded strings containing json... *)
 let test_dump () =
   let u = M.empty scheduler in
   M.add update_a u;
   M.inject_barrier 1 (fun _ _ -> true) u;
   let dump = M.Dump.make u in
-  let json = Jsonrpc.to_string (M.Dump.rpc_of_dump dump) in
-  let expected = "{\"updates\": [{\"id\": 1, \"v\": \"[\\\"Foo\\\", \\\"a\\\"]\"}], \"barriers\": [[1, 2, [{\"id\": 1, \"v\": \"[\\\"Foo\\\", \\\"a\\\"]\"}]]]}" in
-  assert_equal json expected
+  let dumped_rpc = M.Dump.rpc_of_dump dump in
+  let expected_rpc = Rpc.Dict
+      [("updates",
+        Rpc.Enum
+          [Rpc.Dict [("id", Rpc.Int 1L); ("v", Rpc.String "[\"Foo\",\"a\"]")]]);
+       ("barriers",
+        Rpc.Enum
+          [Rpc.Enum
+             [Rpc.Int 1L; Rpc.Int 2L;
+              Rpc.Enum
+                [Rpc.Dict
+                   [ ("id", Rpc.Int 1L)
+                   ; ("v", Rpc.String "[\"Foo\",\"a\"]")
+                   ]]]]
+       )]
+  in
+  assert_equal dumped_rpc expected_rpc
 
 (* Test that last_id returns a token that can be passed to 'get'. This get call should
    then only return events that were added _after_ the call to 'last_id' *)
