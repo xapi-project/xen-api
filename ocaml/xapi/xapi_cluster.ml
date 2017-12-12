@@ -22,6 +22,7 @@ open D
 let create ~__context ~network ~cluster_stack ~pool_auto_join =
   Pool_features.assert_enabled ~__context ~f:Features.Corosync;
   with_clustering_lock (fun () ->
+      let dbg = Context.string_of_task __context in
       let cluster_ref = Ref.make () in
       let cluster_host_ref = Ref.make () in
       let cluster_uuid = Uuidm.to_string (Uuidm.create `V4) in
@@ -39,7 +40,7 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join =
         name = None
       } in (* TODO: Pass these through from CLI *)
 
-      let result = Cluster_client.LocalClient.create (Cluster_client.rpc (fun () -> "")) init_config in
+      let result = Cluster_client.LocalClient.create rpc dbg init_config in
       match result with
       | Result.Ok cluster_token ->
         D.debug "Got OK from LocalClient.create";
@@ -55,10 +56,11 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join =
     )
 
 let destroy ~__context ~self =
+  let dbg = Context.string_of_task __context in
   assert_cluster_has_one_node ~__context ~self;
   let cluster_host = Db.Cluster.get_cluster_hosts ~__context ~self |> List.hd in
   assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self:cluster_host;
-  let result = Cluster_client.LocalClient.destroy (Cluster_client.rpc (fun () -> "")) () in
+  let result = Cluster_client.LocalClient.destroy rpc dbg in
   match result with
   | Result.Ok () ->
     Db.Cluster_host.destroy ~__context ~self:cluster_host;
