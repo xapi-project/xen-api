@@ -839,6 +839,8 @@ let usb_path = "usb_path"
  * should be set with disallow-unplug=true, during a PIF.scan. *)
 let non_managed_pifs = ref "/opt/xensource/libexec/bfs-interfaces"
 
+let fcoe_driver = ref "/opt/xensource/libexec/fcoe_driver"
+
 let xen_cmdline_script = ref "/opt/xensource/libexec/xen-cmdline"
 
 let sr_health_check_task_label = "SR Recovering"
@@ -1085,6 +1087,7 @@ module Resources = struct
     "xsh", xsh, "Path to xsh binary";
     "static-vdis", static_vdis, "Path to static-vdis script";
     "xen-cmdline-script", xen_cmdline_script, "Path to xen-cmdline script";
+    "fcoe-driver", fcoe_driver, "Execute during PIF unplug to get the lun devices related with the ether interface of the PIF";
   ]
   let nonessential_executables = [
     "startup-script-hook", startup_script_hook, "Executed during startup";

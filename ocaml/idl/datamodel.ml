@@ -605,6 +605,8 @@ let _ =
     ~doc:"This host has no PIF on the given network." ();
   error Api_errors.pif_does_not_allow_unplug [ "PIF" ]
     ~doc:"The operation you requested cannot be performed because the specified PIF does not allow unplug." ();
+  error Api_errors.pif_has_fcoe_sr_in_use ["PIF"; "SR"]
+    ~doc:"The operation you requested cannot be performed because the specified PIF has fcoe sr in use." ();
   error Api_errors.pif_unmanaged [ "PIF" ]
     ~doc:"The operation you requested cannot be performed because the specified PIF is not managed by xapi." ();
   error Api_errors.pif_has_no_network_configuration [ "PIF" ]
@@ -5436,6 +5438,10 @@ let pif_unplug = call
     ~params:[Ref _pif, "self", "the PIF object to unplug"]
     ~in_product_since:rel_miami
     ~allowed_roles:_R_POOL_OP
+    ~errs:[Api_errors.ha_operation_would_break_failover_plan;
+           Api_errors.vif_in_use;
+           Api_errors.pif_does_not_allow_unplug;
+           Api_errors.pif_has_fcoe_sr_in_use]
     ()
 
 let pif_ip_configuration_mode = Enum ("ip_configuration_mode",

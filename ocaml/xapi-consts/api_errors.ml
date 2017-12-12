@@ -118,6 +118,7 @@ let pif_incompatible_primary_address_type = "PIF_INCOMPATIBLE_PRIMARY_ADDRESS_TY
 let required_pif_is_unplugged = "REQUIRED_PIF_IS_UNPLUGGED"
 let pif_not_present = "PIF_NOT_PRESENT"
 let pif_does_not_allow_unplug = "PIF_DOES_NOT_ALLOW_UNPLUG"
+let pif_has_fcoe_sr_in_use = "PIF_HAS_FCOE_SR_IN_USE"
 let pif_unmanaged = "PIF_UNMANAGED"
 let cannot_plug_bond_slave = "CANNOT_PLUG_BOND_SLAVE"
 let cannot_add_vlan_to_bond_slave = "CANNOT_ADD_VLAN_TO_BOND_SLAVE"
