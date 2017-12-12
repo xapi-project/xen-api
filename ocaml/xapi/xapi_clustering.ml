@@ -52,8 +52,8 @@ let ip_of_pif (ref,record) =
   Cluster_interface.IPv4 ip
 
 let assert_pif_permaplugged (ref,record) =
-  if not record.API.pIF_disallow_unplug then failwith (Printf.sprintf "PIF %s allows unplug" (Ref.string_of ref));
-  if not record.pIF_currently_attached then failwith (Printf.sprintf "PIF %s not plugged" (Ref.string_of ref))
+  if not record.API.pIF_disallow_unplug then failwith (Printf.sprintf "PIF %s allows unplug" record.API.pIF_uuid);
+  if not record.pIF_currently_attached then failwith (Printf.sprintf "PIF %s not plugged" record.API.pIF_uuid)
 
 let handle_error error =
   (* TODO: replace with API errors? *)
@@ -69,8 +69,11 @@ let assert_cluster_host_can_be_created ~__context ~host =
 let get_sms_of_type_requiring_cluster_stack ~__context ~sr_sm_type ~cluster_stack =
   let sms_matching_sr_type = Db.SM.get_records_where ~__context
       ~expr:Db_filter_types.(Eq(Field "type", Literal sr_sm_type)) in
-  List.filter (fun (sm_ref, sm_rec) ->
-      List.mem cluster_stack sm_rec.API.sM_required_cluster_stack) sms_matching_sr_type
+  let sms = List.filter (fun (sm_ref, sm_rec) ->
+                List.mem cluster_stack sm_rec.API.sM_required_cluster_stack) sms_matching_sr_type in
+  List.map (fun (_, sm_rec) -> sm_rec.API.sM_uuid) sms |> String.concat ","
+  |> debug "get_sms_of_type_requiring_cluster_stack: got SM(s) %s";
+  sms
 
 let find_cluster_host ~__context ~host =
   match Db.Cluster_host.get_refs_where ~__context
@@ -126,4 +129,4 @@ let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__conte
 let assert_cluster_has_one_node ~__context ~self =
   match List.length (Db.Cluster.get_cluster_hosts ~__context ~self) with
   | 1 -> ()
-  | _ -> raise Api_errors.(Server_error(cluster_does_not_have_one_node, []))
+  | n -> raise Api_errors.(Server_error(cluster_does_not_have_one_node, [string_of_int n]))

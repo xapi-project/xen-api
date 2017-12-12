@@ -49,7 +49,7 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join =
         Db.Cluster_host.create ~__context ~ref:cluster_host_ref ~uuid:cluster_host_uuid ~cluster:cluster_ref ~host ~enabled:true
           ~current_operations:[] ~allowed_operations:[] ~other_config:[];
         Xapi_cluster_host_helpers.update_allowed_operations ~__context ~self:cluster_host_ref;
-        D.debug "Created Cluster: %s and Cluster_host: %s" (Ref.string_of cluster_ref) (Ref.string_of cluster_host_ref);
+        D.debug "Created Cluster: %s and Cluster_host: %s" cluster_uuid cluster_host_uuid;
         cluster_ref
       | Result.Error error -> handle_error error
     )
