@@ -134,7 +134,7 @@ exception Domain_does_not_exist
 val shutdown: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> shutdown_reason -> unit
 
 (** Tell the domain to shutdown with reason 'shutdown_reason', waiting for an ack *)
-val shutdown_wait_for_ack: Xenops_task.Xenops_task.task_handle -> timeout:float -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> shutdown_reason -> unit
+val shutdown_wait_for_ack: Xenops_task.Xenops_task.task_handle -> timeout:float -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> [`hvm | `pv | `pvh] -> shutdown_reason -> unit
 
 (** send a domain a sysrq *)
 val sysrq: xs:Xenstore.Xs.xsh -> domid -> char -> unit

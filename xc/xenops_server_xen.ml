@@ -1467,11 +1467,18 @@ module VM = struct
     let reason = shutdown_reason reason in
     on_domain
       (fun xc xs task vm di ->
+         let domain_type =
+           match domain_type_of_di di with
+           | Vm.Domain_HVM -> `hvm
+           | Vm.Domain_PV -> `pv
+           | Vm.Domain_PVinPVH -> `pvh
+           | Vm.Domain_undefined -> failwith "undefined domain type: cannot save"
+         in
 
          let domid = di.Xenctrl.domid in
          try
            Domain.shutdown ~xc ~xs domid reason;
-           Domain.shutdown_wait_for_ack task ~timeout:ack_delay ~xc ~xs domid reason;
+           Domain.shutdown_wait_for_ack task ~timeout:ack_delay ~xc ~xs domid domain_type reason;
            true
          with Watch.Timeout _ ->
            false

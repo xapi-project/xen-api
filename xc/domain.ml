@@ -392,16 +392,23 @@ let shutdown ~xc ~xs domid req =
        t.Xst.write path reason
     )
 
-(** If domain is PV, signal it to shutdown. If the PV domain fails to respond then throw a Watch.Timeout exception.
+(** If domain is enlightened, signal it to shutdown. If the domain fails to respond then throw a Watch.Timeout exception.
     	All other exceptions imply the domain has disappeared. *)
-let shutdown_wait_for_ack (t: Xenops_task.task_handle) ~timeout ~xc ~xs domid req =
+let shutdown_wait_for_ack (t: Xenops_task.task_handle) ~timeout ~xc ~xs domid (domain_type : [`pv | `pvh | `hvm])  req =
   let di = Xenctrl.domain_getinfo xc domid in
   let uuid = get_uuid ~xc domid in
-  if (di.Xenctrl.hvm_guest) && not (Xenctrl.hvm_check_pvdriver xc domid) then begin
+  let expecting_ack = 
+    match di.Xenctrl.hvm_guest, domain_type with
+    | false, _ -> true (* PV guests always acknowledge *)
+    | true, `pvh -> true (* PVH guests are also always enlightened *)
+    | true, `hvm -> Xenctrl.hvm_check_pvdriver xc domid (* checks for HVM_CALLBACK_IRQ *)
+    | true, `pv -> failwith "Internal error, should never happen"
+  in
+  if not expecting_ack then begin
     debug "VM = %s; domid = %d; HVM guest without PV drivers: not expecting any acknowledgement" (Uuid.to_string uuid) domid;
     Xenctrl.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
   end else begin
-    debug "VM = %s; domid = %d; Waiting for PV domain to acknowledge shutdown request" (Uuid.to_string uuid) domid;
+    debug "VM = %s; domid = %d; Waiting for domain to acknowledge shutdown request" (Uuid.to_string uuid) domid;
     let path = control_shutdown ~xs domid in
     let cancel = Domain domid in
     if cancellable_watch cancel [ Watch.value_to_become path ""] [ Watch.key_to_disappear path ] t ~xs ~timeout ()
