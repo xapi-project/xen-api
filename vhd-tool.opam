@@ -14,17 +14,18 @@ depends: [
   "base-threads"
   "cmdliner"
   "jbuilder" {build & >= "1.0+beta10"}
-  "cohttp" {>="0.12.0" & < "0.22.0"}
-  "cstruct" {>= "1.0.1" & < "3.0.0"}
+  "cohttp" {>= "0.22.0"}
+  "cstruct" {>= "3.0.0"}
   "io-page-unix"
-  "lwt" {>= "2.4.3" & < "3.0.0"}
-  "nbd" {>= "1.0.1" & < "3.0.0"}
+  "lwt" {>= "3.0.0"}
+  "nbd-lwt-unix"
   "re"
   "sha"
   "ssl"
-  "tar-format" {>"0.5.0"}
+  "tar-unix"
   "uri"
   "vhd-format" {>= "0.7.0"}
+  "vhd-format-lwt"
   "xapi-idl"
   "xapi-tapctl"
   "xenstore"

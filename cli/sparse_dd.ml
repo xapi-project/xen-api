@@ -55,7 +55,7 @@ let options =
         name, Arg.String (fun x -> var_ref := Some x), (fun () -> string_opt !var_ref), description
     in
     [
-    "unbuffered", Arg.Bool (fun b -> Vhd_lwt.File.use_unbuffered := b), (fun () -> string_of_bool !Vhd_lwt.File.use_unbuffered), "use unbuffered I/O via O_DIRECT";
+    "unbuffered", Arg.Bool (fun b -> Vhd_format_lwt.File.use_unbuffered := b), (fun () -> string_of_bool !Vhd_format_lwt.File.use_unbuffered), "use unbuffered I/O via O_DIRECT";
     "encryption-mode", Arg.String (fun x -> encryption_mode := encryption_mode_of_string x), (fun () -> string_of_encryption_mode !encryption_mode), "how to use encryption";
     (* Want to ignore bad values for "nice" etc. so not using Arg.Int *)
     str_option "nice" nice "If supplied, the scheduling priority will be set using this value as argument to the 'nice' command.";
@@ -200,7 +200,7 @@ let progress_cb =
 		last_percent := new_percent
 
 let _ =
-	Vhd_lwt.File.use_unbuffered := true;
+	Vhd_format_lwt.File.use_unbuffered := true;
 	Xcp_service.configure ~options ();
 
 	let src = match !src with
