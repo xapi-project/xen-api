@@ -1,16 +1,19 @@
-.PHONY: build release install uninstall clean test doc reindent
+OPAM_PREFIX?=$(DESTDIR)$(shell opam config var prefix)
+OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
 
-build:
-	jbuilder build @install --dev
+.PHONY: release build install uninstall clean test doc reindent
 
 release:
 	jbuilder build @install
 
+build:
+	jbuilder build @install --dev
+
 install:
-	jbuilder install
+	install -D _build/install/default/bin/xcp-rrdd $(DESTDIR)$(SBINDIR)/xcp-rrdd
 
 uninstall:
-	jbuilder uninstall
+	rm -f $(DESTDIR)$(SBINDIR)/xcp-rrdd
 
 clean:
 	jbuilder clean
@@ -26,5 +29,4 @@ gh-pages:
 	bash .docgen.sh
 
 reindent:
-	ocp-indent --syntax cstruct -i **/*.ml
-	ocp-indent --syntax cstruct -i **/*.mli
+	git ls-files '*.ml*' | xargs ocp-indent --inplace
