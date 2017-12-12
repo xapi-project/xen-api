@@ -15,34 +15,34 @@
 module Process = Rrdd_plugin.Process(struct let name = "xcp-rrdd-dummy" end)
 
 let make_cnt start =
-	let i = ref (start-1) in
-	let f () = incr i; Int64.of_int !i in
-	f
-	
+  let i = ref (start-1) in
+  let f () = incr i; Int64.of_int !i in
+  f
+
 let cnt = make_cnt 0
 
 let generate_dummy_dss () =
-	[
-		Rrd.Host,
-		Ds.ds_make ~name:"dummy-metric" ~description:"Dummy data" ~value:(Rrd.VT_Int64 (cnt ())) ~ty:(Rrd.Gauge)
-			~default:true ~units:"Pixies" ()
-	]
+  [
+    Rrd.Host,
+    Ds.ds_make ~name:"dummy-metric" ~description:"Dummy data" ~value:(Rrd.VT_Int64 (cnt ())) ~ty:(Rrd.Gauge)
+      ~default:true ~units:"Pixies" ()
+  ]
 
 let _ =
-	let mode = ref (Rrdd_plugin.Reporter.Local 1) in
-	Arg.parse
-		[("-mode",
-			Arg.String (function
-				| "local" -> mode := Rrdd_plugin.Reporter.Local 1
-				| "interdomain" -> mode := Rrdd_plugin.Reporter.Interdomain (0, 1)
-				| x -> invalid_arg x),
-			"Switch between local and interdomain mode")]
-		(fun _ -> ())
-		(Printf.sprintf "Usage: %s -mode [local|interdomain]" Sys.executable_name);
+  let mode = ref (Rrdd_plugin.Reporter.Local 1) in
+  Arg.parse
+    [("-mode",
+      Arg.String (function
+          | "local" -> mode := Rrdd_plugin.Reporter.Local 1
+          | "interdomain" -> mode := Rrdd_plugin.Reporter.Interdomain (0, 1)
+          | x -> invalid_arg x),
+      "Switch between local and interdomain mode")]
+    (fun _ -> ())
+    (Printf.sprintf "Usage: %s -mode [local|interdomain]" Sys.executable_name);
 
-	Process.initialise ();
-	Process.main_loop
-		~neg_shift:0.5
-		~target:!mode
-		~protocol:Rrd_interface.V2
-		~dss_f:generate_dummy_dss
+  Process.initialise ();
+  Process.main_loop
+    ~neg_shift:0.5
+    ~target:!mode
+    ~protocol:Rrd_interface.V2
+    ~dss_f:generate_dummy_dss
