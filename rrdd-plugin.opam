@@ -4,6 +4,16 @@ authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/ocaml-rrdd-plugin/issues"
 dev-repo: "git://github.com/xapi-project/ocaml-rrdd-plugin.git"
+build: [["jbuilder" "build" "-p" name "-j" jobs]]
 depends: [
-  "rrdd-plugin"
+  "jbuilder" {build & >= "1.0+beta10"}
+  "rpc"
+  "xapi-forkexecd"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-std"
+  "xapi-stdext-threads"
+  "xapi-stdext-unix"
+  "xapi-idl"
+  "xapi-rrd-transport" {>= "0.9.0"}
+  "xenstore_transport"
 ]
