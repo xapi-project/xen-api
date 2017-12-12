@@ -3,7 +3,8 @@
    (public_name rrdd-plugin)
    (flags (:standard -bin-annot))
    (wrapped false)
-   (libraries (forkexec
+   (libraries (astring
+               forkexec
                xapi-stdext-pervasives
                xapi-stdext-std
                xapi-stdext-threads

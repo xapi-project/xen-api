@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_std.Xstringext
 open Xapi_stdext_threads.Threadext
 
 open Xapi_stdext_unix
@@ -25,7 +24,7 @@ module Utils = struct
 	let now () = Int64.of_float (Unix.gettimeofday ())
 
 	let cut str =
-		String.split_f (fun c -> c = ' ' || c = '\t') str
+		Astring.String.fields ~empty:false ~is_sep:(fun c -> c = ' ' || c = '\t') str
 
 	let list_directory_unsafe name =
 		let handle = Unix.opendir name in
@@ -47,7 +46,7 @@ module Utils = struct
 		D.debug "Forking command %s" cmdstring;
 		(* create pipe for reading from the command's output *)
 		let (out_readme, out_writeme) = Unix.pipe () in
-		let cmd, args = match String.split ' ' cmdstring with [] -> assert false | h::t -> h,t in
+		let cmd, args = match Astring.String.cuts ~empty:false ~sep:" " cmdstring with [] -> assert false | h::t -> h,t in
 		let pid = Forkhelpers.safe_close_and_exec None (Some out_writeme) None [] cmd args in
 		Unix.close out_writeme;
 		let in_channel = Unix.in_channel_of_descr out_readme in
@@ -105,7 +104,7 @@ module Xs = struct
 							(fun handle -> Xs.read handle "domid")
 						|> Int32.of_string
 					in
-					let root_path = Printf.sprintf "/local/domain/%ld/rrd" my_domid in
+					let root_path = Printf.sprintf "/local/doxen-api/main/%ld/rrd" my_domid in
 					let state = {
 						my_domid;
 						root_path;

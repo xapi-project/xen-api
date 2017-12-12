@@ -7,6 +7,7 @@ dev-repo: "git://github.com/xapi-project/ocaml-rrdd-plugin.git"
 build: [["jbuilder" "build" "-p" name "-j" jobs]]
 depends: [
   "jbuilder" {build & >= "1.0+beta10"}
+  "astring"
   "rpc"
   "xapi-forkexecd"
   "xapi-stdext-pervasives"
