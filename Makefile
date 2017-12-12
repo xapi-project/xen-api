@@ -1,16 +1,19 @@
-.PHONY: build release install uninstall clean test doc reindent
+OPAM_PREFIX?=$(DESTDIR)$(shell opam config var prefix)
+OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
 
-build:
-	jbuilder build @install --dev
+.PHONY: release build install uninstall clean test doc reindent
 
 release:
 	jbuilder build @install
 
+build:
+	jbuilder build @install --dev
+
 install:
-	jbuilder install
+	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
 
 uninstall:
-	jbuilder uninstall
+	jbuilder uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
 
 clean:
 	jbuilder clean
@@ -23,5 +26,4 @@ doc:
 	jbuilder build @doc
 
 reindent:
-	ocp-indent -i **/*.mli
-	ocp-indent -i **/*.ml
+	git ls-files '*.ml*' | xargs ocp-indent --inplace
