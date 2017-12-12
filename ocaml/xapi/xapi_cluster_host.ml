@@ -77,6 +77,7 @@ let create ~__context ~cluster ~host =
       assert_operation_host_target_is_localhost ~__context ~host;
       assert_cluster_host_can_be_created ~__context ~host;
       let ref = Ref.make () in
+      let dbg = Context.string_of_task __context in
       let uuid = Uuidm.to_string (Uuidm.create `V4) in
       let network = Db.Cluster.get_network ~__context ~self:cluster in
       let cluster_token = Db.Cluster.get_cluster_token ~__context ~self:cluster in
@@ -88,7 +89,7 @@ let create ~__context ~cluster ~host =
           pif_of_host ~__context network |>
           ip_of_pif
         ) (Db.Cluster.get_cluster_hosts ~__context ~self:cluster) in
-      let result = Cluster_client.LocalClient.join (Cluster_client.rpc (fun () -> "")) cluster_token ip ip_list in
+      let result = Cluster_client.LocalClient.join rpc dbg cluster_token ip ip_list in
       match result with
       | Result.Ok () ->
         Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~enabled:true
@@ -98,11 +99,12 @@ let create ~__context ~cluster ~host =
     )
 
 let destroy ~__context ~self =
+  let dbg = Context.string_of_task __context in
   let host = Db.Cluster_host.get_host ~__context ~self in
   assert_operation_host_target_is_localhost ~__context ~host;
   assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self;
   assert_cluster_host_enabled ~__context ~self ~expected:true;
-  let result = Cluster_client.LocalClient.leave (Cluster_client.rpc (fun () -> "")) () in
+  let result = Cluster_client.LocalClient.leave rpc dbg in
   match result with
   | Result.Ok () ->
     Db.Cluster_host.destroy ~__context ~self
@@ -111,6 +113,7 @@ let destroy ~__context ~self =
 let enable ~__context ~self =
   (* TODO: debug/error/info logging *)
   with_clustering_lock (fun () ->
+      let dbg = Context.string_of_task __context in
       let host = Db.Cluster_host.get_host ~__context ~self in
       assert_operation_host_target_is_localhost ~__context ~host;
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
@@ -124,7 +127,7 @@ let enable ~__context ~self =
         token_coefficient_ms = None;
         name = None
       } in (* TODO: Pass these through from CLI *)
-      let result = Cluster_client.LocalClient.enable (Cluster_client.rpc (fun () -> "")) init_config in
+      let result = Cluster_client.LocalClient.enable rpc dbg init_config in
       match result with
       | Result.Ok () ->
         Db.Cluster_host.set_enabled ~__context ~self ~value:true
@@ -134,10 +137,11 @@ let enable ~__context ~self =
 let disable ~__context ~self =
   (* TODO: debug/error/info logging *)
   with_clustering_lock (fun () ->
+      let dbg = Context.string_of_task __context in
       let host = Db.Cluster_host.get_host ~__context ~self in
       assert_operation_host_target_is_localhost ~__context ~host;
       assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self;
-      let result = Cluster_client.LocalClient.disable (Cluster_client.rpc (fun () -> "")) () in
+      let result = Cluster_client.LocalClient.disable rpc dbg in
       match result with
       | Result.Ok () ->
         Db.Cluster_host.set_enabled ~__context ~self ~value:false

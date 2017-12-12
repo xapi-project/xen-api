@@ -130,3 +130,10 @@ let assert_cluster_has_one_node ~__context ~self =
   match List.length (Db.Cluster.get_cluster_hosts ~__context ~self) with
   | 1 -> ()
   | n -> raise Api_errors.(Server_error(cluster_does_not_have_one_node, [string_of_int n]))
+
+(* xapi-clusterd only listens on message-switch,
+ * the URL here would be for calling xapi-clusterd through an HTTP interface,
+ * but that is not supported (yet).
+ * Instead of returning an empty URL which wouldn't work just raise an
+ * exception. *)
+let rpc = Cluster_client.rpc (fun () -> failwith "Can only communicate with xapi-clusterd through message-switch")
