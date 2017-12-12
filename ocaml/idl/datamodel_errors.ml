@@ -1085,7 +1085,7 @@ let _ =
     ~doc:"An operation was attempted while clustering was enabled on the cluster_host." ();
   error Api_errors.clustering_disabled ["cluster_host"]
     ~doc:"An operation was attempted while clustering was disabled on the cluster_host." ();
-  error Api_errors.cluster_does_not_have_one_node []
+  error Api_errors.cluster_does_not_have_one_node ["number_of_nodes"]
     ~doc:"The cluster does not have only one node." ()
 
 let _ =
