@@ -606,13 +606,6 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
            (Pvs_proxy_control.find_proxy_for_vif ~__context ~vif))
       (Db.VM.get_VIFs ~__context ~self);
     List.iter
-      (fun vgpu ->
-         Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:false;
-         Db.VGPU.set_resident_on ~__context ~self:vgpu ~value:Ref.null;
-         Db.VGPU.set_scheduled_to_be_resident_on
-           ~__context ~self:vgpu ~value:Ref.null)
-      (Db.VM.get_VGPUs ~__context ~self);
-    List.iter
       (fun pci ->
          Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self)
       (Db.VM.get_attached_PCIs ~__context ~self);
@@ -642,7 +635,15 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
     Db.VM.set_resident_on ~__context ~self ~value:Ref.null;
     (* make sure we aren't reserving any memory for this VM *)
     Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null;
-    Db.VM.set_domid ~__context ~self ~value:(-1L)
+    Db.VM.set_domid ~__context ~self ~value:(-1L);
+
+    (* release vGPUs associated with VM *)
+    Db.VM.get_VGPUs ~__context ~self
+    |> List.iter (fun vgpu ->
+        Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:false;
+        Db.VGPU.set_resident_on ~__context ~self:vgpu ~value:Ref.null;
+        Db.VGPU.set_scheduled_to_be_resident_on
+          ~__context ~self:vgpu ~value:Ref.null)
   end;
 
   Db.VM.set_power_state ~__context ~self ~value:state;
