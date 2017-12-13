@@ -1,51 +1,22 @@
-.PHONY: all clean install build distclean
-all: build doc
+.PHONY: build clean release test reindent install uninstall
 
-NAME=xcp-inventory
-J=4
-
-export OCAMLRUNPARAM=b
-
-setup.ml:
-	oasis setup
-
-setup.bin: setup.ml lib/xcp_inventory_config.ml
-	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
-	@rm -f setup.cmx setup.cmi setup.o setup.cmo
-
-setup.data: setup.bin
-	@./setup.bin -configure --enable-tests
-
-build: setup.data setup.bin
-	@./setup.bin -build -j $(J)
-
-doc: setup.data setup.bin
-	@./setup.bin -doc -j $(J)
-
-install: setup.bin
-	@./setup.bin -install
-
-uninstall:
-	@ocamlfind remove $(NAME) || true
-
-test: setup.bin build
-	@./setup.bin -test
-
-reinstall: setup.bin
-	@ocamlfind remove $(NAME) || true
-	@./setup.bin -reinstall
+build:
+	jbuilder build @install --dev
 
 clean:
-	@ocamlbuild -clean
-	@rm -f setup.data setup.log setup.bin
+	jbuilder clean
 
-lib/xcp_inventory_config.ml:
-	@echo "You need to run configure first"
-	@exit 1
+release:
+	jbuilder build @install
 
-real-configure: configure.ml
-	ocamlfind ocamlc -linkpkg -package findlib,cmdliner -o real-configure configure.ml
-	@rm -f configure.cm*
+test:
+	jbuilder runtest --no-buffer
 
-distclean: clean
-	rm -f lib/xcp_inventory_config.ml
+reindent:
+	git ls-files '*.ml*' | xargs ocp-indent --syntax cstruct -i
+
+#requires odoc
+doc:
+	jbuilder build @doc
+
+.DEFAULT_GOAL := release

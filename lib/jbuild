@@ -1,0 +1,12 @@
+(jbuild_version 1)
+
+(library (
+  (name inventory)
+  (public_name xcp-inventory)
+  (wrapped false)
+  (libraries (
+    uuidm
+    stdext
+    threads
+  ))
+))

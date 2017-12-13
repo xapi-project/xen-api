@@ -1,4 +1,12 @@
-#!/bin/sh
+#!/bin/bash
 
-make real-configure
-./real-configure $*
+D=$(mktemp -d /tmp/configure.XXXXX)
+function cleanup {
+  cd /
+  rm -rf $D
+}
+trap cleanup EXIT
+
+cp configure.ml $D
+(cd $D; ocamlfind ocamlc -linkpkg -package findlib,cmdliner -o configure configure.ml)
+$D/configure $*
