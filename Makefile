@@ -1,35 +1,29 @@
-.PHONY: build all
-all: build
+OPAM_PREFIX?=$(DESTDIR)$(shell opam config var prefix)
+OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
 
-TESTS_FLAG=--enable-tests
+.PHONY: release build install uninstall clean test doc reindent
 
-NAME=rrdd-plugin
-J=4
+release:
+	jbuilder build @install
 
-LIBDIR=_build/lib
+build:
+	jbuilder build @install --dev
 
-setup.ml: _oasis
-	oasis setup
-
-setup.data: setup.ml
-	ocaml setup.ml -configure $(TESTS_FLAG)
-
-build: setup.data
-	ocaml setup.ml -build -j $(J)
-
-doc: setup.data
-	ocaml setup.ml -doc -j $(J)
-
-install: setup.data
-	ocaml setup.ml -install
+install:
+	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
 
 uninstall:
-	ocamlfind remove $(NAME)
-
-reinstall: setup.data
-	ocamlfind remove $(NAME) || true
-	ocaml setup.ml -reinstall
+	jbuilder uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
 
 clean:
-	ocamlbuild -clean
-	rm -f setup.data setup.log
+	jbuilder clean
+
+test:
+	jbuilder runtest
+
+# requires odoc
+doc:
+	jbuilder build @doc
+
+reindent:
+	git ls-files '*.ml*' | xargs ocp-indent --inplace

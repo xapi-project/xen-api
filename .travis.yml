@@ -1,6 +1,22 @@
 language: c
-install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
-script: bash -ex .travis-opam.sh
-sudo: true
+sudo: false
+services:
+    - docker
+install:
+    - wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+script:
+    - bash -ex .travis-docker.sh
 env:
-        - OCAML_VERSION=4.02 PACKAGE=xapi-rrdd-plugin EXTRA_REMOTES=git://github.com/xapi-project/opam-repo-dev
+    global:
+        - OCAML_VERSION=4.04.2
+        - DISTRO=debian-stable
+        - PINS="rrdd-plugin:. xapi-rrdd-plugin:."
+        - PACKAGE=rrdd-plugin
+        - TESTS=false
+    matrix:
+        - BASE_REMOTE=git://github.com/xapi-project/xs-opam
+        - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+matrix:
+    fast_finish: true
+    allow_failures:
+        - env: EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
