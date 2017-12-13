@@ -215,11 +215,12 @@ let test ~session_id =
            begin
              debug cbt_test "Destroying VDIs created in test. . .";
              (VDI.get_all ~session_id ~rpc:!rpc)
-             |> List.filter
+             (* Avoid invalid reference errors due to SM removing VDIs from DB *)
+             |> Valid_ref_list.filter
                (fun vdi -> (VDI.get_name_label ~session_id ~rpc:!rpc ~self:vdi = name_label)
                            && (VDI.get_name_description ~session_id ~rpc:!rpc ~self:vdi = name_description)
                )
-             |> List.iter (fun vdi -> VDI.destroy ~session_id ~rpc:!rpc ~self:vdi);
+             |> Valid_ref_list.iter (fun vdi -> VDI.destroy ~session_id ~rpc:!rpc ~self:vdi);
              debug cbt_test "Successfully destroyed all VDIs created for CBT test\n"
            end
         ) in

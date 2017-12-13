@@ -8,6 +8,8 @@ val for_all : ('a -> bool) -> 'a list -> bool
 
 val map : ('a -> 'b) -> 'a list -> 'b list
 
+val iter : ('a -> unit) -> 'a list -> unit
+
 val flat_map : ('a -> 'b list) -> 'a list -> 'b list
 
 val filter_map : ('a -> 'b option) -> 'a list -> 'b list

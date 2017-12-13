@@ -91,6 +91,15 @@ let test_filter_map =
       | _ -> failwith "The test list should contain 4 VMs"
     )
 
+let test_iter =
+  with_vm_list (fun __context l ->
+      let processed = ref [] in
+      let f vm =
+        processed := !processed @ [(Db.VM.get_name_label ~__context ~self:vm)]
+      in
+      Valid_ref_list.iter f l;
+      assert_equal ["a"; "d"] !processed
+    )
 
 let test =
   let ((>:::), (>::)) = OUnit.((>:::), (>::)) in
@@ -101,4 +110,5 @@ let test =
   ; "test_for_all" >:: test_for_all
   ; "test_flat_map" >:: test_flat_map
   ; "test_filter_map" >:: test_filter_map
+  ; "test_iter" >:: test_iter
   ]
