@@ -12,10 +12,8 @@ env:
         - DISTRO=debian-stable
         - PINS="rrdd-plugin:. xapi-rrdd-plugin:."
         - PACKAGE=rrdd-plugin
+        - TESTS=false
     matrix:
-        # We need to pass some Travis environment variables to the container to
-        # enable uploading to coveralls and detection of Travis CI.
-        # Also, set TESTS to false to avoid running them twice.
         - BASE_REMOTE=git://github.com/xapi-project/xs-opam
         - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
 matrix:
