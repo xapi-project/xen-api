@@ -104,7 +104,7 @@ module Xs = struct
                (fun handle -> Xs.read handle "domid")
              |> Int32.of_string
            in
-           let root_path = Printf.sprintf "/local/doxen-api/main/%ld/rrd" my_domid in
+           let root_path = Printf.sprintf "/local/domain/%ld/rrd" my_domid in
            let state = {
              my_domid;
              root_path;
