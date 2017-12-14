@@ -15,20 +15,6 @@
 open Network_utils
 open Network_interface
 
-(* Backport of stdext rtrim using Astring functions *)
-let rtrim s =
-	let open Astring in
-	let drop = Char.Ascii.is_white in
-  let len = String.length s in
-  if len = 0 then s else
-	let max_idx = len - 1 in
-	let rec right_pos i =
-    if i < 0 then 0 else
-    if drop (String.unsafe_get s i) then right_pos (i - 1) else (i + 1)
-  in
-  let right = right_pos max_idx in
-  if right = len then s else String.take ~max:right s
-
 module D = Debug.Make(struct let name = "network_server" end)
 open D
 
@@ -521,7 +507,7 @@ module Bridge = struct
 		| Openvswitch ->
 			let bridges =
 				let raw = Ovs.vsctl ["--bare"; "-f"; "table"; "--"; "--columns=name"; "find"; "port"; "fake_bridge=true"; "tag=" ^ (string_of_int vlan)] in
-				if raw <> "" then Astring.String.cuts ~empty:false ~sep:"\n" (rtrim raw) else []
+				if raw <> "" then Astring.String.cuts ~empty:false ~sep:"\n" (Astring.String.trim raw) else []
 			in
 			let existing_bridges =
 				List.filter ( fun bridge ->
@@ -1045,7 +1031,7 @@ let on_startup () =
 			(* Remove DNSDEV and GATEWAYDEV from Centos networking file, because the interfere
 			 * with this daemon. *)
 			try
-				let file = rtrim (Xapi_stdext_unix.Unixext.string_of_file "/etc/sysconfig/network") in
+				let file = Astring.String.trim (Xapi_stdext_unix.Unixext.string_of_file "/etc/sysconfig/network") in
 				let args = Astring.String.cuts ~empty:false ~sep:"\n" file in
 				let args = List.map (fun s -> match (Astring.String.cuts ~empty:false ~sep:"=" s) with k :: [v] -> k, v | _ -> "", "") args in
 				let args = List.filter (fun (k, v) -> k <> "DNSDEV" && k <> "GATEWAYDEV") args in

@@ -17,20 +17,6 @@ open Network_interface
 module D = Debug.Make(struct let name = "network_config" end)
 open D
 
-(* Backport of stdext rtrim using Astring functions *)
-let rtrim s =
-	let open Astring in
-	let drop = Char.Ascii.is_white in
-  let len = String.length s in
-  if len = 0 then s else
-	let max_idx = len - 1 in
-	let rec right_pos i =
-    if i < 0 then 0 else
-    if drop (String.unsafe_get s i) then right_pos (i - 1) else (i + 1)
-  in
-  let right = right_pos max_idx in
-  if right = len then s else String.take ~max:right s
-
 exception Read_error
 exception Write_error
 
@@ -44,7 +30,7 @@ let bridge_naming_convention (device: string) =
 let read_management_conf () =
 	try
 		let management_conf = Xapi_stdext_unix.Unixext.string_of_file ("/etc/firstboot.d/data/management.conf") in
-		let args = Astring.String.cuts ~empty:false ~sep:"\n" (rtrim management_conf) in
+		let args = Astring.String.cuts ~empty:false ~sep:"\n" (Astring.String.trim management_conf) in
 		let args = List.map (fun s ->
 			match (Astring.String.cuts ~empty:false ~sep:"=" s) with
 			| k :: [v] -> k, Astring.String.trim ~drop:((=) '\'') v

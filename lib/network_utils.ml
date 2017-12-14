@@ -14,20 +14,6 @@
 
 open Xapi_stdext_pervasives
 
-(* Backport of stdext rtrim using Astring functions *)
-let rtrim s =
-	let open Astring in
-	let drop = Char.Ascii.is_white in
-  let len = String.length s in
-  if len = 0 then s else
-	let max_idx = len - 1 in
-	let rec right_pos i =
-    if i < 0 then 0 else
-    if drop (String.unsafe_get s i) then right_pos (i - 1) else (i + 1)
-  in
-  let right = right_pos max_idx in
-  if right = len then s else String.take ~max:right s
-
 open Network_interface
 
 module D = Debug.Make(struct let name = "network_utils" end)
@@ -780,12 +766,12 @@ module Ovs = struct
 	let port_to_interfaces name =
 		try
 			let raw = vsctl ["get"; "port"; name; "interfaces"] in
-			let raw = rtrim raw in
+			let raw = Astring.String.trim raw in
 			if raw <> "[]" then
 				let raw_list = (Astring.String.cuts ~empty:false ~sep:"," (String.sub raw 1 (String.length raw - 2))) in
 				let uuids = List.map (Astring.String.trim) raw_list in
 				List.map (fun uuid ->
-					let raw = rtrim (vsctl ["get"; "interface"; uuid; "name"]) in
+					let raw = Astring.String.trim (vsctl ["get"; "interface"; uuid; "name"]) in
 					String.sub raw 1 (String.length raw - 2)) uuids
 			else
 				[]
@@ -793,7 +779,7 @@ module Ovs = struct
 
 	let bridge_to_ports name =
 		try
-			let ports = rtrim (vsctl ["list-ports"; name]) in
+			let ports = Astring.String.trim (vsctl ["list-ports"; name]) in
 			let ports' =
 				if ports <> "" then
 					Astring.String.cuts ~empty:false ~sep:"\n" ports
@@ -805,7 +791,7 @@ module Ovs = struct
 
 	let bridge_to_interfaces name =
 		try
-			let ifaces = rtrim (vsctl ["list-ifaces"; name]) in
+			let ifaces = Astring.String.trim (vsctl ["list-ifaces"; name]) in
 			if ifaces <> "" then
 				Astring.String.cuts ~empty:false ~sep:"\n" ifaces
 			else
@@ -814,8 +800,8 @@ module Ovs = struct
 
 	let bridge_to_vlan name =
 		try
-			let parent = vsctl ["br-to-parent"; name] |> rtrim in
-			let vlan = vsctl ["br-to-vlan"; name] |> rtrim |> int_of_string in
+			let parent = vsctl ["br-to-parent"; name] |> Astring.String.trim in
+			let vlan = vsctl ["br-to-vlan"; name] |> Astring.String.trim |> int_of_string in
 			Some (parent, vlan)
 		with e ->
 			debug "bridge_to_vlan: %s" (Printexc.to_string e);
@@ -854,7 +840,7 @@ module Ovs = struct
 
 	let get_bond_mode name =
 		try
-			let output = rtrim (vsctl ["get"; "port"; name; "bond_mode"]) in
+			let output = Astring.String.trim (vsctl ["get"; "port"; name; "bond_mode"]) in
 			if output <> "[]" then Some output else None
 		with _ ->
 			None
@@ -905,14 +891,14 @@ module Ovs = struct
 			let vlans_with_uuid =
 				let raw = vsctl ["--bare"; "-f"; "table"; "--"; "--columns=name,_uuid"; "find"; "port"; "fake_bridge=true"] in
 				if raw <> "" then
-					let lines = Astring.String.cuts ~empty:false ~sep:"\n" (rtrim raw) in
+					let lines = Astring.String.cuts ~empty:false ~sep:"\n" (Astring.String.trim raw) in
 					List.map (fun line -> Scanf.sscanf line "%s %s" (fun a b-> a, b)) lines
 				else
 					[]
 			in
 			let bridge_ports =
 				let raw = vsctl ["get"; "bridge"; name; "ports"] in
-				let raw = rtrim raw in
+				let raw = Astring.String.trim raw in
 				if raw <> "[]" then
 					let raw_list = (Astring.String.cuts ~empty:false ~sep:"," (String.sub raw 1 (String.length raw - 2))) in
 					List.map Astring.String.trim raw_list
@@ -934,7 +920,7 @@ module Ovs = struct
 	let get_mcast_snooping_enable ~name =
 		try
 			vsctl ~log:true ["--"; "get"; "bridge"; name; "mcast_snooping_enable"]
-			|> rtrim
+			|> Astring.String.trim
 			|> bool_of_string
 		with _ -> false
 
@@ -1017,7 +1003,7 @@ module Ovs = struct
 		vsctl ~log:true ["--"; "--if-exists"; "del-br"; name]
 
 	let list_bridges () =
-		let bridges = rtrim (vsctl ["list-br"]) in
+		let bridges = Astring.String.trim (vsctl ["list-br"]) in
 		if bridges <> "" then
 			Astring.String.cuts ~empty:false ~sep:"\n" bridges
 		else
