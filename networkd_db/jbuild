@@ -3,9 +3,8 @@
   (public_name networkd_db)
   (package xapi-networkd)
   (flags (:standard -bin-annot))
-  (libraries (profiling
-              networklibs
-              stdext
+  (libraries (networklibs
+              profiling
               threads
               xcp.network)
   )

@@ -3,10 +3,11 @@
   (public_name networkd-cli)
   (package xapi-networkd)
   (flags (:standard -bin-annot))
-  (libraries (profiling
+  (libraries (astring
               cmdliner
-              stdext
               networklibs
+              profiling
+              xapi-stdext-unix
               xcp
               xcp.network)
   )

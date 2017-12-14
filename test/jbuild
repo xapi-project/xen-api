@@ -1,10 +1,10 @@
 (executable
  ((name network_test)
   (flags (:standard -bin-annot))
-  (libraries (profiling
-              stdext
-              oUnit
+  (libraries (astring
               networklibs
+              oUnit
+              profiling
               xapi-test-utils)
   )
  )

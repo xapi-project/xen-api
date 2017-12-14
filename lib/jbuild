@@ -3,13 +3,14 @@
 (library
  ((name networklibs)
   (flags (:standard :standard -bin-annot))
-  (libraries (forkexec
-              threads
+  (libraries (astring
+              forkexec
               rpclib
-              stdext
+              systemd
+              threads
+              xapi-stdext-unix
               xcp-inventory
-              xcp.network
-              systemd))
+              xcp.network))
   (wrapped false)
  )
 )
