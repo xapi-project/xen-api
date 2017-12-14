@@ -15,7 +15,6 @@
 open Network_utils
 
 open Xapi_stdext_pervasives
-open Xapi_stdext_std.Listext
 open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make(struct let name = "network_monitor_thread" end)
@@ -157,7 +156,7 @@ let rec monitor dbg () =
 			(List.map (make_bond_info devs) bonds) @ devs
 		in
 		let transform_taps devs =
-			let newdevnames = List.setify (List.map fst devs) in
+			let newdevnames = Xapi_stdext_std.Listext.List.setify (List.map fst devs) in
 			List.map (fun name ->
 				let devs' = List.filter (fun (n,x) -> n=name) devs in
 				let tot = List.fold_left (fun acc (_,b) ->

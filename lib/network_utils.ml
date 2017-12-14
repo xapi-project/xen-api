@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_std.Listext
 open Xapi_stdext_pervasives
 
 (* Backport of stdext rtrim using Astring functions *)
@@ -240,7 +239,7 @@ module Ip = struct
 	let find output attr =
 info "Looking for %s in [%s]" attr output;
 		let args = Astring.String.fields ~empty:false output in
-		let indices = (List.position (fun s -> s = attr) args) in
+		let indices = (Xapi_stdext_std.Listext.List.position (fun s -> s = attr) args) in
 info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
 		List.map (fun i -> List.nth args (succ i)) indices
 
@@ -349,11 +348,11 @@ info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
 
 	let get_ipv4 dev =
 		let addrs = addr dev "inet" in
-		List.filter_map split_addr addrs
+		Xapi_stdext_std.Listext.List.filter_map split_addr addrs
 
 	let get_ipv6 dev =
 		let addrs = addr dev "inet6" in
-		List.filter_map split_addr addrs
+		Xapi_stdext_std.Listext.List.filter_map split_addr addrs
 
 	let set_ip_addr dev (ip, prefixlen) =
 		let addr = Printf.sprintf "%s/%d" (Unix.string_of_inet_addr ip) prefixlen in
@@ -500,8 +499,8 @@ module Linux_bonding = struct
 	let set_bond_slaves master slaves =
 		if is_bond_device master then
 			let current_slaves = get_bond_slaves master in
-			let slaves_to_remove = List.set_difference current_slaves slaves in
-			let slaves_to_add = List.set_difference slaves current_slaves in
+			let slaves_to_remove = Xapi_stdext_std.Listext.List.set_difference current_slaves slaves in
+			let slaves_to_add = Xapi_stdext_std.Listext.List.set_difference slaves current_slaves in
 			Ip.with_links_down (slaves_to_add @ slaves_to_remove) (fun () ->
 				remove_bond_slaves master slaves_to_remove;
 				add_bond_slaves master slaves_to_add
@@ -554,7 +553,7 @@ module Linux_bonding = struct
 					debug "Failed to get property \"%s\" on bond %s" prop master;
 					None
 			in
-			List.filter_map get_prop known_props
+			Xapi_stdext_std.Listext.List.filter_map get_prop known_props
 		end else begin
 			debug "Bond %s does not exist; cannot get properties" master;
 			[]
@@ -1087,7 +1086,7 @@ module Ovs = struct
 		and per_iface_args = List.flatten (List.map get_prop
 			["lacp-aggregation-key", "other-config:lacp-aggregation-key";
 			 "lacp-actor-key", "other-config:lacp-actor-key";])
-		and other_args = List.filter_map (fun (k, v) ->
+		and other_args = Xapi_stdext_std.Listext.List.filter_map (fun (k, v) ->
 			if List.mem k known_props then None
 			else Some (Printf.sprintf "other-config:\"%s\"=\"%s\""
 			             (String.escaped ("bond-" ^ k)) (String.escaped v))

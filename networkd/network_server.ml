@@ -15,8 +15,6 @@
 open Network_utils
 open Network_interface
 
-open Xapi_stdext_std.Listext
-
 (* Backport of stdext rtrim using Astring functions *)
 let rtrim s =
 	let open Astring in
@@ -206,8 +204,8 @@ module Interface = struct
 				(* the function is meant to be idempotent and we
 				 * want to avoid CA-239919 *)
 				let cur_addrs = Ip.get_ipv4 name in
-				let rm_addrs = List.set_difference cur_addrs addrs in
-				let add_addrs = List.set_difference addrs cur_addrs in
+				let rm_addrs = Xapi_stdext_std.Listext.List.set_difference cur_addrs addrs in
+				let add_addrs = Xapi_stdext_std.Listext.List.set_difference addrs cur_addrs in
 				List.iter (Ip.del_ip_addr name) rm_addrs;
 				List.iter (Ip.set_ip_addr name) add_addrs
 		) ()
@@ -281,11 +279,11 @@ module Interface = struct
 					let addrs = Ip.get_ipv6 name in
 					let maybe_link_local = Ip.split_addr (Ip.get_ipv6_link_local_addr name) in
 					match maybe_link_local with
-					| Some addr -> List.setify (addr :: addrs)
+					| Some addr -> Xapi_stdext_std.Listext.List.setify (addr :: addrs)
 					| None -> addrs
 				in
-				let rm_addrs = List.set_difference cur_addrs addrs in
-				let add_addrs = List.set_difference addrs cur_addrs in
+				let rm_addrs = Xapi_stdext_std.Listext.List.set_difference cur_addrs addrs in
+				let add_addrs = Xapi_stdext_std.Listext.List.set_difference addrs cur_addrs in
 				List.iter (Ip.del_ip_addr name) rm_addrs;
 				List.iter (Ip.set_ip_addr name) add_addrs
 		) ()
@@ -844,7 +842,7 @@ module Bridge = struct
 				Linux_bonding.add_bond_master name;
 				let bond_properties =
 					if List.mem_assoc "mode" bond_properties && List.assoc "mode" bond_properties = "lacp" then
-						List.replace_assoc "mode" "802.3ad" bond_properties
+					Xapi_stdext_std.Listext.List.replace_assoc "mode" "802.3ad" bond_properties
 					else bond_properties
 				in
 				Linux_bonding.set_bond_properties name bond_properties;
@@ -981,7 +979,7 @@ module Bridge = struct
 					let persistent_config = List.filter (fun (name, bridge) -> bridge.persistent_b) config in
 					debug "Ensuring the following persistent bridges are up: %s"
 						(String.concat ", " (List.map (fun (name, _) -> name) persistent_config));
-					let vlan_parents = List.filter_map (function
+					let vlan_parents = Xapi_stdext_std.Listext.List.filter_map (function
 						| (_, {vlan=Some (parent, _)}) ->
 							if not (List.mem_assoc parent persistent_config) then
 								Some (parent, List.assoc parent config)
