@@ -6,7 +6,9 @@
   (wrapped false)
   (libraries (
     uuidm
-    stdext
+    astring
+    xapi-stdext-unix
+    xapi-stdext-threads
     threads
   ))
 ))

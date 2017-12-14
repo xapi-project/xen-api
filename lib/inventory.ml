@@ -13,10 +13,8 @@
  *)
 (* Code to parse the XenSource inventory file *)
 
-open Stdext
-open Pervasiveext
-open Xstringext
-open Threadext
+open Xapi_stdext_unix
+open Xapi_stdext_threads.Threadext
 
 let inventory_filename = ref Xcp_inventory_config.default_inventory
 
@@ -42,7 +40,7 @@ let inventory = Hashtbl.create 10
 let inventory_m = Mutex.create ()
 
 (* Compute the minimum necessary inventory file contents *)
-let minimum_default_entries () = 
+let minimum_default_entries () =
 	let host_uuid = Uuidm.to_string (Uuidm.create `V4) in
 	let dom0_uuid = Uuidm.to_string (Uuidm.create `V4) in
 	[
@@ -62,13 +60,13 @@ let strip_quotes v =
 	else v
 
 let parse_inventory_entry line =
-	match String.split ~limit:2 '=' line with
+	match Astring.String.cuts ~empty:false ~sep:"=" line with
 		| [k; v] ->
 			(* trim whitespace *)
-			Some (k, strip_quotes ++ String.strip String.isspace $ v)
+			Some (k, v |> strip_quotes |> String.trim)
 		| _ -> None
 
-let string_of_table h = 
+let string_of_table h =
 	let lines = List.fold_left (fun acc (k, v) ->
 		Printf.sprintf "%s='%s'\n" k v :: acc) [] h in
 	String.concat "" lines

@@ -15,7 +15,9 @@ depends: [
   "ocamlfind" {build}
   "jbuilder" {build}
   "base-threads"
-  "xapi-stdext"
+  "astring"
+  "xapi-stdext-unix"
+  "xapi-stdext-threads"
   "cmdliner"
   "uuidm"
 ]
