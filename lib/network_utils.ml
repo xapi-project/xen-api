@@ -13,7 +13,7 @@
  *)
 
 open Xapi_stdext_std.Listext
-open Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_pervasives
 
 (* Backport of stdext rtrim using Astring functions *)
 let rtrim s =
@@ -116,7 +116,7 @@ module Sysfs = struct
 	let read_one_line file =
 		try
 			let inchan = open_in file in
-			finally
+			Pervasiveext.finally
 				(fun () -> input_line inchan)
 				(fun () -> close_in inchan)
 		with
@@ -273,7 +273,7 @@ info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
 	let with_links_down devs f =
 		let up_links = List.filter (fun dev -> is_up dev) devs in
 		List.iter (fun dev -> link_set dev ["down"]) up_links;
-		finally
+		Pervasiveext.finally
 			f
 			(fun () -> List.iter link_set_up up_links)
 
@@ -515,7 +515,7 @@ module Linux_bonding = struct
 				let slaves = get_bond_slaves master in
 				Ip.with_links_down slaves (fun () ->
 					remove_bond_slaves master slaves;
-					finally
+					Pervasiveext.finally
 						f
 						(fun () -> add_bond_slaves master slaves)
 				)
