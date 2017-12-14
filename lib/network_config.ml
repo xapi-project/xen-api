@@ -30,7 +30,7 @@ let bridge_naming_convention (device: string) =
 let read_management_conf () =
 	try
 		let management_conf = Xapi_stdext_unix.Unixext.string_of_file ("/etc/firstboot.d/data/management.conf") in
-		let args = Astring.String.cuts ~empty:false ~sep:"\n" (Astring.String.trim management_conf) in
+		let args = Astring.String.cuts ~empty:false ~sep:"\n" (String.trim management_conf) in
 		let args = List.map (fun s ->
 			match (Astring.String.cuts ~empty:false ~sep:"=" s) with
 			| k :: [v] -> k, Astring.String.trim ~drop:((=) '\'') v

@@ -90,7 +90,7 @@ let test_lacp_aggregation_key_vsctl arg () = skip_if true "Unimplemented" ;
 	print_endline answer ;
 	assert_bool "lacp_aggregation_key is passed to ovs-vsctl command"
 		(List.exists
-			(fun s -> (Astring.String.trim s) == answer)
+			(fun s -> (String.trim s) == answer)
 			!OVS_Cli_test.vsctl_output)
 
 (* Test case for bond_create with default lacp-{time,aggregation-key} settings.

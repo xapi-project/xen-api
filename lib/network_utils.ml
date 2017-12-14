@@ -90,7 +90,7 @@ module Sysfs = struct
 
 	let get_driver_version driver () =
 		try
-			Some (Astring.String.trim (Xapi_stdext_unix.Unixext.string_of_file ("/sys/bus/pci/drivers/" ^ driver ^ "/module/version")))
+			Some (String.trim (Xapi_stdext_unix.Unixext.string_of_file ("/sys/bus/pci/drivers/" ^ driver ^ "/module/version")))
 		with _ ->
 			warn "Failed to obtain driver version from sysfs";
 			None
@@ -695,11 +695,11 @@ module Proc = struct
 						try
 							Scanf.sscanf line "%s@: %s@\n" (fun k v ->
 								if k = "Slave Interface" then begin
-									let interface = Some (Astring.String.trim v) in
+									let interface = Some (String.trim v) in
 									loop interface acc tail
 								end else if k = key then
 									match current with
-									| Some interface -> loop current ((interface, Astring.String.trim v) :: acc) tail
+									| Some interface -> loop current ((interface, String.trim v) :: acc) tail
 									| None -> loop current acc tail
 								else
 									loop current acc tail
@@ -766,12 +766,12 @@ module Ovs = struct
 	let port_to_interfaces name =
 		try
 			let raw = vsctl ["get"; "port"; name; "interfaces"] in
-			let raw = Astring.String.trim raw in
+			let raw = String.trim raw in
 			if raw <> "[]" then
 				let raw_list = (Astring.String.cuts ~empty:false ~sep:"," (String.sub raw 1 (String.length raw - 2))) in
-				let uuids = List.map (Astring.String.trim) raw_list in
+				let uuids = List.map (String.trim) raw_list in
 				List.map (fun uuid ->
-					let raw = Astring.String.trim (vsctl ["get"; "interface"; uuid; "name"]) in
+					let raw = String.trim (vsctl ["get"; "interface"; uuid; "name"]) in
 					String.sub raw 1 (String.length raw - 2)) uuids
 			else
 				[]
@@ -779,7 +779,7 @@ module Ovs = struct
 
 	let bridge_to_ports name =
 		try
-			let ports = Astring.String.trim (vsctl ["list-ports"; name]) in
+			let ports = String.trim (vsctl ["list-ports"; name]) in
 			let ports' =
 				if ports <> "" then
 					Astring.String.cuts ~empty:false ~sep:"\n" ports
@@ -791,7 +791,7 @@ module Ovs = struct
 
 	let bridge_to_interfaces name =
 		try
-			let ifaces = Astring.String.trim (vsctl ["list-ifaces"; name]) in
+			let ifaces = String.trim (vsctl ["list-ifaces"; name]) in
 			if ifaces <> "" then
 				Astring.String.cuts ~empty:false ~sep:"\n" ifaces
 			else
@@ -800,8 +800,8 @@ module Ovs = struct
 
 	let bridge_to_vlan name =
 		try
-			let parent = vsctl ["br-to-parent"; name] |> Astring.String.trim in
-			let vlan = vsctl ["br-to-vlan"; name] |> Astring.String.trim |> int_of_string in
+			let parent = vsctl ["br-to-parent"; name] |> String.trim in
+			let vlan = vsctl ["br-to-vlan"; name] |> String.trim |> int_of_string in
 			Some (parent, vlan)
 		with e ->
 			debug "bridge_to_vlan: %s" (Printexc.to_string e);
@@ -840,7 +840,7 @@ module Ovs = struct
 
 	let get_bond_mode name =
 		try
-			let output = Astring.String.trim (vsctl ["get"; "port"; name; "bond_mode"]) in
+			let output = String.trim (vsctl ["get"; "port"; name; "bond_mode"]) in
 			if output <> "[]" then Some output else None
 		with _ ->
 			None
@@ -891,17 +891,17 @@ module Ovs = struct
 			let vlans_with_uuid =
 				let raw = vsctl ["--bare"; "-f"; "table"; "--"; "--columns=name,_uuid"; "find"; "port"; "fake_bridge=true"] in
 				if raw <> "" then
-					let lines = Astring.String.cuts ~empty:false ~sep:"\n" (Astring.String.trim raw) in
+					let lines = Astring.String.cuts ~empty:false ~sep:"\n" (String.trim raw) in
 					List.map (fun line -> Scanf.sscanf line "%s %s" (fun a b-> a, b)) lines
 				else
 					[]
 			in
 			let bridge_ports =
 				let raw = vsctl ["get"; "bridge"; name; "ports"] in
-				let raw = Astring.String.trim raw in
+				let raw = String.trim raw in
 				if raw <> "[]" then
 					let raw_list = (Astring.String.cuts ~empty:false ~sep:"," (String.sub raw 1 (String.length raw - 2))) in
-					List.map Astring.String.trim raw_list
+					List.map String.trim raw_list
 				else
 					[]
 			in
@@ -920,7 +920,7 @@ module Ovs = struct
 	let get_mcast_snooping_enable ~name =
 		try
 			vsctl ~log:true ["--"; "get"; "bridge"; name; "mcast_snooping_enable"]
-			|> Astring.String.trim
+			|> String.trim
 			|> bool_of_string
 		with _ -> false
 
@@ -1003,7 +1003,7 @@ module Ovs = struct
 		vsctl ~log:true ["--"; "--if-exists"; "del-br"; name]
 
 	let list_bridges () =
-		let bridges = Astring.String.trim (vsctl ["list-br"]) in
+		let bridges = String.trim (vsctl ["list-br"]) in
 		if bridges <> "" then
 			Astring.String.cuts ~empty:false ~sep:"\n" bridges
 		else

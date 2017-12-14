@@ -477,7 +477,7 @@ module Bridge = struct
 
 	let determine_backend () =
 		try
-			let backend = Astring.String.trim (Xapi_stdext_unix.Unixext.string_of_file !network_conf) in
+			let backend = String.trim (Xapi_stdext_unix.Unixext.string_of_file !network_conf) in
 			match backend with
 			| "openvswitch" | "vswitch" -> backend_kind := Openvswitch
 			| "bridge" -> backend_kind := Bridge
@@ -507,7 +507,7 @@ module Bridge = struct
 		| Openvswitch ->
 			let bridges =
 				let raw = Ovs.vsctl ["--bare"; "-f"; "table"; "--"; "--columns=name"; "find"; "port"; "fake_bridge=true"; "tag=" ^ (string_of_int vlan)] in
-				if raw <> "" then Astring.String.cuts ~empty:false ~sep:"\n" (Astring.String.trim raw) else []
+				if raw <> "" then Astring.String.cuts ~empty:false ~sep:"\n" (String.trim raw) else []
 			in
 			let existing_bridges =
 				List.filter ( fun bridge ->
@@ -1031,7 +1031,7 @@ let on_startup () =
 			(* Remove DNSDEV and GATEWAYDEV from Centos networking file, because the interfere
 			 * with this daemon. *)
 			try
-				let file = Astring.String.trim (Xapi_stdext_unix.Unixext.string_of_file "/etc/sysconfig/network") in
+				let file = String.trim (Xapi_stdext_unix.Unixext.string_of_file "/etc/sysconfig/network") in
 				let args = Astring.String.cuts ~empty:false ~sep:"\n" file in
 				let args = List.map (fun s -> match (Astring.String.cuts ~empty:false ~sep:"=" s) with k :: [v] -> k, v | _ -> "", "") args in
 				let args = List.filter (fun (k, v) -> k <> "DNSDEV" && k <> "GATEWAYDEV") args in
