@@ -13,42 +13,42 @@
  *)
 
 module type TRANSPORT = sig
-	type id_t
+  type id_t
 
-	type info_t
+  type info_t
 
-	type state_t
+  type state_t
 
-	val init: id_t -> info_t * state_t
+  val init: id_t -> info_t * state_t
 
-	val cleanup: id_t -> info_t -> state_t -> unit
+  val cleanup: id_t -> info_t -> state_t -> unit
 
-	val get_allocator: state_t -> (int -> Cstruct.t)
+  val get_allocator: state_t -> (int -> Cstruct.t)
 end
 
 type local_id = {
-	path: string;
-	shared_page_count: int;
+  path: string;
+  shared_page_count: int;
 }
 
 type interdomain_id = {
-	backend_domid: int;
-	shared_page_count: int;
+  backend_domid: int;
+  shared_page_count: int;
 }
 
 type writer = {
-	write_payload: Rrd_protocol.payload -> unit;
-	cleanup: unit -> unit;
+  write_payload: Rrd_protocol.payload -> unit;
+  cleanup: unit -> unit;
 }
 
 module Make (T: TRANSPORT) : sig
-	val create: T.id_t -> Rrd_protocol.protocol -> T.info_t * writer
+  val create: T.id_t -> Rrd_protocol.protocol -> T.info_t * writer
 end
 
 module FileWriter : sig
-	val create: local_id -> Rrd_protocol.protocol -> string * writer
+  val create: local_id -> Rrd_protocol.protocol -> string * writer
 end
 
 module PageWriter : sig
-	val create: interdomain_id -> Rrd_protocol.protocol -> int list * writer
+  val create: interdomain_id -> Rrd_protocol.protocol -> int list * writer
 end

@@ -1,43 +1,36 @@
-all: build
+OPAM_PREFIX?=$(DESTDIR)$(shell opam config var prefix)
+OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
 
-TESTS_FLAG=--enable-tests
+.PHONY: release build install uninstall clean test doc reindent
 
-NAME=rrd-transport
-J=4
+release:
+	jbuilder build @install
 
-LIBDIR=_build/lib
+build:
+	jbuilder build @install --dev
 
-setup.ml: _oasis
-	oasis setup
-
-setup.data: setup.ml
-	ocaml setup.ml -configure $(TESTS_FLAG)
-
-build: setup.data setup.ml
-	ocaml setup.ml -build -j $(J)
-
-doc: setup.data setup.ml
-	ocaml setup.ml -doc -j $(J)
-
-install: setup.data setup.ml
-	ocaml setup.ml -install
+install:
+	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) rrd-transport
+	install -D _build/install/default/bin/rrdreader $(DESTDIR)$(BINDIR)/rrdreader
+	install -D _build/install/default/bin/rrdwriter $(DESTDIR)$(BINDIR)/rrdwriter
 
 uninstall:
-	ocamlfind remove $(NAME)
-
-test: setup.ml build
-	ocaml setup.ml -test
-
-reinstall: setup.ml
-	ocamlfind remove $(NAME) || true
-	ocaml setup.ml -reinstall
+	jbuilder uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
+	rm -f $(DESTDIR)$(BINDIR)/rrdreader
+	rm -f $(DESTDIR)$(BINDIR)/rrdwriter
 
 clean:
-	ocamlbuild -clean
-	rm -f setup.data setup.log
+	jbuilder clean
 
-travis-coveralls.sh:
-	wget https://raw.githubusercontent.com/simonjbeaumont/ocaml-travis-coveralls/master/$@
+test:
+	jbuilder runtest
 
-coverage: travis-coveralls.sh
-	bash $<
+# requires odoc
+doc:
+	jbuilder build @doc
+
+gh-pages:
+	bash .docgen.sh
+
+reindent:
+	git ls-files '*.ml*' | xargs ocp-indent --inplace

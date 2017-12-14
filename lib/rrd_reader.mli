@@ -13,35 +13,35 @@
  *)
 
 module type TRANSPORT = sig
-	type id_t
+  type id_t
 
-	type state_t
+  type state_t
 
-	val init: id_t -> state_t
+  val init: id_t -> state_t
 
-	val cleanup: id_t -> state_t -> unit
+  val cleanup: id_t -> state_t -> unit
 
-	val expose: state_t -> Cstruct.t
+  val expose: state_t -> Cstruct.t
 end
 
 type interdomain_id = {
-	frontend_domid: int;
-	shared_page_refs: int list;
+  frontend_domid: int;
+  shared_page_refs: int list;
 }
 
 type reader = {
-	read_payload: unit -> Rrd_protocol.payload;
-	cleanup: unit -> unit;
+  read_payload: unit -> Rrd_protocol.payload;
+  cleanup: unit -> unit;
 }
 
 module Make (T: TRANSPORT) : sig
-	val create: T.id_t -> Rrd_protocol.protocol -> reader
+  val create: T.id_t -> Rrd_protocol.protocol -> reader
 end
 
 module FileReader : sig
-	val create: string -> Rrd_protocol.protocol -> reader
+  val create: string -> Rrd_protocol.protocol -> reader
 end
 
 module PageReader : sig
-	val create: interdomain_id -> Rrd_protocol.protocol -> reader
+  val create: interdomain_id -> Rrd_protocol.protocol -> reader
 end

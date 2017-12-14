@@ -1,11 +1,5 @@
-*.swp
-
-*.byte
-*.native
-
 _build
-setup.data
-setup.log
-
+.merlin
+*.install
 travis_coveralls.sh
 .coverage/
