@@ -69,10 +69,20 @@ let test_slave_uses_nonlegacy_addmap () =
   let operationv2' = Db_rpc_common_v2.Request.(operationv2 |> rpc_of_t |> t_of_rpc) in
   assert_equal operationv2' (Db_rpc_common_v2.Request.Process_structured_field (("",""),"","","",Db_cache_types.AddMap))
 
+let test_empty_key_in_map () =
+  let __context = make_test_database () in
+  let (vm_ref: API.ref_VM) = make_vm ~__context () in
+  assert_raises (Db_exn.Empty_key_in_map) (fun () ->
+      Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"" ~value:"value");
+  assert_raises (Db_exn.Empty_key_in_map) (fun () ->
+      Db.VM.set_other_config ~__context ~self:vm_ref ~value:["","value"])
+    
+
 let test =
   "test_db_lowlevel" >:::
   [
     "test_db_get_all_records_race" >:: (bracket id test_db_get_all_records_race tear_down);
     "test_db_idempotent_map" >:: test_idempotent_map;
     "test_slaves_use_nonlegacy_addmap" >:: test_slave_uses_nonlegacy_addmap;
+    "test_empty_key_in_map" >:: test_empty_key_in_map;
   ]

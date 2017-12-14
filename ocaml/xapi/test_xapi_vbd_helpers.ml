@@ -52,7 +52,7 @@ let test_ca253933_invalid_operations () =
   let operation_is_invalid op =
     run_assert_equal_with_vdi ~__context
       ~vdi_fun:(fun sr_ref ->
-          make_vdi ~sR:sr_ref ~__context ~managed:true ~current_operations:[("", op)] ())
+          make_vdi ~sR:sr_ref ~__context ~managed:true ~current_operations:[("x", op)] ())
       `attach (Some(Api_errors.other_operation_in_progress, []))
   in List.iter operation_is_invalid invalid_operations
 
@@ -63,7 +63,7 @@ let test_ca253933_valid_operations () =
   let operation_is_valid op =
     run_assert_equal_with_vdi ~__context
       ~vdi_fun:(fun sr_ref ->
-          make_vdi ~sR:sr_ref ~__context ~managed:true ~current_operations:[("", op)] ())
+          make_vdi ~sR:sr_ref ~__context ~managed:true ~current_operations:[("x", op)] ())
       `attach None
   in List.iter operation_is_valid valid_operations
 

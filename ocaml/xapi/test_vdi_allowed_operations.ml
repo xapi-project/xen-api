@@ -56,26 +56,26 @@ let test_ca98944 () =
   run_assert_equal_with_vdi ~__context
     ~vdi_fun:(fun vdi_ref ->
         make_vbd ~vDI:vdi_ref ~__context
-          ~reserved:true ~currently_attached:false ~current_operations:["", `attach] ())
+          ~reserved:true ~currently_attached:false ~current_operations:["x", `attach] ())
     `update (Some (Api_errors.vdi_in_use, []));
 
   (* Should raise vdi_in_use *)
   run_assert_equal_with_vdi ~__context
     ~vdi_fun:(fun vdi_ref ->
         make_vbd ~vDI:vdi_ref
-          ~__context ~reserved:false ~currently_attached:true ~current_operations:["", `attach] ())
+          ~__context ~reserved:false ~currently_attached:true ~current_operations:["x", `attach] ())
     `update (Some (Api_errors.vdi_in_use, []));
 
   (* Should raise vdi_in_use *)
   run_assert_equal_with_vdi ~__context
     ~vdi_fun:(fun vdi_ref -> make_vbd ~vDI:vdi_ref
-                 ~__context ~reserved:true ~currently_attached:true ~current_operations:["", `attach] ())
+                 ~__context ~reserved:true ~currently_attached:true ~current_operations:["x", `attach] ())
     `update (Some (Api_errors.vdi_in_use, []));
 
   (* Should raise other_operation_in_progress *)
   run_assert_equal_with_vdi ~__context
     ~vdi_fun:(fun vdi_ref -> make_vbd ~vDI:vdi_ref
-                 ~__context ~reserved:false ~currently_attached:false ~current_operations:["", `attach] ())
+                 ~__context ~reserved:false ~currently_attached:false ~current_operations:["x", `attach] ())
     `update (Some (Api_errors.other_operation_in_progress, []));
 
   (* Should pass *)
