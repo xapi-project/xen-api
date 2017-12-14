@@ -351,6 +351,7 @@ let remove_from_set key t =
 
 exception Duplicate
 let add_to_map ~idempotent key value t =
+  if String.length key = 0 then raise Db_exn.Empty_key_in_map;
   let t = Schema.Value.Unsafe_cast.pairs t in
   if List.mem_assoc key t && (not idempotent || List.assoc key t <> value) then raise Duplicate;
   Schema.Value.Pairs ((key, value) :: List.filter (fun (k, _) -> k <> key) t)

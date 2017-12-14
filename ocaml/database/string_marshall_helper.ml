@@ -28,6 +28,9 @@ let ensure_utf8_xml string =
     warn "Whilst doing 'set' of structured field, string truncated to: '%s'." prefix;
   prefix
 
+let ensure_nonempty s =
+  if String.length s = 0 then raise Db_exn.Empty_key_in_map else s
+
 let set f ks =
   SExpr.string_of
     (SExpr.Node (List.map (fun x -> SExpr.String (ensure_utf8_xml (f x))) ks))
@@ -35,4 +38,4 @@ let set f ks =
 let map f g kv =
   SExpr.string_of
     (SExpr.Node (List.map (fun (k, v) ->
-         SExpr.Node [ SExpr.String (ensure_utf8_xml (f k)); SExpr.String (ensure_utf8_xml (g v)) ]) kv))
+         SExpr.Node [ SExpr.String (ensure_nonempty (ensure_utf8_xml (f k))); SExpr.String (ensure_utf8_xml (g v)) ]) kv))

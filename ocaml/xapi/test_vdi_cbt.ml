@@ -375,7 +375,7 @@ let test_data_destroy =
     in
 
     let start_vbd_unplug ~__context self =
-      Db.VBD.set_current_operations ~__context ~self ~value:["", `unplug]
+      Db.VBD.set_current_operations ~__context ~self ~value:["x", `unplug]
     in
     let finish_vbd_unplug ~__context self =
       Db.VBD.set_currently_attached ~__context ~self ~value:false;
