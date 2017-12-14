@@ -610,6 +610,10 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
          Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self)
       (Db.VM.get_attached_PCIs ~__context ~self);
     List.iter
+      (fun vgpu ->
+         Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:false)
+      (Db.VM.get_VGPUs ~__context ~self);
+    List.iter
       (fun pci ->
          (* The following should not be necessary if many-to-many relations in the DB
           * work properly. People have reported issues that may indicate that this is
@@ -640,7 +644,6 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
     (* release vGPUs associated with VM *)
     Db.VM.get_VGPUs ~__context ~self
     |> List.iter (fun vgpu ->
-        Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:false;
         Db.VGPU.set_resident_on ~__context ~self:vgpu ~value:Ref.null;
         Db.VGPU.set_scheduled_to_be_resident_on
           ~__context ~self:vgpu ~value:Ref.null)
