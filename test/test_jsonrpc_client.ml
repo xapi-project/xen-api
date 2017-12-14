@@ -14,7 +14,7 @@
 
 open OUnit
 open Test_highlevel
-open Stdext.Either
+open Xapi_stdext_monadic.Either
 
 let dir = Filename.concat "test" "jsonrpc_files"
 
@@ -24,7 +24,7 @@ let jsonrpc_printer : Rpc.t Test_printers.printer =
 module Input_json_object = Generic.Make (struct
 	module Io = struct
 		type input_t = string
-		type output_t = (exn, Rpc.t) Stdext.Either.t
+		type output_t = (exn, Rpc.t) Xapi_stdext_monadic.Either.t
 		let string_of_input_t = Test_printers.string
 		let string_of_output_t = Test_printers.(either exn jsonrpc_printer)
 	end

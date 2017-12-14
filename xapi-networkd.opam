@@ -9,6 +9,7 @@ build-test: ["jbuilder" "runtest" "-p" name]
 
 depends: [
   "jbuilder" {build}
+  "astring"
   "netlink"
   "rpc"
   "systemd"
@@ -16,6 +17,10 @@ depends: [
   "xapi-idl"
   "xapi-inventory"
   "xapi-libs-transitional"
-  "xapi-stdext" {>= "3.0.0"}
+  "xapi-stdext-monadic"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-std"
+  "xapi-stdext-threads"
+  "xapi-stdext-unix"
   "xen-api-client"
 ]

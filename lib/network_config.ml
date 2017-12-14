@@ -14,10 +14,6 @@
 
 open Network_interface
 
-open Stdext
-open Fun
-open Xstringext
-
 module D = Debug.Make(struct let name = "network_config" end)
 open D
 
@@ -27,15 +23,19 @@ exception Write_error
 let config_file_path = "/var/lib/xcp/networkd.db"
 
 let bridge_naming_convention (device: string) =
-	if String.startswith "eth" device
+	if Astring.String.is_prefix ~affix:"eth" device
 		then ("xenbr" ^ (String.sub device 3 (String.length device - 3)))
 	else ("br" ^ device)
 
 let read_management_conf () =
 	try
-		let management_conf = Unixext.string_of_file ("/etc/firstboot.d/data/management.conf") in
-		let args = String.split '\n' (String.rtrim management_conf) in
-		let args = List.map (fun s -> match (String.split '=' s) with k :: [v] -> k, String.strip ((=) '\'') v | _ -> "", "") args in
+		let management_conf = Xapi_stdext_unix.Unixext.string_of_file ("/etc/firstboot.d/data/management.conf") in
+		let args = Astring.String.cuts ~empty:false ~sep:"\n" (String.trim management_conf) in
+		let args = List.map (fun s ->
+			match (Astring.String.cuts ~empty:false ~sep:"=" s) with
+			| k :: [v] -> k, Astring.String.trim ~drop:((=) '\'') v
+			| _ -> "", ""
+		) args in
 		debug "Firstboot file management.conf has: %s" (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) args));
 		let device = List.assoc "LABEL" args in
 		let vlan = if List.mem_assoc "VLAN" args then Some (List.assoc "VLAN" args) else None in
@@ -55,12 +55,12 @@ let read_management_conf () =
 				in
 				let nameservers =
 					if List.mem_assoc "DNS" args && List.assoc "DNS" args <> "" then
-						List.map Unix.inet_addr_of_string (String.split ',' (List.assoc "DNS" args))
+						List.map Unix.inet_addr_of_string (Astring.String.cuts ~empty:false ~sep:"," (List.assoc "DNS" args))
 					else []
 				in
 				let domains =
 					if List.mem_assoc "DOMAIN" args && List.assoc "DOMAIN" args <> "" then
-						String.split ' ' (List.assoc "DOMAIN" args)
+						Astring.String.cuts ~empty:false ~sep:" " (List.assoc "DOMAIN" args)
 					else []
 				in
 				let dns = nameservers, domains in
@@ -105,7 +105,7 @@ let read_management_conf () =
 let write_config config =
 	try
 		let config_json = config |> rpc_of_config_t |> Jsonrpc.to_string in
-		Unixext.write_string_to_file config_file_path config_json
+		Xapi_stdext_unix.Unixext.write_string_to_file config_file_path config_json
 	with e ->
 		error "Error while trying to write networkd configuration: %s\n%s"
 			(Printexc.to_string e) (Printexc.get_backtrace ());
@@ -113,7 +113,7 @@ let write_config config =
 
 let read_config () =
 	try
-		let config_json = Unixext.string_of_file config_file_path in
+		let config_json = Xapi_stdext_unix.Unixext.string_of_file config_file_path in
 		config_json |> Jsonrpc.of_string |> config_t_of_rpc
 	with
 		| Unix.Unix_error (Unix.ENOENT, _, file) ->

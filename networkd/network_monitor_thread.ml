@@ -14,10 +14,8 @@
 
 open Network_utils
 
-open Stdext
-open Xstringext
-open Listext
-open Threadext
+open Xapi_stdext_pervasives
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make(struct let name = "network_monitor_thread" end)
 open D
@@ -56,7 +54,7 @@ let send_bond_change_alert dev interfaces message =
 
 let check_for_changes ~(dev : string) ~(stat : Network_monitor.iface_stats) =
 	let open Network_monitor in
-	match String.startswith "vif" dev with true -> () | false ->
+	match Astring.String.is_prefix ~affix:"vif" dev with true -> () | false ->
 	if stat.nb_links > 1 then ( (* It is a bond. *)
 		if Hashtbl.mem bonds_status dev then ( (* Seen before. *)
 			let nb_links_old, links_up_old = Hashtbl.find bonds_status dev in
@@ -105,10 +103,10 @@ let get_link_stats () =
 	let links = Link.cache_to_list cache in
 	let links =
 		let is_whitelisted name =
-			List.exists (fun s -> String.startswith s name) !monitor_whitelist
+			List.exists (fun s -> Astring.String.is_prefix ~affix:s name) !monitor_whitelist
 		in
 		let is_vlan name =
-			String.startswith "eth" name && String.contains name '.'
+			Astring.String.is_prefix ~affix:"eth" name && String.contains name '.'
 		in
 		List.map (fun link ->
 			(standardise_name (Link.get_name link)), link
@@ -158,7 +156,7 @@ let rec monitor dbg () =
 			(List.map (make_bond_info devs) bonds) @ devs
 		in
 		let transform_taps devs =
-			let newdevnames = List.setify (List.map fst devs) in
+			let newdevnames = Xapi_stdext_std.Listext.List.setify (List.map fst devs) in
 			List.map (fun name ->
 				let devs' = List.filter (fun (n,x) -> n=name) devs in
 				let tot = List.fold_left (fun acc (_,b) ->
@@ -175,7 +173,7 @@ let rec monitor dbg () =
 		in
 		let add_other_stats bonds devs =
 			List.map (fun (dev, stat) ->
-				if not (String.startswith "vif" dev) then begin
+				if not (Astring.String.is_prefix ~affix:"vif" dev) then begin
 					let open Network_server.Bridge in
 					let bond_slaves =
 						if List.mem_assoc dev bonds then
@@ -270,7 +268,7 @@ let signal_networking_change () =
 
 (* Remove all outstanding reads on a file descriptor *)
 let clear_input fd =
-	let buf = String.make 255 ' ' in
+	let buf = Bytes.make 255 ' ' in
 	let rec loop () =
 		try
 			ignore (Unix.read fd buf 0 255);
@@ -293,7 +291,7 @@ let ip_watcher () =
 	let rec loop () =
 		let line = input_line in_channel in
 		(* Do not send events for link-local IPv6 addresses, and removed IPs *)
-		if String.has_substr line "inet" && not (String.has_substr line "inet6 fe80") then begin
+		if Astring.String.is_infix ~affix:"inet" line && not (Astring.String.is_infix ~affix:"inet6 fe80" line) then begin
 			(* Ignore changes for the next second, since they usually come in bursts,
 			 * and signal only once. *)
 			Thread.delay 1.;

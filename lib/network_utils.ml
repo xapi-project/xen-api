@@ -12,11 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
-open Listext
-open Xstringext
-open Pervasiveext
-open Fun
+open Xapi_stdext_pervasives
+
 open Network_interface
 
 module D = Debug.Make(struct let name = "network_utils" end)
@@ -93,7 +90,7 @@ module Sysfs = struct
 
 	let get_driver_version driver () =
 		try
-			Some (String.strip String.isspace (Unixext.string_of_file ("/sys/bus/pci/drivers/" ^ driver ^ "/module/version")))
+			Some (String.trim (Xapi_stdext_unix.Unixext.string_of_file ("/sys/bus/pci/drivers/" ^ driver ^ "/module/version")))
 		with _ ->
 			warn "Failed to obtain driver version from sysfs";
 			None
@@ -104,7 +101,7 @@ module Sysfs = struct
 	let read_one_line file =
 		try
 			let inchan = open_in file in
-			finally
+			Pervasiveext.finally
 				(fun () -> input_line inchan)
 				(fun () -> close_in inchan)
 		with
@@ -128,7 +125,7 @@ module Sysfs = struct
 			let devpath = getpath name "device" in
 			let driver_link = Unix.readlink (devpath ^ "/driver") in
 			(* filter out symlinks under device/driver which look like /../../../devices/xen-backend/vif- *)
-			not(List.mem "xen-backend" (String.split '/' driver_link))
+			not(List.mem "xen-backend" (Astring.String.cuts ~empty:false ~sep:"/" driver_link))
 		with _ -> false
 
 	let get_carrier name =
@@ -140,7 +137,7 @@ module Sysfs = struct
 	let get_pcibuspath name =
 		try
 			let devpath = Unix.readlink (getpath name "device") in
-			List.hd (List.rev (String.split '/' devpath))
+			List.hd (List.rev (Astring.String.cuts ~empty:false ~sep:"/" devpath))
 		with exn -> "N/A"
 
 	let get_pci_ids name =
@@ -159,10 +156,9 @@ module Sysfs = struct
 		try
 			let symlink = getpath dev "device/driver" in
 			let target = Unix.readlink symlink in
-			try
-				let slash = String.index target '/' in
-				Some (String.sub_to_end target (slash + 1))
-			with Not_found ->
+			match Astring.String.cut ~sep:"/" target with
+			| Some (prefix, suffix) -> Some prefix
+			| None ->
 				debug "target %s of symbolic link %s does not contain slash" target symlink;
 				None
 		with _ ->
@@ -228,8 +224,8 @@ module Ip = struct
 
 	let find output attr =
 info "Looking for %s in [%s]" attr output;
-		let args = String.split_f String.isspace output in
-		let indices = (List.position (fun s -> s = attr) args) in
+		let args = Astring.String.fields ~empty:false output in
+		let indices = (Xapi_stdext_std.Listext.List.position (fun s -> s = attr) args) in
 info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
 		List.map (fun i -> List.nth args (succ i)) indices
 
@@ -238,7 +234,7 @@ info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
 		let i = String.index output '<' in
 		let j = String.index output '>' in
 		let flags = String.sub output (i + 1) (j - i - 1) in
-		String.split ',' flags
+		Astring.String.cuts ~empty:false ~sep:"," flags
 
 	let is_up dev =
 		try
@@ -262,7 +258,7 @@ info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
 	let with_links_down devs f =
 		let up_links = List.filter (fun dev -> is_up dev) devs in
 		List.iter (fun dev -> link_set dev ["down"]) up_links;
-		finally
+		Pervasiveext.finally
 			f
 			(fun () -> List.iter link_set_up up_links)
 
@@ -293,17 +289,17 @@ info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
 		with _ -> ()
 
 	let split_addr addr =
-		try
-			let i = String.index addr '/' in
-			let ip = Unix.inet_addr_of_string (String.sub addr 0 i) in
-			let prefixlen = int_of_string (String.sub_to_end addr (i + 1)) in
+		match Astring.String.cut ~sep:"/" addr with
+		| Some (ipstr, prefixlenstr) ->
+			let ip = Unix.inet_addr_of_string ipstr in
+			let prefixlen = int_of_string prefixlenstr in
 			Some (ip, prefixlen)
-		with Not_found -> None
+		| None -> None
 
 	(* see http://en.wikipedia.org/wiki/IPv6_address#Modified_EUI-64 *)
 	let get_ipv6_interface_id dev =
 		let mac = get_mac dev in
-		let bytes = List.map (fun byte -> int_of_string ("0x" ^ byte)) (String.split ':' mac) in
+		let bytes = List.map (fun byte -> int_of_string ("0x" ^ byte)) (Astring.String.cuts ~empty:false ~sep:":" mac) in
 		let rec modified_bytes ac i = function
 			| [] ->
 				ac
@@ -338,11 +334,11 @@ info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
 
 	let get_ipv4 dev =
 		let addrs = addr dev "inet" in
-		List.filter_map split_addr addrs
+		Xapi_stdext_std.Listext.List.filter_map split_addr addrs
 
 	let get_ipv6 dev =
 		let addrs = addr dev "inet6" in
-		List.filter_map split_addr addrs
+		Xapi_stdext_std.Listext.List.filter_map split_addr addrs
 
 	let set_ip_addr dev (ip, prefixlen) =
 		let addr = Printf.sprintf "%s/%d" (Unix.string_of_inet_addr ip) prefixlen in
@@ -426,7 +422,7 @@ module Linux_bonding = struct
 
 	let is_bond_device name =
 		try
-			List.exists ((=) name) (String.split ' ' (Sysfs.read_one_line bonding_masters))
+			List.exists ((=) name) (Astring.String.cuts ~empty:false ~sep:" " (Sysfs.read_one_line bonding_masters))
 		with _ -> false
 
 	(** Ensures that a bond master device exists in the kernel. *)
@@ -466,7 +462,7 @@ module Linux_bonding = struct
 		if slaves = "" then
 			[]
 		else
-			String.split ' ' slaves
+			Astring.String.cuts ~empty:false ~sep:" " slaves
 
 	let add_bond_slaves master slaves =
 		List.iter (fun slave ->
@@ -489,8 +485,8 @@ module Linux_bonding = struct
 	let set_bond_slaves master slaves =
 		if is_bond_device master then
 			let current_slaves = get_bond_slaves master in
-			let slaves_to_remove = List.set_difference current_slaves slaves in
-			let slaves_to_add = List.set_difference slaves current_slaves in
+			let slaves_to_remove = Xapi_stdext_std.Listext.List.set_difference current_slaves slaves in
+			let slaves_to_add = Xapi_stdext_std.Listext.List.set_difference slaves current_slaves in
 			Ip.with_links_down (slaves_to_add @ slaves_to_remove) (fun () ->
 				remove_bond_slaves master slaves_to_remove;
 				add_bond_slaves master slaves_to_add
@@ -504,7 +500,7 @@ module Linux_bonding = struct
 				let slaves = get_bond_slaves master in
 				Ip.with_links_down slaves (fun () ->
 					remove_bond_slaves master slaves;
-					finally
+					Pervasiveext.finally
 						f
 						(fun () -> add_bond_slaves master slaves)
 				)
@@ -519,7 +515,7 @@ module Linux_bonding = struct
 			let master_path = Unix.readlink master_symlink in
 			let slaves_path = Filename.concat master_symlink "bonding/slaves" in
 			Unix.access slaves_path [ Unix.F_OK ];
-			Some (List.hd (List.rev (String.split '/' master_path)))
+			Some (List.hd (List.rev (Astring.String.cuts ~empty:false ~sep:"/" master_path)))
 		with _ -> None
 
 	let get_bond_active_slave master =
@@ -537,13 +533,13 @@ module Linux_bonding = struct
 				try
 					let bond_prop = Sysfs.read_one_line (Sysfs.getpath master ("bonding/" ^ prop)) in
 					if prop = "mode" then
-						Some (prop, List.hd (String.split ' ' bond_prop))
+						Some (prop, List.hd (Astring.String.cuts ~empty:false ~sep:" " bond_prop))
 					else Some (prop, bond_prop)
 				with _ ->
 					debug "Failed to get property \"%s\" on bond %s" prop master;
 					None
 			in
-			List.filter_map get_prop known_props
+			Xapi_stdext_std.Listext.List.filter_map get_prop known_props
 		end else begin
 			debug "Bond %s does not exist; cannot get properties" master;
 			[]
@@ -602,11 +598,11 @@ module Dhclient = struct
 
 	let read_conf_file ?(ipv6=false) interface =
 		let file = conf_file ~ipv6 interface in
-		try Some (Unixext.string_of_file file) with _ -> None
+		try Some (Xapi_stdext_unix.Unixext.string_of_file file) with _ -> None
 
 	let write_conf_file ?(ipv6=false) interface options =
 		let conf = generate_conf ~ipv6 interface options in
-		Unixext.write_string_to_file (conf_file ~ipv6 interface) conf
+		Xapi_stdext_unix.Unixext.write_string_to_file (conf_file ~ipv6 interface) conf
 
 	let start ?(ipv6=false) interface options =
 		(* If we have a gateway interface, pass it to dhclient-script via -e *)
@@ -664,10 +660,10 @@ module Fcoe = struct
 	let get_capabilities name =
 		try
 			let output = call ["--xapi"; name; "capable"] in
-			if String.has_substr output "True" then ["fcoe"] else []
-                with _ ->
-                        debug "Failed to get fcoe support status on device %s" name;
-                        []
+			if Astring.String.is_infix ~affix:"True" output then ["fcoe"] else []
+		with _ ->
+			debug "Failed to get fcoe support status on device %s" name;
+			[]
 end
 
 module Sysctl = struct
@@ -690,8 +686,8 @@ end
 module Proc = struct
 	let get_bond_slave_info name key =
 		try
-			let raw = Unixext.string_of_file (bonding_dir ^ name) in
-			let lines = String.split '\n' raw in
+			let raw = Xapi_stdext_unix.Unixext.string_of_file (bonding_dir ^ name) in
+			let lines = Astring.String.cuts ~empty:false ~sep:"\n" raw in
 			let check_lines lines =
 				let rec loop current acc = function
 					| [] -> acc
@@ -699,11 +695,11 @@ module Proc = struct
 						try
 							Scanf.sscanf line "%s@: %s@\n" (fun k v ->
 								if k = "Slave Interface" then begin
-									let interface = Some (String.strip String.isspace v) in
+									let interface = Some (String.trim v) in
 									loop interface acc tail
 								end else if k = key then
 									match current with
-									| Some interface -> loop current ((interface, String.strip String.isspace v) :: acc) tail
+									| Some interface -> loop current ((interface, String.trim v) :: acc) tail
 									| None -> loop current acc tail
 								else
 									loop current acc tail
@@ -727,7 +723,7 @@ module Proc = struct
 
 let get_vlans () =
 	try
-		Unixext.file_lines_fold (fun vlans line ->
+		Xapi_stdext_unix.Unixext.file_lines_fold (fun vlans line ->
 			try
 				let x = Scanf.sscanf line "%s | %d | %s" (fun device vlan parent -> device, vlan, parent) in
 				x :: vlans
@@ -750,6 +746,7 @@ module Ovs = struct
 		val ofctl : ?log:bool -> string list -> string
 		val appctl : ?log:bool -> string list -> string
 	end = struct
+	open Xapi_stdext_threads
 	let s = Semaphore.create 5
 	let vsctl ?(log=false) args =
 		Semaphore.execute s (fun () ->
@@ -769,12 +766,12 @@ module Ovs = struct
 	let port_to_interfaces name =
 		try
 			let raw = vsctl ["get"; "port"; name; "interfaces"] in
-			let raw = String.rtrim raw in
+			let raw = String.trim raw in
 			if raw <> "[]" then
-				let raw_list = (String.split ',' (String.sub raw 1 (String.length raw - 2))) in
-				let uuids = List.map (String.strip String.isspace) raw_list in
+				let raw_list = (Astring.String.cuts ~empty:false ~sep:"," (String.sub raw 1 (String.length raw - 2))) in
+				let uuids = List.map (String.trim) raw_list in
 				List.map (fun uuid ->
-					let raw = String.rtrim (vsctl ["get"; "interface"; uuid; "name"]) in
+					let raw = String.trim (vsctl ["get"; "interface"; uuid; "name"]) in
 					String.sub raw 1 (String.length raw - 2)) uuids
 			else
 				[]
@@ -782,10 +779,10 @@ module Ovs = struct
 
 	let bridge_to_ports name =
 		try
-			let ports = String.rtrim (vsctl ["list-ports"; name]) in
+			let ports = String.trim (vsctl ["list-ports"; name]) in
 			let ports' =
 				if ports <> "" then
-					String.split '\n' ports
+					Astring.String.cuts ~empty:false ~sep:"\n" ports
 				else
 					[]
 			in
@@ -794,17 +791,17 @@ module Ovs = struct
 
 	let bridge_to_interfaces name =
 		try
-			let ifaces = String.rtrim (vsctl ["list-ifaces"; name]) in
+			let ifaces = String.trim (vsctl ["list-ifaces"; name]) in
 			if ifaces <> "" then
-				String.split '\n' ifaces
+				Astring.String.cuts ~empty:false ~sep:"\n" ifaces
 			else
 				[]
 		with _ -> []
 
 	let bridge_to_vlan name =
 		try
-			let parent = vsctl ["br-to-parent"; name] |> String.rtrim in
-			let vlan = vsctl ["br-to-vlan"; name] |> String.rtrim |> int_of_string in
+			let parent = vsctl ["br-to-parent"; name] |> String.trim in
+			let vlan = vsctl ["br-to-vlan"; name] |> String.trim |> int_of_string in
 			Some (parent, vlan)
 		with e ->
 			debug "bridge_to_vlan: %s" (Printexc.to_string e);
@@ -818,7 +815,7 @@ module Ovs = struct
 	let get_bond_link_status name =
 		try
 			let raw = appctl ["bond/show"; name] in
-			let lines = String.split '\n' raw in
+			let lines = Astring.String.cuts ~empty:false ~sep:"\n" raw in
 			List.fold_left (fun (slaves, active_slave) line ->
 				let slaves =
 					try
@@ -843,7 +840,7 @@ module Ovs = struct
 
 	let get_bond_mode name =
 		try
-			let output = String.rtrim (vsctl ["get"; "port"; name; "bond_mode"]) in
+			let output = String.trim (vsctl ["get"; "port"; name; "bond_mode"]) in
 			if output <> "[]" then Some output else None
 		with _ ->
 			None
@@ -894,17 +891,17 @@ module Ovs = struct
 			let vlans_with_uuid =
 				let raw = vsctl ["--bare"; "-f"; "table"; "--"; "--columns=name,_uuid"; "find"; "port"; "fake_bridge=true"] in
 				if raw <> "" then
-					let lines = String.split '\n' (String.rtrim raw) in
+					let lines = Astring.String.cuts ~empty:false ~sep:"\n" (String.trim raw) in
 					List.map (fun line -> Scanf.sscanf line "%s %s" (fun a b-> a, b)) lines
 				else
 					[]
 			in
 			let bridge_ports =
 				let raw = vsctl ["get"; "bridge"; name; "ports"] in
-				let raw = String.rtrim raw in
+				let raw = String.trim raw in
 				if raw <> "[]" then
-					let raw_list = (String.split ',' (String.sub raw 1 (String.length raw - 2))) in
-					List.map (String.strip String.isspace) raw_list
+					let raw_list = (Astring.String.cuts ~empty:false ~sep:"," (String.sub raw 1 (String.length raw - 2))) in
+					List.map String.trim raw_list
 				else
 					[]
 			in
@@ -923,7 +920,7 @@ module Ovs = struct
 	let get_mcast_snooping_enable ~name =
 		try
 			vsctl ~log:true ["--"; "get"; "bridge"; name; "mcast_snooping_enable"]
-			|> String.rtrim
+			|> String.trim
 			|> bool_of_string
 		with _ -> false
 
@@ -931,7 +928,7 @@ module Ovs = struct
 		try
 			let vvifs = get_bridge_vlan_vifs name in
 			let bvifs = bridge_to_interfaces name in
-			let bvifs' = List.filter(fun vif -> Xstringext.String.startswith "vif" vif) bvifs in
+			let bvifs' = List.filter (fun vif -> Astring.String.is_prefix ~affix:"vif" vif) bvifs in
 			(* The vifs may be large. However considering current XS limit of 1000VM*7NIC/VM + 800VLANs, the buffer of CLI should be sufficient for lots of vifxxxx.xx *)
 			fork_script !inject_igmp_query_script (["--no-check-snooping-toggle"; "--max-resp-time"; !igmp_query_maxresp_time] @ bvifs' @ vvifs)
 		with _ -> ()
@@ -1006,9 +1003,9 @@ module Ovs = struct
 		vsctl ~log:true ["--"; "--if-exists"; "del-br"; name]
 
 	let list_bridges () =
-		let bridges = String.rtrim (vsctl ["list-br"]) in
+		let bridges = String.trim (vsctl ["list-br"]) in
 		if bridges <> "" then
-			String.split '\n' bridges
+			Astring.String.cuts ~empty:false ~sep:"\n" bridges
 		else
 			[]
 
@@ -1075,7 +1072,7 @@ module Ovs = struct
 		and per_iface_args = List.flatten (List.map get_prop
 			["lacp-aggregation-key", "other-config:lacp-aggregation-key";
 			 "lacp-actor-key", "other-config:lacp-actor-key";])
-		and other_args = List.filter_map (fun (k, v) ->
+		and other_args = Xapi_stdext_std.Listext.List.filter_map (fun (k, v) ->
 			if List.mem k known_props then None
 			else Some (Printf.sprintf "other-config:\"%s\"=\"%s\""
 			             (String.escaped ("bond-" ^ k)) (String.escaped v))

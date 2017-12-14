@@ -16,20 +16,23 @@
  ((name networkd)
   (public_name xapi-networkd)
   (package xapi-networkd)
-  (flags (:standard -bin-annot))
-  (libraries (networklibs
+  (flags (:standard -bin-annot -safe-string))
+  (libraries (forkexec
+              netlink
+              networklibs
               profiling
-              threads
               rpclib
               rpclib.unix
-              forkexec
-              stdext
+              systemd
+              threads
+              xapi-stdext-monadic
+              xapi-stdext-pervasives
+              xapi-stdext-threads
+              xapi-stdext-unix
               xcp-inventory
-              xen-api-client
               xcp
               xcp.network
-              netlink
-              systemd)
+              xen-api-client)
   )
  )
 )

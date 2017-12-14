@@ -15,10 +15,6 @@
 open Network_utils
 open Network_interface
 
-(*open Fun*)
-open Stdext.Xstringext
-open Stdext.Listext
-
 module D = Debug.Make(struct let name = "network_server" end)
 open D
 
@@ -102,7 +98,7 @@ let set_dns_interface _ dbg ~name =
 (* Returns `true` if vs1 is older than vs2 *)
 let is_older_version vs1 vs2 () =
 	try
-		let list_of_version vs = List.map int_of_string (String.split '.' vs) in
+		let list_of_version vs = List.map int_of_string (Astring.String.cuts ~empty:false ~sep:"." vs) in
 		let rec loop vs1' vs2' =
 			match vs1', vs2' with
 			| [], _ | _, [] -> false
@@ -173,7 +169,8 @@ module Interface = struct
 					Ip.flush_ip_addr name
 				end
 			| DHCP4 ->
-				let gateway = Stdext.Opt.default [] (Stdext.Opt.map (fun n -> [`gateway n]) !config.gateway_interface) in
+				let open Xapi_stdext_monadic in
+				let gateway = Opt.default [] (Opt.map (fun n -> [`gateway n]) !config.gateway_interface) in
 				let dns =
 					if !config.dns_interface = None || !config.dns_interface = Some name then begin
 						debug "%s is the DNS interface" name;
@@ -193,8 +190,8 @@ module Interface = struct
 				(* the function is meant to be idempotent and we
 				 * want to avoid CA-239919 *)
 				let cur_addrs = Ip.get_ipv4 name in
-				let rm_addrs = List.set_difference cur_addrs addrs in
-				let add_addrs = List.set_difference addrs cur_addrs in
+				let rm_addrs = Xapi_stdext_std.Listext.List.set_difference cur_addrs addrs in
+				let add_addrs = Xapi_stdext_std.Listext.List.set_difference addrs cur_addrs in
 				List.iter (Ip.del_ip_addr name) rm_addrs;
 				List.iter (Ip.set_ip_addr name) add_addrs
 		) ()
@@ -203,8 +200,8 @@ module Interface = struct
 		Debug.with_thread_associated dbg (fun () ->
 			let output = Ip.route_show ~version:Ip.V4 name in
 			try
-				let line = List.find (fun s -> String.startswith "default via" s) (String.split '\n' output) in
-				let addr = List.nth (String.split ' ' line) 2 in
+				let line = List.find (fun s -> Astring.String.is_prefix ~affix:"default via" s) (Astring.String.cuts ~empty:false ~sep:"\n" output) in
+				let addr = List.nth (Astring.String.cuts ~empty:false ~sep:" " line) 2 in
 				Some (Unix.inet_addr_of_string addr)
 			with Not_found -> None
 		) ()
@@ -268,11 +265,11 @@ module Interface = struct
 					let addrs = Ip.get_ipv6 name in
 					let maybe_link_local = Ip.split_addr (Ip.get_ipv6_link_local_addr name) in
 					match maybe_link_local with
-					| Some addr -> List.setify (addr :: addrs)
+					| Some addr -> Xapi_stdext_std.Listext.List.setify (addr :: addrs)
 					| None -> addrs
 				in
-				let rm_addrs = List.set_difference cur_addrs addrs in
-				let add_addrs = List.set_difference addrs cur_addrs in
+				let rm_addrs = Xapi_stdext_std.Listext.List.set_difference cur_addrs addrs in
+				let add_addrs = Xapi_stdext_std.Listext.List.set_difference addrs cur_addrs in
 				List.iter (Ip.del_ip_addr name) rm_addrs;
 				List.iter (Ip.set_ip_addr name) add_addrs
 		) ()
@@ -281,8 +278,8 @@ module Interface = struct
 		Debug.with_thread_associated dbg (fun () ->
 			let output = Ip.route_show ~version:Ip.V6 name in
 			try
-				let line = List.find (fun s -> String.startswith "default via" s) (String.split '\n' output) in
-				let addr = List.nth (String.split ' ' line) 2 in
+				let line = List.find (fun s -> Astring.String.is_prefix ~affix:"default via" s) (Astring.String.cuts ~empty:false ~sep:"\n" output) in
+				let addr = List.nth (Astring.String.cuts ~empty:false ~sep:" " line) 2 in
 				Some (Unix.inet_addr_of_string addr)
 			with Not_found -> None
 		) ()
@@ -308,12 +305,12 @@ module Interface = struct
 
 	let get_dns _ dbg ~name =
 		Debug.with_thread_associated dbg (fun () ->
-			let nameservers, domains = Stdext.Unixext.file_lines_fold (fun (nameservers, domains) line ->
-				if String.startswith "nameserver" line then
-					let server = List.nth (String.split_f String.isspace line) 1 in
+			let nameservers, domains = Xapi_stdext_unix.Unixext.file_lines_fold (fun (nameservers, domains) line ->
+				if Astring.String.is_prefix ~affix:"nameserver" line then
+					let server = List.nth (Astring.String.fields ~empty:false line) 1 in
 					(Unix.inet_addr_of_string server) :: nameservers, domains
-				else if String.startswith "search" line then
-					let domains = List.tl (String.split_f String.isspace line) in
+				else if Astring.String.is_prefix ~affix:"search" line then
+					let domains = List.tl (Astring.String.fields ~empty:false line) in
 					nameservers, domains
 				else
 					nameservers, domains
@@ -332,7 +329,7 @@ module Interface = struct
 				let domains' = if domains <> [] then ["search " ^ (String.concat " " domains)] else [] in
 				let nameservers' = List.map (fun ip -> "nameserver " ^ (Unix.string_of_inet_addr ip)) nameservers in
 				let lines = domains' @ nameservers' in
-				Stdext.Unixext.write_string_to_file resolv_conf ((String.concat "\n" lines) ^ "\n")
+				Xapi_stdext_unix.Unixext.write_string_to_file resolv_conf ((String.concat "\n" lines) ^ "\n")
 			end else
 				debug "%s is NOT the DNS interface" name
 		) ()
@@ -480,7 +477,7 @@ module Bridge = struct
 
 	let determine_backend () =
 		try
-			let backend = String.strip String.isspace (Stdext.Unixext.string_of_file !network_conf) in
+			let backend = String.trim (Xapi_stdext_unix.Unixext.string_of_file !network_conf) in
 			match backend with
 			| "openvswitch" | "vswitch" -> backend_kind := Openvswitch
 			| "bridge" -> backend_kind := Bridge
@@ -510,7 +507,7 @@ module Bridge = struct
 		| Openvswitch ->
 			let bridges =
 				let raw = Ovs.vsctl ["--bare"; "-f"; "table"; "--"; "--columns=name"; "find"; "port"; "fake_bridge=true"; "tag=" ^ (string_of_int vlan)] in
-				if raw <> "" then String.split '\n' (String.rtrim raw) else []
+				if raw <> "" then Astring.String.cuts ~empty:false ~sep:"\n" (String.trim raw) else []
 			in
 			let existing_bridges =
 				List.filter ( fun bridge ->
@@ -554,7 +551,7 @@ module Bridge = struct
 				| None -> ""
 				| Some (parent, vlan) -> Printf.sprintf " (VLAN %d on bridge %s)" vlan parent
 			);
-			Stdext.Opt.iter (destroy_existing_vlan_bridge name) vlan;
+			Xapi_stdext_monadic.Opt.iter (destroy_existing_vlan_bridge name) vlan;
 			update_config name {(get_config name) with vlan; bridge_mac=mac; igmp_snooping; other_config};
 			begin match !backend_kind with
 			| Openvswitch ->
@@ -607,13 +604,13 @@ module Bridge = struct
 				ignore (Brctl.create_bridge name);
 				Brctl.set_forwarding_delay name 0;
 				Sysfs.set_multicast_snooping name false;
-				Stdext.Opt.iter (Ip.set_mac name) mac;
+				Xapi_stdext_monadic.Opt.iter (Ip.set_mac name) mac;
 				match vlan with
 				| None -> ()
 				| Some (parent, vlan) ->
 					let bridge_interfaces = Sysfs.bridge_to_interfaces name in
 					let parent_bridge_interface = List.hd (List.filter (fun n ->
-						String.startswith "eth" n || String.startswith "bond" n
+						Astring.String.is_prefix ~affix:"eth" n || Astring.String.is_prefix ~affix:"bond" n
 					) (Sysfs.bridge_to_interfaces parent)) in
 					let parent_interface =
 						if need_enic_workaround () then begin
@@ -636,7 +633,7 @@ module Bridge = struct
 					) (Proc.get_vlans ());
 					(* Robustness enhancement: ensure there are no other VLANs in the bridge *)
 					let current_interfaces = List.filter (fun n ->
-						String.startswith "eth" n || String.startswith "bond" n
+						Astring.String.is_prefix ~affix:"eth" n || Astring.String.is_prefix ~affix:"bond" n
 					) bridge_interfaces in
 					debug "Removing these non-VIF interfaces found on the bridge: %s"
 						(String.concat ", " current_interfaces);
@@ -674,12 +671,12 @@ module Bridge = struct
 				let ifs = Sysfs.bridge_to_interfaces name in
 				let vlans_on_this_parent =
 					let interfaces = List.filter (fun n ->
-						String.startswith "eth" n || String.startswith "bond" n
+					Astring.String.is_prefix ~affix:"eth" n || Astring.String.is_prefix ~affix:"bond" n
 					) ifs in
 					match interfaces with
 					| [] -> []
 					| interface :: _ ->
-						List.filter (String.startswith (interface ^ ".")) (Sysfs.list ())
+						List.filter (Astring.String.is_prefix ~affix:(interface ^ ".")) (Sysfs.list ())
 				in
 				if vlans_on_this_parent = [] || force then begin
 					debug "Destroying bridge %s" name;
@@ -690,7 +687,7 @@ module Bridge = struct
 						Interface.bring_down () dbg ~name:dev;
 						if Linux_bonding.is_bond_device dev then
 							Linux_bonding.remove_bond_master dev;
-						if (String.startswith "eth" dev || String.startswith "bond" dev) && String.contains dev '.' then begin
+						if (Astring.String.is_prefix ~affix:"eth" dev || Astring.String.is_prefix ~affix:"bond" dev) && String.contains dev '.' then begin
 							ignore (Ip.destroy_vlan dev);
 							let n = String.length dev in
 							if String.sub dev (n - 2) 2 = ".0" && need_enic_workaround () then
@@ -776,7 +773,7 @@ module Bridge = struct
 					let active =
 						let ab =
 							List.mem_assoc "mode" bond_props &&
-							String.startswith "active-backup" (List.assoc "mode" bond_props)
+							Astring.String.is_prefix ~affix:"active-backup" (List.assoc "mode" bond_props)
 						in
 						ab && (active_slave = Some slave) ||
 						(not ab) && up
@@ -831,7 +828,7 @@ module Bridge = struct
 				Linux_bonding.add_bond_master name;
 				let bond_properties =
 					if List.mem_assoc "mode" bond_properties && List.assoc "mode" bond_properties = "lacp" then
-						List.replace_assoc "mode" "802.3ad" bond_properties
+					Xapi_stdext_std.Listext.List.replace_assoc "mode" "802.3ad" bond_properties
 					else bond_properties
 				in
 				Linux_bonding.set_bond_properties name bond_properties;
@@ -968,7 +965,7 @@ module Bridge = struct
 					let persistent_config = List.filter (fun (name, bridge) -> bridge.persistent_b) config in
 					debug "Ensuring the following persistent bridges are up: %s"
 						(String.concat ", " (List.map (fun (name, _) -> name) persistent_config));
-					let vlan_parents = List.filter_map (function
+					let vlan_parents = Xapi_stdext_std.Listext.List.filter_map (function
 						| (_, {vlan=Some (parent, _)}) ->
 							if not (List.mem_assoc parent persistent_config) then
 								Some (parent, List.assoc parent config)
@@ -1034,12 +1031,12 @@ let on_startup () =
 			(* Remove DNSDEV and GATEWAYDEV from Centos networking file, because the interfere
 			 * with this daemon. *)
 			try
-				let file = String.rtrim (Stdext.Unixext.string_of_file "/etc/sysconfig/network") in
-				let args = String.split '\n' file in
-				let args = List.map (fun s -> match (String.split '=' s) with k :: [v] -> k, v | _ -> "", "") args in
+				let file = String.trim (Xapi_stdext_unix.Unixext.string_of_file "/etc/sysconfig/network") in
+				let args = Astring.String.cuts ~empty:false ~sep:"\n" file in
+				let args = List.map (fun s -> match (Astring.String.cuts ~empty:false ~sep:"=" s) with k :: [v] -> k, v | _ -> "", "") args in
 				let args = List.filter (fun (k, v) -> k <> "DNSDEV" && k <> "GATEWAYDEV") args in
 				let s = String.concat "\n" (List.map (fun (k, v) -> k ^ "=" ^ v) args) ^ "\n" in
-				Stdext.Unixext.write_string_to_file "/etc/sysconfig/network" s
+				Xapi_stdext_unix.Unixext.write_string_to_file "/etc/sysconfig/network" s
 			with _ -> ()
 		in
 		try
