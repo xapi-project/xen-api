@@ -16,7 +16,7 @@
  ((name networkd)
   (public_name xapi-networkd)
   (package xapi-networkd)
-  (flags (:standard -bin-annot))
+  (flags (:standard -bin-annot -safe-string))
   (libraries (forkexec
               netlink
               networklibs

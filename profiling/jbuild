@@ -2,7 +2,7 @@
 
 (library
  ((name profiling)
-  (flags (:standard -bin-annot))
+  (flags (:standard -bin-annot -safe-string))
   (wrapped false)
  )
 )

@@ -2,7 +2,7 @@
 
 (library
  ((name networklibs)
-  (flags (:standard :standard -bin-annot))
+  (flags (:standard :standard -bin-annot -safe-string))
   (libraries (astring
               forkexec
               rpclib

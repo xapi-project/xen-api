@@ -1,6 +1,6 @@
 (executable
  ((name network_test)
-  (flags (:standard -bin-annot))
+  (flags (:standard -bin-annot -safe-string))
   (libraries (astring
               networklibs
               oUnit

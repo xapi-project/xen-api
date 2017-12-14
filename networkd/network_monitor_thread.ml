@@ -268,7 +268,7 @@ let signal_networking_change () =
 
 (* Remove all outstanding reads on a file descriptor *)
 let clear_input fd =
-	let buf = String.make 255 ' ' in
+	let buf = Bytes.make 255 ' ' in
 	let rec loop () =
 		try
 			ignore (Unix.read fd buf 0 255);

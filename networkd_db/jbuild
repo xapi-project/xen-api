@@ -2,7 +2,7 @@
  ((name networkd_db)
   (public_name networkd_db)
   (package xapi-networkd)
-  (flags (:standard -bin-annot))
+  (flags (:standard -bin-annot -safe-string))
   (libraries (networklibs
               profiling
               threads
