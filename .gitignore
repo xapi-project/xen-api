@@ -1,5 +1,7 @@
-*.swp
 _build/
-setup.data
-setup.log
-setup.bin
+*.install
+.merlin
+
+*.orig
+*.rej
+xcp_inventory_config.ml
