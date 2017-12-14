@@ -1,3 +1,11 @@
+1.3.0 (14-12-2017)
+ * rrd-transport: stringext -> astring
+ * Port to jbuilder
+ * (v1.2.0 v1.1.2) CA-253704: Force a memory re-mapping of mapped files with 0 length
+ * (v1.1.1) CP-18504 update auto-generated files
+ * (v1.1.1) CP-18504 implement -once flag for rrd reader
+ * (v1.1.0) Let's write the actual name of the value to the shared memory area
+
 1.0.0 (25-04-2016)
  * Declare this package stable
  * Testing, coverage and general code improvements
