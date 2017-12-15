@@ -15,7 +15,7 @@ let cluster_operation =
           "destroy", "completely destroying a cluster";
         ])
 
-let lifecycle = [Published, rel_jura, ""]
+let lifecycle = [Published, rel_kolkata, ""]
 
 let create = call
     ~name:"create"
