@@ -48,6 +48,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (libraries
    (rpclib
     threads
+    xapi-stdext-date
     xcp
     xcp_storage_interface_types))
   (wrapped false)
