@@ -211,6 +211,9 @@ let release_order_full = [{
 (* When you add a new release, use the version number of the latest release,
    and "Unreleased" for the branding, until the actual values are finalised. *)
 
+(* When you add a new release, use the version number of the latest release,
+   and "Unreleased" for the branding, until the actual values are finalised. *)
+
 let release_order =
   List.filter (fun x -> x.code_name <> None) release_order_full
 
