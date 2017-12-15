@@ -879,7 +879,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:host;
       try
         Vgpuops.create_vgpus ~__context host (vm, snapshot)
-          (Helpers.will_boot_hvm ~__context ~self:vm);
+          (Helpers.will_have_qemu ~__context ~self:vm);
       with e ->
         clear_scheduled_to_be_resident_on ~__context ~vm;
         raise e

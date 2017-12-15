@@ -2627,11 +2627,11 @@ let start ~__context ~self paused force =
         raise (Bad_power_state (Running, Halted));
       (* For all devices which we want xenopsd to manage, set currently_attached = true
          		   so the metadata is pushed. *)
+      let empty_vbds_allowed = Helpers.will_have_qemu ~__context ~self in
       let vbds =
         (* xenopsd only manages empty VBDs for HVM guests *)
-        let hvm = Helpers.will_boot_hvm ~__context ~self in
         let vbds = Db.VM.get_VBDs ~__context ~self in
-        if hvm then vbds else (List.filter (fun self -> not(Db.VBD.get_empty ~__context ~self)) vbds) in
+        if empty_vbds_allowed then vbds else (List.filter (fun self -> not(Db.VBD.get_empty ~__context ~self)) vbds) in
       List.iter (fun self -> Db.VBD.set_currently_attached ~__context ~self ~value:true) vbds;
       List.iter (fun self -> Db.VIF.set_currently_attached ~__context ~self ~value:true) (Db.VM.get_VIFs ~__context ~self);
 
@@ -2991,14 +2991,17 @@ let vbd_insert_hvm ~__context ~self ~vdi =
                (Ref.string_of self) (Ref.string_of vdi) (Ref.string_of vdi)]))
     )
 
-let ejectable ~__context ~self =
+let has_qemu ~__context ~vm =
   let dbg = Context.string_of_task __context in
-  let vm = Db.VBD.get_VM ~__context ~self in
   let id = Db.VM.get_uuid ~__context ~self:vm in
   let queue_name = queue_of_vm ~__context ~self:vm in
   let module Client = (val make_client queue_name : XENOPS) in
   let _, state = Client.VM.stat dbg id in
-  state.Vm.hvm
+  state.Vm.domain_type = Domain_HVM
+
+let ejectable ~__context ~self =
+  let vm = Db.VBD.get_VM ~__context ~self in
+  has_qemu ~__context ~vm
 
 let vbd_eject ~__context ~self =
   if ejectable ~__context ~self
@@ -3181,13 +3184,8 @@ let vusb_unplug_hvm ~__context ~self =
     )
 
 let vusb_plugable ~__context ~self =
-  let dbg = Context.string_of_task __context in
   let vm = Db.VUSB.get_VM ~__context ~self in
-  let id = Db.VM.get_uuid ~__context ~self:vm in
-  let queue_name = queue_of_vm ~__context ~self:vm in
-  let module Client = (val make_client queue_name : XENOPS) in
-  let _, state = Client.VM.stat dbg id in
-  state.Vm.hvm
+  has_qemu ~__context ~vm
 
 let vusb_unplug ~__context ~self =
   if vusb_plugable ~__context ~self then

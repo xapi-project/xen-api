@@ -22,13 +22,13 @@ open Vbdops
 open Threadext
 open D
 
-let assert_operation_valid ~__context ~self ~(op:API.vbd_operations) = 
+let assert_operation_valid ~__context ~self ~(op:API.vbd_operations) =
   assert_operation_valid ~__context ~self ~op
 
 let update_allowed_operations ~__context ~self : unit =
   update_allowed_operations ~__context ~self
 
-let assert_attachable ~__context ~self : unit = 
+let assert_attachable ~__context ~self : unit =
   assert_attachable ~__context ~self
 
 
@@ -41,7 +41,7 @@ let plug ~__context ~self =
   let vm = Db.VBD.get_VM ~__context ~self in
   let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
   let force_loopback_vbd = Helpers.force_loopback_vbd ~__context in
-  let hvm = Helpers.has_booted_hvm ~__context ~self:vm in
+  let hvm = Helpers.has_qemu_currently ~__context ~self:vm in
   if System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = vm && not force_loopback_vbd then begin
     debug "VBD.plug of loopback VBD '%s'" (Ref.string_of self);
     Storage_access.attach_and_activate ~__context ~vbd:self ~domid

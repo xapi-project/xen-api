@@ -501,6 +501,10 @@ let will_boot_hvm_from_domain_type = function
   | `hvm | `pv_in_pvh  -> true
   | `pv  | `unspecified  -> false
 
+let will_have_qemu_from_domain_type = function
+  | `hvm -> true
+  | `pv_in_pvh | `pv | `unspecified -> false
+
 (** Returns true if the supplied VM configuration is HVM.
     NB that just because a VM's current configuration looks like HVM doesn't imply it
     actually booted that way; you must check the VM_metrics to be sure *)
@@ -508,17 +512,34 @@ let will_boot_hvm_from_record (x: API.vM_t) =
   x.API.vM_domain_type
   |> will_boot_hvm_from_domain_type
 
+let will_have_qemu_from_record (x: API.vM_t) =
+  x.API.vM_domain_type
+  |> will_have_qemu_from_domain_type
+
 let will_boot_hvm ~__context ~self =
   Db.VM.get_domain_type ~__context ~self
   |> will_boot_hvm_from_domain_type
 
+let will_have_qemu ~__context ~self =
+  Db.VM.get_domain_type ~__context ~self
+  |> will_have_qemu_from_domain_type
+
 let has_booted_hvm ~__context ~self =
   Db.VM_metrics.get_hvm ~__context ~self:(Db.VM.get_metrics ~__context ~self)
+
+let has_qemu_currently ~__context ~self =
+  Db.VM_metrics.get_current_domain_type ~__context ~self:(Db.VM.get_metrics ~__context ~self)
+  |> will_have_qemu_from_domain_type
 
 let is_hvm ~__context ~self =
   match Db.VM.get_power_state ~__context ~self with
   | `Paused | `Running | `Suspended -> has_booted_hvm ~__context ~self
   | `Halted | _ -> will_boot_hvm ~__context ~self
+
+let has_qemu ~__context ~self =
+  match Db.VM.get_power_state ~__context ~self with
+  | `Paused | `Running | `Suspended -> has_qemu_currently ~__context ~self
+  | `Halted | _ -> will_have_qemu ~__context ~self
 
 let is_running ~__context ~self = Db.VM.get_domid ~__context ~self <> -1L
 

@@ -846,7 +846,7 @@ let all_used_VBD_devices ~__context ~self =
   List.concat (List.map possible_VBD_devices_of_string existing_devices)
 
 let allowed_VBD_devices ~__context ~vm ~_type =
-  let is_hvm = Helpers.will_boot_hvm ~__context ~self:vm in
+  let is_hvm = Helpers.will_have_qemu ~__context ~self:vm in
   let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in
   let all_devices = match is_hvm,is_control_domain,_type with
     | true, _, `Floppy  -> allowed_VBD_devices_HVM_floppy
@@ -860,7 +860,7 @@ let allowed_VBD_devices ~__context ~vm ~_type =
   List.filter (fun dev -> not (List.mem dev used_devices)) all_devices
 
 let allowed_VIF_devices ~__context ~vm =
-  let is_hvm = Helpers.will_boot_hvm ~__context ~self:vm in
+  let is_hvm = Helpers.will_have_qemu ~__context ~self:vm in
   let all_devices = if is_hvm then allowed_VIF_devices_HVM else allowed_VIF_devices_PV in
   (* Filter out those we've already got VIFs for *)
   let all_vifs = Db.VM.get_VIFs ~__context ~self:vm in
