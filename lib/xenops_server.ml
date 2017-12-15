@@ -1517,7 +1517,7 @@ and trigger_cleanup_after_failure_atom op t =
   | Parallel (id, description, ops) ->
     List.iter (fun op->trigger_cleanup_after_failure_atom op t) ops
 
-and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit =
+and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit =
   let module B = (val get_backend () : S) in
   let one = function
     | VM_start (id, force) ->
@@ -1758,7 +1758,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
         | Vm.Pause    -> [ Atomic (VM_pause id) ]
       in
       let operations = List.concat (List.map operations_of_action actions) in
-      List.iter (fun x -> perform x t) operations;
+      List.iter (fun x -> perform_exn x t) operations;
       VM_DB.signal id
     | PCI_check_state id ->
       debug "PCI.check_state %s" (PCI_DB.string_of_id id);
@@ -1772,7 +1772,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
         | Needs_unplug -> Some (Atomic(PCI_unplug id))
         | Needs_set_qos -> None in
       let operations = List.filter_map operations_of_request (Opt.to_list request) in
-      List.iter (fun x -> perform x t) operations
+      List.iter (fun x -> perform_exn x t) operations
     | VBD_check_state id ->
       debug "VBD.check_state %s" (VBD_DB.string_of_id id);
       let vbd_t = VBD_DB.read_exn id in
@@ -1788,7 +1788,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
         | Needs_unplug -> Some (Atomic(VBD_unplug (id, true)))
         | Needs_set_qos -> Some (Atomic(VBD_set_qos id)) in
       let operations = List.filter_map operations_of_request (Opt.to_list request) in
-      List.iter (fun x -> perform x t) operations;
+      List.iter (fun x -> perform_exn x t) operations;
       (* Needed (eg) to reflect a spontaneously-ejected CD *)
       VBD_DB.signal id
     | VIF_check_state id ->
@@ -1803,7 +1803,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
         | Needs_unplug -> Some (Atomic(VIF_unplug (id, true)))
         | Needs_set_qos -> None in
       let operations = List.filter_map operations_of_request (Opt.to_list request) in
-      List.iter (fun x -> perform x t) operations
+      List.iter (fun x -> perform_exn x t) operations
     | VUSB_check_state id ->
       debug "VUSB.check_state %s" (VUSB_DB.string_of_id id);
       let vusb_t = VUSB_DB.read_exn id in
@@ -1819,15 +1819,18 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
         | Needs_unplug -> Some (Atomic(VUSB_unplug id))
         | Needs_set_qos -> None in
       let operations = List.filter_map operations_of_request (Opt.to_list request) in
-      List.iter (fun x -> perform x t) operations;
+      List.iter (fun x -> perform_exn x t) operations;
       VUSB_DB.signal id
     | Atomic op ->
       let progress_callback = progress_callback 0. 1. t in
       perform_atomic ~progress_callback ?subtask ?result op t
   in
+  one op
+
+and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit =
   let one op =
     try
-      one op
+      perform_exn ?subtask ?result op t
     with e ->
       Backtrace.is_important e;
       info "Caught %s executing %s: triggering cleanup actions" (Printexc.to_string e) (string_of_operation op);
