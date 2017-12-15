@@ -72,4 +72,5 @@ val disable : __context:Context.t -> self:API.ref_Cluster_host -> unit
 
 val disable_internal : __context:Context.t -> self:API.ref_Cluster_host -> force:bool -> unit
 (** [disable_internal ~__context ~self ~force] is like [disable] except it doesn't
-     change the Cluster_host status to disabled permanently. *)
+     change the Cluster_host status to disabled permanently and allows disabling
+     the Cluster_host even if some attached SRs require it if [force] is true. *)
