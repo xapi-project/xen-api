@@ -1,0 +1,18 @@
+opam-version: "1.2"
+maintainer: "xen-api@lists.xen.org"
+authors: "xen-api@lists.xen.org"
+homepage: "https://github.com/xapi-project/"
+bug-reports: "https://github.com/xapi-project/forkexecd/issues"
+dev-repo: "git://github.com/xapi-project/forkexecd"
+tags: [ "org:xapi-project" ]
+
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build-test: ["jbuilder" "runtest" "-p" name]
+
+depends: [
+  "jbuilder" {build}
+  "forkexec"
+  "systemd" {>= "1.2"}
+  "uuidm"
+  "xapi-stdext"
+]

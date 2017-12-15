@@ -5,27 +5,15 @@ homepage: "https://github.com/xapi-project/"
 bug-reports: "https://github.com/xapi-project/forkexecd/issues"
 dev-repo: "git://github.com/xapi-project/forkexecd"
 tags: [ "org:xapi-project" ]
-build: [
-  ["oasis" "setup"]
-  [make]
-]
-install: [
-  [make "install"]
-]
-remove: [
-    ["oasis" "setup"]
-    [make "uninstall"]
-    ["ocamlfind" "remove" "forkexec"]
-]
+
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+
 depends: [
-  "ocamlfind" {build}
-  "oasis" {build}
+  "jbuilder" {build}
   "base-threads"
-  "systemd" {>= "1.2"}
-  "syslog"
-  "rpc" {>= "1.9.51"}
   "fd-send-recv"
+  "rpc" {>= "1.9.51"}
   "uuidm"
-  "xapi-stdext"
   "xapi-idl"
+  "xapi-stdext"
 ]

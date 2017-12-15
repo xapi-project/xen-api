@@ -1,0 +1,13 @@
+(executable
+ ((name fe_test)
+  (libraries (forkexec
+              stdext
+              uuidm))
+ ))
+
+(alias
+ ((name runtest)
+  (package xapi-forkexecd)
+  (deps (fe_test.sh fe_test.exe ../src/fe_main.exe))
+  (action (run ${<}))
+  ))

@@ -1,0 +1,9 @@
+(executable
+ ((name fe_main)
+  (public_name forkexecd)
+  (package xapi-forkexecd)
+  (libraries (forkexec
+              stdext
+              systemd
+              uuidm))
+ ))
