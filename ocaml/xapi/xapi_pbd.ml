@@ -153,7 +153,7 @@ let unplug ~__context ~self =
       if Db.Pool.get_ha_enabled ~__context ~self:pool then begin
         let statefiles = Db.Pool.get_ha_statefiles ~__context ~self:pool in
         let statefile_srs = List.map (fun self -> Db.VDI.get_SR ~__context ~self:(Ref.of_string self)) statefiles in
-        if List.mem sr statefile_srs
+        if List.mem sr statefile_srs && not (Xha_scripts.can_unplug_statefile_pbd ())
         then raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []))
       end;
 
