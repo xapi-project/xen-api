@@ -204,3 +204,23 @@ let set_device_config ~__context ~self ~value =
   (* Only allowed from the SM plugin *)
   assert_no_srmaster_key value;
   Db.PBD.set_device_config ~__context ~self ~value
+
+let get_locally_attached ~__context =
+  let host = Helpers.get_localhost ~__context in
+  Db.PBD.get_refs_where ~__context
+    ~expr:(Db_filter_types.(
+        And(
+            Eq (Field "host", Literal (Ref.string_of host)),
+            Eq (Field "currently_attached", Literal "true"))))
+
+let unplug_all_pbds ~__context =
+  info "Unplugging all SRs plugged on local host";
+  (* best effort unplug of all PBDs *)
+  get_locally_attached ~__context
+  |> List.iter (fun pbd ->
+         log_and_ignore_exn (fun () ->
+             TaskHelper.exn_if_cancelling ~__context;
+             let uuid = Db.PBD.get_uuid ~__context ~self:pbd in
+             debug "Unplugging PBD %s" uuid;
+             unplug ~__context ~self:pbd));
+  debug "Finished unplug_all_pbds"
