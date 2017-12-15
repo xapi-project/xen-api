@@ -246,11 +246,24 @@ let get_locally_attached ~__context =
 let temporarily_unplug_all_pbds ~__context =
   info "Unplugging all SRs plugged on local host";
   (* best effort unplug of all PBDs *)
-  get_locally_attached ~__context
-  |> List.iter (fun pbd ->
-         log_and_ignore_exn (fun () ->
-             TaskHelper.exn_if_cancelling ~__context;
-             let uuid = Db.PBD.get_uuid ~__context ~self:pbd in
-             debug "Unplugging PBD %s" uuid;
-             unplug_inner ~__context ~soft:true ~self:pbd));
-  debug "Finished temporarily_unplug_all_pbds"
+  let all_unplugs_succeeded = get_locally_attached ~__context
+  |> List.for_all (fun pbd ->
+         let uuid = Db.PBD.get_uuid ~__context ~self:pbd in
+         try
+           TaskHelper.exn_if_cancelling ~__context;
+           debug "Unplugging PBD %s" uuid;
+           unplug_inner ~__context ~soft:true ~self:pbd;
+           true
+         with e ->
+           info "Failed to unplug PBD %s: %s"  uuid (Printexc.to_string e);
+           false) in
+  debug "Finished temporarily_unplug_all_pbds";
+  let host = Helpers.get_localhost ~__context in
+  match Xapi_clustering.find_cluster_host ~__context ~host with
+  | None -> info "No cluster host found"
+  | Some self ->
+     if all_unplugs_succeeded then begin
+         info "Disabling cluster host";
+         Xapi_cluster_host.disable_internal ~__context ~self ~force:true
+       end else
+         warn "Not all unplugs succeded: not safe to disable clustering"
