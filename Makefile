@@ -1,51 +1,32 @@
-.PHONY: all clean install build
-all: build doc
+OPAM_PREFIX?=$(DESTDIR)$(shell opam config var prefix)
+OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
 
-J=4
+.PHONY: release build install uninstall clean test doc reindent
 
-export OCAMLRUNPARAM=b
+release:
+	jbuilder build @install
 
-setup.bin: setup.ml
-	@ocamlopt.opt -o $@ $< || ocamlopt -o $@ $< || ocamlc -o $@ $<
-	@rm -f setup.cmx setup.cmi setup.o setup.cmo
+build:
+	jbuilder build @install --dev
 
-setup.data: setup.bin
-	@./setup.bin -configure --enable-tests
-
-build: setup.data setup.bin rrdd/version.ml
-	@./setup.bin -build -j $(J)
-
-doc: setup.data setup.bin
-	@./setup.bin -doc -j $(J)
-
-install: build
-	install -m 755 xcp_rrdd.native $(DESTDIR)$(SBINDIR)/xcp-rrdd
+install:
+	install -D _build/install/default/bin/xcp-rrdd $(DESTDIR)$(SBINDIR)/xcp-rrdd
 
 uninstall:
 	rm -f $(DESTDIR)$(SBINDIR)/xcp-rrdd
 
-test: setup.bin build
-	@./setup.bin -test
-
-rrdd/version.ml: VERSION
-	echo "let version = \"$(shell cat VERSION)\"" > rrdd/version.ml
-
 clean:
-	@ocamlbuild -clean
-	@rm -f setup.data setup.log setup.bin
+	jbuilder clean
 
-# make coverage - prepares for building with coverage analysis
-# make uncover  - reverses the setup from "make coverage"
-# make report   - create coverage/index.html 
+test:
+	jbuilder runtest
 
-coverage: _tags _tags.coverage 
-	test ! -f _tags.orig && mv _tags _tags.orig || true
-	cat _tags.coverage _tags.orig > _tags
+# requires odoc
+doc:
+	jbuilder build @doc
 
-uncover: _tags.orig
-	mv _tags.orig _tags
+gh-pages:
+	bash .docgen.sh
 
-report:
-	bisect-ppx-report -I _build -html coverage /tmp/bisect-xcp-rrdd*out
-
-.PHONY: report coverage uncover
+reindent:
+	git ls-files '*.ml*' | xargs ocp-indent --inplace

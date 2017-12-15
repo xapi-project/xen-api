@@ -1,0 +1,71 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+| [] -> ""
+| pkgs ->
+  let cmd = "ocamlfind ocamlc -verbose" ^ (
+    List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+  ) in
+  let ic = Unix.open_process_in
+    (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
+  in
+  let rec go ic acc =
+    try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+  in
+  go ic ""
+
+let version =
+  let ic = open_in "../VERSION" in
+  let version = input_line ic in
+  close_in ic;
+  version
+
+let rewriters = ["ppx_deriving_rpc"]
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(rule
+  ((targets (version.ml))
+   (deps ())
+   (action (with-stdout-to ${@}
+            (echo "let version = \"%s\"\n")))
+  ))
+
+(library
+  ((name rrdd_libs_internal)
+   (wrapped false)
+   (modules (:standard \ xcp_rrdd))
+   (flags (:standard -w -39 -bin-annot %s))
+   (libraries (astring
+               gzip
+               http-svr
+               inotify
+               mtime
+               mtime.clock.os
+               systemd
+               xapi-backtrace
+               rrd
+               rrd.unix
+               rrd-transport
+               xapi-rrdd
+               xapi-stdext-monadic
+               xapi-stdext-std
+               xapi-stdext-threads
+               xapi-stdext-unix
+               xenops
+               xcp.network
+               uuid))
+  ))
+
+(executable
+  ((name xcp_rrdd)
+   (public_name xcp-rrdd)
+   (package xapi-rrdd)
+   (flags (:standard -bin-annot %s))
+   (modules (xcp_rrdd))
+   (libraries (http-svr
+               rrdd_libs_internal
+               xapi-backtrace
+               xcp))
+  ))
+|} version (flags rewriters) (flags rewriters)
