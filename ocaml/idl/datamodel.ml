@@ -90,8 +90,8 @@ let falcon_release_schema_minor_vsn = 120
 let inverness_release_schema_major_vsn = 5
 let inverness_release_schema_minor_vsn = 133
 
-let jura_release_schema_major_vsn = 5
-let jura_release_schema_minor_vsn = 134
+let kolkata_release_schema_major_vsn = 5
+let kolkata_release_schema_minor_vsn = 140
 
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
@@ -239,6 +239,12 @@ let get_product_releases in_product_since =
     | x::xs when code_name_of_release x = in_product_since -> "closed"::in_product_since::(List.map code_name_of_release xs)
     | x::xs -> go_through_release_order xs
   in go_through_release_order release_order
+
+let kolkata_release =
+  { internal = get_product_releases rel_kolkata
+  ; opensource = get_oss_releases None
+  ; internal_deprecated_since = None
+  }
 
 let inverness_release =
   { internal = get_product_releases rel_inverness
@@ -5062,7 +5068,7 @@ let host_allocate_resources_for_vm = call
 
 let host_set_iscsi_iqn = call
     ~name:"set_iscsi_iqn"
-    ~lifecycle:[Published, rel_jura, ""]
+    ~lifecycle:[Published, rel_kolkata, ""]
     ~doc:"Sets the initiator IQN for the host"
     ~params:[
       Ref _host, "host", "The host";
@@ -5219,7 +5225,7 @@ let host =
          field ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref)) ~in_product_since:rel_ely ~ty:(Ref _vm) "control_domain" "The control domain (domain 0)";
          field ~qualifier:DynamicRO ~lifecycle:[Published, rel_ely, ""] ~ty:(Set (Ref _pool_update)) ~ignore_foreign_key:true "updates_requiring_reboot" "List of updates which require reboot";
          field ~qualifier:DynamicRO ~lifecycle:[Published, rel_falcon, ""] ~ty:(Set (Ref _feature)) "features" "List of features available on this host";
-         field ~qualifier:StaticRO ~lifecycle:[Published, rel_jura, ""] ~default_value:(Some (VString "")) ~ty:String "iscsi_iqn" "The initiator IQN for the host"
+         field ~qualifier:StaticRO ~lifecycle:[Published, rel_kolkata, ""] ~default_value:(Some (VString "")) ~ty:String "iscsi_iqn" "The initiator IQN for the host"
        ])
     ()
 
@@ -6899,7 +6905,7 @@ let vdi =
          field ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "metadata_latest" "Whether this VDI contains the latest known accessible metadata for the pool";
          field ~lifecycle:[Published, rel_dundee, ""] ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "is_tools_iso" "Whether this VDI is a Tools ISO";
          field ~lifecycle:[Published, rel_inverness, ""] ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "cbt_enabled" "True if changed blocks are tracked for this VDI" ~doc_tags:[Snapshots];
-         field ~lifecycle:[Prototyped, rel_jura, ""] ~qualifier:DynamicRO ~ty:(Ref _host) ~default_value:(Some (VRef null_ref)) "activated_on" "The host on which this VDI is activated, if any"
+         field ~lifecycle:[Prototyped, rel_kolkata, ""] ~qualifier:DynamicRO ~ty:(Ref _host) ~default_value:(Some (VRef null_ref)) "activated_on" "The host on which this VDI is activated, if any"
        ])
     ()
 
@@ -10240,7 +10246,7 @@ let cluster_host_operation =
         ])
 
 module Cluster = struct
-  let lifecycle = [Published, rel_jura, ""]
+  let lifecycle = [Published, rel_kolkata, ""]
 
   let create = call
     ~name:"create"
@@ -10352,7 +10358,7 @@ end
 let cluster = Cluster.obj
 
 module Cluster_host = struct
-  let lifecycle = [Published, rel_jura, ""]
+  let lifecycle = [Published, rel_kolkata, ""]
 
   let create = call
     ~name:"create"
