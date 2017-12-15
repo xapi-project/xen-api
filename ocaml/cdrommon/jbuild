@@ -3,10 +3,11 @@
   (public_name cdrommon)
   (package xapi)
   (libraries (
-   unix
    cdrom
-   xcp-inventory
    threads
+   unix
+   xapi-stdext-unix
+   xcp-inventory
   ))
  )
 )
