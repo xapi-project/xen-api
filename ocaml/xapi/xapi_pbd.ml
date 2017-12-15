@@ -264,6 +264,9 @@ let temporarily_unplug_all_pbds ~__context =
   | Some self ->
      if all_unplugs_succeeded then begin
          info "Disabling cluster host";
+         (* We need force:true because in practice the PBDs have been unplugged
+          * by `unplug_inner ... soft:true`, which did not change the
+          * currently_attached status in the DB, so the check would fail.*)
          Xapi_cluster_host.disable_internal ~__context ~self ~force:true
        end else
          warn "Not all unplugs succeded: not safe to disable clustering"
