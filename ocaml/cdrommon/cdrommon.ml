@@ -15,7 +15,7 @@ let oldnotify = ref false
 
 let disc_inserted name =
   let args = [| "xe" ; "host-notify"; "type=cdrom"; "params=inserted:" ^ name |] in
-  let ret = Stdext.Unixext.spawnvp args.(0) args in
+  let ret = Xapi_stdext_unix.Unixext.spawnvp args.(0) args in
   (* check if we got an error, and record the fact *)
   begin match ret with
     | Unix.WEXITED 0 -> oldnotify := false
