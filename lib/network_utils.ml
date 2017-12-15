@@ -154,13 +154,12 @@ module Sysfs = struct
 	(** Returns the name of the driver for network device [dev] *)
 	let get_driver_name dev =
 		try
-			let symlink = getpath dev "device/driver" in
-			let target = Unix.readlink symlink in
-			match Astring.String.cut ~sep:"/" target with
-			| Some (prefix, suffix) -> Some prefix
+			let driver_path = Unix.readlink (getpath dev "device/driver") in
+			match Astring.String.cut ~sep:"/" ~rev:true driver_path with
+			| Some (prefix, suffix) -> Some suffix
 			| None ->
-				debug "target %s of symbolic link %s does not contain slash" target symlink;
-				None
+ 				debug "get %s driver name: %s does not contain slash" dev driver_path;
+ 				None
 		with _ ->
 			debug "%s: could not read netdev's driver name" dev;
 			None
