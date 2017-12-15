@@ -406,11 +406,9 @@ let read_cache_stats timestamp =
     let cache_stats_out, _err =
       Forkhelpers.execute_command_get_output tapdisk_cache_stats [cache_sr] in
     let assoc_list =
-      List.filter_map (fun line ->
-          match Astring.String.cut ~sep:"=" line with
-          | Some (k,v) -> Some (k, v)
-          | None -> None
-        ) (Astring.String.cuts ~sep:"\n" cache_stats_out)
+      cache_stats_out
+      |> Astring.String.cuts ~sep:"\n"
+      |> List.filter_map (fun line -> Astring.String.cut ~sep:"=" line)
     in
     (*debug "assoc_list: [%s]" (String.concat ";" (List.map (fun (a,b) -> Printf.sprintf "%s=%s" a b) assoc_list));*)
     {time = timestamp;
