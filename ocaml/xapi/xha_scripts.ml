@@ -58,3 +58,20 @@ let call_script ?log_successful_output script args =
     warn "%s %s returned %s (%s)" script' (String.concat " " args)
       (Xha_errno.to_string code) (Xha_errno.to_description_string code);
     raise (Xha_error code)
+
+(** Internal API call that determines whether it is safe to unplug the PBD
+    holding the statefile during shutdown. *)
+let can_unplug_statefile_pbd () =
+  (* During shutdown we execute a soft emergency HA disable, which means that HA will still look to be armed in the localdb,
+     so we cannot use that to determine if it is safe to unplug.
+     However during shutdown we stop the daemon, so querying the liveset should fail with daemon not running *)
+  match call_script ~log_successful_output:false ha_query_liveset [] with
+  | exception Xha_error Xha_errno.Mtc_exit_daemon_is_not_present ->
+     info "HA daemon not running: safe to unplug statefile PBD";
+     true
+  | exception e  ->
+     info "Caught exception querying liveset; assuming it is not safe to unplug: %s" (ExnHelper.string_of_exn e);
+     false
+  | _ ->
+     info "HA daemon still running or in unknown state: assuming it is not safe to unplug";
+     false
