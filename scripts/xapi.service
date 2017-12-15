@@ -15,6 +15,7 @@ After=xcp-networkd.service
 After=xcp-rrdd.service
 After=xenopsd-xc.service
 After=xenstored.service
+After=xapi-clusterd.service
 
 Conflicts=shutdown.target
 
