@@ -162,7 +162,7 @@ let plug ~__context ~self =
         (* The allowed-operations depend on the capabilities *)
         Xapi_sr_operations.update_allowed_operations ~__context ~self:sr)
 
-let unplug ~__context ~self =
+let unplug_inner ~__context ~self ~soft =
   let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
   if currently_attached then
     Xapi_clustering.with_clustering_lock (fun () ->
@@ -209,11 +209,19 @@ let unplug ~__context ~self =
           (fun () -> C.SR.detach dbg uuid);
 
         Storage_access.unbind ~__context ~pbd:self;
-        Db.PBD.set_currently_attached ~__context ~self ~value:false;
+        if not soft then begin
+            (* a soft unplug means that we want to replug on boot,
+               i.e. a soft unplug is useful on shutdown to unmount everything,
+               but it has no permanent effect after a reboot
+             *)
+            Db.PBD.set_currently_attached ~__context ~self ~value:false;
 
-        Xapi_sr_operations.stop_health_check_thread ~__context ~self:sr;
+            Xapi_sr_operations.stop_health_check_thread ~__context ~self:sr;
 
-        Xapi_sr_operations.update_allowed_operations ~__context ~self:sr)
+            Xapi_sr_operations.update_allowed_operations ~__context ~self:sr
+        end)
+
+let unplug ~__context ~self = unplug_inner ~__context ~self ~soft:false
 
 let destroy ~__context ~self =
   if Db.PBD.get_currently_attached ~__context ~self
@@ -226,3 +234,23 @@ let set_device_config ~__context ~self ~value =
   (* Only allowed from the SM plugin *)
   assert_no_srmaster_key value;
   Db.PBD.set_device_config ~__context ~self ~value
+
+let get_locally_attached ~__context =
+  let host = Helpers.get_localhost ~__context in
+  Db.PBD.get_refs_where ~__context
+    ~expr:(Db_filter_types.(
+        And(
+            Eq (Field "host", Literal (Ref.string_of host)),
+            Eq (Field "currently_attached", Literal "true"))))
+
+let temporarily_unplug_all_pbds ~__context =
+  info "Unplugging all SRs plugged on local host";
+  (* best effort unplug of all PBDs *)
+  get_locally_attached ~__context
+  |> List.iter (fun pbd ->
+         log_and_ignore_exn (fun () ->
+             TaskHelper.exn_if_cancelling ~__context;
+             let uuid = Db.PBD.get_uuid ~__context ~self:pbd in
+             debug "Unplugging PBD %s" uuid;
+             unplug_inner ~__context ~soft:true ~self:pbd));
+  debug "Finished temporarily_unplug_all_pbds"
