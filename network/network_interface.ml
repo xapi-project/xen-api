@@ -238,7 +238,6 @@ let update_config config name data =
 
 (** {2 API functions} *)
 
-external reopen_logs: unit -> bool = ""
 external clear_state: unit -> unit = ""
 external reset_state: unit -> unit = ""
 
@@ -253,25 +252,14 @@ module Interface = struct
 	external get_ipv4_addr : debug_info -> name:iface -> (Unix.inet_addr * int) list = ""
 	external set_ipv4_conf : debug_info -> name:iface -> conf:ipv4 -> unit = ""
 	external get_ipv4_gateway : debug_info -> name:iface -> Unix.inet_addr option = ""
-	external set_ipv4_gateway : debug_info -> name:iface -> address:Unix.inet_addr -> unit = ""
 	external get_ipv6_addr : debug_info -> name:iface -> (Unix.inet_addr * int) list = ""
-	external set_ipv6_conf : debug_info -> name:iface -> conf:ipv6 -> unit = ""
-	external get_ipv6_gateway : debug_info -> name:iface -> Unix.inet_addr option = ""
-	external set_ipv6_gateway : debug_info -> name:iface -> address:Unix.inet_addr -> unit = ""
-	external set_ipv4_routes : debug_info -> name:iface -> routes:(Unix.inet_addr * int * Unix.inet_addr) list -> unit = ""
 	external get_dns : debug_info -> name:iface -> Unix.inet_addr list * string list = ""
-	external set_dns : debug_info -> name:iface -> nameservers:Unix.inet_addr list -> domains:string list -> unit = ""
 	external get_mtu : debug_info -> name:iface -> int = ""
-	external set_mtu : debug_info -> name:iface -> mtu:int -> unit = ""
-	external set_ethtool_settings : debug_info -> name:iface -> params:(string * string) list -> unit = ""
-	external set_ethtool_offload : debug_info -> name:iface -> params:(string * string) list -> unit = ""
 	external get_capabilities : debug_info -> name:iface -> string list = ""
 	external is_connected : debug_info -> name:iface -> bool = ""
 	external is_physical : debug_info -> name:iface -> bool = ""
 	external has_vlan: debug_info -> name:iface -> vlan:int -> bool = ""
-	external bring_up : debug_info -> name:iface -> unit = ""
 	external bring_down : debug_info -> name:iface -> unit = ""
-	external is_persistent : debug_info -> name:iface -> bool = ""
 	external set_persistent : debug_info -> name:iface -> value:bool -> unit = ""
 	external make_config : debug_info -> ?conservative:bool -> config:(iface * interface_config_t) list-> unit -> unit = ""
 end
@@ -286,24 +274,18 @@ let string_of_kind = function
 
 module Bridge = struct
 	external get_all : debug_info -> unit -> bridge list = ""
-	external get_bond_links_up : debug_info -> name:port -> int = ""
 	external create : debug_info -> ?vlan:(bridge * int) ->
 		?mac:string -> ?igmp_snooping:bool -> ?other_config:(string * string) list -> name:bridge -> unit -> unit = ""
 	external destroy : debug_info -> ?force:bool -> name:bridge -> unit -> unit = ""
 	external get_kind : debug_info -> unit -> kind = ""
-	external get_ports : debug_info -> name:bridge -> (port * iface list) list = ""
 	external get_all_ports : debug_info -> ?from_cache:bool -> unit -> (port * iface list) list = ""
-	external get_bonds : debug_info -> name:bridge -> (port * iface list) list = ""
 	external get_all_bonds : debug_info -> ?from_cache:bool -> unit -> (port * iface list) list = ""
-	external is_persistent : debug_info -> name:bridge -> bool = ""
 	external set_persistent : debug_info -> name:bridge -> value:bool -> unit = ""
-	external get_vlan : debug_info -> name:bridge -> (bridge * int) option = ""
 	external add_port : debug_info -> ?bond_mac:string -> bridge:bridge -> name:port -> interfaces:iface list ->
 		?bond_properties:(string * string) list -> ?kind:port_kind -> unit -> unit = ""
 	external remove_port : debug_info -> bridge:bridge -> name:port -> unit = ""
 	external get_interfaces : debug_info -> name:bridge -> iface list = ""
 	external get_physical_interfaces : debug_info -> name:bridge -> iface list = ""
-	external get_fail_mode : debug_info -> name:bridge -> fail_mode option = ""
 	external make_config : debug_info -> ?conservative:bool -> config:(bridge * bridge_config_t) list-> unit -> unit = ""
 end
 
