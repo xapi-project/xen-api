@@ -425,9 +425,10 @@ let make_cluster_host ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
 let make_cluster_and_cluster_host ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
     ?(network=Ref.null) ?(cluster_token="") ?(cluster_stack="corosync")
     ?(allowed_operations=[]) ?(current_operations=[]) ?(pool_auto_join=true)
-    ?(cluster_config=[]) ?(other_config=[]) () =
+    ?(token_timeout=5000L) ?(token_timeout_coefficient=1000L) ?(cluster_config=[]) 
+    ?(other_config=[]) () =
   Db.Cluster.create ~__context ~ref ~uuid ~network ~cluster_token
     ~cluster_stack ~allowed_operations ~current_operations ~pool_auto_join
-    ~cluster_config ~other_config;
+    ~token_timeout ~token_timeout_coefficient ~cluster_config ~other_config;
   let cluster_host_ref = make_cluster_host ~__context ~cluster:ref () in
   ref, cluster_host_ref

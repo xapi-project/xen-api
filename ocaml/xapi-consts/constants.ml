@@ -133,3 +133,7 @@ let pgpu_default_size = Int64.mul 1024L 1024L
 
 (* Used to specify mapping of vGPUs to pGPU groups on the remote machine. Stored in VGPU.other_config *)
 let storage_migrate_vgpu_map_key = "maps_to"
+
+(* Corosync timeout default values *)
+let default_token_timeout_s = 20.0
+let default_token_timeout_coefficient_s = 1.0
