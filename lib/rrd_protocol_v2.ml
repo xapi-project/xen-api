@@ -193,7 +193,9 @@ let parse_metadata metadata =
     let kvs = Rrd_rpc.dict_of_rpc ~rpc in
     let datasource_rpcs = Rrd_rpc.dict_of_rpc ~rpc:(List.assoc "datasources" kvs) in
     List.map uninitialised_ds_of_rpc datasource_rpcs
-  with _ -> raise Invalid_payload
+  with exn ->
+    print_endline (Printf.sprintf "Error: %s" (Printexc.to_string exn));
+    raise Invalid_payload
 
 let make_payload_reader () =
   let last_data_crc = ref 0l in
@@ -227,16 +229,25 @@ let make_payload_reader () =
          Read.datasource_values cs !cached_datasources
        end else begin
          (* Metadata has changed - we need to read it to find the types of the
-            				 * datasources, then go back and read the values themselves. *)
-         let metadata_length = Read.metadata_length cs datasource_count in
+          * datasources, then go back and read the values themselves. *)
+         let metadata_length =
+           Read.metadata_length cs datasource_count in
          let metadata = Read.metadata cs datasource_count metadata_length in
          (* Check the metadata checksum is correct. *)
          if not (metadata_crc = Crc32.string metadata 0 metadata_length)
          then raise Invalid_checksum;
          (* If all is OK, cache the metadata checksum and read the values
-            				 * based on this new metadata. *)
+          * based on this new metadata. *)
          last_metadata_crc := metadata_crc;
-         Read.datasource_values cs (parse_metadata metadata)
+         (* The rrd c library incorrectly includes the null terminator in
+          * the crc and in the lenght. This makes the jsonrpc deserialization
+          * fail with "Junk after the JSON value". The following works
+          * around this by trimming any null terminator before trying to
+          * parse the metadata *)
+         metadata
+         |> Astring.String.trim ~drop:(fun c -> c = '\000')
+         |> parse_metadata
+         |> Read.datasource_values cs
        end
      in
      cached_datasources := datasources;
