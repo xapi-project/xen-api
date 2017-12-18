@@ -66,14 +66,16 @@ let assert_cluster_host_can_be_created ~__context ~host =
       ~expr:Db_filter_types.(Eq(Literal (Ref.string_of host),Field "host")) <> [] then
     failwith "Cluster host cannot be created because it already exists"
 
-let get_sms_of_type_requiring_cluster_stack ~__context ~sr_sm_type ~cluster_stack =
-  let sms_matching_sr_type = Db.SM.get_records_where ~__context
-      ~expr:Db_filter_types.(Eq(Field "type", Literal sr_sm_type)) in
-  let sms = List.filter (fun (sm_ref, sm_rec) ->
-                List.mem cluster_stack sm_rec.API.sM_required_cluster_stack) sms_matching_sr_type in
-  List.map (fun (_, sm_rec) -> sm_rec.API.sM_uuid) sms |> String.concat ","
-  |> debug "get_sms_of_type_requiring_cluster_stack: got SM(s) %s";
-  sms
+(** One of these cluster stacks should be configured and running *)
+let get_required_cluster_stacks ~__context ~sr_sm_type =
+  let sms_matching_sr_type =
+    Db.SM.get_records_where ~__context
+      ~expr:Db_filter_types.(Eq(Field "type", Literal sr_sm_type))
+  in
+  sms_matching_sr_type
+  |> List.map (fun (_sm_ref, sm_rec) -> sm_rec.API.sM_required_cluster_stack)
+  (* We assume that we only have one SM for each SR type, so this is only to satisfy type checking *)
+  |> List.flatten
 
 let find_cluster_host ~__context ~host =
   match Db.Cluster_host.get_refs_where ~__context
@@ -93,14 +95,21 @@ let assert_cluster_host_enabled ~__context ~self ~expected =
     | false -> raise Api_errors.(Server_error(clustering_enabled, [Ref.string_of self]))
 
 let assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type =
-  find_cluster_host ~__context ~host
-  |> Stdext.Opt.iter (fun cluster_host ->
-      let cluster = Db.Cluster_host.get_cluster ~__context ~self:cluster_host in
-      let cluster_stack = Db.Cluster.get_cluster_stack ~__context ~self:cluster in
-      match get_sms_of_type_requiring_cluster_stack ~__context ~sr_sm_type ~cluster_stack with
-      | _::_ ->
-        assert_cluster_host_enabled ~__context ~self:cluster_host ~expected:true
-      | _ -> ())
+  begin match get_required_cluster_stacks ~__context ~sr_sm_type with
+    | [] -> ()
+    | required_cluster_stacks ->
+      (* One of these [required_cluster_stacks] should be configured and running *)
+      let cluster_stack_of ~cluster_host =
+        let cluster = Db.Cluster_host.get_cluster ~__context ~self:cluster_host in
+        Db.Cluster.get_cluster_stack ~__context ~self:cluster
+      in
+      begin match find_cluster_host ~__context ~host with
+        | Some cluster_host when (List.mem (cluster_stack_of ~cluster_host) required_cluster_stacks) ->
+          assert_cluster_host_enabled ~__context ~self:cluster_host ~expected:true
+        | Some _ (* incompatible cluster host *) | None ->
+          raise Api_errors.(Server_error (no_compatible_cluster_host, [Ref.string_of host]))
+      end
+  end
 
 (* certain cluster_host operations (such as enable, disable) must run on the host on which it is
    operating on in order to work correctly, as they must communicate directly to the local
@@ -118,13 +127,17 @@ let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__conte
       Db.PBD.get_currently_attached ~__context ~self:pbd)
       (Db.Host.get_PBDs ~__context ~self:host) in
   let srs = List.map (fun pbd -> Db.PBD.get_SR ~__context ~self:pbd) pbds in
-  List.iter (fun sr ->
-      let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
-      match get_sms_of_type_requiring_cluster_stack ~__context ~sr_sm_type ~cluster_stack with
-      | _::_ ->
-        (* TODO: replace with API error *)
-        failwith (Printf.sprintf "Host has attached SR whose SM requires cluster stack %s" cluster_stack)
-      | _ -> ()) srs
+  List.iter
+    (fun sr ->
+       let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
+       (* XXX This check is a bit too conservative, because the SR requires
+          only one of these cluster stacks to be configured and running. *)
+       if List.mem cluster_stack (get_required_cluster_stacks ~__context ~sr_sm_type) then begin
+         (* TODO: replace with API error *)
+         failwith (Printf.sprintf "Host has attached SR whose SM requires cluster stack %s" cluster_stack)
+       end
+    )
+    srs
 
 let assert_cluster_has_one_node ~__context ~self =
   match List.length (Db.Cluster.get_cluster_hosts ~__context ~self) with

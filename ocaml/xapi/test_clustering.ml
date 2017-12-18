@@ -12,147 +12,181 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
-open Test_common
-open Xapi_clustering
+(** Tests for the Xapi_clustering module *)
 
-(* test Xapi_clustering.get_sms_requiring_cluster_stack *)
+module T = Test_common
 
-let assert_number_of_matching_sms_which_also_require_cluster_stack sms num =
-  let len = List.length sms in
-  let msg = Printf.sprintf
-      "Number of matching SMs which also require the cluster stack should be %d, but we got %d."
-      len num in
-  assert_bool msg (len = num)
+(** Tests Xapi_clustering.get_required_cluster_stacks *)
+let test_get_required_cluster_stacks =
+  let assert_equal ~required_cluster_stacks ~to_set =
+    let module S = Ounit_comparators.StringSet in
+    S.assert_equal (S.of_list to_set) (S.of_list required_cluster_stacks)
+  in
 
-let test_zero_sms_in_database () =
-  let __context = make_test_database () in
-  let sms = get_sms_of_type_requiring_cluster_stack ~__context ~sr_sm_type:"" ~cluster_stack:"corosync" in
-  assert_number_of_matching_sms_which_also_require_cluster_stack sms 0
+  let test_zero_sms_in_database () =
+    let __context = T.make_test_database () in
+    let required_cluster_stacks = Xapi_clustering.get_required_cluster_stacks ~__context ~sr_sm_type:"" in
+    assert_equal ~required_cluster_stacks ~to_set:[]
+  in
 
-let test_zero_sms_with_matching_type_which_do_require_cluster_stack () =
-  let __context = make_test_database () in
-  let _ = make_sm ~__context ~_type:"type2" ~required_cluster_stack:["stack1"; "corosync"] () in
-  let _ = make_sm ~__context ~_type:"type2" ~required_cluster_stack:["corosync"] () in
-  let sms = get_sms_of_type_requiring_cluster_stack ~__context ~sr_sm_type:"type1" ~cluster_stack:"corosync" in
-  assert_number_of_matching_sms_which_also_require_cluster_stack sms 0
+  let test_zero_sms_with_matching_type_which_do_require_cluster_stack () =
+    let __context = T.make_test_database () in
+    let _ = T.make_sm ~__context ~_type:"type2" ~required_cluster_stack:["stack1"; "corosync"] () in
+    let _ = T.make_sm ~__context ~_type:"type2" ~required_cluster_stack:["corosync"] () in
+    let required_cluster_stacks = Xapi_clustering.get_required_cluster_stacks ~__context ~sr_sm_type:"type1" in
+    assert_equal ~required_cluster_stacks ~to_set:[]
+  in
 
-let test_one_sm_with_matching_type_which_doesnt_require_cluster_stack () =
-  let __context = make_test_database () in
-  let _ = make_sm ~__context ~_type:"type1" ~required_cluster_stack:[] () in
-  let sms = get_sms_of_type_requiring_cluster_stack ~__context ~sr_sm_type:"type1" ~cluster_stack:"corosync" in
-  assert_number_of_matching_sms_which_also_require_cluster_stack sms 0
+  let test_one_sm_with_matching_type_which_doesnt_require_cluster_stack () =
+    let __context = T.make_test_database () in
+    let _ = T.make_sm ~__context ~_type:"type1" ~required_cluster_stack:[] () in
+    let required_cluster_stacks = Xapi_clustering.get_required_cluster_stacks ~__context ~sr_sm_type:"type1" in
+    assert_equal ~required_cluster_stacks ~to_set:[]
+  in
 
-let test_one_sm_with_matching_type_which_does_require_cluster_stack () =
-  let __context = make_test_database () in
-  let _ = make_sm ~__context ~_type:"type1" ~required_cluster_stack:["corosync"] () in
-  let sms = get_sms_of_type_requiring_cluster_stack ~__context ~sr_sm_type:"type1" ~cluster_stack:"corosync" in
-  assert_number_of_matching_sms_which_also_require_cluster_stack sms 1
+  let test_one_sm_with_matching_type_which_does_require_cluster_stack () =
+    let __context = T.make_test_database () in
+    let _ = T.make_sm ~__context ~_type:"type1" ~required_cluster_stack:["corosync"] () in
+    let required_cluster_stacks = Xapi_clustering.get_required_cluster_stacks ~__context ~sr_sm_type:"type1" in
+    assert_equal ~required_cluster_stacks ~to_set:["corosync"]
+  in
 
-(* there should probably never be more than one SM of a particular type, but
-   test it here anyway to see that the behavior of the function is as
-   expected in that situation. *)
-let test_multiple_sms_with_some_matching_type_with_some_requiring_cluster_stack () =
-  let __context = make_test_database () in
-  let _ = make_sm ~__context ~_type:"type1" ~required_cluster_stack:[] () in
-  let _ = make_sm ~__context ~_type:"type1" ~required_cluster_stack:["corosync"] () in
-  let _ = make_sm ~__context ~_type:"type1" ~required_cluster_stack:["stack1"; "corosync"] () in
-  let _ = make_sm ~__context ~_type:"type2" ~required_cluster_stack:["corosync"] () in
-  let _ = make_sm ~__context ~_type:"type2" ~required_cluster_stack:["stack1"] () in
-  let _ = make_sm ~__context ~_type:"type2" ~required_cluster_stack:["stack1"; "corosync"] () in
-  let sms = get_sms_of_type_requiring_cluster_stack ~__context ~sr_sm_type:"type1" ~cluster_stack:"corosync" in
-  assert_number_of_matching_sms_which_also_require_cluster_stack sms 2
+  (* there should probably never be more than one SM of a particular type, but
+     test it here anyway to see that the behavior of the function is as
+     expected in that situation. *)
+  let test_multiple_sms_with_some_matching_type_with_some_requiring_cluster_stack () =
+    let __context = T.make_test_database () in
+    let _ = T.make_sm ~__context ~_type:"type1" ~required_cluster_stack:[] () in
+    let _ = T.make_sm ~__context ~_type:"type1" ~required_cluster_stack:["corosync"] () in
+    let _ = T.make_sm ~__context ~_type:"type1" ~required_cluster_stack:["stack1"; "corosync"] () in
+    let _ = T.make_sm ~__context ~_type:"type2" ~required_cluster_stack:["corosync"] () in
+    let _ = T.make_sm ~__context ~_type:"type2" ~required_cluster_stack:["stack1"] () in
+    let _ = T.make_sm ~__context ~_type:"type2" ~required_cluster_stack:["stack1"; "corosync"] () in
+    let required_cluster_stacks = Xapi_clustering.get_required_cluster_stacks ~__context ~sr_sm_type:"type1" in
+    assert_equal ~required_cluster_stacks ~to_set:["stack1"; "corosync"]
+  in
 
-(* test Xapi_clustering.find_cluster_host *)
+  let open OUnit in
+  "test_get_required_cluster_stacks" >:::
+  [ "test_zero_sms_in_database" >:: test_zero_sms_in_database
+  ; "test_zero_sms_with_matching_type_which_do_require_cluster_stack" >:: test_zero_sms_with_matching_type_which_do_require_cluster_stack
+  ; "test_one_sm_with_matching_type_which_doesnt_require_cluster_stack" >:: test_one_sm_with_matching_type_which_doesnt_require_cluster_stack
+  ; "test_one_sm_with_matching_type_which_does_require_cluster_stack" >:: test_one_sm_with_matching_type_which_does_require_cluster_stack
+  ; "test_multiple_sms_with_some_matching_type_with_some_requiring_cluster_stack" >:: test_multiple_sms_with_some_matching_type_with_some_requiring_cluster_stack
+  ]
 
-let test_find_cluster_host_finds_zero_cluster_hosts () =
-  let __context = make_test_database () in
-  let host = Db.Host.get_all ~__context |> List.hd in
-  assert_bool "find_cluster_host should return None"
-    (find_cluster_host ~__context ~host = None)
+(** Tests Xapi_clustering.find_cluster_host *)
+let test_find_cluster_host =
+  let test_find_cluster_host_finds_zero_cluster_hosts () =
+    let __context = T.make_test_database () in
+    let host = Db.Host.get_all ~__context |> List.hd in
+    OUnit.assert_bool "find_cluster_host should return None"
+      (Xapi_clustering.find_cluster_host ~__context ~host = None)
+  in
 
-let test_find_cluster_host_finds_one_cluster_host () =
-  let __context = make_test_database () in
-  let host = Db.Host.get_all ~__context |> List.hd in
-  let ref = make_cluster_host ~__context ~host () in
-  let _ = make_cluster_host ~__context ~host:(Ref.make ()) () in
-  assert_bool "find_cluster_host should return (Some ref)"
-    (find_cluster_host ~__context ~host = Some ref)
+  let test_find_cluster_host_finds_one_cluster_host () =
+    let __context = T.make_test_database () in
+    let host = Db.Host.get_all ~__context |> List.hd in
+    let ref = T.make_cluster_host ~__context ~host () in
+    let _ = T.make_cluster_host ~__context ~host:(Ref.make ()) () in
+    OUnit.assert_bool "find_cluster_host should return (Some ref)"
+      (Xapi_clustering.find_cluster_host ~__context ~host = Some ref)
+  in
 
-let test_find_cluster_host_finds_multiple_cluster_hosts () =
-  let __context = make_test_database () in
-  let host = Db.Host.get_all ~__context |> List.hd in
-  let _ = make_cluster_host ~__context ~host () in
-  let _ = make_cluster_host ~__context ~host () in
-  assert_raises_api_error Api_errors.internal_error
-    (fun () -> find_cluster_host ~__context ~host)
+  let test_find_cluster_host_finds_multiple_cluster_hosts () =
+    let __context = T.make_test_database () in
+    let host = Db.Host.get_all ~__context |> List.hd in
+    let _ = T.make_cluster_host ~__context ~host () in
+    let _ = T.make_cluster_host ~__context ~host () in
+    T.assert_raises_api_error Api_errors.internal_error
+      (fun () -> Xapi_clustering.find_cluster_host ~__context ~host)
+  in
 
-(** test Xapi_clustering.assert_cluster_host_enabled *)
+  let open OUnit in
+  "test_find_cluster_host" >:::
+  [ "test_find_cluster_host_finds_zero_cluster_hosts" >:: test_find_cluster_host_finds_zero_cluster_hosts
+  ; "test_find_cluster_host_finds_one_cluster_host" >:: test_find_cluster_host_finds_one_cluster_host
+  ; "test_find_cluster_host_finds_multiple_cluster_hosts" >:: test_find_cluster_host_finds_multiple_cluster_hosts
+  ]
 
-let test_assert_cluster_host_is_enabled_when_it_is_enabled () =
-  let __context = make_test_database () in
-  let self = make_cluster_host ~__context ~enabled:true () in
-  try assert_cluster_host_enabled ~__context ~self ~expected:true
-  with _ -> assert_failure "asserting cluster_host is enabled fails when cluster_host is enabled"
+(** Tests Xapi_clustering.assert_cluster_host_enabled *)
+let test_assert_cluster_host_enabled =
+  let test_assert_cluster_host_is_enabled_when_it_is_enabled () =
+    let __context = T.make_test_database () in
+    let self = T.make_cluster_host ~__context ~enabled:true () in
+    try Xapi_clustering.assert_cluster_host_enabled ~__context ~self ~expected:true
+    with _ -> OUnit.assert_failure "asserting cluster_host is enabled fails when cluster_host is enabled"
+  in
 
-let test_assert_cluster_host_is_enabled_when_it_is_disabled () =
-  let __context = make_test_database () in
-  let self = make_cluster_host ~__context ~enabled:false () in
-  assert_raises_api_error Api_errors.clustering_disabled ~args:[Ref.string_of self]
-    (fun () -> assert_cluster_host_enabled ~__context ~self ~expected:true)
+  let test_assert_cluster_host_is_enabled_when_it_is_disabled () =
+    let __context = T.make_test_database () in
+    let self = T.make_cluster_host ~__context ~enabled:false () in
+    T.assert_raises_api_error Api_errors.clustering_disabled ~args:[Ref.string_of self]
+      (fun () -> Xapi_clustering.assert_cluster_host_enabled ~__context ~self ~expected:true)
+  in
 
-let test_assert_cluster_host_is_disabled_when_it_is_enabled () =
-  let __context = make_test_database () in
-  let self = make_cluster_host ~__context ~enabled:true () in
-  assert_raises_api_error Api_errors.clustering_enabled ~args:[Ref.string_of self]
-    (fun () -> assert_cluster_host_enabled ~__context ~self ~expected:false)
+  let test_assert_cluster_host_is_disabled_when_it_is_enabled () =
+    let __context = T.make_test_database () in
+    let self = T.make_cluster_host ~__context ~enabled:true () in
+    T.assert_raises_api_error Api_errors.clustering_enabled ~args:[Ref.string_of self]
+      (fun () -> Xapi_clustering.assert_cluster_host_enabled ~__context ~self ~expected:false)
+  in
 
-let test_assert_cluster_host_is_disabled_when_it_is_disabled () =
-  let __context = make_test_database () in
-  let self = make_cluster_host ~__context ~enabled:false () in
-  try assert_cluster_host_enabled ~__context ~self ~expected:false
-  with _ -> assert_failure "asserting cluster_host is disabled fails when cluster_host is disabled"
+  let test_assert_cluster_host_is_disabled_when_it_is_disabled () =
+    let __context = T.make_test_database () in
+    let self = T.make_cluster_host ~__context ~enabled:false () in
+    try Xapi_clustering.assert_cluster_host_enabled ~__context ~self ~expected:false
+    with _ -> OUnit.assert_failure "asserting cluster_host is disabled fails when cluster_host is disabled"
+  in
 
-(* test Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms *)
+  let open OUnit in
+  "test_assert_cluster_host_enabled" >:::
+  [ "test_assert_cluster_host_is_enabled_when_it_is_enabled" >:: test_assert_cluster_host_is_enabled_when_it_is_enabled
+  ; "test_assert_cluster_host_is_enabled_when_it_is_disabled" >:: test_assert_cluster_host_is_enabled_when_it_is_disabled
+  ; "test_assert_cluster_host_is_disabled_when_it_is_enabled" >:: test_assert_cluster_host_is_disabled_when_it_is_enabled
+  ; "test_assert_cluster_host_is_disabled_when_it_is_disabled" >:: test_assert_cluster_host_is_disabled_when_it_is_disabled
+  ]
 
-let make_scenario ?(cluster_host_enabled=true) () =
-  let __context = make_test_database () in
-  let host = Db.Host.get_all ~__context |> List.hd in
-  let cluster, cluster_host = make_cluster_and_cluster_host ~__context () in
-  Db.Cluster_host.set_host ~__context ~self:cluster_host ~value:host;
-  Db.Cluster_host.set_enabled ~__context ~self:cluster_host ~value:cluster_host_enabled;
-  let sm = make_sm ~__context ~_type:"type1" ~required_cluster_stack:["corosync"] () in
-  __context, host, cluster, cluster_host, sm
+(** Tests Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms *)
+let test_assert_cluster_host_is_enabled_for_matching_sms =
+  let make_scenario ?(cluster_host_enabled=true) () =
+    let __context = T.make_test_database () in
+    let host = Db.Host.get_all ~__context |> List.hd in
+    let cluster, cluster_host = T.make_cluster_and_cluster_host ~__context () in
+    Db.Cluster_host.set_host ~__context ~self:cluster_host ~value:host;
+    Db.Cluster_host.set_enabled ~__context ~self:cluster_host ~value:cluster_host_enabled;
+    let sm = T.make_sm ~__context ~_type:"type1" ~required_cluster_stack:["corosync"] () in
+    __context, host, cluster, cluster_host, sm
+  in
 
-let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled () =
-  let __context, host, cluster, cluster_host, sm = make_scenario () in
-  assert_equal (assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"type1") ()
+  let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled () =
+    let __context, host, cluster, cluster_host, sm = make_scenario () in
+    OUnit.assert_equal (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"type1") ()
+  in
 
-let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching_sms_exist () =
-  let __context, host, cluster, cluster_host, sm = make_scenario () in
-  assert_equal (assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"type2") ()
+  let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching_sms_exist () =
+    let __context, host, cluster, cluster_host, sm = make_scenario () in
+    OUnit.assert_equal (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"type2") ()
+  in
 
-let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_is_disabled () =
-  let __context, host, cluster, cluster_host, sm = make_scenario ~cluster_host_enabled:false () in
-  assert_raises_api_error Api_errors.clustering_disabled ~args:[Ref.string_of cluster_host]
-    (fun () -> assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"type1")
+  let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_is_disabled () =
+    let __context, host, cluster, cluster_host, sm = make_scenario ~cluster_host_enabled:false () in
+    T.assert_raises_api_error Api_errors.clustering_disabled ~args:[Ref.string_of cluster_host]
+      (fun () -> Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"type1")
+  in
+
+  let open OUnit in
+  "test_assert_cluster_host_is_enabled_for_matching_sms" >:::
+  [ "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled" >:: test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled
+  ; "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching_sms_exist" >:: test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching_sms_exist
+  ; "test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_is_disabled" >:: test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_is_disabled
+  ]
 
 let test =
+  let open OUnit in
   "test_clustering" >:::
-  [
-    "test_zero_sms_in_database" >:: test_zero_sms_in_database;
-    "test_zero_sms_with_matching_type_which_do_require_cluster_stack" >:: test_zero_sms_with_matching_type_which_do_require_cluster_stack;
-    "test_one_sm_with_matching_type_which_doesnt_require_cluster_stack" >:: test_one_sm_with_matching_type_which_doesnt_require_cluster_stack;
-    "test_one_sm_with_matching_type_which_does_require_cluster_stack" >:: test_one_sm_with_matching_type_which_does_require_cluster_stack;
-    "test_multiple_sms_with_some_matching_type_with_some_requiring_cluster_stack" >:: test_multiple_sms_with_some_matching_type_with_some_requiring_cluster_stack;
-    "test_find_cluster_host_finds_zero_cluster_hosts" >:: test_find_cluster_host_finds_zero_cluster_hosts;
-    "test_find_cluster_host_finds_one_cluster_host" >:: test_find_cluster_host_finds_one_cluster_host;
-    "test_find_cluster_host_finds_multiple_cluster_hosts" >:: test_find_cluster_host_finds_multiple_cluster_hosts;
-    "test_assert_cluster_host_is_enabled_when_it_is_enabled" >:: test_assert_cluster_host_is_enabled_when_it_is_enabled;
-    "test_assert_cluster_host_is_enabled_when_it_is_disabled" >:: test_assert_cluster_host_is_enabled_when_it_is_disabled;
-    "test_assert_cluster_host_is_disabled_when_it_is_enabled" >:: test_assert_cluster_host_is_disabled_when_it_is_enabled;
-    "test_assert_cluster_host_is_disabled_when_it_is_disabled" >:: test_assert_cluster_host_is_disabled_when_it_is_disabled;
-    "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled" >:: test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled;
-    "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching_sms_exist" >:: test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching_sms_exist;
-    "test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_is_disabled" >:: test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_is_disabled;
+  [ test_get_required_cluster_stacks
+  ; test_find_cluster_host
+  ; test_assert_cluster_host_enabled
+  ; test_assert_cluster_host_is_enabled_for_matching_sms
   ]
