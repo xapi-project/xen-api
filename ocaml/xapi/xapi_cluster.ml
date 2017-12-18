@@ -19,7 +19,7 @@ open D
 
 (* TODO: update allowed_operations on boot/toolstack-restart *)
 
-let create ~__context ~network ~cluster_stack ~pool_auto_join =
+let create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient =
   Pool_features.assert_enabled ~__context ~f:Features.Corosync;
   with_clustering_lock (fun () ->
       let dbg = Context.string_of_task __context in
@@ -33,19 +33,22 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join =
       let host = Db.Pool.get_master ~__context ~self:pool in
 
       let ip = pif_of_host ~__context network host |> ip_of_pif in
+
+      let token_timeout_ms = Int64.of_float(token_timeout*.1000.0) in
+      let token_timeout_coefficient_ms = Int64.of_float(token_timeout_coefficient*.1000.0) in
       let init_config = {
         Cluster_idl.Interface.local_ip = ip;
-        token_timeout_ms = None;
-        token_coefficient_ms = None;
+        token_timeout_ms = Some token_timeout_ms;
+        token_coefficient_ms = Some token_timeout_coefficient_ms;
         name = None
-      } in (* TODO: Pass these through from CLI *)
+      } in
 
       let result = Cluster_client.LocalClient.create rpc dbg init_config in
       match result with
       | Result.Ok cluster_token ->
         D.debug "Got OK from LocalClient.create";
         Db.Cluster.create ~__context ~ref:cluster_ref ~uuid:cluster_uuid ~network ~cluster_token ~cluster_stack
-          ~pool_auto_join ~current_operations:[] ~allowed_operations:[] ~cluster_config:[]
+          ~pool_auto_join ~token_timeout:token_timeout_ms ~token_timeout_coefficient:token_timeout_coefficient_ms ~current_operations:[] ~allowed_operations:[] ~cluster_config:[]
           ~other_config:[];
         Db.Cluster_host.create ~__context ~ref:cluster_host_ref ~uuid:cluster_host_uuid ~cluster:cluster_ref ~host ~enabled:true
           ~current_operations:[] ~allowed_operations:[] ~other_config:[];
@@ -68,12 +71,12 @@ let destroy ~__context ~self =
   | Result.Error error -> handle_error error
 
 (* helper function; concurrency checks are done in implementation of Cluster.create and Cluster_host.create *)
-let pool_create ~__context ~network ~cluster_stack =
+let pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient =
   let master = Helpers.get_master ~__context in
   let hosts = Db.Host.get_all ~__context in
 
   let cluster = Helpers.call_api_functions ~__context (fun rpc session_id ->
-      Client.Client.Cluster.create ~rpc ~session_id ~network ~cluster_stack:"corosync" ~pool_auto_join:true)
+      Client.Client.Cluster.create ~rpc ~session_id ~network ~cluster_stack:"corosync" ~pool_auto_join:true ~token_timeout ~token_timeout_coefficient)
   in
 
   List.iter (fun host ->

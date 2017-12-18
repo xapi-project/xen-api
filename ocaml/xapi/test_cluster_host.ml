@@ -19,8 +19,8 @@ let create_cluster ~__context pool_auto_join =
   let cluster_uuid = Uuidm.to_string (Uuidm.create `V4) in
   let network = Test_common.make_network ~__context () in
   Db.Cluster.create ~__context ~ref:cluster_ref ~uuid:cluster_uuid ~network ~cluster_token:"token"
-    ~cluster_stack:"corosync" ~allowed_operations:[] ~current_operations:[] ~pool_auto_join ~cluster_config:[]
-    ~other_config:[];
+    ~cluster_stack:"corosync" ~token_timeout:5000L ~token_timeout_coefficient:1000L ~allowed_operations:[] 
+    ~current_operations:[] ~pool_auto_join ~cluster_config:[] ~other_config:[];
   cluster_ref
 
 let test_dbsync_join () =

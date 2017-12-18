@@ -2875,7 +2875,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     "cluster-pool-create",
     {
       reqd=["network-uuid"];
-      optn=["cluster-stack"];
+      optn=["cluster-stack";"token-timeout";"token-timeout-coefficient"];
       help="Create pool-wide cluster";
       implementation=No_fd Cli_operations.Cluster.pool_create;
       flags=[];
@@ -2899,7 +2899,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     "cluster-create",
     {
       reqd=["network-uuid"];
-      optn=["cluster-stack";"pool-auto-join"];
+      optn=["cluster-stack";"pool-auto-join";"token-timeout";"token-timeout-coefficient"];
       help="Create new cluster with master as first member";
       implementation=No_fd Cli_operations.Cluster.create;
       flags=[Hidden];
