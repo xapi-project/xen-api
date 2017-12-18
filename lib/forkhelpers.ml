@@ -164,7 +164,7 @@ let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr
       Fecomms.write_raw_rpc sock Fe.Exec;
       match Fecomms.read_raw_rpc sock with
       | Fe.Execed pid -> (sock, pid)
-      | _ -> failwith ("This should never happen: Forkhelpers.waitpid " ^ __LOC__)
+      | _ -> failwith ("This should never happen: Forkhelpers.safe_close_and_exec " ^ __LOC__)
     )
 
     close_fds
