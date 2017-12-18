@@ -194,7 +194,7 @@ let parse_metadata metadata =
     let datasource_rpcs = Rrd_rpc.dict_of_rpc ~rpc:(List.assoc "datasources" kvs) in
     List.map uninitialised_ds_of_rpc datasource_rpcs
   with exn ->
-    print_endline (Printf.sprintf "Error: %s" (Printexc.to_string exn));
+    Printf.eprintf "Error: %s%!" (Printexc.to_string exn);
     raise Invalid_payload
 
 let make_payload_reader () =
