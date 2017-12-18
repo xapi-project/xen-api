@@ -111,10 +111,15 @@ let api =
     ty = Type.(Basic String);
     description = "The volume key";
   } in
-  let uri = {
-    Arg.name = "uri";
-    ty = Type.(Basic String);
-    description = "The Storage Repository URI";
+  let configuration = {
+    Arg.name = "configuration";
+    ty = Type.(Dict(String, Basic String));
+    description = String.concat " " [
+                    "Plugin-specific configuration which describes where and";
+                    "how to create the storage repository. This may include";
+                    "the physical block device name, a remote NFS server and";
+                    "path or an RBD storage pool.";
+                  ];
   } in
   let uuid = {
     Arg.name = "uuid";
@@ -419,9 +424,9 @@ let api =
           methods = [
             {
               Method.name = "probe";
-              description = "[probe uri]: looks for existing SRs on the storage device";
+              description = "[probe configuration]: looks for existing SRs on the storage device";
               inputs = [
-                uri;
+                configuration;
               ];
               outputs = [
                { Arg.name = "result";
@@ -436,10 +441,10 @@ let api =
             };
             {
               Method.name = "create";
-              description = "[create uuid uri name description configuration]: creates a fresh SR";
+              description = "[create uuid configuration name description]: creates a fresh SR";
               inputs = [
                 uuid;
-                uri;
+                configuration;
                 { Arg.name = "name";
                   ty = Type.(Basic String);
                   description = "Human-readable name for the SR";
@@ -447,28 +452,18 @@ let api =
                   Arg.name = "description";
                   ty = Type.(Basic String);
                   description = "Human-readable description for the SR";
-                }; {
-                  Arg.name = "configuration";
-                  ty = Type.(Dict(String, Basic String));
-                  description = String.concat " " [
-                    "Plugin-specific configuration which describes where and";
-                    "how to create the storage repository. This may include";
-                    "the physical block device name, a remote NFS server and";
-                    "path or an RBD storage pool.";
-                  ];
                 };
               ];
-              outputs = [uri]
+              outputs = [configuration]
             };
             {
               Method.name = "attach";
               description = String.concat " "[
-                "[attach uuid uri]: attaches the SR to the local host. Once an SR";
+                "[attach configuration]: attaches the SR to the local host. Once an SR";
                 "is attached then volumes may be manipulated.";
               ];
               inputs = [
-                uuid;
-                uri;
+                configuration;
               ];
               outputs = [
                 sr;
