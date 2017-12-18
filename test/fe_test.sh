@@ -1,8 +1,4 @@
 #!/bin/sh
 
-PIDFILE=/var/xapi/forkexecd.pid
-
-../src/fe_main.exe -daemon -pidfile $PIDFILE
-trap 'kill `cat $PIDFILE`' EXIT
-
+../src/fe_main.exe &
 ./fe_test.exe 16
