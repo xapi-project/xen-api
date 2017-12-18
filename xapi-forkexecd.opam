@@ -11,8 +11,11 @@ build-test: ["jbuilder" "runtest" "-p" name]
 
 depends: [
   "jbuilder" {build}
+  "astring"
   "forkexec"
   "systemd" {>= "1.2"}
   "uuidm"
-  "xapi-stdext"
+  "xapi-stdext-monadic"
+  "xapi-stdext-unix"
+  "xapi-stdext-range" {test}
 ]

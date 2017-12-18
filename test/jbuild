@@ -1,8 +1,9 @@
 (executable
  ((name fe_test)
   (libraries (forkexec
-              stdext
-              uuidm))
+              uuidm
+              xapi-stdext-range
+              xapi-stdext-unix))
  ))
 
 (alias

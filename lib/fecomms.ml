@@ -1,4 +1,4 @@
-open Stdext
+open Xapi_stdext_unix
 open Fe
 
 let open_unix_domain_sock () =

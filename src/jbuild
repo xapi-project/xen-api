@@ -2,8 +2,10 @@
  ((name fe_main)
   (public_name forkexecd)
   (package xapi-forkexecd)
-  (libraries (forkexec
-              stdext
+  (libraries (astring
+              forkexec
               systemd
-              uuidm))
+              uuidm
+              xapi-stdext-monadic
+              xapi-stdext-unix))
  ))

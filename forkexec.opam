@@ -15,5 +15,7 @@ depends: [
   "rpc" {>= "1.9.51"}
   "uuidm"
   "xapi-idl"
-  "xapi-stdext"
+  "xapi-stdext-monadic"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-unix"
 ]

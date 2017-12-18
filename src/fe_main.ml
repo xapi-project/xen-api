@@ -4,7 +4,7 @@ let setup sock cmdargs id_to_fd_map syslog_stdout redirect_stderr_to_stdout env 
   let fd_sock_path = Printf.sprintf "/var/xapi/forker/fd_%s" 
     (Uuidm.to_string (Uuidm.create `V4)) in
   let fd_sock = Fecomms.open_unix_domain_sock () in
-  Stdext.Unixext.unlink_safe fd_sock_path;
+  Xapi_stdext_unix.Unixext.unlink_safe fd_sock_path;
   debug "About to bind to %s" fd_sock_path;
   Unix.bind fd_sock (Unix.ADDR_UNIX fd_sock_path);
   Unix.listen fd_sock 5;

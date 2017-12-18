@@ -1,6 +1,6 @@
 (* stdin stdout stderr (name, fd) cmd args *)
 
-let mkints n = Stdext.Range.to_list (Stdext.Range.make 0 n)
+let mkints n = Xapi_stdext_range.Range.to_list (Xapi_stdext_range.Range.make 0 n)
 
 (* All combinations of stdin, stdout, stderr
    0 - 5 named fds on the commandline
@@ -76,7 +76,7 @@ let test_delay () =
   let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid()) in
   let args = ["sleep"] in
   try
-    Forkhelpers.execute_command_get_output ~timeout:4.0 exe args;
+    Forkhelpers.execute_command_get_output ~timeout:4.0 exe args |> ignore;
     failwith "Failed to timeout"
   with
   | Forkhelpers.Subprocess_timeout ->
@@ -89,7 +89,7 @@ let test_notimeout () =
   let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid()) in
   let args = ["sleep"] in
   try
-    Forkhelpers.execute_command_get_output exe args;
+    Forkhelpers.execute_command_get_output exe args |> ignore;
     ()
   with
   | e ->
@@ -107,8 +107,8 @@ let master fds =
 	incr i;
 	let frac = float_of_int (!i) /. (float_of_int (List.length combinations)) in
 	let hashes = int_of_float (frac *. 70.) in
-	let percent = int_of_float (frac *. 100.) in
-	  Printf.printf "\r%5d %3d %s" !i (int_of_float (frac *. 100.)) (String.concat "" (List.map (fun _ -> "#") (Stdext.Range.to_list (Stdext.Range.make 0 hashes))));
+	let _percent = int_of_float (frac *. 100.) in
+	  Printf.printf "\r%5d %3d %s" !i (int_of_float (frac *. 100.)) (String.concat "" (List.map (fun _ -> "#") (mkints hashes)));
 	  flush stdout;
 	f x;
   in
@@ -117,11 +117,12 @@ let master fds =
 
 
 let fail x =
-  Stdext.Unixext.write_string_to_file "/tmp/fe-test.log" x;
+  Xapi_stdext_unix.Unixext.write_string_to_file "/tmp/fe-test.log" x;
   Printf.fprintf stderr "%s\n" x;
   assert false
 
 let slave = function
+  | [] -> failwith "Error, at least one fd expected"
   | total_fds :: rest ->
 		let total_fds = int_of_string total_fds in
 		let fds = List.filter (fun x -> not(List.mem x irrelevant_strings)) rest in

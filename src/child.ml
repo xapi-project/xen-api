@@ -1,5 +1,3 @@
-open Stdext
-open Xstringext
 
 let debug (fmt : ('a, unit, string, unit) format4) = (Printf.kprintf (fun s -> Printf.fprintf stderr "%s\n" s) fmt)
 
@@ -100,6 +98,7 @@ let log_failure args child_pid reason =
 	Fe_debug.error "%d (%s) %s" child_pid cmdline' reason
 
 let report_child_exit comms_sock args child_pid status =
+	let open Xapi_stdext_unix in
 	let pr = match status with
 	| Unix.WEXITED n ->
 		(* Unfortunately logging this was causing too much spam *)
@@ -154,14 +153,14 @@ let run state comms_sock fd_sock fd_sock_path =
 		Unix.close fd_sock;
 		(match state.fd_sock2 with Some x -> Unix.close x | None -> ());
 
-		Unixext.unlink_safe fd_sock_path;
+		Xapi_stdext_unix.Unixext.unlink_safe fd_sock_path;
 
 		(* Finally, replace placeholder uuids in the commandline arguments
 		   to be the string representation of the fd (where we don't care what
 		   fd it ends up being) *)
 		let args = List.map (fun arg ->
 			try
-				let (id_received,fd) = List.find (fun (id_received,_fd) -> String.endswith id_received arg) state.ids_received in
+				let (id_received,fd) = List.find (fun (id_received,_fd) -> Astring.String.is_suffix ~affix:id_received arg) state.ids_received in
 				let stem = String.sub arg 0 (String.length arg - String.length id_received) in
 				stem ^ (string_of_int (Fd_send_recv.int_of_fd fd));
 			with _ -> arg) state.cmdargs in
@@ -185,6 +184,7 @@ let run state comms_sock fd_sock fd_sock_path =
 
 		let result = Unix.fork () in
 
+		let open Xapi_stdext_monadic in
 		if result=0 then begin
 			(* child *)
 
@@ -194,7 +194,7 @@ let run state comms_sock fd_sock fd_sock_path =
 				Opt.iter (fun out_fd -> Unix.dup2 out_fd Unix.stderr) !out_childlogging;
 
 			(* Now let's close everything except those fds mentioned in the ids_received list *)
-			Unixext.close_all_fds_except ([Unix.stdin; Unix.stdout; Unix.stderr] @ fds);
+			Xapi_stdext_unix.Unixext.close_all_fds_except ([Unix.stdin; Unix.stdout; Unix.stderr] @ fds);
 
 			(* Distance ourselves from our parent process: *)
 			if Unix.setsid () == -1 then failwith "Unix.setsid failed";
@@ -213,7 +213,7 @@ let run state comms_sock fd_sock fd_sock_path =
 				(fun in_fd ->
 					let key = (match state.syslog_stdout.key with None -> Filename.basename name | Some key -> key) in
 					(* Read from the child's stdout and write each one to syslog *)
-					Unixext.lines_iter
+					Xapi_stdext_unix.Unixext.lines_iter
 						(fun line ->
 							Fe_debug.info "%s[%d]: %s" key result line
 						) (Unix.in_channel_of_descr in_fd)
@@ -265,10 +265,10 @@ let run state comms_sock fd_sock fd_sock_path =
 			debug "Cancelling";
 			Unix.close comms_sock;
 			Unix.close fd_sock;
-			Unixext.unlink_safe fd_sock_path;
+			Xapi_stdext_unix.Unixext.unlink_safe fd_sock_path;
 			exit 0;
 		| e ->
 			debug "Caught unexpected exception: %s" (Printexc.to_string e);
 			write_log ();
-			Unixext.unlink_safe fd_sock_path;
+			Xapi_stdext_unix.Unixext.unlink_safe fd_sock_path;
 			exit 1
