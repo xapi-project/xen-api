@@ -17,21 +17,24 @@
 
 (******************************************************************************)
 (** {2 External API calls} *)
-
 val create : __context:Context.t -> network:API.ref_network ->
-  cluster_stack:string -> pool_auto_join:bool -> API.ref_Cluster
-(** [create ~__context ~network ~cluster_stack ~pool_auto_join] is the
-    implementation of the XenAPI method 'Cluster.create'. It is the constructor
-    of the Cluster object. *)
+  cluster_stack:string -> pool_auto_join:bool -> 
+  token_timeout:float -> token_timeout_coefficient:float -> 
+  API.ref_Cluster
+(** [create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout 
+ *   ~token_timeout_coefficient] is the implementation of the XenAPI method 
+ *   'Cluster.create'. It is the constructor of the Cluster object. *)
 
 val destroy : __context:Context.t -> self:API.ref_Cluster -> unit
 (** [destroy ~__context ~self] is the implementation of the XenAPI method
     'Cluster.destroy'. It is the destructor of the Cluster object *)
 
 val pool_create : __context:Context.t -> network:API.ref_network ->
-  cluster_stack:string -> API.ref_Cluster
-(** [pool_create ~__context ~network ~cluster_stack] is the implementation
-    of the XenAPI method 'Cluster.pool_create'. This is a convenience function
+  cluster_stack:string -> token_timeout:float -> 
+  token_timeout_coefficient:float -> API.ref_Cluster
+(** [pool_create ~__context ~network ~cluster_stack ~token_timeout 
+    ~token_timeout_coefficient] is the implementation of the XenAPI 
+    method 'Cluster.pool_create'. This is a convenience function
     that creates the Cluster object and then creates Cluster_host objects for
     all hosts in the pool. *)
 
