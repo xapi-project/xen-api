@@ -4254,12 +4254,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   end
 
   module Cluster = struct
-    let create ~__context ~network ~cluster_stack ~pool_auto_join =
+    let create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient =
       info "Cluster.create";
       let pool = Db.Pool.get_all ~__context |> List.hd in (* assumes 1 pool in DB *)
       Xapi_pool_helpers.with_pool_operation ~__context ~self:pool ~doc:"Cluster.create" ~op:`cluster_create
         (fun () ->
-           let cluster = Local.Cluster.create ~__context ~network ~cluster_stack ~pool_auto_join in
+           let cluster = Local.Cluster.create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient in
            Xapi_cluster_helpers.update_allowed_operations ~__context ~self:cluster;
            cluster
         )
@@ -4270,9 +4270,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun () ->
            Local.Cluster.destroy ~__context ~self)
 
-    let pool_create ~__context ~network ~cluster_stack =
+    let pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient =
       info "Cluster.pool_create";
-      Local.Cluster.pool_create ~__context ~network ~cluster_stack
+      Local.Cluster.pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient
 
     let pool_destroy ~__context ~self =
       info "Cluster.pool_destroy";

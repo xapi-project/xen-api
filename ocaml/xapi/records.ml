@@ -2134,6 +2134,12 @@ let cluster_record rpc session_id cluster =
       ; make_field ~name:"cluster_stack"
           ~get:(fun () -> (x ()).API.cluster_cluster_stack)
           ()
+      ; make_field ~name:"token_timeout"
+          ~get:(fun () -> Int64.to_string((x ()).API.cluster_token_timeout))
+          ()
+      ; make_field ~name:"token_timeout_coefficient"
+          ~get:(fun () -> Int64.to_string((x ()).API.cluster_token_timeout_coefficient))
+          ()
       ; make_field ~name:"allowed_operations"
           ~get:(fun () -> String.concat "; " (List.map Record_util.cluster_operation_to_string (x ()).API.cluster_allowed_operations))
           ~get_set:(fun () -> List.map Record_util.cluster_operation_to_string (x ()).API.cluster_allowed_operations)
