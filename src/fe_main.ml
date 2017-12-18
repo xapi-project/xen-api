@@ -45,13 +45,13 @@ let _ =
 
   let main_sock = Fecomms.open_unix_domain_sock_server "/var/xapi/forker/main" in
 
-  Daemon.notify Daemon.State.Ready;
+  Daemon.notify Daemon.State.Ready |> ignore;
 
   (* At this point the init.d script should return and we are listening on our socket. *)
 
   while true do
     try
-      let (sock,addr) = Unix.accept main_sock in
+      let (sock,_addr) = Unix.accept main_sock in
       reset ();
       let cmd = Fecomms.read_raw_rpc sock in
       match cmd with

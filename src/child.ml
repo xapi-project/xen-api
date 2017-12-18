@@ -1,6 +1,5 @@
 open Stdext
 open Xstringext
-open Pervasiveext
 
 let debug (fmt : ('a, unit, string, unit) format4) = (Printf.kprintf (fun s -> Printf.fprintf stderr "%s\n" s) fmt)
 
@@ -76,7 +75,7 @@ let handle_comms_no_fd_sock2 comms_sock fd_sock state =
 		handle_comms_sock comms_sock state
 	end
 
-let handle_comms_with_fd_sock2 comms_sock fd_sock fd_sock2 state =
+let handle_comms_with_fd_sock2 comms_sock _fd_sock fd_sock2 state =
 	debug "Selecting in handle_comms_with_fd_sock2";
 	let (ready,_,_) = Unix.select [comms_sock; fd_sock2] [] [] (-1.0) in
 	debug "Done";
@@ -122,7 +121,7 @@ let report_child_exit comms_sock args child_pid status =
 		with Unix.Unix_error(Unix.EPIPE, _, _) -> ()
 	end
 
-let handle_sigchld comms_sock args pid signum =
+let handle_sigchld comms_sock args pid _signum =
 	let (child_pid, status) = Unix.wait () in
 	if child_pid = pid then begin
 		(* If the expected child has died (it should be the only child!) write its
@@ -162,7 +161,7 @@ let run state comms_sock fd_sock fd_sock_path =
 		   fd it ends up being) *)
 		let args = List.map (fun arg ->
 			try
-				let (id_received,fd) = List.find (fun (id_received,fd) -> String.endswith id_received arg) state.ids_received in
+				let (id_received,fd) = List.find (fun (id_received,_fd) -> String.endswith id_received arg) state.ids_received in
 				let stem = String.sub arg 0 (String.length arg - String.length id_received) in
 				stem ^ (string_of_int (Fd_send_recv.int_of_fd fd));
 			with _ -> arg) state.cmdargs in

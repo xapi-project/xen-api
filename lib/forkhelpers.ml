@@ -39,15 +39,16 @@ let waitpid (sock, pid) =
 	begin match status with
 	  | Fe.Finished (Fe.WEXITED n) -> (pid,Unix.WEXITED n)
 	  | Fe.Finished (Fe.WSIGNALED n) -> (pid,Unix.WSIGNALED n)
-	  | Fe.Finished (Fe.WSTOPPED n) -> (pid,Unix.WSTOPPED n)
+    | Fe.Finished (Fe.WSTOPPED n) -> (pid,Unix.WSTOPPED n)
+    | _ -> failwith ("This should never happen: Forkhelpers.waitpid " ^ __LOC__)
 	end
 
 let waitpid_nohang ((sock, _) as x) =
 	(match Unix.select [sock] [] [] 0.0 with
-	  | ([s],_,_) -> waitpid x
+	  | ([_s],_,_) -> waitpid x
 	  | _ -> (0,Unix.WEXITED 0))
 
-let dontwaitpid (sock, pid) =
+let dontwaitpid (sock, _pid) =
 	begin
 		(* Try to tell the child fe that we're not going to wait for it. If the
 		 * other end of the pipe has been closed then this doesn't matter, as this
@@ -65,7 +66,7 @@ let waitpid_fail_if_bad_exit ty =
     | (Unix.WSIGNALED n) -> raise (Subprocess_killed n)
     | (Unix.WSTOPPED n) -> raise (Subprocess_killed n)
 
-let getpid (sock, pid) = pid
+let getpid (_sock, pid) = pid
 
 type 'a result = Success of string * 'a | Failure of string * exn
 
@@ -91,8 +92,6 @@ let with_logfile_fd ?(delete = true) prefix f =
 
 exception Spawn_internal_error of string * string * Unix.process_status
 
-let id = ref 0 
-
 type syslog_stdout_t =
   | NoSyslogging
   | Syslog_DefaultKey
@@ -111,7 +110,7 @@ let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr
   let fds_to_close = ref [] in
 
   let add_fd_to_close_list fd = fds_to_close := fd :: !fds_to_close in
-  let remove_fd_from_close_list fd = fds_to_close := List.filter (fun fd' -> fd' <> fd) !fds_to_close in
+  (* let remove_fd_from_close_list fd = fds_to_close := List.filter (fun fd' -> fd' <> fd) !fds_to_close in *)
   let close_fds () = List.iter (fun fd -> Unix.close fd) !fds_to_close in
 
   finally (fun () -> 
@@ -163,7 +162,10 @@ let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr
     List.iter (fun (uuid,srcfd) ->
       send_named_fd uuid srcfd) fds;
     Fecomms.write_raw_rpc sock Fe.Exec;
-    match Fecomms.read_raw_rpc sock with Fe.Execed pid -> (sock, pid))
+    match Fecomms.read_raw_rpc sock with
+    | Fe.Execed pid -> (sock, pid)
+    | _ -> failwith ("This should never happen: Forkhelpers.waitpid " ^ __LOC__)
+    )
    
     close_fds
 
@@ -183,18 +185,18 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout=NoSyslogging) ?
 		match with_logfile_fd "execute_command_get_out" (fun out_fd ->
 			with_logfile_fd "execute_command_get_err" (fun err_fd ->
 				let (sock,pid) = safe_close_and_exec ?env (Stdext.Opt.map (fun (_,fd,_) -> fd) stdinandpipes) (Some out_fd) (Some err_fd) [] ~syslog_stdout cmd args in
-				Stdext.Opt.map (fun (str,_,wr) ->
+				Stdext.Opt.iter (fun (str,_,wr) ->
 					Stdext.Unixext.really_write_string wr str;
 					close wr;
 				) stdinandpipes;
 				match Unix.select [sock] [] [] timeout with
-				| ([s],_,_) -> waitpid (sock,pid)
+				| ([_s],_,_) -> waitpid (sock,pid)
 				| _ ->
 					Unix.kill pid Sys.sigkill;
 					ignore (waitpid (sock,pid));
 					raise Subprocess_timeout
 			)) with
-			| Success(out,Success(err,(pid, status))) ->
+			| Success(out,Success(err,(_pid, status))) ->
 				begin
 					match status with
 						| Unix.WEXITED 0 -> (out,err)

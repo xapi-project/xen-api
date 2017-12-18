@@ -1,3 +1,6 @@
+(* Disable "Warning 39: unused rec flag." caused by rpc *)
+[@@@warning "-39"]
+
 type syslog_stdout_t = {
   enabled : bool;
   key : string option;
@@ -32,3 +35,5 @@ type ferpc =
   | Dontwaitpid
 [@@deriving rpc]
 
+(* Re-enable "Warning 39: unused rec flag." *)
+[@@@warning "+39"]
