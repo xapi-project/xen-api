@@ -6,13 +6,13 @@ let log_path = "/var/log/fe.log"
 let debug_log = ref []
 
 let gettimestring () =
-	let time = Unix.gettimeofday () in
-	let tm = Unix.gmtime time in
-        let msec = time -. (floor time) in
-	Printf.sprintf "%d%.2d%.2dT%.2d:%.2d:%.2d.%.3dZ|" (1900 + tm.Unix.tm_year)
-	        (tm.Unix.tm_mon + 1) tm.Unix.tm_mday
-	        tm.Unix.tm_hour tm.Unix.tm_min tm.Unix.tm_sec
-	        (int_of_float (1000.0 *. msec))
+  let time = Unix.gettimeofday () in
+  let tm = Unix.gmtime time in
+  let msec = time -. (floor time) in
+  Printf.sprintf "%d%.2d%.2dT%.2d:%.2d:%.2d.%.3dZ|" (1900 + tm.Unix.tm_year)
+    (tm.Unix.tm_mon + 1) tm.Unix.tm_mday
+    tm.Unix.tm_hour tm.Unix.tm_min tm.Unix.tm_sec
+    (int_of_float (1000.0 *. msec))
 
 let reset () = debug_log := []
 

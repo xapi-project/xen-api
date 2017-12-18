@@ -27,7 +27,7 @@
     these functions what we actually want to do is run some separate process with certain
     file-descriptors, optionally returning results. 
 
-	The interface in this module
+    	The interface in this module
     + is higher-level than Unix.fork(), Unix.exec*()
     + allows us to offload Unix.fork(), Unix.exec*() to a single-threaded separate process
       where the glibc+ocaml runtime codepaths are simpler and hopefully more reliable. *)
@@ -40,12 +40,12 @@ type syslog_stdout_t =
   | Syslog_WithKey of string
 
 (** [execute_command_get_output cmd args] runs [cmd args] and returns (stdout, stderr)
-	on success (exit 0). On failure this raises 
+    	on success (exit 0). On failure this raises 
     [Spawn_internal_error(stderr, stdout, Unix.process_status)] *)
 val execute_command_get_output : ?env:string array -> ?syslog_stdout:syslog_stdout_t -> ?timeout:float -> string -> string list -> string * string
 
 (** [execute_command_get_output cmd args stdin] runs [cmd args], passes in the string [stdin] and returns (stdout, stderr)
-	on success (exit 0). On failure this raises 
+    	on success (exit 0). On failure this raises 
     [Spawn_internal_error(stderr, stdout, Unix.process_status)] *)
 val execute_command_get_output_send_stdin : ?env:string array -> ?syslog_stdout:syslog_stdout_t -> ?timeout:float -> string -> string list -> string -> string * string
 
@@ -73,31 +73,31 @@ exception Subprocess_killed of int
 exception Subprocess_timeout
 
 (** [safe_close_and_exec stdin stdout stderr id_to_fd_list cmd args] runs [cmd args]
-	with the optional [stdin], [stdout] and [stderr] file descriptors (or /dev/null if not
-	specified) and with any key from [id_to_fd_list] in [args] replaced by the integer
-	value of the file descriptor in the final process. *)
+    	with the optional [stdin], [stdout] and [stderr] file descriptors (or /dev/null if not
+    	specified) and with any key from [id_to_fd_list] in [args] replaced by the integer
+    	value of the file descriptor in the final process. *)
 val safe_close_and_exec : ?env:string array -> Unix.file_descr option -> Unix.file_descr option -> Unix.file_descr option -> (string * Unix.file_descr) list -> ?syslog_stdout:syslog_stdout_t -> ?redirect_stderr_to_stdout: bool -> string -> string list -> pidty
 
 (** [waitpid p] returns the (pid, Unix.process_status) *)
 val waitpid : pidty -> (int * Unix.process_status)
 
 (** [waitpid_nohang p] returns the (pid, Unix.process_status) if the process has already
-	quit or (0, Unix.WEXITTED 0) if the process is still running. *)
+    	quit or (0, Unix.WEXITTED 0) if the process is still running. *)
 val waitpid_nohang : pidty -> (int * Unix.process_status)
 
 (** [dontwaitpid p]: signals the caller's desire to never call waitpid. Note that the final
-	process will not persist as a zombie. *)
+    	process will not persist as a zombie. *)
 val dontwaitpid : pidty -> unit
 
 (** [waitpid_fail_if_bad_exit p] calls waitpid on [p] and throws [Subprocess_failed x] if the 
-	process exits with non-zero code x and [Subprocess_killed x] if the process is killed by a 
-	signal and exits with non-zero code x. *)
+    	process exits with non-zero code x and [Subprocess_killed x] if the process is killed by a 
+    	signal and exits with non-zero code x. *)
 val waitpid_fail_if_bad_exit : pidty -> unit
 
 (** Result returned by {!with_logfile_fd}. *)
 type 'a result =
-| Success of string * 'a	(** The function call completed successfully. *)
-| Failure of string * exn	(** The function raised an exception. *)
+  | Success of string * 'a	(** The function call completed successfully. *)
+  | Failure of string * exn	(** The function raised an exception. *)
 
 (** Creates a temporary file and opens it for logging. The fd is passed to the function
     [f]. The logfile is guaranteed to be closed afterwards, and unlinked if either the delete flag is set or the call fails. If the
