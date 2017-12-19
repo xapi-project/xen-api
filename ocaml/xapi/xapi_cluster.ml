@@ -19,10 +19,16 @@ open D
 
 (* TODO: update allowed_operations on boot/toolstack-restart *)
 
+let validate_params ~token_timeout ~token_timeout_coefficient =
+  let invalid_value x y = raise (Api_errors.(Server_error (invalid_value, [ x; y ]))) in
+  if token_timeout < 1.0 then invalid_value "token_timeout" (string_of_float token_timeout);
+  if token_timeout_coefficient < 0.65 then invalid_value "token_timeout_coefficient" (string_of_float token_timeout_coefficient)
+
 let create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient =
   Pool_features.assert_enabled ~__context ~f:Features.Corosync;
   with_clustering_lock (fun () ->
       let dbg = Context.string_of_task __context in
+      validate_params ~token_timeout ~token_timeout_coefficient;
       let cluster_ref = Ref.make () in
       let cluster_host_ref = Ref.make () in
       let cluster_uuid = Uuidm.to_string (Uuidm.create `V4) in
@@ -72,6 +78,7 @@ let destroy ~__context ~self =
 
 (* helper function; concurrency checks are done in implementation of Cluster.create and Cluster_host.create *)
 let pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient =
+  validate_params ~token_timeout ~token_timeout_coefficient;
   let master = Helpers.get_master ~__context in
   let hosts = Db.Host.get_all ~__context in
 
