@@ -606,7 +606,7 @@ let _ =
   error Api_errors.pif_does_not_allow_unplug [ "PIF" ]
     ~doc:"The operation you requested cannot be performed because the specified PIF does not allow unplug." ();
   error Api_errors.pif_has_fcoe_sr_in_use ["PIF"; "SR"]
-    ~doc:"The operation you requested cannot be performed because the specified PIF has fcoe sr in use." ();
+    ~doc:"The operation you requested cannot be performed because the specified PIF has FCoE SR in use." ();
   error Api_errors.pif_unmanaged [ "PIF" ]
     ~doc:"The operation you requested cannot be performed because the specified PIF is not managed by xapi." ();
   error Api_errors.pif_has_no_network_configuration [ "PIF" ]
