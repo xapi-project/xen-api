@@ -20,12 +20,13 @@ let unknown_vendor vendor = Some (Printf.sprintf "Unknown vendor %s" vendor)
 let unknown_device device = Some (Printf.sprintf "Unknown device %s" device)
 
 let parse_from file vendor device =
+	let open Xapi_stdext_unix in
 	let vendor_str = ref (unknown_vendor vendor) and device_str = ref (unknown_device device) in
 	(* CA-26771: As we parse the file we keep track of the current vendor.
 	   When we find a device match we only accept it if it's from the right vendor; it doesn't make 
 	   sense to pair vendor 2's device with vendor 1. *)
 	let current_xvendor = ref "" in
-	Stdext.Unixext.readfile_line (fun line ->
+	Unixext.readfile_line (fun line ->
 		if line = "" || line.[0] = '#' ||
 		   (line.[0] = '\t' && line.[1] = '\t') then
 			(* ignore subvendors/subdevices, blank lines and comments *)
@@ -39,7 +40,7 @@ let parse_from file vendor device =
 					if xdevice = device then (
 						device_str := Some (String.sub line 7 (String.length line - 7));
 						(* abort reading, we found what we want *)
-						raise Stdext.Unixext.Break
+						raise Unixext.Break
 					)
 				)
 			) else (
