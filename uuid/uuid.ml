@@ -64,11 +64,11 @@ let read_array dev n =
 		with e -> clean_f (); raise e in
 	finally 
 		(fun () -> 
-			let buf = String.create n in
+			let buf = Bytes.create n in
 			let read = Unix.read fd buf 0 n in
 			if read <> n then raise End_of_file
 			else 
-				Array.init n (fun i -> Char.code buf.[i])
+				Array.init n (fun i -> Char.code (Bytes.get buf i))
 		)
 		(fun () -> Unix.close fd)
 
