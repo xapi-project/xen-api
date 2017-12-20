@@ -52,15 +52,15 @@ let times : (int, float) Hashtbl.t ref = ref (Hashtbl.create capacity)
 (** A mapping of stunnel unique ID to Stunnel.t *)
 let stunnels : (int, Stunnel.t) Hashtbl.t ref = ref (Hashtbl.create capacity)
 
-open Stdext
-open Pervasiveext
-open Threadext
-open Listext
+open Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_threads.Threadext
+open Xapi_stdext_std
 
 let m = Mutex.create ()
 
-let id_of_stunnel stunnel = 
-    Opt.default "unknown" (Opt.map string_of_int stunnel.Stunnel.unique_id)
+let id_of_stunnel stunnel =
+  let open Xapi_stdext_monadic in
+  Opt.default "unknown" (Opt.map string_of_int stunnel.Stunnel.unique_id)
 
 let unlocked_gc () = 
 	if debug_enabled then begin
@@ -102,7 +102,7 @@ let unlocked_gc () =
     let times' = List.filter (fun (idx, _) -> not(List.mem idx !to_gc)) times' in
     (* Sort into descending order of donation time, ie youngest first *)
     let times' = List.sort (fun x y -> compare (fst y) (fst x)) times' in
-    let youngest, oldest = List.chop max_stunnel times' in
+    let youngest, oldest = Listext.List.chop max_stunnel times' in
     let oldest_ids = List.map fst oldest in
     List.iter
       (fun x -> 

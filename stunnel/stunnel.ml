@@ -17,10 +17,9 @@ module D=Debug.Make(struct let name="stunnel" end)
 open D
 let trim = String.trim
 
-open Stdext
 open Printf
-open Pervasiveext
-open Xstringext
+open Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_unix
 
 exception Stunnel_binary_missing
 exception Stunnel_error of string
@@ -72,6 +71,7 @@ let init_stunnel_path () =
 		)
 
 let stunnel_path () =
+  let open Xapi_stdext_monadic in
 	if Opt.is_none !cached_stunnel_path then
 		init_stunnel_path ();
 	Opt.unbox !cached_stunnel_path
@@ -344,33 +344,29 @@ let connect
     | None -> () in
 	retry (fun () -> attempt_one_connect ?unique_id ?use_fork_exec_helper ?write_to_log _verify_cert extended_diagnosis host port) 5
 
-let sub_after i s =
-  let len = String.length s in
-    String.sub s i (len - i)
-
-let split_1 c s =
-  match String.split ~limit:1 c s with
-    | x :: _ -> x
-    | [] -> s
-
 let check_verify_error line =
-  match String.find_all "VERIFY ERROR: " line with
-      | p :: _ ->
-          begin
-            match String.find_all "error=" line with
-              | e :: _ ->
-                  raise
-                    (Stunnel_verify_error
-                       (split_1 ','
-                          (sub_after (e + String.length "error=") line)))
-              | [] ->
-                  raise (Stunnel_verify_error "")
-          end
-      | [] ->
-          ()
+  let sub_after i s =
+    let len = String.length s in
+    String.sub s i (len - i)
+  in
+  let split_1 c s =
+    match Astring.String.cut ~sep:c s with
+    | Some (x , _) -> x
+    | None -> s
+  in
+  if Astring.String.is_infix ~affix:"VERIFY ERROR: " line then
+    match Astring.String.find_sub ~sub:"error=" line with
+    | Some e ->
+      raise
+        (Stunnel_verify_error
+           (split_1 ","
+              (sub_after (e + String.length "error=") line)))
+    | None ->
+      raise (Stunnel_verify_error "")
+  else ()
           
 let check_error s line =
-  if (String.has_substr line s) then
+  if Astring.String.is_infix ~affix:line s then
     raise (Stunnel_error s)
     
 let diagnose_failure st_proc =
