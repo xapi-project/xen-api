@@ -6648,11 +6648,13 @@ let vdi_open_database = call
 let vdi_checksum = call
     ~name:"checksum"
     ~in_oss_since:None
-    ~in_product_since:rel_boston
+    ~lifecycle:
+      [Published, rel_boston, "For internal use only."
+      ;Changed, rel_inverness, "Available in the published documented API; otherwise unchanged."
+      ]
     ~params:[Ref _vdi, "self", "The VDI to checksum"]
     ~result:(String, "The md5sum of the vdi")
-    ~doc:"Internal function to calculate VDI checksum and return a string"
-    ~hide_from_docs:true
+    ~doc:"Calculate VDI checksum and return a string in hexadecimal."
     ~allowed_roles:_R_VM_ADMIN (* Conceptually, this is not correct. We do it
                                   	                              this way only to follow the previous
                                   	                              convention. It is supposed to fix by future
