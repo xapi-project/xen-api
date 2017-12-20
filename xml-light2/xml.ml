@@ -89,7 +89,7 @@ let parse_bigbuffer b =
 	let n = ref Int64.zero in
 	let aux () =
 		try 
-			let c = Stdext.Bigbuffer.get b !n in
+			let c = Xapi_stdext_bigbuffer.Bigbuffer.get b !n in
 			n := Int64.add !n Int64.one;
 			int_of_char c
 		with _ -> raise End_of_file in
@@ -185,9 +185,10 @@ let to_string_fmt xml =
 	to_fct_fmt xml (fun s -> Buffer.add_string buffer s);
 	let s = Buffer.contents buffer in Buffer.reset buffer; s
 
-let to_bigbuffer xml = 
-	let buffer = Stdext.Bigbuffer.make () in
-	to_fct xml (fun s -> Stdext.Bigbuffer.append_substring buffer s 0 (String.length s));
+let to_bigbuffer xml =
+	let open Xapi_stdext_bigbuffer in 
+	let buffer = Bigbuffer.make () in
+	to_fct xml (fun s -> Bigbuffer.append_substring buffer s 0 (String.length s));
 	buffer
 
 (* helpers functions *)

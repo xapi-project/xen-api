@@ -1,0 +1,8 @@
+(library
+ ((name xmllight2)
+  (public_name xml-light2)
+  (wrapped false)
+  (libraries (threads
+              xapi-stdext-bigbuffer
+              xmlm))
+ ))

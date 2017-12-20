@@ -27,14 +27,14 @@ val error : error -> string
 val parse_file : string -> xml
 val parse_in : in_channel -> xml
 val parse_string : string -> xml
-val parse_bigbuffer : Stdext.Bigbuffer.t -> xml
+val parse_bigbuffer : Xapi_stdext_bigbuffer.Bigbuffer.t -> xml
 
 (** output functions *)
 val to_fct : xml -> (string -> unit) -> unit
 val to_fct_fmt : xml -> (string -> unit) -> unit
 val to_string : xml -> string
 val to_string_fmt : xml -> string
-val to_bigbuffer : xml -> Stdext.Bigbuffer.t
+val to_bigbuffer : xml -> Xapi_stdext_bigbuffer.Bigbuffer.t
 
 (** helper functions *)
 exception Not_pcdata of string
