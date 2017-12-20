@@ -361,10 +361,14 @@ module Nvidia_old = struct
       | conf::tl ->
         debug "Pci.lookup_subsystem_device_name: vendor=%04x device=%04x subdev=%04x"
           vendor_id conf.identifier.vdev_id conf.identifier.vsubdev_id;
-        let vendor_name = Pci.lookup_vendor_name pci_access vendor_id
+        let default v = match v with Some v -> v | None -> "" in
+        let vendor_name =
+          Pci.lookup_vendor_name pci_access vendor_id
+          |> default
         and model_name =
           Pci.lookup_subsystem_device_name pci_access vendor_id
             conf.identifier.vdev_id vendor_id conf.identifier.vsubdev_id
+          |> default
         and framebuffer_size = conf.framebufferlength
         and max_heads = conf.num_heads
         and max_resolution_x = conf.max_x
@@ -433,9 +437,10 @@ module Vendor = functor (V : VENDOR) -> struct
       |> address_of_string
     in
     let whitelist = V.read_whitelist ~whitelist:(V.whitelist_file ()) ~device_id in
+    let default v = match v with Some v -> v | None -> "" in
     Pci.(with_access (fun access ->
       let vendor_name, device =
-          let vendor_name = lookup_vendor_name access V.vendor_id in
+          let vendor_name = lookup_vendor_name access V.vendor_id |> default in
           let device =
             List.find
               (fun device ->
@@ -620,9 +625,11 @@ module Vendor_nvidia = struct
     let open Identifier in
     debug "Pci.lookup_subsystem_device_name: vendor=%04x device=%04x subdev=%04x"
       vendor_id conf.identifier.vdev_id conf.identifier.vsubdev_id;
+    let default v = match v with Some v -> v | None -> "" in
     let model_name =
       Pci.lookup_subsystem_device_name pci_access vendor_id
         conf.identifier.vdev_id vendor_id conf.identifier.vsubdev_id
+      |> default
     in
     Some {
       vendor_name;
