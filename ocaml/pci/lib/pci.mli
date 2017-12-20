@@ -32,29 +32,29 @@ module Pci_access : sig
   type t
 end
 
-val lookup_class_name : Pci_access.t -> int -> string
+val lookup_class_name : Pci_access.t -> int -> string option
 (** [lookup_class_name a id] wraps pci_lookup_name with the right flags to
     lookup the name for the class whose identifier is [id] using the access
     value [a]. If [libpci] cannot find a match it returns "Class [id]". *)
 
-val lookup_progif_name : Pci_access.t -> int -> int -> string
+val lookup_progif_name : Pci_access.t -> int -> int -> string option
 (** [lookup_progif_name a c_id id] is like {!lookup_class_name} but returns
     the name of the programming interface with ID [id] within the class with ID
     [c_id]. *)
 
-val lookup_vendor_name : Pci_access.t -> int -> string
+val lookup_vendor_name : Pci_access.t -> int -> string option
 (** [lookup_vendor_name a id] is like {!lookup_class_name} but returns
     the name of the PCI vendor with ID [id]. *)
 
-val lookup_device_name : Pci_access.t -> int -> int -> string
+val lookup_device_name : Pci_access.t -> int -> int -> string option
 (** [lookup_device_name a v_id id] is like {!lookup_class_name} but returns
     the name of the device with ID [id] by the vendor with ID [v_id]. *)
 
-val lookup_subsystem_vendor_name : Pci_access.t -> int -> string
+val lookup_subsystem_vendor_name : Pci_access.t -> int -> string option
 (** [lookup_subsystem_vendor_name a id] is like {!lookup_class_name} but
     returns the name of the PCI vendor with ID [id]. *)
 
-val lookup_subsystem_device_name : Pci_access.t -> int -> int -> int -> int -> string
+val lookup_subsystem_device_name : Pci_access.t -> int -> int -> int -> int -> string option
 (** [lookup_subsystem_device_name a v_id d_id sv_id sd_id] is like
     {!lookup_class_name} but returns the name of the PCI subsystem of a device
     with ID [d_id] made by vendor with ID [v_id] whose subvendor and subdevice
