@@ -17,9 +17,8 @@ type t =
   | String of string
   | WeirdString of string * string
 
-open Stdext.Xstringext
-
 let unescape_buf buf s =
+  let open Xapi_stdext_std.Xstringext in
   let aux esc = function
       '\\' when not esc -> true
     | c -> Buffer.add_char buf c; false in
@@ -27,6 +26,7 @@ let unescape_buf buf s =
     Buffer.add_char buf '\\'
 
 let escape s =
+  let open Xapi_stdext_std.Xstringext in
   String.map_unlikely s
     (function '\\' -> Some "\\\\" | '"'  -> Some "\\\"" | '\'' -> Some "\\\'" |  _    -> None)
 
