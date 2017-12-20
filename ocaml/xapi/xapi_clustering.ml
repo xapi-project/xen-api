@@ -51,9 +51,21 @@ let ip_of_pif (ref,record) =
   debug "Got IP %s for PIF %s" ip (Ref.string_of ref);
   Cluster_interface.IPv4 ip
 
-let assert_pif_permaplugged (ref,record) =
-  if not record.API.pIF_disallow_unplug then failwith (Printf.sprintf "PIF %s allows unplug" record.API.pIF_uuid);
-  if not record.pIF_currently_attached then failwith (Printf.sprintf "PIF %s not plugged" record.API.pIF_uuid)
+(** [assert_pif_prerequisites (pif_ref,pif_rec)] raises an exception if any of
+    the prerequisites of using a PIF for clustering are unmet. These
+    prerequisites are:
+    {ul
+    {- that the PIF has an IPv4 address}
+    {- that the PIF is currently_attached}
+    {- that the PIF has disallow_unplug set}
+    }*)
+let assert_pif_prerequisites pif =
+  let assert_pif_permaplugged (ref,record) =
+    if not record.API.pIF_disallow_unplug then failwith (Printf.sprintf "PIF %s allows unplug" record.API.pIF_uuid);
+    if not record.pIF_currently_attached then failwith (Printf.sprintf "PIF %s not plugged" record.API.pIF_uuid)
+  in
+  assert_pif_permaplugged pif;
+  ignore(ip_of_pif pif)
 
 let handle_error error =
   (* TODO: replace with API errors? *)
@@ -66,7 +78,9 @@ let assert_cluster_host_can_be_created ~__context ~host =
       ~expr:Db_filter_types.(Eq(Literal (Ref.string_of host),Field "host")) <> [] then
     failwith "Cluster host cannot be created because it already exists"
 
-(** One of these cluster stacks should be configured and running *)
+(** One of the cluster stacks returned by
+    [get_required_cluster_stacks context sr_sm_type]
+    should be configured and running for SRs of type [sr_sm_type] to work. *)
 let get_required_cluster_stacks ~__context ~sr_sm_type =
   let sms_matching_sr_type =
     Db.SM.get_records_where ~__context
