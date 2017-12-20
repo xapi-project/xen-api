@@ -13,8 +13,8 @@
  *)
 (** tree representation *)
 type xml =
-	| Element of (string * (string * string) list * xml list)
-	| PCData of string
+  | Element of (string * (string * string) list * xml list)
+  | PCData of string
 
 type error_pos
 type error = string * error_pos
