@@ -246,6 +246,9 @@ module Mux = struct
       C.VDI.deactivate ~dbg ~dp ~sr ~vdi
     let detach context ~dbg ~dp ~sr ~vdi =
       let module C = Client(struct let rpc = of_sr sr end) in
+      Server_helpers.exec_with_new_task "smapiv2.detach" ~subtask_of:(Ref.of_string dbg) (fun __context ->
+          let self = Xapi_vdi_helpers.find_vdi ~__context sr vdi |> fst in
+          Db.VDI.set_activated_on ~__context ~self ~value:Ref.null);
       C.VDI.detach ~dbg ~dp ~sr ~vdi
     let epoch_end context ~dbg ~sr ~vdi =
       let module C = Client(struct let rpc = of_sr sr end) in
