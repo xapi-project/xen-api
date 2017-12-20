@@ -197,7 +197,16 @@ module Mux = struct
       C.VDI.set_name_description ~dbg ~sr ~vdi ~new_name_description
     let snapshot context ~dbg ~sr ~vdi_info =
       let module C = Client(struct let rpc = of_sr sr end) in
-      C.VDI.snapshot ~dbg ~sr ~vdi_info
+      try
+        C.VDI.snapshot ~dbg ~sr ~vdi_info
+      with Storage_interface.Activated_on_another_host uuid ->
+        debug "SM reports the VDI is activated elsewhere on %s" uuid;
+        Server_helpers.exec_with_new_task "smapiv2.snapshot.activated" ~subtask_of:(Ref.of_string dbg) (fun __context ->
+            let hostref = Db.Host.get_by_uuid ~__context ~uuid  in
+            let addr = Db.Host.get_address ~__context ~self:hostref in
+            debug "Redirecting to IP %s" addr;
+            raise (Redirect(Some addr)))
+
     let clone context ~dbg ~sr ~vdi_info =
       let module C = Client(struct let rpc = of_sr sr end) in
       C.VDI.clone ~dbg ~sr ~vdi_info
