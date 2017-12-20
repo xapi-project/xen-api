@@ -962,15 +962,26 @@ module VM = struct
          let dbg = Xenops_task.get_dbg task in
          Mem.with_reservation dbg min_kib max_kib
            (fun target_plus_overhead_kib reservation_id ->
+              let domain_config, persistent =
+                match persistent.VmExtra.domain_config with
+                | Some dc -> dc, persistent
+                | None ->
+                  (* This is the upgraded migration/resume case - we've stored some persistent data
+                    but it was before we recorded emulation flags. Let's regenerate them now and
+                    store them persistently *)
+                  begin (* Sanity check *)
+                    match vm.Xenops_interface.Vm.ty with
+                    | PVinPVH _ -> failwith "Invalid state! No domain_config persistently stored for PVinPVH domain";
+                    | _ -> ()
+                  end;
+                  let domain_config = VmExtra.domain_config_of_vm vm in
+                  let persistent = VmExtra.{persistent with domain_config = Some domain_config } in
+                  (domain_config, persistent)
+              in
               DB.write k {
                 VmExtra.persistent = persistent;
                 VmExtra.non_persistent = non_persistent
               };
-              let domain_config =
-                match persistent.VmExtra.domain_config with
-                | Some dc -> dc
-                | None -> failwith "Need a domain config"
-              in
               let domid = Domain.make ~xc ~xs non_persistent.VmExtra.create_info domain_config (uuid_of_vm vm) in
               Mem.transfer_reservation_to_domain dbg domid reservation_id;
               begin match vm.Vm.ty with
