@@ -196,16 +196,8 @@ module Mux = struct
       let module C = Client(struct let rpc = of_sr sr end) in
       C.VDI.set_name_description ~dbg ~sr ~vdi ~new_name_description
     let snapshot context ~dbg ~sr ~vdi_info =
-      let module C = Client(struct let rpc = debug_printer (of_sr sr) end) in
-      Server_helpers.exec_with_new_task "smapiv2.snapshot.activated" ~subtask_of:(Ref.of_string dbg) (fun __context ->
-          let vdi = Xapi_vdi_helpers.find_vdi ~__context sr vdi_info.vdi |> fst in
-          match Xapi_vdi_helpers.get_activated_elsewhere ~__context ~vdi with
-          | None -> ()
-          | Some address ->
-             raise (Storage_interface.Redirect (Some address))
-        );
+      let module C = Client(struct let rpc = of_sr sr end) in
       C.VDI.snapshot ~dbg ~sr ~vdi_info
-
     let clone context ~dbg ~sr ~vdi_info =
       let module C = Client(struct let rpc = of_sr sr end) in
       C.VDI.clone ~dbg ~sr ~vdi_info
@@ -232,23 +224,12 @@ module Mux = struct
       C.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write
     let activate context ~dbg ~dp ~sr ~vdi =
       let module C = Client(struct let rpc = of_sr sr end) in
-      Server_helpers.exec_with_new_task "smapiv2.activate" ~subtask_of:(Ref.of_string dbg) (fun __context ->
-          let localhost = Helpers.get_localhost ~__context in
-          let self = Xapi_vdi_helpers.find_vdi ~__context sr vdi |> fst in
-          Db.VDI.set_activated_on ~__context ~self ~value:localhost);
       C.VDI.activate ~dbg ~dp ~sr ~vdi
-
     let deactivate context ~dbg ~dp ~sr ~vdi =
       let module C = Client(struct let rpc = of_sr sr end) in
-      Server_helpers.exec_with_new_task "smapiv2.deactivate" ~subtask_of:(Ref.of_string dbg) (fun __context ->
-          let self = Xapi_vdi_helpers.find_vdi ~__context sr vdi |> fst in
-          Db.VDI.set_activated_on ~__context ~self ~value:Ref.null);
       C.VDI.deactivate ~dbg ~dp ~sr ~vdi
     let detach context ~dbg ~dp ~sr ~vdi =
       let module C = Client(struct let rpc = of_sr sr end) in
-      Server_helpers.exec_with_new_task "smapiv2.detach" ~subtask_of:(Ref.of_string dbg) (fun __context ->
-          let self = Xapi_vdi_helpers.find_vdi ~__context sr vdi |> fst in
-          Db.VDI.set_activated_on ~__context ~self ~value:Ref.null);
       C.VDI.detach ~dbg ~dp ~sr ~vdi
     let epoch_end context ~dbg ~sr ~vdi =
       let module C = Client(struct let rpc = of_sr sr end) in
