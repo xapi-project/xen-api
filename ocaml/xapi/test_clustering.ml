@@ -257,6 +257,44 @@ let test_clustering_lock_only_taken_if_needed =
   ; "test_clustering_lock_taken_when_needed_nested_calls" >:: test_clustering_lock_taken_when_needed_nested_calls
   ]
 
+let test_assert_pif_prerequisites () =
+  let __context = Test_common.make_test_database () in
+  let network = Test_common.make_network ~__context () in
+  let localhost = Helpers.get_localhost ~__context in
+  let (_cluster, _cluster_host) = Test_common.make_cluster_and_cluster_host ~__context ~network ~host:localhost () in
+  let exn = "we_havent_decided_on_the_exception_yet" in
+  let pifref = Test_common.make_pif ~__context ~network ~host:localhost () in
+  let pif = Xapi_clustering.pif_of_host ~__context network localhost in
+  OUnit.assert_raises
+    (Failure exn)
+    (fun () ->
+      try
+        Xapi_clustering.assert_pif_prerequisites pif
+      with _ ->
+        failwith exn);
+  (* Put in IPv4 info *)
+  Db.PIF.set_IP ~__context ~self:pifref ~value:"1.1.1.1";
+  let pif = Xapi_clustering.pif_of_host ~__context network localhost in
+  OUnit.assert_raises
+    (Failure exn)
+    (fun () ->
+      try
+        Xapi_clustering.assert_pif_prerequisites pif
+      with _ ->
+        failwith exn);
+  Db.PIF.set_currently_attached ~__context ~self:pifref ~value:true;
+  let pif = Xapi_clustering.pif_of_host ~__context network localhost in
+  OUnit.assert_raises
+    (Failure exn)
+    (fun () ->
+      try
+        Xapi_clustering.assert_pif_prerequisites pif
+      with _ ->
+        failwith exn);
+  Db.PIF.set_disallow_unplug ~__context ~self:pifref ~value:true;
+  let pif = Xapi_clustering.pif_of_host ~__context network localhost in
+  OUnit.assert_equal (Xapi_clustering.assert_pif_prerequisites pif) ()
+
 let test =
   let open OUnit in
   "test_clustering" >:::
@@ -265,4 +303,5 @@ let test =
   ; test_assert_cluster_host_enabled
   ; test_assert_cluster_host_is_enabled_for_matching_sms
   ; test_clustering_lock_only_taken_if_needed
+  ; "test_assert_pif_prerequisites" >:: test_assert_pif_prerequisites
   ]
