@@ -154,6 +154,10 @@ let api =
         TyDecl.name = "Cancelled";
         description = "The task has been asynchronously cancelled";
         ty = Type.(Basic String);
+      }; {
+        TyDecl.name = "Activated_on_another_host";
+        description = "The Volume is already active on another host";
+        ty = Type.(Basic String);
       };
     ];
     type_decls = [
@@ -266,6 +270,10 @@ let api =
                 "written to; they are intended for backup/restore only.";
                 "Note the name and description are copied but any extra";
                 "metadata associated by [set] is not copied.";
+                "This can raise Activated_on_another_host(host_installation_uuid)";
+                "if the VDI is already active on another host and snapshots";
+                "can only be taken on the host that has the VDI active (if any).";
+                "XAPI will take care of redirecting the request to the proper host"
               ];
               inputs = [
                 sr;
