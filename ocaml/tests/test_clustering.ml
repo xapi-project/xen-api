@@ -149,30 +149,52 @@ let test_assert_cluster_host_enabled =
 
 (** Tests Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms *)
 let test_assert_cluster_host_is_enabled_for_matching_sms =
-  let make_scenario ?(cluster_host_enabled=true) () =
+  let make_scenario ?(cluster_host=(Some true)) () =
     let __context = T.make_test_database () in
     let host = Db.Host.get_all ~__context |> List.hd in
-    let cluster, cluster_host = T.make_cluster_and_cluster_host ~__context () in
-    Db.Cluster_host.set_host ~__context ~self:cluster_host ~value:host;
-    Db.Cluster_host.set_enabled ~__context ~self:cluster_host ~value:cluster_host_enabled;
-    let sm = T.make_sm ~__context ~_type:"type1" ~required_cluster_stack:["corosync"] () in
-    __context, host, cluster, cluster_host, sm
+    let cluster, cluster_host = match cluster_host with
+      | None -> Ref.null, Ref.null
+      | Some cluster_host_enabled ->
+        let cluster, cluster_host = T.make_cluster_and_cluster_host ~__context () in
+        Db.Cluster_host.set_host ~__context ~self:cluster_host ~value:host;
+        Db.Cluster_host.set_enabled ~__context ~self:cluster_host ~value:cluster_host_enabled;
+        cluster, cluster_host
+    in
+    let _sm_1 : _ API.Ref.t= T.make_sm ~__context ~_type:"gfs2" ~required_cluster_stack:["corosync"] () in
+    let _sm_2 : _ API.Ref.t= T.make_sm ~__context ~_type:"lvm" ~required_cluster_stack:[] () in
+    __context, host, cluster, cluster_host
   in
 
   let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled () =
-    let __context, host, cluster, cluster_host, sm = make_scenario () in
-    OUnit.assert_equal (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"type1") ()
+    let __context, host, cluster, cluster_host = make_scenario () in
+    OUnit.assert_equal (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"gfs2") ()
   in
 
   let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching_sms_exist () =
-    let __context, host, cluster, cluster_host, sm = make_scenario () in
-    OUnit.assert_equal (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"type2") ()
+    let __context, host, cluster, cluster_host = make_scenario () in
+    OUnit.assert_equal (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"sr_type_with_no_matching_sm") ()
   in
 
   let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_is_disabled () =
-    let __context, host, cluster, cluster_host, sm = make_scenario ~cluster_host_enabled:false () in
+    let __context, host, cluster, cluster_host = make_scenario ~cluster_host:(Some false) () in
     T.assert_raises_api_error Api_errors.clustering_disabled ~args:[Ref.string_of cluster_host]
-      (fun () -> Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"type1")
+      (fun () -> Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"gfs2")
+  in
+
+  let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_no_cluster_host_exists () =
+    let __context, host, cluster, cluster_host = make_scenario ~cluster_host:None () in
+    T.assert_raises_api_error Api_errors.no_compatible_cluster_host ~args:[Ref.string_of host]
+      (fun () -> Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"gfs2")
+  in
+
+  let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_disabled_and_clustering_is_not_needed () =
+    let __context, host, cluster, cluster_host = make_scenario ~cluster_host:(Some false) () in
+    OUnit.assert_equal (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"lvm") ()
+  in
+
+  let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_cluster_host_exists_and_clustering_is_not_needed () =
+    let __context, host, cluster, cluster_host = make_scenario ~cluster_host:None () in
+    OUnit.assert_equal (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"lvm") ()
   in
 
   let open OUnit in
@@ -180,6 +202,9 @@ let test_assert_cluster_host_is_enabled_for_matching_sms =
   [ "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled" >:: test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled
   ; "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching_sms_exist" >:: test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching_sms_exist
   ; "test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_is_disabled" >:: test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_is_disabled
+  ; "test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_no_cluster_host_exists" >:: test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_no_cluster_host_exists
+  ; "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_disabled_and_clustering_is_not_needed" >:: test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_disabled_and_clustering_is_not_needed
+  ; "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_cluster_host_exists_and_clustering_is_not_needed" >:: test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_cluster_host_exists_and_clustering_is_not_needed
   ]
 
 let test =
