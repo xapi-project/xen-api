@@ -38,27 +38,27 @@ let unescape s =
 let mkstring x = String (unescape x)
 
 let string_of sexpr =
-	let buf = Buffer.create 64 in
-	let rec __string_of_rec x =
-		match x with
-		| Node l ->
-			Buffer.add_char buf '(';
-			begin match l with
-			| []     -> ()
-			| [ a ]  -> __string_of_rec a
-			| [ a ; b ] -> __string_of_rec a; Buffer.add_char buf ' '; __string_of_rec b
-			| a :: l ->
-				__string_of_rec a;
-				List.iter (fun i -> Buffer.add_char buf ' '; __string_of_rec i) l;
-			end;
-			Buffer.add_char buf ')';
-		| Symbol s | String s | WeirdString(_, s) ->
-			Buffer.add_string buf "\'";
-			Buffer.add_string buf (escape s);
-			Buffer.add_string buf "\'";
-		in
-	__string_of_rec sexpr;
-	Buffer.contents buf
+  let buf = Buffer.create 64 in
+  let rec __string_of_rec x =
+    match x with
+    | Node l ->
+      Buffer.add_char buf '(';
+      begin match l with
+        | []     -> ()
+        | [ a ]  -> __string_of_rec a
+        | [ a ; b ] -> __string_of_rec a; Buffer.add_char buf ' '; __string_of_rec b
+        | a :: l ->
+          __string_of_rec a;
+          List.iter (fun i -> Buffer.add_char buf ' '; __string_of_rec i) l;
+      end;
+      Buffer.add_char buf ')';
+    | Symbol s | String s | WeirdString(_, s) ->
+      Buffer.add_string buf "\'";
+      Buffer.add_string buf (escape s);
+      Buffer.add_string buf "\'";
+  in
+  __string_of_rec sexpr;
+  Buffer.contents buf
 
 let weird_of_string x = 
   let random_chars = "abcdefghijklmnopqrstuvwxyz" in
@@ -67,29 +67,29 @@ let weird_of_string x =
      search forward from offset *)
   let rec has_substring parent offset child = 
     (String.length parent - offset >= (String.length child)) &&
-      ((String.sub parent offset (String.length child) = child)
-       || has_substring parent (offset + 1) child) in
+    ((String.sub parent offset (String.length child) = child)
+     || has_substring parent (offset + 1) child) in
   let rec find delim = 
     if has_substring x 0 delim then (find (delim ^ (randchar ()))) else delim in
   WeirdString(find "xxx", x)
 
 let rec output_fmt ff = function
   | Node list ->
-      let rec aux ?(first=true) = function
-	  [] -> ()
-	| h::t when first ->
-	    output_fmt ff h;
-	    aux ~first:false t
-	| h::t ->
-	    Format.fprintf ff "@;<1 2>%a" output_fmt h;
-	    aux ~first t in
-      Format.fprintf ff "@[(";
-      aux list;
-      Format.fprintf ff ")@]"
+    let rec aux ?(first=true) = function
+        [] -> ()
+      | h::t when first ->
+        output_fmt ff h;
+        aux ~first:false t
+      | h::t ->
+        Format.fprintf ff "@;<1 2>%a" output_fmt h;
+        aux ~first t in
+    Format.fprintf ff "@[(";
+    aux list;
+    Format.fprintf ff ")@]"
   | Symbol s
   | String s
   | WeirdString(_, s) ->
-      Format.fprintf ff "\"%s\"" (escape s)
+    Format.fprintf ff "\"%s\"" (escape s)
 (*
   | Symbol s ->
       Format.fprintf ff "%s" s
