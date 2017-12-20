@@ -29,8 +29,5 @@ test:
 doc:
 	jbuilder build @doc
 
-gh-pages:
-	bash .docgen.sh
-
 reindent:
 	git ls-files '*.ml*' | xargs ocp-indent --inplace
