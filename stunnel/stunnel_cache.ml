@@ -76,6 +76,14 @@ let unlocked_gc () =
     debug "Cache contents: %s" (Hashtbl.fold (fun ep xs acc -> string_of_index ep xs ^ " " ^ acc) !index "");
   end;
 
+  (* From Xapi_stdext_std.Listext *)
+  (** Split a list at the given index to give a pair of lists. *)
+  let rec chop i l = match i, l with
+    | 0, l -> [], l
+    | i, h :: t -> (fun (fr, ba) -> h :: fr, ba) (chop (i - 1) t)
+    | _ -> invalid_arg "chop"
+  in
+
   let all_ids = Hashtbl.fold (fun k _ acc -> k :: acc) !stunnels [] in
 
   let to_gc = ref [] in
@@ -102,7 +110,7 @@ let unlocked_gc () =
     let times' = List.filter (fun (idx, _) -> not(List.mem idx !to_gc)) times' in
     (* Sort into descending order of donation time, ie youngest first *)
     let times' = List.sort (fun x y -> compare (fst y) (fst x)) times' in
-    let youngest, oldest = Listext.List.chop max_stunnel times' in
+    let youngest, oldest = chop max_stunnel times' in
     let oldest_ids = List.map fst oldest in
     List.iter
       (fun x -> 
