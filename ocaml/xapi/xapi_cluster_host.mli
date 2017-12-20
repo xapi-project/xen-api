@@ -18,16 +18,6 @@
 (******************************************************************************)
 (** {2 Internal helper functions} *)
 
-val assert_pif_prerequisites : (API.ref_PIF * API.pIF_t) -> unit
-(** [assert_pif_prerequisites (pif_ref,pif_rec)] raises an exception if any of
-    the prerequisites of using a PIF for clustering are unmet. These
-    prerequisites are:
-    {ul
-    {- that the PIF has an IPv4 address}
-    {- that the PIF is currently_attached}
-    {- that the PIF has disallow_unplug set}
-    }*)
-
 val fix_pif_prerequisites : __context:Context.t -> (API.ref_PIF * API.pIF_t) ->
   unit
 (* [fix_pif_prerequisites ~__context (pif_ref,pif_rec)] will fix those

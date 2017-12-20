@@ -19,14 +19,6 @@ open D
 
 (* TODO: update allowed_operations on boot/toolstack-restart *)
 
-(* A PIF being used for clustering must:
-   1. Be plugged
-   2. Be disallow_unplug
-   3. Have an IPv4 address *)
-let assert_pif_prerequisites pif =
-  assert_pif_permaplugged pif;
-  ignore(ip_of_pif pif)
-
 (* We can't fix _all_ of the prerequisites, as we can't automatically
    create an IP address. So what we do here is to at least plug the
    thing in and ensure it has disallow unplug set. *)

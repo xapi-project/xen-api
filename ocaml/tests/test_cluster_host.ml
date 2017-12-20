@@ -57,45 +57,6 @@ let pif_plug_rpc __context call =
   | _ -> failwith "Unexpected RPC"
 
 
-let test_prereq () =
-  let __context = Test_common.make_test_database () in
-  let exn = "we_havent_decided_on_the_exception_yet" in
-  let cluster = create_cluster ~__context true in
-  let network = Db.Cluster.get_network ~__context ~self:cluster in
-  let localhost = Helpers.get_localhost ~__context in
-  let pifref = Test_common.make_pif ~__context ~network ~host:localhost () in
-  let pif = Xapi_clustering.pif_of_host ~__context network localhost in
-  assert_raises
-    (Failure exn)
-    (fun () ->
-      try
-        Xapi_cluster_host.assert_pif_prerequisites pif
-      with _ ->
-        failwith exn);
-  (* Put in IPv4 info *)
-  Db.PIF.set_IP ~__context ~self:pifref ~value:"1.1.1.1";
-  let pif = Xapi_clustering.pif_of_host ~__context network localhost in
-  assert_raises
-    (Failure exn)
-    (fun () ->
-      try
-        Xapi_cluster_host.assert_pif_prerequisites pif
-      with _ ->
-        failwith exn);
-  Db.PIF.set_currently_attached ~__context ~self:pifref ~value:true;
-  let pif = Xapi_clustering.pif_of_host ~__context network localhost in
-  assert_raises
-    (Failure exn)
-    (fun () ->
-      try
-        Xapi_cluster_host.assert_pif_prerequisites pif
-      with _ ->
-        failwith exn);
-  Db.PIF.set_disallow_unplug ~__context ~self:pifref ~value:true;
-  let pif = Xapi_clustering.pif_of_host ~__context network localhost in
-  assert_equal (Xapi_cluster_host.assert_pif_prerequisites pif) ()
-
-
 let test_fix_prereq () =
   let __context = Test_common.make_test_database () in
   Context.set_test_rpc __context (pif_plug_rpc __context);
@@ -116,7 +77,7 @@ let test_fix_prereq () =
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
   Xapi_cluster_host.fix_pif_prerequisites ~__context pif;
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
-  assert_equal (Xapi_cluster_host.assert_pif_prerequisites pif) ()
+  assert_equal (Xapi_clustering.assert_pif_prerequisites pif) ()
 
 let test_create_as_necessary () =
   let __context = Test_common.make_test_database () in
@@ -160,7 +121,6 @@ let test =
   [
     "test_dbsync_join" >:: test_dbsync_join;
     "test_dbsync_nojoin" >:: test_dbsync_nojoin;
-    "test_prerequisites" >:: test_prereq;
     "test_fix_prerequisites" >:: test_fix_prereq;
     "test_create_as_necessary" >:: test_create_as_necessary;
     "test_destroy_forbidden_when_sr_attached" >:: test_destroy_forbidden_when_sr_attached;
