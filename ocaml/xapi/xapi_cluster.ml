@@ -121,6 +121,15 @@ let pool_destroy ~__context ~self =
       Client.Client.Cluster.destroy ~rpc ~session_id ~self)
 
 let pool_resync ~__context ~self =
+  (* First ensure that the Cluster_hosts that are enabled in xapi's DB are really enabled *)
+  Db.Cluster_host.get_all ~__context |> List.iter (fun cluster_host ->
+      if Db.Cluster_host.get_enabled ~__context ~self:cluster_host then
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            (* We rely on the fact that Cluster_host.enable unconditionally
+               invokes the low-level enable operations and is idempotent. *)
+            Client.Client.Cluster_host.enable ~rpc ~session_id ~self:cluster_host)
+    );
+  (* Then create the missing Cluster_hosts *)
   let pool_auto_join = Db.Cluster.get_pool_auto_join ~__context ~self in
   if pool_auto_join then begin
       Db.Host.get_all ~__context |> List.iter (fun host -> Xapi_cluster_host.create_as_necessary ~__context ~host)
