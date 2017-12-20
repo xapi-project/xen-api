@@ -12,8 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 
 (** Path to the gzip binary *)
 let gzip = "/bin/gzip"
@@ -83,7 +82,8 @@ let go (mode: zcat_mode) (input: input_type) fd f =
 		Printf.eprintf "%s" msg;
 		failwith msg
 	        in
-	      close close_later;
+				close close_later;
+				let open Xapi_stdext_unix in
 	      match snd (Forkhelpers.waitpid pid) with
 	      | Unix.WEXITED 0 -> ();
 	      | Unix.WEXITED i -> failwith_error (Printf.sprintf "exit code %d" i)
