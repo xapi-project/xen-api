@@ -53,18 +53,6 @@ let get_operation_error ~__context ~self ~op =
       then report_concurrent_operations_error ~current_ops ~ref_str
       else None) in
 
-  (* only allow enable if the cluster host is disabled *)
-  let current_error = check current_error (fun () ->
-      if op = `enable && chr.Db_actions.cluster_host_enabled
-      then Some ("Cluster host is already enabled", [ref_str]) (* TODO: replace with proper API error? *)
-      else None) in
-
-  (* only allow disable if the cluster host is enabled *)
-  let current_error = check current_error (fun () ->
-      if op = `disable && not chr.Db_actions.cluster_host_enabled
-      then Some ("Cluster host is already disabled", [ref_str]) (* TODO: replace with proper API error? *)
-      else None) in
-
   current_error
 
 let assert_operation_valid ~__context ~self ~op =
