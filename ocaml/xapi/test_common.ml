@@ -271,13 +271,11 @@ let make_vdi ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="")
     ?(other_config=[]) ?(storage_lock=false) ?(location="") ?(managed=false) ?(missing=false)
     ?(parent=Ref.null) ?(xenstore_data=[]) ?(sm_config=[]) ?(is_a_snapshot=false)
     ?(snapshot_of=Ref.null) ?(snapshot_time=API.Date.never) ?(tags=[]) ?(allow_caching=true)
-    ?(on_boot=`persist) ?(metadata_of_pool=Ref.make ()) ?(metadata_latest=true)
-    ?(is_tools_iso=false) ?(cbt_enabled=false) ?(activated_on=Ref.null) () =
+    ?(on_boot=`persist) ?(metadata_of_pool=Ref.make ()) ?(metadata_latest=true) ?(is_tools_iso=false) ?(cbt_enabled=false) () =
   Db.VDI.create ~__context ~ref ~uuid ~name_label ~name_description ~allowed_operations
     ~current_operations ~sR ~virtual_size ~physical_utilisation ~_type ~sharable ~read_only ~other_config
     ~storage_lock ~location ~managed ~missing ~parent ~xenstore_data ~sm_config ~is_a_snapshot ~snapshot_of
-    ~snapshot_time ~tags ~allow_caching ~on_boot ~metadata_of_pool ~metadata_latest ~is_tools_iso ~cbt_enabled ~activated_on
-    ;
+    ~snapshot_time ~tags ~allow_caching ~on_boot ~metadata_of_pool ~metadata_latest ~is_tools_iso ~cbt_enabled;
   ref
 
 let make_pci ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(class_id="")
