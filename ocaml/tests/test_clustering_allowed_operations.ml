@@ -67,7 +67,7 @@ let test_all_cluster_ops_allowed_when_no_cluster_ops_in_progress () =
     ) Xapi_cluster_helpers.all_cluster_operations
 
 (** if the cluster_host is enabled and there are no cluster_host operations in progress
-    then cluster_host.disable is allowed and cluster_host.enable is not allowed *)
+    then both cluster_host.disable and cluster_host.enable are allowed *)
 let test_cluster_host_disable_allowed () =
   let __context = make_test_database () in
   let _, self = make_cluster_and_cluster_host ~__context () in
@@ -75,11 +75,11 @@ let test_cluster_host_disable_allowed () =
   let allowed_ops = Db.Cluster_host.get_allowed_operations ~__context ~self in
   assert_bool "Cluster_host.allowed_operations should contain 'disable'"
     (List.mem `disable allowed_ops);
-  assert_bool "Cluster_host.allowed_operations should not contain 'enable'"
-    (not (List.mem `enable allowed_ops))
+  assert_bool "Cluster_host.allowed_operations should contain 'enable'"
+    (List.mem `enable allowed_ops)
 
 (** if the cluster_host is disabled and there are no cluster_host operations in progress
-    then cluster_host.enable is allowed and cluster_host.disable is not allowed *)
+    then both cluster_host.enable and cluster_host.disable are allowed *)
 let test_cluster_host_enable_allowed () =
   let __context = make_test_database () in
   let _, self = make_cluster_and_cluster_host ~__context () in
@@ -88,8 +88,8 @@ let test_cluster_host_enable_allowed () =
   let allowed_ops = Db.Cluster_host.get_allowed_operations ~__context ~self in
   assert_bool "Cluster_host.allowed_operations should contain 'enable'"
     (List.mem `enable allowed_ops);
-  assert_bool "Cluster_host.allowed_operations should not contain 'disable'"
-    (not (List.mem `disable allowed_ops))
+  assert_bool "Cluster_host.allowed_operations should contain 'disable'"
+    (List.mem `disable allowed_ops)
 
 (** no cluster_host operations are allowed if cluster_host operations are in progress *)
 let test_cluster_host_ops_not_allowed_during_cluster_host_op () =
