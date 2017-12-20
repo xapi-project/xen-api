@@ -203,6 +203,8 @@ module Dynamic = struct
 
 end
 
+type uuid = string
+
 exception Backend_error_with_backtrace of (string * (string list)) (** name * params *)
 
 exception Sr_not_attached of string               (** error: SR must be attached to access VDIs *)
@@ -214,6 +216,7 @@ exception Cancelled of string
 exception Redirect of string option
 exception Sr_attached of string
 exception Unimplemented of string
+exception Activated_on_another_host of uuid
 exception Duplicated_key of string
 exception No_storage_plugin_for_sr of string
 exception Content_ids_do_not_match of (string * string)
