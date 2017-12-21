@@ -134,20 +134,16 @@ let enable ~__context ~self =
       | Result.Error error -> handle_error error
     )
 
-let disable_internal ~__context ~self ~force =
+let disable ~__context ~self =
   (* TODO: debug/error/info logging *)
   with_clustering_lock (fun () ->
       let dbg = Context.string_of_task __context in
       let host = Db.Cluster_host.get_host ~__context ~self in
       assert_operation_host_target_is_localhost ~__context ~host;
-      if not force then
-        assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self;
+      assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self;
       let result = Cluster_client.LocalClient.disable rpc dbg in
       match result with
-      | Result.Ok () -> ()
+      | Result.Ok () ->
+          Db.Cluster_host.set_enabled ~__context ~self ~value:false
       | Result.Error error -> handle_error error
     )
-
-let disable ~__context ~self =
-  disable_internal ~__context ~self ~force:false;
-  Db.Cluster_host.set_enabled ~__context ~self ~value:false

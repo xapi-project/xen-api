@@ -489,7 +489,7 @@ let shutdown_and_reboot_common ~__context ~host label description operation cmd 
   then raise (Api_errors.Server_error (Api_errors.host_not_disabled, []));
 
   Xapi_ha.before_clean_shutdown_or_reboot ~__context ~host;
-  Xapi_pbd.temporarily_unplug_all_pbds ~__context;
+  Xapi_pbd.unplug_all_pbds ~__context;
   Remote_requests.stop_request_thread();
 
   (* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
