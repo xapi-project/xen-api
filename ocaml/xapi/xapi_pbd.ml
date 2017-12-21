@@ -235,27 +235,21 @@ let get_locally_attached ~__context =
             Eq (Field "host", Literal (Ref.string_of host)),
             Eq (Field "currently_attached", Literal "true"))))
 
+(* Called on shutdown: it unplugs all the PBDs and disables the cluster host.
+   If anything fails it throws an exception *)
 let unplug_all_pbds ~__context =
   info "Unplugging all SRs plugged on local host";
   (* best effort unplug of all PBDs *)
-  let all_unplugs_succeeded = get_locally_attached ~__context
-  |> List.for_all (fun pbd ->
+  get_locally_attached ~__context
+  |> List.iter (fun pbd ->
          let uuid = Db.PBD.get_uuid ~__context ~self:pbd in
-         try
-             TaskHelper.exn_if_cancelling ~__context;
-             debug "Unplugging PBD %s" uuid;
-             unplug ~__context ~self:pbd;
-             true
-         with e ->
-           info "Failed to unplug PBD %s: %s"  uuid (Printexc.to_string e);
-           false) in
-  debug "Finished unplug_all_pbds"
+         TaskHelper.exn_if_cancelling ~__context;
+         debug "Unplugging PBD %s" uuid;
+         unplug ~__context ~self:pbd);
+  debug "Finished unplug_all_pbds";
   let host = Helpers.get_localhost ~__context in
   match Xapi_clustering.find_cluster_host ~__context ~host with
   | None -> info "No cluster host found"
   | Some self ->
-     if all_unplugs_succeeded then begin
-         info "Disabling cluster host";
-         Xapi_cluster_host.disable_internal ~__context ~self ~force:true
-       end else
-         warn "Not all unplugs succeded: not safe to disable clustering"
+     info "Disabling cluster host";
+     Xapi_cluster_host.disable ~__context ~self
