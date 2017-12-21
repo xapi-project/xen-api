@@ -14,7 +14,7 @@
 
 type response =
   | String of string
-  | Bigbuf of Stdext.Bigbuffer.t
+  | Bigbuf of Xapi_stdext_bigbuffer.Bigbuffer.t
 
 (** A generic RPC interface *)
 module type RPC = sig

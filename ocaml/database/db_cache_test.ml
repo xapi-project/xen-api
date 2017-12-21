@@ -13,7 +13,7 @@
  *)
 
 open Db_cache_types
-open Stdext.Fun
+open Xapi_stdext_deprecated.Fun
 
 let create_test_db () =
   let schema = Test_schemas.many_to_many in

@@ -15,7 +15,7 @@
  * @group Storage
 *)
 
-open Stdext
+open Xapi_stdext_unix
 
 (** Represents the configuration of a static (ie attached on boot) vdi *)
 type vdi = {

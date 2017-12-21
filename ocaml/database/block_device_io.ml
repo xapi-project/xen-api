@@ -88,8 +88,8 @@
  *               "empty|nack"  otherwise
  *)
 
-open Stdext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_unix
 
 let name = "block_device_io"
 module R = Debug.Make(struct let name = name end)

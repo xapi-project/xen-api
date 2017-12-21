@@ -13,8 +13,9 @@
  *)
 (* !!! This needs to be moved out of xapi and into the database directory; probably being merged with db_connections !!! *)
 
-open Stdext
-open Xstringext
+open Xapi_stdext_std.Xstringext
+open Xapi_stdext_unix
+
 module D=Debug.Make(struct let name="xapi" end)
 open D
 
