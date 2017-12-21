@@ -14,7 +14,14 @@
  ((name sexpr)
   (public_name sexpr)
   (wrapped false)
+  (modules (:standard \ sexprpp))
   (libraries (astring
               threads
               xapi-stdext-threads))
+ ))
+
+(executable
+ ((name sexprpp)
+  (modules (sexprpp))
+  (libraries (sexpr))
  ))
