@@ -16,7 +16,7 @@
    on a slave -- so don't ever call them on slaves! :) *)
 
 open Db_cache_types
-open Stdext
+open Xapi_stdext_monadic
 
 type indexrec = {
   name_label:string option;

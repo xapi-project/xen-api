@@ -130,7 +130,7 @@ module Table = struct
     let new_len,new_deleted =
       if t.deleted_len + 1 < upper_length_deleted_queue
       then t.deleted_len + 1, (new_element::t.deleted)
-      else lower_length_deleted_queue + 1, (new_element::(Stdext.Listext.List.take lower_length_deleted_queue t.deleted))
+      else lower_length_deleted_queue + 1, (new_element::(Xapi_stdext_std.Listext.List.take lower_length_deleted_queue t.deleted))
     in
     {rows = StringRowMap.remove g key t.rows;
      deleted_len = new_len;

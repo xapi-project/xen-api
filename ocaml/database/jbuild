@@ -31,7 +31,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    block_device_io
   ))
   (libraries (
-   stdext
    rpclib
    ppx_sexp_conv
    sexpr
@@ -39,6 +38,14 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    http-svr
    gzip
    uuid
+   xapi-stdext-bigbuffer
+   xapi-stdext-deprecated
+   xapi-stdext-encodings
+   xapi-stdext-monadic
+   xapi-stdext-pervasives
+   xapi-stdext-std
+   xapi-stdext-threads
+   xapi-stdext-unix
    xcp
   ))
   (wrapped false)

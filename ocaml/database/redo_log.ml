@@ -11,10 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext
-open Pervasiveext
-open Threadext
-open Xstringext
+open Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_threads.Threadext
+open Xapi_stdext_std.Xstringext
+open Xapi_stdext_monadic
+open Xapi_stdext_unix
 
 module R = Debug.Make(struct let name = "redo_log" end)
 

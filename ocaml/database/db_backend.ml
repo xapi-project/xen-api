@@ -69,7 +69,7 @@ let blow_away_non_persistent_fields (schema: Schema.t) db =
 let db_registration_mutex = Mutex.create ()
 let foreign_databases: ((string, Db_ref.t) Hashtbl.t) = Hashtbl.create 5
 
-open Stdext.Threadext
+open Xapi_stdext_threads.Threadext
 let create_registered_session create_session db_ref =
   Mutex.execute db_registration_mutex
     (fun () ->
