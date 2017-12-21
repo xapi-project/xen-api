@@ -13,4 +13,5 @@ depends: [
   "ppx_sexp_conv"
   "xapi-libs-transitional"
   "xapi-idl"
+  "xapi-stdext"
 ]
