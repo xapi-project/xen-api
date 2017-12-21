@@ -10,5 +10,5 @@
               xapi-stdext-pervasives
               xapi-stdext-threads
               xapi-stdext-unix
-              xcp))
+              ))
  ))
