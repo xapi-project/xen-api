@@ -1,4 +1,5 @@
-open Threadext
+open Xapi_stdext_threads.Threadext
+open Xapi_stdext_unix
 
 let finished = ref false
 let finished_m = Mutex.create ()

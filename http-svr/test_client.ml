@@ -1,5 +1,5 @@
-open Threadext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_unix
 
 let user_agent = "test_client"
 

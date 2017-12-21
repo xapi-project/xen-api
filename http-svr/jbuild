@@ -40,4 +40,36 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
               xcp
               xml-light2))
  ))
+
+(executable
+ ((name http_test)
+  (modules (http_test))
+  (libraries (http-svr
+              oUnit
+              xapi-stdext-monadic))
+ ))
+
+(executable
+ ((name test_client)
+  (modules (test_client))
+  (libraries (http-svr
+              oUnit
+              xapi-stdext-pervasives
+              xapi-stdext-unix))
+ ))
+
+(executable
+ ((name test_server)
+  (modules (test_server))
+  (libraries (http-svr
+              oUnit
+              xapi-stdext-threads
+              xapi-stdext-unix))
+ ))
+
+(alias
+ ((name runtest)
+  (deps (http_test.exe))
+  (action (run ${<} -runner sequential -verbose true))
+ ))
 |} flags
