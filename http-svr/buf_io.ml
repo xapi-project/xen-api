@@ -14,12 +14,12 @@
 (* Buffered IO with timeouts *)
 
 type t = 
-    { 
-      fd : Unix.file_descr;
-      mutable buf : string;
-      mutable cur : int;
-      mutable max : int;
-    }
+  { 
+    fd : Unix.file_descr;
+    mutable buf : string;
+    mutable cur : int;
+    mutable max : int;
+  }
 
 type err = 
     Too_long             (* Line input is > 1024 chars *)
@@ -57,9 +57,9 @@ let shift ic =
   then 
     (ic.cur <- 0; ic.max <- 0;)
   else begin
-      String.blit ic.buf ic.cur ic.buf 0 (ic.max - ic.cur);
-      ic.max <- (ic.max - ic.cur);
-      ic.cur <- 0;
+    String.blit ic.buf ic.cur ic.buf 0 (ic.max - ic.cur);
+    ic.max <- (ic.max - ic.cur);
+    ic.cur <- 0;
   end
 
 (* Check to see if we've got a line (ending in \n) in the buffer *)
@@ -92,7 +92,7 @@ let fill_buf ~buffered ic timeout =
   (* If there's no space to read, shift *)
   if ic.max=buf_size then shift ic;
   let space_left = buf_size - ic.max in
-  
+
   (* Read byte one by one just do make sure we don't buffer too many chars *)
   let n = fill_no_exc timeout (if buffered then space_left else min space_left 1) in
 
@@ -145,15 +145,15 @@ let rec really_input ?(timeout=15.0) ic str from len =
   end
 
 let really_input_buf ?timeout ic len =
-	let blksize = 2048 in
-	let buf = Buffer.create blksize in
-	let s = String.create blksize in
-	let left = ref len in
-	while !left > 0
-	do
-		let size = min blksize !left in
-		really_input ?timeout ic s 0 size;
-		Buffer.add_substring buf s 0 size;
-		left := !left - size
-	done;
-	Buffer.contents buf
+  let blksize = 2048 in
+  let buf = Buffer.create blksize in
+  let s = String.create blksize in
+  let left = ref len in
+  while !left > 0
+  do
+    let size = min blksize !left in
+    really_input ?timeout ic s 0 size;
+    Buffer.add_substring buf s 0 size;
+    left := !left - size
+  done;
+  Buffer.contents buf

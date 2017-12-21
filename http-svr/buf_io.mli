@@ -41,8 +41,8 @@ exception Eof
 
 (** Raised by input_line only *)
 type err =
-	| Too_long   (** Line input is > 1024 chars *)
-	| No_newline (** EOF found, with no newline *)
+  | Too_long   (** Line input is > 1024 chars *)
+  | No_newline (** EOF found, with no newline *)
 
 exception Line of err
 
@@ -51,8 +51,8 @@ val is_buffer_empty : t -> bool
 val assert_buffer_empty : t -> unit
 
 (* val assert_buffer_empty : t -> unit
-val shift : t -> unit
-val got_line : t -> int
-val is_full : t -> bool
-val fill_buf : buffered:bool -> t -> float -> unit
+   val shift : t -> unit
+   val got_line : t -> int
+   val is_full : t -> bool
+   val fill_buf : buffered:bool -> t -> float -> unit
 *)

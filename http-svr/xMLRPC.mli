@@ -45,10 +45,10 @@ end
 
 (** Functions to marshal OCaml values to our subset of XML-RPC. *)
 module To : sig
-    (** Marshal a nil value *)
+  (** Marshal a nil value *)
   val nil : unit -> xmlrpc
 
-    (** Marshal a homogeneous array. *)
+  (** Marshal a homogeneous array. *)
   val array : xmlrpc list -> xmlrpc
 
   (** Marshal a boolean. *)
@@ -79,7 +79,7 @@ end
 
 (** Higher-order functions to marshal values from our subset of XML-RPC. *)
 module From : sig
-    (** Parse a homogeneous array, applying f to the XML in element. *)
+  (** Parse a homogeneous array, applying f to the XML in element. *)
   val array : (xmlrpc -> 'a) -> xmlrpc -> 'a list
 
   val id : 'a -> 'a

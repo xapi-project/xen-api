@@ -19,39 +19,39 @@ type uri_path = string
 
 (** A handler is a function which takes a request and produces a response *)
 type 'a handler =
-	| BufIO of (Http.Request.t -> Buf_io.t -> 'a -> unit)
-	| FdIO of (Http.Request.t -> Unix.file_descr -> 'a -> unit)
+  | BufIO of (Http.Request.t -> Buf_io.t -> 'a -> unit)
+  | FdIO of (Http.Request.t -> Unix.file_descr -> 'a -> unit)
 
 module Stats : sig
-	(** Statistics recorded per-handler *)
-	type t = {
-		mutable n_requests: int;    (** Total number of requests processed *)
-		mutable n_connections: int; (** Total number of connections accepted *)
-		mutable n_framed: int;      (** using the more efficient framed protocol *)
-	}
+  (** Statistics recorded per-handler *)
+  type t = {
+    mutable n_requests: int;    (** Total number of requests processed *)
+    mutable n_connections: int; (** Total number of connections accepted *)
+    mutable n_framed: int;      (** using the more efficient framed protocol *)
+  }
 end
 
 module Server : sig
 
-	(** Represents an HTTP server with a set of handlers and set of listening sockets *)
-	type 'a t
+  (** Represents an HTTP server with a set of handlers and set of listening sockets *)
+  type 'a t
 
-	(** An HTTP server which sends back a default error response to every request *)
-	val empty: 'a -> 'a t
+  (** An HTTP server which sends back a default error response to every request *)
+  val empty: 'a -> 'a t
 
-	(** [add_handler x m uri h] adds handler [h] to server [x] to serve all requests with
-		method [m] for URI prefix [uri] *)
-	val add_handler : 'a t -> Http.method_t -> uri_path -> 'a handler -> unit
+  (** [add_handler x m uri h] adds handler [h] to server [x] to serve all requests with
+      		method [m] for URI prefix [uri] *)
+  val add_handler : 'a t -> Http.method_t -> uri_path -> 'a handler -> unit
 
-	(** [find_stats x m uri] returns stats associated with method [m] and uri [uri]
-		in server [x], or None if none exist *)
-	val find_stats: 'a t -> Http.method_t -> uri_path -> Stats.t option
+  (** [find_stats x m uri] returns stats associated with method [m] and uri [uri]
+      		in server [x], or None if none exist *)
+  val find_stats: 'a t -> Http.method_t -> uri_path -> Stats.t option
 
-	(** [all_stats x] returns a list of (method, uri, stats) triples *)
-	val all_stats: 'a t -> (Http.method_t * uri_path * Stats.t) list
+  (** [all_stats x] returns a list of (method, uri, stats) triples *)
+  val all_stats: 'a t -> (Http.method_t * uri_path * Stats.t) list
 
-	(** [enable_fastpath x] switches on experimental performance optimisations *)
-	val enable_fastpath: 'a t -> unit
+  (** [enable_fastpath x] switches on experimental performance optimisations *)
+  val enable_fastpath: 'a t -> unit
 
 end
 
@@ -76,11 +76,11 @@ val stop : socket -> unit
 exception Client_requested_size_over_limit
 
 module Chunked :
-  sig
-    type t
-    val of_bufio : Buf_io.t -> t
-    val read : t -> int -> string
-  end
+sig
+  type t
+  val of_bufio : Buf_io.t -> t
+  val read : t -> int -> string
+end
 
 val read_chunked_encoding : Http.Request.t -> Buf_io.t -> string Http.ll
 

@@ -25,7 +25,7 @@
  * connection to a websockets connection 
  * See for reference:
  * http://tools.ietf.org/html/draft-ietf-hybi-thewebsocketprotocol-17 
- *)
+*)
 
 type protocol = | Hixie76 | Hybi10
 
@@ -42,7 +42,7 @@ let http_101_websocket_upgrade_76 origin host protocol uri =
     "Connection: Upgrade";
     Printf.sprintf "Sec-WebSocket-Origin: %s" origin;
     Printf.sprintf "Sec-WebSocket-Location: ws://%s%s" host uri; ] 
-    @ extra @ [""]
+  @ extra @ [""]
 
 
 let http_101_websocket_upgrade_15 key  =
@@ -104,14 +104,14 @@ let hixie_v76_upgrade req s =
   let s2 = count_spaces sec_websocket_key2 in
   let v1 = Int64.to_int32 (Int64.div n1 (Int64.of_int s1)) in
   let v2 = Int64.to_int32 (Int64.div n2 (Int64.of_int s2)) in
-  
+
   let s1 = marshal_int32 v1 in
   let s2 = marshal_int32 v2 in
   let s3 = String.make 8 '\000' in
   Xapi_stdext_unix.Unixext.really_read s s3 0 8;
   let string = Printf.sprintf "%s%s%s" s1 s2 s3 in
   let digest = Digest.string string in
-  
+
   let host = find_header headers "host" in
   let origin = find_header headers "origin" in
   let protocol = try Some (find_header headers "sec-websocket-protocol") with _ -> None in
@@ -134,7 +134,7 @@ let upgrade req s =
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions are
   met:
-        
+
   1. Redistributions of source code must retain the above copyright
      notice, this list of conditions and the following disclaimer.
 

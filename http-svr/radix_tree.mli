@@ -5,7 +5,7 @@ type 'a t
 val empty : 'a t
 
 (** [Duplicate_key key] is thrown by [insert] if [key]
-	already exists in the tree. *)
+    	already exists in the tree. *)
 exception Duplicate_key of string
 
 (** [insert key value tree] returns a new tree with the

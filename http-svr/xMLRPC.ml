@@ -17,14 +17,14 @@ open D
 exception RunTimeTypeError of string * Xml.xml
 
 let rtte name xml =
-	error "Error: name='%s'; xml= %s" name (String.escaped (Xml.to_string xml));
-	raise (RunTimeTypeError(name, xml))
+  error "Error: name='%s'; xml= %s" name (String.escaped (Xml.to_string xml));
+  raise (RunTimeTypeError(name, xml))
 
 type xmlrpc = Xml.xml
 
 let pretty_print = function
-	| Xml.Element(tag,_,_) -> "Element=" ^ String.escaped tag
-	| Xml.PCData d         -> "PCData=" ^ String.escaped d
+  | Xml.Element(tag,_,_) -> "Element=" ^ String.escaped tag
+  | Xml.PCData d         -> "PCData=" ^ String.escaped d
 
 type response =
   | Success of Xml.xml list (** normal result *)
@@ -89,32 +89,32 @@ module To = struct
 
   let success (v: Xml.xml) =
     structure [ "Status", string "Success";
-		"Value", v ]
+                "Value", v ]
 
   let error code params =
     let arr = string code :: (List.map string params) in
     structure [ "Status", string "Failure";
-		"ErrorDescription", (array arr) ]
+                "ErrorDescription", (array arr) ]
 
   let methodResponse response =
     box "methodResponse"
       [match response with
        | Success [] ->
-	   let result = success (string "") in
-	   box "params" [ box "param" [ result ] ]
+         let result = success (string "") in
+         box "params" [ box "param" [ result ] ]
        | Success [param] ->
-	   let result = success param in
-	   box "params" [ box "param" [ result ] ]
+         let result = success param in
+         box "params" [ box "param" [ result ] ]
        | Failure(code, params) ->
-	   let result = error code params in
-	   box "params" [ box "param" [ result ] ]
+         let result = error code params in
+         box "params" [ box "param" [ result ] ]
        | Fault(n, s) ->
-	   box "fault" [structure ["faultCode", int n;
-				   "faultString", string s]]
+         box "fault" [structure ["faultCode", int n;
+                                 "faultString", string s]]
        | Raw [param] ->
-	   box "params" [ box "param" [param]]
-	   | _ -> failwith "To.methodResponse"
-	  ]
+         box "params" [ box "param" [param]]
+       | _ -> failwith "To.methodResponse"
+      ]
 end
 
 module From = struct
@@ -139,13 +139,13 @@ module From = struct
   (* <name> is only ever used inside a <struct><member>
      CA-20001: it is possible for <name> to be blank *)
   let name f xml = unbox ["name"]
-    (function
-     | [ Xml.PCData string ] -> f string
-     | [ ] ->
-	 debug "encountered <name/> within a <structure>";
-	 f ""
-	 | x -> rtte "From.name: should contain PCData" xml
-    ) xml
+      (function
+        | [ Xml.PCData string ] -> f string
+        | [ ] ->
+          debug "encountered <name/> within a <structure>";
+          f ""
+        | x -> rtte "From.name: should contain PCData" xml
+      ) xml
 
   let check expected xml got =
     if got <> expected then rtte ("check " ^ expected) xml
@@ -166,7 +166,7 @@ module From = struct
     pair ["methodCall"]
       (singleton ["methodName"] (pcdata id))
       (unbox ["params"] (List.map (singleton ["param"] id)))
-    xml
+      xml
 
   let string = function
     | Xml.Element("value", [], [Xml.PCData s])                  -> s
@@ -183,14 +183,14 @@ module From = struct
   let status xml =
     let bindings = structure xml in
     try match string (List.assoc "Status" bindings) with
-    | "Success" -> Success [ List.assoc "Value" bindings ]
-    | "Failure" -> begin
-	match array id (List.assoc "ErrorDescription" bindings) with
-	| [] -> rtte "Empty array of error strings" (Xml.PCData "")
-	| code::strings ->
-	    Failure (string code, List.map string strings)
-      end
-    | _ -> raise Not_found
+      | "Success" -> Success [ List.assoc "Value" bindings ]
+      | "Failure" -> begin
+          match array id (List.assoc "ErrorDescription" bindings) with
+          | [] -> rtte "Empty array of error strings" (Xml.PCData "")
+          | code::strings ->
+            Failure (string code, List.map string strings)
+        end
+      | _ -> raise Not_found
     with Not_found -> rtte "Status" xml
 
   let fault f =
@@ -201,12 +201,12 @@ module From = struct
   let methodResponse xml =
     singleton ["methodResponse"]
       (function
-       | Xml.Element("params", _, _) as xml -> begin match success xml with
-       | [ xml ] -> status xml
-       | _ -> rtte "Expected single return value (struct status)" xml
-	 end
-       | Xml.Element("fault", _, _) as xml ->
-	   Fault (fault id xml)
-       | xml -> rtte "response" xml)
-   xml
+        | Xml.Element("params", _, _) as xml -> begin match success xml with
+            | [ xml ] -> status xml
+            | _ -> rtte "Expected single return value (struct status)" xml
+          end
+        | Xml.Element("fault", _, _) as xml ->
+          Fault (fault id xml)
+        | xml -> rtte "response" xml)
+      xml
 end
