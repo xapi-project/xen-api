@@ -82,10 +82,10 @@ module To = struct
   let structure fields =
     value (box "struct" (List.map (fun (k, v) -> box "member" [name k; v]) fields))
 
-  let fault n s =
+  (* let fault n s =
     let faultCode = box "member" [name "faultCode"; int n] in
     let faultString = box "member" [name "faultString"; string s] in
-    box "fault" [box "struct" [faultCode; faultString]]
+    box "fault" [box "struct" [faultCode; faultString]] *)
 
   let success (v: Xml.xml) =
     structure [ "Status", string "Success";
@@ -140,15 +140,15 @@ module From = struct
      CA-20001: it is possible for <name> to be blank *)
   let name f xml = unbox ["name"]
       (function
-        | [ Xml.PCData string ] -> f string
+        | [ Xml.PCData str ] -> f str
         | [ ] ->
           debug "encountered <name/> within a <structure>";
           f ""
-        | x -> rtte "From.name: should contain PCData" xml
+        | _ -> rtte "From.name: should contain PCData" xml
       ) xml
 
-  let check expected xml got =
-    if got <> expected then rtte ("check " ^ expected) xml
+  (* let check expected xml got =
+    if got <> expected then rtte ("check " ^ expected) xml *)
 
   let nil = value (unbox ["nil"] (fun _ -> ()))
 
@@ -193,7 +193,7 @@ module From = struct
       | _ -> raise Not_found
     with Not_found -> rtte "Status" xml
 
-  let fault f =
+  let fault _f =
     let aux m =
       int (List.assoc "faultCode" m), string (List.assoc "faultString" m) in
     singleton ["fault"] (fun xml -> aux (structure xml))

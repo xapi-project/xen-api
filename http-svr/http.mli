@@ -143,10 +143,12 @@ val http_500_internal_server_error : ?version:string -> unit -> string list
 val http_501_method_not_implemented : ?version:string -> unit -> string list
 
 module Hdr : sig
+  
   (** Header used for task id *)
   val task_id: string
   val subtask_of: string
   val host: string
+
   (** Header used for User-Agent string *)
   val user_agent: string
   val content_type: string

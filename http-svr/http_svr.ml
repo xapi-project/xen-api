@@ -42,8 +42,7 @@ let lowercase = Astring.String.Ascii.lowercase
 module D = Debug.Make(struct let name="http" end)
 open D
 
-type uri_path = string 
-let make_uri_path x = x
+type uri_path = string
 
 module Stats = struct
   (** Record of statistics per-handler *)
@@ -80,11 +79,11 @@ let headers s headers =
   output_http s headers;
   output_http s [""]
 
-let response s hdrs length f =
+(* let response s hdrs length f =
   output_http s hdrs;
   output_http s [ Printf.sprintf "Content-Length: %Ld" length ];
   output_http s [ "" ];
-  f s
+  f s *)
 
 (* If http/1.0 was requested, return that, else return http/1.1 *)
 let get_return_version req =
@@ -190,9 +189,6 @@ let default_callback req bio _ =
   response_forbidden (Buf_io.fd_of bio);
   req.Request.close <- true
 
-let default_stats = Stats.empty ()
-let default_stats_m = Mutex.create ()
-
 
 module TE = struct
   type 'a t = {
@@ -207,7 +203,6 @@ module TE = struct
   }
 end
 
-let stats_of_table t = Radix_tree.fold (fun _ te acc -> te.TE.stats :: acc) [] t
 
 module MethodMap = Map.Make(struct type t = Http.method_t let compare = compare end)
 
@@ -552,7 +547,7 @@ let start (x: 'a Server.t) (socket, name) =
 
 exception Socket_not_found
 (* Stop an HTTP server running on a socket *)
-let stop (socket, name) =
+let stop (socket, _name) =
   let server = try Hashtbl.find socket_table socket with Not_found -> raise Socket_not_found in
   Hashtbl.remove socket_table socket;
   server.Server_io.shutdown ()
@@ -613,7 +608,7 @@ module Chunked = struct
     end
 end
 
-let read_chunked_encoding req bio = 
+let read_chunked_encoding _req bio = 
   let rec next () = 
     let size = Buf_io.input_line bio in
     (* Strictly speaking need to kill anything past an ';' if present *)

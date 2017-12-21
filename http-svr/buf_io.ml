@@ -35,7 +35,7 @@ let infinite_timeout = -1.
 let of_fd fd =
   (* Unix.set_nonblock fd;*)
   { fd = fd;
-    buf = String.create 1024; (* FIXME -- this should be larger. Low for testing *)
+    buf = Bytes.create 1024; (* FIXME -- this should be larger. Low for testing *)
     cur = 0;
     max = 0;
   }
@@ -147,7 +147,7 @@ let rec really_input ?(timeout=15.0) ic str from len =
 let really_input_buf ?timeout ic len =
   let blksize = 2048 in
   let buf = Buffer.create blksize in
-  let s = String.create blksize in
+  let s = Bytes.create blksize in
   let left = ref len in
   while !left > 0
   do

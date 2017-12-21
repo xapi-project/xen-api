@@ -54,8 +54,6 @@ let http_101_websocket_upgrade_15 key  =
 
 exception MissingHeader of string
 
-let end_of_string s from =
-  String.sub s from ((String.length s)-from) 
 
 let find_header headers header_name =
   try 
@@ -78,12 +76,12 @@ let marshal_int32 x =
   and b = (x >!> 8) && 0xffl
   and c = (x >!> 16) && 0xffl
   and d = (x >!> 24) && 0xffl in
-  let s=String.make 4 '\000' in
-  s.[offsets.(0)] <- char_of_int (Int32.to_int a);
-  s.[offsets.(1)] <- char_of_int (Int32.to_int b);
-  s.[offsets.(2)] <- char_of_int (Int32.to_int c);
-  s.[offsets.(3)] <- char_of_int (Int32.to_int d);
-  s
+  let s = Bytes.make 4 '\000' in
+  Bytes.set s offsets.(0) @@ char_of_int (Int32.to_int a);
+  Bytes.set s offsets.(1) @@ char_of_int (Int32.to_int b);
+  Bytes.set s offsets.(2) @@ char_of_int (Int32.to_int c);
+  Bytes.set s offsets.(3) @@ char_of_int (Int32.to_int d);
+  Bytes.unsafe_to_string s
 
 let v10_upgrade req s =
   let headers = req.Http.Request.additional_headers in 

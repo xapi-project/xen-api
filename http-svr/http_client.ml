@@ -16,6 +16,8 @@
 module D = Debug.Make(struct let name="http" end)
 open D
 
+let lowercase = Astring.String.Ascii.lowercase
+
 (** Thrown when no data is received from the remote HTTP server. This could happen if
     (eg) an stunnel accepted the connection but xapi refused the forward causing stunnel
     to immediately close. *)
@@ -69,11 +71,13 @@ let response_of_fd_exn_slow fd =
   let bits = if bits <> [] && List.hd bits = "FRAME" then List.tl bits else bits in
   match bits with
   | http_version :: code :: rest ->
-    let version = match Astring.String.cut ~sep:"/" http_version with
+    let version = 
+      match Astring.String.cut ~sep:"/" http_version with
       | Some (http, version) when Astring.String.is_suffix ~affix:"HTTP" http -> version
-      | None ->
+      | _ ->
         error "Failed to parse HTTP response status line [%s]" line;
-        raise (Parse_error (Printf.sprintf "Failed to parse %s" http_version)) in
+        raise (Parse_error (Printf.sprintf "Failed to parse %s" http_version))
+    in
     let message = String.concat " " rest in
     let end_of_headers = ref false in
     let headers = ref [] in
@@ -85,10 +89,10 @@ let response_of_fd_exn_slow fd =
       | "" | "\r" -> end_of_headers := true
       | x ->
         let k, v = match Astring.String.cuts ~sep:":" x with
-          | [ k; v ] -> String.lowercase k, Astring.String.trim v
+          | [ k; v ] -> lowercase k, Astring.String.trim v
           | _        -> "", "" in
-        if k = String.lowercase Http.Hdr.task_id then task_id := Some v
-        else if k = String.lowercase Http.Hdr.content_length then content_length := Some (Int64.of_string v)
+        if k = lowercase Http.Hdr.task_id then task_id := Some v
+        else if k = lowercase Http.Hdr.content_length then content_length := Some (Int64.of_string v)
         else headers := (k, v) :: !headers
     done;
     {
@@ -132,7 +136,7 @@ let response_of_fd_exn fd =
            end else begin
              match Astring.String.cut ~sep:":" header with
              | Some (k, v) ->
-               let k = String.lowercase k in
+               let k = lowercase k in
                let v = Astring.String.trim v in
                true, begin match k with
                  | k when k = Http.Hdr.task_id -> { res with task = Some v }

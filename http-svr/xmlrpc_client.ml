@@ -97,7 +97,7 @@ let get_new_stunnel_id =
 
 (** Returns an stunnel, either from the persistent cache or a fresh one which
     has been checked out and guaranteed to work. *)
-let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log host port ?verify_cert =
+let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log ?verify_cert host port =
   let found = ref None in
   (* 1. First check if there is a suitable stunnel in the cache. *)
   let verify_cert = Stunnel.must_verify_cert verify_cert in
@@ -182,10 +182,10 @@ let transport_of_url (scheme, _) =
   let open Http.Url in
   match scheme with
   | File { path = path } -> Unix path
-  | Http ({ ssl = false } as h) ->
+  | Http ({ ssl = false; _ } as h) ->
     let port = Opt.default 80 h.port in
     TCP(h.host, port)
-  | Http ({ ssl = true } as h) ->
+  | Http ({ ssl = true; _ } as h) ->
     let port = Opt.default 443 h.port in
     SSL(SSL.make (), h.host, port)
 
@@ -211,7 +211,7 @@ let with_transport transport f =
       task_id = task_id}, host, port) ->
     let st_proc =
       if use_stunnel_cache
-      then get_reusable_stunnel ~use_fork_exec_helper ~write_to_log host port ?verify_cert
+      then get_reusable_stunnel ~use_fork_exec_helper ~write_to_log ?verify_cert host port
       else
         let unique_id = get_new_stunnel_id () in
         Stunnel.connect ~use_fork_exec_helper ~write_to_log ~unique_id ?verify_cert ~extended_diagnosis:true host port in

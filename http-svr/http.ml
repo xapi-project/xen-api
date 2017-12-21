@@ -183,7 +183,7 @@ module Scanner = struct
     if c = x.marker.[x.i] then x.i <- x.i + 1 else x.i <- 0
   let remaining x = String.length x.marker - x.i
   let matched x = x.i = String.length x.marker
-  let to_string x = Printf.sprintf "%d" x.i
+  (* let to_string x = Printf.sprintf "%d" x.i *)
 end
 
 let end_of_headers = "\r\n\r\n"
@@ -255,7 +255,7 @@ let read_up_to buf already_read marker fd =
 let read_http_header buf fd = read_up_to buf 0 end_of_headers fd
 
 let smallest_request  = "GET / HTTP/1.0\r\n\r\n"
-let smallest_response = "HTTP/1.0 200 OK\r\n\r\n"
+(* let smallest_response = "HTTP/1.0 200 OK\r\n\r\n" *)
 let frame_header_length = String.length smallest_request
 
 let make_frame_header headers =
@@ -296,10 +296,10 @@ module Accept = struct
     Printf.sprintf "%s/%s;q=%.3f" (Opt.default "*" x.ty) (Opt.default "*" x.subty) (float_of_int x.q /. 1000.)
 
   let matches (ty, subty) = function
-    | { ty = Some ty'; subty = Some subty' } -> ty' = ty && (subty' = subty)
-    | { ty = Some ty'; subty = None } -> ty' = ty
-    | { ty = None;     subty = Some subty' } -> assert false
-    | { ty = None;     subty = None } -> true
+    | { ty = Some ty'; subty = Some subty'; _ } -> ty' = ty && (subty' = subty)
+    | { ty = Some ty'; subty = None; _ } -> ty' = ty
+    | { ty = None;     subty = Some _; _ } -> assert false
+    | { ty = None;     subty = None; _ } -> true
 
   (* compare [a] and [b] where both match some media type *)
   let compare (a: t) (b: t) =
@@ -489,7 +489,7 @@ module Response = struct
     body: string option;
   }
 
-  let empty = {
+  let _empty = {
     version = "1.1";
     frame = false;
     code = "500";
@@ -650,14 +650,14 @@ module Url = struct
       Printf.sprintf "http%s://%s%s%s%s" (if h.ssl then "s" else "")
         userpassat (maybe_wrap_IPv6_literal h.host) colonport (data_to_string data)
 
-  let get_uri (scheme, data) = data.uri
+  let get_uri (_scheme, data) = data.uri
   let set_uri (scheme, data) u = (scheme, { data with uri = u })
 
-  let get_query_params (scheme, data) = data.query_params
+  let get_query_params (_scheme, data) = data.query_params
 
-  let get_query (scheme, data) = data_to_string data
+  let get_query (_scheme, data) = data_to_string data
 
   let auth_of (scheme, _) = match scheme with
     | File _ -> None
-    | Http { auth = auth } -> auth
+    | Http { auth = auth; _ } -> auth
 end

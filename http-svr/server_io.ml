@@ -30,8 +30,6 @@ let handler_by_thread (h: handler) (s: Unix.file_descr) (caller: Unix.sockaddr) 
        Debug.with_thread_named h.name (fun () -> h.body caller s) ()
     ) ()  
 
-let handler_inline (h: handler) (s: Unix.file_descr) (caller: Unix.sockaddr) =
-  h.body caller s
 
 (** Function with the main accept loop *)
 

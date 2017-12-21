@@ -24,8 +24,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name httpsvr)
   (public_name http-svr)
   (wrapped false)
-  (flags (:standard %s))
-  (modules (:standard \ (http_test test_client test_server)))
+  (flags (:standard -w -37-39 %s))
+  (modules (:standard \ (http_test radix_tree_test test_client test_server)))
   (libraries (astring
               rpclib
               sha
@@ -46,6 +46,12 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (libraries (http-svr
               oUnit
               xapi-stdext-monadic))
+ ))
+
+(executable
+ ((name radix_tree_test)
+  (modules (radix_tree_test))
+  (libraries (http-svr))
  ))
 
 (executable
@@ -70,5 +76,11 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name runtest)
   (deps (http_test.exe))
   (action (run ${<} -runner sequential -verbose true))
+ ))
+
+(alias
+ ((name runtest)
+  (deps (radix_tree_test.exe))
+  (action (run ${<}))
  ))
 |} flags
