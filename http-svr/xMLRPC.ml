@@ -59,7 +59,7 @@ module To = struct
 
   let boolean b = value (box "boolean" [pcdata (if b then "1" else "0")])
 
-  let datetime s = value (box "dateTime.iso8601" [pcdata (Stdext.Date.to_string s)])
+  let datetime s = value (box "dateTime.iso8601" [pcdata (Xapi_stdext_date.Date.to_string s)])
 
   let double x =
     let txt = match classify_float x with
@@ -156,7 +156,7 @@ module From = struct
 
   let boolean = value (singleton ["boolean"] ((<>) (Xml.PCData "0")))
 
-  let datetime x = Stdext.Date.of_string (value (singleton ["dateTime.iso8601"] (pcdata id)) x)
+  let datetime x = Xapi_stdext_date.Date.of_string (value (singleton ["dateTime.iso8601"] (pcdata id)) x)
 
   let double = value (singleton ["double"] (pcdata float_of_string))
 

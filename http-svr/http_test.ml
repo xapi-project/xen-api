@@ -14,7 +14,7 @@
 
 open OUnit2
 open Http
-open Stdext
+open Xapi_stdext_monadic
 
 let test_accept_simple _ =
 	let t = Accept.t_of_string "application/json" in

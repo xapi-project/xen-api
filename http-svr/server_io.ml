@@ -12,10 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Unix
-open Stdext
-open Pervasiveext
-open Threadext
+(* open Unix *)
+open Xapi_stdext_pervasives.Pervasiveext
 
 module D = Debug.Make(struct let name = "server_io" end)
 open D
@@ -46,15 +44,15 @@ type sock_or_addr = Server_sockaddr of Unix.sockaddr | Server_fd of Unix.file_de
 let establish_server ?(signal_fds=[]) forker sockoraddr =
   let sock =
     match sockoraddr with
-	Server_sockaddr sockaddr ->
+  Server_sockaddr sockaddr ->
 	  let domain = match sockaddr with
-	    | ADDR_UNIX _ -> (debug "Establishing Unix domain server"; PF_UNIX)
-	    | ADDR_INET(_,_) -> (debug "Establishing inet domain server"; PF_INET) in
-	  let sock = socket domain SOCK_STREAM 0 in
+	    | ADDR_UNIX _ -> (debug "Establishing Unix domain server"; Unix.PF_UNIX)
+	    | ADDR_INET(_,_) -> (debug "Establishing inet domain server"; Unix.PF_INET) in
+	  let sock = Unix.socket domain Unix.SOCK_STREAM 0 in
 	    Unix.set_close_on_exec sock;
-	    setsockopt sock SO_REUSEADDR true;
-	    bind sock sockaddr;
-	    listen sock 5;
+	    Unix.setsockopt sock Unix.SO_REUSEADDR true;
+	    Unix.bind sock sockaddr;
+	    Unix.listen sock 5;
 	    sock
       | Server_fd fd -> fd in
   while true do  
@@ -63,7 +61,7 @@ let establish_server ?(signal_fds=[]) forker sockoraddr =
       (* If any of the signal_fd is active then bail out *)
       if set_intersect r signal_fds <> [] then raise PleaseClose;
       
-      let (s, caller) = accept sock in
+      let (s, caller) = Unix.accept sock in
       begin
 	try 
 	  Unix.set_close_on_exec s;

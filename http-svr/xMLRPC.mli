@@ -55,7 +55,7 @@ module To : sig
   val boolean : bool -> xmlrpc
 
   (** Marshal a date-time. *)
-  val datetime : Stdext.Date.iso8601 -> xmlrpc
+  val datetime : Xapi_stdext_date.Date.iso8601 -> xmlrpc
 
   (** Marshal a double. *)
   val double : float -> xmlrpc
@@ -93,7 +93,7 @@ module From : sig
   val boolean : xmlrpc -> bool
 
   (** Parse a date-time. *)
-  val datetime : xmlrpc -> Stdext.Date.iso8601
+  val datetime : xmlrpc -> Xapi_stdext_date.Date.iso8601
 
   (** Parse a double. *)
   val double : xmlrpc -> float

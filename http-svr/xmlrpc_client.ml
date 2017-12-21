@@ -11,10 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext
-open Xstringext
-open Pervasiveext
-open Threadext
+
+open Xapi_stdext_monadic
+open Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make(struct let name = "xmlrpc_client" end)
 open D
@@ -43,7 +43,7 @@ let xmlrpc ?frame ?version ?keep_alive ?task_id ?cookie ?length ?auth ?subtask_o
 exception Connection_reset
 
 module StunnelDebug=Debug.Make(struct let name="stunnel" end)
-let write_to_log x = StunnelDebug.debug "%s" (String.strip String.isspace x)
+let write_to_log x = StunnelDebug.debug "%s" (Astring.String.trim x)
 
 (** Return true if this fd is connected to an HTTP server by sending an XMLRPC request
     for an unknown method and checking we get a matching MESSAGE_METHOD_UNKNOWN.
@@ -189,7 +189,9 @@ let transport_of_url (scheme, _) =
 			let port = Opt.default 443 h.port in
 			SSL(SSL.make (), h.host, port)
 
-let with_transport transport f = match transport with
+let with_transport transport f = 
+	let open Xapi_stdext_unix in
+	match transport with
 	| Unix path ->
 		let fd = Unixext.open_connection_unix_fd path in
 		finally
@@ -297,7 +299,7 @@ module Protocol = functor(F: FORMAT) -> struct
 		try
 			match r.Http.Response.content_length with
 				| Some l when (Int64.to_int l) <= Sys.max_string_length ->
-					F.response_of_string (Unixext.really_read_string s (Int64.to_int l))
+					F.response_of_string (Xapi_stdext_unix.Unixext.really_read_string s (Int64.to_int l))
 				| Some _ | None -> F.response_of_file_descr s
 		with
 			| Unix.Unix_error(Unix.ECONNRESET, _, _) -> raise Connection_reset

@@ -13,9 +13,6 @@
  *)
 (* A very simple HTTP client *)
 
-open Stdext
-open Xstringext
-
 module D = Debug.Make(struct let name="http" end)
 open D
 
@@ -34,7 +31,7 @@ exception Http_error of string * string
 exception Parse_error of string
 
 let http_rpc_send_query fd request =
-	Unixext.really_write_string fd (Http.Request.to_wire_string request)
+	Xapi_stdext_unix.Unixext.really_write_string fd (Http.Request.to_wire_string request)
 
 (* Internal exception thrown when reading a newline-terminated HTTP header when the 
    connection is closed *)
@@ -67,14 +64,14 @@ let response_of_fd_exn_slow fd =
 
 	(* Initial line has the response code on it *)
 	let line = input_line_fd fd in
-	let bits = String.split_f String.isspace line in
+	let bits = Astring.String.fields ~empty:false line in
 	(* We just ignore the initial "FRAME xxxxx" *)
 	let bits = if bits <> [] && List.hd bits = "FRAME" then List.tl bits else bits in
 	match bits with
 		| http_version :: code :: rest ->
-			let version = match String.split ~limit:2 '/' http_version with
-				| [ http; version ] when String.endswith "HTTP" http -> version
-				| _ ->
+			let version = match Astring.String.cut ~sep:"/" http_version with
+				| Some (http, version) when Astring.String.is_suffix ~affix:"HTTP" http -> version
+				| None ->
 					error "Failed to parse HTTP response status line [%s]" line;
 					raise (Parse_error (Printf.sprintf "Failed to parse %s" http_version)) in
 			let message = String.concat " " rest in
@@ -87,8 +84,8 @@ let response_of_fd_exn_slow fd =
 				match line with       
 					| "" | "\r" -> end_of_headers := true
 					| x ->
-						let k, v = match String.split ~limit:2 ':' x with
-							| [ k; v ] -> String.lowercase k, String.strip String.isspace v
+						let k, v = match Astring.String.cuts ~sep:":" x with
+							| [ k; v ] -> String.lowercase k, Astring.String.trim v
 							| _        -> "", "" in
 						if k = String.lowercase Http.Hdr.task_id then task_id := Some v
 						else if k = String.lowercase Http.Hdr.content_length then content_length := Some (Int64.of_string v)
@@ -110,7 +107,7 @@ let response_of_fd_exn_slow fd =
 
 (** [response_of_fd_exn fd] returns an Http.Response.t object, or throws an exception *)
 let response_of_fd_exn fd =
-	let buf = String.create 1024 in
+	let buf = Bytes.create 1024 in
 	let b = Http.read_http_response_header buf fd in
 	let buf = String.sub buf 0 b in
 
@@ -118,21 +115,25 @@ let response_of_fd_exn fd =
 	snd(List.fold_left
 		(fun (status, res) header ->
 			if not status then begin
-				match String.split ~limit:3 ' ' header with
-					| [ http_version; c; rest ] ->
-						begin match String.split ~limit:2 '/' http_version with
-							| [ "HTTP"; version ] -> 
-								true, { res with version = version; code = c; message = rest }
-							| _ ->
-								error "Failed to parse HTTP response status line [%s]" header;
-								raise (Parse_error (Printf.sprintf "Failed to parse %s" http_version))
+				match Astring.String.cut ~sep:" " header with
+					| Some (http_version, rest)->
+						begin match Astring.String.cut ~sep:" " rest with
+						| Some (code, message) -> 
+							begin match Astring.String.cut ~sep:"/" http_version with
+								| Some ("HTTP", version) -> 
+									true, { res with version = version; code = code; message = message }
+								| _ ->
+									error "Failed to parse HTTP response status line [%s]" header;
+									raise (Parse_error (Printf.sprintf "Failed to parse %s" http_version))
+							end
+						| None -> raise (Parse_error (Printf.sprintf "Failed to parse %s" rest))
 						end
-					| _ -> raise (Parse_error (Printf.sprintf "Failed to parse %s" header))
+					| None -> raise (Parse_error (Printf.sprintf "Failed to parse %s" header))
 			end else begin
-				match String.split ~limit:2 ':' header with
-					| [ k; v ] ->
+				match Astring.String.cut ~sep:":" header with
+					| Some (k, v) ->
 						let k = String.lowercase k in
-						let v = String.strip String.isspace v in
+						let v = Astring.String.trim v in
 						true, begin match k with
 							| k when k = Http.Hdr.task_id -> { res with task = Some v }
 							| k when k = Http.Hdr.content_length -> { res with content_length = Some (Int64.of_string v) }
@@ -140,7 +141,7 @@ let response_of_fd_exn fd =
 						end
 					| _ -> true, res (* end of headers? *)
 			end
-		) (false, empty) (String.split '\n' buf))
+		) (false, empty) (Astring.String.cuts ~sep:"\n" buf))
 
 (** [response_of_fd fd] returns an optional Http.Response.t record *)
 let response_of_fd ?(use_fastpath=false) fd =
@@ -162,6 +163,7 @@ let http_rpc_recv_response use_fastpath error_msg fd =
 			begin match response.Http.Response.code with
 				| ("401"|"403"|"500") as http_code -> raise (Http_error (http_code,error_msg))
 				| "200" ->
+					let open Xapi_stdext_monadic in
 					Opt.iter (fun x -> last_content_length := x) response.Http.Response.content_length;
 					response
 				| code -> raise (Http_request_rejected (Printf.sprintf "%s: %s" code error_msg))

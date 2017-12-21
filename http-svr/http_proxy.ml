@@ -16,11 +16,12 @@ module D=Debug.Make(struct let name="http_proxy" end)
 open D
 
 open Xmlrpc_client
-open Stdext
-open Threadext
-open Pervasiveext
+open Xapi_stdext_monadic
+open Xapi_stdext_threads.Threadext
+open Xapi_stdext_pervasives.Pervasiveext
 
 let one request fromfd s =
+	let open Xapi_stdext_unix in
 	(* We can only proxy certain types of request properly *)
 	match request.Http.Request.m with
 		| Http.Get | Http.Post | Http.Put ->
@@ -77,7 +78,9 @@ let http_proxy src_ip src_port transport =
 					try
 						Unix.set_close_on_exec sock;
 						Unix.setsockopt sock Unix.SO_REUSEADDR true;
-						(match sockaddr with Unix.ADDR_INET _ -> Unixext.set_tcp_nodelay sock true | _ -> ());
+						(match sockaddr with
+						| Unix.ADDR_INET _ -> Xapi_stdext_unix.Unixext.set_tcp_nodelay sock true
+						| _ -> ());
 						Unix.bind sock sockaddr;
 						Unix.listen sock 128
 					with e ->

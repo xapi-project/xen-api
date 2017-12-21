@@ -29,10 +29,15 @@
  *
  *)
 
-open Stdext
 open Http
-open Xstringext
-open Pervasiveext
+
+open Xapi_stdext_monadic
+open Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_threads
+open Xapi_stdext_unix
+
+(* This resolves the lowercase deprecation for all compiler versions *)
+let lowercase = Astring.String.Ascii.lowercase
 
 module D = Debug.Make(struct let name="http" end)
 open D
@@ -54,7 +59,6 @@ module Stats = struct
 		n_framed = 0;
 	}
 	let update (x: t) (m: Mutex.t) req =
-		let new_connection = req.Http.Request.close in
 		Threadext.Mutex.execute m
 			(fun () ->
 				x.n_requests <- x.n_requests + 1;
@@ -99,7 +103,7 @@ let response_of_request req hdrs =
 		~headers:(connection :: cache :: hdrs) "200" "OK"
 
 let response_fct req ?(hdrs=[]) s (response_length: int64) (write_response_to_fd_fn: Unix.file_descr -> unit) = 
-	let res = { response_of_request req hdrs with Http.Response.content_length = Some response_length } in
+	let res = { (response_of_request req hdrs) with Http.Response.content_length = Some response_length } in
 	Unixext.really_write_string s (Http.Response.to_wire_string res);
 	write_response_to_fd_fn s
 
@@ -225,7 +229,7 @@ module Server = struct
 			if MethodMap.mem ty x.handlers
 			then MethodMap.find ty x.handlers
 			else Radix_tree.empty in
-		x.handlers <- MethodMap.add ty (Radix_tree.insert uri { TE.empty () with TE.handler = handler } existing) x.handlers
+		x.handlers <- MethodMap.add ty (Radix_tree.insert uri { (TE.empty ()) with TE.handler = handler } existing) x.handlers
 
 	let find_stats x m uri =
 		if not (MethodMap.mem m x.handlers)
@@ -244,7 +248,21 @@ module Server = struct
 end
 
 let escape uri =
-       String.escaped ~rules:[ '<', "&lt;"; '>', "&gt;"; '\'', "&apos;"; '"', "&quot;"; '&', "&amp;" ] uri
+	(* from xapi-stdext-std xstringext *)
+	let escaped ~rules string =
+		let aux h t = (
+			if List.mem_assoc h rules
+			then List.assoc h rules
+			else Astring.String.of_char h) :: t 
+		in
+		String.concat "" (Astring.String.fold_right aux string [])
+	in
+			escaped ~rules:[ '<', "&lt;"
+										 ; '>', "&gt;"
+										 ; '\'', "&apos;"
+										 ; '"', "&quot;"
+										 ; '&', "&amp;"
+										 ] uri
 
 exception Too_many_headers
 exception Generic_error of string
@@ -276,22 +294,22 @@ let request_of_bio_exn_slow ic =
 	if req.Request.version <> "1.1" then req.Request.close <- true;
 
 	let rec read_rest_of_headers left =
-		let cl_hdr = String.lowercase Http.Hdr.content_length in
-		let cookie_hdr = String.lowercase Http.Hdr.cookie in
-		let connection_hdr = String.lowercase Http.Hdr.connection in
-		let transfer_encoding_hdr = String.lowercase Http.Hdr.transfer_encoding in
-		let accept_hdr = String.lowercase Http.Hdr.accept in
-		let auth_hdr = String.lowercase Http.Hdr.authorization in
-		let task_hdr = String.lowercase Http.Hdr.task_id in
-		let subtask_of_hdr = String.lowercase Http.Hdr.subtask_of in
-		let content_type_hdr = String.lowercase Http.Hdr.content_type in
-		let host_hdr = String.lowercase Http.Hdr.host in
-		let user_agent_hdr = String.lowercase Http.Hdr.user_agent in
+		let cl_hdr = lowercase Http.Hdr.content_length in
+		let cookie_hdr = lowercase Http.Hdr.cookie in
+		let connection_hdr = lowercase Http.Hdr.connection in
+		let transfer_encoding_hdr = lowercase Http.Hdr.transfer_encoding in
+		let accept_hdr = lowercase Http.Hdr.accept in
+		let auth_hdr = lowercase Http.Hdr.authorization in
+		let task_hdr = lowercase Http.Hdr.task_id in
+		let subtask_of_hdr = lowercase Http.Hdr.subtask_of in
+		let content_type_hdr = lowercase Http.Hdr.content_type in
+		let host_hdr = lowercase Http.Hdr.host in
+		let user_agent_hdr = lowercase Http.Hdr.user_agent in
 		let r = Buf_io.input_line ~timeout:Buf_io.infinite_timeout ic in
-		match String.split ~limit:2 ':' r with
-			| [ k; v ] ->
-				let k = String.lowercase k in
-				let v = String.strip String.isspace v in
+		match Astring.String.cut ~sep:":" r with
+			| Some (k, v) ->
+				let k = lowercase k in
+				let v = String.trim v in
 				let absorbed = match k with
 					| k when k = cl_hdr -> content_length := Int64.of_string v; true
 					| k when k = cookie_hdr -> cookie := v; true
@@ -304,14 +322,14 @@ let request_of_bio_exn_slow ic =
 					| k when k = host_hdr -> host := Some v; true
 					| k when k = user_agent_hdr -> user_agent := Some v; true
                     | k when k = connection_hdr ->
-                        req.Request.close <- String.lowercase v = "close";
+                        req.Request.close <- lowercase v = "close";
                         true
 					| _ -> false in
 				if not absorbed && left <= 0 then raise Too_many_headers;
 				if absorbed
 				then read_rest_of_headers (left - 1)
 				else (k, v) :: (read_rest_of_headers (left - 1))
-			| _ -> [] in
+			| None -> [] in
 	let headers = read_rest_of_headers 242 in
 	{ req with
 		Request.cookie = (Http.parse_keyvalpairs !cookie);
@@ -332,9 +350,9 @@ let request_of_bio_exn_slow ic =
 let request_of_bio_exn bio =
 	let fd = Buf_io.fd_of bio in
 
-	let buf = String.create 1024 in
+	let buf = Bytes.create 1024 in
 	let b, frame = Http.read_http_request_header buf fd in
-	let buf = String.sub buf 0 b in
+	let buf = Bytes.sub buf 0 b in
 (*
 	Printf.printf "parsed = [%s]\n" buf;
 	flush stdout;
@@ -343,13 +361,13 @@ let request_of_bio_exn bio =
 	snd(List.fold_left
 		(fun (status, req) header ->
 			if not status then begin
-				match String.split_f String.isspace header with
+				match Astring.String.fields header with
 					| [ meth; uri; version ] ->
 						(* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
 						let uri, query = Http.parse_uri uri in
 						let m = Http.method_t_of_string meth in
 						let version =
-							let x = String.strip String.isspace version in
+							let x = String.trim version in
 							let prefix = "HTTP/" in
 							String.sub x (String.length prefix) (String.length x - (String.length prefix)) in
 						let close = version = "1.0" in
@@ -359,10 +377,10 @@ let request_of_bio_exn bio =
 						}
 					| _ -> raise Http_parse_failure
 			end else begin
-				match String.split ~limit:2 ':' header with
-					| [ k; v ] ->
-						let k = String.lowercase k in
-						let v = String.strip String.isspace v in
+				match Astring.String.cut ~sep:":" header with
+					| Some (k, v) ->
+						let k = lowercase k in
+						let v = String.trim v in
 						true, begin match k with
 							| k when k = Http.Hdr.content_length -> { req with content_length = Some (Int64.of_string v) }
 							| k when k = Http.Hdr.cookie -> { req with cookie = Http.parse_keyvalpairs v }
@@ -374,13 +392,13 @@ let request_of_bio_exn bio =
 							| k when k = Http.Hdr.content_type -> { req with content_type = Some v }
 							| k when k = Http.Hdr.host -> { req with host = Some v }
 							| k when k = Http.Hdr.user_agent -> { req with user_agent = Some v }
-							| k when k = Http.Hdr.connection && String.lowercase v = "close" -> { req with close = true }
-							| k when k = Http.Hdr.connection && String.lowercase v = "keep-alive" -> { req with close = false }
+							| k when k = Http.Hdr.connection && lowercase v = "close" -> { req with close = true }
+							| k when k = Http.Hdr.connection && lowercase v = "keep-alive" -> { req with close = false }
 							| _ -> { req with additional_headers = (k, v) :: req.additional_headers }
 						end
-					| _ -> true, req (* end of headers *)
+					| None -> true, req (* end of headers *)
 			end
-		) (false, { empty with Http.Request.frame = frame }) (String.split '\n' buf))
+		) (false, { empty with Http.Request.frame = frame }) (Astring.String.cuts ~sep:"\n" buf))
 
 (** [request_of_bio ic] returns [Some req] read from [ic], or [None]. If [None] it will have
 	already sent back a suitable error code and response to the client. *)
@@ -563,7 +581,7 @@ module Chunked = struct
         if chunk.read_headers = true then begin
             (* first get the size, then get the data requested *)
             let size = Buf_io.input_line chunk.bufio in
-            let size = String.strip String.isspace size in
+            let size = String.trim size in
             let size = int_of_string ("0x" ^ size) in
             chunk.current_size <- size;
             chunk.current_offset <- 0;
@@ -599,7 +617,7 @@ let read_chunked_encoding req bio =
   let rec next () = 
     let size = Buf_io.input_line bio in
     (* Strictly speaking need to kill anything past an ';' if present *)
-    let size = String.strip String.isspace size in
+    let size = String.trim size in
     let size = int_of_string ("0x" ^ size) in
 
     if size = 0 then Http.End
