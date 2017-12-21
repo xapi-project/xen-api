@@ -265,6 +265,7 @@ let assert_no_other_local_pifs ~__context ~host ~network =
 let assert_fcoe_not_in_use ~__context pif =
   let interface = Db.PIF.get_device ~__context ~self:pif in
   let output, _ = Forkhelpers.execute_command_get_output !Xapi_globs.fcoe_driver ["-t"; interface] in
+  let output = String.trim output in
   debug "Scsi ids on %s are: %s" interface output;
   let fcoe_scsids = Str.split (Str.regexp " ") output in
   Helpers.get_my_pbds __context |> List.iter (fun (pbd, pbd_rec) ->
