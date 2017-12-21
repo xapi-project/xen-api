@@ -96,10 +96,6 @@ let parse_bigbuffer b =
   let i = Xmlm.make_input (`Fun aux) in
   parse i
 
-(* common output function *)
-let substitute list s =
-  s
-
 let esc_pcdata data =
   let buf = Buffer.create (String.length data + 10) in
   for i = 0 to String.length data - 1

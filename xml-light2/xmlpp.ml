@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xml
-
-let _ = 
+let _ =
   let xml = Xml.parse_in stdin in
   print_endline (Xml.to_string_fmt xml)
