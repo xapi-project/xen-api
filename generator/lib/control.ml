@@ -46,6 +46,35 @@ let api =
           ];
         ]
       )) in
+  let configuration = {
+    Arg.name = "configuration";
+    ty = Type.(Dict(String, Basic String));
+    description = String.concat " " [
+                    "Plugin-specific configuration which describes where and";
+                    "how to locate the storage repository. This may include";
+                    "the physical block device name, a remote NFS server and";
+                    "path or an RBD storage pool.";
+                  ];
+  } in
+  let probe_result_decl =
+    Type.(Struct (
+        ( configuration.name, configuration.ty, configuration.description ),
+        [ "complete", Basic Boolean, String.concat " " [
+            "True if this configuration is complete and can be used to";
+            "call SR.create. False if it requires further iterative calls";
+            "to SR.probe, to potentially narrow down on a configuration";
+            "that can be used.";
+          ];
+          "sr", Name "sr_stat", String.concat " " [
+            "Existing SR found for this configuration";
+          ]; 
+          "extra_info", Dict(String, Basic String), String.concat " " [
+            "Additional plugin-specific information about this configuration,";
+            "that might be of use for an API user. This can for example";
+            "include the LUN or the WWPN.";
+          ];
+        ]
+      )) in         
   let volume_decl =
     Type.(Struct(
         ( "key", Name "key", String.concat " " [
@@ -110,16 +139,6 @@ let api =
     Arg.name = "key";
     ty = Type.(Basic String);
     description = "The volume key";
-  } in
-  let configuration = {
-    Arg.name = "configuration";
-    ty = Type.(Dict(String, Basic String));
-    description = String.concat " " [
-                    "Plugin-specific configuration which describes where and";
-                    "how to create the storage repository. This may include";
-                    "the physical block device name, a remote NFS server and";
-                    "path or an RBD storage pool.";
-                  ];
   } in
   let uuid = {
     Arg.name = "uuid";
@@ -196,6 +215,14 @@ let api =
           "SR.stat call.";
         ];
         ty = sr_stat_decl
+      }; {
+        TyDecl.name = "probe_result";
+        description = String.concat " " [
+          "A set of properties that describe one result element of SR.probe.";
+          "Result elements and properties can change dynamically based on";
+          "changes to the the SR.probe input-parameters or the target.";
+        ];
+        ty = probe_result_decl
       }; {
         TyDecl.name = "volume";
         description = String.concat " " [
@@ -424,17 +451,16 @@ let api =
           methods = [
             {
               Method.name = "probe";
-              description = "[probe configuration]: looks for existing SRs on the storage device";
+              description = String.concat " " [
+                "[probe configuration]: can be used iteratively to narrow down configurations";
+                "to use with SR.create, or to find existing SRs on the backing storage";
+              ];
               inputs = [
                 configuration;
               ];
               outputs = [
                { Arg.name = "result";
-                 ty = 
-                   Type.Struct (
-                     ("srs", Type.(Array sr_stat), "SRs found on this storage device"), [
-                      "uris", Type.(Array (Basic String)), "Other possible URIs which may contain SRs"
-                   ]);
+                 ty = Type.(Array (Name "probe_result"));
                  description = "Contents of the storage device";
                }
               ];
