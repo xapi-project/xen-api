@@ -1,4 +1,4 @@
-open Stdext
+open Xapi_stdext_unix
 open Fe
 
 let open_unix_domain_sock () =
@@ -42,11 +42,11 @@ exception Connection_closed
 
 let receive_named_fd sock =
   let buffer = String.make 36 '\000' in
-  let (len,from,newfd) = Unixext.recv_fd sock buffer 0 36 [] in  
+  let (len,_from,newfd) = Unixext.recv_fd sock buffer 0 36 [] in  
   if len=0 then raise Connection_closed;
   (newfd,buffer)
 
 let send_named_fd sock uuid fd =
   ignore(Unixext.send_fd sock uuid 0 (String.length uuid) [] fd)
-  
-    
+
+

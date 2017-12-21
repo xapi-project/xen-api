@@ -8,5 +8,5 @@ env:
     global:
         - REPO_PACKAGE_NAME=forkexecd
         - REPO_CONFIGURE_CMD=true
-        - REPO_BUILD_CMD='oasis setup && make'
-        - REPO_TEST_CMD='sudo make test'
+        - REPO_BUILD_CMD='make'
+        - REPO_TEST_CMD='make test || (cd _build/default/test && sudo ./fe_test.sh)'
