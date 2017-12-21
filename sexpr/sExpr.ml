@@ -18,17 +18,29 @@ type t =
   | WeirdString of string * string
 
 let unescape_buf buf s =
-  let open Xapi_stdext_std.Xstringext in
   let aux esc = function
       '\\' when not esc -> true
     | c -> Buffer.add_char buf c; false in
-  if String.fold_left aux false s then
+  if Astring.String.fold_left aux false s then
     Buffer.add_char buf '\\'
 
+(* XXX: This escapes "'c'" and "\'c\'" to "\\'c\\'".
+ * They are both unescaped as "'c'". They have been ported
+ * to make sure that this corner case is left unchanged.
+ * It is worth investigating the use of 
+ * - Astring.String.Ascii.escape_string
+ * - Astring.String.Ascii.unescape
+ * that have guaranteed invariants and optimised performances *)
 let escape s =
-  let open Xapi_stdext_std.Xstringext in
-  String.map_unlikely s
-    (function '\\' -> Some "\\\\" | '"'  -> Some "\\\"" | '\'' -> Some "\\\'" |  _    -> None)
+  let open Astring in
+  String.fold_left
+    (fun acc c ->
+       acc ^
+       match c with
+       | '\\' -> "\\\\"
+       | '"'  -> "\\\""
+       | '\'' -> "\\\'"
+       |  _   -> Astring.String.of_char c) "" s
 
 let unescape s =
   let buf = Buffer.create (String.length s) in
