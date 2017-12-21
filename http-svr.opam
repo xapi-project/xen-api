@@ -1,0 +1,26 @@
+opam-version: "1.2"
+maintainer: "jonathan.ludlam@eu.citrix.com"
+authors: "xen-api@lists.xen.org"
+homepage: "https://xapi-project.github.io/"
+bug-reports: "https://github.com/xapi-project/xen-api-libs-transitional.git"
+dev-repo: "https://github.com/xapi-project/xen-api-libs-transitional.git"
+
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
+
+available: [ os = "linux" ]
+depends: [
+  "jbuilder" {build}
+  "astring"
+  "rpc"
+  "sha"
+  "stunnel"
+  "xapi-stdext-base64"
+  "xapi-stdext-date"
+  "xapi-stdext-monadic"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-threads"
+  "xapi-stdext-unix"
+  "xml-light2"
+  "ounit" {test & >= "2.0.0"}
+]

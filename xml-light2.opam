@@ -1,0 +1,21 @@
+opam-version: "1.2"
+maintainer: "jonathan.ludlam@eu.citrix.com"
+authors: "xen-api@lists.xen.org"
+homepage: "https://xapi-project.github.io/"
+bug-reports: "https://github.com/xapi-project/xen-api-libs-transitional.git"
+dev-repo: "https://github.com/xapi-project/xen-api-libs-transitional.git"
+
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+
+available: [ os = "linux" ]
+depends: [
+  "jbuilder" {build}
+  "xapi-stdext-bigbuffer"
+  "xmlm"
+]
+depexts: [
+  [["debian"] ["libxen-dev"]]
+  [["ubuntu"] ["libxen-dev"]]
+  [["centos"] ["xen-devel"]]
+  [["xenserver"] ["xen-dom0-libs-devel" "xen-libs-devel"]]
+]

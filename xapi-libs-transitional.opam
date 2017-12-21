@@ -1,0 +1,19 @@
+opam-version: "1.2"
+maintainer: "jonathan.ludlam@eu.citrix.com"
+authors: "xen-api@lists.xen.org"
+homepage: "https://xapi-project.github.io/"
+bug-reports: "https://github.com/xapi-project/xen-api-libs-transitional.git"
+dev-repo: "https://github.com/xapi-project/xen-api-libs-transitional.git"
+
+available: [ os = "linux" ]
+depends: [
+    "gzip"
+    "http-svr"
+    "pciutil"
+    "sexpr"
+    "sha1"
+    "stunnel"
+    "uuid"
+    "xenctrlext"
+    "xml-light2"
+]
