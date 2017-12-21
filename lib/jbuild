@@ -49,6 +49,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   %s
   (libraries (
     c_stubs
+    stdext
     threads
     threads.posix
     uuidm
@@ -56,7 +57,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     cohttp
     uri
     rpclib
-    ppx_deriving_rpc
     forkexec
     fd-send-recv
     xcp
