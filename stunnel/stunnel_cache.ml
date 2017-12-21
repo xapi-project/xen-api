@@ -29,7 +29,7 @@ open D
 let debug_enabled = false
 
 let ignore_log fmt =
-  Printf.ksprintf (fun s -> ()) fmt
+  Printf.ksprintf (fun _ -> ()) fmt
 
 (* Use and overlay the definition from D. *)
 let debug = if debug_enabled then debug else ignore_log
@@ -47,14 +47,14 @@ let capacity = max_stunnel + 1
 
 (** An index of endpoints to stunnel IDs *)
 let index : (endpoint, int list) Hashtbl.t ref = ref (Hashtbl.create capacity)
+
 (** A mapping of stunnel unique IDs to donation times *)
 let times : (int, float) Hashtbl.t ref = ref (Hashtbl.create capacity)
+
 (** A mapping of stunnel unique ID to Stunnel.t *)
 let stunnels : (int, Stunnel.t) Hashtbl.t ref = ref (Hashtbl.create capacity)
 
-open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
-open Xapi_stdext_std
 
 let m = Mutex.create ()
 
@@ -76,9 +76,10 @@ let unlocked_gc () =
     debug "Cache contents: %s" (Hashtbl.fold (fun ep xs acc -> string_of_index ep xs ^ " " ^ acc) !index "");
   end;
 
-  (* From Xapi_stdext_std.Listext *)
-  (** Split a list at the given index to give a pair of lists. *)
-  let rec chop i l = match i, l with
+  (* Split a list at the given index to give a pair of lists.
+   *  From Xapi_stdext_std.Listext *)
+  let rec chop i l = 
+    match i, l with
     | 0, l -> [], l
     | i, h :: t -> (fun (fr, ba) -> h :: fr, ba) (chop (i - 1) t)
     | _ -> invalid_arg "chop"
@@ -110,7 +111,7 @@ let unlocked_gc () =
     let times' = List.filter (fun (idx, _) -> not(List.mem idx !to_gc)) times' in
     (* Sort into descending order of donation time, ie youngest first *)
     let times' = List.sort (fun x y -> compare (fst y) (fst x)) times' in
-    let youngest, oldest = chop max_stunnel times' in
+    let _youngest, oldest = chop max_stunnel times' in
     let oldest_ids = List.map fst oldest in
     List.iter
       (fun x -> 
@@ -197,7 +198,7 @@ let flush () =
   Mutex.execute m 
     (fun () ->
        info "Flushing cache of all %d stunnels." (Hashtbl.length !stunnels);
-       Hashtbl.iter (fun id st -> Stunnel.disconnect st) !stunnels;
+       Hashtbl.iter (fun _id st -> Stunnel.disconnect st) !stunnels;
        Hashtbl.clear !stunnels;
        Hashtbl.clear !times;
        Hashtbl.clear !index;

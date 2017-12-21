@@ -98,9 +98,9 @@ module Unsafe = struct
       with _ -> exit 1
     end else pid
 
-  (** File descriptor operations to be performed after a fork.
-      These are all safe in the presence of threads *)
-  type fd_operation = 
+  (* File descriptor operations to be performed after a fork.
+   * These are all safe in the presence of threads *)
+  type fd_operation =
     | Dup2 of Unix.file_descr * Unix.file_descr
     | Close of Unix.file_descr
 
@@ -109,15 +109,15 @@ module Unsafe = struct
     | Close a -> Unix.close a
 end
 
-type pid = 
+type pid =
   | StdFork of int (** we forked and exec'ed. This is the pid *)
   | FEFork of Forkhelpers.pidty (** the forkhelpers module did it for us. *)
   | Nopid
 
-let string_of_pid = function
+(* let string_of_pid = function
   | StdFork x -> Printf.sprintf "(StdFork %d)" x
   | FEFork x -> Forkhelpers.string_of_pidty x
-  | Nopid -> "None"
+  | Nopid -> "None" *)
 
 let getpid ty =
   match ty with
