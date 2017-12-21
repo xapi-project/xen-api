@@ -1,29 +1,22 @@
 language: c
-sudo: required
-dist: trusty
-before_install:
-    - sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu/ trusty main universe"
-    - sudo apt-get update -qq
-    - sudo apt-get install libgcrypt20 liblzma5 libselinux1
-    - wget "http://archive.ubuntu.com/ubuntu/ubuntu/pool/main/s/systemd/libsystemd0_219-7ubuntu3_amd64.deb"
-    - wget "http://archive.ubuntu.com/ubuntu/ubuntu/pool/main/s/systemd/libsystemd-dev_219-7ubuntu3_amd64.deb"
-    - sudo dpkg -i libsystemd0_219-7ubuntu3_amd64.deb libsystemd-dev_219-7ubuntu3_amd64.deb
-    - git clone https://github.com/xapi-project/xs-opam /tmp/xs-opam && cd /tmp/xs-opam && sh into_repo.sh && cd -
 install:
-  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
-  - wget https://raw.githubusercontent.com/simonjbeaumont/ocaml-travis-coveralls/master/travis-coveralls.sh
+    - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
 script:
-    - bash -ex .travis-opam.sh
-    - if [ ! -z ${XS_COV} ]; then bash -ex travis-coveralls.sh || true; fi
+    - bash -ex .travis-docker.sh
+sudo: required
+services:
+    - docker
 env:
-  global:
-    - OCAML_VERSION=4.02
-    - PACKAGE=xapi-libs-transitional
-    - TESTS=true
-  matrix:
-    - BASE_REMOTE=/tmp/xs-opam XS_COV=1 COV_CONF="./configure --enable-tests"
-    - EXTRA_REMOTES=/tmp/xs-opam
-matrix:
-    fast_finish: true
-    allow_failures:
-        - env: EXTRA_REMOTES=/tmp/xs-opam
+    global:
+        - OCAML_VERSION=4.04.2
+        - PINS="gzip:. http-svr:. pciutil:. sexpr:. sha1:. stunnel:. uuid:. xapi-libs-transitional:. xenctrlext:. xml-light2:."
+        - PACKAGE=xapi-libs-transitional
+        - DISTRO="debian-stable"
+    matrix:
+        - BASE_REMOTE=git://github.com/xapi-project/xs-opam
+        - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+    matrix:
+        fast_finish: true
+        allow_failures:
+            - env: EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+
