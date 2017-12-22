@@ -17,7 +17,7 @@ let _ =
       ~version:"1.0"
       ~originator:"daily-license-check"
   in
-  Stdext.Pervasiveext.finally
+  Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
        let now = Unix.time () in
        let pool, pool_license_state, all_license_params = Daily_license_check.get_info_from_db rpc session in

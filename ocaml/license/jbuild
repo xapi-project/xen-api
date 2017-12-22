@@ -2,17 +2,13 @@
  ((name daily_license_check_main)
   (public_name daily-license-check)
   (package xapi)
+  (modules (:standard \ test_daily_license_check))
   (libraries (
-    xml-light2
-    stdext
-    stunnel
     http-svr
-    xcp
-    rpclib
-    uuid
-    systemd
     threads
     xapi-client
+    xapi-stdext-date
+    xapi-stdext-pervasives
   ))
  )
 )
