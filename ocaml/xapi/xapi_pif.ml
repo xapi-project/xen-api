@@ -23,14 +23,23 @@ open Listext
 open Pervasiveext
 open Xstringext
 open Threadext
-
 open Network
+
+let get_device_pci ~__context ~host ~device =
+  let dbg = Context.string_of_task __context in
+  let pci_bus_path = Net.Interface.get_pci_bus_path dbg ~name:device in
+  let expr = Db_filter_types.(And (Eq (Field "pci_id", Literal (pci_bus_path)),
+                                   Eq (Field "host", Literal (Ref.string_of host)))) in
+  match Db.PCI.get_refs_where ~__context ~expr with
+  | pci :: _ -> pci
+  | _  -> Ref.null
 
 let refresh_internal ~__context ~self =
   let device = Db.PIF.get_device ~__context ~self in
   let network = Db.PIF.get_network ~__context ~self in
   let bridge = Db.Network.get_bridge ~__context ~self:network in
   let dbg = Context.string_of_task __context in
+  let host = Db.PIF.get_host ~__context ~self in
 
   (* Update the specified PIF field in the database, if
      	 * and only if a corresponding value can be read from
@@ -57,6 +66,12 @@ let refresh_internal ~__context ~self =
       (Db.PIF.set_MAC)
       (fun () -> Net.Interface.get_mac dbg ~name:device)
       (id);
+
+  maybe_update_database "PCI"
+    (Db.PIF.get_PCI)
+    (Db.PIF.set_PCI)
+    (fun () -> get_device_pci ~__context ~host ~device)
+    (Ref.string_of);
 
   maybe_update_database "MTU"
     (Db.PIF.get_MTU)
@@ -374,7 +389,7 @@ let pool_introduce
       ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS
       ~bond_slave_of:Ref.null ~vLAN_master_of ~management
       ~other_config ~disallow_unplug ~ipv6_configuration_mode
-      ~iPv6 ~ipv6_gateway ~primary_address_type ~managed ~properties ~capabilities:[] in
+      ~iPv6 ~ipv6_gateway ~primary_address_type ~managed ~properties ~capabilities:[] ~pCI:Ref.null in
   pif_ref
 
 let db_introduce = pool_introduce
@@ -400,6 +415,7 @@ let introduce_internal
   in
   let dbg = Context.string_of_task __context in
   let capabilities = Net.Interface.get_capabilities dbg device in
+  let pci = get_device_pci ~__context ~host ~device in
 
   let pif = Ref.make () in
   debug
@@ -414,7 +430,7 @@ let introduce_internal
       ~dNS:"" ~bond_slave_of:Ref.null ~vLAN_master_of ~management:false
       ~other_config:[] ~disallow_unplug ~ipv6_configuration_mode:`None
       ~iPv6:[] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed
-      ~properties:default_properties ~capabilities:capabilities in
+      ~properties:default_properties ~capabilities:capabilities ~pCI:pci in
 
   (* If I'm a pool slave and this pif represents my management
      	 * interface then leave it alone: if the interface goes down

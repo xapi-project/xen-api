@@ -5659,6 +5659,7 @@ let pif =
       field ~lifecycle:[Published, rel_inverness, ""] ~qualifier:DynamicRO ~ty:pif_igmp_status ~default_value:(Some (VEnum "unknown")) "igmp_snooping_status" "The IGMP snooping status of the corresponding network bridge";
       field ~in_oss_since:None ~ty:(Set (Ref _network_sriov)) ~in_product_since:rel_kolkata ~qualifier:DynamicRO "sriov_physical_PIF_of" "Indicates which network_sriov this interface is physical of";
       field ~in_oss_since:None ~ty:(Set (Ref _network_sriov)) ~in_product_since:rel_kolkata ~qualifier:DynamicRO "sriov_logical_PIF_of" "Indicates which network_sriov this interface is logical of";
+      field ~qualifier:DynamicRO ~ty:(Ref _pci) ~lifecycle:[Published, rel_kolkata, ""] ~default_value:(Some (VRef null_ref)) "PCI" "Link to underlying PCI device";
     ]
     ()
 

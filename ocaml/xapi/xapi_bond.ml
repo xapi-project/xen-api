@@ -376,7 +376,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
         ~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
         ~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false
         ~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true
-        ~properties:pif_properties ~capabilities:[];
+        ~properties:pif_properties ~capabilities:[] ~pCI:Ref.null;
       Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~master:master ~other_config:[]
         ~primary_slave ~mode ~properties ~links_up:0L;
 
