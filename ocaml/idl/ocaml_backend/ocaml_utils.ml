@@ -39,7 +39,7 @@ let constructor_of string =
 
 (* generates: vM *)
 let ocaml_of_record_name x =
-  escape (String.uncapitalize x)
+  escape (String.uncapitalize_ascii x)
 
 (* generates: _VM *)
 let ocaml_of_record_name_rpc x =
@@ -52,10 +52,10 @@ let ocaml_of_record_field_rpc x =
 (* generates: vM_foo *)
 let ocaml_of_record_field = function
   | []     -> failwith "ocaml_of_record_field"
-  | h :: t -> ocaml_of_record_field_rpc (String.uncapitalize h :: t)
+  | h :: t -> ocaml_of_record_field_rpc (String.uncapitalize_ascii h :: t)
 
 let ocaml_of_module_name x =
-  String.capitalize x
+  String.capitalize_ascii x
 
 (** Convert an IDL enum into a polymorhic variant. *)
 let ocaml_of_enum list =
@@ -70,7 +70,7 @@ let rec alias_of_ty ?(prefix="") = function
   | Bool                          -> "bool"
   | DateTime                      -> "datetime"
   | Set ty                        -> sprintf "%s_set" (alias_of_ty ty)
-  | Enum(name, _)                 -> String.uncapitalize name
+  | Enum(name, _)                 -> String.uncapitalize_ascii name
   | Map(k, v)                     -> sprintf "%s_to_%s_map" (alias_of_ty k) (alias_of_ty v)
   | Ref x                         -> sprintf "ref_%s" x
   | Record x                      -> sprintf "%s_t" (ocaml_of_record_name x)
@@ -96,7 +96,7 @@ let ocaml_of_obj_name x =
   if x = ""
   then failwith "Empty object name"
   else (match x.[0] with
-      | 'A'..'Z' | 'a'..'z' -> String.capitalize x
+      | 'A'..'Z' | 'a'..'z' -> String.capitalize_ascii x
       | _ -> "M_" ^ x)
 
 

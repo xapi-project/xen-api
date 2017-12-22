@@ -24,11 +24,11 @@ let _ = Random.init (int_of_float (Unix.time()))
 let gen_random_string() =
   let len = Random.int 20 in
   let ranchar() = Char.chr ((Random.int 90)+32) in
-  let string = String.create len in
+  let string = Bytes.create len in
   let rec fillstr l =
     if l=len then () else
       begin
-        String.set string l (ranchar());
+        Bytes.set string l (ranchar());
         fillstr (l+1)
       end in
   fillstr 0;

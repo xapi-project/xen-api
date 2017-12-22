@@ -35,7 +35,7 @@ let list () =
       let path = Filename.concat main_dir x in
       let uuid = Unixext.string_of_file (Filename.concat path "vdi-uuid") in
       let reason = Unixext.string_of_file (Filename.concat path "reason") in
-      (* let bool_of_string x = String.lowercase x = "true" in *)
+      (* let bool_of_string x = String.lowercase_ascii x = "true" in *)
       let delete_next_boot =
         try ignore(Unix.stat (Filename.concat path "delete-next-boot")); true
         with _ -> false in

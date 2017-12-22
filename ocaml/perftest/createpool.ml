@@ -37,7 +37,7 @@ let get_network_num_from_interface pool i =
     LVHD won't work so we can't use LVM over iSCSI or FC. It's probably easiest
     to include a whitelist here rather than find an EQL array to test this. *)
 let sr_is_suitable session_id sr =
-  let t = String.lowercase (Client.SR.get_type rpc session_id sr) in
+  let t = String.lowercase_ascii (Client.SR.get_type rpc session_id sr) in
   t = "ext" || t = "nfs"
 
 let default_sr_must_be_suitable session_id =

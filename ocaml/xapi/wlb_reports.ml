@@ -110,7 +110,7 @@ let hex_entity s =
 let trim_and_send method_name tag recv_sock send_sock =
   let recv_buf = Buffer.create bufsize in
   let fill () =
-    let s = String.create bufsize in
+    let s = Bytes.create bufsize in
     let n = Unix.read recv_sock s 0 bufsize in
     if n > 0 then
       Buffer.add_string recv_buf (String.sub s 0 n);

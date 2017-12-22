@@ -46,7 +46,7 @@ let http_spec =
 let _ = Thread.create (fun ()->Http_daemon.main http_spec) ()
 
 let rec allocator() =
-  let x = String.create 100000 in
+  let x = Bytes.create 100000 in
   Thread.delay 0.01;
   allocator()
 
@@ -102,7 +102,7 @@ let do_http_rpc host port path body f =
   Unix.close s;
   result
 
-let bigbody = String.create 20000
+let bigbody = Bytes.create 20000
 
 let rec requester() =
   do_http_rpc "localhost" Xapi_globs.default_cleartext_port "whateverdontcare" bigbody

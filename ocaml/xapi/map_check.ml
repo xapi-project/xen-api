@@ -81,7 +81,7 @@ let err field key value =
 
 let mem value range =
 	try Some
-	(List.find (fun r->(String.lowercase value)=(String.lowercase r)) range)
+	(List.find (fun r->(String.lowercase_ascii value)=(String.lowercase_ascii r)) range)
 	with Not_found -> None
 
 let assert_value ~field ~key ~attr ~value =

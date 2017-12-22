@@ -37,7 +37,7 @@ let supported_drivers () =
 (** Scans the plugin directory and registers everything it finds there *)
 let register () =
   let add_entry driver info =
-    let name = String.lowercase driver in
+    let name = String.lowercase_ascii driver in
     Hashtbl.replace driver_info_cache name info
   in
   Sm_exec.get_supported add_entry;
@@ -45,7 +45,7 @@ let register () =
 
 
 let info_of_driver (name: string) =
-  let name = String.lowercase name in
+  let name = String.lowercase_ascii name in
   if not(Hashtbl.mem driver_info_cache name)
   then raise (Unknown_driver name)
   else (Hashtbl.find driver_info_cache name)

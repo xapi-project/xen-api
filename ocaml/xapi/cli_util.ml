@@ -228,7 +228,7 @@ let user_says_yes fd =
     | Blob End -> ()
     | _ -> failwith "Protocol error"
   end;
-  let result = String.lowercase (String.strip String.isspace response)="yes" in
+  let result = String.lowercase_ascii (String.strip String.isspace response)="yes" in
   if not(result)
   then marshal fd (Command (Print ("Aborted (you typed: '"^response^"')")));
   result

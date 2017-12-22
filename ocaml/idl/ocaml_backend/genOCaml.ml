@@ -51,7 +51,7 @@ let ty_to_xmlrpc api ty =
       let kf = begin match key with
         | Ref x -> "tostring_reference"
         | Enum (name, cs) ->
-          let aux (c, _) = Printf.sprintf "%s -> \"%s\"" (constructor_of c) (String.lowercase c) in
+          let aux (c, _) = Printf.sprintf "%s -> \"%s\"" (constructor_of c) (String.lowercase_ascii c) in
           "   function " ^ (String.concat ("\n" ^ indent ^ "| ") (List.map aux cs))
         | key -> "ToString." ^ (alias_of_ty key)
       end in
@@ -107,9 +107,9 @@ let ty_of_xmlrpc api ty =
     | Bool -> wrap "xml" "From.boolean xml"
     | DateTime -> wrap "xml" "From.datetime xml"
     | Enum(name, cs) ->
-      let aux (c, _) = "\""^(String.lowercase c)^"\" -> "^constructor_of c in
+      let aux (c, _) = "\""^(String.lowercase_ascii c)^"\" -> "^constructor_of c in
       wrap "xml"
-        ("\n    match String.lowercase (From.string xml) with\n      "^
+        ("\n    match String.lowercase_ascii (From.string xml) with\n      "^
          String.concat "\n    | " (List.map aux cs)^
          "\n    | _ -> log_backtrace(); raise (RunTimeTypeError(\""^name^"\", xml))")
     | Float -> wrap "xml" "From.double xml"
@@ -118,9 +118,9 @@ let ty_of_xmlrpc api ty =
       let kf = begin match key with
         | Ref x -> "fromstring_reference"
         | Enum (name, cs) ->
-          let aux (c, _) = "\""^(String.lowercase c)^"\" -> "^constructor_of c in
+          let aux (c, _) = "\""^(String.lowercase_ascii c)^"\" -> "^constructor_of c in
           wrap "txt"
-            ("\n    match String.lowercase txt with\n      "^
+            ("\n    match String.lowercase_ascii txt with\n      "^
              String.concat "\n    | " (List.map aux cs)^
              "\n    | _ -> raise (RunTimeTypeError(\""^name^"\", Xml.parse_string txt))")
         | key -> "FromString." ^ (alias_of_ty key)

@@ -109,7 +109,7 @@ let is_subject_suspended subject_identifier =
   in
   let get_suspension_value name info =
     if List.mem_assoc name info (* is the required field present? *)
-    then ((String.lowercase (List.assoc name info))<>"false") (* no suspension only if value is explicitly false *)
+    then ((String.lowercase_ascii (List.assoc name info))<>"false") (* no suspension only if value is explicitly false *)
     else true (* if we didn't find the field, assumes the worse, ie. subject is suspended *)
   in
   (* obtains each field that could suspend an existing subject *)
