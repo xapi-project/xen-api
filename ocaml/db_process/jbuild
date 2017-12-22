@@ -3,17 +3,10 @@
   (public_name xapi-db-process)
   (package xapi)
   (libraries (
-   xml-light2
-   stdext
-   stunnel
-   http-svr
-   xcp
-   rpclib
-   uuid
-   systemd
-   threads
-   xapi-client
+   unix
+   xcp-inventory
    xapi-database
+   xcp  ;for the Debug module
   ))
  )
 )
