@@ -37,6 +37,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    uuidm
    xapi-consts
    xapi-stdext-date
+   xcp
   ))
   (wrapped false)
  )

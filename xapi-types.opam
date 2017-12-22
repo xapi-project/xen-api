@@ -14,7 +14,8 @@ depends: [
   "uuidm"
   "xapi-consts"
   "xapi-datamodel"
-  "xapi-libs-transitional"
+  "xapi-idl"
   "xapi-stdext-date"
+  "xapi-libs-transitional"
 ]
 
