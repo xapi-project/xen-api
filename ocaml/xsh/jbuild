@@ -3,7 +3,6 @@
   (public_name xsh)
   (package xapi)
   (libraries (
-   stdext
    stunnel
    threads
   ))
