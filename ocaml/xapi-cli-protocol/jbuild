@@ -2,8 +2,8 @@
  ((name xapi_cli_protocol)
   (public_name xapi-cli-protocol)
   (libraries (
-   stdext
    threads
+   xapi-stdext-unix
   ))
   (wrapped false)
  )

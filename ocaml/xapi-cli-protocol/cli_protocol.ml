@@ -15,6 +15,8 @@
  * @group Command-Line Interface (CLI)
 *)
 
+open Xapi_stdext_unix
+
 (** Used to ensure that we actually are talking to a thin CLI server *)
 let major = 0
 let minor = 2
@@ -211,7 +213,7 @@ let marshal_message = function
   | Blob x     -> marshal_int 11 ^ (marshal_blob_header x)
 
 let write_string (fd: Unix.file_descr) buf =
-  Stdext.Unixext.really_write fd buf 0 (String.length buf)
+  Unixext.really_write fd buf 0 (String.length buf)
 
 (** Marshal a message to a file descriptor prefixing it with total header length *)
 let marshal (fd: Unix.file_descr) x =
@@ -232,11 +234,11 @@ let unmarshal_message pos =
 let unmarshal (fd: Unix.file_descr) =
   let buf = Buffer.create 0 in
   try
-    let head = Stdext.Unixext.try_read_string ~limit:4 fd in
+    let head = Unixext.try_read_string ~limit:4 fd in
     Buffer.add_string buf head;
     if String.length head < 4 then raise End_of_file;
     let length, _ = unmarshal_int (head, 0) in
-    let body = Stdext.Unixext.try_read_string ~limit:length fd in
+    let body = Unixext.try_read_string ~limit:length fd in
     Buffer.add_string buf body;
     if String.length body < length then raise End_of_file;
     fst (unmarshal_message (body, 0))
@@ -252,14 +254,14 @@ let unmarshal_protocol (fd: Unix.file_descr) =
   let buf = Buffer.create 0 in
   try
     let prefix_len = String.length prefix in
-    let prefix' = Stdext.Unixext.try_read_string ~limit:prefix_len fd in
+    let prefix' = Unixext.try_read_string ~limit:prefix_len fd in
     Buffer.add_string buf prefix';
     if String.length prefix' < prefix_len then raise End_of_file;
     if prefix' <> prefix then raise Not_a_cli_server;
-    let major_str = Stdext.Unixext.try_read_string ~limit:4 fd in
+    let major_str = Unixext.try_read_string ~limit:4 fd in
     Buffer.add_string buf major_str;
     if String.length major_str < 4 then raise End_of_file;
-    let minor_str = Stdext.Unixext.try_read_string ~limit:4 fd in
+    let minor_str = Unixext.try_read_string ~limit:4 fd in
     Buffer.add_string buf minor_str;
     if String.length minor_str < 4 then raise End_of_file;
     let major', _ = unmarshal_int (major_str, 0) in
