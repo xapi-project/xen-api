@@ -38,8 +38,7 @@ let db_set_in_other_config ~__context ~self ~key ~value =
 
 let compute_memory_overhead ~__context ~vm =
   let vm_record = Db.VM.get_record ~__context ~self:vm in
-  let hvm = Helpers.is_hvm ~__context ~self:vm in
-  Memory_check.vm_compute_memory_overhead vm_record hvm
+  Memory_check.vm_compute_memory_overhead vm_record
 
 let update_memory_overhead ~__context ~vm = Db.VM.set_memory_overhead ~__context ~self:vm ~value:(compute_memory_overhead ~__context ~vm)
 

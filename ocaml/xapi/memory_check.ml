@@ -23,24 +23,21 @@ let ( /// ) = Int64.div
 (** to run the given guest with the given amount of guest memory.      *)
 let vm_compute_required_memory vm_record guest_memory_kib =
   let vcpu_count = Int64.to_int vm_record.API.vM_VCPUs_max in
-  let multiplier =
-    if Helpers.will_boot_hvm_from_record vm_record
-    then vm_record.API.vM_HVM_shadow_multiplier
-    else Memory.Linux.shadow_multiplier_default in
   let target_mib = Memory.mib_of_kib_used guest_memory_kib in
   let max_mib = Memory.mib_of_bytes_used vm_record.API.vM_memory_static_max in
-  let footprint_mib = (
-    if Helpers.will_boot_hvm_from_record vm_record
-    then Memory.HVM.footprint_mib
-    else Memory.Linux.footprint_mib)
-      target_mib max_mib vcpu_count multiplier in
-  let shadow_mib = (
-    if Helpers.will_boot_hvm_from_record vm_record
-    then Memory.HVM.shadow_mib
-    else Memory.Linux.shadow_mib)
-      max_mib vcpu_count multiplier in
-  let normal_mib =
-    footprint_mib --- shadow_mib in
+  let video_mib = 0 in (* unused in this function *)
+  let multiplier, full_config =
+    match vm_record.API.vM_domain_type with
+    | `hvm       -> vm_record.API.vM_HVM_shadow_multiplier, Memory.HVM.full_config
+    | `pv_in_pvh -> vm_record.API.vM_HVM_shadow_multiplier, Memory.PVinPVH.full_config
+    | `pv        -> Memory.Linux.shadow_multiplier_default, Memory.Linux.full_config
+    | `unspecified ->
+      raise Api_errors.(Server_error (internal_error, ["unspecified domain type"]))
+  in
+  let memory = full_config max_mib video_mib target_mib vcpu_count multiplier in
+  let footprint_mib = memory.Memory.required_host_free_mib in
+  let shadow_mib = memory.Memory.shadow_mib in
+  let normal_mib = footprint_mib --- shadow_mib in
   let normal_bytes = Memory.bytes_of_mib normal_mib in
   let shadow_bytes = Memory.bytes_of_mib shadow_mib in
   (normal_bytes, shadow_bytes)
@@ -222,14 +219,18 @@ let host_compute_memory_overhead ~__context ~host =
   (* to time and simply fetch the existing cached value from the database. *)
   Db.Host.get_memory_overhead ~__context ~self:host
 
-let vm_compute_memory_overhead ~vm_record ~hvm =
+let vm_compute_memory_overhead ~vm_record =
   let static_max_bytes = vm_record.API.vM_memory_static_max in
   let static_max_mib = Memory.mib_of_bytes_used static_max_bytes in
   let multiplier = vm_record.API.vM_HVM_shadow_multiplier in
   let vcpu_count = Int64.to_int (vm_record.API.vM_VCPUs_max) in
-  let memory_overhead_mib = (
-    if hvm
-    then Memory.HVM.overhead_mib
-    else Memory.Linux.overhead_mib)
-      static_max_mib vcpu_count multiplier in
-  Memory.bytes_of_mib memory_overhead_mib
+  let model =
+    match vm_record.API.vM_domain_type with
+    | `hvm       -> Memory.HVM.overhead_mib
+    | `pv_in_pvh -> Memory.PVinPVH.overhead_mib
+    | `pv        -> Memory.Linux.overhead_mib
+    | `unspecified ->
+      raise Api_errors.(Server_error (internal_error, ["unspecified domain type"]))
+  in
+  model static_max_mib vcpu_count multiplier |>
+  Memory.bytes_of_mib

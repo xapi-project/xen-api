@@ -445,8 +445,8 @@ module VM : HandlerTools = struct
           {vm_record with API.vM_has_vendor_device = false;}
         ) in
       let vm_record = {vm_record with
-                        API.vM_memory_overhead = Memory_check.vm_compute_memory_overhead
-                         ~vm_record ~hvm:(Helpers.will_boot_hvm_from_record vm_record)
+                        API.vM_memory_overhead =
+                          Memory_check.vm_compute_memory_overhead ~vm_record
                       } in
       let vm_record = {vm_record with API.vM_protection_policy = Ref.null} in
       (* Full restore preserves UUIDs, so if we are replacing an existing VM the version number should be incremented *)
