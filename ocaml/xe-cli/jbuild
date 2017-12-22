@@ -3,10 +3,12 @@
   (public_name xe)
   (package xe)
   (libraries (
-   threads
-   stdext
-   xapi-cli-protocol
    stunnel
+   threads
+   xapi-cli-protocol
+   xapi-stdext-pervasives
+   xapi-stdext-std
+   xapi-stdext-unix
   ))
  )
 )

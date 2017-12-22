@@ -9,7 +9,9 @@ build: [[ "jbuilder" "build" "-p" name ]]
 
 depends: [
   "jbuilder" {build & >= "1.0+beta11"}
-  "stdext"
   "xapi-cli-protocol"
   "xapi-libs-transitional"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-std"
+  "xapi-stdext-unix"
 ]
