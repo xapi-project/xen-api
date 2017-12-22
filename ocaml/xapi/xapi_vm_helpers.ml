@@ -419,8 +419,15 @@ let assert_enough_memory_available ~__context ~self ~host ~snapshot =
   let host_mem_available =
     Memory_check.host_compute_free_memory_with_maximum_compression
       ~__context ~host (Some self) in
+  let policy =
+    match snapshot.API.vM_domain_type with
+    | `hvm | `pv -> Memory_check.Dynamic_min
+    | `pv_in_pvh -> Memory_check.Static_max
+    | `unspecified ->
+      raise Api_errors.(Server_error (internal_error, ["unspecified domain type"]))
+  in
   let main, shadow =
-    Memory_check.vm_compute_start_memory ~__context snapshot in
+    Memory_check.vm_compute_start_memory ~__context ~policy snapshot in
   let mem_reqd_for_vm = Int64.add main shadow in
   debug "host %s; available_memory = %Ld; memory_required = %Ld"
     (Db.Host.get_name_label ~self:host ~__context)
