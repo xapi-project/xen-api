@@ -51,7 +51,7 @@ let make_localhost ~__context ?(features=Features.all_features) () =
     machine_serial_number = None;
     machine_serial_name = None;
     total_memory_mib = 1024L;
-    dom0_static_max = XenopsMemory.bytes_of_mib 512L;
+    dom0_static_max = Memory.bytes_of_mib 512L;
     ssl_legacy = false;
   } in
 
