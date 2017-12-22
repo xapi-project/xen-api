@@ -2,7 +2,7 @@
  ((name rfb)
   (modules (rfb rfb_randomtest))
   (libraries (
-   stdext
+   xapi-stdext-std
    threads
   ))
   (wrapped false)
