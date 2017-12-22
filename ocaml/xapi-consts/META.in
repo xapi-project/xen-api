@@ -1,4 +1,0 @@
-version = "@VERSION@"
-description = "Xapi constants library for client and server"
-requires = ""
-archive(native) = "xapi-consts.cmxa"

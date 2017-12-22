@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "XenAPI client bindings for OCaml"
-requires = "rpclib,xml-light2,stdext,stunnel,http-svr,xcp,uuid,xapi-types"
-archive(byte) = "xapi-client.cma"
-archive(native) = "xapi-client.cmxa"

@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "XenAPI common type definitions for client and server code"
-requires = "rpclib,xml-light2,stdext,stunnel,http-svr,xcp,uuid,xapi-consts"
-archive(byte) = "xapi-types.cma"
-archive(native) = "xapi-types.cmxa"
