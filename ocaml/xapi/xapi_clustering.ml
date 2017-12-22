@@ -150,3 +150,8 @@ let assert_cluster_has_one_node ~__context ~self =
  * Instead of returning an empty URL which wouldn't work just raise an
  * exception. *)
 let rpc = Cluster_client.rpc (fun () -> failwith "Can only communicate with xapi-clusterd through message-switch")
+
+let is_clustering_disabled_on_host ~__context host =
+  match find_cluster_host ~__context ~host with
+  | None -> true (* there is no Cluster_host, therefore it is not enabled, therefore it is disabled *)
+  | Some cluster_host -> not (Db.Cluster_host.get_enabled ~__context ~self:cluster_host)
