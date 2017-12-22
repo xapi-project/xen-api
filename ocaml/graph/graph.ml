@@ -13,9 +13,6 @@
  *)
 
 (** Attempt to mirror the object graph on the server *)
-open Stdext
-open Xstringext
-
 open Datamodel_types
 
 (** Return all references contained within a getrecord response of
@@ -151,7 +148,7 @@ let _ =
   let classes = List.filter (fun x -> List.mem x Datamodel.expose_get_all_messages_for) all_classes in
   List.iter (fun x -> if not(List.mem x classes) then failwith (Printf.sprintf "Class %s not available" x)) !wanted;
 
-  let classes = List.filter (fun x -> x <> "task" && not(String.endswith "_metrics" x) && not(String.endswith "_cpu" x)) classes in
+  let classes = List.filter (fun x -> x <> "task" && not(Astring.String.is_suffix ~affix:"_metrics" x) && not(Astring.String.is_suffix ~affix:"_cpu" x)) classes in
 
   let classes = List.filter (fun x -> !all || (List.mem x !wanted)) classes in
 

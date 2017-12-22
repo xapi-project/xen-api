@@ -3,12 +3,8 @@
   (public_name graph)
   (package xapi)
   (libraries (
-   xml-light2
-   stdext
-   stunnel
+   astring
    http-svr
-   rpclib
-   uuid
    threads
    xapi-client
    xapi-datamodel
