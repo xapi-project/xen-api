@@ -65,7 +65,7 @@ let api =
             "to SR.probe, to potentially narrow down on a configuration";
             "that can be used.";
           ];
-          "sr", Name "sr_stat", String.concat " " [
+          "sr", Option (Name "sr_stat"), String.concat " " [
             "Existing SR found for this configuration";
           ]; 
           "extra_info", Dict(String, Basic String), String.concat " " [
