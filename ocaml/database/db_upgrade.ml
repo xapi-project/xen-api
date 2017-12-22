@@ -30,7 +30,6 @@ let generic_database_upgrade db =
              TableSet.add g tblname Table.empty ts) ts created_table_names) db in
 
   (* for each table, go through and fill in missing default values *)
-  let open Xapi_stdext_deprecated.Fun in
   List.fold_left
     (fun db tblname ->
        let tbl = TableSet.find tblname (Database.tableset db) in
@@ -40,6 +39,11 @@ let generic_database_upgrade db =
          Table.add g objref row tbl in
        let tbl = Table.fold add_fields_to_row tbl Table.empty in
        let g = Manifest.generation (Database.manifest db) in
-       ((Database.update ++ (TableSet.update g tblname Table.empty)) (fun _ -> tbl)) db
+       let perform_update =
+         (fun _ -> tbl)
+         |> TableSet.update g tblname Table.empty
+         |> Database.update
+       in
+       perform_update db
     ) db schema_table_names
 

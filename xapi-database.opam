@@ -14,7 +14,6 @@ depends: [
   "xapi-libs-transitional"
   "xapi-idl"
   "xapi-stdext-bigbuffer"
-  "xapi-stdext-deprecated"
   "xapi-stdext-encodings"
   "xapi-stdext-monadic"
   "xapi-stdext-pervasives"

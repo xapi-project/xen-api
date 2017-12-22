@@ -157,10 +157,9 @@ module From = struct
     let g = Int64.of_string (List.assoc _generation_count manifest) in
     let (major_vsn, minor_vsn) = schema_vsn_of_manifest manifest in
     let manifest = Manifest.make major_vsn minor_vsn g in
-    let open Xapi_stdext_deprecated.Fun in
-    ((Database.update_manifest (fun _ -> manifest))
-     ++ (Database.update_tableset (fun _ -> ts)))
-      (Database.make schema)
+    (Database.make schema)
+    |> Database.update_tableset (fun _ -> ts)
+    |> Database.update_manifest (fun _ -> manifest)
 
 
   let file schema xml_filename =
