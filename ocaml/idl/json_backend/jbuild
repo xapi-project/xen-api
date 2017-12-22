@@ -3,6 +3,8 @@
   (libraries (
    xapi-datamodel
    xapi-consts
+   xapi-stdext-unix
+   xapi-stdext-std
   ))
  )
 )

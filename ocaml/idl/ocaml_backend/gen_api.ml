@@ -11,17 +11,17 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext.Listext
-open Printf
-
-module DT = Datamodel_types
-module DU = Datamodel_utils
-module OU = Ocaml_utils
-
-module O = Ocaml_syntax
-
-let oc = ref stdout
-let print s = output_string !oc (s^"\n")
+ open Printf
+ 
+ module DT = Datamodel_types
+ module DU = Datamodel_utils
+ module OU = Ocaml_utils
+ 
+ module O = Ocaml_syntax
+ 
+ let oc = ref stdout
+ let print s = output_string !oc (s^"\n")
+ let between = Xapi_stdext_std.Listext.List.between
 
 let overrides = [
   "vm_operations_to_string_map",(
@@ -104,7 +104,7 @@ let gen_record_type ~with_module highapi tys =
 
 let gen_client highapi =
   List.iter (List.iter print)
-    (List.between [""] [
+    (between [""] [
         [
           "open API";
           "open Rpc";
@@ -130,7 +130,7 @@ let gen_client_types highapi =
   let all_types = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
   let all_types = add_set_enums all_types in
   List.iter (List.iter print)
-    (List.between [""] [
+    (between [""] [
         [
           "type failure = (string list) [@@deriving rpc]";
           "let response_of_failure code params =";
@@ -170,14 +170,14 @@ let gen_client_types highapi =
 
 let gen_server highapi =
   List.iter (List.iter print)
-    (List.between [""] [
+    (between [""] [
         [ "open API"; "open Server_helpers" ];
         O.Module.strings_of (Gen_server.gen_module highapi);
       ])
 
 let gen_custom_actions highapi =
   List.iter (List.iter print)
-    (List.between [""] [
+    (between [""] [
         [ "open API" ];
         O.Signature.strings_of (Gen_empty_custom.gen_signature Gen_empty_custom.signature_name None highapi);
         O.Module.strings_of (Gen_empty_custom.gen_release_module highapi);
@@ -190,7 +190,7 @@ let gen_db_actions highapi =
   let only_records = List.filter (function DT.Record _ -> true | _ -> false) all_types in
 
   List.iter (List.iter print)
-    (List.between [""]
+    (between [""]
        [
          [ "open API" ];
 

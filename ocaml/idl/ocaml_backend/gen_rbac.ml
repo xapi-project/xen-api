@@ -76,10 +76,11 @@ let role_uuid name = hash2uuid name
 
 let permission_description = "A basic permission"
 let permission_name wire_name =
+  let open Xapi_stdext_std in
   let s1 =replace_char (Printf.sprintf "permission_%s" wire_name) '.' '_' in
   let s2 = replace_char s1 '/' '_' in
-  let s3 = Stdext.Xstringext.String.replace "*" "WILDCHAR" s2 in
-  Stdext.Xstringext.String.replace ":" "_" s3
+  let s3 = Xstringext.String.replace "*" "WILDCHAR" s2 in
+  Xstringext.String.replace ":" "_" s3
 
 let permission_index = ref 0
 let writer_permission name nperms =
@@ -243,12 +244,13 @@ let add_permission_to_roles roles_permissions (obj: obj) (x: message) =
 let get_http_permissions_roles =
   List.fold_left
     (fun acc (http_permission,(_,_,_,_,some_roles,sub_actions))-> acc @
-                                                                  let roles = Stdext.Pervasiveext.default [] some_roles in
+                                                                  let open Xapi_stdext_pervasives in
+                                                                  let roles = Pervasiveext.default [] some_roles in
                                                                   (Datamodel.rbac_http_permission_prefix ^ http_permission, roles)
                                                                   ::
                                                                   (List.map (* sub_actions for this http_permission *)
                                                                      (fun (sub_action,some_roles)->
-                                                                        let roles = Stdext.Pervasiveext.default [] some_roles in
+                                                                        let roles = Pervasiveext.default [] some_roles in
                                                                         (Datamodel.rbac_http_permission_prefix ^ http_permission
                                                                          ^ "/" ^ sub_action, roles)
                                                                      )
@@ -259,8 +261,9 @@ let get_http_permissions_roles =
     Datamodel.http_actions
 
 let get_extra_permissions_roles =
+  let open Xapi_stdext_pervasives in
   List.map
-    (fun (p,rs)->(p,Stdext.Pervasiveext.default [] rs))
+    (fun (p,rs)->(p,Pervasiveext.default [] rs))
     Datamodel.extra_permissions
 
 (* Returns a (permission, static_role list) list generated from datamodel.ml *)

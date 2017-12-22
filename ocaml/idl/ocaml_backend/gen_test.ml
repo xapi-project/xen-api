@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext.Listext
+
 open Printf
 
 module DT = Datamodel_types
@@ -53,6 +53,7 @@ and gen_record_type highapi record =
 
 
 let gen_test highapi =
+  let open Xapi_stdext_std.Listext in
   let all_types = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
   let all_types = Gen_api.add_set_enums all_types in
   ignore(all_types);

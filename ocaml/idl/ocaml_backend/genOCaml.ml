@@ -17,8 +17,6 @@ open Format
 open Ocaml_utils
 open Gen_db_actions
 
-open Stdext.Listext
-
 let ( @- ) a b = a @ List.map (( ^ ) "  ") b
 let ( @-- ) a b = a @ List.map (( ^ ) "    ") b
 
@@ -27,6 +25,7 @@ let ( @-- ) a b = a @ List.map (( ^ ) "    ") b
 
 (** Generate a block with an indented, space-separated middle. *)
 let block head middle tail =
+  let open Xapi_stdext_std.Listext in
   (head @-
    List.flatten (List.between [""] middle)) @
   tail

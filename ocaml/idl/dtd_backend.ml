@@ -13,7 +13,6 @@
  *)
 
 open Printf
-open Stdext.Listext
 
 open Datamodel
 open Datamodel_utils
@@ -115,7 +114,7 @@ let element known_els name children atts =
       | _ -> assert(false)
     else
       [], [] in
-
+  let open Xapi_stdext_std.Listext in
   let el = Element (name,
                     (List.setify children @ fst existing_children),
                     (List.setify atts @ snd existing_children)) in
