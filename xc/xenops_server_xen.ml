@@ -1307,16 +1307,24 @@ module VM = struct
   let build_domain_exn xc xs domid task vm vbds vifs vgpus vusbs extras force =
     let open Memory in
     let initial_target = get_initial_target ~xs domid in
+    let static_max_mib = vm.memory_static_max /// 1024L in
     let make_build_info kernel priv = {
-      Domain.memory_max = vm.memory_static_max /// 1024L;
+      Domain.memory_max = static_max_mib;
       memory_target = initial_target;
       kernel = kernel;
       vcpus = vm.vcpu_max;
       priv = priv;
     } in
     let pvinpvh_xen_cmdline =
-      try List.assoc "pvinpvh-xen-cmdline" vm.Vm.platformdata
-      with Not_found -> !Xenopsd.pvinpvh_xen_cmdline
+      let base =
+        try List.assoc "pvinpvh-xen-cmdline" vm.Vm.platformdata
+        with Not_found -> !Xenopsd.pvinpvh_xen_cmdline
+      in
+      let shim_mem =
+        let shim_mib = PVinPVH_memory_model_data.shim_mib static_max_mib in
+        Printf.sprintf "shim_mem=%LdM" shim_mib
+      in
+      String.concat " " [base; shim_mem]
     in
     (* We should prevent leaking files in our filesystem *)
     let kernel_to_cleanup = ref None in
