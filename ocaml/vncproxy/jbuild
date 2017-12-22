@@ -3,14 +3,10 @@
   (public_name vncproxy)
   (package xapi)
   (libraries (
-   xml-light2
-   stdext
-   stunnel
    http-svr
-   rpclib
-   uuid
-   threads
    xapi-client
+   xapi-stdext-unix
+   xapi-stdext-pervasives
   ))
  )
 )
