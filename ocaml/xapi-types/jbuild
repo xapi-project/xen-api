@@ -32,11 +32,11 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (libraries (
    astring
    http-svr
-   ppx_deriving_rpc
    rpclib
    threads
    uuidm
    xapi-consts
+   xapi-stdext-date
   ))
   (wrapped false)
  )

@@ -165,4 +165,8 @@ let of_assoc_list l =
     with _ ->
       if List.mem f enabled_when_unknown then Some f else None
   in
-  Stdext.Listext.List.filter_map get_feature all_features
+  (* Filter_map to avoid having to carry the whole xapi-stdext-std *)
+  List.fold_right (fun f acc ->
+    match get_feature f with
+    | Some v -> v :: acc 
+    | None -> acc) all_features []
