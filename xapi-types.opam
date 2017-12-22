@@ -15,5 +15,6 @@ depends: [
   "xapi-consts"
   "xapi-datamodel"
   "xapi-libs-transitional"
+  "xapi-stdext-date"
 ]
 
