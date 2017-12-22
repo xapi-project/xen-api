@@ -7,7 +7,6 @@
    threads
    unix
    xapi-stdext-unix
-   xcp-inventory
   ))
  )
 )
