@@ -296,14 +296,14 @@ let load connections default_schema =
     | Some c -> Backend_xml.populate default_schema c
     | None -> db in (* empty *)
 
-  let empty = Database.update_manifest (Manifest.update_schema (fun _ -> Some (default_schema.Schema.major_vsn, default_schema.Schema.minor_vsn))) (Database.make default_schema) in
-  let open Xapi_stdext_deprecated.Fun in
-  let db =
-    ((Db_backend.blow_away_non_persistent_fields default_schema)
-     ++ Db_upgrade.generic_database_upgrade
-     ++ populate) empty in
+  let empty = Database.update_manifest (Manifest.update_schema (fun _ -> Some (default_schema.Schema.major_vsn, default_schema.Schema.minor_vsn))) (Database.make default_schema)
+  in
 
-  db
+  empty
+  |> populate
+  |> Db_upgrade.generic_database_upgrade
+  |> Db_backend.blow_away_non_persistent_fields default_schema
+
 
 
 let sync conns db =

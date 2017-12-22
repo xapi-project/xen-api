@@ -361,12 +361,10 @@ let remove_from_map key t =
   Schema.Value.Pairs (List.filter (fun (k, _) -> k <> key) t)
 
 
-let (++) f g x = f (g x)
 let id x = x
 
 let is_valid tblname objref db =
   Table.mem objref (TableSet.find tblname (Database.tableset db))
-
 
 
 let get_field tblname objref fldname db =
@@ -376,11 +374,11 @@ let get_field tblname objref fldname db =
     raise (DBCache_NotFound ("missing row", tblname, objref))
 
 let unsafe_set_field g tblname objref fldname newval =
-  (Database.update
-   ++ (TableSet.update g tblname Table.empty)
-   ++ (Table.update g objref Row.empty)
-   ++ (Row.update g fldname (Schema.Value.String "")))
-    (fun _ -> newval)
+  (fun _ -> newval)
+  |> Row.update g fldname (Schema.Value.String "")
+  |> Table.update g objref Row.empty
+  |> TableSet.update g tblname Table.empty
+  |> Database.update
 
 let update_one_to_many g tblname objref f db =
   if not (is_valid tblname objref db) then db else
@@ -423,51 +421,66 @@ let set_field tblname objref fldname newval db =
 
   if need_other_table_update then begin
     let g = Manifest.generation (Database.manifest db) in
-    (Database.increment
-     ++ (update_one_to_many g tblname objref add_to_set)
-     ++ (update_many_to_many g tblname objref add_to_set)
-     ++ ((Database.update
-          ++ (TableSet.update g tblname Table.empty)
-          ++ (Table.update g objref Row.empty)
-          ++ (Row.update g fldname (Schema.Value.String ""))) (fun _ -> newval))
-     ++ (update_one_to_many g tblname objref remove_from_set)
-     ++ (update_many_to_many g tblname objref remove_from_set)) db
+    db
+    |> update_many_to_many g tblname objref remove_from_set
+    |> update_one_to_many g tblname objref remove_from_set
+    |> Database.update (
+      (fun _ -> newval)
+      |> Row.update g fldname (Schema.Value.String "")
+      |> Table.update g objref Row.empty
+      |> TableSet.update g tblname Table.empty
+    )
+    |> update_many_to_many g tblname objref add_to_set
+    |> update_one_to_many g tblname objref add_to_set
+    |> Database.increment
   end else begin
     let g = Manifest.generation (Database.manifest db) in
-    (Database.increment
-     ++ ((Database.update
-          ++ (TableSet.update g tblname Table.empty)
-          ++ (Table.update g objref Row.empty)
-          ++ (Row.update g fldname (Schema.Value.String "")))
-           (fun _ -> newval))) db
+    db
+    |> (
+      (fun _ -> newval)
+      |> Row.update g fldname (Schema.Value.String "")
+      |> Table.update g objref Row.empty
+      |> TableSet.update g tblname Table.empty
+      |> Database.update
+    )
+    |> Database.increment
   end
 
 let touch tblname objref db =
   let g = Manifest.generation (Database.manifest db) in
   (* We update the generation twice so that we can return the lower count
-     	   for the "event.inject" API to guarantee that the token from a later
-     	   event.from will always compare as strictly greater. See the definition
-     	   of the event token datatype. *)
-  (Database.increment ++ Database.increment
-   ++ ((Database.update
-        ++ (TableSet.update g tblname Table.empty)
-        ++ (Table.touch g objref)) Row.empty
-      )) db
+     for the "event.inject" API to guarantee that the token from a later
+     event.from will always compare as strictly greater. See the definition
+     of the event token datatype. *)
+  db
+  |> (
+    Row.empty
+    |> Table.touch g objref
+    |> TableSet.update g tblname Table.empty
+    |> Database.update
+  )
+  |> Database.increment
+  |> Database.increment
 
 let add_row tblname objref newval db =
   let g = db.Database.manifest.Manifest.generation_count in
-  (Database.increment
-   (* Update foreign Set(Ref _) fields *)
-   (* NB this requires the new row to exist already *)
-   ++ (update_one_to_many g tblname objref add_to_set)
-   ++ (update_many_to_many g tblname objref add_to_set)
-   ++ ((Database.update ++ (TableSet.update g tblname Table.empty) ++ (Table.update g objref newval))
-         (fun _ -> newval))
-   ++ (Database.update_keymap (KeyMap.add_unique tblname Db_names.ref (Ref objref) (tblname, objref)))
-   ++ (Database.update_keymap (fun m ->
-       if Row.mem Db_names.uuid newval
-       then KeyMap.add_unique tblname Db_names.uuid (Uuid (Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid newval))) (tblname, objref) m
-       else m))) db
+  db
+  |> Database.update_keymap (fun m ->
+      if Row.mem Db_names.uuid newval
+      then KeyMap.add_unique tblname Db_names.uuid (Uuid (Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid newval))) (tblname, objref) m
+      else m)
+  |> Database.update_keymap (KeyMap.add_unique tblname Db_names.ref (Ref objref) (tblname, objref))
+  |> (
+    (fun _ -> newval)
+    |> Table.update g objref newval
+    |> TableSet.update g tblname Table.empty
+    |> Database.update
+  )
+  |> update_many_to_many g tblname objref add_to_set
+  (* Update foreign Set(Ref _) fields *)
+  (* NB this requires the new row to exist already *)
+  |> update_one_to_many g tblname objref add_to_set
+  |> Database.increment
 
 let remove_row tblname objref db =
   let uuid =
@@ -475,19 +488,22 @@ let remove_row tblname objref db =
       Some (Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid (Table.find objref (TableSet.find tblname (Database.tableset db)))))
     with _ -> None in
   let g = db.Database.manifest.Manifest.generation_count in
-  (Database.increment
-   ++ ((Database.update ++ (TableSet.update g tblname Table.empty))
-         (Table.remove g objref))
-   (* Update foreign (Set(Ref _)) fields *)
+  db
+  |> Database.update_keymap (fun m ->
+  match uuid with
+  | Some u -> KeyMap.remove (Uuid u) m
+  | None -> m)
+  |> Database.update_keymap (KeyMap.remove (Ref objref))
+  |> update_many_to_many g tblname objref remove_from_set
+  (* Update foreign (Set(Ref _)) fields *)
    (* NB this requires the original row to still exist *)
-   ++ (update_one_to_many g tblname objref remove_from_set)
-   ++ (update_many_to_many g tblname objref remove_from_set)
-   ++ (Database.update_keymap (KeyMap.remove (Ref objref)))
-   ++ (Database.update_keymap (fun m ->
-       match uuid with
-       | Some u -> KeyMap.remove (Uuid u) m
-       | None -> m))) db
-
+  |> update_one_to_many g tblname objref remove_from_set
+  |> (
+    Table.remove g objref
+    |> TableSet.update g tblname Table.empty
+    |> Database.update
+  )
+  |> Database.increment
 
 type where_record = {
   table: string;       (** table from which ... *)

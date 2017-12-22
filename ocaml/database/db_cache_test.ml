@@ -13,28 +13,23 @@
  *)
 
 open Db_cache_types
-open Xapi_stdext_deprecated.Fun
 
 let create_test_db () =
   let schema = Test_schemas.many_to_many in
-  let db =
-    ((fun x -> x)
-     ++ (Db_backend.blow_away_non_persistent_fields schema)
-     ++ (Db_upgrade.generic_database_upgrade))
-      (Database.make schema) in
-
-  db
+  Database.make schema
+  |> Db_upgrade.generic_database_upgrade
+  |> Db_backend.blow_away_non_persistent_fields schema
 
 let check_many_to_many () =
   let db = create_test_db () in
   (* make a foo with bars = [] *)
   (* make a bar with foos = [] *)
   (* add 'bar' to foo.bars *)
-  let db =
-    ((fun x -> x)
-     ++ (set_field "foo" "foo:1" "bars" (add_to_set "bar:1" (Schema.Value.Set [])))
-     ++ (add_row "foo" "foo:1" (Row.add 0L Db_names.ref (Schema.Value.String "foo:1") (Row.add 0L "bars" (Schema.Value.Set []) Row.empty)))
-     ++ (add_row "bar" "bar:1" (Row.add 0L Db_names.ref (Schema.Value.String "bar:1") (Row.add 0L "foos" (Schema.Value.Set []) Row.empty)))) db in
+  let db = db
+   |> add_row "bar" "bar:1" (Row.add 0L Db_names.ref (Schema.Value.String "bar:1") (Row.add 0L "foos" (Schema.Value.Set []) Row.empty))
+   |> add_row "foo" "foo:1" (Row.add 0L Db_names.ref (Schema.Value.String "foo:1") (Row.add 0L "bars" (Schema.Value.Set []) Row.empty))
+   |> set_field "foo" "foo:1" "bars" (add_to_set "bar:1" (Schema.Value.Set []))
+  in
   (* check that 'bar.foos' includes 'foo' *)
   let bar_1 = Table.find "bar:1" (TableSet.find "bar" (Database.tableset db)) in
   let bar_foos = Row.find "foos" bar_1 in
