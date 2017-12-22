@@ -82,47 +82,60 @@ let mib_of_bytes_used   value = divide_rounding_up value bytes_per_mib
 let mib_of_kib_used     value = divide_rounding_up value kib_per_mib
 let mib_of_pages_used   value = divide_rounding_up value pages_per_mib
 
-(* === Domain memory breakdown ============================================== *)
+(* === Domain memory breakdown ======================================================= *)
 
-(*           ╤  ╔══════════╗                                     ╤            *)
-(*           │  ║ shadow   ║                                     │            *)
-(*           │  ╠══════════╣                                     │            *)
-(*  overhead │  ║ extra    ║                                     │            *)
-(*           │  ║ external ║                                     │            *)
-(*           │  ╠══════════╣                          ╤          │            *)
-(*           │  ║ extra    ║                          │          │            *)
-(*           │  ║ internal ║                          │          │            *)
-(*           ╪  ╠══════════╣                ╤         │          │ footprint  *)
-(*           │  ║ video    ║                │         │          │            *)
-(*           │  ╠══════════╣  ╤    ╤        │ actual  │ xen      │            *)
-(*           │  ║          ║  │    │        │ /       │ maximum  │            *)
-(*           │  ║          ║  │    │        │ target  │          │            *)
-(*           │  ║ guest    ║  │    │ build  │ /       │          │            *)
-(*           │  ║          ║  │    │ start  │ total   │          │            *)
-(*    static │  ║          ║  │    │        │         │          │            *)
-(*   maximum │  ╟──────────╢  │    ╧        ╧         ╧          ╧            *)
-(*           │  ║          ║  │                                               *)
-(*           │  ║          ║  │                                               *)
-(*           │  ║ balloon  ║  │ build                                         *)
-(*           │  ║          ║  │ maximum                                       *)
-(*           │  ║          ║  │                                               *)
-(*           ╧  ╚══════════╝  ╧                                               *)
+(*           ╤  ╔══════════╗                                              ╤            *)
+(*           │  ║ shadow   ║                                              │            *)
+(*           │  ╠══════════╣                                              │            *)
+(*  overhead │  ║ extra    ║                                              │            *)
+(*           │  ║ external ║                                              │            *)
+(*           │  ╠══════════╣                                   ╤          │            *)
+(*           │  ║ extra    ║                                   │          │            *)
+(*           │  ║ internal ║                                   │          │            *)
+(*           │  ╠══════════╣  ╤    ╤                 ╤         │          │ footprint  *)
+(*           │  ║ shim     ║  │    │                 │         │          │            *)
+(*           ╪  ╠══════════╣  ╧    ╧        ╤        │         │ xen      │            *)
+(*           │  ║ video    ║                │        │ actual  │ maximum  │            *)
+(*           │  ╠══════════╣  ╤    ╤        │        │ /       │          │            *)
+(*           │  ║          ║  │    │ build  │ target │ total   │          │            *)
+(*           │  ║ guest    ║  │    │ start  │        │         │          │            *)
+(*    static │  ║          ║  │    │        │        │         │          │            *)
+(*   maximum │  ╟──────────╢  │    ╧        ╧        ╧         ╧          ╧            *)
+(*           │  ║          ║  │                                                        *)
+(*           │  ║          ║  │                                                        *)
+(*           │  ║ balloon  ║  │ build                                                  *)
+(*           │  ║          ║  │ maximum                                                *)
+(*           │  ║          ║  │                                                        *)
+(*           ╧  ╚══════════╝  ╧                                                        *)
 
-(* === Domain memory breakdown: HVM guests ================================== *)
+(* === Domain memory breakdown: HVM guests =========================================== *)
 
 module type MEMORY_MODEL_DATA = sig
   val extra_internal_mib : int64
   val extra_external_mib : int64
+  val shim_mib : int64 -> int64
+  val can_start_ballooned_down : bool
 end
 
 module HVM_memory_model_data : MEMORY_MODEL_DATA = struct
   let extra_internal_mib = 1L
   let extra_external_mib = 1L
+  let shim_mib _ = 0L
+  let can_start_ballooned_down = true
 end
 
 module Linux_memory_model_data : MEMORY_MODEL_DATA = struct
   let extra_internal_mib = 0L
   let extra_external_mib = 1L
+  let shim_mib _ = 0L
+  let can_start_ballooned_down = true
+end
+
+module PVinPVH_memory_model_data : MEMORY_MODEL_DATA = struct
+  let extra_internal_mib = 1L
+  let extra_external_mib = 1L
+  let shim_mib static_max_mib = 20L +++ (static_max_mib /// 110L)
+  let can_start_ballooned_down = false
 end
 
 type memory_config = {
@@ -131,17 +144,30 @@ type memory_config = {
   xen_max_mib : int64;
   shadow_mib : int64;
   required_host_free_mib : int64;
+  overhead_mib : int64;
 }
 
 module Memory_model (D : MEMORY_MODEL_DATA) = struct
 
-  let build_max_mib static_max_mib video_mib = static_max_mib --- (Int64.of_int video_mib)
+  let build_max_mib static_max_mib video_mib =
+    static_max_mib ---
+    (Int64.of_int video_mib) +++
+    (D.shim_mib static_max_mib)
 
-  let build_start_mib target_mib video_mib = target_mib --- (Int64.of_int video_mib)
+  let build_start_mib static_max_mib target_mib video_mib =
+    if D.can_start_ballooned_down then
+      target_mib ---
+      (Int64.of_int video_mib) +++
+      (D.shim_mib target_mib)
+    else
+      build_max_mib static_max_mib video_mib
 
   let xen_max_offset_mib = D.extra_internal_mib
 
-  let xen_max_mib target_mib = target_mib +++ xen_max_offset_mib
+  let xen_max_mib static_max_mib =
+    static_max_mib +++
+    xen_max_offset_mib +++
+    (D.shim_mib static_max_mib)
 
   let shadow_mib static_max_mib vcpu_count multiplier =
     let vcpu_pages = 256L *** (Int64.of_int vcpu_count) in
@@ -156,7 +182,8 @@ module Memory_model (D : MEMORY_MODEL_DATA) = struct
   let overhead_mib static_max_mib vcpu_count multiplier =
     D.extra_internal_mib +++
     D.extra_external_mib +++
-    (shadow_mib static_max_mib vcpu_count multiplier)
+    (shadow_mib static_max_mib vcpu_count multiplier) +++
+    (D.shim_mib static_max_mib)
 
   let footprint_mib target_mib static_max_mib vcpu_count multiplier =
     target_mib +++ (overhead_mib static_max_mib vcpu_count multiplier)
@@ -166,14 +193,14 @@ module Memory_model (D : MEMORY_MODEL_DATA) = struct
   let full_config static_max_mib video_mib target_mib vcpus shadow_multiplier =
     {
       build_max_mib = build_max_mib static_max_mib video_mib;
-      build_start_mib = build_start_mib target_mib video_mib;
+      build_start_mib = build_start_mib static_max_mib target_mib video_mib;
       xen_max_mib = xen_max_mib static_max_mib;
       shadow_mib = shadow_mib static_max_mib vcpus shadow_multiplier;
       required_host_free_mib = footprint_mib target_mib static_max_mib vcpus shadow_multiplier;
+      overhead_mib = overhead_mib static_max_mib vcpus shadow_multiplier;
     }
 end
 
 module HVM = Memory_model (HVM_memory_model_data)
 module Linux = Memory_model (Linux_memory_model_data)
-
-
+module PVinPVH = Memory_model (PVinPVH_memory_model_data)
