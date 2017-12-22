@@ -9,9 +9,7 @@
    build_info
   ))
   (libraries (
-   xcp
    xcp-inventory
-   threads
   ))
   (wrapped false)
  )
