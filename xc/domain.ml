@@ -812,7 +812,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
     | BuildPVH pvhinfo ->
       let shadow_multiplier = pvhinfo.shadow_multiplier in
       let video_mib = pvhinfo.video_mib in
-      let memory = Memory.HVM.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
+      let memory = Memory.PVinPVH.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
       maybe_ca_140252_workaround ~xc ~vcpus domid;
       let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
       let store_mfn, console_mfn =
@@ -1175,7 +1175,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
         memory, [], `pv
       | BuildPVH pvhinfo ->
         let shadow_multiplier = pvhinfo.shadow_multiplier in
-        let memory = Memory.HVM.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
+        let memory = Memory.PVinPVH.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
         let vm_stuff = [
           "rtc/timeoffset",    timeoffset;
         ] in
@@ -1566,7 +1566,7 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
         memory, [], `pv
       | BuildPVH pvhinfo ->
         let shadow_multiplier = pvhinfo.shadow_multiplier in
-        let memory = Memory.HVM.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
+        let memory = Memory.PVinPVH.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
         let vm_stuff = [
           "rtc/timeoffset",    timeoffset;
         ] in

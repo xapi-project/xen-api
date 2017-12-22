@@ -762,12 +762,18 @@ module VM = struct
 
   let will_be_hvm vm = match vm.ty with HVM _ -> true | _ -> false
 
-  let compute_overhead domain =
-    let static_max_mib = Memory.mib_of_bytes_used domain.VmExtra.memory_static_max in
-    let memory_overhead_mib =
-      (if domain.VmExtra.create_info.Domain.hvm then Memory.HVM.overhead_mib else Memory.Linux.overhead_mib)
-        static_max_mib domain.VmExtra.vcpu_max domain.VmExtra.shadow_multiplier in
-    Memory.bytes_of_mib memory_overhead_mib
+  let compute_overhead persistent non_persistent =
+    let open VmExtra in
+    let static_max_mib = Memory.mib_of_bytes_used non_persistent.memory_static_max in
+    let model =
+      match persistent.ty with
+      | Some (PV _)      -> Memory.Linux.overhead_mib
+      | Some (PVinPVH _) -> Memory.PVinPVH.overhead_mib
+      | Some (HVM _)     -> Memory.HVM.overhead_mib
+      | None             -> failwith "cannot compute memory overhead: unable to determine domain type"
+    in
+    model static_max_mib non_persistent.vcpu_max non_persistent.shadow_multiplier |>
+    Memory.bytes_of_mib
 
   let shutdown_reason = function
     | Reboot -> Domain.Reboot
@@ -923,7 +929,7 @@ module VM = struct
                debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
                let persistent =
                  { VmExtra.build_info = None
-                 ; ty = None
+                 ; ty = Some vm.ty
                  ; last_start_time = Unix.gettimeofday ()
                  ; domain_config = Some (VmExtra.domain_config_of_vm vm)
                  ; nomigrate = Platform.is_true
@@ -939,7 +945,7 @@ module VM = struct
                persistent, non_persistent
              end in
          let open Memory in
-         let overhead_bytes = compute_overhead non_persistent in
+         let overhead_bytes = compute_overhead persistent non_persistent in
          let resuming = non_persistent.VmExtra.suspend_memory_bytes <> 0L in
          (* If we are resuming then we know exactly how much memory is needed. If we are
             				   live migrating then we will only know an upper bound. If we are starting from
