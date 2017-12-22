@@ -11,10 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext
-open Threadext
-open Xstringext
-open Listext
+open Xapi_stdext_threads
+open Xapi_stdext_std
 
 open Client
 open Event_types
@@ -23,7 +21,7 @@ let print_debug = ref false
 let delay = ref 120.
 
 let lock = Mutex.create ()
-let with_global_lock (f:unit -> unit) = Mutex.execute lock f
+let with_global_lock (f:unit -> unit) = Threadext.Mutex.execute lock f
 
 let time_of_float x =
   let time = Unix.gmtime x in
@@ -84,7 +82,7 @@ let keep_mpath = List.filter (fun (key, value) -> Xstringext.String.startswith "
 (* create a list of alerts from a PBD event *)
 let create_pbd_alerts rpc session snapshot (pbd_ref, pbd_rec, timestamp) =
   let aux (key, value) =
-    let scsi_id = String.sub_to_end key 6 in
+    let scsi_id = Xstringext.String.sub_to_end key 6 in
     let current, max = Scanf.sscanf value "[%d, %d]" (fun current max -> current, max) in
     let host = Uuid.of_string (Client.Host.get_uuid rpc session pbd_rec.API.pBD_host) in
     let host_name = Client.Host.get_name_label rpc session pbd_rec.API.pBD_host in
@@ -101,7 +99,7 @@ let create_pbd_alerts rpc session snapshot (pbd_ref, pbd_rec, timestamp) =
     debug "Alert '%s' created from %s=%s" (to_string alert) key value;
     alert in
 
-  let diff = List.set_difference (keep_mpath pbd_rec.API.pBD_other_config) snapshot in
+  let diff = Listext.List.set_difference (keep_mpath pbd_rec.API.pBD_other_config) snapshot in
   List.map aux diff
 
 (* create a list of alerts from a host event *)
@@ -124,7 +122,7 @@ let create_host_alerts rpc session snapshot (host_ref, host_rec, timestamp) =
     debug "Alert '%s' created from %s=%s" (to_string alert) key value;
     alert in
 
-  let diff = List.set_difference (keep_mpath host_rec.API.host_other_config) snapshot in
+  let diff = Listext.List.set_difference (keep_mpath host_rec.API.host_other_config) snapshot in
   List.map aux diff
 
 let listener rpc session queue =
@@ -278,6 +276,7 @@ let sender rpc session (delay, msg, queue) =
   done
 
 let _ =
+  let open Xapi_stdext_unix in
   let pidfile = ref "/var/run/mpathalert.pid" in
   let daemonize = ref false in
 
