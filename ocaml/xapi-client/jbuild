@@ -10,6 +10,7 @@
   (public_name xapi-client)
   (libraries (
    xapi-types
+   xapi-stdext-date
   ))
   (wrapped false)
  )
