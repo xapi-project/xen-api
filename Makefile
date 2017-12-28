@@ -1,45 +1,29 @@
-# OASIS_START
-# DO NOT EDIT (digest: a3c674b4239234cbbe53afe090018954)
+.PHONY: release build install uninstall clean test doc reindent
 
-SETUP = ocaml setup.ml
+release:
+	jbuilder build @install
 
-build: setup.data
-	$(SETUP) -build $(BUILDFLAGS)
+build:
+	jbuilder build @install --dev
 
-doc: setup.data build
-	$(SETUP) -doc $(DOCFLAGS)
+install:
+	jbuilder install
 
-test: setup.data build
-	$(SETUP) -test $(TESTFLAGS)
-
-all:
-	$(SETUP) -all $(ALLFLAGS)
-
-install: setup.data
-	$(SETUP) -install $(INSTALLFLAGS)
-
-uninstall: setup.data
-	$(SETUP) -uninstall $(UNINSTALLFLAGS)
-
-reinstall: setup.data
-	$(SETUP) -reinstall $(REINSTALLFLAGS)
+uninstall:
+	jbuilder uninstall
 
 clean:
-	$(SETUP) -clean $(CLEANFLAGS)
+	jbuilder clean
 
-distclean:
-	$(SETUP) -distclean $(DISTCLEANFLAGS)
+test:
+	jbuilder runtest
 
-setup.data:
-	$(SETUP) -configure $(CONFIGUREFLAGS)
+# requires odoc
+doc:
+	jbuilder build @doc
 
-configure:
-	$(SETUP) -configure $(CONFIGUREFLAGS)
+reindent:
+	git ls-files '*.ml*' | xargs ocp-indent --syntax cstruct -i
 
-.PHONY: build doc test all install uninstall reinstall clean distclean configure
 
-# OASIS_STOP
-#
-reinstall:
-	ocamlfind remove tapctl
-	$(SETUP) -install $(INSTALLFLAGS)
+.DEFAULT_GOAL := release

@@ -1,8 +1,9 @@
-open Stdext
-open Listext
-open Threadext
 open Forkhelpers
-open Xstringext
+open Xapi_stdext_unix
+open Xapi_stdext_std.Xstringext
+open Xapi_stdext_std.Listext
+open Xapi_stdext_threads.Threadext
+open Xapi_stdext_monadic
 
 (* Tapdisk stats *)
 module Stats = struct
@@ -11,14 +12,14 @@ module Stats = struct
 			minor: int;
 			reqs: (int64 * int64);
 			kicks: (int64 * int64);
-		} with rpc
+		} [@@deriving rpc]
 	end
 
 	module Driver = struct 
 		type t = {
 			ty : int;
 			name : string;
-		} with rpc
+		} [@@deriving rpc]
 
 		let rpc_of_t x = match (rpc_of_t x) with | Rpc.Dict x -> Rpc.Dict (List.map (function ("ty",y) -> ("type",y) | x -> x) x) | y -> y
 		let t_of_rpc rpc = t_of_rpc (match rpc with | Rpc.Dict x -> Rpc.Dict (List.map (function ("type",y) -> ("ty",y) | x -> x) x ) | y -> y) 
@@ -31,7 +32,7 @@ module Stats = struct
 			hits : int64 * int64;
 			fail : int64 * int64;
 			driver : Driver.t
-		} with rpc
+		} [@@deriving rpc]
 	end
 		
 	type t = {
@@ -41,7 +42,7 @@ module Stats = struct
 		tap : Tap.t;
 		nbd_mirror_failed : int;
 		reqs_outstanding : int;
-	} with rpc
+	} [@@deriving rpc]
 end
 	
 	
@@ -50,7 +51,7 @@ end
 type tapdev = {
 	minor : int;
 	tapdisk_pid : int;
-} with rpc
+} [@@deriving rpc]
 
 type t = tapdev * string * (string * string) option 
 
@@ -88,8 +89,8 @@ module Dummy = struct
 		d_pid : int option;
 		d_state : string option;
 		d_args : string option;
-	} and dummy_tap_list = dummy_tap list with rpc
-			
+	} and dummy_tap_list = dummy_tap list [@@deriving rpc]
+
 	let d_lock = Mutex.create ()
 		
 	let get_dummy_tapdisk_list_filename ctx =
