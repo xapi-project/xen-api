@@ -9245,6 +9245,7 @@ let pci =
       field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_clearwater_whetstone, ""] "subsystem_vendor_name" "Subsystem vendor name" ~default_value:(Some (VString ""));
       field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "subsystem_device_id" "Subsystem device ID" ~default_value:(Some (VString "")) ~internal_only:true;
       field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_clearwater_whetstone, ""] "subsystem_device_name" "Subsystem device name" ~default_value:(Some (VString ""));
+      field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_kolkata, ""] "driver_name" "Driver name" ~default_value:(Some (VString ""));
       field ~qualifier:DynamicRO ~ty:(Ref _vm) ~lifecycle:[Published, rel_falcon, ""] ~internal_only:true "scheduled_to_be_attached_to" "The VM to which this PCI device is scheduled to be attached (passed through)" ~default_value:(Some (VRef null_ref));
     ]
     ()

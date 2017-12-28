@@ -282,11 +282,12 @@ let make_pci ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(class_id="")
     ?(device_name="") ?(host=Ref.null) ?(pci_id="0000:00:00.0") ?(functions=0L)
     ?(physical_function=Ref.null) ?(dependencies=[]) ?(other_config=[]) ?(subsystem_vendor_id="")
     ?(subsystem_vendor_name="") ?(subsystem_device_id="")
-    ?(subsystem_device_name="") ?(scheduled_to_be_attached_to=Ref.null) () =
+    ?(subsystem_device_name="") ?(driver_name="")
+    ?(scheduled_to_be_attached_to=Ref.null) () =
   Db.PCI.create ~__context ~ref ~uuid ~class_id ~class_name ~vendor_id
     ~vendor_name ~device_id ~device_name ~host ~pci_id ~functions ~physical_function
     ~dependencies ~other_config ~subsystem_vendor_id ~subsystem_vendor_name
-    ~subsystem_device_id ~subsystem_device_name ~scheduled_to_be_attached_to;
+    ~subsystem_device_id ~driver_name ~subsystem_device_name ~scheduled_to_be_attached_to;
   ref
 
 let make_pgpu ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(pCI=Ref.null)
