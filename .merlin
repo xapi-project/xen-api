@@ -1,8 +1,0 @@
-PKG xcp
-PKG re
-PKG rpclib
-PKG cmdliner
-PKG threads
-
-S .
-B ./_build

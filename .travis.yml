@@ -6,8 +6,9 @@ script:
   - bash -ex .travis-opam.sh
 env:
   global:
-    - OCAML_VERSION=4.02
+    - OCAML_VERSION=4.04
     - TESTS=false
+    - PINS="xapi-storage-cli:."
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam

@@ -1,23 +1,14 @@
 opam-version: "1.2"
+name: "xapi-storage-cli"
 maintainer: "xen-api@lists.xen.org"
 authors: [ "xen-api@lists.xen.org" ]
+license: "LGPL-2.1 with OCaml linking exception"
 homepage: "https://github.com/xapi-project/sm-cli"
 bug-reports: "https://github.com/xapi-project/sm-cli/issues"
 dev-repo: "https://github.com/xapi-project/sm-cli.git"
-build: [
-  ["oasis" "setup"]
-  ["./configure" "--bindir" "%{bin}%"]
-  [make]
-]
-install: [
-  [make "install"]
-]
-remove: [
-  ["oasis" "setup"]
-  [make "uninstall"]
-]
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 depends: [
-  "oasis" {build}
+  "jbuilder" {build}
   "base-threads"
   "xapi-idl"
   "re"

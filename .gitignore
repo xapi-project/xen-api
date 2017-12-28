@@ -1,23 +1,6 @@
-*.annot
-*.cmo
-*.cma
-*.cmi
-*.a
-*.o
-*.cmx
-*.cmxs
-*.cmxa
+_build
+.merlin
+*.install
 
-/_build
-/*.native
-/*.byte
-
-# OASIS
-/setup.log
-/setup.data
-/setup.ml
-/myocamlbuild.ml
-/_tags
-# DevFiles OASIS plugin:
-/Makefile
-/configure
+*.rej
+*.orig
