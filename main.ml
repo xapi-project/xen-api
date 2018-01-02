@@ -78,9 +78,15 @@ let backend_error name args =
   Exception.rpc_of_exnty exnty
 
 let backend_backtrace_error name args backtrace =
-  let backtrace = rpc_of_backtrace backtrace |> Jsonrpc.to_string in
   let open Storage_interface in
-  let exnty = Exception.Backend_error_with_backtrace(name, backtrace :: args) in
+  let exnty =
+    match args with
+    | ["Activated_on_another_host"; uuid] ->
+       Exception.Activated_on_another_host(uuid)
+    | _ ->
+       let backtrace = rpc_of_backtrace backtrace |> Jsonrpc.to_string in
+       Exception.Backend_error_with_backtrace(name, backtrace :: args)
+  in
   Exception.rpc_of_exnty exnty
 
 let missing_uri () =
