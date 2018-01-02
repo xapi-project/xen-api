@@ -23,7 +23,7 @@ open D
 
 let ensure_utf8_xml string =
   let length = String.length string in
-  let prefix = Stdext.Encodings.UTF8_XML.longest_valid_prefix string in
+  let prefix = Xapi_stdext_encodings.Encodings.UTF8_XML.longest_valid_prefix string in
   if length > String.length prefix then
     warn "Whilst doing 'set' of structured field, string truncated to: '%s'." prefix;
   prefix

@@ -63,7 +63,7 @@ let read_field t tblname fldname objref =
 (** occurs.                                                    *)
 let ensure_utf8_xml string =
   let length = String.length string in
-  let prefix = Stdext.Encodings.UTF8_XML.longest_valid_prefix string in
+  let prefix = Xapi_stdext_encodings.Encodings.UTF8_XML.longest_valid_prefix string in
   if length > String.length prefix then
     warn "string truncated to: '%s'." prefix;
   prefix
@@ -296,14 +296,14 @@ let load connections default_schema =
     | Some c -> Backend_xml.populate default_schema c
     | None -> db in (* empty *)
 
-  let empty = Database.update_manifest (Manifest.update_schema (fun _ -> Some (default_schema.Schema.major_vsn, default_schema.Schema.minor_vsn))) (Database.make default_schema) in
-  let open Stdext.Fun in
-  let db =
-    ((Db_backend.blow_away_non_persistent_fields default_schema)
-     ++ Db_upgrade.generic_database_upgrade
-     ++ populate) empty in
+  let empty = Database.update_manifest (Manifest.update_schema (fun _ -> Some (default_schema.Schema.major_vsn, default_schema.Schema.minor_vsn))) (Database.make default_schema)
+  in
 
-  db
+  empty
+  |> populate
+  |> Db_upgrade.generic_database_upgrade
+  |> Db_backend.blow_away_non_persistent_fields default_schema
+
 
 
 let sync conns db =
@@ -364,7 +364,7 @@ let spawn_db_flush_threads() =
                                then
                                  begin
                                    (* debug "[%s] considering flush" db_path; *)
-                                   let was_anything_flushed = Stdext.Threadext.Mutex.execute Db_lock.global_flush_mutex (fun ()->flush_dirty dbconn) in
+                                   let was_anything_flushed = Xapi_stdext_threads.Threadext.Mutex.execute Db_lock.global_flush_mutex (fun ()->flush_dirty dbconn) in
                                    if was_anything_flushed then
                                      begin
                                        my_writes_this_period := !my_writes_this_period + 1;

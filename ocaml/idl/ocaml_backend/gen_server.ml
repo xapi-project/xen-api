@@ -315,14 +315,15 @@ let gen_module api : O.Module.t =
           ~body: (
             [
               "let __call, __params = call.Rpc.name, call.Rpc.params in";
-              "List.iter (fun p -> let s = Rpc.to_string p in if not (Stdext.Encodings.UTF8_XML.is_valid s) then";
+              "List.iter (fun p -> let s = Rpc.to_string p in if not (Xapi_stdext_encodings.Encodings.UTF8_XML.is_valid s) then";
               "raise (Api_errors.Server_error(Api_errors.invalid_value, [\"Invalid UTF-8 string in parameter\"; s])))  __params;";
               "let __async = Server_helpers.is_async __call in";
               "let __label = __call in";
               "let __call = if __async then Server_helpers.remove_async_prefix __call else __call in";
               "let subtask_of = if http_req.Http.Request.task <> None then http_req.Http.Request.task else http_req.Http.Request.subtask_of in";
               "let http_other_config = Context.get_http_other_config http_req in";
-              "Server_helpers.exec_with_new_task (\"dispatch:\"^__call^\"\") ~http_other_config ?subtask_of:(Stdext.Pervasiveext.may Ref.of_string subtask_of) (fun __context ->";
+              "let may f = function | None -> None | Some x -> Some (f x) in";
+              "Server_helpers.exec_with_new_task (\"dispatch:\"^__call^\"\") ~http_other_config ?subtask_of:(may Ref.of_string subtask_of) (fun __context ->";
 (*
 	      "if not (Hashtbl.mem supress_printing_for_these_messages __call) then ";
 	      debug "%s %s" [ "__call"; "(if __async then \"(async)\" else \"\")" ];

@@ -1,5 +1,5 @@
 
-open Stdext.Threadext
+open Xapi_stdext_threads.Threadext
 
 module DBCacheRemoteListener = struct
   open Db_rpc_common_v1
@@ -128,5 +128,5 @@ let handler req bio _ =
   let body_xml = Xml.parse_string body in
   let reply_xml = DBCacheRemoteListener.process_xmlrpc body_xml in
   let response = Xml.to_bigbuffer reply_xml in
-  Http_svr.response_fct req fd (Stdext.Bigbuffer.length response)
-    (fun fd -> Stdext.Bigbuffer.to_fct response (fun s -> ignore(Unix.write fd s 0 (String.length s))))
+  Http_svr.response_fct req fd (Xapi_stdext_bigbuffer.Bigbuffer.length response)
+    (fun fd -> Xapi_stdext_bigbuffer.Bigbuffer.to_fct response (fun s -> ignore(Unix.write fd s 0 (String.length s))))

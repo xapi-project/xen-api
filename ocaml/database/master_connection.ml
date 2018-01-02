@@ -18,7 +18,7 @@
    restarts in emergency mode.
 *)
 
-open Stdext.Threadext
+open Xapi_stdext_threads.Threadext
 
 type db_record = (string * string) list * (string * (string list)) list
 module D = Debug.Make(struct let name = "master_connection" end)
@@ -66,7 +66,7 @@ let force_connection_reset () =
   match !my_connection with
   | None -> ()
   | Some st_proc ->
-    (info "stunnel reset pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Stdext.Unixext.int_of_file_descr st_proc.Stunnel.fd);
+    (info "stunnel reset pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Xapi_stdext_unix.Unixext.int_of_file_descr st_proc.Stunnel.fd);
      Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) Sys.sigterm)
 
 (* whenever a call is made that involves read/write to the master connection, a timestamp is
@@ -79,7 +79,7 @@ let last_master_connection_call : float option ref = ref None
    mutual exclusion provided by the database lock here anyway) *)
 let with_timestamp f =
   last_master_connection_call := Some (Unix.gettimeofday());
-  Stdext.Pervasiveext.finally
+  Xapi_stdext_pervasives.Pervasiveext.finally
     f
     (fun ()->last_master_connection_call := None)
 
@@ -133,7 +133,7 @@ let open_secure_connection () =
   let fd_closed = Thread.wait_timed_read st_proc.Stunnel.fd 5. in
   let proc_quit = try Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) 0; false with e -> true in
   if not fd_closed && not proc_quit then begin
-    info "stunnel connected pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Stdext.Unixext.int_of_file_descr st_proc.Stunnel.fd);
+    info "stunnel connected pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Xapi_stdext_unix.Unixext.int_of_file_descr st_proc.Stunnel.fd);
     my_connection := Some st_proc;
     !on_database_connection_established ()
   end else begin
@@ -190,11 +190,12 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
                   let res = match response.Http.Response.content_length with
                     | None -> raise Content_length_required
                     | Some l -> begin
+                        let open Xapi_stdext_unix in
                         if (Int64.to_int l) <= Sys.max_string_length then
-                          Db_interface.String (Stdext.Unixext.really_read_string fd (Int64.to_int l))
+                          Db_interface.String (Unixext.really_read_string fd (Int64.to_int l))
                         else
-                          let buf = Stdext.Bigbuffer.make () in
-                          Stdext.Unixext.really_read_bigbuffer fd buf l;
+                          let buf = Xapi_stdext_bigbuffer.Bigbuffer.make () in
+                          Unixext.really_read_bigbuffer fd buf l;
                           Db_interface.Bigbuf buf
                       end
                   in

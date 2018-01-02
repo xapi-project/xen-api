@@ -16,8 +16,8 @@
 module D = Debug.Make(struct let name = "db_lock" end)
 open D
 
-open Stdext.Threadext
-open Stdext.Pervasiveext
+open Xapi_stdext_threads.Threadext
+open Xapi_stdext_pervasives.Pervasiveext
 
 (* Withlock takes dbcache_mutex, and ref-counts to allow the same thread to re-enter without blocking as many times
    as it wants. *)
