@@ -1307,14 +1307,16 @@ module VM = struct
   let build_domain_exn xc xs domid task vm vbds vifs vgpus vusbs extras force =
     let open Memory in
     let initial_target = get_initial_target ~xs domid in
-    let static_max_mib = vm.memory_static_max /// 1024L in
+    let static_max_kib = vm.memory_static_max /// 1024L in
+    let static_max_mib = static_max_kib /// 1024L in
     let make_build_info kernel priv = {
-      Domain.memory_max = static_max_mib;
+      Domain.memory_max = static_max_kib;
       memory_target = initial_target;
       kernel = kernel;
       vcpus = vm.vcpu_max;
       priv = priv;
     } in
+    debug "static_max_mib=%Ld" static_max_mib;
     let pvinpvh_xen_cmdline =
       let base =
         try List.assoc "pvinpvh-xen-cmdline" vm.Vm.platformdata
