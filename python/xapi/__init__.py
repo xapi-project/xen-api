@@ -23,7 +23,7 @@ def handle_exception(e, code=None, params=None):
         "lines": lines,
     }
     code = "SR_BACKEND_FAILURE"
-    params = [str(s[1])]
+    params = [s[0].__name__, str(s[1])]
     if hasattr(e, "code"):
         code = e.code
     if hasattr(e, "params"):
