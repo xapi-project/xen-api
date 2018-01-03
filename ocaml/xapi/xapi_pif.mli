@@ -263,6 +263,9 @@ val calculate_pifs_required_at_start_of_day :
  *  Uses {!calculate_pifs_required_at_start_of_day}. *)
 val start_of_day_best_effort_bring_up : unit -> unit
 
+(** Bring up (plug) sriov logical PIFs when the host starts up. *)
+val best_effort_bring_up_sriov_pifs : unit -> unit
+
 
 (** {2 Assertion Helper Functions} *)
 

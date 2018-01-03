@@ -261,6 +261,13 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       raise (Api_errors.Server_error(Api_errors.pool_joining_host_has_tunnels, []))
     end in
 
+  (* Allow pool-join if host does not have any network-sriovs*)
+  let assert_no_network_sriovs_on_me () =
+    if Db.Network_sriov.get_all ~__context <> [] then begin
+      error "The current host has network-sriovs: it cannot join a new pool";
+      raise (Api_errors.Server_error(Api_errors.pool_joining_host_has_network_sriovs, []))
+    end in
+
   (* Allow pool-join if host does not have any non-management VLANs *)
   let assert_no_non_management_vlans_on_me () =
     List.iter (fun self ->
@@ -463,6 +470,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_no_shared_srs_on_me ();
   assert_no_bonds_on_me ();
   assert_no_tunnels_on_me ();
+  assert_no_network_sriovs_on_me ();
   assert_no_non_management_vlans_on_me ();
   assert_management_vlan_are_same ();
   assert_external_auth_matches ();

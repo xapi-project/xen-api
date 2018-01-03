@@ -885,3 +885,20 @@ let start_of_day_best_effort_bring_up () =
                 (pif))
            (calculate_pifs_required_at_start_of_day ~__context))
   end
+
+let best_effort_bring_up_sriov_pifs () =
+  Server_helpers.exec_with_new_task
+    "Bringing up sriov PIFs"
+    (fun __context ->
+       let host = Helpers.get_localhost ~__context in
+       Db.PIF.get_records_where ~__context ~expr:(And (
+           Eq (Field "host", Literal (Ref.string_of host)),
+           Not (Eq (Field "sriov_logical_PIF_of", Literal "()") )
+         ))
+       |> List.iter (fun (pif_ref, pif_rec) ->
+           Helpers.log_exn_continue
+             (Printf.sprintf "error trying to bring up sriov logical PIF: %s" pif_rec.API.pIF_uuid)
+             (fun pif_ref ->
+                debug "Best effort attempt to bring up sriov logical PIF: %s" pif_rec.API.pIF_uuid;
+                plug ~__context ~self:pif_ref)
+             pif_ref))
