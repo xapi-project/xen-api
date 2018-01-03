@@ -558,6 +558,7 @@ module Monitor = struct
                 end
               end
             with e ->
+              log_backtrace ();
               debug "Exception in HA monitor thread: %s" (ExnHelper.string_of_exn e);
               Thread.delay !Xapi_globs.ha_monitor_interval
           done;
