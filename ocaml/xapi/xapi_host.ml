@@ -488,8 +488,17 @@ let shutdown_and_reboot_common ~__context ~host label description operation cmd 
   if Db.Host.get_enabled ~__context ~self:host
   then raise (Api_errors.Server_error (Api_errors.host_not_disabled, []));
 
+  if (Pool_role.is_master ()) then
+       (* We are the master and we are about to shutdown HA and redo log:
+          prevent slaves from sending (DB) requests.
+          If we are the slave we cannot shutdown the request thread yet
+          because we might need it when unplugging the PBDs
+        *)
+       Remote_requests.stop_request_thread();
+
   Xapi_ha.before_clean_shutdown_or_reboot ~__context ~host;
   Xapi_pbd.unplug_all_pbds ~__context;
+
   Remote_requests.stop_request_thread();
 
   (* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
