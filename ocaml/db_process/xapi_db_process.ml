@@ -33,7 +33,7 @@ let fatal_error s =
 type operation = Write_database | Read_gencount | Read_hostiqn | Write_hostiqn
                | Am_i_in_the_database | Unknown of string
 let parse_operation s =
-  match (String.lowercase s) with
+  match (String.lowercase_ascii s) with
   | "write_db" -> Write_database
   | "read_gencount" -> Read_gencount
   | "read_hostiqn" -> Read_hostiqn

@@ -94,7 +94,7 @@ let configure
   Printf.printf "Configuring with the following parameters\n";
   Printf.printf "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n\n";
   List.iter (fun (k,v) ->
-      Printf.printf "%20s = %s\n" (String.lowercase k) v) vars;
+      Printf.printf "%20s = %s\n" (String.lowercase_ascii k) v) vars;
   output_file config_mk (header @ lines @ [export])
 
 let configure_t =

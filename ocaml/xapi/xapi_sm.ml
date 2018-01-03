@@ -35,12 +35,12 @@ open D
 let create_from_query_result ~__context q =
   let r = Ref.make () and u = Uuid.string_of_uuid (Uuid.make_uuid ()) in
   let open Storage_interface in
-  if (String.lowercase q.driver) <> "storage_access"
+  if (String.lowercase_ascii q.driver) <> "storage_access"
   then begin
     let features = Smint.parse_string_int64_features q.features in
     let capabilities = List.map fst features in
-    info "Registering SM plugin %s (version %s)" (String.lowercase q.driver) q.version;
-    Db.SM.create ~__context ~ref:r ~uuid:u ~_type:(String.lowercase q.driver)
+    info "Registering SM plugin %s (version %s)" (String.lowercase_ascii q.driver) q.version;
+    Db.SM.create ~__context ~ref:r ~uuid:u ~_type:(String.lowercase_ascii q.driver)
       ~name_label:q.name
       ~name_description:q.description
       ~vendor:q.vendor
@@ -57,13 +57,13 @@ let create_from_query_result ~__context q =
 
 let update_from_query_result ~__context (self, r) query_result =
   let open Storage_interface in
-  let _type = String.lowercase query_result.driver in
+  let _type = String.lowercase_ascii query_result.driver in
   if _type <> "storage_access"
   then begin
     let driver_filename = Sm_exec.cmd_name query_result.driver in
     let features = Smint.parse_string_int64_features query_result.features in
     let capabilities = List.map fst features in
-    info "Registering SM plugin %s (version %s)" (String.lowercase query_result.driver) query_result.version;
+    info "Registering SM plugin %s (version %s)" (String.lowercase_ascii query_result.driver) query_result.version;
     if r.API.sM_type <> _type
     then Db.SM.set_type ~__context ~self ~value:_type;
     if r.API.sM_name_label <> query_result.name
@@ -107,7 +107,7 @@ let _serialize_reg =
 let unregister_plugin ~__context query_result =
   _serialize_reg begin fun () ->
     let open Storage_interface in
-    let driver = String.lowercase query_result.driver in
+    let driver = String.lowercase_ascii query_result.driver in
     if is_v1 query_result.required_api_version then begin
       info "Not unregistering SM plugin %s (required_api_version %s < 2.0)" driver query_result.required_api_version;
     end else
@@ -125,7 +125,7 @@ let unregister_plugin ~__context query_result =
 let register_plugin ~__context query_result =
   _serialize_reg begin fun () ->
     let open Storage_interface in
-    let driver = String.lowercase query_result.driver in
+    let driver = String.lowercase_ascii query_result.driver in
     if is_v1 query_result.required_api_version then begin
       info "Not registering SM plugin %s (required_api_version %s < 2.0)" driver query_result.required_api_version;
     end else begin

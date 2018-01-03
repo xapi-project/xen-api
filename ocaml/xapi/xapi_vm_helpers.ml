@@ -664,7 +664,7 @@ let choose_host_uses_wlb ~__context =
     List.exists
       (fun (k,v) ->
          k = "wlb_choose_host_disable"
-         && (String.lowercase v = "true"))
+         && (String.lowercase_ascii v = "true"))
       (Db.Pool.get_other_config ~__context
          ~self:(Helpers.get_pool ~__context)))
 

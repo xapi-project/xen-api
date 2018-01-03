@@ -152,7 +152,7 @@ let signals_handling () =
 
 let random_setup () =
   let n = 8 in
-  let s = String.create n in
+  let s = Bytes.create n in
 
   let chan = open_in "/dev/urandom" in
   Pervasiveext.finally (fun () -> really_input chan s 0 n)

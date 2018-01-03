@@ -487,7 +487,7 @@ let update_management_flags ~__context ~host =
     error "Missing field MANAGEMENT_INTERFACE in inventory file"
 
 let introduce ~__context ~host ~mAC ~device ~managed =
-  let mAC = String.lowercase mAC in (* just a convention *)
+  let mAC = String.lowercase_ascii mAC in (* just a convention *)
   let t = make_tables ~__context ~host in
   let dbg = Context.string_of_task __context in
 

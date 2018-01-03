@@ -35,7 +35,7 @@ let pad_right x max_width =
   else x
 
 let compare_case_ins x y =
-  compare (String.lowercase x) (String.lowercase y)
+  compare (String.lowercase_ascii x) (String.lowercase_ascii y)
 
 let escape s =
   let sl = String.explode s in

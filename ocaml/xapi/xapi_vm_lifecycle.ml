@@ -25,7 +25,7 @@ module Rrdd = Rrd_client.Client
 
 let assoc_opt key assocs = Opt.of_exception (fun () -> List.assoc key assocs)
 let bool_of_assoc key assocs = match assoc_opt key assocs with
-  | Some v -> v = "1" || String.lowercase v = "true"
+  | Some v -> v = "1" || String.lowercase_ascii v = "true"
   | _ -> false
 
 (** Given an operation, [allowed_power_states] returns all the possible power state for

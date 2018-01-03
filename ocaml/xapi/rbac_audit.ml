@@ -231,7 +231,7 @@ let zip data = (* todo: remove i/o, make this more efficient *)
            (fun ()->
               let cin=Unix.in_channel_of_descr fd_in in
               let cin_len = in_channel_length cin in
-              zdata := (String.create cin_len);
+              zdata := (Bytes.create cin_len);
               for i = 1 to cin_len do !zdata.[i-1] <- input_char cin done;
            )
            (fun ()->Unix.close fd_in)

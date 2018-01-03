@@ -75,7 +75,7 @@ let rec rpc_of_event_from e =
 open Printf
 
 let string_of_op = function `add -> "add" | `_mod -> "mod" | `del -> "del"
-let op_of_string x = match String.lowercase x with
+let op_of_string x = match String.lowercase_ascii x with
   | "add" -> `add | "mod" -> `_mod | "del" -> `del
   | x -> failwith (sprintf "Unknown operation type: %s" x)
 

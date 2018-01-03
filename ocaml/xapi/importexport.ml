@@ -343,7 +343,7 @@ module Format = struct
     | Raw -> "raw"
     | Vhd -> "vhd"
 
-  let of_string x = match String.lowercase x with
+  let of_string x = match String.lowercase_ascii x with
     | "raw" -> Some Raw
     | "vhd" -> Some Vhd
     | _ -> None

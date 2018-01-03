@@ -367,7 +367,7 @@ let compute_evacuation_plan_wlb ~__context ~self =
 
 let compute_evacuation_plan ~__context ~host =
   let oc = Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context) in
-  if ((List.exists (fun (k,v) -> k = "wlb_choose_host_disable" && (String.lowercase v = "true")) oc)
+  if ((List.exists (fun (k,v) -> k = "wlb_choose_host_disable" && (String.lowercase_ascii v = "true")) oc)
       || not (Workload_balancing.check_wlb_enabled ~__context))
   then
     begin
@@ -795,7 +795,7 @@ let management_reconfigure ~__context ~pif =
   let net = Db.PIF.get_network ~__context ~self:pif in
   let bridge = Db.Network.get_bridge ~__context ~self:net in
   let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:pif in
-  
+
   if Db.PIF.get_managed ~__context ~self:pif = true then begin
     Xapi_pif.assert_usable_for_management ~__context ~primary_address_type ~self:pif;
     try

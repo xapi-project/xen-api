@@ -108,7 +108,7 @@ let get_keyERR_permission_name permission err =
 
 let permission_of_action ?args ~keys _action =
   (* all permissions are in lowercase, see gen_rbac.writer_ *)
-  let action = (String.lowercase _action) in
+  let action = (String.lowercase_ascii _action) in
   if (List.length keys) < 1
   then (* most actions do not use rbac-guarded map keys in the arguments *)
     action
@@ -160,7 +160,7 @@ let permission_of_action ?args ~keys _action =
                         )
                         keys
                     in
-                    get_key_permission_name action (String.lowercase key_name)
+                    get_key_permission_name action (String.lowercase_ascii key_name)
                   with Not_found -> (* expected, key_in_args is not rbac-protected *)
                     action
                 end

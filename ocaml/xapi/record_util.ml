@@ -313,7 +313,7 @@ let on_normal_exit_to_string x =
   | `restart -> "Restart"
 
 let string_to_on_normal_exit s =
-  match String.lowercase s with
+  match String.lowercase_ascii s with
     "destroy" -> `destroy
   | "restart" -> `restart
   | _ -> raise (Record_failure ("Expected 'destroy' or 'restart', got "^s))
@@ -328,7 +328,7 @@ let on_crash_behaviour_to_string x=
   | `rename_restart -> "Rename restart"
 
 let string_to_on_crash_behaviour s=
-  match String.lowercase s with
+  match String.lowercase_ascii s with
   | "destroy" -> `destroy
   | "coredump_and_destroy" -> `coredump_and_destroy
   | "restart" -> `restart
@@ -355,20 +355,20 @@ let boot_type_to_string x =
   | `kernelexternal -> "Kernel external"
 
 let string_to_boot_type s =
-  match String.lowercase s with
+  match String.lowercase_ascii s with
     "bios" -> `bios
   | "grub" -> `grub
   | "kernelexternal" -> `kernelexternal
   | _ -> raise (Record_failure ("Expected 'bios', 'grub' or 'kernelexternal', got "^s))
 
 let string_to_vdi_onboot s =
-  match String.lowercase s with
+  match String.lowercase_ascii s with
   | "persist" -> `persist
   | "reset" -> `reset
   | _ -> raise (Record_failure ("Expected 'persist' or 'reset', got "^s))
 
 let string_to_vbd_mode s =
-  match String.lowercase s with
+  match String.lowercase_ascii s with
   | "ro" -> `RO
   | "rw" -> `RW
   | _ -> raise (Record_failure ("Expected 'RO' or 'RW', got "^s))
@@ -378,7 +378,7 @@ let vbd_mode_to_string = function
   | `RW -> "rw"
 
 let string_to_vbd_type s =
-  match String.lowercase s with
+  match String.lowercase_ascii s with
   | "cd" -> `CD
   | "disk" -> `Disk
   | "floppy" -> `Floppy
@@ -413,7 +413,7 @@ let ip_configuration_mode_to_string = function
   | `Static -> "Static"
 
 let ip_configuration_mode_of_string m =
-  match String.lowercase m with
+  match String.lowercase_ascii m with
   | "dhcp"   -> `DHCP
   | "none"   -> `None
   | "static" -> `Static
@@ -424,7 +424,7 @@ let vif_ipv4_configuration_mode_to_string = function
   | `Static -> "Static"
 
 let vif_ipv4_configuration_mode_of_string m =
-  match String.lowercase m with
+  match String.lowercase_ascii m with
   | "none"   -> `None
   | "static" -> `Static
   | s        -> raise (Record_failure ("Expected 'none' or 'static', got "^s))
@@ -436,7 +436,7 @@ let ipv6_configuration_mode_to_string = function
   | `Autoconf -> "Autoconf"
 
 let ipv6_configuration_mode_of_string m =
-  match String.lowercase m with
+  match String.lowercase_ascii m with
   | "dhcp"   -> `DHCP
   | "none"   -> `None
   | "static" -> `Static
@@ -448,7 +448,7 @@ let vif_ipv6_configuration_mode_to_string = function
   | `Static -> "Static"
 
 let vif_ipv6_configuration_mode_of_string m =
-  match String.lowercase m with
+  match String.lowercase_ascii m with
   | "none"   -> `None
   | "static" -> `Static
   | s        -> raise (Record_failure ("Expected 'none' or 'static', got "^s))
@@ -458,7 +458,7 @@ let primary_address_type_to_string = function
   | `IPv6 -> "IPv6"
 
 let primary_address_type_of_string m =
-  match String.lowercase m with
+  match String.lowercase_ascii m with
   | "ipv4"   -> `IPv4
   | "ipv6"   -> `IPv6
   | s        -> raise (Record_failure ("Expected 'ipv4' or 'ipv6', got "^s))
@@ -469,7 +469,7 @@ let bond_mode_to_string = function
   | `lacp -> "lacp"
 
 let bond_mode_of_string m =
-  match String.lowercase m with
+  match String.lowercase_ascii m with
   | "balance-slb" | "" -> `balanceslb
   | "active-backup" -> `activebackup
   | "lacp" -> `lacp
@@ -480,7 +480,7 @@ let allocation_algorithm_to_string = function
   | `breadth_first -> "breadth-first"
 
 let allocation_algorithm_of_string a =
-  match String.lowercase a with
+  match String.lowercase_ascii a with
   | "depth-first" -> `depth_first
   | "breadth-first" -> `breadth_first
   | s -> raise (Record_failure ("Invalid allocation algorithm. Got " ^ s))
@@ -493,13 +493,13 @@ let pvs_proxy_status_to_string = function
   | `incompatible_protocol_version -> "incompatible-protocol-version"
 
 let bool_of_string s =
-  match String.lowercase s with
+  match String.lowercase_ascii s with
   |"true"|"yes"->true
   |"false"|"no"->false
   |_-> raise (Record_failure ("Expected 'true','yes','false','no', got "^s))
 
 let sdn_protocol_of_string s =
-  match String.lowercase s with
+  match String.lowercase_ascii s with
   | "ssl" -> `ssl
   | "pssl" -> `pssl
   |_-> raise (Record_failure ("Expected 'ssl','pssl', got "^s))
