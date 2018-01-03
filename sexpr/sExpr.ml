@@ -33,14 +33,16 @@ let unescape_buf buf s =
  * that have guaranteed invariants and optimised performances *)
 let escape s =
   let open Astring in
-  String.fold_left
-    (fun acc c ->
-       acc ^
-       match c with
-       | '\\' -> "\\\\"
-       | '"'  -> "\\\""
-       | '\'' -> "\\\'"
-       |  _   -> Astring.String.of_char c) "" s
+  let escaped = Buffer.create (String.length s + 10) in
+  String.iter (fun c ->
+      let c' = match c with
+        | '\\' -> "\\\\"
+        | '"'  -> "\\\""
+        | '\'' -> "\\\'"
+        |  _   -> Astring.String.of_char c
+      in
+      Buffer.add_string escaped c') s;
+  Buffer.contents escaped
 
 let unescape s =
   let buf = Buffer.create (String.length s) in
