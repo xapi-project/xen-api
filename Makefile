@@ -98,13 +98,13 @@ java: build
 	cp java/LICENSE.Apache-2.0.txt _build/default/java/autogen
 
 powershell: build
-	mkdir -p _build/default/powershell/autogen/src
+	mkdir -p _build/default/powershell/autogen/src/Properties
 	mkdir -p _build/default/powershell/autogen/samples
-	_build/default/powershell/gen_powershell_binding.exe -d _build/default/powershell/autogen
+	_build/default/powershell/gen_powershell_binding.exe -d _build/default/powershell/autogen/src -t powershell/templates
 #source
-	mv _build/default/powershell/autogen/*.cs _build/default/powershell/autogen/src
 	cp powershell/src/*.cs _build/default/powershell/autogen/src
-	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION)/g' -e 's/1000/$(SDK_VERSION).0/g' _build/default/powershell/autogen/src/AssemblyInfo.cs
+	mv _build/default/powershell/autogen/src/AssemblyInfo.cs _build/default/powershell/autogen/src/Properties/AssemblyInfo.cs
+	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION)/g' -e 's/1000/$(SDK_VERSION).0/g' _build/default/powershell/autogen/src/Properties/AssemblyInfo.cs
 #samples
 	cp powershell/samples/*.ps1 _build/default/powershell/autogen/samples
 #other
