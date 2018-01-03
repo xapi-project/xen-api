@@ -98,20 +98,18 @@ let parse_bigbuffer b =
 
 let esc_pcdata data =
   let buf = Buffer.create (String.length data + 10) in
-  for i = 0 to String.length data - 1
-  do
-    let s = match data.[i] with
-      | '>'    -> "&gt;";
-      | '<'    -> "&lt;";
-      | '&'    -> "&amp;";
-      | '"'    -> "&quot;";
-      | c when (c >= '\x20' && c <= '\xff')
-            || c = '\x09' || c = '\x0a' || c = '\x0d'
-        -> String.make 1 c
-      | _      -> ""
-    in
-    Buffer.add_string buf s
-  done;
+  String.iter (fun c ->
+      let s = match c with
+        | '>'    -> "&gt;;"
+        | '<'    -> "&lt;"
+        | '&'    -> "&amp;"
+        | '"'    -> "&quot;"
+        | c when (c >= '\x20' && c <= '\xff')
+              || c = '\x09' || c = '\x0a' || c = '\x0d'
+          -> String.make 1 c
+        | _      -> ""
+      in
+      Buffer.add_string buf s) data;
   Buffer.contents buf
 
 let str_of_attrs attrs =
