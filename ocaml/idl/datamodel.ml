@@ -9228,7 +9228,7 @@ module Network_sriov = struct
       ~doc:"Enable SR-IOV on the specific PIF. It will create a network-sriov based on the specific PIF and automatically create a logical PIF to connect the specific network."
       ~params:[Ref _pif, "pif", "PIF on which to enable SR-IOV";
                Ref _network, "network", "Network to connect SR-IOV virtual functions with VM VIFs"]
-      ~result:(Ref _network_sriov, "The reference of the created SR-IOV object")
+      ~result:(Ref _network_sriov, "The reference of the created network_sriov object")
       ~lifecycle
       ~allowed_roles:_R_POOL_OP
       ()
