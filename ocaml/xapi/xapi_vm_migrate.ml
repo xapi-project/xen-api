@@ -33,6 +33,8 @@ module SMPERF=Debug.Make(struct let name="SMPERF" end)
 open Client
 open Xmlrpc_client
 
+exception VM_is_not_live of string (* should never escape this module *)
+
 let _sm = "SM"
 let _xenops = "xenops"
 let _host = "host"
@@ -203,7 +205,12 @@ let detach_local_network_for_vm ~__context ~vm ~destination =
 (** Return a map of vGPU device to PCI address of the destination pGPU.
   * This only works _after_ resources on the destination have been reserved
   * by a call to Message_forwarding.VM.allocate_vm_to_host (through
-  * Host.allocate_resources_for_vm for cross-pool migrations). *)
+  * Host.allocate_resources_for_vm for cross-pool migrations).
+  *
+  * We are extra careful to check that the VM has a valid pGPU assigned.
+  * During migration, a VM may suspend or shut down and if this happens
+  * the pGPU is released and getting the PCI will fail.
+  * *)
 let infer_vgpu_map ~__context ?remote vm =
   match remote with
   | None ->
@@ -211,26 +218,30 @@ let infer_vgpu_map ~__context ?remote vm =
     List.map (fun self ->
       let vgpu = Db.VGPU.get_record ~__context ~self in
       let device = vgpu.API.vGPU_device in
-      let pci =
+      let pci () =
         vgpu.API.vGPU_scheduled_to_be_resident_on
         |> fun self -> Db.PGPU.get_PCI ~__context ~self
         |> fun self -> Db.PCI.get_pci_id ~__context ~self
         |> Xenops_interface.Pci.address_of_string
       in
-      device, pci
+      try
+        device, pci ()
+      with e -> raise (VM_is_not_live(Printexc.to_string e))
     ) vgpus
   | Some {rpc; session} ->
     let vgpus = XenAPI.VM.get_VGPUs rpc session vm in
     List.map (fun self ->
       let vgpu = XenAPI.VGPU.get_record rpc session self in
       let device = vgpu.API.vGPU_device in
-      let pci =
+      let pci () =
         vgpu.API.vGPU_scheduled_to_be_resident_on
         |> fun self -> XenAPI.PGPU.get_PCI rpc session self
         |> fun self -> XenAPI.PCI.get_pci_id rpc session self
         |> Xenops_interface.Pci.address_of_string
       in
-      device, pci
+      try
+        device, pci ()
+      with e -> raise (VM_is_not_live(Printexc.to_string e))
     ) vgpus
 
 let pool_migrate ~__context ~vm ~host ~options =
@@ -999,7 +1010,6 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~optio
           ) vifs
       in
 
-      let xenops_vgpu_map = infer_vgpu_map ~__context ~remote new_vm in
 
       (* Destroy the local datapaths - this allows the VDIs to properly detach, invoking the migrate_finalize calls *)
       List.iter (fun mirror_record ->
@@ -1021,12 +1031,18 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~optio
         try
           Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid
             (fun () ->
-               migrate_with_retry ~__context queue_name dbg vm_uuid xenops_vdi_map xenops_vif_map xenops_vgpu_map remote.xenops_url;
+               let xenops_vgpu_map = (* VM_is_not_live *)
+                 infer_vgpu_map ~__context ~remote new_vm in
+               migrate_with_retry
+                 ~__context queue_name dbg vm_uuid xenops_vdi_map
+                 xenops_vif_map xenops_vgpu_map remote.xenops_url;
                Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid)
         with
+        | VM_is_not_live(_)
         | Xenops_interface.Does_not_exist ("VM",_)
         | Xenops_interface.Does_not_exist ("extra",_) ->
-          ()
+          info "%s: VM %s stopped being live during migration"
+            "vm_migrate_send" vm_uuid
       end;
 
       debug "Migration complete";
