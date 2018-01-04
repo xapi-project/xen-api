@@ -205,20 +205,12 @@ let detach_local_network_for_vm ~__context ~vm ~destination =
   * by a call to Message_forwarding.VM.allocate_vm_to_host (through
   * Host.allocate_resources_for_vm for cross-pool migrations). *)
 let infer_vgpu_map ~__context ?remote vm =
-  let this = "Xapi_vm_migrate.infer_vgpu_map" in
-  let validate vgpu =
-    if vgpu.API.vGPU_scheduled_to_be_resident_on = Ref.null then
-      error "%s: vGPU_scheduled_to_be_resident_on is Null for VM %s"
-        this (Ref.string_of vm)
-    else ()
-  in
   match remote with
   | None ->
     let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
     List.map (fun self ->
       let vgpu = Db.VGPU.get_record ~__context ~self in
       let device = vgpu.API.vGPU_device in
-      let () = validate vgpu in
       let pci =
         vgpu.API.vGPU_scheduled_to_be_resident_on
         |> fun self -> Db.PGPU.get_PCI ~__context ~self
@@ -232,7 +224,6 @@ let infer_vgpu_map ~__context ?remote vm =
     List.map (fun self ->
       let vgpu = XenAPI.VGPU.get_record rpc session self in
       let device = vgpu.API.vGPU_device in
-      let () = validate vgpu in
       let pci =
         vgpu.API.vGPU_scheduled_to_be_resident_on
         |> fun self -> XenAPI.PGPU.get_PCI rpc session self
