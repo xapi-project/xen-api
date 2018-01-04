@@ -105,7 +105,7 @@ def is_long(x):
     try:
         long(x)
         return True
-    except:
+    except ValueError:
         return False
 
 
