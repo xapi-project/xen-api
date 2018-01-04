@@ -371,8 +371,7 @@ let pool_introduce
       ~mAC ~mTU ~vLAN ~metrics
       ~physical ~currently_attached:false ~igmp_snooping_status:`unknown
       ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS
-      ~bond_slave_of:Ref.null ~vLAN_master_of
-      ~sriov_logical_PIF_of:Ref.null ~management
+      ~bond_slave_of:Ref.null ~vLAN_master_of ~management
       ~other_config ~disallow_unplug ~ipv6_configuration_mode
       ~iPv6 ~ipv6_gateway ~primary_address_type ~managed ~properties ~capabilities:[] in
   pif_ref
@@ -411,8 +410,7 @@ let introduce_internal
       ~device ~device_name:device ~network:net_ref ~host ~mAC
       ~mTU ~vLAN ~metrics ~physical ~currently_attached:false ~igmp_snooping_status:`unknown
       ~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:""
-      ~dNS:"" ~bond_slave_of:Ref.null ~vLAN_master_of
-      ~sriov_logical_PIF_of:Ref.null ~management:false
+      ~dNS:"" ~bond_slave_of:Ref.null ~vLAN_master_of ~management:false
       ~other_config:[] ~disallow_unplug ~ipv6_configuration_mode:`None
       ~iPv6:[] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed
       ~properties:default_properties ~capabilities:capabilities in

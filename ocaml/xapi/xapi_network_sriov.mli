@@ -17,11 +17,11 @@ val create :
   __context:Context.t ->
   pif:[ `PIF ] Ref.t ->
   network:[ `network ] Ref.t ->
-  [ `Network_sriov ] Ref.t
+  [ `network_sriov ] Ref.t
 
 
 (** Destroy a network-sriov object, and it will automatically destroy the logical PIF that bonded with it. *)
-val destroy : __context:Context.t -> self:[ `Network_sriov ] Ref.t -> unit
+val destroy : __context:Context.t -> self:[ `network_sriov ] Ref.t -> unit
 
 
 

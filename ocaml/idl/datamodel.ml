@@ -174,7 +174,7 @@ let _vdi_nbd_server_info = "vdi_nbd_server_info"
 let _pusb = "PUSB"
 let _usb_group = "USB_group"
 let _vusb = "VUSB"
-let _network_sriov = "Network_sriov"
+let _network_sriov = "network_sriov"
 (** All the various static role names *)
 
 let role_pool_admin = "pool-admin"
@@ -5642,8 +5642,6 @@ let pif =
       field ~in_oss_since:None ~ty:(Set(Ref _bond)) ~in_product_since:rel_miami ~qualifier:DynamicRO "bond_master_of" "Indicates this PIF represents the results of a bond";
       field ~in_oss_since:None ~ty:(Ref _vlan) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_master_of" "Indicates wich VLAN this interface receives untagged traffic from" ~default_value:(Some (VRef ""));
       field ~in_oss_since:None ~ty:(Set(Ref _vlan)) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_slave_of" "Indicates which VLANs this interface transmits tagged traffic to";
-      field ~in_oss_since:None ~ty:(Set(Ref _network_sriov)) ~in_product_since:rel_kolkata ~qualifier:DynamicRO "sriov_physical_PIF_of" "Indicates which network_sriov this interface is physical of";
-      field ~in_oss_since:None ~ty:(Ref _network_sriov) ~in_product_since:rel_kolkata ~qualifier:DynamicRO "sriov_logical_PIF_of" "Indicates which network_sriov this interface is logical of" ~default_value:(Some (VRef ""));
       field ~in_oss_since:None ~ty:Bool ~in_product_since:rel_miami ~qualifier:DynamicRO "management" "Indicates whether the control software is listening for connections on this interface" ~default_value:(Some (VBool false));
       field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "Additional configuration";
       field ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "disallow_unplug" "Prevent this PIF from being unplugged; set this to notify the management tool-stack that the PIF has a special use and should not be unplugged under any circumstances (e.g. because you're running storage traffic over it)";
@@ -5659,6 +5657,8 @@ let pif =
       field ~lifecycle:[Published, rel_creedence, ""] ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "properties" "Additional configuration properties for the interface.";
       field ~lifecycle:[Published, rel_dundee, ""] ~qualifier:DynamicRO ~ty:(Set(String)) ~default_value:(Some (VSet [])) "capabilities" "Additional capabilities on the interface.";
       field ~lifecycle:[Published, rel_inverness, ""] ~qualifier:DynamicRO ~ty:pif_igmp_status ~default_value:(Some (VEnum "unknown")) "igmp_snooping_status" "The IGMP snooping status of the corresponding network bridge";
+      field ~in_oss_since:None ~ty:(Set (Ref _network_sriov)) ~in_product_since:rel_kolkata ~qualifier:DynamicRO "sriov_physical_PIF_of" "Indicates which network_sriov this interface is physical of";
+      field ~in_oss_since:None ~ty:(Set (Ref _network_sriov)) ~in_product_since:rel_kolkata ~qualifier:DynamicRO "sriov_logical_PIF_of" "Indicates which network_sriov this interface is logical of";
     ]
     ()
 
@@ -9216,7 +9216,7 @@ let alert =
 module Network_sriov = struct
   let lifecycle = [Published, rel_kolkata, ""]
 
-  let configuration_mode = Enum ("configuration_mode",
+  let sriov_configuration_mode = Enum ("sriov_configuration_mode",
     [
       "sysfs", "Configure network sriov by sysfs, do not need reboot";
       "modprobe", "Configure network sriov by modbrope, need reboot";
@@ -9225,17 +9225,17 @@ module Network_sriov = struct
 
   let create = call
       ~name:"create"
-      ~doc:"Create a network-sriov based on the specific PIF, it will automatically create a logical PIF to connect the specific network."
-      ~params:[Ref _pif, "pif", "PIF on which to enable SRIOV";
-               Ref _network, "network", "Network to link SRIOV"]
-      ~result:(Ref _network_sriov, "The reference of the created SRIOV object")
+      ~doc:"Enable SR-IOV on the specific PIF. It will create a network-sriov based on the specific PIF and automatically create a logical PIF to connect the specific network."
+      ~params:[Ref _pif, "pif", "PIF on which to enable SR-IOV";
+               Ref _network, "network", "Network to connect SR-IOV virtual functions with VM VIFs"]
+      ~result:(Ref _network_sriov, "The reference of the created SR-IOV object")
       ~lifecycle
       ~allowed_roles:_R_POOL_OP
       ()
 
   let destroy = call
       ~name:"destroy"
-      ~doc:"Destroy a network-sriov, will destroy the logical PIF accordingly."
+      ~doc:"Disable SR-IOV on the specific PIF. It will destroy the network-sriov and the logical PIF accordingly."
       ~params:[Ref _network_sriov, "self", "SRIOV to destroy"]
       ~lifecycle
       ~allowed_roles:_R_POOL_OP
@@ -9257,10 +9257,10 @@ module Network_sriov = struct
       ~contents:
         ([
           uid _network_sriov;
-          field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle "physical_PIF" "physical PIF which the network_sriov created" ~default_value:(Some (VRef ""));
-          field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle "logical_PIF" "logical PIF after sriov enabled for physical pif" ~default_value:(Some (VRef ""));
-          field ~qualifier:DynamicRO ~ty:Bool ~lifecycle "requires_reboot" "True if sriov enable needs to reboot dom0" ~default_value:(Some (VBool false));
-          field ~qualifier:DynamicRO ~ty:configuration_mode ~lifecycle "configuration_mode" "The mode for configure network sriov" ~default_value:(Some (VEnum "unknown"));
+          field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle "physical_PIF" "The PIF that has SR-IOV enabled" ~default_value:(Some (VRef ""));
+          field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle "logical_PIF" "The logical PIF to connect to the SR-IOV network after enable SR-IOV on the physical PIF" ~default_value:(Some (VRef ""));
+          field ~qualifier:DynamicRO ~ty:Bool ~lifecycle "requires_reboot" "Indicates whether the host need to be rebooted before SR-IOV is enabled on the physical PIF" ~default_value:(Some (VBool false));
+          field ~qualifier:DynamicRO ~ty:sriov_configuration_mode ~lifecycle "configuration_mode" "The mode for configure network sriov" ~default_value:(Some (VEnum "unknown"));
         ])
       ()
 end
@@ -10405,6 +10405,7 @@ let all_relations =
 
     (_feature, "host"), (_host, "features");
     (_network_sriov, "physical_PIF"), (_pif, "sriov_physical_PIF_of");
+    (_network_sriov, "logical_PIF"), (_pif, "sriov_logical_PIF_of");
   ]
 
 (** the full api specified here *)

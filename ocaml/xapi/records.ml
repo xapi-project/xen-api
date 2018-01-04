@@ -232,7 +232,6 @@ let network_sriov_record rpc session_id network_sriov =
         make_field ~name:"physical-pif-uuid"        ~get:(fun () -> get_uuid_from_ref (x ()).API.network_sriov_physical_PIF) ();
         make_field ~name:"logical-pif-uuid"         ~get:(fun () -> get_uuid_from_ref (x ()).API.network_sriov_logical_PIF) ();
         make_field ~name:"requires-reboot"          ~get:(fun () -> string_of_bool (x ()).API.network_sriov_requires_reboot) ();
-        make_field ~name:"configuration-mode"       ~get:(fun () -> Record_util.network_sriov_configuration_mode_to_string (x ()).API.network_sriov_configuration_mode) ();
       ]}
 
 let pif_record rpc session_id pif =
@@ -260,7 +259,7 @@ let pif_record rpc session_id pif =
         make_field ~name:"bond-master-of" ~get:(fun () -> String.concat "; " (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.pIF_bond_master_of)) ();
         make_field ~name:"bond-slave-of"  ~get:(fun () -> get_uuid_from_ref (x ()).API.pIF_bond_slave_of) ();
         make_field ~name:"sriov-physical-PIF-of" ~get:(fun () -> String.concat ";" (List.map get_uuid_from_ref (x ()).API.pIF_sriov_physical_PIF_of)) ();
-        make_field ~name:"sriov-logical-PIF-of"  ~get:(fun () -> get_uuid_from_ref (x ()).API.pIF_sriov_logical_PIF_of) ();
+        make_field ~name:"sriov-logical-PIF-of" ~get:(fun () -> String.concat ";" (List.map get_uuid_from_ref (x ()).API.pIF_sriov_logical_PIF_of)) ();
         make_field ~name:"tunnel-access-PIF-of" ~get:(fun () -> String.concat "; " (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.pIF_tunnel_access_PIF_of)) ();
         make_field ~name:"tunnel-transport-PIF-of"  ~get:(fun () -> String.concat "; " (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.pIF_tunnel_transport_PIF_of)) ();
         make_field ~name:"management"   ~get:(fun () -> string_of_bool ((x ()).API.pIF_management)) ();

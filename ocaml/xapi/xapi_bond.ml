@@ -374,7 +374,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
         ~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics
         ~physical:false ~currently_attached:false ~igmp_snooping_status:`unknown
         ~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
-        ~vLAN_master_of:Ref.null ~sriov_logical_PIF_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false
+        ~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false
         ~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true
         ~properties:pif_properties ~capabilities:[];
       Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~master:master ~other_config:[]
