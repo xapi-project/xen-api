@@ -516,7 +516,7 @@ let will_boot_hvm_from_domain_type = function
   | `hvm | `pv_in_pvh  -> true
   | `pv  | `unspecified  -> false
 
-let will_have_qemu_from_domain_type = function
+let needs_qemu_from_domain_type = function
   | `hvm -> true
   | `pv_in_pvh | `pv | `unspecified -> false
 
@@ -529,7 +529,7 @@ let will_boot_hvm_from_record (x: API.vM_t) =
 
 let will_have_qemu_from_record (x: API.vM_t) =
   x.API.vM_domain_type
-  |> will_have_qemu_from_domain_type
+  |> needs_qemu_from_domain_type
 
 let will_boot_hvm ~__context ~self =
   Db.VM.get_domain_type ~__context ~self
@@ -537,14 +537,14 @@ let will_boot_hvm ~__context ~self =
 
 let will_have_qemu ~__context ~self =
   Db.VM.get_domain_type ~__context ~self
-  |> will_have_qemu_from_domain_type
+  |> needs_qemu_from_domain_type
 
 let has_booted_hvm ~__context ~self =
   Db.VM_metrics.get_hvm ~__context ~self:(Db.VM.get_metrics ~__context ~self)
 
 let has_qemu_currently ~__context ~self =
   Db.VM_metrics.get_current_domain_type ~__context ~self:(Db.VM.get_metrics ~__context ~self)
-  |> will_have_qemu_from_domain_type
+  |> needs_qemu_from_domain_type
 
 let is_hvm ~__context ~self =
   match Db.VM.get_power_state ~__context ~self with
