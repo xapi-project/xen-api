@@ -885,7 +885,7 @@ module VM = struct
                                 ) in
     let vcpus = [
       "vcpu/number", string_of_int vm.vcpu_max;
-      "vcpu/current", string_of_int vm.vcpus;
+      "vcpu/current", string_of_int (match vm.ty with PVinPVH _ -> vm.vcpu_max | _ -> vm.vcpus);
     ] @ affinity @ weight in
 
     let default k v p = if List.mem_assoc k p then p else (k,v)::p in
