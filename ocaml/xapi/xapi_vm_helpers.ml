@@ -213,8 +213,11 @@ let validate_shadow_multiplier ~hVM_shadow_multiplier =
 let validate_actions_after_crash ~__context ~self ~value =
   let fld = "VM.actions_after_crash" in
   let hvm_cannot_coredump v =
-    if Helpers.will_boot_hvm ~__context ~self
-    then value_not_supported fld v "cannot invoke a coredump of an HVM domain" in
+    match Helpers.domain_type ~__context ~self with
+    | `hvm | `pv_in_pvh ->
+      value_not_supported fld v "cannot invoke a coredump of an HVM or PV-in-PVH domain"
+    | `pv -> ()
+  in
   match value with
   | `rename_restart -> value_not_supported fld "rename_restart"
                          "option would leak a domain; VMs and not domains are managed by this API"
