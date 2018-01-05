@@ -93,9 +93,10 @@ let vendor       = Map_check.(field "vendor" string)
 
 let get_flags_for_vm ~__context vm cpu_info =
   let features_key =
-    if Helpers.will_boot_hvm ~__context ~self:vm then
+    match Helpers.domain_type ~__context ~self:vm with
+    | `hvm | `pv_in_pvh ->
       cpu_info_features_hvm_key
-    else
+    | `pv ->
       cpu_info_features_pv_key
   in
   let vendor = List.assoc cpu_info_vendor_key cpu_info in
@@ -116,8 +117,12 @@ let upgrade_features ~__context ~vm host_features vm_features =
       let open Xapi_xenops_queue in
       let dbg = Context.string_of_task __context in
       let module Client = (val make_client (default_xenopsd ()): XENOPS) in
-      let is_hvm = Helpers.will_boot_hvm ~__context ~self:vm in
-      let vm_features' = Client.HOST.upgrade_cpu_features dbg vm_features is_hvm in
+      let uses_hvm_features =
+        match Helpers.domain_type ~__context ~self:vm with
+        | `hvm | `pv_in_pvh -> true
+        | `pv -> false
+      in
+      let vm_features' = Client.HOST.upgrade_cpu_features dbg vm_features uses_hvm_features in
       extend vm_features' host_features
     else
       zero_extend vm_features (Array.length host_features)
