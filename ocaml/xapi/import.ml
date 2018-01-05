@@ -967,7 +967,7 @@ module VBD : HandlerTools = struct
       (* Note: the following is potentially inaccurate: the find out whether a running or
        * suspended VM has booted HVM, we must consult the VM metrics, but those aren't
        * available in the exported metadata. *)
-      let has_booted_hvm = Helpers.will_boot_hvm_from_record original_vm in
+      let has_qemu = Helpers.will_have_qemu_from_record original_vm in
 
       (* In the case of dry_run live migration, don't check for
          				 missing disks as CDs will be ejected before the real migration. *)
@@ -978,14 +978,14 @@ module VBD : HandlerTools = struct
       if vbd_record.API.vBD_currently_attached && not(exists vbd_record.API.vBD_VDI state.table) then begin
         (* It's only ok if it's a CDROM attached to an HVM guest, or it's part of SXM and we know the sender would eject it. *)
         let will_eject = dry_run && live && original_vm.API.vM_power_state <> `Suspended in
-        if not (vbd_record.API.vBD_type = `CD && (has_booted_hvm || will_eject))
+        if not (vbd_record.API.vBD_type = `CD && (has_qemu || will_eject))
         then raise (IFailure Attached_disks_not_found)
       end;
 
       let vbd_record = { vbd_record with API.vBD_VM = vm } in
       match vbd_record.API.vBD_type, exists vbd_record.API.vBD_VDI state.table with
       | `CD, false | `Floppy, false  ->
-        if has_booted_hvm || original_vm.API.vM_power_state <> `Suspended then
+        if has_qemu || original_vm.API.vM_power_state <> `Suspended then
           Create { vbd_record with API.vBD_VDI = Ref.null; API.vBD_empty = true }  (* eject *)
         else
           Create vbd_record
