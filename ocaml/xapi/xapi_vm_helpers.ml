@@ -489,8 +489,11 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(
     assert_host_has_iommu ~__context ~host;
   assert_gpus_available ~__context ~self ~host;
   assert_usbs_available ~__context ~self ~host;
-  if Helpers.will_boot_hvm ~__context ~self then
-    assert_host_supports_hvm ~__context ~self ~host;
+  begin match Helpers.domain_type ~__context ~self with
+  | `hvm | `pv_in_pvh ->
+    assert_host_supports_hvm ~__context ~self ~host
+  | `pv -> ()
+  end;
   if do_memory_check then
     assert_enough_memory_available ~__context ~self ~host ~snapshot;
   debug "All fine, VM %s can run on host %s!" (Ref.string_of self) (Ref.string_of host)
