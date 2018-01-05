@@ -463,10 +463,11 @@ let api =
             {
               Method.name = "attach";
               description = String.concat " "[
-                "[attach uri]: attaches the SR to the local host. Once an SR";
+                "[attach uuid uri]: attaches the SR to the local host. Once an SR";
                 "is attached then volumes may be manipulated.";
               ];
               inputs = [
+                uuid;
                 uri;
               ];
               outputs = [
