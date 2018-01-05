@@ -52,7 +52,7 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~to
         name = None
       } in
 
-      let result = Cluster_client.LocalClient.create rpc dbg init_config in
+      let result = Cluster_client.LocalClient.create (rpc ~__context) dbg init_config in
       match result with
       | Result.Ok cluster_token ->
         D.debug "Got OK from LocalClient.create";
@@ -72,11 +72,12 @@ let destroy ~__context ~self =
   assert_cluster_has_one_node ~__context ~self;
   let cluster_host = Db.Cluster.get_cluster_hosts ~__context ~self |> List.hd in
   assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self:cluster_host;
-  let result = Cluster_client.LocalClient.destroy rpc dbg in
+  let result = Cluster_client.LocalClient.destroy (rpc ~__context) dbg in
   match result with
   | Result.Ok () ->
     Db.Cluster_host.destroy ~__context ~self:cluster_host;
-    Db.Cluster.destroy ~__context ~self
+    Db.Cluster.destroy ~__context ~self;
+    Xapi_clustering.Daemon.stop ~__context
   | Result.Error error -> handle_error error
 
 (* helper function; concurrency checks are done in implementation of Cluster.create and Cluster_host.create *)

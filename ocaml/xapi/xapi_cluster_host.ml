@@ -81,7 +81,7 @@ let create ~__context ~cluster ~host =
           pif_of_host ~__context network |>
           ip_of_pif
         ) (Db.Cluster.get_cluster_hosts ~__context ~self:cluster) in
-      let result = Cluster_client.LocalClient.join rpc dbg cluster_token ip ip_list in
+      let result = Cluster_client.LocalClient.join (rpc ~__context) dbg cluster_token ip ip_list in
       match result with
       | Result.Ok () ->
         Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~enabled:true
@@ -96,10 +96,11 @@ let destroy ~__context ~self =
   assert_operation_host_target_is_localhost ~__context ~host;
   assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self;
   assert_cluster_host_enabled ~__context ~self ~expected:true;
-  let result = Cluster_client.LocalClient.leave rpc dbg in
+  let result = Cluster_client.LocalClient.leave (rpc ~__context) dbg in
   match result with
   | Result.Ok () ->
-    Db.Cluster_host.destroy ~__context ~self
+    Db.Cluster_host.destroy ~__context ~self;
+    Xapi_clustering.Daemon.stop ~__context
   | Result.Error error -> handle_error error
 
 let enable ~__context ~self =
@@ -119,7 +120,7 @@ let enable ~__context ~self =
         token_coefficient_ms = None;
         name = None
       } in (* TODO: Pass these through from CLI *)
-      let result = Cluster_client.LocalClient.enable rpc dbg init_config in
+      let result = Cluster_client.LocalClient.enable (rpc ~__context) dbg init_config in
       match result with
       | Result.Ok () ->
         Db.Cluster_host.set_enabled ~__context ~self ~value:true
@@ -133,7 +134,8 @@ let disable ~__context ~self =
       let host = Db.Cluster_host.get_host ~__context ~self in
       assert_operation_host_target_is_localhost ~__context ~host;
       assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self;
-      let result = Cluster_client.LocalClient.disable rpc dbg in
+      let result = Cluster_client.LocalClient.disable (rpc ~__context) dbg in
+      Xapi_clustering.Daemon.stop ~__context;
       match result with
       | Result.Ok () ->
           Db.Cluster_host.set_enabled ~__context ~self ~value:false
