@@ -420,11 +420,9 @@ let assert_enough_memory_available ~__context ~self ~host ~snapshot =
     Memory_check.host_compute_free_memory_with_maximum_compression
       ~__context ~host (Some self) in
   let policy =
-    match snapshot.API.vM_domain_type with
+    match Helpers.check_domain_type snapshot.API.vM_domain_type with
     | `hvm | `pv -> Memory_check.Dynamic_min
     | `pv_in_pvh -> Memory_check.Static_max
-    | `unspecified ->
-      raise Api_errors.(Server_error (internal_error, ["unspecified domain type"]))
   in
   let main, shadow =
     Memory_check.vm_compute_start_memory ~__context ~policy snapshot in

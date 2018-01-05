@@ -27,12 +27,10 @@ let vm_compute_required_memory vm_record guest_memory_kib =
   let max_mib = Memory.mib_of_bytes_used vm_record.API.vM_memory_static_max in
   let video_mib = 0 in (* unused in this function *)
   let multiplier, full_config =
-    match vm_record.API.vM_domain_type with
+    match Helpers.check_domain_type vm_record.API.vM_domain_type with
     | `hvm       -> vm_record.API.vM_HVM_shadow_multiplier, Memory.HVM.full_config
     | `pv_in_pvh -> vm_record.API.vM_HVM_shadow_multiplier, Memory.PVinPVH.full_config
     | `pv        -> Memory.Linux.shadow_multiplier_default, Memory.Linux.full_config
-    | `unspecified ->
-      raise Api_errors.(Server_error (internal_error, ["unspecified domain type"]))
   in
   let memory = full_config max_mib video_mib target_mib vcpu_count multiplier in
   let footprint_mib = memory.Memory.required_host_free_mib in
@@ -225,12 +223,10 @@ let vm_compute_memory_overhead ~vm_record =
   let multiplier = vm_record.API.vM_HVM_shadow_multiplier in
   let vcpu_count = Int64.to_int (vm_record.API.vM_VCPUs_max) in
   let model =
-    match vm_record.API.vM_domain_type with
+    match Helpers.check_domain_type vm_record.API.vM_domain_type with
     | `hvm       -> Memory.HVM.overhead_mib
     | `pv_in_pvh -> Memory.PVinPVH.overhead_mib
     | `pv        -> Memory.Linux.overhead_mib
-    | `unspecified ->
-      raise Api_errors.(Server_error (internal_error, ["unspecified domain type"]))
   in
   model static_max_mib vcpu_count multiplier |>
   Memory.bytes_of_mib
