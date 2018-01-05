@@ -456,6 +456,23 @@ let rolling_upgrade_in_progress ~__context =
   with _ ->
     false
 
+let check_domain_type : API.domain_type -> [ `hvm | `pv_in_pvh | `pv ] = function
+  | `hvm -> `hvm
+  | `pv_in_pvh -> `pv_in_pvh
+  | `pv -> `pv
+  | `unspecified ->
+    raise Api_errors.(Server_error (internal_error, ["unspecified domain type"]))
+
+let domain_type ~__context ~self : [ `hvm | `pv_in_pvh | `pv ] =
+  let vm = Db.VM.get_record ~__context ~self in
+  match vm.API.vM_power_state with
+  | `Paused | `Running | `Suspended ->
+    Db.VM_metrics.get_current_domain_type ~__context ~self:vm.API.vM_metrics
+    |> check_domain_type
+  | `Halted ->
+    vm.API.vM_domain_type
+    |> check_domain_type
+
 (** Inspect the current configuration of a VM and return a boot_method type *)
 let boot_method_of_vm ~__context ~vm =
   let hvm_options () =
@@ -488,14 +505,12 @@ let boot_method_of_vm ~__context ~vm =
       vdis = boot_vdis }
   in
   let direct_boot = vm.API.vM_PV_bootloader = "" in
-  match vm.API.vM_domain_type with
+  match check_domain_type vm.API.vM_domain_type with
   | `hvm ->                        HVM (hvm_options ())
   | `pv when direct_boot ->        DirectPV (direct_pv_options ())
   | `pv ->                         IndirectPV (indirect_pv_options ())
   | `pv_in_pvh when direct_boot -> DirectPVinPVH (direct_pv_options ())
   | `pv_in_pvh ->                  IndirectPVinPVH (indirect_pv_options ())
-  | `unspecified ->
-    raise Api_errors.(Server_error (internal_error, ["unspecified domain type"]))
 
 let will_boot_hvm_from_domain_type = function
   | `hvm | `pv_in_pvh  -> true
