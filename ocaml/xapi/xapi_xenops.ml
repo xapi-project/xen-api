@@ -788,7 +788,7 @@ module MD = struct
         ~platformdata:vm.API.vM_platform
         ~vcpu_max:vm.API.vM_VCPUs_max
         ~vcpu_at_startup:vm.API.vM_VCPUs_at_startup
-        ~hvm:(Helpers.will_boot_hvm ~__context ~self:vmref)
+        ~domain_type:(Helpers.check_domain_type vm.API.vM_domain_type)
         ~filter_out_unknowns:
           (not(Pool_features.is_enabled ~__context Features.No_platform_filter))
     in
