@@ -417,12 +417,13 @@ let process root_dir name x =
     Deferred.Result.return (R.success (Args.Query.Diagnostics.rpc_of_response response))
   | { R.name = "SR.attach"; R.params = [ args ] } ->
     let args = Args.SR.Attach.request_of_rpc args in
+    let uuid = args.Args.SR.Attach.sr in
     let device_config = args.Args.SR.Attach.device_config in
     begin match List.find device_config ~f:(fun (k, _) -> k = "uri") with
     | None ->
       Deferred.Result.return (R.failure (missing_uri ()))
     | Some (_, uri) ->
-      let args' = Xapi_storage.Volume.Types.SR.Attach.In.make args.Args.SR.Attach.dbg uri in
+      let args' = Xapi_storage.Volume.Types.SR.Attach.In.make args.Args.SR.Attach.dbg uuid uri in
       let args' = Xapi_storage.Volume.Types.SR.Attach.In.rpc_of_t args' in
       let open Deferred.Result.Monad_infix in
       fork_exec_rpc root_dir (script root_dir name `Volume "SR.attach") args' Xapi_storage.Volume.Types.SR.Attach.Out.t_of_rpc
