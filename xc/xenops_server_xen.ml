@@ -1229,12 +1229,6 @@ module VM = struct
           acpi = acpi;
           disp = VNC (video, vnc_ip, true, 0, keymap);
           pci_passthrough = pci_passthrough;
-          xenclient_enabled=false;
-          hvm=hvm;
-          sound=None;
-          power_mgmt=None;
-          oem_features=None;
-          inject_sci = None;
           video_mib=video_mib;
           extras = [];
         } in
