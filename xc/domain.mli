@@ -157,9 +157,6 @@ val get_action_request: xs:Xenstore.Xs.xsh -> domid -> string option
 (** Restore a domain using the info provided *)
 val build: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> timeoffset:string -> extras:string list -> build_info -> string -> domid -> bool -> unit
 
-(** resume a domain either cooperative or not *)
-val resume: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> cooperative: bool -> qemu_domid:int -> domid -> unit
-
 (** Restore a domain using the info provided *)
 val restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh
   -> store_domid:int -> console_domid:int -> no_incr_generationid:bool

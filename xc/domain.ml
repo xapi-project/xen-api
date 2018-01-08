@@ -829,13 +829,6 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
   build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
     domid store_mfn store_port local_stuff vm_stuff
 
-let resume (task: Xenops_task.task_handle) ~xc ~xs ~hvm ~cooperative ~qemu_domid domid =
-  if not cooperative
-  then failwith "Domain.resume works only for collaborative domains";
-  Xenctrl.domain_resume_fast xc domid;
-  resume_post ~xc	~xs domid;
-  if hvm then Device.Dm.resume task ~xs ~qemu_domid domid
-
 type suspend_flag = Live | Debug
 
 module type SUSPEND_RESTORE = sig
