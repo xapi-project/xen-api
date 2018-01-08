@@ -106,6 +106,8 @@ let harness_destroy () = ()
 
 let () =
   Printexc.record_backtrace true;
+  (* exceeds 4MB limit in Travis *)
+  Debug.disable ~level:Syslog.Debug "xapi";
   Inventory.inventory_filename :=
     Filename.concat Test_common.working_area "xcp-inventory";
   harness_init ();
