@@ -144,7 +144,7 @@ let plug ~__context ~self =
        eventually get called also grab the clustering lock. We can call this
        unconditionally because the operations it calls should be idempotent. *)
     log_and_ignore_exn (fun () -> resync_cluster_stack_for_sr_type ~__context ~sr_sm_type);
-    Xapi_clustering.with_clustering_lock (fun () ->
+    Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type (fun () ->
         let host = Db.PBD.get_host ~__context ~self in
         Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type;
         check_sharing_constraint ~__context ~sr;
@@ -165,9 +165,10 @@ let plug ~__context ~self =
 let unplug ~__context ~self =
   let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
   if currently_attached then
-    Xapi_clustering.with_clustering_lock (fun () ->
+    let sr = Db.PBD.get_SR ~__context ~self in
+    let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
+    Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type (fun () ->
         let host = Db.PBD.get_host ~__context ~self in
-        let sr = Db.PBD.get_SR ~__context ~self in
         if Db.Host.get_enabled ~__context ~self:host
         then abort_if_storage_attached_to_protected_vms ~__context ~self;
 
