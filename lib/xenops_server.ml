@@ -2441,8 +2441,8 @@ module VM = struct
              let fs =
                let stat = B.HOST.stat () in
                (match md.Metadata.vm.Vm.ty with
-                | HVM _ -> Host.(stat.cpu_info.features_hvm)
-                | _ -> Host.(stat.cpu_info.features_pv))
+                | HVM _ | PVinPVH _ -> Host.(stat.cpu_info.features_hvm)
+                | PV _ -> Host.(stat.cpu_info.features_pv))
                |> string_of_features
              in
              debug "Setting Platformdata:featureset=%s" fs;
