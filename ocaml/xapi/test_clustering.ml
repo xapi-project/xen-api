@@ -207,6 +207,56 @@ let test_assert_cluster_host_is_enabled_for_matching_sms =
   ; "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_cluster_host_exists_and_clustering_is_not_needed" >:: test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_cluster_host_exists_and_clustering_is_not_needed
   ]
 
+
+(** Tests clustering lock is only taken if needed *)
+let test_clustering_lock_only_taken_if_needed = 
+  let nest_with_clustering_lock_if_needed ~__context ~timeout ~type1 ~type2 ~on_deadlock ~on_no_deadlock =
+    Helpers.timebox
+      ~timeout:timeout
+      ~otherwise: on_deadlock
+      (fun () ->
+        Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type1 (fun () -> 
+          Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type2 (fun () ->
+            on_no_deadlock ()        
+          )
+        )
+      )
+  in
+
+  let test_clustering_lock_only_taken_if_needed_nested_calls () =
+    let __context = T.make_test_database () in
+    let _ = T.make_sm ~__context ~_type:"type_corosync" ~required_cluster_stack:["corosync"] () in
+    let _ = T.make_sm ~__context ~_type:"type_nocluster" ~required_cluster_stack:[] () in
+
+    nest_with_clustering_lock_if_needed
+      ~__context
+      ~timeout:1.0
+      ~type1: "type_corosync"
+      ~type2: "type_nocluster"
+      ~on_deadlock: (fun () -> failwith "Unexpected deadlock when making nested calls to with_clustering_lock_if_needed")
+      ~on_no_deadlock: (fun () -> ())
+  in
+
+  let test_clustering_lock_taken_when_needed_nested_calls () = 
+    let __context = T.make_test_database () in
+    let _ = T.make_sm ~__context ~_type:"type_corosync1" ~required_cluster_stack:["corosync"] () in
+    let _ = T.make_sm ~__context ~_type:"type_corosync2" ~required_cluster_stack:["corosync"] () in
+
+    nest_with_clustering_lock_if_needed
+      ~__context
+      ~timeout:0.1
+      ~type1: "type_corosync1"
+      ~type2: "type_corosync2"
+      ~on_deadlock: (fun () -> ())
+      ~on_no_deadlock: (fun () -> failwith "Nesting calls to with_clustering_lock_if_needed should deadlock if both require a cluster stack, lock not taken or not working as expected.")
+  in
+
+  let open OUnit in
+  "test_clustering_lock_only_taken_if_needed" >:::
+  [ "test_clustering_lock_only_taken_if_needed_nested_calls" >:: test_clustering_lock_only_taken_if_needed_nested_calls
+  ; "test_clustering_lock_taken_when_needed_nested_calls" >:: test_clustering_lock_taken_when_needed_nested_calls
+  ]
+
 let test =
   let open OUnit in
   "test_clustering" >:::
@@ -214,4 +264,5 @@ let test =
   ; test_find_cluster_host
   ; test_assert_cluster_host_enabled
   ; test_assert_cluster_host_is_enabled_for_matching_sms
+  ; test_clustering_lock_only_taken_if_needed
   ]
