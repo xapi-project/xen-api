@@ -856,9 +856,9 @@ let all_used_VBD_devices ~__context ~self =
   List.concat (List.map possible_VBD_devices_of_string existing_devices)
 
 let allowed_VBD_devices ~__context ~vm ~_type =
-  let is_hvm = Helpers.will_have_qemu ~__context ~self:vm in
+  let will_have_qemu = Helpers.will_have_qemu ~__context ~self:vm in
   let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in
-  let all_devices = match is_hvm,is_control_domain,_type with
+  let all_devices = match will_have_qemu, is_control_domain, _type with
     | true, _, `Floppy  -> allowed_VBD_devices_HVM_floppy
     | false, _, `Floppy -> [] (* floppy is not supported on PV *)
     | false, true, _    -> allowed_VBD_devices_control_domain
@@ -870,8 +870,8 @@ let allowed_VBD_devices ~__context ~vm ~_type =
   List.filter (fun dev -> not (List.mem dev used_devices)) all_devices
 
 let allowed_VIF_devices ~__context ~vm =
-  let is_hvm = Helpers.will_have_qemu ~__context ~self:vm in
-  let all_devices = if is_hvm then allowed_VIF_devices_HVM else allowed_VIF_devices_PV in
+  let will_have_qemu = Helpers.will_have_qemu ~__context ~self:vm in
+  let all_devices = if will_have_qemu then allowed_VIF_devices_HVM else allowed_VIF_devices_PV in
   (* Filter out those we've already got VIFs for *)
   let all_vifs = Db.VM.get_VIFs ~__context ~self:vm in
   let used_devices = List.map (fun vif -> Db.VIF.get_device ~__context ~self:vif) all_vifs in
@@ -1094,9 +1094,9 @@ let with_vm_operation ~__context ~self ~doc ~op ?(strict=true) ?policy f =
 
 (* Device Model Profiles *)
 let ensure_device_model_profile_present ~__context ~domain_type platform =
-  let is_hvm = domain_type = `hvm in
+  let needs_qemu = Helpers.needs_qemu_from_domain_type domain_type in
   let default = Vm_platform.(device_model, default_device_model_default_value) in
-  if not is_hvm || List.mem_assoc Vm_platform.device_model platform then
+  if not needs_qemu || List.mem_assoc Vm_platform.device_model platform then
     platform
   else (* only add device-model to an HVM VM platform if it is not already there *)
     default :: platform
