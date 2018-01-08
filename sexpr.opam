@@ -1,5 +1,5 @@
 opam-version: "1.2"
-maintainer: "jonathan.ludlam@eu.citrix.com"
+maintainer: "xen-api@lists.xen.org"
 authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api-libs-transitional.git"
