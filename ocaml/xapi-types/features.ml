@@ -165,8 +165,12 @@ let of_assoc_list l =
     with _ ->
       if List.mem f enabled_when_unknown then Some f else None
   in
-  (* Filter_map to avoid having to carry the whole xapi-stdext-std *)
+  (* Filter_map to avoid having to carry the whole xapi-stdext-std
+   * Note that the following is not tail recursive, in this case I
+   * have chosen such implementation because the feature list is small
+   * and the implementation looks readable and fairly self-contained.
+   * Do not use this pattern for lists that can be long. *)
   List.fold_right (fun f acc ->
     match get_feature f with
-    | Some v -> v :: acc 
+    | Some v -> v :: acc
     | None -> acc) all_features []
