@@ -1,3 +1,6 @@
+OPAM_PREFIX?=$(DESTDIR)$(shell opam config var prefix)
+OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
+
 .PHONY: release build install uninstall clean test doc reindent
 
 release:
@@ -7,10 +10,10 @@ build:
 	jbuilder build @install --dev
 
 install:
-	jbuilder install
+	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-tapctl
 
 uninstall:
-	jbuilder uninstall
+	jbuilder uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-tapctl
 
 clean:
 	jbuilder clean
