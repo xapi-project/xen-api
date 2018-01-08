@@ -34,43 +34,43 @@ let dev_random = "/dev/random"
 let dev_urandom = "/dev/urandom"
 
 let rnd_array n =
-	let fstbyte i = 0xff land i in
-	let sndbyte i = fstbyte (i lsr 8) in
-	let thdbyte i = sndbyte (i lsr 8) in
-	let rec rnd_list n acc = match n with
-		| 0 -> acc
-		| 1 ->
-			let b = fstbyte (Random.bits ()) in
-			b :: acc
-		| 2 ->
-			let r = Random.bits () in
-			let b1 = fstbyte r in
-			let b2 = sndbyte r in
-			b1 :: b2 :: acc
-		| n -> 
-			let r = Random.bits () in
-			let b1 = fstbyte r in
-			let b2 = sndbyte r in
-			let b3 = thdbyte r in
-			rnd_list (n - 3) (b1 :: b2 :: b3 :: acc)
-	in
-	Array.of_list (rnd_list n [])
+  let fstbyte i = 0xff land i in
+  let sndbyte i = fstbyte (i lsr 8) in
+  let thdbyte i = sndbyte (i lsr 8) in
+  let rec rnd_list n acc = match n with
+    | 0 -> acc
+    | 1 ->
+      let b = fstbyte (Random.bits ()) in
+      b :: acc
+    | 2 ->
+      let r = Random.bits () in
+      let b1 = fstbyte r in
+      let b2 = sndbyte r in
+      b1 :: b2 :: acc
+    | n -> 
+      let r = Random.bits () in
+      let b1 = fstbyte r in
+      let b2 = sndbyte r in
+      let b3 = thdbyte r in
+      rnd_list (n - 3) (b1 :: b2 :: b3 :: acc)
+  in
+  Array.of_list (rnd_list n [])
 
 let read_array dev n = 
-	let fd = Unix.openfile dev [Unix.O_RDONLY] 0o640 in
-	let finally body_f clean_f =
-		try 
-			let ret = body_f () in clean_f (); ret
-		with e -> clean_f (); raise e in
-	finally 
-		(fun () -> 
-			let buf = String.create n in
-			let read = Unix.read fd buf 0 n in
-			if read <> n then raise End_of_file
-			else 
-				Array.init n (fun i -> Char.code buf.[i])
-		)
-		(fun () -> Unix.close fd)
+  let fd = Unix.openfile dev [Unix.O_RDONLY] 0o640 in
+  let finally body_f clean_f =
+    try 
+      let ret = body_f () in clean_f (); ret
+    with e -> clean_f (); raise e in
+  finally 
+    (fun () -> 
+       let buf = Bytes.create n in
+       let read = Unix.read fd buf 0 n in
+       if read <> n then raise End_of_file
+       else 
+         Array.init n (fun i -> Char.code (Bytes.get buf i))
+    )
+    (fun () -> Unix.close fd)
 
 let uuid_of_int_array uuid =
   Printf.sprintf "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
@@ -92,14 +92,14 @@ let int_array_of_uuid s =
     let l = ref [] in
     Scanf.sscanf s "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
       (fun a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 ->
-      l := [ a0; a1; a2; a3; a4; a5; a6; a7; a8; a9;
-             a10; a11; a12; a13; a14; a15; ]);
+         l := [ a0; a1; a2; a3; a4; a5; a6; a7; a8; a9;
+                a10; a11; a12; a13; a14; a15; ]);
     Array.of_list !l
   with _ -> invalid_arg "Uuid.int_array_of_uuid"
 
 let is_uuid str =
-	try
-		Scanf.sscanf str
-			"%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
-			(fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ -> true)
-	with _ -> false
+  try
+    Scanf.sscanf str
+      "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
+      (fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ -> true)
+  with _ -> false

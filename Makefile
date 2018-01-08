@@ -1,47 +1,29 @@
-SETUP = ocaml setup.ml
+OPAM_PREFIX?=$(DESTDIR)$(shell opam config var prefix)
+OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
 
-build: setup.data
-	$(SETUP) -build $(BUILDFLAGS)
+.PHONY: release build install uninstall clean test doc reindent
 
-doc: setup.data build
-	$(SETUP) -doc $(DOCFLAGS)
+release:
+	jbuilder build @install
 
-test: setup.data build
-	$(SETUP) -test $(TESTFLAGS)
+build:
+	jbuilder build @install --dev
 
-all:
-	$(SETUP) -all $(ALLFLAGS)
-
-install: setup.data
-	$(SETUP) -install $(INSTALLFLAGS)
+install:
+	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
 
 uninstall:
-	ocamlfind remove xml-light2
-	ocamlfind remove xenctrlext
-	ocamlfind remove uuid
-	ocamlfind remove stunnel
-	ocamlfind remove sha1
-	ocamlfind remove sexpr
-	ocamlfind remove pciutil
-	ocamlfind remove http-svr
-	ocamlfind remove gzip
-
-reinstall: uninstall
-	$(SETUP) -install $(REINSTALLFLAGS)
+	jbuilder uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
 
 clean:
-	$(SETUP) -clean $(CLEANFLAGS)
+	jbuilder clean
 
-distclean:
-	$(SETUP) -distclean $(DISTCLEANFLAGS)
+test:
+	jbuilder runtest
 
-setup.data: setup.ml
-	$(SETUP) -configure $(CONFIGUREFLAGS)
+# requires odoc
+doc:
+	jbuilder build @doc
 
-configure:
-	$(SETUP) -configure $(CONFIGUREFLAGS)
-
-setup.ml: _oasis
-	oasis setup
-
-.PHONY: build doc test all install uninstall reinstall clean distclean configure
+reindent:
+	git ls-files '*.ml' '*.mli' | xargs ocp-indent --inplace

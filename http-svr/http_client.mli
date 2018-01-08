@@ -13,6 +13,11 @@
  *)
 (* A very simple HTTP client *)
 
+(** Thrown when no data is received from the remote HTTP server. This could happen if
+    (eg) an stunnel accepted the connection but xapi refused the forward causing stunnel
+    to immediately close. *)
+exception Empty_response_from_server
+
 (** Thrown when we get a non-HTTP response *)
 exception Http_request_rejected of string
 

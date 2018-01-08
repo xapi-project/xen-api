@@ -15,9 +15,7 @@
 (** Path to the sha1sum binary (used in the new import/export code to append checksums *)
 let sha1sum = "/usr/bin/sha1sum"
 
-open Stdext
-open Pervasiveext
-open Xstringext
+open Xapi_stdext_pervasives.Pervasiveext
 
 (** Helper function to prevent double-closes of file descriptors *)
 let close to_close fd = 
@@ -27,39 +25,39 @@ let close to_close fd =
 (** Fork a slave sha1sum process, execute a function with the input file descriptor
     and return the result of sha1sum, guaranteeing to reap the process. *)
 let sha1sum f = 
-    let input_out, input_in = Unix.pipe () in
-    let result_out, result_in = Unix.pipe () in
+  let input_out, input_in = Unix.pipe () in
+  let result_out, result_in = Unix.pipe () in
 
-    Unix.set_close_on_exec result_out;
-    Unix.set_close_on_exec input_in;
-    
-    let to_close = ref [ input_out; input_in; result_out; result_in ] in
-    let close = close to_close in
+  Unix.set_close_on_exec result_out;
+  Unix.set_close_on_exec input_in;
 
-    finally
-      (fun () ->
-	 let args = [] in
-	 let pid = Forkhelpers.safe_close_and_exec (Some input_out) (Some result_in) None [] sha1sum args in
+  let to_close = ref [ input_out; input_in; result_out; result_in ] in
+  let close = close to_close in
 
-	 close result_in;
-	 close input_out;
+  finally
+    (fun () ->
+       let args = [] in
+       let pid = Forkhelpers.safe_close_and_exec (Some input_out) (Some result_in) None [] sha1sum args in
 
-	 finally
-	   (fun () -> 
-	      finally
-		(fun () -> f input_in)
-		(fun () -> close input_in);
-	      let buffer = String.make 1024 '\000' in
-	      let n = Unix.read result_out buffer 0 (String.length buffer) in
-	      let raw = String.sub buffer 0 n in
-	      let result = match String.split ' ' raw with
-		| result :: _ -> result
-		| _ -> failwith (Printf.sprintf "Unable to parse sha1sum output: %s" raw) in
-	      close result_out;
-	      result)
-	   (fun () ->
-	     Forkhelpers.waitpid_fail_if_bad_exit pid
-	   )
-      ) (fun () -> List.iter close !to_close)
+       close result_in;
+       close input_out;
+
+       finally
+         (fun () -> 
+            finally
+              (fun () -> f input_in)
+              (fun () -> close input_in);
+            let buffer = String.make 1024 '\000' in
+            let n = Unix.read result_out buffer 0 (String.length buffer) in
+            let raw = String.sub buffer 0 n in
+            let result = match String.split_on_char ' ' raw with
+              | result :: _ -> result
+              | _ -> failwith (Printf.sprintf "Unable to parse sha1sum output: %s" raw) in
+            close result_out;
+            result)
+         (fun () ->
+            Forkhelpers.waitpid_fail_if_bad_exit pid
+         )
+    ) (fun () -> List.iter close !to_close)
 
 

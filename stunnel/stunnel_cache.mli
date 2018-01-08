@@ -14,7 +14,7 @@
 
 (** Operate a small cache of stunnels so we can re-use them for repeated calls.
 
- Caveats:
+    Caveats:
    * stunnel donators should only donate stunnels which they knows are connected
      to the main HTTP request loop in the server -- HTTP 1.1 should be used and 
      the connection should be kept-alive.
