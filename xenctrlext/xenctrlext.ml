@@ -44,8 +44,3 @@ external get_max_nr_cpus: handle -> int = "stub_xenctrlext_get_max_nr_cpus"
 
 external domain_set_target: handle -> domid -> domid -> unit = "stub_xenctrlext_domain_set_target"
 
-module Xsrawext = struct
-  (* open Xenstore *)
-  (* xs.ml has "type con = Xsraw.con" *)
-  let set_target _domid _target _con = failwith "Unimplemented"
-end
