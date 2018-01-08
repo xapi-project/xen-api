@@ -77,7 +77,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    sha
    tar
    tar.unix
-   tapctl
+   xapi-tapctl
    x509
    xapi_version
    xapi-types
@@ -100,7 +100,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    xcp.updates
    rrdd-plugin
    xapi-xenopsd
-   netdev
+   xapi-netdev
    yojson
   ))
  )
