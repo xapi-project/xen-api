@@ -77,6 +77,11 @@ let get_required_cluster_stacks ~__context ~sr_sm_type =
   (* We assume that we only have one SM for each SR type, so this is only to satisfy type checking *)
   |> List.flatten
 
+let with_clustering_lock_if_needed ~__context ~sr_sm_type f =
+  match get_required_cluster_stacks ~__context ~sr_sm_type with
+    | [] -> f ()
+    | _required_cluster_stacks -> with_clustering_lock f
+
 let find_cluster_host ~__context ~host =
   match Db.Cluster_host.get_refs_where ~__context
           ~expr:(Db_filter_types.(Eq (Field "host", Literal (Ref.string_of host)))) with
