@@ -15,7 +15,7 @@
  *
  *)
 open Core.Std
-open Async.Std
+open Async
 open Xen_api
 
 module IO = struct
@@ -58,7 +58,7 @@ module IO = struct
     return () *)
 
   let flush (_, oc) =
-    Async.Std.Writer.flushed oc
+    Async.Writer.flushed oc
 
   let close ((close1, _), (close2, _)) =
     close1 () >>= fun () -> close2 ()
@@ -69,7 +69,8 @@ module IO = struct
       let port = match Uri.port uri with | None -> 80 | Some port -> port in
       begin match Uri.host uri with
         | Some host ->
-          Tcp.connect (Tcp.to_host_and_port host port)
+          let endp = Host_and_port.create ~host ~port in
+          Tcp.connect (Tcp.Where_to_connect.of_host_and_port endp)
           >>| fun (_, ic, oc) ->
           Ok (((fun () -> Reader.close ic), ic),
               ((fun () -> Writer.close oc), oc))
@@ -121,5 +122,5 @@ let make_json ?(timeout=30.) uri call =
   do_it uri req >>| Jsonrpc.response_of_string
 
 
-module Client = Client.ClientF(Deferred)
+module Client = Client.ClientF(struct include Deferred let bind a f = bind a ~f end)
 include Client

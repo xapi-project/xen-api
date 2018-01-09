@@ -13,7 +13,7 @@
  *)
 
 open Core.Std
-open Async.Std
+open Async
 
 open Xen_api_async_unix
 
