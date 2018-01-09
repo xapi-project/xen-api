@@ -579,7 +579,7 @@ let process root_dir name x =
       match List.Assoc.find x.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
       | None -> set
       | Some transient -> Set.add set transient
-    ) ~init:(Set.empty ~comparator:String.comparator) response in
+    ) ~init:(Core.String.Set.empty) response in
     let response = List.filter ~f:(fun x -> not(Set.mem transients x.Storage.Volume.Types.key)) response in
     let response = List.map ~f:vdi_of_volume response in
     Deferred.Result.return (R.success (Args.SR.Scan.rpc_of_response response))
