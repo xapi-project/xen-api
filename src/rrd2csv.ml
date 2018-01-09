@@ -12,12 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
-open Pervasiveext
-open Xstringext
-open Listext
+open Xapi_stdext_monadic
+open Xapi_stdext_std
+open Xapi_stdext_threads
+
 open Rrd
-open Fun
 
 let version = "0.1.3"
 
@@ -149,7 +148,7 @@ module Ds_selector = struct
 
 	let of_string str =
 		let open Rrd in
-			let splitted = String.split ':' str in
+			let splitted = Xstringext.String.split ':' str in
 			match splitted with
 				| [cf; owner; uuid; metric] -> 
 					{ empty with 
@@ -171,7 +170,7 @@ module Ds_selector = struct
 	let escape_metric s =
 		let quote s = Printf.sprintf "\"%s\"" s in
 		if String.contains s '"' then
-			quote (String.map_unlikely s 
+			quote (Xstringext.String.map_unlikely s 
 					   (function '\"' -> Some "\"\"" | _ -> None))
 		else if String.contains s ',' || String.contains s '\n'
 		then quote s
@@ -235,7 +234,7 @@ module Ds_selector = struct
 	   match the non-null fields of f *)
 	let filter11 f d =
 		true 
-		&& (String.startswith f.metric d.metric || f.metric = "")
+		&& (Xstringext.String.startswith f.metric d.metric || f.metric = "")
 		&& (f.cf = d.cf || f.cf = None) 
 		&& (match f.owner, d.owner with
 			| None, _ -> true
@@ -333,7 +332,7 @@ module Xport = struct
 			| _ -> Xmlm.input_tree ~data ~el input
 		in
 
-		let kvs (elts: xml_tree list) = List.filter_map
+		let kvs (elts: xml_tree list) = Listext.List.filter_map
 			(function | El (key, [D value]) -> Some (key,value) | El _ | D _ -> None) elts in
 
 		let find_elt (key: string) (elts: xml_tree list) =
@@ -411,7 +410,7 @@ module Xport = struct
 
 	let to_csv (update: t) =
 		let last_update = List.hd update.data in
-		String.sub_to_end (Array.fold_left (fun acc v -> 
+		Xstringext.String.sub_to_end (Array.fold_left (fun acc v -> 
 			let strv = Stdout.string_of_float v in acc ^ ", " ^ strv) 
 							   "" last_update.values) 2
 
@@ -512,7 +511,7 @@ let print_last session_id data_sources =
 			
 let	filter_ds_that_starts_with_name dss name =
 	List.fold_left (fun acc ds -> 
-		if String.startswith name ds.Ds_selector.metric 
+		if Xstringext.String.startswith name ds.Ds_selector.metric 
 		then ds::acc else acc ) [] dss
 
 open Xport
@@ -551,6 +550,7 @@ let _ =
 	   R2.2. Ability to specify period of sampling on the command-line (in seconds)
 	*)
 	let user_filters, sampling_period, show_name, show_uuid =
+		let open Xapi_stdext_pervasives.Pervasiveext in
 		(* R2.1.1. If none are specified, assume that all enabled data-sources are of 
 		   interest *)
 		let ds = ref []
