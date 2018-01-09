@@ -1,0 +1,11 @@
+(jbuild_version 1)
+
+(library (
+  (name message_switch_lwt)
+  (public_name message-switch-lwt)
+  (wrapped false)
+  (libraries (
+    message-switch-core
+    lwt
+  ))
+))

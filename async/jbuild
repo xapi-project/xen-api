@@ -1,0 +1,11 @@
+(jbuild_version 1)
+
+(library (
+  (name message_switch_async)
+  (public_name message-switch-async)
+  (wrapped false)
+  (libraries (
+    message-switch-core
+    async
+  ))
+))

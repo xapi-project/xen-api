@@ -15,7 +15,6 @@
  *)
 open Core.Std
 open Async.Std
-open Message_switch
 
 module Client : S.CLIENT
   with type 'a io = 'a Deferred.t

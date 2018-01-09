@@ -1,0 +1,12 @@
+(jbuild_version 1)
+
+(executables (
+  (names (
+    client_async_main
+    server_async_main
+  ))
+  (libraries (
+    message-switch-async
+    cohttp.async
+  ))
+))

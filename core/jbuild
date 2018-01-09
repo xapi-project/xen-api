@@ -1,0 +1,55 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+  | [] -> ""
+  | pkgs ->
+    let cmd = "ocamlfind ocamlc -verbose" ^ (
+        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+      ) in
+    let ic = Unix.open_process_in
+        (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
+    in
+    let rec go ic acc =
+      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+    in
+    go ic ""
+
+
+let rewriters = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
+let flags = flags rewriters
+
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(jbuild_version 1)
+
+(library (
+  (name message_switch)
+  (public_name message-switch-core)
+  (wrapped false)
+  (flags (:standard -w -39 %s))
+  (libraries (
+    cohttp
+    sexplib
+    rpclib
+    rpclib.json
+    re.str
+  ))
+))
+
+(rule (with-stdout-to s.ml
+  (progn
+    (echo "[@@@warning \"-a\"]\nmodule rec HACK : sig\n")
+    (cat s.mli)
+    (echo "\nend = HACK\ninclude HACK\n")
+  )
+))
+
+(rule (with-stdout-to monad.ml
+  (progn
+    (echo "[@@@warning \"-a\"]\nmodule rec HACK : sig\n")
+    (cat monad.mli)
+    (echo "\nend = HACK\ninclude HACK\n")
+  )
+))
+|} flags

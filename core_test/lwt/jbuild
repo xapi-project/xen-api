@@ -1,0 +1,13 @@
+(jbuild_version 1)
+
+(executables (
+  (names (
+    link_test_main
+    client_main
+    server_main
+  ))
+  (libraries (
+    message-switch-lwt
+    cohttp.lwt
+  ))
+))

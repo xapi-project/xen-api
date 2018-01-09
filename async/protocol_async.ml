@@ -19,7 +19,6 @@ let whoami () = Printf.sprintf "%s:%d"
 
 open Core.Std
 open Async.Std
-open Message_switch
 open Protocol
 open Cohttp
 open Cohttp_async

@@ -1,0 +1,28 @@
+(jbuild_version 1)
+
+(executables (
+  (names (
+    client_unix_main
+    server_unix_main
+  ))
+  (libraries (
+    message-switch-unix
+  ))
+))
+
+(alias (
+  (name runtest)
+  (deps (
+    client_unix_main.exe
+    server_unix_main.exe
+    async/client_async_main.exe
+    async/server_async_main.exe
+    lwt/client_main.exe
+    lwt/server_main.exe
+    lwt/link_test_main.exe
+    ../switch/switch_main.exe
+    ../cli/main.exe
+    basic-rpc-test.sh
+  ))
+  (action (run ./basic-rpc-test.sh))
+))
