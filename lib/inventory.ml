@@ -60,11 +60,11 @@ let strip_quotes v =
   else v
 
 let parse_inventory_entry line =
-  match Astring.String.cuts ~empty:false ~sep:"=" line with
-  | [k; v] ->
+  match Astring.String.cut ~sep:"=" line with
+  | Some(k, v) ->
     (* trim whitespace *)
     Some (k, v |> strip_quotes |> String.trim)
-  | _ -> None
+  | None -> None
 
 let string_of_table h =
   let lines = List.fold_left (fun acc (k, v) ->
