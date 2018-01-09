@@ -1576,6 +1576,24 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[];
     };
 
+    "network-sriov-create",
+    {
+      reqd=["pif-uuid";"network-uuid"];
+      optn=[];
+      help="Create a new network-sriov on a pif.";
+      implementation=No_fd Cli_operations.Network_sriov.create;
+      flags=[];
+    };
+
+    "network-sriov-destroy",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Destroy a network-sriov.";
+      implementation=No_fd Cli_operations.Network_sriov.destroy;
+      flags=[];
+    };
+
     "pif-unplug",
     {
       reqd=["uuid"];
