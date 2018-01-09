@@ -208,14 +208,23 @@ let host_license_of_r host_r editions =
     else
       0.
   in
-  let edition = host_r.API.host_edition in
-  let edition_short = List.hd
-      (List.filter_map (fun (a, (_, b, _)) -> if a = edition then Some b else None) editions) in
+  let edition_str = host_r.API.host_edition in
+  let unavailable_edition_str = "N/A" in
+  let edition_short =
+    editions
+    |> List.filter_map
+     V6_interface.(fun ed -> if ed.title = edition_str
+                                then Some ed.code
+                                else None)
+    |> (function
+        | a::_ -> a
+        | _ -> unavailable_edition_str
+      ) in
   {
     hostname = host_r.API.host_hostname;
     uuid = host_r.API.host_uuid;
     rstr = rstr;
-    edition = edition;
+    edition = edition_str;
     edition_short = edition_short;
     expiry = expiry;
   }
@@ -3240,7 +3249,7 @@ let with_license_server_changes printer rpc session_id params hosts f =
   | Api_errors.Server_error (name, args) as e
     when name = Api_errors.invalid_edition ->
     let editions = (V6_client.get_editions "host_apply_edition")
-                   |> List.map (fun (x, _) -> x)
+                   |> List.map (fun ed -> ed.V6_interface.title)
                    |> String.concat ", "
     in
     printer (Cli_printer.PStderr ("Valid editions are: " ^ editions ^ "\n"));
@@ -3249,16 +3258,15 @@ let with_license_server_changes printer rpc session_id params hosts f =
 
 let host_apply_edition printer rpc session_id params =
   let host =
-    if List.mem_assoc "host-uuid" params then
-      Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params)
-    else
-      get_host_from_session rpc session_id in
+    if List.mem_assoc "host-uuid" params
+    then Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params)
+    else get_host_from_session rpc session_id in
   let edition = List.assoc "edition" params in
   with_license_server_changes printer rpc session_id params [host]
     (fun rpc session_id -> Client.Host.apply_edition rpc session_id host edition false)
 
 let host_all_editions printer rpc session_id params =
-  let editions = List.map (fun (e, _) -> e) (V6_client.get_editions "host_all_editions") in
+  let editions = List.map (fun ed -> ed.V6_interface.title) (V6_client.get_editions "host_all_editions") in
   printer (Cli_printer.PList editions)
 
 let host_evacuate printer rpc session_id params =
