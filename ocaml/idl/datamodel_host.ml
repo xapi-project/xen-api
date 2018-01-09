@@ -1246,6 +1246,17 @@ let host_query_ha = call ~flags:[`Session]
     ~allowed_roles:_R_POOL_OP
     ()
 
+  let set_multipathing = call
+    ~name:"set_multipathing"
+    ~lifecycle:[Published, rel_kolkata, ""]
+    ~doc:"Specifies whether multipathing is enabled"
+    ~params:[
+      Ref _host, "host", "The host";
+      Bool, "value", "Whether multipathing should be enabled"
+    ]
+    ~allowed_roles:_R_POOL_OP
+    ()
+
   (** Hosts *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -1358,6 +1369,7 @@ let host_query_ha = call ~flags:[`Session]
         mxgpu_vf_setup;
         allocate_resources_for_vm;
         set_iscsi_iqn;
+        set_multipathing;
       ]
       ~contents:
         ([ uid _host;
@@ -1414,5 +1426,6 @@ let host_query_ha = call ~flags:[`Session]
            field ~qualifier:DynamicRO ~lifecycle:[Published, rel_ely, ""] ~ty:(Set (Ref _pool_update)) ~ignore_foreign_key:true "updates_requiring_reboot" "List of updates which require reboot";
            field ~qualifier:DynamicRO ~lifecycle:[Published, rel_falcon, ""] ~ty:(Set (Ref _feature)) "features" "List of features available on this host";
            field ~qualifier:StaticRO ~lifecycle:[Published, rel_kolkata, ""] ~default_value:(Some (VString "")) ~ty:String "iscsi_iqn" "The initiator IQN for the host";
+           field ~qualifier:StaticRO ~lifecycle:[Published, rel_kolkata, ""] ~default_value:(Some (VBool false)) ~ty:Bool "multipathing" "Specifies whether multipathing is enabled";
          ])
       ()

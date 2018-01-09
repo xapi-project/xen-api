@@ -2661,6 +2661,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       do_op_on ~local_fn ~__context ~host
         (fun session_id rpc ->
           Client.Host.set_iscsi_iqn rpc session_id host value)
+
+    let set_multipathing ~__context ~host ~value =
+      info "Host.set_multipathing: host='%s' value='%s'" (host_uuid ~__context host) (string_of_bool value);
+      let local_fn = Local.Host.set_multipathing ~host ~value in
+      do_op_on ~local_fn ~__context ~host
+        (fun session_id rpc ->
+          Client.Host.set_multipathing rpc session_id host value)
   end
 
   module Host_crashdump = struct
