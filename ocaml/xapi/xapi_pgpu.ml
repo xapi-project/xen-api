@@ -48,9 +48,17 @@ let maybe_fetch_compatibility_metadata ~__context ~pgpu_pci =
     []
 
 let populate_compatibility_metadata ~__context ~pgpu ~pgpu_pci =
-  let () = Db.PGPU.set_compatibility_metadata ~__context ~self:pgpu
-    ~value:(maybe_fetch_compatibility_metadata ~__context ~pgpu_pci)
-  in ()
+  let this = "populate_compatibility_metadata" in
+  try
+    let value = fetch_compatibility_metadata ~__context ~pgpu_pci in
+    Db.PGPU.set_compatibility_metadata ~__context ~self:pgpu ~value
+  with
+  | Gpumon_interface.NvmlInterfaceNotAvailable ->
+      info "%s: can't get compat data for pgpu_pci:%s, keeping existing data"
+        this (Ref.string_of pgpu_pci)
+  | err ->
+      debug "%s: obtaining compat data for pgpu_pci:%s failed with %s"
+        this (Ref.string_of pgpu_pci) (Printexc.to_string err)
 
 let create ~__context ~pCI ~gPU_group ~host ~other_config
     ~supported_VGPU_types ~size ~dom0_access
