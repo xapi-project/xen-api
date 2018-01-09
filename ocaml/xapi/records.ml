@@ -217,6 +217,22 @@ let message_record rpc session_id message =
       ]
   }
 
+let network_sriov_record rpc session_id network_sriov =
+  let _ref = ref network_sriov in
+  let empty_record = ToGet (fun () -> Client.Network_sriov.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  { setref=(fun r -> _ref := r; record := empty_record );
+    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
+    record=x;
+    getref=(fun () -> !_ref);
+    fields =
+      [
+        make_field ~name:"uuid"                     ~get:(fun () -> (x ()).API.network_sriov_uuid) ();
+        make_field ~name:"physical-PIF"        ~get:(fun () -> get_uuid_from_ref (x ()).API.network_sriov_physical_PIF) ();
+        make_field ~name:"logical-PIF"         ~get:(fun () -> get_uuid_from_ref (x ()).API.network_sriov_logical_PIF) ();
+        make_field ~name:"requires-reboot"          ~get:(fun () -> string_of_bool (x ()).API.network_sriov_requires_reboot) ();
+      ]}
 
 let pif_record rpc session_id pif =
   let _ref = ref pif in
@@ -242,6 +258,8 @@ let pif_record rpc session_id pif =
         make_field ~name:"VLAN"         ~get:(fun () -> (Int64.to_string (x ()).API.pIF_VLAN)) ();
         make_field ~name:"bond-master-of" ~get:(fun () -> String.concat "; " (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.pIF_bond_master_of)) ();
         make_field ~name:"bond-slave-of"  ~get:(fun () -> get_uuid_from_ref (x ()).API.pIF_bond_slave_of) ();
+        make_field ~name:"sriov-physical-PIF-of" ~get:(fun () -> String.concat ";" (List.map get_uuid_from_ref (x ()).API.pIF_sriov_physical_PIF_of)) ();
+        make_field ~name:"sriov-logical-PIF-of" ~get:(fun () -> String.concat ";" (List.map get_uuid_from_ref (x ()).API.pIF_sriov_logical_PIF_of)) ();
         make_field ~name:"tunnel-access-PIF-of" ~get:(fun () -> String.concat "; " (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.pIF_tunnel_access_PIF_of)) ();
         make_field ~name:"tunnel-transport-PIF-of"  ~get:(fun () -> String.concat "; " (List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.pIF_tunnel_transport_PIF_of)) ();
         make_field ~name:"management"   ~get:(fun () -> string_of_bool ((x ()).API.pIF_management)) ();
