@@ -639,6 +639,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~control_domain:Ref.null
     ~updates_requiring_reboot:[]
     ~iscsi_iqn:""
+    ~multipathing:false
   ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
@@ -1766,4 +1767,13 @@ let set_iscsi_iqn ~__context ~host ~value =
   Db.Host.remove_from_other_config ~__context ~self:host ~key:"iscsi_iqn";
   Db.Host.set_iscsi_iqn ~__context ~self:host ~value;
   Db.Host.add_to_other_config ~__context ~self:host ~key:"iscsi_iqn" ~value;
-  Xapi_host_helpers.InitiatorName.set_initiator_name value
+  Xapi_host_helpers.Configuration.set_initiator_name value
+
+let set_multipathing ~__context ~host ~value =
+  (* Note, the following sequence is carefully written - see the
+     other-config watcher thread in xapi_host_helpers.ml *)
+  Db.Host.remove_from_other_config ~__context ~self:host ~key:"multipathing";
+  Db.Host.set_multipathing ~__context ~self:host ~value;
+  Db.Host.add_to_other_config ~__context ~self:host ~key:"multipathing" ~value:(string_of_bool value);
+  Xapi_host_helpers.Configuration.set_multipathing value
+
