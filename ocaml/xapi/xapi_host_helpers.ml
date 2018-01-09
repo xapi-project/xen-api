@@ -293,6 +293,14 @@ module Configuration = struct
       Unixext.unlink_safe flag
     end
 
+  let sync_config_files ~__context =
+    (* If the host fields are not in sync with the values in other_config,
+       the other_config watcher thread will make sure that these functions will
+       be called again with the up to date values. *)
+    let self = Helpers.get_localhost ~__context in
+    set_initiator_name (Db.Host.get_iscsi_iqn ~__context ~self);
+    set_multipathing (Db.Host.get_multipathing ~__context ~self)
+
   let watch_other_configs ~__context delay =
     let loop token =
       Helpers.call_api_functions ~__context (fun rpc session_id ->

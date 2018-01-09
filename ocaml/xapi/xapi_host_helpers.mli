@@ -108,6 +108,12 @@ module Configuration : sig
       (usually /var/run/nonpersistent/multipath_enabled) if [enabled] is true,
       otherwise it will remove the file. *)
 
+  val sync_config_files : __context:Context.t -> unit
+  (** [sync_config_files ~__context] ensures that the iscsi iqn and
+      multipathing configuration files reflect the values of the corresponding
+      fields in xapi's database. It should be called at startup on every host
+      BEFORE the other_config watcher [start_watcher_thread] is started *)
+
   val watch_other_configs : __context:Context.t -> float -> string -> string
   (** [watch_other_configs ~__context timeout] returns a function that performs
       one iteration of watching Host.other_config. If an update occurs this
