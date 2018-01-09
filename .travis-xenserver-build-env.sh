@@ -9,7 +9,7 @@ export OCAMLRUNPARAM=b
 export REPO_PACKAGE_NAME=xapi
 export REPO_CONFIGURE_CMD=./configure
 export REPO_BUILD_CMD=make
-export REPO_TEST_CMD='make test >test.log || { tail test.log; grep E: test.log; }'
+export REPO_TEST_CMD='make test >test.log || { tail test.log; grep E: test.log; exit 1; }'
 export REPO_DOC_CMD='make doc-json'
 
 wget https://raw.githubusercontent.com/xenserver/xenserver-build-env/master/utils/travis-build-repo.sh
