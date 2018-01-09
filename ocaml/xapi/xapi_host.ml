@@ -1339,16 +1339,16 @@ let apply_edition_internal  ~__context ~host ~edition ~additional =
   let params =
     ("current_edition", current_edition) ::
     license_server @ current_license_params @ additional in
-  let open V6_interface in
   let new_ed =
     let dbg = Context.string_of_task __context in
     try
       V6_client.apply_edition dbg edition params
     with
-    | Invalid_edition e -> raise Api_errors.(Server_error(invalid_edition, [e]))
-    | License_processing_error -> raise Api_errors.(Server_error(license_processing_error, []))
-    | Missing_connection_details -> raise Api_errors.(Server_error(missing_connection_details, []))
-    | License_checkout_error s -> raise Api_errors.(Server_error(license_checkout_error, [s]))
+    | V6_interface.(V6_error (Invalid_edition e)) ->  raise Api_errors.(Server_error(invalid_edition, [e]))
+    | V6_interface.(V6_error (License_processing_error)) ->  raise Api_errors.(Server_error(license_processing_error, []))
+    | V6_interface.(V6_error (Missing_connection_details)) ->  raise Api_errors.(Server_error(missing_connection_details, []))
+    | V6_interface.(V6_error (License_checkout_error s)) ->  raise Api_errors.(Server_error(license_checkout_error, [s]))
+
   in
 
   let create_feature fname fenabled =
@@ -1389,7 +1389,7 @@ let apply_edition_internal  ~__context ~host ~edition ~additional =
   in
   List.iter load_feature_to_db new_ed.experimental_features;
 
-  Db.Host.set_edition ~__context ~self:host ~value:new_ed.edition;
+  Db.Host.set_edition ~__context ~self:host ~value:new_ed.edition_name;
   let features = Features.of_assoc_list new_ed.xapi_params in
   copy_license_to_db ~__context ~host ~features ~additional:new_ed.additional_params
 
@@ -1400,7 +1400,7 @@ let apply_edition ~__context ~host ~edition ~force =
     raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
   else
     let additional = if force then ["force", "true"] else [] in
-    apply_edition_internal ~__context ~host ~edition ~additional
+    apply_edition_internal ~__context ~host ~edition:edition ~additional
 
 let license_add ~__context ~host ~contents =
   let license =
