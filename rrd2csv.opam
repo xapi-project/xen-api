@@ -8,8 +8,12 @@ build: ["jbuilder" "build" "-p" name "-j" jobs]
 build-test: ["jbuilder" "runtest" "-p" name]
 depends: [
   "jbuilder" {build}
-  "base-threads" {build}
-  "xapi-client" {build}
-  "xapi-idl" {build}
-  "xapi-rrd" {build}
+  "base-threads"
+  "xapi-client"
+  "xapi-idl"
+  "xapi-rrd"
+  "xapi-stdext-monadic"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-std"
+  "xapi-stdext-threads"
 ]
