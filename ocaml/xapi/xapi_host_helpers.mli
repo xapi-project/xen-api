@@ -97,11 +97,16 @@ module Host_requires_reboot : sig
   (** [get ()] returns [true] if the host needs to be rebooted *)
 end
 
-module InitiatorName : sig
+module Configuration : sig
   val set_initiator_name : string -> unit
   (** [set_initiator_name iqn] will write the iscsi initiator configuration to
       the file specified in Xapi_globs (usually /etc/iscsi/initiatorname.iscsi)
       *)
+
+  val set_multipathing : bool -> unit
+  (** [set_multipathing enabled] will touch the file specified in Xapi_globs
+      (usually /var/run/nonpersistent/multipath_enabled) if [enabled] is true,
+      otherwise it will remove the file. *)
 
   val watch_other_configs : __context:Context.t -> float -> string -> string
   (** [watch_other_configs ~__context timeout] returns a function that performs

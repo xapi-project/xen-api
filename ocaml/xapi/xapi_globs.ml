@@ -763,6 +763,7 @@ let udhcpd_leases_db = ref "/var/lib/xcp/dhcp-leases.db"
 let udhcpd_pidfile = ref "/var/run/udhcpd.pid"
 
 let iscsi_initiator_config_file = ref "/etc/iscsi/initiatorname.iscsi"
+let multipathing_config_file = ref "/var/run/nonpersistent/multipath_enabled"
 
 let busybox = ref "busybox"
 
