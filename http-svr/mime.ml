@@ -25,7 +25,7 @@ let mime_of_file file =
   let h = Hashtbl.create 1024 in
   Xapi_stdext_unix.Unixext.readfile_line (fun line ->
       if not (Astring.String.is_prefix ~affix:"#" line) then begin
-        match Astring.String.fields line with
+        match Astring.String.fields ~empty:false line with
         | [] | [_] -> ()
         | mime::exts ->
           List.iter (fun e ->

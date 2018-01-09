@@ -356,7 +356,7 @@ let request_of_bio_exn bio =
   snd(List.fold_left
         (fun (status, req) header ->
            if not status then begin
-             match Astring.String.fields header with
+             match Astring.String.fields ~empty:false header with
              | [ meth; uri; version ] ->
                (* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
                let uri, query = Http.parse_uri uri in
