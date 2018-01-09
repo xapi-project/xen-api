@@ -267,7 +267,7 @@ module Host_requires_reboot = struct
       )
 end
 
-module InitiatorName = struct
+module Configuration = struct
 
   let make_initiatorname_config iqn hostname =
     (* CA-18000: there is a 30 character limit to the initiator when talking to
@@ -286,6 +286,13 @@ module InitiatorName = struct
     let config_file = make_initiatorname_config iqn hostname in
     Unixext.write_string_to_file !Xapi_globs.iscsi_initiator_config_file config_file
 
+  let set_multipathing enabled =
+    let flag = !Xapi_globs.multipathing_config_file in
+    if enabled then Unixext.touch_file flag
+    else begin
+      if Sys.file_exists flag then Sys.remove flag
+    end
+
   let watch_other_configs ~__context delay =
     let loop token =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -296,14 +303,24 @@ module InitiatorName = struct
           List.iter (fun ev ->
               match Event_helper.record_of_event ev with
                 | Event_helper.Host (host_ref, Some host_rec) -> begin
-                  let oc = host_rec.API.host_other_config in
-                  let iscsi_iqn = try Some (List.assoc "iscsi_iqn" oc) with _ -> None in
-                  match iscsi_iqn with
-                  | None -> ()
-                  | Some "" -> ()
-                  | Some iqn when iqn <> host_rec.API.host_iscsi_iqn ->
-                      Client.Client.Host.set_iscsi_iqn rpc session_id host_ref (List.assoc "iscsi_iqn" oc)
-                  | _ -> ()
+                    let oc = host_rec.API.host_other_config in
+                    let iscsi_iqn = try Some (List.assoc "iscsi_iqn" oc) with _ -> None in
+                    begin match iscsi_iqn with
+                      | None -> ()
+                      | Some "" -> ()
+                      | Some iqn when iqn <> host_rec.API.host_iscsi_iqn ->
+                        Client.Client.Host.set_iscsi_iqn rpc session_id host_ref iqn
+                      | _ -> ()
+                    end;
+                    (* Accepted values are "true" and "false" *)
+                    (* If someone deletes the multipathing other_config key, we don't do anything *)
+                    let multipathing = try Some (List.assoc "multipathing" oc |> Pervasives.bool_of_string) with _ -> None in
+                    begin match multipathing with
+                      | None -> ()
+                      | Some multipathing when multipathing <> host_rec.API.host_multipathing ->
+                        Client.Client.Host.set_multipathing rpc session_id host_ref multipathing
+                      | _ -> ()
+                    end
                   end
                 | _ -> ())
               events.Event_types.events;
@@ -319,7 +336,7 @@ module InitiatorName = struct
           try
             let rec inner token = inner (loop token) in inner ""
           with e ->
-            error "Caught exception in InitiatorName.start_watcher_thread: %s" (Printexc.to_string e);
+            error "Caught exception in Configuration.start_watcher_thread: %s" (Printexc.to_string e);
             Thread.delay 5.0;
         end;
       done) () |> ignore

@@ -150,7 +150,8 @@ let make_host2 ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="
     ~virtual_hardware_platform_versions:[]
     ~control_domain:Ref.null
     ~updates_requiring_reboot:[]
-    ~iscsi_iqn:"";
+    ~iscsi_iqn:""
+    ~multipathing:false;
   ref
 
 let make_pif ~__context ~network ~host ?(device="eth0") ?(mAC="C0:FF:EE:C0:FF:EE") ?(mTU=1500L)
