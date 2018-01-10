@@ -53,14 +53,14 @@ let create ~__context ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
     ~device_name ~host ~pci_id ~functions ~physical_function
     ~dependencies ~other_config
     ~subsystem_vendor_id ~subsystem_vendor_name
-    ~subsystem_device_id ~subsystem_device_name =
+    ~subsystem_device_id ~driver_name ~subsystem_device_name =
   let p = Ref.make () in
   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
   Db.PCI.create ~__context ~ref:p ~uuid ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
     ~device_name ~host ~pci_id ~functions ~physical_function
     ~dependencies:[] ~other_config:[]
     ~subsystem_vendor_id ~subsystem_vendor_name
-    ~subsystem_device_id ~subsystem_device_name
+    ~subsystem_device_id ~driver_name ~subsystem_device_name
     ~scheduled_to_be_attached_to:Ref.null;
   debug "PCI %s, %s, %s created" pci_id vendor_name device_name;
   p
@@ -93,6 +93,10 @@ let update_pcis ~__context =
     | None -> "", ""
     | Some property -> id_of_int property.id, property.name
   in
+  let string_of_pci_driver_name = function
+    | None -> ""
+    | Some name -> name
+  in
   let rec update_or_create cur = function
     | [] -> cur
     | pci :: remaining_pcis ->
@@ -102,6 +106,7 @@ let update_pcis ~__context =
             strings_of_pci_property pci.subsystem_vendor in
           let (subsystem_device_id, subsystem_device_name) =
             strings_of_pci_property pci.subsystem_device in
+          let driver_name = string_of_pci_driver_name pci.driver_name in
           let (rf, rc) = List.find (fun (rf, rc) ->
               rc.Db_actions.pCI_pci_id = pci.address &&
               rc.Db_actions.pCI_vendor_id = id_of_int pci.vendor.id &&
@@ -121,6 +126,9 @@ let update_pcis ~__context =
           (* sync the subsystem device name. *)
           if rc.Db_actions.pCI_subsystem_device_name <> subsystem_device_name
           then Db.PCI.set_subsystem_device_name ~__context ~self:rf ~value:subsystem_device_name;
+          (* sync the driver name. *)
+          if rc.Db_actions.pCI_driver_name <> driver_name
+          then Db.PCI.set_driver_name ~__context ~self:rf ~value:driver_name;
           (* sync the class information. *)
           if rc.Db_actions.pCI_class_id <> id_of_int pci.pci_class.id
           then Db.PCI.set_class_id ~__context ~self:rf ~value:(id_of_int pci.pci_class.id);
@@ -136,6 +144,7 @@ let update_pcis ~__context =
             strings_of_pci_property pci.subsystem_vendor in
           let subsystem_device_id, subsystem_device_name =
             strings_of_pci_property pci.subsystem_device in
+          let driver_name = string_of_pci_driver_name pci.driver_name in
           let self = create ~__context
               ~class_id:(id_of_int pci.pci_class.id)
               ~class_name:pci.pci_class.name
@@ -145,7 +154,7 @@ let update_pcis ~__context =
               ~device_name:pci.device.name ~host ~pci_id:pci.address
               ~functions:1L ~physical_function:Ref.null ~dependencies:[] ~other_config:[]
               ~subsystem_vendor_id ~subsystem_vendor_name
-              ~subsystem_device_id ~subsystem_device_name in
+              ~subsystem_device_id ~subsystem_device_name ~driver_name in
           self, Db.PCI.get_record_internal ~__context ~self
       in
       update_or_create ((obj, pci) :: cur) remaining_pcis
