@@ -100,7 +100,7 @@ let esc_pcdata data =
   let buf = Buffer.create (String.length data + 10) in
   String.iter (fun c ->
       let s = match c with
-        | '>'    -> "&gt;;"
+        | '>'    -> "&gt;"
         | '<'    -> "&lt;"
         | '&'    -> "&amp;"
         | '"'    -> "&quot;"
