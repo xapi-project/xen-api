@@ -37,7 +37,9 @@ let get_driver_name address =
       match Astring.String.cut ~sep:"/" ~rev:true driver_path with
       | Some (prefix, suffix) -> Some suffix
       | None -> None
-    with _ -> None
+    with e -> 
+      debug "get_driver_name: for %s failed with %s" address (Printexc.to_string e); 
+      None
 
 let get_host_pcis () =
   let default ~msg v =
