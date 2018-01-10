@@ -44,7 +44,8 @@ type t = { session_id: API.ref_session option;
            task_name: string; (* Name for dummy task FIXME: used only for dummy task, as real task as their name in the database *)
            database: Db_ref.t;
            dbg: string;
-           mutable test_rpc: (Rpc.call -> Rpc.response) option
+           mutable test_rpc: (Rpc.call -> Rpc.response) option;
+           mutable test_clusterd_rpc: (Rpc.call -> Rpc.response) option
          }
 
 let get_session_id x =
@@ -116,6 +117,7 @@ let get_initial () =
     database = default_database ();
     dbg = "initial_task";
     test_rpc = None;
+    test_clusterd_rpc = None;
   }
 
 (* ref fn used to break the cyclic dependency between context, db_actions and taskhelper *)
@@ -183,6 +185,7 @@ let from_forwarded_task ?(__context=get_initial ()) ?(http_other_config=[]) ?ses
     database = default_database ();
     dbg = dbg;
     test_rpc = None;
+    test_clusterd_rpc = None;
   }
 
 let make ?(__context=get_initial ()) ?(http_other_config=[]) ?(quiet=false) ?subtask_of ?session_id ?(database=default_database ()) ?(task_in_database=false) ?task_description ?(origin=Internal) task_name =
@@ -217,6 +220,7 @@ let make ?(__context=get_initial ()) ?(http_other_config=[]) ?(quiet=false) ?sub
     task_name = task_name;
     dbg = dbg;
     test_rpc = None;
+    test_clusterd_rpc = None;
   }
 
 let get_http_other_config http_req =
@@ -243,3 +247,8 @@ let set_test_rpc context rpc =
   context.test_rpc <- Some rpc
 
 let get_test_rpc context = context.test_rpc
+
+let set_test_clusterd_rpc context rpc =
+  context.test_clusterd_rpc <- Some rpc
+
+let get_test_clusterd_rpc context = context.test_clusterd_rpc
