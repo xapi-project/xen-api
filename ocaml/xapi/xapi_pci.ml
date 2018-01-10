@@ -76,6 +76,14 @@ let get_local_pcis_and_records ~__context =
 let get_local_pci_refs ~__context =
   get_local ~__context Db.PCI.get_refs_where
 
+let get_idle_vf_nums ~__context ~self =
+  let vfs = Db.PCI.get_virtual_functions ~__context ~self in
+  let not_attached pci = 
+    Db.PCI.get_attached_VMs ~__context ~self:pci = [] &&
+      Db.PCI.get_scheduled_to_be_attached_to ~__context ~self:pci = Ref.null
+  in
+  List.filter not_attached vfs |> List.length
+
 let update_pcis ~__context =
   let host = Helpers.get_localhost ~__context in
   let existing = List.filter_map
