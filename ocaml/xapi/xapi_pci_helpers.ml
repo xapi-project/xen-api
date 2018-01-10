@@ -28,7 +28,18 @@ type pci = {
   subsystem_vendor: pci_property option;
   subsystem_device: pci_property option;
   related: string list;
+  driver_name: string option;
 }
+
+let get_driver_name address =
+    try
+      let driver_path = Unix.readlink (Printf.sprintf "/sys/bus/pci/devices/%s/driver" address) in
+      match Astring.String.cut ~sep:"/" ~rev:true driver_path with
+      | Some (prefix, suffix) -> Some suffix
+      | None -> None
+    with e -> 
+      debug "get_driver_name: for %s failed with %s" address (Printexc.to_string e); 
+      None
 
 let get_host_pcis () =
   let default ~msg v =
@@ -52,6 +63,8 @@ let get_host_pcis () =
                        ; name = lookup_device_name access d.vendor_id d.device_id
                                 |> default ~msg:"device name" }
           in
+          let address = address_of_dev d in
+          let driver_name = get_driver_name address in
           let (subsystem_vendor, subsystem_device) = match d.subsystem_id with
             | None -> None, None
             | Some (sv_id, sd_id) ->
@@ -72,9 +85,9 @@ let get_host_pcis () =
                 let slot x = (x.domain, x.bus, x.dev) in
                 slot d' = slot d && d' <> d
               ) devs in
-          { address = address_of_dev d;
+          { address;
             vendor; device; subsystem_vendor; subsystem_device; pci_class;
-            related = List.map address_of_dev related_devs;
+            related = List.map address_of_dev related_devs; driver_name; 
           }
         ) devs
     )
