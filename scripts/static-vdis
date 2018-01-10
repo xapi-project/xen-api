@@ -114,6 +114,7 @@ def add(session, vdi_uuid, reason):
     host = session.xenapi.host.get_by_uuid(inventory.get_localhost_uuid ())
     sr = session.xenapi.VDI.get_SR(vdi)
     ty = session.xenapi.SR.get_type(sr)
+    sr_uuid = session.xenapi.SR.get_uuid(sr)
 
     # This host's device-config will have info needed to attach SMAPIv3
     # SRs.
@@ -142,7 +143,8 @@ def add(session, vdi_uuid, reason):
     if sm["features"].has_key("VDI_ATTACH_OFFLINE"):
         data["volume-plugin"] = ty
         data["sr-uri"] = device_config['uri']
-        sr = call_volume_plugin(ty, "SR.attach", [ data["sr-uri"] ])
+        data["sr-uuid"] = sr_uuid
+        sr = call_volume_plugin(ty, "SR.attach", [ data["sr-uuid"], data["sr-uri"] ])
         location = session.xenapi.VDI.get_location(vdi)
         stat = call_volume_plugin(ty, "Volume.stat", [ sr, location ])
         data["volume-uri"] = stat["uri"][0]
@@ -231,11 +233,12 @@ def attach(vdi_uuid):
                     path = call_backend_attach(driver, config)
                 else:
                     volume_plugin = read_whole_file(d + "/volume-plugin")
+                    sr_uuid = read_whole_file(d + "/sr-uuid")
                     sr_uri = read_whole_file(d + "/sr-uri")
                     vol_key = read_whole_file(d + "/volume-key")
                     vol_uri = read_whole_file(d + "/volume-uri")
                     scheme = urlparse.urlparse(vol_uri).scheme
-                    sr = call_volume_plugin(volume_plugin, "SR.attach", [ sr_uri ])
+                    sr = call_volume_plugin(volume_plugin, "SR.attach", [ sr_uuid, sr_uri ])
                     attach = call_datapath_plugin(scheme, "Datapath.attach", [ vol_uri, "0" ])
                     path = attach['implementation'][1]
                     call_datapath_plugin(scheme, "Datapath.activate", [ vol_uri, "0" ])
