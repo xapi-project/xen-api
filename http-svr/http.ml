@@ -408,7 +408,7 @@ module Request = struct
 
   let get_version x = x.version
 
-  let of_request_line x = match Astring.String.fields x with
+  let of_request_line x = match Astring.String.fields ~empty:false x with
     | [ m; uri; version ] ->
       (* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
       let uri, query = parse_uri uri in
