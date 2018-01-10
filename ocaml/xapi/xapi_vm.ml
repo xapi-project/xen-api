@@ -806,7 +806,7 @@ let set_HVM_shadow_multiplier ~__context ~self ~value =
 
 (** Sets the HVM shadow multiplier for a {b Running} VM. Runs on the slave. *)
 let set_shadow_multiplier_live ~__context ~self ~multiplier =
-  Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self ~expected:`Running;
+  Xapi_vm_lifecycle_helpers.assert_initial_power_state_is ~__context ~self ~expected:`Running;
 
   validate_HVM_shadow_multiplier multiplier;
 
@@ -1074,7 +1074,7 @@ let recover ~__context ~self ~session_to ~force =
   ignore (Xapi_dr.recover_vms ~__context ~vms:[self] ~session_to ~force)
 
 let set_suspend_VDI ~__context ~self ~value =
-  Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self ~expected:`Suspended;
+  Xapi_vm_lifecycle_helpers.assert_initial_power_state_is ~__context ~self ~expected:`Suspended;
 
   if Db.VDI.get_type ~__context ~self:value = `cbt_metadata then begin
     error "VM.set_suspend_VDI: the given VDI has type cbt_metadata (at %s)" __LOC__;
@@ -1233,7 +1233,7 @@ let assert_can_set_has_vendor_device ~__context ~self ~value =
      	 * we allow restoration of a VM from a snapshot. *)
   then Pool_features.assert_enabled ~__context ~f:Features.PCI_device_for_auto_update;
 
-  Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self ~expected:`Halted
+  Xapi_vm_lifecycle_helpers.assert_initial_power_state_is ~__context ~self ~expected:`Halted
 
 let set_has_vendor_device ~__context ~self ~value =
   assert_can_set_has_vendor_device ~__context ~self ~value;

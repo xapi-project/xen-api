@@ -507,6 +507,15 @@ module MD = struct
       pvs_proxy;
     }
 
+  let list_netsriov_pcis_for_passthrough ~__context ~vm =
+    let open Xenops_interface in
+    List.map (fun self -> self, Db.VIF.get_record_internal ~__context ~self) vm.API.vM_VIFs
+    |> List.filter (fun (_, vif) -> vif.Db_actions.vIF_currently_attached)
+    |> List.filter_map (fun (x, _) ->
+      match Xapi_vif_helpers.get_backend ~__context ~self:x with
+      | Network.Sriov {domain; bus; dev; fn} -> Some (domain, bus, dev, fn)
+      | _ -> None)
+
   let pcis_of_vm ~__context (vmref, vm) =
     let vgpu_pcidevs = Vgpuops.list_pcis_for_passthrough ~__context ~vm:vmref in
     let devs = List.flatten (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs vgpu_pcidevs)) in
@@ -516,7 +525,9 @@ module MD = struct
 
     let unmanaged = List.flatten (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs other_pcidevs)) in
 
-    let devs = devs @ unmanaged in
+    let net_sriov_pcidevs = list_netsriov_pcis_for_passthrough ~__context ~vm in
+
+    let devs = devs @ net_sriov_pcidevs @ unmanaged in
 
     let open Pci in
     List.map

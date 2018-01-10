@@ -179,6 +179,9 @@ let create ~__context ~device ~network ~vM
     ~ipv6_configuration_mode ~ipv6_addresses ~ipv6_gateway : API.ref_VIF =
   let () = debug "VIF.create running" in
 
+  if Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network then
+    Xapi_vm_lifecycle_helpers.assert_initial_power_state_is ~__context ~self:vM ~expected:`Halted;
+
   if locking_mode = `locked || ipv4_allowed <> [] || ipv6_allowed <> [] then
     assert_locking_licensed ~__context;
 

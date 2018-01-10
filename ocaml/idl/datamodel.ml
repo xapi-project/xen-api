@@ -562,6 +562,33 @@ let _ =
   error Api_errors.user_is_not_local_superuser [ "msg" ]
     ~doc:"Only the local superuser can execute this operation" ();
 
+  (* SR-IOV errors *)
+  error Api_errors.vm_requires_vf_pci_for_sriov_vif [ "VIF" ]
+    ~doc:"VM requires a valid VF for SRIOV VIF" ();
+  error Api_errors.network_sriov_insufficient_vfs []
+    ~doc:"There is insufficient VF for NETWORK SRIOV" ();
+  error Api_errors.network_sriov_not_found_on_vm ["VM"]
+    ~doc:"Failed to find NETWORK SRIOV on VM when getting capacity" ();
+  error Api_errors.network_sriov_already_enabled ["PIF"]
+    ~doc:"You tried to enable network SR-IOV on PIF which is already enabled" ();
+  error Api_errors.network_sriov_find_pf_from_vf_failed ["PCI"]
+    ~doc:"Failed to find physical function from virtual function" ();
+  error Api_errors.network_sriov_pif_has_vf_inuse ["PIF"; "VFs"]
+    ~doc:"Can not destroy network sriov object which has virtual function inuse" ();
+  error Api_errors.network_sriov_enable_failed ["PIF"; "msg"]
+    ~doc:"Can not enable network SR-IOV on PIF" ();
+  error Api_errors.network_sriov_disable_failed ["PIF"; "msg"]
+    ~doc:"Can not disable network SR-IOV on PIF" ();
+  error Api_errors.network_sriov_device_not_found ["PIF"; "device"]
+    ~doc:"Can not find device" ();
+  error Api_errors.network_sriov_bus_out_of_range ["PIF"]
+    ~doc:"Bus out of range when enabling SRIOV" ();
+  error Api_errors.network_sriov_not_enough_mmio_resources ["PIF"]
+    ~doc:"Mmio resource not enough when enabling SRIOV" ();
+  error Api_errors.network_sriov_unknown_error ["PIF"; "msg"]
+    ~doc:"Operation on network SR-IOV device failed" ();
+  error Api_errors.network_sriov_pci_vendor_not_compatible ["PIF"; "network"]
+    ~doc:"Can not add incompatible network SR-IOV PIF into the network" ();
   (* PIF/VIF/Network errors *)
   error Api_errors.network_unmanaged [ "network" ]
     ~doc:"The network is not managed by xapi." ();
@@ -1009,7 +1036,9 @@ let _ =
     ~doc:"You attempted to run a VM on a host which doesn't have a PIF on a Network needed by the VM. The VM has at least one VIF attached to the Network." ();
   error Api_errors.vm_requires_gpu ["vm"; "GPU_group"]
     ~doc:"You attempted to run a VM on a host which doesn't have a pGPU available in the GPU group needed by the VM. The VM has a vGPU attached to this GPU group." ();
-  error Api_errors.vm_requires_vgpu ["vm"; "GPU_group"; "vGPU_type"]
+  error Api_errors.vm_requires_sriov_vif ["vm"; "network"]
+    ~doc:"You attempted to run a VM on a host which doesn't have a SRIOV VIF available in the NETWORK needed by the VM. The VM has a SRIOV VIF attached to this NETWORK" ();
+    error Api_errors.vm_requires_vgpu ["vm"; "GPU_group"; "vGPU_type"]
     ~doc:"You attempted to run a VM on a host on which the vGPU required by the VM cannot be allocated on any pGPUs in the GPU_group needed by the VM." ();
   error Api_errors.vm_requires_iommu ["host"]
     ~doc:"You attempted to run a VM on a host which doesn't have I/O virtualization (IOMMU/VT-d) enabled, which is needed by the VM." ();
