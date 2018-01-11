@@ -97,16 +97,17 @@ namespace XenSdkSample
 
             // here we need to delay for a bit until the suspend feauture is written
             // in the guest metrics; this check should be enough for most guests;
-            // let's try a certain number of times with 5sec sleeps inbetween
-            int max = 5;
+            // let's try a certain number of times with sleeps of a few seconds inbetween
+            int max = 20;
+            int delay = 10;
             for (int i = 0; i < max; i++)
             {
                 cloneVm = VM.get_record(_session, cloneVmRef);
                 var metrics = VM_guest_metrics.get_record(_session, cloneVm.guest_metrics);
                 if (metrics.other.ContainsKey("feature-suspend") && metrics.other["feature-suspend"] == "1")
                     break;
-                _logger.Log("Checked for feature-suspend count {0} out of {1}; will re-try in 5sec.", i + 1, max);
-                Thread.Sleep(5000);
+                _logger.Log("Checked for feature-suspend count {0} out of {1}; will re-try in {2}sec.", i + 1, max, delay);
+                Thread.Sleep(delay * 1000);
             }
 
             _logger.Log("Suspending VM...");
