@@ -3235,7 +3235,6 @@ module VM_metrics = struct
             ~ty:Datamodel_vm.domain_type ~qualifier:DynamicRO
             "current_domain_type" "The current domain type of the VM (for running,\
              suspended, or paused VMs). The last-known domain type for halted VMs."
-            ~persist:false
         ]
       ()
 end
