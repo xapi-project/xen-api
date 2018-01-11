@@ -574,15 +574,20 @@ and gen_record_fields fields =
                 %s%s" (gen_record_field h) (gen_record_fields tl)
 
 and gen_record_field field =
-  match field.ty with
-  |  Ref r     -> sprintf "Record.%s = %s == null ? null : new %s(%s.opaque_ref);"
-                    (full_name field) (ocaml_field_to_csharp_property field)
-                    (obj_internal_type field.ty) (ocaml_field_to_csharp_property field)
-  |  Map(u, v) -> sprintf "Record.%s = CommonCmdletFunctions.ConvertHashTableToDictionary<%s, %s>(%s);"
-                    (full_name field) (exposed_type u) (exposed_type v)
-                    (pascal_case (full_name field))
-  |  _         -> sprintf "Record.%s = %s;"
-                    (full_name field) (ocaml_field_to_csharp_property field)
+  let chk = sprintf "if (MyInvocation.BoundParameters.ContainsKey(\"%s\"))
+                " (ocaml_field_to_csharp_property field) in
+  let assignment =
+    match field.ty with
+    |  Ref r     -> sprintf "    Record.%s = %s == null ? null : new %s(%s.opaque_ref);"
+                      (full_name field) (ocaml_field_to_csharp_property field)
+                      (obj_internal_type field.ty) (ocaml_field_to_csharp_property field)
+    |  Map(u, v) -> sprintf "    Record.%s = CommonCmdletFunctions.ConvertHashTableToDictionary<%s, %s>(%s);"
+                      (full_name field) (exposed_type u) (exposed_type v)
+                      (pascal_case (full_name field))
+    |  _         -> sprintf "    Record.%s = %s;"
+                      (full_name field) (ocaml_field_to_csharp_property field)
+  in
+  chk ^ assignment
 
 and gen_make_fields message obj classname =
   sprintf "
