@@ -6,7 +6,10 @@ bug-reports: "https://github.com/xapi-project/xen-api/issues"
 dev-repo: "https://github.com/xapi-project/xen-api.git"
 
 build: [[ "jbuilder" "build" "-p" name ]]
-build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
+build-test: [
+  [ "jbuilder" "runtest" "-p" name "-j" jobs ]
+  [ "jbuilder" "build" "@runalcotest" "-j" jobs ]
+]
 
 depends: [
   "jbuilder" {build & >= "1.0+beta11"}
