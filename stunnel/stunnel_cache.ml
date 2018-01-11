@@ -37,7 +37,7 @@ let debug = if debug_enabled then debug else ignore_log
 type endpoint = { host: string; port: int; verified: bool }
 
 (* Need to limit the absolute number of stunnels as well as the maximum age *)
-let max_stunnel = 22
+let max_stunnel = 70
 let max_age = 180. *. 60. (* seconds *)
 let max_idle = 5. *. 60. (* seconds *)
 
