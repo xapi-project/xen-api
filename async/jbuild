@@ -6,6 +6,7 @@
   (wrapped false)
   (libraries (
     message-switch-core
+    cohttp.async
     async
   ))
 ))

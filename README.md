@@ -25,7 +25,7 @@ Quick Start
 -----------
 
 ```sh
-git clone git://github.com/djs55/message-switch
+git clone git://github.com/xapi-project/message-switch
 cd message-switch
 make
 ```
@@ -33,31 +33,31 @@ make
 Run the server (by default it will bind to 127.0.0.1:8080)
 
 ```sh
-./switch.native
+_build/install/default/bin/message-switch
 ```
 
 Use the CLI to list the available queues (there will be none):
 
 ```sh
-./main.native list
+_build/install/default/bin/message-cli list
 ```
 
 Use the CLI to execute an RPC against a service with queue name "foo" (this will block):
 
 ```sh
-./main.native call foo --body hello
+_build/install/default/bin/message-cli call foo --body hello
 ```
 
 Use the diagnostics command to see the queued message:
 
 ```sh
-./main.native diagnostics
+_build/install/default/bin/message-cli diagnostics
 ```
 
 Use the CLI to start an RPC server servicing the queue name "foo"
 
 ```sh
-./main.native serve foo --program /bin/cat
+_build/install/default/bin/message-cli serve foo --program /bin/cat
 ```
 
 At this point the original RPC call will unblock and print "hello".
@@ -65,7 +65,7 @@ At this point the original RPC call will unblock and print "hello".
 Use the diagnostics command to see the message has been removed:
 
 ```sh
-./main.native diagnostics
+_build/install/default/bin/message-cli diagnostics
 ```
 
 Low-level protocol

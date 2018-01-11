@@ -20,9 +20,9 @@ ifeq ($(ASYNC),--enable-async)
 endif
 ifeq ($(LWT),--enable-lwt)
 	jbuilder install $(FLAGS) message-switch-lwt
-	install -D _build/install/default/bin/message-cli $(DESTDIR)$(SBINDIR)/message-switch
+	install -D _build/install/default/bin/message-switch $(DESTDIR)$(SBINDIR)
 endif
-	install -D _build/install/default/bin/message-cli $(DESTDIR)$(SBINDIR)/message-cli
+	install -D _build/install/default/bin/message-cli $(DESTDIR)$(SBINDIR)
 
 uninstall:
 	jbuilder uninstall $(FLAGS) message-switch-core

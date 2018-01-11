@@ -10,6 +10,7 @@ env:
   global:
     - OCAML_VERSION=4.04
     - PACKAGE=message-switch
+    - PINS="message-switch-async:. message-switch-cli:. message-switch-core:.  message-switch:.  message-switch-lwt:.  message-switch-unix:."
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam XS_COV=1 COV_CONF="./configure"
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
