@@ -1,5 +1,8 @@
 # XenAPI Software Development Kit
 
+[![Build Status](https://travis-ci.org/xapi-project/xen-api-sdk.svg?branch=master)](https://travis-ci.org/xapi-project/xen-api-sdk)
+[![Lines of Code](https://tokei.rs/b1/github/xapi-project/xen-api-sdk)](https://github.com/xapi-project/xen-api-sdk)
+
 This repository contains the generation code for the XenAPI Software Development
 Kit (SDK) and its associated documentation and examples.
 
@@ -16,8 +19,8 @@ The generation code is written in [OCaml][1].
 Install [opam][2]. It is also recommended to install one of the listed external
 solvers (e.g. aspcud).
 
-Ensure you are using version 4.02.3 of the OCaml compiler:
-`opam switch 4.02.3`
+Ensure you are using version 4.04.2 of the OCaml compiler:
+`opam switch 4.04.2`
 
 and you have the package depext: `opam install depext`
 
