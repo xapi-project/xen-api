@@ -202,6 +202,35 @@ module Intersect = Generic.Make (struct
   end)
 
 
+module Equality = Generic.Make (struct
+    module Io = struct
+      type input_t = int64 array * int64 array
+      type output_t = bool
+      let string_of_input_t = Test_printers.(pair (array int64) (array int64))
+      let string_of_output_t = Test_printers.bool
+    end
+
+    let transform = fun (a, b) ->
+      Cpuid_helpers.(is_equal a b)
+
+    let tests = [
+      ([| |], [| |]),            true;
+      ([| 1L; 2L; 3L |], [| 1L; 2L; 3L |]), true;
+      ([| 1L; 2L; 3L |], [| |]), false;
+      ([| |], [| 1L; 2L; 3L |]), false;
+
+      ([| 7L; 0L |], [| 7L; |]), true;
+      ([| 7L; |], [| 7L; 0L |]), true;
+      ([| 7L; 1L; 0L |], [| 7L; 1L |]), true;
+
+      ([| 7L; 1L |], [| 7L; 1L |]), true;
+      ([| 7L; 1L |], [| 7L; |]), false;
+      ([| 7L; |],    [| 7L; 1L |]), false;
+      ([| 1L; 7L |], [| 7L; 1L |]), false;
+    ]
+  end)
+
+
 module Comparisons = Generic.Make (struct
     module Io = struct
       type input_t = int64 array * int64 array
@@ -499,6 +528,8 @@ let test =
     ZeroExtend.tests;
     "test_intersect" >:::
     Intersect.tests;
+    "test_equality" >:::
+    Equality.tests;
     "test_comparisons" >:::
     Comparisons.tests;
     "test_accessors" >:::
