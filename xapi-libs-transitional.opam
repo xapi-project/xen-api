@@ -5,6 +5,8 @@ homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api-libs-transitional.git"
 dev-repo: "https://github.com/xapi-project/xen-api-libs-transitional.git"
 
+build-test: [["jbuilder" "runtest" "-j" jobs]]
+
 available: [ os = "linux" ]
 depends: [
     "gzip"
