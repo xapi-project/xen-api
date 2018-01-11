@@ -36,6 +36,7 @@ val assert_vm_is_compatible :
 val extend : int64 array -> int64 array -> int64 array
 val zero_extend : int64 array -> int -> int64 array
 val intersect : int64 array -> int64 array -> int64 array
+val is_equal : int64 array -> int64 array -> bool
 val is_subset : int64 array -> int64 array -> bool
 val is_strict_subset : int64 array -> int64 array -> bool
 

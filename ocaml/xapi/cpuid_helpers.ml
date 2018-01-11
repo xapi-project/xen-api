@@ -50,7 +50,8 @@ let zero_extend arr len =
 (** Calculate the intersection of two feature sets.
  *  Intersection with the empty set is treated as identity, so that intersection
  *  can be folded easily starting with an accumulator of [||].
- *  If both sets are non-empty and of differing lengths, set is longer than the other, the shorter one is zero-extended to match it.
+ *  If both sets are non-empty and of differing lengths, and one set is longer
+ *  than the other, the shorter one is zero-extended to match it.
  *  The returned set is the same length as the longer of the two arguments.  *)
 let intersect left right =
   match left, right with
@@ -66,6 +67,11 @@ let intersect left right =
       out.(i) <- Int64.logand left.(i) right.(i)
     done;
     out
+
+(** equality check that zero-extends if lengths differ *)
+let is_equal left right =
+  let len = max (Array.length left) (Array.length right) in
+  (zero_extend left len) = (zero_extend right len)
 
 (** is_subset left right returns true if left is a subset of right *)
 let is_subset left right =
