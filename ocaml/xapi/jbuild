@@ -122,7 +122,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 )
 
 (alias
- ((name runalcotest)
+ ((name runtest)
   (deps (suite_alcotest.exe (files_recursively_in test_data)))
   (action (run ${<}))
  )
