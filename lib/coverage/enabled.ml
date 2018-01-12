@@ -50,7 +50,7 @@ module Bisect = struct
     init_env name;
     let queue_name = prefix ^ "." ^ name in
     let (_:Thread.t) =
-      Thread.create (Protocol_unix.Server.listen ~process
+      Thread.create (Message_switch_unix.Protocol_unix.Server.listen ~process
                        ~switch:!Xcp_client.switch_path ~queue:queue_name) () in
     D.debug "Started coverage API thread on %s" queue_name;
     ()
@@ -58,7 +58,7 @@ end
 
 module Dispatcher = struct
   let self = prefix ^ ".dispatch"
-  open Protocol_unix
+  open Message_switch_unix.Protocol_unix
 
   let rpc_ignore_err ~t ~body queue =
     D.debug "Dispatching %s to %s" body queue;
@@ -75,7 +75,7 @@ module Dispatcher = struct
        "ERROR"
 
   let process = fun body ->
-    let open Message_switch.Mresult in
+    let open Message_switch_core.Mresult in
     D.debug "Coverage dispatcher received %s" body;
     let result = begin
         Client.connect ~switch:!Xcp_client.switch_path () >>= fun t ->
@@ -99,13 +99,13 @@ module Dispatcher = struct
   let init () =
     (* receives command and dispatches to all other coverage message queues *)
     let (_:Thread.t) =
-      Thread.create (Protocol_unix.Server.listen ~process
+      Thread.create (Message_switch_unix.Protocol_unix.Server.listen ~process
                        ~switch:!Xcp_client.switch_path ~queue:self) () in
     D.debug "Started coverage API dispatcher on %s" self;
     ()
 end
 
-(** [init name] sets up coverage profiling for binary [name]. You could 
+(** [init name] sets up coverage profiling for binary [name]. You could
  *  use [Sys.argv.(0)] for [name].
  *)
 let init name =

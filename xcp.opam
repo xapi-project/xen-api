@@ -15,7 +15,8 @@ depends: [
   "fd-send-recv"
   "jbuilder" {build & >= "1.0+beta11"}
   "lwt" {< "3.0.0" & >= "2.7.1"}
-  "message-switch"
+  "message-switch-core"
+  "message-switch-unix"
   "ocamlfind" {build}
   "ounit" {>= "2.0.0"}
   "ppx_sexp_conv"
