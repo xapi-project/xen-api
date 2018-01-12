@@ -19,6 +19,12 @@ let flags = function
 let rewriters = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
 let flags = flags rewriters
 
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+""
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (jbuild_version 1)
@@ -35,6 +41,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     rpclib.json
     re.str
   ))
+  %s
 ))
 
 (rule (with-stdout-to s.ml
@@ -52,4 +59,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     (echo "\nend = HACK\ninclude HACK\n")
   )
 ))
-|} flags
+|} flags coverage_rewriter
