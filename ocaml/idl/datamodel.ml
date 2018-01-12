@@ -1892,7 +1892,7 @@ let vm_create_template = call
 let vm_set_is_default_template = call
     ~name:"set_is_default_template"
     ~hide_from_docs:true
-    ~lifecycle: [Published, rel_ely, "Allows to define XenServer default templates"]
+    ~lifecycle: [Published, rel_falcon, "Allows to define XenServer default templates"]
     ~doc:"Makes the specified VM a default template."
     ~params:[
       Ref _vm, "vm", "The VM that will become a default template";
