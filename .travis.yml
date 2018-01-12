@@ -4,7 +4,7 @@ services: docker
 install:
   - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
 script:
-  - ulimit -s unlimited && bash -ex .travis-docker.sh
+  - bash -ex .travis-docker.sh
 env:
   global:
     - OCAML_VERSION=4.04.2
