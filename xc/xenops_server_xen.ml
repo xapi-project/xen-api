@@ -851,8 +851,9 @@ module VM = struct
       else helper (i-1)  (List.hd list :: acc) (List.tl list)
     in List.rev $ helper n [] list
 
-  let generate_non_persistent_state xc xs vm =
-    let hvm = match vm.ty with HVM _ | PVinPVH _ -> true | PV _ -> false in
+  let generate_non_persistent_state xc xs vm persistent =
+    let ty = match persistent.VmExtra.ty with | Some ty -> ty | None -> vm.ty in
+    let hvm = match ty with | HVM _ | PVinPVH _ -> true | PV _ -> false in
     (* XXX add per-vcpu information to the platform data *)
     (* VCPU configuration *)
     let pcpus = Xenctrlext.get_max_nr_cpus xc in
@@ -941,7 +942,7 @@ module VM = struct
                        ~platformdata:vm.Xenops_interface.Vm.platformdata
                        ~default:false
                  } in
-               let non_persistent = generate_non_persistent_state xc xs vm in
+               let non_persistent = generate_non_persistent_state xc xs vm persistent in
                persistent, non_persistent
              end in
          let open Memory in
@@ -2005,7 +2006,7 @@ module VM = struct
       | _ -> persistent
     in
     let non_persistent = match DB.read k with
-      | None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm)
+      | None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm persistent)
       | Some vmextra -> vmextra.VmExtra.non_persistent
     in
     DB.write k { VmExtra.persistent = persistent; VmExtra.non_persistent = non_persistent; }
