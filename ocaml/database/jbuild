@@ -17,6 +17,13 @@ let flags = function
 
 let rewriters = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
 
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (ocamllex (db_filter_lex))
 (ocamlyacc (db_filter_parse))
@@ -48,6 +55,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    xcp
   ))
   (wrapped false)
+  %s
  )
 )
 
@@ -63,4 +71,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   ))
  )
 )
-|} (flags rewriters)
+|} (flags rewriters) coverage_rewriter

@@ -1,3 +1,14 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (rule
  ((targets (client.ml))
   (deps (../idl/ocaml_backend/gen_api_main.exe))
@@ -12,5 +23,6 @@
    xapi-types
   ))
   (wrapped false)
+  %s
  )
-)
+) |} coverage_rewriter

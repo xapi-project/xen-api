@@ -17,6 +17,13 @@ let flags = function
 
 let rewriters = ["ppx_deriving_rpc"]
 
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (library
  ((name xapi_datamodel)
@@ -42,6 +49,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    http-svr
   ))
   (wrapped false)
+  %s
  )
 )
 
@@ -59,4 +67,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   ))
  )
 )
-|} (flags rewriters)
+|} (flags rewriters) coverage_rewriter
