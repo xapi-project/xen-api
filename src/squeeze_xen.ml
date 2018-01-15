@@ -28,6 +28,7 @@ module M = Debug.Make(struct let name = "memory" end)
 let debug = Squeeze.debug
 let error = Squeeze.error
 
+let _domain_type         = "/domain-type"                 (* immutable *)
 let _initial_reservation = "/memory/initial-reservation"  (* immutable *)
 let _target              = "/memory/target"               (* immutable *)
 let _feature_balloon     = "/control/feature-balloon"     (* immutable *)
@@ -48,14 +49,19 @@ let set_difference a b = List.filter (fun x -> not (List.mem x b)) a
 let low_mem_emergency_pool = 1L ** mib (** Same as xen commandline *)
 
 (** Return the extra amount we always add onto maxmem *)
-let xen_max_offset_kib hvm =
-  let maxmem_mib = if hvm then Memory.HVM.xen_max_offset_mib else Memory.Linux.xen_max_offset_mib in
+let xen_max_offset_kib domain_type =
+  let maxmem_mib =
+    match domain_type with
+    | `hvm       -> Memory.HVM.xen_max_offset_mib
+    | `pv_in_pvh -> Memory.PVinPVH.xen_max_offset_mib
+    | `pv        -> Memory.Linux.xen_max_offset_mib
+  in
   Memory.kib_of_mib maxmem_mib
 
 (** Cache of per-domain info, to avoid repeated per-domain queries *)
 module Domain = struct
   type per_domain = { path: string;
-                      hvm: bool;
+                      domain_type: [`hvm | `pv_in_pvh | `pv ];
                       mutable maxmem: int64;
                       keys: (string, string option) Hashtbl.t }
   type t = (int, per_domain) Hashtbl.t
@@ -65,10 +71,24 @@ module Domain = struct
 
   let m = Mutex.create ()
 
-  let maxmem_of_dominfo di =
+  let get_domain_type path di =
+    try
+      match Client.immediate (get_client ()) (fun xs -> Client.read xs (path ^ _domain_type)) with
+      | "hvm"       -> `hvm
+      | "pv"        -> `pv
+      | "pv-in-pvh" -> `pv_in_pvh
+      | _           -> failwith "undefined domain_type"
+    with _ ->
+      (* Fallback for the upgrade case, where the new xs key may not exist *)
+      if di.Xenctrl.hvm_guest then
+        `hvm
+      else
+        `pv
+
+  let maxmem_of_dominfo di domain_type =
     let memory_max_kib = Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.max_memory_pages) in
     (* Misc other stuff appears in max_memory_pages *)
-    max 0L (memory_max_kib -* (xen_max_offset_kib di.Xenctrl.hvm_guest))
+    max 0L (memory_max_kib -* (xen_max_offset_kib domain_type))
 
   (* get_per_domain can return None if the domain is deleted by
      	 someone else while we are processing some other event handlers *)
@@ -77,10 +97,12 @@ module Domain = struct
     then Some (Hashtbl.find cache domid)
     else
       try
+        let path = Printf.sprintf "/local/domain/%d" domid in
         let di = Xenctrl.domain_getinfo xc domid in
-        let d = { path = Printf.sprintf "/local/domain/%d" domid;
-                  hvm = di.Xenctrl.hvm_guest;
-                  maxmem = maxmem_of_dominfo di;
+        let domain_type = get_domain_type path di in
+        let d = { path;
+                  domain_type;
+                  maxmem = maxmem_of_dominfo di domain_type;
                   keys = Hashtbl.create 10 } in
         Hashtbl.replace cache domid d;
         Some d
@@ -248,9 +270,9 @@ module Domain = struct
         ) () in
     ()
 
-  let get_hvm cnx domid =
+  let get_domain_type cnx domid =
     Mutex.execute m (fun () ->
-        Opt.default false (Opt.map (fun d -> d.hvm) (get_per_domain cnx domid))
+        Opt.default `pv (Opt.map (fun d -> d.domain_type) (get_per_domain cnx domid))
       )
 
   let get_maxmem cnx domid =
@@ -355,7 +377,7 @@ module Domain = struct
 
   (** Set a domain's maxmem. Don't throw an exception if the domain has been destroyed *)
   let set_maxmem_noexn cnx domid target_kib =
-    let maxmem_kib = xen_max_offset_kib (get_hvm cnx domid) +* target_kib in
+    let maxmem_kib = xen_max_offset_kib (get_domain_type cnx domid) +* target_kib in
     set_maxmem_noexn cnx domid maxmem_kib
 
   (** Return true if feature_balloon has been advertised *)
@@ -443,15 +465,18 @@ let make_host ~verbose ~xc =
       (List.map
          (fun di ->
             try
+              let domain_type = Domain.get_domain_type cnx di.Xenctrl.domid in
               let memory_actual_kib = Xenctrl.pages_to_kib (Int64.of_nativeint di.Xenctrl.total_memory_pages) in
               let memory_shadow_kib =
-                if di.Xenctrl.hvm_guest then
-                  try
+                match domain_type with
+                | `hvm | `pv_in_pvh ->
+                  (try
                     Memory.kib_of_mib (Int64.of_int (Xenctrl.shadow_allocation_get xc di.Xenctrl.domid))
-                  with _ -> 0L
-                else 0L in
+                  with _ -> 0L)
+                | `pv -> 0L
+              in
               (* dom0 is special for some reason *)
-              let memory_max_kib = if di.Xenctrl.domid = 0 then 0L else Domain.maxmem_of_dominfo di in
+              let memory_max_kib = if di.Xenctrl.domid = 0 then 0L else Domain.maxmem_of_dominfo di domain_type in
               let can_balloon = Domain.get_feature_balloon cnx di.Xenctrl.domid in
               let has_guest_agent = Domain.get_guest_agent cnx di.Xenctrl.domid in
               let has_booted = can_balloon || has_guest_agent in
