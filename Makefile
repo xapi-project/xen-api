@@ -1,33 +1,31 @@
-BINDIR?=/usr/sbin
-MANDIR?=/usr/share/man
+BINDIR=/usr/sbin
+MANDIR=/usr/share/man
 
-.PHONY: install uninstall clean test
+.PHONY: release build install uninstall clean doc reindent
 
-all: main.native main.1
+release:
+	jbuilder build @install
 
-main.native: setup.data version.ml main.ml
-	ocaml setup.ml -build
+build:
+	jbuilder build @install --dev
 
-setup.data: _oasis
-	ocaml setup.ml -configure
-
-version.ml: VERSION
-	echo "let version = \"$(shell cat VERSION)\"" > version.ml
-
-main.1: main.native
-	./main.native --help=groff > main.1
-
-install: main.native main.1
-	install -m 0755 main.native ${BINDIR}/xapi-storage-script
-	mkdir -p ${MANDIR}/man1
-	install -m 0644 main.1 ${MANDIR}/man1/xapi-storage-script.1
+install:
+	install -m 0755 _build/install/default/bin/xapi-storage-script $(BINDIR)
+	install -m 0644 _build/install/default/man/man8/xapi-storage-script.8 $(MANDIR)/man8
 
 uninstall:
-	rm -f ${BINDIR}/xapi-storage-script
-	rm -f ${MANDIR}/man1/xapi-storage-script.1
-
-test:
-	@echo No tests implemented yet
+	rm -f $(BINDIR)/xapi-storage-script
+	rm -f $(MANDIR)/man8/xapi-storage-script.8*
 
 clean:
-	rm -rf _build setup.data main.1 version.ml
+	jbuilder clean
+
+# requires odoc
+doc:
+	jbuilder build @doc
+
+reindent:
+	git ls-files '*.ml*' | xargs ocp-indent --syntax cstruct -i
+
+
+.DEFAULT_GOAL := release

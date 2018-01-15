@@ -40,7 +40,7 @@ let warn  fmt = log Core.Syslog.Level.WARNING fmt
 let error fmt = log Core.Syslog.Level.ERR     fmt
 
 module RRD = struct
-  open Protocol_async
+  open Message_switch_async.Protocol_async
 
   let (>>|=) m f = m >>= function
     | `Ok x -> f x
@@ -923,7 +923,7 @@ let get_ok = function
   | `Error e ->
     let b = Buffer.create 16 in
     let fmt = Format.formatter_of_buffer b in
-    Protocol_unix.Server.pp_error fmt e;
+    Message_switch_unix.Protocol_unix.Server.pp_error fmt e;
     Format.pp_print_flush fmt ();
     failwith (Buffer.contents b)
 
@@ -939,7 +939,7 @@ let watch_volume_plugins ~root_dir ~switch_path ~pipe =
       then return ()
       else begin
         info "Adding %s" name;
-        Protocol_async.Server.listen ~process:(process root_dir name) ~switch:switch_path ~queue:(Filename.basename name) ()
+        Message_switch_async.Protocol_async.Server.listen ~process:(process root_dir name) ~switch:switch_path ~queue:(Filename.basename name) ()
         >>= fun result ->
         let server = get_ok result in
         Hashtbl.add_exn servers name server;
@@ -949,7 +949,7 @@ let watch_volume_plugins ~root_dir ~switch_path ~pipe =
     info "Removing %s" name;
     if Hashtbl.mem servers name then begin
       let t = Hashtbl.find_exn servers name in
-      Protocol_async.Server.shutdown ~t () >>= fun () ->
+      Message_switch_async.Protocol_async.Server.shutdown ~t () >>= fun () ->
       Hashtbl.remove servers name;
       return ()
     end else return () in
@@ -1048,7 +1048,7 @@ let main ~root_dir ~state_path ~switch_path =
       return ()
     | Error x ->
       error "main thread failed with %s" (Exn.to_string x);
-      Clock.after (Time.Span.of_sec 5.) >>= fun () -> 
+      Clock.after (Time.Span.of_sec 5.) >>= fun () ->
       loop () in
   loop ()
 
@@ -1107,7 +1107,7 @@ let _ =
         return ()
       | Error x ->
         error "main thread failed with %s" (Exn.to_string x);
-        Clock.after (Time.Span.of_sec 5.) >>= fun () -> 
+        Clock.after (Time.Span.of_sec 5.) >>= fun () ->
         loop () in
     loop () in
   never_returns (Scheduler.go ())

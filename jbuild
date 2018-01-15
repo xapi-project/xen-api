@@ -1,0 +1,72 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+
+let version =
+  let ic = open_in "./VERSION" in
+  let version = input_line ic in
+  close_in ic;
+  version
+
+let flags = function
+  | [] -> ""
+  | pkgs ->
+    let cmd = "ocamlfind ocamlc -verbose" ^ (
+        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+      ) in
+    let ic = Unix.open_process_in
+        (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
+    in
+    let rec go ic acc =
+      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+    in
+    go ic ""
+
+
+let rewriters = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
+let flags = flags rewriters
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(jbuild_version 1)
+
+(rule (
+  (targets (version.ml))
+  (deps ())
+  (action (
+    with-stdout-to ${@} (echo "let version = \"%s\"\n")
+  ))
+))
+
+(executable (
+  (name main)
+  (public_name xapi-storage-script)
+  (flags (:standard -w -39 %s))
+  (libraries (
+    xcp
+    xcp.storage
+    xcp.rrd
+    async_inotify
+    threads
+    message-switch-unix
+    message-switch-async
+    rpclib
+    xapi-storage
+    sexplib
+  ))
+))
+
+(rule (
+  (targets (xapi-storage-script.8))
+  (deps (main.exe))
+  (action (
+    with-stdout-to ${@} (run ${<} --help=groff)
+  ))
+))
+
+(install (
+  (section man)
+  (files (
+    (xapi-storage-script.8 as man8/xapi-storage-script.8)
+  ))
+))
+|} version flags
