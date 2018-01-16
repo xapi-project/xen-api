@@ -14,6 +14,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (libraries (
    xapi-datamodel
    xapi-consts
+   xapi-stdext-unix
+   xapi-stdext-std
   ))
   %s
  )

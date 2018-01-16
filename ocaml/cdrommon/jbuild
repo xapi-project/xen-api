@@ -19,7 +19,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    threads
    unix
    xapi-stdext-unix
-   xcp-inventory
   ))
   %s
  )

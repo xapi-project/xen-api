@@ -14,15 +14,13 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (public_name mpathalert)
   (package xapi)
   (libraries (
-    xml-light2
-    stdext
-    stunnel
     http-svr
-    xcp
-    rpclib
-    uuid
     threads
+    uuid
     xapi-client
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
   ))
   %s
  )

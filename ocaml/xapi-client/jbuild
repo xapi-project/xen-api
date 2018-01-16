@@ -21,6 +21,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (public_name xapi-client)
   (libraries (
    xapi-types
+   xapi-stdext-date
   ))
   (wrapped false)
   %s

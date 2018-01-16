@@ -11,5 +11,6 @@ depends: [
   "jbuilder" {build & >= "1.0+beta11"}
   "xapi-datamodel"
   "xapi-types"
+  "xapi-stdext-date"
 ]
 

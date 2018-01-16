@@ -14,7 +14,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (public_name xsh)
   (package xapi)
   (libraries (
-   stdext
    stunnel
    threads
   ))

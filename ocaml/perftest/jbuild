@@ -14,15 +14,18 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (public_name perftest)
   (package xapi)
   (libraries (
-    xml-light2
-    stdext
-    stunnel
     http-svr
-    xcp
     rpclib
-    uuid
     threads
+    xapi-consts
     xapi-client
+    xapi-datamodel
+    xapi-stdext-pervasives
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xcp
+    xml-light2
   ))
   %s
  )

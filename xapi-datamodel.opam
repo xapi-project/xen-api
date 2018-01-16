@@ -9,11 +9,14 @@ build: [[ "jbuilder" "build" "-p" name ]]
 
 depends: [
   "jbuilder" {build & >= "1.0+beta11"}
+  "mustache"
   "rpc"
-  "stdext"
   "xapi-consts"
   "xapi-database"
   "xapi-libs-transitional"
-  "xenstore"
-  "mustache"
+  "xapi-stdext-date"
+  "xapi-stdext-monadic"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-std"
+  "xapi-stdext-unix"
 ]

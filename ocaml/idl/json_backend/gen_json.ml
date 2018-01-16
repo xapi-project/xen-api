@@ -214,7 +214,7 @@ let json_of_objs objs =
   JArray (List.map (fun obj ->
       let fields, enums1 = fields_of_obj_with_enums obj in
       let messages, enums2 = messages_of_obj_with_enums obj in
-      let enums = Stdext.Listext.List.setify (enums1 @ enums2) in
+      let enums = Xapi_stdext_std.Listext.List.setify (enums1 @ enums2) in
       JObject [
         "name", JString obj.name;
         "description", JString obj.description;
@@ -303,7 +303,7 @@ let releases objs =
     JArray (List.map search_obj objs |> List.flatten |> List.sort compare_changes |> List.map jobject_of_change)
   in
   let release_info = JObject (List.map (fun rel -> code_name_of_release rel, changes_in_release rel) release_order) in
-  Stdext.Unixext.write_string_to_file ("release_info.json") (string_of_json 0 release_info)
+  Xapi_stdext_unix.Unixext.write_string_to_file ("release_info.json") (string_of_json 0 release_info)
 
 let _ =
   let api = Datamodel.all_api in
@@ -315,6 +315,6 @@ let _ =
   let api = filter (fun _ -> true) (fun f -> not f.internal_only) (fun m -> not m.msg_hide_from_docs) api in
 
   let objs = objects_of_api api in
-  Stdext.Unixext.write_string_to_file "xenapi.json" (objs |> json_of_objs |> string_of_json 0);
+  Xapi_stdext_unix.Unixext.write_string_to_file "xenapi.json" (objs |> json_of_objs |> string_of_json 0);
   releases objs
 

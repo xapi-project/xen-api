@@ -14,11 +14,9 @@
 (* Tests *)
 
 open Client
-open Stdext
-open Listext
-open Threadext
-open Xstringext
-open Pervasiveext
+open Xapi_stdext_std
+open Xapi_stdext_threads.Threadext
+open Xapi_stdext_pervasives.Pervasiveext
 open Testtypes
 open Perfdebug
 
@@ -43,7 +41,7 @@ let subtest_string key tag =
 let startall rpc session_id test =
   let vms = Client.VM.get_all_records rpc session_id in
   let tags = List.map (fun (vm,vmr) -> vmr.API.vM_tags) vms in
-  let tags = List.setify (List.flatten tags) in
+  let tags = Listext.List.setify (List.flatten tags) in
   List.map
     (fun tag ->
        debug "Starting VMs with tag: %s" tag;
@@ -181,7 +179,7 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
 let parallel async_op opname n rpc session_id test =
   let vms = Client.VM.get_all_records rpc session_id in
   let tags = List.map (fun (vm,vmr) -> vmr.API.vM_tags) vms in
-  let tags = List.setify (List.flatten tags) in
+  let tags = Listext.List.setify (List.flatten tags) in
   Printf.printf "Tags are [%s]\n%!" (String.concat "; " tags);
   List.map (fun tag ->
       let vms = List.filter (fun (vm,vmr) -> List.mem tag vmr.API.vM_tags) vms in
@@ -195,7 +193,7 @@ let parallel_stopall = parallel Client.Async.VM.hard_shutdown "stop"
 let stopall rpc session_id test =
   let vms = Client.VM.get_all_records rpc session_id in
   let tags = List.map (fun (vm,vmr) -> vmr.API.vM_tags) vms in
-  let tags = List.setify (List.flatten tags) in
+  let tags = Listext.List.setify (List.flatten tags) in
   List.map (fun tag ->
       debug "Starting VMs with tag: %s" tag;
       let vms = List.filter (fun (vm,vmr) -> List.mem tag vmr.API.vM_tags) vms in
@@ -214,7 +212,7 @@ let clone num_clones rpc session_id test =
   Printf.printf "Doing clone test\n%!";
   let vms = Client.VM.get_all_records rpc session_id in
   let tags = List.map (fun (vm,vmr) -> vmr.API.vM_tags) vms in
-  let tags = List.setify (List.flatten tags) in
+  let tags = Listext.List.setify (List.flatten tags) in
   Printf.printf "Tags are [%s]\n%!" (String.concat "; " tags);
   List.flatten (List.map (fun tag ->
       let vms = List.filter (fun (vm,vmr) -> List.mem tag vmr.API.vM_tags) vms in

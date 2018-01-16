@@ -13,7 +13,6 @@
  *)
 
 (** Generate OCaml code to access the backend database *)
-open Stdext.Listext
 
 module O = Ocaml_syntax
 module OU = Ocaml_utils

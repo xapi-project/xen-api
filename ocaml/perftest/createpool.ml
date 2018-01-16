@@ -15,10 +15,7 @@
 
 open Client
 open Perfutil
-open Stdext
-open Listext
-open Pervasiveext
-open Xstringext
+open Xapi_stdext_std
 open Scenario
 open Perfdebug
 
@@ -226,7 +223,7 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
   let pingable = Array.make (Array.length hosts) false in
   let firstboot = Array.make (Array.length hosts) false in
   let string_of_status () =
-    String.implode
+    Xstringext.String.implode
       (Array.to_list
          (Array.mapi (fun i ping ->
               let boot = firstboot.(i) in match ping, boot with
@@ -250,7 +247,7 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
         let rpc = remoterpc ip in
         try
           let s = Client.Session.login_with_password rpc "root" "xensource" "1.1" "perftest" in
-          finally
+          Xapi_stdext_pervasives.Pervasiveext.finally
             (fun () ->
                let host = List.hd (Client.Host.get_all rpc s) in (* only one host because it hasn't joined the pool yet *)
                let other_config = Client.Host.get_other_config rpc s host in
@@ -306,7 +303,7 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
   let live = Array.make (Array.length hosts) false in
   let enabled = Array.make (Array.length hosts) false in
   let string_of_status () =
-    String.implode
+    Xstringext.String.implode
       (Array.to_list
          (Array.mapi (fun i live ->
               let enabled = enabled.(i) in match live, enabled with
@@ -383,7 +380,7 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
       Client.Network.create poolrpc poolses (Printf.sprintf "Network associated with bond%d" i) "" 1500L [] "" true [])
   in
 
-  let unused_nets = ref (List.setify (List.map (fun pif -> Client.PIF.get_network poolrpc poolses pif) pifs)) in
+  let unused_nets = ref (Listext.List.setify (List.map (fun pif -> Client.PIF.get_network poolrpc poolses pif) pifs)) in
 
   (* Reconfigure the master's networking last as this will be the most destructive *)
   let master_uuid = Client.Host.get_uuid poolrpc poolses master in

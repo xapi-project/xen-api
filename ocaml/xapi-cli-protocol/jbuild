@@ -13,8 +13,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name xapi_cli_protocol)
   (public_name xapi-cli-protocol)
   (libraries (
-   stdext
    threads
+   xapi-stdext-unix
   ))
   (wrapped false)
   %s

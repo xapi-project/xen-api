@@ -14,7 +14,6 @@
 (* Utilities for performance monitor *)
 
 open Client
-open Stdext.Xstringext
 
 let rpc xml =
   let open Xmlrpc_client in
@@ -52,7 +51,7 @@ let parse_sr_probe_for_iqn (xml: string) : string list =
       | Xml.Element("TGT", _, children) ->
         let parse_kv = function
           | Xml.Element(key, _, [ Xml.PCData v ]) ->
-            key, String.strip String.isspace v (* remove whitespace at both ends *)
+            key, String.trim v
           | _ -> failwith "Malformed key/value pair" in
         let all = List.map parse_kv children in
         List.assoc "TargetIQN" all
@@ -67,7 +66,7 @@ let parse_sr_probe_for_scsiids (xml : string) : string list =
       | Xml.Element("LUN", _, children) ->
         let parse_kv = function
           | Xml.Element(key, _, [ Xml.PCData v ]) ->
-            key, String.strip String.isspace v (* remove whitespace at both ends *)
+            key, String.trim v
           | _ -> failwith "Malformed key/value pair" in
         let all = List.map parse_kv children in
         List.assoc "SCSIid" all

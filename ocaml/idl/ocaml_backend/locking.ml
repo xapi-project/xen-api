@@ -16,7 +16,6 @@
    These functions are called by used to statically determine which locks we should acquire when
     autogenerating server functor.
    --------------------------------------------------------------------------------------------- *)
-open Stdext.Listext
 
 module DT = Datamodel_types
 module DM = Datamodel
@@ -87,4 +86,4 @@ let of_message (obj: obj) (x: message) =
       (* Lock the session and the "self" parameter (NB not every message has a self, eg login) *)
       let self_lock = try [ this_class, DU.find_self_parameter x ] with _ -> [] in
       session @ self_lock
-  in List.setify all
+  in Xapi_stdext_std.Listext.List.setify all

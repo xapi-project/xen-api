@@ -11,9 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext
-open Pervasiveext
-open Listext
+
 open Perfdebug
 open Graphutil
 
@@ -42,7 +40,7 @@ let _ =
   let output_files = List.map (fun _ -> Filename.temp_file "cumulative" "dat") inputs in
   let all = List.combine inputs output_files in
 
-  finally
+  Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
        let max_readings = ref 0 in
 
@@ -53,6 +51,7 @@ let _ =
 
             max_readings := max num_points !max_readings;
 
+            let open Xapi_stdext_unix in
             Unixext.with_file output_file [ Unix.O_WRONLY; Unix.O_TRUNC; Unix.O_CREAT ] 0o644
               (fun fd ->
                  let points_array = Array.of_list (List.rev points) in
@@ -87,5 +86,5 @@ let _ =
              | `X11 -> Gnuplot.X11 in
            ignore (Gnuplot.render g output)
          ) (get_result_types inputs)
-    ) (fun () -> List.iter (fun f -> Unixext.unlink_safe f) output_files)
+    ) (fun () -> List.iter (fun f -> Xapi_stdext_unix.Unixext.unlink_safe f) output_files)
 

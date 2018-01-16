@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext.Xstringext
 open Datamodel_types
 open Printf
 
@@ -32,7 +31,7 @@ let constructor_of string =
       'A'..'Z' | 'a'..'z' | '0'..'9' | '_' as c -> String.make 1 c
     | _ -> "" in
   let string = if List.mem string keywords then "_" ^ string else string in
-  let list = match String.explode string with
+  let list = match Xapi_stdext_std.Xstringext.String.explode string with
       '0'..'9' :: _ as list -> "`_" :: List.map remove_non_alphanum list
     | list -> "`" :: List.map remove_non_alphanum list in
   String.concat "" list

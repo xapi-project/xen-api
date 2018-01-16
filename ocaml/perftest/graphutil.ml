@@ -11,10 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext
-open Xstringext
-open Pervasiveext
-open Listext
+open Xapi_stdext_std
+open Xapi_stdext_unix
 open Testtypes
 open Perfdebug
 
@@ -46,7 +44,7 @@ let info_from_raw_result ?(separate=false) file result : info list =
 
 let floats_from_file fname =
   let floats = ref [] in
-  Unixext.readfile_line (fun line -> floats := float_of_string (String.strip String.isspace line) :: !floats) fname;
+  Unixext.readfile_line (fun line -> floats := float_of_string (String.trim line) :: !floats) fname;
   !floats
 
 let get_info ?(separate=false) files : info list =
@@ -91,5 +89,5 @@ let string_of_result = function
   | "parallel_startall" -> "parallel VM.start"
   | "parallel_stopall"  -> "parallel VM.stop"
   | "clone"             -> "parallel VM.clone"
-  | s when (String.startswith "clone-" s) -> "parallel VM.clone"
+  | s when (Xstringext.String.startswith "clone-" s) -> "parallel VM.clone"
   | _ -> "???"

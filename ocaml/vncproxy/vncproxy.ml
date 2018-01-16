@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext.Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Client
 
 let _ =
@@ -56,7 +56,7 @@ let _ =
   Unix.chdir "/";
   ignore (Unix.umask 0);
 
-  Stdext.Unixext.close_all_fds_except [ sock ];
+  Xapi_stdext_unix.Unixext.close_all_fds_except [ sock ];
 
   let s, _ = Unix.accept sock in
 
@@ -89,7 +89,7 @@ let _ =
          (with_http http
             (fun (response, fd) ->
                (* NB this will double-close [fd] *)
-               Stdext.Unixext.proxy s fd
+               Xapi_stdext_unix.Unixext.proxy s fd
             )
          )
     ) (fun () -> Client.Session.logout rpc session_id)

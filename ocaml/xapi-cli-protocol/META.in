@@ -1,5 +1,0 @@
-version = "@VERSION@"
-description = "XenAPI cli protocol code"
-requires = "stdext"
-archive(byte) = "xapi-types.cma"
-archive(native) = "xapi-types.cmxa"
