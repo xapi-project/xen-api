@@ -83,7 +83,7 @@ let rec read_rest_of_headers ic =
     if r="" then [] else
       begin
         debug "read '%s'\n" r;
-        let hdr = List.find (fun s -> String.startswith (s^": ") (String.lowercase r)) hdrs in
+        let hdr = List.find (fun s -> String.startswith (s^": ") (String.lowercase_ascii r)) hdrs in
         let value = end_of_string r (String.length hdr + 2) in
         (hdr,value)::read_rest_of_headers ic
       end
@@ -303,7 +303,7 @@ let handle_unmarshal_failure ex ifd = match ex with
   | Unmarshal_failure (e, s) ->
     let s = s ^ Xapi_stdext_unix.Unixext.try_read_string ifd in
     debug "Read: %s\n" s;
-    if String.length s >= 4 && String.uppercase (String.sub s 0 4) = "HTTP"
+    if String.length s >= 4 && String.uppercase_ascii (String.sub s 0 4) = "HTTP"
     then raise Server_internal_error
     else raise e
   | e -> raise e

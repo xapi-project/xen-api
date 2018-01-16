@@ -25,7 +25,7 @@ module Rrdd = Rrd_client.Client
 
 let assoc_opt key assocs = Opt.of_exception (fun () -> List.assoc key assocs)
 let bool_of_assoc key assocs = match assoc_opt key assocs with
-  | Some v -> v = "1" || String.lowercase v = "true"
+  | Some v -> v = "1" || String.lowercase_ascii v = "true"
   | _ -> false
 
 (** Given an operation, [allowed_power_states] returns all the possible power state for
@@ -239,27 +239,50 @@ let check_pci ~op ~ref_str =
   | _ -> None
 
 let check_vgpu ~__context ~op ~ref_str ~vgpus =
+  let vgpu_migration_enabled () =
+    let pool = Helpers.get_pool ~__context in
+    let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
+    try
+      List.assoc "restrict_vgpu_migration" restrictions = "false"
+    with Not_found -> false
+  in
+  let is_migratable vgpu =
+    try
+      (* Prevent VMs with VGPU from being migrated from pre-Jura to Jura and later hosts during RPU *)
+      let host_from = Db.VGPU.get_VM ~__context ~self:vgpu
+        |> fun vm -> Db.VM.get_resident_on ~__context ~self:vm
+        |> fun host -> Helpers.LocalObject host
+      in
+      (* true if platform version of host_from more than inverness' 2.4.0 *)
+      Helpers.(compare_int_lists (version_of ~__context host_from) platform_version_inverness) > 0
+    with e ->
+      begin
+        debug "is_migratable: %s" (ExnHelper.string_of_exn e);
+        (* best effort: yes if not possible to decide *)
+        true
+      end
+  in
+  let is_suspendable vgpu =
+    Db.VGPU.get_type ~__context ~self:vgpu
+    |> fun self -> Db.VGPU_type.get_implementation ~__context ~self
+    |> function
+    | `nvidia ->
+      let pgpu = Db.VGPU.get_resident_on ~__context ~self:vgpu in
+      Db.is_valid_ref __context pgpu &&
+      (Db.PGPU.get_compatibility_metadata ~__context ~self:pgpu
+        |> List.mem_assoc Xapi_gpumon.Nvidia.key)
+    | _ -> false
+  in
   match op with
-  | `pool_migrate | `migrate_send | `suspend | `checkpoint -> begin
-      let vgpu_migration_enabled =
-        let pool = Helpers.get_pool ~__context in
-        let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
-        try
-          List.assoc "restrict_vgpu_migration" restrictions = "false"
-        with Not_found -> false
-      in
-      let all_nvidia_vgpus =
-        List.fold_left
-          (fun acc vgpu ->
-             let vgpu_type = Db.VGPU.get_type ~__context ~self:vgpu in
-             let implementation =
-               Db.VGPU_type.get_implementation ~__context ~self:vgpu_type in
-             acc && (implementation = `nvidia))
-          true vgpus
-      in
-      if vgpu_migration_enabled && all_nvidia_vgpus then None
-      else Some (Api_errors.vm_has_vgpu, [ref_str])
-    end
+  | `pool_migrate | `migrate_send
+    when vgpu_migration_enabled ()
+      && List.for_all is_migratable  vgpus
+      && List.for_all is_suspendable vgpus -> None
+  | `suspend
+    when vgpu_migration_enabled ()
+      && List.for_all is_suspendable vgpus -> None
+  | `pool_migrate | `migrate_send | `suspend | `checkpoint ->
+    Some (Api_errors.vm_has_vgpu, [ref_str])
   | _ -> None
 
 (* VM cannot be converted into a template while it is a member of an appliance. *)
@@ -583,16 +606,13 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
            (Pvs_proxy_control.find_proxy_for_vif ~__context ~vif))
       (Db.VM.get_VIFs ~__context ~self);
     List.iter
-      (fun vgpu ->
-         Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:false;
-         Db.VGPU.set_resident_on ~__context ~self:vgpu ~value:Ref.null;
-         Db.VGPU.set_scheduled_to_be_resident_on
-           ~__context ~self:vgpu ~value:Ref.null)
-      (Db.VM.get_VGPUs ~__context ~self);
-    List.iter
       (fun pci ->
          Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self)
       (Db.VM.get_attached_PCIs ~__context ~self);
+    List.iter
+      (fun vgpu ->
+         Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:false)
+      (Db.VM.get_VGPUs ~__context ~self);
     List.iter
       (fun pci ->
          (* The following should not be necessary if many-to-many relations in the DB
@@ -619,7 +639,14 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
     Db.VM.set_resident_on ~__context ~self ~value:Ref.null;
     (* make sure we aren't reserving any memory for this VM *)
     Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null;
-    Db.VM.set_domid ~__context ~self ~value:(-1L)
+    Db.VM.set_domid ~__context ~self ~value:(-1L);
+
+    (* release vGPUs associated with VM *)
+    Db.VM.get_VGPUs ~__context ~self
+    |> List.iter (fun vgpu ->
+        Db.VGPU.set_resident_on ~__context ~self:vgpu ~value:Ref.null;
+        Db.VGPU.set_scheduled_to_be_resident_on
+          ~__context ~self:vgpu ~value:Ref.null)
   end;
 
   Db.VM.set_power_state ~__context ~self ~value:state;

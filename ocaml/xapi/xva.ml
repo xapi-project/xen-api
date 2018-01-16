@@ -29,7 +29,7 @@ exception Parse_failure of string
 exception Version_mismatch
 
 type variety = [ `system | `ephemeral | `user | `suspend | `crashdump | `ha_statefile | `metadata ]
-let variety_of_string x = match (String.lowercase x) with
+let variety_of_string x = match (String.lowercase_ascii x) with
   | "system" -> `system | "ephemeral" -> `ephemeral | "user" -> `user | "suspend" -> `suspend | "crashdump" -> `crashdump | "metadata" -> `metadata
   | x -> raise (Parse_failure (Printf.sprintf "Unknown variety: %s" x))
 let string_of_variety = function
@@ -42,13 +42,13 @@ type vdi = { vdi_name: string;
              variety: variety }
 
 type funct = Root | Unknown
-let funct_of_string x = match (String.lowercase x) with
+let funct_of_string x = match (String.lowercase_ascii x) with
   | "root" -> Root | _ -> Unknown
 let string_of_funct = function
   | Root -> "root" | _ -> "unknown"
 
 type mode = [ `RO | `RW ]
-let mode_of_string x = match (String.lowercase x) with
+let mode_of_string x = match (String.lowercase_ascii x) with
   | "rw" | "w" -> `RW | "r" -> `RO | x -> raise (Parse_failure (Printf.sprintf "Unknown mode: %s" x))
 let string_of_mode = function
   | `RW -> "rw" | `RO -> "r"
@@ -188,7 +188,7 @@ let parse_appliance attrs children =
         description = description;
         memory = Int64.of_string memory;
         vcpus = int_of_string vcpus;
-        is_hvm = (String.lowercase is_hvm) = "true";
+        is_hvm = (String.lowercase_ascii is_hvm) = "true";
         kernel_boot_cmdline = cmdline;
         vbds = vbds;
         distrib = distrib;

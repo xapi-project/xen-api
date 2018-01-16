@@ -202,6 +202,35 @@ module Intersect = Generic.Make (struct
   end)
 
 
+module Equality = Generic.Make (struct
+    module Io = struct
+      type input_t = int64 array * int64 array
+      type output_t = bool
+      let string_of_input_t = Test_printers.(pair (array int64) (array int64))
+      let string_of_output_t = Test_printers.bool
+    end
+
+    let transform = fun (a, b) ->
+      Cpuid_helpers.(is_equal a b)
+
+    let tests = [
+      ([| |], [| |]),            true;
+      ([| 1L; 2L; 3L |], [| 1L; 2L; 3L |]), true;
+      ([| 1L; 2L; 3L |], [| |]), false;
+      ([| |], [| 1L; 2L; 3L |]), false;
+
+      ([| 7L; 0L |], [| 7L; |]), true;
+      ([| 7L; |], [| 7L; 0L |]), true;
+      ([| 7L; 1L; 0L |], [| 7L; 1L |]), true;
+
+      ([| 7L; 1L |], [| 7L; 1L |]), true;
+      ([| 7L; 1L |], [| 7L; |]), false;
+      ([| 7L; |],    [| 7L; 1L |]), false;
+      ([| 1L; 7L |], [| 7L; 1L |]), false;
+    ]
+  end)
+
+
 module Comparisons = Generic.Make (struct
     module Io = struct
       type input_t = int64 array * int64 array
@@ -214,21 +243,28 @@ module Comparisons = Generic.Make (struct
       Cpuid_helpers.(is_subset a b, is_strict_subset a b)
 
     let tests = [
-      (* Some of this behaviour is counterintuitive because
-                       feature flags are automatically zero-extended when
-                       compared *)
+      (* The following are counterintuitive, because intersection with the empty
+       * set is treated as identity, and intersection is used in is_subset.
+       * Since there are no empty feature sets in reality, these are artificial
+       * scenarios. *)
       ([| |], [| |]),            (true, false);
       ([| 1L; 2L; 3L |], [| |]), (true, true);
       ([| |], [| 1L; 2L; 3L |]), (false, false);
 
+      (* Note that feature flags are automatically zero-extended when compared.
+       * These tests are relevant in upgrade scenarios, if new CPUID leaves are
+       * introduced. *)
       ([| 7L; 3L |], [| 5L; |]), (false, false);
-      ([| 5L; |], [| 7L; 3L |]), (false, false);
+      ([| 5L; |], [| 7L; 3L |]), (true, true);
 
       ([| 1L |],     [| 1L |]),     (true, false);
-      ([| 1L |],     [| 1L; 0L |]), (false, false);
-      ([| 1L; 0L |], [| 1L |]),     (true, true);
+      ([| 1L |],     [| 1L; 0L |]), (true, false);
+      ([| 1L; 0L |], [| 1L |]),     (true, false);
 
-      (features_of_string "07cbfbff-04082201-20100800-00000001-00000000-00000000-00000000-00000000-00000000", features_of_string "07c9cbf5-80082201-20100800-00000001-00000000-00000000-00000000-00000000-00000000"), (false, false);
+      (* Below are the more common cases *)
+      (features_of_string "07cbfbff-04082201-20100800-00000001-00000000-00000000-00000000-00000000-00000000",
+       features_of_string "07c9cbf5-80082201-20100800-00000001-00000000-00000000-00000000-00000000-00000000"),
+       (false, false);
 
       ([| 0b00000000L |], [| 0b11111111L |]), (true, true);
       ([| 0b11111111L |], [| 0b11111111L |]), (true, false);
@@ -492,6 +528,8 @@ let test =
     ZeroExtend.tests;
     "test_intersect" >:::
     Intersect.tests;
+    "test_equality" >:::
+    Equality.tests;
     "test_comparisons" >:::
     Comparisons.tests;
     "test_accessors" >:::

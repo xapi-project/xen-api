@@ -57,6 +57,7 @@ let rel_ely = "ely"
 let rel_falcon = "falcon"
 let rel_honolulu = "honolulu"
 let rel_inverness = "inverness"
+let rel_jura = "jura"
 let rel_kolkata = "kolkata"
 
 type api_release = {
@@ -194,6 +195,11 @@ let release_order_full = [{
      version_minor = 8;
      branding   = "XenServer 7.3";
    }; {
+    code_name     = Some rel_jura;
+    version_major = 2;
+    version_minor = 9;
+    branding   = "XenServer 7.4";
+  }; {
      code_name     = Some rel_kolkata;
      version_major = 2;
      version_minor = 10;

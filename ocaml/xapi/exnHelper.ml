@@ -25,7 +25,7 @@ open D
 let error_of_exn e =
   match e with
   | Stunnel.Stunnel_error msg ->
-    internal_error, [ "Connection failed: " ^ (String.lowercase msg) ^ "." ]
+    internal_error, [ "Connection failed: " ^ (String.lowercase_ascii msg) ^ "." ]
   | Db_exn.DBCache_NotFound ("missing reference", tblname, reference) ->
     (* whenever a reference has been destroyed *)
     handle_invalid, [tblname; reference ]

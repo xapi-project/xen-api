@@ -32,7 +32,7 @@ let wire_name_of_operation ~sync operation =
   (if sync
    then ""
    else "Async.") ^
-  String.capitalize ((obj_of_operation operation).DT.name) ^ "." ^
+  String.capitalize_ascii ((obj_of_operation operation).DT.name) ^ "." ^
   (match operation with
    | Field(op, obj, fld) ->
      (match op with

@@ -1,3 +1,14 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (executable
  ((name vncproxy)
   (public_name vncproxy)
@@ -8,5 +19,6 @@
    xapi-stdext-unix
    xapi-stdext-pervasives
   ))
+  %s
  )
-)
+) |} coverage_rewriter

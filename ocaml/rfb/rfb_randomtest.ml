@@ -31,7 +31,7 @@ let server (s: Unix.file_descr) =
     | Request.FrameBufferUpdateRequest _ ->
       if not(!started) then begin
         (* Update the whole thing *)
-        let buffer = String.create (w * h * !bpp / 8) in
+        let buffer = Bytes.create (w * h * !bpp / 8) in
         for i = 0 to String.length buffer - 1 do
           buffer.[i] <- char_of_int (Random.int 255)
         done;

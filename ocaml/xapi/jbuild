@@ -17,6 +17,13 @@ let flags = function
 
 let rewriters = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
 
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (rule
  ((targets (server.ml))
@@ -77,7 +84,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    sha
    tar
    tar.unix
-   tapctl
+   xapi-tapctl
    x509
    xapi_version
    xapi-types
@@ -100,10 +107,10 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    xcp.updates
    rrdd-plugin
    xapi-xenopsd
-   netdev
+   xapi-netdev
    yojson
   ))
- )
+  %s)
 )
 
 (alias
@@ -112,4 +119,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (action (run ${<} -runner sequential -verbose true))
  )
 )
-|} (flags rewriters)
+|} (flags rewriters) coverage_rewriter

@@ -128,7 +128,7 @@ let scanning_thread () = Debug.with_thread_named "scanning_thread" (fun () ->
 (* introduce, creates a record for the SR in the database. It has no other side effect *)
 let introduce  ~__context ~uuid ~name_label
     ~name_description ~_type ~content_type ~shared ~sm_config =
-  let _type = String.lowercase _type in
+  let _type = String.lowercase_ascii _type in
   let uuid = if uuid="" then Uuid.to_string (Uuid.make_uuid()) else uuid in (* fill in uuid if none specified *)
   let sr_ref = Ref.make () in
   (* Create SR record in DB *)
@@ -171,7 +171,7 @@ let get_pbds ~__context ~self ~attached ~master_pos =
 
 let probe ~__context ~host ~device_config ~_type ~sm_config =
   debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
-  let _type = String.lowercase _type in
+  let _type = String.lowercase_ascii _type in
   let open Storage_interface in
   let open Storage_access in
 
@@ -201,11 +201,11 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 	    | Xml.Element("SRlist", _, children) -> ()
 	    | _ ->
 		(* Figure out what was missing, then throw the appropriate error *)
-		match String.lowercase _type with
+		match String.lowercase_ascii _type with
 		  | "lvmoiscsi" ->
-		      if not (List.exists (fun (s,_) -> "targetiqn" = String.lowercase s) device_config)
+		      if not (List.exists (fun (s,_) -> "targetiqn" = String.lowercase_ascii s) device_config)
 		      then raise (Api_errors.Server_error ("SR_BACKEND_FAILURE_96",["";"";probe_result]))
-		      else if not (List.exists (fun (s,_) -> "scsiid" = String.lowercase s) device_config)
+		      else if not (List.exists (fun (s,_) -> "scsiid" = String.lowercase_ascii s) device_config)
 		      then raise (Api_errors.Server_error ("SR_BACKEND_FAILURE_107",["";"";probe_result]))
 		  | _ -> ()
 	end;

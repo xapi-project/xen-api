@@ -250,7 +250,7 @@ module LiveSetInformation = struct
     type t = Online | Offline | Starting
 
     let of_string string =
-      match String.lowercase string with
+      match String.lowercase_ascii string with
       | "online" -> Some (Online)
       | "offline" -> Some (Offline)
       | "starting" -> Some Starting
@@ -286,7 +286,7 @@ module LiveSetInformation = struct
             with Not_found ->
               invalid_arg (Printf.sprintf "Missig entry '%s' within 'host' element" x) in
           let bool s =
-            try bool_of_string (String.lowercase s)
+            try bool_of_string (String.lowercase_ascii s)
             with Invalid_argument _ ->
               invalid_arg (Printf.sprintf "Invalid boolean value '%s' within 'host' element" s) in
 
@@ -323,7 +323,7 @@ module LiveSetInformation = struct
           with Not_found ->
             invalid_arg (Printf.sprintf "Missing entry '%s' within 'host_raw_data' element" x) in
         let int s =
-          try int_of_string (String.lowercase s)
+          try int_of_string (String.lowercase_ascii s)
           with Invalid_argument _ ->
             invalid_arg (Printf.sprintf "Invalid integer value '%s' within 'host_raw_data' element" s) in
         let uuid = Uuid.of_string in
@@ -391,7 +391,7 @@ module LiveSetInformation = struct
             with Not_found ->
               invalid_arg (Printf.sprintf "Missing entry '%s' within 'raw_status_on_local_host' element" x) in
           let int s =
-            try int_of_string (String.lowercase s)
+            try int_of_string (String.lowercase_ascii s)
             with Invalid_argument _ ->
               invalid_arg (Printf.sprintf "Invalid integer value '%s' within 'raw_status_on_local_host' element" s) in
           let host_raw_data = Hashtblext.of_list (

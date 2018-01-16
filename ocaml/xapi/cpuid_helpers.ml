@@ -50,7 +50,8 @@ let zero_extend arr len =
 (** Calculate the intersection of two feature sets.
  *  Intersection with the empty set is treated as identity, so that intersection
  *  can be folded easily starting with an accumulator of [||].
- *  If both sets are non-empty and of differing lengths, set is longer than the other, the shorter one is zero-extended to match it.
+ *  If both sets are non-empty and of differing lengths, and one set is longer
+ *  than the other, the shorter one is zero-extended to match it.
  *  The returned set is the same length as the longer of the two arguments.  *)
 let intersect left right =
   match left, right with
@@ -67,14 +68,19 @@ let intersect left right =
     done;
     out
 
+(** equality check that zero-extends if lengths differ *)
+let is_equal left right =
+  let len = max (Array.length left) (Array.length right) in
+  (zero_extend left len) = (zero_extend right len)
+
 (** is_subset left right returns true if left is a subset of right *)
 let is_subset left right =
-  intersect left right = left
+  is_equal (intersect left right) left
 
 (** is_strict_subset left right returns true if left is a strict subset of right
     (left is a subset of right, but left and right are not equal) *)
 let is_strict_subset left right =
-  (is_subset left right) && (left <> right)
+  (is_subset left right) && (not (is_equal left right))
 
 (** Field definitions for checked string map access *)
 let features_t   = Map_check.pickler features_of_string string_of_features

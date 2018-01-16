@@ -33,7 +33,7 @@ let pad_right x max_width =
   else x
 
 let compare_case_ins x y =
-  compare (String.lowercase x) (String.lowercase y)
+  compare (String.lowercase_ascii x) (String.lowercase_ascii y)
 
 let escape s =
   let open Xapi_stdext_std.Xstringext in
@@ -349,34 +349,57 @@ The following enumeration types are used:
 ## Error Handling
 
 When a low-level transport error occurs, or a request is malformed at the HTTP
-or XML-RPC level, the server may send an XML-RPC Fault response, or the client
-may simulate the same.  The client must be prepared to handle these errors,
-though they may be treated as fatal.  On the wire, these are transmitted in a
-form similar to this:
+or RPC level, the server may send an HTTP 500 error response, or the client
+may simulate the same. The client must be prepared to handle these errors,
+though they may be treated as fatal.
 
-```xml
-    <methodResponse>
-      <fault>
-        <value>
-          <struct>
-            <member>
-                <name>faultCode</name>
-                <value><int>-1</int></value>
-              </member>
-              <member>
-                <name>faultString</name>
-                <value><string>Malformed request</string></value>
-            </member>
-          </struct>
-        </value>
-      </fault>
-    </methodResponse>
+On the wire, these are transmitted in a form similar to this when using the
+XML-RPC protocol:
+
+```
+$curl -D - -X POST https://server -H 'Content-Type: application/xml' \\
+> -d '<?xml version=\"1.0\"?>
+> <methodCall>
+>   <methodName>session.logout</methodName>
+> </methodCall>'
+HTTP/1.1 500 Internal Error
+content-length: 297
+content-type:text/html
+connection:close
+cache-control:no-cache, no-store
+
+<html><body><h1>HTTP 500 internal server error</h1>An unexpected error occurred;
+ please wait a while and try again. If the problem persists, please contact your
+ support representative.<h1> Additional information </h1>Xmlrpc.Parse_error(&quo
+t;close_tag&quot;, &quot;open_tag&quot;, _)</body></html>
+```
+
+When using the JSON-RPC protocol:
+
+```
+$curl -D - -X POST https://server/jsonrpc -H 'Content-Type: application/json' \\
+> -d '{
+>     \"jsonrpc\": \"2.0\",
+>     \"method\": \"session.login_with_password\",
+>     \"id\": 0
+> }'
+HTTP/1.1 500 Internal Error
+content-length: 308
+content-type:text/html
+connection:close
+cache-control:no-cache, no-store
+
+<html><body><h1>HTTP 500 internal server error</h1>An unexpected error occurred;
+ please wait a while and try again. If the problem persists, please contact your
+ support representative.<h1> Additional information </h1>Jsonrpc.Malformed_metho
+d_request(&quot;{jsonrpc=...,method=...,id=...}&quot;)</body></html>
 ```
 
 All other failures are reported with a more structured error response, to
 allow better automatic response to failures, proper internationalisation of
-any error message, and easier debugging.  On the wire, these are transmitted
-like this:
+any error message, and easier debugging.
+
+On the wire, these are transmitted like this when using the XML-RPC protocol:
 
 ```xml
     <struct>
@@ -406,6 +429,34 @@ strings representing error parameters relating to that code.  In this case,
 the client has attempted to add the mapping _Customer &#45;&gt;
 eSpiel Incorporated_ to a Map, but it already contains the mapping
 _Customer &#45;&gt; eSpiel Inc._, and so the request has failed.
+
+When using the JSON-RPC protocol v2.0, the above error is transmitted as:
+
+```json
+{
+    \"jsonrpc\": \"2.0\",
+    \"error\": {
+        \"code\": 1,
+        \"message\": \"MAP_DUPLICATE_KEY\",
+        \"data\": [
+            \"Customer\",\"eSpiel Inc.\",\"eSpiel Incorporated\"
+        ]
+    },
+    \"id\": 3
+  }
+```
+
+Finally, when using the JSON-RPC protocol v1.0:
+
+```json
+{
+  \"result\": null,
+  \"error\": [
+      \"MAP_DUPLICATE_KEY\",\"Customer\",\"eSpiel Inc.\",\"eSpiel Incorporated\"
+  ],
+  \"id\": \"xyz\"
+}
+```
 
 Each possible error code is documented in the following section.
 

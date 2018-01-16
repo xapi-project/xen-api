@@ -481,7 +481,7 @@ let packages_iso_test session_id =
             debug test "Plugging PBD";
             Client.PBD.plug !rpc session_id pbd;
             Client.SR.scan !rpc session_id sr;
-            let is_iso x = String.endswith ".iso" (String.lowercase x) in
+            let is_iso x = String.endswith ".iso" (String.lowercase_ascii x) in
             let files = List.filter is_iso (Array.to_list (Sys.readdir !iso_path)) in
             let vdis = Client.SR.get_VDIs !rpc session_id sr in
             debug test (Printf.sprintf "SR.scan found %d files (directory has %d .isos)" (List.length vdis) (List.length files));

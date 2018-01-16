@@ -87,7 +87,7 @@ let writer_permission name nperms =
   let permission_uuid = role_uuid name in
   (*let permission_ref = role_ref name in*)
   let permission_name_label =
-    (String.lowercase name) (* lowercase here asked by GUI team *)
+    (String.lowercase_ascii name) (* lowercase here asked by GUI team *)
   in
   permission_index := !permission_index+1;
   let permission_number = (Printf.sprintf "%i/%i" !permission_index nperms) in
@@ -114,7 +114,7 @@ let writer_role name nroles =
   in
   (*let role_ref = role_ref name in*)
   let role_name_label =
-    (String.lowercase name) (* lowercase here asked by GUI team *)
+    (String.lowercase_ascii name) (* lowercase here asked by GUI team *)
   in
   role_index := !role_index+1;
   let role_number = (Printf.sprintf "%i/%i" !role_index nroles) in

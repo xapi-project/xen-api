@@ -517,7 +517,7 @@ module VM : HandlerTools = struct
       Db.VM.set_transportable_snapshot_id ~__context ~self:vm ~value:vm_record.API.vM_transportable_snapshot_id;
 
       (* VM might have suspend_SR that does not exist on this pool *)
-      if None <> (Helpers.check_sr_exists ~__context
+      if None = (Helpers.check_sr_exists ~__context
                     ~self:vm_record.API.vM_suspend_SR)
       then Db.VM.set_suspend_SR ~__context ~self:vm ~value:Ref.null ;
 

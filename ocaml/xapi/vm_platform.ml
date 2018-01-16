@@ -87,13 +87,13 @@ let generation_id = "generation-id"
    2. The key is in platformdata, associated with a booleanish value *)
 let is_valid ~key ~platformdata =
   (not (List.mem_assoc key platformdata)) ||
-  (match List.assoc key platformdata |> String.lowercase with
+  (match List.assoc key platformdata |> String.lowercase_ascii with
    | "true" | "1" | "false" | "0" -> true
    | v -> false)
 
 let is_true ~key ~platformdata ~default =
   try
-    match List.assoc key platformdata |> String.lowercase with
+    match List.assoc key platformdata |> String.lowercase_ascii with
     | "true" | "1" -> true
     | "false" | "0" -> false
     | _ -> default (* Check for validity using is_valid if required *)

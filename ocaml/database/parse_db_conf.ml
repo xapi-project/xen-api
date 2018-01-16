@@ -114,7 +114,7 @@ let parse_db_conf s =
       while (!lines<>[] && (List.hd !lines)<>"") do
         let line = List.hd !lines in
         key_values := (match (String.split ':' line) with
-              k::vs->(String.lowercase k,String.lowercase (String.concat ":" vs))
+              k::vs->(String.lowercase_ascii k,String.lowercase_ascii (String.concat ":" vs))
             | _ -> failwith (Printf.sprintf "Failed to parse: %s" line)
           )::!key_values;
         consume_line();

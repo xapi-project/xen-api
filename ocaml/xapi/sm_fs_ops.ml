@@ -60,16 +60,16 @@ let import_vdi_url ~__context ?(prefer_slaves=false) rpc session_id task_id vdi 
 let must_write_zeroes_into_new_vdi ~__context vdi =
   let vdi_r = Db.VDI.get_record ~__context ~self:vdi in
   let sr_r = Db.SR.get_record ~__context ~self:vdi_r.API.vDI_SR in
-  let potentially_using_lvhd sr_r = List.mem (String.lowercase sr_r.API.sR_type) [ "lvm"; "lvmoiscsi"; "lvmohba" ] in
+  let potentially_using_lvhd sr_r = List.mem (String.lowercase_ascii sr_r.API.sR_type) [ "lvm"; "lvmoiscsi"; "lvmohba" ] in
   let requested_raw_vdi vdi_r = List.mem (List.hd Xha_statefile.statefile_sm_config) vdi_r.API.vDI_sm_config in
   let upgraded_to_lvhd sr_r = List.mem ("use_vhd", "true") sr_r.API.sR_sm_config in
 
   (* Equallogic arrays in 'thick' mode don't zero disks *)
-  let using_eql sr_r = String.lowercase sr_r.API.sR_type =  "equal" in
-  let using_eql_thick sr_r = List.mem ("allocation", "thick") (List.map (fun (x, y) -> String.lowercase x, String.lowercase y) sr_r.API.sR_sm_config) in
+  let using_eql sr_r = String.lowercase_ascii sr_r.API.sR_type =  "equal" in
+  let using_eql_thick sr_r = List.mem ("allocation", "thick") (List.map (fun (x, y) -> String.lowercase_ascii x, String.lowercase_ascii y) sr_r.API.sR_sm_config) in
 
   (* We presume that storagelink arrays don't zero disks either *)
-  let using_csl sr_r = String.lowercase sr_r.API.sR_type = "cslg" in
+  let using_csl sr_r = String.lowercase_ascii sr_r.API.sR_type = "cslg" in
 
   (* Julian agreed with the following logic by email + chat: *)
   false

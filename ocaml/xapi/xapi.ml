@@ -152,7 +152,7 @@ let signals_handling () =
 
 let random_setup () =
   let n = 8 in
-  let s = String.create n in
+  let s = Bytes.create n in
 
   let chan = open_in "/dev/urandom" in
   Pervasiveext.finally (fun () -> really_input chan s 0 n)
@@ -189,6 +189,7 @@ let init_args() =
   (* Immediately register callback functions *)
   register_callback_fns();
   Xcp_service.configure ~options:Xapi_globs.all_options ~resources:Xapi_globs.Resources.xcp_resources ();
+  Xcp_coverage.dispatcher_init "xapi";
   if not !Xcp_client.use_switch
   then begin
     debug "Xcp_client.use_switch=false: resetting list of xenopsds";

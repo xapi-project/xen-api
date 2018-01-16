@@ -33,7 +33,7 @@ let failwith str = raise (Cli_util.Cli_failure str)
 exception ExitWithError of int
 
 let bool_of_string param string =
-  let s = String.lowercase string in
+  let s = String.lowercase_ascii string in
   match s with
     "true" -> true
   | "t" -> true
@@ -151,10 +151,10 @@ let diagnostic_net_stats printer rpc session_id params =
   let all = Http_svr.Server.all_stats Xapi_http.server in
   let meth (m, _, _) =
     not (List.mem_assoc "method" params)
-    || (String.lowercase(Http.string_of_method_t m) = String.lowercase (List.assoc "method" params)) in
+    || (String.lowercase_ascii(Http.string_of_method_t m) = String.lowercase_ascii (List.assoc "method" params)) in
   let uri (_, u, _) =
     not (List.mem_assoc "uri" params)
-    || (String.lowercase u = String.lowercase (List.assoc "uri" params)) in
+    || (String.lowercase_ascii u = String.lowercase_ascii (List.assoc "uri" params)) in
   let has_param x = not(List.mem_assoc "params" params) || (List.mem x (String.split ',' (List.assoc "params" params))) in
   let all = List.filter meth (List.filter uri all) in
   let rows = List.map
@@ -453,7 +453,7 @@ let filter_records_on_set_param records (k,v) s =
       let set = get_set () in
       let set, v =
         if field.case_insensitive
-        then List.map String.lowercase set, String.lowercase v
+        then List.map String.lowercase_ascii set, String.lowercase_ascii v
         else set, v in
       List.exists (fun member -> v=member) set
     with
@@ -475,7 +475,7 @@ let filter_records_on_map_param records (k,v) s =
       let map = get_map () in
       let map, key, v =
         if field.case_insensitive
-        then List.map (fun (k, v) -> String.lowercase k, v) map, String.lowercase key, String.lowercase v
+        then List.map (fun (k, v) -> String.lowercase_ascii k, v) map, String.lowercase_ascii key, String.lowercase_ascii v
         else map, key, v in
       List.mem_assoc key map && List.assoc key map = v
     with
@@ -488,7 +488,7 @@ let filter_records_on_normal_param records (k,v) =
     let field = field_lookup record.fields k in
     let value = safe_get_field field in
     if field.case_insensitive
-    then String.lowercase value = String.lowercase v
+    then String.lowercase_ascii value = String.lowercase_ascii v
     else value=v
   in
   List.filter filterfn records
@@ -1375,13 +1375,13 @@ let vbd_create printer rpc session_id params =
   let bootable = get_bool_param params "bootable" in
   let mode =
     if List.mem_assoc "mode" params
-    then match String.lowercase (List.assoc "mode" params) with
+    then match String.lowercase_ascii (List.assoc "mode" params) with
       | "ro" -> `RO | "rw" -> `RW
       | x -> failwith (Printf.sprintf "Unknown mode: %s (should be \"ro\" or \"rw\"" x)
     else `RW in
   let _type =
     if List.mem_assoc "type" params
-    then match String.lowercase (List.assoc "type" params) with
+    then match String.lowercase_ascii (List.assoc "type" params) with
       | "cd" -> `CD | "disk" -> `Disk
       | x -> failwith (Printf.sprintf "Unknown type: %s (should be \"cd\" or \"disk\"" x)
     else `Disk in
@@ -2837,7 +2837,7 @@ let vm_migrate printer rpc session_id params =
              let vdi = Client.VDI.get_by_uuid rpc session_id vdi_uuid in
              let sr = Client.SR.get_by_uuid remote_rpc remote_session sr_uuid in
              vdi,sr) (read_map_params "vdi" params) in
-         
+
          let vgpu_map = List.map (fun (vgpu_uuid,gpu_group_uuid) ->
              let vgpu = Client.VGPU.get_by_uuid rpc session_id vgpu_uuid in
              let gpu_group = Client.GPU_group.get_by_uuid remote_rpc remote_session gpu_group_uuid in
@@ -2850,9 +2850,9 @@ let vm_migrate printer rpc session_id params =
            try
              let query = Printf.sprintf {|(field "host"="%s") and (field "currently_attached"="true")|} (Ref.string_of host) in
              let host_pbds = Client.PBD.get_all_records_where remote_rpc remote_session query in
-             let srs = List.map (fun (pbd_ref, pbd_rec) -> 
+             let srs = List.map (fun (pbd_ref, pbd_rec) ->
                pbd_rec.API.pBD_SR, Client.SR.get_record remote_rpc remote_session pbd_rec.API.pBD_SR) host_pbds in
-             (* In the following loop, the current SR:sr' will be compared with previous checked ones, 
+             (* In the following loop, the current SR:sr' will be compared with previous checked ones,
                 first if it is an ISO type, then pass this one for selection, then the only shared one from this and
                 previous one will be valued, and if not that case (both shared or none shared), choose the one with
                 more space available *)
@@ -3475,7 +3475,7 @@ let vm_import fd printer rpc session_id params =
 
     (* Special-case where the user accidentally sets filename=<path to ova.xml file> *)
     let filename =
-      if String.endswith "ova.xml" (String.lowercase filename)
+      if String.endswith "ova.xml" (String.lowercase_ascii filename)
       then String.sub filename 0 (String.length filename - (String.length "ova.xml"))
       else filename in
 
@@ -3860,7 +3860,7 @@ let vm_export_aux obj_type fd printer rpc session_id params =
   let ref = Client.VM.get_by_uuid rpc session_id uuid in
   if obj_type = "template" && not (Client.VM.get_is_a_template rpc session_id ref) then
       failwith (Printf.sprintf "This operation can only be performed on a VM template. %s is not a VM template." uuid);
-  if obj_type = "snapshot" && not (Client.VM.get_is_a_snapshot rpc session_id ref) then 
+  if obj_type = "snapshot" && not (Client.VM.get_is_a_snapshot rpc session_id ref) then
       failwith (Printf.sprintf "This operation can only be performed on a VM snapshot. %s is not a VM snapshot." uuid);
   export_common fd printer rpc session_id params filename num use_compression preserve_power_state (vm_record rpc session_id ref)
 
@@ -4001,8 +4001,8 @@ let tunnel_destroy printer rpc session_id params =
 
 let pif_reconfigure_ip printer rpc session_id params =
   let read_optional_case_insensitive key =
-    let lower_case_params = List.map (fun (k,v)->(String.lowercase k,v)) params in
-    let lower_case_key = String.lowercase key in
+    let lower_case_params = List.map (fun (k,v)->(String.lowercase_ascii k,v)) params in
+    let lower_case_key = String.lowercase_ascii key in
     List.assoc_default lower_case_key lower_case_params "" in
 
   let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "uuid" params) in
@@ -4015,8 +4015,8 @@ let pif_reconfigure_ip printer rpc session_id params =
 
 let pif_reconfigure_ipv6 printer rpc session_id params =
   let read_optional_case_insensitive key =
-    let lower_case_params = List.map (fun (k,v)->(String.lowercase k,v)) params in
-    let lower_case_key = String.lowercase key in
+    let lower_case_params = List.map (fun (k,v)->(String.lowercase_ascii k,v)) params in
+    let lower_case_key = String.lowercase_ascii key in
     List.assoc_default lower_case_key lower_case_params "" in
 
   let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "uuid" params) in
