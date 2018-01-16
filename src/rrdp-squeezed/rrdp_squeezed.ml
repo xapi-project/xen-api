@@ -12,12 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
-open Fun
-open Pervasiveext
+open Xapi_stdext_std
 open Xenstore
-open Xstringext
-
 open Rrdd_plugin
 
 module Process = Process(struct let name="xcp-rrdd-squeezed" end)
@@ -74,7 +70,7 @@ module MemoryActions = struct
 					D.info "Couldn't read path %s; forgetting last known value for domain %d" path domid;
 					current_memory_values := IntMap.remove domid !current_memory_values
 		in
-		match List.filter (fun x -> x <> "") (String.split '/' path) with
+		match List.filter (fun x -> x <> "") (Xstringext.String.split '/' path) with
 			| "local" :: "domain" :: domid :: "memory" :: "dynamic-max" :: [] ->
 				read_new_value domid current_dynamic_max_values
 			| "local" :: "domain" :: domid :: "memory" :: "dynamic-min" :: [] ->

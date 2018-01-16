@@ -12,14 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
-open Fun
-open Pervasiveext
-open Xstringext
-open Listext
-open Unixext
-open Threadext
-
+open Xapi_stdext_std
+open Xapi_stdext_unix
 open Rrdd_plugin
 open Blktap3_stats
 
@@ -59,7 +53,7 @@ let update_vdi_to_vm_map () =
 						try
 							let path = Printf.sprintf "%s/%d" base_path domid in
 							D.debug "Getting path %s..." path;
-							List.filter_map (fun vbd ->
+							Listext.List.filter_map (fun vbd ->
 								try
 									let devid = int_of_string vbd in
 									Some (Printf.sprintf "%s/%s" path vbd, devid)
@@ -75,7 +69,7 @@ let update_vdi_to_vm_map () =
 
 					if !enoents = List.length base_paths then D.warn "Got ENOENT for each VBD backend path for domain %d" domid;
 
-					List.filter_map (fun (vbd, devid) ->
+					Listext.List.filter_map (fun (vbd, devid) ->
 						try
 							let vdi    = xs.Xs.read (Printf.sprintf "%s/sm-data/vdi-uuid" vbd) in
 							let device = xs.Xs.read (Printf.sprintf "%s/dev" vbd) in
@@ -103,7 +97,7 @@ and path = ".+"
 module Iostat = struct
 	(* Device:         rrqm/s   wrqm/s   r/s   w/s    rMB/s    wMB/s avgrq-sz avgqu-sz   await  svctm  %util *)
 	type t = float list
-			
+
 	let get_unsafe (devs : string list) : (string * t) list =
 		(* A map from device names to the parsed values *)
         	let dev_values_map : ((string, t) Hashtbl.t) = Hashtbl.create 20 in
@@ -138,7 +132,7 @@ module Iostat = struct
 		let _ = Utils.exec_cmd ~cmdstring ~f:process_line in
 
 		(* Now read the values out of dev_values_map for devices for which we have data *)
-		List.filter_map (fun dev ->
+		Listext.List.filter_map (fun dev ->
 			if not (Hashtbl.mem dev_values_map dev) then (
 				D.debug "No iostat results for %s" dev;
 				None
@@ -164,18 +158,18 @@ module Stat = struct
 	(* time_in_queue   milliseconds  total wait time for all requests				*)
 
 	(* --- Added for our needs --- *)
-		
+
 	(* inflight_read   requests      read requests in flight                        *)
 	(* inflight_write  requests      write requests in flight                       *)
 	(* read bytes      bytes         = read sectors * hw_sector_size                *)
 	(* write bytes     bytes         = write sectors * hw_sector_size               *)
-		
+
 	type t = int64 list (* /sys/block/tdX/stats @ /sys/block/tdX/inflight @ [read bytes; write bytes] *)
-			
+
 	let get_unsafe_dev (dev : string) : t =
-		let hw_sector_size = Int64.of_string (file_lines_fold (fun acc line -> acc ^ line) "" ("/sys/block/" ^ dev ^ "/queue/hw_sector_size")) in
-		let stats = List.map Int64.of_string (List.hd (file_lines_fold (fun acc line -> (Utils.cut line)::acc) [] ("/sys/block/" ^ dev ^ "/stat"))) in
-		let inflight_stats = List.hd (file_lines_fold (fun acc line -> List.map Int64.of_string (Utils.cut line)::acc) [] ("/sys/block/" ^ dev ^ "/inflight")) in
+		let hw_sector_size = Int64.of_string (Unixext.file_lines_fold (fun acc line -> acc ^ line) "" ("/sys/block/" ^ dev ^ "/queue/hw_sector_size")) in
+    let stats = List.map Int64.of_string (List.hd (Unixext.file_lines_fold (fun acc line -> (Utils.cut line)::acc) [] ("/sys/block/" ^ dev ^ "/stat"))) in
+		let inflight_stats = List.hd (Unixext.file_lines_fold (fun acc line -> List.map Int64.of_string (Utils.cut line)::acc) [] ("/sys/block/" ^ dev ^ "/inflight")) in
 		let sectors_to_bytes = Int64.mul hw_sector_size in
 		let read_bytes = sectors_to_bytes (List.nth stats 2) in
 		let write_bytes = sectors_to_bytes (List.nth stats 6) in
@@ -191,7 +185,7 @@ module Stat = struct
 			(dev, values)
 		) devs
 end
-			
+
 (* List of tapdisk pids seen on previous run of tap-ctl list *)
 let previous_map : (int * (int * (string * string))) list ref = ref []
 
@@ -257,7 +251,7 @@ let exec_tap_ctl () =
 			D.debug "VDI-to-VM map is empty; updating...";
 			update_vdi_to_vm_map ()
 		end else
-			let disappeared_pids = List.set_difference !previous_map pid_and_minor_to_sr_and_vdi in
+			let disappeared_pids = Listext.List.set_difference !previous_map pid_and_minor_to_sr_and_vdi in
 			let unmapped_vdi_pids = List.filter (fun (_, (_, (_, vdi))) -> not (List.mem_assoc vdi !vdi_to_vm_map)) pid_and_minor_to_sr_and_vdi in
 
 			List.iter (fun (pid, (_, (_, vdi))) ->
@@ -279,10 +273,10 @@ let exec_tap_ctl () =
 	minor_to_sr_and_vdi
 
 let minor_of_tdX_unsafe tdX =
-	int_of_string (Unixext.file_lines_fold (fun acc l -> acc ^ (List.nth (String.split ':' l) 1))
+	int_of_string (Unixext.file_lines_fold (fun acc l -> acc ^ (List.nth (Xstringext.String.split ':' l) 1))
 					   "" ("/sys/block/" ^ tdX ^ "/dev"))
 
-let get_tdXs vdi_info_list = 
+let get_tdXs vdi_info_list =
     let tdXs = List.fold_left
 		(fun acc entry -> if entry.[0] = 't' && entry.[1] = 'd' then entry::acc else acc) []
 		(Utils.list_directory_unsafe "/sys/block") in
@@ -293,8 +287,8 @@ let get_sr_vdi_to_stats_fun ~f () =
 	let minor_to_sr_and_vdi = exec_tap_ctl () in
 	let tdXs = get_tdXs minor_to_sr_and_vdi in
 	let tdX_to_iostat_data = f tdXs in
-	List.map (fun (tdX, data) -> 
-		let minor = minor_of_tdX_unsafe tdX in ((List.assoc minor minor_to_sr_and_vdi), data)) 
+	List.map (fun (tdX, data) ->
+		let minor = minor_of_tdX_unsafe tdX in ((List.assoc minor minor_to_sr_and_vdi), data))
 		tdX_to_iostat_data
 
 let get_sr_vdi_to_stats = get_sr_vdi_to_stats_fun ~f:Stat.get_unsafe
@@ -302,9 +296,9 @@ let get_sr_vdi_to_iostats = get_sr_vdi_to_stats_fun ~f:Iostat.get_unsafe
 
 let sr_to_sth s_v_to_i =
 	let fold_fun acc ((s,v),sth) =
-		try 
+		try
 			let cur = List.assoc s acc in
-			List.replace_assoc s (sth::cur) acc
+			Listext.List.replace_assoc s (sth::cur) acc
 		with Not_found -> (s, [sth])::acc
 	in
 	List.fold_left fold_fun [] s_v_to_i
@@ -338,7 +332,7 @@ module Blktap3_stats_wrapper = struct
 				None
 		in
 		let shm_dirs = Array.to_list (Sys.readdir shm_devices_dir) in
-		let shm_vbds = List.filter (fun s -> String.startswith "vbd3-" s) shm_dirs in
+		let shm_vbds = List.filter (fun s -> Xstringext.String.startswith "vbd3-" s) shm_dirs in
 		List.fold_left (fun acc vbd ->
 			let domid, devid = Scanf.sscanf vbd "vbd3-%d-%d" (fun id devid -> (id, devid)) in
 			try
@@ -716,7 +710,7 @@ let gen_metrics () =
 	sr_vdi_to_last_stats_values := Some (to_hashtbl sr_vdi_to_stats);
 	domid_devid_to_last_stats_blktap3 := Some domid_devid_to_stats_blktap3;
 
-	List.flatten (data_sources_stats @ data_sources_iostats @ data_sources_vm_stats @ data_sources_vm_iostats 
+	List.flatten (data_sources_stats @ data_sources_iostats @ data_sources_vm_stats @ data_sources_vm_iostats
 			@ data_sources_low_mem_mode)
 
 let _ =

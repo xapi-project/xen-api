@@ -1,0 +1,13 @@
+(jbuild_version 1)
+
+(executable (
+  (name rrdp_xenpm)
+  (public_name xcp-rrdd-xenpm)
+  (libraries (
+    rrdd-plugin
+    rrdd-plugins.libs
+    str
+    threads
+    xenctrl
+  ))
+))

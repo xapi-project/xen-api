@@ -1,0 +1,10 @@
+(jbuild_version 1)
+
+(executable (
+  (name read_blktap_stats)
+  (public_name xcp-rrdd-read-blktap-stats)
+  (libraries (
+    rrdd-plugins.libs
+    unix
+  ))
+))
