@@ -290,6 +290,9 @@ module Interface_API(R : RPC) = struct
       ["Reset configuration state"]
       (unit_p @-> returning unit_p err)
 
+  external get_pci_bus_path : debug_info -> name:iface -> string = ""
+
+
   let set_gateway_interface =
     let name_p = Param.mk ~name:"name" ~description:["gateway name"] iface in
     declare
