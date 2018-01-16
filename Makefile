@@ -40,7 +40,7 @@ clean:
 	jbuilder clean
 
 test:
-	jbuilder runtest
+	jbuilder runtest --no-buffer
 
 # requires odoc
 doc:

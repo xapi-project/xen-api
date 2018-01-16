@@ -49,7 +49,7 @@ type waiter = {
 } [@@deriving sexp]
 
 type t = {
-  q: Protocol.Entry.t Int64Map.t;
+  q: Message_switch_core.Protocol.Entry.t Int64Map.t;
   name: string;
   length: int;
   owner: string option; (* if transient, name of the owning connection *)
@@ -118,7 +118,7 @@ let owned_queues queues owner =
 let startswith prefix x = String.length x >= (String.length prefix) && (String.sub x 0 (String.length prefix) = prefix)
 
 module Lengths = struct
-  open Measurable
+  open Message_switch_core.Measurable
   let d x =Description.({ description = "length of queue " ^ x; units = "" })
   let list_available queues =
     StringMap.fold (fun name _ acc ->
@@ -198,7 +198,7 @@ let send queues origin name id data =
     let q = Directory.find queues name in
     let q' = { q with
                 length = q.length + 1;
-                q = Int64Map.add id (Protocol.Entry.make (ns ()) origin data) q.q
+                q = Int64Map.add id (Message_switch_core.Protocol.Entry.make (ns ()) origin data) q.q
               } in
      let queues = { queues with queues = StringMap.add name q' queues.queues } in
      queues
@@ -220,8 +220,8 @@ module Op = struct
 
   type t =
     | Directory of directory_operation
-    | Ack of Protocol.message_id
-    | Send of Protocol.origin * string * int64 * Protocol.Message.t (* origin * queue * id * body *)
+    | Ack of Message_switch_core.Protocol.message_id
+    | Send of Message_switch_core.Protocol.origin * string * int64 * Message_switch_core.Protocol.Message.t (* origin * queue * id * body *)
   [@@deriving sexp]
 
   let of_cstruct x =
@@ -268,7 +268,7 @@ let transfer queues from names =
       let q = Internal.Directory.find queues name in
       let _, _, not_seen = Int64Map.split from q.q in
       Int64Map.fold (fun id e acc ->
-          ((name, id), e.Protocol.Entry.message) :: acc
+          ((name, id), e.Message_switch_core.Protocol.Entry.message) :: acc
         ) not_seen []
     ) names in
   List.concat messages

@@ -14,7 +14,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (library (
   (name message_switch_async)
   (public_name message-switch-async)
-  (wrapped false)
   (libraries (
     message-switch-core
     cohttp.async

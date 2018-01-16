@@ -16,7 +16,7 @@
 
 open Cohttp_lwt_unix
 open Lwt
-open Protocol
+open Message_switch_core.Protocol
 
 let path = ref "/var/run/message-switch/sock"
 let name = ref "server"
@@ -28,7 +28,7 @@ let process = function
   | x -> return x
 
 let main () =
-  Protocol_lwt.Server.listen ~process ~switch:!path ~queue:!name () >>= fun _ ->
+  Message_switch_lwt.Protocol_lwt.Server.listen ~process ~switch:!path ~queue:!name () >>= fun _ ->
   t >>= fun () ->
   Lwt_unix.sleep 1.
 

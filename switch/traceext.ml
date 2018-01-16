@@ -18,7 +18,7 @@ open Lwt
 
 let size = 128
 
-let buffer : (int64 * Protocol.Event.t) option array = Array.make size None
+let buffer : (int64 * Message_switch_core.Protocol.Event.t) option array = Array.make size None
 let c = Lwt_condition.create ()
 
 let next_id = ref 0L
@@ -38,7 +38,7 @@ let fold f acc =
     else range (start + 1) finish (f buffer.(start) acc) in
   range 0 (next_slot - 1) (range next_slot (size - 1) acc)
 
-let get from timeout : (int64 * Protocol.Event.t) list Lwt.t =
+let get from timeout : (int64 * Message_switch_core.Protocol.Event.t) list Lwt.t =
   let sleep = Lwt_unix.sleep timeout in
   let rec wait_for_data () =
     if !next_id <= from then

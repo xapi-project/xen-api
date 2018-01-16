@@ -14,8 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Protocol
-open Protocol_unix
+open Message_switch_core.Protocol
+open Message_switch_unix.Protocol_unix
 
 let path = ref "/var/run/message-switch/sock"
 let name = ref "server"

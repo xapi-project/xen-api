@@ -34,8 +34,8 @@ module Connections = struct
     else Some(StringStringRelation.B_Set.choose sessions)
 
   let get_origin conn_id = match get_session conn_id with
-    | None -> Protocol.Anonymous conn_id
-    | Some x -> Protocol.Name x
+    | None -> Message_switch_core.Protocol.Anonymous conn_id
+    | Some x -> Message_switch_core.Protocol.Name x
 
   let add conn_id session =
     debug "+ connection %s" conn_id;
@@ -59,7 +59,7 @@ let record_transfer time name =
   Hashtbl.replace next_transfer_expected name time
 
 let snapshot queues =
-  let open Protocol.Diagnostics in
+  let open Message_switch_core.Protocol.Diagnostics in
   let queues_of =
     List.fold_left (fun acc (n, q)->
         let queue_contents = Q.contents q in
@@ -75,7 +75,7 @@ let snapshot queues =
     permanent_queues = queues_of permanent_queues;
     transient_queues = queues_of transient_queues }
 
-open Protocol
+open Message_switch_core.Protocol
 let process_request conn_id queues session request = match session, request with
   (* Only allow Login, Get, Trace and Diagnostic messages if there is no session *)
   | _, In.Login session ->

@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Protocol
+open Message_switch_core.Protocol
 open Cohttp
 
 
@@ -168,7 +168,7 @@ end
 
 let whoami = IO.whoami
 
-module Connection = Make.Connection(IO)
+module Connection = Message_switch_core.Make.Connection(IO)
 
 module Opt = struct
   let iter f = function
@@ -201,7 +201,7 @@ module Client = struct
     | `Error (`Message_switch `Timeout) -> `Error (`Message_switch `Timeout)
     | `Error (`Message_switch (`Queue_deleted name)) -> `Error (`Message_switch (`Queue_deleted name))
 
-  type 'a result = ('a, [ `Message_switch of error]) Mresult.result
+  type 'a result = ('a, [ `Message_switch of error]) Message_switch_core.Mresult.result
 
   let pp_error fmt = function
     | `Message_switch (`Msg x) -> Format.pp_print_string fmt x
@@ -227,7 +227,7 @@ module Client = struct
     mutable requests_conn: (IO.ic * IO.oc);
     mutable events_conn: (IO.ic * IO.oc);
     requests_m: IO.Mutex.t;
-    wakener: (Protocol.message_id, Protocol.Message.t result IO.Ivar.t) Hashtbl.t;
+    wakener: (Message_switch_core.Protocol.message_id, Message_switch_core.Protocol.Message.t result IO.Ivar.t) Hashtbl.t;
     reply_queue_name: string;
   }
 
@@ -419,7 +419,7 @@ module Server = struct
     | `Unsuccessful_response
   ]
 
-  type 'a result = ('a, [ `Message_switch of error ]) Mresult.result
+  type 'a result = ('a, [ `Message_switch of error ]) Message_switch_core.Mresult.result
 
   let pp_error fmt = function
     | `Message_switch (`Msg x) -> Format.pp_print_string fmt x
@@ -464,7 +464,7 @@ module Server = struct
     let rec loop ((request_conn, reply_conn) as connections) from =
       let transfer = {
         In.from = from;
-        timeout = Protocol.timeout;
+        timeout = Message_switch_core.Protocol.timeout;
         queues = [ name ];
       } in
       let frame = In.Transfer transfer in

@@ -14,6 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+open Message_switch_core
+
 val add: Protocol.Event.t -> unit
 (** [add t] adds a new event to the trace buffer without blocking.
     If the trace buffer is full then the oldest event is dropped. *)

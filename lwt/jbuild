@@ -14,7 +14,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (library (
   (name message_switch_lwt)
   (public_name message-switch-lwt)
-  (wrapped false)
   (libraries (
     message-switch-core
     lwt

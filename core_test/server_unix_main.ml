@@ -27,7 +27,7 @@ let process = function
   | x -> x
 
 let main () =
-  let _ = Protocol_unix.Server.listen ~process ~switch:!path ~queue:!name () in
+  let _ = Message_switch_unix.Protocol_unix.Server.listen ~process ~switch:!path ~queue:!name () in
   let rec forever () =
     Thread.delay 3600.;
     forever () in

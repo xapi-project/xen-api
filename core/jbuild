@@ -30,9 +30,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (jbuild_version 1)
 
 (library (
-  (name message_switch)
+  (name message_switch_core)
   (public_name message-switch-core)
-  (wrapped false)
   (flags (:standard -w -39 %s))
   (libraries (
     cohttp
@@ -42,21 +41,5 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     re.str
   ))
   %s
-))
-
-(rule (with-stdout-to s.ml
-  (progn
-    (echo "[@@@warning \"-a\"]\nmodule rec HACK : sig\n")
-    (cat s.mli)
-    (echo "\nend = HACK\ninclude HACK\n")
-  )
-))
-
-(rule (with-stdout-to monad.ml
-  (progn
-    (echo "[@@@warning \"-a\"]\nmodule rec HACK : sig\n")
-    (cat monad.mli)
-    (echo "\nend = HACK\ninclude HACK\n")
-  )
 ))
 |} flags coverage_rewriter
