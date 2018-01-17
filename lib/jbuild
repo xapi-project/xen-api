@@ -1,0 +1,9 @@
+(jbuild_version 1)
+
+(library (
+  (name rrdd_plugins_libs)
+  (public_name rrdd-plugins.libs)
+  (wrapped false)
+  (c_names (blktap3_stats_stubs))
+  (libraries ())
+))

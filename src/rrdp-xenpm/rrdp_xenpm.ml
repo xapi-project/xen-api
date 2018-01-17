@@ -19,9 +19,6 @@
    author of the plugin did not manage to add the necessary bindings to
    Xenctrl in time. *)
 
-open Stdext
-open Fun
-open Listext
 open Rrdd_plugin
 
 module Process = Process(struct let name = "xcp-rrdd-xenpm" end)
@@ -39,9 +36,9 @@ let gen_pm_ds state cpu_id state_id (derive_value:int64) =
 	 * proportion of time spent in the state, and it can never exceed 1. *)
 	Rrd.Host, Ds.ds_make
 		~name:(Printf.sprintf "cpu%d-%c%d" cpu_id state_letter state_id)
-		~description:(Printf.sprintf "Proportion of time CPU %d spent in %c-state %d" 
+		~description:(Printf.sprintf "Proportion of time CPU %d spent in %c-state %d"
 						  cpu_id state_letter state_id)
-		~value:(Rrd.VT_Float ((Int64.to_float derive_value) /. 1000.)) 
+		~value:(Rrd.VT_Float ((Int64.to_float derive_value) /. 1000.))
 		~ty:Rrd.Derive ~default:true
 		~units:"(fraction)" ~min:0. ~max:1. ()
 
@@ -65,11 +62,11 @@ let get_cpu_averages () : int64 list =
 
 let get_states cpu_state : int64 list =
 	let pattern = Str.regexp "[ \t]*residency[ \t]+\\[[ \t]*\\([0-9]+\\) ms\\][ \t]*" in
-	let match_fun s = 
+	let match_fun s =
 		if Str.string_match pattern s 0
 		then Some (Int64.of_string (Str.matched_group 1 s)) else None in
 	Utils.exec_cmd (module Process.D)
-		~cmdstring:(Printf.sprintf "%s %s" xenpm_bin (match cpu_state with 
+		~cmdstring:(Printf.sprintf "%s %s" xenpm_bin (match cpu_state with
 			| Cstate -> "get-cpuidle-states"
 			| Pstate -> "get-cpufreq-states"))
 		~f:match_fun
@@ -77,14 +74,14 @@ let get_states cpu_state : int64 list =
 (* list_package [1;2;3;4] 2 = [[1;2];[3;4]] *)
 let list_package (l:'a list) (n:int) : 'a list list =
 	if n = 0 then failwith "Rrdp_xenpm.list_package: package too small";
-	let nbelt,accsmall,accbig = 
-		List.fold_left (fun (nbelt, accsmall, accbig) elt -> 
-			if nbelt < n then (nbelt+1, elt::accsmall, accbig) 
+	let nbelt,accsmall,accbig =
+		List.fold_left (fun (nbelt, accsmall, accbig) elt ->
+			if nbelt < n then (nbelt+1, elt::accsmall, accbig)
 			else (1, [elt], (List.rev accsmall)::accbig)) (0,[],[]) l
 	in List.rev ((List.rev accsmall)::accbig)
 
 let nr_cpu = ref 0
-			
+
 let generate_state_dss state_kind =
 	let states = get_states state_kind in
 	let states_by_cpu = List.length states / !nr_cpu in
