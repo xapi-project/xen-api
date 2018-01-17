@@ -20,6 +20,8 @@ open D
 exception Read_error
 exception Write_error
 
+let empty_config = default_config
+
 let config_file_path = "/var/lib/xcp/networkd.db"
 
 let bridge_naming_convention (device: string) =
@@ -104,7 +106,7 @@ let read_management_conf () =
 
 let write_config config =
 	try
-		let config_json = config |> rpc_of_config_t |> Jsonrpc.to_string in
+		let config_json = config |> Rpcmarshal.marshal typ_of_config_t |> Jsonrpc.to_string in
 		Xapi_stdext_unix.Unixext.write_string_to_file config_file_path config_json
 	with e ->
 		error "Error while trying to write networkd configuration: %s\n%s"
@@ -114,7 +116,9 @@ let write_config config =
 let read_config () =
 	try
 		let config_json = Xapi_stdext_unix.Unixext.string_of_file config_file_path in
-		config_json |> Jsonrpc.of_string |> config_t_of_rpc
+		match config_json |> Jsonrpc.of_string |> Rpcmarshal.unmarshal typ_of_config_t with
+		| Result.Ok v -> v
+		| Result.Error e -> raise Read_error
 	with
 		| Unix.Unix_error (Unix.ENOENT, _, file) ->
 			info "Cannot read networkd configuration file %s because it does not exist." file;

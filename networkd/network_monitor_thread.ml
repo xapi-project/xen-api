@@ -228,8 +228,8 @@ let rec monitor dbg () =
 					dev, stat
 			) devs
 		in
-		
-		let bonds : (string * string list) list = Network_server.Bridge.get_all_bonds () dbg ~from_cache:true () in
+		let from_cache = true in
+		let bonds : (string * string list) list = Network_server.Bridge.get_all_bonds dbg from_cache in
 		let devs =
 			get_link_stats () |>
 			add_bonds bonds |>

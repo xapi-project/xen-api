@@ -18,7 +18,6 @@ open Network_utils
 module D = Debug.Make(struct let name = "networkd" end)
 open D
 
-module Server = Network_interface.Server(Network_server)
 
 let resources = [
   { Xcp_service.name = "network-conf";
@@ -87,6 +86,45 @@ let doc = String.concat "\n" [
 	"This service looks after host network configuration, including setting up bridges and/or openvswitch instances, configuring IP addresses etc.";
 ]
 
+
+let bind () =
+  let open Network_server in
+  S.clear_state clear_state;
+  S.reset_state reset_state;
+  S.set_gateway_interface set_gateway_interface;
+  S.set_dns_interface set_dns_interface;
+  S.Interface.get_all Interface.get_all;
+  S.Interface.exists Interface.exists;
+  S.Interface.get_mac Interface.get_mac;
+  S.Interface.is_up Interface.is_up;
+  S.Interface.get_ipv4_addr Interface.get_ipv4_addr;
+  S.Interface.set_ipv4_conf Interface.set_ipv4_conf;
+  S.Interface.get_ipv4_gateway Interface.get_ipv4_gateway;
+  S.Interface.get_ipv6_addr Interface.get_ipv6_addr;
+  S.Interface.get_dns Interface.get_dns;
+  S.Interface.get_mtu Interface.get_mtu;
+  S.Interface.get_capabilities Interface.get_capabilities;
+  S.Interface.is_connected Interface.is_connected;
+  S.Interface.is_physical Interface.is_physical;
+  S.Interface.has_vlan Interface.has_vlan;
+  S.Interface.bring_down Interface.bring_down;
+  S.Interface.set_persistent Interface.set_persistent;
+  S.Interface.make_config Interface.make_config;
+  S.Bridge.get_all Bridge.get_all;
+  S.Bridge.create Bridge.create;
+  S.Bridge.destroy Bridge.destroy;
+  S.Bridge.get_kind Bridge.get_kind;
+  S.Bridge.get_all_ports Bridge.get_all_ports;
+  S.Bridge.get_all_bonds Bridge.get_all_bonds;
+  S.Bridge.set_persistent Bridge.set_persistent;
+  S.Bridge.add_port Bridge.add_port;
+  S.Bridge.remove_port Bridge.remove_port;
+  S.Bridge.get_interfaces Bridge.get_interfaces;
+  S.Bridge.get_physical_interfaces Bridge.get_physical_interfaces;
+  S.Bridge.make_config Bridge.make_config;
+  S.PVS_proxy.configure_site PVS_proxy.configure_site;
+  S.PVS_proxy.remove_site PVS_proxy.remove_site
+
 let _ =
 	Coverage.init "networkd";
 	begin match Xcp_service.configure2
@@ -99,10 +137,11 @@ let _ =
 		exit 1
 	end;
 
+	bind ();
 	let server = Xcp_service.make
 		~path:!Network_interface.default_path
 		~queue_name:!Network_interface.queue_name
-		~rpc_fn:(Server.process ())
+		~rpc_fn:(Idl.server Network_server.S.implementation)
 		() in
 
 	Xcp_service.maybe_daemonize ~start_fn:(fun () ->

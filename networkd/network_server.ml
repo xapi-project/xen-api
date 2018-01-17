@@ -21,7 +21,7 @@ open D
 type context = unit
 
 let network_conf = ref "/etc/xcp/network.conf"
-let config : config_t ref = ref empty_config
+let config : config_t ref = ref Network_config.empty_config
 let backend_kind = ref Openvswitch
 let enic_workaround_until_version = ref "2.3.0.30"
 
@@ -66,15 +66,13 @@ let on_shutdown signal =
 let on_timer () =
 	write_config ()
 
-let reopen_logs _ () = true
+let clear_state () =
+	config := Network_config.empty_config
 
-let clear_state _ () =
-	config := empty_config
-
-let reset_state _ () =
+let reset_state () =
 	config := Network_config.read_management_conf ()
 
-let set_gateway_interface _ dbg ~name =
+let set_gateway_interface dbg name =
 	(* Update dhclient conf for interface on changing default gateway.
 	 * If new default gateway is not same as gateway_interface from networkd.db then
 	 * we need to remove gateway information from gateway_interface *)
@@ -91,7 +89,7 @@ let set_gateway_interface _ dbg ~name =
 	debug "Setting gateway interface to %s" name;
 	config := {!config with gateway_interface = Some name}
 
-let set_dns_interface _ dbg ~name =
+let set_dns_interface dbg name =
 	debug "Setting DNS interface to %s" name;
 	config := {!config with dns_interface = Some name}
 
@@ -127,24 +125,24 @@ module Interface = struct
 	let update_config name data =
 		config := {!config with interface_config = update_config !config.interface_config name data}
 
-	let get_all _ dbg () =
+	let get_all dbg () =
 		Debug.with_thread_associated dbg (fun () ->
 			Sysfs.list ()
 		) ()
 
-	let exists _ dbg ~name =
+	let exists dbg name =
 		Debug.with_thread_associated dbg (fun () ->
 			List.mem name (Sysfs.list ())
 		) ()
 
-	let get_mac _ dbg ~name =
+	let get_mac dbg name =
 		Debug.with_thread_associated dbg (fun () ->
 			match Linux_bonding.get_bond_master_of name with
 			| Some master -> Proc.get_bond_slave_mac master name
 			| None -> Ip.get_mac name
 		) ()
 
-	let is_up _ dbg ~name =
+	let is_up dbg name =
 		Debug.with_thread_associated dbg (fun () ->
 			if List.mem name (Sysfs.list ()) then
 				Ip.is_up name
@@ -152,14 +150,14 @@ module Interface = struct
 				false
 		) ()
 
-	let get_ipv4_addr _ dbg ~name =
+	let get_ipv4_addr dbg name =
 		Debug.with_thread_associated dbg (fun () ->
 			Ip.get_ipv4 name
 		) ()
 
-	let set_ipv4_conf _ dbg ~name ~conf =
+	let set_ipv4_conf dbg name conf =
 		Debug.with_thread_associated dbg (fun () ->
-			debug "Configuring IPv4 address for %s: %s" name (conf |> rpc_of_ipv4 |> Jsonrpc.to_string);
+			debug "Configuring IPv4 address for %s: %s" name (conf |> Rpcmarshal.marshal typ_of_ipv4 |> Jsonrpc.to_string);
 			update_config name {(get_config name) with ipv4_conf = conf};
 			match conf with
 			| None4 ->
@@ -196,7 +194,7 @@ module Interface = struct
 				List.iter (Ip.set_ip_addr name) add_addrs
 		) ()
 
-	let get_ipv4_gateway _ dbg ~name =
+	let get_ipv4_gateway dbg name =
 		Debug.with_thread_associated dbg (fun () ->
 			let output = Ip.route_show ~version:Ip.V4 name in
 			try
@@ -217,14 +215,14 @@ module Interface = struct
 				debug "%s is NOT the default gateway interface" name
 		) ()
 
-	let get_ipv6_addr _ dbg ~name =
+	let get_ipv6_addr dbg name =
 		Debug.with_thread_associated dbg (fun () ->
 			Ip.get_ipv6 name
 		) ()
 
 	let set_ipv6_conf _ dbg ~name ~conf =
 		Debug.with_thread_associated dbg (fun () ->
-			debug "Configuring IPv6 address for %s: %s" name (conf |> rpc_of_ipv6 |> Jsonrpc.to_string);
+			debug "Configuring IPv6 address for %s: %s" name (conf |> Rpcmarshal.marshal typ_of_ipv6 |> Jsonrpc.to_string);
 			update_config name {(get_config name) with ipv6_conf = conf};
 			match conf with
 			| None6 ->
@@ -297,13 +295,13 @@ module Interface = struct
 
 	let set_ipv4_routes _ dbg ~name ~routes =
 		Debug.with_thread_associated dbg (fun () ->
-			debug "Configuring IPv4 static routes for %s: %s" name (String.concat ", " (List.map (fun (i, p, g) ->
-				Printf.sprintf "%s/%d/%s" (Unix.string_of_inet_addr i) p (Unix.string_of_inet_addr g)) routes));
+			debug "Configuring IPv4 static routes for %s: %s" name (String.concat ", " (List.map (fun r ->
+				Printf.sprintf "%s/%d/%s" (Unix.string_of_inet_addr r.subnet) r.netmask (Unix.string_of_inet_addr r.gateway)) routes));
 			update_config name {(get_config name) with ipv4_routes = routes};
-			List.iter (fun (i, p, g) -> Ip.set_route ~network:(i, p) name g) routes
+			List.iter (fun r -> Ip.set_route ~network:(r.subnet, r.netmask) name r.gateway) routes
 		) ()
 
-	let get_dns _ dbg ~name =
+	let get_dns dbg name =
 		Debug.with_thread_associated dbg (fun () ->
 			let nameservers, domains = Xapi_stdext_unix.Unixext.file_lines_fold (fun (nameservers, domains) line ->
 				if Astring.String.is_prefix ~affix:"nameserver" line then
@@ -334,7 +332,7 @@ module Interface = struct
 				debug "%s is NOT the DNS interface" name
 		) ()
 
-	let get_mtu _ dbg ~name =
+	let get_mtu dbg name =
 		Debug.with_thread_associated dbg (fun () ->
 			Ip.get_mtu name
 		) ()
@@ -368,22 +366,22 @@ module Interface = struct
 			Ethtool.set_offload name params
 		) ()
 
-	let get_capabilities _ dbg ~name =
+	let get_capabilities dbg name =
 		Debug.with_thread_associated dbg (fun () ->
 			Fcoe.get_capabilities name
 		) ()
 
-	let is_connected _ dbg ~name =
+	let is_connected dbg name =
 		Debug.with_thread_associated dbg (fun () ->
 			Sysfs.get_carrier name
 		) ()
 
-	let is_physical _ dbg ~name =
+	let is_physical dbg name =
 		Debug.with_thread_associated dbg (fun () ->
 			Sysfs.is_physical name
 		) ()
 
-	let has_vlan _ dbg ~name ~vlan =
+	let has_vlan dbg name vlan =
 		(* Identify the vlan is used by kernel which is unknown to XAPI *)
 		Debug.with_thread_associated dbg (fun () ->
 			List.exists (fun (_, v, p) -> v = vlan && p = name) (Proc.get_vlans ())
@@ -395,7 +393,7 @@ module Interface = struct
 			Ip.link_set_up name
 		) ()
 
-	let bring_down _ dbg ~name =
+	let bring_down dbg name =
 		Debug.with_thread_associated dbg (fun () ->
 			debug "Bringing down interface %s" name;
 			Ip.link_set_down name
@@ -406,16 +404,16 @@ module Interface = struct
 			(get_config name).persistent_i
 		) ()
 
-	let set_persistent _ dbg ~name ~value =
+	let set_persistent dbg name value =
 		Debug.with_thread_associated dbg (fun () ->
 			debug "Making interface %s %spersistent" name (if value then "" else "non-");
 			update_config name {(get_config name) with persistent_i = value}
 		) ()
 
-	let make_config _ dbg ?(conservative=false) ~config () =
+	let make_config dbg conservative config =
 		Debug.with_thread_associated dbg (fun () ->
 			(* Only attempt to configure interfaces that exist in the system *)
-			let all = get_all () dbg () in
+			let all = get_all dbg () in
 			let config = List.filter (fun (name, _) -> List.mem name all) config in
 			(* Handle conservativeness *)
 			let config =
@@ -448,7 +446,7 @@ module Interface = struct
 					 * The `dns` field should really be an option type so that we don't have to derive the intention
 					 * of the caller by looking at other fields. *)
 					match ipv4_conf with Static4 _ -> set_dns () dbg ~name ~nameservers ~domains | _ -> ());
-				exec (fun () -> set_ipv4_conf () dbg ~name ~conf:ipv4_conf);
+				exec (fun () -> set_ipv4_conf dbg name ipv4_conf);
 				exec (fun () -> match ipv4_gateway with None -> () | Some gateway ->
 					set_ipv4_gateway () dbg ~name ~address:gateway);
 				(try set_ipv6_conf () dbg ~name ~conf:ipv6_conf with _ -> ());
@@ -495,7 +493,7 @@ module Bridge = struct
 			| Bridge -> Proc.get_bond_links_up name
 		) ()
 
-	let get_all _ dbg () =
+	let get_all dbg () =
 		Debug.with_thread_associated dbg (fun () ->
 			match !backend_kind with
 			| Openvswitch -> Ovs.list_bridges ()
@@ -535,7 +533,7 @@ module Bridge = struct
 			List.iter (fun bridge ->
 				if bridge <> name then begin
 					debug "Destroying existing bridge %s" bridge;
-					Interface.bring_down () "Destroying existing bridge" ~name:bridge;
+					Interface.bring_down "Destroying existing bridge" bridge;
 					remove_config bridge;
 					List.iter (fun dev ->
 						Brctl.destroy_port bridge dev;
@@ -545,8 +543,11 @@ module Bridge = struct
 			) existing_bridges
 		end
 
-	let create _ dbg ?vlan ?mac ?igmp_snooping ?(other_config=[]) ~name () =
+	let create dbg vlan mac igmp_snooping other_config name =
 		Debug.with_thread_associated dbg (fun () ->
+			let other_config = match other_config with
+				| Some l -> l
+				| None -> [] in
 			debug "Creating bridge %s%s" name (match vlan with
 				| None -> ""
 				| Some (parent, vlan) -> Printf.sprintf " (VLAN %d on bridge %s)" vlan parent
@@ -639,7 +640,7 @@ module Bridge = struct
 						(String.concat ", " current_interfaces);
 					List.iter (fun interface ->
 						Brctl.destroy_port name interface;
-						Interface.bring_down () dbg ~name:interface
+						Interface.bring_down dbg interface
 					) current_interfaces;
 					(* Now create the new VLAN device and add it to the bridge *)
 					Ip.create_vlan parent_interface vlan;
@@ -649,9 +650,9 @@ module Bridge = struct
 			Interface.bring_up () dbg ~name
 		) ()
 
-	let destroy _ dbg ?(force=false) ~name () =
+	let destroy dbg force name =
 		Debug.with_thread_associated dbg (fun () ->
-			Interface.bring_down () dbg ~name;
+			Interface.bring_down dbg name;
 			match !backend_kind with
 			| Openvswitch ->
 				let vlans_on_this_parent = Ovs.get_vlans name in
@@ -660,10 +661,10 @@ module Bridge = struct
 					remove_config name;
 					let interfaces = (Ovs.bridge_to_interfaces name) @ vlans_on_this_parent in
 					List.iter (fun dev ->
-						Interface.set_ipv4_conf () dbg ~name:dev ~conf:None4;
-						Interface.bring_down () dbg ~name:dev
+						Interface.set_ipv4_conf dbg dev None4;
+						Interface.bring_down dbg dev
 					) interfaces;
-					Interface.set_ipv4_conf () dbg ~name ~conf:None4;
+					Interface.set_ipv4_conf dbg name None4;
 					ignore (Ovs.destroy_bridge name)
 				end else
 					debug "Not destroying bridge %s, because it has VLANs on top" name
@@ -682,9 +683,9 @@ module Bridge = struct
 					debug "Destroying bridge %s" name;
 					remove_config name;
 					List.iter (fun dev ->
-						Interface.set_ipv4_conf () dbg ~name:dev ~conf:None4;
+						Interface.set_ipv4_conf dbg dev None4;
 						Brctl.destroy_port name dev;
-						Interface.bring_down () dbg ~name:dev;
+						Interface.bring_down dbg dev;
 						if Linux_bonding.is_bond_device dev then
 							Linux_bonding.remove_bond_master dev;
 						if (Astring.String.is_prefix ~affix:"eth" dev || Astring.String.is_prefix ~affix:"bond" dev) && String.contains dev '.' then begin
@@ -696,13 +697,13 @@ module Bridge = struct
 									Linux_bonding.remove_bond_master (String.sub dev 0 (n - 2))
 						end;
 					) ifs;
-					Interface.set_ipv4_conf () dbg ~name ~conf:None4;
+					Interface.set_ipv4_conf dbg name None4;
 					ignore (Brctl.destroy_bridge name)
 				end else
 					debug "Not destroying bridge %s, because it has VLANs on top" name
 		) ()
 
-	let get_kind _ dbg () =
+	let get_kind dbg () =
 		Debug.with_thread_associated dbg (fun () ->
 			!backend_kind
 		) ()
@@ -714,7 +715,7 @@ module Bridge = struct
 			| Bridge -> raise Not_implemented
 		) ()
 
-	let get_all_ports _ dbg ?(from_cache=false) () =
+	let get_all_ports dbg from_cache =
 		Debug.with_thread_associated dbg (fun () ->
 			if from_cache then
 				let ports = List.concat (List.map (fun (_, {ports}) -> ports) !config.bridge_config) in
@@ -732,7 +733,7 @@ module Bridge = struct
 			| Bridge -> raise Not_implemented
 		) ()
 
-	let get_all_bonds _ dbg ?(from_cache=false) () =
+	let get_all_bonds dbg from_cache =
 		Debug.with_thread_associated dbg (fun () ->
 			if from_cache then
 				let ports = List.concat (List.map (fun (_, {ports}) -> ports) !config.bridge_config) in
@@ -858,8 +859,16 @@ module Bridge = struct
 		| Bridge ->
 			raise Not_implemented
 
-	let add_port _ dbg ?bond_mac ~bridge ~name ~interfaces ?(bond_properties=[]) ?(kind=Basic) () =
+	let add_port dbg bond_mac bridge name interfaces bond_properties kind =
 		Debug.with_thread_associated dbg (fun () ->
+			let bond_properties = match bond_properties with
+			| Some l -> l
+			| None -> []
+			in
+			let kind = match kind with
+			| Some v -> v
+			| None -> Basic_port
+			in
 			let config = get_config bridge in
 			let ports =
 				if List.mem_assoc name config.ports then
@@ -876,11 +885,11 @@ module Bridge = struct
 				(String.concat ", " interfaces)
 				(match bond_mac with Some mac -> " and MAC " ^ mac | None -> "");
 			match kind with
-			| Basic -> add_basic_port dbg bridge name port
+			| Basic_port -> add_basic_port dbg bridge name port
 			| PVS_proxy -> add_pvs_proxy_port dbg bridge name port
 		) ()
 
-	let remove_port _ dbg ~bridge ~name =
+	let remove_port dbg bridge name =
 		Debug.with_thread_associated dbg (fun () ->
 			debug "Removing port %s from bridge %s" name bridge;
 			let config = get_config bridge in
@@ -895,7 +904,7 @@ module Bridge = struct
 				ignore (Brctl.destroy_port bridge name)
 		) ()
 
-	let get_interfaces _ dbg ~name =
+	let get_interfaces dbg name =
 		Debug.with_thread_associated dbg (fun () ->
 			match !backend_kind with
 			| Openvswitch ->
@@ -904,7 +913,7 @@ module Bridge = struct
 				Sysfs.bridge_to_interfaces name
 		) ()
 
-	let get_physical_interfaces _ dbg ~name =
+	let get_physical_interfaces dbg name =
 		Debug.with_thread_associated dbg (fun () ->
 			match !backend_kind with
 			| Openvswitch ->
@@ -946,13 +955,13 @@ module Bridge = struct
 			(get_config name).persistent_b
 		) ()
 
-	let set_persistent _ dbg ~name ~value =
+	let set_persistent dbg name value =
 		Debug.with_thread_associated dbg (fun () ->
 			debug "Making bridge %s %spersistent" name (if value then "" else "non-");
 			update_config name {(get_config name) with persistent_b = value}
 		) ()
 
-	let make_config _ dbg ?(conservative=false) ~config () =
+	let make_config dbg conservative config =
 		Debug.with_thread_associated dbg (fun () ->
 			let vlans_go_last (_, {vlan=vlan_of_a}) (_, {vlan=vlan_of_b}) =
 				if vlan_of_a = None && vlan_of_b = None then 0
@@ -976,7 +985,7 @@ module Bridge = struct
 						(String.concat ", " (List.map (fun (name, _) -> name) vlan_parents));
 					let config = vlan_parents @ persistent_config in
 					(* Do not try to recreate bridges that already exist *)
-					let current = get_all () dbg () in
+					let current = get_all dbg () in
 					List.filter (function (name, _) -> not (List.mem name current)) config
 				end else
 					config
@@ -989,20 +998,21 @@ module Bridge = struct
 			List.iter (function (bridge_name, ({ports; vlan; bridge_mac; igmp_snooping; other_config; _} as c)) ->
 				update_config bridge_name c;
 				exec (fun () ->
-					create () dbg ?vlan ?mac:bridge_mac ?igmp_snooping ~other_config ~name:bridge_name ();
+					create dbg vlan bridge_mac igmp_snooping (Some other_config) bridge_name;
 					List.iter (fun (port_name, {interfaces; bond_properties; bond_mac; kind}) ->
-						add_port () dbg ?bond_mac ~bridge:bridge_name ~name:port_name ~interfaces ~bond_properties ~kind ()
-					) ports
+						add_port dbg bond_mac bridge_name port_name interfaces (Some bond_properties) (Some kind)) ports
 				)
 			) config
 		) ()
 end
 
-module PVS_proxy = struct
-	open PVS_proxy
+module S = Network_interface.Interface_API(Idl.GenServerExn ())
 
-	let path = ref "/opt/citrix/pvsproxy/socket/pvsproxy"
-	
+module PVS_proxy = struct
+    open S.PVS_proxy
+
+    let path = ref "/opt/citrix/pvsproxy/socket/pvsproxy"
+
 	let do_call call =
 		try
 			Jsonrpc_client.with_rpc ~path:!path ~call ()
@@ -1010,15 +1020,15 @@ module PVS_proxy = struct
 			error "Error when calling PVS proxy: %s" (Printexc.to_string e);
 			raise PVS_proxy_connection_error
 
-	let configure_site _ dbg config =
+	let configure_site dbg config =
 		debug "Configuring PVS proxy for site %s" config.site_uuid;
-		let call = {Rpc.name = "configure_site"; params = [rpc_of_t config]} in
+		let call = {Rpc.name = "configure_site"; params = [Rpcmarshal.marshal t.ty config]} in
 		let _ = do_call call in
 		()
 
-	let remove_site _ dbg uuid =
+	let remove_site dbg uuid =
 		debug "Removing PVS proxy for site %s" uuid;
-		let call = Rpc.{name = "remove_site"; params = [Dict ["site_uuid", rpc_of_string uuid]]} in
+		let call = Rpc.{name = "remove_site"; params = [Dict ["site_uuid", Rpcmarshal.marshal Rpc.Types.string.ty uuid]]} in
 		let _ = do_call call in
 		()
 end
@@ -1045,8 +1055,8 @@ let on_startup () =
 			remove_centos_config ();
 			if !backend_kind = Openvswitch then
 				Ovs.set_max_idle 5000;
-			Bridge.make_config () dbg ~conservative:true ~config:!config.bridge_config ();
-			Interface.make_config () dbg ~conservative:true ~config:!config.interface_config ();
+			Bridge.make_config dbg true !config.bridge_config;
+			Interface.make_config dbg true !config.interface_config;
 			(* If there is still a network.dbcache file, move it out of the way. *)
 			if (try Unix.access (Filename.concat "/var/lib/xcp" "network.dbcache") [Unix.F_OK]; true with _ -> false) then
 				Unix.rename (Filename.concat "/var/lib/xcp" "network.dbcache") (Filename.concat "/var/lib/xcp" "network.dbcache.bak");
