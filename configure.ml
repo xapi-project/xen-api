@@ -32,6 +32,10 @@ let mandir =
   let doc = "Set the directory for installing manpages" in
   Arg.(value & opt string "/usr/share/man" & info ["mandir"] ~docv:"MANDIR" ~doc)
 
+let optdir = 
+  let doc = "Set the directory for installing system binaries" in
+  Arg.(value & opt string "/opt/xensource/libexec" & info ["optdir"] ~docv:"OPTDIR" ~doc)
+
 let info =
   let doc = "Configures a package" in
   Term.info "configure" ~version:"0.1" ~doc
@@ -109,7 +113,7 @@ let yesno_of_bool = function
   | true -> "YES"
   | false -> "NO"
 
-let configure bindir sbindir libexecdir scriptsdir etcdir mandir coverage =
+let configure bindir sbindir libexecdir scriptsdir etcdir mandir optdir coverage =
   let xenctrl = find_ocamlfind false "xenctrl" in
   let xenlight = find_ocamlfind false "xenlight" in
   let xen45 = find_seriallist () in
@@ -123,6 +127,7 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir coverage =
     ; p "\tscriptsdir=%s" scriptsdir
     ; p "\tetcdir=%s"     etcdir
     ; p "\tmandir=%s"     mandir
+    ; p "\toptdir=%s"     optdir
     ; p "\txenctrl=%b"    xenctrl
     ; p "\txenlight=%b"   xenlight
     ; p "\txentoollog=%b" xentoollog
@@ -140,6 +145,7 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir coverage =
       Printf.sprintf "SCRIPTSDIR=%s" scriptsdir;
       Printf.sprintf "ETCDIR=%s" etcdir;
       Printf.sprintf "MANDIR=%s" mandir;
+      Printf.sprintf "OPTDIR=%s" optdir;
       Printf.sprintf "ENABLE_XEN=--%s-xen" (if xenctrl then "enable" else "disable");
       Printf.sprintf "ENABLE_XENLIGHT=--%s-xenlight" (if xenlight then "enable" else "disable");
       Printf.sprintf "ENABLE_XENTOOLLOG=--%s-xentoollog" (if xentoollog then "enable" else "disable");
@@ -157,7 +163,7 @@ let configure bindir sbindir libexecdir scriptsdir etcdir mandir coverage =
     ] in
   output_file config_ml configmllines
 
-let configure_t = Term.(pure configure $ bindir $ sbindir $ libexecdir $ scriptsdir $ etcdir $ mandir $ coverage)
+let configure_t = Term.(pure configure $ bindir $ sbindir $ libexecdir $ scriptsdir $ etcdir $ mandir $ optdir $ coverage)
 
 let () =
   match
