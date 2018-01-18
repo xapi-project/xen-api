@@ -1364,12 +1364,12 @@ let apply_edition_internal  ~__context ~host ~edition ~additional =
     match l with
     | [] -> []
     | (rf, r)::tl ->
-        if List.mem_assoc r.API.feature_name_label new_ed.experimental_features then
-          (rf, r)::(remove_obsolete_features_from_db tl)
-        else begin
-          destroy_feature rf;
-          remove_obsolete_features_from_db tl
-        end
+      if List.mem_assoc r.API.feature_name_label new_ed.experimental_features then
+        (rf, r)::(remove_obsolete_features_from_db tl)
+      else begin
+        destroy_feature rf;
+        remove_obsolete_features_from_db tl
+      end
   in
 
   let old_features =

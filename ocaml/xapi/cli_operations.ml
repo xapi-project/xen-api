@@ -678,11 +678,11 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
             let existing_params = try Hashtbl.find set_map_table set_map with Not_found -> [] in
             Hashtbl.replace set_map_table set_map ((key, v) :: existing_params)
           | None, None ->
-              let add_to_map = match field.add_to_map with Some f -> f | None -> failwith ("Map field '"^s^"' is read-only.") in
-              let remove_from_map = match field.remove_from_map with Some f -> f | None -> failwith (Printf.sprintf "Records broken (field %s)" s) in
-              let map = get_map () in
-              if List.mem_assoc key map then remove_from_map key;
-              add_to_map key v
+            let add_to_map = match field.add_to_map with Some f -> f | None -> failwith ("Map field '"^s^"' is read-only.") in
+            let remove_from_map = match field.remove_from_map with Some f -> f | None -> failwith (Printf.sprintf "Records broken (field %s)" s) in
+            let map = get_map () in
+            if List.mem_assoc key map then remove_from_map key;
+            add_to_map key v
           | Some _, Some _ -> failwith (Printf.sprintf "Broken Records (field %s)" s)
         end
       | Set s -> failwith "Cannot param-set on set fields"
@@ -828,7 +828,7 @@ let gen_cmds rpc session_id =
     ; Client.PVS_proxy.(mk get_all get_all_records_where get_by_uuid pvs_proxy_record "pvs-proxy" [] ["uuid"; "vif-uuid"; "pvs-site-uuid"; "currently-attached"; "cache-sr-uuid"] rpc session_id)
     ; Client.PVS_cache_storage.(mk get_all get_all_records_where get_by_uuid pvs_cache_storage_record "pvs-cache-storage" [] ["uuid"; "host-uuid"; "sr-uuid"; "pvs-site-uuid"; "size"] rpc session_id)
     ; Client.Feature.(mk get_all get_all_records_where get_by_uuid feature_record "feature" []
-        ["uuid"; "name-label"; "name-description"; "enabled"; "experimental"; "version"; "host-uuid"] rpc session_id)
+                        ["uuid"; "name-label"; "name-description"; "enabled"; "experimental"; "version"; "host-uuid"] rpc session_id)
     ; Client.SDN_controller.(mk get_all get_all_records_where get_by_uuid sdn_controller_record "sdn-controller" [] ["uuid"; "protocol"; "address"; "port"] rpc session_id)
     ; Client.PUSB.(mk get_all get_all_records_where get_by_uuid pusb_record "pusb" [] ["uuid"; "path"; "product-id"; "product-desc"; "vendor-id"; "vendor-desc"; "serial"; "version";"description"] rpc session_id)
     ; Client.USB_group.(mk get_all get_all_records_where get_by_uuid usb_group_record "usb-group" [] ["uuid";"name-label";"name-description"] rpc session_id)
@@ -2794,9 +2794,9 @@ let vm_migrate printer rpc session_id params =
     printer (Cli_printer.PMsg "Performing a Storage XenMotion migration. Your VM's VDIs will be migrated with the VM.");
     if not ((List.mem_assoc "remote-master" params) && (List.mem_assoc "remote-username" params)
             && (List.mem_assoc "remote-password" params)) then begin
-       failwith "Storage XenMotion requires remote-master, remote-username, and \
-         remote-password to be specified. Please see 'xe help vm-migrate' for \
-         help."
+      failwith "Storage XenMotion requires remote-master, remote-username, and \
+                remote-password to be specified. Please see 'xe help vm-migrate' for \
+                help."
     end;
     let ip = List.assoc "remote-master" params in
     let remote_rpc xml =
@@ -2860,23 +2860,23 @@ let vm_migrate printer rpc session_id params =
              let query = Printf.sprintf {|(field "host"="%s") and (field "currently_attached"="true")|} (Ref.string_of host) in
              let host_pbds = Client.PBD.get_all_records_where remote_rpc remote_session query in
              let srs = List.map (fun (pbd_ref, pbd_rec) ->
-               pbd_rec.API.pBD_SR, Client.SR.get_record remote_rpc remote_session pbd_rec.API.pBD_SR) host_pbds in
+                 pbd_rec.API.pBD_SR, Client.SR.get_record remote_rpc remote_session pbd_rec.API.pBD_SR) host_pbds in
              (* In the following loop, the current SR:sr' will be compared with previous checked ones,
                 first if it is an ISO type, then pass this one for selection, then the only shared one from this and
                 previous one will be valued, and if not that case (both shared or none shared), choose the one with
                 more space available *)
              let (sr, _) = List.fold_left (fun (sr, free_space) ((_, sr_rec') as sr') ->
-               if sr_rec'.API.sR_content_type = "iso" then (sr, free_space)
-               else
-                 let free_space' = Int64.sub sr_rec'.API.sR_physical_size sr_rec'.API.sR_physical_utilisation in
-                 match sr with
-                 | None -> (Some sr', free_space')
-                 | Some ((_, sr_rec) as sr) ->
-                   match sr_rec.API.sR_shared, sr_rec'.API.sR_shared with
-                   | true, false -> (Some sr, free_space)
-                   | false, true -> (Some sr', free_space')
-                   | _ -> if (free_space' > free_space) then (Some sr', free_space')
-                          else (Some sr, free_space)
+                 if sr_rec'.API.sR_content_type = "iso" then (sr, free_space)
+                 else
+                   let free_space' = Int64.sub sr_rec'.API.sR_physical_size sr_rec'.API.sR_physical_utilisation in
+                   match sr with
+                   | None -> (Some sr', free_space')
+                   | Some ((_, sr_rec) as sr) ->
+                     match sr_rec.API.sR_shared, sr_rec'.API.sR_shared with
+                     | true, false -> (Some sr, free_space)
+                     | false, true -> (Some sr', free_space')
+                     | _ -> if (free_space' > free_space) then (Some sr', free_space')
+                       else (Some sr, free_space)
                ) (None, Int64.zero) srs in
              match sr with
              | Some (sr_ref, _) -> Some sr_ref
@@ -3868,9 +3868,9 @@ let vm_export_aux obj_type fd printer rpc session_id params =
   let uuid = List.assoc (obj_type ^ "-uuid") params in
   let ref = Client.VM.get_by_uuid rpc session_id uuid in
   if obj_type = "template" && not (Client.VM.get_is_a_template rpc session_id ref) then
-      failwith (Printf.sprintf "This operation can only be performed on a VM template. %s is not a VM template." uuid);
+    failwith (Printf.sprintf "This operation can only be performed on a VM template. %s is not a VM template." uuid);
   if obj_type = "snapshot" && not (Client.VM.get_is_a_snapshot rpc session_id ref) then
-      failwith (Printf.sprintf "This operation can only be performed on a VM snapshot. %s is not a VM snapshot." uuid);
+    failwith (Printf.sprintf "This operation can only be performed on a VM snapshot. %s is not a VM snapshot." uuid);
   export_common fd printer rpc session_id params filename num use_compression preserve_power_state (vm_record rpc session_id ref)
 
 let vm_copy_bios_strings printer rpc session_id params =
@@ -4711,11 +4711,11 @@ let secret_destroy printer rpc session_id params =
 
 let vmss_create printer rpc session_id params =
   let get ?default param_name =
-  if List.mem_assoc param_name params
+    if List.mem_assoc param_name params
     then List.assoc param_name params
-  else match default with
-    | Some default_value -> default_value
-    | None -> failwith ("No default value for parameter "^param_name)
+    else match default with
+      | Some default_value -> default_value
+      | None -> failwith ("No default value for parameter "^param_name)
   in
   let name_label = List.assoc "name-label" params in
   let ty = Record_util.string_to_vmss_type(get "type") in
@@ -4726,7 +4726,7 @@ let vmss_create printer rpc session_id params =
   let enabled = Record_util.bool_of_string(get "enabled" ~default:"true") in
   let retained_snapshots = Int64.of_string(get "retained-snapshots" ~default:"7") in
   let ref = Client.VMSS.create ~rpc ~session_id ~name_label ~name_description
-    ~enabled ~_type:ty ~retained_snapshots ~frequency ~schedule
+      ~enabled ~_type:ty ~retained_snapshots ~frequency ~schedule
   in
   let uuid = Client.VMSS.get_uuid ~rpc ~session_id ~self:ref in
   printer (Cli_printer.PList [uuid])
@@ -4962,9 +4962,9 @@ let livepatch_status_to_string state =
 let update_precheck printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let result = do_host_op rpc session_id (fun _ host ->
-    let host_ref = host.getref () in
-    let ref = Client.Pool_update.get_by_uuid rpc session_id uuid in
-    Client.Pool_update.precheck rpc session_id ref host_ref ) params ["uuid"] in
+      let host_ref = host.getref () in
+      let ref = Client.Pool_update.get_by_uuid rpc session_id uuid in
+      Client.Pool_update.precheck rpc session_id ref host_ref ) params ["uuid"] in
   let result_msg = List.map livepatch_status_to_string result in
   printer (Cli_printer.PList result_msg)
 
@@ -5032,9 +5032,9 @@ end
 
 module PUSB = struct
   let scan printer rpc session_id params =
-  let host_uuid = List.assoc "host-uuid" params in
-  let host = Client.Host.get_by_uuid rpc session_id host_uuid in
-  Client.PUSB.scan rpc session_id host
+    let host_uuid = List.assoc "host-uuid" params in
+    let host = Client.Host.get_by_uuid rpc session_id host_uuid in
+    Client.PUSB.scan rpc session_id host
 end
 
 module VUSB = struct
