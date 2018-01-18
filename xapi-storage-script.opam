@@ -1,0 +1,23 @@
+opam-version: "1.2"
+name: "xapi-storage-script"
+maintainer: "xen-api@lists.xen.org"
+authors: [ "xen-api@lists.xen.org" ]
+license: "LGPL-2.1 with OCaml linking exception"
+homepage: "https://github.com/xapi-project/xapi-storage-script"
+bug-reports: "https://github.com/xapi-project/xapi-storage-script/issues"
+dev-repo: "git://github.com/xapi-project/xapi-storage-script"
+tags: [ "org:xapi-project" ]
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+depends: [
+  "jbuilder" {build}
+  "xapi-idl" {>= "0.10.0" }
+  "xapi-storage"
+  "async"
+  "async_inotify"
+  "async_unix" {>= "112.24.00" }
+  "core"
+  "message-switch-unix"
+  "message-switch-async"
+  "rpc"
+  "ppx_sexp_conv"
+]
