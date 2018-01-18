@@ -924,9 +924,9 @@ let make_service uuid ty =
   }
 
 let check_queue_exists queue_name =
-  let t = Xcp_client.(get_ok (Protocol_unix.Client.connect ~switch:!switch_path ())) in
+  let t = Xcp_client.(get_ok (Message_switch_unix.Protocol_unix.Client.connect ~switch:!switch_path ())) in
   let results =
-    match Protocol_unix.Client.list ~t ~prefix:!Storage_interface.queue_name ~filter:`Alive () with
+    match Message_switch_unix.Protocol_unix.Client.list ~t ~prefix:!Storage_interface.queue_name ~filter:`Alive () with
     | `Ok list -> list
     | _ -> failwith "Failed to contact switch" (* Shouldn't ever happen *) in
   if not (List.mem queue_name results)
@@ -985,8 +985,7 @@ let on_xapi_start ~__context =
   let running_smapiv2_drivers =
     if !Xcp_client.use_switch then begin
       try
-        let open Message_switch in
-        let open Protocol_unix in
+        let open Message_switch_unix.Protocol_unix in
         let (>>|) result f =
           match Client.error_to_msg result with
           | `Error (`Msg x) ->
