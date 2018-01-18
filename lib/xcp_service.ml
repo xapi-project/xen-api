@@ -162,14 +162,14 @@ let common_options = [
 				error "Processing disabled-logging-for = %s: %s" x (Printexc.to_string e)
 		), (fun () -> String.concat " " (setify (List.map fst (Debug.disabled_modules ())))), "A space-separated list of debug modules to suppress logging from";
 
-	"loglevel", Arg.String 
+	"loglevel", Arg.String
 		(fun x ->
 			debug "Parsing [%s]" x;
 			try
 				log_level := Syslog.level_of_string x;
 				Debug.set_level !log_level
 			with e ->
-				error "Processing loglevel = %s: %s" x (Printexc.to_string e)), 
+				error "Processing loglevel = %s: %s" x (Printexc.to_string e)),
 		(fun () -> Syslog.string_of_level !log_level), "Log level";
 
 	"inventory", Arg.Set_string Inventory.inventory_filename, (fun () -> !Inventory.inventory_filename), "Location of the inventory file";
@@ -482,7 +482,7 @@ let serve_forever = function
 		done
 	| Queue(queue_name, fn) ->
 		let process x = Jsonrpc.string_of_response (fn (Jsonrpc.call_of_string x)) in
-		let _ = Protocol_unix.Server.listen ~process ~switch:!Xcp_client.switch_path ~queue:queue_name () in
+		let _ = Message_switch_unix.Protocol_unix.Server.listen ~process ~switch:!Xcp_client.switch_path ~queue:queue_name () in
 		let rec forever () =
 			Thread.delay 3600.;
 			forever () in
