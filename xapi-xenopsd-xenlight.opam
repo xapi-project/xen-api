@@ -1,29 +1,21 @@
 opam-version: "1.2"
+name: "xapi-xenopsd-xenlight"
 maintainer: "xen-api@lists.xen.org"
 authors: "xen-api@lists.xen.org"
 homepage: "https://github.com/xapi-project/xenopsd"
+dev-repo: "https://github.com/xapi-project/xenopsd.git"
+bug-reports: "https://github.com/xapi-project/xenopsd/issues"
 build: [
-	["./configure"]
-	[make]
-]
-install: [
- 	["./setup.bin" "-install"]
-]
-remove: [
-        ["make" "setup.data"]
-        ["./setup.bin" "-uninstall"]
-        ["ocamlfind" "remove" "xenopsd"]
+  ["./configure"]
+  [ "jbuilder" "build" "-p" name "-j" jobs ]
 ]
 depends: [
-  "oasis" {build}
-  "ocamlfind" {build}
-  "bisect_ppx"
+  "jbuilder" {build}
+  "xapi-xenopsd"
   "cohttp"
   "core"
   "ezxenstore"
   "fd-send-recv"
-  "oclock"
-  "ounit"
   "qmp"
   "re"
   "rpc"
@@ -34,7 +26,7 @@ depends: [
   "xapi-forkexecd"
   "xapi-idl"
   "xapi-inventory"
-  "xapi-stdext"
+  "xapi-stdext-unix"
   "xenctrl"
   "xenstore"
   "xenstore_transport"

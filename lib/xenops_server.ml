@@ -40,6 +40,7 @@ let query _ _ _ = {
   features = [];
   instance_id = instance_id;
 }
+let cookie_vgpu_migration = "vgpu_migration"
 
 let backend = ref None
 let get_backend () = match !backend with
@@ -1517,7 +1518,7 @@ and trigger_cleanup_after_failure_atom op t =
   | Parallel (id, description, ops) ->
     List.iter (fun op->trigger_cleanup_after_failure_atom op t) ops
 
-and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit =
+and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit =
   let module B = (val get_backend () : S) in
   let one = function
     | VM_start (id, force) ->
@@ -1657,9 +1658,11 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
            | [vgpu_id] ->
              let vgpu_url = make_url "/migrate-vgpu/" (VGPU_DB.string_of_id vgpu_id) in
              Open_uri.with_open_uri vgpu_url (fun vgpu_fd ->
-                 do_request vgpu_fd [] vgpu_url;
+                 do_request vgpu_fd [cookie_vgpu_migration, ""] vgpu_url;
                  Handshake.recv_success vgpu_fd;
                  debug "VM.migrate: Synchronisation point 1-vgpu";
+                 Handshake.send ~verbose:true mem_fd Handshake.Success;
+                 debug "VM.migrate: Synchronisation point 1-vgpu ACK";
                  first_handshake ();
                  save ~vgpu_fd:(FD vgpu_fd) ();
                );
@@ -1680,29 +1683,49 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
 
       (* set up the destination domain *)
       debug "VM.receive_memory creating domain and restoring VIFs";
-      (try
-         perform_atomics (
-           simplify [VM_create (id, Some memory_limit);] @
-           (* Perform as many operations as possible on the destination domain before pausing the original domain *)
-           (atomics_of_operation (VM_restore_vifs id))
-         ) t;
-         Handshake.send s Handshake.Success
-       with e ->
-         Handshake.send s (Handshake.Error (Printexc.to_string e));
-         raise e
-      );
-      debug "VM.receive_memory: Synchronisation point 1";
 
-      debug "VM.receive_memory restoring VM";
-      (* Check if there is a separate vGPU data channel *)
-      let vgpu_info = Stdext.Opt.of_exception (fun () -> Hashtbl.find vgpu_receiver_sync id) in
-      perform_atomics (
-        List.map (fun vgpu_id -> VGPU_start (vgpu_id, true)) (VGPU_DB.ids id) @ [
-          VM_restore (id, FD s, Opt.map (fun x -> FD x.vgpu_fd) vgpu_info);
-        ]) t;
-      debug "VM.receive_memory restore complete";
-      (* Tell the vGPU receive thread that we're done *)
-      Opt.iter (fun x -> Event.send x.vgpu_channel () |> Event.sync) vgpu_info;
+      finally (fun ()->
+
+        (* If we have a vGPU, wait for the vgpu-1 ACK, which indicates that the vgpu_receiver_sync entry for
+           this vm id has already been initialised by the parallel receive_vgpu thread in this receiving host
+         *)
+        (match VGPU_DB.ids id with
+         | [] -> ()
+         | _  -> begin
+           Handshake.recv_success s;
+           debug "VM.receive_memory: Synchronisation point 1-vgpu ACK";
+           (* After this point, vgpu_receiver_sync is initialised by the corresponding receive_vgpu thread
+              and therefore can be used by this VM_receive_memory thread
+            *)
+         end
+        );
+
+        (try
+           perform_atomics (
+             simplify [VM_create (id, Some memory_limit);] @
+             (* Perform as many operations as possible on the destination domain before pausing the original domain *)
+             (atomics_of_operation (VM_restore_vifs id))
+           ) t;
+           Handshake.send s Handshake.Success
+         with e ->
+           Handshake.send s (Handshake.Error (Printexc.to_string e));
+           raise e
+        );
+        debug "VM.receive_memory: Synchronisation point 1";
+
+        debug "VM.receive_memory restoring VM";
+        (* Check if there is a separate vGPU data channel *)
+        let vgpu_info = Stdext.Opt.of_exception (fun () -> Hashtbl.find vgpu_receiver_sync id) in
+        perform_atomics (
+          List.map (fun vgpu_id -> VGPU_start (vgpu_id, true)) (VGPU_DB.ids id) @ [
+            VM_restore (id, FD s, Opt.map (fun x -> FD x.vgpu_fd) vgpu_info);
+          ]) t;
+        debug "VM.receive_memory restore complete";
+      ) (fun ()->
+        (* Tell the vGPU receive thread that we're done, so that it can clean up vgpu_receiver_sync id and terminate *)
+        let vgpu_info = Stdext.Opt.of_exception (fun () -> Hashtbl.find vgpu_receiver_sync id) in
+        Opt.iter (fun x -> Event.send x.vgpu_channel () |> Event.sync) vgpu_info;
+      );
       debug "VM.receive_memory: Synchronisation point 2";
 
       begin try
@@ -1758,7 +1781,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
         | Vm.Pause    -> [ Atomic (VM_pause id) ]
       in
       let operations = List.concat (List.map operations_of_action actions) in
-      List.iter (fun x -> perform x t) operations;
+      List.iter (fun x -> perform_exn x t) operations;
       VM_DB.signal id
     | PCI_check_state id ->
       debug "PCI.check_state %s" (PCI_DB.string_of_id id);
@@ -1772,7 +1795,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
         | Needs_unplug -> Some (Atomic(PCI_unplug id))
         | Needs_set_qos -> None in
       let operations = List.filter_map operations_of_request (Opt.to_list request) in
-      List.iter (fun x -> perform x t) operations
+      List.iter (fun x -> perform_exn x t) operations
     | VBD_check_state id ->
       debug "VBD.check_state %s" (VBD_DB.string_of_id id);
       let vbd_t = VBD_DB.read_exn id in
@@ -1788,7 +1811,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
         | Needs_unplug -> Some (Atomic(VBD_unplug (id, true)))
         | Needs_set_qos -> Some (Atomic(VBD_set_qos id)) in
       let operations = List.filter_map operations_of_request (Opt.to_list request) in
-      List.iter (fun x -> perform x t) operations;
+      List.iter (fun x -> perform_exn x t) operations;
       (* Needed (eg) to reflect a spontaneously-ejected CD *)
       VBD_DB.signal id
     | VIF_check_state id ->
@@ -1803,7 +1826,7 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
         | Needs_unplug -> Some (Atomic(VIF_unplug (id, true)))
         | Needs_set_qos -> None in
       let operations = List.filter_map operations_of_request (Opt.to_list request) in
-      List.iter (fun x -> perform x t) operations
+      List.iter (fun x -> perform_exn x t) operations
     | VUSB_check_state id ->
       debug "VUSB.check_state %s" (VUSB_DB.string_of_id id);
       let vusb_t = VUSB_DB.read_exn id in
@@ -1819,15 +1842,18 @@ and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit
         | Needs_unplug -> Some (Atomic(VUSB_unplug id))
         | Needs_set_qos -> None in
       let operations = List.filter_map operations_of_request (Opt.to_list request) in
-      List.iter (fun x -> perform x t) operations;
+      List.iter (fun x -> perform_exn x t) operations;
       VUSB_DB.signal id
     | Atomic op ->
       let progress_callback = progress_callback 0. 1. t in
       perform_atomic ~progress_callback ?subtask ?result op t
   in
+  one op
+
+and perform ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit =
   let one op =
     try
-      one op
+      perform_exn ?subtask ?result op t
     with e ->
       Backtrace.is_important e;
       info "Caught %s executing %s: triggering cleanup actions" (Printexc.to_string e) (string_of_operation op);
@@ -2338,6 +2364,18 @@ module VM = struct
          let vm_id = VGPU_DB.vm_of vgpu_id in
          match context.transferred_fd with
          | Some transferred_fd ->
+
+           (* prevent vgpu-migration from pre-Jura to Jura and later *)
+           if not (List.mem_assoc cookie_vgpu_migration cookies) then
+               begin
+                  (* only Jura and later hosts send this cookie; fail the migration from pre-Jura hosts *)
+                  let msg = Printf.sprintf "VM.migrate: version of sending host incompatible with receiving host: no cookie %s" cookie_vgpu_migration in
+                  Xenops_migrate.(Handshake.send ~verbose:true transferred_fd (Handshake.Error msg));
+                  debug "VM.receive_vgpu: Synchronisation point 1-vgpu ERR %s" msg;
+                  raise (Internal_error msg)
+               end
+           ;
+
            debug "VM.receive_vgpu: passed fd %d" (Obj.magic transferred_fd);
            (* Store away the fd for VM_receive_memory/restore to use *)
            let info = {

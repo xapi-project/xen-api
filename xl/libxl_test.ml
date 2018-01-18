@@ -64,20 +64,20 @@ let test ctx =
   let _ = Xenlight_events.event_loop_lwt ctx in
 
   (* print_endline "creating a NIC\n"; *)
-  lwt t = Lwt_io.printl "creating a NIC" in
+  Lwt_io.printl "creating a NIC" >>= fun () ->
 
-let open Xenlight.Device_nic in
-let nic = {
-  backend_domid=0; devid=0; mtu=1500; model = ""; mac=[|0x0a;0x7a;0xb8;0xf3;0x3d;0x8d|]; ip = ""; bridge="xenbr0"; ifname = "";
-  script="/etc/xensource/scripts/vif"; nictype=Xenlight.NIC_TYPE_VIF; rate_bytes_per_interval=0L; rate_interval_usecs=0l;
-} in
-write_private 0 52 0 ["vif-uuid", "e72759bd-4788-582e-23ee-ff448119a38f"; "network-uuid", "cf449e61-9a3f-e8d2-8da6-483b0127632d";
-                      "locking-mode", "unlocked"];
-lwt r = Xenlight_events.device_nic_add_async ctx nic 52 in
-let t = Lwt_io.printlf "result: %d" r in
+  let open Xenlight.Device_nic in
+  let nic = {
+    backend_domid=0; devid=0; mtu=1500; model = ""; mac=[|0x0a;0x7a;0xb8;0xf3;0x3d;0x8d|]; ip = ""; bridge="xenbr0"; ifname = "";
+    script="/etc/xensource/scripts/vif"; nictype=Xenlight.NIC_TYPE_VIF; rate_bytes_per_interval=0L; rate_interval_usecs=0l;
+  } in
+  write_private 0 52 0 ["vif-uuid", "e72759bd-4788-582e-23ee-ff448119a38f"; "network-uuid", "cf449e61-9a3f-e8d2-8da6-483b0127632d";
+                        "locking-mode", "unlocked"];
+  Xenlight_events.device_nic_add_async ctx nic 52 >>= fun r ->
+  let t = Lwt_io.printlf "result: %d" r in
 
-evenable_domain_death ctx 52 0;
-Lwt.join [t]
+  evenable_domain_death ctx 52 0;
+  Lwt.join [t]
 
 
 let _ =

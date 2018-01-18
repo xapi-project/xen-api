@@ -97,7 +97,7 @@ CAMLprim value stub_xenctrlext_get_boot_cpufeatures(value xch)
 	ret = xc_get_boot_cpufeatures(_H(xch), &a, &b, &c, &d, &e, &f, &g, &h);
 	if (ret < 0)
 	  failwith_xc(_H(xch));
- 
+
 	v = caml_alloc_tuple(8);
 	Store_field(v, 0, caml_copy_int32(a));
 	Store_field(v, 1, caml_copy_int32(b));
@@ -196,7 +196,7 @@ CAMLprim value stub_xenctrlext_domain_set_target(value xch,
 }
 
 
-/* 
-* Local variables: 
+/*
+* Local variables:
 * indent-tabs-mode: t
 */

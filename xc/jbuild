@@ -1,0 +1,74 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+  | [] -> ""
+  | pkgs ->
+    let cmd = "ocamlfind ocamlc -verbose" ^ (
+        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+      ) in
+    let ic = Unix.open_process_in
+        (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
+    in
+    let rec go ic acc =
+      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+    in
+    go ic ""
+
+let flags = flags ["ppx_deriving_rpc"; "ppx_sexp_conv"]
+
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(jbuild_version 1)
+
+(executable (
+  (name xenops_xc_main)
+  (public_name xenopsd-xc)
+  (package xapi-xenopsd-xc)
+  (flags (-warn-error +a-3 %s))
+  %s
+  (libraries (
+    xenctrl
+    xapi-xenopsd
+    xenstore
+    xenstore.unix
+    xenstore_transport
+    xenstore_transport.unix
+    rpclib
+    forkexec
+    xcp
+    xcp.storage
+    xcp.memory
+    xcp.rrd
+    rrd
+    sexplib
+    xcp-inventory
+    ezxenstore
+    profiling
+    qmp
+    mtime.clock.os
+    ppx_deriving_rpc
+    ppx_sexp_conv
+  ))
+))
+
+(rule (
+  (targets (xenopsd-xc.1))
+  (deps (xenops_xc_main.exe))
+  (action (
+    with-stdout-to ${@} (run ${<} --help=groff)
+  ))
+))
+
+(install (
+  (section man)
+  (files (xenopsd-xc.1))
+  (package xapi-xenopsd-xc)
+))
+|} flags coverage_rewriter

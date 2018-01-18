@@ -192,7 +192,7 @@ let di_of_uuid ~xc ~xs domain_selection uuid =
            with e ->
              warn "Caught exception trying to find creation time of domid %d (uuid %s)" x.domid uuid';
              warn "Defaulting to 'now'";
-             Oclock.gettime Oclock.monotonic
+             Mtime.to_uint64_ns (Mtime_clock.now ())
          in
          compare (create_time a) (create_time b)
       ) possible in
@@ -1476,7 +1476,7 @@ module VM = struct
               finally
                 (fun () -> f fd)
                 (fun () ->
-                   try Fsync.fsync fd;
+                   try Xapi_stdext_unix.Unixext.fsync fd;
                    with Unix.Unix_error(Unix.EIO, _, _) ->
                      error "Caught EIO in fsync after suspend; suspend image may be corrupt";
                      raise (IO_error)

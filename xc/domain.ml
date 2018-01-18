@@ -202,7 +202,7 @@ let make ~xc ~xs vm_info uuid =
     let zeroperm = Xenbus_utils.rwperm_for_guest 0 in
     debug "VM = %s; creating xenstored tree: %s" (Uuid.to_string uuid) dom_path;
 
-    let create_time = Oclock.gettime Oclock.monotonic in
+    let create_time = Mtime.to_uint64_ns (Mtime_clock.now ()) in
     Xs.transaction xs (fun t ->
         (* Clear any existing rubbish in xenstored *)
         t.Xst.rm dom_path;
@@ -657,7 +657,7 @@ let build_linux (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_do
   let store_port, console_port = build_pre ~xc ~xs
       ~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
   let force_arg = if force then ["--force"] else [] in
-  let line = Emu_manager.with_connection task xenguest_path domid
+  let line = XenguestHelper.with_connection task xenguest_path domid
       ([
         "-mode"; "linux_build";
         "-domid"; string_of_int domid;
@@ -674,7 +674,7 @@ let build_linux (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_do
         "-console_domid"; string_of_int console_domid;
         "-fork"; "true";
       ] @ force_arg @ extras) []
-      Emu_manager.receive_success in
+      XenguestHelper.receive_success in
 
   let store_mfn, console_mfn, protocol =
     (* the "protocol" (ie the domU architecture) was only needed for very
@@ -735,7 +735,7 @@ let build_hvm (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domi
   let store_port, console_port = build_pre ~xc ~xs
       ~xen_max_mib ~shadow_mib ~required_host_free_mib ~vcpus domid in
   let force_arg = if force then ["--force"] else [] in
-  let line = Emu_manager.with_connection task xenguest_path domid
+  let line = XenguestHelper.with_connection task xenguest_path domid
       ([
         "-mode"; "hvm_build";
         "-domid"; string_of_int domid;
@@ -747,7 +747,7 @@ let build_hvm (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domi
         "-mem_max_mib"; Int64.to_string build_max_mib;
         "-mem_start_mib"; Int64.to_string build_start_mib;
         "-fork"; "true";
-      ] @ force_arg @ extras) [] Emu_manager.receive_success in
+      ] @ force_arg @ extras) [] XenguestHelper.receive_success in
 
   (* XXX: domain builder will reduce our shadow allocation under our feet.
      	   Detect this and override. *)
@@ -930,7 +930,7 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
       let (store_mfn, console_mfn) =
         begin match
             with_conversion_script task "Emu_manager" hvm main_fd (fun pipe_r ->
-                with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras manager_path domid uuid main_fd vgpu_fd (fun cnx ->
+                with_emu_manager_restore task ~hvm ~store_port ~console_port ~extras manager_path domid uuid pipe_r vgpu_fd (fun cnx ->
                     restore_libxc_record cnx domid uuid
                   )
               )
@@ -1046,6 +1046,11 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
                   loop (result :: results)
                 end else begin
                   error "Received unexpected response from emu-manager";
+                  (* Exhaust the thread_requests before returning the error,
+                   * this prevenst leaking blocked results threads *)
+                  List.iter (fun (emu, wakeup) ->
+                    Event.send wakeup () |> Event.sync)
+                    !thread_requests;
                   `Error Domain_restore_failed
                 end
               with End_of_file ->
@@ -1072,23 +1077,29 @@ module Suspend_restore_emu_manager : SUSPEND_RESTORE = struct
             th, ch
           in
           let receive_thread_status threads_and_channels =
-            (* Receive the status from all reader threads and let them exit *)
-            fold (fun (th, ch) _ ->
+            (* Receive the status from all reader threads and let them exit.
+             * This happens in two steps to make sure that we are unblocking
+             * and closing all threads also in case of errors. *)
+            List.map (fun (th, ch) _ ->
                 let status = Event.receive ch |> Event.sync in
                 Thread.join th;
                 status
-              ) threads_and_channels () >>= fun () ->
+              ) threads_and_channels
+            |> fun statuses -> fold (fun x -> x) statuses ()
+            >>= fun () ->
             debug "Reader threads completed successfully";
             return ()
           in
+          (* Start a reader thread on each fd *)
+          let threads_and_channels = List.map start_reader_thread fds in
+          (* Handle results returned by emu-manager *)
+          let emu_manager_results = handle_results () in
+          (* Wait for reader threads to complete *)
+          let[@inlined never] thread_status = receive_thread_status threads_and_channels in
+          (* Chain all together, and we are done! *)
           let res =
-            (* Start a reader thread on each fd *)
-            let threads_and_channels = List.map start_reader_thread fds in
-            (* Handle results returned by emu-manager *)
-            handle_results () >>= fun result ->
-            (* Wait for reader threads to complete *)
-            receive_thread_status threads_and_channels >>= fun () ->
-            (* And we are done! *)
+            emu_manager_results >>= fun result ->
+            thread_status >>= fun () ->
             return result
           in
           begin match res with
@@ -1599,6 +1610,7 @@ module Suspend_restore_xenguest: SUSPEND_RESTORE = struct
       "serial/0/limit",    string_of_int 65536;
       "console/port",     string_of_int console_port;
       "console/ring-ref", sprintf "%nu" console_mfn;
+      "console/limit",    string_of_int 65536;
     ] in
     let vm_stuff = [
       "rtc/timeoffset",    timeoffset;

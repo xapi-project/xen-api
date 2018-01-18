@@ -11,8 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  */
-/*
- */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -43,7 +41,7 @@ value stub_statdev_get_major_minor(value dpath)
 	errno_value = Val_int(0);
 
 	ret = stat(String_val(dpath), &statbuf);
-	if (ret == -1) 
+	if (ret == -1)
 		errno_value = Val_int(errno);
 
 	major = (statbuf.st_rdev & 0xfff00) >> 8;

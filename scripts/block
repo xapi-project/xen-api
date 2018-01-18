@@ -29,7 +29,7 @@ add)
           syslog "${XENBUS_PATH}: physical-device=${physical_device}"
           xenstore-exists "${XENBUS_PATH}/physical-device"
           if [ $? -eq 1 ]; then
-			syslog "${XENBUS_PATH}: writing physical-device=${physical-device}"
+			syslog "${XENBUS_PATH}: writing physical-device=${physical_device}"
             xenstore-write "${XENBUS_PATH}/physical-device" "${physical_device}"
           fi
         else
