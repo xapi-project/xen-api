@@ -78,6 +78,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    pciutil
    pci
    ezxenstore
+   message-switch-unix
    mtime
    mtime.clock.os
    oUnit
