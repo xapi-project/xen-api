@@ -113,5 +113,5 @@ let init name =
   Bisect.init name;
   D.info "Coverage runtime initialized"
 
-let dispatcher_init name =
+let dispatcher_init _name =
   Dispatcher.init ()
