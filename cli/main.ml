@@ -13,9 +13,9 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-open Message_switch
-open Protocol
-open Protocol_unix
+
+open Message_switch_core.Protocol
+open Message_switch_unix.Protocol_unix
 
 let project_url = "http://github.com/djs55/message_switch"
 
@@ -77,7 +77,7 @@ let diagnostics common_opts =
   >>|= fun t ->
   Client.diagnostics ~t ()
   >>|= fun d ->
-    let open Protocol in
+    let open Message_switch_core.Protocol in
     let in_the_past = Int64.sub d.Diagnostics.current_time in
     let time f x =
       let open Int64 in
@@ -92,7 +92,7 @@ let diagnostics common_opts =
       | 0L -> []
       | 1L -> [ Printf.sprintf "1 %s" name ]
       | n  -> [ Printf.sprintf "%Ld %ss" n name ] in
-      let bits = 
+      let bits =
           (fragment "day" days
       ) @ (fragment "hour" hours'
       ) @ (fragment "min" mins'
@@ -192,7 +192,7 @@ let diagnostics common_opts =
         List.iter queue crashed
       end;
     end;
-    
+
     (* We don't show expected empty transient queues *)
     let expected = List.concat (List.map expected_transient_queues d.Diagnostics.permanent_queues) in
     let to_show =
@@ -495,7 +495,7 @@ let serve common_options_t name program =
   | None ->
     `Error(true, "a queue name is required")
   | Some name ->
-    let _ = Protocol_unix.Server.listen ~process:(fun req ->
+    let _ = Message_switch_unix.Protocol_unix.Server.listen ~process:(fun req ->
         match program with
         | None ->
           print_endline "Received:";

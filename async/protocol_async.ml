@@ -19,8 +19,7 @@ let whoami () = Printf.sprintf "%s:%d"
 
 open Core.Std
 open Async.Std
-open Message_switch
-open Protocol
+open Message_switch_core.Protocol
 open Cohttp
 open Cohttp_async
 
@@ -114,5 +113,5 @@ end
 
 let whoami = M.whoami
 
-module Client = Make.Client(M)
-module Server = Make.Server(M)
+module Client = Message_switch_core.Make.Client(M)
+module Server = Message_switch_core.Make.Server(M)

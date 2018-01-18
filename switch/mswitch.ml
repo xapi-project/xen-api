@@ -34,8 +34,8 @@ module Connections = struct
     else Some(StringStringRelation.B_Set.choose sessions)
 
   let get_origin conn_id = match get_session conn_id with
-    | None -> Protocol.Anonymous conn_id
-    | Some x -> Protocol.Name x
+    | None -> Message_switch_core.Protocol.Anonymous conn_id
+    | Some x -> Message_switch_core.Protocol.Name x
 
   let add conn_id session =
     debug "+ connection %s" conn_id;
@@ -59,7 +59,7 @@ let record_transfer time name =
   Hashtbl.replace next_transfer_expected name time
 
 let snapshot queues =
-  let open Protocol.Diagnostics in
+  let open Message_switch_core.Protocol.Diagnostics in
   let queues_of =
     List.fold_left (fun acc (n, q)->
         let queue_contents = Q.contents q in
@@ -75,7 +75,7 @@ let snapshot queues =
     permanent_queues = queues_of permanent_queues;
     transient_queues = queues_of transient_queues }
 
-open Protocol
+open Message_switch_core.Protocol
 let process_request conn_id queues session request = match session, request with
   (* Only allow Login, Get, Trace and Diagnostic messages if there is no session *)
   | _, In.Login session ->
@@ -85,7 +85,7 @@ let process_request conn_id queues session request = match session, request with
   | _, In.Diagnostics ->
     return (None, Out.Diagnostics (snapshot queues))
   | _, In.Trace(from, timeout) ->
-    Trace.get from timeout >>= fun events ->
+    Traceext.get from timeout >>= fun events ->
     return (None, Out.Trace {Out.events = events})
   | _, In.Get path ->
     let path = if path = [] || path = [ "" ] then [ "index.html" ] else path in
@@ -109,7 +109,7 @@ let process_request conn_id queues session request = match session, request with
   | Some session, In.Destroy name ->
     return (Some (Q.Directory.remove queues name), Out.Destroy)
   | Some session, In.Ack (name, id) ->
-    Trace.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack (name, id); processing_time = None }));
+    Traceext.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack (name, id); processing_time = None }));
     return (Some (Q.ack queues (name, id)), Out.Ack)
   | Some session, In.Transfer { In.from = from; timeout = timeout; queues = names } ->
     let time = Int64.add (ns ()) (Int64.of_float (timeout *. 1e9)) in
@@ -135,7 +135,7 @@ let process_request conn_id queues session request = match session, request with
                | None ->
                  None
              end in
-         Trace.add (Event.({time = Unix.gettimeofday(); input = None; queue = name; output = Some session; message = Message (id, m); processing_time }))
+         Traceext.add (Event.({time = Unix.gettimeofday(); input = None; queue = name; output = Some session; message = Message (id, m); processing_time }))
       ) transfer.Out.messages;
     return (None, Out.Transfer transfer)
   | Some session, In.Send (name, data) ->
@@ -143,7 +143,7 @@ let process_request conn_id queues session request = match session, request with
     begin match Q.send queues origin name data with
       | None -> return (None, Out.Send None)
       | Some (id, op) ->
-        Trace.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Message (id, data); processing_time = None }));
+        Traceext.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Message (id, data); processing_time = None }));
         return (Some op, Out.Send (Some id))
     end
   | Some session, In.Shutdown ->

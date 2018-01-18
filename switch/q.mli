@@ -14,6 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+open Message_switch_core
+
 type t [@@deriving sexp]
 (** a persistent message queue with a well-known name.
     XXX these aren't really queues as messages are removed

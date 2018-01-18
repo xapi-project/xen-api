@@ -16,8 +16,11 @@
 
 open Message_switch_core
 
-module Client: S.CLIENT
-  with type 'a io = 'a
+val add: Protocol.Event.t -> unit
+(** [add t] adds a new event to the trace buffer without blocking.
+    If the trace buffer is full then the oldest event is dropped. *)
 
-module Server : S.SERVER
-  with type 'a io = 'a
+val get: int64 -> float -> (int64 * Protocol.Event.t) list Lwt.t
+(** [get from timeout] blocks until some new trace events are
+    available (whose index is > [from]) and returns a list of
+    [index, Event.t] *)

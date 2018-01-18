@@ -4,14 +4,16 @@ install:
   - wget https://raw.githubusercontent.com/simonjbeaumont/ocaml-travis-coveralls/master/travis-coveralls.sh
 script:
     - bash -ex .travis-opam.sh
-    - if [ ! -z ${XS_COV} ]; then bash -ex travis-coveralls.sh || true; fi
 sudo: required
 env:
   global:
     - OCAML_VERSION=4.04
     - PACKAGE=message-switch
+    - PINS="message-switch-async:. message-switch-cli:. message-switch-core:.  message-switch:.  message-switch-lwt:.  message-switch-unix:."
   matrix:
-    - BASE_REMOTE=git://github.com/xapi-project/xs-opam XS_COV=1 COV_CONF="./configure"
+    - BASE_REMOTE=git://github.com/xapi-project/xs-opam XS_COV=1 COV_CONF="./configure" \
+      TEST=false \
+      POST_INSTALL_HOOK="env TRAVIS=$TRAVIS TRAVIS_JOB_ID=$TRAVIS_JOB_ID bash -ex .coverage.sh"
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
 matrix:
     fast_finish: true

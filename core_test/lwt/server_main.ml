@@ -14,11 +14,29 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-val add: Protocol.Event.t -> unit
-(** [add t] adds a new event to the trace buffer without blocking.
-    If the trace buffer is full then the oldest event is dropped. *)
+open Cohttp_lwt_unix
+open Lwt
+open Message_switch_core.Protocol
 
-val get: int64 -> float -> (int64 * Protocol.Event.t) list Lwt.t
-(** [get from timeout] blocks until some new trace events are
-    available (whose index is > [from]) and returns a list of
-    [index, Event.t] *)
+let path = ref "/var/run/message-switch/sock"
+let name = ref "server"
+
+let t, u = Lwt.task ()
+
+let process = function
+  | "shutdown" -> Lwt.wakeup u (); return "ok"
+  | x -> return x
+
+let main () =
+  Message_switch_lwt.Protocol_lwt.Server.listen ~process ~switch:!path ~queue:!name () >>= fun _ ->
+  t >>= fun () ->
+  Lwt_unix.sleep 1.
+
+let _ =
+  Arg.parse [
+    "-path", Arg.Set_string path, (Printf.sprintf "path broker listens on (default %s)" !path);
+    "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
+  ] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
+    "Respond to RPCs on a name";
+
+  Lwt_main.run (main ())

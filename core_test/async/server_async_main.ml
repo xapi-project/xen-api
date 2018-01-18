@@ -14,29 +14,38 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Cohttp_lwt_unix
-open Lwt
-open Protocol
+module P = Printf
+
+open Core.Std
+open Async.Std
+
+open Message_switch_core.Protocol
+open Message_switch_async.Protocol_async
 
 let path = ref "/var/run/message-switch/sock"
 let name = ref "server"
-
-let t, u = Lwt.task ()
-
+let shutdown = Ivar.create ()
 let process = function
-  | "shutdown" -> Lwt.wakeup u (); return "ok"
-  | x -> return x
+  | "shutdown" ->
+    Ivar.fill shutdown ();
+    return "ok"
+  | x ->
+    return x
 
 let main () =
-  Protocol_lwt.Server.listen ~process ~switch:!path ~queue:!name () >>= fun _ ->
-  t >>= fun () ->
-  Lwt_unix.sleep 1.
+  let (_: 'a Deferred.t) = Server.listen ~process ~switch:!path ~queue:!name () in
+  Ivar.read shutdown
+  >>= fun () ->
+  Clock.after (Time.Span.of_sec 1.)
+  >>= fun () ->
+  exit 0
 
 let _ =
   Arg.parse [
     "-path", Arg.Set_string path, (Printf.sprintf "path broker listens on (default %s)" !path);
     "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
-  ] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
+  ] (fun x -> P.fprintf stderr "Ignoring unexpected argument: %s" x)
     "Respond to RPCs on a name";
 
-  Lwt_main.run (main ())
+  let (_: 'a Deferred.t) = main () in
+  never_returns (Scheduler.go ())

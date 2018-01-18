@@ -13,8 +13,8 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
-open Message_switch
-open Protocol
+
+open Message_switch_core.Protocol
 open Lwt
 open Cohttp
 open Cohttp_lwt_unix
@@ -87,5 +87,5 @@ end
 
 let whoami = M.whoami
 
-module Client = Make.Client(M)
-module Server = Make.Server(M)
+module Client = Message_switch_core.Make.Client(M)
+module Server = Message_switch_core.Make.Server(M)

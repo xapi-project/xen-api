@@ -212,7 +212,7 @@ let make_server config =
     redo_log
     >>= fun _ ->
     let conn_id_s = Cohttp.Connection.to_string conn_id in
-    let open Protocol in
+    let open Message_switch_core.Protocol in
     Cohttp_lwt_body.to_string body >>= fun body ->
     let uri = Cohttp.Request.uri req in
     let path = Uri.path uri in
@@ -294,7 +294,7 @@ let make_server config =
     | Unix.Unix_error (error, func, arg) ->
       let msg = Printf.sprintf "Client connection error %s: %s(%S)" (Unix.error_message error) func arg in
       Lwt_log.ign_warning msg
-    | exn -> Lwt_log.ign_error ~exn "Unhandled exception" 
+    | exn -> Lwt_log.ign_error ~exn "Unhandled exception"
   in
   Cohttp_lwt_unix.Server.create ~on_exn ~mode:(`Unix_domain_socket (`File config.path)) t
 

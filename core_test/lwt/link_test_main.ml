@@ -16,9 +16,8 @@
 
 open Cohttp_lwt_unix
 open Lwt
-open Message_switch
-open Protocol
-open Protocol_lwt
+open Message_switch_core.Protocol
+open Message_switch_lwt.Protocol_lwt
 
 let basedir = ref "/tmp/link_test"
 
