@@ -636,21 +636,26 @@ module Interface_API(R : RPC) = struct
 end
 
 
-type sriov_error =
-	| Device_not_found
-	| Bus_out_of_range
-	| Not_enough_mmio_resources
-	| Unknown of string
- 
-type sriov_action_result =
-	| Sysfs_successful
-	| Modprobe_successful
+type enable_action_result =
 	| Modprobe_successful_requires_reboot
-	| Disable_successful
- 
-type sriov_result =
-	| Ok of sriov_action_result
-	| Error of sriov_error
+	| Modprobe_successful
+	| Sysfs_successful
+
+type enable_result =
+	| Ok of enable_action_result
+	| Error of string
+
+type disable_result =
+	| Ok
+	| Error of string
+
+type config_error =
+	| Config_vf_rate_not_supported
+	| Unknown of string
+
+type config_result =
+	| Ok
+	| Error of config_error
  
 module Sriov = struct
 
@@ -660,7 +665,7 @@ module Sriov = struct
 		rate: int64 option;
 	}
 
-	external enable:  debug_info -> name:iface -> sriov_result  = ""
-	external disable: debug_info -> name:iface -> sriov_result  = ""
-	external make_vf_config : debug_info -> pci_address:Xcp_pci.address -> vf_info:Sriov.sriov_pci_t -> unit = ""
+	external enable:  debug_info -> name:iface -> enable_result  = ""
+	external disable: debug_info -> name:iface -> disable_result  = ""
+	external make_vf_config : debug_info -> pci_address:Xcp_pci.address -> vf_info:Sriov.sriov_pci_t -> config_result = ""
 end
