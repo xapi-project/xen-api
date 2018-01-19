@@ -562,6 +562,27 @@ let _ =
   error Api_errors.user_is_not_local_superuser [ "msg" ]
     ~doc:"Only the local superuser can execute this operation" ();
 
+  (* SR-IOV errors *)
+  error Api_errors.network_sriov_already_enabled ["PIF"]
+    ~doc:"You tried to enable network SR-IOV on PIF which is already enabled" ();
+  error Api_errors.network_sriov_find_pf_from_vf_failed ["PCI"]
+    ~doc:"Failed to find physical function from virtual function" ();
+  error Api_errors.network_sriov_pif_has_vf_inuse ["PIF"; "VFs"]
+    ~doc:"Can not destroy network sriov object which has virtual function inuse" ();
+  error Api_errors.network_sriov_enable_failed ["PIF"; "msg"]
+    ~doc:"Can not enable network SR-IOV on PIF" ();
+  error Api_errors.network_sriov_disable_failed ["PIF"; "msg"]
+    ~doc:"Can not disable network SR-IOV on PIF" ();
+  error Api_errors.network_sriov_device_not_found ["PIF"; "device"]
+    ~doc:"Can not find device" ();
+  error Api_errors.network_sriov_bus_out_of_range ["PIF"]
+    ~doc:"Bus out of range when enabling sriov" ();
+  error Api_errors.network_sriov_not_enough_mmio_resources ["PIF"]
+    ~doc:"Mmio resource not enough when enabling sriov" ();
+  error Api_errors.network_sriov_unknown_error ["PIF"; "msg"]
+    ~doc:"Operation on network SR-IOV device failed" ();
+  error Api_errors.network_sriov_pci_vendor_not_compatible ["PIF"; "network"]
+    ~doc:"Can not add incompatible network SR-IOV PIF into the network" ();
   (* PIF/VIF/Network errors *)
   error Api_errors.network_unmanaged [ "network" ]
     ~doc:"The network is not managed by xapi." ();
@@ -573,9 +594,12 @@ let _ =
     ~doc:"You tried to add a purpose to a network but the new purpose is not compatible with an existing purpose of the network or other networks." ();
   error Api_errors.pif_is_physical ["PIF"]
     ~doc:"You tried to destroy a PIF, but it represents an aspect of the physical host configuration, and so cannot be destroyed.  The parameter echoes the PIF handle you gave." ();
+  error Api_errors.pif_is_not_physical ["PIF"]
+    ~doc:"You tried to apply the operation which is only available on physical PIF" ();
   error Api_errors.pif_is_vlan ["PIF"]
     ~doc:"You tried to create a VLAN on top of another VLAN - use the underlying physical PIF/bond instead" ();
-
+  error Api_errors.pif_is_sriov_logical ["PIF"]
+    ~doc:"You tried to create a bond on top of a network SR-IOV logical PIF - use the underlying physical PIF instead" ();
   error Api_errors.pif_vlan_exists ["PIF"]
     ~doc:"You tried to create a PIF, but it already exists." ();
   error Api_errors.pif_vlan_still_exists [ "PIF" ]
@@ -608,6 +632,8 @@ let _ =
     ~doc:"The operation you requested cannot be performed because the specified PIF has FCoE SR in use." ();
   error Api_errors.pif_unmanaged [ "PIF" ]
     ~doc:"The operation you requested cannot be performed because the specified PIF is not managed by xapi." ();
+  error Api_errors.pif_is_not_sriov_capable [ "PIF" ]
+    ~doc:"You try to enable network SR-IOV on an incapable PIF" ();
   error Api_errors.pif_has_no_network_configuration [ "PIF" ]
     ~doc:"PIF has no IP configuration (mode currently set to 'none')" ();
   error Api_errors.pif_has_no_v6_network_configuration [ "PIF" ]
@@ -620,6 +646,10 @@ let _ =
     ~doc:"This PIF is a bond slave and cannot have a VLAN on it." ();
   error Api_errors.cannot_add_tunnel_to_bond_slave ["PIF"]
     ~doc:"This PIF is a bond slave and cannot have a tunnel on it." ();
+  error Api_errors.cannot_add_tunnel_to_sriov_logical ["PIF"]
+    ~doc:"This is a network SR-IOV logical PIF and cannot have a tunnel on it." ();
+  error Api_errors.cannot_add_tunnel_to_vlan_on_sriov_logical ["PIF"]
+    ~doc:"This is a vlan PIF on network SR-IOV and cannot have a tunnel on it." ();
   error Api_errors.cannot_change_pif_properties ["PIF"]
     ~doc:"This properties of this PIF cannot be changed. Only the properties of non-bonded physical PIFs, or bond masters can be changed." ();
   error Api_errors.incompatible_pif_properties []
