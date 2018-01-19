@@ -10,11 +10,17 @@ build: [
   ["./configure" "--bindir" "%{bin}%"]
   [ "jbuilder" "build" "-p" name "-j" jobs ]
 ]
+build-test: [
+  [ "jbuilder" "runtest" "-p" name "-j" jobs ]
+]
 depends: [
   "jbuilder" {build}
   "ocamlfind" {build}
   "message-switch-lwt"
   "message-switch-unix"
   "cmdliner"
+  "cohttp-async" {test}
+  "cohttp-lwt-unix" {test}
+  "message-switch-async" {test}
 ]
 
