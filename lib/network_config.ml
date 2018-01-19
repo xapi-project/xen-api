@@ -32,7 +32,7 @@ let read_management_conf () =
 		let management_conf = Xapi_stdext_unix.Unixext.string_of_file ("/etc/firstboot.d/data/management.conf") in
 		let args = Astring.String.cuts ~empty:false ~sep:"\n" (String.trim management_conf) in
 		let args = List.map (fun s ->
-			match (Astring.String.cuts ~empty:false ~sep:"=" s) with
+			match (Astring.String.cuts ~sep:"=" s) with
 			| k :: [v] -> k, Astring.String.trim ~drop:((=) '\'') v
 			| _ -> "", ""
 		) args in
