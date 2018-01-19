@@ -1033,7 +1033,7 @@ let on_startup () =
 			try
 				let file = String.trim (Xapi_stdext_unix.Unixext.string_of_file "/etc/sysconfig/network") in
 				let args = Astring.String.cuts ~empty:false ~sep:"\n" file in
-				let args = List.map (fun s -> match (Astring.String.cuts ~empty:false ~sep:"=" s) with k :: [v] -> k, v | _ -> "", "") args in
+				let args = List.map (fun s -> match (Astring.String.cuts ~sep:"=" s) with k :: [v] -> k, v | _ -> "", "") args in
 				let args = List.filter (fun (k, v) -> k <> "DNSDEV" && k <> "GATEWAYDEV") args in
 				let s = String.concat "\n" (List.map (fun (k, v) -> k ^ "=" ^ v) args) ^ "\n" in
 				Xapi_stdext_unix.Unixext.write_string_to_file "/etc/sysconfig/network" s
