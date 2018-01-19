@@ -213,6 +213,17 @@ def call_backend_detach(driver, config):
         res = xmlrpc[0][0]
     return res
 
+def connect_nbd(path, exportname):
+    return subprocess.check_output(
+        ['/opt/xensource/libexec/nbd_client_manager.py', 'connect',
+         '--path', path,
+         '--exportname', exportname]).strip()
+
+def disconnect_nbd_device(nbd_device):
+    subprocess.check_call(
+        ['/opt/xensource/libexec/nbd_client_manager.py', 'disconnect',
+         '--device', nbd_device])
+
 def attach(vdi_uuid):
     found = False
     for existing in list():
@@ -242,6 +253,12 @@ def attach(vdi_uuid):
                     attach = call_datapath_plugin(scheme, "Datapath.attach", [ vol_uri, "0" ])
                     path = attach['implementation'][1]
                     call_datapath_plugin(scheme, "Datapath.activate", [ vol_uri, "0" ])
+                    nbd_prefix = 'hack|nbd:unix:'
+                    nbd = path.startswith(nbd_prefix)
+                    if nbd:
+                        path = path[len(nbd_prefix):]
+                        socket_path = path.split('|')[0]
+                        path = connect_nbd(socket_path, 'qemu_node')
 
                 os.symlink(path, d + "/disk")
                 return d + "/disk"
@@ -256,6 +273,9 @@ def detach(vdi_uuid):
                 return
             found = True
             d = main_dir + "/" + existing['id']
+            disk = existing['disk']
+            if disk.startswith('/dev/nbd'):
+                disconnect_nbd_device(disk)
             if not (os.path.exists(d + "/sr-uri")):
                 # SMAPIv1
                 config = read_whole_file(d + "/config")
