@@ -19,8 +19,8 @@ depends: [
   "message-switch-lwt"
   "message-switch-unix"
   "cmdliner"
+  "cohttp-lwt-unix"
   "cohttp-async" {test}
-  "cohttp-lwt-unix" {test}
   "message-switch-async" {test}
 ]
 
