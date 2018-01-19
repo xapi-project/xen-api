@@ -20,6 +20,7 @@ depends: [
   "message-switch-unix"
   "cmdliner"
   "cohttp-lwt-unix"
+  "io-page-unix"
   "cohttp-async" {test}
   "message-switch-async" {test}
 ]
