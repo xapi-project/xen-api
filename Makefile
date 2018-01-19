@@ -34,3 +34,5 @@ reindent:
 
 runtime-coverage:
 	    BISECT_RUNTIME=YES make
+
+.DEFAULT_GOAL := release
