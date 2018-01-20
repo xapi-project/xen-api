@@ -600,6 +600,7 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
       (fun vif ->
          Db.VIF.set_currently_attached ~__context ~self:vif ~value:false;
          Db.VIF.set_reserved ~__context ~self:vif ~value:false;
+         Db.VIF.set_reserved_pci ~__context ~self:vif ~value:Ref.null;
          Xapi_vif_helpers.clear_current_operations ~__context ~self:vif;
          Opt.iter
            (fun p -> Pvs_proxy_control.clear_proxy_state ~__context vif p)
