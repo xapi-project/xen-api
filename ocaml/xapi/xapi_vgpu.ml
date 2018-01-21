@@ -27,7 +27,7 @@ let create' ~__context  ~vM ~gPU_group ~device ~other_config ~_type ~powerstate_
   if not (Pool_features.is_enabled ~__context Features.GPU) then
     raise (Api_errors.Server_error (Api_errors.feature_restricted, []));
   if powerstate_check then
-    Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vM ~expected:`Halted;
+    Xapi_vm_lifecycle_helpers.assert_initial_power_state_is ~__context ~self:vM ~expected:`Halted;
   if not(valid_device device) then
     raise (Api_errors.Server_error (Api_errors.invalid_device, [device]));
 
