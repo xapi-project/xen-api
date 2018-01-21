@@ -46,7 +46,7 @@ let assert_network_has_no_vifs_in_use_on_me ~__context ~host ~network =
           let vm = Db.VIF.get_VM ~__context ~self in
           let resident_on = Db.VM.get_resident_on ~__context ~self:vm in
           if resident_on=host then
-            if Xapi_vm_lifecycle.is_live ~__context ~self:vm then
+            if Xapi_vm_lifecycle_helpers.is_live ~__context ~self:vm then
               raise (Api_errors.Server_error(Api_errors.vif_in_use, [ Ref.string_of network; Ref.string_of self ]))
         end)
     vifs

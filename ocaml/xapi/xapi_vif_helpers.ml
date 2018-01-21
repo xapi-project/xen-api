@@ -34,7 +34,8 @@ let valid_operations ~__context record _ref' : table =
      * one operation at a time
      * a halted VM can have the VIF attached
      * a running VM can do plug/unplug depending on whether the device is already
-       currently-attached and whether the VM has PV drivers *)
+       currently-attached and whether the VM has PV drivers
+     * Network SR-IOV VIF plug/unplug not allowed when VM is running *)
   let table : table = Hashtbl.create 10 in
   List.iter (fun x -> Hashtbl.replace table x None) all_ops;
   let set_errors (code: string) (params: string list) (ops: API.vif_operations_set) =
@@ -53,6 +54,11 @@ let valid_operations ~__context record _ref' : table =
     set_errors Api_errors.other_operation_in_progress 
       [ "VIF"; _ref; vif_operation_to_string concurrent_op ] all_ops;
   end;
+
+  (* SR-IOV VIF do not support  hotplug/unplug *)
+  let network = record.Db_actions.vIF_network in
+  if Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network then
+    set_errors Api_errors.operation_not_allowed ["Network SR-IOV VIF plug/unplug not allowed"] [ `plug; `unplug ];
 
   (* VM must be online to support plug/unplug *)
   let power_state = Db.VM.get_power_state ~__context ~self:vm in
