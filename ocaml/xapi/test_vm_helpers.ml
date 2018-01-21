@@ -98,20 +98,22 @@ let assert_list_is_set l =
 
 let assert_host_group_coherent g =
   match g with
-  | [] -> assert_failure "Empty host group"
+  | [] -> ()
   | (h, c) :: _ ->
     assert_list_is_set (List.map fst g);
     assert_bool "Score not same for all hosts in group"
       (List.for_all (fun x -> snd x = c) g)
 
 let assert_host_groups_equal g g' =
-  let extract_host_strings g =
-    let hosts = List.map fst g in
-    List.sort String.compare (List.map Ref.string_of hosts)
-  in
-  assert_equal (extract_host_strings g) (extract_host_strings g');
-  let score_of g = snd (List.hd g) in
-  assert_equal (score_of g) (score_of g')
+  if g' <> [] then begin
+    let extract_host_strings g =
+      let hosts = List.map fst g in
+      List.sort String.compare (List.map Ref.string_of hosts)
+    in
+    assert_equal (extract_host_strings g) (extract_host_strings g');
+    let score_of g = snd (List.hd g) in
+    assert_equal (score_of g) (score_of g')
+  end
 
 let rec assert_equivalent expected_grouping actual_grouping =
   match (expected_grouping, actual_grouping) with
@@ -232,7 +234,8 @@ let on_pool_of_intel_i350 (f : Context.t -> API.ref_host -> API.ref_host -> API.
       let pf = make_pci ~__context ~host ~functions:1L ~driver_name:"igb" () in
       let physical_PIF = make_pif ~__context ~host ~network:local_network () in
       Db.PIF.set_PCI ~__context ~self:physical_PIF ~value:pf;
-      let _ = create_sriov_pif ~__context ~pif:physical_PIF ~network () in
+      let logical_pif = create_sriov_pif ~__context ~pif:physical_PIF ~network () in
+      Db.PIF.set_currently_attached ~__context ~self:logical_pif ~value:true;
       make_vfs_on_pf ~__context ~pf ~num:8L
     in
     List.iter make_sriov_on [(h',sriov_network1); (h'',sriov_network1); (h'',sriov_network2)];
@@ -281,7 +284,7 @@ let test_netsriov_available_fails_no_netsriov () =
   on_pool_of_intel_i350 (fun __context h _ _ ->
       let sriov_network = List.find (fun network -> Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network) (Db.Network.get_all ~__context) in
       let vm = make_vm_with_sriov_vif ~__context ~network:sriov_network in
-      assert_raises_api_error Api_errors.vm_requires_sriov_vif (fun () ->
+      assert_raises_api_error Api_errors.internal_error (fun () ->
           assert_netsriov_available ~__context ~self:vm ~host:h))
 
 let test_netsriov_available_fails_no_capacity () =
@@ -292,10 +295,10 @@ let test_netsriov_available_fails_no_capacity () =
           List.exists (fun pif -> h' = Db.PIF.get_host ~__context ~self:pif) pifs
         ) sriov_networks in
       let vm = make_vm_with_sriov_vif ~__context ~network:network_on_h in
-      let pci = List.find (fun pci -> h' = Db.PCI.get_host ~__context ~self:pci)
-          (Xapi_network_sriov_helpers.get_pcis_from_network ~__context ~network:network_on_h) in
+      let pif = Xapi_network_sriov_helpers.get_local_underlying_pif ~__context ~network:network_on_h ~host:h' in
+      let pci = Db.PIF.get_PCI ~__context ~self:pif in
       make_allocated_vfs ~__context ~vm ~pci ~num:8L;
-      assert_raises_api_error Api_errors.vm_requires_sriov_vif (fun () ->
+      assert_raises_api_error Api_errors.network_sriov_insufficient_capacity (fun () ->
           assert_netsriov_available ~__context ~self:vm ~host:h'))
 
 let assert_grouping_of_sriov ~__context ~network ~expection_groups =
@@ -328,6 +331,27 @@ let test_group_hosts_netsriov () =
         assert_grouping_of_sriov ~__context ~network:n2 ~expection_groups:[ [(h',8L);(h'',8L)] ]
       | _ -> failwith "Test-failure: Unexpected number of sriov network in test" )
 
+let test_group_hosts_netsriov_unattached () =
+  on_pool_of_intel_i350 ( fun __context h h' h'' ->
+      let sriov_networks = List.find_all
+          (fun network -> Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network)
+          (Db.Network.get_all ~__context)
+                           |> List.sort (fun a b -> compare (List.length (Db.Network.get_PIFs ~__context ~self:a))
+                                            (List.length (Db.Network.get_PIFs ~__context ~self:b)) )
+      in
+      match sriov_networks with
+      | (n1 :: n2 :: _ ) ->
+        (* n1 only have sriov on h'' *)
+        let pif = List.hd (Db.Network.get_PIFs ~__context ~self:n1) in
+        Db.PIF.set_currently_attached ~__context ~self:pif ~value:false;
+        assert_grouping_of_sriov ~__context ~network:n1 ~expection_groups:[ [(h'',0L)] ];
+        let pif = List.find (fun self -> h'' = Db.PIF.get_host ~__context ~self )
+            (Db.Network.get_PIFs ~__context ~self:n2)
+        in
+        Db.PIF.set_currently_attached ~__context ~self:pif ~value:false;
+        assert_grouping_of_sriov ~__context ~network:n2 ~expection_groups:[ [(h',8L)];[(h'',0L)] ];
+      | _ -> failwith "Test-failure: Unexpected number of sriov network in test" )
+
 let test_group_hosts_netsriov_with_allocated () =
   on_pool_of_intel_i350 ( fun __context h h' h'' ->
       let sriov_networks = List.find_all
@@ -345,8 +369,8 @@ let test_group_hosts_netsriov_with_allocated () =
             List.exists (fun pif -> h' = Db.PIF.get_host ~__context ~self:pif) pifs
           ) sriov_networks in
         let vm = make_vm_with_sriov_vif ~__context ~network:network_on_h in
-        let pci = List.find (fun pci -> h' = Db.PCI.get_host ~__context ~self:pci)
-            (Xapi_network_sriov_helpers.get_pcis_from_network ~__context ~network:network_on_h) in
+        let pif = Xapi_network_sriov_helpers.get_local_underlying_pif ~__context ~network:network_on_h ~host:h' in
+        let pci = Db.PIF.get_PCI ~__context ~self:pif in
         make_allocated_vfs ~__context ~vm ~pci ~num:2L;
         assert_grouping_of_sriov ~__context ~network:n2 ~expection_groups:[ [(h'',8L)]; [(h',6L)] ]
       | _ -> failwith "Test-failure: Unexpected number of sriov network in test" )
@@ -394,6 +418,7 @@ let test =
     "test_netsriov_available_fails_no_capacity" >:: test_netsriov_available_fails_no_capacity;
 
     "test_group_hosts_netsriov" >:: test_group_hosts_netsriov;
+    "test_group_hosts_netsriov_unattached" >:: test_group_hosts_netsriov_unattached;
     "test_group_hosts_netsriov_with_allocated" >:: test_group_hosts_netsriov_with_allocated;
 
     "test_get_group_key_vgpu" >:: test_get_group_key_vgpu;

@@ -37,12 +37,20 @@ let is_sr_properly_shared ~__context ~self =
 
 (* Only returns true if the network is shared properly: all (enabled) hosts in the pool must have a PIF on
  * the network, and none of these PIFs may be bond slaves. This ensures that a VM with a VIF on this
- * network can run on (and be migrated to) any (enabled) host in the pool. *)
-let is_network_properly_shared ~__context ~self =
-  let pifs = Db.Network.get_PIFs ~__context ~self in
-  let non_slave_pifs = List.filter (fun pif ->
-      not (Db.is_valid_ref __context (Db.PIF.get_bond_slave_of ~__context ~self:pif))) pifs in
-  let hosts_with_pif = List.setify (List.map (fun pif -> Db.PIF.get_host ~__context ~self:pif) non_slave_pifs) in
+ * network can run on (and be migrated to) any (enabled) host in the pool.
+ * sriov network should have all pifs attached or can be plugged without a reboot.*)
+ let is_network_properly_shared ~__context ~self =
+  let pifs_rc = Db.PIF.get_records_where ~__context ~expr:(Eq (Field "network",Literal (Ref.string_of self))) in
+  let non_slave_and_down_sriov_pifs = List.filter (fun (_ ,pif_rec) ->
+      not (Db.is_valid_ref __context pif_rec.API.pIF_bond_slave_of) &&
+      (match Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec with
+       | Network_sriov_logical sriov :: _
+       | VLAN_untagged _ :: Network_sriov_logical sriov :: _ ->
+         Xapi_network_sriov_helpers.can_be_up_without_reboot ~__context sriov
+       | _ -> true)
+    ) pifs_rc
+  in
+  let hosts_with_pif = List.setify (List.map (fun (_ ,pif_rec) -> pif_rec.API.pIF_host) non_slave_and_down_sriov_pifs) in
   let all_hosts = Db.Host.get_all ~__context in
   let enabled_hosts = List.filter (fun host -> Db.Host.get_enabled ~__context ~self:host) all_hosts in
   let properly_shared = List.subset enabled_hosts hosts_with_pif in
