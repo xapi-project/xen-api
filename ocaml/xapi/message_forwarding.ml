@@ -861,18 +861,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (Db.VM.get_VGPUs ~__context ~self:vm)
 
     let clear_reserved_netsriov_vfs_on ~__context ~vm =
-      let sriov_networks = Xapi_network_sriov_helpers.get_sriov_networks_from_vm __context vm in
-      let sriov_vifs = Db.VM.get_VIFs ~__context ~self:vm
-        |> List.filter (fun vif ->
-            List.mem (Db.VIF.get_network ~__context ~self:vif) sriov_networks) in
-      List.iter
-        (fun vif ->
-          let vf =  Db.VIF.get_reserved_pci ~__context ~self:vif in
-          if vf <> Ref.null then begin
-            Db.VIF.set_reserved_pci ~__context ~self:vif ~value:Ref.null;
-            Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:vf ~value:Ref.null
-          end
-        ) sriov_vifs
+        Db.VM.get_VIFs ~__context ~self:vm
+        |> List.iter (fun vif ->
+              let vf =  Db.VIF.get_reserved_pci ~__context ~self:vif in
+              Db.VIF.set_reserved_pci ~__context ~self:vif ~value:Ref.null;
+              if Db.is_valid_ref __context vf then
+                Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:vf ~value:Ref.null
+           )
 
     (* Notes on memory checking/reservation logic:
        		   When computing the hosts free memory we consider all VMs resident_on (ie running
@@ -1743,7 +1738,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm);
       let local_fn = Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options in
       let forwarder =
-        if Xapi_vm_lifecycle.is_live ~__context ~self:vm then
+        if Xapi_vm_lifecycle_helpers.is_live ~__context ~self:vm then
           let host = List.assoc Xapi_vm_migrate._host dest |> Ref.of_string in
           if Db.is_valid_ref __context host then
             (* Intra-pool: reserve resources on the destination host, then
@@ -1972,7 +1967,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let query_data_source ~__context ~self ~data_source =
       info "VM.query_data_source: VM = '%s'; data source = '%s'" (vm_uuid ~__context self) data_source;
-      Xapi_vm_lifecycle.assert_initial_power_state_in ~__context ~self ~allowed:[`Running; `Paused];
+      Xapi_vm_lifecycle_helpers.assert_initial_power_state_in ~__context ~self ~allowed:[`Running; `Paused];
       let local_fn = Local.VM.query_data_source ~self ~data_source in
       forward_vm_op ~local_fn ~__context ~vm:self
         (fun session_id rpc -> Client.VM.query_data_source rpc session_id self data_source)
@@ -3476,7 +3471,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let vbds = Db.VDI.get_VBDs ~__context ~self in
       List.iter (fun vbd ->
           let vm = Db.VBD.get_VM ~__context ~self:vbd in
-          Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vm ~expected:`Halted
+          Xapi_vm_lifecycle_helpers.assert_initial_power_state_is ~__context ~self:vm ~expected:`Halted
         ) vbds
 
     let set_on_boot ~__context ~self ~value =
@@ -3607,7 +3602,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       VM.with_vm_operation ~__context ~self:vm ~doc:"VDI.pool_migrate" ~op:`migrate_send
         (fun () ->
            let snapshot, host =
-             if Xapi_vm_lifecycle.is_live ~__context ~self:vm then
+             if Xapi_vm_lifecycle_helpers.is_live ~__context ~self:vm then
                (Db.VM.get_record ~__context ~self:vm,
                 Db.VM.get_resident_on ~__context ~self:vm)
              else
@@ -4301,10 +4296,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let get_remaining_capacity ~__context ~self =
       info "Network_sriov.get_remaining_capacity : network_sriov = '%s'" (network_sriov_uuid ~__context self);
-      let local_fn = Local.Network_sriov.get_remaining_capacity ~self in
-      let physical_pif = Db.Network_sriov.get_physical_PIF ~__context ~self in
-      let host = Db.PIF.get_host ~__context ~self:physical_pif in
-      do_op_on ~__context ~local_fn ~host (fun session_id rpc -> Client.Network_sriov.get_remaining_capacity rpc session_id self)
+      Local.Network_sriov.get_remaining_capacity ~__context ~self
   end
 
 end

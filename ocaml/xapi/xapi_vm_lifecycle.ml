@@ -683,23 +683,6 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let set = (fun value -> Db.VM.set_current_operations ~__context ~self ~value) in
   Helpers.cancel_tasks ~__context ~ops ~all_tasks_in_db ~task_ids ~set
 
-(** VM is considered as "live" when it's either Running or Paused, i.e. with a live domain *)
-let is_live ~__context ~self =
-  let power_state = Db.VM.get_power_state ~__context ~self in
-  power_state = `Running || power_state = `Paused
-
-(** Assert that VM is in a certain set of states before starting an operation *)
-let assert_initial_power_state_in ~__context ~self ~allowed =
-  let actual = Db.VM.get_power_state ~__context ~self in
-  if not (List.mem actual allowed)
-  then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [
-      Ref.string_of self;
-      List.map Record_util.power_to_string allowed |> String.concat ";";
-      Record_util.power_to_string actual ]))
-
-(** Assert that VM is in a certain state before starting an operation *)
-let assert_initial_power_state_is ~expected = assert_initial_power_state_in ~allowed:[expected]
-
 (** Assert that VM is in a certain set of states after completing an operation *)
 let assert_final_power_state_in ~__context ~self ~allowed =
   let actual = Db.VM.get_power_state ~__context ~self in

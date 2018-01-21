@@ -392,15 +392,31 @@ let assert_usbs_available ~__context ~self ~host =
         (Ref.string_of host)
       ]))
     )
-let assert_netsriov_available ~__context ~self ~host = 
-  Xapi_network_sriov_helpers.get_sriov_networks_from_vm ~__context ~vm:self |>
-  List.iter (fun network ->
-  match Xapi_network_sriov_helpers.host_sriov_capable ~__context ~host ~network with
-  | false -> raise (Api_errors.Server_error (Api_errors.vm_requires_sriov_vif,[
-              (Ref.string_of self);
-              (Ref.string_of network)]))
-  | true -> ()
-  )
+
+(* Get SR-IOV Vifs by return a list of [(network1,(required_num1,PCI1));(network2,(required_num2,PCI2))....] 
+   Raise exn immediately when found Idle VF nums < required_num *)
+let assert_netsriov_available ~__context ~self ~host =
+  let sriov_networks = List.fold_left (fun acc vif ->
+      let network = Db.VIF.get_network ~__context ~self:vif in
+      match Xapi_network_attach_helpers.get_local_pifs ~__context ~network ~host with
+      | [] -> raise Api_errors.(Server_error (internal_error, ["Cannot get local pif on network"]))
+      | pif :: _ ->
+        begin match Xapi_network_sriov_helpers.get_underlying_pif ~__context ~pif with
+          | None -> acc
+          | Some phy_pif ->
+            try
+              let required,pci = List.assoc network acc in
+              (network,(required + 1,pci)) :: (List.remove_assoc network acc)
+            with Not_found ->
+              let pci = Db.PIF.get_PCI ~__context ~self:phy_pif in
+              (network,(1,pci)) :: acc;
+        end
+    ) [] (Db.VM.get_VIFs ~__context ~self)
+  in
+  List.iter (fun (_,(required,pci)) ->
+      if (Xapi_pci.get_idle_vf_nums ~__context ~self:pci) < (Int64.of_int required) then
+        raise (Api_errors.Server_error(Api_errors.network_sriov_insufficient_capacity, []))
+    ) sriov_networks
 
 let assert_host_supports_hvm ~__context ~self ~host =
   (* For now we say that a host supports HVM if any of    *)
@@ -634,23 +650,23 @@ let group_hosts_by_best_pgpu_in_group ~__context gpu_group vgpu_type =
        snd (List.hd (List.hd (group_by_capacity viable_resident_pgpus)))
     ) viable_hosts
 
-let get_group_key ~__context ~vm = 
-  let (>>=) opt f =
+let is_vm_has_vgpu ~__context ~vm  =
+  let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
+  if vgpus <> [] then Some (`VGPU (List.hd vgpus)) else None
+
+let is_vm_has_sriov ~__context ~vm =
+  let sriov_network = Xapi_network_sriov_helpers.get_sriov_networks_from_vm ~__context ~vm in
+  if sriov_network <> [] then Some (`Netsriov (List.hd sriov_network)) else None
+
+let (>>=) opt f =
   match opt with
   | Some _ as v -> v
-  | None -> f ()
-  in
-  let vm_has_vgpu () =
-    let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
-    if vgpus <> [] then Some (`VGPU (List.hd vgpus)) else None
-  in
-  let vm_has_sriov () =
-    let sriov_network = Xapi_network_sriov_helpers.get_sriov_networks_from_vm ~__context ~vm in
-    if sriov_network <> [] then Some (`Netsriov (List.hd sriov_network)) else None
-  in
+  | None -> f
+
+let get_group_key ~__context ~vm =
   match None
-    >>= vm_has_vgpu
-    >>= vm_has_sriov with
+    >>= (is_vm_has_vgpu __context vm)
+    >>= (is_vm_has_sriov __context vm) with
   | Some x -> x
   | None -> `Other
 
@@ -667,14 +683,21 @@ let group_in_group_with_best_gpu ~__context vgpu =
     |> List.map (fun g -> List.map (fun (h,_)-> h) g)
 
 let group_in_group_with_best_sriov ~__context network =
-  match
-    Xapi_network_sriov_helpers.get_remaining_on_network ~__context ~network
-  with
-  | Either.Left e -> raise e
-  | Either.Right _ -> ();
-    Xapi_network_sriov_helpers.group_hosts_by_best_sriov ~__context ~network
-    |> List.map (fun g -> List.map (fun (h,_)-> h) g)
+  try
+    let remaining_capacity = Xapi_network_sriov_helpers.get_pcis_from_network ~__context ~network
+                              |> List.fold_left (fun acc pci -> 
+                                  Xapi_pci.get_idle_vf_nums ~__context ~self:pci |> Int64.add acc ) 0L
+    in
+    if not (remaining_capacity > 0L) then
+      raise (Api_errors.Server_error(Api_errors.network_sriov_insufficient_capacity, [Ref.string_of network]))
+    else
+      Xapi_network_sriov_helpers.group_hosts_by_best_sriov ~__context ~network
+      |> List.map (fun g -> List.map (fun (h,_)-> h) g)
+  with e -> raise e
 
+(* 1.Take Vgpu or Network SR-IOV as a group_key for group all hosts into host list list
+   2.helper function's order determine the priority of resources,now vgpu has higher priority than Network SR-IOV
+   3.If no key found in VM,then host_lists will be [all_hosts] *)
 let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot = 
   let validate_host = vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check:true in
   let all_hosts = Db.Host.get_all ~__context in
