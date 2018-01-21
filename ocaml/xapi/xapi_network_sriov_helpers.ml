@@ -125,6 +125,7 @@ let assert_sriov_pif_compatible_with_network ~__context ~pif ~network =
         if not (is_device_underneath_same_type ~__context pif existing_pif) then
           raise Api_errors.(Server_error (network_has_incompatible_sriov_pifs, [Ref.string_of pif; Ref.string_of network]))
     end
+
 let get_remaining_capacity_on_sriov ~__context ~self =
   let physical_PIF = Db.Network_sriov.get_physical_PIF ~__context ~self in
   let pci = Db.PIF.get_PCI ~__context ~self:physical_PIF in
@@ -175,7 +176,11 @@ let get_remaining_on_network ~__context ~network =
 
 let host_sriov_capable ~__context ~host ~network =
   (*at most one pif in network on localhost*)
-  let local_pifs = Xapi_network_attach_helpers.get_local_pifs ~__context ~network ~host in
+  let local_pifs =
+    Db.PIF.get_refs_where ~__context ~expr:(And (
+      Eq (Field "network", Literal (Ref.string_of network)),
+      Eq (Field "host", Literal (Ref.string_of host))
+    )) in
   match local_pifs with
   | local_pif :: _ ->
     begin match get_underlying_pif ~__context ~pif:local_pif with

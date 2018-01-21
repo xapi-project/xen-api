@@ -34,7 +34,7 @@ let assert_attachable ~__context ~self : unit =
 
 let set_mode ~__context ~self ~value =
   let vm = Db.VBD.get_VM ~__context ~self in
-  Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vm ~expected:`Halted;
+  Xapi_vm_lifecycle_helpers.assert_initial_power_state_is ~__context ~self:vm ~expected:`Halted;
   Db.VBD.set_mode ~__context ~self ~value
 
 let plug ~__context ~self =

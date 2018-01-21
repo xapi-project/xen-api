@@ -1972,7 +1972,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let query_data_source ~__context ~self ~data_source =
       info "VM.query_data_source: VM = '%s'; data source = '%s'" (vm_uuid ~__context self) data_source;
-      Xapi_vm_lifecycle.assert_initial_power_state_in ~__context ~self ~allowed:[`Running; `Paused];
+      Xapi_vm_lifecycle_helpers.assert_initial_power_state_in ~__context ~self ~allowed:[`Running; `Paused];
       let local_fn = Local.VM.query_data_source ~self ~data_source in
       forward_vm_op ~local_fn ~__context ~vm:self
         (fun session_id rpc -> Client.VM.query_data_source rpc session_id self data_source)
@@ -3476,7 +3476,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let vbds = Db.VDI.get_VBDs ~__context ~self in
       List.iter (fun vbd ->
           let vm = Db.VBD.get_VM ~__context ~self:vbd in
-          Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vm ~expected:`Halted
+          Xapi_vm_lifecycle_helpers.assert_initial_power_state_is ~__context ~self:vm ~expected:`Halted
         ) vbds
 
     let set_on_boot ~__context ~self ~value =
