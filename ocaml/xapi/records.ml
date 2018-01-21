@@ -229,9 +229,10 @@ let network_sriov_record rpc session_id network_sriov =
     fields =
       [
         make_field ~name:"uuid"                     ~get:(fun () -> (x ()).API.network_sriov_uuid) ();
-        make_field ~name:"physical-PIF"        ~get:(fun () -> get_uuid_from_ref (x ()).API.network_sriov_physical_PIF) ();
-        make_field ~name:"logical-PIF"         ~get:(fun () -> get_uuid_from_ref (x ()).API.network_sriov_logical_PIF) ();
+        make_field ~name:"physical-PIF"             ~get:(fun () -> get_uuid_from_ref (x ()).API.network_sriov_physical_PIF) ();
+        make_field ~name:"logical-PIF"              ~get:(fun () -> get_uuid_from_ref (x ()).API.network_sriov_logical_PIF) ();
         make_field ~name:"requires-reboot"          ~get:(fun () -> string_of_bool (x ()).API.network_sriov_requires_reboot) ();
+        make_field ~name:"remaining-capacity"       ~get:(fun () -> try Int64.to_string (Client.Network_sriov.get_remaining_capacity rpc session_id network_sriov) with _ -> "<unknown>") ~expensive:true ();
       ]}
 
 let pif_record rpc session_id pif =

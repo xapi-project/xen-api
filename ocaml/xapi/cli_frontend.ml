@@ -1594,15 +1594,6 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[];
     };
 
-    "network-sriov-get-remaining-capacity",
-    {
-      reqd=["uuid"];
-      optn=[];
-      help="Get the number of VF that still can be allocated from this SRIOV object.";
-      implementation=No_fd Cli_operations.Network_sriov.get_remaining_capacity;
-      flags=[];
-    };
-
     "pif-unplug",
     {
       reqd=["uuid"];
