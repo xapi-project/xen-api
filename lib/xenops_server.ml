@@ -107,6 +107,7 @@ type atomic =
   | VM_restore of (Vm.id * data * data option)
   (** takes suspend data, plus optionally vGPU state data *)
   | VM_delay of (Vm.id * float) (** used to suppress fast reboot loops *)
+  | VM_rename of (Vm.id * Vm.id)
   | Parallel of Vm.id * string * atomic list
 
 [@@deriving rpc]
@@ -123,7 +124,7 @@ type operation =
   | VM_restore_vifs of Vm.id
   | VM_restore_devices of (Vm.id * bool)
   | VM_migrate of (Vm.id * (string * string) list * (string * Network.t) list * (string * Pci.address) list * string)
-  | VM_receive_memory of (Vm.id * int64 * Unix.file_descr)
+  | VM_receive_memory of (Vm.id * Vm.id * int64 * Unix.file_descr)
   | VBD_hotplug of Vbd.id
   | VBD_hotunplug of Vbd.id * bool
   | VIF_hotplug of Vbd.id
@@ -482,6 +483,7 @@ module Redirector = struct
 
   (* When a thread is actively processing a queue, items are redirected to a thread-private queue *)
   let overrides = ref StringMap.empty
+  let aliases = ref StringMap.empty
   let m = Mutex.create ()
 
   let should_keep (op, _) prev = match op with
@@ -499,10 +501,11 @@ module Redirector = struct
       (fun () ->
          Mutex.execute m
            (fun () ->
-              let q, redirected = if StringMap.mem tag !overrides then StringMap.find tag !overrides, true else t.queues, false in
-              debug "Queue.push %s onto %s%s:[ %s ]" (string_of_operation (fst item)) (if redirected then "redirected " else "") tag (String.concat ", " (List.rev (Queue.fold (fun acc (b, _) -> string_of_operation b :: acc) [] (Queues.get tag q))));
+              let real_tag, aliased = match StringMap.find_opt tag !aliases with | Some x -> x, true | None -> tag,false in
+              let q, redirected = match StringMap.find_opt real_tag !overrides with | Some x -> x, true | None -> t.queues, false in
+              debug "Queue.push %s onto %s%s:[ %s ]" (string_of_operation (fst item)) (if aliased then "aliased " else if redirected then "redirected " else "") real_tag (String.concat ", " (List.rev (Queue.fold (fun acc (b, _) -> string_of_operation b :: acc) [] (Queues.get tag q))));
 
-              Queues.push_with_coalesce should_keep tag item q
+              Queues.push_with_coalesce should_keep real_tag item q
            )
       ) ()
 
@@ -527,8 +530,21 @@ module Redirector = struct
     Mutex.execute m
       (fun () ->
          Queues.transfer_tag tag queue t.queues;
-         overrides := StringMap.remove tag !overrides
+         overrides := StringMap.remove tag !overrides;
          (* All items with [tag] will enter the queues queue *)
+         (* Sanity check: there should be no override for tag in overrides *)
+         aliases := StringMap.filter (fun _ v -> v <> tag) !aliases
+      )
+
+  let alias ~tag ~alias =
+    Mutex.execute m
+      (fun () ->
+        if StringMap.mem tag !overrides then begin
+          debug "Queue: Aliasing existing tag '%s' to new tag '%s'" tag alias;
+          aliases := StringMap.add alias tag !aliases
+        end else begin
+          debug "Queue: Warning: Not aliasing non-existing tag"
+        end
       )
 
   module Dump = struct
@@ -1233,6 +1249,32 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
         List.iter (fun vusb -> VUSB_DB.remove vusb.Vusb.id) (VUSB_DB.vusbs id);
         VM_DB.remove id
     end
+  | VM_rename (id1,id2) ->
+    if id1 = id2 then begin
+      error "VM.rename called with the same src/dest = %s" id1;
+      failwith "rename called with the same src/dest"
+    end;
+    debug "VM.rename %s -> %s" id1 id2;
+    (* TODO: Check that there are no items in the queue for id2 *)
+    let vbds = VBD_DB.vbds id1 in
+    let vifs = VIF_DB.vifs id1 in
+    let pcis = PCI_DB.pcis id1 in
+    let vgpus = VGPU_DB.vgpus id1 in
+    let vusbs = VUSB_DB.vusbs id1 in
+    B.VM.rename id1 id2;
+    let new_key (_,y) = (id2,y) in
+    let fixup items rm add get_id set_id =
+      List.iter (fun i -> let id = get_id i in rm id; let id' = new_key id in add id' (set_id id' i)) items
+    in
+    let vm = VM_DB.read_exn id1 in
+    VM_DB.remove id1;
+    VM_DB.add id2 ({vm with Vm.id=id2});
+    fixup vbds VBD_DB.remove VBD_DB.add (fun vbd -> vbd.Vbd.id) (fun id' vbd -> {vbd with Vbd.id=id'});
+    fixup vifs VIF_DB.remove VIF_DB.add (fun vif -> vif.Vif.id) (fun id' vif -> {vif with Vif.id=id'});
+    fixup pcis PCI_DB.remove PCI_DB.add (fun pci -> pci.Pci.id) (fun id' pci -> {pci with Pci.id=id'});
+    fixup vgpus VGPU_DB.remove VGPU_DB.add (fun vgpu -> vgpu.Vgpu.id) (fun id' vgpu -> {vgpu with Vgpu.id=id'});
+    fixup vusbs VUSB_DB.remove VUSB_DB.add (fun vusb -> vusb.Vusb.id) (fun id' vusb -> {vusb with Vusb.id=id'});
+
   | PCI_plug id ->
     debug "PCI.plug %s" (PCI_DB.string_of_id id);
     B.PCI.plug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
@@ -1447,9 +1489,11 @@ and trigger_cleanup_after_failure op t =
   | VM_suspend (id, _)
   | VM_restore_vifs id
   | VM_restore_devices (id, _)
-  | VM_resume (id, _)
-  | VM_receive_memory (id, _, _) ->
+  | VM_resume (id, _) ->
+    immediate_operation dbg id (VM_check_state id)
+  | VM_receive_memory (id, final_id, _, _) ->
     immediate_operation dbg id (VM_check_state id);
+    immediate_operation dbg final_id (VM_check_state final_id);
   | VM_migrate (id, _, _, _, _) ->
     immediate_operation dbg id (VM_check_state id);
     immediate_operation dbg id (VM_check_state id);
@@ -1524,6 +1568,9 @@ and trigger_cleanup_after_failure_atom op t =
     immediate_operation dbg id (VM_check_state id)
   | Parallel (id, description, ops) ->
     List.iter (fun op->trigger_cleanup_after_failure_atom op t) ops
+  | VM_rename (id1,id2) ->
+    immediate_operation dbg id1 (VM_check_state id1);
+    immediate_operation dbg id2 (VM_check_state id2)
 
 and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : unit =
   let module B = (val get_backend () : S) in
@@ -1580,24 +1627,26 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
       let dbg = (Xenops_task.to_interface_task t).Task.dbg in
       let url = Uri.of_string url' in
       (* We need to perform version exchange here *)
-      let is_localhost =
-        try
-          let q = query dbg url' in
-          debug "Remote system is: %s" (q |> Query.rpc_of_t |> Jsonrpc.to_string);
-          q.Query.instance_id = instance_id
-        with e ->
-          debug "Failed to contact remote system on %s: is it running? (%s)" url' (Printexc.to_string e);
-          raise (Failed_to_contact_remote_service url') in
-      if is_localhost
-      then debug "This is a localhost migration.";
+
       Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 
       let module Remote = Xenops_interface.Client(struct let rpc = Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> url') end) in
-      let id = Remote.VM.import_metadata dbg (export_metadata vdi_map vif_map vgpu_pci_map id) in
-      debug "Received vm-id = %s" id;
+      let regexp = Re.Pcre.regexp id in
+      let new_dest_id = (String.sub id 0 24) ^ "000000000001" in
+      let new_src_id = (String.sub id 0 24) ^ "000000000000" in
+      debug "Destination domain will be built with uuid=%s" new_dest_id;
+      debug "Original domain will be moved to uuid=%s" new_src_id;
+
+      (* Redirect operations on new_src_id to our worker thread. *)
+      (* This is the id our domain will have when we've streamed its memory *)
+      (* image to the destination. *)
+      Redirector.alias ~tag:id ~alias:new_src_id;
+
+      let id' = Remote.VM.import_metadata dbg (Re.replace_string regexp ~by:new_dest_id (export_metadata vdi_map vif_map vgpu_pci_map id)) in
+      debug "Received vm-id = %s" id';
       let make_url snippet id_str = Uri.make ?scheme:(Uri.scheme url) ?host:(Uri.host url) ?port:(Uri.port url)
           ~path:(Uri.path url ^ snippet ^ id_str) ~query:(Uri.query url) () in
-      let memory_url = make_url "/memory/" id in
+      let memory_url = make_url "/memory/" new_dest_id in
 
       (* CA-78365: set the memory dynamic range to a single value to stop ballooning. *)
       let atomic = VM_set_memory_dynamic_range(id, vm.Vm.memory_dynamic_min, vm.Vm.memory_dynamic_min) in
@@ -1619,6 +1668,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
              let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
              let cookies = [
                "instance_id", instance_id;
+               "final_id", id;
                "dbg", dbg;
              ] @ extra_cookies in
              let headers = Cohttp.Header.of_list (
@@ -1650,7 +1700,8 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
            in
            let save ?vgpu_fd () =
              perform_atomics [
-               VM_save (id, [ Live ], FD mem_fd, vgpu_fd)
+               VM_save (id, [ Live ], FD mem_fd, vgpu_fd);
+               VM_rename (id, new_src_id)
              ] t;
              debug "VM.migrate: Synchronisation point 2"
            in
@@ -1662,8 +1713,8 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
              first_handshake ();
              save ();
              final_handshake ()
-           | [vgpu_id] ->
-             let vgpu_url = make_url "/migrate-vgpu/" (VGPU_DB.string_of_id vgpu_id) in
+           | [(vm_id,dev_id)] ->
+             let vgpu_url = make_url "/migrate-vgpu/" (VGPU_DB.string_of_id (new_dest_id,dev_id)) in
              Open_uri.with_open_uri vgpu_url (fun vgpu_fd ->
                  do_request vgpu_fd [cookie_vgpu_migration, ""] vgpu_url;
                  Handshake.recv_success vgpu_fd;
@@ -1678,12 +1729,25 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
         );
       let atomics = [
         VM_hook_script(id, Xenops_hooks.VM_pre_destroy, Xenops_hooks.reason__suspend);
-      ] @ (atomics_of_operation (VM_shutdown (id, None))) @ [
+      ] @ (atomics_of_operation (VM_shutdown (new_src_id, None))) @ [
           VM_hook_script(id, Xenops_hooks.VM_post_destroy, Xenops_hooks.reason__suspend);
+          VM_remove(new_src_id);
         ] in
-      perform_atomics atomics t;
-      VM_DB.signal id
-    | VM_receive_memory (id, memory_limit, s) ->
+      perform_atomics atomics t
+    | VM_receive_memory (id, final_id, memory_limit, s) ->
+      if (final_id <> id) then
+        (* Note: In the localhost case, there are necessarily two worker threads operating on the
+           same VM. The first one is using tag xxxxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxx and has tag
+           xxxxxxxxxxxx-xxxx-xxxx-xxxx-00000000 aliased to it (so actions being queued against either
+           will get queued on that worker thread). The second worker thread has just started up at
+           this point and has tag xxxxxxxxxxxx-xxxx-xxxx-xxxx-00000001. The following line will add
+           a new alias of the original id to this second worker thread so we end up with a situation
+           where there are two worker threads that can conceivably queue actions related to the
+           original uuid xxxxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx. However, the alias is always resolved
+           first and hence in practice any further actions related to the real uuid will be queued up
+           on this worker thread's queue. *)
+        Redirector.alias ~tag:id ~alias:final_id;
+
       debug "VM.receive_memory %s" id;
       Sockopt.set_sock_keepalives s;
       let open Xenops_migrate in
@@ -1740,13 +1804,19 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
           Handshake.recv_success ~verbose:true s;
           debug "VM.receive_memory: Synchronisation point 3";
 
-          debug "VM.receive_memory restoring remaining devices and unpausing";
-          perform_atomics ([
-            ] @ (atomics_of_operation (VM_restore_devices (id, false))) @ [
-                VM_unpause id;
-                VM_set_domain_action_request(id, None);
-                VM_hook_script(id, Xenops_hooks.VM_post_migrate, Xenops_hooks.reason__migrate_dest);
+          if final_id <> id then begin
+            debug "VM.receive_memory: Renaming domain";
+            perform_atomics ([
+              VM_rename (id, final_id)
               ]) t;
+          end;
+
+          debug "VM.receive_memory restoring remaining devices and unpausing";
+          perform_atomics ((atomics_of_operation (VM_restore_devices (final_id, false)) @ [
+                VM_unpause final_id;
+                VM_set_domain_action_request(final_id, None);
+                VM_hook_script(final_id, Xenops_hooks.VM_post_migrate, Xenops_hooks.reason__migrate_dest);
+              ])) t;
 
           Handshake.send s Handshake.Success;
           debug "VM.receive_memory: Synchronisation point 4";
@@ -2225,6 +2295,8 @@ module VM = struct
   let add _ dbg x =
     Debug.with_thread_associated dbg (fun () -> add' x) ()
 
+  let rename _ dbg id1 id2 = queue_operation dbg id1 (Atomic(VM_rename (id1,id2)))
+
   let remove _ dbg id =
     let task = queue_operation_and_wait dbg id (Atomic (VM_remove id)) in
     let task_id = Xenops_task.id_of_handle task in
@@ -2301,16 +2373,8 @@ module VM = struct
   let migrate context dbg id vdi_map vif_map vgpu_pci_map url =
     queue_operation dbg id (VM_migrate (id, vdi_map, vif_map, vgpu_pci_map, url))
 
-  let migrate_receive_memory _ dbg id memory_limit remote_instance_id c =
-    let is_localhost = instance_id = remote_instance_id in
-    let transferred_fd = Xcp_channel.file_descr_of_t c in
-    let op = VM_receive_memory(id, memory_limit, transferred_fd) in
-    (* If it's a localhost migration then we're already in the queue *)
-    if is_localhost then begin
-      immediate_operation dbg id op;
-      None
-    end else
-      Some (queue_operation dbg id op)
+  let migrate_receive_memory _ _ _ _ _ _ =
+    failwith "Unimplemented"
 
   let receive_memory uri cookies s context : unit =
     let module Request = Cohttp.Request.Make(Cohttp_posix_io.Unbuffered_IO) in
@@ -2319,27 +2383,23 @@ module VM = struct
     let memory_limit = List.assoc "memory_limit" cookies |> Int64.of_string in
     Debug.with_thread_associated dbg
       (fun () ->
-         let is_localhost, id = Debug.with_thread_associated dbg
-             debug "VM.receive_memory";
-           let remote_instance = List.assoc "instance_id" cookies in
-           let is_localhost = instance_id = remote_instance in
+         let id, final_id =
+           let final_id = List.assoc "final_id" cookies in
            (* The URI is /service/xenops/memory/id *)
            let bits = Stdext.Xstringext.String.split '/' (Uri.path uri) in
            let id = bits |> List.rev |> List.hd in
-           debug "VM.receive_memory id = %s is_localhost = %b" id is_localhost;
-           is_localhost, id
+<<<<<<< HEAD
+           debug "VM.receive_memory id = %s" id;
+=======
+           let final_id = match List.assoc_opt "final_id" cookies with Some x -> x | None -> id in
+           debug "VM.receive_memory id = %s, final_id=%s" id final_id;
+>>>>>>> 28441bb8... Fixups
+           id, final_id
          in
          match context.transferred_fd with
          | Some transferred_fd ->
-           let op = VM_receive_memory(id, memory_limit, transferred_fd) in
-           (* If it's a localhost migration then we're already in the queue *)
-           let task =
-             if is_localhost then begin
-               immediate_operation dbg id op;
-               None
-             end else
-               Some (queue_operation dbg id op)
-           in
+           let op = VM_receive_memory(id, final_id, memory_limit, transferred_fd) in
+           let task = Some (queue_operation dbg id op) in
            Opt.iter (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore) task
          | None ->
            let headers = Cohttp.Header.of_list [
@@ -2357,16 +2417,13 @@ module VM = struct
     let dbg = List.assoc "dbg" cookies in
     Debug.with_thread_associated dbg
       (fun () ->
-         let is_localhost, vgpu_id = Debug.with_thread_associated dbg
-             debug "VM.receive_vgpu";
-           let remote_instance = List.assoc "instance_id" cookies in
-           let is_localhost = instance_id = remote_instance in
+         let vgpu_id =
            (* The URI is /service/xenops/migrate-vgpu/id *)
            let bits = Stdext.Xstringext.String.split '/' (Uri.path uri) in
            let vgpu_id_str = bits |> List.rev |> List.hd in
            let vgpu_id = VGPU_DB.id_of_string vgpu_id_str in
-           debug "VM.receive_vgpu vgpu_id_str = %s is_localhost = %b" vgpu_id_str is_localhost;
-           is_localhost, vgpu_id
+           debug "VM.receive_vgpu vgpu_id_str = %s" vgpu_id_str;
+           vgpu_id
          in
          let vm_id = VGPU_DB.vm_of vgpu_id in
          match context.transferred_fd with

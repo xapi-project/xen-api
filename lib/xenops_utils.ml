@@ -64,6 +64,7 @@ module type FS = sig
   val exists: string list -> bool
   val rm: string list -> unit
   val readdir: string list -> string list
+  val rename: string list -> string list -> unit
 end
 
 (* Return all the non-empty prefixes of a given string, in descending order by length.
@@ -425,6 +426,13 @@ module FileFS = struct
     then Array.to_list (Sys.readdir filename)
     else []
 
+  let rename path path' =
+    let f = filename_of path in
+    let f' = filename_of path' in
+    Unixext.mkdir_rec (Filename.dirname f') 0o755;
+    Unix.rename f f';
+    List.iter (fun path -> try Unix.rmdir path with _ -> ()) (paths_of path)
+
   let init () = ()
 end
 
@@ -500,6 +508,20 @@ module MemFS = struct
            ) (prefixes_of path)
       )
 
+  let rename path path' =
+    Mutex.execute m
+      (fun () ->
+        try
+          let contents =
+            match StringMap.find (filename path) !(dir_locked (dirname path)) with
+            | Leaf x -> x
+            | Dir _ -> failwith (Printf.sprintf "Invalid: rename must be called on files not directories. %s is a directory" (filename path))
+          in
+          let dir = dir_locked (dirname path') in
+          dir := StringMap.add (filename path') (Leaf contents) !dir
+        with _ ->
+          ())
+
   let init () = ()
 end
 
@@ -518,25 +540,27 @@ module TypedTable = functor(I: ITEM) -> struct
   type key = string list
 
   let of_key k = I.namespace :: k
+  let get_path k = k |> I.key |> of_key
+
 
   (* Non-thread-safe functions: avoid calling these directly *)
 
   let write (k: I.key) (x: t) =
     let module FS = (val get_fs_backend () : FS) in
-    let path = k |> I.key |> of_key in
+    let path = get_path k in
     debug "TypedTable: Writing %s" (String.concat "/" path);
     FS.write path (rpc_of_t x)
 
   let delete (k: I.key) =
     debug "TypedTable: Deleting %s" (k |> I.key |> of_key |> String.concat "/");
     let module FS = (val get_fs_backend () : FS) in
-    FS.rm (k |> I.key |> of_key)
+    FS.rm (get_path k)
 
   (* Thread-safe functions *)
 
   let read (k: I.key) =
     let module FS = (val get_fs_backend () : FS) in
-    let path = k |> I.key |> of_key in
+    let path = get_path k in
     Opt.map (fun x -> t_of_rpc x) (FS.read path)
 
   let read_exn (k: I.key) = match read k with
@@ -545,11 +569,16 @@ module TypedTable = functor(I: ITEM) -> struct
 
   let exists (k: I.key) =
     let module FS = (val get_fs_backend () : FS) in
-    FS.exists (k |> I.key |> of_key)
+    let path = get_path k in
+    FS.exists path
 
   let list (k: key) =
     let module FS = (val get_fs_backend () : FS) in
     FS.readdir (k |> of_key)
+
+  let rename (k: I.key) (k': I.key) =
+    let module FS = (val get_fs_backend () : FS) in
+    FS.rename (get_path k) (get_path k')
 
   let m = Mutex.create ()
 
@@ -592,6 +621,22 @@ module TypedTable = functor(I: ITEM) -> struct
       else
         false
     )
+
+  let rename (k: I.key) (k': I.key) =
+    Mutex.execute m (fun () ->
+      let path = get_path k |> String.concat "/" in
+      let path' = get_path k' |> String.concat "/" in
+      assert (path <> path');
+      debug "TypedTable: Renaming %s -> %s" path path';
+      if exists k' then begin
+        debug "Key %s already exists" path';
+        raise (Already_exists(I.namespace, path'));
+      end;
+      if not(exists k) then begin
+        debug "Key %s does not exist" path;
+        raise (Does_not_exist(I.namespace, path));
+      end;
+      rename k k')
 
   (* Version of `update` that raises an exception if the read fails *)
   let update_exn (k: I.key) (f: t -> t option) =

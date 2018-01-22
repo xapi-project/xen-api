@@ -57,6 +57,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     mtime.clock.os
     ppx_deriving_rpc
     ppx_sexp_conv
+    re
+    re.pcre
   ))
 ))
 

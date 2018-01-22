@@ -1123,6 +1123,22 @@ module VM = struct
              ) (minimal_local_kvs @ minimal_vm_kvs)
       )
 
+  let rename vm vm' =
+    with_xc_and_xs
+      (fun xc xs ->
+         match di_of_uuid ~xc ~xs Newest (uuid_of_string vm) with
+         | None -> ()
+         | Some di ->
+            begin
+              debug "Renaming domain %d from %s to %s" di.Xenctrl.domid vm vm';
+              Xenctrl.domain_sethandle xc di.Xenctrl.domid vm';
+              debug "Moving xenstore tree";
+              Domain.move_xstree xs di.Xenctrl.domid vm vm';
+
+              DB.rename vm vm'
+            end
+      )
+
   let remove vm =
     with_xc_and_xs
       (fun xc xs ->
