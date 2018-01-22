@@ -56,8 +56,6 @@ namespace XenAPI
 
         public API_Version APIVersion = API_Version.API_1_1;
 
-        private string _uuid;
-
         public object Tag;
 
         // Filled in after successful session_login_with_password for version 1.6 or newer connections
@@ -99,7 +97,7 @@ namespace XenAPI
         public Session(string url, string opaqueRef)
             : this(url)
         {
-            this._uuid = opaqueRef;
+            opaque_ref = opaqueRef;
             SetAPIVersion();
             SwapRpcBackend();
             SetADDetails();
@@ -116,9 +114,9 @@ namespace XenAPI
         public Session(Session session, int timeout)
             : this(session.Url, timeout)
         {
-            _uuid = session.uuid;
+            opaque_ref = session.uuid;
             APIVersion = session.APIVersion;
-            _isLocalSuperuser = session._isLocalSuperuser;
+            _isLocalSuperuser = session.IsLocalSuperuser;
             _subject = session._subject;
             _userSid = session._userSid;
         }
@@ -129,7 +127,7 @@ namespace XenAPI
         public static Session get_record(Session session, string _session)
         {
             Session newSession = new Session(session.proxy.Url);
-            newSession._uuid = _session;
+            newSession.opaque_ref = _session;
             newSession.SetAPIVersion();
             newSession.SwapRpcBackend();
             return newSession;
@@ -211,7 +209,7 @@ namespace XenAPI
 
         public string uuid
         {
-            get { return _uuid; }
+            get { return opaque_ref; }
         }
 
         public string Url
@@ -293,9 +291,9 @@ namespace XenAPI
         public void login_with_password(string username, string password)
         {
             if (JsonRpcClient != null)
-                _uuid = JsonRpcClient.session_login_with_password(username, password);
+                opaque_ref = JsonRpcClient.session_login_with_password(username, password);
             else
-                _uuid = proxy.session_login_with_password(username, password).parse();
+                opaque_ref = proxy.session_login_with_password(username, password).parse();
 
             SetAPIVersion();
             SwapRpcBackend();
@@ -306,9 +304,9 @@ namespace XenAPI
             try
             {
                 if (JsonRpcClient != null)
-                    _uuid = JsonRpcClient.session_login_with_password(username, password, version);
+                    opaque_ref = JsonRpcClient.session_login_with_password(username, password, version);
                 else
-                    _uuid = proxy.session_login_with_password(username, password, version).parse();
+                    opaque_ref = proxy.session_login_with_password(username, password, version).parse();
 
                 SetAPIVersion();
                 SwapRpcBackend();
@@ -334,9 +332,9 @@ namespace XenAPI
             try
             {
                 if (JsonRpcClient != null)
-                    _uuid = JsonRpcClient.session_login_with_password(username, password, version, originator);
+                    opaque_ref = JsonRpcClient.session_login_with_password(username, password, version, originator);
                 else
-                    _uuid = proxy.session_login_with_password(username, password, version, originator).parse();
+                    opaque_ref = proxy.session_login_with_password(username, password, version, originator).parse();
 
                 SetAPIVersion();
                 SwapRpcBackend();
@@ -403,9 +401,9 @@ namespace XenAPI
         public void slave_local_login_with_password(string username, string password)
         {
             if (JsonRpcClient != null)
-                _uuid = JsonRpcClient.session_slave_local_login_with_password(username, password);
+                opaque_ref = JsonRpcClient.session_slave_local_login_with_password(username, password);
             else
-                _uuid = proxy.session_slave_local_login_with_password(username, password).parse();
+                opaque_ref = proxy.session_slave_local_login_with_password(username, password).parse();
             //assume the latest API
             APIVersion = API_Version.LATEST;
         }
@@ -421,8 +419,8 @@ namespace XenAPI
         /// <param name="session2">The session to log out</param>
         public void logout(Session session2)
         {
-            logout(session2._uuid);
-            session2._uuid = null;
+            logout(session2.uuid);
+            session2.opaque_ref = null;
         }
 
         /// <summary>
@@ -447,8 +445,8 @@ namespace XenAPI
 
         public void local_logout(Session session2)
         {
-            local_logout(session2._uuid);
-            session2._uuid = null;
+            local_logout(session2.uuid);
+            session2.opaque_ref = null;
         }
 
         public void local_logout(string session_uuid)
