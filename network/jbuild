@@ -15,24 +15,22 @@ let flags = function
     in
     go ic ""
 
+let rewriters_ppx = ["ppx_deriving_rpc"]
+
 let coverage_rewriter =
   let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
   if is_coverage then
     "(preprocess (pps (bisect_ppx -conditional)))"
   else
-    ""
-
-let rewriters_camlp4 = ["rpclib.idl -syntax camlp4o"]
-let rewriters_ppx = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
+    Printf.sprintf "(preprocess (pps (%s)))" (String.concat " " rewriters_ppx)
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (jbuild_version 1)
 
 (library
- ((name xcp_network_interface)
-  (public_name xcp.network.interface)
-  (modules (network_interface))
-  (flags (:standard -w -39 %s))
+ ((name xcp_network)
+  (public_name xcp.network)
+  (flags (:standard -w -39-33 %s))
   (libraries
    (rpclib
     threads
@@ -40,17 +38,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (wrapped false)
   %s))
 
-(library
- ((name xcp_network)
-  (public_name xcp.network)
-  (modules (:standard \ network_interface))
-  (flags (:standard -w -39-33 %s))
-  (libraries
-   (rpclib
-    threads
-    xcp
-    xcp_network_interface))
-  (wrapped false)
-  %s))
-
-|} (flags rewriters_camlp4) coverage_rewriter (flags rewriters_ppx) coverage_rewriter
+|} (flags rewriters_ppx) coverage_rewriter

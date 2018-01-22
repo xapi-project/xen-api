@@ -44,7 +44,7 @@ type iface_stats = {
   nb_links: int;
   links_up: int;
   interfaces: iface list;
-} [@@deriving rpc]
+} [@@deriving rpcty]
 
 let default_stats = {
   tx_bytes = 0L;
@@ -64,7 +64,7 @@ let default_stats = {
   interfaces = [];
 }
 
-type stats_t = (iface * iface_stats) list [@@deriving rpc]
+type stats_t = (iface * iface_stats) list [@@deriving rpcty]
 
 exception Read_error
 exception Invalid_magic_string
@@ -117,7 +117,9 @@ let read_stats () =
       if payload |> Digest.string |> Digest.to_hex <> checksum then
         raise Invalid_checksum
       else
-        payload |> Jsonrpc.of_string |> stats_t_of_rpc
+        match payload |> Jsonrpc.of_string |> Rpcmarshal.unmarshal typ_of_stats_t with
+        | Result.Ok v -> v
+        | Result.Error _ -> raise Read_error
     with e ->
       if n > 0 then begin
         Thread.delay retry_delay;

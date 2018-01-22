@@ -11,6 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Rpc
+open Idl
 
 (** {2 Helper functions} *)
 
@@ -24,12 +26,6 @@ let uri () = "file:" ^ !default_path
 
 let comp f g x = f (g x)
 let (++) f g x = comp f g x
-
-module Unix = struct
-  include Unix
-  let inet_addr_of_rpc rpc = Unix.inet_addr_of_string (Rpc.string_of_rpc rpc)
-  let rpc_of_inet_addr inet = Rpc.rpc_of_string (Unix.string_of_inet_addr inet)
-end
 
 let netmask_to_prefixlen netmask =
   Scanf.sscanf netmask "%d.%d.%d.%d" (fun a b c d ->
@@ -56,26 +52,33 @@ let prefixlen_to_netmask len =
   let masks = List.map (string_of_int ++ mask) lens in
   String.concat "." masks
 
-(** {2 Exceptions} *)
-
-exception Script_missing of string
-exception Script_error of (string * string) list
-exception Read_error of string
-exception Write_error of string
-exception Not_implemented
-exception Vlan_in_use of (string * int)
+module Unix = struct
+  include Unix
+  let typ_of_inet_addr = Rpc.Types.Abstract ({
+      rpc_of = (fun t -> Rpc.String (Unix.string_of_inet_addr t));
+      of_rpc = (function
+          | Rpc.String s -> Ok (Unix.inet_addr_of_string s)
+          | r -> Error (`Msg (Printf.sprintf "typ_of_inet_addr: expectd rpc string but got %s" (Rpc.to_string r))));
+    })
+end
 
 (** {2 Types} *)
 
-type debug_info = string
-type iface = string
-type port = string
-type bridge = string
-type dhcp_options = [`set_gateway | `set_dns]
-type ipv4 = None4 | DHCP4 | Static4 of (Unix.inet_addr * int) list
-type ipv6 = None6 | Linklocal6 | DHCP6 | Autoconf6 | Static6 of (Unix.inet_addr * int) list
+type debug_info = string [@@deriving rpcty]
+type iface = string [@@deriving rpcty]
+type port = string [@@deriving rpcty]
+type bridge = string [@@deriving rpcty]
+(* rpcty cannot handle polymorphic variant, so change the definition to variant *)
+type dhcp_options = Set_gateway | Set_dns [@@deriving rpcty]
+type ipv4 = None4 | DHCP4 | Static4 of (Unix.inet_addr * int) list [@@deriving rpcty]
+type ipv6 = None6 | Linklocal6 | DHCP6 | Autoconf6 | Static6 of (Unix.inet_addr * int) list [@@deriving rpcty]
 
-type duplex = Duplex_unknown | Duplex_half | Duplex_full
+type duplex =
+  | Duplex_unknown
+  | Duplex_half
+  | Duplex_full
+[@@default Duplex_unknown]
+[@@deriving rpcty]
 
 let string_of_duplex = function
   | Duplex_unknown -> "unknown"
@@ -87,145 +90,113 @@ let duplex_of_string = function
   | "half"    -> Duplex_half
   | _         -> Duplex_unknown
 
+(* `Basic` is conflict with Rpc.Basic so rename it to `Basic_port`*)
 type port_kind =
-  | Basic
+  | Basic_port
   | PVS_proxy
+[@@deriving rpcty]
 
 let string_of_port_kind = function
-  | Basic -> "basic"
+  | Basic_port -> "basic"
   | PVS_proxy -> "PVS proxy"
 
+type ipv4_route_t = {
+  subnet : Unix.inet_addr;
+  netmask : int;
+  gateway : Unix.inet_addr;
+} [@@deriving rpcty]
+
+type kind = Openvswitch | Bridge [@@deriving rpcty]
+
+let string_of_kind = function
+  | Openvswitch -> "openvswitch"
+  | Bridge -> "bridge"
+
+type bond_mode = Balance_slb | Active_backup | Lacp [@@deriving rpcty]
+type fail_mode = Standalone | Secure [@@deriving rpcty]
+
 type interface_config_t = {
-  ipv4_conf: ipv4;
-  ipv4_gateway: Unix.inet_addr option;
-  ipv6_conf: ipv6;
-  ipv6_gateway: Unix.inet_addr option;
-  ipv4_routes: (Unix.inet_addr * int * Unix.inet_addr) list;
-  dns: Unix.inet_addr list * string list;
-  mtu: int;
-  ethtool_settings: (string * string) list;
-  ethtool_offload: (string * string) list;
-  persistent_i: bool;
-}
+  ipv4_conf: ipv4 [@default None4];
+  ipv4_gateway: Unix.inet_addr option [@default None];
+  ipv6_conf: ipv6 [@default None6];
+  ipv6_gateway: Unix.inet_addr option [@default None];
+  ipv4_routes: ipv4_route_t list [@default []];
+  dns: Unix.inet_addr list * string list [@default [], []];
+  mtu: int [@default 1500];
+  ethtool_settings: (string * string) list [@default []];
+  ethtool_offload: (string * string) list [@default ["lro", "off"]];
+  persistent_i: bool [@default false];
+} [@@deriving rpcty]
+
 type port_config_t = {
-  interfaces: iface list;
-  bond_properties: (string * string) list;
-  bond_mac: string option;
-  kind: port_kind;
-}
+  interfaces: iface list [@default []];
+  bond_properties: (string * string) list [@default []];
+  bond_mac: string option [@default None];
+  kind: port_kind [@default Basic_port];
+} [@@deriving rpcty]
+
 type bridge_config_t = {
-  ports: (port * port_config_t) list;
-  vlan: (bridge * int) option;
-  bridge_mac: string option;
-  igmp_snooping: bool option;
-  other_config: (string * string) list;
-  persistent_b: bool;
-}
+  ports: (port * port_config_t) list [@default []];
+  vlan: (bridge * int) option [@default None];
+  bridge_mac: string option [@default None];
+  igmp_snooping: bool option [@default None];
+  other_config: (string * string) list [@default []];
+  persistent_b: bool [@default false];
+} [@@deriving rpcty]
+
 type config_t = {
-  interface_config: (iface * interface_config_t) list;
-  bridge_config: (bridge * bridge_config_t) list;
-  gateway_interface: iface option;
-  dns_interface: iface option;
-}
+  interface_config: (iface * interface_config_t) list [@default []];
+  bridge_config: (bridge * bridge_config_t) list [@default []];
+  gateway_interface: iface option [@default None];
+  dns_interface: iface option [@default None];
+} [@@deriving rpcty]
 
 (** {2 Default configuration} *)
-
 let default_interface = {
-  ipv4_conf = None4;
-  ipv4_gateway = None;
-  ipv6_conf = None6;
-  ipv6_gateway = None;
-  ipv4_routes = [];
-  dns = [], [];
-  mtu = 1500;
-  ethtool_settings = [];
-  ethtool_offload = ["lro", "off"];
-  persistent_i = false;
+	ipv4_conf = None4;
+	ipv4_gateway = None;
+	ipv6_conf = None6;
+	ipv6_gateway = None;
+	ipv4_routes = [];
+	dns = [], [];
+	mtu = 1500;
+	ethtool_settings = [];
+	ethtool_offload = ["lro", "off"];
+	persistent_i = false;
 }
+
 let default_bridge = {
-  ports = [];
-  vlan = None;
-  bridge_mac = None;
-  igmp_snooping = None;
-  other_config = [];
-  persistent_b = false;
+	ports = [];
+	vlan = None;
+	bridge_mac = None;
+	igmp_snooping = None;
+	other_config = [];
+	persistent_b = false;
 }
+
 let default_port = {
-  interfaces = [];
-  bond_properties = [];
-  bond_mac = None;
-  kind = Basic;
+	interfaces = [];
+	bond_properties = [];
+	bond_mac = None;
+	kind = Basic_port;
 }
+
 let default_config = {
-  interface_config = [];
-  bridge_config = [];
-  gateway_interface = None;
-  dns_interface = None
+	interface_config = [];
+	bridge_config = [];
+	gateway_interface = None;
+	dns_interface = None
 }
-
-(** {2 RPC functions} *)
-
-let interface_config_t_add_defaults rpc =
-  Rpc.struct_extend rpc (rpc_of_interface_config_t default_interface)
-
-let port_config_t_add_defaults rpc =
-  Rpc.struct_extend rpc (rpc_of_port_config_t default_port)
-
-let bridge_config_t_add_defaults rpc =
-  (* This needs some special treatment, because bridge_config_t contains a list of port_config_t records
-     * that may need to have defaults inserted. Rpc.struct_extend does not currently support this. *)
-  let open Rpc in
-  let rpc' = Rpc.struct_extend rpc (rpc_of_bridge_config_t default_bridge) in
-  match rpc' with
-  | Dict r ->
-    Dict (List.map (fun (k, v) ->
-        match k, v with
-        | "ports", Dict v' ->
-          k, Dict (List.map (fun (name, config) -> name, port_config_t_add_defaults config) v')
-        | x -> x
-      ) r)
-  | x -> x
-
-let config_t_add_defaults rpc =
-  (* This needs some special treatment, because config_t contains lists of bridge_config_t and
-     * interface_config_t records that may need to have defaults inserted. Rpc.struct_extend does
-     * not currently support this. *)
-  let open Rpc in
-  let rpc' = Rpc.struct_extend rpc (rpc_of_config_t default_config) in
-  match rpc' with
-  | Dict r ->
-    Dict (List.map (fun (k, v) ->
-        match k, v with
-        | "bridge_config", Dict v' ->
-          k, Dict (List.map (fun (name, config) -> name, bridge_config_t_add_defaults config) v')
-        | "interface_config", Dict v' ->
-          k, Dict (List.map (fun (name, config) -> name, interface_config_t_add_defaults config) v')
-        | x -> x
-      ) r)
-  | x -> x
-
-let interface_config_t_of_rpc rpc = rpc |> interface_config_t_add_defaults |> interface_config_t_of_rpc
-let port_config_t_of_rpc rpc =      rpc |> port_config_t_add_defaults      |> port_config_t_of_rpc
-let bridge_config_t_of_rpc rpc =    rpc |> bridge_config_t_add_defaults    |> bridge_config_t_of_rpc
-let config_t_of_rpc rpc =           rpc |> config_t_add_defaults           |> config_t_of_rpc
 
 (** {2 Configuration manipulation} *)
 
-let empty_config = default_config
-
 let get_config config default name =
-  if List.mem_assoc name config = false then
-    default
-  else
+  try
     List.assoc name config
+  with _ -> default
 
 let remove_config config name =
-  if List.mem_assoc name config then
-    List.remove_assoc name config
-  else
-    config
-
-
+  List.remove_assoc name config
 
 let update_config config name data =
   let replace_assoc key new_value existing =
@@ -236,88 +207,406 @@ let update_config config name data =
   end else
     (name, data) :: config
 
-(** {2 API functions} *)
+(** {2 Exceptions} *)
 
-external clear_state: unit -> unit = ""
-external reset_state: unit -> unit = ""
+type errors =
+  | Script_missing of string (** [Script_missing (script)] is reported if unable to find [script] *)
+  | Script_error of (string * string) list (** [Script_error ([(key * value); ...])] is reported when error occurs when executing script, the [key] and [value] indicates the information about the script and the error *)
+  | Read_error of string (** [Read_error (file)] is reported when error occurs when reading [file] *)
+  | Write_error of string (** [Write_error (file)] is reported when error occurs when writing [file] *)
+  | Not_implemented (** [Not_implemented] is reported if the interface is not implemented *)
+  | Vlan_in_use of (string * int) (** [Vlan_in_use (bridge, vlan_id)] is reported when [vlan_id] on [bridge] is inuse *)
+  | PVS_proxy_connection_error (** [PVS_proxy_connection_error] is reported when unable to connect PVS proxy *)
+  | Internal_error of string
+  | Unknown_error (** The default variant for forward compatibility. *)
+[@@default Unknown_error]
+[@@deriving rpcty]
 
-external set_gateway_interface: debug_info -> name:iface -> unit = ""
-external set_dns_interface: debug_info -> name:iface -> unit = ""
+exception Network_error of errors
 
-module Interface = struct
-  external get_all : debug_info -> unit -> iface list = ""
-  external exists : debug_info -> name:iface -> bool = ""
-  external get_mac : debug_info -> name:iface -> string = ""
-  external is_up : debug_info -> name:iface -> bool = ""
-  external get_ipv4_addr : debug_info -> name:iface -> (Unix.inet_addr * int) list = ""
-  external set_ipv4_conf : debug_info -> name:iface -> conf:ipv4 -> unit = ""
-  external get_ipv4_gateway : debug_info -> name:iface -> Unix.inet_addr option = ""
-  external get_ipv6_addr : debug_info -> name:iface -> (Unix.inet_addr * int) list = ""
-  external get_dns : debug_info -> name:iface -> Unix.inet_addr list * string list = ""
-  external get_mtu : debug_info -> name:iface -> int = ""
-  external get_capabilities : debug_info -> name:iface -> string list = ""
-  external is_connected : debug_info -> name:iface -> bool = ""
-  external is_physical : debug_info -> name:iface -> bool = ""
-  external has_vlan: debug_info -> name:iface -> vlan:int -> bool = ""
-  external bring_down : debug_info -> name:iface -> unit = ""
-  external set_persistent : debug_info -> name:iface -> value:bool -> unit = ""
-  external make_config : debug_info -> ?conservative:bool -> config:(iface * interface_config_t) list-> unit -> unit = ""
-end
-
-type kind = Openvswitch | Bridge
-type bond_mode = Balance_slb | Active_backup | Lacp
-type fail_mode = Standalone | Secure
-
-let string_of_kind = function
-  | Openvswitch -> "openvswitch"
-  | Bridge -> "bridge"
-
-module Bridge = struct
-  external get_all : debug_info -> unit -> bridge list = ""
-  external create : debug_info -> ?vlan:(bridge * int) ->
-    ?mac:string -> ?igmp_snooping:bool -> ?other_config:(string * string) list -> name:bridge -> unit -> unit = ""
-  external destroy : debug_info -> ?force:bool -> name:bridge -> unit -> unit = ""
-  external get_kind : debug_info -> unit -> kind = ""
-  external get_all_ports : debug_info -> ?from_cache:bool -> unit -> (port * iface list) list = ""
-  external get_all_bonds : debug_info -> ?from_cache:bool -> unit -> (port * iface list) list = ""
-  external set_persistent : debug_info -> name:bridge -> value:bool -> unit = ""
-  external add_port : debug_info -> ?bond_mac:string -> bridge:bridge -> name:port -> interfaces:iface list ->
-    ?bond_properties:(string * string) list -> ?kind:port_kind -> unit -> unit = ""
-  external remove_port : debug_info -> bridge:bridge -> name:port -> unit = ""
-  external get_interfaces : debug_info -> name:bridge -> iface list = ""
-  external get_physical_interfaces : debug_info -> name:bridge -> iface list = ""
-  external make_config : debug_info -> ?conservative:bool -> config:(bridge * bridge_config_t) list-> unit -> unit = ""
-end
-
-exception PVS_proxy_connection_error
-
-module PVS_proxy = struct
-  module Server = struct
-    type t = {
-      uuid: string;
-      addresses: Unix.inet_addr list;
-      first_port: int;
-      last_port: int;
-    }
-  end
-
-  module Client = struct
-    type t = {
-      uuid: string;
-      mac: string;
-      interface: string;
-      prepopulate: bool;
-    }
-  end
-
-  type t = {
-    site_uuid: string;
-    site_name: string;
-    servers: Server.t list;
-    clients: Client.t list;
-    vdi: string;
+let err = Error.{
+    def = errors;
+    raiser = (function | e -> raise (Network_error e));
+    matcher = (function
+        | Network_error e -> Some e
+        | e -> Some (Internal_error (Printexc.to_string e)))
   }
 
-  external configure_site : debug_info -> PVS_proxy.t -> unit = ""
-  external remove_site : debug_info -> string -> unit = ""
+(** {2 API functions} *)
+
+module Interface_API(R : RPC) = struct
+  open R
+
+  (* Define this module here because we will reuse the name `Interface` *)
+  module Idl_Interface = Interface
+
+  let description = Idl_Interface.{
+      name = "Network";
+      namespace = Some "Network";
+      description = [
+        "This interface is used by Xapi and networkd to manage ";
+        "Xenserver network bridges and devices .";
+      ];
+      version=(1,0,0);
+    }
+
+  let implementation = implement description
+
+  let debug_info_p = Param.mk ~description:[
+      "an uninterpreted string to associate with the operation."
+    ] Types.string
+
+  let unit_p = Param.mk Types.unit
+
+  let clear_state = declare
+      "clear_state"
+      ["Clear configuration state"]
+      (unit_p @-> returning unit_p err)
+
+  let reset_state = declare
+      "reset_state"
+      ["Reset configuration state"]
+      (unit_p @-> returning unit_p err)
+
+  let set_gateway_interface =
+    let name_p = Param.mk ~name:"name" ~description:["gateway name"] iface in
+    declare
+      "set_gateway_interface"
+      ["Set gateway interface"]
+      (debug_info_p @-> name_p @-> returning unit_p err)
+
+  let set_dns_interface =
+    let name_p = Param.mk ~name:"name" ~description:["gateway name"] iface in
+    declare
+      "set_dns_interface"
+      ["Set dns interface"]
+      (debug_info_p @-> name_p @-> returning unit_p err)
+
+  module Interface = struct
+    let iface_name_p = Param.mk ~name:"name" ~description:["interface name"] iface
+
+    let get_all =
+      let module T = struct
+        type _iface_list_t = iface list [@@deriving rpcty]
+      end in
+      let iface_list_p = Param.mk ~description:["interface list"] T._iface_list_t in
+      declare
+        "Interface.get_all"
+        ["Get list of all interface names"]
+        (debug_info_p @-> unit_p @-> returning iface_list_p err)
+
+    let exists =
+      let result = Param.mk ~description:["existence"] Types.bool in
+      declare
+        "Interface.exists"
+        ["Check interface existence"]
+        (debug_info_p @-> iface_name_p @-> returning result err)
+
+    let get_mac =
+      let result = Param.mk ~description:["MAC address"] Types.string in
+      declare
+        "Interface.get_mac"
+        ["Get Mac address of the interface"]
+        (debug_info_p @-> iface_name_p @-> returning result err)
+
+    let is_up =
+      let result = Param.mk ~description:["interface is up"] Types.bool in
+      declare
+        "Interface.is_up"
+        ["Check whether the interface is up"]
+        (debug_info_p @-> iface_name_p @-> returning result err)
+
+    let get_ipv4_addr =
+      let module T = struct
+        type _ip_addr_list_t = (Unix.inet_addr * int) list [@@deriving rpcty]
+      end in
+      let result = Param.mk ~description:["list of interface IPv4 addresses"] T._ip_addr_list_t in
+      declare
+        "Interface.get_ipv4_addr"
+        ["Get list of IPv4 addresses of the interface"]
+        (debug_info_p @-> iface_name_p @-> returning result err)
+
+    let set_ipv4_conf =
+      let conf_p = Param.mk ~description:["IPv4 configuration type"] ipv4 in
+      declare
+        "Interface.set_ipv4_conf"
+        ["Set IPv4 configuration"]
+        (debug_info_p @-> iface_name_p @-> conf_p @-> returning unit_p err)
+
+    let get_ipv4_gateway =
+      let module T = struct
+        type _inet_addr_opt_t = Unix.inet_addr option [@@deriving rpcty]
+      end in
+      let result = Param.mk ~description:["gateway address if exists"] T._inet_addr_opt_t in
+      declare
+        "Interface.get_ipv4_gateway"
+        ["Get IPv4 gateway"]
+        (debug_info_p @-> iface_name_p @-> returning result err)
+
+    let get_ipv6_addr =
+      let module T = struct
+        type _ip_addr_list_t = (Unix.inet_addr * int) list [@@deriving rpcty]
+      end in
+      let result = Param.mk ~description:["list of interface IPv6 addresses"] T._ip_addr_list_t in
+      declare
+        "Interface.get_ipv6_addr"
+        ["Get IPv6 address"]
+        (debug_info_p @-> iface_name_p @-> returning result err)
+
+    let get_dns =
+      let module T = struct
+        type _dns_info_t = Unix.inet_addr list * string list [@@deriving rpcty]
+      end in
+      let result = Param.mk ~description:["DNS servers information"] T._dns_info_t in
+      declare
+        "Interface.get_dns"
+        ["Get DNS"]
+        (debug_info_p @-> iface_name_p @-> returning result err)
+
+    let get_mtu =
+      let result = Param.mk ~description:["MTU"] Types.int in
+      declare
+        "Interface.get_mtu"
+        ["Get MTU"]
+        (debug_info_p @-> iface_name_p @-> returning result err)
+
+    let get_capabilities =
+      let module T = struct
+        type _capabilities_t = string list [@@deriving rpcty]
+      end in
+      let result = Param.mk ~description:["capabilities"] T._capabilities_t in
+      declare
+        "Interface.get_capabilities"
+        ["Get capabilities on the interface"]
+        (debug_info_p @-> iface_name_p @-> returning result err)
+
+    let is_connected =
+      let result = Param.mk ~description:["whether interface is connected"] Types.bool in
+      declare
+        "Interface.is_connected"
+        ["Check whether interface is connected"]
+        (debug_info_p @-> iface_name_p @-> returning result err)
+
+    let is_physical =
+      let result = Param.mk ~description:["whether interface is physical"] Types.bool in
+      declare
+        "Interface.is_physical"
+        ["Check whether interface is physical"]
+        (debug_info_p @-> iface_name_p @-> returning result err)
+
+    let has_vlan =
+      let vlan_p = Param.mk ~name:"vlan" ~description:["vlan id"] Types.int in
+      let result = Param.mk ~description:["whether interface has vlan"] Types.bool in
+      declare
+        "Interface.has_vlan"
+        ["Check whether interface has vlan"]
+        (debug_info_p @-> iface_name_p @-> vlan_p @-> returning result err)
+
+    let bring_down =
+      declare
+        "Interface.bring_down"
+        ["Bring PIF down"]
+        (debug_info_p @-> iface_name_p @-> returning unit_p err)
+
+    let set_persistent =
+      let value_p = Param.mk ~name:"value" ~description:["persistent or not"] Types.bool in
+      declare
+        "Interface.set_persistent"
+        ["Make PIF to persistent or not"]
+        (debug_info_p @-> iface_name_p @-> value_p @-> returning unit_p err)
+
+    let make_config =
+      let module T = struct
+        type _conservative_t = bool [@@deriving rpcty]
+        type _iface_config_list_t = (iface * interface_config_t) list [@@deriving rpcty]
+      end in
+      let conservative_p = Param.mk ~name:"conservative" ~description:["conservative"] T._conservative_t in
+      let config_p = Param.mk ~name:"config" ~description:["list of interface configuration"] T._iface_config_list_t in
+      declare
+        "Interface.make_config"
+        ["Make interface configuration"]
+        (debug_info_p @-> conservative_p @-> config_p @-> returning unit_p err)
+  end
+
+  module Bridge = struct
+    let get_all =
+      let module T = struct
+        type _bridge_list_t = bridge list [@@deriving rpcty]
+      end in
+      let result = Param.mk ~description:["bridge list"] T._bridge_list_t in
+      declare
+        "Bridge.get_all"
+        ["Get all bridges"]
+        (debug_info_p @-> unit_p @-> returning result err)
+
+    let create =
+      let module T = struct
+        type _vlan_opt_t = (bridge * int) option [@@deriving rpcty]
+        type _mac_opt_t = string option [@@deriving rpcty]
+        type _igmp_snooping_opt_t = bool option [@@deriving rpcty]
+        type _other_config_opt_t = (string * string) list option [@@deriving rpcty]
+      end in
+      let vlan_p = Param.mk ~name:"vlan" ~description:["vlan"] T._vlan_opt_t in
+      let mac_p = Param.mk ~name:"mac" ~description:["MAC"] T._mac_opt_t in
+      let igmp_snooping_p = Param.mk ~name:"igmp_snooping" T._igmp_snooping_opt_t in
+      let other_config_p = Param.mk ~name:"other_config" T._other_config_opt_t in
+      let name_p = Param.mk ~name:"name" ~description:["bridge name"] bridge in
+      declare
+        "Bridge.create"
+        ["Create bridge"]
+        (debug_info_p @-> vlan_p @-> mac_p @-> igmp_snooping_p @-> other_config_p @-> name_p @-> returning unit_p err)
+
+    let destroy =
+      let module T = struct
+        type _force_t = bool [@@deriving rpcty]
+      end in
+      let force_p = Param.mk ~name:"force" ~description:["force"] T._force_t in
+      let name_p = Param.mk ~name:"name" ~description:["name"] bridge in
+      declare
+        "Bridge.destroy"
+        ["Destroy bridge"]
+        (debug_info_p @-> force_p @-> name_p @-> returning unit_p err)
+
+    let get_kind =
+      let result = Param.mk ~description:["backend kind"] kind in
+      declare
+        "Bridge.get_kind"
+        ["Get backend kind"]
+        (debug_info_p @-> unit_p @-> returning result err)
+
+    let get_all_ports =
+      let module T = struct
+        type _from_cache_t = bool [@@deriving rpcty]
+        type _all_ports_t = (port * iface list) list [@@deriving rpcty]
+      end in
+      let from_cache_p = Param.mk ~name:"from_cache" ~description:["whether from cache"] T._from_cache_t in
+      let result = Param.mk ~description:["all ports"] T._all_ports_t in
+      declare
+        "Bridge.get_all_ports"
+        ["Get all ports"]
+        (debug_info_p @-> from_cache_p @-> returning result err)
+
+    let get_all_bonds =
+      let module T = struct
+        type _from_cache_t = bool [@@deriving rpcty]
+        type _all_bonds_t = (port * iface list) list [@@deriving rpcty]
+      end in
+      let from_cache_p = Param.mk ~name:"from_cache" ~description:["whether from cache"] T._from_cache_t in
+      let result = Param.mk ~description:["all bonds"] T._all_bonds_t in
+      declare
+        "Bridge.get_all_bonds"
+        ["get all bonds"]
+        (debug_info_p @-> from_cache_p @-> returning result err)
+
+    let set_persistent =
+      let name_p = Param.mk ~name:"name" ~description:["bridge name"] bridge in
+      let value_p = Param.mk ~name:"value" ~description:["persistent value"] Types.bool in
+      declare
+        "Bridge.set_persistent"
+        ["Make bridge to persistent or not"]
+        (debug_info_p @-> name_p @-> value_p @-> returning unit_p err)
+
+    let add_port =
+      let module T = struct
+        type _bond_mac_opt_t = string option [@@deriving rpcty]
+        type _interfaces_t = iface list [@@deriving rpcty]
+        type _bond_properties_opt_t = (string * string) list option [@@deriving rpcty]
+        type _kind_opt_t = port_kind option [@@deriving rpcty]
+      end in
+      let bond_mac_p = Param.mk ~name:"bond_mac" ~description:["bond MAC"] T._bond_mac_opt_t in
+      let bridge_p = Param.mk ~name:"bridge" ~description:["bridge name"] bridge in
+      let name_p = Param.mk ~name:"name" ~description:["port name"] port in
+      let interfaces_p = Param.mk ~name:"interfaces" ~description:["interfaces"] T._interfaces_t in
+      let bond_properties_p = Param.mk ~name:"bond_properties" ~description:["bond properties"] T._bond_properties_opt_t in
+      let kind_p = Param.mk ~name:"kind" ~description:["port kind"] T._kind_opt_t in
+      declare
+        "Bridge.add_port"
+        ["Add port"]
+        (debug_info_p @-> bond_mac_p @-> bridge_p @-> name_p @-> interfaces_p @-> bond_properties_p @-> kind_p @-> returning unit_p err)
+
+    let remove_port =
+      let bridge_p = Param.mk ~name:"bridge" ~description:["bridge name"] bridge in
+      let name_p = Param.mk ~name:"name" ~description:["port name"] port in
+      declare
+        "Bridge.remove_port"
+        ["Remove port"]
+        (debug_info_p @-> bridge_p @-> name_p @-> returning unit_p err)
+
+    let get_interfaces =
+      let module T = struct
+        type _iface_list_t = iface list [@@deriving rpcty]
+      end in
+      let name_p = Param.mk ~name:"name" ~description:["bridge name"] bridge in
+      let result = Param.mk ~description:["interface list"] T._iface_list_t in
+      declare
+        "Bridge.get_interfaces"
+        ["Get interfaces"]
+        (debug_info_p @-> name_p @-> returning result err)
+
+    let get_physical_interfaces =
+      let module T = struct
+        type _iface_list_t = iface list [@@deriving rpcty]
+      end in
+      let name_p = Param.mk ~name:"name" ~description:["bridge name"] bridge in
+      let result = Param.mk ~description:["interface list"] T._iface_list_t in
+      declare
+        "Bridge.get_physical_interfaces"
+        ["Get physical interfaces"]
+        (debug_info_p @-> name_p @-> returning result err)
+
+    let make_config =
+      let module T = struct
+        type _conservative_t = bool [@@deriving rpcty]
+        type _config_t = (bridge * bridge_config_t) list [@@deriving rpcty]
+      end in
+      let conservative_p = Param.mk ~name:"conservative" T._conservative_t in
+      let config_p = Param.mk ~name:"config" T._config_t in
+      declare
+        "Bridge.make_config"
+        ["Make bridge configuration"]
+        (debug_info_p @-> conservative_p @-> config_p @-> returning unit_p err)
+  end
+
+  module PVS_proxy = struct
+    module Server = struct
+      type t = {
+        uuid: string;
+        addresses: Unix.inet_addr list;
+        first_port: int;
+        last_port: int;
+      } [@@deriving rpcty]
+    end
+
+    module Client = struct
+      type t = {
+        uuid: string;
+        mac: string;
+        interface: string;
+        prepopulate: bool;
+      } [@@deriving rpcty]
+    end
+
+    type t = {
+      site_uuid: string;
+      site_name: string;
+      servers: Server.t list;
+      clients: Client.t list;
+      vdi: string;
+    } [@@deriving rpcty]
+
+    let configure_site =
+      let pvs_p = Param.mk ~description:["proxy"] t in
+      declare
+        "PVS_proxy.configure_site"
+        ["Configure site"]
+        (debug_info_p @-> pvs_p @-> returning unit_p err)
+
+    let remove_site =
+      let site_p = Param.mk ~description:["site name"] Types.string in
+      declare
+        "PVS_proxy.remove_site"
+        ["Remove site"]
+        (debug_info_p @-> site_p @-> returning unit_p err)
+  end
 end
+
