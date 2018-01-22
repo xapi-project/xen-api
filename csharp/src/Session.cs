@@ -101,8 +101,9 @@ namespace XenAPI
         {
             this._uuid = opaqueRef;
             SetAPIVersion();
-            if (APIVersion >= API_Version.API_1_6)
-                SetADDetails();
+            SwapRpcBackend();
+            SetADDetails();
+            SetRbacPermissions();
         }
 
         /// <summary>
@@ -130,11 +131,18 @@ namespace XenAPI
             Session newSession = new Session(session.proxy.Url);
             newSession._uuid = _session;
             newSession.SetAPIVersion();
+            newSession.SwapRpcBackend();
             return newSession;
         }
 
+        /// <summary>
+        /// Applies only to API 1.6 (george) and above.
+        /// </summary>
         private void SetADDetails()
         {
+            if (APIVersion < API_Version.API_1_6)
+                return;
+
             _isLocalSuperuser = get_is_local_superuser();
             if (IsLocalSuperuser)
                 return;
@@ -145,8 +153,15 @@ namespace XenAPI
             // Cache the details of this user to avoid making server calls later
             // For example, some users get access to the pool through a group subject and will not be in the main cache
             UserDetails.UpdateDetails(_userSid, this);
+        }
 
-            if (APIVersion <= API_Version.API_1_6)  // Older versions have no RBAC, only AD
+        /// <summary>
+        /// Applies only to API 1.7 (midnight-ride) and above.
+        /// Older versions have no RBAC, only AD.
+        /// </summary>
+        private void SetRbacPermissions()
+        {
+            if (APIVersion < API_Version.API_1_7)
                 return;
 
             // allRoles will contain every role on the server, permissions contains the subset of those that are available to this session.
@@ -283,6 +298,7 @@ namespace XenAPI
                 _uuid = proxy.session_login_with_password(username, password).parse();
 
             SetAPIVersion();
+            SwapRpcBackend();
         }
 
         public void login_with_password(string username, string password, string version)
@@ -295,8 +311,9 @@ namespace XenAPI
                     _uuid = proxy.session_login_with_password(username, password, version).parse();
 
                 SetAPIVersion();
-                if (APIVersion >= API_Version.API_1_6)
-                    SetADDetails();
+                SwapRpcBackend();
+                SetADDetails();
+                SetRbacPermissions();
             }
             catch (Failure exn)
             {
@@ -322,8 +339,9 @@ namespace XenAPI
                     _uuid = proxy.session_login_with_password(username, password, version, originator).parse();
 
                 SetAPIVersion();
-                if (APIVersion >= API_Version.API_1_6)
-                    SetADDetails();
+                SwapRpcBackend();
+                SetADDetails();
+                SetRbacPermissions();
             }
             catch (Failure exn)
             {
@@ -353,11 +371,16 @@ namespace XenAPI
                 APIVersion = Helper.GetAPIVersion(host.API_version_major, host.API_version_minor);
                 break;
             }
+        }
 
-            //if supported swap endpoints
+        /// <summary>
+        /// Applies only to API 2.6 (ely) or 2.8 (inverness) and above.
+        /// </summary>
+        private void SwapRpcBackend()
+        {
             JsonRpcClient = null;
-            bool isELy = (int)APIVersion == (int)API_Version.API_2_6;
-            bool isInvernessOrAbove = (int)APIVersion >= (int)API_Version.API_2_8;
+            bool isELy = APIVersion == API_Version.API_2_6;
+            bool isInvernessOrAbove = APIVersion >= API_Version.API_2_8;
 
             if (isELy || isInvernessOrAbove)
             {
