@@ -30,6 +30,8 @@ sudo apt install -y libpci-dev
 opam pin add --no-action xapi .
 opam depext --yes xapi
 opam install --deps-only xapi
+# install the test dependencies
+opam install -y alcotest
 
 # build and test xapi with coverage, then submit the coverage information to coveralls
 
