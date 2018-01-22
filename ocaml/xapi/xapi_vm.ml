@@ -256,6 +256,10 @@ let start ~__context ~vm ~start_paused ~force =
   if vusbs <> [] then
     Vm_platform.check_restricted_device_model ~__context vmr.API.vM_platform;
 
+  let sriov_networks = Xapi_network_sriov_helpers.get_sriov_networks_from_vm __context vm in
+  if sriov_networks <> [] then
+    Pool_features.assert_enabled ~__context ~f:Features.Network_sriov;
+
   if not force then
     assert_memory_constraints ~__context ~vm vmr.API.vM_platform;
 
