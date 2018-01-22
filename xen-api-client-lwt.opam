@@ -17,9 +17,10 @@ build: [[ "jbuilder" "build" "-p" name ]]
 depends: [
   "jbuilder" {build & >= "1.0+beta11"}
   "astring"
-  "cohttp" {>= "0.12.0" & < "0.22.0"}
+  "cohttp" {>= "0.22.0"}
   "cstruct" {>= "1.0.1"}
-  "lwt" {>= "2.4.3" & < "3.0.0"}
+  "lwt" {>= "3.0.0"}
+  "lwt_ssl"
   "re"
   "rpc" {>= "1.9.51"}
   "ssl"
