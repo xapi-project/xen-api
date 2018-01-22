@@ -29,15 +29,15 @@ let retry_econnrefused f =
   loop ()
 
 module Client = Network_interface.Client(struct
-  let rpc call =
-    retry_econnrefused
-      (fun () ->
-	if !use_switch
-	then json_switch_rpc !queue_name call
-        else xml_http_rpc
-          ~srcstr:(Xcp_client.get_user_agent ())
-          ~dststr:"network"
-          Network_interface.uri
-	  call
-      )
-end)
+    let rpc call =
+      retry_econnrefused
+        (fun () ->
+           if !use_switch
+           then json_switch_rpc !queue_name call
+           else xml_http_rpc
+               ~srcstr:(Xcp_client.get_user_agent ())
+               ~dststr:"network"
+               Network_interface.uri
+               call
+        )
+  end)
