@@ -12,7 +12,7 @@ clean:
 	jbuilder clean
 
 test:
-	jbuilder runtest --no-buffer
+	jbuilder runtest --no-buffer -j $$(getconf _NPROCESSORS_ONLN)
 
 doc:
 	jbuilder build ocaml/doc/jsapi.exe ocaml/idl/datamodel_main.exe

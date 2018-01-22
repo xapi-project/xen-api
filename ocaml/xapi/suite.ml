@@ -67,44 +67,13 @@ let base_suite =
     Test_vlan.test;
     Test_xapi_vbd_helpers.test;
     Test_sr_update_vdis.test;
-    Test_valid_ref_list.test;
     Test_network_event_loop.test;
     Test_network.test;
     Test_pusb.test;
   ]
 
-let handlers = [
-  "get_services", Http_svr.FdIO Xapi_services.get_handler;
-  "post_services", Http_svr.FdIO Xapi_services.post_handler;
-  "put_services", Http_svr.FdIO Xapi_services.put_handler;
-  "post_root", Http_svr.BufIO (Api_server.callback false);
-  "post_json", Http_svr.BufIO (Api_server.callback true);
-  "post_jsonrpc", Http_svr.BufIO Api_server.jsoncallback;
-  "post_remote_db_access",
-  Http_svr.BufIO Db_remote_cache_access_v1.handler;
-  "post_remote_db_access_v2",
-  Http_svr.BufIO Db_remote_cache_access_v2.handler;
-]
-
-let start_server handlers =
-  List.iter Xapi_http.add_handler handlers;
-  Xapi.listen_unix_socket "/tmp/xapi-test/xapi-unit-test-socket"
-
-let harness_init () =
-  Printexc.record_backtrace true;
-  Xcp_client.use_switch := false;
-  Pool_role.set_pool_role_for_test ();
-  Xapi.register_callback_fns ();
-  start_server handlers
-
-let harness_destroy () = ()
-
 let () =
-  Printexc.record_backtrace true;
   (* exceeds 4MB limit in Travis *)
   Debug.disable ~level:Syslog.Debug "xapi";
-  Inventory.inventory_filename :=
-    Filename.concat Test_common.working_area "xcp-inventory";
-  harness_init ();
-  ounit2_of_ounit1 base_suite |> OUnit2.run_test_tt_main;
-  harness_destroy ();
+  Suite_init.harness_init ();
+  ounit2_of_ounit1 base_suite |> OUnit2.run_test_tt_main

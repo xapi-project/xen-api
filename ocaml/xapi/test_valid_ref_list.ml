@@ -1,5 +1,5 @@
 
-let assert_equal l1 l2 = Ounit_comparators.StringList.(assert_equal l1 l2)
+let assert_equal = Alcotest.(check (list string)) "same lists"
 
 let with_vm_list f () =
   let __context = Mock.make_context_with_new_db "Mock context" in
@@ -18,9 +18,9 @@ let with_vm_list f () =
 let test_exists =
   with_vm_list (fun __context l ->
       let f vm = Db.VM.get_name_label ~__context ~self:vm = "a" in
-      OUnit.assert_equal true (Valid_ref_list.exists f l);
+      Alcotest.(check bool) "true" true (Valid_ref_list.exists f l);
       let f vm = Db.VM.get_name_label ~__context ~self:vm = "c" in
-      OUnit.assert_equal false (Valid_ref_list.exists f l)
+      Alcotest.(check bool) "false" false (Valid_ref_list.exists f l)
     )
 
 let test_valid_ref_filter =
@@ -40,7 +40,7 @@ let test_valid_ref_filter =
           name = "a" || name = "d"
         in
         assert_equal [vm1; vm4] (Valid_ref_list.filter f l)
-      | _ -> failwith "The test list should contain 4 VMs"
+      | _ -> Alcotest.fail "The test list should contain 4 VMs"
     )
 
 let test_for_all =
@@ -49,12 +49,12 @@ let test_for_all =
         let name = Db.VM.get_name_label ~__context ~self:vm in
         name = "a" || name = "c"
       in
-      OUnit.assert_equal false (Valid_ref_list.for_all f l);
+      Alcotest.(check bool) "false" false (Valid_ref_list.for_all f l);
       let f vm =
         let name = Db.VM.get_name_label ~__context ~self:vm in
         name = "a" || name = "d"
       in
-      OUnit.assert_equal true (Valid_ref_list.for_all f l)
+      Alcotest.(check bool) "true" true (Valid_ref_list.for_all f l)
     )
 
 let test_map =
@@ -88,7 +88,7 @@ let test_filter_map =
           if n = "a" || n = "d" then Some n else None
         in
         assert_equal ["a"; "d"] (Valid_ref_list.filter_map f l)
-      | _ -> failwith "The test list should contain 4 VMs"
+      | _ -> Alcotest.fail "The test list should contain 4 VMs"
     )
 
 let test_iter =
@@ -102,13 +102,11 @@ let test_iter =
     )
 
 let test =
-  let ((>:::), (>::)) = OUnit.((>:::), (>::)) in
-  "test_valid_ref_list" >:::
-  [ "test_map" >:: test_map
-  ; "test_exists" >:: test_exists
-  ; "test_filter" >:: test_valid_ref_filter
-  ; "test_for_all" >:: test_for_all
-  ; "test_flat_map" >:: test_flat_map
-  ; "test_filter_map" >:: test_filter_map
-  ; "test_iter" >:: test_iter
+  [ "test_map", `Quick, test_map
+  ; "test_exists", `Quick, test_exists
+  ; "test_filter", `Quick, test_valid_ref_filter
+  ; "test_for_all", `Quick, test_for_all
+  ; "test_flat_map", `Quick, test_flat_map
+  ; "test_filter_map", `Quick, test_filter_map
+  ; "test_iter", `Quick, test_iter
   ]
