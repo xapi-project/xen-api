@@ -65,6 +65,11 @@ namespace XenAPI
         private string[] permissions = null;
         private List<Role> roles = new List<Role>();
 
+        /// <summary>
+        /// Applies only to API 2.6 (ely) or 2.8 (inverness) and above.
+        /// </summary>
+        public Action<Session> XmlRpcToJsonRpcInvoker = SwitchToJsonRpcBackend;
+
         #region Constructors
 
         public Session(int timeout, string url)
@@ -99,7 +104,8 @@ namespace XenAPI
         {
             opaque_ref = opaqueRef;
             SetAPIVersion();
-            SwapRpcBackend();
+            if (XmlRpcToJsonRpcInvoker != null)
+                XmlRpcToJsonRpcInvoker(this);
             SetADDetails();
             SetRbacPermissions();
         }
@@ -129,7 +135,8 @@ namespace XenAPI
             Session newSession = new Session(session.proxy.Url);
             newSession.opaque_ref = _session;
             newSession.SetAPIVersion();
-            newSession.SwapRpcBackend();
+            if (newSession.XmlRpcToJsonRpcInvoker != null)
+                newSession.XmlRpcToJsonRpcInvoker(newSession);
             return newSession;
         }
 
@@ -296,7 +303,8 @@ namespace XenAPI
                 opaque_ref = proxy.session_login_with_password(username, password).parse();
 
             SetAPIVersion();
-            SwapRpcBackend();
+            if (XmlRpcToJsonRpcInvoker != null)
+                XmlRpcToJsonRpcInvoker(this);
         }
 
         public void login_with_password(string username, string password, string version)
@@ -309,7 +317,8 @@ namespace XenAPI
                     opaque_ref = proxy.session_login_with_password(username, password, version).parse();
 
                 SetAPIVersion();
-                SwapRpcBackend();
+                if (XmlRpcToJsonRpcInvoker != null)
+                    XmlRpcToJsonRpcInvoker(this);
                 SetADDetails();
                 SetRbacPermissions();
             }
@@ -337,7 +346,8 @@ namespace XenAPI
                     opaque_ref = proxy.session_login_with_password(username, password, version, originator).parse();
 
                 SetAPIVersion();
-                SwapRpcBackend();
+                if (XmlRpcToJsonRpcInvoker != null)
+                    XmlRpcToJsonRpcInvoker(this);
                 SetADDetails();
                 SetRbacPermissions();
             }
@@ -374,27 +384,27 @@ namespace XenAPI
         /// <summary>
         /// Applies only to API 2.6 (ely) or 2.8 (inverness) and above.
         /// </summary>
-        private void SwapRpcBackend()
+        private static void SwitchToJsonRpcBackend(Session session)
         {
-            JsonRpcClient = null;
-            bool isELy = APIVersion == API_Version.API_2_6;
-            bool isInvernessOrAbove = APIVersion >= API_Version.API_2_8;
+            session.JsonRpcClient = null;
+            bool isELy = session.APIVersion == API_Version.API_2_6;
+            bool isInvernessOrAbove = session.APIVersion >= API_Version.API_2_8;
 
             if (isELy || isInvernessOrAbove)
             {
-                JsonRpcClient = new JsonRpcClient(proxy.Url)
+                session.JsonRpcClient = new JsonRpcClient(session.proxy.Url)
                 {
-                    ConnectionGroupName = proxy.ConnectionGroupName,
-                    Timeout = proxy.Timeout,
-                    KeepAlive = proxy.KeepAlive,
-                    UserAgent = proxy.UserAgent,
-                    WebProxy = proxy.Proxy
+                    ConnectionGroupName = session.proxy.ConnectionGroupName,
+                    Timeout = session.proxy.Timeout,
+                    KeepAlive = session.proxy.KeepAlive,
+                    UserAgent = session.proxy.UserAgent,
+                    WebProxy = session.proxy.Proxy
                 };
 
                 if (isInvernessOrAbove)
-                    JsonRpcClient.JsonRpcVersion = JsonRpcVersion.v2;
+                    session.JsonRpcClient.JsonRpcVersion = JsonRpcVersion.v2;
 
-                proxy = null;
+                session.proxy = null;
             }
         }
 
