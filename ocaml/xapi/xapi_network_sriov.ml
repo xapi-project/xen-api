@@ -38,6 +38,7 @@ let create_internal ~__context ~physical_PIF ~physical_rec ~network =
   sriov, logical_PIF
 
 let create ~__context ~pif ~network =
+  Pool_features.assert_enabled ~__context ~f:Features.Network_sriov;
   Xapi_network.assert_network_is_managed ~__context ~self:network;
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self:pif;
   let pif_rec = Db.PIF.get_record ~__context ~self:pif in
