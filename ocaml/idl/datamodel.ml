@@ -573,14 +573,6 @@ let _ =
     ~doc:"Can not enable network SR-IOV on PIF" ();
   error Api_errors.network_sriov_disable_failed ["PIF"; "msg"]
     ~doc:"Can not disable network SR-IOV on PIF" ();
-  error Api_errors.network_sriov_device_not_found ["PIF"; "device"]
-    ~doc:"Can not find device" ();
-  error Api_errors.network_sriov_bus_out_of_range ["PIF"]
-    ~doc:"Bus out of range when enabling sriov" ();
-  error Api_errors.network_sriov_not_enough_mmio_resources ["PIF"]
-    ~doc:"Mmio resource not enough when enabling sriov" ();
-  error Api_errors.network_sriov_unknown_error ["PIF"; "msg"]
-    ~doc:"Operation on network SR-IOV device failed" ();
   error Api_errors.network_sriov_pci_vendor_not_compatible ["PIF"; "network"]
     ~doc:"Can not add incompatible network SR-IOV PIF into the network" ();
   (* PIF/VIF/Network errors *)
