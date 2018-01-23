@@ -584,9 +584,11 @@ let update_allowed_operations ~__context ~self =
   if Db.is_valid_ref __context appliance then
     Xapi_vm_appliance_lifecycle.update_allowed_operations ~__context ~self:appliance
 
-(** Called on new VMs (clones, imports) and on server start to manually refresh
-    the power state, allowed_operations field etc.  Current-operations won't be
-    cleaned *)
+(** 1.Called on new VMs (clones, imports) and on server start to manually refresh
+ *    the power state, allowed_operations field etc.  Current-operations won't be
+ *    cleaned
+ *  2.Called on update VM when the power state changes
+**)
 let force_state_reset_keep_current_operations ~__context ~self ~value:state =
   if state = `Halted then begin
     (* mark all devices as disconnected *)
