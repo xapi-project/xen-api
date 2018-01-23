@@ -65,16 +65,6 @@ let update_sriovs ~__context =
         ) pfs
     )
 
-let error_handler ~__context ~pif ~error =
-  let open Network_interface in
-  match error with
-  | Device_not_found ->
-    let device = Db.PIF.get_device ~__context ~self:pif in
-    raise (Api_errors.Server_error (Api_errors.network_sriov_device_not_found, [Ref.string_of pif; device]))
-  | Bus_out_of_range -> raise (Api_errors.Server_error (Api_errors.network_sriov_bus_out_of_range, [Ref.string_of pif]))
-  | Not_enough_mmio_resources -> raise (Api_errors.Server_error (Api_errors.network_sriov_not_enough_mmio_resources, [Ref.string_of pif]))
-  | Unknown msg -> raise (Api_errors.Server_error (Api_errors.network_sriov_unknown_error, [Ref.string_of pif; msg]))
-
 let sriov_bring_up ~__context ~self =
   let open Network_interface in
   let update_sriov_with_result result =
@@ -82,7 +72,6 @@ let sriov_bring_up ~__context ~self =
       | Sysfs_successful -> `sysfs, false
       | Modprobe_successful -> `modprobe, false
       | Modprobe_successful_requires_reboot -> `modprobe, true
-      | _ -> raise (Api_errors.Server_error (Api_errors.network_sriov_enable_failed, [Ref.string_of self; "unable to enable sriov, but does not get error from networkd"]))
     in
     let sriov = List.hd (Db.PIF.get_sriov_logical_PIF_of ~__context ~self) in
     let physical_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
@@ -97,7 +86,7 @@ let sriov_bring_up ~__context ~self =
     | Ok result -> update_sriov_with_result result
     | Error error ->
       Db.PIF.set_currently_attached ~__context ~self ~value:false;
-      error_handler ~__context ~pif:self ~error
+      raise (Api_errors.Server_error (Api_errors.network_sriov_enable_failed, [Ref.string_of self; error]))
   end;
   update_sriovs ~__context
 
@@ -140,15 +129,11 @@ let sriov_bring_down ~__context ~self =
   if need_operate_pci_device ~__context ~self then begin
     debug "Disable network sriov on pci device. PIF: %s" (Ref.string_of self);
     let open Network_interface in
-    let handle_result = function
-      | Disable_successful -> ()
-      | _ ->
-        raise (Api_errors.Server_error (Api_errors.network_sriov_disable_failed, [Ref.string_of self; "unable to disable sriov, but does not get error from networkd"]))
-    in
     let device = Db.PIF.get_device ~__context ~self in
     match Net.Sriov.disable "disable_sriov" ~name:device with
-    | Ok result -> handle_result result
-    | Error error -> error_handler ~__context ~pif:self ~error
+    | Ok -> ()
+    | Error error ->
+      raise (Api_errors.Server_error (Api_errors.network_sriov_disable_failed, [Ref.string_of self; error]))
   end;
 
   let sriov = List.hd (Db.PIF.get_sriov_logical_PIF_of ~__context ~self) in
