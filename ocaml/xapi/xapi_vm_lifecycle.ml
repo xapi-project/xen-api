@@ -584,9 +584,11 @@ let update_allowed_operations ~__context ~self =
   if Db.is_valid_ref __context appliance then
     Xapi_vm_appliance_lifecycle.update_allowed_operations ~__context ~self:appliance
 
-(** Called on new VMs (clones, imports) and on server start to manually refresh
-    the power state, allowed_operations field etc.  Current-operations won't be
-    cleaned *)
+(** 1.Called on new VMs (clones, imports) and on server start to manually refresh
+ *    the power state, allowed_operations field etc.  Current-operations won't be
+ *    cleaned
+ *  2.Called on update VM when the power state changes
+**)
 let force_state_reset_keep_current_operations ~__context ~self ~value:state =
   if state = `Halted then begin
     (* mark all devices as disconnected *)
@@ -600,6 +602,7 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
       (fun vif ->
          Db.VIF.set_currently_attached ~__context ~self:vif ~value:false;
          Db.VIF.set_reserved ~__context ~self:vif ~value:false;
+         Db.VIF.set_reserved_pci ~__context ~self:vif ~value:Ref.null;
          Xapi_vif_helpers.clear_current_operations ~__context ~self:vif;
          Opt.iter
            (fun p -> Pvs_proxy_control.clear_proxy_state ~__context vif p)
