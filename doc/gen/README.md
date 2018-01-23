@@ -1,1 +1,1 @@
-This is where the generaed docs go
+This is where the generated docs go
