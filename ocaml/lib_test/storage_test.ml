@@ -13,22 +13,18 @@
  *)
 
 open OUnit
+open Xapi_storage
 
 let ( |> ) a b = b a
 let id x = x
 
-open Storage
+module S = (Volume.SR_test(Lwt): Volume.SR with type 'a t = 'a Lwt.t)
+module S_d = Volume.SR_server_dispatcher(S)
+module SR_c = Volume.SR_client(S_d)
 
-open Control
-
-module S = (SR_test(Lwt): SR with type 'a t = 'a Lwt.t)
-module S_d = SR_server_dispatcher(S)
-module SR = SR_client(S_d)
-
-
-module V = (Volume_test(Lwt): Volume with type 'a t = 'a Lwt.t)
-module V_d = Volume_server_dispatcher(V)
-module Volume = Volume_client(V_d)
+module V = (Volume.Volume_test(Lwt): Volume.VOLUME with type 'a t = 'a Lwt.t)
+module V_d = Volume.Volume_server_dispatcher(V)
+module V_c = Volume.Volume_client(V_d)
 
 let base_path = "../../rpc-light/"
 
@@ -46,12 +42,12 @@ let expect_ok = function
 let check_request_parser f relative_path =
   (base_path ^ relative_path) |> readfile |> Xmlrpc.call_of_string |> f |> expect_ok
 
-let check_sr_request_parser = check_request_parser Control.Types.SR.In.of_call
+let check_sr_request_parser = check_request_parser Volume.Types.SR.In.of_call
 
 let sr_detach_request _ = check_sr_request_parser "sr.detach/request"
 let sr_ls_request   _ = check_sr_request_parser "sr.ls/request"
 
-let check_volume_request_parser = check_request_parser Control.Types.Volume.In.of_call
+let check_volume_request_parser = check_request_parser Volume.Types.Volume.In.of_call
 
 let volume_clone_request      _ = check_volume_request_parser "volume.clone/request"
 let volume_create_request     _ = check_volume_request_parser "volume.create/request"
@@ -61,18 +57,18 @@ let volume_snapshot_request   _ = check_volume_request_parser "volume.snapshot/r
 let sr_detach_response _ =
   let xml = readfile (base_path ^ "sr.detach/response") in
   let resp = Xmlrpc.response_of_string xml in
-  match Control.result_of_response resp with
-  | `Ok x -> let (_: Control.Types.SR.Detach.Out.t) = Control.Types.SR.Detach.Out.t_of_rpc x in ()
+  match Volume.result_of_response resp with
+  | `Ok x -> let (_: Volume.Types.SR.Detach.Out.t) = Volume.Types.SR.Detach.Out.t_of_rpc x in ()
   | `Error e -> raise e
 
 let exception_marshal_unmarshal e _ =
-  let e = Control.Cancelled "foo" in
-  match Control.result_of_response (Control.response_of_exn e) with
+  let e = Volume.Cancelled "foo" in
+  match Volume.result_of_response (Volume.response_of_exn e) with
   | `Error e' when e = e' -> ()
   | `Ok x -> failwith "unexpected success"
   | `Error e -> raise e
 
-let exception_marshal_unmarshal1 = exception_marshal_unmarshal (Control.Cancelled "bad luck")
+let exception_marshal_unmarshal1 = exception_marshal_unmarshal (Volume.Cancelled "bad luck")
 
 let _ =
   let verbose = ref false in

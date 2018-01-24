@@ -1,0 +1,13 @@
+(jbuild_version 1)
+
+(alias (
+  (name python)
+  (deps (
+    ../generator/src/main.exe
+    (files_recursively_in .)
+  ))
+  (action (progn
+    (run mkdir -p xapi/storage/api)
+    (run ${<} -python)
+  ))
+))

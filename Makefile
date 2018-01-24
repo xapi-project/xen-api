@@ -1,37 +1,45 @@
+PYTHON_PREFIX?=/usr
+OPAM_PREFIX?=$(shell opam config var prefix)
+OPAM_LIBDIR?=$(shell opam config var lib)
 
-default: build
+.PHONY: release build install uninstall clean test examples html doc reindent
 
-.PHONY: build
+release:
+	jbuilder build @install
+	jbuilder build @python
+	make -C _build/default/python
+
 build:
-	(cd generator; make)
-	mkdir -p ocaml/examples
-	mkdir -p python/xapi/storage/api
-	./generator/main.native
-	make -C ocaml
-	make -C python
+	jbuilder build @install --dev
+	jbuilder build @python --dev
+	make -C _build/default/python
 
-.PHONY: html
-html: build
-	./generator/main.native -html
-	rsync -av ./doc/static/ ./doc/gen/
-
-.PHONY: install
 install:
-	make -C ocaml install
-	make -C python install
+	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-storage
+	make -C _build/default/python install PREFIX=$(PYTHON_PREFIX)
 
-.PHONY: uninstall
 uninstall:
-	make -C ocaml uninstall
-	make -C python uninstall
+	jbuilder uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-storage
+	make -C _build/default/python uninstall
 
-.PHONY: reinstall
-reinstall:
-	make -C ocaml reinstall
-	make -C python reinstall
-
-.PHONY: clean
 clean:
-	make -C generator clean
-	make -C ocaml clean
-	make -C python clean
+	jbuilder clean
+
+test:
+	jbuilder runtest
+
+examples:
+	jbuilder build @gen_examples
+
+html:
+	jbuilder build @gen_html
+
+# requires odoc
+doc:
+	jbuilder build @doc
+
+reindent:
+	git ls-files '*.ml*' | xargs ocp-indent --syntax cstruct -i
+
+
+.DEFAULT_GOAL := release

@@ -73,9 +73,9 @@ let sidebar env x =
     li (a ~href:(uri target) name)
   in
   let of_method name m =
-    let target = 
+    let target =
       Printf.sprintf "#a-%s-%s" name m.Method.name
-      |> uri 
+      |> uri
     in
     let name = string m.Method.name in
     li (a ~href:target name)
@@ -86,7 +86,7 @@ let sidebar env x =
       list [li ~cls:"docs-nav-title" (string ("interface:" ^ name))];
       list (List.map (of_typedecl (Some i.Interface.name)) i.Interface.type_decls);
       list (List.map (of_method i.Interface.name) i.Interface.methods)
-    ] 
+    ]
   in
   div ~cls:"large-3 medium-3 columns" (
     ul ~cls:"menu vertical" ([
@@ -170,7 +170,7 @@ let tabs_of env is i m =
     div ~cls:"tabs-content" ~attrs:["data-tabs-content", id_tab] (list [
         div ~cls:"tabs-panel is-active" ~id:id_defn (
           of_args env (
-            (List.map (fun m -> true, m) m.Method.inputs) 
+            (List.map (fun m -> true, m) m.Method.inputs)
             @ (List.map (fun m -> false, m) m.Method.outputs))
         );
         div ~cls:"tabs-panel" ~id:id_ocaml (list [
@@ -270,11 +270,11 @@ let topbar pages =
   in
   list [
     div ~cls:"title-bar" ~attrs:[
-      "data-responsive-toggle","main-menu"; 
-      "data-hide-for","medium"] 
+      "data-responsive-toggle","main-menu";
+      "data-hide-for","medium"]
       (list[
           tag "button" ~cls:"menu-icon" ~attrs:[
-            "type","button"; 
+            "type","button";
             "data-toggle",""] empty;
           div ~cls:"title-bar-title" (string "Menu")
         ]);
@@ -326,7 +326,7 @@ let index_html oc pages =
             );
             hr empty;
             h2 (string "Who is this for?");
-            p (string 
+            p (string
                  "This is for anyone who has a storage system which is not \
                   supported by xapi out-of-the-box.")
           ]));
@@ -335,7 +335,7 @@ let index_html oc pages =
             img ~alt:"Your bit here" (uri "img/your-bit-here.svg")
           );
           div ~cls:"large-6 columns" (list [
-              p (string 
+              p (string
                    "This is also for anyone who wants to manage their \
                     storage in a customized way. If you can make your volumes appear \
                     as Linux block devices "
@@ -348,14 +348,14 @@ let index_html oc pages =
                  ++ tt (string "rbd://")
                  ++ string " then this documentation is for you."
                 );
-              p ~attrs:["style","font-weight: bold;"] 
+              p ~attrs:["style","font-weight: bold;"]
                 (string "No Xapi or Xen specific knowledge is required.")
             ])
         ]);
       div ~cls:"row" (
         div ~cls:"large-12 columns panel callout" (list [
             h2 (string "Status of this documentation");
-            p (string 
+            p (string
                  "This documentation is a draft intended for discussion only. \
                   Please: ");
             ul ([
@@ -375,27 +375,27 @@ let index_html oc pages =
       )
     ])
   in
-  print_file_to oc ("doc/static/header.html");
+  print_file_to oc ("../static/header.html");
   output_string oc (Cow.Html.to_string (topbar pages));
   output_string oc (Cow.Html.to_string header);
-  print_file_to oc ("doc/static/footer.html")
+  print_file_to oc ("../static/footer.html")
 
 let placeholder_html oc pages body =
   let header = div ~cls:"row" (
       div ~cls:"large-12 columns panel callout"
         (p (string "This is a placeholder"))
     ) in
-  print_file_to oc ("doc/static/header.html");
+  print_file_to oc ("../static/header.html");
   output_string oc (Cow.Html.to_string (topbar pages));
   if Sys.file_exists body
   then print_file_to oc body
   else output_string oc (Cow.Html.to_string header);
-  print_file_to oc ("doc/static/footer.html")
+  print_file_to oc ("../static/footer.html")
 
 let page_of_api api = {
   name = api.Interfaces.name;
   title = api.Interfaces.title;
-  path = "doc/gen/" ^ api.Interfaces.name ^ ".html";
+  path = api.Interfaces.name ^ ".html";
   filename = api.Interfaces.name ^ ".html";
   description = api.Interfaces.description;
   api = api;
@@ -408,21 +408,21 @@ let write apis =
     (fun page ->
        with_output_file page.path
          (fun oc ->
-            print_file_to oc ("doc/static/header.html");
+            print_file_to oc ("../static/header.html");
             output_string oc (Cow.Html.to_string (topbar pages));
             let idents, api = Types.resolve_refs_in_api page.api in
             output_string oc (to_string idents api);
-            print_file_to oc ("doc/static/footer.html")
+            print_file_to oc ("../static/footer.html")
          );
     ) pages;
-  with_output_file "doc/index.html"
+  with_output_file "../index.html"
     (fun oc ->
        index_html oc pages
     );
   List.iter
     (fun placeholder ->
-       let out_filename = Printf.sprintf "doc/gen/%s" placeholder in
-       let in_filename = Printf.sprintf "doc/templates/%s.body" placeholder in
+       let out_filename = Printf.sprintf "%s" placeholder in
+       let in_filename = Printf.sprintf "../templates/%s.body" placeholder in
        with_output_file out_filename
          (fun oc ->
             placeholder_html oc pages in_filename
@@ -436,3 +436,11 @@ let write apis =
     "learn.html";
     "architecture.html";
   ]
+
+let _ =
+  let open Types in
+  let open Files in
+  let apis = [ Plugin.api; Control.api; Data.api; ] in
+  (* Prepend the debug_info argument *)
+  let apis = List.map Types.prepend_dbg apis in
+  write apis

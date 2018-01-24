@@ -1,23 +1,21 @@
 opam-version: "1.2"
-maintainer: "dave.scott@citrix.com"
+name: "xapi-storage"
+maintainer: "xen-api@lists.xen.org"
 authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xapi-storage/issues"
 dev-repo: "git://github.com/xapi-project/xapi-storage.git"
-build: [
-  [make]
-]
-install: [
-  [make "install" "PREFIX=%{prefix}%"]
-]
-remove: [
-  [make "uninstall" "PREFIX=%{prefix}%"]
-]
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
 depends: [
+  "jbuilder" {build}
+  "ounit" {test}
   "cow"
   "rpc"
   "caml2html"
   "xmlm"
   "cmdliner"
-  "ocamlfind"
+]
+depexts: [
+  [["centos"] ["python"]]
 ]

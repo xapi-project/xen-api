@@ -1,0 +1,10 @@
+(jbuild_version 1)
+
+(executable (
+  (name main)
+  (libraries (
+    generator_lib
+    unix
+    cmdliner
+  ))
+))
