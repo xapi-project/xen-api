@@ -173,22 +173,24 @@ let simulate_failure config dead_host =
   { config with hosts = hosts; placement = placement; num_failures = config.num_failures - 1 }
 
 let simulate_failure_approximation config =
-  let rec sum_of_first_n n l = match l with
-    | [] -> failwith "sum_of_first_n"
-    | x::l -> if n=1 then x else x + (sum_of_first_n (n-1) l)
-  in
-  (* Assume all VMs are as big as the biggest *)
-  let vm_size = List.fold_left (fun acc (_, size) -> max acc size) 0L config.vms in
+  let sum = List.fold_left (+) 0 in
+  let rec drop n = function
+    | [] -> []
+    | x::xl when n>0 -> drop (n-1) xl
+    | l -> l in
 
-  (* How many VMs can each host support to power on, ascending order *)
-  let host_capacity = List.sort compare (List.map (fun (_, h_size) -> Int64.(to_int (div h_size vm_size))) config.hosts) in
+  (* Assume all VMs are as big as the biggest *)
+  let max_vm_size = List.fold_left (fun acc (_, size) -> max acc size) 0L config.vms in
+
+  (* How many VMs can each host support to power on, descending order *)
+  let hosts_by_capacity = List.sort less_than' (List.map (fun (_, h_size) -> Int64.(to_int (div h_size max_vm_size))) config.hosts) in
   (* Assume biggest hosts fail, get left capacity *)
-  let left_capacity = sum_of_first_n (List.length host_capacity - config.num_failures) host_capacity in
+  let left_capacity = drop config.num_failures hosts_by_capacity |> sum in
 
   (* VMs placed in each host, descending order *)
   let num_vms_per_host = List.sort less_than' (List.map (fun (host, _) -> List.length (List.filter (fun (vm, h) -> h = host) config.placement)) config.hosts) in
-  let failure_vm_length = sum_of_first_n config.num_failures num_vms_per_host in
-  if failure_vm_length > left_capacity then raise Stop
+  let vms_to_move = Xapi_stdext_std__Listext.List.take config.num_failures num_vms_per_host |> sum in
+  if vms_to_move > left_capacity then raise Stop
 
 (** For the nCr binpack strategy return true if a plan is always possible *)
 let plan_always_possible config =
