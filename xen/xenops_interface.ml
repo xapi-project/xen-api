@@ -82,6 +82,7 @@ module Network = struct
 	type t =
 		| Local of string (** name of a local switch *)
 		| Remote of string * string (** vm.id * switch *)
+		| Sriov of Xcp_pci.address (** Xcp_pci.address *)
 	type ts = t list
 
 	let default_t = Local "xenbr0"
@@ -276,6 +277,7 @@ module Vif = struct
 		ipv4_configuration: ipv4_configuration;
 		ipv6_configuration: ipv6_configuration;
 		pvs_proxy: PVS_proxy.t option;
+		vlan: int64 option;
 	}
 
 	let default_t = {
@@ -292,6 +294,7 @@ module Vif = struct
 		ipv4_configuration = default_ipv4_configuration;
 		ipv6_configuration = default_ipv6_configuration;
 		pvs_proxy = None;
+		vlan = None;
 	}
 
 	let t_of_rpc rpc = Rpc.struct_extend rpc (rpc_of_t default_t) |> t_of_rpc
