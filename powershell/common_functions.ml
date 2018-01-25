@@ -165,7 +165,13 @@ and escape_angles str =
   String.escaped ~rules:[('<' , "&lt;"); ('>' , "&gt;")] str
 
 and is_invoke message =
-  message.msg_tag = Custom
+  message.msg_tag = Custom &&
+  not (is_setter message) &&
+  not (is_getter message) &&
+  not (is_adder message) &&
+  not (is_remover message) &&
+  not (is_constructor message) &&
+  not (is_destructor message)
 
 and is_setter message =
   (String.length message.msg_name >= 3)
@@ -184,13 +190,13 @@ and is_remover message =
   && (String.sub message.msg_name 0 6) = "remove"
 
 and is_constructor message =
-  (message.msg_tag = (FromObject Make) || message.msg_name = "create")
+  message.msg_tag = (FromObject Make) || message.msg_name = "create"
 
 and is_real_constructor message =
   message.msg_tag = (FromObject Make)
 
 and is_destructor message =
-  (message.msg_tag = (FromObject Delete) || message.msg_name = "destroy")
+  message.msg_tag = (FromObject Delete) || message.msg_name = "destroy"
 
 
 (* Some adders/removers are just prefixed by Add or RemoveFrom

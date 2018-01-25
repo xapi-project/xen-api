@@ -1,22 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0">
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>9.0.21022</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{83EAC000-F729-475D-AC1D-90DC0791DE8E}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>XenAPI</RootNamespace>
     <AssemblyName>XenServer</AssemblyName>
-    <FileUpgradeFlags>
-    </FileUpgradeFlags>
-    <OldToolsVersion>3.5</OldToolsVersion>
-    <UpgradeBackupLocation>
-    </UpgradeBackupLocation>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -38,9 +30,9 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="CookComputing.XmlRpcV2.dll">
+    <Reference Include="CookComputing.XmlRpcV2">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\CookComputing.XmlRpcV2.dll</HintPath>
+      <HintPath>.\CookComputing.XmlRpcV2.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json.dll">
       <SpecificVersion>False</SpecificVersion>
@@ -51,6 +43,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.cs" />
 {{#api_members}}
     <Compile Include="{{api_member}}.cs" />
 {{/api_members}}
@@ -59,11 +52,6 @@
     <Compile Include="EventHelpers.cs" />
     <Compile Include="DeprecatedAttribute.cs" />
     <Compile Include="Failure.cs" />
-    <Compile Include="FriendlyErrorNames.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>FriendlyErrorNames.resx</DependentUpon>
-    </Compile>
     <Compile Include="Helper.cs" />
     <Compile Include="HTTP.cs" />
     <Compile Include="IMockWebProxy.cs" />
@@ -72,7 +60,6 @@
     <Compile Include="JsonRpc.cs" />
     <Compile Include="JsonRpcClient.cs" />
     <Compile Include="Marshalling.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Response.cs" />
     <Compile Include="Session.cs" />
     <Compile Include="Subject2.cs" />
@@ -83,6 +70,11 @@
     <Compile Include="HTTP_actions.cs" />
     <Compile Include="Proxy.cs" />
     <Compile Include="Maps.cs" />
+    <Compile Include="FriendlyErrorNames.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>FriendlyErrorNames.resx</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="FriendlyErrorNames.resx">
@@ -92,8 +84,8 @@
       <LastGenOutput>FriendlyErrorNames.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
-  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it.
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
   </Target>

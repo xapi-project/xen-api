@@ -48,7 +48,7 @@ The XenServer PowerShell Module is dependent upon the following libraries:
   PowerShell Module.
 
 
-Folder structure
+Folder Structure
 ----------------
 
 The XenServer-SDK-@SDK_VERSION@.zip contains the following folders that are
@@ -56,6 +56,7 @@ relevant to PowerShell users:
 
 - XenServerPowerShell\XenServerPSModule: this is the XenServer PowerShell Module
 - XenServerPowerShell\src: contains the C# source code for the XenServer cmdlets
+  shipped as a Visual Studio project.
 - XenServerPowerShell\samples: contains the sample scripts accompanying the module.
 
 
@@ -130,3 +131,20 @@ Getting Started
         PS> Connect-XenServer -Url https://<servername>
         PS> Get-XenVM
         PS> Disconnect-XenServer
+
+
+Building and Debugging the Source Code
+--------------------------------------
+
+1. Copy CookComputing.XmlRpcV2.dll and XenServer.dll from the XenServerPSModule
+   folder into the source code folder at the same level as the
+   XenServerPowerShell.csproj file.
+
+2. Open the project XenServerPowerShell.csproj in Visual Studio (2013 or greater).
+
+3. You should now be ready to build the source code.
+
+4. If in Debug mode, clicking Start will launch a PowerShell prompt as an
+   external process, and import the compiled XenServerPowerShell.dll as a module
+   (without, however, processing the scripts, types, and formats shipped within
+   the XenServerPSModule). You should now be ready to debug the cmdlets.

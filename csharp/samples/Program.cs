@@ -32,9 +32,9 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using XenAPI;
-using XenSdkSample;
 
-namespace GetVmRecords
+
+namespace XenSdkSample
 {
     public class Program
     {

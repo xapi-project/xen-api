@@ -35,6 +35,13 @@ open Datamodel_types
 
 type wireProtocol = XmlRpc | JsonRpc
 
+let with_output filename f =
+  let io = open_out filename in
+  finally
+    (fun () -> f io)
+    (fun () -> close_out io)
+
+
 let rec list_distinct list =
   match list with
   | []                  -> []

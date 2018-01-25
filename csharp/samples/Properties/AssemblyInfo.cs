@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("GetVmRecords")]
+[assembly: AssemblyTitle("XenSdkSample")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Citrix Systems, Inc.")]
-[assembly: AssemblyProduct("GetVmRecords")]
+[assembly: AssemblyProduct("XenSdkSample")]
 [assembly: AssemblyCopyright("Copyright © Citrix Systems, Inc.")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
