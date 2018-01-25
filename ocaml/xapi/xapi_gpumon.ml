@@ -88,7 +88,7 @@ module Nvidia = struct
           "%s: VM %s (dom %d) has more than one NVIDIA vGPU (%s)"
           this (Ref.string_of vm) domid __LOC__
     with
-      | Gpumon_interface.NvmlInterfaceNotAvailable ->
+      | Gpumon_interface.(Gpumon_error NvmlInterfaceNotAvailable) ->
         let host = Helpers.get_localhost ~__context |> Ref.string_of in
         raise Api_errors.(Server_error (nvidia_tools_error, [host]))
       | err ->
@@ -115,17 +115,16 @@ module Nvidia = struct
           Gpumon_client.Client.Nvidia.get_pgpu_vm_compatibility dbg 
             local_pgpu_address vm_domid pgpu_metadata
         with
-        | Gpumon_interface.NvmlInterfaceNotAvailable ->
+        | Gpumon_interface.(Gpumon_error NvmlInterfaceNotAvailable) ->
           let host = Db.VM.get_resident_on ~__context ~self:vm in
           raise Api_errors.(Server_error (nvidia_tools_error, [Ref.string_of host]))
         | err -> raise Api_errors.(Server_error (internal_error, [Printexc.to_string err]))
       in
-      let open Gpumon_interface in
       match compatibility with
-      | Compatible -> 
+      | Gpumon_interface.Compatible ->
         info "VM %s Nvidia vGPU is compatible with the destination pGPU on host %s"
           (Ref.string_of vm) (Ref.string_of dest_host)
-      | Incompatible reasons ->
+      | Gpumon_interface.(Incompatible reasons) ->
         raise Api_errors.(Server_error (
             vgpu_destination_incompatible,
             [ String.concat ", " (List.map reason_to_string reasons)
@@ -177,7 +176,7 @@ module Nvidia = struct
           (reasons |> List.map reason_to_string |> String.concat "; ");
         false
       (* errors *)
-      | exception Gpumon_interface.NvmlInterfaceNotAvailable ->
+      | exception Gpumon_interface.(Gpumon_error NvmlInterfaceNotAvailable) ->
         raise Api_errors.(Server_error (nvidia_tools_error, [localhost']))
       | exception err ->
         raise Api_errors.(Server_error
