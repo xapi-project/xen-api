@@ -45,7 +45,7 @@ module Nvidia = struct
   let get_pgpu_compatibility_metadata ~dbg ~pgpu_pci_address =
     let metadata =
       pgpu_pci_address
-      |> Gpumon_client.Client.Nvidia.get_pgpu_metadata dbg 
+      |> Gpumon_client.Client.Nvidia.get_pgpu_metadata dbg
       |> Stdext.Base64.encode
     in [key, metadata]
 
@@ -70,7 +70,7 @@ module Nvidia = struct
    * one vGPU per VM. The underdyling problem is that there is no
    * mapping between a vGPU and vgpu_instance in the NVIDIA library
    * currently.
-   *)
+  *)
   let get_vgpu_compatibility_metadata ~__context ~vgpu =
     let this = "get_vgpu_compatibility_metadata" in
     try
@@ -79,21 +79,21 @@ module Nvidia = struct
       let domid = Db.VM.get_domid ~__context ~self:vm |> Int64.to_int in
       Db.VGPU.get_resident_on ~__context ~self:vgpu
       |> fun self -> Db.PGPU.get_PCI ~__context ~self
-      |> fun self -> Db.PCI.get_pci_id ~__context ~self
-      |> Gpumon_client.Client.Nvidia.get_vgpu_metadata dbg domid
-      |> function
-        | []      -> []
-        | [meta]  -> [key, Stdext.Base64.encode meta]
-        | _::_    -> failwith @@ Printf.sprintf
-          "%s: VM %s (dom %d) has more than one NVIDIA vGPU (%s)"
-          this (Ref.string_of vm) domid __LOC__
+                     |> fun self -> Db.PCI.get_pci_id ~__context ~self
+                                    |> Gpumon_client.Client.Nvidia.get_vgpu_metadata dbg domid
+                                    |> function
+                                    | []      -> []
+                                    | [meta]  -> [key, Stdext.Base64.encode meta]
+                                    | _::_    -> failwith @@ Printf.sprintf
+                                        "%s: VM %s (dom %d) has more than one NVIDIA vGPU (%s)"
+                                        this (Ref.string_of vm) domid __LOC__
     with
-      | Gpumon_interface.(Gpumon_error NvmlInterfaceNotAvailable) ->
-        let host = Helpers.get_localhost ~__context |> Ref.string_of in
-        raise Api_errors.(Server_error (nvidia_tools_error, [host]))
-      | err ->
-        let msg = Printexc.to_string err in
-        raise Api_errors.(Server_error (internal_error, [msg]))
+    | Gpumon_interface.(Gpumon_error NvmlInterfaceNotAvailable) ->
+      let host = Helpers.get_localhost ~__context |> Ref.string_of in
+      raise Api_errors.(Server_error (nvidia_tools_error, [host]))
+    | err ->
+      let msg = Printexc.to_string err in
+      raise Api_errors.(Server_error (internal_error, [msg]))
 
 
   (* N.B. the vgpu (and the vm) must be in the local host where this function runs *)
@@ -102,17 +102,17 @@ module Nvidia = struct
     let vm_domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
     let pgpu_metadata = Stdext.Base64.decode encoded_pgpu_metadata in
     match vgpu_impl ~__context vgpu with
-    | `passthrough | `gvt_g | `mxgpu -> 
+    | `passthrough | `gvt_g | `mxgpu ->
       debug "Skipping, vGPU %s implementation for VM %s is not Nvidia" (Ref.string_of vgpu) (Ref.string_of vm)
     | `nvidia ->
-      let local_pgpu_address = 
+      let local_pgpu_address =
         Db.VGPU.get_resident_on ~__context ~self:vgpu
         |> (fun self -> Db.PGPU.get_PCI ~__context ~self)
         |> (fun self -> Db.PCI.get_pci_id ~__context ~self)
       in
-      let compatibility = 
+      let compatibility =
         try
-          Gpumon_client.Client.Nvidia.get_pgpu_vm_compatibility dbg 
+          Gpumon_client.Client.Nvidia.get_pgpu_vm_compatibility dbg
             local_pgpu_address vm_domid pgpu_metadata
         with
         | Gpumon_interface.(Gpumon_error NvmlInterfaceNotAvailable) ->
@@ -137,7 +137,7 @@ module Nvidia = struct
    * compatible according to their abstract compatibility metadata. This
    * code can run on any host. If no vGPU or pGPU metadata is
    * available, compatibility is assumed.
-   *)
+  *)
   let vgpu_pgpu_are_compatible ~__context ~vgpu ~pgpu =
     let dbg        = Context.string_of_task __context in
     let localhost  = Helpers.get_localhost ~__context in
@@ -151,7 +151,7 @@ module Nvidia = struct
       let vgpu_metadata () =
         Db.VGPU.get_compatibility_metadata ~__context ~self:vgpu
         |> fun md -> [List.assoc key md]
-        |> List.map Stdext.Base64.decode in
+                     |> List.map Stdext.Base64.decode in
       match
         Gpumon_client.Client.Nvidia.get_pgpu_vgpu_compatibility
           dbg
@@ -210,9 +210,9 @@ let clear_vgpu_metadata ~__context ~vm =
   Db.VM.get_VGPUs ~__context ~self:vm
   |> List.filter (fun vgpu -> Db.is_valid_ref __context vgpu)
   |> List.iter (fun vgpu ->
-    Db.VGPU.get_compatibility_metadata ~__context ~self:vgpu
-    |> List.filter (fun (k,_) -> k <> Nvidia.key)
-    |> fun value ->
-        Db.VGPU.set_compatibility_metadata ~__context ~self:vgpu ~value)
+      Db.VGPU.get_compatibility_metadata ~__context ~self:vgpu
+      |> List.filter (fun (k,_) -> k <> Nvidia.key)
+      |> fun value ->
+      Db.VGPU.set_compatibility_metadata ~__context ~self:vgpu ~value)
 
 

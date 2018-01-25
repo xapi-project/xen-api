@@ -31,11 +31,11 @@ let calculate_max_capacities ~__context ~pCI ~size ~supported_VGPU_types =
 
 let fetch_compatibility_metadata ~__context ~pgpu_pci =
   if Db.PCI.get_vendor_id ~__context ~self:pgpu_pci =
-    Xapi_pci.id_of_int Xapi_vgpu_type.Nvidia.vendor_id
+     Xapi_pci.id_of_int Xapi_vgpu_type.Nvidia.vendor_id
   then (
-     let dbg = Context.string_of_task __context in
-     let pgpu_pci_address = Db.PCI.get_pci_id ~__context ~self:pgpu_pci in
-     Xapi_gpumon.Nvidia.get_pgpu_compatibility_metadata ~dbg ~pgpu_pci_address
+    let dbg = Context.string_of_task __context in
+    let pgpu_pci_address = Db.PCI.get_pci_id ~__context ~self:pgpu_pci in
+    Xapi_gpumon.Nvidia.get_pgpu_compatibility_metadata ~dbg ~pgpu_pci_address
   ) else []
 
 let maybe_fetch_compatibility_metadata ~__context ~pgpu_pci =
@@ -54,11 +54,11 @@ let populate_compatibility_metadata ~__context ~pgpu ~pgpu_pci =
     Db.PGPU.set_compatibility_metadata ~__context ~self:pgpu ~value
   with
   | Gpumon_interface.(Gpumon_error NvmlInterfaceNotAvailable) ->
-      info "%s: can't get compat data for pgpu_pci:%s, keeping existing data"
-        this (Ref.string_of pgpu_pci)
+    info "%s: can't get compat data for pgpu_pci:%s, keeping existing data"
+      this (Ref.string_of pgpu_pci)
   | err ->
-      debug "%s: obtaining compat data for pgpu_pci:%s failed with %s"
-        this (Ref.string_of pgpu_pci) (Printexc.to_string err)
+    debug "%s: obtaining compat data for pgpu_pci:%s failed with %s"
+      this (Ref.string_of pgpu_pci) (Printexc.to_string err)
 
 let create ~__context ~pCI ~gPU_group ~host ~other_config
     ~supported_VGPU_types ~size ~dom0_access
