@@ -660,6 +660,8 @@ let _ =
     ~doc:"Network has active VIFs" ();
   error Api_errors.cannot_plug_vif [ "VIF" ]
     ~doc:"Cannot plug VIF" ();
+  error Api_errors.vif_has_no_sriov_vf_reserved [ "VIF" ]
+    ~doc:"VIF has no SR-IOV VF reserved" ();
 
   error Api_errors.mac_does_not_exist [ "MAC" ]
     ~doc:"The MAC address specified doesn't exist on this host." ();

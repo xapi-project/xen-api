@@ -175,3 +175,12 @@ let assert_sriov_pif_compatible_with_network ~__context ~pif ~network =
     if not (is_device_underneath_same_type ~__context pif exist_pif) then
       raise (Api_errors.Server_error(Api_errors.network_sriov_pci_vendor_not_compatible, [Ref.string_of pif; Ref.string_of network]))
 
+let list_pcis_for_passthrough ~__context ~vm =
+  let open Xenops_interface in
+  List.map (fun self -> self, Db.VIF.get_record_internal ~__context ~self) vm.API.vM_VIFs
+  |> List.filter (fun (_, vif) -> vif.Db_actions.vIF_currently_attached)
+  |> List.filter_map (fun (x, _) ->
+    match Xapi_vif_helpers.get_backend ~__context ~self:x with
+    | Network.Sriov {domain; bus; dev; fn} -> Some (domain, bus, dev, fn)
+    | _ -> None)
+
