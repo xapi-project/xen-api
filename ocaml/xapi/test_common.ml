@@ -171,6 +171,8 @@ let make_bond ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ~master ?(other
   Db.Bond.create ~__context ~ref ~uuid ~master ~other_config ~primary_slave ~mode ~properties ~links_up:0L;
   ref
 
+let make_tunnel = Xapi_tunnel.create_internal
+
 let make_network ~__context ?(name_label="net") ?(name_description="description") ?(mTU=1500L)
     ?(other_config=[]) ?(bridge="xenbr0") ?(managed=true) ?(purpose=[]) () =
   Xapi_network.pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed ~purpose
