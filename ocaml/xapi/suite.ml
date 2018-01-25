@@ -64,6 +64,7 @@ let base_suite =
     Test_extauth_plugin_ADpbis.test;
     Test_guest_agent.test;
     Test_vlan.test;
+    Test_tunnel.test;
     Test_xapi_vbd_helpers.test;
     Test_sr_update_vdis.test;
     Test_network_event_loop.test;
