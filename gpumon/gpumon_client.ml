@@ -17,14 +17,13 @@ open Xcp_client
 
 let xml_url () = "file:" ^ xml_path
 
-module Client = Gpumon_interface.Client(struct
-	let rpc call =
-		if !use_switch
-		then json_switch_rpc queue_name call
-		else xml_http_rpc
-                        ~srcstr:(get_user_agent ())
-                        ~dststr:"gpumon"
-                        xml_url
-                        call
-end)
-
+let rpc call =
+  if !use_switch
+  then json_switch_rpc queue_name call
+  else xml_http_rpc
+      ~srcstr:(get_user_agent ())
+      ~dststr:"gpumon"
+      xml_url
+      call
+module Client = RPC_API(Idl.GenClientExnRpc(struct let rpc=rpc end))
+include Client
