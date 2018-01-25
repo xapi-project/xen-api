@@ -122,13 +122,6 @@ let vdi_of_disk ~__context x = match String.split ~limit:2 '/' x with
     error "Failed to parse VDI name: %s" x;
     None
 
-let backend_of_network net =
-  if List.mem_assoc "backend_vm" net.API.network_other_config then begin
-    let backend_vm = List.assoc "backend_vm" net.API.network_other_config in
-    debug "Using VM %s as backend for VIF on network %s" backend_vm net.API.network_uuid;
-    Network.Remote (backend_vm, net.API.network_bridge)
-  end else
-    Network.Local net.API.network_bridge (* PR-1255 *)
 
 let find f map default feature =
   try
@@ -450,11 +443,11 @@ module MD = struct
       | `locked, _ -> Vif.Locked { Vif.ipv4 = vif.API.vIF_ipv4_allowed; ipv6 = vif.API.vIF_ipv6_allowed }
       | `unlocked, _ -> Vif.Unlocked
       | `disabled, _ -> Vif.Disabled in
+    let host = Helpers.get_localhost ~__context in
+    let pifs = Xapi_network_attach_helpers.get_local_pifs ~__context ~network:vif.API.vIF_network ~host in
     let carrier =
       if !Xapi_globs.pass_through_pif_carrier then
         (* We need to reflect the carrier of the local PIF on the network (if any) *)
-        let host = Helpers.get_localhost ~__context in
-        let pifs = Xapi_network_attach_helpers.get_local_pifs ~__context ~network:vif.API.vIF_network ~host in
         match pifs with
         | [] -> true (* Internal network; consider as "always up" *)
         | pif :: _ ->
@@ -491,6 +484,18 @@ module MD = struct
         (of_pvs_proxy ~__context vif)
         (Pvs_proxy_control.find_proxy_for_vif ~__context ~vif:vif_ref)
     in
+    let vlan = match pifs with
+      | [] -> None
+      | pif :: _ ->
+        let vlan = Db.PIF.get_VLAN ~__context ~self:pif in
+        if vlan < 0L then None else Some vlan
+    in
+    let backend =
+      match Xapi_vif_helpers.get_backend ~__context ~self:vif_ref with
+      | Network.Sriov {domain = 0; dev = 0; bus = 0; fn = 0} ->
+        raise (Api_errors.Server_error(Api_errors.vif_has_no_sriov_vf_reserved, []))
+      | _ as b -> b
+    in
     let open Vif in {
       id = (vm.API.vM_uuid, vif.API.vIF_device);
       position = int_of_string vif.API.vIF_device;
@@ -498,13 +503,14 @@ module MD = struct
       carrier = carrier;
       mtu = mtu;
       rate = rate;
-      backend = backend_of_network net;
+      backend = backend;
       other_config = vif.API.vIF_other_config;
       locking_mode = locking_mode;
       extra_private_keys;
       ipv4_configuration = ipv4_configuration;
       ipv6_configuration = ipv6_configuration;
       pvs_proxy;
+      vlan = vlan;
     }
 
   let pcis_of_vm ~__context (vmref, vm) =
@@ -516,7 +522,9 @@ module MD = struct
 
     let unmanaged = List.flatten (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs other_pcidevs)) in
 
-    let devs = devs @ unmanaged in
+    let net_sriov_pcidevs = Xapi_network_sriov_helpers.list_pcis_for_passthrough ~__context ~vm in
+
+    let devs = devs @ net_sriov_pcidevs @ unmanaged in
 
     let open Pci in
     List.map
@@ -910,13 +918,16 @@ let apply_guest_agent_config ~__context config =
 (* Create an instance of Metadata.t, suitable for uploading to the xenops service *)
 let create_metadata ~__context ~self =
   let vm = Db.VM.get_record ~__context ~self in
+  let pcis = MD.pcis_of_vm ~__context (self, vm) in
   let vbds = List.filter (fun vbd -> vbd.API.vBD_currently_attached)
       (List.map (fun self -> Db.VBD.get_record ~__context ~self) vm.API.vM_VBDs) in
   let vbds' = List.map (fun vbd -> MD.of_vbd ~__context ~vm ~vbd) vbds in
-  let vifs = List.filter (fun (_, vif) -> vif.API.vIF_currently_attached)
-      (List.map (fun self -> self, Db.VIF.get_record ~__context ~self) vm.API.vM_VIFs) in
-  let vifs' = List.map (fun vif -> MD.of_vif ~__context ~vm ~vif) vifs in
-  let pcis = MD.pcis_of_vm ~__context (self, vm) in
+  let vifs = 
+    vm.API.vM_VIFs
+    |> List.map (fun self -> self, Db.VIF.get_record ~__context ~self)
+    |> List.filter (fun (_, vif) -> vif.API.vIF_currently_attached)
+    |> List.map (fun vif -> MD.of_vif ~__context ~vm ~vif)
+  in
   let vgpus = MD.vgpus_of_vm ~__context (self, vm) in
   let vusbs = MD.vusbs_of_vm ~__context (self, vm) in
   let domains =
@@ -929,7 +940,7 @@ let create_metadata ~__context ~self =
   let open Metadata in {
     vm = MD.of_vm ~__context (self, vm) vbds (pcis <> []) (vgpus <> []);
     vbds = vbds';
-    vifs = vifs';
+    vifs = vifs;
     pcis = pcis;
     vgpus = vgpus;
     vusbs = vusbs;
@@ -1757,25 +1768,28 @@ let update_vif ~__context id =
                end;
 
                if state.plugged then begin
-                 (* sync MTU *)
-                 (try
-                    match state.device with
-                    | None -> failwith (Printf.sprintf "could not determine device id for VIF %s.%s" (fst id) (snd id))
-                    | Some device ->
-                      let dbg = Context.string_of_task __context in
-                      let mtu = Net.Interface.get_mtu dbg ~name:device in
-                      Db.VIF.set_MTU ~__context ~self:vif ~value:(Int64.of_int mtu)
-                  with _ ->
-                    debug "could not update MTU field on VIF %s.%s" (fst id) (snd id));
+                 match Xapi_vif_helpers.get_backend ~__context ~self:vif with
+                 | Network.Sriov _ -> ()
+                 | Network.Local _ | Network.Remote _ ->
+                   (* sync MTU *)
+                   (try
+                      match state.device with
+                      | None -> failwith (Printf.sprintf "could not determine device id for VIF %s.%s" (fst id) (snd id))
+                      | Some device ->
+                        let dbg = Context.string_of_task __context in
+                        let mtu = Net.Interface.get_mtu dbg ~name:device in
+                        Db.VIF.set_MTU ~__context ~self:vif ~value:(Int64.of_int mtu)
+                    with _ ->
+                      debug "could not update MTU field on VIF %s.%s" (fst id) (snd id));
 
-                 (* Clear monitor cache for associated PIF if pass_through_pif_carrier is set *)
-                 if !Xapi_globs.pass_through_pif_carrier then
-                   let host = Helpers.get_localhost ~__context in
-                   let pifs = Xapi_network_attach_helpers.get_local_pifs ~__context ~network:vifr.API.vIF_network ~host in
-                   List.iter (fun pif ->
-                       let pif_name = Db.PIF.get_device ~__context ~self:pif in
-                       Monitor_dbcalls_cache.clear_cache_for_pif ~pif_name
-                     ) pifs
+                   (* Clear monitor cache for associated PIF if pass_through_pif_carrier is set *)
+                   if !Xapi_globs.pass_through_pif_carrier then
+                     let host = Helpers.get_localhost ~__context in
+                     let pifs = Xapi_network_attach_helpers.get_local_pifs ~__context ~network:vifr.API.vIF_network ~host in
+                     List.iter (fun pif ->
+                         let pif_name = Db.PIF.get_device ~__context ~self:pif in
+                         Monitor_dbcalls_cache.clear_cache_for_pif ~pif_name
+                       ) pifs
                end;
                (match Pvs_proxy_control.find_proxy_for_vif ~__context ~vif with
                 | None -> ()
@@ -3070,17 +3084,21 @@ let vif_move ~__context ~self network =
        assert_resident_on ~__context ~self:vm;
        let vif = md_of_vif ~__context ~self in
        info "xenops: VIF.move %s.%s" (fst vif.Vif.id) (snd vif.Vif.id);
-       let network = Db.Network.get_record ~__context ~self:network in
-       let backend = backend_of_network network in
-       let dbg = Context.string_of_task __context in
-       let module Client = (val make_client queue_name : XENOPS) in
-       (* Nb., at this point, the database shows the vif on the new network *)
-       Xapi_network.attach_for_vif ~__context ~vif:self ();
-       Client.VIF.move dbg vif.Vif.id backend |> sync_with_task __context queue_name;
-       Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) ();
-       if not (Db.VIF.get_currently_attached ~__context ~self) then
-         raise Api_errors.(Server_error(internal_error, [
-             Printf.sprintf "vif_move: Unable to plug moved VIF %s" (Ref.string_of self)]))
+       let backend = Xapi_vif_helpers.get_backend ~__context ~self in
+       match backend with
+       | Network.Sriov _ -> raise Api_errors.(Server_error(internal_error, [
+         Printf.sprintf "vif_move: Unable to move a network SR-IOV backed VIF %s"
+           (Ref.string_of self)]))
+       | _ ->
+         let dbg = Context.string_of_task __context in
+         let module Client = (val make_client queue_name : XENOPS) in
+         (* Nb., at this point, the database shows the vif on the new network *)
+         Xapi_network.attach_for_vif ~__context ~vif:self ();
+         Client.VIF.move dbg vif.Vif.id backend |> sync_with_task __context queue_name;
+         Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) ();
+         if not (Db.VIF.get_currently_attached ~__context ~self) then
+           raise Api_errors.(Server_error(internal_error, [
+               Printf.sprintf "vif_move: Unable to plug moved VIF %s" (Ref.string_of self)]))
     )
 
 let vif_set_ipv4_configuration ~__context ~self =

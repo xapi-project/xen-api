@@ -70,3 +70,8 @@ val copy :
 (** Generate a MAC address *)
 val gen_mac : int * string -> string
 
+val get_backend :
+  __context:Context.t ->
+  self:[ `VIF ] Ref.t ->
+  Xenops_interface.Network.t
+

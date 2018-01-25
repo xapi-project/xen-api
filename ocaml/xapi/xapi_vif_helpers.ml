@@ -301,3 +301,39 @@ let copy ~__context ~vm ~preserve_mac_address vif =
         warn "Ignoring exception raised while creating PVS_proxy when copying a VIF: %s"
           (Printexc.to_string e)) proxies;
   result
+
+let backend_of_bridge_network net =
+  let open Xenops_interface in
+  if List.mem_assoc "backend_vm" net.API.network_other_config then begin
+    let backend_vm = List.assoc "backend_vm" net.API.network_other_config in
+    debug "Using VM %s as backend for VIF on network %s" backend_vm net.API.network_uuid;
+    Network.Remote (backend_vm, net.API.network_bridge)
+  end else
+    Network.Local net.API.network_bridge (* PR-1255 *)
+
+let get_backend ~__context ~self =
+  let vif_record = Db.VIF.get_record_internal ~__context ~self in
+  let net = Db.Network.get_record ~__context ~self:vif_record.Db_actions.vIF_network in
+  let host = Helpers.get_localhost ~__context in
+  let pifs = Db.PIF.get_refs_where ~__context ~expr:(And (
+    Eq (Field "network", Literal (Ref.string_of vif_record.Db_actions.vIF_network)),
+    Eq (Field "host", Literal (Ref.string_of host))
+    )) in
+  match pifs with
+  | [] -> backend_of_bridge_network net
+  | pif :: _ ->
+    let back_pif =
+      let vlan = Db.PIF.get_VLAN_master_of ~__context ~self:pif in
+      if vlan <> Ref.null then
+        Db.VLAN.get_tagged_PIF ~__context ~self:vlan
+      else pif
+    in
+    if Db.PIF.get_sriov_logical_PIF_of ~__context ~self:back_pif <> [] then
+      let open Xenops_interface in
+      if vif_record.Db_actions.vIF_reserved_pci <> Ref.null then
+        let (domain, bus, dev, fn) =
+          Pciops.pcidev_of_pci ~__context vif_record.Db_actions.vIF_reserved_pci in
+        Network.Sriov {domain; bus; dev; fn}
+      else Network.Sriov {domain = 0; bus = 0; dev = 0; fn = 0}
+    else backend_of_bridge_network net
+

@@ -4283,5 +4283,4 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let host = Db.PIF.get_host ~__context ~self:physical_pif in
       do_op_on ~__context ~local_fn ~host (fun session_id rpc -> Client.Network_sriov.destroy rpc session_id self)
   end
-
 end
