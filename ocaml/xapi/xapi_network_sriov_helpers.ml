@@ -93,7 +93,8 @@ let sriov_bring_up ~__context ~self =
 let need_operate_pci_device ~__context ~self =
   let sriov = List.hd (Db.PIF.get_sriov_logical_PIF_of ~__context ~self) in
   match Db.Network_sriov.get_configuration_mode ~__context ~self:sriov with
-  | `sysfs | `unknown -> true
+  | `sysfs -> true
+  | `unknown -> false
   | `modprobe ->
     let host = Db.PIF.get_host ~__context ~self in
     let sriov = List.hd (Db.PIF.get_sriov_logical_PIF_of ~__context ~self) in
