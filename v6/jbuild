@@ -15,8 +15,8 @@ let flags = function
     in
     go ic ""
 
-let rewriters_camlp4 = ["rpclib.idl -syntax camlp4o"]
 let rewriters_ppx = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
+let flags = flags rewriters_ppx
 
 let coverage_rewriter =
   let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
@@ -29,27 +29,13 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (jbuild_version 1)
 
 (library
- ((name xapi_v6_interface)
-  (public_name xcp.v6.interface)
-  (modules (v6_interface))
-  (flags (:standard -w -39 %s))
-  (libraries
-   (rpclib
-    threads
-    xcp))
-  (wrapped false)
-  %s))
-
-(library
- ((name xapi_v6)
+ ((name xcp_v6)
   (public_name xcp.v6)
-  (modules (:standard \ v6_interface))
   (flags (:standard -w -39 %s))
   (libraries
    (rpclib
     threads
-    xapi_v6_interface
     xcp))
   (wrapped false)
   %s))
-|} (flags rewriters_camlp4) coverage_rewriter (flags rewriters_ppx) coverage_rewriter
+|} flags coverage_rewriter

@@ -25,21 +25,18 @@ let retry_econnrefused f =
 				None in
 		match result with
 		| Some x -> x
-		| None -> if retry then loop false else raise V6d_failure
+		| None -> if retry then loop false else raise (V6_error V6d_failure)
 	in
 	loop true
 
-module Client = V6_interface.Client(struct
-	let rpc call =
-		retry_econnrefused (fun () ->
-			if !use_switch
-			then json_switch_rpc !queue_name call
-			else xml_http_rpc
-				~srcstr:(Xcp_client.get_user_agent ())
-				~dststr:"v6"
-				V6_interface.uri
-				call
-		)
-end)
 
+let json_url () = "file:" ^ json_path
+let xml_url () = "file:" ^ xml_path
+
+let rpc call =
+		if !use_switch
+		then json_switch_rpc !queue_name call
+		else xml_http_rpc ~srcstr:"xapi" ~dststr:"v6d" xml_url call
+
+module Client = V6_interface.RPC_API(Idl.GenClientExnRpc(struct let rpc=rpc end))
 include Client
