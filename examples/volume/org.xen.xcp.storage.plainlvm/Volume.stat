@@ -19,7 +19,7 @@ Ocaml.ocamlflags := ["-thread"]
 open Common
 
 module Command = struct
-  open Storage.V.Types
+  open Xapi_storage.V.Types
   include Volume.Stat
 
   let command common { Volume.Stat.In.dbg; sr; key } =
@@ -27,7 +27,7 @@ module Command = struct
     try
       Lvm.volume_of_lv sr (List.find (fun x -> x.Lvm.name = key) all)
     with Not_found ->
-      raise (Storage.V.Volume_does_not_exist key)
+      raise (Xapi_storage.V.Volume_does_not_exist key)
 end
 
 module Test = struct

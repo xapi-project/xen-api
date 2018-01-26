@@ -19,14 +19,14 @@ Ocaml.ocamlflags := ["-thread"]
 open Common
 
 module Command = struct
-  open Storage.V.Types
+  open Xapi_storage.V.Types
   include SR.Create
 
   let command common { SR.Create.In.dbg; uri; configuration } =
     let vg = vg_of_uri uri in
     let vgs = Lvm.vgs () in
     if not(List.mem vg vgs)
-    then raise (Storage.V.SR_does_not_exist vg);
+    then raise (Xapi_storage.V.SR_does_not_exist vg);
     ()
 end
 

@@ -307,4 +307,4 @@ let vg_of_uri uri =
   | Some "vg" ->
     let vg = Uri.path uri' in
     if vg <> "" && vg.[0] = '/' then String.sub vg 1 (String.length vg - 1) else vg
-  | _ -> raise (Storage.V.SR_does_not_exist uri)
+  | _ -> raise (Xapi_storage.V.SR_does_not_exist uri)

@@ -213,12 +213,12 @@ module Attached_SRs = struct
 end
 
 module Datapath_plugins = struct
-  let table: Storage.Plugin.Types.query_result String.Table.t ref = ref (String.Table.create ())
+  let table: Xapi_storage.Plugin.Types.query_result String.Table.t ref = ref (String.Table.create ())
 
   let register root_dir name =
-    let args = Storage.Plugin.Types.Plugin.Query.In.make "register" in
-    let args = Storage.Plugin.Types.Plugin.Query.In.rpc_of_t args in
-    fork_exec_rpc root_dir (script root_dir name (`Datapath name) "Plugin.Query") args Storage.Plugin.Types.Plugin.Query.Out.t_of_rpc
+    let args = Xapi_storage.Plugin.Types.Plugin.Query.In.make "register" in
+    let args = Xapi_storage.Plugin.Types.Plugin.Query.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name (`Datapath name) "Plugin.Query") args Xapi_storage.Plugin.Types.Plugin.Query.Out.t_of_rpc
     >>= function
     | Ok response ->
       info "Registered datapath plugin %s" name;
@@ -235,53 +235,53 @@ module Datapath_plugins = struct
   let supports_feature scheme feature =
     match Hashtbl.find !table scheme with
     | None -> false
-    | Some query_result -> List.mem query_result.Storage.Plugin.Types.features feature ~equal:String.equal
+    | Some query_result -> List.mem query_result.Xapi_storage.Plugin.Types.features feature ~equal:String.equal
 end
 
 let vdi_of_volume x =
   let open Storage_interface in {
-  vdi = x.Storage.Volume.Types.key;
-  uuid = x.Storage.Volume.Types.uuid;
+  vdi = x.Xapi_storage.Volume.Types.key;
+  uuid = x.Xapi_storage.Volume.Types.uuid;
   content_id = "";
-  name_label = x.Storage.Volume.Types.name;
-  name_description = x.Storage.Volume.Types.description;
+  name_label = x.Xapi_storage.Volume.Types.name;
+  name_description = x.Xapi_storage.Volume.Types.description;
   ty = "";
   metadata_of_pool = "";
   is_a_snapshot = false;
   snapshot_time = "19700101T00:00:00Z";
   snapshot_of = "";
-  read_only = not x.Storage.Volume.Types.read_write;
+  read_only = not x.Xapi_storage.Volume.Types.read_write;
   cbt_enabled = false;
-  virtual_size = x.Storage.Volume.Types.virtual_size;
-  physical_utilisation = x.Storage.Volume.Types.physical_utilisation;
+  virtual_size = x.Xapi_storage.Volume.Types.virtual_size;
+  physical_utilisation = x.Xapi_storage.Volume.Types.physical_utilisation;
   sm_config = [];
   persistent = true;
 }
 
 let stat root_dir name dbg sr vdi =
-  let args = Storage.Volume.Types.Volume.Stat.In.make dbg sr vdi in
-  let args = Storage.Volume.Types.Volume.Stat.In.rpc_of_t args in
-  fork_exec_rpc root_dir (script root_dir name `Volume "Volume.stat") args Storage.Volume.Types.Volume.Stat.Out.t_of_rpc
+  let args = Xapi_storage.Volume.Types.Volume.Stat.In.make dbg sr vdi in
+  let args = Xapi_storage.Volume.Types.Volume.Stat.In.rpc_of_t args in
+  fork_exec_rpc root_dir (script root_dir name `Volume "Volume.stat") args Xapi_storage.Volume.Types.Volume.Stat.Out.t_of_rpc
 
 let clone root_dir name dbg sr vdi =
-  let args = Storage.Volume.Types.Volume.Clone.In.make dbg sr vdi in
-  let args = Storage.Volume.Types.Volume.Clone.In.rpc_of_t args in
-  fork_exec_rpc root_dir (script root_dir name `Volume "Volume.clone") args Storage.Volume.Types.Volume.Clone.Out.t_of_rpc
+  let args = Xapi_storage.Volume.Types.Volume.Clone.In.make dbg sr vdi in
+  let args = Xapi_storage.Volume.Types.Volume.Clone.In.rpc_of_t args in
+  fork_exec_rpc root_dir (script root_dir name `Volume "Volume.clone") args Xapi_storage.Volume.Types.Volume.Clone.Out.t_of_rpc
 
 let destroy root_dir name dbg sr vdi =
-  let args = Storage.Volume.Types.Volume.Destroy.In.make dbg sr vdi in
-  let args = Storage.Volume.Types.Volume.Destroy.In.rpc_of_t args in
-  fork_exec_rpc root_dir (script root_dir name `Volume "Volume.destroy") args Storage.Volume.Types.Volume.Destroy.Out.t_of_rpc
+  let args = Xapi_storage.Volume.Types.Volume.Destroy.In.make dbg sr vdi in
+  let args = Xapi_storage.Volume.Types.Volume.Destroy.In.rpc_of_t args in
+  fork_exec_rpc root_dir (script root_dir name `Volume "Volume.destroy") args Xapi_storage.Volume.Types.Volume.Destroy.Out.t_of_rpc
 
 let set root_dir name dbg sr vdi k v =
-  let args = Storage.Volume.Types.Volume.Set.In.make dbg sr vdi k v in
-  let args = Storage.Volume.Types.Volume.Set.In.rpc_of_t args in
-  fork_exec_rpc root_dir (script root_dir name `Volume "Volume.set") args Storage.Volume.Types.Volume.Set.Out.t_of_rpc
+  let args = Xapi_storage.Volume.Types.Volume.Set.In.make dbg sr vdi k v in
+  let args = Xapi_storage.Volume.Types.Volume.Set.In.rpc_of_t args in
+  fork_exec_rpc root_dir (script root_dir name `Volume "Volume.set") args Xapi_storage.Volume.Types.Volume.Set.Out.t_of_rpc
 
 let unset root_dir name dbg sr vdi k =
-  let args = Storage.Volume.Types.Volume.Unset.In.make dbg sr vdi k in
-  let args = Storage.Volume.Types.Volume.Unset.In.rpc_of_t args in
-  fork_exec_rpc root_dir (script root_dir name `Volume "Volume.unset") args Storage.Volume.Types.Volume.Unset.Out.t_of_rpc
+  let args = Xapi_storage.Volume.Types.Volume.Unset.In.make dbg sr vdi k in
+  let args = Xapi_storage.Volume.Types.Volume.Unset.In.rpc_of_t args in
+  fork_exec_rpc root_dir (script root_dir name `Volume "Volume.unset") args Xapi_storage.Volume.Types.Volume.Unset.Out.t_of_rpc
 
 let choose_datapath ?(persistent = true) response =
   (* We can only use a URI with a valid scheme, since we use the scheme
@@ -292,7 +292,7 @@ let choose_datapath ?(persistent = true) response =
       match Uri.scheme uri with
       | None -> None
       | Some scheme -> Some (scheme, x)
-    ) response.Storage.Volume.Types.uri in
+    ) response.Xapi_storage.Volume.Types.uri in
   (* We can only use URIs whose schemes correspond to registered plugins *)
   let possible = List.filter ~f:(fun (scheme, _) -> Hashtbl.mem !Datapath_plugins.table scheme) possible in
   (* If we want to be non-persistent, we prefer if the datapath plugin supports it natively *)
@@ -317,15 +317,15 @@ let process root_dir name x =
   | { R.name = "Query.query"; R.params = [ args ] } ->
     let args = Args.Query.Query.request_of_rpc args in
     (* convert to new storage interface *)
-    let args = Storage.Plugin.Types.Plugin.Query.In.make args.Args.Query.Query.dbg in
-    let args = Storage.Plugin.Types.Plugin.Query.In.rpc_of_t args in
+    let args = Xapi_storage.Plugin.Types.Plugin.Query.In.make args.Args.Query.Query.dbg in
+    let args = Xapi_storage.Plugin.Types.Plugin.Query.In.rpc_of_t args in
     let open Deferred.Result.Monad_infix in
-    fork_exec_rpc root_dir (script root_dir name `Volume "Plugin.Query") args Storage.Plugin.Types.Plugin.Query.Out.t_of_rpc
+    fork_exec_rpc root_dir (script root_dir name `Volume "Plugin.Query") args Xapi_storage.Plugin.Types.Plugin.Query.Out.t_of_rpc
     >>= fun response ->
     (* Convert between the xapi-storage interface and the SMAPI *)
     let features = List.map ~f:(function
       | "VDI_DESTROY" -> "VDI_DELETE"
-      | x -> x) response.Storage.Plugin.Types.features in
+      | x -> x) response.Xapi_storage.Plugin.Types.features in
     (* Look for executable scripts and automatically add capabilities *)
     let rec loop acc = function
       | [] -> return (Ok acc)
@@ -375,25 +375,25 @@ let process root_dir name x =
       then "VDI_RESET_ON_BOOT/2" :: features
       else features in
     let response = {
-      driver = response.Storage.Plugin.Types.plugin;
-      name = response.Storage.Plugin.Types.name;
-      description = response.Storage.Plugin.Types.description;
-      vendor = response.Storage.Plugin.Types.vendor;
-      copyright = response.Storage.Plugin.Types.copyright;
-      version = response.Storage.Plugin.Types.version;
-      required_api_version = response.Storage.Plugin.Types.required_api_version;
+      driver = response.Xapi_storage.Plugin.Types.plugin;
+      name = response.Xapi_storage.Plugin.Types.name;
+      description = response.Xapi_storage.Plugin.Types.description;
+      vendor = response.Xapi_storage.Plugin.Types.vendor;
+      copyright = response.Xapi_storage.Plugin.Types.copyright;
+      version = response.Xapi_storage.Plugin.Types.version;
+      required_api_version = response.Xapi_storage.Plugin.Types.required_api_version;
       features;
       configuration =
        ("uri", "URI of the storage medium") ::
-       response.Storage.Plugin.Types.configuration;
-      required_cluster_stack = response.Storage.Plugin.Types.required_cluster_stack } in
+       response.Xapi_storage.Plugin.Types.configuration;
+      required_cluster_stack = response.Xapi_storage.Plugin.Types.required_cluster_stack } in
     Deferred.Result.return (R.success (Args.Query.Query.rpc_of_response response))
   | { R.name = "Query.diagnostics"; R.params = [ args ] } ->
     let args = Args.Query.Diagnostics.request_of_rpc args in
-    let args = Storage.Plugin.Types.Plugin.Diagnostics.In.make args.Args.Query.Diagnostics.dbg in
-    let args = Storage.Plugin.Types.Plugin.Diagnostics.In.rpc_of_t args in
+    let args = Xapi_storage.Plugin.Types.Plugin.Diagnostics.In.make args.Args.Query.Diagnostics.dbg in
+    let args = Xapi_storage.Plugin.Types.Plugin.Diagnostics.In.rpc_of_t args in
     let open Deferred.Result.Monad_infix in
-    fork_exec_rpc root_dir (script root_dir name `Volume "Plugin.diagnostics") args Storage.Plugin.Types.Plugin.Diagnostics.Out.t_of_rpc
+    fork_exec_rpc root_dir (script root_dir name `Volume "Plugin.diagnostics") args Xapi_storage.Plugin.Types.Plugin.Diagnostics.Out.t_of_rpc
     >>= fun response ->
     Deferred.Result.return (R.success (Args.Query.Diagnostics.rpc_of_response response))
   | { R.name = "SR.attach"; R.params = [ args ] } ->
@@ -403,18 +403,18 @@ let process root_dir name x =
     | None ->
       Deferred.Result.return (R.failure (missing_uri ()))
     | Some (_, uri) ->
-      let args' = Storage.Volume.Types.SR.Attach.In.make args.Args.SR.Attach.dbg uri in
-      let args' = Storage.Volume.Types.SR.Attach.In.rpc_of_t args' in
+      let args' = Xapi_storage.Volume.Types.SR.Attach.In.make args.Args.SR.Attach.dbg uri in
+      let args' = Xapi_storage.Volume.Types.SR.Attach.In.rpc_of_t args' in
       let open Deferred.Result.Monad_infix in
-      fork_exec_rpc root_dir (script root_dir name `Volume "SR.attach") args' Storage.Volume.Types.SR.Attach.Out.t_of_rpc
+      fork_exec_rpc root_dir (script root_dir name `Volume "SR.attach") args' Xapi_storage.Volume.Types.SR.Attach.Out.t_of_rpc
       >>= fun attach_response ->
       let sr = args.Args.SR.Attach.sr in
       (* Stat the SR to look for datasources *)
-      let args = Storage.Volume.Types.SR.Stat.In.make
+      let args = Xapi_storage.Volume.Types.SR.Stat.In.make
         args.Args.SR.Attach.dbg
         attach_response (* SR.stat should take the attached URI *) in
-      let args = Storage.Volume.Types.SR.Stat.In.rpc_of_t args in
-      fork_exec_rpc root_dir (script root_dir name `Volume "SR.stat") args Storage.Volume.Types.SR.Stat.Out.t_of_rpc
+      let args = Xapi_storage.Volume.Types.SR.Stat.In.rpc_of_t args in
+      fork_exec_rpc root_dir (script root_dir name `Volume "SR.stat") args Xapi_storage.Volume.Types.SR.Stat.Out.t_of_rpc
       >>= fun stat ->
       let open Deferred.Monad_infix in
       let rec loop acc = function
@@ -430,7 +430,7 @@ let process root_dir name x =
           loop (uid :: acc) datasources
         | _ ->
           loop acc datasources in
-      loop [] stat.Storage.Volume.Types.datasources
+      loop [] stat.Xapi_storage.Volume.Types.datasources
       >>= fun uids ->
       let open Deferred.Result.Monad_infix in
       (* associate the 'sr' from the plugin with the SR reference passed in *)
@@ -447,11 +447,11 @@ let process root_dir name x =
       Deferred.Result.return (R.success (Args.SR.Detach.rpc_of_response ()))
     | Ok sr ->
       let open Deferred.Result.Monad_infix in
-      let args' = Storage.Volume.Types.SR.Detach.In.make
+      let args' = Xapi_storage.Volume.Types.SR.Detach.In.make
         args.Args.SR.Detach.dbg
         sr in
-      let args' = Storage.Volume.Types.SR.Detach.In.rpc_of_t args' in
-      fork_exec_rpc root_dir (script root_dir name `Volume "SR.detach") args' Storage.Volume.Types.SR.Detach.Out.t_of_rpc
+      let args' = Xapi_storage.Volume.Types.SR.Detach.In.rpc_of_t args' in
+      fork_exec_rpc root_dir (script root_dir name `Volume "SR.detach") args' Xapi_storage.Volume.Types.SR.Detach.Out.t_of_rpc
       >>= fun response ->
       Attached_SRs.get_uids args.Args.SR.Detach.sr
       >>= fun uids ->
@@ -484,25 +484,25 @@ let process root_dir name x =
     | None ->
       Deferred.Result.return (R.failure (missing_uri ()))
     | Some (_, uri) ->
-      let args = Storage.Volume.Types.SR.Probe.In.make
+      let args = Xapi_storage.Volume.Types.SR.Probe.In.make
         args.Args.SR.Probe.dbg
         uri in
-      let args = Storage.Volume.Types.SR.Probe.In.rpc_of_t args in
+      let args = Xapi_storage.Volume.Types.SR.Probe.In.rpc_of_t args in
       let open Deferred.Result.Monad_infix in
-      fork_exec_rpc root_dir (script root_dir name `Volume "SR.probe") args Storage.Volume.Types.SR.Probe.Out.t_of_rpc
+      fork_exec_rpc root_dir (script root_dir name `Volume "SR.probe") args Xapi_storage.Volume.Types.SR.Probe.Out.t_of_rpc
       >>= fun response ->
-      let srs = List.map ~f:(fun sr_stat -> sr_stat.Storage.Volume.Types.sr, {
-        Storage_interface.name_label = sr_stat.Storage.Volume.Types.name;
-        name_description = sr_stat.Storage.Volume.Types.description;
-        total_space = sr_stat.Storage.Volume.Types.total_space;
-        free_space = sr_stat.Storage.Volume.Types.free_space;
-        clustered = sr_stat.Storage.Volume.Types.clustered;
-        health = match sr_stat.Storage.Volume.Types.health with
-          | Storage.Volume.Types.Healthy _ -> Healthy
-          | Storage.Volume.Types.Recovering _ -> Recovering
+      let srs = List.map ~f:(fun sr_stat -> sr_stat.Xapi_storage.Volume.Types.sr, {
+        Storage_interface.name_label = sr_stat.Xapi_storage.Volume.Types.name;
+        name_description = sr_stat.Xapi_storage.Volume.Types.description;
+        total_space = sr_stat.Xapi_storage.Volume.Types.total_space;
+        free_space = sr_stat.Xapi_storage.Volume.Types.free_space;
+        clustered = sr_stat.Xapi_storage.Volume.Types.clustered;
+        health = match sr_stat.Xapi_storage.Volume.Types.health with
+          | Xapi_storage.Volume.Types.Healthy _ -> Healthy
+          | Xapi_storage.Volume.Types.Recovering _ -> Recovering
           ;
-      }) response.Storage.Volume.Types.SR.Probe.Out.srs in
-      let uris = response.Storage.Volume.Types.SR.Probe.Out.uris in
+      }) response.Xapi_storage.Volume.Types.SR.Probe.Out.srs in
+      let uris = response.Xapi_storage.Volume.Types.SR.Probe.Out.uris in
       let result = Storage_interface.(Probe { srs; uris }) in
       Deferred.Result.return (R.success (Args.SR.Probe.rpc_of_response result))
     end
@@ -515,15 +515,15 @@ let process root_dir name x =
     | None ->
       Deferred.Result.return (R.failure (missing_uri ()))
     | Some (_, uri) ->
-      let args = Storage.Volume.Types.SR.Create.In.make
+      let args = Xapi_storage.Volume.Types.SR.Create.In.make
         args.Args.SR.Create.dbg
         uri
         name_label
         description
         device_config in
-      let args = Storage.Volume.Types.SR.Create.In.rpc_of_t args in
+      let args = Xapi_storage.Volume.Types.SR.Create.In.rpc_of_t args in
       let open Deferred.Result.Monad_infix in
-      fork_exec_rpc root_dir (script root_dir name `Volume "SR.create") args Storage.Volume.Types.SR.Create.Out.t_of_rpc
+      fork_exec_rpc root_dir (script root_dir name `Volume "SR.create") args Xapi_storage.Volume.Types.SR.Create.Out.t_of_rpc
       >>= fun response ->
       Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response response))
     end
@@ -534,9 +534,9 @@ let process root_dir name x =
     >>= fun sr ->
     let name_label = args.Args.SR.Set_name_label.new_name_label in
     let dbg = args.Args.SR.Set_name_label.dbg in
-    let args = Storage.Volume.Types.SR.Set_name.In.make dbg sr name_label in
-    let args = Storage.Volume.Types.SR.Set_name.In.rpc_of_t args in
-    fork_exec_rpc root_dir (script root_dir name `Volume "SR.set_name") args Storage.Volume.Types.SR.Set_name.Out.t_of_rpc
+    let args = Xapi_storage.Volume.Types.SR.Set_name.In.make dbg sr name_label in
+    let args = Xapi_storage.Volume.Types.SR.Set_name.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "SR.set_name") args Xapi_storage.Volume.Types.SR.Set_name.Out.t_of_rpc
     >>= fun () ->
     Deferred.Result.return (R.success (Args.SR.Set_name_label.rpc_of_response ()))
   | { R.name = "SR.set_name_description"; R.params = [ args ] } ->
@@ -546,9 +546,9 @@ let process root_dir name x =
     >>= fun sr ->
     let name_description = args.Args.SR.Set_name_description.new_name_description in
     let dbg = args.Args.SR.Set_name_description.dbg in
-    let args = Storage.Volume.Types.SR.Set_description.In.make dbg sr name_description in
-    let args = Storage.Volume.Types.SR.Set_description.In.rpc_of_t args in
-    fork_exec_rpc root_dir (script root_dir name `Volume "SR.set_description") args Storage.Volume.Types.SR.Set_description.Out.t_of_rpc
+    let args = Xapi_storage.Volume.Types.SR.Set_description.In.make dbg sr name_description in
+    let args = Xapi_storage.Volume.Types.SR.Set_description.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "SR.set_description") args Xapi_storage.Volume.Types.SR.Set_description.Out.t_of_rpc
     >>= fun () ->
     Deferred.Result.return (R.success (Args.SR.Set_name_label.rpc_of_response ()))
   | { R.name = "SR.destroy"; R.params = [ args ] } ->
@@ -556,11 +556,11 @@ let process root_dir name x =
     let args = Args.SR.Destroy.request_of_rpc args in
     Attached_SRs.find args.Args.SR.Destroy.sr
     >>= fun sr ->
-    let args = Storage.Volume.Types.SR.Destroy.In.make
+    let args = Xapi_storage.Volume.Types.SR.Destroy.In.make
       args.Args.SR.Destroy.dbg
       sr in
-    let args = Storage.Volume.Types.SR.Destroy.In.rpc_of_t args in
-    fork_exec_rpc root_dir (script root_dir name `Volume "SR.destroy") args Storage.Volume.Types.SR.Destroy.Out.t_of_rpc
+    let args = Xapi_storage.Volume.Types.SR.Destroy.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "SR.destroy") args Xapi_storage.Volume.Types.SR.Destroy.Out.t_of_rpc
     >>= fun response ->
     Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response response))
   | { R.name = "SR.scan"; R.params = [ args ] } ->
@@ -568,19 +568,19 @@ let process root_dir name x =
     let args = Args.SR.Scan.request_of_rpc args in
     Attached_SRs.find args.Args.SR.Scan.sr
     >>= fun sr ->
-    let args = Storage.Volume.Types.SR.Ls.In.make
+    let args = Xapi_storage.Volume.Types.SR.Ls.In.make
       args.Args.SR.Scan.dbg
       sr in
-    let args = Storage.Volume.Types.SR.Ls.In.rpc_of_t args in
-    fork_exec_rpc root_dir (script root_dir name `Volume "SR.ls") args Storage.Volume.Types.SR.Ls.Out.t_of_rpc
+    let args = Xapi_storage.Volume.Types.SR.Ls.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "SR.ls") args Xapi_storage.Volume.Types.SR.Ls.Out.t_of_rpc
     >>= fun response ->
     (* Filter out volumes which are clone-on-boot transients *)
     let transients = List.fold ~f:(fun set x ->
-      match List.Assoc.find x.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
+      match List.Assoc.find x.Xapi_storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
       | None -> set
       | Some transient -> Set.add set transient
     ) ~init:(Core.String.Set.empty) response in
-    let response = List.filter ~f:(fun x -> not(Set.mem transients x.Storage.Volume.Types.key)) response in
+    let response = List.filter ~f:(fun x -> not(Set.mem transients x.Xapi_storage.Volume.Types.key)) response in
     let response = List.map ~f:vdi_of_volume response in
     Deferred.Result.return (R.success (Args.SR.Scan.rpc_of_response response))
   | { R.name = "VDI.create"; R.params = [ args ] } ->
@@ -589,14 +589,14 @@ let process root_dir name x =
     Attached_SRs.find args.Args.VDI.Create.sr
     >>= fun sr ->
     let vdi_info = args.Args.VDI.Create.vdi_info in
-    let args = Storage.Volume.Types.Volume.Create.In.make
+    let args = Xapi_storage.Volume.Types.Volume.Create.In.make
       args.Args.VDI.Create.dbg
       sr
       vdi_info.name_label
       vdi_info.name_description
       vdi_info.virtual_size in
-    let args = Storage.Volume.Types.Volume.Create.In.rpc_of_t args in
-    fork_exec_rpc root_dir (script root_dir name `Volume "Volume.create") args Storage.Volume.Types.Volume.Create.Out.t_of_rpc
+    let args = Xapi_storage.Volume.Types.Volume.Create.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "Volume.create") args Xapi_storage.Volume.Types.Volume.Create.Out.t_of_rpc
     >>= fun response ->
     let response = vdi_of_volume response in
     Deferred.Result.return (R.success (Args.VDI.Create.rpc_of_response response))
@@ -608,7 +608,7 @@ let process root_dir name x =
     stat root_dir name args.Args.VDI.Destroy.dbg sr args.Args.VDI.Destroy.vdi
     >>= fun response ->
     (* Destroy any clone-on-boot volume that might exist *)
-    ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
+    ( match List.Assoc.find response.Xapi_storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
       | None ->
         return (Ok ())
       | Some temporary ->
@@ -624,12 +624,12 @@ let process root_dir name x =
     Attached_SRs.find args.Args.VDI.Snapshot.sr
     >>= fun sr ->
     let vdi_info = args.Args.VDI.Snapshot.vdi_info in
-    let args = Storage.Volume.Types.Volume.Snapshot.In.make
+    let args = Xapi_storage.Volume.Types.Volume.Snapshot.In.make
       args.Args.VDI.Snapshot.dbg
       sr
       vdi_info.vdi in
-    let args = Storage.Volume.Types.Volume.Snapshot.In.rpc_of_t args in
-    fork_exec_rpc root_dir (script root_dir name `Volume "Volume.snapshot") args Storage.Volume.Types.Volume.Snapshot.Out.t_of_rpc
+    let args = Xapi_storage.Volume.Types.Volume.Snapshot.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "Volume.snapshot") args Xapi_storage.Volume.Types.Volume.Snapshot.Out.t_of_rpc
     >>= fun response ->
     let response = vdi_of_volume response in
     Deferred.Result.return (R.success (Args.VDI.Snapshot.rpc_of_response response))
@@ -651,9 +651,9 @@ let process root_dir name x =
     let vdi = args.Args.VDI.Set_name_label.vdi in
     let new_name_label = args.Args.VDI.Set_name_label.new_name_label in
     let dbg = args.Args.VDI.Set_name_label.dbg in
-    let args = Storage.Volume.Types.Volume.Set_name.In.make dbg sr vdi new_name_label in
-    let args = Storage.Volume.Types.Volume.Set_name.In.rpc_of_t args in
-    fork_exec_rpc root_dir (script root_dir name `Volume "Volume.set_name") args Storage.Volume.Types.Volume.Set_name.Out.t_of_rpc
+    let args = Xapi_storage.Volume.Types.Volume.Set_name.In.make dbg sr vdi new_name_label in
+    let args = Xapi_storage.Volume.Types.Volume.Set_name.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "Volume.set_name") args Xapi_storage.Volume.Types.Volume.Set_name.Out.t_of_rpc
     >>= fun () ->
     Deferred.Result.return (R.success (Args.VDI.Set_name_label.rpc_of_response ()))
   | { R.name = "VDI.set_name_description"; R.params = [ args ] } ->
@@ -664,9 +664,9 @@ let process root_dir name x =
     let vdi = args.Args.VDI.Set_name_description.vdi in
     let new_name_description = args.Args.VDI.Set_name_description.new_name_description in
     let dbg = args.Args.VDI.Set_name_description.dbg in
-    let args = Storage.Volume.Types.Volume.Set_description.In.make dbg sr vdi new_name_description in
-    let args = Storage.Volume.Types.Volume.Set_description.In.rpc_of_t args in
-    fork_exec_rpc root_dir (script root_dir name `Volume "Volume.set_description") args Storage.Volume.Types.Volume.Set_description.Out.t_of_rpc
+    let args = Xapi_storage.Volume.Types.Volume.Set_description.In.make dbg sr vdi new_name_description in
+    let args = Xapi_storage.Volume.Types.Volume.Set_description.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "Volume.set_description") args Xapi_storage.Volume.Types.Volume.Set_description.Out.t_of_rpc
     >>= fun () ->
     Deferred.Result.return (R.success (Args.VDI.Set_name_description.rpc_of_response ()))
   | { R.name = "VDI.resize"; R.params = [ args ] } ->
@@ -677,14 +677,14 @@ let process root_dir name x =
     let vdi = args.Args.VDI.Resize.vdi in
     let new_size = args.Args.VDI.Resize.new_size in
     let dbg = args.Args.VDI.Resize.dbg in
-    let args = Storage.Volume.Types.Volume.Resize.In.make dbg sr vdi new_size in
-    let args = Storage.Volume.Types.Volume.Resize.In.rpc_of_t args in
-    fork_exec_rpc root_dir (script root_dir name `Volume "Volume.resize") args Storage.Volume.Types.Volume.Resize.Out.t_of_rpc
+    let args = Xapi_storage.Volume.Types.Volume.Resize.In.make dbg sr vdi new_size in
+    let args = Xapi_storage.Volume.Types.Volume.Resize.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "Volume.resize") args Xapi_storage.Volume.Types.Volume.Resize.Out.t_of_rpc
     >>= fun () ->
     (* Now call Volume.stat to discover the size *)
     stat root_dir name dbg sr vdi
     >>= fun response ->
-    Deferred.Result.return (R.success (Args.VDI.Resize.rpc_of_response response.Storage.Volume.Types.virtual_size))
+    Deferred.Result.return (R.success (Args.VDI.Resize.rpc_of_response response.Xapi_storage.Volume.Types.virtual_size))
   | { R.name = "VDI.stat"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
     let args = Args.VDI.Stat.request_of_rpc args in
@@ -714,7 +714,7 @@ let process root_dir name x =
     stat root_dir name args.Args.VDI.Attach.dbg sr args.Args.VDI.Attach.vdi
     >>= fun response ->
     (* If we have a clone-on-boot volume then use that instead *)
-    ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
+    ( match List.Assoc.find response.Xapi_storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
       | None ->
         return (Ok response)
       | Some temporary ->
@@ -722,16 +722,16 @@ let process root_dir name x =
     ) >>= fun response ->
     choose_datapath response
     >>= fun (datapath, uri, domain) ->
-    let args' = Storage.Datapath.Types.Datapath.Attach.In.make
+    let args' = Xapi_storage.Datapath.Types.Datapath.Attach.In.make
       args.Args.VDI.Attach.dbg
       uri domain in
-    let args' = Storage.Datapath.Types.Datapath.Attach.In.rpc_of_t args' in
-    fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.attach") args' Storage.Datapath.Types.Datapath.Attach.Out.t_of_rpc
+    let args' = Xapi_storage.Datapath.Types.Datapath.Attach.In.rpc_of_t args' in
+    fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.attach") args' Xapi_storage.Datapath.Types.Datapath.Attach.Out.t_of_rpc
     >>= fun response ->
-    let backend, params = match response.Storage.Datapath.Types.implementation with
-    | Storage.Datapath.Types.Blkback p -> "vbd", p
-    | Storage.Datapath.Types.Qdisk p -> "qdisk", p
-    | Storage.Datapath.Types.Tapdisk3 p -> "vbd3", p in
+    let backend, params = match response.Xapi_storage.Datapath.Types.implementation with
+    | Xapi_storage.Datapath.Types.Blkback p -> "vbd", p
+    | Xapi_storage.Datapath.Types.Qdisk p -> "qdisk", p
+    | Xapi_storage.Datapath.Types.Tapdisk3 p -> "vbd3", p in
     let attach_info = {
       params;
       xenstore_data = [ "backend-kind", backend ];
@@ -748,7 +748,7 @@ let process root_dir name x =
     stat root_dir name args.Args.VDI.Activate.dbg sr args.Args.VDI.Activate.vdi
     >>= fun response ->
     (* If we have a clone-on-boot volume then use that instead *)
-    ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
+    ( match List.Assoc.find response.Xapi_storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
       | None ->
         return (Ok response)
       | Some temporary ->
@@ -756,11 +756,11 @@ let process root_dir name x =
     ) >>= fun response ->
     choose_datapath response
     >>= fun (datapath, uri, domain) ->
-    let args' = Storage.Datapath.Types.Datapath.Activate.In.make
+    let args' = Xapi_storage.Datapath.Types.Datapath.Activate.In.make
       args.Args.VDI.Activate.dbg
       uri domain in
-    let args' = Storage.Datapath.Types.Datapath.Activate.In.rpc_of_t args' in
-    fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.activate") args' Storage.Datapath.Types.Datapath.Activate.Out.t_of_rpc
+    let args' = Xapi_storage.Datapath.Types.Datapath.Activate.In.rpc_of_t args' in
+    fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.activate") args' Xapi_storage.Datapath.Types.Datapath.Activate.Out.t_of_rpc
     >>= fun response ->
     Deferred.Result.return (R.success (Args.VDI.Activate.rpc_of_response ()))
   | { R.name = "VDI.deactivate"; R.params = [ args ] } ->
@@ -771,7 +771,7 @@ let process root_dir name x =
     (* Discover the URIs using Volume.stat *)
     stat root_dir name args.Args.VDI.Deactivate.dbg sr args.Args.VDI.Deactivate.vdi
     >>= fun response ->
-    ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
+    ( match List.Assoc.find response.Xapi_storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
       | None ->
         return (Ok response)
       | Some temporary ->
@@ -779,11 +779,11 @@ let process root_dir name x =
     ) >>= fun response ->
     choose_datapath response
     >>= fun (datapath, uri, domain) ->
-    let args' = Storage.Datapath.Types.Datapath.Deactivate.In.make
+    let args' = Xapi_storage.Datapath.Types.Datapath.Deactivate.In.make
       args.Args.VDI.Deactivate.dbg
       uri domain in
-    let args' = Storage.Datapath.Types.Datapath.Deactivate.In.rpc_of_t args' in
-    fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.deactivate") args' Storage.Datapath.Types.Datapath.Deactivate.Out.t_of_rpc
+    let args' = Xapi_storage.Datapath.Types.Datapath.Deactivate.In.rpc_of_t args' in
+    fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.deactivate") args' Xapi_storage.Datapath.Types.Datapath.Deactivate.Out.t_of_rpc
     >>= fun response ->
     Deferred.Result.return (R.success (Args.VDI.Deactivate.rpc_of_response ()))
   | { R.name = "VDI.detach"; R.params = [ args ] } ->
@@ -794,7 +794,7 @@ let process root_dir name x =
     (* Discover the URIs using Volume.stat *)
     stat root_dir name args.Args.VDI.Detach.dbg sr args.Args.VDI.Detach.vdi
     >>= fun response ->
-    ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
+    ( match List.Assoc.find response.Xapi_storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
       | None ->
         return (Ok response)
       | Some temporary ->
@@ -802,11 +802,11 @@ let process root_dir name x =
     ) >>= fun response ->
     choose_datapath response
     >>= fun (datapath, uri, domain) ->
-    let args' = Storage.Datapath.Types.Datapath.Detach.In.make
+    let args' = Xapi_storage.Datapath.Types.Datapath.Detach.In.make
       args.Args.VDI.Detach.dbg
       uri domain in
-    let args' = Storage.Datapath.Types.Datapath.Detach.In.rpc_of_t args' in
-    fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.detach") args' Storage.Datapath.Types.Datapath.Detach.Out.t_of_rpc
+    let args' = Xapi_storage.Datapath.Types.Datapath.Detach.In.rpc_of_t args' in
+    fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.detach") args' Xapi_storage.Datapath.Types.Datapath.Detach.Out.t_of_rpc
     >>= fun response ->
     Deferred.Result.return (R.success (Args.VDI.Detach.rpc_of_response ()))
   | { R.name = "SR.stat"; R.params = [ args ] } ->
@@ -814,21 +814,21 @@ let process root_dir name x =
     let args = Args.SR.Stat.request_of_rpc args in
     Attached_SRs.find args.Args.SR.Stat.sr
     >>= fun sr ->
-    let args = Storage.Volume.Types.SR.Stat.In.make
+    let args = Xapi_storage.Volume.Types.SR.Stat.In.make
       args.Args.SR.Stat.dbg
       sr in
-    let args = Storage.Volume.Types.SR.Stat.In.rpc_of_t args in
-    fork_exec_rpc root_dir (script root_dir name `Volume "SR.stat") args Storage.Volume.Types.SR.Stat.Out.t_of_rpc
+    let args = Xapi_storage.Volume.Types.SR.Stat.In.rpc_of_t args in
+    fork_exec_rpc root_dir (script root_dir name `Volume "SR.stat") args Xapi_storage.Volume.Types.SR.Stat.Out.t_of_rpc
     >>= fun response ->
     let response = {
-      name_label = response.Storage.Volume.Types.name;
-      name_description = response.Storage.Volume.Types.description;
-      total_space = response.Storage.Volume.Types.total_space;
-      free_space = response.Storage.Volume.Types.free_space;
-      clustered = response.Storage.Volume.Types.clustered;
-      health = match response.Storage.Volume.Types.health with
-        | Storage.Volume.Types.Healthy _ -> Healthy
-        | Storage.Volume.Types.Recovering _ -> Recovering
+      name_label = response.Xapi_storage.Volume.Types.name;
+      name_description = response.Xapi_storage.Volume.Types.description;
+      total_space = response.Xapi_storage.Volume.Types.total_space;
+      free_space = response.Xapi_storage.Volume.Types.free_space;
+      clustered = response.Xapi_storage.Volume.Types.clustered;
+      health = match response.Xapi_storage.Volume.Types.health with
+        | Xapi_storage.Volume.Types.Healthy _ -> Healthy
+        | Xapi_storage.Volume.Types.Recovering _ -> Recovering
         ;
     } in
     Deferred.Result.return (R.success (Args.SR.Stat.rpc_of_response response))
@@ -848,17 +848,17 @@ let process root_dir name x =
        make a temporary clone now and attach/detach etc this file. *)
     if Datapath_plugins.supports_feature datapath _nonpersistent then begin
       (* We delegate handling non-persistent disks to the datapath plugin. *)
-      let args = Storage.Datapath.Types.Datapath.Open.In.make
+      let args = Xapi_storage.Datapath.Types.Datapath.Open.In.make
         args.Args.VDI.Epoch_begin.dbg
         uri persistent in
-      let args = Storage.Datapath.Types.Datapath.Open.In.rpc_of_t args in
-      fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.open") args Storage.Datapath.Types.Datapath.Open.Out.t_of_rpc
+      let args = Xapi_storage.Datapath.Types.Datapath.Open.In.rpc_of_t args in
+      fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.open") args Xapi_storage.Datapath.Types.Datapath.Open.Out.t_of_rpc
       >>= fun () ->
       Deferred.Result.return (R.success (Args.VDI.Epoch_begin.rpc_of_response ()))
     end else if not persistent then begin
       (* We create a non-persistent disk here with Volume.clone, and store
          the name of the cloned disk in the metadata of the original. *)
-      ( match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
+      ( match List.Assoc.find response.Xapi_storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
         | None ->
           return (Ok ())
         | Some temporary ->
@@ -867,7 +867,7 @@ let process root_dir name x =
       ) >>= fun () ->
       clone root_dir name args.Args.VDI.Epoch_begin.dbg sr args.Args.VDI.Epoch_begin.vdi
       >>= fun vdi ->
-      set root_dir name args.Args.VDI.Epoch_begin.dbg sr args.Args.VDI.Epoch_begin.vdi _clone_on_boot_key vdi.Storage.Volume.Types.key
+      set root_dir name args.Args.VDI.Epoch_begin.dbg sr args.Args.VDI.Epoch_begin.vdi _clone_on_boot_key vdi.Xapi_storage.Volume.Types.key
       >>= fun () ->
       Deferred.Result.return (R.success (Args.VDI.Epoch_begin.rpc_of_response ()))
     end else Deferred.Result.return (R.success (Args.VDI.Epoch_begin.rpc_of_response ()))
@@ -882,15 +882,15 @@ let process root_dir name x =
     choose_datapath response
     >>= fun (datapath, uri, domain) ->
     if Datapath_plugins.supports_feature datapath _nonpersistent then begin
-      let args = Storage.Datapath.Types.Datapath.Close.In.make
+      let args = Xapi_storage.Datapath.Types.Datapath.Close.In.make
         args.Args.VDI.Epoch_end.dbg
         uri in
-      let args = Storage.Datapath.Types.Datapath.Close.In.rpc_of_t args in
-      fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.close") args Storage.Datapath.Types.Datapath.Close.Out.t_of_rpc
+      let args = Xapi_storage.Datapath.Types.Datapath.Close.In.rpc_of_t args in
+      fork_exec_rpc root_dir (script root_dir name (`Datapath datapath) "Datapath.close") args Xapi_storage.Datapath.Types.Datapath.Close.Out.t_of_rpc
       >>= fun () ->
       Deferred.Result.return (R.success (Args.VDI.Epoch_end.rpc_of_response ()))
     end else begin
-      match List.Assoc.find response.Storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
+      match List.Assoc.find response.Xapi_storage.Volume.Types.keys _clone_on_boot_key ~equal:String.equal with
       | None ->
         Deferred.Result.return (R.success (Args.VDI.Epoch_end.rpc_of_response ()))
       | Some temporary ->
