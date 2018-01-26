@@ -14,6 +14,9 @@
 
 open Network_utils
 open Network_interface
+open Xapi_stdext_std
+open Xapi_stdext_unix
+open Xapi_stdext_monadic
 
 module D = Debug.Make(struct let name = "network_server" end)
 open D
@@ -121,6 +124,125 @@ let need_enic_workaround () =
 module Sriov = struct
 	let get_capabilities dev = 
 		if Sysfs.get_sriov_maxvfs dev = 0 then [] else ["sriov"]
+
+	(* To enable SR-IOV via modprobe configuration, we add a line like `options igb max_vfs=7,7,7`		
+	into the configuration. This function is meant to generate the options like `7,7,7`. the `7` have to 		
+	be repeated as many times as the number of devices with the same driver.		
+	*)
+	let gen_options_for_maxvfs driver max_vfs =
+		match Sysfs.get_dev_nums_with_same_driver driver with
+		| num when num > 0 -> Result.Ok (
+			Array.make num (string_of_int max_vfs)
+			|> Array.to_list
+			|> String.concat ",")
+		| _ -> Result.Error (Other, "Fail to generate options for maxvfs for " ^ driver)
+
+	(* For given driver like igb, we parse each line of igb.conf which is the modprobe
+	configuration for igb. We keep the same the lines that do not have SR-IOV configurations and 
+	change lines that need to be changed with patterns like `options igb max_vfs=4`
+	*)
+	let parse_modprobe_conf_internal file_path driver option =
+		let has_probe_conf = ref false in
+		let need_rebuild_initrd = ref false in
+		let parse_single_line s = 
+			let parse_driver_options s = 
+				match Xstringext.String.split ~limit:2 '=' s with
+				(* has SR-IOV configuration but the max_vfs is exactly what we want to set, so no changes and return s *)
+				| [k; v] when k = "max_vfs" && v = option ->  has_probe_conf := true; s
+				(* has SR-IOV configuration and we need change it to expected option *)
+				| [k; v] when k = "max_vfs"  -> 
+					has_probe_conf := true;
+					need_rebuild_initrd := true;
+					debug "change SR-IOV options from [%s=%s] to [%s=%s]" k v k option;
+					Printf.sprintf "max_vfs=%s" option
+				(* we do not care the lines without SR-IOV configurations *)
+				| _ -> s
+			in
+			let trimed_s = String.trim s in
+			if Re.execp (Re_perl.compile_pat ("options[ \t]+" ^ driver)) trimed_s then
+				let driver_options = Re.split (Re_perl.compile_pat "[ \t]+") trimed_s in
+				List.map parse_driver_options driver_options
+				|> String.concat " "
+			else
+				trimed_s
+		in
+		let lines = try Unixext.read_lines file_path with _ -> [] in
+		let new_conf = List.map parse_single_line lines in
+		!has_probe_conf, !need_rebuild_initrd, new_conf
+
+	(*
+	returns ( a * b * c) where
+	a indicates the probe configuration already has the max_vfs options, meaning the device doesn't support sysfs and will be configed by modprobe
+	b indicates some changes shall be made on the coniguration to enable SR-IOV to max_vfs, so we shall rebuild the initrd.
+	and c is the configurations after these changes
+	*)
+	let parse_modprobe_conf driver max_vfs =
+		try
+			let open Rresult.R.Infix in
+			let file_path = Printf.sprintf "/etc/modprobe.d/%s.conf" driver in
+			gen_options_for_maxvfs driver max_vfs >>= fun options ->
+			Result.Ok (parse_modprobe_conf_internal file_path driver options)
+		with _ -> Result.Error (Other, "Failed to parse modprobe conf for SR-IOV configuration for " ^ driver)
+
+	let enable_sriov_via_modprobe driver maxvfs has_probe_conf need_rebuild_initrd conf = 
+		let open Rresult.R.Infix in
+		match has_probe_conf, need_rebuild_initrd with
+		| true, true ->
+			Modprobe.write_conf_file driver conf >>= fun () ->
+			Dracut.rebuild_initrd ()
+		| false, false -> 
+			gen_options_for_maxvfs driver maxvfs >>= fun options ->
+			let new_option_line = Printf.sprintf "options %s max_vfs=%s" driver options in
+			Modprobe.write_conf_file driver (conf @ [new_option_line]) >>= fun () ->
+			Dracut.rebuild_initrd ()
+		| true, false -> Result.Ok () (* already have modprobe configuration and no need to change *)
+		| false, true -> Result.Error (Other, "enabling SR-IOV via modprobe never comes here for: " ^ driver)
+
+	let enable_internal dev =
+		let open Rresult.R.Infix in
+		let numvfs = Sysfs.get_sriov_numvfs dev
+		and maxvfs = Sysfs.get_sriov_maxvfs dev in
+		Sysfs.get_driver_name_err dev >>= fun driver ->
+		parse_modprobe_conf driver maxvfs >>= fun (has_probe_conf, need_rebuild_initrd, conf) ->
+		if maxvfs = 0 then Result.Error (No_sriov_capability, (Printf.sprintf "%s: do not have SR-IOV capabilities" dev)) else Ok () >>= fun () ->
+		(* We cannot first call sysfs method unconditionally for the case where the `SR-IOV hardware status` is ON and 
+		we are about to enable SR-IOV, which is the else case. It is because sysfs method to enable SR-IOV on a `SR-IOV 
+		already enabled device` will always be succuessful even if the device doesn't support sysfs. A simple example is as follows:
+
+		- a device that doesn't support sysfs
+		- enable the device via modprobe -> Hardware Status OFF
+		- reboot -> Status ON
+		- disable via modprobe before reboot -> Status ON
+		- enable via sysfs -> will return Sysfs_succesfully -> Here bug arise.*)
+		if numvfs = 0 then begin
+			debug "enable SR-IOV on a device: %s that is disabled" dev;
+			match Sysfs.set_sriov_numvfs dev maxvfs with
+			| Result.Ok _ -> Ok Sysfs_successful
+			| Result.Error (Bus_out_of_range, msg) as e ->
+				debug "%s" msg; e
+			| Result.Error (Not_enough_mmio_resources, msg) as e ->
+				debug "%s" msg; e
+			| Result.Error (_, msg) ->
+				debug "%s does not support sysfs interfaces for reason %s, trying modprobe" dev msg;
+				enable_sriov_via_modprobe driver maxvfs has_probe_conf need_rebuild_initrd conf >>= fun () ->
+				Ok Modprobe_successful_requires_reboot
+		end
+		else begin
+			debug "enable SR-IOV on a device: %s that has been already enabled" dev;
+			match has_probe_conf with
+			| false -> Ok Sysfs_successful
+			| true -> 
+				enable_sriov_via_modprobe driver maxvfs has_probe_conf need_rebuild_initrd conf >>= fun () ->
+				Ok Modprobe_successful
+		end
+
+	let enable _ dbg ~name =
+		Debug.with_thread_associated dbg (fun () ->
+			debug "Enable network SR-IOV by name: %s" name;
+			match enable_internal name with
+			| Ok t -> (Ok t:enable_result)
+			| Result.Error (_, msg) -> Error msg
+		) ()
 end
 
 module Interface = struct

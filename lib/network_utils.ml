@@ -53,6 +53,9 @@ let brctl = ref "/sbin/brctl"
 let modprobe = "/sbin/modprobe"
 let ethtool = ref "/sbin/ethtool"
 let bonding_dir = "/proc/net/bonding/"
+let uname = ref "/usr/bin/uname"
+let dracut = ref "/sbin/dracut"
+let dracut_timeout = ref 120.0
 let fcoedriver = ref "/opt/xensource/libexec/fcoe_driver"
 let inject_igmp_query_script = ref "/usr/libexec/xenopsd/igmp_query_injector.py"
 let mac_table_size = ref 10000
@@ -1251,4 +1254,25 @@ module Ethtool = struct
 	let set_offload name options =
 		if options <> [] then
 			ignore (call ~log:true ("-K" :: name :: (List.concat (List.map (fun (k, v) -> [k; v]) options))))
+end
+
+module Dracut = struct
+	let call ?(log=false) args =
+		call_script ~timeout:(Some !dracut_timeout) ~log_successful_output:log !dracut args
+
+	let rebuild_initrd () =
+		try
+			info "Building initrd...";
+			let img_name = call_script !uname ["-r"] |> String.trim in
+			call ["-f"; Printf.sprintf "/boot/initrd-%s.img" img_name; img_name];
+			Result.Ok ()
+		with _ -> Result.Error (Fail_to_rebuild_initrd, "Error occurs in building initrd")
+end
+
+module Modprobe = struct
+	let write_conf_file driver content=
+		try
+			Unixext.write_string_to_file (Printf.sprintf "/etc/modprobe.d/%s.conf" driver) (String.concat "\n" content);
+			Result.Ok ()
+		with _ -> Result.Error (Fail_to_write_modprobe_cfg, "Failed to write modprobe configuration file for: " ^ driver)
 end
