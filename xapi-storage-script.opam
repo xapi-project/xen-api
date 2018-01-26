@@ -12,7 +12,7 @@ depends: [
   "jbuilder" {build}
   "xapi-idl" {>= "0.10.0" }
   "xapi-storage"
-  "async"
+  "async" {>= "v0.9.0"}
   "async_inotify"
   "async_unix" {>= "112.24.00" }
   "core"
