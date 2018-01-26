@@ -91,37 +91,43 @@ let sriov_bring_up ~__context ~self =
   update_sriovs ~__context
 
 let need_operate_pci_device ~__context ~self =
-  let sriov = List.hd (Db.PIF.get_sriov_logical_PIF_of ~__context ~self) in
-  match Db.Network_sriov.get_configuration_mode ~__context ~self:sriov with
-  | `sysfs -> true
-  | `unknown -> false
-  | `modprobe ->
-    let host = Db.PIF.get_host ~__context ~self in
+  let is_sriov_enabled ~pif =
+    match Db.PIF.get_sriov_logical_PIF_of ~__context ~self:pif with
+    | [] -> false
+    | sriov :: _ ->
+      Db.PIF.get_currently_attached ~__context ~self:pif = true || Db.Network_sriov.get_requires_reboot ~__context ~self:sriov = true
+  in
+  if is_sriov_enabled ~pif:self then begin
     let sriov = List.hd (Db.PIF.get_sriov_logical_PIF_of ~__context ~self) in
-    let physical_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
-    let pci = Db.PIF.get_PCI ~__context ~self:physical_pif in
-    let driver_name = Db.PCI.get_driver_name ~__context ~self:pci in
-    (* Filter the network SR-IOV logical PIF on local host which *)
-    (* 1. has same driver name with me *)
-    (* 2. PIF.currently_attached = `true` or Network_sriov.requires_reboot = `true`. Aka the PIF that enabled SR-IOV or will enable SR-IOV after reboot *)
-    (* If the final list just contains me, should call networkd to disable SR-IOV for the device. *)
-    Db.PIF.get_records_where ~__context ~expr:(And (
-        Eq (Field "host", Literal (Ref.string_of host)),
-        Not (Eq (Field "sriov_logical_PIF_of", Literal "()"))
-      ))
-    |> List.filter (fun (_, pif_rec) ->
-        let sriov = List.hd pif_rec.API.pIF_sriov_logical_PIF_of in
-        let physical_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
-        let pci = Db.PIF.get_PCI ~__context ~self:physical_pif in
-        Db.PCI.get_driver_name ~__context ~self:pci = driver_name
-      )
-    |> List.filter (fun (pif_ref, pif_rec) ->
-        let sriov = List.hd pif_rec.API.pIF_sriov_logical_PIF_of in
-        let requires_reboot = Db.Network_sriov.get_requires_reboot ~__context ~self:sriov in
-        pif_rec.API.pIF_currently_attached = true || requires_reboot
-      )
-    |> List.length
-    |> (=) 1
+    match Db.Network_sriov.get_configuration_mode ~__context ~self:sriov with
+    | `sysfs -> true
+    | `unknown -> false
+    | `modprobe ->
+      let host = Db.PIF.get_host ~__context ~self in
+      let physical_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
+      let pci = Db.PIF.get_PCI ~__context ~self:physical_pif in
+      let driver_name = Db.PCI.get_driver_name ~__context ~self:pci in
+      (* Filter the network SR-IOV logical PIF on local host which *)
+      (* 1. has same driver name with me *)
+      (* 2. PIF.currently_attached = `true` or Network_sriov.requires_reboot = `true`. Aka the PIF that enabled SR-IOV or will enable SR-IOV after reboot *)
+      (* If the final list just contains me, should call networkd to disable SR-IOV for the device. *)
+      Db.PIF.get_records_where ~__context ~expr:(And (
+          Eq (Field "host", Literal (Ref.string_of host)),
+          Not (Eq (Field "sriov_logical_PIF_of", Literal "()"))
+        ))
+      |> List.filter (fun (_, pif_rec) ->
+          let sriov = List.hd pif_rec.API.pIF_sriov_logical_PIF_of in
+          let physical_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
+          let pci = Db.PIF.get_PCI ~__context ~self:physical_pif in
+          Db.PCI.get_driver_name ~__context ~self:pci = driver_name
+        )
+      |> List.filter (fun (pif_ref, pif_rec) ->
+          is_sriov_enabled ~pif:pif_ref
+        )
+      |> List.length
+      |> (=) 1
+  end
+  else false
 
 let sriov_bring_down ~__context ~self =
   let sriov = List.hd (Db.PIF.get_sriov_logical_PIF_of ~__context ~self) in
@@ -163,4 +169,3 @@ let assert_sriov_pif_compatible_with_network ~__context ~pif ~network =
         if not (is_device_underneath_same_type ~__context pif exist_pif) then
           raise (Api_errors.Server_error(Api_errors.network_sriov_pci_vendor_not_compatible, [Ref.string_of pif; Ref.string_of network]))
     end
-
