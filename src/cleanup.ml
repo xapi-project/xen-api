@@ -152,14 +152,12 @@ module Block = struct
 
   let with_block filename f =
     Block.connect filename
-    >>= function
-    | `Error e -> Lwt.fail_with (Printf.sprintf "Unable to read %s: %s" filename (Nbd.Block_error_printer.to_string e))
-    | `Ok b ->
-      Runtime.with_tracking b (fun () ->
-          Lwt.finalize
-            (fun () -> f b)
-            (fun () -> Block.disconnect b)
-        )
+    >>= fun b ->
+    Runtime.with_tracking b (fun () ->
+        Lwt.finalize
+          (fun () -> f b)
+          (fun () -> Block.disconnect b)
+      )
 end
 
 module Runtime = struct
