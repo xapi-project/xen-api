@@ -265,6 +265,32 @@ module Sriov = struct
 			| Ok () -> (Ok:disable_result)
 			| Result.Error (_, msg) -> Error msg
 		) ()
+
+	let make_vf_conf_internal pcibuspath mac vlan rate =
+		let exe_except_none f = function
+			| None -> Result.Ok ()
+			| Some a -> f a
+		in
+		let open Rresult.R.Infix in
+		Sysfs.parent_device_of_vf pcibuspath >>= fun dev ->
+		Sysfs.device_index_of_vf dev pcibuspath >>= fun index ->
+		exe_except_none (Ip.set_vf_mac dev index) mac >>= fun () ->
+		exe_except_none (Ip.set_vf_vlan dev index) vlan >>= fun () ->
+		exe_except_none (Ip.set_vf_rate dev index) rate
+
+	let make_vf_config _ dbg ~pci_address ~(vf_info : Sriov.sriov_pci_t)=
+		Debug.with_thread_associated dbg (fun () ->	
+			let vlan = Opt.map Int64.to_int vf_info.vlan
+			and rate = Opt.map Int64.to_int vf_info.rate
+			and pcibuspath = Xcp_pci.string_of_address pci_address in
+			debug "Config VF with pci address: %s" pcibuspath;
+			match make_vf_conf_internal pcibuspath vf_info.mac vlan rate with
+			| Result.Ok () -> (Ok:config_result)
+			| Result.Error (Fail_to_set_vf_rate, msg) -> 
+				debug "%s" msg;
+				Error Config_vf_rate_not_supported
+			| Result.Error (_, msg) -> debug "%s" msg; Error (Unknown msg)
+		) ()
 end
 
 module Interface = struct
