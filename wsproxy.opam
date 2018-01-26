@@ -12,7 +12,7 @@ build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
 depends: [
   "jbuilder" {build}
   "base64"
-  "lwt" { < "3.0.0" }
+  "lwt" { >= "3.0.0" }
   "re"
   "uuidm"
   "ounit" {test}
