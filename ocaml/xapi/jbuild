@@ -85,7 +85,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    oUnit
    sha
    tar
-   tar.unix
+   tar-unix
    xapi-tapctl
    x509
    xapi_version
