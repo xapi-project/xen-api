@@ -442,8 +442,11 @@ let create_tunnel_pif ~__context ~host ~pif ?(bridge="xapi0") () =
   let tunnel, access_pif = make_tunnel ~__context ~transport_PIF:pif ~network ~host in
   access_pif
 
-let create_sriov_pif ~__context ~pif ?(bridge="xapi0") () =
-  let sriov_network = make_network ~__context ~bridge () in
+let create_sriov_pif ~__context ~pif ?network ?(bridge="xapi0") () =
+  let sriov_network = match network with
+    | Some network -> network
+    | None -> make_network ~__context ~bridge ()
+  in
   let sriov, sriov_logical_pif = make_network_sriov ~__context ~physical_PIF:pif ~network:sriov_network in
   sriov_logical_pif
 
