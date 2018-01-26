@@ -4306,6 +4306,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       do_op_on ~__context ~local_fn ~host
         (fun session_id rpc -> Client.Cluster_host.destroy rpc session_id self)
 
+    let forget ~__context ~self =
+      info "Cluster_host.forget";
+      let local_fn = Local.Cluster_host.forget ~self in
+      let host = Db.Cluster_host.get_host ~__context ~self in
+      do_op_on ~__context ~local_fn ~host
+        (fun session_id rpc -> Client.Cluster_host.forget rpc session_id self)
+
     let enable ~__context ~self =
       info "Cluster_host.enable";
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in

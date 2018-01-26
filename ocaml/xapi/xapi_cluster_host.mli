@@ -45,6 +45,11 @@ val create : __context:Context.t -> cluster:API.ref_Cluster -> host:API.ref_host
 (** [create ~__context ~cluster ~host] is implementation of the XenAPI call
     'Cluster_host.create'. It is the Cluster_host object constructor *)
 
+val forget : __context:Context.t -> self:API.ref_Cluster_host -> unit
+(** [forget ~__context ~self] is the implementation of the XenAPI call
+    'Cluster_host.forget'. It forcefully removes the DB object and
+     destroys the cluster on specified host. *)
+
 val destroy : __context:Context.t -> self:API.ref_Cluster_host -> unit
 (** [destroy ~__context ~self] is the implementation of the XenAPI call
     'Cluster_host.destroy'. It is the Cluster_host destructor *)

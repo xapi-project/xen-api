@@ -2944,6 +2944,14 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.Cluster_host.destroy;
       flags=[];
     };
+    "cluster-host-forget",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Destroy a cluster host object forcefully, effectively leaving the cluster";
+      implementation=No_fd Cli_operations.Cluster_host.forget;
+      flags=[];
+    };
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t =
