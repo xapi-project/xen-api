@@ -15,7 +15,8 @@ open API
 module D=Debug.Make(struct let name="xapi" end)
 open D
 
-(* Any PIF should only belongs to only one of following types *)
+(* Please note when you expand the type definition,
+   any PIF should only belongs to only one of following types *)
 type pif_type_t =
   | Tunnel_access of ref_tunnel
   | Bond_slave of ref_Bond
@@ -110,8 +111,8 @@ let tunnel_is_allowed_on_pif ~__context ~transport_PIF =
   | _ -> ()
 
 let bond_is_allowed_on_pif ~__context ~self =
-  if Db.PIF.get_managed ~__context ~self <> true
-  then raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of self]));
+  if Db.PIF.get_managed ~__context ~self <> true then
+    raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of self]));
   match get_pif_type ~__context ~self with
   | Bond_slave bond ->
     let bonded = try ignore(Db.Bond.get_uuid ~__context ~self:bond); true with _ -> false in
@@ -126,6 +127,8 @@ let bond_is_allowed_on_pif ~__context ~self =
   | _ -> ()
 
 let sriov_is_allowed_on_pif ~__context ~self =
+  if Db.PIF.get_managed ~__context ~self <> true then
+    raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of self]));
   if Db.PIF.get_physical ~__context ~self <> true then
     raise (Api_errors.Server_error (Api_errors.pif_is_not_physical, [Ref.string_of self]));
   if Db.PIF.get_sriov_physical_PIF_of ~__context ~self <> [] then
