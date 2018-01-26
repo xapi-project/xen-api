@@ -155,9 +155,12 @@ let assert_sriov_pif_compatible_with_network ~__context ~pif ~network =
   match Db.Network.get_PIFs ~__context ~self:network with
   | [] -> ()
   | logical_pif :: _ ->
-    let sriov = List.hd (Db.PIF.get_sriov_logical_PIF_of ~__context ~self:logical_pif) in
-    if sriov = Ref.null then raise (Api_errors.Server_error(Api_errors.network_incompatible_purposes, [Ref.string_of network]));
-    let exist_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
-    if not (is_device_underneath_same_type ~__context pif exist_pif) then
-      raise (Api_errors.Server_error(Api_errors.network_sriov_pci_vendor_not_compatible, [Ref.string_of pif; Ref.string_of network]))
+    begin
+      match Db.PIF.get_sriov_logical_PIF_of ~__context ~self:logical_pif with
+      | [] -> raise (Api_errors.Server_error(Api_errors.network_incompatible_purposes, [Ref.string_of network]));
+      | sriov :: _ ->
+        let exist_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
+        if not (is_device_underneath_same_type ~__context pif exist_pif) then
+          raise (Api_errors.Server_error(Api_errors.network_sriov_pci_vendor_not_compatible, [Ref.string_of pif; Ref.string_of network]))
+    end
 
