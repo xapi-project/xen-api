@@ -118,6 +118,11 @@ let need_enic_workaround () =
 		| Some vs -> (is_older_version vs !enic_workaround_until_version ())
 		| None -> false )
 
+module Sriov = struct
+	let get_capabilities dev = 
+		if Sysfs.get_sriov_maxvfs dev = 0 then [] else ["sriov"]
+end
+
 module Interface = struct
 	let get_config name =
 		get_config !config.interface_config default_interface name
@@ -372,7 +377,7 @@ module Interface = struct
 
 	let get_capabilities dbg name =
 		Debug.with_thread_associated dbg (fun () ->
-			Fcoe.get_capabilities name
+			Fcoe.get_capabilities name @ Sriov.get_capabilities name
 		) ()
 
 	let is_connected dbg name =
@@ -1007,29 +1012,6 @@ module Bridge = struct
 						add_port dbg bond_mac bridge_name port_name interfaces (Some bond_properties) (Some kind)) ports
 				)
 			) config
-		) ()
-end
-
-module S = Network_interface.Interface_API(Idl.GenServerExn ())
-module Sriov = struct
-	open Xcp_pci
-
-	let enable _ dbg ~name =
-		Debug.with_thread_associated dbg (fun () ->
-			debug "Enable NET-SRIOV by name: %s" name;
-			Ok Modprobe_successful
-		) ()
-
-	let disable _ dbg ~name =
-		Debug.with_thread_associated dbg (fun () ->	
-			debug "Disable NET-SRIOV by name: %s" name;
-			Ok Modprobe_successful
-		) ()
-
-	let make_vf_config _ dbg ~pci_address ~vf_info =
-		Debug.with_thread_associated dbg (fun () ->	
-			let pcibuspath = string_of_address pci_address in
-			debug "Config VF with pci address: %s" pcibuspath;
 		) ()
 end
 
