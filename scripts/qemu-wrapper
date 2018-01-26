@@ -398,6 +398,7 @@ def main(argv):
        qemu_env["LD_PRELOAD"] = "/usr/lib64/libjemalloc.so.1"
     else:
        qemu_env["LD_PRELOAD"] = "/usr/lib64/libjemalloc.so.1:" + qemu_env["LD_PRELOAD"]
+    qemu_env["MALLOC_CONF"] = "narenas:1,tcache:false,lg_dirty_mult:22"
 
     core_dump_limit = enable_core_dumps()
     f.write("core dump limit: %d\n" % core_dump_limit)
