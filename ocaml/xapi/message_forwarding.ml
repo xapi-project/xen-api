@@ -4278,6 +4278,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Cluster.pool_create";
       Local.Cluster.pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient
 
+    let pool_force_destroy ~__context ~self =
+      info "Cluster.pool_force_destroy";
+      Local.Cluster.pool_force_destroy ~__context ~self
+
     let pool_destroy ~__context ~self =
       info "Cluster.pool_destroy";
       Local.Cluster.pool_destroy ~__context ~self

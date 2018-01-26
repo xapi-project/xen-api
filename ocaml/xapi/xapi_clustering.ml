@@ -158,11 +158,6 @@ let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__conte
     )
     srs
 
-let assert_cluster_has_one_node ~__context ~self =
-  match List.length (Db.Cluster.get_cluster_hosts ~__context ~self) with
-  | 1 -> ()
-  | n -> raise Api_errors.(Server_error(cluster_does_not_have_one_node, [string_of_int n]))
-
 module Daemon = struct
   let started = ref false
   let m = Mutex.create ()
