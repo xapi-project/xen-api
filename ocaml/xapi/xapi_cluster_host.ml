@@ -90,7 +90,7 @@ let create ~__context ~cluster ~host =
       | Result.Error error -> handle_error error
     )
 
-let forget ~__context ~self =
+let force_destroy ~__context ~self =
   let dbg = Context.string_of_task __context in
   let host = Db.Cluster_host.get_host ~__context ~self in
   assert_operation_host_target_is_localhost ~__context ~host;

@@ -2944,12 +2944,12 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.Cluster_host.destroy;
       flags=[];
     };
-    "cluster-host-forget",
+    "cluster-host-force-destroy",
     {
       reqd=["uuid"];
       optn=[];
       help="Destroy a cluster host object forcefully, effectively leaving the cluster";
-      implementation=No_fd Cli_operations.Cluster_host.forget;
+      implementation=No_fd Cli_operations.Cluster_host.force_destroy;
       flags=[];
     };
   ]

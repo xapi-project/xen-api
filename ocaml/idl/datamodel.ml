@@ -10407,8 +10407,8 @@ module Cluster_host = struct
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
-    let forget = call
-    ~name:"forget"
+    let force_destroy = call
+    ~name:"force_destroy"
     ~doc:"Remove a host from an existing cluster forcefully."
     ~params:
       [ Ref _cluster_host, "self", "the cluster_host to remove from the cluster"
@@ -10477,7 +10477,7 @@ let obj =
       [ create
       ; destroy
       ; enable
-      ; forget
+      ; force_destroy
       ; disable
       ]
     ()
