@@ -83,7 +83,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
         let editions = V6_client.get_editions "assert_restrictions_match" in
         let edition_to_int e =
           try
-            match List.find (fun (name, _) -> name = e) editions with _, (_, _, a) -> a
+            V6_interface.(match List.find (fun ed -> ed.title = e) editions with ed -> ed.order)
           with Not_found ->
             (* Happens if pool has edition "free/libre" (no v6d) *)
             error "Pool.join failed: pool has a host with edition unknown to v6d: %s" e;
@@ -136,12 +136,12 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     let slave_major = Db.Host.get_API_version_major ~__context ~self:candidate_slave in
     let slave_minor = Db.Host.get_API_version_minor ~__context ~self:candidate_slave in
     if master_major <> slave_major || master_minor <> slave_minor then
-    begin
-      error "The joining host's API version is %Ld.%Ld while the master's is %Ld.%Ld"
-        slave_major slave_minor master_major master_minor;
-      raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_same_api_version,
-        [Printf.sprintf "%Ld.%Ld" slave_major slave_minor; Printf.sprintf "%Ld.%Ld" master_major master_minor;]))
-    end
+      begin
+        error "The joining host's API version is %Ld.%Ld while the master's is %Ld.%Ld"
+          slave_major slave_minor master_major master_minor;
+        raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_same_api_version,
+                                       [Printf.sprintf "%Ld.%Ld" slave_major slave_minor; Printf.sprintf "%Ld.%Ld" master_major master_minor;]))
+      end
   in
 
   let assert_db_schema_matches () =
@@ -152,12 +152,12 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     let master_db_schema = try List.assoc Xapi_globs._db_schema master_sw_version with _ -> "" in
     let slave_db_schema = try List.assoc Xapi_globs._db_schema slave_sw_version with _ -> "" in
     if master_db_schema = "" || slave_db_schema = "" ||  master_db_schema <> slave_db_schema then
-    begin
+      begin
         error "The joining host's database schema is %s; the master's is %s"
           slave_db_schema master_db_schema;
         raise (Api_errors.Server_error(Api_errors.pool_joining_host_must_have_same_db_schema,
-          [slave_db_schema; master_db_schema]))
-    end
+                                       [slave_db_schema; master_db_schema]))
+      end
   in
 
   let assert_homogeneous_updates () =
@@ -172,26 +172,26 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       |> S.of_list in
     let local_updates =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-        updates_on ~rpc ~session_id local_host) in
+          updates_on ~rpc ~session_id local_host) in
     (* compare updates on host and pool master *)
     Client.Pool.get_all rpc session_id |> List.iter (fun pool ->
-      let pool_host = Client.Pool.get_master rpc session_id pool in
-      let remote_updates = updates_on rpc session_id pool_host in
-      if not (S.equal local_updates remote_updates) then begin
-        let remote_uuid  = Client.Host.get_uuid rpc session_id pool_host in
-        let diff xs ys   = S.diff xs ys |> S.elements |> String.concat "," in
-        let reason       =
-          Printf.sprintf "Updates on local host %s and pool host %s differ"
-            (Db.Host.get_name_label ~__context ~self:local_host)
-            (Client.Host.get_name_label rpc session_id pool_host) in
-        error
-          "Pool join: Updates differ. Only on pool host %s: {%s} -- only on local host %s: {%s}"
-          remote_uuid
-          (diff remote_updates local_updates)
-          local_uuid
-          (diff local_updates remote_updates);
-        raise Api_errors.(Server_error(pool_hosts_not_homogeneous,[reason]))
-      end)
+        let pool_host = Client.Pool.get_master rpc session_id pool in
+        let remote_updates = updates_on rpc session_id pool_host in
+        if not (S.equal local_updates remote_updates) then begin
+          let remote_uuid  = Client.Host.get_uuid rpc session_id pool_host in
+          let diff xs ys   = S.diff xs ys |> S.elements |> String.concat "," in
+          let reason       =
+            Printf.sprintf "Updates on local host %s and pool host %s differ"
+              (Db.Host.get_name_label ~__context ~self:local_host)
+              (Client.Host.get_name_label rpc session_id pool_host) in
+          error
+            "Pool join: Updates differ. Only on pool host %s: {%s} -- only on local host %s: {%s}"
+            remote_uuid
+            (diff remote_updates local_updates)
+            local_uuid
+            (diff local_updates remote_updates);
+          raise Api_errors.(Server_error(pool_hosts_not_homogeneous,[reason]))
+        end)
   in
 
   (* CP-700: Restrict pool.join if AD configuration of slave-to-be does not match *)
@@ -264,12 +264,12 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   (* Allow pool-join if host does not have any non-management VLANs *)
   let assert_no_non_management_vlans_on_me () =
     List.iter (fun self ->
-      let pif = Db.VLAN.get_untagged_PIF ~__context ~self in
-      if Db.PIF.get_management ~__context ~self:pif <> true then begin
-        error "The current host has non-management vlans: it cannot join a new pool";
-        raise (Api_errors.Server_error(Api_errors.pool_joining_host_has_non_management_vlans, []))
-      end
-    ) (Db.VLAN.get_all ~__context)
+        let pif = Db.VLAN.get_untagged_PIF ~__context ~self in
+        if Db.PIF.get_management ~__context ~self:pif <> true then begin
+          error "The current host has non-management vlans: it cannot join a new pool";
+          raise (Api_errors.Server_error(Api_errors.pool_joining_host_has_non_management_vlans, []))
+        end
+      ) (Db.VLAN.get_all ~__context)
   in
 
   (* Allow pool-join if the host and the pool are on the same management vlan *)
@@ -281,7 +281,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     if vlan_tag <> remote_vlan_tag then begin
       error "The current host and the pool management vlan does not match: it cannot join a new pool";
       raise (Api_errors.Server_error(Api_errors.pool_joining_host_management_vlan_does_not_match,
-        [Int64.to_string vlan_tag; Int64.to_string remote_vlan_tag]))
+                                     [Int64.to_string vlan_tag; Int64.to_string remote_vlan_tag]))
     end in
 
   (* Used to tell XCP and XenServer apart - use PRODUCT_BRAND if present, else use PLATFORM_NAME. *)
@@ -400,12 +400,12 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     match my_backend' with
     | Network_interface.Openvswitch ->
       begin
-      let remote_sdn_controllers = Client.SDN_controller.get_all ~rpc ~session_id in
-      let my_sdn_controllers = Db.SDN_controller.get_all ~__context in
-      (* We assume that each pool has _at most_ one SDN controller *)
-      match remote_sdn_controllers, my_sdn_controllers with
-      | _, [] -> ()
-      | remote_sdn_controller :: _, my_sdn_controller :: _ ->
+        let remote_sdn_controllers = Client.SDN_controller.get_all ~rpc ~session_id in
+        let my_sdn_controllers = Db.SDN_controller.get_all ~__context in
+        (* We assume that each pool has _at most_ one SDN controller *)
+        match remote_sdn_controllers, my_sdn_controllers with
+        | _, [] -> ()
+        | remote_sdn_controller :: _, my_sdn_controller :: _ ->
           (* check that protocol/address/port are identical *)
           let my_sdn_protocol = Db.SDN_controller.get_protocol ~__context ~self:my_sdn_controller in
           let my_sdn_address = Db.SDN_controller.get_address ~__context ~self:my_sdn_controller in
@@ -414,11 +414,11 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
           let remote_sdn_address = Client.SDN_controller.get_address ~rpc ~session_id ~self:remote_sdn_controller in
           let remote_sdn_port = Client.SDN_controller.get_port ~rpc ~session_id ~self:remote_sdn_controller in
           if my_sdn_protocol <> remote_sdn_protocol
-            || my_sdn_address <> remote_sdn_address
-            || my_sdn_port <> remote_sdn_port then
+          || my_sdn_address <> remote_sdn_address
+          || my_sdn_port <> remote_sdn_port then
             raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["SDN controller differs"]))
-      | _ ->
-        raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["SDN controller differs"]))
+        | _ ->
+          raise (Api_errors.Server_error(Api_errors.operation_not_allowed, ["SDN controller differs"]))
       end
     | _ -> ()
   in
@@ -744,19 +744,19 @@ let create_or_get_vlan_on_master __context rpc session_id (vlan_ref, vlan) : API
   (* Create the untagged PIF record on Pool *)
   let untagged_pif_record = Db.PIF.get_record ~__context ~self:vlan.API.vLAN_untagged_PIF in
   let remote_untagged_pif = create_or_get_pif_on_master __context rpc session_id
-    (vlan.API.vLAN_untagged_PIF, untagged_pif_record) in
+      (vlan.API.vLAN_untagged_PIF, untagged_pif_record) in
 
   (* Get the remote tagged pif network *)
   let tagged_pif_network = Db.PIF.get_network ~__context ~self:vlan.API.vLAN_tagged_PIF in
   let tagged_pif_network_record = Db.Network.get_record ~__context ~self:tagged_pif_network in
   let remote_tagged_pif_network = create_or_get_network_on_master __context rpc session_id
-    (tagged_pif_network, tagged_pif_network_record) in
+      (tagged_pif_network, tagged_pif_network_record) in
 
   (* Get the new physical PIF ref on Pool for the joining Host *)
   let expr =
     Printf.sprintf "field \"network\"=\"%s\" and field \"host\"=\"%s\""
-    (Ref.string_of remote_tagged_pif_network)
-    (Ref.string_of new_host_ref)
+      (Ref.string_of remote_tagged_pif_network)
+      (Ref.string_of new_host_ref)
   in
   let remote_physical_pif =
     match Client.PIF.get_all_records_where ~rpc ~session_id ~expr with
@@ -893,23 +893,23 @@ let update_non_vm_metadata ~__context ~rpc ~session_id =
     let my_vlan_record = Db.VLAN.get_record ~__context ~self:my_vlan in
     let (_ : API.ref_VLAN option ) = protect_exn (create_or_get_vlan_on_master __context rpc session_id) (my_vlan, my_vlan_record) in
 
-  (* update PVS sites *)
-  let my_pvs_sites = Db.PVS_site.get_all_records ~__context in
-  let (_ : API.ref_PVS_site option list) =
-    List.map (protect_exn (create_or_get_pvs_site_on_master __context rpc session_id)) my_pvs_sites in
+    (* update PVS sites *)
+    let my_pvs_sites = Db.PVS_site.get_all_records ~__context in
+    let (_ : API.ref_PVS_site option list) =
+      List.map (protect_exn (create_or_get_pvs_site_on_master __context rpc session_id)) my_pvs_sites in
 
-  (* update PVS_cache_storage *)
-  let my_pvs_cache_storages = Db.PVS_cache_storage.get_all_records ~__context in
-  let (_ : API.ref_PVS_cache_storage option list) =
-    List.map (protect_exn (create_or_get_pvs_cache_storage_on_master __context rpc session_id)) my_pvs_cache_storages in
+    (* update PVS_cache_storage *)
+    let my_pvs_cache_storages = Db.PVS_cache_storage.get_all_records ~__context in
+    let (_ : API.ref_PVS_cache_storage option list) =
+      List.map (protect_exn (create_or_get_pvs_cache_storage_on_master __context rpc session_id)) my_pvs_cache_storages in
 
-  (* update Secrets *)
-  let my_secrets = Db.Secret.get_all_records ~__context in
-  let (_ : API.ref_secret option list) =
-    List.map (protect_exn (create_or_get_secret_on_master __context rpc session_id)) my_secrets
-  in
+    (* update Secrets *)
+    let my_secrets = Db.Secret.get_all_records ~__context in
+    let (_ : API.ref_secret option list) =
+      List.map (protect_exn (create_or_get_secret_on_master __context rpc session_id)) my_secrets
+    in
 
-  ()
+    ()
 
 let assert_pooling_licensed ~__context =
   if (not (Pool_features.is_enabled ~__context Features.Pooling))
@@ -1112,7 +1112,7 @@ let eject ~__context ~host =
         let bond = List.hd pif.API.pIF_bond_master_of in
         let primary_slave = Db.Bond.get_primary_slave ~__context ~self:bond in
         Db.PIF.get_device ~__context ~self:primary_slave
-      (* If management on VLAN on a bond or physical NIC *)
+        (* If management on VLAN on a bond or physical NIC *)
       else if pif.API.pIF_VLAN_master_of <> Ref.null then
         let tagged_pif = Db.VLAN.get_tagged_PIF ~__context ~self:(pif.API.pIF_VLAN_master_of) in
         let bond_master = Db.PIF.get_bond_master_of ~__context ~self:tagged_pif in
@@ -1146,21 +1146,21 @@ let eject ~__context ~host =
         ; sprintf "MODE='%s'" mode
         ] in
       let config_static = if mode <> "static" then [] else
-        [ sprintf "IP='%s'" pif.API.pIF_IP
-        ; sprintf "NETMASK='%s'" pif.API.pIF_netmask
-        ; sprintf "GATEWAY='%s'" pif.API.pIF_gateway
-        ; sprintf "DNS='%s'" pif.API.pIF_DNS
-        ] in
+          [ sprintf "IP='%s'" pif.API.pIF_IP
+          ; sprintf "NETMASK='%s'" pif.API.pIF_netmask
+          ; sprintf "GATEWAY='%s'" pif.API.pIF_gateway
+          ; sprintf "DNS='%s'" pif.API.pIF_DNS
+          ] in
       let config_vlan = if vlan_id = -1 then [] else
-        [ sprintf "VLAN='%d'" vlan_id
-        ] in
+          [ sprintf "VLAN='%d'" vlan_id
+          ] in
       let configuration_file =
         List.concat
           [ config_base
           ; config_static
           ; config_vlan
           ]
-          |> String.concat "\n"
+        |> String.concat "\n"
       in
       Unixext.write_string_to_file
         (Xapi_globs.first_boot_dir ^ "data/management.conf")
@@ -1294,24 +1294,24 @@ let management_reconfigure ~__context ~network =
   let pifs_on_network = Db.Network.get_PIFs ~__context ~self:network in
   let hosts_with_pifs = Hashtbl.create 16 in
   List.iter (fun self ->
-    let host = Db.PIF.get_host ~__context ~self in
-    Hashtbl.add hosts_with_pifs host self;
-  ) pifs_on_network;
+      let host = Db.PIF.get_host ~__context ~self in
+      Hashtbl.add hosts_with_pifs host self;
+    ) pifs_on_network;
 
   (* All Hosts must have associated PIF on the network *)
   let all_hosts = Db.Host.get_all ~__context in
   List.iter (fun host ->
-    if not(Hashtbl.mem hosts_with_pifs host) then
-      raise (Api_errors.Server_error(Api_errors.pif_not_present, [Ref.string_of host; Ref.string_of network]));
-  ) all_hosts;
+      if not(Hashtbl.mem hosts_with_pifs host) then
+        raise (Api_errors.Server_error(Api_errors.pif_not_present, [Ref.string_of host; Ref.string_of network]));
+    ) all_hosts;
 
-  let address_type = Db.PIF.get_primary_address_type ~__context ~self:(List.hd pifs_on_network) in 
+  let address_type = Db.PIF.get_primary_address_type ~__context ~self:(List.hd pifs_on_network) in
   List.iter (fun self ->
-    let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self in
-    if primary_address_type <> address_type then
-      raise (Api_errors.Server_error(Api_errors.pif_incompatible_primary_address_type, [Ref.string_of self]));
-    Xapi_pif.assert_usable_for_management ~__context ~primary_address_type ~self;
-  ) pifs_on_network;
+      let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self in
+      if primary_address_type <> address_type then
+        raise (Api_errors.Server_error(Api_errors.pif_incompatible_primary_address_type, [Ref.string_of self]));
+      Xapi_pif.assert_usable_for_management ~__context ~primary_address_type ~self;
+    ) pifs_on_network;
 
   (* Perform Host.management_reconfigure on slaves first and last on master *)
   let f ~rpc ~session_id ~host =
@@ -1322,7 +1322,7 @@ let management_reconfigure ~__context ~network =
   (* Perform Pool.recover_slaves *)
   let hosts_recovered =
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-      Client.Pool.recover_slaves rpc session_id) in
+        Client.Pool.recover_slaves rpc session_id) in
   List.iter (fun host -> debug "Host recovered=%s" (Db.Host.get_uuid ~__context ~self:host)) hosts_recovered
 
 let initial_auth ~__context =
@@ -2042,7 +2042,10 @@ let disable_local_storage_caching ~__context ~self =
   else ()
 
 let get_license_state ~__context ~self =
-  let edition_to_int = List.map (fun (e, (_, _, i)) -> e, i) (V6_client.get_editions "get_license_state") in
+  let edition_to_int =
+    List.map
+      V6_interface.(fun ed -> ed.title, ed.order)
+      (V6_client.get_editions "get_license_state") in
   let hosts = Db.Host.get_all ~__context in
   let pool_edition, expiry = Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int in
   let pool_expiry =
@@ -2108,7 +2111,7 @@ let disable_ssl_legacy = set_ssl_legacy_on_each_host ~value:false
 
 let enable_ssl_legacy = set_ssl_legacy_on_each_host ~value:true
 
-let set_igmp_snooping_enabled ~__context ~self ~value = 
+let set_igmp_snooping_enabled ~__context ~self ~value =
   if value then
     Pool_features.assert_enabled ~__context ~f:Features.IGMP_snooping;
 
@@ -2119,27 +2122,27 @@ let set_igmp_snooping_enabled ~__context ~self ~value =
   let hosts = Db.Host.get_all ~__context in
   let networks = Db.Network.get_all ~__context in
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-    let failure = List.fold_left (fun fail host ->
-      List.fold_left (fun fail' network ->
-        let local_pifs = Xapi_network_attach_helpers.get_local_pifs ~__context ~network ~host in
-        try
-          match local_pifs with
-          | pif :: _ -> (* There is at most one local PIF, by construction *)
-            let pif_record = Db.PIF.get_record ~__context ~self:pif in
-            if (pif_record.API.pIF_VLAN = -1L) && (pif_record.API.pIF_bond_slave_of = Ref.null) then
-              Client.Network.attach ~rpc ~session_id ~network ~host;
-              fail'
-          | [] -> (* Internal network *)
-            fail'
-        with _ ->
-          error "set_igmp_snooping_enabled:Network.attach failed on host uuid=%s network uuid=%s" (Db.Host.get_uuid ~__context ~self:host) (Db.Network.get_uuid ~__context ~self:network);
-          true
-      ) fail networks
-    ) false hosts
-    in
-    if failure then 
-      raise (Api_errors.Server_error(Api_errors.could_not_update_igmp_snooping_everywhere, []))
-  )
+      let failure = List.fold_left (fun fail host ->
+          List.fold_left (fun fail' network ->
+              let local_pifs = Xapi_network_attach_helpers.get_local_pifs ~__context ~network ~host in
+              try
+                match local_pifs with
+                | pif :: _ -> (* There is at most one local PIF, by construction *)
+                  let pif_record = Db.PIF.get_record ~__context ~self:pif in
+                  if (pif_record.API.pIF_VLAN = -1L) && (pif_record.API.pIF_bond_slave_of = Ref.null) then
+                    Client.Network.attach ~rpc ~session_id ~network ~host;
+                  fail'
+                | [] -> (* Internal network *)
+                  fail'
+              with _ ->
+                error "set_igmp_snooping_enabled:Network.attach failed on host uuid=%s network uuid=%s" (Db.Host.get_uuid ~__context ~self:host) (Db.Network.get_uuid ~__context ~self:network);
+                true
+            ) fail networks
+        ) false hosts
+      in
+      if failure then
+        raise (Api_errors.Server_error(Api_errors.could_not_update_igmp_snooping_everywhere, []))
+    )
 
 let has_extension ~__context ~self ~name =
   let hosts = Db.Host.get_all ~__context in

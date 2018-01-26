@@ -1339,16 +1339,15 @@ let apply_edition_internal  ~__context ~host ~edition ~additional =
   let params =
     ("current_edition", current_edition) ::
     license_server @ current_license_params @ additional in
-  let open V6_interface in
   let new_ed =
     let dbg = Context.string_of_task __context in
     try
       V6_client.apply_edition dbg edition params
     with
-    | Invalid_edition e -> raise Api_errors.(Server_error(invalid_edition, [e]))
-    | License_processing_error -> raise Api_errors.(Server_error(license_processing_error, []))
-    | Missing_connection_details -> raise Api_errors.(Server_error(missing_connection_details, []))
-    | License_checkout_error s -> raise Api_errors.(Server_error(license_checkout_error, [s]))
+    | V6_interface.(V6_error (Invalid_edition e)) ->  raise Api_errors.(Server_error(invalid_edition, [e]))
+    | V6_interface.(V6_error (License_processing_error)) ->  raise Api_errors.(Server_error(license_processing_error, []))
+    | V6_interface.(V6_error (Missing_connection_details)) ->  raise Api_errors.(Server_error(missing_connection_details, []))
+    | V6_interface.(V6_error (License_checkout_error s)) ->  raise Api_errors.(Server_error(license_checkout_error, [s]))
   in
 
   let create_feature fname fenabled =
@@ -1365,12 +1364,12 @@ let apply_edition_internal  ~__context ~host ~edition ~additional =
     match l with
     | [] -> []
     | (rf, r)::tl ->
-        if List.mem_assoc r.API.feature_name_label new_ed.experimental_features then
-          (rf, r)::(remove_obsolete_features_from_db tl)
-        else begin
-          destroy_feature rf;
-          remove_obsolete_features_from_db tl
-        end
+      if List.mem_assoc r.API.feature_name_label new_ed.experimental_features then
+        (rf, r)::(remove_obsolete_features_from_db tl)
+      else begin
+        destroy_feature rf;
+        remove_obsolete_features_from_db tl
+      end
   in
 
   let old_features =
@@ -1387,9 +1386,10 @@ let apply_edition_internal  ~__context ~host ~edition ~additional =
     | [(rf, _)] -> update_feature rf fenabled
     | x -> List.iter (fun (rf, r) -> destroy_feature rf) x; create_feature fname fenabled
   in
+  let open V6_interface in
   List.iter load_feature_to_db new_ed.experimental_features;
 
-  Db.Host.set_edition ~__context ~self:host ~value:new_ed.edition;
+  Db.Host.set_edition ~__context ~self:host ~value:new_ed.edition_name;
   let features = Features.of_assoc_list new_ed.xapi_params in
   copy_license_to_db ~__context ~host ~features ~additional:new_ed.additional_params
 
