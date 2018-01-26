@@ -171,13 +171,9 @@ let make_server config =
       on_disk_queues := qs;
       info "Reading the redo-log from %s" redo_log_path;
       Block.connect ~buffered:true redo_log_path
-      >>= (function
-          | `Ok block -> Lwt.return block
-          | `Error `Unknown s -> Lwt.fail (Failure (Printf.sprintf "Unexpected failure when opening block: %s" s))
-          | `Error _ -> Lwt.fail (Failure "Other error"))
       >>= fun block ->
       let open Lwt_result in
-      Redo_log.start ~flush_interval:5. block (process_redo_log statedir)
+      Redo_log.start ~flush_interval:5_000_000_000L block (process_redo_log statedir)
       >>= fun redo_log ->
       info "Redo-log playback complete: everything should be in sync";
       queues := !on_disk_queues; (* everything should be in sync *)
@@ -213,7 +209,7 @@ let make_server config =
     >>= fun _ ->
     let conn_id_s = Cohttp.Connection.to_string conn_id in
     let open Message_switch_core.Protocol in
-    Cohttp_lwt_body.to_string body >>= fun body ->
+    Cohttp_lwt.Body.to_string body >>= fun body ->
     let uri = Cohttp.Request.uri req in
     let path = Uri.path uri in
     match In.of_request body (Cohttp.Request.meth req) path with

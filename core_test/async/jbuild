@@ -18,7 +18,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   ))
   (libraries (
     message-switch-async
-    cohttp.async
+    cohttp-async
   ))
   %s
 ))

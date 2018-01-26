@@ -17,8 +17,8 @@
 let whoami () = Printf.sprintf "%s:%d"
     (Filename.basename Sys.argv.(0)) (Unix.getpid ())
 
-open Core.Std
-open Async.Std
+open Core
+open Async
 open Message_switch_core.Protocol
 open Cohttp
 open Cohttp_async
@@ -29,7 +29,7 @@ module M = struct
   let whoami = whoami
 
   module IO = struct
-    include Cohttp_async_io
+    include Cohttp_async.Io
 
     let map f t = Deferred.map ~f t
     let iter f t = Deferred.List.iter t ~f

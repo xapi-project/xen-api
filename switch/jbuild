@@ -37,8 +37,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (libraries (
     message-switch-lwt
     message-switch-unix
-    cohttp.lwt
-    io-page.unix
+    cohttp-lwt-unix
+    io-page-unix
     mtime
     mtime.clock.os
     mirage-block-unix

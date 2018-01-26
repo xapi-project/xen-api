@@ -14,10 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-include V1.CLOCK
+include Shared_block.S.CLOCK
 
 val ns: unit -> int64
 (** [ns ()] time in ns since the program started *)
-
-val s: unit -> float
-(** [s ()] time in seconds since the program started *)

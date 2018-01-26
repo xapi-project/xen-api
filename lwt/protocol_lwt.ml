@@ -26,7 +26,7 @@ module M = struct
       (Filename.basename Sys.argv.(0)) (Unix.getpid ())
 
   module IO = struct
-    include Cohttp_lwt_unix_io
+    include Cohttp_lwt_unix.IO
 
     let map = Lwt.map
     let iter = Lwt_list.iter_s
