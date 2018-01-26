@@ -26,13 +26,13 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     cstruct
     cohttp.lwt
     io-page.unix
-    nbd.lwt
+    nbd-lwt-unix
     re.str
     sha.sha1
     xapi-tapctl
     tar
     vhd-format
-    vhd-format.lwt
+    vhd-format-lwt
     xenstore.client
     xenstore.unix
     xenstore_transport
