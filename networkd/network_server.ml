@@ -243,6 +243,28 @@ module Sriov = struct
 			| Ok t -> (Ok t:enable_result)
 			| Result.Error (_, msg) -> Error msg
 		) ()
+
+	let disable_internal dev =
+		let open Rresult.R.Infix in
+		Sysfs.get_driver_name_err dev >>= 
+		fun driver ->
+		parse_modprobe_conf driver 0 >>= 
+		fun (has_probe_conf, need_rebuild_intrd, conf) ->
+		match has_probe_conf,need_rebuild_intrd with
+		| false, false ->
+			Sysfs.set_sriov_numvfs dev 0
+		| true, true ->
+			Modprobe.write_conf_file driver conf >>= fun () ->
+			Dracut.rebuild_initrd ()
+		| _ -> Ok ()
+
+	let disable _ dbg ~name =
+		Debug.with_thread_associated dbg (fun () ->	
+			debug "Disable network SR-IOV by name: %s" name;
+			match disable_internal name with
+			| Ok () -> (Ok:disable_result)
+			| Result.Error (_, msg) -> Error msg
+		) ()
 end
 
 module Interface = struct
