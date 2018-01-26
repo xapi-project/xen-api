@@ -12,8 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Core.Std
-open Async.Std
+open Core
+open Async
 
 open Xen_api_async_unix
 

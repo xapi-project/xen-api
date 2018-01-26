@@ -3,7 +3,6 @@
   (modules (list_vms))
   (libraries
    (lwt
-    lwt.ssl
     lwt.unix
     xen-api-client
     xen-api-client-lwt))))
@@ -13,7 +12,6 @@
   (modules (upload_disk))
   (libraries
    (lwt
-    lwt.ssl
     lwt.unix
     xen-api-client
     xen-api-client-lwt))))
@@ -24,7 +22,6 @@
   (libraries
    (cohttp.lwt
     lwt
-    lwt.ssl
     lwt.unix
     xen-api-client
     xen-api-client-lwt))))

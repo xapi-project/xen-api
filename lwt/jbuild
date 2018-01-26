@@ -5,7 +5,7 @@
    (cohttp
     cstruct
     lwt
-    lwt.ssl
+    lwt_ssl
     lwt.unix
     re.str
     rpclib
