@@ -12,10 +12,14 @@ depends: [
   "ounit" {test}
   "cow"
   "rpc"
-  "caml2html"
   "xmlm"
   "cmdliner"
 ]
+depopts: [
+  "caml2html"
+]
 depexts: [
   [["centos"] ["python"]]
+  [["debian"] ["python"]]
+  [["ubuntu"] ["python"]]
 ]
