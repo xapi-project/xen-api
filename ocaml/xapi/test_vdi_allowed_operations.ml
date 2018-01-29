@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Test_common
 
 (* Helpers for testing Xapi_vdi.check_operation_error *)
@@ -31,21 +30,14 @@ let setup_test ~__context ?sm_fun ?vdi_fun () =
   let vdi_record = Db.VDI.get_record_internal ~__context ~self:vdi_ref in
   vdi_ref, vdi_record
 
-let my_cmp a b = match a,b with
-  | Some aa, Some bb	-> fst aa = fst bb
-  | None, None -> a = b
-  | _	-> false
+let check_same_error_code =
+  let open Alcotest in
+  let open Alcotest_comparators in
+  check (option error_code) "Same error code"
 
-let string_of_api_exn_opt = function
-  | None -> "None"
-  | Some (code, args) ->
-    Printf.sprintf "Some (%s, [%s])" code (String.concat "; " args)
-
-let run_assert_equal_with_vdi ~__context ?(cmp = my_cmp) ?(ha_enabled=false) ?sm_fun ?vdi_fun op exc =
+let run_assert_equal_with_vdi ~__context ?(ha_enabled=false) ?sm_fun ?vdi_fun op exc =
   let vdi_ref, vdi_record = setup_test ~__context ?sm_fun ?vdi_fun () in
-  assert_equal
-    ~cmp
-    ~printer:string_of_api_exn_opt
+  check_same_error_code
     exc (Xapi_vdi.check_operation_error ~__context ha_enabled vdi_record vdi_ref op)
 
 (* This is to test Xapi_vdi.check_operation_error against CA-98944
@@ -373,16 +365,15 @@ let test_cbt =
       ]
   in
 
-  "test_cbt" >:::
-  [ "test_sm_feature_check" >:: test_sm_feature_check
-  ; "test_cbt_enable_disable_not_allowed_for_snapshot" >:: test_cbt_enable_disable_not_allowed_for_snapshot
-  ; "test_cbt_enable_disable_vdi_type_check" >:: test_cbt_enable_disable_vdi_type_check
-  ; "test_cbt_enable_disable_not_allowed_for_reset_on_boot" >:: test_cbt_enable_disable_not_allowed_for_reset_on_boot
-  ; "test_cbt_enable_disable_can_be_performed_live" >:: test_cbt_enable_disable_can_be_performed_live
-  ; "test_cbt_metadata_vdi_type_check" >:: test_cbt_metadata_vdi_type_check
-  ; "test_vdi_cbt_enabled_check" >:: test_vdi_cbt_enabled_check
-  ; "test_vdi_data_destroy" >:: test_vdi_data_destroy
-  ; "test_vdi_list_changed_blocks" >:: test_vdi_list_changed_blocks
+  [ "test_cbt_sm_feature_check", `Quick, test_sm_feature_check
+  ; "test_cbt_enable_disable_not_allowed_for_snapshot", `Quick, test_cbt_enable_disable_not_allowed_for_snapshot
+  ; "test_cbt_enable_disable_vdi_type_check", `Quick, test_cbt_enable_disable_vdi_type_check
+  ; "test_cbt_enable_disable_not_allowed_for_reset_on_boot", `Quick, test_cbt_enable_disable_not_allowed_for_reset_on_boot
+  ; "test_cbt_enable_disable_can_be_performed_live", `Quick, test_cbt_enable_disable_can_be_performed_live
+  ; "test_cbt_metadata_vdi_type_check", `Quick, test_cbt_metadata_vdi_type_check
+  ; "test_vdi_cbt_enabled_check", `Quick, test_vdi_cbt_enabled_check
+  ; "test_vdi_data_destroy", `Quick, test_vdi_data_destroy
+  ; "test_vdi_list_changed_blocks", `Quick, test_vdi_list_changed_blocks
   ]
 
 (** The set of allowed operations must be restricted during rolling pool
@@ -413,17 +404,16 @@ let test_operations_restricted_during_rpu =
     Db.Pool.add_to_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"x";
     let self, _ = setup_test ~__context ~vdi_fun:(fun vdi -> Db.VDI.set_type ~__context ~self:vdi ~value:`user) () in
     Xapi_vdi.update_allowed_operations ~__context ~self;
-    OUnit.assert_bool "update_allowed_operations should exclude `enable_cbt during RPU" (not @@ List.mem `enable_cbt (Db.VDI.get_allowed_operations ~__context ~self));
+    Alcotest.(check bool) "update_allowed_operations should exclude `enable_cbt during RPU" false (List.mem `enable_cbt (Db.VDI.get_allowed_operations ~__context ~self));
     Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress;
     Xapi_vdi.update_allowed_operations ~__context ~self
     (* CA-260245: at present update_allowed_operations excludes the cbt operations unconditionally.
-       OUnit.assert_bool "update_allowed_operations should consider `enable_cbt when RPU is not running" (List.mem `enable_cbt (Db.VDI.get_allowed_operations ~__context ~self))
+       Alcotest.(check bool) "update_allowed_operations should consider `enable_cbt when RPU is not running" true (List.mem `enable_cbt (Db.VDI.get_allowed_operations ~__context ~self))
     *)
   in
 
-  "test_operations_restricted_during_rpu" >:::
-  [ "test_check_operation_error" >:: test_check_operation_error
-  ; "test_update_allowed_operations" >:: test_update_allowed_operations
+  [ "test_check_operation_error", `Quick, test_check_operation_error
+  ; "test_update_allowed_operations", `Quick, test_update_allowed_operations
   ]
 
 (* Xapi_vdi.check_operation_error should not throw an
@@ -450,13 +440,10 @@ let test_null_vm =
 
 
 let test =
-  "test_vdi_allowed_operations" >:::
-  [
-    "test_ca98944" >:: test_ca98944;
-    "test_ca101669" >:: test_ca101669;
-    "test_ca125187" >:: test_ca125187;
-    "test_ca126097" >:: test_ca126097;
-    test_cbt;
-    test_operations_restricted_during_rpu;
-    "test_null_vm" >:: test_null_vm
-  ]
+  [ "test_ca98944", `Quick, test_ca98944
+  ; "test_ca101669", `Quick, test_ca101669
+  ; "test_ca125187", `Quick, test_ca125187
+  ; "test_ca126097", `Quick, test_ca126097
+  ] @ test_cbt
+  @ test_operations_restricted_during_rpu @
+  [ "test_null_vm", `Quick, test_null_vm ]
