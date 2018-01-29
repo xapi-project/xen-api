@@ -598,9 +598,9 @@ and gen_record_field field =
                 " (ocaml_field_to_csharp_property field) in
   let assignment =
     match field.ty with
-    |  Ref r     -> sprintf "    Record.%s = %s == null ? null : new %s(%s.opaque_ref);"
-                      (full_name field) (ocaml_field_to_csharp_property field)
-                      (obj_internal_type field.ty) (ocaml_field_to_csharp_property field)
+    |  Ref r     -> sprintf "    Record.%s = new %s(%s == null ? \"OpaqueRef:NULL\" : %s.opaque_ref);"
+                      (full_name field) (obj_internal_type field.ty)
+                      (ocaml_field_to_csharp_property field) (ocaml_field_to_csharp_property field)
     |  Map(u, v) -> sprintf "    Record.%s = CommonCmdletFunctions.ConvertHashTableToDictionary<%s, %s>(%s);"
                       (full_name field) (exposed_type u) (exposed_type v)
                       (pascal_case (full_name field))
