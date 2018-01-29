@@ -5,6 +5,8 @@ let default_on_missing_ref f default x =
   with
   | Db_exn.DBCache_NotFound ("missing reference", _, _) -> default
   | Db_exn.DBCache_NotFound ("missing row", _, _) -> default
+  (* When using the Client module, we get this exception for invalid references: *)
+  | Api_errors.(Server_error (handle_invalid, _ )) when handle_invalid = Api_errors.handle_invalid -> default
 
 let exists f = List.exists (default_on_missing_ref f false)
 

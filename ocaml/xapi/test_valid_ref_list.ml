@@ -2,7 +2,8 @@
 let assert_equal = Alcotest.(check (list string)) "same lists"
 
 let with_vm_list f () =
-  let __context = Mock.make_context_with_new_db "Mock context" in
+  (* We need to create a host for the Client module to work, this is done by make_test_database *)
+  let __context = Test_common.make_test_database () in
 
   let vm1 = Test_common.make_vm ~__context ~name_label:"a" ~name_description:"d_a" () in
 
@@ -101,6 +102,15 @@ let test_iter =
       assert_equal ["a"; "d"] !processed
     )
 
+(** CA-276638, CA-281320: Valid_ref_list should still catch invalid ref
+    exceptions when we use the Client module *)
+let test_client =
+  with_vm_list (fun __context l ->
+    let (rpc, session_id) = Test_common.make_client_params ~__context in
+    let f vm = Client.Client.VM.get_name_label ~rpc ~session_id ~self:vm in
+    assert_equal ["a"; "d"] (Valid_ref_list.map f l)
+  )
+
 let test =
   [ "test_map", `Quick, test_map
   ; "test_exists", `Quick, test_exists
@@ -109,4 +119,5 @@ let test =
   ; "test_flat_map", `Quick, test_flat_map
   ; "test_filter_map", `Quick, test_filter_map
   ; "test_iter", `Quick, test_iter
+  ; "test_client", `Quick, test_client
   ]
