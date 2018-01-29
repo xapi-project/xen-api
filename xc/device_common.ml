@@ -15,7 +15,7 @@ open Printf
 open Xenstore
 open Xenops_utils
 
-type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string
+type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string | NetSriovVf
   [@@deriving rpc]
 
 type devid = int
@@ -50,10 +50,10 @@ let vbd_kind_of_string backend_kind =
   else Vbd "unsupported"
 
 let string_of_kind = function
-  | Vif -> "vif" | Tap -> "tap" | Pci -> "pci" | Vfs -> "vfs" | Vfb -> "vfb" | Vkbd -> "vkbd"
+  | Vif -> "vif" | Tap -> "tap" | Pci -> "pci" | Vfs -> "vfs" | Vfb -> "vfb" | Vkbd -> "vkbd" | NetSriovVf -> "net-sriov-vf"
   | Vbd x -> x
 let kind_of_string = function
-  | "vif" -> Vif | "tap" -> Tap | "pci" -> Pci | "vfs" -> Vfs | "vfb" -> Vfb | "vkbd" -> Vkbd
+  | "vif" -> Vif | "tap" -> Tap | "pci" -> Pci | "vfs" -> Vfs | "vfb" -> Vfb | "vkbd" -> Vkbd | "net-sriov-vf" -> NetSriovVf
   | b when List.mem b supported_vbd_backends -> Vbd b
   | x -> raise (Unknown_device_type x)
 
@@ -184,6 +184,12 @@ let get_private_data_path_of_device (x: device) =
 (** Location of the device node's extra xenserver xenstore keys *)
 let extra_xenserver_path_of_device ~xs (x: device) =
   sprintf "%s/xenserver/device/%s/%d"
+    (xs.Xs.getdomainpath x.frontend.domid)
+    (string_of_kind x.backend.kind)
+    x.frontend.devid
+
+let extra_xenserver_path_of_attr ~xs (x: device) =
+  sprintf "%s/xenserver/attr/%s/%d"
     (xs.Xs.getdomainpath x.frontend.domid)
     (string_of_kind x.backend.kind)
     x.frontend.devid

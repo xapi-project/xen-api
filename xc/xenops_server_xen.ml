@@ -1238,13 +1238,11 @@ module VM = struct
           video_mib=video_mib;
           extras = [];
         } in
-      let bridge_of_network = function
-        | Network.Local b -> b
-        | Network.Remote (_, b) -> b in
-      let nics = List.map (fun vif ->
-          vif.Vif.mac,
-          bridge_of_network vif.Vif.backend,
-          vif.Vif.position
+      let nics = List.filter_map (fun vif ->
+          match vif.Vif.backend with
+          | Network.Local b | Network.Remote (_, b) ->
+            Some (vif.Vif.mac, b, vif.Vif.position)
+          | Network.Sriov _ -> None
         ) vifs in
       match ty with
       | PV { framebuffer = false } -> None
@@ -1824,7 +1822,10 @@ module VM = struct
              let subdirs = try xs.Xs.directory (root ^ "/" ^ dir) |> List.filter (fun x -> x <> "") |> List.map (fun x -> dir ^ "/" ^ x) with _ -> [] in
              this @ (List.concat (List.map (ls_lR root) subdirs)) in
            let guest_agent =
-             [ "drivers"; "attr"; "data"; "control"; "feature" ] |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)) |> List.concat |> List.map (fun (k,v) -> (k,Xenops_utils.utf8_recode v)) in
+             [ "drivers"; "attr"; "data"; "control"; "feature"; "xenserver/attr" ]
+             |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid))
+             |> List.concat
+             |> List.map (fun (k,v) -> (k,Xenops_utils.utf8_recode v)) in
            let xsdata_state =
              Domain.allowed_xsdata_prefixes |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)) |> List.concat in
            let shadow_multiplier_target =
@@ -2033,17 +2034,19 @@ module PCI = struct
 
   let id_of pci = snd pci.id
 
-  let get_state vm pci =
+  let get_state' vm pci_addr =
     with_xc_and_xs
       (fun xc xs ->
          let all = match domid_of_uuid ~xc ~xs Newest (uuid_of_string vm) with
            | Some domid -> Device.PCI.list ~xs domid |> List.map snd
            | None -> [] in
-         let address = pci.address in
          {
-           plugged = List.mem address all
+           plugged = List.mem pci_addr all
          }
       )
+
+  let get_state vm pci =
+    get_state' vm pci.address
 
   let get_device_action_request vm pci =
     let state = get_state vm pci in
@@ -2526,7 +2529,7 @@ module VIF = struct
 
   let backend_domid_of xc xs vif =
     match vif.backend with
-    | Network.Local _ -> this_domid ~xs
+    | Network.Local _ | Network.Sriov _ -> this_domid ~xs
     | Network.Remote (vm, _) ->
       begin match vm |> uuid_of_string |> domid_of_uuid ~xc ~xs Expect_only_one with
         | None -> raise (Does_not_exist ("domain", vm))
@@ -2639,34 +2642,34 @@ module VIF = struct
            let backend_domid = backend_domid_of xc xs vif in
            (* Remember the VIF id with the device *)
            let id = _device_id Device_common.Vif, id_of vif in
-
-           let setup_vif_rules = [ "setup-vif-rules", !Xc_resources.setup_vif_rules ] in
-           let setup_pvs_proxy_rules = [ "setup-pvs-proxy-rules", !Xc_resources.setup_pvs_proxy_rules ] in
            let xenopsd_backend = [ "xenopsd-backend", "classic" ] in
-           let locking_mode = xenstore_of_locking_mode vif.locking_mode in
            let static_ip_setting = xenstore_of_static_ip_setting vif in
-           let pvs_proxy = xenstore_of_pvs_proxy vif.pvs_proxy in
-
            let interfaces = interfaces_of_vif frontend_domid vif.id vif.position in
-
+           let mac = Mac.check_mac vif.mac in
+           let with_common_params f =
+             f ~xs ~devid:vif.position ~mac ?mtu:(Some vif.mtu) ?rate:(Some vif.rate) 
+               ?backend_domid:(Some backend_domid)
+               ?other_config:(Some vif.other_config) in
            List.iter (fun interface ->
                Interface.DB.write interface.Interface.Interface.name interface) interfaces;
 
            Xenops_task.with_subtask task (Printf.sprintf "Vif.add %s" (id_of vif))
-             (fun () ->
-                let create frontend_domid =
-                  Device.Vif.add ~xs ~devid:vif.position
-                    ~netty:(match vif.backend with
-                        | Network.Local x -> Netman.Vswitch x
-                        | Network.Remote (_, x) -> Netman.Vswitch x)
-                    ~mac:vif.mac ~carrier:(vif.carrier && (vif.locking_mode <> Xenops_interface.Vif.Disabled))
-                    ~mtu:vif.mtu ~rate:vif.rate ~backend_domid
-                    ~other_config:vif.other_config
-                    ~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode @ setup_vif_rules @
-                                         setup_pvs_proxy_rules @ pvs_proxy @ xenopsd_backend)
-                    ~extra_xenserver_keys:static_ip_setting
-                    frontend_domid in
-                let (_: Device_common.device) = create task frontend_domid in
+             (fun () -> match vif.backend with
+                | Network.Local x | Network.Remote (_, x) ->
+                  let create =
+                    let setup_vif_rules = [ "setup-vif-rules", !Xc_resources.setup_vif_rules ] in
+                    let setup_pvs_proxy_rules = [ "setup-pvs-proxy-rules",
+                        !Xc_resources.setup_pvs_proxy_rules ] in
+                    let pvs_proxy = xenstore_of_pvs_proxy vif.pvs_proxy in
+                    let locking_mode = xenstore_of_locking_mode vif.locking_mode in
+                    (with_common_params Device.Vif.add)
+                       ~netty:(Netman.Vswitch x)
+                       ~carrier:(vif.carrier && (vif.locking_mode <> Xenops_interface.Vif.Disabled))
+                       ~extra_private_keys:(id :: vif.extra_private_keys @ locking_mode @
+                         setup_vif_rules @ setup_pvs_proxy_rules @ pvs_proxy @ xenopsd_backend)
+                       ~extra_xenserver_keys:static_ip_setting
+                  in
+                  let (_: Device_common.device) = create task frontend_domid in
 
                 (* If qemu is in a different domain, then plug into it *)
                 let me = this_domid ~xs in
@@ -2683,6 +2686,14 @@ module VIF = struct
                        in ()
                      end
                   ) (get_stubdom ~xs frontend_domid)
+                | Network.Sriov pci ->
+                  let (_: Device_common.device) = 
+                    (with_common_params Device.NetSriovVf.add)
+                       ~pci ~vlan:vif.vlan ~carrier:vif.carrier
+                       ~extra_xenserver_keys:(static_ip_setting @ xenopsd_backend @ ["mac", mac])
+                       task frontend_domid
+                  in
+                  ()
              )
         ) Newest vm
 
@@ -2694,7 +2705,11 @@ module VIF = struct
          try
            (* If the device is gone then this is ok *)
            let device = device_by_id xc xs vm Device_common.Vif Oldest (id_of vif) in
-           let destroy device =
+           begin
+             match vif.backend with
+             | Network.Local _ | Network.Remote _ ->
+               (* If the device is gone then this is ok *)
+               let destroy device =
              (* NB different from the VBD case to make the test pass for now *)
              Xenops_task.with_subtask task (Printf.sprintf "Vif.hard_shutdown %s" (id_of vif))
                (fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) task ~xs device);
@@ -2702,22 +2717,25 @@ module VIF = struct
                (fun () -> Device.Vif.release task ~xc ~xs device) in
            destroy device;
 
-           let _ = DB.update vm (
-             Opt.map (fun vm_t ->
-               (* If we have a qemu frontend, detach this too. *)
-               if List.mem_assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs then begin
-                 match (List.assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs) with
-                 | _, Device device ->
-                   destroy device;
-                   let non_persistent = { vm_t.VmExtra.non_persistent with
-                                          VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
-                   { vm_t with VmExtra.non_persistent = non_persistent }
-                 | _, _ -> vm_t
-               end else
-                 vm_t
-             )
-           ) in
-
+               DB.update vm (
+                 Opt.map (fun vm_t ->
+                     (* If we have a qemu frontend, detach this too. *)
+                     if List.mem_assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs then begin
+                       match (List.assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs) with
+                       | _, Device device ->
+                         destroy device;
+                         let non_persistent = { vm_t.VmExtra.non_persistent with
+                                                VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
+                         { vm_t with VmExtra.non_persistent = non_persistent }
+                       | _, _ -> vm_t
+                     end else
+                       vm_t
+                   )
+               ) |> ignore
+             | Network.Sriov _ ->
+                 debug "Ignoring unplug on network SR-IOV VF backed VIF = %s.\
+                   It would be unplugged until its PCI device is unplugged." (id_of vif)
+           end;
            let domid = device.Device_common.frontend.Device_common.domid in
            let interfaces = interfaces_of_vif domid vif.id vif.position in
            List.iter (fun interface ->
@@ -2740,7 +2758,8 @@ module VIF = struct
            let device = device_by_id xc xs vm Device_common.Vif Oldest (id_of vif) in
            let bridge = match network with
              | Network.Local x -> x
-             | Network.Remote (_, _) -> raise (Unimplemented("network driver domains")) in
+             | Network.Sriov _ -> raise (Unimplemented("network SR-IOV"))
+             | Network.Remote _ -> raise (Unimplemented("network driver domains")) in
 
            Device.Vif.move ~xs device bridge;
 
@@ -2768,30 +2787,35 @@ module VIF = struct
   let set_carrier task vm vif carrier =
     with_xc_and_xs
       (fun xc xs ->
-         try
-           (* If the device is gone then this is ok *)
-           let device = device_by_id xc xs vm Device_common.Vif Newest (id_of vif) in
-           Device.Vif.set_carrier ~xs device carrier
-         with
-         | (Does_not_exist(_,_)) ->
-           debug "VM = %s; Ignoring missing domain" (id_of vif)
-         | (Device_not_connected) ->
-           debug "VM = %s; Ignoring missing device" (id_of vif)
+        try
+          (* If the device is gone then this is ok *)
+          let device = device_by_id xc xs vm Device_common.Vif Newest (id_of vif) in
+          match vif.backend with
+            | Network.Local _ | Network.Remote _ -> Device.Vif.set_carrier ~xs device carrier
+            | Network.Sriov _ ->
+              debug "VIF = %s; Ignoring setting carrier on network SR-IOV backed VIF" (id_of vif)
+        with
+        | (Does_not_exist(_,_)) ->
+          debug "VM = %s; Ignoring missing domain" (id_of vif)
+        | (Device_not_connected) ->
+          debug "VM = %s; Ignoring missing device" (id_of vif)
       )
 
   let set_locking_mode task vm vif mode =
-    let open Device_common in
     with_xc_and_xs
-      (fun xc xs ->
-         (* If the device is gone then this is ok *)
-         let device = device_by_id xc xs vm Vif Newest (id_of vif) in
-         let path = Device_common.get_private_data_path_of_device device in
-         (* Delete the old keys *)
-         List.iter (fun x -> safe_rm xs (path ^ "/" ^ x)) locking_mode_keys;
-         List.iter (fun (x, y) -> xs.Xs.write (path ^ "/" ^ x) y) (xenstore_of_locking_mode mode);
-         let disconnected = not (vif.carrier && (mode <> Xenops_interface.Vif.Disabled)) in
-         let disconnect_path, flag = disconnect_flag device disconnected in
-         xs.Xs.write disconnect_path flag;
+      (fun xc xs -> match vif.backend with
+        | Network.Sriov _ -> raise (Unimplemented("network SR-IOV"))
+        | Network.Local _ | Network.Remote _ ->
+          let open Device_common in
+          (* If the device is gone then this is ok *)
+          let device = device_by_id xc xs vm Vif Newest (id_of vif) in
+          let path = Device_common.get_private_data_path_of_device device in
+          (* Delete the old keys *)
+          List.iter (fun x -> safe_rm xs (path ^ "/" ^ x)) locking_mode_keys;
+          List.iter (fun (x, y) -> xs.Xs.write (path ^ "/" ^ x) y) (xenstore_of_locking_mode mode);
+          let disconnected = not (vif.carrier && (mode <> Xenops_interface.Vif.Disabled)) in
+          let disconnect_path, flag = disconnect_flag device disconnected in
+          xs.Xs.write disconnect_path flag;
 
          let devid = string_of_int device.frontend.devid in
          let vif_interface_name = Printf.sprintf "vif%d.%s" device.frontend.domid devid in
@@ -2871,68 +2895,85 @@ module VIF = struct
       )
 
   let set_pvs_proxy task vm vif proxy =
-    let open Device_common in
     with_xc_and_xs
-      (fun xc xs ->
-         (* If the device is gone then this is ok *)
-         let device = device_by_id xc xs vm Vif Newest (id_of vif) in
-         let private_path = Device_common.get_private_data_path_of_device device in
-         let hotplug_path = Hotplug.get_hotplug_path device in
-         let setup action =
-           let devid = string_of_int device.frontend.devid in
-           let vif_interface_name = Printf.sprintf "vif%d.%s" device.frontend.domid devid in
-           let tap_interface_name = Printf.sprintf "tap%d.%s" device.frontend.domid devid in
-           let di = Xenctrl.domain_getinfo xc device.frontend.domid in
-           ignore (run !Xc_resources.setup_pvs_proxy_rules [action; "vif"; vif_interface_name;
-                                                            private_path; hotplug_path]);
-           if VM.get_domain_type ~xs di = Vm.Domain_HVM then
-             try
-               ignore (run !Xc_resources.setup_pvs_proxy_rules [action; "tap"; tap_interface_name;
-                                                                private_path; hotplug_path])
-             with _ ->
-               (* There won't be a tap device if the VM has PV drivers loaded. *)
-               ()
-         in
-         if proxy = None then begin
-           setup "remove";
-           Xs.transaction xs (fun t ->
-               let keys = t.Xs.directory private_path in
-               List.iter (fun key ->
-                   if String.startswith pvs_proxy_key_prefix key then
-                     t.Xs.rm (Printf.sprintf "%s/%s" private_path key)
-                 ) keys
-             )
-         end else begin
-           Xs.transaction xs (fun t ->
-               t.Xs.writev private_path (xenstore_of_pvs_proxy proxy)
-             );
-           setup "add"
-         end
+      (fun xc xs -> match vif.backend with
+        | Network.Sriov _ -> raise (Unimplemented("network SR-IOV"))
+        | Network.Local _ | Network.Remote _ ->
+          let open Device_common in
+          (* If the device is gone then this is ok *)
+          let device = device_by_id xc xs vm Vif Newest (id_of vif) in
+          let private_path = Device_common.get_private_data_path_of_device device in
+          let hotplug_path = Hotplug.get_hotplug_path device in
+          let setup action =
+            let devid = string_of_int device.frontend.devid in
+            let vif_interface_name = Printf.sprintf "vif%d.%s" device.frontend.domid devid in
+            let tap_interface_name = Printf.sprintf "tap%d.%s" device.frontend.domid devid in
+            let di = Xenctrl.domain_getinfo xc device.frontend.domid in
+            ignore (run !Xc_resources.setup_pvs_proxy_rules [action; "vif"; vif_interface_name;
+                                                             private_path; hotplug_path]);
+            if VM.get_domain_type ~xs di = Vm.Domain_HVM then
+              try
+                ignore (run !Xc_resources.setup_pvs_proxy_rules [action; "tap"; tap_interface_name;
+                                                                 private_path; hotplug_path])
+              with _ ->
+                (* There won't be a tap device if the VM has PV drivers loaded. *)
+                ()
+          in
+          if proxy = None then begin
+            setup "remove";
+            Xs.transaction xs (fun t ->
+                let keys = t.Xs.directory private_path in
+                List.iter (fun key ->
+                    if String.startswith pvs_proxy_key_prefix key then
+                      t.Xs.rm (Printf.sprintf "%s/%s" private_path key)
+                  ) keys
+              )
+          end else begin
+            Xs.transaction xs (fun t ->
+                t.Xs.writev private_path (xenstore_of_pvs_proxy proxy)
+              );
+            setup "add"
+          end
       )
 
   let get_state vm vif =
     with_xc_and_xs
-      (fun xc xs ->
+      (fun xc xs -> 
          try
-           let (d: Device_common.device) = device_by_id xc xs vm Device_common.Vif Newest (id_of vif) in
-           let path = Device_common.kthread_pid_path_of_device ~xs d in
-           let kthread_pid = try xs.Xs.read path |> int_of_string with _ -> 0 in
-           let pra_path = Hotplug.vif_pvs_rules_active_path_of_device ~xs d in
-           let pvs_rules_active = try (ignore (xs.Xs.read pra_path); true) with _ -> false in
-           (* We say the device is present unless it has been deleted
-              					   from xenstore. The corrolary is that: only when the device
-              					   is finally deleted from xenstore, can we remove bridges or
-              					   switch configuration. *)
-           let domid = d.Device_common.frontend.Device_common.domid in
-           let device = "vif" ^ (string_of_int domid) ^ "." ^ (string_of_int vif.position) in
-           {
-             Vif.active = true;
-             plugged = true;
-             media_present = true;
-             kthread_pid = kthread_pid;
-             device = Some device;
-             pvs_rules_active = pvs_rules_active;
-           }
+            let (d: Device_common.device) = device_by_id xc xs vm Device_common.Vif Newest (id_of vif) in
+            let domid = d.Device_common.frontend.Device_common.domid in
+            let device = "vif" ^ (string_of_int domid) ^ "." ^ (string_of_int vif.position) in
+            match vif.backend with
+            | Network.Sriov pci ->
+              let open Xenops_interface.Pci in
+              let pci_state = PCI.get_state' vm pci in
+              let open Xenops_interface.Pci in
+              begin match pci_state.plugged with
+              | true ->
+                { unplugged_vif with
+                  Vif.active = true;
+                  plugged = true;
+                  device = Some device;
+                }
+              | false -> unplugged_vif
+              end
+            | Network.Local _ | Network.Remote _ ->
+              let path = Device_common.kthread_pid_path_of_device ~xs d in
+              let kthread_pid = try xs.Xs.read path |> int_of_string with _ -> 0 in
+              let pra_path = Hotplug.vif_pvs_rules_active_path_of_device ~xs d in
+              let pvs_rules_active = try (ignore (xs.Xs.read pra_path); true) with _ -> false in
+              (* We say the device is present unless it has been deleted
+                 					   from xenstore. The corrolary is that: only when the device
+                 					   is finally deleted from xenstore, can we remove bridges or
+                 					   switch configuration. *)
+              {
+                Vif.active = true;
+                plugged = true;
+                media_present = true;
+                kthread_pid = kthread_pid;
+                device = Some device;
+                pvs_rules_active = pvs_rules_active;
+              }
          with
          | (Does_not_exist(_,_))
          | Device_not_connected ->
@@ -2943,14 +2984,16 @@ module VIF = struct
 
   let get_device_action_request vm vif =
     with_xc_and_xs
-      (fun xc xs ->
-         try
-           let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vif Newest (id_of vif) in
-           if Hotplug.device_is_online ~xs device
-           then None
-           else Some Needs_unplug
-         with Device_not_connected ->
-           None
+      (fun xc xs -> match vif.backend with
+        | Network.Sriov _ -> None
+        | Network.Local _ | Network.Remote _ ->
+          try
+            let (device: Device_common.device) = device_by_id xc xs vm Device_common.Vif Newest (id_of vif) in
+            if Hotplug.device_is_online ~xs device
+            then None
+            else Some Needs_unplug
+          with Device_not_connected ->
+            None
       )
 
 end
@@ -3019,6 +3062,7 @@ module Actions = struct
       sprintf "/local/domain/%d/vm-data" domid;
       sprintf "/local/domain/%d/feature" domid;
       sprintf "/vm/%s/rtc/timeoffset" uuid;
+      sprintf "/local/domain/%d/xenserver/attr" domid;
     ]
 
   let watch_token domid = Printf.sprintf "xenopsd-xc:domain-%d" domid

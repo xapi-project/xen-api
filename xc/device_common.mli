@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string
+type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string | NetSriovVf
 val vbd_kind_of_string : string -> kind
 val default_vbd_frontend_kind : kind
 
@@ -57,6 +57,7 @@ val get_private_path_by_uuid : Uuidm.t -> string
 val get_private_data_path_of_device : device -> string
 
 val extra_xenserver_path_of_device: xs:Xenstore.Xs.xsh -> device -> string
+val extra_xenserver_path_of_attr: xs:Xenstore.Xs.xsh -> device -> string
 
 val string_of_endpoint : endpoint -> string
 val string_of_device : device -> string

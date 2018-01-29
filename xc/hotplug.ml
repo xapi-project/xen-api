@@ -105,12 +105,13 @@ let device_is_online ~xs (x: device) =
   and backend_request () = try ignore(xs.Xs.read (backend_shutdown_request_path_of_device ~xs x)); true with Xs_protocol.Enoent _ -> false in
 
   match x.backend.kind with
-  | Pci | Vfs | Vkbd | Vfb -> assert false (* PCI backend doesn't create online node *)
+  | Pci | Vfs | Vkbd | Vfb | NetSriovVf -> assert false (* PCI backend doesn't create online node *)
   | Vif -> hotplugged ~xs x
   | ( Vbd _ | Tap ) ->
     if backend_request () 
     then not(backend_shutdown ())
     else hotplugged ~xs x
+
 
 let wait_for_plug (task: Xenops_task.task_handle) ~xs (x: device) =
   debug "Hotplug.wait_for_plug: %s" (string_of_device x);
