@@ -449,6 +449,7 @@ let create_sriov_pif ~__context ~pif ?network ?(bridge="xapi0") () =
   in
   let physical_rec = Db.PIF.get_record ~__context ~self:pif in
   let sriov, sriov_logical_pif = make_network_sriov ~__context ~physical_PIF:pif ~physical_rec ~network:sriov_network in
+  Db.Network_sriov.set_configuration_mode ~__context ~self:sriov ~value:`sysfs;
   sriov_logical_pif
 
 let create_bond_pif ~__context ~host ~members ?(bridge="xapi0") () =
@@ -468,3 +469,15 @@ let mknlist n f =
       aux result (n-1)
   in
   aux [] n
+
+let make_vfs_on_pf ~__context ~pf ~num =
+  let rec make_vf num =
+    if num > 0L then begin
+      let vf = make_pci ~__context ~functions:1L () in
+      Db.PCI.set_physical_function ~__context ~self:vf ~value:pf;
+      let functions = Db.PCI.get_functions ~__context ~self:pf in
+      Db.PCI.set_functions ~__context ~self:pf ~value:(Int64.add functions 1L);
+      make_vf (Int64.sub num 1L);
+    end
+  in
+  make_vf num
