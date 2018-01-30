@@ -845,6 +845,8 @@ let xen_cmdline_script = ref "/opt/xensource/libexec/xen-cmdline"
 
 let sr_health_check_task_label = "SR Recovering"
 
+let domain_zero_domain_type = `pv
+
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
 let xapi_globs_spec =

@@ -331,11 +331,15 @@ let get_user ~__context username =
     failwith "Failed to find any users";
   List.hd uuids (* FIXME! it assumes that there is only one element in the list (root), username is not used*)
 
-let is_domain_zero ~__context vm_ref =
-  let host_ref = Db.VM.get_resident_on ~__context ~self:vm_ref in
-  (Db.VM.get_is_control_domain ~__context ~self:vm_ref)
+let is_domain_zero_with_record ~__context vm_ref vm_rec =
+  let host_ref = vm_rec.API.vM_resident_on in
+  vm_rec.API.vM_is_control_domain
   && (Db.is_valid_ref __context host_ref)
   && (Db.Host.get_control_domain ~__context ~self:host_ref = vm_ref)
+
+let is_domain_zero ~__context vm_ref =
+  is_domain_zero_with_record ~__context vm_ref
+    (Db.VM.get_record ~__context ~self:vm_ref)
 
 exception No_domain_zero of string
 let domain_zero_ref_cache = ref None

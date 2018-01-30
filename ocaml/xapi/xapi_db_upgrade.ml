@@ -530,8 +530,12 @@ let upgrade_domain_type = {
       (fun (vm, vmr) ->
         if vmr.API.vM_domain_type = `unspecified then begin
           let domain_type =
-            Xapi_vm_helpers.derive_domain_type
-              ~hVM_boot_policy:vmr.API.vM_HVM_boot_policy in
+            if Helpers.is_domain_zero_with_record ~__context vm vmr then
+              Xapi_globs.domain_zero_domain_type
+            else
+              Xapi_vm_helpers.derive_domain_type
+                ~hVM_boot_policy:vmr.API.vM_HVM_boot_policy
+          in
           Db.VM.set_domain_type ~__context ~self:vm ~value:domain_type;
           if vmr.API.vM_power_state <> `Halted then begin
             let metrics = vmr.API.vM_metrics in
