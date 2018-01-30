@@ -119,7 +119,7 @@ let path_of vg lv =
   "/dev/mapper/" ^ vg ^ "-" ^ (String.concat "--" lv')
 
 let volume_of_lv sr lv = {
-  Storage.V.Types.key = lv.name;
+  Xapi_storage.V.Types.key = lv.name;
   name = lv.name;
   description = "";
   read_write = true;

@@ -19,7 +19,7 @@ Ocaml.ocamlflags := ["-thread"]
 open Common
 
 module Command = struct
-  open Storage.V.Types
+  open Xapi_storage.V.Types
   include SR.Ls
 
   let command common { SR.Ls.In.dbg; sr } =

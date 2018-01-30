@@ -19,7 +19,7 @@ Ocaml.ocamlflags := ["-thread"]
 open Common
 
 module Command = struct
-  open Storage.P.Types
+  open Xapi_storage.P.Types
   include Plugin.Query
 
   let command common { Plugin.Query.In.dbg } = {
