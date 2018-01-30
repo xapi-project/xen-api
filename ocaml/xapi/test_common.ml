@@ -468,3 +468,15 @@ let mknlist n f =
       aux result (n-1)
   in
   aux [] n
+
+let make_vfs_on_pf ~__context ~pf ~num =
+  let rec make_vf num =
+    if num > 0L then begin
+      let vf = make_pci ~__context ~functions:1L () in
+      Db.PCI.set_physical_function ~__context ~self:vf ~value:pf;
+      let functions = Db.PCI.get_functions ~__context ~self:pf in
+      Db.PCI.set_functions ~__context ~self:pf ~value:(Int64.add functions 1L);
+      make_vf (Int64.sub num 1L);
+    end
+  in
+  make_vf num
