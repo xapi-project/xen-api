@@ -141,6 +141,14 @@ let create common filename size parent =
   with Failure x ->
     `Error(true, x)
 
+let open_with_creat path rw =
+  ( if not(Sys.file_exists path) then begin
+    Lwt_unix.openfile path [ Unix.O_CREAT; Unix.O_RDONLY ] 0o0644 >>= fun fd ->
+    Lwt_unix.close fd
+    end else return () ) >>= fun () ->
+  Vhd_format_lwt.IO.openfile path rw
+
+
 let check common filename =
   try
     let filename = require "filename" filename in
@@ -673,7 +681,8 @@ let write_stream common s destination source_protocol destination_protocol preze
   let use_ssl = match endpoint with Https _ -> true | _ -> false in
   ( match endpoint with
     | File path ->
-      Lwt_unix.openfile path [ Unix.O_RDWR; Unix.O_CREAT ] 0o0644 >>= fun fd ->
+      open_with_creat path true >>= fun fd' ->
+      let fd = Vhd_format_lwt.IO.to_file_descr fd' in
       Channels.of_seekable_fd fd >>= fun c ->
       return (c, [ NoProtocol; Human; Tar ])
     | Null ->
@@ -964,11 +973,7 @@ let serve common_options source source_fd source_format source_protocol destinat
         | _ -> failwith (Printf.sprintf "Not implemented: serving from source %s" source) ) >>= fun source_sock ->
       ( match destination_endpoint with
         | File path ->
-          ( if not(Sys.file_exists path) then begin
-              Lwt_unix.openfile path [ Unix.O_CREAT; Unix.O_RDONLY ] 0o0644 >>= fun fd ->
-              Lwt_unix.close fd
-            end else return () ) >>= fun () ->
-          Vhd_format_lwt.IO.openfile path true >>= fun fd ->
+          open_with_creat path true >>= fun fd ->
           let size = match destination_size with
             | None -> Vhd_format_lwt.File.get_file_size path
             | Some x -> x in
