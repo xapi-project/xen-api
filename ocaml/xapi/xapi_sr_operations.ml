@@ -139,7 +139,7 @@ let valid_operations ~__context ?op record _ref' : table =
   in
 
   let check_parallel_ops ~__context record =
-    let safe_to_parallelise = [ ] in
+    let safe_to_parallelise = [`plug] in
     let current_ops = List.setify (List.map snd current_ops) in
 
     (* If there are any current operations, all the non_parallelisable operations
