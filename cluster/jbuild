@@ -1,0 +1,55 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+| [] -> ""
+| pkgs ->
+  let cmd = "ocamlfind ocamlc -verbose" ^ (
+    List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+  ) in
+  let ic = Unix.open_process_in
+    (cmd ^ " | grep -oEe '-ppx? (\"([^\"\\]|\\.)+\"|\\w+)'")
+  in
+  let rec go ic acc =
+    try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+  in
+  go ic ""
+
+let rewriters_ppx = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
+let rewriters_camlp4 = ["rpclib.idl -syntax camlp4o"]
+
+let coverage_rewriter = ""
+(* (preprocess (pps)) doesn't work with camlp4 and  the other ppx derivers,
+ it complains about missing rpc_of_t *)
+let rewriters_ppx =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then "bisect_ppx" :: rewriters_ppx else rewriters_ppx
+
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(jbuild_version 1)
+
+(library
+ ((name xcp_cluster)
+  (public_name xcp.cluster)
+  (modules (:standard \ cluster_cli))
+  (flags (:standard -w -39 %s))
+  (libraries (xcp threads rpclib))
+  (wrapped false)
+  %s))
+
+(executable
+ ((name cluster_cli)
+  (modules (cluster_cli))
+  (libraries
+   (cmdliner
+    rpclib.cmdliner
+    rpclib.markdown
+    xcp.cluster))))
+
+(alias
+ ((name runtest)
+  (deps (cluster_cli.exe))
+  (action (run ${<}))))
+
+|} (flags rewriters_ppx) coverage_rewriter
