@@ -82,7 +82,7 @@ let advertise_t _common_options_t proxy_socket =
 
   let s_ip = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
   (* INET socket, can't block *)
-  Lwt_unix.Versioned.bind_2 s_ip (Lwt_unix.ADDR_INET(Unix.inet_addr_of_string !ip, 0)) >>= fun () ->
+  Lwt_unix.bind s_ip (Lwt_unix.ADDR_INET(Unix.inet_addr_of_string !ip, 0)) >>= fun () ->
   Lwt_unix.listen s_ip 5;
   let port = match Lwt_unix.getsockname s_ip with
   | Unix.ADDR_INET(_, port) -> port
@@ -94,7 +94,7 @@ let advertise_t _common_options_t proxy_socket =
   let path = Printf.sprintf "%s/%s.%d" !unix
     (Filename.basename Sys.argv.(0)) (Unix.getpid ()) in
   if Sys.file_exists path then Unix.unlink path;
-  Lwt_unix.Versioned.bind_2 s_unix (Lwt_unix.ADDR_UNIX path) >>= fun () ->
+  Lwt_unix.bind s_unix (Lwt_unix.ADDR_UNIX path) >>= fun () ->
   List.iter (fun signal ->
     ignore(Lwt_unix.on_signal signal (fun _ -> Unix.unlink path; exit 1))
   ) [ Sys.sigterm; Sys.sigint ];
