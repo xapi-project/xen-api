@@ -10,3 +10,11 @@ This repository contains
      * configuration file parsing
      * argument parsing
      * RPCs
+  3. The following CLI tools for debugging:
+     * lib/channel_helper.exe -- a channel passing helper CLI
+     * memory/memory_cli.exe -- a squeezed debugging CLI
+     * v6/v6_cli.exe -- a V6d debugging CLI
+     * cluster/cluster_cli.exe -- a xapi-clusterd debugging CLI
+
+      To build these, run: `jbuilder build path/to/exec.exe`.
+      To run: `./_build/default/path/to/exec.exe`.
