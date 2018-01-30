@@ -456,6 +456,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
     debug "Searching for data path: %s" dp;
     let attach_info = Local.DP.attach_info ~dbg:"nbd" ~sr ~vdi ~dp in
     debug "Got it!";
+    on_fail := (fun () -> Remote.DATA.MIRROR.receive_cancel ~dbg ~id) :: !on_fail;
 
     let tapdev = match tapdisk_of_attach_info attach_info with
       | Some tapdev ->
@@ -500,7 +501,15 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
     debug "About to snapshot VDI = %s" (string_of_vdi_info local_vdi);
     let local_vdi = add_to_sm_config local_vdi "mirror" ("nbd:" ^ dp) in
     let local_vdi = add_to_sm_config local_vdi "base_mirror" id in
-    let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi_info:local_vdi in
+    let snapshot =
+    try
+      Local.VDI.snapshot ~dbg ~sr ~vdi_info:local_vdi
+    with
+    | Storage_interface.Backend_error(code, _) when code = "SR_BACKEND_FAILURE_44" ->
+      raise (Api_errors.Server_error(Api_errors.sr_source_space_insufficient, [ sr ]))
+    | e ->
+      raise e
+    in
     debug "Done!";
 
     SMPERF.debug "mirror.start: snapshot created, mirror initiated vdi:%s snapshot_of:%s"
@@ -542,6 +551,10 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
     error " Caught exception %s:%s. Performing cleanup." Api_errors.sr_not_attached sr_uuid;
     perform_cleanup_actions !on_fail;
     raise (Api_errors.Server_error(Api_errors.sr_not_attached,[sr_uuid]))
+  | Api_errors.Server_error(code, param) when code = Api_errors.sr_source_space_insufficient ->
+    error " Caught exception %s:%s, performing cleanup." Api_errors.sr_source_space_insufficient (List.hd param);
+    perform_cleanup_actions !on_fail;
+    raise (Api_errors.Server_error(Api_errors.sr_source_space_insufficient, param))
   | e ->
     error "Caught %s: performing cleanup actions" (Printexc.to_string e);
     perform_cleanup_actions !on_fail;

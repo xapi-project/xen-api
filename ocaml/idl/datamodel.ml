@@ -1082,6 +1082,8 @@ let _ =
     ~doc:"The SR has no attached PBDs" ();
   error Api_errors.sr_full ["requested";"maximum"]
     ~doc:"The SR is full. Requested new size exceeds the maximum size" ();
+  error Api_errors.sr_source_space_insufficient ["sr"]
+    ~doc:"The source SR does not have sufficient temporary space available to proceed the operation." ();
   error Api_errors.pbd_exists ["sr";"host";"pbd"]
     ~doc:"A PBD already exists connecting the SR to the host" ();
   error Api_errors.sr_has_pbd ["sr"]
