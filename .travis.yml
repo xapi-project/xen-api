@@ -6,8 +6,12 @@ python:
 install:
   - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
   - pip install --user flake8
+env:
+  global:
+    - OCAML_VERSION=4.04
+    - DISTRO=debian-stable
+    - PACKAGE=xapi-storage
+    - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
 script:
   - flake8 --show-source python
   - bash -ex .travis-opam.sh
-env:
-  - OCAML_VERSION=4.02 PACKAGE=xapi-storage

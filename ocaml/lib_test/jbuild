@@ -1,0 +1,20 @@
+(jbuild_version 1)
+
+(executable (
+  (name storage_test)
+  (libraries (
+    xapi-storage
+    lwt
+    lwt.unix
+    oUnit
+  ))
+))
+
+(alias (
+  (name runtest)
+  (deps (
+    storage_test.exe
+    (files_recursively_in ../../rpc-light)
+  ))
+  (action (run ${<}))
+))

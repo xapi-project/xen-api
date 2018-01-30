@@ -51,7 +51,7 @@ let rec typeof ?(expand_aliases=false) env t =
       "(" :: (typeof ~expand_aliases env t) @ [ "option )" ]
     | Pair (a, b) ->
       "(" :: (typeof ~expand_aliases env a) @ [ "*" ] @ (typeof ~expand_aliases env b)
-    | Custom x -> [ (String.capitalize x) ^ ".t" ]
+    | Custom x -> [ (String.capitalize_ascii x) ^ ".t" ]
 
 let typeof ?expand_aliases env (t: Types.Type.t) =
   let lines = typeof ?expand_aliases env t in
@@ -94,7 +94,7 @@ let rec example_value_of env =
     | Pair (a, b) ->
       Printf.sprintf "(%s, %s)" (example_value_of env a) (example_value_of env b)
     | Custom x ->
-      (String.capitalize x) ^ ".example"
+      (String.capitalize_ascii x) ^ ".example"
 
 let args_of_exn env e =
   let rec unpair = function
@@ -107,7 +107,7 @@ let exn_decl env e =
   let open Printf in
   let args = args_of_exn env e in
   [
-    Line (sprintf "type %s =" (String.lowercase e.TyDecl.name));
+    Line (sprintf "type %s =" (String.lowercase_ascii e.TyDecl.name));
     Block [ typeof ~expand_aliases:true env e.TyDecl.ty ];
     Line "[@@deriving rpc]";
     Line (sprintf "exception %s of %s" e.TyDecl.name (String.concat " * " (List.map Type.ocaml_of_t args)));
@@ -121,7 +121,7 @@ let rpc_of_exns env es =
     let is = List.map (fun x -> "arg_" ^ (string_of_int x)) (ints (List.length args)) in
     Line (Printf.sprintf "| %s(%s) -> Rpc.failure (Rpc.Enum [ Rpc.String \"%s\"; rpc_of_%s (%s) ])"
             e.TyDecl.name (String.concat ", " is)
-            e.TyDecl.name (String.lowercase e.TyDecl.name) (String.concat ", " is)) in
+            e.TyDecl.name (String.lowercase_ascii e.TyDecl.name) (String.concat ", " is)) in
   [
     Line "let response_of_exn = function";
     Block ((List.map rpc_of_exn es) @ [
@@ -138,7 +138,7 @@ let result_of_response env es =
     [
       Line (sprintf "| { Rpc.success = false; contents = Rpc.Enum [ Rpc.String \"%s\"; args ] } ->" e.TyDecl.name);
       Block [
-        Line (sprintf "let %s = %s_of_rpc args in" (String.concat ", " is) (String.lowercase e.TyDecl.name));
+        Line (sprintf "let %s = %s_of_rpc args in" (String.concat ", " is) (String.lowercase_ascii e.TyDecl.name));
         Line (sprintf "Result.fail (%s (%s))" e.TyDecl.name (String.concat ", " is));
       ]
     ] in
@@ -207,7 +207,7 @@ let rpc_of_interfaces env is =
   ] in
   let of_method i m =
     [
-      Line (sprintf "module %s = struct" (String.capitalize m.Method.name));
+      Line (sprintf "module %s = struct" (String.capitalize_ascii m.Method.name));
       Block ([
           Line "module In = struct";
           Block [
@@ -242,18 +242,18 @@ let rpc_of_interfaces env is =
     [
       Line (sprintf "| \"%s.%s\", [ args ] ->" i.Interface.name m.Method.name);
       Block [
-        Line (sprintf "Result.return (%s(%s.In.t_of_rpc args))" (String.capitalize m.Method.name) (String.capitalize m.Method.name));
+        Line (sprintf "Result.return (%s(%s.In.t_of_rpc args))" (String.capitalize_ascii m.Method.name) (String.capitalize_ascii m.Method.name));
       ]
     ] in
   let to_call_method i m =
     [
-      Line (sprintf "| %s args -> Rpc.call \"%s.%s\" [ %s.In.rpc_of_t args ]" (String.capitalize m.Method.name) i.Interface.name m.Method.name (String.capitalize m.Method.name))
+      Line (sprintf "| %s args -> Rpc.call \"%s.%s\" [ %s.In.rpc_of_t args ]" (String.capitalize_ascii m.Method.name) i.Interface.name m.Method.name (String.capitalize_ascii m.Method.name))
     ] in
   let response_of_method i m =
     [
-      Line (sprintf "| `Ok (%s x) ->" (String.capitalize m.Method.name));
+      Line (sprintf "| `Ok (%s x) ->" (String.capitalize_ascii m.Method.name));
       Block [
-        Line (sprintf "Rpc.success (%s.Out.rpc_of_t x)" (String.capitalize m.Method.name))
+        Line (sprintf "Rpc.success (%s.Out.rpc_of_t x)" (String.capitalize_ascii m.Method.name))
       ]
     ] in
   let variant_of_interface direction env i =
@@ -261,7 +261,7 @@ let rpc_of_interfaces env is =
       Line (sprintf "module %s = struct" direction);
       Block ([
           Line "type t =";
-          Block (List.map (fun m -> Line(sprintf "| %s of %s.%s.t" (String.capitalize m.Method.name) (String.capitalize m.Method.name) direction)) i.Interface.methods);
+          Block (List.map (fun m -> Line(sprintf "| %s of %s.%s.t" (String.capitalize_ascii m.Method.name) (String.capitalize_ascii m.Method.name) direction)) i.Interface.methods);
           Line "[@@deriving rpc]";
 
         ] @ (
@@ -323,7 +323,7 @@ let skeleton_method unimplemented env i m =
   [
     Line (sprintf "let %s x =" (escape_keywords m.Method.name));
     Block [
-      Line (sprintf "let open Types.%s.%s in" i.Interface.name (String.capitalize m.Method.name));
+      Line (sprintf "let open Types.%s.%s in" i.Interface.name (String.capitalize_ascii m.Method.name));
       Line "let open Types in";
       Line (if unimplemented then unimplemented_error else example_outputs)
     ]
@@ -337,7 +337,7 @@ let example_skeleton_user env is i m =
     Line "#require \"xcp-api-client\";;";
     Line "";
     Line "open S";
-    Line (sprintf "open %s" (String.capitalize is.Interfaces.name));
+    Line (sprintf "open %s" (String.capitalize_ascii is.Interfaces.name));
     Line "";
     Line (sprintf "module %s_myimplementation = functor(M: M) -> struct" i.Interface.name);
     Block ([
@@ -361,7 +361,7 @@ let example_stub env is i m =
     Line "#require \"rpc.unix\";;";
     Line "";
     Line "open S";
-    Line (sprintf "open %s" (String.capitalize is.Interfaces.name));
+    Line (sprintf "open %s" (String.capitalize_ascii is.Interfaces.name));
     Line "open Types";
     Line "";
     Line (sprintf "module Client = %s_client(struct" i.Interface.name);
@@ -388,11 +388,11 @@ let signature_of_interface env i =
   let signature_of_method m =
     Line (sprintf "val %s: Types.%s.%s.In.t -> (Types.%s.%s.Out.t, exn) Result.t t"
             (escape_keywords m.Method.name)
-            i.Interface.name (String.capitalize m.Method.name)
-            i.Interface.name (String.capitalize m.Method.name)
+            i.Interface.name (String.capitalize_ascii m.Method.name)
+            i.Interface.name (String.capitalize_ascii m.Method.name)
          ) in
   [
-    Line (sprintf "module type %s = sig" (String.uppercase i.Interface.name));
+    Line (sprintf "module type %s = sig" (String.uppercase_ascii i.Interface.name));
     Block ([
         Line "include S.M";
       ] @ (List.map signature_of_method i.Interface.methods
@@ -406,19 +406,19 @@ let skeleton_of_interface = skeleton_of_interface true "skeleton"
 let server_of_interface env i =
   let dispatch_method m =
     [
-      Line (sprintf "| Types.%s.In.%s x ->" i.Interface.name (String.capitalize m.Method.name));
+      Line (sprintf "| Types.%s.In.%s x ->" i.Interface.name (String.capitalize_ascii m.Method.name));
       Block [
         Line (sprintf "Impl.%s x" (escape_keywords m.Method.name));
         Line ">>= fun result ->";
         Line "return (Result.(>>=) result (fun ok ->";
         Block [
-          Line (sprintf "Result.return (Types.%s.Out.%s ok)" i.Interface.name (String.capitalize m.Method.name));
+          Line (sprintf "Result.return (Types.%s.Out.%s ok)" i.Interface.name (String.capitalize_ascii m.Method.name));
         ];
         Line "))";
       ]
     ] in
   [
-    Line (sprintf "module %s_server_dispatcher = functor(Impl: %s) -> struct" i.Interface.name (String.uppercase i.Interface.name));
+    Line (sprintf "module %s_server_dispatcher = functor(Impl: %s) -> struct" i.Interface.name (String.uppercase_ascii i.Interface.name));
     Block [
       Line "type 'a t = 'a Impl.t";
       Line "let (>>=) = Impl.(>>=)";
@@ -449,14 +449,14 @@ let client_of_interfaces env is =
     [
       Line (sprintf "let %s_r x =" (escape_keywords m.Method.name));
       Block [
-        Line (sprintf "let call = Types.%s.In.call_of (Types.%s.In.%s x) in" i.Interface.name i.Interface.name (String.capitalize m.Method.name));
+        Line (sprintf "let call = Types.%s.In.call_of (Types.%s.In.%s x) in" i.Interface.name i.Interface.name (String.capitalize_ascii m.Method.name));
         Line "RPC.rpc call >>= fun response ->";
-        Line (sprintf "let result = Result.(>>=) (result_of_response response) (fun x -> Result.return (Types.%s.%s.Out.t_of_rpc x)) in" i.Interface.name (String.capitalize m.Method.name));
+        Line (sprintf "let result = Result.(>>=) (result_of_response response) (fun x -> Result.return (Types.%s.%s.Out.t_of_rpc x)) in" i.Interface.name (String.capitalize_ascii m.Method.name));
         Line "return result";
       ];
       Line (sprintf "let %s %s =" (escape_keywords m.Method.name) (String.concat " " (List.map (fun i -> sprintf "~%s" i.Arg.name) m.Method.inputs)));
       Block [
-        Line (sprintf "let r = Types.%s.%s.In.({ %s }) in" i.Interface.name (String.capitalize m.Method.name) (String.concat "; " (List.map (fun i -> sprintf "%s = %s" i.Arg.name i.Arg.name) m.Method.inputs)));
+        Line (sprintf "let r = Types.%s.%s.In.({ %s }) in" i.Interface.name (String.capitalize_ascii m.Method.name) (String.concat "; " (List.map (fun i -> sprintf "%s = %s" i.Arg.name i.Arg.name) m.Method.inputs)));
         Line (sprintf "%s_r r" (escape_keywords m.Method.name));
       ]
     ] in

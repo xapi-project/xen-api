@@ -97,7 +97,7 @@ module Type = struct
     | Unit -> "unit"
     | Option x -> string_of_t x ^ " option"
     | Pair(a, b) -> ocaml_of_t a ^ " * " ^ (ocaml_of_t b)
-    | Custom x -> (String.capitalize x) ^ ".t"
+    | Custom x -> (String.capitalize_ascii x) ^ ".t"
 
   type ts = t list
 
@@ -117,7 +117,7 @@ module Method = struct
     description: string;
     inputs: Arg.t list;
     outputs: Arg.t list;
-  }    
+  }
 end
 
 module Ident = struct
@@ -228,7 +228,7 @@ let prepend_dbg i =
     let of_method m =
       {m with Method.inputs = dbg :: m.Method.inputs } in
     {i with Interface.methods = List.map of_method i.Interface.methods} in
-  {i with 
+  {i with
    Interfaces.interfaces = List.map of_interface i.Interfaces.interfaces;
    type_decls = debug_info :: i.Interfaces.type_decls
   }
@@ -327,7 +327,7 @@ let to_json x =
     `Assoc [
       "name", `String i.Interface.name;
       "description", `String i.Interface.description;
-      "methods", 
+      "methods",
       `List (List.map
 	       (fun m ->
 		 `Assoc [

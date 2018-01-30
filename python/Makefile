@@ -1,21 +1,20 @@
-PREFIX?=/
+PREFIX?=/usr
 
-.PHONY: build
+.PHONY: build release clean install uninstall
+
 build:
 	python setup.py build
 
-.PHONY: clean
+release: build
+
 clean:
 	python setup.py clean
 	rm -rf build
 
-.PHONY: install
 install: build
 	python setup.py install --prefix $(PREFIX)
 
-.PHONY: uninstall
 uninstall:
-	echo "I don't know how to uninstall python code"
+	@ echo "I don't know how to uninstall python code"
 
-.PHONY: reinstall
-reinstall: install
+.DEFAULT_GOAL := release
