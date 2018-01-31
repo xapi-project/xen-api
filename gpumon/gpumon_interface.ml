@@ -35,7 +35,7 @@ type incompatibility_reason =
   | Other
 [@@deriving rpcty]
 
-(** Boolean: compatible? *)
+(** Compatibility between virtual and physical GPU *)
 type compatibility =
   | Compatible
   | Incompatible of incompatibility_reason list
@@ -90,69 +90,83 @@ module RPC_API(R : RPC) = struct
               ; description =
                   [ "This interface is used by Xapi and Gpumon to monitor "
                   ; "physical and virtual GPUs."]
-              ;
-                version=(1,0,0)
+              ; version=(1,0,0)
               }
 
   let implementation = implement description
 
-  (** common API call parameters *)
-
-  let debug_info_p = param ~description:
-      ["Uninterpreted string used for debugging."]
-      debug_info
-
-  let domid_p = param ~description:
-      ["Domain ID of the VM in which the vGPU(s) is running."]
-      domid
-
-  let pgpu_address_p = param ~description:
-      ["PCI bus ID of the pGPU in which the VM is currently running"
-      ;"in the form `domain:bus:device.function` PCI identifier."]
-      pgpu_address
-
-  let nvidia_pgpu_metadata_p = param ~description:
-      ["Metadata of Nvidia physical GPU."]
-      nvidia_pgpu_metadata
-
-  let nvidia_vgpu_metadata_p = param ~description:
-      ["Metadata of Nvidia virtual GPU."]
-      nvidia_vgpu_metadata
-
-  let nvidia_vgpu_metadata_list_p = param ~description:
-      ["Metadata list of Nvidia virtual GPU."]
-      nvidia_vgpu_metadata_list
-
-  let compatibility_p = param ~description:
-      ["Value indicating whether two or more GPUs are compatible with each other."]
-      compatibility
-
   (** Compatibility checking interface for Nvidia vGPUs *)
   module Nvidia = struct
 
+    (** common API call parameters *)
+
+    let debug_info_p = param ~description:
+        ["Uninterpreted string used for debugging."]
+        debug_info
+
+    let domid_p = param ~description:
+        ["Domain ID of the VM in which the vGPU(s) is running."]
+        domid
+
+    let pgpu_address_p = param ~description:
+        ["PCI bus ID of the pGPU in which the VM is currently running"
+        ;"in the form `domain:bus:device.function` PCI identifier."]
+        pgpu_address
+
+    let nvidia_pgpu_metadata_p = param ~description:
+        ["Metadata of Nvidia physical GPU."]
+        nvidia_pgpu_metadata
+
+    let nvidia_vgpu_metadata_p = param ~description:
+        ["Metadata of Nvidia virtual GPU."]
+        nvidia_vgpu_metadata
+
+    let nvidia_vgpu_metadata_list_p = param ~description:
+        ["Metadata list of Nvidia virtual GPU."]
+        nvidia_vgpu_metadata_list
+
+    let compatibility_p = param ~description:
+        [ "Value indicating whether two or more GPUs are compatible with each other." ]
+        compatibility
+
     let get_pgpu_metadata =
       declare "get_pgpu_metadata"
-        ["Gets the metadata for a pGPU, given its address (PCI bus ID)."]
-        (debug_info_p @->  pgpu_address_p @-> returning nvidia_pgpu_metadata_p gpu_err )
+        [ "Gets the metadata for a pGPU, given its address (PCI bus ID)." ]
+        (debug_info_p
+         @-> pgpu_address_p
+         @-> returning nvidia_pgpu_metadata_p gpu_err
+        )
 
     let get_pgpu_vm_compatibility =
       declare "get_pgpu_vm_compatibility"
-        ["Checks compatibility between a VM's vGPU(s) and another pGPU."]
-        (debug_info_p @->  pgpu_address_p @-> domid_p @-> nvidia_pgpu_metadata_p @-> returning compatibility_p gpu_err )
+        [ "Checks compatibility between a VM's vGPU(s) and another pGPU." ]
+        (debug_info_p
+         @-> pgpu_address_p
+         @-> domid_p
+         @-> nvidia_pgpu_metadata_p
+         @-> returning compatibility_p gpu_err
+        )
 
     let get_vgpu_metadata =
       declare "get_vgpu_metadata"
-        ["Obtains metadata for all vGPUs running in a domain."]
-        ( debug_info_p @->  domid_p @-> pgpu_address_p @-> returning nvidia_vgpu_metadata_list_p gpu_err )
+        [ "Obtains metadata for all vGPUs running in a domain." ]
+        ( debug_info_p
+         @-> domid_p
+         @-> pgpu_address_p
+         @-> returning nvidia_vgpu_metadata_list_p gpu_err
+        )
 
-    (** The use case is VM.suspend/VM.resume: before
-     * VM.resume [nvidia_vgpu_metadata] of the suspended VM is checked
-     * against the [nvidia_pgpu_metadata] on the host where the VM is
-     * resumed.
-     * *)
     let get_pgpu_vgpu_compatibility =
       declare "get_pgpu_vgpu_compatibility"
-        ["Checks compatibility between a pGPU (on a host) and a list of vGPUs (assigned to a VM). Note: A VM may use several vGPUs."]
-        ( debug_info_p @->  nvidia_pgpu_metadata_p @-> nvidia_vgpu_metadata_list_p @-> returning compatibility_p gpu_err )
+        [ "Checks compatibility between a pGPU (on a host) and a list of vGPUs "
+        ; "(assigned to a VM). Note: A VM may use several vGPUs."
+        ; "The use case is VM.suspend/VM.resume:"
+        ; "before VM.resume [nvidia_vgpu_metadata] of the suspended VM is "
+        ; "checked against the [nvidia_pgpu_metadata] on the host where the VM "
+        ; "is resumed." ]
+        ( debug_info_p
+          @-> nvidia_pgpu_metadata_p
+          @-> nvidia_vgpu_metadata_list_p
+          @-> returning compatibility_p gpu_err)
   end
 end
