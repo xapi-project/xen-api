@@ -33,6 +33,8 @@ val bugreport_upload :
   __context:'a ->
   host:'b -> url:string -> options:(string * string) list -> unit
 
+val pool_size_is_restricted : __context:Context.t -> bool
+
 val signal_networking_change : __context:Context.t -> unit
 val signal_cdrom_event : __context:Context.t -> string -> unit
 val notify : __context:Context.t -> ty:string -> params:string -> unit

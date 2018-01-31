@@ -66,6 +66,19 @@ let assert_safe_to_reenable ~__context ~self =
     List.iter (fun self -> Xapi_pif.abort_if_network_attached_to_protected_vms ~__context ~self) unplugged_pifs;
   end
 
+(* The maximum pool size allowed must be restricted to 3 hosts for the pool which does not have Pool_size feature *)
+let pool_size_is_restricted ~__context =
+  let cvm_exception =
+    let dom0 = Helpers.get_domain_zero ~__context in
+    Db.VM.get_records_where ~__context
+      ~expr:(Eq(Field "is_control_domain", Literal "true"))
+    |> List.exists (fun (vmref, vmrec) ->
+        (vmref <> dom0) &&
+        (Xapi_stdext_std.Xstringext.String.endswith "-CVM" vmrec.API.vM_name_label)
+      )
+  in
+  (not cvm_exception) && (not (Pool_features.is_enabled ~__context Features.Pool_size))
+
 let xen_bugtool = "/usr/sbin/xen-bugtool"
 
 let bugreport_upload ~__context ~host ~url ~options =
@@ -580,6 +593,12 @@ let is_host_alive ~__context ~host =
   end
 
 let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info ~ssl_legacy =
+
+  (* fail-safe. We already test this on the joining host, but it's racy, so multiple concurrent
+     pool-join might succeed. Note: we do it in this order to avoid a problem checking restrictions during
+     the initial setup of the database *)
+  if List.length (Db.Host.get_all ~__context) >= Xapi_globs.restricted_pool_size && pool_size_is_restricted ~__context
+  then raise (Api_errors.Server_error(Api_errors.license_restriction, [Features.name_of_feature Features.Pool_size]));
 
   let make_new_metrics_object ref =
     Db.Host_metrics.create ~__context ~ref
