@@ -92,8 +92,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     lwt
     lwt.unix
     xcp))))
-
-(alias
- ((name runtest)
-  (deps (channel_helper.exe))))
 |} runtime_coverage_enabled flags coverage_dep coverage_rewriter flags coverage_rewriter flags
