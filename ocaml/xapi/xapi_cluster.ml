@@ -176,9 +176,10 @@ let pool_destroy ~__context ~self =
   let master = Helpers.get_master ~__context in
   let master_cluster_host =
     Xapi_clustering.find_cluster_host ~__context ~host:master
+    |> Xapi_stdext_monadic.Opt.unbox
   in
   let slave_cluster_hosts =
-    Db.Cluster.get_cluster_hosts ~__context ~self |> filter_on_option master_cluster_host
+    Db.Cluster.get_cluster_hosts ~__context ~self |> List.filter ((<>) master_cluster_host)
   in
   (* First destroy the Cluster_host objects of the slaves *)
   List.iter
