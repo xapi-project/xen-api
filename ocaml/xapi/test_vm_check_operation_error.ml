@@ -67,13 +67,18 @@ let test_null_vdi () =
         all_vm_operations
     )
 
+let compare_errors = Alcotest.(check (option (pair string (list string)))) "same error codes"
+
 (* Operations that check the validity of other VM operations should
    always be allowed *)
 let test_operation_checks_allowed () =
   with_test_vm (fun __context vm_ref ->
       [`assert_operation_valid; `update_allowed_operations] |>
       List.iter
-        (fun op -> OUnit.assert_equal None (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref ~op ~strict:true))
+        (fun op ->
+          compare_errors
+            None
+            (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref ~op ~strict:true))
     )
 
 (* The check_operation_error function, which is called from the message
@@ -86,7 +91,7 @@ let test_migration_allowed_when_cbt_enabled_vdis_are_not_moved () =
   with_test_vm (fun __context vM ->
       let vDI = Test_common.make_vdi ~__context ~cbt_enabled:true () in
       let _: _ API.Ref.t = Test_common.make_vbd ~__context ~vM ~vDI () in
-      OUnit.assert_equal
+      compare_errors
         None
         (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vM ~op:`migrate_send ~strict:true)
     )
@@ -96,20 +101,18 @@ let test_sxm_disallowed_when_rum () =
     let master = Test_common.make_host __context () in
     let pool = Test_common.make_pool ~__context ~master () in
     Db.Pool.add_to_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"x";
-    OUnit.assert_equal
+    compare_errors
       (Some(Api_errors.not_supported_during_upgrade, [ ]))
       (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref ~op:`migrate_send ~strict:false);
     Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress;
-    OUnit.assert_equal
+    compare_errors
       None
       (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref ~op:`migrate_send ~strict:false)
   )
 
 let test =
-  let open OUnit in
-  "test_vm_check_operation_error" >:::
-  [ "test_null_vdi" >:: test_null_vdi
-  ; "test_operation_checks_allowed" >:: test_operation_checks_allowed
-  ; "test_migration_allowed_when_cbt_enabled_vdis_are_not_moved" >:: test_migration_allowed_when_cbt_enabled_vdis_are_not_moved
-  ; "test_sxm_disallowed_when_rum" >:: test_sxm_disallowed_when_rum
+  [ "test_null_vdi", `Quick, test_null_vdi
+  ; "test_operation_checks_allowed", `Quick, test_operation_checks_allowed
+  ; "test_migration_allowed_when_cbt_enabled_vdis_are_not_moved", `Quick, test_migration_allowed_when_cbt_enabled_vdis_are_not_moved
+  ; "test_sxm_disallowed_when_rum", `Quick, test_sxm_disallowed_when_rum
   ]
