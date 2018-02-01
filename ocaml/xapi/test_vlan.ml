@@ -89,15 +89,19 @@ let test_create_pif_not_a_bond_slave () =
 
 let test_create_pif_not_vlan_slave () =
   let __context = make_test_database () in
-  let tag = 3201L in
   let host = make_host ~__context () in
   let network = make_network ~__context () in
+  let tagged_PIF = make_pif ~__context ~network ~host () in
   let vlan_network = make_network ~__context ~bridge:"xapi0" () in
-  let tagged_PIF = make_pif ~__context ~network ~host ~vLAN:0L () in
+  let untagged_PIF = make_pif ~__context ~network:vlan_network ~host ~vLAN:0L () in
+  let _ = make_vlan ~__context ~tagged_PIF ~untagged_PIF ~tag:0L () in
+  let vlan_network2 = make_network ~__context ~bridge:"xapi02" () in
   assert_raises_api_error
     Api_errors.pif_is_vlan
-    ~args:[Ref.string_of tagged_PIF]
-    (fun () -> Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network:vlan_network)
+    ~args:[Ref.string_of untagged_PIF]
+    (fun () ->
+       let tag = 3201L in
+       Xapi_vlan.create ~__context ~tagged_PIF:untagged_PIF ~tag ~network:vlan_network2)
 
 let test_create_invalid_tag () =
   let __context = make_test_database () in
