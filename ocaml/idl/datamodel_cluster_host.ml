@@ -35,6 +35,16 @@ let destroy = call
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+let force_destroy = call
+    ~name:"force_destroy"
+    ~doc:"Remove a host from an existing cluster forcefully."
+    ~params:
+      [ Ref _cluster_host, "self", "the cluster_host to remove from the cluster"
+      ]
+    ~lifecycle
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
 let enable = call
     ~name:"enable"
     ~doc:"Enable cluster membership for a disabled cluster host."
@@ -95,6 +105,7 @@ let t =
       [ create
       ; destroy
       ; enable
+      ; force_destroy
       ; disable
       ]
     ()

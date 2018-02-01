@@ -2889,6 +2889,14 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.Cluster.pool_create;
       flags=[];
     };
+    "cluster-pool-force-destroy",
+    {
+      reqd=["cluster-uuid"];
+      optn=[];
+      help="Force destroy pool-wide cluster";
+      implementation=No_fd Cli_operations.Cluster.pool_force_destroy;
+      flags=[];
+    };
     "cluster-pool-destroy",
     {
       reqd=["cluster-uuid"];
@@ -2951,6 +2959,14 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       optn=[];
       help="Destroy a cluster host, effectively leaving the cluster";
       implementation=No_fd Cli_operations.Cluster_host.destroy;
+      flags=[];
+    };
+    "cluster-host-force-destroy",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Destroy a cluster host object forcefully, effectively leaving the cluster";
+      implementation=No_fd Cli_operations.Cluster_host.force_destroy;
       flags=[];
     };
   ]

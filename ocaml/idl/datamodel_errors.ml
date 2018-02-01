@@ -1088,7 +1088,9 @@ let _ =
   error Api_errors.cluster_does_not_have_one_node ["number_of_nodes"]
     ~doc:"The cluster does not have only one node." ();
   error Api_errors.no_compatible_cluster_host ["host"]
-    ~doc:"The host does not have a Cluster_host with a compatible cluster stack." ()
+    ~doc:"The host does not have a Cluster_host with a compatible cluster stack." ();
+  error Api_errors.cluster_force_destroy_failed ["cluster"]
+    ~doc:"Force destroy failed on a Cluster_host while force destroying the cluster." ()
 
 let _ =
   message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();

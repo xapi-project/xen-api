@@ -58,6 +58,16 @@ let pool_create = call
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+let pool_force_destroy = call
+    ~name:"pool_force_destroy"
+    ~doc:"Attempt to force destroy the Cluster_host objects, and then destroy the Cluster."
+    ~params:
+      [ Ref _cluster, "self", "The cluster to force destroy."
+      ]
+    ~lifecycle
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
 let pool_destroy = call
     ~name:"pool_destroy"
     ~doc:"Attempt to destroy the Cluster_host objects for all hosts in the pool and then destroy the Cluster."
@@ -134,6 +144,7 @@ let t =
       [ create
       ; destroy
       ; pool_create
+      ; pool_force_destroy
       ; pool_destroy
       ; pool_resync
       ]
