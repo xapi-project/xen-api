@@ -46,4 +46,9 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     rpclib.markdown
     xcp.cluster))))
 
+(alias
+ ((name runtest)
+  (deps (cluster_cli.exe))
+  (action (run ${<}))))
+
 |} (flags rewriters_ppx) coverage_rewriter
