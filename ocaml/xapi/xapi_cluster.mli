@@ -39,14 +39,14 @@ val pool_create : __context:Context.t -> network:API.ref_network ->
     all hosts in the pool. *)
 
 val pool_force_destroy : __context:Context.t -> self:API.ref_Cluster -> unit
-(** [pool_force_destroy ~__context ~pool ~self] is the implementation of the XenAPI
-    method 'Cluster.pool_force_create'. This is a convenience function that force 
-    destroys the Cluster_host objects for all hosts in the pool and then destroys the
-    Cluster object. *)
+(** [pool_force_destroy ~__context ~self] is the implementation of the XenAPI
+    method 'Cluster.pool_force_destroy'. This is a convenience function that 
+    attempts to force destroy the Cluster_host objects for all hosts in the pool
+    and then destroys the Cluster object if it was successful. *)
 
 val pool_destroy : __context:Context.t -> self:API.ref_Cluster -> unit
-(** [pool_destroy ~__context ~pool ~self] is the implementation of the XenAPI
-    method 'Cluster.pool_create'. This is a convenience function that destroys
+(** [pool_destroy ~__context ~self] is the implementation of the XenAPI
+    method 'Cluster.pool_destroy'. This is a convenience function that destroys
     the Cluster_host objects for all hosts in the pool and then destroys the
     Cluster object. *)
 

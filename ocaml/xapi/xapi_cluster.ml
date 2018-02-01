@@ -163,7 +163,7 @@ let pool_force_destroy ~__context ~self =
     begin
     match exns with
     | [] -> ()
-    | e :: _ -> raise Api_errors.(Server_error (cluster_force_destroy_failed, [ExnHelper.string_of_exn e]))
+    | e :: _ -> raise Api_errors.(Server_error (cluster_force_destroy_failed, [Ref.string_of self]))
     end;
 
     Helpers.call_api_functions ~__context (fun rpc session_id ->
