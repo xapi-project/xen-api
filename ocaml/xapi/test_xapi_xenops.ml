@@ -38,7 +38,6 @@ let setup_simulator () =
   if not !simulator_setup then begin
     Xapi_globs.xenopsd_queues := ["simulator"];
     Xapi_globs.default_xenopsd := "simulator";
-    Printf.printf "XXX Starting simulator!!!\n%!";
     Xenops_utils.set_fs_backend (Some (module Xenops_utils.MemFS: Xenops_utils.FS));
     Xenops_server.register_objects ();
     Xenops_server.set_backend (Some (module Xenops_server_simulator: Xenops_server_plugin.S));
@@ -55,7 +54,6 @@ let unsetup_simulator () =
 
 
 let test_xapi_restart_inner () =
-  Debug.log_to_stdout ();
   let __context = make_test_database () in
   setup_simulator ();
   Helpers.test_mode := true;
