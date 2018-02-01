@@ -98,12 +98,11 @@ let get_pif_topo ~__context ~pif_rec =
   debug "PIF type of %s is: %s" pif_rec.API.pIF_uuid (String.concat " " (List.map pif_type_to_string pif_t_list));
   pif_t_list
 
-let vlan_is_allowed_on_pif ~__context ~tagged_PIF ~tag =
-  let pif_rec = Db.PIF.get_record ~__context ~self:tagged_PIF in
+let vlan_is_allowed_on_pif ~__context ~tagged_PIF ~pif_rec ~tag =
   match get_pif_topo ~__context ~pif_rec with
   | Physical pif_rec :: _ when pif_rec.API.pIF_bond_slave_of <> Ref.null ->
     (* Disallow creating on bond slave *)
-    (* Here we rely on the implementation to guarantee that `Phisycal` is a terminating case *)
+    (* Here we rely on the implementation to guarantee that `Physical` is a terminating case *)
     raise (Api_errors.Server_error (Api_errors.cannot_add_vlan_to_bond_slave, [Ref.string_of tagged_PIF]))
   | VLAN_untagged _ :: _ ->
     (* Check that the tagged PIF is not a VLAN itself - CA-25160. This check can be skipped using the allow_vlan_on_vlan FIST point. *)
@@ -118,10 +117,14 @@ let tunnel_is_allowed_on_pif ~__context ~transport_PIF =
   match get_pif_topo ~__context ~pif_rec with
   | Physical pif_rec :: _ when pif_rec.API.pIF_bond_slave_of <> Ref.null ->
     (* Disallow creating on bond slave *)
-    (* Here we rely on the implementation to guarantee that `Phisycal` is a terminating case *)
+    (* Here we rely on the implementation to guarantee that `Physical` is a terminating case *)
     raise (Api_errors.Server_error (Api_errors.cannot_add_tunnel_to_bond_slave, [Ref.string_of transport_PIF]))
   | Tunnel_access _ :: _ ->
     raise (Api_errors.Server_error (Api_errors.is_tunnel_access_pif, [Ref.string_of transport_PIF]));
+  | Network_sriov_logical _ :: _ ->
+    raise (Api_errors.Server_error (Api_errors.cannot_add_tunnel_to_sriov_logical, [Ref.string_of transport_PIF]))
+  | VLAN_untagged _ :: tl when List.exists (fun x -> match x with Network_sriov_logical _ -> true | _ -> false) tl ->
+      raise (Api_errors.Server_error (Api_errors.cannot_add_tunnel_to_vlan_on_sriov_logical, [Ref.string_of transport_PIF]))
   | _ -> ()
 
 let bond_is_allowed_on_pif ~__context ~self =
@@ -129,7 +132,7 @@ let bond_is_allowed_on_pif ~__context ~self =
   match get_pif_topo ~__context ~pif_rec with
   | Physical pif_rec :: _ when pif_rec.API.pIF_bond_slave_of <> Ref.null ->
     (* Disallow creating on bond slave *)
-    (* Here we rely on the implementation to guarantee that `Phisycal` is a terminating case *)
+    (* Here we rely on the implementation to guarantee that `Physical` is a terminating case *)
     let bond = pif_rec.API.pIF_bond_slave_of in
     let bonded = try ignore(Db.Bond.get_uuid ~__context ~self:bond); true with _ -> false in
     if bonded
@@ -138,7 +141,15 @@ let bond_is_allowed_on_pif ~__context ~self =
     raise (Api_errors.Server_error (Api_errors.pif_vlan_exists, [Db.PIF.get_device_name ~__context ~self] ))
   | Tunnel_access _ :: _ ->
     raise (Api_errors.Server_error (Api_errors.is_tunnel_access_pif, [Ref.string_of self]))
+  | Network_sriov_logical _ :: _ ->
+    raise (Api_errors.Server_error (Api_errors.pif_is_sriov_logical, [Ref.string_of self]))
   | _ -> ()
+
+let sriov_is_allowed_on_pif ~__context ~physical_PIF ~pif_rec =
+  match get_pif_type pif_rec with
+  | Physical _ -> ()
+  | _ ->
+    raise (Api_errors.Server_error (Api_errors.pif_is_not_physical, [Ref.string_of physical_PIF]))
 
 let assert_pif_is_managed ~__context ~self =
   if Db.PIF.get_managed ~__context ~self <> true then
