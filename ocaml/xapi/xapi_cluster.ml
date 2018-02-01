@@ -69,13 +69,23 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~to
 
 let destroy ~__context ~self =
   let dbg = Context.string_of_task __context in
-  assert_cluster_has_one_node ~__context ~self;
-  let cluster_host = Db.Cluster.get_cluster_hosts ~__context ~self |> List.hd in
-  assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self:cluster_host;
+  let cluster_hosts = Db.Cluster.get_cluster_hosts ~__context ~self in
+  let cluster_host = match cluster_hosts with
+    | [] -> None
+    | [ cluster_host ] -> Some (cluster_host)
+    | _ ->
+      let n = List.length cluster_hosts in
+      raise Api_errors.(Server_error(cluster_does_not_have_one_node, [string_of_int n]))
+  in
+  Xapi_stdext_monadic.Opt.iter (fun ch ->
+    assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self:ch
+  ) cluster_host;
   let result = Cluster_client.LocalClient.destroy (rpc ~__context) dbg in
   match result with
   | Result.Ok () ->
-    Db.Cluster_host.destroy ~__context ~self:cluster_host;
+    Xapi_stdext_monadic.Opt.iter (fun ch ->
+      Db.Cluster_host.destroy ~__context ~self:ch
+    ) cluster_host;
     Db.Cluster.destroy ~__context ~self;
     Xapi_clustering.Daemon.stop ~__context
   | Result.Error error -> handle_error error
@@ -99,6 +109,65 @@ let pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout
           )) hosts;
 
   cluster
+
+(* Helper function; if opn is None return all, else return those not equal to it *)
+let filter_on_option opn xs =
+  match opn with
+  | None -> xs
+  | Some x -> List.filter ((<>) x) xs
+
+(* Helper function; concurrency checks are done in implementation of Cluster.destroy and Cluster_host.destroy *)
+let pool_force_destroy ~__context ~self = 
+  (* For now we assume we have only one pool, and that the cluster is the same as the pool.
+     This means that the pool master must be a member of this cluster. *)
+  let master = Helpers.get_master ~__context in
+  let master_cluster_host =
+    Xapi_clustering.find_cluster_host ~__context ~host:master
+  in
+  let slave_cluster_hosts =
+    Db.Cluster.get_cluster_hosts ~__context ~self |> filter_on_option master_cluster_host
+  in
+  (* First try to destroy each cluster_host - if we can do so safely then do *)
+  List.iter
+    (fun cluster_host -> 
+      (* We need to run this code on the slave *)
+      (* We ignore failures here, we'll try a force_destroy after *)
+      log_and_ignore_exn (fun () ->  
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            Client.Client.Cluster_host.destroy ~rpc ~session_id ~self:cluster_host)
+      )
+    )
+    slave_cluster_hosts;
+  (* We expect destroy to have failed for some, we'll try to force destroy those *)
+  (* Note we include the master here, we should attempt to force destroy it *)
+  let all_remaining_cluster_hosts =
+    Db.Cluster.get_cluster_hosts ~__context ~self
+  in
+  (* Now try to force_destroy, keep track of any errors here *)
+  let exns = List.fold_left
+    (fun exns_so_far cluster_host ->
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+        try
+          Client.Client.Cluster_host.force_destroy ~rpc ~session_id ~self:cluster_host;
+          exns_so_far
+        with e ->
+          Backtrace.is_important e;
+          let uuid = Client.Client.Cluster_host.get_uuid ~rpc ~session_id ~self:cluster_host in
+          debug "Ignoring exception while trying to force destroy cluster host %s: %s" uuid (ExnHelper.string_of_exn e);
+          e :: exns_so_far
+      )
+    )
+    [] all_remaining_cluster_hosts
+    in
+
+    begin
+    match exns with
+    | [] -> ()
+    | e :: _ -> raise Api_errors.(Server_error (cluster_force_destroy_failed, [Ref.string_of self]))
+    end;
+
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
+        Client.Client.Cluster.destroy ~rpc ~session_id ~self)
 
 (* Helper function; concurrency checks are done in implementation of Cluster.destroy and Cluster_host.destroy *)
 let pool_destroy ~__context ~self =
