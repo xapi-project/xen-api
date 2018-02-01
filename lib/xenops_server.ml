@@ -2384,16 +2384,11 @@ module VM = struct
     Debug.with_thread_associated dbg
       (fun () ->
          let id, final_id =
-           let final_id = List.assoc "final_id" cookies in
            (* The URI is /service/xenops/memory/id *)
            let bits = Stdext.Xstringext.String.split '/' (Uri.path uri) in
            let id = bits |> List.rev |> List.hd in
-<<<<<<< HEAD
-           debug "VM.receive_memory id = %s" id;
-=======
            let final_id = match List.assoc_opt "final_id" cookies with Some x -> x | None -> id in
            debug "VM.receive_memory id = %s, final_id=%s" id final_id;
->>>>>>> 28441bb8... Fixups
            id, final_id
          in
          match context.transferred_fd with
