@@ -1,11 +1,12 @@
 (library
  ((name ezxenstore)
   (public_name ezxenstore)
-  (modules (xenstore watch))
   (wrapped false)
   (libraries (cmdliner
               logs
               threads
-              xenstore.unix
-              xenstore_transport.unix))
+              xcp
+              xenctrl
+              xenstore_transport.unix
+              xenstore.unix))
  ))

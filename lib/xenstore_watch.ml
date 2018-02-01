@@ -13,8 +13,6 @@
  *)
 
 open Xenstore
-open Xenops_helpers
-open Xenops_utils
 
 module D = Debug.Make(struct let name = "xenstore_watch" end)
 open D
@@ -135,7 +133,7 @@ module WatchXenstore = functor(Actions: WATCH_ACTIONS) -> struct
                ) different;
              domains := domains' in
 
-           let process_one_watch c (path, token) =
+           let process_one_watch c (path, _token) =
              if path = _introduceDomain || path = _releaseDomain
              then look_for_different_domains ()
              else 
