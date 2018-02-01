@@ -73,8 +73,8 @@ let maybe f = function
 let scan_bus = B.pci_scan_bus
 
 let with_string ?(size=1024) f =
-  let buf = Bytes.make size '\000' in
-  f buf size
+  let buf = CArray.make char ~initial:'\x00' size in
+  f (CArray.start buf) size
 
 let lookup_class_name pci_access class_id =
   with_string (fun buf size ->
