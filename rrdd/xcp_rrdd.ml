@@ -159,7 +159,7 @@ module Meminfo = struct
         let client = Xs.get_client () in
         let meminfo_free_string = Xs.immediate client (fun xs -> Xs.read xs path) in
         let meminfo_free = Int64.of_string meminfo_free_string in
-        debug "memfree has changed to %Ld in domain %d" meminfo_free d;
+        info "memfree has changed to %Ld in domain %d" meminfo_free d;
         current_meminfofree_values := IntMap.add d meminfo_free !current_meminfofree_values
       with Xs_protocol.Enoent _hint ->
         debug "Couldn't read path %s; forgetting last known memfree value for domain %d" path d;
