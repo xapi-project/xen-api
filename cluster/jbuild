@@ -15,8 +15,7 @@ let flags = function
   in
   go ic ""
 
-let rewriters_ppx = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
-let rewriters_camlp4 = ["rpclib.idl -syntax camlp4o"]
+let rewriters_ppx = ["ppx_deriving_rpc"]
 
 let coverage_rewriter = ""
 (* (preprocess (pps)) doesn't work with camlp4 and  the other ppx derivers,

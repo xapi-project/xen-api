@@ -49,4 +49,9 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     rpclib.markdown
     xcp.v6))))
 
+(alias
+ ((name runtest)
+  (deps (v6_cli.exe))
+  (action (run ${<}))))
+
 |} flags coverage_rewriter

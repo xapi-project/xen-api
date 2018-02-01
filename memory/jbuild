@@ -48,4 +48,10 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     rpclib.cmdliner
     rpclib.markdown
     xcp.memory))))
+
+(alias
+ ((name runtest)
+  (deps (memory_cli.exe))
+  (action (run ${<}))))
+
 |} flags coverage_rewriter
