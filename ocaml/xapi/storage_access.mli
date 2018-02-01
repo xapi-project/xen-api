@@ -33,6 +33,9 @@ val find_vdi: __context:Context.t -> Storage_interface.sr -> Storage_interface.v
     with [content_id] *)
 val find_content: __context:Context.t -> ?sr:Storage_interface.sr -> Storage_interface.content_id -> API.ref_VDI * API.vDI_t
 
+(** [vdi_info_of_vdi_rec __context vdi_rec] constructs a vdi_info record from information in the given VDI database record. *)
+val vdi_info_of_vdi_rec : Context.t -> API.vDI_t -> Storage_interface.vdi_info
+
 (** [bind __context pbd] causes the storage_access module to choose the most
         appropriate driver implementation for the given [pbd] *)
 val bind: __context:Context.t -> pbd:API.ref_PBD -> Storage_interface.query_result
