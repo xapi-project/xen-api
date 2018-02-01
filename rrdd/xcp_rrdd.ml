@@ -152,17 +152,17 @@ module Meminfo = struct
   let fire_event_on_vm domid domains =
     let d = int_of_string domid in
     if not(IntMap.mem d domains)
-    then debug "Ignoring watch on shutdown domain %d" d
+    then info "Ignoring watch on shutdown domain %d" d
     else
       let path = meminfo_path d in
       try
         let client = Xs.get_client () in
         let meminfo_free_string = Xs.immediate client (fun xs -> Xs.read xs path) in
         let meminfo_free = Int64.of_string meminfo_free_string in
-        debug "memfree has changed to %Ld in domain %d" meminfo_free d;
+        info "memfree has changed to %Ld in domain %d" meminfo_free d;
         current_meminfofree_values := IntMap.add d meminfo_free !current_meminfofree_values
       with Xs_protocol.Enoent _hint ->
-        debug "Couldn't read path %s; forgetting last known memfree value for domain %d" path d;
+        info "Couldn't read path %s; forgetting last known memfree value for domain %d" path d;
         current_meminfofree_values := IntMap.remove d !current_meminfofree_values
 
   let watch_fired _xc path domains _ =
