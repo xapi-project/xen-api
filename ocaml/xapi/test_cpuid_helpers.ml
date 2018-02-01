@@ -399,9 +399,9 @@ module ResetCPUFlags = Generic.Make(Generic.EncapsulateState(struct
                                           "vendor", "Abacus";
                                           "features_pv", features_pv;
                                           "features_hvm", features_hvm;
-                                        ] and master = Test_common.make_host ~__context () in
-                                        Db.Host.set_cpu_info ~__context ~self:master ~value:cpu_info;
-                                        ignore (Test_common.make_pool ~__context ~master ~cpu_info ());
+                                        ] in
+                                        List.iter (fun self -> Db.Host.set_cpu_info ~__context ~self ~value:cpu_info) (Db.Host.get_all ~__context);
+                                        Db.Pool.set_cpu_info ~__context ~self:(Db.Pool.get_all ~__context |> List.hd) ~value:cpu_info;
 
                                         let vms = List.map
                                             (fun (name_label, hVM_boot_policy) ->
@@ -449,9 +449,10 @@ module AssertVMIsCompatible = Generic.Make(Generic.EncapsulateState(struct
                                                  "vendor", "Abacus";
                                                  "features_pv", features_pv;
                                                  "features_hvm", features_hvm;
-                                               ] and master = Test_common.make_host ~__context () in
-                                               Db.Host.set_cpu_info ~__context ~self:master ~value:cpu_info;
-                                               ignore (Test_common.make_pool ~__context ~master ~cpu_info ());
+                                               ] in
+                                               List.iter (fun self -> Db.Host.set_cpu_info ~__context ~self ~value:cpu_info) (Db.Host.get_all ~__context);
+                                               Db.Pool.set_cpu_info ~__context ~self:(Db.Pool.get_all ~__context |> List.hd) ~value:cpu_info;
+
                                                let self = Test_common.make_vm ~__context ~name_label ~hVM_boot_policy () in
                                                Db.VM.set_last_boot_CPU_flags ~__context ~self ~value:last_boot_flags;
                                                Db.VM.set_power_state ~__context ~self ~value:`Running

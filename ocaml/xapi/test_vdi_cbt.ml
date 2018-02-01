@@ -99,7 +99,7 @@ let test_get_nbd_info =
   in
 
   let setup_test () =
-    let __context = Mock.make_context_with_new_db "Mock context" in
+    let __context = Test_common.make_test_database () in
     let session_id = Test_common.make_session ~__context () in
     let __context = Context.make ~__context ~session_id "test" in
     let make_host ?hostname = make_host __context ?hostname in
