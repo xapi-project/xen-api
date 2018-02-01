@@ -4278,6 +4278,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Cluster.pool_create";
       Local.Cluster.pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient
 
+    let pool_force_destroy ~__context ~self =
+      info "Cluster.pool_force_destroy";
+      Local.Cluster.pool_force_destroy ~__context ~self
+
     let pool_destroy ~__context ~self =
       info "Cluster.pool_destroy";
       Local.Cluster.pool_destroy ~__context ~self
@@ -4305,6 +4309,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let host = Db.Cluster_host.get_host ~__context ~self in
       do_op_on ~__context ~local_fn ~host
         (fun session_id rpc -> Client.Cluster_host.destroy rpc session_id self)
+
+    let force_destroy ~__context ~self =
+      info "Cluster_host.force_destroy";
+      let local_fn = Local.Cluster_host.force_destroy ~self in
+      let host = Db.Cluster_host.get_host ~__context ~self in
+      do_op_on ~__context ~local_fn ~host
+        (fun session_id rpc -> Client.Cluster_host.force_destroy rpc session_id self)
 
     let enable ~__context ~self =
       info "Cluster_host.enable";

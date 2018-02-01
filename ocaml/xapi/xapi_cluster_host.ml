@@ -90,6 +90,18 @@ let create ~__context ~cluster ~host =
       | Result.Error error -> handle_error error
     )
 
+let force_destroy ~__context ~self =
+  let dbg = Context.string_of_task __context in
+  let host = Db.Cluster_host.get_host ~__context ~self in
+  assert_operation_host_target_is_localhost ~__context ~host;
+  assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self;
+  let result = Cluster_client.LocalClient.destroy (rpc ~__context) dbg in
+  match result with
+  | Result.Ok () ->
+    Db.Cluster_host.destroy ~__context ~self;
+    Xapi_clustering.Daemon.stop ~__context
+  | Result.Error error -> handle_error error
+
 let destroy ~__context ~self =
   let dbg = Context.string_of_task __context in
   let host = Db.Cluster_host.get_host ~__context ~self in

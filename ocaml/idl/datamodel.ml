@@ -1541,7 +1541,9 @@ let _ =
   error Api_errors.cluster_does_not_have_one_node ["number_of_nodes"]
     ~doc:"The cluster does not have only one node." ();
   error Api_errors.no_compatible_cluster_host ["host"]
-    ~doc:"The host does not have a Cluster_host with a compatible cluster stack." ()
+    ~doc:"The host does not have a Cluster_host with a compatible cluster stack." ();
+  error Api_errors.cluster_force_destroy_failed ["cluster"]
+    ~doc:"Force destroy failed on a Cluster_host while force destroying the cluster." ()
 
 let _ =
   message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();
@@ -10300,6 +10302,16 @@ module Cluster = struct
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+  let pool_force_destroy = call
+    ~name:"pool_force_destroy"
+    ~doc:"Attempt to force destroy the Cluster_host objects, and then destroy the Cluster."
+    ~params:
+      [ Ref _cluster, "self", "The cluster to force destroy."
+      ]
+    ~lifecycle
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
   let pool_destroy = call
     ~name:"pool_destroy"
     ~doc:"Attempt to destroy the Cluster_host objects for all hosts in the pool and then destroy the Cluster."
@@ -10375,6 +10387,7 @@ module Cluster = struct
         [ create
         ; destroy
         ; pool_create
+        ; pool_force_destroy
         ; pool_destroy
         ; pool_resync
         ]
@@ -10400,6 +10413,16 @@ module Cluster_host = struct
     let destroy = call
     ~name:"destroy"
     ~doc:"Remove a host from an existing cluster."
+    ~params:
+      [ Ref _cluster_host, "self", "the cluster_host to remove from the cluster"
+      ]
+    ~lifecycle
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
+    let force_destroy = call
+    ~name:"force_destroy"
+    ~doc:"Remove a host from an existing cluster forcefully."
     ~params:
       [ Ref _cluster_host, "self", "the cluster_host to remove from the cluster"
       ]
@@ -10467,6 +10490,7 @@ let obj =
       [ create
       ; destroy
       ; enable
+      ; force_destroy
       ; disable
       ]
     ()
