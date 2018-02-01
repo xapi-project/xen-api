@@ -33,6 +33,7 @@ open Pervasiveext
 open Printf
 open Datamodel_types
 
+type wireProtocol = XmlRpc | JsonRpc
 
 let with_output filename f =
   let io = open_out filename in

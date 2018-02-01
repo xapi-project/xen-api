@@ -36,10 +36,16 @@ This library requires .NET 4.5 or greater.
 Dependencies
 ------------
 
-XenServer.NET is dependent upon XML-RPC.NET by Charles Cook (see http://www.xml-rpc.net).
-XML-RPC.NET is licensed under the MIT X11 license; see
-LICENSE.CookComputing.XmlRpcV2.txt for details. The library
-(CookComputing.XmlRpcV2.dll) is shipped with XenServer.NET.
+XenServer.NET is dependent upon the following libraries:
+
+- XML-RPC.NET by Charles Cook (see http://www.xml-rpc.net).
+  XML-RPC.NET is licensed under the MIT X11 license; see
+  LICENSE.CookComputing.XmlRpcV2.txt for details. The library
+  (CookComputing.XmlRpcV2.dll) is shipped with XenServer.NET.
+
+- Newtonsoft JSON.NET by James Newton-King (see https://www.newtonsoft.com/).
+  JSON.NET is licensed under the MIT license; see LICENSE.Newtonsoft.Json.txt
+  for details. The library (Newtonsoft.Json.dll) is shipped with XenServer.NET.
 
 
 Downloads
@@ -71,8 +77,9 @@ B. To build the source code:
   3. You should now be ready to build the source code.
 
 C. To run the examples:
-  1. Copy XenServer.dll and CookComputing.XmlRpcV2.dll from the bin folder into
-     the samples folder at the same level as the XenSdkSample.csproj file.
+  1. Copy XenServer.dll, CookComputing.XmlRpcV2.dll, and Newtonsoft.Json.dll
+     from the bin folder into the samples folder at the same level as the
+     XenSdkSample.csproj file.
   2. Open XenSdkSample.sln inside Visual Studio (2013 or greater).
   3. You should now be ready to compile the solution and run the examples.
      The solution project is a console application expecting the parameters

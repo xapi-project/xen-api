@@ -1,19 +1,19 @@
 /*
  * Copyright (c) Citrix Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -54,9 +54,9 @@ namespace Citrix.XenServer.Commands
             if (sessions.Count == 0)
             {
                 ThrowTerminatingError(new ErrorRecord(
-                                          new Exception("Could not find open sessions to any XenServers."),
-                                          "",
-                                          ErrorCategory.InvalidArgument, null));
+                    new Exception("Could not find open sessions to any XenServers."),
+                    "",
+                    ErrorCategory.InvalidArgument, null));
             }
 
             Session session = null;
@@ -77,9 +77,9 @@ namespace Citrix.XenServer.Commands
 
                     if (session == null)
                         ThrowTerminatingError(new ErrorRecord(
-                                                  new Exception("A default XenServer session has not beeen set."),
-                                                  "",
-                                                  ErrorCategory.InvalidArgument, null));
+                            new Exception("A default XenServer session has not beeen set."),
+                            "",
+                            ErrorCategory.InvalidArgument, null));
                 }
             }
             else
@@ -91,12 +91,14 @@ namespace Citrix.XenServer.Commands
 
                 if (session == null)
                     ThrowTerminatingError(new ErrorRecord(
-                                              new Exception("Could not locate the specified session in the open XenServer sessions."),
-                                              "",
-                                              ErrorCategory.InvalidArgument,
-                                              Session != null ? Session.opaque_ref : Ref.opaque_ref ));
+                        new Exception("Could not locate the specified session in the open XenServer sessions."),
+                        "",
+                        ErrorCategory.InvalidArgument,
+                        Session != null ? Session.opaque_ref : Ref.opaque_ref));
             }
-            
+
+            //store the session's opaque_ref as logging out sets it to null
+            var sessionRef = session.opaque_ref;
             try
             {
                 session.logout();
@@ -104,7 +106,7 @@ namespace Citrix.XenServer.Commands
             finally
             {
                 WriteVerbose("Removing session from Citrix.XenServer.Sessions variable.");
-                sessions.Remove(session.opaque_ref);
+                sessions.Remove(sessionRef);
             }
         }
     }

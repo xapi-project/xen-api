@@ -53,10 +53,11 @@ language(s), or simply `make` to generate SDK source code for all the supported
 languages.
 
 To compile the generated source code, follow the instructions in the corresponding
-README files.
+README files. The third party libraries required for the compilation of the C#
+and PowerShell source code can be obtained from [dotnet-packages][6].
 
 _Note: The Python module is not auto-generated. It can be found at
-[XenAPI.py][6]._
+[XenAPI.py][7]._
 
 ## Contributions
 
@@ -64,7 +65,7 @@ The preferable way to contribute patches is to fork the repository on Github
 and then submit a pull request. If for some reason you can't use Github to
 submit a pull request, then you may send your patch for review to the
 <xen-api@lists.xen.org> mailing list, with a link to a public git
-repository for review. Please see the CONTRIB.md file for some general
+repository for review. Please see the [CONTRIB.md][8] file for some general
 guidelines on submitting changes.
 
 ## Maintainers
@@ -75,12 +76,14 @@ guidelines on submitting changes.
 ## License
 
 This code is licensed under the BSD 2-Clause license. Please see the file
-[LICENSE][7] for more information.
+[LICENSE][9] for more information.
 
 [1]: http://caml.inria.fr/ocaml/
 [2]: https://opam.ocaml.org/
 [3]: https://github.com/ocaml/opam-dockerfiles
 [4]: https://github.com/xapi-project/xs-opam
 [5]: https://github.com/xapi-project/sm/blob/master/drivers/XE_SR_ERRORCODES.xml
-[6]: https://github.com/xapi-project/xen-api/blob/master/scripts/examples/python/XenAPI.py
-[7]: LICENSE
+[6]: https://github.com/xenserver/dotnet-packages
+[7]: https://github.com/xapi-project/xen-api/blob/master/scripts/examples/python/XenAPI.py
+[8]: CONTRIB.md
+[9]: LICENSE
