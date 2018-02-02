@@ -124,6 +124,9 @@ let setup ~__context {master; slaves; ha_host_failures_to_tolerate} =
   let shared_sr = make_sr ~__context ~shared:true () in
   let shared_net = make_network ~__context ~bridge:"xenbr0" () in
 
+  (* Remove all hosts added by make_test_database *)
+  List.iter (fun host -> Db.Host.destroy ~__context ~self:host) (Db.Host.get_all ~__context);
+
   let load_host_and_local_resources host =
     let local_sr = make_sr ~__context ~shared:false () in
     let local_net = make_network ~__context ~bridge:"xapi0" () in
@@ -146,10 +149,13 @@ let setup ~__context {master; slaves; ha_host_failures_to_tolerate} =
   let master_ref = load_host_and_local_resources master in
   let (_ : API.ref_host list) = List.map load_host_and_local_resources slaves in
 
-  let (_ : API.ref_pool) = make_pool ~__context
-      ~ha_enabled:true ~master:master_ref ~ha_host_failures_to_tolerate
-      ~ha_plan_exists_for:ha_host_failures_to_tolerate () in
-  ()
+  let pool = Db.Pool.get_all ~__context |> List.hd in
+
+  Db.Pool.set_master ~__context ~self:pool ~value:master_ref;
+  Db.Pool.set_ha_enabled ~__context ~self:pool ~value:true;
+  Db.Pool.set_ha_host_failures_to_tolerate ~__context ~self:pool ~value:ha_host_failures_to_tolerate;
+  Db.Pool.set_ha_plan_exists_for ~__context ~self:pool ~value:ha_host_failures_to_tolerate
+
 
 module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
                                         module Io = struct
