@@ -551,12 +551,8 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
     error " Caught exception %s:%s. Performing cleanup." Api_errors.sr_not_attached sr_uuid;
     perform_cleanup_actions !on_fail;
     raise (Api_errors.Server_error(Api_errors.sr_not_attached,[sr_uuid]))
-  | Api_errors.Server_error(code, param) when code = Api_errors.sr_source_space_insufficient ->
-    error " Caught exception %s:%s, performing cleanup." Api_errors.sr_source_space_insufficient (List.hd param);
-    perform_cleanup_actions !on_fail;
-    raise (Api_errors.Server_error(Api_errors.sr_source_space_insufficient, param))
   | e ->
-    error "Caught %s: performing cleanup actions" (Printexc.to_string e);
+    error "Caught %s: performing cleanup actions" (Api_errors.to_string e);
     perform_cleanup_actions !on_fail;
     raise e
 
