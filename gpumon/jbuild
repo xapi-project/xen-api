@@ -22,17 +22,16 @@ let coverage_rewriter =
   else
     ""
 
-let rewriters_camlp4 = ["rpclib.idl -syntax camlp4o"]
-let rewriters_ppx = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
+let rewriters = ["ppx_deriving_rpc"]
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (jbuild_version 1)
 
 (library
- ((name xapi_gpumon_interface)
-  (public_name xcp.gpumon.interface)
-  (modules (gpumon_interface))
-  (flags (:standard -w -39 %s))
+ ((name xapi_gpumon)
+  (public_name xcp.gpumon)
+  (flags (:standard -w -39-33 %s))
+  (modules (:standard \ gpumon_cli ))
   (libraries
    (rpclib
     threads
@@ -40,17 +39,18 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (wrapped false)
   %s))
 
-(library
- ((name xapi_gpumon)
-  (public_name xcp.gpumon)
-  (modules (:standard \ gpumon_interface))
-  (flags (:standard -w -39-33 %s))
+(executable
+ ((name gpumon_cli)
+  (modules (gpumon_cli))
   (libraries
-   (rpclib
-    threads
-    xcp
-    xapi_gpumon_interface))
-  (wrapped false)
-  %s))
+   (cmdliner
+    rpclib.cmdliner
+    rpclib.markdown
+    xcp.gpumon))))
 
-|} (flags rewriters_camlp4) coverage_rewriter (flags rewriters_ppx) coverage_rewriter
+(alias
+ ((name runtest)
+  (deps (gpumon_cli.exe))
+  (action (run ${<}))))
+
+|} (flags rewriters) coverage_rewriter

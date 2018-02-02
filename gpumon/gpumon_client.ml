@@ -12,19 +12,14 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Gpumon_interface
-open Xcp_client
+let xml_url () = "file:" ^ Gpumon_interface.xml_path
 
-let xml_url () = "file:" ^ xml_path
-
-module Client = Gpumon_interface.Client(struct
-	let rpc call =
-		if !use_switch
-		then json_switch_rpc queue_name call
-		else xml_http_rpc
-                        ~srcstr:(get_user_agent ())
-                        ~dststr:"gpumon"
-                        xml_url
-                        call
-end)
-
+let rpc call =
+  if !Xcp_client.use_switch
+  then Xcp_client.json_switch_rpc Gpumon_interface.queue_name call
+  else Xcp_client.xml_http_rpc
+      ~srcstr:(Xcp_client.get_user_agent ())
+      ~dststr:"gpumon"
+      xml_url
+      call
+module Client = Gpumon_interface.RPC_API(Idl.GenClientExnRpc(struct let rpc=rpc end))
