@@ -626,6 +626,8 @@ let _ =
     ~doc:"The operation you requested cannot be performed because the specified PIF is not managed by xapi." ();
   error Api_errors.pif_is_not_sriov_capable [ "PIF" ]
     ~doc:"The selected PIF is not capable of network SR-IOV" ();
+  error Api_errors.unknown_pif_type [ "PIF" ]
+    ~doc:"Unable to calculate PIF type" ();
   error Api_errors.pif_has_no_network_configuration [ "PIF" ]
     ~doc:"PIF has no IP configuration (mode currently set to 'none')" ();
   error Api_errors.pif_has_no_v6_network_configuration [ "PIF" ]

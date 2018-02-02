@@ -40,6 +40,7 @@ let create_internal ~__context ~physical_PIF ~network =
 
 let create ~__context ~pif ~network =
   Xapi_network.assert_network_is_managed ~__context ~self:network;
+  Xapi_pif_helpers.assert_pif_is_managed ~__context ~self:pif;
   Xapi_pif_helpers.sriov_is_allowed_on_pif ~__context ~self:pif;
   let host = Db.PIF.get_host ~__context ~self:pif in
   Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;

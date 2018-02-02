@@ -231,25 +231,23 @@ let linux_pif_config pif_type pif_rc properties mtu persistent =
     ),
   {default_interface with mtu; ethtool_settings; ethtool_offload; persistent_i=persistent;}
 
-let rec create_bridges ~__context pif_rc net_rc =
+let rec create_bridges ~__context pif_ref pif_rc net_rc =
   let mtu = determine_mtu pif_rc net_rc in
   let other_config = determine_other_config ~__context pif_rc net_rc in
   let persistent = is_dom0_interface pif_rc in
   let igmp_snooping = Some (Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context)) in
-  let pif_ref = Db.PIF.get_by_uuid ~__context ~uuid:pif_rc.API.pIF_uuid in
-  match get_pif_type ~__context ~self:pif_ref with
-  | Tunnel_access _ ->
+  match get_pif_type ~__context ~pif_rec:pif_rc with
+  | Tunnel _ :: _ ->
     [],
     [net_rc.API.network_bridge, {default_bridge with bridge_mac=(Some pif_rc.API.pIF_MAC);
                                                      igmp_snooping; other_config; persistent_b=persistent}],
     []
-  | VLAN_master_on_physical _ ->
-    let vlan = pif_rc.API.pIF_VLAN_master_of in
+  | VLAN vlan :: _ ->
     let original_pif_rc = pif_rc in
     let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
     let pif_rc = Db.PIF.get_record ~__context ~self:slave in
     let net_rc = Db.Network.get_record ~__context ~self:pif_rc.API.pIF_network in
-    let cleanup, bridge_config, interface_config = create_bridges ~__context pif_rc net_rc in
+    let cleanup, bridge_config, interface_config = create_bridges ~__context slave pif_rc net_rc in
     let interface_config = (* Add configuration for the vlan device itself *)
       linux_pif_config `vlan_pif original_pif_rc pif_rc.API.pIF_properties mtu persistent
       :: interface_config
@@ -257,7 +255,7 @@ let rec create_bridges ~__context pif_rc net_rc =
     cleanup,
     create_vlan ~__context vlan persistent @ bridge_config,
     interface_config
-  | Bond_master bond ->
+  | Bond_master bond :: _ ->
     let cleanup, bridge_config, interface_config = create_bond ~__context bond mtu persistent in
     let interface_config = (*  Add configuration for the bond pif itself *)
       linux_pif_config `bond_pif pif_rc pif_rc.API.pIF_properties mtu persistent
@@ -280,12 +278,10 @@ let rec create_bridges ~__context pif_rc net_rc =
     [pif_rc.API.pIF_device, {default_interface with mtu; ethtool_settings; ethtool_offload; persistent_i=persistent}]
 
 let rec destroy_bridges ~__context ~force pif_rc bridge =
-  let pif_ref = Db.PIF.get_by_uuid ~__context ~uuid:pif_rc.API.pIF_uuid in
-  match get_pif_type ~__context ~self:pif_ref with
-  | Tunnel_access _ ->
+  match get_pif_type ~__context ~pif_rec:pif_rc with
+  | Tunnel _ :: _ ->
     [bridge, false]
-  | VLAN_master_on_physical _ ->
-    let vlan = pif_rc.API.pIF_VLAN_master_of in
+  | VLAN vlan :: _ ->
     let cleanup = destroy_vlan ~__context vlan in
     let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
     let rc = Db.PIF.get_record ~__context ~self:slave in
@@ -294,7 +290,7 @@ let rec destroy_bridges ~__context ~force pif_rc bridge =
       (destroy_bridges ~__context ~force rc bridge) @ cleanup
     else
       cleanup
-  | Bond_master bond ->
+  | Bond_master bond :: _ ->
     destroy_bond ~__context ~force bond
   | _ ->
     [bridge, false]
@@ -310,10 +306,18 @@ let determine_static_routes net_rc =
 
 let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
   with_local_lock (fun () ->
-      match get_pif_type ~__context ~self:pif with
-      | Network_sriov_logical _ ->
+      let pif_rec = Db.PIF.get_record ~__context ~self:pif in
+      match get_pif_type ~__context ~pif_rec with
+      | Network_sriov _ :: _ ->
         Xapi_network_sriov_helpers.sriov_bring_up ~__context ~self:pif
-      | VLAN_master_on_network_sriov sriov_logical_pif ->
+      | VLAN _ :: tl when List.exists (fun x -> match x with Network_sriov _ -> true | _ -> false) tl ->
+        let sriov_logical_pif = tl |> List.filter_map (function
+            | Network_sriov sriov ->
+              let logical_PIF = Db.Network_sriov.get_logical_PIF ~__context ~self:sriov in
+              Some (logical_PIF)
+            | _ -> None
+          ) |> List.hd
+        in
         let currently_attached = Db.PIF.get_currently_attached ~__context ~self:sriov_logical_pif in
         Db.PIF.set_currently_attached ~__context ~self:pif ~value:currently_attached
       | _ ->
@@ -344,7 +348,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
             Opt.iter (fun (_, name) -> Net.set_dns_interface dbg ~name) dns_if;
 
             (* Setup network infrastructure *)
-            let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc in
+            let cleanup, bridge_config, interface_config = create_bridges ~__context pif rc net_rc in
             List.iter (fun (name, force) -> Net.Bridge.destroy dbg ~name ~force ()) cleanup;
             Net.Bridge.make_config dbg ~config:bridge_config ();
             Net.Interface.make_config dbg ~config:interface_config ();
@@ -471,10 +475,11 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 
 let bring_pif_down ~__context ?(force=false) (pif: API.ref_PIF) =
   with_local_lock (fun () ->
-      match get_pif_type ~__context ~self:pif with
-      | Network_sriov_logical _ ->
+      let pif_rec = Db.PIF.get_record ~__context ~self:pif in
+      match get_pif_type ~__context ~pif_rec with
+      | Network_sriov _ :: _ ->
         Xapi_network_sriov_helpers.sriov_bring_down ~__context ~self:pif
-      | VLAN_master_on_network_sriov _ ->
+      | VLAN _ :: tl when List.exists (fun x -> match x with Network_sriov _ -> true | _ -> false) tl ->
         Db.PIF.set_currently_attached ~__context ~self:pif ~value:false
       | _ ->
         Network.transform_networkd_exn pif (fun () ->

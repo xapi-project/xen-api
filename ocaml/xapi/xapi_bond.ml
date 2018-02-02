@@ -334,6 +334,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
       (* 7. Members must have the same PIF properties *)
       (* 8. Only the primary PIF should have a non-None IP configuration *)
       List.iter (fun self ->
+          Xapi_pif_helpers.assert_pif_is_managed ~__context ~self;
           Xapi_pif_helpers.bond_is_allowed_on_pif ~__context ~self;
           let pool = Helpers.get_pool ~__context in
           if Db.Pool.get_ha_enabled ~__context ~self:pool && Db.PIF.get_management ~__context ~self
