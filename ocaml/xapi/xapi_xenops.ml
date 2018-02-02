@@ -505,6 +505,7 @@ module MD = struct
       ipv4_configuration = ipv4_configuration;
       ipv6_configuration = ipv6_configuration;
       pvs_proxy;
+      vlan = None
     }
 
   let pcis_of_vm ~__context (vmref, vm) =
