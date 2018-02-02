@@ -1,0 +1,26 @@
+opam-version: "1"
+maintainer: "dave.scott@eu.citrix.com"
+
+build: [
+  "jbuilder" "build" "-p" name "-j" jobs
+]
+
+build-test: ["jbuilder" "runtest" "-p" name]
+
+depends: [
+  "jbuilder" {build}
+  "uuidm"
+  "xapi-stdext-monadic"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-std"
+  "xapi-stdext-threads"
+  "xapi-stdext-unix"
+  "cohttp" {>= "0.11.0"}
+  "uri"
+  "re"
+  "rpc"
+  "xapi-idl"
+  "xenstore"
+  "xenstore_transport"
+  "xenctrl" {>= "0.9.20"}
+]

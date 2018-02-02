@@ -20,13 +20,9 @@
 	2. not depend on any other info beyond domain_getinfolist and xenstore.
 *)
 open Xcp_service
-open Stdext
 open Squeezed_xenstore
-open Pervasiveext
-open Threadext
-open Listext
-open Xstringext
-open Fun
+open Xapi_stdext_threads.Threadext
+open Xapi_stdext_monadic
 
 module M = Debug.Make(struct let name = "memory" end)
 let debug = Squeeze.debug
@@ -207,7 +203,7 @@ module Domain = struct
          let process_one_watch xc xs (path, token) =
            if path = _introduceDomain || path = _releaseDomain
            then look_for_different_domains ()
-           else match List.filter (fun x -> x <> "") (Xstringext.String.split '/' path) with
+           else match (Astring.String.cuts ~empty:false ~sep:"/" path) with
              | "local" :: "domain" :: domid :: rest when List.mem rest interesting_paths ->
                let value = try Some (Client.read xs path) with _ -> None in
                let domid = int_of_string domid in
@@ -230,7 +226,7 @@ module Domain = struct
                 Client.watch xs _releaseDomain "squeezed";
                 dequeue_watches (process_one_watch xc xs)) in
          while true do
-           finally
+           Xapi_stdext_pervasives.Pervasiveext.finally
              (fun () ->
                 debug "(re)starting xenstore watch thread";
                 Xenctrl.with_intf register_for_watches)

@@ -1,43 +1,26 @@
-CONFIGUREFLAGS=--enable-tests
+.PHONY: release build install uninstall clean test doc reindent
 
-# OASIS_START
-# DO NOT EDIT (digest: a3c674b4239234cbbe53afe090018954)
+release:
+	jbuilder build @install
 
-SETUP = ocaml setup.ml
+build:
+	jbuilder build @install --dev
 
-build: setup.data
-	$(SETUP) -build $(BUILDFLAGS)
+install:
+	install -D -m 0755 ./_build/default/src/squeezed.exe $(DESTDIR)/squeezed
 
-doc: setup.data build
-	$(SETUP) -doc $(DOCFLAGS)
-
-test: setup.data build
-	$(SETUP) -test $(TESTFLAGS)
-
-all:
-	$(SETUP) -all $(ALLFLAGS)
-
-install: setup.data
-	$(SETUP) -install $(INSTALLFLAGS)
-
-uninstall: setup.data
-	$(SETUP) -uninstall $(UNINSTALLFLAGS)
-
-reinstall: setup.data
-	$(SETUP) -reinstall $(REINSTALLFLAGS)
+uninstall:
+	rm $(DESTDIR)/squeezed
 
 clean:
-	$(SETUP) -clean $(CLEANFLAGS)
+	jbuilder clean
 
-distclean:
-	$(SETUP) -distclean $(DISTCLEANFLAGS)
+test:
+	jbuilder runtest
 
-setup.data:
-	$(SETUP) -configure $(CONFIGUREFLAGS)
+# requires odoc
+doc:
+	jbuilder build @doc
 
-configure:
-	$(SETUP) -configure $(CONFIGUREFLAGS)
-
-.PHONY: build doc test all install uninstall reinstall clean distclean configure
-
-# OASIS_STOP
+reindent:
+	git ls-files '*.ml*' | xargs ocp-indent --inplace

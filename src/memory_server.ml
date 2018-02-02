@@ -15,12 +15,12 @@
  * @group Memory
 *)
 open Xcp_service
-open Stdext
+
 open Memory_interface
 open Squeezed_state
 open Squeezed_xenstore
-open Threadext
-open Pervasiveext
+open Xapi_stdext_monadic
+open Xapi_stdext_unix
 
 module D = Debug.Make(struct let name = Memory_interface.service_name end)
 open D
@@ -28,7 +28,7 @@ open D
 type context = unit
 
 (** The main body of squeezed is single-threaded, so we protect it with a mutex here. *)
-let big_server_mutex = Mutex.create ()
+let big_server_mutex = Xapi_stdext_threads.Threadext.Mutex.create ()
 
 let wrap dbg f =
   try
@@ -36,7 +36,7 @@ let wrap dbg f =
 		Debug.with_thread_associated dbg
 		(fun () ->
 *)
-    Mutex.execute big_server_mutex f
+    Xapi_stdext_threads.Threadext.Mutex.execute big_server_mutex f
 (*
 		) ()
 *)
@@ -207,10 +207,10 @@ let get_total_memory_from_balloon_driver () =
 
 let get_total_memory_from_proc_meminfo () =
   let ic = open_in "/proc/meminfo" in
-  finally
+  Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
        let rec loop () =
-         match Xstringext.String.split_f Xstringext.String.isspace (input_line ic) with
+         match Astring.String.fields ~empty:false (input_line ic) with
          | [ "MemTotal:"; total; "kB" ] ->
            Some (Int64.(mul (of_string total) 1024L))
          | _ -> loop () in
