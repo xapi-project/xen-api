@@ -1684,6 +1684,12 @@ let rrd_cf_type = Enum ("rrd_cf_type",
 
 (* Install and UnInstall correspond to autogenerate create/delete functions *)
 
+let domain_type =
+  Enum ("domain_type", [ "hvm", "HVM; Fully Virtualised";
+                         "pv", "PV: Paravirtualised";
+                         "pv_in_pvh", "PV inside a PVH container";
+                         "unspecified", "Not specified or unknown domain type" ])
+
 let vm_get_boot_record = call
     ~name:"get_boot_record"
     ~in_oss_since:None
@@ -8190,7 +8196,8 @@ let vm =
            ~ty:Bool "has_vendor_device" "When an HVM guest starts, this controls the presence of the emulated C000 PCI device which triggers Windows Update to fetch or update PV drivers.";
          field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_ely, ""] ~default_value:(Some (VBool false))
            "requires_reboot" "Indicates whether a VM requires a reboot in order to update its configuration, e.g. its memory allocation.";
-         field ~qualifier:StaticRO ~ty:String ~in_product_since:rel_ely ~default_value:(Some (VString "")) "reference_label" "Textual reference to the template used to create a VM. This can be used by clients in need of an immutable reference to the template since the latter's uuid and name_label may change, for example, after a package installation or upgrade."
+         field ~qualifier:StaticRO ~ty:String ~in_product_since:rel_ely ~default_value:(Some (VString "")) "reference_label" "Textual reference to the template used to create a VM. This can be used by clients in need of an immutable reference to the template since the latter's uuid and name_label may change, for example, after a package installation or upgrade.";
+         field ~qualifier:StaticRO ~ty:domain_type ~internal_only:true ~lifecycle:[Published, rel_jura, ""] ~default_value:(Some (VEnum "unspecified")) "domain_type" "Not yet implemented (for future use)";
        ])
     ()
 
@@ -8252,6 +8259,10 @@ let vm_metrics =
       ; field ~in_product_since:rel_ely ~default_value:(Some (VBool false))
           ~ty:Bool ~qualifier:DynamicRO
           "nomigrate" "VM is immobile and can't migrate between hosts"
+          ~persist:false
+      ; field ~lifecycle:[Published, rel_jura, ""] ~default_value:(Some (VEnum "unspecified"))
+          ~ty:domain_type ~qualifier:DynamicRO
+          "current_domain_type" "Not yet implemented (for future use)"
           ~persist:false
       ]
     ()

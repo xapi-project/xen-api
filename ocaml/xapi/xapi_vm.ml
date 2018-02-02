@@ -515,6 +515,7 @@ let create ~__context ~name_label ~name_description
     ~hvm:false
     ~nested_virt:false
     ~nomigrate:false
+    ~current_domain_type:`unspecified
   ;
   let platform = platform |> (Xapi_vm_helpers.ensure_device_model_profile_present ~__context ~hVM_boot_policy) in
   Db.VM.create ~__context ~ref:vm_ref ~uuid:(Uuid.to_string uuid)
@@ -566,6 +567,7 @@ let create ~__context ~name_label ~name_description
     ~hardware_platform_version
     ~has_vendor_device
     ~requires_reboot:false ~reference_label
+    ~domain_type:`unspecified
   ;
   Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
