@@ -73,6 +73,15 @@ let maybe f = function
 let scan_bus = B.pci_scan_bus
 
 let with_string ?(size=1024) f =
+  (* Using an ocaml string violates this rule from the ctypes FAQ:
+   * string is unsuitable for binding to C functions that write
+   * into the string.
+   * The caveats from ocaml_string do not apply (we do not release
+   * the runtime lock (the default) or call back into OCaml from
+   * these functions), because string actually does a copy,
+   * however the lifetime of the value returned by libpci is bound
+   * to the lifetime of the input parameter, which can be moved
+   * by the GC and cause problems. *)
   let buf = CArray.make char ~initial:'\x00' size in
   f (CArray.start buf) size
 
