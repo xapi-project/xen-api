@@ -52,21 +52,15 @@ let create_cluster ~__context =
 let test_create_destroy_status () =
   let __context = Test_common.make_test_database () in
   let cluster = create_cluster ~__context in
-  assert_equal ~msg:"cluster daemon started after create" true !Xapi_clustering.Daemon.started;
-  pool_destroy ~__context ~self:cluster;
-  assert_equal ~msg:"cluster daemon not started after destroy" false !Xapi_clustering.Daemon.started
+  pool_destroy ~__context ~self:cluster
 
 let test_enable () =
   let __context = Test_common.make_test_database () in
   let cluster = create_cluster ~__context in
-  assert_equal ~msg:"cluster daemon started" true !Xapi_clustering.Daemon.started;
   (* simulate xapi getting restarted *)
-  Xapi_clustering.Daemon.started := false;
 
   Create_storage.maybe_reenable_cluster_host __context;
-  assert_equal ~msg:"cluster daemon started after enable" true !Xapi_clustering.Daemon.started;
-  pool_destroy ~__context ~self:cluster;
-  assert_equal ~msg:"cluster daemon not started after destroy" false !Xapi_clustering.Daemon.started
+  pool_destroy ~__context ~self:cluster
 
 let test =
   "test_cluster" >:::
