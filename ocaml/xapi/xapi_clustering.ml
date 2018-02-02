@@ -168,12 +168,14 @@ module Daemon = struct
   let enable ~__context =
     debug "Enabling and starting the clustering daemon";
     maybe_call_script ~__context "/usr/bin/systemctl" [ "enable"; service ];
-    maybe_call_script ~__context "/usr/bin/systemctl" [ "start"; service ]
+    maybe_call_script ~__context "/usr/bin/systemctl" [ "start"; service ];
+    debug "Cluster daemon: enabled & started"
 
   let disable ~__context =
     debug "Disabling and stopping the clustering daemon";
     maybe_call_script ~__context "/usr/bin/systemctl" [ "disable"; service ];
-    maybe_call_script ~__context "/usr/bin/systemctl" [ "stop"; service ]
+    maybe_call_script ~__context "/usr/bin/systemctl" [ "stop"; service ];
+    debug "Cluster daemon: disabled & stopped"
 end
 
 (* xapi-clusterd only listens on message-switch,
