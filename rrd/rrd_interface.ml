@@ -18,6 +18,9 @@
  * thread), used by RRD client (part of xapi).
  *)
 
+open Rpc
+open Idl
+
 let service_name = "rrd"
 let queue_name = ref (Xcp_service.common_prefix ^ service_name)
 
@@ -32,92 +35,334 @@ let set_sockets_dir x =
 
 let uri () = "file:" ^ !default_path
 
-type plugin_protocol = | V1 | V2
+(** Version 1 or 2 of plugin protocol *)
+type plugin_protocol =
+  | V1
+  (** Plugin protocol 1 *)
+  | V2
+  (** Plugin protocol 2 *)
+[@@default V2]
+[@@deriving rpcty]
 
-type interdomain_uid = {
-	name: string;
-	frontend_domid: int;
-}
+(** Domain ID of VM *)
+type interdomain_uid =
+  { name: string;
+    (** VM domain name *)
+    frontend_domid: int
+    (** Front-end domain ID number *)
+  }
+[@@deriving rpcty]
 
-type interdomain_info = {
-	frequency: Rrd.sampling_frequency;
-	shared_page_refs: int list;
-}
+type rrd_freq = Rrd.sampling_frequency
+[@@deriving rpcty]
 
-exception Archive_failed of string
+type sflat_lst = Rrd.Statefile_latency.t list
+[@@deriving rpcty]
 
-(* The interface is defined by extern function declarations. *)
+(** Domain database sampling info *)
+type interdomain_info =
+  { frequency: rrd_freq;
+    (** interdomain rrd sampling frequency *)
+    shared_page_refs: int list
+    (** list of shared page references *)
+  }
+[@@deriving rpcty]
 
-external has_vm_rrd : vm_uuid:string -> bool = ""
+type string_opt = string option
+[@@deriving rpcty]
 
-external push_rrd_local : vm_uuid:string -> domid:int -> unit = ""
-external push_rrd_remote : vm_uuid:string -> remote_address:string -> unit = ""
-external remove_rrd : uuid:string -> unit = ""
-external migrate_rrd : ?session_id:string -> remote_address:string ->
-	vm_uuid:string -> host_uuid:string -> unit = ""
-external send_host_rrd_to_master : master_address:string -> unit = ""
-external backup_rrds : ?remote_address:string option -> unit -> unit = ""
-external archive_rrd : vm_uuid:string -> remote_address:string option -> unit = ""
+type ds_list = Data_source.t list
+[@@deriving rpcty]
 
-external archive_sr_rrd : sr_uuid:string -> string = ""
-external push_sr_rrd : sr_uuid:string -> path:string -> unit = ""
+(** Rrdd error type *)
+type rrd_errors =
+  | Archive_failed of string
+  | Rrdd_failure
+[@@default Rrdd_failure]
+[@@deriving rpcty]
 
-external add_host_ds : ds_name:string -> unit = ""
-external forget_host_ds : ds_name:string -> unit = ""
-external query_possible_host_dss : unit -> Data_source.t list = ""
-external query_host_ds : ds_name:string -> float = ""
+exception Rrdd_error of rrd_errors
 
-external add_vm_ds : vm_uuid:string -> domid:int -> ds_name:string -> unit = ""
-external forget_vm_ds : vm_uuid:string -> ds_name:string -> unit = ""
-external query_possible_vm_dss : vm_uuid:string -> Data_source.t list = ""
-external query_vm_ds : vm_uuid:string -> ds_name:string -> float = ""
+(** Error handler *)
+module RrdErrHandler = Error.Make(struct
+    type t = rrd_errors
+    let t = rrd_errors
+  end)
+let rrd_err = RrdErrHandler.error
 
-external add_sr_ds : sr_uuid:string -> ds_name:string -> unit = ""
-external forget_sr_ds : sr_uuid:string -> ds_name:string -> unit = ""
-external query_possible_sr_dss : sr_uuid:string -> Data_source.t list = ""
-external query_sr_ds : sr_uuid:string -> ds_name:string -> float = ""
+module RPC_API(R : RPC) = struct
+  open R
 
-external update_use_min_max : value:bool -> unit = ""
+  let description =
+    Interface.{ name = "Rrd"
+              ; namespace = None
+              ; description =
+                  [ "This interface is used by Xapi and Rrdd to manage "
+                  ; "round robin database sampling of dom0 databases. " ]
+              ; version=(1,0,0)
+              }
 
-external update_vm_memory_target : domid:int -> target:int64 -> unit = ""
+  let implementation = implement description
 
-external set_cache_sr : sr_uuid:string -> unit = ""
-external unset_cache_sr : unit -> unit = ""
+  (** Common API call parameter definitions *)
 
-module Plugin = struct
-	external get_header : unit -> string = ""
-	external get_path : uid:string -> string = ""
+  let unit_p = Param.mk Types.unit
+  let string_p = Param.mk Types.string
+  let float_p = Param.mk Types.float
+  let uuid_p = Param.mk ~name:"uuid" ~description:
+      [ "Unique user ID" ] Types.string
+  let vm_uuid_p = Param.mk ~name:"vm_uuid" ~description:
+      [ "Unique VM ID" ] Types.string
+  let domid_p = Param.mk ~name:"domid" ~description:
+      [ "Unique domain ID of VM" ] Types.int
+  let sr_uuid_p = Param.mk ~name:"sr_uuid" ~description:
+      [ "Unique SR ID" ] Types.string
 
-	module Local = struct
-		external register : uid:string -> info:Rrd.sampling_frequency ->
-			protocol:plugin_protocol -> float = ""
-		external deregister : uid:string -> unit = ""
-		external next_reading : uid:string -> float = ""
-	end
+  let ds_name_p = Param.mk ~name:"ds_name" ~description:
+      [ "Domain server name" ] Types.string
+  let remote_addr_p = Param.mk ~name:"remote_address" ~description:
+      [ "Remote address of ---" ] Types.string (* TODO *)
 
-	module Interdomain = struct
-		external register : uid:interdomain_uid ->
-			info:interdomain_info ->
-			protocol:plugin_protocol -> float = ""
-		external deregister : uid:interdomain_uid -> unit = ""
-		external next_reading : uid:interdomain_uid -> float = ""
-	end
+  let ds_list_p = Param.mk ~name:"data_source list"
+      ~description: [ "Datasource list" ] ds_list
 
-	external register : uid:string -> frequency:Rrd.sampling_frequency ->
-		float = ""
-	external deregister : uid:string -> unit = ""
-	external next_reading : uid:string -> float = ""
-end
+  (** API call definitions *)
 
-module HA = struct
-	external enable_and_update :
-		statefile_latencies:Rrd.Statefile_latency.t list ->
-		heartbeat_latency:float -> xapi_latency:float -> unit = ""
-	external disable : unit -> unit = ""
-end
+  let has_vm_rrd =
+    let bool_p = Param.mk Types.bool in
+    declare "has_vm_rrd"
+      [ "docstring" ]
+      ( vm_uuid_p @-> returning bool_p rrd_err)
 
-module Deprecated = struct
-	(* Could change timescale to sum type, e.g. Slow | Fast.*)
-	external load_rrd : uuid:string -> timescale:int ->
-		master_address:string option -> unit = ""
+  let push_rrd_local = declare "push_rrd_local"
+      [ "docstring" ]
+      (vm_uuid_p @-> domid_p @-> returning unit_p rrd_err)
+
+  let rem_addr_str = Param.mk ~name:"remote address" ~description:
+      [ "Address of remote" ] Types.string
+  let push_rrd_remote = declare "push_rrd_remote"
+      [ "docstring" ]
+      (vm_uuid_p @-> rem_addr_str @-> returning unit_p rrd_err)
+
+  let remove_rrd = declare "remove_rrd"
+      [ "docstring" ]
+      (uuid_p @-> returning unit_p rrd_err)
+
+  let migrate_rrd =
+    let host_uuid_p = Param.mk ~name:"host_uuid" ~description:
+        [ "Unique ID of server/host" ] Types.string in
+    let session_id_p = Param.mk ~name:"session_id" ~description:
+        [ "ID of the session" ] string_opt in
+    declare "migrate_rrd"
+      [ "docstring" ]
+      (session_id_p
+       @-> rem_addr_str
+       @-> vm_uuid_p
+       @-> host_uuid_p
+       @-> returning unit_p rrd_err)
+
+
+  let mast_addr_str = Param.mk ~name:"master address" ~description:
+      [ "Address of remote" ] Types.string
+  let send_host_rrd_to_master = declare "send_host_rrd_to_master"
+      [ "docstring" ]
+      (mast_addr_str @-> returning unit_p rrd_err)
+
+  let rem_addr_opt_p = Param.mk ~name:"remote address" ~description:
+      [ "Address of the remote" ] string_opt
+  let backup_rrds = declare "backup_rrds"
+      [ "docstring" ]
+      (rem_addr_opt_p @-> unit_p @-> returning unit_p rrd_err)
+
+  let archive_rrd = declare "archive_rrd"
+      [ "docstring" ]
+      (vm_uuid_p @-> rem_addr_opt_p @-> returning unit_p rrd_err)
+
+  let archive_sr_rrd = declare "archive_sr_rrd"
+      [ "docstring" ]
+      (sr_uuid_p @-> returning string_p rrd_err)
+
+  let push_sr_rrd =
+    let path_p = Param.mk ~name:"path" ~description:
+        [ "Filepath" ] Types.string in
+    declare "push_sr_rrd"
+      [ "docstring" ]
+      (sr_uuid_p @-> path_p @-> returning unit_p rrd_err)
+
+  let add_host_ds = declare "add_host_ds"
+      [ "docstring" ]
+      (ds_name_p @-> returning unit_p rrd_err)
+
+  let forget_host_ds = declare "forget_host_ds"
+      [ "docstring" ]
+      (ds_name_p @-> returning unit_p rrd_err)
+
+  let query_possible_host_dss =
+    declare "query_possible_host_dss"
+      [ "docstring" ]
+      (unit_p @-> returning ds_list_p rrd_err)
+
+  let query_host_ds = declare "query_host_ds"
+      [ "docstring" ]
+      (ds_name_p @-> returning float_p rrd_err)
+
+
+  let add_vm_ds = declare "add_vm_ds"
+      [ "docstring" ]
+      (vm_uuid_p @-> domid_p @-> ds_name_p @-> returning unit_p rrd_err)
+
+  let forget_vm_ds = declare "forget_vm_ds"
+      [ "docstring" ]
+      (vm_uuid_p @-> ds_name_p @-> returning unit_p rrd_err)
+
+  let query_possible_vm_dss = declare "query_possible_vm_dss"
+      [ "docstring" ]
+      (vm_uuid_p @-> returning ds_list_p rrd_err)
+
+  let query_vm_ds = declare "query_vm_ds"
+      [ "docstring" ]
+      (vm_uuid_p @-> ds_name_p @-> returning float_p rrd_err)
+
+  let add_sr_ds = declare "add_sr_ds"
+      [ "docstring" ]
+      (sr_uuid_p @-> ds_name_p @-> returning unit_p rrd_err)
+
+  let forget_sr_ds = declare "forget_sr_ds"
+      [ "docstring" ]
+      (sr_uuid_p @-> ds_name_p @-> returning unit_p rrd_err)
+
+  let query_possible_sr_dss = declare "query_possible_sr_dss"
+      [ "docstring" ]
+      (sr_uuid_p @-> returning ds_list_p rrd_err)
+
+  let query_sr_ds = declare "query_sr_ds"
+      [ "docstring" ]
+      (sr_uuid_p @-> ds_name_p @-> returning float_p rrd_err)
+
+  let update_use_min_max =
+    let value_p = Param.mk ~name:"value" ~description:
+        [ "Value dictating whether to use min_max" ] Types.bool in
+    declare "update_use_min_max"
+      [ "docstring" ]
+      (value_p @-> returning unit_p rrd_err)
+
+  let update_vm_memory_target =
+    let target_p = Param.mk ~name:"target" ~description:
+        [ "Int64 representing VM memory target" ] Types.int64 in
+    declare "update_vm_memory_target"
+      [ "docstring" ]
+      (domid_p @-> target_p @-> returning unit_p rrd_err)
+
+  let set_cache_sr = declare "set_cache_sr"
+      [ "docstring" ]
+      (sr_uuid_p @-> returning unit_p rrd_err)
+
+  let unset_cache_sr = declare "unset_cache_sr"
+      [ "docstring" ]
+      (unit_p @-> returning unit_p rrd_err)
+
+
+  module Plugin = struct
+
+    let uid_p = Param.mk ~name:"uid" ~description:
+        [ "Unique ID" ] Types.string
+    let info_p = Param.mk ~name:"info" ~description:
+        [ "Interdomain information" ] interdomain_info
+    let protocol_p = Param.mk ~name:"protocol" ~description:
+        [ "Plugin protocol version" ] plugin_protocol
+
+    let get_header = declare "get_header"
+        [ "Returns header string." ]
+        (unit_p @-> returning string_p rrd_err)
+
+    let get_path = declare "get_path"
+        [ "Returns path of protocol." ]
+        (uid_p @-> returning string_p rrd_err)
+
+    module Local = struct
+      let register =
+        let info_p = Param.mk ~name:"info" ~description:
+            [ "Local rrd info" ] rrd_freq in
+        declare "register"
+          [ "docstring" ]
+          (uid_p @-> info_p @-> protocol_p @-> returning float_p rrd_err)
+
+      let deregister = declare "deregister"
+          [ "docstring" ]
+          (uid_p @-> returning unit_p rrd_err)
+
+      let next_reading = declare "next_reading"
+          [ "docstring" ]
+          (uid_p @-> returning float_p rrd_err)
+    end
+
+    module Interdomain = struct
+
+      let iduid_p = Param.mk ~name:"uid" ~description:
+          [ "Interdomain ID number" ] interdomain_uid
+
+      let register =
+        declare "register"
+          [ "docstring" ]
+          (iduid_p @-> info_p @-> returning protocol_p rrd_err)
+
+      let deregister = declare "deregister"
+          [ "docstring" ]
+          (iduid_p @-> returning unit_p rrd_err)
+
+      let next_reading = declare "next_reading"
+          [ "docstring" ]
+          (iduid_p @-> returning float_p rrd_err)
+    end
+
+    let register =
+      let freq_p = Param.mk ~name:"frequency" ~description:
+          [ "Rrd sampling frequency" ] rrd_freq in
+      declare "register"
+        [ "docstring" ]
+        (uid_p @-> freq_p @-> returning float_p rrd_err)
+
+    let deregister = declare "deregister"
+        [ "docstring" ]
+        (uid_p @-> returning unit_p rrd_err)
+
+    let next_reading = declare "next_reading"
+        [ "docstring" ]
+        (uid_p @-> returning float_p rrd_err)
+  end
+
+  (** High availability module *)
+  module HA = struct
+
+    let enable_and_update =
+      let heartb_lat_p = Param.mk ~name:"heartbeat_latency" ~description:
+          [ "Time taken for heartbeat signal to travel" ] Types.float in
+      let xapi_lat_p = Param.mk ~name:"xapi_latency" ~description:
+          [ "Time taken for Xapi to respond" ] Types.float in
+      let stfile_lats_p = Param.mk ~name:"statefile_latencies"
+          ~description:[ "Time taken for statefiles to update" ]
+          sflat_lst in
+      declare "enable_and_update"
+        [ "docstring" ]
+        (stfile_lats_p @-> heartb_lat_p @-> xapi_lat_p @-> returning unit_p rrd_err)
+
+    let disable = declare "disable"
+        [ "docstring" ]
+        (unit_p @-> returning unit_p rrd_err)
+  end
+
+  module Deprecated = struct
+
+    let load_rrd = (* TODO: there can only be one *)
+      let timescale_int_p = Param.mk ~name:"timescale" ~description:
+          [ "Speed of round-robin database loading" ] Types.int in
+      let mast_addr_opt_p = Param.mk ~name:"master address" ~description:
+          [ "Address of master" ] string_opt in
+      declare "load_rrd"
+        [ "docstring" ]
+        (uuid_p
+         @-> timescale_int_p
+         @-> mast_addr_opt_p
+         @-> returning unit_p rrd_err)
+  end
 end
