@@ -24,6 +24,7 @@ open Pervasiveext
 open Xstringext
 open Threadext
 open Network
+open Xapi_pif_helpers
 
 let get_device_pci ~__context ~host ~device =
   let dbg = Context.string_of_task __context in
@@ -212,10 +213,6 @@ let assert_no_tunnels ~__context ~self =
 let assert_not_management_pif ~__context ~self =
   if Db.PIF.get_management ~__context ~self then
     raise (Api_errors.Server_error (Api_errors.pif_is_management_iface, [ Ref.string_of self ]))
-
-let assert_pif_is_managed ~__context ~self =
-  if Db.PIF.get_managed ~__context ~self <> true then
-    raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of self]))
 
 let assert_not_slave_management_pif ~__context ~self =
   if true

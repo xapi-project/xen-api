@@ -45,36 +45,26 @@ let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =
 
 let create ~__context ~tagged_PIF ~tag ~network =
   Xapi_network.assert_network_is_managed ~__context ~self:network;
-  if Db.PIF.get_managed ~__context ~self:tagged_PIF <> true then
-    raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of tagged_PIF]));
-
   let host = Db.PIF.get_host ~__context ~self:tagged_PIF in
   Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
-
-  if Db.PIF.get_bond_slave_of ~__context ~self:tagged_PIF <> Ref.null then
-    raise (Api_errors.Server_error (Api_errors.cannot_add_vlan_to_bond_slave, [Ref.string_of tagged_PIF]));
-
-  (* Check that the tagged PIF is not a VLAN itself - CA-25160. This check can be skipped using the allow_vlan_on_vlan FIST point. *)
-  let origtag = Db.PIF.get_VLAN ~__context ~self:tagged_PIF in
-  if origtag >= 0L && not (Xapi_fist.allow_vlan_on_vlan()) then
-    raise (Api_errors.Server_error (Api_errors.pif_is_vlan, [Ref.string_of tagged_PIF]));
+  Xapi_pif_helpers.assert_pif_is_managed ~__context ~self:tagged_PIF;
+  Xapi_pif_helpers.vlan_is_allowed_on_pif ~__context ~tagged_PIF ~tag;
 
   (* Check the VLAN tag is sensible;  4095 is reserved for implementation use (802.1Q) *)
   if tag<0L || tag>4094L then
     raise (Api_errors.Server_error (Api_errors.vlan_tag_invalid, [Int64.to_string tag]));
 
-  let device = Db.PIF.get_device ~__context ~self:tagged_PIF in
   let vlans = Db.VLAN.get_records_where ~__context
       ~expr:(Db_filter_types.And (Db_filter_types.Eq (Db_filter_types.Field "tagged_PIF", Db_filter_types.Literal (Ref.string_of tagged_PIF)),
                                   Db_filter_types.Eq (Db_filter_types.Field "tag", Db_filter_types.Literal (Int64.to_string tag)))) in
-  if vlans <> [] then
-    raise (Api_errors.Server_error (Api_errors.pif_vlan_exists, [device]));
-
-  if Db.PIF.get_tunnel_access_PIF_of ~__context ~self:tagged_PIF <> [] then
-    raise (Api_errors.Server_error (Api_errors.is_tunnel_access_pif, [Ref.string_of tagged_PIF]));
+  if vlans <> [] then begin
+    let device = Db.PIF.get_device ~__context ~self:tagged_PIF in
+    raise (Api_errors.Server_error (Api_errors.pif_vlan_exists, [device]))
+  end;
 
   (* Check the VLAN is not in use by the kernel *)
   let open Network in
+  let device = Db.PIF.get_device ~__context ~self:tagged_PIF in
   if Net.Interface.has_vlan (Context.string_of_task __context) ~name:device ~vlan:(Int64.to_int tag) then
     raise (Api_errors.Server_error (Api_errors.vlan_in_use, [device; Int64.to_string tag]));
 
