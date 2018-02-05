@@ -52,6 +52,7 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~to
         name = None
       } in
 
+      Xapi_clustering.Daemon.enable ~__context;
       let result = Cluster_client.LocalClient.create (rpc ~__context) dbg init_config in
       match result with
       | Result.Ok cluster_token ->
@@ -87,7 +88,7 @@ let destroy ~__context ~self =
       Db.Cluster_host.destroy ~__context ~self:ch
     ) cluster_host;
     Db.Cluster.destroy ~__context ~self;
-    Xapi_clustering.Daemon.stop ~__context
+    Xapi_clustering.Daemon.disable ~__context
   | Result.Error error -> handle_error error
 
 (* helper function; concurrency checks are done in implementation of Cluster.create and Cluster_host.create *)

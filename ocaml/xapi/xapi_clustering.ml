@@ -159,31 +159,23 @@ let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__conte
     srs
 
 module Daemon = struct
-  let started = ref false
-  let m = Mutex.create ()
-
   let maybe_call_script ~__context script params =
     match Context.get_test_clusterd_rpc __context with
     | Some _ -> debug "in unit test, not calling %s %s" script (String.concat " " params)
     | None -> ignore (Helpers.call_script script params)
 
-  let require ~__context =
-    Stdext.Threadext.Mutex.execute m (fun () ->
-        (* this function gets called on each RPC, it should only call out to `/sbin/service` when needed *)
-        if not !started then begin
-            debug "Cluster daemon: not started, starting it now";
-            maybe_call_script ~__context "/sbin/service" [ "xapi-clusterd"; "start" ];
-            started := true;
-            debug "Cluster daemon: started"
-          end)
+  let service = "xapi-clusterd"
+  let enable ~__context =
+    debug "Enabling and starting the clustering daemon";
+    maybe_call_script ~__context "/usr/bin/systemctl" [ "enable"; service ];
+    maybe_call_script ~__context "/usr/bin/systemctl" [ "start"; service ];
+    debug "Cluster daemon: enabled & started"
 
-  let stop ~__context =
-    Stdext.Threadext.Mutex.execute m (fun () ->
-        debug "Cluster daemon: stopping";
-        started := false;
-        maybe_call_script ~__context "/sbin/service" [ "xapi-clusterd"; "stop" ];
-        debug "Cluster daemon: stopped"
-      );
+  let disable ~__context =
+    debug "Disabling and stopping the clustering daemon";
+    maybe_call_script ~__context "/usr/bin/systemctl" [ "disable"; service ];
+    maybe_call_script ~__context "/usr/bin/systemctl" [ "stop"; service ];
+    debug "Cluster daemon: disabled & stopped"
 end
 
 (* xapi-clusterd only listens on message-switch,
@@ -192,7 +184,6 @@ end
  * Instead of returning an empty URL which wouldn't work just raise an
  * exception. *)
 let rpc ~__context =
-  Daemon.require ~__context;
   match Context.get_test_clusterd_rpc __context with
   | Some rpc -> rpc
   | None ->

@@ -81,6 +81,7 @@ let create ~__context ~cluster ~host =
           pif_of_host ~__context network |>
           ip_of_pif
         ) (Db.Cluster.get_cluster_hosts ~__context ~self:cluster) in
+      Xapi_clustering.Daemon.enable ~__context;
       let result = Cluster_client.LocalClient.join (rpc ~__context) dbg cluster_token ip ip_list in
       match result with
       | Result.Ok () ->
@@ -99,7 +100,7 @@ let force_destroy ~__context ~self =
   match result with
   | Result.Ok () ->
     Db.Cluster_host.destroy ~__context ~self;
-    Xapi_clustering.Daemon.stop ~__context
+    Xapi_clustering.Daemon.disable ~__context
   | Result.Error error -> handle_error error
 
 let destroy ~__context ~self =
@@ -112,7 +113,7 @@ let destroy ~__context ~self =
   match result with
   | Result.Ok () ->
     Db.Cluster_host.destroy ~__context ~self;
-    Xapi_clustering.Daemon.stop ~__context
+    Xapi_clustering.Daemon.disable ~__context
   | Result.Error error -> handle_error error
 
 let enable ~__context ~self =
@@ -147,7 +148,6 @@ let disable ~__context ~self =
       assert_operation_host_target_is_localhost ~__context ~host;
       assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self;
       let result = Cluster_client.LocalClient.disable (rpc ~__context) dbg in
-      Xapi_clustering.Daemon.stop ~__context;
       match result with
       | Result.Ok () ->
           Db.Cluster_host.set_enabled ~__context ~self ~value:false
