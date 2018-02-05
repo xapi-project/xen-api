@@ -174,7 +174,7 @@ module Attached_SRs = struct
   let state_path = ref None
 
   let add smapiv2 plugin uids =
-    Hashtbl.replace !sr_table smapiv2 { sr = plugin; uids };
+    Hashtbl.set !sr_table ~key:smapiv2 ~data:{ sr = plugin; uids };
     ( match !state_path with
       | None ->
         return ()
@@ -192,7 +192,7 @@ module Attached_SRs = struct
       let open Storage_interface in
       let exnty = Exception.Sr_not_attached smapiv2 in
       return (Error (Exception.rpc_of_exnty exnty))
-    | Some { sr } -> return (Ok sr)
+    | Some { sr; _ } -> return (Ok sr)
 
   let get_uids smapiv2 =
     match Hashtbl.find !sr_table smapiv2 with
@@ -200,7 +200,7 @@ module Attached_SRs = struct
       let open Storage_interface in
       let exnty = Exception.Sr_not_attached smapiv2 in
       return (Error (Exception.rpc_of_exnty exnty))
-    | Some { uids } -> return (Ok uids)
+    | Some { uids; _ } -> return (Ok uids)
 
   let remove smapiv2 =
     Hashtbl.remove !sr_table smapiv2;
@@ -229,7 +229,7 @@ module Datapath_plugins = struct
     >>= function
     | Ok response ->
       info "Registered datapath plugin %s" name;
-      Hashtbl.replace !table name response;
+      Hashtbl.set !table ~key:name ~data:response;
       return ()
     | _ ->
       info "Failed to register datapath plugin %s" name;
@@ -444,7 +444,7 @@ let process root_dir name x =
         match Uri.scheme uri with
         | Some "xeno+shm" ->
           let uid = Uri.path uri in
-          let uid = if String.length uid > 1 then String.sub uid 1 (String.length uid - 1) else uid in
+          let uid = if String.length uid > 1 then String.sub uid ~pos:1 ~len:(String.length uid - 1) else uid in
           RRD.Client.Plugin.Local.register ~uid ~info:Rrd.Five_Seconds ~protocol:Rrd_interface.V2
           >>= fun _ ->
           loop (uid :: acc) datasources
@@ -483,7 +483,7 @@ let process root_dir name x =
         match Uri.scheme uri with
         | Some "xeno+shm" ->
           let uid = Uri.path uri in
-          let uid = if String.length uid > 1 then String.sub uid 1 (String.length uid - 1) else uid in
+          let uid = if String.length uid > 1 then String.sub uid ~pos:1 ~len:(String.length uid - 1) else uid in
           RRD.Client.Plugin.Local.deregister ~uid
           >>= fun _ ->
           loop datasources
@@ -931,7 +931,7 @@ let process root_dir name x =
     let open Deferred.Result.Monad_infix in
     (* We don't do anything until the VDI.epoch_begin *)
     Deferred.Result.return (R.success (Args.VDI.Set_persistent.rpc_of_response ()))
-  | { R.name = name } ->
+  | { R.name = name; _ } ->
     Deferred.return (Error (backend_error "UNIMPLEMENTED" [ name ])))
   >>= function
   | Result.Error error ->
@@ -968,7 +968,7 @@ let watch_volume_plugins ~root_dir ~switch_path ~pipe =
         Message_switch_async.Protocol_async.Server.listen ~process:(process root_dir name) ~switch:switch_path ~queue:(Filename.basename name) ()
         >>= fun result ->
         let server = get_ok result in
-        Hashtbl.add_exn servers name server;
+        Hashtbl.add_exn servers ~key:name ~data:server;
         return ()
       end in
   let destroy switch_path name =
