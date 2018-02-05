@@ -8,4 +8,4 @@
 (alias
  ((name    runtest)
   (deps    (rrdp_dummy.exe))
-  (action  (run ${<}))))
+  (action  (run ${<} -help))))
