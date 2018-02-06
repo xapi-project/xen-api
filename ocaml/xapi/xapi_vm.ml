@@ -425,7 +425,8 @@ let suspend ~__context ~vm =
   Xapi_gpumon.update_vgpu_metadata ~__context ~vm;
   Xapi_xenops.suspend ~__context ~self:vm;
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
-  log_and_ignore_exn (fun () -> Rrdd.archive_rrd ~vm_uuid ~remote_address:(try Some (Pool_role.get_master_address ()) with _ -> None))
+  let remote_address = (try Some (Pool_role.get_master_address ()) with _ -> None) in
+  log_and_ignore_exn (fun () -> Rrdd.archive_rrd vm_uuid remote_address)
 
 let resume ~__context ~vm ~start_paused ~force =
   if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart
@@ -585,7 +586,8 @@ let destroy  ~__context ~self =
     (fun child -> try Db.VM.set_parent ~__context ~self:child ~value:parent with _ -> ())
     (Db.VM.get_children ~__context ~self);
 
-  log_and_ignore_exn (fun () -> Rrdd.remove_rrd ~uuid:(Db.VM.get_uuid ~__context ~self));
+  let uuid = Db.VM.get_uuid ~__context ~self in
+  log_and_ignore_exn (fun () -> Rrdd.remove_rrd uuid);
   destroy ~__context ~self
 
 (* Note: we don't need to call lock_vm around clone or copy. The lock_vm just takes the local
@@ -948,16 +950,21 @@ let get_boot_record ~__context ~self =
   Db.VM.get_record ~__context ~self
 
 let get_data_sources ~__context ~self =
-  List.map Rrdd_helper.to_API_data_source (Rrdd.query_possible_vm_dss ~vm_uuid:(Db.VM.get_uuid ~__context ~self))
+  let vm_uuid = Db.VM.get_uuid ~__context ~self in
+  List.map Rrdd_helper.to_API_data_source (Rrdd.query_possible_vm_dss vm_uuid)
+
 
 let record_data_source ~__context ~self ~data_source =
-  Rrdd.add_vm_ds ~vm_uuid:(Db.VM.get_uuid ~__context ~self)
-    ~domid:(Int64.to_int (Db.VM.get_domid ~__context ~self))
-    ~ds_name:data_source
+  Rrdd.add_vm_ds
+    (* vm_uuid *) (Db.VM.get_uuid ~__context ~self)
+    (* domid *)   (Int64.to_int (Db.VM.get_domid ~__context ~self))
+    (* ds_name *)  data_source
 
-let query_data_source ~__context ~self ~data_source = Rrdd.query_vm_ds ~vm_uuid:(Db.VM.get_uuid ~__context ~self) ~ds_name:data_source
+let query_data_source ~__context ~self ~data_source =
+  Rrdd.query_vm_ds (Db.VM.get_uuid ~__context ~self) data_source
 
-let forget_data_source_archives ~__context ~self ~data_source = Rrdd.forget_vm_ds ~vm_uuid:(Db.VM.get_uuid ~__context ~self) ~ds_name:data_source
+let forget_data_source_archives ~__context ~self ~data_source =
+  Rrdd.forget_vm_ds (Db.VM.get_uuid ~__context ~self) data_source
 
 let get_possible_hosts ~__context ~vm =
   let snapshot = Db.VM.get_record ~__context ~self:vm in

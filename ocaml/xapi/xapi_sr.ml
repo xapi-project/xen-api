@@ -387,7 +387,7 @@ let maybe_push_sr_rrds ~__context ~sr =
       let tmp_path = Filename.temp_file "push_sr_rrds" ".gz" in
       finally (fun () ->
           Unixext.write_string_to_file tmp_path x;
-          Rrdd.push_sr_rrd ~sr_uuid ~path:tmp_path
+          Rrdd.push_sr_rrd sr_uuid tmp_path
         ) (fun () -> Unixext.unlink_safe tmp_path)
 
 let maybe_copy_sr_rrds ~__context ~sr =
@@ -395,10 +395,10 @@ let maybe_copy_sr_rrds ~__context ~sr =
     let vdi = find_or_create_rrd_vdi ~__context ~sr in
     let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
     try
-      let archive_path = Rrdd.archive_sr_rrd ~sr_uuid in
+      let archive_path = Rrdd.archive_sr_rrd sr_uuid in
       let contents = Unixext.string_of_file archive_path in
       Xapi_vdi_helpers.write_raw ~__context ~vdi ~text:contents
-    with Rrd_interface.Archive_failed(msg) ->
+    with Rrd_interface.Rrdd_error(Archive_failed(msg)) ->
       warn "Archiving of SR RRDs to stats VDI failed: %s" msg
 
 (* Remove SR record from database without attempting to remove SR from disk.
@@ -785,9 +785,9 @@ let physical_utilisation_thread ~__context () =
       List.iter (fun sr ->
           let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
           try
-            let value = Rrdd.query_sr_ds ~sr_uuid ~ds_name:"physical_utilisation" |> Int64.of_float in
+            let value = Rrdd.query_sr_ds sr_uuid "physical_utilisation" |> Int64.of_float in
             Db.SR.set_physical_utilisation ~__context ~self:sr ~value
-          with Rrd_interface.Internal_error("Not_found") ->
+          with Rrd_interface.Rrdd_error(Rrd_failure(_)) ->
             debug "Cannot update physical utilisation for SR %s: RRD unavailable" sr_uuid
         ) (srs_to_update ())
     with e -> warn "Exception in SR physical utilisation scanning thread: %s" (Printexc.to_string e)
@@ -795,12 +795,11 @@ let physical_utilisation_thread ~__context () =
 
 (* APIs for accessing SR level stats *)
 let get_data_sources ~__context ~sr =
-  List.map Rrdd_helper.to_API_data_source (Rrdd.query_possible_sr_dss ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr))
+  List.map Rrdd_helper.to_API_data_source (Rrdd.query_possible_sr_dss (Db.SR.get_uuid ~__context ~self:sr))
 
 let record_data_source ~__context ~sr ~data_source =
-  Rrdd.add_sr_ds ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr)
-    ~ds_name:data_source
+  Rrdd.add_sr_ds (Db.SR.get_uuid ~__context ~self:sr) data_source
 
-let query_data_source ~__context ~sr ~data_source = Rrdd.query_sr_ds ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr) ~ds_name:data_source
+let query_data_source ~__context ~sr ~data_source = Rrdd.query_sr_ds (Db.SR.get_uuid ~__context ~self:sr) data_source
 
-let forget_data_source_archives ~__context ~sr ~data_source = Rrdd.forget_sr_ds ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr) ~ds_name:data_source
+let forget_data_source_archives ~__context ~sr ~data_source = Rrdd.forget_sr_ds (Db.SR.get_uuid ~__context ~self:sr) data_source

@@ -1694,7 +1694,7 @@ let update_vm ~__context id =
                     if different (fun x -> x.memory_target) then begin
                       try
                         debug "xenopsd event: Updating VM %s domid %d memory target" id domid;
-                        Rrdd.update_vm_memory_target ~domid ~target:state.memory_target;
+                        Rrdd.update_vm_memory_target domid state.memory_target;
                       with e ->
                         error "Caught %s: while updating VM %s memory_target" (Printexc.to_string e) id
                     end;

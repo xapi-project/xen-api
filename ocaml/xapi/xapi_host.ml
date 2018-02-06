@@ -524,9 +524,9 @@ let prepare_for_poweroff ~__context ~host =
 
   (* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
   if not(Pool_role.is_master ())
-  then log_and_ignore_exn ( fun () -> Rrdd.send_host_rrd_to_master ~master_address:(Pool_role.get_master_address () ));
+  then log_and_ignore_exn ( fun () -> Rrdd.send_host_rrd_to_master (Pool_role.get_master_address ()));
   (* Also save the Host RRD to local disk for us to pick up when we return. Note there are no VMs running at this point. *)
-  log_and_ignore_exn Rrdd.backup_rrds;
+  log_and_ignore_exn (Rrdd.backup_rrds None);
 
   (* This prevents anyone actually re-enabling us until after reboot *)
   Localdb.put Constants.host_disabled_until_reboot "true";
@@ -984,11 +984,11 @@ let compute_memory_overhead ~__context ~host =
 
 let get_data_sources ~__context ~host = List.map Rrdd_helper.to_API_data_source (Rrdd.query_possible_host_dss ())
 
-let record_data_source ~__context ~host ~data_source = Rrdd.add_host_ds ~ds_name:data_source
+let record_data_source ~__context ~host ~data_source = Rrdd.add_host_ds data_source
 
-let query_data_source ~__context ~host ~data_source = Rrdd.query_host_ds ~ds_name:data_source
+let query_data_source ~__context ~host ~data_source = Rrdd.query_host_ds data_source
 
-let forget_data_source_archives ~__context ~host ~data_source = Rrdd.forget_host_ds ~ds_name:data_source
+let forget_data_source_archives ~__context ~host ~data_source = Rrdd.forget_host_ds data_source
 
 let tickle_heartbeat ~__context ~host ~stuff = Db_gc.tickle_heartbeat ~__context host stuff
 
@@ -1047,7 +1047,8 @@ let sync_data ~__context ~host =
 let backup_rrds ~__context ~host ~delay =
   Xapi_periodic_scheduler.add_to_queue "RRD backup" Xapi_periodic_scheduler.OneShot
     delay (fun _ ->
-        log_and_ignore_exn (Rrdd.backup_rrds ~remote_address:(try Some (Pool_role.get_master_address ()) with _ -> None));
+        let remote_address = try Some (Pool_role.get_master_address ()) with _ -> None in
+        log_and_ignore_exn (Rrdd.backup_rrds remote_address);
         log_and_ignore_exn (fun () ->
             List.iter (fun sr ->
                 Xapi_sr.maybe_copy_sr_rrds ~__context ~sr
@@ -1536,14 +1537,17 @@ let enable_local_storage_caching ~__context ~host ~sr =
     List.mem_assoc Smint.Sr_supports_local_caching caps
   in
   debug "shared: %b. List.length pbds: %d. has_required_capability: %b" shared (List.length pbds) has_required_capability;
-  if (shared=false) && (List.length pbds = 1) && has_required_capability then begin
+  if (shared=false) && (List.length pbds = 1) && has_required_capability
+  then begin
     let pbd_host = Db.PBD.get_host ~__context ~self:(List.hd pbds) in
-    if pbd_host <> host then raise (Api_errors.Server_error (Api_errors.host_cannot_see_SR,[Ref.string_of host; Ref.string_of sr]));
+    if pbd_host <> host
+    then raise (Api_errors.Server_error (Api_errors.host_cannot_see_SR,[Ref.string_of host; Ref.string_of sr]));
     let old_sr = Db.Host.get_local_cache_sr ~__context ~self:host in
-    if old_sr <> Ref.null then Db.SR.set_local_cache_enabled ~__context ~self:old_sr ~value:false;
+    if old_sr <> Ref.null
+    then Db.SR.set_local_cache_enabled ~__context ~self:old_sr ~value:false;
     Db.Host.set_local_cache_sr ~__context ~self:host ~value:sr;
     Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:true;
-    log_and_ignore_exn (fun () -> Rrdd.set_cache_sr ~sr_uuid:(Db.SR.get_uuid ~__context ~self:sr));
+    log_and_ignore_exn (fun () -> Rrdd.set_cache_sr (Db.SR.get_uuid ~__context ~self:sr));
   end else begin
     raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported,[]))
   end
