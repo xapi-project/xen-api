@@ -55,19 +55,19 @@ let refresh_internal ~__context ~self =
     maybe_update_database "MAC"
       (Db.PIF.get_MAC)
       (Db.PIF.set_MAC)
-      (fun () -> Net.Interface.get_mac dbg ~name:device)
+      (fun () -> Net.Interface.get_mac dbg device)
       (id);
 
   maybe_update_database "MTU"
     (Db.PIF.get_MTU)
     (Db.PIF.set_MTU)
-    (Int64.of_int ++ (fun () -> Net.Interface.get_mtu dbg ~name:bridge))
+    (Int64.of_int ++ (fun () -> Net.Interface.get_mtu dbg bridge))
     (Int64.to_string);
 
   maybe_update_database "capabilities"
     (Db.PIF.get_capabilities)
     (Db.PIF.set_capabilities)
-    (fun () -> Net.Interface.get_capabilities dbg ~name:device)
+    (fun () -> Net.Interface.get_capabilities dbg device)
     (String.concat "; ")
 
 let refresh ~__context ~host ~self =
@@ -307,7 +307,7 @@ let make_tables ~__context ~host =
   let dbg = Context.string_of_task __context in
   let devices =
     List.filter
-      (fun name -> Net.Interface.is_physical dbg ~name)
+      (fun name -> Net.Interface.is_physical dbg name)
       (Net.Interface.get_all dbg ()) in
   let pifs = Db.PIF.get_records_where ~__context
       ~expr:(And (Eq (Field "host", Literal (Ref.string_of host)),
@@ -316,7 +316,7 @@ let make_tables ~__context ~host =
     device_to_mac_table =
       List.combine
         (devices)
-        (List.map (fun name -> Net.Interface.get_mac dbg ~name) devices);
+        (List.map (fun name -> Net.Interface.get_mac dbg name) devices);
     pif_to_device_table =
       List.map (fun (pref, prec) -> pref, prec.API.pIF_device) pifs;
   }
@@ -520,7 +520,7 @@ let introduce ~__context ~host ~mAC ~device ~managed =
   info
     "Introducing PIF: device = %s; MAC = %s"
     device mAC;
-  let mTU = Int64.of_int (Net.Interface.get_mtu dbg ~name:device) in
+  let mTU = Int64.of_int (Net.Interface.get_mtu dbg device) in
   introduce_internal
     ~t ~__context ~host ~mAC ~device ~mTU
     ~vLAN:(-1L) ~vLAN_master_of:Ref.null ~managed ()
@@ -576,7 +576,7 @@ let scan ~__context ~host =
       List.iter
         (fun device ->
            let mAC = List.assoc device t.device_to_mac_table in
-           let mTU = Int64.of_int (Net.Interface.get_mtu dbg ~name:device) in
+           let mTU = Int64.of_int (Net.Interface.get_mtu dbg device) in
            let managed = not (List.mem device non_managed_devices) in
            let disallow_unplug = (List.mem device disallow_unplug_devices) in
            let (_: API.ref_PIF) =
