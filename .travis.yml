@@ -9,4 +9,4 @@ env:
         - REPO_PACKAGE_NAME=forkexecd
         - REPO_CONFIGURE_CMD=true
         - REPO_BUILD_CMD='make'
-        - REPO_TEST_CMD='make test || (cd _build/default/test && sudo ./fe_test.sh)'
+        - REPO_TEST_CMD='make test'
