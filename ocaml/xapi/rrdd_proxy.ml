@@ -56,7 +56,7 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
   if not (List.mem_assoc "ref" query) && not (List.mem_assoc "uuid" query) then
     fail_req_with s "get_vm_rrd: missing the 'uuid' parameter"
       Http.http_400_badrequest
-  else if Rrdd.has_vm_rrd ~vm_uuid then (
+  else if Rrdd.has_vm_rrd vm_uuid then (
     ignore (Xapi_services.hand_over_connection req s !(Rrd_interface.forwarded_path))
   ) else (
     Xapi_http.with_context ~dummy:true "Get VM RRD." req s
@@ -215,18 +215,18 @@ let push_rrd ~__context ~(vm_uuid : string) : unit =
     warn "push_rrd: VM not running, so not pushing its RRD"
   else if vm_host = (Helpers.get_localhost ~__context) then
     let domid = vm_uuid_to_domid ~__context ~uuid:vm_uuid in
-    log_and_ignore_exn (fun () -> Rrdd.push_rrd_local ~vm_uuid ~domid)
+    log_and_ignore_exn (fun () -> Rrdd.push_rrd_local vm_uuid domid)
   else
     let remote_address = Db.Host.get_address ~__context ~self:vm_host in
-    log_and_ignore_exn (fun () -> Rrdd.push_rrd_remote ~vm_uuid ~remote_address)
+    log_and_ignore_exn (fun () -> Rrdd.push_rrd_remote vm_uuid remote_address)
 
 let migrate_rrd ~__context ?remote_address ?session_id ~vm_uuid ~host_uuid () =
   let remote_address = match remote_address with
-    | None -> Db.Host.get_address ~__context ~self:(Ref.of_string host_uuid)
+    | None -> (Db.Host.get_address ~__context ~self:(Ref.of_string host_uuid))
     | Some a -> a
   in
   log_and_ignore_exn (fun () ->
-      Rrdd.migrate_rrd ~remote_address ?session_id ~vm_uuid ~host_uuid
+      Rrdd.migrate_rrd session_id remote_address vm_uuid host_uuid
     )
 
 module Deprecated = struct
@@ -239,5 +239,5 @@ module Deprecated = struct
   let load_rrd ~__context ~uuid =
     let master_address = try Some (Pool_role.get_master_address ()) with _ -> None in
     let timescale = get_timescale ~__context in
-    log_and_ignore_exn (fun () -> Rrdd.Deprecated.load_rrd ~uuid ~master_address ~timescale)
+    log_and_ignore_exn (fun () -> Rrdd.Deprecated.load_rrd uuid timescale master_address)
 end

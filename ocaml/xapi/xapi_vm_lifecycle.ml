@@ -655,7 +655,10 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
   if state = `Halted then begin
     (* archive the rrd for this vm *)
     let vm_uuid = Db.VM.get_uuid ~__context ~self in
-    log_and_ignore_exn (fun () -> Rrdd.archive_rrd ~vm_uuid ~remote_address:(try Some (Pool_role.get_master_address ()) with _ -> None))
+    log_and_ignore_exn
+      (fun () -> Rrdd.archive_rrd vm_uuid
+      (* remote address *) (try Some (Pool_role.get_master_address ()) with _ -> None)
+      )
   end
 
 (** Called on new VMs (clones, imports) and on server start to manually refresh

@@ -29,7 +29,7 @@ let light_fuse_and_run ?(fuse_length = !Xapi_globs.fuse_time) () =
   debug "light_fuse_and_run: calling Rrdd.backup_rrds to save current RRDs locally";
   let delay_so_far =
     time (fun _ -> log_and_ignore_exn Xapi_stats.stop) +.
-    time (fun _ -> log_and_ignore_exn Rrdd.backup_rrds)
+    time (fun _ -> log_and_ignore_exn (Rrdd.backup_rrds None))
   in
   let new_fuse_length = max 5. (fuse_length -. delay_so_far) in
   debug "light_fuse_and_run: current RRDs have been saved";
@@ -70,7 +70,7 @@ let light_fuse_and_dont_restart ?(fuse_length = !Xapi_globs.fuse_time) () =
             (fun () ->
                debug "light_fuse_and_dont_restart: calling Rrdd.backup_rrds to save current RRDs locally";
                log_and_ignore_exn Xapi_stats.stop;
-               log_and_ignore_exn Rrdd.backup_rrds;
+               log_and_ignore_exn (Rrdd.backup_rrds None);
                Thread.delay fuse_length;
                Db_cache_impl.flush_and_exit (Db_connections.preferred_write_db ()) 0) ());
   (* This is a best-effort attempt to use the database. We must not block the flush_and_exit above, hence

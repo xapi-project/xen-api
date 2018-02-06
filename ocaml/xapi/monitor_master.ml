@@ -28,7 +28,7 @@ let update_configuration_from_master () =
       let oc = Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context) in
       let new_use_min_max = (List.mem_assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc) &&
                             (List.assoc Xapi_globs.create_min_max_in_new_VM_RRDs oc = "true") in
-      log_and_ignore_exn (fun () -> Rrdd.update_use_min_max ~value:new_use_min_max);
+      log_and_ignore_exn (fun () -> Rrdd.update_use_min_max new_use_min_max);
       let carrier = (List.mem_assoc Xapi_globs.pass_through_pif_carrier_key oc) &&
                     (List.assoc Xapi_globs.pass_through_pif_carrier_key oc = "true") in
       if !Xapi_globs.pass_through_pif_carrier <> carrier
