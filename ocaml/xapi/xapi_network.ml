@@ -49,20 +49,19 @@ let create_internal_bridge ~__context ~bridge ~uuid ~persist =
         if not(List.mem bridge current) then begin
           let other_config = ["network-uuids", uuid] in
           debug "Creating internal bridge %s (uuid:%s)" bridge uuid;
-          Net.Bridge.create dbg ~name:bridge ~other_config ();
+          Net.Bridge.create dbg None None None (Some other_config) bridge;
         end
       );
-  Net.Bridge.set_persistent dbg ~name:bridge ~value:persist
+  Net.Bridge.set_persistent dbg bridge persist
 
 let set_himn_ip ~__context bridge other_config =
-  let open Network_interface in
   let dbg = Context.string_of_task __context in
   try
     let ip = List.assoc "ip_begin" other_config in
     let netmask = List.assoc "netmask" other_config in
     let persist = try List.assoc "persist" other_config |> bool_of_string with _ -> false in
     let ipv4_conf =
-      (Static4 [Unix.inet_addr_of_string ip, netmask_to_prefixlen netmask]) in
+      Network_interface.(Static4 [Unix.inet_addr_of_string ip, netmask_to_prefixlen netmask]) in
     Net.Interface.set_ipv4_conf dbg bridge ipv4_conf;
     Xapi_mgmt_iface.enable_himn ~__context ~addr:ip;
     Net.Interface.set_persistent dbg bridge persist;
@@ -133,13 +132,13 @@ let attach_internal ?(management_interface=false) ?(force_bringup=false) ~__cont
 
 let detach ~__context ~bridge_name ~managed =
   let dbg = Context.string_of_task __context in
-  if managed && Net.Interface.exists dbg ~name:bridge_name then begin
+  if managed && Net.Interface.exists dbg bridge_name then begin
     List.iter (fun iface ->
         D.warn "Untracked interface %s exists on bridge %s: deleting" iface bridge_name;
-        Net.Interface.bring_down dbg ~name:iface;
-        Net.Bridge.remove_port dbg ~bridge:bridge_name ~name:iface
-      ) (Net.Bridge.get_interfaces dbg ~name:bridge_name);
-    Net.Bridge.destroy dbg ~name:bridge_name ()
+        Net.Interface.bring_down dbg iface;
+        Net.Bridge.remove_port dbg bridge_name iface
+      ) (Net.Bridge.get_interfaces dbg bridge_name);
+    Net.Bridge.destroy dbg false bridge_name
   end
 
 let attach ~__context ~network ~host = attach_internal ~force_bringup:true ~__context ~self:network ()
@@ -173,7 +172,7 @@ let deregister_vif ~__context vif =
          debug "deregister_vif vif=%s network=%s remaining vifs = [ %s ]" (Ref.string_of vif) (Ref.string_of network) (String.concat "; " (List.map Helpers.short_string_of_ref others));
          if others = [] then begin
            let dbg = Context.string_of_task __context in
-           let ifs = Net.Bridge.get_interfaces dbg ~name:bridge in
+           let ifs = Net.Bridge.get_interfaces dbg bridge in
            if ifs = []
            then detach ~__context ~bridge_name:bridge ~managed
            else error "Cannot remove bridge %s: other interfaces still present [ %s ]" bridge (String.concat "; " ifs)

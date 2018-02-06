@@ -29,20 +29,20 @@ let transform_networkd_exn pif f =
   try
     f ()
   with
-  | Script_missing script ->
+  | Network_error (Script_missing script) ->
     let e = Printf.sprintf "script %s missing" script in
     reraise Api_errors.pif_configuration_error [Ref.string_of pif; e]
-  | Script_error params ->
+  | Network_error (Script_error params) ->
     let e = Printf.sprintf "script error [%s]" (String.concat ", "
                                                   (List.map (fun (k, v) -> k ^ " = " ^ v) params)) in
     reraise Api_errors.pif_configuration_error [Ref.string_of pif; e]
-  | Read_error file | Write_error file ->
+  | Network_error (Read_error file) | Network_error (Write_error file) ->
     let e = "failed to access file " ^ file in
     reraise Api_errors.pif_configuration_error [Ref.string_of pif; e]
-  | Not_implemented ->
+  | Network_error Not_implemented ->
     let e = "networkd function not implemented" in
     reraise Api_errors.pif_configuration_error [Ref.string_of pif; e]
-  | Vlan_in_use (device, vlan) ->
+  | Network_error (Vlan_in_use (device, vlan)) ->
     reraise Api_errors.vlan_in_use [device; string_of_int vlan]
   | e ->
     error "Caught %s while trying to plug a PIF" (ExnHelper.string_of_exn e);

@@ -65,8 +65,8 @@ let get_master ~__context =
 
 let get_management_iface_is_connected ~__context =
   let dbg = Context.string_of_task __context in
-  Net.Bridge.get_physical_interfaces dbg ~name:(Xapi_inventory.lookup Xapi_inventory._management_interface)
-  |> List.exists (fun name -> Net.Interface.is_connected dbg ~name)
+  Net.Bridge.get_physical_interfaces dbg (Xapi_inventory.lookup Xapi_inventory._management_interface)
+  |> List.exists (fun name -> Net.Interface.is_connected dbg name)
 
 let get_primary_ip_addr ~__context iface primary_address_type =
   if iface = "" then
@@ -75,8 +75,8 @@ let get_primary_ip_addr ~__context iface primary_address_type =
     try
       let dbg = Context.string_of_task __context in
       let addrs = match primary_address_type with
-        | `IPv4 -> Net.Interface.get_ipv4_addr dbg ~name:iface
-        | `IPv6 -> Net.Interface.get_ipv6_addr dbg ~name:iface
+        | `IPv4 -> Net.Interface.get_ipv4_addr dbg iface
+        | `IPv6 -> Net.Interface.get_ipv6_addr dbg iface
       in
       let addrs = List.map (fun (addr, _) -> Unix.string_of_inet_addr addr) addrs in
       (* Filter out link-local addresses *)
@@ -175,7 +175,7 @@ let update_pif_address ~__context ~self =
         end
       | _ -> ()
     end;
-    let ipv6_addr = Net.Interface.get_ipv6_addr dbg ~name:bridge in
+    let ipv6_addr = Net.Interface.get_ipv6_addr dbg bridge in
     let ipv6_addr' = List.map (fun (addr, plen) -> Printf.sprintf "%s/%d" (Unix.string_of_inet_addr addr) plen) ipv6_addr in
     if ipv6_addr' <> Db.PIF.get_IPv6 ~__context ~self then begin
       debug "PIF %s bridge %s IPv6 address changed: %s" (Db.PIF.get_uuid ~__context ~self)
@@ -854,7 +854,7 @@ let is_valid_MAC mac =
 (** Returns true if the supplied IP address looks like one of mine *)
 let this_is_my_address ~__context address =
   let dbg = Context.string_of_task __context in
-  let inet_addrs = Net.Interface.get_ipv4_addr dbg ~name:(Xapi_inventory.lookup Xapi_inventory._management_interface) in
+  let inet_addrs = Net.Interface.get_ipv4_addr dbg (Xapi_inventory.lookup Xapi_inventory._management_interface) in
   let addresses = List.map Unix.string_of_inet_addr (List.map fst inet_addrs) in
   List.mem address addresses
 
