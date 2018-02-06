@@ -95,11 +95,29 @@ let test_notimeout () =
   | e ->
     failwith (Printf.sprintf "Failed with unexpected exception: %s" (Printexc.to_string e))
 
+let fail x =
+  Xapi_stdext_unix.Unixext.write_string_to_file "/tmp/fe-test.log" x;
+  Printf.fprintf stderr "%s\n" x;
+  assert false
+
+let test_exitcode () =
+  let run_expect cmd expected =
+    try Forkhelpers.execute_command_get_output cmd [] |> ignore
+    with
+    | Forkhelpers.Spawn_internal_error(_, _, Unix.WEXITED n) ->
+        if n <> expected then
+          fail (Printf.sprintf "%s exited with code %d, expected %d" cmd n expected)
+  in
+  run_expect "/bin/false" 1;
+  run_expect "/bin/xe-fe-test-no-command" 127;
+  run_expect "/etc/hosts" 126;
+  Printf.printf "\nCompleted exitcode tests\n"
 
 let master fds =
   test_delay ();
   test_notimeout ();
   Printf.printf "\nCompleted timeout test\n";
+  test_exitcode ();
   let combinations = shuffle (all_combinations fds) in
   Printf.printf "Starting %d tests\n" (List.length combinations);
   let i = ref 0 in
@@ -115,11 +133,6 @@ let master fds =
   List.iter (update_progress (one fds)) combinations;
   Printf.printf "\nCompleted %d tests\n" (List.length combinations)
 
-
-let fail x =
-  Xapi_stdext_unix.Unixext.write_string_to_file "/tmp/fe-test.log" x;
-  Printf.fprintf stderr "%s\n" x;
-  assert false
 
 let slave = function
   | [] -> failwith "Error, at least one fd expected"

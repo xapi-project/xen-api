@@ -200,7 +200,23 @@ let run state comms_sock fd_sock fd_sock_path =
       if Unix.setsid () == -1 then failwith "Unix.setsid failed";
 
       (* And exec *)
-      Unix.execve name (Array.of_list args) (Array.of_list state.env)
+      try
+        Unix.execve name (Array.of_list args) (Array.of_list state.env)
+      with e ->
+        debug "Caught unexpected exception: %s" (Printexc.to_string e);
+        let rc = match e with
+        | Unix.Unix_error(Unix.ENOENT, _, _) ->
+          Fe_debug.error "Command not found: %s" name;
+          127
+        | Unix.Unix_error(Unix.EACCES, _, _) ->
+          Fe_debug.error "Command not executable: %s" name;
+          126
+        | _ ->
+          Fe_debug.error "execve failed: %s" (Printexc.to_string e);
+          126
+        in
+        write_log ();
+        exit rc
     end else begin
       Fecomms.write_raw_rpc comms_sock (Fe.Execed result);
 
