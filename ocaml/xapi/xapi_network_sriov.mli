@@ -19,6 +19,12 @@ val create :
   network:[ `network ] Ref.t ->
   [ `network_sriov ] Ref.t
 
+val create_internal :
+  __context:Context.t ->
+  physical_PIF:[ `PIF ] Ref.t ->
+  physical_rec:API.pIF_t ->
+  network:[ `network ] Ref.t ->
+  ([ `network_sriov ] Ref.t * [ `PIF ] Ref.t)
 
 (** Destroy a network-sriov object, and it will automatically destroy the logical PIF that bonded with it. *)
 val destroy : __context:Context.t -> self:[ `network_sriov ] Ref.t -> unit
