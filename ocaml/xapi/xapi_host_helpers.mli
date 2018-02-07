@@ -79,6 +79,10 @@ val consider_enabling_host_request : __context:Context.t -> unit
     [consider_enabling_host] is called soon. It will coalesce multiple requests
     that are made. *)
 
+val assert_host_disabled : __context:Context.t -> host:API.ref_host -> unit
+(** [assert_host_disabled] will raise a suitable XenAPI error if the given host
+    is enabled. *)
+
 val user_requested_host_disable : bool ref
 (** [user_requested_host_disable] : true if so. Persistent until xapi is
     restarted *)

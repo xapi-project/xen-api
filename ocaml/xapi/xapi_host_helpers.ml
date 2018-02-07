@@ -185,6 +185,10 @@ let mark_host_as_dead ~__context ~host ~reason =
     Xapi_hooks.host_post_declare_dead ~__context ~host ~reason
   )
 
+let assert_host_disabled ~__context ~host =
+  if Db.Host.get_enabled ~__context ~self:host
+  then raise (Api_errors.Server_error (Api_errors.host_not_disabled, []))
+
 (* Toggled by an explicit Host.disable call to prevent a master restart making us bounce back *)
 let user_requested_host_disable = ref false
 
