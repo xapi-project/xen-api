@@ -23,6 +23,7 @@ open Db_filter_types
 
 open Network
 open Network_interface
+open Xapi_pif_helpers
 
 (* Protect a bunch of local operations with a mutex *)
 let local_m = Mutex.create ()
@@ -235,7 +236,7 @@ let rec create_bridges ~__context pif_rc net_rc =
   let other_config = determine_other_config ~__context pif_rc net_rc in
   let persistent = is_dom0_interface pif_rc in
   let igmp_snooping = Some (Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context)) in
-  match Xapi_pif_helpers.get_pif_type pif_rc with
+  match get_pif_type pif_rc with
   | Tunnel_access _ ->
     [],
     [net_rc.API.network_bridge, {default_bridge with bridge_mac=(Some pif_rc.API.pIF_MAC);
@@ -279,7 +280,7 @@ let rec create_bridges ~__context pif_rc net_rc =
     raise (Api_errors.Server_error (Api_errors.internal_error, ["Should not create bridge for SRIOV logical PIF"]))
 
 let rec destroy_bridges ~__context ~force pif_rc bridge =
-  match Xapi_pif_helpers.get_pif_type pif_rc with
+  match get_pif_type pif_rc with
   | Tunnel_access _ ->
     [bridge, false]
   | VLAN_untagged vlan ->
@@ -309,8 +310,16 @@ let determine_static_routes net_rc =
 
 let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
   with_local_lock (fun () ->
-      let dbg = Context.string_of_task __context in
       let rc = Db.PIF.get_record ~__context ~self:pif in
+      match get_pif_topo ~__context ~pif_rec:rc with
+      | Network_sriov_logical _ :: _ ->
+        Xapi_network_sriov_helpers.sriov_bring_up ~__context ~self:pif
+      | VLAN_untagged _ :: Network_sriov_logical sriov :: _ ->
+        let sriov_logical_pif = Db.Network_sriov.get_logical_PIF ~__context ~self:sriov in
+        let currently_attached = Db.PIF.get_currently_attached ~__context ~self:sriov_logical_pif in
+        Db.PIF.set_currently_attached ~__context ~self:pif ~value:currently_attached
+      | _ ->
+      let dbg = Context.string_of_task __context in
       let net_rc = Db.Network.get_record ~__context ~self:rc.API.pIF_network in
       let bridge = net_rc.API.network_bridge in
 
@@ -463,17 +472,21 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 
 let bring_pif_down ~__context ?(force=false) (pif: API.ref_PIF) =
   with_local_lock (fun () ->
-      Network.transform_networkd_exn pif (fun () ->
-          let dbg = Context.string_of_task __context in
-          let rc = Db.PIF.get_record ~__context ~self:pif in
-          debug "Making sure that PIF %s down" rc.API.pIF_uuid;
+      let rc = Db.PIF.get_record ~__context ~self:pif in
+      match get_pif_topo ~__context ~pif_rec:rc with
+      | Network_sriov_logical _ :: _ ->
+        Xapi_network_sriov_helpers.sriov_bring_down ~__context ~self:pif
+      | VLAN_untagged _ :: Network_sriov_logical _ :: _ ->
+        Db.PIF.set_currently_attached ~__context ~self:pif ~value:false
+      | _ ->
+        Network.transform_networkd_exn pif (fun () ->
+            let dbg = Context.string_of_task __context in
+            debug "Making sure that PIF %s down" rc.API.pIF_uuid;
 
-          let bridge = Db.Network.get_bridge ~__context ~self:rc.API.pIF_network in
-          let cleanup = destroy_bridges ~__context ~force rc bridge in
-          List.iter (fun (name, force) -> Net.Bridge.destroy dbg ~name ~force ()) cleanup;
-          Net.Interface.set_persistent dbg ~name:bridge ~value:false;
-
-          Db.PIF.set_currently_attached ~__context ~self:pif ~value:false
-        )
+            let bridge = Db.Network.get_bridge ~__context ~self:rc.API.pIF_network in
+            let cleanup = destroy_bridges ~__context ~force rc bridge in
+            List.iter (fun (name, force) -> Net.Bridge.destroy dbg ~name ~force ()) cleanup;
+            Net.Interface.set_persistent dbg ~name:bridge ~value:false;
+            Db.PIF.set_currently_attached ~__context ~self:pif ~value:false
+          )
     )
-
