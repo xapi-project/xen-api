@@ -50,8 +50,7 @@ type interdomain_uid =
     (** VM domain name *)
     frontend_domid: int
     (** Front-end domain ID number *)
-  }
-[@@deriving rpcty]
+  } [@@deriving rpcty]
 
 type rrd_freq = Rrd.sampling_frequency
 [@@deriving rpcty]
@@ -65,8 +64,7 @@ type interdomain_info =
     (** interdomain rrd sampling frequency *)
     shared_page_refs: int list
     (** list of shared page references *)
-  }
-[@@deriving rpcty]
+  } [@@deriving rpcty]
 
 type string_opt = string option
 [@@deriving rpcty]
@@ -74,11 +72,13 @@ type string_opt = string option
 type ds_list = Data_source.t list
 [@@deriving rpcty]
 
+
+(* -- error handling -- *)
+
 (** Rrdd error type *)
 type rrd_errors =
   | Archive_failed of string
-  | Rrdd_failure
-[@@default Rrdd_failure]
+  | Internal_error of string
 [@@deriving rpcty]
 
 exception Rrdd_error of rrd_errors
@@ -89,6 +89,9 @@ module RrdErrHandler = Error.Make(struct
     let t = rrd_errors
   end)
 let rrd_err = RrdErrHandler.error
+
+
+(* -- RPC generation -- *)
 
 module RPC_API(R : RPC) = struct
   open R
@@ -150,7 +153,7 @@ module RPC_API(R : RPC) = struct
 
   let migrate_rrd =
     let host_uuid_p = Param.mk ~name:"host_uuid" ~description:
-        [ "Unique ID of server/host" ] Types.string in
+        [ "Unique ID of host" ] Types.string in
     let session_id_p = Param.mk ~name:"session_id" ~description:
         [ "ID of the session" ] string_opt in
     declare "migrate_rrd"
@@ -162,24 +165,25 @@ module RPC_API(R : RPC) = struct
        @-> returning unit_p rrd_err)
 
 
-  let mast_addr_str = Param.mk ~name:"master address" ~description:
-      [ "Address of remote" ] Types.string
-  let send_host_rrd_to_master = declare "send_host_rrd_to_master"
-      [ "docstring" ]
+  let send_host_rrd_to_master =
+    let mast_addr_str = Param.mk ~name:"master address" ~description:
+        [ "Address of remote" ] Types.string in
+    declare "send_host_rrd_to_master"
+      [ "Sends host rrd data to master" ]
       (mast_addr_str @-> returning unit_p rrd_err)
 
   let rem_addr_opt_p = Param.mk ~name:"remote address" ~description:
       [ "Address of the remote" ] string_opt
   let backup_rrds = declare "backup_rrds"
-      [ "docstring" ]
+      [ "Backs up rrd data" ]
       (rem_addr_opt_p @-> unit_p @-> returning unit_p rrd_err)
 
   let archive_rrd = declare "archive_rrd"
-      [ "docstring" ]
+      [ "Archives rrd, optionally at the remote destination provided" ]
       (vm_uuid_p @-> rem_addr_opt_p @-> returning unit_p rrd_err)
 
   let archive_sr_rrd = declare "archive_sr_rrd"
-      [ "docstring" ]
+      [ "Archives SR rrd" ]
       (sr_uuid_p @-> returning string_p rrd_err)
 
   let push_sr_rrd =
@@ -199,11 +203,11 @@ module RPC_API(R : RPC) = struct
 
   let query_possible_host_dss =
     declare "query_possible_host_dss"
-      [ "docstring" ]
+      [ "Returns list of possible host DSS, if any" ]
       (unit_p @-> returning ds_list_p rrd_err)
 
   let query_host_ds = declare "query_host_ds"
-      [ "docstring" ]
+      [ "Queries DSS of provided DS" ]
       (ds_name_p @-> returning float_p rrd_err)
 
 
@@ -304,7 +308,7 @@ module RPC_API(R : RPC) = struct
       let register =
         declare "register"
           [ "docstring" ]
-          (iduid_p @-> info_p @-> returning protocol_p rrd_err)
+          (iduid_p @-> info_p @-> protocol_p @-> returning float_p rrd_err)
 
       let deregister = declare "deregister"
           [ "docstring" ]

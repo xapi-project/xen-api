@@ -40,4 +40,4 @@ let rpc call =
            Rrd_interface.uri
            call
     )
-module Client = RPC_API(Idl.GenClientExn())
+module Client = RPC_API(Idl.GenClientExnRpc(struct let rpc=rpc end))
