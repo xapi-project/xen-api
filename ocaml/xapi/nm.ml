@@ -235,7 +235,8 @@ let rec create_bridges ~__context pif_rc net_rc =
   let other_config = determine_other_config ~__context pif_rc net_rc in
   let persistent = is_dom0_interface pif_rc in
   let igmp_snooping = Some (Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context)) in
-  match Xapi_pif_helpers.get_pif_type pif_rc with
+  let open Xapi_pif_helpers in
+  match get_pif_type pif_rc with
   | Tunnel_access _ ->
     [],
     [net_rc.API.network_bridge, {default_bridge with bridge_mac=(Some pif_rc.API.pIF_MAC);
@@ -276,10 +277,11 @@ let rec create_bridges ~__context pif_rc net_rc =
                                                      igmp_snooping; other_config; persistent_b=persistent}],
     [pif_rc.API.pIF_device, {default_interface with mtu; ethtool_settings; ethtool_offload; persistent_i=persistent}]
   | Network_sriov_logical _ ->
-    raise (Api_errors.Server_error (Api_errors.internal_error, ["Should not create bridge for SRIOV logical PIF"]))
+    raise Api_errors.(Server_error (internal_error, ["Should not create bridge for SRIOV logical PIF"]))
 
 let rec destroy_bridges ~__context ~force pif_rc bridge =
-  match Xapi_pif_helpers.get_pif_type pif_rc with
+  let open Xapi_pif_helpers in
+  match get_pif_type pif_rc with
   | Tunnel_access _ ->
     [bridge, false]
   | VLAN_untagged vlan ->
@@ -296,7 +298,7 @@ let rec destroy_bridges ~__context ~force pif_rc bridge =
   | Physical _ ->
     [bridge, false]
   | Network_sriov_logical _ ->
-    raise (Api_errors.Server_error (Api_errors.internal_error, ["Should not destroy bridge for SRIOV logical PIF"]))
+    raise Api_errors.(Server_error (internal_error, ["Should not destroy bridge for SRIOV logical PIF"]))
 
 let determine_static_routes net_rc =
   if List.mem_assoc "static-routes" net_rc.API.network_other_config then
