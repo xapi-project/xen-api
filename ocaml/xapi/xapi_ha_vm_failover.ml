@@ -29,6 +29,8 @@ let by_order (vm_ref1,vm_rec1) (vm_ref2,vm_rec2) =
 
 let ($) x y = x y
 
+let null_config = { Binpack.hosts = []; vms = []; placement = []; total_hosts = 0; num_failures = 0 }
+
 (*****************************************************************************************************)
 (* Planning code follows                                                                             *)
 
@@ -99,6 +101,27 @@ let get_live_set ~__context =
                                               && (try Db.Host_metrics.get_live ~__context ~self:r.API.host_metrics with _ -> false))
       all_hosts in
   List.map (fun (rf,_) -> rf) live_hosts
+
+let compute_restart_plan_with_cache config (config_cache: ('a, 'b, 'c, 'd, 'e, 'f) Binpack.configuration_cache) =
+  let h = Binpack.choose_heuristic config in
+
+  debug "Computing a specific plan for the failure of VMs: [ %s ]" (String.concat "; " (List.map config_cache.string_of_vm config_cache.agile_vm_failed));
+  let agile_restart_plan = h.Binpack.get_specific_plan config config_cache.agile_vm_failed in
+  (*  debug "Restart plan for agile offline VMs: [ %s ]" (string_of_plan agile_restart_plan);*)
+  let vms_restarted = List.map fst agile_restart_plan in
+  (* List the protected VMs which are not already running and weren't in the restart plan *)
+  let vms_not_restarted = List.map fst (List.filter (fun (vm, _) -> config_cache.vm_accounted_to_host vm = None && not(List.mem vm vms_restarted)) config_cache.vms_to_ensure_running) in
+  if vms_not_restarted <> []
+  then warn "Some protected VMs could not be restarted: [ %s ]" (String.concat "; " (List.map config_cache.string_of_vm vms_not_restarted));
+  (* Applying the plan means:
+     	   1. subtract from each host the memory needed to start the VMs in the plan; and
+     	   2. modifying the VM placement map to reflect the plan. *)
+  let config = Binpack.apply_plan config agile_restart_plan in
+  (* All agile VMs which were offline have all been 'restarted' provided vms_not_restarted <> []
+     	   If vms_not_restarted = [] then some VMs will have been left out. *)
+  Binpack.check_configuration config;
+  debug "Planning configuration for future failures = %s" (Binpack.string_of_configuration config_cache.string_of_host config_cache.string_of_vm config);
+  config_cache.non_agile_restart_plan @ agile_restart_plan, config, vms_not_restarted, config_cache.not_agile_vms <> [], config_cache
 
 (** Given the current number of host failures to consider (only useful for passing to the binpacker to influence its
     choice of heuristic), return an instantaneous VM restart plan which includes all protected offline VMs, and a
@@ -241,28 +264,12 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set ?(change=no_con
                ; total_hosts = total_hosts; num_failures = num_failures } in
   Binpack.check_configuration config;
   debug "Planning configuration for offline agile VMs = %s" (Binpack.string_of_configuration string_of_host string_of_vm config);
-  let h = Binpack.choose_heuristic config in
 
-  (* Figure out how we could start as many of the agile VMs as possible *)
-  debug "Computing a specific plan for the failure of VMs: [ %s ]" (String.concat "; " (List.map string_of_vm agile_vm_failed));
-  let agile_restart_plan = h.Binpack.get_specific_plan config agile_vm_failed in
-  debug "Restart plan for agile offline VMs: [ %s ]" (string_of_plan agile_restart_plan);
+  let config_cache = { Binpack.agile_vm_failed = agile_vm_failed; vms_to_ensure_running = vms_to_ensure_running; all_hosts_and_snapshots = all_hosts_and_snapshots;
+                       vm_accounted_to_host = vm_accounted_to_host; non_agile_restart_plan = non_agile_restart_plan; not_agile_vms = not_agile_vms;
+                       string_of_vm = string_of_vm; string_of_host = string_of_host; string_of_plan = string_of_plan } in
+  compute_restart_plan_with_cache config config_cache
 
-  let vms_restarted = List.map fst agile_restart_plan in
-  (* List the protected VMs which are not already running and weren't in the restart plan *)
-  let vms_not_restarted = List.map fst (List.filter (fun (vm, _) -> vm_accounted_to_host vm = None && not(List.mem vm vms_restarted)) vms_to_ensure_running) in
-  if vms_not_restarted <> []
-  then warn "Some protected VMs could not be restarted: [ %s ]" (String.concat "; " (List.map string_of_vm vms_not_restarted));
-
-  (* Applying the plan means:
-     	   1. subtract from each host the memory needed to start the VMs in the plan; and
-     	   2. modifying the VM placement map to reflect the plan. *)
-  let config = Binpack.apply_plan config agile_restart_plan in
-  (* All agile VMs which were offline have all been 'restarted' provided vms_not_restarted <> []
-     	   If vms_not_restarted = [] then some VMs will have been left out. *)
-  Binpack.check_configuration config;
-  debug "Planning configuration for future failures = %s" (Binpack.string_of_configuration string_of_host string_of_vm config);
-  non_agile_restart_plan @ agile_restart_plan, config, vms_not_restarted, not_agile_vms <> []
 
 (** Returned by the plan_for_n_failures function *)
 type result =
@@ -280,16 +287,14 @@ type result =
        breaking the plan.
 *)
 
-let plan_for_n_failures ~__context ~all_protected_vms ?live_set ?(change = no_configuration_change) n =
-  let live_set = match live_set with None -> get_live_set ~__context | Some s -> s in
+let plan_for_n_failures' ~__context ~get_plan =
   try
-    (* 'changes' are applied by the compute_restart_plan function *)
-    let plan, config, vms_not_restarted, non_agile_protected_vms_exist = compute_restart_plan ~__context ~all_protected_vms ~live_set ~change n in
+    let _, config, vms_not_restarted, non_agile_protected_vms_exist, cache = get_plan () in
 
     (* Could some VMs not be started? If so we're overcommitted before we started. *)
     if vms_not_restarted <> [] then begin
       error "Even with no Host failures this Pool cannot start the configured protected VMs.";
-      No_plan_exists
+      config, None, No_plan_exists
     end else begin
       debug "plan_for_n_failures config = %s"
         (Binpack.string_of_configuration
@@ -298,16 +303,23 @@ let plan_for_n_failures ~__context ~all_protected_vms ?live_set ?(change = no_co
       Binpack.check_configuration config;
       let h = Binpack.choose_heuristic config in
       match h.Binpack.plan_always_possible config, non_agile_protected_vms_exist with
-      | true, false -> Plan_exists_for_all_VMs
-      | true, true -> Plan_exists_excluding_non_agile_VMs
-      | false, _ -> No_plan_exists
+      | true, false -> config, Some cache, Plan_exists_for_all_VMs
+      | true, true -> config, Some cache, Plan_exists_excluding_non_agile_VMs
+      | false, _ -> config, Some cache, No_plan_exists
     end
   with
   | e ->
     error "Unexpected error in HA VM failover planning function: %s" (ExnHelper.string_of_exn e);
-    No_plan_exists
+    null_config, None, No_plan_exists
+
+let plan_for_n_failures ~__context ~all_protected_vms ?live_set ?(change = no_configuration_change) n =
+  let live_set = match live_set with None -> get_live_set ~__context | Some s -> s in
+  (* 'changes' are applied by the compute_restart_plan function *)
+  let _, _, result = plan_for_n_failures' ~__context ~get_plan:(fun () -> compute_restart_plan ~__context ~all_protected_vms ~live_set ~change n) in
+  result
 
 let compute_max_host_failures_to_tolerate ~__context ?live_set ?protected_vms () =
+  let live_set = match live_set with None -> get_live_set ~__context | Some s -> s in
   let protected_vms = match protected_vms with
     | None -> all_protected_vms ~__context
     | Some vms -> vms in
@@ -315,7 +327,21 @@ let compute_max_host_failures_to_tolerate ~__context ?live_set ?protected_vms ()
   (* We assume that if not(plan_exists(n)) then \forall.x>n not(plan_exists(n))
      although even if we screw this up it's not a disaster because all we need is a
      safe approximation (so ultimately "0" will do but we'd prefer higher) *)
-  Helpers.bisect (fun n -> plan_for_n_failures ~__context ~all_protected_vms:protected_vms ?live_set (Int64.to_int n) = Plan_exists_for_all_VMs) 0L (Int64.of_int nhosts)
+
+  (* Cache the configuration result to improve performance *)
+  let n = nhosts / 2 in
+  let config, cache, plan = plan_for_n_failures' ~__context ~get_plan:(fun () ->compute_restart_plan ~__context ~all_protected_vms:protected_vms ~live_set ~change:no_configuration_change n) in
+  match cache with
+  | None -> 0L
+  | Some cache ->
+     let lower, upper = match plan with
+       | Plan_exists_for_all_VMs -> n, nhosts
+       | _ -> 0, n in
+     Helpers.bisect (fun n ->
+         let config = {config with Binpack.num_failures = (Int64.to_int n)} in
+         let _, _, result = plan_for_n_failures' ~__context ~get_plan:(fun () -> compute_restart_plan_with_cache config cache) in
+         result = Plan_exists_for_all_VMs
+       ) (Int64.of_int lower) (Int64.of_int upper)
 
 (* Make sure the pool is marked as overcommitted and the appropriate alert is generated. Return
    true if something changed, false otherwise *)
@@ -508,8 +534,8 @@ let restart_auto_run_vms ~__context live_set n =
          			   protection.
          			   For the best-effort VMs we call the script
          			   when we have reset some VMs to halted (no guarantee there is enough resource but better safe than sorry) *)
-      let plan, config, vms_not_restarted, non_agile_protected_vms_exist = compute_restart_plan ~__context ~all_protected_vms ~live_set n in
-      let plan, config, vms_not_restarted, non_agile_protected_vms_exist =
+      let plan, config, vms_not_restarted, non_agile_protected_vms_exist, config_cache = compute_restart_plan ~__context ~all_protected_vms ~live_set n in
+      let plan, config, vms_not_restarted, non_agile_protected_vms_exist, _ =
         if true
         && Xapi_hooks.pool_pre_ha_vm_restart_hook_exists ()
         && (plan <> [] || !reset_vms <> []) then begin
@@ -523,7 +549,7 @@ let restart_auto_run_vms ~__context live_set n =
           end;
           debug "Recomputing restart plan to take into account new state of the world after running the script";
           compute_restart_plan ~__context ~all_protected_vms ~live_set n
-        end else plan, config, vms_not_restarted, non_agile_protected_vms_exist (* nothing needs recomputing *)
+        end else plan, config, vms_not_restarted, non_agile_protected_vms_exist, config_cache (* nothing needs recomputing *)
       in
 
       (* If we are undercommitted then vms_not_restarted = [] and plan will include all offline protected_vms *)
