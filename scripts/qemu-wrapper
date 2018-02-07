@@ -27,6 +27,7 @@ import ctypes.util
 import os
 import fcntl
 import struct
+from resource import getrlimit, RLIMIT_CORE, RLIMIT_FSIZE, setrlimit
 
 import xen.lowlevel.xs as xs
 
@@ -72,8 +73,11 @@ def unshare(flags):
     if ret < 0:
         raise OSError(ctypes.get_errno(), os.strerror(ctypes.get_errno()))
 
+def restrict_fsize():
+    limit = 32 * 1024
+    setrlimit(RLIMIT_FSIZE, (limit, limit))
+
 def enable_core_dumps():
-    from resource import getrlimit, RLIMIT_CORE, setrlimit
 
     limit = 64 * 1024 * 1024
     oldlimits = getrlimit(RLIMIT_CORE)
@@ -418,6 +422,8 @@ def main(argv):
         except IOError, e:
             print "Warning: writing pid to '%s' tasks file: %s" \
                 % (cgroup_slice, e)
+
+    restrict_fsize()
 
     unshare(CLONE_NEWNET | CLONE_NEWNS | CLONE_NEWIPC)
 
