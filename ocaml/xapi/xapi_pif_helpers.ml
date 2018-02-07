@@ -121,6 +121,10 @@ let tunnel_is_allowed_on_pif ~__context ~transport_PIF =
     raise (Api_errors.(Server_error (cannot_add_tunnel_to_bond_slave, [Ref.string_of transport_PIF])))
   | Tunnel_access _ :: _ ->
     raise (Api_errors.(Server_error (is_tunnel_access_pif, [Ref.string_of transport_PIF])));
+  | Network_sriov_logical _ :: _ ->
+    raise (Api_errors.(Server_error (cannot_add_tunnel_to_sriov_logical, [Ref.string_of transport_PIF])))
+  | VLAN_untagged _ :: Network_sriov_logical _ :: _ ->
+      raise (Api_errors.(Server_error (cannot_add_tunnel_to_vlan_on_sriov_logical, [Ref.string_of transport_PIF])))
   | _ -> ()
 
 let bond_is_allowed_on_pif ~__context ~self =
@@ -137,8 +141,39 @@ let bond_is_allowed_on_pif ~__context ~self =
     raise (Api_errors.(Server_error (pif_vlan_exists, [Db.PIF.get_device_name ~__context ~self])))
   | Tunnel_access _ :: _ ->
     raise (Api_errors.(Server_error (is_tunnel_access_pif, [Ref.string_of self])))
+  | Network_sriov_logical _ :: _ ->
+    raise (Api_errors.(Server_error (pif_is_sriov_logical, [Ref.string_of self])))
   | _ -> ()
+
+let sriov_is_allowed_on_pif ~__context ~physical_PIF ~pif_rec =
+  let _ = match get_pif_type pif_rec with
+    | Physical _ -> ()
+    | _ ->
+      raise (Api_errors.(Server_error (pif_is_not_physical, [Ref.string_of physical_PIF])))
+  in
+  if pif_rec.API.pIF_sriov_physical_PIF_of <> [] then
+    raise (Api_errors.(Server_error (network_sriov_already_enabled, [Ref.string_of physical_PIF])));
+  if not (List.mem "sriov" pif_rec.API.pIF_capabilities) then
+    raise (Api_errors.(Server_error (pif_is_not_sriov_capable, [Ref.string_of physical_PIF])))
 
 let assert_pif_is_managed ~__context ~self =
   if Db.PIF.get_managed ~__context ~self <> true then
     raise (Api_errors.(Server_error (pif_unmanaged, [Ref.string_of self])))
+
+let assert_not_vlan_slave ~__context ~self =
+  let vlans = Db.PIF.get_VLAN_slave_of ~__context ~self in
+  debug "PIF %s assert_no_vlans = [ %s ]"
+    (Db.PIF.get_uuid ~__context ~self)
+    (String.concat "; " (List.map Ref.string_of vlans));
+  if vlans <> []
+  then begin
+    debug "PIF has associated VLANs: [ %s ]"
+      (String.concat
+         ("; ")
+         (List.map
+            (fun self -> Db.VLAN.get_uuid ~__context ~self)
+            (vlans)));
+    raise (Api_errors.Server_error
+             (Api_errors.pif_vlan_still_exists,
+              [ Ref.string_of self ]))
+  end
