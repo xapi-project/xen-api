@@ -17,6 +17,48 @@ open Db_filter_types
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
+let mutex = Mutex.create ()
+
+let pci_path x = Printf.sprintf "/sys/bus/pci/devices/%s/physfn" x
+
+(** Update PCIs: *)
+(* For virtual function record, set field `physical_function` to its PF PCI record *)
+(* For physical function record, set field `functions` to 1 plus number of its virtual functions *)
+let update_sriovs ~__context =
+  let is_phy_fn ~pci =
+    let pci_id = Db.PCI.get_pci_id ~__context ~self:pci in
+    let path = pci_path pci_id in
+    try
+      (*if can't read link from the path,then it's a physical function*)
+      let _ = Unix.readlink path in
+      false
+    with _ -> true
+  in
+  let set_phy_fn ~vf ~pfs =
+    let pci_id = Db.PCI.get_pci_id ~__context ~self:vf in
+    let path = pci_path pci_id in
+    let physfn_addr = Filename.basename(Unix.readlink path) in
+    try
+      let pf = List.find (fun pf -> physfn_addr = Db.PCI.get_pci_id ~__context ~self:pf) pfs in
+      Db.PCI.set_physical_function ~__context ~self:vf ~value:pf
+    with Not_found ->
+      error "Failed to find physical function of vf %s" (Db.PCI.get_uuid ~__context ~self:vf);
+      raise (Api_errors.(Server_error (network_sriov_find_pf_from_vf_failed, [Ref.string_of vf])))
+  in
+  Xapi_pci.update_pcis ~__context;
+  let open Xapi_stdext_threads in
+  Threadext.Mutex.execute mutex (fun () ->
+      let local_pcis = Xapi_pci.get_local_pci_refs ~__context in
+      let pfs, vfs = List.partition (fun pci -> is_phy_fn ~pci) local_pcis in
+      (* set physical function for vfs *)
+      List.iter (fun vf -> if Db.PCI.get_physical_function ~__context ~self:vf = Ref.null then set_phy_fn ~vf ~pfs) vfs;
+      (* update pf's functions *)
+      List.iter (fun pf ->
+          let vf_cnt = Db.PCI.get_virtual_functions ~__context ~self:pf |> List.length in
+          Db.PCI.set_functions ~__context ~self:pf ~value:(Int64.of_int (vf_cnt + 1))
+        ) pfs
+    )
+
 let get_sriov_of ~__context ~sriov_logical_pif =
   match Db.PIF.get_sriov_logical_PIF_of ~__context ~self:sriov_logical_pif with
   | v :: _ -> v
