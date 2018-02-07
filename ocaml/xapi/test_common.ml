@@ -165,6 +165,14 @@ let make_pif ~__context ~network ~host ?(device="eth0") ?(mAC="C0:FF:EE:C0:FF:EE
 let make_vlan ~__context ~tagged_PIF ~untagged_PIF ~tag ?(other_config=[]) () =
   Xapi_vlan.pool_introduce ~__context ~tagged_PIF ~untagged_PIF ~tag ~other_config
 
+let make_network_sriov = Xapi_network_sriov.create_internal
+
+let make_bond ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ~master ?(other_config=[]) ?(primary_slave=Ref.null) ?(mode=`activebackup) ?(properties=[]) () =
+  Db.Bond.create ~__context ~ref ~uuid ~master ~other_config ~primary_slave ~mode ~properties ~links_up:0L;
+  ref
+
+let make_tunnel = Xapi_tunnel.create_internal
+
 let make_network ~__context ?(name_label="net") ?(name_description="description") ?(mTU=1500L)
     ?(other_config=[]) ?(bridge="xenbr0") ?(managed=true) ?(purpose=[]) () =
   Xapi_network.pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed ~purpose
@@ -415,3 +423,48 @@ let make_client_params ~__context =
     session_id
   in
   (rpc, session_id)
+
+let create_physical_pif ~__context ~host ?network ?(bridge="xapi0") ?(managed=true) () =
+  let network = match network with
+    | Some network -> network
+    | None -> make_network ~__context ~bridge ()
+  in
+  make_pif ~__context ~network ~host ~managed ()
+
+let create_vlan_pif ~__context ~host ~vlan ~pif ?(bridge="xapi0") ()=
+  let network = make_network ~__context ~bridge () in
+  let vlan_pif = make_pif ~__context ~network ~host ~vLAN:vlan ~physical:false () in
+  let _ = make_vlan ~__context ~tagged_PIF:pif ~untagged_PIF:vlan_pif ~tag:vlan () in
+  vlan_pif
+
+let create_tunnel_pif ~__context ~host ~pif ?(bridge="xapi0") () =
+  let network = make_network ~__context ~bridge () in
+  let tunnel, access_pif = make_tunnel ~__context ~transport_PIF:pif ~network ~host in
+  access_pif
+
+let create_sriov_pif ~__context ~pif ?network ?(bridge="xapi0") () =
+  let sriov_network = match network with
+    | Some network -> network
+    | None -> make_network ~__context ~bridge ()
+  in
+  let physical_rec = Db.PIF.get_record ~__context ~self:pif in
+  let sriov, sriov_logical_pif = make_network_sriov ~__context ~physical_PIF:pif ~physical_rec ~network:sriov_network in
+  sriov_logical_pif
+
+let create_bond_pif ~__context ~host ~members ?(bridge="xapi0") () =
+  let network = make_network ~__context ~bridge () in
+  let bond_master = make_pif ~__context ~network ~host ~physical:false () in
+  let bond = make_bond ~__context ~master:bond_master () in
+  List.iter (fun member ->
+      Db.PIF.set_bond_slave_of ~__context ~self:member ~value:bond
+    ) members;
+  bond_master
+
+let mknlist n f =
+  let rec aux result = function
+    | 0 -> result
+    | n ->
+      let result = f () :: result in
+      aux result (n-1)
+  in
+  aux [] n
