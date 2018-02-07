@@ -1788,10 +1788,8 @@ module Dm_Common = struct
   let prepend_wrapper_args domid args =
     (string_of_int domid) :: "--syslog" :: args
 
-  (* Forks a daemon and waits for a path to appear (optionally with a given value)
-   * and then returns the pid. If this doesn't happen in the timeout then an
-   * exception is raised *)
-  let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ?(fds=[]) _ =
+  (* Forks a daemon and then returns the pid. *)
+  let start_daemon ~path ~args ~name ~domid ?(fds=[]) _ =
     debug "Starting daemon: %s with args [%s]" path (String.concat "; " args);
     let syslog_key = (Printf.sprintf "%s-%d" name domid) in
     let syslog_stdout = Forkhelpers.Syslog_WithKey syslog_key in
@@ -1800,38 +1798,44 @@ module Dm_Common = struct
     debug
       "%s: should be running in the background (stdout -> syslog); (fd,pid) = %s"
       name (Forkhelpers.string_of_pidty pid);
-    begin
-      let finished = ref false in
-      let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
-      let start = Unix.gettimeofday () in
-      while Unix.gettimeofday () -. start < timeout && not !finished do
-        Xenops_task.check_cancelling task;
-        try
-          let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout () in
-          let state = try xs.Xs.read ready_path with _ -> "" in
-          match ready_val with
-          | Some value ->
-            if state = value
-            then finished := true
-            else raise (Ioemu_failed
-                          (name, (Printf.sprintf "Daemon state not running (%s)" state)))
-          | None -> finished := true
-        with Watch.Timeout _ ->
-          begin match Forkhelpers.waitpid_nohang pid with
-            | 0, Unix.WEXITED 0 -> () (* still running => keep waiting *)
-            | _, Unix.WEXITED n ->
-              error "%s: unexpected exit with code: %d" name n;
-              raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
-            | _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
-              error "%s: unexpected signal: %d" name n;
-              raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
-          end
-      done;
-      if not !finished then
-        raise (Ioemu_failed (name, "Timeout reached while starting daemon"))
-    end;
-    debug "Daemon initialised: %s" syslog_key;
+    debug "Daemon started: %s" syslog_key;
     pid
+
+  (* Waits for a daemon to signal startup by writing to a xenstore path
+   * (optionally with a given value) If this doesn't happen in the timeout then
+   * an exception is raised *)
+  let wait_path ~pid ~task ~name ~domid ~xs ~ready_path ?ready_val ~timeout
+      ~cancel _ =
+    let syslog_key = (Printf.sprintf "%s-%d" name domid) in
+    let finished = ref false in
+    let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
+    let start = Mtime_clock.counter () in
+    while (Mtime.Span.to_ms (Mtime_clock.count start)) < timeout && not !finished do
+      Xenops_task.check_cancelling task;
+      try
+        let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout () in
+        let state = try xs.Xs.read ready_path with _ -> "" in
+        match ready_val with
+        | Some value ->
+          if state = value
+          then finished := true
+          else raise (Ioemu_failed
+                        (name, (Printf.sprintf "Daemon state not running (%s)" state)))
+        | None -> finished := true
+      with Watch.Timeout _ ->
+        begin match Forkhelpers.waitpid_nohang pid with
+          | 0, Unix.WEXITED 0 -> () (* still running => keep waiting *)
+          | _, Unix.WEXITED n ->
+            error "%s: unexpected exit with code: %d" name n;
+            raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
+          | _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
+            error "%s: unexpected signal: %d" name n;
+            raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
+        end
+    done;
+    if not !finished then
+      raise (Ioemu_failed (name, "Timeout reached while starting daemon"));
+    debug "Daemon initialised: %s" syslog_key
 
   let gimtool_m = Mutex.create ()
 
@@ -1943,7 +1947,13 @@ module Backend = struct
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
         Dm_Common.signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
 
-      let init_daemon = Dm_Common.init_daemon
+      let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val
+          ~timeout ~cancel ?(fds=[]) _ =
+        let pid = Dm_Common.start_daemon ~path ~args ~name ~domid ~fds () in
+        Dm_Common.wait_path ~pid ~task ~name ~domid ~xs ~ready_path ?ready_val
+            ~timeout ~cancel ();
+        pid
+
       let stop        = Dm_Common.stop
 
       let with_dirty_log domid ~f = f()
@@ -2073,6 +2083,7 @@ module Backend = struct
             Lookup.channel_of domid >>| fun () ->
             let c = Qmp_protocol.connect (monitor_path domid) in
             Qmp_protocol.negotiate c;
+            Qmp_protocol.write c (Command (None, Cont));
             Lookup.add c domid;
             Monitor.add m (Qmp_protocol.to_fd c);
             debug "Added QMP Event fd for domain %d" domid
@@ -2185,8 +2196,23 @@ module Backend = struct
                   Qmp_protocol.write c (Command (None, Remove_fd fd_info.fdset_id))))
           (fun () -> Qmp_protocol.close c)
 
+      (* Wait for QEMU's event socket to appear. *)
+      let wait_event_socket ~task ~name ~domid ~timeout =
+        let finished = ref false in
+        let start = Mtime_clock.counter () in
+        while (Mtime.Span.to_ms (Mtime_clock.count start)) < timeout && not !finished do
+          Xenops_task.check_cancelling task;
+          if Sys.file_exists (qmp_event_path domid) then
+            finished := true
+          else
+            ignore (Unix.select [] [] [] 0.05)
+        done;
+        if not !finished then
+          raise (Ioemu_failed (name, "Timeout reached while starting daemon"))
+
       let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ?(fds=[]) _ =
-        let pid = Dm_Common.init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ~fds () in
+        let pid = Dm_Common.start_daemon ~path ~args ~name ~domid ~fds () in
+        wait_event_socket ~task ~name ~domid ~timeout;
         QMP_Event.add domid;
         pid
 
@@ -2317,9 +2343,11 @@ module Dm = struct
           (Xenops_interface.Pci.string_of_address pci);
         PCI.bind [pci] PCI.Nvidia;
         let args = vgpu_args_of_nvidia domid vcpus vgpu pci restore in
-        let vgpu_pid = init_daemon ~task ~path:!Xc_resources.vgpu ~args
-            ~name:"vgpu" ~domid ~xs ~ready_path:state_path ~timeout:!Xenopsd.vgpu_ready_timeout
-            ~cancel ~fds:[] profile in
+        let vgpu_pid = start_daemon ~path:!Xc_resources.vgpu ~args ~name:"vgpu"
+            ~domid ~fds:[] profile in
+        wait_path ~pid:vgpu_pid ~task ~name:"vgpu" ~domid ~xs
+            ~ready_path:state_path ~timeout:!Xenopsd.vgpu_ready_timeout
+            ~cancel ();
         Forkhelpers.dontwaitpid vgpu_pid
       end else
         info "Daemon %s is already running for domain %d" !Xc_resources.vgpu domid;

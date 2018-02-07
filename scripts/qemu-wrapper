@@ -382,6 +382,7 @@ def main(argv):
         qemu_args += ["-runas", "%d.%d" % (uid, gid)]
 
     qemu_args += ["-sandbox", "on,obsolete=deny,elevateprivileges=allow,spawn=deny,resourcecontrol=deny"]
+    qemu_args += ["-S"]
 
     xenstore_write("/libxl/%d/dm-version" % domid, "qemu_xen")
 
