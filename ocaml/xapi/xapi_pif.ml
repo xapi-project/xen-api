@@ -806,8 +806,8 @@ let rec plug ~__context ~self =
     | Tunnel_access tunnel ->
       let transport_PIF = Db.Tunnel.get_transport_PIF ~__context ~self:tunnel in
       if Db.PIF.get_ip_configuration_mode ~__context ~self:transport_PIF = `None
-      then raise (Api_errors.Server_error
-                    (Api_errors.transport_pif_not_configured,
+      then raise Api_errors.(Server_error
+                    (transport_pif_not_configured,
                      [Ref.string_of transport_PIF]))
       else begin
         debug "PIF is tunnel access PIF... also bringing up transport PIF";
@@ -820,7 +820,7 @@ let rec plug ~__context ~self =
         plug ~__context ~self:tagged_pif
       end
     | Physical pif_rec when pif_rec.API.pIF_bond_slave_of <> Ref.null ->
-      raise (Api_errors.Server_error (Api_errors.cannot_plug_bond_slave, [Ref.string_of self]))
+      raise Api_errors.(Server_error (cannot_plug_bond_slave, [Ref.string_of self]))
     | _ -> ()
   in
   Nm.bring_pif_up ~__context ~management_interface:false self
