@@ -3274,16 +3274,16 @@ module Actions = struct
         "Registering RRD plugin: frontend_domid = %d, name = %s, refs = [%s]"
         domid name
         (List.map string_of_int grant_refs |> String.concat ";");
-      let (_: float) = RRDD.Plugin.Interdomain.register
-          ~uid:{
-            Rrd_interface.name = name;
-            frontend_domid = domid
-          }
-          ~info:{
-            Rrd_interface.frequency = Rrd.Five_Seconds;
-            shared_page_refs = grant_refs
-          }
-          ~protocol
+      let uid =
+        { Rrd_interface.name = name
+        ; frontend_domid = domid
+        } in
+      let info =
+        { Rrd_interface.frequency = Rrd.Five_Seconds
+        ; shared_page_refs = grant_refs
+        } in
+      let (_: float) =
+        RRDD.Plugin.Interdomain.register uid info protocol
       in ()
     in
 
@@ -3292,7 +3292,7 @@ module Actions = struct
         "Deregistering RRD plugin: frontend_domid = %d, name = %s"
         domid name;
       let uid = {Rrd_interface.name = name; frontend_domid = domid} in
-      RRDD.Plugin.Interdomain.deregister ~uid
+      RRDD.Plugin.Interdomain.deregister uid
     in
 
     match List.filter (fun x -> x <> "") (Stdext.Xstringext.String.split '/' path) with
@@ -3316,9 +3316,9 @@ module Actions = struct
                            |> Stdext.Xstringext.String.split ','
                            |> List.map int_of_string
           in
-          let protocol = Rpc.String (xs.Xs.read protocol_path)
-                         |> Rrd_interface.plugin_protocol_of_rpc
-          in
+          let protocol =
+            xs.Xs.read protocol_path
+            |> Rrd_interface.protocol_of_string in
           register_rrd_plugin
             ~domid:(int_of_string domid) ~name ~grant_refs ~protocol
         with e ->
