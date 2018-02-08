@@ -1684,10 +1684,6 @@ module Dm_Common = struct
         ("-usb" :: (List.concat (List.map (fun device ->
              [ "-usbdevice"; device ]) devices))) in
 
-    let disks' = List.map (fun (index, file, media) -> [
-          "-drive"; sprintf "file=%s,if=ide,index=%d,media=%s" file index (string_of_media media)
-        ]) info.disks in
-
     let restorefile = sprintf qemu_restore_path domid in
     let disp_options, wait_for_port = if domid_for_vnc
       then cmdline_of_disp info ~domid
@@ -1702,7 +1698,6 @@ module Dm_Common = struct
       ; [ "-vcpus"; string_of_int info.vcpus]
       ; disp_options
       ; usb'
-      ; List.concat disks'
       ; ( info.acpi |> function false -> [] | true -> [ "-acpi" ])
       ; ( restore   |> function false -> [] | true -> [ "-loadvm"; restorefile ])
       ; ( info.pci_emulations
@@ -1950,6 +1945,7 @@ module Backend = struct
 
       let cmdline_of_info ~xs ~dm info restore domid =
         let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid in
+
         (* Sort the VIF devices by devid *)
         let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.Dm_Common.nics in
         if List.length nics > Dm_Common.max_emulated_nics then debug "Limiting the number of emulated NICs to %d" Dm_Common.max_emulated_nics;
@@ -1966,6 +1962,7 @@ module Backend = struct
                 ]
               ) nics
           else [["-net"; "none"]] in
+
         common @ (List.concat nics')
 
       let after_suspend_image ~xs ~qemu_domid domid = ()
@@ -2208,6 +2205,29 @@ module Backend = struct
       let cmdline_of_info ~xs ~dm info restore domid =
         let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid ~domid_for_vnc:true in
 
+        let disks' =
+          let format_of_media (media:Dm_Common.media) file =
+            match media, file with
+            | Dm_Common.Disk, _   -> ["format=raw"]
+            | Dm_Common.Cdrom, "" -> []
+            | Dm_Common.Cdrom, _  -> ["format=raw"]
+          in
+          let lba_of_media (media:Dm_Common.media) =
+            match media with
+            | Dm_Common.Disk  -> "force-lba=on"
+            | Dm_Common.Cdrom -> "force-lba=off"
+          in
+          List.map (fun (index, file, media) -> [
+              "-drive"; String.concat "," ([
+                sprintf "file=%s" file;
+                "if=ide";
+                sprintf "index=%d" index;
+                sprintf "media=%s" (Dm_Common.string_of_media media);
+                lba_of_media media;
+              ] @ (format_of_media media file))
+            ])
+            info.Dm_Common.disks in
+
         (* Sort the VIF devices by devid *)
         let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.Dm_Common.nics in
         if List.length nics > Dm_Common.max_emulated_nics then
@@ -2227,7 +2247,8 @@ module Backend = struct
           else
             [["-net"; "none"]]
         in
-        common @ (List.concat nics')
+
+        common @ (List.concat disks') @ (List.concat nics')
 
       let after_suspend_image ~xs ~qemu_domid domid =
         (* device model not needed anymore after suspend image has been created *)
