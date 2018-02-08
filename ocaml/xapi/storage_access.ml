@@ -67,9 +67,9 @@ let find_content ~__context ?sr name =
 
 let vdi_info_of_vdi_rec __context vdi_rec =
   let content_id =
-    if List.mem_assoc "content_id" vdi_rec.API.vDI_other_config
-    then List.assoc "content_id" vdi_rec.API.vDI_other_config
-    else vdi_rec.API.vDI_location (* PR-1255 *)
+    try
+      List.assoc "content_id" vdi_rec.API.vDI_other_config
+    with Not_found -> vdi_rec.API.vDI_location (* PR-1255 *)
   in {
     vdi = vdi_rec.API.vDI_location;
     uuid = Some vdi_rec.API.vDI_uuid;
