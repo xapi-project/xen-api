@@ -267,7 +267,6 @@ let dump_ident_mappings idents =
        Printf.printf "%10s %20s %s\n" i.Ident.id (String.concat "/" i.Ident.name) (Type.string_of_t i.Ident.ty)) idents
 
 let resolve_references (idents: (string * Ident.t) list) i =
-  let open Type in
 
   let of_interface i =
     let scope = [ i.Interface.name ] in
@@ -296,7 +295,7 @@ module To_rpclight = struct
     let of_args name args =
       add (sprintf "@[type %s = {@." name);
       List.iter
-        (fun { Arg.name = name; ty = ty } ->
+        (fun { Arg.name = name; ty = ty; _ } ->
            add (sprintf "@[%s@ :@ %s;@.@]" name (Type.ocaml_of_t ty))
         ) args;
       add (sprintf "@.}@.@]") in

@@ -14,7 +14,12 @@ let api =
           "The URI identifying this volume. A typical value would be a";
           "file:// URI pointing to a directory or block device.";
           ]),
-        [ "name", Basic String, String.concat " " [
+        [ "uuid", Option (Basic String), String.concat " " [
+              "Uuid that uniquely identifies this SR, if one is available. ";
+              "For SRs that are created by SR.create, this should be the ";
+              "value passed into that call, if it is possible to persist ";
+              "it."];
+          "name", Basic String, String.concat " " [
           "Short, human-readable label for the SR.";
           ];
           "description", Basic String, String.concat " " [
@@ -69,6 +74,11 @@ let api =
             "volume are created read-only; for example because they are snapshots";
             "of some other VDI.";
           ];
+          "sharable", Basic Boolean, String.concat " " [
+            "Indicates whether the VDI can be attached by";
+            "multiple hosts at once.";
+            "This is used for example by the HA statefile and XAPI redo log."
+          ];
           "virtual_size", Basic Int64, String.concat " " [
             "Size of the volume from the perspective of a VM (in bytes)";
           ];
@@ -106,6 +116,11 @@ let api =
     ty = Type.(Basic String);
     description = "The Storage Repository URI";
   } in
+  let uuid = {
+    Arg.name = "uuid";
+    ty = Type.(Basic String);
+    description = "A uuid to associate with the SR."
+  } in
   {
     Interfaces.name = "volume";
     title = "The Volume plugin interface";
@@ -138,6 +153,10 @@ let api =
       }; {
         TyDecl.name = "Cancelled";
         description = "The task has been asynchronously cancelled";
+        ty = Type.(Basic String);
+      }; {
+        TyDecl.name = "Activated_on_another_host";
+        description = "The Volume is already active on another host";
         ty = Type.(Basic String);
       };
     ];
@@ -227,6 +246,15 @@ let api =
                     "created disk will not be smaller than this size.";
                   ]
                 };
+                {
+                  Arg.name = "sharable";
+                  ty = Basic Boolean;
+                  description = String.concat " " [
+                    "Indicates whether the VDI can be attached by";
+                    "multiple hosts at once.";
+                    "This is used for example by the HA statefile and XAPI redo log."
+                  ]
+                };
               ];
               outputs = [
                 { Arg.name = "volume";
@@ -242,6 +270,10 @@ let api =
                 "written to; they are intended for backup/restore only.";
                 "Note the name and description are copied but any extra";
                 "metadata associated by [set] is not copied.";
+                "This can raise Activated_on_another_host(host_installation_uuid)";
+                "if the VDI is already active on another host and snapshots";
+                "can only be taken on the host that has the VDI active (if any).";
+                "XAPI will take care of redirecting the request to the proper host"
               ];
               inputs = [
                 sr;
@@ -404,8 +436,9 @@ let api =
             };
             {
               Method.name = "create";
-              description = "[create uri name description configuration]: creates a fresh SR";
+              description = "[create uuid uri name description configuration]: creates a fresh SR";
               inputs = [
+                uuid;
                 uri;
                 { Arg.name = "name";
                   ty = Type.(Basic String);
@@ -425,15 +458,16 @@ let api =
                   ];
                 };
               ];
-              outputs = []
+              outputs = [uri]
             };
             {
               Method.name = "attach";
               description = String.concat " "[
-                "[attach uri]: attaches the SR to the local host. Once an SR";
+                "[attach uuid uri]: attaches the SR to the local host. Once an SR";
                 "is attached then volumes may be manipulated.";
               ];
               inputs = [
+                uuid;
                 uri;
               ];
               outputs = [

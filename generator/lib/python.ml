@@ -310,6 +310,8 @@ let commandline_parse env i m =
         List.map (fun a -> match a.Arg.ty with
         | Type.Dict(_, _) ->
           Line (sprintf "parser.add_argument('--%s', default = {}, nargs=2, action=xapi.ListAction, help='%s')" a.Arg.name a.Arg.description)
+        | Type.Basic(Boolean) ->
+          Line (sprintf "parser.add_argument('--%s', action='store_true', help='%s')" a.Arg.name a.Arg.description)
         | _ ->
           Line (sprintf "parser.add_argument('%s', action='store', help='%s')" a.Arg.name a.Arg.description)
         ) m.Method.inputs

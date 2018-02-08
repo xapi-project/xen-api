@@ -63,6 +63,7 @@ let type_decl env t =
     Block [ typeof ~expand_aliases:true env t.TyDecl.ty ];
     Line "[@@deriving rpc]";
     Line (sprintf "(** %s *)" t.TyDecl.description);
+    Line "" (* avoid ambigous doc comment *)
   ]
 
 let rec example_value_of env =
@@ -112,6 +113,7 @@ let exn_decl env e =
     Line "[@@deriving rpc]";
     Line (sprintf "exception %s of %s" e.TyDecl.name (String.concat " * " (List.map Type.ocaml_of_t args)));
     Line (sprintf "(** %s *)" e.TyDecl.description);
+    Line "" (* avoid ambigous doc comment *)
   ]
 
 let rpc_of_exns env es =
@@ -472,7 +474,6 @@ let client_of_interfaces env is =
   List.concat (List.map (client_of_interface env) is.Interfaces.interfaces)
 
 let of_interfaces env i =
-  let open Printf in
   [
     Line "(* Automatically generated code - DO NOT MODIFY *)";
     Line "";
