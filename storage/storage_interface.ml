@@ -69,6 +69,7 @@ type vdi_info = {
     physical_utilisation: int64;
     (* xenstore_data: workaround via XenAPI *)
 	persistent: bool;
+    sharable: bool;
     sm_config: (string * string) list;
 }
 
@@ -88,6 +89,7 @@ let default_vdi_info = {
     virtual_size = 0L;
     physical_utilisation = 0L;
     persistent = true;
+    sharable = false;
     sm_config = [];
 }
 
@@ -201,6 +203,8 @@ module Dynamic = struct
 
 end
 
+type uuid = string
+
 exception Backend_error_with_backtrace of (string * (string list)) (** name * params *)
 
 exception Sr_not_attached of string               (** error: SR must be attached to access VDIs *)
@@ -212,6 +216,7 @@ exception Cancelled of string
 exception Redirect of string option
 exception Sr_attached of string
 exception Unimplemented of string
+exception Activated_on_another_host of uuid
 exception Duplicated_key of string
 exception No_storage_plugin_for_sr of string
 exception Content_ids_do_not_match of (string * string)
@@ -266,7 +271,7 @@ module SR = struct
 	(** Functions which manipulate SRs *)
 
 	(** [create dbg sr name_label name_description device_config physical_size] creates an sr with id [sr] *)
-	external create : dbg:debug_info -> sr:sr -> name_label:string -> name_description:string -> device_config:(string * string) list -> physical_size:int64 -> unit = ""
+	external create : dbg:debug_info -> sr:sr -> name_label:string -> name_description:string -> device_config:(string * string) list -> physical_size:int64 -> (string * string) list = ""
 
 	(** [set_name_label sr new_name_label] updates the name_label of SR [sr]. *)
 	external set_name_label : dbg:debug_info -> sr:sr -> new_name_label:string -> unit = ""
