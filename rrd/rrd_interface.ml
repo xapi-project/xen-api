@@ -47,10 +47,18 @@ type plugin_protocol =
 (** Domain ID of VM *)
 type interdomain_uid =
   { name: string;
-    (** VM domain name *)
+    (** VM domain name label *)
     frontend_domid: int
     (** Front-end domain ID number *)
   } [@@deriving rpcty]
+
+(* Note: for types such as rrd_req, which alias
+ * user-defined types, it is usually not enough
+ * to add [@@deriving rpcty] to derive RPC types,
+ * and rpc functions must be declared in the definition.
+ * However, types such as Rrd.sampling_frequency have
+ * already been defined as RPC types in their original declarations
+ * so we are able to derive these type aliases like so *)
 
 type rrd_freq = Rrd.sampling_frequency
 [@@deriving rpcty]
@@ -78,7 +86,12 @@ type ds_list = Data_source.t list
 (** Rrdd error type *)
 type rrd_errors =
   | Archive_failed of string
-  | Internal_error of string
+  (** Archival failure *)
+  | Invalid_protocol of string
+  (** Thrown by protocol_of_string
+   * if string does not match plugin protocol *)
+  | Rrd_failure of string
+  (** Internal Rrdd error *)
 [@@deriving rpcty]
 
 exception Rrdd_error of rrd_errors
@@ -89,6 +102,15 @@ module RrdErrHandler = Error.Make(struct
     let t = rrd_errors
   end)
 let rrd_err = RrdErrHandler.error
+
+let string_of_protocol = function
+  | V1 -> "V1"
+  | V2 -> "V2"
+
+let protocol_of_string = function
+  | x when x="V1" -> V1
+  | x when x="V2" -> V2
+  | y -> raise (Rrdd_error (Invalid_protocol(y)))
 
 
 (* -- RPC generation -- *)
