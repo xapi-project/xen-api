@@ -70,6 +70,7 @@ end
 
 let _nonpersistent = "NONPERSISTENT"
 let _clone_on_boot_key = "clone-on-boot"
+let _vdi_type_key = "vdi-type"
 
 let backend_error name args =
   let open Storage_interface in
@@ -77,9 +78,15 @@ let backend_error name args =
   Exception.rpc_of_exnty exnty
 
 let backend_backtrace_error name args backtrace =
-  let backtrace = rpc_of_backtrace backtrace |> Jsonrpc.to_string in
   let open Storage_interface in
-  let exnty = Exception.Backend_error_with_backtrace(name, backtrace :: args) in
+  let exnty =
+    match args with
+    | ["Activated_on_another_host"; uuid] ->
+       Exception.Activated_on_another_host(uuid)
+    | _ ->
+       let backtrace = rpc_of_backtrace backtrace |> Jsonrpc.to_string in
+       Exception.Backend_error_with_backtrace(name, backtrace :: args)
+  in
   Exception.rpc_of_exnty exnty
 
 let missing_uri () =
@@ -167,7 +174,7 @@ module Attached_SRs = struct
   let state_path = ref None
 
   let add smapiv2 plugin uids =
-    Hashtbl.replace !sr_table smapiv2 { sr = plugin; uids };
+    Hashtbl.set !sr_table ~key:smapiv2 ~data:{ sr = plugin; uids };
     ( match !state_path with
       | None ->
         return ()
@@ -185,7 +192,7 @@ module Attached_SRs = struct
       let open Storage_interface in
       let exnty = Exception.Sr_not_attached smapiv2 in
       return (Error (Exception.rpc_of_exnty exnty))
-    | Some { sr } -> return (Ok sr)
+    | Some { sr; _ } -> return (Ok sr)
 
   let get_uids smapiv2 =
     match Hashtbl.find !sr_table smapiv2 with
@@ -193,7 +200,7 @@ module Attached_SRs = struct
       let open Storage_interface in
       let exnty = Exception.Sr_not_attached smapiv2 in
       return (Error (Exception.rpc_of_exnty exnty))
-    | Some { uids } -> return (Ok uids)
+    | Some { uids; _ } -> return (Ok uids)
 
   let remove smapiv2 =
     Hashtbl.remove !sr_table smapiv2;
@@ -222,7 +229,7 @@ module Datapath_plugins = struct
     >>= function
     | Ok response ->
       info "Registered datapath plugin %s" name;
-      Hashtbl.replace !table name response;
+      Hashtbl.set !table ~key:name ~data:response;
       return ()
     | _ ->
       info "Failed to register datapath plugin %s" name;
@@ -239,13 +246,16 @@ module Datapath_plugins = struct
 end
 
 let vdi_of_volume x =
+  let ty = match List.Assoc.find x.Xapi_storage.Volume.Types.keys _vdi_type_key ~equal:String.equal with
+    | None -> "";
+    | Some v -> v in
   let open Storage_interface in {
   vdi = x.Xapi_storage.Volume.Types.key;
   uuid = x.Xapi_storage.Volume.Types.uuid;
   content_id = "";
   name_label = x.Xapi_storage.Volume.Types.name;
   name_description = x.Xapi_storage.Volume.Types.description;
-  ty = "";
+  ty = ty;
   metadata_of_pool = "";
   is_a_snapshot = false;
   snapshot_time = "19700101T00:00:00Z";
@@ -255,6 +265,7 @@ let vdi_of_volume x =
   virtual_size = x.Xapi_storage.Volume.Types.virtual_size;
   physical_utilisation = x.Xapi_storage.Volume.Types.physical_utilisation;
   sm_config = [];
+  sharable = x.Xapi_storage.Volume.Types.sharable;
   persistent = true;
 }
 
@@ -282,6 +293,14 @@ let unset root_dir name dbg sr vdi k =
   let args = Xapi_storage.Volume.Types.Volume.Unset.In.make dbg sr vdi k in
   let args = Xapi_storage.Volume.Types.Volume.Unset.In.rpc_of_t args in
   fork_exec_rpc root_dir (script root_dir name `Volume "Volume.unset") args Xapi_storage.Volume.Types.Volume.Unset.Out.t_of_rpc
+
+let update_keys root_dir name dbg sr key value response =
+  let open Deferred.Result.Monad_infix in
+  match value with
+  | None -> Deferred.Result.return response
+  | Some value ->
+     set root_dir name dbg sr response.Xapi_storage.Volume.Types.key key value >>= fun () ->
+     Deferred.Result.return { response with keys = (key, value) :: response.keys }
 
 let choose_datapath ?(persistent = true) response =
   (* We can only use a URI with a valid scheme, since we use the scheme
@@ -398,12 +417,13 @@ let process root_dir name x =
     Deferred.Result.return (R.success (Args.Query.Diagnostics.rpc_of_response response))
   | { R.name = "SR.attach"; R.params = [ args ] } ->
     let args = Args.SR.Attach.request_of_rpc args in
+    let uuid = args.Args.SR.Attach.sr in
     let device_config = args.Args.SR.Attach.device_config in
     begin match List.find device_config ~f:(fun (k, _) -> k = "uri") with
     | None ->
       Deferred.Result.return (R.failure (missing_uri ()))
     | Some (_, uri) ->
-      let args' = Xapi_storage.Volume.Types.SR.Attach.In.make args.Args.SR.Attach.dbg uri in
+      let args' = Xapi_storage.Volume.Types.SR.Attach.In.make args.Args.SR.Attach.dbg uuid uri in
       let args' = Xapi_storage.Volume.Types.SR.Attach.In.rpc_of_t args' in
       let open Deferred.Result.Monad_infix in
       fork_exec_rpc root_dir (script root_dir name `Volume "SR.attach") args' Xapi_storage.Volume.Types.SR.Attach.Out.t_of_rpc
@@ -424,7 +444,7 @@ let process root_dir name x =
         match Uri.scheme uri with
         | Some "xeno+shm" ->
           let uid = Uri.path uri in
-          let uid = if String.length uid > 1 then String.sub uid 1 (String.length uid - 1) else uid in
+          let uid = if String.length uid > 1 then String.sub uid ~pos:1 ~len:(String.length uid - 1) else uid in
           RRD.Client.Plugin.Local.register ~uid ~info:Rrd.Five_Seconds ~protocol:Rrd_interface.V2
           >>= fun _ ->
           loop (uid :: acc) datasources
@@ -463,7 +483,7 @@ let process root_dir name x =
         match Uri.scheme uri with
         | Some "xeno+shm" ->
           let uid = Uri.path uri in
-          let uid = if String.length uid > 1 then String.sub uid 1 (String.length uid - 1) else uid in
+          let uid = if String.length uid > 1 then String.sub uid ~pos:1 ~len:(String.length uid - 1) else uid in
           RRD.Client.Plugin.Local.deregister ~uid
           >>= fun _ ->
           loop datasources
@@ -509,6 +529,7 @@ let process root_dir name x =
   | { R.name = "SR.create"; R.params = [ args ] } ->
     let args = Args.SR.Create.request_of_rpc args in
     let name_label = args.Args.SR.Create.name_label in
+    let uuid = args.Args.SR.Create.sr in
     let description = args.Args.SR.Create.name_description in
     let device_config = args.Args.SR.Create.device_config in
     begin match List.find device_config ~f:(fun (k, _) -> k = "uri") with
@@ -517,6 +538,7 @@ let process root_dir name x =
     | Some (_, uri) ->
       let args = Xapi_storage.Volume.Types.SR.Create.In.make
         args.Args.SR.Create.dbg
+        uuid
         uri
         name_label
         description
@@ -525,7 +547,8 @@ let process root_dir name x =
       let open Deferred.Result.Monad_infix in
       fork_exec_rpc root_dir (script root_dir name `Volume "SR.create") args Xapi_storage.Volume.Types.SR.Create.Out.t_of_rpc
       >>= fun response ->
-      Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response response))
+      let new_device_config = List.filter ~f:(fun (k,_) -> k <> "uri") device_config in
+      Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response (("uri",response)::new_device_config)))
     end
   | { R.name = "SR.set_name_label"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
@@ -562,7 +585,7 @@ let process root_dir name x =
     let args = Xapi_storage.Volume.Types.SR.Destroy.In.rpc_of_t args in
     fork_exec_rpc root_dir (script root_dir name `Volume "SR.destroy") args Xapi_storage.Volume.Types.SR.Destroy.Out.t_of_rpc
     >>= fun response ->
-    Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response response))
+    Deferred.Result.return (R.success (Args.SR.Destroy.rpc_of_response response))
   | { R.name = "SR.scan"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
     let args = Args.SR.Scan.request_of_rpc args in
@@ -589,14 +612,17 @@ let process root_dir name x =
     Attached_SRs.find args.Args.VDI.Create.sr
     >>= fun sr ->
     let vdi_info = args.Args.VDI.Create.vdi_info in
+    let dbg = args.Args.VDI.Create.dbg in
     let args = Xapi_storage.Volume.Types.Volume.Create.In.make
-      args.Args.VDI.Create.dbg
+      dbg
       sr
       vdi_info.name_label
       vdi_info.name_description
-      vdi_info.virtual_size in
+      vdi_info.virtual_size
+      vdi_info.sharable in
     let args = Xapi_storage.Volume.Types.Volume.Create.In.rpc_of_t args in
     fork_exec_rpc root_dir (script root_dir name `Volume "Volume.create") args Xapi_storage.Volume.Types.Volume.Create.Out.t_of_rpc
+    >>= update_keys root_dir name dbg sr _vdi_type_key (match vdi_info.ty with "" -> None | s -> Some s)
     >>= fun response ->
     let response = vdi_of_volume response in
     Deferred.Result.return (R.success (Args.VDI.Create.rpc_of_response response))
@@ -905,7 +931,7 @@ let process root_dir name x =
     let open Deferred.Result.Monad_infix in
     (* We don't do anything until the VDI.epoch_begin *)
     Deferred.Result.return (R.success (Args.VDI.Set_persistent.rpc_of_response ()))
-  | { R.name = name } ->
+  | { R.name = name; _ } ->
     Deferred.return (Error (backend_error "UNIMPLEMENTED" [ name ])))
   >>= function
   | Result.Error error ->
@@ -942,7 +968,7 @@ let watch_volume_plugins ~root_dir ~switch_path ~pipe =
         Message_switch_async.Protocol_async.Server.listen ~process:(process root_dir name) ~switch:switch_path ~queue:(Filename.basename name) ()
         >>= fun result ->
         let server = get_ok result in
-        Hashtbl.add_exn servers name server;
+        Hashtbl.add_exn servers ~key:name ~data:server;
         return ()
       end in
   let destroy switch_path name =
