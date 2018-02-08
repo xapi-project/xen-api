@@ -7,6 +7,7 @@ set -uex
 export CONTAINER_NAME=build-env
 export OCAMLRUNPARAM=b
 export REPO_PACKAGE_NAME=xapi
+export GIT_BRANCH=jura
 export REPO_CONFIGURE_CMD=./configure
 export REPO_BUILD_CMD=make
 export REPO_TEST_CMD='make test'
