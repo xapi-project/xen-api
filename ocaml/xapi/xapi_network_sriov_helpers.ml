@@ -14,7 +14,7 @@
 
 open Network
 open Db_filter_types
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_network_sriov" end)
 open D
 
 let mutex = Mutex.create ()
@@ -43,7 +43,7 @@ let update_sriovs ~__context =
       Db.PCI.set_physical_function ~__context ~self:vf ~value:pf
     with Not_found ->
       error "Failed to find physical function of vf %s" (Db.PCI.get_uuid ~__context ~self:vf);
-      raise (Api_errors.(Server_error (network_sriov_find_pf_from_vf_failed, [Ref.string_of vf])))
+      raise Api_errors.(Server_error (network_sriov_find_pf_from_vf_failed, [Ref.string_of vf]))
   in
   Xapi_pci.update_pcis ~__context;
   let open Xapi_stdext_threads in
@@ -86,7 +86,7 @@ let sriov_bring_up ~__context ~self =
     | Ok result -> update_sriov_with_result result
     | Error error ->
       Db.PIF.set_currently_attached ~__context ~self ~value:false;
-      raise (Api_errors.(Server_error (network_sriov_enable_failed, [Ref.string_of self; error])))
+      raise Api_errors.(Server_error (network_sriov_enable_failed, [Ref.string_of self; error]))
   end;
   update_sriovs ~__context
 
@@ -143,7 +143,7 @@ let sriov_bring_down ~__context ~self =
     match Net.Sriov.disable dbg ~name:device with
     | Ok -> ()
     | Error error ->
-      raise (Api_errors.(Server_error (network_sriov_disable_failed, [Ref.string_of self; error])))
+      raise Api_errors.(Server_error (network_sriov_disable_failed, [Ref.string_of self; error]))
   end;
   info "Disable network sriov on PIF %s successful" (Ref.string_of physical_pif);
   Db.PIF.set_currently_attached ~__context ~self ~value:false;
@@ -164,9 +164,9 @@ let assert_sriov_pif_compatible_with_network ~__context ~pif ~network =
   | logical_pif :: _ ->
     begin
       match Db.PIF.get_sriov_logical_PIF_of ~__context ~self:logical_pif with
-      | [] -> raise (Api_errors.(Server_error (network_is_not_sriov_compatible, [Ref.string_of network])))
+      | [] -> raise Api_errors.(Server_error (network_is_not_sriov_compatible, [Ref.string_of network]))
       | sriov :: _ ->
         let existing_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
         if not (is_device_underneath_same_type ~__context pif existing_pif) then
-          raise (Api_errors.(Server_error (network_has_incompatible_sriov_pifs, [Ref.string_of pif; Ref.string_of network])))
+          raise Api_errors.(Server_error (network_has_incompatible_sriov_pifs, [Ref.string_of pif; Ref.string_of network]))
     end

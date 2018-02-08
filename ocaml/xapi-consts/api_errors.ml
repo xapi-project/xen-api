@@ -97,7 +97,6 @@ let device_detach_rejected = "DEVICE_DETACH_REJECTED"
 
 let network_sriov_already_enabled = "NETWORK_SRIOV_ALREADY_ENABLED"
 let network_sriov_find_pf_from_vf_failed = "NETWORK_SRIOV_FIND_PF_FROM_VF_FAILED"
-let network_sriov_pif_has_vf_inuse = "NETWORK_SRIOV_PIF_HAS_VF_INUSE"
 let network_sriov_enable_failed = "NETWORK_SRIOV_ENABLE_FAILED"
 let network_sriov_disable_failed = "NETWORK_SRIOV_DISABLE_FAILED"
 let network_is_not_sriov_compatible = "NETWORK_IS_NOT_SRIOV_COMPATIBLE"

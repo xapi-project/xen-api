@@ -66,7 +66,7 @@ let get_pif_type pif_rec =
     >>= is_physical_pif
   with
   | Some v, _ -> v
-  | None, _ -> raise (Api_errors.(Server_error (internal_error, [Printf.sprintf "Cannot calculate PIF type of %s" pif_rec.API.pIF_uuid])))
+  | None, _ -> raise Api_errors.(Server_error (internal_error, [Printf.sprintf "Cannot calculate PIF type of %s" pif_rec.API.pIF_uuid]))
 
 (** This function aims to get a list of types of the PIFs underneath the given PIF *)
 (* The root PIF underneath should be Physical or Bond_master *)
@@ -103,13 +103,13 @@ let vlan_is_allowed_on_pif ~__context ~tagged_PIF ~pif_rec ~tag =
   | Physical pif_rec :: _ when pif_rec.API.pIF_bond_slave_of <> Ref.null ->
     (* Disallow creating on bond slave *)
     (* Here we rely on the implementation to guarantee that `Physical` is a terminating case *)
-    raise (Api_errors.(Server_error (cannot_add_vlan_to_bond_slave, [Ref.string_of tagged_PIF])))
+    raise Api_errors.(Server_error (cannot_add_vlan_to_bond_slave, [Ref.string_of tagged_PIF]))
   | VLAN_untagged _ :: _ ->
     (* Check that the tagged PIF is not a VLAN itself - CA-25160. This check can be skipped using the allow_vlan_on_vlan FIST point. *)
     if not (Xapi_fist.allow_vlan_on_vlan()) then
-      raise (Api_errors.(Server_error (pif_is_vlan, [Ref.string_of tagged_PIF])))
+      raise Api_errors.(Server_error (pif_is_vlan, [Ref.string_of tagged_PIF]))
   | Tunnel_access _ :: _ ->
-    raise (Api_errors.(Server_error (is_tunnel_access_pif, [Ref.string_of tagged_PIF])))
+    raise Api_errors.(Server_error (is_tunnel_access_pif, [Ref.string_of tagged_PIF]))
   | _ -> ()
 
 let tunnel_is_allowed_on_pif ~__context ~transport_PIF =
@@ -118,13 +118,13 @@ let tunnel_is_allowed_on_pif ~__context ~transport_PIF =
   | Physical pif_rec :: _ when pif_rec.API.pIF_bond_slave_of <> Ref.null ->
     (* Disallow creating on bond slave *)
     (* Here we rely on the implementation to guarantee that `Physical` is a terminating case *)
-    raise (Api_errors.(Server_error (cannot_add_tunnel_to_bond_slave, [Ref.string_of transport_PIF])))
+    raise Api_errors.(Server_error (cannot_add_tunnel_to_bond_slave, [Ref.string_of transport_PIF]))
   | Tunnel_access _ :: _ ->
-    raise (Api_errors.(Server_error (is_tunnel_access_pif, [Ref.string_of transport_PIF])));
+    raise Api_errors.(Server_error (is_tunnel_access_pif, [Ref.string_of transport_PIF]));
   | Network_sriov_logical _ :: _ ->
-    raise (Api_errors.(Server_error (cannot_add_tunnel_to_sriov_logical, [Ref.string_of transport_PIF])))
+    raise Api_errors.(Server_error (cannot_add_tunnel_to_sriov_logical, [Ref.string_of transport_PIF]))
   | VLAN_untagged _ :: Network_sriov_logical _ :: _ ->
-      raise (Api_errors.(Server_error (cannot_add_tunnel_to_vlan_on_sriov_logical, [Ref.string_of transport_PIF])))
+      raise Api_errors.(Server_error (cannot_add_tunnel_to_vlan_on_sriov_logical, [Ref.string_of transport_PIF]))
   | _ -> ()
 
 let bond_is_allowed_on_pif ~__context ~self =
@@ -136,29 +136,29 @@ let bond_is_allowed_on_pif ~__context ~self =
     let bond = pif_rec.API.pIF_bond_slave_of in
     let bonded = try ignore(Db.Bond.get_uuid ~__context ~self:bond); true with _ -> false in
     if bonded
-    then raise (Api_errors.(Server_error (pif_already_bonded, [ Ref.string_of self ])))
+    then raise Api_errors.(Server_error (pif_already_bonded, [ Ref.string_of self ]))
   | VLAN_untagged _ :: _ ->
-    raise (Api_errors.(Server_error (pif_vlan_exists, [Db.PIF.get_device_name ~__context ~self])))
+    raise Api_errors.(Server_error (pif_vlan_exists, [Db.PIF.get_device_name ~__context ~self]))
   | Tunnel_access _ :: _ ->
-    raise (Api_errors.(Server_error (is_tunnel_access_pif, [Ref.string_of self])))
+    raise Api_errors.(Server_error (is_tunnel_access_pif, [Ref.string_of self]))
   | Network_sriov_logical _ :: _ ->
-    raise (Api_errors.(Server_error (pif_is_sriov_logical, [Ref.string_of self])))
+    raise Api_errors.(Server_error (pif_is_sriov_logical, [Ref.string_of self]))
   | _ -> ()
 
 let sriov_is_allowed_on_pif ~__context ~physical_PIF ~pif_rec =
   let _ = match get_pif_type pif_rec with
     | Physical _ -> ()
     | _ ->
-      raise (Api_errors.(Server_error (pif_is_not_physical, [Ref.string_of physical_PIF])))
+      raise Api_errors.(Server_error (pif_is_not_physical, [Ref.string_of physical_PIF]))
   in
   if pif_rec.API.pIF_sriov_physical_PIF_of <> [] then
-    raise (Api_errors.(Server_error (network_sriov_already_enabled, [Ref.string_of physical_PIF])));
+    raise Api_errors.(Server_error (network_sriov_already_enabled, [Ref.string_of physical_PIF]));
   if not (List.mem "sriov" pif_rec.API.pIF_capabilities) then
-    raise (Api_errors.(Server_error (pif_is_not_sriov_capable, [Ref.string_of physical_PIF])))
+    raise Api_errors.(Server_error (pif_is_not_sriov_capable, [Ref.string_of physical_PIF]))
 
 let assert_pif_is_managed ~__context ~self =
   if Db.PIF.get_managed ~__context ~self <> true then
-    raise (Api_errors.(Server_error (pif_unmanaged, [Ref.string_of self])))
+    raise Api_errors.(Server_error (pif_unmanaged, [Ref.string_of self]))
 
 let assert_not_vlan_slave ~__context ~self =
   let vlans = Db.PIF.get_VLAN_slave_of ~__context ~self in
@@ -167,13 +167,10 @@ let assert_not_vlan_slave ~__context ~self =
     (String.concat "; " (List.map Ref.string_of vlans));
   if vlans <> []
   then begin
-    debug "PIF has associated VLANs: [ %s ]"
-      (String.concat
-         ("; ")
-         (List.map
-            (fun self -> Db.VLAN.get_uuid ~__context ~self)
-            (vlans)));
-    raise (Api_errors.Server_error
-             (Api_errors.pif_vlan_still_exists,
+    List.map (fun self -> Db.VLAN.get_uuid ~__context ~self) vlans
+    |> String.concat "; "
+    |> debug "PIF has associated VLANs: [ %s ]";
+    raise Api_errors.(Server_error
+             (pif_vlan_still_exists,
               [ Ref.string_of self ]))
   end
