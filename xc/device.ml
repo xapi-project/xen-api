@@ -1806,7 +1806,7 @@ module Dm_Common = struct
    * an exception is raised *)
   let wait_path ~pid ~task ~name ~domid ~xs ~ready_path ?ready_val ~timeout
       ~cancel _ =
-    let syslog_key = (Printf.sprintf "%s-%d" name domid) in
+    let syslog_key = Printf.sprintf "%s-%d" name domid in
     let finished = ref false in
     let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
     let timeout_ns = Int64.of_float (timeout *. Mtime.s_to_ns) in
@@ -1820,11 +1820,8 @@ module Dm_Common = struct
         let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout () in
         let state = try xs.Xs.read ready_path with _ -> "" in
         match ready_val with
-        | Some value ->
-          if state = value
-          then finished := true
-          else raise (Ioemu_failed
-                        (name, (Printf.sprintf "Daemon state not running (%s)" state)))
+        | Some value when value = state -> finished := true
+        | Some _ -> raise (Ioemu_failed (name, (Printf.sprintf "Daemon state not running (%s)" state)))
         | None -> finished := true
       with Watch.Timeout _ ->
         begin match Forkhelpers.waitpid_nohang pid with
