@@ -1809,8 +1809,12 @@ module Dm_Common = struct
     let syslog_key = (Printf.sprintf "%s-%d" name domid) in
     let finished = ref false in
     let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
-    let start = Mtime_clock.counter () in
-    while (Mtime.Span.to_ms (Mtime_clock.count start)) < timeout && not !finished do
+    let timeout_ns = Int64.of_float (timeout *. Mtime.s_to_ns) in
+    let target =
+        match Mtime.add_span (Mtime_clock.now ()) (Mtime.Span.of_uint64_ns timeout_ns) with
+          | None -> raise (Ioemu_failed (name, "Timeout overflow"))
+          | Some x -> x in
+    while Mtime.is_earlier (Mtime_clock.now ()) ~than:target && not !finished do
       Xenops_task.check_cancelling task;
       try
         let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout () in
@@ -2199,8 +2203,12 @@ module Backend = struct
       (* Wait for QEMU's event socket to appear. *)
       let wait_event_socket ~task ~name ~domid ~timeout =
         let finished = ref false in
-        let start = Mtime_clock.counter () in
-        while (Mtime.Span.to_ms (Mtime_clock.count start)) < timeout && not !finished do
+        let timeout_ns = Int64.of_float (timeout *. Mtime.s_to_ns) in
+        let target =
+            match Mtime.add_span (Mtime_clock.now ()) (Mtime.Span.of_uint64_ns timeout_ns) with
+              | None -> raise (Ioemu_failed (name, "Timeout overflow"))
+              | Some x -> x in
+        while Mtime.is_earlier (Mtime_clock.now ()) ~than:target && not !finished do
           Xenops_task.check_cancelling task;
           if Sys.file_exists (qmp_event_path domid) then
             finished := true
