@@ -189,6 +189,7 @@ let init_args() =
   (* Immediately register callback functions *)
   register_callback_fns();
   Xcp_service.configure ~options:Xapi_globs.all_options ~resources:Xapi_globs.Resources.xcp_resources ();
+  Xcp_coverage.init "xapi";
   Xcp_coverage.dispatcher_init "xapi";
   if not !Xcp_client.use_switch
   then begin
