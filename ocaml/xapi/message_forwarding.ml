@@ -1395,7 +1395,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
           (Db.VM.get_name_label ~__context ~self:vm)
       in
       let (name, priority) = Api_messages.vm_shutdown in
-      (try ignore(Xapi_message.create ~__context ~name 
+      (try ignore(Xapi_message.create ~__context ~name
                     ~priority ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ())
 
     let clean_reboot ~__context ~vm =
@@ -1686,17 +1686,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
            (* Make sure the target has enough memory to receive the VM *)
            let snapshot = Db.VM.get_record ~__context ~self:vm in
-           (* MTC:  An MTC-protected VM has a peer VM on the destination host to which
-              					   it migrates to.  When reserving memory, we must substitute the source VM
-              					   with this peer VM.  If is not an MTC-protected VM, then this call will
-              					   simply return the same VM.  Note that the call below not only accounts for
-              					   the destination VM's memory footprint but it also sets its set_scheduled_to_be_resident_on
-              					   field so we must make sure that we pass the destination VM and not the source.
-              					   Note: TBD: when migration into an existing VM is implemented, this section will
-              					   have to be revisited since the destination VM would already be occupying memory
-              					   and there won't be any need to account for its memory. *)
-           let dest_vm = Mtc.get_peer_vm_or_self ~__context ~self:vm in
-           reserve_memory_for_vm ~__context ~vm:dest_vm ~host ~snapshot ~host_op:`vm_migrate
+           reserve_memory_for_vm ~__context ~vm ~host ~snapshot ~host_op:`vm_migrate
              (fun () ->
                 forward_vm_op ~local_fn ~__context ~vm
                   (fun session_id rpc -> Client.VM.pool_migrate rpc session_id vm host options)));
@@ -3104,7 +3094,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
             Client.PIF.reconfigure_ipv6 rpc session_id self mode iPv6 gateway dNS) in
       tolerate_connection_loss fn success !Xapi_globs.pif_reconfigure_ip_timeout
 
-    let set_primary_address_type ~__context ~self ~primary_address_type = 
+    let set_primary_address_type ~__context ~self ~primary_address_type =
       info "PIF.set_primary_address_type: PIF = '%s'; primary_address_type = '%s'"
         (pif_uuid ~__context self)
         (Record_util.primary_address_type_to_string primary_address_type);
@@ -3385,10 +3375,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     (* -------------------------------------------------------------------------- *)
 
     let set_sharable ~__context ~self ~value =
-      if not (Mtc.is_vdi_accessed_by_protected_VM ~__context ~vdi:self) then begin
-        let sr = Db.VDI.get_SR ~__context ~self in
-        Sm.assert_session_has_internal_sr_access ~__context ~sr;
-      end;
+      let sr = Db.VDI.get_SR ~__context ~self in
+      Sm.assert_session_has_internal_sr_access ~__context ~sr;
       Local.VDI.set_sharable ~__context ~self ~value
 
     let set_managed ~__context ~self ~value =
