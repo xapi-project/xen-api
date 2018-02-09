@@ -160,22 +160,7 @@ let assert_not_in_bond ~__context ~self =
 
 let assert_no_vlans ~__context ~self =
   (* Disallow if this is a base interface of any existing VLAN *)
-  let vlans = Db.PIF.get_VLAN_slave_of ~__context ~self in
-  debug "PIF %s assert_no_vlans = [ %s ]"
-    (Db.PIF.get_uuid ~__context ~self)
-    (String.concat "; " (List.map Ref.string_of vlans));
-  if vlans <> []
-  then begin
-    debug "PIF has associated VLANs: [ %s ]"
-      (String.concat
-         ("; ")
-         (List.map
-            (fun self -> Db.VLAN.get_uuid ~__context ~self)
-            (vlans)));
-    raise (Api_errors.Server_error
-             (Api_errors.pif_vlan_still_exists,
-              [ Ref.string_of self ]))
-  end;
+  Xapi_pif_helpers.assert_not_vlan_slave ~__context ~self;
   (* Disallow if this is a derived interface of a VLAN *)
   if
     Db.PIF.get_VLAN ~__context ~self <> (-1L)
@@ -780,6 +765,13 @@ let set_property ~__context ~self ~name ~value =
     ) (self :: vlan_pifs)
 
 let rec unplug ~__context ~self =
+  let unplug_vlan_on_sriov ~__context ~self =
+    Db.PIF.get_VLAN_slave_of ~__context ~self
+    |> List.iter (fun vlan ->
+        let untagged_pif = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
+        unplug ~__context ~self:untagged_pif
+      )
+  in
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self;
   assert_no_protection_enabled ~__context ~self;
   assert_not_management_pif ~__context ~self;
@@ -801,28 +793,36 @@ let rec unplug ~__context ~self =
     let access_PIF = Db.Tunnel.get_access_PIF ~__context ~self:tunnel in
     unplug ~__context ~self:access_PIF
   end;
+  if Db.PIF.get_sriov_logical_PIF_of ~__context ~self <> [] then begin
+    debug "PIF is network sriov logical PIF, also bringing down vlan on top of it";
+    unplug_vlan_on_sriov ~__context ~self
+  end;
   Nm.bring_pif_down ~__context self
 
 let rec plug ~__context ~self =
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self;
-  let tunnel = Db.PIF.get_tunnel_access_PIF_of ~__context ~self in
-  if tunnel <> []
-  then begin
-    let tunnel = List.hd tunnel in
-    let transport_PIF =
-      Db.Tunnel.get_transport_PIF ~__context ~self:tunnel in
-    if Db.PIF.get_ip_configuration_mode
-        ~__context ~self:transport_PIF = `None
-    then raise (Api_errors.Server_error
-                  (Api_errors.transport_pif_not_configured,
-                   [Ref.string_of transport_PIF]))
-    else begin
-      debug "PIF is tunnel access PIF... also bringing up transport PIF";
-      plug ~__context ~self:transport_PIF
-    end
-  end;
-  if Db.PIF.get_bond_slave_of ~__context ~self <> Ref.null then
-    raise (Api_errors.Server_error (Api_errors.cannot_plug_bond_slave, [Ref.string_of self]));
+  let pif_rec = Db.PIF.get_record ~__context ~self in
+  let () = match Xapi_pif_helpers.get_pif_type pif_rec with
+    | Tunnel_access tunnel ->
+      let transport_PIF = Db.Tunnel.get_transport_PIF ~__context ~self:tunnel in
+      if Db.PIF.get_ip_configuration_mode ~__context ~self:transport_PIF = `None
+      then raise Api_errors.(Server_error
+                    (transport_pif_not_configured,
+                     [Ref.string_of transport_PIF]))
+      else begin
+        debug "PIF is tunnel access PIF... also bringing up transport PIF";
+        plug ~__context ~self:transport_PIF
+      end
+    | VLAN_untagged vlan ->
+      let tagged_pif = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
+      if Db.PIF.get_sriov_logical_PIF_of ~__context ~self:tagged_pif <> [] then begin
+        debug "PIF is VLAN master on top of SRIOV logical PIF, also bringing up SRIOV logical PIF";
+        plug ~__context ~self:tagged_pif
+      end
+    | Physical pif_rec when pif_rec.API.pIF_bond_slave_of <> Ref.null ->
+      raise Api_errors.(Server_error (cannot_plug_bond_slave, [Ref.string_of self]))
+    | _ -> ()
+  in
   Nm.bring_pif_up ~__context ~management_interface:false self
 
 let calculate_pifs_required_at_start_of_day ~__context =
