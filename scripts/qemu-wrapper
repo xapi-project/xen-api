@@ -230,6 +230,7 @@ def main(argv):
     upgraded_save_image = None
     serial_c = ''
     tmp_serial_c = ''
+    depriv = True
 
     while n < len(qemu_args):
         p = qemu_args[n]
@@ -240,6 +241,7 @@ def main(argv):
 
         if p == "-priv":
             del qemu_args[n]
+            depriv = False
             continue
 
         if p == "-acpi":
@@ -364,7 +366,6 @@ def main(argv):
     #qemu_args += ["-trace", "events=/root/trace"]
     #qemu_args += ["-monitor", "tcp:127.0.0.1:7777,server,nowait"]
 
-    depriv = False
     if depriv:
         try:
             os.makedirs("/var/lib/xen/root-%d/dev" % domid, 0755)
@@ -386,6 +387,7 @@ def main(argv):
         qemu_args += ["-runas", "%d.%d" % (uid, gid)]
 
     qemu_args += ["-sandbox", "on,obsolete=deny,elevateprivileges=allow,spawn=deny,resourcecontrol=deny"]
+    qemu_args += ["-S"]
 
     xenstore_write("/libxl/%d/dm-version" % domid, "qemu_xen")
 
