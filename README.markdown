@@ -37,9 +37,7 @@ more time for review.
 Maintainers
 -----------
 
-You can usually find the developers hanging out in #xen-api on
-freenode. We are also reachable on the xen-api@lists.xenproject.org mailing
-list.
+Maintainers can be contacted via this mailing list: `xen-api@lists.xenproject.org`
 
 Licensing
 ---------
