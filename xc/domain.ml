@@ -298,6 +298,7 @@ let make ~xc ~xs vm_info domain_config uuid =
               "drivers";
               "control";
               "attr";
+              "xenserver/attr";
               "data";
               "messages";
               "vm-data";

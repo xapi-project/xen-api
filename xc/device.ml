@@ -779,14 +779,11 @@ module NetSriovVf = struct
   let add_device ~xs device xenserver_list =
     Mutex.execute Generic.device_serialise_m (fun () ->
         let extra_xenserver_device_path = Device_common.extra_xenserver_path_of_device ~xs device in
-        let extra_xenserver_attr_path = Device_common.extra_xenserver_path_of_attr ~xs device in
         debug "adding net-sriov-vf device  B%d  F%d" device.backend.domid device.frontend.domid;
         Xs.transaction xs (fun t ->
             t.Xst.mkdirperms extra_xenserver_device_path
               (Xenbus_utils.rwperm_for_guest device.frontend.domid);
             t.Xst.writev extra_xenserver_device_path xenserver_list;
-            t.Xst.mkdirperms extra_xenserver_attr_path
-              (Xenbus_utils.rwperm_for_guest device.frontend.domid);
           )
       )
 

@@ -188,12 +188,6 @@ let extra_xenserver_path_of_device ~xs (x: device) =
     (string_of_kind x.backend.kind)
     x.frontend.devid
 
-let extra_xenserver_path_of_attr ~xs (x: device) =
-  sprintf "%s/xenserver/attr/%s/%d"
-    (xs.Xs.getdomainpath x.frontend.domid)
-    (string_of_kind x.backend.kind)
-    x.frontend.devid
-
 let device_of_backend (backend: endpoint) (domu: Xenctrl.domid) = 
   let frontend = { domid = domu;
                    kind = (match backend.kind with

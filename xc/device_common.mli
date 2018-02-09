@@ -57,7 +57,6 @@ val get_private_path_by_uuid : Uuidm.t -> string
 val get_private_data_path_of_device : device -> string
 
 val extra_xenserver_path_of_device: xs:Xenstore.Xs.xsh -> device -> string
-val extra_xenserver_path_of_attr: xs:Xenstore.Xs.xsh -> device -> string
 
 val string_of_endpoint : endpoint -> string
 val string_of_device : device -> string
