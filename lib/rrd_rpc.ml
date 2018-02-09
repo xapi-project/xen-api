@@ -30,7 +30,7 @@ let assoc_opt ~(key : string) ~(default : string)
 
 (* Converts string to the corresponding datasource type. *)
 let ds_ty_of_string (s : string) : Rrd.ds_type =
-  match String.lowercase s with
+  match String.lowercase_ascii s with
   | "gauge" -> Rrd.Gauge
   | "absolute" -> Rrd.Absolute
   | "derive" -> Rrd.Derive
@@ -38,7 +38,7 @@ let ds_ty_of_string (s : string) : Rrd.ds_type =
 
 (* Converts a string to value of datasource owner type. *)
 let owner_of_string (s : string) : Rrd.ds_owner =
-  match Astring.String.cuts ~sep:" " (String.lowercase s) with
+  match Astring.String.cuts ~sep:" " (String.lowercase_ascii s) with
   | ["host"] -> Rrd.Host
   | ["vm"; uuid] -> Rrd.VM uuid
   | ["sr"; uuid] -> Rrd.SR uuid

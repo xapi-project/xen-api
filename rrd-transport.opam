@@ -8,7 +8,7 @@ build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 build-test: ["jbuilder" "runtest" "-p" name]
 depends: [
   "jbuilder" {build & >= "1.0+beta10"}
-  "cstruct" {< "3.0.0"}
+  "cstruct"
   "crc"
   "astring"
   "xapi-idl" {>= "1.0.0"}

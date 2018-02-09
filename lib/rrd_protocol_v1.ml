@@ -29,7 +29,7 @@ type value_type = Float | Int64
 
 (* Converts string to datasource value type. *)
 let val_ty_of_string (s : string) : value_type =
-  match String.lowercase s with
+  match String.lowercase_ascii s with
   | "float" -> Float
   | "int64" -> Int64
   | _ -> raise Invalid_payload
