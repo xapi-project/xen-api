@@ -96,44 +96,6 @@ def xenstore_write(path, value):
 def xenstore_ls(path):
     return xenstore.ls("", path)
 
-def get_drive_args(dom):
-    args = []
-    index_map = dict(('xvd' + chr(ord('a') + i), i) for i in range(4))
-    vbd3 = "/local/domain/0/backend/vbd3/" + dom
-
-    medialist = xenstore_ls(vbd3)
-    if not medialist:
-        return args
-
-    for num in medialist:
-        dev = xenstore_read("%s/%s/dev" % (vbd3, num))
-        if dev not in index_map:
-            continue
-
-        path = ''
-        path_str = ''
-        keys = xenstore_ls("%s/%s" % (vbd3, num))
-        if "params" in keys:
-            path = xenstore_read("%s/%s/params" % (vbd3, num))
-            path_str = 'file=%s,' % path
-
-        # XXX This is a heuristic to determine if the disk is a CD. We should be told
-        # by the toolstack.
-        mode = xenstore_read("%s/%s/mode" % (vbd3, num))
-        media = 'cdrom' if dev == 'xvdd' and mode == 'r' else 'disk'
-        forcelba = 'on' if media == 'disk' else 'off'
-
-        format_str = ',format=raw' if path != '' else ''
-
-        if mode == 'r' and media != 'cdrom':
-            continue
-
-        # XXX What should cache=... be set to?
-        args.extend(["-drive", "%sif=ide,index=%d,media=%s%s,force-lba=%s" %
-                     (path_str, index_map[dev], media, format_str, forcelba)])
-
-    return args
-
 def close_fds():
     for i in open_fds:
         os.close(i)
@@ -164,7 +126,6 @@ def main(argv):
             break
 
     qemu_dm = '/usr/lib64/xen/bin/qemu-system-i386'
-    drive_args = get_drive_args('%d' % domid)
     qemu_args = ['qemu-dm-%d' % domid]
 
     # read the size of lower MMIO hole provisioned by xenguest
@@ -220,7 +181,6 @@ def main(argv):
     qemu_args.extend(['-parallel', 'null'])
 
     qemu_args.extend(argv[2:])
-    qemu_args.extend(drive_args)
 
     n = 0
 

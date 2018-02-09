@@ -118,7 +118,7 @@ module VmExtra = struct
     shadow_multiplier: float;
     memory_static_max: int64;
     suspend_memory_bytes: int64;
-    qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
+    qemu_vbds: (Vbd.id * (int * qemu_frontend option)) list;
     qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
     pci_msitranslate: bool;
     pci_power_mgmt: bool;
@@ -1148,13 +1148,14 @@ module VM = struct
 
   (* NB: the arguments which affect the qemu configuration must be saved and
      	   restored with the VM. *)
-  let create_device_model_config vm vmextra vbds vifs vgpus vusbs = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
+  let create_device_model_config vm vmextra vbds vifs vgpus vusbs =
+    match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
     | { VmExtra.build_info = None }, _
     | { VmExtra.ty = None }, _ -> raise (Domain_not_built)
     | {
-      VmExtra.build_info = Some build_info;
-      ty = Some ty;
-    },{
+        VmExtra.build_info = Some build_info;
+        ty = Some ty;
+      },{
         VmExtra.qemu_vbds = qemu_vbds
       } ->
       let make ?(boot_order="cd") ?(serial="pty") ?(monitor="null")
@@ -1211,10 +1212,14 @@ module VM = struct
       | HVM hvm_info ->
         let disks = List.filter_map (fun vbd ->
             let id = vbd.Vbd.id in
-            if hvm_info.Vm.qemu_disk_cmdline && (List.mem_assoc id qemu_vbds)
+            if (List.mem_assoc id qemu_vbds)
             then
-              let index, bd = List.assoc id qemu_vbds in
-              let path = block_device_of_vbd_frontend bd in
+              let index, bd_opt = List.assoc id qemu_vbds in
+              let path =
+                match bd_opt with
+                | Some bd -> block_device_of_vbd_frontend bd
+                | None -> ""
+              in
               let media =
                 if vbd.Vbd.ty = Vbd.Disk
                 then Device.Dm.Disk else Device.Dm.Cdrom in
@@ -2194,13 +2199,12 @@ module VBD = struct
              let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs frontend_domid) in
              let qemu_frontend = match Device_number.spec device_number with
                | Device_number.Ide, n, _ when n < 4 ->
-                 begin match vbd.Vbd.backend with
-                   | None -> None
-                   | Some _ ->
-                     let bd = create_vbd_frontend ~xc ~xs task qemu_domid vdi in
-                     let index = Device_number.to_disk_number device_number in
-                     Some (index, bd)
-                 end
+                 let index = Device_number.to_disk_number device_number in
+                 let bd_opt =
+                   vbd.Vbd.backend |>
+                   Opt.map (fun _ -> create_vbd_frontend ~xc ~xs task qemu_domid vdi)
+                 in
+                Some (index, bd_opt)
                | _, _, _ -> None in
              (* Remember what we've just done *)
              Mutex.execute dB_m (fun () ->
@@ -2270,7 +2274,7 @@ module VBD = struct
                         if List.mem_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds then begin
                           let _, qemu_vbd = List.assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds in
                           (* destroy_vbd_frontend ignores 'refusing to close' transients' *)
-                          destroy_vbd_frontend ~xc ~xs task qemu_vbd;
+                          Opt.iter (fun x -> destroy_vbd_frontend ~xc ~xs task x) qemu_vbd;
                           let non_persistent = { non_persistent with
                                                  VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds } in
                           DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
