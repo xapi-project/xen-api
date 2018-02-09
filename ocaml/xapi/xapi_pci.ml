@@ -76,6 +76,42 @@ let get_local_pcis_and_records ~__context =
 let get_local_pci_refs ~__context =
   get_local ~__context Db.PCI.get_refs_where
 
+(** Update pf and vf settings *)
+(* For virtual function record, set field `physical_function` to its PF PCI record *)
+(* For physical function record, set field `functions` to 1 plus number of its virtual functions *)
+let update_pf_vf_relations ~__context ~pcis =
+  let pci_path x = Printf.sprintf "/sys/bus/pci/devices/%s/physfn" x
+  in
+  let get_phyfn_path pci_rec =
+    let path = pci_path pci_rec.Db_actions.pCI_pci_id in
+    try
+      (*if can't read link from the path,then it's a physical function*)
+      Some (Filename.basename (Unix.readlink path))
+    with _ -> None
+  in
+  let set_phyfn (vf_ref, vf_rec, phyfn_path) pfs =
+    match phyfn_path with
+    | Some phyfn_path ->
+      begin
+        try
+          let pf, _, _ = List.find (fun (_, pf_rec, _) -> phyfn_path = pf_rec.Db_actions.pCI_pci_id) pfs in
+          if vf_rec.Db_actions.pCI_physical_function <> pf then Db.PCI.set_physical_function ~__context ~self:vf_ref ~value:pf
+        with Not_found ->
+          error "Failed to find physical function of vf %s" vf_rec.Db_actions.pCI_uuid
+      end
+    | None -> ()
+  in
+  let pfs, vfs = pcis
+                 |> List.map (fun (pci_ref, pci_rec) -> pci_ref, pci_rec, get_phyfn_path pci_rec)
+                 |> List.partition (fun (_, _, phyfn_path) -> match phyfn_path with None -> true | Some _ -> false) in
+  (* set physical function for vfs *)
+  List.iter (fun vf -> set_phyfn vf pfs) vfs;
+  (* update pf's functions *)
+  List.iter (fun (pf_ref, pf_rec, _) ->
+      let vf_cnt = List.length pf_rec.Db_actions.pCI_virtual_functions in
+      Db.PCI.set_functions ~__context ~self:pf_ref ~value:(Int64.of_int (vf_cnt + 1))
+    ) pfs
+
 let update_pcis ~__context =
   let host = Helpers.get_localhost ~__context in
   let existing = List.filter_map
@@ -188,7 +224,8 @@ let update_pcis ~__context =
 
   let current = List.map (fun ((pref, prec), _) -> pref, prec) current in
   let obsolete = List.set_difference existing current in
-  List.iter (fun (self, _) -> Db.PCI.destroy ~__context ~self) obsolete
+  List.iter (fun (self, _) -> Db.PCI.destroy ~__context ~self) obsolete;
+  update_pf_vf_relations ~__context ~pcis:current
 
 let with_vga_arbiter ~readonly f =
   Unixext.with_file
