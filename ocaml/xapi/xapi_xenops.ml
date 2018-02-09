@@ -313,6 +313,13 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       vncterm_ip = None (*None PR-1255*);
     }
 
+let list_net_sriov_vf_pcis ~__context ~vm =
+  List.filter_map (fun vif ->
+    match backend_of_vif ~__context ~vif with
+    | Network.Sriov {domain; bus; dev; fn} -> Some (domain, bus, dev, fn)
+    | _ -> None
+  ) vm.API.vM_VIFs
+
 module MD = struct
   (** Convert between xapi DB records and xenopsd records *)
 
@@ -546,7 +553,9 @@ module MD = struct
 
     let unmanaged = List.flatten (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs other_pcidevs)) in
 
-    let devs = devs @ unmanaged in
+    let net_sriov_pcidevs = list_net_sriov_vf_pcis ~__context ~vm in
+
+    let devs = devs @ net_sriov_pcidevs @ unmanaged in
 
     let open Pci in
     List.map
