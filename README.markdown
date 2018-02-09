@@ -37,20 +37,6 @@ more time for review.
 Maintainers
 -----------
 
-This is a short list of people who currently maintain this project.
-
-* Christian Lindig <christian.lindig@citrix.com>
-* Euan Harris <euan.harris@citrix.com>
-* Frederico Mazzone <frederico.mazzone@citrix.com>
-* Gabor Igloi <gabor.igloi@citrix.com>
-* Jon Ludlam <jonathan.ludlam@citrix.com>
-* Konstantina Chremmou <konstantina.chremmou@citrix.com>
-* Marcello Seri <marcello.seri@citrix.com>
-* Rob Hoes <rob.hoes@citrix.com>
-* Sharad Yadav <sharad.yadav@citrix.com>
-* Thomas Sanders <thomas.sanders@citrix.com>
-* Zheng Li <zheng.li@citrix.com>
-
 You can usually find the developers hanging out in #xen-api on
 freenode. We are also reachable on the xen-api@lists.xenproject.org mailing
 list.
