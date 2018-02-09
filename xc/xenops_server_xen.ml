@@ -2200,12 +2200,11 @@ module VBD = struct
              let qemu_frontend = match Device_number.spec device_number with
                | Device_number.Ide, n, _ when n < 4 ->
                  let index = Device_number.to_disk_number device_number in
-                 begin match vbd.Vbd.backend with
-                   | None -> Some (index, None)
-                   | Some _ ->
-                     let bd = create_vbd_frontend ~xc ~xs task qemu_domid vdi in
-                     Some (index, Some bd)
-                 end
+                 let bd_opt =
+                   vbd.Vbd.backend |>
+                   Opt.map (fun _ -> create_vbd_frontend ~xc ~xs task qemu_domid vdi)
+                 in
+                Some (index, bd_opt)
                | _, _, _ -> None in
              (* Remember what we've just done *)
              Mutex.execute dB_m (fun () ->
