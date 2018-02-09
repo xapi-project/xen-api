@@ -1,6 +1,6 @@
 opam-version: "1.2"
-maintainer: "john.else@citrix.com"
-authors: "john.else@citrix.com"
+maintainer: "xen-api@lists.xen.org"
+authors: John Else
 homepage: "https://github.com/xapi-project/rrd-transport"
 dev-repo: "https://github.com/xapi-project/rrd-transport"
 bug-reports: "https://github.com/xapi-project/rrd-transport"
