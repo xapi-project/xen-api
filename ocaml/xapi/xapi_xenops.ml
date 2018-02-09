@@ -123,11 +123,11 @@ let vdi_of_disk ~__context x = match String.split ~limit:2 '/' x with
     None
 
 let backend_of_network net =
-  if List.mem_assoc "backend_vm" net.API.network_other_config then begin
+  try
     let backend_vm = List.assoc "backend_vm" net.API.network_other_config in
     debug "Using VM %s as backend for VIF on network %s" backend_vm net.API.network_uuid;
     Network.Remote (backend_vm, net.API.network_bridge)
-  end else
+  with Not_found ->
     Network.Local net.API.network_bridge (* PR-1255 *)
 
 let backend_of_vif ~__context ~vif =
