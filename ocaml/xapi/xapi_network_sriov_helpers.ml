@@ -38,12 +38,15 @@ let sriov_bring_up ~__context ~self =
     Db.PIF.set_currently_attached ~__context ~self ~value:(not require_reboot)
   in
   let device = Db.PIF.get_device ~__context ~self in
-  let dbg = Context.string_of_task __context in
-  match Net.Sriov.enable dbg ~name:device with
-  | Ok result -> update_sriov_with_result result
-  | Error error ->
-    Db.PIF.set_currently_attached ~__context ~self ~value:false;
-    raise Api_errors.(Server_error (network_sriov_enable_failed, [Ref.string_of self; error]))
+  begin
+    let dbg = Context.string_of_task __context in
+    match Net.Sriov.enable dbg ~name:device with
+    | Ok result -> update_sriov_with_result result
+    | Error error ->
+      Db.PIF.set_currently_attached ~__context ~self ~value:false;
+      raise Api_errors.(Server_error (network_sriov_enable_failed, [Ref.string_of self; error]))
+  end;
+  Xapi_pci.update_pcis ~__context
 
 let require_operation_on_pci_device ~__context ~sriov ~self =
   let is_sriov_enabled ~pif_rec =
@@ -102,7 +105,8 @@ let sriov_bring_down ~__context ~self =
   end;
   info "Disable network sriov on PIF %s successful" (Ref.string_of physical_pif);
   Db.PIF.set_currently_attached ~__context ~self ~value:false;
-  Db.Network_sriov.set_requires_reboot ~__context ~self:sriov ~value:false
+  Db.Network_sriov.set_requires_reboot ~__context ~self:sriov ~value:false;
+  Xapi_pci.update_pcis ~__context
 
 let is_device_underneath_same_type ~__context pif1 pif2 =
   let get_device_info pif =
