@@ -14,6 +14,7 @@
 
 open Network
 open Db_filter_types
+open Xapi_stdext_std
 module D = Debug.Make(struct let name="xapi_network_sriov" end)
 open D
 
@@ -124,3 +125,108 @@ let assert_sriov_pif_compatible_with_network ~__context ~pif ~network =
         if not (is_device_underneath_same_type ~__context pif existing_pif) then
           raise Api_errors.(Server_error (network_has_incompatible_sriov_pifs, [Ref.string_of pif; Ref.string_of network]))
     end
+
+let get_remaining_capacity_on_sriov ~__context ~self =
+  let physical_PIF = Db.Network_sriov.get_physical_PIF ~__context ~self in
+  let pci = Db.PIF.get_PCI ~__context ~self:physical_PIF in
+  Xapi_pci.get_idle_vf_nums ~__context ~self:pci
+  |> Int64.of_int
+
+let rec get_underlying_pif ~__context ~pif =
+  match Db.PIF.get_sriov_logical_PIF_of ~__context ~self:pif with
+  | [] ->
+    let vlan = Db.PIF.get_VLAN_master_of ~__context ~self:pif in
+    if vlan = Ref.null then None
+    else begin
+      let tagged_pif = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
+      get_underlying_pif ~__context ~pif:tagged_pif
+    end
+  | sriov :: _ ->
+    Some (Db.Network_sriov.get_physical_PIF ~__context ~self:sriov)
+
+let is_sriov_network ~__context ~self =
+  let pifs = Db.Network.get_PIFs ~__context ~self in
+  match Listext.List.filter_map (fun pif -> get_underlying_pif ~__context ~pif) pifs with
+  | [] -> false
+  | _ -> true
+
+let get_sriov_networks_from_vm ~__context ~vm =
+  let networks = Db.VM.get_VIFs ~__context ~self:vm |> List.map (fun vif -> Db.VIF.get_network ~__context ~self:vif ) in
+  List.filter (fun network -> is_sriov_network ~__context ~self:network) networks
+
+let get_pcis_from_network ~__context ~network =
+  Db.Network.get_PIFs ~__context ~self:network
+  |> Listext.List.filter_map (fun pif -> get_underlying_pif ~__context ~pif)
+  |> List.map (fun pif -> Db.PIF.get_PCI ~__context ~self:pif)
+
+let get_remaining_on_network ~__context ~network =
+  let open Xapi_stdext_monadic in
+  try
+    let pcis = get_pcis_from_network ~__context ~network in
+    let capacity = List.fold_left
+        (fun acc pci ->
+            let remaining_capacity = Xapi_pci.get_idle_vf_nums ~__context ~self:pci |> Int64.of_int in
+            Int64.add acc remaining_capacity
+        ) 0L pcis
+    in
+    if capacity > 0L
+    then Either.Right capacity
+    else Either.Left (Api_errors.Server_error(Api_errors.network_sriov_insufficient_vfs, []))
+  with e -> Either.Left e
+
+let host_sriov_capable ~__context ~host ~network =
+  (*at most one pif in network on localhost*)
+  let local_pifs =
+    Db.PIF.get_refs_where ~__context ~expr:(And (
+      Eq (Field "network", Literal (Ref.string_of network)),
+      Eq (Field "host", Literal (Ref.string_of host))
+    )) in
+  match local_pifs with
+  | local_pif :: _ ->
+    begin match get_underlying_pif ~__context ~pif:local_pif with
+      | Some underlying_pif ->
+        let pci = Db.PIF.get_PCI ~__context ~self:underlying_pif in
+        if Xapi_pci.get_idle_vf_nums ~__context ~self:pci > 0 then true else false
+      | None -> false
+    end
+  | [] -> false
+
+let group_hosts_by_best_sriov ~__context ~network =
+  let pcis = get_pcis_from_network __context network in
+  let can_allocate_vf pci = Xapi_pci.get_idle_vf_nums ~__context ~self:pci |> Int64.of_int > 0L in
+  let valid_pcis = List.filter can_allocate_vf pcis in
+  (* group hosts by breadth-first algorithm *)
+  Helpers.group_by `descending
+    (fun host ->
+        let pci = List.find (fun pci -> host = Db.PCI.get_host ~__context ~self:pci) valid_pcis in
+        Xapi_pci.get_idle_vf_nums ~__context ~self:pci |> Int64.of_int
+    ) (List.map (fun pci -> Db.PCI.get_host ~__context ~self:pci) valid_pcis |> Listext.List.setify)
+
+let assert_capacity_for_vf ~__context ~pci =
+  match Xapi_pci.get_idle_vf_nums ~__context ~self:pci with
+  | 0 -> raise (Api_errors.Server_error(Api_errors.network_sriov_insufficient_vfs, []))
+  | _ -> ()
+
+let choose_pf_for_vf ~__context ~host ~vif =
+  let network = Db.VIF.get_network ~__context ~self:vif in
+  (* at most one pif within one network on localhost*)
+  let host_pcis = get_pcis_from_network __context network |>
+                  List.filter (fun pci -> Db.PCI.get_host ~__context ~self:pci = host) in
+  match host_pcis with
+  | pci :: t -> assert_capacity_for_vf ~__context ~pci; pci
+  | [] -> raise (Api_errors.Server_error(Api_errors.vm_requires_vf_pci_for_sriov_vif, [Ref.string_of vif]))
+
+(* If exn happens during vifs reservation ,reserved vfs will be cleared*)
+let reserve_sriov_vfs ~__context ~host ~vm =
+  let sriov_networks = get_sriov_networks_from_vm __context vm in
+  let sriov_vifs = Db.VM.get_VIFs ~__context ~self:vm
+    |> List.filter (fun vif ->
+        List.mem (Db.VIF.get_network ~__context ~self:vif) sriov_networks) in
+  List.iter (fun vif ->
+    let vf = choose_pf_for_vf ~__context ~host ~vif |>
+              Pciops.reserve_free_virtual_function ~__context vm in
+    match vf with
+    | Some vf -> Db.VIF.set_reserved_pci ~__context ~self:vif ~value:vf
+    | None -> raise Api_errors.(Server_error (internal_error, ["No free virtual function found"]))
+  ) sriov_vifs
+

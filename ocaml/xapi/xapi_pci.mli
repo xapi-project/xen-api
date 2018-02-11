@@ -36,6 +36,9 @@ val string_of_pci : __context:Context.t -> self:API.ref_PCI -> string
 (** A list of (ref, record) pairs for the PCI DB objects of the local host *)
 val get_local_pcis_and_records : __context:Context.t -> (API.ref_PCI * Db_actions.pCI_t) list
 
+(** Get the numbers of VFs that have not been attached to a host *)
+val get_idle_vf_nums : __context:Context.t -> self:API.ref_PCI -> int
+
 (** A list of refs for the PCI DB objects of the local host *)
 val get_local_pci_refs : __context:Context.t -> API.ref_PCI list
 

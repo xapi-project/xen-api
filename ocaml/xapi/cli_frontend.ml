@@ -1580,7 +1580,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     {
       reqd=["pif-uuid";"network-uuid"];
       optn=[];
-      help="Create a new network-sriov on a pif.";
+      help="Create a new network-sriov on a PIF.";
       implementation=No_fd Cli_operations.Network_sriov.create;
       flags=[];
     };
@@ -1591,6 +1591,15 @@ let rec cmdtable_data : (string*cmd_spec) list =
       optn=[];
       help="Destroy a network-sriov.";
       implementation=No_fd Cli_operations.Network_sriov.destroy;
+      flags=[];
+    };
+
+    "network-sriov-get-remaining-capacity",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Get the number of VF that still can be allocated from this SRIOV object.";
+      implementation=No_fd Cli_operations.Network_sriov.get_remaining_capacity;
       flags=[];
     };
 
