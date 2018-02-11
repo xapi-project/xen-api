@@ -321,156 +321,156 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
         let currently_attached = Db.PIF.get_currently_attached ~__context ~self:sriov_logical_pif in
         Db.PIF.set_currently_attached ~__context ~self:pif ~value:currently_attached
       | _ ->
-      let dbg = Context.string_of_task __context in
-      let net_rc = Db.Network.get_record ~__context ~self:rc.API.pIF_network in
-      let bridge = net_rc.API.network_bridge in
+        let dbg = Context.string_of_task __context in
+        let net_rc = Db.Network.get_record ~__context ~self:rc.API.pIF_network in
+        let bridge = net_rc.API.network_bridge in
 
-      (* Call networkd even if currently_attached is false, just to update its state *)
-      debug "Making sure that PIF %s is up" rc.API.pIF_uuid;
+        (* Call networkd even if currently_attached is false, just to update its state *)
+        debug "Making sure that PIF %s is up" rc.API.pIF_uuid;
 
-      let old_ip = try Net.Interface.get_ipv4_addr dbg ~name:bridge with _ -> [] in
+        let old_ip = try Net.Interface.get_ipv4_addr dbg ~name:bridge with _ -> [] in
 
-      (* If the PIF is a bond master, the bond slaves will now go down *)
-      (* Interface-reconfigure in bridge mode requires us to set currently_attached to false here *)
-      begin match rc.API.pIF_bond_master_of with
-        | [] -> ()
-        | bond :: _ ->
-          let slaves = Db.Bond.get_slaves ~__context ~self:bond in
-          List.iter (fun self -> Db.PIF.set_currently_attached ~__context ~self ~value:false) slaves
-      end;
+        (* If the PIF is a bond master, the bond slaves will now go down *)
+        (* Interface-reconfigure in bridge mode requires us to set currently_attached to false here *)
+        begin match rc.API.pIF_bond_master_of with
+          | [] -> ()
+          | bond :: _ ->
+            let slaves = Db.Bond.get_slaves ~__context ~self:bond in
+            List.iter (fun self -> Db.PIF.set_currently_attached ~__context ~self ~value:false) slaves
+        end;
 
-      Network.transform_networkd_exn pif (fun () ->
-          let persistent = is_dom0_interface rc in
-          let gateway_if, dns_if = Helpers.determine_gateway_and_dns_ifs ~__context
-              ?management_interface:(if management_interface then Some pif else None) () in
-          Opt.iter (fun (_, name) -> Net.set_gateway_interface dbg ~name) gateway_if;
-          Opt.iter (fun (_, name) -> Net.set_dns_interface dbg ~name) dns_if;
+        Network.transform_networkd_exn pif (fun () ->
+            let persistent = is_dom0_interface rc in
+            let gateway_if, dns_if = Helpers.determine_gateway_and_dns_ifs ~__context
+                ?management_interface:(if management_interface then Some pif else None) () in
+            Opt.iter (fun (_, name) -> Net.set_gateway_interface dbg ~name) gateway_if;
+            Opt.iter (fun (_, name) -> Net.set_dns_interface dbg ~name) dns_if;
 
-          (* Setup network infrastructure *)
-          let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc in
-          List.iter (fun (name, force) -> Net.Bridge.destroy dbg ~name ~force ()) cleanup;
-          Net.Bridge.make_config dbg ~config:bridge_config ();
-          Net.Interface.make_config dbg ~config:interface_config ();
+            (* Setup network infrastructure *)
+            let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc in
+            List.iter (fun (name, force) -> Net.Bridge.destroy dbg ~name ~force ()) cleanup;
+            Net.Bridge.make_config dbg ~config:bridge_config ();
+            Net.Interface.make_config dbg ~config:interface_config ();
 
-          (* Configure IPv4 parameters and DNS *)
-          let ipv4_conf, ipv4_gateway, dns =
-            match rc.API.pIF_ip_configuration_mode with
-            | `None -> None4, None, ([], [])
-            | `DHCP -> DHCP4, None, ([], [])
-            | `Static ->
-              let conf = (Static4 [
-                  Unix.inet_addr_of_string rc.API.pIF_IP,
-                  netmask_to_prefixlen rc.API.pIF_netmask]) in
-              let gateway =
-                if rc.API.pIF_gateway <> "" then
-                  Some (Unix.inet_addr_of_string rc.API.pIF_gateway)
-                else
-                  None in
-              let dns =
-                if rc.API.pIF_DNS <> "" then begin
-                  let nameservers = List.map Unix.inet_addr_of_string (String.split ',' rc.API.pIF_DNS) in
-                  let domains =
-                    if List.mem_assoc "domain" rc.API.pIF_other_config then
-                      let domains = List.assoc "domain" rc.API.pIF_other_config in
-                      try
-                        String.split ',' domains
-                      with _ ->
-                        warn "Invalid DNS search domains: %s" domains;
+            (* Configure IPv4 parameters and DNS *)
+            let ipv4_conf, ipv4_gateway, dns =
+              match rc.API.pIF_ip_configuration_mode with
+              | `None -> None4, None, ([], [])
+              | `DHCP -> DHCP4, None, ([], [])
+              | `Static ->
+                let conf = (Static4 [
+                    Unix.inet_addr_of_string rc.API.pIF_IP,
+                    netmask_to_prefixlen rc.API.pIF_netmask]) in
+                let gateway =
+                  if rc.API.pIF_gateway <> "" then
+                    Some (Unix.inet_addr_of_string rc.API.pIF_gateway)
+                  else
+                    None in
+                let dns =
+                  if rc.API.pIF_DNS <> "" then begin
+                    let nameservers = List.map Unix.inet_addr_of_string (String.split ',' rc.API.pIF_DNS) in
+                    let domains =
+                      if List.mem_assoc "domain" rc.API.pIF_other_config then
+                        let domains = List.assoc "domain" rc.API.pIF_other_config in
+                        try
+                          String.split ',' domains
+                        with _ ->
+                          warn "Invalid DNS search domains: %s" domains;
+                          []
+                      else
                         []
-                    else
-                      []
-                  in
-                  nameservers, domains
-                end else
-                  [], []
-              in
-              conf, gateway, dns
-          in
-          let ipv4_routes = determine_static_routes net_rc in
+                    in
+                    nameservers, domains
+                  end else
+                    [], []
+                in
+                conf, gateway, dns
+            in
+            let ipv4_routes = determine_static_routes net_rc in
 
-          (* Configure IPv6 parameters *)
-          let ipv6_conf, ipv6_gateway =
-            match rc.API.pIF_ipv6_configuration_mode with
-            | `None -> Linklocal6, None
-            | `DHCP -> DHCP6, None
-            | `Autoconf -> Autoconf6, None
-            | `Static ->
-              let addresses = List.filter_map (fun addr_and_prefixlen ->
-                  try
-                    let n = String.index addr_and_prefixlen '/' in
-                    let addr = Unix.inet_addr_of_string (String.sub addr_and_prefixlen 0 n) in
-                    let prefixlen = int_of_string (String.sub_to_end addr_and_prefixlen (n + 1)) in
-                    Some (addr, prefixlen)
-                  with _ -> None
-                ) rc.API.pIF_IPv6 in
-              let conf = Static6 addresses in
-              let gateway =
-                if rc.API.pIF_ipv6_gateway <> "" then
-                  Some (Unix.inet_addr_of_string rc.API.pIF_ipv6_gateway)
-                else
-                  None in
-              conf, gateway
-          in
+            (* Configure IPv6 parameters *)
+            let ipv6_conf, ipv6_gateway =
+              match rc.API.pIF_ipv6_configuration_mode with
+              | `None -> Linklocal6, None
+              | `DHCP -> DHCP6, None
+              | `Autoconf -> Autoconf6, None
+              | `Static ->
+                let addresses = List.filter_map (fun addr_and_prefixlen ->
+                    try
+                      let n = String.index addr_and_prefixlen '/' in
+                      let addr = Unix.inet_addr_of_string (String.sub addr_and_prefixlen 0 n) in
+                      let prefixlen = int_of_string (String.sub_to_end addr_and_prefixlen (n + 1)) in
+                      Some (addr, prefixlen)
+                    with _ -> None
+                  ) rc.API.pIF_IPv6 in
+                let conf = Static6 addresses in
+                let gateway =
+                  if rc.API.pIF_ipv6_gateway <> "" then
+                    Some (Unix.inet_addr_of_string rc.API.pIF_ipv6_gateway)
+                  else
+                    None in
+                conf, gateway
+            in
 
-          let mtu = determine_mtu rc net_rc in
-          let (ethtool_settings, ethtool_offload) =
-            determine_ethtool_settings rc.API.pIF_properties net_rc.API.network_other_config in
-          let interface_config = [bridge, {ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway;
-                                           ipv4_routes; dns; ethtool_settings; ethtool_offload; mtu; persistent_i=persistent}] in
-          Net.Interface.make_config dbg ~config:interface_config ()
-        );
+            let mtu = determine_mtu rc net_rc in
+            let (ethtool_settings, ethtool_offload) =
+              determine_ethtool_settings rc.API.pIF_properties net_rc.API.network_other_config in
+            let interface_config = [bridge, {ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway;
+                                             ipv4_routes; dns; ethtool_settings; ethtool_offload; mtu; persistent_i=persistent}] in
+            Net.Interface.make_config dbg ~config:interface_config ()
+          );
 
-      let new_ip = try Net.Interface.get_ipv4_addr dbg ~name:bridge with _ -> [] in
-      if new_ip <> old_ip then begin
-        warn "An IP address of dom0 was changed";
-        warn "About to kill idle client stunnels";
-        (* The master_connection would otherwise try to take a broken stunnel from the cache *)
-        Stunnel_cache.flush ();
-        warn "About to forcibly reset the master connection";
-        Master_connection.force_connection_reset ()
-      end;
-
-      if rc.API.pIF_currently_attached = false || management_interface then begin
-        if management_interface then begin
-          warn "About to kill active client stunnels";
-          let stunnels =
-            let all = Locking_helpers.Thread_state.get_all_acquired_resources () in
-            debug "There are %d allocated resources" (List.length all);
-            List.filter (function Locking_helpers.Process("stunnel", _) -> true | _ -> false) all in
-          debug "Of which %d are stunnels" (List.length stunnels);
-          List.iter Locking_helpers.kill_resource stunnels;
+        let new_ip = try Net.Interface.get_ipv4_addr dbg ~name:bridge with _ -> [] in
+        if new_ip <> old_ip then begin
+          warn "An IP address of dom0 was changed";
+          warn "About to kill idle client stunnels";
+          (* The master_connection would otherwise try to take a broken stunnel from the cache *)
+          Stunnel_cache.flush ();
+          warn "About to forcibly reset the master connection";
+          Master_connection.force_connection_reset ()
         end;
 
-        Db.PIF.set_currently_attached ~__context ~self:pif ~value:true;
+        if rc.API.pIF_currently_attached = false || management_interface then begin
+          if management_interface then begin
+            warn "About to kill active client stunnels";
+            let stunnels =
+              let all = Locking_helpers.Thread_state.get_all_acquired_resources () in
+              debug "There are %d allocated resources" (List.length all);
+              List.filter (function Locking_helpers.Process("stunnel", _) -> true | _ -> false) all in
+            debug "Of which %d are stunnels" (List.length stunnels);
+            List.iter Locking_helpers.kill_resource stunnels;
+          end;
 
-        (* If the PIF is a bond slave, the bond master will now be down *)
-        begin match rc.API.pIF_bond_slave_of with
-          | bond when bond = Ref.null -> ()
-          | bond ->
-            let master = Db.Bond.get_master ~__context ~self:bond in
-            Db.PIF.set_currently_attached ~__context ~self:master ~value:false
+          Db.PIF.set_currently_attached ~__context ~self:pif ~value:true;
+
+          (* If the PIF is a bond slave, the bond master will now be down *)
+          begin match rc.API.pIF_bond_slave_of with
+            | bond when bond = Ref.null -> ()
+            | bond ->
+              let master = Db.Bond.get_master ~__context ~self:bond in
+              Db.PIF.set_currently_attached ~__context ~self:master ~value:false
+          end;
+          Xapi_mgmt_iface.on_dom0_networking_change ~__context
         end;
-        Xapi_mgmt_iface.on_dom0_networking_change ~__context
-      end;
 
-      (* sync MTU *)
-      begin
-      try
-        let mtu = Int64.of_int (Net.Interface.get_mtu dbg ~name:bridge) in
-        if mtu <> rc.API.pIF_MTU then
-          Db.PIF.set_MTU ~__context ~self:pif ~value:mtu
-      with _ ->
-        warn "could not update MTU field on PIF %s" rc.API.pIF_uuid
-      end;
-      
-      (* sync igmp_snooping_enabled *)
-      if rc.API.pIF_VLAN = -1L then begin
-        let igmp_snooping = Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context) in
-        let igmp_snooping' = if igmp_snooping then `enabled else `disabled in
-        if igmp_snooping' <> rc.API.pIF_igmp_snooping_status then
-          Db.PIF.set_igmp_snooping_status ~__context ~self:pif ~value:igmp_snooping'
-      end
-   )
+        (* sync MTU *)
+        begin
+          try
+            let mtu = Int64.of_int (Net.Interface.get_mtu dbg ~name:bridge) in
+            if mtu <> rc.API.pIF_MTU then
+              Db.PIF.set_MTU ~__context ~self:pif ~value:mtu
+          with _ ->
+            warn "could not update MTU field on PIF %s" rc.API.pIF_uuid
+        end;
+
+        (* sync igmp_snooping_enabled *)
+        if rc.API.pIF_VLAN = -1L then begin
+          let igmp_snooping = Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context) in
+          let igmp_snooping' = if igmp_snooping then `enabled else `disabled in
+          if igmp_snooping' <> rc.API.pIF_igmp_snooping_status then
+            Db.PIF.set_igmp_snooping_status ~__context ~self:pif ~value:igmp_snooping'
+        end
+    )
 
 let bring_pif_down ~__context ?(force=false) (pif: API.ref_PIF) =
   with_local_lock (fun () ->
