@@ -91,6 +91,18 @@ type ('a, 'b) configuration = {
   num_failures: int;               (** number of failures to tolerate 'r' *)
 }
 
+type ('a, 'b, 'c, 'd, 'e, 'f) configuration_cache = {
+    agile_vm_failed: 'b list;
+    vms_to_ensure_running: ('b * 'c) list;
+    all_hosts_and_snapshots: 'd;
+    vm_accounted_to_host: ('b -> 'e option);
+    non_agile_restart_plan: ('b * 'a) list;
+    not_agile_vms: 'f list;
+    string_of_vm: ('b -> string);
+    string_of_host: ('a -> string);
+    string_of_plan: (('b * 'a) list -> string);
+}
+
 let check_configuration config =
   (* All hosts and VMs in placement should be in the hosts and vms list *)
   List.iter (fun (vm, host) ->

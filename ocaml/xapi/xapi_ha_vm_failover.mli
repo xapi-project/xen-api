@@ -47,6 +47,8 @@ val update_pool_status : __context:Context.t -> ?live_set:API.ref_host list -> u
 (** Consider all possible failures of 'n' hosts *)
 val plan_for_n_failures : __context:Context.t -> all_protected_vms:((API.ref_VM * API.vM_t) list) -> ?live_set:API.ref_host list -> ?change:configuration_change -> int -> result
 
+val plan_for_n_failures' : __context:Context.t -> get_plan:(unit -> 'a * ([ `host ] API.Ref.t, [ `VM ] API.Ref.t) Binpack.configuration * 'b list * bool * (API.ref_host, API.ref_VM, API.vM_t, ([ `host ] API.Ref.t * API.host_t) list, API.ref_host, API.ref_VM * API.vM_t) Binpack.configuration_cache) -> (API.ref_host, API.ref_VM) Binpack.configuration * (API.ref_host, API.ref_VM, API.vM_t, ([ `host ] API.Ref.t * API.host_t) list, API.ref_host, API.ref_VM * API.vM_t) Binpack.configuration_cache option * result
+
 (** Compute the maximum plan size we can currently find *)
 val compute_max_host_failures_to_tolerate : __context:Context.t -> ?live_set:API.ref_host list -> ?protected_vms:((API.ref_VM * API.vM_t) list) -> unit -> int64
 
