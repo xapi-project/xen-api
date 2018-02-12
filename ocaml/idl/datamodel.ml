@@ -7849,54 +7849,56 @@ module Pool = struct
       ()
 end
 
-(** Auth class *)
-let auth_get_subject_identifier = call ~flags:[`Session]
-    ~name:"get_subject_identifier"
-    ~in_oss_since:None
-    ~in_product_since:rel_george
-    ~params:[
-      (*Ref _auth, "auth", "???";*)
-      String, "subject_name", "The human-readable subject_name, such as a username or a groupname" ;
-    ]
-    ~result:(String, "the subject_identifier obtained from the external directory service")
-    ~doc:"This call queries the external directory service to obtain the subject_identifier as a string from the human-readable subject_name"
-    ~allowed_roles:_R_READ_ONLY
-    ()
+module Auth = struct
+  (** Auth class *)
+  let get_subject_identifier = call ~flags:[`Session]
+      ~name:"get_subject_identifier"
+      ~in_oss_since:None
+      ~in_product_since:rel_george
+      ~params:[
+        (*Ref _auth, "auth", "???";*)
+        String, "subject_name", "The human-readable subject_name, such as a username or a groupname" ;
+      ]
+      ~result:(String, "the subject_identifier obtained from the external directory service")
+      ~doc:"This call queries the external directory service to obtain the subject_identifier as a string from the human-readable subject_name"
+      ~allowed_roles:_R_READ_ONLY
+      ()
 
-let auth_get_subject_information_from_identifier = call ~flags:[`Session]
-    ~name:"get_subject_information_from_identifier"
-    ~in_oss_since:None
-    ~in_product_since:rel_george
-    ~params:[
-      String, "subject_identifier", "A string containing the subject_identifier, unique in the external directory service"
-    ]
-    ~result:(Map(String,String), "key-value pairs containing at least a key called subject_name")
-    ~doc:"This call queries the external directory service to obtain the user information (e.g. username, organization etc) from the specified subject_identifier"
-    ~allowed_roles:_R_READ_ONLY
-    ()
+  let get_subject_information_from_identifier = call ~flags:[`Session]
+      ~name:"get_subject_information_from_identifier"
+      ~in_oss_since:None
+      ~in_product_since:rel_george
+      ~params:[
+        String, "subject_identifier", "A string containing the subject_identifier, unique in the external directory service"
+      ]
+      ~result:(Map(String,String), "key-value pairs containing at least a key called subject_name")
+      ~doc:"This call queries the external directory service to obtain the user information (e.g. username, organization etc) from the specified subject_identifier"
+      ~allowed_roles:_R_READ_ONLY
+      ()
 
-let auth_get_group_membership = call ~flags:[`Session]
-    ~name:"get_group_membership"
-    ~in_oss_since:None
-    ~in_product_since:rel_george
-    ~params:[
-      String, "subject_identifier", "A string containing the subject_identifier, unique in the external directory service"
-    ]
-    ~result:(Set(String), "set of subject_identifiers that provides the group membership of subject_identifier passed as argument, it contains, recursively, all groups a subject_identifier is member of.")
-    ~doc:"This calls queries the external directory service to obtain the transitively-closed set of groups that the the subject_identifier is member of."
-    ~allowed_roles:_R_READ_ONLY
-    ()
+  let get_group_membership = call ~flags:[`Session]
+      ~name:"get_group_membership"
+      ~in_oss_since:None
+      ~in_product_since:rel_george
+      ~params:[
+        String, "subject_identifier", "A string containing the subject_identifier, unique in the external directory service"
+      ]
+      ~result:(Set(String), "set of subject_identifiers that provides the group membership of subject_identifier passed as argument, it contains, recursively, all groups a subject_identifier is member of.")
+      ~doc:"This calls queries the external directory service to obtain the transitively-closed set of groups that the the subject_identifier is member of."
+      ~allowed_roles:_R_READ_ONLY
+      ()
 
-let auth =
-  create_obj ~in_db:false ~in_product_since:rel_george ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_auth ~descr:"Management of remote authentication services"
-    ~gen_events:false
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_READ_ONLY
-    ~messages: [auth_get_subject_identifier;
-                auth_get_subject_information_from_identifier;
-                auth_get_group_membership;]
-    ~contents:[]
-    ()
+  let t =
+    create_obj ~in_db:false ~in_product_since:rel_george ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_auth ~descr:"Management of remote authentication services"
+      ~gen_events:false
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_READ_ONLY
+      ~messages: [get_subject_identifier;
+                  get_subject_information_from_identifier;
+                  get_group_membership;]
+      ~contents:[]
+      ()
+end
 
 (** Subject class *)
 let subject_add_to_roles = call ~flags:[`Session]
@@ -10324,7 +10326,7 @@ let vusb = VUSB.obj
 let all_system =
   [
     Session.t;
-    auth;
+    Auth.t;
     subject;
     (role:Datamodel_types.obj);
     Task.t;
