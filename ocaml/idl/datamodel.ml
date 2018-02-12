@@ -8462,336 +8462,338 @@ module VM_guest_metrics = struct
       ()
 end
 
-(* VM protection policy *)
-let vmpr_removed = [
-  Published, rel_cowley, "";
-  Removed, rel_clearwater, "The VMPR feature was removed";
-]
-let vmpp_protect_now = call ~flags:[`Session]
-    ~name:"protect_now"
-    ~lifecycle:vmpr_removed
-    ~params:[Ref _vmpp, "vmpp", "The protection policy to execute";]
-    ~doc:"This call executes the protection policy immediately"
-    ~allowed_roles:_R_POOL_OP
-    ~result:(String, "An XMLRPC result")
-    ()
-let vmpp_archive_now = call ~flags:[`Session]
-    ~name:"archive_now"
-    ~lifecycle:vmpr_removed
-    ~params:[Ref _vm, "snapshot", "The snapshot to archive";]
-    ~doc:"This call archives the snapshot provided as a parameter"
-    ~allowed_roles:_R_VM_POWER_ADMIN
-    ~result:(String, "An XMLRPC result")
-    ()
-let vmpp_create_alert = call ~flags:[`Session]
-    ~name:"create_alert"
-    ~lifecycle:vmpr_removed
-    ~params:[Ref _vmpp, "vmpp", "The protection policy where the alert should be created";
-             String, "name", "The name of the message";
-             Int, "priority", "The priority of the message";
-             String, "body", "The body of the email message";
-             String, "data", "The data in xml";
-            ]
-    ~doc:"This call creates an alert for some protection policy"
-    ~allowed_roles:_R_LOCAL_ROOT_ONLY
-    ~hide_from_docs:true
-    ()
-let vmpp_get_alerts = call ~flags:[`Session]
-    ~name:"get_alerts"
-    ~lifecycle:vmpr_removed
-    ~params:[Ref _vmpp, "vmpp", "The protection policy";
-             Int, "hours_from_now", "how many hours in the past the oldest record to fetch is";
-            ]
-    ~doc:"This call fetches a history of alerts for a given protection policy"
-    ~allowed_roles:_R_POOL_OP
-    ~result:(Set (String), "A list of alerts encoded in xml")
-    ()
-let vmpp_backup_type = Enum ("vmpp_backup_type",
-                             [
-                               "snapshot", "The backup is a snapshot";
-                               "checkpoint", "The backup is a checkpoint";
-                             ])
-let vmpp_backup_frequency = Enum ("vmpp_backup_frequency",
+module VMPP = struct
+  (* VM protection policy *)
+  let removed = [
+    Published, rel_cowley, "";
+    Removed, rel_clearwater, "The VMPR feature was removed";
+  ]
+  let protect_now = call ~flags:[`Session]
+      ~name:"protect_now"
+      ~lifecycle:removed
+      ~params:[Ref _vmpp, "vmpp", "The protection policy to execute";]
+      ~doc:"This call executes the protection policy immediately"
+      ~allowed_roles:_R_POOL_OP
+      ~result:(String, "An XMLRPC result")
+      ()
+  let archive_now = call ~flags:[`Session]
+      ~name:"archive_now"
+      ~lifecycle:removed
+      ~params:[Ref _vm, "snapshot", "The snapshot to archive";]
+      ~doc:"This call archives the snapshot provided as a parameter"
+      ~allowed_roles:_R_VM_POWER_ADMIN
+      ~result:(String, "An XMLRPC result")
+      ()
+  let create_alert = call ~flags:[`Session]
+      ~name:"create_alert"
+      ~lifecycle:removed
+      ~params:[Ref _vmpp, "vmpp", "The protection policy where the alert should be created";
+               String, "name", "The name of the message";
+               Int, "priority", "The priority of the message";
+               String, "body", "The body of the email message";
+               String, "data", "The data in xml";
+              ]
+      ~doc:"This call creates an alert for some protection policy"
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ~hide_from_docs:true
+      ()
+  let get_alerts = call ~flags:[`Session]
+      ~name:"get_alerts"
+      ~lifecycle:removed
+      ~params:[Ref _vmpp, "vmpp", "The protection policy";
+               Int, "hours_from_now", "how many hours in the past the oldest record to fetch is";
+              ]
+      ~doc:"This call fetches a history of alerts for a given protection policy"
+      ~allowed_roles:_R_POOL_OP
+      ~result:(Set (String), "A list of alerts encoded in xml")
+      ()
+  let backup_type = Enum ("vmpp_backup_type",
+                          [
+                            "snapshot", "The backup is a snapshot";
+                            "checkpoint", "The backup is a checkpoint";
+                          ])
+  let backup_frequency = Enum ("vmpp_backup_frequency",
+                               [
+                                 "hourly", "Hourly backups";
+                                 "daily", "Daily backups";
+                                 "weekly", "Weekly backups";
+                               ])
+  let archive_frequency = Enum ("vmpp_archive_frequency",
+                                [
+                                  "never", "Never archive";
+                                  "always_after_backup", "Archive after backup";
+                                  "daily", "Daily archives";
+                                  "weekly", "Weekly backups";
+                                ])
+  let archive_target_type = Enum ("vmpp_archive_target_type",
                                   [
-                                    "hourly", "Hourly backups";
-                                    "daily", "Daily backups";
-                                    "weekly", "Weekly backups";
+                                    "none", "No target config";
+                                    "cifs", "CIFS target config";
+                                    "nfs", "NFS target config";
                                   ])
-let vmpp_archive_frequency = Enum ("vmpp_archive_frequency",
-                                   [
-                                     "never", "Never archive";
-                                     "always_after_backup", "Archive after backup";
-                                     "daily", "Daily archives";
-                                     "weekly", "Weekly backups";
-                                   ])
-let vmpp_archive_target_type = Enum ("vmpp_archive_target_type",
-                                     [
-                                       "none", "No target config";
-                                       "cifs", "CIFS target config";
-                                       "nfs", "NFS target config";
-                                     ])
-let vmpp_schedule_min = "min"
-let vmpp_schedule_hour = "hour"
-let vmpp_schedule_days = "days"
-let vmpp_archive_target_config_location = "location"
-let vmpp_archive_target_config_username = "username"
-let vmpp_archive_target_config_password = "password"
-let vmpp_set_backup_retention_value = call ~flags:[`Session]
-    ~name:"set_backup_retention_value"
-    ~lifecycle:vmpr_removed
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      Int, "value", "the value to set"
-    ]
-    ()
-let vmpp_set_is_backup_running = call ~flags:[`Session]
-    ~name:"set_is_backup_running"
-    ~lifecycle:vmpr_removed
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      Bool, "value", "true to mark this protection policy's backup is running"
-    ]
-    ~doc:"Set the value of the is_backup_running field"
-    ~allowed_roles:_R_LOCAL_ROOT_ONLY
-    ~hide_from_docs:true
-    ()
-let vmpp_set_is_archive_running = call ~flags:[`Session]
-    ~name:"set_is_archive_running"
-    ~lifecycle:vmpr_removed
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      Bool, "value", "true to mark this protection policy's archive is running"
-    ]
-    ~doc:"Set the value of the is_archive_running field"
-    ~allowed_roles:_R_LOCAL_ROOT_ONLY
-    ~hide_from_docs:true
-    ()
-let vmpp_set_is_alarm_enabled = call ~flags:[`Session]
-    ~name:"set_is_alarm_enabled"
-    ~lifecycle:vmpr_removed
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      Bool, "value", "true if alarm is enabled for this policy"
-    ]
-    ~doc:"Set the value of the is_alarm_enabled field"
-    ~allowed_roles:_R_POOL_OP
-    ()
-let vmpp_set_archive_frequency = call ~flags:[`Session]
-    ~name:"set_archive_frequency"
-    ~lifecycle:vmpr_removed
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      vmpp_archive_frequency, "value", "the archive frequency"
-    ]
-    ~doc:"Set the value of the archive_frequency field"
-    ~allowed_roles:_R_POOL_OP
-    ()
-let vmpp_set_archive_target_type = call ~flags:[`Session]
-    ~name:"set_archive_target_type"
-    ~lifecycle:vmpr_removed
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      vmpp_archive_target_type, "value", "the archive target config type"
-    ]
-    ~doc:"Set the value of the archive_target_config_type field"
-    ~allowed_roles:_R_POOL_OP
-    ()
-let vmpp_set_backup_frequency = call ~flags:[`Session]
-    ~name:"set_backup_frequency"
-    ~lifecycle:vmpr_removed
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      vmpp_backup_frequency, "value", "the backup frequency"
-    ]
-    ~doc:"Set the value of the backup_frequency field"
-    ~allowed_roles:_R_POOL_OP
-    ()
-let vmpp_set_backup_schedule = call ~flags:[`Session]
-    ~name:"set_backup_schedule"
-    ~lifecycle:vmpr_removed
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      Map(String,String), "value", "the value to set"
-    ]
-    ()
-let vmpp_set_archive_target_config = call ~flags:[`Session]
-    ~name:"set_archive_target_config"
-    ~lifecycle:vmpr_removed
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      Map(String,String), "value", "the value to set"
-    ]
-    ()
-let vmpp_set_archive_schedule = call ~flags:[`Session]
-    ~name:"set_archive_schedule"
-    ~lifecycle:vmpr_removed
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      Map(String,String), "value", "the value to set"
-    ]
-    ()
-let vmpp_set_alarm_config = call ~flags:[`Session]
-    ~name:"set_alarm_config"
-    ~lifecycle:vmpr_removed
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      Map(String,String), "value", "the value to set"
-    ]
-    ()
-let vmpp_set_backup_last_run_time = call ~flags:[`Session]
-    ~name:"set_backup_last_run_time"
-    ~lifecycle:vmpr_removed
-    ~allowed_roles:_R_LOCAL_ROOT_ONLY
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      DateTime, "value", "the value to set"
-    ]
-    ()
-let vmpp_set_archive_last_run_time = call ~flags:[`Session]
-    ~name:"set_archive_last_run_time"
-    ~lifecycle:vmpr_removed
-    ~allowed_roles:_R_LOCAL_ROOT_ONLY
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      DateTime, "value", "the value to set"
-    ]
-    ()
-let vmpp_add_to_backup_schedule = call ~flags:[`Session]
-    ~name:"add_to_backup_schedule"
-    ~lifecycle:vmpr_removed
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      String, "key", "the key to add";
-      String, "value", "the value to add";
-    ]
-    ()
-let vmpp_add_to_archive_target_config = call ~flags:[`Session]
-    ~name:"add_to_archive_target_config"
-    ~lifecycle:vmpr_removed
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      String, "key", "the key to add";
-      String, "value", "the value to add";
-    ]
-    ()
-let vmpp_add_to_archive_schedule = call ~flags:[`Session]
-    ~name:"add_to_archive_schedule"
-    ~lifecycle:vmpr_removed
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      String, "key", "the key to add";
-      String, "value", "the value to add";
-    ]
-    ()
-let vmpp_add_to_alarm_config = call ~flags:[`Session]
-    ~name:"add_to_alarm_config"
-    ~lifecycle:vmpr_removed
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      String, "key", "the key to add";
-      String, "value", "the value to add";
-    ]
-    ()
-let vmpp_remove_from_backup_schedule = call ~flags:[`Session]
-    ~name:"remove_from_backup_schedule"
-    ~lifecycle:vmpr_removed
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      String, "key", "the key to remove";
-    ]
-    ()
-let vmpp_remove_from_archive_target_config = call ~flags:[`Session]
-    ~name:"remove_from_archive_target_config"
-    ~lifecycle:vmpr_removed
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      String, "key", "the key to remove";
-    ]
-    ()
-let vmpp_remove_from_archive_schedule = call ~flags:[`Session]
-    ~name:"remove_from_archive_schedule"
-    ~lifecycle:vmpr_removed
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      String, "key", "the key to remove";
-    ]
-    ()
-let vmpp_remove_from_alarm_config = call ~flags:[`Session]
-    ~name:"remove_from_alarm_config"
-    ~lifecycle:vmpr_removed
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmpp, "self", "The protection policy";
-      String, "key", "the key to remove";
-    ]
-    ()
-let vmpp =
-  create_obj ~in_db:true ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vmpp ~descr:"VM Protection Policy"
-    ~gen_events:true
-    ~lifecycle:vmpr_removed
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[
-      vmpp_protect_now;
-      vmpp_archive_now;
-      vmpp_create_alert;
-      vmpp_get_alerts;
-      vmpp_set_backup_retention_value;
-      vmpp_set_is_backup_running;
-      vmpp_set_is_archive_running;
-      vmpp_set_backup_frequency;
-      vmpp_set_backup_schedule;
-      vmpp_set_archive_frequency;
-      vmpp_set_archive_schedule;
-      vmpp_set_archive_target_type;
-      vmpp_set_archive_target_config;
-      vmpp_set_is_alarm_enabled;
-      vmpp_set_alarm_config;
-      vmpp_add_to_backup_schedule;
-      vmpp_add_to_archive_target_config;
-      vmpp_add_to_archive_schedule;
-      vmpp_add_to_alarm_config;
-      vmpp_remove_from_backup_schedule;
-      vmpp_remove_from_archive_target_config;
-      vmpp_remove_from_archive_schedule;
-      vmpp_remove_from_alarm_config;
-      vmpp_set_backup_last_run_time;
-      vmpp_set_archive_last_run_time;
-    ]
-    ~contents:[
-      uid ~lifecycle:vmpr_removed _vmpp;
-      namespace ~name:"name" ~contents:(names None RW) ();
-      field ~lifecycle:vmpr_removed ~qualifier:RW ~ty:Bool "is_policy_enabled" "enable or disable this policy" ~default_value:(Some (VBool true));
-      field ~lifecycle:vmpr_removed ~qualifier:RW ~ty:vmpp_backup_type "backup_type" "type of the backup sub-policy" ~default_value:(Some (VEnum "snapshot"));
-      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:Int "backup_retention_value" "maximum number of backups that should be stored at any time" ~default_value:(Some (VInt 7L));
-      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:vmpp_backup_frequency "backup_frequency" "frequency of the backup schedule" ~default_value:(Some (VEnum "daily"));
-      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:(Map (String,String)) "backup_schedule" "schedule of the backup containing 'hour', 'min', 'days'. Date/time-related information is in Local Timezone" ~default_value:(Some (VMap []));
-      field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:Bool "is_backup_running" "true if this protection policy's backup is running";
-      field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:DateTime "backup_last_run_time" "time of the last backup" ~default_value:(Some(VDateTime(Date.of_float 0.)));
-      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:vmpp_archive_target_type "archive_target_type" "type of the archive target config" ~default_value:(Some (VEnum "none"));
-      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:(Map (String,String)) "archive_target_config" "configuration for the archive, including its 'location', 'username', 'password'" ~default_value:(Some (VMap []));
-      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:vmpp_archive_frequency "archive_frequency" "frequency of the archive schedule" ~default_value:(Some (VEnum "never"));
-      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:(Map (String,String)) "archive_schedule" "schedule of the archive containing 'hour', 'min', 'days'. Date/time-related information is in Local Timezone" ~default_value:(Some (VMap []));
-      field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:Bool "is_archive_running" "true if this protection policy's archive is running";
-      field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:DateTime "archive_last_run_time" "time of the last archive" ~default_value:(Some(VDateTime(Date.of_float 0.)));
-      field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs attached to this protection policy";
-      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:Bool "is_alarm_enabled" "true if alarm is enabled for this policy" ~default_value:(Some (VBool false));
-      field ~lifecycle:vmpr_removed ~qualifier:StaticRO ~ty:(Map (String,String)) "alarm_config" "configuration for the alarm" ~default_value:(Some (VMap []));
-      field ~lifecycle:vmpr_removed ~qualifier:DynamicRO ~ty:(Set (String)) "recent_alerts" "recent alerts" ~default_value:(Some (VSet []));
-    ]
-    ()
+  let schedule_min = "min"
+  let schedule_hour = "hour"
+  let schedule_days = "days"
+  let archive_target_config_location = "location"
+  let archive_target_config_username = "username"
+  let archive_target_config_password = "password"
+  let set_backup_retention_value = call ~flags:[`Session]
+      ~name:"set_backup_retention_value"
+      ~lifecycle:removed
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        Int, "value", "the value to set"
+      ]
+      ()
+  let set_is_backup_running = call ~flags:[`Session]
+      ~name:"set_is_backup_running"
+      ~lifecycle:removed
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        Bool, "value", "true to mark this protection policy's backup is running"
+      ]
+      ~doc:"Set the value of the is_backup_running field"
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ~hide_from_docs:true
+      ()
+  let set_is_archive_running = call ~flags:[`Session]
+      ~name:"set_is_archive_running"
+      ~lifecycle:removed
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        Bool, "value", "true to mark this protection policy's archive is running"
+      ]
+      ~doc:"Set the value of the is_archive_running field"
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ~hide_from_docs:true
+      ()
+  let set_is_alarm_enabled = call ~flags:[`Session]
+      ~name:"set_is_alarm_enabled"
+      ~lifecycle:removed
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        Bool, "value", "true if alarm is enabled for this policy"
+      ]
+      ~doc:"Set the value of the is_alarm_enabled field"
+      ~allowed_roles:_R_POOL_OP
+      ()
+  let set_archive_frequency = call ~flags:[`Session]
+      ~name:"set_archive_frequency"
+      ~lifecycle:removed
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        archive_frequency, "value", "the archive frequency"
+      ]
+      ~doc:"Set the value of the archive_frequency field"
+      ~allowed_roles:_R_POOL_OP
+      ()
+  let set_archive_target_type = call ~flags:[`Session]
+      ~name:"set_archive_target_type"
+      ~lifecycle:removed
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        archive_target_type, "value", "the archive target config type"
+      ]
+      ~doc:"Set the value of the archive_target_config_type field"
+      ~allowed_roles:_R_POOL_OP
+      ()
+  let set_backup_frequency = call ~flags:[`Session]
+      ~name:"set_backup_frequency"
+      ~lifecycle:removed
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        backup_frequency, "value", "the backup frequency"
+      ]
+      ~doc:"Set the value of the backup_frequency field"
+      ~allowed_roles:_R_POOL_OP
+      ()
+  let set_backup_schedule = call ~flags:[`Session]
+      ~name:"set_backup_schedule"
+      ~lifecycle:removed
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        Map(String,String), "value", "the value to set"
+      ]
+      ()
+  let set_archive_target_config = call ~flags:[`Session]
+      ~name:"set_archive_target_config"
+      ~lifecycle:removed
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        Map(String,String), "value", "the value to set"
+      ]
+      ()
+  let set_archive_schedule = call ~flags:[`Session]
+      ~name:"set_archive_schedule"
+      ~lifecycle:removed
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        Map(String,String), "value", "the value to set"
+      ]
+      ()
+  let set_alarm_config = call ~flags:[`Session]
+      ~name:"set_alarm_config"
+      ~lifecycle:removed
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        Map(String,String), "value", "the value to set"
+      ]
+      ()
+  let set_backup_last_run_time = call ~flags:[`Session]
+      ~name:"set_backup_last_run_time"
+      ~lifecycle:removed
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        DateTime, "value", "the value to set"
+      ]
+      ()
+  let set_archive_last_run_time = call ~flags:[`Session]
+      ~name:"set_archive_last_run_time"
+      ~lifecycle:removed
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        DateTime, "value", "the value to set"
+      ]
+      ()
+  let add_to_backup_schedule = call ~flags:[`Session]
+      ~name:"add_to_backup_schedule"
+      ~lifecycle:removed
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        String, "key", "the key to add";
+        String, "value", "the value to add";
+      ]
+      ()
+  let add_to_archive_target_config = call ~flags:[`Session]
+      ~name:"add_to_archive_target_config"
+      ~lifecycle:removed
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        String, "key", "the key to add";
+        String, "value", "the value to add";
+      ]
+      ()
+  let add_to_archive_schedule = call ~flags:[`Session]
+      ~name:"add_to_archive_schedule"
+      ~lifecycle:removed
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        String, "key", "the key to add";
+        String, "value", "the value to add";
+      ]
+      ()
+  let add_to_alarm_config = call ~flags:[`Session]
+      ~name:"add_to_alarm_config"
+      ~lifecycle:removed
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        String, "key", "the key to add";
+        String, "value", "the value to add";
+      ]
+      ()
+  let remove_from_backup_schedule = call ~flags:[`Session]
+      ~name:"remove_from_backup_schedule"
+      ~lifecycle:removed
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        String, "key", "the key to remove";
+      ]
+      ()
+  let remove_from_archive_target_config = call ~flags:[`Session]
+      ~name:"remove_from_archive_target_config"
+      ~lifecycle:removed
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        String, "key", "the key to remove";
+      ]
+      ()
+  let remove_from_archive_schedule = call ~flags:[`Session]
+      ~name:"remove_from_archive_schedule"
+      ~lifecycle:removed
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        String, "key", "the key to remove";
+      ]
+      ()
+  let remove_from_alarm_config = call ~flags:[`Session]
+      ~name:"remove_from_alarm_config"
+      ~lifecycle:removed
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmpp, "self", "The protection policy";
+        String, "key", "the key to remove";
+      ]
+      ()
+  let t =
+    create_obj ~in_db:true ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vmpp ~descr:"VM Protection Policy"
+      ~gen_events:true
+      ~lifecycle:removed
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages:[
+        protect_now;
+        archive_now;
+        create_alert;
+        get_alerts;
+        set_backup_retention_value;
+        set_is_backup_running;
+        set_is_archive_running;
+        set_backup_frequency;
+        set_backup_schedule;
+        set_archive_frequency;
+        set_archive_schedule;
+        set_archive_target_type;
+        set_archive_target_config;
+        set_is_alarm_enabled;
+        set_alarm_config;
+        add_to_backup_schedule;
+        add_to_archive_target_config;
+        add_to_archive_schedule;
+        add_to_alarm_config;
+        remove_from_backup_schedule;
+        remove_from_archive_target_config;
+        remove_from_archive_schedule;
+        remove_from_alarm_config;
+        set_backup_last_run_time;
+        set_archive_last_run_time;
+      ]
+      ~contents:[
+        uid ~lifecycle:removed _vmpp;
+        namespace ~name:"name" ~contents:(names None RW) ();
+        field ~lifecycle:removed ~qualifier:RW ~ty:Bool "is_policy_enabled" "enable or disable this policy" ~default_value:(Some (VBool true));
+        field ~lifecycle:removed ~qualifier:RW ~ty:backup_type "backup_type" "type of the backup sub-policy" ~default_value:(Some (VEnum "snapshot"));
+        field ~lifecycle:removed ~qualifier:StaticRO ~ty:Int "backup_retention_value" "maximum number of backups that should be stored at any time" ~default_value:(Some (VInt 7L));
+        field ~lifecycle:removed ~qualifier:StaticRO ~ty:backup_frequency "backup_frequency" "frequency of the backup schedule" ~default_value:(Some (VEnum "daily"));
+        field ~lifecycle:removed ~qualifier:StaticRO ~ty:(Map (String,String)) "backup_schedule" "schedule of the backup containing 'hour', 'min', 'days'. Date/time-related information is in Local Timezone" ~default_value:(Some (VMap []));
+        field ~lifecycle:removed ~qualifier:DynamicRO ~ty:Bool "is_backup_running" "true if this protection policy's backup is running";
+        field ~lifecycle:removed ~qualifier:DynamicRO ~ty:DateTime "backup_last_run_time" "time of the last backup" ~default_value:(Some(VDateTime(Date.of_float 0.)));
+        field ~lifecycle:removed ~qualifier:StaticRO ~ty:archive_target_type "archive_target_type" "type of the archive target config" ~default_value:(Some (VEnum "none"));
+        field ~lifecycle:removed ~qualifier:StaticRO ~ty:(Map (String,String)) "archive_target_config" "configuration for the archive, including its 'location', 'username', 'password'" ~default_value:(Some (VMap []));
+        field ~lifecycle:removed ~qualifier:StaticRO ~ty:archive_frequency "archive_frequency" "frequency of the archive schedule" ~default_value:(Some (VEnum "never"));
+        field ~lifecycle:removed ~qualifier:StaticRO ~ty:(Map (String,String)) "archive_schedule" "schedule of the archive containing 'hour', 'min', 'days'. Date/time-related information is in Local Timezone" ~default_value:(Some (VMap []));
+        field ~lifecycle:removed ~qualifier:DynamicRO ~ty:Bool "is_archive_running" "true if this protection policy's archive is running";
+        field ~lifecycle:removed ~qualifier:DynamicRO ~ty:DateTime "archive_last_run_time" "time of the last archive" ~default_value:(Some(VDateTime(Date.of_float 0.)));
+        field ~lifecycle:removed ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs attached to this protection policy";
+        field ~lifecycle:removed ~qualifier:StaticRO ~ty:Bool "is_alarm_enabled" "true if alarm is enabled for this policy" ~default_value:(Some (VBool false));
+        field ~lifecycle:removed ~qualifier:StaticRO ~ty:(Map (String,String)) "alarm_config" "configuration for the alarm" ~default_value:(Some (VMap []));
+        field ~lifecycle:removed ~qualifier:DynamicRO ~ty:(Set (String)) "recent_alerts" "recent alerts" ~default_value:(Some (VSet []));
+      ]
+      ()
+end
 
 (* VM schedule snapshot *)
 let vmss_snapshot_now = call ~flags:[`Session]
@@ -10357,7 +10359,7 @@ let all_system =
     VM.t;
     VM_metrics.t;
     VM_guest_metrics.t;
-    vmpp;
+    VMPP.t;
     vmss;
     vm_appliance;
     dr_task;
