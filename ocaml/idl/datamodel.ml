@@ -7900,60 +7900,62 @@ module Auth = struct
       ()
 end
 
-(** Subject class *)
-let subject_add_to_roles = call ~flags:[`Session]
-    ~name:"add_to_roles"
-    ~in_oss_since:None
-    ~in_product_since:rel_midnight_ride
-    ~params:[
-      Ref _subject, "self", "The subject who we want to add the role to";
-      Ref _role, "role", "The unique role reference" ;
-    ]
-    ~doc:"This call adds a new role to a subject"
-    ~allowed_roles:_R_POOL_ADMIN
-    ()
-let subject_remove_from_roles = call ~flags:[`Session]
-    ~name:"remove_from_roles"
-    ~in_oss_since:None
-    ~in_product_since:rel_midnight_ride
-    ~params:[
-      Ref _subject, "self", "The subject from whom we want to remove the role";
-      Ref _role, "role", "The unique role reference in the subject's roles field" ;
-    ]
-    ~doc:"This call removes a role from a subject"
-    ~allowed_roles:_R_POOL_ADMIN
-    ()
-let subject_get_permissions_name_label = call ~flags:[`Session]
-    ~name:"get_permissions_name_label"
-    ~in_oss_since:None
-    ~in_product_since:rel_midnight_ride
-    ~params:[
-      Ref _subject, "self", "The subject whose permissions will be retrieved";
-    ]
-    ~result:(Set(String), "a list of permission names")
-    ~doc:"This call returns a list of permission names given a subject"
-    ~allowed_roles:_R_READ_ONLY
-    ()
-(* a subject is a user/group that can log in xapi *)
-let subject =
-  create_obj ~in_db:true ~in_product_since:rel_george ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_subject ~descr:"A user or group that can log in xapi"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_ADMIN
-    ~messages: [
-      subject_add_to_roles;
-      subject_remove_from_roles;
-      subject_get_permissions_name_label;
-    ]
-    ~contents:[uid ~in_oss_since:None _subject;
-               field ~in_product_since:rel_george ~default_value:(Some (VString "")) ~qualifier:StaticRO ~ty:String "subject_identifier" "the subject identifier, unique in the external directory service";
-               field ~in_product_since:rel_george ~default_value:(Some (VMap [])) ~qualifier:StaticRO ~ty:(Map(String, String)) "other_config" "additional configuration";
-               (* DynamicRO fields do not show up in the constructor, as it should be because a subject must be created without receiving any roles as a parameter *)
-               field ~in_product_since:rel_midnight_ride ~default_value:(Some (VSet [
-                   (VRef ("OpaqueRef:"^Constants.rbac_pool_admin_uuid))])) (* pool-admin, according to rbac_static.ml, used during upgrade from pre-rbac xapis *)
-                 ~ignore_foreign_key:true ~qualifier:DynamicRO ~ty:(Set((Ref _role))) "roles" "the roles associated with this subject";
-              ]
-    ()
+module Subject = struct
+  (** Subject class *)
+  let add_to_roles = call ~flags:[`Session]
+      ~name:"add_to_roles"
+      ~in_oss_since:None
+      ~in_product_since:rel_midnight_ride
+      ~params:[
+        Ref _subject, "self", "The subject who we want to add the role to";
+        Ref _role, "role", "The unique role reference" ;
+      ]
+      ~doc:"This call adds a new role to a subject"
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+  let remove_from_roles = call ~flags:[`Session]
+      ~name:"remove_from_roles"
+      ~in_oss_since:None
+      ~in_product_since:rel_midnight_ride
+      ~params:[
+        Ref _subject, "self", "The subject from whom we want to remove the role";
+        Ref _role, "role", "The unique role reference in the subject's roles field" ;
+      ]
+      ~doc:"This call removes a role from a subject"
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+  let get_permissions_name_label = call ~flags:[`Session]
+      ~name:"get_permissions_name_label"
+      ~in_oss_since:None
+      ~in_product_since:rel_midnight_ride
+      ~params:[
+        Ref _subject, "self", "The subject whose permissions will be retrieved";
+      ]
+      ~result:(Set(String), "a list of permission names")
+      ~doc:"This call returns a list of permission names given a subject"
+      ~allowed_roles:_R_READ_ONLY
+      ()
+  (* a subject is a user/group that can log in xapi *)
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_george ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_subject ~descr:"A user or group that can log in xapi"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_ADMIN
+      ~messages: [
+        add_to_roles;
+        remove_from_roles;
+        get_permissions_name_label;
+      ]
+      ~contents:[uid ~in_oss_since:None _subject;
+                 field ~in_product_since:rel_george ~default_value:(Some (VString "")) ~qualifier:StaticRO ~ty:String "subject_identifier" "the subject identifier, unique in the external directory service";
+                 field ~in_product_since:rel_george ~default_value:(Some (VMap [])) ~qualifier:StaticRO ~ty:(Map(String, String)) "other_config" "additional configuration";
+                 (* DynamicRO fields do not show up in the constructor, as it should be because a subject must be created without receiving any roles as a parameter *)
+                 field ~in_product_since:rel_midnight_ride ~default_value:(Some (VSet [
+                     (VRef ("OpaqueRef:"^Constants.rbac_pool_admin_uuid))])) (* pool-admin, according to rbac_static.ml, used during upgrade from pre-rbac xapis *)
+                   ~ignore_foreign_key:true ~qualifier:DynamicRO ~ty:(Set((Ref _role))) "roles" "the roles associated with this subject";
+                ]
+      ()
+end
 
 (** Role class *)
 let role_get_permissions = call ~flags:[`Session]
@@ -10327,7 +10329,7 @@ let all_system =
   [
     Session.t;
     Auth.t;
-    subject;
+    Subject.t;
     (role:Datamodel_types.obj);
     Task.t;
     event;
