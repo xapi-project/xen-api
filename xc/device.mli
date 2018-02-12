@@ -124,6 +124,7 @@ sig
     -> ?backend_domid:Xenctrl.domid
     -> ?other_config:((string * string) list)
     -> pci:Xenops_interface.Pci.address -> vlan:int64 option -> carrier:bool
+    -> ?extra_private_keys:(string * string) list
     -> ?extra_xenserver_keys:(string * string) list
     -> Xenops_task.task_handle ->  Xenctrl.domid
     -> device

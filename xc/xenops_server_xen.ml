@@ -2690,7 +2690,8 @@ module VIF = struct
                   let (_: Device_common.device) = 
                     (with_common_params Device.NetSriovVf.add)
                        ~pci ~vlan:vif.vlan ~carrier:vif.carrier
-                       ~extra_xenserver_keys:(static_ip_setting @ xenopsd_backend @ ["mac", mac])
+                       ~extra_private_keys:([id] @ xenopsd_backend)
+                       ~extra_xenserver_keys:(static_ip_setting @ [("mac", mac)])
                        task frontend_domid
                   in
                   ()

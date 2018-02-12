@@ -776,32 +776,22 @@ end
 (** Network SR-IOV VFs:                                                                 *)
 module NetSriovVf = struct
 
-  let add_device ~xs device xenserver_list =
-    Mutex.execute Generic.device_serialise_m (fun () ->
-        let extra_xenserver_device_path = Device_common.extra_xenserver_path_of_device ~xs device in
-        debug "adding net-sriov-vf device  B%d  F%d" device.backend.domid device.frontend.domid;
-        Xs.transaction xs (fun t ->
-            t.Xst.mkdirperms extra_xenserver_device_path
-              (Xenbus_utils.rwperm_for_guest device.frontend.domid);
-            t.Xst.writev extra_xenserver_device_path xenserver_list;
-          )
-      )
-
   let add  ~xs ~devid ~mac ?mtu ?(rate=None) ?(backend_domid=0) ?(other_config=[]) 
-      ~pci ~vlan ~carrier ?(extra_xenserver_keys=[]) (task: Xenops_task.task_handle) domid =
+      ~pci ~vlan ~carrier ?(extra_private_keys=[]) ?(extra_xenserver_keys=[])
+      (task: Xenops_task.task_handle) domid =
     let vlan_str = match vlan with None -> "none" | Some vlan -> sprintf "%Ld" vlan in
     let rate_str = match rate with None -> "none" | Some (a, b) -> sprintf "(%Ld,%Ld)" a b in
     debug "Device.NetSriovVf.add domid=%d devid=%d pci=%s vlan=%s mac=%s carrier=%b \
-           rate=%s other_config=[%s] extra_xenserver_keys=[%s]" 
+           rate=%s other_config=[%s] extra_private_keys=[%s] extra_xenserver_keys=[%s]" 
       domid devid (Xenops_interface.Pci.string_of_address pci)  vlan_str mac carrier rate_str
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) other_config))
+      (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) extra_private_keys))
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) extra_xenserver_keys));
 
     let frontend = { domid = domid; kind = NetSriovVf; devid = devid } in
     let backend = { domid = backend_domid; kind = NetSriovVf; devid = devid } in
     let device = { backend = backend; frontend = frontend } in
-
-    add_device ~xs device (extra_xenserver_keys @ other_config);
+    Generic.add_device ~xs device [] [] extra_private_keys (extra_xenserver_keys @ other_config);
     let rate_Mbps = match rate with
       | Some (0L, _) | None -> None
       | Some (rate, _) -> (match Int64.div rate 1024L with
