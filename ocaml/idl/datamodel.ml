@@ -6413,34 +6413,36 @@ module SM = struct
       ()
 end
 
-let lvhd_enable_thin_provisioning = call
-    ~name:"enable_thin_provisioning"
-    ~in_oss_since:None
-    ~in_product_since:rel_dundee
-    ~allowed_roles:_R_POOL_ADMIN
-    ~params:[
-      Ref _host, "host", "The LVHD Host to upgrade to being thin-provisioned.";
-      Ref _sr, "SR", "The LVHD SR to upgrade to being thin-provisioned.";
-      Int, "initial_allocation", "The initial amount of space to allocate to a newly-created VDI in bytes";
-      Int, "allocation_quantum", "The amount of space to allocate to a VDI when it needs to be enlarged in bytes";
-    ]
-    ~doc:"Upgrades an LVHD SR to enable thin-provisioning. Future VDIs created in this SR will be thinly-provisioned, although existing VDIs will be left alone. Note that the SR must be attached to the SRmaster for upgrade to work."
-    ~forward_to:(HostExtension "LVHD.enable_thin_provisioning")
-    ~result:(String, "Message from LVHD.enable_thin_provisioning extension")
-    ()
+module LVHD = struct
+  let enable_thin_provisioning = call
+      ~name:"enable_thin_provisioning"
+      ~in_oss_since:None
+      ~in_product_since:rel_dundee
+      ~allowed_roles:_R_POOL_ADMIN
+      ~params:[
+        Ref _host, "host", "The LVHD Host to upgrade to being thin-provisioned.";
+        Ref _sr, "SR", "The LVHD SR to upgrade to being thin-provisioned.";
+        Int, "initial_allocation", "The initial amount of space to allocate to a newly-created VDI in bytes";
+        Int, "allocation_quantum", "The amount of space to allocate to a VDI when it needs to be enlarged in bytes";
+      ]
+      ~doc:"Upgrades an LVHD SR to enable thin-provisioning. Future VDIs created in this SR will be thinly-provisioned, although existing VDIs will be left alone. Note that the SR must be attached to the SRmaster for upgrade to work."
+      ~forward_to:(HostExtension "LVHD.enable_thin_provisioning")
+      ~result:(String, "Message from LVHD.enable_thin_provisioning extension")
+      ()
 
-let lvhd =
-  create_obj ~in_db:true ~in_product_since:rel_dundee ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_lvhd ~descr:"LVHD SR specific operations"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_ADMIN
-    ~messages:[
-      lvhd_enable_thin_provisioning;
-    ]
-    ~contents: [
-      uid _lvhd;
-    ]
-    ()
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_dundee ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_lvhd ~descr:"LVHD SR specific operations"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_ADMIN
+      ~messages:[
+        enable_thin_provisioning;
+      ]
+      ~contents: [
+        uid _lvhd;
+      ]
+      ()
+end
 
 (* --- rws: removed this after talking to Andy and Julian
    let filesystem =
@@ -10341,7 +10343,7 @@ let all_system =
     VLAN.t;
     SM.t;
     SR.t;
-    lvhd;
+    LVHD.t;
     vdi;
     vbd;
     vbd_metrics;
