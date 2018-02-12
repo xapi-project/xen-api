@@ -3982,94 +3982,98 @@ module Session = struct
       ()
 end
 
-(** Tasks *)
+
+module Task = struct
+  (* NB: the status 'cancelling' is not being used, nor should it ever be used. It should be purged from here! *)
+  let status_type = Enum("task_status_type", [ "pending", "task is in progress";
+                                               "success", "task was completed successfully";
+                                               "failure", "task has failed";
+                                               "cancelling", "task is being cancelled";
+                                               "cancelled", "task has been cancelled";
+                                             ])
 
 
-(* NB: the status 'cancelling' is not being used, nor should it ever be used. It should be purged from here! *)
-let status_type = Enum("task_status_type", [ "pending", "task is in progress";
-                                             "success", "task was completed successfully";
-                                             "failure", "task has failed";
-                                             "cancelling", "task is being cancelled";
-                                             "cancelled", "task has been cancelled";
-                                           ])
+  let cancel = call
+
+      ~name:"cancel"
+      ~in_product_since:rel_rio
+      ~doc:"Request that a task be cancelled. Note that a task may fail to be cancelled and may complete or fail normally and note that, even when a task does cancel, it might take an arbitrary amount of time."
+      ~params:[Ref _task, "task", "The task"]
+      ~errs:[Api_errors.operation_not_allowed]
+      ~allowed_roles:_R_READ_ONLY (* POOL_OP can cancel any tasks, others can cancel only owned tasks *)
+      ()
 
 
-let task_cancel = call
+  let create = call ~flags:[`Session]
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~name:"create"
+      ~doc:"Create a new task object which must be manually destroyed."
+      ~params:[String, "label", "short label for the new task";
+               String, "description", "longer description for the new task"]
+      ~result:(Ref _task, "The reference of the created task object")
+      ~allowed_roles:_R_READ_ONLY (* any subject can create tasks *)
+      ()
 
-    ~name:"cancel"
-    ~in_product_since:rel_rio
-    ~doc:"Request that a task be cancelled. Note that a task may fail to be cancelled and may complete or fail normally and note that, even when a task does cancel, it might take an arbitrary amount of time."
-    ~params:[Ref _task, "task", "The task"]
-    ~errs:[Api_errors.operation_not_allowed]
-    ~allowed_roles:_R_READ_ONLY (* POOL_OP can cancel any tasks, others can cancel only owned tasks *)
-    ()
+  let destroy = call ~flags:[`Session]
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~name:"destroy"
+      ~doc:"Destroy the task object"
+      ~params:[Ref _task, "self", "Reference to the task object"]
+      ~allowed_roles:_R_READ_ONLY (* POOL_OP can destroy any tasks, others can destroy only owned tasks *)
+      ()
 
+  let set_status = call ~flags:[`Session]
+      ~in_oss_since:None
+      ~in_product_since:rel_falcon
+      ~name:"set_status"
+      ~doc:"Set the task status"
+      ~params:[Ref _task, "self", "Reference to the task object";
+               status_type, "value", "task status value to be set"]
+      ~allowed_roles:_R_READ_ONLY (* POOL_OP can set status for any tasks, others can set status only for owned tasks *)
+      ()
 
-let task_create = call ~flags:[`Session]
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~name:"create"
-    ~doc:"Create a new task object which must be manually destroyed."
-    ~params:[String, "label", "short label for the new task";
-             String, "description", "longer description for the new task"]
-    ~result:(Ref _task, "The reference of the created task object")
-    ~allowed_roles:_R_READ_ONLY (* any subject can create tasks *)
-    ()
+  (* this permission allows to destroy any task, instead of only the owned ones *)
+  let extra_permission_task_destroy_any = "task.destroy/any"
 
-let task_destroy = call ~flags:[`Session]
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~name:"destroy"
-    ~doc:"Destroy the task object"
-    ~params:[Ref _task, "self", "Reference to the task object"]
-    ~allowed_roles:_R_READ_ONLY (* POOL_OP can destroy any tasks, others can destroy only owned tasks *)
-    ()
+  let task_allowed_operations =
+    Enum ("task_allowed_operations", List.map operation_enum [ cancel; destroy ])
 
-let task_set_status = call ~flags:[`Session]
-    ~in_oss_since:None
-    ~in_product_since:rel_falcon
-    ~name:"set_status"
-    ~doc:"Set the task status"
-    ~params:[Ref _task, "self", "Reference to the task object";
-             status_type, "value", "task status value to be set"]
-    ~allowed_roles:_R_READ_ONLY (* POOL_OP can set status for any tasks, others can set status only for owned tasks *)
-    ()
-
-(* this permission allows to destroy any task, instead of only the owned ones *)
-let extra_permission_task_destroy_any = "task.destroy/any"
-
-let task_allowed_operations =
-  Enum ("task_allowed_operations", List.map operation_enum [ task_cancel; task_destroy ])
-
-let task =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_task ~descr:"A long-running asynchronous task" ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages: [ task_create; task_destroy; task_cancel; task_set_status ]
-    ~contents: ([
-        uid _task;
-        namespace ~name:"name" ~contents:(names oss_since_303 DynamicRO) ();
-      ] @ (allowed_and_current_operations task_allowed_operations) @ [
-          field ~qualifier:DynamicRO ~ty:DateTime "created" "Time task was created";
-          field ~qualifier:DynamicRO ~ty:DateTime "finished" "Time task finished (i.e. succeeded or failed). If task-status is pending, then the value of this field has no meaning";
-          field ~qualifier:DynamicRO ~ty:status_type "status" "current status of the task";
-          field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _session) "session" "the session that created the task";
-          field ~qualifier:DynamicRO ~ty:(Ref _host) "resident_on" "the host on which the task is running";
-          field ~qualifier:DynamicRO ~ty:Float "progress" "This field contains the estimated fraction of the task which is complete. This field should not be used to determine whether the task is complete - for this the status field of the task should be used.";
-          field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Int "externalpid" "If the task has spawned a program, the field record the PID of the process that the task is waiting on. (-1 if no waiting completion of an external program )";
-          field ~in_oss_since:None ~internal_deprecated_since:rel_boston ~internal_only:true ~qualifier:DynamicRO ~ty:Int "stunnelpid" "If the task has been forwarded, this field records the pid of the stunnel process spawned to manage the forwarding connection";
-          field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Bool "forwarded" "True if this task has been forwarded to a slave";
-          field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _host) "forwarded_to" "The host to which the task has been forwarded";
-          field ~qualifier:DynamicRO ~ty:String "type" "if the task has completed successfully, this field contains the type of the encoded result (i.e. name of the class whose reference is in the result field). Undefined otherwise.";
-          field ~qualifier:DynamicRO ~ty:String "result" "if the task has completed successfully, this field contains the result value (either Void or an object reference). Undefined otherwise.";
-          field ~qualifier:DynamicRO ~ty:(Set String) "error_info" "if the task has failed, this field contains the set of associated error strings. Undefined otherwise.";
-          field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("applies_to",(_R_VM_OP));("XenCenterUUID",(_R_VM_OP));("XenCenterMeddlingActionTitle",(_R_VM_OP))];
-          (* field ~ty:(Set(Ref _alert)) ~in_product_since:rel_miami ~qualifier:DynamicRO "alerts" "all alerts related to this task"; *)
-          field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VRef "")) ~ty:(Ref _task) "subtask_of" "Ref pointing to the task this is a substask of.";
-          field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set (Ref _task)) "subtasks"   "List pointing to all the substasks.";
-          field ~qualifier:DynamicRO ~in_product_since:rel_dundee ~ty:String ~default_value:(Some (VString (Sexplib.Sexp.to_string (Backtrace.(sexp_of_t empty))))) "backtrace" "Function call trace for debugging.";
-        ])
-    ()
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_task ~descr:"A long-running asynchronous task" ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages: [
+        create;
+        destroy;
+        cancel;
+        set_status ]
+      ~contents: ([
+          uid _task;
+          namespace ~name:"name" ~contents:(names oss_since_303 DynamicRO) ();
+        ] @ (allowed_and_current_operations task_allowed_operations) @ [
+            field ~qualifier:DynamicRO ~ty:DateTime "created" "Time task was created";
+            field ~qualifier:DynamicRO ~ty:DateTime "finished" "Time task finished (i.e. succeeded or failed). If task-status is pending, then the value of this field has no meaning";
+            field ~qualifier:DynamicRO ~ty:status_type "status" "current status of the task";
+            field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _session) "session" "the session that created the task";
+            field ~qualifier:DynamicRO ~ty:(Ref _host) "resident_on" "the host on which the task is running";
+            field ~qualifier:DynamicRO ~ty:Float "progress" "This field contains the estimated fraction of the task which is complete. This field should not be used to determine whether the task is complete - for this the status field of the task should be used.";
+            field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Int "externalpid" "If the task has spawned a program, the field record the PID of the process that the task is waiting on. (-1 if no waiting completion of an external program )";
+            field ~in_oss_since:None ~internal_deprecated_since:rel_boston ~internal_only:true ~qualifier:DynamicRO ~ty:Int "stunnelpid" "If the task has been forwarded, this field records the pid of the stunnel process spawned to manage the forwarding connection";
+            field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Bool "forwarded" "True if this task has been forwarded to a slave";
+            field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _host) "forwarded_to" "The host to which the task has been forwarded";
+            field ~qualifier:DynamicRO ~ty:String "type" "if the task has completed successfully, this field contains the type of the encoded result (i.e. name of the class whose reference is in the result field). Undefined otherwise.";
+            field ~qualifier:DynamicRO ~ty:String "result" "if the task has completed successfully, this field contains the result value (either Void or an object reference). Undefined otherwise.";
+            field ~qualifier:DynamicRO ~ty:(Set String) "error_info" "if the task has failed, this field contains the set of associated error strings. Undefined otherwise.";
+            field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("applies_to",(_R_VM_OP));("XenCenterUUID",(_R_VM_OP));("XenCenterMeddlingActionTitle",(_R_VM_OP))];
+            (* field ~ty:(Set(Ref _alert)) ~in_product_since:rel_miami ~qualifier:DynamicRO "alerts" "all alerts related to this task"; *)
+            field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VRef "")) ~ty:(Ref _task) "subtask_of" "Ref pointing to the task this is a substask of.";
+            field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set (Ref _task)) "subtasks"   "List pointing to all the substasks.";
+            field ~qualifier:DynamicRO ~in_product_since:rel_dundee ~ty:String ~default_value:(Some (VString (Sexplib.Sexp.to_string (Backtrace.(sexp_of_t empty))))) "backtrace" "Function call trace for debugging.";
+          ])
+      ()
+end
 
 (** Many of the objects need to record IO bandwidth *)
 let iobandwidth =
@@ -10201,7 +10205,7 @@ let all_system =
     auth;
     subject;
     (role:Datamodel_types.obj);
-    task;
+    Task.t;
     event;
     (* alert; *)
 
@@ -10559,5 +10563,5 @@ let public_http_actions_with_no_rbac_check =
 
 (* permissions not associated with any object message or field *)
 let extra_permissions = [
-  (extra_permission_task_destroy_any, _R_POOL_OP); (* only POOL_OP can destroy any tasks *)
+  (Task.extra_permission_task_destroy_any, _R_POOL_OP); (* only POOL_OP can destroy any tasks *)
 ]
