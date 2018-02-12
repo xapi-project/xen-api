@@ -4349,114 +4349,124 @@ end
 
 (* New Miami pool patching mechanism *)
 
-let pool_patch_after_apply_guidance =
-  Enum ("after_apply_guidance",
-        [ "restartHVM",  "This patch requires HVM guests to be restarted once applied.";
-          "restartPV",   "This patch requires PV guests to be restarted once applied.";
-          "restartHost", "This patch requires the host to be restarted once applied.";
-          "restartXAPI", "This patch requires XAPI to be restarted once applied.";
-        ])
+module Pool_patch = struct
+  let after_apply_guidance =
+    Enum ("after_apply_guidance",
+          [ "restartHVM",  "This patch requires HVM guests to be restarted once applied.";
+            "restartPV",   "This patch requires PV guests to be restarted once applied.";
+            "restartHost", "This patch requires the host to be restarted once applied.";
+            "restartXAPI", "This patch requires XAPI to be restarted once applied.";
+          ])
 
-let pool_patch_apply = call
-    ~name:"apply"
-    ~doc:"Apply the selected patch to a host and return its output"
-    ~in_oss_since:None
-    ~in_product_since:rel_miami
-    ~params:[ Ref _pool_patch, "self", "The patch to apply"; Ref _host, "host", "The host to apply the patch too" ]
-    ~result:(String, "the output of the patch application process")
-    ~allowed_roles:_R_POOL_OP
-    ~internal_deprecated_since:rel_ely
-    ()
+  let apply = call
+      ~name:"apply"
+      ~doc:"Apply the selected patch to a host and return its output"
+      ~in_oss_since:None
+      ~in_product_since:rel_miami
+      ~params:[ Ref _pool_patch, "self", "The patch to apply"; Ref _host, "host", "The host to apply the patch too" ]
+      ~result:(String, "the output of the patch application process")
+      ~allowed_roles:_R_POOL_OP
+      ~internal_deprecated_since:rel_ely
+      ()
 
-let pool_patch_precheck = call
-    ~name:"precheck"
-    ~doc:"Execute the precheck stage of the selected patch on a host and return its output"
-    ~in_oss_since:None
-    ~in_product_since:rel_miami
-    ~params:[ Ref _pool_patch, "self", "The patch whose prechecks will be run"; Ref _host, "host", "The host to run the prechecks on" ]
-    ~result:(String, "the output of the patch prechecks")
-    ~allowed_roles:_R_POOL_OP
-    ~internal_deprecated_since:rel_ely
-    ()
+  let precheck = call
+      ~name:"precheck"
+      ~doc:"Execute the precheck stage of the selected patch on a host and return its output"
+      ~in_oss_since:None
+      ~in_product_since:rel_miami
+      ~params:[ Ref _pool_patch, "self", "The patch whose prechecks will be run"; Ref _host, "host", "The host to run the prechecks on" ]
+      ~result:(String, "the output of the patch prechecks")
+      ~allowed_roles:_R_POOL_OP
+      ~internal_deprecated_since:rel_ely
+      ()
 
-let pool_patch_clean = call
-    ~name:"clean"
-    ~doc:"Removes the patch's files from the server"
-    ~in_oss_since:None
-    ~in_product_since:rel_miami
-    ~params:[ Ref _pool_patch, "self", "The patch to clean up" ]
-    ~allowed_roles:_R_POOL_OP
-    ~internal_deprecated_since:rel_ely
-    ()
+  let clean = call
+      ~name:"clean"
+      ~doc:"Removes the patch's files from the server"
+      ~in_oss_since:None
+      ~in_product_since:rel_miami
+      ~params:[ Ref _pool_patch, "self", "The patch to clean up" ]
+      ~allowed_roles:_R_POOL_OP
+      ~internal_deprecated_since:rel_ely
+      ()
 
-let pool_patch_clean_on_host = call
-    ~name:"clean_on_host"
-    ~doc:"Removes the patch's files from the specified host"
-    ~in_oss_since:None
-    ~in_product_since:rel_tampa
-    ~params:[ Ref _pool_patch, "self", "The patch to clean up"; Ref _host, "host", "The host on which to clean the patch"  ]
-    ~allowed_roles:_R_POOL_OP
-    ~internal_deprecated_since:rel_ely
-    ()
+  let clean_on_host = call
+      ~name:"clean_on_host"
+      ~doc:"Removes the patch's files from the specified host"
+      ~in_oss_since:None
+      ~in_product_since:rel_tampa
+      ~params:[ Ref _pool_patch, "self", "The patch to clean up"; Ref _host, "host", "The host on which to clean the patch"  ]
+      ~allowed_roles:_R_POOL_OP
+      ~internal_deprecated_since:rel_ely
+      ()
 
-let pool_patch_pool_clean = call
-    ~name:"pool_clean"
-    ~doc:"Removes the patch's files from all hosts in the pool, but does not remove the database entries"
-    ~in_oss_since:None
-    ~in_product_since:rel_tampa
-    ~params:[ Ref _pool_patch, "self", "The patch to clean up" ]
-    ~allowed_roles:_R_POOL_OP
-    ~internal_deprecated_since:rel_ely
-    ()
+  let pool_clean = call
+      ~name:"pool_clean"
+      ~doc:"Removes the patch's files from all hosts in the pool, but does not remove the database entries"
+      ~in_oss_since:None
+      ~in_product_since:rel_tampa
+      ~params:[ Ref _pool_patch, "self", "The patch to clean up" ]
+      ~allowed_roles:_R_POOL_OP
+      ~internal_deprecated_since:rel_ely
+      ()
 
-let pool_patch_destroy = call
-    ~name:"destroy"
-    ~doc:"Removes the patch's files from all hosts in the pool, and removes the database entries.  Only works on unapplied patches."
-    ~in_oss_since:None
-    ~in_product_since:rel_miami
-    ~params:[ Ref _pool_patch, "self", "The patch to destroy" ]
-    ~allowed_roles:_R_POOL_OP
-    ~internal_deprecated_since:rel_ely
-    ()
+  let destroy = call
+      ~name:"destroy"
+      ~doc:"Removes the patch's files from all hosts in the pool, and removes the database entries.  Only works on unapplied patches."
+      ~in_oss_since:None
+      ~in_product_since:rel_miami
+      ~params:[ Ref _pool_patch, "self", "The patch to destroy" ]
+      ~allowed_roles:_R_POOL_OP
+      ~internal_deprecated_since:rel_ely
+      ()
 
-let pool_patch_pool_apply = call
-    ~name:"pool_apply"
-    ~doc:"Apply the selected patch to all hosts in the pool and return a map of host_ref -> patch output"
-    ~in_oss_since:None
-    ~in_product_since:rel_miami
-    ~params:[ Ref _pool_patch, "self", "The patch to apply"]
-    ~allowed_roles:_R_POOL_OP
-    ~internal_deprecated_since:rel_ely
-    ()
+  let pool_apply = call
+      ~name:"pool_apply"
+      ~doc:"Apply the selected patch to all hosts in the pool and return a map of host_ref -> patch output"
+      ~in_oss_since:None
+      ~in_product_since:rel_miami
+      ~params:[ Ref _pool_patch, "self", "The patch to apply"]
+      ~allowed_roles:_R_POOL_OP
+      ~internal_deprecated_since:rel_ely
+      ()
 
-let pool_patch =
-  create_obj ~in_db:true
-    ~in_product_since:rel_miami
-    ~in_oss_since:None
-    ~internal_deprecated_since:(Some rel_ely)
+  let t =
+    create_obj ~in_db:true
+      ~in_product_since:rel_miami
+      ~in_oss_since:None
+      ~internal_deprecated_since:(Some rel_ely)
 
-    ~persist:PersistEverything
-    ~gen_constructor_destructor:false
-    ~gen_events:true
+      ~persist:PersistEverything
+      ~gen_constructor_destructor:false
+      ~gen_events:true
 
-    ~name:_pool_patch
-    ~descr:"Pool-wide patches"
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[pool_patch_apply; pool_patch_pool_apply; pool_patch_precheck; pool_patch_clean; pool_patch_pool_clean; pool_patch_destroy; pool_patch_clean_on_host]
-    ~contents:
-      [ uid       ~in_oss_since:None _pool_patch;
-        namespace ~name:"name" ~contents:(names None StaticRO) ();
-        field     ~in_product_since:rel_miami ~default_value:(Some (VString "")) ~in_oss_since:None ~qualifier:StaticRO ~ty:String "version" "Patch version number";
-        field     ~in_product_since:rel_miami ~default_value:(Some (VString "")) ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:String "filename" "Filename of the patch";
-        field     ~in_product_since:rel_miami ~default_value:(Some (VInt Int64.zero)) ~in_oss_since:None ~qualifier:DynamicRO ~ty:Int "size" "Size of the patch";
-        field     ~in_product_since:rel_miami ~default_value:(Some (VBool false)) ~in_oss_since:None ~qualifier:DynamicRO ~ty:Bool "pool_applied" "This patch should be applied across the entire pool";
-        field     ~in_product_since:rel_miami ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host_patch)) "host_patches" "This hosts this patch is applied to.";
-        field     ~in_product_since:rel_miami ~default_value:(Some (VSet [])) ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set pool_patch_after_apply_guidance) "after_apply_guidance" "What the client should do after this patch has been applied.";
-        field     ~in_product_since:rel_ely   ~default_value:(Some (VRef null_ref)) ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _pool_update) "pool_update" "A reference to the associated pool_update object";
-        field     ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~in_oss_since:None  ~ty:(Map(String, String)) "other_config" "additional configuration";
+      ~name:_pool_patch
+      ~descr:"Pool-wide patches"
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages:[
+        apply;
+        pool_apply;
+        precheck;
+        clean;
+        pool_clean;
+        destroy;
+        clean_on_host;
       ]
-    ()
+      ~contents:
+        [ uid       ~in_oss_since:None _pool_patch;
+          namespace ~name:"name" ~contents:(names None StaticRO) ();
+          field     ~in_product_since:rel_miami ~default_value:(Some (VString "")) ~in_oss_since:None ~qualifier:StaticRO ~ty:String "version" "Patch version number";
+          field     ~in_product_since:rel_miami ~default_value:(Some (VString "")) ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:String "filename" "Filename of the patch";
+          field     ~in_product_since:rel_miami ~default_value:(Some (VInt Int64.zero)) ~in_oss_since:None ~qualifier:DynamicRO ~ty:Int "size" "Size of the patch";
+          field     ~in_product_since:rel_miami ~default_value:(Some (VBool false)) ~in_oss_since:None ~qualifier:DynamicRO ~ty:Bool "pool_applied" "This patch should be applied across the entire pool";
+          field     ~in_product_since:rel_miami ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host_patch)) "host_patches" "This hosts this patch is applied to.";
+          field     ~in_product_since:rel_miami ~default_value:(Some (VSet [])) ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set after_apply_guidance) "after_apply_guidance" "What the client should do after this patch has been applied.";
+          field     ~in_product_since:rel_ely   ~default_value:(Some (VRef null_ref)) ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _pool_update) "pool_update" "A reference to the associated pool_update object";
+          field     ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~in_oss_since:None  ~ty:(Map(String, String)) "other_config" "additional configuration";
+        ]
+      ()
+end
 
 (* Management of host patches. Just like the crash dumps it would be marginally neater if
    the patches were stored as VDIs. *)
@@ -10217,7 +10227,7 @@ let all_system =
     (* alert; *)
 
     pool;
-    pool_patch;
+    Pool_patch.t;
     Pool_update.t;
 
     vm;
