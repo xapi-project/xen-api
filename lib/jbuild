@@ -5,7 +5,7 @@
   (libraries (cmdliner
               logs
               threads
-              xcp
+              uuidm
               xenctrl
               xenstore_transport.unix
               xenstore.unix))
