@@ -5983,204 +5983,206 @@ let device_status_fields =
     field ~ty:(Map(String, String)) ~qualifier:DynamicRO "runtime_properties" "Device runtime properties"
   ]
 
-(* VIF messages *)
+module VIF = struct
+  (* VIF messages *)
 
-let vif_ipv4_configuration_mode = Enum ("vif_ipv4_configuration_mode", [
-    "None", "Follow the default IPv4 configuration of the guest (this is guest-dependent)";
-    "Static", "Static IPv4 address configuration";
-  ])
-
-let vif_ipv6_configuration_mode = Enum ("vif_ipv6_configuration_mode", [
-    "None", "Follow the default IPv6 configuration of the guest (this is guest-dependent)";
-    "Static", "Static IPv6 address configuration";
-  ])
-
-let vif_plug = call
-    ~name:"plug"
-    ~in_product_since:rel_rio
-    ~doc:"Hotplug the specified VIF, dynamically attaching it to the running VM"
-    ~params:[Ref _vif, "self", "The VIF to hotplug"]
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vif_unplug = call
-    ~name:"unplug"
-    ~in_product_since:rel_rio
-    ~doc:"Hot-unplug the specified VIF, dynamically unattaching it from the running VM"
-    ~params:[Ref _vif, "self", "The VIF to hot-unplug"]
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vif_unplug_force = call
-    ~name:"unplug_force"
-    ~in_product_since:rel_boston
-    ~doc:"Forcibly unplug the specified VIF"
-    ~params:[Ref _vif, "self", "The VIF to forcibly unplug"]
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vif_move = call
-    ~name:"move"
-    ~in_product_since:rel_ely
-    ~doc:"Move the specified VIF to the specified network, even while the VM is running"
-    ~params:[Ref _vif, "self", "The VIF to move";
-             Ref _network, "network", "The network to move it to"]
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vif_operations =
-  Enum ("vif_operations",
-        [ "attach", "Attempting to attach this VIF to a VM";
-          "plug", "Attempting to hotplug this VIF";
-          "unplug", "Attempting to hot unplug this VIF";
-        ])
-
-let vif_locking_mode =
-  Enum ("vif_locking_mode", [
-      "network_default", "No specific configuration set - default network policy applies";
-      "locked", "Only traffic to a specific MAC and a list of IPv4 or IPv6 addresses is permitted";
-      "unlocked", "All traffic is permitted";
-      "disabled", "No traffic is permitted";
+  let ipv4_configuration_mode = Enum ("vif_ipv4_configuration_mode", [
+      "None", "Follow the default IPv4 configuration of the guest (this is guest-dependent)";
+      "Static", "Static IPv4 address configuration";
     ])
 
-let vif_set_locking_mode = call
-    ~name:"set_locking_mode"
-    ~in_product_since:rel_tampa
-    ~doc:"Set the locking mode for this VIF"
-    ~params:[
-      Ref _vif, "self", "The VIF whose locking mode will be set";
-      vif_locking_mode, "value", "The new locking mode for the VIF";
-    ]
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let ipv6_configuration_mode = Enum ("vif_ipv6_configuration_mode", [
+      "None", "Follow the default IPv6 configuration of the guest (this is guest-dependent)";
+      "Static", "Static IPv6 address configuration";
+    ])
 
-let vif_set_ipv4_allowed = call
-    ~name:"set_ipv4_allowed"
-    ~in_product_since:rel_tampa
-    ~doc:"Set the IPv4 addresses to which traffic on this VIF can be restricted"
-    ~params:[
-      Ref _vif, "self", "The VIF which the IP addresses will be associated with";
-      Set String, "value", "The IP addresses which will be associated with the VIF";
-    ]
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let plug = call
+      ~name:"plug"
+      ~in_product_since:rel_rio
+      ~doc:"Hotplug the specified VIF, dynamically attaching it to the running VM"
+      ~params:[Ref _vif, "self", "The VIF to hotplug"]
+      ~allowed_roles:_R_VM_ADMIN
+      ()
 
-let vif_add_ipv4_allowed = call
-    ~name:"add_ipv4_allowed"
-    ~in_product_since:rel_tampa
-    ~doc:"Associates an IPv4 address with this VIF"
-    ~params:[
-      Ref _vif, "self", "The VIF which the IP address will be associated with";
-      String, "value", "The IP address which will be associated with the VIF";
-    ]
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let unplug = call
+      ~name:"unplug"
+      ~in_product_since:rel_rio
+      ~doc:"Hot-unplug the specified VIF, dynamically unattaching it from the running VM"
+      ~params:[Ref _vif, "self", "The VIF to hot-unplug"]
+      ~allowed_roles:_R_VM_ADMIN
+      ()
 
-let vif_remove_ipv4_allowed = call
-    ~name:"remove_ipv4_allowed"
-    ~in_product_since:rel_tampa
-    ~doc:"Removes an IPv4 address from this VIF"
-    ~params:[
-      Ref _vif, "self", "The VIF from which the IP address will be removed";
-      String, "value", "The IP address which will be removed from the VIF";
-    ]
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let unplug_force = call
+      ~name:"unplug_force"
+      ~in_product_since:rel_boston
+      ~doc:"Forcibly unplug the specified VIF"
+      ~params:[Ref _vif, "self", "The VIF to forcibly unplug"]
+      ~allowed_roles:_R_VM_ADMIN
+      ()
 
-let vif_set_ipv6_allowed = call
-    ~name:"set_ipv6_allowed"
-    ~in_product_since:rel_tampa
-    ~doc:"Set the IPv6 addresses to which traffic on this VIF can be restricted"
-    ~params:[
-      Ref _vif, "self", "The VIF which the IP addresses will be associated with";
-      Set String, "value", "The IP addresses which will be associated with the VIF";
-    ]
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let move = call
+      ~name:"move"
+      ~in_product_since:rel_ely
+      ~doc:"Move the specified VIF to the specified network, even while the VM is running"
+      ~params:[Ref _vif, "self", "The VIF to move";
+               Ref _network, "network", "The network to move it to"]
+      ~allowed_roles:_R_VM_ADMIN
+      ()
 
-let vif_add_ipv6_allowed = call
-    ~name:"add_ipv6_allowed"
-    ~in_product_since:rel_tampa
-    ~doc:"Associates an IPv6 address with this VIF"
-    ~params:[
-      Ref _vif, "self", "The VIF which the IP address will be associated with";
-      String, "value", "The IP address which will be associated with the VIF";
-    ]
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let operations =
+    Enum ("vif_operations",
+          [ "attach", "Attempting to attach this VIF to a VM";
+            "plug", "Attempting to hotplug this VIF";
+            "unplug", "Attempting to hot unplug this VIF";
+          ])
 
-let vif_remove_ipv6_allowed = call
-    ~name:"remove_ipv6_allowed"
-    ~in_product_since:rel_tampa
-    ~doc:"Removes an IPv6 address from this VIF"
-    ~params:[
-      Ref _vif, "self", "The VIF from which the IP address will be removed";
-      String, "value", "The IP address which will be removed from the VIF";
-    ]
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let locking_mode =
+    Enum ("vif_locking_mode", [
+        "network_default", "No specific configuration set - default network policy applies";
+        "locked", "Only traffic to a specific MAC and a list of IPv4 or IPv6 addresses is permitted";
+        "unlocked", "All traffic is permitted";
+        "disabled", "No traffic is permitted";
+      ])
 
-let vif_configure_ipv4 = call
-    ~name:"configure_ipv4"
-    ~in_product_since:rel_dundee
-    ~doc:"Configure IPv4 settings for this virtual interface"
-    ~versioned_params:[
-      {param_type=Ref _vif; param_name="self"; param_doc="The VIF to configure"; param_release=dundee_release; param_default=None};
-      {param_type=vif_ipv4_configuration_mode; param_name="mode"; param_doc="Whether to use static or no IPv4 assignment"; param_release=dundee_release; param_default=None};
-      {param_type=String; param_name="address"; param_doc="The IPv4 address in <addr>/<prefix length> format (for static mode only)"; param_release=dundee_release; param_default=Some(VString "")};
-      {param_type=String; param_name="gateway"; param_doc="The IPv4 gateway (for static mode only; leave empty to not set a gateway)"; param_release=dundee_release; param_default=Some(VString "")}
-    ]
-    ~allowed_roles:_R_VM_OP
-    ()
+  let set_locking_mode = call
+      ~name:"set_locking_mode"
+      ~in_product_since:rel_tampa
+      ~doc:"Set the locking mode for this VIF"
+      ~params:[
+        Ref _vif, "self", "The VIF whose locking mode will be set";
+        locking_mode, "value", "The new locking mode for the VIF";
+      ]
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let vif_configure_ipv6 = call
-    ~name:"configure_ipv6"
-    ~in_product_since:rel_dundee
-    ~doc:"Configure IPv6 settings for this virtual interface"
-    ~versioned_params:[
-      {param_type=Ref _vif; param_name="self"; param_doc="The VIF to configure"; param_release=dundee_release; param_default=None};
-      {param_type=vif_ipv6_configuration_mode; param_name="mode"; param_doc="Whether to use static or no IPv6 assignment"; param_release=dundee_release; param_default=None};
-      {param_type=String; param_name="address"; param_doc="The IPv6 address in <addr>/<prefix length> format (for static mode only)"; param_release=dundee_release; param_default=Some(VString "")};
-      {param_type=String; param_name="gateway"; param_doc="The IPv6 gateway (for static mode only; leave empty to not set a gateway)"; param_release=dundee_release; param_default=Some(VString "")}
-    ]
-    ~allowed_roles:_R_VM_OP
-    ()
+  let set_ipv4_allowed = call
+      ~name:"set_ipv4_allowed"
+      ~in_product_since:rel_tampa
+      ~doc:"Set the IPv4 addresses to which traffic on this VIF can be restricted"
+      ~params:[
+        Ref _vif, "self", "The VIF which the IP addresses will be associated with";
+        Set String, "value", "The IP addresses which will be associated with the VIF";
+      ]
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-(** A virtual network interface *)
-let vif =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vif ~descr:"A virtual network interface"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_VM_ADMIN
-    ~doc_tags:[Networking]
-    ~messages:[vif_plug; vif_unplug; vif_unplug_force; vif_move; vif_set_locking_mode;
-               vif_set_ipv4_allowed; vif_add_ipv4_allowed; vif_remove_ipv4_allowed; vif_set_ipv6_allowed; vif_add_ipv6_allowed; vif_remove_ipv6_allowed;
-               vif_configure_ipv4; vif_configure_ipv6]
-    ~contents:
-      ([ uid _vif;
-       ] @ (allowed_and_current_operations vif_operations) @ [
-         field ~qualifier:StaticRO "device" "order in which VIF backends are created by xapi";
-         field ~qualifier:StaticRO ~ty:(Ref _network) "network" "virtual network to which this vif is connected";
-         field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "virtual machine to which this vif is connected";
-         field ~qualifier:StaticRO ~ty:String "MAC" "ethernet MAC address of virtual interface, as exposed to guest";
-         field ~qualifier:StaticRO ~ty:Int "MTU" "MTU in octets";
-         field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Bool "reserved" "true if the VIF is reserved pending a reboot/migrate";
-         field ~ty:(Map(String, String)) "other_config" "additional configuration";
-       ] @ device_status_fields @
-       [ namespace ~name:"qos" ~contents:(qos "VIF") (); ] @
-       [ field ~qualifier:DynamicRO ~ty:(Ref _vif_metrics) ~lifecycle: [Removed, rel_tampa, "Disabled in favour of RRDs"] "metrics" "metrics associated with this VIF";
-         field ~qualifier:DynamicRO ~in_product_since:rel_george ~default_value:(Some (VBool false)) ~ty:Bool "MAC_autogenerated" "true if the MAC was autogenerated; false indicates it was set manually";
-         field ~qualifier:StaticRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "network_default")) ~ty:vif_locking_mode "locking_mode" "current locking mode of the VIF";
-         field ~qualifier:StaticRO ~in_product_since:rel_tampa ~default_value:(Some (VSet [])) ~ty:(Set (String)) "ipv4_allowed" "A list of IPv4 addresses which can be used to filter traffic passing through this VIF";
-         field ~qualifier:StaticRO ~in_product_since:rel_tampa ~default_value:(Some (VSet [])) ~ty:(Set (String)) "ipv6_allowed" "A list of IPv6 addresses which can be used to filter traffic passing through this VIF";
-         field ~ty:vif_ipv4_configuration_mode ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv4_configuration_mode" "Determines whether IPv4 addresses are configured on the VIF" ~default_value:(Some (VEnum "None"));
-         field ~ty:(Set (String)) ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv4_addresses" "IPv4 addresses in CIDR format" ~default_value:(Some (VSet []));
-         field ~ty:String ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv4_gateway" "IPv4 gateway (the empty string means that no gateway is set)" ~default_value:(Some (VString ""));
-         field ~ty:vif_ipv6_configuration_mode ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_configuration_mode" "Determines whether IPv6 addresses are configured on the VIF" ~default_value:(Some (VEnum "None"));
-         field ~ty:(Set (String)) ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_addresses" "IPv6 addresses in CIDR format" ~default_value:(Some (VSet []));
-         field ~ty:String ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_gateway" "IPv6 gateway (the empty string means that no gateway is set)" ~default_value:(Some (VString ""));
-       ])
-    ()
+  let add_ipv4_allowed = call
+      ~name:"add_ipv4_allowed"
+      ~in_product_since:rel_tampa
+      ~doc:"Associates an IPv4 address with this VIF"
+      ~params:[
+        Ref _vif, "self", "The VIF which the IP address will be associated with";
+        String, "value", "The IP address which will be associated with the VIF";
+      ]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let remove_ipv4_allowed = call
+      ~name:"remove_ipv4_allowed"
+      ~in_product_since:rel_tampa
+      ~doc:"Removes an IPv4 address from this VIF"
+      ~params:[
+        Ref _vif, "self", "The VIF from which the IP address will be removed";
+        String, "value", "The IP address which will be removed from the VIF";
+      ]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let set_ipv6_allowed = call
+      ~name:"set_ipv6_allowed"
+      ~in_product_since:rel_tampa
+      ~doc:"Set the IPv6 addresses to which traffic on this VIF can be restricted"
+      ~params:[
+        Ref _vif, "self", "The VIF which the IP addresses will be associated with";
+        Set String, "value", "The IP addresses which will be associated with the VIF";
+      ]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let add_ipv6_allowed = call
+      ~name:"add_ipv6_allowed"
+      ~in_product_since:rel_tampa
+      ~doc:"Associates an IPv6 address with this VIF"
+      ~params:[
+        Ref _vif, "self", "The VIF which the IP address will be associated with";
+        String, "value", "The IP address which will be associated with the VIF";
+      ]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let remove_ipv6_allowed = call
+      ~name:"remove_ipv6_allowed"
+      ~in_product_since:rel_tampa
+      ~doc:"Removes an IPv6 address from this VIF"
+      ~params:[
+        Ref _vif, "self", "The VIF from which the IP address will be removed";
+        String, "value", "The IP address which will be removed from the VIF";
+      ]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let configure_ipv4 = call
+      ~name:"configure_ipv4"
+      ~in_product_since:rel_dundee
+      ~doc:"Configure IPv4 settings for this virtual interface"
+      ~versioned_params:[
+        {param_type=Ref _vif; param_name="self"; param_doc="The VIF to configure"; param_release=dundee_release; param_default=None};
+        {param_type=ipv4_configuration_mode; param_name="mode"; param_doc="Whether to use static or no IPv4 assignment"; param_release=dundee_release; param_default=None};
+        {param_type=String; param_name="address"; param_doc="The IPv4 address in <addr>/<prefix length> format (for static mode only)"; param_release=dundee_release; param_default=Some(VString "")};
+        {param_type=String; param_name="gateway"; param_doc="The IPv4 gateway (for static mode only; leave empty to not set a gateway)"; param_release=dundee_release; param_default=Some(VString "")}
+      ]
+      ~allowed_roles:_R_VM_OP
+      ()
+
+  let configure_ipv6 = call
+      ~name:"configure_ipv6"
+      ~in_product_since:rel_dundee
+      ~doc:"Configure IPv6 settings for this virtual interface"
+      ~versioned_params:[
+        {param_type=Ref _vif; param_name="self"; param_doc="The VIF to configure"; param_release=dundee_release; param_default=None};
+        {param_type=ipv6_configuration_mode; param_name="mode"; param_doc="Whether to use static or no IPv6 assignment"; param_release=dundee_release; param_default=None};
+        {param_type=String; param_name="address"; param_doc="The IPv6 address in <addr>/<prefix length> format (for static mode only)"; param_release=dundee_release; param_default=Some(VString "")};
+        {param_type=String; param_name="gateway"; param_doc="The IPv6 gateway (for static mode only; leave empty to not set a gateway)"; param_release=dundee_release; param_default=Some(VString "")}
+      ]
+      ~allowed_roles:_R_VM_OP
+      ()
+
+  (** A virtual network interface *)
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vif ~descr:"A virtual network interface"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_VM_ADMIN
+      ~doc_tags:[Networking]
+      ~messages:[plug; unplug; unplug_force; move; set_locking_mode;
+                 set_ipv4_allowed; add_ipv4_allowed; remove_ipv4_allowed; set_ipv6_allowed; add_ipv6_allowed; remove_ipv6_allowed;
+                 configure_ipv4; configure_ipv6]
+      ~contents:
+        ([ uid _vif;
+         ] @ (allowed_and_current_operations operations) @ [
+           field ~qualifier:StaticRO "device" "order in which VIF backends are created by xapi";
+           field ~qualifier:StaticRO ~ty:(Ref _network) "network" "virtual network to which this vif is connected";
+           field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "virtual machine to which this vif is connected";
+           field ~qualifier:StaticRO ~ty:String "MAC" "ethernet MAC address of virtual interface, as exposed to guest";
+           field ~qualifier:StaticRO ~ty:Int "MTU" "MTU in octets";
+           field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Bool "reserved" "true if the VIF is reserved pending a reboot/migrate";
+           field ~ty:(Map(String, String)) "other_config" "additional configuration";
+         ] @ device_status_fields @
+         [ namespace ~name:"qos" ~contents:(qos "VIF") (); ] @
+         [ field ~qualifier:DynamicRO ~ty:(Ref _vif_metrics) ~lifecycle: [Removed, rel_tampa, "Disabled in favour of RRDs"] "metrics" "metrics associated with this VIF";
+           field ~qualifier:DynamicRO ~in_product_since:rel_george ~default_value:(Some (VBool false)) ~ty:Bool "MAC_autogenerated" "true if the MAC was autogenerated; false indicates it was set manually";
+           field ~qualifier:StaticRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "network_default")) ~ty:locking_mode "locking_mode" "current locking mode of the VIF";
+           field ~qualifier:StaticRO ~in_product_since:rel_tampa ~default_value:(Some (VSet [])) ~ty:(Set (String)) "ipv4_allowed" "A list of IPv4 addresses which can be used to filter traffic passing through this VIF";
+           field ~qualifier:StaticRO ~in_product_since:rel_tampa ~default_value:(Some (VSet [])) ~ty:(Set (String)) "ipv6_allowed" "A list of IPv6 addresses which can be used to filter traffic passing through this VIF";
+           field ~ty:ipv4_configuration_mode ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv4_configuration_mode" "Determines whether IPv4 addresses are configured on the VIF" ~default_value:(Some (VEnum "None"));
+           field ~ty:(Set (String)) ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv4_addresses" "IPv4 addresses in CIDR format" ~default_value:(Some (VSet []));
+           field ~ty:String ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv4_gateway" "IPv4 gateway (the empty string means that no gateway is set)" ~default_value:(Some (VString ""));
+           field ~ty:ipv6_configuration_mode ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_configuration_mode" "Determines whether IPv6 addresses are configured on the VIF" ~default_value:(Some (VEnum "None"));
+           field ~ty:(Set (String)) ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_addresses" "IPv6 addresses in CIDR format" ~default_value:(Some (VSet []));
+           field ~ty:String ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_gateway" "IPv6 gateway (the empty string means that no gateway is set)" ~default_value:(Some (VString ""));
+         ])
+      ()
+end
 
 let vif_metrics =
   create_obj
@@ -10320,7 +10322,7 @@ let all_system =
     Host_cpu.t;
     (* network_manager; *)
     Network.t;
-    vif;
+    VIF.t;
     vif_metrics;
     PIF.t;
     PIF_metrics.t;
