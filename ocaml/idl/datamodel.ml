@@ -9215,7 +9215,7 @@ module Blob = struct
       ()
 end
 
-let message =
+module Message = struct
   let cls =
     Enum ("cls", [ "VM", "VM";
                    "Host", "Host";
@@ -9226,7 +9226,7 @@ let message =
                    "PVS_proxy","PVS_proxy";
                    "VDI","VDI";
                  ])
-  in
+
   let create = call
       ~name:"create"
       ~in_product_since:rel_orlando
@@ -9239,7 +9239,7 @@ let message =
       ~result:(Ref _message, "The reference of the created message")
       ~allowed_roles:_R_POOL_OP
       ()
-  in
+
   let destroy = call
       ~name:"destroy"
       ~in_product_since:rel_orlando
@@ -9247,7 +9247,7 @@ let message =
       ~flags:[`Session]
       ~allowed_roles:_R_POOL_OP
       ()
-  in
+
   let get_all = call
       ~name:"get_all"
       ~in_product_since:rel_orlando
@@ -9256,7 +9256,7 @@ let message =
       ~result:(Set(Ref _message), "The references to the messages")
       ~allowed_roles:_R_READ_ONLY
       ()
-  in
+
   let get = call
       ~name:"get"
       ~in_product_since:rel_orlando
@@ -9267,7 +9267,7 @@ let message =
       ~result:(Map(Ref _message, Record _message), "The relevant messages")
       ~allowed_roles:_R_READ_ONLY
       ()
-  in
+
   let get_since = call
       ~name:"get_since"
       ~in_product_since:rel_orlando
@@ -9276,7 +9276,7 @@ let message =
       ~result:(Map(Ref _message, Record _message), "The relevant messages")
       ~allowed_roles:_R_READ_ONLY
       ()
-  in
+
   let get_by_uuid = call
       ~name:"get_by_uuid"
       ~in_product_since:rel_orlando
@@ -9285,7 +9285,7 @@ let message =
       ~result:(Ref _message, "The message reference")
       ~allowed_roles:_R_READ_ONLY
       ()
-  in
+
   let get_record = call
       ~name:"get_record"
       ~in_product_since:rel_orlando
@@ -9294,7 +9294,7 @@ let message =
       ~result:(Record _message, "The message record")
       ~allowed_roles:_R_READ_ONLY
       ()
-  in
+
   let get_all_records = call
       ~name:"get_all_records"
       ~in_product_since:rel_orlando
@@ -9303,7 +9303,7 @@ let message =
       ~result:(Map(Ref _message, Record _message), "The messages")
       ~allowed_roles:_R_READ_ONLY
       ()
-  in
+
   let get_all_records_where = call
       ~name:"get_all_records_where"
       ~in_product_since:rel_orlando
@@ -9312,19 +9312,22 @@ let message =
       ~result:(Map(Ref _message, Record _message), "The messages")
       ~allowed_roles:_R_READ_ONLY
       ()
-  in
-  create_obj ~in_db:false ~in_product_since:rel_orlando ~in_oss_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_message ~descr:"An message for the attention of the administrator" ~gen_events:true
-    ~doccomments:[] ~internal_deprecated_since:None
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[create;destroy;get;get_all; get_since; get_record; get_by_uuid; get_all_records; get_all_records_where] ~contents:
-    [ uid _message;
-      field ~qualifier:DynamicRO ~ty:String "name" "The name of the message";
-      field ~qualifier:DynamicRO ~ty:Int "priority" "The message priority, 0 being low priority";
-      field ~qualifier:DynamicRO ~ty:cls "cls" "The class of the object this message is associated with";
-      field ~qualifier:DynamicRO ~ty:String "obj_uuid" "The uuid of the object this message is associated with";
-      field ~qualifier:DynamicRO ~ty:DateTime "timestamp" "The time at which the message was created";
-      field ~qualifier:DynamicRO ~ty:String "body" "The body of the message"; ]
-    ()
+
+  let t =
+    create_obj ~in_db:false ~in_product_since:rel_orlando ~in_oss_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_message ~descr:"An message for the attention of the administrator" ~gen_events:true
+      ~doccomments:[] ~internal_deprecated_since:None
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages:[create;destroy;get;get_all; get_since; get_record; get_by_uuid; get_all_records; get_all_records_where] ~contents:
+      [ uid _message;
+        field ~qualifier:DynamicRO ~ty:String "name" "The name of the message";
+        field ~qualifier:DynamicRO ~ty:Int "priority" "The message priority, 0 being low priority";
+        field ~qualifier:DynamicRO ~ty:cls "cls" "The class of the object this message is associated with";
+        field ~qualifier:DynamicRO ~ty:String "obj_uuid" "The uuid of the object this message is associated with";
+        field ~qualifier:DynamicRO ~ty:DateTime "timestamp" "The time at which the message was created";
+        field ~qualifier:DynamicRO ~ty:String "body" "The body of the message"; ]
+      ()
+
+end
 
 let secret =
   let introduce = call
@@ -10410,7 +10413,7 @@ let all_system =
     User.t;
     Data_source.t;
     Blob.t;
-    message;
+    Message.t;
     secret;
     Tunnel.t;
     pci;
