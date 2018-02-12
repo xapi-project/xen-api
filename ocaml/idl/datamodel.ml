@@ -9432,15 +9432,15 @@ end
 
 (** Physical GPUs (pGPU) *)
 
-let pgpu_dom0_access =
-  Enum ("pgpu_dom0_access", [
-      "enabled", "dom0 can access this device as normal";
-      "disable_on_reboot", "On host reboot dom0 will be blocked from accessing this device";
-      "disabled", "dom0 cannot access this device";
-      "enable_on_reboot", "On host reboot dom0 will be allowed to access this device";
-    ])
+module PGPU = struct
+  let dom0_access =
+    Enum ("pgpu_dom0_access", [
+        "enabled", "dom0 can access this device as normal";
+        "disable_on_reboot", "On host reboot dom0 will be blocked from accessing this device";
+        "disabled", "dom0 cannot access this device";
+        "enable_on_reboot", "On host reboot dom0 will be allowed to access this device";
+      ])
 
-let pgpu =
   let add_enabled_VGPU_types = call
       ~name:"add_enabled_VGPU_types"
       ~lifecycle:[Published, rel_vgpu_tech_preview, ""]
@@ -9462,7 +9462,7 @@ let pgpu =
       ]
       ~allowed_roles:_R_POOL_OP
       ()
-  in
+
   let remove_enabled_VGPU_types = call
       ~name:"remove_enabled_VGPU_types"
       ~lifecycle:[Published, rel_vgpu_tech_preview, ""]
@@ -9484,7 +9484,7 @@ let pgpu =
       ]
       ~allowed_roles:_R_POOL_OP
       ()
-  in
+
   let set_enabled_VGPU_types = call
       ~name:"set_enabled_VGPU_types"
       ~lifecycle:[Published, rel_vgpu_tech_preview, ""]
@@ -9506,7 +9506,7 @@ let pgpu =
       ]
       ~allowed_roles:_R_POOL_OP
       ()
-  in
+
   let set_GPU_group = call
       ~name:"set_GPU_group"
       ~lifecycle:[Published, rel_vgpu_tech_preview, ""]
@@ -9516,7 +9516,7 @@ let pgpu =
       ]
       ~allowed_roles:_R_POOL_OP
       ()
-  in
+
   let get_remaining_capacity = call
       ~name:"get_remaining_capacity"
       ~lifecycle:[Published, rel_vgpu_tech_preview, ""]
@@ -9539,7 +9539,7 @@ let pgpu =
       ~result:(Int, "The number of VGPUs of the specified type which can still be started on this PGPU")
       ~allowed_roles:_R_READ_ONLY
       ()
-  in
+
   let enable_dom0_access = call
       ~name:"enable_dom0_access"
       ~lifecycle:[Published, rel_cream, ""]
@@ -9552,10 +9552,10 @@ let pgpu =
           param_default = None;
         };
       ]
-      ~result:(pgpu_dom0_access, "The accessibility of this PGPU from dom0")
+      ~result:(dom0_access, "The accessibility of this PGPU from dom0")
       ~allowed_roles:_R_POOL_OP
       ()
-  in
+
   let disable_dom0_access = call
       ~name:"disable_dom0_access"
       ~lifecycle:[Published, rel_cream, ""]
@@ -9568,46 +9568,48 @@ let pgpu =
           param_default = None;
         };
       ]
-      ~result:(pgpu_dom0_access, "The accessibility of this PGPU from dom0")
+      ~result:(dom0_access, "The accessibility of this PGPU from dom0")
       ~allowed_roles:_R_POOL_OP
       ()
-  in
-  create_obj
-    ~name:_pgpu
-    ~descr:"A physical GPU (pGPU)"
-    ~doccomments:[]
-    ~gen_constructor_destructor:false
-    ~gen_events:true
-    ~in_db:true
-    ~lifecycle:[Published, rel_boston, ""]
-    ~messages:[
-      add_enabled_VGPU_types;
-      remove_enabled_VGPU_types;
-      set_enabled_VGPU_types;
-      set_GPU_group;
-      get_remaining_capacity;
-      enable_dom0_access;
-      disable_dom0_access;
-    ]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~persist:PersistEverything
-    ~in_oss_since:None
-    ~contents:[
-      uid _pgpu ~lifecycle:[Published, rel_boston, ""];
-      field ~qualifier:StaticRO ~ty:(Ref _pci) ~lifecycle:[Published, rel_boston, ""] "PCI" "Link to underlying PCI device" ~default_value:(Some (VRef null_ref));
-      field ~qualifier:StaticRO ~ty:(Ref _gpu_group) ~lifecycle:[Published, rel_boston, ""] "GPU_group" "GPU group the pGPU is contained in" ~default_value:(Some (VRef null_ref));
-      field ~qualifier:DynamicRO ~ty:(Ref _host) ~lifecycle:[Published, rel_boston, ""] "host" "Host that owns the GPU" ~default_value:(Some (VRef null_ref));
-      field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
-      field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "supported_VGPU_types" "List of VGPU types supported by the underlying hardware";
-      field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "enabled_VGPU_types" "List of VGPU types which have been enabled for this PGPU";
-      field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "resident_VGPUs" "List of VGPUs running on this PGPU";
-      field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~internal_only:true ~default_value:(Some (VInt Constants.pgpu_default_size)) "size" "Abstract size of this PGPU";
-      field ~qualifier:DynamicRO ~ty:(Map (Ref _vgpu_type, Int)) ~lifecycle:[Published, rel_vgpu_productisation, ""] ~default_value:(Some (VMap [])) "supported_VGPU_max_capacities" "A map relating each VGPU type supported on this GPU to the maximum number of VGPUs of that type which can run simultaneously on this GPU";
-      field ~qualifier:DynamicRO ~ty:(pgpu_dom0_access) ~lifecycle:[Published, rel_cream, ""] ~default_value:(Some (VEnum "enabled")) "dom0_access" "The accessibility of this device from dom0";
-      field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_cream, ""] ~default_value:(Some (VBool false)) "is_system_display_device" "Is this device the system display device";
-      field ~qualifier:DynamicRO ~ty:(Map (String,String)) ~lifecycle:[Published, rel_inverness, ""] ~default_value:(Some (VMap [])) "compatibility_metadata" "PGPU metadata to determine whether a VGPU can migrate between two PGPUs";
-    ]
-    ()
+
+  let t =
+    create_obj
+      ~name:_pgpu
+      ~descr:"A physical GPU (pGPU)"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle:[Published, rel_boston, ""]
+      ~messages:[
+        add_enabled_VGPU_types;
+        remove_enabled_VGPU_types;
+        set_enabled_VGPU_types;
+        set_GPU_group;
+        get_remaining_capacity;
+        enable_dom0_access;
+        disable_dom0_access;
+      ]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~contents:[
+        uid _pgpu ~lifecycle:[Published, rel_boston, ""];
+        field ~qualifier:StaticRO ~ty:(Ref _pci) ~lifecycle:[Published, rel_boston, ""] "PCI" "Link to underlying PCI device" ~default_value:(Some (VRef null_ref));
+        field ~qualifier:StaticRO ~ty:(Ref _gpu_group) ~lifecycle:[Published, rel_boston, ""] "GPU_group" "GPU group the pGPU is contained in" ~default_value:(Some (VRef null_ref));
+        field ~qualifier:DynamicRO ~ty:(Ref _host) ~lifecycle:[Published, rel_boston, ""] "host" "Host that owns the GPU" ~default_value:(Some (VRef null_ref));
+        field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "supported_VGPU_types" "List of VGPU types supported by the underlying hardware";
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "enabled_VGPU_types" "List of VGPU types which have been enabled for this PGPU";
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "resident_VGPUs" "List of VGPUs running on this PGPU";
+        field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~internal_only:true ~default_value:(Some (VInt Constants.pgpu_default_size)) "size" "Abstract size of this PGPU";
+        field ~qualifier:DynamicRO ~ty:(Map (Ref _vgpu_type, Int)) ~lifecycle:[Published, rel_vgpu_productisation, ""] ~default_value:(Some (VMap [])) "supported_VGPU_max_capacities" "A map relating each VGPU type supported on this GPU to the maximum number of VGPUs of that type which can run simultaneously on this GPU";
+        field ~qualifier:DynamicRO ~ty:(dom0_access) ~lifecycle:[Published, rel_cream, ""] ~default_value:(Some (VEnum "enabled")) "dom0_access" "The accessibility of this device from dom0";
+        field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_cream, ""] ~default_value:(Some (VBool false)) "is_system_display_device" "Is this device the system display device";
+        field ~qualifier:DynamicRO ~ty:(Map (String,String)) ~lifecycle:[Published, rel_inverness, ""] ~default_value:(Some (VMap [])) "compatibility_metadata" "PGPU metadata to determine whether a VGPU can migrate between two PGPUs";
+      ]
+      ()
+end
 
 (** Groups of GPUs *)
 
@@ -10422,7 +10424,7 @@ let all_system =
     Secret.t;
     Tunnel.t;
     PCI.t;
-    pgpu;
+    PGPU.t;
     gpu_group;
     vgpu;
     vgpu_type;
