@@ -2947,207 +2947,6 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since ?(internal_deprecated_
   }
 
 (** Additional messages for srs *)
-let dev_config_param =
-  {param_type=Map(String,String); param_name="device_config"; param_doc="The device config string that will be passed to backend SR driver"; param_release=rio_release; param_default=None}
-
-let sr_host_param =
-  {param_type=Ref _host; param_name="host"; param_doc="The host to create/make the SR on"; param_release=rio_release; param_default=None}
-
-let sr_physical_size_param =
-  {param_type=Int; param_name="physical_size"; param_doc="The physical size of the new storage repository"; param_release=rio_release; param_default=None}
-
-let sr_shared_param =
-  {param_type=Bool; param_name="shared"; param_doc="True if the SR (is capable of) being shared by multiple hosts"; param_release=rio_release; param_default=None}
-
-let sr_create_common =
-  [
-    {param_type=String; param_name="name_label"; param_doc="The name of the new storage repository"; param_release=rio_release; param_default=None};
-    {param_type=String; param_name="name_description"; param_doc="The description of the new storage repository"; param_release=rio_release; param_default=None};
-    {param_type=String; param_name="type"; param_doc="The type of the SR; used to specify the SR backend driver to use"; param_release=rio_release; param_default=None};
-    {param_type=String; param_name="content_type"; param_doc="The type of the new SRs content, if required (e.g. ISOs)"; param_release=rio_release; param_default=None};
-  ]
-
-let sr_sm_config =
-  {param_type=Map(String,String); param_name="sm_config"; param_doc="Storage backend specific configuration options"; param_release=miami_release; param_default=Some (VMap [])}
-
-
-let sr_create = call
-    ~name:"create"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~versioned_params:(sr_host_param::dev_config_param::sr_physical_size_param::(sr_create_common @  [ sr_shared_param; sr_sm_config ] ))
-    ~doc:"Create a new Storage Repository and introduce it into the managed system, creating both SR record and PBD record to attach it to current host (with specified device_config parameters)"
-    ~result:(Ref _sr, "The reference of the newly created Storage Repository.")
-    ~errs:[Api_errors.sr_unknown_driver]
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let destroy_self_param =
-  (Ref _sr, "sr", "The SR to destroy")
-
-let sr_destroy = call
-    ~name:"destroy"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~doc:"Destroy specified SR, removing SR-record from database and remove SR from disk. (In order to affect this operation the appropriate device_config is read from the specified SR's PBD on current host)"
-    ~errs:[Api_errors.sr_has_pbd]
-    ~params:[destroy_self_param]
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let sr_forget = call
-    ~name:"forget"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~doc:"Removing specified SR-record from database, without attempting to remove SR from disk"
-    ~params:[destroy_self_param]
-    ~errs:[Api_errors.sr_has_pbd]
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let sr_introduce =
-  call
-    ~name:"introduce"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~versioned_params:({param_type=String; param_name="uuid"; param_doc="The uuid assigned to the introduced SR"; param_release=rio_release; param_default=None}::(sr_create_common @ [sr_shared_param; sr_sm_config]))
-    ~doc:"Introduce a new Storage Repository into the managed system"
-    ~result:(Ref _sr, "The reference of the newly introduced Storage Repository.")
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let sr_probe = call
-    ~name:"probe"
-    ~in_oss_since:None
-    ~in_product_since:rel_miami
-    ~versioned_params:[sr_host_param; dev_config_param; {param_type=String; param_name="type"; param_doc="The type of the SR; used to specify the SR backend driver to use"; param_release=miami_release; param_default=None}; sr_sm_config]
-    ~doc:"Perform a backend-specific scan, using the given device_config.  If the device_config is complete, then this will return a list of the SRs present of this type on the device, if any.  If the device_config is partial, then a backend-specific scan will be performed, returning results that will guide the user in improving the device_config."
-    ~result:(String, "An XML fragment containing the scan results.  These are specific to the scan being performed, and the backend.")
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let sr_make = call
-    ~name:"make"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~internal_deprecated_since:rel_miami
-    ~lifecycle:[
-      Published, rel_rio, "Create a new Storage Repository on disk";
-      Deprecated, rel_miami, "Use SR.create instead"
-    ]
-    ~versioned_params:(sr_host_param::dev_config_param::sr_physical_size_param::(sr_create_common @ [sr_sm_config]))
-    ~doc:"Create a new Storage Repository on disk. This call is deprecated: use SR.create instead."
-    ~result:(String, "The uuid of the newly created Storage Repository.")
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let sr_get_supported_types = call
-    ~name:"get_supported_types"
-    ~in_product_since:rel_rio
-    ~flags:[`Session]
-    ~doc:"Return a set of all the SR types supported by the system"
-    ~params:[]
-    ~result:(Set String, "the supported SR types")
-    ~allowed_roles:_R_READ_ONLY
-    ()
-
-let sr_scan = call
-    ~name:"scan"
-    ~in_product_since:rel_rio
-    ~doc:"Refreshes the list of VDIs associated with an SR"
-    ~params:[Ref _sr, "sr", "The SR to scan" ]
-    ~allowed_roles:_R_VM_POWER_ADMIN
-    ()
-
-(* Nb, although this is a new explicit call, it's actually been in the API since rio - just autogenerated. So no setting of rel_miami. *)
-let sr_set_shared = call
-    ~name:"set_shared"
-    ~in_product_since:rel_rio
-    ~doc:"Sets the shared flag on the SR"
-    ~params:[Ref _sr, "sr", "The SR";
-             Bool, "value", "True if the SR is shared"]
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let sr_set_name_label = call
-    ~name:"set_name_label"
-    ~in_product_since:rel_rio
-    ~doc:"Set the name label of the SR"
-    ~params:[Ref _sr, "sr", "The SR";
-             String, "value", "The name label for the SR"]
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let sr_set_name_description = call
-    ~name:"set_name_description"
-    ~in_product_since:rel_rio
-    ~doc:"Set the name description of the SR"
-    ~params:[Ref _sr, "sr", "The SR";
-             String, "value", "The name description for the SR"]
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let sr_create_new_blob = call
-    ~name: "create_new_blob"
-    ~in_product_since:rel_orlando
-    ~doc:"Create a placeholder for a named binary blob of data that is associated with this SR"
-    ~versioned_params:
-      [{param_type=Ref _sr; param_name="sr"; param_doc="The SR"; param_release=orlando_release; param_default=None};
-       {param_type=String; param_name="name"; param_doc="The name associated with the blob"; param_release=orlando_release; param_default=None};
-       {param_type=String; param_name="mime_type"; param_doc="The mime type for the data. Empty string translates to application/octet-stream"; param_release=orlando_release; param_default=None};
-       {param_type=Bool; param_name="public"; param_doc="True if the blob should be publicly available"; param_release=tampa_release; param_default=Some (VBool false)}
-      ]
-    ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let sr_get_data_sources = call
-    ~name:"get_data_sources"
-    ~in_oss_since:None
-    ~in_product_since:rel_dundee
-    ~doc:""
-    ~result:(Set (Record _data_source), "A set of data sources")
-    ~params:[Ref _sr, "sr", "The SR to interrogate"]
-    ~errs:[]
-    ~flags:[`Session]
-    ~allowed_roles:_R_READ_ONLY
-    ()
-
-let sr_record_data_source = call
-    ~name:"record_data_source"
-    ~in_oss_since:None
-    ~in_product_since:rel_dundee
-    ~doc:"Start recording the specified data source"
-    ~params:[Ref _sr, "sr", "The SR";
-             String, "data_source", "The data source to record"]
-    ~errs:[]
-    ~flags:[`Session]
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let sr_query_data_source = call
-    ~name:"query_data_source"
-    ~in_oss_since:None
-    ~in_product_since:rel_dundee
-    ~doc:"Query the latest value of the specified data source"
-    ~params:[Ref _sr, "sr", "The SR";
-             String, "data_source", "The data source to query"]
-    ~result:(Float,"The latest value, averaged over the last 5 seconds")
-    ~errs:[]
-    ~flags:[`Session]
-    ~allowed_roles:_R_READ_ONLY
-    ()
-
-let sr_forget_data_source_archives = call
-    ~name:"forget_data_source_archives"
-    ~in_oss_since:None
-    ~in_product_since:rel_dundee
-    ~doc:"Forget the recorded statistics related to the specified data source"
-    ~params:[Ref _sr, "sr", "The SR";
-             String, "data_source", "The data source whose archives are to be forgotten"]
-    ~flags:[`Session]
-    ~allowed_roles:_R_POOL_OP
-    ()
 
 
 (** Sessions *)
@@ -6228,150 +6027,356 @@ module Data_source = struct
       ()
 end
 
-let storage_operations =
-  Enum ("storage_operations",
-        [ "scan", "Scanning backends for new or deleted VDIs";
-          "destroy", "Destroying the SR";
-          "forget", "Forgetting about SR";
-          "plug", "Plugging a PBD into this SR";
-          "unplug", "Unplugging a PBD from this SR";
-          "update", "Refresh the fields on the SR";
-          "vdi_create", "Creating a new VDI";
-          "vdi_introduce", "Introducing a new VDI";
-          "vdi_destroy", "Destroying a VDI";
-          "vdi_resize", "Resizing a VDI";
-          "vdi_clone", "Cloneing a VDI";
-          "vdi_snapshot", "Snapshotting a VDI";
-          "vdi_mirror", "Mirroring a VDI";
-          "vdi_enable_cbt", "Enabling changed block tracking for a VDI";
-          "vdi_disable_cbt", "Disabling changed block tracking for a VDI";
-          "vdi_data_destroy", "Deleting the data of the VDI";
-          "vdi_list_changed_blocks", "Exporting a bitmap that shows the changed blocks between two VDIs";
-          "vdi_set_on_boot", "Setting the on_boot field of the VDI";
-          "pbd_create", "Creating a PBD for this SR";
-          "pbd_destroy", "Destroying one of this SR's PBDs"; ])
 
-let sr_set_virtual_allocation = call
-    ~name:"set_virtual_allocation"
-    ~in_oss_since:None
-    ~in_product_since:rel_miami
-    ~params:[Ref _sr, "self", "The SR to modify";
-             Int, "value", "The new value of the SR's virtual_allocation"]
-    ~flags:[`Session]
-    ~doc:"Sets the SR's virtual_allocation field"
-    ~allowed_roles:_R_POOL_OP
-    ()
+module SR = struct
+  let operations =
+    Enum ("storage_operations",
+          [ "scan", "Scanning backends for new or deleted VDIs";
+            "destroy", "Destroying the SR";
+            "forget", "Forgetting about SR";
+            "plug", "Plugging a PBD into this SR";
+            "unplug", "Unplugging a PBD from this SR";
+            "update", "Refresh the fields on the SR";
+            "vdi_create", "Creating a new VDI";
+            "vdi_introduce", "Introducing a new VDI";
+            "vdi_destroy", "Destroying a VDI";
+            "vdi_resize", "Resizing a VDI";
+            "vdi_clone", "Cloneing a VDI";
+            "vdi_snapshot", "Snapshotting a VDI";
+            "vdi_mirror", "Mirroring a VDI";
+            "vdi_enable_cbt", "Enabling changed block tracking for a VDI";
+            "vdi_disable_cbt", "Disabling changed block tracking for a VDI";
+            "vdi_data_destroy", "Deleting the data of the VDI";
+            "vdi_list_changed_blocks", "Exporting a bitmap that shows the changed blocks between two VDIs";
+            "vdi_set_on_boot", "Setting the on_boot field of the VDI";
+            "pbd_create", "Creating a PBD for this SR";
+            "pbd_destroy", "Destroying one of this SR's PBDs"; ])
 
-let sr_set_physical_size = call
-    ~name:"set_physical_size"
-    ~in_oss_since:None
-    ~in_product_since:rel_miami
-    ~params:[Ref _sr, "self", "The SR to modify";
-             Int, "value", "The new value of the SR's physical_size"]
-    ~flags:[`Session]
-    ~doc:"Sets the SR's physical_size field"
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let dev_config_param =
+    {param_type=Map(String,String); param_name="device_config"; param_doc="The device config string that will be passed to backend SR driver"; param_release=rio_release; param_default=None}
 
-let sr_set_physical_utilisation = call
-    ~name:"set_physical_utilisation"
-    ~in_oss_since:None
-    ~in_product_since:rel_miami
-    ~flags:[`Session]
-    ~params:[Ref _sr, "self", "The SR to modify";
-             Int, "value", "The new value of the SR's physical utilisation"]
-    ~doc:"Sets the SR's physical_utilisation field"
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let host_param =
+    {param_type=Ref _host; param_name="host"; param_doc="The host to create/make the SR on"; param_release=rio_release; param_default=None}
 
-let sr_update = call
-    ~name:"update"
-    ~in_oss_since:None
-    ~in_product_since:rel_symc
-    ~params:[Ref _sr, "sr", "The SR whose fields should be refreshed" ]
-    ~doc:"Refresh the fields on the SR object"
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let physical_size_param =
+    {param_type=Int; param_name="physical_size"; param_doc="The physical size of the new storage repository"; param_release=rio_release; param_default=None}
 
-let sr_assert_can_host_ha_statefile = call
-    ~name:"assert_can_host_ha_statefile"
-    ~in_oss_since:None
-    ~in_product_since:rel_orlando
-    ~params:[Ref _sr, "sr", "The SR to query" ]
-    ~doc:"Returns successfully if the given SR can host an HA statefile. Otherwise returns an error to explain why not"
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let shared_param =
+    {param_type=Bool; param_name="shared"; param_doc="True if the SR (is capable of) being shared by multiple hosts"; param_release=rio_release; param_default=None}
 
-let sr_assert_supports_database_replication = call
-    ~name:"assert_supports_database_replication"
-    ~in_oss_since:None
-    ~in_product_since:rel_boston
-    ~params:[Ref _sr, "sr", "The SR to query"]
-    ~doc:"Returns successfully if the given SR supports database replication. Otherwise returns an error to explain why not."
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let create_common =
+    [
+      {param_type=String; param_name="name_label"; param_doc="The name of the new storage repository"; param_release=rio_release; param_default=None};
+      {param_type=String; param_name="name_description"; param_doc="The description of the new storage repository"; param_release=rio_release; param_default=None};
+      {param_type=String; param_name="type"; param_doc="The type of the SR; used to specify the SR backend driver to use"; param_release=rio_release; param_default=None};
+      {param_type=String; param_name="content_type"; param_doc="The type of the new SRs content, if required (e.g. ISOs)"; param_release=rio_release; param_default=None};
+    ]
 
-let sr_enable_database_replication = call
-    ~name:"enable_database_replication"
-    ~in_oss_since:None
-    ~in_product_since:rel_boston
-    ~params:[Ref _sr, "sr", "The SR to which metadata should be replicated"]
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let sm_config =
+    {param_type=Map(String,String); param_name="sm_config"; param_doc="Storage backend specific configuration options"; param_release=miami_release; param_default=Some (VMap [])}
 
-let sr_disable_database_replication = call
-    ~name:"disable_database_replication"
-    ~in_oss_since:None
-    ~in_product_since:rel_boston
-    ~params:[Ref _sr, "sr", "The SR to which metadata should be no longer replicated"]
-    ~allowed_roles:_R_POOL_OP
-    ()
 
-(** A storage repository. Note we overide default create/destroy methods with our own here... *)
-let storage_repository =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_sr ~descr:"A storage repository"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[ sr_create; sr_introduce; sr_make; sr_destroy; sr_forget;
-                sr_update;
-                sr_get_supported_types; sr_scan; sr_probe; sr_set_shared;
-                sr_set_name_label; sr_set_name_description;
-                sr_create_new_blob;
-                sr_set_physical_size; sr_set_virtual_allocation; sr_set_physical_utilisation;
-                sr_assert_can_host_ha_statefile;
-                sr_assert_supports_database_replication;
-                sr_enable_database_replication;
-                sr_disable_database_replication;
-                sr_get_data_sources;
-                sr_record_data_source;
-                sr_query_data_source;
-                sr_forget_data_source_archives;
+  let create = call
+      ~name:"create"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~versioned_params:(host_param::dev_config_param::physical_size_param::(create_common @  [ shared_param; sm_config ] ))
+      ~doc:"Create a new Storage Repository and introduce it into the managed system, creating both SR record and PBD record to attach it to current host (with specified device_config parameters)"
+      ~result:(Ref _sr, "The reference of the newly created Storage Repository.")
+      ~errs:[Api_errors.sr_unknown_driver]
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-              ]
-    ~contents:
-      ([ uid _sr;
-         namespace ~name:"name" ~contents:(names oss_since_303 StaticRO) ();
-       ] @ (allowed_and_current_operations storage_operations) @ [
-         field ~ty:(Set(Ref _vdi)) ~qualifier:DynamicRO "VDIs" "all virtual disks known to this storage repository";
-         field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd)) "PBDs" "describes how particular hosts can see this storage repository";
-         field ~ty:Int ~qualifier:DynamicRO "virtual_allocation" "sum of virtual_sizes of all VDIs in this storage repository (in bytes)";
-         field ~ty:Int ~qualifier:DynamicRO "physical_utilisation" "physical space currently utilised on this storage repository (in bytes). Note that for sparse disk formats, physical_utilisation may be less than virtual_allocation";
-         field ~ty:Int ~qualifier:StaticRO "physical_size" "total physical size of the repository (in bytes)";
-         field ~qualifier:StaticRO "type" "type of the storage repository";
-         field ~qualifier:StaticRO "content_type" "the type of the SR's content, if required (e.g. ISOs)";
-         field ~qualifier:DynamicRO "shared" ~ty:Bool "true if this SR is (capable of being) shared between multiple hosts";
-         field ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP))];
-         field  ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
-         field ~ty:Bool ~qualifier:DynamicRO ~in_oss_since:None ~internal_only:true "default_vdi_visibility" "";
-         field ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "sm_config" "SM dependent data" ~default_value:(Some (VMap []));
-         field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this SR";
-         field ~qualifier:DynamicRO ~in_product_since:rel_cowley ~ty:Bool ~default_value:(Some (VBool false)) "local_cache_enabled" "True if this SR is assigned to be the local cache for its host";
-         field ~qualifier:DynamicRO ~in_product_since:rel_boston ~ty:(Ref _dr_task) ~default_value:(Some (VRef null_ref)) "introduced_by" "The disaster recovery task which introduced this SR";
-         field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, ""] ~ty:Bool ~default_value:(Some (VBool false)) "clustered" "True if the SR is using aggregated local storage";
-         field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, ""] ~ty:Bool ~default_value:(Some (VBool false)) "is_tools_sr" "True if this is the SR that contains the Tools ISO VDIs";
-       ])
-    ()
+  let destroy_self_param =
+    (Ref _sr, "sr", "The SR to destroy")
+
+  let destroy = call
+      ~name:"destroy"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~doc:"Destroy specified SR, removing SR-record from database and remove SR from disk. (In order to affect this operation the appropriate device_config is read from the specified SR's PBD on current host)"
+      ~errs:[Api_errors.sr_has_pbd]
+      ~params:[destroy_self_param]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let forget = call
+      ~name:"forget"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~doc:"Removing specified SR-record from database, without attempting to remove SR from disk"
+      ~params:[destroy_self_param]
+      ~errs:[Api_errors.sr_has_pbd]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let introduce =
+    call
+      ~name:"introduce"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~versioned_params:({param_type=String; param_name="uuid"; param_doc="The uuid assigned to the introduced SR"; param_release=rio_release; param_default=None}::(create_common @ [shared_param; sm_config]))
+      ~doc:"Introduce a new Storage Repository into the managed system"
+      ~result:(Ref _sr, "The reference of the newly introduced Storage Repository.")
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let probe = call
+      ~name:"probe"
+      ~in_oss_since:None
+      ~in_product_since:rel_miami
+      ~versioned_params:[host_param; dev_config_param; {param_type=String; param_name="type"; param_doc="The type of the SR; used to specify the SR backend driver to use"; param_release=miami_release; param_default=None}; sm_config]
+      ~doc:"Perform a backend-specific scan, using the given device_config.  If the device_config is complete, then this will return a list of the SRs present of this type on the device, if any.  If the device_config is partial, then a backend-specific scan will be performed, returning results that will guide the user in improving the device_config."
+      ~result:(String, "An XML fragment containing the scan results.  These are specific to the scan being performed, and the backend.")
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let make = call
+      ~name:"make"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~internal_deprecated_since:rel_miami
+      ~lifecycle:[
+        Published, rel_rio, "Create a new Storage Repository on disk";
+        Deprecated, rel_miami, "Use SR.create instead"
+      ]
+      ~versioned_params:(host_param::dev_config_param::physical_size_param::(create_common @ [sm_config]))
+      ~doc:"Create a new Storage Repository on disk. This call is deprecated: use SR.create instead."
+      ~result:(String, "The uuid of the newly created Storage Repository.")
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let get_supported_types = call
+      ~name:"get_supported_types"
+      ~in_product_since:rel_rio
+      ~flags:[`Session]
+      ~doc:"Return a set of all the SR types supported by the system"
+      ~params:[]
+      ~result:(Set String, "the supported SR types")
+      ~allowed_roles:_R_READ_ONLY
+      ()
+
+  let scan = call
+      ~name:"scan"
+      ~in_product_since:rel_rio
+      ~doc:"Refreshes the list of VDIs associated with an SR"
+      ~params:[Ref _sr, "sr", "The SR to scan" ]
+      ~allowed_roles:_R_VM_POWER_ADMIN
+      ()
+
+  (* Nb, although this is a new explicit call, it's actually been in the API since rio - just autogenerated. So no setting of rel_miami. *)
+  let set_shared = call
+      ~name:"set_shared"
+      ~in_product_since:rel_rio
+      ~doc:"Sets the shared flag on the SR"
+      ~params:[Ref _sr, "sr", "The SR";
+               Bool, "value", "True if the SR is shared"]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let set_name_label = call
+      ~name:"set_name_label"
+      ~in_product_since:rel_rio
+      ~doc:"Set the name label of the SR"
+      ~params:[Ref _sr, "sr", "The SR";
+               String, "value", "The name label for the SR"]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let set_name_description = call
+      ~name:"set_name_description"
+      ~in_product_since:rel_rio
+      ~doc:"Set the name description of the SR"
+      ~params:[Ref _sr, "sr", "The SR";
+               String, "value", "The name description for the SR"]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let create_new_blob = call
+      ~name: "create_new_blob"
+      ~in_product_since:rel_orlando
+      ~doc:"Create a placeholder for a named binary blob of data that is associated with this SR"
+      ~versioned_params:
+        [{param_type=Ref _sr; param_name="sr"; param_doc="The SR"; param_release=orlando_release; param_default=None};
+         {param_type=String; param_name="name"; param_doc="The name associated with the blob"; param_release=orlando_release; param_default=None};
+         {param_type=String; param_name="mime_type"; param_doc="The mime type for the data. Empty string translates to application/octet-stream"; param_release=orlando_release; param_default=None};
+         {param_type=Bool; param_name="public"; param_doc="True if the blob should be publicly available"; param_release=tampa_release; param_default=Some (VBool false)}
+        ]
+      ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let get_data_sources = call
+      ~name:"get_data_sources"
+      ~in_oss_since:None
+      ~in_product_since:rel_dundee
+      ~doc:""
+      ~result:(Set (Record _data_source), "A set of data sources")
+      ~params:[Ref _sr, "sr", "The SR to interrogate"]
+      ~errs:[]
+      ~flags:[`Session]
+      ~allowed_roles:_R_READ_ONLY
+      ()
+
+  let record_data_source = call
+      ~name:"record_data_source"
+      ~in_oss_since:None
+      ~in_product_since:rel_dundee
+      ~doc:"Start recording the specified data source"
+      ~params:[Ref _sr, "sr", "The SR";
+               String, "data_source", "The data source to record"]
+      ~errs:[]
+      ~flags:[`Session]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let query_data_source = call
+      ~name:"query_data_source"
+      ~in_oss_since:None
+      ~in_product_since:rel_dundee
+      ~doc:"Query the latest value of the specified data source"
+      ~params:[Ref _sr, "sr", "The SR";
+               String, "data_source", "The data source to query"]
+      ~result:(Float,"The latest value, averaged over the last 5 seconds")
+      ~errs:[]
+      ~flags:[`Session]
+      ~allowed_roles:_R_READ_ONLY
+      ()
+
+  let forget_data_source_archives = call
+      ~name:"forget_data_source_archives"
+      ~in_oss_since:None
+      ~in_product_since:rel_dundee
+      ~doc:"Forget the recorded statistics related to the specified data source"
+      ~params:[Ref _sr, "sr", "The SR";
+               String, "data_source", "The data source whose archives are to be forgotten"]
+      ~flags:[`Session]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let set_virtual_allocation = call
+      ~name:"set_virtual_allocation"
+      ~in_oss_since:None
+      ~in_product_since:rel_miami
+      ~params:[Ref _sr, "self", "The SR to modify";
+               Int, "value", "The new value of the SR's virtual_allocation"]
+      ~flags:[`Session]
+      ~doc:"Sets the SR's virtual_allocation field"
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let set_physical_size = call
+      ~name:"set_physical_size"
+      ~in_oss_since:None
+      ~in_product_since:rel_miami
+      ~params:[Ref _sr, "self", "The SR to modify";
+               Int, "value", "The new value of the SR's physical_size"]
+      ~flags:[`Session]
+      ~doc:"Sets the SR's physical_size field"
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let set_physical_utilisation = call
+      ~name:"set_physical_utilisation"
+      ~in_oss_since:None
+      ~in_product_since:rel_miami
+      ~flags:[`Session]
+      ~params:[Ref _sr, "self", "The SR to modify";
+               Int, "value", "The new value of the SR's physical utilisation"]
+      ~doc:"Sets the SR's physical_utilisation field"
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let update = call
+      ~name:"update"
+      ~in_oss_since:None
+      ~in_product_since:rel_symc
+      ~params:[Ref _sr, "sr", "The SR whose fields should be refreshed" ]
+      ~doc:"Refresh the fields on the SR object"
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let assert_can_host_ha_statefile = call
+      ~name:"assert_can_host_ha_statefile"
+      ~in_oss_since:None
+      ~in_product_since:rel_orlando
+      ~params:[Ref _sr, "sr", "The SR to query" ]
+      ~doc:"Returns successfully if the given SR can host an HA statefile. Otherwise returns an error to explain why not"
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let assert_supports_database_replication = call
+      ~name:"assert_supports_database_replication"
+      ~in_oss_since:None
+      ~in_product_since:rel_boston
+      ~params:[Ref _sr, "sr", "The SR to query"]
+      ~doc:"Returns successfully if the given SR supports database replication. Otherwise returns an error to explain why not."
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let enable_database_replication = call
+      ~name:"enable_database_replication"
+      ~in_oss_since:None
+      ~in_product_since:rel_boston
+      ~params:[Ref _sr, "sr", "The SR to which metadata should be replicated"]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let disable_database_replication = call
+      ~name:"disable_database_replication"
+      ~in_oss_since:None
+      ~in_product_since:rel_boston
+      ~params:[Ref _sr, "sr", "The SR to which metadata should be no longer replicated"]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  (** A storage repository. Note we overide default create/destroy methods with our own here... *)
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_sr ~descr:"A storage repository"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages:[ create; introduce; make; destroy; forget;
+                  update;
+                  get_supported_types; scan; probe; set_shared;
+                  set_name_label; set_name_description;
+                  create_new_blob;
+                  set_physical_size; set_virtual_allocation; set_physical_utilisation;
+                  assert_can_host_ha_statefile;
+                  assert_supports_database_replication;
+                  enable_database_replication;
+                  disable_database_replication;
+                  get_data_sources;
+                  record_data_source;
+                  query_data_source;
+                  forget_data_source_archives;
+
+                ]
+      ~contents:
+        ([ uid _sr;
+           namespace ~name:"name" ~contents:(names oss_since_303 StaticRO) ();
+         ] @ (allowed_and_current_operations operations) @ [
+           field ~ty:(Set(Ref _vdi)) ~qualifier:DynamicRO "VDIs" "all virtual disks known to this storage repository";
+           field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd)) "PBDs" "describes how particular hosts can see this storage repository";
+           field ~ty:Int ~qualifier:DynamicRO "virtual_allocation" "sum of virtual_sizes of all VDIs in this storage repository (in bytes)";
+           field ~ty:Int ~qualifier:DynamicRO "physical_utilisation" "physical space currently utilised on this storage repository (in bytes). Note that for sparse disk formats, physical_utilisation may be less than virtual_allocation";
+           field ~ty:Int ~qualifier:StaticRO "physical_size" "total physical size of the repository (in bytes)";
+           field ~qualifier:StaticRO "type" "type of the storage repository";
+           field ~qualifier:StaticRO "content_type" "the type of the SR's content, if required (e.g. ISOs)";
+           field ~qualifier:DynamicRO "shared" ~ty:Bool "true if this SR is (capable of being) shared between multiple hosts";
+           field ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP))];
+           field  ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
+           field ~ty:Bool ~qualifier:DynamicRO ~in_oss_since:None ~internal_only:true "default_vdi_visibility" "";
+           field ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "sm_config" "SM dependent data" ~default_value:(Some (VMap []));
+           field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this SR";
+           field ~qualifier:DynamicRO ~in_product_since:rel_cowley ~ty:Bool ~default_value:(Some (VBool false)) "local_cache_enabled" "True if this SR is assigned to be the local cache for its host";
+           field ~qualifier:DynamicRO ~in_product_since:rel_boston ~ty:(Ref _dr_task) ~default_value:(Some (VRef null_ref)) "introduced_by" "The disaster recovery task which introduced this SR";
+           field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, ""] ~ty:Bool ~default_value:(Some (VBool false)) "clustered" "True if the SR is using aggregated local storage";
+           field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, ""] ~ty:Bool ~default_value:(Some (VBool false)) "is_tools_sr" "True if this is the SR that contains the Tools ISO VDIs";
+         ])
+      ()
+
+end
 
 (** XXX: just make this a field and be done with it. Cowardly refusing to change the schema for now. *)
 let sm_get_driver_filename = call
@@ -10333,7 +10338,7 @@ let all_system =
     Bond.t;
     VLAN.t;
     storage_plugin;
-    storage_repository;
+    SR.t;
     lvhd;
     vdi;
     vbd;
