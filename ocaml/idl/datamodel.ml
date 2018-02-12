@@ -4085,21 +4085,23 @@ let iobandwidth =
   ]
 
 (** Human users *)
-let user = (* DEPRECATED in favor of subject *)
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_user ~descr:"A user of the system" ~gen_events:false
-    ~lifecycle:[
-      Published, rel_rio, "A user of the system";
-      Deprecated, rel_george, "Deprecated in favor of subject";
-    ]
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_ADMIN
-    ~messages:[] ~contents:
-    [ uid _user;
-      field ~qualifier:StaticRO "short_name" "short name (e.g. userid)";
-      field "fullname" "full name";
-      field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-    ]
-    ()
+module User = struct
+  let t = (* DEPRECATED in favor of subject *)
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_user ~descr:"A user of the system" ~gen_events:false
+      ~lifecycle:[
+        Published, rel_rio, "A user of the system";
+        Deprecated, rel_george, "Deprecated in favor of subject";
+      ]
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_ADMIN
+      ~messages:[] ~contents:
+      [ uid _user;
+        field ~qualifier:StaticRO "short_name" "short name (e.g. userid)";
+        field "fullname" "full name";
+        field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
+      ]
+      ()
+end
 
 (** Guest Memory *)
 let guest_memory =
@@ -10245,7 +10247,7 @@ let all_system =
     vtpm;
     console;
     (* filesystem; *)
-    user;
+    User.t;
     data_source;
     blob;
     message;
