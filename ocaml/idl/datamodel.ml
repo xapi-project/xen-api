@@ -5266,30 +5266,32 @@ end
 
 (** HostCPU *)
 
-let hostcpu =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_hostcpu ~descr:"A physical CPU" ~gen_events:true
-    ~lifecycle:[
-      Published, rel_rio, "A physical CPU";
-      Deprecated, rel_midnight_ride, "Deprecated in favour of the Host.cpu_info field";
-    ]
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[] ~contents:
-    [ uid _hostcpu;
-      field ~qualifier:DynamicRO ~ty:(Ref _host) "host" "the host the CPU is in";
-      field ~qualifier:DynamicRO ~ty:Int "number" "the number of the physical CPU within the host";
-      field ~qualifier:DynamicRO ~ty:String "vendor" "the vendor of the physical CPU";
-      field ~qualifier:DynamicRO ~ty:Int "speed" "the speed of the physical CPU";
-      field ~qualifier:DynamicRO ~ty:String "modelname" "the model name of the physical CPU";
-      field ~qualifier:DynamicRO ~ty:Int "family" "the family (number) of the physical CPU";
-      field ~qualifier:DynamicRO ~ty:Int "model" "the model number of the physical CPU";
-      field ~qualifier:DynamicRO ~ty:String "stepping" "the stepping of the physical CPU";
-      field ~qualifier:DynamicRO ~ty:String "flags" "the flags of the physical CPU (a decoded version of the features field)";
-      field ~qualifier:DynamicRO ~ty:String "features" "the physical CPU feature bitmap";
-      field ~qualifier:DynamicRO ~persist:false ~ty:Float "utilisation" "the current CPU utilisation";
-      field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-    ]
-    ()
+module Host_cpu = struct
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_hostcpu ~descr:"A physical CPU" ~gen_events:true
+      ~lifecycle:[
+        Published, rel_rio, "A physical CPU";
+        Deprecated, rel_midnight_ride, "Deprecated in favour of the Host.cpu_info field";
+      ]
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages:[] ~contents:
+      [ uid _hostcpu;
+        field ~qualifier:DynamicRO ~ty:(Ref _host) "host" "the host the CPU is in";
+        field ~qualifier:DynamicRO ~ty:Int "number" "the number of the physical CPU within the host";
+        field ~qualifier:DynamicRO ~ty:String "vendor" "the vendor of the physical CPU";
+        field ~qualifier:DynamicRO ~ty:Int "speed" "the speed of the physical CPU";
+        field ~qualifier:DynamicRO ~ty:String "modelname" "the model name of the physical CPU";
+        field ~qualifier:DynamicRO ~ty:Int "family" "the family (number) of the physical CPU";
+        field ~qualifier:DynamicRO ~ty:Int "model" "the model number of the physical CPU";
+        field ~qualifier:DynamicRO ~ty:String "stepping" "the stepping of the physical CPU";
+        field ~qualifier:DynamicRO ~ty:String "flags" "the flags of the physical CPU (a decoded version of the features field)";
+        field ~qualifier:DynamicRO ~ty:String "features" "the physical CPU feature bitmap";
+        field ~qualifier:DynamicRO ~persist:false ~ty:Float "utilisation" "the current CPU utilisation";
+        field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
+      ]
+      ()
+end
 
 (** Disk and network interfaces are associated with QoS parameters: *)
 let qos devtype =
@@ -10272,7 +10274,7 @@ let all_system =
     Host_crashdump.t;
     Host_patch.t;
     Host_metrics.t;
-    hostcpu;
+    Host_cpu.t;
     (* network_manager; *)
     network;
     vif;
