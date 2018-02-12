@@ -6184,29 +6184,31 @@ module VIF = struct
       ()
 end
 
-let vif_metrics =
-  create_obj
-    ~lifecycle:
-      [ Published, rel_rio, "The metrics associated with a virtual network device"
-      ; Removed, rel_tampa, "Disabled in favour of RRDs"
+module VIF_metrics = struct
+  let t =
+    create_obj
+      ~lifecycle:
+        [ Published, rel_rio, "The metrics associated with a virtual network device"
+        ; Removed, rel_tampa, "Disabled in favour of RRDs"
+        ]
+      ~in_db:true
+      ~in_oss_since:oss_since_303
+      ~persist:PersistNothing
+      ~gen_constructor_destructor:false
+      ~name:_vif_metrics
+      ~descr:"The metrics associated with a virtual network device"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_VM_ADMIN
+      ~doc_tags:[Networking]
+      ~messages:[] ~contents:
+      [ uid _vif_metrics;
+        namespace ~name:"io" ~contents:iobandwidth ();
+        field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
+        field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
       ]
-    ~in_db:true
-    ~in_oss_since:oss_since_303
-    ~persist:PersistNothing
-    ~gen_constructor_destructor:false
-    ~name:_vif_metrics
-    ~descr:"The metrics associated with a virtual network device"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_VM_ADMIN
-    ~doc_tags:[Networking]
-    ~messages:[] ~contents:
-    [ uid _vif_metrics;
-      namespace ~name:"io" ~contents:iobandwidth ();
-      field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
-      field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-    ]
-    ()
+      ()
+end
 
 let data_source =
   create_obj ~in_db:false ~in_product_since:rel_orlando ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_data_source ~descr:"Data sources for logging in RRDs"
@@ -10323,7 +10325,7 @@ let all_system =
     (* network_manager; *)
     Network.t;
     VIF.t;
-    vif_metrics;
+    VIF_metrics.t;
     PIF.t;
     PIF_metrics.t;
     Bond.t;
