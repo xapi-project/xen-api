@@ -6210,21 +6210,23 @@ module VIF_metrics = struct
       ()
 end
 
-let data_source =
-  create_obj ~in_db:false ~in_product_since:rel_orlando ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_data_source ~descr:"Data sources for logging in RRDs"
-    ~gen_events:false
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_ADMIN
-    ~messages:[] ~contents:
-    [ namespace ~name:"name" ~contents:(names oss_since_303 DynamicRO) ();
-      field ~qualifier:DynamicRO ~ty:Bool "enabled" "true if the data source is being logged";
-      field ~qualifier:DynamicRO ~ty:Bool "standard" "true if the data source is enabled by default. Non-default data sources cannot be disabled";
-      field ~qualifier:DynamicRO ~ty:String "units" "the units of the value";
-      field ~qualifier:DynamicRO ~ty:Float "min" "the minimum value of the data source";
-      field ~qualifier:DynamicRO ~ty:Float "max" "the maximum value of the data source";
-      field ~qualifier:DynamicRO ~ty:Float "value" "current value of the data source" ]
+module Data_source = struct
+  let t =
+    create_obj ~in_db:false ~in_product_since:rel_orlando ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_data_source ~descr:"Data sources for logging in RRDs"
+      ~gen_events:false
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_ADMIN
+      ~messages:[] ~contents:
+      [ namespace ~name:"name" ~contents:(names oss_since_303 DynamicRO) ();
+        field ~qualifier:DynamicRO ~ty:Bool "enabled" "true if the data source is being logged";
+        field ~qualifier:DynamicRO ~ty:Bool "standard" "true if the data source is enabled by default. Non-default data sources cannot be disabled";
+        field ~qualifier:DynamicRO ~ty:String "units" "the units of the value";
+        field ~qualifier:DynamicRO ~ty:Float "min" "the minimum value of the data source";
+        field ~qualifier:DynamicRO ~ty:Float "max" "the maximum value of the data source";
+        field ~qualifier:DynamicRO ~ty:Float "value" "current value of the data source" ]
 
-    ()
+      ()
+end
 
 let storage_operations =
   Enum ("storage_operations",
@@ -10343,7 +10345,7 @@ let all_system =
     console;
     (* filesystem; *)
     User.t;
-    data_source;
+    Data_source.t;
     blob;
     message;
     secret;
