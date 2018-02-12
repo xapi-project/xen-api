@@ -7957,80 +7957,82 @@ module Subject = struct
       ()
 end
 
-(** Role class *)
-let role_get_permissions = call ~flags:[`Session]
-    ~name:"get_permissions"
-    ~in_oss_since:None
-    ~in_product_since:rel_midnight_ride
-    ~params:[
-      Ref _role, "self", "a reference to a role";
-    ]
-    ~result:(Set(Ref _role), "a list of permissions")
-    ~doc:"This call returns a list of permissions given a role"
-    ~allowed_roles:_R_READ_ONLY
-    ()
-let role_get_permissions_name_label = call ~flags:[`Session]
-    ~name:"get_permissions_name_label"
-    ~in_oss_since:None
-    ~in_product_since:rel_midnight_ride
-    ~params:[
-      Ref _role, "self", "a reference to a role";
-    ]
-    ~result:(Set(String), "a list of permission names")
-    ~doc:"This call returns a list of permission names given a role"
-    ~allowed_roles:_R_READ_ONLY
-    ()
-let role_get_by_permission = call ~flags:[`Session]
-    ~name:"get_by_permission"
-    ~in_oss_since:None
-    ~in_product_since:rel_midnight_ride
-    ~params:[
-      Ref _role, "permission", "a reference to a permission" ;
-    ]
-    ~result:(Set(Ref _role), "a list of references to roles")
-    ~doc:"This call returns a list of roles given a permission"
-    ~allowed_roles:_R_READ_ONLY
-    ()
-let role_get_by_permission_name_label = call ~flags:[`Session]
-    ~name:"get_by_permission_name_label"
-    ~in_oss_since:None
-    ~in_product_since:rel_midnight_ride
-    ~params:[
-      String, "label", "The short friendly name of the role" ;
-    ]
-    ~result:(Set(Ref _role), "a list of references to roles")
-    ~doc:"This call returns a list of roles given a permission name"
-    ~allowed_roles:_R_READ_ONLY
-    ()
+module Role = struct
+  (** Role class *)
+  let get_permissions = call ~flags:[`Session]
+      ~name:"get_permissions"
+      ~in_oss_since:None
+      ~in_product_since:rel_midnight_ride
+      ~params:[
+        Ref _role, "self", "a reference to a role";
+      ]
+      ~result:(Set(Ref _role), "a list of permissions")
+      ~doc:"This call returns a list of permissions given a role"
+      ~allowed_roles:_R_READ_ONLY
+      ()
+  let get_permissions_name_label = call ~flags:[`Session]
+      ~name:"get_permissions_name_label"
+      ~in_oss_since:None
+      ~in_product_since:rel_midnight_ride
+      ~params:[
+        Ref _role, "self", "a reference to a role";
+      ]
+      ~result:(Set(String), "a list of permission names")
+      ~doc:"This call returns a list of permission names given a role"
+      ~allowed_roles:_R_READ_ONLY
+      ()
+  let get_by_permission = call ~flags:[`Session]
+      ~name:"get_by_permission"
+      ~in_oss_since:None
+      ~in_product_since:rel_midnight_ride
+      ~params:[
+        Ref _role, "permission", "a reference to a permission" ;
+      ]
+      ~result:(Set(Ref _role), "a list of references to roles")
+      ~doc:"This call returns a list of roles given a permission"
+      ~allowed_roles:_R_READ_ONLY
+      ()
+  let get_by_permission_name_label = call ~flags:[`Session]
+      ~name:"get_by_permission_name_label"
+      ~in_oss_since:None
+      ~in_product_since:rel_midnight_ride
+      ~params:[
+        String, "label", "The short friendly name of the role" ;
+      ]
+      ~result:(Set(Ref _role), "a list of references to roles")
+      ~doc:"This call returns a list of roles given a permission name"
+      ~allowed_roles:_R_READ_ONLY
+      ()
 
-(* A role defines a set of API call privileges associated with a subject *)
-(* A role is synonymous to permission or privilege *)
-(* A role is a recursive definition: it is either a basic role or it points to a set of roles *)
-(* - full/complete role: is the one meant to be used by the end-user, a root in the tree of roles *)
-(* - basic role: is the 1x1 mapping to each XAPI/HTTP call being protected, a leaf in the tree of roles *)
-(* - intermediate role: an intermediate node in the recursive tree of roles, usually not meant to the end-user *)
-let role =
-  create_obj ~in_db:true ~in_product_since:rel_midnight_ride ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_role ~descr:"A set of permissions associated with a subject"
-    ~gen_events:true
-    ~force_custom_actions:(Some(StaticRO)) (* force custom actions for getters *)
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_ADMIN
-    ~messages: [
-      role_get_permissions;
-      role_get_permissions_name_label;
-      role_get_by_permission;
-      role_get_by_permission_name_label;
-    ]
-    ~contents: [uid ~in_oss_since:None _role;
-                namespace ~name:"name" ~contents:(
-                  [
-                    field ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~qualifier:StaticRO ~ty:String "label" "a short user-friendly name for the role";
-                    field ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~qualifier:StaticRO ~ty:String "description" "what this role is for";
-                  ]) ();
-                field ~in_product_since:rel_midnight_ride ~default_value:(Some (VSet [])) ~ignore_foreign_key:true ~qualifier:StaticRO ~ty:(Set(Ref _role)) "subroles" "a list of pointers to other roles or permissions";
-                (*RBAC2: field ~in_product_since:rel_midnight_ride ~default_value:(Some (VBool false)) ~qualifier:StaticRO ~ty:Bool "is_complete" "if this is a complete role, meant to be used by the end-user";*)
-               ]
-    ()
+  (* A role defines a set of API call privileges associated with a subject *)
+  (* A role is synonymous to permission or privilege *)
+  (* A role is a recursive definition: it is either a basic role or it points to a set of roles *)
+  (* - full/complete role: is the one meant to be used by the end-user, a root in the tree of roles *)
+  (* - basic role: is the 1x1 mapping to each XAPI/HTTP call being protected, a leaf in the tree of roles *)
+  (* - intermediate role: an intermediate node in the recursive tree of roles, usually not meant to the end-user *)
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_midnight_ride ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_role ~descr:"A set of permissions associated with a subject"
+      ~gen_events:true
+      ~force_custom_actions:(Some(StaticRO)) (* force custom actions for getters *)
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_ADMIN
+      ~messages: [
+        get_permissions;
+        get_permissions_name_label;
+        get_by_permission;
+        get_by_permission_name_label;
+      ]
+      ~contents: [uid ~in_oss_since:None _role;
+                  namespace ~name:"name" ~contents:(
+                    [
+                      field ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~qualifier:StaticRO ~ty:String "label" "a short user-friendly name for the role";
+                      field ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~qualifier:StaticRO ~ty:String "description" "what this role is for";
+                    ]) ();
+                  field ~in_product_since:rel_midnight_ride ~default_value:(Some (VSet [])) ~ignore_foreign_key:true ~qualifier:StaticRO ~ty:(Set(Ref _role)) "subroles" "a list of pointers to other roles or permissions";
+                  (*RBAC2: field ~in_product_since:rel_midnight_ride ~default_value:(Some (VBool false)) ~qualifier:StaticRO ~ty:Bool "is_complete" "if this is a complete role, meant to be used by the end-user";*)
+                 ]
+      ()
+end
 
 (** A virtual disk interface *)
 let vtpm =
@@ -10330,7 +10332,7 @@ let all_system =
     Session.t;
     Auth.t;
     Subject.t;
-    (role:Datamodel_types.obj);
+    Role.t;
     Task.t;
     event;
     (* alert; *)
