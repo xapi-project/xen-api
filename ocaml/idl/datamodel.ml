@@ -9086,25 +9086,25 @@ end
 
 (** events handling: *)
 
-let event_operation = Enum ("event_operation",
-                            [ "add", "An object has been created";
-                              "del", "An object has been deleted";
-                              "mod", "An object has been modified"])
-let event =
+module Event = struct
+  let operation = Enum ("event_operation",
+                        [ "add", "An object has been created";
+                          "del", "An object has been deleted";
+                          "mod", "An object has been modified"])
   let register = call
       ~name:"register"
       ~in_product_since:rel_rio
       ~params:[Set String, "classes", "register for events for the indicated classes"]
       ~doc:"Registers this session with the event system.  Specifying * as the desired class will register for all classes."
       ~allowed_roles:_R_ALL
-      () in
+      ()
   let unregister = call
       ~name:"unregister"
       ~in_product_since:rel_rio
       ~params:[Set String, "classes", "remove this session's registration for the indicated classes"]
       ~doc:"Unregisters this session with the event system"
       ~allowed_roles:_R_ALL
-      () in
+      ()
   let next = call
       ~name:"next" ~params:[]
       ~in_product_since:rel_rio
@@ -9114,7 +9114,7 @@ let event =
       ~result:(Set (Record _event), "the batch of events")
       ~errs:[Api_errors.session_not_registered;Api_errors.events_lost]
       ~allowed_roles:_R_ALL
-      () in
+      ()
   let from = call
       ~name:"from"
       ~params:[Set String, "classes", "register for events for the indicated classes";
@@ -9128,7 +9128,7 @@ let event =
       ~result:(Set (Record _event), "the batch of events")
       ~errs:[Api_errors.session_not_registered;Api_errors.events_lost]
       ~allowed_roles:_R_ALL
-      () in
+      ()
   let get_current_id = call
       ~name:"get_current_id" ~params:[]
       ~in_product_since:rel_rio
@@ -9136,7 +9136,7 @@ let event =
       ~flags:[`Session]
       ~result:(Int, "the event ID")
       ~allowed_roles:_R_ALL
-      () in
+      ()
   let inject = call
       ~name:"inject" ~params:[
       String, "class", "class of the object";
@@ -9147,33 +9147,36 @@ let event =
       ~flags:[`Session]
       ~result:(String, "the event ID")
       ~allowed_roles:_R_ALL
-      () in
+      ()
   (* !!! This should call create_obj ~in_db:true like everything else... !!! *)
-  {
-    obj_lifecycle=[];
-    name = _event;
-    gen_events = false;
-    description = "Asynchronous event registration and handling";
-    gen_constructor_destructor = false;
-    doccomments = [];
-    msg_lifecycles = [];
-    messages = [ register; unregister; next; from; get_current_id; inject ];
-    obj_release = {internal=get_product_releases rel_rio; opensource=get_oss_releases (Some "3.0.3"); internal_deprecated_since=None};
-    contents = [
-      field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:Int "id" "An ID, monotonically increasing, and local to the current session";
-      field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:DateTime "timestamp" "The time at which the event occurred";
-      field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String "class" "The name of the class of the object that changed";
-      field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:event_operation "operation" "The operation that was performed";
-      field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String "ref" "A reference to the object that changed";
-      field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String "obj_uuid" "The uuid of the object that changed";
-    ];
-    persist = PersistNothing;
-    in_database=false;
-    force_custom_actions=None;
-    obj_allowed_roles=_R_POOL_ADMIN;
-    obj_implicit_msg_allowed_roles=_R_ALL;
-    obj_doc_tags=[];
-  }
+
+  let t =
+    {
+      obj_lifecycle=[];
+      name = _event;
+      gen_events = false;
+      description = "Asynchronous event registration and handling";
+      gen_constructor_destructor = false;
+      doccomments = [];
+      msg_lifecycles = [];
+      messages = [ register; unregister; next; from; get_current_id; inject ];
+      obj_release = {internal=get_product_releases rel_rio; opensource=get_oss_releases (Some "3.0.3"); internal_deprecated_since=None};
+      contents = [
+        field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:Int "id" "An ID, monotonically increasing, and local to the current session";
+        field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:DateTime "timestamp" "The time at which the event occurred";
+        field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String "class" "The name of the class of the object that changed";
+        field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:operation "operation" "The operation that was performed";
+        field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String "ref" "A reference to the object that changed";
+        field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String "obj_uuid" "The uuid of the object that changed";
+      ];
+      persist = PersistNothing;
+      in_database=false;
+      force_custom_actions=None;
+      obj_allowed_roles=_R_POOL_ADMIN;
+      obj_implicit_msg_allowed_roles=_R_ALL;
+      obj_doc_tags=[];
+    }
+end
 
 (** Blobs - binary blobs of data *)
 
@@ -10362,7 +10365,7 @@ let all_system =
     Subject.t;
     Role.t;
     Task.t;
-    event;
+    Event.t;
     (* alert; *)
 
     Pool.t;
