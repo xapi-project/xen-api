@@ -1541,127 +1541,6 @@ let _ =
 
 (* Session.Login *)
 
-let session_login  = call ~flags:[]
-    ~name:"login_with_password"
-    ~in_product_since:rel_rio
-    ~doc:"Attempt to authenticate the user, returning a session reference if successful"
-    ~result:(Ref _session,"reference of newly created session")
-    ~versioned_params:
-      [{param_type=String; param_name="uname"; param_doc="Username for login."; param_release=rio_release; param_default=None};
-       {param_type=String; param_name="pwd"; param_doc="Password for login."; param_release=rio_release; param_default=None};
-       {param_type=String; param_name="version"; param_doc="Client API version."; param_release=miami_release; param_default=Some (VString "1.1")};
-       {param_type=String; param_name="originator"; param_doc="Key string for distinguishing different API users sharing the same login name."; param_release=clearwater_release; param_default=Some (VString "")}
-      ]
-    ~errs:[Api_errors.session_authentication_failed; Api_errors.host_is_slave]
-    ~secret:true
-    ~allowed_roles:_R_ALL (*any static role can try to create a user session*)
-    ()
-
-let slave_login  = call ~flags:[]
-    ~name:"slave_login"
-    ~doc:"Attempt to authenticate to the pool master by presenting the slave's host ref and pool secret"
-    ~result:(Ref _session,"ID of newly created session")
-    ~params:[
-      Ref _host, "host", "Host id of slave";
-      String, "psecret", "Pool secret"
-    ]
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~secret:true
-    ~hide_from_docs:true
-    ~allowed_roles:_R_POOL_ADMIN (*system can create a slave session !!! *)
-    ()
-
-let slave_local_login = call ~flags:[]
-    ~in_product_since:rel_miami
-    ~name:"slave_local_login"
-    ~doc:"Authenticate locally against a slave in emergency mode. Note the resulting sessions are only good for use on this host."
-    ~result:(Ref _session,"ID of newly created session")
-    ~params:[
-      String, "psecret", "Pool secret"
-    ]
-    ~in_oss_since:None
-    ~secret:true
-    ~hide_from_docs:true
-    ~allowed_roles:_R_POOL_ADMIN (*system can create a slave session*)
-    ()
-
-let slave_local_login_with_password = call ~flags:[]
-    ~in_product_since:rel_miami
-    ~name:"slave_local_login_with_password"
-    ~doc:"Authenticate locally against a slave in emergency mode. Note the resulting sessions are only good for use on this host."
-    ~result:(Ref _session,"ID of newly created session")
-    ~params:[
-      String, "uname", "Username for login.";
-      String, "pwd", "Password for login.";
-    ]
-    ~in_oss_since:None
-    ~secret:true
-    ~allowed_roles:_R_POOL_ADMIN (*only root can do an emergency slave login*)
-    ()
-
-let session_create_from_db_file = call
-    ~lifecycle:[Published, rel_dundee, ""]
-    ~name:"create_from_db_file"
-    ~params:[String, "filename", "Database dump filename."]
-    ~result:(Ref _session, "ID of newly created session")
-    ~in_oss_since:None
-    ~allowed_roles:_R_LOCAL_ROOT_ONLY
-    ()
-
-let local_logout = call ~flags:[`Session]
-    ~in_product_since:rel_miami
-    ~name:"local_logout"
-    ~doc:"Log out of local session."
-    ~params:[]
-    ~in_oss_since:None
-    ~allowed_roles:_R_POOL_ADMIN (*system can destroy a local session*)
-    ()
-
-(* Session.Logout *)
-
-let session_logout = call ~flags:[`Session]
-    ~in_product_since:rel_rio
-    ~name:"logout"
-    ~doc:"Log out of a session"
-    ~params:[]
-    ~allowed_roles:_R_ALL (*any role can destroy a known user session*)
-    ()
-
-let session_chpass = call ~flags:[`Session]
-    ~name:"change_password"
-    ~doc:"Change the account password; if your session is authenticated with root priviledges then the old_pwd is validated and the new_pwd is set regardless"
-    ~params:[
-      String, "old_pwd", "Old password for account";
-      String, "new_pwd", "New password for account"
-    ]
-    ~in_product_since:rel_rio
-    ~in_oss_since:None
-    ~allowed_roles:_R_LOCAL_ROOT_ONLY (*not even pool-admin can change passwords, only root*)
-    ()
-
-(* static function for class session *)
-let session_get_all_subject_identifiers = call
-    ~name:"get_all_subject_identifiers"
-    ~doc:"Return a list of all the user subject-identifiers of all existing sessions"
-    ~result:(Set (String), "The list of user subject-identifiers of all existing sessions")
-    ~params:[]
-    ~in_product_since:rel_george
-    ~in_oss_since:None
-    ~allowed_roles:_R_ALL
-    ()
-
-(* static function for class session *)
-let session_logout_subject_identifier = call
-    ~name:"logout_subject_identifier"
-    ~doc:"Log out all sessions associated to a user subject-identifier, except the session associated with the context calling this function"
-    ~params:[
-      String, "subject_identifier", "User subject-identifier of the sessions to be destroyed"
-    ]
-    ~in_product_since:rel_george
-    ~in_oss_since:None
-    ~allowed_roles:_R_POOL_OP
-    ()
 
 (* ------------------------------------------------------------------------------------------------------------
    Asynchronous Task Management
@@ -3945,37 +3824,163 @@ let pbd_unplug = call
     ()
 
 (** Sessions *)
-let session =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_session ~descr:"A session" ~gen_events:false
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_ADMIN
-    ~messages:[session_login; session_logout; session_chpass;
-               slave_login;
-               slave_local_login; slave_local_login_with_password; session_create_from_db_file; local_logout;
-               session_get_all_subject_identifiers; session_logout_subject_identifier;
-              ] ~contents:[
-    uid _session;
-    field ~qualifier:DynamicRO ~ty:(Ref _host)
-      "this_host" "Currently connected host";
-    field ~qualifier:DynamicRO ~ty:(Ref _user)
-      "this_user" "Currently connected user";
-    field ~qualifier:DynamicRO ~ty:DateTime
-      "last_active" "Timestamp for last time session was active";
-    field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None
-      "pool" "True if this session relates to a intra-pool login, false otherwise";
-    field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-    field ~in_product_since:rel_george ~qualifier:DynamicRO ~default_value:(Some (VBool false)) ~ty:Bool "is_local_superuser" "true iff this session was created using local superuser credentials";
-    field ~in_product_since:rel_george ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref)) ~ty:(Ref _subject) "subject" "references the subject instance that created the session. If a session instance has is_local_superuser set, then the value of this field is undefined.";
-    field ~in_product_since:rel_george ~qualifier:DynamicRO ~default_value:(Some(VDateTime(Date.of_float 0.))) ~ty:DateTime "validation_time" "time when session was last validated";
-    field ~in_product_since:rel_george ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String "auth_user_sid" "the subject identifier of the user that was externally authenticated. If a session instance has is_local_superuser set, then the value of this field is undefined.";
-    field ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String "auth_user_name" "the subject name of the user that was externally authenticated. If a session instance has is_local_superuser set, then the value of this field is undefined.";
-    field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some(VSet [])) ~ty:(Set(String)) "rbac_permissions" "list with all RBAC permissions for this session";
-    field ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Set(Ref _task)) "tasks" "list of tasks created using the current session";
-    field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some (VRef null_ref)) ~ty:(Ref _session) "parent" "references the parent session that created this session";
-    field ~in_product_since:rel_clearwater ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String  "originator" "a key string provided by a API user to distinguish itself from other users sharing the same login name";
-  ]
-    ()
+module Session = struct
+  let login  = call ~flags:[]
+      ~name:"login_with_password"
+      ~in_product_since:rel_rio
+      ~doc:"Attempt to authenticate the user, returning a session reference if successful"
+      ~result:(Ref _session,"reference of newly created session")
+      ~versioned_params:
+        [{param_type=String; param_name="uname"; param_doc="Username for login."; param_release=rio_release; param_default=None};
+         {param_type=String; param_name="pwd"; param_doc="Password for login."; param_release=rio_release; param_default=None};
+         {param_type=String; param_name="version"; param_doc="Client API version."; param_release=miami_release; param_default=Some (VString "1.1")};
+         {param_type=String; param_name="originator"; param_doc="Key string for distinguishing different API users sharing the same login name."; param_release=clearwater_release; param_default=Some (VString "")}
+        ]
+      ~errs:[Api_errors.session_authentication_failed; Api_errors.host_is_slave]
+      ~secret:true
+      ~allowed_roles:_R_ALL (*any static role can try to create a user session*)
+      ()
 
+  let slave_login  = call ~flags:[]
+      ~name:"slave_login"
+      ~doc:"Attempt to authenticate to the pool master by presenting the slave's host ref and pool secret"
+      ~result:(Ref _session,"ID of newly created session")
+      ~params:[
+        Ref _host, "host", "Host id of slave";
+        String, "psecret", "Pool secret"
+      ]
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~secret:true
+      ~hide_from_docs:true
+      ~allowed_roles:_R_POOL_ADMIN (*system can create a slave session !!! *)
+      ()
+
+  let slave_local_login = call ~flags:[]
+      ~in_product_since:rel_miami
+      ~name:"slave_local_login"
+      ~doc:"Authenticate locally against a slave in emergency mode. Note the resulting sessions are only good for use on this host."
+      ~result:(Ref _session,"ID of newly created session")
+      ~params:[
+        String, "psecret", "Pool secret"
+      ]
+      ~in_oss_since:None
+      ~secret:true
+      ~hide_from_docs:true
+      ~allowed_roles:_R_POOL_ADMIN (*system can create a slave session*)
+      ()
+
+  let slave_local_login_with_password = call ~flags:[]
+      ~in_product_since:rel_miami
+      ~name:"slave_local_login_with_password"
+      ~doc:"Authenticate locally against a slave in emergency mode. Note the resulting sessions are only good for use on this host."
+      ~result:(Ref _session,"ID of newly created session")
+      ~params:[
+        String, "uname", "Username for login.";
+        String, "pwd", "Password for login.";
+      ]
+      ~in_oss_since:None
+      ~secret:true
+      ~allowed_roles:_R_POOL_ADMIN (*only root can do an emergency slave login*)
+      ()
+
+  let create_from_db_file = call
+      ~lifecycle:[Published, rel_dundee, ""]
+      ~name:"create_from_db_file"
+      ~params:[String, "filename", "Database dump filename."]
+      ~result:(Ref _session, "ID of newly created session")
+      ~in_oss_since:None
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ()
+
+  let local_logout = call ~flags:[`Session]
+      ~in_product_since:rel_miami
+      ~name:"local_logout"
+      ~doc:"Log out of local session."
+      ~params:[]
+      ~in_oss_since:None
+      ~allowed_roles:_R_POOL_ADMIN (*system can destroy a local session*)
+      ()
+
+  let logout = call ~flags:[`Session]
+      ~in_product_since:rel_rio
+      ~name:"logout"
+      ~doc:"Log out of a session"
+      ~params:[]
+      ~allowed_roles:_R_ALL (*any role can destroy a known user session*)
+      ()
+
+  let change_password = call ~flags:[`Session]
+      ~name:"change_password"
+      ~doc:"Change the account password; if your session is authenticated with root priviledges then the old_pwd is validated and the new_pwd is set regardless"
+      ~params:[
+        String, "old_pwd", "Old password for account";
+        String, "new_pwd", "New password for account"
+      ]
+      ~in_product_since:rel_rio
+      ~in_oss_since:None
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY (*not even pool-admin can change passwords, only root*)
+      ()
+
+  let get_all_subject_identifiers = call
+      ~name:"get_all_subject_identifiers"
+      ~doc:"Return a list of all the user subject-identifiers of all existing sessions"
+      ~result:(Set (String), "The list of user subject-identifiers of all existing sessions")
+      ~params:[]
+      ~in_product_since:rel_george
+      ~in_oss_since:None
+      ~allowed_roles:_R_ALL
+      ()
+
+  let logout_subject_identifier = call
+      ~name:"logout_subject_identifier"
+      ~doc:"Log out all sessions associated to a user subject-identifier, except the session associated with the context calling this function"
+      ~params:[
+        String, "subject_identifier", "User subject-identifier of the sessions to be destroyed"
+      ]
+      ~in_product_since:rel_george
+      ~in_oss_since:None
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_session ~descr:"A session" ~gen_events:false
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_ADMIN
+      ~messages:[
+        login;
+        logout;
+        change_password;
+        slave_login;
+        slave_local_login;
+        slave_local_login_with_password;
+        create_from_db_file;
+        local_logout;
+        get_all_subject_identifiers;
+        logout_subject_identifier;
+      ] ~contents:[
+      uid _session;
+      field ~qualifier:DynamicRO ~ty:(Ref _host)
+        "this_host" "Currently connected host";
+      field ~qualifier:DynamicRO ~ty:(Ref _user)
+        "this_user" "Currently connected user";
+      field ~qualifier:DynamicRO ~ty:DateTime
+        "last_active" "Timestamp for last time session was active";
+      field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None
+        "pool" "True if this session relates to a intra-pool login, false otherwise";
+      field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
+      field ~in_product_since:rel_george ~qualifier:DynamicRO ~default_value:(Some (VBool false)) ~ty:Bool "is_local_superuser" "true iff this session was created using local superuser credentials";
+      field ~in_product_since:rel_george ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref)) ~ty:(Ref _subject) "subject" "references the subject instance that created the session. If a session instance has is_local_superuser set, then the value of this field is undefined.";
+      field ~in_product_since:rel_george ~qualifier:DynamicRO ~default_value:(Some(VDateTime(Date.of_float 0.))) ~ty:DateTime "validation_time" "time when session was last validated";
+      field ~in_product_since:rel_george ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String "auth_user_sid" "the subject identifier of the user that was externally authenticated. If a session instance has is_local_superuser set, then the value of this field is undefined.";
+      field ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String "auth_user_name" "the subject name of the user that was externally authenticated. If a session instance has is_local_superuser set, then the value of this field is undefined.";
+      field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some(VSet [])) ~ty:(Set(String)) "rbac_permissions" "list with all RBAC permissions for this session";
+      field ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Set(Ref _task)) "tasks" "list of tasks created using the current session";
+      field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some (VRef null_ref)) ~ty:(Ref _session) "parent" "references the parent session that created this session";
+      field ~in_product_since:rel_clearwater ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String  "originator" "a key string provided by a API user to distinguish itself from other users sharing the same login name";
+    ]
+      ()
+end
 
 (** Tasks *)
 
@@ -7552,18 +7557,18 @@ let pool_disable_ssl_legacy = call
     ~allowed_roles:_R_POOL_OP
     ()
 
-let pool_set_igmp_snooping_enabled = call  
-    ~in_oss_since:None  
-    ~lifecycle:[  
-      Published, rel_inverness, "Enable or disable IGMP Snooping on the pool.";  
-    ]  
-    ~name:"set_igmp_snooping_enabled"  
-    ~params:[  
-      Ref _pool, "self", "The pool";  
-      Bool, "value", "Enable or disable IGMP Snooping on the pool"  
-    ]  
-    ~doc:"Enable or disable IGMP Snooping on the pool."  
-    ~allowed_roles:_R_POOL_OP  
+let pool_set_igmp_snooping_enabled = call
+    ~in_oss_since:None
+    ~lifecycle:[
+      Published, rel_inverness, "Enable or disable IGMP Snooping on the pool.";
+    ]
+    ~name:"set_igmp_snooping_enabled"
+    ~params:[
+      Ref _pool, "self", "The pool";
+      Bool, "value", "Enable or disable IGMP Snooping on the pool"
+    ]
+    ~doc:"Enable or disable IGMP Snooping on the pool."
+    ~allowed_roles:_R_POOL_OP
     ()
 
 let pool_has_extension = call
@@ -10192,7 +10197,7 @@ let vusb = VUSB.obj
 (** All the objects in the system in order they will appear in documentation: *)
 let all_system =
   [
-    session;
+    Session.t;
     auth;
     subject;
     (role:Datamodel_types.obj);
@@ -10359,9 +10364,9 @@ let emergency_calls =
   [ (pool,pool_slave_reset_master);
     (pool,pool_transition_to_master);
     (pool,pool_ping_slave);
-    (session,slave_local_login);
-    (session,slave_local_login_with_password);
-    (session,local_logout);
+    (Session.t,Session.slave_local_login);
+    (Session.t,Session.slave_local_login_with_password);
+    (Session.t,Session.local_logout);
     (host,host_propose_new_master);
     (host,host_commit_new_master);
     (host,host_abort_new_master);
@@ -10377,8 +10382,8 @@ let emergency_calls =
   ]
 
 (** Whitelist of calls that will not get forwarded from the slave to master via the unix domain socket *)
-let whitelist = [ (session,session_login);
-                  (session,slave_login);
+let whitelist = [ (Session.t,Session.login);
+                  (Session.t,Session.slave_login);
                 ] @ emergency_calls
 
 (* perform consistency checks on api at initialisation time *)
