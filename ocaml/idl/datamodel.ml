@@ -8034,18 +8034,20 @@ module Role = struct
       ()
 end
 
-(** A virtual disk interface *)
-let vtpm =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vtpm ~descr:"A virtual TPM device"
-    ~gen_events:false
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_VM_ADMIN
-    ~messages:[]
-    ~contents:
-      [ uid _vtpm;
-        field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "the virtual machine";
-        field ~qualifier:StaticRO ~ty:(Ref _vm) "backend" "the domain where the backend is located" ]
-    ()
+
+module VTPM = struct
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vtpm ~descr:"A virtual TPM device"
+      ~gen_events:false
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_VM_ADMIN
+      ~messages:[]
+      ~contents:
+        [ uid _vtpm;
+          field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "the virtual machine";
+          field ~qualifier:StaticRO ~ty:(Ref _vm) "backend" "the domain where the backend is located" ]
+      ()
+end
 
 (** Console protocols *)
 let console_protocol = Enum("console_protocol", [
@@ -10370,7 +10372,7 @@ let all_system =
     PBD.t;
     Crashdump.t;
     (* misc *)
-    vtpm;
+    VTPM.t;
     console;
     (* filesystem; *)
     User.t;
