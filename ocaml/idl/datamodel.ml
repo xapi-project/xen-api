@@ -7050,28 +7050,30 @@ module VBD = struct
       ()
 end
 
-let vbd_metrics =
-  create_obj
-    ~lifecycle:
-      [ Published, rel_rio, "The metrics associated with a virtual block device"
-      ; Removed, rel_tampa, "Disabled in favour of RRD"
+module VBD_metrics = struct
+  let t =
+    create_obj
+      ~lifecycle:
+        [ Published, rel_rio, "The metrics associated with a virtual block device"
+        ; Removed, rel_tampa, "Disabled in favour of RRD"
+        ]
+      ~in_db:true
+      ~in_oss_since:oss_since_303
+      ~persist:PersistNothing
+      ~gen_constructor_destructor:false
+      ~name:_vbd_metrics
+      ~descr:"The metrics associated with a virtual block device"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_VM_ADMIN
+      ~messages:[] ~contents:
+      [ uid _vbd_metrics;
+        namespace ~name:"io" ~contents:iobandwidth ();
+        field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
+        field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
       ]
-    ~in_db:true
-    ~in_oss_since:oss_since_303
-    ~persist:PersistNothing
-    ~gen_constructor_destructor:false
-    ~name:_vbd_metrics
-    ~descr:"The metrics associated with a virtual block device"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_VM_ADMIN
-    ~messages:[] ~contents:
-    [ uid _vbd_metrics;
-      namespace ~name:"io" ~contents:iobandwidth ();
-      field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
-      field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-    ]
-    ()
+      ()
+end
 
 let crashdump_destroy = call
     ~name:"destroy"
@@ -10353,7 +10355,7 @@ let all_system =
     LVHD.t;
     VDI.t;
     VBD.t;
-    vbd_metrics;
+    VBD_metrics.t;
     PBD.t;
     crashdump;
     (* misc *)
