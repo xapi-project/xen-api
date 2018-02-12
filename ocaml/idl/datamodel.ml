@@ -3149,24 +3149,6 @@ let sr_forget_data_source_archives = call
     ~allowed_roles:_R_POOL_OP
     ()
 
-let pbd_plug = call
-    ~name:"plug"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~doc:"Activate the specified PBD, causing the referenced SR to be attached and scanned"
-    ~params:[Ref _pbd, "self", "The PBD to activate"]
-    ~errs:[Api_errors.sr_unknown_driver]
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let pbd_unplug = call
-    ~name:"unplug"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~doc:"Deactivate the specified PBD, causing the referenced SR to be detached and nolonger scanned"
-    ~params:[Ref _pbd, "self", "The PBD to deactivate"]
-    ~allowed_roles:_R_POOL_OP
-    ()
 
 (** Sessions *)
 module Session = struct
@@ -5942,33 +5924,55 @@ module Tunnel = struct
       ()
 end
 
-let pbd_set_device_config = call
-    ~name:"set_device_config"
-    ~in_oss_since:None
-    ~in_product_since:rel_miami
-    ~params:[Ref _pbd, "self", "The PBD to modify";
-             Map(String, String), "value", "The new value of the PBD's device_config"]
-    ~doc:"Sets the PBD's device_config field"
-    ~allowed_roles:_R_POOL_OP
-    ()
+module PBD = struct
+  let plug = call
+      ~name:"plug"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~doc:"Activate the specified PBD, causing the referenced SR to be attached and scanned"
+      ~params:[Ref _pbd, "self", "The PBD to activate"]
+      ~errs:[Api_errors.sr_unknown_driver]
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let pbd =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_pbd ~descr:"The physical block devices through which hosts access SRs"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[
-      pbd_plug; pbd_unplug;
-      pbd_set_device_config
-    ] ~contents:
-    [ uid _pbd;
-      field ~qualifier:StaticRO ~ty:(Ref _host) "host" "physical machine on which the pbd is available";
-      field ~qualifier:StaticRO ~ty:(Ref _sr) "SR" "the storage repository that the pbd realises";
-      field ~ty:(Map(String, String)) ~qualifier:StaticRO "device_config" "a config string to string map that is provided to the host's SR-backend-driver";
-      field ~ty:Bool ~qualifier:DynamicRO "currently_attached" "is the SR currently attached on this host?";
-      field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-    ]
-    ()
+  let unplug = call
+      ~name:"unplug"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~doc:"Deactivate the specified PBD, causing the referenced SR to be detached and nolonger scanned"
+      ~params:[Ref _pbd, "self", "The PBD to deactivate"]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let set_device_config = call
+      ~name:"set_device_config"
+      ~in_oss_since:None
+      ~in_product_since:rel_miami
+      ~params:[Ref _pbd, "self", "The PBD to modify";
+               Map(String, String), "value", "The new value of the PBD's device_config"]
+      ~doc:"Sets the PBD's device_config field"
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_pbd ~descr:"The physical block devices through which hosts access SRs"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages:[
+        plug;
+        unplug;
+        set_device_config
+      ] ~contents:
+      [ uid _pbd;
+        field ~qualifier:StaticRO ~ty:(Ref _host) "host" "physical machine on which the pbd is available";
+        field ~qualifier:StaticRO ~ty:(Ref _sr) "SR" "the storage repository that the pbd realises";
+        field ~ty:(Map(String, String)) ~qualifier:StaticRO "device_config" "a config string to string map that is provided to the host's SR-backend-driver";
+        field ~ty:Bool ~qualifier:DynamicRO "currently_attached" "is the SR currently attached on this host?";
+        field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
+      ]
+      ()
+end
 
 (* These are included in vbds and vifs -- abstracted here to keep both these uses consistent *)
 let device_status_fields =
@@ -10328,7 +10332,7 @@ let all_system =
     vdi;
     vbd;
     vbd_metrics;
-    pbd;
+    PBD.t;
     crashdump;
     (* misc *)
     vtpm;
