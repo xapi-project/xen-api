@@ -9329,7 +9329,8 @@ module Message = struct
 
 end
 
-let secret =
+module Secret = struct
+
   let introduce = call
       ~name:"introduce"
       ~in_product_since:rel_midnight_ride
@@ -9344,27 +9345,29 @@ let secret =
       ~hide_from_docs:true
       ~allowed_roles:_R_POOL_OP
       ()
-  in
-  create_obj
-    ~descr:"A secret"
-    ~doccomments:[]
-    ~gen_constructor_destructor:true
-    ~gen_events:false
-    ~in_db:true
-    ~in_oss_since:None
-    ~in_product_since:rel_midnight_ride
-    ~internal_deprecated_since:None
-    ~messages:[introduce]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~implicit_messages_allowed_roles:_R_POOL_OP
-    ~name:_secret
-    ~persist:PersistEverything
-    ~contents:
-      [ uid ~reader_roles:_R_POOL_OP _secret
-      ; field ~reader_roles:_R_POOL_OP ~qualifier:RW ~ty:String "value" "the secret"
-      ; field ~qualifier:RW ~ty:(Map (String,String)) "other_config" "other_config" ~default_value:(Some (VMap []));
-      ]
-    ()
+
+  let t =
+    create_obj
+      ~descr:"A secret"
+      ~doccomments:[]
+      ~gen_constructor_destructor:true
+      ~gen_events:false
+      ~in_db:true
+      ~in_oss_since:None
+      ~in_product_since:rel_midnight_ride
+      ~internal_deprecated_since:None
+      ~messages:[introduce]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~implicit_messages_allowed_roles:_R_POOL_OP
+      ~name:_secret
+      ~persist:PersistEverything
+      ~contents:
+        [ uid ~reader_roles:_R_POOL_OP _secret
+        ; field ~reader_roles:_R_POOL_OP ~qualifier:RW ~ty:String "value" "the secret"
+        ; field ~qualifier:RW ~ty:(Map (String,String)) "other_config" "other_config" ~default_value:(Some (VMap []));
+        ]
+      ()
+end
 
 (*
 
@@ -10414,7 +10417,7 @@ let all_system =
     Data_source.t;
     Blob.t;
     Message.t;
-    secret;
+    Secret.t;
     Tunnel.t;
     pci;
     pgpu;
