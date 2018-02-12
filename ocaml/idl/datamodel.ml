@@ -9180,7 +9180,7 @@ end
 
 (** Blobs - binary blobs of data *)
 
-let blob =
+module Blob = struct
   let create = call
       ~name:"create"
       ~in_product_since:rel_orlando
@@ -9191,26 +9191,29 @@ let blob =
       ~flags:[`Session]
       ~result:(Ref _blob, "The reference to the created blob")
       ~allowed_roles:_R_POOL_OP
-      () in
+      ()
   let destroy = call
       ~name:"destroy"
       ~in_product_since:rel_orlando
       ~params:[Ref _blob, "self", "The reference of the blob to destroy"]
       ~flags:[`Session]
       ~allowed_roles:_R_POOL_OP
-      () in
-  create_obj ~in_db:true ~in_product_since:rel_orlando ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_blob ~descr:"A placeholder for a binary blob"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[create;destroy] ~contents:
-    [ uid _blob;
-      namespace ~name:"name" ~contents:(names oss_since_303 RW) ();
-      field ~qualifier:DynamicRO ~ty:Int "size" "Size of the binary data, in bytes";
-      field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VBool false)) ~ty:Bool "public" "True if the blob is publicly accessible";
-      field ~qualifier:StaticRO ~ty:DateTime "last_updated" "Time at which the data in the blob was last updated";
-      field ~qualifier:StaticRO ~ty:String "mime_type" "The mime type associated with this object. Defaults to 'application/octet-stream' if the empty string is supplied"]
-    ()
+      ()
+  let t =
+
+    create_obj ~in_db:true ~in_product_since:rel_orlando ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_blob ~descr:"A placeholder for a binary blob"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages:[create;destroy] ~contents:
+      [ uid _blob;
+        namespace ~name:"name" ~contents:(names oss_since_303 RW) ();
+        field ~qualifier:DynamicRO ~ty:Int "size" "Size of the binary data, in bytes";
+        field ~writer_roles:_R_POOL_OP ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VBool false)) ~ty:Bool "public" "True if the blob is publicly accessible";
+        field ~qualifier:StaticRO ~ty:DateTime "last_updated" "Time at which the data in the blob was last updated";
+        field ~qualifier:StaticRO ~ty:String "mime_type" "The mime type associated with this object. Defaults to 'application/octet-stream' if the empty string is supplied"]
+      ()
+end
 
 let message =
   let cls =
@@ -10406,7 +10409,7 @@ let all_system =
     (* filesystem; *)
     User.t;
     Data_source.t;
-    blob;
+    Blob.t;
     message;
     secret;
     Tunnel.t;
