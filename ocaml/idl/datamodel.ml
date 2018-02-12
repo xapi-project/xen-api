@@ -4471,47 +4471,51 @@ end
 (* Management of host patches. Just like the crash dumps it would be marginally neater if
    the patches were stored as VDIs. *)
 
-let host_patch_destroy = call
-    ~name:"destroy"
-    ~doc:"Destroy the specified host patch, removing it from the disk. This does NOT reverse the patch"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~params:[ Ref _host_patch, "self", "The patch to destroy" ]
-    ~internal_deprecated_since: rel_miami
-    ~allowed_roles:_R_POOL_OP
-    ()
+module Host_patch = struct
+  let destroy = call
+      ~name:"destroy"
+      ~doc:"Destroy the specified host patch, removing it from the disk. This does NOT reverse the patch"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~params:[ Ref _host_patch, "self", "The patch to destroy" ]
+      ~internal_deprecated_since: rel_miami
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let host_patch_apply = call
-    ~name:"apply"
-    ~doc:"Apply the selected patch and return its output"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~params:[ Ref _host_patch, "self", "The patch to apply" ]
-    ~result:(String, "the output of the patch application process")
-    ~internal_deprecated_since: rel_miami
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let apply = call
+      ~name:"apply"
+      ~doc:"Apply the selected patch and return its output"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~params:[ Ref _host_patch, "self", "The patch to apply" ]
+      ~result:(String, "the output of the patch application process")
+      ~internal_deprecated_since: rel_miami
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let host_patch =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:(Some rel_ely) ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host_patch ~gen_events:true
-    ~descr:"Represents a patch stored on a server"
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages: [host_patch_destroy; host_patch_apply]
-    ~contents:
-      [ uid ~in_oss_since:None _host_patch;
-        namespace ~name:"name" ~contents:(names None StaticRO) ();
-        field ~in_oss_since:None ~qualifier:StaticRO ~ty:String "version" "Patch version number";
-        field ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _host) "host" "Host the patch relates to";
-        field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:String "filename" "Filename of the patch";
-        field ~in_oss_since:None ~qualifier:DynamicRO ~ty:Bool "applied" "True if the patch has been applied";
-        field ~in_oss_since:None ~qualifier:DynamicRO ~ty:DateTime "timestamp_applied" "Time the patch was applied";
-        field ~in_oss_since:None ~qualifier:DynamicRO ~ty:Int "size" "Size of the patch";
-        field ~in_product_since:rel_miami ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _pool_patch) ~default_value:(Some (VRef "")) "pool_patch" "The patch applied";
-        field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~in_oss_since:None  ~ty:(Map(String, String)) "other_config" "additional configuration";
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:(Some rel_ely) ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host_patch ~gen_events:true
+      ~descr:"Represents a patch stored on a server"
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages: [
+        destroy;
+        apply;
       ]
-    ()
-
+      ~contents:
+        [ uid ~in_oss_since:None _host_patch;
+          namespace ~name:"name" ~contents:(names None StaticRO) ();
+          field ~in_oss_since:None ~qualifier:StaticRO ~ty:String "version" "Patch version number";
+          field ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _host) "host" "Host the patch relates to";
+          field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:String "filename" "Filename of the patch";
+          field ~in_oss_since:None ~qualifier:DynamicRO ~ty:Bool "applied" "True if the patch has been applied";
+          field ~in_oss_since:None ~qualifier:DynamicRO ~ty:DateTime "timestamp_applied" "Time the patch was applied";
+          field ~in_oss_since:None ~qualifier:DynamicRO ~ty:Int "size" "Size of the patch";
+          field ~in_product_since:rel_miami ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _pool_patch) ~default_value:(Some (VRef "")) "pool_patch" "The patch applied";
+          field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~in_oss_since:None  ~ty:(Map(String, String)) "other_config" "additional configuration";
+        ]
+      ()
+end
 let host_bugreport_upload = call
     ~name:"bugreport_upload"
     ~doc:"Run xen-bugtool --yestoall and upload the output to support"
@@ -10239,7 +10243,7 @@ let all_system =
     dr_task;
     host;
     Host_crashdump.t;
-    host_patch;
+    Host_patch.t;
     host_metrics;
     hostcpu;
     (* network_manager; *)
