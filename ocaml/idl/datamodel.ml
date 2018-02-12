@@ -7075,29 +7075,31 @@ module VBD_metrics = struct
       ()
 end
 
-let crashdump_destroy = call
-    ~name:"destroy"
-    ~in_product_since:rel_rio
-    ~doc:"Destroy the specified crashdump"
-    ~params:[Ref _crashdump, "self", "The crashdump to destroy"]
-    ~allowed_roles:_R_POOL_OP
-    ()
+module Crashdump = struct
+  let destroy = call
+      ~name:"destroy"
+      ~in_product_since:rel_rio
+      ~doc:"Destroy the specified crashdump"
+      ~params:[Ref _crashdump, "self", "The crashdump to destroy"]
+      ~allowed_roles:_R_POOL_OP
+      ()
 
 
-(** A crashdump for a particular VM, stored in a particular VDI *)
-let crashdump =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:(Some rel_inverness) ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_crashdump ~descr:"A VM crashdump"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages: [crashdump_destroy]
-    ~contents:
-      ([ uid _crashdump;
-         field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "the virtual machine";
-         field ~qualifier:StaticRO ~ty:(Ref _vdi) "VDI" "the virtual disk";
-         field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-       ])
-    ()
+  (** A crashdump for a particular VM, stored in a particular VDI *)
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:(Some rel_inverness) ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_crashdump ~descr:"A VM crashdump"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages: [destroy]
+      ~contents:
+        ([ uid _crashdump;
+           field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "the virtual machine";
+           field ~qualifier:StaticRO ~ty:(Ref _vdi) "VDI" "the virtual disk";
+           field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
+         ])
+      ()
+end
 
 let pool_operations =
   Enum ("pool_allowed_operations",
@@ -10357,7 +10359,7 @@ let all_system =
     VBD.t;
     VBD_metrics.t;
     PBD.t;
-    crashdump;
+    Crashdump.t;
     (* misc *)
     vtpm;
     console;
