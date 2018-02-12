@@ -2633,94 +2633,6 @@ let vm_import = call
    VBDs
    ------------------------------------------------------------------------------------------------------------ *)
 
-let vbd_eject = call
-    ~name:"eject"
-    ~in_product_since:rel_rio
-    ~doc:"Remove the media from the device and leave it empty"
-    ~params:[Ref _vbd, "vbd", "The vbd representing the CDROM-like device"]
-    ~errs:[Api_errors.vbd_not_removable_media; Api_errors.vbd_is_empty]
-    ~allowed_roles:_R_VM_OP
-    ()
-
-let vbd_insert = call
-    ~name:"insert"
-    ~in_product_since:rel_rio
-    ~doc:"Insert new media into the device"
-    ~params:[Ref _vbd, "vbd", "The vbd representing the CDROM-like device";
-             Ref _vdi, "vdi", "The new VDI to 'insert'"]
-    ~errs:[Api_errors.vbd_not_removable_media; Api_errors.vbd_not_empty]
-    ~allowed_roles:_R_VM_OP
-    ()
-
-let vbd_plug = call
-    ~name:"plug"
-    ~in_product_since:rel_rio
-    ~doc:"Hotplug the specified VBD, dynamically attaching it to the running VM"
-    ~params:[Ref _vbd, "self", "The VBD to hotplug"]
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vbd_unplug = call
-    ~name:"unplug"
-    ~in_product_since:rel_rio
-    ~doc:"Hot-unplug the specified VBD, dynamically unattaching it from the running VM"
-    ~params:[Ref _vbd, "self", "The VBD to hot-unplug"]
-    ~errs:[Api_errors.device_detach_rejected; Api_errors.device_already_detached]
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vbd_unplug_force = call
-    ~name:"unplug_force"
-    ~in_product_since:rel_rio
-    ~doc:"Forcibly unplug the specified VBD"
-    ~params:[Ref _vbd, "self", "The VBD to forcibly unplug"]
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vbd_unplug_force_no_safety_check = call
-    ~name:"unplug_force_no_safety_check"
-    ~doc:"Deprecated: use 'unplug_force' instead. Forcibly unplug \
-          the specified VBD without any safety checks. This is an \
-          extremely dangerous operation in the general case that \
-          can cause guest crashes and data corruption; it should \
-          be called with extreme caution. Functionally equivalent \
-          with 'unplug_force'."
-    ~params:[Ref _vbd, "self", "The VBD to forcibly unplug (no safety checks are applied to test if the device supports surprise-remove)"]
-    ~internal_deprecated_since:rel_ely
-    ~hide_from_docs:true
-    ~in_product_since:rel_symc
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vbd_pause = call
-    ~name:"pause"
-    ~doc:"Stop the backend device servicing requests so that an operation can be performed on the disk (eg live resize, snapshot)"
-    ~params:[Ref _vbd, "self", "The VBD to pause"]
-    ~hide_from_docs:true
-    ~in_product_since:rel_symc
-    ~result:(String, "Token to uniquely identify this pause instance, used to match the corresponding unpause") (* new in MR *)
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vbd_unpause = call
-    ~name:"unpause"
-    ~doc:"Restart the backend device after it was paused while an operation was performed on the disk (eg live resize, snapshot)"
-    ~versioned_params:
-      [{param_type=Ref _vbd; param_name="self"; param_doc="The VBD to unpause"; param_release=miami_symc_release; param_default=None};
-       {param_type=String; param_name="token"; param_doc="The token from VBD.pause"; param_release=orlando_release; param_default=Some(VString "")}]
-    ~hide_from_docs:true
-    ~in_product_since:rel_symc
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vbd_assert_attachable = call
-    ~name:"assert_attachable"
-    ~in_product_since:rel_rio
-    ~doc:"Throws an error if this VBD could not be attached to this VM if the VM were running. Intended for debugging."
-    ~params:[Ref _vbd, "self", "The VBD to query"]
-    ~in_oss_since:None
-    ~allowed_roles:_R_VM_ADMIN
-    ()
 
 (******************************************************************************************************************)
 (* Now define the objects themselves and their fields *)
@@ -6994,58 +6906,149 @@ module VDI = struct
       ()
 end
 
-(** Virtual disk interfaces have a mode parameter: *)
-let vbd_mode = Enum ("vbd_mode", [ "RO", "only read-only access will be allowed";
-                                   "RW", "read-write access will be allowed" ])
+module VBD = struct
+  (** Virtual disk interfaces have a mode parameter: *)
+  let mode = Enum ("vbd_mode", [ "RO", "only read-only access will be allowed";
+                                 "RW", "read-write access will be allowed" ])
 
-let vbd_type = Enum ("vbd_type",
-                     [ "CD", "VBD will appear to guest as CD";
-                       "Disk", "VBD will appear to guest as disk";
-                       "Floppy", "VBD will appear as a floppy"])
+  let type' = Enum ("vbd_type",
+                    [ "CD", "VBD will appear to guest as CD";
+                      "Disk", "VBD will appear to guest as disk";
+                      "Floppy", "VBD will appear as a floppy"])
 
-let vbd_operations =
-  Enum ("vbd_operations",
-        [ "attach", "Attempting to attach this VBD to a VM";
-          "eject", "Attempting to eject the media from this VBD";
-          "insert", "Attempting to insert new media into this VBD";
-          "plug", "Attempting to hotplug this VBD";
-          "unplug", "Attempting to hot unplug this VBD";
-          "unplug_force", "Attempting to forcibly unplug this VBD";
-          "pause", "Attempting to pause a block device backend";
-          "unpause", "Attempting to unpause a block device backend";
-        ])
+  let operations =
+    Enum ("vbd_operations",
+          [ "attach", "Attempting to attach this VBD to a VM";
+            "eject", "Attempting to eject the media from this VBD";
+            "insert", "Attempting to insert new media into this VBD";
+            "plug", "Attempting to hotplug this VBD";
+            "unplug", "Attempting to hot unplug this VBD";
+            "unplug_force", "Attempting to forcibly unplug this VBD";
+            "pause", "Attempting to pause a block device backend";
+            "unpause", "Attempting to unpause a block device backend";
+          ])
 
-(** A virtual disk interface *)
-let vbd =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vbd ~descr:"A virtual block device"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_VM_ADMIN
-    ~messages: [ vbd_eject; vbd_insert; vbd_plug; vbd_unplug; vbd_unplug_force; vbd_unplug_force_no_safety_check; vbd_assert_attachable;
-                 vbd_pause; vbd_unpause;
-               ]
-    ~contents:
-      ([ uid _vbd;
-       ] @ (allowed_and_current_operations vbd_operations) @ [
-         field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "the virtual machine";
-         field ~qualifier:StaticRO ~ty:(Ref _vdi) "VDI" "the virtual disk";
+  let eject = call
+      ~name:"eject"
+      ~in_product_since:rel_rio
+      ~doc:"Remove the media from the device and leave it empty"
+      ~params:[Ref _vbd, "vbd", "The vbd representing the CDROM-like device"]
+      ~errs:[Api_errors.vbd_not_removable_media; Api_errors.vbd_is_empty]
+      ~allowed_roles:_R_VM_OP
+      ()
 
-         field ~qualifier:DynamicRO "device" "device seen by the guest e.g. hda1";
-         field "userdevice" "user-friendly device name e.g. 0,1,2,etc.";
-         field ~ty:Bool "bootable" "true if this VBD is bootable";
-         field ~effect:true ~ty:vbd_mode "mode" "the mode the VBD should be mounted with";
-         field ~ty:vbd_type "type" "how the VBD will appear to the guest (e.g. disk or CD)";
-         field ~in_oss_since:None ~in_product_since:rel_miami ~ty:Bool ~default_value:(Some (VBool true))
-           "unpluggable" "true if this VBD will support hot-unplug";
-         field ~qualifier:DynamicRO ~ty:Bool "storage_lock" "true if a storage level lock was acquired";
-         field ~qualifier:StaticRO ~ty:Bool "empty" "if true this represents an empty drive";
-         field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "reserved" "true if the VBD is reserved pending a reboot/migrate";
-         field ~ty:(Map(String, String)) "other_config" "additional configuration";
-       ]
-       @ device_status_fields @
-       [ namespace ~name:"qos" ~contents:(qos "VBD") (); ] @
-       [ field ~qualifier:DynamicRO ~ty:(Ref _vbd_metrics) ~lifecycle: [Removed, rel_tampa, "Disabled in favour of RRDs"] "metrics" "metrics associated with this VBD"; ])
-    ()
+  let insert = call
+      ~name:"insert"
+      ~in_product_since:rel_rio
+      ~doc:"Insert new media into the device"
+      ~params:[Ref _vbd, "vbd", "The vbd representing the CDROM-like device";
+               Ref _vdi, "vdi", "The new VDI to 'insert'"]
+      ~errs:[Api_errors.vbd_not_removable_media; Api_errors.vbd_not_empty]
+      ~allowed_roles:_R_VM_OP
+      ()
+
+  let plug = call
+      ~name:"plug"
+      ~in_product_since:rel_rio
+      ~doc:"Hotplug the specified VBD, dynamically attaching it to the running VM"
+      ~params:[Ref _vbd, "self", "The VBD to hotplug"]
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let unplug = call
+      ~name:"unplug"
+      ~in_product_since:rel_rio
+      ~doc:"Hot-unplug the specified VBD, dynamically unattaching it from the running VM"
+      ~params:[Ref _vbd, "self", "The VBD to hot-unplug"]
+      ~errs:[Api_errors.device_detach_rejected; Api_errors.device_already_detached]
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let unplug_force = call
+      ~name:"unplug_force"
+      ~in_product_since:rel_rio
+      ~doc:"Forcibly unplug the specified VBD"
+      ~params:[Ref _vbd, "self", "The VBD to forcibly unplug"]
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let unplug_force_no_safety_check = call
+      ~name:"unplug_force_no_safety_check"
+      ~doc:"Deprecated: use 'unplug_force' instead. Forcibly unplug \
+            the specified VBD without any safety checks. This is an \
+            extremely dangerous operation in the general case that \
+            can cause guest crashes and data corruption; it should \
+            be called with extreme caution. Functionally equivalent \
+            with 'unplug_force'."
+      ~params:[Ref _vbd, "self", "The VBD to forcibly unplug (no safety checks are applied to test if the device supports surprise-remove)"]
+      ~internal_deprecated_since:rel_ely
+      ~hide_from_docs:true
+      ~in_product_since:rel_symc
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let pause = call
+      ~name:"pause"
+      ~doc:"Stop the backend device servicing requests so that an operation can be performed on the disk (eg live resize, snapshot)"
+      ~params:[Ref _vbd, "self", "The VBD to pause"]
+      ~hide_from_docs:true
+      ~in_product_since:rel_symc
+      ~result:(String, "Token to uniquely identify this pause instance, used to match the corresponding unpause") (* new in MR *)
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let unpause = call
+      ~name:"unpause"
+      ~doc:"Restart the backend device after it was paused while an operation was performed on the disk (eg live resize, snapshot)"
+      ~versioned_params:
+        [{param_type=Ref _vbd; param_name="self"; param_doc="The VBD to unpause"; param_release=miami_symc_release; param_default=None};
+         {param_type=String; param_name="token"; param_doc="The token from VBD.pause"; param_release=orlando_release; param_default=Some(VString "")}]
+      ~hide_from_docs:true
+      ~in_product_since:rel_symc
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let assert_attachable = call
+      ~name:"assert_attachable"
+      ~in_product_since:rel_rio
+      ~doc:"Throws an error if this VBD could not be attached to this VM if the VM were running. Intended for debugging."
+      ~params:[Ref _vbd, "self", "The VBD to query"]
+      ~in_oss_since:None
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  (** A virtual disk interface *)
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vbd ~descr:"A virtual block device"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_VM_ADMIN
+      ~messages: [ eject; insert; plug; unplug; unplug_force; unplug_force_no_safety_check; assert_attachable;
+                   pause; unpause;
+                 ]
+      ~contents:
+        ([ uid _vbd;
+         ] @ (allowed_and_current_operations operations) @ [
+           field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "the virtual machine";
+           field ~qualifier:StaticRO ~ty:(Ref _vdi) "VDI" "the virtual disk";
+
+           field ~qualifier:DynamicRO "device" "device seen by the guest e.g. hda1";
+           field "userdevice" "user-friendly device name e.g. 0,1,2,etc.";
+           field ~ty:Bool "bootable" "true if this VBD is bootable";
+           field ~effect:true ~ty:mode "mode" "the mode the VBD should be mounted with";
+           field ~ty:type' "type" "how the VBD will appear to the guest (e.g. disk or CD)";
+           field ~in_oss_since:None ~in_product_since:rel_miami ~ty:Bool ~default_value:(Some (VBool true))
+             "unpluggable" "true if this VBD will support hot-unplug";
+           field ~qualifier:DynamicRO ~ty:Bool "storage_lock" "true if a storage level lock was acquired";
+           field ~qualifier:StaticRO ~ty:Bool "empty" "if true this represents an empty drive";
+           field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "reserved" "true if the VBD is reserved pending a reboot/migrate";
+           field ~ty:(Map(String, String)) "other_config" "additional configuration";
+         ]
+         @ device_status_fields @
+         [ namespace ~name:"qos" ~contents:(qos "VBD") (); ] @
+         [ field ~qualifier:DynamicRO ~ty:(Ref _vbd_metrics) ~lifecycle: [Removed, rel_tampa, "Disabled in favour of RRDs"] "metrics" "metrics associated with this VBD"; ])
+      ()
+end
 
 let vbd_metrics =
   create_obj
@@ -10349,7 +10352,7 @@ let all_system =
     SR.t;
     LVHD.t;
     VDI.t;
-    vbd;
+    VBD.t;
     vbd_metrics;
     PBD.t;
     crashdump;
