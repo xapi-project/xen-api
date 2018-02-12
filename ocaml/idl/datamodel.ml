@@ -9613,7 +9613,7 @@ end
 
 (** Groups of GPUs *)
 
-let gpu_group =
+module GPU_group = struct
   let create = call
       ~name:"create"
       ~lifecycle:[Published, rel_boston, ""]
@@ -9625,7 +9625,7 @@ let gpu_group =
       ~result:(Ref _gpu_group, "")
       ~allowed_roles:_R_POOL_OP
       ()
-  in
+
   let destroy = call
       ~name:"destroy"
       ~lifecycle:[Published, rel_boston, ""]
@@ -9634,7 +9634,7 @@ let gpu_group =
       ]
       ~allowed_roles:_R_POOL_OP
       ()
-  in
+
   let update_enabled_VGPU_types = call
       ~name:"update_enabled_VGPU_types"
       ~hide_from_docs:true
@@ -9644,7 +9644,7 @@ let gpu_group =
       ]
       ~allowed_roles:_R_POOL_OP
       ()
-  in
+
   let update_supported_VGPU_types = call
       ~name:"update_supported_VGPU_types"
       ~hide_from_docs:true
@@ -9654,7 +9654,7 @@ let gpu_group =
       ]
       ~allowed_roles:_R_POOL_OP
       ()
-  in
+
   let get_remaining_capacity = call
       ~name:"get_remaining_capacity"
       ~lifecycle:[Published, rel_vgpu_tech_preview, ""]
@@ -9665,47 +9665,50 @@ let gpu_group =
       ~result:(Int, "The number of VGPUs of the given type which can still be started on the PGPUs in the group")
       ~allowed_roles:_R_READ_ONLY
       ()
-  in
+
   let allocation_algorithm =
     Enum ("allocation_algorithm",
           [ "breadth_first", "vGPUs of a given type are allocated evenly across supporting pGPUs.";
             "depth_first", "vGPUs of a given type are allocated on supporting pGPUs until they are full."]
          )
-  in
-  create_obj
-    ~name:_gpu_group
-    ~descr:"A group of compatible GPUs across the resource pool"
-    ~doccomments:[]
-    ~gen_constructor_destructor:false
-    ~gen_events:true
-    ~in_db:true
-    ~lifecycle:[Published, rel_boston, ""]
-    ~messages:[
-      create;
-      destroy;
-      update_enabled_VGPU_types;
-      update_supported_VGPU_types;
-      get_remaining_capacity;
-    ]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~persist:PersistEverything
-    ~in_oss_since:None
-    ~contents:[
-      uid _gpu_group ~lifecycle:[Published, rel_boston, ""];
-      namespace ~name:"name" ~contents:(names None RW ~lifecycle:[Published, rel_boston, ""]) ();
-      field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_boston, ""] "PGPUs" "List of pGPUs in the group";
-      field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_boston, ""] "VGPUs" "List of vGPUs using the group";
-      field ~qualifier:DynamicRO ~ty:(Set String) ~lifecycle:[Published, rel_boston, ""] "GPU_types" "List of GPU types (vendor+device ID) that can be in this group" ~default_value:(Some (VSet []));
-      field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
-      field ~qualifier:RW ~ty:allocation_algorithm ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "allocation_algorithm" "Current allocation of vGPUs to pGPUs for this group" ~default_value:(Some (VEnum "depth_first"));
-      field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "supported_VGPU_types" "vGPU types supported on at least one of the pGPUs in this group";
-      field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "enabled_VGPU_types" "vGPU types supported on at least one of the pGPUs in this group";
-    ]
-    ()
+
+  let t =
+    create_obj
+      ~name:_gpu_group
+      ~descr:"A group of compatible GPUs across the resource pool"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle:[Published, rel_boston, ""]
+      ~messages:[
+        create;
+        destroy;
+        update_enabled_VGPU_types;
+        update_supported_VGPU_types;
+        get_remaining_capacity;
+      ]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~contents:[
+        uid _gpu_group ~lifecycle:[Published, rel_boston, ""];
+        namespace ~name:"name" ~contents:(names None RW ~lifecycle:[Published, rel_boston, ""]) ();
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_boston, ""] "PGPUs" "List of pGPUs in the group";
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_boston, ""] "VGPUs" "List of vGPUs using the group";
+        field ~qualifier:DynamicRO ~ty:(Set String) ~lifecycle:[Published, rel_boston, ""] "GPU_types" "List of GPU types (vendor+device ID) that can be in this group" ~default_value:(Some (VSet []));
+        field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+        field ~qualifier:RW ~ty:allocation_algorithm ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "allocation_algorithm" "Current allocation of vGPUs to pGPUs for this group" ~default_value:(Some (VEnum "depth_first"));
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "supported_VGPU_types" "vGPU types supported on at least one of the pGPUs in this group";
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "enabled_VGPU_types" "vGPU types supported on at least one of the pGPUs in this group";
+      ]
+      ()
+end
+
 
 (** Virtual GPUs (vGPU) *)
 
-let vgpu =
+module VGPU = struct
   let create = call
       ~name:"create"
       ~lifecycle:[Published, rel_boston, ""]
@@ -9719,7 +9722,7 @@ let vgpu =
       ~result:(Ref _vgpu, "reference to the newly created object")
       ~allowed_roles:_R_POOL_OP
       ()
-  in
+
   let destroy = call
       ~name:"destroy"
       ~lifecycle:[Published, rel_boston, ""]
@@ -9728,7 +9731,7 @@ let vgpu =
       ]
       ~allowed_roles:_R_POOL_OP
       ()
-  in
+
   let atomic_set_resident_on = call
       ~name:"atomic_set_resident_on"
       ~lifecycle:[Published, rel_dundee, ""]
@@ -9740,32 +9743,34 @@ let vgpu =
       ~hide_from_docs:true
       ~pool_internal:true
       ()
-  in
-  create_obj
-    ~name:_vgpu
-    ~descr:"A virtual GPU (vGPU)"
-    ~doccomments:[]
-    ~gen_constructor_destructor:false
-    ~gen_events:true
-    ~in_db:true
-    ~lifecycle:[Published, rel_boston, ""]
-    ~messages:[create; destroy; atomic_set_resident_on]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~persist:PersistEverything
-    ~in_oss_since:None
-    ~contents:[
-      uid _vgpu ~lifecycle:[Published, rel_boston, ""];
-      field ~qualifier:DynamicRO ~ty:(Ref _vm) ~lifecycle:[Published, rel_boston, ""] "VM" "VM that owns the vGPU";
-      field ~qualifier:DynamicRO ~ty:(Ref _gpu_group) ~lifecycle:[Published, rel_boston, ""] "GPU_group" "GPU group used by the vGPU";
-      field ~qualifier:DynamicRO ~ty:String ~lifecycle:[Published, rel_boston, ""] ~default_value:(Some (VString "0")) "device" "Order in which the devices are plugged into the VM";
-      field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_boston, ""] ~default_value:(Some (VBool false)) "currently_attached" "Reflects whether the virtual device is currently connected to a physical device";
-      field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
-      field ~qualifier:DynamicRO ~ty:(Ref _vgpu_type) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "type" "Preset type for this VGPU" ~default_value:(Some (VRef null_ref));
-      field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "resident_on" "The PGPU on which this VGPU is running" ~default_value:(Some (VRef null_ref));
-      field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_dundee, ""] "scheduled_to_be_resident_on" "The PGPU on which this VGPU is scheduled to run" ~default_value:(Some (VRef null_ref));
-      field ~qualifier:DynamicRO ~ty:(Map (String,String)) ~lifecycle:[Published, rel_inverness, ""] ~default_value:(Some (VMap [])) "compatibility_metadata" "VGPU metadata to determine whether a VGPU can migrate between two PGPUs";
-    ]
-    ()
+
+  let t =
+    create_obj
+      ~name:_vgpu
+      ~descr:"A virtual GPU (vGPU)"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle:[Published, rel_boston, ""]
+      ~messages:[create; destroy; atomic_set_resident_on]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~contents:[
+        uid _vgpu ~lifecycle:[Published, rel_boston, ""];
+        field ~qualifier:DynamicRO ~ty:(Ref _vm) ~lifecycle:[Published, rel_boston, ""] "VM" "VM that owns the vGPU";
+        field ~qualifier:DynamicRO ~ty:(Ref _gpu_group) ~lifecycle:[Published, rel_boston, ""] "GPU_group" "GPU group used by the vGPU";
+        field ~qualifier:DynamicRO ~ty:String ~lifecycle:[Published, rel_boston, ""] ~default_value:(Some (VString "0")) "device" "Order in which the devices are plugged into the VM";
+        field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_boston, ""] ~default_value:(Some (VBool false)) "currently_attached" "Reflects whether the virtual device is currently connected to a physical device";
+        field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
+        field ~qualifier:DynamicRO ~ty:(Ref _vgpu_type) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "type" "Preset type for this VGPU" ~default_value:(Some (VRef null_ref));
+        field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "resident_on" "The PGPU on which this VGPU is running" ~default_value:(Some (VRef null_ref));
+        field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_dundee, ""] "scheduled_to_be_resident_on" "The PGPU on which this VGPU is scheduled to run" ~default_value:(Some (VRef null_ref));
+        field ~qualifier:DynamicRO ~ty:(Map (String,String)) ~lifecycle:[Published, rel_inverness, ""] ~default_value:(Some (VMap [])) "compatibility_metadata" "VGPU metadata to determine whether a VGPU can migrate between two PGPUs";
+      ]
+      ()
+end
 
 (** Virtual GPU types (i.e. preset sizes) *)
 
@@ -10425,8 +10430,8 @@ let all_system =
     Tunnel.t;
     PCI.t;
     PGPU.t;
-    gpu_group;
-    vgpu;
+    GPU_group.t;
+    VGPU.t;
     vgpu_type;
     pvs_site;
     pvs_server;
