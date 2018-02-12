@@ -5905,39 +5905,42 @@ module VLAN = struct
       ()
 end
 
-let tunnel_create = call
-    ~name:"create"
-    ~doc:"Create a tunnel"
-    ~params:[ Ref _pif, "transport_PIF", "PIF which receives the tagged traffic";
-              Ref _network, "network", "Network to receive the tunnelled traffic" ]
-    ~result:(Ref _tunnel, "The reference of the created tunnel object")
-    ~lifecycle:[Published, rel_cowley, "Create a tunnel"]
-    ~allowed_roles:_R_POOL_OP
-    ~errs:[Api_errors.openvswitch_not_active; Api_errors.transport_pif_not_configured; Api_errors.is_tunnel_access_pif]
-    ()
+module Tunnel = struct
 
-let tunnel_destroy = call
-    ~name:"destroy"
-    ~doc:"Destroy a tunnel"
-    ~params:[Ref _tunnel, "self", "tunnel to destroy"]
-    ~lifecycle:[Published, rel_cowley, "Destroy a tunnel"]
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let create = call
+      ~name:"create"
+      ~doc:"Create a tunnel"
+      ~params:[ Ref _pif, "transport_PIF", "PIF which receives the tagged traffic";
+                Ref _network, "network", "Network to receive the tunnelled traffic" ]
+      ~result:(Ref _tunnel, "The reference of the created tunnel object")
+      ~lifecycle:[Published, rel_cowley, "Create a tunnel"]
+      ~allowed_roles:_R_POOL_OP
+      ~errs:[Api_errors.openvswitch_not_active; Api_errors.transport_pif_not_configured; Api_errors.is_tunnel_access_pif]
+      ()
 
-let tunnel =
-  create_obj ~in_db:true ~lifecycle:[Published, rel_cowley, "A tunnel for network traffic"] ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_tunnel ~descr:"A tunnel for network traffic" ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~doc_tags:[Networking]
-    ~messages:[ tunnel_create; tunnel_destroy ]
-    ~contents:([
-        uid _tunnel ~lifecycle:[Published, rel_cowley, "Unique identifier/object reference"];
-        field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle:[Published, rel_cowley, "The interface through which the tunnel is accessed"] "access_PIF" "The interface through which the tunnel is accessed" ~default_value:(Some (VRef ""));
-        field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle:[Published, rel_cowley, "The interface used by the tunnel"] "transport_PIF" "The interface used by the tunnel" ~default_value:(Some (VRef ""));
-        field ~ty:(Map(String, String)) ~lifecycle:[Published, rel_cowley, "Status information about the tunnel"] "status" "Status information about the tunnel" ~default_value:(Some (VMap [VString "active", VString "false"]));
-        field ~lifecycle:[Published, rel_cowley, "Additional configuration"] ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "Additional configuration";
-      ])
-    ()
+  let destroy = call
+      ~name:"destroy"
+      ~doc:"Destroy a tunnel"
+      ~params:[Ref _tunnel, "self", "tunnel to destroy"]
+      ~lifecycle:[Published, rel_cowley, "Destroy a tunnel"]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let t =
+    create_obj ~in_db:true ~lifecycle:[Published, rel_cowley, "A tunnel for network traffic"] ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_tunnel ~descr:"A tunnel for network traffic" ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~doc_tags:[Networking]
+      ~messages:[ create; destroy ]
+      ~contents:([
+          uid _tunnel ~lifecycle:[Published, rel_cowley, "Unique identifier/object reference"];
+          field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle:[Published, rel_cowley, "The interface through which the tunnel is accessed"] "access_PIF" "The interface through which the tunnel is accessed" ~default_value:(Some (VRef ""));
+          field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle:[Published, rel_cowley, "The interface used by the tunnel"] "transport_PIF" "The interface used by the tunnel" ~default_value:(Some (VRef ""));
+          field ~ty:(Map(String, String)) ~lifecycle:[Published, rel_cowley, "Status information about the tunnel"] "status" "Status information about the tunnel" ~default_value:(Some (VMap [VString "active", VString "false"]));
+          field ~lifecycle:[Published, rel_cowley, "Additional configuration"] ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "Additional configuration";
+        ])
+      ()
+end
 
 let pbd_set_device_config = call
     ~name:"set_device_config"
@@ -10336,7 +10339,7 @@ let all_system =
     blob;
     message;
     secret;
-    tunnel;
+    Tunnel.t;
     pci;
     pgpu;
     gpu_group;
