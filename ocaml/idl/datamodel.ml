@@ -9774,47 +9774,49 @@ end
 
 (** Virtual GPU types (i.e. preset sizes) *)
 
-let vgpu_type_implementation =
-  Enum ("vgpu_type_implementation", [
-      "passthrough", "Pass through an entire physical GPU to a guest";
-      "nvidia", "vGPU using NVIDIA hardware";
-      "gvt_g", "vGPU using Intel GVT-g";
-      "mxgpu", "vGPU using AMD MxGPU";
-    ])
+module VGPU_type = struct
+  let implementation =
+    Enum ("vgpu_type_implementation", [
+        "passthrough", "Pass through an entire physical GPU to a guest";
+        "nvidia", "vGPU using NVIDIA hardware";
+        "gvt_g", "vGPU using Intel GVT-g";
+        "mxgpu", "vGPU using AMD MxGPU";
+      ])
 
-let vgpu_type =
-  create_obj
-    ~name:_vgpu_type
-    ~descr:"A type of virtual GPU"
-    ~doccomments:[]
-    ~gen_constructor_destructor:false
-    ~gen_events:true
-    ~in_db:true
-    ~lifecycle:[Published, rel_vgpu_tech_preview, ""]
-    ~messages:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~persist:PersistEverything
-    ~in_oss_since:None
-    ~contents:[
-      uid _vgpu_type ~lifecycle:[Published, rel_vgpu_tech_preview, ""];
-      field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VString "")) "vendor_name" "Name of VGPU vendor";
-      field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VString "")) "model_name" "Model name associated with the VGPU type";
-      field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VInt 0L)) "framebuffer_size" "Framebuffer size of the VGPU type, in bytes";
-      field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VInt 0L)) "max_heads" "Maximum number of displays supported by the VGPU type";
-      field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_productisation, ""] ~default_value:(Some (VInt 0L)) "max_resolution_x" "Maximum resolution (width) supported by the VGPU type";
-      field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_productisation, ""] ~default_value:(Some (VInt 0L)) "max_resolution_y" "Maximum resolution (height) supported by the VGPU type";
-      field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~internal_only:true ~default_value:(Some (VInt 0L)) "size" "Abstract size for tracking PGPU utilisation";
-      field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "supported_on_PGPUs" "List of PGPUs that support this VGPU type";
-      field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "enabled_on_PGPUs" "List of PGPUs that have this VGPU type enabled";
-      field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "VGPUs" "List of VGPUs of this type";
-      field ~qualifier:StaticRO ~ty:(Map (String, String)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VMap [])) ~internal_only:true "internal_config" "Extra configuration information for internal use.";
-      field ~qualifier:DynamicRO ~ty:(Set (Ref _gpu_group)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "supported_on_GPU_groups" "List of GPU groups in which at least one PGPU supports this VGPU type";
-      field ~qualifier:DynamicRO ~ty:(Set (Ref _gpu_group)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "enabled_on_GPU_groups" "List of GPU groups in which at least one have this VGPU type enabled";
-      field ~qualifier:StaticRO ~ty:vgpu_type_implementation ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VEnum "passthrough")) "implementation" "The internal implementation of this VGPU type";
-      field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VString "")) "identifier" "Key used to identify VGPU types and avoid creating duplicates - this field is used internally and not intended for interpretation by API clients";
-      field ~qualifier: StaticRO ~ty:Bool ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VBool false)) "experimental" "Indicates whether VGPUs of this type should be considered experimental";
-    ]
-    ()
+  let t =
+    create_obj
+      ~name:_vgpu_type
+      ~descr:"A type of virtual GPU"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle:[Published, rel_vgpu_tech_preview, ""]
+      ~messages:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~contents:[
+        uid _vgpu_type ~lifecycle:[Published, rel_vgpu_tech_preview, ""];
+        field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VString "")) "vendor_name" "Name of VGPU vendor";
+        field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VString "")) "model_name" "Model name associated with the VGPU type";
+        field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VInt 0L)) "framebuffer_size" "Framebuffer size of the VGPU type, in bytes";
+        field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VInt 0L)) "max_heads" "Maximum number of displays supported by the VGPU type";
+        field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_productisation, ""] ~default_value:(Some (VInt 0L)) "max_resolution_x" "Maximum resolution (width) supported by the VGPU type";
+        field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_productisation, ""] ~default_value:(Some (VInt 0L)) "max_resolution_y" "Maximum resolution (height) supported by the VGPU type";
+        field ~qualifier:StaticRO ~ty:Int ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~internal_only:true ~default_value:(Some (VInt 0L)) "size" "Abstract size for tracking PGPU utilisation";
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "supported_on_PGPUs" "List of PGPUs that support this VGPU type";
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _pgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "enabled_on_PGPUs" "List of PGPUs that have this VGPU type enabled";
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "VGPUs" "List of VGPUs of this type";
+        field ~qualifier:StaticRO ~ty:(Map (String, String)) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] ~default_value:(Some (VMap [])) ~internal_only:true "internal_config" "Extra configuration information for internal use.";
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _gpu_group)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "supported_on_GPU_groups" "List of GPU groups in which at least one PGPU supports this VGPU type";
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _gpu_group)) ~lifecycle:[Published, rel_vgpu_productisation, ""] "enabled_on_GPU_groups" "List of GPU groups in which at least one have this VGPU type enabled";
+        field ~qualifier:StaticRO ~ty:implementation ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VEnum "passthrough")) "implementation" "The internal implementation of this VGPU type";
+        field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VString "")) "identifier" "Key used to identify VGPU types and avoid creating duplicates - this field is used internally and not intended for interpretation by API clients";
+        field ~qualifier: StaticRO ~ty:Bool ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VBool false)) "experimental" "Indicates whether VGPUs of this type should be considered experimental";
+      ]
+      ()
+end
 
 module PVS_site = struct
   let lifecycle = [Published, rel_ely, ""]
@@ -10432,7 +10434,7 @@ let all_system =
     PGPU.t;
     GPU_group.t;
     VGPU.t;
-    vgpu_type;
+    VGPU_type.t;
     pvs_site;
     pvs_server;
     pvs_proxy;
