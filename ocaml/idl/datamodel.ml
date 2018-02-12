@@ -5247,18 +5247,22 @@ let host_query_ha = call ~flags:[`Session]
          ])
       ()
 end
-let host_metrics =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host_metrics ~descr:"The metrics associated with a host" ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[] ~contents:
-    [ uid _host_metrics;
-      namespace ~name:"memory" ~contents:host_metrics_memory ();
-      field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None "live" "Pool master thinks this host is live";
-      field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
-      field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-    ]
-    ()
+
+module Host_metrics = struct
+
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host_metrics ~descr:"The metrics associated with a host" ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages:[] ~contents:
+      [ uid _host_metrics;
+        namespace ~name:"memory" ~contents:host_metrics_memory ();
+        field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None "live" "Pool master thinks this host is live";
+        field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
+        field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
+      ]
+      ()
+end
 
 (** HostCPU *)
 
@@ -10267,7 +10271,7 @@ let all_system =
     Host.t;
     Host_crashdump.t;
     Host_patch.t;
-    host_metrics;
+    Host_metrics.t;
     hostcpu;
     (* network_manager; *)
     network;
