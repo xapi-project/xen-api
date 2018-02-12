@@ -8936,18 +8936,18 @@ module VMSS = struct
 
 end
 
-(* VM appliance *)
-let vm_appliance_operations = Enum ("vm_appliance_operation",
-                                    [
-                                      "start", "Start";
-                                      "clean_shutdown", "Clean shutdown";
-                                      "hard_shutdown", "Hard shutdown";
-                                      "shutdown", "Shutdown";
-                                    ])
 
+module VM_appliance = struct
+  (* VM appliance *)
+  let operations = Enum ("vm_appliance_operation",
+                         [
+                           "start", "Start";
+                           "clean_shutdown", "Clean shutdown";
+                           "hard_shutdown", "Hard shutdown";
+                           "shutdown", "Shutdown";
+                         ])
 
-let vm_appliance =
-  let vm_appliance_start = call
+  let start = call
       ~name:"start"
       ~in_product_since:rel_boston
       ~params:[
@@ -8957,32 +8957,32 @@ let vm_appliance =
       ~errs:[Api_errors.operation_partially_failed]
       ~doc:"Start all VMs in the appliance"
       ~allowed_roles:_R_POOL_OP
-      () in
-  let vm_appliance_clean_shutdown = call
+      ()
+  let clean_shutdown = call
       ~name:"clean_shutdown"
       ~in_product_since:rel_boston
       ~params:[Ref _vm_appliance, "self", "The VM appliance"]
       ~errs:[Api_errors.operation_partially_failed]
       ~doc:"Perform a clean shutdown of all the VMs in the appliance"
       ~allowed_roles:_R_POOL_OP
-      () in
-  let vm_appliance_hard_shutdown = call
+      ()
+  let hard_shutdown = call
       ~name:"hard_shutdown"
       ~in_product_since:rel_boston
       ~params:[Ref _vm_appliance, "self", "The VM appliance"]
       ~errs:[Api_errors.operation_partially_failed]
       ~doc:"Perform a hard shutdown of all the VMs in the appliance"
       ~allowed_roles:_R_POOL_OP
-      () in
-  let vm_appliance_shutdown = call
+      ()
+  let shutdown = call
       ~name:"shutdown"
       ~in_product_since:rel_boston
       ~params:[Ref _vm_appliance, "self", "The VM appliance"]
       ~errs:[Api_errors.operation_partially_failed]
       ~doc:"For each VM in the appliance, try to shut it down cleanly. If this fails, perform a hard shutdown of the VM."
       ~allowed_roles:_R_POOL_OP
-      () in
-  let vm_appliance_assert_can_be_recovered = call
+      ()
+  let assert_can_be_recovered = call
       ~name:"assert_can_be_recovered"
       ~in_product_since:rel_boston
       ~params:[Ref _vm_appliance, "self", "The VM appliance to recover";
@@ -8990,8 +8990,8 @@ let vm_appliance =
       ~errs:[Api_errors.vm_requires_sr]
       ~doc:"Assert whether all SRs required to recover this VM appliance are available."
       ~allowed_roles:_R_READ_ONLY
-      () in
-  let vm_appliance_get_SRs_required_for_recovery = call
+      ()
+  let get_SRs_required_for_recovery = call
       ~name:"get_SRs_required_for_recovery"
       ~in_product_since:rel_creedence
       ~params:[Ref _vm_appliance , "self" , "The VM appliance for which the required list of SRs has to be recovered.";
@@ -9000,8 +9000,8 @@ let vm_appliance =
       ~errs:[]
       ~doc:"Get the list of SRs required by the VM appliance to recover."
       ~allowed_roles:_R_READ_ONLY
-      () in
-  let vm_appliance_recover = call
+      ()
+  let recover = call
       ~name:"recover"
       ~in_product_since:rel_boston
       ~params:[Ref _vm_appliance, "self", "The VM appliance to recover";
@@ -9010,27 +9010,31 @@ let vm_appliance =
       ~errs:[Api_errors.vm_requires_sr]
       ~doc:"Recover the VM appliance"
       ~allowed_roles:_R_READ_ONLY
-      () in
-  create_obj ~in_db:true ~in_product_since:rel_boston ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm_appliance ~descr:"VM appliance"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[
-      vm_appliance_start;
-      vm_appliance_clean_shutdown;
-      vm_appliance_hard_shutdown;
-      vm_appliance_shutdown;
-      vm_appliance_assert_can_be_recovered;
-      vm_appliance_get_SRs_required_for_recovery;
-      vm_appliance_recover;
-    ]
-    ~contents:([
-        uid _vm_appliance;
-        namespace ~name:"name" ~contents:(names None RW) ();
-      ] @ (allowed_and_current_operations vm_appliance_operations) @ [
-          field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs in this appliance";
-        ])
-    ()
+      ()
+
+
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_boston ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm_appliance ~descr:"VM appliance"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages:[
+        start;
+        clean_shutdown;
+        hard_shutdown;
+        shutdown;
+        assert_can_be_recovered;
+        get_SRs_required_for_recovery;
+        recover;
+      ]
+      ~contents:([
+          uid _vm_appliance;
+          namespace ~name:"name" ~contents:(names None RW) ();
+        ] @ (allowed_and_current_operations operations) @ [
+            field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs in this appliance";
+          ])
+      ()
+end
 
 (* DR_task *)
 let dr_task =
@@ -10365,7 +10369,7 @@ let all_system =
     VM_guest_metrics.t;
     VMPP.t;
     VMSS.t;
-    vm_appliance;
+    VM_appliance.t;
     dr_task;
     Host.t;
     Host_crashdump.t;
