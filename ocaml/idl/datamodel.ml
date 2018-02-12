@@ -4150,197 +4150,202 @@ let api_version =
    and has no access to any fancy storage drivers or tools. Plus a host is not guaranteed to
    have any SRs at all. *)
 
-let host_crashdump_destroy = call
-    ~name:"destroy"
-    ~doc:"Destroy specified host crash dump, removing it from the disk."
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~params:[ Ref _host_crashdump, "self", "The host crashdump to destroy" ]
-    ~allowed_roles:_R_POOL_OP
-    ()
+module Host_crashdump = struct
+  let destroy = call
+      ~name:"destroy"
+      ~doc:"Destroy specified host crash dump, removing it from the disk."
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~params:[ Ref _host_crashdump, "self", "The host crashdump to destroy" ]
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let host_crashdump_upload = call
-    ~name:"upload"
-    ~doc:"Upload the specified host crash dump to a specified URL"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~params:[ Ref _host_crashdump, "self", "The host crashdump to upload";
-              String, "url", "The URL to upload to";
-              Map(String, String), "options", "Extra configuration operations" ]
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let upload = call
+      ~name:"upload"
+      ~doc:"Upload the specified host crash dump to a specified URL"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~params:[ Ref _host_crashdump, "self", "The host crashdump to upload";
+                String, "url", "The URL to upload to";
+                Map(String, String), "options", "Extra configuration operations" ]
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let host_crashdump =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host_crashdump ~gen_events:true
-    ~descr:"Represents a host crash dump"
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages: [host_crashdump_destroy; host_crashdump_upload]
-    ~contents:
-      [ uid ~in_oss_since:None _host_crashdump;
-        field ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _host) "host" "Host the crashdump relates to";
-        field ~in_oss_since:None ~qualifier:DynamicRO ~ty:DateTime "timestamp" "Time the crash happened";
-        field ~in_oss_since:None ~qualifier:DynamicRO ~ty:Int "size" "Size of the crashdump";
-        field ~qualifier:StaticRO ~ty:String ~in_oss_since:None ~internal_only:true "filename" "filename of crash dir";
-        field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-      ]
-    ()
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host_crashdump ~gen_events:true
+      ~descr:"Represents a host crash dump"
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages: [destroy; upload]
+      ~contents:
+        [ uid ~in_oss_since:None _host_crashdump;
+          field ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _host) "host" "Host the crashdump relates to";
+          field ~in_oss_since:None ~qualifier:DynamicRO ~ty:DateTime "timestamp" "Time the crash happened";
+          field ~in_oss_since:None ~qualifier:DynamicRO ~ty:Int "size" "Size of the crashdump";
+          field ~qualifier:StaticRO ~ty:String ~in_oss_since:None ~internal_only:true "filename" "filename of crash dir";
+          field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
+        ]
+      ()
+end
 
 (* New Ely pool update mechanism *)
-let livepatch_status =
-  Enum ("livepatch_status",
-        [
-          "ok_livepatch_complete", "An applicable live patch exists for every required component";
-          "ok_livepatch_incomplete", "An applicable live patch exists but it is not sufficient";
-          "ok", "There is no applicable live patch"
-        ])
+module Pool_update = struct
 
-let pool_update_after_apply_guidance =
-  Enum ("update_after_apply_guidance",
-        [ "restartHVM",  "This update requires HVM guests to be restarted once applied.";
-          "restartPV",   "This update requires PV guests to be restarted once applied.";
-          "restartHost", "This update requires the host to be restarted once applied.";
-          "restartXAPI", "This update requires XAPI to be restarted once applied.";
-        ])
+  let livepatch_status =
+    Enum ("livepatch_status",
+          [
+            "ok_livepatch_complete", "An applicable live patch exists for every required component";
+            "ok_livepatch_incomplete", "An applicable live patch exists but it is not sufficient";
+            "ok", "There is no applicable live patch"
+          ])
 
-let pool_update_introduce = call
-    ~name:"introduce"
-    ~doc:"Introduce update VDI"
-    ~in_oss_since:None
-    ~in_product_since:rel_ely
-    ~params:[ Ref _vdi, "vdi", "The VDI which contains a software update." ]
-    ~result:(Ref _pool_update, "the introduced pool update")
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let after_apply_guidance =
+    Enum ("update_after_apply_guidance",
+          [ "restartHVM",  "This update requires HVM guests to be restarted once applied.";
+            "restartPV",   "This update requires PV guests to be restarted once applied.";
+            "restartHost", "This update requires the host to be restarted once applied.";
+            "restartXAPI", "This update requires XAPI to be restarted once applied.";
+          ])
 
-let pool_update_precheck = call
-    ~name:"precheck"
-    ~doc:"Execute the precheck stage of the selected update on a host"
-    ~in_oss_since:None
-    ~in_product_since:rel_ely
-    ~params:[ Ref _pool_update, "self", "The update whose prechecks will be run"; Ref _host, "host", "The host to run the prechecks on." ]
-    ~result:(livepatch_status, "The precheck pool update")
-    ~allowed_roles:_R_POOL_OP
-    ~forward_to:(HostExtension "pool_update.precheck")
-    ()
+  let introduce = call
+      ~name:"introduce"
+      ~doc:"Introduce update VDI"
+      ~in_oss_since:None
+      ~in_product_since:rel_ely
+      ~params:[ Ref _vdi, "vdi", "The VDI which contains a software update." ]
+      ~result:(Ref _pool_update, "the introduced pool update")
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let pool_update_apply = call
-    ~name:"apply"
-    ~doc:"Apply the selected update to a host"
-    ~in_oss_since:None
-    ~in_product_since:rel_ely
-    ~params:[ Ref _pool_update, "self", "The update to apply"; Ref _host, "host", "The host to apply the update to." ]
-    ~allowed_roles:_R_POOL_OP
-    ~forward_to:(HostExtension "pool_update.apply")
-    ()
+  let precheck = call
+      ~name:"precheck"
+      ~doc:"Execute the precheck stage of the selected update on a host"
+      ~in_oss_since:None
+      ~in_product_since:rel_ely
+      ~params:[ Ref _pool_update, "self", "The update whose prechecks will be run"; Ref _host, "host", "The host to run the prechecks on." ]
+      ~result:(livepatch_status, "The precheck pool update")
+      ~allowed_roles:_R_POOL_OP
+      ~forward_to:(HostExtension "pool_update.precheck")
+      ()
 
-let pool_update_pool_apply = call
-    ~name:"pool_apply"
-    ~doc:"Apply the selected update to all hosts in the pool"
-    ~in_oss_since:None
-    ~in_product_since:rel_ely
-    ~params:[ Ref _pool_update, "self", "The update to apply"]
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let apply = call
+      ~name:"apply"
+      ~doc:"Apply the selected update to a host"
+      ~in_oss_since:None
+      ~in_product_since:rel_ely
+      ~params:[ Ref _pool_update, "self", "The update to apply"; Ref _host, "host", "The host to apply the update to." ]
+      ~allowed_roles:_R_POOL_OP
+      ~forward_to:(HostExtension "pool_update.apply")
+      ()
 
-let pool_update_pool_clean = call
-    ~name:"pool_clean"
-    ~doc:"Removes the update's files from all hosts in the pool, but does not revert the update"
-    ~in_oss_since:None
-    ~in_product_since:rel_ely
-    ~params:[ Ref _pool_update, "self", "The update to clean up" ]
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let pool_apply = call
+      ~name:"pool_apply"
+      ~doc:"Apply the selected update to all hosts in the pool"
+      ~in_oss_since:None
+      ~in_product_since:rel_ely
+      ~params:[ Ref _pool_update, "self", "The update to apply"]
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let pool_update_destroy = call
-    ~name:"destroy"
-    ~doc:"Removes the database entry. Only works on unapplied update."
-    ~in_oss_since:None
-    ~in_product_since:rel_ely
-    ~params:[ Ref _pool_update, "self", "The update to destroy" ]
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let pool_clean = call
+      ~name:"pool_clean"
+      ~doc:"Removes the update's files from all hosts in the pool, but does not revert the update"
+      ~in_oss_since:None
+      ~in_product_since:rel_ely
+      ~params:[ Ref _pool_update, "self", "The update to clean up" ]
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let pool_update_attach = call
-    ~name:"attach"
-    ~hide_from_docs:true
-    ~doc:"Attach the pool update VDI"
-    ~in_oss_since:None
-    ~in_product_since:rel_ely
-    ~params:[ Ref _pool_update, "self", "The update to be attached"]
-    ~result:(String, "The file URL of pool update")
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let destroy = call
+      ~name:"destroy"
+      ~doc:"Removes the database entry. Only works on unapplied update."
+      ~in_oss_since:None
+      ~in_product_since:rel_ely
+      ~params:[ Ref _pool_update, "self", "The update to destroy" ]
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let pool_update_detach = call
-    ~name:"detach"
-    ~hide_from_docs:true
-    ~doc:"Detach the pool update VDI"
-    ~in_oss_since:None
-    ~in_product_since:rel_ely
-    ~params:[ Ref _pool_update, "self", "The update to be detached"]
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let attach = call
+      ~name:"attach"
+      ~hide_from_docs:true
+      ~doc:"Attach the pool update VDI"
+      ~in_oss_since:None
+      ~in_product_since:rel_ely
+      ~params:[ Ref _pool_update, "self", "The update to be attached"]
+      ~result:(String, "The file URL of pool update")
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let pool_update_resync_host = call
-    ~name:"resync_host"
-    ~hide_from_docs:true
-    ~doc:"Resync the applied updates of the host"
-    ~in_oss_since:None
-    ~in_product_since:rel_ely
-    ~params:[ Ref _host, "host", "The host to resync the applied updates"]
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let detach = call
+      ~name:"detach"
+      ~hide_from_docs:true
+      ~doc:"Detach the pool update VDI"
+      ~in_oss_since:None
+      ~in_product_since:rel_ely
+      ~params:[ Ref _pool_update, "self", "The update to be detached"]
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let pool_update =
-  create_obj ~in_db:true
-    ~in_product_since:rel_ely
-    ~in_oss_since:None
-    ~internal_deprecated_since:None
+  let resync_host = call
+      ~name:"resync_host"
+      ~hide_from_docs:true
+      ~doc:"Resync the applied updates of the host"
+      ~in_oss_since:None
+      ~in_product_since:rel_ely
+      ~params:[ Ref _host, "host", "The host to resync the applied updates"]
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-    ~persist:PersistEverything
-    ~gen_constructor_destructor:false
-    ~gen_events:true
+  let t =
+    create_obj ~in_db:true
+      ~in_product_since:rel_ely
+      ~in_oss_since:None
+      ~internal_deprecated_since:None
 
-    ~name:_pool_update
-    ~descr:"Pool-wide updates to the host software"
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[
-      pool_update_introduce;
-      pool_update_precheck;
-      pool_update_apply;
-      pool_update_pool_apply;
-      pool_update_pool_clean;
-      pool_update_destroy;
-      pool_update_attach;
-      pool_update_detach;
-      pool_update_resync_host;
-    ]
-    ~contents:
-      [ uid       ~in_oss_since:None _pool_update;
-        namespace ~name:"name" ~contents:(names None StaticRO) ();
-        field     ~in_product_since:rel_ely ~default_value:(Some (VString "")) ~in_oss_since:None ~qualifier:StaticRO ~ty:String "version" "Update version number";
-        field     ~in_product_since:rel_ely ~default_value:(Some (VInt Int64.zero)) ~in_oss_since:None ~qualifier:StaticRO ~ty:Int "installation_size" "Size of the update in bytes";
-        field     ~in_product_since:rel_ely ~default_value:(Some (VString "")) ~in_oss_since:None ~qualifier:StaticRO ~ty:String "key" "GPG key of the update";
-        field     ~in_product_since:rel_ely ~default_value:(Some (VSet [])) ~in_oss_since:None ~qualifier:StaticRO ~ty:(Set pool_update_after_apply_guidance) "after_apply_guidance" "What the client should do after this update has been applied.";
-        field     ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _vdi) "vdi" "VDI the update was uploaded to";
-        field     ~in_product_since:rel_ely ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host)) "hosts" "The hosts that have applied this update.";
-        field     ~in_product_since:rel_inverness
-          ~default_value:(Some (VMap []))
-          ~in_oss_since:None
-          ~ty:(Map(String, String))
-          "other_config"
-          "additional configuration";
-        field     ~in_product_since:rel_inverness
-          ~default_value:(Some (VBool false))
-          ~in_oss_since:None
-          ~qualifier:StaticRO
-          ~ty:Bool
-          "enforce_homogeneity"
-          "Flag - if true, all hosts in a pool must apply this update";
+      ~persist:PersistEverything
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+
+      ~name:_pool_update
+      ~descr:"Pool-wide updates to the host software"
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages:[
+        introduce;
+        precheck;
+        apply;
+        pool_apply;
+        pool_clean;
+        destroy;
+        attach;
+        detach;
+        resync_host;
       ]
-    ()
+      ~contents:
+        [ uid       ~in_oss_since:None _pool_update;
+          namespace ~name:"name" ~contents:(names None StaticRO) ();
+          field     ~in_product_since:rel_ely ~default_value:(Some (VString "")) ~in_oss_since:None ~qualifier:StaticRO ~ty:String "version" "Update version number";
+          field     ~in_product_since:rel_ely ~default_value:(Some (VInt Int64.zero)) ~in_oss_since:None ~qualifier:StaticRO ~ty:Int "installation_size" "Size of the update in bytes";
+          field     ~in_product_since:rel_ely ~default_value:(Some (VString "")) ~in_oss_since:None ~qualifier:StaticRO ~ty:String "key" "GPG key of the update";
+          field     ~in_product_since:rel_ely ~default_value:(Some (VSet [])) ~in_oss_since:None ~qualifier:StaticRO ~ty:(Set after_apply_guidance) "after_apply_guidance" "What the client should do after this update has been applied.";
+          field     ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _vdi) "vdi" "VDI the update was uploaded to";
+          field     ~in_product_since:rel_ely ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Set (Ref _host)) "hosts" "The hosts that have applied this update.";
+          field     ~in_product_since:rel_inverness
+            ~default_value:(Some (VMap []))
+            ~in_oss_since:None
+            ~ty:(Map(String, String))
+            "other_config"
+            "additional configuration";
+          field     ~in_product_since:rel_inverness
+            ~default_value:(Some (VBool false))
+            ~in_oss_since:None
+            ~qualifier:StaticRO
+            ~ty:Bool
+            "enforce_homogeneity"
+            "Flag - if true, all hosts in a pool must apply this update";
+        ]
+      ()
+end
 
 (* New Miami pool patching mechanism *)
 
@@ -10213,7 +10218,7 @@ let all_system =
 
     pool;
     pool_patch;
-    pool_update;
+    Pool_update.t;
 
     vm;
     vm_metrics;
@@ -10223,7 +10228,7 @@ let all_system =
     vm_appliance;
     dr_task;
     host;
-    host_crashdump;
+    Host_crashdump.t;
     host_patch;
     host_metrics;
     hostcpu;
