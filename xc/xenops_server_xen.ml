@@ -2734,8 +2734,10 @@ module VIF = struct
                    )
                ) |> ignore
              | Network.Sriov _ ->
-                 debug "Ignoring unplug on network SR-IOV VF backed VIF = %s.\
-                   It would be unplugged until its PCI device is unplugged." (id_of vif)
+               Xenops_task.with_subtask task (Printf.sprintf "NetSriovVf.hard_shutdown %s" (id_of vif))
+                 (fun () -> Device.hard_shutdown task ~xs device);
+               debug "Unplug on network SR-IOV VF backed VIF = %s. \
+                 It would be unplugged until its PCI device is unplugged." (id_of vif)
            end;
            let domid = device.Device_common.frontend.Device_common.domid in
            let interfaces = interfaces_of_vif domid vif.id vif.position in

@@ -820,6 +820,12 @@ module NetSriovVf = struct
     end;
     device
 
+  let hard_shutdown ~xs (x: device) =
+    debug "Device.NetSriovVf.hard_shutdown about to blow away backend and frontend paths";
+    Generic.safe_rm ~xs (frontend_ro_path_of_device ~xs x);
+    Generic.safe_rm ~xs (frontend_rw_path_of_device ~xs x);
+    Generic.safe_rm ~xs (backend_path_of_device ~xs x)
+
 end
 
 (*****************************************************************************)
@@ -2357,7 +2363,7 @@ end (* Dm *)
 
 let hard_shutdown (task: Xenops_task.task_handle) ~xs (x: device) = match x.backend.kind with
   | Vif -> Vif.hard_shutdown task ~xs x
-  | NetSriovVf -> raise (Unimplemented("network sr-iov"))
+  | NetSriovVf -> NetSriovVf.hard_shutdown ~xs x
   | Vbd _ | Tap -> Vbd.hard_shutdown task ~xs x
   | Pci -> PCI.hard_shutdown task ~xs x
   | Vfs -> Vfs.hard_shutdown task ~xs x
