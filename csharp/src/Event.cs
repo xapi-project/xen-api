@@ -87,49 +87,49 @@ namespace XenAPI
         public static Event get_record(Session session, string _event)
         {
             if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.event_get_record(session.uuid, _event);
+                return session.JsonRpcClient.event_get_record(session.opaque_ref, _event);
             else
-                return new Event(session.proxy.event_get_record(session.uuid, _event ?? "").parse());
+                return new Event(session.proxy.event_get_record(session.opaque_ref, _event ?? "").parse());
         }
 
         public static string get_by_uuid(Session session, string _uuid)
         {
             if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.event_get_by_uuid(session.uuid, _uuid);
+                return session.JsonRpcClient.event_get_by_uuid(session.opaque_ref, _uuid);
             else
-                return session.proxy.event_get_by_uuid(session.uuid, _uuid ?? "").parse();
+                return session.proxy.event_get_by_uuid(session.opaque_ref, _uuid ?? "").parse();
         }
 
         public static long get_id(Session session, string _event)
         {
             if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.event_get_id(session.uuid, _event);
+                return session.JsonRpcClient.event_get_id(session.opaque_ref, _event);
             else
-                return long.Parse(session.proxy.event_get_id(session.uuid, _event ?? "").parse());
+                return long.Parse(session.proxy.event_get_id(session.opaque_ref, _event ?? "").parse());
         }
 
         public static void set_id(Session session, string _event, long _id)
         {
             if (session.JsonRpcClient != null)
-                session.JsonRpcClient.event_set_id(session.uuid, _event, _id);
+                session.JsonRpcClient.event_set_id(session.opaque_ref, _event, _id);
             else
-                session.proxy.event_set_id(session.uuid, _event ?? "", _id.ToString()).parse();
+                session.proxy.event_set_id(session.opaque_ref, _event ?? "", _id.ToString()).parse();
         }
 
         public static void register(Session session, string[] _classes)
         {
             if (session.JsonRpcClient != null)
-                session.JsonRpcClient.event_register(session.uuid, _classes);
+                session.JsonRpcClient.event_register(session.opaque_ref, _classes);
             else
-                session.proxy.event_register(session.uuid, _classes).parse();
+                session.proxy.event_register(session.opaque_ref, _classes).parse();
         }
 
         public static void unregister(Session session, string[] _classes)
         {
             if (session.JsonRpcClient != null)
-                session.JsonRpcClient.event_unregister(session.uuid, _classes);
+                session.JsonRpcClient.event_unregister(session.opaque_ref, _classes);
             else
-                session.proxy.event_unregister(session.uuid, _classes).parse();
+                session.proxy.event_unregister(session.opaque_ref, _classes).parse();
         }
 
         public static Proxy_Event[] next(Session session)
@@ -137,15 +137,15 @@ namespace XenAPI
             if (session.JsonRpcClient != null)
                 throw new NotImplementedException();
             else
-                return session.proxy.event_next(session.uuid).parse();
+                return session.proxy.event_next(session.opaque_ref).parse();
         }
 
         public static IEventCollection from(Session session, string[] _classes, string _token, double _timeout)
         {
             if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.event_from(session.uuid, _classes, _token, _timeout);
+                return session.JsonRpcClient.event_from(session.opaque_ref, _classes, _token, _timeout);
             else
-                return session.proxy.event_from(session.uuid, _classes, _token, _timeout).parse();
+                return session.proxy.event_from(session.opaque_ref, _classes, _token, _timeout).parse();
         }
 
         private long _id;

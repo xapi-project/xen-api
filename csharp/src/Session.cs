@@ -120,7 +120,7 @@ namespace XenAPI
         public Session(Session session, int timeout)
             : this(session.Url, timeout)
         {
-            opaque_ref = session.uuid;
+            opaque_ref = session.opaque_ref;
             APIVersion = session.APIVersion;
             _isLocalSuperuser = session.IsLocalSuperuser;
             _subject = session._subject;
@@ -170,7 +170,7 @@ namespace XenAPI
                 return;
 
             // allRoles will contain every role on the server, permissions contains the subset of those that are available to this session.
-            permissions = Session.get_rbac_permissions(this, uuid);
+            permissions = Session.get_rbac_permissions(this, opaque_ref);
             Dictionary<XenRef<Role>, Role> allRoles = Role.get_all_records(this);
             // every Role object is either a single api call (a permission) or has subroles and contains permissions through its descendants.
             // We take out the parent Roles (VM-Admin etc.) into the Session.Roles field
@@ -214,6 +214,7 @@ namespace XenAPI
 
         public JsonRpcClient JsonRpcClient { get; private set; }
 
+        [Obsolete("Use opaque_ref instead.")]
         public string uuid
         {
             get { return opaque_ref; }
@@ -429,7 +430,7 @@ namespace XenAPI
         /// <param name="session2">The session to log out</param>
         public void logout(Session session2)
         {
-            logout(session2.uuid);
+            logout(session2.opaque_ref);
             session2.opaque_ref = null;
         }
 
@@ -455,19 +456,19 @@ namespace XenAPI
 
         public void local_logout(Session session2)
         {
-            local_logout(session2.uuid);
+            local_logout(session2.opaque_ref);
             session2.opaque_ref = null;
         }
 
-        public void local_logout(string session_uuid)
+        public void local_logout(string opaqueRef)
         {
-            if (session_uuid == null)
+            if (opaqueRef == null)
                 return;
 
             if (JsonRpcClient != null)
-                JsonRpcClient.session_local_logout(session_uuid);
+                JsonRpcClient.session_local_logout(opaqueRef);
             else
-                proxy.session_local_logout(session_uuid).parse();
+                proxy.session_local_logout(opaqueRef).parse();
         }
 
         public void change_password(string oldPassword, string newPassword)
@@ -484,108 +485,108 @@ namespace XenAPI
         public void change_password(Session session2, string oldPassword, string newPassword)
         {
             if (JsonRpcClient != null)
-                JsonRpcClient.session_change_password(session2.uuid, oldPassword, newPassword);
+                JsonRpcClient.session_change_password(session2.opaque_ref, oldPassword, newPassword);
             else
-                proxy.session_change_password(session2.uuid, oldPassword, newPassword).parse();
+                proxy.session_change_password(session2.opaque_ref, oldPassword, newPassword).parse();
         }
 
         public string get_this_host()
         {
-            return get_this_host(this, uuid);
+            return get_this_host(this, opaque_ref);
         }
 
         public static string get_this_host(Session session, string _self)
         {
             if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_this_host(session.uuid, _self ?? "");
+                return session.JsonRpcClient.session_get_this_host(session.opaque_ref, _self ?? "");
             else
-                return session.proxy.session_get_this_host(session.uuid, _self ?? "").parse();
+                return session.proxy.session_get_this_host(session.opaque_ref, _self ?? "").parse();
         }
 
         public string get_this_user()
         {
-            return get_this_user(this, uuid);
+            return get_this_user(this, opaque_ref);
         }
 
         public static string get_this_user(Session session, string _self)
         {
             if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_this_user(session.uuid, _self ?? "");
+                return session.JsonRpcClient.session_get_this_user(session.opaque_ref, _self ?? "");
             else
-                return session.proxy.session_get_this_user(session.uuid, _self ?? "").parse();
+                return session.proxy.session_get_this_user(session.opaque_ref, _self ?? "").parse();
         }
 
         public bool get_is_local_superuser()
         {
-            return get_is_local_superuser(this, uuid);
+            return get_is_local_superuser(this, opaque_ref);
         }
 
         public static bool get_is_local_superuser(Session session, string _self)
         {
             if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_is_local_superuser(session.uuid, _self ?? "");
+                return session.JsonRpcClient.session_get_is_local_superuser(session.opaque_ref, _self ?? "");
             else
-                return session.proxy.session_get_is_local_superuser(session.uuid, _self ?? "").parse();
+                return session.proxy.session_get_is_local_superuser(session.opaque_ref, _self ?? "").parse();
         }
 
         public static string[] get_rbac_permissions(Session session, string _self)
         {
             if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_rbac_permissions(session.uuid, _self ?? "");
+                return session.JsonRpcClient.session_get_rbac_permissions(session.opaque_ref, _self ?? "");
             else
-                return session.proxy.session_get_rbac_permissions(session.uuid, _self ?? "").parse();
+                return session.proxy.session_get_rbac_permissions(session.opaque_ref, _self ?? "").parse();
         }
 
         public DateTime get_last_active()
         {
-            return get_last_active(this, uuid);
+            return get_last_active(this, opaque_ref);
         }
 
         public static DateTime get_last_active(Session session, string _self)
         {
             if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_last_active(session.uuid, _self ?? "");
+                return session.JsonRpcClient.session_get_last_active(session.opaque_ref, _self ?? "");
             else
-                return session.proxy.session_get_last_active(session.uuid, _self ?? "").parse();
+                return session.proxy.session_get_last_active(session.opaque_ref, _self ?? "").parse();
         }
 
         public bool get_pool()
         {
-            return get_pool(this, uuid);
+            return get_pool(this, opaque_ref);
         }
 
         public static bool get_pool(Session session, string _self)
         {
             if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_pool(session.uuid, _self ?? "");
+                return session.JsonRpcClient.session_get_pool(session.opaque_ref, _self ?? "");
             else
-                return session.proxy.session_get_pool(session.uuid, _self ?? "").parse();
+                return session.proxy.session_get_pool(session.opaque_ref, _self ?? "").parse();
         }
 
         public XenRef<Subject> get_subject()
         {
-            return get_subject(this, uuid);
+            return get_subject(this, opaque_ref);
         }
 
         public static XenRef<Subject> get_subject(Session session, string _self)
         {
             if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_subject(session.uuid, _self ?? "");
+                return session.JsonRpcClient.session_get_subject(session.opaque_ref, _self ?? "");
             else
-                return new XenRef<Subject>(session.proxy.session_get_subject(session.uuid, _self ?? "").parse());
+                return new XenRef<Subject>(session.proxy.session_get_subject(session.opaque_ref, _self ?? "").parse());
         }
 
         public string get_auth_user_sid()
         {
-            return get_auth_user_sid(this, uuid);
+            return get_auth_user_sid(this, opaque_ref);
         }
 
         public static string get_auth_user_sid(Session session, string _self)
         {
             if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_auth_user_sid(session.uuid, _self ?? "");
+                return session.JsonRpcClient.session_get_auth_user_sid(session.opaque_ref, _self ?? "");
             else
-                return session.proxy.session_get_auth_user_sid(session.uuid, _self ?? "").parse();
+                return session.proxy.session_get_auth_user_sid(session.opaque_ref, _self ?? "").parse();
         }
 
         #region AD SID enumeration and bootout
@@ -598,9 +599,9 @@ namespace XenAPI
         public static string[] get_all_subject_identifiers(Session session)
         {
             if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_all_subject_identifiers(session.uuid);
+                return session.JsonRpcClient.session_get_all_subject_identifiers(session.opaque_ref);
             else
-                return session.proxy.session_get_all_subject_identifiers(session.uuid).parse();
+                return session.proxy.session_get_all_subject_identifiers(session.opaque_ref).parse();
         }
 
         public XenRef<Task> async_get_all_subject_identifiers()
@@ -611,9 +612,9 @@ namespace XenAPI
         public static XenRef<Task> async_get_all_subject_identifiers(Session session)
         {
             if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.async_session_get_all_subject_identifiers(session.uuid);
+                return session.JsonRpcClient.async_session_get_all_subject_identifiers(session.opaque_ref);
             else
-                return XenRef<Task>.Create(session.proxy.async_session_get_all_subject_identifiers(session.uuid).parse());
+                return XenRef<Task>.Create(session.proxy.async_session_get_all_subject_identifiers(session.opaque_ref).parse());
         }
 
         public string logout_subject_identifier(string subject_identifier)
@@ -625,11 +626,11 @@ namespace XenAPI
         {
             if (session.JsonRpcClient != null)
             {
-                session.JsonRpcClient.session_logout_subject_identifier(session.uuid, subject_identifier);
+                session.JsonRpcClient.session_logout_subject_identifier(session.opaque_ref, subject_identifier);
                 return string.Empty;
             }
             else
-                return session.proxy.session_logout_subject_identifier(session.uuid, subject_identifier).parse();
+                return session.proxy.session_logout_subject_identifier(session.opaque_ref, subject_identifier).parse();
         }
 
         public XenRef<Task> async_logout_subject_identifier(string subject_identifier)
@@ -640,9 +641,9 @@ namespace XenAPI
         public static XenRef<Task> async_logout_subject_identifier(Session session, string subject_identifier)
         {
             if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.async_session_logout_subject_identifier(session.uuid, subject_identifier);
+                return session.JsonRpcClient.async_session_logout_subject_identifier(session.opaque_ref, subject_identifier);
             else
-                return XenRef<Task>.Create(session.proxy.async_session_logout_subject_identifier(session.uuid, subject_identifier).parse());
+                return XenRef<Task>.Create(session.proxy.async_session_logout_subject_identifier(session.opaque_ref, subject_identifier).parse());
         }
 
         #endregion
@@ -651,54 +652,54 @@ namespace XenAPI
 
         public Dictionary<string, string> get_other_config()
         {
-            return get_other_config(this, uuid);
+            return get_other_config(this, opaque_ref);
         }
 
         public static Dictionary<string, string> get_other_config(Session session, string _self)
         {
             if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_other_config(session.uuid, _self ?? "");
+                return session.JsonRpcClient.session_get_other_config(session.opaque_ref, _self ?? "");
             else
-                return Maps.convert_from_proxy_string_string(session.proxy.session_get_other_config(session.uuid, _self ?? "").parse());
+                return Maps.convert_from_proxy_string_string(session.proxy.session_get_other_config(session.opaque_ref, _self ?? "").parse());
         }
 
         public void set_other_config(Dictionary<string, string> _other_config)
         {
-            set_other_config(this, uuid, _other_config);
+            set_other_config(this, opaque_ref, _other_config);
         }
 
         public static void set_other_config(Session session, string _self, Dictionary<string, string> _other_config)
         {
             if (session.JsonRpcClient != null)
-                session.JsonRpcClient.session_set_other_config(session.uuid, _self ?? "", _other_config);
+                session.JsonRpcClient.session_set_other_config(session.opaque_ref, _self ?? "", _other_config);
             else
-                session.proxy.session_set_other_config(session.uuid, _self ?? "", Maps.convert_to_proxy_string_string(_other_config)).parse();
+                session.proxy.session_set_other_config(session.opaque_ref, _self ?? "", Maps.convert_to_proxy_string_string(_other_config)).parse();
         }
 
         public void add_to_other_config(string _key, string _value)
         {
-            add_to_other_config(this, uuid, _key, _value);
+            add_to_other_config(this, opaque_ref, _key, _value);
         }
 
         public static void add_to_other_config(Session session, string _self, string _key, string _value)
         {
             if (session.JsonRpcClient != null)
-                session.JsonRpcClient.session_add_to_other_config(session.uuid, _self ?? "", _key ?? "", _value ?? "");
+                session.JsonRpcClient.session_add_to_other_config(session.opaque_ref, _self ?? "", _key ?? "", _value ?? "");
             else
-                session.proxy.session_add_to_other_config(session.uuid, _self ?? "", _key ?? "", _value ?? "").parse();
+                session.proxy.session_add_to_other_config(session.opaque_ref, _self ?? "", _key ?? "", _value ?? "").parse();
         }
 
         public void remove_from_other_config(string _key)
         {
-            remove_from_other_config(this, uuid, _key);
+            remove_from_other_config(this, opaque_ref, _key);
         }
 
         public static void remove_from_other_config(Session session, string _self, string _key)
         {
             if (session.JsonRpcClient != null)
-                session.JsonRpcClient.session_remove_from_other_config(session.uuid, _self ?? "", _key ?? "");
+                session.JsonRpcClient.session_remove_from_other_config(session.opaque_ref, _self ?? "", _key ?? "");
             else
-                session.proxy.session_remove_from_other_config(session.uuid, _self ?? "", _key ?? "").parse();
+                session.proxy.session_remove_from_other_config(session.opaque_ref, _self ?? "", _key ?? "").parse();
         }
 
         #endregion

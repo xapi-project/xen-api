@@ -738,7 +738,7 @@ and exposed_call_params ~json message classname params =
   let name = String.lowercase_ascii classname in
   let refParam = if json then sprintf "_%s" name else sprintf "_%s ?? \"\"" name in
   let exposedParams = if is_method_static message then exposedParams else refParam::exposedParams in
-  String.concat ", " ("session.uuid"::exposedParams)
+  String.concat ", " ("session.opaque_ref"::exposedParams)
 
 
 (* 'messages' are methods, 'contents' are fields *)
@@ -786,7 +786,7 @@ and ctor_call classname =
   let fields = Datamodel_utils.fields_of_obj (Dm_api.get_obj_by_name api ~objname:classname) in
   let fields2 = ctor_fields fields in
   let args = (List.map (fun fr -> "p." ^ (full_name fr)) fields2) in
-  String.concat ", " ("session.uuid" :: args)
+  String.concat ", " ("session.opaque_ref" :: args)
 
 
 and gen_exposed_field out_chan cls content =

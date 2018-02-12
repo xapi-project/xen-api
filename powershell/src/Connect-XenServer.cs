@@ -218,7 +218,7 @@ namespace Citrix.XenServer.Commands
                 }
 
                 session.Tag = Creds;
-                session.opaque_ref = session.uuid;
+                session.opaque_ref = session.opaque_ref;
                 sessions[session.opaque_ref] = session;
                 newSessions[session.opaque_ref] = session;
 
