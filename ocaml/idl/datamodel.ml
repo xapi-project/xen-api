@@ -8049,28 +8049,30 @@ module VTPM = struct
       ()
 end
 
-(** Console protocols *)
-let console_protocol = Enum("console_protocol", [
-    "vt100", "VT100 terminal";
-    "rfb", "Remote FrameBuffer protocol (as used in VNC)";
-    "rdp", "Remote Desktop Protocol"
-  ])
+module Console = struct
+  (** Console protocols *)
+  let protocol = Enum("console_protocol", [
+      "vt100", "VT100 terminal";
+      "rfb", "Remote FrameBuffer protocol (as used in VNC)";
+      "rdp", "Remote Desktop Protocol"
+    ])
 
-(** A virtual console device *)
-let console =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_console ~descr:"A console"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_VM_ADMIN
-    ~messages:[]  ~contents:
-    [ uid _console;
-      field ~qualifier:DynamicRO ~ty:console_protocol "protocol" "the protocol used by this console";
-      field ~qualifier:DynamicRO ~ty:String "location" "URI for the console service";
-      field ~qualifier:DynamicRO ~ty:(Ref _vm) "VM" "VM to which this console is attached";
-      field  ~ty:(Map(String, String)) "other_config" "additional configuration";
-      field ~in_oss_since:None ~internal_only:true ~ty:Int "port" "port in dom0 on which the console server is listening";
-    ]
-    ()
+  (** A virtual console device *)
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_console ~descr:"A console"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_VM_ADMIN
+      ~messages:[]  ~contents:
+      [ uid _console;
+        field ~qualifier:DynamicRO ~ty:protocol "protocol" "the protocol used by this console";
+        field ~qualifier:DynamicRO ~ty:String "location" "URI for the console service";
+        field ~qualifier:DynamicRO ~ty:(Ref _vm) "VM" "VM to which this console is attached";
+        field  ~ty:(Map(String, String)) "other_config" "additional configuration";
+        field ~in_oss_since:None ~internal_only:true ~ty:Int "port" "port in dom0 on which the console server is listening";
+      ]
+      ()
+end
 
 (* PV domain booting *)
 let pv =
@@ -10373,7 +10375,7 @@ let all_system =
     Crashdump.t;
     (* misc *)
     VTPM.t;
-    console;
+    Console.t;
     (* filesystem; *)
     User.t;
     Data_source.t;
