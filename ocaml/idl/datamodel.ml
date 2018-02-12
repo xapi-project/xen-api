@@ -5302,155 +5302,158 @@ let qos devtype =
       ("supported QoS algorithms for this " ^ devtype);
   ]
 
-let network_operations =
-  Enum ("network_operations",
-        [ "attaching", "Indicates this network is attaching to a VIF or PIF" ])
+module Network = struct
 
-let network_default_locking_mode =
-  Enum ("network_default_locking_mode", [
-      "unlocked", "Treat all VIFs on this network with locking_mode = 'default' as if they have locking_mode = 'unlocked'";
-      "disabled", "Treat all VIFs on this network with locking_mode = 'default' as if they have locking_mode = 'disabled'";
+  let operations =
+    Enum ("network_operations",
+          [ "attaching", "Indicates this network is attaching to a VIF or PIF" ])
+
+  let default_locking_mode =
+    Enum ("network_default_locking_mode", [
+        "unlocked", "Treat all VIFs on this network with locking_mode = 'default' as if they have locking_mode = 'unlocked'";
+        "disabled", "Treat all VIFs on this network with locking_mode = 'default' as if they have locking_mode = 'disabled'";
+      ])
+
+
+  let attach = call
+      ~name:"attach"
+      ~doc:"Makes the network immediately available on a particular host"
+      ~params:[Ref _network, "network", "network to which this interface should be connected";
+               Ref _host, "host", "physical machine to which this PIF is connected"]
+      ~in_product_since:rel_miami
+      ~hide_from_docs:true
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let purpose = Enum ("network_purpose", [
+      "nbd", "Network Block Device service using TLS";
+      "insecure_nbd", "Network Block Device service without integrity or confidentiality: NOT RECOMMENDED";
+      (* We should (re-)add other purposes as and when we write code with behaviour that depends on them,
+       * e.g. management, storage, guest, himn... unmanaged? *)
     ])
 
+  let introduce_params first_rel =
+    [
+      {param_type=String; param_name="name_label"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=String; param_name="name_description"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=Int; param_name="MTU"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=Map(String,String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=String; param_name="bridge"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=Bool; param_name="managed"; param_doc=""; param_release=falcon_release; param_default=None};
+      {param_type=Set(purpose); param_name="purpose"; param_doc=""; param_release=inverness_release; param_default=None};
+    ]
 
-let network_attach = call
-    ~name:"attach"
-    ~doc:"Makes the network immediately available on a particular host"
-    ~params:[Ref _network, "network", "network to which this interface should be connected";
-             Ref _host, "host", "physical machine to which this PIF is connected"]
-    ~in_product_since:rel_miami
-    ~hide_from_docs:true
-    ~allowed_roles:_R_POOL_OP
-    ()
+  (* network pool introduce is used to copy network records on pool join -- it's the network analogue of VDI/PIF.pool_introduce *)
+  let pool_introduce = call
+      ~name:"pool_introduce"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~versioned_params:(introduce_params miami_release)
+      ~doc:"Create a new network record in the database only"
+      ~result:(Ref _network, "The ref of the newly created network record.")
+      ~hide_from_docs:true
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let network_purpose = Enum ("network_purpose", [
-    "nbd", "Network Block Device service using TLS";
-    "insecure_nbd", "Network Block Device service without integrity or confidentiality: NOT RECOMMENDED";
-    (* We should (re-)add other purposes as and when we write code with behaviour that depends on them,
-     * e.g. management, storage, guest, himn... unmanaged? *)
-  ])
+  let create_new_blob = call
+      ~name: "create_new_blob"
+      ~in_product_since:rel_orlando
+      ~doc:"Create a placeholder for a named binary blob of data that is associated with this pool"
+      ~versioned_params:
+        [{param_type=Ref _network; param_name="network"; param_doc="The network"; param_release=orlando_release; param_default=None};
+         {param_type=String; param_name="name"; param_doc="The name associated with the blob"; param_release=orlando_release; param_default=None};
+         {param_type=String; param_name="mime_type"; param_doc="The mime type for the data. Empty string translates to application/octet-stream"; param_release=orlando_release; param_default=None};
+         {param_type=Bool; param_name="public"; param_doc="True if the blob should be publicly available"; param_release=tampa_release; param_default=Some (VBool false)}
+        ]
+      ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let network_introduce_params first_rel =
-  [
-    {param_type=String; param_name="name_label"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=String; param_name="name_description"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Int; param_name="MTU"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Map(String,String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=String; param_name="bridge"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Bool; param_name="managed"; param_doc=""; param_release=falcon_release; param_default=None};
-    {param_type=Set(network_purpose); param_name="purpose"; param_doc=""; param_release=inverness_release; param_default=None};
-  ]
-
-(* network pool introduce is used to copy network records on pool join -- it's the network analogue of VDI/PIF.pool_introduce *)
-let network_pool_introduce = call
-    ~name:"pool_introduce"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~versioned_params:(network_introduce_params miami_release)
-    ~doc:"Create a new network record in the database only"
-    ~result:(Ref _network, "The ref of the newly created network record.")
-    ~hide_from_docs:true
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let network_create_new_blob = call
-    ~name: "create_new_blob"
-    ~in_product_since:rel_orlando
-    ~doc:"Create a placeholder for a named binary blob of data that is associated with this pool"
-    ~versioned_params:
-      [{param_type=Ref _network; param_name="network"; param_doc="The network"; param_release=orlando_release; param_default=None};
-       {param_type=String; param_name="name"; param_doc="The name associated with the blob"; param_release=orlando_release; param_default=None};
-       {param_type=String; param_name="mime_type"; param_doc="The mime type for the data. Empty string translates to application/octet-stream"; param_release=orlando_release; param_default=None};
-       {param_type=Bool; param_name="public"; param_doc="True if the blob should be publicly available"; param_release=tampa_release; param_default=Some (VBool false)}
+  let set_default_locking_mode = call
+      ~name:"set_default_locking_mode"
+      ~in_product_since:rel_tampa
+      ~doc:"Set the default locking mode for VIFs attached to this network"
+      ~params:[
+        Ref _network, "network", "The network";
+        default_locking_mode, "value", "The default locking mode for VIFs attached to this network.";
       ]
-    ~result:(Ref _blob, "The reference of the blob, needed for populating its data")
-    ~allowed_roles:_R_POOL_OP
-    ()
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let network_set_default_locking_mode = call
-    ~name:"set_default_locking_mode"
-    ~in_product_since:rel_tampa
-    ~doc:"Set the default locking mode for VIFs attached to this network"
-    ~params:[
-      Ref _network, "network", "The network";
-      network_default_locking_mode, "value", "The default locking mode for VIFs attached to this network.";
-    ]
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let attach_for_vm = call
+      ~name:"attach_for_vm"
+      ~doc:"Attaches all networks needed by a given VM on a particular host"
+      ~params:[
+        Ref _host, "host", "Physical machine to which the networks are to be attached";
+        Ref _vm, "vm", "The virtual machine"
+      ]
+      ~in_product_since:rel_tampa
+      ~hide_from_docs:true
+      ~allowed_roles:_R_VM_POWER_ADMIN
+      ()
 
-let network_attach_for_vm = call
-    ~name:"attach_for_vm"
-    ~doc:"Attaches all networks needed by a given VM on a particular host"
-    ~params:[
-      Ref _host, "host", "Physical machine to which the networks are to be attached";
-      Ref _vm, "vm", "The virtual machine"
-    ]
-    ~in_product_since:rel_tampa
-    ~hide_from_docs:true
-    ~allowed_roles:_R_VM_POWER_ADMIN
-    ()
+  let detach_for_vm = call
+      ~name:"detach_for_vm"
+      ~doc:"Detaches all networks of a given VM from a particular host"
+      ~params:[
+        Ref _host, "host", "Physical machine from which the networks are to be attached";
+        Ref _vm, "vm", "The virtual machine"
+      ]
+      ~in_product_since:rel_tampa
+      ~hide_from_docs:true
+      ~allowed_roles:_R_VM_POWER_ADMIN
+      ()
 
-let network_detach_for_vm = call
-    ~name:"detach_for_vm"
-    ~doc:"Detaches all networks of a given VM from a particular host"
-    ~params:[
-      Ref _host, "host", "Physical machine from which the networks are to be attached";
-      Ref _vm, "vm", "The virtual machine"
-    ]
-    ~in_product_since:rel_tampa
-    ~hide_from_docs:true
-    ~allowed_roles:_R_VM_POWER_ADMIN
-    ()
+  let add_purpose = call
+      ~name:"add_purpose"
+      ~doc:"Give a network a new purpose (if not present already)"
+      ~params:[
+        Ref _network, "self", "The network";
+        purpose, "value", "The purpose to add";
+      ]
+      ~errs:[Api_errors.network_incompatible_purposes]
+      ~in_product_since:rel_inverness
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
 
-let network_add_purpose = call
-    ~name:"add_purpose"
-    ~doc:"Give a network a new purpose (if not present already)"
-    ~params:[
-      Ref _network, "self", "The network";
-      network_purpose, "value", "The purpose to add";
-    ]
-    ~errs:[Api_errors.network_incompatible_purposes]
-    ~in_product_since:rel_inverness
-    ~allowed_roles:_R_POOL_ADMIN
-    ()
+  let remove_purpose = call
+      ~name:"remove_purpose"
+      ~doc:"Remove a purpose from a network (if present)"
+      ~params:[
+        Ref _network, "self", "The network";
+        purpose, "value", "The purpose to remove";
+      ]
+      ~in_product_since:rel_inverness
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
 
-let network_remove_purpose = call
-    ~name:"remove_purpose"
-    ~doc:"Remove a purpose from a network (if present)"
-    ~params:[
-      Ref _network, "self", "The network";
-      network_purpose, "value", "The purpose to remove";
-    ]
-    ~in_product_since:rel_inverness
-    ~allowed_roles:_R_POOL_ADMIN
-    ()
-
-(** A virtual network *)
-let network =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_network ~descr:"A virtual network" ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_VM_ADMIN (* vm admins can create/destroy networks without PIFs *)
-    ~doc_tags:[Networking]
-    ~messages:[network_attach; network_pool_introduce; network_create_new_blob; network_set_default_locking_mode;
-               network_attach_for_vm; network_detach_for_vm; network_add_purpose; network_remove_purpose]
-    ~contents:
-      ([
-        uid _network;
-        namespace ~name:"name" ~contents:(names ~writer_roles:_R_POOL_OP oss_since_303 RW) ();
-      ] @ (allowed_and_current_operations ~writer_roles:_R_POOL_OP network_operations) @ [
-          field ~qualifier:DynamicRO ~ty:(Set (Ref _vif)) "VIFs" "list of connected vifs";
-          field ~qualifier:DynamicRO ~ty:(Set (Ref _pif)) "PIFs" "list of connected pifs";
-          field ~qualifier:RW ~ty:Int ~default_value:(Some (VInt 1500L)) ~in_product_since:rel_midnight_ride "MTU" "MTU in octets";
-          field ~writer_roles:_R_POOL_OP ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP));("XenCenterCreateInProgress",(_R_VM_OP))];
-          field ~lifecycle:[Published, rel_rio, ""; Changed, rel_falcon, "Added to the constructor (network.create)"] ~in_oss_since:None ~qualifier:StaticRO  ~ty:String ~default_value:(Some (VString "")) "bridge" "name of the bridge corresponding to this network on the local host";
-          field ~lifecycle:[Published, rel_falcon, ""] ~qualifier:StaticRO ~ty:Bool ~default_value:(Some (VBool true)) "managed" "true if the bridge is managed by xapi";
-          field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this network";
-          field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
-          field ~qualifier:DynamicRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "unlocked")) ~ty:network_default_locking_mode "default_locking_mode" "The network will use this value to determine the behaviour of all VIFs where locking_mode = default";
-          field ~qualifier:DynamicRO ~in_product_since:rel_creedence ~default_value:(Some (VMap [])) ~ty:(Map (Ref _vif, String)) "assigned_ips" "The IP addresses assigned to VIFs on networks that have active xapi-managed DHCP";
-          field ~qualifier:DynamicRO ~in_product_since:rel_inverness ~default_value:(Some (VSet [])) ~ty:(Set network_purpose) "purpose" "Set of purposes for which the server will use this network";
-        ])
-    ()
+  (** A virtual network *)
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_network ~descr:"A virtual network" ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_VM_ADMIN (* vm admins can create/destroy networks without PIFs *)
+      ~doc_tags:[Networking]
+      ~messages:[attach; pool_introduce; create_new_blob; set_default_locking_mode;
+                 attach_for_vm; detach_for_vm; add_purpose; remove_purpose]
+      ~contents:
+        ([
+          uid _network;
+          namespace ~name:"name" ~contents:(names ~writer_roles:_R_POOL_OP oss_since_303 RW) ();
+        ] @ (allowed_and_current_operations ~writer_roles:_R_POOL_OP operations) @ [
+            field ~qualifier:DynamicRO ~ty:(Set (Ref _vif)) "VIFs" "list of connected vifs";
+            field ~qualifier:DynamicRO ~ty:(Set (Ref _pif)) "PIFs" "list of connected pifs";
+            field ~qualifier:RW ~ty:Int ~default_value:(Some (VInt 1500L)) ~in_product_since:rel_midnight_ride "MTU" "MTU in octets";
+            field ~writer_roles:_R_POOL_OP ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP));("XenCenterCreateInProgress",(_R_VM_OP))];
+            field ~lifecycle:[Published, rel_rio, ""; Changed, rel_falcon, "Added to the constructor (network.create)"] ~in_oss_since:None ~qualifier:StaticRO  ~ty:String ~default_value:(Some (VString "")) "bridge" "name of the bridge corresponding to this network on the local host";
+            field ~lifecycle:[Published, rel_falcon, ""] ~qualifier:StaticRO ~ty:Bool ~default_value:(Some (VBool true)) "managed" "true if the bridge is managed by xapi";
+            field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this network";
+            field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
+            field ~qualifier:DynamicRO ~in_product_since:rel_tampa ~default_value:(Some (VEnum "unlocked")) ~ty:default_locking_mode "default_locking_mode" "The network will use this value to determine the behaviour of all VIFs where locking_mode = default";
+            field ~qualifier:DynamicRO ~in_product_since:rel_creedence ~default_value:(Some (VMap [])) ~ty:(Map (Ref _vif, String)) "assigned_ips" "The IP addresses assigned to VIFs on networks that have active xapi-managed DHCP";
+            field ~qualifier:DynamicRO ~in_product_since:rel_inverness ~default_value:(Some (VSet [])) ~ty:(Set purpose) "purpose" "Set of purposes for which the server will use this network";
+          ])
+      ()
+end
 
 let pif_create_VLAN = call
     ~name:"create_VLAN"
@@ -10276,7 +10279,7 @@ let all_system =
     Host_metrics.t;
     Host_cpu.t;
     (* network_manager; *)
-    network;
+    Network.t;
     vif;
     vif_metrics;
     pif;
