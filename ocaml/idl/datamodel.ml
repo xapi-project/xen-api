@@ -5742,28 +5742,29 @@ module PIF = struct
       ()
 end
 
-let pif_metrics =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_pif_metrics ~descr:"The metrics associated with a physical network interface"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~doc_tags:[Networking]
-    ~messages:[] ~contents:
-    [ uid _pif_metrics;
-      namespace ~name:"io" ~contents:iobandwidth ();
-      field ~qualifier:DynamicRO ~ty:Bool "carrier" "Report if the PIF got a carrier or not";
-      field ~qualifier:DynamicRO ~ty:String "vendor_id" "Report vendor ID";
-      field ~qualifier:DynamicRO ~ty:String "vendor_name" "Report vendor name";
-      field ~qualifier:DynamicRO ~ty:String "device_id" "Report device ID";
-      field ~qualifier:DynamicRO ~ty:String "device_name" "Report device name";
-      field ~qualifier:DynamicRO ~ty:Int "speed" "Speed of the link (if available)";
-      field ~qualifier:DynamicRO ~ty:Bool "duplex" "Full duplex capability of the link (if available)";
-      field ~qualifier:DynamicRO ~ty:String "pci_bus_path" "PCI bus path of the pif (if available)";
-      field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
-      field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-    ]
-    ()
-
+module PIF_metrics = struct
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_pif_metrics ~descr:"The metrics associated with a physical network interface"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~doc_tags:[Networking]
+      ~messages:[] ~contents:
+      [ uid _pif_metrics;
+        namespace ~name:"io" ~contents:iobandwidth ();
+        field ~qualifier:DynamicRO ~ty:Bool "carrier" "Report if the PIF got a carrier or not";
+        field ~qualifier:DynamicRO ~ty:String "vendor_id" "Report vendor ID";
+        field ~qualifier:DynamicRO ~ty:String "vendor_name" "Report vendor name";
+        field ~qualifier:DynamicRO ~ty:String "device_id" "Report device ID";
+        field ~qualifier:DynamicRO ~ty:String "device_name" "Report device name";
+        field ~qualifier:DynamicRO ~ty:Int "speed" "Speed of the link (if available)";
+        field ~qualifier:DynamicRO ~ty:Bool "duplex" "Full duplex capability of the link (if available)";
+        field ~qualifier:DynamicRO ~ty:String "pci_bus_path" "PCI bus path of the pif (if available)";
+        field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
+        field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
+      ]
+      ()
+end
 
 let bond_mode =
   Enum ("bond_mode", [
@@ -10300,7 +10301,7 @@ let all_system =
     vif;
     vif_metrics;
     PIF.t;
-    pif_metrics;
+    PIF_metrics.t;
     bond;
     vlan;
     storage_plugin;
