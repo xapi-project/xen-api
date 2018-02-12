@@ -5844,59 +5844,66 @@ module Bond = struct
       ()
 end
 
-let vlan_introduce_params first_rel =
-  [
-    {param_type=Ref _pif; param_name="tagged_PIF"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Ref _pif; param_name="untagged_PIF"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Int; param_name="tag"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Map(String, String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
-  ]
+module VLAN = struct
 
-(* vlan pool introduce is used to copy management vlan record on pool join -- it's the vlan analogue of VDI/PIF.pool_introduce *)
-let vlan_pool_introduce = call
-    ~name:"pool_introduce"
-    ~in_oss_since:None
-    ~in_product_since:rel_inverness
-    ~versioned_params:(vlan_introduce_params inverness_release)
-    ~doc:"Create a new vlan record in the database only"
-    ~result:(Ref _vlan, "The reference of the created VLAN object")
-    ~hide_from_docs:true
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let introduce_params first_rel =
+    [
+      {param_type=Ref _pif; param_name="tagged_PIF"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=Ref _pif; param_name="untagged_PIF"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=Int; param_name="tag"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=Map(String, String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
+    ]
 
-let vlan_create = call
-    ~name:"create"
-    ~doc:"Create a VLAN mux/demuxer"
-    ~params:[ Ref _pif, "tagged_PIF", "PIF which receives the tagged traffic";
-              Int, "tag", "VLAN tag to use";
-              Ref _network, "network", "Network to receive the untagged traffic" ]
-    ~result:(Ref _vlan, "The reference of the created VLAN object")
-    ~in_product_since:rel_miami
-    ~allowed_roles:_R_POOL_OP
-    ()
+  (* vlan pool introduce is used to copy management vlan record on pool join -- it's the vlan analogue of VDI/PIF.pool_introduce *)
+  let pool_introduce = call
+      ~name:"pool_introduce"
+      ~in_oss_since:None
+      ~in_product_since:rel_inverness
+      ~versioned_params:(introduce_params inverness_release)
+      ~doc:"Create a new vlan record in the database only"
+      ~result:(Ref _vlan, "The reference of the created VLAN object")
+      ~hide_from_docs:true
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let vlan_destroy = call
-    ~name:"destroy"
-    ~doc:"Destroy a VLAN mux/demuxer"
-    ~params:[Ref _vlan, "self", "VLAN mux/demuxer to destroy"]
-    ~in_product_since:rel_miami
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let create = call
+      ~name:"create"
+      ~doc:"Create a VLAN mux/demuxer"
+      ~params:[ Ref _pif, "tagged_PIF", "PIF which receives the tagged traffic";
+                Int, "tag", "VLAN tag to use";
+                Ref _network, "network", "Network to receive the untagged traffic" ]
+      ~result:(Ref _vlan, "The reference of the created VLAN object")
+      ~in_product_since:rel_miami
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let vlan =
-  create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_vlan ~descr:"A VLAN mux/demux" ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~doc_tags:[Networking]
-    ~messages:[ vlan_pool_introduce; vlan_create; vlan_destroy ] ~contents:
-    ([
-      uid _vlan;
-      field ~qualifier:StaticRO ~ty:(Ref _pif) ~in_product_since:rel_miami "tagged_PIF" "interface on which traffic is tagged" ~default_value:(Some (VRef ""));
-      field ~qualifier:DynamicRO ~ty:(Ref _pif) ~in_product_since:rel_miami "untagged_PIF" "interface on which traffic is untagged" ~default_value:(Some (VRef ""));
-      field ~qualifier:StaticRO ~ty:Int ~in_product_since:rel_miami "tag" "VLAN tag in use" ~default_value:(Some (VInt (-1L)));
-      field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-    ])
-    ()
+  let destroy = call
+      ~name:"destroy"
+      ~doc:"Destroy a VLAN mux/demuxer"
+      ~params:[Ref _vlan, "self", "VLAN mux/demuxer to destroy"]
+      ~in_product_since:rel_miami
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_vlan ~descr:"A VLAN mux/demux" ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~doc_tags:[Networking]
+      ~messages:[
+        pool_introduce;
+        create;
+        destroy
+      ]
+      ~contents:[
+        uid _vlan;
+        field ~qualifier:StaticRO ~ty:(Ref _pif) ~in_product_since:rel_miami "tagged_PIF" "interface on which traffic is tagged" ~default_value:(Some (VRef ""));
+        field ~qualifier:DynamicRO ~ty:(Ref _pif) ~in_product_since:rel_miami "untagged_PIF" "interface on which traffic is untagged" ~default_value:(Some (VRef ""));
+        field ~qualifier:StaticRO ~ty:Int ~in_product_since:rel_miami "tag" "VLAN tag in use" ~default_value:(Some (VInt (-1L)));
+        field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
+      ]
+      ()
+end
 
 let tunnel_create = call
     ~name:"create"
@@ -10311,7 +10318,7 @@ let all_system =
     PIF.t;
     PIF_metrics.t;
     Bond.t;
-    vlan;
+    VLAN.t;
     storage_plugin;
     storage_repository;
     lvhd;
