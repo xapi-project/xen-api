@@ -6378,38 +6378,40 @@ module SR = struct
 
 end
 
-(** XXX: just make this a field and be done with it. Cowardly refusing to change the schema for now. *)
-let sm_get_driver_filename = call
-    ~name:"get_driver_filename"
-    ~in_oss_since:None
-    ~in_product_since:rel_orlando
-    ~params:[Ref _sm, "self", "The SM to query" ]
-    ~result:(String, "The SM's driver_filename field")
-    ~doc:"Gets the SM's driver_filename field"
-    ()
+module SM = struct
+  (** XXX: just make this a field and be done with it. Cowardly refusing to change the schema for now. *)
+  let get_driver_filename = call
+      ~name:"get_driver_filename"
+      ~in_oss_since:None
+      ~in_product_since:rel_orlando
+      ~params:[Ref _sm, "self", "The SM to query" ]
+      ~result:(String, "The SM's driver_filename field")
+      ~doc:"Gets the SM's driver_filename field"
+      ()
 
-let storage_plugin =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_sm ~descr:"A storage manager plugin"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[ ]
-    ~contents:
-      ([ uid _sm;
-         namespace ~name:"name" ~contents:(names None DynamicRO) ();
-         field ~in_oss_since:None ~qualifier:DynamicRO "type" "SR.type";
-         field ~in_oss_since:None ~qualifier:DynamicRO "vendor" "Vendor who created this plugin";
-         field ~in_oss_since:None ~qualifier:DynamicRO "copyright" "Entity which owns the copyright of this plugin";
-         field ~in_oss_since:None ~qualifier:DynamicRO "version" "Version of the plugin";
-         field ~in_oss_since:None ~qualifier:DynamicRO "required_api_version" "Minimum SM API version required on the server";
-         field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Map(String,String)) "configuration" "names and descriptions of device config keys";
-         field ~in_oss_since:None ~qualifier:DynamicRO ~in_product_since:rel_miami ~lifecycle:[ Deprecated, rel_clearwater, "Use SM.features instead"; ] ~ty:(Set(String)) "capabilities" "capabilities of the SM plugin" ~default_value:(Some (VSet []));
-         field ~in_oss_since:None ~qualifier:DynamicRO ~in_product_since:rel_clearwater ~ty:(Map(String, Int)) "features" "capabilities of the SM plugin, with capability version numbers" ~default_value:(Some (VMap []));
-         field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-         field ~in_product_since:rel_orlando ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String "driver_filename" "filename of the storage driver";
-         field ~in_product_since:rel_dundee ~qualifier:DynamicRO ~default_value:(Some (VSet [])) ~ty:(Set String) "required_cluster_stack" "The storage plugin requires that one of these cluster stacks is configured and running.";
-       ])
-    ()
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_sm ~descr:"A storage manager plugin"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages:[ ]
+      ~contents:
+        ([ uid _sm;
+           namespace ~name:"name" ~contents:(names None DynamicRO) ();
+           field ~in_oss_since:None ~qualifier:DynamicRO "type" "SR.type";
+           field ~in_oss_since:None ~qualifier:DynamicRO "vendor" "Vendor who created this plugin";
+           field ~in_oss_since:None ~qualifier:DynamicRO "copyright" "Entity which owns the copyright of this plugin";
+           field ~in_oss_since:None ~qualifier:DynamicRO "version" "Version of the plugin";
+           field ~in_oss_since:None ~qualifier:DynamicRO "required_api_version" "Minimum SM API version required on the server";
+           field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Map(String,String)) "configuration" "names and descriptions of device config keys";
+           field ~in_oss_since:None ~qualifier:DynamicRO ~in_product_since:rel_miami ~lifecycle:[ Deprecated, rel_clearwater, "Use SM.features instead"; ] ~ty:(Set(String)) "capabilities" "capabilities of the SM plugin" ~default_value:(Some (VSet []));
+           field ~in_oss_since:None ~qualifier:DynamicRO ~in_product_since:rel_clearwater ~ty:(Map(String, Int)) "features" "capabilities of the SM plugin, with capability version numbers" ~default_value:(Some (VMap []));
+           field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
+           field ~in_product_since:rel_orlando ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String "driver_filename" "filename of the storage driver";
+           field ~in_product_since:rel_dundee ~qualifier:DynamicRO ~default_value:(Some (VSet [])) ~ty:(Set String) "required_cluster_stack" "The storage plugin requires that one of these cluster stacks is configured and running.";
+         ])
+      ()
+end
 
 let lvhd_enable_thin_provisioning = call
     ~name:"enable_thin_provisioning"
@@ -10337,7 +10339,7 @@ let all_system =
     PIF_metrics.t;
     Bond.t;
     VLAN.t;
-    storage_plugin;
+    SM.t;
     SR.t;
     lvhd;
     vdi;
