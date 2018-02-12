@@ -8419,46 +8419,48 @@ let tristate_type = Enum ("tristate_type",
                             "unspecified", "Unknown or unspecified";
                           ])
 
-(* Some of this stuff needs to persist (like PV drivers vsns etc.) so we know about what's likely to be in the VM even when it's off.
-   Other things don't need to persist, so we specify these on a per-field basis *)
-let vm_guest_metrics =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_vm_guest_metrics ~descr:"The metrics reported by the guest (as opposed to inferred from outside)"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_VM_ADMIN
-    ~messages:[] ~contents:
-    [ uid _vm_guest_metrics;
-      field ~qualifier:DynamicRO ~ty:(Map(String, String)) "os_version" "version of the OS";
-      field ~qualifier:DynamicRO ~ty:(Map(String, String)) "PV_drivers_version"
-        "version of the PV drivers";
-      field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None
-        ~lifecycle:[
-          Published, rel_rio, "true if the PV drivers appear to be up to date";
-          Deprecated, rel_dundee, "Deprecated in favour of PV_drivers_detected, and redefined in terms of it"
-        ]
-        "PV_drivers_up_to_date" "Logically equivalent to PV_drivers_detected";
-      field ~qualifier:DynamicRO ~ty:(Map(String, String))
-        ~lifecycle:[
-          Published, rel_rio, "free/used/total";
-          Removed, rel_george, "Disabled in favour of the RRDs, to improve scalability"
-        ]
-        "memory" "This field exists but has no data. Use the memory and memory_internal_free RRD data-sources instead.";
-      field ~qualifier:DynamicRO ~ty:(Map(String, String))
-        ~lifecycle:[
-          Published, rel_rio, "Disk configuration/free space";
-          Removed, rel_orlando, "No data"
-        ]
-        "disks" "This field exists but has no data.";
-      field ~qualifier:DynamicRO ~ty:(Map(String, String)) "networks" "network configuration";
-      field ~qualifier:DynamicRO ~ty:(Map(String, String)) "other" "anything else";
-      field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
-      field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-      field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "live" "True if the guest is sending heartbeat messages via the guest agent";
-      field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, "To be used where relevant and available instead of checking PV driver version."] ~ty:tristate_type ~default_value:(Some (VEnum "unspecified")) "can_use_hotplug_vbd" "The guest's statement of whether it supports VBD hotplug, i.e. whether it is capable of responding immediately to instantiation of a new VBD by bringing online a new PV block device. If the guest states that it is not capable, then the VBD plug and unplug operations will not be allowed while the guest is running.";
-      field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, "To be used where relevant and available instead of checking PV driver version."] ~ty:tristate_type ~default_value:(Some (VEnum "unspecified")) "can_use_hotplug_vif" "The guest's statement of whether it supports VIF hotplug, i.e. whether it is capable of responding immediately to instantiation of a new VIF by bringing online a new PV network device. If the guest states that it is not capable, then the VIF plug and unplug operations will not be allowed while the guest is running.";
-      field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, ""] ~ty:Bool ~default_value:(Some (VBool false)) "PV_drivers_detected" "At least one of the guest's devices has successfully connected to the backend.";
-    ]
-    ()
+module VM_guest_metrics = struct
+  (* Some of this stuff needs to persist (like PV drivers vsns etc.) so we know about what's likely to be in the VM even when it's off.
+     Other things don't need to persist, so we specify these on a per-field basis *)
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_vm_guest_metrics ~descr:"The metrics reported by the guest (as opposed to inferred from outside)"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_VM_ADMIN
+      ~messages:[] ~contents:
+      [ uid _vm_guest_metrics;
+        field ~qualifier:DynamicRO ~ty:(Map(String, String)) "os_version" "version of the OS";
+        field ~qualifier:DynamicRO ~ty:(Map(String, String)) "PV_drivers_version"
+          "version of the PV drivers";
+        field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None
+          ~lifecycle:[
+            Published, rel_rio, "true if the PV drivers appear to be up to date";
+            Deprecated, rel_dundee, "Deprecated in favour of PV_drivers_detected, and redefined in terms of it"
+          ]
+          "PV_drivers_up_to_date" "Logically equivalent to PV_drivers_detected";
+        field ~qualifier:DynamicRO ~ty:(Map(String, String))
+          ~lifecycle:[
+            Published, rel_rio, "free/used/total";
+            Removed, rel_george, "Disabled in favour of the RRDs, to improve scalability"
+          ]
+          "memory" "This field exists but has no data. Use the memory and memory_internal_free RRD data-sources instead.";
+        field ~qualifier:DynamicRO ~ty:(Map(String, String))
+          ~lifecycle:[
+            Published, rel_rio, "Disk configuration/free space";
+            Removed, rel_orlando, "No data"
+          ]
+          "disks" "This field exists but has no data.";
+        field ~qualifier:DynamicRO ~ty:(Map(String, String)) "networks" "network configuration";
+        field ~qualifier:DynamicRO ~ty:(Map(String, String)) "other" "anything else";
+        field ~qualifier:DynamicRO ~ty:DateTime "last_updated" "Time at which this information was last updated";
+        field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
+        field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "live" "True if the guest is sending heartbeat messages via the guest agent";
+        field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, "To be used where relevant and available instead of checking PV driver version."] ~ty:tristate_type ~default_value:(Some (VEnum "unspecified")) "can_use_hotplug_vbd" "The guest's statement of whether it supports VBD hotplug, i.e. whether it is capable of responding immediately to instantiation of a new VBD by bringing online a new PV block device. If the guest states that it is not capable, then the VBD plug and unplug operations will not be allowed while the guest is running.";
+        field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, "To be used where relevant and available instead of checking PV driver version."] ~ty:tristate_type ~default_value:(Some (VEnum "unspecified")) "can_use_hotplug_vif" "The guest's statement of whether it supports VIF hotplug, i.e. whether it is capable of responding immediately to instantiation of a new VIF by bringing online a new PV network device. If the guest states that it is not capable, then the VIF plug and unplug operations will not be allowed while the guest is running.";
+        field ~qualifier:DynamicRO ~lifecycle:[Published, rel_dundee, ""] ~ty:Bool ~default_value:(Some (VBool false)) "PV_drivers_detected" "At least one of the guest's devices has successfully connected to the backend.";
+      ]
+      ()
+end
 
 (* VM protection policy *)
 let vmpr_removed = [
@@ -10354,7 +10356,7 @@ let all_system =
 
     VM.t;
     VM_metrics.t;
-    vm_guest_metrics;
+    VM_guest_metrics.t;
     vmpp;
     vmss;
     vm_appliance;
