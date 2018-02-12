@@ -5766,75 +5766,83 @@ module PIF_metrics = struct
       ()
 end
 
-let bond_mode =
-  Enum ("bond_mode", [
-      "balance-slb", "Source-level balancing";
-      "active-backup", "Active/passive bonding: only one NIC is carrying traffic";
-      "lacp", "Link aggregation control protocol";
-    ])
+module Bond = struct
 
-let bond_create = call
-    ~name:"create"
-    ~doc:"Create an interface bond"
-    ~versioned_params:[
-      {param_type=Ref _network; param_name="network"; param_doc="Network to add the bonded PIF to"; param_release=miami_release; param_default=None};
-      {param_type=Set (Ref _pif); param_name="members"; param_doc="PIFs to add to this bond"; param_release=miami_release; param_default=None};
-      {param_type=String; param_name="MAC"; param_doc="The MAC address to use on the bond itself. If this parameter is the empty string then the bond will inherit its MAC address from the primary slave."; param_release=miami_release; param_default=None};
-      {param_type=bond_mode; param_name="mode"; param_doc="Bonding mode to use for the new bond"; param_release=boston_release; param_default=Some (VEnum "balance-slb")};
-      {param_type=Map (String, String); param_name="properties"; param_doc="Additional configuration parameters specific to the bond mode"; param_release=tampa_release; param_default=Some (VMap [])};
-    ]
-    ~result:(Ref _bond, "The reference of the created Bond object")
-    ~in_product_since:rel_miami
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let mode =
+    Enum ("bond_mode", [
+        "balance-slb", "Source-level balancing";
+        "active-backup", "Active/passive bonding: only one NIC is carrying traffic";
+        "lacp", "Link aggregation control protocol";
+      ])
 
-let bond_destroy = call
-    ~name:"destroy"
-    ~doc:"Destroy an interface bond"
-    ~params:[Ref _bond, "self", "Bond to destroy"]
-    ~in_product_since:rel_miami
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let bond_set_mode = call
-    ~name:"set_mode"
-    ~doc:"Change the bond mode"
-    ~params:[
-      Ref _bond, "self", "The bond";
-      bond_mode, "value", "The new bond mode";
-    ]
-    ~lifecycle:[Published, rel_boston, ""]
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let bond_set_property = call
-    ~name:"set_property"
-    ~doc:"Set the value of a property of the bond"
-    ~params:[
-      Ref _bond, "self", "The bond";
-      String, "name", "The property name";
-      String, "value", "The property value";
-    ]
-    ~in_product_since:rel_tampa
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let bond =
-  create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_bond ~descr:"" ~gen_events:true ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~doc_tags:[Networking]
-    ~messages:[ bond_create; bond_destroy; bond_set_mode; bond_set_property ]
-    ~contents:
-      [ uid _bond;
-        field ~in_oss_since:None ~in_product_since:rel_miami ~qualifier:StaticRO ~ty:(Ref _pif) "master" "The bonded interface" ~default_value:(Some (VRef ""));
-        field ~in_oss_since:None ~in_product_since:rel_miami ~qualifier:DynamicRO ~ty:(Set(Ref _pif)) "slaves" "The interfaces which are part of this bond";
-        field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
-        field ~lifecycle:[Published, rel_boston, ""] ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref)) ~ty:(Ref _pif) "primary_slave" "The PIF of which the IP configuration and MAC were copied to the bond, and which will receive all configuration/VLANs/VIFs on the bond if the bond is destroyed";
-        field ~lifecycle:[Published, rel_boston, ""] ~qualifier:DynamicRO ~default_value:(Some (VEnum "balance-slb")) ~ty:bond_mode "mode" "The algorithm used to distribute traffic among the bonded NICs";
-        field ~in_oss_since:None ~in_product_since:rel_tampa ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "properties" "Additional configuration properties specific to the bond mode.";
-        field ~in_oss_since:None ~in_product_since:rel_tampa ~qualifier:DynamicRO ~ty:Int ~default_value:(Some (VInt 0L)) "links_up" "Number of links up in this bond";
+  let create = call
+      ~name:"create"
+      ~doc:"Create an interface bond"
+      ~versioned_params:[
+        {param_type=Ref _network; param_name="network"; param_doc="Network to add the bonded PIF to"; param_release=miami_release; param_default=None};
+        {param_type=Set (Ref _pif); param_name="members"; param_doc="PIFs to add to this bond"; param_release=miami_release; param_default=None};
+        {param_type=String; param_name="MAC"; param_doc="The MAC address to use on the bond itself. If this parameter is the empty string then the bond will inherit its MAC address from the primary slave."; param_release=miami_release; param_default=None};
+        {param_type=mode; param_name="mode"; param_doc="Bonding mode to use for the new bond"; param_release=boston_release; param_default=Some (VEnum "balance-slb")};
+        {param_type=Map (String, String); param_name="properties"; param_doc="Additional configuration parameters specific to the bond mode"; param_release=tampa_release; param_default=Some (VMap [])};
       ]
-    ()
+      ~result:(Ref _bond, "The reference of the created Bond object")
+      ~in_product_since:rel_miami
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let destroy = call
+      ~name:"destroy"
+      ~doc:"Destroy an interface bond"
+      ~params:[Ref _bond, "self", "Bond to destroy"]
+      ~in_product_since:rel_miami
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let set_mode = call
+      ~name:"set_mode"
+      ~doc:"Change the bond mode"
+      ~params:[
+        Ref _bond, "self", "The bond";
+        mode, "value", "The new bond mode";
+      ]
+      ~lifecycle:[Published, rel_boston, ""]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let set_property = call
+      ~name:"set_property"
+      ~doc:"Set the value of a property of the bond"
+      ~params:[
+        Ref _bond, "self", "The bond";
+        String, "name", "The property name";
+        String, "value", "The property value";
+      ]
+      ~in_product_since:rel_tampa
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_bond ~descr:"" ~gen_events:true ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~doc_tags:[Networking]
+      ~messages:[
+        create;
+        destroy;
+        set_mode;
+        set_property;
+      ]
+      ~contents:
+        [ uid _bond;
+          field ~in_oss_since:None ~in_product_since:rel_miami ~qualifier:StaticRO ~ty:(Ref _pif) "master" "The bonded interface" ~default_value:(Some (VRef ""));
+          field ~in_oss_since:None ~in_product_since:rel_miami ~qualifier:DynamicRO ~ty:(Set(Ref _pif)) "slaves" "The interfaces which are part of this bond";
+          field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "additional configuration";
+          field ~lifecycle:[Published, rel_boston, ""] ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref)) ~ty:(Ref _pif) "primary_slave" "The PIF of which the IP configuration and MAC were copied to the bond, and which will receive all configuration/VLANs/VIFs on the bond if the bond is destroyed";
+          field ~lifecycle:[Published, rel_boston, ""] ~qualifier:DynamicRO ~default_value:(Some (VEnum "balance-slb")) ~ty:mode "mode" "The algorithm used to distribute traffic among the bonded NICs";
+          field ~in_oss_since:None ~in_product_since:rel_tampa ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "properties" "Additional configuration properties specific to the bond mode.";
+          field ~in_oss_since:None ~in_product_since:rel_tampa ~qualifier:DynamicRO ~ty:Int ~default_value:(Some (VInt 0L)) "links_up" "Number of links up in this bond";
+        ]
+      ()
+end
 
 let vlan_introduce_params first_rel =
   [
@@ -10302,7 +10310,7 @@ let all_system =
     vif_metrics;
     PIF.t;
     PIF_metrics.t;
-    bond;
+    Bond.t;
     vlan;
     storage_plugin;
     storage_repository;
