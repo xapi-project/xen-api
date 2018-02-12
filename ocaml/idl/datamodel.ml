@@ -5455,275 +5455,292 @@ module Network = struct
       ()
 end
 
-let pif_create_VLAN = call
-    ~name:"create_VLAN"
-    ~in_product_since:rel_rio
-    ~doc:"Create a VLAN interface from an existing physical interface. This call is deprecated: use VLAN.create instead"
-    ~lifecycle:[
-      Published, rel_rio, "Create a VLAN interface from an existing physical interface";
-      Deprecated, rel_miami, "Replaced by VLAN.create";
+module PIF = struct
+  let create_VLAN = call
+      ~name:"create_VLAN"
+      ~in_product_since:rel_rio
+      ~doc:"Create a VLAN interface from an existing physical interface. This call is deprecated: use VLAN.create instead"
+      ~lifecycle:[
+        Published, rel_rio, "Create a VLAN interface from an existing physical interface";
+        Deprecated, rel_miami, "Replaced by VLAN.create";
+      ]
+      ~params:[String, "device", "physical interface on which to create the VLAN interface";
+               Ref _network, "network", "network to which this interface should be connected";
+               Ref _host, "host", "physical machine to which this PIF is connected";
+               Int, "VLAN", "VLAN tag for the new interface"]
+      ~result:(Ref _pif, "The reference of the created PIF object")
+      ~errs:[Api_errors.vlan_tag_invalid]
+      ~internal_deprecated_since:rel_miami
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let destroy = call
+      ~name:"destroy"
+      ~in_product_since:rel_rio
+      ~doc:"Destroy the PIF object (provided it is a VLAN interface). This call is deprecated: use VLAN.destroy or Bond.destroy instead"
+      ~lifecycle:[
+        Published, rel_rio, "Destroy the PIF object (provided it is a VLAN interface)";
+        Deprecated, rel_miami, "Replaced by VLAN.destroy and Bond.destroy";
+      ]
+      ~params:[Ref _pif, "self", "the PIF object to destroy"]
+      ~errs:[Api_errors.pif_is_physical]
+      ~internal_deprecated_since:rel_miami
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let plug = call
+      ~name:"plug"
+      ~doc:"Attempt to bring up a physical interface"
+      ~params:[Ref _pif, "self", "the PIF object to plug"]
+      ~in_product_since:rel_miami
+      ~allowed_roles:_R_POOL_OP
+      ~errs:[Api_errors.transport_pif_not_configured]
+      ()
+
+  let unplug = call
+      ~name:"unplug"
+      ~doc:"Attempt to bring down a physical interface"
+      ~params:[Ref _pif, "self", "the PIF object to unplug"]
+      ~in_product_since:rel_miami
+      ~allowed_roles:_R_POOL_OP
+      ~errs:[Api_errors.ha_operation_would_break_failover_plan;
+             Api_errors.vif_in_use;
+             Api_errors.pif_does_not_allow_unplug;
+             Api_errors.pif_has_fcoe_sr_in_use]
+      ()
+
+  let ip_configuration_mode = Enum ("ip_configuration_mode",
+                                    [ "None", "Do not acquire an IP address";
+                                      "DHCP", "Acquire an IP address by DHCP";
+                                      "Static", "Static IP address configuration" ])
+
+  let reconfigure_ip = call
+      ~name:"reconfigure_ip"
+      ~doc:"Reconfigure the IP address settings for this interface"
+      ~params:[Ref _pif, "self", "the PIF object to reconfigure";
+               ip_configuration_mode, "mode", "whether to use dynamic/static/no-assignment";
+               String, "IP", "the new IP address";
+               String, "netmask", "the new netmask";
+               String, "gateway", "the new gateway";
+               String, "DNS", "the new DNS settings";
+              ]
+      ~in_product_since:rel_miami
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let ipv6_configuration_mode = Enum ("ipv6_configuration_mode",
+                                      [ "None", "Do not acquire an IPv6 address";
+                                        "DHCP", "Acquire an IPv6 address by DHCP";
+                                        "Static", "Static IPv6 address configuration";
+                                        "Autoconf", "Router assigned prefix delegation IPv6 allocation" ])
+
+  let reconfigure_ipv6 = call
+      ~name:"reconfigure_ipv6"
+      ~doc:"Reconfigure the IPv6 address settings for this interface"
+      ~params:[Ref _pif, "self", "the PIF object to reconfigure";
+               ipv6_configuration_mode, "mode", "whether to use dynamic/static/no-assignment";
+               String, "IPv6", "the new IPv6 address (in <addr>/<prefix length> format)";
+               String, "gateway", "the new gateway";
+               String, "DNS", "the new DNS settings";
+              ]
+      ~lifecycle:[Prototyped, rel_tampa, ""]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let primary_address_type = Enum ("primary_address_type",
+                                   [ "IPv4", "Primary address is the IPv4 address";
+                                     "IPv6", "Primary address is the IPv6 address" ])
+
+  let set_primary_address_type = call
+      ~name:"set_primary_address_type"
+      ~doc:"Change the primary address type used by this PIF"
+      ~params:[Ref _pif, "self", "the PIF object to reconfigure";
+               primary_address_type, "primary_address_type", "Whether to prefer IPv4 or IPv6 connections";
+              ]
+      ~lifecycle:[Prototyped, rel_tampa, ""]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let scan = call
+      ~name:"scan"
+      ~doc:"Scan for physical interfaces on a host and create PIF objects to represent them"
+      ~params:[Ref _host, "host", "The host on which to scan"]
+      ~in_product_since:rel_miami
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let introduce_params =
+    [
+      {param_type=Ref _host; param_name="host"; param_doc="The host on which the interface exists"; param_release=miami_release; param_default=None};
+      {param_type=String; param_name="MAC"; param_doc="The MAC address of the interface"; param_release=miami_release; param_default=None};
+      {param_type=String; param_name="device"; param_doc="The device name to use for the interface"; param_release=miami_release; param_default=None};
+      {param_type=Bool; param_name="managed"; param_doc="Indicates whether the interface is managed by xapi (defaults to \"true\")"; param_release=vgpu_productisation_release; param_default=Some (VBool true)};
     ]
-    ~params:[String, "device", "physical interface on which to create the VLAN interface";
-             Ref _network, "network", "network to which this interface should be connected";
-             Ref _host, "host", "physical machine to which this PIF is connected";
-             Int, "VLAN", "VLAN tag for the new interface"]
-    ~result:(Ref _pif, "The reference of the created PIF object")
-    ~errs:[Api_errors.vlan_tag_invalid]
-    ~internal_deprecated_since:rel_miami
-    ~allowed_roles:_R_POOL_OP
-    ()
 
-let pif_destroy = call
-    ~name:"destroy"
-    ~in_product_since:rel_rio
-    ~doc:"Destroy the PIF object (provided it is a VLAN interface). This call is deprecated: use VLAN.destroy or Bond.destroy instead"
-    ~lifecycle:[
-      Published, rel_rio, "Destroy the PIF object (provided it is a VLAN interface)";
-      Deprecated, rel_miami, "Replaced by VLAN.destroy and Bond.destroy";
+  let introduce = call
+      ~name:"introduce"
+      ~doc:"Create a PIF object matching a particular network interface"
+      ~versioned_params:introduce_params
+      ~in_product_since:rel_miami
+      ~result:(Ref _pif, "The reference of the created PIF object")
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let forget = call
+      ~name:"forget"
+      ~doc:"Destroy the PIF object matching a particular network interface"
+      ~params:[Ref _pif, "self", "The PIF object to destroy"]
+      ~in_product_since:rel_miami
+      ~allowed_roles:_R_POOL_OP
+      ~errs:[Api_errors.pif_tunnel_still_exists]
+      ()
+
+  let pool_introduce_params first_rel =
+    [
+      {param_type=String; param_name="device"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=Ref _network; param_name="network"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=Ref _host; param_name="host"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=String; param_name="MAC"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=Int; param_name="MTU"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=Int; param_name="VLAN"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=Bool; param_name="physical"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=ip_configuration_mode; param_name="ip_configuration_mode"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=String; param_name="IP"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=String; param_name="netmask"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=String; param_name="gateway"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=String; param_name="DNS"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=Ref _bond; param_name="bond_slave_of"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=Ref _vlan; param_name="VLAN_master_of"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=Bool; param_name="management"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=Map(String, String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
+      {param_type=Bool; param_name="disallow_unplug"; param_doc=""; param_release=orlando_release; param_default=Some (VBool false)};
+      {param_type=ipv6_configuration_mode; param_name="ipv6_configuration_mode"; param_doc=""; param_release=boston_release; param_default=Some (VEnum "None")};
+      {param_type=(Set(String)); param_name="IPv6"; param_doc=""; param_release=boston_release; param_default=Some (VSet [])};
+      {param_type=String; param_name="ipv6_gateway"; param_doc=""; param_release=boston_release; param_default=Some (VString "")};
+      {param_type=primary_address_type; param_name="primary_address_type"; param_doc=""; param_release=boston_release; param_default=Some (VEnum "IPv4")};
+      {param_type=Bool; param_name="managed"; param_doc=""; param_release=vgpu_productisation_release; param_default=Some (VBool true)};
+      {param_type=Map(String, String); param_name="properties"; param_doc=""; param_release=creedence_release; param_default=Some (VMap [])};
     ]
-    ~params:[Ref _pif, "self", "the PIF object to destroy"]
-    ~errs:[Api_errors.pif_is_physical]
-    ~internal_deprecated_since:rel_miami
-    ~allowed_roles:_R_POOL_OP
-    ()
 
-let pif_plug = call
-    ~name:"plug"
-    ~doc:"Attempt to bring up a physical interface"
-    ~params:[Ref _pif, "self", "the PIF object to plug"]
-    ~in_product_since:rel_miami
-    ~allowed_roles:_R_POOL_OP
-    ~errs:[Api_errors.transport_pif_not_configured]
-    ()
+  (* PIF pool introduce is used to copy PIF records on pool join -- it's the PIF analogue of VDI.pool_introduce *)
+  let pool_introduce = call
+      ~name:"pool_introduce"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~versioned_params:(pool_introduce_params miami_release)
+      ~doc:"Create a new PIF record in the database only"
+      ~result:(Ref _pif, "The ref of the newly created PIF record.")
+      ~hide_from_docs:true
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let pif_unplug = call
-    ~name:"unplug"
-    ~doc:"Attempt to bring down a physical interface"
-    ~params:[Ref _pif, "self", "the PIF object to unplug"]
-    ~in_product_since:rel_miami
-    ~allowed_roles:_R_POOL_OP
-    ~errs:[Api_errors.ha_operation_would_break_failover_plan;
-           Api_errors.vif_in_use;
-           Api_errors.pif_does_not_allow_unplug;
-           Api_errors.pif_has_fcoe_sr_in_use]
-    ()
+  let db_introduce = call
+      ~name:"db_introduce"
+      ~in_oss_since:None
+      ~in_product_since:rel_orlando
+      ~versioned_params:(pool_introduce_params orlando_release)
+      ~doc:"Create a new PIF record in the database only"
+      ~result:(Ref _pif, "The ref of the newly created PIF record.")
+      ~hide_from_docs:false
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let pif_ip_configuration_mode = Enum ("ip_configuration_mode",
-                                      [ "None", "Do not acquire an IP address";
-                                        "DHCP", "Acquire an IP address by DHCP";
-                                        "Static", "Static IP address configuration" ])
+  let db_forget = call
+      ~name:"db_forget"
+      ~in_oss_since:None
+      ~in_product_since:rel_orlando
+      ~params:[ Ref _pif, "self", "The ref of the PIF whose database record should be destroyed" ]
+      ~doc:"Destroy a PIF database record."
+      ~hide_from_docs:false
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let pif_reconfigure_ip = call
-    ~name:"reconfigure_ip"
-    ~doc:"Reconfigure the IP address settings for this interface"
-    ~params:[Ref _pif, "self", "the PIF object to reconfigure";
-             pif_ip_configuration_mode, "mode", "whether to use dynamic/static/no-assignment";
-             String, "IP", "the new IP address";
-             String, "netmask", "the new netmask";
-             String, "gateway", "the new gateway";
-             String, "DNS", "the new DNS settings";
-            ]
-    ~in_product_since:rel_miami
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let set_property = call
+      ~name:"set_property"
+      ~doc:"Set the value of a property of the PIF"
+      ~params:[
+        Ref _pif, "self", "The PIF";
+        String, "name", "The property name";
+        String, "value", "The property value";
+      ]
+      ~lifecycle:[Published, rel_creedence, ""]
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let pif_ipv6_configuration_mode = Enum ("ipv6_configuration_mode",
-                                        [ "None", "Do not acquire an IPv6 address";
-                                          "DHCP", "Acquire an IPv6 address by DHCP";
-                                          "Static", "Static IPv6 address configuration";
-                                          "Autoconf", "Router assigned prefix delegation IPv6 allocation" ])
+  let igmp_status =
+    Enum ("pif_igmp_status", [
+        "enabled", "IGMP Snooping is enabled in the corresponding backend bridge.'";
+        "disabled", "IGMP Snooping is disabled in the corresponding backend bridge.'";
+        "unknown", "IGMP snooping status is unknown. If this is a VLAN master, then please consult the underlying VLAN slave PIF."
+      ])
 
-let pif_reconfigure_ipv6 = call
-    ~name:"reconfigure_ipv6"
-    ~doc:"Reconfigure the IPv6 address settings for this interface"
-    ~params:[Ref _pif, "self", "the PIF object to reconfigure";
-             pif_ipv6_configuration_mode, "mode", "whether to use dynamic/static/no-assignment";
-             String, "IPv6", "the new IPv6 address (in <addr>/<prefix length> format)";
-             String, "gateway", "the new gateway";
-             String, "DNS", "the new DNS settings";
-            ]
-    ~lifecycle:[Prototyped, rel_tampa, ""]
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let pif_primary_address_type = Enum ("primary_address_type",
-                                     [ "IPv4", "Primary address is the IPv4 address";
-                                       "IPv6", "Primary address is the IPv6 address" ])
-
-let pif_set_primary_address_type = call
-    ~name:"set_primary_address_type"
-    ~doc:"Change the primary address type used by this PIF"
-    ~params:[Ref _pif, "self", "the PIF object to reconfigure";
-             pif_primary_address_type, "primary_address_type", "Whether to prefer IPv4 or IPv6 connections";
-            ]
-    ~lifecycle:[Prototyped, rel_tampa, ""]
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let pif_scan = call
-    ~name:"scan"
-    ~doc:"Scan for physical interfaces on a host and create PIF objects to represent them"
-    ~params:[Ref _host, "host", "The host on which to scan"]
-    ~in_product_since:rel_miami
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let pif_introduce_params =
-  [
-    {param_type=Ref _host; param_name="host"; param_doc="The host on which the interface exists"; param_release=miami_release; param_default=None};
-    {param_type=String; param_name="MAC"; param_doc="The MAC address of the interface"; param_release=miami_release; param_default=None};
-    {param_type=String; param_name="device"; param_doc="The device name to use for the interface"; param_release=miami_release; param_default=None};
-    {param_type=Bool; param_name="managed"; param_doc="Indicates whether the interface is managed by xapi (defaults to \"true\")"; param_release=vgpu_productisation_release; param_default=Some (VBool true)};
-  ]
-
-let pif_introduce = call
-    ~name:"introduce"
-    ~doc:"Create a PIF object matching a particular network interface"
-    ~versioned_params:pif_introduce_params
-    ~in_product_since:rel_miami
-    ~result:(Ref _pif, "The reference of the created PIF object")
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let pif_forget = call
-    ~name:"forget"
-    ~doc:"Destroy the PIF object matching a particular network interface"
-    ~params:[Ref _pif, "self", "The PIF object to destroy"]
-    ~in_product_since:rel_miami
-    ~allowed_roles:_R_POOL_OP
-    ~errs:[Api_errors.pif_tunnel_still_exists]
-    ()
-
-let pif_pool_introduce_params first_rel =
-  [
-    {param_type=String; param_name="device"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Ref _network; param_name="network"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Ref _host; param_name="host"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=String; param_name="MAC"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Int; param_name="MTU"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Int; param_name="VLAN"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Bool; param_name="physical"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=pif_ip_configuration_mode; param_name="ip_configuration_mode"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=String; param_name="IP"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=String; param_name="netmask"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=String; param_name="gateway"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=String; param_name="DNS"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Ref _bond; param_name="bond_slave_of"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Ref _vlan; param_name="VLAN_master_of"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Bool; param_name="management"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Map(String, String); param_name="other_config"; param_doc=""; param_release=first_rel; param_default=None};
-    {param_type=Bool; param_name="disallow_unplug"; param_doc=""; param_release=orlando_release; param_default=Some (VBool false)};
-    {param_type=pif_ipv6_configuration_mode; param_name="ipv6_configuration_mode"; param_doc=""; param_release=boston_release; param_default=Some (VEnum "None")};
-    {param_type=(Set(String)); param_name="IPv6"; param_doc=""; param_release=boston_release; param_default=Some (VSet [])};
-    {param_type=String; param_name="ipv6_gateway"; param_doc=""; param_release=boston_release; param_default=Some (VString "")};
-    {param_type=pif_primary_address_type; param_name="primary_address_type"; param_doc=""; param_release=boston_release; param_default=Some (VEnum "IPv4")};
-    {param_type=Bool; param_name="managed"; param_doc=""; param_release=vgpu_productisation_release; param_default=Some (VBool true)};
-    {param_type=Map(String, String); param_name="properties"; param_doc=""; param_release=creedence_release; param_default=Some (VMap [])};
-  ]
-
-(* PIF pool introduce is used to copy PIF records on pool join -- it's the PIF analogue of VDI.pool_introduce *)
-let pif_pool_introduce = call
-    ~name:"pool_introduce"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~versioned_params:(pif_pool_introduce_params miami_release)
-    ~doc:"Create a new PIF record in the database only"
-    ~result:(Ref _pif, "The ref of the newly created PIF record.")
-    ~hide_from_docs:true
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let pif_db_introduce = call
-    ~name:"db_introduce"
-    ~in_oss_since:None
-    ~in_product_since:rel_orlando
-    ~versioned_params:(pif_pool_introduce_params orlando_release)
-    ~doc:"Create a new PIF record in the database only"
-    ~result:(Ref _pif, "The ref of the newly created PIF record.")
-    ~hide_from_docs:false
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let pif_db_forget = call
-    ~name:"db_forget"
-    ~in_oss_since:None
-    ~in_product_since:rel_orlando
-    ~params:[ Ref _pif, "self", "The ref of the PIF whose database record should be destroyed" ]
-    ~doc:"Destroy a PIF database record."
-    ~hide_from_docs:false
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let pif_set_property = call
-    ~name:"set_property"
-    ~doc:"Set the value of a property of the PIF"
-    ~params:[
-      Ref _pif, "self", "The PIF";
-      String, "name", "The property name";
-      String, "value", "The property value";
-    ]
-    ~lifecycle:[Published, rel_creedence, ""]
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let pif_igmp_status =
-  Enum ("pif_igmp_status", [
-      "enabled", "IGMP Snooping is enabled in the corresponding backend bridge.'";
-      "disabled", "IGMP Snooping is disabled in the corresponding backend bridge.'";
-      "unknown", "IGMP snooping status is unknown. If this is a VLAN master, then please consult the underlying VLAN slave PIF."
-    ])
-
-let pif =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_pif ~descr:"A physical network interface (note separate VLANs are represented as several PIFs)"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~doc_tags:[Networking]
-    ~messages:[pif_create_VLAN; pif_destroy; pif_reconfigure_ip; pif_reconfigure_ipv6; pif_set_primary_address_type; pif_scan; pif_introduce; pif_forget;
-               pif_unplug; pif_plug; pif_pool_introduce;
-               pif_db_introduce; pif_db_forget; pif_set_property
-              ] ~contents:
-    [ uid _pif;
-      (* qualifier changed RW -> StaticRO in Miami *)
-      field ~qualifier:StaticRO "device" "machine-readable name of the interface (e.g. eth0)";
-      field ~qualifier:StaticRO ~ty:(Ref _network) "network" "virtual network to which this pif is connected";
-      field ~qualifier:StaticRO ~ty:(Ref _host) "host" "physical machine to which this pif is connected";
-      (* qualifier changed RW -> StaticRO in Miami *)
-      field ~qualifier:StaticRO "MAC" "ethernet MAC address of physical interface";
-      (* qualifier changed RW -> StaticRO in Miami *)
-      field ~qualifier:StaticRO ~ty:Int "MTU" "MTU in octets";
-      (* qualifier changed RW -> StaticRO in Miami *)
-      field ~qualifier:StaticRO ~ty:Int "VLAN" "VLAN tag for all traffic passing through this interface";
-      field ~in_oss_since:None ~internal_only:true "device_name" "actual dom0 device name";
-      field ~qualifier:DynamicRO ~ty:(Ref _pif_metrics) "metrics" "metrics associated with this PIF";
-      field ~in_oss_since:None ~ty:Bool ~in_product_since:rel_miami ~qualifier:DynamicRO "physical" "true if this represents a physical network interface" ~default_value:(Some (VBool false));
-      field ~in_oss_since:None ~ty:Bool ~in_product_since:rel_miami ~qualifier:DynamicRO "currently_attached" "true if this interface is online" ~default_value:(Some (VBool true));
-      field ~in_oss_since:None ~ty:pif_ip_configuration_mode ~in_product_since:rel_miami ~qualifier:DynamicRO "ip_configuration_mode" "Sets if and how this interface gets an IP address" ~default_value:(Some (VEnum "None"));
-      field ~in_oss_since:None ~ty:String ~in_product_since:rel_miami ~qualifier:DynamicRO "IP" "IP address" ~default_value:(Some (VString ""));
-      field ~in_oss_since:None ~ty:String ~in_product_since:rel_miami ~qualifier:DynamicRO "netmask" "IP netmask" ~default_value:(Some (VString ""));
-      field ~in_oss_since:None ~ty:String ~in_product_since:rel_miami ~qualifier:DynamicRO "gateway" "IP gateway" ~default_value:(Some (VString ""));
-      field ~in_oss_since:None ~ty:String ~in_product_since:rel_miami ~qualifier:DynamicRO "DNS" "IP address of DNS servers to use" ~default_value:(Some (VString ""));
-      field ~in_oss_since:None ~ty:(Ref _bond) ~in_product_since:rel_miami ~qualifier:DynamicRO "bond_slave_of" "Indicates which bond this interface is part of" ~default_value:(Some (VRef ""));
-      field ~in_oss_since:None ~ty:(Set(Ref _bond)) ~in_product_since:rel_miami ~qualifier:DynamicRO "bond_master_of" "Indicates this PIF represents the results of a bond";
-      field ~in_oss_since:None ~ty:(Ref _vlan) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_master_of" "Indicates wich VLAN this interface receives untagged traffic from" ~default_value:(Some (VRef ""));
-      field ~in_oss_since:None ~ty:(Set(Ref _vlan)) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_slave_of" "Indicates which VLANs this interface transmits tagged traffic to";
-      field ~in_oss_since:None ~ty:Bool ~in_product_since:rel_miami ~qualifier:DynamicRO "management" "Indicates whether the control software is listening for connections on this interface" ~default_value:(Some (VBool false));
-      field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "Additional configuration";
-      field ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "disallow_unplug" "Prevent this PIF from being unplugged; set this to notify the management tool-stack that the PIF has a special use and should not be unplugged under any circumstances (e.g. because you're running storage traffic over it)";
-      field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[Published, rel_cowley, "Indicates to which tunnel this PIF gives access"] ~qualifier:DynamicRO "tunnel_access_PIF_of" "Indicates to which tunnel this PIF gives access";
-      field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[Published, rel_cowley, "Indicates to which tunnel this PIF provides transport"] ~qualifier:DynamicRO "tunnel_transport_PIF_of" "Indicates to which tunnel this PIF provides transport";
-      field ~in_oss_since:None ~ty:pif_ipv6_configuration_mode ~lifecycle:[Prototyped, rel_tampa, ""] ~qualifier:DynamicRO "ipv6_configuration_mode" "Sets if and how this interface gets an IPv6 address" ~default_value:(Some (VEnum "None"));
-      field ~in_oss_since:None ~ty:(Set(String)) ~lifecycle:[Prototyped, rel_tampa, ""] ~qualifier:DynamicRO "IPv6" "IPv6 address" ~default_value:(Some (VSet []));
-      field ~in_oss_since:None ~ty:String ~lifecycle:[Prototyped, rel_tampa, ""] ~qualifier:DynamicRO "ipv6_gateway" "IPv6 gateway" ~default_value:(Some (VString ""));
-      field ~in_oss_since:None ~ty:pif_primary_address_type ~lifecycle:[Prototyped, rel_tampa, ""] ~qualifier:DynamicRO "primary_address_type" "Which protocol should define the primary address of this interface" ~default_value:(Some (VEnum "IPv4"));
-      field ~in_oss_since:None ~ty:Bool ~lifecycle:[Published, rel_vgpu_productisation, ""] ~qualifier:StaticRO "managed" "Indicates whether the interface \
-                                                                                                                           		is managed by xapi. If it is not, then xapi will not configure the interface, the commands PIF.plug/unplug/reconfigure_ip(v6) \
-                                                                                                                           		can not be used, nor can the interface be bonded or have VLANs based on top through xapi." ~default_value:(Some (VBool true));
-      field ~lifecycle:[Published, rel_creedence, ""] ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "properties" "Additional configuration properties for the interface.";
-      field ~lifecycle:[Published, rel_dundee, ""] ~qualifier:DynamicRO ~ty:(Set(String)) ~default_value:(Some (VSet [])) "capabilities" "Additional capabilities on the interface.";
-      field ~lifecycle:[Published, rel_inverness, ""] ~qualifier:DynamicRO ~ty:pif_igmp_status ~default_value:(Some (VEnum "unknown")) "igmp_snooping_status" "The IGMP snooping status of the corresponding network bridge";
-    ]
-    ()
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_pif ~descr:"A physical network interface (note separate VLANs are represented as several PIFs)"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~doc_tags:[Networking]
+      ~messages:[
+        create_VLAN;
+        destroy;
+        reconfigure_ip;
+        reconfigure_ipv6;
+        set_primary_address_type;
+        scan;
+        introduce;
+        forget;
+        unplug;
+        plug;
+        pool_introduce;
+        db_introduce;
+        db_forget;
+        set_property
+      ]
+      ~contents:[ uid _pif;
+                  (* qualifier changed RW -> StaticRO in Miami *)
+                  field ~qualifier:StaticRO "device" "machine-readable name of the interface (e.g. eth0)";
+                  field ~qualifier:StaticRO ~ty:(Ref _network) "network" "virtual network to which this pif is connected";
+                  field ~qualifier:StaticRO ~ty:(Ref _host) "host" "physical machine to which this pif is connected";
+                  (* qualifier changed RW -> StaticRO in Miami *)
+                  field ~qualifier:StaticRO "MAC" "ethernet MAC address of physical interface";
+                  (* qualifier changed RW -> StaticRO in Miami *)
+                  field ~qualifier:StaticRO ~ty:Int "MTU" "MTU in octets";
+                  (* qualifier changed RW -> StaticRO in Miami *)
+                  field ~qualifier:StaticRO ~ty:Int "VLAN" "VLAN tag for all traffic passing through this interface";
+                  field ~in_oss_since:None ~internal_only:true "device_name" "actual dom0 device name";
+                  field ~qualifier:DynamicRO ~ty:(Ref _pif_metrics) "metrics" "metrics associated with this PIF";
+                  field ~in_oss_since:None ~ty:Bool ~in_product_since:rel_miami ~qualifier:DynamicRO "physical" "true if this represents a physical network interface" ~default_value:(Some (VBool false));
+                  field ~in_oss_since:None ~ty:Bool ~in_product_since:rel_miami ~qualifier:DynamicRO "currently_attached" "true if this interface is online" ~default_value:(Some (VBool true));
+                  field ~in_oss_since:None ~ty:ip_configuration_mode ~in_product_since:rel_miami ~qualifier:DynamicRO "ip_configuration_mode" "Sets if and how this interface gets an IP address" ~default_value:(Some (VEnum "None"));
+                  field ~in_oss_since:None ~ty:String ~in_product_since:rel_miami ~qualifier:DynamicRO "IP" "IP address" ~default_value:(Some (VString ""));
+                  field ~in_oss_since:None ~ty:String ~in_product_since:rel_miami ~qualifier:DynamicRO "netmask" "IP netmask" ~default_value:(Some (VString ""));
+                  field ~in_oss_since:None ~ty:String ~in_product_since:rel_miami ~qualifier:DynamicRO "gateway" "IP gateway" ~default_value:(Some (VString ""));
+                  field ~in_oss_since:None ~ty:String ~in_product_since:rel_miami ~qualifier:DynamicRO "DNS" "IP address of DNS servers to use" ~default_value:(Some (VString ""));
+                  field ~in_oss_since:None ~ty:(Ref _bond) ~in_product_since:rel_miami ~qualifier:DynamicRO "bond_slave_of" "Indicates which bond this interface is part of" ~default_value:(Some (VRef ""));
+                  field ~in_oss_since:None ~ty:(Set(Ref _bond)) ~in_product_since:rel_miami ~qualifier:DynamicRO "bond_master_of" "Indicates this PIF represents the results of a bond";
+                  field ~in_oss_since:None ~ty:(Ref _vlan) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_master_of" "Indicates wich VLAN this interface receives untagged traffic from" ~default_value:(Some (VRef ""));
+                  field ~in_oss_since:None ~ty:(Set(Ref _vlan)) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_slave_of" "Indicates which VLANs this interface transmits tagged traffic to";
+                  field ~in_oss_since:None ~ty:Bool ~in_product_since:rel_miami ~qualifier:DynamicRO "management" "Indicates whether the control software is listening for connections on this interface" ~default_value:(Some (VBool false));
+                  field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "Additional configuration";
+                  field ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "disallow_unplug" "Prevent this PIF from being unplugged; set this to notify the management tool-stack that the PIF has a special use and should not be unplugged under any circumstances (e.g. because you're running storage traffic over it)";
+                  field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[Published, rel_cowley, "Indicates to which tunnel this PIF gives access"] ~qualifier:DynamicRO "tunnel_access_PIF_of" "Indicates to which tunnel this PIF gives access";
+                  field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[Published, rel_cowley, "Indicates to which tunnel this PIF provides transport"] ~qualifier:DynamicRO "tunnel_transport_PIF_of" "Indicates to which tunnel this PIF provides transport";
+                  field ~in_oss_since:None ~ty:ipv6_configuration_mode ~lifecycle:[Prototyped, rel_tampa, ""] ~qualifier:DynamicRO "ipv6_configuration_mode" "Sets if and how this interface gets an IPv6 address" ~default_value:(Some (VEnum "None"));
+                  field ~in_oss_since:None ~ty:(Set(String)) ~lifecycle:[Prototyped, rel_tampa, ""] ~qualifier:DynamicRO "IPv6" "IPv6 address" ~default_value:(Some (VSet []));
+                  field ~in_oss_since:None ~ty:String ~lifecycle:[Prototyped, rel_tampa, ""] ~qualifier:DynamicRO "ipv6_gateway" "IPv6 gateway" ~default_value:(Some (VString ""));
+                  field ~in_oss_since:None ~ty:primary_address_type ~lifecycle:[Prototyped, rel_tampa, ""] ~qualifier:DynamicRO "primary_address_type" "Which protocol should define the primary address of this interface" ~default_value:(Some (VEnum "IPv4"));
+                  field ~in_oss_since:None ~ty:Bool ~lifecycle:[Published, rel_vgpu_productisation, ""] ~qualifier:StaticRO "managed"
+                    "Indicates whether the interface is managed by xapi. If \
+                     it is not, then xapi will not configure the interface, \
+                     the commands PIF.plug/unplug/reconfigure_ip(v6) \
+                     can not be used, nor can the interface be bonded or have \
+                     VLANs based on top through xapi." ~default_value:(Some (VBool true));
+                  field ~lifecycle:[Published, rel_creedence, ""] ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "properties" "Additional configuration properties for the interface.";
+                  field ~lifecycle:[Published, rel_dundee, ""] ~qualifier:DynamicRO ~ty:(Set(String)) ~default_value:(Some (VSet [])) "capabilities" "Additional capabilities on the interface.";
+                  field ~lifecycle:[Published, rel_inverness, ""] ~qualifier:DynamicRO ~ty:igmp_status ~default_value:(Some (VEnum "unknown")) "igmp_snooping_status" "The IGMP snooping status of the corresponding network bridge";
+                ]
+      ()
+end
 
 let pif_metrics =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_pif_metrics ~descr:"The metrics associated with a physical network interface"
@@ -10282,7 +10299,7 @@ let all_system =
     Network.t;
     vif;
     vif_metrics;
-    pif;
+    PIF.t;
     pif_metrics;
     bond;
     vlan;
