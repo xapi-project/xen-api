@@ -31,7 +31,7 @@ let string_of_mirror id {Mirror.source_vdi; dest_vdi; state; failed} =
             | Copying -> "Copying")
           state))
     failed
-let project_url = "http://github.com/djs55/sm-cli"
+let project_url = "http://github.com/xapi-project/sm-cli"
 
 open Cmdliner
 
