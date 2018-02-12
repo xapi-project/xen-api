@@ -9036,8 +9036,9 @@ module VM_appliance = struct
       ()
 end
 
-(* DR_task *)
-let dr_task =
+
+module DR_task = struct
+  (* DR_task *)
   let create = call
       ~name:"create"
       ~in_product_since:rel_boston
@@ -9049,7 +9050,8 @@ let dr_task =
       ~result:(Ref _dr_task, "The reference to the created task")
       ~doc:"Create a disaster recovery task which will query the supplied list of devices"
       ~allowed_roles:_R_POOL_OP
-      () in
+      ()
+
   let destroy = call
       ~name:"destroy"
       ~in_product_since:rel_boston
@@ -9058,25 +9060,28 @@ let dr_task =
       ]
       ~doc:"Destroy the disaster recovery task, detaching and forgetting any SRs introduced which are no longer required"
       ~allowed_roles:_R_POOL_OP
-      () in
-  create_obj
-    ~in_db:true
-    ~in_product_since:rel_boston
-    ~in_oss_since:None
-    ~internal_deprecated_since:None
-    ~persist:PersistEverything
-    ~gen_constructor_destructor:false
-    ~name:_dr_task
-    ~descr:"DR task"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[create; destroy]
-    ~contents:[
-      uid _dr_task;
-      field ~qualifier:DynamicRO ~ty:(Set (Ref _sr)) "introduced_SRs" "All SRs introduced by this appliance";
-    ]
-    ()
+      ()
+
+  let t =
+    create_obj
+      ~in_db:true
+      ~in_product_since:rel_boston
+      ~in_oss_since:None
+      ~internal_deprecated_since:None
+      ~persist:PersistEverything
+      ~gen_constructor_destructor:false
+      ~name:_dr_task
+      ~descr:"DR task"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages:[create; destroy]
+      ~contents:[
+        uid _dr_task;
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _sr)) "introduced_SRs" "All SRs introduced by this appliance";
+      ]
+      ()
+end
 
 
 (** events handling: *)
@@ -10370,7 +10375,7 @@ let all_system =
     VMPP.t;
     VMSS.t;
     VM_appliance.t;
-    dr_task;
+    DR_task.t;
     Host.t;
     Host_crashdump.t;
     Host_patch.t;
