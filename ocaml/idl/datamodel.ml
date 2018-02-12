@@ -8795,142 +8795,146 @@ module VMPP = struct
       ()
 end
 
-(* VM schedule snapshot *)
-let vmss_snapshot_now = call ~flags:[`Session]
-    ~name:"snapshot_now"
-    ~in_oss_since:None
-    ~in_product_since:rel_falcon
-    ~params:[Ref _vmss, "vmss", "Snapshot Schedule to execute";]
-    ~doc:"This call executes the snapshot schedule immediately"
-    ~allowed_roles:_R_POOL_OP
-    ~result:(String, "An XMLRPC result")
-    ()
+module VMSS = struct
 
-let vmss_type = Enum ("vmss_type",
-                      [
-                        "snapshot", "The snapshot is a disk snapshot";
-                        "checkpoint", "The snapshot is a checkpoint";
-                        "snapshot_with_quiesce", "The snapshot is a VSS";
-                      ])
+  (* VM schedule snapshot *)
+  let snapshot_now = call ~flags:[`Session]
+      ~name:"snapshot_now"
+      ~in_oss_since:None
+      ~in_product_since:rel_falcon
+      ~params:[Ref _vmss, "vmss", "Snapshot Schedule to execute";]
+      ~doc:"This call executes the snapshot schedule immediately"
+      ~allowed_roles:_R_POOL_OP
+      ~result:(String, "An XMLRPC result")
+      ()
 
-let vmss_frequency = Enum ("vmss_frequency",
-                           [
-                             "hourly", "Hourly snapshots";
-                             "daily", "Daily snapshots";
-                             "weekly", "Weekly snapshots";
-                           ])
+  let type' = Enum ("vmss_type",
+                    [
+                      "snapshot", "The snapshot is a disk snapshot";
+                      "checkpoint", "The snapshot is a checkpoint";
+                      "snapshot_with_quiesce", "The snapshot is a VSS";
+                    ])
 
-let vmss_schedule_min = "min"
-let vmss_schedule_hour = "hour"
-let vmss_schedule_days = "days"
+  let frequency = Enum ("vmss_frequency",
+                        [
+                          "hourly", "Hourly snapshots";
+                          "daily", "Daily snapshots";
+                          "weekly", "Weekly snapshots";
+                        ])
 
-let vmss_set_retained_snapshots = call ~flags:[`Session]
-    ~name:"set_retained_snapshots"
-    ~in_oss_since:None
-    ~in_product_since:rel_falcon
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmss, "self", "The schedule snapshot";
-      Int, "value", "the value to set"
-    ]
-    ()
+  let schedule_min = "min"
+  let schedule_hour = "hour"
+  let schedule_days = "days"
 
-let vmss_set_frequency = call ~flags:[`Session]
-    ~name:"set_frequency"
-    ~in_oss_since:None
-    ~in_product_since:rel_falcon
-    ~params:[
-      Ref _vmss, "self", "The snapshot schedule";
-      vmss_frequency, "value", "the snapshot schedule frequency"
-    ]
-    ~doc:"Set the value of the frequency field"
-    ~allowed_roles:_R_POOL_OP
-    ()
+  let set_retained_snapshots = call ~flags:[`Session]
+      ~name:"set_retained_snapshots"
+      ~in_oss_since:None
+      ~in_product_since:rel_falcon
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmss, "self", "The schedule snapshot";
+        Int, "value", "the value to set"
+      ]
+      ()
 
-let vmss_set_schedule = call ~flags:[`Session]
-    ~name:"set_schedule"
-    ~in_oss_since:None
-    ~in_product_since:rel_falcon
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmss, "self", "The snapshot schedule";
-      Map(String,String), "value", "the value to set"
-    ]
-    ()
+  let set_frequency = call ~flags:[`Session]
+      ~name:"set_frequency"
+      ~in_oss_since:None
+      ~in_product_since:rel_falcon
+      ~params:[
+        Ref _vmss, "self", "The snapshot schedule";
+        frequency, "value", "the snapshot schedule frequency"
+      ]
+      ~doc:"Set the value of the frequency field"
+      ~allowed_roles:_R_POOL_OP
+      ()
 
-let vmss_set_last_run_time = call ~flags:[`Session]
-    ~name:"set_last_run_time"
-    ~in_oss_since:None
-    ~in_product_since:rel_falcon
-    ~allowed_roles:_R_LOCAL_ROOT_ONLY
-    ~params:[
-      Ref _vmss, "self", "The snapshot schedule";
-      DateTime, "value", "the value to set"
-    ]
-    ()
+  let set_schedule = call ~flags:[`Session]
+      ~name:"set_schedule"
+      ~in_oss_since:None
+      ~in_product_since:rel_falcon
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmss, "self", "The snapshot schedule";
+        Map(String,String), "value", "the value to set"
+      ]
+      ()
 
-let vmss_add_to_schedule = call ~flags:[`Session]
-    ~name:"add_to_schedule"
-    ~in_oss_since:None
-    ~in_product_since:rel_falcon
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmss, "self", "The snapshot schedule";
-      String, "key", "the key to add";
-      String, "value", "the value to add";
-    ]
-    ()
+  let set_last_run_time = call ~flags:[`Session]
+      ~name:"set_last_run_time"
+      ~in_oss_since:None
+      ~in_product_since:rel_falcon
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ~params:[
+        Ref _vmss, "self", "The snapshot schedule";
+        DateTime, "value", "the value to set"
+      ]
+      ()
 
-let vmss_remove_from_schedule = call ~flags:[`Session]
-    ~name:"remove_from_schedule"
-    ~in_oss_since:None
-    ~in_product_since:rel_falcon
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmss, "self", "The snapshot schedule";
-      String, "key", "the key to remove";
-    ]
-    ()
+  let add_to_schedule = call ~flags:[`Session]
+      ~name:"add_to_schedule"
+      ~in_oss_since:None
+      ~in_product_since:rel_falcon
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmss, "self", "The snapshot schedule";
+        String, "key", "the key to add";
+        String, "value", "the value to add";
+      ]
+      ()
 
-let vmss_set_type = call ~flags:[`Session]
-    ~name:"set_type"
-    ~in_oss_since:None
-    ~in_product_since:rel_falcon
-    ~allowed_roles:_R_POOL_OP
-    ~params:[
-      Ref _vmss, "self", "The snapshot schedule";
-      vmss_type, "value", "the snapshot schedule type"
-    ]
-    ()
+  let remove_from_schedule = call ~flags:[`Session]
+      ~name:"remove_from_schedule"
+      ~in_oss_since:None
+      ~in_product_since:rel_falcon
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmss, "self", "The snapshot schedule";
+        String, "key", "the key to remove";
+      ]
+      ()
 
-let vmss =
-  create_obj ~in_db:true ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vmss ~descr:"VM Snapshot Schedule"
-    ~gen_events:true
-    ~in_product_since:rel_falcon
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages:[
-      vmss_snapshot_now;
-      vmss_set_retained_snapshots;
-      vmss_set_frequency;
-      vmss_set_schedule;
-      vmss_add_to_schedule;
-      vmss_remove_from_schedule;
-      vmss_set_last_run_time;
-      vmss_set_type;
-    ]
-    ~contents:[
-      uid _vmss;
-      namespace ~name:"name" ~contents:(names None RW) ();
-      field ~qualifier:RW ~ty:Bool "enabled" "enable or disable this snapshot schedule" ~default_value:(Some (VBool true));
-      field ~qualifier:StaticRO ~ty:vmss_type "type" "type of the snapshot schedule";
-      field ~qualifier:StaticRO ~ty:Int "retained_snapshots" "maximum number of snapshots that should be stored at any time" ~default_value:(Some (VInt 7L));
-      field ~qualifier:StaticRO ~ty:vmss_frequency "frequency" "frequency of taking snapshot from snapshot schedule";
-      field ~qualifier:StaticRO ~ty:(Map (String,String)) "schedule" "schedule of the snapshot containing 'hour', 'min', 'days'. Date/time-related information is in Local Timezone" ~default_value:(Some (VMap []));
-      field ~qualifier:DynamicRO ~ty:DateTime "last_run_time" "time of the last snapshot" ~default_value:(Some(VDateTime(Date.of_float 0.)));
-      field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs attached to this snapshot schedule";
-    ]
-    ()
+  let set_type = call ~flags:[`Session]
+      ~name:"set_type"
+      ~in_oss_since:None
+      ~in_product_since:rel_falcon
+      ~allowed_roles:_R_POOL_OP
+      ~params:[
+        Ref _vmss, "self", "The snapshot schedule";
+        type', "value", "the snapshot schedule type"
+      ]
+      ()
+
+  let t =
+    create_obj ~in_db:true ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vmss ~descr:"VM Snapshot Schedule"
+      ~gen_events:true
+      ~in_product_since:rel_falcon
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages:[
+        snapshot_now;
+        set_retained_snapshots;
+        set_frequency;
+        set_schedule;
+        add_to_schedule;
+        remove_from_schedule;
+        set_last_run_time;
+        set_type;
+      ]
+      ~contents:[
+        uid _vmss;
+        namespace ~name:"name" ~contents:(names None RW) ();
+        field ~qualifier:RW ~ty:Bool "enabled" "enable or disable this snapshot schedule" ~default_value:(Some (VBool true));
+        field ~qualifier:StaticRO ~ty:type' "type" "type of the snapshot schedule";
+        field ~qualifier:StaticRO ~ty:Int "retained_snapshots" "maximum number of snapshots that should be stored at any time" ~default_value:(Some (VInt 7L));
+        field ~qualifier:StaticRO ~ty:frequency "frequency" "frequency of taking snapshot from snapshot schedule";
+        field ~qualifier:StaticRO ~ty:(Map (String,String)) "schedule" "schedule of the snapshot containing 'hour', 'min', 'days'. Date/time-related information is in Local Timezone" ~default_value:(Some (VMap []));
+        field ~qualifier:DynamicRO ~ty:DateTime "last_run_time" "time of the last snapshot" ~default_value:(Some(VDateTime(Date.of_float 0.)));
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs" "all VMs attached to this snapshot schedule";
+      ]
+      ()
+
+end
 
 (* VM appliance *)
 let vm_appliance_operations = Enum ("vm_appliance_operation",
@@ -10360,7 +10364,7 @@ let all_system =
     VM_metrics.t;
     VM_guest_metrics.t;
     VMPP.t;
-    vmss;
+    VMSS.t;
     vm_appliance;
     dr_task;
     Host.t;

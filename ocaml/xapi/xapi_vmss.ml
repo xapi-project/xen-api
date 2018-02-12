@@ -49,9 +49,9 @@ let schedule_days_default = List.hd schedule_days_enum
 
 (* relations between map types and map keys *)
 let schedule_frequency_enum = [schedule_frequency_hourly;schedule_frequency_daily;schedule_frequency_weekly]
-let schedule_frequency_hourly_keys = schedule_field,[schedule_frequency_hourly,[Datamodel.vmss_schedule_min, ((Enum schedule_min_enum), schedule_min_default)]]
-let schedule_frequency_daily_keys = schedule_field,[schedule_frequency_daily,[Datamodel.vmss_schedule_hour, ((IntRange(0,23)), schedule_hour_default);Datamodel.vmss_schedule_min, ((Enum schedule_min_enum), schedule_min_default)]]
-let schedule_frequency_weekly_keys = schedule_field,[schedule_frequency_weekly,[Datamodel.vmss_schedule_hour, ((IntRange(0,23)), schedule_hour_default);Datamodel.vmss_schedule_min, ((Enum schedule_min_enum), schedule_min_default);Datamodel.vmss_schedule_days, ((EnumSet schedule_days_enum), schedule_days_default)]]
+let schedule_frequency_hourly_keys = schedule_field,[schedule_frequency_hourly,[Datamodel.VMSS.schedule_min, ((Enum schedule_min_enum), schedule_min_default)]]
+let schedule_frequency_daily_keys = schedule_field,[schedule_frequency_daily,[Datamodel.VMSS.schedule_hour, ((IntRange(0,23)), schedule_hour_default);Datamodel.VMSS.schedule_min, ((Enum schedule_min_enum), schedule_min_default)]]
+let schedule_frequency_weekly_keys = schedule_field,[schedule_frequency_weekly,[Datamodel.VMSS.schedule_hour, ((IntRange(0,23)), schedule_hour_default);Datamodel.VMSS.schedule_min, ((Enum schedule_min_enum), schedule_min_default);Datamodel.VMSS.schedule_days, ((EnumSet schedule_days_enum), schedule_days_default)]]
 
 (* look-up structures, contain allowed map keys in a specific map type *)
 let schedule_keys = schedule_field, (List.map
@@ -138,7 +138,7 @@ let create ~__context ~name_label ~name_description ~enabled
 
   assert_licensed ~__context;
   if _type = `snapshot_with_quiesce then
-    Pool_features.assert_enabled ~__context ~f:Features.VSS;	
+    Pool_features.assert_enabled ~__context ~f:Features.VSS;
   (* assert all provided field values, key names and key values are valid *)
   let (_: (string*string) list) = Map_check.assert_keys ~ty:(Record_util.vmss_frequency_to_string frequency) ~ks:schedule_keys ~value:schedule ~db:[] in
 
