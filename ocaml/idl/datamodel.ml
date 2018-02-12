@@ -2628,86 +2628,6 @@ let vm_import = call
 
 (* VDI.Snapshot *)
 
-let vdi_snapshot = call
-    ~name:"snapshot"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~versioned_params:
-      [{param_type=Ref _vdi; param_name="vdi"; param_doc="The VDI to snapshot"; param_release=rio_release; param_default=None};
-       {param_type=Map (String, String); param_name="driver_params"; param_doc="Optional parameters that can be passed through to backend driver in order to specify storage-type-specific snapshot options"; param_release=miami_release; param_default=Some (VMap [])}
-      ]
-    ~doc:"Take a read-only snapshot of the VDI, returning a reference to the snapshot. If any driver_params are specified then these are passed through to the storage-specific substrate driver that takes the snapshot. NB the snapshot lives in the same Storage Repository as its parent."
-    ~result:(Ref _vdi, "The ID of the newly created VDI.")
-    ~allowed_roles:_R_VM_ADMIN
-    ~doc_tags:[Snapshots]
-    ()
-
-let vdi_clone = call
-    ~name:"clone"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~params:[Ref _vdi, "vdi", "The VDI to clone"]
-    ~versioned_params:
-      [{param_type=Ref _vdi; param_name="vdi"; param_doc="The VDI to clone"; param_release=rio_release; param_default=None};
-       {param_type=Map (String, String); param_name="driver_params"; param_doc="Optional parameters that are passed through to the backend driver in order to specify storage-type-specific clone options"; param_release=miami_release; param_default=Some (VMap [])}
-      ]
-    ~doc:"Take an exact copy of the VDI and return a reference to the new disk. If any driver_params are specified then these are passed through to the storage-specific substrate driver that implements the clone operation. NB the clone lives in the same Storage Repository as its parent."
-    ~result:(Ref _vdi, "The ID of the newly created VDI.")
-    ~allowed_roles:_R_VM_ADMIN
-    ~doc_tags:[Snapshots]
-    ()
-
-let vdi_resize = call
-    ~name:"resize"
-    ~in_product_since:rel_rio
-    ~in_oss_since:None
-    ~params:[Ref _vdi, "vdi", "The VDI to resize"; Int, "size", "The new size of the VDI" ]
-    ~doc:"Resize the VDI."
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_resize_online = call
-    ~name:"resize_online"
-    ~in_oss_since:None
-    ~lifecycle: [
-      Published, rel_rio, "";
-      Removed, rel_inverness, "Online VDI resize is not supported by any of the storage backends."
-    ]
-    ~params:[Ref _vdi, "vdi", "The VDI to resize"; Int, "size", "The new size of the VDI" ]
-    ~doc:"Resize the VDI which may or may not be attached to running guests."
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_copy = call
-    ~name:"copy"
-    ~lifecycle:[
-      Published, rel_rio, "Copies a VDI to an SR. There must be a host that can see both the source and destination SRs simultaneously";
-      Extended, rel_cowley, "The copy can now be performed between any two SRs.";
-      Extended, rel_clearwater_felton, "The copy can now be performed into a pre-created VDI. It is now possible to request copying only changed blocks from a base VDI"; ]
-    ~in_oss_since:None
-    ~versioned_params:
-      [{param_type=Ref _vdi; param_name="vdi"; param_doc="The VDI to copy"; param_release=rio_release; param_default=None};
-       {param_type=Ref _sr; param_name="sr"; param_doc="The destination SR (only required if the destination VDI is not specified"; param_release=rio_release; param_default=Some (VString null_ref)};
-       {param_type=Ref _vdi; param_name="base_vdi"; param_doc="The base VDI (only required if copying only changed blocks, by default all blocks will be copied)"; param_release=clearwater_felton_release; param_default=Some (VRef null_ref)};
-       {param_type=Ref _vdi; param_name="into_vdi"; param_doc="The destination VDI to copy blocks into (if omitted then a destination SR must be provided and a fresh VDI will be created)"; param_release=clearwater_felton_release; param_default=Some (VString null_ref)};
-      ]
-    ~doc:"Copy either a full VDI or the block differences between two VDIs into either a fresh VDI or an existing VDI."
-    ~errs:[Api_errors.vdi_readonly; Api_errors.vdi_too_small; Api_errors.vdi_not_sparse]
-    ~result:(Ref _vdi, "The reference of the VDI where the blocks were written.")
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_pool_migrate = call
-    ~name:"pool_migrate"
-    ~in_oss_since:None
-    ~in_product_since:rel_tampa
-    ~params:[ Ref _vdi, "vdi", "The VDI to migrate"
-            ; Ref _sr, "sr", "The destination SR"
-            ; Map (String, String), "options", "Other parameters" ]
-    ~result:(Ref _vdi, "The new reference of the migrated VDI.")
-    ~doc:"Migrate a VDI, which may be attached to a running guest, to a different SR. The destination SR must be visible to the guest."
-    ~allowed_roles:_R_VM_POWER_ADMIN
-    ()
 
 (* ------------------------------------------------------------------------------------------------------------
    VBDs
@@ -6459,423 +6379,6 @@ end
       field ~ty:String "type" "filesystem type" ] }
 *)
 
-
-(** Each disk is associated with a vdi_type: (a 'style' of disk?) *)
-let vdi_type = Enum ("vdi_type", [ "system",    "a disk that may be replaced on upgrade";
-                                   "user",      "a disk that is always preserved on upgrade";
-                                   "ephemeral", "a disk that may be reformatted on upgrade";
-                                   "suspend",   "a disk that stores a suspend image";
-                                   "crashdump", "a disk that stores VM crashdump information";
-                                   "ha_statefile", "a disk used for HA storage heartbeating";
-                                   "metadata", "a disk used for HA Pool metadata";
-                                   "redo_log", "a disk used for a general metadata redo-log";
-                                   "rrd", "a disk that stores SR-level RRDs";
-                                   "pvs_cache", "a disk that stores PVS cache data";
-                                   "cbt_metadata", "Metadata about a snapshot VDI that has been deleted: the set of blocks that changed between some previous version of the disk and the version tracked by the snapshot.";
-                                 ])
-
-let vdi_introduce_params first_rel =
-  [
-    {param_type=String; param_name="uuid"; param_doc="The uuid of the disk to introduce"; param_release=first_rel; param_default=None};
-    {param_type=String; param_name="name_label"; param_doc="The name of the disk record"; param_release=first_rel; param_default=None};
-    {param_type=String; param_name="name_description"; param_doc="The description of the disk record"; param_release=first_rel; param_default=None};
-    {param_type=Ref _sr; param_name="SR"; param_doc="The SR that the VDI is in"; param_release=first_rel; param_default=None};
-    {param_type=vdi_type; param_name="type"; param_doc="The type of the VDI"; param_release=first_rel; param_default=None};
-    {param_type=Bool; param_name="sharable"; param_doc="true if this disk may be shared"; param_release=first_rel; param_default=None};
-    {param_type=Bool; param_name="read_only"; param_doc="true if this disk may ONLY be mounted read-only"; param_release=first_rel; param_default=None};
-    {param_type=Map(String, String); param_name="other_config"; param_doc="additional configuration"; param_release=first_rel; param_default=None};
-    {param_type=String; param_name="location"; param_doc="location information"; param_release=first_rel; param_default=None};
-    {param_type=Map(String, String); param_name="xenstore_data"; param_doc="Data to insert into xenstore"; param_release=first_rel; param_default=Some (VMap [])};
-    {param_type=Map(String, String); param_name="sm_config"; param_doc="Storage-specific config"; param_release=miami_release; param_default=Some (VMap [])};
-    {param_type=Bool; param_name = "managed"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VBool true) };
-    {param_type=Int; param_name="virtual_size"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VInt 0L) };
-    {param_type=Int; param_name="physical_utilisation"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VInt 0L) };
-    {param_type=Ref _pool; param_name="metadata_of_pool"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VRef "") };
-    {param_type=Bool; param_name="is_a_snapshot"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VBool false) };
-    {param_type=DateTime; param_name="snapshot_time"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VDateTime Date.never) };
-    {param_type=Ref _vdi; param_name="snapshot_of"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VRef "") };
-
-
-  ]
-
-(* This used to be called VDI.introduce but it was always an internal call *)
-let vdi_pool_introduce = call
-    ~name:"pool_introduce"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~versioned_params:(
-      (vdi_introduce_params miami_release) @
-      [{ param_type=Bool; param_name="cbt_enabled"; param_doc="True if changed blocks are tracked for this VDI"; param_release=inverness_release; param_default= Some(VBool false) }]
-    )
-    ~doc:"Create a new VDI record in the database only"
-    ~result:(Ref _vdi, "The ref of the newly created VDI record.")
-    ~hide_from_docs:true
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_db_introduce = { vdi_pool_introduce with msg_name = "db_introduce"; msg_hide_from_docs = false }
-
-let vdi_db_forget = call
-    ~name:"db_forget"
-    ~in_oss_since:None
-    ~params:[Ref _vdi, "vdi", "The VDI to forget about"]
-    ~doc:"Removes a VDI record from the database"
-    ~in_product_since:rel_miami
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_introduce = call
-    ~name:"introduce"
-    ~in_oss_since:None
-    ~versioned_params:(vdi_introduce_params rio_release)
-    ~doc:"Create a new VDI record in the database only"
-    ~result:(Ref _vdi, "The ref of the newly created VDI record.")
-    ~errs:[Api_errors.sr_operation_not_supported]
-    ~in_product_since:rel_miami
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_forget = call
-    ~name:"forget"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~params:[Ref _vdi, "vdi", "The VDI to forget about"]
-    ~doc:"Removes a VDI record from the database"
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_force_unlock = call
-    ~name:"force_unlock"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~internal_deprecated_since:rel_miami
-    ~params:[Ref _vdi, "vdi", "The VDI to forcibly unlock"]
-    ~doc:"Steals the lock on this VDI and leaves it unlocked. This function is extremely dangerous. This call is deprecated."
-    ~hide_from_docs:true
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_update = call
-    ~name:"update"
-    ~in_oss_since:None
-    ~params:[Ref _vdi, "vdi", "The VDI whose stats (eg size) should be updated" ]
-    ~doc:"Ask the storage backend to refresh the fields in the VDI object"
-    ~errs:[Api_errors.sr_operation_not_supported]
-    ~in_product_since:rel_symc
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_operations =
-  Enum ("vdi_operations",
-        [ "clone", "Cloning the VDI";
-          "copy", "Copying the VDI";
-          "resize", "Resizing the VDI";
-          "resize_online", "Resizing the VDI which may or may not be online";
-          "snapshot", "Snapshotting the VDI";
-          "mirror", "Mirroring the VDI";
-          "destroy", "Destroying the VDI";
-          "forget", "Forget about the VDI";
-          "update", "Refreshing the fields of the VDI";
-          "force_unlock", "Forcibly unlocking the VDI";
-          "generate_config", "Generating static configuration";
-          "enable_cbt", "Enabling changed block tracking for a VDI";
-          "disable_cbt", "Disabling changed block tracking for a VDI";
-          "data_destroy", "Deleting the data of the VDI";
-          "list_changed_blocks", "Exporting a bitmap that shows the changed blocks between two VDIs";
-          "set_on_boot", "Setting the on_boot field of the VDI";
-          "blocked", "Operations on this VDI are temporarily blocked";
-        ])
-
-let vdi_set_missing = call
-    ~name:"set_missing"
-    ~in_oss_since:None
-    ~in_product_since:rel_miami
-    ~params:[Ref _vdi, "self", "The VDI to modify";
-             Bool, "value", "The new value of the VDI's missing field"]
-    ~doc:"Sets the VDI's missing field"
-    ~flags:[`Session]
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_set_read_only = call
-    ~name:"set_read_only"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~params:[Ref _vdi, "self", "The VDI to modify";
-             Bool, "value", "The new value of the VDI's read_only field"]
-    ~flags:[`Session]
-    ~doc:"Sets the VDI's read_only field"
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_set_sharable = call
-    ~name:"set_sharable"
-    ~in_oss_since:None
-    ~in_product_since:rel_george
-    ~params:[Ref _vdi, "self", "The VDI to modify";
-             Bool, "value", "The new value of the VDI's sharable field"]
-    ~flags:[`Session]
-    ~doc:"Sets the VDI's sharable field"
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_set_managed = call
-    ~name:"set_managed"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~params:[Ref _vdi, "self", "The VDI to modify";
-             Bool, "value", "The new value of the VDI's managed field"]
-    ~flags:[`Session]
-    ~doc:"Sets the VDI's managed field"
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_set_virtual_size = call
-    ~name:"set_virtual_size"
-    ~in_oss_since:None
-    ~in_product_since:rel_miami
-    ~params:[Ref _vdi, "self", "The VDI to modify";
-             Int, "value", "The new value of the VDI's virtual size"]
-    ~flags:[`Session]
-    ~doc:"Sets the VDI's virtual_size field"
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_set_physical_utilisation = call
-    ~name:"set_physical_utilisation"
-    ~in_oss_since:None
-    ~in_product_since:rel_miami
-    ~params:[Ref _vdi, "self", "The VDI to modify";
-             Int, "value", "The new value of the VDI's physical utilisation"]
-    ~flags:[`Session]
-    ~doc:"Sets the VDI's physical_utilisation field"
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_set_is_a_snapshot = call
-    ~name:"set_is_a_snapshot"
-    ~in_oss_since:None
-    ~in_product_since:rel_boston
-    ~params:[Ref _vdi, "self", "The VDI to modify";
-             Bool, "value", "The new value indicating whether this VDI is a snapshot"]
-    ~flags:[`Session]
-    ~doc:"Sets whether this VDI is a snapshot"
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_set_snapshot_of = call
-    ~name:"set_snapshot_of"
-    ~in_oss_since:None
-    ~in_product_since:rel_boston
-    ~params:[Ref _vdi, "self", "The VDI to modify";
-             Ref _vdi, "value", "The VDI of which this VDI is a snapshot"]
-    ~flags:[`Session]
-    ~doc:"Sets the VDI of which this VDI is a snapshot"
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_set_snapshot_time = call
-    ~name:"set_snapshot_time"
-    ~in_oss_since:None
-    ~in_product_since:rel_boston
-    ~params:[Ref _vdi, "self", "The VDI to modify";
-             DateTime, "value", "The snapshot time of this VDI."]
-    ~flags:[`Session]
-    ~doc:"Sets the snapshot time of this VDI."
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_set_metadata_of_pool = call
-    ~name:"set_metadata_of_pool"
-    ~in_oss_since:None
-    ~in_product_since:rel_boston
-    ~params:[Ref _vdi, "self", "The VDI to modify";
-             Ref _pool, "value", "The pool whose metadata is contained by this VDI"]
-    ~flags:[`Session]
-    ~doc:"Records the pool whose metadata is contained by this VDI."
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-(** An API call for debugging and testing only *)
-let vdi_generate_config = call
-    ~name:"generate_config"
-    ~in_oss_since:None
-    ~in_product_since:rel_orlando
-    ~params:[Ref _host, "host", "The host on which to generate the configuration";
-             Ref _vdi, "vdi", "The VDI to generate the configuration for" ]
-    ~result:(String, "The generated static configuration")
-    ~doc:"Internal function for debugging only"
-    ~hide_from_docs:true
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let on_boot = Enum ("on_boot", [
-    "reset", "When a VM containing this VDI is started, the contents of the VDI are reset to the state they were in when this flag was last set.";
-    "persist", "Standard behaviour.";
-  ])
-
-let vdi_set_on_boot = call
-    ~name:"set_on_boot"
-    ~in_oss_since:None
-    ~in_product_since:rel_cowley
-    ~params:[Ref _vdi, "self", "The VDI to modify";
-             on_boot, "value", "The value to set"]
-    ~doc:"Set the value of the on_boot parameter. This value can only be changed when the VDI is not attached to a running VM."
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_set_allow_caching = call
-    ~name:"set_allow_caching"
-    ~in_oss_since:None
-    ~in_product_since:rel_cowley
-    ~params:[Ref _vdi, "self", "The VDI to modify";
-             Bool, "value", "The value to set"]
-    ~doc:"Set the value of the allow_caching parameter. This value can only be changed when the VDI is not attached to a running VM. The caching behaviour is only affected by this flag for VHD-based VDIs that have one parent and no child VHDs. Moreover, caching only takes place when the host running the VM containing this VDI has a nominated SR for local caching."
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_set_name_label = call
-    ~name:"set_name_label"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~params:[Ref _vdi, "self", "The VDI to modify";
-             String, "value", "The name lable for the VDI"]
-    ~doc:"Set the name label of the VDI. This can only happen when then its SR is currently attached."
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_set_name_description = call
-    ~name:"set_name_description"
-    ~in_oss_since:None
-    ~in_product_since:rel_rio
-    ~params:[Ref _vdi, "self", "The VDI to modify";
-             String, "value", "The name description for the VDI"]
-    ~doc:"Set the name description of the VDI. This can only happen when its SR is currently attached."
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_open_database = call
-    ~name:"open_database"
-    ~in_oss_since:None
-    ~in_product_since:rel_boston
-    ~params:[Ref _vdi, "self", "The VDI which contains the database to open"]
-    ~result:(Ref _session, "A session which can be used to query the database")
-    ~doc:"Load the metadata found on the supplied VDI and return a session reference which can be used in XenAPI calls to query its contents."
-    ~allowed_roles:_R_POOL_OP
-    ()
-
-let vdi_checksum = call
-    ~name:"checksum"
-    ~in_oss_since:None
-    ~in_product_since:rel_boston
-    ~params:[Ref _vdi, "self", "The VDI to checksum"]
-    ~result:(String, "The md5sum of the vdi")
-    ~doc:"Internal function to calculate VDI checksum and return a string"
-    ~hide_from_docs:true
-    ~allowed_roles:_R_VM_ADMIN (* Conceptually, this is not correct. We do it
-                                  	                              this way only to follow the previous
-                                  	                              convention. It is supposed to fix by future
-                                  	                              version of RBAC *)
-    ()
-
-let vdi_read_database_pool_uuid = call
-    ~name:"read_database_pool_uuid"
-    ~in_oss_since:None
-    ~in_product_since:rel_boston
-    ~params:[Ref _vdi, "self", "The metadata VDI to look up in the cache."]
-    ~result:(String, "The cached pool UUID of the database on the VDI.")
-    ~doc:"Check the VDI cache for the pool UUID of the database on this VDI."
-    ~allowed_roles:_R_READ_ONLY
-    ()
-
-let vdi_enable_cbt = call
-    ~name:"enable_cbt"
-    ~in_oss_since:None
-    ~in_product_since:rel_inverness
-    ~params:[Ref _vdi, "self", "The VDI for which CBT should be enabled"]
-    ~errs:[
-      Api_errors.sr_operation_not_supported;
-      Api_errors.vdi_missing;
-      Api_errors.sr_not_attached;
-      Api_errors.sr_no_pbds;
-      Api_errors.operation_not_allowed;
-      Api_errors.vdi_incompatible_type;
-      Api_errors.vdi_on_boot_mode_incompatible_with_operation;
-    ]
-    ~doc:"Enable changed block tracking for the VDI. This call is idempotent - enabling CBT for a VDI for which CBT is already enabled results in a no-op, and no error will be thrown."
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_disable_cbt = call
-    ~name:"disable_cbt"
-    ~in_oss_since:None
-    ~in_product_since:rel_inverness
-    ~params:[Ref _vdi, "self", "The VDI for which CBT should be disabled"]
-    ~errs:[
-      Api_errors.sr_operation_not_supported;
-      Api_errors.vdi_missing;
-      Api_errors.sr_not_attached;
-      Api_errors.sr_no_pbds;
-      Api_errors.operation_not_allowed;
-      Api_errors.vdi_incompatible_type;
-      Api_errors.vdi_on_boot_mode_incompatible_with_operation;
-    ]
-    ~doc:"Disable changed block tracking for the VDI. This call is only allowed on VDIs that support enabling CBT. It is an idempotent operation - disabling CBT for a VDI for which CBT is not enabled results in a no-op, and no error will be thrown."
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-(** This command is for internal use by SM to set the cbt_enabled field when it needs to disable cbt for its own reasons. This command should be removed once SMAPIv3 is implemented *)
-let vdi_set_cbt_enabled = call
-    ~name:"set_cbt_enabled"
-    ~in_oss_since:None
-    ~in_product_since:rel_inverness
-    ~params:[Ref _vdi, "self", "The VDI for which CBT enabled status should be set";
-             Bool, "value", "The value to set"]
-    ~errs:[]
-    ~hide_from_docs:true
-    ~allowed_roles:_R_LOCAL_ROOT_ONLY
-    ()
-
-let vdi_data_destroy = call
-    ~name:"data_destroy"
-    ~in_oss_since:None
-    ~in_product_since:rel_inverness
-    ~params:[Ref _vdi, "self", "The VDI whose data should be deleted."]
-    ~errs:[
-      Api_errors.sr_operation_not_supported;
-      Api_errors.vdi_missing;
-      Api_errors.sr_not_attached;
-      Api_errors.sr_no_pbds;
-      Api_errors.operation_not_allowed;
-      Api_errors.vdi_incompatible_type;
-      Api_errors.vdi_no_cbt_metadata;
-      Api_errors.vdi_in_use;
-      Api_errors.vdi_is_a_physical_device;
-    ]
-    ~doc:"Delete the data of the snapshot VDI, but keep its changed block tracking metadata. When successful, this call changes the type of the VDI to cbt_metadata. This operation is idempotent: calling it on a VDI of type cbt_metadata results in a no-op, and no error will be thrown."
-    ~allowed_roles:_R_VM_ADMIN
-    ()
-
-let vdi_list_changed_blocks = call
-    ~name:"list_changed_blocks"
-    ~in_oss_since:None
-    ~in_product_since:rel_inverness
-    ~params:
-      [ Ref _vdi, "vdi_from", "The first VDI."
-      ; Ref _vdi, "vdi_to", "The second VDI."
-      ]
-    ~errs:
-      [ Api_errors.sr_operation_not_supported
-      ; Api_errors.vdi_missing
-      ; Api_errors.sr_not_attached
-      ; Api_errors.sr_no_pbds
-      ; Api_errors.vdi_in_use
-      ]
-    ~result:(String, "A base64 string-encoding of the bitmap showing which blocks differ in the two VDIs.")
-    ~doc:"Compare two VDIs in 64k block increments and report which blocks differ. This operation is not allowed when vdi_to is attached to a VM."
-    ~allowed_roles:_R_VM_OP
-    ()
-
 module Vdi_nbd_server_info = struct
   let vdi_nbd_server_info =
     let lifecycle = [Published, rel_inverness, ""] in
@@ -6902,93 +6405,594 @@ module Vdi_nbd_server_info = struct
 end
 let vdi_nbd_server_info = Vdi_nbd_server_info.vdi_nbd_server_info
 
-let vdi_get_nbd_info = call
-    ~name:"get_nbd_info"
-    ~in_oss_since:None
-    ~in_product_since:rel_inverness
-    ~params:[Ref _vdi, "self", "The VDI to access via Network Block Device protocol"]
-    ~errs: [Api_errors.vdi_incompatible_type]
-    ~result:(Set (Record _vdi_nbd_server_info), "The details necessary for connecting to the VDI over NBD. This includes an authentication token, so must be treated as sensitive material and must not be sent over insecure networks.")
-    ~doc:"Get details specifying how to access this VDI via a Network Block Device server. For each of a set of NBD server addresses on which the VDI is available, the return value set contains a vdi_nbd_server_info object that contains an exportname to request once the NBD connection is established, and connection details for the address. An empty list is returned if there is no network that has a PIF on a host with access to the relevant SR, or if no such network has been assigned an NBD-related purpose in its purpose field. To access the given VDI, any of the vdi_nbd_server_info objects can be used to make a connection to a server, and then the VDI will be available by requesting the exportname."
-    ~flags:[`Session] (* no async *)
-    ~allowed_roles:_R_VM_ADMIN
-    ()
 
 
-(** A virtual disk *)
-let vdi =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vdi ~descr:"A virtual disk image"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages_default_allowed_roles:_R_VM_ADMIN
-    ~messages:[vdi_snapshot; vdi_clone; vdi_resize;
-               vdi_resize_online;
-               vdi_introduce; vdi_pool_introduce;
-               vdi_db_introduce; vdi_db_forget;
-               vdi_update;
-               vdi_copy;
-               vdi_force_unlock; vdi_set_managed;
-               vdi_forget;
-               vdi_set_sharable;
-               vdi_set_read_only;
-               vdi_set_missing;
-               vdi_set_virtual_size;
-               vdi_set_physical_utilisation;
-               vdi_set_is_a_snapshot;
-               vdi_set_snapshot_of;
-               vdi_set_snapshot_time;
-               vdi_set_metadata_of_pool;
-               vdi_set_name_label;
-               vdi_set_name_description;
-               vdi_generate_config;
-               vdi_set_on_boot;
-               vdi_set_allow_caching;
-               vdi_open_database;
-               vdi_checksum;
-               vdi_read_database_pool_uuid;
-               vdi_pool_migrate;
-               vdi_enable_cbt;
-               vdi_disable_cbt;
-               vdi_set_cbt_enabled;
-               vdi_data_destroy;
-               vdi_list_changed_blocks;
-               vdi_get_nbd_info;
-              ]
-    ~contents:
-      ([ uid _vdi;
-         namespace ~name:"name" ~contents:(names oss_since_303 StaticRO) ();
-       ] @ (allowed_and_current_operations vdi_operations) @ [
-         field ~qualifier:StaticRO ~ty:(Ref _sr) "SR" "storage repository in which the VDI resides";
-         field ~qualifier:DynamicRO ~ty:(Set (Ref _vbd)) "VBDs" "list of vbds that refer to this disk";
-         field ~qualifier:DynamicRO ~ty:(Set (Ref _crashdump)) "crash_dumps" "list of crash dumps that refer to this disk";
-         field ~qualifier:StaticRO ~ty:Int "virtual_size" "size of disk as presented to the guest (in bytes). Note that, depending on storage backend type, requested size may not be respected exactly";
-         field ~qualifier:DynamicRO ~ty:Int "physical_utilisation" "amount of physical space that the disk image is currently taking up on the storage repository (in bytes)";
-         field ~qualifier:StaticRO ~ty:vdi_type "type" "type of the VDI";
-         field ~qualifier:StaticRO ~ty:Bool "sharable" "true if this disk may be shared";
-         field ~qualifier:StaticRO ~ty:Bool "read_only" "true if this disk may ONLY be mounted read-only";
-         field ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP))];
-         field ~qualifier:DynamicRO ~ty:Bool "storage_lock" "true if this disk is locked at the storage level";
-         (* XXX: location field was in the database in rio, now API in miami *)
-         field ~in_oss_since:None ~in_product_since:rel_miami ~ty:String ~qualifier:DynamicRO ~default_value:(Some (VString "")) "location" "location information";
-         field ~in_oss_since:None ~ty:Bool ~qualifier:DynamicRO "managed" "";
-         field ~in_oss_since:None ~ty:Bool ~qualifier:DynamicRO "missing" "true if SR scan operation reported this VDI as not present on disk";
-         field ~in_oss_since:None ~ty:(Ref _vdi) ~qualifier:DynamicRO ~lifecycle:[Published, rel_rio, ""; Deprecated, rel_ely, "The field was never used."] "parent" "This field is always null. Deprecated";
-         field ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "xenstore_data" "data to be inserted into the xenstore tree (/local/domain/0/backend/vbd/<domid>/<device-id>/sm-data) after the VDI is attached. This is generally set by the SM backends on vdi_attach." ~default_value:(Some (VMap []));
-         field ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "sm_config" "SM dependent data" ~default_value:(Some (VMap []));
+module VDI = struct
+  (** Each disk is associated with a vdi_type: (a 'style' of disk?) *)
+  let type' = Enum ("vdi_type", [ "system",    "a disk that may be replaced on upgrade";
+                                  "user",      "a disk that is always preserved on upgrade";
+                                  "ephemeral", "a disk that may be reformatted on upgrade";
+                                  "suspend",   "a disk that stores a suspend image";
+                                  "crashdump", "a disk that stores VM crashdump information";
+                                  "ha_statefile", "a disk used for HA storage heartbeating";
+                                  "metadata", "a disk used for HA Pool metadata";
+                                  "redo_log", "a disk used for a general metadata redo-log";
+                                  "rrd", "a disk that stores SR-level RRDs";
+                                  "pvs_cache", "a disk that stores PVS cache data";
+                                  "cbt_metadata", "Metadata about a snapshot VDI that has been deleted: the set of blocks that changed between some previous version of the disk and the version tracked by the snapshot.";
+                                ])
+  let snapshot = call
+      ~name:"snapshot"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~versioned_params:
+        [{param_type=Ref _vdi; param_name="vdi"; param_doc="The VDI to snapshot"; param_release=rio_release; param_default=None};
+         {param_type=Map (String, String); param_name="driver_params"; param_doc="Optional parameters that can be passed through to backend driver in order to specify storage-type-specific snapshot options"; param_release=miami_release; param_default=Some (VMap [])}
+        ]
+      ~doc:"Take a read-only snapshot of the VDI, returning a reference to the snapshot. If any driver_params are specified then these are passed through to the storage-specific substrate driver that takes the snapshot. NB the snapshot lives in the same Storage Repository as its parent."
+      ~result:(Ref _vdi, "The ID of the newly created VDI.")
+      ~allowed_roles:_R_VM_ADMIN
+      ~doc_tags:[Snapshots]
+      ()
 
-         field ~in_product_since:rel_orlando ~default_value:(Some (VBool false))          ~qualifier:DynamicRO ~ty:Bool ~doc_tags:[Snapshots] "is_a_snapshot" "true if this is a snapshot.";
-         field ~in_product_since:rel_orlando ~default_value:(Some (VRef ""))              ~qualifier:DynamicRO ~ty:(Ref _vdi) ~doc_tags:[Snapshots] "snapshot_of" "Ref pointing to the VDI this snapshot is of.";
-         field ~in_product_since:rel_orlando                                              ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) ~doc_tags:[Snapshots] "snapshots" "List pointing to all the VDIs snapshots.";
-         field ~in_product_since:rel_orlando ~default_value:(Some (VDateTime Date.never)) ~qualifier:DynamicRO ~ty:DateTime ~doc_tags:[Snapshots] "snapshot_time" "Date/time when this snapshot was created.";
-         field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
-         field ~in_product_since:rel_cowley ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "allow_caching" "true if this VDI is to be cached in the local cache SR";
-         field ~in_product_since:rel_cowley ~qualifier:DynamicRO ~ty:on_boot ~default_value:(Some (VEnum "persist")) "on_boot" "The behaviour of this VDI on a VM boot";
-         field ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:(Ref _pool) ~default_value:(Some (VRef null_ref)) "metadata_of_pool" "The pool whose metadata is contained in this VDI";
-         field ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "metadata_latest" "Whether this VDI contains the latest known accessible metadata for the pool";
-         field ~lifecycle:[Published, rel_dundee, ""] ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "is_tools_iso" "Whether this VDI is a Tools ISO";
-         field ~lifecycle:[Published, rel_inverness, ""] ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "cbt_enabled" "True if changed blocks are tracked for this VDI" ~doc_tags:[Snapshots];
-       ])
-    ()
+  let clone = call
+      ~name:"clone"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~params:[Ref _vdi, "vdi", "The VDI to clone"]
+      ~versioned_params:
+        [{param_type=Ref _vdi; param_name="vdi"; param_doc="The VDI to clone"; param_release=rio_release; param_default=None};
+         {param_type=Map (String, String); param_name="driver_params"; param_doc="Optional parameters that are passed through to the backend driver in order to specify storage-type-specific clone options"; param_release=miami_release; param_default=Some (VMap [])}
+        ]
+      ~doc:"Take an exact copy of the VDI and return a reference to the new disk. If any driver_params are specified then these are passed through to the storage-specific substrate driver that implements the clone operation. NB the clone lives in the same Storage Repository as its parent."
+      ~result:(Ref _vdi, "The ID of the newly created VDI.")
+      ~allowed_roles:_R_VM_ADMIN
+      ~doc_tags:[Snapshots]
+      ()
+
+  let resize = call
+      ~name:"resize"
+      ~in_product_since:rel_rio
+      ~in_oss_since:None
+      ~params:[Ref _vdi, "vdi", "The VDI to resize"; Int, "size", "The new size of the VDI" ]
+      ~doc:"Resize the VDI."
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let resize_online = call
+      ~name:"resize_online"
+      ~in_oss_since:None
+      ~lifecycle: [
+        Published, rel_rio, "";
+        Removed, rel_inverness, "Online VDI resize is not supported by any of the storage backends."
+      ]
+      ~params:[Ref _vdi, "vdi", "The VDI to resize"; Int, "size", "The new size of the VDI" ]
+      ~doc:"Resize the VDI which may or may not be attached to running guests."
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let copy = call
+      ~name:"copy"
+      ~lifecycle:[
+        Published, rel_rio, "Copies a VDI to an SR. There must be a host that can see both the source and destination SRs simultaneously";
+        Extended, rel_cowley, "The copy can now be performed between any two SRs.";
+        Extended, rel_clearwater_felton, "The copy can now be performed into a pre-created VDI. It is now possible to request copying only changed blocks from a base VDI"; ]
+      ~in_oss_since:None
+      ~versioned_params:
+        [{param_type=Ref _vdi; param_name="vdi"; param_doc="The VDI to copy"; param_release=rio_release; param_default=None};
+         {param_type=Ref _sr; param_name="sr"; param_doc="The destination SR (only required if the destination VDI is not specified"; param_release=rio_release; param_default=Some (VString null_ref)};
+         {param_type=Ref _vdi; param_name="base_vdi"; param_doc="The base VDI (only required if copying only changed blocks, by default all blocks will be copied)"; param_release=clearwater_felton_release; param_default=Some (VRef null_ref)};
+         {param_type=Ref _vdi; param_name="into_vdi"; param_doc="The destination VDI to copy blocks into (if omitted then a destination SR must be provided and a fresh VDI will be created)"; param_release=clearwater_felton_release; param_default=Some (VString null_ref)};
+        ]
+      ~doc:"Copy either a full VDI or the block differences between two VDIs into either a fresh VDI or an existing VDI."
+      ~errs:[Api_errors.vdi_readonly; Api_errors.vdi_too_small; Api_errors.vdi_not_sparse]
+      ~result:(Ref _vdi, "The reference of the VDI where the blocks were written.")
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let pool_migrate = call
+      ~name:"pool_migrate"
+      ~in_oss_since:None
+      ~in_product_since:rel_tampa
+      ~params:[ Ref _vdi, "vdi", "The VDI to migrate"
+              ; Ref _sr, "sr", "The destination SR"
+              ; Map (String, String), "options", "Other parameters" ]
+      ~result:(Ref _vdi, "The new reference of the migrated VDI.")
+      ~doc:"Migrate a VDI, which may be attached to a running guest, to a different SR. The destination SR must be visible to the guest."
+      ~allowed_roles:_R_VM_POWER_ADMIN
+      ()
+
+  let introduce_params first_rel =
+    [
+      {param_type=String; param_name="uuid"; param_doc="The uuid of the disk to introduce"; param_release=first_rel; param_default=None};
+      {param_type=String; param_name="name_label"; param_doc="The name of the disk record"; param_release=first_rel; param_default=None};
+      {param_type=String; param_name="name_description"; param_doc="The description of the disk record"; param_release=first_rel; param_default=None};
+      {param_type=Ref _sr; param_name="SR"; param_doc="The SR that the VDI is in"; param_release=first_rel; param_default=None};
+      {param_type=type'; param_name="type"; param_doc="The type of the VDI"; param_release=first_rel; param_default=None};
+      {param_type=Bool; param_name="sharable"; param_doc="true if this disk may be shared"; param_release=first_rel; param_default=None};
+      {param_type=Bool; param_name="read_only"; param_doc="true if this disk may ONLY be mounted read-only"; param_release=first_rel; param_default=None};
+      {param_type=Map(String, String); param_name="other_config"; param_doc="additional configuration"; param_release=first_rel; param_default=None};
+      {param_type=String; param_name="location"; param_doc="location information"; param_release=first_rel; param_default=None};
+      {param_type=Map(String, String); param_name="xenstore_data"; param_doc="Data to insert into xenstore"; param_release=first_rel; param_default=Some (VMap [])};
+      {param_type=Map(String, String); param_name="sm_config"; param_doc="Storage-specific config"; param_release=miami_release; param_default=Some (VMap [])};
+      {param_type=Bool; param_name = "managed"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VBool true) };
+      {param_type=Int; param_name="virtual_size"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VInt 0L) };
+      {param_type=Int; param_name="physical_utilisation"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VInt 0L) };
+      {param_type=Ref _pool; param_name="metadata_of_pool"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VRef "") };
+      {param_type=Bool; param_name="is_a_snapshot"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VBool false) };
+      {param_type=DateTime; param_name="snapshot_time"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VDateTime Date.never) };
+      {param_type=Ref _vdi; param_name="snapshot_of"; param_doc = "Storage-specific config"; param_release=tampa_release; param_default = Some (VRef "") };
+
+
+    ]
+
+  (* This used to be called VDI.introduce but it was always an internal call *)
+  let pool_introduce = call
+      ~name:"pool_introduce"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~versioned_params:(
+        (introduce_params miami_release) @
+        [{ param_type=Bool; param_name="cbt_enabled"; param_doc="True if changed blocks are tracked for this VDI"; param_release=inverness_release; param_default= Some(VBool false) }]
+      )
+      ~doc:"Create a new VDI record in the database only"
+      ~result:(Ref _vdi, "The ref of the newly created VDI record.")
+      ~hide_from_docs:true
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let db_introduce = { pool_introduce with msg_name = "db_introduce"; msg_hide_from_docs = false }
+
+  let db_forget = call
+      ~name:"db_forget"
+      ~in_oss_since:None
+      ~params:[Ref _vdi, "vdi", "The VDI to forget about"]
+      ~doc:"Removes a VDI record from the database"
+      ~in_product_since:rel_miami
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let introduce = call
+      ~name:"introduce"
+      ~in_oss_since:None
+      ~versioned_params:(introduce_params rio_release)
+      ~doc:"Create a new VDI record in the database only"
+      ~result:(Ref _vdi, "The ref of the newly created VDI record.")
+      ~errs:[Api_errors.sr_operation_not_supported]
+      ~in_product_since:rel_miami
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let forget = call
+      ~name:"forget"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~params:[Ref _vdi, "vdi", "The VDI to forget about"]
+      ~doc:"Removes a VDI record from the database"
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let force_unlock = call
+      ~name:"force_unlock"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~internal_deprecated_since:rel_miami
+      ~params:[Ref _vdi, "vdi", "The VDI to forcibly unlock"]
+      ~doc:"Steals the lock on this VDI and leaves it unlocked. This function is extremely dangerous. This call is deprecated."
+      ~hide_from_docs:true
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let update = call
+      ~name:"update"
+      ~in_oss_since:None
+      ~params:[Ref _vdi, "vdi", "The VDI whose stats (eg size) should be updated" ]
+      ~doc:"Ask the storage backend to refresh the fields in the VDI object"
+      ~errs:[Api_errors.sr_operation_not_supported]
+      ~in_product_since:rel_symc
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let operations =
+    Enum ("vdi_operations",
+          [ "clone", "Cloning the VDI";
+            "copy", "Copying the VDI";
+            "resize", "Resizing the VDI";
+            "resize_online", "Resizing the VDI which may or may not be online";
+            "snapshot", "Snapshotting the VDI";
+            "mirror", "Mirroring the VDI";
+            "destroy", "Destroying the VDI";
+            "forget", "Forget about the VDI";
+            "update", "Refreshing the fields of the VDI";
+            "force_unlock", "Forcibly unlocking the VDI";
+            "generate_config", "Generating static configuration";
+            "enable_cbt", "Enabling changed block tracking for a VDI";
+            "disable_cbt", "Disabling changed block tracking for a VDI";
+            "data_destroy", "Deleting the data of the VDI";
+            "list_changed_blocks", "Exporting a bitmap that shows the changed blocks between two VDIs";
+            "set_on_boot", "Setting the on_boot field of the VDI";
+            "blocked", "Operations on this VDI are temporarily blocked";
+          ])
+
+  let set_missing = call
+      ~name:"set_missing"
+      ~in_oss_since:None
+      ~in_product_since:rel_miami
+      ~params:[Ref _vdi, "self", "The VDI to modify";
+               Bool, "value", "The new value of the VDI's missing field"]
+      ~doc:"Sets the VDI's missing field"
+      ~flags:[`Session]
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let set_read_only = call
+      ~name:"set_read_only"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~params:[Ref _vdi, "self", "The VDI to modify";
+               Bool, "value", "The new value of the VDI's read_only field"]
+      ~flags:[`Session]
+      ~doc:"Sets the VDI's read_only field"
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let set_sharable = call
+      ~name:"set_sharable"
+      ~in_oss_since:None
+      ~in_product_since:rel_george
+      ~params:[Ref _vdi, "self", "The VDI to modify";
+               Bool, "value", "The new value of the VDI's sharable field"]
+      ~flags:[`Session]
+      ~doc:"Sets the VDI's sharable field"
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let set_managed = call
+      ~name:"set_managed"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~params:[Ref _vdi, "self", "The VDI to modify";
+               Bool, "value", "The new value of the VDI's managed field"]
+      ~flags:[`Session]
+      ~doc:"Sets the VDI's managed field"
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let set_virtual_size = call
+      ~name:"set_virtual_size"
+      ~in_oss_since:None
+      ~in_product_since:rel_miami
+      ~params:[Ref _vdi, "self", "The VDI to modify";
+               Int, "value", "The new value of the VDI's virtual size"]
+      ~flags:[`Session]
+      ~doc:"Sets the VDI's virtual_size field"
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let set_physical_utilisation = call
+      ~name:"set_physical_utilisation"
+      ~in_oss_since:None
+      ~in_product_since:rel_miami
+      ~params:[Ref _vdi, "self", "The VDI to modify";
+               Int, "value", "The new value of the VDI's physical utilisation"]
+      ~flags:[`Session]
+      ~doc:"Sets the VDI's physical_utilisation field"
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let set_is_a_snapshot = call
+      ~name:"set_is_a_snapshot"
+      ~in_oss_since:None
+      ~in_product_since:rel_boston
+      ~params:[Ref _vdi, "self", "The VDI to modify";
+               Bool, "value", "The new value indicating whether this VDI is a snapshot"]
+      ~flags:[`Session]
+      ~doc:"Sets whether this VDI is a snapshot"
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let set_snapshot_of = call
+      ~name:"set_snapshot_of"
+      ~in_oss_since:None
+      ~in_product_since:rel_boston
+      ~params:[Ref _vdi, "self", "The VDI to modify";
+               Ref _vdi, "value", "The VDI of which this VDI is a snapshot"]
+      ~flags:[`Session]
+      ~doc:"Sets the VDI of which this VDI is a snapshot"
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let set_snapshot_time = call
+      ~name:"set_snapshot_time"
+      ~in_oss_since:None
+      ~in_product_since:rel_boston
+      ~params:[Ref _vdi, "self", "The VDI to modify";
+               DateTime, "value", "The snapshot time of this VDI."]
+      ~flags:[`Session]
+      ~doc:"Sets the snapshot time of this VDI."
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let set_metadata_of_pool = call
+      ~name:"set_metadata_of_pool"
+      ~in_oss_since:None
+      ~in_product_since:rel_boston
+      ~params:[Ref _vdi, "self", "The VDI to modify";
+               Ref _pool, "value", "The pool whose metadata is contained by this VDI"]
+      ~flags:[`Session]
+      ~doc:"Records the pool whose metadata is contained by this VDI."
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  (** An API call for debugging and testing only *)
+  let generate_config = call
+      ~name:"generate_config"
+      ~in_oss_since:None
+      ~in_product_since:rel_orlando
+      ~params:[Ref _host, "host", "The host on which to generate the configuration";
+               Ref _vdi, "vdi", "The VDI to generate the configuration for" ]
+      ~result:(String, "The generated static configuration")
+      ~doc:"Internal function for debugging only"
+      ~hide_from_docs:true
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let on_boot = Enum ("on_boot", [
+      "reset", "When a VM containing this VDI is started, the contents of the VDI are reset to the state they were in when this flag was last set.";
+      "persist", "Standard behaviour.";
+    ])
+
+  let set_on_boot = call
+      ~name:"set_on_boot"
+      ~in_oss_since:None
+      ~in_product_since:rel_cowley
+      ~params:[Ref _vdi, "self", "The VDI to modify";
+               on_boot, "value", "The value to set"]
+      ~doc:"Set the value of the on_boot parameter. This value can only be changed when the VDI is not attached to a running VM."
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let set_allow_caching = call
+      ~name:"set_allow_caching"
+      ~in_oss_since:None
+      ~in_product_since:rel_cowley
+      ~params:[Ref _vdi, "self", "The VDI to modify";
+               Bool, "value", "The value to set"]
+      ~doc:"Set the value of the allow_caching parameter. This value can only be changed when the VDI is not attached to a running VM. The caching behaviour is only affected by this flag for VHD-based VDIs that have one parent and no child VHDs. Moreover, caching only takes place when the host running the VM containing this VDI has a nominated SR for local caching."
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let set_name_label = call
+      ~name:"set_name_label"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~params:[Ref _vdi, "self", "The VDI to modify";
+               String, "value", "The name lable for the VDI"]
+      ~doc:"Set the name label of the VDI. This can only happen when then its SR is currently attached."
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let set_name_description = call
+      ~name:"set_name_description"
+      ~in_oss_since:None
+      ~in_product_since:rel_rio
+      ~params:[Ref _vdi, "self", "The VDI to modify";
+               String, "value", "The name description for the VDI"]
+      ~doc:"Set the name description of the VDI. This can only happen when its SR is currently attached."
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let open_database = call
+      ~name:"open_database"
+      ~in_oss_since:None
+      ~in_product_since:rel_boston
+      ~params:[Ref _vdi, "self", "The VDI which contains the database to open"]
+      ~result:(Ref _session, "A session which can be used to query the database")
+      ~doc:"Load the metadata found on the supplied VDI and return a session reference which can be used in XenAPI calls to query its contents."
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let checksum = call
+      ~name:"checksum"
+      ~in_oss_since:None
+      ~in_product_since:rel_boston
+      ~params:[Ref _vdi, "self", "The VDI to checksum"]
+      ~result:(String, "The md5sum of the vdi")
+      ~doc:"Internal function to calculate VDI checksum and return a string"
+      ~hide_from_docs:true
+      ~allowed_roles:_R_VM_ADMIN (* Conceptually, this is not correct. We do it
+                                    	                              this way only to follow the previous
+                                    	                              convention. It is supposed to fix by future
+                                    	                              version of RBAC *)
+      ()
+
+  let read_database_pool_uuid = call
+      ~name:"read_database_pool_uuid"
+      ~in_oss_since:None
+      ~in_product_since:rel_boston
+      ~params:[Ref _vdi, "self", "The metadata VDI to look up in the cache."]
+      ~result:(String, "The cached pool UUID of the database on the VDI.")
+      ~doc:"Check the VDI cache for the pool UUID of the database on this VDI."
+      ~allowed_roles:_R_READ_ONLY
+      ()
+
+  let enable_cbt = call
+      ~name:"enable_cbt"
+      ~in_oss_since:None
+      ~in_product_since:rel_inverness
+      ~params:[Ref _vdi, "self", "The VDI for which CBT should be enabled"]
+      ~errs:[
+        Api_errors.sr_operation_not_supported;
+        Api_errors.vdi_missing;
+        Api_errors.sr_not_attached;
+        Api_errors.sr_no_pbds;
+        Api_errors.operation_not_allowed;
+        Api_errors.vdi_incompatible_type;
+        Api_errors.vdi_on_boot_mode_incompatible_with_operation;
+      ]
+      ~doc:"Enable changed block tracking for the VDI. This call is idempotent - enabling CBT for a VDI for which CBT is already enabled results in a no-op, and no error will be thrown."
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let disable_cbt = call
+      ~name:"disable_cbt"
+      ~in_oss_since:None
+      ~in_product_since:rel_inverness
+      ~params:[Ref _vdi, "self", "The VDI for which CBT should be disabled"]
+      ~errs:[
+        Api_errors.sr_operation_not_supported;
+        Api_errors.vdi_missing;
+        Api_errors.sr_not_attached;
+        Api_errors.sr_no_pbds;
+        Api_errors.operation_not_allowed;
+        Api_errors.vdi_incompatible_type;
+        Api_errors.vdi_on_boot_mode_incompatible_with_operation;
+      ]
+      ~doc:"Disable changed block tracking for the VDI. This call is only allowed on VDIs that support enabling CBT. It is an idempotent operation - disabling CBT for a VDI for which CBT is not enabled results in a no-op, and no error will be thrown."
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  (** This command is for internal use by SM to set the cbt_enabled field when it needs to disable cbt for its own reasons. This command should be removed once SMAPIv3 is implemented *)
+  let set_cbt_enabled = call
+      ~name:"set_cbt_enabled"
+      ~in_oss_since:None
+      ~in_product_since:rel_inverness
+      ~params:[Ref _vdi, "self", "The VDI for which CBT enabled status should be set";
+               Bool, "value", "The value to set"]
+      ~errs:[]
+      ~hide_from_docs:true
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ()
+
+  let data_destroy = call
+      ~name:"data_destroy"
+      ~in_oss_since:None
+      ~in_product_since:rel_inverness
+      ~params:[Ref _vdi, "self", "The VDI whose data should be deleted."]
+      ~errs:[
+        Api_errors.sr_operation_not_supported;
+        Api_errors.vdi_missing;
+        Api_errors.sr_not_attached;
+        Api_errors.sr_no_pbds;
+        Api_errors.operation_not_allowed;
+        Api_errors.vdi_incompatible_type;
+        Api_errors.vdi_no_cbt_metadata;
+        Api_errors.vdi_in_use;
+        Api_errors.vdi_is_a_physical_device;
+      ]
+      ~doc:"Delete the data of the snapshot VDI, but keep its changed block tracking metadata. When successful, this call changes the type of the VDI to cbt_metadata. This operation is idempotent: calling it on a VDI of type cbt_metadata results in a no-op, and no error will be thrown."
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let list_changed_blocks = call
+      ~name:"list_changed_blocks"
+      ~in_oss_since:None
+      ~in_product_since:rel_inverness
+      ~params:
+        [ Ref _vdi, "vdi_from", "The first VDI."
+        ; Ref _vdi, "vdi_to", "The second VDI."
+        ]
+      ~errs:
+        [ Api_errors.sr_operation_not_supported
+        ; Api_errors.vdi_missing
+        ; Api_errors.sr_not_attached
+        ; Api_errors.sr_no_pbds
+        ; Api_errors.vdi_in_use
+        ]
+      ~result:(String, "A base64 string-encoding of the bitmap showing which blocks differ in the two VDIs.")
+      ~doc:"Compare two VDIs in 64k block increments and report which blocks differ. This operation is not allowed when vdi_to is attached to a VM."
+      ~allowed_roles:_R_VM_OP
+      ()
+
+
+  let get_nbd_info = call
+      ~name:"get_nbd_info"
+      ~in_oss_since:None
+      ~in_product_since:rel_inverness
+      ~params:[Ref _vdi, "self", "The VDI to access via Network Block Device protocol"]
+      ~errs: [Api_errors.vdi_incompatible_type]
+      ~result:(Set (Record _vdi_nbd_server_info), "The details necessary for connecting to the VDI over NBD. This includes an authentication token, so must be treated as sensitive material and must not be sent over insecure networks.")
+      ~doc:"Get details specifying how to access this VDI via a Network Block Device server. For each of a set of NBD server addresses on which the VDI is available, the return value set contains a vdi_nbd_server_info object that contains an exportname to request once the NBD connection is established, and connection details for the address. An empty list is returned if there is no network that has a PIF on a host with access to the relevant SR, or if no such network has been assigned an NBD-related purpose in its purpose field. To access the given VDI, any of the vdi_nbd_server_info objects can be used to make a connection to a server, and then the VDI will be available by requesting the exportname."
+      ~flags:[`Session] (* no async *)
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+
+  (** A virtual disk *)
+  let t =
+    create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vdi ~descr:"A virtual disk image"
+      ~gen_events:true
+      ~doccomments:[]
+      ~messages_default_allowed_roles:_R_VM_ADMIN
+      ~messages:[snapshot; clone; resize;
+                 resize_online;
+                 introduce; pool_introduce;
+                 db_introduce; db_forget;
+                 update;
+                 copy;
+                 force_unlock; set_managed;
+                 forget;
+                 set_sharable;
+                 set_read_only;
+                 set_missing;
+                 set_virtual_size;
+                 set_physical_utilisation;
+                 set_is_a_snapshot;
+                 set_snapshot_of;
+                 set_snapshot_time;
+                 set_metadata_of_pool;
+                 set_name_label;
+                 set_name_description;
+                 generate_config;
+                 set_on_boot;
+                 set_allow_caching;
+                 open_database;
+                 checksum;
+                 read_database_pool_uuid;
+                 pool_migrate;
+                 enable_cbt;
+                 disable_cbt;
+                 set_cbt_enabled;
+                 data_destroy;
+                 list_changed_blocks;
+                 get_nbd_info;
+                ]
+      ~contents:
+        ([ uid _vdi;
+           namespace ~name:"name" ~contents:(names oss_since_303 StaticRO) ();
+         ] @ (allowed_and_current_operations operations) @ [
+           field ~qualifier:StaticRO ~ty:(Ref _sr) "SR" "storage repository in which the VDI resides";
+           field ~qualifier:DynamicRO ~ty:(Set (Ref _vbd)) "VBDs" "list of vbds that refer to this disk";
+           field ~qualifier:DynamicRO ~ty:(Set (Ref _crashdump)) "crash_dumps" "list of crash dumps that refer to this disk";
+           field ~qualifier:StaticRO ~ty:Int "virtual_size" "size of disk as presented to the guest (in bytes). Note that, depending on storage backend type, requested size may not be respected exactly";
+           field ~qualifier:DynamicRO ~ty:Int "physical_utilisation" "amount of physical space that the disk image is currently taking up on the storage repository (in bytes)";
+           field ~qualifier:StaticRO ~ty:type' "type" "type of the VDI";
+           field ~qualifier:StaticRO ~ty:Bool "sharable" "true if this disk may be shared";
+           field ~qualifier:StaticRO ~ty:Bool "read_only" "true if this disk may ONLY be mounted read-only";
+           field ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:[("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP))];
+           field ~qualifier:DynamicRO ~ty:Bool "storage_lock" "true if this disk is locked at the storage level";
+           (* XXX: location field was in the database in rio, now API in miami *)
+           field ~in_oss_since:None ~in_product_since:rel_miami ~ty:String ~qualifier:DynamicRO ~default_value:(Some (VString "")) "location" "location information";
+           field ~in_oss_since:None ~ty:Bool ~qualifier:DynamicRO "managed" "";
+           field ~in_oss_since:None ~ty:Bool ~qualifier:DynamicRO "missing" "true if SR scan operation reported this VDI as not present on disk";
+           field ~in_oss_since:None ~ty:(Ref _vdi) ~qualifier:DynamicRO ~lifecycle:[Published, rel_rio, ""; Deprecated, rel_ely, "The field was never used."] "parent" "This field is always null. Deprecated";
+           field ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "xenstore_data" "data to be inserted into the xenstore tree (/local/domain/0/backend/vbd/<domid>/<device-id>/sm-data) after the VDI is attached. This is generally set by the SM backends on vdi_attach." ~default_value:(Some (VMap []));
+           field ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "sm_config" "SM dependent data" ~default_value:(Some (VMap []));
+
+           field ~in_product_since:rel_orlando ~default_value:(Some (VBool false))          ~qualifier:DynamicRO ~ty:Bool ~doc_tags:[Snapshots] "is_a_snapshot" "true if this is a snapshot.";
+           field ~in_product_since:rel_orlando ~default_value:(Some (VRef ""))              ~qualifier:DynamicRO ~ty:(Ref _vdi) ~doc_tags:[Snapshots] "snapshot_of" "Ref pointing to the VDI this snapshot is of.";
+           field ~in_product_since:rel_orlando                                              ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) ~doc_tags:[Snapshots] "snapshots" "List pointing to all the VDIs snapshots.";
+           field ~in_product_since:rel_orlando ~default_value:(Some (VDateTime Date.never)) ~qualifier:DynamicRO ~ty:DateTime ~doc_tags:[Snapshots] "snapshot_time" "Date/time when this snapshot was created.";
+           field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
+           field ~in_product_since:rel_cowley ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "allow_caching" "true if this VDI is to be cached in the local cache SR";
+           field ~in_product_since:rel_cowley ~qualifier:DynamicRO ~ty:on_boot ~default_value:(Some (VEnum "persist")) "on_boot" "The behaviour of this VDI on a VM boot";
+           field ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:(Ref _pool) ~default_value:(Some (VRef null_ref)) "metadata_of_pool" "The pool whose metadata is contained in this VDI";
+           field ~in_product_since:rel_boston ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "metadata_latest" "Whether this VDI contains the latest known accessible metadata for the pool";
+           field ~lifecycle:[Published, rel_dundee, ""] ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "is_tools_iso" "Whether this VDI is a Tools ISO";
+           field ~lifecycle:[Published, rel_inverness, ""] ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "cbt_enabled" "True if changed blocks are tracked for this VDI" ~doc_tags:[Snapshots];
+         ])
+      ()
+end
 
 (** Virtual disk interfaces have a mode parameter: *)
 let vbd_mode = Enum ("vbd_mode", [ "RO", "only read-only access will be allowed";
@@ -10344,7 +10348,7 @@ let all_system =
     SM.t;
     SR.t;
     LVHD.t;
-    vdi;
+    VDI.t;
     vbd;
     vbd_metrics;
     PBD.t;
