@@ -44,7 +44,7 @@ let write_database (s: Unix.file_descr) ~__context =
 (** Make sure the backup database version is compatible *)
 let version_check db =
   let major, minor = Manifest.schema (Database.manifest db) in
-  if major <> Datamodel.schema_major_vsn || minor <> Datamodel.schema_minor_vsn then begin
+  if major <> Datamodel_common.schema_major_vsn || minor <> Datamodel_common.schema_minor_vsn then begin
     error "Pool backup file was created with incompatible product version";
     raise (Api_errors.Server_error(Api_errors.restore_incompatible_version, []))
   end

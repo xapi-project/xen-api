@@ -44,20 +44,20 @@ let apply_upgrade_rules ~__context rules previous_version =
          error "Database upgrade rule '%s' failed: %s" r.description (Printexc.to_string exn)
     ) required_rules
 
-let george = Datamodel.george_release_schema_major_vsn, Datamodel.george_release_schema_minor_vsn
-let cowley = Datamodel.cowley_release_schema_major_vsn, Datamodel.cowley_release_schema_minor_vsn
-let boston = Datamodel.boston_release_schema_major_vsn, Datamodel.boston_release_schema_minor_vsn
-let tampa = Datamodel.tampa_release_schema_major_vsn, Datamodel.tampa_release_schema_minor_vsn
-let clearwater = Datamodel.clearwater_release_schema_major_vsn, Datamodel.clearwater_release_schema_minor_vsn
-let creedence = Datamodel.creedence_release_schema_major_vsn, Datamodel.creedence_release_schema_minor_vsn
-let cream = Datamodel.cream_release_schema_major_vsn, Datamodel.cream_release_schema_minor_vsn
-let dundee = Datamodel.dundee_release_schema_major_vsn, Datamodel.dundee_release_schema_minor_vsn
-let ely = Datamodel.ely_release_schema_major_vsn, Datamodel.ely_release_schema_minor_vsn
-let falcon = Datamodel.falcon_release_schema_major_vsn, Datamodel.falcon_release_schema_minor_vsn
-let inverness = Datamodel.inverness_release_schema_major_vsn, Datamodel.inverness_release_schema_minor_vsn
+let george = Datamodel_common.george_release_schema_major_vsn, Datamodel_common.george_release_schema_minor_vsn
+let cowley = Datamodel_common.cowley_release_schema_major_vsn, Datamodel_common.cowley_release_schema_minor_vsn
+let boston = Datamodel_common.boston_release_schema_major_vsn, Datamodel_common.boston_release_schema_minor_vsn
+let tampa = Datamodel_common.tampa_release_schema_major_vsn, Datamodel_common.tampa_release_schema_minor_vsn
+let clearwater = Datamodel_common.clearwater_release_schema_major_vsn, Datamodel_common.clearwater_release_schema_minor_vsn
+let creedence = Datamodel_common.creedence_release_schema_major_vsn, Datamodel_common.creedence_release_schema_minor_vsn
+let cream = Datamodel_common.cream_release_schema_major_vsn, Datamodel_common.cream_release_schema_minor_vsn
+let dundee = Datamodel_common.dundee_release_schema_major_vsn, Datamodel_common.dundee_release_schema_minor_vsn
+let ely = Datamodel_common.ely_release_schema_major_vsn, Datamodel_common.ely_release_schema_minor_vsn
+let falcon = Datamodel_common.falcon_release_schema_major_vsn, Datamodel_common.falcon_release_schema_minor_vsn
+let inverness = Datamodel_common.inverness_release_schema_major_vsn, Datamodel_common.inverness_release_schema_minor_vsn
 
 (* This is to support upgrade from Dundee tech-preview versions *)
-let vsn_with_meaningful_has_vendor_device = Datamodel.meaningful_vm_has_vendor_device_schema_major_vsn, Datamodel.meaningful_vm_has_vendor_device_schema_minor_vsn
+let vsn_with_meaningful_has_vendor_device = Datamodel_common.meaningful_vm_has_vendor_device_schema_major_vsn, Datamodel_common.meaningful_vm_has_vendor_device_schema_minor_vsn
 
 let upgrade_alert_priority = {
   description = "Upgrade alert priority";
@@ -551,7 +551,7 @@ let maybe_upgrade ~__context =
   let db_ref = Context.database_of __context in
   let db = Db_ref.get_database db_ref in
   let (previous_major_vsn, previous_minor_vsn) as previous_vsn = Db_cache_types.Manifest.schema (Db_cache_types.Database.manifest db) in
-  let (latest_major_vsn, latest_minor_vsn) as latest_vsn = Datamodel.schema_major_vsn, Datamodel.schema_minor_vsn in
+  let (latest_major_vsn, latest_minor_vsn) as latest_vsn = Datamodel_common.schema_major_vsn, Datamodel_common.schema_minor_vsn in
   let previous_string = Printf.sprintf "(%d, %d)" previous_major_vsn previous_minor_vsn in
   let latest_string = Printf.sprintf "(%d, %d)" latest_major_vsn latest_minor_vsn in
   debug "Database schema version is %s; binary schema version is %s" previous_string latest_string;

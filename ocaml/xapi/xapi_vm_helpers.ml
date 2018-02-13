@@ -1063,7 +1063,7 @@ let with_vm_operation ~__context ~self ~doc ~op ?(strict=true) ?policy f =
        try
          Db.VM.remove_from_current_operations ~__context ~self ~key:task_id;
          Xapi_vm_lifecycle.update_allowed_operations ~__context ~self;
-         Helpers.Early_wakeup.broadcast (Datamodel._vm, Ref.string_of self);
+         Helpers.Early_wakeup.broadcast (Datamodel_common._vm, Ref.string_of self);
        with
          _ -> ())
 

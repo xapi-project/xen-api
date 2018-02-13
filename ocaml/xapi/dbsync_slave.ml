@@ -84,8 +84,8 @@ let refresh_localhost_info ~__context info =
 
   Create_misc.create_updates_requiring_reboot_info ~__context ~host;
   Create_misc.create_software_version ~__context;
-  Db.Host.set_API_version_major ~__context ~self:host ~value:Datamodel.api_version_major;
-  Db.Host.set_API_version_minor ~__context ~self:host ~value:Datamodel.api_version_minor;
+  Db.Host.set_API_version_major ~__context ~self:host ~value:Datamodel_common.api_version_major;
+  Db.Host.set_API_version_minor ~__context ~self:host ~value:Datamodel_common.api_version_minor;
   Db.Host.set_virtual_hardware_platform_versions ~__context ~self:host ~value:Xapi_globs.host_virtual_hardware_platform_versions;
   Db.Host.set_hostname ~__context ~self:host ~value:info.hostname;
   let caps = try

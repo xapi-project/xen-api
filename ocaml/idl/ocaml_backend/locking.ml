@@ -28,7 +28,7 @@ open DT
 let of_message (obj: obj) (x: message) =
   let this_class = obj.DT.name in
   let self = [ this_class, Client._self ] in
-  let session = [ DM._session, Client._session_id ] in
+  let session = [ Datamodel_common._session, Client._session_id ] in
 
   (* Take all the arguments of type Ref x, select those which are part of
      a relationship (associated with a foreign Set(Ref _) and compute the
@@ -51,7 +51,7 @@ let of_message (obj: obj) (x: message) =
       | _ -> [] in
     List.concat (List.map consider fields) in
 
-  let session = if x.msg_session && this_class = DM._session then session else [] in
+  let session = if x.msg_session && this_class = Datamodel_common._session then session else [] in
 
   let all = match x.msg_tag with
     | FromField(_, { DT.field_has_effect = false }) ->

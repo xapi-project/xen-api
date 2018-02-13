@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Datamodel
+open Datamodel_common
 open Datamodel_types
 open Dm_api
 open Printf

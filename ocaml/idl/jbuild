@@ -35,6 +35,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    datamodel_types
    datamodel_errors
    datamodel_roles
+   datamodel_vm
    dm_api
    escaping
    datamodel_values

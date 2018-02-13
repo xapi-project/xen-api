@@ -3,6 +3,164 @@
 open Datamodel_types
 open Datamodel_roles
 
+let schema_major_vsn = 5
+let schema_minor_vsn = 134
+
+(* Historical schema versions just in case this is useful later *)
+let rio_schema_major_vsn = 5
+let rio_schema_minor_vsn = 19
+
+let miami_release_schema_major_vsn = 5
+let miami_release_schema_minor_vsn = 35
+
+let orlando_release_schema_major_vsn = 5
+let orlando_release_schema_minor_vsn = 55
+
+let george_release_schema_major_vsn = 5
+let george_release_schema_minor_vsn = 57
+
+let midnight_ride_release_schema_major_vsn = 5
+let midnight_ride_release_schema_minor_vsn = 60
+
+let cowley_release_schema_major_vsn = 5
+let cowley_release_schema_minor_vsn = 61
+
+let boston_release_schema_major_vsn = 5
+let boston_release_schema_minor_vsn = 63
+
+let tampa_release_schema_major_vsn = 5
+let tampa_release_schema_minor_vsn = 66
+
+let clearwater_release_schema_major_vsn = 5
+let clearwater_release_schema_minor_vsn = 67
+
+let vgpu_tech_preview_release_schema_major_vsn = 5
+let vgpu_tech_preview_release_schema_minor_vsn = 68
+
+let vgpu_productisation_release_schema_major_vsn = 5
+let vgpu_productisation_release_schema_minor_vsn = 69
+
+let clearwater_felton_release_schema_major_vsn = 5
+let clearwater_felton_release_schema_minor_vsn = 70
+
+let clearwater_whetstone_release_schema_major_vsn = 5
+let clearwater_whetstone_release_schema_minor_vsn = 71
+
+let creedence_release_schema_major_vsn = 5
+let creedence_release_schema_minor_vsn = 72
+
+let cream_release_schema_major_vsn = 5
+let cream_release_schema_minor_vsn = 73
+
+let indigo_release_schema_major_vsn = 5
+let indigo_release_schema_minor_vsn = 74
+
+let dundee_tech_preview_release_schema_major_vsn = 5
+let dundee_tech_preview_release_schema_minor_vsn = 91
+
+(* This is to support upgrade from Dundee tech-preview versions and other nearly-Dundee versions.
+ * The field has_vendor_device was added while minor vsn was 90, then became meaningful later;
+ * the first published tech preview in which the feature was active had datamodel minor vsn 91. *)
+let meaningful_vm_has_vendor_device_schema_major_vsn = dundee_tech_preview_release_schema_major_vsn
+let meaningful_vm_has_vendor_device_schema_minor_vsn = dundee_tech_preview_release_schema_minor_vsn
+
+let dundee_release_schema_major_vsn = 5
+let dundee_release_schema_minor_vsn = 93
+
+let ely_release_schema_major_vsn = 5
+let ely_release_schema_minor_vsn = 108
+
+let falcon_release_schema_major_vsn = 5
+let falcon_release_schema_minor_vsn = 120
+
+let inverness_release_schema_major_vsn = 5
+let inverness_release_schema_minor_vsn = 133
+
+(* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
+ * upgrading to a full release. *)
+let tech_preview_releases = [
+  vgpu_tech_preview_release_schema_major_vsn,   vgpu_tech_preview_release_schema_minor_vsn;
+  dundee_tech_preview_release_schema_major_vsn, dundee_tech_preview_release_schema_minor_vsn;
+]
+
+(* api version *)
+(* Normally xencenter_min_verstring and xencenter_max_verstring in the xapi_globs should be set to the same value,
+ * but there are exceptions: please consult the XenCenter maintainers if in doubt. *)
+let api_version_major = 2L
+let api_version_minor = 10L
+let api_version_string =
+  Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
+let api_version_vendor = "XenSource"
+let api_version_vendor_implementation = []
+
+(** Bindings for currently specified releases *)
+
+(** Name of variable which refers to reference in the parameter list *)
+let _self = "self"
+
+(** All the various object names *)
+
+let _session = "session"
+let _task = "task"
+let _user = "user"
+let _host = "host"
+let _host_metrics = "host_metrics"
+let _host_crashdump = "host_crashdump"
+let _host_patch = "host_patch"
+let _hostcpu = "host_cpu"
+let _sr = "SR"
+let _sm = "SM"
+let _lvhd = "LVHD"
+let _vm = "VM"
+let _vm_metrics = "VM_metrics"
+let _vm_guest_metrics = "VM_guest_metrics"
+let _vm_appliance = "VM_appliance"
+let _dr_task = "DR_task"
+let _vmpp = "VMPP"
+let _vmss = "VMSS"
+let _network = "network"
+let _vif = "VIF"
+let _vif_metrics = "VIF_metrics"
+let _pif = "PIF"
+let _pif_metrics = "PIF_metrics"
+let _bond = "Bond"
+let _vlan = "VLAN"
+let _pbd = "PBD"
+let _vdi = "VDI"
+let _vbd = "VBD"
+let _vbd_metrics = "VBD_metrics"
+let _vtpm = "VTPM"
+let _console = "console"
+let _event = "event"
+let _alert = "alert"
+let _crashdump = "crashdump"
+let _pool = "pool"
+let _pool_patch = "pool_patch"
+let _pool_update = "pool_update"
+let _data_source = "data_source"
+let _blob = "blob"
+let _message = "message"
+let _auth = "auth"
+let _subject = "subject"
+let _role = "role"
+let _secret = "secret"
+let _tunnel = "tunnel"
+let _pci = "PCI"
+let _pgpu = "PGPU"
+let _gpu_group = "GPU_group"
+let _vgpu = "VGPU"
+let _vgpu_type = "VGPU_type"
+let _pvs_site = "PVS_site"
+let _pvs_server = "PVS_server"
+let _pvs_proxy = "PVS_proxy"
+let _pvs_cache_storage = "PVS_cache_storage"
+let _feature = "Feature"
+let _sdn_controller = "SDN_controller"
+let _vdi_nbd_server_info = "vdi_nbd_server_info"
+let _pusb = "PUSB"
+let _usb_group = "USB_group"
+let _vusb = "VUSB"
+
 let get_oss_releases in_oss_since =
   match in_oss_since with
     None -> []
@@ -16,6 +174,122 @@ let get_product_releases in_product_since =
     | x::xs when code_name_of_release x = in_product_since -> "closed"::in_product_since::(List.map code_name_of_release xs)
     | x::xs -> go_through_release_order xs
   in go_through_release_order release_order
+
+
+let inverness_release =
+  { internal = get_product_releases rel_inverness
+  ; opensource = get_oss_releases None
+  ; internal_deprecated_since = None
+  }
+
+let falcon_release =
+  { internal = get_product_releases rel_falcon
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let ely_release =
+  { internal = get_product_releases rel_ely
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let dundee_release =
+  { internal = get_product_releases rel_dundee
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let cream_release =
+  { internal = get_product_releases rel_cream
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let creedence_release =
+  { internal = get_product_releases rel_creedence
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let clearwater_felton_release =
+  { internal=get_product_releases rel_clearwater_felton
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let vgpu_productisation_release =
+  { internal=get_product_releases rel_vgpu_productisation
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let vgpu_tech_preview_release =
+  { internal=get_product_releases rel_vgpu_tech_preview
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let clearwater_release =
+  { internal=get_product_releases rel_clearwater
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let tampa_release =
+  { internal=get_product_releases rel_tampa
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let boston_release =
+  { internal=get_product_releases rel_boston
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let cowley_release =
+  { internal=get_product_releases rel_cowley
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let midnight_ride_release =
+  { internal=get_product_releases rel_midnight_ride
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let george_release =
+  { internal=get_product_releases rel_george
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let orlando_release =
+  { internal=get_product_releases rel_orlando
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let miami_symc_release =
+  { internal=get_product_releases rel_symc
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let miami_release =
+  { internal=get_product_releases rel_miami
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
+
+let rio_release =
+  { internal=get_product_releases rel_rio
+  ; opensource=get_oss_releases (Some "3.0.3")
+  ; internal_deprecated_since=None
+  }
+
 
 let get_published lifecycle =
   try

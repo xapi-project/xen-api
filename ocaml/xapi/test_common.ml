@@ -120,10 +120,10 @@ let make_host2 ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="
     ~current_operations:[] ~allowed_operations:[]
     ~software_version:(Xapi_globs.software_version ())
     ~enabled:false
-    ~aPI_version_major:Datamodel.api_version_major
-    ~aPI_version_minor:Datamodel.api_version_minor
-    ~aPI_version_vendor:Datamodel.api_version_vendor
-    ~aPI_version_vendor_implementation:Datamodel.api_version_vendor_implementation
+    ~aPI_version_major:Datamodel_common.api_version_major
+    ~aPI_version_minor:Datamodel_common.api_version_minor
+    ~aPI_version_vendor:Datamodel_common.api_version_vendor
+    ~aPI_version_vendor_implementation:Datamodel_common.api_version_vendor_implementation
     ~name_description ~name_label ~uuid ~other_config:[]
     ~capabilities:[]
     ~cpu_configuration:[]
