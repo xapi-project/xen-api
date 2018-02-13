@@ -28,13 +28,13 @@ exception Emu_manager_failure of string (* an actual error is reported to us *)
 exception Timeout_backend
 exception Could_not_read_file of string (* eg linux kernel/ initrd *)
 
-type xen_arm_arch_domainconfig = Xenctrl.xen_arm_arch_domainconfig = {
+type xen_arm_arch_domainconfig = (* Xenctrl.xen_arm_arch_domainconfig = *) {
   gic_version: int;
   nr_spis: int;
   clock_frequency: int32;
 }
 
-type x86_arch_emulation_flags = Xenctrl.x86_arch_emulation_flags =
+type x86_arch_emulation_flags = (* Xenctrl.x86_arch_emulation_flags = *)
 | X86_EMU_LAPIC
 | X86_EMU_HPET
 | X86_EMU_PM
@@ -49,11 +49,11 @@ type x86_arch_emulation_flags = Xenctrl.x86_arch_emulation_flags =
 val emulation_flags_pvh : x86_arch_emulation_flags list
 val emulation_flags_all : x86_arch_emulation_flags list
 
-type xen_x86_arch_domainconfig = Xenctrl.xen_x86_arch_domainconfig = {
+type xen_x86_arch_domainconfig = (* Xenctrl.xen_x86_arch_domainconfig = *) {
   emulation_flags: x86_arch_emulation_flags list;
 }
 
-type arch_domainconfig = Xenctrl.arch_domainconfig =
+type arch_domainconfig = (* Xenctrl.arch_domainconfig = *)
   | ARM of xen_arm_arch_domainconfig
   | X86 of xen_x86_arch_domainconfig
 val rpc_of_arch_domainconfig : arch_domainconfig -> Rpc.t

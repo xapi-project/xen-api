@@ -25,13 +25,13 @@ open Xenops_task
 module D = Debug.Make(struct let name = "xenops" end)
 open D
 
-type xen_arm_arch_domainconfig = Xenctrl.xen_arm_arch_domainconfig = {
+type xen_arm_arch_domainconfig = (* Xenctrl.xen_arm_arch_domainconfig = *) {
   gic_version: int;
   nr_spis: int;
   clock_frequency: int32;
 } [@@deriving rpc]
 
-type x86_arch_emulation_flags = Xenctrl.x86_arch_emulation_flags =
+type x86_arch_emulation_flags = (* Xenctrl.x86_arch_emulation_flags = *)
 | X86_EMU_LAPIC
 | X86_EMU_HPET
 | X86_EMU_PM
@@ -43,11 +43,11 @@ type x86_arch_emulation_flags = Xenctrl.x86_arch_emulation_flags =
 | X86_EMU_PIT
 | X86_EMU_USE_PIRQ [@@deriving rpc]
 
-type xen_x86_arch_domainconfig = Xenctrl.xen_x86_arch_domainconfig = {
+type xen_x86_arch_domainconfig = (* Xenctrl.xen_x86_arch_domainconfig = *) {
   emulation_flags: x86_arch_emulation_flags list;
 } [@@deriving rpc]
 
-type arch_domainconfig = Xenctrl.arch_domainconfig =
+type arch_domainconfig = (* Xenctrl.arch_domainconfig = *)
   | ARM of xen_arm_arch_domainconfig
   | X86 of xen_x86_arch_domainconfig
 [@@deriving rpc]
@@ -231,7 +231,7 @@ let make ~xc ~xs vm_info domain_config uuid =
       end
     end else [] in
   debug "Domain_config: [%s]" (rpc_of_arch_domainconfig domain_config |> Jsonrpc.to_string);
-  let domid = Xenctrl.domain_create xc vm_info.ssidref flags (Uuidm.to_string uuid) domain_config in
+  let domid = Xenctrl.domain_create xc vm_info.ssidref flags (Uuidm.to_string uuid) (* domain_config *) in
   let name = if vm_info.name <> "" then vm_info.name else sprintf "Domain-%d" domid in
   try
     let dom_path = xs.Xs.getdomainpath domid in
