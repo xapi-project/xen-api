@@ -79,4 +79,4 @@ let with_tasks_destroy ~rpc ~session_id ~timeout ~tasks =
         (* db gc thread in xapi may delete task from tasks table *)
         D.log_and_ignore_exn (fun () -> Client.Task.destroy ~rpc ~session_id ~self:task)) tasks
   in
-  Stdext.Pervasiveext.finally wait_or_cancel destroy_all
+  Xapi_stdext_pervasives.Pervasiveext.finally wait_or_cancel destroy_all

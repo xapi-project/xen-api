@@ -46,7 +46,7 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~to
       let token_timeout_ms = Int64.of_float(token_timeout*.1000.0) in
       let token_timeout_coefficient_ms = Int64.of_float(token_timeout_coefficient*.1000.0) in
       let init_config = {
-        Cluster_idl.Interface.local_ip = ip;
+        Cluster_interface.local_ip = ip;
         token_timeout_ms = Some token_timeout_ms;
         token_coefficient_ms = Some token_timeout_coefficient_ms;
         name = None
