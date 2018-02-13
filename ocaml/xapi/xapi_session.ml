@@ -745,7 +745,7 @@ let get_top ~__context ~self =
 (* This function should only be called from inside XAPI. *)
 let create_readonly_session ~__context ~uname ~db_ref =
   debug "Creating readonly session.";
-  let role = List.hd (Xapi_role.get_by_name_label ~__context ~label:Datamodel.role_read_only) in
+  let role = List.hd (Xapi_role.get_by_name_label ~__context ~label:Datamodel_roles.role_read_only) in
   let rbac_permissions = Xapi_role.get_permissions_name_label ~__context ~self:role in
   let master = Helpers.get_master ~__context in
   login_no_password_common ~__context ~uname:(Some uname)
