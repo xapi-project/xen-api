@@ -5243,7 +5243,7 @@ end
 *)
 
 module Vdi_nbd_server_info = struct
-  let vdi_nbd_server_info =
+  let t =
     let lifecycle = [Published, rel_inverness, ""] in
     create_obj
       ~in_db:false
@@ -5266,8 +5266,6 @@ module Vdi_nbd_server_info = struct
           field ~qualifier:DynamicRO ~lifecycle ~ty:String "subject" "For convenience, this redundant field holds a DNS (hostname) subject of the certificate. This can be a wildcard, but only for a certificate that has a wildcard subject and no concrete hostname subjects.";
         ] ()
 end
-let vdi_nbd_server_info = Vdi_nbd_server_info.vdi_nbd_server_info
-
 
 
 module VDI = struct
@@ -9859,7 +9857,7 @@ module PVS_site = struct
       ~allowed_roles:_R_POOL_OP
       ()
 
-  let obj =
+  let t =
     let null_str = Some (VString "") in
     let null_set = Some (VSet []) in
     create_obj
@@ -9902,7 +9900,6 @@ module PVS_site = struct
         ]
       ()
 end
-let pvs_site = PVS_site.obj
 
 module PVS_server = struct
   let lifecycle = [Published, rel_ely, ""]
@@ -9931,7 +9928,7 @@ module PVS_server = struct
       ~allowed_roles:_R_POOL_OP
       ()
 
-  let obj =
+  let t =
     let null_ref = Some (VRef null_ref) in
     let null_int = Some (VInt 0L) in
     let null_set=  Some (VSet []) in
@@ -9971,7 +9968,6 @@ module PVS_server = struct
         ]
       ()
 end
-let pvs_server = PVS_server.obj
 
 module PVS_proxy = struct
   let lifecycle = [Published, rel_ely, ""]
@@ -10006,7 +10002,7 @@ module PVS_proxy = struct
       ~allowed_roles:_R_POOL_OP
       ()
 
-  let obj =
+  let t =
     let null_ref  = Some (VRef null_ref) in
     let null_bool = Some (VBool false) in
     create_obj
@@ -10045,12 +10041,11 @@ module PVS_proxy = struct
         ]
       ()
 end
-let pvs_proxy = PVS_proxy.obj
 
 module PVS_cache_storage = struct
   let lifecycle = [Published, rel_ely, ""]
 
-  let obj =
+  let t =
     let null_ref  = Some (VRef null_ref) in
     create_obj
       ~name: _pvs_cache_storage
@@ -10092,39 +10087,40 @@ module PVS_cache_storage = struct
         ]
       ()
 end
-let pvs_cache_storage = PVS_cache_storage.obj
 
 (* ---------------
    Features
    ----------------*)
 
 (** A new piece of functionality *)
-let feature =
-  create_obj
-    ~name:_feature
-    ~descr: "A new piece of functionality"
-    ~doccomments:[]
-    ~gen_constructor_destructor:false
-    ~gen_events:true
-    ~in_db:true
-    ~lifecycle:[Published, rel_falcon, ""]
-    ~messages:[]
-    ~messages_default_allowed_roles:_R_LOCAL_ROOT_ONLY
-    ~persist:PersistEverything
-    ~in_oss_since:None
-    ~contents:[
-      uid _feature ~lifecycle:[Published, rel_falcon, ""];
-      namespace ~name:"name" ~contents:(names None StaticRO) ();
-      field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_falcon, ""] ~default_value:(Some (VBool false))
-        "enabled" "Indicates whether the feature is enabled";
-      field ~qualifier:StaticRO ~ty:Bool ~lifecycle:[Published, rel_falcon, ""] ~default_value:(Some (VBool false))
-        "experimental" "Indicates whether the feature is experimental (as opposed to stable and fully supported)";
-      field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_falcon, ""] ~default_value:(Some (VString "1.0"))
-        "version" "The version of this feature";
-      field ~qualifier:DynamicRO ~ty:(Ref _host) ~lifecycle:[Published, rel_falcon, ""]
-        "host" "The host where this feature is available";
-    ]
-    ()
+module Feature = struct
+  let t =
+    create_obj
+      ~name:_feature
+      ~descr: "A new piece of functionality"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle:[Published, rel_falcon, ""]
+      ~messages:[]
+      ~messages_default_allowed_roles:_R_LOCAL_ROOT_ONLY
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~contents:[
+        uid _feature ~lifecycle:[Published, rel_falcon, ""];
+        namespace ~name:"name" ~contents:(names None StaticRO) ();
+        field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_falcon, ""] ~default_value:(Some (VBool false))
+          "enabled" "Indicates whether the feature is enabled";
+        field ~qualifier:StaticRO ~ty:Bool ~lifecycle:[Published, rel_falcon, ""] ~default_value:(Some (VBool false))
+          "experimental" "Indicates whether the feature is experimental (as opposed to stable and fully supported)";
+        field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_falcon, ""] ~default_value:(Some (VString "1.0"))
+          "version" "The version of this feature";
+        field ~qualifier:DynamicRO ~ty:(Ref _host) ~lifecycle:[Published, rel_falcon, ""]
+          "host" "The host where this feature is available";
+      ]
+      ()
+end
 
 module SDN_controller = struct
   let lifecycle = [Published, rel_falcon, ""]
@@ -10155,7 +10151,7 @@ module SDN_controller = struct
       ~allowed_roles:_R_POOL_OP
       ()
 
-  let obj =
+  let t =
     create_obj
       ~name: _sdn_controller
       ~descr:"Describes the SDN controller that is to connect with the pool"
@@ -10188,7 +10184,6 @@ module SDN_controller = struct
         ]
       ()
 end
-let sdn_controller = SDN_controller.obj
 
 module PUSB = struct
   let lifecycle = [Published, rel_inverness, ""]
@@ -10212,8 +10207,7 @@ module PUSB = struct
       ~allowed_roles:_R_POOL_ADMIN
       ()
 
-
-  let obj =
+  let t =
     create_obj
       ~name: _pusb
       ~descr:"A physical USB device"
@@ -10248,7 +10242,6 @@ module PUSB = struct
         ]
       ()
 end
-let pusb = PUSB.obj
 
 (** Groups of USBs *)
 
@@ -10276,7 +10269,7 @@ module USB_group = struct
       ~allowed_roles:_R_POOL_ADMIN
       ()
 
-  let obj =
+  let t =
     create_obj
       ~name:_usb_group
       ~descr:"A group of compatible USBs across the resource pool"
@@ -10301,7 +10294,6 @@ module USB_group = struct
       ]
       ()
 end
-let usb_group = USB_group.obj
 
 module VUSB = struct
   let lifecycle = [Published, rel_inverness, ""]
@@ -10345,7 +10337,7 @@ module VUSB = struct
       ~allowed_roles:_R_POOL_ADMIN
       ()
 
-  let obj =
+  let t =
     create_obj
       ~name: _vusb
       ~descr:"Describes the vusb device"
@@ -10373,7 +10365,6 @@ module VUSB = struct
         ]
       ()
 end
-let vusb = VUSB.obj
 
 (******************************************************************************************)
 
@@ -10435,16 +10426,16 @@ let all_system =
     GPU_group.t;
     VGPU.t;
     VGPU_type.t;
-    pvs_site;
-    pvs_server;
-    pvs_proxy;
-    pvs_cache_storage;
-    feature;
-    sdn_controller;
-    vdi_nbd_server_info;
-    pusb;
-    usb_group;
-    vusb;
+    PVS_site.t;
+    PVS_server.t;
+    PVS_proxy.t;
+    PVS_cache_storage.t;
+    Feature.t;
+    SDN_controller.t;
+    Vdi_nbd_server_info.t;
+    PUSB.t;
+    USB_group.t;
+    VUSB.t;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
