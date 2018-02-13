@@ -34,6 +34,7 @@ exception Device_disconnect_timeout of device
 exception Device_error of device * string
 exception Device_unrecognized of string
 exception Hotplug_script_expecting_field of device * string
+exception QMP_Error of int * string (** domid, message *)
 
 val backend_path : xs:Xenstore.Xs.xsh -> endpoint -> Xenctrl.domid -> string
 val backend_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
@@ -103,5 +104,8 @@ val xenops_domain_path: string
 val xenops_path_of_domain: Xenctrl.domid -> string
 val xenops_vgpu_path: Xenctrl.domid -> devid -> string
 val is_upstream_qemu: Xenctrl.domid -> bool
-val qmp_write_and_read: Xenctrl.domid -> ?read_result:bool -> Qmp.message -> Qmp.message option
-val qmp_write: Xenctrl.domid -> Qmp.message -> unit
+val qmp_send_cmd
+  : ?send_fd:Unix.file_descr (* send this fd ahead of command *)
+  -> Xenctrl.domid
+  -> Qmp.command
+  -> Qmp.result (** may raise QMP_Error *)
