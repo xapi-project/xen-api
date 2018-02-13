@@ -128,7 +128,7 @@ let enable ~__context ~self =
       assert_pif_prerequisites pif;
       let ip = ip_of_pif pif in
       let init_config = {
-        Cluster_idl.Interface.local_ip = ip;
+        Cluster_interface.local_ip = ip;
         token_timeout_ms = None;
         token_coefficient_ms = None;
         name = None
