@@ -116,6 +116,36 @@ namespace XenAPI
     }
 
 
+    internal class XenRefLongMapConverter<T> : CustomJsonConverter<Dictionary<XenRef<T>, long>> where T : XenObject<T>
+    {
+        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+        {
+            JToken jToken = JToken.Load(reader);
+            var dict = new Dictionary<XenRef<T>, long>();
+
+            foreach (JProperty property in jToken)
+                dict.Add(new XenRef<T>(property.Name), property.Value.ToObject<long>());
+
+            return dict;
+        }
+
+        public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+        {
+            var dict = value as Dictionary<XenRef<T>, long>;
+            writer.WriteStartObject();
+            if (dict != null)
+            {
+                foreach (var kvp in dict)
+                {
+                    writer.WritePropertyName(kvp.Key.opaque_ref);
+                    writer.WriteValue(kvp.Value);
+                }
+            }
+            writer.WriteEndObject();
+        }
+    }
+
+
     internal class XenRefStringMapConverter<T> : CustomJsonConverter<Dictionary<XenRef<T>, string>> where T : XenObject<T>
     {
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
@@ -139,6 +169,42 @@ namespace XenAPI
                 {
                     writer.WritePropertyName(kvp.Key.opaque_ref);
                     writer.WriteValue(kvp.Value);
+                }
+            }
+            writer.WriteEndObject();
+        }
+    }
+
+
+    internal class XenRefStringStringMapMapConverter<T> : CustomJsonConverter<Dictionary<XenRef<T>, Dictionary<string, string>>> where T : XenObject<T>
+    {
+        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+        {
+            JToken jToken = JToken.Load(reader);
+            var dict = new Dictionary<XenRef<T>, Dictionary<string, string>>();
+
+            foreach (JProperty property in jToken)
+                dict.Add(new XenRef<T>(property.Name), property.Value.ToObject<Dictionary<string, string>>());
+
+            return dict;
+        }
+
+        public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+        {
+            var dict = value as Dictionary<XenRef<T>, Dictionary<string, string>>;
+            writer.WriteStartObject();
+            if (dict != null)
+            {
+                foreach (var kvp in dict)
+                {
+                    writer.WritePropertyName(kvp.Key.opaque_ref);
+                    writer.WriteStartObject();
+                    foreach (var valKvp in kvp.Value)
+                    {
+                        writer.WritePropertyName(valKvp.Key);
+                        writer.WriteValue(valKvp.Value);
+                    }
+                    writer.WriteEndObject();
                 }
             }
             writer.WriteEndObject();
@@ -198,7 +264,11 @@ namespace XenAPI
                 foreach (var kvp in dict)
                 {
                     writer.WritePropertyName(kvp.Key.opaque_ref);
-                    writer.WriteValue(kvp.Value);
+                    writer.WriteStartArray();
+                    foreach (var v in kvp.Value)
+                        writer.WriteValue(v);
+                    writer.WriteEndArray();
+
                 }
             }
             writer.WriteEndObject();

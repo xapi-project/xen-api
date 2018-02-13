@@ -805,7 +805,7 @@ and gen_exposed_field out_chan cls content =
         {
             get { return _%s; }" (escape_xml fr.field_description)
       (if publishInfo = "" then "" else "\n        /// "^publishInfo)
-      (json_serialization_attr fr.ty)
+      (json_serialization_attr fr)
       (exposed_type fr.ty) full_name_fr full_name_fr;
 
     print
@@ -1493,16 +1493,21 @@ and json_deserialise_opt = function
   | Some (typ, _) -> sprintf "<%s>" (exposed_type typ)
   | None -> ""
 
-and json_converter = function
+and json_converter typ =
+  match typ with
   | DateTime              -> "new XenDateTimeConverter()"
   | Enum (name, _)        -> sprintf "new %sConverter()" name
   | Ref name              -> sprintf "new XenRefConverter<%s>()" (exposed_class_name name)
   | Set (Ref name)        -> sprintf "new XenRefListConverter<%s>()" (exposed_class_name name)
   | Map (Ref u, Record v) -> sprintf "new XenRefXenObjectMapConverter<%s>()" (exposed_class_name u)
   | Map (Ref u, Ref v)    -> sprintf "new XenRefXenRefMapConverter<%s, %s>()" (exposed_class_name u) (exposed_class_name v)
+  | Map (Ref u, Int)      -> sprintf "new XenRefLongMapConverter<%s>()" (exposed_class_name u)
   | Map (Ref u, String)   -> sprintf "new XenRefStringMapConverter<%s>()" (exposed_class_name u)
   | Map (Ref u, Set(String)) -> sprintf "new XenRefStringSetMapConverter<%s>()" (exposed_class_name u)
+  | Map (Ref u, Map(String, String)) -> sprintf "new XenRefStringStringMapMapConverter<%s>()" (exposed_class_name u)
   | Map (String, Ref v)   -> sprintf "new StringXenRefMapConverter<%s>()" (exposed_class_name v)
+  | Map (Ref _, _)
+  | Map (_, Ref _)        -> failwith (sprintf "Need converter for %s" (exposed_type typ))
   | _                     -> ""
 
 and json_converter_opt = function
@@ -1513,15 +1518,19 @@ and json_return_opt thing = function
   | Some (typ, _) -> "return " ^ thing
   | None -> thing
 
-and json_serialization_attr = function
+and json_serialization_attr fr =
+  match fr.ty with
   | DateTime              -> sprintf "\n        [JsonConverter(typeof(XenDateTimeConverter))]"
   | Enum (name, _)        -> sprintf "\n        [JsonConverter(typeof(%sConverter))]" name
   | Ref name              -> sprintf "\n        [JsonConverter(typeof(XenRefConverter<%s>))]" (exposed_class_name name)
   | Set (Ref name)        -> sprintf "\n        [JsonConverter(typeof(XenRefListConverter<%s>))]" (exposed_class_name name)
   | Map (Ref u, Record v) -> sprintf "\n        [JsonConverter(typeof(XenRefObjectMapConverter<%s>))]" (exposed_class_name u)
   | Map (Ref u, Ref v)    -> sprintf "\n        [JsonConverter(typeof(XenRefXenRefMapConverter<%s, %s>))]" (exposed_class_name u) (exposed_class_name v)
+  | Map (Ref u, Int)      -> sprintf "\n        [JsonConverter(typeof(XenRefLongMapConverter<%s>))]" (exposed_class_name u)
   | Map (Ref u, String)   -> sprintf "\n        [JsonConverter(typeof(XenRefStringMapConverter<%s>))]" (exposed_class_name u)
   | Map (String, Ref v)   -> sprintf "\n        [JsonConverter(typeof(StringXenRefMapConverter<%s>))]" (exposed_class_name v)
+  | Map (Ref _, _)
+  | Map (_, Ref _)        -> failwith (sprintf "Need converter for %s" fr.field_name)
   | _                     -> ""
 
 and get_default_value_opt field =
