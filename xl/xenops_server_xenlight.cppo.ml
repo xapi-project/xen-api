@@ -821,7 +821,7 @@ module VBD = struct
     let vdev = to_linux_device device_number in
     devid, vdev
 
-  let format_of_string x = match String.lowercase x with
+  let format_of_string x = match String.lowercase_ascii x with
     | "qcow2" -> Xenlight.DISK_FORMAT_QCOW2
     | "raw" -> Xenlight.DISK_FORMAT_RAW
     | "vhd" -> Xenlight.DISK_FORMAT_VHD

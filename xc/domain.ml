@@ -1807,7 +1807,7 @@ let use_emu_manager () =
     |> fun path -> Stdext.Unixext.read_lines ~path
                    |> String.concat ""
                    |> String.trim
-                   |> String.lowercase
+                   |> String.lowercase_ascii
                    |> fun f -> f = "true" || f = "1"
   with _ ->
     false
