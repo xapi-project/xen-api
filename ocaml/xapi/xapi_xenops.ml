@@ -2364,7 +2364,7 @@ let transform_xenops_exn ~__context ~vm queue_name f =
         let found = f found and expected = f expected in
         reraise Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; found ]
       | Failed_to_acknowledge_shutdown_request ->
-        reraise Api_errors.vm_failed_shutdown_ack []
+        reraise Api_errors.vm_failed_shutdown_ack [ Ref.string_of vm ]
       | Failed_to_shutdown(id, timeout) ->
         reraise Api_errors.vm_shutdown_timeout [ vm_of_id ~__context id |> Ref.string_of; string_of_float timeout ]
       | Device_is_connected ->

@@ -1044,7 +1044,7 @@ let _ =
     ~doc:"You reached the maximal number of concurrently migrating VMs." ();
   error Api_errors.sr_does_not_support_migration [ "sr" ]
     ~doc:"You attempted to migrate a VDI to or from an SR which doesn't support migration" ();
-  error Api_errors.vm_failed_shutdown_ack []
+  error Api_errors.vm_failed_shutdown_ack [ "vm" ]
     ~doc:"VM didn't acknowledge the need to shutdown." ();
   error Api_errors.vm_shutdown_timeout [ "vm"; "timeout" ]
     ~doc:"VM failed to shutdown before the timeout expired" ();
