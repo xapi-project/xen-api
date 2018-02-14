@@ -48,8 +48,8 @@ let facility_of_string s =
 		|_-> raise (Unknown_facility s)
 
 exception Unknown_level of string
-let level_of_string s = 
-	match String.lowercase s with
+let level_of_string s =
+	match String.lowercase_ascii s with
 	| "emergency"        -> Emerg
 	| "alert"            -> Alert
 	| "critical"         -> Crit
@@ -60,7 +60,7 @@ let level_of_string s =
 	| "debug"            -> Debug
 	| _-> raise (Unknown_level s)
 
-let string_of_level = function 
+let string_of_level = function
 	| Emerg   -> "emergency"
 	| Alert   -> "alert"
 	| Crit    -> "critical"
