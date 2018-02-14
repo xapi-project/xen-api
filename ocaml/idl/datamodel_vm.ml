@@ -64,13 +64,24 @@ let power_behaviour =
 
   (** Default actions *)
   let actions =
-    let crash = field ~effect:true ~ty:on_crash_behaviour in
+    let crash = field ~qualifier:StaticRO ~ty:on_crash_behaviour in
     let normal = field ~ty:on_normal_exit_behaviour in
     [
       normal "after_shutdown" "action to take after the guest has shutdown itself";
       normal "after_reboot" "action to take after the guest has rebooted itself";
       crash "after_crash" "action to take if the guest crashes";
     ]
+
+  let set_actions_after_crash = call
+    ~name:"set_actions_after_crash"
+    ~in_oss_since:None
+    ~in_product_since:rel_rio
+    ~doc:"Sets the actions_after_crash parameter"
+    ~params:[
+        Ref _vm, "self", "The VM to set";
+        on_crash_behaviour, "value", "The new value to set"]
+    ~allowed_roles:_R_VM_ADMIN
+    ()
 
   let power_state =
     Enum ("vm_power_state", [ "Halted", "VM is offline and not using any resources";
@@ -1256,6 +1267,7 @@ let update_allowed_operations = call
                   call_plugin;
                   set_has_vendor_device;
                   import;
+                  set_actions_after_crash;
                 ]
       ~contents:
         ([ uid _vm;
