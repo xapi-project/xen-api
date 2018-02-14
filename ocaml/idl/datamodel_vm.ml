@@ -65,7 +65,7 @@ let power_behaviour =
   (** Default actions *)
   let actions =
     let crash = field ~effect:true ~ty:on_crash_behaviour in
-    let normal = field ~effect:true ~ty:on_normal_exit_behaviour in
+    let normal = field ~ty:on_normal_exit_behaviour in
     [
       normal "after_shutdown" "action to take after the guest has shutdown itself";
       normal "after_reboot" "action to take after the guest has rebooted itself";

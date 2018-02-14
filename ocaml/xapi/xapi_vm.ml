@@ -75,10 +75,6 @@ let immediate_complete ~__context   =
   Helpers.progress ~__context  (0.0 -. 1.0)
 
 (* API *)
-let set_actions_after_shutdown ~__context ~self ~value =
-  Db.VM.set_actions_after_shutdown ~__context ~self ~value
-let set_actions_after_reboot ~__context ~self ~value =
-  Db.VM.set_actions_after_reboot ~__context ~self ~value
 let set_actions_after_crash ~__context ~self ~value =
   set_actions_after_crash ~__context ~self ~value
 let set_is_a_template ~__context ~self ~value =

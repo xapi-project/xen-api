@@ -1035,14 +1035,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun () ->
            Local.VM.destroy ~__context ~self)
 
-    let set_actions_after_shutdown ~__context ~self ~value =
-      info "VM.set_actions_after_shutdown: VM = '%s'" (vm_uuid ~__context self);
-      Local.VM.set_actions_after_shutdown ~__context ~self ~value
-
-    let set_actions_after_reboot ~__context ~self ~value =
-      info "VM.set_actions_after_reboot: VM = '%s'" (vm_uuid ~__context self);
-      Local.VM.set_actions_after_reboot ~__context ~self ~value
-
     let set_actions_after_crash ~__context ~self ~value =
       info "VM.set_actions_after_crash: VM = '%s'" (vm_uuid ~__context self);
       Local.VM.set_actions_after_crash ~__context ~self ~value

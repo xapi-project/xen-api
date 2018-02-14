@@ -29,12 +29,6 @@ val retrieve_wlb_recommendations :
   vm:[ `VM ] Ref.t -> (API.ref_host * string list) list
 val assert_agile : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val immediate_complete : __context:Context.t -> unit
-val set_actions_after_shutdown :
-  __context:Context.t ->
-  self:[ `VM ] Ref.t -> value:[< `destroy | `restart ] -> unit
-val set_actions_after_reboot :
-  __context:Context.t ->
-  self:[ `VM ] Ref.t -> value:[< `destroy | `restart ] -> unit
 val set_actions_after_crash :
   __context:Context.t ->
   self:[ `VM ] Ref.t ->
