@@ -37,7 +37,7 @@ while getopts "hu:n:p:f:" opt ; do
     h) usage ;;
     u) vm_uuid=${OPTARG} ;;
     n) vm_name="${OPTARG}" ;;
-    p) device_number=${OPTARG} ;;
+    p) device_number=p${OPTARG} ;;
     f) default_file_list="${OPTARG}" ;;
     *) echo "Invalid option"; usage ;;
     esac
