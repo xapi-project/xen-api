@@ -1417,11 +1417,34 @@ let update_vm ~__context id =
              does fail then we may end up permanently out-of-sync until either a
              process restart or an event is generated. We may wish to periodically
              inject artificial events IF there has been an event sync failure? *)
+          let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).power_state) info) in
+
+          (* We preserve the current_domain_type of suspended VMs like we preserve
+             the currently_attached fields for VBDs/VIFs etc - it's important to know
+             whether suspended VMs are going to resume into PV or PVinPVH for example.
+             We do this before updating the power_state to maintain the invariant that
+             any VM that's not `Halted cannot have an unspecified current_domain_type *)
+          if different (fun x -> x.domain_type) && (power_state <> `Suspended) then begin
+            Opt.iter
+              (fun (_, state) ->
+                 let metrics = Db.VM.get_metrics ~__context ~self in
+                 let domain_type = match state.Vm.domain_type with
+                   | Domain_HVM       -> `hvm
+                   | Domain_PV        -> `pv
+                   | Domain_PVinPVH   -> `pv_in_pvh
+                   | Domain_undefined -> `unspecified
+                 in
+                 debug "xenopsd event: Updating VM %s current_domain_type <- %s"
+                   id (Record_util.domain_type_to_string domain_type);
+                 Db.VM_metrics.set_current_domain_type ~__context ~self:metrics
+                   ~value:domain_type;
+              )
+              info
+          end;
           if different (fun x -> x.power_state) then begin
             try
               debug "Will update VM.allowed_operations because power_state has changed.";
               should_update_allowed_operations := true;
-              let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).power_state) info) in
               debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
               (* This will mark VBDs, VIFs as detached and clear resident_on
                  if the VM has permanently shutdown.  current-operations
@@ -1573,23 +1596,6 @@ let update_vm ~__context id =
                    id (string_of_bool state.Vm.nested_virt);
                  Db.VM_metrics.set_nested_virt ~__context ~self:metrics
                    ~value:state.Vm.nested_virt;
-              )
-              info
-          end;
-          if different (fun x -> x.domain_type) then begin
-            Opt.iter
-              (fun (_, state) ->
-                 let metrics = Db.VM.get_metrics ~__context ~self in
-                 let domain_type = match state.Vm.domain_type with
-                   | Domain_HVM       -> `hvm
-                   | Domain_PV        -> `pv
-                   | Domain_PVinPVH   -> `pv_in_pvh
-                   | Domain_undefined -> `unspecified
-                 in
-                 debug "xenopsd event: Updating VM %s current_domain_type <- %s"
-                   id (Record_util.domain_type_to_string domain_type);
-                 Db.VM_metrics.set_current_domain_type ~__context ~self:metrics
-                   ~value:domain_type;
               )
               info
           end;

@@ -502,7 +502,9 @@ module VM : HandlerTools = struct
         try
           let vdi = (lookup vm_record.API.vM_suspend_VDI) state.table in
           Db.VM.set_power_state ~__context ~self:vm ~value:`Suspended;
-          Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi
+          Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi;
+          let vm_metrics = Db.VM.get_metrics ~__context ~self:vm in
+          Db.VM_metrics.set_current_domain_type ~__context ~self:vm_metrics ~value:vm_record.API.vM_domain_type
         with e -> if not config.force then begin
             Backtrace.is_important e;
             let msg = "Failed to find VM's suspend_VDI: " ^ (Ref.string_of vm_record.API.vM_suspend_VDI) in

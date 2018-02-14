@@ -80,12 +80,12 @@ let valid_operations ~__context record _ref' : table =
    * all drivers have such support unless they specify that they do not. *)
   let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
   let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in
-  let needs_driver_check =
+  let needs_driver_check () =
     match Helpers.domain_type ~__context ~self:vm with
     | `hvm -> true
     | `pv_in_pvh | `pv -> false
   in
-  if power_state = `Running && needs_driver_check
+  if power_state = `Running && needs_driver_check ()
   then (
     let fallback () =
       match Xapi_pv_driver_version.make_error_opt (Xapi_pv_driver_version.of_guest_metrics vm_gmr) vm with

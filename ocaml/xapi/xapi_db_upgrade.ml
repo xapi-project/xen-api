@@ -531,7 +531,13 @@ let upgrade_domain_type = {
         let domain_type =
           Xapi_vm_helpers.derive_domain_type
             ~hVM_boot_policy:vmr.API.vM_HVM_boot_policy in
-        Db.VM.set_domain_type ~__context ~self:vm ~value:domain_type
+        Db.VM.set_domain_type ~__context ~self:vm ~value:domain_type;
+        if vmr.API.vM_power_state <> `Halted then begin
+          let metrics = vmr.API.vM_metrics in
+          (* This is not _always_ correct - if you've changed HVM_boot_policy on a suspended VM
+             we'll calculate incorrectly here. This should be a vanishingly small probability though! *)
+          Db.VM_metrics.set_current_domain_type ~__context ~self:metrics ~value:domain_type
+        end
       )
       (Db.VM.get_all_records ~__context)
 }
