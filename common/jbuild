@@ -3,6 +3,11 @@
 (library(
     (name CommonFunctions)
     (wrapped false)
-    (libraries (xapi-datamodel mustache stdext))
+    (libraries (
+      xapi-datamodel
+      mustache
+      xapi-stdext-pervasives
+      xapi-stdext-unix
+    ))
   )
 )

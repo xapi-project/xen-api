@@ -28,8 +28,9 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
-open Stdext
-open Pervasiveext
+
+open Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_unix
 open Printf
 open Datamodel_types
 
@@ -177,7 +178,7 @@ and get_published_info_field field cls =
     ""
 
 and render_template template_file json output_file =
-  let templ = Stdext.Unixext.string_of_file template_file |> Mustache.of_string in
+  let templ = Unixext.string_of_file template_file |> Mustache.of_string in
   let rendered = Mustache.render templ json in
   let out_chan = open_out output_file in
   finally (fun () -> output_string out_chan rendered)

@@ -28,16 +28,14 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
-open Stdext
-open Pervasiveext
-open Printf
-open Xstringext
 
+open Xapi_stdext_std.Xstringext
+open Xapi_stdext_pervasives.Pervasiveext
+open Printf
 open Datamodel
 open Datamodel_types
 open Datamodel_utils
 open Dm_api
-
 open CommonFunctions
 
 module DT = Datamodel_types

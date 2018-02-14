@@ -2,6 +2,10 @@
 
 (executable(
     (name gen_powershell_binding)
-    (libraries (xapi-datamodel CommonFunctions))
+    (libraries (
+      xapi-datamodel
+      CommonFunctions
+      xapi-stdext-std
+    ))
   )
 )

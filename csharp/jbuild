@@ -2,6 +2,11 @@
 
 (executable(
     (name gen_csharp_binding)
-    (libraries (xapi-datamodel CommonFunctions))
+    (libraries (
+      xapi-datamodel
+      CommonFunctions
+      xapi-stdext-std
+      xapi-stdext-pervasives
+      ))
   )
 )

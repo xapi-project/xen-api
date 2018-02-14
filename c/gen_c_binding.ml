@@ -30,14 +30,13 @@
 
 (* Generator of C bindings from the datamodel *)
 
-open Stdext
-open Pervasiveext
-open Printf
-open Xstringext
 
+open Xapi_stdext_std.Xstringext
+open Xapi_stdext_unix
+open Xapi_stdext_pervasives.Pervasiveext
+open Printf
 open Datamodel_types
 open Dm_api
-
 open CommonFunctions
 
 module TypeSet = Set.Make(struct
@@ -1332,6 +1331,7 @@ and c_type_of_ty needed record = function
       sprintf "struct %s *" (record_typename n)
     else
       sprintf "%s *" (record_typename n)
+  | _ -> assert false
 
 
 and c_type_of_enum name =

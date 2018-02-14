@@ -28,10 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
-open Stdext
-open Pervasiveext
 open Printf
-open Xstringext
 open Datamodel
 open Datamodel_types
 open Datamodel_utils

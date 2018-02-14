@@ -28,10 +28,8 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
-open Stdext
-open Pervasiveext
+open Xapi_stdext_std.Xstringext
 open Printf
-open Xstringext
 open Datamodel
 open Datamodel_types
 open Datamodel_utils

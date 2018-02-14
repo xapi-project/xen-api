@@ -2,6 +2,12 @@
 
 (executable(
     (name main)
-    (libraries (xapi-datamodel str CommonFunctions))
+    (libraries (
+      xapi-datamodel
+      str
+      CommonFunctions
+      xapi-stdext-unix
+      xapi-stdext-std
+    ))
   )
 )
