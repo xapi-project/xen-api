@@ -37,7 +37,7 @@ while getopts "hu:n:p:f:" opt ; do
     h) usage ;;
     u) vm_uuid=${OPTARG} ;;
     n) vm_name="${OPTARG}" ;;
-    p) device_number=${OPTARG} ;;
+    p) device_number=p${OPTARG} ;;
     f) default_file_list="${OPTARG}" ;;
     *) echo "Invalid option"; usage ;;
     esac
@@ -84,7 +84,7 @@ function cleanup {
       rmdir ${mnt}
    fi
 
-   kpartx -d ${device}
+   kpartx -dvspp ${device}
 
    if [ ! -z "${vbd_uuid}" ]; then
       echo -n "Unplugging VBD: "
@@ -187,7 +187,7 @@ if [ ! -b ${device} ]; then
   exit 1
 fi
 
-kpartx -av ${device}
+kpartx -avspp ${device}
 mapped_device="/dev/mapper/${vdi_uuid}"
 
 echo -n "Waiting for ${mapped_device}${device_number}: "
