@@ -630,6 +630,8 @@ let _ =
     ~doc:"PIF has no IPv6 configuration (mode currently set to 'none')" ();
   error Api_errors.pif_incompatible_primary_address_type [ "PIF" ]
     ~doc:"The primary address types are not compatible" ();
+  error Api_errors.pif_sriov_still_exists [ "PIF" ]
+    ~doc:"The PIF is still related with a network SR-IOV" ();
   error Api_errors.cannot_plug_bond_slave ["PIF"]
     ~doc:"This PIF is a bond slave and cannot be plugged." ();
   error Api_errors.cannot_add_vlan_to_bond_slave ["PIF"]
@@ -642,6 +644,8 @@ let _ =
     ~doc:"This is a vlan PIF on network SR-IOV and cannot have a tunnel on it." ();
   error Api_errors.cannot_change_pif_properties ["PIF"]
     ~doc:"This properties of this PIF cannot be changed. Only the properties of non-bonded physical PIFs, or bond masters can be changed." ();
+  error Api_errors.cannot_forget_sriov_logical [ "PIF" ]
+    ~doc:"This is a network SR-IOV logical PIF and cannot do forget on it" ();
   error Api_errors.incompatible_pif_properties []
     ~doc:"These PIFs can not be bonded, because their properties are different." ();
   error Api_errors.slave_requires_management_iface []
