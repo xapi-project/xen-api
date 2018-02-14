@@ -225,8 +225,8 @@ let assert_no_sriov ~__context ~self =
   let pif_rec = Db.PIF.get_record ~__context ~self in
   let topo = Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec in
   match topo, pif_rec.API.pIF_sriov_physical_PIF_of with
-  | Network_sriov_logical _ :: _, _
-  | VLAN_untagged _ :: Network_sriov_logical _ :: _, _
+  | Network_sriov_logical _ :: _, _ ->
+    raise Api_errors.(Server_error (cannot_forget_sriov_logical, [ Ref.string_of self ]))
   | Physical _ :: _, _ :: _ ->
     raise Api_errors.(Server_error (pif_sriov_still_exists, [ Ref.string_of self ]))
   | _ -> ()

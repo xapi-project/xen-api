@@ -644,6 +644,8 @@ let _ =
     ~doc:"This is a vlan PIF on network SR-IOV and cannot have a tunnel on it." ();
   error Api_errors.cannot_change_pif_properties ["PIF"]
     ~doc:"This properties of this PIF cannot be changed. Only the properties of non-bonded physical PIFs, or bond masters can be changed." ();
+  error Api_errors.cannot_forget_sriov_logical [ "PIF" ]
+    ~doc:"This is a network SR-IOV logical PIF and cannot do forget on it" ();
   error Api_errors.incompatible_pif_properties []
     ~doc:"These PIFs can not be bonded, because their properties are different." ();
   error Api_errors.slave_requires_management_iface []
