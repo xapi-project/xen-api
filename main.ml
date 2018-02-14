@@ -60,15 +60,8 @@ module RRD = struct
     Client.rpc ~t ~queue:queue_name ~body:(string_of_call call) () >>|= fun s ->
     return (response_of_string s)
 
-  let json_switch_rpc queue_name = switch_rpc queue_name Jsonrpc.string_of_call Jsonrpc.response_of_string
-
-  module Client = Rrd_interface.ClientM(struct
-    type 'a t = 'a Deferred.t
-    let return = return
-    let bind a f = Deferred.bind a ~f
-    let fail = raise
-    let rpc call = json_switch_rpc !Rrd_interface.queue_name call
-end)
+  let rpc = switch_rpc !Rrd_interface.queue_name Jsonrpc.string_of_call Jsonrpc.response_of_string
+  module Client = Rrd_interface.RPC_API(Rpc_async.GenClient ())
 
 end
 
@@ -511,9 +504,10 @@ let process root_dir name =
         | Some "xeno+shm" ->
           let uid = Uri.path uri in
           let uid = if String.length uid > 1 then String.sub uid ~pos:1 ~len:(String.length uid - 1) else uid in
-          RRD.Client.Plugin.Local.register ~uid ~info:Rrd.Five_Seconds ~protocol:Rrd_interface.V2
-          >>= fun _ ->
-          loop (uid :: acc) datasources
+          (RRD.Client.Plugin.Local.register RRD.rpc uid Rrd.Five_Seconds Rrd_interface.V2).Rpc_async.M.async
+          >>= begin function
+              | Ok  _ -> loop (uid :: acc) datasources
+              | Error x -> raise Rrd_interface.(Rrdd_error x) end
         | _ ->
           loop acc datasources in
       loop [] stat.Xapi_storage.Volume.Types.datasources
@@ -550,9 +544,10 @@ let process root_dir name =
         | Some "xeno+shm" ->
           let uid = Uri.path uri in
           let uid = if String.length uid > 1 then String.sub uid ~pos:1 ~len:(String.length uid - 1) else uid in
-          RRD.Client.Plugin.Local.deregister ~uid
-          >>= fun _ ->
-          loop datasources
+          (RRD.Client.Plugin.Local.deregister RRD.rpc uid).Rpc_async.M.async
+          >>= begin function
+              | Ok _ -> loop datasources
+              | Error x -> raise Rrd_interface.(Rrdd_error x) end
         | _ ->
           loop datasources in
       loop uids
