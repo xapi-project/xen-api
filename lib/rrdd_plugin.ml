@@ -146,7 +146,7 @@ module Reporter = struct
       ~uid
       ~protocol ~overdue_count =
     let next_reading =
-      RRDD.Plugin.Local.register ~uid ~info:Rrd.Five_Seconds ~protocol
+      RRDD.Plugin.Local.register uid Rrd.Five_Seconds protocol
     in
     let wait_time = next_reading -. neg_shift in
     let wait_time = if wait_time < 0.1 then wait_time+.5. else wait_time in
@@ -215,7 +215,7 @@ module Reporter = struct
       ~protocol
       ~dss_f =
     try
-      let path = RRDD.Plugin.get_path ~uid in
+      let path = RRDD.Plugin.get_path uid in
       D.info "Obtained path=%s\n" path;
       let _ = Unixext.mkdir_safe (Filename.dirname path) 0o644 in
       let id = Rrd_writer.({
@@ -241,7 +241,7 @@ module Reporter = struct
         Thread.delay 0.003
       in
       let cleanup () =
-        RRDD.Plugin.Local.deregister ~uid;
+        RRDD.Plugin.Local.deregister uid;
         writer.Rrd_writer.cleanup ()
       in
       loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup
