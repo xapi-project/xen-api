@@ -274,7 +274,7 @@ module Reporter = struct
           (List.map string_of_int shared_page_refs |> String.concat ",");
         Xs.write xs
           (Printf.sprintf "%s/%s/protocol" xs_state.Xs.root_path uid)
-          (Rpc.string_of_rpc (Rrd_interface.rpc_of_plugin_protocol protocol));
+          (Rrd_interface.string_of_protocol protocol);
         Xs.write xs
           (Printf.sprintf "%s/%s/ready" xs_state.Xs.root_path uid)
           "true");
