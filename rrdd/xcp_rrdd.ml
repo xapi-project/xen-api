@@ -46,7 +46,7 @@ let xmlrpc_handler process req bio context =
     Http_svr.response_unauthorised ~req (Printf.sprintf "Go away: %s" (Printexc.to_string e)) s
 
 (* Bind the service interface to the server implementation. *)
-module Server = Rrd_interface.Server(Rrdd_server)
+module Server = Rrd_interface.RPC_API(Idl.GenServerExn ())
 
 (* A helper function for processing HTTP requests on a socket. *)
 let accept_forever sock f =
@@ -704,12 +704,12 @@ let _ =
           let server = Xcp_service.make
               ~path:!Rrd_interface.default_path
               ~queue_name:!Rrd_interface.queue_name
-              ~rpc_fn:(Server.process ())
+              ~rpc_fn:(Idl.server Server.implementation)
               () in
           Debug.with_thread_associated "main" Xcp_service.serve_forever server
         end
       ) () in
-  start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) Server.process;
+  start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) (fun () -> Idl.server Server.implementation);
 
   ignore @@ Discover.start ();
 
