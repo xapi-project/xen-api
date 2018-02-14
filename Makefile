@@ -41,7 +41,7 @@ ifndef SR_XML
 endif
 
 build:
-	jbuilder build \
+	jbuilder build --dev \
 		c/gen_c_binding.exe \
 		csharp/gen_csharp_binding.exe \
 		java/main.exe \
@@ -51,11 +51,13 @@ clean:
 	jbuilder clean
 
 reindent:
-	git ls-files '*.ml*' '**/*.ml*' | xargs ocp-indent --inplace
+	git ls-files '*.ml*' | xargs ocp-indent --inplace
 
 .PHONY: build clean reindent
 
-c: build
+c:
+	jbuilder build c/gen_c_binding.exe
+#autogeneration
 	_build/default/c/gen_c_binding.exe -d _build/default/c/autogen -t c/templates
 #source
 	cp c/xen_common.h c/xen_string_set.h c/xen_int_set.h c/sources/xen_event_batch.h _build/default/c/autogen/include/xen/api
@@ -67,7 +69,9 @@ c: build
 	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' c/README.dist > _build/default/c/autogen/README
 	cp LICENSE _build/default/c/autogen/COPYING
 
-csharp: build
+csharp:
+	jbuilder build csharp/gen_csharp_binding.exe
+#autogeneration
 	mkdir -p _build/default/csharp/autogen/src/Properties
 	mkdir -p _build/default/csharp/autogen/samples
 	_build/default/csharp/gen_csharp_binding.exe -r csharp/FriendlyErrorNames.resx -s $(SR_XML) -d _build/default/csharp/autogen/src -t csharp/templates
@@ -82,7 +86,9 @@ csharp: build
 	cp LICENSE _build/default/csharp/autogen/LICENSE.txt
 	sh windows-line-endings.sh _build/default/csharp/autogen
 
-java: build
+java:
+	jbuilder build java/main.exe
+#autogeneration
 	mkdir -p _build/default/java/autogen/com/xensource/xenapi
 	mkdir -p _build/default/java/autogen/samples
 	_build/default/java/main.exe -d _build/default/java/autogen -t java/templates
@@ -97,7 +103,9 @@ java: build
 	cp LICENSE _build/default/java/autogen/LICENSE.txt
 	cp java/LICENSE.Apache-2.0.txt _build/default/java/autogen
 
-powershell: build
+powershell:
+	jbuilder build powershell/gen_powershell_binding.exe
+#autogeneration
 	mkdir -p _build/default/powershell/autogen/src/Properties
 	mkdir -p _build/default/powershell/autogen/samples
 	_build/default/powershell/gen_powershell_binding.exe -d _build/default/powershell/autogen/src -t powershell/templates
