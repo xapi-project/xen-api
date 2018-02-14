@@ -157,11 +157,11 @@ module Reporter = struct
     end
     else begin
       if (overdue_count > 1) then begin
-        (* if register returns negative more than once in a succession, 
+        (* if register returns negative more than once in a succession,
            				the thread should get delayed till things are normal back again *)
         let backoff_time = 2. ** ((float_of_int (overdue_count) -. 1.)) in
-        D.debug "rrdd says next reading is overdue, seems like rrdd is busy; 
-					Backing off for %.1f seconds" backoff_time; 
+        D.debug "rrdd says next reading is overdue, seems like rrdd is busy;
+					Backing off for %.1f seconds" backoff_time;
         Thread.delay (backoff_time);
       end
       else D.debug "rrdd says next reading is overdue by %.1f seconds; not sleeping" (-.wait_time);
@@ -231,7 +231,7 @@ module Reporter = struct
             (module D)
             ~neg_shift
             ~uid
-            ~protocol 
+            ~protocol
             ~overdue_count:!overdue_count;
         let payload = Rrd_protocol.({
             timestamp = Utils.now ();
