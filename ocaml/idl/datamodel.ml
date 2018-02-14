@@ -630,6 +630,8 @@ let _ =
     ~doc:"PIF has no IPv6 configuration (mode currently set to 'none')" ();
   error Api_errors.pif_incompatible_primary_address_type [ "PIF" ]
     ~doc:"The primary address types are not compatible" ();
+  error Api_errors.pif_sriov_still_exists [ "PIF" ]
+    ~doc:"The PIF is still related with a network SR-IOV" ();
   error Api_errors.cannot_plug_bond_slave ["PIF"]
     ~doc:"This PIF is a bond slave and cannot be plugged." ();
   error Api_errors.cannot_add_vlan_to_bond_slave ["PIF"]

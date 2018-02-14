@@ -221,12 +221,14 @@ let assert_no_protection_enabled ~__context ~self =
                   (Api_errors.redo_log_is_enabled, []))
   end
 
-let assert_not_sriov_logical_pif ~__context ~self =
+let assert_no_sriov ~__context ~self =
   let pif_rec = Db.PIF.get_record ~__context ~self in
-  match Xapi_pif_helpers.get_pif_type pif_rec with
-  | Network_sriov_logical _ ->
-    raise Api_errors.(Server_error (internal_error,
-        [Printf.sprintf "Can not forget network SR-IOV logical PIF: %s" (Ref.string_of self)]))
+  let topo = Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec in
+  match topo, pif_rec.API.pIF_sriov_physical_PIF_of with
+  | Network_sriov_logical _ :: _, _
+  | VLAN_untagged _ :: Network_sriov_logical _ :: _, _
+  | Physical _ :: _, _ :: _ ->
+    raise Api_errors.(Server_error (pif_sriov_still_exists, [ Ref.string_of self ]))
   | _ -> ()
 
 let abort_if_network_attached_to_protected_vms ~__context ~self =
@@ -537,7 +539,7 @@ let forget ~__context ~self =
   assert_no_tunnels ~__context ~self;
   assert_not_slave_management_pif ~__context ~self;
   assert_no_protection_enabled ~__context ~self;
-  assert_not_sriov_logical_pif ~__context ~self;
+  assert_no_sriov ~__context ~self;
 
   let host = Db.PIF.get_host ~__context ~self in
   let t = make_tables ~__context ~host in
