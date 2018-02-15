@@ -21,8 +21,7 @@ Build and Install
 The build install instructions are currently being written. The Xapi
 Project contains a large list of dependencies and sub-projects, which
 are actually quite difficult to build independently. To build xen-api
-from source, we recommend using [dune (previously named jbuilder)](https://github.com/ocaml/dune)
-and [opam](https://opam.ocaml.org/doc/Manual.html) using the [xs-opam](https://github.com/xapi-project/xs-opam) remote.
+from source, we recommend using [opam](https://opam.ocaml.org/doc/Manual.html) with the [xs-opam](https://github.com/xapi-project/xs-opam) remote (detailed explanation in [readme](https://github.com/xapi-project/xs-opam/blob/master/README.md).
 
 Contributions
 -------------
