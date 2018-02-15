@@ -501,7 +501,8 @@ let prepare_for_poweroff_precheck ~__context ~host =
   Xapi_host_helpers.assert_host_disabled ~__context ~host
 
 let prepare_for_poweroff ~__context ~host =
-  prepare_for_poweroff_precheck ~__context ~host;
+  (** Do not run assert_host_disabled here, continue even if the host is
+      enabled: the host is already shutting down when this function gets called *)
 
   let i_am_master = Pool_role.is_master () in
   if i_am_master then
