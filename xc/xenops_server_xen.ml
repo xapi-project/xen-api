@@ -180,31 +180,6 @@ let uuid_of_vm vm = uuid_of_string vm.Vm.id
 
 let uuid_of_di di = Xenctrl_uuid.uuid_of_handle di.Xenctrl.handle
 
-(* Here we check the type of a domain. PV is simple. HVM is defined
-   as a VM in an HVM container with _all_ emulation flags. A PVinPVH
-   domain is an HVM container with less than all emulation flags. *)
-module ArchFlagsSet = Set.Make(struct type t=Xenctrl.x86_arch_emulation_flags let compare=compare end)
-let domain_type_of_di di =
-  let open ArchFlagsSet in
-  let open Xenctrl in
-  let emu_flags_set =
-    of_list
-      (match di.arch_config with
-       | X86 { emulation_flags } -> emulation_flags
-       | ARM _ -> [])
-  in
-  let emu_flags_all =
-    of_list Domain.emulation_flags_all
-  in
-  let all_flags = diff emu_flags_all emu_flags_set |> is_empty in
-  match di.hvm_guest, all_flags with
-  | true, true ->
-    Vm.Domain_HVM
-  | true, false ->
-    Vm.Domain_PVinPVH
-  | _, _ ->
-    Vm.Domain_PV
-
 (* During a live migrate, there will be multiple domains with the same uuid.
    The convention is: we construct things on the newest domain (e.g. VBD.plug)
    and we destroy things on the oldest domain (e.g. VBD.unplug). In the normal
@@ -790,6 +765,31 @@ module VM = struct
   let get_initial_target ~xs domid =
     Int64.of_string (xs.Xs.read (Printf.sprintf "/local/domain/%d/memory/initial-target" domid))
 
+  let domain_type_path domid = Printf.sprintf "/local/domain/%d/domain-type" domid
+
+  let set_domain_type ~xs domid vm =
+    let domain_type =
+      match vm.ty with
+      | HVM _     -> "hvm"
+      | PV _      -> "pv"
+      | PVinPVH _ -> "pv-in-pvh"
+    in
+    xs.Xs.write (domain_type_path domid) domain_type
+
+  let get_domain_type ~xs di =
+    try
+      match xs.Xs.read (domain_type_path di.Xenctrl.domid) with
+      | "hvm"       -> Domain_HVM
+      | "pv"        -> Domain_PV
+      | "pv-in-pvh" -> Domain_PVinPVH
+      | x           -> Domain_undefined
+    with Xs_protocol.Enoent _ ->
+      (* Fallback for the upgrade case, where the new xs key may not exist *)
+      if di.Xenctrl.hvm_guest then
+        Domain_HVM
+      else
+        Domain_PV
+
   (* Called from a xenops client if it needs to resume a VM that was suspended on a pre-xenopsd host. *)
   let generate_state_string vm =
     let open Memory in
@@ -1013,7 +1013,8 @@ module VM = struct
               Domain.set_machine_address_size ~xc domid vm.machine_address_size;
               for i = 0 to vm.vcpu_max - 1 do
                 Device.Vcpu.add ~xs ~devid:i domid (i < vm.vcpus)
-              done
+              done;
+              set_domain_type ~xs domid vm
            );
       )
   let create = create_exn
@@ -1167,7 +1168,7 @@ module VM = struct
     ) Newest task vm
 
   let set_shadow_multiplier task vm target = on_domain (fun xc xs _ _ di ->
-      if domain_type_of_di di = Vm.Domain_PV then raise (Unimplemented "shadow_multiplier for PV domains");
+      if get_domain_type ~xs di = Vm.Domain_PV then raise (Unimplemented "shadow_multiplier for PV domains");
       let domid = di.Xenctrl.domid in
       let static_max_mib = Memory.mib_of_bytes_used vm.Vm.memory_static_max in
       let newshadow = Int64.to_int (Memory.HVM.shadow_mib static_max_mib vm.Vm.vcpu_max target) in
@@ -1490,7 +1491,7 @@ module VM = struct
     on_domain
       (fun xc xs task vm di ->
          let domain_type =
-           match domain_type_of_di di with
+           match get_domain_type ~xs di with
            | Vm.Domain_HVM -> `hvm
            | Vm.Domain_PV -> `pv
            | Vm.Domain_PVinPVH -> `pvh
@@ -1627,7 +1628,7 @@ module VM = struct
     on_domain
       (fun xc xs (task:Xenops_task.task_handle) vm di ->
          let domain_type =
-           match domain_type_of_di di with
+           match get_domain_type ~xs di with
            | Vm.Domain_HVM -> `hvm
            | Vm.Domain_PV -> `pv
            | Vm.Domain_PVinPVH -> `pvh
@@ -1877,7 +1878,7 @@ module VM = struct
                | None   -> false
                | Some x -> x.VmExtra.persistent.VmExtra.nested_virt
              end;
-             domain_type = domain_type_of_di di;
+             domain_type = get_domain_type ~xs di;
            }
       )
 
@@ -2020,7 +2021,7 @@ let on_frontend f domain_selection frontend =
        let frontend_di = match frontend |> uuid_of_string |> di_of_uuid ~xc ~xs domain_selection with
          | None -> raise (Does_not_exist ("domain", frontend))
          | Some x -> x in
-       f xc xs frontend_di.Xenctrl.domid (domain_type_of_di frontend_di)
+       f xc xs frontend_di.Xenctrl.domid (VM.get_domain_type ~xs frontend_di)
     )
 
 module PCI = struct
@@ -2784,7 +2785,7 @@ module VIF = struct
          ignore (run !Xc_resources.setup_vif_rules ["classic"; vif_interface_name; vm; devid; "filter"]);
          (* Update rules for the tap device if the VM has booted HVM with no PV drivers. *)
          let di = Xenctrl.domain_getinfo xc device.frontend.domid in
-         if domain_type_of_di di = Vm.Domain_HVM
+         if VM.get_domain_type ~xs di = Vm.Domain_HVM
          then ignore (run !Xc_resources.setup_vif_rules ["classic"; tap_interface_name; vm; devid; "filter"])
       )
 
@@ -2870,7 +2871,7 @@ module VIF = struct
            let di = Xenctrl.domain_getinfo xc device.frontend.domid in
            ignore (run !Xc_resources.setup_pvs_proxy_rules [action; "vif"; vif_interface_name;
                                                             private_path; hotplug_path]);
-           if domain_type_of_di di = Vm.Domain_HVM then
+           if VM.get_domain_type ~xs di = Vm.Domain_HVM then
              try
                ignore (run !Xc_resources.setup_pvs_proxy_rules [action; "tap"; tap_interface_name;
                                                                 private_path; hotplug_path])
