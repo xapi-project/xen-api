@@ -179,9 +179,10 @@ fi
 
 echo -n "Plugging VBD: "
 ${XE} vbd-plug uuid=${vbd_uuid}
-echo ${device}
 
 device=/dev/$(${XE} vbd-param-get uuid=${vbd_uuid} param-name=device)
+echo ${device}
+
 
 if [ ! -b ${device} ]; then
   echo ${device}: not a block special
