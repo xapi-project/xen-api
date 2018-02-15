@@ -28,7 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
-open Xapi_stdext_std.Xstringext
+
 open Printf
 open Datamodel
 open Datamodel_types
@@ -38,9 +38,11 @@ open Dm_api
 module DU = Datamodel_utils
 
 let rec pascal_case_ s =
-  let ss = String.split '_' s in
-  let ss' = List.map transform ss in
-  match ss' with
+  let ss =
+    Astring.String.cuts ~sep:"_" ~empty:true s |>
+    List.map String.capitalize_ascii
+  in
+  match ss with
   | [] -> ""
   | h::tl ->
     let h' = if String.length h > 1 then
@@ -58,9 +60,6 @@ and pascal_case s =
          || (String.lowercase_ascii (String.sub str 0 3)) = "get"))
   then String.sub str 3 ((String.length str) - 3)
   else str
-
-and transform s =
-  String.capitalize_ascii (String.uncapitalize_ascii s)
 
 and lower_and_underscore_first s =
   sprintf "_%s%s"
@@ -159,9 +158,6 @@ and obj_internal_type = function
   | Set(Record x) -> sprintf "List<%s>" (qualified_class_name x)
   | x             -> exposed_type x
 
-and escape_angles str =
-  String.escaped ~rules:[('<' , "&lt;"); ('>' , "&gt;")] str
-
 and is_invoke message =
   message.msg_tag = Custom &&
   not (is_setter message) &&
@@ -231,7 +227,7 @@ and has_name x =
   DU.obj_has_get_by_name_label x
 
 and get_http_action_verb name meth =
-  let parts = String.split '_' name in
+  let parts = Astring.String.cuts ~sep:"_" name in
   if (List.exists (fun x -> x = "import") parts) then "Import"
   else if (List.exists (fun x -> x = "export") parts) then "Export"
   else if (List.exists (fun x -> x = "get") parts) then "Receive"
@@ -251,7 +247,7 @@ and get_common_verb_category verb =
   | _         -> assert false
 
 and get_http_action_stem name =
-  let parts = String.split '_' name in
+  let parts = Astring.String.cuts ~sep:"_" name in
   let filtered = List.filter trim_http_action_stem parts in
   let trimmed = String.concat "_" filtered in
   match trimmed with

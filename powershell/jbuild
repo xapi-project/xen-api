@@ -1,11 +1,10 @@
 (jbuild_version 1)
 
 (executable(
-    (name gen_powershell_binding)
-    (libraries (
-      xapi-datamodel
-      CommonFunctions
-      xapi-stdext-std
-    ))
-  )
-)
+  (name gen_powershell_binding)
+  (libraries (
+    xapi-datamodel
+    CommonFunctions
+    astring
+  ))
+))

@@ -29,7 +29,6 @@
  *)
 
 
-open Xapi_stdext_std.Xstringext
 open Xapi_stdext_pervasives.Pervasiveext
 open Printf
 open Datamodel
@@ -115,16 +114,14 @@ let joined sep f l =
   String.concat sep
     (List.filter (fun x -> String.compare x "" != 0) r)
 
+let escape_xml s = s |>
+  Astring.String.cuts ~sep:"<" ~empty:true |>
+  String.concat "&lt;" |>
+  Astring.String.cuts ~sep:">" ~empty:true |>
+  String.concat "&gt;"
 
-let escape_xml s =
-  let esc_char = function
-    | '<' -> "&lt;"
-    | '>' -> "&gt;"
-    | c -> String.make 1 c
-  in
-  String.concat "" (List.map esc_char (String.explode s))
-
-let enum_of_wire = String.replace "-" "_"
+let enum_of_wire =
+  Astring.String.map (fun x ->  match x with '-' -> '_' | _ -> x)
 
 let api_members = ref []
 
@@ -1398,7 +1395,8 @@ and convert_from_hashtable fname ty =
   | _                   -> assert false
 
 and sanitise_function_name name =
-  String.implode (List.filter (fun c -> c<>'>' && c<>'<' && c<>',' && c<>' ') (String.explode name))
+  let is_normal_char c = not (List.mem c ['>'; '<'; ','; ' ']) in
+  Astring.String.filter is_normal_char name
 
 and simple_convert_from_proxy thing ty =
   match ty with

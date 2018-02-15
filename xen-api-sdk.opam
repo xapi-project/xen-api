@@ -12,7 +12,7 @@ depends: [
   "jbuilder" {build}
   "xapi-datamodel"
   "mustache"
-  "xapi-stdext-std"
+  "astring"
   "xapi-stdext-unix"
   "xapi-stdext-pervasives"
 ]

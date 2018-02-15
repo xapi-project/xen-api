@@ -29,7 +29,6 @@
  *)
 
 
-open Xapi_stdext_std.Xstringext
 open Xapi_stdext_unix
 open Printf
 open Str
@@ -114,7 +113,7 @@ let transform s =
 
 let class_case x =
   String.concat ""
-    (List.map transform (String.split '_' x));;
+    (List.map transform (Astring.String.cuts ~sep:"_" x));;
 
 let keywords = [ "public", "_public" ]
 
@@ -122,9 +121,11 @@ let keyword_map s =
   if List.mem_assoc s keywords then List.assoc s keywords else s
 
 let camel_case s =
-  let ss = String.split '_' s in
-  let ss' = List.map transform ss in
-  let result = match ss' with
+  let ss =
+    Astring.String.cuts ~sep:"_" s |>
+    List.map transform
+  in
+  let result = match ss with
     | [] -> ""
     | h::tl ->
       let h' = if String.length h > 1
@@ -140,9 +141,8 @@ let camel_case s =
 
 let exception_class_case x =
   String.concat ""
-    (List.map (fun s -> String.capitalize_ascii (String.lowercase_ascii s)) (String.split '_' x))
-
-
+    (List.map (fun s -> String.capitalize_ascii (String.lowercase_ascii s))
+      (Astring.String.cuts ~sep:"_" x))
 
 
 (*As we process the datamodel, we collect information about enumerations, types*)
@@ -718,7 +718,7 @@ let gen_enums file =
   Hashtbl.iter (gen_enum file) enums
 
 let gen_error_field_name field =
-  camel_case (String.concat "_" (String.split ' ' field))
+  camel_case (String.concat "_" (Astring.String.cuts ~sep:" " field))
 
 let gen_error_field_names fields =
   List.map gen_error_field_name fields

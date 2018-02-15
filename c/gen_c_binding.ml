@@ -31,7 +31,6 @@
 (* Generator of C bindings from the datamodel *)
 
 
-open Xapi_stdext_std.Xstringext
 open Xapi_stdext_unix
 open Xapi_stdext_pervasives.Pervasiveext
 open Printf
@@ -220,7 +219,7 @@ and write_decl {name=classname; contents=contents; description=description;
   let record_opt = decl_record_opt needed tn record_tn record_opt_tn contents in
   let message_decls = decl_messages needed classname
       (List.filter (fun x-> not (classname = "event" && x.msg_name = "from")) messages) in
-  let full_stop = if String.endswith "." description then "" else "."
+  let full_stop = if Astring.String.is_suffix ~affix:"." description then "" else "."
   in
 
   print_h_header out_chan protect;
@@ -371,7 +370,7 @@ and decl_message_async needed classname message =
 
 
 and get_message_comment message =
-  let full_stop = if String.endswith "." message.msg_doc then "" else "." in
+  let full_stop = if Astring.String.is_suffix ~affix:"." message.msg_doc then "" else "." in
   Helper.comment true (sprintf "%s%s" message.msg_doc full_stop)
 
 
@@ -619,7 +618,7 @@ and hash_includes needed =
 
 
 and hash_include n =
-  if String.endswith "internal" n
+  if Astring.String.is_suffix ~affix:"internal" n
   then
     sprintf "#include \"%s\"" (decl_filename n)
   else if n = "session" then
@@ -689,7 +688,7 @@ extern enum %s
 and enum_entry enum_name = function
     (n, c) ->
     sprintf "%s\n    XEN_%s_%s" (Helper.comment true ~indent:4 c)
-      (String.uppercase_ascii enum_name) (String.replace "-" "_" (String.uppercase_ascii n))
+      (String.uppercase_ascii enum_name) (Astring.String.map (fun x ->  match x with '-' -> '_' | _ -> x) (String.uppercase_ascii n))
 
 
 and write_enum_impl name contents out_chan =
@@ -1364,7 +1363,7 @@ and name_of_ty = function
   | Record n -> sprintf "%s" (record_typename n)
 
 and decl_filename name =
-  let dir = (if String.endswith "internal" name then "" else "xen/api/") in
+  let dir = (if Astring.String.is_suffix ~affix:"internal" name then "" else "xen/api/") in
   sprintf "%sxen_%s.h" dir (String.lowercase_ascii name)
 
 

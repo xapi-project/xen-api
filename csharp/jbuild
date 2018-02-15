@@ -1,12 +1,11 @@
 (jbuild_version 1)
 
 (executable(
-    (name gen_csharp_binding)
-    (libraries (
-      xapi-datamodel
-      CommonFunctions
-      xapi-stdext-std
-      xapi-stdext-pervasives
-      ))
-  )
-)
+  (name gen_csharp_binding)
+  (libraries (
+    xapi-datamodel
+    CommonFunctions
+    astring
+    xapi-stdext-pervasives
+  ))
+))

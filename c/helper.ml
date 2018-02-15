@@ -28,16 +28,15 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
-open Xapi_stdext_std.Xstringext
 
 let rec formatted_wrap formatter s =
   let split_in_2 c s =
-    match String.split ~limit:2 c s with
-      h :: t -> (h, if t = [] then "" else List.hd t)
-    | [] -> assert false
+    match Astring.String.cut ~sep:c s with
+    | Some (x,y) -> x, y
+    | None -> s, ""
   in
-  let prespace, postspace = split_in_2 ' ' s in
-  let preeol, posteol = split_in_2 '\n' s in
+  let prespace, postspace = split_in_2 " " s in
+  let preeol, posteol = split_in_2 "\n" s in
 
   if String.length prespace < String.length preeol then
     (Format.fprintf formatter "%s@ " prespace;
