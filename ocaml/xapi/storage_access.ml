@@ -65,6 +65,34 @@ let find_content ~__context ?sr name =
        || (vdi_rec.API.vDI_location = name) (* PR-1255 *)
     ) all
 
+let vdi_info_of_vdi_rec __context vdi_rec =
+  let content_id =
+    try
+      List.assoc "content_id" vdi_rec.API.vDI_other_config
+    with Not_found -> vdi_rec.API.vDI_location (* PR-1255 *)
+  in {
+    vdi = vdi_rec.API.vDI_location;
+    uuid = Some vdi_rec.API.vDI_uuid;
+    content_id = content_id; (* PR-1255 *)
+    name_label = vdi_rec.API.vDI_name_label;
+    name_description = vdi_rec.API.vDI_name_description;
+    ty = Storage_utils.string_of_vdi_type vdi_rec.API.vDI_type;
+    metadata_of_pool = Ref.string_of vdi_rec.API.vDI_metadata_of_pool;
+    is_a_snapshot = vdi_rec.API.vDI_is_a_snapshot;
+    snapshot_time = Date.to_string vdi_rec.API.vDI_snapshot_time;
+    snapshot_of =
+      if Db.is_valid_ref __context vdi_rec.API.vDI_snapshot_of
+      then Db.VDI.get_uuid ~__context ~self:vdi_rec.API.vDI_snapshot_of
+      else "";
+    read_only = vdi_rec.API.vDI_read_only;
+    cbt_enabled = vdi_rec.API.vDI_cbt_enabled;
+    virtual_size = vdi_rec.API.vDI_virtual_size;
+    physical_utilisation = vdi_rec.API.vDI_physical_utilisation;
+    persistent = vdi_rec.API.vDI_on_boot = `persist;
+    sharable = vdi_rec.API.vDI_sharable;
+    sm_config = vdi_rec.API.vDI_sm_config;
+  }
+
 let redirect sr =
   raise (Redirect (Some (Pool_role.get_master_address ())))
 
@@ -81,34 +109,6 @@ module SMAPIv1 = struct
       	*)
 
   type context = Smint.request
-
-  let vdi_info_of_vdi_rec __context vdi_rec =
-    let content_id =
-      if List.mem_assoc "content_id" vdi_rec.API.vDI_other_config
-      then List.assoc "content_id" vdi_rec.API.vDI_other_config
-      else vdi_rec.API.vDI_location (* PR-1255 *)
-    in {
-      vdi = vdi_rec.API.vDI_location;
-      uuid = Some vdi_rec.API.vDI_uuid;
-      content_id = content_id; (* PR-1255 *)
-      name_label = vdi_rec.API.vDI_name_label;
-      name_description = vdi_rec.API.vDI_name_description;
-      ty = Storage_utils.string_of_vdi_type vdi_rec.API.vDI_type;
-      metadata_of_pool = Ref.string_of vdi_rec.API.vDI_metadata_of_pool;
-      is_a_snapshot = vdi_rec.API.vDI_is_a_snapshot;
-      snapshot_time = Date.to_string vdi_rec.API.vDI_snapshot_time;
-      snapshot_of =
-        if Db.is_valid_ref __context vdi_rec.API.vDI_snapshot_of
-        then Db.VDI.get_uuid ~__context ~self:vdi_rec.API.vDI_snapshot_of
-        else "";
-      read_only = vdi_rec.API.vDI_read_only;
-      cbt_enabled = vdi_rec.API.vDI_cbt_enabled;
-      virtual_size = vdi_rec.API.vDI_virtual_size;
-      physical_utilisation = vdi_rec.API.vDI_physical_utilisation;
-      persistent = vdi_rec.API.vDI_on_boot = `persist;
-      sharable = vdi_rec.API.vDI_sharable;
-      sm_config = vdi_rec.API.vDI_sm_config;
-    }
 
   let vdi_info_from_db ~__context self =
     let vdi_rec = Db.VDI.get_record ~__context ~self in
@@ -569,9 +569,10 @@ module SMAPIv1 = struct
                with _ ->
                  Uuid.string_of_uuid (Uuid.make_uuid ())
              in
+             let snapshot_time = Date.of_float (Unix.gettimeofday ()) in
              Db.VDI.set_name_label ~__context ~self ~value:vdi_info.name_label;
              Db.VDI.set_name_description ~__context ~self ~value:vdi_info.name_description;
-             Db.VDI.set_snapshot_time ~__context ~self ~value:(Date.of_string vdi_info.snapshot_time);
+             Db.VDI.set_snapshot_time ~__context ~self ~value:snapshot_time;
              Db.VDI.set_is_a_snapshot ~__context ~self ~value:is_a_snapshot;
              Db.VDI.remove_from_other_config ~__context ~self ~key:"content_id";
              Db.VDI.add_to_other_config ~__context ~self ~key:"content_id" ~value:content_id;

@@ -407,6 +407,7 @@ let create ~__context ~name_label ~name_description
     name_description = name_description;
     ty = vdi_type;
     read_only = read_only;
+    cbt_enabled = false;
     virtual_size = virtual_size;
     sharable = sharable;
     sm_config = sm_config;
@@ -530,20 +531,15 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
   let sR = Db.VDI.get_SR ~__context ~self:vdi in
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
   Xapi_vdi_helpers.assert_managed ~__context ~vdi;
-  let a = Db.VDI.get_record_internal ~__context ~self:vdi in
+  let vdi_rec = Db.VDI.get_record ~__context ~self:vdi in
 
   let call_snapshot () =
     let open Storage_access in
     let task = Context.get_task_id __context in
     let open Storage_interface in
-    let vdi' = Db.VDI.get_location ~__context ~self:vdi in
     let vdi_info = {
-      default_vdi_info with
-      vdi = vdi';
-      name_label = a.Db_actions.vDI_name_label;
-      name_description = a.Db_actions.vDI_name_description;
+      (Storage_access.vdi_info_of_vdi_rec __context vdi_rec) with
       sm_config = driver_params;
-      snapshot_time = Date.to_string (Date.of_float (Unix.gettimeofday ()));
     } in
     let sr' = Db.SR.get_uuid ~__context ~self:sR in
     (* We don't use transform_storage_exn because of the clone/copy fallback below *)
@@ -556,14 +552,14 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
   let newvdi = call_snapshot () in
 
   (* Copy across the metadata which we control *)
-  Db.VDI.set_name_label ~__context ~self:newvdi ~value:a.Db_actions.vDI_name_label;
-  Db.VDI.set_name_description ~__context ~self:newvdi ~value:a.Db_actions.vDI_name_description;
-  Db.VDI.set_type ~__context ~self:newvdi ~value:a.Db_actions.vDI_type;
-  Db.VDI.set_sharable ~__context ~self:newvdi ~value:a.Db_actions.vDI_sharable;
-  Db.VDI.set_other_config ~__context ~self:newvdi ~value:a.Db_actions.vDI_other_config;
-  Db.VDI.set_xenstore_data ~__context ~self:newvdi ~value:a.Db_actions.vDI_xenstore_data;
-  Db.VDI.set_on_boot ~__context ~self:newvdi ~value:a.Db_actions.vDI_on_boot;
-  Db.VDI.set_allow_caching ~__context ~self:newvdi ~value:a.Db_actions.vDI_allow_caching;
+  Db.VDI.set_name_label ~__context ~self:newvdi ~value:vdi_rec.API.vDI_name_label;
+  Db.VDI.set_name_description ~__context ~self:newvdi ~value:vdi_rec.API.vDI_name_description;
+  Db.VDI.set_type ~__context ~self:newvdi ~value:vdi_rec.API.vDI_type;
+  Db.VDI.set_sharable ~__context ~self:newvdi ~value:vdi_rec.API.vDI_sharable;
+  Db.VDI.set_other_config ~__context ~self:newvdi ~value:vdi_rec.API.vDI_other_config;
+  Db.VDI.set_xenstore_data ~__context ~self:newvdi ~value:vdi_rec.API.vDI_xenstore_data;
+  Db.VDI.set_on_boot ~__context ~self:newvdi ~value:vdi_rec.API.vDI_on_boot;
+  Db.VDI.set_allow_caching ~__context ~self:newvdi ~value:vdi_rec.API.vDI_allow_caching;
   newvdi
 
 let snapshot ~__context ~vdi ~driver_params =
