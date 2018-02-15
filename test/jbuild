@@ -12,5 +12,5 @@
 
 (alias
  ((name    runtest)
-  (deps    (network_test.exe))
-  (action  (chdir ../../.. (run ${<})))))
+  (deps    (network_test.exe (files_recursively_in jsonrpc_files)))
+  (action  (chdir ../ (run ${<})))))
