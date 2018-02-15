@@ -10,7 +10,7 @@ Xen-enabled hosts and resource pools, and co-ordinates resources
 within the pool. Xapi exposes the Xen API interface for many
 languages and is a component of the XenServer project.
 Xen API is written mostly in [OCaml](http://caml.inria.fr/ocaml/)
-4.01.0.
+4.04.2
 
 Xapi is the main component produced by the Linux Foundation's
 [Xapi Project](http://xenproject.org/developers/teams/xapi.html).
@@ -21,7 +21,7 @@ Build and Install
 The build install instructions are currently being written. The Xapi
 Project contains a large list of dependencies and sub-projects, which
 are actually quite difficult to build independently. To build xen-api
-from source, we recommend using [xenserver-core](https://github.com/xenserver/xenserver-core).
+from source, we recommend using [opam](https://opam.ocaml.org/doc/Manual.html) with the [xs-opam](https://github.com/xapi-project/xs-opam) remote (detailed explanation in [readme](https://github.com/xapi-project/xs-opam/blob/master/README.md).
 
 Contributions
 -------------
@@ -37,23 +37,7 @@ more time for review.
 Maintainers
 -----------
 
-This is a short list of people who currently maintain this project.
-
-* Christian Lindig <christian.lindig@citrix.com>
-* Euan Harris <euan.harris@citrix.com>
-* Frederico Mazzone <frederico.mazzone@citrix.com>
-* Gabor Igloi <gabor.igloi@citrix.com>
-* Jon Ludlam <jonathan.ludlam@citrix.com>
-* Konstantina Chremmou <konstantina.chremmou@citrix.com>
-* Marcello Seri <marcello.seri@citrix.com>
-* Rob Hoes <rob.hoes@citrix.com>
-* Sharad Yadav <sharad.yadav@citrix.com>
-* Thomas Sanders <thomas.sanders@citrix.com>
-* Zheng Li <zheng.li@citrix.com>
-
-You can usually find the developers hanging out in #xen-api on
-freenode. We are also reachable on the xen-api@lists.xenproject.org mailing
-list.
+Maintainers can be contacted via this mailing list: `xen-api@lists.xenproject.org`
 
 Licensing
 ---------
