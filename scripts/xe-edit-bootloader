@@ -15,7 +15,9 @@ XE="@BINDIR@/xe"
 
 device_number=
 grub_conf=
-default_file_list="/boot/grub/menu.lst /grub/menu.lst /boot/grub/grub.cfg /grub/grub.cfg"
+default_file_list="/boot/grub/grub.cfg /grub/grub.cfg /boot/grub2/grub.cfg /grub2/grub.cfg"
+default_file_list="$default_file_list /boot/isolinux/isolinux.cfg /boot/extlinux/extlinux.conf /boot/extlinux.conf /extlinux/extlinux.conf /extlinux.conf"
+default_file_list="$default_file_list /boot/grub/menu.lst /boot/grub/grub.conf /grub/menu.lst"
 
 function usage {
     echo "Usage: $0 [-u <VM UUID>] [-n <VM name>]"
