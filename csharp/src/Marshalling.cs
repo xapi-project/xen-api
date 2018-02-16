@@ -1,19 +1,19 @@
 /*
  * Copyright (c) Citrix Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -30,16 +30,15 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Collections;
-using System.Reflection;
+
 
 namespace XenAPI
 {
     public class Marshalling
     {
         /// <summary>
-        /// Takes a Hashtable, creates a new t, and populates the fields of 
+        /// Takes a Hashtable, creates a new t, and populates the fields of
         /// that t with the values from the Hashtable.
         /// </summary>
         /// <param name="t">A XenAPI type, VM for example.  t must have an associated XenAPI.Proxy_t.</param>
@@ -47,7 +46,7 @@ namespace XenAPI
         /// <returns></returns>
         public static object convertStruct(Type t, Hashtable table)
         {
-            return t.GetConstructor(new Type[] { typeof(Hashtable) }).Invoke(new object[] { table });
+            return t.GetConstructor(new Type[] {typeof(Hashtable)}).Invoke(new object[] {table});
         }
 
         public static Type GetXenAPIType(string name)
@@ -57,77 +56,79 @@ namespace XenAPI
 
         public static bool ParseBool(Hashtable table, string key)
         {
-            return table.ContainsKey(key) ? (bool)table[key] : false;
+            return table.ContainsKey(key)
+                ? (bool)table[key]
+                : false;
         }
 
         public static DateTime ParseDateTime(Hashtable table, string key)
         {
-            return table.ContainsKey(key) ? (DateTime)table[key] : DateTime.MinValue;
+            return table.ContainsKey(key)
+                ? (DateTime)table[key]
+                : DateTime.MinValue;
         }
 
         public static double ParseDouble(Hashtable table, string key)
         {
-            return table.ContainsKey(key) ? (double)table[key] : 0.0;
+            return table.ContainsKey(key)
+                ? (double)table[key]
+                : 0.0;
         }
 
         public static Hashtable ParseHashTable(Hashtable table, string key)
         {
-            return table.ContainsKey(key) ? (Hashtable)table[key] : null;
+            return table.ContainsKey(key)
+                ? (Hashtable)table[key]
+                : null;
         }
 
         public static long ParseLong(Hashtable table, string key)
         {
-            string val = table.ContainsKey(key) ? (string)table[key] : null;
-            return val == null ? 0 : long.Parse(val);
+            return table.ContainsKey(key)
+                ? long.Parse((string)table[key])
+                : 0;
         }
 
         public static string ParseString(Hashtable table, string key)
         {
-            return table.ContainsKey(key) ? (string)table[key] : null;
+            return table.ContainsKey(key)
+                ? (string)table[key]
+                : null;
         }
 
         public static string[] ParseStringArray(Hashtable table, string key)
         {
-            object[] val = table.ContainsKey(key) ? (object[])table[key] : null;
-            if (val == null)
-            {
-                return new string[0];
-            }
-            else
-            {
-                return Array.ConvertAll<object, string>(val, delegate(object o) { return o.ToString(); });
-            }
+            return table.ContainsKey(key)
+                ? Array.ConvertAll((object[])table[key], o => o.ToString())
+                : new string[0];
         }
 
         public static long[] ParseLongArray(Hashtable table, string key)
         {
-            object[] val = table.ContainsKey(key) ? (object[])table[key] : null;
-            if (val == null)
-            {
-                return new long[0];
-            }
-            else
-            {
-                return Array.ConvertAll<object, long>(val, delegate(object o) { return long.Parse(o.ToString()); });
-            }
+            return table.ContainsKey(key)
+                ? Array.ConvertAll((object[])table[key], o => long.Parse(o.ToString()))
+                : new long[0];
         }
 
         public static XenRef<T> ParseRef<T>(Hashtable table, string key) where T : XenObject<T>
         {
-            string r = ParseString(table, key);
-            return r == null ? null : XenRef<T>.Create(r);
+            return table.ContainsKey(key)
+                ? XenRef<T>.Create((string)table[key])
+                : null;
         }
 
         public static List<XenRef<T>> ParseSetRef<T>(Hashtable table, string key) where T : XenObject<T>
         {
-            string[] rs = ParseStringArray(table, key);
-            return rs == null ? null : XenRef<T>.Create(rs);
+            return table.ContainsKey(key)
+                ? XenRef<T>.Create((object[])table[key])
+                : null;
         }
 
         public static Dictionary<XenRef<T>, T> ParseMapRefRecord<T, U>(Hashtable table, string key) where T : XenObject<T>
         {
-            Hashtable map = ParseHashTable(table, key);
-            return map == null ? null : XenRef<T>.Create<U>(map);
+            return table.ContainsKey(key)
+                ? XenRef<T>.Create<U>((Hashtable)table[key])
+                : null;
         }
     }
 }
