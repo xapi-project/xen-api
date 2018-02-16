@@ -21,7 +21,6 @@ let base_suite =
     Test_agility.test;
     Test_helpers.test;
     Test_datamodel_utils.test;
-    Test_db_lowlevel.test;
     Test_daemon_manager.test;
     Test_http.test;
     Test_pool_db_backup.test;

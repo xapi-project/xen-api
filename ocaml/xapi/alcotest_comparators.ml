@@ -40,9 +40,16 @@ let vdi_nbd_server_info_set =
   in
   Alcotest.slist vdi_nbd_server_info comp
 
-let vdi_type =
-  let fmt : API.vdi_type Fmt.t = Fmt.of_to_string (fun t -> t |> API.rpc_of_vdi_type |> Rpc.to_string) in
+(** Creates a [testable] using OCaml's polymorphic equality and [Rpc.t] -> [string] conversion for formatting *)
+let of_rpc_of rpc_of =
+  let fmt = Fmt.of_to_string (fun t -> (rpc_of t) |> Rpc.to_string) in
   Alcotest.testable fmt (=)
+
+let vdi_type : (API.vdi_type Alcotest.testable) = of_rpc_of API.rpc_of_vdi_type
+
+let db_cache_structured_op = of_rpc_of Db_cache_types.rpc_of_structured_op_t
+
+let db_rpc_request = of_rpc_of Db_rpc_common_v2.Request.rpc_of_t
 
 let ref () =
   let fmt = Fmt.of_to_string Ref.string_of in
