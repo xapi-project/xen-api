@@ -514,6 +514,9 @@ let include_vhd_parents_from_request ~__context (req: Request.t) =
 let export_snapshots_from_request ~__context (req: Request.t) =
   bool_from_request ~__context req true "export_snapshots"
 
+let include_dom0_from_request ~__context (req: Request.t) =
+  bool_from_request ~__context req true "include_dom0"
+
 let metadata_handler (req: Request.t) s _ =
   debug "metadata_handler called";
   req.Request.close <- true;
@@ -524,6 +527,7 @@ let metadata_handler (req: Request.t) s _ =
        let include_vhd_parents = include_vhd_parents_from_request ~__context req in
        let export_all = export_all_vms_from_request ~__context req in
        let export_snapshots = export_snapshots_from_request ~__context req in
+       let include_dom0 = include_dom0_from_request ~__context req in
 
        (* Get the VM refs. In case of exporting the metadata of a particular VM, return a singleton list containing the vm ref.  *)
        (* In case of exporting all the VMs metadata, get all the VM records which are not default templates. *)
@@ -536,9 +540,9 @@ let metadata_handler (req: Request.t) s _ =
               && ((List.assoc Xapi_globs.default_template_key vm.API.vM_other_config) = "true")) 
              in
            let all_vms = Db.VM.get_all_records ~__context in
-           let interesting_vms = List.filter (fun (_, vm) ->
-               not (is_default_template vm)
-               && (not (Helpers.is_domain_zero ~__context (Db.VM.get_by_uuid ~__context ~uuid:vm.API.vM_uuid)))
+           let interesting_vms = List.filter (fun (vm, vmr) ->
+               not (is_default_template vmr)
+               && (not (Helpers.is_domain_zero ~__context vm) || include_dom0)
              ) all_vms in
            List.map fst interesting_vms
          end else
