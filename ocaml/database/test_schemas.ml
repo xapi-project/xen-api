@@ -82,8 +82,7 @@ let schema =
 
   let vm_table = {
     Schema.Table.name = "VM";
-    columns = [ _ref; uuid; name_label; vbds; pp;
-    name_description; tags; other_config ];
+    columns = [ _ref; uuid; name_label; vbds; pp; name_description; tags; other_config ];
     persistent = true;
   } in
   let vbd_table = {

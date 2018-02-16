@@ -11,8 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
- open Xapi_stdext_monadic
- open Xapi_stdext_unix
+open Xapi_stdext_monadic
+open Xapi_stdext_unix
 
 let name_label = "name__label"
 let name_description = "name__description"
@@ -109,7 +109,6 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
 
 
 open Xapi_stdext_pervasives
-open Xapi_stdext_monadic
 open Db_cache_types
 
   let create_test_db () =
