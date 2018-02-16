@@ -3,6 +3,9 @@
 open Datamodel_types
 open Datamodel_roles
 
+(* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
+              You do not have to bump vsn if you change/add/remove a message *)
+
 let schema_major_vsn = 5
 let schema_minor_vsn = 134
 

@@ -17,11 +17,12 @@ open Datamodel_types
 open Datamodel_common
 open Datamodel_roles
 
-(* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
-              You do not have to bump vsn if you change/add/remove a message *)
 let errors = Datamodel_errors.errors
 let messages = Datamodel_errors.messages
 let roles_all = roles_all
+
+let api_version_major = Datamodel_common.api_version_major
+let api_version_minor = Datamodel_common.api_version_minor
 
 
 module Session = struct
