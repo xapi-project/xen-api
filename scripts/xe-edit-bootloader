@@ -15,7 +15,9 @@ XE="@BINDIR@/xe"
 
 device_number=
 grub_conf=
-default_file_list="/boot/grub/menu.lst /grub/menu.lst /boot/grub/grub.cfg /grub/grub.cfg"
+default_file_list="/boot/grub/grub.cfg /grub/grub.cfg /boot/grub2/grub.cfg /grub2/grub.cfg"
+default_file_list="$default_file_list /boot/isolinux/isolinux.cfg /boot/extlinux/extlinux.conf /boot/extlinux.conf /extlinux/extlinux.conf /extlinux.conf"
+default_file_list="$default_file_list /boot/grub/menu.lst /boot/grub/grub.conf /grub/menu.lst"
 
 function usage {
     echo "Usage: $0 [-u <VM UUID>] [-n <VM name>]"
@@ -37,7 +39,7 @@ while getopts "hu:n:p:f:" opt ; do
     h) usage ;;
     u) vm_uuid=${OPTARG} ;;
     n) vm_name="${OPTARG}" ;;
-    p) device_number=${OPTARG} ;;
+    p) device_number=p${OPTARG} ;;
     f) default_file_list="${OPTARG}" ;;
     *) echo "Invalid option"; usage ;;
     esac
@@ -84,7 +86,7 @@ function cleanup {
       rmdir ${mnt}
    fi
 
-   kpartx -d ${device}
+   kpartx -dvspp ${device}
 
    if [ ! -z "${vbd_uuid}" ]; then
       echo -n "Unplugging VBD: "
@@ -177,9 +179,10 @@ fi
 
 echo -n "Plugging VBD: "
 ${XE} vbd-plug uuid=${vbd_uuid}
-echo ${device}
 
 device=/dev/$(${XE} vbd-param-get uuid=${vbd_uuid} param-name=device)
+echo ${device}
+
 
 if [ ! -b ${device} ]; then
   echo ${device}: not a block special
@@ -187,7 +190,7 @@ if [ ! -b ${device} ]; then
   exit 1
 fi
 
-kpartx -av ${device}
+kpartx -avspp ${device}
 mapped_device="/dev/mapper/${vdi_uuid}"
 
 echo -n "Waiting for ${mapped_device}${device_number}: "
