@@ -1444,7 +1444,7 @@ module VM = struct
             in
             match (write, is_raw_image) with
             | true, _ -> (* Always write raw *)
-              Unixext.with_file path [Unix.O_WRONLY] 0o600 f
+              Unixext.with_file path [Unix.O_WRONLY; Unix.O_APPEND] 0o600 f
             | false, true -> (* We're reading raw *)
               Unixext.with_file path [Unix.O_RDONLY] 0o600 f
             | false, false -> (* Assume reading from filesystem *)
