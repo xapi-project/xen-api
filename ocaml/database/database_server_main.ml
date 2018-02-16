@@ -1,3 +1,6 @@
+open Xapi_stdext_threads
+open Xapi_stdext_unix
+open Xapi_stdext_threads
 open Threadext
 
 type mode =
@@ -63,15 +66,16 @@ let _ =
         Unixext.unlink_safe !listen_path;
         let sockaddr = Unix.ADDR_UNIX !listen_path in
         let socket = Http_svr.bind sockaddr "unix_rpc" in
-        let server = Http_svr.Server.empty in
-        Http_svr.add_handler server Http.Post "/post_remote_db_access" (Http_svr.BufIO remote_database_access_handler_v1);
-        Http_svr.add_handler server Http.Post "/post_remote_db_access_v2" (Http_svr.BufIO remote_database_access_handler_v2);
+        let server = Http_svr.Server.empty () in
+        Http_svr.Server.add_handler server Http.Post "/post_remote_db_access" (Http_svr.BufIO remote_database_access_handler_v1);
+        Http_svr.Server.add_handler server Http.Post "/post_remote_db_access_v2" (Http_svr.BufIO remote_database_access_handler_v2);
         Http_svr.start server socket;
         Printf.printf "server listening\n%!";
         if !self_test then begin
           Printf.printf "Running unit-tests\n%!";
           Local_tests.main true;
           Printf.printf "All tests passed\n%!";
+          finished := true;
         end;
         (* Wait for either completion *)
         Mutex.execute m

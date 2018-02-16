@@ -82,7 +82,11 @@ module Table = struct
     columns: Column.t list;
     persistent: bool;
   } [@@deriving sexp]
-  let find name t = List.find (fun col -> col.Column.name = name) t.columns
+  let find name t =
+    try
+      List.find (fun col -> col.Column.name = name) t.columns
+    with Not_found ->
+      raise (Db_exn.DBCache_NotFound("missing column", t.name, name))
 end
 
 type relationship =
@@ -94,7 +98,12 @@ module Database = struct
     tables: Table.t list;
   } [@@deriving sexp]
 
-  let find name t = List.find (fun tbl -> tbl.Table.name = name) t.tables
+  let find name t =
+    try
+      List.find (fun tbl -> tbl.Table.name = name) t.tables
+    with Not_found ->
+      raise (Db_exn.DBCache_NotFound("missing table", name, ""))
+
 end
 
 (** indexed by table name, a list of (this field, foreign table, foreign field) *)
@@ -132,11 +141,7 @@ type t = {
 let database x = x.database
 
 let table tblname x =
-  try
-    Database.find tblname (database x)
-  with Not_found as e ->
-    Printf.printf "Failed to find table: %s\n%!" tblname;
-    raise e
+  Database.find tblname (database x)
 
 let empty = {
   major_vsn = 0;
