@@ -157,6 +157,16 @@ let test_sequences =
         features = ["VDI_RESIZE", 1L];
       };
     };
+    (* Test SMAPIV3 SR_MULTIPATH feature *)
+    {
+      raw = ["SR_MULTIPATH"];
+      smapiv1_features = [Sr_multipath, 1L];
+      smapiv2_features = ["SR_MULTIPATH/1"];
+      sm = {
+        capabilities = ["SR_MULTIPATH"];
+        features = ["SR_MULTIPATH", 1L];
+      };
+    }
   ]
 
 module ParseSMAPIv1Features = Generic.Make(struct
