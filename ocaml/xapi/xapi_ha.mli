@@ -114,3 +114,5 @@ val before_clean_shutdown_or_reboot : __context:Context.t -> host:'a -> unit
 (** Called before shutting down or rebooting a host
     (called by the host.shutdown, host.reboot API functions). *)
 
+val before_clean_shutdown_or_reboot_precheck : __context:Context.t -> host:'a -> unit
+(** Only runs the checks performed by [before_clean_shutdown_or_reboot]. *)

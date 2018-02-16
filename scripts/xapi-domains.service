@@ -8,7 +8,7 @@ Type=oneshot
 RemainAfterExit=yes
 EnvironmentFile=@INVENTORY@
 ExecStart=@BINDIR@/xapi-autostart-vms
-ExecStop=/bin/sh -c "/opt/xensource/libexec/shutdown $INSTALLATION_UUID || /opt/xensource/libexec/shutdown --force $INSTALLATION_UUID"
+ExecStop=/bin/sh -c "/opt/xensource/bin/xe host-prepare-for-poweroff uuid=$INSTALLATION_UUID"
 ExecStop=/opt/xensource/bin/xe host-emergency-ha-disable force=true soft=true
 
 # Generous 24hr timeout that corresponding to the max evacuation time of a host
