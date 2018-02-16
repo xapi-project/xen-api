@@ -232,7 +232,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address ~r
   let open Xmlrpc_client in
 
   let local_export_request = match which with
-    | `All -> "all=true"
+    | `All -> "all=true&include_dom0=true"
     | `Only {vm=vm; send_snapshots=send_snapshots} -> Printf.sprintf "export_snapshots=%b&ref=%s" send_snapshots (Ref.string_of vm) in
 
   let remote_import_request =
