@@ -75,7 +75,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 
 (executable
  ((name unit_test_marshall)
-  (public_name unit_test_marshall)
   (package xapi)
   (modules (
     unit_test_marshall
@@ -88,7 +87,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 
 (executable
  ((name database_server_main)
-  (public_name database_server)
   (package xapi)
   (modules (
     database_server_main
