@@ -41,6 +41,7 @@ let error fmt = log Core.Unix.Syslog.Level.ERR     fmt
 
 let pvs_version = "3.0"
 let supported_api_versions = [pvs_version; "4.0"]
+let api_max = List.fold_left ~f:max supported_api_versions ~init:""
 
 module RRD = struct
   open Message_switch_async.Protocol_async
@@ -97,15 +98,19 @@ let missing_uri () =
 
 let (>>>=) = Deferred.Result.(>>=)
 
-let fork_exec_rpc root_dir script_name args response_of_rpc =
+let fork_exec_rpc ?missing root_dir script_name args response_of_rpc =
   info "%s %s" script_name (Jsonrpc.to_string args);
-  ( Sys.is_file ~follow_symlinks:true script_name
+  Sys.is_file ~follow_symlinks:true script_name
     >>= function
     | `No | `Unknown ->
       error "%s is not a file" script_name;
-      return (Error(backend_error "SCRIPT_MISSING" [ script_name; "Check whether the file exists and has correct permissions" ]))
-    | `Yes -> return (Ok ())
-  ) >>>= fun () ->
+      (match missing with
+      | None ->
+        return (Error(backend_error "SCRIPT_MISSING" [ script_name; "Check whether the file exists and has correct permissions" ]))
+      | Some m ->
+        warn "Deprecated: script '%s' is missing, treating as no-op. Update your plugin!" script_name;
+        return (Ok m))
+    | `Yes ->
   ( Unix.access script_name [ `Exec ]
     >>= function
     | Error exn ->
@@ -287,22 +292,26 @@ let destroy root_dir name dbg sr vdi =
   let args = Xapi_storage.Volume.Types.Volume.Destroy.In.rpc_of_t args in
   fork_exec_rpc root_dir (script root_dir name `Volume "Volume.destroy") args Xapi_storage.Volume.Types.Volume.Destroy.Out.t_of_rpc
 
-let set root_dir name dbg sr vdi k v =
+let set version root_dir name dbg sr vdi k v =
   let args = Xapi_storage.Volume.Types.Volume.Set.In.make dbg sr vdi k v in
   let args = Xapi_storage.Volume.Types.Volume.Set.In.rpc_of_t args in
-  fork_exec_rpc root_dir (script root_dir name `Volume "Volume.set") args Xapi_storage.Volume.Types.Volume.Set.Out.t_of_rpc
+  (* this is wrong, we loose the VDI type, but old pvsproxy didn't have
+   * Volume.set and Volume.unset *)
+  let missing = if version = Some pvs_version then Some () else None in
+  fork_exec_rpc ?missing root_dir (script root_dir name `Volume "Volume.set") args Xapi_storage.Volume.Types.Volume.Set.Out.t_of_rpc
 
-let unset root_dir name dbg sr vdi k =
+let unset version root_dir name dbg sr vdi k =
   let args = Xapi_storage.Volume.Types.Volume.Unset.In.make dbg sr vdi k in
   let args = Xapi_storage.Volume.Types.Volume.Unset.In.rpc_of_t args in
-  fork_exec_rpc root_dir (script root_dir name `Volume "Volume.unset") args Xapi_storage.Volume.Types.Volume.Unset.Out.t_of_rpc
+  let missing = if version = Some pvs_version then Some () else None in
+  fork_exec_rpc ?missing root_dir (script root_dir name `Volume "Volume.unset") args Xapi_storage.Volume.Types.Volume.Unset.Out.t_of_rpc
 
-let update_keys root_dir name dbg sr key value response =
+let update_keys version root_dir name dbg sr key value response =
   let open Deferred.Result.Monad_infix in
   match value with
   | None -> Deferred.Result.return response
   | Some value ->
-     set root_dir name dbg sr response.Xapi_storage.Volume.Types.key key value >>= fun () ->
+     set version root_dir name dbg sr response.Xapi_storage.Volume.Types.key key value >>= fun () ->
      Deferred.Result.return { response with keys = (key, value) :: response.keys }
 
 let choose_datapath ?(persistent = true) response =
@@ -332,7 +341,28 @@ let choose_datapath ?(persistent = true) response =
   | (scheme, u) :: us -> return (Ok (scheme, u, "0"))
 
 (* Process a message *)
-let process root_dir name x =
+let process root_dir name =
+  (* Each `root_dir, name` pair (a plugin) has its own version, see the call to listen
+   * where `process` is partially applied.
+   *)
+  let version = ref None in
+  let compat_in field rpc =
+    match !version, rpc with
+    | Some v, R.Dict d when v = pvs_version ->
+        R.Dict (List.filter ~f:(fun (k,_) -> k <> field) d)
+    | _ -> rpc
+  in
+  let rec compat_out fields rpc =
+    match !version, rpc with
+    | Some v, R.Dict d when v = pvs_version ->
+        R.Dict (List.rev_append fields d)
+    | Some v, R.Enum l when v = pvs_version ->
+        R.Enum (List.map ~f:(compat_out fields) l)
+    | _ -> rpc
+  in
+
+  (* the actual API call for this plugin, sharing same version ref across all calls *)
+  fun x ->
   let open Storage_interface in
   let call = Jsonrpc.call_of_string x in
   (match call with
@@ -412,6 +442,10 @@ let process root_dir name x =
        ("uri", "URI of the storage medium") ::
        response.Xapi_storage.Plugin.Types.configuration;
       required_cluster_stack = response.Xapi_storage.Plugin.Types.required_cluster_stack } in
+    (* the first call to a plugin must be a Query.query that sets the version *)
+    version := Some required_api_version;
+    if required_api_version <> api_max then
+      warn "Using deprecated SMAPIv3 API version %s, latest is %s. Update your %s plugin!" required_api_version api_max name;
     if List.mem ~equal:String.equal supported_api_versions required_api_version then
       Deferred.Result.return (R.success (Args.Query.Query.rpc_of_response response))
     else
@@ -436,7 +470,7 @@ let process root_dir name x =
       Deferred.Result.return (R.failure (missing_uri ()))
     | Some (_, uri) ->
       let args' = Xapi_storage.Volume.Types.SR.Attach.In.make args.Args.SR.Attach.dbg uuid uri in
-      let args' = Xapi_storage.Volume.Types.SR.Attach.In.rpc_of_t args' in
+      let args' = Xapi_storage.Volume.Types.SR.Attach.In.rpc_of_t args' |> compat_in "uuid" in
       let open Deferred.Result.Monad_infix in
       fork_exec_rpc root_dir (script root_dir name `Volume "SR.attach") args' Xapi_storage.Volume.Types.SR.Attach.Out.t_of_rpc
       >>= fun attach_response ->
@@ -555,7 +589,7 @@ let process root_dir name x =
         name_label
         description
         device_config in
-      let args = Xapi_storage.Volume.Types.SR.Create.In.rpc_of_t args in
+      let args = Xapi_storage.Volume.Types.SR.Create.In.rpc_of_t args |> compat_in "uuid" in
       let open Deferred.Result.Monad_infix in
       let t_of_rpc rpc =
         if rpc = R.Null then None
@@ -615,7 +649,9 @@ let process root_dir name x =
       args.Args.SR.Scan.dbg
       sr in
     let args = Xapi_storage.Volume.Types.SR.Ls.In.rpc_of_t args in
-    fork_exec_rpc root_dir (script root_dir name `Volume "SR.ls") args Xapi_storage.Volume.Types.SR.Ls.Out.t_of_rpc
+    let t_of_rpc rpc =
+      rpc |>  compat_out ["sharable", R.Bool false] |> Xapi_storage.Volume.Types.SR.Ls.Out.t_of_rpc in
+    fork_exec_rpc root_dir (script root_dir name `Volume "SR.ls") args t_of_rpc
     >>= fun response ->
     (* Filter out volumes which are clone-on-boot transients *)
     let transients = List.fold ~f:(fun set x ->
@@ -640,9 +676,9 @@ let process root_dir name x =
       vdi_info.name_description
       vdi_info.virtual_size
       vdi_info.sharable in
-    let args = Xapi_storage.Volume.Types.Volume.Create.In.rpc_of_t args in
+    let args = Xapi_storage.Volume.Types.Volume.Create.In.rpc_of_t args |> compat_in "sharable" in
     fork_exec_rpc root_dir (script root_dir name `Volume "Volume.create") args Xapi_storage.Volume.Types.Volume.Create.Out.t_of_rpc
-    >>= update_keys root_dir name dbg sr _vdi_type_key (match vdi_info.ty with "" -> None | s -> Some s)
+    >>= update_keys !version root_dir name dbg sr _vdi_type_key (match vdi_info.ty with "" -> None | s -> Some s)
     >>= fun response ->
     let response = vdi_of_volume response in
     Deferred.Result.return (R.success (Args.VDI.Create.rpc_of_response response))
@@ -913,7 +949,7 @@ let process root_dir name x =
       ) >>= fun () ->
       clone root_dir name args.Args.VDI.Epoch_begin.dbg sr args.Args.VDI.Epoch_begin.vdi
       >>= fun vdi ->
-      set root_dir name args.Args.VDI.Epoch_begin.dbg sr args.Args.VDI.Epoch_begin.vdi _clone_on_boot_key vdi.Xapi_storage.Volume.Types.key
+      set !version root_dir name args.Args.VDI.Epoch_begin.dbg sr args.Args.VDI.Epoch_begin.vdi _clone_on_boot_key vdi.Xapi_storage.Volume.Types.key
       >>= fun () ->
       Deferred.Result.return (R.success (Args.VDI.Epoch_begin.rpc_of_response ()))
     end else Deferred.Result.return (R.success (Args.VDI.Epoch_begin.rpc_of_response ()))
@@ -943,7 +979,7 @@ let process root_dir name x =
         (* Destroy the temporary disk we made earlier *)
         destroy root_dir name args.Args.VDI.Epoch_end.dbg sr temporary
         >>= fun () ->
-        unset root_dir name args.Args.VDI.Epoch_end.dbg sr args.Args.VDI.Epoch_end.vdi _clone_on_boot_key
+        unset !version root_dir name args.Args.VDI.Epoch_end.dbg sr args.Args.VDI.Epoch_end.vdi _clone_on_boot_key
         >>= fun () ->
         Deferred.Result.return (R.success (Args.VDI.Epoch_end.rpc_of_response ()))
     end
