@@ -87,6 +87,9 @@ let create ~__context ~cluster ~host =
       | Result.Ok () ->
         Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~enabled:true
           ~current_operations:[] ~allowed_operations:[] ~other_config:[];
+        (* Clustering is enabled, so fsync is enabled, sync the master DB *)
+        Helpers.call_api_functions ~__context 
+          (fun rpc session_id -> Client.Client.Pool.sync_database rpc session_id); (* This will also fsync *)
         ref
       | Result.Error error -> handle_error error
     )
