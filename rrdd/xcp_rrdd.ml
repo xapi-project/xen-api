@@ -576,14 +576,14 @@ module Discover: DISCOVER = struct
     info "RRD plugin %s discovered - registering it" file;
     let info  = Rrd.Five_Seconds in
     let v2    = Rrd_interface.V2 in
-    Rrdd_server.Plugin.Local.register () ~uid:file ~info ~protocol:v2
+    Rrdd_server.Plugin.Local.register file info v2
     |> ignore (* seconds until next reading phase *)
 
   (* [deregister file] is called when a file is removed from the watched
      	 * directory *)
   let deregister file =
     info "RRD plugin - de-registering %s" file;
-    Rrdd_server.Plugin.Local.deregister () ~uid:file
+    Rrdd_server.Plugin.Local.deregister file
 
   (* Here we dispatch over all events that we receive. Note that
      	 * [Inotify.read] blocks until an event becomes available. Hence, this
