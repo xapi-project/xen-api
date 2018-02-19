@@ -188,7 +188,6 @@ def main(argv):
                       'pc-0.10,accel=xen,max-ram-below-4g=%lu,'
                       'allow-unassigned=true,trad_compat=%s%s'
                       % (mmio_start, trad_compat, igdpt)])
-    qemu_args.extend(['-display', 'none', '-nodefaults'])
 
     platform_device = True
     disable_pf = xenstore_read("/local/domain/%d/vm-data/disable_pf" % domid)
@@ -320,7 +319,6 @@ def main(argv):
         qemu_args += ["-global", "%s.subvendor_id=0x5853" % driver,
                       "-global", "%s.subsystem_id=0x0001" % driver]
 
-    qemu_args += ["-trace", "enable=xen_platform_log"]
     s1, s2 = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
     open_fds.append(s1.fileno())
     qemu_args += ["-vnc-clipboard-socket-fd", str(s1.fileno())]
@@ -346,9 +344,6 @@ def main(argv):
         uid = pwd.getpwnam('qemu_base').pw_uid + domid
         gid = grp.getgrnam('qemu_base').gr_gid + domid
         qemu_args += ["-runas", "%d.%d" % (uid, gid)]
-
-    qemu_args += ["-sandbox", "on,obsolete=deny,elevateprivileges=allow,spawn=deny,resourcecontrol=deny"]
-    qemu_args += ["-S"]
 
     xenstore_write("/libxl/%d/dm-version" % domid, "qemu_xen")
 

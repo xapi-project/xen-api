@@ -2260,6 +2260,10 @@ module Backend = struct
             ; usb
             ; [ "-smp"; "maxcpus=" ^ (string_of_int info.Dm_Common.vcpus)]
             ; (serial_device |> function None -> [] | Some x -> [ "-serial"; x ])
+            ; [ "-display"; "none"; "-nodefaults"]
+            ; [ "-trace"; "enable=xen_platform_log"]
+            ; [ "-sandbox"; "on,obsolete=deny,elevateprivileges=allow,spawn=deny,resourcecontrol=deny"]
+            ; [ "-S"]
             ] in
 
         (* Sort the VIF devices by devid *)
