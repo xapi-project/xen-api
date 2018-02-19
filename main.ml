@@ -557,10 +557,18 @@ let process root_dir name x =
         device_config in
       let args = Xapi_storage.Volume.Types.SR.Create.In.rpc_of_t args in
       let open Deferred.Result.Monad_infix in
-      fork_exec_rpc root_dir (script root_dir name `Volume "SR.create") args Xapi_storage.Volume.Types.SR.Create.Out.t_of_rpc
+      let t_of_rpc rpc =
+        if rpc = R.Null then None
+        else Some (Xapi_storage.Volume.Types.SR.Create.Out.t_of_rpc rpc)
+      in
+      fork_exec_rpc root_dir (script root_dir name `Volume "SR.create") args t_of_rpc
       >>= fun response ->
-      let new_device_config = List.filter ~f:(fun (k,_) -> k <> "uri") device_config in
-      Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response (("uri",response)::new_device_config)))
+      let new_device_config = match response with
+      | None -> device_config
+      | Some response ->
+        ("uri", response) :: List.filter ~f:(fun (k,_) -> k <> "uri") device_config
+      in
+      Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response new_device_config))
     end
   | { R.name = "SR.set_name_label"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
