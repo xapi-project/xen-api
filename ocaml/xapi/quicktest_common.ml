@@ -158,7 +158,7 @@ let rpc = ref rpc_unix_domain
 let using_unix_domain_socket = ref true
 
 let init_session username password =
-  Client.Session.login_with_password ~rpc:!rpc ~uname:username ~pwd:password ~version:Datamodel.api_version_string ~originator:"quick_test"
+  Client.Session.login_with_password ~rpc:!rpc ~uname:username ~pwd:password ~version:Datamodel_common.api_version_string ~originator:"quick_test"
 
 let get_pool session_id =
   let pool = Client.Pool.get_all !rpc session_id in

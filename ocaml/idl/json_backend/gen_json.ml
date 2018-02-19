@@ -158,10 +158,10 @@ let jarray_of_roles = function
 
 let session_id =
   {
-    param_type = Ref Datamodel._session;
+    param_type = Ref Datamodel_common._session;
     param_name = "session_id";
     param_doc = "Reference to a valid session";
-    param_release = Datamodel.rio_release;
+    param_release = Datamodel_common.rio_release;
     param_default = None;
   }
 

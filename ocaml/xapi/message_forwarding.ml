@@ -218,7 +218,7 @@ let loadbalance_host_operation ~__context ~hosts ~doc ~op (f: API.ref_host -> un
        try
          Db.Host.remove_from_current_operations ~__context ~self:choice ~key:task_id;
          Xapi_host_helpers.update_allowed_operations ~__context ~self:choice;
-         Helpers.Early_wakeup.broadcast (Datamodel._host, Ref.string_of choice);
+         Helpers.Early_wakeup.broadcast (Datamodel_common._host, Ref.string_of choice);
        with
          _ -> ())
 
@@ -509,7 +509,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            try
              Db.VM_appliance.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_vm_appliance.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._vm_appliance, Ref.string_of self);
+             Helpers.Early_wakeup.broadcast (Datamodel_common._vm_appliance, Ref.string_of self);
            with
              _ -> ())
 
@@ -571,7 +571,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            try
              Db.Pool.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_pool_helpers.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._pool, Ref.string_of self);
+             Helpers.Early_wakeup.broadcast (Datamodel_common._pool, Ref.string_of self);
            with
              _ -> ())
 
@@ -751,7 +751,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            if Db.is_valid_ref __context self then begin
              Db.VBD.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of self);
+             Helpers.Early_wakeup.broadcast (Datamodel_common._vbd, Ref.string_of self);
            end)
         vbds
 
@@ -790,7 +790,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            if Db.is_valid_ref __context self then begin
              Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_vif_helpers.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
+             Helpers.Early_wakeup.broadcast (Datamodel_common._vif, Ref.string_of self);
            end)
         vifs
 
@@ -890,7 +890,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         let task_id = Ref.string_of (Context.get_task_id __context) in
         Db.Host.remove_from_current_operations ~__context ~self:host ~key:task_id;
         Xapi_host_helpers.update_allowed_operations ~__context ~self:host;
-        Helpers.Early_wakeup.broadcast (Datamodel._host, Ref.string_of host);
+        Helpers.Early_wakeup.broadcast (Datamodel_common._host, Ref.string_of host);
       | None -> ()
 
     let check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host =
@@ -1034,14 +1034,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       with_vm_operation ~__context ~self ~doc:"VM.destroy" ~op:`destroy
         (fun () ->
            Local.VM.destroy ~__context ~self)
-
-    let set_actions_after_shutdown ~__context ~self ~value =
-      info "VM.set_actions_after_shutdown: VM = '%s'" (vm_uuid ~__context self);
-      Local.VM.set_actions_after_shutdown ~__context ~self ~value
-
-    let set_actions_after_reboot ~__context ~self ~value =
-      info "VM.set_actions_after_reboot: VM = '%s'" (vm_uuid ~__context self);
-      Local.VM.set_actions_after_reboot ~__context ~self ~value
 
     let set_actions_after_crash ~__context ~self ~value =
       info "VM.set_actions_after_crash: VM = '%s'" (vm_uuid ~__context self);
@@ -2105,7 +2097,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            try
              if operation_allowed ~op then begin
                Db.Host.remove_from_current_operations ~__context ~self ~key: task_id;
-               Helpers.Early_wakeup.broadcast (Datamodel._host, Ref.string_of self);
+               Helpers.Early_wakeup.broadcast (Datamodel_common._host, Ref.string_of self);
              end;
              let clustered_srs = Db.SR.get_refs_where ~__context ~expr:(Eq (Field "clustered", Literal "true")) in
              if clustered_srs <> [] then
@@ -2809,7 +2801,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            if Db.is_valid_ref __context self then begin
              Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_vif_helpers.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
+             Helpers.Early_wakeup.broadcast (Datamodel_common._vif, Ref.string_of self);
            end)
         vif
 
@@ -3137,7 +3129,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            if Db.is_valid_ref __context self then begin
              Db.SR.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_sr_operations.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._sr, Ref.string_of self);
+             Helpers.Early_wakeup.broadcast (Datamodel_common._sr, Ref.string_of self);
            end)
         sr
 
@@ -3332,7 +3324,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            if Db.is_valid_ref __context self then begin
              Db.VDI.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_vdi.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._vdi, Ref.string_of self);
+             Helpers.Early_wakeup.broadcast (Datamodel_common._vdi, Ref.string_of self);
            end)
         vdi
 
@@ -3690,7 +3682,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            if Db.is_valid_ref __context self then begin
              Db.VBD.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of vbd)
+             Helpers.Early_wakeup.broadcast (Datamodel_common._vbd, Ref.string_of vbd)
            end)
         vbd
 
@@ -3873,7 +3865,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            then
              List.iter (fun vdi ->
                  if Db.VDI.get_current_operations ~__context ~self:vdi <> []
-                 then raise (Api_errors.Server_error(Api_errors.other_operation_in_progress, [ Datamodel._vdi; Ref.string_of vdi ])))
+                 then raise (Api_errors.Server_error(Api_errors.other_operation_in_progress, [ Datamodel_common._vdi; Ref.string_of vdi ])))
                (Db.SR.get_VDIs ~__context ~self:sr);
            SR.mark_sr ~__context ~sr ~doc ~op
         );
@@ -4203,7 +4195,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            if Db.is_valid_ref __context self then begin
              Db.VUSB.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_vusb_helpers.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._vusb, Ref.string_of vusb)
+             Helpers.Early_wakeup.broadcast (Datamodel_common._vusb, Ref.string_of vusb)
            end)
         vusb
 

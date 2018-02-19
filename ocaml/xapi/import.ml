@@ -127,7 +127,7 @@ let choose_one = function
 
 (* Return the list of non-CDROM VDIs ie those which will be streamed-in *)
 let non_cdrom_vdis (x: header) =
-  let all_vbds = List.filter (fun x -> x.cls = Datamodel._vbd) x.objects in
+  let all_vbds = List.filter (fun x -> x.cls = Datamodel_common._vbd) x.objects in
   let all_vbds = List.map (fun x -> API.Legacy.From.vBD_t "" x.snapshot) all_vbds in
   let all_disk_vbds = List.filter (fun x -> x.API.vBD_type <> `CD) all_vbds in
   let all_disk_vdis = List.map (fun x -> Ref.string_of x.API.vBD_VDI) all_disk_vbds in
@@ -138,7 +138,7 @@ let non_cdrom_vdis (x: header) =
       let sr = API.Legacy.From.sR_t "" (find_in_export (Ref.string_of vdir.API.vDI_SR) x.objects) in
       sr.API.sR_content_type <> "iso") all_disk_vdis in
 
-  let all_vdis = List.filter (fun x -> x.cls = Datamodel._vdi) x.objects in
+  let all_vdis = List.filter (fun x -> x.cls = Datamodel_common._vdi) x.objects in
   List.filter (fun x -> false
                         || (List.mem x.id all_disk_vdis)
                         || (API.Legacy.From.vDI_t "" x.snapshot).API.vDI_type = `suspend) all_vdis
@@ -157,7 +157,7 @@ let assert_can_restore_backup ~__context rpc session_id (x: header) =
     try
       if Xstringext.String.startswith "Ref:" snapshot_of then
         (* This should be a snapshot in the archive *)
-        let v = Listext.List.find (fun v -> v.cls = Datamodel._vm && v.id = snapshot_of) x.objects in
+        let v = Listext.List.find (fun v -> v.cls = Datamodel_common._vm && v.id = snapshot_of) x.objects in
         let v = API.Legacy.From.vM_t "" v.snapshot in
         Some v.API.vM_uuid
       else if Xstringext.String.startswith Ref.ref_prefix snapshot_of then
@@ -195,7 +195,7 @@ let assert_can_restore_backup ~__context rpc session_id (x: header) =
   let import_vms =
     Listext.List.filter_map
       (fun x ->
-         if x.cls <> Datamodel._vm then None else
+         if x.cls <> Datamodel_common._vm then None else
            let x = API.Legacy.From.vM_t "" x.snapshot in
            get_mac_seed x
       ) x.objects in
@@ -1361,26 +1361,26 @@ module PVS_ProxyHandler = MakeHandler(PVS_Proxy)
 (** Table mapping datamodel class names to handlers, in order we have to run them *)
 let handlers =
   [
-    Datamodel._host, HostHandler.handle;
-    Datamodel._sr, SRHandler.handle;
-    Datamodel._vdi, VDIHandler.handle;
-    Datamodel._vm_guest_metrics, GuestMetricsHandler.handle;
-    Datamodel._vm, VMHandler.handle;
-    Datamodel._network, NetworkHandler.handle;
-    Datamodel._gpu_group, GPUGroupHandler.handle;
-    Datamodel._vbd, VBDHandler.handle;
-    Datamodel._vif, VIFHandler.handle;
-    Datamodel._vgpu_type, VGPUTypeHandler.handle;
-    Datamodel._vgpu, VGPUHandler.handle;
-    Datamodel._pvs_site, PVS_SiteHandler.handle;
-    Datamodel._pvs_proxy, PVS_ProxyHandler.handle;
+    Datamodel_common._host, HostHandler.handle;
+    Datamodel_common._sr, SRHandler.handle;
+    Datamodel_common._vdi, VDIHandler.handle;
+    Datamodel_common._vm_guest_metrics, GuestMetricsHandler.handle;
+    Datamodel_common._vm, VMHandler.handle;
+    Datamodel_common._network, NetworkHandler.handle;
+    Datamodel_common._gpu_group, GPUGroupHandler.handle;
+    Datamodel_common._vbd, VBDHandler.handle;
+    Datamodel_common._vif, VIFHandler.handle;
+    Datamodel_common._vgpu_type, VGPUTypeHandler.handle;
+    Datamodel_common._vgpu, VGPUHandler.handle;
+    Datamodel_common._pvs_site, PVS_SiteHandler.handle;
+    Datamodel_common._pvs_proxy, PVS_ProxyHandler.handle;
   ]
 
 let update_snapshot_and_parent_links ~__context state =
   let aux (cls, id, ref) =
     let ref = Ref.of_string ref in
 
-    if cls = Datamodel._vm && Db.VM.get_is_a_snapshot ~__context ~self:ref then begin
+    if cls = Datamodel_common._vm && Db.VM.get_is_a_snapshot ~__context ~self:ref then begin
       let snapshot_of = Db.VM.get_snapshot_of ~__context ~self:ref in
       if snapshot_of <> Ref.null
       then begin
@@ -1394,7 +1394,7 @@ let update_snapshot_and_parent_links ~__context state =
       end
     end;
 
-    if cls = Datamodel._vm then begin
+    if cls = Datamodel_common._vm then begin
       let parent = Db.VM.get_parent ~__context ~self:ref in
       debug "lookup for parent = '%s'" (Ref.string_of parent);
       try

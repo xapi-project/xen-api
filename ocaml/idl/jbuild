@@ -30,8 +30,14 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (public_name xapi-datamodel)
   (modules (
    datamodel
+   datamodel_common
    datamodel_utils
    datamodel_types
+   datamodel_errors
+   datamodel_roles
+   datamodel_vm
+   datamodel_host
+   datamodel_pool
    dm_api
    escaping
    datamodel_values
