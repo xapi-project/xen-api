@@ -39,6 +39,9 @@ let info  fmt = log Core.Unix.Syslog.Level.INFO    fmt
 let warn  fmt = log Core.Unix.Syslog.Level.WARNING fmt
 let error fmt = log Core.Unix.Syslog.Level.ERR     fmt
 
+let pvs_version = "3.0"
+let supported_api_versions = [pvs_version; "4.0"]
+
 module RRD = struct
   open Message_switch_async.Protocol_async
 
@@ -393,20 +396,29 @@ let process root_dir name x =
       if List.mem features "VDI_CLONE" ~equal:String.equal
       then "VDI_RESET_ON_BOOT/2" :: features
       else features in
+    let name = response.Xapi_storage.Plugin.Types.name in
+    let required_api_version =
+      response.Xapi_storage.Plugin.Types.required_api_version in
     let response = {
       driver = response.Xapi_storage.Plugin.Types.plugin;
-      name = response.Xapi_storage.Plugin.Types.name;
+      name;
       description = response.Xapi_storage.Plugin.Types.description;
       vendor = response.Xapi_storage.Plugin.Types.vendor;
       copyright = response.Xapi_storage.Plugin.Types.copyright;
       version = response.Xapi_storage.Plugin.Types.version;
-      required_api_version = response.Xapi_storage.Plugin.Types.required_api_version;
+      required_api_version;
       features;
       configuration =
        ("uri", "URI of the storage medium") ::
        response.Xapi_storage.Plugin.Types.configuration;
       required_cluster_stack = response.Xapi_storage.Plugin.Types.required_cluster_stack } in
-    Deferred.Result.return (R.success (Args.Query.Query.rpc_of_response response))
+    if List.mem ~equal:String.equal supported_api_versions required_api_version then
+      Deferred.Result.return (R.success (Args.Query.Query.rpc_of_response response))
+    else
+      let msg = Printf.sprintf "%s requires unknown SMAPI API version %s, supported: %s"
+        name required_api_version (String.concat ~sep:"," supported_api_versions) in
+      Exception.No_storage_plugin_for_sr msg
+      |> Exception.rpc_of_exnty |> R.failure |> Deferred.Result.return
   | { R.name = "Query.diagnostics"; R.params = [ args ] } ->
     let args = Args.Query.Diagnostics.request_of_rpc args in
     let args = Xapi_storage.Plugin.Types.Plugin.Diagnostics.In.make args.Args.Query.Diagnostics.dbg in
