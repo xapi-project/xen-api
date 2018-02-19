@@ -1367,6 +1367,7 @@ let apply_edition_internal  ~__context ~host ~edition ~additional =
     | V6_interface.(V6_error (License_processing_error)) ->  raise Api_errors.(Server_error(license_processing_error, []))
     | V6_interface.(V6_error (Missing_connection_details)) ->  raise Api_errors.(Server_error(missing_connection_details, []))
     | V6_interface.(V6_error (License_checkout_error s)) ->  raise Api_errors.(Server_error(license_checkout_error, [s]))
+    | V6_interface.(V6_error (Internal_error e)) -> raise Api_errors.(Server_error(internal_error, [e]))
   in
 
   let create_feature fname fenabled =
