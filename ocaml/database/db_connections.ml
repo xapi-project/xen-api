@@ -40,8 +40,10 @@ let choose connections = match List.filter exists connections with
     debug "Most recent db is %s (generation %Ld)" most_recent.Parse_db_conf.path gen;
     Some most_recent
 
-let preferred_write_db () =
-  List.hd (Db_conn_store.read_db_connections()) (* !!! FIX ME *)
+let preferred_write_db =
+  match Db_conn_store.read_db_connections() with
+  | [] -> None
+  | db :: _ -> Some db
 
 (* This is set by signal handlers. It instructs the db thread to call exit after the next flush *)
 let exit_on_next_flush = ref false
