@@ -15,6 +15,8 @@ module D = Debug.Make(struct let name = "xapi" end)
 module R = Debug.Make(struct let name = "redo_log" end)
 open D
 
+open Db_cache_types
+
 let get_dbs_and_gen_counts() =
   List.map (fun conn->(Parse_db_conf.generation_read conn, conn)) (Db_conn_store.read_db_connections())
 
@@ -44,7 +46,6 @@ let preferred_write_db () =
 (* This is set by signal handlers. It instructs the db thread to call exit after the next flush *)
 let exit_on_next_flush = ref false
 
-
 (* db flushing thread refcount: the last thread out of the door does the exit(0) when flush_on_exit is true *)
 open Xapi_stdext_threads
 let db_flush_thread_refcount_m = Mutex.create()
@@ -69,14 +70,14 @@ let pre_exit_hook () =
    flush a consistent snapshot. Backends must also ensure that they do not hold the global db_lock
    whilst they are writing to non-local storage.
 *)
-let flush_dirty_and_maybe_exit dbconn exit_spec =
+let flush_dirty_and_maybe_exit dbconn ?(fsync=false) exit_spec =
   Db_conn_store.with_db_conn_lock dbconn
     (fun () ->
        (* if we're being told to shutdown by signal handler then flush every connection
           	  - the rationale is that we're not sure which db connections will be available on next restart *)
        if !exit_on_next_flush then
          begin
-           let (_: bool) = Backend_xml.flush_dirty dbconn in
+           let (_: bool) = Backend_xml.flush_dirty dbconn ~fsync in
            let refcount = dec_and_read_db_flush_thread_refcount() in
            (* last flushing thread close the door on the way out.. *)
            if refcount = 0 then
@@ -89,7 +90,7 @@ let flush_dirty_and_maybe_exit dbconn exit_spec =
              debug "refcount is %d; not exiting" refcount
          end;
 
-       let was_anything_flushed = Backend_xml.flush_dirty dbconn in
+       let was_anything_flushed = Backend_xml.flush_dirty dbconn ~fsync in
 
        (* exit if we've been told to by caller *)
        begin
@@ -102,9 +103,10 @@ let flush_dirty_and_maybe_exit dbconn exit_spec =
 
 let flush dbconn db =
   debug "About to flush database: %s" dbconn.Parse_db_conf.path;
+  let fsync = dbconn.fsync_enabled in
   Db_conn_store.with_db_conn_lock dbconn
     (fun () ->
-       Backend_xml.flush dbconn db
+       Backend_xml.flush dbconn db ~fsync
     )
 
 
