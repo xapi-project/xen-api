@@ -8,6 +8,6 @@
     rrdd-plugins.libs
     xapi-stdext-std
     threads
-    xenops
+    ezxenstore
   ))
 ))
