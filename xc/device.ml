@@ -1685,11 +1685,7 @@ module Dm_Common = struct
       else cmdline_of_disp info
     in
     List.concat
-      [ [ "-d"; string_of_int domid
-        ; "-m"; Int64.to_string (Int64.div info.memory 1024L)
-        ; "-boot"; info.boot
-        ]
-      ; ( info.serial |> function None -> [] | Some x -> [ "-serial"; x ])
+      [ ( info.serial |> function None -> [] | Some x -> [ "-serial"; x ])
       ; [ "-vcpus"; string_of_int info.vcpus]
       ; disp_options
       ; usb'
@@ -1952,6 +1948,14 @@ module Backend = struct
 
       let cmdline_of_info ~xs ~dm info restore domid =
         let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid in
+
+        let misc = List.concat
+            [ [ "-d"; string_of_int domid
+              ; "-m"; Int64.to_string (Int64.div info.Dm_Common.memory 1024L)
+              ; "-boot"; info.Dm_Common.boot
+              ]
+            ] in
+
         (* Sort the VIF devices by devid *)
         let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.Dm_Common.nics in
         if List.length nics > Dm_Common.max_emulated_nics then debug "Limiting the number of emulated NICs to %d" Dm_Common.max_emulated_nics;
@@ -1968,7 +1972,7 @@ module Backend = struct
                 ]
               ) nics
           else [["-net"; "none"]] in
-        common @ (List.concat nics')
+        common @ misc @ (List.concat nics')
 
       let after_suspend_image ~xs ~qemu_domid domid = ()
 
@@ -2227,6 +2231,13 @@ module Backend = struct
       let cmdline_of_info ~xs ~dm info restore domid =
         let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid ~domid_for_vnc:true in
 
+        let misc = List.concat
+            [ [ "-xen-domid"; string_of_int domid
+              ; "-m"; "size=" ^ (Int64.to_string (Int64.div info.Dm_Common.memory 1024L))
+              ; "-boot"; "order=" ^ info.Dm_Common.boot
+              ]
+            ] in
+
         (* Sort the VIF devices by devid *)
         let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.Dm_Common.nics in
         if List.length nics > Dm_Common.max_emulated_nics then
@@ -2246,7 +2257,7 @@ module Backend = struct
           else
             [["-net"; "none"]]
         in
-        common @ (List.concat nics')
+        common @ misc @ (List.concat nics')
 
       let after_suspend_image ~xs ~qemu_domid domid =
         (* device model not needed anymore after suspend image has been created *)

@@ -159,7 +159,7 @@ def main(argv):
     f.write("Arguments: %s\n" % " ".join(argv[1:]))
 
     for n in range(len(argv)):
-        if argv[n] == "-d":
+        if argv[n] == "-xen-domid":
             domid = int(argv[n+1])
             break
 
@@ -269,15 +269,6 @@ def main(argv):
                 qemu_args[n] = "-device"
                 qemu_args[n+1] = "usb-tablet,port=2"
 
-        if p == "-d":
-            qemu_args[n] = "-xen-domid"
-
-        if p == "-m":
-            ram_size_mb = int(qemu_args[n+1])
-            qemu_args[n+1] = "size=%d" % ram_size_mb
-            n += 2
-            continue
-
         if p == "-netdev":
             m = re.search(r',ifname=(tap[0-9]+\.[0-9]+)', qemu_args[n+1])
             tapfd = get_tap_fd(m.group(1))
@@ -299,11 +290,6 @@ def main(argv):
                 else:
                     qemu_args[n+1] = "file:" + serial_c
             n+=2
-            continue
-
-        if p == "-boot":
-            qemu_args[n+1] = "order=" + qemu_args[n+1]
-            n += 2
             continue
 
         if p == "-std-vga":
