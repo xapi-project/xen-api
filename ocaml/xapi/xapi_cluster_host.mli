@@ -37,6 +37,10 @@ val create_as_necessary : __context:Context.t -> host:API.ref_host -> unit
 (** [create_as_necessary ~__context ~host] calls [sync_required], and if any
     Cluster_host objects are required it will create them *)
 
+val host_destroy : __context:Context.t -> cluster_host:API.ref_Cluster_host option -> unit
+(** [host_destroy ~__context ~cluster_host] calls [Cluster_host.destroy] and 
+    [Xapi_clustering.Daemon.disable]. *)
+
 (******************************************************************************)
 (** {2 External API calls} *)
 

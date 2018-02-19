@@ -84,11 +84,8 @@ let destroy ~__context ~self =
   let result = Cluster_client.LocalClient.destroy (rpc ~__context) dbg in
   match result with
   | Result.Ok () ->
-    Xapi_stdext_monadic.Opt.iter (fun ch ->
-      Db.Cluster_host.destroy ~__context ~self:ch
-    ) cluster_host;
-    Db.Cluster.destroy ~__context ~self;
-    Xapi_clustering.Daemon.disable ~__context
+    Xapi_cluster_host.host_destroy ~__context ~cluster_host:cluster_host;
+    Db.Cluster.destroy ~__context ~self
   | Result.Error error -> handle_error error
 
 (* helper function; concurrency checks are done in implementation of Cluster.create and Cluster_host.create *)
