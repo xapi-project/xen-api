@@ -66,6 +66,12 @@ module Socket = struct
   type t = Unix of string | Port of int
   module Unix = struct
     let path x = "unix:" ^ x
+    let rm   x =
+      let dbg = debug "error cleaning unix socket %s: %s" x in
+      try Unix.unlink x
+      with
+      | Unix.Unix_error (Unix.ENOENT, _, _) -> ()
+      | Unix.Unix_error (e, _, _)           -> dbg (Unix.error_message e)
   end
 end
 
@@ -2224,7 +2230,8 @@ module Backend = struct
       let stop ~xs ~qemu_domid domid  =
         Dm_Common.stop ~xs ~qemu_domid domid;
         QMP_Event.remove domid;
-        xs.Xs.rm (sprintf "/libxl/%d" domid)
+        xs.Xs.rm (sprintf "/libxl/%d" domid);
+        Dm_Common.vnc_socket_path domid |> Socket.Unix.rm
 
       let with_dirty_log domid ~f =
         finally
