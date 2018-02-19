@@ -115,6 +115,10 @@ let start_database_engine () =
        Condition.broadcast database_ready_for_clients_c
     )
 
+let set_fsync_mode ~__context () =
+  let enabled =  Xapi_clustering.is_clustering_enabled_on_localhost ~__context in
+  Xapi_clustering.set_fsync_mode ~__context enabled
+
 (* Block premature incoming client requests until the database engine is ready *)
 let wait_until_database_is_ready_for_clients () =
   Mutex.execute database_ready_for_clients_m
@@ -816,6 +820,7 @@ let server_init() =
              running etc.) -- see CA-11087 *)
           "starting up database engine", [ Startup.OnlyMaster ], start_database_engine;
           "hi-level database upgrade", [ Startup.OnlyMaster ], Xapi_db_upgrade.hi_level_db_upgrade_rules ~__context;
+          "set fsync mode", [ Startup.OnlyMaster ], set_fsync_mode ~__context;
           "bringing up management interface", [], bring_up_management_if ~__context;
           "Starting periodic scheduler", [Startup.OnThread], Xapi_periodic_scheduler.loop;
           "Synchronising host configuration files", [], (fun () -> Xapi_host_helpers.Configuration.sync_config_files ~__context);
