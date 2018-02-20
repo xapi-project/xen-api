@@ -13,7 +13,6 @@
  *)
 
 open Cluster_interface
-open Db_cache_types
 
 module D=Debug.Make(struct let name="xapi_clustering" end)
 open D
