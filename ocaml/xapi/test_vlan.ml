@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Test_common
 
 let test_pool_introduce () =
@@ -26,10 +25,10 @@ let test_pool_introduce () =
   let vlan = Xapi_vlan.pool_introduce ~__context
     ~tagged_PIF ~untagged_PIF ~tag ~other_config:[]
   in
-  assert_equal vlan (Db.PIF.get_VLAN_master_of ~__context ~self:untagged_PIF);
-  assert_equal tagged_PIF (Db.VLAN.get_tagged_PIF ~__context ~self:vlan);
-  assert_equal untagged_PIF (Db.VLAN.get_untagged_PIF ~__context ~self:vlan);
-  assert_equal tag (Db.VLAN.get_tag ~__context ~self:vlan)
+  Alcotest.check (Alcotest_comparators.ref ()) "VLAN master of untagged PIF" vlan (Db.PIF.get_VLAN_master_of ~__context ~self:untagged_PIF);
+  Alcotest.check (Alcotest_comparators.ref ()) "VLAN's tagged PIF" tagged_PIF (Db.VLAN.get_tagged_PIF ~__context ~self:vlan);
+  Alcotest.check (Alcotest_comparators.ref ()) "VLAN's untagged PIF" untagged_PIF (Db.VLAN.get_untagged_PIF ~__context ~self:vlan);
+  Alcotest.(check int64) "VLAN's tag" tag (Db.VLAN.get_tag ~__context ~self:vlan)
 
 let test_create_internal () =
   let __context = make_test_database () in
@@ -41,14 +40,14 @@ let test_create_internal () =
   let vlan, untagged_PIF = Xapi_vlan.create_internal ~__context
     ~host ~tagged_PIF ~tag ~network ~device
   in
-  assert_equal vlan (Db.PIF.get_VLAN_master_of ~__context ~self:untagged_PIF);
-  assert_equal tagged_PIF (Db.VLAN.get_tagged_PIF ~__context ~self:vlan);
-  assert_equal untagged_PIF (Db.VLAN.get_untagged_PIF ~__context ~self:vlan);
-  assert_equal tag (Db.VLAN.get_tag ~__context ~self:vlan);
-  assert_equal network (Db.PIF.get_network ~__context ~self:untagged_PIF);
-  assert_equal device (Db.PIF.get_device ~__context ~self:untagged_PIF);
-  assert_equal host (Db.PIF.get_host ~__context ~self:untagged_PIF);
-  assert_equal tag (Db.PIF.get_VLAN ~__context ~self:untagged_PIF)
+  Alcotest.check (Alcotest_comparators.ref ()) "VLAN master of untagged PIF" vlan (Db.PIF.get_VLAN_master_of ~__context ~self:untagged_PIF);
+  Alcotest.check (Alcotest_comparators.ref ()) "VLAN's tagged PIF" tagged_PIF (Db.VLAN.get_tagged_PIF ~__context ~self:vlan);
+  Alcotest.check (Alcotest_comparators.ref ()) "VLAN's untagged PIF" untagged_PIF (Db.VLAN.get_untagged_PIF ~__context ~self:vlan);
+  Alcotest.(check int64) "VLAN's tag" tag (Db.VLAN.get_tag ~__context ~self:vlan);
+  Alcotest.check (Alcotest_comparators.ref ()) "untagged PIF's network" network (Db.PIF.get_network ~__context ~self:untagged_PIF);
+  Alcotest.(check string) "untagged PIF's device" device (Db.PIF.get_device ~__context ~self:untagged_PIF);
+  Alcotest.check (Alcotest_comparators.ref ()) "untagged PIF's host" host (Db.PIF.get_host ~__context ~self:untagged_PIF);
+  Alcotest.(check int64) "untagged PIF's VLAN" tag (Db.PIF.get_VLAN ~__context ~self:untagged_PIF)
 
 let test_create_unmanaged_pif () =
   let __context = make_test_database () in
@@ -157,23 +156,22 @@ let test_gc_vlan () =
   let vlan = Xapi_vlan.pool_introduce ~__context
     ~tagged_PIF ~untagged_PIF ~tag ~other_config:[]
   in
-  assert_equal vlan (Db.PIF.get_VLAN_master_of ~__context ~self:untagged_PIF);
+  Alcotest.check (Alcotest_comparators.ref ()) "VLAN master of untagged PIF" vlan (Db.PIF.get_VLAN_master_of ~__context ~self:untagged_PIF);
   Db.PIF.set_host ~__context ~self:untagged_PIF ~value:Ref.null;
   Db.PIF.set_network ~__context ~self:untagged_PIF ~value:Ref.null;
   Db_gc_util.gc_PIFs ~__context;
-  assert_equal false (Db.is_valid_ref __context vlan)
+  Alcotest.(check bool) "not valid ref" false (Db.is_valid_ref __context vlan)
 
 let test =
-  "test_vlan" >:::
   [
-    "test_pool_introduce" >:: test_pool_introduce;
-    "test_create_internal" >:: test_create_internal;
-    "test_create_unmanged_pif" >:: test_create_unmanaged_pif;
-    "test_create_network_already_connected" >:: test_create_network_already_connected;
-    "test_create_pif_not_a_bond_slave" >:: test_create_pif_not_a_bond_slave;
-    "test_create_pif_not_vlan_slave" >:: test_create_pif_not_vlan_slave;
-    "test_create_invalid_tag" >:: test_create_invalid_tag;
-    "test_create_vlan_already_exists" >:: test_create_vlan_already_exists;
-    "test_create_pif_has_tunnel_access" >:: test_create_pif_has_tunnel_access;
-    "test_gc_vlan" >:: test_gc_vlan
+    "test_pool_introduce", `Quick, test_pool_introduce;
+    "test_create_internal", `Quick, test_create_internal;
+    "test_create_unmanged_pif", `Quick, test_create_unmanaged_pif;
+    "test_create_network_already_connected", `Quick, test_create_network_already_connected;
+    "test_create_pif_not_a_bond_slave", `Quick, test_create_pif_not_a_bond_slave;
+    "test_create_pif_not_vlan_slave", `Quick, test_create_pif_not_vlan_slave;
+    "test_create_invalid_tag", `Quick, test_create_invalid_tag;
+    "test_create_vlan_already_exists", `Quick, test_create_vlan_already_exists;
+    "test_create_pif_has_tunnel_access", `Quick, test_create_pif_has_tunnel_access;
+    "test_gc_vlan", `Quick, test_gc_vlan
   ]

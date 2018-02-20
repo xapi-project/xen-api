@@ -11,4 +11,5 @@ let () =
     ; "Test_host", Test_host.test
     ; "Test_vdi_cbt", Test_vdi_cbt.test
     ; "Test_db_lowlevel", Test_db_lowlevel.test
+    ; "Test_vlan", Test_vlan.test;
     ]
