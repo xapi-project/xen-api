@@ -79,10 +79,10 @@ type ds_list = Data_source.t list
 
 (** Rrdd error type *)
 type rrd_errors =
-  | Archive_failed   of string    (** Archival failure *)
-  | Invalid_protocol of string    (** Thrown by protocol_of_string if
+  | Archive_failed      of string    (** Archival failure *)
+  | Invalid_protocol    of string    (** Thrown by protocol_of_string if
                                 string does not match plugin protocol *)
-  | Rrd_failure      of string    (** Internal Rrdd error *)
+  | Rrdd_internal_error of string    (** Internal Rrdd error *)
 [@@deriving rpcty]
 
 exception Rrdd_error of rrd_errors
@@ -92,7 +92,12 @@ module RrdErrHandler = Error.Make(struct
     type t = rrd_errors
     let t  = rrd_errors
   end)
-let rrd_err = RrdErrHandler.error
+let rrd_err = Error.{ def     = rrd_errors
+                    ; raiser  = (fun e -> raise (Rrdd_error e))
+                    ; matcher = (function
+                      | Rrdd_error e -> Some e
+                      | e            -> Some (Rrdd_internal_error (Printexc.to_string e)))
+                    }
 
 let string_of_protocol = function
   | V1 -> "V1"
