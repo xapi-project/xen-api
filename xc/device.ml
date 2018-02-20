@@ -2231,7 +2231,11 @@ module Backend = struct
         Dm_Common.stop ~xs ~qemu_domid domid;
         QMP_Event.remove domid;
         xs.Xs.rm (sprintf "/libxl/%d" domid);
-        Dm_Common.vnc_socket_path domid |> Socket.Unix.rm
+        [ (* clean up QEMU socket leftover files *)
+          Dm_Common.vnc_socket_path domid;
+          (qmp_event_path domid);
+          (qmp_libxl_path domid);
+        ] |> List.iter Socket.Unix.rm
 
       let with_dirty_log domid ~f =
         finally
