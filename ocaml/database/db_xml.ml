@@ -78,10 +78,16 @@ module To = struct
     TableSet.iter (table (Database.schema db) output) (Database.tableset db);
     Xmlm.output output `El_end
 
-  let fd (fd: Unix.file_descr) db : unit =
+  (* Note: We'd prefer to generate fsync here by reading Db_connections,
+     but that causes a dependency cycle. So we must pass it in explicitly. *)
+  let fd (fd: Unix.file_descr) ?(fsync=false) db : unit =
     let oc = Unix.out_channel_of_descr fd in
     database (Xmlm.make_output (`Channel oc)) db;
-    flush oc
+    flush oc;
+    if fsync then begin
+      D.debug "fsyncing database before close";
+      Xapi_stdext_unix.Unixext.fsync fd
+    end
 
   let file (filename: string) db : unit =
     let fdescr = Unix.openfile filename [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC ] 0o600 in

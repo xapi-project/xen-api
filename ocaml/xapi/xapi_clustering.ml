@@ -158,6 +158,23 @@ let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__conte
     )
     srs
 
+let is_clustering_disabled_on_host ~__context host =
+  match find_cluster_host ~__context ~host with
+  | None -> true (* there is no Cluster_host, therefore it is not enabled, therefore it is disabled *)
+  | Some cluster_host -> not (Db.Cluster_host.get_enabled ~__context ~self:cluster_host)
+
+let is_clustering_enabled_on_localhost ~__context =
+  let host = Helpers.get_localhost ~__context in
+  not (is_clustering_disabled_on_host ~__context host)
+
+let set_fsync_mode ~__context enabled =
+  let dbconn = Db_connections.preferred_write_db in
+  Xapi_stdext_monadic.Opt.iter (fun (db:Parse_db_conf.db_connection) ->
+    D.debug "set_fsync_mode: setting %B" enabled;
+    db.fsync_enabled <- enabled
+  ) dbconn
+
+
 module Daemon = struct
   let maybe_call_script ~__context script params =
     match Context.get_test_clusterd_rpc __context with
@@ -169,12 +186,14 @@ module Daemon = struct
     debug "Enabling and starting the clustering daemon";
     maybe_call_script ~__context "/usr/bin/systemctl" [ "enable"; service ];
     maybe_call_script ~__context "/usr/bin/systemctl" [ "start"; service ];
+    set_fsync_mode ~__context true;
     debug "Cluster daemon: enabled & started"
 
   let disable ~__context =
     debug "Disabling and stopping the clustering daemon";
     maybe_call_script ~__context "/usr/bin/systemctl" [ "disable"; service ];
     maybe_call_script ~__context "/usr/bin/systemctl" [ "stop"; service ];
+    set_fsync_mode ~__context false;
     debug "Cluster daemon: disabled & stopped"
 end
 
@@ -188,8 +207,3 @@ let rpc ~__context =
   | Some rpc -> rpc
   | None ->
      Cluster_client.rpc (fun () -> failwith "Can only communicate with xapi-clusterd through message-switch")
-
-let is_clustering_disabled_on_host ~__context host =
-  match find_cluster_host ~__context ~host with
-  | None -> true (* there is no Cluster_host, therefore it is not enabled, therefore it is disabled *)
-  | Some cluster_host -> not (Db.Cluster_host.get_enabled ~__context ~self:cluster_host)

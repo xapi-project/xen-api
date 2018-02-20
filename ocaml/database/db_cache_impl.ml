@@ -312,8 +312,12 @@ let sync conns db =
   (* and then to the filesystem *)
   List.iter (fun c -> Db_connections.flush c db) conns
 
-let flush_dirty dbconn = Db_connections.flush_dirty_and_maybe_exit dbconn None
-let flush_and_exit dbconn ret_code = ignore (Db_connections.flush_dirty_and_maybe_exit dbconn (Some ret_code))
+let flush_dirty dbconn fsync = 
+  Db_connections.flush_dirty_and_maybe_exit dbconn None ~fsync
+
+(* Always pass fsync=true from flush_and_exit *)
+let flush_and_exit dbconn ret_code = 
+  ignore (Db_connections.flush_dirty_and_maybe_exit dbconn (Some ret_code) ~fsync:true)
 
 
 let spawn_db_flush_threads() =
@@ -364,7 +368,7 @@ let spawn_db_flush_threads() =
                                then
                                  begin
                                    (* debug "[%s] considering flush" db_path; *)
-                                   let was_anything_flushed = Xapi_stdext_threads.Threadext.Mutex.execute Db_lock.global_flush_mutex (fun ()->flush_dirty dbconn) in
+                                   let was_anything_flushed = Xapi_stdext_threads.Threadext.Mutex.execute Db_lock.global_flush_mutex (fun ()->flush_dirty dbconn false) in
                                    if was_anything_flushed then
                                      begin
                                        my_writes_this_period := !my_writes_this_period + 1;
