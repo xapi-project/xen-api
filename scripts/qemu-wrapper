@@ -215,9 +215,6 @@ def main(argv):
     qemu_args.extend(['-qmp'] + ['unix:/var/run/xen/qmp-event-%d,server,nowait'
                                  % domid])
 
-    # enable parallel for legacy reasons
-    qemu_args.extend(['-parallel', 'null'])
-
     qemu_args.extend(argv[2:])
     qemu_args.extend(drive_args)
 

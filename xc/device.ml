@@ -1691,7 +1691,6 @@ module Dm_Common = struct
            |> List.concat
         )
       ; ( info.monitor  |> function None -> [] | Some x -> [ "-monitor";  x])
-      ; ( info.parallel |> function None -> [] | Some x -> [ "-parallel"; x])
       ]
 
   let vnconly_cmdline ~info ?(extras=[]) domid =
@@ -1954,6 +1953,7 @@ module Backend = struct
             ; usb
             ; [ "-vcpus"; string_of_int info.Dm_Common.vcpus]
             ; (info.Dm_Common.serial |> function None -> [] | Some x -> [ "-serial"; x ])
+            ; (info.Dm_Common.parallel |> function None -> [] | Some x -> [ "-parallel"; x])
             ] in
 
         (* Sort the VIF devices by devid *)
@@ -2271,6 +2271,7 @@ module Backend = struct
             ; [ "-global"; "PIIX4_PM.revision_id=0x1"]
             ; [ "-global"; "ide-hd.ver=0.10.2"]
             ; (global |> List.map (fun x -> ["-global"; x]) |> List.concat)
+            ; (info.Dm_Common.parallel |> function None -> [ "-parallel"; "null"] | Some x -> [ "-parallel"; x])
             ] in
 
         (* Sort the VIF devices by devid *)
