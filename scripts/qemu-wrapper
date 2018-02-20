@@ -312,13 +312,6 @@ def main(argv):
     if has_device and int(has_device) == 1:
         qemu_args += ["-device", "xen-pvdevice,device-id=0xc000"]
 
-    qemu_args += ["-global", "PIIX4_PM.revision_id=0x1"]
-    qemu_args += ["-global", "ide-hd.ver=0.10.2"]
-
-    for driver in ["piix3-ide-xen", "piix3-usb-uhci", "rtl8139"]:
-        qemu_args += ["-global", "%s.subvendor_id=0x5853" % driver,
-                      "-global", "%s.subsystem_id=0x0001" % driver]
-
     s1, s2 = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
     open_fds.append(s1.fileno())
     qemu_args += ["-vnc-clipboard-socket-fd", str(s1.fileno())]

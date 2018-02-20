@@ -2252,6 +2252,10 @@ module Backend = struct
           with _ -> info.Dm_Common.serial
         in
 
+        let list1 = ["piix3-ide-xen"; "piix3-usb-uhci"; "rtl8139"] in
+        let list2 = ["subvendor_id=0x5853"; "subsystem_id=0x0001"] in
+        let global = List.map (fun x -> List.map (fun y -> x^"."^y) list2) list1 |> List.concat in
+
         let misc = List.concat
             [ [ "-xen-domid"; string_of_int domid
               ; "-m"; "size=" ^ (Int64.to_string (Int64.div info.Dm_Common.memory 1024L))
@@ -2264,6 +2268,9 @@ module Backend = struct
             ; [ "-trace"; "enable=xen_platform_log"]
             ; [ "-sandbox"; "on,obsolete=deny,elevateprivileges=allow,spawn=deny,resourcecontrol=deny"]
             ; [ "-S"]
+            ; [ "-global"; "PIIX4_PM.revision_id=0x1"]
+            ; [ "-global"; "ide-hd.ver=0.10.2"]
+            ; (global |> List.map (fun x -> ["-global"; x]) |> List.concat)
             ] in
 
         (* Sort the VIF devices by devid *)
