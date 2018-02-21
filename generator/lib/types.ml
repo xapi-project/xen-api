@@ -1,6 +1,4 @@
 
-let ( |> ) f g = g f
-
 (* Avoid linking in a whole other stdlib just for one function *)
 let rec split ?limit:(limit=(-1)) c s =
   let i = try String.index s c with Not_found -> -1 in
