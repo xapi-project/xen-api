@@ -209,12 +209,6 @@ def main(argv):
     # qemu_args.extend(['-chardev'] + ['socket,id=libxl-cmd,'
     #                   'path=/var/run/xen/qmp-libxl-%d,server,nowait' % domid])
 
-    qemu_args.extend(['-qmp'] + ['unix:/var/run/xen/qmp-libxl-%d,server,nowait'
-                                 % domid])
-
-    qemu_args.extend(['-qmp'] + ['unix:/var/run/xen/qmp-event-%d,server,nowait'
-                                 % domid])
-
     qemu_args.extend(argv[2:])
     qemu_args.extend(drive_args)
 

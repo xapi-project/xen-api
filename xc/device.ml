@@ -2256,6 +2256,10 @@ module Backend = struct
         let list2 = ["subvendor_id=0x5853"; "subsystem_id=0x0001"] in
         let global = List.map (fun x -> List.map (fun y -> x^"."^y) list2) list1 |> List.concat in
 
+        let qmp = ["libxl"; "event"] |>
+          List.map (fun x -> ["-qmp"; sprintf "unix:/var/run/xen/qmp-%s-%d,server,nowait" x domid]) |>
+          List.concat in
+
         let misc = List.concat
             [ [ "-xen-domid"; string_of_int domid
               ; "-m"; "size=" ^ (Int64.to_string (Int64.div info.Dm_Common.memory 1024L))
@@ -2272,6 +2276,7 @@ module Backend = struct
             ; [ "-global"; "ide-hd.ver=0.10.2"]
             ; (global |> List.map (fun x -> ["-global"; x]) |> List.concat)
             ; (info.Dm_Common.parallel |> function None -> [ "-parallel"; "null"] | Some x -> [ "-parallel"; x])
+            ; qmp
             ] in
 
         (* Sort the VIF devices by devid *)
