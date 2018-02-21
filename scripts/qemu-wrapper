@@ -272,20 +272,6 @@ def main(argv):
             n += 2
             continue
 
-        if p == "-serial":
-            try:
-                serial_c = xenstore_read("/local/logconsole/@")
-            except:
-                pass
-            if serial_c:
-                if '%d' in serial_c:
-                    tmp_serial_c = serial_c  % (domid)
-                    qemu_args[n+1] = "file:" + tmp_serial_c
-                else:
-                    qemu_args[n+1] = "file:" + serial_c
-            n+=2
-            continue
-
         if p == "-std-vga":
             vga_type = 'VGA'
             vga_extra_props += ['qemu-extended-regs=false']

@@ -1553,7 +1553,6 @@ module Dm_Common = struct
     then None
     else (try Some(int_of_string (xs.Xs.read (Generic.tc_port_path domid))) with _ -> None)
 
-
   (* Xenclient specific paths *)
   let power_mgmt_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d/xen_extended_power_mgmt" qemu_domid domid
   let oem_features_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d/oem_features" qemu_domid domid
@@ -1685,8 +1684,7 @@ module Dm_Common = struct
       else cmdline_of_disp info
     in
     List.concat
-      [ ( info.serial |> function None -> [] | Some x -> [ "-serial"; x ])
-      ; disp_options
+      [ disp_options
       ; usb'
       ; List.concat disks'
       ; ( info.acpi |> function false -> [] | true -> [ "-acpi" ])
@@ -1954,6 +1952,7 @@ module Backend = struct
               ; "-boot"; info.Dm_Common.boot
               ]
             ; [ "-vcpus"; string_of_int info.Dm_Common.vcpus]
+            ; (info.Dm_Common.serial |> function None -> [] | Some x -> [ "-serial"; x ])
             ] in
 
         (* Sort the VIF devices by devid *)
@@ -2231,12 +2230,25 @@ module Backend = struct
       let cmdline_of_info ~xs ~dm info restore domid =
         let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid ~domid_for_vnc:true in
 
+        let serial_device =
+          try
+            let xs_path = xs.Xs.read "/local/logconsole/@" in
+            let file =
+            if Stdext.Xstringext.String.has_substr xs_path "%d" then
+              Stdext.Xstringext.String.replace "%d" (string_of_int domid) xs_path
+            else
+              xs_path
+            in Some ("file:" ^ file)
+          with _ -> info.Dm_Common.serial
+        in
+
         let misc = List.concat
             [ [ "-xen-domid"; string_of_int domid
               ; "-m"; "size=" ^ (Int64.to_string (Int64.div info.Dm_Common.memory 1024L))
               ; "-boot"; "order=" ^ info.Dm_Common.boot
               ]
             ; [ "-smp"; "maxcpus=" ^ (string_of_int info.Dm_Common.vcpus)]
+            ; (serial_device |> function None -> [] | Some x -> [ "-serial"; x ])
             ] in
 
         (* Sort the VIF devices by devid *)
