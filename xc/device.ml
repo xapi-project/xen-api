@@ -1686,7 +1686,6 @@ module Dm_Common = struct
     in
     List.concat
       [ ( info.serial |> function None -> [] | Some x -> [ "-serial"; x ])
-      ; [ "-vcpus"; string_of_int info.vcpus]
       ; disp_options
       ; usb'
       ; List.concat disks'
@@ -1954,6 +1953,7 @@ module Backend = struct
               ; "-m"; Int64.to_string (Int64.div info.Dm_Common.memory 1024L)
               ; "-boot"; info.Dm_Common.boot
               ]
+            ; [ "-vcpus"; string_of_int info.Dm_Common.vcpus]
             ] in
 
         (* Sort the VIF devices by devid *)
@@ -2236,6 +2236,7 @@ module Backend = struct
               ; "-m"; "size=" ^ (Int64.to_string (Int64.div info.Dm_Common.memory 1024L))
               ; "-boot"; "order=" ^ info.Dm_Common.boot
               ]
+            ; [ "-smp"; "maxcpus=" ^ (string_of_int info.Dm_Common.vcpus)]
             ] in
 
         (* Sort the VIF devices by devid *)

@@ -258,12 +258,6 @@ def main(argv):
             del qemu_args[n]
             continue
 
-        if p == "-vcpus":
-            qemu_args[n] = "-smp"
-            qemu_args[n+1] = "maxcpus=" + qemu_args[n+1]
-            n += 2
-            continue
-
         if p == "-usbdevice":
             if qemu_args[n+1] == "tablet":
                 qemu_args[n] = "-device"
