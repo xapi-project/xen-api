@@ -1,4 +1,3 @@
-let (|>) a b = b a
 module Opt = struct
 	let default d = function
 		| None -> d
