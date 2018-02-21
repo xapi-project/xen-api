@@ -31,8 +31,6 @@ let have_daemonized () = Unix.getppid () = 1
 
 let common_prefix = "org.xen.xapi."
 
-let (|>) x f = f x
-
 let finally f g =
 	try
  		let result = f () in

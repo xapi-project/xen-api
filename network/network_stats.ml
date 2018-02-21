@@ -71,8 +71,6 @@ exception Invalid_magic_string
 exception Invalid_checksum
 exception Invalid_length
 
-let (|>) x f = f x
-
 (* Shamelessly stolen from Unixext. *)
 module File_helpers = struct
 	(** open a file, and make sure the close is always done *)
