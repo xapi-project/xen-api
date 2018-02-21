@@ -206,7 +206,7 @@ let rec skeleton_of_interface unimplemented suffix env i =
   let open Printf in
 
   [
-    Line (sprintf "class %s_%s:" i.Interface.name suffix);
+    Line (sprintf "class %s_%s(object):" i.Interface.name suffix);
     Block ([
         Line (sprintf "\"\"\"%s\"\"\"" i.Interface.description);
         Line "def __init__(self):";
@@ -259,7 +259,7 @@ let server_of_interface env i =
     | [] -> []
     | x :: xs -> f true x :: (List.map (f false) xs) in
   [
-    Line (sprintf "class %s_server_dispatcher:" i.Interface.name);
+    Line (sprintf "class %s_server_dispatcher(object):" i.Interface.name);
     Block ([
         Line (sprintf "\"\"\"%s\"\"\"" i.Interface.description);
         Line "def __init__(self, impl):";
@@ -349,7 +349,7 @@ let commandline_run env i m =
 let commandline_of_interface env i =
   let open Printf in
   [
-    Line (sprintf "class %s_commandline():" i.Interface.name);
+    Line (sprintf "class %s_commandline(object):" i.Interface.name);
     Block ([
       Line "\"\"\"Parse command-line arguments and call an implementation.\"\"\"";
       Line "def __init__(self, impl):";
@@ -379,7 +379,7 @@ let of_interfaces env i =
                                  (server_of_interface env i) @ (skeleton_of_interface env i) @ (test_impl_of_interface env i) @ (commandline_of_interface env i)
                    ) [] i.Interfaces.interfaces
   ) @ [
-    Line (sprintf "class %s_server_dispatcher:" i.Interfaces.name);
+    Line (sprintf "class %s_server_dispatcher(object):" i.Interfaces.name);
     Block ([
         Line "\"\"\"Demux calls to individual interface server_dispatchers\"\"\"";
         Line (sprintf "def __init__(self%s):" (String.concat "" (List.map (fun x -> ", " ^ x ^ "=None") (List.map (fun i -> i.Interface.name) i.Interfaces.interfaces))));
