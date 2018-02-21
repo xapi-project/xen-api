@@ -214,7 +214,7 @@ end
 module Dm :
 sig
   type usb_opt =
-    | Enabled of string list
+    | Enabled of (string * int) list
     | Disabled
   type disp_intf_opt =
     | Std_vga

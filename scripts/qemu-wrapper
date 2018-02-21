@@ -258,11 +258,6 @@ def main(argv):
             del qemu_args[n]
             continue
 
-        if p == "-usbdevice":
-            if qemu_args[n+1] == "tablet":
-                qemu_args[n] = "-device"
-                qemu_args[n+1] = "usb-tablet,port=2"
-
         if p == "-netdev":
             m = re.search(r',ifname=(tap[0-9]+\.[0-9]+)', qemu_args[n+1])
             tapfd = get_tap_fd(m.group(1))

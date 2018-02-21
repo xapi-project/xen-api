@@ -1495,7 +1495,7 @@ module Dm_Common = struct
   let max_emulated_nics = 8 (** Should be <= the hardcoded maximum number of emulated NICs *)
 
   type usb_opt =
-    | Enabled of string list
+    | Enabled of (string * int) list
     | Disabled
 
   (* How the display appears to the guest *)
@@ -1667,13 +1667,6 @@ module Dm_Common = struct
     disp_options, wait_for_port
 
   let cmdline_of_info ~xs ~dm info restore ?(domid_for_vnc=false) domid =
-    let usb' =
-      match info.usb with
-      | Disabled -> []
-      | Enabled devices ->
-        ("-usb" :: (List.concat (List.map (fun device ->
-             [ "-usbdevice"; device ]) devices))) in
-
     let disks' = List.map (fun (index, file, media) -> [
           "-drive"; sprintf "file=%s,if=ide,index=%d,media=%s" file index (string_of_media media)
         ]) info.disks in
@@ -1685,7 +1678,6 @@ module Dm_Common = struct
     in
     List.concat
       [ disp_options
-      ; usb'
       ; List.concat disks'
       ; ( info.acpi |> function false -> [] | true -> [ "-acpi" ])
       ; ( restore   |> function false -> [] | true -> [ "-loadvm"; restorefile ])
@@ -1946,11 +1938,20 @@ module Backend = struct
       let cmdline_of_info ~xs ~dm info restore domid =
         let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid in
 
+        let usb =
+        match info.Dm_Common.usb with
+        | Dm_Common.Disabled -> []
+        | Dm_Common.Enabled devices ->
+          let devs = devices |> List.map (fun (x,_) -> ["-usbdevice"; x]) |> List.concat in
+          "-usb" :: devs
+        in
+
         let misc = List.concat
             [ [ "-d"; string_of_int domid
               ; "-m"; Int64.to_string (Int64.div info.Dm_Common.memory 1024L)
               ; "-boot"; info.Dm_Common.boot
               ]
+            ; usb
             ; [ "-vcpus"; string_of_int info.Dm_Common.vcpus]
             ; (info.Dm_Common.serial |> function None -> [] | Some x -> [ "-serial"; x ])
             ] in
@@ -2230,6 +2231,15 @@ module Backend = struct
       let cmdline_of_info ~xs ~dm info restore domid =
         let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid ~domid_for_vnc:true in
 
+        let usb =
+        match info.Dm_Common.usb with
+        | Dm_Common.Disabled -> []
+        | Dm_Common.Enabled devices ->
+          let devs = devices |>
+            List.map (fun (x,y) -> ["-device"; sprintf "usb-%s,port=%d" x y]) |> List.concat in
+          "-usb" :: devs
+        in
+
         let serial_device =
           try
             let xs_path = xs.Xs.read "/local/logconsole/@" in
@@ -2247,6 +2257,7 @@ module Backend = struct
               ; "-m"; "size=" ^ (Int64.to_string (Int64.div info.Dm_Common.memory 1024L))
               ; "-boot"; "order=" ^ info.Dm_Common.boot
               ]
+            ; usb
             ; [ "-smp"; "maxcpus=" ^ (string_of_int info.Dm_Common.vcpus)]
             ; (serial_device |> function None -> [] | Some x -> [ "-serial"; x ])
             ] in
