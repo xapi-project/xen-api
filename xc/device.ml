@@ -2252,13 +2252,50 @@ module Backend = struct
           with _ -> info.Dm_Common.serial
         in
 
-        let list1 = ["piix3-ide-xen"; "piix3-usb-uhci"; "rtl8139"] in
-        let list2 = ["subvendor_id=0x5853"; "subsystem_id=0x0001"] in
-        let global = List.map (fun x -> List.map (fun y -> x^"."^y) list2) list1 |> List.concat in
+        let mult xs ys =
+          List.map (fun x -> List.map (fun y -> x^"."^y) ys) xs |>
+          List.concat in
+        let global =
+          mult
+            ["piix3-ide-xen"; "piix3-usb-uhci"; "rtl8139"]
+            ["subvendor_id=0x5853"; "subsystem_id=0x0001"]
+        in
 
         let qmp = ["libxl"; "event"] |>
           List.map (fun x -> ["-qmp"; sprintf "unix:/var/run/xen/qmp-%s-%d,server,nowait" x domid]) |>
           List.concat in
+
+        let has_platform_device =
+          try
+            int_of_string (xs.Xs.read (sprintf "/local/domain/%d/vm-data/disable_pf" domid)) <> 1
+          with _ -> true
+        in
+        let xen_platform_device =
+          if has_platform_device then begin
+            let device_id =
+              try xs.Xs.read (sprintf "/local/domain/%d/platform/device_id" domid)
+              with _ -> "0001"
+            in
+            [ "-device"; String.concat "," [
+                  "xen-platform"
+                ; "addr=3"
+                ; sprintf "device-id=0x%s" device_id
+                ; "revision=0x2"
+                ; "class-id=0x0100"
+                ; "subvendor_id=0x5853"
+                ; sprintf"subsystem_id=0x%s" device_id
+                ]
+            ]
+          end else []
+        in
+
+        let pv_device =
+          try
+            let has_device = xs.Xs.read (sprintf "/local/domain/%d/control/has-vendor-device" domid) in
+            if int_of_string has_device = 1 then ["-device"; "xen-pvdevice,device-id=0xc000"]
+            else []
+          with _ -> []
+        in
 
         let misc = List.concat
             [ [ "-xen-domid"; string_of_int domid
@@ -2277,6 +2314,8 @@ module Backend = struct
             ; (global |> List.map (fun x -> ["-global"; x]) |> List.concat)
             ; (info.Dm_Common.parallel |> function None -> [ "-parallel"; "null"] | Some x -> [ "-parallel"; x])
             ; qmp
+            ; pv_device
+            ; xen_platform_device
             ] in
 
         (* Sort the VIF devices by devid *)
