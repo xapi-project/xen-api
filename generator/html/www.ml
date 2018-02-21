@@ -361,7 +361,7 @@ let index_html oc pages =
             ul ([
                 li (
                   string "view the "
-                  ++ a ~href:(uri "https://github.com/djs55/xapi-storage/issues")
+                  ++ a ~href:(uri "https://github.com/xapi-project/xapi-storage/issues")
                     (string "issues on github")
                   ++ string " or"
                 );
