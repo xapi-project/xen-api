@@ -27,8 +27,6 @@ let ip_end_key = "ip_end"
 let ip_disable_gw_key = "ip_disable_gw"
 let pxe_server_key = "pxe_server"
 
-let (|>) x f = f x
-
 module Ip = struct
   type t = int * int * int * int [@@deriving rpc]
 

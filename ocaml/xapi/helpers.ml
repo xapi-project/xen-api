@@ -613,7 +613,6 @@ let group_by ~ordering f list =
 (** Schwarzian transform sort *)
 let sort_by_schwarzian ?(descending=false) f list =
   let comp x y = if descending then compare y x else compare x y in
-  let (|>) a f = f a in
   List.map (fun x -> (x, f x)) list |>
   List.sort (fun (_, x') (_, y') -> comp x' y') |>
   List.map (fun (x, _) -> x)
