@@ -46,7 +46,14 @@ let rec typecheck env ty v =
   | Struct (hd, tl) ->
     let member (name, ty, descr) =
       typecheck env ty (sprintf "%s['%s']" v name) in
-    List.concat (List.map member (hd :: tl))
+    let member_maybe_opt (name, ty, descr) =
+      match ty with
+      | Option _ -> [
+        Line (sprintf "if '%s' in %s:" name v);
+        Block (member (name, ty, descr))
+      ]
+      | _ -> member (name, ty, descr) in
+    List.concat (List.map member_maybe_opt (hd :: tl))
   | Variant (hd, tl) ->
     let member first (name, ty, descr) =
       [ Line (sprintf "%sif %s[0] == '%s':" (if first then "" else "el") v name);
