@@ -1,9 +1,14 @@
-from xapi import *
+from xapi import success, Rpc_light_failure, InternalError, UnmarshalException, TypeError, is_long, UnknownMethod
+import xapi
+import sys
+import json
+import argparse
 import traceback
+import logging
 class Unimplemented(Rpc_light_failure):
     def __init__(self, arg_0):
         Rpc_light_failure.__init__(self, "Unimplemented", [ arg_0 ])
-        if type(arg_0) <> type("") and type(arg_0) <> type(u""):
+        if not isinstance(arg_0, str) and not isinstance(arg_0, unicode):
             raise (TypeError("string", repr(arg_0)))
         self.arg_0 = arg_0
 class Datapath_server_dispatcher:
@@ -13,133 +18,133 @@ class Datapath_server_dispatcher:
         self._impl = impl
     def open(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
+        if not isinstance(args, dict):
             raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
+        if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if type(dbg) <> type("") and type(dbg) <> type(u""):
+        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('uri')):
+        if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if type(uri) <> type("") and type(uri) <> type(u""):
+        if not isinstance(uri, str) and not isinstance(uri, unicode):
             raise (TypeError("string", repr(uri)))
-        if not(args.has_key('persistent')):
+        if not('persistent' in args):
             raise UnmarshalException('argument missing', 'persistent', '')
         persistent = args["persistent"]
-        if type(persistent) <> type(True):
+        if not isinstance(persistent, bool):
             raise (TypeError("bool", repr(persistent)))
         results = self._impl.open(dbg, uri, persistent)
         return results
     def attach(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
+        if not isinstance(args, dict):
             raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
+        if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if type(dbg) <> type("") and type(dbg) <> type(u""):
+        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('uri')):
+        if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if type(uri) <> type("") and type(uri) <> type(u""):
+        if not isinstance(uri, str) and not isinstance(uri, unicode):
             raise (TypeError("string", repr(uri)))
-        if not(args.has_key('domain')):
+        if not('domain' in args):
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
-        if type(domain) <> type("") and type(domain) <> type(u""):
+        if not isinstance(domain, str) and not isinstance(domain, unicode):
             raise (TypeError("string", repr(domain)))
         results = self._impl.attach(dbg, uri, domain)
-        if type(results['domain_uuid']) <> type("") and type(results['domain_uuid']) <> type(u""):
+        if not isinstance(results['domain_uuid'], str) and not isinstance(results['domain_uuid'], unicode):
             raise (TypeError("string", repr(results['domain_uuid'])))
         if results['implementation'][0] == 'Blkback':
-            if type(results['implementation'][1]) <> type("") and type(results['implementation'][1]) <> type(u""):
+            if not isinstance(results['implementation'][1], str) and not isinstance(results['implementation'][1], unicode):
                 raise (TypeError("string", repr(results['implementation'][1])))
         elif results['implementation'][0] == 'Tapdisk3':
-            if type(results['implementation'][1]) <> type("") and type(results['implementation'][1]) <> type(u""):
+            if not isinstance(results['implementation'][1], str) and not isinstance(results['implementation'][1], unicode):
                 raise (TypeError("string", repr(results['implementation'][1])))
         elif results['implementation'][0] == 'Qdisk':
-            if type(results['implementation'][1]) <> type("") and type(results['implementation'][1]) <> type(u""):
+            if not isinstance(results['implementation'][1], str) and not isinstance(results['implementation'][1], unicode):
                 raise (TypeError("string", repr(results['implementation'][1])))
         return results
     def activate(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
+        if not isinstance(args, dict):
             raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
+        if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if type(dbg) <> type("") and type(dbg) <> type(u""):
+        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('uri')):
+        if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if type(uri) <> type("") and type(uri) <> type(u""):
+        if not isinstance(uri, str) and not isinstance(uri, unicode):
             raise (TypeError("string", repr(uri)))
-        if not(args.has_key('domain')):
+        if not('domain' in args):
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
-        if type(domain) <> type("") and type(domain) <> type(u""):
+        if not isinstance(domain, str) and not isinstance(domain, unicode):
             raise (TypeError("string", repr(domain)))
         results = self._impl.activate(dbg, uri, domain)
         return results
     def deactivate(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
+        if not isinstance(args, dict):
             raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
+        if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if type(dbg) <> type("") and type(dbg) <> type(u""):
+        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('uri')):
+        if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if type(uri) <> type("") and type(uri) <> type(u""):
+        if not isinstance(uri, str) and not isinstance(uri, unicode):
             raise (TypeError("string", repr(uri)))
-        if not(args.has_key('domain')):
+        if not('domain' in args):
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
-        if type(domain) <> type("") and type(domain) <> type(u""):
+        if not isinstance(domain, str) and not isinstance(domain, unicode):
             raise (TypeError("string", repr(domain)))
         results = self._impl.deactivate(dbg, uri, domain)
         return results
     def detach(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
+        if not isinstance(args, dict):
             raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
+        if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if type(dbg) <> type("") and type(dbg) <> type(u""):
+        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('uri')):
+        if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if type(uri) <> type("") and type(uri) <> type(u""):
+        if not isinstance(uri, str) and not isinstance(uri, unicode):
             raise (TypeError("string", repr(uri)))
-        if not(args.has_key('domain')):
+        if not('domain' in args):
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
-        if type(domain) <> type("") and type(domain) <> type(u""):
+        if not isinstance(domain, str) and not isinstance(domain, unicode):
             raise (TypeError("string", repr(domain)))
         results = self._impl.detach(dbg, uri, domain)
         return results
     def close(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
+        if not isinstance(args, dict):
             raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
+        if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if type(dbg) <> type("") and type(dbg) <> type(u""):
+        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise (TypeError("string", repr(dbg)))
-        if not(args.has_key('uri')):
+        if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if type(uri) <> type("") and type(uri) <> type(u""):
+        if not isinstance(uri, str) and not isinstance(uri, unicode):
             raise (TypeError("string", repr(uri)))
         results = self._impl.close(dbg, uri)
         return results
@@ -209,8 +214,6 @@ class Datapath_test:
         """Xapi will call the functions here on VM start/shutdown/suspend/resume/migrate. Every function is idempotent. Every function takes a domain parameter which allows the implementation to track how many domains are currently using the volume."""
         result = {}
         return result
-import argparse, traceback
-import xapi
 class Datapath_commandline():
     """Parse command-line arguments and call an implementation."""
     def __init__(self, impl):
@@ -227,7 +230,7 @@ class Datapath_commandline():
         parser.add_argument('-j', '--json', action='store_const', const=True, default=False, help='Read json from stdin, print json to stdout', required=False)
         parser.add_argument('dbg', action='store', help='Debug context from the caller')
         parser.add_argument('uri', action='store', help='A URI which represents how to access the volume disk data.')
-        parser.add_argument('persistent', action='store', help='True means the disk data is persistent and should be preserved when the datapath is closed i.e. when a VM is shutdown or rebooted. False means the data should be thrown away when the VM is shutdown or rebooted.')
+        parser.add_argument('--persistent', action='store_true', help='True means the disk data is persistent and should be preserved when the datapath is closed i.e. when a VM is shutdown or rebooted. False means the data should be thrown away when the VM is shutdown or rebooted.')
         return vars(parser.parse_args())
     def _parse_attach(self):
         """[attach uri domain] prepares a connection between the storage named by [uri] and the Xen domain with id [domain]. The return value is the information needed by the Xen toolstack to setup the shared-memory blkfront protocol. Note that the same volume may be simultaneously attached to multiple hosts for example over a migrate. If an implementation needs to perform an explicit handover, then it should implement [activate] and [deactivate]. This function is idempotent."""
@@ -373,22 +376,22 @@ class Datapath_commandline():
                 raise e
 class datapath_server_dispatcher:
     """Demux calls to individual interface server_dispatchers"""
-    def __init__(self, Datapath = None):
+    def __init__(self, Datapath=None):
         self.Datapath = Datapath
     def _dispatch(self, method, params):
         try:
-            log("method = %s params = %s" % (method, repr(params)))
+            logging.debug("method = %s params = %s" % (method, repr(params)))
             if method.startswith("Datapath") and self.Datapath:
                 return self.Datapath._dispatch(method, params)
             raise UnknownMethod(method)
         except Exception, e:
-            log("caught %s" % e)
+            logging.info("caught %s" % e)
             traceback.print_exc()
             try:
                 # A declared (expected) failure will have a .failure() method
-                log("returning %s" % (repr(e.failure())))
+                logging.debug("returning %s" % (repr(e.failure())))
                 return e.failure()
-            except:
+            except AttributeError:
                 # An undeclared (unexpected) failure is wrapped as InternalError
                 return (InternalError(str(e)).failure())
 class datapath_server_test(datapath_server_dispatcher):

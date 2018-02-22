@@ -30,16 +30,16 @@ let rec typecheck env ty v =
     Line (sprintf "raise (TypeError(\"%s\", repr(%s)))" (Type.ocaml_of_t ty) v) in
   match ty with
   | Basic b ->
-    let python_of_basic = function
-      | Int64   -> "0L"
-      | String  -> "\"\""
-      | Double  -> "1.1"
-      | Boolean -> "True" in
+    let python_type_of_basic = function
+      | Int64   -> "long"
+      | String  -> "str"
+      | Double  -> "float"
+      | Boolean -> "bool" in
     [
       Line (match b with
           | Int64 -> sprintf "if not(is_long(%s)):" v
-          | String -> sprintf "if type(%s) <> type(\"\") and type(%s) <> type(u\"\"):" v v
-          | b     -> sprintf "if type(%s) <> type(%s):"       v (python_of_basic b)
+          | String -> sprintf "if not isinstance(%s, str) and not isinstance(%s, unicode):" v v
+          | b     -> sprintf "if not isinstance(%s, %s):"       v (python_type_of_basic b)
         );
       Block [ raise_type_error ]
     ]
@@ -56,7 +56,7 @@ let rec typecheck env ty v =
   | Array t ->
     let id = fresh_id () in
     [
-      Line (sprintf "if type(%s) <> type([]):" v);
+      Line (sprintf "if not isinstance(%s, list):" v);
       Block [ raise_type_error ];
       Line (sprintf "for %s in %s:" id v);
       Block (typecheck env t id)
@@ -64,7 +64,7 @@ let rec typecheck env ty v =
   | Dict (key, va) ->
     let id = fresh_id () in
     [
-      Line (sprintf "if type(%s) <> type({}):" v);
+      Line (sprintf "if not isinstance(%s, dict):" v);
       Block [ raise_type_error ];
       Line (sprintf "for %s in %s.keys():" id v);
       Block (typecheck env (Basic key) id);
@@ -79,12 +79,12 @@ let rec typecheck env ty v =
     typecheck env ident.Ident.ty v
   | Unit ->
     [
-      Line (sprintf "if type(%s) <> type(None):" v);
+      Line (sprintf "if %s is not None:" v);
       Block [ raise_type_error ]
     ]
   | Option t ->
     [
-      Line (sprintf "if %s <> None:" v);
+      Line (sprintf "if %s is not None:" v);
       Block (typecheck env t v)
     ]
   | Pair (a, b) ->
@@ -225,7 +225,7 @@ let server_of_interface env i =
   let open Printf in
   let typecheck_method_wrapper m =
     let extract_input arg =
-      [ Line (sprintf "if not(args.has_key('%s')):" arg.Arg.name);
+      [ Line (sprintf "if not('%s' in args):" arg.Arg.name);
         Block [ Line (sprintf "raise UnmarshalException('argument missing', '%s', '')" arg.Arg.name) ];
         Line (sprintf "%s = args[\"%s\"]" arg.Arg.name arg.Arg.name) ]
       @ (typecheck env arg.Arg.ty arg.Arg.name) in
@@ -237,7 +237,7 @@ let server_of_interface env i =
       Line (sprintf "def %s(self, args):" m.Method.name);
       Block ([
           Line "\"\"\"type-check inputs, call implementation, type-check outputs and return\"\"\"";
-          Line "if type(args) <> type({}):";
+          Line "if not isinstance(args, dict):";
           Block [
             Line "raise (UnmarshalException('arguments', 'dict', repr(args)))"
           ]
@@ -309,7 +309,7 @@ let commandline_parse env i m =
       ] @ (
         List.map (fun a -> match a.Arg.ty with
         | Type.Dict(_, _) ->
-          Line (sprintf "parser.add_argument('--%s', default = {}, nargs=2, action=xapi.ListAction, help='%s')" a.Arg.name a.Arg.description)
+          Line (sprintf "parser.add_argument('--%s', default={}, nargs=2, action=xapi.ListAction, help='%s')" a.Arg.name a.Arg.description)
         | Type.Basic(Boolean) ->
           Line (sprintf "parser.add_argument('--%s', action='store_true', help='%s')" a.Arg.name a.Arg.description)
         | _ ->
@@ -349,8 +349,6 @@ let commandline_run env i m =
 let commandline_of_interface env i =
   let open Printf in
   [
-    Line "import argparse, traceback";
-    Line "import xapi";
     Line (sprintf "class %s_commandline():" i.Interface.name);
     Block ([
       Line "\"\"\"Parse command-line arguments and call an implementation.\"\"\"";
@@ -367,8 +365,13 @@ let commandline_of_interface env i =
 let of_interfaces env i =
   let open Printf in
   [
-    Line "from xapi import *";
+    Line "from xapi import success, Rpc_light_failure, InternalError, UnmarshalException, TypeError, is_long, UnknownMethod";
+    Line "import xapi";
+    Line "import sys";
+    Line "import json";
+    Line "import argparse";
     Line "import traceback";
+    Line "import logging";
   ] @ (
     List.concat (List.map (exn_decl env) i.Interfaces.exn_decls)
   ) @ (
@@ -379,13 +382,13 @@ let of_interfaces env i =
     Line (sprintf "class %s_server_dispatcher:" i.Interfaces.name);
     Block ([
         Line "\"\"\"Demux calls to individual interface server_dispatchers\"\"\"";
-        Line (sprintf "def __init__(self%s):" (String.concat "" (List.map (fun x -> ", " ^ x ^ " = None") (List.map (fun i -> i.Interface.name) i.Interfaces.interfaces))));
+        Line (sprintf "def __init__(self%s):" (String.concat "" (List.map (fun x -> ", " ^ x ^ "=None") (List.map (fun i -> i.Interface.name) i.Interfaces.interfaces))));
         Block (List.map (fun i -> Line (sprintf "self.%s = %s" i.Interface.name i.Interface.name)) i.Interfaces.interfaces);
         Line "def _dispatch(self, method, params):";
         Block [
           Line "try:";
           Block ([
-              Line "log(\"method = %s params = %s\" % (method, repr(params)))";
+              Line "logging.debug(\"method = %s params = %s\" % (method, repr(params)))";
             ] @ (
                 List.fold_left (fun (first, acc) i -> false, acc @ [
                     Line (sprintf "%sif method.startswith(\"%s\") and self.%s:" (if first then "" else "el") i.Interface.name i.Interface.name);
@@ -397,15 +400,15 @@ let of_interfaces env i =
             );
           Line "except Exception, e:";
           Block [
-            Line "log(\"caught %s\" % e)";
+            Line "logging.info(\"caught %s\" % e)";
             Line "traceback.print_exc()";
             Line "try:";
             Block [
               Line "# A declared (expected) failure will have a .failure() method";
-              Line "log(\"returning %s\" % (repr(e.failure())))";
+              Line "logging.debug(\"returning %s\" % (repr(e.failure())))";
               Line "return e.failure()"
             ];
-            Line "except:";
+            Line "except AttributeError:";
             Block [
               Line "# An undeclared (unexpected) failure is wrapped as InternalError";
               Line "return (InternalError(str(e)).failure())"

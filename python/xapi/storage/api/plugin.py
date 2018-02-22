@@ -1,9 +1,14 @@
-from xapi import *
+from xapi import success, Rpc_light_failure, InternalError, UnmarshalException, TypeError, is_long, UnknownMethod
+import xapi
+import sys
+import json
+import argparse
 import traceback
+import logging
 class Unimplemented(Rpc_light_failure):
     def __init__(self, arg_0):
         Rpc_light_failure.__init__(self, "Unimplemented", [ arg_0 ])
-        if type(arg_0) <> type("") and type(arg_0) <> type(u""):
+        if not isinstance(arg_0, str) and not isinstance(arg_0, unicode):
             raise (TypeError("string", repr(arg_0)))
         self.arg_0 = arg_0
 class Plugin_server_dispatcher:
@@ -13,74 +18,74 @@ class Plugin_server_dispatcher:
         self._impl = impl
     def query(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
+        if not isinstance(args, dict):
             raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
+        if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if type(dbg) <> type("") and type(dbg) <> type(u""):
+        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise (TypeError("string", repr(dbg)))
         results = self._impl.query(dbg)
-        if type(results['plugin']) <> type("") and type(results['plugin']) <> type(u""):
+        if not isinstance(results['plugin'], str) and not isinstance(results['plugin'], unicode):
             raise (TypeError("string", repr(results['plugin'])))
-        if type(results['name']) <> type("") and type(results['name']) <> type(u""):
+        if not isinstance(results['name'], str) and not isinstance(results['name'], unicode):
             raise (TypeError("string", repr(results['name'])))
-        if type(results['description']) <> type("") and type(results['description']) <> type(u""):
+        if not isinstance(results['description'], str) and not isinstance(results['description'], unicode):
             raise (TypeError("string", repr(results['description'])))
-        if type(results['vendor']) <> type("") and type(results['vendor']) <> type(u""):
+        if not isinstance(results['vendor'], str) and not isinstance(results['vendor'], unicode):
             raise (TypeError("string", repr(results['vendor'])))
-        if type(results['copyright']) <> type("") and type(results['copyright']) <> type(u""):
+        if not isinstance(results['copyright'], str) and not isinstance(results['copyright'], unicode):
             raise (TypeError("string", repr(results['copyright'])))
-        if type(results['version']) <> type("") and type(results['version']) <> type(u""):
+        if not isinstance(results['version'], str) and not isinstance(results['version'], unicode):
             raise (TypeError("string", repr(results['version'])))
-        if type(results['required_api_version']) <> type("") and type(results['required_api_version']) <> type(u""):
+        if not isinstance(results['required_api_version'], str) and not isinstance(results['required_api_version'], unicode):
             raise (TypeError("string", repr(results['required_api_version'])))
-        if type(results['features']) <> type([]):
+        if not isinstance(results['features'], list):
             raise (TypeError("string list", repr(results['features'])))
         for tmp_1 in results['features']:
-            if type(tmp_1) <> type("") and type(tmp_1) <> type(u""):
+            if not isinstance(tmp_1, str) and not isinstance(tmp_1, unicode):
                 raise (TypeError("string", repr(tmp_1)))
-        if type(results['configuration']) <> type({}):
+        if not isinstance(results['configuration'], dict):
             raise (TypeError("(string * string) list", repr(results['configuration'])))
         for tmp_2 in results['configuration'].keys():
-            if type(tmp_2) <> type("") and type(tmp_2) <> type(u""):
+            if not isinstance(tmp_2, str) and not isinstance(tmp_2, unicode):
                 raise (TypeError("string", repr(tmp_2)))
         for tmp_2 in results['configuration'].values():
-            if type(tmp_2) <> type("") and type(tmp_2) <> type(u""):
+            if not isinstance(tmp_2, str) and not isinstance(tmp_2, unicode):
                 raise (TypeError("string", repr(tmp_2)))
-        if type(results['required_cluster_stack']) <> type([]):
+        if not isinstance(results['required_cluster_stack'], list):
             raise (TypeError("string list", repr(results['required_cluster_stack'])))
         for tmp_3 in results['required_cluster_stack']:
-            if type(tmp_3) <> type("") and type(tmp_3) <> type(u""):
+            if not isinstance(tmp_3, str) and not isinstance(tmp_3, unicode):
                 raise (TypeError("string", repr(tmp_3)))
         return results
     def ls(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
+        if not isinstance(args, dict):
             raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
+        if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if type(dbg) <> type("") and type(dbg) <> type(u""):
+        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise (TypeError("string", repr(dbg)))
         results = self._impl.ls(dbg)
-        if type(results) <> type([]):
+        if not isinstance(results, list):
             raise (TypeError("string list", repr(results)))
         for tmp_4 in results:
-            if type(tmp_4) <> type("") and type(tmp_4) <> type(u""):
+            if not isinstance(tmp_4, str) and not isinstance(tmp_4, unicode):
                 raise (TypeError("string", repr(tmp_4)))
         return results
     def diagnostics(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
-        if type(args) <> type({}):
+        if not isinstance(args, dict):
             raise (UnmarshalException('arguments', 'dict', repr(args)))
-        if not(args.has_key('dbg')):
+        if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if type(dbg) <> type("") and type(dbg) <> type(u""):
+        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise (TypeError("string", repr(dbg)))
         results = self._impl.diagnostics(dbg)
-        if type(results) <> type("") and type(results) <> type(u""):
+        if not isinstance(results, str) and not isinstance(results, unicode):
             raise (TypeError("string", repr(results)))
         return results
     def _dispatch(self, method, params):
@@ -124,8 +129,6 @@ class Plugin_test:
         result = {}
         result["diagnostics"] = "string"
         return result
-import argparse, traceback
-import xapi
 class Plugin_commandline():
     """Parse command-line arguments and call an implementation."""
     def __init__(self, impl):
@@ -205,22 +208,22 @@ class Plugin_commandline():
                 raise e
 class plugin_server_dispatcher:
     """Demux calls to individual interface server_dispatchers"""
-    def __init__(self, Plugin = None):
+    def __init__(self, Plugin=None):
         self.Plugin = Plugin
     def _dispatch(self, method, params):
         try:
-            log("method = %s params = %s" % (method, repr(params)))
+            logging.debug("method = %s params = %s" % (method, repr(params)))
             if method.startswith("Plugin") and self.Plugin:
                 return self.Plugin._dispatch(method, params)
             raise UnknownMethod(method)
         except Exception, e:
-            log("caught %s" % e)
+            logging.info("caught %s" % e)
             traceback.print_exc()
             try:
                 # A declared (expected) failure will have a .failure() method
-                log("returning %s" % (repr(e.failure())))
+                logging.debug("returning %s" % (repr(e.failure())))
                 return e.failure()
-            except:
+            except AttributeError:
                 # An undeclared (unexpected) failure is wrapped as InternalError
                 return (InternalError(str(e)).failure())
 class plugin_server_test(plugin_server_dispatcher):
