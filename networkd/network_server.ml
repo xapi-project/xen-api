@@ -125,9 +125,9 @@ module Sriov = struct
 	let get_capabilities dev = 
 		if Sysfs.get_sriov_maxvfs dev = 0 then [] else ["sriov"]
 
-	(* To enable SR-IOV via modprobe configuration, we add a line like `options igb max_vfs=7,7,7`		
-	into the configuration. This function is meant to generate the options like `7,7,7`. the `7` have to 		
-	be repeated as many times as the number of devices with the same driver.		
+	(* To enable SR-IOV via modprobe configuration, we add a line like `options igb max_vfs=7,7,7`
+	into the configuration. This function is meant to generate the options like `7,7,7`. the `7` have to
+	be repeated as many times as the number of devices with the same driver.
 	*)
 	let gen_options_for_maxvfs driver max_vfs =
 		match Sysfs.get_dev_nums_with_same_driver driver with
@@ -138,7 +138,7 @@ module Sriov = struct
 		| _ -> Result.Error (Other, "Fail to generate options for maxvfs for " ^ driver)
 
 	(* For given driver like igb, we parse each line of igb.conf which is the modprobe
-	configuration for igb. We keep the same the lines that do not have SR-IOV configurations and 
+	configuration for igb. We keep the same the lines that do not have SR-IOV configurations and
 	change lines that need to be changed with patterns like `options igb max_vfs=4`
 	*)
 	let parse_modprobe_conf_internal file_path driver option =
@@ -246,10 +246,8 @@ module Sriov = struct
 
 	let disable_internal dev =
 		let open Rresult.R.Infix in
-		Sysfs.get_driver_name_err dev >>= 
-		fun driver ->
-		parse_modprobe_conf driver 0 >>= 
-		fun (has_probe_conf, need_rebuild_intrd, conf) ->
+		Sysfs.get_driver_name_err dev >>= fun driver ->
+		parse_modprobe_conf driver 0 >>= fun (has_probe_conf, need_rebuild_intrd, conf) ->
 		match has_probe_conf,need_rebuild_intrd with
 		| false, false ->
 			Sysfs.set_sriov_numvfs dev 0

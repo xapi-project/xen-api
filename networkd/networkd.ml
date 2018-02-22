@@ -60,9 +60,9 @@ let options = [
 	"igmp-query-maxresp-time", Arg.Set_string Network_utils.igmp_query_maxresp_time, (fun () -> !Network_utils.igmp_query_maxresp_time), "Maximum Response Time in IGMP Query message to send";
 	"enable-ipv6-mcast-snooping", Arg.Bool (fun x -> Network_utils.enable_ipv6_mcast_snooping := x), (fun () -> string_of_bool !Network_utils.enable_ipv6_mcast_snooping), "IPv6 multicast snooping toggle";
 	"mcast-snooping-disable-flood-unregistered", Arg.Bool (fun x -> Network_utils.mcast_snooping_disable_flood_unregistered := x), (fun () -> string_of_bool !Network_utils.mcast_snooping_disable_flood_unregistered), "Set OVS bridge configuration mcast-snooping-disable-flood-unregistered as 'true' or 'false'";
-	"uname_cmd_path", Arg.Set_string Network_utils.uname, (fun () -> !Network_utils.uname), "Path to the Unix command uname";
-	"dracut_cmd_path", Arg.Set_string Network_utils.dracut, (fun () -> !Network_utils.dracut), "Path to the Unix command dracut";
-	"dracut_timeout", Arg.Set_float Network_utils.dracut_timeout, (fun () -> string_of_float !Network_utils.dracut_timeout), "Default value for the dracut command timeout";
+	"uname-cmd-path", Arg.Set_string Network_utils.uname, (fun () -> !Network_utils.uname), "Path to the Unix command uname";
+	"dracut-cmd-path", Arg.Set_string Network_utils.dracut, (fun () -> !Network_utils.dracut), "Path to the Unix command dracut";
+	"dracut-timeout", Arg.Set_float Network_utils.dracut_timeout, (fun () -> string_of_float !Network_utils.dracut_timeout), "Default value for the dracut command timeout";
 ]
 
 let start server =

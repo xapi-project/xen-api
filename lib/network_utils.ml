@@ -293,9 +293,9 @@ module Sysfs = struct
 			if get_sriov_numvfs dev = num_vfs then Result.Ok  ()
 			else Result.Error (Other, "Error: set SR-IOV error on " ^ dev)
 		with
-		| Sys_error s when Xstringext.String.has_substr s "out of range of" -> 
+		| Sys_error s when Astring.String.is_infix ~affix:"out of range of" s ->
 			Result.Error (Bus_out_of_range, "Error: bus out of range when setting SR-IOV numvfs on " ^ dev)
-		| Sys_error s when Xstringext.String.has_substr s "not enough MMIO resources" -> 
+		| Sys_error s when Astring.String.is_infix ~affix:"not enough MMIO resources" s ->
 			Result.Error (Not_enough_mmio_resources, "Error: not enough mmio resources when setting SR-IOV numvfs on " ^ dev)
 		| e ->
 			let msg = Printf.sprintf "Error: set SR-IOV numvfs error with exception %s on %s" (Printexc.to_string e) dev in
