@@ -39,6 +39,8 @@ type util_error =
 | Fail_to_write_modprobe_cfg
 | Fail_to_get_driver_name
 | No_sriov_capability
+| Vf_sysfs_path_not_found
+| Fail_to_unbind_from_driver
 | Other
 
 let iproute2 = "/sbin/ip"
@@ -253,20 +255,58 @@ module Sysfs = struct
 			Result.Ok devices.(0)
 		with _ -> Result.Error (Parent_device_of_vf_not_found, "Can not get parent device for " ^ pcibuspath)
 
-	let device_index_of_vf parent_device pcibuspath =
+	let get_child_vfs_sysfs_paths dev = 
 		try
-			let re = Re_perl.compile_pat "virtfn(\d+)" in
-			let device_path = getpath parent_device "device" in
-			let group = Sys.readdir device_path
+			let device_path = getpath dev "device" in
+			Result. Ok (
+				Sys.readdir device_path
 				|> Array.to_list
-				|> List.filter (Re.execp re) (* List elements are like "virtfn1" *)
-				|> List.find (fun x -> Xstringext.String.has_substr (Unix.readlink (device_path ^ "/" ^ x)) pcibuspath )
-				|> Re.exec_opt re
+				|> List.filter (Re.execp (Re_perl.compile_pat "virtfn(\d+)")) (* List elements are like "virtfn1" *)
+				|> List.map (Filename.concat device_path)
+			)
+		with _ -> Result.Error (Vf_sysfs_path_not_found, "Can not get child vfs sysfs paths for " ^ dev)
+
+	let device_index_of_vf parent_dev pcibuspath =
+		try
+			let open Rresult.R.Infix in
+			get_child_vfs_sysfs_paths parent_dev >>= fun paths ->
+			let group = 
+				List.find (fun x -> Astring.String.is_infix ~affix:pcibuspath (Unix.readlink x)) paths
+				|> Re.exec_opt (Re_perl.compile_pat "virtfn(\d+)")
 			in
 			match group with
 			| None -> Result.Error (Vf_index_not_found, "Can not get device index for " ^ pcibuspath)
 			| Some x -> Ok (int_of_string (Re.Group.get x 1))
 		with _ -> Result.Error (Vf_index_not_found, "Can not get device index for " ^ pcibuspath)
+
+	let unbind_child_vfs dev =
+		let open Rresult.R.Infix in
+		let unbind vf_path =
+			let driver_name = 
+				try
+					Unix.readlink (Filename.concat vf_path "driver")
+					|> Filename.basename
+				with _ -> "" 
+			and vf_pcibuspath =
+				Unix.readlink vf_path
+				|> Filename.basename
+			in
+			if driver_name = "" then Result.Ok ()  (* not bind to any driver, Ok *)
+			else begin
+				debug "unbinding %s from driver %s at %s" vf_path driver_name vf_pcibuspath; 
+				let unbind_interface = Filename.concat vf_path "driver/unbind"
+				and remove_slot_interface = Filename.concat vf_path "driver/remove_slot" in
+				begin try
+						write_one_line remove_slot_interface vf_pcibuspath
+					with _ -> ()
+				end;
+				try 
+					write_one_line unbind_interface vf_pcibuspath; Result.Ok ()
+				with _ -> Result.Error (Fail_to_unbind_from_driver, Printf.sprintf "%s: VF Fail to be unbound from driver %s" vf_path driver_name)
+			end
+		in
+		get_child_vfs_sysfs_paths dev >>= fun paths ->
+		List.fold_left (>>=) (Ok ()) (List.map (fun x -> fun _ -> unbind x) paths)
 
 	let get_sriov_numvfs dev =
 		try

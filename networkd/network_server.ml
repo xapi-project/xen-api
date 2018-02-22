@@ -250,6 +250,7 @@ module Sriov = struct
 		parse_modprobe_conf driver 0 >>= fun (has_probe_conf, need_rebuild_intrd, conf) ->
 		match has_probe_conf,need_rebuild_intrd with
 		| false, false ->
+			Sysfs.unbind_child_vfs dev >>= fun _ ->
 			Sysfs.set_sriov_numvfs dev 0
 		| true, true ->
 			Modprobe.write_conf_file driver conf >>= fun () ->
