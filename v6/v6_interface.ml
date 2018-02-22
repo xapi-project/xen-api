@@ -82,6 +82,8 @@ type errors =
   (** Thrown if connection port or address parameter not supplied to check_license *)
   | V6d_failure
   (** Daemon failed to enable features *)
+  | Internal_error of string
+  (** Exception raised if an unexpected error is triggered by the library *)
 [@@default V6d_failure]
 [@@deriving rpcty]
 
@@ -92,11 +94,10 @@ exception V6_error of errors
 (** handle exception generation and raising *)
 let err = Error.{
     def = errors;
-    raiser = (function
-        | e -> raise (V6_error e));
+    raiser = (fun e -> raise (V6_error e));
     matcher = (function
-      | V6_error e -> Some e
-      | _ -> None)
+        | V6_error e -> Some e
+        | e -> Some (Internal_error (Printexc.to_string e)))
   }
 
 

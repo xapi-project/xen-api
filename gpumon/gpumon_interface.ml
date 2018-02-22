@@ -64,6 +64,8 @@ type gpu_errors =
   (** Exception raised when gpumon is unable to load the nvml nvidia library *)
   | NvmlFailure of string
   (** Exception raised by the c bindings to the nvml nvidia library*)
+  | Internal_error of string
+  (** Exception raised if an unexpected error is triggered by the library *)
   | Gpumon_failure
   (** Default exception raised upon daemon failure *)
 [@@default Gpumon_failure]
@@ -72,11 +74,13 @@ type gpu_errors =
 exception Gpumon_error of gpu_errors
 
 (** Error handler *)
-module GpuErrors = Error.Make(struct
-    type t = gpu_errors
-    let t = gpu_errors
-  end)
-let gpu_err = GpuErrors.error
+let gpu_err = Error.{
+    def = gpu_errors;
+    raiser = (fun e -> raise (Gpumon_error e));
+    matcher = (function
+        | Gpumon_error e -> Some e
+        | e -> Some (Internal_error (Printexc.to_string e)))
+  }
 
 (** Functor to autogenerate API calls *)
 module RPC_API(R : RPC) = struct
@@ -151,9 +155,9 @@ module RPC_API(R : RPC) = struct
       declare "get_vgpu_metadata"
         [ "Obtains metadata for all vGPUs running in a domain." ]
         ( debug_info_p
-         @-> domid_p
-         @-> pgpu_address_p
-         @-> returning nvidia_vgpu_metadata_list_p gpu_err
+          @-> domid_p
+          @-> pgpu_address_p
+          @-> returning nvidia_vgpu_metadata_list_p gpu_err
         )
 
     let get_pgpu_vgpu_compatibility =
