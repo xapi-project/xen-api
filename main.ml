@@ -364,7 +364,17 @@ let process root_dir name =
         R.Enum (List.map ~f:(compat_out fields) l)
     | _ -> rpc
   in
-
+  let compat_uri device_config ~f =
+    if !version = Some pvs_version then
+      match List.Assoc.find ~equal:String.equal device_config "uri" with
+      | None ->
+        return (Error (missing_uri ()))
+      | Some uri ->
+        return (Ok (device_config |> f |> compat_out ["uri", R.String uri]))
+    else
+        List.Assoc.remove ~equal:String.equal device_config "uri" |> f |>
+        Deferred.Result.return
+  in
   (* the actual API call for this plugin, sharing same version ref across all calls *)
   fun x ->
   let open Storage_interface in
@@ -467,14 +477,12 @@ let process root_dir name =
     Deferred.Result.return (R.success (Args.Query.Diagnostics.rpc_of_response response))
   | { R.name = "SR.attach"; R.params = [ args ] } ->
     let args = Args.SR.Attach.request_of_rpc args in
-    let uuid = args.Args.SR.Attach.sr in
     let device_config = args.Args.SR.Attach.device_config in
-    begin match List.find device_config ~f:(fun (k, _) -> k = "uri") with
-    | None ->
-      Deferred.Result.return (R.failure (missing_uri ()))
-    | Some (_, uri) ->
-      let args' = Xapi_storage.Volume.Types.SR.Attach.In.make args.Args.SR.Attach.dbg uuid uri in
-      let args' = Xapi_storage.Volume.Types.SR.Attach.In.rpc_of_t args' |> compat_in "uuid" in
+    compat_uri device_config ~f:(fun device_config ->
+      let args' = Xapi_storage.Volume.Types.SR.Attach.In.make args.Args.SR.Attach.dbg device_config in
+      Xapi_storage.Volume.Types.SR.Attach.In.rpc_of_t args')
+    >>>= fun args' ->
+    begin
       let open Deferred.Result.Monad_infix in
       fork_exec_rpc root_dir (script root_dir name `Volume "SR.attach") args' Xapi_storage.Volume.Types.SR.Attach.Out.t_of_rpc
       >>= fun attach_response ->
@@ -550,19 +558,20 @@ let process root_dir name =
     let args = Args.SR.Probe.request_of_rpc args in
     let name = args.Args.SR.Probe.queue in
     let device_config = args.Args.SR.Probe.device_config in
-    begin match List.find device_config ~f:(fun (k, _) -> k = "uri") with
-    | None ->
-      Deferred.Result.return (R.failure (missing_uri ()))
-    | Some (_, uri) ->
+    compat_uri device_config ~f:(fun device_config ->
       let args = Xapi_storage.Volume.Types.SR.Probe.In.make
         args.Args.SR.Probe.dbg
-        uri in
-      let args = Xapi_storage.Volume.Types.SR.Probe.In.rpc_of_t args in
+        device_config in
+      Xapi_storage.Volume.Types.SR.Probe.In.rpc_of_t args)
+    >>>= fun args ->
+    begin
       let open Deferred.Result.Monad_infix in
       fork_exec_rpc root_dir (script root_dir name `Volume "SR.probe") args Xapi_storage.Volume.Types.SR.Probe.Out.t_of_rpc
       >>= fun response ->
-      let srs = List.map ~f:(fun sr_stat -> sr_stat.Xapi_storage.Volume.Types.sr, {
-        Storage_interface.name_label = sr_stat.Xapi_storage.Volume.Types.name;
+      let srs = List.filter_map ~f:(fun probe_result ->
+        match probe_result.sr with
+        | Some sr_stat -> Some (sr_stat.Xapi_storage.Volume.Types.sr, {
+          Storage_interface.name_label = sr_stat.Xapi_storage.Volume.Types.name;
         name_description = sr_stat.Xapi_storage.Volume.Types.description;
         total_space = sr_stat.Xapi_storage.Volume.Types.total_space;
         free_space = sr_stat.Xapi_storage.Volume.Types.free_space;
@@ -570,9 +579,16 @@ let process root_dir name =
         health = match sr_stat.Xapi_storage.Volume.Types.health with
           | Xapi_storage.Volume.Types.Healthy _ -> Healthy
           | Xapi_storage.Volume.Types.Recovering _ -> Recovering
-          ;
-      }) response.Xapi_storage.Volume.Types.SR.Probe.Out.srs in
-      let uris = response.Xapi_storage.Volume.Types.SR.Probe.Out.uris in
+        });
+        | None -> None
+      ) response in
+      let uris = List.filter_map ~f:(fun probe_result ->
+        (* FIXME *)
+        if probe_result.complete then
+          Some (Jsonrpc.to_string (R.Dict (List.Assoc.map ~f:R.rpc_of_string probe_result.configuration)))
+        else
+          None
+      ) response in
       let result = Storage_interface.(Probe { srs; uris }) in
       Deferred.Result.return (R.success (Args.SR.Probe.rpc_of_response result))
     end
@@ -582,18 +598,18 @@ let process root_dir name =
     let uuid = args.Args.SR.Create.sr in
     let description = args.Args.SR.Create.name_description in
     let device_config = args.Args.SR.Create.device_config in
-    begin match List.find device_config ~f:(fun (k, _) -> k = "uri") with
-    | None ->
-      Deferred.Result.return (R.failure (missing_uri ()))
-    | Some (_, uri) ->
+    compat_uri device_config ~f:(fun device_config ->
       let args = Xapi_storage.Volume.Types.SR.Create.In.make
         args.Args.SR.Create.dbg
         uuid
-        uri
+        device_config
         name_label
         description
-        device_config in
-      let args = Xapi_storage.Volume.Types.SR.Create.In.rpc_of_t args |> compat_in "uuid" in
+      in
+      Xapi_storage.Volume.Types.SR.Create.In.rpc_of_t args
+      |> compat_in "uuid")
+    >>>= fun args ->
+    begin
       let open Deferred.Result.Monad_infix in
       let t_of_rpc rpc =
         if rpc = R.Null then None
@@ -603,8 +619,7 @@ let process root_dir name =
       >>= fun response ->
       let new_device_config = match response with
       | None -> device_config
-      | Some response ->
-        ("uri", response) :: List.filter ~f:(fun (k,_) -> k <> "uri") device_config
+      | Some response -> response
       in
       Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response new_device_config))
     end
