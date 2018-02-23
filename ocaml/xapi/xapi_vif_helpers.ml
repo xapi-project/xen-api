@@ -34,7 +34,8 @@ let valid_operations ~__context record _ref' : table =
      * one operation at a time
      * a halted VM can have the VIF attached
      * a running VM can do plug/unplug depending on whether the device is already
-       currently-attached and whether the VM has PV drivers *)
+       currently-attached and whether the VM has PV drivers
+     * Network SR-IOV VIF plug/unplug not allowed when VM is running *)
   let table : table = Hashtbl.create 10 in
   List.iter (fun x -> Hashtbl.replace table x None) all_ops;
   let set_errors (code: string) (params: string list) (ops: API.vif_operations_set) =
@@ -58,7 +59,11 @@ let valid_operations ~__context record _ref' : table =
   let power_state = Db.VM.get_power_state ~__context ~self:vm in
   let plugged = record.Db_actions.vIF_currently_attached || record.Db_actions.vIF_reserved in
   (match power_state, plugged with
-   | `Running, true -> set_errors Api_errors.device_already_attached [ _ref ] [ `plug ]
+   | `Running, true ->
+     let network = Db.VIF.get_network ~__context ~self:_ref' in
+     if Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network then
+       set_errors Api_errors.operation_not_allowed ["Network SR-IOV VIF plug/unplug not allowed when VM is running"] [ `plug; `unplug ]
+     else set_errors Api_errors.device_already_attached [ _ref ] [ `plug ]
    | `Running, false -> set_errors Api_errors.device_already_detached [ _ref ] [ `unplug ]
    | _, _ -> 
      let actual = Record_util.power_to_string power_state in
@@ -178,9 +183,6 @@ let create ~__context ~device ~network ~vM
     ~ipv4_configuration_mode ~ipv4_addresses ~ipv4_gateway
     ~ipv6_configuration_mode ~ipv6_addresses ~ipv6_gateway : API.ref_VIF =
   let () = debug "VIF.create running" in
-
-  if Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network then
-    Xapi_vm_lifecycle_helpers.assert_initial_power_state_is ~__context ~self:vM ~expected:`Halted;
 
   if locking_mode = `locked || ipv4_allowed <> [] || ipv6_allowed <> [] then
     assert_locking_licensed ~__context;

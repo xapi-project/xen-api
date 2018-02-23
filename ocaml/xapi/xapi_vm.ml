@@ -378,7 +378,7 @@ let power_state_reset ~__context ~vm =
   end;
   (* Perform sanity checks if VM is Running or Paused since we don't want to
      lose track of running domains. *)
-  if Xapi_vm_lifecycle.is_live ~__context ~self:vm then begin
+  if Xapi_vm_lifecycle_helpers.is_live ~__context ~self:vm then begin
     debug "VM.power_state_reset vm=%s power state is either running or paused: performing sanity checks" (Ref.string_of vm);
     let localhost = Helpers.get_localhost ~__context in
     let resident = Db.VM.get_resident_on ~__context ~self:vm in

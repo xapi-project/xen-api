@@ -11,9 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-
- open Stdext
- open Listext
  
  module D = Debug.Make(struct let name="xapi" end)
  open D
@@ -29,3 +26,8 @@
  
  (** Assert that VM is in a certain state before starting an operation *)
  let assert_initial_power_state_is ~expected = assert_initial_power_state_in ~allowed:[expected]
+
+ (** VM is considered as "live" when it's either Running or Paused, i.e. with a live domain *)
+let is_live ~__context ~self =
+  let power_state = Db.VM.get_power_state ~__context ~self in
+  power_state = `Running || power_state = `Paused

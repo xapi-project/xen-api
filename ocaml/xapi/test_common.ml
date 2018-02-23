@@ -449,6 +449,7 @@ let create_sriov_pif ~__context ~pif ?network ?(bridge="xapi0") () =
   in
   let physical_rec = Db.PIF.get_record ~__context ~self:pif in
   let sriov, sriov_logical_pif = make_network_sriov ~__context ~physical_PIF:pif ~physical_rec ~network:sriov_network in
+  Db.Network_sriov.set_configuration_mode ~__context ~self:sriov ~value:`sysfs;
   sriov_logical_pif
 
 let create_bond_pif ~__context ~host ~members ?(bridge="xapi0") () =
