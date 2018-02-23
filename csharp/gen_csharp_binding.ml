@@ -1391,28 +1391,28 @@ and convert_from_proxy_never_null_string thing ty = (* for when 'thing' is never
 and convert_from_hashtable fname ty =
   let field = sprintf "\"%s\"" fname in
   match ty with
-  | DateTime            -> sprintf "(DateTime)table[%s]" field
-  | Bool                -> sprintf "(bool)table[%s]" field
-  | Float               -> sprintf "(double)table[%s]" field
-  | Int                 -> sprintf "long.Parse((string)table[%s])" field
-  | Ref name            -> sprintf "XenRef<%s>.Create((string)table[%s])" (exposed_class_name name) field
-  | String              -> sprintf "(string)table[%s]" field
-  | Set(String)         -> sprintf "Array.ConvertAll((object[])table[%s], o => o.ToString())" field
-  | Set(Ref name)       -> sprintf "XenRef<%s>.Create((object[])table[%s])" (exposed_class_name name) field
-  | Set(Enum(name, _))  -> sprintf "Helper.StringArrayToEnumList<%s>(Array.ConvertAll((object[])table[%s], o => o.ToString()))" name field
-  | Enum(name, _)       -> sprintf "(%s)Helper.EnumParseDefault(typeof(%s), (string)table[%s])" name name field
-  | Map(Ref name, Record _) -> sprintf "XenRef<%s>.Create<%s>((Hashtable)table[%s])" (exposed_class_name name) (exposed_class_name name) field
+  | DateTime            -> sprintf "Marshalling.ParseDateTime(table, %s)" field
+  | Bool                -> sprintf "Marshalling.ParseBool(table, %s)" field
+  | Float               -> sprintf "Marshalling.ParseDouble(table, %s)" field
+  | Int                 -> sprintf "Marshalling.ParseLong(table, %s)" field
+  | Ref name            -> sprintf "Marshalling.ParseRef<%s>(table, %s)" (exposed_class_name name) field
+  | String              -> sprintf "Marshalling.ParseString(table, %s)" field
+  | Set(String)         -> sprintf "Marshalling.ParseStringArray(table, %s)" field
+  | Set(Ref name)       -> sprintf "Marshalling.ParseSetRef<%s>(table, %s)" (exposed_class_name name) field
+  | Set(Enum(name, _))  -> sprintf "Helper.StringArrayToEnumList<%s>(Marshalling.ParseStringArray(table, %s))" name field
+  | Enum(name, _)       -> sprintf "(%s)Helper.EnumParseDefault(typeof(%s), Marshalling.ParseString(table, %s))" name name field
+  | Map(Ref name, Record _) -> sprintf "Marshalling.ParseMapRefRecord<%s, Proxy_%s>(table, %s)" (exposed_class_name name) (exposed_class_name name) field
   | Map(u, v) as x      ->
     maps := TypeSet.add x !maps;
-    sprintf "%s((Hashtable)table[%s])"
+    sprintf "%s(Marshalling.ParseHashTable(table, %s))"
       (sanitise_function_name (sprintf "Maps.convert_from_proxy_%s_%s" (exposed_type_as_literal u) (exposed_type_as_literal v))) field
   | Record name         ->
     sprintf "new %s((Proxy_%s)table[%s])"
       (exposed_class_name name) (exposed_class_name name) field
   | Set(Record name)    ->
-    sprintf "%s.ProxyArrayToObjectList(Array.ConvertAll((object[])table[%s], o => o.ToString()))"
+    sprintf "%s.ProxyArrayToObjectList(Marshalling.ParseStringArray(%s))"
       (exposed_class_name name) field
-  | Set(Int)            -> sprintf "Array.ConvertAll((object[])table[%s], o => long.Parse(o.ToString()))" field
+  | Set(Int)            -> sprintf "Marshalling.ParseLongArray(table, %s)" field
   | _                   -> assert false
 
 and sanitise_function_name name =
