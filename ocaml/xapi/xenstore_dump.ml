@@ -17,7 +17,7 @@
     Permissions have to be handled separately.
 *)
 
-open Xstringext
+open Stdext.Xstringext
 open Xenstore
 
 exception Invalid_path of string

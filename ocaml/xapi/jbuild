@@ -67,11 +67,11 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  )
 )
 
-(executables
- ((names (xapi_main suite suite_alcotest quicktest))
-  (public_names (xapi - - quicktestbin))
-  (package xapi)
+(library
+ ((name xapi_internal)
+  (wrapped false)
   (flags (:standard -bin-annot %s -warn-error +a-3-4-6-9-27-28-29-52))
+  (modules (:standard \ xapi_main quicktest))
   (libraries (
    alcotest
    opasswd
@@ -82,7 +82,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    message-switch-unix
    mtime
    mtime.clock.os
-   oUnit
    sha
    tar
    tar-unix
@@ -115,17 +114,14 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   %s)
 )
 
-(alias
- ((name runtest)
-  (deps (suite.exe (files_recursively_in test_data)))
-  (action (run ${<} -runner sequential -verbose true))
- )
-)
-
-(alias
- ((name runtest)
-  (deps (suite_alcotest.exe (files_recursively_in test_data)))
-  (action (run ${<}))
- )
-)
-|} (flags rewriters) coverage_rewriter
+(executable
+ ((name xapi_main)
+  (public_name xapi)
+  (package xapi)
+  (modules (xapi_main))
+  (flags (:standard -bin-annot %s -warn-error +a-3-4-6-9-27-28-29-52))
+  (libraries (
+   xapi_internal
+  ))
+))
+|}(flags rewriters) coverage_rewriter (flags rewriters)
