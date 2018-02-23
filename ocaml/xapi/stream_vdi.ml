@@ -92,10 +92,9 @@ let made_progress __context progress n =
 (** Write a block of checksummed data of length [len] with name [filename] to [ofd] *)
 let write_block ~__context filename buffer ofd len =
   let hdr = Tar_unix.Header.make filename (Int64.of_int len) in
-
   try
     let csum = Sha1.to_hex (Sha1.string buffer) in
-    Tar_unix.write_block hdr (fun ofd -> Tar_unix.Archive.multicast_n_string buffer [ ofd ] len ) ofd;
+    Tar_unix.write_block hdr (fun ofd -> Unix.write ofd buffer 0 len |> ignore) ofd;
     (* Write the checksum as a separate file *)
     let hdr' = Tar_unix.Header.make (filename ^ checksum_extension) (Int64.of_int (String.length csum)) in
     Tar_unix.write_block hdr' (fun ofd -> ignore(Unix.write ofd csum 0 (String.length csum))) ofd
@@ -269,7 +268,7 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
                else String.make (Int64.to_int length) '\000'
              in
              Unixext.really_read ifd buffer 0 (Int64.to_int length);
-             Tar_unix.Archive.multicast_n_string buffer [ ofd ] (Int64.to_int length);
+             Unix.write ofd buffer 0 (Int64.to_int length) |> ignore;
              let csum = Sha1.to_hex (Sha1.string buffer) in
 
              checksum_table := (file_name, csum) :: !checksum_table;
