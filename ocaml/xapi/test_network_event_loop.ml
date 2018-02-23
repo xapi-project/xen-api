@@ -14,10 +14,7 @@
 
 let test_network_event_loop ~no_nbd_networks_at_start () =
   let __context, _ = Test_event_common.event_setup_common () in
-  (* We need to set test_mode to true to ensure that the event loop will use
-     the local Xapi_events.from function instead of the Client module, which
-     would cause the test to fail. *)
-  Helpers.test_mode := true;
+  Context.set_test_rpc __context (Mock_rpc.rpc __context);
 
   let localhost = Helpers.get_localhost ~__context in
   let other_host = Test_common.make_host ~__context () in

@@ -5,6 +5,7 @@ open Test_vgpu_common
 module D=Debug.Make(struct let name="test_xapi_xenops" end)
 open D
 
+
 let test_enabled_in_xenguest () =
   let should_raise = ["foo";"";"banana";"2"] in
   let should_be_true = ["TRUE";"tRuE";"1";"true"] in
@@ -55,8 +56,8 @@ let unsetup_simulator () =
 
 let test_xapi_restart_inner () =
   let __context = make_test_database () in
+  Context.set_test_rpc __context (Mock_rpc.rpc __context);
   setup_simulator ();
-  Helpers.test_mode := true;
   let open Xenops_interface in
   let open Xapi_xenops_queue in
   let module Client = (val make_client "simulator" : XENOPS) in

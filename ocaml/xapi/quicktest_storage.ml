@@ -281,9 +281,9 @@ let vdi_clone_destroy caps session_id sr vdi =
   end
 
 (** If VDI_SNAPSHOT and VDI_DELETE are present then make sure VDIs appear and disappear correctly *)
-let vdi_snapshot_destroy caps session_id sr vdi =
+let vdi_snapshot_destroy ?(indent=2) caps session_id sr vdi =
   if List.mem vdi_snapshot caps then begin
-    let test = make_test "VDI_SNAPSHOT should make a new VDI and VDI_DELETE should remove it" 2 in
+    let test = make_test "VDI_SNAPSHOT should make a new VDI and VDI_DELETE should remove it" indent in
     start test;
     vdi_create_clone_snapshot test session_id sr
       (fun () ->
@@ -295,6 +295,40 @@ let vdi_snapshot_destroy caps session_id sr vdi =
          vdi');
     success test
   end
+
+(* Check that snapshot works regardless which host has the VDI activated *)
+let vdi_snapshot_in_pool caps session_id sr vdi =
+  if (List.mem vdi_snapshot caps) && (List.mem vdi_attach caps)
+  then begin
+      let hosts = Client.Host.get_all !rpc session_id in
+      let do_test () =
+        vdi_snapshot_destroy ~indent:4 caps session_id sr vdi in
+      let test_snapshot_on host =
+        let name = Client.Host.get_name_label !rpc session_id host in
+        let test = make_test (Printf.sprintf "Checking VDI.snapshot when plugged in to %s" name) 2 in
+        start test;
+        let dom0 = dom0_of_host session_id host in
+        let vbd = vbd_create_helper ~session_id ~vM:dom0 ~vDI:vdi () in
+
+        debug test (Printf.sprintf "Plugging in to host %s" name);
+        Client.VBD.plug !rpc session_id vbd;
+        finally do_test
+          (fun () ->
+            debug test (Printf.sprintf "Unplugging from host %s" name);
+            Client.VBD.unplug !rpc session_id vbd;
+            debug test "Destroying VBD";
+            Client.VBD.destroy !rpc session_id vbd
+          );
+        success test
+      in
+      List.iter test_snapshot_on hosts;
+
+      let test = make_test (Printf.sprintf "Checking VDI.snapshot when it is not plugged anywhere") 2 in
+      start test;
+      do_test ();
+      success test
+    end
+
 
 (** If VDI_RESIZE is present then try it out *)
 let vdi_resize_test caps session_id sr vdi =
@@ -568,6 +602,7 @@ let foreach_sr session_id sr =
     with_arbitrary_vdi caps session_id sr vdi_db_forget;
     with_arbitrary_vdi caps session_id sr vdi_clone_destroy;
     with_arbitrary_vdi caps session_id sr vdi_snapshot_destroy;
+    with_arbitrary_vdi caps session_id sr vdi_snapshot_in_pool;
     with_arbitrary_vdi caps session_id sr vdi_resize_test;
     with_arbitrary_vdi caps session_id sr vdi_update_test;
     with_arbitrary_vdi caps session_id sr vdi_generate_config_test;
