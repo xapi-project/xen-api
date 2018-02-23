@@ -105,9 +105,7 @@ let vlan_is_allowed_on_pif ~__context ~tagged_PIF ~pif_rec ~tag =
     (* Here we rely on the implementation to guarantee that `Physical` is a terminating case *)
     raise Api_errors.(Server_error (cannot_add_vlan_to_bond_slave, [Ref.string_of tagged_PIF]))
   | VLAN_untagged _ :: _ ->
-    (* Check that the tagged PIF is not a VLAN itself - CA-25160. This check can be skipped using the allow_vlan_on_vlan FIST point. *)
-    if not (Xapi_fist.allow_vlan_on_vlan()) then
-      raise Api_errors.(Server_error (pif_is_vlan, [Ref.string_of tagged_PIF]))
+    raise Api_errors.(Server_error (pif_is_vlan, [Ref.string_of tagged_PIF]))
   | Tunnel_access _ :: _ ->
     raise Api_errors.(Server_error (is_tunnel_access_pif, [Ref.string_of tagged_PIF]))
   | _ -> ()

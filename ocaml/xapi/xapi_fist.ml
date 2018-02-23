@@ -60,9 +60,6 @@ let simulate_restart_failure      () = fistpoint "simulate_restart_failure"
 (** Throw an error in the failed VM restart logic when trying to compute a plan (it should fall back to best-effort) *)
 let simulate_planner_failure () = fistpoint "simulate_planner_failure"
 
-(** Skip the check to prevent chaining of VLANs *)
-let allow_vlan_on_vlan            () = fistpoint "allow_vlan_on_vlan"
-
 (** Skip the check to prevent untagged VLAN PIFs being forgotten (block added in CA-24056; conflicts with repro advice in CA-23042) *)
 let allow_forget_of_vlan_pif      () = fistpoint "allow_forget_of_vlan_pif"
 
