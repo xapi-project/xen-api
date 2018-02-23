@@ -14,4 +14,5 @@ let () =
     ; "Test_vlan", Test_vlan.test
     ; "Test_basic", Test_basic.test
     ; "Test_agility", Test_agility.test
+    ; "Test_daemon_manager", Test_daemon_manager.test
     ]
