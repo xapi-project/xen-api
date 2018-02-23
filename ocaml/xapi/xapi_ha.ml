@@ -1511,6 +1511,21 @@ let enable __context heartbeat_srs configuration =
        		   notice the invalid state and disable its HA *)
     raise exn
 
+let assert_have_statefile_access ~__context ~host =
+  let pool = Helpers.get_pool ~__context in
+  if Db.Pool.get_ha_enabled ~__context ~self:pool then begin
+    let liveset = query_liveset () in
+    let me =
+      Hashtbl.find
+        liveset.Xha_interface.LiveSetInformation.hosts
+        liveset.Xha_interface.LiveSetInformation.local_host_id
+    in
+    if (not me.Xha_interface.LiveSetInformation.Host.state_file_access) ||
+       me.Xha_interface.LiveSetInformation.Host.state_file_corrupted
+    then raise (Api_errors.Server_error(Api_errors.ha_lost_statefile, []))
+  end
+
+let before_clean_shutdown_or_reboot_precheck = assert_have_statefile_access
 
 let before_clean_shutdown_or_reboot ~__context ~host =
   let pool = Helpers.get_pool ~__context in
@@ -1527,13 +1542,7 @@ let before_clean_shutdown_or_reboot ~__context ~host =
        		   then we lose it and ha_set_excluded fails, manually fence ourselves. *)
 
     (* Safe early abort if we don't have statefile access *)
-    let liveset = query_liveset () in
-    let me = Hashtbl.find liveset.Xha_interface.LiveSetInformation.hosts
-        liveset.Xha_interface.LiveSetInformation.local_host_id in
-    if false
-    || not(me.Xha_interface.LiveSetInformation.Host.state_file_access)
-    || me.Xha_interface.LiveSetInformation.Host.state_file_corrupted
-    then raise (Api_errors.Server_error(Api_errors.ha_lost_statefile, []));
+    assert_have_statefile_access ~__context ~host;
 
     (* From this point we will fence ourselves if any unexpected error occurs *)
     begin try
