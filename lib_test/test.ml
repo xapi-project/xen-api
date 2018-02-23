@@ -13,6 +13,7 @@ let suite =
       Scheduler_test.tests;
       Updates_test.tests;
       Task_server_test.tests;
+      Rrd_idl_test.tests;
     ]
 
 let () =

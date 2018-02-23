@@ -38,12 +38,13 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     rpclib
     threads
     xcp
+    xcp.rrd
     xcp.updates
     xcp.xen))
   %s))
 
 (alias
  ((name runtest)
-  (deps (test.exe))
+  (deps (test.exe (files_recursively_in test_data)))
   (action (run ${<} -runner sequential))))
 |} flags coverage_rewriter
