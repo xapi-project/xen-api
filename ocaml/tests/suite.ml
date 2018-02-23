@@ -17,7 +17,6 @@ open OUnit
 let base_suite =
   "base_suite" >:::
   [
-    Test_agility.test;
     Test_helpers.test;
     Test_datamodel_utils.test;
     Test_daemon_manager.test;
