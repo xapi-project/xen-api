@@ -563,6 +563,8 @@ let _ =
     ~doc:"Only the local superuser can execute this operation" ();
 
   (* SR-IOV errors *)
+  error Api_errors.vm_requires_vf_pci_for_sriov_vif [ "VIF" ]
+    ~doc:"VM requires a valid VF for SRIOV VIF" ();
   error Api_errors.network_sriov_insufficient_vfs []
     ~doc:"There is insufficient VF for NETWORK SRIOV" ();
   error Api_errors.network_sriov_not_found_on_vm ["VM"]

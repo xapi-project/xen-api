@@ -860,6 +860,20 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
              ~value:Ref.null)
         (Db.VM.get_VGPUs ~__context ~self:vm)
 
+    let clear_reserved_netsriov_vfs_on ~__context ~vm =
+      let sriov_networks = Xapi_network_sriov_helpers.get_sriov_networks_from_vm __context vm in
+      let sriov_vifs = Db.VM.get_VIFs ~__context ~self:vm
+        |> List.filter (fun vif ->
+            List.mem (Db.VIF.get_network ~__context ~self:vif) sriov_networks) in
+      List.iter
+        (fun vif ->
+          let vf =  Db.VIF.get_reserved_pci ~__context ~self:vif in
+          if vf <> Ref.null then begin
+            Db.VIF.set_reserved_pci ~__context ~self:vif ~value:Ref.null;
+            Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:vf ~value:Ref.null
+          end
+        ) sriov_vifs
+
     (* Notes on memory checking/reservation logic:
        		   When computing the hosts free memory we consider all VMs resident_on (ie running
        		   and consuming resources NOW) and scheduled_to_be_resident_on (ie those which are
@@ -886,8 +900,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       try
         Vgpuops.create_vgpus ~__context host (vm, snapshot)
           (Helpers.will_boot_hvm ~__context ~self:vm);
+        Xapi_network_sriov_helpers.reserve_sriov_vfs ~__context ~host ~vm
       with e ->
         clear_scheduled_to_be_resident_on ~__context ~vm;
+        clear_reserved_netsriov_vfs_on ~__context ~vm;
         raise e
 
     (* For start/start_on/resume/resume_on/migrate *)
