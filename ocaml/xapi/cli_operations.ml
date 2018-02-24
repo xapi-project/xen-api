@@ -4020,6 +4020,11 @@ module Network_sriov = struct
   let destroy printer rpc session_id params =
     let sriov = Client.Network_sriov.get_by_uuid rpc session_id (List.assoc "uuid" params) in
     ignore(Client.Network_sriov.destroy rpc session_id sriov)
+
+  let get_remaining_capacity printer rpc session_id params =
+    let sriov = Client.Network_sriov.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+    let capacity = Client.Network_sriov.get_remaining_capacity rpc session_id sriov in
+    printer (Cli_printer.PMsg (Int64.to_string capacity))
 end
 
 let pif_reconfigure_ip printer rpc session_id params =
