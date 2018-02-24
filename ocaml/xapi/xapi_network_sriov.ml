@@ -59,3 +59,6 @@ let destroy ~__context ~self =
   let sriov_uuid = Db.Network_sriov.get_uuid ~__context ~self in
   info "network-sriov destroy uuid=%s" sriov_uuid;
   Db.Network_sriov.destroy ~__context ~self
+
+let get_remaining_capacity ~__context ~self =
+  Xapi_network_sriov_helpers.get_remaining_capacity_on_sriov ~__context ~self

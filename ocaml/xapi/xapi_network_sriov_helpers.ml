@@ -107,3 +107,9 @@ let sriov_bring_down ~__context ~self =
   Db.PIF.set_currently_attached ~__context ~self ~value:false;
   Db.Network_sriov.set_requires_reboot ~__context ~self:sriov ~value:false;
   Xapi_pci.update_pcis ~__context
+
+let get_remaining_capacity_on_sriov ~__context ~self =
+  let physical_PIF = Db.Network_sriov.get_physical_PIF ~__context ~self in
+  let pci = Db.PIF.get_PCI ~__context ~self:physical_PIF in
+  Xapi_pci.get_idle_vf_nums ~__context ~self:pci
+  |> Int64.of_int

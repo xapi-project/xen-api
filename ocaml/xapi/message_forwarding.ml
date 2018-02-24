@@ -4282,6 +4282,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let physical_pif = Db.Network_sriov.get_physical_PIF ~__context ~self in
       let host = Db.PIF.get_host ~__context ~self:physical_pif in
       do_op_on ~__context ~local_fn ~host (fun session_id rpc -> Client.Network_sriov.destroy rpc session_id self)
+
+    let get_remaining_capacity ~__context ~self =
+      info "Network_sriov.get_remaining_capacity : network_sriov = '%s'" (network_sriov_uuid ~__context self);
+      Local.Network_sriov.get_remaining_capacity ~__context ~self
   end
 
 end
