@@ -128,9 +128,7 @@ let assert_sriov_pif_compatible_with_network ~__context ~pif ~network =
 let get_remaining_capacity_on_sriov ~__context ~self =
   let physical_PIF = Db.Network_sriov.get_physical_PIF ~__context ~self in
   let pci = Db.PIF.get_PCI ~__context ~self:physical_PIF in
-  Xapi_pci.get_idle_vf_nums ~__context ~self:pci
-  |> Int64.of_int
-  |> Int64.of_int
+  Xapi_pci.get_idle_vf_nums ~__context ~self:pci |> Int64.of_int
 
 let rec get_underlying_pif ~__context ~pif =
   match Db.PIF.get_sriov_logical_PIF_of ~__context ~self:pif with
@@ -197,4 +195,32 @@ let group_hosts_by_best_sriov ~__context ~network =
         let pci = List.find (fun pci -> host = Db.PCI.get_host ~__context ~self:pci) valid_pcis in
         Xapi_pci.get_idle_vf_nums ~__context ~self:pci |> Int64.of_int
     ) (List.map (fun pci -> Db.PCI.get_host ~__context ~self:pci) valid_pcis |> Listext.List.setify)
+
+let assert_capacity_for_vf ~__context ~pci =
+  match Xapi_pci.get_idle_vf_nums ~__context ~self:pci with
+  | 0 -> raise (Api_errors.Server_error(Api_errors.network_sriov_insufficient_vfs, []))
+  | _ -> ()
+
+let choose_pf_for_vf ~__context ~host ~vif =
+  let network = Db.VIF.get_network ~__context ~self:vif in
+  (* at most one pif within one network on localhost*)
+  let host_pcis = get_pcis_from_network __context network |>
+                  List.filter (fun pci -> Db.PCI.get_host ~__context ~self:pci = host) in
+  match host_pcis with
+  | pci :: t -> assert_capacity_for_vf ~__context ~pci; pci
+  | [] -> raise (Api_errors.Server_error(Api_errors.vm_requires_vf_pci_for_sriov_vif, [Ref.string_of vif]))
+
+(* If exn happens during vifs reservation ,reserved vfs will be cleared*)
+let reserve_sriov_vfs ~__context ~host ~vm =
+  let sriov_networks = get_sriov_networks_from_vm __context vm in
+  let sriov_vifs = Db.VM.get_VIFs ~__context ~self:vm
+    |> List.filter (fun vif ->
+        List.mem (Db.VIF.get_network ~__context ~self:vif) sriov_networks) in
+  List.iter (fun vif ->
+    let vf = choose_pf_for_vf ~__context ~host ~vif |>
+              Pciops.reserve_free_virtual_function ~__context vm in
+    match vf with
+    | Some vf -> Db.VIF.set_reserved_pci ~__context ~self:vif ~value:vf
+    | None -> raise Api_errors.(Server_error (internal_error, ["No free virtual function found"]))
+  ) sriov_vifs
 
