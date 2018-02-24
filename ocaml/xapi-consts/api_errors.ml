@@ -95,6 +95,7 @@ let device_attach_timeout = "DEVICE_ATTACH_TIMEOUT"
 let device_detach_timeout = "DEVICE_DETACH_TIMEOUT"
 let device_detach_rejected = "DEVICE_DETACH_REJECTED"
 
+let network_sriov_insufficient_capacity = "NETWORK_SRIOV_INSUFFICIENT_CAPACITY"
 let network_sriov_already_enabled = "NETWORK_SRIOV_ALREADY_ENABLED"
 let network_sriov_enable_failed = "NETWORK_SRIOV_ENABLE_FAILED"
 let network_sriov_disable_failed = "NETWORK_SRIOV_DISABLE_FAILED"

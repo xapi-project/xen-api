@@ -563,6 +563,8 @@ let _ =
     ~doc:"Only the local superuser can execute this operation" ();
 
   (* SR-IOV errors *)
+  error Api_errors.network_sriov_insufficient_capacity [ "network" ]
+    ~doc:"There is insufficient capacity for VF reservation" ();
   error Api_errors.network_sriov_already_enabled ["PIF"]
     ~doc:"The PIF selected for the SR-IOV network is already enabled" ();
   error Api_errors.network_sriov_enable_failed ["PIF"; "msg"]
