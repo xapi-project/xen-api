@@ -1580,7 +1580,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     {
       reqd=["pif-uuid";"network-uuid"];
       optn=[];
-      help="Create a new network-sriov on a pif.";
+      help="Create a new network-sriov on a PIF.";
       implementation=No_fd Cli_operations.Network_sriov.create;
       flags=[];
     };

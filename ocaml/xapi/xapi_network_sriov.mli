@@ -29,5 +29,6 @@ val create_internal :
 (** Destroy a network-sriov object, and it will automatically destroy the logical PIF that bonded with it. *)
 val destroy : __context:Context.t -> self:[ `network_sriov ] Ref.t -> unit
 
-
+(** Get the available VF numbers of a SR-IOV object **)
+val get_remaining_capacity : __context:Context.t -> self:[ `network_sriov ] Ref.t -> int64
 

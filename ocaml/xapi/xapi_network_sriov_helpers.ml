@@ -128,3 +128,8 @@ let assert_sriov_pif_compatible_with_network ~__context ~pif ~network =
         if not (is_device_underneath_same_type ~__context pif existing_pif) then
           raise Api_errors.(Server_error (network_has_incompatible_sriov_pifs, [Ref.string_of pif; Ref.string_of network]))
     end
+let get_remaining_capacity_on_sriov ~__context ~self =
+  let physical_PIF = Db.Network_sriov.get_physical_PIF ~__context ~self in
+  let pci = Db.PIF.get_PCI ~__context ~self:physical_PIF in
+  Xapi_pci.get_idle_vf_nums ~__context ~self:pci
+  |> Int64.of_int
