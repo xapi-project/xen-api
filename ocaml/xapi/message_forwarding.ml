@@ -866,7 +866,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
             let vf =  Db.VIF.get_reserved_pci ~__context ~self:vif in
             Db.VIF.set_reserved_pci ~__context ~self:vif ~value:Ref.null;
             if Db.is_valid_ref __context vf then
-              Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:vf ~value:Ref.null
+            Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:vf ~value:Ref.null
           )
 
     (* Notes on memory checking/reservation logic:
@@ -895,8 +895,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       try
         Vgpuops.create_vgpus ~__context host (vm, snapshot)
           (Helpers.will_boot_hvm ~__context ~self:vm);
+        Xapi_network_sriov_helpers.reserve_sriov_vfs ~__context ~host ~vm
       with e ->
         clear_scheduled_to_be_resident_on ~__context ~vm;
+        clear_reserved_netsriov_vfs_on ~__context ~vm;
         raise e
 
     (* For start/start_on/resume/resume_on/migrate *)

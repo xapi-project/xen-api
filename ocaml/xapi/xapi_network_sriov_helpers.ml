@@ -232,5 +232,3 @@ let reserve_sriov_vfs ~__context ~host ~vm =
       | Some vf -> Db.VIF.set_reserved_pci ~__context ~self:vif ~value:vf
       | None -> raise Api_errors.(Server_error (internal_error, ["No free virtual function found"]))
   ) vifs
-
-
