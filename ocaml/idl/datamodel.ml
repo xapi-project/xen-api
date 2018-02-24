@@ -9266,6 +9266,15 @@ module Network_sriov = struct
       ~allowed_roles:_R_POOL_OP
       ()
 
+  let get_remaining_capacity = call
+      ~name:"get_remaining_capacity"
+      ~doc:"Get the number of VF that still can be allocated from this SRIOV object"
+      ~params:[Ref _network_sriov, "self", "the SRIOV object"]
+      ~lifecycle
+      ~result:(Int, "The number of VF that still can be allocated from this SRIOV object")
+      ~allowed_roles:_R_READ_ONLY
+      ()
+
   let obj =
     create_obj
       ~name:_network_sriov
@@ -9275,7 +9284,7 @@ module Network_sriov = struct
       ~gen_events:true
       ~in_db:true
       ~lifecycle
-      ~messages:[create; destroy;]
+      ~messages:[create; destroy; get_remaining_capacity;]
       ~messages_default_allowed_roles:_R_POOL_OP
       ~persist:PersistEverything
       ~in_oss_since:None
