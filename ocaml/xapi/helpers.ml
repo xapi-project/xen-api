@@ -429,25 +429,6 @@ type boot_method =
   | DirectPVinPVH of direct_pv_boot_t
   | IndirectPVinPVH of indirect_pv_boot_t
 
-let string_of_option opt = match opt with None -> "(none)" | Some s -> s
-
-let string_of_boot_method = function
-  | HVM _ -> "HVM"
-  | DirectPV x ->
-    Printf.sprintf "Direct PV boot with kernel = %s; args = %s; ramdisk = %s"
-      x.kernel x.kernel_args (string_of_option x.ramdisk)
-  | IndirectPV x ->
-    Printf.sprintf "Indirect PV boot via bootloader %s; extra_args = %s; legacy_args = %s; bootloader_args = %s; VDIs = [ %s ]"
-      x.bootloader x.extra_args x.legacy_args x.pv_bootloader_args
-      (String.concat "; " (List.map Ref.string_of  x.vdis))
-  | DirectPVinPVH x ->
-    Printf.sprintf "Direct PVinPVH boot with kernel = %s; args = %s; ramdisk = %s"
-      x.kernel x.kernel_args (string_of_option x.ramdisk)
-  | IndirectPVinPVH x ->
-    Printf.sprintf "Indirect PVinPVH boot via bootloader %s; extra_args = %s; legacy_args = %s; bootloader_args = %s; VDIs = [ %s ]"
-      x.bootloader x.extra_args x.legacy_args x.pv_bootloader_args
-      (String.concat "; " (List.map Ref.string_of  x.vdis))
-
 (** Returns the current value of the pool configuration flag *)
 (** that indicates whether a rolling upgrade is in progress. *)
 (* Note: the reason it's OK to trap exceptions and return false is that -- an exn will only happen if the pool record
