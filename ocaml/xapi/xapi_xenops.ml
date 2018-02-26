@@ -215,7 +215,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       with _ -> []
   in
 
-  let make_hvm_boot_record { Helpers.timeoffset = t } =
+  let make_hvmloader_boot_record { Helpers.timeoffset = t } =
     {
       hap = true;
       shadow_multiplier = vm.API.vM_HVM_shadow_multiplier;
@@ -259,7 +259,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
     }
   in
 
-  let make_direct_pv_boot_record { Helpers.kernel = k; kernel_args = ka; ramdisk = initrd } =
+  let make_direct_boot_record { Helpers.kernel = k; kernel_args = ka; ramdisk = initrd } =
     let k = if is_boot_file_whitelisted k then k else begin
         debug "kernel %s is not in the whitelist: ignoring" k;
         ""
@@ -282,7 +282,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
     }
   in
 
-  let make_indirect_pv_boot_record { Helpers.bootloader = b; extra_args = e; legacy_args = l; pv_bootloader_args = p; vdis = vdis } =
+  let make_indirect_boot_record { Helpers.bootloader = b; extra_args = e; legacy_args = l; pv_bootloader_args = p; vdis = vdis } =
     {
       boot = Indirect { bootloader = b; extra_args = e; legacy_args = l; bootloader_args = p; devices = List.filter_map (fun x -> disk_of_vdi ~__context ~self:x) vdis };
       framebuffer = bool vm.API.vM_platform false "pvfb";
@@ -295,12 +295,13 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
     }
   in
 
-  match Helpers.boot_method_of_vm ~__context ~vm with
-  | Helpers.HVM options ->             HVM (make_hvm_boot_record options)
-  | Helpers.DirectPV options ->        PV (make_direct_pv_boot_record options)
-  | Helpers.IndirectPV options ->      PV (make_indirect_pv_boot_record options)
-  | Helpers.DirectPVinPVH options ->   PVinPVH (make_direct_pv_boot_record options)
-  | Helpers.IndirectPVinPVH options -> PVinPVH (make_indirect_pv_boot_record options)
+  match Helpers.(check_domain_type vm.API.vM_domain_type, boot_method_of_vm ~__context ~vm) with
+  | `hvm,       Helpers.Hvmloader options -> HVM (make_hvmloader_boot_record options)
+  | `pv,        Helpers.Direct options ->    PV (make_direct_boot_record options)
+  | `pv,        Helpers.Indirect options ->  PV (make_indirect_boot_record options)
+  | `pv_in_pvh, Helpers.Direct options ->    PVinPVH (make_direct_boot_record options)
+  | `pv_in_pvh, Helpers.Indirect options ->  PVinPVH (make_indirect_boot_record options)
+  | _ -> raise Api_errors.(Server_error (internal_error, ["invalid boot configuration"]))
 
 module MD = struct
   (** Convert between xapi DB records and xenopsd records *)

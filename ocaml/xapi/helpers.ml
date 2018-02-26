@@ -404,16 +404,16 @@ let get_size_with_suffix s =
                       (Int64.of_float (float_of_string s)) else Int64.of_string s) suffix
 
 
-(** An HVM boot has the following user-settable parameters: *)
-type hvm_boot_t = { timeoffset: string }
+(** An hvmloader boot has the following user-settable parameters: *)
+type hvmloader_boot_t = { timeoffset: string }
 
-(** A 'direct' PV boot (one that is not indirected through a bootloader) has
+(** A 'direct' boot (one that is not indirected through a bootloader) has
     the following options: *)
-type direct_pv_boot_t = { kernel: string; kernel_args: string; ramdisk: string option }
+type direct_boot_t = { kernel: string; kernel_args: string; ramdisk: string option }
 
-(** An 'indirect' PV boot (one that defers to a bootloader) has the following
+(** An 'indirect' boot (one that defers to a bootloader) has the following
     options: *)
-type indirect_pv_boot_t =
+type indirect_boot_t =
   { bootloader: string;     (** bootloader to use (eg "pygrub") *)
     extra_args: string;     (** extra commandline arguments to pass bootloader for the kernel *)
     legacy_args: string;    (** "legacy" args to cope with Zurich/Geneva guests *)
@@ -423,11 +423,9 @@ type indirect_pv_boot_t =
 
 (** A type which represents the boot method a guest is configured to use *)
 type boot_method =
-  | HVM of hvm_boot_t
-  | DirectPV of direct_pv_boot_t
-  | IndirectPV of indirect_pv_boot_t
-  | DirectPVinPVH of direct_pv_boot_t
-  | IndirectPVinPVH of indirect_pv_boot_t
+  | Hvmloader of hvmloader_boot_t
+  | Direct of direct_boot_t
+  | Indirect of indirect_boot_t
 
 (** Returns the current value of the pool configuration flag *)
 (** that indicates whether a rolling upgrade is in progress. *)
@@ -460,17 +458,17 @@ let domain_type ~__context ~self : [ `hvm | `pv_in_pvh | `pv ] =
 
 (** Inspect the current configuration of a VM and return a boot_method type *)
 let boot_method_of_vm ~__context ~vm =
-  let hvm_options () =
+  let hvmloader_options () =
     let timeoffset = try List.assoc "timeoffset" vm.API.vM_platform with _ -> "0" in
     { timeoffset }
   in
-  let direct_pv_options () =
+  let direct_options () =
     let kernel = vm.API.vM_PV_kernel
     and kernel_args = vm.API.vM_PV_args
     and ramdisk = if vm.API.vM_PV_ramdisk <> "" then (Some vm.API.vM_PV_ramdisk) else None in
     { kernel; kernel_args; ramdisk }
   in
-  let indirect_pv_options () =
+  let indirect_options () =
     (* Extract the default kernel from the boot disk via bootloader *)
     (* NB We allow multiple bootable VDIs, in which case the
        bootloader gets to choose. Note that a VM may have no
@@ -490,12 +488,10 @@ let boot_method_of_vm ~__context ~vm =
       vdis = boot_vdis }
   in
   let direct_boot = vm.API.vM_PV_bootloader = "" in
-  match check_domain_type vm.API.vM_domain_type with
-  | `hvm ->                        HVM (hvm_options ())
-  | `pv when direct_boot ->        DirectPV (direct_pv_options ())
-  | `pv ->                         IndirectPV (indirect_pv_options ())
-  | `pv_in_pvh when direct_boot -> DirectPVinPVH (direct_pv_options ())
-  | `pv_in_pvh ->                  IndirectPVinPVH (indirect_pv_options ())
+  match check_domain_type vm.API.vM_domain_type, direct_boot with
+  | `hvm, _ ->                        Hvmloader (hvmloader_options ())
+  | `pv, true  | `pv_in_pvh, true ->  Direct (direct_options ())
+  | `pv, false | `pv_in_pvh, false -> Indirect (indirect_options ())
 
 let needs_qemu_from_domain_type = function
   | `hvm -> true
