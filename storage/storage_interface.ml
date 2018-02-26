@@ -118,9 +118,11 @@ type dp_stat_t = {
 
 let string_of_dp_stat_t (x: dp_stat_t) = Jsonrpc.to_string (rpc_of_dp_stat_t x)
 
+type device_config = (string * string) list
 type probe = {
-  srs: (string * sr_info) list; (* SRs we found *)
-  uris: string list; (* other uris we found which could be probed recursively *)
+  attachable: (device_config * sr_info) list; (* Attachable SRs we found *)
+  creatable: device_config list; (* Complete configurations that can be used to create an SR. *)
+  incomplete: device_config list; (* other configurations we found which could be probed recursively *)
 }
 
 type probe_result =
