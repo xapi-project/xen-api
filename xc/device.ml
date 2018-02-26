@@ -1446,12 +1446,12 @@ module Vusb = struct
     let is_running = Qemu.is_running ~xs domid in
     match is_running with
     | true  ->
-        let cmd = Qmp.(Device_add
-          ( "usb-host"
-          , id
-          , Some (get_bus version, hostbus, hostport)
-          ))
-        in qmp_send_cmd domid cmd |> ignore
+      let cmd = Qmp.(Device_add
+                       ( "usb-host"
+                       , id
+                       , Some (get_bus version, hostbus, hostport)
+                       ))
+      in qmp_send_cmd domid cmd |> ignore
     | _ -> ()
 
   let vusb_unplug ~xs ~domid ~id =
@@ -1476,15 +1476,15 @@ module Vusb = struct
     let is_running = Qemu.is_running ~xs domid in
     match is_running with
     | true  ->
-        let path = "/machine/peripheral" in
-        qmp_send_cmd domid Qmp.(Qom_list path)
-        |> ( function
-           | Qmp.(Qom usbs) -> List.map (fun p -> p.Qmp.name) usbs
-           | other ->
-               debug "%s unexpected QMP result for domid %d Qom_list"
-               __LOC__ domid;
-               []
-           )
+      let path = "/machine/peripheral" in
+      qmp_send_cmd domid Qmp.(Qom_list path)
+      |> ( function
+          | Qmp.(Qom usbs) -> List.map (fun p -> p.Qmp.name) usbs
+          | other ->
+            debug "%s unexpected QMP result for domid %d Qom_list"
+              __LOC__ domid;
+            []
+        )
     | _  -> []
 
 end
@@ -1501,7 +1501,7 @@ module Dm_Common = struct
   let max_emulated_nics = 8 (** Should be <= the hardcoded maximum number of emulated NICs *)
 
   type usb_opt =
-    | Enabled of string list
+    | Enabled of (string * int) list
     | Disabled
 
   (* How the display appears to the guest *)
@@ -1558,7 +1558,6 @@ module Dm_Common = struct
     if not (Qemu.is_running ~xs domid)
     then None
     else (try Some(int_of_string (xs.Xs.read (Generic.tc_port_path domid))) with _ -> None)
-
 
   (* Xenclient specific paths *)
   let power_mgmt_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d/xen_extended_power_mgmt" qemu_domid domid
@@ -1674,13 +1673,6 @@ module Dm_Common = struct
     disp_options, wait_for_port
 
   let cmdline_of_info ~xs ~dm info restore ?(domid_for_vnc=false) domid =
-    let usb' =
-      match info.usb with
-      | Disabled -> []
-      | Enabled devices ->
-        ("-usb" :: (List.concat (List.map (fun device ->
-             [ "-usbdevice"; device ]) devices))) in
-
     let disks' = List.map (fun (index, file, media) -> [
           "-drive"; sprintf "file=%s,if=ide,index=%d,media=%s" file index (string_of_media media)
         ]) info.disks in
@@ -1691,28 +1683,20 @@ module Dm_Common = struct
       else cmdline_of_disp info
     in
     List.concat
-      [ [ "-d"; string_of_int domid
-        ; "-m"; Int64.to_string (Int64.div info.memory 1024L)
-        ; "-boot"; info.boot
-        ]
-      ; ( info.serial |> function None -> [] | Some x -> [ "-serial"; x ])
-      ; [ "-vcpus"; string_of_int info.vcpus]
-      ; disp_options
-      ; usb'
+      [ disp_options
       ; List.concat disks'
       ; ( info.acpi |> function false -> [] | true -> [ "-acpi" ])
       ; ( restore   |> function false -> [] | true -> [ "-loadvm"; restorefile ])
       ; ( info.pci_emulations
-           |> List.map (fun pci -> ["-pciemulation"; pci])
-           |> List.concat
+          |> List.map (fun pci -> ["-pciemulation"; pci])
+          |> List.concat
         )
       ; ( info.pci_passthrough |> function false -> [] | true -> ["-priv"])
       ; ( (List.rev info.extras)
-           |> List.map (function (k,None) -> ["-"^k] | (k,Some v) -> ["-"^k; v])
-           |> List.concat
+          |> List.map (function (k,None) -> ["-"^k] | (k,Some v) -> ["-"^k; v])
+          |> List.concat
         )
       ; ( info.monitor  |> function None -> [] | Some x -> [ "-monitor";  x])
-      ; ( info.parallel |> function None -> [] | Some x -> [ "-parallel"; x])
       ]
 
   let vnconly_cmdline ~info ?(extras=[]) domid =
@@ -1808,9 +1792,9 @@ module Dm_Common = struct
     let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
     let timeout_ns = Int64.of_float (timeout *. Mtime.s_to_ns) in
     let target =
-        match Mtime.add_span (Mtime_clock.now ()) (Mtime.Span.of_uint64_ns timeout_ns) with
-          | None -> raise (Ioemu_failed (name, "Timeout overflow"))
-          | Some x -> x in
+      match Mtime.add_span (Mtime_clock.now ()) (Mtime.Span.of_uint64_ns timeout_ns) with
+      | None -> raise (Ioemu_failed (name, "Timeout overflow"))
+      | Some x -> x in
     while Mtime.is_earlier (Mtime_clock.now ()) ~than:target && not !finished do
       Xenops_task.check_cancelling task;
       try
@@ -1949,7 +1933,7 @@ module Backend = struct
           ~timeout ~cancel ?(fds=[]) _ =
         let pid = Dm_Common.start_daemon ~path ~args ~name ~domid ~fds () in
         Dm_Common.wait_path ~pid ~task ~name ~domid ~xs ~ready_path ?ready_val
-            ~timeout ~cancel ();
+          ~timeout ~cancel ();
         pid
 
       let stop        = Dm_Common.stop
@@ -1958,6 +1942,26 @@ module Backend = struct
 
       let cmdline_of_info ~xs ~dm info restore domid =
         let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid in
+
+        let usb =
+          match info.Dm_Common.usb with
+          | Dm_Common.Disabled -> []
+          | Dm_Common.Enabled devices ->
+            let devs = devices |> List.map (fun (x,_) -> ["-usbdevice"; x]) |> List.concat in
+            "-usb" :: devs
+        in
+
+        let misc = List.concat
+            [ [ "-d"; string_of_int domid
+              ; "-m"; Int64.to_string (Int64.div info.Dm_Common.memory 1024L)
+              ; "-boot"; info.Dm_Common.boot
+              ]
+            ; usb
+            ; [ "-vcpus"; string_of_int info.Dm_Common.vcpus]
+            ; (info.Dm_Common.serial |> function None -> [] | Some x -> [ "-serial"; x ])
+            ; (info.Dm_Common.parallel |> function None -> [] | Some x -> [ "-parallel"; x])
+            ] in
+
         (* Sort the VIF devices by devid *)
         let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.Dm_Common.nics in
         if List.length nics > Dm_Common.max_emulated_nics then debug "Limiting the number of emulated NICs to %d" Dm_Common.max_emulated_nics;
@@ -1974,7 +1978,7 @@ module Backend = struct
                 ]
               ) nics
           else [["-net"; "none"]] in
-        common @ (List.concat nics')
+        common @ misc @ (List.concat nics')
 
       let after_suspend_image ~xs ~qemu_domid domid = ()
 
@@ -2015,8 +2019,8 @@ module Backend = struct
                    (fun () ->
                       let cmd = Qmp.(Remove_fd fd_info.fdset_id) in
                       qmp_send_cmd domid cmd |> ignore))
-                 (fun () ->
-                    Unix.close fd_cd)
+              (fun () ->
+                 Unix.close fd_cd)
           with
           | Unix.Unix_error(Unix.ECONNREFUSED, "connect", p) -> raise(Internal_error (Printf.sprintf "Failed to connnect QMP socket: %s" p))
           | Unix.Unix_error(Unix.ENOENT, "open", p) -> raise(Internal_error (Printf.sprintf "Failed to open CD Image: %s" p))
@@ -2163,7 +2167,7 @@ module Backend = struct
       let get_vnc_port ~xs domid =
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
             Some (Socket.Unix (Dm_Common.vnc_socket_path domid))
-        )
+          )
 
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
         let as_msg cmd = Qmp.(Success(Some __LOC__, cmd)) in
@@ -2172,23 +2176,23 @@ module Backend = struct
         let save_fd    = Unix.openfile save_file perms 0o660 in
         finally
           (fun () ->
-            let fd = qmp_send_cmd ~send_fd:save_fd domid Qmp.(Add_fd None)
-              |> function
-              | Qmp.(Fd_info fd) -> fd
-              | other ->
-                  raise (Internal_error (sprintf
-                    "Unexpected result for QMP command: %s"
-                    Qmp.(other |> as_msg |> string_of_message)))
-            in
-            finally
-             (fun () ->
-                let path = sprintf "/dev/fdset/%d" fd.Qmp.fdset_id in
-                qmp_send_cmd domid Qmp.Stop |> ignore;
-                qmp_send_cmd domid Qmp.(Xen_save_devices_state path) |> ignore)
-             (fun () ->
-                qmp_send_cmd domid Qmp.(Remove_fd fd.fdset_id) |> ignore))
+             let fd = qmp_send_cmd ~send_fd:save_fd domid Qmp.(Add_fd None)
+                      |> function
+                      | Qmp.(Fd_info fd) -> fd
+                      | other ->
+                        raise (Internal_error (sprintf
+                                                 "Unexpected result for QMP command: %s"
+                                                 Qmp.(other |> as_msg |> string_of_message)))
+             in
+             finally
+               (fun () ->
+                  let path = sprintf "/dev/fdset/%d" fd.Qmp.fdset_id in
+                  qmp_send_cmd domid Qmp.Stop |> ignore;
+                  qmp_send_cmd domid Qmp.(Xen_save_devices_state path) |> ignore)
+               (fun () ->
+                  qmp_send_cmd domid Qmp.(Remove_fd fd.fdset_id) |> ignore))
           (fun () ->
-            Unix.close save_fd)
+             Unix.close save_fd)
 
 
       (* Wait for QEMU's event socket to appear. *)
@@ -2196,9 +2200,9 @@ module Backend = struct
         let finished = ref false in
         let timeout_ns = Int64.of_float (timeout *. Mtime.s_to_ns) in
         let target =
-            match Mtime.add_span (Mtime_clock.now ()) (Mtime.Span.of_uint64_ns timeout_ns) with
-              | None -> raise (Ioemu_failed (name, "Timeout overflow"))
-              | Some x -> x in
+          match Mtime.add_span (Mtime_clock.now ()) (Mtime.Span.of_uint64_ns timeout_ns) with
+          | None -> raise (Ioemu_failed (name, "Timeout overflow"))
+          | Some x -> x in
         while Mtime.is_earlier (Mtime_clock.now ()) ~than:target && not !finished do
           Xenops_task.check_cancelling task;
           if Sys.file_exists (qmp_event_path domid) then
@@ -2238,6 +2242,93 @@ module Backend = struct
       let cmdline_of_info ~xs ~dm info restore domid =
         let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid ~domid_for_vnc:true in
 
+        let usb =
+          match info.Dm_Common.usb with
+          | Dm_Common.Disabled -> []
+          | Dm_Common.Enabled devices ->
+            let devs = devices |>
+                       List.map (fun (x,y) -> ["-device"; sprintf "usb-%s,port=%d" x y]) |> List.concat in
+            "-usb" :: devs
+        in
+
+        let serial_device =
+          try
+            let xs_path = xs.Xs.read "/local/logconsole/@" in
+            let file =
+              if Stdext.Xstringext.String.has_substr xs_path "%d" then
+                Stdext.Xstringext.String.replace "%d" (string_of_int domid) xs_path
+              else
+                xs_path
+            in Some ("file:" ^ file)
+          with _ -> info.Dm_Common.serial
+        in
+
+        let mult xs ys =
+          List.map (fun x -> List.map (fun y -> x^"."^y) ys) xs |>
+          List.concat in
+        let global =
+          mult
+            ["piix3-ide-xen"; "piix3-usb-uhci"; "rtl8139"]
+            ["subvendor_id=0x5853"; "subsystem_id=0x0001"]
+        in
+
+        let qmp = ["libxl"; "event"] |>
+                  List.map (fun x -> ["-qmp"; sprintf "unix:/var/run/xen/qmp-%s-%d,server,nowait" x domid]) |>
+                  List.concat in
+
+        let has_platform_device =
+          try
+            int_of_string (xs.Xs.read (sprintf "/local/domain/%d/vm-data/disable_pf" domid)) <> 1
+          with _ -> true
+        in
+        let xen_platform_device =
+          if has_platform_device then begin
+            let device_id =
+              try xs.Xs.read (sprintf "/local/domain/%d/platform/device_id" domid)
+              with _ -> "0001"
+            in
+            [ "-device"; String.concat "," [
+                  "xen-platform"
+                ; "addr=3"
+                ; sprintf "device-id=0x%s" device_id
+                ; "revision=0x2"
+                ; "class-id=0x0100"
+                ; "subvendor_id=0x5853"
+                ; sprintf"subsystem_id=0x%s" device_id
+                ]
+            ]
+          end else []
+        in
+
+        let pv_device =
+          try
+            let has_device = xs.Xs.read (sprintf "/local/domain/%d/control/has-vendor-device" domid) in
+            if int_of_string has_device = 1 then ["-device"; "xen-pvdevice,device-id=0xc000"]
+            else []
+          with _ -> []
+        in
+
+        let misc = List.concat
+            [ [ "-xen-domid"; string_of_int domid
+              ; "-m"; "size=" ^ (Int64.to_string (Int64.div info.Dm_Common.memory 1024L))
+              ; "-boot"; "order=" ^ info.Dm_Common.boot
+              ]
+            ; usb
+            ; [ "-smp"; "maxcpus=" ^ (string_of_int info.Dm_Common.vcpus)]
+            ; (serial_device |> function None -> [] | Some x -> [ "-serial"; x ])
+            ; [ "-display"; "none"; "-nodefaults"]
+            ; [ "-trace"; "enable=xen_platform_log"]
+            ; [ "-sandbox"; "on,obsolete=deny,elevateprivileges=allow,spawn=deny,resourcecontrol=deny"]
+            ; [ "-S"]
+            ; [ "-global"; "PIIX4_PM.revision_id=0x1"]
+            ; [ "-global"; "ide-hd.ver=0.10.2"]
+            ; (global |> List.map (fun x -> ["-global"; x]) |> List.concat)
+            ; (info.Dm_Common.parallel |> function None -> [ "-parallel"; "null"] | Some x -> [ "-parallel"; x])
+            ; qmp
+            ; pv_device
+            ; xen_platform_device
+            ] in
+
         (* Sort the VIF devices by devid *)
         let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.Dm_Common.nics in
         if List.length nics > Dm_Common.max_emulated_nics then
@@ -2257,7 +2348,7 @@ module Backend = struct
           else
             [["-net"; "none"]]
         in
-        common @ (List.concat nics')
+        common @ misc @ (List.concat nics')
 
       let after_suspend_image ~xs ~qemu_domid domid =
         (* device model not needed anymore after suspend image has been created *)
@@ -2350,8 +2441,8 @@ module Dm = struct
         let vgpu_pid = start_daemon ~path:!Xc_resources.vgpu ~args ~name:"vgpu"
             ~domid ~fds:[] profile in
         wait_path ~pid:vgpu_pid ~task ~name:"vgpu" ~domid ~xs
-            ~ready_path:state_path ~timeout:!Xenopsd.vgpu_ready_timeout
-            ~cancel ();
+          ~ready_path:state_path ~timeout:!Xenopsd.vgpu_ready_timeout
+          ~cancel ();
         Forkhelpers.dontwaitpid vgpu_pid
       end else
         info "Daemon %s is already running for domain %d" !Xc_resources.vgpu domid;

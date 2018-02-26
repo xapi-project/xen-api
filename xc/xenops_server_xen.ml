@@ -1232,7 +1232,7 @@ module VM = struct
         let usb =
           match usb_enabled, usb_tablet_enabled with
           | true, false -> Device.Dm.Enabled []
-          | true, true -> Device.Dm.Enabled ["tablet"]
+          | true, true -> Device.Dm.Enabled [("tablet", 2)]
           | false, _ -> Device.Dm.Disabled
         in
         let parallel =
