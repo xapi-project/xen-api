@@ -426,7 +426,9 @@ module ResetCPUFlags = Generic.Make(Generic.EncapsulateState(struct
                                       let tests = [
                                         (["a", `hvm], [features_hvm]);
                                         (["a", `pv], [features_pv]);
-                                        (["a", `hvm; "b", `pv], [features_hvm; features_pv]);
+                                        (["a", `pv_in_pvh], [features_hvm]);
+                                        (["a", `hvm; "b", `pv; "c", `pv_in_pvh],
+                                          [features_hvm; features_pv; features_hvm]);
                                       ]
                                     end))
 
