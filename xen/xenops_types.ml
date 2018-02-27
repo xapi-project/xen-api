@@ -153,6 +153,7 @@ module Vm = struct
   type builder_info =
     | HVM of hvm_info
     | PV of pv_info
+    | PVinPVH of pv_info
   [@@deriving rpc, sexp]
 
   let default_builder_info = HVM default_hvm_info
@@ -240,6 +241,13 @@ module Vm = struct
     path: string;
   } [@@deriving rpc, sexp]
 
+  type domain_type =
+    | Domain_HVM
+    | Domain_PV
+    | Domain_PVinPVH
+    | Domain_undefined
+  [@@deriving rpc, sexp]
+
   type state = {
     power_state: TopLevel.power_state;
     domids: int list;
@@ -257,7 +265,8 @@ module Vm = struct
     last_start_time: float;
     hvm: bool;
     nomigrate: bool; (* true: VM must not migrate *)
-    nested_virt: bool (* true: VM uses nested virtualisation *)
+    nested_virt: bool; (* true: VM uses nested virtualisation *)
+    domain_type: domain_type;
   } [@@deriving rpc, sexp]
 
 end
