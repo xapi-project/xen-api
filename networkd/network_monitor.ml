@@ -16,7 +16,7 @@ open Network_interface
 include Network_stats
 
 let write_stats stats =
-	let payload = stats |> rpc_of_stats_t |> Jsonrpc.to_string in
+	let payload = stats |> Rpcmarshal.marshal typ_of_stats_t |> Jsonrpc.to_string in
 	let checksum = payload |> Digest.string |> Digest.to_hex in
 	let length = String.length payload in
 	let data = Printf.sprintf "%s%s%08x%s" magic checksum length payload in

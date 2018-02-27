@@ -20,6 +20,8 @@ open D
 exception Read_error
 exception Write_error
 
+let empty_config = default_config
+
 let config_file_path = "/var/lib/xcp/networkd.db"
 
 let bridge_naming_convention (device: string) =
@@ -104,17 +106,62 @@ let read_management_conf () =
 
 let write_config config =
 	try
-		let config_json = config |> rpc_of_config_t |> Jsonrpc.to_string in
+		let config_json = config |> Rpcmarshal.marshal typ_of_config_t |> Jsonrpc.to_string in
 		Xapi_stdext_unix.Unixext.write_string_to_file config_file_path config_json
 	with e ->
 		error "Error while trying to write networkd configuration: %s\n%s"
 			(Printexc.to_string e) (Printexc.get_backtrace ());
 		raise Write_error
 
+(* Porting network interaface to ppx: convert ipv4_routes from (string * int * string) list to {gateway:string; netmask:int; subnet:string} *)
+let convert_configuration cfg =
+	let open Yojson.Safe in
+	let convert_ipv4_routes cfg =
+		let convert_ipv4_route cfg =
+			match cfg with
+			| `List [`String gateway; `Int netmask; `String subnet] ->
+				debug "convert ipv4 route";
+				`Assoc ["gateway", `String gateway; "netmask", `Int netmask; "subnet", `String subnet]
+			| other -> other
+		in
+		match cfg with
+		| `List l ->
+			`List (List.map convert_ipv4_route l)
+		| other -> other
+	in
+	let convert_interface_item cfg =
+		match cfg with
+		| `Assoc l ->
+			`Assoc (List.map (fun (k, v) ->
+					let v = if k = "ipv4_routes" then convert_ipv4_routes v else v in
+					k, v
+				) l)
+		| other -> other
+	in
+	let convert_interface_config cfg =
+		match cfg with
+		| `Assoc l ->
+			`Assoc (List.map (fun (k, v) -> k, convert_interface_item v) l)
+		| other -> other
+	in
+	let json = match from_string cfg with
+		| `Assoc l ->
+			`Assoc (List.map (fun (k, v) ->
+					let v = if k = "interface_config" then convert_interface_config v else v in
+					k, v
+				) l)
+		| other -> other
+	in
+	to_string json
+
 let read_config () =
 	try
-		let config_json = Xapi_stdext_unix.Unixext.string_of_file config_file_path in
-		config_json |> Jsonrpc.of_string |> config_t_of_rpc
+		let config_json = Xapi_stdext_unix.Unixext.string_of_file config_file_path |> convert_configuration in
+		match config_json |> Jsonrpc.of_string |> Rpcmarshal.unmarshal typ_of_config_t with
+		| Result.Ok v -> v
+		| Result.Error (`Msg err_msg) ->
+			error "Read configuration error: %s" err_msg;
+			raise Read_error
 	with
 		| Unix.Unix_error (Unix.ENOENT, _, file) ->
 			info "Cannot read networkd configuration file %s because it does not exist." file;
