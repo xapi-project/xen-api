@@ -10,4 +10,5 @@ let () =
     ; "Test_vm_check_operation_error", Test_vm_check_operation_error.test
     ; "Test_host", Test_host.test
     ; "Test_cluster", Test_cluster.test
+    ; "Test_cluster_host", Test_cluster_host.test
     ]
