@@ -792,6 +792,13 @@ let export_metadata vdi_map vif_map vgpu_pci_map id =
                                       | Vm.Direct x -> pv_info.Vm.boot
                                       | Vm.Indirect pv_indirect_boot ->
                                         Vm.Indirect { pv_indirect_boot with Vm.devices =
+                                                                              List.map (remap_vdi vdi_map) pv_indirect_boot.Vm.devices } }
+                           | Vm.PVinPVH pv_info ->
+                             Vm.PVinPVH {pv_info with
+                                    Vm.boot = match pv_info.Vm.boot with
+                                      | Vm.Direct x -> pv_info.Vm.boot
+                                      | Vm.Indirect pv_indirect_boot ->
+                                        Vm.Indirect { pv_indirect_boot with Vm.devices =
                                                                               List.map (remap_vdi vdi_map) pv_indirect_boot.Vm.devices } } } in
 
   let vbds = VBD_DB.vbds id in
@@ -2434,8 +2441,8 @@ module VM = struct
              let fs =
                let stat = B.HOST.stat () in
                (match md.Metadata.vm.Vm.ty with
-                | HVM _ -> Host.(stat.cpu_info.features_hvm)
-                | _ -> Host.(stat.cpu_info.features_pv))
+                | HVM _ | PVinPVH _ -> Host.(stat.cpu_info.features_hvm)
+                | PV _ -> Host.(stat.cpu_info.features_pv))
                |> string_of_features
              in
              debug "Setting Platformdata:featureset=%s" fs;

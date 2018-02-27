@@ -234,16 +234,7 @@ sig
     disp: disp_opt;
     pci_emulations: string list;
     pci_passthrough: bool;
-
-    (* Xenclient extras *)
-    xenclient_enabled: bool;
-    hvm: bool;
-    sound: string option;
-    power_mgmt: int option;
-    oem_features: int option;
-    inject_sci: int option;
     video_mib: int;
-
     extras: (string * string option) list;
   }
 

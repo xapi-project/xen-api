@@ -28,6 +28,37 @@ exception Emu_manager_failure of string (* an actual error is reported to us *)
 exception Timeout_backend
 exception Could_not_read_file of string (* eg linux kernel/ initrd *)
 
+type xen_arm_arch_domainconfig = (* Xenctrl.xen_arm_arch_domainconfig = *) {
+  gic_version: int;
+  nr_spis: int;
+  clock_frequency: int32;
+}
+
+type x86_arch_emulation_flags = (* Xenctrl.x86_arch_emulation_flags = *)
+| X86_EMU_LAPIC
+| X86_EMU_HPET
+| X86_EMU_PM
+| X86_EMU_RTC
+| X86_EMU_IOAPIC
+| X86_EMU_PIC
+| X86_EMU_VGA
+| X86_EMU_IOMMU
+| X86_EMU_PIT
+| X86_EMU_USE_PIRQ
+
+val emulation_flags_pvh : x86_arch_emulation_flags list
+val emulation_flags_all : x86_arch_emulation_flags list
+
+type xen_x86_arch_domainconfig = (* Xenctrl.xen_x86_arch_domainconfig = *) {
+  emulation_flags: x86_arch_emulation_flags list;
+}
+
+type arch_domainconfig = (* Xenctrl.arch_domainconfig = *)
+  | ARM of xen_arm_arch_domainconfig
+  | X86 of xen_x86_arch_domainconfig
+val rpc_of_arch_domainconfig : arch_domainconfig -> Rpc.t
+val arch_domainconfig_of_rpc : Rpc.t -> arch_domainconfig
+
 type create_info = {
   ssidref: int32;
   hvm: bool;
@@ -55,7 +86,19 @@ type build_pv_info = {
 val build_pv_info_of_rpc: Rpc.t -> build_pv_info
 val rpc_of_build_pv_info: build_pv_info -> Rpc.t
 
-type builder_spec_info = BuildHVM of build_hvm_info | BuildPV of build_pv_info
+type build_pvh_info = {
+  cmdline: string;                        (* cmdline for the kernel (image) *)
+  modules: (string * string option) list; (* list of modules plus optional cmdlines *)
+  shadow_multiplier: float;
+  video_mib: int;
+}
+val build_pvh_info_of_rpc: Rpc.t -> build_pvh_info
+val rpc_of_build_pvh_info: build_pvh_info -> Rpc.t
+
+type builder_spec_info =
+  | BuildHVM of build_hvm_info
+  | BuildPV of build_pv_info
+  | BuildPVH of build_pvh_info
 val builder_spec_info_of_rpc: Rpc.t -> builder_spec_info
 val rpc_of_builder_spec_info: builder_spec_info -> Rpc.t
 
@@ -69,13 +112,8 @@ type build_info = {
 val build_info_of_rpc: Rpc.t -> build_info
 val rpc_of_build_info: build_info -> Rpc.t
 
-type domarch = Arch_HVM | Arch_native | Arch_X64 | Arch_X32
-
-val string_of_domarch : domarch -> string
-val domarch_of_string : string -> domarch
-
 (** Create a fresh (empty) domain with a specific UUID, returning the domain ID *)
-val make: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> create_info -> Uuidm.t -> domid
+val make: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> create_info -> arch_domainconfig -> Uuidm.t -> domid
 
 (** 'types' of shutdown request *)
 type shutdown_reason = PowerOff | Reboot | Suspend | Crash | Halt | S3Suspend | Unknown of int
@@ -96,7 +134,7 @@ exception Domain_does_not_exist
 val shutdown: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> shutdown_reason -> unit
 
 (** Tell the domain to shutdown with reason 'shutdown_reason', waiting for an ack *)
-val shutdown_wait_for_ack: Xenops_task.Xenops_task.task_handle -> timeout:float -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> shutdown_reason -> unit
+val shutdown_wait_for_ack: Xenops_task.Xenops_task.task_handle -> timeout:float -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> [`hvm | `pv | `pvh] -> shutdown_reason -> unit
 
 (** send a domain a sysrq *)
 val sysrq: xs:Xenstore.Xs.xsh -> domid -> char -> unit
@@ -116,26 +154,8 @@ val set_action_request: xs:Xenstore.Xs.xsh -> domid -> string option -> unit
 
 val get_action_request: xs:Xenstore.Xs.xsh -> domid -> string option
 
-(* val create_channels : xc:Xenctrl.handle -> domid -> int * int *)
-
-(** Builds a linux guest in a fresh domain created with 'make' *)
-val build_linux: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> static_max_kib:Int64.t
-  -> target_kib:Int64.t -> kernel:string -> cmdline:string
-  -> ramdisk:string option -> vcpus:int -> extras:string list -> string -> domid -> bool
-  -> domarch
-
-(** build an hvm domain in a fresh domain created with 'make' *)
-val build_hvm: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> static_max_kib:Int64.t
-  -> target_kib:Int64.t -> shadow_multiplier:float
-  -> vcpus:int -> kernel:string
-  -> timeoffset:string -> video_mib:int -> extras:string list -> string -> domid -> bool
-  -> domarch
-
 (** Restore a domain using the info provided *)
-val build: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> timeoffset:string -> extras:string list -> build_info -> string -> domid -> bool -> domarch
-
-(** resume a domain either cooperative or not *)
-val resume: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool -> cooperative: bool -> qemu_domid:int -> domid -> unit
+val build: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> timeoffset:string -> extras:string list -> build_info -> string -> domid -> bool -> unit
 
 (** Restore a domain using the info provided *)
 val restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh
@@ -148,7 +168,8 @@ val restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xe
 type suspend_flag = Live | Debug
 
 (** suspend a domain into the file descriptor *)
-val suspend: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> hvm: bool
+val suspend: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh
+  -> domain_type: [`hvm | `pv | `pvh]
   -> xenguest_path:string -> emu_manager_path:string -> string -> domid
   -> Unix.file_descr
   -> Unix.file_descr option

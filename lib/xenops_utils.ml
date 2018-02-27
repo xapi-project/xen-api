@@ -557,6 +557,7 @@ let halted_vm = {
   hvm = false;
   nomigrate=false;
   nested_virt=false;
+  domain_type = Vm.Domain_undefined;
 }
 
 let unplugged_pci = {

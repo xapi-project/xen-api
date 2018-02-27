@@ -1534,16 +1534,7 @@ module Dm_Common = struct
     disp: disp_opt;
     pci_emulations: string list;
     pci_passthrough: bool;
-
-    (* Xenclient extras *)
-    xenclient_enabled : bool;
-    hvm : bool;
-    sound : string option;
-    power_mgmt : int option;
-    oem_features : int option;
-    inject_sci : int option;
     video_mib : int;
-
     extras: (string * string option) list;
   }
 
@@ -1556,40 +1547,6 @@ module Dm_Common = struct
     if not (Qemu.is_running ~xs domid)
     then None
     else (try Some(int_of_string (xs.Xs.read (Generic.tc_port_path domid))) with _ -> None)
-
-
-  (* Xenclient specific paths *)
-  let power_mgmt_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d/xen_extended_power_mgmt" qemu_domid domid
-  let oem_features_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d/oem_features" qemu_domid domid
-  let inject_sci_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d/inject-sci" qemu_domid domid
-
-  let xenclient_specific ~xs info ~qemu_domid domid =
-    (match info.power_mgmt with 
-     | Some i -> begin
-         try 
-           if (Unix.stat "/proc/acpi/battery").Unix.st_kind == Unix.S_DIR then
-             xs.Xs.write (power_mgmt_path ~qemu_domid domid) (string_of_int i);
-         with _ -> ()
-       end
-     | None -> ());
-
-    (match info.oem_features with 
-     | Some i -> xs.Xs.write (oem_features_path ~qemu_domid domid) (string_of_int i);
-     | None -> ());
-
-    (match info.inject_sci with 
-     | Some i -> xs.Xs.write (inject_sci_path ~qemu_domid domid) (string_of_int i)
-     | None -> ());
-
-    let sound_options =
-      match info.sound with
-      | None        -> []
-      | Some device -> [ "-soundhw"; device ]
-    in
-
-    ["-videoram"; string_of_int info.video_mib;
-     "-M"; (if info.hvm then "xenfv" else "xenpv")] 
-    @ sound_options
 
   let signal (task: Xenops_task.task_handle) ~xs ~qemu_domid ~domid ?wait_for ?param cmd =
     let cmdpath = device_model_path ~qemu_domid domid in
