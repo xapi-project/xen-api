@@ -38,8 +38,6 @@ let process_rpc (req: Rpc.t) =
          Response.Db_get_by_uuid (DB.db_get_by_uuid t a b)
        | Request.Db_get_by_name_label (a, b) ->
          Response.Db_get_by_name_label (DB.db_get_by_name_label t a b)
-       | Request.Read_set_ref w ->
-         Response.Read_set_ref (DB.read_set_ref t w)
        | Request.Create_row (a, b, c) ->
          Response.Create_row (DB.create_row t a b c)
        | Request.Delete_row (a, b) ->

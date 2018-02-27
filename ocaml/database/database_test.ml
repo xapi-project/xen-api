@@ -26,14 +26,14 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
     [
       "uuid", uuid;
       name_description, "";
-(*      "protection_policy", "";*)
+      (*      "protection_policy", "";*)
       "other_config", "()";
       "tags", "()";
       name_label, name;
     ]
 
   let make_vbd vm r uuid = [
-(*    "ref", r; *)
+    (*    "ref", r; *)
     "uuid", uuid;
     "VM", vm;
     "type", "user";
@@ -108,8 +108,8 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
       then failwith (Printf.sprintf "check_ref_index %s key %s: ref_index name_label = %s; db has %s" tblname key (Opt.default "None" name_label') (Opt.default "None" real_name_label))
 
 
-open Xapi_stdext_pervasives
-open Db_cache_types
+  open Xapi_stdext_pervasives
+  open Db_cache_types
 
   let create_test_db () =
     let schema = Test_schemas.many_to_many in
@@ -126,9 +126,9 @@ open Db_cache_types
     (* make a bar with foos = [] *)
     (* add 'bar' to foo.bars *)
     let db = db |>
-      add_row "bar" "bar:1" (Row.add 0L Db_names.ref (String "bar:1") (Row.add 0L "foos" (Set []) Row.empty)) |>
-      add_row "foo" "foo:1" (Row.add 0L Db_names.ref (String "foo:1") (Row.add 0L "bars" (Set []) Row.empty)) |>
-      set_field "foo" "foo:1" "bars" (add_to_set "bar:1" (Set []))
+             add_row "bar" "bar:1" (Row.add 0L Db_names.ref (String "bar:1") (Row.add 0L "foos" (Set []) Row.empty)) |>
+             add_row "foo" "foo:1" (Row.add 0L Db_names.ref (String "foo:1") (Row.add 0L "bars" (Set []) Row.empty)) |>
+             set_field "foo" "foo:1" "bars" (add_to_set "bar:1" (Set []))
     in
     (* check that 'bar.foos' includes 'foo' *)
     let bar_1 = Table.find "bar:1" (TableSet.find "bar" (Database.tableset db)) in
@@ -486,11 +486,6 @@ open Db_cache_types
     if not (List.mem name xs)
     then failwith "read_field_where <valid table> <valid return> <valid field> <valid value>";
     test_invalid_where_record "read_field_where" (Client.read_field_where t);
-
-(*    let xs = Client.read_set_ref t where_name_label in
-    if not (List.mem name xs)
-    then failwith "read_set_ref <valid table> <valid return> <valid field> <valid value>";
-    test_invalid_where_record "read_set_ref" (Client.read_set_ref t);*)
 
     Printf.printf "write_field <invalid table>\n";
     expect_missing_tbl "Vm"

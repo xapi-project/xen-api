@@ -87,39 +87,6 @@ let touch_row t tblname objref =
   update_database t (touch tblname objref);
   Database.notify (RefreshRow(tblname, objref)) (get_database t)
 
-(* This function *should* only be used by db_actions code looking up Set(Ref _) fields:
-   if we detect another (illegal) use we log the problem and fall back to a slow scan *)
-let read_set_ref t rcd =
-  let db = get_database t in
-  (* The where_record should correspond to the 'one' end of a 'one to many' *)
-  let one_tbl = rcd.table in
-  let one_fld = rcd.where_field in
-  let rels =
-    try
-      Schema.one_to_many one_tbl (Database.schema db)
-    with Not_found ->
-      raise (Db_exn.DBCache_NotFound("missing table", one_tbl, ""))
-  in
-  (* This is an 'illegal' use if: *)
-  let illegal = rcd.return <> Db_names.ref || (List.filter (fun (a, _, _) -> a = one_fld) rels = []) in
-  if not illegal then begin
-    let _, many_tbl, many_fld = List.find (fun (a, _, _) -> a = one_fld) rels in
-    let objref = rcd.where_value in
-
-    Schema.Value.Unsafe_cast.set (read_field_internal t many_tbl many_fld objref db)
-  end else begin
-    error "Illegal read_set_ref query { table = %s; where_field = %s; where_value = %s; return = %s }; falling back to linear scan" rcd.table rcd.where_field rcd.where_value rcd.return;
-    Printf.printf "Illegal read_set_ref query { table = %s; where_field = %s; where_value = %s; return = %s }; falling back to linear scan\n%!" rcd.table rcd.where_field rcd.where_value rcd.return;
-    let tbl = TableSet.find rcd.table (Database.tableset db) in
-    Table.fold
-      (fun rf _ row acc ->
-         let v = Schema.Value.Unsafe_cast.string (Row.find rcd.where_field row) in
-         if v = rcd.where_value
-         then v :: acc else acc)
-      tbl []
-  end
-
-
 (* setrefs contain the relationships from tbl to other tables in the form:
    local-classname, local-fieldname, remote-classname, remote-fieldname.
    db_read_record reads row from tbl with reference==objref [returning (fieldname, fieldvalue) list].
