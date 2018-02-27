@@ -156,15 +156,6 @@ let marshall_db_get_by_name_label_response sl =
 let unmarshall_db_get_by_name_label_response xml =
   unmarshall_stringlist xml
 
-(* read_set_ref *)
-let marshall_read_set_ref_args w = marshall_where_rec w
-let unmarshall_read_set_ref_args xml = unmarshall_where_rec xml
-let marshall_read_set_ref_response sl =
-  marshall_stringlist sl
-let unmarshall_read_set_ref_response xml =
-  unmarshall_stringlist xml
-
-
 (* create_row *)
 let marshall_create_row_args (s1,ssl,s2) =
   XMLRPC.To.array

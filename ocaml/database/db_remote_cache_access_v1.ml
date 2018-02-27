@@ -74,9 +74,6 @@ module DBCacheRemoteListener = struct
       | "read_field_where" ->
         let w = unmarshall_read_field_where_args args in
         success (marshall_read_field_where_response (DBCache.read_field_where t w))
-      | "read_set_ref" ->
-        let w = unmarshall_read_set_ref_args args in
-        success (marshall_read_set_ref_response (DBCache.read_field_where t w))
       | "create_row" ->
         let (s1,ssl,s2) = unmarshall_create_row_args args in
         success (marshall_create_row_response (DBCache.create_row t s1 ssl s2))

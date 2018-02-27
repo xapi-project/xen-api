@@ -36,6 +36,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    database_server_main
    db_cache_test
    block_device_io
+   unit_test_marshall
   ))
   (libraries (
    rpclib
@@ -71,4 +72,46 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   ))
  )
 )
+
+(executable
+ ((name unit_test_marshall)
+  (package xapi)
+  (modules (
+    unit_test_marshall
+    ))
+  (libraries (
+    xapi-database
+  ))
+ )
+)
+
+(executable
+ ((name database_server_main)
+  (package xapi)
+  (modules (
+    database_server_main
+    ))
+  (libraries (
+    xapi-database
+    threads
+    xapi-stdext-threads
+    http-svr
+  ))
+ )
+)
+
+(alias
+ ((name runtest)
+  (deps (unit_test_marshall.exe))
+  (action (run ${<}))
+ )
+)
+
+(alias
+ ((name runtest)
+  (deps (database_server_main.exe))
+  (action (run ${<} --master db.xml --test))
+ )
+)
+
 |} (flags rewriters) coverage_rewriter
