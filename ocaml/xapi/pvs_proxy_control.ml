@@ -112,7 +112,7 @@ module State = struct
 end
 
 let metadata_of_site ~__context ~site ~vdi ~proxies =
-  let open Network_interface in
+  let open Network.Net in
   let site_rc = Db.PVS_site.get_record ~__context ~self:site in
   let servers =
     List.map (fun self ->
@@ -152,7 +152,7 @@ let configure_proxy_m = Mutex.create ()
  *  for all locally running proxies, taking into account starting and stopping proxies *)
 let update_site_on_localhost ~__context ~site ~vdi =
   debug "Updating PVS site %s." (Ref.string_of site);
-  let open Network_interface.PVS_proxy in
+  let open Network.Net.PVS_proxy in
   let dbg = Context.string_of_task __context in
   Mutex.execute configure_proxy_m (fun () ->
     let proxies = State.get_running_proxies ~__context site in
@@ -164,7 +164,7 @@ let update_site_on_localhost ~__context ~site ~vdi =
  *  proxying for the given site, and release the associated cache VDI. *)
 let remove_site_on_localhost ~__context ~site =
   debug "Removing PVS site %s." (Ref.string_of site);
-  let open Network_interface.PVS_proxy in
+  let open Network.Net.PVS_proxy in
   let dbg = Context.string_of_task __context in
   let uuid = Db.PVS_site.get_uuid ~__context ~self:site in
   State.remove_site ~__context site;
@@ -200,7 +200,7 @@ let start_proxy ~__context vif proxy =
     let vifr = Db.VIF.get_record ~__context ~self:vif in
     let bridge = Db.Network.get_bridge ~__context ~self:vifr.API.vIF_network in
     let port_name = proxy_port_name vifr in
-    Network.Net.Bridge.add_port dbg ~bridge ~name:port_name ~kind:Network_interface.PVS_proxy ~interfaces:[] ();
+    Network.Net.Bridge.add_port dbg None bridge port_name [] None (Some Network_interface.PVS_proxy);
 
     (* Update the PVS proxy daemon and related metadata *)
     let vdi = find_cache_vdi ~__context ~host ~site in
@@ -222,7 +222,7 @@ let start_proxy ~__context vif proxy =
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             ignore(Client.Client.Message.create ~rpc ~session_id ~name  ~priority ~cls:`PVS_proxy ~obj_uuid:proxy_uuid  ~body));
         "no PVS cache SR available"
-      | Network_interface.PVS_proxy_connection_error ->
+      | Network_interface.(Network_error PVS_proxy_connection_error) ->
         let proxy_uuid = Db.PVS_proxy.get_uuid ~__context ~self:proxy in
         let body = Printf.sprintf "Failed to setup PVS-proxy %s for VIF %s on host %s due to an internal error"
             proxy_uuid (Db.VIF.get_uuid ~__context ~self:vif)
@@ -286,12 +286,12 @@ let stop_proxy ~__context vif proxy =
     let vifr = Db.VIF.get_record ~__context ~self:vif in
     let bridge = Db.Network.get_bridge ~__context ~self:vifr.API.vIF_network in
     let port_name = proxy_port_name vifr in
-    Network.Net.Bridge.remove_port dbg ~bridge ~name:port_name
+    Network.Net.Bridge.remove_port dbg bridge port_name
   with e ->
     let reason =
       match e with
       | No_cache_sr_available -> "no PVS cache VDI found"
-      | Network_interface.PVS_proxy_connection_error -> "unable to connect to PVS proxy daemon"
+      | Network_interface.(Network_error PVS_proxy_connection_error) -> "unable to connect to PVS proxy daemon"
       | _ -> Printf.sprintf "unknown error (%s)" (Printexc.to_string e)
     in
     error "Unable to disable PVS proxy for VIF %s: %s." (Ref.string_of vif) reason
