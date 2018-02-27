@@ -7,7 +7,7 @@ open Datamodel_roles
               You do not have to bump vsn if you change/add/remove a message *)
 
 let schema_major_vsn = 5
-let schema_minor_vsn = 140
+let schema_minor_vsn = 141
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -166,6 +166,8 @@ let _vdi_nbd_server_info = "vdi_nbd_server_info"
 let _pusb = "PUSB"
 let _usb_group = "USB_group"
 let _vusb = "VUSB"
+let _cluster = "Cluster"
+let _cluster_host = "Cluster_host"
 
 let get_oss_releases in_oss_since =
   match in_oss_since with

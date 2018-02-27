@@ -5265,6 +5265,8 @@ let all_system =
     PUSB.t;
     USB_group.t;
     VUSB.t;
+    Datamodel_cluster.t;
+    Datamodel_cluster_host.t;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -5302,6 +5304,8 @@ let all_relations =
     (* VM <-> VIF <-> network *)
     (_vif, "VM"), (_vm, "VIFs");
     (_vif, "network"), (_network, "VIFs");
+
+    (_cluster_host,"cluster"), (_cluster, "cluster_hosts");
 
     (* host <-> PIF <-> network *)
     (_pif, "host"), (_host, "PIFs");
@@ -5452,6 +5456,8 @@ let expose_get_all_messages_for = [
   _pusb;
   _usb_group;
   _vusb;
+  _cluster;
+  _cluster_host;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]
