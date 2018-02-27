@@ -5,5 +5,6 @@ setup(name="xapi-storage",
       author='David Scott',
       author_email='dave@recoil.org',
       url='https://github.com/xapi-project/xapi-storage/',
-      packages=['xapi', 'xapi.storage', 'xapi.storage.api'],
+      packages=['xapi', 'xapi.storage', 'xapi.storage.api',
+                'xapi.storage.api.v4'],
       )

@@ -23,7 +23,7 @@ let _ =
   if !gen_python then
     List.iter
       (fun api ->
-         with_output_file (Printf.sprintf "xapi/storage/api/%s.py" api.Interfaces.name)
+         with_output_file (Printf.sprintf "xapi/storage/api/v4/%s.py" api.Interfaces.name)
            (fun oc ->
               let idents, api = resolve_refs_in_api api in
               output_string oc (Python.of_interfaces idents api |> Python.string_of_ts)
