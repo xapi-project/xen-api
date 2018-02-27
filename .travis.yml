@@ -8,6 +8,7 @@ install:
   - pip install --user flake8
 env:
   global:
+    - secure: "HswxrOJpdVA+i26zbpi47w9GsS25ix8w8gu+9GSi7tJ5AuWrBvVWV2PQ9CN1kVILzQFou1c/PeCyijvN5xudnRC7bRQETYazVfAUO5Fpu6UhYO1YQL69oo+vVzgLwVRicn5Pj3/sCR6McHekFe4Tt08tYM3oj3apA37qxeWx0Dw="
     - OCAML_VERSION=4.04
     - DISTRO=debian-stable
     - PACKAGE=xapi-storage
@@ -15,3 +16,5 @@ env:
 script:
   - flake8 --show-source python
   - bash -ex .travis-opam.sh
+  # Make sure the script is not echoing any sensitive data
+  - bash +x -e ./update_gh_pages.sh
