@@ -306,6 +306,41 @@ namespace XenAPI
     }
 
 
+    internal class StringStringMapConverter : JsonConverter
+    {
+        public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+        {
+            JToken jToken = JToken.Load(reader);
+            var dict = new Dictionary<string, string>();
+
+            foreach (JProperty property in jToken)
+                dict.Add(property.Name, property.Value == null ? null : property.Value.ToString());
+
+            return dict;
+        }
+
+        public override bool CanConvert(Type objectType)
+        {
+            return objectType == typeof(Dictionary<string, string>);
+        }
+
+        public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+        {
+            var dict = value as Dictionary<string, string>;
+            writer.WriteStartObject();
+            if (dict != null)
+            {
+                foreach (var kvp in dict)
+                {
+                    writer.WritePropertyName(kvp.Key);
+                    writer.WriteValue(kvp.Value ?? "");
+                }
+            }
+            writer.WriteEndObject();
+        }
+    }
+
+
     internal class XenEventConverter : JsonConverter
     {
         public override bool CanConvert(Type objectType)
