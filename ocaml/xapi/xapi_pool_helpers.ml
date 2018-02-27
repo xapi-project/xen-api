@@ -76,6 +76,26 @@ let update_allowed_operations ~__context ~self : unit =
   let keys = Hashtbl.fold (fun k v acc -> if v = None then k :: acc else acc) valid [] in
   Db.Pool.set_allowed_operations ~__context ~self ~value:keys
 
+(** Add to the Pool's current operations, call a function and then remove from the
+    current operations. Ensure the allowed_operations are kept up to date. *)
+let with_pool_operation ~__context ~self ~doc ~op f =
+  let task_id = Ref.string_of (Context.get_task_id __context) in
+  Helpers.retry_with_global_lock ~__context ~doc
+    (fun () ->
+       assert_operation_valid ~__context ~self ~op;
+       Db.Pool.add_to_current_operations ~__context ~self ~key:task_id ~value:op);
+  update_allowed_operations ~__context ~self;
+  (* Then do the action with the lock released *)
+  Stdext.Pervasiveext.finally f
+    (* Make sure to clean up at the end *)
+    (fun () ->
+       try
+         Db.Pool.remove_from_current_operations ~__context ~self ~key:task_id;
+         update_allowed_operations ~__context ~self;
+         Helpers.Early_wakeup.broadcast (Datamodel_common._pool, Ref.string_of self);
+       with
+         _ -> ())
+
 (* Checks whether HA enable is in progress *)
 let ha_enable_in_progress ~__context =
   let pool = Helpers.get_pool ~__context in

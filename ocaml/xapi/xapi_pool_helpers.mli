@@ -19,6 +19,9 @@ val assert_operation_valid : __context:Context.t ->
 
 val update_allowed_operations : __context:Context.t -> self:API.ref_pool -> unit
 
+val with_pool_operation : __context:Context.t -> self:API.ref_pool ->
+  doc:string -> op:API.pool_allowed_operations -> (unit -> 'a) -> 'a
+
 val ha_disable_in_progress : __context:Context.t -> bool
 
 val ha_enable_in_progress : __context:Context.t -> bool
