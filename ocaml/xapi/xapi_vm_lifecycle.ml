@@ -145,7 +145,12 @@ let has_feature ~vmgmr ~feature =
 let has_definitely_booted_pv ~vmmr =
   match vmmr with
   | None -> false
-  | Some r -> r.Db_actions.vM_metrics_hvm = false
+  | Some r ->
+    match r.Db_actions.vM_metrics_current_domain_type with
+    | `hvm
+    | `unspecified -> false
+    | `pv
+    | `pv_in_pvh -> true
 
 (** Return an error iff vmr is an HVM guest and lacks a needed feature.
  *  Note: it turned out that the Windows guest agent does not write "feature-suspend"

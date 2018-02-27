@@ -17,7 +17,10 @@ open Datamodel_types
   (** HVM domain booting *)
   let hvm =
     [
-      field "boot_policy" "HVM boot policy";
+      field
+        ~qualifier:StaticRO
+        ~lifecycle:[Published, rel_rio, ""; Deprecated, rel_kolkata, "Replaced by VM.domain_type"]
+        "boot_policy" "HVM boot policy";
       field ~ty:(Map(String, String)) "boot_params" "HVM boot params";
       field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None ~ty:Float ~in_product_since:rel_miami ~qualifier:StaticRO "shadow_multiplier" "multiplier applied to the amount of shadow that will be made available to the guest" ~default_value:(Some (VFloat 1.))
     ]
@@ -1192,6 +1195,34 @@ let update_allowed_operations = call
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+let domain_type =
+  Enum ("domain_type", [ "hvm", "HVM; Fully Virtualised";
+                         "pv", "PV: Paravirtualised";
+                         "pv_in_pvh", "PV inside a PVH container";
+                         "unspecified", "Not specified or unknown domain type" ])
+
+let set_domain_type = call ~flags:[`Session]
+  ~name:"set_domain_type"
+  ~lifecycle:[Published, rel_kolkata, ""]
+  ~params:[
+    Ref _vm, "self", "The VM";
+    domain_type, "value", "The new domain type"
+  ]
+  ~doc:"Set the VM.domain_type field of the given VM, which will take effect when it is next started"
+  ~allowed_roles:_R_VM_ADMIN
+  ()
+
+let set_HVM_boot_policy = call ~flags:[`Session]
+  ~name:"set_HVM_boot_policy"
+  ~lifecycle:[Published, rel_rio, ""; Deprecated, rel_kolkata, "Replaced by VM.set_domain_type"]
+  ~params:[
+    Ref _vm, "self", "The VM";
+    String, "value", "The new HVM boot policy"
+  ]
+  ~doc:"Set the VM.HVM_boot_policy field of the given VM, which will take effect when it is next started"
+  ~allowed_roles:_R_VM_ADMIN
+  ()
+
   (** VM (or 'guest') configuration: *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm ~descr:"A virtual machine (or 'guest')."
@@ -1268,6 +1299,8 @@ let update_allowed_operations = call
                   set_has_vendor_device;
                   import;
                   set_actions_after_crash;
+                  set_domain_type;
+                  set_HVM_boot_policy;
                 ]
       ~contents:
         ([ uid _vm;
@@ -1360,7 +1393,8 @@ let update_allowed_operations = call
              ~ty:Bool "has_vendor_device" "When an HVM guest starts, this controls the presence of the emulated C000 PCI device which triggers Windows Update to fetch or update PV drivers.";
            field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_ely, ""] ~default_value:(Some (VBool false))
              "requires_reboot" "Indicates whether a VM requires a reboot in order to update its configuration, e.g. its memory allocation.";
-           field ~qualifier:StaticRO ~ty:String ~in_product_since:rel_ely ~default_value:(Some (VString "")) "reference_label" "Textual reference to the template used to create a VM. This can be used by clients in need of an immutable reference to the template since the latter's uuid and name_label may change, for example, after a package installation or upgrade."
+           field ~qualifier:StaticRO ~ty:String ~in_product_since:rel_ely ~default_value:(Some (VString "")) "reference_label" "Textual reference to the template used to create a VM. This can be used by clients in need of an immutable reference to the template since the latter's uuid and name_label may change, for example, after a package installation or upgrade.";
+           field ~qualifier:StaticRO ~ty:domain_type ~lifecycle:[Published, rel_jura, ""] ~default_value:(Some (VEnum "unspecified")) "domain_type" "The type of domain that will be created when the VM is started";
          ])
       ()
 

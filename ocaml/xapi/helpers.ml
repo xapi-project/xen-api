@@ -331,11 +331,15 @@ let get_user ~__context username =
     failwith "Failed to find any users";
   List.hd uuids (* FIXME! it assumes that there is only one element in the list (root), username is not used*)
 
-let is_domain_zero ~__context vm_ref =
-  let host_ref = Db.VM.get_resident_on ~__context ~self:vm_ref in
-  (Db.VM.get_is_control_domain ~__context ~self:vm_ref)
+let is_domain_zero_with_record ~__context vm_ref vm_rec =
+  let host_ref = vm_rec.API.vM_resident_on in
+  vm_rec.API.vM_is_control_domain
   && (Db.is_valid_ref __context host_ref)
   && (Db.Host.get_control_domain ~__context ~self:host_ref = vm_ref)
+
+let is_domain_zero ~__context vm_ref =
+  is_domain_zero_with_record ~__context vm_ref
+    (Db.VM.get_record ~__context ~self:vm_ref)
 
 exception No_domain_zero of string
 let domain_zero_ref_cache = ref None
@@ -400,16 +404,16 @@ let get_size_with_suffix s =
                       (Int64.of_float (float_of_string s)) else Int64.of_string s) suffix
 
 
-(** An HVM boot has the following user-settable parameters: *)
-type hvm_boot_t = { timeoffset: string }
+(** An hvmloader boot has the following user-settable parameters: *)
+type hvmloader_boot_t = { timeoffset: string }
 
-(** A 'direct' PV boot (one that is not indirected through a bootloader) has
+(** A 'direct' boot (one that is not indirected through a bootloader) has
     the following options: *)
-type direct_pv_boot_t = { kernel: string; kernel_args: string; ramdisk: string option }
+type direct_boot_t = { kernel: string; kernel_args: string; ramdisk: string option }
 
-(** An 'indirect' PV boot (one that defers to a bootloader) has the following
+(** An 'indirect' boot (one that defers to a bootloader) has the following
     options: *)
-type indirect_pv_boot_t =
+type indirect_boot_t =
   { bootloader: string;     (** bootloader to use (eg "pygrub") *)
     extra_args: string;     (** extra commandline arguments to pass bootloader for the kernel *)
     legacy_args: string;    (** "legacy" args to cope with Zurich/Geneva guests *)
@@ -419,21 +423,9 @@ type indirect_pv_boot_t =
 
 (** A type which represents the boot method a guest is configured to use *)
 type boot_method =
-  | HVM of hvm_boot_t
-  | DirectPV of direct_pv_boot_t
-  | IndirectPV of indirect_pv_boot_t
-
-let string_of_option opt = match opt with None -> "(none)" | Some s -> s
-
-let string_of_boot_method = function
-  | HVM _ -> "HVM"
-  | DirectPV x ->
-    Printf.sprintf "Direct PV boot with kernel = %s; args = %s; ramdisk = %s"
-      x.kernel x.kernel_args (string_of_option x.ramdisk)
-  | IndirectPV x ->
-    Printf.sprintf "Indirect PV boot via bootloader %s; extra_args = %s; legacy_args = %s; bootloader_args = %s; VDIs = [ %s ]"
-      x.bootloader x.extra_args x.legacy_args x.pv_bootloader_args
-      (String.concat "; " (List.map Ref.string_of  x.vdis))
+  | Hvmloader of hvmloader_boot_t
+  | Direct of direct_boot_t
+  | Indirect of indirect_boot_t
 
 (** Returns the current value of the pool configuration flag *)
 (** that indicates whether a rolling upgrade is in progress. *)
@@ -447,57 +439,80 @@ let rolling_upgrade_in_progress ~__context =
   with _ ->
     false
 
+let check_domain_type : API.domain_type -> [ `hvm | `pv_in_pvh | `pv ] = function
+  | `hvm -> `hvm
+  | `pv_in_pvh -> `pv_in_pvh
+  | `pv -> `pv
+  | `unspecified ->
+    raise Api_errors.(Server_error (internal_error, ["unspecified domain type"]))
+
+let domain_type ~__context ~self : [ `hvm | `pv_in_pvh | `pv ] =
+  let vm = Db.VM.get_record ~__context ~self in
+  match vm.API.vM_power_state with
+  | `Paused | `Running | `Suspended ->
+    Db.VM_metrics.get_current_domain_type ~__context ~self:vm.API.vM_metrics
+    |> check_domain_type
+  | `Halted ->
+    vm.API.vM_domain_type
+    |> check_domain_type
+
 (** Inspect the current configuration of a VM and return a boot_method type *)
 let boot_method_of_vm ~__context ~vm =
-  if vm.API.vM_HVM_boot_policy <> "" then begin
-    (* hvm_boot describes the HVM boot order. How? as a qemu-dm -boot param? *)
+  let hvmloader_options () =
     let timeoffset = try List.assoc "timeoffset" vm.API.vM_platform with _ -> "0" in
-    HVM { timeoffset = timeoffset }
-  end else begin
-    (* PV *)
-    if vm.API.vM_PV_bootloader = "" then begin
-      let kern = vm.API.vM_PV_kernel
-      and args = vm.API.vM_PV_args
-      and ramdisk = if vm.API.vM_PV_ramdisk <> "" then (Some vm.API.vM_PV_ramdisk) else None in
-      DirectPV { kernel = kern; kernel_args = args; ramdisk = ramdisk }
-    end else begin
-      (* Extract the default kernel from the boot disk via bootloader *)
-      (* NB We allow multiple bootable VDIs, in which case the
-         bootloader gets to choose. Note that a VM may have no
-         bootable VDIs; this might happen for example if the
-         bootloader intends to PXE boot *)
-      let bootable = List.filter
-          (fun self -> Db.VBD.get_bootable ~__context ~self)
-          vm.API.vM_VBDs in
-      let non_empty = List.filter
-          (fun self -> not (Db.VBD.get_empty ~__context ~self))
-          bootable in
-      let boot_vdis =
-        List.map
-          (fun self -> Db.VBD.get_VDI ~__context ~self) non_empty in
-      IndirectPV
-        { bootloader = vm.API.vM_PV_bootloader;
-          extra_args = vm.API.vM_PV_args;
-          legacy_args = vm.API.vM_PV_legacy_args;
-          pv_bootloader_args = vm.API.vM_PV_bootloader_args;
-          vdis = boot_vdis }
-    end
-  end
+    { timeoffset }
+  in
+  let direct_options () =
+    let kernel = vm.API.vM_PV_kernel
+    and kernel_args = vm.API.vM_PV_args
+    and ramdisk = if vm.API.vM_PV_ramdisk <> "" then (Some vm.API.vM_PV_ramdisk) else None in
+    { kernel; kernel_args; ramdisk }
+  in
+  let indirect_options () =
+    (* Extract the default kernel from the boot disk via bootloader *)
+    (* NB We allow multiple bootable VDIs, in which case the
+       bootloader gets to choose. Note that a VM may have no
+       bootable VDIs; this might happen for example if the
+       bootloader intends to PXE boot *)
+    let boot_vdis =
+      List.filter
+        (fun self -> Db.VBD.get_bootable ~__context ~self)
+        vm.API.vM_VBDs
+      |> List.filter (fun self -> not (Db.VBD.get_empty ~__context ~self))
+      |> List.map (fun self -> Db.VBD.get_VDI ~__context ~self)
+    in
+    { bootloader = vm.API.vM_PV_bootloader;
+      extra_args = vm.API.vM_PV_args;
+      legacy_args = vm.API.vM_PV_legacy_args;
+      pv_bootloader_args = vm.API.vM_PV_bootloader_args;
+      vdis = boot_vdis }
+  in
+  let direct_boot = vm.API.vM_PV_bootloader = "" in
+  match check_domain_type vm.API.vM_domain_type, direct_boot with
+  | `hvm, _ ->                        Hvmloader (hvmloader_options ())
+  | `pv, true  | `pv_in_pvh, true ->  Direct (direct_options ())
+  | `pv, false | `pv_in_pvh, false -> Indirect (indirect_options ())
 
-(** Returns true if the supplied VM configuration is HVM.
-    NB that just because a VM's current configuration looks like HVM doesn't imply it
-    actually booted that way; you must check the VM_metrics to be sure *)
-let will_boot_hvm_from_record (x: API.vM_t) = x.API.vM_HVM_boot_policy <> ""
+let needs_qemu_from_domain_type = function
+  | `hvm -> true
+  | `pv_in_pvh | `pv | `unspecified -> false
 
-let will_boot_hvm ~__context ~self = Db.VM.get_HVM_boot_policy ~__context ~self <> ""
+let will_have_qemu_from_record (x: API.vM_t) =
+  x.API.vM_domain_type
+  |> needs_qemu_from_domain_type
 
-let has_booted_hvm ~__context ~self =
-  Db.VM_metrics.get_hvm ~__context ~self:(Db.VM.get_metrics ~__context ~self)
+let will_have_qemu ~__context ~self =
+  Db.VM.get_domain_type ~__context ~self
+  |> needs_qemu_from_domain_type
 
-let is_hvm ~__context ~self =
+let has_qemu_currently ~__context ~self =
+  Db.VM_metrics.get_current_domain_type ~__context ~self:(Db.VM.get_metrics ~__context ~self)
+  |> needs_qemu_from_domain_type
+
+let has_qemu ~__context ~self =
   match Db.VM.get_power_state ~__context ~self with
-  | `Paused | `Running | `Suspended -> has_booted_hvm ~__context ~self
-  | `Halted | _ -> will_boot_hvm ~__context ~self
+  | `Paused | `Running | `Suspended -> has_qemu_currently ~__context ~self
+  | `Halted | _ -> will_have_qemu ~__context ~self
 
 let is_running ~__context ~self = Db.VM.get_domid ~__context ~self <> -1L
 

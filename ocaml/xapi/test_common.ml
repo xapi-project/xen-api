@@ -51,7 +51,7 @@ let make_localhost ~__context ?(features=Features.all_features) () =
     machine_serial_number = None;
     machine_serial_name = None;
     total_memory_mib = 1024L;
-    dom0_static_max = XenopsMemory.bytes_of_mib 512L;
+    dom0_static_max = Memory.bytes_of_mib 512L;
     ssl_legacy = false;
   } in
 
@@ -93,7 +93,8 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
     ?(snapshot_schedule=Ref.null) ?(is_vmss_snapshot=false)
     ?(shutdown_delay=0L) ?(order=0L) ?(suspend_SR=Ref.null) ?(version=0L)
     ?(generation_id="0:0") ?(hardware_platform_version=0L)
-    ?(has_vendor_device=false) ?(has_vendor_device=false) ?(reference_label="") () =
+    ?(has_vendor_device=false) ?(has_vendor_device=false) ?(reference_label="")
+    ?(domain_type=`hvm) () =
   Xapi_vm.create ~__context ~name_label ~name_description ~user_version ~is_a_template
     ~affinity ~memory_target ~memory_static_max ~memory_dynamic_max ~memory_dynamic_min
     ~memory_static_min ~vCPUs_params ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown
@@ -104,6 +105,7 @@ let make_vm ~__context ?(name_label="name_label") ?(name_description="descriptio
     ~is_snapshot_from_vmpp ~appliance ~start_delay ~shutdown_delay ~order ~suspend_SR
     ~snapshot_schedule ~is_vmss_snapshot
     ~version ~generation_id ~hardware_platform_version ~has_vendor_device ~reference_label
+    ~domain_type
 
 let make_host ~__context ?(uuid=make_uuid ()) ?(name_label="host")
     ?(name_description="description") ?(hostname="localhost") ?(address="127.0.0.1")

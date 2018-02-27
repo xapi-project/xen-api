@@ -201,6 +201,7 @@ let ensure_vm_metrics_records_exist __context =
           ~hvm:false
           ~nested_virt:false
           ~nomigrate:false
+          ~current_domain_type:`unspecified
         ;
         Db.VM.set_metrics ~__context ~self:vm ~value:m
       end) (Db.VM.get_all __context)

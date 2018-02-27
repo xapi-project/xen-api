@@ -133,7 +133,9 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
   (* They can only eject/insert CDs not plug/unplug *)
   let vm_gm = Db.VM.get_guest_metrics ~__context ~self:vm in
   let vm_gmr = try Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:vm_gm) with _ -> None in
-  if power_state = `Running && Helpers.has_booted_hvm ~__context ~self:vm then begin
+  let metrics = Db.VM.get_metrics ~__context ~self:vm in
+  let domain_type = Db.VM_metrics.get_current_domain_type ~__context ~self:metrics in
+  if power_state = `Running && (domain_type = `hvm) then begin
     let plug_ops = [ `plug; `unplug; `unplug_force ] in
     let fallback () =
       match Xapi_pv_driver_version.make_error_opt (Xapi_pv_driver_version.of_guest_metrics vm_gmr) vm with

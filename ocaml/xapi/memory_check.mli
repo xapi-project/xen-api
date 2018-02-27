@@ -89,5 +89,5 @@ val host_compute_free_memory_with_maximum_compression : ?dump_stats:bool ->
 val host_compute_memory_overhead : __context:Context.t -> host:[`host] Ref.t ->
   int64
 
-val vm_compute_memory_overhead : vm_record:API.vM_t -> hvm:bool -> int64
+val vm_compute_memory_overhead : vm_record:API.vM_t -> int64
 

@@ -38,10 +38,23 @@ let db_set_in_other_config ~__context ~self ~key ~value =
 
 let compute_memory_overhead ~__context ~vm =
   let vm_record = Db.VM.get_record ~__context ~self:vm in
-  let hvm = Helpers.is_hvm ~__context ~self:vm in
-  Memory_check.vm_compute_memory_overhead vm_record hvm
+  Memory_check.vm_compute_memory_overhead vm_record
 
 let update_memory_overhead ~__context ~vm = Db.VM.set_memory_overhead ~__context ~self:vm ~value:(compute_memory_overhead ~__context ~vm)
+
+(* To support clients that are not aware of the newer domain_type field yet and
+ * have set (only) the old HVM_boot_policy field. *)
+let derive_domain_type ~hVM_boot_policy =
+  if hVM_boot_policy = "" then
+    `pv
+  else
+    `hvm
+
+let derive_hvm_boot_policy ~domain_type =
+  if domain_type = `hvm then
+    Constants.hvm_boot_policy_bios_order
+  else
+    ""
 
 (* Overrides for database set functions: ************************************************)
 let set_actions_after_crash ~__context ~self ~value =
@@ -200,8 +213,11 @@ let validate_shadow_multiplier ~hVM_shadow_multiplier =
 let validate_actions_after_crash ~__context ~self ~value =
   let fld = "VM.actions_after_crash" in
   let hvm_cannot_coredump v =
-    if Helpers.will_boot_hvm ~__context ~self
-    then value_not_supported fld v "cannot invoke a coredump of an HVM domain" in
+    match Helpers.domain_type ~__context ~self with
+    | `hvm | `pv_in_pvh ->
+      value_not_supported fld v "cannot invoke a coredump of an HVM or PV-in-PVH domain"
+    | `pv -> ()
+  in
   match value with
   | `rename_restart -> value_not_supported fld "rename_restart"
                          "option would leak a domain; VMs and not domains are managed by this API"
@@ -406,8 +422,13 @@ let assert_enough_memory_available ~__context ~self ~host ~snapshot =
   let host_mem_available =
     Memory_check.host_compute_free_memory_with_maximum_compression
       ~__context ~host (Some self) in
+  let policy =
+    match Helpers.check_domain_type snapshot.API.vM_domain_type with
+    | `hvm | `pv -> Memory_check.Dynamic_min
+    | `pv_in_pvh -> Memory_check.Static_max
+  in
   let main, shadow =
-    Memory_check.vm_compute_start_memory ~__context snapshot in
+    Memory_check.vm_compute_start_memory ~__context ~policy snapshot in
   let mem_reqd_for_vm = Int64.add main shadow in
   debug "host %s; available_memory = %Ld; memory_required = %Ld"
     (Db.Host.get_name_label ~self:host ~__context)
@@ -468,8 +489,11 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(
     assert_host_has_iommu ~__context ~host;
   assert_gpus_available ~__context ~self ~host;
   assert_usbs_available ~__context ~self ~host;
-  if Helpers.will_boot_hvm ~__context ~self then
-    assert_host_supports_hvm ~__context ~self ~host;
+  begin match Helpers.domain_type ~__context ~self with
+  | `hvm | `pv_in_pvh ->
+    assert_host_supports_hvm ~__context ~self ~host
+  | `pv -> ()
+  end;
   if do_memory_check then
     assert_enough_memory_available ~__context ~self ~host ~snapshot;
   debug "All fine, VM %s can run on host %s!" (Ref.string_of self) (Ref.string_of host)
@@ -832,9 +856,9 @@ let all_used_VBD_devices ~__context ~self =
   List.concat (List.map possible_VBD_devices_of_string existing_devices)
 
 let allowed_VBD_devices ~__context ~vm ~_type =
-  let is_hvm = Helpers.will_boot_hvm ~__context ~self:vm in
+  let will_have_qemu = Helpers.will_have_qemu ~__context ~self:vm in
   let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in
-  let all_devices = match is_hvm,is_control_domain,_type with
+  let all_devices = match will_have_qemu, is_control_domain, _type with
     | true, _, `Floppy  -> allowed_VBD_devices_HVM_floppy
     | false, _, `Floppy -> [] (* floppy is not supported on PV *)
     | false, true, _    -> allowed_VBD_devices_control_domain
@@ -846,8 +870,8 @@ let allowed_VBD_devices ~__context ~vm ~_type =
   List.filter (fun dev -> not (List.mem dev used_devices)) all_devices
 
 let allowed_VIF_devices ~__context ~vm =
-  let is_hvm = Helpers.will_boot_hvm ~__context ~self:vm in
-  let all_devices = if is_hvm then allowed_VIF_devices_HVM else allowed_VIF_devices_PV in
+  let will_have_qemu = Helpers.will_have_qemu ~__context ~self:vm in
+  let all_devices = if will_have_qemu then allowed_VIF_devices_HVM else allowed_VIF_devices_PV in
   (* Filter out those we've already got VIFs for *)
   let all_vifs = Db.VM.get_VIFs ~__context ~self:vm in
   let used_devices = List.map (fun vif -> Db.VIF.get_device ~__context ~self:vif) all_vifs in
@@ -886,6 +910,7 @@ let copy_metrics ~__context ~vm =
     ~nomigrate:(default false (may (fun x -> x.Db_actions.vM_metrics_nomigrate) m))
     ~hvm:(default false (may (fun x -> x.Db_actions.vM_metrics_hvm) m))
     ~nested_virt:(default false (may (fun x -> x.Db_actions.vM_metrics_nested_virt) m))
+    ~current_domain_type:(default `unspecified (may (fun x -> x.Db_actions.vM_metrics_current_domain_type) m))
   ;
   metrics
 
@@ -1068,10 +1093,10 @@ let with_vm_operation ~__context ~self ~doc ~op ?(strict=true) ?policy f =
          _ -> ())
 
 (* Device Model Profiles *)
-let ensure_device_model_profile_present ~__context ~hVM_boot_policy platform =
-  let is_hvm = hVM_boot_policy <> "" in
+let ensure_device_model_profile_present ~__context ~domain_type platform =
+  let needs_qemu = Helpers.needs_qemu_from_domain_type domain_type in
   let default = Vm_platform.(device_model, default_device_model_default_value) in
-  if not is_hvm || List.mem_assoc Vm_platform.device_model platform then
+  if not needs_qemu || List.mem_assoc Vm_platform.device_model platform then
     platform
   else (* only add device-model to an HVM VM platform if it is not already there *)
     default :: platform

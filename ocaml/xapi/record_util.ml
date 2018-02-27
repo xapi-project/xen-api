@@ -545,6 +545,19 @@ let tristate_to_string tristate =
   | `no -> "false"
   | `unspecified -> "unspecified"
 
+let domain_type_to_string = function
+  | `hvm -> "hvm"
+  | `pv -> "pv"
+  | `pv_in_pvh -> "pv-in-pvh"
+  | `unspecified -> "unspecified"
+
+let domain_type_of_string x =
+  match String.lowercase x with
+  | "hvm" -> `hvm
+  | "pv" -> `pv
+  | "pv-in-pvh" -> `pv_in_pvh
+  | s -> raise (Record_failure ("Invalid domain type. Got " ^ s))
+
 let wrap f err x = try f x with _ -> err x
 let generic_error x = raise (Record_failure ("Unknown value: "^x))
 let rpc_to_string = function | Rpc.String s -> s | _ -> failwith "Bad RPC type in record_util"

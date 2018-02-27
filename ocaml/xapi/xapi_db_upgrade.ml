@@ -55,6 +55,7 @@ let dundee = Datamodel_common.dundee_release_schema_major_vsn, Datamodel_common.
 let ely = Datamodel_common.ely_release_schema_major_vsn, Datamodel_common.ely_release_schema_minor_vsn
 let falcon = Datamodel_common.falcon_release_schema_major_vsn, Datamodel_common.falcon_release_schema_minor_vsn
 let inverness = Datamodel_common.inverness_release_schema_major_vsn, Datamodel_common.inverness_release_schema_minor_vsn
+let jura = Datamodel_common.jura_release_schema_major_vsn, Datamodel_common.jura_release_schema_minor_vsn
 
 (* This is to support upgrade from Dundee tech-preview versions *)
 let vsn_with_meaningful_has_vendor_device = Datamodel_common.meaningful_vm_has_vendor_device_schema_major_vsn, Datamodel_common.meaningful_vm_has_vendor_device_schema_minor_vsn
@@ -521,7 +522,34 @@ let upgrade_vswitch_controller = {
         ignore (Xapi_sdn_controller.introduce ~__context ~protocol:`ssl ~address ~port:6632L)
 }
 
+let upgrade_domain_type = {
+  description = "Set domain_type for all VMs/snapshots/templates";
+  version = (fun x -> x <= jura);
+  fn = fun ~__context ->
+    List.iter
+      (fun (vm, vmr) ->
+        if vmr.API.vM_domain_type = `unspecified then begin
+          let domain_type =
+            if Helpers.is_domain_zero_with_record ~__context vm vmr then
+              Xapi_globs.domain_zero_domain_type
+            else
+              Xapi_vm_helpers.derive_domain_type
+                ~hVM_boot_policy:vmr.API.vM_HVM_boot_policy
+          in
+          Db.VM.set_domain_type ~__context ~self:vm ~value:domain_type;
+          if vmr.API.vM_power_state <> `Halted then begin
+            let metrics = vmr.API.vM_metrics in
+            (* This is not _always_ correct - if you've changed HVM_boot_policy on a suspended VM
+               we'll calculate incorrectly here. This should be a vanishingly small probability though! *)
+            Db.VM_metrics.set_current_domain_type ~__context ~self:metrics ~value:domain_type
+          end
+        end
+      )
+      (Db.VM.get_all_records ~__context)
+}
+
 let rules = [
+  upgrade_domain_type;
   upgrade_alert_priority;
   update_mail_min_priority;
   upgrade_vm_memory_overheads;

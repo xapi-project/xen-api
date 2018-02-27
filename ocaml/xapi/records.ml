@@ -866,6 +866,11 @@ let vm_record rpc session_id vm =
         ~get_set:(fun () -> try Client.VM.get_allowed_VIF_devices rpc session_id vm with _ -> []) ();
       make_field ~name:"possible-hosts"
         ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (Client.VM.get_possible_hosts rpc session_id vm))) ~expensive:true ();
+      make_field ~name:"domain-type"
+        ~get:(fun () -> Record_util.domain_type_to_string (x ()).API.vM_domain_type)
+        ~set:(fun x -> Client.VM.set_domain_type rpc session_id vm (Record_util.domain_type_of_string x)) ();
+      make_field ~name:"current-domain-type"
+        ~get:(fun () -> default nid (may (fun m -> Record_util.domain_type_to_string (m.API.vM_metrics_current_domain_type)) (xm ()) )) ();
       make_field ~name:"HVM-boot-policy"
         ~get:(fun () -> (x ()).API.vM_HVM_boot_policy)
         ~set:(fun x -> Client.VM.set_HVM_boot_policy rpc session_id vm x) ();

@@ -1250,9 +1250,9 @@ let of_vbd ~__context ~vbd ~domid =
   let location = Db.VDI.get_location ~__context ~self:vdi in
   let sr = Db.VDI.get_SR ~__context ~self:vdi in
   let userdevice = Db.VBD.get_userdevice ~__context ~self:vbd in
-  let hvm = Helpers.will_boot_hvm ~__context ~self:(Db.VBD.get_VM ~__context ~self:vbd) in
+  let has_qemu = Helpers.has_qemu ~__context ~self:(Db.VBD.get_VM ~__context ~self:vbd) in
   let dbg = Context.get_task_id __context in
-  let device_number = Device_number.of_string hvm userdevice in
+  let device_number = Device_number.of_string has_qemu userdevice in
   let device = Device_number.to_linux_device device_number in
   let dp = datapath_of_vbd ~domid ~device in
   rpc, (Ref.string_of dbg), dp, (Db.SR.get_uuid ~__context ~self:sr), location
@@ -1300,7 +1300,7 @@ let reset ~__context ~vm =
     [attach_info] is the result of attaching a VDI which is also activated.
     This should be used everywhere except the migrate code, where we want fine-grained
     control of the ordering of attach/activate/deactivate/detach *)
-let attach_and_activate ~__context ~vbd ~domid ~hvm f =
+let attach_and_activate ~__context ~vbd ~domid f =
   transform_storage_exn
     (fun () ->
        let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in

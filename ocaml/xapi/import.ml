@@ -389,6 +389,16 @@ module VM : HandlerTools = struct
     (* This function assumes we've already checked for and dealt with any existing VM with the same UUID. *)
     let do_import vm_record =
       let task_id = Ref.string_of (Context.get_task_id __context) in
+
+      (* Ensure that the domain_type is set correctly *)
+      let vm_record =
+        if vm_record.API.vM_domain_type = `unspecified then
+          {vm_record with API.vM_domain_type =
+            Xapi_vm_helpers.derive_domain_type ~hVM_boot_policy:vm_record.API.vM_HVM_boot_policy}
+        else
+          vm_record
+      in
+
       (* Remove the grant guest API access key unconditionally (it's only for our RHEL4 templates atm) *)
       let other_config = List.filter
           (fun (key, _) -> key <> Xapi_globs.grant_api_access) vm_record.API.vM_other_config in
@@ -435,8 +445,8 @@ module VM : HandlerTools = struct
           {vm_record with API.vM_has_vendor_device = false;}
         ) in
       let vm_record = {vm_record with
-                        API.vM_memory_overhead = Memory_check.vm_compute_memory_overhead
-                         ~vm_record ~hvm:(Helpers.will_boot_hvm_from_record vm_record)
+                        API.vM_memory_overhead =
+                          Memory_check.vm_compute_memory_overhead ~vm_record
                       } in
       let vm_record = {vm_record with API.vM_protection_policy = Ref.null} in
       (* Full restore preserves UUIDs, so if we are replacing an existing VM the version number should be incremented *)
@@ -458,7 +468,7 @@ module VM : HandlerTools = struct
       let vm_record = {
         vm_record with API.vM_platform =
                          (Xapi_vm_helpers.ensure_device_model_profile_present ~__context
-                            ~hVM_boot_policy:vm_record.API.vM_HVM_boot_policy
+                            ~domain_type:vm_record.API.vM_domain_type
                             vm_record.API.vM_platform)
       }
       in
@@ -492,7 +502,9 @@ module VM : HandlerTools = struct
         try
           let vdi = (lookup vm_record.API.vM_suspend_VDI) state.table in
           Db.VM.set_power_state ~__context ~self:vm ~value:`Suspended;
-          Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi
+          Db.VM.set_suspend_VDI ~__context ~self:vm ~value:vdi;
+          let vm_metrics = Db.VM.get_metrics ~__context ~self:vm in
+          Db.VM_metrics.set_current_domain_type ~__context ~self:vm_metrics ~value:vm_record.API.vM_domain_type
         with e -> if not config.force then begin
             Backtrace.is_important e;
             let msg = "Failed to find VM's suspend_VDI: " ^ (Ref.string_of vm_record.API.vM_suspend_VDI) in
@@ -957,7 +969,7 @@ module VBD : HandlerTools = struct
       (* Note: the following is potentially inaccurate: the find out whether a running or
        * suspended VM has booted HVM, we must consult the VM metrics, but those aren't
        * available in the exported metadata. *)
-      let has_booted_hvm = Helpers.will_boot_hvm_from_record original_vm in
+      let has_qemu = Helpers.will_have_qemu_from_record original_vm in
 
       (* In the case of dry_run live migration, don't check for
          				 missing disks as CDs will be ejected before the real migration. *)
@@ -968,14 +980,14 @@ module VBD : HandlerTools = struct
       if vbd_record.API.vBD_currently_attached && not(exists vbd_record.API.vBD_VDI state.table) then begin
         (* It's only ok if it's a CDROM attached to an HVM guest, or it's part of SXM and we know the sender would eject it. *)
         let will_eject = dry_run && live && original_vm.API.vM_power_state <> `Suspended in
-        if not (vbd_record.API.vBD_type = `CD && (has_booted_hvm || will_eject))
+        if not (vbd_record.API.vBD_type = `CD && (has_qemu || will_eject))
         then raise (IFailure Attached_disks_not_found)
       end;
 
       let vbd_record = { vbd_record with API.vBD_VM = vm } in
       match vbd_record.API.vBD_type, exists vbd_record.API.vBD_VDI state.table with
       | `CD, false | `Floppy, false  ->
-        if has_booted_hvm || original_vm.API.vM_power_state <> `Suspended then
+        if has_qemu || original_vm.API.vM_power_state <> `Suspended then
           Create { vbd_record with API.vBD_VDI = Ref.null; API.vBD_empty = true }  (* eject *)
         else
           Create vbd_record

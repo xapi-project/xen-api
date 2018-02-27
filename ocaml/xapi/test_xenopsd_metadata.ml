@@ -35,7 +35,7 @@ let string_of_vgpu_type {Xapi_vgpu_type.vendor_name; model_name} =
 let load_vm_config __context conf =
   let (self: API.ref_VM) = make_vm ~__context
       ~name_label:test_vm_name
-      ~hVM_boot_policy:"BIOS order"
+      ~domain_type:`hvm
       ~other_config:conf.oc
       ~platform:conf.platform
       ()
