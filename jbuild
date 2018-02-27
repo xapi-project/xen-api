@@ -69,4 +69,9 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     (xapi-storage-script.8 as man8/xapi-storage-script.8)
   ))
 ))
+
+(alias
+ ((name runtest)
+  (deps (main.exe (files_recursively_in test/volume)))
+  (action (bash "./${<} --root=$PWD/test --self-test-only=true"))))
 |} version flags

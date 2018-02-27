@@ -1,7 +1,7 @@
 BINDIR=/usr/sbin
 MANDIR=/usr/share/man
 
-.PHONY: release build install uninstall clean doc reindent
+.PHONY: release build install uninstall clean doc reindent test
 
 release:
 	jbuilder build @install
@@ -27,5 +27,7 @@ doc:
 reindent:
 	git ls-files '*.ml*' | xargs ocp-indent --syntax cstruct -i
 
+test:
+	jbuilder runtest
 
 .DEFAULT_GOAL := release
