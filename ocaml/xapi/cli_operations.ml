@@ -695,10 +695,11 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
         try
           set v
         with
-        (* XXX: -- warning 52 -- this might break with new ocaml compilers *)
-          (Failure "int_of_string") -> failwith ("Parameter "^k^" must be an integer")
-        | (Failure "float_of_string") -> failwith ("Parameter "^k^" must be a floating-point number")
-        | (Invalid_argument "bool_of_string") -> failwith ("Parameter "^k^" must be a boolean (true or false)")
+          (Failure x) when x="int_of_string" -> failwith ("Parameter "^k^" must be an integer")
+        | (Failure x) when x="float_of_string" -> failwith ("Parameter "^k^" must be a floating-point number")
+        | (Failure _) as e -> raise e
+        | (Invalid_argument x) when x="bool_of_string" -> failwith ("Parameter "^k^" must be a boolean (true or false)")
+        | (Invalid_argument _) as e -> raise e
         | e -> raise e
     in
     List.iter set_field set_params;
