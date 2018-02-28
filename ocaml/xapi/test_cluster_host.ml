@@ -67,8 +67,7 @@ let test_fix_prereq () =
   let localhost = Helpers.get_localhost ~__context in
   let pifref = Test_common.make_pif ~__context ~network ~host:localhost () in
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
-  Alcotest.check_raises
-  (Printf.sprintf "This test should raise (Failure %s)" exn)
+  Alcotest.check_raises "Should fail when checking PIF prequisites"
     (Failure exn)
     (fun () ->
       try
@@ -79,7 +78,7 @@ let test_fix_prereq () =
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
   Xapi_cluster_host.fix_pif_prerequisites ~__context pif;
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
-  Alcotest.(check unit) "Assert PIF prerequisites without raising exception"
+  Alcotest.(check unit) "Assert PIF prerequisites without error"
     (Xapi_clustering.assert_pif_prerequisites pif) ()
 
 let test_create_as_necessary () =
