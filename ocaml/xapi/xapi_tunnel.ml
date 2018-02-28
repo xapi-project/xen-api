@@ -54,6 +54,7 @@ let create ~__context ~transport_PIF ~network =
   Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self:transport_PIF;
   Xapi_pif_helpers.tunnel_is_allowed_on_pif ~__context ~transport_PIF;
+  Xapi_network_helpers.assert_network_compatible_with_tunnel ~__context ~network;
   let hosts = Db.Host.get_all ~__context in
   List.iter
     (fun h ->
