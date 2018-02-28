@@ -256,13 +256,25 @@ sig
     extras: (string * string option) list;
   }
 
+  type qemu_args =
+    { argv:     string list                     (** command line args *)
+    ; fd_map:   (string * Unix.file_descr) list (** open files *)
+    }
+
   val get_vnc_port : xs:Xenstore.Xs.xsh -> dm:Profile.t -> Xenctrl.domid -> Socket.t option
   val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 
   val signal : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> domid:Xenctrl.domid -> ?wait_for:string -> ?param:string
     -> string -> unit
 
-  val cmdline_of_info: xs:Xenstore.Xs.xsh -> dm:Profile.t -> info -> bool -> int -> string list
+  (** computes files and command line arguments to be passed to qemu *)
+  val qemu_args
+    :  xs:Xenstore.Xs.xsh
+    -> dm:Profile.t
+    -> info
+    -> bool (** true = restore *)
+    -> int  (** domid *)
+    -> qemu_args
 
   val start : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dm:Profile.t -> ?timeout:float -> info -> Xenctrl.domid -> unit
   val start_vnconly : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dm:Profile.t -> ?timeout:float -> info -> Xenctrl.domid -> unit

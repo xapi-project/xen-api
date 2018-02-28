@@ -8,7 +8,7 @@
     poll_stubs
     sockopt_stubs
     statdev_stubs
-    stub_tap_open
+    tuntap_stubs
     xenctrlext_stubs
   ))
   (c_library_flags (:include xentoollog_flags.sexp))

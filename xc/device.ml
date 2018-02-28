@@ -1547,6 +1547,11 @@ module Dm_Common = struct
     extras: (string * string option) list;
   }
 
+  type qemu_args =
+    { argv:     string list                     (** command line args *)
+    ; fd_map:   (string * Unix.file_descr) list (** open files *)
+    }
+
   let vnc_socket_path = (sprintf "%s/vnc-%d") Device_common.var_run_xen_path
 
   let get_vnc_port ~xs domid ~f =
@@ -1672,7 +1677,7 @@ module Dm_Common = struct
     in
     disp_options, wait_for_port
 
-  let cmdline_of_info ~xs ~dm info restore ?(domid_for_vnc=false) domid =
+  let qemu_args ~xs ~dm info restore ?(domid_for_vnc=false) domid =
     let disks' = List.map (fun (index, file, media) -> [
           "-drive"; sprintf "file=%s,if=ide,index=%d,media=%s" file index (string_of_media media)
         ]) info.disks in
@@ -1682,22 +1687,27 @@ module Dm_Common = struct
       then cmdline_of_disp info ~domid
       else cmdline_of_disp info
     in
-    List.concat
-      [ disp_options
-      ; List.concat disks'
-      ; ( info.acpi |> function false -> [] | true -> [ "-acpi" ])
-      ; ( restore   |> function false -> [] | true -> [ "-loadvm"; restorefile ])
-      ; ( info.pci_emulations
-          |> List.map (fun pci -> ["-pciemulation"; pci])
-          |> List.concat
-        )
-      ; ( info.pci_passthrough |> function false -> [] | true -> ["-priv"])
-      ; ( (List.rev info.extras)
-          |> List.map (function (k,None) -> ["-"^k] | (k,Some v) -> ["-"^k; v])
-          |> List.concat
-        )
-      ; ( info.monitor  |> function None -> [] | Some x -> [ "-monitor";  x])
-      ]
+    let argv =
+      List.concat
+        [ disp_options
+        ; List.concat disks'
+        ; ( info.acpi |> function false -> [] | true -> [ "-acpi" ])
+        ; ( restore   |> function false -> [] | true -> [ "-loadvm"; restorefile ])
+        ; ( info.pci_emulations
+            |> List.map (fun pci -> ["-pciemulation"; pci])
+            |> List.concat
+          )
+        ; ( info.pci_passthrough |> function false -> [] | true -> ["-priv"])
+        ; ( (List.rev info.extras)
+            |> List.map (function (k,None) -> ["-"^k] | (k,Some v) -> ["-"^k; v])
+            |> List.concat
+          )
+        ; ( info.monitor  |> function None -> [] | Some x -> [ "-monitor";  x])
+        ]
+    in
+    { argv   = argv
+    ; fd_map = []
+    }
 
   let vnconly_cmdline ~info ?(extras=[]) domid =
     let disp_options, _ = cmdline_of_disp info in
@@ -1899,7 +1909,8 @@ module Backend = struct
       val with_dirty_log: int -> f:(unit -> 'a) -> 'a
 
       (** [cmdline_of_info xenstore info restore domid] creates the command line arguments to pass to the qemu wrapper script *)
-      val cmdline_of_info: xs:Xenstore.Xs.xsh -> dm:Profile.t -> Dm_Common.info -> bool -> int -> string list
+      val qemu_args: xs:Xenstore.Xs.xsh -> dm:Profile.t -> Dm_Common.info
+        -> bool -> int -> Dm_Common.qemu_args
 
       (** [after_suspend_image xs qemu_domid domid] hook to execute actions after the suspend image has been created *)
       val after_suspend_image: xs:Xenstore.Xs.xsh -> qemu_domid:int -> int -> unit
@@ -1940,8 +1951,8 @@ module Backend = struct
 
       let with_dirty_log domid ~f = f()
 
-      let cmdline_of_info ~xs ~dm info restore domid =
-        let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid in
+      let qemu_args ~xs ~dm info restore domid =
+        let common = Dm_Common.qemu_args ~xs ~dm info restore domid in
 
         let usb =
           match info.Dm_Common.usb with
@@ -1977,8 +1988,9 @@ module Backend = struct
                   "-net"; sprintf "tap,vlan=%d,bridge=%s,ifname=tap%d.%d" vlan_id bridge domid devid
                 ]
               ) nics
-          else [["-net"; "none"]] in
-        common @ misc @ (List.concat nics')
+          else [["-net"; "none"]]
+        in
+        Dm_Common.{ common with argv = common.argv @ misc @ (List.concat nics') }
 
       let after_suspend_image ~xs ~qemu_domid domid = ()
 
@@ -2239,8 +2251,13 @@ module Backend = struct
              qmp_send_cmd domid Qmp.(Xen_set_global_dirty_log false) |> ignore
           )
 
-      let cmdline_of_info ~xs ~dm info restore domid =
-        let common = Dm_Common.cmdline_of_info ~xs ~dm info restore domid ~domid_for_vnc:true in
+      let tap_open ifname =
+        let uuid = Uuidm.to_string (Uuidm.create `V4) in
+        let fd   = Tuntap.tap_open ifname in
+        (uuid, fd)
+
+      let qemu_args ~xs ~dm info restore domid =
+        let common = Dm_Common.qemu_args ~xs ~dm info restore domid ~domid_for_vnc:true in
 
         let usb =
           match info.Dm_Common.usb with
@@ -2336,19 +2353,35 @@ module Backend = struct
         (* Take the first 'max_emulated_nics' elements from the list. *)
         let nics = Xapi_stdext_std.Listext.List.take Dm_Common.max_emulated_nics nics in
 
-        let nics' =
-          if nics <> [] then
-            List.map (fun (mac, bridge, devid) ->
-                [
-                  "-device"; sprintf "rtl8139,netdev=tapnet%d,mac=%s,addr=%d" devid mac (devid + 4);
-                  "-netdev"; sprintf "tap,id=tapnet%d,ifname=tap%d.%d,script=no,downscript=no" devid domid devid
-                ]
-              )
-              nics
-          else
-            [["-net"; "none"]]
-        in
-        common @ misc @ (List.concat nics')
+        (* add_nic is used in a fold: it adds fd and command line args
+         * for a nic to the existing fds and arguments (fds, argv)
+        *)
+        let none = ["-net"; "none"] in
+        let add_nic (fds, argv) (mac, bridge, devid) =
+          let ifname          = sprintf "tap%d.%d" domid devid in
+          let uuid, _  as tap = tap_open ifname in
+          let args =
+            [ "-device"; sprintf "rtl8139,netdev=tapnet%d,mac=%s,addr=%d" devid mac (devid + 4)
+            ; "-netdev"; sprintf "tap,id=tapnet%d,fd=%s" devid uuid
+            ] in
+          (tap::fds, args@argv) in
+
+        (* Go over all nics and collect file descriptors and command
+         * line arguments. Add these to the already existing command
+         * line arguments in common
+        *)
+        List.fold_left add_nic ([],[]) nics
+        |> function
+        |  _, []    ->
+          Dm_Common.
+            { argv   = common.argv   @ misc @ none
+            ; fd_map = common.fd_map
+            }
+        | fds, argv ->
+          Dm_Common.
+            { argv   = common.argv   @ misc @ argv
+            ; fd_map = common.fd_map @ fds
+            }
 
       let after_suspend_image ~xs ~qemu_domid domid =
         (* device model not needed anymore after suspend image has been created *)
@@ -2413,9 +2446,9 @@ module Dm = struct
     let module Q = (val Backend.of_profile dm) in
     Q.Dm.with_dirty_log domid ~f
 
-  let cmdline_of_info ~xs ~dm info restore domid =
+  let qemu_args ~xs ~dm info restore domid =
     let module Q = (val Backend.of_profile dm) in
-    Q.Dm.cmdline_of_info ~xs ~dm info restore domid
+    Q.Dm.qemu_args ~xs ~dm info restore domid
 
   let after_suspend_image ~xs ~dm ~qemu_domid domid =
     let module Q = (val Backend.of_profile dm) in
@@ -2473,8 +2506,20 @@ module Dm = struct
         )
     | _ -> failwith "Unsupported vGPU configuration"
 
-  let __start (task: Xenops_task.task_handle) ~xs ~dm ?(timeout = !Xenopsd.qemu_dm_ready_timeout) l info domid =
-    debug "Device.Dm.start domid=%d args: [%s]" domid (String.concat " " l);
+
+  type action = Start | Restore | StartVNC
+
+  let __start (task: Xenops_task.task_handle)
+      ~xs ~dm ?(timeout = !Xenopsd.qemu_dm_ready_timeout) action info domid =
+
+    let args = match action with
+      | Start    -> qemu_args ~xs ~dm info false domid
+      | Restore  -> qemu_args ~xs ~dm info true  domid
+      | StartVNC -> Dm_Common.{argv = vnconly_cmdline ~info domid; fd_map = []}
+    in
+
+    debug "Device.Dm.start domid=%d args: [%s]"
+      domid (String.concat " " args.argv);
 
     (* start vgpu emulation if appropriate *)
     let () = match info.disp with
@@ -2486,13 +2531,18 @@ module Dm = struct
 
     (* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
 
-    let args = (prepend_wrapper_args domid l) in
+    let argv = (prepend_wrapper_args domid args.argv) in
     let qemu_domid = 0 in (* See stubdom.ml for the corresponding kernel code *)
     let ready_path =
       Printf.sprintf "/local/domain/%d/device-model/%d/state" qemu_domid domid in
     let cancel = Cancel_utils.Qemu (qemu_domid, domid) in
-    let qemu_pid = init_daemon ~task ~path:(Profile.wrapper_of dm) ~args ~name:"qemu-dm" ~domid
-        ~xs ~ready_path ~ready_val:"running" ~timeout ~cancel dm in
+    let qemu_pid = init_daemon ~task ~path:(Profile.wrapper_of dm) ~args:argv
+        ~name:"qemu-dm" ~domid ~xs ~ready_path ~ready_val:"running"
+        ~timeout ~cancel ~fds:args.fd_map dm in
+    let close (uuid,fd) = try Unix.close fd with
+      | e -> error "Closing fd for %s failed: %s (%s)"
+               uuid (Printexc.to_string e) __LOC__ in
+    List.iter close args.fd_map;
     match !Xenopsd.action_after_qemu_crash with
     | None ->
       (* At this point we expect qemu to outlive us; we will never call waitpid *)
@@ -2528,16 +2578,13 @@ module Dm = struct
         ))
 
   let start (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =
-    let l = cmdline_of_info ~xs ~dm info false domid in
-    __start task ~xs ~dm ?timeout l info domid
+    __start task ~xs ~dm ?timeout Start info domid
 
   let restore (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =
-    let l = cmdline_of_info ~xs ~dm info true domid in
-    __start task ~xs ~dm ?timeout l info domid
+    __start task ~xs ~dm ?timeout Restore info domid
 
   let start_vnconly (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =
-    let l = vnconly_cmdline ~info domid in
-    __start task ~xs ~dm ?timeout l info domid
+    __start task ~xs ~dm ?timeout StartVNC info domid
 
   let restore_vgpu (task: Xenops_task.task_handle) ~xs domid vgpu vcpus =
     debug "Called Dm.restore_vgpu";
