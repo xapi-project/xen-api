@@ -112,6 +112,43 @@ let test_create_member_is_tunnel_access () =
     ~args:[Ref.string_of (List.hd members)]
     (fun () -> Xapi_bond.create ~__context ~network ~members ~mAC:"ff:ff:ff:ff:ff:ff" ~mode:`activebackup ~properties:[])
 
+let test_create_bond_into_sriov_network () =
+  let __context = make_test_database () in
+  let sriov_network =
+    let host = make_host ~__context () in
+    let physical_PIF = create_physical_pif ~__context ~host () in
+    let sriov_logical_PIF = create_sriov_pif ~__context ~pif:physical_PIF () in
+    Db.PIF.get_network ~__context ~self:sriov_logical_PIF
+  in
+  let members =
+    let host = make_host ~__context () in
+    let create_member = create_physical_pif ~__context ~host in
+    gen_members create_member
+  in
+  assert_raises_api_error
+    Api_errors.network_incompatible_with_bond
+    ~args:[Ref.string_of sriov_network]
+    (fun () -> Xapi_bond.create ~__context ~network:sriov_network ~members ~mAC:"ff:ff:ff:ff:ff:ff" ~mode:`activebackup ~properties:[])
+
+let test_create_bond_into_sriov_vlan_network () =
+  let __context = make_test_database () in
+  let sriov_vlan_network =
+    let host = make_host ~__context () in
+    let physical_PIF = create_physical_pif ~__context ~host () in
+    let sriov_logical_PIF = create_sriov_pif ~__context ~pif:physical_PIF () in
+    let vlan_pif = create_vlan_pif ~__context ~host ~vlan:1L ~pif:sriov_logical_PIF () in
+    Db.PIF.get_network ~__context ~self:vlan_pif
+  in
+  let members =
+    let host = make_host ~__context () in
+    let create_member = create_physical_pif ~__context ~host in
+    gen_members create_member
+  in
+  assert_raises_api_error
+    Api_errors.network_incompatible_with_bond
+    ~args:[Ref.string_of sriov_vlan_network]
+    (fun () -> Xapi_bond.create ~__context ~network:sriov_vlan_network ~members ~mAC:"ff:ff:ff:ff:ff:ff" ~mode:`activebackup ~properties:[])
+
 let test =
   "test_bond" >:::
   [
@@ -122,4 +159,6 @@ let test =
     "test_create_member_is_vlan_master_on_sriov" >:: test_create_member_is_vlan_master_on_sriov;
     "test_create_member_is_sriov_logical" >:: test_create_member_is_sriov_logical;
     "test_create_member_is_tunnel_access" >:: test_create_member_is_tunnel_access;
+    "test_create_bond_into_sriov_network" >:: test_create_bond_into_sriov_network;
+    "test_create_bond_into_sriov_vlan_network" >:: test_create_bond_into_sriov_vlan_network;
   ]
