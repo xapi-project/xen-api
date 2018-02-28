@@ -172,3 +172,10 @@ let assert_not_vlan_slave ~__context ~self =
              (pif_vlan_still_exists,
               [ Ref.string_of self ]))
   end
+
+let is_device_underneath_same_type ~__context pif1 pif2 =
+  let get_device_info pif =
+    let pci = Db.PIF.get_PCI ~__context ~self:pif in
+    Db.PCI.get_vendor_id ~__context ~self:pci, Db.PCI.get_device_id ~__context ~self:pci
+  in
+  (get_device_info pif1) = (get_device_info pif2)
