@@ -51,6 +51,17 @@ let read_from_vdi ~session_id ~vdi f =
       Http.Get uri in
   http req (fun (_, fd) -> f fd)
 
+(* Simpler alternative to Xapi_vdi.wait_for_vbds_to_be_unplugged_and_destroyed,
+   using sleep instead of the event system. *)
+let wait_for_no_vbds_then_destroy ~rpc ~session_id self =
+  let wait_for_no_vbds () =
+    let start = Mtime_clock.counter () in
+    let over () = (Mtime_clock.count start |> Mtime.Span.to_s) > 4.0 in
+    while not (over ()) && Client.VDI.get_VBDs ~rpc ~session_id ~self <> [] do Unix.sleepf 0.1 done
+  in
+  wait_for_no_vbds ();
+  Client.VDI.destroy ~rpc ~session_id ~self
+
 let start session_id sr =
   let t = make_test "Check VDI.copy delta handling" 1 in
   start t;
@@ -142,5 +153,9 @@ let start session_id sr =
        done;
        debug t "1MiB - 1 sector is full of 'a's";
     );
+
+  debug t "Destroying VDI (cleanup)";
+  List.iter (wait_for_no_vbds_then_destroy ~rpc:!rpc ~session_id) [ original; snapshot; snapshot_backup; delta_backup ];
+
   success t
 
