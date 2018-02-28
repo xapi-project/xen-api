@@ -23,7 +23,7 @@ let create_cluster ~__context pool_auto_join =
     ~current_operations:[] ~pool_auto_join ~cluster_config:[] ~other_config:[];
   cluster_ref
 
-let assert_option =
+let assert_ref_option =
   Alcotest.(check (option (Alcotest_comparators.ref ()) ))
 
 let test_dbsync_join () =
@@ -31,14 +31,14 @@ let test_dbsync_join () =
   let cluster = create_cluster ~__context true in
   let localhost = Helpers.get_localhost ~__context in
   let result = sync_required ~__context ~host:localhost in
-  assert_option "Cluster option" result (Some (cluster))
+  assert_ref_option "Cluster option" result (Some (cluster))
 
 let test_dbsync_nojoin () =
   let __context = Test_common.make_test_database () in
   let _cluster = create_cluster ~__context false in
   let localhost = Helpers.get_localhost ~__context in
   let result = sync_required ~__context ~host:localhost in
-  assert_option "Cluster option" result None
+  assert_ref_option "Cluster option" result None
 
 let pif_plug_rpc __context call =
   match call.Rpc.name, call.Rpc.params with
@@ -91,10 +91,10 @@ let test_create_as_necessary () =
   Db.PIF.set_IP ~__context ~self:pifref ~value:"1.1.1.1";
   let _pif = Xapi_clustering.pif_of_host ~__context network localhost in
   let result = sync_required ~__context ~host:localhost in
-  assert_option "Cluster option" result (Some cluster);
+  assert_ref_option "Cluster option" result (Some cluster);
   Xapi_cluster_host.create_as_necessary ~__context ~host:localhost;
   let result = sync_required ~__context ~host:localhost in
-  assert_option "Cluster option" result None
+  assert_ref_option "Cluster option" result None
 
 (* CA-275728 *)
 let test_destroy_forbidden_when_sr_attached () =
