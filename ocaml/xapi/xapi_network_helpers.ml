@@ -58,3 +58,15 @@ let assert_vlan_network_compatible_with_pif ~__context ~network ~tagged_PIF ~pif
     assert_network_compatible_with_vlan_on_sriov ~__context ~network ~sriov ~tagged_PIF
   | _ ->
     assert_network_compatible_with_vlan_on_bridge ~__context ~network
+
+(* SRIOV PIF can only join the network which is empty or all of the existing PIFs of it are SRIOV PIFS and all of them has identical PCI devices. *)
+let assert_network_compatible_with_sriov ~__context ~pif ~network =
+  match Db.Network.get_PIFs ~__context ~self:network with
+  | [] -> ()
+  | logical_pif :: _ ->
+    match Db.PIF.get_sriov_logical_PIF_of ~__context ~self:logical_pif with
+    | [] -> raise Api_errors.(Server_error (network_incompatible_with_sriov, [Ref.string_of network]))
+    | sriov :: _ ->
+      let existing_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
+      if not (is_device_underneath_same_type ~__context pif existing_pif) then
+        raise Api_errors.(Server_error (network_has_incompatible_sriov_pifs, [Ref.string_of pif; Ref.string_of network]))
