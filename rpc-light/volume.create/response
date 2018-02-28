@@ -12,6 +12,7 @@
                                         <member><name>snapshot_time</name><value>19700101T00:00:00Z</value></member>
                                         <member><name>snapshot_of</name><value></value></member>
                                         <member><name>read_only</name><value><boolean>0</boolean></value></member>
+                                        <member><name>sharable</name><value><boolean>0</boolean></value></member>
 										<member><name>virtual_size</name><value>0</value></member>
 										<member><name>physical_utilisation</name><value>0</value></member>
                                  </struct>

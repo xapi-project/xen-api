@@ -5,6 +5,7 @@
 	     <member><name>name</name><value>The name_label</value></member>
 	     <member><name>description</name><value>The description</value></member>
              <member><name>size</name><value>0</value></member>
+             <member><name>sharable</name><value><boolean>false</boolean></value></member>
      </struct>
    </value></param></params>
 </methodCall>

@@ -88,4 +88,4 @@ let _ =
                 "volume_destroy_request" >:: volume_destroy_request;
                 "volume_snapshot_request" >:: volume_snapshot_request;
               ] in
-  run_test_tt ~verbose:!verbose suite
+  ounit2_of_ounit1 suite |> OUnit2.run_test_tt_main
