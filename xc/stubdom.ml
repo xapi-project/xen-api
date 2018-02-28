@@ -29,7 +29,8 @@ let memory_kib = Int64.mul 1024L memory_mib
 let create ~xc ~xs domid =
   let stubdom_name = Printf.sprintf "stubdom:%d" domid in
   let stubdom_uuid = Uuid.create `V4 in
-  debug "jjd27: creating stubdom with name '%s' and uuid '%s'" stubdom_name (Uuid.to_string stubdom_uuid);
+  debug "creating stubdom with name '%s' and uuid '%s' (%s)"
+    stubdom_name (Uuid.to_string stubdom_uuid) __LOC__;
   let info = {
     Domain.ssidref = 0l;
     Domain.hvm = false;
@@ -77,9 +78,10 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid ~console_domi
   let path = Printf.sprintf "/vm/%s/image/dmargs" guest_uuid_str in
   (* Remove any 'pty' references from the arguments: XXX why? *)
   let info' = { info with Device.Dm.serial = None; monitor = None } in
-  let args = Device.Dm.cmdline_of_info ~xs ~dm info' false domid in
-  xs.Xs.write path (String.concat " " args);
-  debug "jjd27: written qemu-dm args into xenstore at %s: [%s]" path (String.concat " " args);
+  let args = Device.Dm.qemu_args ~xs ~dm info' false domid in
+  let argv = args.Device.Dm.argv in
+  xs.Xs.write path (String.concat " " argv);
+  debug "jjd27: written qemu-dm args into xenstore at %s: [%s]" path (String.concat " " argv);
 
   (* Make that XenStore path readable by the stub domain *)
   xs.Xs.setperms path Xs_protocol.ACL.({owner = 0; other = NONE; acl = [ (domid, READ); (stubdom_domid, READ) ]});
