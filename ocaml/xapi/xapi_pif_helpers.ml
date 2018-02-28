@@ -98,8 +98,8 @@ let get_pif_topo ~__context ~pif_rec =
   debug "PIF type of %s is: %s" pif_rec.API.pIF_uuid (String.concat " " (List.map pif_type_to_string pif_t_list));
   pif_t_list
 
-let vlan_is_allowed_on_pif ~__context ~tagged_PIF ~pif_rec ~tag =
-  match get_pif_topo ~__context ~pif_rec with
+let vlan_is_allowed_on_pif ~__context ~tagged_PIF ~pif_rec ~pif_topo ~tag =
+  match pif_topo with
   | Physical pif_rec :: _ when pif_rec.API.pIF_bond_slave_of <> Ref.null ->
     (* Disallow creating on bond slave *)
     (* Here we rely on the implementation to guarantee that `Physical` is a terminating case *)

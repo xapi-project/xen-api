@@ -261,6 +261,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
   Xapi_network.assert_network_is_managed ~__context ~self:network;
   let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
   Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
+  Xapi_network_helpers.assert_network_compatible_with_bond ~__context ~network;
 
   (* Validate MAC parameter; note an empty string is OK here, since that means 'inherit MAC from
      	 * primary slave PIF' (see below) *)
