@@ -127,7 +127,7 @@ let of_type_decl (env: 'a list) i_opt t =
   let name = t.TyDecl.name in
   let defn = Type.string_of_t ident.Ident.ty in
   let description = string t.TyDecl.description in
-  let h4_text = "type" ^ name ^ " = " ^ defn in
+  let h4_text = "type " ^ name ^ " = " ^ defn in
   let common = list [
       h4 ~id:anchor (string h4_text);
       p description
