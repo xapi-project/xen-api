@@ -19,25 +19,26 @@ let create_cluster ~__context pool_auto_join =
   let cluster_uuid = Uuidm.to_string (Uuidm.create `V4) in
   let network = Test_common.make_network ~__context () in
   Db.Cluster.create ~__context ~ref:cluster_ref ~uuid:cluster_uuid ~network ~cluster_token:"token"
-    ~cluster_stack:"corosync" ~token_timeout:5000L ~token_timeout_coefficient:1000L ~allowed_operations:[] 
+    ~cluster_stack:"corosync" ~token_timeout:5000L ~token_timeout_coefficient:1000L ~allowed_operations:[]
     ~current_operations:[] ~pool_auto_join ~cluster_config:[] ~other_config:[];
   cluster_ref
+
+let assert_ref_option =
+  Alcotest.(check (option (Alcotest_comparators.ref ()) ))
 
 let test_dbsync_join () =
   let __context = Test_common.make_test_database () in
   let cluster = create_cluster ~__context true in
   let localhost = Helpers.get_localhost ~__context in
   let result = sync_required ~__context ~host:localhost in
-  OUnit.assert_equal result (Some (cluster))
+  assert_ref_option "Cluster option" result (Some (cluster))
 
 let test_dbsync_nojoin () =
   let __context = Test_common.make_test_database () in
   let _cluster = create_cluster ~__context false in
   let localhost = Helpers.get_localhost ~__context in
   let result = sync_required ~__context ~host:localhost in
-  OUnit.assert_equal result None
-
-open OUnit
+  assert_ref_option "Cluster option" result None
 
 let pif_plug_rpc __context call =
   match call.Rpc.name, call.Rpc.params with
@@ -66,7 +67,7 @@ let test_fix_prereq () =
   let localhost = Helpers.get_localhost ~__context in
   let pifref = Test_common.make_pif ~__context ~network ~host:localhost () in
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
-  assert_raises
+  Alcotest.check_raises "Should fail when checking PIF prequisites"
     (Failure exn)
     (fun () ->
       try
@@ -77,7 +78,8 @@ let test_fix_prereq () =
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
   Xapi_cluster_host.fix_pif_prerequisites ~__context pif;
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
-  assert_equal (Xapi_clustering.assert_pif_prerequisites pif) ()
+  Alcotest.(check unit) "Assert PIF prerequisites without error"
+    (Xapi_clustering.assert_pif_prerequisites pif) ()
 
 let test_create_as_necessary () =
   let __context = Test_common.make_test_database () in
@@ -89,10 +91,10 @@ let test_create_as_necessary () =
   Db.PIF.set_IP ~__context ~self:pifref ~value:"1.1.1.1";
   let _pif = Xapi_clustering.pif_of_host ~__context network localhost in
   let result = sync_required ~__context ~host:localhost in
-  OUnit.assert_equal result (Some cluster);
+  assert_ref_option "Cluster option" result (Some cluster);
   Xapi_cluster_host.create_as_necessary ~__context ~host:localhost;
   let result = sync_required ~__context ~host:localhost in
-  OUnit.assert_equal result None
+  assert_ref_option "Cluster option" result None
 
 (* CA-275728 *)
 let test_destroy_forbidden_when_sr_attached () =
@@ -110,18 +112,18 @@ let test_destroy_forbidden_when_sr_attached () =
     Test_common.make_sr ~__context ~_type:sr_type ()
   in
   let _pbd : _ API.Ref.t = Test_common.make_pbd ~__context ~host ~sR ~currently_attached:true () in
-  OUnit.assert_raises
+  let msg = ("Host has attached SR whose SM requires cluster stack " ^ cluster_stack) in
+  Alcotest.check_raises
+    ("Should raise (Failure " ^ msg ^ ")")
     (* TODO: update this when the exceptions are finalized *)
-    (Failure ("Host has attached SR whose SM requires cluster stack " ^ cluster_stack))
+    (Failure msg)
     (fun () -> Xapi_cluster_host.destroy ~__context ~self:cluster_host)
 
 
 let test =
-  "test_cluster_host" >:::
-  [
-    "test_dbsync_join" >:: test_dbsync_join;
-    "test_dbsync_nojoin" >:: test_dbsync_nojoin;
-    "test_fix_prerequisites" >:: test_fix_prereq;
-    "test_create_as_necessary" >:: test_create_as_necessary;
-    "test_destroy_forbidden_when_sr_attached" >:: test_destroy_forbidden_when_sr_attached;
+  [ "test_dbsync_join", `Quick, test_dbsync_join
+  ; "test_dbsync_nojoin", `Quick, test_dbsync_nojoin
+  ; "test_fix_prerequisites", `Quick, test_fix_prereq
+  ; "test_create_as_necessary", `Quick, test_create_as_necessary
+  ; "test_destroy_forbidden_when_sr_attached", `Quick, test_destroy_forbidden_when_sr_attached
   ]

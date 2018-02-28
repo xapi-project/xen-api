@@ -13,7 +13,6 @@
  *)
 
 open Xapi_cluster
-open OUnit
 
 let test_clusterd_rpc ~__context call =
   let token = "test_token" in
@@ -63,8 +62,6 @@ let test_enable () =
   pool_destroy ~__context ~self:cluster
 
 let test =
-  "test_cluster" >:::
-  [
-    "test_create_destroy_service_status" >:: test_create_destroy_status;
-    "test_enable" >:: test_enable;
+  [ "test_create_destroy_service_status", `Quick, test_create_destroy_status
+  ; "test_enable", `Quick, test_enable
   ]
