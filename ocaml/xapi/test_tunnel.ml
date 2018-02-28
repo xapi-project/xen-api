@@ -99,6 +99,43 @@ let test_create_on_vlan_on_sriov_logical () =
     ~args:[Ref.string_of transport_PIF]
     (fun () -> Xapi_tunnel.create ~__context ~transport_PIF ~network)
 
+let test_create_tunnel_into_sriov_network () =
+  let __context = make_test_database () in
+  let sriov_network =
+    let host = make_host ~__context () in
+    let physical_PIF = create_physical_pif ~__context ~host () in
+    let sriov_logical_PIF = create_sriov_pif ~__context ~pif:physical_PIF () in
+    Db.PIF.get_network ~__context ~self:sriov_logical_PIF
+  in
+  let pif =
+    let host = make_host ~__context () in
+    create_physical_pif ~__context ~host ()
+  in
+  assert_raises_api_error
+    Api_errors.network_incompatible_with_tunnel
+    ~args:[Ref.string_of sriov_network]
+    (fun () ->
+       Xapi_tunnel.create ~__context ~transport_PIF:pif ~network:sriov_network)
+
+let test_create_tunnel_into_sriov_vlan_network () =
+  let __context = make_test_database () in
+  let sriov_vlan_network =
+    let host = make_host ~__context () in
+    let physical_PIF = create_physical_pif ~__context ~host () in
+    let sriov_logical_PIF = create_sriov_pif ~__context ~pif:physical_PIF () in
+    let vlan_pif = create_vlan_pif ~__context ~host ~vlan:1L ~pif:sriov_logical_PIF () in
+    Db.PIF.get_network ~__context ~self:vlan_pif
+  in
+  let pif =
+    let host = make_host ~__context () in
+    create_physical_pif ~__context ~host ()
+  in
+  assert_raises_api_error
+    Api_errors.network_incompatible_with_tunnel
+    ~args:[Ref.string_of sriov_vlan_network]
+    (fun () ->
+       Xapi_tunnel.create ~__context ~transport_PIF:pif ~network:sriov_vlan_network)
+
 let test =
   "test_tunnel" >:::
   [
@@ -109,4 +146,6 @@ let test =
     "test_create_on_tunnel_access" >:: test_create_on_tunnel_access;
     "test_create_on_sriov_logical" >:: test_create_on_sriov_logical;
     "test_create_on_vlan_on_sriov_logical" >:: test_create_on_vlan_on_sriov_logical;
+    "test_create_tunnel_into_sriov_network" >:: test_create_tunnel_into_sriov_network;
+    "test_create_tunnel_into_sriov_vlan_network" >:: test_create_tunnel_into_sriov_vlan_network;
   ]
