@@ -49,8 +49,9 @@ let create ~__context ~tagged_PIF ~tag ~network =
   Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self:tagged_PIF;
   let pif_rec = Db.PIF.get_record ~__context ~self:tagged_PIF in
-  Xapi_pif_helpers.vlan_is_allowed_on_pif ~__context ~tagged_PIF ~pif_rec ~tag;
-
+  let pif_topo = Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec in
+  Xapi_pif_helpers.vlan_is_allowed_on_pif ~__context ~tagged_PIF ~pif_rec ~pif_topo ~tag;
+  Xapi_network_helpers.assert_vlan_network_compatible_with_pif ~__context ~network ~tagged_PIF ~pif_topo;
   (* Check the VLAN tag is sensible;  4095 is reserved for implementation use (802.1Q) *)
   if tag<0L || tag>4094L then
     raise (Api_errors.Server_error (Api_errors.vlan_tag_invalid, [Int64.to_string tag]));
