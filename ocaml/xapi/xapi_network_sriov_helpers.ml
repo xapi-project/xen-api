@@ -107,24 +107,3 @@ let sriov_bring_down ~__context ~self =
   Db.PIF.set_currently_attached ~__context ~self ~value:false;
   Db.Network_sriov.set_requires_reboot ~__context ~self:sriov ~value:false;
   Xapi_pci.update_pcis ~__context
-
-let is_device_underneath_same_type ~__context pif1 pif2 =
-  let get_device_info pif =
-    let pci = Db.PIF.get_PCI ~__context ~self:pif in
-    Db.PCI.get_vendor_id ~__context ~self:pci, Db.PCI.get_device_id ~__context ~self:pci
-  in
-  (get_device_info pif1) = (get_device_info pif2)
-
-(* SRIOV PIF can only join the network which is empty or all of the existing PIFs of it are SRIOV PIFS and all of them has identical PCI devices. *)
-let assert_sriov_pif_compatible_with_network ~__context ~pif ~network =
-  match Db.Network.get_PIFs ~__context ~self:network with
-  | [] -> ()
-  | logical_pif :: _ ->
-    begin
-      match Db.PIF.get_sriov_logical_PIF_of ~__context ~self:logical_pif with
-      | [] -> raise Api_errors.(Server_error (network_is_not_sriov_compatible, [Ref.string_of network]))
-      | sriov :: _ ->
-        let existing_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
-        if not (is_device_underneath_same_type ~__context pif existing_pif) then
-          raise Api_errors.(Server_error (network_has_incompatible_sriov_pifs, [Ref.string_of pif; Ref.string_of network]))
-    end

@@ -571,8 +571,18 @@ let _ =
     ~doc:"Failed to disable SR-IOV on PIF" ();
   error Api_errors.network_has_incompatible_sriov_pifs ["PIF"; "network"]
     ~doc:"The PIF is not compatible with the selected SR-IOV network" ();
-  error Api_errors.network_is_not_sriov_compatible ["network"]
-    ~doc:"The network is not compatible with sriov" ();
+  error Api_errors.network_has_incompatible_vlan_on_sriov_pifs ["PIF"; "network"]
+    ~doc:"VLAN on the PIF is not compatible with the selected SR-IOV VLAN network" ();
+  error Api_errors.network_incompatible_with_sriov ["network"]
+    ~doc:"The network is incompatible with sriov" ();
+  error Api_errors.network_incompatible_with_vlan_on_bridge ["network"]
+    ~doc:"The network is incompatible with vlan on bridge" ();
+  error Api_errors.network_incompatible_with_vlan_on_sriov ["network"]
+    ~doc:"The network is incompatible with vlan on sriov" ();
+  error Api_errors.network_incompatible_with_bond ["network"]
+    ~doc:"The network is incompatible with bond" ();
+  error Api_errors.network_incompatible_with_tunnel ["network"]
+    ~doc:"The network is incompatible with tunnel" ();
   (* PIF/VIF/Network errors *)
   error Api_errors.network_unmanaged [ "network" ]
     ~doc:"The network is not managed by xapi." ();

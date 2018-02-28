@@ -44,7 +44,7 @@ let create ~__context ~pif ~network =
   Xapi_pif_helpers.sriov_is_allowed_on_pif ~__context ~physical_PIF:pif ~pif_rec;
   let host = Db.PIF.get_host ~__context ~self:pif in
   Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
-  Xapi_network_sriov_helpers.assert_sriov_pif_compatible_with_network ~__context ~pif ~network;
+  Xapi_network_helpers.assert_network_compatible_with_sriov ~__context ~pif ~network;
 
   info "Start creating logical PIF and network-sriov object";
   let sriov, logical_PIF = create_internal ~__context ~physical_PIF:pif ~physical_rec:pif_rec ~network in

@@ -98,8 +98,8 @@ let get_pif_topo ~__context ~pif_rec =
   debug "PIF type of %s is: %s" pif_rec.API.pIF_uuid (String.concat " " (List.map pif_type_to_string pif_t_list));
   pif_t_list
 
-let vlan_is_allowed_on_pif ~__context ~tagged_PIF ~pif_rec ~tag =
-  match get_pif_topo ~__context ~pif_rec with
+let vlan_is_allowed_on_pif ~__context ~tagged_PIF ~pif_rec ~pif_topo ~tag =
+  match pif_topo with
   | Physical pif_rec :: _ when pif_rec.API.pIF_bond_slave_of <> Ref.null ->
     (* Disallow creating on bond slave *)
     (* Here we rely on the implementation to guarantee that `Physical` is a terminating case *)
@@ -172,3 +172,11 @@ let assert_not_vlan_slave ~__context ~self =
              (pif_vlan_still_exists,
               [ Ref.string_of self ]))
   end
+
+let is_device_underneath_same_type ~__context pif1 pif2 =
+  let get_device_info pif =
+    let pci = Db.PIF.get_PCI ~__context ~self:pif in
+    let pci_rec = Db.PCI.get_record_internal ~__context ~self:pci in
+    pci_rec.Db_actions.pCI_vendor_id, pci_rec.Db_actions.pCI_device_id
+  in
+  (get_device_info pif1) = (get_device_info pif2)
