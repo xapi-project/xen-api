@@ -152,7 +152,7 @@ let test_create_on_network_not_compatible_sriov () =
   let pif = create_physical_pif ~__context ~host () in
   Db.PIF.set_capabilities ~__context ~self:pif ~value:["sriov"];
   assert_raises_api_error
-    Api_errors.network_is_not_sriov_compatible
+    Api_errors.network_incompatible_with_sriov
     ~args:[Ref.string_of network]
     (fun () -> Xapi_network_sriov.create ~__context ~pif ~network)
 

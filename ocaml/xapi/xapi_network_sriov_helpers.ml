@@ -115,7 +115,7 @@ let assert_sriov_pif_compatible_with_network ~__context ~pif ~network =
   | logical_pif :: _ ->
     begin
       match Db.PIF.get_sriov_logical_PIF_of ~__context ~self:logical_pif with
-      | [] -> raise Api_errors.(Server_error (network_is_not_sriov_compatible, [Ref.string_of network]))
+      | [] -> raise Api_errors.(Server_error (network_incompatible_with_sriov, [Ref.string_of network]))
       | sriov :: _ ->
         let existing_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
         if not (Xapi_pif_helpers.is_device_underneath_same_type ~__context pif existing_pif) then
