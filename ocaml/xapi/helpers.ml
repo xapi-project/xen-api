@@ -244,6 +244,11 @@ let make_rpc ~__context rpc : Rpc.response =
     else SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
 
+let make_remote_rpc_of_url ~srcstr ~dststr url call =
+  let open Xmlrpc_client in
+  let http = xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url) in
+  XMLRPC_protocol.rpc ~transport:(transport_of_url url) ~srcstr ~dststr ~http call
+
 (* This one uses rpc-light *)
 let make_remote_rpc remote_address xml =
   let open Xmlrpc_client in
