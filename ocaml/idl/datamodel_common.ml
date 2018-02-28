@@ -82,6 +82,9 @@ let inverness_release_schema_minor_vsn = 133
 let jura_release_schema_major_vsn = 5
 let jura_release_schema_minor_vsn = 134
 
+let kolkata_release_schema_major_vsn = 5
+let kolkata_release_schema_minor_vsn = 141
+
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
 let tech_preview_releases = [
@@ -183,6 +186,11 @@ let get_product_releases in_product_since =
     | x::xs -> go_through_release_order xs
   in go_through_release_order release_order
 
+let kolkata_release =
+  { internal = get_product_releases rel_kolkata
+  ; opensource = get_oss_releases None
+  ; internal_deprecated_since = None
+  }
 
 let inverness_release =
   { internal = get_product_releases rel_inverness
