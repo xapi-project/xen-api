@@ -8,4 +8,4 @@ val tap_open: string -> Unix.file_descr
 (** [with_tap ifname fn] applies [fn] to the file descriptor for [ifname]
  * and closes the file descriptor subsequently even in the presence of
  * exceptions *)
-$val with_tap: string -> fn:(Unix.file_descr -> 'a) -> 'a
+val with_tap: string -> fn:(Unix.file_descr -> 'a) -> 'a
