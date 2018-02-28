@@ -571,8 +571,8 @@ let _ =
     ~doc:"Failed to disable SR-IOV on PIF" ();
   error Api_errors.network_has_incompatible_sriov_pifs ["PIF"; "network"]
     ~doc:"The PIF is not compatible with the selected SR-IOV network" ();
-  error Api_errors.network_is_not_sriov_compatible ["network"]
-    ~doc:"The network is not compatible with sriov" ();
+  error Api_errors.network_incompatible_with_sriov ["network"]
+    ~doc:"The network is incompatible with sriov" ();
   (* PIF/VIF/Network errors *)
   error Api_errors.network_unmanaged [ "network" ]
     ~doc:"The network is not managed by xapi." ();
