@@ -783,7 +783,7 @@ end
 
 (*****************************************************************************)
 (** Vcpus:                                                                   *)
-module Vcpu = struct
+module Vcpu_Common = struct
 
   let add ~xs ~devid domid online =
     let path = sprintf "/local/domain/%d/cpu/%d/availability" domid devid in
@@ -792,8 +792,6 @@ module Vcpu = struct
   let del ~xs ~devid domid =
     let path = sprintf "/local/domain/%d/cpu/%d" domid devid in
     xs.Xs.rm path
-
-  let set = add
 
   let status ~xs ~devid domid =
     let path = sprintf "/local/domain/%d/cpu/%d/availability" domid devid in
@@ -1889,6 +1887,13 @@ module Backend = struct
       val qemu_media_change : xs:Xenstore.Xs.xsh -> device -> string -> string -> unit
     end
 
+    (** Vcpu functions that use the dispatcher to choose between different profile backends *)
+    module Vcpu: sig
+      val add : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
+      val del : xs:Xenstore.Xs.xsh -> devid:int -> int -> unit
+      val status : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool
+    end
+
     (** Dm functions that use the dispatcher to choose between different profile backends *)
     module Dm: sig
 
@@ -1926,6 +1931,13 @@ module Backend = struct
     (** Implementation of the Vbd functions that use the dispatcher for the qemu-trad backend *)
     module Vbd = struct
       let qemu_media_change = Vbd_Common.qemu_media_change
+    end
+
+    (** Implementation of the Vcpu functions that use the dispatcher for the qemu-trad backend *)
+    module Vcpu = struct
+      let add = Vcpu_Common.add
+      let del = Vcpu_Common.del
+      let status = Vcpu_Common.status
     end
 
     (** Implementation of the Dm functions that use the dispatcher for the qemu-trad backend *)
@@ -2042,6 +2054,17 @@ module Backend = struct
           | Internal_error(_) as e -> raise e
           | e -> raise(Internal_error (Printf.sprintf "Get unexpected error trying to change CD: %s" (Printexc.to_string e)))
     end (* Backend.Qemu_upstream_compat.Vbd *)
+
+    (** Implementation of the Vcpu functions that use the dispatcher for the qemu-upstream-compat backend *)
+    module Vcpu = struct
+
+      let add ~xs ~devid domid online =
+        Vcpu_Common.add ~xs ~devid domid online
+      let del ~xs ~devid domid =
+        Vcpu_Common.del ~xs ~devid domid
+      let status ~xs ~devid domid =
+        Vcpu_Common.status ~xs ~devid domid
+    end
 
     (** Implementation of the Dm functions that use the dispatcher for the qemu-upstream-compat backend *)
     module Dm = struct
@@ -2432,6 +2455,26 @@ module Vbd = struct
     Q.Vbd.qemu_media_change ~xs device _type params
 
 end (* Vbd *)
+
+(** Vcpu module conforming to the corresponding public mli interface *)
+module Vcpu = struct
+  include Vcpu_Common
+
+  let add ~xs ~dm ~devid domid online =
+    let module Q = (val Backend.of_profile dm) in
+    Q.Vcpu.add ~xs ~devid domid online
+
+  let set = add
+
+  let del ~xs ~dm ~devid domid =
+    let module Q = (val Backend.of_profile dm) in
+    Q.Vcpu.del ~xs ~devid domid
+
+  let status ~xs ~dm ~devid domid =
+    let module Q = (val Backend.of_profile dm) in
+    Q.Vcpu.status ~xs ~devid domid
+
+end (* Vcpu *)
 
 (** Dm module conforming to the corresponding public mli interface *)
 module Dm = struct

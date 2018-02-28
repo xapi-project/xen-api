@@ -132,10 +132,10 @@ val can_surprise_remove : xs:Xenstore.Xs.xsh -> device -> bool
 
 module Vcpu :
 sig
-  val add : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
-  val del : xs:Xenstore.Xs.xsh -> devid:int -> int -> unit
-  val set : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
-  val status : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool
+  val add : xs:Xenstore.Xs.xsh -> dm:Profile.t -> devid:int -> int -> bool -> unit
+  val del : xs:Xenstore.Xs.xsh -> dm:Profile.t -> devid:int -> int -> unit
+  val set : xs:Xenstore.Xs.xsh -> dm:Profile.t -> devid:int -> int -> bool -> unit
+  val status : xs:Xenstore.Xs.xsh -> dm:Profile.t -> devid:int -> int -> bool
 end
 
 module PV_Vnc :
