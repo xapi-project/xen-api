@@ -6,7 +6,7 @@ type address = {
 	dev: int;
 	fn: int;
 }
-[@@deriving sexp, rpc]
+[@@deriving sexp, rpc, rpcty]
 
 let address_of_string str =
 	Scanf.sscanf str "%04x:%02x:%02x.%02x"

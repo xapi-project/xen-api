@@ -290,9 +290,6 @@ module Interface_API(R : RPC) = struct
       ["Reset configuration state"]
       (unit_p @-> returning unit_p err)
 
-  external get_pci_bus_path : debug_info -> name:iface -> string = ""
-
-
   let set_gateway_interface =
     let name_p = Param.mk ~name:"name" ~description:["gateway name"] iface in
     declare
@@ -325,6 +322,13 @@ module Interface_API(R : RPC) = struct
       declare
         "Interface.exists"
         ["Check interface existence"]
+        (debug_info_p @-> iface_name_p @-> returning result err)
+
+    let get_pci_bus_path =
+      let result = Param.mk ~description:["PCI bus path"] Types.string in
+      declare
+        "Interface.get_pci_bus_path"
+        ["Get PCI bus path of the interface"]
         (debug_info_p @-> iface_name_p @-> returning result err)
 
     let get_mac =
@@ -633,39 +637,63 @@ module Interface_API(R : RPC) = struct
         ["Remove site"]
         (debug_info_p @-> site_p @-> returning unit_p err)
   end
-end
 
+  module Sriov = struct
+    type sriov_pci_t = {
+      mac: string option;
+      vlan: int64 option;
+      rate: int64 option;
+	  } [@@deriving rpcty]
 
-type enable_action_result =
-	| Modprobe_successful_requires_reboot
-	| Modprobe_successful
-	| Sysfs_successful
+    type enable_action_result =
+      | Modprobe_successful_requires_reboot
+      | Modprobe_successful
+      | Sysfs_successful
+    [@@deriving rpcty]
 
-type enable_result =
-	| Ok of enable_action_result
-	| Error of string
+    type enable_result =
+      | Ok of enable_action_result
+      | Error of string
+    [@@deriving rpcty]
 
-type disable_result =
-	| Ok
-	| Error of string
+    type disable_result =
+      | Ok
+      | Error of string
+    [@@deriving rpcty]
 
-type config_error =
-	| Config_vf_rate_not_supported
-	| Unknown of string
+    type config_error =
+      | Config_vf_rate_not_supported
+      | Unknown of string
+    [@@deriving rpcty]
 
-type config_result =
-	| Ok
-	| Error of config_error
- 
-module Sriov = struct
+    type config_result =
+      | Ok
+      | Error of config_error
+    [@@deriving rpcty]
 
-	type sriov_pci_t = {
-		mac: string option;
-		vlan: int64 option;
-		rate: int64 option;
-	}
+    let iface_name_p = Param.mk ~name:"name" ~description:["interface name"] iface
 
-	external enable:  debug_info -> name:iface -> enable_result  = ""
-	external disable: debug_info -> name:iface -> disable_result  = ""
-	external make_vf_config : debug_info -> pci_address:Xcp_pci.address -> vf_info:Sriov.sriov_pci_t -> config_result = ""
+    let enable =
+      let result_p = Param.mk ~description:["SR-IOV enable result"] enable_result in
+      declare
+        "Sriov.enable"
+        ["Enable SR-IOV"]
+        (debug_info_p @-> iface_name_p @-> returning result_p err)
+
+    let disable =
+      let result_p = Param.mk ~description:["SR-IOV disable result"] disable_result in
+      declare
+        "Sriov.disable"
+        ["Disable SR-IOV"]
+        (debug_info_p @-> iface_name_p @-> returning result_p err)
+
+    let make_vf_config =
+      let pci_address_p = Param.mk ~description:["pci address"] Xcp_pci.address in
+      let vf_info_p = Param.mk ~description:["vf info"] sriov_pci_t in
+      let result_t = Param.mk ~description:["SR-IOV make vf configuration result"] config_result in
+      declare
+        "Sriov.make_vf_config"
+        ["Make SR-IOV vf config"]
+        (debug_info_p @-> pci_address_p @-> vf_info_p @-> returning result_t err)
+  end
 end
