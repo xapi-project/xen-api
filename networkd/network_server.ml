@@ -18,6 +18,7 @@ open Xapi_stdext_std
 open Xapi_stdext_unix
 open Xapi_stdext_monadic
 
+module S = Network_interface.Interface_API(Idl.GenServerExn ())
 module D = Debug.Make(struct let name = "network_server" end)
 open D
 
@@ -122,7 +123,9 @@ let need_enic_workaround () =
 		| None -> false )
 
 module Sriov = struct
-	let get_capabilities dev = 
+	open S.Sriov
+
+	let get_capabilities dev =
 		if Sysfs.get_sriov_maxvfs dev = 0 then [] else ["sriov"]
 
 	(* To enable SR-IOV via modprobe configuration, we add a line like `options igb max_vfs=7,7,7`
@@ -236,7 +239,7 @@ module Sriov = struct
 				Ok Modprobe_successful
 		end
 
-	let enable _ dbg ~name =
+	let enable dbg name =
 		Debug.with_thread_associated dbg (fun () ->
 			debug "Enable network SR-IOV by name: %s" name;
 			match enable_internal name with
@@ -257,7 +260,7 @@ module Sriov = struct
 			Dracut.rebuild_initrd ()
 		| _ -> Ok ()
 
-	let disable _ dbg ~name =
+	let disable dbg name =
 		Debug.with_thread_associated dbg (fun () ->	
 			debug "Disable network SR-IOV by name: %s" name;
 			match disable_internal name with
@@ -277,7 +280,7 @@ module Sriov = struct
 		exe_except_none (Ip.set_vf_vlan dev index) vlan >>= fun () ->
 		exe_except_none (Ip.set_vf_rate dev index) rate
 
-	let make_vf_config _ dbg ~pci_address ~(vf_info : Sriov.sriov_pci_t)=
+	let make_vf_config dbg pci_address (vf_info : sriov_pci_t) =
 		Debug.with_thread_associated dbg (fun () ->	
 			let vlan = Opt.map Int64.to_int vf_info.vlan
 			and rate = Opt.map Int64.to_int vf_info.rate
@@ -315,7 +318,7 @@ module Interface = struct
 			| Some master -> Proc.get_bond_slave_mac master name
 			| None -> Ip.get_mac name
 		) ()
-	let get_pci_bus_path _ dbg ~name =
+	let get_pci_bus_path dbg name =
 		Debug.with_thread_associated dbg (fun () ->
 			Sysfs.get_pcibuspath name
 		) ()
