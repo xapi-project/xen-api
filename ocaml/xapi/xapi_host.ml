@@ -1674,6 +1674,49 @@ let sync_tunnels ~__context ~host =
   (* for each of the master's pifs, create a corresponding one on this host if necessary *)
   List.iter maybe_create_tunnel_for_me master_tunnel_pifs
 
+let sync_network_sriovs ~__context ~host =
+  let master = !Xapi_globs.localhost_ref in
+  let master_sriov_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+      Eq (Field "host", Literal (Ref.string_of master)),
+      Not (Eq (Field "sriov_logical_PIF_of", Literal "()"))
+    )) in
+  let slave_sriov_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+      Eq (Field "host", Literal (Ref.string_of host)),
+      Not (Eq (Field "sriov_logical_PIF_of", Literal "()"))
+    )) in
+  let slave_physical_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+      Eq (Field "host", Literal (Ref.string_of host)),
+      Eq (Field "physical", Literal "true")
+    )) in
+  let maybe_create_sriov (master_pif_ref, master_pif_rec) =
+    let sriov_network = master_pif_rec.API.pIF_network in
+    let existing_pif = List.filter (fun (_, slave_pif_rec) ->
+        slave_pif_rec.API.pIF_network = sriov_network
+      ) slave_sriov_pifs in
+    if existing_pif = [] then begin
+      let device = master_pif_rec.API.pIF_device in
+      let pifs = List.filter (fun (_, pif_rec) -> pif_rec.API.pIF_device = device) slave_physical_pifs in
+      match pifs with
+      | [] ->
+        info "Cannot sync network sriov because cannot find PIF whose device name is %s" device
+      | (pif_ref, pif_rec) :: _ ->
+        begin
+          try
+            Xapi_network_sriov.create ~__context ~pif:pif_ref ~network:sriov_network |> ignore
+          with
+          | Api_errors.Server_error (err, _) when err = Api_errors.network_has_incompatible_sriov_pifs ->
+            warn "Cannot sync network sriov on slave because PCI device of %s is different from the PIF of master in the same position" pif_rec.API.pIF_uuid
+          | Api_errors.Server_error (err, _) when err = Api_errors.network_sriov_already_enabled ->
+            warn "Cannot sync network sriov on slave because PIF %s on slave has enabled sriov in another network" pif_rec.API.pIF_uuid
+          | Api_errors.Server_error (err, _) when err = Api_errors.pif_is_not_sriov_capable ->
+            warn "Cannot sync network sriov on slave because PIF %s on slave is not sriov capable" pif_rec.API.pIF_uuid
+          | exn ->
+            error "Error occurs when syncing network sriov for PIF %s: %s" pif_rec.API.pIF_uuid (Printexc.to_string exn)
+        end
+    end
+  in
+  List.iter maybe_create_sriov master_sriov_pifs
+
 let sync_pif_currently_attached ~__context ~host ~bridges =
   (* Produce internal lookup tables *)
   let networks = Db.Network.get_all_records ~__context in

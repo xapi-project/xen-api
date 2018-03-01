@@ -919,6 +919,7 @@ let server_init() =
           "watching networks for NBD-related changes", [Startup.OnThread], Network_event_loop.watch_networks_for_nbd_changes;
           (* CA-175353: moving VIFs between networks requires VMs to be resynced *)
           "Synchronising bonds on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_bonds_from_master ~__context;
+          "Synchronising network sriovs on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_network_sriovs_from_master ~__context;
           "Synchronising VLANs on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_vlans_from_master ~__context;
           "Synchronising tunnels on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_tunnels_from_master ~__context;
 

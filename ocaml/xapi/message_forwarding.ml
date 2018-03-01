@@ -2636,6 +2636,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Host.sync_tunnels: host = '%s'" (host_uuid ~__context host);
       Local.Host.sync_tunnels ~__context ~host
 
+    let sync_network_sriovs ~__context ~host =
+      info "Host.sync_network_sriovs: host = '%s'" (host_uuid ~__context host);
+      Local.Host.sync_network_sriovs ~__context ~host
+
     let sync_pif_currently_attached ~__context ~host ~bridges =
       info "Host.sync_pif_currently_attached: host = '%s'" (host_uuid ~__context host);
       Local.Host.sync_pif_currently_attached ~__context ~host ~bridges
