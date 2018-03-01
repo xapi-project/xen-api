@@ -161,3 +161,8 @@ let copy_tunnels_from_master ~__context () =
   let host = !Xapi_globs.localhost_ref in
   Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Host.sync_tunnels ~rpc ~session_id ~host)
 
+(** Copy network-sriovs from master *)
+let copy_network_sriovs_from_master ~__context () =
+  debug "Resynchronising network-sriovs";
+  let host = !Xapi_globs.localhost_ref in
+  Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Host.sync_network_sriovs ~rpc ~session_id ~host)

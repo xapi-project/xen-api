@@ -4996,8 +4996,20 @@ let host_sync_vlans = call ~flags:[`Session]
 
 let host_sync_tunnels = call ~flags:[`Session]
     ~name:"sync_tunnels"
-    ~lifecycle:[]
+    ~lifecycle:[Published, rel_kolkata, ""]
     ~doc:"Synchronise tunnels on given host with the master's tunnels"
+    ~params:[
+      Ref _host, "host", "The host";
+    ]
+    ~hide_from_docs:true
+    ~pool_internal:true
+    ~allowed_roles:_R_POOL_OP
+    ()
+
+let host_sync_network_sriovs = call ~flags:[`Session]
+    ~name:"sync_network_sriovs"
+    ~lifecycle:[]
+    ~doc:"Synchronise network sriovs on given host with the master's network sriovs"
     ~params:[
       Ref _host, "host", "The host";
     ]
@@ -5160,6 +5172,7 @@ let host =
                 host_sm_dp_destroy;
                 host_sync_vlans;
                 host_sync_tunnels;
+                host_sync_network_sriovs;
                 host_sync_pif_currently_attached;
                 host_migrate_receive;
                 host_declare_dead;
