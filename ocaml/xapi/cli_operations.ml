@@ -1556,15 +1556,27 @@ let sr_probe printer rpc session_id params =
         "total-space", Int64.to_string x.total_space;
         "free-space", Int64.to_string x.free_space;
       ] in
-      if x.attachable <> []
+      let srs = Listext.List.filter_map (fun e ->
+        match e.sr with
+        | Some info -> Some (e.configuration, info)
+        | None -> None) x in
+      if srs <> []
       then printer (Cli_printer.PMsg "The following SRs were found:");
-      printer (Cli_printer.PTable (List.map sr x.attachable));
-      if x.creatable <> []
+      printer (Cli_printer.PTable (List.map sr srs));
+
+      let creatable = Listext.List.filter_map (fun e ->
+        if e.complete then Some e.configuration
+        else None) x in
+      if creatable <> []
       then printer (Cli_printer.PMsg "The following configurations can be used to create SRs:");
-      printer (Cli_printer.PTable x.creatable);
-      if x.incomplete <> []
+      printer (Cli_printer.PTable creatable);
+
+      let incomplete = Listext.List.filter_map (fun e ->
+        if e.complete then None
+        else Some (List.rev_append e.extra_info e.configuration)) x in
+      if incomplete <> []
       then printer (Cli_printer.PMsg "The following configurations require further probing:");
-      printer (Cli_printer.PTable x.incomplete)
+      printer (Cli_printer.PTable incomplete)
   with _ ->
     printer (Cli_printer.PList [txt])
 
