@@ -66,6 +66,7 @@ let comment doc ?(indent = 0) s =
     out_newline = (fun () ->
         out (Printf.sprintf "\n%s * " indent_str) 0 (indent + 4));
     out_spaces = spaces;
+    out_indent = spaces;
   } in
   Format.pp_set_formatter_out_functions formatter funcs;
 
