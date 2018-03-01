@@ -1519,30 +1519,30 @@ let sync_vlans ~__context ~host =
       Not (Eq (Field "VLAN_master_of", Literal (Ref.string_of Ref.null)))
     )) in
 
-  let get_network_of_pif_underneath_vlan vlan_pif =
-    let vlan = Db.PIF.get_VLAN_master_of ~__context ~self:vlan_pif in
-    let pif_underneath_vlan = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
-    Db.PIF.get_network ~__context ~self:pif_underneath_vlan
+  let get_network_of_pif_underneath_vlan vlan_pif_rec =
+    match Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec:vlan_pif_rec with
+    | VLAN_untagged vlan :: _ ->
+      let pif_underneath_vlan = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
+      Db.PIF.get_network ~__context ~self:pif_underneath_vlan
+    | _ -> raise Api_errors.(Server_error(internal_error, [Printf.sprintf "Cannot find vlan from a vlan master PIF:%s" vlan_pif_rec.API.pIF_uuid]))
   in
-
   let maybe_create_vlan (master_pif_ref, master_pif_rec) =
     (* Check to see if the slave has any existing pif(s) that for the specified device, network, vlan... *)
+    (* On the master, we find the pif, p, that underlies the VLAN
+                   * (e.g. "eth0" underlies "eth0.25") and then find the network that p's on: *)
+    let network_of_pif_underneath_vlan_on_master = get_network_of_pif_underneath_vlan master_pif_rec in
     let existing_pif = List.filter (fun (slave_pif_ref, slave_pif_record) ->
         (* Is slave VLAN PIF that we're considering (slave_pif_ref) the one that corresponds
            			 * to the master_pif we're considering (master_pif_ref)? *)
         true
         && slave_pif_record.API.pIF_network = master_pif_rec.API.pIF_network
         && slave_pif_record.API.pIF_VLAN = master_pif_rec.API.pIF_VLAN
-        && ((get_network_of_pif_underneath_vlan slave_pif_ref) =
-            (get_network_of_pif_underneath_vlan master_pif_ref))
+        && (get_network_of_pif_underneath_vlan slave_pif_record = network_of_pif_underneath_vlan_on_master)
       ) slave_vlan_pifs in
     (* if I don't have any such pif(s) then make one: *)
-    if List.length existing_pif = 0
+    if existing_pif = []
     then
       begin
-        (* On the master, we find the pif, p, that underlies the VLAN
-           				 * (e.g. "eth0" underlies "eth0.25") and then find the network that p's on: *)
-        let network_of_pif_underneath_vlan_on_master = get_network_of_pif_underneath_vlan master_pif_ref in
         let pifs = Db.PIF.get_records_where ~__context ~expr:(And (
             Eq (Field "host", Literal (Ref.string_of host)),
             Eq (Field "network", Literal (Ref.string_of network_of_pif_underneath_vlan_on_master))
@@ -1578,12 +1578,12 @@ let sync_tunnels ~__context ~host =
       Not (Eq (Field "tunnel_access_PIF_of", Literal "()"))
     )) in
 
-  let get_network_of_transport_pif access_pif =
-    match Db.PIF.get_tunnel_access_PIF_of ~__context ~self:access_pif with
-    | [tunnel] ->
+  let get_network_of_transport_pif access_pif_rec =
+    match Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec:access_pif_rec with
+    | Tunnel_access tunnel :: _ ->
       let transport_pif = Db.Tunnel.get_transport_PIF ~__context ~self:tunnel in
       Db.PIF.get_network ~__context ~self:transport_pif
-    | _ -> failwith (Printf.sprintf "PIF %s has no tunnel_access_PIF_of" (Ref.string_of access_pif))
+    | _ -> raise Api_errors.(Server_error(internal_error, [Printf.sprintf "PIF %s has no tunnel_access_PIF_of" access_pif_rec.API.pIF_uuid]))
   in
 
   let maybe_create_tunnel_for_me (master_pif_ref, master_pif_rec) =
@@ -1594,11 +1594,11 @@ let sync_tunnels ~__context ~host =
         slave_pif_record.API.pIF_network = master_pif_rec.API.pIF_network
       ) slave_tunnel_pifs in
     (* If the slave doesn't have any such PIF then make one: *)
-    if List.length existing_pif = 0
+    if existing_pif = []
     then
       begin
         (* On the master, we find the network the tunnel transport PIF is on *)
-        let network_of_transport_pif_on_master = get_network_of_transport_pif master_pif_ref in
+        let network_of_transport_pif_on_master = get_network_of_transport_pif master_pif_rec in
         let pifs = Db.PIF.get_records_where ~__context ~expr:(And (
             Eq (Field "host", Literal (Ref.string_of host)),
             Eq (Field "network", Literal (Ref.string_of network_of_transport_pif_on_master))
