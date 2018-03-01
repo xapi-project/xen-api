@@ -343,6 +343,7 @@ let pool_joining_host_management_vlan_does_not_match = "POOL_JOINING_HOST_MANAGE
 let pool_joining_host_has_non_management_vlans = "POOL_JOINING_HOST_HAS_NON_MANAGEMENT_VLANS"
 let pool_joining_host_has_bonds = "POOL_JOINING_HOST_HAS_BONDS"
 let pool_joining_host_has_tunnels = "POOL_JOINING_HOST_HAS_TUNNELS"
+let pool_joining_host_has_network_sriovs = "POOL_JOINING_HOST_HAS_NETWORK_SRIOVS"
 
 (*workload balancing*)
 let wlb_not_initialized = "WLB_NOT_INITIALIZED"

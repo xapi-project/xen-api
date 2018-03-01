@@ -948,6 +948,8 @@ let _ =
     ~doc:"The host joining the pool must not have any bonds." ();
   error Api_errors.pool_joining_host_has_tunnels []
     ~doc:"The host joining the pool must not have any tunnels." ();
+  error Api_errors.pool_joining_host_has_network_sriovs []
+    ~doc:"The host joining the pool must not have any network SR-IOVs." ();
   error Api_errors.pool_hosts_not_compatible []
     ~doc:"The hosts in this pool are not compatible." ();
   error Api_errors.pool_hosts_not_homogeneous [ "reason" ]
