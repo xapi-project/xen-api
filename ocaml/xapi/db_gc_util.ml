@@ -62,11 +62,12 @@ let gc_PIFs ~__context =
   gc_connector ~__context Db.PIF.get_all Db.PIF.get_record (fun x->valid_ref __context x.pIF_host) (fun x->valid_ref __context x.pIF_network)
     (fun ~__context ~self ->
        (* We need to destroy the PIF, it's metrics and any VLAN/bond records that this PIF was a master of. *)
-       (* bonds/tunnels_to_gc is actually a list which is either empty (not part of a bond/tunnel)
+       (* bonds/tunnels/sriovs_to_gc is actually a list which is either empty (not part of a bond/tunnel/sriov)
         * or containing exactly one reference.. *)
        let bonds_to_gc = Db.PIF.get_bond_master_of ~__context ~self in
        let vlan_to_gc = Db.PIF.get_VLAN_master_of ~__context ~self in
        let tunnels_to_gc = Db.PIF.get_tunnel_access_PIF_of ~__context ~self in
+       let sriovs_to_gc = Db.PIF.get_sriov_logical_PIF_of ~__context ~self in
        (* Only destroy PIF_metrics of physical or bond PIFs *)
        if vlan_to_gc = Ref.null && tunnels_to_gc = [] then begin
          let metrics = Db.PIF.get_metrics ~__context ~self in
@@ -74,6 +75,7 @@ let gc_PIFs ~__context =
        end;
        (try Db.VLAN.destroy ~__context ~self:vlan_to_gc with _ -> ());
        List.iter (fun tunnel -> (try Db.Tunnel.destroy ~__context ~self:tunnel with _ -> ())) tunnels_to_gc;
+       List.iter (fun sriov -> (try Db.Network_sriov.destroy ~__context ~self:sriov with _ -> ())) sriovs_to_gc;
        List.iter (fun bond -> (try Db.Bond.destroy ~__context ~self:bond with _ -> ())) bonds_to_gc;
        Db.PIF.destroy ~__context ~self) 
       
