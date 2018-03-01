@@ -798,16 +798,16 @@ module NetSriovVf = struct
         | 0L -> Some 1L
         | rate -> Some rate)
     in
-    let net_sriov_vf_config = Network_interface.Sriov.{
-      mac=Some mac; 
-      vlan=vlan; 
+    let net_sriov_vf_config = Network_client.Client.Sriov.{
+      mac=Some mac;
+      vlan=vlan;
       rate=rate_Mbps;}
     in
     begin
       let ret = Network_client.Client.Sriov.make_vf_config
-        (Xenops_task.get_dbg task) ~pci_address:pci ~vf_info:net_sriov_vf_config
+        (Xenops_task.get_dbg task) pci net_sriov_vf_config
       in
-      let open Network_interface in
+      let open Network_client.Client.Sriov in
       match ret with
       | Ok -> ()
       | Error Config_vf_rate_not_supported ->
