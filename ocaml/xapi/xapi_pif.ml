@@ -841,47 +841,47 @@ let calculate_pifs_required_at_start_of_day ~__context =
   (* Select all PIFs on the host that are not bond slaves, and are physical, or bond master, or
      	 * have IP configuration. The latter means that any VLAN or tunnel PIFs without IP address
      	 * are excluded. *)
-  Db.PIF.get_records_where ~__context
-    ~expr:(
-      And (
-        Eq (Field "managed", Literal "true"),
+  let pifs = Db.PIF.get_records_where ~__context
+      ~expr:(
         And (
+          Eq (Field "managed", Literal "true"),
           And (
-            Eq (Field "host", Literal (Ref.string_of localhost)),
-            Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null))
-          ),
-          Or (Or (
-              Not (Eq (Field "bond_master_of", Literal "()")),
-              Eq (Field "physical", Literal "true")),
-              Not (Eq (Field "ip_configuration_mode", Literal "None"))
-            )
+            And (
+              Eq (Field "host", Literal (Ref.string_of localhost)),
+              Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null))
+            ),
+            Or (Or (
+                Not (Eq (Field "bond_master_of", Literal "()")),
+                Eq (Field "physical", Literal "true")),
+                Not (Eq (Field "ip_configuration_mode", Literal "None"))
+              )
+          )
         )
-      )
-    )
+      ) in
+  let sriov_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+      Eq (Field "host", Literal (Ref.string_of localhost)),
+      Not (Eq (Field "sriov_logical_PIF_of", Literal "()") )
+    )) in
+  pifs @ sriov_pifs
 
 let start_of_day_best_effort_bring_up () =
-  begin
-    Server_helpers.exec_with_new_task
-      "Bringing up managed physical PIFs"
-      (fun __context ->
-         let dbg = Context.string_of_task __context in
-         debug
-           "Configured network backend: %s"
-           (Network_interface.string_of_kind (Net.Bridge.get_kind dbg ()));
-         (* Clear the state of the network daemon, before refreshing it by plugging
-            				 * the most important PIFs (see above). *)
-         Net.clear_state ();
-         List.iter
-           (fun (pif, pifr) ->
-              Helpers.log_exn_continue
-                (Printf.sprintf
-                   "error trying to bring up pif: %s"
-                   pifr.API.pIF_uuid)
-                (fun pif ->
-                   debug
-                     "Best effort attempt to bring up PIF: %s"
-                     pifr.API.pIF_uuid;
-                   plug ~__context ~self:pif)
-                (pif))
-           (calculate_pifs_required_at_start_of_day ~__context))
-  end
+  Server_helpers.exec_with_new_task
+    "Bringing up managed physical and sriov PIFs"
+    (fun __context ->
+       let dbg = Context.string_of_task __context in
+       debug
+         "Configured network backend: %s"
+         (Network_interface.string_of_kind (Net.Bridge.get_kind dbg ()));
+       (* Clear the state of the network daemon, before refreshing it by plugging
+          * the most important PIFs (see above). *)
+       Net.clear_state ();
+       List.iter
+         (fun (pif, pifr) ->
+            Helpers.log_exn_continue
+              (Printf.sprintf "error trying to bring up pif: %s" pifr.API.pIF_uuid)
+              (fun pif ->
+                 debug "Best effort attempt to bring up PIF: %s" pifr.API.pIF_uuid;
+                 plug ~__context ~self:pif)
+              (pif))
+         (calculate_pifs_required_at_start_of_day ~__context))
+
