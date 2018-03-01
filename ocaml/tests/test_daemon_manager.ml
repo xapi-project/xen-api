@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
-
 type stop_failure = {
   error: exn;
   (** The exception thrown when trying to stop the daemon. *)
@@ -63,14 +61,17 @@ end
 
 module Mock_manager = Daemon_manager.Make(Mock_daemon)
 
+let check_times_called ~start ~stop =
+  Alcotest.(check int) "times_called_start" !Mock_daemon.times_called_start start;
+  Alcotest.(check int) "time_until_stopped" !Mock_daemon.times_called_stop stop
+
 (* Test that the daemon is restarted, and that the return value of the function
    passed to with_daemon_stopped is propagated. *)
 let test_basic_operation () =
   Mock_daemon.reset ~is_running:true;
   let result = Mock_manager.with_daemon_stopped (fun () -> 123) in
-  assert_equal result 123;
-  assert_equal !Mock_daemon.times_called_start 1;
-  assert_equal !Mock_daemon.times_called_stop 1
+  Alcotest.(check int) "result" result 123;
+  check_times_called ~start:1 ~stop:1
 
 (* Two sequential calls to with_daemon_stopped should restart the daemon
    twice. *)
@@ -78,25 +79,22 @@ let test_two_restarts () =
   Mock_daemon.reset ~is_running:true;
   Mock_manager.with_daemon_stopped (fun () -> ());
   Mock_manager.with_daemon_stopped (fun () -> ());
-  assert_equal !Mock_daemon.times_called_start 2;
-  assert_equal !Mock_daemon.times_called_stop 2
+  check_times_called ~start:2 ~stop:2
 
 (* Test that if the daemon is stopped, calling with_daemon_stopped does not
    attempt to stop or start it. *)
 let test_already_stopped () =
   Mock_daemon.reset ~is_running:false;
   let result = Mock_manager.with_daemon_stopped (fun () -> 123) in
-  assert_equal result 123;
-  assert_equal !Mock_daemon.times_called_start 0;
-  assert_equal !Mock_daemon.times_called_stop 0
+  Alcotest.(check int) "result" result 123;
+  check_times_called ~start:0 ~stop:0
 
-(* Test that an exception is propagated by with_daemon_stopped. *)
 let test_exception () =
   Mock_daemon.reset ~is_running:true;
-  assert_raises (Failure "fail")
+  Alcotest.check_raises "exception is propagated by with_daemon_stopped"
+    (Failure "fail")
     (fun () -> Mock_manager.with_daemon_stopped (fun () -> failwith "fail"));
-  assert_equal !Mock_daemon.times_called_start 1;
-  assert_equal !Mock_daemon.times_called_stop 1
+  check_times_called ~start:1 ~stop:1
 
 let spawn_threads_and_wait task count =
   let rec spawn_threads task count acc =
@@ -117,8 +115,7 @@ let test_threads () =
     Mock_manager.with_daemon_stopped (fun () -> Thread.delay 5.0)
   in
   spawn_threads_and_wait delay_thread 5;
-  assert_equal !Mock_daemon.times_called_start 1;
-  assert_equal !Mock_daemon.times_called_stop 1
+  check_times_called ~start:1 ~stop:1
 
 (* The daemon initially fails to stop, but it stops within the timeout. *)
 let test_timeout_succeed () =
@@ -128,8 +125,7 @@ let test_timeout_succeed () =
       time_until_stopped = 2.0;
     };
   Mock_manager.with_daemon_stopped ~timeout:5.0 (fun () -> ());
-  assert_equal !Mock_daemon.times_called_start 1;
-  assert_equal !Mock_daemon.times_called_stop 1
+  check_times_called ~start:1 ~stop:1
 
 (* The daemon does not stop within the timeout, so the exception is raised. *)
 let test_timeout_fail () =
@@ -138,19 +134,18 @@ let test_timeout_fail () =
       error = Failure "stop failed";
       time_until_stopped = 5.0;
     };
-  assert_raises (Failure "stop failed")
+  Alcotest.check_raises "does not stop within timeout"
+    (Failure "stop failed")
     (fun () -> Mock_manager.with_daemon_stopped ~timeout:2.0 (fun () -> ()));
-  assert_equal !Mock_daemon.times_called_start 0;
-  assert_equal !Mock_daemon.times_called_stop 1
+  check_times_called ~start:0 ~stop:1
 
 let test =
-  "daemon_manager" >:::
   [
-    "test_basic_operation" >:: test_basic_operation;
-    "test_two_restarts" >:: test_two_restarts;
-    "test_already_stopped" >:: test_already_stopped;
-    "test_exception" >:: test_exception;
-    "test_threads" >:: test_threads;
-    "test_timeout_succeed" >:: test_timeout_succeed;
-    "test_timeout_fail" >:: test_timeout_fail;
+    "test_basic_operation", `Quick, test_basic_operation;
+    "test_two_restarts", `Quick, test_two_restarts;
+    "test_already_stopped", `Quick, test_already_stopped;
+    "test_exception", `Quick, test_exception;
+    "test_threads", `Slow, test_threads;
+    "test_timeout_succeed", `Slow, test_timeout_succeed;
+    "test_timeout_fail", `Slow, test_timeout_fail;
   ]
