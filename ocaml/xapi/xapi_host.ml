@@ -497,12 +497,29 @@ let enable  ~__context ~host =
     then Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.Pool.ha_schedule_plan_recomputation rpc session_id)
   end
 
-let shutdown_and_reboot_common ~__context ~host label description operation cmd =
-  if Db.Host.get_enabled ~__context ~self:host
-  then raise (Api_errors.Server_error (Api_errors.host_not_disabled, []));
+let prepare_for_poweroff_precheck ~__context ~host =
+  Xapi_host_helpers.assert_host_disabled ~__context ~host
+
+let prepare_for_poweroff ~__context ~host =
+  (** Do not run assert_host_disabled here, continue even if the host is
+      enabled: the host is already shutting down when this function gets called *)
+
+  let i_am_master = Pool_role.is_master () in
+  if i_am_master then
+    (* We are the master and we are about to shutdown HA and redo log:
+       prevent slaves from sending (DB) requests.
+          If we are the slave we cannot shutdown the request thread yet
+          because we might need it when unplugging the PBDs
+    *)
+    Remote_requests.stop_request_thread();
+
+  Vm_evacuation.ensure_no_vms ~__context ~evacuate_timeout:0.;
 
   Xapi_ha.before_clean_shutdown_or_reboot ~__context ~host;
-  Remote_requests.stop_request_thread();
+  Xapi_pbd.unplug_all_pbds ~__context;
+
+  if not i_am_master then
+    Remote_requests.stop_request_thread();
 
   (* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
   if not(Pool_role.is_master ())
@@ -513,7 +530,22 @@ let shutdown_and_reboot_common ~__context ~host label description operation cmd 
   (* This prevents anyone actually re-enabling us until after reboot *)
   Localdb.put Constants.host_disabled_until_reboot "true";
   (* This helps us distinguish between an HA fence and a reboot *)
-  Localdb.put Constants.host_restarted_cleanly "true";
+  Localdb.put Constants.host_restarted_cleanly "true"
+
+let shutdown_and_reboot_common ~__context ~host label description operation cmd =
+  (* The actual shutdown actions are done asynchronously, in a call to
+     prepare_for_poweroff, so the API user will not be notified of any errors
+     that happen during that operation.
+     Therefore here we make an additional call to the prechecks of every
+     operation that gets called from prepare_for_poweroff, either directly or
+     indirectly, to fail early and ensure that a suitable error is returned to
+     the XenAPI user. *)
+  let shutdown_precheck () =
+    prepare_for_poweroff_precheck ~__context ~host;
+    Xapi_ha.before_clean_shutdown_or_reboot_precheck ~__context ~host
+  in
+  shutdown_precheck ();
+
   (* This tells the master that the shutdown is still ongoing: it can be used to continue
      	 masking other operations even after this call return.
 

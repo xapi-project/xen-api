@@ -9,6 +9,7 @@ build: [[ "jbuilder" "build" "-p" name ]]
 
 depends: [
   "jbuilder" {build & >= "1.0+beta11"}
+  "mtime"
   "xapi-datamodel"
   "xapi-types"
   "xapi-stdext-date"

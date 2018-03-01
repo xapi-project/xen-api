@@ -411,6 +411,17 @@ let host_query_ha = call ~flags:[`Session]
       ~allowed_roles:_R_POOL_OP
       ()
 
+  (* Host.prepare_for_poweroff *)
+
+  let prepare_for_poweroff = call
+    ~name:"prepare_for_poweroff"
+    ~in_product_since:rel_kolkata
+    ~doc:"Performs the necessary actions before host shutdown or reboot."
+    ~params:[Ref _host, "host", "The Host that is about to reboot or shutdown"]
+    ~allowed_roles:_R_LOCAL_ROOT_ONLY
+    ~hide_from_docs:true
+    ()
+
   (* Host.power_on *)
 
   let power_on = call
@@ -1267,6 +1278,7 @@ let host_query_ha = call ~flags:[`Session]
         enable;
         shutdown;
         reboot;
+        prepare_for_poweroff;
         dmesg;
         dmesg_clear;
         get_log;

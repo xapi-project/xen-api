@@ -30,6 +30,13 @@ val assert_operation_valid :
     {- Shutdown and Reboot are only allowed if the host is disabled}
     }*)
 
+val assert_host_disabled :
+  __context:Context.t ->
+  host:API.ref_host ->
+  unit
+(** [assert_host_disabled ~__context ~host] raises an API error
+    host_not_disabled if the host is not disabled. *)
+
 val update_allowed_operations :
   __context:Context.t ->
   self:API.ref_host ->
