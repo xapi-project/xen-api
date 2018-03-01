@@ -906,7 +906,7 @@ let server_init() =
           "creating networks", [ Startup.OnlyMaster ], Create_networks.create_networks_localhost;
           (* CA-22417: bring up all non-bond slaves so that the SM backends can use storage NIC IP addresses (if the routing
              	 table happens to be right) *)
-          "Best-effort bring up of physical NICs", [ Startup.NoExnRaising ], Xapi_pif.start_of_day_best_effort_bring_up;
+          "Best-effort bring up of physical and sriov NICs", [ Startup.NoExnRaising ], Xapi_pif.start_of_day_best_effort_bring_up;
           "updating the vswitch controller", [], (fun () -> Helpers.update_vswitch_controller ~__context ~host:(Helpers.get_localhost ~__context));
           "initialising storage", [ Startup.NoExnRaising ],
           (fun () -> Helpers.call_api_functions ~__context Create_storage.create_storage_localhost);
