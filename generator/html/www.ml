@@ -175,12 +175,12 @@ let tabs_of env is i m =
         );
         div ~cls:"tabs-panel" ~id:id_ocaml (list [
             h4 (string "Client");
-            string (
+            of_string (
               Ocaml.caml2html (
                 Ocaml.example_stub env is i m |> Ocaml.string_of_ts)
             );
             h4 (string "Server");
-            string (
+            of_string (
               Ocaml.caml2html (
                 Ocaml.example_skeleton_user env is i m |> Ocaml.string_of_ts)
             )
