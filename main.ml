@@ -574,41 +574,36 @@ let process root_dir name =
         in
         response
         |> List.map ~f:(fun probe_result ->
-          let uuid = List.Assoc.find probe_result.Xapi_storage.Volume.Types.configuration ~equal:String.equal "uuid" in
+          let uuid = List.Assoc.find probe_result.Xapi_storage.Volume.Types.configuration ~equal:String.equal "sr_uuid" in
           let open Deferred.Or_error in
+          let smapiv2_probe ?sr_info () =
+            { configuration=probe_result.configuration; complete=probe_result.complete; sr=sr_info; extra_info=probe_result.extra_info }
+          in
           match probe_result.Xapi_storage.Volume.Types.sr, probe_result.Xapi_storage.Volume.Types.complete, uuid with
-          | Some sr_stat, false, Some _uuid ->
-              return (`Attachable (probe_result.configuration, {
-                  Storage_interface.name_label = sr_stat.Xapi_storage.Volume.Types.name;
-                  name_description = sr_stat.Xapi_storage.Volume.Types.description;
-                  total_space = sr_stat.Xapi_storage.Volume.Types.total_space;
-                  free_space = sr_stat.Xapi_storage.Volume.Types.free_space;
-                  clustered = sr_stat.Xapi_storage.Volume.Types.clustered;
-                  health = match sr_stat.Xapi_storage.Volume.Types.health with
+          | _, false, Some _uuid ->
+              errorf "A configuration with a uuid cannot be incomplete: %a" pp_probe_result probe_result
+          | Some sr_stat, true, Some _uuid ->
+              let sr_info = {
+                Storage_interface.name_label = sr_stat.Xapi_storage.Volume.Types.name;
+                name_description = sr_stat.Xapi_storage.Volume.Types.description;
+                total_space = sr_stat.Xapi_storage.Volume.Types.total_space;
+                free_space = sr_stat.Xapi_storage.Volume.Types.free_space;
+                clustered = sr_stat.Xapi_storage.Volume.Types.clustered;
+                health = match sr_stat.Xapi_storage.Volume.Types.health with
                   | Xapi_storage.Volume.Types.Healthy _ -> Healthy
                   | Xapi_storage.Volume.Types.Recovering _ -> Recovering
-                }));
-          | Some _sr, true, _ ->
-              errorf "A configuration cannot be suitable for both SR.create and SR.attach: %a" pp_probe_result probe_result
+              } in
+              return (smapiv2_probe ~sr_info ())
           | Some _sr, _, None ->
               errorf "A configuration is not attachable without a uuid: %a" pp_probe_result probe_result
-          | None, false, Some _uuid ->
-              errorf "A configuration with a uuid cannot be incomplete: %a" pp_probe_result probe_result
           | None, false, None ->
-              return (`Incomplete probe_result.configuration)
-          | None, true, Some _uuid ->
-              return (`Creatable probe_result.configuration)
-          | None, true, None ->
-              errorf "A configuration cannot be complete without a uuid: %a" pp_probe_result probe_result)
+              return (smapiv2_probe ())
+          | None, true, _ ->
+              return (smapiv2_probe ()))
         |> Deferred.Or_error.combine_errors
         |> Deferred.Result.map_error ~f:(fun err -> err |> Error.to_string_hum |> R.rpc_of_string)
         >>>= fun results ->
-        let init = { attachable = []; creatable = []; incomplete = [] } in
-        List.fold_left ~init results ~f:(fun response -> function
-          | `Attachable x -> { response with attachable = x :: response.attachable }
-          | `Creatable x -> { response with creatable = x :: response.creatable }
-          | `Incomplete x -> { response with incomplete = x :: response.incomplete })
-        |> (fun x -> Storage_interface.Probe x) |> Args.SR.Probe.rpc_of_response |> R.success |> Deferred.Result.return
+        Storage_interface.Probe results |> Args.SR.Probe.rpc_of_response |> R.success |> Deferred.Result.return
     end
   | { R.name = "SR.create"; R.params = [ args ] } ->
     let args = Args.SR.Create.request_of_rpc args in
