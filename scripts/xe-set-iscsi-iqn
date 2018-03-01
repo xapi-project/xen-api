@@ -8,7 +8,6 @@ set -e
 
 XE="@BINDIR@/xe"
 
-configmap="other-config"
 configkey="iscsi_iqn"
 
 if [ ! -f @INVENTORY@ ]; then
@@ -30,4 +29,4 @@ fi
 
 . @INVENTORY@
 
-${XE} host-param-set uuid=${INSTALLATION_UUID} ${configmap}:${configkey}=${iqn}
+${XE} host-param-set uuid=${INSTALLATION_UUID} ${configkey}=${iqn}
