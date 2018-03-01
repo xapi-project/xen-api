@@ -28,17 +28,20 @@ let coverage_rewriter =
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (jbuild_version 1)
 
-(executable
- ((name test)
+(executables
+ ((names (test test_alco))
   (flags (:standard -w -39 %s))
   (libraries
    (lwt
     lwt.unix
+    alcotest
     oUnit
     rpclib
+    rpclib.markdown
     threads
     xcp
     xcp.rrd
+    xcp.memory
     xcp.updates
     xcp.xen))
   %s))
@@ -47,4 +50,10 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name runtest)
   (deps (test.exe (files_recursively_in test_data)))
   (action (run ${<} -runner sequential))))
+
+(alias
+ ((name runtest)
+  (deps (test_alco.exe (files_recursively_in test_data)))
+  (action (run ${<}))))
+
 |} flags coverage_rewriter

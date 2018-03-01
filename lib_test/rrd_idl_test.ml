@@ -85,7 +85,7 @@ let dumping_rpc call =
 
 let run_all rpc =
   let module C = Rrd_interface.Client(struct let rpc = rpc end) in
-  begin try Unix.mkdir "rpc_data" 0o755 with Unix.(Unix_error (EEXIST, _, _)) -> () end;
+  begin try Unix.mkdir "rpc_data" 0o755 with Unix.Unix_error (EEXIST, _, _) -> () end;
   ignore(C.has_vm_rrd ~vm_uuid:"abcde");
   ignore(C.push_rrd_local ~vm_uuid:"abcde" ~domid:1);
   ignore(C.push_rrd_remote ~vm_uuid:"abcde" ~remote_address:"127.0.0.1");
