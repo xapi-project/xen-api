@@ -100,7 +100,7 @@ let with_ctx f =
 
 let get_uuid domid =
   let open Xenlight.Dominfo in
-  with_ctx (fun ctx -> (get ctx domid).uuid) |> Xenctrl_uuid.uuid_of_handle |> Uuidm.to_string
+  with_ctx (fun ctx -> (get ctx domid).uuid) |> Ez_xenctrl_uuid.uuid_of_handle |> Uuidm.to_string
 
 (* *)
 
@@ -319,7 +319,7 @@ let di_of_uuid domain_selection uuid =
   let open Xenlight.Dominfo in
   let uuid' = Uuidm.to_string uuid in
   let all = with_ctx (fun ctx -> list ctx) in
-  let possible = List.filter (fun x -> Xenctrl_uuid.uuid_of_handle x.uuid = uuid) all in
+  let possible = List.filter (fun x -> Ez_xenctrl_uuid.uuid_of_handle x.uuid = uuid) all in
 
   let oldest_first = List.sort (fun a b -> compare a.domid b.domid) possible in
   let domid_list = String.concat ", " (List.map (fun x -> string_of_int x.domid) oldest_first) in
@@ -2312,7 +2312,7 @@ let c_info = Xenlight.Domain_create_info.({ (with_ctx (fun ctx -> default ctx ()
                                             hap = Some hvm;
                                             ssidref = vm.Vm.ssidref;
                                             name = if restore_fd = None then Some vm.Vm.name else Some (vm.Vm.name ^ "--incoming");
-                                            uuid = vm |> uuid_of_vm |> Xenctrl_uuid.handle_of_uuid;
+                                            uuid = vm |> uuid_of_vm |> Ez_xenctrl_uuid.handle_of_uuid;
                                             xsdata = vm.Vm.xsdata;
                                             platformdata = non_persistent.VmExtra.create_info.Domain.platformdata;
                                             run_hotplug_scripts = Some !Xenopsd.run_hotplug_scripts;
@@ -2964,7 +2964,7 @@ let look_for_different_domains xc xs =
        debug "Domain %d may have changed state" domid;
        (* The uuid is either in the new domains map or the old map. *)
        let di = IntMap.find domid (if IntMap.mem domid domains' then domains' else !domains) in
-       let id = di.Xenlight.Dominfo.uuid |> Xenctrl_uuid.uuid_of_handle |> Uuidm.to_string in
+       let id = di.Xenlight.Dominfo.uuid |> Ez_xenctrl_uuid.uuid_of_handle |> Uuidm.to_string in
        if domid > 0 && not (DB.exists id)
        then begin
          debug "However domain %d is not managed by us: ignoring" domid;
@@ -3053,7 +3053,7 @@ let process_one_watch xc xs (path, token) =
     then debug "Ignoring watch on shutdown domain %d" d
     else
       let di = IntMap.find d !domains in
-      let id = di.Xenlight.Dominfo.uuid |> Xenctrl_uuid.uuid_of_handle |> Uuidm.to_string in
+      let id = di.Xenlight.Dominfo.uuid |> Ez_xenctrl_uuid.uuid_of_handle |> Uuidm.to_string in
       Updates.add (Dynamic.Vm id) internal_updates in
 
   let fire_event_on_device domid kind devid =
@@ -3062,7 +3062,7 @@ let process_one_watch xc xs (path, token) =
     then debug "Ignoring watch on shutdown domain %d" d
     else
       let di = IntMap.find d !domains in
-      let id = di.Xenlight.Dominfo.uuid |> Xenctrl_uuid.uuid_of_handle |> Uuidm.to_string in
+      let id = di.Xenlight.Dominfo.uuid |> Ez_xenctrl_uuid.uuid_of_handle |> Uuidm.to_string in
       let update = match kind with
         | "vbd" ->
           let devid' = devid |> int_of_string |> Device_number.of_xenstore_key |> Device_number.to_linux_device in

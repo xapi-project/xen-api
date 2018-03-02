@@ -175,7 +175,7 @@ let xenstore_read_dir t path =
   inner [] [path] |> List.fast_sort compare
 
 let get_uuid ~xc domid =
-  Xenctrl_uuid.uuid_of_handle (Xenctrl.domain_getinfo xc domid).Xenctrl.handle
+  Ez_xenctrl_uuid.uuid_of_handle (Xenctrl.domain_getinfo xc domid).Xenctrl.handle
 
 let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib : bool =
   let open Memory in

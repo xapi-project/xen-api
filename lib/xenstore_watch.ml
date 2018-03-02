@@ -12,24 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let bytes_of_handle h =
-  let s = String.make 16 '\000' in
-  for i = 0 to 15 do
-    s.[i] <- char_of_int h.(i)
-  done;
-  s
+(* This module provides what used to be Xenstore_watch in this
+ * repository.
+ *)
 
-let uuid_of_handle h =
-  let h' = bytes_of_handle h in
-  match Uuidm.of_bytes h' with
-  | Some x -> x
-  | None -> failwith (Printf.sprintf "VM handle '%s' is in invalid uuid" h')
-
-let handle_of_uuid u =
-  let s = Uuidm.to_bytes u in
-  let h = Array.make 16 0 in
-  for i = 0 to 15 do
-    h.(i) <- int_of_char s.[i]
-  done;
-  h
+module XSW_Debug = Debug.Make(struct let name = "xenstore_watch" end)
+include Ez_xenstore_watch.Make(XSW_Debug)
 
