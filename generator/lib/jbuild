@@ -25,8 +25,11 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (wrapped false)
   (flags (:standard -warn-error +a-3 %s))
   (libraries (
-    xmlm
+    ppx_deriving_rpc
+    rpclib
+    rpclib.markdown
     unix
+    xmlm
   ))
 ))
 |} flags
