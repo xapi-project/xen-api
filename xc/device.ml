@@ -1452,7 +1452,7 @@ module Vusb = struct
   let vusb_controller_plug ~xs ~domid ~driver ~driver_id =
     let is_running = Qemu.is_running ~xs domid in
     if is_running then
-      qmp_send_cmd domid Qmp.(Device_add (driver, driver_id, None)) |> ignore
+      qmp_send_cmd domid Qmp.(Device_add Device.({driver; device=USB { USB.id=driver_id; params=None }})) |> ignore
 
   let vusb_plug ~xs ~privileged ~domid ~id ~hostbus ~hostport ~version =
     let device_model = Profile.of_domid domid in
@@ -1483,11 +1483,14 @@ module Vusb = struct
           | Some pid -> usb_reset_attach ~hostbus ~hostport ~domid ~pid ~privileged
           | _ -> raise (Internal_error (Printf.sprintf "qemu pid does not exist for vm %d" domid))
         end;
-        let cmd = Qmp.(Device_add
-                         ( "usb-host"
-                         , id
-                         , Some (get_bus version, hostbus, hostport)
-                         ))
+        let cmd = Qmp.(Device_add Device.(
+                       { driver = "usb-host";
+                         device = USB {
+                           USB.id = id;
+                           params = Some USB.({bus = get_bus version; hostbus; hostport})
+                         }
+                       }
+                    ))
         in qmp_send_cmd domid cmd |> ignore
       end
 
