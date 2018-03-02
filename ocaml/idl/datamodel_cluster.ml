@@ -15,7 +15,7 @@ let cluster_operation =
           "destroy", "completely destroying a cluster";
         ])
 
-let lifecycle = [Published, rel_kolkata, ""]
+let lifecycle = [Prototyped, rel_kolkata, ""]
 
 let timeout_params = [
     {param_type=Float; param_name="token_timeout"; param_doc="Corosync token timeout in seconds"; param_release=kolkata_release; param_default=Some(VFloat Constants.default_token_timeout_s)};

@@ -11,7 +11,7 @@ let cluster_host_operation =
           "destroy", "completely destroying a cluster host";
         ])
 
-let lifecycle = [Published, rel_kolkata, ""]
+let lifecycle = [Prototyped, rel_kolkata, ""]
 
 let create = call
     ~name:"create"
