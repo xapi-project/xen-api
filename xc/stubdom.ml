@@ -41,7 +41,7 @@ let create ~xc ~xs domid =
     Domain.bios_strings = [];
     Domain.has_vendor_device = false;
   } in
-  let stubdom_domid = Domain.make ~xc ~xs info stubdom_uuid in
+  let stubdom_domid = Domain.make ~xc ~xs info Domain.(X86 { emulation_flags = [] }) stubdom_uuid in
   debug "jjd27: created stubdom with domid %d" stubdom_domid;
 
   Domain.set_machine_address_size ~xc stubdom_domid (Some 32);
@@ -49,7 +49,7 @@ let create ~xc ~xs domid =
 
 let build (task: Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid ~console_domid info xenguest domid stubdom_domid =
   (* Now build it as a PV domain *)
-  let (_: Domain.domarch) = Domain.build task ~xc ~xs ~store_domid ~console_domid ~timeoffset:"" ~extras:[] {
+  let () = Domain.build task ~xc ~xs ~store_domid ~console_domid ~timeoffset:"" ~extras:[] {
       Domain.memory_max=memory_kib;
       Domain.memory_target=memory_kib;
       Domain.kernel="/usr/lib/xen/boot/ioemu-stubdom.gz";
@@ -100,7 +100,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid ~console_domi
   (* VKBD is needed for keyboard input via the stubdom *)
   Device.Vkbd.add ~xc ~xs stubdom_domid;
 
-  (* XXX: 
+  (* XXX:
      (* Add a place for qemu to record the dm state in XenStore, with appropriate permissions *)
      List.iter (fun domid -> Device.Dm.init ~xs ~domid) [stubdom_domid; domid];
      	*)

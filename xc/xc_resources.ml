@@ -54,5 +54,5 @@ let nonessentials = [
   X_OK, "vncterm", vncterm, "path to the vncterm binary";
   X_OK, "gimtool", gimtool, "path to the gimtool binary";
   X_OK, "igmp-query-injector-script", igmp_query_injector_script, "path to the igmp query injector script";
-] @ Resources.hvm_guests @ Resources.pv_guests
+] @ Resources.hvm_guests @ Resources.pv_guests @ Resources.pvinpvh_guests
 

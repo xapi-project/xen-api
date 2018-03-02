@@ -44,7 +44,7 @@ module Profile = struct
   end
   let wrapper_of = function
     | Qemu_trad            -> !Resources.qemu_dm_wrapper
-    | Qemu_upstream_compat
+    | Qemu_upstream_compat -> !Resources.upstream_compat_qemu_dm_wrapper
     | Qemu_upstream        -> !Resources.upstream_compat_qemu_dm_wrapper
   let string_of  = function
     | Qemu_trad              -> Name.qemu_trad
@@ -149,10 +149,10 @@ module Generic = struct
       raise e
 
   let safe_rm ~xs path =
-    try
+    try 
       debug "xenstore-rm %s" path;
       xs.Xs.rm path
-    with _ -> debug "Failed to xenstore-rm %s; continuing" path
+    with _ -> debug "Failed to xenstore-rm %s; continuing" path 
 
   (* Helper function to delete the frontend, backend and error trees for a device.
      This must only be done after synchronising with the hotplug scripts.
@@ -179,7 +179,7 @@ module Generic = struct
     with _ -> false
 
   (** Checks whether the supplied device still exists (ie hasn't been deleted) *)
-  let exists ~xs (x: device) =
+  let exists ~xs (x: device) = 
     let backend_stub = backend_path_of_device ~xs x in
     try
       ignore_string(xs.Xs.read backend_stub);
@@ -273,7 +273,7 @@ module Generic = struct
    When the watch fires, call a predicate function and look for an error node.
    If an error node appears, throw Device_error. If the predicate returns true then
    return unit. If the timeout expires throw Device_disconnect_timeout. *)
-let wait_for_error_or ~xs ?(timeout=Hotplug.hotplug_timeout) doc predicate otherpath domid kind devid =
+let wait_for_error_or ~xs ?(timeout=Hotplug.hotplug_timeout) doc predicate otherpath domid kind devid = 
 	let doc' = Printf.sprintf "%s (timeout = %f; %s)" doc timeout (print_device domid kind devid) in
   	let errorpath = error_node domid kind devid in
 	debug "Device.wait_for_error_or %s (watching [ %s; %s ])" doc' otherpath errorpath;
@@ -488,7 +488,7 @@ module Vbd_Common = struct
     if !Xenopsd.run_hotplug_scripts
     then Hotplug.run_hotplug_script x [ "remove" ];
 
-    (* As for add above, if the frontend is in dom0, we can wait for the frontend
+    (* As for add above, if the frontend is in dom0, we can wait for the frontend 
        	 * to unplug as well as the backend. CA-13506 *)
     if x.frontend.domid = 0 then Hotplug.wait_for_frontend_unplug task ~xs x
 
@@ -527,7 +527,7 @@ module Vbd_Common = struct
       | None ->
         make (free_device ~xs hvm domid) in
     let devid = to_xenstore_key device_number in
-    let device =
+    let device = 
       let backend = { domid = x.backend_domid; kind = x.kind; devid = devid }
       in  device_of_backend backend domid
     in
@@ -757,7 +757,7 @@ module Vif = struct
 
   let hard_shutdown = Generic.hard_shutdown
 
-  let set_carrier ~xs (x: device) carrier =
+  let set_carrier ~xs (x: device) carrier = 
     debug "Device.Vif.set_carrier %s <- %b" (string_of_device x) carrier;
     let disconnect_path = disconnect_path_of_device ~xs x in
     xs.Xs.write disconnect_path (if carrier then "0" else "1")
@@ -863,7 +863,7 @@ module PV_Vnc = struct
   let get_statefile ~xs domid =
     match pid ~xs domid with
     | None -> None
-    | Some pid ->
+    | Some pid -> 
       let filename = vncterm_statefile pid in
       if Sys.file_exists filename then
         Some filename
@@ -872,7 +872,7 @@ module PV_Vnc = struct
 
   let save ~xs domid =
     match pid ~xs domid with
-    | Some pid ->
+    | Some pid -> 
       Unix.kill pid Sys.sigusr1;
       let filename = vncterm_statefile pid in
       let delay = 10. in
@@ -1248,10 +1248,10 @@ module PCI = struct
   let device_model_state_path xs be_domid fe_domid =
     Printf.sprintf "%s/device-model/%d/state" (xs.Xs.getdomainpath be_domid) fe_domid
 
-  let signal_device_model ~xs domid cmd parameter =
+  let signal_device_model ~xs domid cmd parameter = 
     debug "Device.Pci.signal_device_model domid=%d cmd=%s param=%s" domid cmd parameter;
     let be_domid = 0 in (* XXX: assume device model is in domain 0 *)
-    let be_path = xs.Xs.getdomainpath be_domid in
+    let be_path = xs.Xs.getdomainpath be_domid in 
     (* Currently responses go in this global place. Blank it to prevent request/response/request confusion *)
     xs.Xs.rm (device_model_state_path xs be_domid domid);
 
@@ -1277,7 +1277,7 @@ module PCI = struct
     end
 
   (* Return a list of PCI devices *)
-  let list ~xs domid =
+  let list ~xs domid = 
     (* replace the sort index with the default '0' -- XXX must figure out whether this matters to anyone *)
     List.map (fun (_, y) -> (0, y)) (read_pcidir ~xs domid)
 
@@ -1476,7 +1476,7 @@ module Vusb = struct
     let is_running = Qemu.is_running ~xs domid in
     match is_running with
     | true  ->
-      let path = "/machine/peripheral" in
+        let path = "/machine/peripheral" in
       qmp_send_cmd domid Qmp.(Qom_list path)
       |> ( function
           | Qmp.(Qom usbs) -> List.map (fun p -> p.Qmp.name) usbs
@@ -1534,16 +1534,7 @@ module Dm_Common = struct
     disp: disp_opt;
     pci_emulations: string list;
     pci_passthrough: bool;
-
-    (* Xenclient extras *)
-    xenclient_enabled : bool;
-    hvm : bool;
-    sound : string option;
-    power_mgmt : int option;
-    oem_features : int option;
-    inject_sci : int option;
     video_mib : int;
-
     extras: (string * string option) list;
   }
 
@@ -1564,38 +1555,6 @@ module Dm_Common = struct
     then None
     else (try Some(int_of_string (xs.Xs.read (Generic.tc_port_path domid))) with _ -> None)
 
-  (* Xenclient specific paths *)
-  let power_mgmt_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d/xen_extended_power_mgmt" qemu_domid domid
-  let oem_features_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d/oem_features" qemu_domid domid
-  let inject_sci_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d/inject-sci" qemu_domid domid
-
-  let xenclient_specific ~xs info ~qemu_domid domid =
-    (match info.power_mgmt with
-     | Some i -> begin
-         try
-           if (Unix.stat "/proc/acpi/battery").Unix.st_kind == Unix.S_DIR then
-             xs.Xs.write (power_mgmt_path ~qemu_domid domid) (string_of_int i);
-         with _ -> ()
-       end
-     | None -> ());
-
-    (match info.oem_features with
-     | Some i -> xs.Xs.write (oem_features_path ~qemu_domid domid) (string_of_int i);
-     | None -> ());
-
-    (match info.inject_sci with
-     | Some i -> xs.Xs.write (inject_sci_path ~qemu_domid domid) (string_of_int i)
-     | None -> ());
-
-    let sound_options =
-      match info.sound with
-      | None        -> []
-      | Some device -> [ "-soundhw"; device ]
-    in
-
-    ["-videoram"; string_of_int info.video_mib;
-     "-M"; (if info.hvm then "xenfv" else "xenpv")]
-    @ sound_options
 
   let signal (task: Xenops_task.task_handle) ~xs ~qemu_domid ~domid ?wait_for ?param cmd =
     let cmdpath = device_model_path ~qemu_domid domid in
@@ -1666,7 +1625,7 @@ module Dm_Common = struct
     in
     let disp_options, wait_for_port =
       match info.disp with
-      | NONE ->
+      | NONE -> 
         ([], false)
       | SDL (opts, x11name) ->
         ([], false)
@@ -1798,34 +1757,34 @@ module Dm_Common = struct
   let wait_path ~pid ~task ~name ~domid ~xs ~ready_path ?ready_val ~timeout
       ~cancel _ =
     let syslog_key = Printf.sprintf "%s-%d" name domid in
-    let finished = ref false in
-    let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
+      let finished = ref false in
+      let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
     let timeout_ns = Int64.of_float (timeout *. Mtime.s_to_ns) in
     let target =
       match Mtime.add_span (Mtime_clock.now ()) (Mtime.Span.of_uint64_ns timeout_ns) with
       | None -> raise (Ioemu_failed (name, "Timeout overflow"))
       | Some x -> x in
     while Mtime.is_earlier (Mtime_clock.now ()) ~than:target && not !finished do
-      Xenops_task.check_cancelling task;
-      try
-        let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout () in
-        let state = try xs.Xs.read ready_path with _ -> "" in
-        match ready_val with
+        Xenops_task.check_cancelling task;
+        try
+          let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout () in
+          let state = try xs.Xs.read ready_path with _ -> "" in
+          match ready_val with
         | Some value when value = state -> finished := true
         | Some _ -> raise (Ioemu_failed (name, (Printf.sprintf "Daemon state not running (%s)" state)))
-        | None -> finished := true
-      with Watch.Timeout _ ->
-        begin match Forkhelpers.waitpid_nohang pid with
-          | 0, Unix.WEXITED 0 -> () (* still running => keep waiting *)
-          | _, Unix.WEXITED n ->
-            error "%s: unexpected exit with code: %d" name n;
-            raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
-          | _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
-            error "%s: unexpected signal: %d" name n;
-            raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
-        end
-    done;
-    if not !finished then
+          | None -> finished := true
+        with Watch.Timeout _ ->
+          begin match Forkhelpers.waitpid_nohang pid with
+            | 0, Unix.WEXITED 0 -> () (* still running => keep waiting *)
+            | _, Unix.WEXITED n ->
+              error "%s: unexpected exit with code: %d" name n;
+              raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
+            | _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
+              error "%s: unexpected signal: %d" name n;
+              raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
+          end
+      done;
+      if not !finished then
       raise (Ioemu_failed (name, "Timeout reached while starting daemon"));
     debug "Daemon initialised: %s" syslog_key
 
@@ -2082,7 +2041,7 @@ module Backend = struct
 
         let remove domid =
           Lookup.channel_of domid >>= fun c ->
-          try
+          try 
             finally
               (fun () ->
                  Lookup.remove c domid;
@@ -2465,8 +2424,8 @@ module Dm = struct
       let cancel = Cancel_utils.Vgpu domid in
       if not (Vgpu.is_running ~xs domid) then begin
         (* The below line does nothing if the device is already bound to the
-           		 * nvidia driver. We rely on xapi to refrain from attempting to run
-           		 * a vGPU on a device which is passed through to a guest. *)
+           			 * nvidia driver. We rely on xapi to refrain from attempting to run
+           			 * a vGPU on a device which is passed through to a guest. *)
         debug "start_vgpu: got VGPU with physical pci address %s"
           (Xenops_interface.Pci.string_of_address pci);
         PCI.bind [pci] PCI.Nvidia;
@@ -2617,7 +2576,7 @@ let get_vnc_port ~xs ~dm domid =
   then Dm.get_vnc_port ~xs ~dm domid
   else PV_Vnc.get_vnc_port ~xs domid
 
-let get_tc_port ~xs domid =
+let get_tc_port ~xs domid = 
   (* Check whether a qemu exists for this domain *)
   let qemu_exists = Qemu.is_running ~xs domid in
   if qemu_exists

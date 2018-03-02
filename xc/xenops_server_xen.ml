@@ -73,7 +73,7 @@ let choose_emu_manager x = choose_alternative _emu_manager !Xc_resources.emu_man
 type qemu_frontend =
   | Name of string (* block device path or bridge name *)
   | Device of Device_common.device
-[@@deriving rpc]
+  [@@deriving rpc]
 
 type attached_vdi = {
   domid: int;
@@ -81,6 +81,16 @@ type attached_vdi = {
 } [@@deriving rpc]
 
 module VmExtra = struct
+
+  let domain_config_of_vm vm =
+    let open Vm in
+    let open Domain in
+    match vm.ty with
+    | PV _      -> X86 { emulation_flags = [] }
+    | PVinPVH _ -> X86 { emulation_flags = emulation_flags_pvh }
+    | HVM _     -> X86 { emulation_flags = emulation_flags_all }
+
+
   (** Extra data we store per VM. The persistent data is preserved when
       		the domain is suspended so it can be re-used in the following 'create'
       		which is part of 'resume'. The non-persistent data will be regenerated.
@@ -90,6 +100,7 @@ module VmExtra = struct
     build_info: Domain.build_info option;
     ty: Vm.builder_info option;
     last_start_time: float;
+    domain_config: Domain.arch_domainconfig option;
     nomigrate: bool;  (* platform:nomigrate   at boot time *)
     nested_virt: bool;(* platform:nested_virt at boot time *)
     profile: Device.Profile.t option
@@ -99,6 +110,7 @@ module VmExtra = struct
     { build_info = None
     ; ty = None
     ; last_start_time = 0.0
+    ; domain_config = None
     ; nomigrate = false
     ; nested_virt = false
     ; profile = None
@@ -741,12 +753,18 @@ module VM = struct
 
   let dm_of ~vm = dm_of vm.Vm.id
 
-  let compute_overhead domain =
-    let static_max_mib = Memory.mib_of_bytes_used domain.VmExtra.memory_static_max in
-    let memory_overhead_mib =
-      (if domain.VmExtra.create_info.Domain.hvm then Memory.HVM.overhead_mib else Memory.Linux.overhead_mib)
-        static_max_mib domain.VmExtra.vcpu_max domain.VmExtra.shadow_multiplier in
-    Memory.bytes_of_mib memory_overhead_mib
+  let compute_overhead persistent non_persistent =
+    let open VmExtra in
+    let static_max_mib = Memory.mib_of_bytes_used non_persistent.memory_static_max in
+    let model =
+      match persistent.ty with
+      | Some (PV _)      -> Memory.Linux.overhead_mib
+      | Some (PVinPVH _) -> Memory.PVinPVH.overhead_mib
+      | Some (HVM _)     -> Memory.HVM.overhead_mib
+      | None             -> failwith "cannot compute memory overhead: unable to determine domain type"
+    in
+    model static_max_mib non_persistent.vcpu_max non_persistent.shadow_multiplier |>
+    Memory.bytes_of_mib
 
   let shutdown_reason = function
     | Reboot -> Domain.Reboot
@@ -762,6 +780,31 @@ module VM = struct
       (Int64.to_string initial_target)
   let get_initial_target ~xs domid =
     Int64.of_string (xs.Xs.read (Printf.sprintf "/local/domain/%d/memory/initial-target" domid))
+
+  let domain_type_path domid = Printf.sprintf "/local/domain/%d/domain-type" domid
+
+  let set_domain_type ~xs domid vm =
+    let domain_type =
+      match vm.ty with
+      | HVM _     -> "hvm"
+      | PV _      -> "pv"
+      | PVinPVH _ -> "pv-in-pvh"
+    in
+    xs.Xs.write (domain_type_path domid) domain_type
+
+  let get_domain_type ~xs di =
+    try
+      match xs.Xs.read (domain_type_path di.Xenctrl.domid) with
+      | "hvm"       -> Domain_HVM
+      | "pv"        -> Domain_PV
+      | "pv-in-pvh" -> Domain_PVinPVH
+      | x           -> Domain_undefined
+    with Xs_protocol.Enoent _ ->
+      (* Fallback for the upgrade case, where the new xs key may not exist *)
+      if di.Xenctrl.hvm_guest then
+        Domain_HVM
+      else
+        Domain_PV
 
   (* Called from a xenops client if it needs to resume a VM that was suspended on a pre-xenopsd host. *)
   let generate_state_string vm =
@@ -785,6 +828,8 @@ module VM = struct
           Domain.cmdline = "";
           ramdisk = None;
         }
+      | PVinPVH _ ->
+        failwith "This domain type did not exist pre-xenopsd"
     in
     let build_info = {
       Domain.memory_max = vm.memory_static_max /// 1024L;
@@ -799,6 +844,7 @@ module VM = struct
       (* Earlier than the PV drivers update time, therefore
          			   any cached PV driver information will be kept. *)
       last_start_time = 0.;
+      domain_config = None;
       nomigrate = false;
       nested_virt = false;
       profile = profile_of ~vm;
@@ -822,8 +868,9 @@ module VM = struct
       else helper (i-1)  (List.hd list :: acc) (List.tl list)
     in List.rev $ helper n [] list
 
-  let generate_non_persistent_state xc xs vm =
-    let hvm = match vm.ty with HVM _ -> true | _ -> false in
+  let generate_non_persistent_state xc xs vm persistent =
+    let ty = match persistent.VmExtra.ty with | Some ty -> ty | None -> vm.ty in
+    let hvm = match ty with | HVM _ | PVinPVH _ -> true | PV _ -> false in
     (* XXX add per-vcpu information to the platform data *)
     (* VCPU configuration *)
     let pcpus = Xenctrlext.get_max_nr_cpus xc in
@@ -856,7 +903,7 @@ module VM = struct
                                 ) in
     let vcpus = [
       "vcpu/number", string_of_int vm.vcpu_max;
-      "vcpu/current", string_of_int vm.vcpus;
+      "vcpu/current", string_of_int (match vm.ty with PVinPVH _ -> vm.vcpu_max | _ -> vm.vcpus);
     ] @ affinity @ weight in
 
     let default k v p = if List.mem_assoc k p then p else (k,v)::p in
@@ -900,8 +947,9 @@ module VM = struct
                debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
                let persistent =
                  { VmExtra.build_info = None
-                 ; ty = None
+                 ; ty = Some vm.ty
                  ; last_start_time = Unix.gettimeofday ()
+                 ; domain_config = Some (VmExtra.domain_config_of_vm vm)
                  ; nomigrate = Platform.is_true
                        ~key:"nomigrate"
                        ~platformdata:vm.Xenops_interface.Vm.platformdata
@@ -912,11 +960,11 @@ module VM = struct
                        ~default:false
                  ; profile = profile_of ~vm
                  } in
-               let non_persistent = generate_non_persistent_state xc xs vm in
+               let non_persistent = generate_non_persistent_state xc xs vm persistent in
                persistent, non_persistent
              end in
          let open Memory in
-         let overhead_bytes = compute_overhead non_persistent in
+         let overhead_bytes = compute_overhead persistent non_persistent in
          let resuming = non_persistent.VmExtra.suspend_memory_bytes <> 0L in
          (* If we are resuming then we know exactly how much memory is needed. If we are
             				   live migrating then we will only know an upper bound. If we are starting from
@@ -939,11 +987,27 @@ module VM = struct
          let dbg = Xenops_task.get_dbg task in
          Mem.with_reservation dbg min_kib max_kib
            (fun target_plus_overhead_kib reservation_id ->
+              let domain_config, persistent =
+                match persistent.VmExtra.domain_config with
+                | Some dc -> dc, persistent
+                | None ->
+                  (* This is the upgraded migration/resume case - we've stored some persistent data
+                    but it was before we recorded emulation flags. Let's regenerate them now and
+                    store them persistently *)
+                  begin (* Sanity check *)
+                    match vm.Xenops_interface.Vm.ty with
+                    | PVinPVH _ -> failwith "Invalid state! No domain_config persistently stored for PVinPVH domain";
+                    | _ -> ()
+                  end;
+                  let domain_config = VmExtra.domain_config_of_vm vm in
+                  let persistent = VmExtra.{persistent with domain_config = Some domain_config } in
+                  (domain_config, persistent)
+              in
               DB.write k {
                 VmExtra.persistent = persistent;
                 VmExtra.non_persistent = non_persistent
               };
-              let domid = Domain.make ~xc ~xs non_persistent.VmExtra.create_info (uuid_of_vm vm) in
+              let domid = Domain.make ~xc ~xs non_persistent.VmExtra.create_info domain_config (uuid_of_vm vm) in
               Mem.transfer_reservation_to_domain dbg domid reservation_id;
               begin match vm.Vm.ty with
                 | Vm.HVM { Vm.qemu_stubdom = true } ->
@@ -967,7 +1031,8 @@ module VM = struct
               Domain.set_machine_address_size ~xc domid vm.machine_address_size;
               for i = 0 to vm.vcpu_max - 1 do
                 Device.Vcpu.add ~xs ~devid:i domid (i < vm.vcpus)
-              done
+              done;
+              set_domain_type ~xs domid vm
            );
       )
   let create = create_exn
@@ -1122,7 +1187,7 @@ module VM = struct
     ) Newest task vm
 
   let set_shadow_multiplier task vm target = on_domain (fun xc xs _ _ di ->
-      if not di.Xenctrl.hvm_guest then raise (Unimplemented "shadow_multiplier for PV domains");
+      if get_domain_type ~xs di = Vm.Domain_PV then raise (Unimplemented "shadow_multiplier for PV domains");
       let domid = di.Xenctrl.domid in
       let static_max_mib = Memory.mib_of_bytes_used vm.Vm.memory_static_max in
       let newshadow = Int64.to_int (Memory.HVM.shadow_mib static_max_mib vm.Vm.vcpu_max target) in
@@ -1185,12 +1250,6 @@ module VM = struct
           acpi = acpi;
           disp = VNC (video, vnc_ip, true, 0, keymap);
           pci_passthrough = pci_passthrough;
-          xenclient_enabled=false;
-          hvm=hvm;
-          sound=None;
-          power_mgmt=None;
-          oem_features=None;
-          inject_sci = None;
           video_mib=video_mib;
           extras = [];
         } in
@@ -1208,6 +1267,11 @@ module VM = struct
         Some (make ~hvm:false ~vnc_ip ())
       | PV { framebuffer = true; framebuffer_ip=None } ->
         Some (make ~hvm:false ())
+      | PVinPVH { framebuffer = false } -> None
+      | PVinPVH { framebuffer = true; framebuffer_ip=Some vnc_ip } ->
+        Some (make ~hvm:true ~vnc_ip ())
+      | PVinPVH { framebuffer = true; framebuffer_ip=None } ->
+        Some (make ~hvm:true ())
       | HVM hvm_info ->
         let disks = List.filter_map (fun vbd ->
             let id = vbd.Vbd.id in
@@ -1258,13 +1322,27 @@ module VM = struct
   let build_domain_exn xc xs domid task vm vbds vifs vgpus vusbs extras force =
     let open Memory in
     let initial_target = get_initial_target ~xs domid in
+    let static_max_kib = vm.memory_static_max /// 1024L in
+    let static_max_mib = static_max_kib /// 1024L in
     let make_build_info kernel priv = {
-      Domain.memory_max = vm.memory_static_max /// 1024L;
+      Domain.memory_max = static_max_kib;
       memory_target = initial_target;
       kernel = kernel;
       vcpus = vm.vcpu_max;
       priv = priv;
     } in
+    debug "static_max_mib=%Ld" static_max_mib;
+    let pvinpvh_xen_cmdline =
+      let base =
+        try List.assoc "pvinpvh-xen-cmdline" vm.Vm.platformdata
+        with Not_found -> !Xenopsd.pvinpvh_xen_cmdline
+      in
+      let shim_mem =
+        let shim_mib = PVinPVH_memory_model_data.shim_mib static_max_mib in
+        Printf.sprintf "shim_mem=%LdM" shim_mib
+      in
+      String.concat " " [base; shim_mem]
+    in
     (* We should prevent leaking files in our filesystem *)
     let kernel_to_cleanup = ref None in
     finally (fun () ->
@@ -1276,6 +1354,7 @@ module VM = struct
                 video_mib = hvm_info.video_mib;
               } in
             ((make_build_info !Resources.hvmloader builder_spec_info), hvm_info.timeoffset)
+
           | PV { boot = Direct direct } ->
             let builder_spec_info = Domain.BuildPV {
                 Domain.cmdline = direct.cmdline;
@@ -1297,15 +1376,50 @@ module VM = struct
                      ramdisk = b.Bootloader.initrd_path;
                    } in
                  ((make_build_info b.Bootloader.kernel_path builder_spec_info), "")
+              )
+          | PVinPVH { boot = Direct direct } ->
+            debug "Checking xen cmdline";
+            let builder_spec_info = Domain.BuildPVH Domain.{
+                cmdline = pvinpvh_xen_cmdline;
+                modules = (direct.kernel, Some direct.cmdline) ::
+                          (match direct.ramdisk with
+                           | Some r -> [r, None]
+                           | None -> []
+                          );
+                shadow_multiplier = 1.;
+                video_mib = 4;
+              } in
+            ((make_build_info !Resources.pvinpvh_xen builder_spec_info), "")
+          | PVinPVH { boot = Indirect { devices = [] } } ->
+            raise (No_bootable_device)
+          | PVinPVH { boot = Indirect ( { devices = d :: _ } as i ) } ->
+            with_disk ~xc ~xs task d false
+              (fun dev ->
+                 let b = Bootloader.extract task ~bootloader:i.bootloader
+                     ~legacy_args:i.legacy_args ~extra_args:i.extra_args
+                     ~pv_bootloader_args:i.bootloader_args
+                     ~disk:dev ~vm:vm.Vm.id () in
+                 kernel_to_cleanup := Some b;
+                 let builder_spec_info = Domain.BuildPVH Domain.{
+                     cmdline = pvinpvh_xen_cmdline;
+                     modules = (b.Bootloader.kernel_path, Some b.Bootloader.kernel_args) ::
+                               (match b.Bootloader.initrd_path with
+                                | Some r -> [r, None]
+                                | None -> []
+                               );
+                     shadow_multiplier = 1.;
+                     video_mib = 4;
+                   } in
+                 ((make_build_info !Resources.pvinpvh_xen builder_spec_info), "")
               ) in
-        let arch = Domain.build task ~xc ~xs ~store_domid ~console_domid ~timeoffset ~extras build_info (choose_xenguest vm.Vm.platformdata) domid force in
+        Domain.build task ~xc ~xs ~store_domid ~console_domid ~timeoffset ~extras build_info (choose_xenguest vm.Vm.platformdata) domid force;
         Int64.(
           let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
           and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
           Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
         );
 
-        debug "VM = %s; domid = %d; Domain built with architecture %s" vm.Vm.id domid (Domain.string_of_domarch arch);
+        debug "VM = %s; domid = %d; Domain build completed" vm.Vm.id domid;
         let k = vm.Vm.id in
         let d = DB.read_exn vm.Vm.id in
         let persistent = { d.VmExtra.persistent with
@@ -1376,9 +1490,15 @@ module VM = struct
             Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
             Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
             Device.Dm.start_vnconly task ~xs ~dm:qemu_dm info di.Xenctrl.domid
+          | Vm.PVinPVH _ ->
+            Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
+            Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
+            Device.Dm.start_vnconly task ~xs ~dm:qemu_dm info di.Xenctrl.domid
         ) (create_device_model_config vm vmextra vbds vifs vgpus vusbs);
       match vm.Vm.ty with
-      | Vm.PV { vncterm = true; vncterm_ip = ip } -> Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
+      | Vm.PV { vncterm = true; vncterm_ip = ip }
+      | Vm.PVinPVH { vncterm = true; vncterm_ip = ip } ->
+        Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
       | _ -> ()
     with Device.Ioemu_failed (name, msg) ->
       raise (Failed_to_start_emulator (vm.Vm.id, name, msg))
@@ -1389,11 +1509,18 @@ module VM = struct
     let reason = shutdown_reason reason in
     on_domain
       (fun xc xs task vm di ->
+         let domain_type =
+           match get_domain_type ~xs di with
+           | Vm.Domain_HVM -> `hvm
+           | Vm.Domain_PV -> `pv
+           | Vm.Domain_PVinPVH -> `pvh
+           | Vm.Domain_undefined -> failwith "undefined domain type: cannot save"
+         in
 
          let domid = di.Xenctrl.domid in
          try
            Domain.shutdown ~xc ~xs domid reason;
-           Domain.shutdown_wait_for_ack task ~timeout:ack_delay ~xc ~xs domid reason;
+           Domain.shutdown_wait_for_ack task ~timeout:ack_delay ~xc ~xs domid domain_type reason;
            true
          with Watch.Timeout _ ->
            false
@@ -1463,7 +1590,7 @@ module VM = struct
             in
             match (write, is_raw_image) with
             | true, _ -> (* Always write raw *)
-              Unixext.with_file path [Unix.O_WRONLY] 0o600 f
+              Unixext.with_file path [Unix.O_WRONLY; Unix.O_APPEND] 0o600 f
             | false, true -> (* We're reading raw *)
               Unixext.with_file path [Unix.O_RDONLY] 0o600 f
             | false, false -> (* Assume reading from filesystem *)
@@ -1519,7 +1646,13 @@ module VM = struct
         ) flags in
     on_domain
       (fun xc xs (task:Xenops_task.task_handle) vm di ->
-         let hvm = di.Xenctrl.hvm_guest in
+         let domain_type =
+           match get_domain_type ~xs di with
+           | Vm.Domain_HVM -> `hvm
+           | Vm.Domain_PV -> `pv
+           | Vm.Domain_PVinPVH -> `pvh
+           | Vm.Domain_undefined -> failwith "undefined domain type: cannot save"
+         in
          let domid = di.Xenctrl.domid in
 
          let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
@@ -1536,7 +1669,7 @@ module VM = struct
               in
               let xenguest_path = choose_xenguest vm.Vm.platformdata in
               let emu_manager_path = choose_emu_manager vm.Vm.platformdata in
-              Domain.suspend task ~xc ~xs ~hvm ~dm:(dm_of ~vm) ~progress_callback ~qemu_domid ~xenguest_path ~emu_manager_path vm_str domid fd vgpu_fd flags'
+              Domain.suspend task ~xc ~xs ~domain_type ~dm:(dm_of ~vm) ~progress_callback ~qemu_domid ~xenguest_path ~emu_manager_path vm_str domid fd vgpu_fd flags'
                 (fun () ->
                    (* SCTX-2558: wait more for ballooning if needed *)
                    wait_ballooning task vm;
@@ -1765,7 +1898,8 @@ module VM = struct
              nested_virt = begin match vme with
                | None   -> false
                | Some x -> x.VmExtra.persistent.VmExtra.nested_virt
-             end
+             end;
+             domain_type = get_domain_type ~xs di;
            }
       )
 
@@ -1899,7 +2033,7 @@ module VM = struct
       (if state_new <> state then debug "vm %s: different original metadata %s" k state)
     ;
     let non_persistent = match DB.read k with
-      | None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm)
+      | None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm persistent)
       | Some vmextra -> vmextra.VmExtra.non_persistent
     in
     DB.write k { VmExtra.persistent = persistent; VmExtra.non_persistent = non_persistent; }
@@ -1913,7 +2047,7 @@ let on_frontend f domain_selection frontend =
        let frontend_di = match frontend |> uuid_of_string |> di_of_uuid ~xc ~xs domain_selection with
          | None -> raise (Does_not_exist ("domain", frontend))
          | Some x -> x in
-       f xc xs frontend_di.Xenctrl.domid frontend_di.Xenctrl.hvm_guest
+       f xc xs frontend_di.Xenctrl.domid (VM.get_domain_type ~xs frontend_di)
     )
 
 module PCI = struct
@@ -1941,7 +2075,7 @@ module PCI = struct
 
   let plug task vm pci =
     on_frontend
-      (fun xc xs frontend_domid hvm ->
+      (fun xc xs frontend_domid _ ->
          (* Make sure the backend defaults are set *)
          let vm_t = DB.read_exn vm in
          let non_persistent = vm_t.VmExtra.non_persistent in
@@ -1964,11 +2098,11 @@ module PCI = struct
   let unplug task vm pci =
     try
       on_frontend
-        (fun xc xs frontend_domid hvm ->
+        (fun xc xs frontend_domid domain_type ->
            try
-             if hvm
+             if domain_type = Vm.Domain_HVM
              then Device.PCI.release [ pci.address ] frontend_domid
-             else error "VM = %s; PCI.unplug for PV guests is unsupported" vm
+             else error "VM = %s; PCI.unplug is only supported for HVM guests" vm
            with Not_found ->
              debug "VM = %s; PCI.unplug %s.%s caught Not_found: assuming device is unplugged already" vm (fst pci.id) (snd pci.id)
         ) Oldest vm
@@ -2037,9 +2171,9 @@ module VUSB = struct
 
   let plug task vm vusb =
     on_frontend
-      (fun xc xs frontend_domid hvm ->
-         if not hvm
-         then info "VM = %s; vusb device will no plug to  a PV guest" vm
+      (fun xc xs frontend_domid domain_type ->
+         if domain_type <> Vm.Domain_HVM
+         then info "VM = %s; USB passthrough is only supported for HVM guests" vm
          else
            Device.Vusb.vusb_plug ~xs ~domid:frontend_domid ~id:(snd vusb.Vusb.id) ~hostbus:vusb.Vusb.hostbus ~hostport:vusb.Vusb.hostport ~version:vusb.Vusb.version;
       ) Newest vm
@@ -2047,7 +2181,7 @@ module VUSB = struct
   let unplug task vm vusb =
     try
       on_frontend
-        (fun xc xs frontend_domid hvm ->
+        (fun xc xs frontend_domid _ ->
            Device.Vusb.vusb_unplug ~xs ~domid:frontend_domid ~id:(snd vusb.Vusb.id);
         ) Newest vm
     with (Does_not_exist(_,_)) ->
@@ -2142,9 +2276,9 @@ module VBD = struct
     if not(get_active vm vbd)
     then debug "VBD %s.%s is not active: not plugging into VM" (fst vbd.Vbd.id) (snd vbd.Vbd.id)
     else on_frontend
-        (fun xc xs frontend_domid hvm ->
-           if vbd.backend = None && not hvm
-           then info "VM = %s; an empty CDROM drive on a PV guest is simulated by unplugging the whole drive" vm
+        (fun xc xs frontend_domid domain_type ->
+           if vbd.backend = None && domain_type <> Vm.Domain_HVM
+           then info "VM = %s; an empty CDROM drive on PV and PVinPVH guests is simulated by unplugging the whole drive" vm
            else begin
              let vdi = attach_and_activate task xc xs frontend_domid vbd vbd.backend in
 
@@ -2181,7 +2315,7 @@ module VBD = struct
              } in
              let device =
                Xenops_task.with_subtask task (Printf.sprintf "Vbd.add %s" (id_of vbd))
-                 (fun () -> Device.Vbd.add task ~xc ~xs ~hvm x frontend_domid) in
+                 (fun () -> Device.Vbd.add task ~xc ~xs ~hvm:(domain_type = Vm.Domain_HVM) x frontend_domid) in
 
              (* We store away the disk so we can implement VBD.stat *)
              Opt.iter (fun disk -> xs.Xs.write (vdi_path_of_device ~xs device) (disk |> rpc_of_disk |> Jsonrpc.to_string)) vbd.backend;
@@ -2292,8 +2426,8 @@ module VBD = struct
 
   let insert task vm vbd disk =
     on_frontend
-      (fun xc xs frontend_domid hvm ->
-         if not hvm
+      (fun xc xs frontend_domid domain_type ->
+         if domain_type <> Vm.Domain_HVM
          then plug task vm { vbd with backend = Some disk }
          else begin
            let (device: Device_common.device) = device_by_id xc xs vm (device_kind_of ~xs vbd) Newest (id_of vbd) in
@@ -2308,7 +2442,7 @@ module VBD = struct
 
   let eject task vm vbd =
     on_frontend
-      (fun xc xs frontend_domid hvm ->
+      (fun xc xs frontend_domid _ ->
          let (device: Device_common.device) = device_by_id xc xs vm (device_kind_of ~xs vbd) Oldest (id_of vbd) in
          Device.Vbd.media_eject ~xs ~dm:(dm_of ~vm) device;
          safe_rm xs (vdi_path_of_device ~xs device);
@@ -2520,7 +2654,7 @@ module VIF = struct
     if not(get_active vm vif)
     then debug "VIF %s.%s is not active: not plugging into VM" (fst vif.Vif.id) (snd vif.Vif.id)
     else on_frontend
-        (fun xc xs frontend_domid hvm ->
+        (fun xc xs frontend_domid _ ->
            let backend_domid = backend_domid_of xc xs vif in
            (* Remember the VIF id with the device *)
            let id = _device_id Device_common.Vif, id_of vif in
@@ -2677,7 +2811,7 @@ module VIF = struct
          ignore (run !Xc_resources.setup_vif_rules ["classic"; vif_interface_name; vm; devid; "filter"]);
          (* Update rules for the tap device if the VM has booted HVM with no PV drivers. *)
          let di = Xenctrl.domain_getinfo xc device.frontend.domid in
-         if di.Xenctrl.hvm_guest
+         if VM.get_domain_type ~xs di = Vm.Domain_HVM
          then ignore (run !Xc_resources.setup_vif_rules ["classic"; tap_interface_name; vm; devid; "filter"])
       )
 
@@ -2763,7 +2897,7 @@ module VIF = struct
            let di = Xenctrl.domain_getinfo xc device.frontend.domid in
            ignore (run !Xc_resources.setup_pvs_proxy_rules [action; "vif"; vif_interface_name;
                                                             private_path; hotplug_path]);
-           if di.Xenctrl.hvm_guest then
+           if VM.get_domain_type ~xs di = Vm.Domain_HVM then
              try
                ignore (run !Xc_resources.setup_pvs_proxy_rules [action; "tap"; tap_interface_name;
                                                                 private_path; hotplug_path])
@@ -2844,32 +2978,32 @@ module Actions = struct
   let store_rtc_timeoffset vm timeoffset =
     Opt.iter
       (function { VmExtra.persistent; non_persistent } ->
-       match persistent with
-       | { VmExtra.ty = Some ( Vm.HVM hvm_info ) } ->
-         let persistent = { persistent with VmExtra.ty = Some (Vm.HVM { hvm_info with Vm.timeoffset = timeoffset }) } in
-         debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset;
-         DB.write vm { VmExtra.persistent; non_persistent }
-       | _ -> ()
+      match persistent with
+      | { VmExtra.ty = Some ( Vm.HVM hvm_info ) } ->
+        let persistent = { persistent with VmExtra.ty = Some (Vm.HVM { hvm_info with Vm.timeoffset = timeoffset }) } in
+        debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset;
+        DB.write vm { VmExtra.persistent; non_persistent }
+      | _ -> ()
       ) (DB.read vm)
 
   let maybe_update_pv_drivers_detected ~xc ~xs domid path =
     let vm = get_uuid ~xc domid |> Uuidm.to_string in
     Opt.iter
       (function { VmExtra.persistent; non_persistent } ->
-         if not non_persistent.VmExtra.pv_drivers_detected then begin
-           (* If the new value for this device is 4 then PV drivers are present *)
-           try
-             let value = xs.Xs.read path in
-             if value = "4" (* connected *) then begin
-               let non_persistent = { non_persistent with VmExtra.pv_drivers_detected = true } in
-               debug "VM = %s; found PV driver evidence on %s (value = %s)" vm path value;
-               DB.write vm { VmExtra.persistent; non_persistent };
-               Updates.add (Dynamic.Vm vm) internal_updates
-             end
-           with Xs_protocol.Enoent _ ->
-             warn "Watch event on %s fired but couldn't read from it" path;
-             () (* the path must have disappeared immediately after the watch fired. Let's treat this as if we never saw it. *)
-         end
+        if not non_persistent.VmExtra.pv_drivers_detected then begin
+          (* If the new value for this device is 4 then PV drivers are present *)
+          try
+            let value = xs.Xs.read path in
+            if value = "4" (* connected *) then begin
+              let non_persistent = { non_persistent with VmExtra.pv_drivers_detected = true } in
+              debug "VM = %s; found PV driver evidence on %s (value = %s)" vm path value;
+              DB.write vm { VmExtra.persistent; non_persistent };
+              Updates.add (Dynamic.Vm vm) internal_updates
+            end
+          with Xs_protocol.Enoent _ ->
+            warn "Watch event on %s fired but couldn't read from it" path;
+            () (* the path must have disappeared immediately after the watch fired. Let's treat this as if we never saw it. *)
+        end
       ) (DB.read vm)
 
   let interesting_paths_for_domain domid uuid =
