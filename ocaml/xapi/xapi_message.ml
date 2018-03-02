@@ -55,7 +55,7 @@ let class_to_string cls =
   | `VMPP -> "VMPP"
   | `VMSS -> "VMSS"
   | `PVS_proxy -> "PVS_proxy"
-  | `VDI -> "VDI" 
+  | `VDI -> "VDI"
   | _ -> "unknown"
 
 let string_to_class str =
@@ -477,7 +477,7 @@ let destroy ~__context ~self =
                 if _ref = self then true else false
               with _ -> false
             ) allmsgs
-        with _ -> raise (Api_errors.Server_error (Api_errors.handle_invalid, [Datamodel._message; Ref.string_of self]))
+        with _ -> raise (Api_errors.Server_error (Api_errors.handle_invalid, [Datamodel_common._message; Ref.string_of self]))
       end
   in
   let basefilename = List.hd (List.rev (String.split '/' fullpath)) in

@@ -66,9 +66,6 @@ let gen_debug_module name_override result_type_override body_override api : O.Mo
     (* filter out the session_id *)
     let args = List.filter (function O.Named("session_id", _) -> false | _ -> true) args in
 
-    let locks = Locking.of_message obj x in
-    let locks_doc = "@lock " ^ (SExpr.string_of (SExpr.Node (List.map (fun (c, f) -> SExpr.Node [ SExpr.String c; SExpr.String f ]) locks))) in
-
     let result_type =
       match result_type_override with
         None ->
@@ -90,7 +87,7 @@ let gen_debug_module name_override result_type_override body_override api : O.Mo
       ~params:(Gen_common.context_arg :: args)
       ~ty:result_type
       ~body:body
-      ~doc:locks_doc
+      ~doc:""
       () in
 
   let obj (obj: obj) =

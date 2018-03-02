@@ -31,6 +31,14 @@ let schema =
     ty = Schema.Type.String;
     issetref = false;
   } in
+  let type' = {
+    Schema.Column.name = "type";
+    persistent = true;
+    empty = Schema.Value.String "";
+    default = None;
+    ty = Schema.Type.String;
+    issetref = false;
+  } in
   let vbds = {
     Schema.Column.name = "VBDs";
     persistent = false;
@@ -79,7 +87,7 @@ let schema =
   } in
   let vbd_table = {
     Schema.Table.name = "VBD";
-    columns = [ _ref; uuid; vm ];
+    columns = [ _ref; uuid; vm; type' ];
     persistent = true;
   } in
   let database = {

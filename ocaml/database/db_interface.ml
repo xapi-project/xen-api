@@ -63,10 +63,6 @@ module type DB_ACCESS = sig
       		associated with [label] *)
   val db_get_by_name_label : Db_ref.t -> string -> string -> string list
 
-  (** [read_set_ref {tbl,return,where_field,where_value}] is identical
-      		to [read_field_where ...]. *)
-  val read_set_ref : Db_ref.t -> Db_cache_types.where_record -> string list
-
   (** [create_row tbl kvpairs ref] create a new row in [tbl] with
       		key [ref] and contents [kvpairs] *)
   val create_row :

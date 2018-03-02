@@ -964,6 +964,7 @@ let initialise () =
 module Local_domain_socket = struct
   let path = Filename.concat "/var/lib/xcp" "storage"
 
+  (* receives external requests on Constants.sm_uri *)
   let xmlrpc_handler process req bio _ =
     let body = Http_svr.read_body req bio in
     let s = Buf_io.fd_of bio in
@@ -974,12 +975,3 @@ module Local_domain_socket = struct
     let str = Xmlrpc.string_of_response result in
     Http_svr.response_str req s str
 end
-
-open Xmlrpc_client
-let local_url = Http.Url.(File { path = Filename.concat "/var/lib/xcp" "storage" }, { uri = "/"; query_params = [] })
-
-let rpc ~srcstr ~dststr url call =
-  XMLRPC_protocol.rpc ~transport:(transport_of_url url)
-    ~srcstr ~dststr ~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url)) call
-
-module Local = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" local_url end)

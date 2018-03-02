@@ -40,7 +40,7 @@ install: build doc
 # ocaml/xapi
 	make -C scripts install
 	cp -f _build/install/default/bin/xapi $(DESTDIR)$(SBINDIR)/xapi
-	scripts/install.sh 755 ocaml/xapi/quicktest $(DESTDIR)$(OPTDIR)/debug
+	scripts/install.sh 755 ocaml/quicktest/quicktest $(DESTDIR)$(OPTDIR)/debug
 	cp -f _build/install/default/bin/quicktestbin $(DESTDIR)$(OPTDIR)/debug/quicktestbin
 	scripts/install.sh 644 _build/install/default/share/xapi/rbac_static.csv $(DESTDIR)$(OPTDIR)/debug
 # ocaml/xsh

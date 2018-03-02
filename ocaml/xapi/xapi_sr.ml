@@ -230,19 +230,20 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
     else
       [Xapi_pbd.create_thishost ~__context ~sR:sr_ref ~device_config ~currently_attached:false ]
   in
-  begin
+  let device_config = begin
     try
       Storage_access.create_sr ~__context ~sr:sr_ref ~name_label ~name_description ~physical_size
     with e ->
       Db.SR.destroy ~__context ~self:sr_ref;
       List.iter (fun pbd -> Db.PBD.destroy ~__context ~self:pbd) pbds;
       raise e
-  end;
+  end in
   Helpers.call_api_functions ~__context
     (fun rpc session_id ->
        List.iter
          (fun self ->
             try
+              Db.PBD.set_device_config ~__context ~self ~value:device_config;
               Client.PBD.plug ~rpc ~session_id ~self
             with e -> warn "Could not plug PBD '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
          pbds);
@@ -359,6 +360,8 @@ let update ~__context ~sr =
     (fun () ->
        let sr' = Db.SR.get_uuid ~__context ~self:sr in
        let sr_info = C.SR.stat ~dbg:(Ref.string_of task) ~sr:sr' in
+       Db.SR.set_name_label ~__context ~self:sr ~value:sr_info.name_label;
+       Db.SR.set_name_description ~__context ~self:sr ~value:sr_info.name_description;
        Db.SR.set_physical_size ~__context ~self:sr ~value:sr_info.total_space;
        Db.SR.set_physical_utilisation ~__context ~self:sr ~value:(Int64.sub sr_info.total_space sr_info.free_space);
        Db.SR.set_clustered ~__context ~self:sr ~value:sr_info.clustered;
@@ -424,7 +427,8 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
            ~sR:sr ~virtual_size:vdi.virtual_size
            ~physical_utilisation:vdi.physical_utilisation
            ~_type:(try Storage_utils.vdi_type_of_string vdi.ty with _ -> `user)
-           ~sharable:false ~read_only:vdi.read_only
+           ~sharable:vdi.sharable
+           ~read_only:vdi.read_only
            ~xenstore_data:[] ~sm_config:[]
            ~other_config:[] ~storage_lock:false ~location:vdi.vdi
            ~managed:true ~missing:false ~parent:Ref.null ~tags:[]
@@ -494,6 +498,10 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
        if v.API.vDI_cbt_enabled <> vi.cbt_enabled then begin
          debug "%s cbt_enabled <- %b" (Ref.string_of r) vi.cbt_enabled;
          Db.VDI.set_cbt_enabled ~__context ~self:r ~value:vi.cbt_enabled
+       end;
+       if v.API.vDI_sharable <> vi.sharable then begin
+         debug "%s sharable <- %b" (Ref.string_of r) vi.sharable;
+         Db.VDI.set_sharable ~__context ~self:r ~value:vi.sharable
        end
     ) to_update
 

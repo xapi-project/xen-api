@@ -145,7 +145,12 @@ let has_feature ~vmgmr ~feature =
 let has_definitely_booted_pv ~vmmr =
   match vmmr with
   | None -> false
-  | Some r -> r.Db_actions.vM_metrics_hvm = false
+  | Some r ->
+    match r.Db_actions.vM_metrics_current_domain_type with
+    | `hvm
+    | `unspecified -> false
+    | `pv
+    | `pv_in_pvh -> true
 
 (** Return an error iff vmr is an HVM guest and lacks a needed feature.
  *  Note: it turned out that the Windows guest agent does not write "feature-suspend"
@@ -584,11 +589,9 @@ let update_allowed_operations ~__context ~self =
   if Db.is_valid_ref __context appliance then
     Xapi_vm_appliance_lifecycle.update_allowed_operations ~__context ~self:appliance
 
-(** 1.Called on new VMs (clones, imports) and on server start to manually refresh
- *    the power state, allowed_operations field etc.  Current-operations won't be
- *    cleaned
- *  2.Called on update VM when the power state changes
-**)
+(** Called on new VMs (clones, imports) and on server start to manually refresh
+    the power state, allowed_operations field etc.  Current-operations won't be
+    cleaned *)
 let force_state_reset_keep_current_operations ~__context ~self ~value:state =
   if state = `Halted then begin
     (* mark all devices as disconnected *)
@@ -602,7 +605,6 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
       (fun vif ->
          Db.VIF.set_currently_attached ~__context ~self:vif ~value:false;
          Db.VIF.set_reserved ~__context ~self:vif ~value:false;
-         Db.VIF.set_reserved_pci ~__context ~self:vif ~value:Ref.null;
          Xapi_vif_helpers.clear_current_operations ~__context ~self:vif;
          Opt.iter
            (fun p -> Pvs_proxy_control.clear_proxy_state ~__context vif p)
@@ -683,8 +685,13 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let set = (fun value -> Db.VM.set_current_operations ~__context ~self ~value) in
   Helpers.cancel_tasks ~__context ~ops ~all_tasks_in_db ~task_ids ~set
 
- (** Assert that VM is in a certain set of states before starting an operation *)
- let assert_initial_power_state_in ~__context ~self ~allowed =
+(** VM is considered as "live" when it's either Running or Paused, i.e. with a live domain *)
+let is_live ~__context ~self =
+  let power_state = Db.VM.get_power_state ~__context ~self in
+  power_state = `Running || power_state = `Paused
+
+(** Assert that VM is in a certain set of states before starting an operation *)
+let assert_initial_power_state_in ~__context ~self ~allowed =
   let actual = Db.VM.get_power_state ~__context ~self in
   if not (List.mem actual allowed)
   then raise (Api_errors.Server_error(Api_errors.vm_bad_power_state, [

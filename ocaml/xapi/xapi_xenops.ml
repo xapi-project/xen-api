@@ -238,8 +238,8 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       with _ -> []
   in
 
-  match Helpers.boot_method_of_vm ~__context ~vm with
-  | Helpers.HVM { Helpers.timeoffset = t } -> HVM {
+  let make_hvmloader_boot_record { Helpers.timeoffset = t } =
+    {
       hap = true;
       shadow_multiplier = vm.API.vM_HVM_shadow_multiplier;
       timeoffset = timeoffset;
@@ -280,7 +280,9 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       qemu_disk_cmdline = bool vm.API.vM_platform false "qemu_disk_cmdline";
       qemu_stubdom = bool vm.API.vM_platform false "qemu_stubdom";
     }
-  | Helpers.DirectPV { Helpers.kernel = k; kernel_args = ka; ramdisk = initrd } ->
+  in
+
+  let make_direct_boot_record { Helpers.kernel = k; kernel_args = ka; ramdisk = initrd } =
     let k = if is_boot_file_whitelisted k then k else begin
         debug "kernel %s is not in the whitelist: ignoring" k;
         ""
@@ -291,7 +293,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
           ""
         end
       ) initrd in
-    PV {
+    {
       boot = Direct { kernel = k; cmdline = ka; ramdisk = initrd };
       framebuffer = bool vm.API.vM_platform false "pvfb";
       framebuffer_ip = None; (* None PR-1255 *)
@@ -301,8 +303,10 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       end;
       vncterm_ip = None (*None PR-1255*);
     }
-  | Helpers.IndirectPV { Helpers.bootloader = b; extra_args = e; legacy_args = l; pv_bootloader_args = p; vdis = vdis } ->
-    PV {
+  in
+
+  let make_indirect_boot_record { Helpers.bootloader = b; extra_args = e; legacy_args = l; pv_bootloader_args = p; vdis = vdis } =
+    {
       boot = Indirect { bootloader = b; extra_args = e; legacy_args = l; bootloader_args = p; devices = List.filter_map (fun x -> disk_of_vdi ~__context ~self:x) vdis };
       framebuffer = bool vm.API.vM_platform false "pvfb";
       framebuffer_ip = None; (* None PR-1255 *)
@@ -312,6 +316,14 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       end;
       vncterm_ip = None (*None PR-1255*);
     }
+  in
+  match Helpers.(check_domain_type vm.API.vM_domain_type, boot_method_of_vm ~__context ~vm) with
+  | `hvm,       Helpers.Hvmloader options -> HVM (make_hvmloader_boot_record options)
+  | `pv,        Helpers.Direct options ->    PV (make_direct_boot_record options)
+  | `pv,        Helpers.Indirect options ->  PV (make_indirect_boot_record options)
+  | `pv_in_pvh, Helpers.Direct options ->    PVinPVH (make_direct_boot_record options)
+  | `pv_in_pvh, Helpers.Indirect options ->  PVinPVH (make_indirect_boot_record options)
+  | _ -> raise Api_errors.(Server_error (internal_error, ["invalid boot configuration"]))
 
 let list_net_sriov_vf_pcis ~__context ~vm =
   List.filter_map (fun vif ->
@@ -324,7 +336,12 @@ module MD = struct
   (** Convert between xapi DB records and xenopsd records *)
 
   let of_vbd ~__context ~vm ~vbd =
-    let hvm = vm.API.vM_HVM_boot_policy <> "" in
+    let hvm = match vm.API.vM_domain_type with
+      | `hvm -> true
+      | `pv_in_pvh
+      | `pv
+      | `unspecified -> false
+    in
     let device_number = Device_number.of_string hvm vbd.API.vBD_userdevice in
     let open Vbd in
     let ty = vbd.API.vBD_qos_algorithm_type in
@@ -810,7 +827,7 @@ module MD = struct
         ~platformdata:vm.API.vM_platform
         ~vcpu_max:vm.API.vM_VCPUs_max
         ~vcpu_at_startup:vm.API.vM_VCPUs_at_startup
-        ~hvm:(Helpers.will_boot_hvm ~__context ~self:vmref)
+        ~domain_type:(Helpers.check_domain_type vm.API.vM_domain_type)
         ~filter_out_unknowns:
           (not(Pool_features.is_enabled ~__context Features.No_platform_filter))
     in
@@ -1439,11 +1456,34 @@ let update_vm ~__context id =
              does fail then we may end up permanently out-of-sync until either a
              process restart or an event is generated. We may wish to periodically
              inject artificial events IF there has been an event sync failure? *)
+          let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).power_state) info) in
+
+          (* We preserve the current_domain_type of suspended VMs like we preserve
+             the currently_attached fields for VBDs/VIFs etc - it's important to know
+             whether suspended VMs are going to resume into PV or PVinPVH for example.
+             We do this before updating the power_state to maintain the invariant that
+             any VM that's not `Halted cannot have an unspecified current_domain_type *)
+          if different (fun x -> x.domain_type) && (power_state <> `Suspended) then begin
+            Opt.iter
+              (fun (_, state) ->
+                 let metrics = Db.VM.get_metrics ~__context ~self in
+                 let domain_type = match state.Vm.domain_type with
+                   | Domain_HVM       -> `hvm
+                   | Domain_PV        -> `pv
+                   | Domain_PVinPVH   -> `pv_in_pvh
+                   | Domain_undefined -> `unspecified
+                 in
+                 debug "xenopsd event: Updating VM %s current_domain_type <- %s"
+                   id (Record_util.domain_type_to_string domain_type);
+                 Db.VM_metrics.set_current_domain_type ~__context ~self:metrics
+                   ~value:domain_type;
+              )
+              info
+          end;
           if different (fun x -> x.power_state) then begin
             try
               debug "Will update VM.allowed_operations because power_state has changed.";
               should_update_allowed_operations := true;
-              let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).power_state) info) in
               debug "xenopsd event: Updating VM %s power_state <- %s" id (Record_util.power_state_to_string power_state);
               (* This will mark VBDs, VIFs as detached and clear resident_on
                  if the VM has permanently shutdown.  current-operations
@@ -1686,7 +1726,6 @@ let update_vm ~__context id =
           Xenops_cache.update_vm id (Opt.map snd info);
           if !should_update_allowed_operations then
             Helpers.call_api_functions ~__context
-              ~test_fn:(fun () -> Xapi_vm_lifecycle.update_allowed_operations ~__context ~self)
               (fun rpc session_id -> XenAPI.VM.update_allowed_operations ~rpc ~session_id ~self);
         end
   with e ->
@@ -1805,7 +1844,7 @@ let update_vif ~__context id =
                         | None -> failwith (Printf.sprintf "could not determine device id for VIF %s.%s" (fst id) (snd id))
                         | Some device ->
                           let dbg = Context.string_of_task __context in
-                          let mtu = Net.Interface.get_mtu dbg ~name:device in
+                          let mtu = Net.Interface.get_mtu dbg device in
                           Db.VIF.set_MTU ~__context ~self:vif ~value:(Int64.of_int mtu)
                       with _ ->
                         debug "could not update MTU field on VIF %s.%s" (fst id) (snd id));
@@ -2407,7 +2446,7 @@ let transform_xenops_exn ~__context ~vm queue_name f =
         let found = f found and expected = f expected in
         reraise Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; found ]
       | Failed_to_acknowledge_shutdown_request ->
-        reraise Api_errors.vm_failed_shutdown_ack []
+        reraise Api_errors.vm_failed_shutdown_ack [ Ref.string_of vm ]
       | Failed_to_shutdown(id, timeout) ->
         reraise Api_errors.vm_shutdown_timeout [ vm_of_id ~__context id |> Ref.string_of; string_of_float timeout ]
       | Device_is_connected ->
@@ -2465,7 +2504,7 @@ let set_resident_on ~__context ~self =
   debug "VM %s set_resident_on" id;
   let localhost = Helpers.get_localhost ~__context in
   Helpers.call_api_functions ~__context
-    ~test_fn:(fun () -> Db.VM.set_resident_on ~__context ~self ~value:localhost)
+
     (fun rpc session_id -> XenAPI.VM.atomic_set_resident_on rpc session_id self localhost);
   debug "Signalling xenapi event thread to re-register, and xenopsd events to sync";
   refresh_vm ~__context ~self;
@@ -2637,11 +2676,11 @@ let start ~__context ~self paused force =
         raise (Bad_power_state (Running, Halted));
       (* For all devices which we want xenopsd to manage, set currently_attached = true
          		   so the metadata is pushed. *)
+      let empty_vbds_allowed = Helpers.will_have_qemu ~__context ~self in
       let vbds =
         (* xenopsd only manages empty VBDs for HVM guests *)
-        let hvm = Helpers.will_boot_hvm ~__context ~self in
         let vbds = Db.VM.get_VBDs ~__context ~self in
-        if hvm then vbds else (List.filter (fun self -> not(Db.VBD.get_empty ~__context ~self)) vbds) in
+        if empty_vbds_allowed then vbds else (List.filter (fun self -> not(Db.VBD.get_empty ~__context ~self)) vbds) in
       List.iter (fun self -> Db.VBD.set_currently_attached ~__context ~self ~value:true) vbds;
       List.iter (fun self -> Db.VIF.set_currently_attached ~__context ~self ~value:true) (Db.VM.get_VIFs ~__context ~self);
 
@@ -3001,14 +3040,17 @@ let vbd_insert_hvm ~__context ~self ~vdi =
                (Ref.string_of self) (Ref.string_of vdi) (Ref.string_of vdi)]))
     )
 
-let ejectable ~__context ~self =
+let has_qemu ~__context ~vm =
   let dbg = Context.string_of_task __context in
-  let vm = Db.VBD.get_VM ~__context ~self in
   let id = Db.VM.get_uuid ~__context ~self:vm in
   let queue_name = queue_of_vm ~__context ~self:vm in
   let module Client = (val make_client queue_name : XENOPS) in
   let _, state = Client.VM.stat dbg id in
-  state.Vm.hvm
+  state.Vm.domain_type = Domain_HVM
+
+let ejectable ~__context ~self =
+  let vm = Db.VBD.get_VM ~__context ~self in
+  has_qemu ~__context ~vm
 
 let vbd_eject ~__context ~self =
   if ejectable ~__context ~self
@@ -3195,13 +3237,8 @@ let vusb_unplug_hvm ~__context ~self =
     )
 
 let vusb_plugable ~__context ~self =
-  let dbg = Context.string_of_task __context in
   let vm = Db.VUSB.get_VM ~__context ~self in
-  let id = Db.VM.get_uuid ~__context ~self:vm in
-  let queue_name = queue_of_vm ~__context ~self:vm in
-  let module Client = (val make_client queue_name : XENOPS) in
-  let _, state = Client.VM.stat dbg id in
-  state.Vm.hvm
+  has_qemu ~__context ~vm
 
 let vusb_unplug ~__context ~self =
   if vusb_plugable ~__context ~self then

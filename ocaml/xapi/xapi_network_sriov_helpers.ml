@@ -24,8 +24,8 @@ let get_sriov_of ~__context ~sriov_logical_pif =
   | [] -> raise Api_errors.(Server_error (internal_error, [Printf.sprintf "Cannot find sriov object in sriov logical PIF %s" (Ref.string_of sriov_logical_pif)]))
 
 let sriov_bring_up ~__context ~self =
-  let open Network_interface in
   let update_sriov_with_result result =
+    let open Net.Sriov in
     let mode, require_reboot = match result with
       | Sysfs_successful -> `sysfs, false
       | Modprobe_successful -> `modprobe, false
@@ -41,7 +41,7 @@ let sriov_bring_up ~__context ~self =
   let device = Db.PIF.get_device ~__context ~self in
   begin
     let dbg = Context.string_of_task __context in
-    match Net.Sriov.enable dbg ~name:device with
+    match Net.Sriov.enable dbg device with
     | Ok result -> update_sriov_with_result result
     | Error error ->
       Db.PIF.set_currently_attached ~__context ~self ~value:false;
@@ -96,10 +96,9 @@ let sriov_bring_down ~__context ~self =
   let physical_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
   if require_operation_on_pci_device ~__context ~sriov ~self then begin
     debug "Disable network sriov on pci device. PIF: %s" (Ref.string_of self);
-    let open Network_interface in
     let dbg = Context.string_of_task __context in
     let device = Db.PIF.get_device ~__context ~self in
-    match Net.Sriov.disable dbg ~name:device with
+    match Net.Sriov.disable dbg device with
     | Ok -> ()
     | Error error ->
       raise Api_errors.(Server_error (network_sriov_disable_failed, [Ref.string_of self; error]))

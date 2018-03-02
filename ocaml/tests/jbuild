@@ -1,0 +1,58 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+| [] -> ""
+| pkgs ->
+let cmd = "ocamlfind ocamlc -verbose" ^ (
+                                         List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+                                         ) in
+let ic = Unix.open_process_in
+(cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
+in
+let rec go ic acc =
+try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+in
+go ic ""
+
+let rewriters = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
+
+let coverage_rewriter =
+let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+if is_coverage then
+"(preprocess (pps (bisect_ppx -conditional)))"
+else
+""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+
+
+(executables
+((names (suite suite_alcotest))
+(flags (:standard -bin-annot %s -warn-error +a-3-4-6-9-27-28-29-52))
+(libraries (
+            xapi_internal
+            alcotest
+            oUnit
+            stdext
+            threads
+            ))
+%s)
+)
+
+(alias
+((name runtest)
+ (package xapi)
+(deps (suite.exe (files_recursively_in test_data)))
+(action (run ${<} -runner sequential -verbose true))
+)
+)
+
+(alias
+((name runtest)
+ (package xapi)
+(deps (suite_alcotest.exe (files_recursively_in test_data)))
+(action (run ${<}))
+)
+)
+|} (flags rewriters) coverage_rewriter

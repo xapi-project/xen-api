@@ -29,12 +29,6 @@ val retrieve_wlb_recommendations :
   vm:[ `VM ] Ref.t -> (API.ref_host * string list) list
 val assert_agile : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val immediate_complete : __context:Context.t -> unit
-val set_actions_after_shutdown :
-  __context:Context.t ->
-  self:[ `VM ] Ref.t -> value:[< `destroy | `restart ] -> unit
-val set_actions_after_reboot :
-  __context:Context.t ->
-  self:[ `VM ] Ref.t -> value:[< `destroy | `restart ] -> unit
 val set_actions_after_crash :
   __context:Context.t ->
   self:[ `VM ] Ref.t ->
@@ -147,7 +141,8 @@ val create :
   generation_id:string ->
   hardware_platform_version:int64 ->
   has_vendor_device:bool ->
-  reference_label:string
+  reference_label:string ->
+  domain_type:API.domain_type
   -> API.ref_VM
 val destroy : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val clone :
@@ -253,3 +248,5 @@ val set_has_vendor_device : __context:Context.t -> self:API.ref_VM -> value:bool
 val assert_can_set_has_vendor_device : __context:Context.t -> self:API.ref_VM -> value:bool -> unit
 
 val import : __context:Context.t -> url:string -> sr:API.ref_SR -> full_restore:bool -> force:bool -> API.ref_VM list
+val set_domain_type : __context:Context.t -> self:API.ref_VM -> value:API.domain_type -> unit
+val set_HVM_boot_policy : __context:Context.t -> self:API.ref_VM -> value:string -> unit

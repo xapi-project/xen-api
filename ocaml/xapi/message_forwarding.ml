@@ -218,7 +218,7 @@ let loadbalance_host_operation ~__context ~hosts ~doc ~op (f: API.ref_host -> un
        try
          Db.Host.remove_from_current_operations ~__context ~self:choice ~key:task_id;
          Xapi_host_helpers.update_allowed_operations ~__context ~self:choice;
-         Helpers.Early_wakeup.broadcast (Datamodel._host, Ref.string_of choice);
+         Helpers.Early_wakeup.broadcast (Datamodel_common._host, Ref.string_of choice);
        with
          _ -> ())
 
@@ -515,7 +515,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            try
              Db.VM_appliance.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_vm_appliance.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._vm_appliance, Ref.string_of self);
+             Helpers.Early_wakeup.broadcast (Datamodel_common._vm_appliance, Ref.string_of self);
            with
              _ -> ())
 
@@ -561,26 +561,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module Pool = struct
     include Local.Pool
 
-    (** Add to the Pool's current operations, call a function and then remove from the
-        			current operations. Ensure the allowed_operations are kept up to date. *)
-    let with_pool_operation ~__context ~self ~doc ~op f =
-      let task_id = Ref.string_of (Context.get_task_id __context) in
-      Helpers.retry_with_global_lock ~__context ~doc
-        (fun () ->
-           Xapi_pool_helpers.assert_operation_valid ~__context ~self ~op;
-           Db.Pool.add_to_current_operations ~__context ~self ~key:task_id ~value:op);
-      Xapi_pool_helpers.update_allowed_operations ~__context ~self;
-      (* Then do the action with the lock released *)
-      finally f
-        (* Make sure to clean up at the end *)
-        (fun () ->
-           try
-             Db.Pool.remove_from_current_operations ~__context ~self ~key:task_id;
-             Xapi_pool_helpers.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._pool, Ref.string_of self);
-           with
-             _ -> ())
-
     let eject ~__context ~host =
       info "Pool.eject: pool = '%s'; host = '%s'" (current_pool_uuid ~__context) (host_uuid ~__context host);
       let local_fn = Local.Pool.eject ~host in
@@ -603,7 +583,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (String.concat ", " (List.map Ref.string_of heartbeat_srs))
         (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) configuration));
       let pool = Helpers.get_pool ~__context in
-      with_pool_operation ~__context ~doc:"Pool.ha_enable" ~self:pool ~op:`ha_enable
+      Xapi_pool_helpers.with_pool_operation ~__context ~doc:"Pool.ha_enable" ~self:pool ~op:`ha_enable
         (fun () ->
            Local.Pool.enable_ha __context heartbeat_srs configuration
         )
@@ -611,7 +591,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let disable_ha ~__context =
       info "Pool.disable_ha: pool = '%s'" (current_pool_uuid ~__context);
       let pool = Helpers.get_pool ~__context in
-      with_pool_operation ~__context ~doc:"Pool.ha_disable" ~self:pool ~op:`ha_disable
+      Xapi_pool_helpers.with_pool_operation ~__context ~doc:"Pool.ha_disable" ~self:pool ~op:`ha_disable
         (fun () ->
            Local.Pool.disable_ha __context
         )
@@ -757,7 +737,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            if Db.is_valid_ref __context self then begin
              Db.VBD.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of self);
+             Helpers.Early_wakeup.broadcast (Datamodel_common._vbd, Ref.string_of self);
            end)
         vbds
 
@@ -796,7 +776,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            if Db.is_valid_ref __context self then begin
              Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_vif_helpers.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
+             Helpers.Early_wakeup.broadcast (Datamodel_common._vif, Ref.string_of self);
            end)
         vifs
 
@@ -894,7 +874,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm ~value:host;
       try
         Vgpuops.create_vgpus ~__context host (vm, snapshot)
-          (Helpers.will_boot_hvm ~__context ~self:vm);
+          (Helpers.will_have_qemu ~__context ~self:vm);
         Xapi_network_sriov_helpers.reserve_sriov_vfs ~__context ~host ~vm
       with e ->
         clear_scheduled_to_be_resident_on ~__context ~vm;
@@ -907,7 +887,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         let task_id = Ref.string_of (Context.get_task_id __context) in
         Db.Host.remove_from_current_operations ~__context ~self:host ~key:task_id;
         Xapi_host_helpers.update_allowed_operations ~__context ~self:host;
-        Helpers.Early_wakeup.broadcast (Datamodel._host, Ref.string_of host);
+        Helpers.Early_wakeup.broadcast (Datamodel_common._host, Ref.string_of host);
       | None -> ()
 
     let check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host =
@@ -1051,14 +1031,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       with_vm_operation ~__context ~self ~doc:"VM.destroy" ~op:`destroy
         (fun () ->
            Local.VM.destroy ~__context ~self)
-
-    let set_actions_after_shutdown ~__context ~self ~value =
-      info "VM.set_actions_after_shutdown: VM = '%s'" (vm_uuid ~__context self);
-      Local.VM.set_actions_after_shutdown ~__context ~self ~value
-
-    let set_actions_after_reboot ~__context ~self ~value =
-      info "VM.set_actions_after_reboot: VM = '%s'" (vm_uuid ~__context self);
-      Local.VM.set_actions_after_reboot ~__context ~self ~value
 
     let set_actions_after_crash ~__context ~self ~value =
       info "VM.set_actions_after_crash: VM = '%s'" (vm_uuid ~__context self);
@@ -1412,7 +1384,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
           (Db.VM.get_name_label ~__context ~self:vm)
       in
       let (name, priority) = Api_messages.vm_shutdown in
-      (try ignore(Xapi_message.create ~__context ~name 
+      (try ignore(Xapi_message.create ~__context ~name
                     ~priority ~cls:`VM ~obj_uuid:uuid ~body:message_body) with _ -> ())
 
     let clean_reboot ~__context ~vm =
@@ -1703,17 +1675,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
            (* Make sure the target has enough memory to receive the VM *)
            let snapshot = Db.VM.get_record ~__context ~self:vm in
-           (* MTC:  An MTC-protected VM has a peer VM on the destination host to which
-              					   it migrates to.  When reserving memory, we must substitute the source VM
-              					   with this peer VM.  If is not an MTC-protected VM, then this call will
-              					   simply return the same VM.  Note that the call below not only accounts for
-              					   the destination VM's memory footprint but it also sets its set_scheduled_to_be_resident_on
-              					   field so we must make sure that we pass the destination VM and not the source.
-              					   Note: TBD: when migration into an existing VM is implemented, this section will
-              					   have to be revisited since the destination VM would already be occupying memory
-              					   and there won't be any need to account for its memory. *)
-           let dest_vm = Mtc.get_peer_vm_or_self ~__context ~self:vm in
-           reserve_memory_for_vm ~__context ~vm:dest_vm ~host ~snapshot ~host_op:`vm_migrate
+           reserve_memory_for_vm ~__context ~vm ~host ~snapshot ~host_op:`vm_migrate
              (fun () ->
                 forward_vm_op ~local_fn ~__context ~vm
                   (fun session_id rpc -> Client.VM.pool_migrate rpc session_id vm host options)));
@@ -2101,6 +2063,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let host = Db.PBD.get_host ~__context ~self:pbd in
       do_op_on ~local_fn:(Local.VM.import ~url ~sr ~full_restore ~force) ~__context ~host (fun session_id rpc -> Client.VM.import rpc session_id url sr full_restore force)
 
+    let set_domain_type ~__context ~self ~value =
+      info "VM.set_domain_type: self = '%s'; value = '%s';"
+        (vm_uuid ~__context self)
+        (Record_util.domain_type_to_string value);
+      Local.VM.set_domain_type ~__context ~self ~value
+
+    let set_HVM_boot_policy ~__context ~self ~value =
+      info "VM.set_HVM_boot_policy: self = '%s'; value = '%s';"
+        (vm_uuid ~__context self) value;
+      Local.VM.set_HVM_boot_policy ~__context ~self ~value
   end
 
   module VM_metrics = struct
@@ -2132,7 +2104,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            try
              if operation_allowed ~op then begin
                Db.Host.remove_from_current_operations ~__context ~self ~key: task_id;
-               Helpers.Early_wakeup.broadcast (Datamodel._host, Ref.string_of self);
+               Helpers.Early_wakeup.broadcast (Datamodel_common._host, Ref.string_of self);
              end;
              let clustered_srs = Db.SR.get_refs_where ~__context ~expr:(Eq (Field "clustered", Literal "true")) in
              if clustered_srs <> [] then
@@ -2323,6 +2295,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun () ->
            do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.reboot rpc session_id host)
         )
+
+    (* This is only be called by systemd during shutdown when xapi-domains.service is stopped *)
+    let prepare_for_poweroff ~__context ~host =
+      info "Host.prepare_for_poweroff: host = '%s'" (host_uuid ~__context host);
+      let local_fn = Local.Host.prepare_for_poweroff ~host in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.prepare_for_poweroff rpc session_id host)
 
     let power_on ~__context ~host =
       info "Host.power_on: host = '%s'" (host_uuid ~__context host);
@@ -2699,6 +2677,20 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (host_uuid ~__context self) (vm_uuid ~__context vm);
       let snapshot = Db.VM.get_record ~__context ~self:vm in
       VM.allocate_vm_to_host ~__context ~vm ~host:self ~snapshot ()
+
+    let set_iscsi_iqn ~__context ~host ~value =
+      info "Host.set_iscsi_iqn: host='%s' iqn='%s'" (host_uuid ~__context host) value;
+      let local_fn = Local.Host.set_iscsi_iqn ~host ~value in
+      do_op_on ~local_fn ~__context ~host
+        (fun session_id rpc ->
+          Client.Host.set_iscsi_iqn rpc session_id host value)
+
+    let set_multipathing ~__context ~host ~value =
+      info "Host.set_multipathing: host='%s' value='%s'" (host_uuid ~__context host) (string_of_bool value);
+      let local_fn = Local.Host.set_multipathing ~host ~value in
+      do_op_on ~local_fn ~__context ~host
+        (fun session_id rpc ->
+          Client.Host.set_multipathing rpc session_id host value)
   end
 
   module Host_crashdump = struct
@@ -2836,7 +2828,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            if Db.is_valid_ref __context self then begin
              Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_vif_helpers.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._vif, Ref.string_of self);
+             Helpers.Early_wakeup.broadcast (Datamodel_common._vif, Ref.string_of self);
            end)
         vif
 
@@ -3121,7 +3113,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
             Client.PIF.reconfigure_ipv6 rpc session_id self mode iPv6 gateway dNS) in
       tolerate_connection_loss fn success !Xapi_globs.pif_reconfigure_ip_timeout
 
-    let set_primary_address_type ~__context ~self ~primary_address_type = 
+    let set_primary_address_type ~__context ~self ~primary_address_type =
       info "PIF.set_primary_address_type: PIF = '%s'; primary_address_type = '%s'"
         (pif_uuid ~__context self)
         (Record_util.primary_address_type_to_string primary_address_type);
@@ -3164,7 +3156,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            if Db.is_valid_ref __context self then begin
              Db.SR.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_sr_operations.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._sr, Ref.string_of self);
+             Helpers.Early_wakeup.broadcast (Datamodel_common._sr, Ref.string_of self);
            end)
         sr
 
@@ -3359,7 +3351,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            if Db.is_valid_ref __context self then begin
              Db.VDI.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_vdi.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._vdi, Ref.string_of self);
+             Helpers.Early_wakeup.broadcast (Datamodel_common._vdi, Ref.string_of self);
            end)
         vdi
 
@@ -3402,10 +3394,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     (* -------------------------------------------------------------------------- *)
 
     let set_sharable ~__context ~self ~value =
-      if not (Mtc.is_vdi_accessed_by_protected_VM ~__context ~vdi:self) then begin
-        let sr = Db.VDI.get_SR ~__context ~self in
-        Sm.assert_session_has_internal_sr_access ~__context ~sr;
-      end;
+      let sr = Db.VDI.get_SR ~__context ~self in
+      Sm.assert_session_has_internal_sr_access ~__context ~sr;
       Local.VDI.set_sharable ~__context ~self ~value
 
     let set_managed ~__context ~self ~value =
@@ -3719,7 +3709,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            if Db.is_valid_ref __context self then begin
              Db.VBD.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_vbd_helpers.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._vbd, Ref.string_of vbd)
+             Helpers.Early_wakeup.broadcast (Datamodel_common._vbd, Ref.string_of vbd)
            end)
         vbd
 
@@ -3902,7 +3892,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            then
              List.iter (fun vdi ->
                  if Db.VDI.get_current_operations ~__context ~self:vdi <> []
-                 then raise (Api_errors.Server_error(Api_errors.other_operation_in_progress, [ Datamodel._vdi; Ref.string_of vdi ])))
+                 then raise (Api_errors.Server_error(Api_errors.other_operation_in_progress, [ Datamodel_common._vdi; Ref.string_of vdi ])))
                (Db.SR.get_VDIs ~__context ~self:sr);
            SR.mark_sr ~__context ~sr ~doc ~op
         );
@@ -4232,7 +4222,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            if Db.is_valid_ref __context self then begin
              Db.VUSB.remove_from_current_operations ~__context ~self ~key:task_id;
              Xapi_vusb_helpers.update_allowed_operations ~__context ~self;
-             Helpers.Early_wakeup.broadcast (Datamodel._vusb, Ref.string_of vusb)
+             Helpers.Early_wakeup.broadcast (Datamodel_common._vusb, Ref.string_of vusb)
            end)
         vusb
 
@@ -4279,7 +4269,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "VUSB.destroy: VUSB = '%s'" (vusb_uuid ~__context self);
       Local.VUSB.destroy ~__context ~self
   end
-
   module Network_sriov = struct
     let create ~__context ~pif ~network =
       info "Network_sriov.create : pif = '%s' , network = '%s' " (pif_uuid ~__context pif) (network_uuid ~__context network);

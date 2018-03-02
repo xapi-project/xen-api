@@ -66,6 +66,19 @@ let assert_safe_to_reenable ~__context ~self =
     List.iter (fun self -> Xapi_pif.abort_if_network_attached_to_protected_vms ~__context ~self) unplugged_pifs;
   end
 
+(* The maximum pool size allowed must be restricted to 3 hosts for the pool which does not have Pool_size feature *)
+let pool_size_is_restricted ~__context =
+  let cvm_exception =
+    let dom0 = Helpers.get_domain_zero ~__context in
+    Db.VM.get_records_where ~__context
+      ~expr:(Eq(Field "is_control_domain", Literal "true"))
+    |> List.exists (fun (vmref, vmrec) ->
+        (vmref <> dom0) &&
+        (Xapi_stdext_std.Xstringext.String.endswith "-CVM" vmrec.API.vM_name_label)
+      )
+  in
+  (not cvm_exception) && (not (Pool_features.is_enabled ~__context Features.Pool_size))
+
 let xen_bugtool = "/usr/sbin/xen-bugtool"
 
 let bugreport_upload ~__context ~host ~url ~options =
@@ -484,12 +497,29 @@ let enable  ~__context ~host =
     then Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.Pool.ha_schedule_plan_recomputation rpc session_id)
   end
 
-let shutdown_and_reboot_common ~__context ~host label description operation cmd =
-  if Db.Host.get_enabled ~__context ~self:host
-  then raise (Api_errors.Server_error (Api_errors.host_not_disabled, []));
+let prepare_for_poweroff_precheck ~__context ~host =
+  Xapi_host_helpers.assert_host_disabled ~__context ~host
+
+let prepare_for_poweroff ~__context ~host =
+  (** Do not run assert_host_disabled here, continue even if the host is
+      enabled: the host is already shutting down when this function gets called *)
+
+  let i_am_master = Pool_role.is_master () in
+  if i_am_master then
+    (* We are the master and we are about to shutdown HA and redo log:
+       prevent slaves from sending (DB) requests.
+          If we are the slave we cannot shutdown the request thread yet
+          because we might need it when unplugging the PBDs
+    *)
+    Remote_requests.stop_request_thread();
+
+  Vm_evacuation.ensure_no_vms ~__context ~evacuate_timeout:0.;
 
   Xapi_ha.before_clean_shutdown_or_reboot ~__context ~host;
-  Remote_requests.stop_request_thread();
+  Xapi_pbd.unplug_all_pbds ~__context;
+
+  if not i_am_master then
+    Remote_requests.stop_request_thread();
 
   (* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
   if not(Pool_role.is_master ())
@@ -500,7 +530,22 @@ let shutdown_and_reboot_common ~__context ~host label description operation cmd 
   (* This prevents anyone actually re-enabling us until after reboot *)
   Localdb.put Constants.host_disabled_until_reboot "true";
   (* This helps us distinguish between an HA fence and a reboot *)
-  Localdb.put Constants.host_restarted_cleanly "true";
+  Localdb.put Constants.host_restarted_cleanly "true"
+
+let shutdown_and_reboot_common ~__context ~host label description operation cmd =
+  (* The actual shutdown actions are done asynchronously, in a call to
+     prepare_for_poweroff, so the API user will not be notified of any errors
+     that happen during that operation.
+     Therefore here we make an additional call to the prechecks of every
+     operation that gets called from prepare_for_poweroff, either directly or
+     indirectly, to fail early and ensure that a suitable error is returned to
+     the XenAPI user. *)
+  let shutdown_precheck () =
+    prepare_for_poweroff_precheck ~__context ~host;
+    Xapi_ha.before_clean_shutdown_or_reboot_precheck ~__context ~host
+  in
+  shutdown_precheck ();
+
   (* This tells the master that the shutdown is still ongoing: it can be used to continue
      	 masking other operations even after this call return.
 
@@ -581,6 +626,12 @@ let is_host_alive ~__context ~host =
 
 let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info ~ssl_legacy =
 
+  (* fail-safe. We already test this on the joining host, but it's racy, so multiple concurrent
+     pool-join might succeed. Note: we do it in this order to avoid a problem checking restrictions during
+     the initial setup of the database *)
+  if List.length (Db.Host.get_all ~__context) >= Xapi_globs.restricted_pool_size && pool_size_is_restricted ~__context
+  then raise (Api_errors.Server_error(Api_errors.license_restriction, [Features.name_of_feature Features.Pool_size]));
+
   let make_new_metrics_object ref =
     Db.Host_metrics.create ~__context ~ref
       ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~live:false
@@ -596,10 +647,10 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~current_operations:[] ~allowed_operations:[]
     ~software_version:(Xapi_globs.software_version ())
     ~enabled:false
-    ~aPI_version_major:Datamodel.api_version_major
-    ~aPI_version_minor:Datamodel.api_version_minor
-    ~aPI_version_vendor:Datamodel.api_version_vendor
-    ~aPI_version_vendor_implementation:Datamodel.api_version_vendor_implementation
+    ~aPI_version_major:Datamodel_common.api_version_major
+    ~aPI_version_minor:Datamodel_common.api_version_minor
+    ~aPI_version_vendor:Datamodel_common.api_version_vendor
+    ~aPI_version_vendor_implementation:Datamodel_common.api_version_vendor_implementation
     ~name_description ~name_label ~uuid ~other_config:[]
     ~capabilities:[]
     ~cpu_configuration:[]   (* !!! FIXME hard coding *)
@@ -626,6 +677,8 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~virtual_hardware_platform_versions:(if host_is_us then Xapi_globs.host_virtual_hardware_platform_versions else [0L])
     ~control_domain:Ref.null
     ~updates_requiring_reboot:[]
+    ~iscsi_iqn:""
+    ~multipathing:false
   ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
@@ -1348,6 +1401,7 @@ let apply_edition_internal  ~__context ~host ~edition ~additional =
     | V6_interface.(V6_error (License_processing_error)) ->  raise Api_errors.(Server_error(license_processing_error, []))
     | V6_interface.(V6_error (Missing_connection_details)) ->  raise Api_errors.(Server_error(missing_connection_details, []))
     | V6_interface.(V6_error (License_checkout_error s)) ->  raise Api_errors.(Server_error(license_checkout_error, [s]))
+    | V6_interface.(V6_error (Internal_error e)) -> raise Api_errors.(Server_error(internal_error, [e]))
   in
 
   let create_feature fname fenabled =
@@ -1746,3 +1800,31 @@ let mxgpu_vf_setup ~__context ~host =
 let allocate_resources_for_vm ~__context ~self ~vm ~live =
   (* Implemented entirely in Message_forwarding *)
   ()
+
+let set_iscsi_iqn ~__context ~host ~value =
+  if value = "" then raise Api_errors.(Server_error (invalid_value, ["value"; value]));
+  (* Note, the following sequence is carefully written - see the
+     other-config watcher thread in xapi_host_helpers.ml *)
+  Db.Host.remove_from_other_config ~__context ~self:host ~key:"iscsi_iqn";
+  (* we need to first set the iscsi_iqn field and then the other-config field:
+   * setting the other-config field triggers and update on the iscsi_iqn
+   * field if they are different
+   *
+   * we want to keep the legacy `other_config:iscsi_iqn` and the new `iscsi_iqn`
+   * fields in sync:
+   * when you update the `iscsi_iqn` field we want to update `other_config`,
+   * but when updating `other_config` we want to update `iscsi_iqn` too.
+   * we have to be careful not to introduce an infinite loop of updates.
+   * *)
+  Db.Host.set_iscsi_iqn ~__context ~self:host ~value;
+  Db.Host.add_to_other_config ~__context ~self:host ~key:"iscsi_iqn" ~value;
+  Xapi_host_helpers.Configuration.set_initiator_name value
+
+let set_multipathing ~__context ~host ~value =
+  (* Note, the following sequence is carefully written - see the
+     other-config watcher thread in xapi_host_helpers.ml *)
+  Db.Host.remove_from_other_config ~__context ~self:host ~key:"multipathing";
+  Db.Host.set_multipathing ~__context ~self:host ~value;
+  Db.Host.add_to_other_config ~__context ~self:host ~key:"multipathing" ~value:(string_of_bool value);
+  Xapi_host_helpers.Configuration.set_multipathing value
+

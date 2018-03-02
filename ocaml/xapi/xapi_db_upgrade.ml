@@ -44,20 +44,21 @@ let apply_upgrade_rules ~__context rules previous_version =
          error "Database upgrade rule '%s' failed: %s" r.description (Printexc.to_string exn)
     ) required_rules
 
-let george = Datamodel.george_release_schema_major_vsn, Datamodel.george_release_schema_minor_vsn
-let cowley = Datamodel.cowley_release_schema_major_vsn, Datamodel.cowley_release_schema_minor_vsn
-let boston = Datamodel.boston_release_schema_major_vsn, Datamodel.boston_release_schema_minor_vsn
-let tampa = Datamodel.tampa_release_schema_major_vsn, Datamodel.tampa_release_schema_minor_vsn
-let clearwater = Datamodel.clearwater_release_schema_major_vsn, Datamodel.clearwater_release_schema_minor_vsn
-let creedence = Datamodel.creedence_release_schema_major_vsn, Datamodel.creedence_release_schema_minor_vsn
-let cream = Datamodel.cream_release_schema_major_vsn, Datamodel.cream_release_schema_minor_vsn
-let dundee = Datamodel.dundee_release_schema_major_vsn, Datamodel.dundee_release_schema_minor_vsn
-let ely = Datamodel.ely_release_schema_major_vsn, Datamodel.ely_release_schema_minor_vsn
-let falcon = Datamodel.falcon_release_schema_major_vsn, Datamodel.falcon_release_schema_minor_vsn
-let inverness = Datamodel.inverness_release_schema_major_vsn, Datamodel.inverness_release_schema_minor_vsn
+let george = Datamodel_common.george_release_schema_major_vsn, Datamodel_common.george_release_schema_minor_vsn
+let cowley = Datamodel_common.cowley_release_schema_major_vsn, Datamodel_common.cowley_release_schema_minor_vsn
+let boston = Datamodel_common.boston_release_schema_major_vsn, Datamodel_common.boston_release_schema_minor_vsn
+let tampa = Datamodel_common.tampa_release_schema_major_vsn, Datamodel_common.tampa_release_schema_minor_vsn
+let clearwater = Datamodel_common.clearwater_release_schema_major_vsn, Datamodel_common.clearwater_release_schema_minor_vsn
+let creedence = Datamodel_common.creedence_release_schema_major_vsn, Datamodel_common.creedence_release_schema_minor_vsn
+let cream = Datamodel_common.cream_release_schema_major_vsn, Datamodel_common.cream_release_schema_minor_vsn
+let dundee = Datamodel_common.dundee_release_schema_major_vsn, Datamodel_common.dundee_release_schema_minor_vsn
+let ely = Datamodel_common.ely_release_schema_major_vsn, Datamodel_common.ely_release_schema_minor_vsn
+let falcon = Datamodel_common.falcon_release_schema_major_vsn, Datamodel_common.falcon_release_schema_minor_vsn
+let inverness = Datamodel_common.inverness_release_schema_major_vsn, Datamodel_common.inverness_release_schema_minor_vsn
+let jura = Datamodel_common.jura_release_schema_major_vsn, Datamodel_common.jura_release_schema_minor_vsn
 
 (* This is to support upgrade from Dundee tech-preview versions *)
-let vsn_with_meaningful_has_vendor_device = Datamodel.meaningful_vm_has_vendor_device_schema_major_vsn, Datamodel.meaningful_vm_has_vendor_device_schema_minor_vsn
+let vsn_with_meaningful_has_vendor_device = Datamodel_common.meaningful_vm_has_vendor_device_schema_major_vsn, Datamodel_common.meaningful_vm_has_vendor_device_schema_minor_vsn
 
 let upgrade_alert_priority = {
   description = "Upgrade alert priority";
@@ -521,7 +522,34 @@ let upgrade_vswitch_controller = {
         ignore (Xapi_sdn_controller.introduce ~__context ~protocol:`ssl ~address ~port:6632L)
 }
 
+let upgrade_domain_type = {
+  description = "Set domain_type for all VMs/snapshots/templates";
+  version = (fun x -> x <= jura);
+  fn = fun ~__context ->
+    List.iter
+      (fun (vm, vmr) ->
+        if vmr.API.vM_domain_type = `unspecified then begin
+          let domain_type =
+            if Helpers.is_domain_zero_with_record ~__context vm vmr then
+              Xapi_globs.domain_zero_domain_type
+            else
+              Xapi_vm_helpers.derive_domain_type
+                ~hVM_boot_policy:vmr.API.vM_HVM_boot_policy
+          in
+          Db.VM.set_domain_type ~__context ~self:vm ~value:domain_type;
+          if vmr.API.vM_power_state <> `Halted then begin
+            let metrics = vmr.API.vM_metrics in
+            (* This is not _always_ correct - if you've changed HVM_boot_policy on a suspended VM
+               we'll calculate incorrectly here. This should be a vanishingly small probability though! *)
+            Db.VM_metrics.set_current_domain_type ~__context ~self:metrics ~value:domain_type
+          end
+        end
+      )
+      (Db.VM.get_all_records ~__context)
+}
+
 let rules = [
+  upgrade_domain_type;
   upgrade_alert_priority;
   update_mail_min_priority;
   upgrade_vm_memory_overheads;
@@ -551,7 +579,7 @@ let maybe_upgrade ~__context =
   let db_ref = Context.database_of __context in
   let db = Db_ref.get_database db_ref in
   let (previous_major_vsn, previous_minor_vsn) as previous_vsn = Db_cache_types.Manifest.schema (Db_cache_types.Database.manifest db) in
-  let (latest_major_vsn, latest_minor_vsn) as latest_vsn = Datamodel.schema_major_vsn, Datamodel.schema_minor_vsn in
+  let (latest_major_vsn, latest_minor_vsn) as latest_vsn = Datamodel_common.schema_major_vsn, Datamodel_common.schema_minor_vsn in
   let previous_string = Printf.sprintf "(%d, %d)" previous_major_vsn previous_minor_vsn in
   let latest_string = Printf.sprintf "(%d, %d)" latest_major_vsn latest_minor_vsn in
   debug "Database schema version is %s; binary schema version is %s" previous_string latest_string;

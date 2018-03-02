@@ -172,7 +172,7 @@ let (+++) = Int64.add
 (** zero, and that the records are up-to-date. Includes the following: *)
 (**     1. The domain zero record.                                     *)
 (**     2. The domain zero console record.                             *)
-(**     3. The domain zero guest metrics record.                       *)
+(**     3. The domain zero metrics record.                             *)
 (** This function makes sure there is exactly one record of each type. *)
 (** It updates existing records if they are found, or else creates new *)
 (** records for any records that are missing.                          *)
@@ -180,7 +180,7 @@ let rec ensure_domain_zero_records ~__context ~host (host_info: host_info) : uni
   maybe_upgrade_domain_zero_record ~__context ~host host_info;
   let domain_zero_ref = ensure_domain_zero_record ~__context host_info in
   ensure_domain_zero_console_record ~__context ~domain_zero_ref;
-  ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref host_info
+  ensure_domain_zero_metrics_record ~__context ~domain_zero_ref host_info
 
 and maybe_upgrade_domain_zero_record ~__context ~host (host_info: host_info) =
   try
@@ -217,12 +217,12 @@ and ensure_domain_zero_console_record ~__context ~domain_zero_ref : unit =
     (* if there's not more than one console of each type then something strange is happening*)
     create_domain_zero_console_record ~__context ~domain_zero_ref ~console_records_rfb ~console_records_vt100;
 
-and ensure_domain_zero_guest_metrics_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
+and ensure_domain_zero_metrics_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
   if not (Db.is_valid_ref __context (Db.VM.get_metrics ~__context ~self:domain_zero_ref)) then
     begin
-      debug "Domain 0 record does not have associated guest metrics record. Creating now";
+      debug "Domain 0 record does not have associated metrics record. Creating now";
       let metrics_ref = Ref.make() in
-      create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref:metrics_ref ~memory_constraints:(create_domain_zero_memory_constraints host_info)
+      create_domain_zero_metrics_record ~__context ~domain_zero_metrics_ref:metrics_ref ~memory_constraints:(create_domain_zero_memory_constraints host_info)
         ~vcpus:(calculate_domain_zero_vcpu_count ~__context);
       Db.VM.set_metrics ~__context ~self:domain_zero_ref ~value:metrics_ref
     end
@@ -239,24 +239,8 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
   let uuid = host_info.dom0_uuid in
   (* FIXME: Assume dom0 has 1 vCPU per Host_cpu for now *)
   let vcpus = calculate_domain_zero_vcpu_count ~__context in
-  let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-  let vCPUs_utilisation = [(0L, 0.)] in
-  (* Now create the database records. *)
-  Db.VM_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
-    ~memory_actual:0L ~vCPUs_number:0L
-    ~vCPUs_utilisation
-    ~vCPUs_CPU:[]
-    ~vCPUs_params:[]
-    ~vCPUs_flags:[]
-    ~state:[]
-    ~start_time:Date.never
-    ~install_time:Date.never
-    ~last_updated:Date.never
-    ~other_config:[]
-    ~hvm:false
-    ~nested_virt:false
-    ~nomigrate:false
-  ;
+  let metrics = Ref.make () in
+  (* Now create the database record. *)
   Db.VM.create ~__context ~ref:domain_zero_ref
     ~name_label:("Control domain on host: " ^ host_info.hostname) ~uuid
     ~name_description:"The domain which manages physical devices and manages other domains"
@@ -291,7 +275,9 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
     ~hardware_platform_version:0L
     ~has_vendor_device:false
     ~requires_reboot:false ~reference_label:""
+    ~domain_type:Xapi_globs.domain_zero_domain_type
   ;
+  ensure_domain_zero_metrics_record ~__context ~domain_zero_ref host_info;
   Db.Host.set_control_domain ~__context ~self:localhost ~value:domain_zero_ref;
   Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref
 
@@ -322,7 +308,7 @@ and create_domain_zero_console_record ~__context ~domain_zero_ref ~console_recor
     create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref ~dom0_console_protocol: `vt100 ;
   end
 
-and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref ~memory_constraints ~vcpus : unit =
+and create_domain_zero_metrics_record ~__context ~domain_zero_metrics_ref ~memory_constraints ~vcpus : unit =
   let rec mkints = function
     | 0 -> []
     | n -> (mkints (n - 1) @ [n]) in
@@ -344,6 +330,7 @@ and create_domain_zero_guest_metrics_record ~__context ~domain_zero_metrics_ref 
     ~hvm:false
     ~nomigrate:false
     ~nested_virt:false
+    ~current_domain_type:Xapi_globs.domain_zero_domain_type
   ;
 
 and update_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
@@ -485,7 +472,7 @@ let make_software_version ~__context =
     "xencenter_min", Xapi_globs.xencenter_min_verstring;
     "xencenter_max", Xapi_globs.xencenter_max_verstring;
     "network_backend", Network_interface.string_of_kind (Net.Bridge.get_kind dbg ());
-    Xapi_globs._db_schema, Printf.sprintf "%d.%d" Datamodel.schema_major_vsn Datamodel.schema_minor_vsn;
+    Xapi_globs._db_schema, Printf.sprintf "%d.%d" Datamodel_common.schema_major_vsn Datamodel_common.schema_minor_vsn;
   ] @
   (option_to_list "oem_manufacturer" info.oem_manufacturer) @
   (option_to_list "oem_model" info.oem_model) @

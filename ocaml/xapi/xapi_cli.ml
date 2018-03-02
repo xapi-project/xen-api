@@ -47,7 +47,7 @@ let forward args s session =
   let body =
     let args = Opt.default [] (Opt.map (fun s -> [ Printf.sprintf "session_id=%s" (Ref.string_of s) ]) session) @ args in
     String.concat "\r\n" args in
-  let user_agent = Printf.sprintf "xapi/%s" Datamodel.api_version_string in
+  let user_agent = Printf.sprintf "xapi/%s" Datamodel_common.api_version_string in
   let request = Http.Request.make ~version:"1.0" ~user_agent ~body
       Http.Post "/cli" in
   with_transport transport
@@ -69,7 +69,7 @@ let with_session ~local rpc u p session f =
   let session, logout =
     match local, session with
     | false, None ->
-      Client.Client.Session.login_with_password ~rpc ~uname:u ~pwd:p ~version:Datamodel.api_version_string ~originator:"cli", true
+      Client.Client.Session.login_with_password ~rpc ~uname:u ~pwd:p ~version:Datamodel_common.api_version_string ~originator:"cli", true
     | true, None ->
       Client.Client.Session.slave_local_login_with_password ~rpc ~uname:u ~pwd:p, true
     | _, Some session -> session, false in

@@ -65,7 +65,7 @@ let create ~__context ~tagged_PIF ~tag ~network =
 
   (* Check the VLAN is not in use by the kernel *)
   let open Network in
-  if Net.Interface.has_vlan (Context.string_of_task __context) ~name:device ~vlan:(Int64.to_int tag) then
+  if Net.Interface.has_vlan (Context.string_of_task __context) device (Int64.to_int tag) then
     raise (Api_errors.Server_error (Api_errors.vlan_in_use, [device; Int64.to_string tag]));
 
   let vlan, untagged_PIF = create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device in

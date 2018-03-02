@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Datamodel
+open Datamodel_common
 open Datamodel_types
 open Dm_api
 open Printf
@@ -32,13 +33,6 @@ module Types = struct
     match ty with
     | Set ty -> fold_left f accu ty
     | Map(key, value) -> fold_left f (fold_left f accu key) value
-    | _ -> accu
-
-  let rec fold_right f ty accu =
-    let accu = f ty accu in
-    match ty with
-    | Set ty -> fold_right f ty accu
-    | Map(key, value) -> fold_right f key (fold_right f value accu)
     | _ -> accu
 
   (** Extract a list of all the types used in an object: *)

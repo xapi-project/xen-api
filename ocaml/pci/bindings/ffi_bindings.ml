@@ -75,8 +75,8 @@ module Bindings (F : Cstubs.FOREIGN) = struct
     let (-:) ty label = field pci_cap label ty
     let next = (ptr_opt pci_cap) -: "next"
     let id = uint16_t -: "id"
-    let type_ = uint16_t -: "type" 
-    let addr = int -: "addr" 
+    let type_ = uint16_t -: "type"
+    let addr = int -: "addr"
     let () = seal pci_cap
 
     type t = pci_cap structure ptr
@@ -264,15 +264,15 @@ module Bindings (F : Cstubs.FOREIGN) = struct
 
   let pci_lookup_name_1_ary =
     foreign "pci_lookup_name"
-      (Pci_access.t @-> string @-> int @-> int @-> int @-> returning string_opt)
+      (Pci_access.t @-> ptr char @-> int @-> int @-> int @-> returning string_opt)
 
   let pci_lookup_name_2_ary =
     foreign "pci_lookup_name"
-      (Pci_access.t @-> string @-> int @-> int @-> int @-> int @-> returning string_opt)
+      (Pci_access.t @-> ptr char @-> int @-> int @-> int @-> int @-> returning string_opt)
 
   let pci_lookup_name_4_ary =
     foreign "pci_lookup_name"
-      (Pci_access.t @-> string @-> int @-> int @-> int @-> int @-> int @-> int @-> returning string_opt)
+      (Pci_access.t @-> ptr char @-> int @-> int @-> int @-> int @-> int @-> int @-> returning string_opt)
 
   let pci_load_name_list =
     foreign "pci_load_name_list" (Pci_access.t @-> returning int)

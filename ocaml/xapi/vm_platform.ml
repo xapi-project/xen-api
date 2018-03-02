@@ -108,7 +108,7 @@ let is_valid_device_model ~key ~platformdata =
   with Not_found ->
     false
 
-let sanity_check ~platformdata ~vcpu_max ~vcpu_at_startup ~hvm ~filter_out_unknowns =
+let sanity_check ~platformdata ~vcpu_max ~vcpu_at_startup ~domain_type ~filter_out_unknowns =
   (* Filter out unknown flags, if applicable *)
   let platformdata =
     if filter_out_unknowns
@@ -121,8 +121,13 @@ let sanity_check ~platformdata ~vcpu_max ~vcpu_at_startup ~hvm ~filter_out_unkno
       (fun (k, v) -> k <> tsc_mode || List.mem v ["0"; "1"; "2"; "3"])
       platformdata
   in
-  (* Sanity check for HVM domains with invalid VCPU configuration*)
-  if hvm && (List.mem_assoc "cores-per-socket" platformdata) then
+  (* Sanity check for HVM or PV-in-PVH domains with invalid VCPU configuration*)
+  let check_cores_per_socket =
+    match domain_type with
+    | `hvm | `pv_in_pvh -> true
+    | `pv -> false
+  in
+  if check_cores_per_socket && (List.mem_assoc "cores-per-socket" platformdata) then
     begin
       try
         let cores_per_socket = int_of_string(List.assoc "cores-per-socket" platformdata) in

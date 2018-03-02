@@ -33,6 +33,9 @@ val find_vdi: __context:Context.t -> Storage_interface.sr -> Storage_interface.v
     with [content_id] *)
 val find_content: __context:Context.t -> ?sr:Storage_interface.sr -> Storage_interface.content_id -> API.ref_VDI * API.vDI_t
 
+(** [vdi_info_of_vdi_rec __context vdi_rec] constructs a vdi_info record from information in the given VDI database record. *)
+val vdi_info_of_vdi_rec : Context.t -> API.vDI_t -> Storage_interface.vdi_info
+
 (** [bind __context pbd] causes the storage_access module to choose the most
         appropriate driver implementation for the given [pbd] *)
 val bind: __context:Context.t -> pbd:API.ref_PBD -> Storage_interface.query_result
@@ -71,7 +74,7 @@ val transform_storage_exn: (unit -> 'a) -> 'a
     [attach_info] is the result of attaching a VDI which is also activated.
     This should be used everywhere except the migrate code, where we want fine-grained
     control of the ordering of attach/activate/deactivate/detach *)
-val attach_and_activate: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> hvm:bool -> (Storage_interface.attach_info -> 'a) -> 'a
+val attach_and_activate: __context:Context.t -> vbd:API.ref_VBD -> domid:int -> (Storage_interface.attach_info -> 'a) -> 'a
 
 (** [deactivate_and_detach __context vbd domid] idempotent function which ensures
     that any attached or activated VDI gets properly deactivated and detached. *)
@@ -109,7 +112,7 @@ val diagnostics: __context:Context.t -> string
 val dp_destroy: __context:Context.t -> string -> bool -> unit
 
 (** [create_sr __context sr name_label name_description physical_size] attempts to create an empty SR *)
-val create_sr: __context:Context.t -> sr:API.ref_SR -> name_label:string -> name_description:string -> physical_size:int64 -> unit
+val create_sr: __context:Context.t -> sr:API.ref_SR -> name_label:string -> name_description:string -> physical_size:int64 -> (string * string) list
 
 (** [destroy_sr __context sr] attempts to cleanup and destroy a given SR *)
 val destroy_sr: __context:Context.t -> sr:API.ref_SR -> and_vdis:(API.ref_VDI list) -> unit

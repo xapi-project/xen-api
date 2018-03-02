@@ -69,11 +69,6 @@ module Make = functor(RPC: Db_interface.RPC) -> struct
     | Response.Db_get_by_name_label y -> y
     | _ -> raise Remote_db_server_returned_bad_message
 
-  let read_set_ref _ x =
-    match process (Request.Read_set_ref x) with
-    | Response.Read_set_ref y -> y
-    | _ -> raise Remote_db_server_returned_bad_message
-
   let create_row _ x y z =
     match process (Request.Create_row (x, y, z)) with
     | Response.Create_row y -> y

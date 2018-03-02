@@ -75,10 +75,6 @@ let immediate_complete ~__context   =
   Helpers.progress ~__context  (0.0 -. 1.0)
 
 (* API *)
-let set_actions_after_shutdown ~__context ~self ~value =
-  Db.VM.set_actions_after_shutdown ~__context ~self ~value
-let set_actions_after_reboot ~__context ~self ~value =
-  Db.VM.set_actions_after_reboot ~__context ~self ~value
 let set_actions_after_crash ~__context ~self ~value =
   set_actions_after_crash ~__context ~self ~value
 let set_is_a_template ~__context ~self ~value =
@@ -485,6 +481,7 @@ let create ~__context ~name_label ~name_description
     ~generation_id
     ~hardware_platform_version
     ~has_vendor_device ~reference_label
+    ~domain_type
   : API.ref_VM =
 
   if has_vendor_device then
@@ -519,8 +516,10 @@ let create ~__context ~name_label ~name_description
     ~hvm:false
     ~nested_virt:false
     ~nomigrate:false
+    ~current_domain_type:`unspecified
   ;
-  let platform = platform |> (Xapi_vm_helpers.ensure_device_model_profile_present ~__context ~hVM_boot_policy) in
+  let domain_type = if domain_type = `unspecified then derive_domain_type ~hVM_boot_policy else domain_type in
+  let platform = platform |> (Xapi_vm_helpers.ensure_device_model_profile_present ~__context ~domain_type) in
   Db.VM.create ~__context ~ref:vm_ref ~uuid:(Uuid.to_string uuid)
     ~power_state:(`Halted) ~allowed_operations:[]
     ~current_operations:[]
@@ -570,6 +569,7 @@ let create ~__context ~name_label ~name_description
     ~hardware_platform_version
     ~has_vendor_device
     ~requires_reboot:false ~reference_label
+    ~domain_type
   ;
   Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref;
@@ -1243,3 +1243,13 @@ let set_has_vendor_device ~__context ~self ~value =
   assert_can_set_has_vendor_device ~__context ~self ~value;
   Db.VM.set_has_vendor_device ~__context ~self ~value;
   update_vm_virtual_hardware_platform_version ~__context ~vm:self
+
+let set_domain_type ~__context ~self ~value =
+  if value = `unspecified then
+    invalid_value "domain_type" (Record_util.domain_type_to_string value);
+  Db.VM.set_domain_type ~__context ~self ~value;
+  Db.VM.set_HVM_boot_policy ~__context ~self ~value:(derive_hvm_boot_policy ~domain_type:value)
+
+let set_HVM_boot_policy ~__context ~self ~value =
+  Db.VM.set_domain_type ~__context ~self ~value:(derive_domain_type ~hVM_boot_policy:value);
+  Db.VM.set_HVM_boot_policy ~__context ~self ~value

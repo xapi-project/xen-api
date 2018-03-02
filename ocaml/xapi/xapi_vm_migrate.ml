@@ -33,7 +33,8 @@ module SMPERF=Debug.Make(struct let name="SMPERF" end)
 open Client
 open Xmlrpc_client
 
-exception VM_is_not_live of string (* should never escape this module *)
+exception VGPU_mapping of string
+
 
 let _sm = "SM"
 let _xenops = "xenops"
@@ -226,7 +227,7 @@ let infer_vgpu_map ~__context ?remote vm =
       in
       try
         device, pci ()
-      with e -> raise (VM_is_not_live(Printexc.to_string e))
+      with e -> raise (VGPU_mapping(Printexc.to_string e))
     ) vgpus
   | Some {rpc; session} ->
     let vgpus = XenAPI.VM.get_VGPUs rpc session vm in
@@ -241,7 +242,7 @@ let infer_vgpu_map ~__context ?remote vm =
       in
       try
         device, pci ()
-      with e -> raise (VM_is_not_live(Printexc.to_string e))
+      with e -> raise (VGPU_mapping(Printexc.to_string e))
     ) vgpus
 
 let pool_migrate ~__context ~vm ~host ~options =
@@ -295,7 +296,7 @@ let pool_migrate ~__context ~vm ~host ~options =
         end;
         match exn with
         | Xenops_interface.Failed_to_acknowledge_shutdown_request ->
-          raise Api_errors.(Server_error (vm_failed_shutdown_ack, []))
+          raise Api_errors.(Server_error (vm_failed_shutdown_ack, [Ref.string_of vm]))
         | Xenops_interface.Cancelled _ ->
           TaskHelper.raise_cancelled ~__context
         | Xenops_interface.Storage_backend_error (code, _) ->
@@ -1031,18 +1032,28 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~optio
         try
           Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid
             (fun () ->
-               let xenops_vgpu_map = (* VM_is_not_live *)
+               let xenops_vgpu_map = (* can raise VGPU_mapping *)
                  infer_vgpu_map ~__context ~remote new_vm in
                migrate_with_retry
                  ~__context queue_name dbg vm_uuid xenops_vdi_map
                  xenops_vif_map xenops_vgpu_map remote.xenops_url;
                Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid)
         with
-        | VM_is_not_live(_)
         | Xenops_interface.Does_not_exist ("VM",_)
         | Xenops_interface.Does_not_exist ("extra",_) ->
           info "%s: VM %s stopped being live during migration"
             "vm_migrate_send" vm_uuid
+        | VGPU_mapping(msg) ->
+          info "%s: VM %s - can't infer vGPU map: %s"
+            "vm_migrate_send" vm_uuid msg;
+          raise Api_errors.
+                  (Server_error
+                     (vm_migrate_failed,
+                      ([ vm_uuid
+                       ; Helpers.get_localhost_uuid ()
+                       ; Db.Host.get_uuid ~__context ~self:remote.dest_host
+                       ; "The VM changed its power state during migration"
+                       ])))
       end;
 
       debug "Migration complete";

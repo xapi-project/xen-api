@@ -185,6 +185,10 @@ let mark_host_as_dead ~__context ~host ~reason =
     Xapi_hooks.host_post_declare_dead ~__context ~host ~reason
   )
 
+let assert_host_disabled ~__context ~host =
+  if Db.Host.get_enabled ~__context ~self:host
+  then raise (Api_errors.Server_error (Api_errors.host_not_disabled, []))
+
 (* Toggled by an explicit Host.disable call to prevent a master restart making us bounce back *)
 let user_requested_host_disable = ref false
 
@@ -265,4 +269,87 @@ module Host_requires_reboot = struct
     Mutex.execute m (fun () ->
         Unixext.touch_file Xapi_globs.requires_reboot_file
       )
+end
+
+module Configuration = struct
+
+  let make_initiatorname_config iqn hostname =
+    (* CA-18000: there is a 30 character limit to the initiator when talking to
+       Dell MD3000i filers, so we limit the size of the initiator name in all cases *)
+    let hostname_chopped =
+      if String.length hostname > 30
+      then String.sub hostname 0 30
+      else hostname
+    in
+    Printf.sprintf
+      "InitiatorName=%s\nInitiatorAlias=%s\n"
+      iqn hostname_chopped
+
+  let set_initiator_name iqn =
+    let hostname = Unix.gethostname () in
+    let config_file = make_initiatorname_config iqn hostname in
+    Unixext.write_string_to_file !Xapi_globs.iscsi_initiator_config_file config_file
+
+  let set_multipathing enabled =
+    let flag = !Xapi_globs.multipathing_config_file in
+    if enabled then Unixext.touch_file flag
+    else begin
+      Unixext.unlink_safe flag
+    end
+
+  let sync_config_files ~__context =
+    (* If the host fields are not in sync with the values in other_config,
+       the other_config watcher thread will make sure that these functions will
+       be called again with the up to date values. *)
+    let self = Helpers.get_localhost ~__context in
+    set_initiator_name (Db.Host.get_iscsi_iqn ~__context ~self);
+    set_multipathing (Db.Host.get_multipathing ~__context ~self)
+
+  let watch_other_configs ~__context delay =
+    let loop token =
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          let events =
+            Client.Client.Event.from rpc session_id ["host"] token delay |>
+            Event_types.event_from_of_rpc
+          in
+          List.iter (fun ev ->
+              match Event_helper.record_of_event ev with
+                | Event_helper.Host (host_ref, Some host_rec) -> begin
+                    let oc = host_rec.API.host_other_config in
+                    let iscsi_iqn = try Some (List.assoc "iscsi_iqn" oc) with _ -> None in
+                    begin match iscsi_iqn with
+                      | None -> ()
+                      | Some "" -> ()
+                      | Some iqn when iqn <> host_rec.API.host_iscsi_iqn ->
+                        Client.Client.Host.set_iscsi_iqn rpc session_id host_ref iqn
+                      | _ -> ()
+                    end;
+                    (* Accepted values are "true" and "false" *)
+                    (* If someone deletes the multipathing other_config key, we don't do anything *)
+                    let multipathing = try Some (List.assoc "multipathing" oc |> Pervasives.bool_of_string) with _ -> None in
+                    begin match multipathing with
+                      | None -> ()
+                      | Some multipathing when multipathing <> host_rec.API.host_multipathing ->
+                        Client.Client.Host.set_multipathing rpc session_id host_ref multipathing
+                      | _ -> ()
+                    end
+                  end
+                | _ -> ())
+              events.Event_types.events;
+          events.Event_types.token)
+    in
+    loop
+
+  let start_watcher_thread ~__context =
+    Thread.create (fun () ->
+      let loop = watch_other_configs ~__context 30.0 in
+      while true do
+        begin
+          try
+            let rec inner token = inner (loop token) in inner ""
+          with e ->
+            error "Caught exception in Configuration.start_watcher_thread: %s" (Printexc.to_string e);
+            Thread.delay 5.0;
+        end;
+      done) () |> ignore
 end

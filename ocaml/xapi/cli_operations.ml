@@ -1707,6 +1707,7 @@ let vm_create printer rpc session_id params =
       ~generation_id:""
       ~hardware_platform_version:0L
       ~has_vendor_device:false ~reference_label:""
+      ~domain_type:`unspecified
   in
   let uuid=Client.VM.get_uuid rpc session_id vm in
   printer (Cli_printer.PList [uuid])
@@ -4143,6 +4144,11 @@ let host_reboot printer rpc session_id params =
 
 let host_power_on printer rpc session_id params =
   ignore(do_host_op rpc session_id (fun _ host -> Client.Host.power_on rpc session_id (host.getref ())) params [])
+
+let host_prepare_for_poweroff _printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let host = Client.Host.get_by_uuid ~rpc ~session_id ~uuid in
+  Client.Host.prepare_for_poweroff ~rpc ~session_id ~host
 
 let host_dmesg printer rpc session_id params =
   let op _ host =

@@ -189,6 +189,7 @@ let init_args() =
   (* Immediately register callback functions *)
   register_callback_fns();
   Xcp_service.configure ~options:Xapi_globs.all_options ~resources:Xapi_globs.Resources.xcp_resources ();
+  Xcp_coverage.init "xapi";
   Xcp_coverage.dispatcher_init "xapi";
   if not !Xcp_client.use_switch
   then begin
@@ -817,6 +818,8 @@ let server_init() =
           "hi-level database upgrade", [ Startup.OnlyMaster ], Xapi_db_upgrade.hi_level_db_upgrade_rules ~__context;
           "bringing up management interface", [], bring_up_management_if ~__context;
           "Starting periodic scheduler", [Startup.OnThread], Xapi_periodic_scheduler.loop;
+          "Synchronising host configuration files", [], (fun () -> Xapi_host_helpers.Configuration.sync_config_files ~__context);
+          "Starting Host other-config watcher", [Startup.OnlyMaster], (fun () -> Xapi_host_helpers.Configuration.start_watcher_thread ~__context);
           "Remote requests", [Startup.OnThread], Remote_requests.handle_requests;
         ];
         begin match Pool_role.get_role () with

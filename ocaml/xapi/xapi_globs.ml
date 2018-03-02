@@ -761,6 +761,9 @@ let udhcpd_skel = ref (Filename.concat "/etc/xensource" "udhcpd.skel")
 let udhcpd_leases_db = ref "/var/lib/xcp/dhcp-leases.db"
 let udhcpd_pidfile = ref "/var/run/udhcpd.pid"
 
+let iscsi_initiator_config_file = ref "/etc/iscsi/initiatorname.iscsi"
+let multipathing_config_file = ref "/var/run/nonpersistent/multipath_enabled"
+
 let busybox = ref "busybox"
 
 let xe_path = ref "xe"
@@ -844,6 +847,8 @@ let fcoe_driver = ref "/opt/xensource/libexec/fcoe_driver"
 let xen_cmdline_script = ref "/opt/xensource/libexec/xen-cmdline"
 
 let sr_health_check_task_label = "SR Recovering"
+
+let domain_zero_domain_type = `pv
 
 type xapi_globs_spec_ty = | Float of float ref | Int of int ref
 
@@ -1110,6 +1115,7 @@ module Resources = struct
     "logconfig", log_config_file, "Configure the logging policy";
     "cpu-info-file", cpu_info_file, "Where to cache boot-time CPU info";
     "server-cert-path", server_cert_path, "Path to server ssl certificate";
+    "iscsi_initiatorname", iscsi_initiator_config_file, "Path to the initiatorname.iscsi file"
   ]
   let essential_dirs = [
     "sm-dir", sm_dir, "Directory containing SM plugins";

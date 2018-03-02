@@ -33,6 +33,8 @@ val bugreport_upload :
   __context:'a ->
   host:'b -> url:string -> options:(string * string) list -> unit
 
+val pool_size_is_restricted : __context:Context.t -> bool
+
 val signal_networking_change : __context:Context.t -> unit
 val signal_cdrom_event : __context:Context.t -> string -> unit
 val notify : __context:Context.t -> ty:string -> params:string -> unit
@@ -52,6 +54,7 @@ val restart_agent : __context:'a -> host:'b -> unit
 val shutdown_agent : __context:'a -> unit
 val disable : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val enable : __context:Context.t -> host:[ `host ] Ref.t -> unit
+val prepare_for_poweroff : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val shutdown : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val reboot : __context:Context.t -> host:[ `host ] Ref.t -> unit
 val power_on : __context:Context.t -> host:[ `host ] Ref.t -> unit
@@ -308,3 +311,5 @@ val apply_guest_agent_config : __context:Context.t -> host:API.ref_host -> unit
 val mxgpu_vf_setup : __context:Context.t -> host:API.ref_host -> unit
 
 val allocate_resources_for_vm : __context:Context.t -> self:API.ref_host -> vm:API.ref_VM -> live:bool -> unit
+val set_iscsi_iqn : __context:Context.t -> host:API.ref_host -> value:string -> unit
+val set_multipathing : __context:Context.t -> host:API.ref_host -> value:bool -> unit

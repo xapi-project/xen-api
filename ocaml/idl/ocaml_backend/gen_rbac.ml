@@ -35,7 +35,7 @@ let writer_csv static_roles_permissions static_permissions_roles =
   (Printf.sprintf "%s,PERMISSION/ROLE,%s\n"
      (let t = Debug.gettimestring () in (String.sub t 0 ((String.length t)-1)))
      (* role titles are ordered by roles in roles_all *)
-     (List.fold_left (fun rr r->rr^r^",") "" Datamodel.roles_all)
+     (List.fold_left (fun rr r->rr^r^",") "" Datamodel_roles.roles_all)
   )
   ^List.fold_left
     (fun acc (permission,roles) ->
@@ -43,7 +43,7 @@ let writer_csv static_roles_permissions static_permissions_roles =
        ^(List.fold_left
            (fun acc role -> if (List.exists (fun r->r=role) roles) then "X,"^acc else ","^acc)
            ""
-           (List.rev Datamodel.roles_all) (* Xs are ordered by roles in roles_all *)
+           (List.rev Datamodel_roles.roles_all) (* Xs are ordered by roles in roles_all *)
         )
        ^"\n"
        ^acc
@@ -106,7 +106,7 @@ let permissions_label role = (Printf.sprintf "permissions_of_%s" (role_label rol
 let role_index = ref 0
 let writer_role name nroles =
   let role_uuid =
-    if name = Datamodel.role_pool_admin
+    if name = Datamodel_roles.role_pool_admin
     (* pool-admin role has a fixed uuid because it's the default role in Datamodel subject's roles field *)
     then Constants.rbac_pool_admin_uuid
     (* all the other roles use a hash as uuid *)
@@ -119,10 +119,10 @@ let writer_role name nroles =
   role_index := !role_index+1;
   let role_number = (Printf.sprintf "%i/%i" !role_index nroles) in
   let role_description =
-    try List.assoc role_name_label Datamodel.role_description
+    try List.assoc role_name_label Datamodel_roles.role_description
     with Not_found ->
       failwith (Printf.sprintf
-                  "Check Datamodel.role_description: there's no role description for role %s"
+                  "Check Datamodel_roles.role_description: there's no role description for role %s"
                   role_name_label
                )
   in
@@ -282,7 +282,7 @@ let apicalls obj =
   in
   (* sort roles in each api-call/permission *)
   let sort_fn a b = (* 0 if equal, + if a>b, - if a<b *)
-    (role_idx (a,Datamodel.roles_all))-(role_idx (b,Datamodel.roles_all))
+    (role_idx (a,Datamodel_roles.roles_all))-(role_idx (b,Datamodel_roles.roles_all))
   in
   let permissions_roles =
     (List.map

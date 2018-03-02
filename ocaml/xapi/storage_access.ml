@@ -65,6 +65,34 @@ let find_content ~__context ?sr name =
        || (vdi_rec.API.vDI_location = name) (* PR-1255 *)
     ) all
 
+let vdi_info_of_vdi_rec __context vdi_rec =
+  let content_id =
+    try
+      List.assoc "content_id" vdi_rec.API.vDI_other_config
+    with Not_found -> vdi_rec.API.vDI_location (* PR-1255 *)
+  in {
+    vdi = vdi_rec.API.vDI_location;
+    uuid = Some vdi_rec.API.vDI_uuid;
+    content_id = content_id; (* PR-1255 *)
+    name_label = vdi_rec.API.vDI_name_label;
+    name_description = vdi_rec.API.vDI_name_description;
+    ty = Storage_utils.string_of_vdi_type vdi_rec.API.vDI_type;
+    metadata_of_pool = Ref.string_of vdi_rec.API.vDI_metadata_of_pool;
+    is_a_snapshot = vdi_rec.API.vDI_is_a_snapshot;
+    snapshot_time = Date.to_string vdi_rec.API.vDI_snapshot_time;
+    snapshot_of =
+      if Db.is_valid_ref __context vdi_rec.API.vDI_snapshot_of
+      then Db.VDI.get_uuid ~__context ~self:vdi_rec.API.vDI_snapshot_of
+      else "";
+    read_only = vdi_rec.API.vDI_read_only;
+    cbt_enabled = vdi_rec.API.vDI_cbt_enabled;
+    virtual_size = vdi_rec.API.vDI_virtual_size;
+    physical_utilisation = vdi_rec.API.vDI_physical_utilisation;
+    persistent = vdi_rec.API.vDI_on_boot = `persist;
+    sharable = vdi_rec.API.vDI_sharable;
+    sm_config = vdi_rec.API.vDI_sm_config;
+  }
+
 let redirect sr =
   raise (Redirect (Some (Pool_role.get_master_address ())))
 
@@ -81,33 +109,6 @@ module SMAPIv1 = struct
       	*)
 
   type context = Smint.request
-
-  let vdi_info_of_vdi_rec __context vdi_rec =
-    let content_id =
-      if List.mem_assoc "content_id" vdi_rec.API.vDI_other_config
-      then List.assoc "content_id" vdi_rec.API.vDI_other_config
-      else vdi_rec.API.vDI_location (* PR-1255 *)
-    in {
-      vdi = vdi_rec.API.vDI_location;
-      uuid = Some vdi_rec.API.vDI_uuid;
-      content_id = content_id; (* PR-1255 *)
-      name_label = vdi_rec.API.vDI_name_label;
-      name_description = vdi_rec.API.vDI_name_description;
-      ty = Storage_utils.string_of_vdi_type vdi_rec.API.vDI_type;
-      metadata_of_pool = Ref.string_of vdi_rec.API.vDI_metadata_of_pool;
-      is_a_snapshot = vdi_rec.API.vDI_is_a_snapshot;
-      snapshot_time = Date.to_string vdi_rec.API.vDI_snapshot_time;
-      snapshot_of =
-        if Db.is_valid_ref __context vdi_rec.API.vDI_snapshot_of
-        then Db.VDI.get_uuid ~__context ~self:vdi_rec.API.vDI_snapshot_of
-        else "";
-      read_only = vdi_rec.API.vDI_read_only;
-      cbt_enabled = vdi_rec.API.vDI_cbt_enabled;
-      virtual_size = vdi_rec.API.vDI_virtual_size;
-      physical_utilisation = vdi_rec.API.vDI_physical_utilisation;
-      persistent = vdi_rec.API.vDI_on_boot = `persist;
-      sm_config = vdi_rec.API.vDI_sm_config;
-    }
 
   let vdi_info_from_db ~__context self =
     let vdi_rec = Db.VDI.get_record ~__context ~self in
@@ -208,7 +209,8 @@ module SMAPIv1 = struct
                   let e' = ExnHelper.string_of_exn e in
                   error "SR.create failed SR:%s error:%s" (Ref.string_of sr) e';
                   raise e
-             )
+             );
+            List.filter (fun (x,_) -> x <> "SRmaster") device_config
         )
 
     let set_name_label context ~dbg ~sr ~new_name_label =
@@ -567,9 +569,10 @@ module SMAPIv1 = struct
                with _ ->
                  Uuid.string_of_uuid (Uuid.make_uuid ())
              in
+             let snapshot_time = Date.of_float (Unix.gettimeofday ()) in
              Db.VDI.set_name_label ~__context ~self ~value:vdi_info.name_label;
              Db.VDI.set_name_description ~__context ~self ~value:vdi_info.name_description;
-             Db.VDI.set_snapshot_time ~__context ~self ~value:(Date.of_string vdi_info.snapshot_time);
+             Db.VDI.set_snapshot_time ~__context ~self ~value:snapshot_time;
              Db.VDI.set_is_a_snapshot ~__context ~self ~value:is_a_snapshot;
              Db.VDI.remove_from_other_config ~__context ~self ~key:"content_id";
              Db.VDI.add_to_other_config ~__context ~self ~key:"content_id" ~value:content_id;
@@ -935,6 +938,12 @@ let check_queue_exists queue_name =
     let driver = String.sub queue_name prefix_len (String.length queue_name - prefix_len) in
     raise Api_errors.(Server_error(sr_unknown_driver,[driver]))
 
+(* RPC calls done during startup and received through remote interface:
+   there is no need to redirect here, let the caller handle it.
+   The destination uri needs to be local as [xml_http_rpc] doesn't support https calls,
+   only file and http.
+   Cross-host https calls are only supported by XMLRPC_protocol.rpc
+ *)
 let external_rpc queue_name uri =
   let open Xcp_client in
   if !use_switch then check_queue_exists queue_name;
@@ -1072,7 +1081,15 @@ let unbind ~__context ~pbd =
   let service = make_service uuid ty in
   System_domains.unregister_service service
 
-let rpc call = Storage_mux.Server.process None call
+(* Internal SM calls: need to handle redirection, we are the toplevel caller.
+   The SM can decide that a call needs to be run elsewhere, e.g.
+   for a SMAPIv3 plugin the snapshot should be run on the node that has the VDI activated.
+ *)
+let rpc =
+  let srcstr = Xcp_client.get_user_agent() in
+  let local_fn = Storage_mux.Server.process None in
+  let remote_url_of_ip = Storage_utils.remote_url in
+  Storage_utils.redirectable_rpc ~srcstr ~dststr:"smapiv2" ~remote_url_of_ip ~local_fn
 
 module Client = Client(struct let rpc = rpc end)
 
@@ -1247,9 +1264,9 @@ let of_vbd ~__context ~vbd ~domid =
   let location = Db.VDI.get_location ~__context ~self:vdi in
   let sr = Db.VDI.get_SR ~__context ~self:vdi in
   let userdevice = Db.VBD.get_userdevice ~__context ~self:vbd in
-  let hvm = Helpers.will_boot_hvm ~__context ~self:(Db.VBD.get_VM ~__context ~self:vbd) in
+  let has_qemu = Helpers.has_qemu ~__context ~self:(Db.VBD.get_VM ~__context ~self:vbd) in
   let dbg = Context.get_task_id __context in
-  let device_number = Device_number.of_string hvm userdevice in
+  let device_number = Device_number.of_string has_qemu userdevice in
   let device = Device_number.to_linux_device device_number in
   let dp = datapath_of_vbd ~domid ~device in
   rpc, (Ref.string_of dbg), dp, (Db.SR.get_uuid ~__context ~self:sr), location
@@ -1297,7 +1314,7 @@ let reset ~__context ~vm =
     [attach_info] is the result of attaching a VDI which is also activated.
     This should be used everywhere except the migrate code, where we want fine-grained
     control of the ordering of attach/activate/deactivate/detach *)
-let attach_and_activate ~__context ~vbd ~domid ~hvm f =
+let attach_and_activate ~__context ~vbd ~domid f =
   transform_storage_exn
     (fun () ->
        let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in
@@ -1467,8 +1484,9 @@ let create_sr ~__context ~sr ~name_label ~name_description ~physical_size =
        let pbd, pbd_t = Sm.get_my_pbd_for_sr __context sr in
        let (_ : query_result) = bind ~__context ~pbd in
        let dbg = Ref.string_of (Context.get_task_id __context) in
-       Client.SR.create dbg (Db.SR.get_uuid ~__context ~self:sr) name_label name_description pbd_t.API.pBD_device_config physical_size;
-       unbind ~__context ~pbd
+       let result = Client.SR.create dbg (Db.SR.get_uuid ~__context ~self:sr) name_label name_description pbd_t.API.pBD_device_config physical_size in
+       unbind ~__context ~pbd;
+       result
     )
 
 (* This is because the current backends want SR.attached <=> PBD.currently_attached=true.

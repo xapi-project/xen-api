@@ -103,14 +103,6 @@ module Make = functor(RPC: Db_interface.RPC) -> struct
       "db_get_by_name_label"
       (t,l)
 
-  let read_set_ref _ x =
-    do_remote_call
-      marshall_read_set_ref_args
-      unmarshall_read_set_ref_response
-      "read_set_ref"
-      x
-
-
   let create_row _ x y z =
     do_remote_call
       marshall_create_row_args

@@ -81,8 +81,8 @@ let of_datamodel () =
     Database.tables = List.map table (Dm_api.objects_of_api api)
   } in
   {
-    major_vsn = Datamodel.schema_major_vsn;
-    minor_vsn = Datamodel.schema_minor_vsn;
+    major_vsn = Datamodel_common.schema_major_vsn;
+    minor_vsn = Datamodel_common.schema_minor_vsn;
     database = database Datamodel.all_api;
     one_to_many = List.fold_left (add_relation is_one_to_many) ForeignMap.empty (Dm_api.relations_of_api Datamodel.all_api);
     many_to_many = List.fold_left (add_relation is_many_to_many) ForeignMap.empty (Dm_api.relations_of_api Datamodel.all_api);

@@ -178,7 +178,7 @@ let create_bond ~__context bond mtu persistent =
   in
 
   let ports = [port, {interfaces=(List.map (fun (device, _, _) -> device) slave_devices_bridges_and_config);
-                      bond_properties=props; bond_mac=Some mac; kind=Basic}] in
+                      bond_properties=props; bond_mac=Some mac; kind=Basic_port}] in
   let igmp_snooping = Some (Db.Pool.get_igmp_snooping_enabled ~__context ~self:(Helpers.get_pool ~__context)) in
   cleanup,
   [master_net_rc.API.network_bridge, {default_bridge with ports; bridge_mac=(Some mac); other_config;
@@ -304,7 +304,7 @@ let determine_static_routes net_rc =
   if List.mem_assoc "static-routes" net_rc.API.network_other_config then
     try
       let routes = String.split ',' (List.assoc "static-routes" net_rc.API.network_other_config) in
-      List.map (fun route -> Scanf.sscanf route "%[^/]/%d/%[^/]" (fun a b c -> Unix.inet_addr_of_string a, b, Unix.inet_addr_of_string c)) routes
+      List.map (fun route -> Scanf.sscanf route "%[^/]/%d/%[^/]" (fun a b c -> {subnet=Unix.inet_addr_of_string a; netmask=b; gateway=Unix.inet_addr_of_string c})) routes
     with _ -> []
   else
     []
@@ -328,7 +328,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
         (* Call networkd even if currently_attached is false, just to update its state *)
         debug "Making sure that PIF %s is up" rc.API.pIF_uuid;
 
-        let old_ip = try Net.Interface.get_ipv4_addr dbg ~name:bridge with _ -> [] in
+        let old_ip = try Net.Interface.get_ipv4_addr dbg bridge with _ -> [] in
 
         (* If the PIF is a bond master, the bond slaves will now go down *)
         (* Interface-reconfigure in bridge mode requires us to set currently_attached to false here *)
@@ -343,14 +343,14 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
             let persistent = is_dom0_interface rc in
             let gateway_if, dns_if = Helpers.determine_gateway_and_dns_ifs ~__context
                 ?management_interface:(if management_interface then Some pif else None) () in
-            Opt.iter (fun (_, name) -> Net.set_gateway_interface dbg ~name) gateway_if;
-            Opt.iter (fun (_, name) -> Net.set_dns_interface dbg ~name) dns_if;
+            Opt.iter (fun (_, name) -> Net.set_gateway_interface dbg name) gateway_if;
+            Opt.iter (fun (_, name) -> Net.set_dns_interface dbg name) dns_if;
 
             (* Setup network infrastructure *)
             let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc in
-            List.iter (fun (name, force) -> Net.Bridge.destroy dbg ~name ~force ()) cleanup;
-            Net.Bridge.make_config dbg ~config:bridge_config ();
-            Net.Interface.make_config dbg ~config:interface_config ();
+            List.iter (fun (name, force) -> Net.Bridge.destroy dbg force name) cleanup;
+            Net.Bridge.make_config dbg false bridge_config;
+            Net.Interface.make_config dbg false interface_config;
 
             (* Configure IPv4 parameters and DNS *)
             let ipv4_conf, ipv4_gateway, dns =
@@ -417,10 +417,10 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
               determine_ethtool_settings rc.API.pIF_properties net_rc.API.network_other_config in
             let interface_config = [bridge, {ipv4_conf; ipv4_gateway; ipv6_conf; ipv6_gateway;
                                              ipv4_routes; dns; ethtool_settings; ethtool_offload; mtu; persistent_i=persistent}] in
-            Net.Interface.make_config dbg ~config:interface_config ()
+            Net.Interface.make_config dbg false interface_config
           );
 
-        let new_ip = try Net.Interface.get_ipv4_addr dbg ~name:bridge with _ -> [] in
+        let new_ip = try Net.Interface.get_ipv4_addr dbg bridge with _ -> [] in
         if new_ip <> old_ip then begin
           warn "An IP address of dom0 was changed";
           warn "About to kill idle client stunnels";
@@ -456,7 +456,7 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
         (* sync MTU *)
         begin
           try
-            let mtu = Int64.of_int (Net.Interface.get_mtu dbg ~name:bridge) in
+            let mtu = Int64.of_int (Net.Interface.get_mtu dbg bridge) in
             if mtu <> rc.API.pIF_MTU then
               Db.PIF.set_MTU ~__context ~self:pif ~value:mtu
           with _ ->
@@ -488,8 +488,8 @@ let bring_pif_down ~__context ?(force=false) (pif: API.ref_PIF) =
 
             let bridge = Db.Network.get_bridge ~__context ~self:rc.API.pIF_network in
             let cleanup = destroy_bridges ~__context ~force rc bridge in
-            List.iter (fun (name, force) -> Net.Bridge.destroy dbg ~name ~force ()) cleanup;
-            Net.Interface.set_persistent dbg ~name:bridge ~value:false;
+            List.iter (fun (name, force) -> Net.Bridge.destroy dbg force name) cleanup;
+            Net.Interface.set_persistent dbg bridge false;
             Db.PIF.set_currently_attached ~__context ~self:pif ~value:false
           )
     )

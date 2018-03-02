@@ -146,7 +146,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: Reque
       | Some (Http.Basic(username, password)) ->
         begin
           let session_id = try
-              Client.Session.login_with_password inet_rpc username password Datamodel.api_version_string Xapi_globs.xapi_user_agent
+              Client.Session.login_with_password inet_rpc username password Datamodel_common.api_version_string Xapi_globs.xapi_user_agent
             with _ -> raise (Http.Unauthorised realm)
           in
           Stdext.Pervasiveext.finally
@@ -180,7 +180,7 @@ let with_context ?(dummy=false) label (req: Request.t) (s: Unix.file_descr) f =
         | Some (Http.Basic(username, password)) ->
           begin
             try
-              Client.Session.login_with_password inet_rpc username password Datamodel.api_version_string Xapi_globs.xapi_user_agent, true
+              Client.Session.login_with_password inet_rpc username password Datamodel_common.api_version_string Xapi_globs.xapi_user_agent, true
             with Api_errors.Server_error(code, params) when code = Api_errors.session_authentication_failed ->
               raise (Http.Unauthorised label)
           end

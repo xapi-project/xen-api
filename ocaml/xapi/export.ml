@@ -184,7 +184,7 @@ let make_host table __context self =
                API.host_crash_dump_sr = lookup table (Ref.string_of host.API.host_crash_dump_sr);
                API.host_suspend_image_sr = lookup table (Ref.string_of host.API.host_suspend_image_sr);
                API.host_resident_VMs = List.filter ((<>) Ref.null) (List.map (fun vm -> lookup table (Ref.string_of vm)) host.API.host_resident_VMs) } in
-  { cls = Datamodel._host;
+  { cls = Datamodel_common._host;
     id  = Ref.string_of (lookup table (Ref.string_of self));
     snapshot = API.Legacy.To.host_t host }
 
@@ -221,14 +221,14 @@ let make_vm ?(with_snapshot_metadata=false) ~preserve_power_state table __contex
              API.vM_protection_policy = Ref.null;
              API.vM_bios_strings = vm.API.vM_bios_strings;
              API.vM_blobs = [];} in
-  { cls = Datamodel._vm;
+  { cls = Datamodel_common._vm;
     id = Ref.string_of (lookup table (Ref.string_of self));
     snapshot = API.Legacy.To.vM_t vm }
 
 (** Convert a guest-metrics reference to an obj *)
 let make_gm table __context self =
   let gm = Db.VM_guest_metrics.get_record ~__context ~self in
-  { cls = Datamodel._vm_guest_metrics;
+  { cls = Datamodel_common._vm_guest_metrics;
     id = Ref.string_of (lookup table (Ref.string_of self));
     snapshot = API.Legacy.To.vM_guest_metrics_t gm }
 
@@ -243,7 +243,7 @@ let make_vif table ~preserve_power_state __context self =
               API.vIF_current_operations = [];
               API.vIF_allowed_operations = [];
             } in
-  { cls = Datamodel._vif;
+  { cls = Datamodel_common._vif;
     id = Ref.string_of (lookup table (Ref.string_of self));
     snapshot = API.Legacy.To.vIF_t vif }
 
@@ -256,7 +256,7 @@ let make_network table __context self =
               API.network_current_operations = [];
               API.network_allowed_operations = [];
             } in
-  { cls = Datamodel._network;
+  { cls = Datamodel_common._network;
     id = Ref.string_of (lookup table (Ref.string_of self));
     snapshot = API.Legacy.To.network_t net }
 
@@ -271,7 +271,7 @@ let make_vbd table ~preserve_power_state __context self =
               API.vBD_current_operations = [];
               API.vBD_allowed_operations = [];
             } in
-  { cls = Datamodel._vbd;
+  { cls = Datamodel_common._vbd;
     id = Ref.string_of (lookup table (Ref.string_of self));
     snapshot = API.Legacy.To.vBD_t vbd }
 
@@ -285,7 +285,7 @@ let make_vdi table __context self =
               API.vDI_current_operations = [];
               API.vDI_allowed_operations = [];
             } in
-  { cls = Datamodel._vdi;
+  { cls = Datamodel_common._vdi;
     id = Ref.string_of (lookup table (Ref.string_of self));
     snapshot = API.Legacy.To.vDI_t vdi }
 
@@ -298,7 +298,7 @@ let make_sr table __context self =
              API.sR_current_operations = [];
              API.sR_allowed_operations = [];
            } in
-  { cls = Datamodel._sr;
+  { cls = Datamodel_common._sr;
     id = Ref.string_of (lookup table (Ref.string_of self));
     snapshot = API.Legacy.To.sR_t sr;
   }
@@ -307,7 +307,7 @@ let make_sr table __context self =
 let make_vgpu_type table __context self =
   let vgpu_type = Db.VGPU_type.get_record ~__context ~self in
   {
-    cls = Datamodel._vgpu_type;
+    cls = Datamodel_common._vgpu_type;
     id = Ref.string_of (lookup table (Ref.string_of self));
     snapshot = API.Legacy.To.vGPU_type_t vgpu_type
   }
@@ -322,7 +322,7 @@ let make_vgpu table ~preserve_power_state __context self =
                API.vGPU_VM = lookup table (Ref.string_of vgpu.API.vGPU_VM);
              } in
   {
-    cls = Datamodel._vgpu;
+    cls = Datamodel_common._vgpu;
     id = Ref.string_of (lookup table (Ref.string_of self));
     snapshot = API.Legacy.To.vGPU_t vgpu
   }
@@ -335,7 +335,7 @@ let make_gpu_group table __context self =
                 API.gPU_group_PGPUs = [];
               } in
   {
-    cls = Datamodel._gpu_group;
+    cls = Datamodel_common._gpu_group;
     id = Ref.string_of (lookup table (Ref.string_of self));
     snapshot = API.Legacy.To.gPU_group_t group
   }
@@ -350,7 +350,7 @@ let make_pvs_proxies table __context self =
     ; API.pVS_proxy_VIF       = lookup' proxy.API.pVS_proxy_VIF
     ; API.pVS_proxy_currently_attached = false (* default on dest *)
     } in
-  { cls      = Datamodel._pvs_proxy
+  { cls      = Datamodel_common._pvs_proxy
   ; id       = Ref.string_of (lookup' self)
   ; snapshot = API.Legacy.To.pVS_proxy_t proxy
   }
@@ -366,7 +366,7 @@ let make_pvs_sites table __context self =
     ; API.pVS_site_servers       = [] (* don't export *)
     ; API.pVS_site_proxies       = filter' site.API.pVS_site_proxies
     } in
-  { cls      = Datamodel._pvs_site
+  { cls      = Datamodel_common._pvs_site
   ; id       = Ref.string_of (lookup' self)
   ; snapshot = API.Legacy.To.pVS_site_t site
   }
@@ -514,6 +514,9 @@ let include_vhd_parents_from_request ~__context (req: Request.t) =
 let export_snapshots_from_request ~__context (req: Request.t) =
   bool_from_request ~__context req true "export_snapshots"
 
+let include_dom0_from_request ~__context (req: Request.t) =
+  bool_from_request ~__context req true "include_dom0"
+
 let metadata_handler (req: Request.t) s _ =
   debug "metadata_handler called";
   req.Request.close <- true;
@@ -524,6 +527,7 @@ let metadata_handler (req: Request.t) s _ =
        let include_vhd_parents = include_vhd_parents_from_request ~__context req in
        let export_all = export_all_vms_from_request ~__context req in
        let export_snapshots = export_snapshots_from_request ~__context req in
+       let include_dom0 = include_dom0_from_request ~__context req in
 
        (* Get the VM refs. In case of exporting the metadata of a particular VM, return a singleton list containing the vm ref.  *)
        (* In case of exporting all the VMs metadata, get all the VM records which are not default templates. *)
@@ -533,12 +537,12 @@ let metadata_handler (req: Request.t) s _ =
              vm.API.vM_is_default_template ||
              (vm.API.vM_is_a_template
               && (List.mem_assoc Xapi_globs.default_template_key vm.API.vM_other_config)
-              && ((List.assoc Xapi_globs.default_template_key vm.API.vM_other_config) = "true")) 
+              && ((List.assoc Xapi_globs.default_template_key vm.API.vM_other_config) = "true"))
              in
            let all_vms = Db.VM.get_all_records ~__context in
-           let interesting_vms = List.filter (fun (_, vm) ->
-               not (is_default_template vm)
-               && (not (Helpers.is_domain_zero ~__context (Db.VM.get_by_uuid ~__context ~uuid:vm.API.vM_uuid)))
+           let interesting_vms = List.filter (fun (vm, vmr) ->
+               not (is_default_template vmr)
+               && (not (Helpers.is_domain_zero ~__context vm) || include_dom0)
              ) all_vms in
            List.map fst interesting_vms
          end else

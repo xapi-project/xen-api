@@ -33,7 +33,7 @@ let _value = "value"
 let _key = "key"
 let _rpc = O.Named("rpc", "(Rpc.call -> Rpc.response)")
 let custom name ty = O.Named(name, OU.alias_of_ty ty)
-let session           = custom _session_id (DT.Ref Datamodel._session)
+let session           = custom _session_id (DT.Ref Datamodel_common._session)
 let self (x: DT.obj)  = custom _self (DT.Ref x.DT.name)
 let value (ty: DT.ty) = custom _value ty
 let key (ty: DT.ty)   = custom _key ty
@@ -103,7 +103,7 @@ let gen_module api : O.Module.t =
         ~params:(_rpc :: (args_of_message ~expand_record:false obj x))
         ~ty:(if sync then (match x.msg_result with Some (x,_) ->
             OU.alias_of_ty x | _ -> "unit")
-           else OU.alias_of_ty (DT.Ref Datamodel._task))
+           else OU.alias_of_ty (DT.Ref Datamodel_common._task))
         ~body:(x.msg_name :: "~rpc" :: all) ()
     ] in
 
@@ -129,7 +129,7 @@ let gen_module api : O.Module.t =
       then [ O.string_of_param session; "args" ]
       else List.map O.string_of_param args in
 
-    let task = DT.Ref Datamodel._task in
+    let task = DT.Ref Datamodel_common._task in
 
     let from_xmlrpc t = match x.msg_custom_marshaller, t, sync with
       | true, _, true             -> "" (* already in RPC form *)
