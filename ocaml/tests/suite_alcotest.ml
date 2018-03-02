@@ -4,8 +4,9 @@ let () =
   (* Alcotest hides the standard output of successful tests,
      so we will probably not exceed the 4MB limit in Traivs *)
   Debug.log_to_stdout ();
-  Alcotest.run "Base suite"
-    ([ "Test_valid_ref_list", Test_valid_ref_list.test
+  (* and_exit is set by default, set to false so we don't exit before executing other suites *)
+  Alcotest.run "Base suite" ~and_exit:false
+    [ "Test_valid_ref_list", Test_valid_ref_list.test
     ; "Test_vdi_allowed_operations", Test_vdi_allowed_operations.test
     ; "Test_vm_check_operation_error", Test_vm_check_operation_error.test
     ; "Test_host", Test_host.test
@@ -14,9 +15,16 @@ let () =
     ; "Test_vlan", Test_vlan.test
     ; "Test_agility", Test_agility.test
     ; "Test_daemon_manager", Test_daemon_manager.test
-    ; "Test_cluster", Test_cluster.test
-    ; "Test_cluster_host", Test_cluster_host.test
     ]
-    @
-    Test_clustering.test
-    )
+  ;
+  Alcotest.run "Clustering suite"
+    [ "Test_cluster", Test_cluster.test
+    ; "Test_cluster_host", Test_cluster_host.test
+    ; "Test_get_required_cluster_stacks", Test_clustering.test_get_required_cluster_stacks
+    ; "Test_find_cluster_host", Test_clustering.test_find_cluster_host
+    ; "Test_assert_cluster_host_enabled", Test_clustering.test_assert_cluster_host_enabled
+    ; "Test_assert_cluster_host_is_enabled_for_matching_sms", Test_clustering.test_assert_cluster_host_is_enabled_for_matching_sms
+    ; "Test_clustering_lock_only_taken_if_needed", Test_clustering.test_clustering_lock_only_taken_if_needed
+    ; "Test_assert_pif_prerequisites", Test_clustering.test_assert_pif_prerequisites
+    ]
+

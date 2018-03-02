@@ -310,11 +310,6 @@ let test_assert_pif_prerequisites () =
     "assert_pif_prerequisites should pass after setting disallow_unplug:true"
     (Xapi_clustering.assert_pif_prerequisites pif) ()
 
-let test =
-  [ "Test_get_required_cluster_stacks", test_get_required_cluster_stacks
-  ; "Test_find_cluster_host", test_find_cluster_host
-  ; "Test_assert_cluster_host_enabled", test_assert_cluster_host_enabled
-  ; "Test_assert_cluster_host_is_enabled_for_matching_sms", test_assert_cluster_host_is_enabled_for_matching_sms
-  ; "Test_clustering_lock_only_taken_if_needed", test_clustering_lock_only_taken_if_needed
-  ; "Test_assert_pif_prerequisites", [ "test_assert_pif_prerequisites", `Quick, test_assert_pif_prerequisites ]
-  ]
+let test_assert_pif_prerequisites =
+  [ "test_assert_pif_prerequisites", `Quick, test_assert_pif_prerequisites ]
+
