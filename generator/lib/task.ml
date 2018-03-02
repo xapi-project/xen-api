@@ -40,7 +40,7 @@ let dbg = Param.mk ~name:"dbg" ~description:["Debug context from the caller"]
 module Task(R : RPC) = struct
   open R
 
-  let task_p = Param.mk id
+  let task_p = Param.mk ~name:"id" id
   let result = Param.mk ~name:"result" task
   let stat = declare "stat"
       ["[stat task_id] returns the status of the task"]

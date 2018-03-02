@@ -42,17 +42,21 @@ type persistent = bool
 
 (* Create some handy parameters for use in the function definitions below *)
 let uri_p = Param.mk
+    ~name:"uri"
     ~description:["A URI which represents how to access the volume disk data."]
     Common.uri
 
 let persistent = Param.mk (* Inherit the description from the type *)
+    ~name:"persistent"
     persistent
 
 let domain = Param.mk
+    ~name:"domain"
     ~description:["An opaque string which represents the Xen domain."]
     domain
 
 let backend = Param.mk (* Inherit the description from the type *)
+    ~name:"backend"
     backend
 
 open Idl
@@ -160,9 +164,9 @@ module Data (R : RPC) = struct
       ["A URI which represents how to access a remote volume disk data."]
       uri
 
-  let operation = Param.mk operation
+  let operation = Param.mk ~name:"operation" operation
 
-  let blocklist = Param.mk blocklist
+  let blocklist = Param.mk ~name:"blocklist" blocklist
 
   let copy = declare "copy"
       ["[copy uri domain remote blocks] copies [blocks] from the local disk ";
