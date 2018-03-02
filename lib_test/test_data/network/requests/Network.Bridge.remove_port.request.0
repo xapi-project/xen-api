@@ -1,0 +1,1 @@
+{"method":"Network.Bridge.remove_port","params":[{"name":"name","bridge":"bridge"},"string"],"id":23}

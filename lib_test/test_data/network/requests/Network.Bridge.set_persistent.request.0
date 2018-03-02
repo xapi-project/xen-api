@@ -1,0 +1,1 @@
+{"method":"Network.Bridge.set_persistent","params":[{"value":true,"name":"name"},"string"],"id":48}

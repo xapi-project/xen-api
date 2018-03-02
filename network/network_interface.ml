@@ -59,7 +59,7 @@ module Unix = struct
   include Unix
   let typ_of_inet_addr = Rpc.Types.Abstract ({
       aname  = "inet_addr";
-      test_data = [];
+      test_data = [Unix.inet_addr_of_string "127.0.0.1"];
       rpc_of = (fun t -> Rpc.String (Unix.string_of_inet_addr t));
       of_rpc = (function
           | Rpc.String s -> Ok (Unix.inet_addr_of_string s)

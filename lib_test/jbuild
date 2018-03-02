@@ -43,6 +43,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xcp.rrd
     xcp.memory
     xcp.updates
+    xcp.network
+    xcp.gpumon
     xcp.xen))
   %s))
 
