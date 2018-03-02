@@ -95,6 +95,8 @@ module Actions = struct
   module PUSB = Xapi_pusb
   module USB_group = Xapi_usb_group
   module VUSB = Xapi_vusb
+  module Cluster = Xapi_cluster
+  module Cluster_host = Xapi_cluster_host
 end
 (** Use the server functor to make an XML-RPC dispatcher. *)
 module Forwarder = Message_forwarding.Forward (Actions)

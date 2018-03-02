@@ -32,6 +32,8 @@ let sr_update    = "SR_UPDATE"
 
 let iso_path = ref "/opt/xensource/packages/iso"
 
+let only_sr_name = ref None
+
 (** Return a list of all SRs which have at least one plugged-in PBD ie those
     which we can use for stuff *)
 let list_srs session_id =
@@ -40,6 +42,11 @@ let list_srs session_id =
       let pbds = Client.SR.get_PBDs !rpc session_id sr in
       List.fold_left (||) false
         (List.map (fun pbd -> Client.PBD.get_currently_attached !rpc session_id pbd) pbds)) all
+  (* Filter SR with specific type from CLI *)
+  |> List.filter (fun sr ->
+         match !only_sr_name with
+         | None -> true
+         | Some t -> Client.SR.get_name_label !rpc session_id sr = t)
 
 let name_of_sr session_id sr =
   let name_label = Client.SR.get_name_label !rpc session_id sr in
@@ -615,5 +622,6 @@ let go s =
   let srs = list_srs s in
   debug test (Printf.sprintf "Found %d SRs" (List.length srs));
   success test;
+  if !only_sr_name = None then
   packages_iso_test s;
   List.iter (foreach_sr s) srs

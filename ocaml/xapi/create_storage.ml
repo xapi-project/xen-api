@@ -38,7 +38,17 @@ let plug_all_pbds __context =
     my_pbds;
   !result
 
+let maybe_reenable_cluster_host __context =
+  let host = Helpers.get_localhost __context in
+  match Xapi_clustering.find_cluster_host ~__context ~host with
+  | Some self ->
+     Xapi_cluster_host.enable ~__context ~self
+  | None -> ()
+
 let plug_unplugged_pbds __context =
+  (* If the plug is to succeed for SM's requiring a cluster stack
+   * we have to enable the cluster stack too if we have one *)
+  log_and_ignore_exn(fun () -> maybe_reenable_cluster_host __context);
   let my_pbds = Helpers.get_my_pbds __context in
   List.iter
     (fun (self, pbd_record) ->

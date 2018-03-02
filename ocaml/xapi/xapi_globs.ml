@@ -349,6 +349,7 @@ let sync_bios_strings = "sync_bios_strings"
 let sync_chipset_info = "sync_chipset_info"
 let sync_pci_devices = "sync_pci_devices"
 let sync_gpus = "sync_gpus"
+let sync_cluster_hosts = "sync_cluster_hosts"
 
 (* Allow dbsync actions to be disabled via the redo log, since the database
    isn't of much use if xapi won't start. *)

@@ -1074,7 +1074,23 @@ let _ =
   error Api_errors.pusb_vdi_conflict [ "PUSB"; "VDI" ]
     ~doc:"The VDI corresponding to this PUSB has existing VBDs." ();
   error Api_errors.vm_has_vusbs ["VM"]
-    ~doc:"The operation is not allowed when the VM has VUSBs." ()
+    ~doc:"The operation is not allowed when the VM has VUSBs." ();
+
+  (* clustering errors *)
+  error Api_errors.cluster_create_in_progress []
+    ~doc:"The operation could not be performed because cluster creation is in progress." ();
+  error Api_errors.cluster_already_exists []
+    ~doc:"A cluster already exists in the pool." ();
+  error Api_errors.clustering_enabled ["cluster_host"]
+    ~doc:"An operation was attempted while clustering was enabled on the cluster_host." ();
+  error Api_errors.clustering_disabled ["cluster_host"]
+    ~doc:"An operation was attempted while clustering was disabled on the cluster_host." ();
+  error Api_errors.cluster_does_not_have_one_node ["number_of_nodes"]
+    ~doc:"The cluster does not have only one node." ();
+  error Api_errors.no_compatible_cluster_host ["host"]
+    ~doc:"The host does not have a Cluster_host with a compatible cluster stack." ();
+  error Api_errors.cluster_force_destroy_failed ["cluster"]
+    ~doc:"Force destroy failed on a Cluster_host while force destroying the cluster." ()
 
 let _ =
   message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();

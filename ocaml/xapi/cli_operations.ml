@@ -48,6 +48,16 @@ let get_bool_param params ?(default = false) param =
   then bool_of_string param (List.assoc param params)
   else default
 
+let get_float_param params param ~default =
+  if List.mem_assoc param params
+  then try float_of_string (List.assoc param params) with Not_found -> default
+  else default
+
+let get_param params param ~default =
+  if List.mem_assoc param params
+  then List.assoc param params
+  else default
+
 open Client
 
 let progress_bar printer task_record =
@@ -781,7 +791,8 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
   in
   gen_frontend rpc session_id
 
-
+(* the fields to show when doing `xe <class>-list`, whereas
+   `xe <class>-param-list uuid=...` shows all the non-hidden fields of a record *)
 let gen_cmds rpc session_id =
   let mk = make_param_funs in
   List.concat
@@ -833,6 +844,8 @@ let gen_cmds rpc session_id =
     ; Client.PUSB.(mk get_all get_all_records_where get_by_uuid pusb_record "pusb" [] ["uuid"; "path"; "product-id"; "product-desc"; "vendor-id"; "vendor-desc"; "serial"; "version";"description"] rpc session_id)
     ; Client.USB_group.(mk get_all get_all_records_where get_by_uuid usb_group_record "usb-group" [] ["uuid";"name-label";"name-description"] rpc session_id)
     ; Client.VUSB.(mk get_all get_all_records_where get_by_uuid vusb_record "vusb" [] ["uuid";"vm-uuid"; "usb-group-uuid"] rpc session_id)
+    ; Client.Cluster.(mk get_all get_all_records_where get_by_uuid cluster_record "cluster" [] ["uuid";"cluster_hosts";"network";"cluster_token";"cluster_stack";"allowed_operations";"current_operations";"pool_auto_join";"cluster_config";"other_config"] rpc session_id)
+    ; Client.Cluster_host.(mk get_all get_all_records_where get_by_uuid cluster_host_record "cluster-host" [] ["uuid";"cluster";"host";"enabled";"allowed_operations";"current_operations";"other_config"] rpc session_id)
     ]
 
 (* NB, might want to put these back in at some point
@@ -5058,4 +5071,78 @@ module VUSB = struct
   let destroy printer rpc session_id params =
     let vusb = Client.VUSB.get_by_uuid rpc session_id (List.assoc "uuid" params) in
     ignore(Client.VUSB.destroy rpc session_id vusb)
+end
+
+module Cluster = struct
+  let pool_create printer rpc session_id params =
+    let network_uuid = List.assoc "network-uuid" params in
+    let cluster_stack = get_param params "cluster-stack" ~default:"corosync" in
+    let network = Client.Network.get_by_uuid rpc session_id network_uuid in
+    let token_timeout = get_float_param params "token-timeout" ~default:Constants.default_token_timeout_s in
+    let token_timeout_coefficient = get_float_param params "token-timeout-coefficient" ~default:Constants.default_token_timeout_coefficient_s in
+    let cluster = Client.Cluster.pool_create ~rpc ~session_id ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient in
+    let uuid = Client.Cluster.get_uuid ~rpc ~session_id ~self:cluster in
+    printer (Cli_printer.PList [uuid])
+
+  let pool_force_destroy _printer rpc session_id params =
+    let cluster_uuid = List.assoc "cluster-uuid" params in
+    let cluster_ref = Client.Cluster.get_by_uuid rpc session_id cluster_uuid in
+    Client.Cluster.pool_force_destroy ~rpc ~session_id ~self:cluster_ref
+
+  let pool_destroy _printer rpc session_id params =
+    let cluster_uuid = List.assoc "cluster-uuid" params in
+    let cluster_ref = Client.Cluster.get_by_uuid rpc session_id cluster_uuid in
+    Client.Cluster.pool_destroy ~rpc ~session_id ~self:cluster_ref
+
+  let pool_resync printer rpc session_id params =
+    let cluster = List.assoc "cluster-uuid" params in
+    let cluster_ref = Client.Cluster.get_by_uuid rpc session_id cluster in
+    Client.Cluster.pool_resync rpc session_id cluster_ref
+
+  let create printer rpc session_id params =
+    let network_uuid = List.assoc "network-uuid" params in
+    let cluster_stack = get_param params "cluster-stack" ~default:"corosync" in
+    let pool_auto_join = get_bool_param params "pool-auto-join" ~default:true in
+    let token_timeout = get_float_param params "token-timeout" ~default:Constants.default_token_timeout_s in
+    let token_timeout_coefficient = get_float_param params "token-timeout-coefficient" ~default:Constants.default_token_timeout_coefficient_s in
+    let network = Client.Network.get_by_uuid rpc session_id network_uuid in
+    let cluster = Client.Cluster.create ~rpc ~session_id ~network ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient in
+    let uuid = Client.Cluster.get_uuid ~rpc ~session_id ~self:cluster in
+    printer (Cli_printer.PList [uuid])
+
+  let destroy printer rpc session_id params =
+    let uuid = List.assoc "uuid" params in
+    let ref = Client.Cluster.get_by_uuid rpc session_id uuid in
+    Client.Cluster.destroy rpc session_id ref
+end
+
+module Cluster_host = struct
+  let create printer rpc session_id params =
+    let cluster_uuid = List.assoc "cluster-uuid" params in
+    let host_uuid = List.assoc "host-uuid" params in
+    let cluster_ref = Client.Cluster.get_by_uuid rpc session_id cluster_uuid in
+    let host_ref = Client.Host.get_by_uuid rpc session_id host_uuid in
+    let cluster_host = Client.Cluster_host.create rpc session_id cluster_ref host_ref in
+    let uuid = Client.Cluster_host.get_uuid ~rpc ~session_id ~self:cluster_host in
+    printer (Cli_printer.PList [uuid])
+
+  let enable printer rpc session_id params =
+    let uuid = List.assoc "uuid" params in
+    let ref = Client.Cluster_host.get_by_uuid rpc session_id uuid in
+    Client.Cluster_host.enable rpc session_id ref
+
+  let disable printer rpc session_id params =
+    let uuid = List.assoc "uuid" params in
+    let ref = Client.Cluster_host.get_by_uuid rpc session_id uuid in
+    Client.Cluster_host.disable rpc session_id ref
+
+  let destroy printer rpc session_id params =
+    let uuid = List.assoc "uuid" params in
+    let ref = Client.Cluster_host.get_by_uuid rpc session_id uuid in
+    Client.Cluster_host.destroy rpc session_id ref
+
+  let force_destroy printer rpc session_id params =
+    let uuid = List.assoc "uuid" params in
+    let ref = Client.Cluster_host.get_by_uuid rpc session_id uuid in
+    Client.Cluster_host.force_destroy rpc session_id ref
 end

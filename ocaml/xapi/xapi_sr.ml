@@ -188,9 +188,11 @@ let probe ~__context ~host ~device_config ~_type ~sm_config =
        | Probe _ as x -> Xmlrpc.to_string (rpc_of_probe_result x)
     )
 
-(* Create actually makes the SR on disk, and introduces it into db, and creates PDB record for current host *)
+(* Create actually makes the SR on disk, and introduces it into db, and creates PBD record for current host *)
 let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~name_description
     ~_type ~content_type ~shared ~sm_config =
+  let pbds, sr_ref = Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:_type (fun () ->
+      Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:_type;
   Helpers.assert_rolling_upgrade_not_in_progress ~__context ;
   debug "SR.create name_label=%s sm_config=[ %s ]" name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
   (* This breaks the udev SR which doesn't support sr_probe *)
@@ -218,7 +220,6 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
     introduce  ~__context ~uuid:sr_uuid_str ~name_label
       ~name_description ~_type ~content_type ~shared ~sm_config
   in
-
   let pbds =
     if shared then
       let create_on_host host =
@@ -244,6 +245,15 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
          (fun self ->
             try
               Db.PBD.set_device_config ~__context ~self ~value:device_config;
+                with e -> warn "Could not set PBD device-config '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
+             pbds);
+      pbds, sr_ref
+    ) in
+  Helpers.call_api_functions ~__context
+    (fun rpc session_id ->
+      List.iter
+        (fun self ->
+          try
               Client.PBD.plug ~rpc ~session_id ~self
             with e -> warn "Could not plug PBD '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
          pbds);
