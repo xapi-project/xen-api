@@ -1,0 +1,1 @@
+<?xml version="1.0"?><methodCall><methodName>backup_rrds</methodName><params><param><value><struct><member><name>remote_address</name><value><array><data><value>127.0.0.1</value></data></array></value></member></struct></value></param><param><value><nil/></value></param></params></methodCall>

@@ -1,0 +1,1 @@
+<?xml version="1.0"?><methodCall><methodName>query_vm_ds</methodName><params><param><value><struct><member><name>vm_uuid</name><value>abcde</value></member><member><name>ds_name</name><value>ds</value></member></struct></value></param></params></methodCall>
