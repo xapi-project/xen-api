@@ -1572,7 +1572,8 @@ module Dm_Common = struct
     boot: string;
     serial: string option;
     monitor: string option;
-    vcpus: int;
+    vcpus: int; (* vcpus max *)
+    vcpus_current: int;
     usb: usb_opt;
     parallel: string option;
     nics: (string * string * int) list;
@@ -2399,7 +2400,7 @@ module Backend = struct
               ; "-boot"; "order=" ^ info.Dm_Common.boot
               ]
             ; usb
-            ; [ "-smp"; "maxcpus=" ^ (string_of_int info.Dm_Common.vcpus)]
+            ; [ "-smp"; sprintf "%d,maxcpus=%d" info.Dm_Common.vcpus_current info.Dm_Common.vcpus]
             ; (serial_device |> function None -> [] | Some x -> [ "-serial"; x ])
             ; [ "-display"; "none"; "-nodefaults"]
             ; [ "-trace"; "enable=xen_platform_log"]

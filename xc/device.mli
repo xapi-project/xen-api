@@ -234,7 +234,8 @@ sig
     boot: string;
     serial: string option;
     monitor: string option;
-    vcpus: int;
+    vcpus: int; (* vcpus max *)
+    vcpus_current: int;
     usb: usb_opt;
     parallel: string option;
     nics: (string * string * int) list;
