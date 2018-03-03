@@ -18,4 +18,5 @@ let () =
     ; "Test_cluster", Test_cluster.test
     ; "Test_cluster_host", Test_cluster_host.test
     ; "Test_client", Test_client.test
+    ; "Test_ca91480", Test_ca91480.test
     ]

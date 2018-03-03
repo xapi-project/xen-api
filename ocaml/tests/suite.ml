@@ -22,7 +22,6 @@ let base_suite =
     Test_http.test;
     Test_pool_db_backup.test;
     Test_xapi_db_upgrade.test;
-    Test_ca91480.test;
     Test_ha_vm_failover.test;
     Test_map_check.test;
     Test_pool_apply_edition.test;
