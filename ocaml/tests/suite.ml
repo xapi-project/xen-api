@@ -31,7 +31,6 @@ let base_suite =
     Test_pool_update.test;
     Test_platformdata.test;
     Test_sm_features.test;
-    Test_gpu_group.test;
     Test_pci_helpers.test;
     Test_vgpu_type.test;
     Test_pgpu.test;
