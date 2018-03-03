@@ -23,5 +23,6 @@ let () =
     ; "Test_assert_cluster_host_is_enabled_for_matching_sms", Test_clustering.test_assert_cluster_host_is_enabled_for_matching_sms
     ; "Test_clustering_lock_only_taken_if_needed", Test_clustering.test_clustering_lock_only_taken_if_needed
     ; "Test_assert_pif_prerequisites", Test_clustering.test_assert_pif_prerequisites
+    ; "Test_clustering_allowed_operations", Test_clustering_allowed_operations.test
     ]
 
