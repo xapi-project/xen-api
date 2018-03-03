@@ -7,6 +7,7 @@ let () =
   Alcotest.run "Base suite"
     [ "Test_valid_ref_list", Test_valid_ref_list.test
     ; "Test_vdi_allowed_operations", Test_vdi_allowed_operations.test
+    ; "Test_vm_migrate", Test_vm_migrate.test;
     ; "Test_vm_check_operation_error", Test_vm_check_operation_error.test
     ; "Test_host", Test_host.test
     ; "Test_vdi_cbt", Test_vdi_cbt.test
