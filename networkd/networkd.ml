@@ -63,6 +63,7 @@ let options = [
 	"uname-cmd-path", Arg.Set_string Network_utils.uname, (fun () -> !Network_utils.uname), "Path to the Unix command uname";
 	"dracut-cmd-path", Arg.Set_string Network_utils.dracut, (fun () -> !Network_utils.dracut), "Path to the Unix command dracut";
 	"dracut-timeout", Arg.Set_float Network_utils.dracut_timeout, (fun () -> string_of_float !Network_utils.dracut_timeout), "Default value for the dracut command timeout";
+	"modinfo-cmd-path", Arg.Set_string Network_utils.modinfo, (fun () -> !Network_utils.modinfo), "Path to the Unix command modinfo";
 ]
 
 let start server =
