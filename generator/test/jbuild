@@ -3,10 +3,10 @@
 (executable (
   (name storage_test)
   (libraries (
-    xapi-storage
+    alcotest
     lwt
     lwt.unix
-    oUnit
+    xapi-storage
   ))
 ))
 
