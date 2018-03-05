@@ -17,6 +17,9 @@
 open Rpc
 open Idl
 
+module D = Debug.Make(struct let name = "memory_interface" end)
+open D
+
 let service_name = "memory"
 let queue_name = Xcp_service.common_prefix ^ service_name
 let json_path = "/var/xapi/memory.json"
@@ -75,13 +78,31 @@ type errors =
 
 exception MemoryError of errors
 
-let err = Error.{
-    def = errors;
-    raiser = (fun e -> raise (MemoryError e));
-    matcher = (function
-        | MemoryError e -> Some e
-        | e -> Some (Internal_error (Printexc.to_string e)))
-  }
+let () = (* register printer for MemoryError *)
+  let sprintf = Printf.sprintf in
+  let string_of_error e =
+    Rpcmarshal.marshal errors.Rpc.Types.ty e |> Rpc.to_string in
+  let printer = function
+    | MemoryError e ->
+        Some (sprintf "Memory_interface.Memory_error(%s)" (string_of_error e))
+    | _ -> None in
+  Printexc.register_printer printer
+
+let err = Error.
+    { def = errors
+    ; raiser = (fun e ->
+      log_backtrace ();
+      let exn = MemoryError e in
+      error "%s (%s)" (Printexc.to_string exn) __LOC__;
+      raise exn)
+    ; matcher = (function
+      | MemoryError e as exn ->
+          error "%s (%s)" (Printexc.to_string exn) __LOC__;
+            Some e
+      | exn ->
+          error "%s (%s)" (Printexc.to_string exn) __LOC__;
+            Some (Internal_error (Printexc.to_string exn)))
+    }
 
 type debug_info = string
 [@@doc ["An uninterpreted string associated with the operation."]]
