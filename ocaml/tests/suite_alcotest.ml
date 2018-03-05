@@ -4,6 +4,7 @@ let () =
   (* Alcotest hides the standard output of successful tests,
      so we will probably not exceed the 4MB limit in Traivs *)
   Debug.log_to_stdout ();
+
   Alcotest.run "Base suite"
     [ "Test_valid_ref_list", Test_valid_ref_list.test
     ; "Test_vdi_allowed_operations", Test_vdi_allowed_operations.test
@@ -26,4 +27,7 @@ let () =
     ; "Test_pusb", Test_pusb.test
     ; "Test_pvs_site", Test_pvs_site.test
     ; "Test_pvs_proxy", Test_pvs_proxy.test
+    ; "Test_clustering", Test_clustering.test
+    ; "Test_clustering_allowed_operations", Test_clustering_allowed_operations.test
     ]
+
