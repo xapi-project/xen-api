@@ -5,6 +5,7 @@
   (libraries (
     generator_lib
     cow
+    rpclib.markdown
     caml2html
   ))
 ))

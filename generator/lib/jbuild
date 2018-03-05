@@ -27,9 +27,23 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (libraries (
     ppx_deriving_rpc
     rpclib
-    rpclib.markdown
-    unix
-    xmlm
   ))
 ))
-|} flags
+
+(library (
+  (name xapi_storage)
+  (public_name xapi-storage)
+  (flags (:standard -warn-error +a-3 %s))
+  (modules (
+    common
+    control
+    data
+    plugin
+    task
+  ))
+  (libraries (
+    ppx_deriving_rpc
+    rpclib
+  ))
+))
+|} flags flags
