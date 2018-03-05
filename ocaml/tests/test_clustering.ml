@@ -313,3 +313,11 @@ let test_assert_pif_prerequisites () =
 let test_assert_pif_prerequisites =
   [ "test_assert_pif_prerequisites", `Quick, test_assert_pif_prerequisites ]
 
+let test =
+  ( test_get_required_cluster_stacks
+  @ test_find_cluster_host
+  @ test_assert_cluster_host_enabled
+  @ test_assert_cluster_host_is_enabled_for_matching_sms
+  @ test_clustering_lock_only_taken_if_needed
+  @ test_assert_pif_prerequisites
+  )

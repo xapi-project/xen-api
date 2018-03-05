@@ -17,12 +17,7 @@ let () =
     ; "Test_daemon_manager", Test_daemon_manager.test
     ; "Test_cluster", Test_cluster.test
     ; "Test_cluster_host", Test_cluster_host.test
-    ; "Test_get_required_cluster_stacks", Test_clustering.test_get_required_cluster_stacks
-    ; "Test_find_cluster_host", Test_clustering.test_find_cluster_host
-    ; "Test_assert_cluster_host_enabled", Test_clustering.test_assert_cluster_host_enabled
-    ; "Test_assert_cluster_host_is_enabled_for_matching_sms", Test_clustering.test_assert_cluster_host_is_enabled_for_matching_sms
-    ; "Test_clustering_lock_only_taken_if_needed", Test_clustering.test_clustering_lock_only_taken_if_needed
-    ; "Test_assert_pif_prerequisites", Test_clustering.test_assert_pif_prerequisites
+    ; "Test_clustering", Test_clustering.test
     ; "Test_clustering_allowed_operations", Test_clustering_allowed_operations.test
     ]
 
