@@ -3618,7 +3618,7 @@ let vm_import fd printer rpc session_id params =
                  | `success ->
                    if stream_ok then
                      let result = Client.Task.get_result rpc session_id importtask in
-                     let vmrefs = API.Legacy.From.ref_VM_set "" (Xml.parse_string result) in
+                     let vmrefs = result |> Xmlrpc.of_string |> API.ref_VM_set_of_rpc in
                      let uuids = List.map (fun vm -> Client.VM.get_uuid rpc session_id vm) vmrefs in
                      marshal fd (Command (Print (String.concat "," uuids)))
                    else
@@ -3670,7 +3670,7 @@ let vm_import fd printer rpc session_id params =
           Some (Client.Task.get_by_uuid rpc session_id (List.assoc "task-uuid" params))
         else None (* track_http_operation will create one for us *) in
       let result = track_http_operation ?use_existing_task:importtask fd rpc session_id make_command "VM import" in
-      let vmrefs = API.Legacy.From.ref_VM_set "" (Xml.parse_string result) in
+      let vmrefs = result |> Xmlrpc.of_string |> API.ref_VM_set_of_rpc in
       let uuids = List.map (fun vm -> Client.VM.get_uuid rpc session_id vm) vmrefs in
       let uuids = if uuids = [] && dry_run then ["xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"] else uuids in
       marshal fd (Command (Print (String.concat "," uuids)))
@@ -4459,7 +4459,7 @@ let update_upload fd printer rpc session_id params =
     HttpPut (filename, uri)
   in
   let result = track_http_operation fd rpc session_id make_command "host patch upload" in
-  let vdi_ref = API.Legacy.From.ref_VDI "" (Xml.parse_string result) in
+  let vdi_ref = result |> Xmlrpc.of_string |> API.ref_VDI_of_rpc in
   let update_ref =
     try Client.Pool_update.introduce rpc session_id vdi_ref
     with e ->
