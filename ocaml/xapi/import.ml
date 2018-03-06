@@ -1449,7 +1449,7 @@ let handle_all __context config rpc session_id (xs: obj list) =
 let read_xml hdr fd =
   let xml_string = Bigbuffer.make () in
   really_read_bigbuffer fd xml_string hdr.Tar_unix.Header.file_size;
-  Bigbuffer.to_string xml_string
+  xml_string
 
 let assert_filename_is hdr =
   let expected = Xva.xml_filename in
@@ -1612,7 +1612,7 @@ let metadata_handler (req: Request.t) s _ =
               (* Skip trailing two zero blocks *)
               Tar_unix.Archive.skip s (Tar_unix.Header.length * 2);
 
-              let header = header_of_rpc (Xmlrpc.of_string metadata) in
+              let header = metadata |> Bigbuffer.to_string |> Xmlrpc.of_string |> header_of_rpc in
               assert_compatible ~__context header.version;
               if full_restore then assert_can_restore_backup ~__context rpc session_id header;
 
@@ -1650,14 +1650,14 @@ let stream_import __context rpc session_id s content_length refresh_session conf
   with_open_archive s ?length:content_length
     (fun metadata s ->
        debug "Got XML";
-       let metadata' = Xml.parse_string metadata in
+       let metadata' = Xml.parse_bigbuffer metadata in
        let old_zurich_or_geneva = try ignore(Xva.of_xml metadata'); true with _ -> false in
        let vmrefs =
          if old_zurich_or_geneva
          then Import_xva.from_xml refresh_session s __context rpc session_id sr metadata'
          else begin
            debug "importing new style VM";
-           let header = header_of_rpc (Xmlrpc.of_string metadata) in
+           let header = metadata |> Bigbuffer.to_string |> Xmlrpc.of_string |> header_of_rpc in
            assert_compatible ~__context header.version;
            if config.full_restore then assert_can_restore_backup ~__context rpc session_id header;
 
@@ -1693,7 +1693,7 @@ let stream_import __context rpc session_id s content_length refresh_session conf
              (* against the table here. Nb. Rio GA-Miami B2 exports get their checksums checked twice! *)
              if header.version.export_vsn < 2 then begin
                let xml = Tar_unix.Archive.with_next_file s (fun s hdr -> read_xml hdr s) in
-               let expected_checksums = checksum_table_of_rpc (Xmlrpc.of_string xml) in
+               let expected_checksums = xml |> Bigbuffer.to_string |> Xmlrpc.of_string |> checksum_table_of_rpc in
                if not(compare_checksums checksum_table expected_checksums) then begin
                  error "Some data checksums were incorrect: VM may be corrupt";
                  if not(config.force)
