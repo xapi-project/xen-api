@@ -148,10 +148,30 @@ open Client
 let content_type = Http.Hdr.content_type ^ ": application/octet-stream"
 
 let checksum_table_of_xmlrpc xml =
-  try
-    xml |> Xmlrpc.of_string |> API.string_to_string_map_of_rpc
-  with
-    parse_error -> raise Api_errors.(Server_error (field_type_error, [Printexc.to_string parse_error]))
+  (* The following -- copied from the Legacy module --- should be
+   * replaced by
+   *     xml |> Xmlrpc.of_string |> API.string_to_string_map_of_rpc
+   * once we ditch bigbuffers or have a clean way to deal with them
+   * in ocaml-rpc. It is currently used in import.ml#1703 *)
+  let map fk fv (xml: XMLRPC.xmlrpc) =
+    List.map (fun (k, v) -> fk k, fv v) (XMLRPC.From.structure xml)
+  in
+  let string param xml =
+    try XMLRPC.From.string xml
+    with e -> Backtrace.reraise e Api_errors.(Server_error (
+        field_type_error,
+        [Printf.sprintf "%s: %s" param (Printexc.to_string e)]
+      ))
+  in
+  let string_to_string_map param xml =
+    try
+      map (XMLRPC.FromString.string) (string param) xml
+    with e -> Backtrace.reraise e Api_errors.(Server_error (
+        field_type_error,
+        [Printf.sprintf "%s: %s" param (Printexc.to_string e)]
+      ))
+  in
+  string_to_string_map "checksum_table_of_xmlrpc" xml
 
 let compare_checksums a b =
   let success = ref true in
