@@ -477,12 +477,17 @@ let sr_probe_test caps session_id sr =
       let srr = Client.SR.get_record !rpc session_id sr in
       let pbdr = Client.PBD.get_record !rpc session_id pbd in
       Client.PBD.unplug !rpc session_id pbd;
-      let xml = Client.SR.probe ~rpc:!rpc ~session_id
-          ~host:pbdr.API.pBD_host
-          ~device_config:pbdr.API.pBD_device_config
-          ~sm_config:srr.API.sR_sm_config
-          ~_type:srr.API.sR_type in
-      Client.PBD.plug !rpc session_id pbd;
+      let xml = finally
+        (fun () ->
+           Client.SR.probe ~rpc:!rpc ~session_id
+               ~host:pbdr.API.pBD_host
+               ~device_config:pbdr.API.pBD_device_config
+               ~sm_config:srr.API.sR_sm_config
+               ~_type:srr.API.sR_type
+        )
+        (* Restore the original state even if the above code fails *)
+        (fun () -> Client.PBD.plug !rpc session_id pbd)
+      in
       let srs = parse_sr_probe_xml xml in
       List.iter (fun sr -> debug test (Printf.sprintf "Probe found SR: %s" sr.uuid)) srs;
       if List.length srs = 0 then begin
