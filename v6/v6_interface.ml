@@ -18,6 +18,9 @@
 open Rpc
 open Idl
 
+module D = Debug.Make(struct let name = "v6_interface" end)
+open D
+
 let service_name = "v6d"
 let queue_name = ref (Xcp_service.common_prefix ^ service_name)
 let default_sockets_dir = "/var/lib/xcp"
@@ -91,15 +94,33 @@ type errors =
 exception V6_error of errors
 [@@deriving rpcty]
 
-(** handle exception generation and raising *)
-let err = Error.{
-    def = errors;
-    raiser = (fun e -> raise (V6_error e));
-    matcher = (function
-        | V6_error e -> Some e
-        | e -> Some (Internal_error (Printexc.to_string e)))
-  }
 
+let () = (* register printer *)
+  let sprintf = Printf.sprintf in
+  let string_of_error e =
+    Rpcmarshal.marshal errors.Rpc.Types.ty e |> Rpc.to_string in
+  let printer = function
+    | V6_error e ->
+        Some (sprintf "V6_interface.V6_error(%s)" (string_of_error e))
+    | _ -> None in
+  Printexc.register_printer printer
+
+(** handle exception generation and raising *)
+let err = Error.
+    { def = errors
+    ; raiser = (fun e ->
+      log_backtrace ();
+      let exn = V6_error e in
+      error "%s (%s)" (Printexc.to_string exn) __LOC__;
+      raise exn)
+    ; matcher = (function
+      | V6_error e as exn ->
+          error "%s (%s)" (Printexc.to_string exn) __LOC__;
+            Some e
+      | exn ->
+          error "%s (%s)" (Printexc.to_string exn) __LOC__;
+            Some (Internal_error (Printexc.to_string exn)))
+    }
 
 (** functor to autogenerate code using PPX *)
 module RPC_API(R : RPC) = struct
