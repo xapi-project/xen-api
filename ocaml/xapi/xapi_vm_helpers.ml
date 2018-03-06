@@ -418,8 +418,9 @@ let assert_netsriov_available ~__context ~self ~host =
         let required, pif = List.assoc network acc in
         (network,(required + 1,pif)) :: (List.remove_assoc network acc)
       with Not_found ->
-        let pif = Xapi_network_sriov_helpers.get_local_underlying_pif ~__context ~network ~host in
-        (network,(1,pif)) :: acc
+        match Xapi_network_sriov_helpers.get_local_underlying_pif ~__context ~network ~host with
+        | Some pif -> (network,(1,pif)) :: acc
+        | None -> acc
     ) [] (Db.VM.get_VIFs ~__context ~self)
   in
   List.iter (fun (network, (required,pif)) ->
