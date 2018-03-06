@@ -3233,8 +3233,8 @@ module VM_metrics = struct
             ~persist:false
         ; field
             ~lifecycle:[
-              Published, rel_jura, "Not yet implemented (for future use)";
-              Changed, rel_kolkata, "This field now contains valid data"
+              Prototyped, rel_jura, "Not yet implemented (for future use)";
+              Published, rel_kolkata, "This field now contains valid data"
             ]
             ~default_value:(Some (VEnum "unspecified"))
             ~ty:Datamodel_vm.domain_type ~qualifier:DynamicRO
