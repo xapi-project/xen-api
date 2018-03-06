@@ -15,6 +15,9 @@
 open Rpc
 open Idl
 
+module D = Debug.Make(struct let name = "gpumon_interface" end)
+open D
+
 let service_name = "gpumon"
 let queue_name = Xcp_service.common_prefix ^ service_name
 let xml_path = "/var/xapi/" ^ service_name
@@ -73,14 +76,32 @@ type gpu_errors =
 
 exception Gpumon_error of gpu_errors
 
+let () = (* register printer *)
+  let sprintf = Printf.sprintf in
+  let string_of_error e =
+    Rpcmarshal.marshal gpu_errors.Rpc.Types.ty e |> Rpc.to_string in
+  let printer = function
+    | Gpumon_error e ->
+        Some (sprintf "Gpumon_interface.Gpumon_error(%s)" (string_of_error e))
+    | _ -> None in
+  Printexc.register_printer printer
+
 (** Error handler *)
-let gpu_err = Error.{
-    def = gpu_errors;
-    raiser = (fun e -> raise (Gpumon_error e));
-    matcher = (function
-        | Gpumon_error e -> Some e
-        | e -> Some (Internal_error (Printexc.to_string e)))
-  }
+let gpu_err = Error.
+    { def = gpu_errors
+    ; raiser = (fun e ->
+      log_backtrace ();
+      let exn = Gpumon_error e in
+      error "%s (%s)" (Printexc.to_string exn) __LOC__;
+      raise exn)
+    ; matcher = (function
+      | Gpumon_error e as exn ->
+          error "%s (%s)" (Printexc.to_string exn) __LOC__;
+            Some e
+      | exn ->
+          error "%s (%s)" (Printexc.to_string exn) __LOC__;
+            Some (Internal_error (Printexc.to_string exn)))
+    }
 
 (** Functor to autogenerate API calls *)
 module RPC_API(R : RPC) = struct
