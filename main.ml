@@ -1138,9 +1138,9 @@ let watch_datapath_plugins ~root_dir ~pipe =
     loop () in
   loop ()
 
-let self_test ~root_dir =
+let self_test_plugin ~root_dir plugin =
   let volume_root = Filename.concat root_dir "volume" in
-  let process = process volume_root "org.xen.xapi.storage.dummy" in
+  let process = process volume_root plugin in
   let module Test = Storage_interface.ClientM(struct
     type 'a t = 'a Deferred.t
     let return = return
@@ -1193,7 +1193,13 @@ let self_test ~root_dir =
     Test.SR.stat ~dbg ~sr >>= fun _sr_info ->
     Test.SR.scan ~dbg ~sr >>= fun _sr_list ->
     return ()
-  ) >>= function
+  )
+
+let self_test ~root_dir =
+  (self_test_plugin ~root_dir "org.xen.xapi.storage.dummy"
+   >>>= fun () ->
+   self_test_plugin ~root_dir "org.xen.xapi.storage.dummyv4")
+  >>= function
     | Ok () ->
         info "test thread shutdown cleanly";
         Async_unix.exit 0
