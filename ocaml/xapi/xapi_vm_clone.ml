@@ -100,14 +100,12 @@ let wait_for_subtask ?progress_minmax ~__context task =
 
 let wait_for_clone ?progress_minmax ~__context task =
   let result = wait_for_subtask ?progress_minmax ~__context task in
-  let result = try
-    Xmlrpc.response_of_string result 
+  try
+    result 
+    |> Xmlrpc.of_string
+    |> API.ref_VDI_of_rpc
   with
     parse_error -> raise Api_errors.(Server_error (field_type_error, [Printexc.to_string parse_error]))
-  in
-  match result.Rpc.success with
-  | true -> API.ref_VDI_of_rpc result.contents (* vdiref *)
-  | false -> raise Api_errors.(Server_error (internal_error, [Rpc.string_of_rpc result.contents]))
 
 (* Clone code is parameterised over this so it can be shared with copy *)
 type disk_op_t =
