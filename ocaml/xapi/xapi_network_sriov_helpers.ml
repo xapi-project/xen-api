@@ -152,11 +152,7 @@ let get_sriov_networks_from_vm ~__context ~vm =
 let get_local_underlying_pif ~__context ~network ~host =
   match Xapi_network_attach_helpers.get_local_pifs ~__context ~network ~host with
     | [] -> raise Api_errors.(Server_error (internal_error, ["Cannot get local pif on network"]))
-    | pif :: _ ->
-      begin match get_underlying_pif ~__context ~pif with
-      | Some pif -> pif
-      | None -> raise Api_errors.(Server_error (internal_error, ["Cannot get underlying pif on sriov network"]))
-      end
+    | pif :: _ -> get_underlying_pif ~__context ~pif
 
 (* Get remaining capacity for localhost on the given network, return None if no underlying_pif found or capacity = 0L *)
 let get_remaining_capacity_on_host ~__context ~host ~network =
@@ -199,14 +195,17 @@ let group_hosts_by_best_sriov ~__context ~network =
     host_lists @ [unattached_hosts]
   else host_lists
 
-(* If exn happens during vifs reservation ,reserved vfs will be cleared *)
+(* If exn happens during vifs reservation ,reserved vfs will be cleared. Nothing will be done while cannot get underlying pif *)
 let reserve_sriov_vfs ~__context ~host ~vm =
   let vifs = Db.VM.get_VIFs ~__context ~self:vm in
   List.iter (fun vif ->
       let network = Db.VIF.get_network ~__context ~self:vif in
-      let pif =  get_local_underlying_pif ~__context ~network ~host in
-      let pci = Db.PIF.get_PCI ~__context ~self:pif in
-      match Pciops.reserve_free_virtual_function ~__context vm pci with
-      | Some vf -> Db.VIF.set_reserved_pci ~__context ~self:vif ~value:vf
-      | None -> raise Api_errors.(Server_error (internal_error, ["No free virtual function found"]))
+      match get_local_underlying_pif ~__context ~network ~host with
+      | None -> ()
+      | Some pif ->
+        let pci = Db.PIF.get_PCI ~__context ~self:pif in
+        begin match Pciops.reserve_free_virtual_function ~__context vm pci with
+        | Some vf -> Db.VIF.set_reserved_pci ~__context ~self:vif ~value:vf
+        | None -> raise Api_errors.(Server_error (internal_error, ["No free virtual function found"]))
+        end
   ) vifs
