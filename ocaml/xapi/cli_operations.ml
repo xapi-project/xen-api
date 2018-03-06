@@ -1550,7 +1550,7 @@ let sr_probe printer rpc session_id params =
     | Raw x -> printer (Cli_printer.PList [ x ])
     | Probe x ->
       let sr (config, x) = [
-        "uuid", List.assoc "uuid" config;
+        "uuid", List.assoc "sr_uuid" config;
         "name-label", x.name_label;
         "name-description", x.name_description;
         "total-space", Int64.to_string x.total_space;
@@ -1568,7 +1568,7 @@ let sr_probe printer rpc session_id params =
         if e.complete then Some e.configuration
         else None) x in
       if creatable <> []
-      then printer (Cli_printer.PMsg "The following configurations can be used to create SRs:");
+      then printer (Cli_printer.PMsg "The following configurations can be used to create or attach SRs:");
       printer (Cli_printer.PTable creatable);
 
       let incomplete = Listext.List.filter_map (fun e ->
@@ -1577,7 +1577,9 @@ let sr_probe printer rpc session_id params =
       if incomplete <> []
       then printer (Cli_printer.PMsg "The following configurations require further probing:");
       printer (Cli_printer.PTable incomplete)
-  with _ ->
+  with e ->
+    D.log_backtrace ();
+    D.debug "SR probe exception: %s" (Printexc.to_string e);
     printer (Cli_printer.PList [txt])
 
 let sr_destroy printer rpc session_id params =
