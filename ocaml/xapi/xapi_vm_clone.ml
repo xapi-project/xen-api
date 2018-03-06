@@ -100,7 +100,11 @@ let wait_for_subtask ?progress_minmax ~__context task =
 
 let wait_for_clone ?progress_minmax ~__context task =
   let result = wait_for_subtask ?progress_minmax ~__context task in
-  let result = Xmlrpc.response_of_string result in
+  let result = try
+    Xmlrpc.response_of_string result 
+  with
+    parse_error -> raise Api_errors.(Server_error (field_type_error, [Printexc.to_string parse_error]))
+  in
   match result.Rpc.success with
   | true -> API.ref_VDI_of_rpc result.contents (* vdiref *)
   | false -> raise Api_errors.(Server_error (internal_error, [Rpc.string_of_rpc result.contents]))
