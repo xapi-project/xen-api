@@ -566,7 +566,8 @@ let process root_dir name =
     >>>= fun args ->
     begin
       let open Deferred.Result.Monad_infix in
-      fork_exec_rpc root_dir (script root_dir name `Volume "SR.probe") args Xapi_storage.Volume.Types.SR.Probe.Out.t_of_rpc
+      let scriptname = script root_dir name `Volume "SR.probe" in
+      fork_exec_rpc root_dir scriptname args Xapi_storage.Volume.Types.SR.Probe.Out.t_of_rpc
       >>= fun response ->
         let pp_probe_result () probe_result =
           Xapi_storage.Volume.Types.SR.Probe.Out.rpc_of_t [probe_result] |>
@@ -601,7 +602,8 @@ let process root_dir name =
           | None, true, _ ->
               return (smapiv2_probe ()))
         |> Deferred.Or_error.combine_errors
-        |> Deferred.Result.map_error ~f:(fun err -> err |> Error.to_string_hum |> R.rpc_of_string)
+        |> Deferred.Result.map_error ~f:(fun err ->
+            backend_error "SCRIPT_FAILED" [scriptname; Error.to_string_hum err])
         >>>= fun results ->
         Storage_interface.Probe results |> Args.SR.Probe.rpc_of_response |> R.success |> Deferred.Result.return
     end
