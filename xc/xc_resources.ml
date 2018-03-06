@@ -31,6 +31,8 @@ let gimtool = ref "/opt/xensource/bin/gimtool"
 
 let alternatives = ref "/usr/lib/xapi/alternatives"
 
+let usb_reset_script = ref "/opt/xensource/libexec/usb_reset.py"
+
 
 open Unix
 

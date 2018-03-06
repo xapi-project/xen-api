@@ -285,8 +285,8 @@ end
 
 module Vusb :
 sig
-  val vusb_plug : xs:Xenstore.Xs.xsh -> domid:Xenctrl.domid -> id:string -> hostbus:string -> hostport: string -> version: string-> unit
-  val vusb_unplug : xs:Xenstore.Xs.xsh -> domid:Xenctrl.domid -> id:string -> unit
+  val vusb_plug : xs:Xenstore.Xs.xsh -> privileged:bool -> domid:Xenctrl.domid -> id:string -> hostbus:string -> hostport: string -> version: string-> unit
+  val vusb_unplug : xs:Xenstore.Xs.xsh -> privileged:bool -> domid:Xenctrl.domid -> id:string -> hostbus:string -> hostport:string -> unit
   val qom_list : xs:Xenstore.Xs.xsh -> domid:Xenctrl.domid -> string list
 end
 

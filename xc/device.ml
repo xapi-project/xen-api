@@ -1409,29 +1409,61 @@ module Vkbd = struct
 end
 
 module Vusb = struct
-  let call_usb_reset hostbus hostport =
-    let usb_reset_script = "/opt/xensource/libexec/usb_reset.py" in
+  let exec_usb_reset_script argv =
     try
-      info "Reset USB device with hostbus %s and hostport %s before passthrough to vm." hostbus hostport;
-      ignore (Forkhelpers.execute_command_get_output usb_reset_script [ hostbus ^ "-" ^ hostport ])
-    with _ ->
-      error "Failed to reset USB device with hostbus %s and hostport %s." hostbus hostport;
-      failwith "Call to usb reset failed."
+      let stdout, stderr = Forkhelpers.execute_command_get_output !Xc_resources.usb_reset_script argv in
+      debug "usb_reset script %s returned stdout=%s stderr=%s" (String.concat " " argv) stdout stderr
+    with err ->
+      error "Failed to call usb_reset script with arguments %s" (String.concat " " argv);
+      raise (Internal_error (Printf.sprintf "Call to usb reset failed: %s" (Printexc.to_string err)))
+
+  let cleanup domid =
+    try
+      let cmd = ["cleanup"; "-d"; string_of_int domid] in
+      exec_usb_reset_script cmd
+    with err ->
+      warn "Failed to clean up VM %s: %s" (string_of_int domid) (Printexc.to_string err)
+
+  let usb_reset_attach ~hostbus ~hostport ~domid ~pid ~privileged =
+    let argv =  List.concat [
+        [ "attach"
+        ; sprintf "%s-%s" hostbus hostport
+        ; "-d"
+        ; string_of_int domid
+        ; "-p"
+        ; string_of_int pid
+        ]
+      ; if privileged then ["-r"] else []
+      ]
+    in
+    exec_usb_reset_script argv
+
+  let usb_reset_detach ~hostbus ~hostport ~domid ~privileged =
+    if not privileged then
+      let argv = [ "detach"
+                 ; hostbus ^ "-" ^ hostport
+                 ; "-d"
+                 ; string_of_int domid
+                 ; "-i"
+                 ; "0"
+                 ; "0"
+                 ]
+      in
+      exec_usb_reset_script argv
 
   let vusb_controller_plug ~xs ~domid ~driver ~driver_id =
     let is_running = Qemu.is_running ~xs domid in
-    match is_running with
-    | true  ->
+    if is_running then
       qmp_send_cmd domid Qmp.(Device_add (driver, driver_id, None)) |> ignore
-    | _ -> ()
 
-  let vusb_plug ~xs ~domid ~id ~hostbus ~hostport ~version =
+  let vusb_plug ~xs ~privileged ~domid ~id ~hostbus ~hostport ~version =
     let device_model = Profile.of_domid domid in
     if device_model = Profile.Qemu_trad then
-      raise (Internal_error (Printf.sprintf "Failed to plug VUSB %s because domain %d uses device-model profile %s." id domid (Profile.string_of device_model)));
-    debug "Vusb plugged: vusb device %s plugged" id;
-    (* Need to reset USB device before passthrough to vm according to CP-24616 *)
-    call_usb_reset hostbus hostport;
+      raise (Internal_error
+               (Printf.sprintf
+                  "Failed to plug VUSB %s because domain %d uses device-model profile %s."
+                  id domid (Profile.string_of device_model)));
+    debug "vusb_plug: plug VUSB device %s" id;
     let get_bus v =
       if String.startswith "1" v then
         "usb-bus.0"
@@ -1444,22 +1476,34 @@ module Vusb = struct
       end
     in
     let is_running = Qemu.is_running ~xs domid in
-    match is_running with
-    | true  ->
-      let cmd = Qmp.(Device_add
-                       ( "usb-host"
-                       , id
-                       , Some (get_bus version, hostbus, hostport)
-                       ))
-      in qmp_send_cmd domid cmd |> ignore
-    | _ -> ()
+    if is_running then
+      begin
+        (* Need to reset USB device before passthrough to vm according to CP-24616.
+           Also need to do deprivileged work in usb_reset script if QEMU is deprivileged.
+        *)
+        begin match Qemu.pid ~xs domid with
+          | Some pid -> usb_reset_attach ~hostbus ~hostport ~domid ~pid ~privileged
+          | _ -> raise (Internal_error (Printf.sprintf "qemu pid does not exist for vm %d" domid))
+        end;
+        let cmd = Qmp.(Device_add
+                         ( "usb-host"
+                         , id
+                         , Some (get_bus version, hostbus, hostport)
+                         ))
+        in qmp_send_cmd domid cmd |> ignore
+      end
 
-  let vusb_unplug ~xs ~domid ~id =
-    debug "Vusb unplugged: vusb device unplugged";
-    let is_running = Qemu.is_running ~xs domid in
-    match is_running with
-    | true  -> qmp_send_cmd domid Qmp.(Device_del id) |> ignore
-    | _     -> ()
+  let vusb_unplug ~xs ~privileged ~domid ~id ~hostbus ~hostport=
+    debug "vusb_unplug: unplug VUSB device %s" id;
+    finally
+      (fun () ->
+         let is_running = Qemu.is_running ~xs domid in
+         if is_running then
+           qmp_send_cmd domid Qmp.(Device_del id) |> ignore
+      )
+      (fun () ->
+         usb_reset_detach ~hostbus ~hostport ~domid ~privileged
+      )
 
   let qom_list ~xs ~domid =
     (*. 1. The QEMU Object Model(qom) provides a framework for registering user
@@ -1474,9 +1518,8 @@ module Vusb = struct
     *)
     debug "qom list to check if usb device is attached to vm";
     let is_running = Qemu.is_running ~xs domid in
-    match is_running with
-    | true  ->
-        let path = "/machine/peripheral" in
+    if is_running then
+      let path = "/machine/peripheral" in
       qmp_send_cmd domid Qmp.(Qom_list path)
       |> ( function
           | Qmp.(Qom usbs) -> List.map (fun p -> p.Qmp.name) usbs
@@ -1485,7 +1528,8 @@ module Vusb = struct
               __LOC__ domid;
             []
         )
-    | _  -> []
+    else
+      []
 
 end
 
@@ -2194,11 +2238,19 @@ module Backend = struct
         Dm_Common.stop ~xs ~qemu_domid domid;
         QMP_Event.remove domid;
         xs.Xs.rm (sprintf "/libxl/%d" domid);
+        let rm path =
+          try
+            Socket.Unix.rm path
+          with e ->
+            error "rm %s failed: %s (%s)" path (Printexc.to_string e) __LOC__
+        in
         [ (* clean up QEMU socket leftover files *)
           Dm_Common.vnc_socket_path domid;
           (qmp_event_path domid);
           (qmp_libxl_path domid);
-        ] |> List.iter Socket.Unix.rm
+        ] |> List.iter rm;
+        (*VM cleanup*)
+        Vusb.cleanup domid
 
       let with_dirty_log domid ~f =
         finally
