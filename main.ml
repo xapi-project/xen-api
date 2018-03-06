@@ -1154,7 +1154,7 @@ let self_test_plugin ~root_dir plugin =
   end) in
   let dbg = "debug" in
   Monitor.try_with (fun () ->
-    Test.Query.query ~dbg >>= fun _query_result ->
+    Test.Query.query ~dbg >>= fun query_result ->
     Test.Query.diagnostics ~dbg >>= fun _msg ->
 
     let sr = "dummySR" in
@@ -1192,8 +1192,13 @@ let self_test_plugin ~root_dir plugin =
 
     Test.SR.stat ~dbg ~sr >>= fun _sr_info ->
     Test.SR.scan ~dbg ~sr >>= fun _sr_list ->
-    return ()
-  )
+
+    if List.mem query_result.features "SR_PROBE" ~equal:String.equal then
+      Test.SR.probe ~dbg ~queue:plugin~device_config ~sm_config:[] >>= fun result ->
+      return ()
+    else
+      return ()
+    )
 
 let self_test ~root_dir =
   (self_test_plugin ~root_dir "org.xen.xapi.storage.dummy"

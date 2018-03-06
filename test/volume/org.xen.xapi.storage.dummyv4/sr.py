@@ -55,6 +55,23 @@ class Implementation(xapi.storage.api.v4.volume.SR_skeleton):
             "health": ["Healthy", ""]
         }
 
+    def probe(self, dbg, configuration):
+        attachable = dict(configuration)
+        attachable['sr_uuid'] = "myuuid"
+        return [
+            {
+                "configuration": configuration,
+                "complete": True,
+                "extra_info": {}
+            },
+            {
+                "configuration": attachable,
+                "sr": self.stat(dbg, "file:///tmp/dummy"),
+                "complete": True,
+                "extra_info": {}
+            }
+        ]
+
 
 if __name__ == "__main__":
     cmd = xapi.storage.api.v4.volume.SR_commandline(Implementation())
@@ -69,5 +86,7 @@ if __name__ == "__main__":
         cmd.ls()
     elif base == 'SR.stat':
         cmd.stat()
+    elif base == 'SR.probe':
+        cmd.probe()
     else:
         raise xapi.storage.api.v4.volume.Unimplemented(base)

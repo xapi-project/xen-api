@@ -27,6 +27,7 @@ class Implementation(xapi.storage.api.plugin.Plugin_skeleton):
                     "SR_ATTACH",
                     "SR_DETACH",
                     "SR_CREATE",
+                    "SR_PROBE",
                     "VDI_CREATE",
                     "VDI_DESTROY"],
                 "configuration": {},
