@@ -12,6 +12,7 @@ depends: [
   "jbuilder" {build}
   "cmdliner"
   "logs"
+  "xenctrl"
   "xenstore"
   "xenstore_transport"
 ]
