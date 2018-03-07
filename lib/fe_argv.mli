@@ -43,7 +43,11 @@ module Add: sig
   (** expand a list of values to strings, which are added to argv *)
 
   val fmt: ('a, unit, string, argv -> unit * argv) format4 -> 'a
-  (* like [add] but takes printf-like arguments: ["%d-%d" 4 5] *)
+  (** like [add] but takes printf-like arguments: ["%d-%d" 4 5] *)
+
+  val optional: ('a -> string list) -> 'a option -> unit t
+  (** [optional f arg] applies [f] to [Some arg] to produce arguments.
+   * If [arg] is [None], no arguments are added *)
 
   val file_descr: string -> Unix.file_descr -> unit t
   (** add a file descriptor under a name. Forkexecd will replace the

@@ -55,4 +55,8 @@ module Add = struct
   let file_descr uuid fd =
     fun s -> (), { s with fds = (uuid, fd) :: s.fds }
 
+  let optional f = function
+    | None   -> return ()
+    | Some x -> many (f x)
+
 end
