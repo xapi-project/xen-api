@@ -63,7 +63,7 @@ module Config_file = struct
 
 	(* Trim trailing whitespace from a line *)
 	let trim_trailing_ws line =
-		let re_ws = Re.compile (Re_emacs.re "[ \t]+$") in
+		let re_ws = Re.compile (Re.Emacs.re "[ \t]+$") in
 		try
 			let ofs = fst (Re.get_all_ofs (Re.exec re_ws line)).(0) in
 			String.sub line 0 ofs
@@ -77,7 +77,7 @@ module Config_file = struct
 		with Not_found -> line
 
 	let get_kv line =
-		let re = Re.compile (Re_emacs.re "\\([^=\\ \t]+\\)[\\ \t]*=[\\ \t]*\\(.*\\)") in
+		let re = Re.compile (Re.Emacs.re "\\([^=\\ \t]+\\)[\\ \t]*=[\\ \t]*\\(.*\\)") in
 		let get (x,y) = String.sub line x (y-x) in
 		try
 			match Re.get_all_ofs (Re.exec re line) with
