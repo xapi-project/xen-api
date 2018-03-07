@@ -1030,7 +1030,7 @@ module VM = struct
               then Domain.suppress_spurious_page_faults ~xc domid;
               Domain.set_machine_address_size ~xc domid vm.machine_address_size;
               for i = 0 to vm.vcpu_max - 1 do
-                Device.Vcpu.add ~xs ~devid:i domid (i < vm.vcpus)
+                Device.Vcpu.add ~xs ~dm:(dm_of ~vm) ~devid:i domid (i < vm.vcpus)
               done;
               set_domain_type ~xs domid vm
            );
@@ -1167,7 +1167,7 @@ module VM = struct
       let current =
         let n = ref (-1) in
         for i = 0 to vm.Vm.vcpu_max - 1
-        do if Device.Vcpu.status ~xs ~devid:i domid then n := i
+        do if Device.Vcpu.status ~xs ~dm:(dm_of ~vm) ~devid:i domid then n := i
         done;
         !n + 1 in
 
@@ -1175,13 +1175,13 @@ module VM = struct
         (* need to deplug cpus *)
         for i = current - 1 downto target
         do
-          Device.Vcpu.set ~xs ~devid:i domid false
+          Device.Vcpu.set ~xs ~dm:(dm_of ~vm) ~devid:i domid false
         done
       ) else if current < target then (
         (* need to plug cpus *)
         for i = current to (target - 1)
         do
-          Device.Vcpu.set ~xs ~devid:i domid true
+          Device.Vcpu.set ~xs ~dm:(dm_of ~vm) ~devid:i domid true
         done
       )
     ) Newest task vm
@@ -1241,7 +1241,8 @@ module VM = struct
           boot = boot_order;
           serial = Some serial;
           monitor = Some monitor;
-          vcpus = build_info.Domain.vcpus;
+          vcpus = build_info.Domain.vcpus; (* vcpus max *)
+          vcpus_current = vm.Vm.vcpus;
           nics = nics;
           disks = disks;
           pci_emulations = pci_emulations;

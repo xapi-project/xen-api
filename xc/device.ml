@@ -783,17 +783,17 @@ end
 
 (*****************************************************************************)
 (** Vcpus:                                                                   *)
-module Vcpu = struct
+module Vcpu_Common = struct
 
   let add ~xs ~devid domid online =
     let path = sprintf "/local/domain/%d/cpu/%d/availability" domid devid in
     xs.Xs.write path (if online then "online" else "offline")
 
+  let set = add
+
   let del ~xs ~devid domid =
     let path = sprintf "/local/domain/%d/cpu/%d" domid devid in
     xs.Xs.rm path
-
-  let set = add
 
   let status ~xs ~devid domid =
     let path = sprintf "/local/domain/%d/cpu/%d/availability" domid devid in
@@ -1454,7 +1454,7 @@ module Vusb = struct
   let vusb_controller_plug ~xs ~domid ~driver ~driver_id =
     let is_running = Qemu.is_running ~xs domid in
     if is_running then
-      qmp_send_cmd domid Qmp.(Device_add (driver, driver_id, None)) |> ignore
+      qmp_send_cmd domid Qmp.(Device_add Device.({driver; device=USB { USB.id=driver_id; params=None }})) |> ignore
 
   let vusb_plug ~xs ~privileged ~domid ~id ~hostbus ~hostport ~version =
     let device_model = Profile.of_domid domid in
@@ -1485,11 +1485,14 @@ module Vusb = struct
           | Some pid -> usb_reset_attach ~hostbus ~hostport ~domid ~pid ~privileged
           | _ -> raise (Internal_error (Printf.sprintf "qemu pid does not exist for vm %d" domid))
         end;
-        let cmd = Qmp.(Device_add
-                         ( "usb-host"
-                         , id
-                         , Some (get_bus version, hostbus, hostport)
-                         ))
+        let cmd = Qmp.(Device_add Device.(
+                       { driver = "usb-host";
+                         device = USB {
+                           USB.id = id;
+                           params = Some USB.({bus = get_bus version; hostbus; hostport})
+                         }
+                       }
+                    ))
         in qmp_send_cmd domid cmd |> ignore
       end
 
@@ -1569,7 +1572,8 @@ module Dm_Common = struct
     boot: string;
     serial: string option;
     monitor: string option;
-    vcpus: int;
+    vcpus: int; (* vcpus max *)
+    vcpus_current: int;
     usb: usb_opt;
     parallel: string option;
     nics: (string * string * int) list;
@@ -1889,6 +1893,14 @@ module Backend = struct
       val qemu_media_change : xs:Xenstore.Xs.xsh -> device -> string -> string -> unit
     end
 
+    (** Vcpu functions that use the dispatcher to choose between different profile backends *)
+    module Vcpu: sig
+      val add : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
+      val set : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
+      val del : xs:Xenstore.Xs.xsh -> devid:int -> int -> unit
+      val status : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool
+    end
+
     (** Dm functions that use the dispatcher to choose between different profile backends *)
     module Dm: sig
 
@@ -1926,6 +1938,14 @@ module Backend = struct
     (** Implementation of the Vbd functions that use the dispatcher for the qemu-trad backend *)
     module Vbd = struct
       let qemu_media_change = Vbd_Common.qemu_media_change
+    end
+
+    (** Implementation of the Vcpu functions that use the dispatcher for the qemu-trad backend *)
+    module Vcpu = struct
+      let add = Vcpu_Common.add
+      let set = Vcpu_Common.set
+      let del = Vcpu_Common.del
+      let status = Vcpu_Common.status
     end
 
     (** Implementation of the Dm functions that use the dispatcher for the qemu-trad backend *)
@@ -2042,6 +2062,44 @@ module Backend = struct
           | Internal_error(_) as e -> raise e
           | e -> raise(Internal_error (Printf.sprintf "Get unexpected error trying to change CD: %s" (Printexc.to_string e)))
     end (* Backend.Qemu_upstream_compat.Vbd *)
+
+    (** Implementation of the Vcpu functions that use the dispatcher for the qemu-upstream-compat backend *)
+    module Vcpu = struct
+      let add = Vcpu_Common.add
+      let del = Vcpu_Common.del
+      let status = Vcpu_Common.status
+
+      (* hot(un)plug vcpu using QMP, keeping backwards-compatible xenstored mechanism *)
+      let set ~xs ~devid domid online =
+        Vcpu_Common.set ~xs ~devid domid online;
+        match online with
+        | true  -> ( (* hotplug *)
+          let socket_id, core_id, thread_id = (devid, 0, 0) in
+          let id = Qmp.Device.VCPU.id_of ~socket_id ~core_id ~thread_id in
+          qmp_send_cmd domid Qmp.(Device_add Device.(
+            { driver = VCPU.Driver.(string_of QEMU32_I386_CPU);
+              device = VCPU { VCPU.id; socket_id; core_id; thread_id }
+            })) |> ignore
+          )
+        | false -> ( (* hotunplug *)
+          let err msg = raise (Internal_error msg) in
+          let qom_path = qmp_send_cmd domid Qmp.Query_hotpluggable_cpus
+          |> function
+          | Qmp.Hotpluggable_cpus x -> ( x
+            |> List.filter (fun Qmp.Device.VCPU.{ qom_path; props={ socket_id } } -> socket_id = devid)
+            |> function
+            | [] -> err (sprintf "No QEMU CPU found with devid %d" devid)
+            | Qmp.Device.VCPU.{ qom_path = None   } :: _ -> err (sprintf "No qom_path for QEMU CPU devid %d" devid)
+            | Qmp.Device.VCPU.{ qom_path = Some p } :: _ -> p
+            )
+          | other ->
+            let as_msg cmd = Qmp.(Success(Some __LOC__, cmd)) in
+            err (sprintf "Unexpected result for QMP command: %s" Qmp.(other |> as_msg |> string_of_message))
+          in
+          qom_path |> fun id -> qmp_send_cmd domid Qmp.(Device_del id) |> ignore
+          )
+
+    end
 
     (** Implementation of the Dm functions that use the dispatcher for the qemu-upstream-compat backend *)
     module Dm = struct
@@ -2342,7 +2400,7 @@ module Backend = struct
               ; "-boot"; "order=" ^ info.Dm_Common.boot
               ]
             ; usb
-            ; [ "-smp"; "maxcpus=" ^ (string_of_int info.Dm_Common.vcpus)]
+            ; [ "-smp"; sprintf "%d,maxcpus=%d" info.Dm_Common.vcpus_current info.Dm_Common.vcpus]
             ; (serial_device |> function None -> [] | Some x -> [ "-serial"; x ])
             ; [ "-display"; "none"; "-nodefaults"]
             ; [ "-trace"; "enable=xen_platform_log"]
@@ -2432,6 +2490,28 @@ module Vbd = struct
     Q.Vbd.qemu_media_change ~xs device _type params
 
 end (* Vbd *)
+
+(** Vcpu module conforming to the corresponding public mli interface *)
+module Vcpu = struct
+  include Vcpu_Common
+
+  let add ~xs ~dm ~devid domid online =
+    let module Q = (val Backend.of_profile dm) in
+    Q.Vcpu.add ~xs ~devid domid online
+
+  let set ~xs ~dm ~devid domid online =
+    let module Q = (val Backend.of_profile dm) in
+    Q.Vcpu.set ~xs ~devid domid online
+
+  let del ~xs ~dm ~devid domid =
+    let module Q = (val Backend.of_profile dm) in
+    Q.Vcpu.del ~xs ~devid domid
+
+  let status ~xs ~dm ~devid domid =
+    let module Q = (val Backend.of_profile dm) in
+    Q.Vcpu.status ~xs ~devid domid
+
+end (* Vcpu *)
 
 (** Dm module conforming to the corresponding public mli interface *)
 module Dm = struct
