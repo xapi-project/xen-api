@@ -295,11 +295,14 @@ let test_netsriov_available_fails_no_capacity () =
           List.exists (fun pif -> h' = Db.PIF.get_host ~__context ~self:pif) pifs
         ) sriov_networks in
       let vm = make_vm_with_vif ~__context ~network:network_on_h in
-      let pif = Xapi_network_sriov_helpers.get_local_underlying_pif ~__context ~network:network_on_h ~host:h' in
-      let pci = Db.PIF.get_PCI ~__context ~self:pif in
-      make_allocated_vfs ~__context ~vm ~pci ~num:8L;
-      assert_raises_api_error Api_errors.network_sriov_insufficient_capacity (fun () ->
-          assert_netsriov_available ~__context ~self:vm ~host:h'))
+      match Xapi_network_sriov_helpers.get_local_underlying_pif ~__context ~network:network_on_h ~host:h' with
+      | None -> failwith "Test-failure: Cannot get underlying pif from sr-iov network"
+      | Some pif ->
+        let pci = Db.PIF.get_PCI ~__context ~self:pif in
+        make_allocated_vfs ~__context ~vm ~pci ~num:8L;
+        assert_raises_api_error Api_errors.network_sriov_insufficient_capacity (fun () ->
+            assert_netsriov_available ~__context ~self:vm ~host:h')
+      )
 
 let assert_grouping_of_sriov ~__context ~network ~expection_groups =
   let host_lists = Xapi_network_sriov_helpers.group_hosts_by_best_sriov ~__context ~network in
@@ -369,10 +372,13 @@ let test_group_hosts_netsriov_with_allocated () =
             List.exists (fun pif -> h' = Db.PIF.get_host ~__context ~self:pif) pifs
           ) sriov_networks in
         let vm = make_vm_with_vif ~__context ~network:network_on_h in
-        let pif = Xapi_network_sriov_helpers.get_local_underlying_pif ~__context ~network:network_on_h ~host:h' in
-        let pci = Db.PIF.get_PCI ~__context ~self:pif in
-        make_allocated_vfs ~__context ~vm ~pci ~num:2L;
-        assert_grouping_of_sriov ~__context ~network:n2 ~expection_groups:[ [(h'',8L)]; [(h',6L)] ]
+        begin match Xapi_network_sriov_helpers.get_local_underlying_pif ~__context ~network:network_on_h ~host:h' with
+        | None -> failwith "Test-failure: Cannot get underlying pif from sr-iov network"
+        | Some pif ->
+          let pci = Db.PIF.get_PCI ~__context ~self:pif in
+          make_allocated_vfs ~__context ~vm ~pci ~num:2L;
+          assert_grouping_of_sriov ~__context ~network:n2 ~expection_groups:[ [(h'',8L)]; [(h',6L)] ]
+        end
       | _ -> failwith "Test-failure: Unexpected number of sriov network in test" )
 
 let test_get_group_key_vgpu () =
