@@ -16,4 +16,5 @@ let () =
     ; "Test_daemon_manager", Test_daemon_manager.test
     ; "Test_cluster", Test_cluster.test
     ; "Test_cluster_host", Test_cluster_host.test
+    ; "Test_client", Test_client.test
     ]
