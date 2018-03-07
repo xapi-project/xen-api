@@ -313,6 +313,69 @@ let test_assert_pif_prerequisites () =
 let test_assert_pif_prerequisites =
   [ "test_assert_pif_prerequisites", `Quick, test_assert_pif_prerequisites ]
 
+
+(** Test PIF.disallow_unplug is RO when clustering is enabled *)
+let check_disallow_unplug expected_value __context pif msg =
+  Alcotest.(check bool) msg
+    (Db.PIF.get_disallow_unplug ~__context ~self:pif)
+    expected_value
+
+(* Need host and network to make PIF *)
+let make_host_network_pif ~__context =
+  let host = Test_common.make_host ~__context () in
+  let network = Test_common.make_network ~__context () in
+  let pif = Test_common.make_pif ~__context ~network ~host () in
+  (host, network, pif)
+
+(* Test PIF.set_disallow_unplug without cluster/cluster_host objects *)
+let test_disallow_unplug_no_clustering () =
+  let __context = Test_common.make_test_database () in
+  let host,network,pif = make_host_network_pif ~__context in
+
+  (* Test toggling disallow_unplug when disallow_unplug:false by default *)
+  check_disallow_unplug false __context pif
+    "check_disallow_unplug called by test_disallow_unplug_no_clustering when testing default config";
+  Xapi_pif.set_disallow_unplug ~__context ~self:pif ~value:true;
+  check_disallow_unplug true __context pif
+    "check_disallow_unplug called by test_disallow_unplug_no_clustering after setting disallow_unplug:true";
+
+  (* Test toggling disallow_unplug when initialised to true *)
+  let pif_no_unplug = Test_common.make_pif ~__context ~network ~host ~disallow_unplug:true () in
+  check_disallow_unplug true __context pif_no_unplug
+    "check_disallow_unplug called by test_disallow_unplug_no_clustering when initialising disallow_unplug:true";
+  Xapi_pif.set_disallow_unplug ~__context ~self:pif_no_unplug ~value:false;
+  check_disallow_unplug false __context pif_no_unplug
+    "check_disallow_unplug called by test_disallow_unplug_no_clustering after setting disallow_unplug:false"
+
+let test_disallow_unplug_with_clustering () =
+  let __context = Test_common.make_test_database () in
+  let host,network,pif = make_host_network_pif ~__context in
+  check_disallow_unplug false __context pif
+    "check_disallow_unplug called by test_disallow_unplug_with_clustering to check default config";
+
+  (* PIF.disallow_unplug must be true in order to enable clustering *)
+  Xapi_pif.set_disallow_unplug ~__context ~self:pif ~value:true;
+  check_disallow_unplug true __context pif
+    "check_disallow_unplug called by test_disallow_unplug_with_clustering after setting disallow_unplug:true";
+
+  (* PIF.disallow_unplug should become RO upon introduce cluster_host object *)
+  let _ = Test_common.make_cluster_and_cluster_host ~__context ~network ~host () in
+  Alcotest.check_raises
+    "check_disallow_unplug called by test_disallow_unplug_with_clustering after attaching cluster and cluster_host to network"
+    (Api_errors.(Server_error(clustering_enabled_on_network, [Ref.string_of network])))
+    (fun () -> Xapi_pif.set_disallow_unplug ~__context ~self:pif ~value:true);
+
+    (* PIF.set_disallow_unplug should raise same error even when value is the same *)
+  Alcotest.check_raises
+    "PIF.set_disallow_unplug:true called by test_disallow_unplug_with_clustering after attaching cluster and cluster_host to network"
+    (Api_errors.(Server_error(clustering_enabled_on_network, [Ref.string_of network])))
+    (fun () -> Xapi_pif.set_disallow_unplug ~__context ~self:pif ~value:true)
+
+let test_disallow_unplug_ro_with_clustering_enabled =
+  [ "test_disallow_unplug_no_clustering", `Quick, test_disallow_unplug_no_clustering
+  ; "test_disallow_unplug_with_clustering", `Quick, test_disallow_unplug_with_clustering
+  ]
+
 let test =
   ( test_get_required_cluster_stacks
   @ test_find_cluster_host
@@ -320,4 +383,5 @@ let test =
   @ test_assert_cluster_host_is_enabled_for_matching_sms
   @ test_clustering_lock_only_taken_if_needed
   @ test_assert_pif_prerequisites
+  @ test_disallow_unplug_ro_with_clustering_enabled
   )
