@@ -124,6 +124,6 @@ let handler req bio _ =
   let body = Http_svr.read_body ~limit:Db_globs.http_limit_max_rpc_size req bio in
   let body_xml = Xml.parse_string body in
   let reply_xml = DBCacheRemoteListener.process_xmlrpc body_xml in
-  let response = Xml.to_bigbuffer reply_xml in
-  Http_svr.response_fct req fd (Xapi_stdext_bigbuffer.Bigbuffer.length response)
-    (fun fd -> Xapi_stdext_bigbuffer.Bigbuffer.to_fct response (fun s -> ignore(Unix.write fd s 0 (String.length s))))
+  let response = Xml.to_string reply_xml in
+  Http_svr.response_fct req fd (Int64.of_int @@ String.length response)
+    (fun fd -> Unix.write fd response 0 (String.length response) |> ignore)
