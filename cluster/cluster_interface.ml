@@ -100,7 +100,8 @@ type error =
 [@@deriving rpcty]
 
 module E = Error.Make(struct
-    type t = error [@@deriving rpcty]
+  type t = error [@@deriving rpcty]
+  let internal_error_of _ = None
   end)
 let err = E.error
 
