@@ -37,6 +37,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    db_cache_test
    block_device_io
    unit_test_marshall
+   unit_test_sql
   ))
   (libraries (
    rpclib
@@ -75,7 +76,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 
 (executable
  ((name unit_test_marshall)
-  (package xapi)
   (modules (
     unit_test_marshall
     ))
@@ -86,8 +86,14 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 )
 
 (executable
+ ((name unit_test_sql)
+  (modules (unit_test_sql))
+  (libraries (xapi-database))
+ )
+)
+
+(executable
  ((name database_server_main)
-  (package xapi)
   (modules (
     database_server_main
     ))
@@ -103,6 +109,15 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (alias
  ((name runtest)
   (deps (unit_test_marshall.exe))
+  (package xapi-database)
+  (action (run ${<}))
+ )
+)
+
+(alias
+ ((name runtest)
+  (deps (unit_test_sql.exe sql_msg_example.txt))
+  (package xapi-database)
   (action (run ${<}))
  )
 )
@@ -110,6 +125,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (alias
  ((name runtest)
   (deps (database_server_main.exe))
+  (package xapi-database)
   (action (run ${<} --master db.xml --test))
  )
 )
