@@ -775,6 +775,19 @@ let set_property ~__context ~self ~name ~value =
         Nm.bring_pif_up ~__context pif
     ) (self :: vlan_pifs)
 
+let pif_has_clustering_enabled ~__context (self : API.ref_PIF) network =
+  (Db.Cluster.get_refs_where ~__context
+    ~expr:Db_filter_types.(Eq(Field "network", Literal (Ref.string_of network))))
+    |> function
+    | []   -> false
+    | a::_ -> true
+
+let set_disallow_unplug ~__context ~self ~value =
+  let network = Db.PIF.get_network ~__context ~self in
+  if pif_has_clustering_enabled ~__context self network
+  then raise Api_errors.(Server_error(clustering_enabled_on_network, [Ref.string_of network]))
+  else Db.PIF.set_disallow_unplug ~__context ~self ~value
+
 let rec unplug ~__context ~self =
   let unplug_vlan_on_sriov ~__context ~self =
     Db.PIF.get_VLAN_slave_of ~__context ~self
