@@ -24,11 +24,13 @@ type 'a t = { evaluate: Xs.xsh -> 'a }
 
 let map f x = { evaluate = fun xs -> f (x.evaluate xs) }
 
-let has_fired x =
+let has_fired ~xs x =
+  let _ = ignore xs in
   try Xenstore.with_xs (fun h -> x.evaluate h); true with Xs_protocol.Eagain -> false 
 
 (** Block waiting for a result *)
-let wait_for ?(timeout=300.) (x: 'a t) =
+let wait_for ~xs ?(timeout=300.) (x: 'a t) =
+  let _ = ignore xs in
   let with_pipe f =
     let (p1,p2) = Unix.pipe () in
     let close_all () =
