@@ -69,7 +69,9 @@ let dm_to_string tys : O.Module.t =
 *)
       | DT.Set ty -> "fun s -> set "^OU.alias_of_ty ty^" s"
       | DT.String -> "fun x -> x"
-      | DT.Record _ -> "(* record types never stored in the database *)" in
+      | DT.Record _ -> failwith "record types never stored in the database"
+      | DT.Option _ -> failwith "option types never stored in the database"
+    in
     O.Let.make
       ~name:(OU.alias_of_ty ty)
       ~params:[]
@@ -111,7 +113,9 @@ let string_to_dm tys : O.Module.t =
       | DT.Ref s -> "fun x -> (Ref.of_string x : "^OU.ocaml_of_ty ty^")"
       | DT.Set ty -> "fun s -> set "^OU.alias_of_ty ty^" s"
       | DT.String -> "fun x -> x"
-      | DT.Record _ -> "(* record types never stored in the database *)" in
+      | DT.Record _ -> failwith "record types never stored in the database"
+      | DT.Option _ -> failwith "option types never stored in the database"
+    in
     O.Let.make
       ~name:(OU.alias_of_ty ty)
       ~params:[]
