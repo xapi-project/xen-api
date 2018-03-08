@@ -57,7 +57,10 @@ module Networks = Generic.Make (struct
 
     let transform input = 
       let tree = List.fold_left construct_tree (T("", [])) input in
-      Xapi_guest_agent.networks "attr" (list tree)
+      List.concat [
+          Xapi_guest_agent.networks "attr" "vif" (list tree)
+        ; Xapi_guest_agent.networks "xenserver/attr" "net-sriov-vf" (list tree)
+      ]
 
     let tests = [
       (* basic cases *)
@@ -263,7 +266,16 @@ module Initial_guest_metrics = Generic.Make (struct
       ], [ "0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06";
       ];
 
+      [ "xenserver/attr/net-sriov-vf/0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06";
+      ], [ "0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06";
+      ];
+
       [ "attr/vif/0/ipv4/0", "192.168.0.1";
+      ], [ "0/ip", "192.168.0.1";
+           "0/ipv4/0", "192.168.0.1";
+      ];
+
+      [ "xenserver/attr/net-sriov-vf/0/ipv4/0", "192.168.0.1";
       ], [ "0/ip", "192.168.0.1";
            "0/ipv4/0", "192.168.0.1";
       ];
@@ -279,6 +291,10 @@ module Initial_guest_metrics = Generic.Make (struct
 
       (* index *)
       [ "attr/vif/1/ipv6/2", "fe80:0000:0000:0000:7870:94ff:fe52:dd06";
+      ], [ "1/ipv6/2", "fe80:0000:0000:0000:7870:94ff:fe52:dd06";
+      ];
+
+      [ "xenserver/attr/net-sriov-vf/1/ipv6/2", "fe80:0000:0000:0000:7870:94ff:fe52:dd06";
       ], [ "1/ipv6/2", "fe80:0000:0000:0000:7870:94ff:fe52:dd06";
       ];
 
@@ -299,6 +315,12 @@ module Initial_guest_metrics = Generic.Make (struct
       (* multiple ip addrs *)
       [ "attr/vif/0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06";
         "attr/vif/0/ipv6/1", "fe80:0000:0000:0000:7870:94ff:fe52:dd07";
+      ], [ "0/ipv6/1", "fe80:0000:0000:0000:7870:94ff:fe52:dd07";
+           "0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06";
+      ];
+
+      [ "xenserver/attr/net-sriov-vf/0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06";
+        "xenserver/attr/net-sriov-vf/0/ipv6/1", "fe80:0000:0000:0000:7870:94ff:fe52:dd07";
       ], [ "0/ipv6/1", "fe80:0000:0000:0000:7870:94ff:fe52:dd07";
            "0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06";
       ];
@@ -356,9 +378,36 @@ module Initial_guest_metrics = Generic.Make (struct
            "1/ipv4/0", "192.168.1.1";
       ];
 
+      (* combined SRIOV VF and plain VIF *)
+      [ "attr/vif/0/ipv4/0", "192.168.0.1";
+        "attr/vif/0/ipv4/1", "192.168.0.2";
+        "attr/vif/1/ipv4/0", "192.168.1.1";
+        "attr/vif/1/ipv4/1", "192.168.1.2";
+        "xenserver/attr/net-sriov-vf/2/ipv4/0", "192.168.2.1";
+        "xenserver/attr/net-sriov-vf/2/ipv4/1", "192.168.2.2";
+        "xenserver/attr/net-sriov-vf/3/ipv4/0", "192.168.3.1";
+        "xenserver/attr/net-sriov-vf/3/ipv4/1", "192.168.3.2";
+      ], [ "0/ipv4/1", "192.168.0.2";
+           "0/ip", "192.168.0.1";
+           "0/ipv4/0", "192.168.0.1";
+           "1/ipv4/1", "192.168.1.2";
+           "1/ip", "192.168.1.1";
+           "1/ipv4/0", "192.168.1.1";
+           "2/ipv4/1", "192.168.2.2";
+           "2/ip", "192.168.2.1";
+           "2/ipv4/0", "192.168.2.1";
+           "3/ipv4/1", "192.168.3.2";
+           "3/ip", "192.168.3.1";
+           "3/ipv4/0", "192.168.3.1";
+      ];
+
       (* exceptions *)
       [ "attr/vif/0/ipv4/a", "192.168.0.1";
         "attr/vif/0/ipv4/1", "192.168.0.1";
+      ], [];
+
+      [ "xenserver/attr/net-sriov-vf/0/ipv4/a", "192.168.0.1";
+        "xenserver/attr/net-sriov-vf/0/ipv4/1", "192.168.0.1";
       ], [];
     ]
   end)
