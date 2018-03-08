@@ -3110,6 +3110,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.PIF.set_property ~self ~name ~value in
       do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.PIF.set_property rpc session_id self name value)
 
+    let set_disallow_unplug ~__context ~self ~value =
+      info "PIF.set_disallow_unplug: PIF uuid = %s; value = %s" (pif_uuid ~__context self) (string_of_bool value);
+      Local.PIF.set_disallow_unplug ~__context ~self ~value
+
     let scan ~__context ~host =
       info "PIF.scan: host = '%s'" (host_uuid ~__context host);
       let local_fn = Local.PIF.scan ~host in

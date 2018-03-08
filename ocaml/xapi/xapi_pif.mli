@@ -142,6 +142,13 @@ val set_property :
   value:string ->
   unit
 
+(* Set disallow_unplug on a PIF *)
+val set_disallow_unplug :
+  __context:Context.t ->
+  self:API.ref_PIF ->
+  value:bool ->
+  unit
+
 (** Attempt to bring down the PIF: disconnect the underlying network interface from
  *  its bridge and disable the interface. *)
 val unplug : __context:Context.t -> self:API.ref_PIF -> unit
