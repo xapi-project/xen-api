@@ -244,6 +244,41 @@ let probe = call_probe ~f:(
       Buffer.contents buf
   )
 
+let probe_ext =
+  let to_xenapi_sr_health =
+    let open Storage_interface in
+    function Healthy -> `healthy | Recovering -> `recovering
+  in
+  let to_xenapi_sr_stat Storage_interface.{
+      name_label;
+      name_description;
+      total_space;
+      free_space;
+      clustered;
+      health} =
+    API.{
+      sr_stat_name_label = name_label;
+      sr_stat_name_description = name_description;
+      sr_stat_total_space = total_space;
+      sr_stat_free_space = free_space;
+      sr_stat_clustered = clustered;
+      sr_stat_health = to_xenapi_sr_health health
+    }
+  in
+  let to_xenapi_probe_result Storage_interface.{configuration; complete; sr; extra_info} =
+    API.{
+      probe_result_configuration = configuration;
+      probe_result_complete = complete;
+      probe_result_sr = Xapi_stdext_monadic.Opt.map to_xenapi_sr_stat sr;
+      probe_result_extra_info = extra_info
+    }
+  in
+  call_probe ~f:(
+    function
+    | Storage_interface.Raw x -> raise Api_errors.(Server_error (sr_operation_not_supported, []))
+    | Storage_interface.Probe results -> List.map to_xenapi_probe_result results
+  )
+
 (* Create actually makes the SR on disk, and introduces it into db, and creates PBD record for current host *)
 let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~name_description
     ~_type ~content_type ~shared ~sm_config =
