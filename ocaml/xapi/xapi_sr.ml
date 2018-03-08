@@ -251,12 +251,9 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
     ) in
   Helpers.call_api_functions ~__context
     (fun rpc session_id ->
-      List.iter
-        (fun self ->
-          try
-              Client.PBD.plug ~rpc ~session_id ~self
-            with e -> warn "Could not plug PBD '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
-         pbds);
+       let tasks = List.map (fun self ->
+           Client.Async.PBD.plug ~rpc ~session_id ~self) pbds in
+       Tasks.wait_for_all ~rpc ~session_id ~tasks);
   sr_ref
 
 let check_no_pbds_attached ~__context ~sr =
