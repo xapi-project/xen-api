@@ -73,6 +73,7 @@ let rec alias_of_ty ?(prefix="") = function
   | Map(k, v)                     -> sprintf "%s_to_%s_map" (alias_of_ty k) (alias_of_ty v)
   | Ref x                         -> sprintf "ref_%s" x
   | Record x                      -> sprintf "%s_t" (ocaml_of_record_name x)
+  | Option x                      -> sprintf "%s_option" (alias_of_ty x)
 
 (** Convert an IDL type into a string containing OCaml code representing the
     type. *)
@@ -88,6 +89,7 @@ let rec ocaml_of_ty = function
   | Map(l, r) -> "("^alias_of_ty l^" * "^alias_of_ty r^") list"
   (*  | Ref "session" -> "Uuid.cookie" *)
   | Ref ty -> "[`"^ty^"] Ref.t"
+  | Option x -> failwith "ocaml_of_ty got an option"
   | Record x -> failwith "ocaml_of_ty got a record"
 
 (** Take an object name and return the corresponding ocaml name *)

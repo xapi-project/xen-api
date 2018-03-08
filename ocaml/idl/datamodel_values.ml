@@ -92,3 +92,4 @@ let gen_empty_db_val t =
   | Map _ -> Value.Pairs []
   | Ref _ -> Value.String null_ref
   | Record _ -> Value.String ""
+  | Option _ -> Value.Set []
