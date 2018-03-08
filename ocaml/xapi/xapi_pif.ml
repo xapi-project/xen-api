@@ -830,6 +830,10 @@ let rec plug ~__context ~self =
         debug "PIF is VLAN master on top of SRIOV logical PIF, also bringing up SRIOV logical PIF";
         plug ~__context ~self:tagged_pif
       end
+    | Network_sriov_logical sriov ->
+      let phy_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
+      debug "PIF is SRIOV logical PIF, also bringing up SRIOV physical PIF";
+      plug ~__context ~self:phy_pif
     | Physical pif_rec when pif_rec.API.pIF_bond_slave_of <> Ref.null ->
       raise Api_errors.(Server_error (cannot_plug_bond_slave, [Ref.string_of self]))
     | _ -> ()
