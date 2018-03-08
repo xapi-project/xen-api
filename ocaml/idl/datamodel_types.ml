@@ -240,6 +240,7 @@ type ty =
   | Map of ty * ty
   | Ref of string
   | Record of string
+  | Option of ty
   [@@deriving rpc]
 
 type api_value =
