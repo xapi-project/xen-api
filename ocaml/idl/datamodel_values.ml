@@ -34,7 +34,7 @@ let rec to_rpc v =
   | VMap vvl -> Rpc.Dict (List.map (fun (v1,v2)-> to_string v1, to_rpc v2) vvl)
   | VSet vl -> Rpc.Enum (List.map (fun v->to_rpc v) vl)
   | VRef r -> Rpc.String r
-  | VCustom (_,y) -> to_rpc y
+  | VCustom (_,_) -> failwith "Can't RPC up a custom value"
 
 open Printf
 

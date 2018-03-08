@@ -89,7 +89,7 @@ let gen_record_type ~with_module highapi tys =
           | _ -> fld.DT.default_value in
         match default_value with
           None -> "None"
-        | Some default -> sprintf {|(Some "%s")|} @@ Rpc.to_string (Datamodel_values.to_rpc default)
+        | Some default -> sprintf {|(Some "%s")|} (Datamodel_values.to_ocaml_string default)
       in
       let make_to_field fld =
         sprintf {|%s = %s_of_rpc (assocer "%s" x %s)|} (field fld) (OU.alias_of_ty fld.DT.ty)
@@ -169,7 +169,7 @@ let gen_client_types highapi =
           "    List.assoc key map";
           "  with Not_found ->";
           "    match default with";
-          "    | Some d -> Rpc.rpc_of_string d";
+          "    | Some d -> d";
           "    | None -> failwith (Printf.sprintf \"Field %s not present in rpc\" key)"
         ];
         gen_non_record_type highapi all_types;
