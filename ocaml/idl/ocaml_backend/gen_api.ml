@@ -135,8 +135,46 @@ let add_set_enums types =
           if List.exists (fun ty2 -> ty2 = DT.Set ty) types then [ty] else [DT.Set ty; ty]
         | _ -> [ty]) types)
 
+let all_types_of highapi = DU.Types.of_objects (Dm_api.objects_of_api highapi)
+
+(** Returns a list of type sorted such that the first elements in the
+    list have nothing depending on them. Later elements in the list may
+    depend upon types earlier in the list *)
+let toposort_types highapi types =
+  let rec inner result remaining =
+    let rec references name = function
+      | DT.String
+      | DT.Int
+      | DT.Float
+      | DT.Bool
+      | DT.DateTime
+      | DT.Ref _
+      | DT.Enum _ -> false
+      | DT.Set ty -> references name ty
+      | DT.Map (ty, ty') -> (references name ty) || (references name ty')
+      | DT.Record record when record = name -> true
+      | DT.Record record ->
+        let all_fields = DU.fields_of_obj (Dm_api.get_obj_by_name highapi ~objname:record) in
+        List.exists (fun fld -> references name fld.DT.ty) all_fields
+    in
+    let (ty_ref,ty_not_ref) =
+      List.partition (fun ty -> match ty with
+      | DT.Record name ->
+        let referencing = List.filter (references name) remaining in
+        List.length referencing > 1
+      | _ -> false) remaining
+    in
+    match ty_ref with
+    | [] -> result @ ty_not_ref
+    | _ -> inner (result @ ty_not_ref) ty_ref
+  in
+  let result = inner [] types in
+  assert(List.length result = List.length types);
+  assert(List.sort compare result = List.sort compare types);
+  result
+
 let gen_client_types highapi =
-  let all_types = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
+  let all_types = all_types_of highapi in
   let all_types = add_set_enums all_types in
   List.iter (List.iter print)
     (between [""] [
@@ -174,7 +212,7 @@ let gen_client_types highapi =
           "    | None -> failwith (Printf.sprintf \"Field %s not present in rpc\" key)"
         ];
         gen_non_record_type highapi all_types;
-        gen_record_type ~with_module:true highapi all_types;
+        gen_record_type ~with_module:true highapi (toposort_types highapi all_types);
         O.Signature.strings_of (Gen_client.gen_signature highapi);
       ])
 
@@ -196,22 +234,31 @@ let gen_custom_actions highapi =
 open Gen_db_actions
 
 let gen_db_actions highapi =
-  let all_types = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
-  let only_records = List.filter (function DT.Record _ -> true | _ -> false) all_types in
+  let highapi_in_db =
+    Dm_api.filter
+      (fun obj -> obj.DT.in_database)
+      (fun _ -> true)
+      (fun _ -> true)
+      highapi
+  in
+  let all_types_in_db = all_types_of highapi_in_db in
+  let only_records = List.filter (function DT.Record _ -> true | _ -> false) all_types_in_db in
 
   List.iter (List.iter print)
     (between [""]
        [
          [ "open API" ];
 
-         (* These records have the hidden fields inside *)
-         gen_record_type ~with_module:false highapi only_records;
+         (* These records have the hidden fields inside.
+            This excludes records not stored in the database, which must not
+            have hidden fields. *)
+         gen_record_type ~with_module:false highapi (toposort_types highapi only_records);
 
          (* NB record types are ignored by dm_to_string and string_to_dm *)
-         O.Module.strings_of (dm_to_string all_types);
-         O.Module.strings_of (string_to_dm all_types);
-         O.Module.strings_of (db_action highapi); ]
-     @ (List.map O.Module.strings_of (Gen_db_check.all highapi)) @ [
+         O.Module.strings_of (dm_to_string all_types_in_db);
+         O.Module.strings_of (string_to_dm all_types_in_db);
+         O.Module.strings_of (db_action highapi_in_db); ]
+     @ (List.map O.Module.strings_of (Gen_db_check.all highapi_in_db)) @ [
 
      ]
     )
