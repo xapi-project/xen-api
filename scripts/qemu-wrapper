@@ -65,7 +65,7 @@ def unshare(flags):
         raise OSError(ctypes.get_errno(), os.strerror(ctypes.get_errno()))
 
 def restrict_fsize():
-    limit = 32 * 1024
+    limit = 256 * 1024
     setrlimit(RLIMIT_FSIZE, (limit, limit))
 
 def enable_core_dumps():
