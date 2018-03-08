@@ -56,6 +56,7 @@ let gen_non_record_type highapi tys =
     | DT.Bool                 :: t
     | DT.Record _             :: t
     | DT.Map (_, DT.Record _) :: t
+    | DT.Option (DT.Record _) :: t
     | DT.Set (DT.Record _)    :: t -> aux accu t
     | DT.Set (DT.Enum (n,_) as e) as ty :: t ->
       aux (sprintf "type %s = %s list [@@deriving rpc]" (OU.alias_of_ty ty) (OU.alias_of_ty e) :: accu) t
@@ -96,6 +97,7 @@ let gen_record_type ~with_module highapi tys =
           sprintf "let %s_t_of_rpc x = on_dict (fun x -> { %s }) x" obj_name (map_fields make_to_field);
           sprintf "type ref_%s_to_%s_t_map = (ref_%s * %s_t) list [@@deriving rpc]" record obj_name record obj_name;
           sprintf "type %s_t_set = %s_t list [@@deriving rpc]" obj_name obj_name;
+          sprintf "type %s_t_option = %s_t option [@@deriving rpc]" obj_name obj_name;
           ""
         ] in
       aux (type_t :: others @ accu) t
@@ -147,6 +149,7 @@ let toposort_types highapi types =
       | DT.Record record ->
         let all_fields = DU.fields_of_obj (Dm_api.get_obj_by_name highapi ~objname:record) in
         List.exists (fun fld -> references name fld.DT.ty) all_fields
+      | DT.Option ty -> references name ty
     in
     let (ty_ref,ty_not_ref) =
       List.partition (fun ty -> match ty with

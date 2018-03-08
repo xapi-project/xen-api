@@ -40,7 +40,8 @@ module Types = struct
   let rec decompose = function
     | Set x as y -> y :: decompose x
     | Map (a, b) as y -> y :: decompose a @ decompose b
-    | x -> [ x ]
+    | Option x as y -> y :: decompose x
+    | String | Int | Float | DateTime | Enum _ | Bool | Ref _ | Record _ as x -> [ x ]
 
   (** All types in a list of objects (automatically decomposes) *)
   let of_objects system =
