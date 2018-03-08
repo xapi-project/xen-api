@@ -66,6 +66,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     sexplib
     ppx_sexp_conv
     uutf
+    ezxenstore
     xenstore
     xenstore.unix
     xenstore_transport
