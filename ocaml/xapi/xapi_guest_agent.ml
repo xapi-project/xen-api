@@ -77,8 +77,11 @@ let extend base str = Printf.sprintf "%s/%s" base str
  * will be generated. I.E.
  * attr/eth0/ip -> 0/ip; 0/ipv4/0
  * attr/vif/0/ipv4/0 -> 0/ip; 0/ipv4/0
+ *
+ * Add support for SR-IOV VF, so there are two kinds of vif_type, either to be
+ * `vif` or `net-sriov-vf`
  * *)
-let networks path (list: string -> string list) =
+let networks path vif_type (list: string -> string list) =
   (* Find all ipv6 addresses under a path. *)
   let find_ipv6 path prefix = List.map
       (fun str -> (extend (extend path str) "addr", extend prefix str))
@@ -157,7 +160,7 @@ let networks path (list: string -> string list) =
     let ip_vers = List.filter (fun a -> a = "ipv4" || a = "ipv6") (list vif_path) in
     List.fold_left (extract_ip_ver vif_id) [] ip_vers
   in
-  match find_vifs (extend path "vif") with
+  match find_vifs (extend path vif_type) with
   | [] ->
     path
     |> find_eths
@@ -219,7 +222,7 @@ let get_initial_guest_metrics (lookup: string -> string option) (list: string ->
   let pv_drivers_version = to_map pv_drivers_version
   and os_version = to_map os_version
   and device_id = to_map device_id
-  and networks = to_map (networks "attr" list)
+  and networks = to_map (networks "attr" "vif" list) @ to_map (networks "xenserver/attr" "net-sriov-vf" list)
   and other = List.append (to_map (other all_control)) ts
   and memory = to_map memory
   and last_updated = Unix.gettimeofday () in
