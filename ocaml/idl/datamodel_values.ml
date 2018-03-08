@@ -38,7 +38,7 @@ let rec to_rpc v =
 
 open Printf
 
-let to_ocaml_string v =
+let to_ocaml_string ?(v2=false) v =
   let rec aux = function
     | Rpc.Null -> "Rpc.Null"
     | Rpc.String s -> sprintf "Rpc.String \"%s\"" s
@@ -50,7 +50,14 @@ let to_ocaml_string v =
     | Rpc.Enum l -> sprintf "Rpc.Enum [%s]" (String.concat ";" (List.map aux l))
     | Rpc.DateTime t -> sprintf "Rpc.DateTime %s" t in
   match v with
-  | VCustom (x,_) -> x
+  | VCustom (s,v') ->
+    if v2 then
+      (* s can contain stringified body of ocaml functions, and will break
+       * the aPI.ml code, we need to use the v' in that case. The version
+       * switch allows us to use this other version in gen_api.ml without
+       * having to duplicate lots of code *)
+      aux (to_rpc v')
+    else s
   | _ -> aux (to_rpc v)
 
 let rec to_db v =

@@ -86,15 +86,11 @@ let gen_record_type ~with_module highapi tys =
         let default_value =
           match fld.DT.ty with
           | DT.Set (DT.Ref _) -> Some (DT.VSet [])
-          | _ -> begin
-            match fld.DT.default_value with 
-            | Some (DT.VCustom _) -> None
-            | value -> value
-          end
-          in
+          | _ -> fld.DT.default_value
+        in
         match default_value with
           None -> "None"
-        | Some default -> sprintf "(Some (%s))" (Datamodel_values.to_ocaml_string default)
+        | Some default -> sprintf "(Some (%s))" (Datamodel_values.to_ocaml_string ~v2:true default)
       in
       let make_to_field fld =
         sprintf {|%s = %s_of_rpc (assocer "%s" x %s)|} (field fld) (OU.alias_of_ty fld.DT.ty)
