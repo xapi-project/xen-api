@@ -1691,6 +1691,61 @@ module Data_source = struct
       ()
 end
 
+module Sr_stat = struct
+  let health = Enum ("sr_health", [
+      "healthy", "Storage is fully available";
+      "recovering", "Storage is busy recovering, e.g. rebuilding mirrors.";
+    ])
+
+  let t =
+    let lifecycle = [Published, rel_kolkata, ""] in
+    create_obj
+      ~in_db:false
+      ~persist:PersistNothing
+      ~gen_constructor_destructor:false
+      ~lifecycle
+      ~in_oss_since:None
+      ~name:_sr_stat
+      ~descr:"A set of high-level properties associated with an SR."
+      ~gen_events:false
+      ~messages:[]
+      ~doccomments:[]
+      ~messages_default_allowed_roles:(Some []) (* No messages, so no roles allowed to use them *)
+      ~contents:
+        [ (* The uuid is not needed here and only adds inconvenience. *)
+          field ~qualifier:DynamicRO ~lifecycle ~ty:String "name_label" "Short, human-readable label for the SR.";
+          field ~qualifier:DynamicRO ~lifecycle ~ty:String "name_description" "Longer, human-readable description of the SR. Descriptions are generally only displayed by clients whe
+ the user is examining SRs in detail.";
+          field ~qualifier:DynamicRO ~lifecycle ~ty:Int "free_space" "Number of bytes free on the backing storage (in bytes)";
+          field ~qualifier:DynamicRO ~lifecycle ~ty:Int "total_space" "Total physical size of the backing storage (in bytes)";
+          field ~qualifier:DynamicRO ~lifecycle ~ty:Bool "clustered" "Indicates whether the SR uses clustered local storage.";
+          field ~qualifier:DynamicRO ~lifecycle ~ty:health "health" "The health status of the SR.";
+        ] ()
+end
+
+module Probe_result = struct
+  let t =
+    let lifecycle = [Published, rel_kolkata, ""] in
+    create_obj
+      ~in_db:false
+      ~persist:PersistNothing
+      ~gen_constructor_destructor:false
+      ~lifecycle
+      ~in_oss_since:None
+      ~name:_probe_result
+      ~descr:"A set of properties that describe one result element of SR.probe. Result elements and properties can change dynamically based on changes to the the SR.probe input-parameters or the target."
+      ~gen_events:false
+      ~messages:[]
+      ~doccomments:[]
+      ~messages_default_allowed_roles:(Some []) (* No messages, so no roles allowed to use them *)
+      ~contents:
+        [ (* The uuid is not needed here and only adds inconvenience. *)
+          field ~qualifier:DynamicRO ~lifecycle ~ty:(Map (String, String)) "configuration" "Plugin-specific configuration which describes where and how to locate the storage repository. This may include the physical block device name, a remote NFS server and path or an RBD storage pool.";
+          field ~qualifier:DynamicRO ~lifecycle ~ty:Bool "complete" "True if this configuration is complete and can be used to call SR.create. False if it requires further iterative calls to SR.probe, to potentially narrow down on a configuration that can be used.";
+          field ~qualifier:DynamicRO ~lifecycle ~ty:(Record _sr_stat) "sr" "Existing SR found for this configuration";
+          field ~qualifier:DynamicRO ~lifecycle ~ty:(Map (String, String)) "extra_info" "Additional plugin-specific information about this configuration, that might be of use for an API user. This can for example include the LUN or the WWPN.";
+        ] ()
+end
 
 module SR = struct
   let operations =
@@ -1792,6 +1847,20 @@ module SR = struct
       ~versioned_params:[host_param; dev_config_param; {param_type=String; param_name="type"; param_doc="The type of the SR; used to specify the SR backend driver to use"; param_release=miami_release; param_default=None}; sm_config]
       ~doc:"Perform a backend-specific scan, using the given device_config.  If the device_config is complete, then this will return a list of the SRs present of this type on the device, if any.  If the device_config is partial, then a backend-specific scan will be performed, returning results that will guide the user in improving the device_config."
       ~result:(String, "An XML fragment containing the scan results.  These are specific to the scan being performed, and the backend.")
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let probe_ext = call
+      ~name:"probe_ext"
+      ~in_oss_since:None
+      ~in_product_since:rel_kolkata
+      ~versioned_params:
+        [ { host_param with param_release = kolkata_release }
+        ; { dev_config_param with param_release = kolkata_release }
+        ; { param_type=String; param_name="type"; param_doc="The type of the SR; used to specify the SR backend driver to use"; param_release=kolkata_release; param_default=None}
+        ; { sm_config with param_release = kolkata_release } ]
+      ~doc:"Perform a backend-specific scan, using the given device_config.  If the device_config is complete, then this will return a list of the SRs present of this type on the device, if any.  If the device_config is partial, then a backend-specific scan will be performed, returning results that will guide the user in improving the device_config."
+      ~result:(Set (Record _probe_result), "A set of records containing the scan results.")
       ~allowed_roles:_R_POOL_OP
       ()
 
@@ -2002,7 +2071,7 @@ module SR = struct
       ~messages_default_allowed_roles:_R_POOL_OP
       ~messages:[ create; introduce; make; destroy; forget;
                   update;
-                  get_supported_types; scan; probe; set_shared;
+                  get_supported_types; scan; probe; probe_ext; set_shared;
                   set_name_label; set_name_description;
                   create_new_blob;
                   set_physical_size; set_virtual_allocation; set_physical_utilisation;
@@ -5234,6 +5303,8 @@ let all_system =
     VLAN.t;
     SM.t;
     SR.t;
+    Sr_stat.t;
+    Probe_result.t;
     LVHD.t;
     VDI.t;
     VBD.t;
