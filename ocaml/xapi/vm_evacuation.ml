@@ -92,7 +92,7 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
     (* We can unplug the PBD if a VM is suspended or halted, but not if
       * it is running or paused, i.e. "live" *)
     vms
-    |> List.filter (fun self -> Xapi_vm_lifecycle.is_live ~__context ~self)
+    |> List.filter (fun self -> Xapi_vm_lifecycle_helpers.is_live ~__context ~self)
     |> hard_shutdown
   in
 
