@@ -47,7 +47,6 @@ let base_suite =
     Test_network_sriov.test;
     Test_xapi_vbd_helpers.test;
     Test_sr_update_vdis.test;
-    Test_host_helpers.test;
   ]
 
 let () =
