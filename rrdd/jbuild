@@ -52,7 +52,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
                xapi-stdext-std
                xapi-stdext-threads
                xapi-stdext-unix
-               xenops
+               ezxenstore
                xcp.network
                uuid))
   ))

@@ -121,7 +121,8 @@ let uuid_of_domid domains domid =
 (* xenstore related code                             *)
 (*****************************************************)
 
-open Xenstore_watch
+module XSW_Debug = Debug.Make(struct let name = "xenstore_watch" end)
+include Ez_xenstore_watch.Make(XSW_Debug)
 
 module Xs = struct
   module Client = Xs_client_unix.Client(Xs_transport_unix_client)
@@ -165,7 +166,7 @@ module Meminfo = struct
         info "Couldn't read path %s; forgetting last known memfree value for domain %d" path d;
         current_meminfofree_values := IntMap.remove d !current_meminfofree_values
 
-  let watch_fired _xc path domains _ =
+  let watch_fired _ _xc path domains _ =
     match List.filter (fun x -> x <> "") Astring.String.(cuts ~sep:"/" path) with
     | "local" :: "domain" :: domid :: "data" :: "meminfo_free" :: [] ->
       fire_event_on_vm domid domains
@@ -173,8 +174,8 @@ module Meminfo = struct
 
   let unmanaged_domain _ _ = false
   let found_running_domain _ _ = ()
-  let domain_appeared _ _ = ()
-  let domain_disappeared _ _ = ()
+  let domain_appeared _ _ _ = ()
+  let domain_disappeared _ _ _ = ()
 end
 
 module Watcher = WatchXenstore(Meminfo)
@@ -715,7 +716,7 @@ let _ =
   debug "Starting xenstore-watching thread ..";
   let () =
     try
-      Watcher.create_watcher_thread (Xs.get_client ())
+      Watcher.create_watcher_thread ()
     with _ ->
       error "xenstore-watching thread has failed" in
 

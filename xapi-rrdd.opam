@@ -3,10 +3,11 @@ maintainer: "xen-api@lists.xen.org"
 build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 build-test: ["jbuilder" "runtest" "-p" name]
 depends: [
-  "jbuilder" {build & >= "1.0+beta10"}
   "astring"
+  "ezxenstore"
   "inotify"
   "io-page"
+  "jbuilder" {build & >= "1.0+beta10"}
   "mtime"
   "ounit" {test}
   "rpc"
@@ -20,7 +21,6 @@ depends: [
   "xapi-stdext-std"
   "xapi-stdext-threads"
   "xapi-stdext-unix"
-  "xapi-xenops"
 ]
 ocaml-version: [>= "4.02.0"]
 
