@@ -1175,18 +1175,6 @@ let host_query_ha = call ~flags:[`Session]
       ~allowed_roles:_R_POOL_OP
       ()
 
-  let sync_network_sriovs = call ~flags:[`Session]
-      ~name:"sync_network_sriovs"
-      ~lifecycle:[Published, rel_kolkata, ""]
-      ~doc:"Synchronise network sriovs on given host with the master's network sriovs"
-      ~params:[
-        Ref _host, "host", "The host";
-      ]
-      ~hide_from_docs:true
-      ~pool_internal:true
-      ~allowed_roles:_R_POOL_OP
-      ()
-
   let sync_pif_currently_attached = call ~flags:[`Session]
       ~name:"sync_pif_currently_attached"
       ~lifecycle:[]
@@ -1383,7 +1371,6 @@ let host_query_ha = call ~flags:[`Session]
         sm_dp_destroy;
         sync_vlans;
         sync_tunnels;
-        sync_network_sriovs;
         sync_pif_currently_attached;
         migrate_receive;
         declare_dead;

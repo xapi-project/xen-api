@@ -805,8 +805,14 @@ let rec unplug ~__context ~self =
     unplug ~__context ~self:access_PIF
   end;
   if Db.PIF.get_sriov_logical_PIF_of ~__context ~self <> [] then begin
-    debug "PIF is network sriov logical PIF, also bringing down vlan on top of it";
+    debug "PIF is network SRIOV logical PIF, also bringing down vlan on top of it";
     unplug_vlan_on_sriov ~__context ~self
+  end;
+  let sriov = Db.PIF.get_sriov_physical_PIF_of ~__context ~self in
+  if sriov <> [] then begin
+    debug "PIF is network SRIOV physical PIF, also bringing down SRIOV logical PIF";
+    let pif = Db.Network_sriov.get_logical_PIF ~__context ~self:(List.hd sriov)in
+    unplug ~__context ~self:pif
   end;
   Nm.bring_pif_down ~__context self
 
@@ -830,6 +836,10 @@ let rec plug ~__context ~self =
         debug "PIF is VLAN master on top of SRIOV logical PIF, also bringing up SRIOV logical PIF";
         plug ~__context ~self:tagged_pif
       end
+    | Network_sriov_logical sriov ->
+      let phy_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
+      debug "PIF is SRIOV logical PIF, also bringing up SRIOV physical PIF";
+      plug ~__context ~self:phy_pif
     | Physical pif_rec when pif_rec.API.pIF_bond_slave_of <> Ref.null ->
       raise Api_errors.(Server_error (cannot_plug_bond_slave, [Ref.string_of self]))
     | _ -> ()
