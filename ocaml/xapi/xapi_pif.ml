@@ -450,8 +450,21 @@ let introduce_internal
   (* return ref of newly created pif record *)
   pif
 
+(* Assertion passes if network has clusters attached but host has disabled clustering *)
+let assert_no_clustering_enabled ~__context ~network ~host =
+  if not (Xapi_clustering.is_clustering_disabled_on_host ~__context host)
+  then
+    (Db.Cluster.get_refs_where ~__context
+      ~expr:Db_filter_types.(Eq(Field "network", Literal (Ref.string_of network))))
+    |> function
+    | []   -> ()
+    | _::_ -> raise Api_errors.(Server_error (clustering_enabled_on_network, [Ref.string_of network]))
+
 (* Internal [forget] is passed a pre-built table [t] *)
 let forget_internal ~t ~__context ~self =
+  let network = Db.PIF.get_network ~__context ~self in
+  let host = Db.PIF.get_host ~__context ~self in
+  assert_no_clustering_enabled ~__context ~network ~host;
   if Db.PIF.get_managed ~__context ~self = true then
     Nm.bring_pif_down ~__context self;
   (* NB we are allowed to forget an interface which still exists *)
@@ -631,6 +644,9 @@ let destroy ~__context ~self =
 let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self;
   assert_no_protection_enabled ~__context ~self;
+  let network = Db.PIF.get_network ~__context ~self in
+  let host = Db.PIF.get_host ~__context ~self in
+  assert_no_clustering_enabled ~__context ~network ~host;
 
   if gateway <> "" then
     Helpers.assert_is_valid_ip `ipv6 "gateway" gateway;
@@ -680,6 +696,9 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self;
   assert_no_protection_enabled ~__context ~self;
+  let network = Db.PIF.get_network ~__context ~self in
+  let host = Db.PIF.get_host ~__context ~self in
+  assert_no_clustering_enabled ~__context ~network ~host;
 
   if mode = `Static then begin
     (* require these parameters if mode is static *)
@@ -688,7 +707,7 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
   end;
 
   (* for all IP parameters, if they're not empty
-     	 * then check they contain valid IP address *)
+        * then check they contain valid IP address *)
   List.iter
     (fun (param, value) -> if value <> "" then Helpers.assert_is_valid_ip `ipv4 param value)
     ["IP",iP; "netmask",netmask; "gateway",gateway];
@@ -775,20 +794,13 @@ let set_property ~__context ~self ~name ~value =
         Nm.bring_pif_up ~__context pif
     ) (self :: vlan_pifs)
 
-let pif_has_clustering_enabled ~__context (self : API.ref_PIF) network =
-  (Db.Cluster.get_refs_where ~__context
-    ~expr:Db_filter_types.(Eq(Field "network", Literal (Ref.string_of network))))
-    |> function
-    | []   -> false
-    | a::_ -> true
-
 let set_disallow_unplug ~__context ~self ~value =
   if (Db.PIF.get_disallow_unplug ~__context ~self) <> value
   then begin
     let network = Db.PIF.get_network ~__context ~self in
-    if pif_has_clustering_enabled ~__context self network
-    then raise Api_errors.(Server_error(clustering_enabled_on_network, [Ref.string_of network]))
-    else Db.PIF.set_disallow_unplug ~__context ~self ~value
+    let host = Db.PIF.get_host ~__context ~self in
+    assert_no_clustering_enabled ~__context ~network ~host;
+    Db.PIF.set_disallow_unplug ~__context ~self ~value
   end
 
 let rec unplug ~__context ~self =
