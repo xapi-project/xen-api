@@ -805,7 +805,7 @@ let rec unplug ~__context ~self =
     unplug ~__context ~self:access_PIF
   end;
   if Db.PIF.get_sriov_logical_PIF_of ~__context ~self <> [] then begin
-    debug "PIF is network sriov logical PIF, also bringing down vlan on top of it";
+    debug "PIF is network SRIOV logical PIF, also bringing down vlan on top of it";
     unplug_vlan_on_sriov ~__context ~self
   end;
   let sriov = Db.PIF.get_sriov_physical_PIF_of ~__context ~self in
