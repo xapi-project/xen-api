@@ -13,6 +13,7 @@ let () =
     ; "Test_no_migrate", Test_no_migrate.test
     ; "Test_vm_check_operation_error", Test_vm_check_operation_error.test
     ; "Test_host", Test_host.test
+    ; "Test_host_helpers", Test_host_helpers.test
     ; "Test_vdi_cbt", Test_vdi_cbt.test
     ; "Test_xapi_db_upgrade", Test_xapi_db_upgrade.test
     ; "Test_db_lowlevel", Test_db_lowlevel.test
