@@ -56,7 +56,6 @@ let base_suite =
     Test_sr_update_vdis.test;
     Test_network_event_loop.test;
     Test_network.test;
-    Test_pusb.test;
     Test_host_helpers.test;
     Test_clustering_allowed_operations.test;
     Test_clustering.test;

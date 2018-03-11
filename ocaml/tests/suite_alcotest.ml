@@ -22,4 +22,5 @@ let () =
     ; "Test_ca91480", Test_ca91480.test
     ; "Test_gpu_group", Test_gpu_group.test
     ; "Test_pool_update", Test_pool_update.test
+    ; "Test_pusb", Test_pusb.test;
     ]
