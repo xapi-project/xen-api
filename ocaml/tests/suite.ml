@@ -43,7 +43,6 @@ let base_suite =
     (* Test_ca121350.test; *)
     Test_dbsync_master.test;
     Test_xapi_xenops.test;
-    Test_pvs_site.test;
     Test_pvs_proxy.test;
     Test_pvs_server.test;
     Test_pvs_cache_storage.test;
