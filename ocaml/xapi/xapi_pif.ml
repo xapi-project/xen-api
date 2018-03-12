@@ -783,10 +783,13 @@ let pif_has_clustering_enabled ~__context (self : API.ref_PIF) network =
     | a::_ -> true
 
 let set_disallow_unplug ~__context ~self ~value =
-  let network = Db.PIF.get_network ~__context ~self in
-  if ((Db.PIF.get_disallow_unplug ~__context ~self) <> value)&& pif_has_clustering_enabled ~__context self network
-  then raise Api_errors.(Server_error(clustering_enabled_on_network, [Ref.string_of network]))
-  else Db.PIF.set_disallow_unplug ~__context ~self ~value
+  if (Db.PIF.get_disallow_unplug ~__context ~self) <> value
+  then begin
+    let network = Db.PIF.get_network ~__context ~self in
+    if pif_has_clustering_enabled ~__context self network
+    then raise Api_errors.(Server_error(clustering_enabled_on_network, [Ref.string_of network]))
+    else Db.PIF.set_disallow_unplug ~__context ~self ~value
+  end
 
 let rec unplug ~__context ~self =
   let unplug_vlan_on_sriov ~__context ~self =
