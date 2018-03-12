@@ -70,7 +70,7 @@ let version_of_rpc = function
     ; xapi_vsn_minor  = Rpc.int_of_rpc (find _xapi_minor)
     ; export_vsn      = try Rpc.int_of_rpc (find _export_vsn) with _ -> 0
     }
-  | rpc -> raise (Failure(Printf.sprintf "version_of_rpc: malformed RPC %s" (Jsonrpc.to_string rpc)))
+  | rpc -> raise (Failure(Printf.sprintf "version_of_rpc: malformed RPC %s" (Rpc.to_string rpc)))
 [@@@warning "+8"]
 
 (** An exported VM has a header record: *)
