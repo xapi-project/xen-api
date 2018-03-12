@@ -53,7 +53,10 @@ module Profile = struct
   let of_string  = function
     | x when x = Name.qemu_trad            -> Qemu_trad
     | x when x = Name.qemu_upstream_compat -> Qemu_upstream_compat
-    | x when x = Name.qemu_upstream        -> Qemu_upstream
+    | x when x = Name.qemu_upstream        ->
+       sprintf "unsupported device-model profile %s: use %s" x Name.qemu_upstream_compat
+       |> fun s -> Internal_error s
+       |> raise
     | x -> debug "unknown device-model profile %s: defaulting to fallback: %s" x (string_of fallback);
       fallback
 
