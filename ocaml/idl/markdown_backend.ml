@@ -78,6 +78,7 @@ let rec of_ty_verbatim = function
   | Map (a, b) -> sprintf "(%s -> %s) map" (of_ty_verbatim a) (of_ty_verbatim b)
   | Ref obj -> obj ^ " ref"
   | Record obj -> obj ^ " record"
+  | Option x -> sprintf "%s option" (of_ty_verbatim x)
 
 
 let rec of_ty = function
