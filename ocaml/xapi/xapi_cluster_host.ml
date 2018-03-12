@@ -29,7 +29,7 @@ let fix_pif_prerequisites ~__context (pif_ref,pif_rec) =
   ignore(ip_of_pif (pif_ref,pif_rec));
   if not pif_rec.API.pIF_currently_attached then
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-      Client.Client.PIF.plug ~rpc ~session_id ~self:pif_ref);
+        Client.Client.PIF.plug ~rpc ~session_id ~self:pif_ref);
   if not pif_rec.API.pIF_disallow_unplug then begin
     debug "Setting disallow_unplug on cluster PIF";
     Db.PIF.set_disallow_unplug ~__context ~self:pif_ref ~value:true
@@ -150,6 +150,6 @@ let disable ~__context ~self =
       let result = Cluster_client.LocalClient.disable (rpc ~__context) dbg in
       match result with
       | Result.Ok () ->
-          Db.Cluster_host.set_enabled ~__context ~self ~value:false
+        Db.Cluster_host.set_enabled ~__context ~self ~value:false
       | Result.Error error -> handle_error error
     )

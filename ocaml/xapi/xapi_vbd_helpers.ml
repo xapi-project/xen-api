@@ -148,7 +148,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
        (match gmr.Db_actions.vM_guest_metrics_can_use_hotplug_vbd with
         | `yes -> () (* Drivers have made an explicit claim of support. *)
         | `no -> set_errors Api_errors.operation_not_allowed ["VM states it does not support VBD hotplug."] plug_ops
-           (* according to xen docs PV drivers are enough for this to be possible *)
+        (* according to xen docs PV drivers are enough for this to be possible *)
         | `unspecified when gmr.Db_actions.vM_guest_metrics_PV_drivers_detected -> ()
         | `unspecified -> fallback ())
     );

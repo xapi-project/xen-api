@@ -79,14 +79,14 @@ let destroy ~__context ~self =
       raise Api_errors.(Server_error(cluster_does_not_have_one_node, [string_of_int n]))
   in
   Xapi_stdext_monadic.Opt.iter (fun ch ->
-    assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self:ch
-  ) cluster_host;
+      assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self:ch
+    ) cluster_host;
   let result = Cluster_client.LocalClient.destroy (rpc ~__context) dbg in
   match result with
   | Result.Ok () ->
     Xapi_stdext_monadic.Opt.iter (fun ch ->
-      Db.Cluster_host.destroy ~__context ~self:ch
-    ) cluster_host;
+        Db.Cluster_host.destroy ~__context ~self:ch
+      ) cluster_host;
     Db.Cluster.destroy ~__context ~self;
     Xapi_clustering.Daemon.disable ~__context
   | Result.Error error -> handle_error error
@@ -131,12 +131,12 @@ let pool_force_destroy ~__context ~self =
   (* First try to destroy each cluster_host - if we can do so safely then do *)
   List.iter
     (fun cluster_host -> 
-      (* We need to run this code on the slave *)
-      (* We ignore failures here, we'll try a force_destroy after *)
-      log_and_ignore_exn (fun () ->  
-        Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Client.Cluster_host.destroy ~rpc ~session_id ~self:cluster_host)
-      )
+       (* We need to run this code on the slave *)
+       (* We ignore failures here, we'll try a force_destroy after *)
+       log_and_ignore_exn (fun () ->  
+           Helpers.call_api_functions ~__context (fun rpc session_id ->
+               Client.Client.Cluster_host.destroy ~rpc ~session_id ~self:cluster_host)
+         )
     )
     slave_cluster_hosts;
   (* We expect destroy to have failed for some, we'll try to force destroy those *)
@@ -146,29 +146,29 @@ let pool_force_destroy ~__context ~self =
   in
   (* Now try to force_destroy, keep track of any errors here *)
   let exns = List.fold_left
-    (fun exns_so_far cluster_host ->
-      Helpers.call_api_functions ~__context (fun rpc session_id ->
-        try
-          Client.Client.Cluster_host.force_destroy ~rpc ~session_id ~self:cluster_host;
-          exns_so_far
-        with e ->
-          Backtrace.is_important e;
-          let uuid = Client.Client.Cluster_host.get_uuid ~rpc ~session_id ~self:cluster_host in
-          debug "Ignoring exception while trying to force destroy cluster host %s: %s" uuid (ExnHelper.string_of_exn e);
-          e :: exns_so_far
+      (fun exns_so_far cluster_host ->
+         Helpers.call_api_functions ~__context (fun rpc session_id ->
+             try
+               Client.Client.Cluster_host.force_destroy ~rpc ~session_id ~self:cluster_host;
+               exns_so_far
+             with e ->
+               Backtrace.is_important e;
+               let uuid = Client.Client.Cluster_host.get_uuid ~rpc ~session_id ~self:cluster_host in
+               debug "Ignoring exception while trying to force destroy cluster host %s: %s" uuid (ExnHelper.string_of_exn e);
+               e :: exns_so_far
+           )
       )
-    )
-    [] all_remaining_cluster_hosts
-    in
+      [] all_remaining_cluster_hosts
+  in
 
-    begin
+  begin
     match exns with
     | [] -> ()
     | e :: _ -> raise Api_errors.(Server_error (cluster_force_destroy_failed, [Ref.string_of self]))
-    end;
+  end;
 
-    Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.Cluster.destroy ~rpc ~session_id ~self)
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      Client.Client.Cluster.destroy ~rpc ~session_id ~self)
 
 (* Helper function; concurrency checks are done in implementation of Cluster.destroy and Cluster_host.destroy *)
 let pool_destroy ~__context ~self =
@@ -206,5 +206,5 @@ let pool_resync ~__context ~self =
   (* Then create the missing Cluster_hosts *)
   let pool_auto_join = Db.Cluster.get_pool_auto_join ~__context ~self in
   if pool_auto_join then begin
-      Db.Host.get_all ~__context |> List.iter (fun host -> Xapi_cluster_host.create_as_necessary ~__context ~host)
+    Db.Host.get_all ~__context |> List.iter (fun host -> Xapi_cluster_host.create_as_necessary ~__context ~host)
   end

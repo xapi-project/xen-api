@@ -57,4 +57,4 @@ let forget ~__context ~self =
   let dbg = Context.string_of_task __context in
   Db.SDN_controller.destroy ~__context ~self;
   if Net.Bridge.get_kind dbg () = Network_interface.Openvswitch then
-      List.iter (fun host -> Helpers.update_vswitch_controller ~__context ~host) (Db.Host.get_all ~__context)
+    List.iter (fun host -> Helpers.update_vswitch_controller ~__context ~host) (Db.Host.get_all ~__context)

@@ -1013,9 +1013,9 @@ let vm_record rpc session_id vm =
         ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_bios_strings)
         ~get_map:(fun () -> (x ()).API.vM_bios_strings)
         ~set_map:(fun x ->
-          List.iter (fun (k, v) -> if not (List.mem k Xapi_globs.settable_vm_bios_string_keys) then
-            raise (Record_util.Record_failure ("Unknown key '"^k^"': expecting " ^ (String.concat ", " Xapi_globs.settable_vm_bios_string_keys)))) x;
-          Client.VM.set_bios_strings rpc session_id vm x) ();
+            List.iter (fun (k, v) -> if not (List.mem k Xapi_globs.settable_vm_bios_string_keys) then
+                          raise (Record_util.Record_failure ("Unknown key '"^k^"': expecting " ^ (String.concat ", " Xapi_globs.settable_vm_bios_string_keys)))) x;
+            Client.VM.set_bios_strings rpc session_id vm x) ();
     ]}
 
 let host_crashdump_record rpc session_id host =
@@ -1800,11 +1800,11 @@ let vgpu_record rpc session_id vgpu =
       make_field ~name:"resident-on" ~get:(fun () -> try get_uuid_from_ref (x ()).API.vGPU_resident_on with _ -> nid) ();
       make_field ~name:"compatibility-metadata"
         ~get:(fun () ->
-          ((x ()).API.vGPU_compatibility_metadata)
-          |> List.map (fun (k,v) -> Printf.sprintf
-            "%s:(%d bytes)" k (String.length v))
-          |> String.concat "; "
-         ) ();
+            ((x ()).API.vGPU_compatibility_metadata)
+            |> List.map (fun (k,v) -> Printf.sprintf
+                            "%s:(%d bytes)" k (String.length v))
+            |> String.concat "; "
+          ) ();
     ]
   }
 
@@ -2034,7 +2034,7 @@ let pusb_record rpc session_id pusb =
       [
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pUSB_uuid) ();
         make_field ~name:"usb-group-uuid"
-        ~get:(fun () -> try get_uuid_from_ref (x ()).API.pUSB_USB_group with _ -> nid) ();
+          ~get:(fun () -> try get_uuid_from_ref (x ()).API.pUSB_USB_group with _ -> nid) ();
         make_field ~name:"host-uuid" ~get:(fun () -> get_uuid_from_ref (x ()).API.pUSB_host) ();
         make_field ~name:"host-name-label" ~get:(fun () -> try get_name_from_ref (x ()).API.pUSB_host with _ -> nid) ();
         make_field ~name:"path" ~get:(fun () -> (x ()).API.pUSB_path) ();

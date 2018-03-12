@@ -35,17 +35,17 @@ let create_vdi ~__context ~sR ~size =
     )
 
 (* Before simply returning the VDI from the DB, check if it actually
-  still exists on disk. The VDI may have gone away if it was on a
-  non-persistent SR (e.g. on a RAM disk). *)
+   still exists on disk. The VDI may have gone away if it was on a
+   non-persistent SR (e.g. on a RAM disk). *)
 let get_vdi ~__context ~self =
   let vdi = Db.PVS_cache_storage.get_VDI ~__context ~self in
   (* If there is already an attached VBD for the VDI, then we assume that all is well. *)
   let vbds = Db.VBD.get_refs_where ~__context ~expr:(
-    And (
-      Eq (Field "VDI", Literal (Ref.string_of vdi)),
-      Eq (Field "currently_attached", Literal "true")
-    )
-  ) in
+      And (
+        Eq (Field "VDI", Literal (Ref.string_of vdi)),
+        Eq (Field "currently_attached", Literal "true")
+      )
+    ) in
   if vbds <> [] then
     Some vdi
   else begin
@@ -53,8 +53,8 @@ let get_vdi ~__context ~self =
        by an actual volume on the SR. *)
     let sr = Db.PVS_cache_storage.get_SR ~__context ~self in
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-      Client.Client.SR.scan ~rpc ~session_id ~sr
-    );
+        Client.Client.SR.scan ~rpc ~session_id ~sr
+      );
     (* If our VDI reference is still valid, then we're good. *)
     if Db.is_valid_ref __context vdi then
       Some vdi

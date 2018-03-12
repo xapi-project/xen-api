@@ -54,8 +54,8 @@ let test_reconfigure_ip ~ipv6 ~session_id ~(self : API.ref_PIF) =
     failed test "PIF.reconfigure_ip should raise clustering_enabled_on_network."
   with
   | Api_errors.(Server_error(code,_)) when code=Api_errors.clustering_enabled_on_network
-      -> debug test (Printf.sprintf "%s raised as expected." Api_errors.clustering_enabled_on_network);
-         success test
+    -> debug test (Printf.sprintf "%s raised as expected." Api_errors.clustering_enabled_on_network);
+    success test
   | Api_errors.(Server_error(_,_)) -> () (* Don't fail on other API errors, only test clustering *)
   | Abort_test s -> failed test s
   | e -> failed test (ExnHelper.string_of_exn e)
@@ -71,22 +71,22 @@ let test session_id =
 
     List.iter
       (fun self ->
-        let clustering =
-          let network = C.PIF.get_network ~session_id ~rpc:!rpc ~self in
-          C.Cluster.get_all ~session_id ~rpc:!rpc
-          |> List.filter
-            (fun cluster -> (C.Cluster.get_network ~session_id ~rpc:!rpc ~self:cluster) = network)
-          |> (fun lst -> not (is_empty lst))
-        in
-        if clustering
-        then begin
-          test_reconfigure_ip ~ipv6:false ~session_id ~self
-          (* IPv6 clusters not yet supported, can run this test once that changes *)
-          (* test_reconfigure_ip ~ipv6:true ~session_id ~self *)
-        end
-        else
-          debug test_all_pifs "No cluster objects on this PIF, skipping tests."
+         let clustering =
+           let network = C.PIF.get_network ~session_id ~rpc:!rpc ~self in
+           C.Cluster.get_all ~session_id ~rpc:!rpc
+           |> List.filter
+             (fun cluster -> (C.Cluster.get_network ~session_id ~rpc:!rpc ~self:cluster) = network)
+           |> (fun lst -> not (is_empty lst))
+         in
+         if clustering
+         then begin
+           test_reconfigure_ip ~ipv6:false ~session_id ~self
+           (* IPv6 clusters not yet supported, can run this test once that changes *)
+           (* test_reconfigure_ip ~ipv6:true ~session_id ~self *)
+         end
+         else
+           debug test_all_pifs "No cluster objects on this PIF, skipping tests."
       ) pifs;
 
-      success test_all_pifs
+    success test_all_pifs
   with e -> failed test_all_pifs (ExnHelper.string_of_exn e)

@@ -116,8 +116,8 @@ let reserve_free_virtual_function ~__context vm pf =
         (* We may still need to load the driver... do that and try again *)
         let pf_host = Db.PCI.get_host ~__context ~self:pf in
         Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.Host.mxgpu_vf_setup rpc session_id pf_host
-        );
+            Client.Client.Host.mxgpu_vf_setup rpc session_id pf_host
+          );
         get false
       end else
         (* This probably means that our capacity checking went wrong! *)
@@ -165,7 +165,7 @@ let vgpu_manual_setup_of_vm vm_r =
 let create_vgpus ~__context host (vm, vm_r) hvm =
   let vgpus = vgpus_of_vm ~__context vm_r in
   if vgpus <> [] && not hvm then
-      raise (Api_errors.Server_error (Api_errors.feature_requires_hvm, ["vGPU- and GPU-passthrough needs HVM"]));
+    raise (Api_errors.Server_error (Api_errors.feature_requires_hvm, ["vGPU- and GPU-passthrough needs HVM"]));
   add_vgpus_to_vm ~__context host vm vgpus (vgpu_manual_setup_of_vm vm_r)
 
 (* This function is called from Xapi_xenops, after forwarding, so possibly on a slave. *)

@@ -38,15 +38,15 @@ let test_update_existing_snapshot () =
   let vdi = make_vdi ~__context ~uuid:vdi_uuid ~location:vdi_uuid ~sR:sr () in
   let vdi_snapshot_uuid = make_uuid () in
   let vdi_snapshot = make_vdi ~__context ~uuid:vdi_snapshot_uuid ~sR:sr
-    ~location:vdi_snapshot_uuid ~snapshot_of:vdi ~is_a_snapshot:true () in
+      ~location:vdi_snapshot_uuid ~snapshot_of:vdi ~is_a_snapshot:true () in
 
   (* create mock snapshot record which we would get from an SR scan *)
   let vdi_snapshot_sr_record = Storage_interface.({ default_vdi_info with
-    vdi = vdi_snapshot_uuid;
-    uuid = Some vdi_snapshot_uuid;
-    is_a_snapshot = true;
-    snapshot_of = vdi_uuid;
-  }) in
+                                                    vdi = vdi_snapshot_uuid;
+                                                    uuid = Some vdi_snapshot_uuid;
+                                                    is_a_snapshot = true;
+                                                    snapshot_of = vdi_uuid;
+                                                  }) in
 
   (* attempt to reproduce the issue by updating the snapshot *)
   let vdi_snapshot_record = Db.VDI.get_record ~__context ~self:vdi_snapshot in
@@ -77,15 +77,15 @@ let test_update_new_vdi_and_snapshot () =
 
   (* create mock VDI/snapshot records which we would get from an SR scan *)
   let vdi_sr_record = Storage_interface.({ default_vdi_info with
-    vdi = vdi_uuid;
-    uuid = Some vdi_uuid;
-  }) in
+                                           vdi = vdi_uuid;
+                                           uuid = Some vdi_uuid;
+                                         }) in
   let vdi_snapshot_sr_record = Storage_interface.({ default_vdi_info with
-    vdi = vdi_snapshot_uuid;
-    uuid = Some vdi_snapshot_uuid;
-    snapshot_of = vdi_uuid;
-    is_a_snapshot = true;
-  }) in
+                                                    vdi = vdi_snapshot_uuid;
+                                                    uuid = Some vdi_snapshot_uuid;
+                                                    snapshot_of = vdi_uuid;
+                                                    is_a_snapshot = true;
+                                                  }) in
 
   (* attempt to reproduce the issue by creating the snapshot before the VDI *)
   Xapi_sr.update_vdis ~__context ~sr [] [vdi_sr_record; vdi_snapshot_sr_record];
@@ -108,10 +108,10 @@ let test_sharable_field_correctly_set =
 
     (* SR.scan returned the correct vdi_info with the up-to-date sharable field *)
     let vdi_sr_record = Storage_interface.({ default_vdi_info with
-      vdi = vdi_uuid;
-      uuid = Some vdi_uuid;
-      sharable = true;
-    }) in
+                                             vdi = vdi_uuid;
+                                             uuid = Some vdi_uuid;
+                                             sharable = true;
+                                           }) in
 
     (* When we call this function from our SR.scan XenAPI call for example, it should
        update the VDI's sharable field to the correct value returned by the
@@ -128,10 +128,10 @@ let test_sharable_field_correctly_set =
     (* We do not have this VDI in xapi's database. SR.scan returned it with the
        correct vdi_info containing the up-to-date sharable field. *)
     let vdi_sr_record = Storage_interface.({ default_vdi_info with
-      vdi = vdi_uuid;
-      uuid = Some vdi_uuid;
-      sharable = true;
-    }) in
+                                             vdi = vdi_uuid;
+                                             uuid = Some vdi_uuid;
+                                             sharable = true;
+                                           }) in
 
     (* When we call this function from our SR.scan XenAPI call for example, it should
        add the VDI to xapi's database with the correct sharable field returned

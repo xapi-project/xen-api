@@ -22,14 +22,14 @@ val ha_redo_log : Redo_log.redo_log
 (** {2 Interface with the low-level HA subsystem} *)
 
 module Monitor :
-  sig
-    (** Control the background HA monitoring thread *)
+sig
+  (** Control the background HA monitoring thread *)
 
-    val plan_out_of_date : bool ref
-    (** Used to explicitly signal that we should replan *)
+  val plan_out_of_date : bool ref
+  (** Used to explicitly signal that we should replan *)
 
-    val stop : unit -> unit
-  end
+  val stop : unit -> unit
+end
 
 val ha_prevent_restarts_for : 'a -> int64 -> unit
 (** Called by MTC in Orlando Update 1 to temporarily block the VM restart thread. *)

@@ -70,10 +70,10 @@ let test_fix_prereq () =
   Alcotest.check_raises "Should fail when checking PIF prequisites"
     (Failure exn)
     (fun () ->
-      try
-        Xapi_cluster_host.fix_pif_prerequisites __context pif
-      with _ ->
-        failwith exn);
+       try
+         Xapi_cluster_host.fix_pif_prerequisites __context pif
+       with _ ->
+         failwith exn);
   Db.PIF.set_IP ~__context ~self:pifref ~value:"1.1.1.1";
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
   Xapi_cluster_host.fix_pif_prerequisites ~__context pif;

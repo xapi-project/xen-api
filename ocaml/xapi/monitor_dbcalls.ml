@@ -83,12 +83,12 @@ let get_pif_and_bond_changes () =
         Hashtbl.add pifs_tmp pif.pif_name pif;
       )
     ) stats;
-    (* Check if any of the PIFs have changed since our last reading. *)
-    let pif_changes = get_updates_values ~before:pifs_cached ~after:pifs_tmp in
-    (* Check if any of the bonds have changed since our last reading. *)
-    let bond_changes = get_updates_map ~before:bonds_links_up_cached ~after:bonds_links_up_tmp in
-    (* Return lists of changes. *)
-    (pif_changes, bond_changes)
+  (* Check if any of the PIFs have changed since our last reading. *)
+  let pif_changes = get_updates_values ~before:pifs_cached ~after:pifs_tmp in
+  (* Check if any of the bonds have changed since our last reading. *)
+  let bond_changes = get_updates_map ~before:bonds_links_up_cached ~after:bonds_links_up_tmp in
+  (* Return lists of changes. *)
+  (pif_changes, bond_changes)
 
 let set_pif_changes ?except () =
   Mutex.execute pifs_cached_m (fun _ ->

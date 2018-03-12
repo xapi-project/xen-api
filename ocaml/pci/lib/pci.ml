@@ -57,8 +57,8 @@ module Pci_access = struct
 
   let devices t =
     let rec list_of_linked_list acc = function
-    | None -> acc
-    | Some d -> list_of_linked_list (d::acc) (getf !@d B.Pci_dev.next) in
+      | None -> acc
+      | Some d -> list_of_linked_list (d::acc) (getf !@d B.Pci_dev.next) in
     list_of_linked_list [] (getf !@t B.Pci_access.devices)
 end
 
@@ -87,42 +87,42 @@ let with_string ?(size=1024) f =
 
 let lookup_class_name pci_access class_id =
   with_string (fun buf size ->
-    B.pci_lookup_name_1_ary pci_access buf size T.Lookup_mode.lookup_class
-      class_id)
+      B.pci_lookup_name_1_ary pci_access buf size T.Lookup_mode.lookup_class
+        class_id)
 
 let lookup_progif_name pci_access class_id progif_id =
   with_string (fun buf size ->
-    B.pci_lookup_name_2_ary pci_access buf size T.Lookup_mode.lookup_progif
-      class_id progif_id)
+      B.pci_lookup_name_2_ary pci_access buf size T.Lookup_mode.lookup_progif
+        class_id progif_id)
 
 let lookup_vendor_name pci_access vendor_id =
   with_string (fun buf size ->
-    B.pci_lookup_name_1_ary pci_access buf size T.Lookup_mode.lookup_vendor
-      vendor_id)
+      B.pci_lookup_name_1_ary pci_access buf size T.Lookup_mode.lookup_vendor
+        vendor_id)
 
 let lookup_device_name pci_access vendor_id device_id =
   with_string (fun buf size ->
-    B.pci_lookup_name_2_ary pci_access buf size T.Lookup_mode.lookup_device
-      vendor_id device_id)
+      B.pci_lookup_name_2_ary pci_access buf size T.Lookup_mode.lookup_device
+        vendor_id device_id)
 
 let lookup_subsystem_vendor_name pci_access subv_id =
   with_string (fun buf size ->
-    let lookup_flags = T.Lookup_mode.([ lookup_subsystem; lookup_vendor ]) in
-    B.pci_lookup_name_1_ary pci_access buf size (crush_flags id lookup_flags)
-      subv_id)
+      let lookup_flags = T.Lookup_mode.([ lookup_subsystem; lookup_vendor ]) in
+      B.pci_lookup_name_1_ary pci_access buf size (crush_flags id lookup_flags)
+        subv_id)
 
 let lookup_subsystem_device_name pci_access vendor_id device_id subv_id subd_id =
   with_string (fun buf size ->
-    let lookup_flags = T.Lookup_mode.([ lookup_subsystem; lookup_device ]) in
-    B.pci_lookup_name_4_ary pci_access buf size (crush_flags id lookup_flags)
-      vendor_id device_id subv_id subd_id)
+      let lookup_flags = T.Lookup_mode.([ lookup_subsystem; lookup_device ]) in
+      B.pci_lookup_name_4_ary pci_access buf size (crush_flags id lookup_flags)
+        vendor_id device_id subv_id subd_id)
 
 let with_access ?(cleanup=true) ?from_dump f =
   let pci_access = B.pci_alloc () in
   maybe (fun path ->
-    setf !@pci_access B.Pci_access.method_ T.Access_type.dump;
-    ignore @@ B.pci_set_param pci_access "dump.name" path;
-  ) from_dump;
+      setf !@pci_access B.Pci_access.method_ T.Access_type.dump;
+      ignore @@ B.pci_set_param pci_access "dump.name" path;
+    ) from_dump;
   B.pci_init pci_access;
   if not cleanup then f pci_access
   else
@@ -140,7 +140,7 @@ let get_devices pci_access =
   let devs = Pci_access.devices pci_access in
   (* Be sure to fill all the fields that can be accessed from a Pci_dev.t *)
   let fill_flags = T.Fill_flag.([
-    fill_ident; fill_irq; fill_bases; fill_rom_base; fill_sizes; fill_class;
-    fill_caps; fill_ext_caps; fill_phys_slot; fill_module_alias; ]) in
+      fill_ident; fill_irq; fill_bases; fill_rom_base; fill_sizes; fill_class;
+      fill_caps; fill_ext_caps; fill_phys_slot; fill_module_alias; ]) in
   let flags = crush_flags id fill_flags in
   List.map (fun d -> let (_: int) = B.pci_fill_info d flags in Pci_dev.make d) devs

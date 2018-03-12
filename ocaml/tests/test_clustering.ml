@@ -229,11 +229,11 @@ let nest_with_clustering_lock_if_needed ~__context ~timeout ~type1 ~type2 ~on_de
     ~otherwise: on_deadlock
     (fun () ->
        Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type1
-        (fun () ->
-          Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type2
-          (fun () -> on_no_deadlock ()
-          )
-        )
+         (fun () ->
+            Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type2
+              (fun () -> on_no_deadlock ()
+              )
+         )
     )
 
 let test_clustering_lock_only_taken_if_needed_nested_calls () =
@@ -279,10 +279,10 @@ let test_assert_pif_prerequisites () =
     "test_assert_pif_prerequisites should fail at first"
     (Failure exn)
     (fun () ->
-      try
-        Xapi_clustering.assert_pif_prerequisites pif
-      with _ ->
-        failwith exn);
+       try
+         Xapi_clustering.assert_pif_prerequisites pif
+       with _ ->
+         failwith exn);
   (* Put in IPv4 info *)
   Db.PIF.set_IP ~__context ~self:pifref ~value:"1.1.1.1";
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
@@ -290,20 +290,20 @@ let test_assert_pif_prerequisites () =
     "test_assert_pif_prerequisites should fail after setting IPv4 info"
     (Failure exn)
     (fun () ->
-      try
-        Xapi_clustering.assert_pif_prerequisites pif
-      with _ ->
-        failwith exn);
+       try
+         Xapi_clustering.assert_pif_prerequisites pif
+       with _ ->
+         failwith exn);
   Db.PIF.set_currently_attached ~__context ~self:pifref ~value:true;
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
   Alcotest.check_raises
     "test_assert_pif_prerequisites should fail after setting attached:true"
     (Failure exn)
     (fun () ->
-      try
-        Xapi_clustering.assert_pif_prerequisites pif
-      with _ ->
-        failwith exn);
+       try
+         Xapi_clustering.assert_pif_prerequisites pif
+       with _ ->
+         failwith exn);
   Db.PIF.set_disallow_unplug ~__context ~self:pifref ~value:true;
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
   Alcotest.(check unit)
@@ -376,10 +376,10 @@ let test_disallow_unplug_ro_with_clustering_enabled =
 
 let test =
   ( test_get_required_cluster_stacks
-  @ test_find_cluster_host
-  @ test_assert_cluster_host_enabled
-  @ test_assert_cluster_host_is_enabled_for_matching_sms
-  @ test_clustering_lock_only_taken_if_needed
-  @ test_assert_pif_prerequisites
-  @ test_disallow_unplug_ro_with_clustering_enabled
+    @ test_find_cluster_host
+    @ test_assert_cluster_host_enabled
+    @ test_assert_cluster_host_is_enabled_for_matching_sms
+    @ test_clustering_lock_only_taken_if_needed
+    @ test_assert_pif_prerequisites
+    @ test_disallow_unplug_ro_with_clustering_enabled
   )

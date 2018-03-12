@@ -682,18 +682,18 @@ end
 
 module Host_metrics = struct
 
-let host_metrics_memory =
-  let field = field ~ty:Int in
-  [
-    field ~qualifier:DynamicRO "total" "Total host memory (bytes)" ~doc_tags:[Memory];
-    field "free" "Free host memory (bytes)"
-      ~lifecycle:
-        [ Deprecated, rel_midnight_ride, "Will be disabled in favour of RRD"
-        ; Removed, rel_tampa, "Disabled in favour of RRD"
-        ]
-      ~qualifier:DynamicRO
-      ~doc_tags:[Memory];
-  ]
+  let host_metrics_memory =
+    let field = field ~ty:Int in
+    [
+      field ~qualifier:DynamicRO "total" "Total host memory (bytes)" ~doc_tags:[Memory];
+      field "free" "Free host memory (bytes)"
+        ~lifecycle:
+          [ Deprecated, rel_midnight_ride, "Will be disabled in favour of RRD"
+          ; Removed, rel_tampa, "Disabled in favour of RRD"
+          ]
+        ~qualifier:DynamicRO
+        ~doc_tags:[Memory];
+    ]
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host_metrics ~descr:"The metrics associated with a host" ~gen_events:true
@@ -955,16 +955,16 @@ module PIF = struct
       ()
 
   let set_disallow_unplug = call
-    ~name:"set_disallow_unplug"
-    ~doc:"Set whether unplugging the PIF is allowed"
-    ~hide_from_docs:false
-    ~in_oss_since:None
-    ~in_product_since:rel_orlando
-    ~params: [ Ref _pif, "self", "Reference to the object"
-             ; Bool, "value", "New value to set" ]
-    ~allowed_roles:_R_POOL_OP
-    ~errs:[Api_errors.clustering_enabled_on_network]
-    ()
+      ~name:"set_disallow_unplug"
+      ~doc:"Set whether unplugging the PIF is allowed"
+      ~hide_from_docs:false
+      ~in_oss_since:None
+      ~in_product_since:rel_orlando
+      ~params: [ Ref _pif, "self", "Reference to the object"
+               ; Bool, "value", "New value to set" ]
+      ~allowed_roles:_R_POOL_OP
+      ~errs:[Api_errors.clustering_enabled_on_network]
+      ()
 
   let ip_configuration_mode = Enum ("ip_configuration_mode",
                                     [ "None", "Do not acquire an IP address";
@@ -2864,16 +2864,16 @@ module VBD = struct
       ()
 
   let set_mode = call
-    ~name:"set_mode"
-    ~in_product_since:rel_rio
-    ~doc:"Sets the mode of the VBD. The power_state of the VM must be halted."
-    ~params:[
-      Ref _vbd, "self", "Reference to the object";
-      mode, "value", "New value to set";
-    ]
-    ~in_oss_since:None
-    ~allowed_roles:_R_VM_ADMIN
-    ()
+      ~name:"set_mode"
+      ~in_product_since:rel_rio
+      ~doc:"Sets the mode of the VBD. The power_state of the VM must be halted."
+      ~params:[
+        Ref _vbd, "self", "Reference to the object";
+        mode, "value", "New value to set";
+      ]
+      ~in_oss_since:None
+      ~allowed_roles:_R_VM_ADMIN
+      ()
 
   (** A virtual disk interface *)
   let t =
@@ -3250,7 +3250,7 @@ module VM_metrics = struct
         ; field ~lifecycle:[Published, rel_jura, ""] ~default_value:(Some (VEnum "unspecified"))
             ~ty:Datamodel_vm.domain_type ~qualifier:DynamicRO
             "current_domain_type" "The current domain type of the VM (for running,\
-             suspended, or paused VMs). The last-known domain type for halted VMs."
+                                   suspended, or paused VMs). The last-known domain type for halted VMs."
         ]
       ()
 end

@@ -173,6 +173,6 @@ let of_assoc_list l =
    * and the implementation looks readable and fairly self-contained.
    * Do not use this pattern for lists that can be long. *)
   List.fold_right (fun f acc ->
-    match get_feature f with
-    | Some v -> v :: acc
-    | None -> acc) all_features []
+      match get_feature f with
+      | Some v -> v :: acc
+      | None -> acc) all_features []

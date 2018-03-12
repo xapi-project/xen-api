@@ -460,12 +460,12 @@ let update_tools_sr_pbd_device_config = {
   fn = fun ~__context ->
     let tools_srs = List.filter (fun self -> Db.SR.get_is_tools_sr ~__context ~self) (Db.SR.get_all ~__context) in
     begin match tools_srs with
-    | sr :: others ->
-      (* Let there be only one Tools SR *)
-      List.iter (fun self -> Db.SR.destroy ~__context ~self) others;
-      Db.SR.get_PBDs ~__context ~self:sr
-      |> List.iter (fun self -> Db.PBD.set_device_config ~__context ~self ~value:Xapi_globs.tools_sr_pbd_device_config)
-    | [] -> () (* Do nothing - dbsync_master creates new tools SR *)
+      | sr :: others ->
+        (* Let there be only one Tools SR *)
+        List.iter (fun self -> Db.SR.destroy ~__context ~self) others;
+        Db.SR.get_PBDs ~__context ~self:sr
+        |> List.iter (fun self -> Db.PBD.set_device_config ~__context ~self ~value:Xapi_globs.tools_sr_pbd_device_config)
+      | [] -> () (* Do nothing - dbsync_master creates new tools SR *)
     end
 }
 
@@ -528,22 +528,22 @@ let upgrade_domain_type = {
   fn = fun ~__context ->
     List.iter
       (fun (vm, vmr) ->
-        if vmr.API.vM_domain_type = `unspecified then begin
-          let domain_type =
-            if Helpers.is_domain_zero_with_record ~__context vm vmr then
-              Xapi_globs.domain_zero_domain_type
-            else
-              Xapi_vm_helpers.derive_domain_type
-                ~hVM_boot_policy:vmr.API.vM_HVM_boot_policy
-          in
-          Db.VM.set_domain_type ~__context ~self:vm ~value:domain_type;
-          if vmr.API.vM_power_state <> `Halted then begin
-            let metrics = vmr.API.vM_metrics in
-            (* This is not _always_ correct - if you've changed HVM_boot_policy on a suspended VM
-               we'll calculate incorrectly here. This should be a vanishingly small probability though! *)
-            Db.VM_metrics.set_current_domain_type ~__context ~self:metrics ~value:domain_type
-          end
-        end
+         if vmr.API.vM_domain_type = `unspecified then begin
+           let domain_type =
+             if Helpers.is_domain_zero_with_record ~__context vm vmr then
+               Xapi_globs.domain_zero_domain_type
+             else
+               Xapi_vm_helpers.derive_domain_type
+                 ~hVM_boot_policy:vmr.API.vM_HVM_boot_policy
+           in
+           Db.VM.set_domain_type ~__context ~self:vm ~value:domain_type;
+           if vmr.API.vM_power_state <> `Halted then begin
+             let metrics = vmr.API.vM_metrics in
+             (* This is not _always_ correct - if you've changed HVM_boot_policy on a suspended VM
+                we'll calculate incorrectly here. This should be a vanishingly small probability though! *)
+             Db.VM_metrics.set_current_domain_type ~__context ~self:metrics ~value:domain_type
+           end
+         end
       )
       (Db.VM.get_all_records ~__context)
 }

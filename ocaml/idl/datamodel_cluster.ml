@@ -18,9 +18,9 @@ let cluster_operation =
 let lifecycle = [Prototyped, rel_kolkata, ""]
 
 let timeout_params = [
-    {param_type=Float; param_name="token_timeout"; param_doc="Corosync token timeout in seconds"; param_release=kolkata_release; param_default=Some(VFloat Constants.default_token_timeout_s)};
-    {param_type=Float; param_name="token_timeout_coefficient"; param_doc="Corosync token timeout coefficient in seconds"; param_release=kolkata_release; param_default=Some(VFloat Constants.default_token_timeout_coefficient_s)};
-  ]
+  {param_type=Float; param_name="token_timeout"; param_doc="Corosync token timeout in seconds"; param_release=kolkata_release; param_default=Some(VFloat Constants.default_token_timeout_s)};
+  {param_type=Float; param_name="token_timeout_coefficient"; param_doc="Corosync token timeout coefficient in seconds"; param_release=kolkata_release; param_default=Some(VFloat Constants.default_token_timeout_coefficient_s)};
+]
 
 
 let create = call
@@ -28,10 +28,10 @@ let create = call
     ~doc:"Creates a Cluster object and one Cluster_host object as its first member"
     ~result:(Ref _cluster, "the new Cluster")
     ~versioned_params:
-            ([{param_type=Ref _network; param_name="network"; param_doc="the single network on which corosync carries out its inter-host communications"; param_release=kolkata_release; param_default=None};
-             {param_type=String; param_name="cluster_stack"; param_doc="simply the string 'corosync'. No other cluster stacks are currently supported"; param_release=kolkata_release; param_default=None};
-             {param_type=Bool; param_name="pool_auto_join"; param_doc="true if xapi is automatically joining new pool members to the cluster"; param_release=kolkata_release; param_default=None};
-      ] @timeout_params)
+      ([{param_type=Ref _network; param_name="network"; param_doc="the single network on which corosync carries out its inter-host communications"; param_release=kolkata_release; param_default=None};
+        {param_type=String; param_name="cluster_stack"; param_doc="simply the string 'corosync'. No other cluster stacks are currently supported"; param_release=kolkata_release; param_default=None};
+        {param_type=Bool; param_name="pool_auto_join"; param_doc="true if xapi is automatically joining new pool members to the cluster"; param_release=kolkata_release; param_default=None};
+       ] @timeout_params)
     ~lifecycle
     ~allowed_roles:_R_POOL_ADMIN
     ()
@@ -51,9 +51,9 @@ let pool_create = call
     ~doc:"Attempt to create a Cluster from the entire pool"
     ~result:(Ref _cluster, "the new Cluster")
     ~versioned_params:
-            ([{param_type=Ref _network; param_name="network"; param_doc="the single network on which corosync carries out its inter-host communications"; param_release=kolkata_release; param_default=None};
-             {param_type=String; param_name="cluster_stack"; param_doc="simply the string 'corosync'. No other cluster stacks are currently supported"; param_release=kolkata_release; param_default=None};
-      ] @ timeout_params)
+      ([{param_type=Ref _network; param_name="network"; param_doc="the single network on which corosync carries out its inter-host communications"; param_release=kolkata_release; param_default=None};
+        {param_type=String; param_name="cluster_stack"; param_doc="simply the string 'corosync'. No other cluster stacks are currently supported"; param_release=kolkata_release; param_default=None};
+       ] @ timeout_params)
     ~lifecycle
     ~allowed_roles:_R_POOL_ADMIN
     ()
@@ -79,12 +79,12 @@ let pool_destroy = call
     ()
 
 let pool_resync = call
-  ~name:"pool_resync"
-  ~doc:"Resynchronise the cluster_host objects across the pool. Creates them where they need creating and then plugs them"
-  ~params:[ Ref _cluster, "self", "The cluster to resync"]
-  ~lifecycle
-  ~allowed_roles:_R_POOL_ADMIN
-  ()
+    ~name:"pool_resync"
+    ~doc:"Resynchronise the cluster_host objects across the pool. Creates them where they need creating and then plugs them"
+    ~params:[ Ref _cluster, "self", "The cluster to resync"]
+    ~lifecycle
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
 
 let t =
   create_obj
@@ -119,15 +119,15 @@ let t =
 
       ] @ (allowed_and_current_operations cluster_operation) @ [
 
-       field   ~qualifier:StaticRO ~lifecycle
+        field   ~qualifier:StaticRO ~lifecycle
           ~ty:Bool "pool_auto_join" ~default_value:(Some (VBool true))
           "True if xapi is automatically joining new pool members to the cluster. This will be `true` in the first release"
 
-     ; field   ~qualifier:StaticRO ~lifecycle
+      ; field   ~qualifier:StaticRO ~lifecycle
           ~ty:Int "token_timeout" ~default_value:(Some (VInt 20000L))
           "The corosync token timeout in ms"
 
-     ; field   ~qualifier:StaticRO ~lifecycle
+      ; field   ~qualifier:StaticRO ~lifecycle
           ~ty:Int "token_timeout_coefficient" ~default_value:(Some (VInt 1000L))
           "The corosync token timeout coefficient in ms"
 

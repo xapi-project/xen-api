@@ -70,11 +70,11 @@ let update_allowed_operations ~__context ~self =
   let allowed = List.fold_left check [] all_cluster_operations in
   (* TODO: check if we need RPU-related checks here for restricting allowed_operations
      based on if an RPU is in progress...
-  let allowed =
-    if Helpers.rolling_upgrade_in_progress ~__context
-    then Listext.List.intersect allowed Xapi_globs.rpu_allowed_cluster_host_operations
-    else allowed
-  in *)
+     let allowed =
+     if Helpers.rolling_upgrade_in_progress ~__context
+     then Listext.List.intersect allowed Xapi_globs.rpu_allowed_cluster_host_operations
+     else allowed
+     in *)
   Db.Cluster.set_allowed_operations ~__context ~self ~value:allowed
 
 (** Add to the cluster host's current_operations, call a function and then remove from the

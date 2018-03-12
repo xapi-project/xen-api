@@ -46,10 +46,10 @@ let restart_stunnel_nomutex ~__context ~accept =
     else []
   in
   let xapissl_args = List.concat
-  [ [ "restart"; accept ]
-  ; back_compat ~__context
-  ; ["permfile=" ^ !Xapi_globs.server_cert_path]
-  ] in
+      [ [ "restart"; accept ]
+      ; back_compat ~__context
+      ; ["permfile=" ^ !Xapi_globs.server_cert_path]
+      ] in
   let (_ : Thread.t) = Thread.create (fun () ->
       Mutex.execute management_m (fun () ->
           Forkhelpers.execute_command_get_output !Xapi_globs.xapissl_path xapissl_args

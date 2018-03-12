@@ -22,7 +22,7 @@ let vmss_snapshot_other_config_show_in_xencenter = "ShowInXenCenter"
 let vmss_snapshot_other_config_applies_to = "applies_to"
 
 let assert_licensed ~__context =
-	Pool_features.assert_enabled ~__context ~f:Features.VMSS
+  Pool_features.assert_enabled ~__context ~f:Features.VMSS
 
 (* Create VM snapshots just after creating a VMSS *)
 let snapshot_now ~__context ~vmss =
@@ -55,10 +55,10 @@ let schedule_frequency_weekly_keys = schedule_field,[schedule_frequency_weekly,[
 
 (* look-up structures, contain allowed map keys in a specific map type *)
 let schedule_keys = schedule_field, (List.map
-  (function (f,[k]) -> k
-    | _ -> assert false
-  )
-  [schedule_frequency_hourly_keys;schedule_frequency_daily_keys;schedule_frequency_weekly_keys])
+                                       (function (f,[k]) -> k
+                                               | _ -> assert false
+                                       )
+                                       [schedule_frequency_hourly_keys;schedule_frequency_daily_keys;schedule_frequency_weekly_keys])
 
 (* look-up structures, contain allowed map keys in all map types *)
 let schedule_all_keys = schedule_field,["",(List.fold_left (fun acc (sf,ks)->acc@ks) [] (let (f,kss)=schedule_keys in kss))]
@@ -72,8 +72,8 @@ let assert_set_frequency ~frequency ~schedule=
 let assert_retained_snapshots ~retained_snapshots =
   let value = retained_snapshots in
   (if (value < 1L) || (value > 10L)
-  then
-    err "retained_snapshots" "" (Printf.sprintf "%Li" value)
+   then
+     err "retained_snapshots" "" (Printf.sprintf "%Li" value)
   )
 
 let set_frequency ~__context ~self ~value =
@@ -96,8 +96,8 @@ let set_type ~__context ~self ~value =
     Pool_features.assert_enabled ~__context ~f:Features.VSS;
     Db.VMSS.get_VMs ~__context ~self
     |> List.iter (fun vm ->
-       Xapi_vm_helpers.assert_vm_supports_quiesce_snapshot ~__context ~self:vm
-    )
+        Xapi_vm_helpers.assert_vm_supports_quiesce_snapshot ~__context ~self:vm
+      )
   end;
   Db.VMSS.set_type ~__context ~self ~value
 
@@ -133,7 +133,7 @@ let set_retained_snapshots ~__context ~self ~value =
 (* VMSS constructors/destructors *)
 
 let create ~__context ~name_label ~name_description ~enabled
-  ~_type ~retained_snapshots ~frequency ~schedule
+    ~_type ~retained_snapshots ~frequency ~schedule
   : API.ref_VMSS =
 
   assert_licensed ~__context;
@@ -157,8 +157,8 @@ let create ~__context ~name_label ~name_description ~enabled
 let destroy_all_messages ~__context ~self =
   let uuid = Db.VMSS.get_uuid ~__context ~self in
   Xapi_message.get_all_records ~__context
-    |> List.filter (fun (_, record) -> record.API.message_obj_uuid = uuid)
-    |> List.iter (fun (ref, _) -> Xapi_message.destroy ~__context ~self:ref)
+  |> List.filter (fun (_, record) -> record.API.message_obj_uuid = uuid)
+  |> List.iter (fun (ref, _) -> Xapi_message.destroy ~__context ~self:ref)
 
 let destroy ~__context ~self =
   assert_licensed ~__context;
@@ -176,9 +176,9 @@ let destroy ~__context ~self =
 let is_vmss_snapshot ~__context =
   try
     (let session = Xapi_session.get_top ~__context ~self:(Context.get_session_id __context) in
-    let uname = Db.Session.get_auth_user_name ~__context ~self:session in
-    let is_lsu = Db.Session.get_is_local_superuser ~__context ~self:session in
-    is_lsu && (uname = vmss_username)
+     let uname = Db.Session.get_auth_user_name ~__context ~self:session in
+     let is_lsu = Db.Session.get_is_local_superuser ~__context ~self:session in
+     is_lsu && (uname = vmss_username)
     )
   with e ->
     debug "Error obtaining is_vmss_snapshot: %s" (Printexc.to_string e);
@@ -191,7 +191,7 @@ let show_task_in_xencenter ~__context ~vm =
       try
         debug "show_in_xencenter: task=%s" (Ref.string_of task);
         (* this key is used to make sure the snapshotting task *)
-	(* is seen from all xencenter clients *)
+        (* is seen from all xencenter clients *)
         Db.Task.add_to_other_config ~__context ~self:task
           ~key:vmss_snapshot_other_config_show_in_xencenter
           ~value:"";
@@ -200,6 +200,6 @@ let show_task_in_xencenter ~__context ~vm =
           ~value:(Ref.string_of vm)
       with e->
         debug "Error adding other_config:show_in_xencenter to task %s: %s"
-        (Ref.string_of task) (Printexc.to_string e)
+          (Ref.string_of task) (Printexc.to_string e)
     )
 

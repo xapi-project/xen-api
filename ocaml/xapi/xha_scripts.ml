@@ -67,11 +67,11 @@ let can_unplug_statefile_pbd () =
      However during shutdown we stop the daemon, so querying the liveset should fail with daemon not running *)
   match call_script ~log_successful_output:false ha_query_liveset [] with
   | exception Xha_error Xha_errno.Mtc_exit_daemon_is_not_present ->
-     info "HA daemon not running: safe to unplug statefile PBD";
-     true
+    info "HA daemon not running: safe to unplug statefile PBD";
+    true
   | exception e  ->
-     info "Caught exception querying liveset; assuming it is not safe to unplug: %s" (ExnHelper.string_of_exn e);
-     false
+    info "Caught exception querying liveset; assuming it is not safe to unplug: %s" (ExnHelper.string_of_exn e);
+    false
   | _ ->
-     info "HA daemon still running or in unknown state: assuming it is not safe to unplug";
-     false
+    info "HA daemon still running or in unknown state: assuming it is not safe to unplug";
+    false

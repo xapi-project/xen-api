@@ -238,17 +238,17 @@ let validate_basic_parameters ~__context ~self ~snapshot:x =
 let assert_vm_supports_quiesce_snapshot ~__context ~self =
   let vmr = Db.VM.get_record_internal ~__context ~self in
   if List.exists ( fun vbd ->
-    try
-      let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-      let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
-      Xapi_vm_lifecycle.assoc_opt "on_boot" sm_config = Some "reset"
-    with _ -> false
-  ) vmr.Db_actions.vM_VBDs then
+      try
+        let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+        let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
+        Xapi_vm_lifecycle.assoc_opt "on_boot" sm_config = Some "reset"
+      with _ -> false
+    ) vmr.Db_actions.vM_VBDs then
     raise (Api_errors.Server_error(Api_errors.vdi_on_boot_mode_incompatible_with_operation, [ ]));
 
   let vmgmr = Xapi_vm_lifecycle.maybe_get_guest_metrics ~__context ~ref:(vmr.Db_actions.vM_guest_metrics) in
   if not ((Xapi_vm_lifecycle.has_feature ~vmgmr ~feature:"feature-snapshot") ||
-    (Xapi_vm_lifecycle.has_feature ~vmgmr ~feature:"feature-quiesce")) then
+          (Xapi_vm_lifecycle.has_feature ~vmgmr ~feature:"feature-quiesce")) then
     raise (Api_errors.Server_error(Api_errors.vm_snapshot_with_quiesce_not_supported, [ Ref.string_of self ]))
 
 let assert_hardware_platform_support ~__context ~vm ~host =
@@ -397,16 +397,16 @@ let assert_gpus_available ~__context ~self ~host =
 let assert_usbs_available ~__context ~self ~host =
   Db.VM.get_VUSBs ~__context ~self
   |> List.iter (fun vusb ->
-    try
-      let usb_group = Db.VUSB.get_USB_group ~__context ~self:vusb in
-      let pusb = List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group) in
-      let usb_host = Db.PUSB.get_host ~__context ~self:pusb in
-      assert (usb_host = host)
-    with _ -> raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
-      [Printf.sprintf "VUSB %s is not available on Host %s"
-        (Ref.string_of vusb)
-        (Ref.string_of host)
-      ]))
+      try
+        let usb_group = Db.VUSB.get_USB_group ~__context ~self:vusb in
+        let pusb = List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group) in
+        let usb_host = Db.PUSB.get_host ~__context ~self:pusb in
+        assert (usb_host = host)
+      with _ -> raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
+                                                [Printf.sprintf "VUSB %s is not available on Host %s"
+                                                   (Ref.string_of vusb)
+                                                   (Ref.string_of host)
+                                                ]))
     )
 
 let assert_host_supports_hvm ~__context ~self ~host =
@@ -446,9 +446,9 @@ let assert_enough_memory_available ~__context ~self ~host ~snapshot =
 let assert_matches_control_domain_affinity ~__context ~self ~host =
   if Db.VM.get_is_control_domain ~__context ~self then
     match Db.VM.get_affinity ~__context ~self with
-     | x when x = Ref.null || x = host -> ()
-     | _ -> raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
-             ["Cannot boot a control domain on a host different from its affinity"]))
+    | x when x = Ref.null || x = host -> ()
+    | _ -> raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
+                                           ["Cannot boot a control domain on a host different from its affinity"]))
 
 (** Checks to see if a VM can boot on a particular host, throws an error if not.
  * Criteria:
@@ -490,9 +490,9 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(
   assert_gpus_available ~__context ~self ~host;
   assert_usbs_available ~__context ~self ~host;
   begin match Helpers.domain_type ~__context ~self with
-  | `hvm | `pv_in_pvh ->
-    assert_host_supports_hvm ~__context ~self ~host
-  | `pv -> ()
+    | `hvm | `pv_in_pvh ->
+      assert_host_supports_hvm ~__context ~self ~host
+    | `pv -> ()
   end;
   if do_memory_check then
     assert_enough_memory_available ~__context ~self ~host ~snapshot;
@@ -614,8 +614,8 @@ let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
     try let _ = List.find (fun s -> snd s = `evacuate) (Db.Host.get_current_operations ~__context ~self:host) in false with _ -> true
   in
   try host_has_proper_version ()
-    && (is_control_domain || host_enabled ()) (*CA-233580: allow control domains to start on a disabled host*)
-    && host_live () && host_can_run_vm () && host_evacuate_in_progress
+      && (is_control_domain || host_enabled ()) (*CA-233580: allow control domains to start on a disabled host*)
+      && host_live () && host_can_run_vm () && host_evacuate_in_progress
   with _ -> false
 
 
@@ -717,9 +717,9 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
             | ["WLB"; "0.0"; rec_id; zero_reason] ->
               filter_and_convert tl
             | ["WLB"; stars; rec_id] ->
-                let st = try float_of_string stars with Failure _ -> raise Float_of_string_failure
-                in
-                (h, st, rec_id) :: filter_and_convert tl
+              let st = try float_of_string stars with Failure _ -> raise Float_of_string_failure
+              in
+              (h, st, rec_id) :: filter_and_convert tl
             | _ -> filter_and_convert tl
           end
         | [] -> []
@@ -1021,20 +1021,20 @@ let assert_valid_bios_strings ~__context ~value =
   (* Validate size of value provided is within bios_string_limit_size and not empty *)
   (* Validate value chars are printable ASCII characters *)
   value |> List.iter (fun (k, v) ->
-    if not (List.mem k Xapi_globs.settable_vm_bios_string_keys) then
-      raise (Api_errors.Server_error(Api_errors.invalid_value, [k; "Unknown key"]));
-    match String.length v with
-    | 0 -> raise (Api_errors.Server_error(Api_errors.invalid_value, [k; "Value provided is empty"]))
-    | len when len > Xapi_globs.bios_string_limit_size ->
-      let err = Printf.sprintf "%s has length more than %d characters" v Xapi_globs.bios_string_limit_size in
-      raise (Api_errors.Server_error(Api_errors.invalid_value, [k; err]))
-    | _ ->
-      String.iter
-        (fun c ->
-          if c < (Char.chr 32) || c >= (Char.chr 127) then
-            raise (Api_errors.Server_error(Api_errors.invalid_value, [k; v ^ " has non-printable ASCII characters"]))
-        ) v
-  )
+      if not (List.mem k Xapi_globs.settable_vm_bios_string_keys) then
+        raise (Api_errors.Server_error(Api_errors.invalid_value, [k; "Unknown key"]));
+      match String.length v with
+      | 0 -> raise (Api_errors.Server_error(Api_errors.invalid_value, [k; "Value provided is empty"]))
+      | len when len > Xapi_globs.bios_string_limit_size ->
+        let err = Printf.sprintf "%s has length more than %d characters" v Xapi_globs.bios_string_limit_size in
+        raise (Api_errors.Server_error(Api_errors.invalid_value, [k; err]))
+      | _ ->
+        String.iter
+          (fun c ->
+             if c < (Char.chr 32) || c >= (Char.chr 127) then
+               raise (Api_errors.Server_error(Api_errors.invalid_value, [k; v ^ " has non-printable ASCII characters"]))
+          ) v
+    )
 
 let copy_bios_strings ~__context ~vm ~host =
   (* only allow to fill in BIOS strings if they are not yet set *)

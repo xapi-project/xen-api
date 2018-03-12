@@ -94,10 +94,10 @@ let t =
 
       (* TODO: add `live` member to represent whether corosync believes that this
                cluster host actually is enabled *)
-      
+
       ] @ (allowed_and_current_operations cluster_host_operation) @ [
 
-       field   ~qualifier:StaticRO ~lifecycle
+        field   ~qualifier:StaticRO ~lifecycle
           ~ty:(Map(String, String)) "other_config" ~default_value:(Some (VMap []))
           "Additional configuration"
       ])

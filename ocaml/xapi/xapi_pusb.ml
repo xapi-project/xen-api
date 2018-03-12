@@ -20,7 +20,7 @@ module D = Debug.Make(struct let name="xapi" end)
 open D
 
 let create ~__context ~uSB_group ~host ~other_config ~path
-      ~vendor_id ~vendor_desc ~product_id ~product_desc ~serial ~version ~description =
+    ~vendor_id ~vendor_desc ~product_id ~product_desc ~serial ~version ~description =
   let pusb = Ref.make () and uuid = Uuid.make_uuid () in
   let host = Helpers.get_localhost ~__context in
   Db.PUSB.create ~__context ~ref:pusb ~uuid:(Uuid.to_string uuid)
@@ -46,18 +46,18 @@ let scan_start ~__context usbs =
   let local_usb_set = get_local_usb usbs in
   (* Create the newly added pusbs *)
   USBSet.iter (fun s -> let self = create ~__context ~uSB_group:(Ref.null) ~host ~other_config:[] ~path:s.USB.path ~vendor_id:s.USB.vendor_id
-                   ~vendor_desc:s.USB.vendor_desc ~product_id:s.USB.product_id ~product_desc:s.USB.product_desc ~serial:s.USB.serial
-                   ~version:s.USB.version ~description:s.USB.description in
-               let group = Xapi_pusb_helpers.find_or_create ~__context self in
-               Db.PUSB.set_USB_group ~__context ~self ~value:group
-  ) (USBSet.diff local_usb_set known_usb_set);
+                            ~vendor_desc:s.USB.vendor_desc ~product_id:s.USB.product_id ~product_desc:s.USB.product_desc ~serial:s.USB.serial
+                            ~version:s.USB.version ~description:s.USB.description in
+                let group = Xapi_pusb_helpers.find_or_create ~__context self in
+                Db.PUSB.set_USB_group ~__context ~self ~value:group
+              ) (USBSet.diff local_usb_set known_usb_set);
 
   List.filter (fun (rf, rc) -> USBSet.mem (extract_known_usb_info rc) (USBSet.diff known_usb_set local_usb_set)) known_pusbs_in_db
   |> List.iter (fun (self, _) ->
-                  try
-                    Xapi_pusb_helpers.destroy_pusb ~__context self;
-                  with e -> error "Caught exception while removing PUSB %s: %s" (Ref.string_of self) (Printexc.to_string e);
-                )
+      try
+        Xapi_pusb_helpers.destroy_pusb ~__context self;
+      with e -> error "Caught exception while removing PUSB %s: %s" (Ref.string_of self) (Printexc.to_string e);
+    )
 
 let cond = Condition.create ()
 let mutex = Mutex.create ()
@@ -103,57 +103,57 @@ let get_sm_usb_path ~__context vdi =
 
 let set_passthrough_enabled ~__context ~self ~value =
   Mutex.execute mutex (fun () ->
-    match value with
-     | true ->
-       (* Remove the vdi records which 'usb_path' in sm-config has the
-          same value with the field 'path' in PUSB. *)
-       let pusb_path = Db.PUSB.get_path ~__context ~self in
-       let udev_srs = Db.SR.get_refs_where ~__context ~expr:(Eq(Field "type", Literal "udev")) in
-       List.iter (fun sr ->
-         Db.VDI.get_refs_where ~__context ~expr:(Eq(Field "SR", Literal (Ref.string_of sr))) |>
-           List.iter (fun rf ->
-             try
-               if (get_sm_usb_path ~__context rf) = pusb_path then begin
-                 let vbds = Db.VDI.get_VBDs ~__context ~self:rf in
-                 if vbds <> [] then
-                   raise (Api_errors.Server_error(Api_errors.pusb_vdi_conflict, [ Ref.string_of self; Ref.string_of rf ]));
-                 Xapi_vdi.forget ~__context ~vdi:rf
-               end;
-             with e ->
-               debug "Caught failure during remove vdi records.";
-               raise e
-             )
-       ) udev_srs;
-       debug "set passthrough_enabled %b" value;
-       Db.PUSB.set_passthrough_enabled ~__context ~self ~value
-     | false ->
-       try
-         let usb_group = Db.PUSB.get_USB_group ~__context ~self in
-         let vusbs = Db.USB_group.get_VUSBs ~__context ~self:usb_group in
-         (* If the USB is passthroughed to vm, need to unplug it firstly*)
-         let _ = match vusbs with
-           | [] -> ()
-           | _ :: _ :: _ -> raise Api_errors.(Server_error(internal_error,
-                              [Printf.sprintf "too many vusb on the USB_group: %s" (Ref.string_of usb_group)]))
-           | [vusb] ->
-             let currently_attached = Db.VUSB.get_currently_attached ~__context ~self:vusb in
-             if currently_attached then
-               let vm = Db.VUSB.get_VM ~__context ~self:vusb in
-               raise (Api_errors.Server_error(Api_errors.usb_already_attached, [Ref.string_of self; Ref.string_of vm]))
-         in
-         (* If vusb has been created, need to destroy it. *)
-         List.iter (fun vusb -> Db.VUSB.destroy ~__context ~self:vusb) vusbs;
-         debug "set passthrough_enabled %b." value;
-         Db.PUSB.set_passthrough_enabled ~__context ~self ~value;
-         (* Re-display the removed vdi records. There is a problem here that
-            we scan all the udev SR, as we cannot get the SR corresponding to the PUSB when
-            we want to re-display the vdi records. But in udevSR.py we will handle this, as
-            if passthrough_enabled = true, we will not re-introduce the vdi.
-         *)
-         let open Db_filter_types in
-         Db.SR.get_refs_where ~__context ~expr:(Eq(Field "type", Literal "udev"))
+      match value with
+      | true ->
+        (* Remove the vdi records which 'usb_path' in sm-config has the
+           same value with the field 'path' in PUSB. *)
+        let pusb_path = Db.PUSB.get_path ~__context ~self in
+        let udev_srs = Db.SR.get_refs_where ~__context ~expr:(Eq(Field "type", Literal "udev")) in
+        List.iter (fun sr ->
+            Db.VDI.get_refs_where ~__context ~expr:(Eq(Field "SR", Literal (Ref.string_of sr))) |>
+            List.iter (fun rf ->
+                try
+                  if (get_sm_usb_path ~__context rf) = pusb_path then begin
+                    let vbds = Db.VDI.get_VBDs ~__context ~self:rf in
+                    if vbds <> [] then
+                      raise (Api_errors.Server_error(Api_errors.pusb_vdi_conflict, [ Ref.string_of self; Ref.string_of rf ]));
+                    Xapi_vdi.forget ~__context ~vdi:rf
+                  end;
+                with e ->
+                  debug "Caught failure during remove vdi records.";
+                  raise e
+              )
+          ) udev_srs;
+        debug "set passthrough_enabled %b" value;
+        Db.PUSB.set_passthrough_enabled ~__context ~self ~value
+      | false ->
+        try
+          let usb_group = Db.PUSB.get_USB_group ~__context ~self in
+          let vusbs = Db.USB_group.get_VUSBs ~__context ~self:usb_group in
+          (* If the USB is passthroughed to vm, need to unplug it firstly*)
+          let _ = match vusbs with
+            | [] -> ()
+            | _ :: _ :: _ -> raise Api_errors.(Server_error(internal_error,
+                                                            [Printf.sprintf "too many vusb on the USB_group: %s" (Ref.string_of usb_group)]))
+            | [vusb] ->
+              let currently_attached = Db.VUSB.get_currently_attached ~__context ~self:vusb in
+              if currently_attached then
+                let vm = Db.VUSB.get_VM ~__context ~self:vusb in
+                raise (Api_errors.Server_error(Api_errors.usb_already_attached, [Ref.string_of self; Ref.string_of vm]))
+          in
+          (* If vusb has been created, need to destroy it. *)
+          List.iter (fun vusb -> Db.VUSB.destroy ~__context ~self:vusb) vusbs;
+          debug "set passthrough_enabled %b." value;
+          Db.PUSB.set_passthrough_enabled ~__context ~self ~value;
+          (* Re-display the removed vdi records. There is a problem here that
+             we scan all the udev SR, as we cannot get the SR corresponding to the PUSB when
+             we want to re-display the vdi records. But in udevSR.py we will handle this, as
+             if passthrough_enabled = true, we will not re-introduce the vdi.
+          *)
+          let open Db_filter_types in
+          Db.SR.get_refs_where ~__context ~expr:(Eq(Field "type", Literal "udev"))
           |> List.iter (fun sr -> Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.SR.scan rpc session_id sr));
-       with e ->
-         debug "Caught failure during set passthrough_enabled %b." value;
-         raise e
-  )
+        with e ->
+          debug "Caught failure during set passthrough_enabled %b." value;
+          raise e
+    )

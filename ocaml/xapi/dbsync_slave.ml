@@ -146,7 +146,7 @@ let record_host_memory_properties ~__context =
       Some (Memory_client.Client.get_host_initial_free_memory dbg)
     with e ->
       warn "Failed to get host free memory from ballooning service. This may \
-        prevent VMs from being started on this host. (%s)" (Printexc.to_string e);
+            prevent VMs from being started on this host. (%s)" (Printexc.to_string e);
       None in
   maybe
     (fun boot_memory_bytes ->

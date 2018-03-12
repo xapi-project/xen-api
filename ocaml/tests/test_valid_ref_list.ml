@@ -106,10 +106,10 @@ let test_iter =
     exceptions when we use the Client module *)
 let test_client =
   with_vm_list (fun __context l ->
-    let (rpc, session_id) = Test_common.make_client_params ~__context in
-    let f vm = Client.Client.VM.get_name_label ~rpc ~session_id ~self:vm in
-    assert_equal ["a"; "d"] (Valid_ref_list.map f l)
-  )
+      let (rpc, session_id) = Test_common.make_client_params ~__context in
+      let f vm = Client.Client.VM.get_name_label ~rpc ~session_id ~self:vm in
+      assert_equal ["a"; "d"] (Valid_ref_list.map f l)
+    )
 
 let test =
   [ "test_map", `Quick, test_map

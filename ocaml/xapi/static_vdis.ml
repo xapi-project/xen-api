@@ -45,8 +45,8 @@ let permanent_vdi_detach ~__context ~vdi =
     (Ref.string_of vdi) (Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi));
   let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
   log_and_ignore_exn(fun () ->
-    ignore(Helpers.call_script !Xapi_globs.static_vdis
-           [ "detach"; vdi_uuid ]));
+      ignore(Helpers.call_script !Xapi_globs.static_vdis
+               [ "detach"; vdi_uuid ]));
   ignore(Helpers.call_script !Xapi_globs.static_vdis
            [ "del"; vdi_uuid ])
 
@@ -55,7 +55,7 @@ let permanent_vdi_detach_by_uuid ~__context ~uuid =
   info "permanent_vdi_detach: vdi-uuid = %s" uuid;
   (* This might fail because the VDI has been destroyed *)
   log_and_ignore_exn(fun () ->
-    ignore(Helpers.call_script !Xapi_globs.static_vdis [ "detach"; uuid ]));
+      ignore(Helpers.call_script !Xapi_globs.static_vdis [ "detach"; uuid ]));
   ignore(Helpers.call_script !Xapi_globs.static_vdis [ "del"; uuid ])
 
 let detach_only vdi =

@@ -181,19 +181,19 @@ let create_yum_config ~__context ~self ~url =
   let signed_index = if signed then 1 else 0 in
   let name_label = Db.Pool_update.get_name_label ~__context ~self in
   String.concat "\n"
-  [ "[main]"
-  ; "keepcache=0"
-  ; "reposdir=/dev/null"
-  ; Printf.sprintf "gpgcheck=%d" signed_index
-  ; Printf.sprintf "repo_gpgcheck=%d" signed_index
-  ; "installonlypkgs="
-  ; ""
-  ; Printf.sprintf "[%s]" name_label
-  ; Printf.sprintf "name=%s" name_label
-  ; Printf.sprintf "baseurl=%s" url
-  ; if signed then Printf.sprintf ("gpgkey=file:///etc/pki/rpm-gpg/%s") key else ""
-  ; "" (* Newline at the end of the file *)
-  ]
+    [ "[main]"
+    ; "keepcache=0"
+    ; "reposdir=/dev/null"
+    ; Printf.sprintf "gpgcheck=%d" signed_index
+    ; Printf.sprintf "repo_gpgcheck=%d" signed_index
+    ; "installonlypkgs="
+    ; ""
+    ; Printf.sprintf "[%s]" name_label
+    ; Printf.sprintf "name=%s" name_label
+    ; Printf.sprintf "baseurl=%s" url
+    ; if signed then Printf.sprintf ("gpgkey=file:///etc/pki/rpm-gpg/%s") key else ""
+    ; "" (* Newline at the end of the file *)
+    ]
 
 let attach_helper ~__context ~uuid ~vdi =
   let host = Helpers.get_localhost ~__context in
@@ -272,16 +272,16 @@ let parse_update_info xml =
       | Xml.Element("name-description", _, [ Xml.PCData s ]) -> s
       | _ -> raise (Api_errors.Server_error(Api_errors.invalid_update, ["missing <name-description> in update.xml"]))
     in
-      { uuid
-      ; name_label
-      ; name_description
-      ; version
-      ; key = Filename.basename key
-      ; installation_size
-      ; after_apply_guidance = guidance
-      ; other_config = []
-      ; enforce_homogeneity
-      }
+    { uuid
+    ; name_label
+    ; name_description
+    ; version
+    ; key = Filename.basename key
+    ; installation_size
+    ; after_apply_guidance = guidance
+    ; other_config = []
+    ; enforce_homogeneity
+    }
   | _ -> raise (Api_errors.Server_error(Api_errors.invalid_update, ["missing <update> in update.xml"]))
 
 let extract_applied_update_info applied_uuid  =
@@ -298,9 +298,9 @@ let extract_update_info ~__context ~vdi ~verify =
        let update_path = Printf.sprintf "%s/%s/vdi" Xapi_globs.host_update_dir vdi_uuid in
        debug "pool_update.extract_update_info get url='%s', will parse_file in '%s'" url update_path;
        let xml = try
-         Xml.parse_file (Filename.concat update_path "update.xml")
-       with _ ->
-         raise (Api_errors.Server_error (Api_errors.invalid_update, ["missing update document (update.xml) in the package."]))
+           Xml.parse_file (Filename.concat update_path "update.xml")
+         with _ ->
+           raise (Api_errors.Server_error (Api_errors.invalid_update, ["missing update document (update.xml) in the package."]))
        in
        let update_info = parse_update_info xml in
        ignore(verify update_info update_path); update_info
@@ -308,9 +308,9 @@ let extract_update_info ~__context ~vdi ~verify =
     (fun () -> detach_helper ~__context ~uuid:vdi_uuid ~vdi)
 
 let get_free_bytes path =
-    let stat = statvfs path in
-    (* block size times free blocks *)
-    Int64.mul stat.f_frsize stat.f_bfree
+  let stat = statvfs path in
+  (* block size times free blocks *)
+  Int64.mul stat.f_frsize stat.f_bfree
 
 let assert_space_available ?(multiplier=3L) ?(get_free_bytes=get_free_bytes) update_dir update_size =
   let free_bytes = get_free_bytes update_dir in
@@ -393,13 +393,13 @@ let introduce ~__context ~vdi =
     let update = Db.Pool_update.get_by_uuid ~__context ~uuid:update_info.uuid in
     let vdi_of_update = Db.Pool_update.get_vdi ~__context ~self:update in
     if not (Db.is_valid_ref __context vdi_of_update) then begin
-        Db.Pool_update.set_vdi ~__context ~self:update ~value:vdi;
-        update
+      Db.Pool_update.set_vdi ~__context ~self:update ~value:vdi;
+      update
     end 
     else if vdi <> vdi_of_update then 
-        raise (Api_errors.Server_error(Api_errors.update_already_exists, [update_info.uuid]))
+      raise (Api_errors.Server_error(Api_errors.update_already_exists, [update_info.uuid]))
     else
-        update
+      update
   with
   | Db_exn.Read_missing_uuid (_,_,_) -> 
     let update = Ref.make () in
@@ -518,12 +518,12 @@ let resync_host ~__context ~host =
     *)
     Db.Pool_update.get_all ~__context
     |> List.filter (fun self ->
-         Db.Pool_update.get_hosts ~__context ~self = []
-         && Xapi_pool_patch.pool_patch_of_update ~__context self
-            |> fun self -> Db.Pool_patch.get_host_patches ~__context ~self
-            |> function [] -> false | _ -> true)
+        Db.Pool_update.get_hosts ~__context ~self = []
+        && Xapi_pool_patch.pool_patch_of_update ~__context self
+           |> fun self -> Db.Pool_patch.get_host_patches ~__context ~self
+                          |> function [] -> false | _ -> true)
     |> List.iter (fun self -> destroy ~__context ~self);
-    
+
     (* Clean up host_patch table *)
     Db_gc_util.gc_Host_patches ~__context
   end

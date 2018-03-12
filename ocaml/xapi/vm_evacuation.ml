@@ -49,7 +49,7 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
     TaskHelper.exn_if_cancelling ~__context; (* First check if _we_ have been cancelled *)
     info "Requesting evacuation of host";
     let timeout = if evacuate_timeout > 0. then evacuate_timeout
-                  else estimate_evacuate_timeout ~__context ~host in
+      else estimate_evacuate_timeout ~__context ~host in
     let tasks = [ Client.Async.Host.evacuate ~rpc ~session_id ~host ] in
     if not (Tasks.with_tasks_destroy ~rpc ~session_id ~timeout ~tasks) then begin
       get_running_domains ()
@@ -62,11 +62,11 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
     let tasks =
       vms
       |> List.filter (fun vm ->
-             List.mem `clean_shutdown (Client.VM.get_allowed_operations ~rpc ~session_id ~self:vm))
+          List.mem `clean_shutdown (Client.VM.get_allowed_operations ~rpc ~session_id ~self:vm))
       |> List.map (fun vm ->
-             let name_label = Client.VM.get_name_label ~rpc ~session_id ~self:vm in
-             debug "Requesting clean shutdown of VM: %s" name_label;
-             Client.Async.VM.clean_shutdown ~rpc ~session_id ~vm) in
+          let name_label = Client.VM.get_name_label ~rpc ~session_id ~self:vm in
+          debug "Requesting clean shutdown of VM: %s" name_label;
+          Client.Async.VM.clean_shutdown ~rpc ~session_id ~vm) in
     Tasks.with_tasks_destroy ~rpc ~session_id ~timeout:60. ~tasks |> ignore
   in
 
@@ -75,16 +75,16 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
     let tasks =
       vms
       |> List.map (fun vm ->
-             let name_label = Client.VM.get_name_label ~rpc ~session_id ~self:vm in
-             debug "Requesting hard shutdown of VM: %s" name_label;
-             Client.Async.VM.hard_shutdown ~rpc ~session_id ~vm) in
+          let name_label = Client.VM.get_name_label ~rpc ~session_id ~self:vm in
+          debug "Requesting hard shutdown of VM: %s" name_label;
+          Client.Async.VM.hard_shutdown ~rpc ~session_id ~vm) in
     (* no timeout: we need the VMs to be off *)
     Tasks.wait_for_all ~rpc ~session_id ~tasks;
     vms
     |> List.filter is_running
     |> List.iter (fun vm ->
-           let name_label = Client.VM.get_name_label ~rpc ~session_id ~self:vm in
-           info "Failure performing hard shutdown of VM: %s" name_label)
+        let name_label = Client.VM.get_name_label ~rpc ~session_id ~self:vm in
+        info "Failure performing hard shutdown of VM: %s" name_label)
   in
 
   let shutdown vms =

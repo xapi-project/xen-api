@@ -1023,16 +1023,16 @@ let i_am_srmaster ~__context ~sr =
 
 let get_all_plugged_srs ~__context =
   let pbds_plugged_in = Db.PBD.get_refs_where ~__context ~expr:(
-    Eq (Field "currently_attached", Literal "true")) in
+      Eq (Field "currently_attached", Literal "true")) in
   List.setify (List.map (fun self -> Db.PBD.get_SR ~__context ~self) pbds_plugged_in)
 
 let get_local_plugged_srs ~__context =
   let localhost = get_localhost __context in
   let localhost = Ref.string_of localhost in
   let my_pbds_plugged_in = Db.PBD.get_refs_where  ~__context ~expr:(And (
-    Eq (Field "host", Literal localhost),
-    Eq (Field "currently_attached", Literal "true")
-  ))
+      Eq (Field "host", Literal localhost),
+      Eq (Field "currently_attached", Literal "true")
+    ))
   in
   List.setify (List.map (fun self -> Db.PBD.get_SR ~__context ~self) my_pbds_plugged_in)
 
@@ -1288,13 +1288,13 @@ let get_first_pusb ~__context usb_group =
     List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group)
   with _ ->
     raise Api_errors.(Server_error(internal_error,
-      [Printf.sprintf "there is no PUSB associated with the USB_group: %s"
-      (Ref.string_of usb_group)]))
+                                   [Printf.sprintf "there is no PUSB associated with the USB_group: %s"
+                                      (Ref.string_of usb_group)]))
 
 let get_first_vusb ~__context usb_group =
   try
     List.hd (Db.USB_group.get_VUSBs ~__context ~self:usb_group)
   with _ ->
     raise Api_errors.(Server_error(internal_error,
-      [Printf.sprintf "there is no VUSB associated with the USB_group: %s"
-      (Ref.string_of usb_group)]))
+                                   [Printf.sprintf "there is no VUSB associated with the USB_group: %s"
+                                      (Ref.string_of usb_group)]))

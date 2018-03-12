@@ -16,11 +16,11 @@ let test_invalid_edition () =
   let module M = struct
     include V6_client ;;
     let apply_edition _ edition _ = V6_interface.{
-      edition = edition;
-      xapi_params = [];
-      additional_params = [];
-      experimental_features = [];
-    } ;;
+        edition = edition;
+        xapi_params = [];
+        additional_params = [];
+        experimental_features = [];
+      } ;;
     let get_editions _ = [
       "free", ("", "", 0);
       "per-socket", ("", "", 1);

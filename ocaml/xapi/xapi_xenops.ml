@@ -34,7 +34,7 @@ let check_power_state_is ~__context ~self ~expected =
   else
     (* CA-233915: only warn about unexpected power state - the check
      * is too naive to make it an assertion
-     *)
+    *)
     let actual = Db.VM.get_power_state ~__context ~self in
     if actual <> expected then
       warn "Potential problem: VM %s in power state '%s' when expecting '%s'"
@@ -712,7 +712,7 @@ module MD = struct
         path = path;
       }
     with
-      | e ->
+    | e ->
       error "Caught %s: while getting PUSB path %s" (Printexc.to_string e) pusb.API.pUSB_path;
       raise e
 
@@ -1882,17 +1882,17 @@ let update_pci ~__context id =
 
                Opt.iter
                  (fun vgpu ->
-                   let scheduled =
-                     Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu
-                   in
-                   if Db.is_valid_ref __context scheduled && state.plugged
-                   then
-                     Helpers.call_api_functions ~__context
-                       (fun rpc session_id ->
-                          XenAPI.VGPU.atomic_set_resident_on ~rpc ~session_id
-                            ~self:vgpu ~value:scheduled);
-                   debug "xenopsd event: Update VGPU %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
-                   Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:state.plugged
+                    let scheduled =
+                      Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu
+                    in
+                    if Db.is_valid_ref __context scheduled && state.plugged
+                    then
+                      Helpers.call_api_functions ~__context
+                        (fun rpc session_id ->
+                           XenAPI.VGPU.atomic_set_resident_on ~rpc ~session_id
+                             ~self:vgpu ~value:scheduled);
+                    debug "xenopsd event: Update VGPU %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
+                    Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:state.plugged
                  ) vgpu_opt
             ) info;
           Xenops_cache.update_pci id (Opt.map snd info);
@@ -2151,16 +2151,16 @@ let resync_resident_on ~__context =
   let xapi_thinks_are_here, xapi_thinks_are_not_here =
     List.partition (fun ((id, _), _) ->
         List.exists (fun (id', _) -> id=id') resident_vms_in_db)
-        xenopsd_vms_in_xapi in
+      xenopsd_vms_in_xapi in
 
   (* Of those xapi thinks aren't here, are any running on another host? If
      so, kill the VM here. If they aren't running on another host (to the
      best of our knowledge), set the resident_on to be here. *)
   let xapi_thinks_are_elsewhere, xapi_thinks_are_nowhere =
     List.partition (fun ((id, _), _) ->
-      let vm_ref = vm_of_id ~__context id in
-      Db.is_valid_ref __context (Db.VM.get_resident_on ~__context ~self:vm_ref)
-    ) xapi_thinks_are_not_here in
+        let vm_ref = vm_of_id ~__context id in
+        Db.is_valid_ref __context (Db.VM.get_resident_on ~__context ~self:vm_ref)
+      ) xapi_thinks_are_not_here in
 
   (* This is the list of VMs xapi thought were running here, but actually
      aren't *)
@@ -2218,14 +2218,14 @@ let resync_resident_on ~__context =
       let vm = vm_of_id ~__context id in
       info "Setting resident_on for VM %s to be this host as xenopsd is aware of it" id;
       Db.VM.set_resident_on ~__context ~self:vm ~value:localhost)
-      xapi_thinks_are_nowhere;
+    xapi_thinks_are_nowhere;
 
   (* Sync VM state in Xapi for VMs not running on this host *)
   List.iter (fun (id, vm) ->
       info "VM %s was marked as resident here in the DB but isn't known to xenopsd. Resetting in DB" id;
       Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
       Db.VM.set_resident_on ~__context ~self:vm ~value:Ref.null;
-  ) xapi_vms_not_in_xenopsd
+    ) xapi_vms_not_in_xenopsd
 
 let resync_all_vms ~__context =
   (* This should now be correct *)
@@ -2242,7 +2242,7 @@ let on_xapi_restart ~__context =
   (* For all available xenopsds, start the event thread. This will cause
      events on everything xenopsd knows about, hence a refresh of all VMs. *)
   List.iter (fun queue_name ->
-    let (_: Thread.t) = Thread.create events_from_xenopsd queue_name in
+      let (_: Thread.t) = Thread.create events_from_xenopsd queue_name in
       ()
     ) (all_known_xenopsds ());
 
@@ -2861,7 +2861,7 @@ let resume ~__context ~self ~start_paused ~force =
        Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null;
        (* Clearing vGPU metadata should happen as late as possible
         * to make sure we only do it on a successful resume
-        *)
+       *)
        Xapi_gpumon.clear_vgpu_metadata ~__context ~vm:self;
        Helpers.call_api_functions ~__context
          (fun rpc session_id ->
@@ -3199,4 +3199,4 @@ let vusb_unplug ~__context ~self =
     vusb_unplug_hvm ~__context ~self
   else
     raise Api_errors.(Server_error(internal_error, [
-             Printf.sprintf "vusb_unplug: Unable to unplug vusb %s" (Ref.string_of self)]))
+        Printf.sprintf "vusb_unplug: Unable to unplug vusb %s" (Ref.string_of self)]))

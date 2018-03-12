@@ -26,9 +26,9 @@ let check_many_to_many () =
   (* make a bar with foos = [] *)
   (* add 'bar' to foo.bars *)
   let db = db
-   |> add_row "bar" "bar:1" (Row.add 0L Db_names.ref (Schema.Value.String "bar:1") (Row.add 0L "foos" (Schema.Value.Set []) Row.empty))
-   |> add_row "foo" "foo:1" (Row.add 0L Db_names.ref (Schema.Value.String "foo:1") (Row.add 0L "bars" (Schema.Value.Set []) Row.empty))
-   |> set_field "foo" "foo:1" "bars" (add_to_set "bar:1" (Schema.Value.Set []))
+           |> add_row "bar" "bar:1" (Row.add 0L Db_names.ref (Schema.Value.String "bar:1") (Row.add 0L "foos" (Schema.Value.Set []) Row.empty))
+           |> add_row "foo" "foo:1" (Row.add 0L Db_names.ref (Schema.Value.String "foo:1") (Row.add 0L "bars" (Schema.Value.Set []) Row.empty))
+           |> set_field "foo" "foo:1" "bars" (add_to_set "bar:1" (Schema.Value.Set []))
   in
   (* check that 'bar.foos' includes 'foo' *)
   let bar_1 = Table.find "bar:1" (TableSet.find "bar" (Database.tableset db)) in

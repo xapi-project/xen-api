@@ -512,8 +512,8 @@ let check_network_reset () =
            match vlan with
            | Some vlan ->
              begin match Db.PIF.get_refs_where ~__context ~expr:(And (
-               Eq (Field "device", Literal device),
-               Eq (Field "VLAN", Literal vlan))) with
+                 Eq (Field "device", Literal device),
+                 Eq (Field "VLAN", Literal vlan))) with
              | [] -> None
              | pif :: _ -> Some (Db.PIF.get_network ~__context ~self:pif)
              end
@@ -539,7 +539,7 @@ let check_network_reset () =
              | Some network -> network
            in
            let vlan, untagged_PIF = Xapi_vlan.create_internal ~__context ~host ~tagged_PIF:pif
-             ~network ~tag:(Int64.of_string vlan) ~device in
+               ~network ~tag:(Int64.of_string vlan) ~device in
            untagged_PIF
          in
 

@@ -490,13 +490,13 @@ let remove_row tblname objref db =
   let g = db.Database.manifest.Manifest.generation_count in
   db
   |> Database.update_keymap (fun m ->
-  match uuid with
-  | Some u -> KeyMap.remove (Uuid u) m
-  | None -> m)
+      match uuid with
+      | Some u -> KeyMap.remove (Uuid u) m
+      | None -> m)
   |> Database.update_keymap (KeyMap.remove (Ref objref))
   |> update_many_to_many g tblname objref remove_from_set
   (* Update foreign (Set(Ref _)) fields *)
-   (* NB this requires the original row to still exist *)
+  (* NB this requires the original row to still exist *)
   |> update_one_to_many g tblname objref remove_from_set
   |> (
     Table.remove g objref

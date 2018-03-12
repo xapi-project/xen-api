@@ -27,8 +27,8 @@ type daemon_state = [
     (** Daemon should be started when the last thread exits
         	    with_daemon_stopped. *)
     `should_not_start
-    (** Daemon should not be started when the last thread exits
-        	    with_daemon_stopped. *)
+  (** Daemon should not be started when the last thread exits
+      	    with_daemon_stopped. *)
 ]
 (** Tristate value for representing the state of a daemon we want to manage. *)
 
