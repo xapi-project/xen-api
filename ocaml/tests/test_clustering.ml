@@ -358,18 +358,16 @@ let test_disallow_unplug_with_clustering () =
   check_disallow_unplug true __context pif
     "check_disallow_unplug called by test_disallow_unplug_with_clustering after setting disallow_unplug:true";
 
-  (* PIF.disallow_unplug should become RO upon introduce cluster_host object *)
+  (* PIF.disallow_unplug should become RO upon introduce cluster_host object, should throw exception when changing value *)
   let _ = Test_common.make_cluster_and_cluster_host ~__context ~network ~host () in
   Alcotest.check_raises
     "check_disallow_unplug called by test_disallow_unplug_with_clustering after attaching cluster and cluster_host to network"
     (Api_errors.(Server_error(clustering_enabled_on_network, [Ref.string_of network])))
-    (fun () -> Xapi_pif.set_disallow_unplug ~__context ~self:pif ~value:true);
+    (fun () -> Xapi_pif.set_disallow_unplug ~__context ~self:pif ~value:false);
 
-    (* PIF.set_disallow_unplug should raise same error even when value is the same *)
-  Alcotest.check_raises
-    "PIF.set_disallow_unplug:true called by test_disallow_unplug_with_clustering after attaching cluster and cluster_host to network"
-    (Api_errors.(Server_error(clustering_enabled_on_network, [Ref.string_of network])))
-    (fun () -> Xapi_pif.set_disallow_unplug ~__context ~self:pif ~value:true)
+  Xapi_pif.set_disallow_unplug ~__context ~self:pif ~value:true;
+  check_disallow_unplug true __context pif
+    "PIF.set_disallow_unplug should be idempotent even with clustering"
 
 let test_disallow_unplug_ro_with_clustering_enabled =
   [ "test_disallow_unplug_no_clustering", `Quick, test_disallow_unplug_no_clustering
