@@ -2392,10 +2392,14 @@ module Backend = struct
           end else []
         in
 
-        let pv_device =
+        let pv_device nic_count =
           try
-            let has_device = xs.Xs.read (sprintf "/local/domain/%d/control/has-vendor-device" domid) in
-            if int_of_string has_device = 1 then ["-device"; "xen-pvdevice,device-id=0xc000"]
+            let path = sprintf "/local/domain/%d/control/has-vendor-device" domid in
+            let has_device = xs.Xs.read path in
+            if int_of_string has_device = 1 then
+              ["-device"
+              ; sprintf "xen-pvdevice,device-id=0xc000,addr=%x" (nic_count+4)
+              ]
             else []
           with _ -> []
         in
@@ -2417,7 +2421,6 @@ module Backend = struct
             ; (global |> List.map (fun x -> ["-global"; x]) |> List.concat)
             ; (info.Dm_Common.parallel |> function None -> [ "-parallel"; "null"] | Some x -> [ "-parallel"; x])
             ; qmp
-            ; pv_device
             ; xen_platform_device
             ] in
 
@@ -2430,6 +2433,7 @@ module Backend = struct
           debug "Limiting the number of emulated NICs to %d" nic_max;
         (* Take the first 'max_emulated_nics' elements from the list. *)
         let nics = Xapi_stdext_std.Listext.List.take nic_max nics in
+        let nic_count = min nic_count nic_max in (* update count *)
 
         (* add_nic is used in a fold: it adds fd and command line args
          * for a nic to the existing fds and arguments (fds, argv)
@@ -2452,12 +2456,12 @@ module Backend = struct
         |> function
         |  _, []    ->
           Dm_Common.
-            { argv   = common.argv   @ misc @ none
+            { argv   = common.argv   @ misc @ pv_device nic_count @ none
             ; fd_map = common.fd_map
             }
         | fds, argv ->
           Dm_Common.
-            { argv   = common.argv   @ misc @ argv
+            { argv   = common.argv   @ misc @ pv_device nic_count @ argv
             ; fd_map = common.fd_map @ fds
             }
 
