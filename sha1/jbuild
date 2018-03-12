@@ -2,6 +2,7 @@
  ((name sha1)
   (public_name sha1)
   (wrapped false)
+  (flags (:standard -safe-string))
   (libraries (forkexec
               threads
               xapi-stdext-pervasives))
