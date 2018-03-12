@@ -43,7 +43,8 @@ let get_running_domains xc =
 	Xenctrl.domain_getinfolist xc 0 |> List.map (fun di -> di.Xenctrl.domid)
 
 module D=Debug.Make(struct let name="rrdd-plugins" end)
-include Ez_xenstore_watch.Make(D)
+module XSW=Ez_xenstore_watch.Make(D)
+open XSW
 
 let current_dynamic_max_values = ref IntMap.empty
 let current_dynamic_min_values = ref IntMap.empty
