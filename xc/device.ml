@@ -1451,9 +1451,36 @@ module Vusb = struct
       in
       exec_usb_reset_script argv
 
+  let qom_list ~xs ~domid =
+    (*. 1. The QEMU Object Model(qom) provides a framework for registering user
+         creatable types and instantiating objects from those types.
+        2. Qom types can be instantiated and configured directly from the QEMU
+         monitor or command-line (eg,-device, device_add).
+        3. Command example:
+         {"execute":"qom-list","arguments":{"path":"/machine/peripheral"}}
+         result:
+         {"return": [{"name": "usb1", "type": "child<usb-host>"}, {"name":"type", "type": "string"}}
+         The usb1 is added.
+    *)
+    if Qemu.is_running ~xs domid then
+      let path = "/machine/peripheral" in
+      try
+        qmp_send_cmd domid Qmp.(Qom_list path)
+        |> ( function
+            | Qmp.(Qom usbs) -> List.map (fun p -> p.Qmp.name) usbs
+            | other ->
+              debug "%s unexpected QMP result for domid %d Qom_list"
+                __LOC__ domid;
+              []
+          )
+      with QMP_connection_error(_, _) ->
+        raise Device_not_connected
+    else
+      []
+
   let vusb_controller_plug ~xs ~domid ~driver ~driver_id =
-    let is_running = Qemu.is_running ~xs domid in
-    if is_running then
+    if (Qemu.is_running ~xs domid)
+    && not (List.mem driver_id (qom_list ~xs ~domid))then
       qmp_send_cmd domid Qmp.(Device_add Device.({driver; device=USB { USB.id=driver_id; params=None }})) |> ignore
 
   let vusb_plug ~xs ~privileged ~domid ~id ~hostbus ~hostport ~version =
@@ -1475,8 +1502,7 @@ module Vusb = struct
         Printf.sprintf "%s.0" driver_id;
       end
     in
-    let is_running = Qemu.is_running ~xs domid in
-    if is_running then
+    if Qemu.is_running ~xs domid then
       begin
         (* Need to reset USB device before passthrough to vm according to CP-24616.
            Also need to do deprivileged work in usb_reset script if QEMU is deprivileged.
@@ -1500,39 +1526,16 @@ module Vusb = struct
     debug "vusb_unplug: unplug VUSB device %s" id;
     finally
       (fun () ->
-         let is_running = Qemu.is_running ~xs domid in
-         if is_running then
-           qmp_send_cmd domid Qmp.(Device_del id) |> ignore
+         if Qemu.is_running ~xs domid then
+           try
+             qmp_send_cmd domid Qmp.(Device_del id) |> ignore
+           with QMP_connection_error(_, _) ->
+             raise Device_not_connected
       )
       (fun () ->
-         usb_reset_detach ~hostbus ~hostport ~domid ~privileged
+         if List.mem id (qom_list ~xs ~domid) then
+           usb_reset_detach ~hostbus ~hostport ~domid ~privileged
       )
-
-  let qom_list ~xs ~domid =
-    (*. 1. The QEMU Object Model(qom) provides a framework for registering user
-         creatable types and instantiating objects from those types.
-        2. Qom types can be instantiated and configured directly from the QEMU
-         monitor or command-line (eg,-device, device_add).
-        3. Command example:
-         {"execute":"qom-list","arguments":{"path":"/machine/peripheral"}}
-         result:
-         {"return": [{"name": "usb1", "type": "child<usb-host>"}, {"name":"type", "type": "string"}}
-         The usb1 is added.
-    *)
-    debug "qom list to check if usb device is attached to vm";
-    let is_running = Qemu.is_running ~xs domid in
-    if is_running then
-      let path = "/machine/peripheral" in
-      qmp_send_cmd domid Qmp.(Qom_list path)
-      |> ( function
-          | Qmp.(Qom usbs) -> List.map (fun p -> p.Qmp.name) usbs
-          | other ->
-            debug "%s unexpected QMP result for domid %d Qom_list"
-              __LOC__ domid;
-            []
-        )
-    else
-      []
 
 end
 

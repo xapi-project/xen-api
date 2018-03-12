@@ -2198,8 +2198,11 @@ module VUSB = struct
            let privileged = is_privileged vm in
            Device.Vusb.vusb_unplug ~xs ~privileged ~domid:frontend_domid ~id:(snd vusb.Vusb.id) ~hostbus:vusb.Vusb.hostbus ~hostport:vusb.Vusb.hostport
         ) Newest vm
-    with (Does_not_exist(_,_)) ->
+    with
+    | (Does_not_exist(_,_)) ->
       debug "VM = %s; VUSB = %s; Ignoring missing domain" vm (id_of vusb)
+    | (Device_not_connected) ->
+      debug "VM = %s; VUSB = %s; Ignoring missing device" vm (id_of vusb)
 
 end
 

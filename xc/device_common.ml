@@ -38,6 +38,7 @@ exception Hotplug_script_expecting_field of device * string
 exception Unknown_device_type of string
 exception Unknown_device_protocol of string
 exception QMP_Error of int * string
+exception QMP_connection_error of int * string
 
 module D = Debug.Make(struct let name = "xenops" end)
 open D
@@ -396,7 +397,12 @@ let qmp_send_cmd_internal connection domid cmd =
  * some commands.
 *)
 let qmp_send_cmd ?send_fd domid cmd =
-  let connection = Qmp_protocol.connect (qmp_libxl_path domid) in
+  let connection =
+    try
+      Qmp_protocol.connect (qmp_libxl_path domid)
+    with e ->
+      raise (QMP_connection_error(domid, Printexc.to_string e))
+  in
   finally
     (fun () ->
        (* no mutex required: QMP never sends unrelated messages *)
