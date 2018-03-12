@@ -1,6 +1,7 @@
 (library
  ((name gzip)
   (public_name gzip)
+  (flags (:standard -safe-string))
   (libraries
    (forkexec
     threads
