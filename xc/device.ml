@@ -2422,11 +2422,14 @@ module Backend = struct
             ] in
 
         (* Sort the VIF devices by devid *)
-        let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.Dm_Common.nics in
-        if List.length nics > Dm_Common.max_emulated_nics then
-          debug "Limiting the number of emulated NICs to %d" Dm_Common.max_emulated_nics;
+        let nics = List.stable_sort
+          (fun (_,_,a) (_,_,b) -> compare a b) info.Dm_Common.nics in
+        let nic_count = List.length nics in
+        let nic_max   = Dm_Common.max_emulated_nics in
+        if nic_count > nic_max then
+          debug "Limiting the number of emulated NICs to %d" nic_max;
         (* Take the first 'max_emulated_nics' elements from the list. *)
-        let nics = Xapi_stdext_std.Listext.List.take Dm_Common.max_emulated_nics nics in
+        let nics = Xapi_stdext_std.Listext.List.take nic_max nics in
 
         (* add_nic is used in a fold: it adds fd and command line args
          * for a nic to the existing fds and arguments (fds, argv)
