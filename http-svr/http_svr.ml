@@ -281,9 +281,11 @@ let request_of_bio_exn_slow ic =
   content_length := -1L;
   cookie := "";
 
-  let request_line = Buf_io.input_line ~timeout:initial_timeout ic in
-  let req = Request.of_request_line request_line in
-
+  let req = Buf_io.input_line ~timeout:initial_timeout ic
+            |> Bytes.to_string
+            |> Request.of_request_line
+  in
+  
   (* Default for HTTP/1.1 is persistent connections. Anything else closes *)
   (* the channel as soon as the request is processed *)
   if req.Request.version <> "1.1" then req.Request.close <- true;
@@ -300,7 +302,7 @@ let request_of_bio_exn_slow ic =
     let content_type_hdr = lowercase Http.Hdr.content_type in
     let host_hdr = lowercase Http.Hdr.host in
     let user_agent_hdr = lowercase Http.Hdr.user_agent in
-    let r = Buf_io.input_line ~timeout:Buf_io.infinite_timeout ic in
+    let r = Buf_io.input_line ~timeout:Buf_io.infinite_timeout ic |> Bytes.to_string in
     match Astring.String.cut ~sep:":" r with
     | Some (k, v) ->
       let k = lowercase k in
@@ -347,7 +349,7 @@ let request_of_bio_exn bio =
 
   let buf = Bytes.create 1024 in
   let b, frame = Http.read_http_request_header buf fd in
-  let buf = Bytes.sub buf 0 b in
+  let buf = Bytes.sub_string buf 0 b in
 (*
 	Printf.printf "parsed = [%s]\n" buf;
 	flush stdout;
@@ -562,7 +564,8 @@ let read_body ?limit req bio =
     let length = Int64.to_int length in
     maybe (fun l -> if length > l then raise Client_requested_size_over_limit) limit;
     if Buf_io.is_buffer_empty bio then Unixext.really_read_string (Buf_io.fd_of bio) length
-    else Buf_io.really_input_buf ~timeout:Buf_io.infinite_timeout bio length
+    else
+      Buf_io.really_input_buf ~timeout:Buf_io.infinite_timeout bio length
 
 module Chunked = struct
   type t = { mutable current_size : int; mutable current_offset : int;
@@ -575,9 +578,12 @@ module Chunked = struct
   let rec read chunk size =
     if chunk.read_headers = true then begin
       (* first get the size, then get the data requested *)
-      let size = Buf_io.input_line chunk.bufio in
-      let size = String.trim size in
-      let size = int_of_string ("0x" ^ size) in
+      let size = Buf_io.input_line chunk.bufio
+        |> Bytes.to_string
+        |> String.trim
+        |> Printf.sprintf "0x%s"
+        |> int_of_string
+      in
       chunk.current_size <- size;
       chunk.current_offset <- 0;
       chunk.read_headers <- false;
@@ -589,38 +595,41 @@ module Chunked = struct
       let bytes_to_read = min size (chunk.current_size - chunk.current_offset) in
       if bytes_to_read = 0 then ""
       else begin
-        let data = String.make bytes_to_read '\000' in
+        let data = Bytes.make bytes_to_read '\000' in
         Buf_io.really_input chunk.bufio data 0 bytes_to_read;
 
         (* now update the data structure: *)
         if (chunk.current_offset + bytes_to_read) = chunk.current_size then begin
           (* finished a chunk: get rid of the CRLF *)
-          let blank = "\000\000" in
+          let blank =Bytes.of_string "\000\000" in
           Buf_io.really_input chunk.bufio blank 0 2;
-          if blank <> "\r\n" then failwith "chunked encoding error";
+          if (Bytes.to_string blank) <> "\r\n" then failwith "chunked encoding error";
           chunk.read_headers <- true
         end else begin
           (* partway through a chunk. *)
           chunk.current_offset <- (chunk.current_offset + bytes_to_read)
         end; 
-        ( data ^ read chunk (size - bytes_to_read) )
+        ( (Bytes.unsafe_to_string data) ^ read chunk (size - bytes_to_read) )
       end
     end
 end
 
 let read_chunked_encoding _req bio = 
   let rec next () = 
-    let size = Buf_io.input_line bio in
-    (* Strictly speaking need to kill anything past an ';' if present *)
-    let size = String.trim size in
-    let size = int_of_string ("0x" ^ size) in
+    let size = Buf_io.input_line bio
+               (* Strictly speaking need to kill anything past an ';' if present *)
+               |> Bytes.to_string
+               |> String.trim
+               |> Printf.sprintf "0x%s"
+               |> int_of_string
+    in
 
     if size = 0 then Http.End
     else
-      let chunk = String.make size '\000' in
+      let chunk = Bytes.make size '\000' in
       Buf_io.really_input bio chunk 0 size;
       (* Then get rid of the CRLF *)
-      let blank = "\000\000" in
+      let blank = (Bytes.of_string "\000\000") in
       Buf_io.really_input bio blank 0 2;
       Http.Item (chunk, next) 
   in

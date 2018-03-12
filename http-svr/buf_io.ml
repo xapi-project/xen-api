@@ -16,7 +16,7 @@
 type t = 
   { 
     fd : Unix.file_descr;
-    mutable buf : string;
+    mutable buf : bytes;
     mutable cur : int;
     mutable max : int;
   }
@@ -53,11 +53,11 @@ let assert_buffer_empty ic =
 
 (* Shift the unprocessed data to the beginning of the buffer *)
 let shift ic =
-  if ic.cur=String.length ic.buf  (* No unprocessed data!*)
+  if ic.cur=Bytes.length ic.buf  (* No unprocessed data!*)
   then 
     (ic.cur <- 0; ic.max <- 0;)
   else begin
-    String.blit ic.buf ic.cur ic.buf 0 (ic.max - ic.cur);
+    Bytes.blit ic.buf ic.cur ic.buf 0 (ic.max - ic.cur);
     ic.max <- (ic.max - ic.cur);
     ic.cur <- 0;
   end
@@ -65,17 +65,17 @@ let shift ic =
 (* Check to see if we've got a line (ending in \n) in the buffer *)
 let got_line ic =
   try
-    let n = String.index_from ic.buf ic.cur '\n' in
+    let n = Bytes.index_from ic.buf ic.cur '\n' in
     if n>=ic.max then -1 else n
   with
     Not_found -> -1
 
 let is_full ic =
-  ic.cur=0 && ic.max=String.length ic.buf
+  ic.cur=0 && ic.max=Bytes.length ic.buf
 
 (* Fill the buffer with everything that's ready to be read (up to the limit of the buffer *)
 let fill_buf ~buffered ic timeout =
-  let buf_size = String.length ic.buf in
+  let buf_size = Bytes.length ic.buf in
 
   let fill_no_exc timeout len =
     let l,_,_ = Unix.select [ic.fd] [] [] timeout in
@@ -123,12 +123,12 @@ let input_line ?(timeout=60.0) ic =
   (* Still no \n? then either we've run out of data, or we've run out of space *)
   if n<0 
   then 
-    if ic.max=String.length ic.buf 
+    if ic.max=Bytes.length ic.buf 
     then raise (Line Too_long) 
-    else (Printf.printf "got: '%s'\n" (String.sub ic.buf ic.cur (ic.max - ic.cur)); raise (Line No_newline));
+    else (Printf.printf "got: '%s'\n" (Bytes.sub_string ic.buf ic.cur (ic.max - ic.cur)); raise (Line No_newline));
 
   (* Return the line, stripping the newline *)
-  let result = String.sub ic.buf ic.cur (n-ic.cur) in 
+  let result = Bytes.sub ic.buf ic.cur (n-ic.cur) in 
   ic.cur <- n + 1;
   result
 
@@ -138,7 +138,7 @@ let rec really_input ?(timeout=15.0) ic str from len =
     if ic.max - ic.cur < len then fill_buf ~buffered:true ic timeout;
     begin
       let blitlen = if ic.max - ic.cur < len then ic.max - ic.cur else len in
-      String.blit ic.buf ic.cur str from blitlen;
+      Bytes.blit ic.buf ic.cur str from blitlen;
       ic.cur <- ic.cur + blitlen;
       really_input ~timeout ic str (from+blitlen) (len-blitlen) 
     end
@@ -153,7 +153,7 @@ let really_input_buf ?timeout ic len =
   do
     let size = min blksize !left in
     really_input ?timeout ic s 0 size;
-    Buffer.add_substring buf s 0 size;
+    Buffer.add_subbytes buf s 0 size;
     left := !left - size
   done;
   Buffer.contents buf

@@ -82,7 +82,7 @@ sig
   val read : t -> int -> string
 end
 
-val read_chunked_encoding : Http.Request.t -> Buf_io.t -> string Http.ll
+val read_chunked_encoding : Http.Request.t -> Buf_io.t -> bytes Http.ll
 
 (* The rest of this interface needs to be deleted and replaced with Http.Response.* *)
 

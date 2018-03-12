@@ -25,10 +25,10 @@ val infinite_timeout : float
 (** {2 Input functions} *)
 
 (** Input one line terminated by \n *)
-val input_line : ?timeout:float -> t -> string
+val input_line : ?timeout:float -> t -> bytes
 
 (** Input 'len' characters from ic and put them into the string 'str' starting from 'from' *)
-val really_input : ?timeout:float -> t -> string -> int -> int -> unit
+val really_input : ?timeout:float -> t -> bytes -> int -> int -> unit
 
 val really_input_buf : ?timeout:float -> t -> int -> string
 
