@@ -20,13 +20,8 @@ open Xapi_stdext_std
 
 (** Utility functions relating to the types in the datamodel *)
 module Types = struct
-  let rec to_string = function
-    | String -> "string" | Int -> "int" | Float -> "float" | Bool -> "bool"
-    | DateTime -> "datetime" | Enum (name, things) -> name
-    | Set x -> (to_string x) ^ " set"
-    | Map (a, b) -> "(" ^ (to_string a) ^ " -> " ^ (to_string b) ^ ") map"
-    | Ref obj -> obj ^ " ref"
-    | Record r -> r ^ " record"
+  (** Print a representation of the datamodel type suitable for debugging and error messages *)
+  let rec to_string ty = rpc_of_ty ty |> Rpc.to_string
 
   let rec fold_left f accu ty =
     let accu = f accu ty in
@@ -45,7 +40,8 @@ module Types = struct
   let rec decompose = function
     | Set x as y -> y :: decompose x
     | Map (a, b) as y -> y :: decompose a @ decompose b
-    | x -> [ x ]
+    | Option x as y -> y :: decompose x
+    | String | Int | Float | DateTime | Enum _ | Bool | Ref _ | Record _ as x -> [ x ]
 
   (** All types in a list of objects (automatically decomposes) *)
   let of_objects system =

@@ -240,6 +240,7 @@ type ty =
   | Map of ty * ty
   | Ref of string
   | Record of string
+  | Option of ty
   [@@deriving rpc]
 
 type api_value =
@@ -459,42 +460,3 @@ let rec type_checks v t =
   | VRef r, Ref _ -> true
   | VCustom _, _ -> true (* Type checks defered to phase-2 compile time *)
   | _, _ -> false
-
-module TypeToXML = struct
-
-  let string x = Xml.Element(x, [], [])
-  let box tag vs = Xml.Element(tag, [], vs)
-
-  let rec marshal_ = function
-    | String         -> string "string"
-    | Int            -> string "int"
-    | Float          -> string "float"
-    | Bool           -> string "bool"
-    | DateTime       -> string "datetime"
-    | Enum (name, _) -> box "enum" [ string name ]
-    | Ref x          -> box "ref" [ string x ]
-    | Set ty         -> box "set" [ marshal_ ty ]
-    | Map (a, b)     -> box "map" [ marshal_ a; marshal_ b ]
-    | Record x       -> box "record" [ string x ]
-
-  let marshal = function
-    | None   -> string "none"
-    | Some x -> box "some" [ marshal_ x ]
-
-  let rec unmarshal_ = function
-    | Xml.Element("string", [], [])                    -> String
-    | Xml.Element("int", [], [])                       -> Int
-    | Xml.Element("float", [], [])                     -> Float
-    | Xml.Element("datetime", [], [])                  -> DateTime
-    | Xml.Element("enum", [], [Xml.Element(name, [], [])]) -> Enum(name, [])
-    | Xml.Element("ref", [],  [Xml.Element(name, [], [])]) -> Ref name
-    | Xml.Element("set", [], [t])                      -> Set(unmarshal_ t)
-    | Xml.Element("map", [], [a;b])                    -> Map(unmarshal_ a, unmarshal_ b)
-    | _ -> failwith "Type unmarshal error"
-
-  let unmarshal = function
-    | Xml.Element("none", [], [])  -> None
-    | Xml.Element("some", [], [x]) -> Some (unmarshal_ x)
-    | _ -> failwith "Type unmarshal error"
-
-end

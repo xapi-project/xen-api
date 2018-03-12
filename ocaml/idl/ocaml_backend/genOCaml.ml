@@ -72,6 +72,7 @@ let ty_to_xmlrpc api ty =
              String.concat "_" fld.full_name) fields in
       let kvs = List.map (fun (record, v) -> "\"" ^ v ^ "\", " ^ record) kvs in
       "fun x -> To.structure [ " ^ (String.concat "; " kvs) ^ " ]"
+    | Option ty -> "fun s -> To.array (option_to_list "^alias_of_ty ty^" s)"
   in
   ["and "^alias_of_ty ty^" : "^alias_of_ty ty^" -> xml =";
    "  "^f]
@@ -86,6 +87,10 @@ let gen_to_xmlrpc api tys = block
       ["let tostring_reference = Ref.string_of"];
       ["let set f l =";
        "  To.array (List.map f l)"];
+      ["let option_to_list f v =";
+       "match v with";
+       "| Some v -> [f v]";
+       "| None -> []"];
       ["let map fk fv m =";
        "  let elements = List.map (fun (k, v) -> fk k, fv v) m in";
        "  XMLRPC.To.structure elements";
@@ -156,7 +161,9 @@ let ty_of_xmlrpc api ty =
           fields in
       let fields = if fields = [] then [ "__unused=()" ] else fields in
       wrap "xml" ("let all = From.structure xml in { " ^
-                  (String.concat ";\n " fields) ^ " }") in
+                  (String.concat ";\n " fields) ^ " }")
+    | Option ty -> wrap "xml" ("From.array "^alias_of_ty_param ty^" xml |> list_to_option")
+  in
   let f = "fun param -> ("^f^")" in
   ["and "^alias_of_ty ty^" : string -> xml -> "^alias_of_ty ty^" =";
    "  "^f]
@@ -172,6 +179,10 @@ let gen_of_xmlrpc api tys = block
       ["let methodResponse = From.methodResponse"];
       ["let set f (xml: XMLRPC.xmlrpc) =";
        "  From.array f xml"];
+      ["let list_to_option = function";
+       "| [] -> None";
+       "| [x] -> Some x";
+       "| _ -> failwith \"0 or 1 list elements expected for option type\""];
       ["let map fk fv (xml: XMLRPC.xmlrpc) =";
        "  List.map (fun (k, v) -> fk k, fv v) (From.structure xml)"
 (*

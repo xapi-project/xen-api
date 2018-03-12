@@ -2747,6 +2747,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module Vdi_nbd_server_info = struct
   end
 
+  module Probe_result = struct end
+
+  module Sr_stat = struct end
+
   module Network = struct
 
     (* Don't forward. These are just db operations. Networks are "attached" when required by hosts that read db entries.
@@ -3255,6 +3259,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.SR.probe ~host ~device_config ~_type ~sm_config in
       do_op_on ~local_fn ~__context ~host
         (fun session_id rpc -> Client.SR.probe ~rpc ~session_id ~host ~device_config ~_type ~sm_config)
+
+    let probe_ext ~__context ~host ~device_config ~_type ~sm_config =
+      info "SR.probe_ext: host = '%s'" (host_uuid ~__context host);
+      let local_fn = Local.SR.probe_ext ~host ~device_config ~_type ~sm_config in
+      do_op_on ~local_fn ~__context ~host
+        (fun session_id rpc -> Client.SR.probe_ext ~rpc ~session_id ~host ~device_config ~_type ~sm_config)
 
     let set_shared ~__context ~sr ~value =
       Local.SR.set_shared ~__context ~sr ~value
