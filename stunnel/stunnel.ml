@@ -289,8 +289,9 @@ let attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
                   let config = config_file verify_cert extended_diagnosis host port legacy in
                   (* Catch the occasional initialisation failure of stunnel: *)
                   try
-                    let n = Unix.write fd config 0 (String.length config) in
-                    if n < String.length config then raise Stunnel_initialisation_failed
+                    let len = String.length config in
+                    let n = Unix.write fd (Bytes.of_string config) 0 len in
+                    if n < len then raise Stunnel_initialisation_failed
                   with Unix.Unix_error(err, fn, arg) -> 
                     write_to_log (Printf.sprintf "Caught Unix.Unix_error(%s, %s, %s); raising Stunnel_initialisation_failed" (Unix.error_message err) fn arg);
                     raise Stunnel_initialisation_failed

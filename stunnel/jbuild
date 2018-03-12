@@ -2,7 +2,7 @@
  ((name stunnel)
   (public_name stunnel)
   (wrapped false)
-  (flags (:standard -w -37))
+  (flags (:standard -w -37 -safe-string))
   (libraries (astring
               forkexec
               threads
