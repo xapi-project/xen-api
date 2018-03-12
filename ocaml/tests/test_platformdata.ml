@@ -32,7 +32,7 @@ module SanityCheck = Generic.Make(struct
 
     let transform (platformdata, filter_out_unknowns, vcpu_max, vcpu_at_startup, domain_type) =
       try Either.Right (Vm_platform.sanity_check ~platformdata ~vcpu_max
-        ~vcpu_at_startup ~domain_type ~filter_out_unknowns)
+                          ~vcpu_at_startup ~domain_type ~filter_out_unknowns)
       with e -> Either.Left e
 
     let tests =

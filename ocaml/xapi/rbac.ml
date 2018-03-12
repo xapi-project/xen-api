@@ -81,7 +81,7 @@ let permission_set permission_list =
 let create_session_permissions_tbl ~session_id ~rbac_permissions =
   if use_efficient_permission_set
   && Pool_role.is_master () (* Create this structure on the master only, *)
-  (* so as to avoid heap-leaking on the slaves *)
+     (* so as to avoid heap-leaking on the slaves *)
   then begin
     debug "Creating permission-set tree for session %s"
       (Context.trackid_of_session (Some session_id));

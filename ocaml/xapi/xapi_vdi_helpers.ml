@@ -194,40 +194,40 @@ module VDI_CStruct = struct
 
   (* Set the magic number *)
   let set_magic_number cstruct =
-    Cstruct.BE.set_uint32 cstruct magic_number_offset magic_number
+                         Cstruct.BE.set_uint32 cstruct magic_number_offset magic_number
 
   (* Get the magic number *)
   let get_magic_number cstruct =
-    Cstruct.BE.get_uint32 cstruct magic_number_offset
+                         Cstruct.BE.get_uint32 cstruct magic_number_offset
 
   (* Set the version *)
   let set_version cstruct =
-    Cstruct.BE.set_uint32 cstruct version_offset version
+                    Cstruct.BE.set_uint32 cstruct version_offset version
 
   (* Set the data length *)
   let set_data_length cstruct len =
-    Cstruct.BE.set_uint32 cstruct length_offset len
+                        Cstruct.BE.set_uint32 cstruct length_offset len
 
   (* Get the data length *)
   let get_data_length cstruct =
-    Cstruct.BE.get_uint32 cstruct length_offset
+                        Cstruct.BE.get_uint32 cstruct length_offset
 
   (* Write the string to the cstruct *)
   let write cstruct text text_len =
-    Cstruct.blit_from_string text default_offset cstruct data_offset text_len;
-    set_data_length cstruct (Int32.of_int text_len)
+              Cstruct.blit_from_string text default_offset cstruct data_offset text_len;
+  set_data_length cstruct (Int32.of_int text_len)
 
   (* Read the string from the cstruct *)
   let read cstruct =
-    let curr_len = Int32.to_int (get_data_length cstruct) in
-    let curr_text = String.make curr_len '\000' in
-    Cstruct.blit_to_string cstruct data_offset curr_text default_offset curr_len;
-    curr_text
+             let curr_len = Int32.to_int (get_data_length cstruct) in
+             let curr_text = String.make curr_len '\000' in
+             Cstruct.blit_to_string cstruct data_offset curr_text default_offset curr_len;
+  curr_text
 
   (* Format the cstruct for the first time *)
   let format cstruct =
-    set_magic_number cstruct;
-    set_version cstruct
+               set_magic_number cstruct;
+set_version cstruct
 
 end
 
@@ -242,14 +242,14 @@ let write_raw ~__context ~vdi ~text =
           (fun fd ->
              let contents = Unixext.really_read_string fd VDI_CStruct.vdi_size in
              let cstruct = Cstruct.of_string contents in
-             if (VDI_CStruct.get_magic_number cstruct) <> VDI_CStruct.magic_number then
-               VDI_CStruct.format cstruct;
-             VDI_CStruct.write cstruct text (String.length text);
-             Unix.ftruncate fd 0;
-             Unixext.seek_to fd 0 |> ignore;
-             Unixext.really_write_string fd (VDI_CStruct.read cstruct);
-          )
-      )
+if (VDI_CStruct.get_magic_number cstruct) <> VDI_CStruct.magic_number then
+  VDI_CStruct.format cstruct;
+VDI_CStruct.write cstruct text (String.length text);
+  Unix.ftruncate fd 0;
+  Unixext.seek_to fd 0 |> ignore;
+  Unixext.really_write_string fd (VDI_CStruct.read cstruct);
+)
+)
 
 let read_raw ~__context ~vdi =
   Helpers.call_api_functions ~__context
@@ -257,11 +257,11 @@ let read_raw ~__context ~vdi =
         (fun fd ->
            let contents = Unixext.really_read_string fd VDI_CStruct.vdi_size in
            let cstruct = Cstruct.of_string contents in
-           if (VDI_CStruct.get_magic_number cstruct) <> VDI_CStruct.magic_number then begin
-             debug "Attempted read from raw VDI but VDI not formatted: returning None";
-             None
-           end
-           else
-             Some (VDI_CStruct.read cstruct)
-        )
-    )
+if (VDI_CStruct.get_magic_number cstruct) <> VDI_CStruct.magic_number then begin
+  debug "Attempted read from raw VDI but VDI not formatted: returning None";
+  None
+end
+else
+  Some (VDI_CStruct.read cstruct)
+)
+)

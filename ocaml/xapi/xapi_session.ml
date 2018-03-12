@@ -294,8 +294,8 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool ~is_local
     Ref.string_of session_id
   in
   let session_id = Ref.of_string (match db_ref with
-    | Some db_ref -> Db_backend.create_registered_session create_session db_ref
-    | None -> create_session ())
+      | Some db_ref -> Db_backend.create_registered_session create_session db_ref
+      | None -> create_session ())
   in
   Rbac_audit.session_create ~__context ~session_id ~uname;
   (* At this point, the session is created, but with an incorrect time *)

@@ -34,7 +34,7 @@ let destroy ~__context ~self =
 
   (* Destroy all vUSBs *)
   List.iter (fun vusb ->
-    Helpers.log_exn_continue (Printf.sprintf "destroying VUSB: %s" (Ref.string_of vusb))
-      (fun vusb -> Db.VUSB.destroy ~__context ~self:vusb) vusb) vusbs;
+      Helpers.log_exn_continue (Printf.sprintf "destroying VUSB: %s" (Ref.string_of vusb))
+        (fun vusb -> Db.VUSB.destroy ~__context ~self:vusb) vusb) vusbs;
 
   Db.USB_group.destroy ~__context ~self

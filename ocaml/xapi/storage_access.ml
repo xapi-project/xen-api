@@ -210,7 +210,7 @@ module SMAPIv1 = struct
                   error "SR.create failed SR:%s error:%s" (Ref.string_of sr) e';
                   raise e
              );
-            List.filter (fun (x,_) -> x <> "SRmaster") device_config
+           List.filter (fun (x,_) -> x <> "SRmaster") device_config
         )
 
     let set_name_label context ~dbg ~sr ~new_name_label =
@@ -943,7 +943,7 @@ let check_queue_exists queue_name =
    The destination uri needs to be local as [xml_http_rpc] doesn't support https calls,
    only file and http.
    Cross-host https calls are only supported by XMLRPC_protocol.rpc
- *)
+*)
 let external_rpc queue_name uri =
   let open Xcp_client in
   if !use_switch then check_queue_exists queue_name;
@@ -1084,7 +1084,7 @@ let unbind ~__context ~pbd =
 (* Internal SM calls: need to handle redirection, we are the toplevel caller.
    The SM can decide that a call needs to be run elsewhere, e.g.
    for a SMAPIv3 plugin the snapshot should be run on the node that has the VDI activated.
- *)
+*)
 let rpc =
   let srcstr = Xcp_client.get_user_agent() in
   let local_fn = Storage_mux.Server.process None in

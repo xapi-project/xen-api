@@ -248,7 +248,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 
   (* verify if this action is happening due to a VM Schedule Snapshot *)
   let is_vmss_snapshot =
-      is_a_snapshot && (Xapi_vmss.is_vmss_snapshot ~__context) in
+    is_a_snapshot && (Xapi_vmss.is_vmss_snapshot ~__context) in
 
   let platform =
     all.Db_actions.vM_platform

@@ -32,17 +32,17 @@ let find_rrd_files () =
   |> Array.to_list
   |> List.filter (String.startswith metrics_prefix)
 
-  (* The PVS Proxy status cache [pvs_proxy_cached] contains the status
-   * entries from PVS Proxies as reported via RRD. When the status
-   * changes, it is updated in the xapi database. However: The xapi
-   * databse is only updated for proxies that are currently attached.
-   * This can lead to divergence between the cache and the database,
-   * leading to error CA-229176. When the PVS Proxy is attached in
-   * xapi_xenops.ml, the cache entry for the PVS Proxy is invalidated
-   * such that it is picked up again and updated in the xapi database.
-   * Inconsistencies are thus limited to the time between when a PVS
-   * Proxy starts reporting its status and when it is attached.
-   *)
+(* The PVS Proxy status cache [pvs_proxy_cached] contains the status
+ * entries from PVS Proxies as reported via RRD. When the status
+ * changes, it is updated in the xapi database. However: The xapi
+ * databse is only updated for proxies that are currently attached.
+ * This can lead to divergence between the cache and the database,
+ * leading to error CA-229176. When the PVS Proxy is attached in
+ * xapi_xenops.ml, the cache entry for the PVS Proxy is invalidated
+ * such that it is picked up again and updated in the xapi database.
+ * Inconsistencies are thus limited to the time between when a PVS
+ * Proxy starts reporting its status and when it is attached.
+*)
 
 let get_changes () =
   List.iter (fun filename ->

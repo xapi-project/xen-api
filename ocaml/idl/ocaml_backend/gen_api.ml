@@ -11,17 +11,17 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
- open Printf
- 
- module DT = Datamodel_types
- module DU = Datamodel_utils
- module OU = Ocaml_utils
- 
- module O = Ocaml_syntax
- 
- let oc = ref stdout
- let print s = output_string !oc (s^"\n")
- let between = Xapi_stdext_std.Listext.List.between
+open Printf
+
+module DT = Datamodel_types
+module DU = Datamodel_utils
+module OU = Ocaml_utils
+
+module O = Ocaml_syntax
+
+let oc = ref stdout
+let print s = output_string !oc (s^"\n")
+let between = Xapi_stdext_std.Listext.List.between
 
 let overrides = [
   "vm_operations_to_string_map",(

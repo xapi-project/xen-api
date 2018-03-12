@@ -45,9 +45,9 @@ let test_scan_with_usb_add_and_remove () =
   Thread.delay 1.0;
   (* delete PUSB from DB*)
   List.iter (fun (self, _) ->
-                  let usb_group = Db.PUSB.get_USB_group ~__context ~self in
-                  Db.PUSB.destroy ~__context ~self;
-                  Db.USB_group.destroy ~__context ~self:usb_group) (Db.PUSB.get_all_records ~__context);
+      let usb_group = Db.PUSB.get_USB_group ~__context ~self in
+      Db.PUSB.destroy ~__context ~self;
+      Db.USB_group.destroy ~__context ~self:usb_group) (Db.PUSB.get_all_records ~__context);
 
   Xapi_pusb.scan ~__context ~host;
   Thread.delay 1.0;
@@ -56,5 +56,5 @@ let test_scan_with_usb_add_and_remove () =
 let test =
   "test_pusb" >:::
   [
-	"test_scan_with_usb_add_and_remove" >:: test_scan_with_usb_add_and_remove;
+    "test_scan_with_usb_add_and_remove" >:: test_scan_with_usb_add_and_remove;
   ]

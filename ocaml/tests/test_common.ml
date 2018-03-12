@@ -333,7 +333,7 @@ let make_vgpu ~__context
     ~ref ~uuid ~vM ~gPU_group ~device ~currently_attached
     ~other_config ~_type ~resident_on ~scheduled_to_be_resident_on
     ~compatibility_metadata
-    ;
+  ;
   ref
 
 let make_vgpu_type ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
@@ -384,16 +384,16 @@ let make_pool_update ~__context
     ?(other_config=[])
     ?(vdi=Ref.null) () =
   let update_info = Xapi_pool_update.
-    { uuid
-    ; name_label
-    ; name_description
-    ; version
-    ; key
-    ; installation_size
-    ; after_apply_guidance
-    ; other_config
-    ; enforce_homogeneity
-    } in
+                      { uuid
+                      ; name_label
+                      ; name_description
+                      ; version
+                      ; key
+                      ; installation_size
+                      ; after_apply_guidance
+                      ; other_config
+                      ; enforce_homogeneity
+                      } in
   Xapi_pool_update.create_update_record ~__context ~update:ref ~update_info ~vdi;
   ref
 

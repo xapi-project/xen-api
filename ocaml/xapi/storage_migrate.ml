@@ -211,9 +211,9 @@ let rpc ~srcstr ~dststr url =
     let open Http.Url in
     match url with
     | (Http h, d) ->
-       (Http {h with host=ip}, d)
+      (Http {h with host=ip}, d)
     | _ ->
-       remote_url ip
+      remote_url ip
   in
   let local_fn = Helpers.make_remote_rpc_of_url ~srcstr ~dststr url in
   Storage_utils.redirectable_rpc ~srcstr ~dststr ~remote_url_of_ip ~local_fn
@@ -490,13 +490,13 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
     let local_vdi = add_to_sm_config local_vdi "mirror" ("nbd:" ^ dp) in
     let local_vdi = add_to_sm_config local_vdi "base_mirror" id in
     let snapshot =
-    try
-      Local.VDI.snapshot ~dbg ~sr ~vdi_info:local_vdi
-    with
-    | Storage_interface.Backend_error(code, _) when code = "SR_BACKEND_FAILURE_44" ->
-      raise (Api_errors.Server_error(Api_errors.sr_source_space_insufficient, [ sr ]))
-    | e ->
-      raise e
+      try
+        Local.VDI.snapshot ~dbg ~sr ~vdi_info:local_vdi
+      with
+      | Storage_interface.Backend_error(code, _) when code = "SR_BACKEND_FAILURE_44" ->
+        raise (Api_errors.Server_error(Api_errors.sr_source_space_insufficient, [ sr ]))
+      | e ->
+        raise e
     in
     debug "Done!";
 

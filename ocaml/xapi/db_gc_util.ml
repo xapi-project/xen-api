@@ -76,7 +76,7 @@ let gc_PIFs ~__context =
        List.iter (fun tunnel -> (try Db.Tunnel.destroy ~__context ~self:tunnel with _ -> ())) tunnels_to_gc;
        List.iter (fun bond -> (try Db.Bond.destroy ~__context ~self:bond with _ -> ())) bonds_to_gc;
        Db.PIF.destroy ~__context ~self) 
-      
+
 let gc_VBDs ~__context =
   gc_connector ~__context Db.VBD.get_all Db.VBD.get_record (fun x->valid_ref __context x.vBD_VM) (fun x->valid_ref __context x.vBD_VDI || x.vBD_empty)
     (fun ~__context ~self ->
@@ -93,7 +93,7 @@ let gc_VBDs ~__context =
            (try Db.VBD_metrics.destroy ~__context ~self:metrics with _ -> ());
            Db.VBD.destroy ~__context ~self;
          end)
-      
+
 let gc_crashdumps ~__context =
   gc_connector ~__context Db.Crashdump.get_all Db.Crashdump.get_record
     (fun x->valid_ref __context x.crashdump_VM) (fun x->valid_ref __context x.crashdump_VDI) Db.Crashdump.destroy
@@ -104,7 +104,7 @@ let gc_VIFs ~__context =
        let metrics = Db.VIF.get_metrics ~__context ~self in
        (try Db.VIF_metrics.destroy ~__context ~self:metrics with _ -> ());
        Db.VIF.destroy ~__context ~self)
-      
+
 let gc_PBDs ~__context =
   gc_connector ~__context Db.PBD.get_all Db.PBD.get_record (fun x->valid_ref __context x.pBD_host) (fun x->valid_ref __context x.pBD_SR) Db.PBD.destroy
 
@@ -163,7 +163,7 @@ let gc_host_cpus ~__context =
     (fun hcpu ->
        if not (valid_ref __context (Db.Host_cpu.get_host ~__context ~self:hcpu)) then
          Db.Host_cpu.destroy ~__context ~self:hcpu) host_cpus
-         
+
 let gc_host_metrics ~__context =
   let all_host_metrics = Db.Host_metrics.get_all ~__context in
   let metrics = List.map (fun host-> Db.Host.get_metrics ~__context ~self:host) in
@@ -256,8 +256,8 @@ let timeout_tasks ~__context =
     ) (old @ unlucky);
   if List.length lucky > Xapi_globs.max_tasks
   then warn "There are more pending tasks than the maximum allowed: %d > %d" (List.length lucky) Xapi_globs.max_tasks
-  
-  
+
+
 let timeout_sessions_common ~__context sessions limit session_group =
   let unused_sessions = List.filter
       (fun (x, _) ->
@@ -342,10 +342,10 @@ let timeout_sessions ~__context =
     timeout_sessions_common ~__context anon_sessions Xapi_globs.max_sessions "external";
     timeout_sessions_common ~__context pool_sessions Xapi_globs.max_sessions "internal";
   end
-  
+
 let gc_messages ~__context =
   Xapi_message.gc ~__context
-  
+
 let gc_consoles ~__context =
   List.iter (fun console ->
       if not (valid_ref __context (Db.Console.get_VM ~__context ~self:console))
@@ -354,7 +354,7 @@ let gc_consoles ~__context =
         debug "GCed console %s" (Ref.string_of console);
       end
     ) (Db.Console.get_all ~__context)
-  
+
 let gc_PVS_proxies ~__context =
   gc_connector ~__context
     Db.PVS_proxy.get_all
@@ -362,7 +362,7 @@ let gc_PVS_proxies ~__context =
     (fun x -> valid_ref __context x.pVS_proxy_VIF)
     (fun x -> valid_ref __context x.pVS_proxy_site)
     Db.PVS_proxy.destroy
-  
+
 (* A PVS server refers to a PVS site. We delete it, if the reference
  * becomes invalid. At creation, the server is connected to a site and
  * hence we never GC a server right after it was created. *)
@@ -373,7 +373,7 @@ let gc_PVS_servers ~__context =
     (fun x -> true)
     (fun x -> valid_ref __context x.pVS_server_site)
     Db.PVS_server.destroy
-  
+
 let gc_PVS_cache_storage ~__context =
   gc_connector ~__context
     Db.PVS_cache_storage.get_all
@@ -396,26 +396,26 @@ let timeout_alerts ~__context =
 
 (* do VDIs first because this will cause some VBDs to be affected *)
 let gc_subtask_list = [
-    "VDIs", gc_VDIs;
-    "PIFs", gc_PIFs;
-    "VBDs", gc_VBDs;
-    "crashdumps", gc_crashdumps;
-    "VIFs", gc_VIFs;
-    "PBDs", gc_PBDs;
-    "VGPUs", gc_VGPUs;
-    "PGPUs", gc_PGPUs;
-    "VGPU_types", gc_VGPU_types;
-    "Host patches", gc_Host_patches;
-    "Host CPUs", gc_host_cpus;
-    "Host metrics", gc_host_metrics;
-    "Tasks", timeout_tasks;
-    "Sessions", timeout_sessions;
-    "Messages", gc_messages;
-    "Consoles", gc_consoles;
-    "PVS proxies", gc_PVS_proxies;
-    "PVS servers", gc_PVS_servers;
-    "PVS cache storage", gc_PVS_cache_storage;
-    (* timeout_alerts; *)
-    (* CA-29253: wake up all blocked clients *)
-    "Heartbeat", Xapi_event.heartbeat;
-  ]
+  "VDIs", gc_VDIs;
+  "PIFs", gc_PIFs;
+  "VBDs", gc_VBDs;
+  "crashdumps", gc_crashdumps;
+  "VIFs", gc_VIFs;
+  "PBDs", gc_PBDs;
+  "VGPUs", gc_VGPUs;
+  "PGPUs", gc_PGPUs;
+  "VGPU_types", gc_VGPU_types;
+  "Host patches", gc_Host_patches;
+  "Host CPUs", gc_host_cpus;
+  "Host metrics", gc_host_metrics;
+  "Tasks", timeout_tasks;
+  "Sessions", timeout_sessions;
+  "Messages", gc_messages;
+  "Consoles", gc_consoles;
+  "PVS proxies", gc_PVS_proxies;
+  "PVS servers", gc_PVS_servers;
+  "PVS cache storage", gc_PVS_cache_storage;
+  (* timeout_alerts; *)
+  (* CA-29253: wake up all blocked clients *)
+  "Heartbeat", Xapi_event.heartbeat;
+]

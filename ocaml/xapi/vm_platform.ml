@@ -183,6 +183,6 @@ let check_restricted_flags ~__context platform =
 let check_restricted_device_model ~__context platform =
   if not (is_valid_device_model device_model platform) then
     raise (Api_errors.Server_error(Api_errors.invalid_value,
-            [Printf.sprintf "platform:%s when vm has VUSBs" device_model
-            ; try List.assoc device_model platform with _ -> "undefined"])
+                                   [Printf.sprintf "platform:%s when vm has VUSBs" device_model
+                                   ; try List.assoc device_model platform with _ -> "undefined"])
           )

@@ -394,9 +394,9 @@ module Nvidia_old = struct
   (* The last two arguments of the following function are unused, and only
    * present to match the function signature *)
   let find_or_create_supported_types ~__context ~pci
-        ~is_system_display_device
-        ~is_host_display_enabled
-        ~is_pci_hidden =
+      ~is_system_display_device
+      ~is_host_display_enabled
+      ~is_pci_hidden =
     if is_system_display_device then
       []
     else begin
@@ -461,9 +461,9 @@ module Vendor = functor (V : VENDOR) -> struct
               (get_devices access)
           in
           vendor_name, device
-      in
-      List.filter_map (V.vgpu_type_of_conf access vendor_name device) whitelist
-    ))
+        in
+        List.filter_map (V.vgpu_type_of_conf access vendor_name device) whitelist
+      ))
 
   let find_or_create_supported_types ~__context ~pci
       ~is_system_display_device
@@ -556,21 +556,21 @@ module Vendor_nvidia = struct
         maxVgpus value and the pgpu's subsystemId.
     *)
     List.filter_map (fun pgpu ->
-      let devid = find_one_by_name "devId" pgpu in
-      if int_of_string (get_attr "deviceId" devid) = device_id then
-        let psubdev_id =
-          let id = int_of_string (get_attr "subsystemId" devid) in
-          if id = 0 then None else Some id
-        in
-        let vgpus = find_by_name "supportedVgpu" pgpu in
-        Some (List.map (fun vgpu ->
-          let id = get_attr "vgpuId" vgpu in
-          let max = Int64.of_string (get_data (find_one_by_name "maxVgpus" vgpu)) in
-          id, (max, psubdev_id)
-        ) vgpus)
-      else
-        None
-    ) pgpus |> List.concat
+        let devid = find_one_by_name "devId" pgpu in
+        if int_of_string (get_attr "deviceId" devid) = device_id then
+          let psubdev_id =
+            let id = int_of_string (get_attr "subsystemId" devid) in
+            if id = 0 then None else Some id
+          in
+          let vgpus = find_by_name "supportedVgpu" pgpu in
+          Some (List.map (fun vgpu ->
+              let id = get_attr "vgpuId" vgpu in
+              let max = Int64.of_string (get_data (find_one_by_name "maxVgpus" vgpu)) in
+              id, (max, psubdev_id)
+            ) vgpus)
+        else
+          None
+      ) pgpus |> List.concat
 
   let extract_conf whitelist device_id vgpu_types vgpu_ids =
     (*
@@ -587,40 +587,40 @@ module Vendor_nvidia = struct
         and construct vgpu_conf records.
     *)
     List.filter_map (fun vgpu_type ->
-      let id = get_attr "id" vgpu_type in
-      if List.mem_assoc id vgpu_ids then
-        let max_instance, psubdev_id = List.assoc id vgpu_ids in
-        let framebufferlength = Int64.of_string (get_data (find_one_by_name "framebuffer" vgpu_type)) in
-        let num_heads = Int64.of_string (get_data (find_one_by_name "numHeads" vgpu_type)) in
-        let max_x, max_y =
-          let display = find_one_by_name "display" vgpu_type in
-          Int64.of_string (get_attr "width" display),
-          Int64.of_string (get_attr "height" display)
-        in
-        let devid = find_one_by_name "devId" vgpu_type in
-        let identifier = Identifier.{
-            pdev_id = device_id;
-            psubdev_id;
-            vdev_id = int_of_string (get_attr "deviceId" devid);
-            vsubdev_id = int_of_string (get_attr "subsystemId" devid);
-          } in
-        let file_path = whitelist in
-        Some {identifier; framebufferlength;
-         num_heads; max_instance; max_x; max_y; file_path}
-      else
-        None
-    ) vgpu_types
+        let id = get_attr "id" vgpu_type in
+        if List.mem_assoc id vgpu_ids then
+          let max_instance, psubdev_id = List.assoc id vgpu_ids in
+          let framebufferlength = Int64.of_string (get_data (find_one_by_name "framebuffer" vgpu_type)) in
+          let num_heads = Int64.of_string (get_data (find_one_by_name "numHeads" vgpu_type)) in
+          let max_x, max_y =
+            let display = find_one_by_name "display" vgpu_type in
+            Int64.of_string (get_attr "width" display),
+            Int64.of_string (get_attr "height" display)
+          in
+          let devid = find_one_by_name "devId" vgpu_type in
+          let identifier = Identifier.{
+              pdev_id = device_id;
+              psubdev_id;
+              vdev_id = int_of_string (get_attr "deviceId" devid);
+              vsubdev_id = int_of_string (get_attr "subsystemId" devid);
+            } in
+          let file_path = whitelist in
+          Some {identifier; framebufferlength;
+                num_heads; max_instance; max_x; max_y; file_path}
+        else
+          None
+      ) vgpu_types
 
   let read_whitelist ~whitelist ~device_id =
     try
       let ch = open_in whitelist in
       let t = 
         finally (fun () ->
-          let i = Xmlm.make_input ~strip:true (`Channel ch) in
-          let _, t = Xmlm.input_doc_tree ~el ~data i in
-          t
-        )
-        (fun () -> close_in ch)
+            let i = Xmlm.make_input ~strip:true (`Channel ch) in
+            let _, t = Xmlm.input_doc_tree ~el ~data i in
+            t
+          )
+          (fun () -> close_in ch)
       in
       let pgpus = find_by_name "pgpu" t in
       let vgpu_types = find_by_name "vgpuType" t in
@@ -747,9 +747,9 @@ module Vendor_intel = struct
           ; vgt_fence_sz, Int64.to_string conf.identifier.fence_sz
           ]
         ; match conf.identifier.monitor_config_file with
-          | Some monitor_config_file ->
-            [vgt_monitor_config_file, monitor_config_file]
-          | None -> []
+        | Some monitor_config_file ->
+          [vgt_monitor_config_file, monitor_config_file]
+        | None -> []
         ]
       in
       Some {

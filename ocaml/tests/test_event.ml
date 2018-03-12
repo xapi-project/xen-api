@@ -19,7 +19,7 @@ open Stdext
 open Threadext
 
 let event_setup_common = Test_event_common.event_setup_common
-  
+
 let test_event_from_ev () =
   (* Test that creating an object generates an event for that object *)
   let __context, session_id = event_setup_common () in
@@ -227,10 +227,10 @@ let object_level_event_test session_id =
   Thread.delay 1.0;
   Mutex.execute m
     (fun () ->
-      if not !finished then begin
-        Printf.printf "FAILURE: Didn't get expected change in event thread\n%!";
-        failure := true;
-      end);
+       if not !finished then begin
+         Printf.printf "FAILURE: Didn't get expected change in event thread\n%!";
+         failure := true;
+       end);
   Mutex.execute m
     (fun () ->
        if (!failure) then begin

@@ -56,7 +56,7 @@ module Nvidia : sig
    *  encoded blob that gets passed to functions checking compatibility;
    *  the key is fixed to [key]. This function must be called on the
    *  host where the vGPU is assigned to a pGPU.
-   *)
+  *)
   val get_vgpu_compatibility_metadata
     : __context:Context.t
     -> vgpu:API.ref_VGPU      (** must refer to NVIDIA vGPU *)
@@ -66,7 +66,7 @@ module Nvidia : sig
    * comatible according to their abstract compatibility metadata. This
    * code can run on any host. If no vGPU or pGPU metadata is
    * available, compatibility is assumed.
-   *)
+  *)
   val vgpu_pgpu_are_compatible
     : __context:Context.t
     -> vgpu:API.ref_VGPU

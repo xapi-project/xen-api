@@ -47,11 +47,11 @@ let extract_member json member =
   let safe_hd = function
     | x::_ -> x
     | _ -> failwith (Printf.sprintf "Internal error: Json from scan script missing element: %s" member)
-    in
-    [json]
-      |> filter_member member
-      |> filter_string
-      |> safe_hd
+  in
+  [json]
+  |> filter_member member
+  |> filter_string
+  |> safe_hd
 
 let extract_local_usb_info usb =
   let open USB in
@@ -123,11 +123,11 @@ let destroy_pusb ~__context pusb =
   let usb_group = Db.PUSB.get_USB_group ~__context ~self:pusb in
   let vusbs = Db.USB_group.get_VUSBs ~__context ~self:usb_group in
   List.iter (fun vusb ->
-    let currently_attached = Db.VUSB.get_currently_attached ~__context ~self:vusb in
-    if currently_attached then
-      Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.VUSB.unplug rpc session_id vusb);
-    Db.VUSB.destroy ~__context ~self:vusb
-  ) vusbs;
+      let currently_attached = Db.VUSB.get_currently_attached ~__context ~self:vusb in
+      if currently_attached then
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            Client.Client.VUSB.unplug rpc session_id vusb);
+      Db.VUSB.destroy ~__context ~self:vusb
+    ) vusbs;
   Db.PUSB.destroy ~__context ~self:pusb;
   Db.USB_group.destroy ~__context ~self:usb_group

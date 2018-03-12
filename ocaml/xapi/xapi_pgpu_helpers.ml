@@ -212,9 +212,9 @@ let assert_destination_has_pgpu_compatible_with_vm ~__context ~vm ~vgpu_map ~hos
     | `nvidia ->
       Db.VGPU.get_GPU_group ~__context ~self:vgpu
       |> fun self -> Db.GPU_group.get_GPU_types ~__context ~self
-      |> fun pgpu_types -> get_first_suitable_pgpu pgpu_types vgpu pgpus
-      |> fun pgpu ->
-        assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu ~pgpu ~host ?remote ()
+                     |> fun pgpu_types -> get_first_suitable_pgpu pgpu_types vgpu pgpus
+                                          |> fun pgpu ->
+                                          assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu ~pgpu ~host ?remote ()
   in
   let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
   let _mapped, unmapped = List.partition (fun vgpu -> List.mem_assoc vgpu vgpu_map) vgpus in

@@ -39,33 +39,33 @@ let test_with_access_cleanup () =
   for i = 1 to 1000 do with_dump ~cleanup:false (fun _ -> ()) done;
   let mem''' = Gc.compact (); resident_pages () in
   assert_raises (OUnitTest.OUnit_failure "not equal") (fun () ->
-    assert_equal mem'' mem''')
+      assert_equal mem'' mem''')
 
 let test_lookup_functions () =
   (* Subset of `lspci -mnnv` on my system
-    Class:  Bridge [0680]
-    Vendor: Intel Corporation [8086]
-    Device: 82371AB/EB/MB PIIX4 ACPI [7113]
-    SVendor:        Red Hat, Inc [1af4]
-    SDevice:        Qemu virtual machine [1100] *)
+     Class:  Bridge [0680]
+     Vendor: Intel Corporation [8086]
+     Device: 82371AB/EB/MB PIIX4 ACPI [7113]
+     SVendor:        Red Hat, Inc [1af4]
+     SDevice:        Qemu virtual machine [1100] *)
   let test_lookup = assert_equal ~printer:(fun x -> x) in
   let default v = match v with Some v -> v | None -> "" in
   with_dump (fun acc ->
-    test_lookup "Bridge" @@ (lookup_class_name acc 0x0680 |> default);
-    test_lookup "Intel Corporation" @@ (lookup_vendor_name acc 0x8086 |> default);
-    test_lookup "82371AB/EB/MB PIIX4 ACPI" @@ (lookup_device_name acc 0x8086 0x7113 |> default);
-    test_lookup "Red Hat, Inc" @@ (lookup_subsystem_vendor_name acc 0x1af4 |> default);
-    test_lookup "Qemu virtual machine" @@ (lookup_subsystem_device_name acc 0x8086 0x7113 0x1af4 0x1100 |> default);
-    test_lookup "VGA compatible controller" @@ (lookup_class_name acc 0x0300 |> default);
-    test_lookup "VGA controller" @@ (lookup_progif_name acc 0x0300 0x00 |> default);
-  )
+      test_lookup "Bridge" @@ (lookup_class_name acc 0x0680 |> default);
+      test_lookup "Intel Corporation" @@ (lookup_vendor_name acc 0x8086 |> default);
+      test_lookup "82371AB/EB/MB PIIX4 ACPI" @@ (lookup_device_name acc 0x8086 0x7113 |> default);
+      test_lookup "Red Hat, Inc" @@ (lookup_subsystem_vendor_name acc 0x1af4 |> default);
+      test_lookup "Qemu virtual machine" @@ (lookup_subsystem_device_name acc 0x8086 0x7113 0x1af4 0x1100 |> default);
+      test_lookup "VGA compatible controller" @@ (lookup_class_name acc 0x0300 |> default);
+      test_lookup "VGA controller" @@ (lookup_progif_name acc 0x0300 0x00 |> default);
+    )
 
 let _ =
   let suite = "pci" >:::
-    [
-      "smoke_test" >:: smoke_test;
-      "test_with_access_cleanup" >:: test_with_access_cleanup;
-      "test_lookup_functions" >:: test_lookup_functions;
-    ]
+              [
+                "smoke_test" >:: smoke_test;
+                "test_with_access_cleanup" >:: test_with_access_cleanup;
+                "test_lookup_functions" >:: test_lookup_functions;
+              ]
   in
   OUnit2.run_test_tt_main @@ ounit2_of_ounit1 suite

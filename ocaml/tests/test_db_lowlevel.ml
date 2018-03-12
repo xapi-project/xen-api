@@ -93,7 +93,7 @@ let test_empty_key_in_map () =
     (Db_exn.Empty_key_in_map)
     (fun () ->
        Db.VM.set_other_config ~__context ~self:vm_ref ~value:["","value"])
-    
+
 
 let test =
   [

@@ -42,7 +42,7 @@ let maybe_reenable_cluster_host __context =
   let host = Helpers.get_localhost __context in
   match Xapi_clustering.find_cluster_host ~__context ~host with
   | Some self ->
-     Xapi_cluster_host.enable ~__context ~self
+    Xapi_cluster_host.enable ~__context ~self
   | None -> ()
 
 let plug_unplugged_pbds __context =

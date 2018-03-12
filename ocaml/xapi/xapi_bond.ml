@@ -150,8 +150,8 @@ let move_vlan ~__context host new_slave old_vlan =
       move_management ~__context old_master new_master;
     end
     else begin
-     debug "Plugging new VLAN";
-     Nm.bring_pif_up ~__context new_master
+      debug "Plugging new VLAN";
+      Nm.bring_pif_up ~__context new_master
     end;
     (* Call Xapi_vif.move_internal on VIFs of running VMs to make sure they end up on the right vSwitch *)
     let vifs = Db.Network.get_VIFs ~__context ~self:network in

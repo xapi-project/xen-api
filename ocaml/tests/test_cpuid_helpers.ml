@@ -264,7 +264,7 @@ module Comparisons = Generic.Make (struct
       (* Below are the more common cases *)
       (features_of_string "07cbfbff-04082201-20100800-00000001-00000000-00000000-00000000-00000000-00000000",
        features_of_string "07c9cbf5-80082201-20100800-00000001-00000000-00000000-00000000-00000000-00000000"),
-       (false, false);
+      (false, false);
 
       ([| 0b00000000L |], [| 0b11111111L |]), (true, true);
       ([| 0b11111111L |], [| 0b11111111L |]), (true, false);
@@ -428,7 +428,7 @@ module ResetCPUFlags = Generic.Make(Generic.EncapsulateState(struct
                                         (["a", `pv], [features_pv]);
                                         (["a", `pv_in_pvh], [features_hvm]);
                                         (["a", `hvm; "b", `pv; "c", `pv_in_pvh],
-                                          [features_hvm; features_pv; features_hvm]);
+                                         [features_hvm; features_pv; features_hvm]);
                                       ]
                                     end))
 

@@ -272,12 +272,12 @@ let assert_fcoe_not_in_use ~__context pif =
       let sr = pbd_rec.API.pBD_SR in
       match Db.SR.get_type ~__context ~self:sr with
       | "lvmofcoe" ->(
-        try
-          let scsid = List.assoc "SCSIid" pbd_rec.API.pBD_device_config in
-          if List.mem scsid fcoe_scsids then raise (Api_errors.Server_error(Api_errors.pif_has_fcoe_sr_in_use, [Ref.string_of pif; Ref.string_of sr]))
-        with Not_found ->
-          ()
-      )
+          try
+            let scsid = List.assoc "SCSIid" pbd_rec.API.pBD_device_config in
+            if List.mem scsid fcoe_scsids then raise (Api_errors.Server_error(Api_errors.pif_has_fcoe_sr_in_use, [Ref.string_of pif; Ref.string_of sr]))
+          with Not_found ->
+            ()
+        )
       | _ -> ()
     )
 
@@ -448,7 +448,7 @@ let assert_no_clustering_enabled ~__context ~network ~host =
   if not (Xapi_clustering.is_clustering_disabled_on_host ~__context host)
   then
     (Db.Cluster.get_refs_where ~__context
-      ~expr:Db_filter_types.(Eq(Field "network", Literal (Ref.string_of network))))
+       ~expr:Db_filter_types.(Eq(Field "network", Literal (Ref.string_of network))))
     |> function
     | []   -> ()
     | _::_ -> raise Api_errors.(Server_error (clustering_enabled_on_network, [Ref.string_of network]))

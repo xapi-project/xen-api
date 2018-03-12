@@ -42,13 +42,13 @@ let total_memory_of_vm ~__context policy snapshot =
 let compute_evacuation_plan ~__context total_hosts remaining_hosts vms_and_snapshots =
   let hosts = List.map (fun host -> host, (Memory_check.host_compute_free_memory_with_maximum_compression ~__context ~host None)) remaining_hosts in
   let vms = List.map (fun (vm, snapshot) ->
-    let policy =
-      match Helpers.check_domain_type snapshot.API.vM_domain_type with
-      | `hvm | `pv -> Memory_check.Dynamic_min
-      | `pv_in_pvh -> Memory_check.Static_max
-    in
-    vm, total_memory_of_vm ~__context policy snapshot
-  ) vms_and_snapshots in
+      let policy =
+        match Helpers.check_domain_type snapshot.API.vM_domain_type with
+        | `hvm | `pv -> Memory_check.Dynamic_min
+        | `pv_in_pvh -> Memory_check.Static_max
+      in
+      vm, total_memory_of_vm ~__context policy snapshot
+    ) vms_and_snapshots in
 
   let config = { Binpack.hosts = hosts; vms = vms; placement = []; total_hosts = total_hosts; num_failures = 1 } in
   Binpack.check_configuration config;

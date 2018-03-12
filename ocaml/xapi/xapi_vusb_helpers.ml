@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
- open Stdext.Xstringext
+open Stdext.Xstringext
 
 module D=Debug.Make(struct let name="xapi" end)
 open D
@@ -60,9 +60,9 @@ let valid_operations ~__context record _ref': table =
    | `Running, true -> set_errors Api_errors.device_already_attached [ _ref ] [ `plug]
    | `Running, false -> set_errors Api_errors.device_already_detached [ _ref ] [ `unplug]
    | _,_ ->
-   let actual = Record_util.power_to_string power_state in
-   let expected = Record_util.power_to_string `Running in
-   set_errors Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; actual ] [ `plug; `unplug ]);
+     let actual = Record_util.power_to_string power_state in
+     let expected = Record_util.power_to_string `Running in
+     set_errors Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; actual ] [ `plug; `unplug ]);
 
   let vm_current_ops = Db.VM.get_current_operations ~__context ~self:vm in
   List.iter (fun (task,op) ->
@@ -77,7 +77,7 @@ let valid_operations ~__context record _ref': table =
 let throw_error (table: table) op =
   if not(Hashtbl.mem table op)
   then raise (Api_errors.Server_error(Api_errors.internal_error,
-                         [ Printf.sprintf "xapi_vusb_helpers.assert_operation_valid unknown operation: %s" (vusb_operation_to_string op) ]));
+                                      [ Printf.sprintf "xapi_vusb_helpers.assert_operation_valid unknown operation: %s" (vusb_operation_to_string op) ]));
 
   match Hashtbl.find table op with
   | Some (code, params) -> raise (Api_errors.Server_error(code, params))

@@ -23,17 +23,17 @@ open Db_filter
 open Network
 
 let bridge_blacklist = [
-    "xen";
-    "xapi";
-    "vif";
-    "tap";
-    "eth";
+  "xen";
+  "xapi";
+  "vif";
+  "tap";
+  "eth";
 ]
 
 let internal_bridge_m = Mutex.create ()
 
 let assert_network_is_managed ~__context ~self =
-   if not (Db.Network.get_managed ~__context ~self) then
+  if not (Db.Network.get_managed ~__context ~self) then
     raise (Api_errors.Server_error (Api_errors.network_unmanaged, [ Ref.string_of self ]))
 
 let create_internal_bridge ~__context ~bridge ~uuid ~persist =
@@ -96,7 +96,7 @@ let attach_internal ?(management_interface=false) ?(force_bringup=false) ~__cont
     let dbg = Context.string_of_task __context in
     let bridges = Net.Bridge.get_all dbg () in
     if not(List.mem net.API.network_bridge bridges) then
-       raise (Api_errors.Server_error (Api_errors.bridge_not_available, [ net.API.network_bridge ]));
+      raise (Api_errors.Server_error (Api_errors.bridge_not_available, [ net.API.network_bridge ]));
   end
   else begin
     (* Ensure internal bridge exists and is up. external bridges will be
@@ -123,10 +123,10 @@ let attach_internal ?(management_interface=false) ?(force_bringup=false) ~__cont
         end else
         if management_interface then
           info "PIF %s is the management interface, but it is not managed by xapi. \
-                          The bridge and IP must be configured through other means." uuid
+                The bridge and IP must be configured through other means." uuid
         else
           info "PIF %s is needed by a VM, but not managed by xapi. \
-                          The bridge must be configured through other means." uuid
+                The bridge must be configured through other means." uuid
       ) local_pifs
   end
 
@@ -341,14 +341,14 @@ let assert_can_add_purpose ~__context ~network ~current newval =
      * type doesn't allow searching for a value inside a list. *)
     Db.Network.get_all ~__context |>
     List.iter (fun nwk ->
-      Db.Network.get_purpose ~__context ~self:nwk |>
-      List.iter (fun suspect ->
-        if (List.mem suspect bads) then (
-          info "Cannot set new network purpose %s when there is a network with purpose %s" (sop newval) (sop suspect);
-          reject suspect
-        )
+        Db.Network.get_purpose ~__context ~self:nwk |>
+        List.iter (fun suspect ->
+            if (List.mem suspect bads) then (
+              info "Cannot set new network purpose %s when there is a network with purpose %s" (sop newval) (sop suspect);
+              reject suspect
+            )
+          )
       )
-    )
   in
   match newval with
   | `nbd -> assert_no_net_has_bad_porpoise [`insecure_nbd]

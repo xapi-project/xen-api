@@ -123,9 +123,9 @@ let vdi_data_destroy_test ~session_id ~vDI =
       ~msg:"VDI.data_destroy failed to update VDI.type";
     assert_cbt_status true ~session_id ~test ~vDI:snapshot
       ~msg:"VDI snapshot cbt_enabled field erroneously set to false";
-  (*  test_vdi_update ~session_id ~test snapshot; 
-      temporarily comment this out as it is blocked on CA-273981
-      VDI.update doesn't currently work on cbt-metadata VDIs *)
+    (*  test_vdi_update ~session_id ~test snapshot; 
+        temporarily comment this out as it is blocked on CA-273981
+        VDI.update doesn't currently work on cbt-metadata VDIs *)
 
     let content_id_str = "/No content: this is a cbt_metadata VDI/" in
     test_compare ~test

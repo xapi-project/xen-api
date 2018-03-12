@@ -260,24 +260,24 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address ~r
            begin try
                with_transport (Unix Xapi_globs.unix_domain_socket)
                  (with_http get
-                   (fun (r, ifd) ->
-                     debug "Content-length: %s" (Stdext.Opt.default "None" (Stdext.Opt.map Int64.to_string r.Http.Response.content_length));
-                     let put = { put with Http.Request.content_length = r.Http.Response.content_length } in
-                     debug "Connecting to %s:%d" remote_address !Xapi_globs.https_port;
-                     (* Spawn a cached stunnel instance. Otherwise, once metadata tranmission completes, the connection
-                        between local xapi and stunnel will be closed immediately, and the new spawned stunnel instance
-                        will be revoked, this might cause the remote stunnel gets partial metadata xml file, and the
-                        ripple effect is that remote xapi fails to parse metadata xml file. Using a cached stunnel can
-                        not always avoid the problem since any cached stunnel entry might be evicted. However, it is
-                        unlikely to happen in practice because the cache size is large enough.*)
-                     with_transport (SSL (SSL.make ~use_stunnel_cache:true (), remote_address, !Xapi_globs.https_port))
-                       (with_http put
-                         (fun (_, ofd) ->
-                           let (n: int64) = Stdext.Unixext.copy_file ?limit:r.Http.Response.content_length ifd ofd in
-                           debug "Written %Ld bytes" n
+                    (fun (r, ifd) ->
+                       debug "Content-length: %s" (Stdext.Opt.default "None" (Stdext.Opt.map Int64.to_string r.Http.Response.content_length));
+                       let put = { put with Http.Request.content_length = r.Http.Response.content_length } in
+                       debug "Connecting to %s:%d" remote_address !Xapi_globs.https_port;
+                       (* Spawn a cached stunnel instance. Otherwise, once metadata tranmission completes, the connection
+                          between local xapi and stunnel will be closed immediately, and the new spawned stunnel instance
+                          will be revoked, this might cause the remote stunnel gets partial metadata xml file, and the
+                          ripple effect is that remote xapi fails to parse metadata xml file. Using a cached stunnel can
+                          not always avoid the problem since any cached stunnel entry might be evicted. However, it is
+                          unlikely to happen in practice because the cache size is large enough.*)
+                       with_transport (SSL (SSL.make ~use_stunnel_cache:true (), remote_address, !Xapi_globs.https_port))
+                         (with_http put
+                            (fun (_, ofd) ->
+                               let (n: int64) = Stdext.Unixext.copy_file ?limit:r.Http.Response.content_length ifd ofd in
+                               debug "Written %Ld bytes" n
+                            )
                          )
-                       )
-                   )
+                    )
                  )
              with Xmlrpc_client.Stunnel_connection_failed ->
                raise (Api_errors.Server_error(Api_errors.tls_connection_failed, [remote_address; (string_of_int !Xapi_globs.https_port)]))
@@ -307,10 +307,10 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address ~r
 
 let vdi_of_req ~__context (req: Http.Request.t) =
   let all = req.Http.Request.query @ req.Http.Request.cookie in
-    if List.mem_assoc "vdi" all
+  if List.mem_assoc "vdi" all
   then
     let vdi = List.assoc "vdi" all in
-  if Db.is_valid_ref __context (Ref.of_string vdi)
+    if Db.is_valid_ref __context (Ref.of_string vdi)
     then Some (Ref.of_string vdi)
     else Some (Db.VDI.get_by_uuid ~__context ~uuid:vdi)
   else

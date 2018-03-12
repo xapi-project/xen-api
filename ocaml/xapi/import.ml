@@ -239,15 +239,15 @@ let assert_can_live_import __context rpc session_id vm_record =
 let assert_can_live_import_vgpu ~__context vgpu_record =
   let host = Helpers.get_localhost ~__context in
   let local_pgpus = Db.PGPU.get_refs_where ~__context ~expr:Db_filter_types.(And
-    (Eq (Field "GPU_group", Literal (Ref.string_of vgpu_record.API.vGPU_GPU_group)),
-     Eq (Field "host", Literal (Ref.string_of host))
-    )
-  ) in
+                                                                               (Eq (Field "GPU_group", Literal (Ref.string_of vgpu_record.API.vGPU_GPU_group)),
+                                                                                Eq (Field "host", Literal (Ref.string_of host))
+                                                                               )
+                                                                            ) in
   let capacity_exists =
     List.exists (fun pgpu ->
-      try Xapi_pgpu_helpers.assert_capacity_exists_for_VGPU_type ~__context ~self:pgpu ~vgpu_type:vgpu_record.API.vGPU_type; true
-      with _ -> false
-    ) local_pgpus
+        try Xapi_pgpu_helpers.assert_capacity_exists_for_VGPU_type ~__context ~self:pgpu ~vgpu_type:vgpu_record.API.vGPU_type; true
+        with _ -> false
+      ) local_pgpus
   in
   if not capacity_exists then
     raise Api_errors.(Server_error (vm_requires_gpu, [
@@ -394,7 +394,7 @@ module VM : HandlerTools = struct
       let vm_record =
         if vm_record.API.vM_domain_type = `unspecified then
           {vm_record with API.vM_domain_type =
-            Xapi_vm_helpers.derive_domain_type ~hVM_boot_policy:vm_record.API.vM_HVM_boot_policy}
+                            Xapi_vm_helpers.derive_domain_type ~hVM_boot_policy:vm_record.API.vM_HVM_boot_policy}
         else
           vm_record
       in
@@ -445,8 +445,8 @@ module VM : HandlerTools = struct
           {vm_record with API.vM_has_vendor_device = false;}
         ) in
       let vm_record = {vm_record with
-                        API.vM_memory_overhead =
-                          Memory_check.vm_compute_memory_overhead ~vm_record
+                       API.vM_memory_overhead =
+                         Memory_check.vm_compute_memory_overhead ~vm_record
                       } in
       let vm_record = {vm_record with API.vM_protection_policy = Ref.null} in
       (* Full restore preserves UUIDs, so if we are replacing an existing VM the version number should be incremented *)
@@ -530,7 +530,7 @@ module VM : HandlerTools = struct
 
       (* VM might have suspend_SR that does not exist on this pool *)
       if None = (Helpers.check_sr_exists ~__context
-                    ~self:vm_record.API.vM_suspend_SR)
+                   ~self:vm_record.API.vM_suspend_SR)
       then Db.VM.set_suspend_SR ~__context ~self:vm ~value:Ref.null ;
 
       Db.VM.set_parent ~__context ~self:vm ~value:vm_record.API.vM_parent;
@@ -1232,8 +1232,8 @@ module VGPU : HandlerTools = struct
         else
           (* ...otherwise fall back to looking up the vgpu from the state table. *)
           log_reraise
-          ("Failed to find VGPU's GPU group: " ^ (Ref.string_of vgpu_record.API.vGPU_GPU_group))
-          (lookup vgpu_record.API.vGPU_GPU_group) state.table in
+            ("Failed to find VGPU's GPU group: " ^ (Ref.string_of vgpu_record.API.vGPU_GPU_group))
+            (lookup vgpu_record.API.vGPU_GPU_group) state.table in
       let _type = log_reraise
           ("Failed to find VGPU's type: " ^ (Ref.string_of vgpu_record.API.vGPU_type))
           (lookup vgpu_record.API.vGPU_type) state.table in

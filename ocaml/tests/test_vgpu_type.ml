@@ -181,7 +181,7 @@ module NvidiaTest = struct
               file_path = "test_data/nvidia-whitelist.xml";
             })
         ];
-        
+
       ]
     end)
 
@@ -415,7 +415,7 @@ module AMDTest = struct
                   pdev_id = 0x1234;
                   framebufferbytes = mib 128L;
                 });
-                experimental = false;
+              experimental = false;
               model_name = "Small AMD MxGPU on 1234";
               vgpus_per_pgpu = 4L;
             });

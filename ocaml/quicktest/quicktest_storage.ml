@@ -44,9 +44,9 @@ let list_srs session_id =
         (List.map (fun pbd -> Client.PBD.get_currently_attached !rpc session_id pbd) pbds)) all
   (* Filter SR with specific type from CLI *)
   |> List.filter (fun sr ->
-         match !only_sr_name with
-         | None -> true
-         | Some t -> Client.SR.get_name_label !rpc session_id sr = t)
+      match !only_sr_name with
+      | None -> true
+      | Some t -> Client.SR.get_name_label !rpc session_id sr = t)
 
 let name_of_sr session_id sr =
   let name_label = Client.SR.get_name_label !rpc session_id sr in
@@ -307,34 +307,34 @@ let vdi_snapshot_destroy ?(indent=2) caps session_id sr vdi =
 let vdi_snapshot_in_pool caps session_id sr vdi =
   if (List.mem vdi_snapshot caps) && (List.mem vdi_attach caps)
   then begin
-      let hosts = Client.Host.get_all !rpc session_id in
-      let do_test () =
-        vdi_snapshot_destroy ~indent:4 caps session_id sr vdi in
-      let test_snapshot_on host =
-        let name = Client.Host.get_name_label !rpc session_id host in
-        let test = make_test (Printf.sprintf "Checking VDI.snapshot when plugged in to %s" name) 2 in
-        start test;
-        let dom0 = dom0_of_host session_id host in
-        let vbd = vbd_create_helper ~session_id ~vM:dom0 ~vDI:vdi () in
-
-        debug test (Printf.sprintf "Plugging in to host %s" name);
-        Client.VBD.plug !rpc session_id vbd;
-        finally do_test
-          (fun () ->
-            debug test (Printf.sprintf "Unplugging from host %s" name);
-            Client.VBD.unplug !rpc session_id vbd;
-            debug test "Destroying VBD";
-            Client.VBD.destroy !rpc session_id vbd
-          );
-        success test
-      in
-      List.iter test_snapshot_on hosts;
-
-      let test = make_test (Printf.sprintf "Checking VDI.snapshot when it is not plugged anywhere") 2 in
+    let hosts = Client.Host.get_all !rpc session_id in
+    let do_test () =
+      vdi_snapshot_destroy ~indent:4 caps session_id sr vdi in
+    let test_snapshot_on host =
+      let name = Client.Host.get_name_label !rpc session_id host in
+      let test = make_test (Printf.sprintf "Checking VDI.snapshot when plugged in to %s" name) 2 in
       start test;
-      do_test ();
+      let dom0 = dom0_of_host session_id host in
+      let vbd = vbd_create_helper ~session_id ~vM:dom0 ~vDI:vdi () in
+
+      debug test (Printf.sprintf "Plugging in to host %s" name);
+      Client.VBD.plug !rpc session_id vbd;
+      finally do_test
+        (fun () ->
+           debug test (Printf.sprintf "Unplugging from host %s" name);
+           Client.VBD.unplug !rpc session_id vbd;
+           debug test "Destroying VBD";
+           Client.VBD.destroy !rpc session_id vbd
+        );
       success test
-    end
+    in
+    List.iter test_snapshot_on hosts;
+
+    let test = make_test (Printf.sprintf "Checking VDI.snapshot when it is not plugged anywhere") 2 in
+    start test;
+    do_test ();
+    success test
+  end
 
 
 (** If VDI_RESIZE is present then try it out *)
@@ -623,5 +623,5 @@ let go s =
   debug test (Printf.sprintf "Found %d SRs" (List.length srs));
   success test;
   if !only_sr_name = None then
-  packages_iso_test s;
+    packages_iso_test s;
   List.iter (foreach_sr s) srs

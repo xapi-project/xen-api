@@ -31,7 +31,7 @@ let with_clustering_lock f =
          (fun () -> debug "Function execution finished; returned host-local clustering lock."))
 
 (* Note we have to add type annotations to network/host here because they're only used in the context of
-  Db.PIF.get_records_where, and they're just strings there *)
+   Db.PIF.get_records_where, and they're just strings there *)
 let pif_of_host ~__context (network : API.ref_network) (host : API.ref_host) =
   debug "Looking up PIF for network %s" (Ref.string_of network);
   let pifs = Db.PIF.get_records_where ~__context
@@ -93,8 +93,8 @@ let get_required_cluster_stacks ~__context ~sr_sm_type =
 
 let with_clustering_lock_if_needed ~__context ~sr_sm_type f =
   match get_required_cluster_stacks ~__context ~sr_sm_type with
-    | [] -> f ()
-    | _required_cluster_stacks -> with_clustering_lock f
+  | [] -> f ()
+  | _required_cluster_stacks -> with_clustering_lock f
 
 let find_cluster_host ~__context ~host =
   match Db.Cluster_host.get_refs_where ~__context
@@ -187,7 +187,7 @@ let rpc ~__context =
   match Context.get_test_clusterd_rpc __context with
   | Some rpc -> rpc
   | None ->
-     Cluster_client.rpc (fun () -> failwith "Can only communicate with xapi-clusterd through message-switch")
+    Cluster_client.rpc (fun () -> failwith "Can only communicate with xapi-clusterd through message-switch")
 
 let is_clustering_disabled_on_host ~__context host =
   match find_cluster_host ~__context ~host with

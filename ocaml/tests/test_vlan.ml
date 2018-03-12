@@ -23,7 +23,7 @@ let test_pool_introduce () =
   let vlan_network = make_network ~__context ~bridge:"xapi0" () in
   let untagged_PIF = make_pif ~__context ~network:vlan_network ~host ~vLAN:tag () in
   let vlan = Xapi_vlan.pool_introduce ~__context
-    ~tagged_PIF ~untagged_PIF ~tag ~other_config:[]
+      ~tagged_PIF ~untagged_PIF ~tag ~other_config:[]
   in
   Alcotest.check (Alcotest_comparators.ref ()) "VLAN master of untagged PIF" vlan (Db.PIF.get_VLAN_master_of ~__context ~self:untagged_PIF);
   Alcotest.check (Alcotest_comparators.ref ()) "VLAN's tagged PIF" tagged_PIF (Db.VLAN.get_tagged_PIF ~__context ~self:vlan);
@@ -38,7 +38,7 @@ let test_create_internal () =
   let network = make_network ~__context ~bridge:"xapi0" () in
   let tagged_PIF = make_pif ~__context ~network ~host () in
   let vlan, untagged_PIF = Xapi_vlan.create_internal ~__context
-    ~host ~tagged_PIF ~tag ~network ~device
+      ~host ~tagged_PIF ~tag ~network ~device
   in
   Alcotest.check (Alcotest_comparators.ref ()) "VLAN master of untagged PIF" vlan (Db.PIF.get_VLAN_master_of ~__context ~self:untagged_PIF);
   Alcotest.check (Alcotest_comparators.ref ()) "VLAN's tagged PIF" tagged_PIF (Db.VLAN.get_tagged_PIF ~__context ~self:vlan);
@@ -124,7 +124,7 @@ let test_create_vlan_already_exists () =
   let vlan_network = make_network ~__context ~bridge:"xapi0" () in
   let tagged_PIF = make_pif ~__context ~network ~host () in
   let _ = Xapi_vlan.create_internal ~__context
-    ~host ~tagged_PIF ~tag ~network:vlan_network ~device in
+      ~host ~tagged_PIF ~tag ~network:vlan_network ~device in
   let new_vlan_network = make_network ~__context ~bridge:"xapi1" () in
   assert_raises_api_error
     Api_errors.pif_vlan_exists
@@ -154,7 +154,7 @@ let test_gc_vlan () =
   let vlan_network = make_network ~__context ~bridge:"xapi0" () in
   let untagged_PIF = make_pif ~__context ~network:vlan_network ~host ~vLAN:tag () in
   let vlan = Xapi_vlan.pool_introduce ~__context
-    ~tagged_PIF ~untagged_PIF ~tag ~other_config:[]
+      ~tagged_PIF ~untagged_PIF ~tag ~other_config:[]
   in
   Alcotest.check (Alcotest_comparators.ref ()) "VLAN master of untagged PIF" vlan (Db.PIF.get_VLAN_master_of ~__context ~self:untagged_PIF);
   Db.PIF.set_host ~__context ~self:untagged_PIF ~value:Ref.null;
