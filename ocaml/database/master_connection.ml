@@ -156,7 +156,7 @@ exception Content_length_required
 let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interface.response =
   let time_call_started = Unix.gettimeofday() in
   let write_ok = ref false in
-  let result = ref (Db_interface.String "") in
+  let result = ref "" in
   let surpress_no_timeout_logs = ref false in
   let backoff_delay = ref 2.0 in (* initial delay = 2s *)
   let update_backoff_delay () =
@@ -190,7 +190,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
                   let res = match response.Http.Response.content_length with
                     | None -> raise Content_length_required
                     | Some l ->
-                      Db_interface.String (Xapi_stdext_unix.Unixext.really_read_string fd (Int64.to_int l))
+                      Xapi_stdext_unix.Unixext.really_read_string fd (Int64.to_int l)
                   in
                   write_ok := true;
                   result := res (* yippeee! return and exit from while loop *)

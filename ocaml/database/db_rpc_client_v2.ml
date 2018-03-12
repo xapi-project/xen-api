@@ -20,8 +20,7 @@ open Db_exn
 module Make = functor(RPC: Db_interface.RPC) -> struct
   let initialise = RPC.initialise
   let rpc x =
-    let Db_interface.String res = RPC.rpc (Jsonrpc.to_string x) in
-    Jsonrpc.of_string res
+    RPC.rpc (Jsonrpc.to_string x) |> Jsonrpc.of_string
 
   let process (x: Request.t) =
     let y : Response.t = Response.t_of_rpc (rpc (Request.rpc_of_t x)) in

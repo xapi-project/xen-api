@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type response = String of string
+type response = string
 
 (** A generic RPC interface *)
 module type RPC = sig
