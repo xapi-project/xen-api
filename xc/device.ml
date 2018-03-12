@@ -2430,7 +2430,7 @@ module Backend = struct
           let ifname          = sprintf "tap%d.%d" domid devid in
           let uuid, _  as tap = tap_open ifname in
           let args =
-            [ "-device"; sprintf "rtl8139,netdev=tapnet%d,mac=%s,addr=%d" devid mac (devid + 4)
+            [ "-device"; sprintf "rtl8139,netdev=tapnet%d,mac=%s,addr=%x" devid mac (devid + 4)
             ; "-netdev"; sprintf "tap,id=tapnet%d,fd=%s" devid uuid
             ] in
           (tap::fds, args@argv) in
