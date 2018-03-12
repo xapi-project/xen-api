@@ -169,7 +169,7 @@ let get_pbds ~__context ~self ~attached ~master_pos =
   | `First -> master_pbds @ slave_pbds
   | `Last -> slave_pbds @ master_pbds
 
-let probe ~__context ~host ~device_config ~_type ~sm_config =
+let call_probe ~__context ~host ~device_config ~_type ~sm_config ~f =
   debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
   let _type = String.lowercase_ascii _type in
   let open Storage_interface in
@@ -183,12 +183,44 @@ let probe ~__context ~host ~device_config ~_type ~sm_config =
 
   transform_storage_exn
     (fun () ->
-       match Client.SR.probe ~dbg ~queue ~device_config ~sm_config with
-       | Raw x -> x
-       | Probe _ as x -> Xmlrpc.to_string (rpc_of_probe_result x)
+       Client.SR.probe ~dbg ~queue ~device_config ~sm_config |> f
     )
 
-let probe_ext ~__context ~host ~device_config ~_type ~sm_config =
+let probe = call_probe ~f:(
+    function
+    | Storage_interface.Raw x -> x
+    | Storage_interface.Probe probe_results ->
+      (* Here we try to mimic the XML document structure returned in the Raw
+         case by SMAPIv1, for backwards-compatibility *)
+      let module T = Xmlm_tree in
+      let srs =
+        probe_results
+        (* We return the SRs found by probe *)
+        |> Xapi_stdext_std.Listext.List.filter_map
+          (fun r -> r.Storage_interface.sr)
+      in
+      let sr_info Storage_interface.{
+        name_label;
+        name_description;
+        total_space;
+        free_space;
+        clustered;
+        health} =
+        T.el
+          "SR"
+          [ T.el "size" [T.data @@ Int64.to_string total_space]
+          ; T.el "name_label" [T.data name_label]
+          ; T.el "name_description" [T.data name_description]
+          ]
+      in
+      let tree = T.el "SRlist" (List.map sr_info srs) in
+      let buf = Buffer.create 20 in
+      let output = Xmlm.make_output ~nl:true (`Buffer buf) in
+      T.output_doc ~tree ~output ~dtd:None;
+      Buffer.contents buf
+  )
+
+let probe_ext =
   let to_xenapi_sr_health =
     let open Storage_interface in
     function Healthy -> `healthy | Recovering -> `recovering
@@ -217,23 +249,11 @@ let probe_ext ~__context ~host ~device_config ~_type ~sm_config =
       probe_result_extra_info = extra_info
     }
   in
-  debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
-  let _type = String.lowercase_ascii _type in
-  let open Storage_interface in
-  let open Storage_access in
-
-  let queue = !Storage_interface.queue_name ^ "." ^ _type in
-  let uri () = Storage_interface.uri () ^ ".d/" ^ _type in
-  let rpc = external_rpc queue uri in
-  let module Client = Storage_interface.Client(struct let rpc = rpc end) in
-  let dbg = Context.string_of_task __context in
-
-  transform_storage_exn
-    (fun () ->
-       match Client.SR.probe ~dbg ~queue ~device_config ~sm_config with
-       | Raw x -> raise Api_errors.(Server_error (sr_operation_not_supported, []))
-       | Probe results -> List.map to_xenapi_probe_result results
-    )
+  call_probe ~f:(
+    function
+    | Storage_interface.Raw x -> raise Api_errors.(Server_error (sr_operation_not_supported, []))
+    | Storage_interface.Probe results -> List.map to_xenapi_probe_result results
+  )
 
 (* Create actually makes the SR on disk, and introduces it into db, and creates PBD record for current host *)
 let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~name_description
