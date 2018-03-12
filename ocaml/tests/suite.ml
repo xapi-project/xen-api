@@ -22,17 +22,13 @@ let base_suite =
     Test_http.test;
     Test_pool_db_backup.test;
     Test_xapi_db_upgrade.test;
-    Test_ca91480.test;
     Test_ha_vm_failover.test;
     Test_map_check.test;
-    Test_pool_apply_edition.test;
     Test_pool_license.test;
     Test_features.test;
     Test_pool_restore_database.test;
-    Test_pool_update.test;
     Test_platformdata.test;
     Test_sm_features.test;
-    Test_gpu_group.test;
     Test_pci_helpers.test;
     Test_vgpu_type.test;
     Test_pgpu.test;
@@ -40,7 +36,6 @@ let base_suite =
     Test_storage_migrate_state.test;
     Test_vm.test;
     Test_vm_helpers.test;
-    Test_vm_migrate.test;
     Test_xenopsd_metadata.test;
     Test_workload_balancing.test;
     Test_cpuid_helpers.test;
@@ -48,9 +43,6 @@ let base_suite =
     (* Test_ca121350.test; *)
     Test_dbsync_master.test;
     Test_xapi_xenops.test;
-    Test_no_migrate.test;
-    Test_pvs_site.test;
-    Test_pvs_proxy.test;
     Test_pvs_server.test;
     Test_pvs_cache_storage.test;
     Test_sdn_controller.test;
@@ -61,7 +53,6 @@ let base_suite =
     Test_sr_update_vdis.test;
     Test_network_event_loop.test;
     Test_network.test;
-    Test_pusb.test;
     Test_host_helpers.test;
     Test_clustering_allowed_operations.test;
     Test_clustering.test;
