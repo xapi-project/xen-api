@@ -166,7 +166,7 @@ let test =
   [
     "test_pool_introduce", `Quick, test_pool_introduce;
     "test_create_internal", `Quick, test_create_internal;
-    "test_create_unmanged_pif", `Quick, test_create_unmanaged_pif;
+    "test_create_unmanaged_pif", `Quick, test_create_unmanaged_pif;
     "test_create_network_already_connected", `Quick, test_create_network_already_connected;
     "test_create_pif_not_a_bond_slave", `Quick, test_create_pif_not_a_bond_slave;
     "test_create_pif_not_vlan_slave", `Quick, test_create_pif_not_vlan_slave;
