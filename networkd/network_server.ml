@@ -148,8 +148,11 @@ let get_capabilities dev =
 		| Some vf_param ->
 			debug "enable SR-IOV on a device: %s via modprobe" dev;
 			(if enable then Modprobe.get_maxvfs driver config else Ok 0) >>= fun numvfs ->
-			Modprobe.config_sriov driver vf_param numvfs >>= fun _ ->
-			Ok Modprobe_successful_requires_reboot
+			if numvfs = Sysfs.get_sriov_numvfs dev then Ok Modprobe_successful
+			else begin
+				Modprobe.config_sriov driver vf_param numvfs >>= fun _ ->
+				Ok Modprobe_successful_requires_reboot
+			end
 		| None ->
 			debug "enable SR-IOV on a device: %s via sysfs" dev;
 			(if enable then Sysfs.get_sriov_maxvfs dev else Ok 0) >>= fun numvfs ->
