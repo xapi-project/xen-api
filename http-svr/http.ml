@@ -88,11 +88,10 @@ module Hdr = struct
 end
 
 let output_http fd headers =
-  let output = 
-    List.map (fun x ->  Printf.sprintf "%s\r\n" x |> Bytes.of_string) headers
-    |> Bytes.concat Bytes.empty
-  in
-  Unix.write fd output 0 (Bytes.length output)
+  headers
+  |> List.map (fun x ->  Printf.sprintf "%s\r\n" x |> Bytes.of_string)
+  |> Bytes.concat Bytes.empty
+  |> fun output -> Unix.write fd output 0 (Bytes.length output)
   |> ignore
 
 let explode str = Astring.String.fold_right (fun c acc -> c :: acc) str []
