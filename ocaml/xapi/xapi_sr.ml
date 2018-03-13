@@ -250,6 +250,7 @@ let probe_ext =
     function Healthy -> `healthy | Recovering -> `recovering
   in
   let to_xenapi_sr_stat Storage_interface.{
+      sr_uuid;
       name_label;
       name_description;
       total_space;
@@ -257,6 +258,7 @@ let probe_ext =
       clustered;
       health} =
     API.{
+      sr_stat_uuid = sr_uuid;
       sr_stat_name_label = name_label;
       sr_stat_name_description = name_description;
       sr_stat_total_space = total_space;
