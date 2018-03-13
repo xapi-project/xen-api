@@ -144,18 +144,18 @@ module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) = struct
   let encode_character value =
     UCS_validator.validate value;
     let width = width_required_for_ucs_value value in
-    let string = String.make width ' ' in
+    let b = Bytes.make width ' ' in
     (* Start by encoding the continuation bytes in reverse order. *)
     let rec encode_continuation_bytes remainder index =
       if index = 0 then remainder else
         let byte, remainder = encode_continuation_byte remainder in
-        string.[index] <- Char.chr (Int32.to_int byte);
+        Bytes.set b index @@ Char.chr (Int32.to_int byte);
         encode_continuation_bytes remainder (index - 1) in
     let remainder = encode_continuation_bytes value (width - 1) in
     (* Finish by encoding the header byte. *)
     let byte = encode_header_byte width remainder in
-    string.[0] <- Char.chr (Int32.to_int byte);
-    string
+    Bytes.set b 0 @@ Char.chr (Int32.to_int byte);
+    Bytes.unsafe_to_string b
 
 end
 
