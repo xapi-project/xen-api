@@ -186,7 +186,7 @@ let make_host table __context self =
                API.host_resident_VMs = List.filter ((<>) Ref.null) (List.map (fun vm -> lookup table (Ref.string_of vm)) host.API.host_resident_VMs) } in
   { cls = Datamodel_common._host;
     id  = Ref.string_of (lookup table (Ref.string_of self));
-    snapshot = API.Legacy.To.host_t host }
+    snapshot = API.rpc_of_host_t host }
 
 (** Convert a VM reference to an obj *)
 let make_vm ?(with_snapshot_metadata=false) ~preserve_power_state table __context self =
@@ -223,14 +223,14 @@ let make_vm ?(with_snapshot_metadata=false) ~preserve_power_state table __contex
              API.vM_blobs = [];} in
   { cls = Datamodel_common._vm;
     id = Ref.string_of (lookup table (Ref.string_of self));
-    snapshot = API.Legacy.To.vM_t vm }
+    snapshot = API.rpc_of_vM_t vm }
 
 (** Convert a guest-metrics reference to an obj *)
 let make_gm table __context self =
   let gm = Db.VM_guest_metrics.get_record ~__context ~self in
   { cls = Datamodel_common._vm_guest_metrics;
     id = Ref.string_of (lookup table (Ref.string_of self));
-    snapshot = API.Legacy.To.vM_guest_metrics_t gm }
+    snapshot = API.rpc_of_vM_guest_metrics_t gm }
 
 (** Convert a VIF reference to an obj *)
 let make_vif table ~preserve_power_state __context self =
@@ -245,7 +245,7 @@ let make_vif table ~preserve_power_state __context self =
             } in
   { cls = Datamodel_common._vif;
     id = Ref.string_of (lookup table (Ref.string_of self));
-    snapshot = API.Legacy.To.vIF_t vif }
+    snapshot = API.rpc_of_vIF_t vif }
 
 (** Convert a Network reference to an obj *)
 let make_network table __context self =
@@ -258,7 +258,7 @@ let make_network table __context self =
             } in
   { cls = Datamodel_common._network;
     id = Ref.string_of (lookup table (Ref.string_of self));
-    snapshot = API.Legacy.To.network_t net }
+    snapshot = API.rpc_of_network_t net }
 
 (** Convert a VBD reference to an obj *)
 let make_vbd table ~preserve_power_state __context self =
@@ -273,7 +273,7 @@ let make_vbd table ~preserve_power_state __context self =
             } in
   { cls = Datamodel_common._vbd;
     id = Ref.string_of (lookup table (Ref.string_of self));
-    snapshot = API.Legacy.To.vBD_t vbd }
+    snapshot = API.rpc_of_vBD_t vbd }
 
 (** Convert a VDI reference to an obj *)
 let make_vdi table __context self =
@@ -287,7 +287,7 @@ let make_vdi table __context self =
             } in
   { cls = Datamodel_common._vdi;
     id = Ref.string_of (lookup table (Ref.string_of self));
-    snapshot = API.Legacy.To.vDI_t vdi }
+    snapshot = API.rpc_of_vDI_t vdi }
 
 (** Convert a SR reference to an obj *)
 let make_sr table __context self =
@@ -300,7 +300,7 @@ let make_sr table __context self =
            } in
   { cls = Datamodel_common._sr;
     id = Ref.string_of (lookup table (Ref.string_of self));
-    snapshot = API.Legacy.To.sR_t sr;
+    snapshot = API.rpc_of_sR_t sr;
   }
 
 (** Convert a VGPU_type reference to an obj *)
@@ -309,7 +309,7 @@ let make_vgpu_type table __context self =
   {
     cls = Datamodel_common._vgpu_type;
     id = Ref.string_of (lookup table (Ref.string_of self));
-    snapshot = API.Legacy.To.vGPU_type_t vgpu_type
+    snapshot = API.rpc_of_vGPU_type_t vgpu_type
   }
 
 (** Convert a VGPU reference to an obj *)
@@ -324,7 +324,7 @@ let make_vgpu table ~preserve_power_state __context self =
   {
     cls = Datamodel_common._vgpu;
     id = Ref.string_of (lookup table (Ref.string_of self));
-    snapshot = API.Legacy.To.vGPU_t vgpu
+    snapshot = API.rpc_of_vGPU_t vgpu
   }
 
 (** Convert a GPU_group reference to an obj *)
@@ -337,7 +337,7 @@ let make_gpu_group table __context self =
   {
     cls = Datamodel_common._gpu_group;
     id = Ref.string_of (lookup table (Ref.string_of self));
-    snapshot = API.Legacy.To.gPU_group_t group
+    snapshot = API.rpc_of_gPU_group_t group
   }
 
 let make_pvs_proxies table __context self =
@@ -352,7 +352,7 @@ let make_pvs_proxies table __context self =
     } in
   { cls      = Datamodel_common._pvs_proxy
   ; id       = Ref.string_of (lookup' self)
-  ; snapshot = API.Legacy.To.pVS_proxy_t proxy
+  ; snapshot = API.rpc_of_pVS_proxy_t proxy
   }
 
 let make_pvs_sites table __context self =
@@ -368,7 +368,7 @@ let make_pvs_sites table __context self =
     } in
   { cls      = Datamodel_common._pvs_site
   ; id       = Ref.string_of (lookup' self)
-  ; snapshot = API.Legacy.To.pVS_site_t site
+  ; snapshot = API.rpc_of_pVS_site_t site
   }
 
 
@@ -414,7 +414,8 @@ let vm_metadata ~with_snapshot_metadata ~preserve_power_state ~include_vhd_paren
   let objects = make_all ~with_snapshot_metadata ~preserve_power_state table __context in
   let header = { version = this_version __context;
                  objects = objects } in
-  let ova_xml = Xml.to_bigbuffer (xmlrpc_of_header header) in
+  let ova_xml = Xmlrpc.to_string (rpc_of_header header)
+  in
   table, ova_xml
 
 let string_of_vm ~__context vm =
@@ -438,8 +439,8 @@ let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state ~in
                (string_of_bool preserve_power_state) end;
 
   let _, ova_xml = vm_metadata ~with_snapshot_metadata ~preserve_power_state ~include_vhd_parents ~__context ~vms in
-  let hdr = Tar_unix.Header.make Xva.xml_filename (Bigbuffer.length ova_xml) in
-  Tar_unix.write_block hdr (fun s -> Bigbuffer.to_fct ova_xml (fun frag -> Unixext.really_write_string s frag)) s;
+  let hdr = Tar_unix.Header.make Xva.xml_filename (Int64.of_int @@ String.length ova_xml) in
+  Tar_unix.write_block hdr (fun s -> Unixext.really_write_string s ova_xml) s;
   Tar_unix.write_end s
 
 let export refresh_session __context rpc session_id s vm_ref preserve_power_state =
@@ -451,8 +452,8 @@ let export refresh_session __context rpc session_id s vm_ref preserve_power_stat
 
   debug "Outputting ova.xml";
 
-  let hdr = Tar_unix.Header.make Xva.xml_filename (Bigbuffer.length ova_xml) in
-  Tar_unix.write_block hdr (fun s -> Bigbuffer.to_fct ova_xml (fun frag -> Unixext.really_write_string s frag)) s;
+  let hdr = Tar_unix.Header.make Xva.xml_filename (Int64.of_int @@ String.length ova_xml) in
+  Tar_unix.write_block hdr (fun s -> Unixext.really_write_string s ova_xml) s;
 
   (* Only stream the disks that are in the table AND which are not CDROMs (ie whose VBD.type <> CD
      and whose SR.content_type <> "iso" *)

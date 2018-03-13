@@ -20,9 +20,7 @@ open Db_exn
 module Make = functor(RPC: Db_interface.RPC) -> struct
   let initialise = RPC.initialise
   let rpc x =
-    match RPC.rpc (Jsonrpc.to_string x) with
-    | Db_interface.String s -> Jsonrpc.of_string s
-    | Db_interface.Bigbuf b -> raise (Failure "Response too large - cannot convert bigbuffer to json!")
+    RPC.rpc (Jsonrpc.to_string x) |> Jsonrpc.of_string
 
   let process (x: Request.t) =
     let y : Response.t = Response.t_of_rpc (rpc (Request.rpc_of_t x)) in

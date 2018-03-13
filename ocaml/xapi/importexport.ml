@@ -16,52 +16,73 @@
 *)
 
 (** Represents a database record (the reference gets converted to a small string) *)
-type obj = { cls: string; id: string; snapshot: XMLRPC.xmlrpc }
+type obj = {
+  cls: string [@key "class"];
+  id: string;
+  snapshot: Rpc.t
+} [@@deriving rpc]
+
+let string_of_obj x = x.cls ^ "  " ^ x.id
 
 (** Version information attached to each export and checked on import *)
-type version =
-  { hostname: string;
-    date: string;
-    product_version: string;
-    product_brand: string;
-    build_number: string;
-    xapi_vsn_major: int;
-    xapi_vsn_minor: int;
-    export_vsn: int; (* 0 if missing, indicates eg whether to expect sha1sums in the stream *)
-  }
+type version = {
+  hostname: string;
+  date: string;
+  product_version: string;
+  product_brand: string;
+  build_number: string;
+  xapi_vsn_major: int;
+  xapi_vsn_minor: int;
+  export_vsn: int; (* 0 if missing, indicates eg whether to expect sha1sums in the stream *)
+}
 
-(** An exported VM has a header record: *)
-type header =
-  { version: version;
-    objects: obj list }
+let rpc_of_version x =
+  let open Xapi_globs in
+  Rpc.Dict(
+    [ _hostname,        Rpc.String(x.hostname)
+    ; _date,            Rpc.String(x.date)
+    ; _product_version, Rpc.String(x.product_version)
+    ; _product_brand,   Rpc.String(x.product_brand)
+    ; _build_number,    Rpc.String(x.build_number)
+    ; _xapi_major,      Rpc.Int(Int64.of_int Xapi_globs.version_major)
+    ; _xapi_minor,      Rpc.Int(Int64.of_int Xapi_globs.version_minor)
+    ; _export_vsn,      Rpc.Int(Int64.of_int Xapi_globs.export_vsn)
+    ])
 
-exception Version_mismatch of string
-
-module D=Debug.Make(struct let name="importexport" end)
-open D
+exception Failure of string
 
 let find kvpairs where x =
   if not(List.mem_assoc x kvpairs)
   then raise (Failure (Printf.sprintf "Failed to find key '%s' in %s" x where))
   else List.assoc x kvpairs
 
-let string_of_obj x = x.cls ^ "  " ^ x.id
+[@@@warning "-8"]
+let version_of_rpc = function
+  | Rpc.Dict(map) ->
+    let find = find map "version data" in
+    let open Xapi_globs in
+    { hostname        = Rpc.string_of_rpc (find _hostname)
+    ; date            = Rpc.string_of_rpc (find _date)
+    ; product_version = Rpc.string_of_rpc (find _product_version)
+    ; product_brand   = Rpc.string_of_rpc (find _product_brand)
+    ; build_number    = Rpc.string_of_rpc (find _build_number)
+    ; xapi_vsn_major  = Rpc.int_of_rpc (find _xapi_major)
+    ; xapi_vsn_minor  = Rpc.int_of_rpc (find _xapi_minor)
+    ; export_vsn      = try Rpc.int_of_rpc (find _export_vsn) with _ -> 0
+    }
+  | rpc -> raise (Failure(Printf.sprintf "version_of_rpc: malformed RPC %s" (Rpc.to_string rpc)))
+[@@@warning "+8"]
 
-let _class = "class"
-let _id = "id"
-let _snapshot = "snapshot"
+(** An exported VM has a header record: *)
+type header = {
+  version: version;
+  objects: obj list 
+} [@@deriving rpc]
 
-let xmlrpc_of_obj x = XMLRPC.To.structure
-    [ _class,    XMLRPC.To.string x.cls;
-      _id,       XMLRPC.To.string x.id;
-      _snapshot, x.snapshot ]
+exception Version_mismatch of string
 
-let obj_of_xmlrpc x =
-  let kvpairs = XMLRPC.From.structure x in
-  let find = find kvpairs "object data" in
-  { cls      = XMLRPC.From.string (find _class);
-    id       = XMLRPC.From.string (find _id);
-    snapshot = find _snapshot }
+module D=Debug.Make(struct let name="importexport" end)
+open D
 
 (** Return a version struct corresponding to this host *)
 let this_version __context =
@@ -89,52 +110,13 @@ let assert_compatible ~__context other_version =
   if this_version.xapi_vsn_major<>other_version.xapi_vsn_major || this_version.xapi_vsn_minor<other_version.xapi_vsn_minor then
     error()
 
-open Xapi_globs
-let xmlrpc_of_version x =
-  XMLRPC.To.structure
-    [ _hostname,        XMLRPC.To.string x.hostname;
-      _date,            XMLRPC.To.string x.date;
-      _product_version, XMLRPC.To.string x.product_version;
-      _product_brand,   XMLRPC.To.string x.product_brand;
-      _build_number,    XMLRPC.To.string x.build_number;
-      _xapi_major,      XMLRPC.To.string (string_of_int Xapi_globs.version_major);
-      _xapi_minor,      XMLRPC.To.string (string_of_int Xapi_globs.version_minor);
-      _export_vsn,      XMLRPC.To.string (string_of_int Xapi_globs.export_vsn);
-    ]
-
-exception Failure of string
-let version_of_xmlrpc x =
-  let kvpairs = XMLRPC.From.structure x in
-  let find = find kvpairs "version data" in
-  { hostname        = XMLRPC.From.string (find _hostname);
-    date            = XMLRPC.From.string (find _date);
-    product_version = XMLRPC.From.string (find _product_version);
-    product_brand   = XMLRPC.From.string (find _product_brand);
-    build_number    = XMLRPC.From.string (find _build_number);
-    xapi_vsn_major  = int_of_string (XMLRPC.From.string (find _xapi_major));
-    xapi_vsn_minor  = int_of_string (XMLRPC.From.string (find _xapi_minor));
-    export_vsn      = try int_of_string (XMLRPC.From.string (find _export_vsn)) with _ -> 0;
-  }
-
-let _version = "version"
-let _objects = "objects"
-
-let xmlrpc_of_header x =
-  XMLRPC.To.structure
-    [ _version, xmlrpc_of_version x.version;
-      _objects,   XMLRPC.To.array (List.map xmlrpc_of_obj x.objects);
-    ]
-
-let header_of_xmlrpc x =
-  let kvpairs = XMLRPC.From.structure x in
-  let find = find kvpairs "contents data" in
-  { version = version_of_xmlrpc (find _version);
-    objects   = XMLRPC.From.array obj_of_xmlrpc (find _objects);
-  }
 
 let vm_has_field ~(x: obj) ~name =
-  let structure = XMLRPC.From.structure x.snapshot in
-  List.mem_assoc name structure
+  match x.snapshot with
+  | Rpc.Dict(map) -> List.mem_assoc name map
+  | rpc -> raise (
+      Failure(Printf.sprintf "vm_has_field: invalid object %s" (Xmlrpc.to_string rpc))
+    )
 
 (* This function returns true when the VM record was created pre-ballooning. *)
 let vm_exported_pre_dmc (x: obj) =
@@ -147,8 +129,7 @@ open Client
 (** HTTP header type used for streaming binary data *)
 let content_type = Http.Hdr.content_type ^ ": application/octet-stream"
 
-let xmlrpc_of_checksum_table table = API.Legacy.To.string_to_string_map table
-let checksum_table_of_xmlrpc xml = API.Legacy.From.string_to_string_map "" xml
+let checksum_table_of_rpc = API.string_to_string_map_of_rpc
 
 let compare_checksums a b =
   let success = ref true in
@@ -299,7 +280,12 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address ~r
            | `success -> begin
                debug "Remote metadata import succeeded";
                let result = Client.Task.get_result rpc session_id remote_task in
-               API.Legacy.From.ref_VM_set "" (Xml.parse_string result)
+               try
+                 result
+                 |> Xmlrpc.of_string
+                 |> API.ref_VM_set_of_rpc
+               with
+                 parse_error -> raise Api_errors.(Server_error (field_type_error, [Printexc.to_string parse_error]))
              end
         )
         (fun () -> Client.Task.destroy rpc session_id remote_task )
