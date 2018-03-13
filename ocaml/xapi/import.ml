@@ -143,6 +143,15 @@ let non_cdrom_vdis (x: header) =
                         || (List.mem x.id all_disk_vdis)
                         || (API.Legacy.From.vDI_t "" x.snapshot).API.vDI_type = `suspend) all_vdis
 
+let get_vm_record snapshot =
+  let vm_record = API.Legacy.From.vM_t "" snapshot in
+  (* Ensure that the domain_type is set correctly *)
+  if vm_record.API.vM_domain_type = `unspecified then
+    {vm_record with API.vM_domain_type =
+      Xapi_vm_helpers.derive_domain_type ~hVM_boot_policy:vm_record.API.vM_HVM_boot_policy}
+  else
+    vm_record
+
 (* Check to see if another VM exists with the same MAC seed. *)
 (* Check VM uuids don't already exist. Check that if a VDI exists then it is a CDROM. *)
 let assert_can_restore_backup ~__context rpc session_id (x: header) =
@@ -158,7 +167,7 @@ let assert_can_restore_backup ~__context rpc session_id (x: header) =
       if Xstringext.String.startswith "Ref:" snapshot_of then
         (* This should be a snapshot in the archive *)
         let v = Listext.List.find (fun v -> v.cls = Datamodel_common._vm && v.id = snapshot_of) x.objects in
-        let v = API.Legacy.From.vM_t "" v.snapshot in
+        let v = get_vm_record v.snapshot in
         Some v.API.vM_uuid
       else if Xstringext.String.startswith Ref.ref_prefix snapshot_of then
         (* This should be a snapshot in a live system *)
@@ -196,7 +205,7 @@ let assert_can_restore_backup ~__context rpc session_id (x: header) =
     Listext.List.filter_map
       (fun x ->
          if x.cls <> Datamodel_common._vm then None else
-           let x = API.Legacy.From.vM_t "" x.snapshot in
+           let x = get_vm_record x.snapshot in
            get_mac_seed x
       ) x.objects in
 
@@ -313,7 +322,7 @@ module VM : HandlerTools = struct
     | Clean_import of API.vM_t
 
   let precheck __context config rpc session_id state x =
-    let vm_record = API.Legacy.From.vM_t "" x.snapshot in
+    let vm_record = get_vm_record x.snapshot in
     let is_default_template = vm_record.API.vM_is_default_template || (
         vm_record.API.vM_is_a_template
         && (List.mem_assoc Xapi_globs.default_template_key vm_record.API.vM_other_config)
@@ -389,15 +398,6 @@ module VM : HandlerTools = struct
     (* This function assumes we've already checked for and dealt with any existing VM with the same UUID. *)
     let do_import vm_record =
       let task_id = Ref.string_of (Context.get_task_id __context) in
-
-      (* Ensure that the domain_type is set correctly *)
-      let vm_record =
-        if vm_record.API.vM_domain_type = `unspecified then
-          {vm_record with API.vM_domain_type =
-            Xapi_vm_helpers.derive_domain_type ~hVM_boot_policy:vm_record.API.vM_HVM_boot_policy}
-        else
-          vm_record
-      in
 
       (* Remove the grant guest API access key unconditionally (it's only for our RHEL4 templates atm) *)
       let other_config = List.filter
@@ -965,7 +965,7 @@ module VBD : HandlerTools = struct
           (lookup vbd_record.API.vBD_VM) state.table in
       (* If the VBD is supposed to be attached to a PV guest (which doesn't support
          				 currently_attached empty drives) then throw a fatal error. *)
-      let original_vm = API.Legacy.From.vM_t "" (find_in_export (Ref.string_of vbd_record.API.vBD_VM) state.export) in
+      let original_vm = get_vm_record (find_in_export (Ref.string_of vbd_record.API.vBD_VM) state.export) in
       (* Note: the following is potentially inaccurate: the find out whether a running or
        * suspended VM has booted HVM, we must consult the VM metrics, but those aren't
        * available in the exported metadata. *)

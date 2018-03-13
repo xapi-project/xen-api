@@ -1549,20 +1549,37 @@ let sr_probe printer rpc session_id params =
     match probe_result_of_rpc (Xmlrpc.of_string txt) with
     | Raw x -> printer (Cli_printer.PList [ x ])
     | Probe x ->
-      let sr (uri, x) = [
-        "uri", uri;
+      let sr (config, x) = [
+        "uuid", List.assoc "sr_uuid" config;
         "name-label", x.name_label;
         "name-description", x.name_description;
         "total-space", Int64.to_string x.total_space;
         "free-space", Int64.to_string x.free_space;
       ] in
-      if x.srs <> []
+      let srs = Listext.List.filter_map (fun e ->
+        match e.sr with
+        | Some info -> Some (e.configuration, info)
+        | None -> None) x in
+      if srs <> []
       then printer (Cli_printer.PMsg "The following SRs were found:");
-      printer (Cli_printer.PTable (List.map sr x.srs));
-      if x.uris <> []
-      then printer (Cli_printer.PMsg "The following URIs may contain SRs:");
-      printer (Cli_printer.PList x.uris)
-  with _ ->
+      printer (Cli_printer.PTable (List.map sr srs));
+
+      let creatable = Listext.List.filter_map (fun e ->
+        if e.complete then Some e.configuration
+        else None) x in
+      if creatable <> []
+      then printer (Cli_printer.PMsg "The following configurations can be used to create or attach SRs:");
+      printer (Cli_printer.PTable creatable);
+
+      let incomplete = Listext.List.filter_map (fun e ->
+        if e.complete then None
+        else Some (List.rev_append e.extra_info e.configuration)) x in
+      if incomplete <> []
+      then printer (Cli_printer.PMsg "The following configurations require further probing:");
+      printer (Cli_printer.PTable incomplete)
+  with e ->
+    D.log_backtrace ();
+    D.debug "SR probe exception: %s" (Printexc.to_string e);
     printer (Cli_printer.PList [txt])
 
 let sr_destroy printer rpc session_id params =
