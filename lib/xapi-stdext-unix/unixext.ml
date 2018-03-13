@@ -142,8 +142,8 @@ let fd_blocks_fold block_size f start fd =
   let rec fold acc =
     let n = Unix.read fd block 0 block_size in
     (* Consider making the interface explicitly use Substrings *)
-    let s = if n = block_size then block else Bytes.sub block 0 n in
-    if n = 0 then acc else fold (f acc s) in
+    let b = if n = block_size then block else Bytes.sub block 0 n in
+    if n = 0 then acc else fold (f acc b) in
   fold start
 
 let with_directory dir f =
@@ -182,10 +182,10 @@ let atomic_write_to_file fname perms f =
 
 
 (** Atomically write a string to a file *)
-let write_bytes_to_file fname s =
+let write_bytes_to_file fname b =
   atomic_write_to_file fname 0o644 (fun fd ->
-      let len = Bytes.length s in
-      let written = Unix.write fd s 0 len in
+      let len = Bytes.length b in
+      let written = Unix.write fd b 0 len in
       if written <> len then (failwith "Short write occured!"))
 
 let write_string_to_file fname s = write_bytes_to_file fname (Bytes.unsafe_of_string s)
