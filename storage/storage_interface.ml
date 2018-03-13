@@ -98,6 +98,7 @@ let vdi_info_of_rpc rpc = Rpc.struct_extend rpc (rpc_of_vdi_info default_vdi_inf
 type sr_health = Healthy | Recovering
 
 type sr_info = {
+    sr_uuid: string option;
     name_label: string;
     name_description: string;
     total_space: int64;        (** total number of bytes on the storage substrate *)
