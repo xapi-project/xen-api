@@ -189,6 +189,8 @@ let _ =
     ~doc:"This host has no PIF on the given network." ();
   error Api_errors.pif_does_not_allow_unplug [ "PIF" ]
     ~doc:"The operation you requested cannot be performed because the specified PIF does not allow unplug." ();
+  error Api_errors.pif_allows_unplug [ "PIF" ]
+    ~doc:"The operation you requested cannot be performed because the specified PIF allows unplug." ();
   error Api_errors.pif_has_fcoe_sr_in_use ["PIF"; "SR"]
     ~doc:"The operation you requested cannot be performed because the specified PIF has FCoE SR in use." ();
   error Api_errors.pif_unmanaged [ "PIF" ]
@@ -1133,7 +1135,9 @@ let _ =
   error Api_errors.cluster_force_destroy_failed ["cluster"]
     ~doc:"Force destroy failed on a Cluster_host while force destroying the cluster." ();
   error Api_errors.clustering_enabled_on_network ["network"]
-    ~doc:"The network has cluster objects attached." ()
+    ~doc:"The network has cluster objects attached." ();
+  error Api_errors.cluster_stack_in_use ["cluster_stack"]
+    ~doc:"The cluster stack is already in use." ()
 
 let _ =
   message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();
