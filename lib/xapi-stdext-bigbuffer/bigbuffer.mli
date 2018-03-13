@@ -12,14 +12,14 @@
  * GNU Lesser General Public License for more details.
  *)
 type t
-val make : unit -> t
-val length : t -> int64
-val get : t -> int64 -> char
-val append_substring : t -> string -> int -> int -> unit
+val make : unit -> t [@@ocaml.deprecated]
+val length : t -> int64 [@@ocaml.deprecated]
+val get : t -> int64 -> char [@@ocaml.deprecated]
+val append_substring : t -> string -> int -> int -> unit [@@ocaml.deprecated]
 
 (** [append_string b s] appends the string [x] to the big buffer [b] *)
-val append_string : t -> string -> unit
+val append_string : t -> string -> unit [@@ocaml.deprecated]
 
-val to_fct : t -> (string -> unit) -> unit
-val to_string : t -> string
-val to_stream : t -> out_channel -> unit
+val to_fct : t -> (string -> unit) -> unit [@@ocaml.deprecated]
+val to_string : t -> string [@@ocaml.deprecated]
+val to_stream : t -> out_channel -> unit [@@ocaml.deprecated]
