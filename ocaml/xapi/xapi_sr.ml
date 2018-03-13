@@ -200,18 +200,23 @@ let probe = call_probe ~f:(
           (fun r -> r.Storage_interface.sr)
       in
       let sr_info Storage_interface.{
+        sr_uuid;
         name_label;
         name_description;
         total_space;
         free_space;
         clustered;
         health} =
+        let el_uuid = match sr_uuid with
+          | Some sr_uuid -> [T.el "UUID" [T.data sr_uuid]]
+          | None -> []
+        in
         T.el
           "SR"
-          [ T.el "size" [T.data @@ Int64.to_string total_space]
-          ; T.el "name_label" [T.data name_label]
-          ; T.el "name_description" [T.data name_description]
-          ]
+          ([ T.el "size" [T.data @@ Int64.to_string total_space]
+           ; T.el "name_label" [T.data name_label]
+           ; T.el "name_description" [T.data name_description]
+           ] @ el_uuid)
       in
       let tree = T.el "SRlist" (List.map sr_info srs) in
       let buf = Buffer.create 20 in

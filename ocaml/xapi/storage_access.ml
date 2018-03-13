@@ -300,13 +300,14 @@ module SMAPIv1 = struct
                 try
                   Sm.sr_update device_config _type sr;
                   let r = Db.SR.get_record ~__context ~self:sr in
+                  let sr_uuid = Some r.API.sR_uuid in
                   let name_label = r.API.sR_name_label in
                   let name_description = r.API.sR_name_description in
                   let total_space = r.API.sR_physical_size in
                   let free_space = Int64.sub r.API.sR_physical_size r.API.sR_physical_utilisation in
                   let clustered = false in
                   let health = Storage_interface.Healthy in
-                  { name_label; name_description; total_space; free_space; clustered; health }
+                  { sr_uuid; name_label; name_description; total_space; free_space; clustered; health }
                 with
                 | Smint.Not_implemented_in_backend ->
                   raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
