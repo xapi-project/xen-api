@@ -112,11 +112,9 @@ let test_destroy_forbidden_when_sr_attached () =
     Test_common.make_sr ~__context ~_type:sr_type ()
   in
   let _pbd : _ API.Ref.t = Test_common.make_pbd ~__context ~host ~sR ~currently_attached:true () in
-  let msg = ("Host has attached SR whose SM requires cluster stack " ^ cluster_stack) in
   Alcotest.check_raises
-    ("Should raise (Failure " ^ msg ^ ")")
-    (* TODO: update this when the exceptions are finalized *)
-    (Failure msg)
+    ("Should raise cluster_stack_in_use: [ " ^ cluster_stack ^ " ] ")
+    Api_errors.(Server_error (cluster_stack_in_use, [ cluster_stack ]))
     (fun () -> Xapi_cluster_host.destroy ~__context ~self:cluster_host)
 
 
