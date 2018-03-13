@@ -236,8 +236,9 @@ let get_locally_attached ~__context =
             Eq (Field "host", Literal (Ref.string_of host)),
             Eq (Field "currently_attached", Literal "true"))))
 
-(* unplug_all_pbds and disable_clustering are called on shutdown
- * Both throw exceptions if anything fails *)
+(* Host calls unplug_all_pbds on shutdown,
+ * followed by Xapi_cluster_host.disable_clustering.
+ * Both functions throw exceptions if anything fails *)
 let unplug_all_pbds ~__context =
   info "Unplugging all SRs plugged on local host";
   (* best effort unplug of all PBDs *)
@@ -248,12 +249,4 @@ let unplug_all_pbds ~__context =
          debug "Unplugging PBD %s" uuid;
          unplug ~__context ~self:pbd);
   debug "Finished unplug_all_pbds"
-
-let disable_clustering ~__context =
-  let host = Helpers.get_localhost ~__context in
-  match Xapi_clustering.find_cluster_host ~__context ~host with
-  | None -> info "No cluster host found"
-  | Some self ->
-     info "Disabling cluster host";
-     Xapi_cluster_host.disable ~__context ~self
 
