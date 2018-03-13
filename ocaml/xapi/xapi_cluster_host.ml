@@ -153,3 +153,12 @@ let disable ~__context ~self =
           Db.Cluster_host.set_enabled ~__context ~self ~value:false
       | Result.Error error -> handle_error error
     )
+
+let disable_clustering ~__context =
+  let host = Helpers.get_localhost ~__context in
+  match Xapi_clustering.find_cluster_host ~__context ~host with
+  | None -> info "No cluster host found"
+  | Some self ->
+     info "Disabling cluster host";
+     disable ~__context ~self
+
