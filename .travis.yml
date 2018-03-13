@@ -6,13 +6,14 @@ install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/ma
 script: bash -ex ./.travis-docker.sh
 env:
   global:
-    - PINS="xapi-stdext:. xapi-stdext-base64:. xapi-stdext-bigbuffer:. xapi-stdext-date:. xapi-stdext-deprecated:. xapi-stdext-encodings:. xapi-stdext-monadic:. xapi-stdext-pervasives:. xapi-stdext-range:. xapi-stdext-std:. xapi-stdext-threads:. xapi-stdext-unix:. xapi-stdext-zerocheck:."
+    - PINS="stdext:. xapi-stdext:. xapi-stdext-base64:. xapi-stdext-bigbuffer:. xapi-stdext-date:. xapi-stdext-deprecated:. xapi-stdext-encodings:. xapi-stdext-monadic:. xapi-stdext-pervasives:. xapi-stdext-range:. xapi-stdext-std:. xapi-stdext-threads:. xapi-stdext-unix:. xapi-stdext-zerocheck:."
     - DISTRO="centos-7"
     - TESTS=false
     - OPAMBUILDTEST=false
   matrix:
     - PACKAGE=xapi-stdext OCAML_VERSION=4.03.0
     - PACKAGE=xapi-stdext BASE_REMOTE="https://github.com/xapi-project/xs-opam" OCAML_VERSION=4.04.2 REVDEPS=true
+    - PACKAGE=stdext BASE_REMOTE="https://github.com/xapi-project/xs-opam" OCAML_VERSION=4.04.2 REVDEPS=true
     - PACKAGE=xapi-stdext OCAML_VERSION=4.05.0
 branches:
   only: master

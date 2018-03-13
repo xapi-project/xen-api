@@ -1,0 +1,24 @@
+opam-version: "1.2"
+maintainer: "jonathan.ludlam@citrix.com"
+authors: "xen-api@list.xen.org"
+bug-reports: "https://github.com/xapi-project/stdext/issues"
+dev-repo: "git://github.com/xapi-project/stdext.git"
+homepage: "https://xapi-project.github.io/"
+tags: [ "org:xapi-project" ]
+
+build:  [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+
+depends: [
+  "jbuilder" {build}
+  "xapi-stdext-base64"
+  "xapi-stdext-date"
+  "xapi-stdext-deprecated"
+  "xapi-stdext-encodings"
+  "xapi-stdext-monadic"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-range"
+  "xapi-stdext-std"
+  "xapi-stdext-threads"
+  "xapi-stdext-unix"
+  "xapi-stdext-zerocheck"
+]

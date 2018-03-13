@@ -1,7 +1,7 @@
 (jbuild_version 1)
 
 (library
-  ((public_name xapi-stdext)
+  ((public_name stdext)
    (name stdext)
    (modules (stdext))
    (wrapped false)
