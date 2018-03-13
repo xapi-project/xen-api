@@ -178,7 +178,8 @@ def main(argv):
 
     vga_type = 'cirrus-vga'
     vgamem_mb = 4
-    vga_extra_props = ["rombar=1,romfile=", "subvendor_id=0x5853,subsystem_id=0x0001"]
+    vga_extra_props = ["rombar=1,romfile=",
+                       "subvendor_id=0x5853,subsystem_id=0x0001,addr=2"]
     upgraded_save_image = None
     serial_c = ''
     tmp_serial_c = ''
