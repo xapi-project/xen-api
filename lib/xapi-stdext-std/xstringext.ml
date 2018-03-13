@@ -170,17 +170,17 @@ module String = struct include String
     if n > 0 then (
       let len_f = String.length f and len_t = String.length t in
       let new_len = String.length s + (n * len_t) - (n * len_f) in
-      let new_s = Bytes.make new_len '\000' in
+      let new_b = Bytes.make new_len '\000' in
       let orig_offset = ref 0 and dest_offset = ref 0 in
       List.iter (fun h ->
           let len = h - !orig_offset in
-          Bytes.blit_string s !orig_offset new_s !dest_offset len;
-          Bytes.blit_string t 0 new_s (!dest_offset + len) len_t;
+          Bytes.blit_string s !orig_offset new_b !dest_offset len;
+          Bytes.blit_string t 0 new_b (!dest_offset + len) len_t;
           orig_offset := !orig_offset + len + len_f;
           dest_offset := !dest_offset + len + len_t;
         ) indexes;
-      Bytes.blit_string s !orig_offset new_s !dest_offset (String.length s - !orig_offset);
-      Bytes.unsafe_to_string new_s
+      Bytes.blit_string s !orig_offset new_b !dest_offset (String.length s - !orig_offset);
+      Bytes.unsafe_to_string new_b
     ) else
       s
 
