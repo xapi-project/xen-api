@@ -3,6 +3,7 @@
 (library
   ((public_name xapi-stdext-threads)
    (name  xapi_stdext_threads)
+   (flags (:standard -safe-string))
    (libraries (threads
                unix
                xapi-stdext-pervasives))

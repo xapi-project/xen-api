@@ -45,7 +45,7 @@ module Alarm = struct
     | None -> assert false
     | Some (pipe_in, pipe_out) ->
       while Thread.wait_timed_read pipe_in 0. do
-        ignore (Unix.read pipe_in " " 0 1)
+        ignore (Unix.read pipe_in (Bytes.create 1) 0 1)
       done;
       let next = Mutex.execute alarm.token
           (fun () ->
@@ -78,7 +78,7 @@ module Alarm = struct
          alarm.queue <- List.sort (fun x1 x2 -> compare (fst x1) (fst x2)) nqueue;
          match alarm.notifier with
          | Some (_, pipe_out) ->
-           ignore (Unix.write pipe_out "X" 0 1)
+           ignore (Unix.write pipe_out (Bytes.of_string "X") 0 1)
          | None ->
            let pipe_in, pipe_out = Unix.pipe () in
            alarm.notifier <- Some (pipe_in, pipe_out);
@@ -124,7 +124,7 @@ module Thread = struct
     (* Might have run by other scheduling policy *)
     if PQueue.mem t !pqueue then
       (pqueue := PQueue.remove t !pqueue; decr pending);
-    if not (Lazy.lazy_is_val pt) then
+    if not (Lazy.is_val pt) then
       let _ = Lazy.force pt in
       incr running
 
@@ -231,10 +231,10 @@ module Thread = struct
   let join = function
     | Running t -> Thread.join t
     | Pending ((_, _, pt) as t) ->
-      if not (Lazy.lazy_is_val pt) then begin
+      if not (Lazy.is_val pt) then begin
         (* Give priority to those to be joined *)
         Mutex.execute scheduler_token (fun () -> run_thread t);
-        assert (Lazy.lazy_is_val pt);
+        assert (Lazy.is_val pt);
       end;
       Thread.join (Lazy.force pt)
 
@@ -243,13 +243,13 @@ module Thread = struct
       (* Not implemented in stdlib *)
       Thread.kill t
     | Pending ((_, _, pt) as t) ->
-      if Lazy.lazy_is_val pt then
+      if Lazy.is_val pt then
         Thread.kill (Lazy.force pt)
       else
         Mutex.execute scheduler_token
           (fun () ->
              (* Just in case something happens before we grab the lock *)
-             if Lazy.lazy_is_val pt then Thread.kill (Lazy.force pt)
+             if Lazy.is_val pt then Thread.kill (Lazy.force pt)
              else (pqueue := PQueue.remove t !pqueue; decr pending))
 
   let delay = Thread.delay
@@ -386,7 +386,7 @@ module Delay = struct
                   pipe_out) in
            let r, _, _ = Unix.select [ pipe_out ] [] [] seconds in
            (* flush the single byte from the pipe *)
-           if r <> [] then ignore(Unix.read pipe_out (String.create 1) 0 1);
+           if r <> [] then ignore(Unix.read pipe_out (Bytes.create 1) 0 1);
            (* return true if we waited the full length of time, false if we were woken *)
            r = []
          with Pre_signalled -> false
@@ -403,7 +403,7 @@ module Delay = struct
     Mutex.execute x.m
       (fun () ->
          match x.pipe_in with
-         | Some fd -> ignore(Unix.write fd "X" 0 1)
+         | Some fd -> ignore(Unix.write fd (Bytes.of_string "X") 0 1)
          | None -> x.signalled <- true 	 (* If the wait hasn't happened yet then store up the signal *)
       )
 end
