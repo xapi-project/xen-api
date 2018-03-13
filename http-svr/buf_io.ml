@@ -132,15 +132,15 @@ let input_line ?(timeout=60.0) ic =
   ic.cur <- n + 1;
   result
 
-(** Input 'len' characters from ic and put them into the string 'str' starting from 'from' *)
-let rec really_input ?(timeout=15.0) ic str from len =
+(** Input 'len' characters from ic and put them into the bytestring 'b' starting from 'from' *)
+let rec really_input ?(timeout=15.0) ic b from len =
   if len=0 then () else begin 
     if ic.max - ic.cur < len then fill_buf ~buffered:true ic timeout;
     begin
       let blitlen = if ic.max - ic.cur < len then ic.max - ic.cur else len in
-      Bytes.blit ic.buf ic.cur str from blitlen;
+      Bytes.blit ic.buf ic.cur b from blitlen;
       ic.cur <- ic.cur + blitlen;
-      really_input ~timeout ic str (from+blitlen) (len-blitlen) 
+      really_input ~timeout ic b (from+blitlen) (len-blitlen) 
     end
   end
 
