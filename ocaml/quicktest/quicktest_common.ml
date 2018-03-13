@@ -253,3 +253,6 @@ let find_guest_installer_network session_id =
 (** Return a host's domain zero *)
 let dom0_of_host session_id host =
   Client.Host.get_control_domain !rpc session_id host
+
+let get_default_sr session_id =
+  Client.Pool.get_default_SR ~session_id ~rpc:!rpc ~self:(get_pool session_id)
