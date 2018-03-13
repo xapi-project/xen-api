@@ -42,7 +42,9 @@ end
 let get_running_domains xc =
 	Xenctrl.domain_getinfolist xc 0 |> List.map (fun di -> di.Xenctrl.domid)
 
-open Xenstore_watch
+module D=Debug.Make(struct let name="rrdd-plugins" end)
+module XSW=Ez_xenstore_watch.Make(D)
+open XSW
 
 let current_dynamic_max_values = ref IntMap.empty
 let current_dynamic_min_values = ref IntMap.empty
@@ -55,7 +57,7 @@ module MemoryActions = struct
 
 	let watch_token domid = Printf.sprintf "xcp-rrdd-plugins/squeezed:domain-%d" domid
 
-	let watch_fired xc path domains watches =
+	let watch_fired xc _ path domains watches =
 		D.debug "Watch fired on %s" path;
 		let read_new_value domid current_memory_values =
 			let domid = int_of_string domid in
@@ -82,8 +84,8 @@ module MemoryActions = struct
 
 	let unmanaged_domain _ _ = false
 	let found_running_domain _ _ = ()
-	let domain_appeared _ _ = ()
-	let domain_disappeared _ _ = ()
+	let domain_appeared _ _ _ = ()
+	let domain_disappeared _ _ _ = ()
 end
 
 module Watcher = WatchXenstore(MemoryActions)
@@ -139,7 +141,7 @@ let shared_page_count = 1
 
 let _ =
 	initialise ();
-	Watcher.create_watcher_thread (Xs.get_client ());
+	Watcher.create_watcher_thread ();
 	main_loop
 		~neg_shift:0.5
 		~target:(Reporter.Local shared_page_count)
