@@ -586,6 +586,7 @@ let process root_dir name =
           | Some sr_stat, true, Some _uuid ->
               let sr_info = {
                 Storage_interface.name_label = sr_stat.Xapi_storage.Volume.Types.name;
+                sr_uuid = sr_stat.Xapi_storage.Volume.Types.uuid;
                 name_description = sr_stat.Xapi_storage.Volume.Types.description;
                 total_space = sr_stat.Xapi_storage.Volume.Types.total_space;
                 free_space = sr_stat.Xapi_storage.Volume.Types.free_space;
@@ -939,6 +940,7 @@ let process root_dir name =
     fork_exec_rpc root_dir (script root_dir name `Volume "SR.stat") args Xapi_storage.Volume.Types.SR.Stat.Out.t_of_rpc
     >>= fun response ->
     let response = {
+      sr_uuid = response.Xapi_storage.Volume.Types.uuid;
       name_label = response.Xapi_storage.Volume.Types.name;
       name_description = response.Xapi_storage.Volume.Types.description;
       total_space = response.Xapi_storage.Volume.Types.total_space;
