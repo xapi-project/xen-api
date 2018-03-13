@@ -165,8 +165,10 @@ module Daemon = struct
     | None -> ignore (Helpers.call_script script params)
 
   let service = "xapi-clusterd"
+  let xapi_clusterd_port = "8896"
   let enable ~__context =
     debug "Enabling and starting the clustering daemon";
+    maybe_call_script ~__context "/etc/xapi.d/plugins/firewall-port" ["open"; xapi_clusterd_port];
     maybe_call_script ~__context "/usr/bin/systemctl" [ "enable"; service ];
     maybe_call_script ~__context "/usr/bin/systemctl" [ "start"; service ];
     debug "Cluster daemon: enabled & started"
@@ -175,6 +177,7 @@ module Daemon = struct
     debug "Disabling and stopping the clustering daemon";
     maybe_call_script ~__context "/usr/bin/systemctl" [ "disable"; service ];
     maybe_call_script ~__context "/usr/bin/systemctl" [ "stop"; service ];
+    maybe_call_script ~__context "/etc/xapi.d/plugins/firewall-port" ["close"; xapi_clusterd_port];
     debug "Cluster daemon: disabled & stopped"
 end
 
