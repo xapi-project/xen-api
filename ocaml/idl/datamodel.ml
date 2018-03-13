@@ -1712,7 +1712,8 @@ module Sr_stat = struct
       ~doccomments:[]
       ~messages_default_allowed_roles:(Some []) (* No messages, so no roles allowed to use them *)
       ~contents:
-        [ (* The uuid is not needed here and only adds inconvenience. *)
+        [
+          field ~qualifier:DynamicRO ~lifecycle ~ty:(Option String) "uuid" "Uuid that uniquely identifies this SR, if one is available.";
           field ~qualifier:DynamicRO ~lifecycle ~ty:String "name_label" "Short, human-readable label for the SR.";
           field ~qualifier:DynamicRO ~lifecycle ~ty:String "name_description" "Longer, human-readable description of the SR. Descriptions are generally only displayed by clients whe
  the user is examining SRs in detail.";
@@ -1739,7 +1740,7 @@ module Probe_result = struct
       ~doccomments:[]
       ~messages_default_allowed_roles:(Some []) (* No messages, so no roles allowed to use them *)
       ~contents:
-        [ (* The uuid is not needed here and only adds inconvenience. *)
+        [
           field ~qualifier:DynamicRO ~lifecycle ~ty:(Map (String, String)) "configuration" "Plugin-specific configuration which describes where and how to locate the storage repository. This may include the physical block device name, a remote NFS server and path or an RBD storage pool.";
           field ~qualifier:DynamicRO ~lifecycle ~ty:Bool "complete" "True if this configuration is complete and can be used to call SR.create. False if it requires further iterative calls to SR.probe, to potentially narrow down on a configuration that can be used.";
           field ~qualifier:DynamicRO ~lifecycle ~ty:(Option (Record _sr_stat)) "sr" "Existing SR found for this configuration";
