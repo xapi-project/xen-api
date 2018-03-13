@@ -12,7 +12,6 @@ depends: [
   "jbuilder" {build}
   "base-unix"
   "fd-send-recv"
-  "xapi-stdext-bigbuffer"
   "xapi-stdext-pervasives"
   "xapi-stdext-std"
 ]

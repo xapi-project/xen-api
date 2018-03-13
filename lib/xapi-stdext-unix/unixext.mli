@@ -45,7 +45,7 @@ val file_lines_iter : (string -> unit) -> string -> unit
 
 (** [fd_blocks_fold block_size f start fd] folds [f] over blocks (strings)
     from the fd [fd] with initial value [start] *)
-val fd_blocks_fold: int -> ('a -> string -> 'a) -> 'a -> Unix.file_descr -> 'a
+val fd_blocks_fold: int -> ('a -> bytes -> 'a) -> 'a -> Unix.file_descr -> 'a
 
 (** Alias for function [file_lines_iter]. *)
 val readfile_line : (string -> 'a) -> string -> unit
@@ -53,24 +53,18 @@ val readfile_line : (string -> 'a) -> string -> unit
 (** [buffer_of_fd fd] returns a Buffer.t containing all data read from [fd] up to EOF *)
 val buffer_of_fd : Unix.file_descr -> Buffer.t
 
-(** [bigbuffer_of_fd fd] returns a Bigbuffer.t containing all data read from [fd] up 
-    to EOF *)
-val bigbuffer_of_fd : Unix.file_descr -> Xapi_stdext_bigbuffer.Bigbuffer.t
-
 (** [string_of_fd fd] returns a string containing all data read from [fd] up to EOF *)
 val string_of_fd : Unix.file_descr -> string
 
 (** [buffer_of_file file] returns a Buffer.t containing the contents of [file] *)
 val buffer_of_file : string -> Buffer.t
 
-(** [bigbuffer_of_file file] returns a Bigbuffer.t containing the contents of [file] *)
-val bigbuffer_of_file : string -> Xapi_stdext_bigbuffer.Bigbuffer.t
-
 (** [string_of_file file] returns a string containing the contents of [file] *)
 val string_of_file : string -> string
 
 val atomic_write_to_file : string -> Unix.file_perm -> (Unix.file_descr -> 'a) -> 'a
 val write_string_to_file : string -> string -> unit
+val write_bytes_to_file : string -> bytes -> unit
 val execv_get_output : string -> string array -> int * Unix.file_descr
 val copy_file : ?limit:int64 -> Unix.file_descr -> Unix.file_descr -> int64
 
@@ -102,14 +96,16 @@ val kill_and_wait : ?signal:int -> ?timeout:float -> int -> unit
 val string_of_signal : int -> string
 
 val proxy : Unix.file_descr -> Unix.file_descr -> unit
-val really_read : Unix.file_descr -> string -> int -> int -> unit
+val really_read : Unix.file_descr -> bytes -> int -> int -> unit
 val really_read_string : Unix.file_descr -> int -> string
-val really_read_bigbuffer : Unix.file_descr -> Xapi_stdext_bigbuffer.Bigbuffer.t -> int64 -> unit
-val really_write : Unix.file_descr -> string -> int -> int -> unit
+(** [really_write] keeps repeating the write operation until all bytes
+ * have been written or an error occurs. This is the same behaviour of
+ * [Unix.write] that should be preferred instead. *)
+val really_write : Unix.file_descr -> bytes -> int -> int -> unit [@@ocaml.deprecated]
 val really_write_string : Unix.file_descr -> string -> unit
 val try_read_string : ?limit: int -> Unix.file_descr -> string
 exception Timeout
-val time_limited_write : Unix.file_descr -> int -> string -> float -> unit
+val time_limited_write : Unix.file_descr -> int -> bytes -> float -> unit
 val time_limited_read : Unix.file_descr -> int -> float -> string
 val read_data_in_chunks : (string -> int -> unit) -> ?block_size:int -> ?max_bytes:int -> Unix.file_descr -> int
 val spawnvp :
@@ -185,7 +181,7 @@ module Direct : sig
   val with_openfile : string -> Unix.open_flag list -> Unix.file_perm -> (t -> 'a) -> 'a
   (** [with_openfile name flags perm f] opens [name], applies the result to [f] and closes *)
 
-  val write : t -> string -> int -> int -> int
+  val write : t -> bytes -> int -> int -> int
   (** [write t buf ofs len] writes [len] bytes at offset [ofs] from buffer [buf] to
       		[t] using page-aligned buffers. *)
 
