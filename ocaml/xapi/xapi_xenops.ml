@@ -326,11 +326,13 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
   | _ -> raise Api_errors.(Server_error (internal_error, ["invalid boot configuration"]))
 
 let list_net_sriov_vf_pcis ~__context ~vm =
-  List.filter_map (fun vif ->
-    match backend_of_vif ~__context ~vif with
-    | Network.Sriov {domain; bus; dev; fn} -> Some (domain, bus, dev, fn)
-    | _ -> None
-  ) vm.API.vM_VIFs
+  vm.API.vM_VIFs
+  |> List.filter (fun self -> Db.VIF.get_currently_attached ~__context ~self)
+  |> List.filter_map (fun vif ->
+         match backend_of_vif ~__context ~vif with
+         | Network.Sriov {domain; bus; dev; fn} -> Some (domain, bus, dev, fn)
+         | _ -> None
+     )
 
 module MD = struct
   (** Convert between xapi DB records and xenopsd records *)
