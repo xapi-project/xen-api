@@ -2298,7 +2298,7 @@ module Backend = struct
         QMP_Event.add domid;
         pid
 
-      let stop ~xs ~qemu_domid domid  =
+      let stop ~xs ~qemu_domid domid =
         Dm_Common.stop ~xs ~qemu_domid domid;
         QMP_Event.remove domid;
         xs.Xs.rm (sprintf "/libxl/%d" domid);
@@ -2313,8 +2313,10 @@ module Backend = struct
           (qmp_event_path domid);
           (qmp_libxl_path domid);
         ] |> List.iter rm;
-        (*VM cleanup*)
-        Vusb.cleanup domid
+        Vusb.cleanup domid; (* unmounts devices in /var/xen/qemu/root-* *)
+        let path = Printf.sprintf "/var/xen/qemu/root-%d" domid in
+        Generic.best_effort (Printf.sprintf "removing %s" path)
+          (fun () -> Xenops_utils.Unix.rmtree path)
 
       let with_dirty_log domid ~f =
         finally
