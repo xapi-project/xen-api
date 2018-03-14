@@ -2976,16 +2976,23 @@ module Actions = struct
   let maybe_update_pv_drivers_detected ~xc ~xs domid path =
     let vm = get_uuid ~xc domid |> Uuidm.to_string in
     Opt.iter
-      (function { VmExtra.persistent; non_persistent } ->
+      (function { VmExtra.non_persistent } ->
         if not non_persistent.VmExtra.pv_drivers_detected then begin
           (* If the new value for this device is 4 then PV drivers are present *)
           try
             let value = xs.Xs.read path in
             if value = "4" (* connected *) then begin
-              let non_persistent = { non_persistent with VmExtra.pv_drivers_detected = true } in
-              debug "VM = %s; found PV driver evidence on %s (value = %s)" vm path value;
-              DB.write vm { VmExtra.persistent; non_persistent };
-              Updates.add (Dynamic.Vm vm) internal_updates
+              let updated =
+                DB.update vm (
+                  Opt.map (function { VmExtra.persistent; non_persistent } ->
+                    let non_persistent = { non_persistent with VmExtra.pv_drivers_detected = true } in
+                    debug "VM = %s; found PV driver evidence on %s (value = %s)" vm path value;
+                    { VmExtra.persistent; non_persistent }
+                  )
+                )
+              in
+              if updated then
+                Updates.add (Dynamic.Vm vm) internal_updates
             end
           with Xs_protocol.Enoent _ ->
             warn "Watch event on %s fired but couldn't read from it" path;
