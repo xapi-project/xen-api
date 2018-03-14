@@ -1007,6 +1007,10 @@ let list_changed_blocks ~__context ~vdi_from ~vdi_to =
   let task = Context.get_task_id __context in
   (* We have to pass the SR of vdi_to to the SMAPIv2 call *)
   let sr = Db.VDI.get_SR ~__context ~self:vdi_to in
+  (* assert VDIs on same SR *)
+  if sr <> (Db.VDI.get_SR ~__context ~self:vdi_from)
+  then raise (Storage_interface.Vdis_on_different_srs (Ref.string_of vdi_from, Ref.string_of vdi_to));
+
   let sr = Db.SR.get_uuid ~__context ~self:sr in
   let vdi_from = Db.VDI.get_location ~__context ~self:vdi_from in
   let vdi_to = Db.VDI.get_location ~__context ~self:vdi_to in
