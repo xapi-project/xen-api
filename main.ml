@@ -420,6 +420,7 @@ let process root_dir name =
       "SR.detach",       "SR_DETACH";
       "SR.ls",           "SR_SCAN";
       "SR.stat",         "SR_UPDATE";
+      "SR.probe",        "SR_PROBE";
       "Volume.create",   "VDI_CREATE";
       "Volume.clone",    "VDI_CLONE";
       "Volume.snapshot", "VDI_SNAPSHOT";
