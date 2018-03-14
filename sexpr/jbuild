@@ -15,7 +15,6 @@
   (public_name sexpr)
   (wrapped false)
   (modules (:standard \ sexprpp))
-  (flags (:standard -safe-string))
   (libraries (astring
               threads
               xapi-stdext-threads))

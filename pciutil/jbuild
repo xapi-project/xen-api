@@ -1,7 +1,6 @@
 (library
  ((name pciutil)
   (public_name pciutil)
-  (flags (:standard -safe-string))
   (libraries (threads
               xapi-stdext-unix))
  ))

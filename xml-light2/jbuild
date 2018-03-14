@@ -1,7 +1,6 @@
 (library
  ((name xmllight2)
   (public_name xml-light2)
-  (flags (:standard -safe-string))
   (modules (xml))
   (wrapped false)
   (libraries (threads

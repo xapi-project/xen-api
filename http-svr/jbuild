@@ -24,7 +24,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name httpsvr)
   (public_name http-svr)
   (wrapped false)
-  (flags (:standard -w -37-39 -safe-string %s))
+  (flags (:standard -w -37-39 %s))
   (modules (:standard \ (http_test radix_tree_test test_client test_server)))
   (libraries (astring
               rpclib
