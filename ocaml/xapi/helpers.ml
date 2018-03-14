@@ -1141,8 +1141,9 @@ let timebox ~timeout ~otherwise f =
           with e ->
             result := fun () -> raise e);
          Unix.close fd_out) () in
-  let _ = Thread.wait_timed_read fd_in timeout in
+  let finished = Thread.wait_timed_read fd_in timeout in
   Unix.close fd_in;
+  if not finished then ignore_exn (fun () -> Unix.close fd_out);
   !result ()
 
 (**************************************************************************************)
