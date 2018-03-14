@@ -2303,11 +2303,8 @@ module Backend = struct
         QMP_Event.remove domid;
         xs.Xs.rm (sprintf "/libxl/%d" domid);
         let rm path =
-          try
-            Socket.Unix.rm path
-          with e ->
-            error "rm %s failed: %s (%s)" path (Printexc.to_string e) __LOC__
-        in
+          let msg = Printf.sprintf "removing %s" path in
+          Generic.best_effort msg (fun () -> Socket.Unix.rm path) in
         [ (* clean up QEMU socket leftover files *)
           Dm_Common.vnc_socket_path domid;
           (qmp_event_path domid);
