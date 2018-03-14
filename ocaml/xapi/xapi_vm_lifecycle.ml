@@ -243,7 +243,7 @@ let check_pci ~op ~ref_str =
   | `suspend | `checkpoint | `pool_migrate | `migrate_send -> Some (Api_errors.vm_has_pci_attached, [ref_str])
   | _ -> None
 
-let check_vgpu ~__context ~op ~ref_str ~vgpus =
+let check_vgpu ~__context ~op ~ref_str ~vgpus ~power_state =
   let vgpu_migration_enabled () =
     let pool = Helpers.get_pool ~__context in
     let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
@@ -279,6 +279,8 @@ let check_vgpu ~__context ~op ~ref_str ~vgpus =
     | _ -> false
   in
   match op with
+  | `migrate_send
+    when power_state = `Halted -> None
   | `pool_migrate | `migrate_send
     when vgpu_migration_enabled ()
       && List.for_all is_migratable  vgpus
@@ -507,7 +509,7 @@ let check_operation_error ~__context ~ref =
   (* The VM has a VGPU, check if the operation is allowed*)
   let current_error = check current_error (fun () ->
       if vmr.Db_actions.vM_VGPUs <> []
-      then check_vgpu ~__context ~op ~ref_str ~vgpus:vmr.Db_actions.vM_VGPUs
+      then check_vgpu ~__context ~op ~ref_str ~vgpus:vmr.Db_actions.vM_VGPUs ~power_state
       else None) in
 
   (* The VM has a VUSB, check if the operation is allowed*)
