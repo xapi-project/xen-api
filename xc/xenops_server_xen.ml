@@ -917,10 +917,10 @@ module VM = struct
 
   let create_exn (task: Xenops_task.task_handle) memory_upper_bound vm =
     let k = vm.Vm.id in
-    with_xc_and_xs
-      (fun xc xs ->
+    with_xc_and_xs (fun xc xs ->
+      let _ = DB.update k (fun vmextra ->
          let persistent, non_persistent =
-           match DB.read k with
+           match vmextra with
            | Some x ->
              debug "VM = %s; reloading stored domain-level configuration" vm.Vm.id;
              x.VmExtra.persistent, x.VmExtra.non_persistent
@@ -983,10 +983,6 @@ module VM = struct
                   let persistent = VmExtra.{persistent with domain_config = Some domain_config } in
                   (domain_config, persistent)
               in
-              DB.write k {
-                VmExtra.persistent = persistent;
-                VmExtra.non_persistent = non_persistent
-              };
               let domid = Domain.make ~xc ~xs non_persistent.VmExtra.create_info domain_config (uuid_of_vm vm) in
               Mem.transfer_reservation_to_domain dbg domid reservation_id;
               begin match vm.Vm.ty with
@@ -1012,9 +1008,15 @@ module VM = struct
               for i = 0 to vm.vcpu_max - 1 do
                 Device.Vcpu.add ~xs ~devid:i domid (i < vm.vcpus)
               done;
-              set_domain_type ~xs domid vm
-           );
-      )
+              set_domain_type ~xs domid vm;
+              Some {
+                VmExtra.persistent = persistent;
+                VmExtra.non_persistent = non_persistent
+              }
+           )
+       )
+      in ()
+    )
   let create = create_exn
 
   let on_domain f domain_selection (task: Xenops_task.task_handle) vm =
