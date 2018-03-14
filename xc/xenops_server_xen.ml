@@ -1667,9 +1667,6 @@ module VM = struct
               debug "VM = %s; domid = %d; Final memory usage of the domain = %Ld pages" vm.Vm.id domid pages;
               (* Flush all outstanding disk blocks *)
 
-              let k = vm.Vm.id in
-              let d = DB.read_exn vm.Vm.id in
-
               let devices = Device_common.list_frontends ~xs domid in
               let vbds = List.filter (fun device -> match Device_common.(device.frontend.kind) with Device_common.Vbd _ -> true | _ -> false) devices in
               List.iter (Device.Vbd.hard_shutdown_request ~xs) vbds;
@@ -1688,12 +1685,13 @@ module VM = struct
                     ) vbds_chunk
                 ) (Xenops_utils.chunks 10 vbds);
               debug "VM = %s; domid = %d; Storing final memory usage" vm.Vm.id domid;
-              let non_persistent = { d.VmExtra.non_persistent with
-                                     VmExtra.suspend_memory_bytes = Memory.bytes_of_pages pages;
-                                   } in
-              DB.write k { d with
-                           VmExtra.non_persistent = non_persistent;
-                         }
+              let _ = DB.update_exn vm.Vm.id (fun d ->
+                let non_persistent = { d.VmExtra.non_persistent with
+                                       VmExtra.suspend_memory_bytes = Memory.bytes_of_pages pages;
+                                     } in
+                Some {d with VmExtra.non_persistent = non_persistent}
+              )
+              in ()
            )
       ) Oldest task vm
 
