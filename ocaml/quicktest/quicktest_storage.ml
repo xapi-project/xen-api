@@ -455,6 +455,8 @@ let parse_sr_probe_xml (xml: string) : sr_probe_sr list =
         let parse_kv = function
           | Xml.Element(key, _, [ Xml.PCData v ]) ->
             key, String.strip String.isspace v (* remove whitespace at both ends *)
+          | Xml.Element(key, _, []) ->
+            key, "" (* We get an empty array for empty tag contents *)
           | _ -> failwith "Malformed key/value pair" in
         let all = List.map parse_kv children in
         { uuid = List.assoc "UUID" all }
