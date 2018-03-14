@@ -11,13 +11,13 @@ env:
     - TESTS=false
     - OPAMBUILDTEST=false
   matrix:
-    - PACKAGE=xapi-stdext OCAML_VERSION=4.03.0
     - PACKAGE=xapi-stdext BASE_REMOTE="https://github.com/xapi-project/xs-opam" OCAML_VERSION=4.04.2 REVDEPS=true
     - PACKAGE=stdext BASE_REMOTE="https://github.com/xapi-project/xs-opam" OCAML_VERSION=4.04.2 REVDEPS=true
     - PACKAGE=xapi-stdext OCAML_VERSION=4.05.0
+    - PACKAGE=xapi-stdext OCAML_VERSION=4.06.0
 branches:
   only: master
 matrix:
   fast_finish: true
   allow_failures:
-    - env: PACKAGE=xapi-stdext  DISTRO="debian-unstable" OCAML_VERSION=4.05.0
+    - env: PACKAGE=xapi-stdext OCAML_VERSION=4.06.0
