@@ -3,5 +3,4 @@
 (library
   ((name xapi_stdext_range)
    (public_name xapi-stdext-range)
-   (flags (:standard -safe-string))
    ))

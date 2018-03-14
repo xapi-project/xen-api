@@ -3,7 +3,6 @@
 (library
   ((public_name xapi-stdext-std)
    (name  xapi_stdext_std)
-   (flags (:standard -safe-string))
    (libraries (uuidm
                 xapi-stdext-monadic))
    ))

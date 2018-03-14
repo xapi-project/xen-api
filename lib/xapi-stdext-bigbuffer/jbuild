@@ -3,5 +3,4 @@
 (library
   ((name xapi_stdext_bigbuffer)
    (public_name xapi-stdext-bigbuffer)
-   (flags (:standard -safe-string))
    ))

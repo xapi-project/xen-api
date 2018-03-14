@@ -2,7 +2,6 @@
 
 (library
   ((public_name xapi-stdext-zerocheck)
-   (flags (:standard -safe-string))
    (name xapi_stdext_zerocheck)
    (c_names (zerocheck_stub))
    ))

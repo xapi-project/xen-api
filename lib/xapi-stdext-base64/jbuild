@@ -3,6 +3,5 @@
 (library
   ((name xapi_stdext_base64)
    (public_name xapi-stdext-base64)
-   (flags (:standard -safe-string))
    (libraries (base64))
    ))

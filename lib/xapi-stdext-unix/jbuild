@@ -3,7 +3,6 @@
 (library
   ((name xapi_stdext_unix)
    (public_name xapi-stdext-unix)
-   (flags (:standard -safe-string))
    (c_names (blkgetsize_stubs
              unixext_open_stubs
              unixext_stubs

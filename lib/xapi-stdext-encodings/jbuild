@@ -3,5 +3,4 @@
 (library
   ((name xapi_stdext_encodings)
    (public_name xapi-stdext-encodings)
-   (flags (:standard -safe-string))
    ))
