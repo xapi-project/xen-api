@@ -27,6 +27,23 @@ module Unix = struct
 
   let file_descr_of_rpc x = x |> Rpc.int_of_rpc |> file_descr_of_int
   let rpc_of_file_descr x = x |> int_of_file_descr |> Rpc.rpc_of_int
+
+  (** [rmtree path] removes a file or directory recursively without following
+  * symbolic links. It may raise [Failure] *)
+  let rmtree path =
+    let (//) = Filename.concat in
+    let rec rm path =
+      let st = Unix.lstat path in
+      match st.Unix.st_kind with
+      | Unix.S_DIR ->
+        Sys.readdir path |> Array.iter (fun file -> rm (path // file));
+        Unix.rmdir path
+      | _ -> Unix.unlink path
+    in try rm path with
+    | exn ->
+      let exn' = Printexc.to_string exn in
+      let msg  = Printf.sprintf "failed to remove %s: %s" path exn' in
+      failwith msg
 end
 
 let all = List.fold_left (&&) true
