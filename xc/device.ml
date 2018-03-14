@@ -1864,13 +1864,6 @@ module Dm_Common = struct
             (fun () -> xs.Xs.rm qemu_pid_path);
           best_effort "unmasking signals, qemu-pid is already gone from xenstore"
             (fun () -> Qemu.SignalMask.unset Qemu.signal_mask domid);
-          (* best effort to delete the qemu chroot dir; we
-             			       deliberately want this to fail if the dir is not
-             			       empty cos it may contain core files that bugtool
-             			       will pick up; the xapi init script cleans out this
-             			       directory with "rm -rf" on boot *)
-          best_effort "removing core files from /var/xen/qemu"
-            (fun () -> Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)));
           best_effort "removing device model path from xenstore"
             (fun () -> xs.Xs.rm (device_model_path ~qemu_domid domid)))
     in
@@ -1976,7 +1969,14 @@ module Backend = struct
           ~timeout ~cancel ();
         pid
 
-      let stop        = Dm_Common.stop
+      let stop ~xs ~qemu_domid domid =
+        let pid = Qemu.pid ~xs domid in
+        Dm_Common.stop ~xs ~qemu_domid domid;
+        match pid with
+        | None -> () (* nothing to do *)
+        | Some qemu_pid ->
+          Generic.best_effort "removing core files from /var/xen/qemu"
+            (fun () -> Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)))
 
       let with_dirty_log domid ~f = f()
 
