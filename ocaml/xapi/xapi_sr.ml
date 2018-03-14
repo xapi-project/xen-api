@@ -191,7 +191,10 @@ let probe = call_probe ~f:(
     | Storage_interface.Raw x -> x
     | Storage_interface.Probe probe_results ->
       (* Here we try to mimic the XML document structure returned in the Raw
-         case by SMAPIv1, for backwards-compatibility *)
+         case by SMAPIv1, for backwards-compatibility.
+         However, unlike in SMAPIv1, here we do not raise exceptions containing
+         the config XML in case of incomplete probe config, we just return
+         every SR found by probe. *)
       let module T = Xmlm_tree in
       let srs =
         probe_results
