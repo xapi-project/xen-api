@@ -2686,7 +2686,6 @@ module VIF = struct
   let plug task vm = plug_exn task vm
 
   let unplug task vm vif force =
-    let vm_t = DB.read vm in
     with_xc_and_xs
       (fun xc xs ->
          try
@@ -2700,7 +2699,8 @@ module VIF = struct
                (fun () -> Device.Vif.release task ~xc ~xs device) in
            destroy device;
 
-           Opt.iter (fun vm_t ->
+           let _ = DB.update vm (
+             Opt.map (fun vm_t ->
                (* If we have a qemu frontend, detach this too. *)
                if List.mem_assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs then begin
                  match (List.assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs) with
@@ -2708,10 +2708,12 @@ module VIF = struct
                    destroy device;
                    let non_persistent = { vm_t.VmExtra.non_persistent with
                                           VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
-                   DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
-                 | _, _ -> ()
-               end;
-             ) vm_t;
+                   { vm_t with VmExtra.non_persistent = non_persistent }
+                 | _, _ -> vm_t
+               end else
+                 vm_t
+             )
+           ) in
 
            let domid = device.Device_common.frontend.Device_common.domid in
            let interfaces = interfaces_of_vif domid vif.id vif.position in
