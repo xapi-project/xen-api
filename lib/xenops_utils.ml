@@ -495,46 +495,90 @@ let set_fs_backend m =
 module TypedTable = functor(I: ITEM) -> struct
   open I
   type key = string list
+
   let of_key k = I.namespace :: k
-  let read (k: I.key) =
-    let module FS = (val get_fs_backend () : FS) in
-    let path = k |> I.key |> of_key in
-    Opt.map (fun x -> t_of_rpc x) (FS.read path)
-  let read_exn (k: I.key) = match read k with
-    | Some x -> x
-    | None -> raise (Does_not_exist (I.namespace, I.key k |> String.concat "/"))
+
+  (* Non-thread-safe functions: avoid calling these directly *)
+
   let write (k: I.key) (x: t) =
     let module FS = (val get_fs_backend () : FS) in
     let path = k |> I.key |> of_key in
     debug "TypedTable: Writing %s" (String.concat "/" path);
     FS.write path (rpc_of_t x)
-  let exists (k: I.key) =
-    let module FS = (val get_fs_backend () : FS) in
-    FS.exists (k |> I.key |> of_key)
+
   let delete (k: I.key) =
     debug "TypedTable: Deleting %s" (k |> I.key |> of_key |> String.concat "/");
     let module FS = (val get_fs_backend () : FS) in
     FS.rm (k |> I.key |> of_key)
 
+  (* Thread-safe functions *)
+
+  let read (k: I.key) =
+    let module FS = (val get_fs_backend () : FS) in
+    let path = k |> I.key |> of_key in
+    Opt.map (fun x -> t_of_rpc x) (FS.read path)
+
+  let read_exn (k: I.key) = match read k with
+    | Some x -> x
+    | None -> raise (Does_not_exist (I.namespace, I.key k |> String.concat "/"))
+
+  let exists (k: I.key) =
+    let module FS = (val get_fs_backend () : FS) in
+    FS.exists (k |> I.key |> of_key)
+
   let list (k: key) =
     let module FS = (val get_fs_backend () : FS) in
     FS.readdir (k |> of_key)
 
+  let m = Mutex.create ()
+
   let add (k: I.key) (x: t) =
-    let path = k |> I.key |> of_key |> String.concat "/" in
-    debug "TypedTable: Adding %s" path;
-    if exists k then begin
-      debug "Key %s already exists" path;
-      raise (Already_exists(I.namespace, path))
-    end else write k x
+    Mutex.execute m (fun () ->
+      let path = k |> I.key |> of_key |> String.concat "/" in
+      debug "TypedTable: Adding %s" path;
+      if exists k then begin
+        debug "Key %s already exists" path;
+        raise (Already_exists(I.namespace, path))
+      end else write k x
+    )
 
   let remove (k: I.key) =
-    let path = k |> I.key |> of_key |> String.concat "/" in
-    debug "TypedTable: Removing %s" path;
-    if not(exists k) then begin	
-      debug "Key %s does not exist" path;
-      raise (Does_not_exist(I.namespace, path))
-    end else delete k
+    Mutex.execute m (fun () ->
+      let path = k |> I.key |> of_key |> String.concat "/" in
+      debug "TypedTable: Removing %s" path;
+      if not(exists k) then begin
+        debug "Key %s does not exist" path;
+        raise (Does_not_exist(I.namespace, path))
+      end else delete k
+  )
+
+  (* The call `update k f` reads key `k` from the DB, passes the value to `f`,
+     and updates the DB with the result. If the result is `None`, then the key
+     will be deleted. Otherwise, its value will be modified.
+     Returns a Boolean that indicates whether the operation actually 
+     changed what is in the DB.
+     Note that `f` should never itself include an `add`, `remove` or another
+     `update` or deadlock will occur! *)
+  let update (k: I.key) (f: t option -> t option) : bool =
+    Mutex.execute m (fun () ->
+      let x = read k in
+      let y = f x in
+      (* Only update the DB if the value has changed *)
+      if x <> y then
+        match y with
+        | None    -> delete k; true
+        | Some y' -> write k y'; true
+      else
+        false
+    )
+
+  (* Version of `update` that raises an exception if the read fails *)
+  let update_exn (k: I.key) (f: t -> t option) =
+    update k (
+      function
+      | None -> raise (Does_not_exist (I.namespace, I.key k |> String.concat "/"))
+      | Some x -> f x
+    )
 end
 
 (******************************************************************************)
