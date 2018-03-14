@@ -2626,7 +2626,8 @@ module VIF = struct
     with _ -> false
 
   let plug_exn task vm vif =
-    let vm_t = DB.read_exn vm in
+    (* Verify that there is metadata present for the VM *)
+    let _ = DB.read_exn vm in
     (* If the vif isn't listed as "active" then we don't automatically plug this one in *)
     if not(get_active vm vif)
     then debug "VIF %s.%s is not active: not plugging into VM" (fst vif.Vif.id) (snd vif.Vif.id)
@@ -2671,9 +2672,12 @@ module VIF = struct
                      if vif.position < 4 && stubdom_domid <> me then begin
                        let device = create task stubdom_domid in
                        let q = vif.position, Device device in
-                       let non_persistent = { vm_t.VmExtra.non_persistent with
-                                              VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
-                       DB.write vm { vm_t with VmExtra.non_persistent = non_persistent}
+                       let _ = DB.update_exn vm (fun vm_t ->
+                         let non_persistent = { vm_t.VmExtra.non_persistent with
+                                                VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
+                         Some { vm_t with VmExtra.non_persistent = non_persistent}
+                       )
+                       in ()
                      end
                   ) (get_stubdom ~xs frontend_domid)
              )
