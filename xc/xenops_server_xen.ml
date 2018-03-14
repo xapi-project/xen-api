@@ -1991,7 +1991,6 @@ module VM = struct
     state.VmExtra.persistent |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
 
   let set_internal_state vm state =
-    let k = vm.Vm.id in
     let persistent = state |> Jsonrpc.of_string |> VmExtra.persistent_t_of_rpc in
     (* Don't take the timeoffset from [state] (last boot record). Put back
        		 * the one from [vm] which came straight from the platform keys. *)
@@ -2005,11 +2004,14 @@ module VM = struct
         end
       | _ -> persistent
     in
-    let non_persistent = match DB.read k with
-      | None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm persistent)
-      | Some vmextra -> vmextra.VmExtra.non_persistent
-    in
-    DB.write k { VmExtra.persistent = persistent; VmExtra.non_persistent = non_persistent; }
+    let _ = DB.update vm.Vm.id (fun d ->
+      let non_persistent = match d with
+        | None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm persistent)
+        | Some vmextra -> vmextra.VmExtra.non_persistent
+      in
+      Some { VmExtra.persistent = persistent; VmExtra.non_persistent = non_persistent; }
+    )
+    in ()
 
   let minimum_reboot_delay = 120.
 end
