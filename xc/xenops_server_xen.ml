@@ -2728,7 +2728,8 @@ module VIF = struct
     ()
 
   let move task vm vif network =
-    let vm_t = DB.read_exn vm in
+    (* Verify that there is metadata present for the VM *)
+    let _ = DB.read_exn vm in
     with_xc_and_xs
       (fun xc xs ->
          try
@@ -2741,24 +2742,25 @@ module VIF = struct
            Device.Vif.move ~xs device bridge;
 
            (* If we have a qemu frontend, detach this too. *)
-           let non_persistent = vm_t.VmExtra.non_persistent in
-           if List.mem_assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs then begin
-             match (List.assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs) with
-             | _, Device device ->
-               Device.Vif.move ~xs device bridge;
-               let non_persistent = { non_persistent with
-                                      VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs } in
-               DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
-             | _, _ -> ()
-           end
-
+           let _ = DB.update_exn vm (fun vm_t ->
+             let non_persistent = vm_t.VmExtra.non_persistent in
+             if List.mem_assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs then begin
+               match (List.assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs) with
+               | _, Device device ->
+                 Device.Vif.move ~xs device bridge;
+                 let non_persistent = { non_persistent with
+                                        VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs } in
+                 Some { vm_t with VmExtra.non_persistent = non_persistent }
+               | _, _ -> Some vm_t
+             end else
+               Some vm_t
+           ) in ()
          with
          | (Does_not_exist(_,_)) ->
            debug "VM = %s; Ignoring missing domain" (id_of vif)
          | (Device_not_connected) ->
            debug "VM = %s; Ignoring missing device" (id_of vif)
-      );
-    ()
+      )
 
   let set_carrier task vm vif carrier =
     with_xc_and_xs
