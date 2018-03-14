@@ -151,8 +151,6 @@ module DB = struct
     end)
 end
 
-let dB_m = Mutex.create ()
-
 (* These updates are local plugin updates, distinct from those that are
    exposed via the UPDATES API *)
 let internal_updates = Updates.empty scheduler
@@ -2312,16 +2310,16 @@ module VBD = struct
                  end
                | _, _, _ -> None in
              (* Remember what we've just done *)
-             Mutex.execute dB_m (fun () ->
                  (* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains,
                     					   we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
-                 let vm_t = DB.read_exn vm in
-                 Opt.iter (fun q ->
-                     let non_persistent = { vm_t.VmExtra.non_persistent with
-                                            VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vbds} in
-                     DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
-                   ) qemu_frontend
-               )
+             Opt.iter (fun q ->
+                 let _ = DB.update_exn vm (fun vm_t ->
+                   let non_persistent = { vm_t.VmExtra.non_persistent with
+                                        VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vbds} in
+                   Some { vm_t with VmExtra.non_persistent = non_persistent }
+                 )
+                 in ()
+             ) qemu_frontend
            end
         ) Newest vm
 
@@ -2372,19 +2370,21 @@ module VBD = struct
                        (fun () -> Device.Vbd.release task ~xc ~xs device);
                   ) device;
                 (* If we have a qemu frontend, detach this too. *)
-                Mutex.execute dB_m (fun () ->
-                    let vm_t = DB.read vm in
-                    Opt.iter (fun vm_t ->
-                        let non_persistent = vm_t.VmExtra.non_persistent in
-                        if List.mem_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds then begin
-                          let _, qemu_vbd = List.assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds in
-                          (* destroy_vbd_frontend ignores 'refusing to close' transients' *)
-                          destroy_vbd_frontend ~xc ~xs task qemu_vbd;
-                          let non_persistent = { non_persistent with
-                                                 VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds } in
-                          DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
-                        end) vm_t
+                let _ = DB.update vm (
+                  Opt.map (fun vm_t ->
+                    let non_persistent = vm_t.VmExtra.non_persistent in
+                    if List.mem_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds then begin
+                      let _, qemu_vbd = List.assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds in
+                      (* destroy_vbd_frontend ignores 'refusing to close' transients' *)
+                      destroy_vbd_frontend ~xc ~xs task qemu_vbd;
+                      let non_persistent = { non_persistent with
+                                             VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds } in
+                      { vm_t with VmExtra.non_persistent = non_persistent }
+                    end else
+                      vm_t
                   )
+                )
+                in ()
              )
              (fun () ->
                 match domid, backend with
