@@ -34,8 +34,8 @@ let resources = [
 
 let socket_path = ref "/var/xapi/socket"
 
-let comma = Re_str.regexp_string ","
-let csv = Re_str.split_delim comma
+let comma = Re.Str.regexp_string ","
+let csv = Re.Str.split_delim comma
 
 let queues : string list ref = ref [
   "org.xen.xapi.ffs";
