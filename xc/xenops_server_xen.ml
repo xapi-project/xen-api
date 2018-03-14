@@ -2954,15 +2954,11 @@ module VIF = struct
               let open Xenops_interface.Pci in
               let pci_state = PCI.get_state' vm pci in
               let open Xenops_interface.Pci in
-              begin match pci_state.plugged with
-              | true ->
-                { unplugged_vif with
-                  Vif.active = true;
-                  plugged = true;
-                  device = Some device;
-                }
-              | false -> unplugged_vif
-              end
+              { unplugged_vif with
+                Vif.active = get_active vm vif;
+                plugged = pci_state.plugged;
+                device = Some device;
+              }
             | Network.Local _ | Network.Remote _ ->
               let path = Device_common.kthread_pid_path_of_device ~xs d in
               let kthread_pid = try xs.Xs.read path |> int_of_string with _ -> 0 in
