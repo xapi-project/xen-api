@@ -1401,16 +1401,17 @@ module VM = struct
         );
 
         debug "VM = %s; domid = %d; Domain build completed" vm.Vm.id domid;
-        let k = vm.Vm.id in
-        let d = DB.read_exn vm.Vm.id in
-        let persistent = { d.VmExtra.persistent with
-                           VmExtra.build_info = Some build_info;
-                           ty = Some vm.ty;
-                         } in
-        DB.write k {
-          VmExtra.persistent = persistent;
-          VmExtra.non_persistent = d.VmExtra.non_persistent;
-        }
+        let _ = DB.update_exn vm.Vm.id (fun d ->
+          let persistent = { d.VmExtra.persistent with
+                             VmExtra.build_info = Some build_info;
+                             ty = Some vm.ty;
+                           } in
+          Some {
+            VmExtra.persistent = persistent;
+            VmExtra.non_persistent = d.VmExtra.non_persistent;
+          }
+        )
+        in ()
       ) (fun () -> Opt.iter Bootloader.delete !kernel_to_cleanup)
 
 
