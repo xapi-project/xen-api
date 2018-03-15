@@ -16,9 +16,9 @@ open Crc
 open Rrd_protocol
 
 (* Field sizes. *)
-let default_header = "DATASOURCES"
+let default_header = Bytes.of_string "DATASOURCES"
 
-let header_bytes = String.length default_header
+let header_bytes = Bytes.length default_header
 
 let data_crc_bytes = 4
 
@@ -115,7 +115,7 @@ end
 (* Writing fields to cstructs. *)
 module Write = struct
   let header cs =
-    Cstruct.blit_from_string default_header 0 cs header_start header_bytes
+    Cstruct.blit_from_bytes default_header 0 cs header_start header_bytes
 
   let data_crc cs value =
     Cstruct.BE.set_uint32 cs data_crc_start value
@@ -232,7 +232,10 @@ let make_payload_reader () =
           * datasources, then go back and read the values themselves. *)
          let metadata_length =
            Read.metadata_length cs datasource_count in
-         let metadata = Read.metadata cs datasource_count metadata_length in
+         let metadata =
+           Read.metadata cs datasource_count metadata_length
+           |> Bytes.to_string
+         in
          (* Check the metadata checksum is correct. *)
          if not (metadata_crc = Crc32.string metadata 0 metadata_length)
          then raise Invalid_checksum;
