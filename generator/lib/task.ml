@@ -33,7 +33,6 @@ type task = {
   state : state;
 } [@@deriving rpcty]
 
-let unit = Param.mk Types.unit
 let dbg = Param.mk ~name:"dbg" ~description:["Debug context from the caller"]
     Types.string
 
@@ -62,7 +61,7 @@ module Task(R : RPC) = struct
   let task_list = Param.mk task_list
   let ls = declare "ls"
       ["[ls] should return a list of all of the tasks the plugin is aware of."]
-      (dbg @-> unit @-> returning task_list error)
+      (dbg @-> returning task_list error)
 
   let implementation = implement Idl.Interface.({
       name = "Task";

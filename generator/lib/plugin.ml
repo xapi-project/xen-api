@@ -44,21 +44,19 @@ let dbg = Param.mk ~name:"dbg" ~description:["Debug context from the caller"]
 module Plugin(R : RPC) = struct
   open R
 
-  let unit = Param.mk Types.unit
-
   let query_result = Param.mk query_result
 
   let query = declare "query"
       ["Query this implementation and return its properties. This is ";
        "called by xapi to determine whether it is compatible with xapi ";
        "and to discover the supported features."]
-      (dbg @-> unit @-> returning query_result error)
+      (dbg @-> returning query_result error)
 
   let srs = Param.mk ~name:"srs" ~description:["The attached SRs"] srs
 
   let ls = declare "ls"
       ["[ls dbg]: returns a list of attached SRs"]
-      (dbg @-> unit @-> returning srs error)
+      (dbg @-> returning srs error)
 
   let diagnostics_p = Param.mk ~name:"diagnostics" ~description:
       ["A string containing loggable human-readable diagnostics information"]
@@ -70,7 +68,7 @@ module Plugin(R : RPC) = struct
        "be useful to diagnose problems. Note this data should not ";
        "include personally-identifiable data as it is intended to be ";
        " automatically included in bug reports."]
-      (dbg @-> unit @-> returning diagnostics_p error)
+      (dbg @-> returning diagnostics_p error)
 
   let implementation = R.implement
       {Idl.Interface.name = "Plugin";

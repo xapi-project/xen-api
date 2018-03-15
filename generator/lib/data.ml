@@ -201,7 +201,7 @@ module Data (R : RPC) = struct
   let operations = Param.mk operations
   let ls = declare "ls"
       ["[ls] returns a list of all current operations"]
-      (dbg @-> unit @-> returning operations error)
+      (dbg @-> returning operations error)
 
   let implementation = implement Idl.Interface.{
       name = "Data";
