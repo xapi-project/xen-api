@@ -155,7 +155,10 @@ let get_capabilities dev =
 			end
 		| None ->
 			debug "enable SR-IOV on a device: %s via sysfs" dev;
-			(if enable then Sysfs.get_sriov_maxvfs dev else Ok 0) >>= fun numvfs ->
+			begin
+				if enable then Sysfs.get_sriov_maxvfs dev
+				else Sysfs.unbind_child_vfs dev >>= fun () -> Ok 0
+			end >>= fun numvfs ->
 			Sysfs.set_sriov_numvfs dev numvfs >>= fun _ ->
 			Ok Sysfs_successful
 

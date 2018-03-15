@@ -328,7 +328,6 @@ module Sysfs = struct
 
 	let set_sriov_numvfs dev num_vfs =
 		let interface = getpath dev "device/sriov_numvfs" in
-		let oc = open_out interface in
 		try
 			write_one_line interface (string_of_int num_vfs);
 			if get_sriov_numvfs dev = num_vfs then Result.Ok  ()
