@@ -1657,7 +1657,7 @@ module Dm_Common = struct
       | Vgpu _ -> failwith "Unsupported vGPU configuration"
       | Std_vga -> ["-std-vga"]
       | Cirrus -> []
-      | GVT_d -> ["-std-vga"; "-gfx_passthru"]
+      | GVT_d -> ["-std-vga"] (* relies on pci-passthrough *)
     in
     let videoram_opt = ["-videoram"; string_of_int info.video_mib] in
     let vnc_opts_of ip_addr_opt auto port keymap ~domid =
