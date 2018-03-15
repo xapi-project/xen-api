@@ -15,7 +15,7 @@ env:
     - DISTRO="debian-unstable"
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam \
-      POST_INSTALL_HOOK="env TRAVIS=$TRAVIS TRAVIS_JOB_ID=$TRAVIS_JOB_ID TEST_CMD='jbuilder runtest --no-buffer' bash -ex coverage.sh"
+      POST_INSTALL_HOOK="env TRAVIS=$TRAVIS TRAVIS_JOB_ID=$TRAVIS_JOB_ID TEST_DEPS="alcotest" TEST_CMD='jbuilder runtest --no-buffer' bash -ex coverage.sh"
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
 matrix:
     fast_finish: true
