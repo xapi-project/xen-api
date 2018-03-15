@@ -2313,7 +2313,7 @@ module Backend = struct
         Vusb.cleanup domid; (* unmounts devices in /var/xen/qemu/root-* *)
         let path = Printf.sprintf "/var/xen/qemu/root-%d" domid in
         Generic.best_effort (Printf.sprintf "removing %s" path)
-          (fun () -> Xenops_utils.Unix.rmtree path)
+          (fun () -> Xenops_utils.FileFS.rmtree path)
 
       let with_dirty_log domid ~f =
         finally
