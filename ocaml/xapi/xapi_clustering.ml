@@ -61,16 +61,16 @@ let ip_of_pif (ref,record) =
     }*)
 let assert_pif_prerequisites pif =
   let assert_pif_permaplugged (ref,record) =
-    if not record.API.pIF_disallow_unplug then failwith (Printf.sprintf "PIF %s allows unplug" record.API.pIF_uuid);
-    if not record.pIF_currently_attached then failwith (Printf.sprintf "PIF %s not plugged" record.API.pIF_uuid)
+    if not record.API.pIF_disallow_unplug then
+      raise Api_errors.(Server_error (pif_allows_unplug, [ record.API.pIF_uuid ] ));
+    if not record.pIF_currently_attached then
+      raise Api_errors.(Server_error (required_pif_is_unplugged, [ record.API.pIF_uuid ] ))
   in
   assert_pif_permaplugged pif;
   ignore(ip_of_pif pif)
 
-let handle_error error =
-  (* TODO: replace with API errors? *)
-  match error with
-  | InternalError message -> failwith ("Internal Error: " ^ message)
+let handle_error = function
+  | InternalError message -> raise Api_errors.(Server_error (internal_error, [ message ]))
   | Unix_error message -> failwith ("Unix Error: " ^ message)
 
 let assert_cluster_host_can_be_created ~__context ~host =
@@ -146,17 +146,14 @@ let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__conte
       Db.PBD.get_currently_attached ~__context ~self:pbd)
       (Db.Host.get_PBDs ~__context ~self:host) in
   let srs = List.map (fun pbd -> Db.PBD.get_SR ~__context ~self:pbd) pbds in
-  List.iter
+  if List.exists
     (fun sr ->
-       let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
        (* XXX This check is a bit too conservative, because the SR requires
           only one of these cluster stacks to be configured and running. *)
-       if List.mem cluster_stack (get_required_cluster_stacks ~__context ~sr_sm_type) then begin
-         (* TODO: replace with API error *)
-         failwith (Printf.sprintf "Host has attached SR whose SM requires cluster stack %s" cluster_stack)
-       end
-    )
-    srs
+       let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
+       List.mem cluster_stack (get_required_cluster_stacks ~__context ~sr_sm_type)
+    ) srs
+  then raise Api_errors.(Server_error (cluster_stack_in_use, [ cluster_stack ]))
 
 module Daemon = struct
   let maybe_call_script ~__context script params =
