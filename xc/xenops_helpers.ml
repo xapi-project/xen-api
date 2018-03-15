@@ -38,6 +38,6 @@ let uuid_of_domid ~xs domid =
 
 let domains_of_uuid ~xc uuid =
   List.filter
-    (fun x -> Xenctrl_uuid.uuid_of_handle x.Xenctrl.handle = uuid)
+    (fun x -> Ez_xenctrl_uuid.uuid_of_handle x.Xenctrl.handle = uuid)
     (Xenctrl.domain_getinfolist xc 0)
 

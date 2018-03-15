@@ -179,7 +179,7 @@ let uuid_of_string x = match Uuidm.of_string x with
 
 let uuid_of_vm vm = uuid_of_string vm.Vm.id
 
-let uuid_of_di di = Xenctrl_uuid.uuid_of_handle di.Xenctrl.handle
+let uuid_of_di di = Ez_xenctrl_uuid.uuid_of_handle di.Xenctrl.handle
 
 (* During a live migrate, there will be multiple domains with the same uuid.
    The convention is: we construct things on the newest domain (e.g. VBD.plug)
