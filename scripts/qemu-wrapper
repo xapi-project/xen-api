@@ -157,9 +157,6 @@ def main(argv):
     trad_compat = 'true'
     igdpt = ''
 
-    if "-gfx_passthru" in argv[1:]:
-        igdpt = ',igd-passthru=on'
-
     qemu_args.extend(['-machine',
                       'pc-0.10,accel=xen,max-ram-below-4g=%lu,'
                       'allow-unassigned=true,trad_compat=%s%s'
@@ -204,10 +201,6 @@ def main(argv):
             continue
 
         if p == "-acpi":
-            del qemu_args[n]
-            continue
-
-        if p == "-gfx_passthru":
             del qemu_args[n]
             continue
 
