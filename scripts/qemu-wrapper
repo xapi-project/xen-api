@@ -165,14 +165,13 @@ def main(argv):
                       'allow-unassigned=true,trad_compat=%s%s'
                       % (mmio_start, trad_compat, igdpt)])
 
-    # enable qmp for debugging
-    # qemu_args.extend(['-qmp'] + ['tcp:localhost:4444,server,nowait'])
-
-    # qemu_args.extend(['-chardev'] + ['socket,id=libxl-cmd,'
-    #                   'path=/var/run/xen/qmp-libxl-%d,server,nowait' % domid])
-
     qemu_args.extend(argv[2:])
     qemu_args.extend(drive_args)
+
+    # support toolstack override of NIC device model for debug purposes
+    nic = xenstore_read("/local/domain/%d/platform/nic_type" % domid)
+    if nic:
+        qemu_args = map(lambda x: x.replace("rtl8139", nic), qemu_args)
 
     n = 0
 
