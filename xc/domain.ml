@@ -32,16 +32,16 @@ type xen_arm_arch_domainconfig = (* Xenctrl.xen_arm_arch_domainconfig = *) {
 } [@@deriving rpc]
 
 type x86_arch_emulation_flags = (* Xenctrl.x86_arch_emulation_flags = *)
-| X86_EMU_LAPIC
-| X86_EMU_HPET
-| X86_EMU_PM
-| X86_EMU_RTC
-| X86_EMU_IOAPIC
-| X86_EMU_PIC
-| X86_EMU_VGA
-| X86_EMU_IOMMU
-| X86_EMU_PIT
-| X86_EMU_USE_PIRQ [@@deriving rpc]
+  | X86_EMU_LAPIC
+  | X86_EMU_HPET
+  | X86_EMU_PM
+  | X86_EMU_RTC
+  | X86_EMU_IOAPIC
+  | X86_EMU_PIC
+  | X86_EMU_VGA
+  | X86_EMU_IOMMU
+  | X86_EMU_PIT
+  | X86_EMU_USE_PIRQ [@@deriving rpc]
 
 type xen_x86_arch_domainconfig = (* Xenctrl.xen_x86_arch_domainconfig = *) {
   emulation_flags: x86_arch_emulation_flags list;
@@ -53,16 +53,16 @@ type arch_domainconfig = (* Xenctrl.arch_domainconfig = *)
 [@@deriving rpc]
 
 let emulation_flags_all = [
-    X86_EMU_LAPIC
-  ; X86_EMU_HPET
-  ; X86_EMU_PM
-  ; X86_EMU_RTC
-  ; X86_EMU_IOAPIC
-  ; X86_EMU_PIC
-  ; X86_EMU_VGA
-  ; X86_EMU_IOMMU
-  ; X86_EMU_PIT
-  ; X86_EMU_USE_PIRQ
+  X86_EMU_LAPIC
+; X86_EMU_HPET
+; X86_EMU_PM
+; X86_EMU_RTC
+; X86_EMU_IOAPIC
+; X86_EMU_PIC
+; X86_EMU_VGA
+; X86_EMU_IOMMU
+; X86_EMU_PIT
+; X86_EMU_USE_PIRQ
 ]
 
 let emulation_flags_pvh = [
@@ -101,7 +101,7 @@ type builder_spec_info =
   | BuildHVM of build_hvm_info
   | BuildPV of build_pv_info
   | BuildPVH of build_pvh_info
-  [@@deriving rpc]
+[@@deriving rpc]
 
 type build_info = {
   memory_max: int64;    (* memory max in kilobytes *)
@@ -687,9 +687,9 @@ let xenguest_args_pvh ~domid ~store_port ~store_domid ~console_port ~console_dom
     ~kernel ~cmdline ~modules =
   let module_args =
     List.map (fun (m, c) ->
-      "-module" :: m ::
-      (match c with Some x -> "-cmdline" :: x :: [] | None -> [])
-    ) modules |> List.flatten
+        "-module" :: m ::
+        (match c with Some x -> "-cmdline" :: x :: [] | None -> [])
+      ) modules |> List.flatten
   in
   [
     "-mode"; "pvh_build";
@@ -788,8 +788,8 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
       let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
       let store_mfn, console_mfn =
         let args = xenguest_args_hvm ~domid ~store_port ~store_domid ~console_port
-          ~console_domid ~memory ~kernel
-          @ force_arg @ extras in
+            ~console_domid ~memory ~kernel
+                   @ force_arg @ extras in
         xenguest task xenguest_path domid uuid args
       in
       correct_shadow_allocation xc domid uuid memory.Memory.shadow_mib;
@@ -803,8 +803,8 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
       let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
       let store_mfn, console_mfn =
         let args = xenguest_args_pv ~domid ~store_port ~store_domid ~console_port
-          ~console_domid ~memory ~kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
-          @ force_arg @ extras in
+            ~console_domid ~memory ~kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
+                   @ force_arg @ extras in
         xenguest task xenguest_path domid uuid args
       in
       store_mfn, store_port, console_mfn, console_port, []
@@ -818,7 +818,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
       let store_mfn, console_mfn =
         let args = xenguest_args_pvh ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
             ~kernel ~cmdline:pvhinfo.cmdline ~modules:pvhinfo.modules
-          @ force_arg @ extras in
+                   @ force_arg @ extras in
         xenguest task xenguest_path domid uuid args
       in
       correct_shadow_allocation xc domid uuid memory.Memory.shadow_mib;
@@ -831,503 +831,503 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
 
 type suspend_flag = Live | Debug
 
-  let with_emu_manager_restore (task: Xenops_task.task_handle) ~domain_type ~store_port ~console_port ~extras manager_path domid uuid main_fd vgpu_fd f =
-    let mode =
-      match domain_type with
-      | `hvm | `pvh -> "hvm_restore"
-      | `pv         -> "restore"
-    in
-    let fd_uuid = Uuid.(to_string (create `V4)) in
-    let vgpu_args, vgpu_cmdline =
-      match vgpu_fd with
-      | Some fd when fd = main_fd ->
-        [fd_uuid, main_fd],
-        ["-dm"; "vgpu:" ^ fd_uuid]
-      | Some fd ->
-        let vgpu_fd_uuid = Uuid.(to_string (create `V4)) in
-        [vgpu_fd_uuid, fd],
-        ["-dm"; "vgpu:" ^ vgpu_fd_uuid]
-      | None -> [], []
-    in
-    let fds = [ fd_uuid, main_fd ] @ vgpu_args in
-    let args = [
-      "-mode"; mode;
-      "-domid"; string_of_int domid;
-      "-fd"; fd_uuid;
-      "-store_port"; string_of_int store_port;
-      "-console_port"; string_of_int console_port;
-      "-fork"; "true";
-    ] @ extras @ vgpu_cmdline
-    in
-    Emu_manager.with_connection task manager_path domid args fds f
+let with_emu_manager_restore (task: Xenops_task.task_handle) ~domain_type ~store_port ~console_port ~extras manager_path domid uuid main_fd vgpu_fd f =
+  let mode =
+    match domain_type with
+    | `hvm | `pvh -> "hvm_restore"
+    | `pv         -> "restore"
+  in
+  let fd_uuid = Uuid.(to_string (create `V4)) in
+  let vgpu_args, vgpu_cmdline =
+    match vgpu_fd with
+    | Some fd when fd = main_fd ->
+      [fd_uuid, main_fd],
+      ["-dm"; "vgpu:" ^ fd_uuid]
+    | Some fd ->
+      let vgpu_fd_uuid = Uuid.(to_string (create `V4)) in
+      [vgpu_fd_uuid, fd],
+      ["-dm"; "vgpu:" ^ vgpu_fd_uuid]
+    | None -> [], []
+  in
+  let fds = [ fd_uuid, main_fd ] @ vgpu_args in
+  let args = [
+    "-mode"; mode;
+    "-domid"; string_of_int domid;
+    "-fd"; fd_uuid;
+    "-store_port"; string_of_int store_port;
+    "-console_port"; string_of_int console_port;
+    "-fork"; "true";
+  ] @ extras @ vgpu_cmdline
+  in
+  Emu_manager.with_connection task manager_path domid args fds f
 
-  let restore_libxc_record cnx domid uuid =
-    let open Emu_manager in
-    send_restore cnx Xenguest;
-    let res = receive_success cnx in
-    match parse_result res with
-    | Xenguest_result (store, console) ->
-      debug "VM = %s; domid = %d; store_mfn = %nd; console_mfn = %nd" (Uuid.to_string uuid) domid store console;
-      store, console
-    | _                  ->
-      error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid res;
-      raise Domain_restore_failed
+let restore_libxc_record cnx domid uuid =
+  let open Emu_manager in
+  send_restore cnx Xenguest;
+  let res = receive_success cnx in
+  match parse_result res with
+  | Xenguest_result (store, console) ->
+    debug "VM = %s; domid = %d; store_mfn = %nd; console_mfn = %nd" (Uuid.to_string uuid) domid store console;
+    store, console
+  | _                  ->
+    error "VM = %s; domid = %d; domain builder returned invalid result: \"%s\"" (Uuid.to_string uuid) domid res;
+    raise Domain_restore_failed
 
-  let consume_qemu_record fd limit domid uuid =
-    if limit > 1_048_576L then begin (* 1MB *)
-      error "VM = %s; domid = %d; QEMU record length in header too large (%Ld bytes)"
-        (Uuid.to_string uuid) domid limit;
-      raise Suspend_image_failure
-    end;
-    let file = sprintf qemu_restore_path domid in
-    let fd2 = Unix.openfile file
-        [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC; ] 0o640
-    in
-    finally (fun () ->
-        debug "VM = %s; domid = %d; reading %Ld bytes from %s"
-          (Uuid.to_string uuid) domid limit file;
-        let bytes =
-          try
-            Unixext.copy_file ~limit fd fd2
-          with Unix.Unix_error (e, s1, s2) ->
-            error "VM = %s; domid = %d; %s, %s, %s" (Uuid.to_string uuid) domid (Unix.error_message e) s1 s2;
-            Unixext.unlink_safe file;
-            raise Suspend_image_failure
-        in
-        if bytes <> limit
-        then begin
-          error "VM = %s; domid = %d; qemu save file was truncated"
-            (Uuid.to_string uuid) domid;
-          raise Domain_restore_truncated_hvmstate
-        end
-      ) (fun () -> Unix.close fd2)
-
-  let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~domain_type ~store_port ~store_domid
-      ~console_port ~console_domid ~no_incr_generationid ~vcpus ~extras
-      manager_path domid main_fd vgpu_fd =
-
-    let module DD = Debug.Make(struct let name = "mig64" end) in
-    let open DD in
-    let uuid = get_uuid ~xc domid in
-    let open Suspend_image in
-    let hvm = domain_type = `hvm in
-    match read_save_signature main_fd with
-    | `Ok Legacy ->
-      debug "Detected legacy suspend image! Piping through conversion tool.";
-      let (store_mfn, console_mfn) =
-        begin match
-            with_conversion_script task "Emu_manager" hvm main_fd (fun pipe_r ->
-                with_emu_manager_restore task ~domain_type ~store_port ~console_port ~extras manager_path domid uuid pipe_r vgpu_fd (fun cnx ->
-                    restore_libxc_record cnx domid uuid
-                  )
-              )
-          with
-          | `Ok (s, c) -> (s, c)
-          | `Error e ->
-            error "Caught error when using converison script: %s" (Printexc.to_string e);
-            Xenops_task.cancel task;
-            raise e
-        end
+let consume_qemu_record fd limit domid uuid =
+  if limit > 1_048_576L then begin (* 1MB *)
+    error "VM = %s; domid = %d; QEMU record length in header too large (%Ld bytes)"
+      (Uuid.to_string uuid) domid limit;
+    raise Suspend_image_failure
+  end;
+  let file = sprintf qemu_restore_path domid in
+  let fd2 = Unix.openfile file
+      [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC; ] 0o640
+  in
+  finally (fun () ->
+      debug "VM = %s; domid = %d; reading %Ld bytes from %s"
+        (Uuid.to_string uuid) domid limit file;
+      let bytes =
+        try
+          Unixext.copy_file ~limit fd fd2
+        with Unix.Unix_error (e, s1, s2) ->
+          error "VM = %s; domid = %d; %s, %s, %s" (Uuid.to_string uuid) domid (Unix.error_message e) s1 s2;
+          Unixext.unlink_safe file;
+          raise Suspend_image_failure
       in
-      (* Consume the (legacy) QEMU Record *)
-      if hvm
+      if bytes <> limit
       then begin
-        debug "Reading legacy (Xenops-level) QEMU record signature";
-        let length = begin match (read_legacy_qemu_header main_fd) with
-          | `Ok length -> length
-          | `Error e ->
-            error "VM = %s; domid = %d; Error reading QEMU signature: %s"
-              (Uuid.to_string uuid) domid e;
-            raise Suspend_image_failure
-        end in
-        debug "Consuming QEMU record into file";
-        consume_qemu_record main_fd length domid uuid
-      end;
-      store_mfn, console_mfn
-    | `Ok Structured ->
-      let open Suspend_image.M in
-      let open Emu_manager in
-      let fds =
-        match vgpu_fd with
-        | Some fd when fd <> main_fd -> [main_fd; fd]
-        | _ -> [main_fd]
-      in
-      with_emu_manager_restore task ~domain_type ~store_port ~console_port ~extras manager_path domid uuid main_fd vgpu_fd (fun cnx ->
-          (* Maintain a list of results returned by emu-manager that are expected
-           * by the reader threads. Contains the emu for which a result is wanted
-           * plus an event channel for waking up the reader once the result is in. *)
-          let thread_requests = ref [] in
-          let thread_requests_m = Mutex.create () in
-          let emu_manager_send_m = Mutex.create () in
-          let restore_and_wait emu =
-            (* Called by a reader thread to send a "restore" request to emu-manager
-             * and wait for the result. Results from emu-manager come in on the main
-             * thread, and collected there. All we need to do here is block until
-             * this has happened before sending the next request to emu-manager. *)
-            let wakeup = Event.new_channel () in
-            Mutex.execute thread_requests_m (fun () ->
-                thread_requests := (emu, wakeup) :: !thread_requests
-              );
-            wrap (fun () -> Mutex.execute emu_manager_send_m (fun () ->
-                send_restore cnx emu
-              )) >>= fun () ->
-            debug "Sent restore:%s to emu-manager. Waiting for result..." (string_of_emu emu);
-            (* Block until woken up by the main thread once the result has been received. *)
-            Event.receive wakeup |> Event.sync;
-            Mutex.execute thread_requests_m (fun () ->
-                thread_requests := List.remove_assoc emu !thread_requests
-              );
-            return ()
-          in
-          let rec process_header fd res =
-            (* Read and process the next bit from the suspend-image fd. *)
-            debug "Reading next header... (fd=%d)" (Obj.magic fd);
-            read_header fd >>= function
-            | Xenops, len ->
-              debug "Read Xenops record header (length=%Ld)" len;
-              let rec_str = Io.read fd (Io.int_of_int64_exn len) in
-              debug "Read Xenops record contents";
-              Xenops_record.of_string rec_str >>= fun (_ : Xenops_record.t) ->
-              debug "Validated Xenops record contents";
-              process_header fd res
-            | Libxc, _ ->
-              debug "Read Libxc record header";
-              restore_and_wait Xenguest >>= fun () ->
-              debug "Restored Libxc state";
-              process_header fd res
-            | Libxc_legacy, _ ->
-              debug "Read Libxc_legacy record header";
-              restore_and_wait Xenguest >>= fun () ->
-              debug "Restored Libxc state";
-              process_header fd res
-            | Qemu_trad, len ->
-              debug "Read Qemu_trad header (length=%Ld)" len;
-              consume_qemu_record fd len domid uuid;
-              process_header fd res
-            | Demu, _ ->
-              debug "Read DEMU header";
-              restore_and_wait Vgpu >>= fun () ->
-              debug "Restored DEMU state";
-              process_header fd res
-            | End_of_image, _ ->
-              debug "Read suspend image footer";
-              res
-            | _ -> `Error Suspend_image_failure
-          in
-          let handle_results () =
-            (* Wait for results coming in from emu-manager, and match them
-             * up with requests from the reader threads.
-             * Emu-manager exits when it is done, so we stop when receiving
-             * an EOF on the control channel. *)
-            let rec loop results =
-              try
-                debug "Waiting for response from emu-manager";
-                return (receive_success cnx) >>= fun response ->
-                debug "Received response from emu-manager: %s" response;
-                wrap (fun () -> parse_result response) >>= fun result ->
-                let emu = emu_of_result result in
-                (* Wake up the reader that has requested a result for this emu *)
-                if List.mem_assoc emu !thread_requests then begin
-                  let wakeup = List.assoc emu !thread_requests in
-                  Event.send wakeup () |> Event.sync;
-                  loop (result :: results)
-                end else begin
-                  error "Received unexpected response from emu-manager";
-                  (* Exhaust the thread_requests before returning the error,
-                   * this prevenst leaking blocked results threads *)
-                  List.iter (fun (emu, wakeup) ->
-                    Event.send wakeup () |> Event.sync)
-                    !thread_requests;
-                  `Error Domain_restore_failed
-                end
-              with End_of_file ->
-                debug "Finished emu-manager result processing";
-                return results
-            in
-            loop [] >>= fun results ->
-            (* We are only really interested in the result from xenguest *)
-            List.fold_left (function acc -> function
-                | Xenguest_result (store, console) -> return (Some (store, console))
-                | _ -> acc
-              ) (return None) results
-          in
-          let start_reader_thread fd =
-            (* Start a reader thread on the given fd. Add a channel back to the
-             * main thread for status reporting *)
-            debug "Starting reader thread (fd=%d)" (Obj.magic fd);
-            let ch = Event.new_channel () in
-            let th = Thread.create (fun () ->
-                wrap_exn (fun () -> process_header fd (return ()))
-                |> Event.send ch
-                |> Event.sync
-              ) () in
-            th, ch
-          in
-          let receive_thread_status threads_and_channels =
-            (* Receive the status from all reader threads and let them exit.
-             * This happens in two steps to make sure that we are unblocking
-             * and closing all threads also in case of errors. *)
-            List.map (fun (th, ch) _ ->
-                let status = Event.receive ch |> Event.sync in
-                Thread.join th;
-                status
-              ) threads_and_channels
-            |> fun statuses -> fold (fun x -> x) statuses ()
-            >>= fun () ->
-            debug "Reader threads completed successfully";
-            return ()
-          in
-          (* Start a reader thread on each fd *)
-          let threads_and_channels = List.map start_reader_thread fds in
-          (* Handle results returned by emu-manager *)
-          let emu_manager_results = handle_results () in
-          (* Wait for reader threads to complete *)
-          let[@inlined never] thread_status = receive_thread_status threads_and_channels in
-          (* Chain all together, and we are done! *)
-          let res =
-            emu_manager_results >>= fun result ->
-            thread_status >>= fun () ->
-            return result
-          in
-          begin match res with
-            | `Ok (Some (store_mfn, console_mfn)) ->
-              debug "VM = %s; domid = %d; store_mfn = %nd; console_mfn = %nd"
-                (Uuid.to_string uuid) domid store_mfn console_mfn;
-              store_mfn, console_mfn
-            | `Ok None -> failwith "Well formed, but useless stream"
-            | `Error e -> raise e
-          end
-        )
-    | `Error e ->
-      error "VM = %s; domid = %d; Error reading save signature: %s" (Uuid.to_string uuid) domid e;
-      raise Suspend_image_failure
+        error "VM = %s; domid = %d; qemu save file was truncated"
+          (Uuid.to_string uuid) domid;
+        raise Domain_restore_truncated_hvmstate
+      end
+    ) (fun () -> Unix.close fd2)
 
-  let restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
-      ~no_incr_generationid ~timeoffset ~extras info ~manager_path domid fd vgpu_fd =
-    let static_max_kib = info.memory_max in
-    let target_kib = info.memory_target in
-    let vcpus = info.vcpus in
-    (* We don't use anything in the memory config below that depends on video_mib *)
-    let video_mib = 0 in
+let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~domain_type ~store_port ~store_domid
+    ~console_port ~console_domid ~no_incr_generationid ~vcpus ~extras
+    manager_path domid main_fd vgpu_fd =
 
-    (* Convert memory configuration values into the correct units. *)
-    let static_max_mib = Memory.mib_of_kib_used static_max_kib in
-    let target_mib     = Memory.mib_of_kib_used target_kib in
-
-    (* Sanity check. *)
-    assert (target_mib <= static_max_mib);
-
-    let memory, vm_stuff, domain_type =
-      match info.priv with
-      | BuildHVM hvminfo ->
-        let shadow_multiplier = hvminfo.shadow_multiplier in
-        let memory = Memory.HVM.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
-        let vm_stuff = [
-          "rtc/timeoffset",    timeoffset;
-        ] in
-        maybe_ca_140252_workaround ~xc ~vcpus domid;
-        memory, vm_stuff, `hvm
-      | BuildPV pvinfo ->
-        let shadow_multiplier = Memory.Linux.shadow_multiplier_default in
-        let memory = Memory.Linux.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
-        memory, [], `pv
-      | BuildPVH pvhinfo ->
-        let shadow_multiplier = pvhinfo.shadow_multiplier in
-        let memory = Memory.PVinPVH.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
-        let vm_stuff = [
-          "rtc/timeoffset",    timeoffset;
-        ] in
-        maybe_ca_140252_workaround ~xc ~vcpus domid;
-        memory, vm_stuff, `pvh
+  let module DD = Debug.Make(struct let name = "mig64" end) in
+  let open DD in
+  let uuid = get_uuid ~xc domid in
+  let open Suspend_image in
+  let hvm = domain_type = `hvm in
+  match read_save_signature main_fd with
+  | `Ok Legacy ->
+    debug "Detected legacy suspend image! Piping through conversion tool.";
+    let (store_mfn, console_mfn) =
+      begin match
+          with_conversion_script task "Emu_manager" hvm main_fd (fun pipe_r ->
+              with_emu_manager_restore task ~domain_type ~store_port ~console_port ~extras manager_path domid uuid pipe_r vgpu_fd (fun cnx ->
+                  restore_libxc_record cnx domid uuid
+                )
+            )
+        with
+        | `Ok (s, c) -> (s, c)
+        | `Error e ->
+          error "Caught error when using converison script: %s" (Printexc.to_string e);
+          Xenops_task.cancel task;
+          raise e
+      end
     in
-    let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
-    let store_mfn, console_mfn = restore_common task ~xc ~xs ~domain_type
-        ~store_port ~store_domid
-        ~console_port ~console_domid
-        ~no_incr_generationid
-        ~vcpus ~extras manager_path domid fd vgpu_fd in
-    let local_stuff = console_keys console_port console_mfn in
-    (* And finish domain's building *)
-    build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-      domid store_mfn store_port local_stuff vm_stuff
-
-  let suspend_emu_manager' ~(task: Xenops_task.task_handle) ~xc ~xs ~domain_type ~manager_path ~domid
-      ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback =
-    let open Suspend_image in let open Suspend_image.M in
+    (* Consume the (legacy) QEMU Record *)
+    if hvm
+    then begin
+      debug "Reading legacy (Xenops-level) QEMU record signature";
+      let length = begin match (read_legacy_qemu_header main_fd) with
+        | `Ok length -> length
+        | `Error e ->
+          error "VM = %s; domid = %d; Error reading QEMU signature: %s"
+            (Uuid.to_string uuid) domid e;
+          raise Suspend_image_failure
+      end in
+      debug "Consuming QEMU record into file";
+      consume_qemu_record main_fd length domid uuid
+    end;
+    store_mfn, console_mfn
+  | `Ok Structured ->
+    let open Suspend_image.M in
     let open Emu_manager in
-
-    let fd_uuid = Uuid.(to_string (create `V4)) in
-    let mode =
-      match domain_type with
-      | `hvm | `pvh -> "hvm_save"
-      | `pv         -> "save"
-    in
-    let vgpu_args, vgpu_cmdline =
+    let fds =
       match vgpu_fd with
-      | Some fd when fd = main_fd ->
-        [fd_uuid, main_fd],
-        ["-dm"; "vgpu:" ^ fd_uuid]
-      | Some fd ->
-        let vgpu_fd_uuid = Uuid.(to_string (create `V4)) in
-        [vgpu_fd_uuid, fd],
-        ["-dm"; "vgpu:" ^ vgpu_fd_uuid]
-      | None -> [], []
+      | Some fd when fd <> main_fd -> [main_fd; fd]
+      | _ -> [main_fd]
     in
-
-    let cmdline_to_flag flag =
-      match flag with
-      | Live -> [ "-live"; "true" ]
-      | Debug -> [ "-debug"; "true" ]
-    in
-    let flags' = List.map cmdline_to_flag flags in
-
-    let args = [
-      "-fd"; fd_uuid;
-      "-mode"; mode;
-      "-domid"; string_of_int domid;
-      "-fork"; "true";
-    ] @ (List.concat flags') @ vgpu_cmdline in
-
-    let fds = [fd_uuid, main_fd] @ vgpu_args in
-
-    (* Start the emu-manager process and connect to the control socket *)
-    with_connection task manager_path domid args fds (fun cnx ->
-        (* Callback to monitor the debug (stderr) output of the process and
-                		   spot the progress indicator *)
-        let callback txt =
-          let prefix = "\\b\\b\\b\\b" in
-          if String.startswith prefix txt then
-            let rest = String.sub txt (String.length prefix)
-                (String.length txt - (String.length prefix)) in
-            match Stdext.Xstringext.String.split_f (fun c -> c = ' ' || c = '%') rest with
-            | [ percent ] -> (
-                try
-                  let percent = int_of_string percent in
-                  debug "VM = %s; domid = %d; progress = %d / 100" (Uuid.to_string uuid) domid percent;
-                  progress_callback (float_of_int percent /. 100.)
-                with e ->
-                  error "VM = %s; domid = %d; failed to parse progress update: \"%s\"" (Uuid.to_string uuid) domid percent;
-                  (* MTC: catch exception by progress_callback, for example,
-                     an abort request, and re-raise them *)
-                  raise e
-              )
-            | _ -> ()
-          else
-            debug "VM = %s; domid = %d; %s" (Uuid.to_string uuid) domid txt
-        in
-
-        (* Process started; wait for and respond to instructions *)
-        let rec wait_for_message () =
-          debug "VM = %s; domid = %d; waiting for emu-manager..." (Uuid.to_string uuid) domid;
-          let message = non_debug_receive ~debug_callback:callback cnx in
-          debug "VM = %s; domid = %d; message from emu-manager: %s"
-            (Uuid.to_string uuid) domid (string_of_message message);
-          match message with
-          | Suspend ->
-            do_suspend_callback ();
-            if domain_type = `hvm then (
-              debug "VM = %s; domid = %d; suspending qemu-dm" (Uuid.to_string uuid) domid;
-              Device.Dm.suspend task ~xs ~qemu_domid domid;
+    with_emu_manager_restore task ~domain_type ~store_port ~console_port ~extras manager_path domid uuid main_fd vgpu_fd (fun cnx ->
+        (* Maintain a list of results returned by emu-manager that are expected
+         * by the reader threads. Contains the emu for which a result is wanted
+         * plus an event channel for waking up the reader once the result is in. *)
+        let thread_requests = ref [] in
+        let thread_requests_m = Mutex.create () in
+        let emu_manager_send_m = Mutex.create () in
+        let restore_and_wait emu =
+          (* Called by a reader thread to send a "restore" request to emu-manager
+           * and wait for the result. Results from emu-manager come in on the main
+           * thread, and collected there. All we need to do here is block until
+           * this has happened before sending the next request to emu-manager. *)
+          let wakeup = Event.new_channel () in
+          Mutex.execute thread_requests_m (fun () ->
+              thread_requests := (emu, wakeup) :: !thread_requests
             );
-            send_done cnx;
-            wait_for_message ()
-          | Prepare x when x = "xenguest" ->
-            debug "Writing Libxc header";
-            write_header main_fd (Libxc, 0L) >>= fun () ->
-            debug "Writing Libxc record";
-            send_done cnx;
-            wait_for_message ()
-          | Prepare x when x = "vgpu" ->
-            (match vgpu_fd with
-             | Some fd ->
-               debug "Writing DEMU header";
-               write_header fd (Demu, 0L) >>= fun () ->
-               debug "Writing DEMU record";
-               send_done cnx;
-               wait_for_message ()
-             | None ->
-               `Error (Emu_manager_failure ("Received prepare:vgpu from emu-manager, but there is no vGPU fd")))
-          | Result x ->
-            debug "VM = %s; domid = %d; emu-manager completed successfully" (Uuid.to_string uuid) domid;
-            return ()
-          | Error x ->
-            error "VM = %s; domid = %d; emu-manager failed: \"%s\"" (Uuid.to_string uuid) domid x;
-            `Error (Emu_manager_failure (Printf.sprintf "Received error from emu-manager: %s" x))
-          | _                       ->
-            error "VM = %s; domid = %d; unexpected message from emu-manager" (Uuid.to_string uuid) domid;
-            `Error (Emu_manager_protocol_failure)
+          wrap (fun () -> Mutex.execute emu_manager_send_m (fun () ->
+              send_restore cnx emu
+            )) >>= fun () ->
+          debug "Sent restore:%s to emu-manager. Waiting for result..." (string_of_emu emu);
+          (* Block until woken up by the main thread once the result has been received. *)
+          Event.receive wakeup |> Event.sync;
+          Mutex.execute thread_requests_m (fun () ->
+              thread_requests := List.remove_assoc emu !thread_requests
+            );
+          return ()
         in
-        wait_for_message ()
+        let rec process_header fd res =
+          (* Read and process the next bit from the suspend-image fd. *)
+          debug "Reading next header... (fd=%d)" (Obj.magic fd);
+          read_header fd >>= function
+          | Xenops, len ->
+            debug "Read Xenops record header (length=%Ld)" len;
+            let rec_str = Io.read fd (Io.int_of_int64_exn len) in
+            debug "Read Xenops record contents";
+            Xenops_record.of_string rec_str >>= fun (_ : Xenops_record.t) ->
+            debug "Validated Xenops record contents";
+            process_header fd res
+          | Libxc, _ ->
+            debug "Read Libxc record header";
+            restore_and_wait Xenguest >>= fun () ->
+            debug "Restored Libxc state";
+            process_header fd res
+          | Libxc_legacy, _ ->
+            debug "Read Libxc_legacy record header";
+            restore_and_wait Xenguest >>= fun () ->
+            debug "Restored Libxc state";
+            process_header fd res
+          | Qemu_trad, len ->
+            debug "Read Qemu_trad header (length=%Ld)" len;
+            consume_qemu_record fd len domid uuid;
+            process_header fd res
+          | Demu, _ ->
+            debug "Read DEMU header";
+            restore_and_wait Vgpu >>= fun () ->
+            debug "Restored DEMU state";
+            process_header fd res
+          | End_of_image, _ ->
+            debug "Read suspend image footer";
+            res
+          | _ -> `Error Suspend_image_failure
+        in
+        let handle_results () =
+          (* Wait for results coming in from emu-manager, and match them
+           * up with requests from the reader threads.
+           * Emu-manager exits when it is done, so we stop when receiving
+           * an EOF on the control channel. *)
+          let rec loop results =
+            try
+              debug "Waiting for response from emu-manager";
+              return (receive_success cnx) >>= fun response ->
+              debug "Received response from emu-manager: %s" response;
+              wrap (fun () -> parse_result response) >>= fun result ->
+              let emu = emu_of_result result in
+              (* Wake up the reader that has requested a result for this emu *)
+              if List.mem_assoc emu !thread_requests then begin
+                let wakeup = List.assoc emu !thread_requests in
+                Event.send wakeup () |> Event.sync;
+                loop (result :: results)
+              end else begin
+                error "Received unexpected response from emu-manager";
+                (* Exhaust the thread_requests before returning the error,
+                 * this prevenst leaking blocked results threads *)
+                List.iter (fun (emu, wakeup) ->
+                    Event.send wakeup () |> Event.sync)
+                  !thread_requests;
+                `Error Domain_restore_failed
+              end
+            with End_of_file ->
+              debug "Finished emu-manager result processing";
+              return results
+          in
+          loop [] >>= fun results ->
+          (* We are only really interested in the result from xenguest *)
+          List.fold_left (function acc -> function
+              | Xenguest_result (store, console) -> return (Some (store, console))
+              | _ -> acc
+            ) (return None) results
+        in
+        let start_reader_thread fd =
+          (* Start a reader thread on the given fd. Add a channel back to the
+           * main thread for status reporting *)
+          debug "Starting reader thread (fd=%d)" (Obj.magic fd);
+          let ch = Event.new_channel () in
+          let th = Thread.create (fun () ->
+              wrap_exn (fun () -> process_header fd (return ()))
+              |> Event.send ch
+              |> Event.sync
+            ) () in
+          th, ch
+        in
+        let receive_thread_status threads_and_channels =
+          (* Receive the status from all reader threads and let them exit.
+           * This happens in two steps to make sure that we are unblocking
+           * and closing all threads also in case of errors. *)
+          List.map (fun (th, ch) _ ->
+              let status = Event.receive ch |> Event.sync in
+              Thread.join th;
+              status
+            ) threads_and_channels
+          |> fun statuses -> fold (fun x -> x) statuses ()
+          >>= fun () ->
+          debug "Reader threads completed successfully";
+          return ()
+        in
+        (* Start a reader thread on each fd *)
+        let threads_and_channels = List.map start_reader_thread fds in
+        (* Handle results returned by emu-manager *)
+        let emu_manager_results = handle_results () in
+        (* Wait for reader threads to complete *)
+        let[@inlined never] thread_status = receive_thread_status threads_and_channels in
+        (* Chain all together, and we are done! *)
+        let res =
+          emu_manager_results >>= fun result ->
+          thread_status >>= fun () ->
+          return result
+        in
+        begin match res with
+          | `Ok (Some (store_mfn, console_mfn)) ->
+            debug "VM = %s; domid = %d; store_mfn = %nd; console_mfn = %nd"
+              (Uuid.to_string uuid) domid store_mfn console_mfn;
+            store_mfn, console_mfn
+          | `Ok None -> failwith "Well formed, but useless stream"
+          | `Error e -> raise e
+        end
       )
+  | `Error e ->
+    error "VM = %s; domid = %d; Error reading save signature: %s" (Uuid.to_string uuid) domid e;
+    raise Suspend_image_failure
 
-  let suspend_emu_manager ~(task: Xenops_task.task_handle) ~xc ~xs ~domain_type ~manager_path ~domid
-      ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback =
-    Device.Dm.with_dirty_log domid ~f:(fun () ->
-        suspend_emu_manager' ~task ~xc ~xs ~domain_type ~manager_path ~domid
-          ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback
-      )
+let restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
+    ~no_incr_generationid ~timeoffset ~extras info ~manager_path domid fd vgpu_fd =
+  let static_max_kib = info.memory_max in
+  let target_kib = info.memory_target in
+  let vcpus = info.vcpus in
+  (* We don't use anything in the memory config below that depends on video_mib *)
+  let video_mib = 0 in
 
-  let write_qemu_record domid uuid fd =
-    let file = sprintf qemu_save_path domid in
-    let fd2 = Unix.openfile file [ Unix.O_RDONLY ] 0o640 in
-    finally (fun () ->
-        let size = Int64.of_int Unix.((stat file).st_size) in
-        let open Suspend_image in let open Suspend_image.M in
-        debug "Writing Qemu_trad header with length %Ld" size;
-        write_header fd (Qemu_trad, size) >>= fun () ->
-        debug "VM = %s; domid = %d; writing %Ld bytes from %s" (Uuid.to_string uuid) domid size file;
-        if Unixext.copy_file ~limit:size fd2 fd <> size
-        then failwith "Failed to write whole qemu-dm state file";
-        return ()
-      ) (fun () ->
-        Unix.unlink file;
-        Unix.close fd2
-      )
+  (* Convert memory configuration values into the correct units. *)
+  let static_max_mib = Memory.mib_of_kib_used static_max_kib in
+  let target_mib     = Memory.mib_of_kib_used target_kib in
 
-  (* suspend register the callback function that will be call by linux_save
-   * and is in charge to suspend the domain when called. the whole domain
-   * context is saved to fd
-  *)
-  let suspend (task: Xenops_task.task_handle) ~xc ~xs ~domain_type ~manager_path vm_str domid main_fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
-    let module DD = Debug.Make(struct let name = "mig64" end) in
-    let open DD in
-    let uuid = get_uuid ~xc domid in
-    debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid (List.mem Live flags);
-    let open Suspend_image in let open Suspend_image.M in
-    (* Suspend image signature *)
-    debug "Writing save signature: %s" save_signature;
-    Io.write main_fd save_signature;
-    (* CA-248130: originally, [xs_subtree] contained [xenstore_read_dir t
-       	 * (xs.Xs.getdomainpath domid)] and this data was written to [fd].
-       	 * However, on the receiving side this data is never used. As a
-       	 * short-term fix, we sent nothing but keep the write to maintain the
-       	 * protocol.
-       	 *)
-    let res =
-      let xs_subtree = [] in
-      Xenops_record.(to_string (make ~xs_subtree ~vm_str ())) >>= fun xenops_record ->
-      let xenops_rec_len = String.length xenops_record in
-      debug "Writing Xenops header (length=%d)" xenops_rec_len;
-      write_header main_fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
-      debug "Writing Xenops record contents";
-      Io.write main_fd xenops_record;
-      suspend_emu_manager ~task ~xc ~xs ~domain_type ~manager_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
-        ~progress_callback ~qemu_domid ~do_suspend_callback >>= fun () ->
-      (* Qemu record (if this is a hvm domain) *)
-      (* Currently Qemu suspended inside above call with the libxc memory
-         		* image, we should try putting it below in the relevant section of the
-         		* suspend-image-writing *)
-      (if domain_type = `hvm then write_qemu_record domid uuid main_fd else return ()) >>= fun () ->
-      debug "Qemu record written";
-      debug "Writing End_of_image footer(s)";
-      progress_callback 1.;
-      (* Close all streams *)
-      let fds = Stdext.Listext.List.setify (main_fd :: Opt.to_list vgpu_fd) in
-      fold (fun fd () -> write_header fd (End_of_image, 0L)) fds ()
-    in match res with
-    | `Ok () ->
-      debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid
-    | `Error e -> raise e
+  (* Sanity check. *)
+  assert (target_mib <= static_max_mib);
+
+  let memory, vm_stuff, domain_type =
+    match info.priv with
+    | BuildHVM hvminfo ->
+      let shadow_multiplier = hvminfo.shadow_multiplier in
+      let memory = Memory.HVM.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
+      let vm_stuff = [
+        "rtc/timeoffset",    timeoffset;
+      ] in
+      maybe_ca_140252_workaround ~xc ~vcpus domid;
+      memory, vm_stuff, `hvm
+    | BuildPV pvinfo ->
+      let shadow_multiplier = Memory.Linux.shadow_multiplier_default in
+      let memory = Memory.Linux.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
+      memory, [], `pv
+    | BuildPVH pvhinfo ->
+      let shadow_multiplier = pvhinfo.shadow_multiplier in
+      let memory = Memory.PVinPVH.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
+      let vm_stuff = [
+        "rtc/timeoffset",    timeoffset;
+      ] in
+      maybe_ca_140252_workaround ~xc ~vcpus domid;
+      memory, vm_stuff, `pvh
+  in
+  let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
+  let store_mfn, console_mfn = restore_common task ~xc ~xs ~domain_type
+      ~store_port ~store_domid
+      ~console_port ~console_domid
+      ~no_incr_generationid
+      ~vcpus ~extras manager_path domid fd vgpu_fd in
+  let local_stuff = console_keys console_port console_mfn in
+  (* And finish domain's building *)
+  build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
+    domid store_mfn store_port local_stuff vm_stuff
+
+let suspend_emu_manager' ~(task: Xenops_task.task_handle) ~xc ~xs ~domain_type ~manager_path ~domid
+    ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback =
+  let open Suspend_image in let open Suspend_image.M in
+  let open Emu_manager in
+
+  let fd_uuid = Uuid.(to_string (create `V4)) in
+  let mode =
+    match domain_type with
+    | `hvm | `pvh -> "hvm_save"
+    | `pv         -> "save"
+  in
+  let vgpu_args, vgpu_cmdline =
+    match vgpu_fd with
+    | Some fd when fd = main_fd ->
+      [fd_uuid, main_fd],
+      ["-dm"; "vgpu:" ^ fd_uuid]
+    | Some fd ->
+      let vgpu_fd_uuid = Uuid.(to_string (create `V4)) in
+      [vgpu_fd_uuid, fd],
+      ["-dm"; "vgpu:" ^ vgpu_fd_uuid]
+    | None -> [], []
+  in
+
+  let cmdline_to_flag flag =
+    match flag with
+    | Live -> [ "-live"; "true" ]
+    | Debug -> [ "-debug"; "true" ]
+  in
+  let flags' = List.map cmdline_to_flag flags in
+
+  let args = [
+    "-fd"; fd_uuid;
+    "-mode"; mode;
+    "-domid"; string_of_int domid;
+    "-fork"; "true";
+  ] @ (List.concat flags') @ vgpu_cmdline in
+
+  let fds = [fd_uuid, main_fd] @ vgpu_args in
+
+  (* Start the emu-manager process and connect to the control socket *)
+  with_connection task manager_path domid args fds (fun cnx ->
+      (* Callback to monitor the debug (stderr) output of the process and
+              		   spot the progress indicator *)
+      let callback txt =
+        let prefix = "\\b\\b\\b\\b" in
+        if String.startswith prefix txt then
+          let rest = String.sub txt (String.length prefix)
+              (String.length txt - (String.length prefix)) in
+          match Stdext.Xstringext.String.split_f (fun c -> c = ' ' || c = '%') rest with
+          | [ percent ] -> (
+              try
+                let percent = int_of_string percent in
+                debug "VM = %s; domid = %d; progress = %d / 100" (Uuid.to_string uuid) domid percent;
+                progress_callback (float_of_int percent /. 100.)
+              with e ->
+                error "VM = %s; domid = %d; failed to parse progress update: \"%s\"" (Uuid.to_string uuid) domid percent;
+                (* MTC: catch exception by progress_callback, for example,
+                   an abort request, and re-raise them *)
+                raise e
+            )
+          | _ -> ()
+        else
+          debug "VM = %s; domid = %d; %s" (Uuid.to_string uuid) domid txt
+      in
+
+      (* Process started; wait for and respond to instructions *)
+      let rec wait_for_message () =
+        debug "VM = %s; domid = %d; waiting for emu-manager..." (Uuid.to_string uuid) domid;
+        let message = non_debug_receive ~debug_callback:callback cnx in
+        debug "VM = %s; domid = %d; message from emu-manager: %s"
+          (Uuid.to_string uuid) domid (string_of_message message);
+        match message with
+        | Suspend ->
+          do_suspend_callback ();
+          if domain_type = `hvm then (
+            debug "VM = %s; domid = %d; suspending qemu-dm" (Uuid.to_string uuid) domid;
+            Device.Dm.suspend task ~xs ~qemu_domid domid;
+          );
+          send_done cnx;
+          wait_for_message ()
+        | Prepare x when x = "xenguest" ->
+          debug "Writing Libxc header";
+          write_header main_fd (Libxc, 0L) >>= fun () ->
+          debug "Writing Libxc record";
+          send_done cnx;
+          wait_for_message ()
+        | Prepare x when x = "vgpu" ->
+          (match vgpu_fd with
+           | Some fd ->
+             debug "Writing DEMU header";
+             write_header fd (Demu, 0L) >>= fun () ->
+             debug "Writing DEMU record";
+             send_done cnx;
+             wait_for_message ()
+           | None ->
+             `Error (Emu_manager_failure ("Received prepare:vgpu from emu-manager, but there is no vGPU fd")))
+        | Result x ->
+          debug "VM = %s; domid = %d; emu-manager completed successfully" (Uuid.to_string uuid) domid;
+          return ()
+        | Error x ->
+          error "VM = %s; domid = %d; emu-manager failed: \"%s\"" (Uuid.to_string uuid) domid x;
+          `Error (Emu_manager_failure (Printf.sprintf "Received error from emu-manager: %s" x))
+        | _                       ->
+          error "VM = %s; domid = %d; unexpected message from emu-manager" (Uuid.to_string uuid) domid;
+          `Error (Emu_manager_protocol_failure)
+      in
+      wait_for_message ()
+    )
+
+let suspend_emu_manager ~(task: Xenops_task.task_handle) ~xc ~xs ~domain_type ~manager_path ~domid
+    ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback =
+  Device.Dm.with_dirty_log domid ~f:(fun () ->
+      suspend_emu_manager' ~task ~xc ~xs ~domain_type ~manager_path ~domid
+        ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback
+    )
+
+let write_qemu_record domid uuid fd =
+  let file = sprintf qemu_save_path domid in
+  let fd2 = Unix.openfile file [ Unix.O_RDONLY ] 0o640 in
+  finally (fun () ->
+      let size = Int64.of_int Unix.((stat file).st_size) in
+      let open Suspend_image in let open Suspend_image.M in
+      debug "Writing Qemu_trad header with length %Ld" size;
+      write_header fd (Qemu_trad, size) >>= fun () ->
+      debug "VM = %s; domid = %d; writing %Ld bytes from %s" (Uuid.to_string uuid) domid size file;
+      if Unixext.copy_file ~limit:size fd2 fd <> size
+      then failwith "Failed to write whole qemu-dm state file";
+      return ()
+    ) (fun () ->
+      Unix.unlink file;
+      Unix.close fd2
+    )
+
+(* suspend register the callback function that will be call by linux_save
+ * and is in charge to suspend the domain when called. the whole domain
+ * context is saved to fd
+*)
+let suspend (task: Xenops_task.task_handle) ~xc ~xs ~domain_type ~manager_path vm_str domid main_fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+  let module DD = Debug.Make(struct let name = "mig64" end) in
+  let open DD in
+  let uuid = get_uuid ~xc domid in
+  debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid (List.mem Live flags);
+  let open Suspend_image in let open Suspend_image.M in
+  (* Suspend image signature *)
+  debug "Writing save signature: %s" save_signature;
+  Io.write main_fd save_signature;
+  (* CA-248130: originally, [xs_subtree] contained [xenstore_read_dir t
+     	 * (xs.Xs.getdomainpath domid)] and this data was written to [fd].
+     	 * However, on the receiving side this data is never used. As a
+     	 * short-term fix, we sent nothing but keep the write to maintain the
+     	 * protocol.
+     	 *)
+  let res =
+    let xs_subtree = [] in
+    Xenops_record.(to_string (make ~xs_subtree ~vm_str ())) >>= fun xenops_record ->
+    let xenops_rec_len = String.length xenops_record in
+    debug "Writing Xenops header (length=%d)" xenops_rec_len;
+    write_header main_fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
+    debug "Writing Xenops record contents";
+    Io.write main_fd xenops_record;
+    suspend_emu_manager ~task ~xc ~xs ~domain_type ~manager_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
+      ~progress_callback ~qemu_domid ~do_suspend_callback >>= fun () ->
+    (* Qemu record (if this is a hvm domain) *)
+    (* Currently Qemu suspended inside above call with the libxc memory
+       		* image, we should try putting it below in the relevant section of the
+       		* suspend-image-writing *)
+    (if domain_type = `hvm then write_qemu_record domid uuid main_fd else return ()) >>= fun () ->
+    debug "Qemu record written";
+    debug "Writing End_of_image footer(s)";
+    progress_callback 1.;
+    (* Close all streams *)
+    let fds = Stdext.Listext.List.setify (main_fd :: Opt.to_list vgpu_fd) in
+    fold (fun fd () -> write_header fd (End_of_image, 0L)) fds ()
+  in match res with
+  | `Ok () ->
+    debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid
+  | `Error e -> raise e
 
 let use_emu_manager () =
   try
