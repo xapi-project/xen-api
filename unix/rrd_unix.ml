@@ -65,7 +65,7 @@ let fd_blocks_fold block_size f start fd =
   let rec fold acc =
     let n = Unix.read fd block 0 block_size in
     (* Consider making the interface explicitly use Substrings *)
-    let s = if n = block_size then block else String.sub block 0 n in
+    let s = if n = block_size then (Bytes.to_string block) else Bytes.sub_string block 0 n in
     if n = 0 then acc else fold (f acc s) in
   fold start
 
@@ -109,16 +109,9 @@ let xml_to_fd rrd fd =
   with_out_channel_output fd (Rrd.xml_to_output rrd)
 
 let json_to_fd rrd fd =
-  let string = Rrd.json_to_string rrd in
-  let really_write n =
-    let written = ref 0 in
-    while !written < n
-    do
-      let wr = Unix.write fd string (!written) (n - !written) in
-      written := wr + !written
-    done
-  in
-  really_write (String.length string)
+  let payload = Rrd.json_to_string rrd |> Bytes.unsafe_of_string in
+  let len = Bytes.length payload in
+  Unix.write fd payload 0 len |> ignore
 
 let to_fd ?(json=false) rrd fd = (if json then json_to_fd else xml_to_fd) rrd fd
 
