@@ -55,7 +55,7 @@ let wait_for ~xs ?(timeout=300.) (x: 'a t) =
       in
       try
         let result = Xs_client_unix.Task.wait task in
-        ignore(Unix.write p2 "x" 0 1);
+        ignore(Unix.write p2 (Bytes.of_string "x") 0 1);
         Thread.join thread;
         result
       with Xs_client_unix.Cancelled ->
