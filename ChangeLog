@@ -1,3 +1,8 @@
+4.0.0 (15-Mar-2018):
+* Make safe-string safe (xap-stdext-{bigbuffer, encodings, std, threads, unix} 1.1.0)
+* Remove bigbuffer from the default stdext set of packages
+* Use backward compatible naming for stdext xapi-stdext
+
 3.0.0 (02-Aug-2017):
 * Remove unused packages
 * Refactor in a backward compatible wrapper and 12 new separate libraries (see https://github.com/xapi-project/stdext/pull/21)
