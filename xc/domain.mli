@@ -161,7 +161,7 @@ val build: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xens
 val restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh
   -> store_domid:int -> console_domid:int -> no_incr_generationid:bool
   -> timeoffset:string -> extras:string list -> build_info
-  -> xenguest_path:string -> emu_manager_path:string -> domid
+  -> manager_path:string -> domid
   -> Unix.file_descr -> Unix.file_descr option
   -> unit
 
@@ -170,7 +170,7 @@ type suspend_flag = Live | Debug
 (** suspend a domain into the file descriptor *)
 val suspend: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh
   -> domain_type: [`hvm | `pv | `pvh]
-  -> xenguest_path:string -> emu_manager_path:string -> string -> domid
+  -> manager_path:string -> string -> domid
   -> Unix.file_descr
   -> Unix.file_descr option
   -> suspend_flag list
