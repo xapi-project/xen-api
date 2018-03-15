@@ -1,6 +1,5 @@
 (library
  ((name uuid)
   (public_name uuid)
-  (flags (:standard -safe-string))
   (libraries (unix))
  ))

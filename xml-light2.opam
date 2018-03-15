@@ -10,7 +10,6 @@ build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 available: [ os = "linux" ]
 depends: [
   "jbuilder" {build}
-  "xapi-stdext-bigbuffer"
   "xmlm"
 ]
 depexts: [

@@ -13,7 +13,7 @@ env:
         - PACKAGE=xapi-libs-transitional
         - DISTRO="debian-stable"
     matrix:
-        - BASE_REMOTE=git://github.com/xapi-project/xs-opam
+        - BASE_REMOTE=git://github.com/xapi-project/xs-opam REVDEPS=true
         - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
     matrix:
         fast_finish: true

@@ -4,7 +4,6 @@
   (modules (xml))
   (wrapped false)
   (libraries (threads
-              xapi-stdext-bigbuffer
               xmlm))
  ))
 

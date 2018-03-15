@@ -46,12 +46,12 @@ let input_line_fd (fd: Unix.file_descr) =
   let buf = Buffer.create 20 in
   let finished = ref false in
   while not(!finished) do
-    let buffer = " " in
+    let buffer = Bytes.make 1 ' ' in
     let read = Unix.read fd buffer 0 1 in
     if read = 1 then begin
-      if buffer = "\n"
+      if (Bytes.to_string buffer) = "\n"
       then finished := true
-      else Buffer.add_char buf buffer.[0]
+      else Buffer.add_char buf (Bytes.get buffer 0)
     end else begin
       if Buffer.contents buf = ""
       then finished := true
@@ -113,7 +113,7 @@ let response_of_fd_exn_slow fd =
 let response_of_fd_exn fd =
   let buf = Bytes.create 1024 in
   let b = Http.read_http_response_header buf fd in
-  let buf = String.sub buf 0 b in
+  let buf = Bytes.sub_string buf 0 b in
 
   let open Http.Response in
   snd(List.fold_left

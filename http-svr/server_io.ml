@@ -110,7 +110,7 @@ let server handler sock =
   let shutdown () = 
     finally 
       (fun () ->
-         let len = Unix.write status_in "!" 0 1 in
+         let len = Unix.write status_in (Bytes.of_string "!") 0 1 in
          if len <> 1 then failwith "Failed to signal to server to shutdown";
          Thread.join thread)
       (fun () ->

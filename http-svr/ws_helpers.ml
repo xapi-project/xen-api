@@ -105,9 +105,9 @@ let hixie_v76_upgrade req s =
 
   let s1 = marshal_int32 v1 in
   let s2 = marshal_int32 v2 in
-  let s3 = String.make 8 '\000' in
+  let s3 = Bytes.make 8 '\000' in
   Xapi_stdext_unix.Unixext.really_read s s3 0 8;
-  let string = Printf.sprintf "%s%s%s" s1 s2 s3 in
+  let string = Printf.sprintf "%s%s%s" s1 s2 (Bytes.unsafe_to_string s3) in
   let digest = Digest.string string in
 
   let host = find_header headers "host" in
@@ -116,7 +116,8 @@ let hixie_v76_upgrade req s =
   let real_uri = req.Http.Request.uri ^ "?" ^ (String.concat "&" (List.map (fun (x,y) -> Printf.sprintf "%s=%s" x y) req.Http.Request.query)) in
   let headers = http_101_websocket_upgrade_76 origin host protocol real_uri in
   Http.output_http s headers;
-  ignore(Unix.write s digest 0 16)
+  Unix.write s (Bytes.unsafe_of_string digest) 0 16 
+  |> ignore
 
 let upgrade req s = 
   if List.mem_assoc "sec-websocket-key1" req.Http.Request.additional_headers 

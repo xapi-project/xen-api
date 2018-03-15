@@ -47,9 +47,9 @@ let sha1sum f =
             finally
               (fun () -> f input_in)
               (fun () -> close input_in);
-            let buffer = String.make 1024 '\000' in
-            let n = Unix.read result_out buffer 0 (String.length buffer) in
-            let raw = String.sub buffer 0 n in
+            let buffer = Bytes.make 1024 '\000' in
+            let n = Unix.read result_out buffer 0 (Bytes.length buffer) in
+            let raw = Bytes.sub_string buffer 0 n in
             let result = match String.split_on_char ' ' raw with
               | result :: _ -> result
               | _ -> failwith (Printf.sprintf "Unable to parse sha1sum output: %s" raw) in

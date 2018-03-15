@@ -63,9 +63,10 @@ let check_reusable (x: Unix.file_descr) =
          match response.Http.Response.content_length with
          | Some len ->
            let len = Int64.to_int len in
-           let tmp = String.make len 'X' in
+           let tmp = Bytes.make len 'X' in
            let buf = Buf_io.of_fd x in
            Buf_io.really_input buf tmp 0 len;
+           let tmp = Bytes.unsafe_to_string tmp in
            begin match XMLRPC.From.methodResponse (Xml.parse_string tmp) with
              | XMLRPC.Failure("MESSAGE_METHOD_UNKNOWN", [ param ])
                when param = msg_func ->

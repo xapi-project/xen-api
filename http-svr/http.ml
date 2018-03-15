@@ -88,8 +88,11 @@ module Hdr = struct
 end
 
 let output_http fd headers =
-  Unixext.really_write_string fd
-    (String.concat "" (List.map (fun x -> x ^ "\r\n") headers))
+  headers
+  |> List.map (fun x ->  Printf.sprintf "%s\r\n" x |> Bytes.of_string)
+  |> Bytes.concat Bytes.empty
+  |> fun output -> Unix.write fd output 0 (Bytes.length output)
+  |> ignore
 
 let explode str = Astring.String.fold_right (fun c acc -> c :: acc) str []
 let implode chr_list = String.concat "" (List.map Astring.String.of_char chr_list)
@@ -222,9 +225,9 @@ let read_up_to buf already_read marker fd =
 			Printf.fprintf stderr "b = %d; marker = %s; n = %d; j = %d\n" !b (Scanner.to_string marker) n j;
 			flush stderr;
 *)
-      Scanner.input marker buf.[!b + j];
+      Scanner.input marker (Bytes.get buf (!b + j));
       if !header_len_value_at = None then begin
-        Scanner.input hl_marker buf.[!b + j];
+        Scanner.input hl_marker (Bytes.get buf (!b + j));
         if Scanner.matched hl_marker then begin
           header_len_value_at := Some(!b + j + 1);
 (*
@@ -242,7 +245,9 @@ let read_up_to buf already_read marker fd =
     match !header_len_value_at with
     | Some x when x + header_len_value_len <= !b ->
       (* We can now read the header len header *)
-      let hlv = String.sub buf x header_len_value_len in
+      let hlv =
+        Bytes.sub_string buf x header_len_value_len
+      in
 (*
 				Printf.fprintf stderr "hlvn=[%s]" hlv;
 				flush stderr;
@@ -265,7 +270,9 @@ let make_frame_header headers =
   Printf.sprintf "FRAME %012d" (String.length headers)
 
 let read_frame_header buf =
-  let prefix = String.sub buf 0 frame_header_length in
+  let prefix =
+    Bytes.sub_string buf 0 frame_header_length
+  in
   try
     Scanf.sscanf prefix "FRAME %012d" (fun x -> Some x)
   with _ -> None

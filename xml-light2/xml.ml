@@ -85,17 +85,6 @@ let parse_string s =
   let i = Xmlm.make_input (`String (0, s)) in
   parse i
 
-let parse_bigbuffer b =
-  let n = ref Int64.zero in
-  let aux () =
-    try 
-      let c = Xapi_stdext_bigbuffer.Bigbuffer.get b !n in
-      n := Int64.add !n Int64.one;
-      int_of_char c
-    with _ -> raise End_of_file in
-  let i = Xmlm.make_input (`Fun aux) in
-  parse i
-
 let esc_pcdata data =
   let buf = Buffer.create (String.length data + 10) in
   String.iter (fun c ->
@@ -178,12 +167,6 @@ let to_string_fmt xml =
   let buffer = Buffer.create 1024 in
   to_fct_fmt xml (fun s -> Buffer.add_string buffer s);
   let s = Buffer.contents buffer in Buffer.reset buffer; s
-
-let to_bigbuffer xml =
-  let open Xapi_stdext_bigbuffer in 
-  let buffer = Bigbuffer.make () in
-  to_fct xml (fun s -> Bigbuffer.append_substring buffer s 0 (String.length s));
-  buffer
 
 (* helpers functions *)
 exception Not_pcdata of string
