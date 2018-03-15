@@ -63,6 +63,16 @@ let create_as_necessary ~__context ~host =
         Client.Client.Cluster_host.create rpc session_id cluster_ref host) |> ignore
   | None -> ()
 
+let resync_host ~__context ~host =
+  create_as_necessary ~__context ~host;
+  match (find_cluster_host ~__context ~host) with
+    | None              -> () (* no clusters exist *)
+    | Some cluster_host ->    (* cluster_host and cluster exist *)
+      (* Cluster_host.enable unconditionally invokes the low-level enable operations and is idempotent. *)
+      if Db.Cluster_host.get_enabled ~__context ~self:cluster_host
+      then Helpers.call_api_functions ~__context
+        (fun rpc session_id -> Client.Client.Cluster_host.enable ~rpc ~session_id ~self:cluster_host)
+
 let create ~__context ~cluster ~host =
   (* TODO: take network lock *)
   with_clustering_lock (fun () ->
