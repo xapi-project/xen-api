@@ -2951,12 +2951,10 @@ module VIF = struct
             let device = "vif" ^ (string_of_int domid) ^ "." ^ (string_of_int vif.position) in
             match vif.backend with
             | Network.Sriov pci ->
-              let open Xenops_interface.Pci in
               let pci_state = PCI.get_state' vm pci in
-              let open Xenops_interface.Pci in
               { unplugged_vif with
                 Vif.active = get_active vm vif;
-                plugged = pci_state.plugged;
+                plugged = Xenops_interface.Pci.(pci_state.plugged);
                 device = Some device;
               }
             | Network.Local _ | Network.Remote _ ->
