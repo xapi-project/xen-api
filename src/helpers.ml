@@ -41,21 +41,21 @@ let str_drop_while pred str =
   in inner l
 
 let marshal_int ?(bigendian=true) n x =
-  let s = Bytes.create n in
+  let b = Bytes.create n in
   let f =
     if bigendian
     then function x -> n-x-1
     else function x -> x
   in
   let rec inner num i =
-    if i=n then s else
+    if i=n then b else
       let chr = Int64.logand 0xffL num in
-      Bytes.set s
+      Bytes.set b
         (f i)
         (char_of_int (Int64.to_int chr));
       inner (Int64.shift_right_logical num 8) (i+1)
   in
-  inner x 0
+  inner x 0 |> Bytes.unsafe_to_string
 
 let marshal_int8 x = marshal_int 1 (Int64.of_int x)
 let marshal_int16 x = marshal_int 2 (Int64.of_int x)
@@ -86,11 +86,16 @@ let unmarshal_int32 s = Int64.to_int32 (unmarshal_int 4 s)
 let unmarshal_int64 s = unmarshal_int 8 s
 
 let unmask mask str =
-  if String.length str > 0 then begin
+  if String.length str = 0 then str
+  else
+    let buf = Bytes.of_string str in
     for i=0 to String.length str - 1 do
       let j = i mod 4 in
-      Bytes.set str i
-        (char_of_int ((int_of_char str.[i]) lxor (int_of_char mask.[j])))
+      let new_char =
+        let buf_i = Bytes.get buf i |> int_of_char in
+        let mask_j = String.get mask j |> int_of_char in
+        buf_i lxor mask_j |> char_of_int
+      in
+      Bytes.set buf i new_char
     done;
-    str end else str
-
+    Bytes.unsafe_to_string buf

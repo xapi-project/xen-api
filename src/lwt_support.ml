@@ -23,21 +23,22 @@ let (>>=) = Lwt.bind
 let really_write fd str =
   let len = String.length str in
   let rec inner written =
-    Lwt_unix.write fd str written (len-written) >>= (fun n ->
+    Lwt_unix.write fd (Bytes.unsafe_of_string str) written (len-written)
+    >>= (fun n ->
         if n < (len-written) then inner (written+n) else Lwt.return ())
   in inner 0
 
 let lwt_fd_enumerator fd =
   let blocksize = 1024 in
-  let str = Bytes.create blocksize in
+  let buf = Bytes.create blocksize in
   let get_str n =
     if n=0
     then (Eof None)
-    else (Chunk (String.sub str 0 n))
+    else (Chunk (Bytes.sub_string buf 0 n))
   in
   let rec go = function
     | IE_cont (None,x) ->
-      Lwt_unix.read fd str 0 blocksize >>= fun n ->
+      Lwt_unix.read fd buf 0 blocksize >>= fun n ->
       x (get_str n)                    >>= fun x ->
       Lwt.return (fst x)               >>= fun x ->
       go x
