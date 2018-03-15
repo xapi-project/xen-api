@@ -29,7 +29,7 @@ module VBD = struct
     let vbds_to_clean_up = ref StringSet.empty
     let vbds_to_clean_up_mutex = Lwt_mutex.create ()
 
-    let with_tracking rpc session_id vbd f =
+    let with_tracking vbd f =
       Lwt_mutex.with_lock vbds_to_clean_up_mutex (fun () -> Lwt.wrap (fun () ->
           vbds_to_clean_up := StringSet.add (API.Ref.string_of vbd) !vbds_to_clean_up))
       >>= fun () ->
@@ -105,7 +105,7 @@ module VBD = struct
     Xen_api.VBD.create ~rpc ~session_id ~vM ~vDI ~userdevice:"autodetect" ~bootable:false ~mode ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
     >>= fun vbd ->
     Persistent.with_tracking rpc session_id vbd (fun () ->
-        Runtime.with_tracking rpc session_id vbd (fun () ->
+        Runtime.with_tracking vbd (fun () ->
             Lwt.finalize
               (fun () ->
                  Lwt_log.notice_f "Plugging VBD %s" (API.Ref.string_of vbd) >>= fun () ->

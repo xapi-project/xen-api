@@ -120,7 +120,7 @@ let main port certfile ciphersuites =
          Lwt_log.notice "Setting up server socket" >>= fun () ->
          Lwt_unix.setsockopt sock Lwt_unix.SO_REUSEADDR true;
          let sockaddr = Lwt_unix.ADDR_INET(Unix.inet_addr_any, port) in
-         Lwt_unix.bind sock sockaddr;
+         Lwt_unix.bind sock sockaddr >>= fun () ->
          Lwt_unix.listen sock 5;
          Lwt_log.notice "Listening for incoming connections" >>= fun () ->
 
@@ -165,13 +165,14 @@ let main port certfile ciphersuites =
       (ignore_exn_delayed (fun () -> Lwt_unix.close sock))
   in
   (* Log unexpected exceptions *)
-  Lwt_main.run
+  let () = Lwt_main.run
     (Lwt.catch t
        (fun e ->
           Lwt_log.fatal_f "Caught unexpected exception: %s" (Printexc.to_string e) >>= fun () ->
           Lwt.fail e
        )
-    );
+    )
+  in
 
   `Ok ()
 
