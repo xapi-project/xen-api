@@ -1864,13 +1864,6 @@ module Dm_Common = struct
             (fun () -> xs.Xs.rm qemu_pid_path);
           best_effort "unmasking signals, qemu-pid is already gone from xenstore"
             (fun () -> Qemu.SignalMask.unset Qemu.signal_mask domid);
-          (* best effort to delete the qemu chroot dir; we
-             			       deliberately want this to fail if the dir is not
-             			       empty cos it may contain core files that bugtool
-             			       will pick up; the xapi init script cleans out this
-             			       directory with "rm -rf" on boot *)
-          best_effort "removing core files from /var/xen/qemu"
-            (fun () -> Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)));
           best_effort "removing device model path from xenstore"
             (fun () -> xs.Xs.rm (device_model_path ~qemu_domid domid)))
     in
@@ -1976,7 +1969,14 @@ module Backend = struct
           ~timeout ~cancel ();
         pid
 
-      let stop        = Dm_Common.stop
+      let stop ~xs ~qemu_domid domid =
+        let pid = Qemu.pid ~xs domid in
+        Dm_Common.stop ~xs ~qemu_domid domid;
+        match pid with
+        | None -> () (* nothing to do *)
+        | Some qemu_pid ->
+          Generic.best_effort "removing core files from /var/xen/qemu"
+            (fun () -> Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)))
 
       let with_dirty_log domid ~f = f()
 
@@ -2298,23 +2298,22 @@ module Backend = struct
         QMP_Event.add domid;
         pid
 
-      let stop ~xs ~qemu_domid domid  =
+      let stop ~xs ~qemu_domid domid =
         Dm_Common.stop ~xs ~qemu_domid domid;
         QMP_Event.remove domid;
         xs.Xs.rm (sprintf "/libxl/%d" domid);
         let rm path =
-          try
-            Socket.Unix.rm path
-          with e ->
-            error "rm %s failed: %s (%s)" path (Printexc.to_string e) __LOC__
-        in
+          let msg = Printf.sprintf "removing %s" path in
+          Generic.best_effort msg (fun () -> Socket.Unix.rm path) in
         [ (* clean up QEMU socket leftover files *)
           Dm_Common.vnc_socket_path domid;
           (qmp_event_path domid);
           (qmp_libxl_path domid);
         ] |> List.iter rm;
-        (*VM cleanup*)
-        Vusb.cleanup domid
+        Vusb.cleanup domid; (* unmounts devices in /var/xen/qemu/root-* *)
+        let path = Printf.sprintf "/var/xen/qemu/root-%d" domid in
+        Generic.best_effort (Printf.sprintf "removing %s" path)
+          (fun () -> Xenops_utils.FileFS.rmtree path)
 
       let with_dirty_log domid ~f =
         finally

@@ -376,6 +376,7 @@ module FileFS = struct
     Unixext.mkdir_rec (Filename.dirname filename) 0o755;
     Unixext.write_string_to_file filename (Jsonrpc.to_string x)
   let exists path = Sys.file_exists (filename_of path)
+
   let rm path =
     List.iter
       (fun path ->
@@ -398,6 +399,24 @@ module FileFS = struct
            error "Failed to DB.delete %s : %s" path (Printexc.to_string e);
            ()
       ) (paths_of path)
+
+  (** [rmtree path] removes a file or directory recursively without following
+  * symbolic links. It may raise [Failure] *)
+  let rmtree path =
+    let (//) = Filename.concat in
+    let rec rm path =
+      let st = Unix.lstat path in
+      match st.Unix.st_kind with
+      | Unix.S_DIR ->
+        Sys.readdir path |> Array.iter (fun file -> rm (path // file));
+        Unix.rmdir path
+      | _ -> Unix.unlink path
+    in try rm path with
+    | exn ->
+      let exn' = Printexc.to_string exn in
+      let msg  = Printf.sprintf "failed to remove %s: %s" path exn' in
+      failwith msg
+
   let readdir path =
     let filename = filename_of path in
     if Sys.file_exists filename
