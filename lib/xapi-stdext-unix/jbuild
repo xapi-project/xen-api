@@ -9,7 +9,6 @@
              unixext_write_stubs))
    (libraries (fd-send-recv
                unix
-               xapi-stdext-bigbuffer
                xapi-stdext-pervasives
                xapi-stdext-std))
    ))

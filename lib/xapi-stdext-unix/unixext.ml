@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 open Xapi_stdext_pervasives.Pervasiveext
-module Bigbuffer = Xapi_stdext_bigbuffer.Bigbuffer
 
 exception Unix_error of int
 
@@ -45,7 +44,7 @@ let pidfile_write filename =
        let pid = Unix.getpid () in
        let buf = string_of_int pid ^ "\n" in
        let len = String.length buf in
-       if Unix.write fd buf 0 len <> len 
+       if Unix.write fd (Bytes.unsafe_of_string buf) 0 len <> len 
        then failwith "pidfile_write failed";
     )
     (fun () -> Unix.close fd)
@@ -56,11 +55,11 @@ let pidfile_read filename =
   finally
     (fun () ->
        try
-         let buf = String.create 80  in
-         let rd = Unix.read fd buf 0 (String.length buf) in
+         let buf = Bytes.create 80  in
+         let rd = Unix.read fd buf 0 (Bytes.length buf) in
          if rd = 0 then
            failwith "pidfile_read failed";
-         Scanf.sscanf (String.sub buf 0 rd) "%d" (fun i -> Some i)
+         Scanf.sscanf (Bytes.sub_string buf 0 rd) "%d" (fun i -> Some i)
        with _ -> None)
     (fun () -> Unix.close fd)
 
@@ -139,12 +138,12 @@ let readfile_line = file_lines_iter
 (** [fd_blocks_fold block_size f start fd] folds [f] over blocks (strings)
     from the fd [fd] with initial value [start] *)
 let fd_blocks_fold block_size f start fd = 
-  let block = String.create block_size in
-  let rec fold acc = 
+  let block = Bytes.create block_size in
+  let rec fold acc =
     let n = Unix.read fd block 0 block_size in
     (* Consider making the interface explicitly use Substrings *)
-    let s = if n = block_size then block else String.sub block 0 n in
-    if n = 0 then acc else fold (f acc s) in
+    let b = if n = block_size then block else Bytes.sub block 0 n in
+    if n = 0 then acc else fold (f acc b) in
   fold start
 
 let with_directory dir f =
@@ -157,16 +156,11 @@ let with_directory dir f =
   r
 
 let buffer_of_fd fd = 
-  fd_blocks_fold 1024 (fun b s -> Buffer.add_string b s; b) (Buffer.create 1024) fd
-
-let bigbuffer_of_fd fd = 
-  fd_blocks_fold 1024 (fun b s -> Bigbuffer.append_string b s; b) (Bigbuffer.make ()) fd
+  fd_blocks_fold 1024 (fun b s -> Buffer.add_bytes b s; b) (Buffer.create 1024) fd
 
 let string_of_fd fd = Buffer.contents (buffer_of_fd fd)
 
 let buffer_of_file file_path = with_file file_path [ Unix.O_RDONLY ] 0 buffer_of_fd
-
-let bigbuffer_of_file file_path = with_file file_path [ Unix.O_RDONLY ] 0 bigbuffer_of_fd
 
 let string_of_file file_path = Buffer.contents (buffer_of_file file_path)
 
@@ -188,12 +182,13 @@ let atomic_write_to_file fname perms f =
 
 
 (** Atomically write a string to a file *)
-let write_string_to_file fname s =
+let write_bytes_to_file fname b =
   atomic_write_to_file fname 0o644 (fun fd ->
-      let len = String.length s in
-      let written = Unix.write fd s 0 len in
+      let len = Bytes.length b in
+      let written = Unix.write fd b 0 len in
       if written <> len then (failwith "Short write occured!"))
 
+let write_string_to_file fname s = write_bytes_to_file fname (Bytes.unsafe_of_string s)
 
 let execv_get_output cmd args =
   let (pipe_exit, pipe_entrance) = Unix.pipe () in
@@ -211,8 +206,8 @@ let execv_get_output cmd args =
 
 let copy_file_internal ?limit reader writer =
   let module Opt = Xapi_stdext_monadic.Opt in
-  let buffer = String.make 65536 '\000' in
-  let buffer_len = Int64.of_int (String.length buffer) in
+  let buffer = Bytes.make 65536 '\000' in
+  let buffer_len = Int64.of_int (Bytes.length buffer) in
   let finished = ref false in
   let total_bytes = ref 0L in
   let limit = ref limit in
@@ -280,7 +275,7 @@ let open_connection_unix_fd filename =
 module CBuf = struct
   (** A circular buffer constructed from a string *)
   type t = {
-    mutable buffer: string; 
+    mutable buffer: bytes; 
     mutable len: int;       (** bytes of valid data in [buffer] *)
     mutable start: int;     (** index of first valid byte in [buffer] *)
     mutable r_closed: bool; (** true if no more data can be read due to EOF *)
@@ -288,7 +283,7 @@ module CBuf = struct
   }
 
   let empty length = {
-    buffer = String.create length;
+    buffer = Bytes.create length;
     len = 0;
     start = 0;
     r_closed = false;
@@ -297,11 +292,11 @@ module CBuf = struct
 
   let drop (x: t) n =
     if n > x.len then failwith (Printf.sprintf "drop %d > %d" n x.len);
-    x.start <- (x.start + n) mod (String.length x.buffer);
+    x.start <- (x.start + n) mod (Bytes.length x.buffer);
     x.len <- x.len - n
 
   let should_read (x: t) =
-    not x.r_closed && (x.len < (String.length x.buffer - 1))
+    not x.r_closed && (x.len < (Bytes.length x.buffer - 1))
   let should_write (x: t) =
     not x.w_closed && (x.len > 0)
 
@@ -310,15 +305,15 @@ module CBuf = struct
 
   let write (x: t) fd =
     (* Offset of the character after the substring *)
-    let next = min (String.length x.buffer) (x.start + x.len) in
+    let next = min (Bytes.length x.buffer) (x.start + x.len) in
     let len = next - x.start in
     let written = try Unix.single_write fd x.buffer x.start len with _ -> x.w_closed <- true; len in
     drop x written
 
   let read (x: t) fd =
     (* Offset of the next empty character *)
-    let next = (x.start + x.len) mod (String.length x.buffer) in
-    let len = min (String.length x.buffer - next) (String.length x.buffer - x.len) in
+    let next = (x.start + x.len) mod (Bytes.length x.buffer) in
+    let len = min (Bytes.length x.buffer - next) (Bytes.length x.buffer - x.len) in
     let read = Unix.read fd x.buffer next len in
     if read = 0 then x.r_closed <- true;
     x.len <- x.len + read
@@ -430,48 +425,33 @@ let rec really_read fd string off n =
     really_read fd string (off+m) (n-m)
 
 let really_read_string fd length =
-  let buf = String.make length '\000' in
+  let buf = Bytes.make length '\000' in
   really_read fd buf 0 length;
-  buf
+  Bytes.unsafe_to_string buf
 
 let try_read_string ?limit fd =
   let buf = Buffer.create 0 in
   let chunk = match limit with None -> 4096 | Some x -> x in
-  let cache = String.make chunk '\000' in
+  let cache = Bytes.make chunk '\000' in
   let finished = ref false in
   while not !finished do
     let to_read = match limit with
       | Some x -> min (x - (Buffer.length buf)) chunk
       | None -> chunk in
     let read_bytes = Unix.read fd cache 0 to_read in
-    Buffer.add_substring buf cache 0 read_bytes;
+    Buffer.add_subbytes buf cache 0 read_bytes;
     if read_bytes = 0 then finished := true
   done;
   Buffer.contents buf
 
-let really_read_bigbuffer fd bigbuf n =
-  let chunk = 4096 in
-  let s = String.make chunk '\000' in
-  let written = ref 0L in
-  while !written < n do
-    let remaining = Int64.sub n !written in
-    let to_write = min remaining (Int64.of_int chunk) in
-    really_read fd s 0 (Int64.to_int to_write);
-    Bigbuffer.append_substring bigbuf s 0 (Int64.to_int to_write);
-    written := Int64.add !written to_write;
-  done
-
+(* This was equivalent to Unix.write - deprecating *)
 let really_write fd string off n =
-  let written = ref 0 in
-  while !written < n
-  do
-    let wr = Unix.write fd string (off + !written) (n - !written) in
-    written := wr + !written
-  done
+  Unix.write fd string off n |> ignore
 
 (* Ideally, really_write would be implemented with optional arguments ?(off=0) ?(len=String.length string) *)
 let really_write_string fd string =
-  really_write fd string 0 (String.length string)
+  let payload = Bytes.unsafe_of_string string in
+  Unix.write fd payload 0 (Bytes.length payload) |> ignore
 
 (* --------------------------------------------------------------------------------------- *)
 (* Functions to read and write to/from a file descriptor with a given latest response time *)
@@ -503,7 +483,7 @@ let time_limited_write filedesc length data target_response_time =
 let time_limited_read filedesc length target_response_time =
   let total_bytes_to_read = length in
   let bytes_read = ref 0 in
-  let buf = String.make total_bytes_to_read '\000' in
+  let buf = Bytes.make total_bytes_to_read '\000' in
   let now = ref (Unix.gettimeofday()) in
   while !bytes_read < total_bytes_to_read && !now < target_response_time do
     let remaining_time = target_response_time -. !now in
@@ -516,14 +496,14 @@ let time_limited_read filedesc length target_response_time =
     end;
     now := Unix.gettimeofday()
   done;
-  if !bytes_read = total_bytes_to_read then buf else (* we ran out of time *) raise Timeout
+  if !bytes_read = total_bytes_to_read then (Bytes.unsafe_to_string buf) else (* we ran out of time *) raise Timeout
 
 (* --------------------------------------------------------------------------------------- *)
 
 (* Read a given number of bytes of data from the fd, or stop at EOF, whichever comes first. *)
 (* A negative ~max_bytes indicates that all the data should be read from the fd until EOF. This is the default. *)
 let read_data_in_chunks (f : string -> int -> unit) ?(block_size = 1024) ?(max_bytes = -1) from_fd =
-  let buf = String.make block_size '\000' in
+  let buf = Bytes.make block_size '\000' in
   let rec do_read acc =
     let remaining_bytes = max_bytes - acc in
     if remaining_bytes = 0 then acc (* we've read the amount requested *)
@@ -532,7 +512,7 @@ let read_data_in_chunks (f : string -> int -> unit) ?(block_size = 1024) ?(max_b
       let bytes_read = Unix.read from_fd buf 0 bytes_to_read in
       if bytes_read = 0 then acc (* we reached EOF *)
       else begin
-        f (String.sub buf 0 bytes_read) bytes_read;
+        f (Bytes.sub_string buf 0 bytes_read) bytes_read;
         do_read (acc + bytes_read)
       end
     end in
@@ -695,11 +675,11 @@ module Direct = struct
     let t = openfile path flags perms in
     finally (fun () -> f t) (fun () -> close t)
 
-  external unsafe_write : t -> string -> int -> int -> int = "stub_stdext_unix_write"
+  external unsafe_write : t -> bytes -> int -> int -> int = "stub_stdext_unix_write"
 
   let write fd buf ofs len =
-    if ofs < 0 || len < 0 || ofs > String.length buf - len
-    then invalid_arg "Unix.write"
+    if ofs < 0 || len < 0 || ofs > Bytes.length buf - len
+    then invalid_arg "Unixext.write"
     else unsafe_write fd buf ofs len
 
   let copy_from_fd ?limit socket fd = copy_file_internal ?limit (Unix.read socket) (write fd)
