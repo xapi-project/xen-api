@@ -87,7 +87,7 @@ let unmarshal_int64 s = unmarshal_int 8 s
 
 let unmask mask str =
   if String.length str = 0 then str
-  else
+  else begin
     let buf = Bytes.of_string str in
     for i=0 to String.length str - 1 do
       let j = i mod 4 in
@@ -99,3 +99,4 @@ let unmask mask str =
       Bytes.set buf i new_char
     done;
     Bytes.unsafe_to_string buf
+  end
