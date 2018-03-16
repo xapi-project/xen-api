@@ -1649,9 +1649,9 @@ module VM = struct
                 | Some other_disk -> None (* We don't support this *)
                 | None -> None
               in
-              let xenguest_path = choose_xenguest vm.Vm.platformdata in
-              let emu_manager_path = choose_emu_manager vm.Vm.platformdata in
-              Domain.suspend task ~xc ~xs ~domain_type ~progress_callback ~qemu_domid ~xenguest_path ~emu_manager_path vm_str domid fd vgpu_fd flags'
+              let manager_path = choose_emu_manager vm.Vm.platformdata in
+              Domain.suspend task ~xc ~xs ~domain_type ~progress_callback
+                ~qemu_domid ~manager_path vm_str domid fd vgpu_fd flags'
                 (fun () ->
                    (* SCTX-2558: wait more for ballooning if needed *)
                    wait_ballooning task vm;
@@ -1733,10 +1733,9 @@ module VM = struct
                          | Some other_disk -> None (* We don't support this *)
                          | None -> None
                        in
-                       let xenguest_path = choose_xenguest vm.Vm.platformdata in
-                       let emu_manager_path = choose_emu_manager vm.Vm.platformdata in
+                       let manager_path = choose_emu_manager vm.Vm.platformdata in
                        Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *)
-                         ~timeoffset ~extras build_info ~xenguest_path ~emu_manager_path domid fd vgpu_fd
+                         ~timeoffset ~extras build_info ~manager_path domid fd vgpu_fd
                     );
                 with e ->
                   error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
