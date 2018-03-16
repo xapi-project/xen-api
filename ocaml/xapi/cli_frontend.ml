@@ -2899,6 +2899,94 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       implementation=No_fd Cli_operations.VUSB.destroy;
       flags=[];
     };
+    "cluster-pool-create",
+    {
+      reqd=["network-uuid"];
+      optn=["cluster-stack";"token-timeout";"token-timeout-coefficient"];
+      help="Create pool-wide cluster";
+      implementation=No_fd Cli_operations.Cluster.pool_create;
+      flags=[];
+    };
+    "cluster-pool-force-destroy",
+    {
+      reqd=["cluster-uuid"];
+      optn=[];
+      help="Force destroy pool-wide cluster";
+      implementation=No_fd Cli_operations.Cluster.pool_force_destroy;
+      flags=[];
+    };
+    "cluster-pool-destroy",
+    {
+      reqd=["cluster-uuid"];
+      optn=[];
+      help="Destroy pool-wide cluster";
+      implementation=No_fd Cli_operations.Cluster.pool_destroy;
+      flags=[];
+    };
+    "cluster-pool-resync",
+    {
+      reqd=["cluster-uuid"];
+      optn=[];
+      help="Resync a cluster across a pool";
+      implementation=No_fd Cli_operations.Cluster.pool_resync;
+      flags=[];
+    };
+    "cluster-create",
+    {
+      reqd=["network-uuid"];
+      optn=["cluster-stack";"pool-auto-join";"token-timeout";"token-timeout-coefficient"];
+      help="Create new cluster with master as first member";
+      implementation=No_fd Cli_operations.Cluster.create;
+      flags=[Hidden];
+    };
+    "cluster-destroy",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Destroy the pool-wide cluster";
+      implementation=No_fd Cli_operations.Cluster.destroy;
+      flags=[];
+    };
+    "cluster-host-create",
+    {
+      reqd=["cluster-uuid";"host-uuid"];
+      optn=[];
+      help="Add a host to an existing cluster";
+      implementation=No_fd Cli_operations.Cluster_host.create;
+      flags=[Hidden];
+    };
+    "cluster-host-disable",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Disable cluster membership for an enabled cluster host";
+      implementation=No_fd Cli_operations.Cluster_host.disable;
+      flags=[];
+    };
+    "cluster-host-enable",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Enable cluster membership for a disabled cluster host";
+      implementation=No_fd Cli_operations.Cluster_host.enable;
+      flags=[];
+    };
+    "cluster-host-destroy",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Destroy a cluster host, effectively leaving the cluster";
+      implementation=No_fd Cli_operations.Cluster_host.destroy;
+      flags=[];
+    };
+    "cluster-host-force-destroy",
+    {
+      reqd=["uuid"];
+      optn=[];
+      help="Destroy a cluster host object forcefully, effectively leaving the cluster";
+      implementation=No_fd Cli_operations.Cluster_host.force_destroy;
+      flags=[];
+    };
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t =

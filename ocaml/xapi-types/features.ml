@@ -61,6 +61,7 @@ type feature =
   | CBT
   | USB_passthrough
   | Network_sriov
+  | Corosync
 [@@deriving rpc]
 
 type orientation = Positive | Negative
@@ -111,6 +112,7 @@ let keys_of_features =
     CBT, ("restrict_cbt", Negative, "CBT");
     USB_passthrough, ("restrict_usb_passthrough", Negative, "USB_passthrough");
     Network_sriov, ("restrict_network_sriov", Negative, "Network_sriov");
+    Corosync, ("restrict_corosync", Negative, "Corosync");
   ]
 
 (* A list of features that must be considered "enabled" by `of_assoc_list`

@@ -82,10 +82,19 @@ let gen_record_type ~with_module highapi tys =
         sprintf "\"%s\",rpc_of_%s x.%s" (String.concat "_" fld.DT.full_name)
           (OU.alias_of_ty fld.DT.ty) (OU.ocaml_of_record_field (obj_name :: fld.DT.full_name))
       in
-
+      let get_default fld =
+        let default_value =
+          match fld.DT.ty with
+          | DT.Set (DT.Ref _) -> Some (DT.VSet [])
+          | _ -> fld.DT.default_value
+        in
+        match default_value with
+          None -> "None"
+        | Some default -> sprintf "(Some (%s))" (Datamodel_values.to_ocaml_string ~v2:true default)
+      in
       let make_to_field fld =
-        sprintf "%s = %s_of_rpc (List.assoc \"%s\" x)" (field fld) (OU.alias_of_ty fld.DT.ty)
-          (String.concat "_" fld.DT.full_name)
+        sprintf {|%s = %s_of_rpc (assocer "%s" x %s)|} (field fld) (OU.alias_of_ty fld.DT.ty)
+          (String.concat "_" fld.DT.full_name) (get_default fld)
       in
 
       let type_t = sprintf "type %s_t = { %s }" obj_name (map_fields regular_def) in
@@ -154,18 +163,19 @@ let gen_client_types highapi =
           "  let iso8601_of_rpc = function String x | DateTime x -> Date.of_string x | _ -> failwith \"Date.iso8601_of_rpc\"";
           "end";
         ]; [
-          "let on_dict f = function | Rpc.Dict x -> f x | _ -> failwith \"Expected Dictionary\""
+          "let on_dict f = function | Rpc.Dict x -> f x | _ -> failwith \"Expected Dictionary\"";
+        ]; [
+          "let assocer key map default = ";
+          "  try";
+          "    List.assoc key map";
+          "  with Not_found ->";
+          "    match default with";
+          "    | Some d -> d";
+          "    | None -> failwith (Printf.sprintf \"Field %s not present in rpc\" key)"
         ];
         gen_non_record_type highapi all_types;
         gen_record_type ~with_module:true highapi all_types;
         O.Signature.strings_of (Gen_client.gen_signature highapi);
-        [ "module Legacy = struct";
-          "open XMLRPC";
-          "module D=Debug.Make(struct let name=\"legacy_marshallers\" end)";
-          "open D" ];
-        GenOCaml.gen_of_xmlrpc highapi all_types;
-        GenOCaml.gen_to_xmlrpc highapi all_types;
-        ["end"];
       ])
 
 let gen_server highapi =

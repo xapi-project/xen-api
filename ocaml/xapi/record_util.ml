@@ -17,6 +17,10 @@ exception Record_failure of string
 
 open Stdext.Xstringext
 
+let to_str = function
+  | Rpc.String x -> x
+  | _ -> failwith "Invalid"
+
 let power_state_to_string state =
   match state with
     `Halted -> "Halted"
@@ -86,6 +90,7 @@ let string_to_vm_operation x =
 let pool_operation_to_string = function
   | `ha_enable -> "ha_enable"
   | `ha_disable -> "ha_disable"
+  | `cluster_create -> "cluster_create"
 
 let host_operation_to_string = function
   | `provision -> "provision"
@@ -491,6 +496,10 @@ let pvs_proxy_status_to_string = function
   | `caching -> "caching"
   | `incompatible_write_cache_mode -> "incompatible-write-cache-mode"
   | `incompatible_protocol_version -> "incompatible-protocol-version"
+
+let cluster_operation_to_string op = API.rpc_of_cluster_operation op |> to_str
+
+let cluster_host_operation_to_string op = API.rpc_of_cluster_host_operation op |> to_str
 
 let bool_of_string s =
   match String.lowercase_ascii s with

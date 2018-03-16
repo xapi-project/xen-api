@@ -1394,7 +1394,12 @@ let set_HVM_boot_policy = call ~flags:[`Session]
            field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_ely, ""] ~default_value:(Some (VBool false))
              "requires_reboot" "Indicates whether a VM requires a reboot in order to update its configuration, e.g. its memory allocation.";
            field ~qualifier:StaticRO ~ty:String ~in_product_since:rel_ely ~default_value:(Some (VString "")) "reference_label" "Textual reference to the template used to create a VM. This can be used by clients in need of an immutable reference to the template since the latter's uuid and name_label may change, for example, after a package installation or upgrade.";
-           field ~qualifier:StaticRO ~ty:domain_type ~lifecycle:[Published, rel_jura, ""] ~default_value:(Some (VEnum "unspecified")) "domain_type" "The type of domain that will be created when the VM is started";
+           field ~qualifier:StaticRO ~ty:domain_type
+             ~lifecycle:[
+               Prototyped, rel_jura, "Internal-only field; not yet in the public API";
+               Published, rel_kolkata, "The field is now valid"
+             ]
+           ~default_value:(Some (VEnum "unspecified")) "domain_type" "The type of domain that will be created when the VM is started";
          ])
       ()
 

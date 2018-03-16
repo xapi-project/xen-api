@@ -12,8 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Test_vgpu_common
+
+let assert_true msg b = Alcotest.(check bool) msg true b
 
 let test_supported_enabled_types () =
   let __context = Test_common.make_test_database () in
@@ -49,8 +50,8 @@ let test_supported_enabled_types () =
            "GPU group does not list %s as enabled"
            vgpu_type.Xapi_vgpu_type.model_name
        in
-       assert_bool msg_supported (List.mem vgpu_type_ref group_supported_types);
-       assert_bool msg_enabled (List.mem vgpu_type_ref group_enabled_types))
+       assert_true msg_supported (List.mem vgpu_type_ref group_supported_types);
+       assert_true msg_enabled (List.mem vgpu_type_ref group_enabled_types))
     vgpu_types_and_refs;
   (* Invalidate the PGPU's host ref, and run a GC pass; this should destroy the
      	 * pgpu, and clear the group's supported and enabled types. *)
@@ -62,18 +63,16 @@ let test_supported_enabled_types () =
   let group_enabled_types =
     Db.GPU_group.get_enabled_VGPU_types ~__context ~self:gPU_group
   in
-  assert_equal
-    ~msg:"PGPU has not been destroyed"
-    (Db.is_valid_ref __context pgpu) false;
-  assert_equal
-    ~msg:"GPU group still has supported types after GC"
-    group_supported_types [];
-  assert_equal
-    ~msg:"GPU group still has enabled types after GC"
-    group_enabled_types []
+  Alcotest.(check bool)
+    "PGPU has not been destroyed"
+    false (Db.is_valid_ref __context pgpu);
+  Alcotest.(check (list ((Alcotest_comparators.ref ()))))
+    "GPU group still has supported types after GC"
+    [] group_supported_types;
+  Alcotest.(check (list ((Alcotest_comparators.ref ()))))
+    "GPU group still has enabled types after GC"
+    [] group_enabled_types
 
 let test =
-  "test_gpu_group" >:::
-  [
-    "test_supported_enabled_types" >:: test_supported_enabled_types;
+  [ "test_supported_enabled_types", `Quick, test_supported_enabled_types
   ]

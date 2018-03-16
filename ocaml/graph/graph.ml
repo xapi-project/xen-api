@@ -22,11 +22,11 @@ let refs_of_record cls record =
   let fields = Datamodel_utils.fields_of_obj obj in
   let rec refs_of ty xml = match ty with
     | Ref _ -> [ XMLRPC.From.string xml ]
-    | Set t -> List.concat (API.Legacy.From.set (refs_of t) xml)
-    | Map(k, v) ->
-      let pairs = API.Legacy.From.map (fun x -> x) (refs_of v) xml in
+    | Set t -> List.concat (XMLRPC.From.array (refs_of t) xml)
+    | Map(kt, vt) ->
+      let pairs = List.map (fun (k, v) -> k, refs_of vt v) (XMLRPC.From.structure xml) in
       let vs = List.concat (List.map snd pairs) in
-      begin match k with
+      begin match kt with
         | Ref _ -> List.map fst pairs @ vs
         | _ -> vs
       end
@@ -48,8 +48,8 @@ let name_label_of_record cls record =
 let all_classes = List.map (fun x -> x.name)
     (Dm_api.objects_of_api Datamodel.all_api)
 
-open XMLRPC
 let do_rpc rpc name args =
+  let open XMLRPC in
   match From.methodResponse(rpc(To.methodCall name args)) with
   | Fault _ -> invalid_arg "Fault"
   | Failure(code, strings) -> raise (Api_errors.Server_error(code, strings))
@@ -60,8 +60,8 @@ let do_rpc rpc name args =
 
 let get_all rpc session_id cls =
   let name = Printf.sprintf "%s.get_all_records_where" cls in
-  let args = [ To.string (Ref.string_of session_id); To.string "true" ] in
-  API.Legacy.From.map (fun x -> x) (fun x -> x) (do_rpc rpc name args)
+  let args = [ XMLRPC.To.string (Ref.string_of session_id); XMLRPC.To.string "true" ] in
+  XMLRPC.From.structure (do_rpc rpc name args)
 
 type node = { id: string; label: string; cls: string }
 type edge = { a: string; b: string }

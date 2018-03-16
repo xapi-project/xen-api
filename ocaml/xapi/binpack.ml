@@ -14,6 +14,7 @@
 
 (* Used to sort pairs into descending order of their second component *)
 let less_than (_, a) (_, b) = compare b a
+let less_than' a b = compare b a
 
 let rec insert compare elt sorted_list = match sorted_list with
   | [] -> [ elt ]
@@ -171,6 +172,26 @@ let simulate_failure config dead_host =
   let placement = List.map (fun (vm, host) -> vm, (if List.mem_assoc vm plan then assoc "simulate_failure" vm plan else host)) config.placement in
   { config with hosts = hosts; placement = placement; num_failures = config.num_failures - 1 }
 
+let simulate_failure_approximation config =
+  let sum = List.fold_left (+) 0 in
+  let rec drop n = function
+    | [] -> []
+    | x::xl when n>0 -> drop (n-1) xl
+    | l -> l in
+
+  (* Assume all VMs are as big as the biggest *)
+  let max_vm_size = List.fold_left (fun acc (_, size) -> max acc size) 0L config.vms in
+
+  (* How many VMs can each host support to power on, descending order *)
+  let hosts_by_capacity = List.sort less_than' (List.map (fun (_, h_size) -> Int64.(to_int (div h_size max_vm_size))) config.hosts) in
+  (* Assume biggest hosts fail, get left capacity *)
+  let left_capacity = drop config.num_failures hosts_by_capacity |> sum in
+
+  (* VMs placed in each host, descending order *)
+  let num_vms_per_host = List.sort less_than' (List.map (fun (host, _) -> List.length (List.filter (fun (vm, h) -> h = host) config.placement)) config.hosts) in
+  let vms_to_move = Xapi_stdext_std__Listext.List.take config.num_failures num_vms_per_host |> sum in
+  if vms_to_move > left_capacity then raise Stop
+
 (** For the nCr binpack strategy return true if a plan is always possible *)
 let plan_always_possible config =
   try
@@ -220,45 +241,13 @@ let rec mkints = function
    If we can find a failover plan then all real failures will be "easier" to deal with; failed hosts and VMs will
    be smaller (or equal to) in both number and size. *)
 
-(** Return the maximum number of VMs that could fail due to one host failures *)
-let largest_resident_vms config =
-  let num_vms_per_host = List.map (fun (host, _) -> List.length (List.filter (fun (vm, h) -> h = host) config.placement)) config.hosts in
-  List.fold_left max 0 num_vms_per_host
-
-let approximate_config config =
-  (* Assume all VMs are as big as the biggest *)
-  let vm_size = List.fold_left (fun acc (_, size) -> max acc size) 0L config.vms in
-  (* Assume each host has the max number of VMs on it *)
-  let number_vms = largest_resident_vms config in
-  (* Return a config which has all these VMs on it *)
-  (* Identify VMs by (host, index) in the abstract simulation *)
-  let vm_ids = List.concat (List.map (fun host -> List.map (fun idx -> host, idx) (mkints number_vms)) (List.map fst config.hosts)) in
-  {
-    hosts = config.hosts; (* host free memory is unapproximated *)
-    vms = List.map (fun vm -> vm, vm_size) vm_ids;
-    placement = List.map (fun ((host, idx) as vm) -> vm, host) vm_ids;
-    num_failures = config.num_failures;
-    total_hosts = config.total_hosts;
-  }
-
-
 let approximate_bin_pack = {
   name = "bin pack a worst-case scenario with conservative assumptions";
   plan_always_possible =
     (fun config ->
        try
          if plan_trivially_never_possible config then raise Stop;
-         (* Return the state of the world after we generate and follow a failover plan for the biggest host that
-            	    could fail. Raises 'Stop' if a plan could not be found. *)
-         let simulate_worst_single_failure config =
-           (* Assume the biggest host fails *)
-           let biggest_host = fst (List.hd (List.sort less_than config.hosts)) in
-           approximate_config (simulate_failure config biggest_host) in
-
-         let initial_config = approximate_config config in
-
-         (* Simulate the n worst failures *)
-         ignore (List.fold_left (fun config _ -> simulate_worst_single_failure config) initial_config (mkints initial_config.num_failures));
+         if config.vms <> [] then simulate_failure_approximation config;
          true
        with Stop -> false
     );

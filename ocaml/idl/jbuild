@@ -38,6 +38,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    datamodel_vm
    datamodel_host
    datamodel_pool
+   datamodel_cluster
+   datamodel_cluster_host
    dm_api
    escaping
    datamodel_values

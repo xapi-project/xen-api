@@ -112,6 +112,23 @@ let check_sharing_constraint ~__context ~sr =
                                         [ Ref.string_of sr; Ref.string_of (Db.PBD.get_host ~__context ~self:(List.hd others)) ]))
   end
 
+(** If the SR requires some cluster stacks, we resync every compatible Cluster *)
+let resync_cluster_stack_for_sr_type ~__context ~sr_sm_type =
+  let required_cluster_stacks = Xapi_clustering.get_required_cluster_stacks ~__context ~sr_sm_type in
+  (* This is empty if the SR requires no cluster stack *)
+  let required_clusters =
+    Db.Cluster.get_all_records ~__context
+    |> List.filter (function (cluster_ref, cluster_rec) -> List.mem cluster_rec.API.cluster_cluster_stack required_cluster_stacks)
+  in
+  (* XXX For now, we only support one cluster, when we add support for
+     multiple clusters, we may want to change this behaviour. *)
+  required_clusters
+  |> List.iter
+    (fun (cluster_ref, cluster_rec) ->
+       Helpers.call_api_functions ~__context (fun rpc session_id ->
+           Client.Client.Cluster.pool_resync ~rpc ~session_id ~self:cluster_ref)
+    )
+
 module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end)
 
 let plug ~__context ~self =
@@ -121,30 +138,37 @@ let plug ~__context ~self =
   let query_result = Storage_access.bind ~__context ~pbd:self in
   let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
   if not currently_attached then
-    begin
-      let sr = Db.PBD.get_SR ~__context ~self in
-      check_sharing_constraint ~__context ~sr;
-      let dbg = Ref.string_of (Context.get_task_id __context) in
-      let device_config = Db.PBD.get_device_config ~__context ~self in
-      Storage_access.transform_storage_exn
-        (fun () -> C.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) device_config);
-      Db.PBD.set_currently_attached ~__context ~self ~value:true;
+    let sr = Db.PBD.get_SR ~__context ~self in
+    let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
+    (* This must NOT be done while holding the lock, because the functions that
+       eventually get called also grab the clustering lock. We can call this
+       unconditionally because the operations it calls should be idempotent. *)
+    log_and_ignore_exn (fun () -> resync_cluster_stack_for_sr_type ~__context ~sr_sm_type);
+    Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type (fun () ->
+        let host = Db.PBD.get_host ~__context ~self in
+        Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type;
+        check_sharing_constraint ~__context ~sr;
+        let dbg = Ref.string_of (Context.get_task_id __context) in
+        let device_config = Db.PBD.get_device_config ~__context ~self in
+        Storage_access.transform_storage_exn
+          (fun () -> C.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) device_config);
+        Db.PBD.set_currently_attached ~__context ~self ~value:true;
 
-      Xapi_sr_operations.sr_health_check ~__context ~self:sr;
+        Xapi_sr_operations.sr_health_check ~__context ~self:sr;
 
-      (* When the plugin is registered it is possible to query the capabilities etc *)
-      Xapi_sm.register_plugin ~__context query_result;
+        (* When the plugin is registered it is possible to query the capabilities etc *)
+        Xapi_sm.register_plugin ~__context query_result;
 
-      (* The allowed-operations depend on the capabilities *)
-      Xapi_sr_operations.update_allowed_operations ~__context ~self:sr;
-    end
+        (* The allowed-operations depend on the capabilities *)
+        Xapi_sr_operations.update_allowed_operations ~__context ~self:sr)
 
 let unplug ~__context ~self =
   let currently_attached = Db.PBD.get_currently_attached ~__context ~self in
   if currently_attached then
-    begin
+    let sr = Db.PBD.get_SR ~__context ~self in
+    let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
+    Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type (fun () ->
       let host = Db.PBD.get_host ~__context ~self in
-      let sr = Db.PBD.get_SR ~__context ~self in
       if Db.Host.get_enabled ~__context ~self:host
       then abort_if_storage_attached_to_protected_vms ~__context ~self;
 
@@ -190,8 +214,7 @@ let unplug ~__context ~self =
 
       Xapi_sr_operations.stop_health_check_thread ~__context ~self:sr;
 
-      Xapi_sr_operations.update_allowed_operations ~__context ~self:sr;
-    end
+      Xapi_sr_operations.update_allowed_operations ~__context ~self:sr)
 
 let destroy ~__context ~self =
   if Db.PBD.get_currently_attached ~__context ~self
@@ -213,14 +236,21 @@ let get_locally_attached ~__context =
             Eq (Field "host", Literal (Ref.string_of host)),
             Eq (Field "currently_attached", Literal "true"))))
 
+(* Called on shutdown: it unplugs all the PBDs and disables the cluster host.
+   If anything fails it throws an exception *)
 let unplug_all_pbds ~__context =
   info "Unplugging all SRs plugged on local host";
   (* best effort unplug of all PBDs *)
   get_locally_attached ~__context
   |> List.iter (fun pbd ->
-         log_and_ignore_exn (fun () ->
-             TaskHelper.exn_if_cancelling ~__context;
-             let uuid = Db.PBD.get_uuid ~__context ~self:pbd in
-             debug "Unplugging PBD %s" uuid;
-             unplug ~__context ~self:pbd));
-  debug "Finished unplug_all_pbds"
+         let uuid = Db.PBD.get_uuid ~__context ~self:pbd in
+         TaskHelper.exn_if_cancelling ~__context;
+         debug "Unplugging PBD %s" uuid;
+         unplug ~__context ~self:pbd);
+  debug "Finished unplug_all_pbds";
+  let host = Helpers.get_localhost ~__context in
+  match Xapi_clustering.find_cluster_host ~__context ~host with
+  | None -> info "No cluster host found"
+  | Some self ->
+     info "Disabling cluster host";
+     Xapi_cluster_host.disable ~__context ~self

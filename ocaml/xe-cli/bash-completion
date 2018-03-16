@@ -113,7 +113,8 @@ _xe()
                     pvs-proxy-*|\
                     pvs-site-*|\
                     sdn-controller-*|\
-                    network-sriov-*)
+                    network-sriov-*|\
+                    cluster-host-*)
                         # Chop off at the second '-' and append 'list'
                         cmd="$(echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1-2)-list";;
                     *)

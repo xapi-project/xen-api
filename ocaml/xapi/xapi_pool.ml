@@ -1092,6 +1092,13 @@ let eject ~__context ~host =
     (* unplug all my PBDs; will deliberately fail if any unplugs fail *)
     unplug_pbds ~__context host;
 
+    Xapi_clustering.find_cluster_host ~__context ~host |> Xapi_stdext_monadic.Opt.iter (fun cluster_host ->
+        debug "Pool.eject: leaving cluster";
+        (* PBDs need to be unplugged first for this to succeed *)
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            Client.Cluster_host.destroy ~rpc ~session_id ~self:cluster_host)
+      );
+
     debug "Pool.eject: disabling external authentication in slave-to-be-ejected";
     (* disable the external authentication of this slave being ejected *)
     (* this call will return an exception if something goes wrong *)

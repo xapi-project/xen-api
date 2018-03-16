@@ -7,7 +7,7 @@ open Datamodel_roles
               You do not have to bump vsn if you change/add/remove a message *)
 
 let schema_major_vsn = 5
-let schema_minor_vsn = 140
+let schema_minor_vsn = 141
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -81,6 +81,9 @@ let inverness_release_schema_minor_vsn = 133
 
 let jura_release_schema_major_vsn = 5
 let jura_release_schema_minor_vsn = 134
+
+let kolkata_release_schema_major_vsn = 5
+let kolkata_release_schema_minor_vsn = 141
 
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
@@ -167,6 +170,8 @@ let _pusb = "PUSB"
 let _usb_group = "USB_group"
 let _vusb = "VUSB"
 let _network_sriov = "network_sriov"
+let _cluster = "Cluster"
+let _cluster_host = "Cluster_host"
 
 let get_oss_releases in_oss_since =
   match in_oss_since with
@@ -182,6 +187,11 @@ let get_product_releases in_product_since =
     | x::xs -> go_through_release_order xs
   in go_through_release_order release_order
 
+let kolkata_release =
+  { internal = get_product_releases rel_kolkata
+  ; opensource = get_oss_releases None
+  ; internal_deprecated_since = None
+  }
 
 let inverness_release =
   { internal = get_product_releases rel_inverness

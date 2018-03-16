@@ -12,9 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type response =
-  | String of string
-  | Bigbuf of Xapi_stdext_bigbuffer.Bigbuffer.t
+type response = string
 
 (** A generic RPC interface *)
 module type RPC = sig

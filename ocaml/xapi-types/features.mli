@@ -61,6 +61,7 @@ type feature =
   | CBT                          (** Enable the use of CBT *)
   | USB_passthrough              (** Enable the use of USB passthrough. *)
   | Network_sriov                (** Enable the use of Network SRIOV. *)
+  | Corosync                     (** Enable the use of corosync. *)
 
 (** Convert RPC into {!feature}s *)
 val feature_of_rpc : Rpc.t -> feature

@@ -95,14 +95,14 @@ let valid_operations ~__context record _ref' =
   end;
 
   (* Check where there are any attached clustered SRs. If so:
-   * - Only one host may be down at a time;
+   * - Only one enabled host may be down at a time;
    * - No hosts may go down if the SR is "recovering".
   *)
   let plugged_srs = Helpers.get_all_plugged_srs ~__context in
   let plugged_clustered_srs = List.filter (fun self -> Db.SR.get_clustered ~__context ~self) plugged_srs in
   if plugged_clustered_srs <> [] then begin
     let hosts_down = Db.Host_metrics.get_refs_where ~__context ~expr:(Eq (Field "live", Literal "false")) in
-    if hosts_down <> [] then
+    if not (List.for_all (Xapi_clustering.is_clustering_disabled_on_host ~__context) hosts_down) then
       set_errors Api_errors.clustered_sr_degraded [ List.hd plugged_clustered_srs |> Ref.string_of ] [ `shutdown; `reboot ];
 
     let recovering_tasks =

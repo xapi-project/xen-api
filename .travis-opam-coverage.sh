@@ -32,33 +32,7 @@ opam depext --yes xapi
 opam install --deps-only xapi
 
 # build and test xapi with coverage, then submit the coverage information to coveralls
-
-opam install -y bisect_ppx ocveralls
-
-export BISECT_ENABLE=YES
-
-ulimit -s 16384
-
-# the test fails when run on debian-stable (it passed on Ubuntu though)
-# disable it when running coverage
-# -p does not work to filter out subdirectories though
-# because the test in pci does not say which package it is part of
-rm -rf ocaml/pci/lib_test
-jbuilder runtest
-
-declare -a outs
-outs=($(find . | grep bisect.*.out))
-bisect-ppx-report -I $(dirname ${outs[1]}) -text report ${outs[@]}
-bisect-ppx-report -I $(dirname ${outs[1]}) -summary-only -text summary ${outs[@]}
-if [ -n "$HTML" ]; then bisect-ppx-report -I $(dirname ${outs[1]}) -html ../html-report ${outs[@]}; fi
-
-if [ -n "$TRAVIS" ]; then
-  echo "\$TRAVIS set; running ocveralls and sending to coveralls.io..."
-  ocveralls --prefix _build/default ${outs[@]} --send
-else
-  echo "\$TRAVIS not set; displaying results of bisect-report..."
-  cat report
-  cat summary
-fi
+curl -O https://raw.githubusercontent.com/xapi-project/xapi-travis-scripts/master/coverage.sh
+env TEST_CMD="./configure && jbuilder runtest" bash -ex coverage.sh
 '
 

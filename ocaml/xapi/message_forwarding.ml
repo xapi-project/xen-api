@@ -4269,6 +4269,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "VUSB.destroy: VUSB = '%s'" (vusb_uuid ~__context self);
       Local.VUSB.destroy ~__context ~self
   end
+
   module Network_sriov = struct
     let create ~__context ~pif ~network =
       info "Network_sriov.create : pif = '%s' , network = '%s' " (pif_uuid ~__context pif) (network_uuid ~__context network);
@@ -4288,4 +4289,88 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Local.Network_sriov.get_remaining_capacity ~__context ~self
   end
 
+  module Cluster = struct
+    let create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient =
+      info "Cluster.create";
+      let pool = Db.Pool.get_all ~__context |> List.hd in (* assumes 1 pool in DB *)
+      Xapi_pool_helpers.with_pool_operation ~__context ~self:pool ~doc:"Cluster.create" ~op:`cluster_create
+        (fun () ->
+           let cluster = Local.Cluster.create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient in
+           Xapi_cluster_helpers.update_allowed_operations ~__context ~self:cluster;
+           cluster
+        )
+
+    let destroy ~__context ~self =
+      info "Cluster.destroy";
+      Xapi_cluster_helpers.with_cluster_operation ~__context ~self ~doc:"Cluster.destroy" ~op:`destroy
+        (fun () ->
+           Local.Cluster.destroy ~__context ~self)
+
+    let pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient =
+      info "Cluster.pool_create";
+      Local.Cluster.pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient
+
+    let pool_force_destroy ~__context ~self =
+      info "Cluster.pool_force_destroy";
+      Local.Cluster.pool_force_destroy ~__context ~self
+
+    let pool_destroy ~__context ~self =
+      info "Cluster.pool_destroy";
+      Local.Cluster.pool_destroy ~__context ~self
+
+    let pool_resync ~__context ~self =
+      info "Cluster.pool_resync";
+      Local.Cluster.pool_resync ~__context ~self
+  end
+
+  module Cluster_host = struct
+    let create ~__context ~cluster ~host =
+      info "Cluster_host.create";
+      let local_fn = Local.Cluster_host.create ~cluster ~host in
+      Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster.add" ~op:`add
+        (fun () ->
+           let cluster_host = do_op_on ~__context ~local_fn ~host
+             (fun session_id rpc -> Client.Cluster_host.create rpc session_id cluster host) in
+           Xapi_cluster_host_helpers.update_allowed_operations ~__context ~self:cluster_host;
+           cluster_host
+        )
+
+    let destroy ~__context ~self =
+      info "Cluster_host.destroy";
+      let local_fn = Local.Cluster_host.destroy ~self in
+      let host = Db.Cluster_host.get_host ~__context ~self in
+      do_op_on ~__context ~local_fn ~host
+        (fun session_id rpc -> Client.Cluster_host.destroy rpc session_id self)
+
+    let force_destroy ~__context ~self =
+      info "Cluster_host.force_destroy";
+      let local_fn = Local.Cluster_host.force_destroy ~self in
+      let host = Db.Cluster_host.get_host ~__context ~self in
+      do_op_on ~__context ~local_fn ~host
+        (fun session_id rpc -> Client.Cluster_host.force_destroy rpc session_id self)
+
+    let enable ~__context ~self =
+      info "Cluster_host.enable";
+      let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+      let local_fn = Local.Cluster_host.enable ~self in
+      let host = Db.Cluster_host.get_host ~__context ~self in
+      Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster.enable" ~op:`enable
+        (fun () ->
+           Xapi_cluster_host_helpers.with_cluster_host_operation ~__context ~self ~doc:"Cluster_host.enable" ~op:`enable
+             (fun () ->
+                do_op_on ~__context ~local_fn ~host
+                  (fun session_id rpc -> Client.Cluster_host.enable rpc session_id self)))
+
+    let disable ~__context ~self =
+      info "Cluster_host.disable";
+      let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+      let local_fn = Local.Cluster_host.disable ~self in
+      let host = Db.Cluster_host.get_host ~__context ~self in
+      Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster.disable" ~op:`disable
+        (fun () ->
+           Xapi_cluster_host_helpers.with_cluster_host_operation ~__context ~self ~doc:"Cluster_host.disable" ~op:`disable
+             (fun () ->
+                do_op_on ~__context ~local_fn ~host
+                  (fun session_id rpc -> Client.Cluster_host.disable rpc session_id self)))
+  end
 end

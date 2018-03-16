@@ -25,7 +25,6 @@ module Request = struct
     | Read_field_where of Db_cache_types.where_record
     | Db_get_by_uuid of string * string
     | Db_get_by_name_label of string * string
-    | Read_set_ref of Db_cache_types.where_record
     | Create_row of string * (string * string) list * string
     | Delete_row of string * string
     | Write_field of string * string * string * string
@@ -57,7 +56,6 @@ module Response = struct
     | Read_field_where of string list
     | Db_get_by_uuid of string
     | Db_get_by_name_label of string list
-    | Read_set_ref of string list
     | Create_row of unit
     | Delete_row of unit
     | Write_field of unit

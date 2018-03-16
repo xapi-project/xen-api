@@ -12,12 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
-open Test_common
-
 let create_base_environment () =
-  let __context = make_test_database () in
-  let pusb = make_sr ~__context () in
+  let __context = Test_common.make_test_database () in
+  let pusb = Test_common. make_sr ~__context () in
   __context, pusb
 
 let start_thread ~__context info =
@@ -26,7 +23,7 @@ let start_thread ~__context info =
   Xapi_pusb.start_thread f
 
 let test_scan_with_usb_add_and_remove () =
-  let __context = make_test_database () in
+  let __context = Test_common.make_test_database () in
   let test_pusb = "[{
                     \"product-desc\": \"\",
                     \"product-id\": \"5591\",
@@ -51,10 +48,10 @@ let test_scan_with_usb_add_and_remove () =
 
   Xapi_pusb.scan ~__context ~host;
   Thread.delay 1.0;
-  assert_equal 1 (List.length (Db.PUSB.get_all_records ~__context))
+  Alcotest.(check int)
+    "test_scan_with_usb_add_and_remove called assertion for number of PUSB records"
+    1 (List.length (Db.PUSB.get_all_records ~__context))
 
 let test =
-  "test_pusb" >:::
-  [
-	"test_scan_with_usb_add_and_remove" >:: test_scan_with_usb_add_and_remove;
+  [	"test_scan_with_usb_add_and_remove", `Quick, test_scan_with_usb_add_and_remove
   ]

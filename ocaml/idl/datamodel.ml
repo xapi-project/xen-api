@@ -3235,7 +3235,12 @@ module VM_metrics = struct
             ~ty:Bool ~qualifier:DynamicRO
             "nomigrate" "VM is immobile and can't migrate between hosts"
             ~persist:false
-        ; field ~lifecycle:[Published, rel_jura, ""] ~default_value:(Some (VEnum "unspecified"))
+        ; field
+            ~lifecycle:[
+              Prototyped, rel_jura, "Not yet implemented (for future use)";
+              Published, rel_kolkata, "This field now contains valid data"
+            ]
+            ~default_value:(Some (VEnum "unspecified"))
             ~ty:Datamodel_vm.domain_type ~qualifier:DynamicRO
             "current_domain_type" "The current domain type of the VM (for running,\
              suspended, or paused VMs). The last-known domain type for halted VMs."
@@ -5333,6 +5338,8 @@ let all_system =
     PUSB.t;
     USB_group.t;
     VUSB.t;
+    Datamodel_cluster.t;
+    Datamodel_cluster_host.t;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -5370,6 +5377,8 @@ let all_relations =
     (* VM <-> VIF <-> network *)
     (_vif, "VM"), (_vm, "VIFs");
     (_vif, "network"), (_network, "VIFs");
+
+    (_cluster_host,"cluster"), (_cluster, "cluster_hosts");
 
     (* host <-> PIF <-> network *)
     (_pif, "host"), (_host, "PIFs");
@@ -5523,6 +5532,8 @@ let expose_get_all_messages_for = [
   _pusb;
   _usb_group;
   _vusb;
+  _cluster;
+  _cluster_host;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]

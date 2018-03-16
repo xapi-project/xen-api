@@ -149,7 +149,6 @@ install:
 	$(IDATA) examples/python/inventory.py $(DESTDIR)$(SITE_DIR)/
 	$(IPROG) examples/python/echo.py $(DESTDIR)$(PLUGINDIR)/echo
 	$(IPROG) examples/python/wake-on-lan.py $(DESTDIR)$(PLUGINDIR)/wake-on-lan
-	$(IPROG) examples/python/shutdown.py $(DESTDIR)$(LIBEXECDIR)/shutdown
 	$(IPROG) examples/python/shell.py $(DESTDIR)$(LIBEXECDIR)/shell.py
 	$(IPROG) examples/python/xva.py $(DESTDIR)$(BINDIR)/xva-rewrite-scsiid
 # poweron
