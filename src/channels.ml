@@ -23,7 +23,18 @@ external _sendfile: Unix.file_descr -> Unix.file_descr -> int64 -> int64 = "stub
 let _sendfile from_fd to_fd len =
   let from_fd = Lwt_unix.unix_file_descr from_fd in
   let to_fd = Lwt_unix.unix_file_descr to_fd in
-  detach (_sendfile from_fd to_fd) len
+  let max_attempts = 20 in
+  let rec loop remaining_attempts =
+    Lwt.catch
+      (fun () -> detach (_sendfile from_fd to_fd) len)
+      (function
+        | Unix.(Unix_error (EAGAIN, _, _)) as e when remaining_attempts > 0 ->
+            Lwt_unix.sleep 0.1 >>= fun () ->
+            loop (remaining_attempts - 1)
+        | e -> Lwt.fail e
+      )
+  in
+  loop max_attempts
 
 (* The OS implementation can return short (e.g. Linux will stop at a 2GiB boundary).
    This function keeps copying until all the bytes are copied. *)
