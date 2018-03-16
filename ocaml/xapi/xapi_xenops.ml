@@ -718,7 +718,9 @@ module MD = struct
 
   let vusbs_of_vm ~__context (vmref, vm) =
     vm.API.vM_VUSBs
-    |> List.map (fun self -> Db.VUSB.get_USB_group ~__context ~self)
+    |> List.map (fun self -> Db.VUSB.get_record ~__context ~self)
+    |> List.filter (fun self -> self.API.vUSB_currently_attached)
+    |> List.map (fun self -> self.API.vUSB_USB_group)
     |> List.map (fun usb_group -> Helpers.get_first_pusb ~__context usb_group)
     |> List.map (fun self -> Db.PUSB.get_record ~__context ~self)
     |> List.map (fun pusb -> of_vusb ~__context ~vm ~pusb)
@@ -2641,6 +2643,7 @@ let start ~__context ~self paused force =
         if empty_vbds_allowed then vbds else (List.filter (fun self -> not(Db.VBD.get_empty ~__context ~self)) vbds) in
       List.iter (fun self -> Db.VBD.set_currently_attached ~__context ~self ~value:true) vbds;
       List.iter (fun self -> Db.VIF.set_currently_attached ~__context ~self ~value:true) (Db.VM.get_VIFs ~__context ~self);
+      List.iter (fun self -> Db.VUSB.set_currently_attached ~__context ~self ~value:true) (Db.VM.get_VUSBs ~__context ~self);
 
       let module Client = (val make_client queue_name : XENOPS) in
       debug "Sending VM %s configuration to xenopsd" (Ref.string_of self);
