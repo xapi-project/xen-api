@@ -1,0 +1,1 @@
+{"method":"Network.PVS_proxy.configure_site","params":["string",{"vdi":"vdi","clients":[],"servers":[],"site_name":"site_name","site_uuid":"site_uuid"}],"id":13}

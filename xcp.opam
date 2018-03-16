@@ -32,4 +32,5 @@ depends: [
   "xapi-stdext-pervasives"
   "xapi-stdext-threads"
   "xmlm"
+  "alcotest" {test}
 ]
