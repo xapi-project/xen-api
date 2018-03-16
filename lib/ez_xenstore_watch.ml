@@ -12,11 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let execute lock f =
+let with_lock lock f =
   Mutex.lock lock;
-  let r = begin try f () with exn -> Mutex.unlock lock; raise exn end; in
-  Mutex.unlock lock;
-  r
+  match f () with
+  | r -> Mutex.unlock lock; r
+  | exception exn -> Mutex.unlock lock; raise exn
 
 module type DEBUG = sig
   (** Debug function *)
@@ -98,7 +98,7 @@ module Make (Debug: DEBUG) = struct
                Actions.domain_appeared xc xs domid;
                let token = Actions.watch_token domid in
                List.iter (watch ~xs token) (Actions.interesting_paths_for_domain domid uuid);
-               execute m (fun () ->
+               with_lock m (fun () ->
                    uuids := IntMap.add domid uuid !uuids;
                    watches := IntSet.add domid !watches) in
 
@@ -109,7 +109,7 @@ module Make (Debug: DEBUG) = struct
                  let uuid = IntMap.find domid !uuids in
                  let token = Actions.watch_token domid in
                  List.iter (unwatch ~xs token) (Actions.interesting_paths_for_domain domid uuid);
-                 execute m (fun () ->
+                 with_lock m (fun () ->
                      watches := IntSet.remove domid !watches;
                      uuids := IntMap.remove domid !uuids;
                    )
