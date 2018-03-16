@@ -1329,17 +1329,6 @@ type suspend_flag = Live | Debug
       debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid
     | `Error e -> raise e
 
-let use_emu_manager () =
-  try
-    Filename.concat !Xenopsd.feature_flags_path "vgpu_migration"
-    |> fun path -> Stdext.Unixext.read_lines ~path
-                   |> String.concat ""
-                   |> String.trim
-                   |> String.lowercase_ascii
-                   |> fun f -> f = "true" || f = "1"
-  with _ ->
-    false
-
 let send_s3resume ~xc domid =
   let uuid = get_uuid ~xc domid in
   debug "VM = %s; domid = %d; send_s3resume" (Uuid.to_string uuid) domid;
