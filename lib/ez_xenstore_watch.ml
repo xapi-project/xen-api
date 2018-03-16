@@ -12,6 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 
+let with_lock lock f =
+  Mutex.lock lock;
+  match f () with
+  | r -> Mutex.unlock lock; r
+  | exception exn -> Mutex.unlock lock; raise exn
 
 module type DEBUG = sig
   (** Debug function *)
@@ -26,6 +31,7 @@ module Make (Debug: DEBUG) = struct
 
   let _introduceDomain = "@introduceDomain"
   let _releaseDomain = "@releaseDomain"
+  let m = Mutex.create ()
 
   module IntMap = Map.Make(struct type t = int let compare = compare end)
   module IntSet = Set.Make(struct type t = int let compare = compare end)
@@ -92,8 +98,9 @@ module Make (Debug: DEBUG) = struct
                Actions.domain_appeared xc xs domid;
                let token = Actions.watch_token domid in
                List.iter (watch ~xs token) (Actions.interesting_paths_for_domain domid uuid);
-               uuids := IntMap.add domid uuid !uuids;
-               watches := IntSet.add domid !watches in
+               with_lock m (fun () ->
+                   uuids := IntMap.add domid uuid !uuids;
+                   watches := IntSet.add domid !watches) in
 
              let remove_watches_for_domain xs domid =
                debug "Removing watches for: domid %d" domid;
@@ -102,8 +109,10 @@ module Make (Debug: DEBUG) = struct
                  let uuid = IntMap.find domid !uuids in
                  let token = Actions.watch_token domid in
                  List.iter (unwatch ~xs token) (Actions.interesting_paths_for_domain domid uuid);
-                 watches := IntSet.remove domid !watches;
-                 uuids := IntMap.remove domid !uuids;
+                 with_lock m (fun () ->
+                     watches := IntSet.remove domid !watches;
+                     uuids := IntMap.remove domid !uuids;
+                   )
                end in
 
              let look_for_different_domains () =
