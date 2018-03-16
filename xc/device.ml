@@ -1536,8 +1536,7 @@ module Vusb = struct
              raise Device_not_connected
       )
       (fun () ->
-         if List.mem id (qom_list ~xs ~domid) then
-           usb_reset_detach ~hostbus ~hostport ~domid ~privileged
+         usb_reset_detach ~hostbus ~hostport ~domid ~privileged
       )
 
 end
