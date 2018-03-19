@@ -567,7 +567,7 @@ module Vbd_Common = struct
       | Floppy -> "floppy";
     ];
     (* Hack: this should be returned separately from SMAPIv3 attach call *)
-    let (params, qemu_params) = if String.startswith "hack|" x.params then begin
+    let (params, qemu_params) = if Astring.String.is_prefix ~affix:"hack|" x.params then begin
         match String.split_on_char '|' x.params with
         | [_; params; qemu_params] -> (params, qemu_params)
         | _ -> (x.params, "")
