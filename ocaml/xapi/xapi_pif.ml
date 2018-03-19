@@ -840,11 +840,23 @@ let rec plug ~__context ~self =
       let phy_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
       debug "PIF is SRIOV logical PIF, also bringing up SRIOV physical PIF";
       plug ~__context ~self:phy_pif
-    | Physical pif_rec when pif_rec.API.pIF_bond_slave_of <> Ref.null ->
-      raise Api_errors.(Server_error (cannot_plug_bond_slave, [Ref.string_of self]))
+    | Physical pif_rec ->
+      let bond = pif_rec.API.pIF_bond_slave_of in
+      if bond <> Ref.null then begin
+        if pif_rec.API.pIF_sriov_physical_PIF_of <> [] then begin
+          (* It's a bond slave and SR-IOV physical *)
+          let bond_master_pif = Db.Bond.get_master ~__context ~self:bond in
+          debug "PIF is SRIOV physical PIF and bond slave, also bringing up bond master PIF";
+          plug ~__context ~self:bond_master_pif
+          (* It will be checked later to make sure that bond slave will not be brought up *)
+        end 
+        else raise Api_errors.(Server_error (cannot_plug_bond_slave, [Ref.string_of self]))
+      end else ()
     | _ -> ()
   in
-  Nm.bring_pif_up ~__context ~management_interface:false self
+  (* Don't bring up bond slave, as it has been up with bond master *)
+  if pif_rec.API.pIF_bond_slave_of = Ref.null then
+    Nm.bring_pif_up ~__context ~management_interface:false self
 
 let calculate_pifs_required_at_start_of_day ~__context =
   let localhost = Helpers.get_localhost ~__context in
