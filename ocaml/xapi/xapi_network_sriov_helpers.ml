@@ -176,12 +176,18 @@ let get_remaining_capacity_on_host ~__context ~host ~network =
 let group_hosts_by_best_sriov ~__context ~network =
   let pifs = Db.Network.get_PIFs ~__context ~self:network in
   let attached_hosts, unattached_hosts = List.fold_left (fun (l1, l2) pif ->
-    let host = Db.PIF.get_host ~__context ~self:pif in
-    if Db.PIF.get_currently_attached ~__context ~self:pif then begin
+    let pif_rec = Db.PIF.get_record ~__context ~self:pif in
+    let host = pif_rec.API.pIF_host in
+    if pif_rec.API.pIF_currently_attached then begin
       let num = get_remaining_capacity_on_host ~__context ~host ~network in
       if num = 0L then (l1,l2) else ((host, num) :: l1, l2)
     end else begin
-      let sriov = get_sriov_of ~__context ~sriov_logical_pif:pif in
+      let sriov =
+        match Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec with
+        | Network_sriov_logical sriov :: _
+        | VLAN_untagged _ :: Network_sriov_logical sriov :: _ -> sriov
+        | _ ->  raise Api_errors.(Server_error (internal_error, [Printf.sprintf "Cannot find sriov object in PIF %s" (Ref.string_of pif)]))
+      in
       if can_be_up_without_reboot ~__context sriov then (l1, (host, 0L) :: l2)
       else (l1, l2)
     end
