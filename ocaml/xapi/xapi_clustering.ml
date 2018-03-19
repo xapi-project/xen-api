@@ -163,15 +163,19 @@ module Daemon = struct
 
   let service = "xapi-clusterd"
   let enable ~__context =
+    let port = (string_of_int !Xapi_globs.xapi_clusterd_port) in
     debug "Enabling and starting the clustering daemon";
+    maybe_call_script ~__context !Xapi_globs.firewall_port_config_script ["open"; port];
     maybe_call_script ~__context "/usr/bin/systemctl" [ "enable"; service ];
     maybe_call_script ~__context "/usr/bin/systemctl" [ "start"; service ];
     debug "Cluster daemon: enabled & started"
 
   let disable ~__context =
+    let port = (string_of_int !Xapi_globs.xapi_clusterd_port) in
     debug "Disabling and stopping the clustering daemon";
     maybe_call_script ~__context "/usr/bin/systemctl" [ "disable"; service ];
     maybe_call_script ~__context "/usr/bin/systemctl" [ "stop"; service ];
+    maybe_call_script ~__context !Xapi_globs.firewall_port_config_script ["close"; port];
     debug "Cluster daemon: disabled & stopped"
 end
 
