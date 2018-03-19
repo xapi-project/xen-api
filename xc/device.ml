@@ -568,7 +568,7 @@ module Vbd_Common = struct
     ];
     (* Hack: this should be returned separately from SMAPIv3 attach call *)
     let (params, qemu_params) = if String.startswith "hack|" x.params then begin
-        match Stdext.Xstringext.String.split '|' x.params with
+        match String.split_on_char '|' x.params with
         | [_; params; qemu_params] -> (params, qemu_params)
         | _ -> (x.params, "")
       end else (x.params, "") in
