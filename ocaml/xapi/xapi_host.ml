@@ -1679,8 +1679,12 @@ let sync_pif_currently_attached ~__context ~host ~bridges =
   let networks = Db.Network.get_all_records ~__context in
   let pifs = Db.PIF.get_records_where ~__context ~expr:(
       Eq (Field "host", Literal (Ref.string_of host))
-    ) in
-
+    ) |> List.filter (fun (_, pif_rec) ->
+      match Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec with
+      | VLAN_untagged _ :: Network_sriov_logical _ :: _
+      | Network_sriov_logical _ :: _ -> false
+      | _ -> true)
+  in
   let network_to_bridge = List.map (fun (net, net_r) -> net, net_r.API.network_bridge) networks in
 
   (* PIF -> bridge option: None means "dangling PIF" *)
