@@ -42,7 +42,7 @@ let setup_simulator () =
     Xenops_utils.set_fs_backend (Some (module Xenops_utils.MemFS: Xenops_utils.FS));
     Xenops_server.register_objects ();
     Xenops_server.set_backend (Some (module Xenops_server_simulator: Xenops_server_plugin.S));
-    Xenops_server.WorkerPool.start 16;
+    Xenops_server.WorkerPool.set_size 16;
     Xcp_client.use_switch := true;
     Xapi_xenops_queue.queue_override := ["simulator",Xenopsd.rpc_fn];
     simulator_setup := true;
