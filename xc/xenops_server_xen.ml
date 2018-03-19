@@ -371,7 +371,7 @@ let with_disk ~xc ~xs task disk write f = match disk with
            (fun () ->
               let block_device = device |> block_device_of_vbd_frontend in
               let nbd_prefix = "hack|nbd:unix:" in
-              let is_nbd = String.startswith nbd_prefix block_device in
+              let is_nbd = Astring.String.is_prefix ~affix:nbd_prefix block_device in
               if is_nbd then begin
                 let unix_socket_path = block_device |> Astring.String.cuts ~empty:false ~sep:nbd_prefix |> List.hd |> String.split_on_char '|' |> List.hd in
                 NbdClient.with_nbd_device ~unix_socket_path ~export_name:"qemu_node" f
