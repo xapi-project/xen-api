@@ -1,11 +1,14 @@
 language: c
-sudo: require
-install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+sudo: false
+services:
+  - docker
+install:
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
 script: bash -ex .travis-docker.sh
 env:
   global:
     - OCAML_VERSION=4.04.2
-    - DISTRO=debian-stable
+    - DISTRO=centos-7
     - PACKAGE=xapi-nbd
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam

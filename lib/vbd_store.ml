@@ -21,7 +21,7 @@ module Make(Config : sig
     Lwt.catch
       (fun () -> Lwt_unix.mkdir vbd_list_dir 0o755)
       (function
-        | Unix.(Unix_error (EEXIST, "mkdir", dir)) when dir = vbd_list_dir -> Lwt.return_unit
+        | Unix.Unix_error (EEXIST, "mkdir", dir) when dir = vbd_list_dir -> Lwt.return_unit
         | e ->
           (* In any other case we let the client fail. In this case the user/admin should go and fix the root cause of the issue *)
           log_and_reraise_error ("Failed to create directory " ^ vbd_list_dir) e
@@ -38,7 +38,7 @@ module Make(Config : sig
         Lwt.catch
           (fun () -> Lwt_io.lines_of_file vbd_list_file |> Lwt_stream.to_list)
           (function
-            | Unix.(Unix_error (ENOENT, "open", file)) when file = vbd_list_file -> Lwt.return []
+            | Unix.Unix_error (ENOENT, "open", file) when file = vbd_list_file -> Lwt.return []
             | e ->
               (* In any other case we let the client fail. In this case the user/admin should go and fix the root cause of the issue *)
               log_and_reraise_error ("Failed to read file " ^ vbd_list_file) e
