@@ -21,17 +21,18 @@
 # 1. reset device
 # if without -r, do step 2~4
 # 2. if it's the first USB device to pass-through
-#      a) bind mount /dev /sys in chroot directory (/var/xen/qemu/root-<domid))
+#      a) bind mount /dev /sys in chroot directory (/var/xen/qemu/root-<domid>)
 #      b) create new cgroup devices:/qemu-<domid>,
 #      c) blacklist all and add default device whitelist,
 #      d) join current qemu process to this cgroup
-# 3. set device file uid/gid to (qemu_base + dom-id)
-# 4. add current device to whitelist
+# 3. save device uid/gid to /var/run/nonpersistent/usb/<device>
+# 4. set device file uid/gid to (qemu_base + dom-id)
+# 5. add current device to whitelist
 #
 # detach
-# ./usb_reset.py detach device -d dom-id -i uid gid
-# ./usb_reset.py detach 2-2 -d 12 -i 0 0
-# 1. restore device file owner to uid/gid
+# ./usb_reset.py detach device -d dom-id
+# ./usb_reset.py detach 2-2 -d 12
+# 1. restore device file uid/gid from /var/run/nonpersistent/usb/<device>
 # 2. remove current device from whitelist
 #
 # cleanup
@@ -72,8 +73,6 @@ def parse_arg():
     detach.add_argument("device", help="the target usb device")
     detach.add_argument("-d", dest="domid", type=int, required=True,
                         help="specify the domid of the VM")
-    detach.add_argument("-i", dest="id", type=int, nargs=2, required=True,
-                        help="restore ownership to uid gid")
 
     cleanup = subparsers.add_parser("cleanup", help="clean up chroot directory")
     cleanup.add_argument("-d", dest="domid", type=int, required=True,
@@ -88,6 +87,52 @@ def get_root_dir(domid):
 
 def get_cg_dir(domid):
     return "/sys/fs/cgroup/devices/qemu-{}".format(domid)
+
+
+def get_ids_path(device):
+    usb_dir = "/var/run/nonpersistent/usb"
+    try:
+        os.makedirs(usb_dir)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+
+    return os.path.join(usb_dir, device)
+
+
+def save_device_ids(device):
+    path = dev_path(device)
+
+    try:
+        stat = os.stat(path)
+        ids_info = "{} {}".format(stat.st_uid, stat.st_gid)
+    except OSError as e:
+        log.error("Failed to stat {}: {}".format(path, str(e)))
+        exit(1)
+
+    try:
+        with open(get_ids_path(device), "w") as f:
+            f.write(ids_info)
+    except IOError as e:
+        log.error("Failed to save device ids {}: {}".format(path, str(e)))
+        exit(1)
+
+
+def load_device_ids(device):
+    ids_path = get_ids_path(device)
+    try:
+        with open(ids_path) as f:
+            uid, gid = map(int, f.readline().split())
+    except (IOError, ValueError) as e:
+        log.error("Failed to load device ids: {}".format(str(e)))
+
+    try:
+        os.remove(ids_path)
+    except OSError as e:
+        # ignore and continue
+        log.warning("Failed to remove device ids: {}".format(str(e)))
+
+    return uid, gid
 
 
 # throw IOError, ValueError
@@ -201,7 +246,9 @@ def umount(target):
                   format(target, os.strerror(ctypes.get_errno())))
 
 
-def attach(path, domid, pid, reset_only):
+def attach(device, domid, pid, reset_only):
+    path = dev_path(device)
+
     # reset device
     try:
         with open(path, "w") as f:
@@ -214,6 +261,8 @@ def attach(path, domid, pid, reset_only):
 
     if reset_only:
         return
+
+    save_device_ids(device)
 
     # set device file uid/gid
     try:
@@ -250,7 +299,10 @@ def attach(path, domid, pid, reset_only):
     allow_device(path, domid)
 
 
-def detach(path, domid, uid, gid):
+def detach(device, domid):
+    path = dev_path(device)
+    uid, gid = load_device_ids(device)
+
     # restore uid, gid of the device file.
     try:
         os.chown(path, uid, gid)
@@ -288,9 +340,9 @@ if __name__ == "__main__":
     arg = parse_arg()
 
     if "attach" == arg.command:
-        attach(dev_path(arg.device), arg.domid, arg.pid, arg.reset_only)
+        attach(arg.device, arg.domid, arg.pid, arg.reset_only)
     elif "detach" == arg.command:
-        detach(dev_path(arg.device), arg.domid, arg.id[0], arg.id[1])
+        detach(arg.device, arg.domid)
     elif "cleanup" == arg.command:
         cleanup(arg.domid)
     else:
