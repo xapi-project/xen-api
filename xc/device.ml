@@ -2390,13 +2390,13 @@ module Backend = struct
           end else []
         in
 
-        let pv_device nic_count =
+        let pv_device addr =
           try
             let path = sprintf "/local/domain/%d/control/has-vendor-device" domid in
             let has_device = xs.Xs.read path in
             if int_of_string has_device = 1 then
               ["-device"
-              ; sprintf "xen-pvdevice,device-id=0xc000,addr=%x" (nic_count+4)
+              ; sprintf "xen-pvdevice,device-id=0xc000,addr=%x" addr
               ]
             else []
           with _ -> []
@@ -2431,7 +2431,6 @@ module Backend = struct
           debug "Limiting the number of emulated NICs to %d" nic_max;
         (* Take the first 'max_emulated_nics' elements from the list. *)
         let nics = Xapi_stdext_std.Listext.List.take nic_max nics in
-        let nic_count = min nic_count nic_max in (* update count *)
 
         (* add_nic is used in a fold: it adds fd and command line args
          * for a nic to the existing fds and arguments (fds, argv)
@@ -2446,6 +2445,40 @@ module Backend = struct
             ] in
           (tap::fds, args@argv) in
 
+        (** [first_gap n xs] expects an ascending list of integers [xs].
+         * It looks for a gap in sequence [xs] and returns the first it
+         * finds at position n or higher:
+         * first_gap 4 []      = 4
+         * first_gap 4 [5;6]   = 4
+         * first_gap 4 [1;3]   = 4
+         * first_gap 4 [5;6;8] = 4
+         * first_gap 4 [4;5;7] = 6
+         * first_gap 4 [4;5;6] = 7
+         *)
+        let rec first_gap n = function
+          | []             -> n
+          | x::xs when x<n -> first_gap n xs
+          | x::xs when x=n -> first_gap (n+1) xs
+          | x::xs          -> n
+        in
+
+        let has_nvidia_vgpu =
+          let open Xenops_interface.Vgpu in
+          let open Dm_Common in
+          match info.disp with
+          | VNC(Vgpu [{implementation = Nvidia _}],_,_,_,_) -> true
+          | SDL(Vgpu [{implementation = Nvidia _}],_)       -> true
+          | _                                               -> false
+        in
+
+        let pv_device_addr =
+          if has_nvidia_vgpu            then 2 else
+          if not @@ has_platform_device then 3 else
+            nics
+            |> List.map (fun (_, _, devid) -> devid+4)
+            |> first_gap 4
+        in
+
         (* Go over all nics and collect file descriptors and command
          * line arguments. Add these to the already existing command
          * line arguments in common
@@ -2454,12 +2487,12 @@ module Backend = struct
         |> function
         |  _, []    ->
           Dm_Common.
-            { argv   = common.argv   @ misc @ pv_device nic_count @ none
+            { argv   = common.argv   @ misc @ pv_device pv_device_addr @ none
             ; fd_map = common.fd_map
             }
         | fds, argv ->
           Dm_Common.
-            { argv   = common.argv   @ misc @ pv_device nic_count @ argv
+            { argv   = common.argv   @ misc @ pv_device pv_device_addr @ argv
             ; fd_map = common.fd_map @ fds
             }
 
