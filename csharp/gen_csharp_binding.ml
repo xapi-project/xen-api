@@ -935,49 +935,49 @@ namespace XenAPI
         public Event event_get_record(string session, string _event)
         {
             var converters = new List<JsonConverter> {};
-            var serializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = converters });
+            var serializer = CreateSerializer(converters);
             return Rpc<Event>(\"event.get_record\", new JArray(session, _event ?? \"\"), serializer);
         }
 
         public string event_get_by_uuid(string session, string _uuid)
         {
             var converters = new List<JsonConverter> {};
-            var serializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = converters });
+            var serializer = CreateSerializer(converters);
             return Rpc<string>(\"event.get_by_uuid\", new JArray(session, _uuid ?? \"\"), serializer);
         }
 
         public long event_get_id(string session, string _event)
         {
             var converters = new List<JsonConverter> {};
-            var serializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = converters });
+            var serializer = CreateSerializer(converters);
             return Rpc<long>(\"event.get_id\", new JArray(session, _event ?? \"\"), serializer);
         }
 
         public void event_set_id(string session, string _event, long _id)
         {
             var converters = new List<JsonConverter> {};
-            var serializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = converters });
+            var serializer = CreateSerializer(converters);
             Rpc(\"event.set_id\", new JArray(session, _event ?? \"\", _id), serializer);
         }
 
         public void event_register(string session, string[] _classes)
         {
             var converters = new List<JsonConverter> {};
-            var serializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = converters });
+            var serializer = CreateSerializer(converters);
             Rpc(\"event.register\", new JArray(session, JArray.FromObject(_classes ?? new string[] {})), serializer);
         }
 
         public void event_unregister(string session, string[] _classes)
         {
             var converters = new List<JsonConverter> {};
-            var serializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = converters });
+            var serializer = CreateSerializer(converters);
             Rpc(\"event.unregister\", new JArray(session, JArray.FromObject(_classes ?? new string[] {})), serializer);
         }
 
         public EventBatch event_from(string session, string[] _classes, string _token, double _timeout)
         {
             var converters = new List<JsonConverter> {};
-            var serializer = JsonSerializer.Create(new JsonSerializerSettings { Converters = converters });
+            var serializer = CreateSerializer(converters);
             return Rpc<EventBatch>(\"event.from\", new JArray(session, JArray.FromObject(_classes ?? new string[] {}), _token ?? \"\", _timeout), serializer);
         }
 ";
@@ -1032,7 +1032,7 @@ and gen_proxy_method protocol out_chan classname message params =
         public %s %s(%s)
         {
             var converters = new List<JsonConverter> {%s};
-            var serializer = JsonSerializer.Create(new JsonSerializerSettings {Converters = converters});
+            var serializer = CreateSerializer(converters);
             %sRpc%s(\"%s.%s\", new JArray(%s), serializer);
         }
 " (exposed_type_opt message.msg_result) proxy_msg_name paramsJsonWithTypes
@@ -1045,7 +1045,7 @@ and gen_proxy_method protocol out_chan classname message params =
         public XenRef<Task> async_%s(%s)
         {
             var converters = new List<JsonConverter> {%s};
-            var serializer = JsonSerializer.Create(new JsonSerializerSettings {Converters = converters});
+            var serializer = CreateSerializer(converters);
             return Rpc<XenRef<Task>>(\"Async.%s.%s\", new JArray(%s), serializer);
         }
 " proxy_msg_name paramsJsonWithTypes (String.concat ", " async_converters)
