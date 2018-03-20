@@ -179,16 +179,22 @@ let get_capabilities dev =
 		) ()
 
 	let make_vf_conf_internal pcibuspath mac vlan rate =
-		let exe_except_none f = function
-			| None -> Result.Ok ()
-			| Some a -> f a
+		let config_or_otherwise_reset config_f reset_f = function
+			| None -> reset_f ()
+			| Some a -> config_f a
 		in
 		let open Rresult.R.Infix in
 		Sysfs.parent_device_of_vf pcibuspath >>= fun dev ->
 		Sysfs.device_index_of_vf dev pcibuspath >>= fun index ->
-		exe_except_none (Ip.set_vf_mac dev index) mac >>= fun () ->
-		exe_except_none (Ip.set_vf_vlan dev index) vlan >>= fun () ->
-		exe_except_none (Ip.set_vf_rate dev index) rate
+		config_or_otherwise_reset (Ip.set_vf_mac dev index)
+			(fun () -> Result.Ok ()) mac >>= fun () ->
+		(* In order to ensure the Networkd to be idempotent, configuring VF with no VLAN and rate
+		have to reset vlan and rate, since the VF might have previous configuration. Refering to
+		http://gittup.org/cgi-bin/man/man2html?ip-link+8, set VLAN and rate to 0 means to reset them *)
+		config_or_otherwise_reset (Ip.set_vf_vlan dev index)
+			(fun () -> Ip.set_vf_vlan dev index 0) vlan >>= fun () ->
+		config_or_otherwise_reset (Ip.set_vf_rate dev index)
+			(fun () -> Ip.set_vf_rate dev index 0) rate
 
 	let make_vf_config dbg pci_address (vf_info : sriov_pci_t) =
 		Debug.with_thread_associated dbg (fun () ->	
