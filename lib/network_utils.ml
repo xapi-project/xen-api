@@ -531,19 +531,22 @@ info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
 
 	let set_vf_mac dev index mac =
 		try
+			debug "Setting VF MAC address for dev: %s, index: %d, MAC: %s" dev index mac;
 			Result.Ok (link_set dev ["vf"; string_of_int index; "mac"; mac])
-		with _ -> Result.Error (Fail_to_set_vf_mac, "Failed to set vf mac for: " ^ dev)
+		with _ -> Result.Error (Fail_to_set_vf_mac, "Failed to set VF MAC for: " ^ dev)
 
 	let set_vf_vlan dev index vlan =
 		try
+			debug "Setting VF VLAN for dev: %s, index: %d, VLAN: %d" dev index vlan;
 			Result.Ok (link_set dev ["vf"; string_of_int index; "vlan"; string_of_int vlan])
-		with _ -> Result.Error (Fail_to_set_vf_vlan, "Failed to set vf vlan for: " ^ dev)
+		with _ -> Result.Error (Fail_to_set_vf_vlan, "Failed to set VF VLAN for: " ^ dev)
 
 	(* We know some NICs do not support config VF Rate, so will explicitly tell XAPI this error*)
 	let set_vf_rate dev index rate =
 		try
-			Result.Ok (link_set dev ["vf"; string_of_int index; "mac"; string_of_int rate])
-		with _ -> Result.Error (Fail_to_set_vf_rate, "Failed to set vf rate for: " ^ dev)
+			debug "Setting VF rate for dev: %s, index: %d, rate: %d" dev index rate;
+			Result.Ok (link_set dev ["vf"; string_of_int index; "rate"; string_of_int rate])
+		with _ -> Result.Error (Fail_to_set_vf_rate, "Failed to set VF rate for: " ^ dev)
 end
 
 module Linux_bonding = struct
