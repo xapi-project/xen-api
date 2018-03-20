@@ -40,17 +40,18 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
       )
   in
 
+  let param_set = Alcotest.(slist string String.compare) in
+
   let assert_received_params msg expected =
     Thread.delay delay;
     match !received_params with
-    | None -> OUnit.assert_failure ("The update_firewall function was not called: " ^ msg)
-    | Some p ->
-      Ounit_comparators.StringSet.(assert_equal (of_list expected) (of_list p))
+    | None -> Alcotest.fail ("The update_firewall function was not called: " ^ msg)
+    | Some p -> Alcotest.(check param_set) msg expected p
   in
 
   let assert_not_called msg () =
     Thread.delay delay;
-    OUnit.assert_equal ~msg:("update_firewall shouldn't have been called: " ^ msg) None !received_params
+    Alcotest.(check (option param_set)) ("update_firewall shouldn't have been called: " ^ msg) None !received_params
   in
 
   let network1 = Test_common.make_network ~__context ~bridge:"bridge1" () in
@@ -170,8 +171,6 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
   assert_received_params "NBD has been enabled on network4" ["bridge4"]
 
 let test =
-  let ((>:::), (>::)) = OUnit.((>:::), (>::)) in
-  "test_network_event_loop" >:::
-  [ "test_network_event_loop_with_no_networks_at_start" >:: (test_network_event_loop ~no_nbd_networks_at_start:true)
-  ; "test_network_event_loop_with_some_networks_at_start" >:: (test_network_event_loop ~no_nbd_networks_at_start:false)
+  [ "test_network_event_loop_with_no_networks_at_start", `Slow, (test_network_event_loop ~no_nbd_networks_at_start:true)
+  ; "test_network_event_loop_with_some_networks_at_start", `Slow, (test_network_event_loop ~no_nbd_networks_at_start:false)
   ]

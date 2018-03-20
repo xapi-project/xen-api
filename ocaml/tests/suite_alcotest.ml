@@ -32,5 +32,6 @@ let () =
     ; "Test_event", Test_event.test
     ; "Test_vm_placement", Test_vm_placement.test
     ; "Test_vm_memory_constraints", Test_vm_memory_constraints.test
+    ; "Test_network_event_loop", Test_network_event_loop.test
     ]
 
