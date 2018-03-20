@@ -786,7 +786,8 @@ let rec unplug ~__context ~self =
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self;
   assert_no_protection_enabled ~__context ~self;
   assert_not_management_pif ~__context ~self;
-  let host = Db.PIF.get_host ~__context ~self in
+  let pif_rec = Db.PIF.get_record ~__context ~self in
+  let host = pif_rec.API.pIF_host in
   if Db.Host.get_enabled ~__context ~self:host
   then abort_if_network_attached_to_protected_vms ~__context ~self;
 
@@ -796,25 +797,39 @@ let rec unplug ~__context ~self =
   if Db.PIF.get_capabilities ~__context ~self |> List.mem "fcoe" then
     assert_fcoe_not_in_use ~__context self;
 
-  let tunnel = Db.PIF.get_tunnel_transport_PIF_of ~__context ~self in
-  if tunnel <> []
-  then begin
-    debug "PIF is tunnel transport PIF... also bringing down access PIF";
-    let tunnel = List.hd tunnel in
-    let access_PIF = Db.Tunnel.get_access_PIF ~__context ~self:tunnel in
-    unplug ~__context ~self:access_PIF
+  List.iter (fun tunnel ->
+      debug "PIF is tunnel transport PIF... also bringing down access PIF";
+      let access_PIF = Db.Tunnel.get_access_PIF ~__context ~self:tunnel in
+      unplug ~__context ~self:access_PIF
+  ) pif_rec.API.pIF_tunnel_transport_PIF_of;
+
+  (* Only exclusive PIF types can be put into following pattern match *)
+  begin match Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec with
+    | Bond_master bond :: _ ->
+      List.iter (fun slave ->
+          if Db.PIF.get_sriov_physical_PIF_of ~__context ~self:slave <> [] then begin
+            debug "PIF is bond master, one of its slaves is a network SRIOV physical PIF, \
+                   also bringing down the slave as network SRIOV physical PIF";
+            unplug ~__context ~self:slave
+          end
+      ) (Db.Bond.get_slaves ~__context ~self:bond)
+    | Network_sriov_logical _ :: _ ->
+      debug "PIF is network SRIOV logical PIF, also bringing down vlan on top of it";
+      unplug_vlan_on_sriov ~__context ~self
+    | Physical pif_rec :: _ ->
+      List.iter (fun sriov ->
+          (* If this PIF is also a bond slave, it will be checked later to make sure that
+              * this bond slave will not be brought down here *)
+          debug "PIF is network SRIOV physical PIF, also bringing down SRIOV logical PIF";
+          let pif = Db.Network_sriov.get_logical_PIF ~__context ~self:sriov in
+          unplug ~__context ~self:pif
+      ) pif_rec.API.pIF_sriov_physical_PIF_of
+    | _ -> ()
   end;
-  if Db.PIF.get_sriov_logical_PIF_of ~__context ~self <> [] then begin
-    debug "PIF is network SRIOV logical PIF, also bringing down vlan on top of it";
-    unplug_vlan_on_sriov ~__context ~self
-  end;
-  let sriov = Db.PIF.get_sriov_physical_PIF_of ~__context ~self in
-  if sriov <> [] then begin
-    debug "PIF is network SRIOV physical PIF, also bringing down SRIOV logical PIF";
-    let pif = Db.Network_sriov.get_logical_PIF ~__context ~self:(List.hd sriov)in
-    unplug ~__context ~self:pif
-  end;
-  Nm.bring_pif_down ~__context self
+
+  (* Don't bring down bond slave, as it will be handled with bond master *)
+  if pif_rec.API.pIF_bond_slave_of = Ref.null then
+    Nm.bring_pif_down ~__context self
 
 let rec plug ~__context ~self =
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self;
