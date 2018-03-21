@@ -937,14 +937,13 @@ module VM = struct
   let create_exn (task: Xenops_task.task_handle) memory_upper_bound vm =
     let k = vm.Vm.id in
     with_xc_and_xs (fun xc xs ->
-      let _ = DB.update k (fun vmextra ->
-         let persistent, non_persistent =
-           match vmextra with
-           | Some x ->
-             debug "VM = %s; reloading stored domain-level configuration" vm.Vm.id;
-             x.VmExtra.persistent, x.VmExtra.non_persistent
-           | None -> begin
-               debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
+      (* Ensure the DB contains something for this VM - this is to avoid a race with the *)
+        let _ = DB.update k (function
+          | Some x ->
+              debug "VM = %s; reloading stored domain-level configuration" vm.Vm.id;
+              Some x
+            | None -> begin
+              debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
                let persistent =
                  { VmExtra.build_info = None
                  ; ty = Some vm.ty
@@ -961,8 +960,13 @@ module VM = struct
                  ; profile = profile_of ~vm
                  } in
                let non_persistent = generate_non_persistent_state xc xs vm persistent in
-               persistent, non_persistent
-             end in
+               Some VmExtra.{persistent; non_persistent}
+             end) in
+         let _ = DB.update k (fun vmextra ->
+           let persistent, non_persistent = match vmextra with
+           | Some x -> VmExtra.(x.persistent, x.non_persistent)
+           | None -> failwith "Interleaving problem"
+           in
          let open Memory in
          let overhead_bytes = compute_overhead persistent non_persistent in
          let resuming = non_persistent.VmExtra.suspend_memory_bytes <> 0L in
