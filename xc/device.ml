@@ -1447,9 +1447,6 @@ module Vusb = struct
                  ; hostbus ^ "-" ^ hostport
                  ; "-d"
                  ; string_of_int domid
-                 ; "-i"
-                 ; "0"
-                 ; "0"
                  ]
       in
       exec_usb_reset_script argv
