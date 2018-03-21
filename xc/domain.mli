@@ -113,7 +113,7 @@ val build_info_of_rpc: Rpc.t -> build_info
 val rpc_of_build_info: build_info -> Rpc.t
 
 (** Create a fresh (empty) domain with a specific UUID, returning the domain ID *)
-val make: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> create_info -> arch_domainconfig -> Uuidm.t -> domid
+val make: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> create_info -> int -> arch_domainconfig -> Uuidm.t -> domid
 
 (** 'types' of shutdown request *)
 type shutdown_reason = PowerOff | Reboot | Suspend | Crash | Halt | S3Suspend | Unknown of int

@@ -208,7 +208,7 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib : 
   wait 0
 
 
-let make ~xc ~xs vm_info domain_config uuid =
+let make ~xc ~xs vm_info vcpus domain_config uuid =
   let flags = if vm_info.hvm then begin
       let default_flags =
         (if vm_info.hvm then [ Xenctrl.CDF_HVM ] else []) @
