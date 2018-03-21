@@ -25,13 +25,13 @@ open Xenops_task
 module D = Debug.Make(struct let name = "xenops" end)
 open D
 
-type xen_arm_arch_domainconfig = (* Xenctrl.xen_arm_arch_domainconfig = *) {
+type xen_arm_arch_domainconfig = Xenctrl.xen_arm_arch_domainconfig = {
   gic_version: int;
   nr_spis: int;
   clock_frequency: int32;
 } [@@deriving rpcty]
 
-type x86_arch_emulation_flags = (* Xenctrl.x86_arch_emulation_flags = *)
+type x86_arch_emulation_flags = Xenctrl.x86_arch_emulation_flags =
 | X86_EMU_LAPIC
 | X86_EMU_HPET
 | X86_EMU_PM
@@ -43,11 +43,11 @@ type x86_arch_emulation_flags = (* Xenctrl.x86_arch_emulation_flags = *)
 | X86_EMU_PIT
 | X86_EMU_USE_PIRQ [@@deriving rpcty]
 
-type xen_x86_arch_domainconfig = (* Xenctrl.xen_x86_arch_domainconfig = *) {
+type xen_x86_arch_domainconfig = Xenctrl.xen_x86_arch_domainconfig = {
   emulation_flags: x86_arch_emulation_flags list;
 } [@@deriving rpcty]
 
-type arch_domainconfig = (* Xenctrl.arch_domainconfig = *)
+type arch_domainconfig = Xenctrl.arch_domainconfig =
   | ARM of xen_arm_arch_domainconfig
   | X86 of xen_x86_arch_domainconfig
 [@@deriving rpcty]
@@ -55,7 +55,7 @@ type arch_domainconfig = (* Xenctrl.arch_domainconfig = *)
 type domain_create_flag = Xenctrl.domain_create_flag =
   | CDF_HVM
   | CDF_HAP
-[@@deriving rpc]
+[@@deriving rpcty]
 
 let emulation_flags_all = [
     X86_EMU_LAPIC
@@ -73,6 +73,17 @@ let emulation_flags_all = [
 let emulation_flags_pvh = [
   X86_EMU_LAPIC
 ]
+
+type domctl_create_config = Xenctrl.domctl_create_config = {
+  ssidref: int32;
+  handle: string;
+  flags: domain_create_flag list;
+  max_vcpus: int;
+  max_evtchn_port: int;
+  max_grant_frames: int;
+  max_maptrack_frames: int;
+  arch: arch_domainconfig;
+} [@@deriving rpcty]
 
 type create_info = {
   ssidref: int32;
@@ -236,8 +247,20 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid =
         default_flags
       end
     end else [] in
+
+  let config = {
+    ssidref = vm_info.ssidref;
+    handle = Uuid.to_string uuid;
+    flags = flags;
+    max_vcpus = vcpus;
+    max_evtchn_port = -1;
+    max_grant_frames = 32;
+    max_maptrack_frames = 1024;
+    arch = domain_config;
+  } in
+
   debug "Domain_config: [%s]" (rpc_of arch_domainconfig domain_config |> Jsonrpc.to_string);
-  let domid = Xenctrl.domain_create xc vm_info.ssidref flags (Uuidm.to_string uuid) (* domain_config *) in
+  let domid = Xenctrl.domain_create xc config in
   let name = if vm_info.name <> "" then vm_info.name else sprintf "Domain-%d" domid in
   try
     let dom_path = xs.Xs.getdomainpath domid in
