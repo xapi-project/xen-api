@@ -244,13 +244,6 @@ let check_pci ~op ~ref_str =
   | _ -> None
 
 let check_vgpu ~__context ~op ~ref_str ~vgpus ~power_state =
-  let vgpu_migration_enabled () =
-    let pool = Helpers.get_pool ~__context in
-    let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
-    try
-      List.assoc "restrict_vgpu_migration" restrictions = "false"
-    with Not_found -> false
-  in
   let is_migratable vgpu =
     try
       (* Prevent VMs with VGPU from being migrated from pre-Jura to Jura and later hosts during RPU *)
@@ -282,12 +275,10 @@ let check_vgpu ~__context ~op ~ref_str ~vgpus ~power_state =
   | `migrate_send
     when power_state = `Halted -> None
   | `pool_migrate | `migrate_send
-    when vgpu_migration_enabled ()
-      && List.for_all is_migratable  vgpus
+    when List.for_all is_migratable  vgpus
       && List.for_all is_suspendable vgpus -> None
   | `suspend
-    when vgpu_migration_enabled ()
-      && List.for_all is_suspendable vgpus -> None
+    when List.for_all is_suspendable vgpus -> None
   | `pool_migrate | `migrate_send | `suspend | `checkpoint ->
     Some (Api_errors.vm_has_vgpu, [ref_str])
   | _ -> None
