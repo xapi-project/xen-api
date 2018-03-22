@@ -298,6 +298,7 @@ let make ~xc ~xs vm_info domain_config uuid =
               "drivers";
               "control";
               "attr";
+              "xenserver/attr";
               "data";
               "messages";
               "vm-data";
@@ -516,9 +517,11 @@ let destroy (task: Xenops_task.task_handle) ~xc ~xs ~qemu_domid domid =
   xs.Xs.rm dom_path;
   xs.Xs.rm xenops_dom_path;
   debug "VM = %s; domid = %d; deleting backends" (Uuid.to_string uuid) domid;
-  let backend_path = xs.Xs.getdomainpath 0 ^ "/backend" in
-  let all_backend_types = try xs.Xs.directory backend_path with _ -> [] in
-  List.iter (fun ty -> log_exn_rm ~xs (Printf.sprintf "%s/%s/%d" backend_path ty domid)) all_backend_types;
+  List.iter (fun path ->
+      let backend_path = xs.Xs.getdomainpath 0 ^ path in
+      let all_backend_types = try xs.Xs.directory backend_path with _ -> [] in
+      List.iter (fun ty -> log_exn_rm ~xs (Printf.sprintf "%s/%s/%d" backend_path ty domid)) all_backend_types
+  ) ["/backend"; "/xenserver/backend"];
 
   (* If all devices were properly un-hotplugged, then zap the private tree in
      	 * xenstore.  If there was some error leave the tree for debugging / async

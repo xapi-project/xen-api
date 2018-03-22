@@ -103,17 +103,31 @@ end
 
 module Vif :
 sig
-  val add : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> devid:int -> netty:Netman.netty
-    -> mac:string -> carrier:bool
-    -> ?mtu:int -> ?rate:(int64 * int64) option
-    -> ?protocol:protocol -> ?backend_domid:Xenctrl.domid
+  val add : xs:Xenstore.Xs.xsh -> devid:int 
+    -> mac:string -> ?mtu:int -> ?rate:(int64 * int64) option
+    -> ?backend_domid:Xenctrl.domid
     -> ?other_config:((string * string) list)
+    -> netty:Netman.netty -> carrier:bool -> ?protocol:protocol 
     -> ?extra_private_keys:(string * string) list
-    -> ?extra_xenserver_keys:(string * string) list -> Xenctrl.domid
+    -> ?extra_xenserver_keys:(string * string) list
+    -> Xenops_task.task_handle -> Xenctrl.domid
     -> device
   val set_carrier : xs:Xenstore.Xs.xsh -> device -> bool -> unit
   val release : Xenops_task.task_handle -> xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> device -> unit
   val move : xs:Xenstore.Xs.xsh -> device -> string -> unit
+end
+
+module NetSriovVf :
+sig
+  val add : xs:Xenstore.Xs.xsh -> devid:int 
+    -> mac:string -> ?mtu:int -> ?rate:(int64 * int64) option
+    -> ?backend_domid:Xenctrl.domid
+    -> ?other_config:((string * string) list)
+    -> pci:Xenops_interface.Pci.address -> vlan:int64 option -> carrier:bool
+    -> ?extra_private_keys:(string * string) list
+    -> ?extra_xenserver_keys:(string * string) list
+    -> Xenops_task.task_handle ->  Xenctrl.domid
+    -> device
 end
 
 val clean_shutdown : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> device -> unit

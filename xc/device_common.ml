@@ -15,7 +15,7 @@ open Printf
 open Xenstore
 open Xenops_utils
 
-type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string
+type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string | NetSriovVf
   [@@deriving rpc]
 
 type devid = int
@@ -50,10 +50,10 @@ let vbd_kind_of_string backend_kind =
   else Vbd "unsupported"
 
 let string_of_kind = function
-  | Vif -> "vif" | Tap -> "tap" | Pci -> "pci" | Vfs -> "vfs" | Vfb -> "vfb" | Vkbd -> "vkbd"
+  | Vif -> "vif" | Tap -> "tap" | Pci -> "pci" | Vfs -> "vfs" | Vfb -> "vfb" | Vkbd -> "vkbd" | NetSriovVf -> "net-sriov-vf"
   | Vbd x -> x
 let kind_of_string = function
-  | "vif" -> Vif | "tap" -> Tap | "pci" -> Pci | "vfs" -> Vfs | "vfb" -> Vfb | "vkbd" -> Vkbd
+  | "vif" -> Vif | "tap" -> Tap | "pci" -> Pci | "vfs" -> Vfs | "vfb" -> Vfb | "vkbd" -> Vkbd | "net-sriov-vf" -> NetSriovVf
   | b when List.mem b supported_vbd_backends -> Vbd b
   | x -> raise (Unknown_device_type x)
 
@@ -61,8 +61,13 @@ let string_of_endpoint (x: endpoint) =
   sprintf "(domid=%d | kind=%s | devid=%d)" x.domid (string_of_kind x.kind) x.devid  
 
 let backend_path ~xs (backend: endpoint) (domu: Xenctrl.domid) = 
-  sprintf "%s/backend/%s/%u/%d" 
+  let p = match backend.kind with
+    | NetSriovVf -> "xenserver/backend"
+    | _ -> "backend"
+  in
+  sprintf "%s/%s/%s/%u/%d" 
     (xs.Xs.getdomainpath backend.domid) 
+    p
     (string_of_kind backend.kind)
     domu backend.devid
 
@@ -71,8 +76,13 @@ let backend_path_of_device ~xs (x: device) = backend_path ~xs x.backend x.fronte
 
 (** Location of the frontend in xenstore: this is owned by the guest. *)
 let frontend_rw_path_of_device ~xs (x: device) = 
-  sprintf "%s/device/%s/%d"
+  let p = match x.frontend.kind with
+    | NetSriovVf -> "xenserver/device"
+    | _ -> "device"
+  in
+  sprintf "%s/%s/%s/%d"
     (xs.Xs.getdomainpath x.frontend.domid)
+    p
     (string_of_kind x.frontend.kind)
     x.frontend.devid
 
@@ -219,6 +229,7 @@ let parse_frontend_link x =
 
 let parse_backend_link x = 
   match Stdext.Xstringext.String.split '/' x with 
+  | [ ""; "local"; "domain"; domid; "xenserver"; "backend"; kind; _; devid ]
   | [ ""; "local"; "domain"; domid; "backend"; kind; _; devid ] ->
     begin
       match parse_int domid, parse_kind kind, parse_int devid with
