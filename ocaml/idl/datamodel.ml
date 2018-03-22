@@ -1183,6 +1183,9 @@ module PIF = struct
                   field ~lifecycle:[Published, rel_creedence, ""] ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "properties" "Additional configuration properties for the interface.";
                   field ~lifecycle:[Published, rel_dundee, ""] ~qualifier:DynamicRO ~ty:(Set(String)) ~default_value:(Some (VSet [])) "capabilities" "Additional capabilities on the interface.";
                   field ~lifecycle:[Published, rel_inverness, ""] ~qualifier:DynamicRO ~ty:igmp_status ~default_value:(Some (VEnum "unknown")) "igmp_snooping_status" "The IGMP snooping status of the corresponding network bridge";
+                  field ~in_oss_since:None ~ty:(Set (Ref _network_sriov)) ~in_product_since:rel_kolkata ~qualifier:DynamicRO "sriov_physical_PIF_of" "Indicates which network_sriov this interface is physical of";
+                  field ~in_oss_since:None ~ty:(Set (Ref _network_sriov)) ~in_product_since:rel_kolkata ~qualifier:DynamicRO "sriov_logical_PIF_of" "Indicates which network_sriov this interface is logical of";
+                  field ~qualifier:DynamicRO ~ty:(Ref _pci) ~lifecycle:[Published, rel_kolkata, ""] ~default_value:(Some (VRef null_ref)) "PCI" "Link to underlying PCI device";
                 ]
       ()
 end
@@ -1643,6 +1646,7 @@ module VIF = struct
            field ~ty:ipv6_configuration_mode ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_configuration_mode" "Determines whether IPv6 addresses are configured on the VIF" ~default_value:(Some (VEnum "None"));
            field ~ty:(Set (String)) ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_addresses" "IPv6 addresses in CIDR format" ~default_value:(Some (VSet []));
            field ~ty:String ~in_product_since:rel_dundee ~qualifier:DynamicRO "ipv6_gateway" "IPv6 gateway (the empty string means that no gateway is set)" ~default_value:(Some (VString ""));
+           field ~ty:(Ref _pci) ~in_product_since:rel_kolkata ~internal_only:true ~qualifier:DynamicRO "reserved_pci" "pci of network SR-IOV VF which is reserved for this vif" ~default_value:(Some (VRef null_ref));
          ])
       ()
 end
@@ -4220,6 +4224,68 @@ let alert =
     ()
 *)
 
+(** network sriov **)
+module Network_sriov = struct
+  let lifecycle = [Published, rel_kolkata, ""]
+
+  let sriov_configuration_mode = Enum ("sriov_configuration_mode",
+    [
+      "sysfs", "Configure network sriov by sysfs, do not need reboot";
+      "modprobe", "Configure network sriov by modbrope, need reboot";
+      "unknown", "Unknown mode";
+    ])
+
+  let create = call
+      ~name:"create"
+      ~doc:"Enable SR-IOV on the specific PIF. It will create a network-sriov based on the specific PIF and automatically create a logical PIF to connect the specific network."
+      ~params:[Ref _pif, "pif", "PIF on which to enable SR-IOV";
+               Ref _network, "network", "Network to connect SR-IOV virtual functions with VM VIFs"]
+      ~result:(Ref _network_sriov, "The reference of the created network_sriov object")
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let destroy = call
+      ~name:"destroy"
+      ~doc:"Disable SR-IOV on the specific PIF. It will destroy the network-sriov and the logical PIF accordingly."
+      ~params:[Ref _network_sriov, "self", "SRIOV to destroy"]
+      ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let get_remaining_capacity = call
+      ~name:"get_remaining_capacity"
+      ~doc:"Get the number of free SR-IOV VFs on the associated PIF"
+      ~params:[Ref _network_sriov, "self", "the NETWORK_SRIOV object"]
+      ~lifecycle
+      ~result:(Int, "The number of free SR-IOV VFs on the associated PIF")
+      ~allowed_roles:_R_READ_ONLY
+      ()
+
+  let t =
+    create_obj
+      ~name:_network_sriov
+      ~descr:"network-sriov which connects logical pif and physical pif"
+      ~doccomments:[]
+      ~gen_constructor_destructor:false
+      ~gen_events:true
+      ~in_db:true
+      ~lifecycle
+      ~messages:[create; destroy; get_remaining_capacity]
+      ~messages_default_allowed_roles:_R_POOL_OP
+      ~persist:PersistEverything
+      ~in_oss_since:None
+      ~contents:
+        ([
+          uid _network_sriov;
+          field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle "physical_PIF" "The PIF that has SR-IOV enabled" ~default_value:(Some (VRef ""));
+          field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle "logical_PIF" "The logical PIF to connect to the SR-IOV network after enable SR-IOV on the physical PIF" ~default_value:(Some (VRef ""));
+          field ~qualifier:DynamicRO ~ty:Bool ~lifecycle "requires_reboot" "Indicates whether the host need to be rebooted before SR-IOV is enabled on the physical PIF" ~default_value:(Some (VBool false));
+          field ~qualifier:DynamicRO ~ty:sriov_configuration_mode ~lifecycle "configuration_mode" "The mode for configure network sriov" ~default_value:(Some (VEnum "unknown"));
+        ])
+      ()
+end
+
 (** PCI devices *)
 
 module PCI = struct
@@ -4258,6 +4324,7 @@ module PCI = struct
         field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "subsystem_device_id" "Subsystem device ID" ~default_value:(Some (VString "")) ~internal_only:true;
         field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_clearwater_whetstone, ""] "subsystem_device_name" "Subsystem device name" ~default_value:(Some (VString ""));
         field ~qualifier:DynamicRO ~ty:(Ref _vm) ~lifecycle:[Published, rel_falcon, ""] ~internal_only:true "scheduled_to_be_attached_to" "The VM to which this PCI device is scheduled to be attached (passed through)" ~default_value:(Some (VRef null_ref));
+        field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_kolkata, ""] "driver_name" "Driver name" ~default_value:(Some (VString ""));
       ]
       ()
 end
@@ -5255,6 +5322,7 @@ let all_system =
     Message.t;
     Secret.t;
     Tunnel.t;
+    Network_sriov.t;
     PCI.t;
     PGPU.t;
     GPU_group.t;
@@ -5366,6 +5434,8 @@ let all_relations =
     (_vusb, "VM"), (_vm, "VUSBs");
 
     (_feature, "host"), (_host, "features");
+    (_network_sriov, "physical_PIF"), (_pif, "sriov_physical_PIF_of");
+    (_network_sriov, "logical_PIF"), (_pif, "sriov_logical_PIF_of");
   ]
 
 (** the full api specified here *)
@@ -5457,6 +5527,7 @@ let expose_get_all_messages_for = [
   _pvs_cache_storage;
   _feature;
   _sdn_controller;
+  _network_sriov;
   (* _vdi_nbd_server_info must NOT be included here *)
   _pusb;
   _usb_group;

@@ -72,31 +72,51 @@ let test_create_network_already_connected () =
     ~args:[Ref.string_of host; Ref.string_of tagged_PIF]
     (fun () -> Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network:network)
 
-let test_create_pif_not_a_bond_slave () =
+let test_create_pif_is_bond_slave () =
   let __context = make_test_database () in
-  let dummy_bond = Ref.make () in
   let tag = 3201L in
   let host = make_host ~__context () in
-  let network = make_network ~__context () in
+  let tagged_PIF =
+    let members = mknlist 2 (create_physical_pif ~__context ~host) in
+    let _ = create_bond_pif ~__context ~host ~members () in
+    List.hd members
+  in
   let vlan_network = make_network ~__context ~bridge:"xapi0" () in
-  let tagged_PIF = make_pif ~__context ~network ~host ~bond_slave_of:dummy_bond () in
-  Db.PIF.set_bond_slave_of ~__context ~self:tagged_PIF ~value:dummy_bond;
   assert_raises_api_error
     Api_errors.cannot_add_vlan_to_bond_slave
     ~args:[Ref.string_of tagged_PIF]
     (fun () -> Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network:vlan_network)
 
-let test_create_pif_not_vlan_slave () =
+let test_create_pif_is_vlan_master () =
   let __context = make_test_database () in
-  let tag = 3201L in
   let host = make_host ~__context () in
-  let network = make_network ~__context () in
-  let vlan_network = make_network ~__context ~bridge:"xapi0" () in
-  let tagged_PIF = make_pif ~__context ~network ~host ~vLAN:0L () in
+  let vlan_network2 = make_network ~__context ~bridge:"xapi02" () in
+  let untagged_PIF =
+    let physical_PIF = create_physical_pif ~__context ~host () in
+    create_vlan_pif ~__context ~host ~vlan:1L ~pif:physical_PIF ()
+  in
   assert_raises_api_error
     Api_errors.pif_is_vlan
-    ~args:[Ref.string_of tagged_PIF]
-    (fun () -> Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network:vlan_network)
+    ~args:[Ref.string_of untagged_PIF]
+    (fun () ->
+       let tag = 3201L in
+       Xapi_vlan.create ~__context ~tagged_PIF:untagged_PIF ~tag ~network:vlan_network2)
+
+let test_create_pif_is_vlan_master_on_sriov () =
+  let __context = make_test_database () in
+  let host = make_host ~__context () in
+  let vlan_network2 = make_network ~__context ~bridge:"xapi02" () in
+  let untagged_PIF =
+    let physical_PIF = create_physical_pif ~__context ~host () in
+    let sriov_logical_PIF = create_sriov_pif ~__context ~pif:physical_PIF () in
+    create_vlan_pif ~__context ~host ~vlan:1L ~pif:sriov_logical_PIF ()
+  in
+  assert_raises_api_error
+    Api_errors.pif_is_vlan
+    ~args:[Ref.string_of untagged_PIF]
+    (fun () ->
+       let tag = 3201L in
+       Xapi_vlan.create ~__context ~tagged_PIF:untagged_PIF ~tag ~network:vlan_network2)
 
 let test_create_invalid_tag () =
   let __context = make_test_database () in
@@ -131,15 +151,15 @@ let test_create_vlan_already_exists () =
     ~args:[device]
     (fun () -> Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network:new_vlan_network)
 
-let test_create_pif_has_tunnel_access () =
+let test_create_pif_is_tunnel_access () =
   let __context = make_test_database () in
   let tag = 3201L in
   let host = make_host ~__context () in
-  let network = make_network ~__context () in
-  let tunnel_network = make_network ~__context ~bridge:"xapi0" () in
   let vlan_network = make_network ~__context ~bridge:"xapi1" () in
-  let transport_PIF = make_pif ~__context ~network ~host () in
-  let _, tagged_PIF = Xapi_tunnel.create_internal ~__context ~transport_PIF ~network:tunnel_network ~host in
+  let tagged_PIF =
+    let transport_PIF = create_physical_pif ~__context ~host () in
+    create_tunnel_pif ~__context ~host ~pif:transport_PIF ()
+  in
   assert_raises_api_error
     Api_errors.is_tunnel_access_pif
     ~args:[Ref.string_of tagged_PIF]
@@ -162,16 +182,85 @@ let test_gc_vlan () =
   Db_gc_util.gc_PIFs ~__context;
   Alcotest.(check bool) "not valid ref" false (Db.is_valid_ref __context vlan)
 
+let test_create_sriov_vlan_into_non_sriov_vlan_network () =
+  let __context = make_test_database () in
+  let vlan_network =
+    let host = make_host ~__context () in
+    let physical_PIF = create_physical_pif ~__context ~host () in
+    let vlan_pif = create_vlan_pif ~__context ~host ~vlan:1L ~pif:physical_PIF () in
+    Db.PIF.get_network ~__context ~self:vlan_pif
+  in
+  let tagged_PIF =
+    let host = make_host ~__context () in
+    let physical_PIF = create_physical_pif ~__context ~host () in
+    create_sriov_pif ~__context ~pif:physical_PIF ()
+  in
+  assert_raises_api_error
+    Api_errors.network_incompatible_with_vlan_on_sriov
+    ~args:[Ref.string_of vlan_network]
+    (fun () ->
+       let tag = 3201L in
+       Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network:vlan_network)
+
+let test_create_non_sriov_vlan_into_sriov_vlan_network () =
+  let __context = make_test_database () in
+  let vlan_network =
+    let host = make_host ~__context () in
+    let physical_PIF = create_physical_pif ~__context ~host () in
+    let sriov_logical_PIF = create_sriov_pif ~__context ~pif:physical_PIF () in
+    let vlan_pif = create_vlan_pif ~__context ~host ~vlan:1L ~pif:sriov_logical_PIF () in
+    Db.PIF.get_network ~__context ~self:vlan_pif
+  in
+  let tagged_PIF =
+    let host = make_host ~__context () in
+    create_physical_pif ~__context ~host ()
+  in
+  assert_raises_api_error
+    Api_errors.network_incompatible_with_vlan_on_bridge
+    ~args:[Ref.string_of vlan_network]
+    (fun () ->
+       let tag = 3201L in
+       Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network:vlan_network)
+
+let test_create_sriov_vlan_into_sriov_vlan_network_with_different_type_pci_device () =
+  let __context = make_test_database () in
+  let vlan_network =
+    let host = make_host ~__context () in
+    let physical_PIF = create_physical_pif ~__context ~host () in
+    let pci = make_pci ~__context ~vendor_id:"101" ~device_id:"2" () in
+    Db.PIF.set_PCI ~__context ~self:physical_PIF ~value:pci;
+    let sriov_logical_PIF = create_sriov_pif ~__context ~pif:physical_PIF () in
+    let vlan_pif = create_vlan_pif ~__context ~host ~vlan:1L ~pif:sriov_logical_PIF () in
+    Db.PIF.get_network ~__context ~self:vlan_pif
+  in
+  let tagged_PIF =
+    let host = make_host ~__context () in
+    let physical_PIF = create_physical_pif ~__context ~host () in
+    let pci = make_pci ~__context ~vendor_id:"101" ~device_id:"3" () in
+    Db.PIF.set_PCI ~__context ~self:physical_PIF ~value:pci;
+    create_sriov_pif ~__context ~pif:physical_PIF ()
+  in
+  assert_raises_api_error
+    Api_errors.network_has_incompatible_vlan_on_sriov_pifs
+    ~args:[Ref.string_of tagged_PIF; Ref.string_of vlan_network]
+    (fun () ->
+       let tag = 3201L in
+       Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network:vlan_network)
+
 let test =
   [
     "test_pool_introduce", `Quick, test_pool_introduce;
     "test_create_internal", `Quick, test_create_internal;
     "test_create_unmanaged_pif", `Quick, test_create_unmanaged_pif;
     "test_create_network_already_connected", `Quick, test_create_network_already_connected;
-    "test_create_pif_not_a_bond_slave", `Quick, test_create_pif_not_a_bond_slave;
-    "test_create_pif_not_vlan_slave", `Quick, test_create_pif_not_vlan_slave;
+    "test_create_pif_is_bond_slave", `Quick, test_create_pif_is_bond_slave;
+    "test_create_pif_is_vlan_master", `Quick, test_create_pif_is_vlan_master;
     "test_create_invalid_tag", `Quick, test_create_invalid_tag;
     "test_create_vlan_already_exists", `Quick, test_create_vlan_already_exists;
-    "test_create_pif_has_tunnel_access", `Quick, test_create_pif_has_tunnel_access;
-    "test_gc_vlan", `Quick, test_gc_vlan
+    "test_create_pif_is_tunnel_access", `Quick, test_create_pif_is_tunnel_access;
+    "test_create_pif_is_vlan_master_on_sriov", `Quick, test_create_pif_is_vlan_master_on_sriov;
+    "test_gc_vlan", `Quick, test_gc_vlan;
+    "test_create_sriov_vlan_into_non_sriov_vlan_network", `Quick, test_create_sriov_vlan_into_non_sriov_vlan_network;
+    "test_create_non_sriov_vlan_into_sriov_vlan_network", `Quick, test_create_non_sriov_vlan_into_sriov_vlan_network;
+    "test_create_sriov_vlan_into_sriov_vlan_network_with_different_type_pci_device", `Quick, test_create_sriov_vlan_into_sriov_vlan_network_with_different_type_pci_device;
   ]

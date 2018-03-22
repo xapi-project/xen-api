@@ -105,7 +105,16 @@ _xe()
                     pvs-cache-storage-*)
                         # Chop off at the third '-' and append 'list'
                         cmd="$(echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1-3)-list";;
-                    host-cpu-*|host-crashdump-*|gpu-group-*|vgpu-type-*|pvs-server-*|pvs-proxy-*|pvs-site-*|sdn-controller-*|cluster-host-*)
+                    host-cpu-*|\
+                    host-crashdump-*|\
+                    gpu-group-*|\
+                    vgpu-type-*|\
+                    pvs-server-*|\
+                    pvs-proxy-*|\
+                    pvs-site-*|\
+                    sdn-controller-*|\
+                    network-sriov-*|\
+                    cluster-host-*)
                         # Chop off at the second '-' and append 'list'
                         cmd="$(echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1-2)-list";;
                     *)

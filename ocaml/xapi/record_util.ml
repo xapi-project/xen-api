@@ -527,6 +527,11 @@ let vusb_operation_to_string = function
   | `plug -> "plug"
   | `unplug -> "unplug"
 
+let network_sriov_configuration_mode_to_string = function
+  | `sysfs -> "sysfs"
+  | `modprobe -> "modprobe"
+  | `unknown -> "unknown"
+
 (* string_to_string_map_to_string *)
 let s2sm_to_string sep x =
   String.concat sep (List.map (fun (a,b) -> a^": "^b) x)

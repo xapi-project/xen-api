@@ -261,6 +261,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
   Xapi_network.assert_network_is_managed ~__context ~self:network;
   let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
   Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
+  Xapi_network_helpers.assert_network_compatible_with_bond ~__context ~network;
 
   (* Validate MAC parameter; note an empty string is OK here, since that means 'inherit MAC from
      	 * primary slave PIF' (see below) *)
@@ -334,19 +335,11 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
       (* 7. Members must have the same PIF properties *)
       (* 8. Only the primary PIF should have a non-None IP configuration *)
       List.iter (fun self ->
-          let bond = Db.PIF.get_bond_slave_of ~__context ~self in
-          let bonded = try ignore(Db.Bond.get_uuid ~__context ~self:bond); true with _ -> false in
-          if bonded
-          then raise (Api_errors.Server_error (Api_errors.pif_already_bonded, [ Ref.string_of self ]));
-          if Db.PIF.get_VLAN ~__context ~self <> -1L
-          then raise (Api_errors.Server_error (Api_errors.pif_vlan_exists, [ Db.PIF.get_device_name ~__context ~self] ));
-          if Db.PIF.get_tunnel_access_PIF_of ~__context ~self <> []
-          then raise (Api_errors.Server_error (Api_errors.is_tunnel_access_pif, [Ref.string_of self]));
+          Xapi_pif_helpers.assert_pif_is_managed ~__context ~self;
+          Xapi_pif_helpers.bond_is_allowed_on_pif ~__context ~self;
           let pool = Helpers.get_pool ~__context in
           if Db.Pool.get_ha_enabled ~__context ~self:pool && Db.PIF.get_management ~__context ~self
           then raise (Api_errors.Server_error(Api_errors.ha_cannot_change_bond_status_of_mgmt_iface, []));
-          if Db.PIF.get_managed ~__context ~self <> true
-          then raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of self]));
         ) members;
       let hosts = List.map (fun self -> Db.PIF.get_host ~__context ~self) members in
       if List.length (List.setify hosts) <> 1
@@ -376,7 +369,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
         ~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
         ~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false
         ~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true
-        ~properties:pif_properties ~capabilities:[];
+        ~properties:pif_properties ~capabilities:[] ~pCI:Ref.null;
       Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~master:master ~other_config:[]
         ~primary_slave ~mode ~properties ~links_up:0L;
 

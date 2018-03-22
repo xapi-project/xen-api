@@ -60,6 +60,7 @@ type feature =
   | Pool_size
   | CBT
   | USB_passthrough
+  | Network_sriov
   | Corosync
 [@@deriving rpc]
 
@@ -110,6 +111,7 @@ let keys_of_features =
     Pool_size, ("restrict_pool_size", Negative, "Pool_size");
     CBT, ("restrict_cbt", Negative, "CBT");
     USB_passthrough, ("restrict_usb_passthrough", Negative, "USB_passthrough");
+    Network_sriov, ("restrict_network_sriov", Negative, "Network_sriov");
     Corosync, ("restrict_corosync", Negative, "Corosync");
   ]
 

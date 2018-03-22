@@ -41,20 +41,20 @@ let create_internal ~__context ~transport_PIF ~network ~host =
     ~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics
     ~physical:false ~currently_attached:false ~igmp_snooping_status:`unknown
     ~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
-    ~vLAN_master_of:Ref.null ~management:false ~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
-    ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true ~properties:[] ~capabilities:[];
+    ~vLAN_master_of:Ref.null
+    ~management:false ~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
+    ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true ~properties:[] ~capabilities:[] ~pCI:Ref.null;
   Db.Tunnel.create ~__context ~ref:tunnel ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
     ~access_PIF ~transport_PIF ~status:["active", "false"] ~other_config:[];
   tunnel, access_PIF
 
 let create ~__context ~transport_PIF ~network =
   Xapi_network.assert_network_is_managed ~__context ~self:network;
-  if Db.PIF.get_managed ~__context ~self:transport_PIF <> true then
-    raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of transport_PIF]));
-  if Db.PIF.get_bond_slave_of ~__context ~self:transport_PIF <> Ref.null then
-    raise (Api_errors.Server_error (Api_errors.cannot_add_tunnel_to_bond_slave, [Ref.string_of transport_PIF]));
   let host = Db.PIF.get_host ~__context ~self:transport_PIF in
   Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network;
+  Xapi_pif_helpers.assert_pif_is_managed ~__context ~self:transport_PIF;
+  Xapi_pif_helpers.tunnel_is_allowed_on_pif ~__context ~transport_PIF;
+  Xapi_network_helpers.assert_network_compatible_with_tunnel ~__context ~network;
   let hosts = Db.Host.get_all ~__context in
   List.iter
     (fun h ->
@@ -62,8 +62,6 @@ let create ~__context ~transport_PIF ~network =
        if not (List.mem_assoc "network_backend" v && List.assoc "network_backend" v = "openvswitch") then
          raise (Api_errors.Server_error (Api_errors.openvswitch_not_active, []));
     ) hosts;
-  if Db.PIF.get_tunnel_access_PIF_of ~__context ~self:transport_PIF <> [] then
-    raise (Api_errors.Server_error (Api_errors.is_tunnel_access_pif, [Ref.string_of transport_PIF]));
   let tunnel, access_PIF = create_internal ~__context ~transport_PIF ~network ~host in
   Xapi_pif.plug ~__context ~self:access_PIF;
   tunnel

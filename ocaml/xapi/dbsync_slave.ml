@@ -302,6 +302,10 @@ let update_env __context sync_keys =
   update_physical_networks ~__context;
 *)
 
+  switched_sync Xapi_globs.sync_pci_devices (fun () ->
+      Xapi_pci.update_pcis ~__context;
+    );
+
   switched_sync Xapi_globs.sync_pif_params (fun () ->
       debug "resynchronising PIF params";
       resynchronise_pif_params ~__context;
@@ -338,10 +342,6 @@ let update_env __context sync_keys =
 
   switched_sync Xapi_globs.sync_chipset_info (fun () ->
       Create_misc.create_chipset_info ~__context;
-    );
-
-  switched_sync Xapi_globs.sync_pci_devices (fun () ->
-      Xapi_pci.update_pcis ~__context;
     );
 
   switched_sync Xapi_globs.sync_gpus (fun () ->

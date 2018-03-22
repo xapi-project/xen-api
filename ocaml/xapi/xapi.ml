@@ -909,7 +909,7 @@ let server_init() =
           "creating networks", [ Startup.OnlyMaster ], Create_networks.create_networks_localhost;
           (* CA-22417: bring up all non-bond slaves so that the SM backends can use storage NIC IP addresses (if the routing
              	 table happens to be right) *)
-          "Best-effort bring up of physical NICs", [ Startup.NoExnRaising ], Xapi_pif.start_of_day_best_effort_bring_up;
+          "Best-effort bring up of physical and sriov NICs", [ Startup.NoExnRaising ], Xapi_pif.start_of_day_best_effort_bring_up;
           "Create any necessary cluster_host objects", [ Startup.NoExnRaising ], (fun () -> Xapi_cluster_host.create_as_necessary __context (Helpers.get_localhost ~__context));
           "updating the vswitch controller", [], (fun () -> Helpers.update_vswitch_controller ~__context ~host:(Helpers.get_localhost ~__context));
           "initialising storage", [ Startup.NoExnRaising ],
@@ -920,6 +920,7 @@ let server_init() =
           "watching networks for NBD-related changes", [Startup.OnThread], Network_event_loop.watch_networks_for_nbd_changes;
           (* CA-175353: moving VIFs between networks requires VMs to be resynced *)
           "Synchronising bonds on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_bonds_from_master ~__context;
+          "Synchronising network sriovs on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_network_sriovs_from_master ~__context;
           "Synchronising VLANs on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_vlans_from_master ~__context;
           "Synchronising tunnels on slave with master", [Startup.OnlySlave; Startup.NoExnRaising], Sync_networking.copy_tunnels_from_master ~__context;
 

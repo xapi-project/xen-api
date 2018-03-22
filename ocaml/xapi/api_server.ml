@@ -95,6 +95,7 @@ module Actions = struct
   module PUSB = Xapi_pusb
   module USB_group = Xapi_usb_group
   module VUSB = Xapi_vusb
+  module Network_sriov = Xapi_network_sriov
   module Cluster = Xapi_cluster
   module Cluster_host = Xapi_cluster_host
 end

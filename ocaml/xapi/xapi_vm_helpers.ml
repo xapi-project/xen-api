@@ -409,6 +409,26 @@ let assert_usbs_available ~__context ~self ~host =
       ]))
     )
 
+(* Get SR-IOV Vifs by return a list of [(network1,(required_num1,PCI1));(network2,(required_num2,PCI2))....] 
+   Raise exn immediately when found Idle VF nums < required_num *)
+let assert_netsriov_available ~__context ~self ~host =
+  let sriov_networks = List.fold_left (fun acc vif ->
+      let network = Db.VIF.get_network ~__context ~self:vif in
+      try
+        let required, pif = List.assoc network acc in
+        (network,(required + 1,pif)) :: (List.remove_assoc network acc)
+      with Not_found ->
+        match Xapi_network_sriov_helpers.get_local_underlying_pif ~__context ~network ~host with
+        | Some pif -> (network,(1,pif)) :: acc
+        | None -> acc
+    ) [] (Db.VM.get_VIFs ~__context ~self)
+  in
+  List.iter (fun (network, (required,pif)) ->
+      let pci = Db.PIF.get_PCI ~__context ~self:pif in
+      if (Xapi_pci.get_idle_vf_nums ~__context ~self:pci) < (Int64.of_int required) then
+        raise (Api_errors.Server_error(Api_errors.network_sriov_insufficient_capacity, [Ref.string_of network]))
+    ) sriov_networks
+
 let assert_host_supports_hvm ~__context ~self ~host =
   (* For now we say that a host supports HVM if any of    *)
   (* the capability strings contains the substring "hvm". *)
@@ -489,6 +509,7 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(
     assert_host_has_iommu ~__context ~host;
   assert_gpus_available ~__context ~self ~host;
   assert_usbs_available ~__context ~self ~host;
+  assert_netsriov_available ~__context ~self ~host;
   begin match Helpers.domain_type ~__context ~self with
   | `hvm | `pv_in_pvh ->
     assert_host_supports_hvm ~__context ~self ~host
@@ -648,42 +669,77 @@ let group_hosts_by_best_pgpu_in_group ~__context gpu_group vgpu_type =
        snd (List.hd (List.hd (group_by_capacity viable_resident_pgpus)))
     ) viable_hosts
 
-(** Selects a single host from the set of all hosts on which the given [vm]
-    can boot. Raises [Api_errors.no_hosts_available] if no such host exists. *)
-let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
+let vm_has_vgpu ~__context ~vm  =
+  match Db.VM.get_VGPUs ~__context ~self:vm with
+  | [] -> None
+  | vgpu :: _ -> Some (`VGPU vgpu)
+
+let vm_has_sriov ~__context ~vm =
+  match Xapi_network_sriov_helpers.get_sriov_networks_from_vm ~__context ~vm with
+  | [] -> None
+  | network :: _ -> Some (`Netsriov network)
+
+let (>>=) opt f =
+  match opt with
+  | Some _ as v -> v
+  | None -> f
+
+let get_group_key ~__context ~vm =
+  match None
+    >>= (vm_has_vgpu __context vm)
+    >>= (vm_has_sriov __context vm) with
+  | Some x -> x
+  | None -> `Other
+
+let group_hosts_by_best_pgpu ~__context vgpu =
+  let vgpu_type = Db.VGPU.get_type ~__context ~self:vgpu in
+  let gpu_group = Db.VGPU.get_GPU_group ~__context ~self:vgpu in
+  match
+    Xapi_gpu_group.get_remaining_capacity_internal ~__context
+      ~self:gpu_group ~vgpu_type
+  with
+  | Either.Left e -> raise e
+  | Either.Right _ -> ();
+    group_hosts_by_best_pgpu_in_group ~__context gpu_group vgpu_type
+    |> List.map (fun g -> List.map (fun (h,_)-> h) g)
+
+(* Selects a single host from the set of all hosts on which the given [vm] can boot. 
+   Raises [Api_errors.no_hosts_available] if no such host exists.
+   1.Take Vgpu or Network SR-IOV as a group_key for group all hosts into host list list
+   2.helper function's order determine the priority of resources,now vgpu has higher priority than Network SR-IOV
+   3.If no key found in VM,then host_lists will be [all_hosts] *)
+let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot = 
   let validate_host = vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check:true in
   let all_hosts = Db.Host.get_all ~__context in
+  let group_key = get_group_key ~__context ~vm in
+  let host_lists =
+    match group_key with
+    | `Other -> [all_hosts]
+    | `VGPU vgpu -> group_hosts_by_best_pgpu ~__context vgpu
+    | `Netsriov network ->
+      let host_group = Xapi_network_sriov_helpers.group_hosts_by_best_sriov ~__context ~network
+        |> List.map (fun g -> List.map (fun (h,_)-> h) g)
+      in
+      if host_group <> [] then host_group
+      else raise (Api_errors.Server_error(Api_errors.network_sriov_insufficient_capacity, [Ref.string_of network]))
+  in
+  let rec select_host_from = function
+    | [] -> raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
+    | (hosts :: less_optimal_groups_of_hosts) ->
+      debug "Attempting to start VM (%s) on one of equally optimal hosts [ %s ]"
+        (Ref.string_of vm) (String.concat ";" (List.map Ref.string_of hosts));
+      try Xapi_vm_placement.select_host __context vm validate_host hosts
+      with _ ->
+        info "Failed to start VM (%s) on any of [ %s ]"
+          (Ref.string_of vm) (String.concat ";" (List.map Ref.string_of hosts));
+        select_host_from less_optimal_groups_of_hosts
+  in
   try
-    match Db.VM.get_VGPUs ~__context ~self:vm with
-    | [] -> Xapi_vm_placement.select_host __context vm validate_host all_hosts
-    | vgpu :: _ -> (* just considering first vgpu *)
-      let vgpu_type = Db.VGPU.get_type ~__context ~self:vgpu in
-      let gpu_group = Db.VGPU.get_GPU_group ~__context ~self:vgpu in
-      match
-        Xapi_gpu_group.get_remaining_capacity_internal ~__context
-          ~self:gpu_group ~vgpu_type
-      with
-      | Either.Left e -> raise e
-      | Either.Right _ -> ();
-        let host_lists =
-          group_hosts_by_best_pgpu_in_group ~__context gpu_group vgpu_type in
-        let rec select_host_from = function
-          | [] -> raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
-          | (hosts :: less_optimal_groups_of_hosts) ->
-            let hosts = List.map (fun (h, c) -> h) hosts in
-            debug "Attempting to start VM (%s) on one of equally optimal hosts [ %s ]"
-              (Ref.string_of vm) (String.concat ";" (List.map Ref.string_of hosts));
-            try Xapi_vm_placement.select_host __context vm validate_host hosts
-            with _ ->
-              info "Failed to start VM (%s) on any of [ %s ]"
-                (Ref.string_of vm) (String.concat ";" (List.map Ref.string_of hosts));
-              select_host_from less_optimal_groups_of_hosts
-        in
-        select_host_from host_lists
+    select_host_from host_lists
   with Api_errors.Server_error(x,[]) when x=Api_errors.no_hosts_available ->
     debug "No hosts guaranteed to satisfy VM constraints. Trying again ignoring memory checks";
     let validate_host = vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check:false in
-    Xapi_vm_placement.select_host __context vm validate_host all_hosts
+    List.flatten host_lists |> Xapi_vm_placement.select_host __context vm validate_host
 
 (* choose_host_for_vm will use WLB as long as it is enabled and there *)
 (* is no pool.other_config["wlb_choose_host_disable"] = "true".       *)
