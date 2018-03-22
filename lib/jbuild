@@ -8,6 +8,7 @@
               rpclib
               systemd
               threads
+              re.perl
               xapi-stdext-unix
               xcp-inventory
               xcp.network))

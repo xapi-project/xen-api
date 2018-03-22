@@ -14,7 +14,11 @@
 
 open Network_utils
 open Network_interface
+open Xapi_stdext_std
+open Xapi_stdext_unix
+open Xapi_stdext_monadic
 
+module S = Network_interface.Interface_API(Idl.GenServerExn ())
 module D = Debug.Make(struct let name = "network_server" end)
 open D
 
@@ -118,6 +122,95 @@ let need_enic_workaround () =
 		| Some vs -> (is_older_version vs !enic_workaround_until_version ())
 		| None -> false )
 
+module Sriov = struct
+	open S.Sriov
+
+let get_capabilities dev =
+	let open Rresult.R.Infix in
+    let maxvfs_modprobe = 
+        Sysfs.get_driver_name_err dev >>= fun driver ->
+        Modprobe.get_config_from_comments driver
+        |> Modprobe.get_maxvfs driver
+    and maxvfs_sysfs = Sysfs.get_sriov_maxvfs dev in
+    let is_support = 
+        match maxvfs_modprobe, maxvfs_sysfs with
+        | Ok v, _ -> v > 0
+        | Error _ , Ok v -> v > 0
+        | _ -> false
+    in
+    if is_support then ["sriov"] else []
+
+	let config_sriov ~enable dev  =
+		let open Rresult.R.Infix in
+		Sysfs.get_driver_name_err dev >>= fun driver ->
+		let config = Modprobe.get_config_from_comments driver in
+		match Modprobe.get_vf_param config with
+		| Some vf_param ->
+			debug "enable SR-IOV on a device: %s via modprobe" dev;
+			(if enable then Modprobe.get_maxvfs driver config else Ok 0) >>= fun numvfs ->
+			if numvfs = Sysfs.get_sriov_numvfs dev then Ok Modprobe_successful
+			else begin
+				Modprobe.config_sriov driver vf_param numvfs >>= fun _ ->
+				Ok Modprobe_successful_requires_reboot
+			end
+		| None ->
+			debug "enable SR-IOV on a device: %s via sysfs" dev;
+			begin
+				if enable then Sysfs.get_sriov_maxvfs dev
+				else Sysfs.unbind_child_vfs dev >>= fun () -> Ok 0
+			end >>= fun numvfs ->
+			Sysfs.set_sriov_numvfs dev numvfs >>= fun _ ->
+			Ok Sysfs_successful
+
+	let enable dbg name =
+		Debug.with_thread_associated dbg (fun () ->
+			debug "Enable network SR-IOV by name: %s" name;
+			match config_sriov ~enable:true name with
+			| Ok t -> (Ok t:enable_result)
+			| Result.Error (_, msg) -> warn "Failed to enable SR-IOV on %s with error: %s" name msg; Error msg
+		) ()
+
+	let disable dbg name =
+		Debug.with_thread_associated dbg (fun () ->	
+			debug "Disable network SR-IOV by name: %s" name;
+			match config_sriov ~enable:false name with
+			| Ok _ -> (Ok:disable_result)
+			| Result.Error (_, msg) -> warn "Failed to disable SR-IOV on %s with error: %s" name msg; Error msg
+		) ()
+
+	let make_vf_conf_internal pcibuspath mac vlan rate =
+		let config_or_otherwise_reset config_f reset_f = function
+			| None -> reset_f ()
+			| Some a -> config_f a
+		in
+		let open Rresult.R.Infix in
+		Sysfs.parent_device_of_vf pcibuspath >>= fun dev ->
+		Sysfs.device_index_of_vf dev pcibuspath >>= fun index ->
+		config_or_otherwise_reset (Ip.set_vf_mac dev index)
+			(fun () -> Result.Ok ()) mac >>= fun () ->
+		(* In order to ensure the Networkd to be idempotent, configuring VF with no VLAN and rate
+		have to reset vlan and rate, since the VF might have previous configuration. Refering to
+		http://gittup.org/cgi-bin/man/man2html?ip-link+8, set VLAN and rate to 0 means to reset them *)
+		config_or_otherwise_reset (Ip.set_vf_vlan dev index)
+			(fun () -> Ip.set_vf_vlan dev index 0) vlan >>= fun () ->
+		config_or_otherwise_reset (Ip.set_vf_rate dev index)
+			(fun () -> Ip.set_vf_rate dev index 0) rate
+
+	let make_vf_config dbg pci_address (vf_info : sriov_pci_t) =
+		Debug.with_thread_associated dbg (fun () ->	
+			let vlan = Opt.map Int64.to_int vf_info.vlan
+			and rate = Opt.map Int64.to_int vf_info.rate
+			and pcibuspath = Xcp_pci.string_of_address pci_address in
+			debug "Config VF with pci address: %s" pcibuspath;
+			match make_vf_conf_internal pcibuspath vf_info.mac vlan rate with
+			| Result.Ok () -> (Ok:config_result)
+			| Result.Error (Fail_to_set_vf_rate, msg) -> 
+				debug "%s" msg;
+				Error Config_vf_rate_not_supported
+			| Result.Error (_, msg) -> debug "%s" msg; Error (Unknown msg)
+		) ()
+end
+
 module Interface = struct
 	let get_config name =
 		get_config !config.interface_config default_interface name
@@ -140,6 +233,10 @@ module Interface = struct
 			match Linux_bonding.get_bond_master_of name with
 			| Some master -> Proc.get_bond_slave_mac master name
 			| None -> Ip.get_mac name
+		) ()
+	let get_pci_bus_path dbg name =
+		Debug.with_thread_associated dbg (fun () ->
+			Sysfs.get_pcibuspath name
 		) ()
 
 	let is_up dbg name =
@@ -368,7 +465,7 @@ module Interface = struct
 
 	let get_capabilities dbg name =
 		Debug.with_thread_associated dbg (fun () ->
-			Fcoe.get_capabilities name
+			Fcoe.get_capabilities name @ Sriov.get_capabilities name
 		) ()
 
 	let is_connected dbg name =
@@ -1005,8 +1102,6 @@ module Bridge = struct
 			) config
 		) ()
 end
-
-module S = Network_interface.Interface_API(Idl.GenServerExn ())
 
 module PVS_proxy = struct
     open S.PVS_proxy

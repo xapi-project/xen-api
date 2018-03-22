@@ -13,7 +13,8 @@
  *)
 
 open Xapi_stdext_pervasives
-
+open Xapi_stdext_unix
+open Xapi_stdext_std
 open Network_interface
 
 module D = Debug.Make(struct let name = "network_utils" end)
@@ -25,6 +26,23 @@ exception Write_error of string
 exception Not_implemented
 exception Vlan_in_use of (string * int)
 exception PVS_proxy_connection_error
+
+type util_error =
+| Bus_out_of_range
+| Not_enough_mmio_resources
+| Fail_to_set_vf_rate
+| Fail_to_set_vf_vlan
+| Fail_to_set_vf_mac
+| Parent_device_of_vf_not_found
+| Vf_index_not_found
+| Fail_to_rebuild_initrd
+| Fail_to_write_modprobe_cfg
+| Fail_to_get_driver_name
+| Fail_to_get_maxvfs
+| No_sriov_capability
+| Vf_sysfs_path_not_found
+| Fail_to_unbind_from_driver
+| Other
 
 let iproute2 = "/sbin/ip"
 let resolv_conf = "/etc/resolv.conf"
@@ -38,6 +56,10 @@ let brctl = ref "/sbin/brctl"
 let modprobe = "/sbin/modprobe"
 let ethtool = ref "/sbin/ethtool"
 let bonding_dir = "/proc/net/bonding/"
+let uname = ref "/usr/bin/uname"
+let dracut = ref "/sbin/dracut"
+let modinfo = ref "/sbin/modinfo"
+let dracut_timeout = ref 120.0
 let fcoedriver = ref "/opt/xensource/libexec/fcoe_driver"
 let inject_igmp_query_script = ref "/usr/libexec/xenopsd/igmp_query_injector.py"
 let mac_table_size = ref 10000
@@ -171,6 +193,11 @@ module Sysfs = struct
 			debug "%s: could not read netdev's driver name" dev;
 			None
 
+	let get_driver_name_err dev =
+		match get_driver_name dev with
+		| Some a -> Result.Ok a
+		| None -> Result.Error (Fail_to_get_driver_name, "Failed to get driver name for: "^ dev)
+
 	(** Returns the features bitmap for the driver for [dev].
 	 *  The features bitmap is a set of NETIF_F_ flags supported by its driver. *)
 	let get_features dev =
@@ -215,6 +242,104 @@ module Sysfs = struct
 		|> (fun p -> try read_one_line p |> duplex_of_string with _ -> Duplex_unknown)
 		in (speed, duplex)
 
+	let get_dev_nums_with_same_driver driver = 
+		try
+			Sys.readdir ("/sys/bus/pci/drivers/" ^ driver)
+			|> Array.to_list
+			|> List.filter (Re.execp (Re_perl.compile_pat "\d+:\d+:\d+\.\d+"))
+			|> List.length
+		with _ -> 0
+
+	let parent_device_of_vf pcibuspath =
+		try
+			let pf_net_path = Printf.sprintf "/sys/bus/pci/devices/%s/physfn/net" pcibuspath in
+			let devices = Sys.readdir pf_net_path in
+			Result.Ok devices.(0)
+		with _ -> Result.Error (Parent_device_of_vf_not_found, "Can not get parent device for " ^ pcibuspath)
+
+	let get_child_vfs_sysfs_paths dev = 
+		try
+			let device_path = getpath dev "device" in
+			Result. Ok (
+				Sys.readdir device_path
+				|> Array.to_list
+				|> List.filter (Re.execp (Re_perl.compile_pat "virtfn(\d+)")) (* List elements are like "virtfn1" *)
+				|> List.map (Filename.concat device_path)
+			)
+		with _ -> Result.Error (Vf_sysfs_path_not_found, "Can not get child vfs sysfs paths for " ^ dev)
+
+	let device_index_of_vf parent_dev pcibuspath =
+		try
+			let open Rresult.R.Infix in
+			get_child_vfs_sysfs_paths parent_dev >>= fun paths ->
+			let group = 
+				List.find (fun x -> Astring.String.is_infix ~affix:pcibuspath (Unix.readlink x)) paths
+				|> Re.exec_opt (Re_perl.compile_pat "virtfn(\d+)")
+			in
+			match group with
+			| None -> Result.Error (Vf_index_not_found, "Can not get device index for " ^ pcibuspath)
+			| Some x -> Ok (int_of_string (Re.Group.get x 1))
+		with _ -> Result.Error (Vf_index_not_found, "Can not get device index for " ^ pcibuspath)
+
+	let unbind_child_vfs dev =
+		let open Rresult.R.Infix in
+		let unbind vf_path =
+			let driver_name = 
+				try
+					Unix.readlink (Filename.concat vf_path "driver")
+					|> Filename.basename
+				with _ -> "" 
+			and vf_pcibuspath =
+				Unix.readlink vf_path
+				|> Filename.basename
+			in
+			if driver_name = "" then Result.Ok ()  (* not bind to any driver, Ok *)
+			else begin
+				debug "unbinding %s from driver %s at %s" vf_path driver_name vf_pcibuspath; 
+				let unbind_interface = Filename.concat vf_path "driver/unbind"
+				and remove_slot_interface = Filename.concat vf_path "driver/remove_slot" in
+				begin try
+						write_one_line remove_slot_interface vf_pcibuspath
+					with _ -> ()
+				end;
+				try 
+					write_one_line unbind_interface vf_pcibuspath; Result.Ok ()
+				with _ -> Result.Error (Fail_to_unbind_from_driver, Printf.sprintf "%s: VF Fail to be unbound from driver %s" vf_path driver_name)
+			end
+		in
+		get_child_vfs_sysfs_paths dev >>= fun paths ->
+		List.fold_left (>>=) (Ok ()) (List.map (fun x -> fun _ -> unbind x) paths)
+
+	let get_sriov_numvfs dev =
+		try
+			getpath dev "device/sriov_numvfs"
+			|> read_one_line  
+			|> String.trim
+			|> int_of_string
+		with _ -> 0
+
+	let get_sriov_maxvfs dev =
+		try
+			Ok (getpath dev "device/sriov_totalvfs"
+			|> read_one_line  
+			|> String.trim
+			|> int_of_string)
+		with _ -> Error (Fail_to_get_maxvfs, "Failed to get maxvfs from sysfs interface for device: " ^ dev)
+
+	let set_sriov_numvfs dev num_vfs =
+		let interface = getpath dev "device/sriov_numvfs" in
+		try
+			write_one_line interface (string_of_int num_vfs);
+			if get_sriov_numvfs dev = num_vfs then Result.Ok  ()
+			else Result.Error (Other, "Error: set SR-IOV error on " ^ dev)
+		with
+		| Sys_error s when Astring.String.is_infix ~affix:"out of range of" s ->
+			Result.Error (Bus_out_of_range, "Error: bus out of range when setting SR-IOV numvfs on " ^ dev)
+		| Sys_error s when Astring.String.is_infix ~affix:"not enough MMIO resources" s ->
+			Result.Error (Not_enough_mmio_resources, "Error: not enough mmio resources when setting SR-IOV numvfs on " ^ dev)
+		| e ->
+			let msg = Printf.sprintf "Error: set SR-IOV numvfs error with exception %s on %s" (Printexc.to_string e) dev in
+			Result.Error (Other, msg)
 end
 
 module Ip = struct
@@ -403,6 +528,25 @@ info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
 	let destroy_vlan name =
 		if List.mem name (Sysfs.list ()) then
 			ignore (call ~log:true ["link"; "delete"; name])
+
+	let set_vf_mac dev index mac =
+		try
+			debug "Setting VF MAC address for dev: %s, index: %d, MAC: %s" dev index mac;
+			Result.Ok (link_set dev ["vf"; string_of_int index; "mac"; mac])
+		with _ -> Result.Error (Fail_to_set_vf_mac, "Failed to set VF MAC for: " ^ dev)
+
+	let set_vf_vlan dev index vlan =
+		try
+			debug "Setting VF VLAN for dev: %s, index: %d, VLAN: %d" dev index vlan;
+			Result.Ok (link_set dev ["vf"; string_of_int index; "vlan"; string_of_int vlan])
+		with _ -> Result.Error (Fail_to_set_vf_vlan, "Failed to set VF VLAN for: " ^ dev)
+
+	(* We know some NICs do not support config VF Rate, so will explicitly tell XAPI this error*)
+	let set_vf_rate dev index rate =
+		try
+			debug "Setting VF rate for dev: %s, index: %d, rate: %d" dev index rate;
+			Result.Ok (link_set dev ["vf"; string_of_int index; "rate"; string_of_int rate])
+		with _ -> Result.Error (Fail_to_set_vf_rate, "Failed to set VF rate for: " ^ dev)
 end
 
 module Linux_bonding = struct
@@ -1169,4 +1313,161 @@ module Ethtool = struct
 	let set_offload name options =
 		if options <> [] then
 			ignore (call ~log:true ("-K" :: name :: (List.concat (List.map (fun (k, v) -> [k; v]) options))))
+end
+
+module Dracut = struct
+	let call ?(log=false) args =
+		call_script ~timeout:(Some !dracut_timeout) ~log_successful_output:log !dracut args
+
+	let rebuild_initrd () =
+		try
+			info "Building initrd...";
+			let img_name = call_script !uname ["-r"] |> String.trim in
+			call ["-f"; Printf.sprintf "/boot/initrd-%s.img" img_name; img_name];
+			Result.Ok ()
+		with _ -> Result.Error (Fail_to_rebuild_initrd, "Error occurs in building initrd")
+end
+
+module Modinfo = struct
+	let call ?(log=false) args =
+		call_script ~log_successful_output:log !modinfo args
+
+	let is_param_array driver param_name =
+		try
+			let out = call ["--parameter"; driver]
+				|> String.trim |> String.split_on_char '\n'
+			in
+			let re = Re_perl.compile_pat "\((.*)\)$" in
+			let has_array_of str =
+				match Re.exec_opt re str with
+				| None -> false
+				| Some x -> Re.Group.get x 1 |> Astring.String.is_infix ~affix:"array of"
+			in
+			Ok (List.exists (fun line ->
+					match Astring.String.cut ~sep:":" line with
+					| None -> false
+					| Some (param, description)  -> String.trim param = param_name && has_array_of description
+				) out
+			)
+		with _ -> Error (Other, Printf.sprintf "Failed to determine if VF param of driver '%s' is an array" driver)
+end
+
+module Modprobe = struct
+	let getpath driver =
+		Printf.sprintf "/etc/modprobe.d/%s.conf" driver
+
+	let write_conf_file driver content =
+		try
+			Unixext.write_string_to_file (getpath driver) (String.concat "\n" content);
+			Result.Ok ()
+		with _ -> Result.Error (Fail_to_write_modprobe_cfg, "Failed to write modprobe configuration file for: " ^ driver)
+
+	(*
+	For a igb driver, the module config file will be at path `/etc/modprobe.d/igb.conf`
+	The module config file is like:
+	# VFs-param: max_vfs
+	# VFs-maxvfs-by-default: 7
+	# VFs-maxvfs-by-user:
+	options igb max_vfs=7,7
+
+	Example of calls:
+	"igb" -> "VFs-param" -> Some "max_vfs"
+	"igb" -> "VFs-maxvfs-by-default" -> Some "7"
+	"igb" -> "VFs-maxvfs-by-user" -> None
+	"igb" -> "Not existed comments" -> None
+	*)
+	let get_config_from_comments driver =
+		try
+			let open Xapi_stdext_std.Listext in
+			Unixext.read_lines (getpath driver)
+			|> List.filter_map (fun x ->
+					let line = String.trim x in
+					if not (Astring.String.is_prefix ~affix:("# ") line)
+					then None
+					else
+						match Astring.String.cut ~sep:":" (Astring.String.with_range ~first:2 line) with
+						| None  -> None
+						| Some (k, v) when String.trim k = "" || String.trim v = "" -> None
+						| Some (k, v) -> Some (String.trim k, String.trim v)
+				)
+		with _ -> []
+
+	(* this function not returning None means that the driver doesn't suppport sysfs.
+	If a driver doesn't support sysfs, then we add VF_param into its driver modprobe
+	configuration. Therefore, from XAPI's perspective, if Modprobe.get_vf_param is
+	not None, the driver definitely should use modprobe other than sysfs,
+	and if Modprobe.get_vf_param is None, we just simple try sysfs. *)
+	let get_vf_param config =
+		try
+			Some (List.assoc "VFs-param" config)
+		with _ -> None
+
+	let get_maxvfs driver config =
+		let get_default_maxvfs config = 
+			try
+				Some (List.assoc "VFs-maxvfs-by-default" config |> int_of_string)
+			with _ -> None
+		in
+		let get_user_defined_maxvfs config = 
+			try
+				Some (List.assoc "VFs-maxvfs-by-user" config |> int_of_string)
+			with _ -> None
+		in
+		match get_default_maxvfs config, get_user_defined_maxvfs config with
+		| Some a, None -> Result.Ok a
+		| Some a, Some b -> Result.Ok (min a b) (* If users also define a maxvfs, we will use the smaller one *)
+		| _ -> Result.Error (Fail_to_get_maxvfs, "Fail to get maxvfs for "^ driver)
+
+	let config_sriov driver vf_param maxvfs =
+		let open Rresult.R.Infix in
+		Modinfo.is_param_array driver vf_param >>= fun is_array ->
+		(* To enable SR-IOV via modprobe configuration, we first determine if the driver requires
+		in the configuration an array like `options igb max_vfs=7,7,7,7` or a single value
+		like `options igb max_vfs=7`. If an array is required, this repeat times equals to
+		the number of devices with the same driver.
+		*)
+		let repeat = if is_array then Sysfs.get_dev_nums_with_same_driver driver else 1 in
+		begin
+			if repeat > 0 then Result.Ok (
+				Array.make repeat (string_of_int maxvfs)
+				|> Array.to_list
+				|> String.concat ",")
+			else Result.Error (Other, "Fail to generate options for maxvfs for " ^ driver)
+		end >>= fun option ->
+		let need_rebuild_initrd = ref false in
+		let has_probe_conf = ref false in
+		let parse_single_line s = 
+			let parse_driver_options s = 
+				match Astring.String.cut ~sep:"=" s  with
+				(* has SR-IOV configuration but the max_vfs is exactly what we want to set, so no changes and return s *)
+				| Some (k, v) when k = vf_param && v = option -> has_probe_conf := true; s
+				(* has SR-IOV configuration and we need change it to expected option *)
+				| Some (k, v) when k = vf_param ->
+					has_probe_conf := true;
+					need_rebuild_initrd := true;
+					debug "change SR-IOV options from [%s=%s] to [%s=%s]" k v k option;
+					Printf.sprintf "%s=%s" vf_param option
+				(* we do not care the lines without SR-IOV configurations *)
+				| _ -> s
+			in
+			let trimed_s = String.trim s in
+			if Re.execp (Re_perl.compile_pat ("options[ \t]+" ^ driver)) trimed_s then
+				let driver_options = Re.split (Re_perl.compile_pat "[ \t]+") trimed_s in
+				List.map parse_driver_options driver_options
+				|> String.concat " "
+			else
+				trimed_s
+		in
+		let lines = try Unixext.read_lines (getpath driver) with _ -> [] in
+		let new_conf = List.map parse_single_line lines in
+		match !has_probe_conf, !need_rebuild_initrd with
+		| true, true ->
+			write_conf_file driver new_conf >>= fun () ->
+			Dracut.rebuild_initrd ()
+		| false, false -> 
+			let new_option_line = Printf.sprintf "options %s %s=%s" driver vf_param option in
+			write_conf_file driver (new_conf @ [new_option_line]) >>= fun () ->
+			Dracut.rebuild_initrd ()
+		| true, false -> Result.Ok () (* already have modprobe configuration and no need to change *)
+		| false, true -> Result.Error (Other, "enabling SR-IOV via modprobe never comes here for: " ^ driver)
 end

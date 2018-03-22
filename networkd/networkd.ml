@@ -60,6 +60,10 @@ let options = [
 	"igmp-query-maxresp-time", Arg.Set_string Network_utils.igmp_query_maxresp_time, (fun () -> !Network_utils.igmp_query_maxresp_time), "Maximum Response Time in IGMP Query message to send";
 	"enable-ipv6-mcast-snooping", Arg.Bool (fun x -> Network_utils.enable_ipv6_mcast_snooping := x), (fun () -> string_of_bool !Network_utils.enable_ipv6_mcast_snooping), "IPv6 multicast snooping toggle";
 	"mcast-snooping-disable-flood-unregistered", Arg.Bool (fun x -> Network_utils.mcast_snooping_disable_flood_unregistered := x), (fun () -> string_of_bool !Network_utils.mcast_snooping_disable_flood_unregistered), "Set OVS bridge configuration mcast-snooping-disable-flood-unregistered as 'true' or 'false'";
+	"uname-cmd-path", Arg.Set_string Network_utils.uname, (fun () -> !Network_utils.uname), "Path to the Unix command uname";
+	"dracut-cmd-path", Arg.Set_string Network_utils.dracut, (fun () -> !Network_utils.dracut), "Path to the Unix command dracut";
+	"dracut-timeout", Arg.Set_float Network_utils.dracut_timeout, (fun () -> string_of_float !Network_utils.dracut_timeout), "Default value for the dracut command timeout";
+	"modinfo-cmd-path", Arg.Set_string Network_utils.modinfo, (fun () -> !Network_utils.modinfo), "Path to the Unix command modinfo";
 ]
 
 let start server =
@@ -96,6 +100,7 @@ let bind () =
   S.Interface.get_all Interface.get_all;
   S.Interface.exists Interface.exists;
   S.Interface.get_mac Interface.get_mac;
+  S.Interface.get_pci_bus_path Interface.get_pci_bus_path;
   S.Interface.is_up Interface.is_up;
   S.Interface.get_ipv4_addr Interface.get_ipv4_addr;
   S.Interface.set_ipv4_conf Interface.set_ipv4_conf;
@@ -123,7 +128,10 @@ let bind () =
   S.Bridge.get_physical_interfaces Bridge.get_physical_interfaces;
   S.Bridge.make_config Bridge.make_config;
   S.PVS_proxy.configure_site PVS_proxy.configure_site;
-  S.PVS_proxy.remove_site PVS_proxy.remove_site
+  S.PVS_proxy.remove_site PVS_proxy.remove_site;
+  S.Sriov.enable Sriov.enable;
+  S.Sriov.disable Sriov.disable;
+  S.Sriov.make_vf_config Sriov.make_vf_config
 
 let _ =
 	Coverage.init "networkd";
