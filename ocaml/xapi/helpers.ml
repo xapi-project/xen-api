@@ -278,21 +278,16 @@ let call_api_functions_internal ~__context f =
     session
   in
   let session_id =
-    try
-      if Pool_role.is_master() then
-        begin
-          let session_id = Context.get_session_id __context in
-          if Db.Session.get_pool ~__context ~self:session_id
-          then session_id
-          else do_master_login ()
-        end
-      else
-        let session_id = Context.get_session_id __context in
-        (* read any attr to test if session is still valid *)
-        ignore (Db.Session.get_pool ~__context ~self:session_id) ;
-        session_id
-    with _ ->
-      do_master_login ()
+    let f () =
+      let session_id = Context.get_session_id __context in
+      (* read attr to test if session is still valid *)
+      let in_pool = Db.Session.get_pool ~__context ~self:session_id in
+      session_id, in_pool
+    in
+    match f () with
+    | session_id, true -> session_id
+    | _ -> do_master_login ()
+    | exception _ -> do_master_login ()
   in
   (* let () = debug "login done" in *)
   finally
