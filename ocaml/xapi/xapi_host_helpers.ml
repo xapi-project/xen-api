@@ -224,6 +224,7 @@ let consider_enabling_host_nolock ~__context =
     if !Xapi_globs.on_system_boot then begin
       debug "Host.enabled: system has just restarted: setting localhost to enabled";
       Db.Host.set_enabled ~__context ~self:localhost ~value:true;
+      update_allowed_operations ~__context ~self:localhost;
       Localdb.put Constants.host_disabled_until_reboot "false";
       (* Start processing pending VM powercycle events *)
       Local_work_queue.start_vm_lifecycle_queue ();
@@ -233,6 +234,7 @@ let consider_enabling_host_nolock ~__context =
       end else begin
         debug "Host.enabled: system not just rebooted && host_disabled_until_reboot not set: setting localhost to enabled";
         Db.Host.set_enabled ~__context ~self:localhost ~value:true;
+        update_allowed_operations ~__context ~self:localhost;
         (* Start processing pending VM powercycle events *)
         Local_work_queue.start_vm_lifecycle_queue ();
       end
