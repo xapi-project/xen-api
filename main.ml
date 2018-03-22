@@ -479,7 +479,9 @@ let process root_dir name =
   | { R.name = "SR.attach"; R.params = [ args ] } ->
     let args = Args.SR.Attach.request_of_rpc args in
     let device_config = args.Args.SR.Attach.device_config in
+    let uuid = args.Args.SR.Attach.sr in
     compat_uri device_config ~f:(fun device_config ->
+      let device_config = ("sr_uuid", uuid) :: device_config in
       let args' = Xapi_storage.Volume.Types.SR.Attach.In.make args.Args.SR.Attach.dbg device_config in
       Xapi_storage.Volume.Types.SR.Attach.In.rpc_of_t args')
     >>>= fun args' ->
