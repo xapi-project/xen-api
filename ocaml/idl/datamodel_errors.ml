@@ -626,6 +626,8 @@ let _ =
     ~doc:"VM cannot be resumed because it has no suspend VDI" ();
   error Api_errors.vm_migrate_failed [ "vm"; "source"; "destination"; "msg" ]
     ~doc:"An error occurred during the migration process." ();
+  error Api_errors.vm_migrate_contact_remote_service_failed []
+    ~doc:"Failed to contact service on the destination host." ();
   error Api_errors.vm_has_too_many_snapshots [ "vm" ]
     ~doc:"You attempted to migrate a VM with more than one snapshot." ();
   error Api_errors.vm_has_checkpoint [ "vm" ]
