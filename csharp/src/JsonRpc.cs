@@ -288,8 +288,7 @@ namespace XenAPI
                 Formatting = Formatting.Indented,
 #endif
                 Converters = converters,
-                DateParseHandling = DateParseHandling.None,
-                NullValueHandling = NullValueHandling.Ignore
+                DateParseHandling = DateParseHandling.None
             };
         }
 
