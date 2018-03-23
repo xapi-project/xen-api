@@ -155,7 +155,7 @@ val set_action_request: xs:Xenstore.Xs.xsh -> domid -> string option -> unit
 val get_action_request: xs:Xenstore.Xs.xsh -> domid -> string option
 
 (** Restore a domain using the info provided *)
-val build: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> timeoffset:string -> extras:string list -> build_info -> string -> domid -> bool -> unit
+val build: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh -> store_domid:int -> console_domid:int -> timeoffset:string -> extras:string list -> vgpus:Xenops_interface.Vgpu.t list -> build_info -> string -> domid -> bool -> unit
 
 (** Restore a domain using the info provided *)
 val restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh

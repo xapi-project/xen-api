@@ -143,8 +143,12 @@ def main(argv):
     drive_args = get_drive_args('%d' % domid)
     qemu_args = ['qemu-dm-%d' % domid]
 
-    # read the size of lower MMIO hole provisioned by xenguest
     mmio_start = HVM_BELOW_4G_MMIO_START
+    # vGPU now requires extra space in lower MMIO hole by default
+    if '-vgpu' in argv:
+        mmio_start -= HVM_BELOW_4G_MMIO_LENGTH
+
+    # read the size of lower MMIO hole provisioned by xenguest
     mmio_size = xenstore_read("/local/domain/%d/data/mmio-hole-size" % domid)
     if mmio_size:
         mmio_start = (1 << 32) - int(mmio_size)
