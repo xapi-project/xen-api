@@ -3,6 +3,7 @@
  ((name suite)
   (libraries
    (alcotest
+    alcotest-lwt
     lwt
     uuidm
     vbd_store)

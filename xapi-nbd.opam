@@ -9,6 +9,7 @@ build-test: [[ "jbuilder" "runtest" ]]
 depends: [
   "jbuilder" {build}
   "alcotest" {test}
+  "alcotest-lwt" {test}
   "cmdliner"
   "lwt" {>= "3.0.0"}
   "mirage-block-unix"

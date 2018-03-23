@@ -28,14 +28,16 @@ let test () =
   check "should not contain removed item 'a'" [] l;
   Lwt.return_unit
 
-let test () =
-  (Lwt.finalize
-     test
-     (fun () ->
-        Lwt_unix.unlink (dir ^ "/vbd_list_file") >>= fun () ->
-        Lwt_unix.rmdir dir))
-  |> Lwt_main.run
+let test switch () =
+  Lwt_switch.add_hook
+    (Some switch)
+    (fun () ->
+       Lwt_unix.unlink (dir ^ "/vbd_list_file") >>= fun () ->
+       Lwt_unix.rmdir dir);
+  test ()
 
-let test_set = [ "Add, remove, and load items", `Quick, test ]
+let test_set =
+  let t = Alcotest_lwt.test_case in
+  [ t "Add, remove, and load items" `Quick test ]
 
 let () = Alcotest.run "suite" [ "Vbd_store", test_set ]
