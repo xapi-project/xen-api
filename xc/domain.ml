@@ -664,11 +664,15 @@ let xenguest_args_base ~domid ~store_port ~store_domid ~console_port ~console_do
   ]
 
 let xenguest_args_hvm ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
-    ~kernel =
+    ~kernel ~vgpus =
   [
     "-mode"; "hvm_build";
     "-image"; kernel;
   ]
+  @ (vgpus |> function
+    | [Xenops_interface.Vgpu.{implementation = Nvidia _}] -> ["-vgpu"]
+    | _ -> []
+  )
   @ xenguest_args_base ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
 
 let xenguest_args_pv ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
@@ -761,7 +765,7 @@ let console_keys console_port console_mfn =
   ]
 
 let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~timeoffset
-    ~extras info xenguest_path domid force =
+    ~extras ~vgpus info xenguest_path domid force =
   let uuid = get_uuid ~xc domid in
   let static_max_kib = info.memory_max in
   let target_kib = info.memory_target in
@@ -788,7 +792,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
       let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
       let store_mfn, console_mfn =
         let args = xenguest_args_hvm ~domid ~store_port ~store_domid ~console_port
-          ~console_domid ~memory ~kernel
+          ~console_domid ~memory ~kernel ~vgpus
           @ force_arg @ extras in
         xenguest task xenguest_path domid uuid args
       in
