@@ -34,6 +34,7 @@ open Printf
 open Str
 
 open Datamodel_types
+open Datamodel_utils
 open Dm_api
 open CommonFunctions
 module DT = Datamodel_types
@@ -142,7 +143,7 @@ let camel_case s =
 let exception_class_case x =
   String.concat ""
     (List.map (fun s -> String.capitalize_ascii (String.lowercase_ascii s))
-      (Astring.String.cuts ~sep:"_" x))
+       (Astring.String.cuts ~sep:"_" x))
 
 
 (*As we process the datamodel, we collect information about enumerations, types*)
@@ -174,8 +175,9 @@ let rec get_java_type ty =
   | Enum(name,ls) -> Hashtbl.replace enums name ls; sprintf "Types.%s" (class_case name)
   | Set(t1)       -> sprintf "Set<%s>" (get_java_type t1)
   | Map(t1, t2)   -> sprintf "Map<%s, %s>" (get_java_type t1) (get_java_type t2)
-  | Ref(ty)       -> class_case ty (* We want to hide all refs *)
-  | Record(ty)    -> sprintf "%s.Record" (class_case ty);;
+  | Ref(x)       -> class_case x (* We want to hide all refs *)
+  | Record(x)    -> sprintf "%s.Record" (class_case x)
+  | Option(x)    -> get_java_type x
 
 
 (*We'd like the list of XenAPI objects to appear as an enumeration so we can*)
@@ -194,7 +196,8 @@ let rec get_marshall_function_rec = function
   | Set(t1)       -> sprintf "SetOf%s" (get_marshall_function_rec t1)
   | Map(t1, t2)   -> sprintf "MapOf%s%s" (get_marshall_function_rec t1) (get_marshall_function_rec t2)
   | Ref(ty)       -> class_case ty (* We want to hide all refs *)
-  | Record(ty)     -> sprintf "%sRecord" (class_case ty)
+  | Record(ty)    -> sprintf "%sRecord" (class_case ty)
+  | Option(ty)    -> get_marshall_function_rec ty
 
 
 (*get_marshall_function (Set(Map(Float,Bool)));; -> "toSetOfMapOfDoubleBoolean"*)
@@ -397,7 +400,7 @@ and gen_record_tostring_contents file prefix = function
 (***)
 
 
-let field_default = function
+let rec field_default = function
   | String        -> "\"\""
   | Int           -> "0"
   | Float         -> "0.0"
@@ -409,6 +412,7 @@ let field_default = function
   | Map(t1, t2)   -> sprintf "new HashMap<%s, %s>()" (get_java_type t1) (get_java_type t2)
   | Ref(ty)       -> sprintf "new %s(\"OpaqueRef:NULL\")" (class_case ty)
   | Record(ty)    -> assert false
+  | Option(ty)    -> "null"
 
 
 let gen_record_tomap_field file prefix field =
@@ -417,12 +421,9 @@ let gen_record_tomap_field file prefix field =
   let default = field_default field.ty in
   fprintf file "            map.put(\"%s\", this.%s == null ? %s : this.%s);\n" name name' default name'
 
-let rec gen_record_tomap_namespace file prefix (name, contents) =
-  List.iter (gen_record_tomap_contents file (name::prefix)) contents
-
-and gen_record_tomap_contents file prefix = function
+let rec gen_record_tomap_contents file prefix = function
   | Field f          -> gen_record_tomap_field file prefix f
-  | Namespace (n,cs) -> gen_record_tomap_namespace file prefix (n,cs);;
+  | Namespace (n,cs) -> List.iter (gen_record_tomap_contents file (n::prefix)) cs;;
 
 (*Generate the Record subclass for the given class, with its toString and toMap*)
 (* methods. We're also modifying the records hash table as a side effect*)
@@ -550,7 +551,7 @@ import org.apache.xmlrpc.XmlRpcException;
       fprintf file "        }\n";
       fprintf file "    }\n\n";
 
-      (*hascode*)
+      (*hashcode*)
       fprintf file "    @Override\n";
       fprintf file "    public int hashCode()\n";
       fprintf file "    {\n";
@@ -611,8 +612,8 @@ and gen_marshall_record_contents file prefix = function
 (* that's been registered as a marshall-needing type*)
 
 let generate_reference_task_result_func file clstr =
-  fprintf file "   public static %s to%s(Task task, Connection connection) throws XenAPIException, BadServerResponse, XmlRpcException, BadAsyncResult{\n" clstr clstr;
-  fprintf file "               return Types.to%s(parseResult(task.getResult(connection)));\n" clstr;
+  fprintf file "    public static %s to%s(Task task, Connection connection) throws XenAPIException, BadServerResponse, XmlRpcException, BadAsyncResult{\n" clstr clstr;
+  fprintf file "        return Types.to%s(parseResult(task.getResult(connection)));\n" clstr;
   fprintf file "    }\n";
   fprintf file "\n";
 ;;
@@ -622,7 +623,7 @@ let gen_task_result_func file = function
   | _       -> () (*don't generate for complicated types. They're not needed.*)
 ;;
 
-let gen_marshall_body file = function
+let rec gen_marshall_body file = function
   | String        -> fprintf file "        return (String) object;\n"
   | Int           -> fprintf file "        return Long.valueOf((String) object);\n"
   | Float         -> fprintf file "        return (Double) object;\n"
@@ -677,18 +678,25 @@ let gen_marshall_body file = function
     List.iter (gen_marshall_record_contents file []) contents;
     (*Event.Record needs a special case to handle snapshots*)
     if (ty="event") then generate_snapshot_hack file;
-    fprintf file "        return record;\n";;
+    fprintf file "        return record;\n"
 
-let gen_marshall_func file ty =
-  let type_string = get_java_type ty in
-  let fn_name = get_marshall_function ty in
-  fprintf file "    public static %s %s(Object object) {\n" type_string fn_name;
-  fprintf file "        if (object == null) {\n";
-  fprintf file "            return null;\n";
-  fprintf file "        }\n";
-  gen_marshall_body file ty;
-  fprintf file "    }\n\n"
+  | Option(ty)    -> gen_marshall_body file ty
 
+
+let rec gen_marshall_func file ty =
+  match ty with
+  | Option x ->
+    if TypeSet.mem x !types then ()
+    else gen_marshall_func file ty
+  | _ ->
+    let type_string = get_java_type ty in
+    let fn_name = get_marshall_function ty in
+    fprintf file "    public static %s %s(Object object) {\n" type_string fn_name;
+    fprintf file "        if (object == null) {\n";
+    fprintf file "            return null;\n";
+    fprintf file "        }\n";
+    gen_marshall_body file ty;
+    fprintf file "    }\n\n"
 
 
 let gen_enum file name ls =
@@ -988,7 +996,7 @@ let gen_get_all_records_test classes =
   let class_records =
     classes |>
     List.filter (fun {obj_lifecycle;} ->
-      not (List.exists (fun (x, _, _) -> x = Removed) obj_lifecycle)) |>
+        not (List.exists (fun (x, _, _) -> x = Removed) obj_lifecycle)) |>
     List.filter (fun {messages;} ->
         List.exists (fun x -> x.msg_name = "get_all_records") messages) |>
     List.map (fun {name;} -> class_case name) |>
