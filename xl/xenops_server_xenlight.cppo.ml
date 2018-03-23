@@ -1283,10 +1283,12 @@ module VIF = struct
         | None -> raise (Does_not_exist ("domain", vm))
         | Some x -> x
       end
+    | Network.Sriov _ -> raise (Unimplemented("network SR-IOV"))
 
   let bridge_of_vif = function
     | Network.Local b -> b
     | Network.Remote (_, b) -> b
+    | Network.Sriov _ -> raise (Unimplemented("network SR-IOV"))
 
   let _locking_mode = "locking-mode"
   let _ipv4_allowed = "ipv4-allowed"
@@ -1518,7 +1520,8 @@ module VIF = struct
            let device = device_by_id xs vm Device_common.Vif Oldest (id_of vif) in
            let bridge = match network with
              | Network.Local x -> x
-             | Network.Remote (_, _) -> raise (Unimplemented("network driver domains")) in
+             | Network.Remote (_, _) -> raise (Unimplemented("network driver domains"))
+             | Network.Sriov _ -> raise (Unimplemented("network SR-IOV")) in
 
            move' xs device bridge;
 
