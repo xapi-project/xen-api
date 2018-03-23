@@ -336,6 +336,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         Ref.string_of bond
     with _ -> "invalid"
 
+  let network_sriov_uuid ~__context sriov =
+    try if Pool_role.is_master () then
+        Db.Network_sriov.get_uuid __context sriov
+      else
+        Ref.string_of sriov
+    with _ -> "invalid"
 
   let pif_uuid ~__context pif =
     try if Pool_role.is_master () then
@@ -834,6 +840,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
              ~value:Ref.null)
         (Db.VM.get_VGPUs ~__context ~self:vm)
 
+    let clear_reserved_netsriov_vfs_on ~__context ~vm =
+      Db.VM.get_VIFs ~__context ~self:vm
+      |> List.iter (fun vif ->
+            let vf =  Db.VIF.get_reserved_pci ~__context ~self:vif in
+            Db.VIF.set_reserved_pci ~__context ~self:vif ~value:Ref.null;
+            if Db.is_valid_ref __context vf
+            then Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:vf ~value:Ref.null
+          )
+
     (* Notes on memory checking/reservation logic:
        		   When computing the hosts free memory we consider all VMs resident_on (ie running
        		   and consuming resources NOW) and scheduled_to_be_resident_on (ie those which are
@@ -860,8 +875,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       try
         Vgpuops.create_vgpus ~__context host (vm, snapshot)
           (Helpers.will_have_qemu ~__context ~self:vm);
+        Xapi_network_sriov_helpers.reserve_sriov_vfs ~__context ~host ~vm
       with e ->
         clear_scheduled_to_be_resident_on ~__context ~vm;
+        clear_reserved_netsriov_vfs_on ~__context ~vm;
         raise e
 
     (* For start/start_on/resume/resume_on/migrate *)
@@ -1683,7 +1700,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm);
       let local_fn = Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options in
       let forwarder =
-        if Xapi_vm_lifecycle.is_live ~__context ~self:vm then
+        if Xapi_vm_lifecycle_helpers.is_live ~__context ~self:vm then
           let host = List.assoc Xapi_vm_migrate._host dest |> Ref.of_string in
           if Db.is_valid_ref __context host then
             (* Intra-pool: reserve resources on the destination host, then
@@ -3575,7 +3592,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       VM.with_vm_operation ~__context ~self:vm ~doc:"VDI.pool_migrate" ~op:`migrate_send
         (fun () ->
            let snapshot, host =
-             if Xapi_vm_lifecycle.is_live ~__context ~self:vm then
+             if Xapi_vm_lifecycle_helpers.is_live ~__context ~self:vm then
                (Db.VM.get_record ~__context ~self:vm,
                 Db.VM.get_resident_on ~__context ~self:vm)
              else
@@ -4251,6 +4268,25 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let destroy ~__context ~self =
       info "VUSB.destroy: VUSB = '%s'" (vusb_uuid ~__context self);
       Local.VUSB.destroy ~__context ~self
+  end
+
+  module Network_sriov = struct
+    let create ~__context ~pif ~network =
+      info "Network_sriov.create : pif = '%s' , network = '%s' " (pif_uuid ~__context pif) (network_uuid ~__context network);
+      let local_fn = Local.Network_sriov.create ~pif ~network in
+      let host = Db.PIF.get_host ~__context ~self:pif in
+      do_op_on ~__context ~local_fn ~host (fun session_id rpc -> Client.Network_sriov.create rpc session_id pif network)
+
+    let destroy ~__context ~self =
+      info "Network_sriov.destroy : network_sriov = '%s'" (network_sriov_uuid ~__context self);
+      let local_fn = Local.Network_sriov.destroy ~self in
+      let physical_pif = Db.Network_sriov.get_physical_PIF ~__context ~self in
+      let host = Db.PIF.get_host ~__context ~self:physical_pif in
+      do_op_on ~__context ~local_fn ~host (fun session_id rpc -> Client.Network_sriov.destroy rpc session_id self)
+
+    let get_remaining_capacity ~__context ~self =
+      info "Network_sriov.get_remaining_capacity : network_sriov = '%s'" (network_sriov_uuid ~__context self);
+      Local.Network_sriov.get_remaining_capacity ~__context ~self
   end
 
   module Cluster = struct

@@ -95,6 +95,7 @@ module Actions = struct
   module PUSB = Xapi_pusb
   module USB_group = Xapi_usb_group
   module VUSB = Xapi_vusb
+  module Network_sriov = Xapi_network_sriov
   module Cluster = Xapi_cluster
   module Cluster_host = Xapi_cluster_host
 end
@@ -187,23 +188,15 @@ let callback is_json req bio _ =
     let response_str =
       if rpc.Rpc.name = "system.listMethods"
       then
-        let inner = Xmlrpc.to_a
-            ~empty:Bigbuffer.make
-            ~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s))
-            response.Rpc.contents in
-        let s = Printf.sprintf "<?xml version=\"1.0\"?><methodResponse><params><param>%s</param></params></methodResponse>" (Bigbuffer.to_string inner) in
-        let buf = Bigbuffer.make () in
-        Bigbuffer.append_string buf s;
-        buf
+        let inner = Xmlrpc.to_string response.Rpc.contents in
+        Printf.sprintf "<?xml version=\"1.0\"?><methodResponse><params><param>%s</param></params></methodResponse>" inner
       else
-        Xmlrpc.a_of_response
-          ~empty:Bigbuffer.make
-          ~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s))
-          response in
+        Xmlrpc.string_of_response response
+    in
     Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type, "text/xml";
                                       "Access-Control-Allow-Origin", "*";
-                                      "Access-Control-Allow-Headers", "X-Requested-With"] fd (Bigbuffer.length response_str)
-      (fun fd -> Bigbuffer.to_fct response_str (fun s -> ignore(Unixext.really_write_string fd s)))
+                                      "Access-Control-Allow-Headers", "X-Requested-With"] fd (Int64.of_int @@ String.length response_str)
+      (fun fd -> Unixext.really_write_string fd response_str |> ignore)
   with
   | (Api_errors.Server_error (err, params)) ->
     Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type, "text/xml" ] fd
@@ -219,14 +212,13 @@ let jsoncallback req bio _ =
   let body = Http_svr.read_body ~limit:Db_globs.http_limit_max_rpc_size req bio in
   try
     let json_rpc_version, id, rpc = Jsonrpc.version_id_and_call_of_string body in
-    let response = Jsonrpc.a_of_response ~id ~version:json_rpc_version
-        ~empty:Bigbuffer.make
-        ~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s))
+    let response = Jsonrpc.string_of_response ~id ~version:json_rpc_version
         (callback1 ~json_rpc_version true req fd (Some body) rpc) in
     Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type, "application/json";
                                       "Access-Control-Allow-Origin", "*";
-                                      "Access-Control-Allow-Headers", "X-Requested-With"] fd (Bigbuffer.length response)
-      (fun fd -> Bigbuffer.to_fct response (fun s -> ignore(Unixext.really_write_string fd s)))
+                                      "Access-Control-Allow-Headers", "X-Requested-With"] fd
+      (Int64.of_int @@ String.length response)
+      (fun fd -> Unixext.really_write_string fd response |> ignore)
   with
   | (Api_errors.Server_error (err, params)) ->
     Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type, "application/json" ] fd

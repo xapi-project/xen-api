@@ -243,14 +243,7 @@ let check_pci ~op ~ref_str =
   | `suspend | `checkpoint | `pool_migrate | `migrate_send -> Some (Api_errors.vm_has_pci_attached, [ref_str])
   | _ -> None
 
-let check_vgpu ~__context ~op ~ref_str ~vgpus =
-  let vgpu_migration_enabled () =
-    let pool = Helpers.get_pool ~__context in
-    let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
-    try
-      List.assoc "restrict_vgpu_migration" restrictions = "false"
-    with Not_found -> false
-  in
+let check_vgpu ~__context ~op ~ref_str ~vgpus ~power_state =
   let is_migratable vgpu =
     try
       (* Prevent VMs with VGPU from being migrated from pre-Jura to Jura and later hosts during RPU *)
@@ -279,13 +272,13 @@ let check_vgpu ~__context ~op ~ref_str ~vgpus =
     | _ -> false
   in
   match op with
+  | `migrate_send
+    when power_state = `Halted -> None
   | `pool_migrate | `migrate_send
-    when vgpu_migration_enabled ()
-      && List.for_all is_migratable  vgpus
+    when List.for_all is_migratable  vgpus
       && List.for_all is_suspendable vgpus -> None
   | `suspend
-    when vgpu_migration_enabled ()
-      && List.for_all is_suspendable vgpus -> None
+    when List.for_all is_suspendable vgpus -> None
   | `pool_migrate | `migrate_send | `suspend | `checkpoint ->
     Some (Api_errors.vm_has_vgpu, [ref_str])
   | _ -> None
@@ -507,7 +500,7 @@ let check_operation_error ~__context ~ref =
   (* The VM has a VGPU, check if the operation is allowed*)
   let current_error = check current_error (fun () ->
       if vmr.Db_actions.vM_VGPUs <> []
-      then check_vgpu ~__context ~op ~ref_str ~vgpus:vmr.Db_actions.vM_VGPUs
+      then check_vgpu ~__context ~op ~ref_str ~vgpus:vmr.Db_actions.vM_VGPUs ~power_state
       else None) in
 
   (* The VM has a VUSB, check if the operation is allowed*)
@@ -589,9 +582,10 @@ let update_allowed_operations ~__context ~self =
   if Db.is_valid_ref __context appliance then
     Xapi_vm_appliance_lifecycle.update_allowed_operations ~__context ~self:appliance
 
-(** Called on new VMs (clones, imports) and on server start to manually refresh
+(** 1. Called on new VMs (clones, imports) and on server start to manually refresh
     the power state, allowed_operations field etc.  Current-operations won't be
-    cleaned *)
+    cleaned 
+    2. Called on update VM when the power state changes *)
 let force_state_reset_keep_current_operations ~__context ~self ~value:state =
   if state = `Halted then begin
     (* mark all devices as disconnected *)
@@ -605,6 +599,7 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
       (fun vif ->
          Db.VIF.set_currently_attached ~__context ~self:vif ~value:false;
          Db.VIF.set_reserved ~__context ~self:vif ~value:false;
+         Db.VIF.set_reserved_pci ~__context ~self:vif ~value:Ref.null;
          Xapi_vif_helpers.clear_current_operations ~__context ~self:vif;
          Opt.iter
            (fun p -> Pvs_proxy_control.clear_proxy_state ~__context vif p)
@@ -684,11 +679,6 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let ops = Db.VM.get_current_operations ~__context ~self in
   let set = (fun value -> Db.VM.set_current_operations ~__context ~self ~value) in
   Helpers.cancel_tasks ~__context ~ops ~all_tasks_in_db ~task_ids ~set
-
-(** VM is considered as "live" when it's either Running or Paused, i.e. with a live domain *)
-let is_live ~__context ~self =
-  let power_state = Db.VM.get_power_state ~__context ~self in
-  power_state = `Running || power_state = `Paused
 
 (** Assert that VM is in a certain set of states before starting an operation *)
 let assert_initial_power_state_in ~__context ~self ~allowed =

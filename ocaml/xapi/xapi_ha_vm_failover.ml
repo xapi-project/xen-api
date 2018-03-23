@@ -488,7 +488,7 @@ let restart_auto_run_vms ~__context live_set n =
   debug "Setting all VMs running or paused to Halted";
   (* ensure all vms resident_on this host running or paused have their powerstates reset *)
   List.iter (fun vm ->
-      if Xapi_vm_lifecycle.is_live ~__context ~self:vm then
+      if Xapi_vm_lifecycle_helpers.is_live ~__context ~self:vm then
         Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted)
     !reset_vms;
   (* host_post_declare_dead may take a long time if the SR is locked *)

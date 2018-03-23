@@ -1278,8 +1278,10 @@ let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu
     | `intra_pool -> None
     | `cross_pool -> Some (remote.rpc, remote.session)
   in
-  Xapi_pgpu_helpers.assert_destination_has_pgpu_compatible_with_vm ~__context
-    ~vm ~vgpu_map ~host:remote.dest_host ?remote:remote_for_migration_type ()
+  (* We only need to check compatibility for "live" vGPUs *)
+  if Db.VM.get_power_state ~__context ~self:vm <> `Halted then
+    Xapi_pgpu_helpers.assert_destination_has_pgpu_compatible_with_vm ~__context
+      ~vm ~vgpu_map ~host:remote.dest_host ?remote:remote_for_migration_type ()
 
 let migrate_send  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options ~vgpu_map =
   with_migrate (fun () ->

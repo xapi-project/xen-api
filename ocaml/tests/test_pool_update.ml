@@ -12,17 +12,18 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Test_common
-open Stdext.Unixext
 
 let test_pool_update_destroy () =
   let __context = make_test_database () in
   let self = make_pool_update ~__context () in
   Xapi_pool_update.destroy ~__context ~self;
-  assert_equal (Db.is_valid_ref __context self) false
+  Alcotest.(check bool)
+    "test_pool_update_destroy: pool update ref should be invalid"
+    false (Db.is_valid_ref __context self)
 
 let test_pool_update_refcount () =
+  let assert_equal = Alcotest.(check int) "assertion called by test_pool_update_refcount" in
   let __context = Mock.make_context_with_new_db "Mock context" in
   let uuid = Helpers.get_localhost_uuid () in
   let vdi = make_vdi ~__context ~virtual_size:4096L () in
@@ -33,13 +34,13 @@ let test_pool_update_refcount () =
 
 let test_assert_space_available () =
   let free_bytes = 1_000_000L in
-  assert_raises_api_error Api_errors.out_of_space
+  Alcotest.check_raises
+    "test_assert_space_available should raise out_of_space"
+    Api_errors.(Server_error (out_of_space, [Xapi_globs.host_update_dir]))
     (fun () -> Xapi_pool_update.assert_space_available ~get_free_bytes:(fun _ -> free_bytes) "./" (Int64.div free_bytes 2L))
 
 let test =
-  "test_pool_update" >:::
-  [
-    "test_pool_update_destroy" >:: test_pool_update_destroy;
-    "test_pool_update_refcount" >:: test_pool_update_refcount;
-    "test_assert_space_available" >:: test_assert_space_available;
+  [ "test_pool_update_destroy", `Quick, test_pool_update_destroy
+  ; "test_pool_update_refcount", `Quick, test_pool_update_refcount
+  ; "test_assert_space_available", `Quick, test_assert_space_available
   ]

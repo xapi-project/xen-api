@@ -36,34 +36,28 @@ let rec to_rpc v =
   | VRef r -> Rpc.String r
   | VCustom (_,_) -> failwith "Can't RPC up a custom value"
 
-let rec to_xml v =
-  match v with
-    VString s -> XMLRPC.To.string s
-  | VInt i -> XMLRPC.To.string (Int64.to_string i)
-  | VFloat f -> XMLRPC.To.double f
-  | VBool b -> XMLRPC.To.boolean b
-  | VDateTime d -> XMLRPC.To.datetime d
-  | VEnum e -> XMLRPC.To.string e
-  | VMap vvl -> XMLRPC.To.structure (List.map (fun (v1,v2)-> to_string v1, to_xml v2) vvl)
-  | VSet vl -> XMLRPC.To.array (List.map (fun v->to_xml v) vl)
-  | VRef r -> XMLRPC.To.string r
-  | VCustom (_,y) -> to_xml y
-
 open Printf
 
-let to_ocaml_string v =
+let to_ocaml_string ?(v2=false) v =
   let rec aux = function
     | Rpc.Null -> "Rpc.Null"
     | Rpc.String s -> sprintf "Rpc.String \"%s\"" s
-    | Rpc.Int i -> sprintf "Rpc.Int %LdL" i
-    | Rpc.Int32 i -> sprintf "Rpc.Int32 %ldl" i
-    | Rpc.Float f -> sprintf "Rpc.Float %f" f
+    | Rpc.Int i -> sprintf "Rpc.Int (%LdL)" i
+    | Rpc.Int32 i -> sprintf "Rpc.Int32 (%ldl)" i
+    | Rpc.Float f -> sprintf "Rpc.Float (%f)" f
     | Rpc.Bool b -> sprintf "Rpc.Bool %b" b
     | Rpc.Dict d -> sprintf "Rpc.Dict [%s]" (String.concat ";" (List.map (fun (n,v) -> sprintf "(\"%s\",%s)" n (aux v)) d))
     | Rpc.Enum l -> sprintf "Rpc.Enum [%s]" (String.concat ";" (List.map aux l))
     | Rpc.DateTime t -> sprintf "Rpc.DateTime %s" t in
   match v with
-  | VCustom (x,_) -> x
+  | VCustom (s,v') ->
+    if v2 then
+      (* s can contain stringified body of ocaml functions, and will break
+       * the aPI.ml code, we need to use the v' in that case. The version
+       * switch allows us to use this other version in gen_api.ml without
+       * having to duplicate lots of code *)
+      aux (to_rpc v')
+    else s
   | _ -> aux (to_rpc v)
 
 let rec to_db v =

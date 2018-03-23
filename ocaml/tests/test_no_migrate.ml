@@ -12,11 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
-open Test_common
-
-module LC = Xapi_vm_lifecycle
-
 let ops =
   [ `suspend
   ; `checkpoint
@@ -32,7 +27,7 @@ let op_string = function
   | _             -> "other"
 
 let testcases =
-  (*nest , nomig, force, permitted *)
+  (* nest , nomig, force, permitted *)
   [ false, false, false, true
   ; false, false, true , true
   ; false, true , false, false
@@ -47,30 +42,30 @@ let testcases =
    make no sense for PV (e.g. nested virt). The logic's all the same though and
    it means we can avoid making up a VM_guest_metrics record with the feature
    flags set *)
-let test (nv, nm, force, permitted) op =
-  let __context = make_test_database () in
-  let vm        = make_vm ~__context ~hVM_boot_policy:"" ~domain_type:`pv () in
+let run_test (nv, nm, force, permitted) op =
+  let __context = Test_common.make_test_database () in
+  let vm        = Test_common.make_vm ~__context ~hVM_boot_policy:"" ~domain_type:`pv () in
   let metrics   = Db.VM.get_metrics ~__context ~self:vm in
   let strict    = not force in
   ( Db.VM.set_power_state ~__context ~self:vm ~value:`Running
   ; Db.VM_metrics.set_current_domain_type ~__context ~self:metrics ~value:(Db.VM.get_domain_type ~__context ~self:vm)
   ; Db.VM_metrics.set_nested_virt ~__context ~self:metrics ~value:nv
   ; Db.VM_metrics.set_nomigrate   ~__context ~self:metrics ~value:nm
-  ; LC.get_operation_error ~__context ~self:vm ~op ~strict
+  ; Xapi_vm_lifecycle.get_operation_error ~__context ~self:vm ~op ~strict
     |> function
-    | None        when permitted     -> assert_bool "success" true
-    | None                           -> assert_failure (Printf.sprintf "nv=%b nm=%b force=%b permitted=%b op=%s" nv nm force permitted (op_string op))
-    | Some (x,xs) when not permitted -> assert_bool "success" true
-    | Some (x,xs)                    -> assert_failure (Printf.sprintf "nv=%b nm=%b force=%b permitted=%b op=%s error was=%s" nv nm force permitted (op_string op) x)
+    | None        when permitted     -> ()
+    | None                           -> Alcotest.fail (Printf.sprintf "nv=%b nm=%b force=%b permitted=%b op=%s" nv nm force permitted (op_string op))
+    | Some (x,xs) when not permitted -> ()
+    | Some (x,xs)                    -> Alcotest.fail (Printf.sprintf "nv=%b nm=%b force=%b permitted=%b op=%s error was=%s" nv nm force permitted (op_string op) x)
   )
 
 let test' op =
-  testcases |> List.iter (fun t -> test t op)
+  List.iter (fun t -> run_test t op) testcases
 
-let test = "test_no_migrate" >:::
-           [ "test_no_migrate_00" >:: (fun () -> test' `suspend)
-           ; "test_no_migrate_01" >:: (fun () -> test' `checkpoint)
-           ; "test_no_migrate_02" >:: (fun () -> test' `pool_migrate)
-           ; "test_no_migrate_03" >:: (fun () -> test' `migrate_send)
-           ]
+let test =
+  [ "test_no_migrate_00", `Quick, (fun () -> test' `suspend)
+  ; "test_no_migrate_01", `Quick, (fun () -> test' `checkpoint)
+  ; "test_no_migrate_02", `Quick, (fun () -> test' `pool_migrate)
+  ; "test_no_migrate_03", `Quick, (fun () -> test' `migrate_send)
+  ]
 

@@ -844,6 +844,7 @@ let gen_cmds rpc session_id =
     ; Client.PUSB.(mk get_all get_all_records_where get_by_uuid pusb_record "pusb" [] ["uuid"; "path"; "product-id"; "product-desc"; "vendor-id"; "vendor-desc"; "serial"; "version";"description"] rpc session_id)
     ; Client.USB_group.(mk get_all get_all_records_where get_by_uuid usb_group_record "usb-group" [] ["uuid";"name-label";"name-description"] rpc session_id)
     ; Client.VUSB.(mk get_all get_all_records_where get_by_uuid vusb_record "vusb" [] ["uuid";"vm-uuid"; "usb-group-uuid"] rpc session_id)
+    ; Client.Network_sriov.(mk get_all get_all_records_where get_by_uuid network_sriov_record "network-sriov" [] ["uuid"; "physical-pif"; "logical-pif"; "requires-reboot"; "configuration-mode"] rpc session_id)
     ; Client.Cluster.(mk get_all get_all_records_where get_by_uuid cluster_record "cluster" [] ["uuid";"cluster_hosts";"network";"cluster_token";"cluster_stack";"allowed_operations";"current_operations";"pool_auto_join";"cluster_config";"other_config"] rpc session_id)
     ; Client.Cluster_host.(mk get_all get_all_records_where get_by_uuid cluster_host_record "cluster-host" [] ["uuid";"cluster";"host";"enabled";"allowed_operations";"current_operations";"other_config"] rpc session_id)
     ]
@@ -3618,7 +3619,7 @@ let vm_import fd printer rpc session_id params =
                  | `success ->
                    if stream_ok then
                      let result = Client.Task.get_result rpc session_id importtask in
-                     let vmrefs = API.Legacy.From.ref_VM_set "" (Xml.parse_string result) in
+                     let vmrefs = result |> Xmlrpc.of_string |> API.ref_VM_set_of_rpc in
                      let uuids = List.map (fun vm -> Client.VM.get_uuid rpc session_id vm) vmrefs in
                      marshal fd (Command (Print (String.concat "," uuids)))
                    else
@@ -3670,7 +3671,7 @@ let vm_import fd printer rpc session_id params =
           Some (Client.Task.get_by_uuid rpc session_id (List.assoc "task-uuid" params))
         else None (* track_http_operation will create one for us *) in
       let result = track_http_operation ?use_existing_task:importtask fd rpc session_id make_command "VM import" in
-      let vmrefs = API.Legacy.From.ref_VM_set "" (Xml.parse_string result) in
+      let vmrefs = result |> Xmlrpc.of_string |> API.ref_VM_set_of_rpc in
       let uuids = List.map (fun vm -> Client.VM.get_uuid rpc session_id vm) vmrefs in
       let uuids = if uuids = [] && dry_run then ["xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"] else uuids in
       marshal fd (Command (Print (String.concat "," uuids)))
@@ -4021,6 +4022,19 @@ let tunnel_destroy printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let tunnel = Client.Tunnel.get_by_uuid rpc session_id uuid in
   Client.Tunnel.destroy rpc session_id tunnel
+
+module Network_sriov = struct
+  let create printer rpc session_id params =
+    let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "pif-uuid" params) in
+    let network = Client.Network.get_by_uuid rpc session_id (List.assoc "network-uuid" params) in
+    let sriov = Client.Network_sriov.create rpc session_id pif network in
+    let uuid = Client.Network_sriov.get_uuid rpc session_id sriov in
+    printer (Cli_printer.PList [uuid])
+
+  let destroy printer rpc session_id params =
+    let sriov = Client.Network_sriov.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+    ignore(Client.Network_sriov.destroy rpc session_id sriov)
+end
 
 let pif_reconfigure_ip printer rpc session_id params =
   let read_optional_case_insensitive key =
@@ -4459,7 +4473,7 @@ let update_upload fd printer rpc session_id params =
     HttpPut (filename, uri)
   in
   let result = track_http_operation fd rpc session_id make_command "host patch upload" in
-  let vdi_ref = API.Legacy.From.ref_VDI "" (Xml.parse_string result) in
+  let vdi_ref = result |> Xmlrpc.of_string |> API.ref_VDI_of_rpc in
   let update_ref =
     try Client.Pool_update.introduce rpc session_id vdi_ref
     with e ->

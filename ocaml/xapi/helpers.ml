@@ -42,6 +42,9 @@ let log_exn_continue msg f x = try f x with e -> debug "Ignoring exception: %s w
 let choose_network_name_for_pif device =
   Printf.sprintf "Pool-wide network associated with %s" device
 
+let choose_network_name_for_sriov device =
+  Printf.sprintf "SR-IOV network associated with %s" device
+
 (** Once the server functor has been instantiated, set this reference to the appropriate
     "fake_rpc" (loopback non-HTTP) rpc function. This is used by the CLI, which passes in
     the HTTP request headers it has already received together with its active file descriptor. *)
@@ -1141,8 +1144,9 @@ let timebox ~timeout ~otherwise f =
           with e ->
             result := fun () -> raise e);
          Unix.close fd_out) () in
-  let _ = Thread.wait_timed_read fd_in timeout in
+  let finished = Thread.wait_timed_read fd_in timeout in
   Unix.close fd_in;
+  if not finished then ignore_exn (fun () -> Unix.close fd_out);
   !result ()
 
 (**************************************************************************************)

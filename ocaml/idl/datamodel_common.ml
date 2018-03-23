@@ -169,6 +169,7 @@ let _vdi_nbd_server_info = "vdi_nbd_server_info"
 let _pusb = "PUSB"
 let _usb_group = "USB_group"
 let _vusb = "VUSB"
+let _network_sriov = "network_sriov"
 let _cluster = "Cluster"
 let _cluster_host = "Cluster_host"
 

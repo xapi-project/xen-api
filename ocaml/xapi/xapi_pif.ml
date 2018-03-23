@@ -23,14 +23,23 @@ open Listext
 open Pervasiveext
 open Xstringext
 open Threadext
-
 open Network
+
+let get_device_pci ~__context ~host ~device =
+  let dbg = Context.string_of_task __context in
+  let pci_bus_path = Net.Interface.get_pci_bus_path dbg device in
+  let expr = Db_filter_types.(And (Eq (Field "pci_id", Literal (pci_bus_path)),
+                                   Eq (Field "host", Literal (Ref.string_of host)))) in
+  match Db.PCI.get_refs_where ~__context ~expr with
+  | pci :: _ -> pci
+  | _  -> Ref.null
 
 let refresh_internal ~__context ~self =
   let device = Db.PIF.get_device ~__context ~self in
   let network = Db.PIF.get_network ~__context ~self in
   let bridge = Db.Network.get_bridge ~__context ~self:network in
   let dbg = Context.string_of_task __context in
+  let host = Db.PIF.get_host ~__context ~self in
 
   (* Update the specified PIF field in the database, if
      	 * and only if a corresponding value can be read from
@@ -57,6 +66,12 @@ let refresh_internal ~__context ~self =
       (Db.PIF.set_MAC)
       (fun () -> Net.Interface.get_mac dbg device)
       (id);
+
+  maybe_update_database "PCI"
+    (Db.PIF.get_PCI)
+    (Db.PIF.set_PCI)
+    (fun () -> get_device_pci ~__context ~host ~device)
+    (Ref.string_of);
 
   maybe_update_database "MTU"
     (Db.PIF.get_MTU)
@@ -145,22 +160,7 @@ let assert_not_in_bond ~__context ~self =
 
 let assert_no_vlans ~__context ~self =
   (* Disallow if this is a base interface of any existing VLAN *)
-  let vlans = Db.PIF.get_VLAN_slave_of ~__context ~self in
-  debug "PIF %s assert_no_vlans = [ %s ]"
-    (Db.PIF.get_uuid ~__context ~self)
-    (String.concat "; " (List.map Ref.string_of vlans));
-  if vlans <> []
-  then begin
-    debug "PIF has associated VLANs: [ %s ]"
-      (String.concat
-         ("; ")
-         (List.map
-            (fun self -> Db.VLAN.get_uuid ~__context ~self)
-            (vlans)));
-    raise (Api_errors.Server_error
-             (Api_errors.pif_vlan_still_exists,
-              [ Ref.string_of self ]))
-  end;
+  Xapi_pif_helpers.assert_not_vlan_slave ~__context ~self;
   (* Disallow if this is a derived interface of a VLAN *)
   if
     Db.PIF.get_VLAN ~__context ~self <> (-1L)
@@ -198,10 +198,6 @@ let assert_not_management_pif ~__context ~self =
   if Db.PIF.get_management ~__context ~self then
     raise (Api_errors.Server_error (Api_errors.pif_is_management_iface, [ Ref.string_of self ]))
 
-let assert_pif_is_managed ~__context ~self =
-  if Db.PIF.get_managed ~__context ~self <> true then
-    raise (Api_errors.Server_error (Api_errors.pif_unmanaged, [Ref.string_of self]))
-
 let assert_not_slave_management_pif ~__context ~self =
   if true
   && Pool_role.is_slave ()
@@ -224,6 +220,16 @@ let assert_no_protection_enabled ~__context ~self =
     then raise (Api_errors.Server_error
                   (Api_errors.redo_log_is_enabled, []))
   end
+
+let assert_no_sriov ~__context ~self =
+  let pif_rec = Db.PIF.get_record ~__context ~self in
+  let topo = Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec in
+  match topo, pif_rec.API.pIF_sriov_physical_PIF_of with
+  | Network_sriov_logical _ :: _, _ ->
+    raise Api_errors.(Server_error (cannot_forget_sriov_logical, [ Ref.string_of self ]))
+  | Physical _ :: _, _ :: _ ->
+    raise Api_errors.(Server_error (pif_sriov_still_exists, [ Ref.string_of self ]))
+  | _ -> ()
 
 let abort_if_network_attached_to_protected_vms ~__context ~self =
   (* Abort a PIF.unplug if the Network
@@ -374,7 +380,7 @@ let pool_introduce
       ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS
       ~bond_slave_of:Ref.null ~vLAN_master_of ~management
       ~other_config ~disallow_unplug ~ipv6_configuration_mode
-      ~iPv6 ~ipv6_gateway ~primary_address_type ~managed ~properties ~capabilities:[] in
+      ~iPv6 ~ipv6_gateway ~primary_address_type ~managed ~properties ~capabilities:[] ~pCI:Ref.null in
   pif_ref
 
 let db_introduce = pool_introduce
@@ -400,6 +406,7 @@ let introduce_internal
   in
   let dbg = Context.string_of_task __context in
   let capabilities = Net.Interface.get_capabilities dbg device in
+  let pci = get_device_pci ~__context ~host ~device in
 
   let pif = Ref.make () in
   debug
@@ -414,7 +421,7 @@ let introduce_internal
       ~dNS:"" ~bond_slave_of:Ref.null ~vLAN_master_of ~management:false
       ~other_config:[] ~disallow_unplug ~ipv6_configuration_mode:`None
       ~iPv6:[] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed
-      ~properties:default_properties ~capabilities:capabilities in
+      ~properties:default_properties ~capabilities:capabilities ~pCI:pci in
 
   (* If I'm a pool slave and this pif represents my management
      	 * interface then leave it alone: if the interface goes down
@@ -532,6 +539,7 @@ let forget ~__context ~self =
   assert_no_tunnels ~__context ~self;
   assert_not_slave_management_pif ~__context ~self;
   assert_no_protection_enabled ~__context ~self;
+  assert_no_sriov ~__context ~self;
 
   let host = Db.PIF.get_host ~__context ~self in
   let t = make_tables ~__context ~host in
@@ -621,7 +629,7 @@ let destroy ~__context ~self =
        Client.Client.VLAN.destroy rpc session_id vlan)
 
 let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
-  assert_pif_is_managed ~__context ~self;
+  Xapi_pif_helpers.assert_pif_is_managed ~__context ~self;
   assert_no_protection_enabled ~__context ~self;
 
   if gateway <> "" then
@@ -670,7 +678,7 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
     end
 
 let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
-  assert_pif_is_managed ~__context ~self;
+  Xapi_pif_helpers.assert_pif_is_managed ~__context ~self;
   assert_no_protection_enabled ~__context ~self;
 
   if mode = `Static then begin
@@ -768,10 +776,18 @@ let set_property ~__context ~self ~name ~value =
     ) (self :: vlan_pifs)
 
 let rec unplug ~__context ~self =
-  assert_pif_is_managed ~__context ~self;
+  let unplug_vlan_on_sriov ~__context ~self =
+    Db.PIF.get_VLAN_slave_of ~__context ~self
+    |> List.iter (fun vlan ->
+        let untagged_pif = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
+        unplug ~__context ~self:untagged_pif
+      )
+  in
+  Xapi_pif_helpers.assert_pif_is_managed ~__context ~self;
   assert_no_protection_enabled ~__context ~self;
   assert_not_management_pif ~__context ~self;
-  let host = Db.PIF.get_host ~__context ~self in
+  let pif_rec = Db.PIF.get_record ~__context ~self in
+  let host = pif_rec.API.pIF_host in
   if Db.Host.get_enabled ~__context ~self:host
   then abort_if_network_attached_to_protected_vms ~__context ~self;
 
@@ -781,84 +797,128 @@ let rec unplug ~__context ~self =
   if Db.PIF.get_capabilities ~__context ~self |> List.mem "fcoe" then
     assert_fcoe_not_in_use ~__context self;
 
-  let tunnel = Db.PIF.get_tunnel_transport_PIF_of ~__context ~self in
-  if tunnel <> []
-  then begin
-    debug "PIF is tunnel transport PIF... also bringing down access PIF";
-    let tunnel = List.hd tunnel in
-    let access_PIF = Db.Tunnel.get_access_PIF ~__context ~self:tunnel in
-    unplug ~__context ~self:access_PIF
+  List.iter (fun tunnel ->
+      debug "PIF is tunnel transport PIF... also bringing down access PIF";
+      let access_PIF = Db.Tunnel.get_access_PIF ~__context ~self:tunnel in
+      unplug ~__context ~self:access_PIF
+  ) pif_rec.API.pIF_tunnel_transport_PIF_of;
+
+  (* Only exclusive PIF types can be put into following pattern match *)
+  begin match Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec with
+    | Bond_master bond :: _ ->
+      List.iter (fun slave ->
+          if Db.PIF.get_sriov_physical_PIF_of ~__context ~self:slave <> [] then begin
+            debug "PIF is bond master, one of its slaves is a network SRIOV physical PIF, \
+                   also bringing down the slave as network SRIOV physical PIF";
+            unplug ~__context ~self:slave
+          end
+      ) (Db.Bond.get_slaves ~__context ~self:bond)
+    | Network_sriov_logical _ :: _ ->
+      debug "PIF is network SRIOV logical PIF, also bringing down vlan on top of it";
+      unplug_vlan_on_sriov ~__context ~self
+    | Physical pif_rec :: _ ->
+      List.iter (fun sriov ->
+          (* If this PIF is also a bond slave, it will be checked later to make sure that
+              * this bond slave will not be brought down here *)
+          debug "PIF is network SRIOV physical PIF, also bringing down SRIOV logical PIF";
+          let pif = Db.Network_sriov.get_logical_PIF ~__context ~self:sriov in
+          unplug ~__context ~self:pif
+      ) pif_rec.API.pIF_sriov_physical_PIF_of
+    | _ -> ()
   end;
-  Nm.bring_pif_down ~__context self
+
+  (* Don't bring down bond slave, as it will be handled with bond master *)
+  if pif_rec.API.pIF_bond_slave_of = Ref.null then
+    Nm.bring_pif_down ~__context self
 
 let rec plug ~__context ~self =
-  assert_pif_is_managed ~__context ~self;
-  let tunnel = Db.PIF.get_tunnel_access_PIF_of ~__context ~self in
-  if tunnel <> []
-  then begin
-    let tunnel = List.hd tunnel in
-    let transport_PIF =
-      Db.Tunnel.get_transport_PIF ~__context ~self:tunnel in
-    if Db.PIF.get_ip_configuration_mode
-        ~__context ~self:transport_PIF = `None
-    then raise (Api_errors.Server_error
-                  (Api_errors.transport_pif_not_configured,
-                   [Ref.string_of transport_PIF]))
-    else begin
-      debug "PIF is tunnel access PIF... also bringing up transport PIF";
-      plug ~__context ~self:transport_PIF
-    end
-  end;
-  if Db.PIF.get_bond_slave_of ~__context ~self <> Ref.null then
-    raise (Api_errors.Server_error (Api_errors.cannot_plug_bond_slave, [Ref.string_of self]));
-  Nm.bring_pif_up ~__context ~management_interface:false self
+  Xapi_pif_helpers.assert_pif_is_managed ~__context ~self;
+  let pif_rec = Db.PIF.get_record ~__context ~self in
+  let () = match Xapi_pif_helpers.get_pif_type pif_rec with
+    | Tunnel_access tunnel ->
+      let transport_PIF = Db.Tunnel.get_transport_PIF ~__context ~self:tunnel in
+      if Db.PIF.get_ip_configuration_mode ~__context ~self:transport_PIF = `None
+      then raise Api_errors.(Server_error
+                    (transport_pif_not_configured,
+                     [Ref.string_of transport_PIF]))
+      else begin
+        debug "PIF is tunnel access PIF... also bringing up transport PIF";
+        plug ~__context ~self:transport_PIF
+      end
+    | VLAN_untagged vlan ->
+      let tagged_pif = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
+      if Db.PIF.get_sriov_logical_PIF_of ~__context ~self:tagged_pif <> [] then begin
+        debug "PIF is VLAN master on top of SRIOV logical PIF, also bringing up SRIOV logical PIF";
+        plug ~__context ~self:tagged_pif
+      end
+    | Network_sriov_logical sriov ->
+      let phy_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
+      debug "PIF is SRIOV logical PIF, also bringing up SRIOV physical PIF";
+      plug ~__context ~self:phy_pif
+    | Physical pif_rec ->
+      let bond = pif_rec.API.pIF_bond_slave_of in
+      if bond <> Ref.null then begin
+        if pif_rec.API.pIF_sriov_physical_PIF_of <> [] then begin
+          (* It's a bond slave and SR-IOV physical *)
+          let bond_master_pif = Db.Bond.get_master ~__context ~self:bond in
+          debug "PIF is SRIOV physical PIF and bond slave, also bringing up bond master PIF";
+          plug ~__context ~self:bond_master_pif
+          (* It will be checked later to make sure that bond slave will not be brought up *)
+        end 
+        else raise Api_errors.(Server_error (cannot_plug_bond_slave, [Ref.string_of self]))
+      end else ()
+    | _ -> ()
+  in
+  (* Don't bring up bond slave, as it has been up with bond master *)
+  if pif_rec.API.pIF_bond_slave_of = Ref.null then
+    Nm.bring_pif_up ~__context ~management_interface:false self
 
 let calculate_pifs_required_at_start_of_day ~__context =
   let localhost = Helpers.get_localhost ~__context in
   (* Select all PIFs on the host that are not bond slaves, and are physical, or bond master, or
      	 * have IP configuration. The latter means that any VLAN or tunnel PIFs without IP address
      	 * are excluded. *)
-  Db.PIF.get_records_where ~__context
-    ~expr:(
-      And (
-        Eq (Field "managed", Literal "true"),
+  let pifs = Db.PIF.get_records_where ~__context
+      ~expr:(
         And (
+          Eq (Field "managed", Literal "true"),
           And (
-            Eq (Field "host", Literal (Ref.string_of localhost)),
-            Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null))
-          ),
-          Or (Or (
-              Not (Eq (Field "bond_master_of", Literal "()")),
-              Eq (Field "physical", Literal "true")),
-              Not (Eq (Field "ip_configuration_mode", Literal "None"))
-            )
+            And (
+              Eq (Field "host", Literal (Ref.string_of localhost)),
+              Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null))
+            ),
+            Or (Or (
+                Not (Eq (Field "bond_master_of", Literal "()")),
+                Eq (Field "physical", Literal "true")),
+                Not (Eq (Field "ip_configuration_mode", Literal "None"))
+              )
+          )
         )
-      )
-    )
+      ) in
+  let sriov_pifs = Db.PIF.get_records_where ~__context ~expr:(And (
+      Eq (Field "host", Literal (Ref.string_of localhost)),
+      Not (Eq (Field "sriov_logical_PIF_of", Literal "()") )
+    )) in
+  pifs @ sriov_pifs
 
 let start_of_day_best_effort_bring_up () =
-  begin
-    Server_helpers.exec_with_new_task
-      "Bringing up managed physical PIFs"
-      (fun __context ->
-         let dbg = Context.string_of_task __context in
-         debug
-           "Configured network backend: %s"
-           (Network_interface.string_of_kind (Net.Bridge.get_kind dbg ()));
-         (* Clear the state of the network daemon, before refreshing it by plugging
-            				 * the most important PIFs (see above). *)
-         Net.clear_state ();
-         List.iter
-           (fun (pif, pifr) ->
-              Helpers.log_exn_continue
-                (Printf.sprintf
-                   "error trying to bring up pif: %s"
-                   pifr.API.pIF_uuid)
-                (fun pif ->
-                   debug
-                     "Best effort attempt to bring up PIF: %s"
-                     pifr.API.pIF_uuid;
-                   plug ~__context ~self:pif)
-                (pif))
-           (calculate_pifs_required_at_start_of_day ~__context))
-  end
+  Server_helpers.exec_with_new_task
+    "Bringing up managed physical and sriov PIFs"
+    (fun __context ->
+       let dbg = Context.string_of_task __context in
+       debug
+         "Configured network backend: %s"
+         (Network_interface.string_of_kind (Net.Bridge.get_kind dbg ()));
+       (* Clear the state of the network daemon, before refreshing it by plugging
+          * the most important PIFs (see above). *)
+       Net.clear_state ();
+       List.iter
+         (fun (pif, pifr) ->
+            Helpers.log_exn_continue
+              (Printf.sprintf "error trying to bring up pif: %s" pifr.API.pIF_uuid)
+              (fun pif ->
+                 debug "Best effort attempt to bring up PIF: %s" pifr.API.pIF_uuid;
+                 plug ~__context ~self:pif)
+              (pif))
+         (calculate_pifs_required_at_start_of_day ~__context))
+

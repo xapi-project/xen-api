@@ -49,9 +49,8 @@ module Make = functor(RPC: Db_interface.RPC) -> struct
   let do_remote_call marshall_args unmarshall_resp fn_name args =
     let xml = marshall_args args in
     let xml = XMLRPC.To.array [XMLRPC.To.string fn_name; XMLRPC.To.string "" (* unused *); xml] in
-    let resp = match RPC.rpc (Xml.to_string xml) with
-      | Db_interface.String s -> Xml.parse_string s
-      | Db_interface.Bigbuf b -> Xml.parse_bigbuffer b
+    let resp = 
+      RPC.rpc (Xml.to_string xml) |> Xml.parse_string
     in
     match XMLRPC.From.array (fun x->x) resp with
       [status_xml; resp_xml] ->
