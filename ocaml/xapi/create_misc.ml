@@ -442,7 +442,7 @@ let create_host_cpu ~__context =
 
 	let before = getf ~default:[||] features_hvm old_cpu_info in
 	let after = stat.cpu_info.features_hvm in
-	if before <> after && before <> [||] then begin
+	if not (is_equal before after) && before <> [||] then begin
 		let lost = is_strict_subset (intersect before after) before in
 		let gained = is_strict_subset (intersect before after) after in
 		let body = Printf.sprintf "The CPU features of host have changed.%s%s"
@@ -517,7 +517,7 @@ let create_pool_cpuinfo ~__context =
 
 	let before = getf ~default:[||] features_hvm old_cpuinfo in
 	let after = getf ~default:[||] features_hvm pool_cpuinfo in
-	if before <> after && before <> [||] then begin
+	if not (is_equal before after) && before <> [||] then begin
 		let lost = is_strict_subset (intersect before after) before in
 		let gained = is_strict_subset (intersect before after) after in
 		let body = Printf.sprintf "The pool-level CPU features have changed.%s%s"
