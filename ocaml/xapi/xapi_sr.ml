@@ -386,15 +386,15 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 		| loc, None, Some v -> Some v
 		| _, _, _ -> None
 	) db_vdi_map scan_vdi_map in
-	let to_update = StringMap.merge (fun loc db scan -> match loc, db, scan with
-		| loc, Some (r, v), Some vi -> Some (r, v, vi)
-		| _, _, _ -> None
-	) db_vdi_map scan_vdi_map in
 
 	let find_vdi db_vdi_map loc =
 		if StringMap.mem loc db_vdi_map
 		then fst (StringMap.find loc db_vdi_map)
-		else Ref.null in
+		else
+			(* CA-254515: Also check for the snapshoted VDI in the database *)
+			try Db.VDI.get_by_uuid ~__context ~uuid:loc
+			with _ -> Ref.null
+		in
 		
 	let get_is_tools_iso vdi =
 		List.mem_assoc "xs-tools" vdi.sm_config && List.assoc "xs-tools" vdi.sm_config = "true" in
@@ -433,7 +433,12 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 				~is_tools_iso:(get_is_tools_iso vdi);
 			StringMap.add vdi.vdi (ref, Db.VDI.get_record ~__context ~self:ref) m
 		) to_create db_vdi_map in
-	(* Update the ones which already exist *)
+		(* Update the ones which already exist, and the ones which were just created
+		   and may now potentially have null `snapshot_of` references (CA-254515) *)
+		let to_update = StringMap.merge (fun loc db scan -> match loc, db, scan with
+			| loc, Some (r, v), Some vi -> Some (r, v, vi)
+			| _, _, _ -> None
+		) db_vdi_map scan_vdi_map in
 	StringMap.iter
 		(fun loc (r, v, (vi: vdi_info)) ->
 			if v.API.vDI_name_label <> vi.name_label then begin
