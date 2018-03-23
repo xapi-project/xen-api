@@ -70,6 +70,7 @@ let choose_xenguest x = choose_alternative _xenguest !Xc_resources.xenguest x
 (* We allow emu-manager to be overriden via a platform flag *)
 let choose_emu_manager x = choose_alternative _emu_manager !Xc_resources.emu_manager x
 
+
 type qemu_frontend =
   | Name of string (* block device path or bridge name *)
   | Device of Device_common.device
@@ -151,8 +152,6 @@ module DB = struct
       let key vm = [ vm ]
     end)
 end
-
-let dB_m = Mutex.create ()
 
 (* These updates are local plugin updates, distinct from those that are
    exposed via the UPDATES API *)
@@ -733,6 +732,7 @@ module HOST = struct
       (fun xc _ -> Xenctrl.upgrade_oldstyle_featuremask xc features is_hvm)
 end
 
+let dB_m = Mutex.create ()
 let dm_of ~vm = Mutex.execute dB_m (fun () ->
     try
       let vmextra = DB.read_exn vm in
@@ -936,15 +936,14 @@ module VM = struct
 
   let create_exn (task: Xenops_task.task_handle) memory_upper_bound vm =
     let k = vm.Vm.id in
-    with_xc_and_xs
-      (fun xc xs ->
-         let persistent, non_persistent =
-           match DB.read k with
-           | Some x ->
-             debug "VM = %s; reloading stored domain-level configuration" vm.Vm.id;
-             x.VmExtra.persistent, x.VmExtra.non_persistent
-           | None -> begin
-               debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
+    with_xc_and_xs (fun xc xs ->
+      (* Ensure the DB contains something for this VM - this is to avoid a race with the *)
+        let _ = DB.update k (function
+          | Some x ->
+              debug "VM = %s; reloading stored domain-level configuration" vm.Vm.id;
+              Some x
+            | None -> begin
+              debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
                let persistent =
                  { VmExtra.build_info = None
                  ; ty = Some vm.ty
@@ -961,8 +960,13 @@ module VM = struct
                  ; profile = profile_of ~vm
                  } in
                let non_persistent = generate_non_persistent_state xc xs vm persistent in
-               persistent, non_persistent
-             end in
+               Some VmExtra.{persistent; non_persistent}
+             end) in
+         let _ = DB.update k (fun vmextra ->
+           let persistent, non_persistent = match vmextra with
+           | Some x -> VmExtra.(x.persistent, x.non_persistent)
+           | None -> failwith "Interleaving problem"
+           in
          let open Memory in
          let overhead_bytes = compute_overhead persistent non_persistent in
          let resuming = non_persistent.VmExtra.suspend_memory_bytes <> 0L in
@@ -1003,10 +1007,6 @@ module VM = struct
                   let persistent = VmExtra.{persistent with domain_config = Some domain_config } in
                   (domain_config, persistent)
               in
-              DB.write k {
-                VmExtra.persistent = persistent;
-                VmExtra.non_persistent = non_persistent
-              };
               let domid = Domain.make ~xc ~xs non_persistent.VmExtra.create_info domain_config (uuid_of_vm vm) in
               Mem.transfer_reservation_to_domain dbg domid reservation_id;
               begin match vm.Vm.ty with
@@ -1032,9 +1032,15 @@ module VM = struct
               for i = 0 to vm.vcpu_max - 1 do
                 Device.Vcpu.add ~xs ~dm:(dm_of ~vm) ~devid:i domid (i < vm.vcpus)
               done;
-              set_domain_type ~xs domid vm
-           );
-      )
+              set_domain_type ~xs domid vm;
+              Some {
+                VmExtra.persistent = persistent;
+                VmExtra.non_persistent = non_persistent
+              }
+           )
+       )
+      in ()
+    )
   let create = create_exn
 
   let on_domain f domain_selection (task: Xenops_task.task_handle) vm =
@@ -1119,14 +1125,6 @@ module VM = struct
       let vbds = List.filter (fun device -> match Device_common.(device.frontend.kind) with Device_common.Vbd _ -> true | _ -> false) devices in
       let dps = List.map (fun device -> Device.Generic.get_private_key ~xs device _dp_id) vbds in
 
-      Domain.destroy task ~xc ~xs ~qemu_domid ~dm:(dm_of ~vm) domid;
-      (* Detach any remaining disks *)
-      List.iter (fun dp ->
-          try
-            Storage.dp_destroy task dp
-          with e ->
-            warn "Ignoring exception in VM.destroy: %s" (Printexc.to_string e)) dps
-      ;
       (* Normally we throw-away our domain-level information. If the domain
          		   has suspended then we preserve it. *)
       if di.Xenctrl.shutdown && (Domain.shutdown_reason_of_int di.Xenctrl.shutdown_code = Domain.Suspend)
@@ -1135,6 +1133,13 @@ module VM = struct
         debug "VM = %s; domid = %d; will not have domain-level information preserved" vm.Vm.id di.Xenctrl.domid;
         if DB.exists vm.Vm.id then DB.remove vm.Vm.id;
       end;
+      Domain.destroy task ~xc ~xs ~qemu_domid ~dm:(dm_of ~vm) domid;
+      (* Detach any remaining disks *)
+      List.iter (fun dp ->
+          try
+            Storage.dp_destroy task dp
+          with e ->
+            warn "Ignoring exception in VM.destroy: %s" (Printexc.to_string e)) dps
     )
       (fun ()->
          (* Finally, discard any device caching for the domid destroyed *)
@@ -1421,16 +1426,17 @@ module VM = struct
         );
 
         debug "VM = %s; domid = %d; Domain build completed" vm.Vm.id domid;
-        let k = vm.Vm.id in
-        let d = DB.read_exn vm.Vm.id in
-        let persistent = { d.VmExtra.persistent with
-                           VmExtra.build_info = Some build_info;
-                           ty = Some vm.ty;
-                         } in
-        DB.write k {
-          VmExtra.persistent = persistent;
-          VmExtra.non_persistent = d.VmExtra.non_persistent;
-        }
+        let _ = DB.update_exn vm.Vm.id (fun d ->
+          let persistent = { d.VmExtra.persistent with
+                             VmExtra.build_info = Some build_info;
+                             ty = Some vm.ty;
+                           } in
+          Some {
+            VmExtra.persistent = persistent;
+            VmExtra.non_persistent = d.VmExtra.non_persistent;
+          }
+        )
+        in ()
       ) (fun () -> Opt.iter Bootloader.delete !kernel_to_cleanup)
 
 
@@ -1668,9 +1674,9 @@ module VM = struct
                 | Some other_disk -> None (* We don't support this *)
                 | None -> None
               in
-              let xenguest_path = choose_xenguest vm.Vm.platformdata in
-              let emu_manager_path = choose_emu_manager vm.Vm.platformdata in
-              Domain.suspend task ~xc ~xs ~domain_type ~dm:(dm_of ~vm) ~progress_callback ~qemu_domid ~xenguest_path ~emu_manager_path vm_str domid fd vgpu_fd flags'
+              let manager_path = choose_emu_manager vm.Vm.platformdata in
+              Domain.suspend task ~xc ~xs ~domain_type ~dm:(dm_of ~vm) ~progress_callback
+                ~qemu_domid ~manager_path vm_str domid fd vgpu_fd flags'
                 (fun () ->
                    (* SCTX-2558: wait more for ballooning if needed *)
                    wait_ballooning task vm;
@@ -1685,9 +1691,6 @@ module VM = struct
               let pages = Int64.of_nativeint di.Xenctrl.total_memory_pages in
               debug "VM = %s; domid = %d; Final memory usage of the domain = %Ld pages" vm.Vm.id domid pages;
               (* Flush all outstanding disk blocks *)
-
-              let k = vm.Vm.id in
-              let d = DB.read_exn vm.Vm.id in
 
               let devices = Device_common.list_frontends ~xs domid in
               let vbds = List.filter (fun device -> match Device_common.(device.frontend.kind) with Device_common.Vbd _ -> true | _ -> false) devices in
@@ -1707,12 +1710,13 @@ module VM = struct
                     ) vbds_chunk
                 ) (Xenops_utils.chunks 10 vbds);
               debug "VM = %s; domid = %d; Storing final memory usage" vm.Vm.id domid;
-              let non_persistent = { d.VmExtra.non_persistent with
-                                     VmExtra.suspend_memory_bytes = Memory.bytes_of_pages pages;
-                                   } in
-              DB.write k { d with
-                           VmExtra.non_persistent = non_persistent;
-                         }
+              let _ = DB.update_exn vm.Vm.id (fun d ->
+                let non_persistent = { d.VmExtra.non_persistent with
+                                       VmExtra.suspend_memory_bytes = Memory.bytes_of_pages pages;
+                                     } in
+                Some {d with VmExtra.non_persistent = non_persistent}
+              )
+              in ()
            )
       ) Oldest task vm
 
@@ -1754,10 +1758,9 @@ module VM = struct
                          | Some other_disk -> None (* We don't support this *)
                          | None -> None
                        in
-                       let xenguest_path = choose_xenguest vm.Vm.platformdata in
-                       let emu_manager_path = choose_emu_manager vm.Vm.platformdata in
+                       let manager_path = choose_emu_manager vm.Vm.platformdata in
                        Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *)
-                         ~timeoffset ~extras build_info ~xenguest_path ~emu_manager_path domid fd vgpu_fd
+                         ~timeoffset ~extras build_info ~manager_path domid fd vgpu_fd
                     );
                 with e ->
                   error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e);
@@ -2033,11 +2036,14 @@ module VM = struct
       debug "vm %s: persisting metadata %s" k state_new;
       (if state_new <> state then debug "vm %s: different original metadata %s" k state)
     ;
-    let non_persistent = match DB.read k with
-      | None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm persistent)
-      | Some vmextra -> vmextra.VmExtra.non_persistent
-    in
-    DB.write k { VmExtra.persistent = persistent; VmExtra.non_persistent = non_persistent; }
+    let _ = DB.update vm.Vm.id (fun d ->
+      let non_persistent = match d with
+        | None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm persistent)
+        | Some vmextra -> vmextra.VmExtra.non_persistent
+      in
+      Some { VmExtra.persistent = persistent; VmExtra.non_persistent = non_persistent; }
+    )
+    in ()
 
   let minimum_reboot_delay = 120.
 end
@@ -2167,7 +2173,7 @@ module VUSB = struct
   let get_device_action_request vm vusb =
     let state = get_state vm vusb in
     (* If it has disappeared from qom-list then we assume unplug is needed if only
-       to release resources *)
+       		   to release resources *)
     if not state.plugged then Some Needs_unplug else None
 
   let is_privileged vm =
@@ -2354,16 +2360,16 @@ module VBD = struct
                  end
                | _, _, _ -> None in
              (* Remember what we've just done *)
-             Mutex.execute dB_m (fun () ->
                  (* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains,
                     					   we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
-                 let vm_t = DB.read_exn vm in
-                 Opt.iter (fun q ->
-                     let non_persistent = { vm_t.VmExtra.non_persistent with
-                                            VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vbds} in
-                     DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
-                   ) qemu_frontend
-               )
+             Opt.iter (fun q ->
+                 let _ = DB.update_exn vm (fun vm_t ->
+                   let non_persistent = { vm_t.VmExtra.non_persistent with
+                                        VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vbds} in
+                   Some { vm_t with VmExtra.non_persistent = non_persistent }
+                 )
+                 in ()
+             ) qemu_frontend
            end
         ) Newest vm
 
@@ -2414,19 +2420,21 @@ module VBD = struct
                        (fun () -> Device.Vbd.release task ~xc ~xs device);
                   ) device;
                 (* If we have a qemu frontend, detach this too. *)
-                Mutex.execute dB_m (fun () ->
-                    let vm_t = DB.read vm in
-                    Opt.iter (fun vm_t ->
-                        let non_persistent = vm_t.VmExtra.non_persistent in
-                        if List.mem_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds then begin
-                          let _, qemu_vbd = List.assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds in
-                          (* destroy_vbd_frontend ignores 'refusing to close' transients' *)
-                          destroy_vbd_frontend ~xc ~xs task qemu_vbd;
-                          let non_persistent = { non_persistent with
-                                                 VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds } in
-                          DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
-                        end) vm_t
+                let _ = DB.update vm (
+                  Opt.map (fun vm_t ->
+                    let non_persistent = vm_t.VmExtra.non_persistent in
+                    if List.mem_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds then begin
+                      let _, qemu_vbd = List.assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds in
+                      (* destroy_vbd_frontend ignores 'refusing to close' transients' *)
+                      destroy_vbd_frontend ~xc ~xs task qemu_vbd;
+                      let non_persistent = { non_persistent with
+                                             VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id non_persistent.VmExtra.qemu_vbds } in
+                      { vm_t with VmExtra.non_persistent = non_persistent }
+                    end else
+                      vm_t
                   )
+                )
+                in ()
              )
              (fun () ->
                 match domid, backend with
@@ -2666,7 +2674,8 @@ module VIF = struct
     with _ -> false
 
   let plug_exn task vm vif =
-    let vm_t = DB.read_exn vm in
+    (* Verify that there is metadata present for the VM *)
+    let _ = DB.read_exn vm in
     (* If the vif isn't listed as "active" then we don't automatically plug this one in *)
     if not(get_active vm vif)
     then debug "VIF %s.%s is not active: not plugging into VM" (fst vif.Vif.id) (snd vif.Vif.id)
@@ -2711,9 +2720,12 @@ module VIF = struct
                      if vif.position < 4 && stubdom_domid <> me then begin
                        let device = create task stubdom_domid in
                        let q = vif.position, Device device in
-                       let non_persistent = { vm_t.VmExtra.non_persistent with
-                                              VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
-                       DB.write vm { vm_t with VmExtra.non_persistent = non_persistent}
+                       let _ = DB.update_exn vm (fun vm_t ->
+                         let non_persistent = { vm_t.VmExtra.non_persistent with
+                                                VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
+                         Some { vm_t with VmExtra.non_persistent = non_persistent}
+                       )
+                       in ()
                      end
                   ) (get_stubdom ~xs frontend_domid)
              )
@@ -2722,7 +2734,6 @@ module VIF = struct
   let plug task vm = plug_exn task vm
 
   let unplug task vm vif force =
-    let vm_t = DB.read vm in
     with_xc_and_xs
       (fun xc xs ->
          try
@@ -2736,7 +2747,8 @@ module VIF = struct
                (fun () -> Device.Vif.release task ~xc ~xs device) in
            destroy device;
 
-           Opt.iter (fun vm_t ->
+           let _ = DB.update vm (
+             Opt.map (fun vm_t ->
                (* If we have a qemu frontend, detach this too. *)
                if List.mem_assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs then begin
                  match (List.assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs) with
@@ -2744,10 +2756,12 @@ module VIF = struct
                    destroy device;
                    let non_persistent = { vm_t.VmExtra.non_persistent with
                                           VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
-                   DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
-                 | _, _ -> ()
-               end;
-             ) vm_t;
+                   { vm_t with VmExtra.non_persistent = non_persistent }
+                 | _, _ -> vm_t
+               end else
+                 vm_t
+             )
+           ) in
 
            let domid = device.Device_common.frontend.Device_common.domid in
            let interfaces = interfaces_of_vif domid vif.id vif.position in
@@ -2762,7 +2776,8 @@ module VIF = struct
     ()
 
   let move task vm vif network =
-    let vm_t = DB.read_exn vm in
+    (* Verify that there is metadata present for the VM *)
+    let _ = DB.read_exn vm in
     with_xc_and_xs
       (fun xc xs ->
          try
@@ -2775,17 +2790,19 @@ module VIF = struct
            Device.Vif.move ~xs device bridge;
 
            (* If we have a qemu frontend, detach this too. *)
-           let non_persistent = vm_t.VmExtra.non_persistent in
-           if List.mem_assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs then begin
-             match (List.assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs) with
-             | _, Device device ->
-               Device.Vif.move ~xs device bridge;
-               let non_persistent = { non_persistent with
-                                      VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs } in
-               DB.write vm { vm_t with VmExtra.non_persistent = non_persistent }
-             | _, _ -> ()
-           end
-
+           let _ = DB.update_exn vm (fun vm_t ->
+             let non_persistent = vm_t.VmExtra.non_persistent in
+             if List.mem_assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs then begin
+               match (List.assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs) with
+               | _, Device device ->
+                 Device.Vif.move ~xs device bridge;
+                 let non_persistent = { non_persistent with
+                                        VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs } in
+                 Some { vm_t with VmExtra.non_persistent = non_persistent }
+               | _, _ -> Some vm_t
+             end else
+               Some vm_t
+           ) in ()
          with
          | (Does_not_exist(_,_)) ->
            debug "VM = %s; Ignoring missing domain" (id_of vif)
@@ -2993,29 +3010,38 @@ module IntMap = Map.Make(struct type t = int let compare = compare end)
 module Actions = struct
   (* CA-76600: the rtc/timeoffset needs to be maintained over a migrate. *)
   let store_rtc_timeoffset vm timeoffset =
-    Opt.iter
-      (function { VmExtra.persistent; non_persistent } ->
-      match persistent with
-      | { VmExtra.ty = Some ( Vm.HVM hvm_info ) } ->
-        let persistent = { persistent with VmExtra.ty = Some (Vm.HVM { hvm_info with Vm.timeoffset = timeoffset }) } in
-        debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset;
-        DB.write vm { VmExtra.persistent; non_persistent }
-      | _ -> ()
-      ) (DB.read vm)
+    let _ = DB.update vm (
+      Opt.map (function { VmExtra.persistent; non_persistent } as extra ->
+        match persistent with
+        | { VmExtra.ty = Some ( Vm.HVM hvm_info ) } ->
+          let persistent = { persistent with VmExtra.ty = Some (Vm.HVM { hvm_info with Vm.timeoffset = timeoffset }) } in
+          debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset;
+          { VmExtra.persistent; non_persistent }
+        | _ -> extra
+      )
+    )
+    in ()
 
   let maybe_update_pv_drivers_detected ~xc ~xs domid path =
     let vm = get_uuid ~xc domid |> Uuidm.to_string in
     Opt.iter
-      (function { VmExtra.persistent; non_persistent } ->
+      (function { VmExtra.non_persistent } ->
         if not non_persistent.VmExtra.pv_drivers_detected then begin
           (* If the new value for this device is 4 then PV drivers are present *)
           try
             let value = xs.Xs.read path in
             if value = "4" (* connected *) then begin
-              let non_persistent = { non_persistent with VmExtra.pv_drivers_detected = true } in
-              debug "VM = %s; found PV driver evidence on %s (value = %s)" vm path value;
-              DB.write vm { VmExtra.persistent; non_persistent };
-              Updates.add (Dynamic.Vm vm) internal_updates
+              let updated =
+                DB.update vm (
+                  Opt.map (function { VmExtra.persistent; non_persistent } ->
+                    let non_persistent = { non_persistent with VmExtra.pv_drivers_detected = true } in
+                    debug "VM = %s; found PV driver evidence on %s (value = %s)" vm path value;
+                    { VmExtra.persistent; non_persistent }
+                  )
+                )
+              in
+              if updated then
+                Updates.add (Dynamic.Vm vm) internal_updates
             end
           with Xs_protocol.Enoent _ ->
             warn "Watch event on %s fired but couldn't read from it" path;
