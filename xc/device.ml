@@ -671,7 +671,8 @@ end
 
 module Vif = struct
 
-  let add (task: Xenops_task.task_handle) ~xs ~devid ~netty ~mac ~carrier ?mtu ?(rate=None) ?(protocol=Protocol_Native) ?(backend_domid=0) ?(other_config=[]) ?(extra_private_keys=[]) ?(extra_xenserver_keys=[]) domid =
+  let add ~xs ~devid ~mac ?mtu ?(rate=None) ?(backend_domid=0) ?(other_config=[]) 
+      ~netty ~carrier ?(protocol=Protocol_Native) ?(extra_private_keys=[]) ?(extra_xenserver_keys=[]) (task: Xenops_task.task_handle) domid =
     debug "Device.Vif.add domid=%d devid=%d mac=%s carrier=%b rate=%s other_config=[%s] extra_private_keys=[%s] extra_xenserver_keys=[%s]" domid devid mac carrier
       (match rate with None -> "none" | Some (a, b) -> sprintf "(%Ld,%Ld)" a b)
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) other_config))
@@ -683,7 +684,6 @@ module Vif = struct
     let backend = { domid = backend_domid; kind = Vif; devid = devid } in
     let device = { backend = backend; frontend = frontend } in
 
-    let mac = Mac.check_mac mac in
 
     let back_options =
       match rate with
@@ -781,6 +781,62 @@ module Vif = struct
     Hotplug.run_hotplug_script x ["move"; "type_if=vif"];
     (* Maybe there's a tap, too *)
     try Hotplug.run_hotplug_script {x with backend={x.backend with kind=Tap}}  ["move"; "type_if=tap"] with _ -> ()
+
+end
+
+(****************************************************************************************)
+(** Network SR-IOV VFs:                                                                 *)
+module NetSriovVf = struct
+
+  let add  ~xs ~devid ~mac ?mtu ?(rate=None) ?(backend_domid=0) ?(other_config=[]) 
+      ~pci ~vlan ~carrier ?(extra_private_keys=[]) ?(extra_xenserver_keys=[])
+      (task: Xenops_task.task_handle) domid =
+    let vlan_str = match vlan with None -> "none" | Some vlan -> sprintf "%Ld" vlan in
+    let rate_str = match rate with None -> "none" | Some (a, b) -> sprintf "(%Ld,%Ld)" a b in
+    debug "Device.NetSriovVf.add domid=%d devid=%d pci=%s vlan=%s mac=%s carrier=%b \
+           rate=%s other_config=[%s] extra_private_keys=[%s] extra_xenserver_keys=[%s]" 
+      domid devid (Xenops_interface.Pci.string_of_address pci)  vlan_str mac carrier rate_str
+      (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) other_config))
+      (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) extra_private_keys))
+      (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) extra_xenserver_keys));
+
+    let frontend = { domid = domid; kind = NetSriovVf; devid = devid } in
+    let backend = { domid = backend_domid; kind = NetSriovVf; devid = devid } in
+    let device = { backend = backend; frontend = frontend } in
+    Generic.add_device ~xs device [] [] extra_private_keys (extra_xenserver_keys @ other_config);
+    let rate_Mbps = match rate with
+      | Some (0L, _) | None -> None
+      | Some (rate, _) -> (match Int64.div rate 1024L with
+        | 0L -> Some 1L
+        | rate -> Some rate)
+    in
+    let net_sriov_vf_config = Network_client.Client.Sriov.{
+      mac=Some mac;
+      vlan=vlan;
+      rate=rate_Mbps;}
+    in
+    begin
+      let ret = Network_client.Client.Sriov.make_vf_config
+        (Xenops_task.get_dbg task) pci net_sriov_vf_config
+      in
+      let open Network_client.Client.Sriov in
+      match ret with
+      | Ok -> ()
+      | Error Config_vf_rate_not_supported ->
+        error "It is not supported to configure rate on this network SR-IOV VF (pci:%s)"
+          (Pci.string_of_address pci)
+      | Error (Unknown s) ->
+        failwith (Printf.sprintf "Failed to configure network SR-IOV VF \
+            (pci:%s) with mac=%s vlan=%s rate=%s: %s"
+            (Pci.string_of_address pci) mac vlan_str rate_str s)
+    end;
+    device
+
+  let hard_shutdown ~xs (x: device) =
+    debug "Device.NetSriovVf.hard_shutdown about to blow away backend and frontend paths";
+    Generic.safe_rm ~xs (frontend_ro_path_of_device ~xs x);
+    Generic.safe_rm ~xs (frontend_rw_path_of_device ~xs x);
+    Generic.safe_rm ~xs (backend_path_of_device ~xs x)
 
 end
 
@@ -2728,6 +2784,7 @@ end (* Dm *)
 
 let hard_shutdown (task: Xenops_task.task_handle) ~xs (x: device) = match x.backend.kind with
   | Vif -> Vif.hard_shutdown task ~xs x
+  | NetSriovVf -> NetSriovVf.hard_shutdown ~xs x
   | Vbd _ | Tap -> Vbd.hard_shutdown task ~xs x
   | Pci -> PCI.hard_shutdown task ~xs x
   | Vfs -> Vfs.hard_shutdown task ~xs x
@@ -2736,6 +2793,7 @@ let hard_shutdown (task: Xenops_task.task_handle) ~xs (x: device) = match x.back
 
 let clean_shutdown (task: Xenops_task.task_handle) ~xs (x: device) = match x.backend.kind with
   | Vif -> Vif.clean_shutdown task ~xs x
+  | NetSriovVf -> raise (Unimplemented("network sr-iov"))
   | Vbd _ | Tap -> Vbd.clean_shutdown task ~xs x
   | Pci -> PCI.clean_shutdown task ~xs x
   | Vfs -> Vfs.clean_shutdown task ~xs x
