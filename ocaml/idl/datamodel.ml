@@ -4231,7 +4231,7 @@ module Network_sriov = struct
   let sriov_configuration_mode = Enum ("sriov_configuration_mode",
     [
       "sysfs", "Configure network sriov by sysfs, do not need reboot";
-      "modprobe", "Configure network sriov by modbrope, need reboot";
+      "modprobe", "Configure network sriov by modprobe, need reboot";
       "unknown", "Unknown mode";
     ])
 
