@@ -32,8 +32,8 @@ reporting and memory management taken by this library.
 Dependencies
 ------------
 
-This library is dependent upon libxml2, the XML toolkit from the GNOME project,
-by Daniel Veillard, et al.  This can be obtained from http://xmlsoft.org/.
+This library is dependent upon libxml2-devel, the XML toolkit from the GNOME
+project, by Daniel Veillard, et al.  This can be obtained from http://xmlsoft.org/.
 
 The test programs are dependent also upon libcurl-devel, by Daniel Stenberg, et al.
 This can be downloaded from http://curl.haxx.se/. You may choose to use
