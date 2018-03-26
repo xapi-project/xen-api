@@ -48,7 +48,6 @@ let pif_of_host ~__context (network : API.ref_network) (host : API.ref_host) =
 let ip_of_pif (ref,record) =
   let ip = record.API.pIF_IP in
   if ip = "" then failwith (Printf.sprintf "PIF %s does not have any IP" (Ref.string_of ref));
-  debug "Got IP %s for PIF %s" ip (Ref.string_of ref);
   Cluster_interface.IPv4 ip
 
 (** [assert_pif_prerequisites (pif_ref,pif_rec)] raises an exception if any of
@@ -60,6 +59,7 @@ let ip_of_pif (ref,record) =
     {- that the PIF has disallow_unplug set}
     }*)
 let assert_pif_prerequisites pif =
+  let (ref, record) = pif in
   let assert_pif_permaplugged (ref,record) =
     if not record.API.pIF_disallow_unplug then
       raise Api_errors.(Server_error (pif_allows_unplug, [ record.API.pIF_uuid ] ));
@@ -67,7 +67,8 @@ let assert_pif_prerequisites pif =
       raise Api_errors.(Server_error (required_pif_is_unplugged, [ record.API.pIF_uuid ] ))
   in
   assert_pif_permaplugged pif;
-  ignore(ip_of_pif pif)
+  ignore (ip_of_pif pif);
+  debug "Got IP %s for PIF %s" record.API.pIF_IP (Ref.string_of ref)
 
 let handle_error = function
   | InternalError message -> raise Api_errors.(Server_error (internal_error, [ message ]))
