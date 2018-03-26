@@ -1548,20 +1548,7 @@ let sr_probe printer rpc session_id params =
     let open Storage_interface in
     match probe_result_of_rpc (Xmlrpc.of_string txt) with
     | Raw x -> printer (Cli_printer.PList [ x ])
-    | Probe x ->
-      let sr (uri, x) = [
-        "uri", uri;
-        "name-label", x.name_label;
-        "name-description", x.name_description;
-        "total-space", Int64.to_string x.total_space;
-        "free-space", Int64.to_string x.free_space;
-      ] in
-      if x.srs <> []
-      then printer (Cli_printer.PMsg "The following SRs were found:");
-      printer (Cli_printer.PTable (List.map sr x.srs));
-      if x.uris <> []
-      then printer (Cli_printer.PMsg "The following URIs may contain SRs:");
-      printer (Cli_printer.PList x.uris)
+    | Probe x -> failwith "Not implemented, this return type is for probe_ext"
   with _ ->
     printer (Cli_printer.PList [txt])
 
