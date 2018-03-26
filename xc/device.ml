@@ -584,7 +584,6 @@ module Vbd_Common = struct
       "mode", string_of_mode x.mode;
       "params", params;
       "qemu-params", qemu_params;
-      "direct-io-safe", "1";
     ];
     (* We don't have PV drivers for HVM guests for CDROMs. We prevent
        blkback from successfully opening the device since this can
