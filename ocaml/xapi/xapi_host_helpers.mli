@@ -121,17 +121,20 @@ module Configuration : sig
       fields in xapi's database. It should be called at startup on every host
       BEFORE the other_config watcher [start_watcher_thread] is started *)
 
-  val watch_other_configs : __context:Context.t -> float -> string -> string
+  val watch_other_configs : __context:Context.t -> float -> (string * bool) -> (string * bool)
   (** [watch_other_configs ~__context timeout] returns a function that performs
       one iteration of watching Host.other_config. If an update occurs this
       will check whether the iscsi_iqn field in other-config is correctly
       reflected in the field Host.iscsi_iqn, and if not it will call
       Host.set_iscsi_iqn with the value specified in other-config. This is
-      intended to be run on the master. The returned function has type
-      [token -> token], where [token] is a string. The initial value should be
-      the empty string, and the returned value should be used for further
-      invocations. This function is exposed only for unit testing, and should
-      not be invoked directly.*)
+      intended to be run on the master. The calls will not be made if the pool
+      is in rolling upgrade mode, so when the pool exits rolling upgrade mode
+      all hosts are checked. The returned function has type [token -> token],
+      where [token] is a (string * bool). The initial value should be a tuple
+      of the empty string and a boolean whose value is true if the pool is
+      currently in rolling pool upgrade mode, and the returned value should be
+      used for further invocations. This function is exposed only for unit
+      testing, and should not be invoked directly.*)
 
   val start_watcher_thread : __context:Context.t -> unit
   (** [start_watcher_thread ~__context] will start a thread that watches the

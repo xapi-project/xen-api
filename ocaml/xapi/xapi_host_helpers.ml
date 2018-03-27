@@ -308,50 +308,67 @@ module Configuration = struct
     set_multipathing (Db.Host.get_multipathing ~__context ~self)
 
   let watch_other_configs ~__context delay =
-    let loop token =
+    let loop (token, was_in_rpu) =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           let events =
-            Client.Client.Event.from rpc session_id ["host"] token delay |>
+            Client.Client.Event.from rpc session_id ["host"; "pool"] token delay |>
             Event_types.event_from_of_rpc
           in
-          List.iter (fun ev ->
-              match Event_helper.record_of_event ev with
-                | Event_helper.Host (host_ref, Some host_rec) -> begin
-                    let oc = host_rec.API.host_other_config in
-                    let iscsi_iqn = try Some (List.assoc "iscsi_iqn" oc) with _ -> None in
-                    begin match iscsi_iqn with
-                      | None -> ()
-                      | Some "" -> ()
-                      | Some iqn when iqn <> host_rec.API.host_iscsi_iqn ->
-                        Client.Client.Host.set_iscsi_iqn rpc session_id host_ref iqn
-                      | _ -> ()
-                    end;
-                    (* Accepted values are "true" and "false" *)
-                    (* If someone deletes the multipathing other_config key, we don't do anything *)
-                    let multipathing = try Some (List.assoc "multipathing" oc |> Pervasives.bool_of_string) with _ -> None in
-                    begin match multipathing with
-                      | None -> ()
-                      | Some multipathing when multipathing <> host_rec.API.host_multipathing ->
-                        Client.Client.Host.set_multipathing rpc session_id host_ref multipathing
-                      | _ -> ()
-                    end
-                  end
-                | _ -> ())
-              events.Event_types.events;
-          events.Event_types.token)
+          let check_host (host_ref,host_rec) =
+            let oc = host_rec.API.host_other_config in
+            let iscsi_iqn = try Some (List.assoc "iscsi_iqn" oc) with _ -> None in
+            begin match iscsi_iqn with
+              | None -> ()
+              | Some "" -> ()
+              | Some iqn when iqn <> host_rec.API.host_iscsi_iqn ->
+                Client.Client.Host.set_iscsi_iqn rpc session_id host_ref iqn
+              | _ -> ()
+            end;
+            (* Accepted values are "true" and "false" *)
+            (* If someone deletes the multipathing other_config key, we don't do anything *)
+            let multipathing = try Some (List.assoc "multipathing" oc |> Pervasives.bool_of_string) with _ -> None in
+            begin match multipathing with
+              | None -> ()
+              | Some multipathing when multipathing <> host_rec.API.host_multipathing ->
+                Client.Client.Host.set_multipathing rpc session_id host_ref multipathing
+              | _ -> ()
+            end
+          in
+          let event_recs = List.map Event_helper.record_of_event events.Event_types.events in
+          let in_rpu = List.fold_left (fun in_rpu ev ->
+              match ev with
+              | Event_helper.Pool (_pool_ref, Some pool_rec) ->
+                let in_rpu = Helpers.rolling_upgrade_in_progress_of_oc pool_rec.API.pool_other_config in
+                if (not in_rpu) && was_in_rpu then begin
+                  List.iter check_host (Db.Host.get_all_records ~__context)
+                end;
+                in_rpu
+              | _ ->
+                in_rpu)
+              was_in_rpu
+              event_recs
+          in
+          List.iter (function
+              | Event_helper.Host (host_ref, Some host_rec) ->
+                if not in_rpu then begin
+                  check_host (host_ref, host_rec)
+                end
+              | _ -> ()) event_recs;
+          (events.Event_types.token, in_rpu)
+        )
     in
     loop
 
   let start_watcher_thread ~__context =
     Thread.create (fun () ->
-      let loop = watch_other_configs ~__context 30.0 in
-      while true do
-        begin
-          try
-            let rec inner token = inner (loop token) in inner ""
-          with e ->
-            error "Caught exception in Configuration.start_watcher_thread: %s" (Printexc.to_string e);
-            Thread.delay 5.0;
-        end;
-      done) () |> ignore
+        let loop = watch_other_configs ~__context 30.0 in
+        while true do
+          begin
+            try
+              let rec inner token = inner (loop token) in inner ("", Helpers.rolling_upgrade_in_progress ~__context)
+            with e ->
+              error "Caught exception in Configuration.start_watcher_thread: %s" (Printexc.to_string e);
+              Thread.delay 5.0;
+          end;
+        done) () |> ignore
 end

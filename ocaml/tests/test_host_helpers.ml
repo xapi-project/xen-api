@@ -37,7 +37,7 @@ let setup_test_oc_watcher () =
   let host1 = !Xapi_globs.localhost_ref in
   let host2 = Test_common.make_host ~__context () in
   let watcher = Xapi_host_helpers.Configuration.watch_other_configs ~__context 0.0 in
-  let token = watcher "" in
+  let token = watcher ("",(Helpers.rolling_upgrade_in_progress ~__context)) in
   (__context, calls, host1, host2, watcher, token)
 
 let test_host1 () =
@@ -114,6 +114,37 @@ let test_host_set_multipathing () =
   let _token = watcher token in
   assert_equal !calls []
 
+let test_rpu_suppression () =
+  (* Test RPU suppression: check that calls are deferred during RPU, and happen once the pool has exited RPU mode *)
+  let (__context, calls, host1, host2, watcher, token) = setup_test_oc_watcher () in
+  let pool = Db.Pool.get_all ~__context |> List.hd in
+  Db.Pool.add_to_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"true";
+
+  Db.Host.set_multipathing ~__context ~self:host1 ~value:false;
+  Db.Host.set_multipathing ~__context ~self:host2 ~value:false;
+
+  Db.Host.add_to_other_config ~__context ~self:host1 ~key:"iscsi_iqn" ~value:"test1";
+  let token = watcher token in
+  assert_equal ~msg:"iscsi_iqn calls when rpu=true" !calls [];
+
+  calls := [];
+  Db.Host.add_to_other_config ~__context ~self:host2 ~key:"multipathing" ~value:"true";
+  let token = watcher token in
+  assert_equal ~msg:"multipathing calls when rpu=true" !calls [];
+
+  Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress;
+
+  let _token = watcher token in
+  assert_equal
+    ~msg:"ISCSI IQN was set"
+    (List.exists (function (h, `set_iscsi_iqn t) -> h = host1 && t = "test1" | _ -> false) !calls)
+    true;
+  assert_equal
+    ~msg:"Multipathing was set"
+    (List.exists (function (h, `set_multipathing t) -> h = host2 && t | _ -> false) !calls)
+    true
+
+
 
 let test =
   "other_config_watcher" >:::
@@ -123,4 +154,5 @@ let test =
     "test_different_keys" >:: test_different_keys;
     "test_host_set_iscsi_iqn" >:: test_host_set_iscsi_iqn;
     "test_host_set_multipathing" >:: test_host_set_multipathing;
+    "test_rpu_suppression" >:: test_rpu_suppression;
   ]

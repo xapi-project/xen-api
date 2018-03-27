@@ -437,13 +437,16 @@ type boot_method =
 
 (** Returns the current value of the pool configuration flag *)
 (** that indicates whether a rolling upgrade is in progress. *)
+let rolling_upgrade_in_progress_of_oc oc =
+  List.mem_assoc Xapi_globs.rolling_upgrade_in_progress oc
+
 (* Note: the reason it's OK to trap exceptions and return false is that -- an exn will only happen if the pool record
    is not present in the database; that only happens on firstboot (when you're a master with no db and you're creating
    the db for the first time). In that context you cannot be in rolling upgrade mode *)
 let rolling_upgrade_in_progress ~__context =
   try
     let pool = get_pool ~__context in
-    List.mem_assoc Xapi_globs.rolling_upgrade_in_progress (Db.Pool.get_other_config ~__context ~self:pool)
+    rolling_upgrade_in_progress_of_oc (Db.Pool.get_other_config ~__context ~self:pool)
   with _ ->
     false
 
