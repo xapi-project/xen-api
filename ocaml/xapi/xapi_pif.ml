@@ -268,8 +268,8 @@ let assert_no_other_local_pifs ~__context ~host ~network =
                 (Api_errors.network_already_connected,
                  [Ref.string_of host; Ref.string_of (List.hd other_pifs)]))
 
-let assert_fcoe_not_in_use ~__context pif =
-  let interface = Db.PIF.get_device ~__context ~self:pif in
+let assert_fcoe_not_in_use ~__context ~self =
+  let interface = Db.PIF.get_device ~__context ~self in
   let output, _ = Forkhelpers.execute_command_get_output !Xapi_globs.fcoe_driver ["-t"; interface] in
   let output = String.trim output in
   debug "Scsi ids on %s are: %s" interface output;
@@ -280,7 +280,7 @@ let assert_fcoe_not_in_use ~__context pif =
       | "lvmofcoe" ->(
         try
           let scsid = List.assoc "SCSIid" pbd_rec.API.pBD_device_config in
-          if List.mem scsid fcoe_scsids then raise (Api_errors.Server_error(Api_errors.pif_has_fcoe_sr_in_use, [Ref.string_of pif; Ref.string_of sr]))
+          if List.mem scsid fcoe_scsids then raise (Api_errors.Server_error(Api_errors.pif_has_fcoe_sr_in_use, [Ref.string_of self; Ref.string_of sr]))
         with Not_found ->
           ()
       )
@@ -795,7 +795,7 @@ let rec unplug ~__context ~self =
   Xapi_network_attach_helpers.assert_network_has_no_vifs_in_use_on_me ~__context ~host:(Helpers.get_localhost ~__context) ~network;
   Xapi_network_attach_helpers.assert_pif_disallow_unplug_not_set ~__context self;
   if Db.PIF.get_capabilities ~__context ~self |> List.mem "fcoe" then
-    assert_fcoe_not_in_use ~__context self;
+    assert_fcoe_not_in_use ~__context ~self;
 
   List.iter (fun tunnel ->
       debug "PIF is tunnel transport PIF... also bringing down access PIF";

@@ -340,6 +340,8 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
           let pool = Helpers.get_pool ~__context in
           if Db.Pool.get_ha_enabled ~__context ~self:pool && Db.PIF.get_management ~__context ~self
           then raise (Api_errors.Server_error(Api_errors.ha_cannot_change_bond_status_of_mgmt_iface, []));
+          if Db.PIF.get_capabilities ~__context ~self |> List.mem "fcoe" then
+            Xapi_pif.assert_fcoe_not_in_use ~__context ~self
         ) members;
       let hosts = List.map (fun self -> Db.PIF.get_host ~__context ~self) members in
       if List.length (List.setify hosts) <> 1

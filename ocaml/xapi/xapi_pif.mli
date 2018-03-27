@@ -294,3 +294,6 @@ val assert_no_other_local_pifs :
   __context:Context.t ->
   host:[ `host ] Ref.t -> network:[ `network ] Ref.t -> unit
 
+(** Ensure PIF has no FCOE SR in use *)
+val assert_fcoe_not_in_use:
+  __context:Context.t -> self:[`PIF] Ref.t -> unit
