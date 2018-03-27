@@ -119,7 +119,6 @@ type dp_stat_t = {
 
 let string_of_dp_stat_t (x: dp_stat_t) = Jsonrpc.to_string (rpc_of_dp_stat_t x)
 
-type device_config = (string * string) list
 type probe = {
   configuration: (string * string) list;
   complete: bool;
