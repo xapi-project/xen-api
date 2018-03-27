@@ -18,4 +18,8 @@ let cli () =
   let rpc = V6_client.rpc in
   Cmdliner.Term.eval_choice default_cmd (List.map (fun t -> t rpc) (Cmds.implementation ()))
 
-let _ = cli ()
+let _ =
+  match cli () with
+  | `Ok f -> f ()
+  | _ -> ()
+
