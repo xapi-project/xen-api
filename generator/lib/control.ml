@@ -61,7 +61,7 @@ let api =
         ( configuration.name, configuration.ty, configuration.description ),
         [ "complete", Basic Boolean, String.concat " " [
             "True if this configuration is complete and can be used to";
-            "call SR.create. False if it requires further iterative calls";
+            "call SR.create or SR.attach. False if it requires further iterative calls";
             "to SR.probe, to potentially narrow down on a configuration";
             "that can be used.";
           ];
