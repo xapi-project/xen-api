@@ -31,11 +31,22 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name xcp_network)
   (public_name xcp.network)
   (flags (:standard -w -39-33 %s))
+  (modules (:standard \ network_cli))
   (libraries
    (rpclib
     threads
     xcp))
   (wrapped false)
   %s))
+
+(executable
+ ((name network_cli)
+  (modules (network_cli))
+  (libraries
+   (cmdliner
+    rpclib.cmdliner
+    rpclib.markdown
+    xcp.network))))
+
 
 |} (flags rewriters_ppx) coverage_rewriter
