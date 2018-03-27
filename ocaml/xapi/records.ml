@@ -24,10 +24,6 @@ let nullref = Ref.string_of (Ref.null)
 let nid = "<not in database>"
 let unknown_time = "<unknown time>"
 
-let checknull f r =
-  if (Ref.string_of r)=nullref then nid else
-    try f r with _ -> nid
-
 let string_of_float f = Printf.sprintf "%.3f" f
 
 (* Splitting an empty string gives a list containing the empty string, which
@@ -1548,41 +1544,6 @@ let pbd_record rpc session_id pbd =
       ]
   }
 
-let session_record rpc session_id session =
-  let _ref = ref session in
-  let empty_record = ToGet (fun () -> Client.Session.get_record rpc session_id !_ref) in
-  let record = ref empty_record in
-  let x () = lzy_get record in
-  { setref=(fun r -> _ref := r; record := empty_record );
-    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
-    record=x;
-    getref=(fun () -> !_ref);
-    fields =
-      [
-        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.session_uuid) ();
-      ]}
-
-let blob_record rpc session_id blob =
-  let _ref = ref blob in
-  let empty_record = ToGet (fun () -> Client.Blob.get_record rpc session_id !_ref) in
-  let record = ref empty_record in
-  let x () = lzy_get record in
-  { setref=(fun r -> _ref := r; record := empty_record );
-    setrefrec=(fun (a,b) -> _ref := a; record := Got b);
-    record=x;
-    getref=(fun () -> !_ref);
-    fields =
-      [
-        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.blob_uuid) ();
-        make_field ~name:"name-label" ~get:(fun () -> (x ()).API.blob_name_label)
-          ~set:(fun x -> Client.Blob.set_name_label rpc session_id !_ref x) ();
-        make_field ~name:"name-description" ~get:(fun () -> (x ()).API.blob_name_description)
-          ~set:(fun x -> Client.Blob.set_name_description rpc session_id !_ref x) ();
-        make_field ~name:"last_updated" ~get:(fun () -> Date.to_string (x ()).API.blob_last_updated) ();
-        make_field ~name:"size" ~get:(fun () -> Int64.to_string (x ()).API.blob_size) ();
-        make_field ~name:"mime-type" ~get:(fun () -> (x ()).API.blob_mime_type) ();
-      ]}
-
 let secret_record rpc session_id secret =
   let _ref = ref secret in
   let empty_record = ToGet (fun () ->
@@ -1648,31 +1609,6 @@ let dr_task_record rpc session_id dr_task =
         make_field ~name:"introduced-SRs" ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.dR_task_introduced_SRs)) ();
       ]
   }
-
-
-(*let record_from_ref rpc session_id ref =
-  let all = [
-    "PBD",(fun ref -> snd (pbd_record rpc session_id (Ref.of_string ref)));
-    "SR",(fun ref -> snd (sr_record rpc session_id (Ref.of_string ref)));
-    "VBD",(fun ref -> snd (vbd_record rpc session_id (Ref.of_string ref)));
-    "VIF",(fun ref -> snd (vif_record rpc session_id (Ref.of_string ref)));
-    "PIF",(fun ref -> snd (pif_record rpc session_id (Ref.of_string ref)));
-    "VDI",(fun ref -> snd (vdi_record rpc session_id (Ref.of_string ref)));
-    "Host",(fun ref -> snd (host_record rpc session_id (Ref.of_string ref)));
-    "Network",(fun ref -> snd (net_record rpc session_id (Ref.of_string ref)));
-    "VM",(fun ref -> snd (vm_record rpc session_id (Ref.of_string ref)));
-    "Session",(fun ref -> snd (session_record rpc session_id (Ref.of_string ref)));] in
-  let findfn (name,record) =
-    let r = record ref in
-    try
-      let u = field_lookup r "uuid" in
-      u.get ();
-      true
-    with
-  	_ -> false
-  in
-  try let (n,r) = List.find findfn all in (n,r ref) with _ -> ("Unknown",[])
-  	*)
 
 let pgpu_record rpc session_id pgpu =
   let _ref = ref pgpu in

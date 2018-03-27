@@ -29,9 +29,6 @@ module Rrdd = Rrd_client.Client
 let get_query_string_from_query ~(query : (string * string) list) : string =
   String.concat "&" (List.map (fun (k, v) -> k ^ "=" ^ v) query)
 
-let get_query_string ~(req : Http.Request.t) : string =
-  get_query_string_from_query ~query:req.Http.Request.query
-
 let make_url_from_query ~(address : string) ~(uri : string)
     ~(query : (string * string) list) : string =
   let query_string = get_query_string_from_query query in

@@ -32,11 +32,6 @@ let chunk_size = Int64.mul 1024L 1024L (* 1 MiB *)
 
 let checksum_extension = ".checksum"
 
-(** Helper function to prevent double-closes of file descriptors *)
-let close to_close fd =
-  if List.mem fd !to_close then Unix.close fd;
-  to_close := List.filter (fun x -> fd <> x) !to_close
-
 type vdi = string (* directory prefix in tar file *) * API.ref_VDI * Int64.t (* size to send/recieve *)
 
 (** Open the device corresponding to a VDI with <flags> and <perms> and apply the

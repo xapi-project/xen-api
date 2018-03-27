@@ -666,15 +666,6 @@ let force_state_reset ~__context ~self ~value:state =
     Db.VM.set_current_operations ~__context ~self ~value:[];
   force_state_reset_keep_current_operations ~__context ~self ~value:state
 
-(** Someone is cancelling a task so remove it from the current_operations *)
-let cancel_task ~__context ~self ~task_id =
-  let all = List.map fst (Db.VM.get_current_operations ~__context ~self) in
-  if List.mem task_id all
-  then begin
-    Db.VM.remove_from_current_operations ~__context ~self ~key:task_id;
-    update_allowed_operations ~__context ~self
-  end
-
 let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let ops = Db.VM.get_current_operations ~__context ~self in
   let set = (fun value -> Db.VM.set_current_operations ~__context ~self ~value) in

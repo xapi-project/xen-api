@@ -18,8 +18,6 @@
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
-let get_allowed_messages ~__context ~self = []
-
 let create ~__context ~label ~description =
   (* This call will have a dummy task ID already but we need to make a fresh one *)
   let subtask_of = Context.get_task_id __context in

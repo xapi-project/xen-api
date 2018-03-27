@@ -103,10 +103,6 @@ let diagnostics_tag = "DiagnosticData"
 
 let bufsize = 16384
 
-let hex_entity s =
-  (*debug "hex_entity %s" s; *)
-  char_of_int (int_of_string ("0" ^ (String.sub s 1 (String.length s - 1))))
-
 let trim_and_send method_name tag recv_sock send_sock =
   let recv_buf = Buffer.create bufsize in
   let fill () =

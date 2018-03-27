@@ -93,10 +93,6 @@ let check_live ~__context h =
   && (not (Xapi_vm_helpers.is_host_live ~__context h))
   then raise (Api_errors.Server_error (Api_errors.host_offline, [Ref.string_of h]))
 
-let check_enabled ~__context h =
-  (* check host is enabled *)
-  Xapi_vm_helpers.assert_host_is_enabled ~__context ~host:h
-
 (* Forward op to one of the specified hosts if host!=localhost *)
 let do_op_on_common ~local_fn ~__context ~host op f =
   try
@@ -163,16 +159,6 @@ let log_exn_ignore ?(doc = "performing unknown operation") f x =
 
 (**************************************************************************************)
 
-
-let hosts_with_several_srs ~__context srs =
-  let hosts = Db.Host.get_all ~__context in
-  let filterfn host =
-    try
-      Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:srs ~host;
-      true
-    with
-      _ -> false in
-  List.filter filterfn hosts
 
 (* Given an SR, return a PBD to use for some storage operation. *)
 (* In the case of SR.destroy we need to be able to forward the SR operation when all

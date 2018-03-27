@@ -76,9 +76,6 @@ let real_proxy __context _ _ vnc_port s =
   with
     exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
 
-let fake_proxy __context _ _ console s =
-  Rfb_randomtest.server s
-
 let check_wsproxy () =
   try
     let pid = int_of_string (Unixext.string_of_file "/var/run/wsproxy.pid") in

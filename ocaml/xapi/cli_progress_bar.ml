@@ -80,10 +80,6 @@ module Make(T: Floatable) = struct
     t.current_value <- new_value;
     new_bar <> old_bar
 
-  let average_rate t =
-    let time_so_far = Unix.gettimeofday () -. t.start_time in
-    T.to_float t.current_value /. time_so_far
-
   let summarise t =
     if not t.summarised then begin
       t.summarised <- true;

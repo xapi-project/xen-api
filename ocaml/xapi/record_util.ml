@@ -298,9 +298,6 @@ let protocol_to_string = function
   | `rfb -> "RFB"
   | `rdp -> "RDP"
 
-let cpu_feature_list_to_string list =
-  String.concat "," (List.map (fun x -> cpu_feature_to_string x) list)
-
 let task_allowed_operations_to_string s =
   match s with
   | `cancel -> "Cancel"
@@ -352,19 +349,6 @@ let host_display_to_string h =
 
 let pgpu_dom0_access_to_string x =
   host_display_to_string x
-
-let boot_type_to_string x =
-  match x with
-    `bios -> "BIOS"
-  | `grub -> "GRUB"
-  | `kernelexternal -> "Kernel external"
-
-let string_to_boot_type s =
-  match String.lowercase_ascii s with
-    "bios" -> `bios
-  | "grub" -> `grub
-  | "kernelexternal" -> `kernelexternal
-  | _ -> raise (Record_failure ("Expected 'bios', 'grub' or 'kernelexternal', got "^s))
 
 let string_to_vdi_onboot s =
   match String.lowercase_ascii s with
@@ -540,14 +524,6 @@ let s2sm_to_string sep x =
 let s2brm_to_string get_uuid_from_ref sep x =
   String.concat sep (List.map (fun (n,r) -> n ^ ": " ^ (get_uuid_from_ref r)) x)
 
-(* int64_to_float_map_to_string *)
-let i642fm_to_string sep x =
-  String.concat sep (List.map (fun (a,b) -> Printf.sprintf "%Ld %f" a b) x)
-
-(* int64_to_string_map_to_string *)
-let i642sm_to_string sep x =
-  String.concat sep (List.map (fun (a,b) -> Printf.sprintf "%Ld %s" a b) x)
-
 let on_boot_to_string onboot =
   match onboot with
   | `reset -> "reset"
@@ -571,10 +547,6 @@ let domain_type_of_string x =
   | "pv" -> `pv
   | "pv-in-pvh" -> `pv_in_pvh
   | s -> raise (Record_failure ("Invalid domain type. Got " ^ s))
-
-let wrap f err x = try f x with _ -> err x
-let generic_error x = raise (Record_failure ("Unknown value: "^x))
-let rpc_to_string = function | Rpc.String s -> s | _ -> failwith "Bad RPC type in record_util"
 
 (** Parse a string which might have a units suffix on the end *)
 let bytes_of_string field x =
@@ -616,11 +588,6 @@ let bytes_of_string field x =
   | _ -> raise (Record_failure (Printf.sprintf "Failed to parse field '%s': expecting an integer (possibly with suffix)" field))
 
 (* Vincent's random mac utils *)
-
-(* generate a random mac with XenSource OUI "00:16:3e" *)
-let random_mac () =
-  let macs = [0x00; 0x16; 0x3e] @ (List.map Random.int [0x80; 0x100; 0x100]) in
-  String.concat ":" (List.map (Printf.sprintf "%02x") macs)
 
 let mac_from_int_array macs =
   (* make sure bit 1 (local) is set and bit 0 (unicast) is clear *)

@@ -42,9 +42,6 @@ let log_exn_continue msg f x = try f x with e -> debug "Ignoring exception: %s w
 let choose_network_name_for_pif device =
   Printf.sprintf "Pool-wide network associated with %s" device
 
-let choose_network_name_for_sriov device =
-  Printf.sprintf "SR-IOV network associated with %s" device
-
 (** Once the server functor has been instantiated, set this reference to the appropriate
     "fake_rpc" (loopback non-HTTP) rpc function. This is used by the CLI, which passes in
     the HTTP request headers it has already received together with its active file descriptor. *)
@@ -333,12 +330,6 @@ let progress ~__context t =
   done;
   TaskHelper.set_progress ~__context 1.
 
-let get_user ~__context username =
-  let uuids = Db.User.get_all ~__context in
-  if List.length uuids = 0 then
-    failwith "Failed to find any users";
-  List.hd uuids (* FIXME! it assumes that there is only one element in the list (root), username is not used*)
-
 let is_domain_zero_with_record ~__context vm_ref vm_rec =
   let host_ref = vm_rec.API.vM_resident_on in
   vm_rec.API.vM_is_control_domain
@@ -392,25 +383,6 @@ let update_domain_zero_name ~__context host hostname =
     if is_default && current_name <> full_name then
       Db.VM.set_name_label ~__context ~self:dom0 ~value:full_name
   end
-
-let get_size_with_suffix s =
-  let s, suffix = if String.length s > 0 then (
-      let c = s.[String.length s - 1] in
-      if List.mem c [ 'G'; 'g'; 'M'; 'm'; 'K'; 'k'; 'B'; 'b' ] then (
-        let suffix = match c with
-          | 'G' | 'g' -> 30
-          | 'M' | 'm' -> 20
-          | 'K' | 'k' -> 10
-          | 'B' | 'b' -> 0
-          | _ -> 10 in
-        String.sub s 0 (String.length s - 1), suffix
-      ) else
-        s, 10
-    ) else
-      s, 10 in
-  Int64.shift_left (if String.contains s '.' then
-                      (Int64.of_float (float_of_string s)) else Int64.of_string s) suffix
-
 
 (** An hvmloader boot has the following user-settable parameters: *)
 type hvmloader_boot_t = { timeoffset: string }
@@ -532,28 +504,6 @@ let devid_of_vif ~__context ~self =
 
 exception Device_has_no_VIF
 
-let vif_of_devid ~__context ~vm devid =
-  let vifs = Db.VM.get_VIFs ~__context ~self:vm in
-  let devs = List.map (fun self -> devid_of_vif ~__context ~self) vifs in
-  let table = List.combine devs vifs in
-  let has_vif = List.mem_assoc devid table in
-  if not(has_vif)
-  then raise Device_has_no_VIF
-  else List.assoc devid table
-
-(** Return the domid on the *local host* associated with a specific VM.
-    	Note that if this is called without the VM lock then the result is undefined: the
-    	domid might immediately change after the call returns. Caller beware! *)
-let domid_of_vm ~__context ~self =
-  let uuid = Uuid.uuid_of_string (Db.VM.get_uuid ~__context ~self) in
-  let all = Xenctrl.with_intf (fun xc -> Xenctrl.domain_getinfolist xc 0) in
-  let open Xenctrl in
-  let uuid_to_domid = List.map (fun di -> Uuid.uuid_of_int_array di.handle, di.domid) all in
-  if List.mem_assoc uuid uuid_to_domid
-  then List.assoc uuid uuid_to_domid
-  else -1 (* for backwards compat with old behaviour *)
-
-
 let get_special_network other_config_key ~__context =
   let nets = Db.Network.get_all ~__context in
   let findfn net =
@@ -579,10 +529,6 @@ let get_my_pbds __context =
 (* Return the PBD for specified SR on a specific host *)
 (* Just say an SR is shared if it has more than one PBD *)
 let is_sr_shared ~__context ~self = List.length (Db.SR.get_PBDs ~__context ~self) > 1
-(* This fn is only executed by master *)
-let get_shared_srs ~__context =
-  let srs = Db.SR.get_all ~__context in
-  List.filter (fun self -> is_sr_shared ~__context ~self) srs
 
 let get_main_ip_address ~__context =
   try Pool_role.get_master_address () with _ -> "127.0.0.1"
@@ -709,22 +655,6 @@ let pool_has_different_host_platform_versions ~__context =
   let is_different_to_me platform_version = platform_version <> Xapi_version.platform_version () in
   List.fold_left (||) false (List.map is_different_to_me platform_versions)
 
-let get_vm_metrics ~__context ~self =
-  let metrics = Db.VM.get_metrics ~__context ~self in
-  if metrics = Ref.null
-  then failwith "Could not locate VM_metrics object for VM: internal error"
-  else metrics
-let get_vbd_metrics ~__context ~self =
-  let metrics = Db.VBD.get_metrics ~__context ~self in
-  if metrics = Ref.null
-  then failwith "Could not locate VBD_metrics object for VBD: internal error"
-  else metrics
-let get_vif_metrics ~__context ~self =
-  let metrics = Db.VIF.get_metrics ~__context ~self in
-  if metrics = Ref.null
-  then failwith "Could not locate VIF_metrics object for VIF: internal error"
-  else metrics
-
 (* Read pool secret if it exists; otherwise, create a new one. *)
 let get_pool_secret () =
   try
@@ -778,19 +708,6 @@ let choose_suspend_sr ~__context ~vm =
   | _, _, Some x -> x
   | None, None, None ->
     raise (Api_errors.Server_error (Api_errors.vm_no_suspend_sr, [Ref.string_of vm]))
-
-(* Returns an SR suitable for receiving crashdumps of this VM *)
-let choose_crashdump_sr ~__context ~vm =
-  (* If the Pool.crashdump_SR exists, use that. Otherwise try the Host.crashdump_SR *)
-  let pool = get_pool ~__context in
-  let pool_sr = Db.Pool.get_crash_dump_SR ~__context ~self:pool in
-  let resident_on = Db.VM.get_resident_on ~__context ~self:vm in
-  let host_sr = Db.Host.get_crash_dump_sr ~__context ~self:resident_on in
-  match check_sr_exists ~__context ~self:pool_sr, check_sr_exists ~__context ~self:host_sr with
-  | Some x, _ -> x
-  | _, Some x -> x
-  | None, None ->
-    raise (Api_errors.Server_error (Api_errors.vm_no_crashdump_sr, [Ref.string_of vm]))
 
 (* return the operations filtered for cancels functions *)
 let cancel_tasks ~__context ~ops ~all_tasks_in_db (* all tasks in database *) ~task_ids (* all tasks to explicitly cancel *) ~set =
@@ -1047,19 +964,6 @@ let find_health_check_task ~__context ~sr =
       Eq (Field "name__label", Literal Xapi_globs.sr_health_check_task_label),
       Eq (Field "name__description", Literal (Ref.string_of sr))
     ))
-
-(* Copy the snapshot metadata from [src_record] to the VM whose reference is [dst_ref]. *)
-(* If a lookup table is provided, then the field 'snapshot_of' is translated using this *)
-(* lookup table. *)
-let copy_snapshot_metadata rpc session_id ?lookup_table ~src_record ~dst_ref =
-  let f = match lookup_table with
-    | None   -> (fun x -> x)
-    | Some t -> (fun x -> t x)
-  in
-  Client.Client.VM.update_snapshot_metadata ~rpc ~session_id ~vm:dst_ref
-    ~snapshot_of:(f src_record.API.vM_snapshot_of)
-    ~snapshot_time:src_record.API.vM_snapshot_time
-    ~transportable_snapshot_id:src_record.API.vM_transportable_snapshot_id
 
 let update_vswitch_controller ~__context ~host =
   try call_api_functions ~__context (fun rpc session_id ->

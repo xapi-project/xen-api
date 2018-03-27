@@ -59,20 +59,13 @@ let xencenter_max_verstring = "2.10"
 let linux_pack_vsn_key = "xs:linux"
 let packs_dir = ref (Filename.concat "/etc/xensource" "installed-repos")
 
-let ssl_pid = ref 0
-
 let default_cleartext_port = 80
 let default_ssl_port = 443
-
-let ips_to_listen_on = "0.0.0.0"
 
 let http_port = default_cleartext_port
 let https_port = ref default_ssl_port
 
-let xapi_gc_debug = ref true
-
 let unix_domain_socket = Filename.concat "/var/lib/xcp" "xapi"
-let local_storage_unix_domain_socket = Filename.concat "/var/lib/xcp" "storage-local"
 let storage_unix_domain_socket = Filename.concat "/var/lib/xcp" "storage"
 let local_database = Filename.concat "/var/lib/xcp" "local.db"
 
@@ -84,18 +77,14 @@ let slave_emergency_mode = ref false
     without trawling through logfiles *)
 let emergency_mode_error = ref (Api_errors.Server_error(Api_errors.host_still_booting, []))
 
-let http_realm = "xapi"
-
 let log_config_file = ref (Filename.concat "/etc/xensource" "log.conf")
 let remote_db_conf_fragment_path = ref (Filename.concat "/etc/xensource" "remote.db.conf")
 let cpu_info_file = ref (Filename.concat "/etc/xensource" "boot_time_cpus")
 let requires_reboot_file = "/var/run/nonpersistent/xapi/host-requires-reboot"
-let using_rrds = ref false
 
 let ready_file = ref ""
 let init_complete = ref ""
 
-let hg_changeset = ref "unknown"
 
 (* Keys used in both the software_version (string -> string map) and in the import/export code *)
 let _hostname = "hostname"
@@ -162,8 +151,6 @@ let assume_network_is_shared = "assume_network_is_shared"
 let auto_scan = "auto-scan" (* if set in SR.other_config, scan the SR in the background *)
 let auto_scan_interval = "auto-scan-interval" (* maybe set in Host.other_config *)
 
-let cd_tray_ejector = "cd_tray_ejector"
-
 (* These ports are both served up by vncterm the ports used for the RFB and
    text consoles are p+5900 and p+9500 respectively where p is the port
    specified on the vncterm command line:
@@ -181,12 +168,9 @@ let vbd_polling_duration_key = "polling-duration" (* set in VBD other-config *)
 let vbd_polling_idle_threshold_key = "polling-idle-threshold" (* set in VBD other-config *)
 let vbd_backend_local_key = "backend-local" (* set in VBD other-config *)
 
-let using_vdi_locking_key = "using-vdi-locking" (* set in Pool other-config to indicate that we should use storage-level (eg VHD) locking *)
-
 let mac_seed = "mac_seed" (* set in a VM to generate MACs by hash chaining *)
 
 let ( ** ) = Int64.mul
-let vm_minimum_memory = 16L ** 1024L ** 1024L (* don't start VMs with less than 16 Mb *)
 
 let grant_api_access = "grant_api_access"
 
@@ -207,7 +191,6 @@ let tools_sr_pbd_device_config = [
 ]
 
 let default_template_key = "default_template"
-let linux_template_key = "linux_template"
 let base_template_name_key = "base_template_name"
 
 (* Keys to explain the presence of dom0 block-attached VBDs: *)
@@ -220,21 +203,11 @@ let vdi_other_config_sync_keys = [ "config-drive" ]
 (* Set to true on the P2V server template and the tools SR *)
 let xensource_internal = "xensource_internal"
 
-(* Error codes for internal storage backends -- these have counterparts in sm.hg/drivers/XE_SR_ERRORCODES.xml *)
-let sm_error_ISODconfMissingLocation = 1000
-let sm_error_ISOMustHaveISOExtension = 1001
-let sm_error_ISOMountFailure = 1002
-let sm_error_ISOUnmountFailure = 1002
-let sm_error_generic_VDI_create_failure = 78
-let sm_error_generic_VDI_delete_failure = 80
-
 (* temporary restore path for db *)
 let db_temporary_restore_path = Filename.concat "/var/lib/xcp" "restore_db.db"
 
 (* temporary path for opening a foreign metadata database *)
 let foreign_metadata_db = Filename.concat "/var/lib/xcp" "foreign.db"
-
-let migration_failure_test_key = "migration_wings_fall_off" (* set in other-config to simulate migration failures *)
 
 (* After this we start to delete completed tasks (never pending ones) *)
 let max_tasks = 200
@@ -249,33 +222,6 @@ let max_sessions_per_originator = 500
 (* For sessions with specifiied user name (non-root), their session limit are counted independently *)
 let max_sessions_per_user_name = 500
 
-(* The Unix.time that represents the maximum time in the future that a 32 bit time can cope with *)
-let the_future = 2147483647.0
-
-(* Indicates whether the master thinks the host is running in HA mode. The real data is stored
-   on the slave so might be out of date. *)
-let host_ha_armed = "ha_armed"
-
-(* The set of hosts this host believes it can see *)
-let host_ha_membership_set = "ha_membership_set"
-
-(* Indicates whether over-committing (via API) is allowed *)
-let pool_ha_allow_overcommitting = "ha_allow_overcommitting"
-
-(* the other-config key used (for now) to store VM.always_run *)
-let vm_ha_always_run = "ha_always_run"
-
-(* the other-config key used (for now) to store VM.restart_priority *)
-let vm_ha_restart_priority = "ha_restart_priority"
-
-(* the other-config key used (for now) to store Pool.ha_tolerated_host_failures *)
-let pool_ha_num_host_failures = "ha_tolerated_host_failures"
-
-(* the other-config key that reflects whether the pool is overprovisioned *)
-let pool_ha_currently_over_provisioned = "ha_currently_over_provisioned"
-
-let backup_db = Filename.concat "/var/lib/xcp" "state-backup.db"
-
 (* Place where database XML backups are kept *)
 let backup_db_xml = Filename.concat "/var/lib/xcp" "state-backup.xml"
 
@@ -288,19 +234,6 @@ let pool_allow_clone_suspended_vm = "allow_clone_suspended_vm"
 
 (* Indicates whether we should allow run-script inside VM *)
 let pool_allow_guest_agent_run_script = "allow_guest_agent_run_script"
-
-(* Size of a VDI to store the shared database on *)
-let shared_db_vdi_size = 134217728L (* 128 * 1024 * 1024 = 128 megs *)
-
-(* Mount point for the shared DB *)
-let shared_db_mount_point = Filename.concat "/var/lib/xcp" "shared_db"
-
-(* Device for shared DB VBD *)
-let shared_db_device = "15"
-let shared_db_device_path = "/dev/xvdp"
-
-(* Pool other-config key for shared_db_sr -- existence implies pool is using a shared db *)
-let shared_db_pool_key = "shared_db_sr"
 
 (* Names of storage parameters *)
 let _sm_vm_hint = "vmhint"
@@ -331,25 +264,18 @@ let sync_local_vdi_activations = "sync_local_vdi_activations"
 let sync_create_localhost = "sync_create_localhost"
 let sync_set_cache_sr = "sync_set_cache_sr"
 let sync_load_rrd = "sync_load_rrd"
-let sync_enable_localhost = "sync_enable_localhost"
 let sync_host_display = "sync_host_display"
 let sync_refresh_localhost_info = "sync_refresh_localhost_info"
 let sync_record_host_memory_properties = "sync_record_host_memory_properties"
-let sync_copy_license_to_db = "sync_copy_license_to_db"
 let sync_create_host_cpu = "sync_create_host_cpu"
 let sync_create_domain_zero = "sync_create_domain_zero"
 let sync_crashdump_resynchronise = "sync_crashdump_resynchronise"
 let sync_pbds = "sync_pbds"
-let sync_update_xenopsd = "sync_update_xenopsd"
-let sync_remove_leaked_vbds = "sync_remove_leaked_vbds"
 let sync_pif_params = "sync_pif_params"
-let sync_patch_update_db = "sync_patch_update_db"
-let sync_pbd_reset = "sync_pbd_reset"
 let sync_bios_strings = "sync_bios_strings"
 let sync_chipset_info = "sync_chipset_info"
 let sync_pci_devices = "sync_pci_devices"
 let sync_gpus = "sync_gpus"
-let sync_cluster_hosts = "sync_cluster_hosts"
 
 (* Allow dbsync actions to be disabled via the redo log, since the database
    isn't of much use if xapi won't start. *)
@@ -382,14 +308,8 @@ let on_system_boot = ref false
 (* Default backlog supplied to Unix.listen *)
 let listen_backlog = 128
 
-(* Where the next artificial delay is stored in xenstore *)
-let artificial_reboot_delay = "artificial-reboot-delay"
-
 (* Xapi script hooks root *)
 let xapi_hooks_root = ref "/etc/xapi.d"
-
-(* RRD storage location *)
-let xapi_rrd_location = Filename.concat "/var/lib/xcp" "blobs/rrds"
 
 let xapi_blob_location = Filename.concat "/var/lib/xcp" "blobs"
 
@@ -408,7 +328,6 @@ let xha_timeout = "timeout"
 (* Note the following constant has an equivalent in the db layer *)
 let http_limit_max_rpc_size = 300 * 1024 (* 300K *)
 let http_limit_max_cli_size = 200 * 1024 (* 200K *)
-let http_limit_max_rrd_size = 2 * 1024 * 1024 (* 2M -- FIXME : need to go below 1mb for security purpose. *)
 
 let message_limit=10000
 
@@ -491,10 +410,6 @@ let default_viridian_key_value = "true"
 
 let device_id_key_name = "device_id"
 
-(* machine-address-size key-name/value; goes in other-config of RHEL5.2 template *)
-let machine_address_size_key_name = "machine-address-size"
-let machine_address_size_key_value = "36"
-
 (* Host.other_config key to indicate the absence of local storage *)
 let host_no_local_storage = "no_local_storage"
 
@@ -526,8 +441,6 @@ let vgt_monitor_config_file = "vgt_monitor_config_file"
 
 let mxgpu_vgpus_per_pgpu = "vgpus_per_pgpu"
 
-let dev_zero = "/dev/zero"
-
 let wlb_timeout = "wlb_timeout"
 let wlb_reports_timeout = "wlb_reports_timeout"
 let default_wlb_timeout = 30.0
@@ -558,9 +471,6 @@ let ha_metadata_vdi_reason = "HA metadata VDI"
 (** Reason associated with the static VDI attach, to help identify the metadata VDI later (generic) *)
 let gen_metadata_vdi_reason = "general metadata VDI"
 
-(** Reason associated with the static VDI attach, to help identify the metadata VDI later (opening foreign databases) *)
-let foreign_metadata_vdi_reason = "foreign metadata VDI"
-
 (** Pool.other_config key which, when set to the value "true", enables generation of METADATA_LUN_{HEALTHY_BROKEN} alerts *)
 let redo_log_alert_key = "metadata_lun_alerts"
 
@@ -570,9 +480,6 @@ let serialize_pool_enable_disable_extauth = Mutex.create()
 (* CP-695: controls our asynchronous persistent initialization of the external authentication service during Xapi.server_init *)
 
 let event_hook_auth_on_xapi_initialize_succeeded = ref false
-
-(** Xenclient enabled *)
-let xenclient_enabled = false
 
 (** {2 BIOS strings} *)
 (* bios_string length is limited to 512 characters *)
@@ -926,8 +833,6 @@ let reboot_required_hfxs = ref "/run/reboot-required.hfxs"
 
 (* Fingerprint of default patch key *)
 let citrix_patch_key = "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
-(* Used only for testing hotfixes *)
-let test_patch_key = "RjgyNjVCRURDMzcxMjgzNkQ1NkJENjJERDQ2MDlGOUVDQzBBQkZENQ=="
 
 let trusted_patch_key = ref citrix_patch_key
 

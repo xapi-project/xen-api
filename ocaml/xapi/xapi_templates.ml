@@ -90,9 +90,6 @@ let get_template_record rpc session_id vm =
   then None
   else Some { disks = disks; post_install_script = script }
 
-(** A special bootloader which takes care of the initial boot -- fakeserver only *)
-let bootloader = "installer"
-
 (** Returns true if the given VM is actually a template and must be pre-installed *)
 let needs_to_be_installed rpc session_id vm =
   get_template_record rpc session_id vm <> None

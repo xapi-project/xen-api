@@ -59,19 +59,6 @@ let task_ended queue_name dbg id =
   | Task.Failed _ -> true
   | Task.Pending _ -> false
 
-let assume_task_succeeded queue_name dbg id =
-  let module Client = (val make_client queue_name : XENOPS) in
-  let t = Client.TASK.stat dbg id in
-  Client.TASK.destroy dbg id;
-  match t.Task.state with
-  | Task.Completed _ -> t
-  | Task.Failed x ->
-    let exn = exn_of_exnty (Exception.exnty_of_rpc x) in
-    let bt = Backtrace.t_of_sexp (Sexplib.Sexp.of_string t.Task.backtrace) in
-    Backtrace.add exn bt;
-    raise exn
-  | Task.Pending _ -> failwith "task pending"
-
 let wait_for_task queue_name dbg id =
   let module Client = (val make_client queue_name : XENOPS) in
   let finished = function
@@ -2938,15 +2925,6 @@ let s3resume ~__context ~self =
        Events_from_xenopsd.wait queue_name dbg id ()
     )
 
-let is_vm_running ~__context ~self =
-  let id = id_of_vm ~__context ~self in
-  let dbg = Context.string_of_task __context in
-  let queue_name = queue_of_vm ~__context ~self in
-  let module Client = (val make_client queue_name : XENOPS) in
-  debug "xenops: VM.stat %s" id;
-  (* If the metadata is still present, VM is "Running" *)
-  try Client.VM.stat dbg id |> ignore; true with _ -> false
-
 let md_of_vbd ~__context ~self =
   let vm = Db.VBD.get_VM ~__context ~self in
   MD.of_vbd ~__context ~vm:(Db.VM.get_record ~__context ~self:vm) ~vbd:(Db.VBD.get_record ~__context ~self)
@@ -3099,8 +3077,6 @@ let vif_plug ~__context ~self =
          raise Api_errors.(Server_error(internal_error, [
              Printf.sprintf "vif_plug: Unable to plug VIF %s" (Ref.string_of self)]))
     )
-
-let vm_set_vm_data ~__context ~self = ()
 
 let vif_set_locking_mode ~__context ~self =
   let vm = Db.VIF.get_VM ~__context ~self in

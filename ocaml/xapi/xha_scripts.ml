@@ -26,8 +26,6 @@ let ha_query_liveset = "ha_query_liveset"
 let ha_propose_master = "ha_propose_master"
 let ha_disarm_fencing = "ha_disarm_fencing"
 let ha_set_excluded = "ha_set_excluded"
-(* Unused: let ha_clear_excluded = "ha_clear_excluded" *)
-let ha_supported_srs = "ha_supported_srs"
 
 (** Obtain list of SRs that the cluster stack can use for state/heartbeat SR.
  *  If the file does not exist, then we assume that there are no constraints

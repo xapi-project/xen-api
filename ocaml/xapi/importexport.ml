@@ -22,8 +22,6 @@ type obj = {
   snapshot: Rpc.t
 } [@@deriving rpc]
 
-let string_of_obj x = x.cls ^ "  " ^ x.id
-
 (** Version information attached to each export and checked on import *)
 type version = {
   hostname: string;
