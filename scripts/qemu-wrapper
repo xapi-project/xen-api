@@ -149,7 +149,7 @@ def main(argv):
         mmio_start -= HVM_BELOW_4G_MMIO_LENGTH
 
     # read the size of lower MMIO hole provisioned by xenguest
-    mmio_size = xenstore_read("/local/domain/%d/data/mmio-hole-size" % domid)
+    mmio_size = xenstore_read("/local/domain/%d/vm-data/mmio-hole-size" % domid)
     if mmio_size:
         mmio_start = (1 << 32) - int(mmio_size)
 
