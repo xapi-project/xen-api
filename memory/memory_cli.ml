@@ -18,6 +18,8 @@ let default_cmd =
 
 let cli () =
   let rpc = Memory_client.rpc in
-  Cmdliner.Term.eval_choice default_cmd (List.map (fun t -> t rpc) (Cmds.implementation ()))
+  match Cmdliner.Term.eval_choice default_cmd (List.map (fun t -> t rpc) (Cmds.implementation ())) with
+  | `Ok f -> f ()
+  | _ -> ()
 
 let _ = cli ()
