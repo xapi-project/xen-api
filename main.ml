@@ -75,6 +75,7 @@ end
 let _nonpersistent = "NONPERSISTENT"
 let _clone_on_boot_key = "clone-on-boot"
 let _vdi_type_key = "vdi-type"
+let _snapshot_time_key = "snapshot_time"
 
 let backend_error name args =
   let open Storage_interface in
@@ -259,6 +260,10 @@ let vdi_of_volume x =
   let ty = match List.Assoc.find x.Xapi_storage.Volume.Types.keys _vdi_type_key ~equal:String.equal with
     | None -> "";
     | Some v -> v in
+  let snapshot_time = match List.Assoc.find x.Xapi_storage.Volume.Types.keys _snapshot_time_key ~equal:String.equal with
+    | None -> "19700101T00:00:00Z"
+    | Some snapshot_time -> snapshot_time
+  in
   let open Storage_interface in {
   vdi = x.Xapi_storage.Volume.Types.key;
   uuid = x.Xapi_storage.Volume.Types.uuid;
@@ -268,7 +273,7 @@ let vdi_of_volume x =
   ty = ty;
   metadata_of_pool = "";
   is_a_snapshot = false;
-  snapshot_time = "19700101T00:00:00Z";
+  snapshot_time;
   snapshot_of = "";
   read_only = not x.Xapi_storage.Volume.Types.read_write;
   cbt_enabled = false;
@@ -746,14 +751,18 @@ let process root_dir name =
     Attached_SRs.find args.Args.VDI.Snapshot.sr
     >>= fun sr ->
     let vdi_info = args.Args.VDI.Snapshot.vdi_info in
+    let dbg = args.Args.VDI.Snapshot.dbg in
     let args = Xapi_storage.Volume.Types.Volume.Snapshot.In.make
-      args.Args.VDI.Snapshot.dbg
+      dbg
       sr
       vdi_info.vdi in
     let args = Xapi_storage.Volume.Types.Volume.Snapshot.In.rpc_of_t args in
     fork_exec_rpc root_dir (script root_dir name `Volume "Volume.snapshot") args Xapi_storage.Volume.Types.Volume.Snapshot.Out.t_of_rpc
     >>= fun response ->
-    let response = vdi_of_volume response in
+    let now = Xapi_stdext_date.Date.(to_string (of_float (Unix.gettimeofday ()))) in
+    set !version root_dir name dbg sr response.Xapi_storage.Volume.Types.key _snapshot_time_key now
+    >>= fun () ->
+    let response = { (vdi_of_volume response) with snapshot_time = now } in
     Deferred.Result.return (R.success (Args.VDI.Snapshot.rpc_of_response response))
   | { R.name = "VDI.clone"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in

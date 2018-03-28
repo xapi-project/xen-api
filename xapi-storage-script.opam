@@ -20,4 +20,5 @@ depends: [
   "message-switch-async"
   "rpc"
   "ppx_sexp_conv"
+  "xapi-stdext-date"
 ]
