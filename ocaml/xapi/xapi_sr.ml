@@ -192,13 +192,32 @@ let probe = call_probe ~f:(
     | Storage_interface.Probe probe_results ->
       (* Here we try to mimic the XML document structure returned in the Raw
          case by SMAPIv1, for backwards-compatibility *)
-      let module T = Xmlm_tree in
+
+      let module T = struct
+        (** Conveniently output an XML tree using Xmlm *)
+
+        type tree = El of Xmlm.tag * tree list | Data of string
+
+        let data s = Data s
+
+        (** Create an element without a namespace or attributes *)
+        let el name children = El ((("", name), []), children)
+
+        let frag = function
+          | El (tag, children) -> `El (tag, children)
+          | Data s -> `Data s
+
+        let output_doc ~tree ~output ~dtd =
+          Xmlm.output_doc_tree frag output (dtd, tree)
+      end in
+
       let srs =
         probe_results
         (* We return the SRs found by probe *)
         |> Xapi_stdext_std.Listext.List.filter_map
           (fun r -> r.Storage_interface.sr)
       in
+
       let sr_info Storage_interface.{
         sr_uuid;
         name_label;
