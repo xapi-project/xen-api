@@ -108,6 +108,8 @@ module VmExtra = struct
     suspend_memory_bytes: int64;
     qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
     qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
+    pci_msitranslate: bool;
+    pci_power_mgmt: bool;
   } [@@deriving rpc]
 
   let default_persistent_t =
@@ -121,6 +123,8 @@ module VmExtra = struct
     ; suspend_memory_bytes = 0L
     ; qemu_vbds = []
     ; qemu_vifs = []
+    ; pci_msitranslate = false
+    ; pci_power_mgmt = false
     }
 
   (* override rpc code generated for persistent_t. It is important that
@@ -131,8 +135,6 @@ module VmExtra = struct
     |> persistent_t_of_rpc
 
   type non_persistent_t = {
-    pci_msitranslate: bool;
-    pci_power_mgmt: bool;
     pv_drivers_detected: bool;
   } [@@deriving rpc]
 
@@ -848,6 +850,8 @@ module VM = struct
       suspend_memory_bytes = 0L;
       qemu_vbds = [];
       qemu_vifs = [];
+      pci_msitranslate = false;
+      pci_power_mgmt = false;
     } |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
 
   let mkints n =
@@ -870,8 +874,6 @@ module VM = struct
 
   let generate_non_persistent_state xc xs vm =
     VmExtra.{
-      pci_msitranslate = vm.Vm.pci_msitranslate;
-      pci_power_mgmt = vm.Vm.pci_power_mgmt;
       pv_drivers_detected = false;
     }
 
@@ -955,6 +957,8 @@ module VM = struct
                  ; suspend_memory_bytes = 0L
                  ; qemu_vbds = []
                  ; qemu_vifs = []
+                 ; pci_msitranslate = vm.Vm.pci_msitranslate
+                 ; pci_power_mgmt = vm.Vm.pci_power_mgmt
                  } in
                let non_persistent = generate_non_persistent_state xc xs vm in
                Some VmExtra.{persistent; non_persistent}
@@ -2088,13 +2092,13 @@ module PCI = struct
       (fun xc xs frontend_domid _ ->
          (* Make sure the backend defaults are set *)
          let vm_t = DB.read_exn vm in
-         let non_persistent = vm_t.VmExtra.non_persistent in
+         let persistent = vm_t.VmExtra.persistent in
          xs.Xs.write
            (Printf.sprintf "/local/domain/0/backend/pci/%d/0/msitranslate" frontend_domid)
-           (if non_persistent.VmExtra.pci_msitranslate then "1" else "0");
+           (if persistent.VmExtra.pci_msitranslate then "1" else "0");
          xs.Xs.write
            (Printf.sprintf "/local/domain/0/backend/pci/%d/0/power_mgmt" frontend_domid)
-           (if non_persistent.VmExtra.pci_power_mgmt then "1" else "0");
+           (if persistent.VmExtra.pci_power_mgmt then "1" else "0");
 
          if not (Sys.file_exists "/sys/bus/pci/drivers/pciback") then begin
            error "PCIBack has not been loaded";
@@ -3077,7 +3081,7 @@ module Actions = struct
                let updated =
                  DB.update vm (
                    Opt.map (function { VmExtra.persistent; non_persistent } ->
-                       let non_persistent = { non_persistent with VmExtra.pv_drivers_detected = true } in
+                       let non_persistent = { VmExtra.pv_drivers_detected = true } in
                        debug "VM = %s; found PV driver evidence on %s (value = %s)" vm path value;
                        { VmExtra.persistent; non_persistent }
                      )
