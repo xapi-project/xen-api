@@ -126,10 +126,7 @@ module VmExtra = struct
 
   type non_persistent_t = {
     create_info: Domain.create_info;
-    vcpu_max: int;
     vcpus: int;
-    shadow_multiplier: float;
-    memory_static_max: int64;
     suspend_memory_bytes: int64;
     qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
     qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
@@ -753,9 +750,9 @@ module VM = struct
 
   let dm_of ~vm = dm_of vm.Vm.id
 
-  let compute_overhead persistent non_persistent =
+  let compute_overhead persistent vcpu_max memory_static_max shadow_multiplier =
     let open VmExtra in
-    let static_max_mib = Memory.mib_of_bytes_used non_persistent.memory_static_max in
+    let static_max_mib = Memory.mib_of_bytes_used memory_static_max in
     let model =
       match persistent.ty with
       | Some (PV _)      -> Memory.Linux.overhead_mib
@@ -763,8 +760,7 @@ module VM = struct
       | Some (HVM _)     -> Memory.HVM.overhead_mib
       | None             -> failwith "cannot compute memory overhead: unable to determine domain type"
     in
-    model static_max_mib non_persistent.vcpu_max non_persistent.shadow_multiplier |>
-    Memory.bytes_of_mib
+    model static_max_mib vcpu_max shadow_multiplier |> Memory.bytes_of_mib
 
   let shutdown_reason = function
     | Reboot -> Domain.Reboot
@@ -922,10 +918,7 @@ module VM = struct
     } in
     {
       VmExtra.create_info = create_info;
-      vcpu_max = vm.vcpu_max;
       vcpus = vm.vcpus;
-      shadow_multiplier = (match vm.Vm.ty with Vm.HVM { Vm.shadow_multiplier = sm } -> sm | _ -> 1.);
-      memory_static_max = vm.memory_static_max;
       suspend_memory_bytes = 0L;
       qemu_vbds = [];
       qemu_vifs = [];
@@ -967,8 +960,14 @@ module VM = struct
            | Some x -> VmExtra.(x.persistent, x.non_persistent)
            | None -> failwith "Interleaving problem"
            in
+         let shadow_multiplier = match vm.Vm.ty with
+           | Vm.HVM { Vm.shadow_multiplier = sm } -> sm
+           | _ -> 1.
+         in
          let open Memory in
-         let overhead_bytes = compute_overhead persistent non_persistent in
+         let overhead_bytes =
+           compute_overhead persistent vm.vcpu_max vm.memory_static_max shadow_multiplier
+         in
          let resuming = non_persistent.VmExtra.suspend_memory_bytes <> 0L in
          (* If we are resuming then we know exactly how much memory is needed. If we are
                live migrating then we will only know an upper bound. If we are starting from
