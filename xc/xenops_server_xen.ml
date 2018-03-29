@@ -110,6 +110,7 @@ module VmExtra = struct
     qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
     pci_msitranslate: bool;
     pci_power_mgmt: bool;
+    pv_drivers_detected: bool
   } [@@deriving rpc]
 
   let default_persistent_t =
@@ -125,6 +126,7 @@ module VmExtra = struct
     ; qemu_vifs = []
     ; pci_msitranslate = false
     ; pci_power_mgmt = false
+    ; pv_drivers_detected = false
     }
 
   (* override rpc code generated for persistent_t. It is important that
@@ -134,13 +136,8 @@ module VmExtra = struct
     Rpc.struct_extend rpc (rpc_of_persistent_t default_persistent_t)
     |> persistent_t_of_rpc
 
-  type non_persistent_t = {
-    pv_drivers_detected: bool;
-  } [@@deriving rpc]
-
   type t = {
-    persistent: persistent_t;
-    non_persistent: non_persistent_t;
+    persistent: persistent_t
   } [@@deriving rpc]
 end
 
@@ -852,6 +849,7 @@ module VM = struct
       qemu_vifs = [];
       pci_msitranslate = false;
       pci_power_mgmt = false;
+      pv_drivers_detected = false
     } |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
 
   let mkints n =
@@ -871,11 +869,6 @@ module VM = struct
       then acc
       else helper (i-1)  (List.hd list :: acc) (List.tl list)
     in List.rev $ helper n [] list
-
-  let generate_non_persistent_state xc xs vm =
-    VmExtra.{
-      pv_drivers_detected = false;
-    }
 
   let generate_create_info ~xc ~xs vm persistent =
     let ty = match persistent.VmExtra.ty with | Some ty -> ty | None -> vm.ty in
@@ -959,13 +952,13 @@ module VM = struct
                  ; qemu_vifs = []
                  ; pci_msitranslate = vm.Vm.pci_msitranslate
                  ; pci_power_mgmt = vm.Vm.pci_power_mgmt
+                 ; pv_drivers_detected = false
                  } in
-               let non_persistent = generate_non_persistent_state xc xs vm in
-               Some VmExtra.{persistent; non_persistent}
+               Some VmExtra.{persistent}
              end) in
          let _ = DB.update k (fun vmextra ->
-           let persistent, non_persistent = match vmextra with
-           | Some x -> VmExtra.(x.persistent, x.non_persistent)
+           let persistent = match vmextra with
+           | Some x -> VmExtra.(x.persistent)
            | None -> failwith "Interleaving problem"
            in
          let shadow_multiplier = match vm.Vm.ty with
@@ -1041,10 +1034,7 @@ module VM = struct
                 Device.Vcpu.add ~xs ~dm:(dm_of ~vm) ~devid:i domid (i < vm.vcpus)
               done;
               set_domain_type ~xs domid vm;
-              Some {
-                VmExtra.persistent = persistent;
-                VmExtra.non_persistent = non_persistent
-              }
+              Some {VmExtra.persistent = persistent}
            )
        )
       in ()
@@ -1226,14 +1216,14 @@ module VM = struct
 
   (* NB: the arguments which affect the qemu configuration must be saved and
      restored with the VM. *)
-  let create_device_model_config vm vmextra vbds vifs vgpus vusbs = match vmextra.VmExtra.persistent, vmextra.VmExtra.non_persistent with
-    | { VmExtra.build_info = None }, _
-    | { VmExtra.ty = None }, _ -> raise (Domain_not_built)
+  let create_device_model_config vm vmextra vbds vifs vgpus vusbs = match vmextra.VmExtra.persistent with
+    | { VmExtra.build_info = None }
+    | { VmExtra.ty = None } -> raise (Domain_not_built)
     | {
       VmExtra.build_info = Some build_info;
       ty = Some ty;
       VmExtra.qemu_vbds = qemu_vbds;
-    }, _ ->
+    } ->
       let make ?(boot_order="cd") ?(serial="pty") ?(monitor="null")
           ?(nics=[]) ?(disks=[]) ?(vgpus=[])
           ?(pci_emulations=[]) ?(usb=Device.Dm.Disabled)
@@ -1436,10 +1426,7 @@ module VM = struct
                                VmExtra.build_info = Some build_info;
                                ty = Some vm.ty;
                              } in
-            Some {
-              VmExtra.persistent = persistent;
-              VmExtra.non_persistent = d.VmExtra.non_persistent;
-            }
+            Some {VmExtra.persistent = persistent}
           )
         in ()
       ) (fun () -> Opt.iter Bootloader.delete !kernel_to_cleanup)
@@ -1719,7 +1706,7 @@ module VM = struct
                   let persistent = { d.VmExtra.persistent with
                                          VmExtra.suspend_memory_bytes = Memory.bytes_of_pages pages;
                                        } in
-                  Some {d with VmExtra.persistent = persistent}
+                  Some {VmExtra.persistent = persistent}
                 )
               in ()
            )
@@ -1885,7 +1872,7 @@ module VM = struct
              uncooperative_balloon_driver = uncooperative;
              guest_agent = guest_agent;
              pv_drivers_detected = begin match vme with
-               | Some x -> x.VmExtra.non_persistent.VmExtra.pv_drivers_detected
+               | Some x -> x.VmExtra.persistent.VmExtra.pv_drivers_detected
                | None -> false
              end;
              xsdata_state = xsdata_state;
@@ -2041,13 +2028,7 @@ module VM = struct
       debug "vm %s: persisting metadata %s" k state_new;
       (if state_new <> state then debug "vm %s: different original metadata %s" k state)
     ;
-    let _ = DB.update vm.Vm.id (fun d ->
-        let non_persistent = match d with
-          | None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm)
-          | Some vmextra -> vmextra.VmExtra.non_persistent
-        in
-        Some { VmExtra.persistent = persistent; VmExtra.non_persistent = non_persistent; }
-      )
+    let _ = DB.update vm.Vm.id (fun d -> Some { VmExtra.persistent = persistent })
     in ()
 
   let minimum_reboot_delay = 120.
@@ -2373,7 +2354,7 @@ module VBD = struct
                  let _ = DB.update_exn vm (fun vm_t ->
                      let persistent = { vm_t.VmExtra.persistent with
                                             VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.persistent.VmExtra.qemu_vbds} in
-                     Some { vm_t with VmExtra.persistent = persistent }
+                     Some { VmExtra.persistent = persistent }
                    )
                  in ()
                ) qemu_frontend
@@ -2436,7 +2417,7 @@ module VBD = struct
                           destroy_vbd_frontend ~xc ~xs task qemu_vbd;
                           let persistent = { persistent with
                                              VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id persistent.VmExtra.qemu_vbds } in
-                          { vm_t with VmExtra.persistent = persistent }
+                          { VmExtra.persistent = persistent }
                         end else
                           vm_t
                       )
@@ -2735,7 +2716,7 @@ module VIF = struct
                          let _ = DB.update_exn vm (fun vm_t ->
                              let persistent = { vm_t.VmExtra.persistent with
                                                 VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.persistent.VmExtra.qemu_vifs } in
-                             Some { vm_t with VmExtra.persistent = persistent}
+                             Some { VmExtra.persistent = persistent}
                            )
                          in ()
                        end
@@ -2781,7 +2762,7 @@ module VIF = struct
                          destroy device;
                          let persistent = { vm_t.VmExtra.persistent with
                                                 VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id vm_t.VmExtra.persistent.VmExtra.qemu_vifs } in
-                         { vm_t with VmExtra.persistent = persistent }
+                         { VmExtra.persistent = persistent }
                        | _, _ -> vm_t
                      end else
                        vm_t
@@ -2829,7 +2810,7 @@ module VIF = struct
                    Device.Vif.move ~xs device bridge;
                    let persistent = { persistent with
                                           VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id persistent.VmExtra.qemu_vifs } in
-                   Some { vm_t with VmExtra.persistent = persistent }
+                   Some { VmExtra.persistent = persistent }
                  | _, _ -> Some vm_t
                end else
                  Some vm_t
@@ -3058,12 +3039,12 @@ module Actions = struct
   (* CA-76600: the rtc/timeoffset needs to be maintained over a migrate. *)
   let store_rtc_timeoffset vm timeoffset =
     let _ = DB.update vm (
-        Opt.map (function { VmExtra.persistent; non_persistent } as extra ->
+        Opt.map (function { VmExtra.persistent } as extra ->
           match persistent with
           | { VmExtra.ty = Some ( Vm.HVM hvm_info ) } ->
             let persistent = { persistent with VmExtra.ty = Some (Vm.HVM { hvm_info with Vm.timeoffset = timeoffset }) } in
             debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset;
-            { VmExtra.persistent; non_persistent }
+            { VmExtra.persistent }
           | _ -> extra
           )
       )
@@ -3072,18 +3053,18 @@ module Actions = struct
   let maybe_update_pv_drivers_detected ~xc ~xs domid path =
     let vm = get_uuid ~xc domid |> Uuidm.to_string in
     Opt.iter
-      (function { VmExtra.non_persistent } ->
-         if not non_persistent.VmExtra.pv_drivers_detected then begin
+      (function { VmExtra.persistent } ->
+         if not persistent.VmExtra.pv_drivers_detected then begin
            (* If the new value for this device is 4 then PV drivers are present *)
            try
              let value = xs.Xs.read path in
              if value = "4" (* connected *) then begin
                let updated =
                  DB.update vm (
-                   Opt.map (function { VmExtra.persistent; non_persistent } ->
-                       let non_persistent = { VmExtra.pv_drivers_detected = true } in
+                   Opt.map (function { VmExtra.persistent } ->
+                       let persistent = { persistent with VmExtra.pv_drivers_detected = true } in
                        debug "VM = %s; found PV driver evidence on %s (value = %s)" vm path value;
-                       { VmExtra.persistent; non_persistent }
+                       { VmExtra.persistent }
                      )
                  )
                in
