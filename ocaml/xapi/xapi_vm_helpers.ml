@@ -349,12 +349,13 @@ let assert_host_has_iommu ~__context ~host =
   if List.assoc "iommu" chipset_info <> "true" then
     raise (Api_errors.Server_error (Api_errors.vm_requires_iommu, [Ref.string_of host]))
 
-(* Check if there are vgpus not allocated, since we may check the mem/vgpu after reservation *)
+(* Check if there are vgpus not allocated, since we may check the mem/vgpu after reservation 
+   Assumption: a VM can have only one vGPU *)
 let has_non_allocated_vgpus ~__context ~self =
-  let resident_pgpus = Db.VM.get_VGPUs ~__context ~self
-                       |> List.map (fun vgpu -> Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu) in
-  let non_allocated = List.filter (fun pgpu -> not (Db.is_valid_ref __context pgpu)) resident_pgpus in
-  non_allocated <> []
+  Db.VM.get_VGPUs ~__context ~self
+  |> List.map (fun vgpu -> Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu)
+  |> List.filter (fun pgpu -> not (Db.is_valid_ref __context pgpu))
+  |> (<>) []
 
 let assert_gpus_available ~__context ~self ~host =
   let this = "assert_gpus_available" in
