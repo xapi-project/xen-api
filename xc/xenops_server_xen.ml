@@ -126,7 +126,6 @@ module VmExtra = struct
 
   type non_persistent_t = {
     create_info: Domain.create_info;
-    vcpus: int;
     suspend_memory_bytes: int64;
     qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
     qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
@@ -918,7 +917,6 @@ module VM = struct
     } in
     {
       VmExtra.create_info = create_info;
-      vcpus = vm.vcpus;
       suspend_memory_bytes = 0L;
       qemu_vbds = [];
       qemu_vifs = [];
@@ -1881,10 +1879,7 @@ module VM = struct
                | None -> false
              end;
              xsdata_state = xsdata_state;
-             vcpu_target = begin match vme with
-               | Some x -> x.VmExtra.non_persistent.VmExtra.vcpus
-               | None -> 0
-             end;
+             vcpu_target = vm.vcpus;
              memory_target = memory_target;
              memory_actual = memory_actual;
              memory_limit = memory_limit;
