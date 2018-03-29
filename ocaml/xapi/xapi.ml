@@ -175,16 +175,6 @@ let register_callback_fns() =
 let noevents = ref false
 let debug_dummy_data = ref false
 
-let show_version () =
-  List.iter (fun (x, y) -> printf "%s=%s\n" x y)
-    [ "git_id", Xapi_version.git_id;
-      "hostname", Xapi_version.hostname;
-      "date", Xapi_version.date;
-      "PRODUCT_VERSION", Xapi_version.product_version ();
-      "PRODUCT_BRAND", Xapi_version.product_brand ();
-      "BUILD_NUMBER", Xapi_version.build_number ()];
-  exit 0
-
 let init_args() =
   (* Immediately register callback functions *)
   register_callback_fns();

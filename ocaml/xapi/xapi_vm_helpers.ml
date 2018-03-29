@@ -30,12 +30,6 @@ module D=Debug.Make(struct let name="xapi" end)
 open D
 open Workload_balancing
 
-(* Convenience function. Not thread-safe. *)
-let db_set_in_other_config ~__context ~self ~key ~value =
-  if List.mem_assoc key (Db.VM.get_other_config ~__context ~self) then
-    Db.VM.remove_from_other_config ~__context ~self ~key;
-  Db.VM.add_to_other_config ~__context ~self ~key ~value
-
 let compute_memory_overhead ~__context ~vm =
   let vm_record = Db.VM.get_record ~__context ~self:vm in
   Memory_check.vm_compute_memory_overhead vm_record

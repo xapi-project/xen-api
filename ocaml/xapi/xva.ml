@@ -23,7 +23,6 @@ let assoc key pairs = try List.assoc key pairs with Not_found -> raise (Missing_
 (** Represents the export format used in Zurich: *)
 
 let xml_filename = "ova.xml"
-let checksum_filename = "checksum.xml"
 
 exception Parse_failure of string
 exception Version_mismatch
@@ -67,41 +66,6 @@ type vm = { vm_name: string;
             distrib: string option;
             distrib_version: string option;
             vbds: vbd list }
-
-let total_size_of_disks vdis = List.fold_left Int64.add 0L (List.map (fun vdi -> vdi.size) vdis)
-
-(* convert a vms, vdis representation list into xml *)
-let to_xml (vms, vdis) =
-  let xml_of_vdi vdi =
-    let attrs = [ "name", vdi.vdi_name;
-                  "size", Int64.to_string vdi.size;
-                  "source", vdi.source;
-                  "type", vdi.ty;
-                  "variety", string_of_variety vdi.variety ] in
-    Xml.Element("vdi", attrs, [])
-  in
-  let vdis = List.map xml_of_vdi vdis in
-
-  let xml_of_vbd vbd =
-    let attrs = [ "device", vbd.device;
-                  "function", string_of_funct vbd.funct;
-                  "mode", string_of_mode vbd.mode;
-                  "vdi", vbd.vdi.vdi_name ] in
-    Xml.Element("vbd", attrs, [])
-  in
-  let xml_of_vm vm =
-    let label = Xml.Element("label", [], [ Xml.PCData vm.vm_name ]) in
-    let description = Xml.Element("shortdesc", [], [ Xml.PCData vm.description ]) in
-    let config = Xml.Element("config", [ "mem_set", Int64.to_string vm.memory;
-                                         "vcpus", string_of_int vm.vcpus ], []) in
-    let hacks = Xml.Element("hacks", [ "is_hvm", string_of_bool vm.is_hvm;
-                                       "kernel_boot_cmdline", vm.kernel_boot_cmdline ], []) in
-    let vbds = List.map xml_of_vbd vm.vbds in
-    Xml.Element("vm", [ "name", vm.vm_name ],
-                [ label; description; config; hacks ] @ vbds)
-  in
-  let vms = List.map xml_of_vm vms in
-  Xml.Element("appliance", [ "version", "0.1" ], vms @ vdis)
 
 let parse_appliance attrs children =
   let version = assoc "version" attrs in
@@ -206,49 +170,3 @@ let of_xml node =
   | Xml.Element("appliance", attrs, children) ->
     parse_appliance attrs children
   | _ -> raise (Parse_failure "expected appliance or vm")
-
-(** Return true if <path> looks like a Zurich/Geneva style XVA *)
-let is_valid path =
-  let stats = Unix.LargeFile.stat path in
-  if stats.Unix.LargeFile.st_kind <> Unix.S_DIR then false
-  else begin
-    let meta_path = Filename.concat path xml_filename in
-    let stats = Unix.stat meta_path in
-    if stats.Unix.st_kind <> Unix.S_REG then false
-    else begin
-      try
-        let xml = Xml.parse_file meta_path in
-        ignore(of_xml xml);
-        true
-      with _ -> false
-    end
-  end
-
-(** Transmit a Zurich/Geneva style XVA at <path> to the server *)
-let send path fd =
-  let is_dir path = let stat = Unix.stat path in stat.Unix.st_kind = Unix.S_DIR in
-  let add path (* actual path *) filename (* for tar header *) =
-    debug "Attempting to add %s (%s)\n" path filename;
-    let hdr = Tar_unix.Header.of_file path in
-    let hdr = { hdr with Tar_unix.Header.file_name = filename } in
-    debug "file_size = %Ld\n" (hdr.Tar_unix.Header.file_size);
-    Tar_unix.write_block hdr
-      (fun ofd ->
-         let ifd = Unix.openfile path [Unix.O_RDONLY] 0o644 in
-         Stdext.Pervasiveext.finally (fun () -> Tar_unix.Archive.copy_n ifd ofd hdr.Tar_unix.Header.file_size)
-           (fun () -> Unix.close ifd)) fd in
-
-  let add_disk path =
-    let chunks = List.filter (fun x -> String.endswith ".gz" x) (Array.to_list (Sys.readdir path)) in
-    let chunks = List.sort compare chunks in
-    List.iter (fun chunk -> add (Filename.concat path chunk) (path ^ "/" ^ chunk)) chunks in
-
-  Sys.chdir path;
-  add xml_filename xml_filename;
-  let disks = List.filter (fun x -> x <> xml_filename) (Array.to_list (Sys.readdir ".")) in
-  (* Just in case: filter out non-directories and stuff prefixed with "." *)
-  let disks = List.filter (fun x -> not(String.startswith "." x) && is_dir x) disks in
-  List.iter add_disk disks;
-
-  Tar_unix.write_end fd
-

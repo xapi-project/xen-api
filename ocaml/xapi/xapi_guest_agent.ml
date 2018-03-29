@@ -196,7 +196,6 @@ type guest_metrics_t = {
   can_use_hotplug_vif: API.tristate_type;
 }
 let cache : (int, guest_metrics_t) Hashtbl.t = Hashtbl.create 20
-let memory_targets : (int, int64) Hashtbl.t = Hashtbl.create 20
 let dead_domains : IntSet.t ref = ref IntSet.empty
 let mutex = Mutex.create ()
 
@@ -410,15 +409,3 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
         end;
       end (* else debug "Ignored spurious guest agent update" *)
   end
-
-(* XXX This function was previously called in the monitoring loop of the
- * RRD-related code, but that code has now been moved into rrdd, so there
- * is currently no caller. It probably needs to be called from whereever
- * the fields in this file are used. *)
-let sync_cache valid_domids =
-  Mutex.execute mutex
-    (fun _ ->
-       let stored_domids = Hashtbl.fold (fun k v acc -> k::acc) cache [] in
-       List.iter (fun domid -> if not (List.mem domid valid_domids) then dead_domains := IntSet.remove domid !dead_domains) stored_domids;
-       Hashtblext.remove_other_keys cache valid_domids;
-    )

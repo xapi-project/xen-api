@@ -37,10 +37,6 @@ let raise_malformed_response' meth reason response =
 let raise_malformed_response meth reason response =
   raise_malformed_response' meth reason (Xml.to_string response)
 
-let raise_malformed_response_list meth reason response =
-  raise_malformed_response' meth reason
-    (String.concat "\n" (List.map Xml.to_string response))
-
 let raise_not_initialized () =
   raise (Api_errors.Server_error (Api_errors.wlb_not_initialized, []))
 

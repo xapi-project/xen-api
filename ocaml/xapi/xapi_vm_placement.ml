@@ -55,12 +55,6 @@ let create_pool_subset_snapshot __context pool hosts =
   }
 
 (* === Snapshot summary constructors ======================================== *)
-
-let create_host_snapshot_summary __context extra_guests host =
-  summarise_host_snapshot
-    (List.map (create_guest_snapshot __context) extra_guests)
-    (create_host_snapshot __context host)
-
 let create_pool_subset_snapshot_summary __context extra_guests pool hosts =
   summarise_pool_snapshot
     (List.map (create_guest_snapshot __context) extra_guests)

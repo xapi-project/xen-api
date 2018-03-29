@@ -35,10 +35,6 @@ let zap_cr s =
   else
     s
 
-let write s string =
-  let towrite = string ^ "\r\n" in
-  ignore(Unix.write s towrite 0 (String.length towrite))
-
 let forward args s session =
   (* Reject forwarding cli commands if the request came in from a tcp socket *)
   if not (Context.is_unix_socket s) then raise (Api_errors.Server_error (Api_errors.host_is_slave,[Pool_role.get_master_address ()]));

@@ -74,13 +74,6 @@ let append_to_master_audit_log __context action line =
         )
     end
 
-(* static call-back from rbac-audit into append_to_master_audit_log function *)
-(* used to avoid cycle dependency between xapi_http and rbac_audit *)
-let init_fn_append_to_master_audit_log =
-  if !Rbac_audit.fn_append_to_master_audit_log = None
-  then Rbac_audit.fn_append_to_master_audit_log := Some(append_to_master_audit_log)
-
-
 let rbac_audit_params_of (req: Request.t) =
   let all = req.Request.cookie @ req.Request.query in
   List.fold_right (fun (n,v) (acc_n,acc_v) ->

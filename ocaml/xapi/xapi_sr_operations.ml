@@ -206,15 +206,6 @@ let update_allowed_operations ~__context ~self : unit =
   let keys = Hashtbl.fold (fun k v acc -> if v = None then k :: acc else acc) valid [] in
   Db.SR.set_allowed_operations ~__context ~self ~value:keys
 
-(** Someone is cancelling a task so remove it from the current_operations *)
-let cancel_task ~__context ~self ~task_id =
-  let all = List.map fst (Db.SR.get_current_operations ~__context ~self) in
-  if List.mem task_id all then
-    begin
-      Db.SR.remove_from_current_operations ~__context ~self ~key:task_id;
-      update_allowed_operations ~__context ~self
-    end
-
 let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let ops = Db.SR.get_current_operations ~__context ~self in
   let set = (fun value -> Db.SR.set_current_operations ~__context ~self ~value) in

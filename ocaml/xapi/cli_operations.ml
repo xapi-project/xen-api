@@ -343,42 +343,6 @@ let log_get printer _ session_id params =
 let log_reopen printer _ session_id params =
   ()
 
-let string_of_task_status task = match task.API.task_status with
-  | `pending ->
-    Printf.sprintf "%d %% complete "
-      (int_of_float (task.API.task_progress *. 100.))
-  | `success ->
-    "Completed"
-  | `failure ->
-    "Failed"
-  | `cancelling ->
-    "Cancelling"
-  | `cancelled ->
-    "Cancelled"
-
-(*let task_list printer rpc session_id params =
-  let internal = try (List.assoc "internal" params)="true" with _ -> false in
-  let task_records = get_task_records rpc session_id in
-  let recs =
-  List.map
-  (fun (ref,task) ->
-  let common =
-  ["NAME",task.API.task_name_label;
-  "uuid",task.API.task_uuid;
-  "descr",task.API.task_name_description;
-  "status", (string_of_task_status task);
-  ] in
-  (* If in show-internal mode, list the locks too *)
-  let locks = if internal
-  then List.map (fun lock -> "lock", lock)
-  (Client.Task.get_locks rpc session_id ref)
-  else [] in
-  common @ locks)
-  task_records
-  in
-  printer (Cli_printer.PTable recs)
-*)
-
 let user_password_change _ rpc session_id params =
   let old_pwd = List.assoc_default "old" params ""
   (* "new" must be in params here, since it is a required parameter. *)
@@ -398,14 +362,6 @@ let user_password_change _ rpc session_id params =
 
 let alltrue l =
   List.fold_left (&&) true l
-
-let get_set_names rlist =
-  let sets = List.filter (fun r -> r.get_set <> None) rlist in
-  List.map (fun r -> r.name) sets
-
-let get_map_names rlist =
-  let maps = List.filter (fun r -> r.get_map <> None) rlist in
-  List.map (fun r -> r.name) maps
 
 let safe_get_field x =
   try x.get ()
@@ -1944,32 +1900,6 @@ let select_hosts rpc session_id params ignore_params =
   (* Filter all the records *)
   List.fold_left filter_records_on_fields all_recs filter_params
 
-
-let select_vm_geneva rpc session_id params =
-  if List.mem_assoc "vm-name" params then
-    begin
-      let vmname = List.assoc "vm-name" params in
-      let vms = Client.VM.get_all rpc session_id in
-      let vm = List.filter (fun vm -> Client.VM.get_name_label rpc session_id vm = vmname) vms in
-      if List.length vm = 0 then
-        failwith ("VM with name '"^vmname^"' not found")
-      else if List.length vm > 1 then
-        failwith ("Multiple VMs with name '"^vmname^"' found")
-      else
-        vm_record rpc session_id (List.hd vm)
-    end
-  else if List.mem_assoc "vm-id" params then
-    begin
-      let vmid = List.assoc "vm-id" params in
-      try
-        vm_record rpc session_id (Client.VM.get_by_uuid rpc session_id vmid)
-      with
-        e -> failwith ("Failed to find VM with id '"^vmid^"'")
-    end
-  else
-    (failwith ("Must select a VM using either vm-name or vm-id: params="
-               ^(String.concat "," (List.map (fun (a,b) -> a^"="^b) params))))
-
 let select_srs rpc session_id params ignore_params =
   let sr_name_or_ref = try Some (
       (* Escape every quote character *)
@@ -3041,30 +2971,6 @@ let vm_disk_remove printer rpc session_id params =
       Client.VDI.destroy rpc session_id vdi
   in
   ignore(do_vm_op printer rpc session_id op params ["device"])
-
-let vm_disk_detach printer rpc session_id params =
-  let device = List.assoc "device" params in
-  let op vm =
-    let vm_record = vm.record () in
-    let vbd_to_remove = List.filter (fun x -> device = Client.VBD.get_userdevice rpc session_id x) vm_record.API.vM_VBDs in
-    if List.length vbd_to_remove < 1 then (failwith "Disk not found") else
-      let vbd = List.nth vbd_to_remove 0 in
-      Client.VBD.destroy rpc session_id vbd
-  in
-  ignore(do_vm_op printer rpc session_id op params ["device"])
-
-let vm_disk_resize printer rpc session_id params =
-  let device = List.assoc "device" params in
-  let new_size = Record_util.bytes_of_string "disk-size" (List.assoc "disk-size" params) in
-  let op vm =
-    let vm_record = vm.record () in
-    let vbd_to_resize = List.filter (fun x -> device = Client.VBD.get_userdevice rpc session_id x) vm_record.API.vM_VBDs in
-    if List.length vbd_to_resize < 1 then (failwith "Disk not found") else
-      let vbd = List.nth vbd_to_resize 0 in
-      let vdi = Client.VBD.get_VDI rpc session_id vbd in
-      Client.VDI.resize rpc session_id vdi new_size
-  in
-  ignore(do_vm_op printer rpc session_id op params ["device";"disk-size"])
 
 let vm_cd_remove printer rpc session_id params =
   let disk_name = List.assoc "cd-name" params in
@@ -4304,40 +4210,6 @@ let host_get_system_status_capabilities printer rpc session_id params =
                 (fun _ host ->
                    Client.Host.get_system_status_capabilities ~rpc ~session_id
                      ~host:(host.getref ())) params []))
-
-
-let wait_for_task rpc session_id task __context fd op_str =
-  let ok = match unmarshal fd with
-    | Response OK -> true
-    | Response Failed ->
-      (* Need to check whether the thin cli managed to contact the server or
-         			   not. If not, we need to mark the task as failed *)
-      if Client.Task.get_progress rpc session_id task < 0.0
-      then Db_actions.DB_Action.Task.set_status ~__context
-          ~self:task ~value:`failure;
-      false
-    | _ -> false in
-  wait_for_task_complete rpc session_id task;
-
-  (* if the client thinks it's ok, check that the server does too *)
-  (match Client.Task.get_status rpc session_id task with
-   | `success ->
-     if ok
-     then (marshal fd (Command (Print (op_str ^ " succeeded"))))
-     else (marshal fd (Command (PrintStderr (op_str ^ " failed, unknown error.\n")));
-           raise (ExitWithError 1))
-   | `failure ->
-     let result = Client.Task.get_error_info rpc session_id task in
-     if result = []
-     then marshal fd (Command (PrintStderr (op_str ^ " failed, unknown error\n")))
-     else raise (Api_errors.Server_error ((List.hd result),(List.tl result)))
-   | `cancelled ->
-     marshal fd (Command (PrintStderr (op_str ^ " cancelled\n")));
-     raise (ExitWithError 1)
-   | _ ->
-     marshal fd (Command (PrintStderr "Internal error\n")); (* should never happen *)
-     raise (ExitWithError 1)
-  )
 
 let host_get_system_status fd printer rpc session_id params =
   let filename = List.assoc "filename" params in

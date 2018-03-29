@@ -148,17 +148,3 @@ let sexpr_to_xmlrpc (root:SExpr.t) =
     | _ -> (Element ("WRONG_SEXPR",[],[]))
   in
   (encase_with "value" (visit 0 (SExpr.Node []) root))
-
-(** helper function that maps between sexpr strings and xml-rpc trees *)
-let sexpr_str_to_xmlrpc (sexpr_str:string) =
-  let sroot1 = SExpr_TS.of_string sexpr_str in
-  let xroot1 = sexpr_to_xmlrpc sroot1 in
-  match xroot1 with
-  | Element("value", [], [Element("WRONG_SEXPR",[],[])]) -> None
-  | _ -> Some xroot1
-
-(** helper function that maps between xml-rpc trees and sexpr strings *)
-let xmlrpc_to_sexpr_str xml=
-  let sroot1 = xmlrpc_to_sexpr xml in
-  SExpr.string_of sroot1
-

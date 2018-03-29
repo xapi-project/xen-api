@@ -117,10 +117,3 @@ let list_existing_statefiles () =
 let detach_existing_statefiles ~__context =
   let statefile_uuids = List.map (fun vdi -> vdi.Static_vdis.uuid) (list_existing_statefiles ()) in
   List.iter (fun uuid -> Static_vdis.permanent_vdi_detach_by_uuid ~__context ~uuid) statefile_uuids
-
-(** Added for CA-48539. Deactivate and detach all statefiles attached
-    	with reason 'HA statefile', to clear stale state *)
-let deactivate_and_detach_existing_statefiles ~__context =
-  let statefile_uuids = List.map (fun vdi -> vdi.Static_vdis.uuid) (list_existing_statefiles ()) in
-  List.iter (fun uuid -> Static_vdis.permanent_vdi_deactivate_by_uuid ~__context ~uuid) statefile_uuids ;
-  List.iter (fun uuid -> Static_vdis.permanent_vdi_detach_by_uuid ~__context ~uuid) statefile_uuids

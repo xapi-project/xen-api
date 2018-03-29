@@ -40,15 +40,12 @@ let schedule_days_enum = ["Monday";"Tuesday";"Wednesday";"Thursday";"Friday";"Sa
 let schedule_frequency_hourly = "hourly"
 let schedule_frequency_daily = "daily"
 let schedule_frequency_weekly = "weekly"
-let frequency_order = [schedule_frequency_hourly;schedule_frequency_daily;schedule_frequency_weekly]
 let schedule_min_enum = ["0";"15";"30";"45"]
 let schedule_field = "schedule"
 let schedule_min_default = List.hd schedule_min_enum
 let schedule_hour_default = "0"
 let schedule_days_default = List.hd schedule_days_enum
 
-(* relations between map types and map keys *)
-let schedule_frequency_enum = [schedule_frequency_hourly;schedule_frequency_daily;schedule_frequency_weekly]
 let schedule_frequency_hourly_keys = schedule_field,[schedule_frequency_hourly,[Datamodel.VMSS.schedule_min, ((Enum schedule_min_enum), schedule_min_default)]]
 let schedule_frequency_daily_keys = schedule_field,[schedule_frequency_daily,[Datamodel.VMSS.schedule_hour, ((IntRange(0,23)), schedule_hour_default);Datamodel.VMSS.schedule_min, ((Enum schedule_min_enum), schedule_min_default)]]
 let schedule_frequency_weekly_keys = schedule_field,[schedule_frequency_weekly,[Datamodel.VMSS.schedule_hour, ((IntRange(0,23)), schedule_hour_default);Datamodel.VMSS.schedule_min, ((Enum schedule_min_enum), schedule_min_default);Datamodel.VMSS.schedule_days, ((EnumSet schedule_days_enum), schedule_days_default)]]

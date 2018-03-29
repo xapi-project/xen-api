@@ -47,6 +47,4 @@ let queue_of_other_config oc =
     end
   end else default_xenopsd ()
 
-let queue_of_vmr vm = queue_of_other_config vm.API.vM_other_config
-
 let queue_of_vm ~__context ~self = queue_of_other_config (Db.VM.get_other_config ~__context ~self)

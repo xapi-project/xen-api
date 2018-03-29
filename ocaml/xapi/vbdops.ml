@@ -33,10 +33,3 @@ let translate_vbd_device vbd_ref name is_hvm =
   with _ ->
     raise (Api_errors.Server_error(Api_errors.illegal_vbd_device, [ Ref.string_of vbd_ref; name ]))
 
-(** Create a debug-friendly string from a VBD *)
-let string_of_vbd ~__context ~vbd =
-  let r = Db.VBD.get_record ~__context ~self:vbd in
-  let name = r.API.vBD_userdevice ^ "/" ^ r.API.vBD_device in
-  let vdi = if r.API.vBD_empty then "empty" else try Db.VDI.get_uuid ~__context ~self:r.API.vBD_VDI with _ -> "missing" in
-  name ^ ":" ^ vdi
-
