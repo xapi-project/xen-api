@@ -125,7 +125,6 @@ module VmExtra = struct
     |> persistent_t_of_rpc
 
   type non_persistent_t = {
-    create_info: Domain.create_info;
     suspend_memory_bytes: int64;
     qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
     qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
@@ -863,7 +862,17 @@ module VM = struct
       else helper (i-1)  (List.hd list :: acc) (List.tl list)
     in List.rev $ helper n [] list
 
-  let generate_non_persistent_state xc xs vm persistent =
+  let generate_non_persistent_state xc xs vm =
+    VmExtra.{
+      suspend_memory_bytes = 0L;
+      qemu_vbds = [];
+      qemu_vifs = [];
+      pci_msitranslate = vm.Vm.pci_msitranslate;
+      pci_power_mgmt = vm.Vm.pci_power_mgmt;
+      pv_drivers_detected = false;
+    }
+
+  let generate_create_info ~xc ~xs vm persistent =
     let ty = match persistent.VmExtra.ty with | Some ty -> ty | None -> vm.ty in
     let hvm = match ty with | HVM _ | PVinPVH _ -> true | PV _ -> false in
     (* XXX add per-vcpu information to the platform data *)
@@ -905,7 +914,7 @@ module VM = struct
 
     let platformdata = vm.platformdata |> default "acpi_s3" "0" |> default "acpi_s4" "0" in
 
-    let create_info = {
+    {
       Domain.ssidref = vm.ssidref;
       hvm = hvm;
       hap = hvm;
@@ -914,15 +923,6 @@ module VM = struct
       platformdata = platformdata @ vcpus;
       bios_strings = vm.bios_strings;
       has_vendor_device = vm.has_vendor_device;
-    } in
-    {
-      VmExtra.create_info = create_info;
-      suspend_memory_bytes = 0L;
-      qemu_vbds = [];
-      qemu_vifs = [];
-      pci_msitranslate = vm.Vm.pci_msitranslate;
-      pci_power_mgmt = vm.Vm.pci_power_mgmt;
-      pv_drivers_detected = false;
     }
 
   let create_exn (task: Xenops_task.task_handle) memory_upper_bound vm =
@@ -950,7 +950,7 @@ module VM = struct
                        ~default:false
                  ; profile = profile_of ~vm
                  } in
-               let non_persistent = generate_non_persistent_state xc xs vm persistent in
+               let non_persistent = generate_non_persistent_state xc xs vm in
                Some VmExtra.{persistent; non_persistent}
              end) in
          let _ = DB.update k (fun vmextra ->
@@ -1004,7 +1004,8 @@ module VM = struct
                   let persistent = VmExtra.{persistent with domain_config = Some domain_config } in
                   (domain_config, persistent)
               in
-              let domid = Domain.make ~xc ~xs non_persistent.VmExtra.create_info domain_config (uuid_of_vm vm) in
+              let create_info = generate_create_info ~xc ~xs vm persistent in
+              let domid = Domain.make ~xc ~xs create_info domain_config (uuid_of_vm vm) in
               Mem.transfer_reservation_to_domain dbg domid reservation_id;
               begin match vm.Vm.ty with
                 | Vm.HVM { Vm.qemu_stubdom = true } ->
@@ -2033,7 +2034,7 @@ module VM = struct
     ;
     let _ = DB.update vm.Vm.id (fun d ->
         let non_persistent = match d with
-          | None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm persistent)
+          | None -> with_xc_and_xs (fun xc xs -> generate_non_persistent_state xc xs vm)
           | Some vmextra -> vmextra.VmExtra.non_persistent
         in
         Some { VmExtra.persistent = persistent; VmExtra.non_persistent = non_persistent; }
