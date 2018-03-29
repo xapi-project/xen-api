@@ -107,6 +107,7 @@ module VmExtra = struct
     profile: Device.Profile.t option;
     suspend_memory_bytes: int64;
     qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
+    qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
   } [@@deriving rpc]
 
   let default_persistent_t =
@@ -119,6 +120,7 @@ module VmExtra = struct
     ; profile = None
     ; suspend_memory_bytes = 0L
     ; qemu_vbds = []
+    ; qemu_vifs = []
     }
 
   (* override rpc code generated for persistent_t. It is important that
@@ -129,7 +131,6 @@ module VmExtra = struct
     |> persistent_t_of_rpc
 
   type non_persistent_t = {
-    qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
     pci_msitranslate: bool;
     pci_power_mgmt: bool;
     pv_drivers_detected: bool;
@@ -846,6 +847,7 @@ module VM = struct
       profile = profile_of ~vm;
       suspend_memory_bytes = 0L;
       qemu_vbds = [];
+      qemu_vifs = [];
     } |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
 
   let mkints n =
@@ -868,7 +870,6 @@ module VM = struct
 
   let generate_non_persistent_state xc xs vm =
     VmExtra.{
-      qemu_vifs = [];
       pci_msitranslate = vm.Vm.pci_msitranslate;
       pci_power_mgmt = vm.Vm.pci_power_mgmt;
       pv_drivers_detected = false;
@@ -953,6 +954,7 @@ module VM = struct
                  ; profile = profile_of ~vm
                  ; suspend_memory_bytes = 0L
                  ; qemu_vbds = []
+                 ; qemu_vifs = []
                  } in
                let non_persistent = generate_non_persistent_state xc xs vm in
                Some VmExtra.{persistent; non_persistent}
@@ -2727,9 +2729,9 @@ module VIF = struct
                          let device = create task stubdom_domid in
                          let q = vif.position, Device device in
                          let _ = DB.update_exn vm (fun vm_t ->
-                             let non_persistent = { vm_t.VmExtra.non_persistent with
-                                                    VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
-                             Some { vm_t with VmExtra.non_persistent = non_persistent}
+                             let persistent = { vm_t.VmExtra.persistent with
+                                                VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.persistent.VmExtra.qemu_vifs } in
+                             Some { vm_t with VmExtra.persistent = persistent}
                            )
                          in ()
                        end
@@ -2769,13 +2771,13 @@ module VIF = struct
                DB.update vm (
                  Opt.map (fun vm_t ->
                      (* If we have a qemu frontend, detach this too. *)
-                     if List.mem_assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs then begin
-                       match (List.assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs) with
+                     if List.mem_assoc vif.Vif.id vm_t.VmExtra.persistent.VmExtra.qemu_vifs then begin
+                       match (List.assoc vif.Vif.id vm_t.VmExtra.persistent.VmExtra.qemu_vifs) with
                        | _, Device device ->
                          destroy device;
-                         let non_persistent = { vm_t.VmExtra.non_persistent with
-                                                VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id vm_t.VmExtra.non_persistent.VmExtra.qemu_vifs } in
-                         { vm_t with VmExtra.non_persistent = non_persistent }
+                         let persistent = { vm_t.VmExtra.persistent with
+                                                VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id vm_t.VmExtra.persistent.VmExtra.qemu_vifs } in
+                         { vm_t with VmExtra.persistent = persistent }
                        | _, _ -> vm_t
                      end else
                        vm_t
@@ -2816,14 +2818,14 @@ module VIF = struct
 
            (* If we have a qemu frontend, detach this too. *)
            let _ = DB.update_exn vm (fun vm_t ->
-               let non_persistent = vm_t.VmExtra.non_persistent in
-               if List.mem_assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs then begin
-                 match (List.assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs) with
+               let persistent = vm_t.VmExtra.persistent in
+               if List.mem_assoc vif.Vif.id persistent.VmExtra.qemu_vifs then begin
+                 match (List.assoc vif.Vif.id persistent.VmExtra.qemu_vifs) with
                  | _, Device device ->
                    Device.Vif.move ~xs device bridge;
-                   let non_persistent = { non_persistent with
-                                          VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id non_persistent.VmExtra.qemu_vifs } in
-                   Some { vm_t with VmExtra.non_persistent = non_persistent }
+                   let persistent = { persistent with
+                                          VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id persistent.VmExtra.qemu_vifs } in
+                   Some { vm_t with VmExtra.persistent = persistent }
                  | _, _ -> Some vm_t
                end else
                  Some vm_t
