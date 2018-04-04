@@ -239,7 +239,7 @@ let get_initial_guest_metrics (lookup: string -> string option) (list: string ->
   {pv_drivers_version; os_version; networks; other; memory; device_id; last_updated; can_use_hotplug_vbd; can_use_hotplug_vif;}
 
 
-let create_and_set_guest_metrics (lookup: string -> string option) (list: string -> string list) ~__context ~domid ~uuid =
+let create_and_set_guest_metrics (lookup: string -> string option) (list: string -> string list) ~__context ~domid ~uuid ~pV_drivers_detected =
   let initial_gm = get_initial_guest_metrics lookup list
   in
   let self = Db.VM.get_by_uuid ~__context ~uuid in
@@ -250,10 +250,10 @@ let create_and_set_guest_metrics (lookup: string -> string option) (list: string
     ~uuid:new_gm_uuid
     ~os_version:initial_gm.os_version
     ~pV_drivers_version:initial_gm.pv_drivers_version
-    ~pV_drivers_up_to_date:false
+    ~pV_drivers_up_to_date:pV_drivers_detected
     ~memory:[] ~disks:[]
     ~networks:initial_gm.networks
-    ~pV_drivers_detected:false
+    ~pV_drivers_detected
     ~other:initial_gm.other
     ~last_updated:(Date.of_float initial_gm.last_updated)
     ~other_config:[]
@@ -275,7 +275,7 @@ let create_and_set_guest_metrics (lookup: string -> string option) (list: string
 
 
 (** Reset all the guest metrics for a particular VM *)
-let all (lookup: string -> string option) (list: string -> string list) ~__context ~domid ~uuid =
+let all (lookup: string -> string option) (list: string -> string list) ~__context ~domid ~uuid ~pV_drivers_detected =
   let {pv_drivers_version; os_version; networks; other; memory; device_id;
        last_updated; can_use_hotplug_vbd; can_use_hotplug_vif;} = get_initial_guest_metrics lookup list
   in
@@ -345,7 +345,7 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
           then existing
           else
             (* if it doesn't exist, make a fresh one *)
-            create_and_set_guest_metrics lookup list ~__context ~domid ~uuid
+            create_and_set_guest_metrics lookup list ~__context ~domid ~uuid ~pV_drivers_detected
         in
 
         (* We unconditionally reset the database values but observe that the database
