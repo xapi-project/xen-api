@@ -364,7 +364,17 @@ let process root_dir name =
         R.Enum (List.map ~f:(compat_out fields) l)
     | _ -> rpc
   in
-
+  let compat_uri device_config ~f =
+    if !version = Some pvs_version then
+      match List.Assoc.find ~equal:String.equal device_config "uri" with
+      | None ->
+        return (Error (missing_uri ()))
+      | Some uri ->
+        return (Ok (device_config |> f |> compat_out ["uri", R.String uri]))
+    else
+        List.Assoc.remove ~equal:String.equal device_config "uri" |> f |>
+        Deferred.Result.return
+  in
   (* the actual API call for this plugin, sharing same version ref across all calls *)
   fun x ->
   let open Storage_interface in
@@ -410,6 +420,7 @@ let process root_dir name =
       "SR.detach",       "SR_DETACH";
       "SR.ls",           "SR_SCAN";
       "SR.stat",         "SR_UPDATE";
+      "SR.probe",        "SR_PROBE";
       "Volume.create",   "VDI_CREATE";
       "Volume.clone",    "VDI_CLONE";
       "Volume.snapshot", "VDI_SNAPSHOT";
@@ -467,14 +478,14 @@ let process root_dir name =
     Deferred.Result.return (R.success (Args.Query.Diagnostics.rpc_of_response response))
   | { R.name = "SR.attach"; R.params = [ args ] } ->
     let args = Args.SR.Attach.request_of_rpc args in
-    let uuid = args.Args.SR.Attach.sr in
     let device_config = args.Args.SR.Attach.device_config in
-    begin match List.find device_config ~f:(fun (k, _) -> k = "uri") with
-    | None ->
-      Deferred.Result.return (R.failure (missing_uri ()))
-    | Some (_, uri) ->
-      let args' = Xapi_storage.Volume.Types.SR.Attach.In.make args.Args.SR.Attach.dbg uuid uri in
-      let args' = Xapi_storage.Volume.Types.SR.Attach.In.rpc_of_t args' |> compat_in "uuid" in
+    let uuid = args.Args.SR.Attach.sr in
+    compat_uri device_config ~f:(fun device_config ->
+      let device_config = ("sr_uuid", uuid) :: device_config in
+      let args' = Xapi_storage.Volume.Types.SR.Attach.In.make args.Args.SR.Attach.dbg device_config in
+      Xapi_storage.Volume.Types.SR.Attach.In.rpc_of_t args')
+    >>>= fun args' ->
+    begin
       let open Deferred.Result.Monad_infix in
       fork_exec_rpc root_dir (script root_dir name `Volume "SR.attach") args' Xapi_storage.Volume.Types.SR.Attach.Out.t_of_rpc
       >>= fun attach_response ->
@@ -550,31 +561,55 @@ let process root_dir name =
     let args = Args.SR.Probe.request_of_rpc args in
     let name = args.Args.SR.Probe.queue in
     let device_config = args.Args.SR.Probe.device_config in
-    begin match List.find device_config ~f:(fun (k, _) -> k = "uri") with
-    | None ->
-      Deferred.Result.return (R.failure (missing_uri ()))
-    | Some (_, uri) ->
+    compat_uri device_config ~f:(fun device_config ->
       let args = Xapi_storage.Volume.Types.SR.Probe.In.make
         args.Args.SR.Probe.dbg
-        uri in
-      let args = Xapi_storage.Volume.Types.SR.Probe.In.rpc_of_t args in
+        device_config in
+      Xapi_storage.Volume.Types.SR.Probe.In.rpc_of_t args)
+    >>>= fun args ->
+    begin
       let open Deferred.Result.Monad_infix in
-      fork_exec_rpc root_dir (script root_dir name `Volume "SR.probe") args Xapi_storage.Volume.Types.SR.Probe.Out.t_of_rpc
+      let scriptname = script root_dir name `Volume "SR.probe" in
+      fork_exec_rpc root_dir scriptname args Xapi_storage.Volume.Types.SR.Probe.Out.t_of_rpc
       >>= fun response ->
-      let srs = List.map ~f:(fun sr_stat -> sr_stat.Xapi_storage.Volume.Types.sr, {
-        Storage_interface.name_label = sr_stat.Xapi_storage.Volume.Types.name;
-        name_description = sr_stat.Xapi_storage.Volume.Types.description;
-        total_space = sr_stat.Xapi_storage.Volume.Types.total_space;
-        free_space = sr_stat.Xapi_storage.Volume.Types.free_space;
-        clustered = sr_stat.Xapi_storage.Volume.Types.clustered;
-        health = match sr_stat.Xapi_storage.Volume.Types.health with
-          | Xapi_storage.Volume.Types.Healthy _ -> Healthy
-          | Xapi_storage.Volume.Types.Recovering _ -> Recovering
-          ;
-      }) response.Xapi_storage.Volume.Types.SR.Probe.Out.srs in
-      let uris = response.Xapi_storage.Volume.Types.SR.Probe.Out.uris in
-      let result = Storage_interface.(Probe { srs; uris }) in
-      Deferred.Result.return (R.success (Args.SR.Probe.rpc_of_response result))
+        let pp_probe_result () probe_result =
+          Xapi_storage.Volume.Types.SR.Probe.Out.rpc_of_t [probe_result] |>
+          Jsonrpc.to_string
+        in
+        response
+        |> List.map ~f:(fun probe_result ->
+          let uuid = List.Assoc.find probe_result.Xapi_storage.Volume.Types.configuration ~equal:String.equal "sr_uuid" in
+          let open Deferred.Or_error in
+          let smapiv2_probe ?sr_info () =
+            { configuration=probe_result.configuration; complete=probe_result.complete; sr=sr_info; extra_info=probe_result.extra_info }
+          in
+          match probe_result.Xapi_storage.Volume.Types.sr, probe_result.Xapi_storage.Volume.Types.complete, uuid with
+          | _, false, Some _uuid ->
+              errorf "A configuration with a uuid cannot be incomplete: %a" pp_probe_result probe_result
+          | Some sr_stat, true, Some _uuid ->
+              let sr_info = {
+                Storage_interface.name_label = sr_stat.Xapi_storage.Volume.Types.name;
+                sr_uuid = sr_stat.Xapi_storage.Volume.Types.uuid;
+                name_description = sr_stat.Xapi_storage.Volume.Types.description;
+                total_space = sr_stat.Xapi_storage.Volume.Types.total_space;
+                free_space = sr_stat.Xapi_storage.Volume.Types.free_space;
+                clustered = sr_stat.Xapi_storage.Volume.Types.clustered;
+                health = match sr_stat.Xapi_storage.Volume.Types.health with
+                  | Xapi_storage.Volume.Types.Healthy _ -> Healthy
+                  | Xapi_storage.Volume.Types.Recovering _ -> Recovering
+              } in
+              return (smapiv2_probe ~sr_info ())
+          | Some _sr, _, None ->
+              errorf "A configuration is not attachable without a uuid: %a" pp_probe_result probe_result
+          | None, false, None ->
+              return (smapiv2_probe ())
+          | None, true, _ ->
+              return (smapiv2_probe ()))
+        |> Deferred.Or_error.combine_errors
+        |> Deferred.Result.map_error ~f:(fun err ->
+            backend_error "SCRIPT_FAILED" [scriptname; Error.to_string_hum err])
+        >>>= fun results ->
+        Storage_interface.Probe results |> Args.SR.Probe.rpc_of_response |> R.success |> Deferred.Result.return
     end
   | { R.name = "SR.create"; R.params = [ args ] } ->
     let args = Args.SR.Create.request_of_rpc args in
@@ -582,18 +617,18 @@ let process root_dir name =
     let uuid = args.Args.SR.Create.sr in
     let description = args.Args.SR.Create.name_description in
     let device_config = args.Args.SR.Create.device_config in
-    begin match List.find device_config ~f:(fun (k, _) -> k = "uri") with
-    | None ->
-      Deferred.Result.return (R.failure (missing_uri ()))
-    | Some (_, uri) ->
+    compat_uri device_config ~f:(fun device_config ->
       let args = Xapi_storage.Volume.Types.SR.Create.In.make
         args.Args.SR.Create.dbg
         uuid
-        uri
+        device_config
         name_label
         description
-        device_config in
-      let args = Xapi_storage.Volume.Types.SR.Create.In.rpc_of_t args |> compat_in "uuid" in
+      in
+      Xapi_storage.Volume.Types.SR.Create.In.rpc_of_t args
+      |> compat_in "uuid")
+    >>>= fun args ->
+    begin
       let open Deferred.Result.Monad_infix in
       let t_of_rpc rpc =
         if rpc = R.Null then None
@@ -603,8 +638,7 @@ let process root_dir name =
       >>= fun response ->
       let new_device_config = match response with
       | None -> device_config
-      | Some response ->
-        ("uri", response) :: List.filter ~f:(fun (k,_) -> k <> "uri") device_config
+      | Some response -> response
       in
       Deferred.Result.return (R.success (Args.SR.Create.rpc_of_response new_device_config))
     end
@@ -909,6 +943,7 @@ let process root_dir name =
     fork_exec_rpc root_dir (script root_dir name `Volume "SR.stat") args Xapi_storage.Volume.Types.SR.Stat.Out.t_of_rpc
     >>= fun response ->
     let response = {
+      sr_uuid = response.Xapi_storage.Volume.Types.uuid;
       name_label = response.Xapi_storage.Volume.Types.name;
       name_description = response.Xapi_storage.Volume.Types.description;
       total_space = response.Xapi_storage.Volume.Types.total_space;
@@ -1110,9 +1145,9 @@ let watch_datapath_plugins ~root_dir ~pipe =
     loop () in
   loop ()
 
-let self_test ~root_dir =
+let self_test_plugin ~root_dir plugin =
   let volume_root = Filename.concat root_dir "volume" in
-  let process = process volume_root "org.xen.xapi.storage.dummy" in
+  let process = process volume_root plugin in
   let module Test = Storage_interface.ClientM(struct
     type 'a t = 'a Deferred.t
     let return = return
@@ -1126,7 +1161,7 @@ let self_test ~root_dir =
   end) in
   let dbg = "debug" in
   Monitor.try_with (fun () ->
-    Test.Query.query ~dbg >>= fun _query_result ->
+    Test.Query.query ~dbg >>= fun query_result ->
     Test.Query.diagnostics ~dbg >>= fun _msg ->
 
     let sr = "dummySR" in
@@ -1164,8 +1199,19 @@ let self_test ~root_dir =
 
     Test.SR.stat ~dbg ~sr >>= fun _sr_info ->
     Test.SR.scan ~dbg ~sr >>= fun _sr_list ->
-    return ()
-  ) >>= function
+
+    if List.mem query_result.features "SR_PROBE" ~equal:String.equal then
+      Test.SR.probe ~dbg ~queue:plugin~device_config ~sm_config:[] >>= fun result ->
+      return ()
+    else
+      return ()
+    )
+
+let self_test ~root_dir =
+  (self_test_plugin ~root_dir "org.xen.xapi.storage.dummy"
+   >>>= fun () ->
+   self_test_plugin ~root_dir "org.xen.xapi.storage.dummyv4")
+  >>= function
     | Ok () ->
         info "test thread shutdown cleanly";
         Async_unix.exit 0
