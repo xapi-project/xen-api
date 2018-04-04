@@ -954,6 +954,18 @@ module PIF = struct
              Api_errors.pif_has_fcoe_sr_in_use]
       ()
 
+  let set_disallow_unplug = call
+    ~name:"set_disallow_unplug"
+    ~doc:"Set whether unplugging the PIF is allowed"
+    ~hide_from_docs:false
+    ~in_oss_since:None
+    ~in_product_since:rel_orlando
+    ~params: [ Ref _pif, "self", "Reference to the object"
+             ; Bool, "value", "New value to set" ]
+    ~allowed_roles:_R_POOL_OP
+    ~errs:[Api_errors.clustering_enabled_on_network]
+    ()
+
   let ip_configuration_mode = Enum ("ip_configuration_mode",
                                     [ "None", "Do not acquire an IP address";
                                       "DHCP", "Acquire an IP address by DHCP";
@@ -971,6 +983,7 @@ module PIF = struct
               ]
       ~in_product_since:rel_miami
       ~allowed_roles:_R_POOL_OP
+      ~errs:[Api_errors.clustering_enabled_on_network]
       ()
 
   let ipv6_configuration_mode = Enum ("ipv6_configuration_mode",
@@ -990,6 +1003,7 @@ module PIF = struct
               ]
       ~lifecycle:[Prototyped, rel_tampa, ""]
       ~allowed_roles:_R_POOL_OP
+      ~errs:[Api_errors.clustering_enabled_on_network]
       ()
 
   let primary_address_type = Enum ("primary_address_type",
@@ -1037,7 +1051,8 @@ module PIF = struct
       ~params:[Ref _pif, "self", "The PIF object to destroy"]
       ~in_product_since:rel_miami
       ~allowed_roles:_R_POOL_OP
-      ~errs:[Api_errors.pif_tunnel_still_exists]
+      ~errs:[ Api_errors.pif_tunnel_still_exists
+            ; Api_errors.clustering_enabled_on_network]
       ()
 
   let pool_introduce_params first_rel =
@@ -1135,6 +1150,7 @@ module PIF = struct
         introduce;
         forget;
         unplug;
+        set_disallow_unplug;
         plug;
         pool_introduce;
         db_introduce;
@@ -1167,7 +1183,7 @@ module PIF = struct
                   field ~in_oss_since:None ~ty:(Set(Ref _vlan)) ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_slave_of" "Indicates which VLANs this interface transmits tagged traffic to";
                   field ~in_oss_since:None ~ty:Bool ~in_product_since:rel_miami ~qualifier:DynamicRO "management" "Indicates whether the control software is listening for connections on this interface" ~default_value:(Some (VBool false));
                   field ~in_product_since:rel_miami ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "Additional configuration";
-                  field ~in_product_since:rel_orlando ~default_value:(Some (VBool false)) ~ty:Bool "disallow_unplug" "Prevent this PIF from being unplugged; set this to notify the management tool-stack that the PIF has a special use and should not be unplugged under any circumstances (e.g. because you're running storage traffic over it)";
+                  field ~in_product_since:rel_orlando ~qualifier:DynamicRO ~default_value:(Some (VBool false)) ~ty:Bool "disallow_unplug" "Prevent this PIF from being unplugged; set this to notify the management tool-stack that the PIF has a special use and should not be unplugged under any circumstances (e.g. because you're running storage traffic over it)";
                   field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[Published, rel_cowley, "Indicates to which tunnel this PIF gives access"] ~qualifier:DynamicRO "tunnel_access_PIF_of" "Indicates to which tunnel this PIF gives access";
                   field ~in_oss_since:None ~ty:(Set(Ref _tunnel)) ~lifecycle:[Published, rel_cowley, "Indicates to which tunnel this PIF provides transport"] ~qualifier:DynamicRO "tunnel_transport_PIF_of" "Indicates to which tunnel this PIF provides transport";
                   field ~in_oss_since:None ~ty:ipv6_configuration_mode ~lifecycle:[Prototyped, rel_tampa, ""] ~qualifier:DynamicRO "ipv6_configuration_mode" "Sets if and how this interface gets an IPv6 address" ~default_value:(Some (VEnum "None"));

@@ -517,6 +517,7 @@ let prepare_for_poweroff ~__context ~host =
 
   Xapi_ha.before_clean_shutdown_or_reboot ~__context ~host;
   Xapi_pbd.unplug_all_pbds ~__context;
+  Xapi_cluster_host.disable_clustering ~__context;
 
   if not i_am_master then
     Remote_requests.stop_request_thread();

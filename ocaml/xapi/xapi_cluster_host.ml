@@ -63,6 +63,16 @@ let create_as_necessary ~__context ~host =
         Client.Client.Cluster_host.create rpc session_id cluster_ref host) |> ignore
   | None -> ()
 
+let resync_host ~__context ~host =
+  create_as_necessary ~__context ~host;
+  match (find_cluster_host ~__context ~host) with
+    | None              -> () (* no clusters exist *)
+    | Some cluster_host ->    (* cluster_host and cluster exist *)
+      (* Cluster_host.enable unconditionally invokes the low-level enable operations and is idempotent. *)
+      if Db.Cluster_host.get_enabled ~__context ~self:cluster_host
+      then Helpers.call_api_functions ~__context
+        (fun rpc session_id -> Client.Client.Cluster_host.enable ~rpc ~session_id ~self:cluster_host)
+
 let create ~__context ~cluster ~host =
   (* TODO: take network lock *)
   with_clustering_lock (fun () ->
@@ -126,6 +136,10 @@ let enable ~__context ~self =
       let network = Db.Cluster.get_network ~__context ~self:cluster in
       let pif = pif_of_host ~__context network host in
       assert_pif_prerequisites pif;
+
+      let pool = Helpers.get_pool ~__context in
+      if Db.Pool.get_ha_enabled ~__context ~self:pool then
+        Db.Pool.set_ha_cluster_stack ~__context ~self:pool ~value:"corosync";
       let ip = ip_of_pif pif in
       let init_config = {
         Cluster_interface.local_ip = ip;
@@ -147,9 +161,22 @@ let disable ~__context ~self =
       let host = Db.Cluster_host.get_host ~__context ~self in
       assert_operation_host_target_is_localhost ~__context ~host;
       assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self;
+
+      let pool = Helpers.get_pool ~__context in
+      if Db.Pool.get_ha_enabled ~__context ~self:pool then
+        Db.Pool.set_ha_cluster_stack ~__context ~self:pool ~value:"xhad";
       let result = Cluster_client.LocalClient.disable (rpc ~__context) dbg in
       match result with
       | Result.Ok () ->
           Db.Cluster_host.set_enabled ~__context ~self ~value:false
       | Result.Error error -> handle_error error
     )
+
+let disable_clustering ~__context =
+  let host = Helpers.get_localhost ~__context in
+  match Xapi_clustering.find_cluster_host ~__context ~host with
+  | None -> info "No cluster host found"
+  | Some self ->
+     info "Disabling cluster host";
+     disable ~__context ~self
+

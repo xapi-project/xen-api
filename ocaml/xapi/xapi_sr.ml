@@ -169,7 +169,7 @@ let get_pbds ~__context ~self ~attached ~master_pos =
   | `First -> master_pbds @ slave_pbds
   | `Last -> slave_pbds @ master_pbds
 
-let probe ~__context ~host ~device_config ~_type ~sm_config =
+let call_probe ~__context ~host ~device_config ~_type ~sm_config ~f =
   debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
   let _type = String.lowercase_ascii _type in
   let open Storage_interface in
@@ -183,10 +183,66 @@ let probe ~__context ~host ~device_config ~_type ~sm_config =
 
   transform_storage_exn
     (fun () ->
-       match Client.SR.probe ~dbg ~queue ~device_config ~sm_config with
-       | Raw x -> x
-       | Probe _ as x -> Xmlrpc.to_string (rpc_of_probe_result x)
+       Client.SR.probe ~dbg ~queue ~device_config ~sm_config |> f
     )
+
+let probe = call_probe ~f:(
+    function
+    | Storage_interface.Raw x -> x
+    | Storage_interface.Probe probe_results ->
+      (* Here we try to mimic the XML document structure returned in the Raw
+         case by SMAPIv1, for backwards-compatibility *)
+
+      let module T = struct
+        (** Conveniently output an XML tree using Xmlm *)
+
+        type tree = El of Xmlm.tag * tree list | Data of string
+
+        let data s = Data s
+
+        (** Create an element without a namespace or attributes *)
+        let el name children = El ((("", name), []), children)
+
+        let frag = function
+          | El (tag, children) -> `El (tag, children)
+          | Data s -> `Data s
+
+        let output_doc ~tree ~output ~dtd =
+          Xmlm.output_doc_tree frag output (dtd, tree)
+      end in
+
+      let srs =
+        probe_results
+        (* We return the SRs found by probe *)
+        |> Xapi_stdext_std.Listext.List.filter_map
+          (fun r -> r.Storage_interface.sr)
+      in
+
+      let sr_info Storage_interface.{
+        sr_uuid;
+        name_label;
+        name_description;
+        total_space;
+        free_space;
+        clustered;
+        health} =
+        let el_uuid = match sr_uuid with
+          | Some sr_uuid -> [T.el "UUID" [T.data sr_uuid]]
+          | None -> []
+        in
+        T.el
+          "SR"
+          ([ T.el "size" [T.data @@ Int64.to_string total_space]
+           ; T.el "name_label" [T.data name_label]
+           ; T.el "name_description" [T.data name_description]
+           ] @ el_uuid)
+      in
+      let tree = T.el "SRlist" (List.map sr_info srs) in
+      let buf = Buffer.create 20 in
+      let output = Xmlm.make_output ~nl:true (`Buffer buf) in
+      T.output_doc ~tree ~output ~dtd:None;
+      Buffer.contents buf
+  )
 
 (* Create actually makes the SR on disk, and introduces it into db, and creates PBD record for current host *)
 let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~name_description

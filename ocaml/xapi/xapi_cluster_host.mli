@@ -64,3 +64,14 @@ val disable : __context:Context.t -> self:API.ref_Cluster_host -> unit
 (** [disable ~__context ~self] is the implementation of the XenAPI call
     'Cluster_host.disable'. It will call xapi-clusterd and ask it to leave the
     cluster. This requires all cluster members to be online. *)
+
+val disable_clustering : __context:Context.t -> unit
+(** [disable_clustering ~__context] is a wrapper for Xapi_cluster_host.disable
+    which finds the local cluster_host [self], calls [disable ~__context self]
+    and logs its actions. *)
+
+val resync_host : __context:Context.t -> host:API.ref_host -> unit
+(** [resync_host ~__context ~host] checks for any clusters on the host. If one
+    exists but is not associated with a cluster_host, it creates one. If the
+    database indicates the cluster_host is enabled, host_resync enables it
+    in the Client layer too. Otherwise, nothing happens. *)

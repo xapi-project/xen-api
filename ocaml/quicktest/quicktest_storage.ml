@@ -31,22 +31,23 @@ let sr_probe     = "SR_PROBE"
 let sr_update    = "SR_UPDATE"
 
 let iso_path = ref "/opt/xensource/packages/iso"
-
-let only_sr_name = ref None
+let use_default_sr = ref false
 
 (** Return a list of all SRs which have at least one plugged-in PBD ie those
     which we can use for stuff *)
 let list_srs session_id =
-  let all = Client.SR.get_all !rpc session_id in
+  let all =
+    if !use_default_sr
+    then begin
+      print_endline "  Running tests on default SR only";
+      [ (Quicktest_common.get_default_sr session_id) ]
+    end
+    else (Client.SR.get_all !rpc session_id)
+  in
   List.filter (fun sr ->
-      let pbds = Client.SR.get_PBDs !rpc session_id sr in
-      List.fold_left (||) false
-        (List.map (fun pbd -> Client.PBD.get_currently_attached !rpc session_id pbd) pbds)) all
-  (* Filter SR with specific type from CLI *)
-  |> List.filter (fun sr ->
-         match !only_sr_name with
-         | None -> true
-         | Some t -> Client.SR.get_name_label !rpc session_id sr = t)
+    let pbds = Client.SR.get_PBDs !rpc session_id sr in
+    List.fold_left (||) false
+      (List.map (fun pbd -> Client.PBD.get_currently_attached !rpc session_id pbd) pbds)) all
 
 let name_of_sr session_id sr =
   let name_label = Client.SR.get_name_label !rpc session_id sr in
@@ -477,12 +478,17 @@ let sr_probe_test caps session_id sr =
       let srr = Client.SR.get_record !rpc session_id sr in
       let pbdr = Client.PBD.get_record !rpc session_id pbd in
       Client.PBD.unplug !rpc session_id pbd;
-      let xml = Client.SR.probe ~rpc:!rpc ~session_id
-          ~host:pbdr.API.pBD_host
-          ~device_config:pbdr.API.pBD_device_config
-          ~sm_config:srr.API.sR_sm_config
-          ~_type:srr.API.sR_type in
-      Client.PBD.plug !rpc session_id pbd;
+      let xml = finally
+        (fun () ->
+           Client.SR.probe ~rpc:!rpc ~session_id
+               ~host:pbdr.API.pBD_host
+               ~device_config:pbdr.API.pBD_device_config
+               ~sm_config:srr.API.sR_sm_config
+               ~_type:srr.API.sR_type
+        )
+        (* Restore the original state even if the above code fails *)
+        (fun () -> Client.PBD.plug !rpc session_id pbd)
+      in
       let srs = parse_sr_probe_xml xml in
       List.iter (fun sr -> debug test (Printf.sprintf "Probe found SR: %s" sr.uuid)) srs;
       if List.length srs = 0 then begin
@@ -622,6 +628,5 @@ let go s =
   let srs = list_srs s in
   debug test (Printf.sprintf "Found %d SRs" (List.length srs));
   success test;
-  if !only_sr_name = None then
   packages_iso_test s;
   List.iter (foreach_sr s) srs

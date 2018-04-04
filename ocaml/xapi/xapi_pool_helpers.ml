@@ -51,6 +51,7 @@ let valid_operations ~__context record _ref' =
   (* HA disable cannot run if HA is already disabled on a pool *)
   (* HA enable cannot run if HA is already enabled on a pool *)
   let ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context) in
+  let current_stack = Db.Pool.get_ha_cluster_stack ~__context ~self:(Helpers.get_pool ~__context) in
   if ha_enabled then
     set_errors Api_errors.ha_is_enabled [] [ `ha_enable ]
   else
@@ -61,7 +62,8 @@ let valid_operations ~__context record _ref' =
     | [_] -> set_errors Api_errors.cluster_already_exists [] [ `cluster_create ]
     (* indicates a bug or a need to update this code (if we ever support multiple clusters in the pool *)
     | _::_ -> failwith "Multiple clusters exist in the pool"
-    | _ -> ()
+    (* cluster create cannot run if ha is already enabled *)
+    | [] -> if ha_enabled then set_errors Api_errors.incompatible_cluster_stack_active [current_stack] [ `cluster_create ]
   end;
 
   table

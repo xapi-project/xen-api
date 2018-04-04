@@ -318,6 +318,9 @@ let last_blob_sync_time = "last_blob_sync_time"
 (* Port on which to send network heartbeats *)
 let xha_udp_port = 694 (* same as linux-ha *)
 
+(* Port which xapi-clusterd uses to communicate *)
+let xapi_clusterd_port = ref 8896
+
 (* When a host is known to be shutting down or rebooting, we add it's reference in here.
    This can be used to force the Host_metrics.live flag to false. *)
 let hosts_which_are_shutting_down : API.ref_host list ref = ref []
@@ -726,6 +729,10 @@ let kill_process_script = ref "killall"
 
 let nbd_firewall_config_script = ref "/opt/xensource/libexec/nbd-firewall-config.sh"
 
+let firewall_port_config_script = ref "/etc/xapi.d/plugins/firewall-port"
+
+let nbd_client_manager_script = ref "/opt/xensource/libexec/nbd_client_manager.py"
+
 let disable_logging_for= ref []
 
 let nvidia_whitelist = ref "/usr/share/nvidia/vgpu/vgpuConfig.xml"
@@ -806,6 +813,7 @@ let xapi_globs_spec =
     "default-vbd3-polling-duration", Int default_vbd3_polling_duration;
     "default-vbd3-polling-idle-threshold", Int default_vbd3_polling_idle_threshold;
     "vm_call_plugin_interval", Float vm_call_plugin_interval;
+    "xapi_clusterd_port", Int xapi_clusterd_port;
   ]
 
 let options_of_xapi_globs_spec =
@@ -1008,6 +1016,8 @@ module Resources = struct
     "update-issue", update_issue_script, "Running update-service when configuring the management interface";
     "killall", kill_process_script, "Executed to kill process";
     "nbd-firewall-config", nbd_firewall_config_script, "Executed after NBD-related networking changes to configure the firewall for NBD";
+    "firewall-port-config", firewall_port_config_script, "Executed when starting/stopping xapi-clusterd to configure firewall port";
+    "nbd_client_manager", nbd_client_manager_script, "Executed to safely connect to and disconnect from NBD devices using nbd-client";
   ]
   let essential_files = [
     "pool_config_file", pool_config_file, "Pool configuration file";
