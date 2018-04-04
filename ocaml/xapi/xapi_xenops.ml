@@ -1356,7 +1356,15 @@ let update_vm ~__context id =
                    List.iter
                      (fun domid ->
                         try
-                          let new_gm_ref = Xapi_guest_agent.create_and_set_guest_metrics (lookup state) (list state) ~__context ~domid ~uuid:id in
+                          let new_gm_ref =
+                            Xapi_guest_agent.create_and_set_guest_metrics
+                              (lookup state)
+                              (list state)
+                              ~__context
+                              ~domid
+                              ~uuid:id
+                              ~pV_drivers_detected:state.pv_drivers_detected
+                          in
                           debug "xenopsd event: created guest metrics %s for VM %s" (Ref.string_of new_gm_ref) id
                         with e ->
                           error "Caught %s: while creating VM %s guest metrics" (Printexc.to_string e) id
@@ -1386,7 +1394,7 @@ let update_vm ~__context id =
                    (fun domid ->
                       try
                         debug "xenopsd event: Updating VM %s domid %d guest_agent" id domid;
-                        Xapi_guest_agent.all (lookup state) (list state) ~__context ~domid ~uuid:id
+                        Xapi_guest_agent.all (lookup state) (list state) ~__context ~domid ~uuid:id ~pV_drivers_detected:state.pv_drivers_detected
                       with e ->
                         error "Caught %s: while updating VM %s guest_agent" (Printexc.to_string e) id
                    ) state.domids
