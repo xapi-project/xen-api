@@ -94,9 +94,7 @@ module VmExtra = struct
 
   (** Extra data we store per VM. The persistent data is preserved when
       the domain is suspended so it can be re-used in the following 'create'
-      which is part of 'resume'. The non-persistent data will be regenerated.
-      When a VM is shutdown for other reasons (eg reboot) we throw all this
-      information away and generate fresh data on the following 'create' *)
+      which is part of 'resume'. *)
   type persistent_t = {
     build_info: Domain.build_info option;
     ty: Vm.builder_info option;
@@ -834,22 +832,13 @@ module VM = struct
       vcpus = vm.vcpu_max;
       priv = builder_spec_info;
     } in
-    {
-      VmExtra.build_info = Some build_info;
-      ty = Some vm.ty;
-      (* Earlier than the PV drivers update time, therefore
-         any cached PV driver information will be kept. *)
-      last_start_time = 0.;
-      domain_config = None;
-      nomigrate = false;
-      nested_virt = false;
-      profile = profile_of ~vm;
-      suspend_memory_bytes = 0L;
-      qemu_vbds = [];
-      qemu_vifs = [];
-      pci_msitranslate = false;
-      pci_power_mgmt = false;
-      pv_drivers_detected = false
+    VmExtra.{ default_persistent_t with
+              build_info = Some build_info;
+              ty = Some vm.ty;
+              (* Earlier than the PV drivers update time, therefore
+                 any cached PV driver information will be kept. *)
+              last_start_time = 0.0;
+              profile = profile_of ~vm;
     } |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
 
   let mkints n =
@@ -934,31 +923,27 @@ module VM = struct
             | None -> begin
               debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
                let persistent =
-                 { VmExtra.build_info = None
-                 ; ty = Some vm.ty
-                 ; last_start_time = Unix.gettimeofday ()
-                 ; domain_config = Some (VmExtra.domain_config_of_vm vm)
-                 ; nomigrate = Platform.is_true
-                       ~key:"nomigrate"
-                       ~platformdata:vm.Xenops_interface.Vm.platformdata
-                       ~default:false
-                 ; nested_virt=Platform.is_true
-                       ~key:"nested-virt"
-                       ~platformdata:vm.Xenops_interface.Vm.platformdata
-                       ~default:false
-                 ; profile = profile_of ~vm
-                 ; suspend_memory_bytes = 0L
-                 ; qemu_vbds = []
-                 ; qemu_vifs = []
-                 ; pci_msitranslate = vm.Vm.pci_msitranslate
-                 ; pci_power_mgmt = vm.Vm.pci_power_mgmt
-                 ; pv_drivers_detected = false
+                 VmExtra.{ default_persistent_t with
+                           ty = Some vm.ty
+                         ; last_start_time = Unix.gettimeofday ()
+                         ; domain_config = Some (VmExtra.domain_config_of_vm vm)
+                         ; nomigrate = Platform.is_true
+                               ~key:"nomigrate"
+                               ~platformdata:vm.Xenops_interface.Vm.platformdata
+                               ~default:false
+                         ; nested_virt=Platform.is_true
+                               ~key:"nested-virt"
+                               ~platformdata:vm.Xenops_interface.Vm.platformdata
+                               ~default:false
+                         ; profile = profile_of ~vm
+                         ; pci_msitranslate = vm.Vm.pci_msitranslate
+                         ; pci_power_mgmt = vm.Vm.pci_power_mgmt
                  } in
                Some VmExtra.{persistent}
              end) in
          let _ = DB.update k (fun vmextra ->
            let persistent = match vmextra with
-           | Some x -> VmExtra.(x.persistent)
+           | Some x -> x.VmExtra.persistent
            | None -> failwith "Interleaving problem"
            in
          let shadow_multiplier = match vm.Vm.ty with
@@ -1034,7 +1019,7 @@ module VM = struct
                 Device.Vcpu.add ~xs ~dm:(dm_of ~vm) ~devid:i domid (i < vm.vcpus)
               done;
               set_domain_type ~xs domid vm;
-              Some {VmExtra.persistent = persistent}
+              Some VmExtra.{persistent}
            )
        )
       in ()
@@ -1422,11 +1407,11 @@ module VM = struct
 
         debug "VM = %s; domid = %d; Domain build completed" vm.Vm.id domid;
         let _ = DB.update_exn vm.Vm.id (fun d ->
-            let persistent = { d.VmExtra.persistent with
-                               VmExtra.build_info = Some build_info;
-                               ty = Some vm.ty;
-                             } in
-            Some {VmExtra.persistent = persistent}
+            Some VmExtra.{persistent = { d.persistent with
+                build_info = Some build_info;
+                ty = Some vm.ty;
+              }
+            }
           )
         in ()
       ) (fun () -> Opt.iter Bootloader.delete !kernel_to_cleanup)
@@ -1703,10 +1688,9 @@ module VM = struct
                 ) (Xenops_utils.chunks 10 vbds);
               debug "VM = %s; domid = %d; Storing final memory usage" vm.Vm.id domid;
               let _ = DB.update_exn vm.Vm.id (fun d ->
-                  let persistent = { d.VmExtra.persistent with
-                                         VmExtra.suspend_memory_bytes = Memory.bytes_of_pages pages;
-                                       } in
-                  Some {VmExtra.persistent = persistent}
+                  Some VmExtra.{persistent = { d.persistent with
+                      suspend_memory_bytes = Memory.bytes_of_pages pages }
+                  }
                 )
               in ()
            )
@@ -2028,7 +2012,7 @@ module VM = struct
       debug "vm %s: persisting metadata %s" k state_new;
       (if state_new <> state then debug "vm %s: different original metadata %s" k state)
     ;
-    let _ = DB.update vm.Vm.id (fun d -> Some { VmExtra.persistent = persistent })
+    let _ = DB.update vm.Vm.id (fun d -> Some VmExtra.{persistent})
     in ()
 
   let minimum_reboot_delay = 120.
@@ -2352,9 +2336,9 @@ module VBD = struct
                 we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
              Opt.iter (fun q ->
                  let _ = DB.update_exn vm (fun vm_t ->
-                     let persistent = { vm_t.VmExtra.persistent with
-                                            VmExtra.qemu_vbds = (vbd.Vbd.id, q) :: vm_t.VmExtra.persistent.VmExtra.qemu_vbds} in
-                     Some { VmExtra.persistent = persistent }
+                     Some VmExtra.{persistent = { vm_t.VmExtra.persistent with
+                         qemu_vbds = (vbd.Vbd.id, q) :: vm_t.persistent.qemu_vbds }
+                     }
                    )
                  in ()
                ) qemu_frontend
@@ -2415,9 +2399,9 @@ module VBD = struct
                           let _, qemu_vbd = List.assoc vbd.Vbd.id persistent.VmExtra.qemu_vbds in
                           (* destroy_vbd_frontend ignores 'refusing to close' transients' *)
                           destroy_vbd_frontend ~xc ~xs task qemu_vbd;
-                          let persistent = { persistent with
-                                             VmExtra.qemu_vbds = List.remove_assoc vbd.Vbd.id persistent.VmExtra.qemu_vbds } in
-                          { VmExtra.persistent = persistent }
+                          VmExtra.{persistent = { persistent with
+                              qemu_vbds = List.remove_assoc vbd.Vbd.id persistent.qemu_vbds }
+                          }
                         end else
                           vm_t
                       )
@@ -2714,9 +2698,9 @@ module VIF = struct
                          let device = create task stubdom_domid in
                          let q = vif.position, Device device in
                          let _ = DB.update_exn vm (fun vm_t ->
-                             let persistent = { vm_t.VmExtra.persistent with
-                                                VmExtra.qemu_vifs = (vif.Vif.id, q) :: vm_t.VmExtra.persistent.VmExtra.qemu_vifs } in
-                             Some { VmExtra.persistent = persistent}
+                             Some VmExtra.{persistent = { vm_t.persistent with
+                                 qemu_vifs = (vif.Vif.id, q) :: vm_t.persistent.qemu_vifs }
+                             }
                            )
                          in ()
                        end
@@ -2760,9 +2744,9 @@ module VIF = struct
                        match (List.assoc vif.Vif.id vm_t.VmExtra.persistent.VmExtra.qemu_vifs) with
                        | _, Device device ->
                          destroy device;
-                         let persistent = { vm_t.VmExtra.persistent with
-                                                VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id vm_t.VmExtra.persistent.VmExtra.qemu_vifs } in
-                         { VmExtra.persistent = persistent }
+                         VmExtra.{persistent = { vm_t.persistent with
+                             qemu_vifs = List.remove_assoc vif.Vif.id vm_t.persistent.qemu_vifs }
+                         }
                        | _, _ -> vm_t
                      end else
                        vm_t
@@ -2808,9 +2792,9 @@ module VIF = struct
                  match (List.assoc vif.Vif.id persistent.VmExtra.qemu_vifs) with
                  | _, Device device ->
                    Device.Vif.move ~xs device bridge;
-                   let persistent = { persistent with
-                                          VmExtra.qemu_vifs = List.remove_assoc vif.Vif.id persistent.VmExtra.qemu_vifs } in
-                   Some { VmExtra.persistent = persistent }
+                   Some VmExtra.{persistent = { persistent with
+                       qemu_vifs = List.remove_assoc vif.Vif.id persistent.qemu_vifs }
+                   }
                  | _, _ -> Some vm_t
                end else
                  Some vm_t
@@ -3044,7 +3028,7 @@ module Actions = struct
           | { VmExtra.ty = Some ( Vm.HVM hvm_info ) } ->
             let persistent = { persistent with VmExtra.ty = Some (Vm.HVM { hvm_info with Vm.timeoffset = timeoffset }) } in
             debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset;
-            { VmExtra.persistent }
+            VmExtra.{persistent}
           | _ -> extra
           )
       )
@@ -3064,7 +3048,7 @@ module Actions = struct
                    Opt.map (function { VmExtra.persistent } ->
                        let persistent = { persistent with VmExtra.pv_drivers_detected = true } in
                        debug "VM = %s; found PV driver evidence on %s (value = %s)" vm path value;
-                       { VmExtra.persistent }
+                       VmExtra.{persistent}
                      )
                  )
                in
