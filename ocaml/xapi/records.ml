@@ -2076,41 +2076,41 @@ let cluster_record rpc session_id cluster =
       [ make_field ~name:"uuid"
           ~get:(fun () -> (x ()).API.cluster_uuid)
           ()
-      ; make_field ~name:"cluster_hosts"
+      ; make_field ~name:"cluster-hosts"
           ~get:(fun () -> String.concat "; " (List.map (fun r -> get_uuid_from_ref r) (x ()).API.cluster_cluster_hosts))
           ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.cluster_cluster_hosts)
           ()
       ; make_field ~name:"network"
           ~get:(fun () -> (x ()).API.cluster_network |> get_uuid_from_ref)
           ()
-      ; make_field ~name:"cluster_token"
+      ; make_field ~name:"cluster-token"
           ~get:(fun () -> (x ()).API.cluster_cluster_token)
           ()
-      ; make_field ~name:"cluster_stack"
+      ; make_field ~name:"cluster-stack"
           ~get:(fun () -> (x ()).API.cluster_cluster_stack)
           ()
-      ; make_field ~name:"token_timeout"
+      ; make_field ~name:"token-timeout"
           ~get:(fun () -> Int64.to_string((x ()).API.cluster_token_timeout))
           ()
-      ; make_field ~name:"token_timeout_coefficient"
+      ; make_field ~name:"token-timeout-coefficient"
           ~get:(fun () -> Int64.to_string((x ()).API.cluster_token_timeout_coefficient))
           ()
-      ; make_field ~name:"allowed_operations"
+      ; make_field ~name:"allowed-operations"
           ~get:(fun () -> String.concat "; " (List.map Record_util.cluster_operation_to_string (x ()).API.cluster_allowed_operations))
           ~get_set:(fun () -> List.map Record_util.cluster_operation_to_string (x ()).API.cluster_allowed_operations)
           ()
-      ; make_field ~name:"current_operations"
+      ; make_field ~name:"current-operations"
           ~get:(fun () -> String.concat "; " (List.map (fun (task,op) -> Record_util.cluster_operation_to_string op) (x ()).API.cluster_current_operations))
           ~get_set:(fun () -> List.map (fun (task,op) -> Record_util.cluster_operation_to_string op) (x ()).API.cluster_current_operations)
           ()
-      ; make_field ~name:"pool_auto_join"
+      ; make_field ~name:"pool-auto-join"
           ~get:(fun () -> (x ()).API.cluster_pool_auto_join |> string_of_bool)
           ()
-      ; make_field ~name:"cluster_config"
+      ; make_field ~name:"cluster-config"
           ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.cluster_cluster_config)
           ~get_map:(fun () -> (x ()).API.cluster_cluster_config)
           ()
-      ; make_field ~name:"other_config"
+      ; make_field ~name:"other-config"
           ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.cluster_other_config)
           ~get_map:(fun () -> (x ()).API.cluster_other_config)
           ~add_to_map:(fun k v -> Client.Cluster.add_to_other_config rpc session_id cluster k v)
@@ -2140,15 +2140,15 @@ let cluster_host_record rpc session_id cluster_host =
       ; make_field ~name:"enabled"
           ~get:(fun () -> (x ()).API.cluster_host_enabled |> string_of_bool)
           ()
-      ; make_field ~name:"allowed_operations"
+      ; make_field ~name:"allowed-operations"
           ~get:(fun () -> String.concat "; " (List.map Record_util.cluster_host_operation_to_string (x ()).API.cluster_host_allowed_operations))
           ~get_set:(fun () -> List.map Record_util.cluster_host_operation_to_string (x ()).API.cluster_host_allowed_operations)
           ()
-      ; make_field ~name:"current_operations"
+      ; make_field ~name:"current-operations"
           ~get:(fun () -> String.concat "; " (List.map (fun (task,op) -> Record_util.cluster_host_operation_to_string op) (x ()).API.cluster_host_current_operations))
           ~get_set:(fun () -> List.map (fun (task,op) -> Record_util.cluster_host_operation_to_string op) (x ()).API.cluster_host_current_operations)
           ()
-      ; make_field ~name:"other_config"
+      ; make_field ~name:"other-config"
           ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.cluster_host_other_config)
           ~get_map:(fun () -> (x ()).API.cluster_host_other_config)
           ()
