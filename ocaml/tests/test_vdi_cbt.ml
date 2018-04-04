@@ -469,7 +469,9 @@ let test_vdi_list_changed_blocks () =
   let vdi_from_location = "vdi_from_location" in
   let vdi_from = Test_common.make_vdi ~__context ~location:vdi_from_location ~is_a_snapshot:true ~managed:true ~cbt_enabled:true ~sR () in
   let vdi_to_location = "vdi_to_location" in
-  let vdi_to = Test_common.make_vdi ~__context~location:vdi_to_location  ~sR ~cbt_enabled:true ~managed:true () in
+  let vdi_to = Test_common.make_vdi ~__context ~location:vdi_to_location ~sR ~cbt_enabled:true ~managed:true () in
+  let sR_different = make_mock_server_infrastructure ~__context in
+  let vdi_fail = Test_common.make_vdi ~__context ~location:"" ~sR:sR_different ~cbt_enabled:true ~managed:true () in
 
   register_smapiv2_server
     ~vdi_list_changed_blocks:(fun _ ~dbg ~sr ~vdi_from ~vdi_to -> list_changed_blocks_params := Some (sr,(vdi_from,vdi_to)); list_changed_blocks_string)
@@ -480,7 +482,12 @@ let test_vdi_list_changed_blocks () =
     list_changed_blocks_string;
   Alcotest.(check (option (pair string (pair string string)))) "VDI.list_changed_blocks parameters"
     (Some (sr_uuid, (vdi_from_location, vdi_to_location)))
-    !list_changed_blocks_params
+    !list_changed_blocks_params;
+  Alcotest.check_raises
+    "VDI.list_changed_blocks requires both VDIs to exist on the same SR, should raise vdis_on_different_srs"
+    (Storage_interface.Vdis_on_different_srs (Ref.string_of vdi_from, Ref.string_of vdi_fail))
+    (fun () -> ignore (Xapi_vdi.list_changed_blocks ~__context ~vdi_from ~vdi_to:vdi_fail))
+
 
 let test =
   [ "test_cbt_enable_disable", `Quick, test_cbt_enable_disable
