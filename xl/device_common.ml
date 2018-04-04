@@ -43,7 +43,7 @@ open D
 
 open Printf
 
-let supported_vbd_backends = [ "vbd"; "vbd3" ] (* TODO: get from xenopsd config *)
+let supported_vbd_backends = [ "vbd"; "vbd3"; "qdisk" ] (* TODO: get from xenopsd config *)
 let default_vbd_frontend_kind = Vbd "vbd"
 
 let string_of_kind = function

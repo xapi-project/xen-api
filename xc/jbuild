@@ -34,6 +34,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (flags (-warn-error +a-3 %s))
   %s
   (libraries (
+    astring
     xenctrl
     xapi-xenopsd
     xenstore

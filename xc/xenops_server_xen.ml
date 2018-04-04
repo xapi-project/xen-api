@@ -312,6 +312,48 @@ module Storage = struct
   let get_disk_by_name = get_disk_by_name
 end
 
+let print_fork_error f =
+  try
+    f ()
+  with Forkhelpers.Spawn_internal_error(stderr, stdout, status) as e ->
+    begin match status with
+      | Unix.WEXITED n ->
+        error "Forkhelpers.Spawn_internal_error(%s, %s, WEXITED %d)" stderr stdout n;
+        raise e
+      | Unix.WSIGNALED n ->
+        error "Forkhelpers.Spawn_internal_error(%s, %s, WSIGNALED %d)" stderr stdout n;
+        raise e
+      | Unix.WSTOPPED n ->
+        error "Forkhelpers.Spawn_internal_error(%s, %s, WSTOPPED %d)" stderr stdout n;
+        raise e
+    end
+
+let run_command cmd args =
+  debug "running %s %s" cmd (String.concat " " args);
+  let stdout, stderr = print_fork_error (fun () -> Forkhelpers.execute_command_get_output cmd args) in
+  stdout
+
+module NbdClient = struct
+  let start_nbd_client ~unix_socket_path ~export_name =
+    run_command "/opt/xensource/libexec/nbd_client_manager.py" ["connect"; "--path"; unix_socket_path; "--exportname"; export_name]
+    |> String.trim
+
+  let stop_nbd_client ~nbd_device =
+    run_command "/opt/xensource/libexec/nbd_client_manager.py" ["disconnect"; "--device"; nbd_device]
+    |> ignore
+
+  let with_nbd_device ~unix_socket_path ~export_name f =
+    let nbd_device = start_nbd_client ~unix_socket_path ~export_name in
+    finally
+      (fun () -> f nbd_device)
+      (fun () ->
+         try
+           stop_nbd_client ~nbd_device
+         with e ->
+           warn "ignoring exception while disconnecting nbd-client from %s: %s" nbd_device (Printexc.to_string e)
+      )
+end
+
 let with_disk ~xc ~xs task disk write f = match disk with
   | Local path -> f path
   | VDI path ->
@@ -327,7 +369,16 @@ let with_disk ~xc ~xs task disk write f = match disk with
          let device = create_vbd_frontend ~xc ~xs task frontend_domid vdi in
          finally
            (fun () ->
-              device |> block_device_of_vbd_frontend |> f
+              let block_device = device |> block_device_of_vbd_frontend in
+              let nbd_prefix = "hack|nbd:unix:" in
+              let is_nbd = Astring.String.is_prefix ~affix:nbd_prefix block_device in
+              if is_nbd then begin
+                debug "with_disk: using nbd-client for block device %s" block_device;
+                let unix_socket_path = block_device |> Astring.String.cuts ~empty:false ~sep:nbd_prefix |> List.hd |> String.split_on_char '|' |> List.hd in
+                NbdClient.with_nbd_device ~unix_socket_path ~export_name:"qemu_node" f
+              end else begin
+                f block_device
+              end
            )
            (fun () ->
               destroy_vbd_frontend ~xc ~xs task device
@@ -3222,7 +3273,7 @@ module Actions = struct
         let open Xenctrl in
         let id = Uuidm.to_string (uuid_of_di di) in
         let update = match kind with
-          | "vbd" | "vbd3" ->
+          | "vbd" | "vbd3" | "qdisk" ->
             let devid' = devid |> int_of_string |> Device_number.of_xenstore_key |> Device_number.to_linux_device in
             Some (Dynamic.Vbd (id, devid'))
           | "vif" -> Some (Dynamic.Vif (id, devid))

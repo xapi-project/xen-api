@@ -210,7 +210,16 @@ module Generic = struct
         )
       )
 
-  let unplug_watch ~xs (x: device) = Hotplug.path_written_by_hotplug_scripts x |> Watch.key_to_disappear
+  let unplug_watch ~xs (x: device) =
+    let path = Hotplug.path_written_by_hotplug_scripts x in
+    let qdisk = Astring.String.is_infix ~affix:"backend/qdisk/" path in
+    if not qdisk then begin
+      Watch.key_to_disappear path
+    end else begin
+      debug "unplug_watch: not waiting for qdisk %s; returning dummy watch" path;
+      Watch.{ evaluate = fun xs -> try xs.Xs.rm path with _ -> debug "dummy unplug_watch for qdisk: %s already removed" path }
+    end
+
   let error_watch ~xs (x: device) = Watch.value_to_appear (error_path_of_device ~xs x)
   let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_rw_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed))
   let backend_closed ~xs (x: device) = Watch.value_to_become (backend_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed)
@@ -557,7 +566,13 @@ module Vbd_Common = struct
       | Disk -> "disk"
       | Floppy -> "floppy";
     ];
-    List.iter (fun (k, v) -> Hashtbl.replace back_tbl k v) [
+    (* Hack: this should be returned separately from SMAPIv3 attach call *)
+    let (params, extra_keys) = if Astring.String.is_prefix ~affix:"hack|" x.params then begin
+        match String.split_on_char '|' x.params with
+        | [_; params; qemu_params] -> (params, ["qemu-params", qemu_params])
+        | _ -> (x.params, [])
+      end else (x.params, []) in
+    List.iter (fun (k, v) -> Hashtbl.replace back_tbl k v) ([
       "frontend-id", sprintf "%u" domid;
       (* Prevents the backend hotplug scripts from running if the frontend disconnects.
          		   This allows the xenbus connection to re-establish itself *)
@@ -567,8 +582,8 @@ module Vbd_Common = struct
       "dev", to_linux_device device_number;
       "type", backendty_of_physty x.phystype;
       "mode", string_of_mode x.mode;
-      "params", x.params;
-    ];
+      "params", params;
+    ] @ extra_keys);
     (* We don't have PV drivers for HVM guests for CDROMs. We prevent
        blkback from successfully opening the device since this can
        prevent qemu CD eject (and subsequent vdi_deactivate) *)

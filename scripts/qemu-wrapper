@@ -87,10 +87,10 @@ def xenstore_write(path, value):
 def xenstore_ls(path):
     return xenstore.ls("", path)
 
-def get_drive_args(dom):
+def get_drive_args_for_backend(dom, backend):
     args = []
     index_map = dict(('xvd' + chr(ord('a') + i), i) for i in range(4))
-    vbd3 = "/local/domain/0/backend/vbd3/" + dom
+    vbd3 = "/local/domain/0/backend/" + backend + "/" + dom
 
     medialist = xenstore_ls(vbd3)
     if not medialist:
@@ -106,6 +106,9 @@ def get_drive_args(dom):
         keys = xenstore_ls("%s/%s" % (vbd3, num))
         if "params" in keys:
             path = xenstore_read("%s/%s/params" % (vbd3, num))
+            nbd_prefix = "nbd:unix:"
+            if path.startswith(nbd_prefix):
+                path = path + ":exportname=qemu_node"
             path_str = 'file=%s,' % path
 
         # XXX This is a heuristic to determine if the disk is a CD. We should be told
@@ -123,6 +126,13 @@ def get_drive_args(dom):
         args.extend(["-drive", "%sif=ide,index=%d,media=%s%s,force-lba=%s" %
                      (path_str, index_map[dev], media, format_str, forcelba)])
 
+    return args
+
+def get_drive_args(dom):
+    backends = ['vbd3', 'qdisk']
+    args = []
+    for backend in backends:
+        args.extend(get_drive_args_for_backend(dom, backend))
     return args
 
 def close_fds():

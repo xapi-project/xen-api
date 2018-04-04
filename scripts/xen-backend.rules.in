@@ -1,5 +1,5 @@
 SUBSYSTEM=="xen-backend", KERNEL=="tap*", RUN+="@LIBEXEC@/tap $env{ACTION}"
-SUBSYSTEM=="xen-backend", KERNEL=="vbd*", RUN+="@LIBEXEC@/block $env{ACTION}"
+SUBSYSTEM=="xen-backend", KERNEL=="vbd*|qdisk", RUN+="@LIBEXEC@/block $env{ACTION}"
 
 SUBSYSTEM=="xen-backend", KERNEL=="vif*", RUN+="@LIBEXEC@/vif $env{ACTION} type_if=vif"
 SUBSYSTEM=="net",         KERNEL=="tap*", RUN+="@LIBEXEC@/vif $env{ACTION} type_if=tap"

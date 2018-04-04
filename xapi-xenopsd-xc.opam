@@ -12,6 +12,7 @@ build: [
 depends: [
   "jbuilder" {build}
   "xapi-xenopsd"
+  "astring"
   "cohttp"
   "core"
   "ezxenstore"
