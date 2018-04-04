@@ -4317,19 +4317,20 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Cluster.get_network";
       Local.Cluster.get_network ~__context ~self
 
+    (* Pool operations don't need a lock, they call other locked functions *)
     let pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient =
-      info "Cluster.pool_create";
+      info "Cluster.pool_create"; (* iterates over Cluster_host.create *)
       Local.Cluster.pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient
 
-    let pool_force_destroy ~__context ~self =
+    let pool_force_destroy ~__context ~self = (* iterates over Cluster_host.destroy *)
       info "Cluster.pool_force_destroy cluster: %s" (Ref.string_of self);
       Local.Cluster.pool_force_destroy ~__context ~self
 
-    let pool_destroy ~__context ~self =
+    let pool_destroy ~__context ~self = (* iterates Cluster_host.destroy *)
       info "Cluster.pool_destroy cluster %s" (Ref.string_of self);
       Local.Cluster.pool_destroy ~__context ~self
 
-    let pool_resync ~__context ~self =
+    let pool_resync ~__context ~self = (* iterates Cluster_host.enable and Cluster_host where necessary*)
       info "Cluster.pool_resync cluster: %s" (Ref.string_of self);
       Local.Cluster.pool_resync ~__context ~self
   end
@@ -4350,15 +4351,23 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Cluster_host.destroy cluster_host: %s" (Ref.string_of self);
       let local_fn = Local.Cluster_host.destroy ~self in
       let host = Db.Cluster_host.get_host ~__context ~self in
-      do_op_on ~__context ~local_fn ~host
-        (fun session_id rpc -> Client.Cluster_host.destroy rpc session_id self)
+      let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+      Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster_host.destroy" ~op:`remove
+        (fun () ->
+          do_op_on ~__context ~local_fn ~host
+            (fun session_id rpc -> Client.Cluster_host.destroy rpc session_id self)
+        )
 
     let force_destroy ~__context ~self =
       info "Cluster_host.force_destroy cluster_host: %s" (Ref.string_of self);
       let local_fn = Local.Cluster_host.force_destroy ~self in
       let host = Db.Cluster_host.get_host ~__context ~self in
-      do_op_on ~__context ~local_fn ~host
-        (fun session_id rpc -> Client.Cluster_host.force_destroy rpc session_id self)
+      let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+      Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster_host.force_destroy" ~op:`remove
+        (fun () ->
+          do_op_on ~__context ~local_fn ~host
+            (fun session_id rpc -> Client.Cluster_host.force_destroy rpc session_id self)
+        )
 
     let enable ~__context ~self =
       info "Cluster_host.enable cluster_host %s" (Ref.string_of self);

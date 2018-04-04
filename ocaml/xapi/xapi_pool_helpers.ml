@@ -57,6 +57,10 @@ let valid_operations ~__context record _ref' =
   else
     set_errors Api_errors.ha_not_enabled [] [ `ha_disable ];
 
+  (* cluster create cannot run during a rolling pool upgrade *)
+  if Helpers.rolling_upgrade_in_progress ~__context then
+    set_errors Api_errors.not_supported_during_upgrade [] [ `cluster_create ];
+
   (* cluster create cannot run if a cluster already exists on the pool *)
   begin match Db.Cluster.get_all ~__context with
     | [_] -> set_errors Api_errors.cluster_already_exists [] [ `cluster_create ]
