@@ -59,16 +59,16 @@ let ip_of_pif (ref,record) =
     {- that the PIF has disallow_unplug set}
     }*)
 let assert_pif_prerequisites pif =
-  let (ref, record) = pif in
-  let assert_pif_permaplugged (ref,record) =
+  let (pif_ref, record) = pif in
+  let assert_pif_permaplugged (pif_ref,record) =
     if not record.API.pIF_disallow_unplug then
-      raise Api_errors.(Server_error (pif_allows_unplug, [ record.API.pIF_uuid ] ));
+      raise Api_errors.(Server_error (pif_allows_unplug, [ Ref.string_of pif_ref ] ));
     if not record.pIF_currently_attached then
-      raise Api_errors.(Server_error (required_pif_is_unplugged, [ record.API.pIF_uuid ] ))
+      raise Api_errors.(Server_error (required_pif_is_unplugged, [ Ref.string_of pif_ref ] ))
   in
   assert_pif_permaplugged pif;
   ignore (ip_of_pif pif);
-  debug "Got IP %s for PIF %s" record.API.pIF_IP (Ref.string_of ref)
+  debug "Got IP %s for PIF %s" record.API.pIF_IP (Ref.string_of pif_ref)
 
 let handle_error = function
   | InternalError message -> raise Api_errors.(Server_error (internal_error, [ message ]))
