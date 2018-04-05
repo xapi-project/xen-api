@@ -57,13 +57,13 @@ public class GetAllRecordsOfAllTypes extends TestBase
     {
         announce("Get all the {{api_class_record}} records");
         Map<{{api_class_record}}, {{api_class_record}}.Record> allrecords = {{api_class_record}}.getAllRecords(connection);
-        log("got: " + allrecords.size() + " records");
+        log("Got: " + allrecords.size() + " records");
         if (allrecords.size() > 0)
         {
-            announce("Print out a {{api_class_record}} record ");
+            log("Printing out the first {{api_class_record}} record:");
             log(allrecords.values().toArray()[0].toString());
         }
-        hRule();
+        log("");
     }
 
 {{/api_class_records}}
