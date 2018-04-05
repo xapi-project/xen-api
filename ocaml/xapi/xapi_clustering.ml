@@ -43,11 +43,11 @@ let pif_of_host ~__context (network : API.ref_network) (host : API.ref_host) =
   | _ ->
     let msg = Printf.sprintf "No PIF found for host:%s and network:%s" (Ref.string_of host) (Ref.string_of network) in
     debug "%s" msg;
-    failwith msg
+    raise Api_errors.(Server_error (internal_error, [ msg ]))
 
 let ip_of_pif (ref,record) =
   let ip = record.API.pIF_IP in
-  if ip = "" then failwith (Printf.sprintf "PIF %s does not have any IP" (Ref.string_of ref));
+  if ip = "" then raise Api_errors.(Server_error (pif_has_no_network_configuration, [ Ref.string_of ref ]));
   Cluster_interface.IPv4 ip
 
 (** [assert_pif_prerequisites (pif_ref,pif_rec)] raises an exception if any of
@@ -136,8 +136,7 @@ let assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type
    xapi-clusterd daemon running on the target host *)
 let assert_operation_host_target_is_localhost ~__context ~host =
   if host <> Helpers.get_localhost ~__context then
-    let msg = "A clustering operation was attempted from the wrong host" in
-    raise Api_errors.(Server_error (internal_error, [msg]))
+    raise Api_errors.(Server_error (internal_error, [ "A clustering operation was attempted from the wrong host" ]))
 
 let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self =
   let cluster = Db.Cluster_host.get_cluster ~__context ~self in

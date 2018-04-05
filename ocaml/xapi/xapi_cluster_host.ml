@@ -49,7 +49,7 @@ let sync_required ~__context ~host =
         if cluster_rec.API.cluster_pool_auto_join
         then Some cluster_ref
         else None
-      | _ -> raise Api_errors.(Server_error (cluster_does_not_have_one_node, [ Ref.string_of host ]))
+      | _ -> raise Api_errors.(Server_error (internal_error, [ "Host cannot be associated with more than one cluster_host"; Ref.string_of host ]))
     end
   | _ -> raise Api_errors.(Server_error (internal_error, ["Cannot have more than one Cluster object per pool currently"]))
 
