@@ -86,17 +86,17 @@ let unmarshal_int32 s = Int64.to_int32 (unmarshal_int 4 s)
 let unmarshal_int64 s = unmarshal_int 8 s
 
 let unmask mask str =
-  if String.length str = 0 then str
-  else begin
-    let buf = Bytes.of_string str in
-    for i=0 to String.length str - 1 do
+  match String.length str with
+  | 0 -> str
+  | len ->
+    let buf = Bytes.create len in
+    for i=0 to len - 1 do
       let j = i mod 4 in
       let new_char =
-        let buf_i = Bytes.get buf i |> int_of_char in
+        let str_i = String.get str i |> int_of_char in
         let mask_j = String.get mask j |> int_of_char in
-        buf_i lxor mask_j |> char_of_int
+        str_i lxor mask_j |> char_of_int
       in
       Bytes.set buf i new_char
     done;
     Bytes.unsafe_to_string buf
-  end
