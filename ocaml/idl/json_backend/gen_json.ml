@@ -77,6 +77,9 @@ let rec string_of_ty_with_enums ty =
     Printf.sprintf "(%s -> %s) map" s1 s2, e1 @ e2
   | Ref r -> r ^ " ref", []
   | Record r -> r ^ " record", []
+  | Option ty ->
+    let s, e = string_of_ty_with_enums ty in
+    s ^ " option", e
 
 let string_of_qualifier = function
   | RW -> "RW"
