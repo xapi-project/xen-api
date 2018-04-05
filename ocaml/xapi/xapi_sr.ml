@@ -170,20 +170,21 @@ let get_pbds ~__context ~self ~attached ~master_pos =
   | `Last -> slave_pbds @ master_pbds
 
 let call_probe ~__context ~host ~device_config ~_type ~sm_config ~f =
-  debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
-  let _type = String.lowercase_ascii _type in
-  let open Storage_interface in
-  let open Storage_access in
-
-  let queue = !Storage_interface.queue_name ^ "." ^ _type in
-  let uri () = Storage_interface.uri () ^ ".d/" ^ _type in
-  let rpc = external_rpc queue uri in
-  let module Client = Storage_interface.Client(struct let rpc = rpc end) in
-  let dbg = Context.string_of_task __context in
-
-  transform_storage_exn
+  Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:_type
     (fun () ->
-       Client.SR.probe ~dbg ~queue ~device_config ~sm_config |> f
+      Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:_type;
+
+      debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
+      let _type = String.lowercase_ascii _type in
+
+      let queue = !Storage_interface.queue_name ^ "." ^ _type in
+      let uri () = Storage_interface.uri () ^ ".d/" ^ _type in
+      let rpc = Storage_access.external_rpc queue uri in
+      let module Client = Storage_interface.Client(struct let rpc = rpc end) in
+      let dbg = Context.string_of_task __context in
+
+      Storage_access.transform_storage_exn
+        (fun () -> Client.SR.probe ~dbg ~queue ~device_config ~sm_config |> f )
     )
 
 let probe = call_probe ~f:(
@@ -242,6 +243,43 @@ let probe = call_probe ~f:(
       let output = Xmlm.make_output ~nl:true (`Buffer buf) in
       T.output_doc ~tree ~output ~dtd:None;
       Buffer.contents buf
+  )
+
+let probe_ext =
+  let to_xenapi_sr_health =
+    let open Storage_interface in
+    function Healthy -> `healthy | Recovering -> `recovering
+  in
+  let to_xenapi_sr_stat Storage_interface.{
+      sr_uuid;
+      name_label;
+      name_description;
+      total_space;
+      free_space;
+      clustered;
+      health} =
+    API.{
+      sr_stat_uuid = sr_uuid;
+      sr_stat_name_label = name_label;
+      sr_stat_name_description = name_description;
+      sr_stat_total_space = total_space;
+      sr_stat_free_space = free_space;
+      sr_stat_clustered = clustered;
+      sr_stat_health = to_xenapi_sr_health health
+    }
+  in
+  let to_xenapi_probe_result Storage_interface.{configuration; complete; sr; extra_info} =
+    API.{
+      probe_result_configuration = configuration;
+      probe_result_complete = complete;
+      probe_result_sr = Xapi_stdext_monadic.Opt.map to_xenapi_sr_stat sr;
+      probe_result_extra_info = extra_info
+    }
+  in
+  call_probe ~f:(
+    function
+    | Storage_interface.Raw x -> raise Api_errors.(Server_error (sr_operation_not_supported, []))
+    | Storage_interface.Probe results -> List.map to_xenapi_probe_result results
   )
 
 (* Create actually makes the SR on disk, and introduces it into db, and creates PBD record for current host *)

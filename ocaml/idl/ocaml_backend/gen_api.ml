@@ -56,6 +56,7 @@ let gen_non_record_type highapi tys =
     | DT.Bool                 :: t
     | DT.Record _             :: t
     | DT.Map (_, DT.Record _) :: t
+    | DT.Option (DT.Record _) :: t
     | DT.Set (DT.Record _)    :: t -> aux accu t
     | DT.Set (DT.Enum (n,_) as e) as ty :: t ->
       aux (sprintf "type %s = %s list [@@deriving rpc]" (OU.alias_of_ty ty) (OU.alias_of_ty e) :: accu) t
@@ -75,12 +76,25 @@ let gen_record_type ~with_module highapi tys =
       let obj_name = OU.ocaml_of_record_name record in
       let all_fields = DU.fields_of_obj (Dm_api.get_obj_by_name highapi ~objname:record) in
       let field fld = OU.ocaml_of_record_field (obj_name :: fld.DT.full_name) in
+      let rpc_field fld = sprintf "\"%s\"" (String.concat "_" fld.DT.full_name) in
       let map_fields fn = String.concat "; " (List.map (fun field -> fn field) all_fields) in
       let regular_def fld = sprintf "%s : %s" (field fld) (OU.alias_of_ty fld.DT.ty) in
 
+      (* We treat options in records specially: if they are None, the field
+         will be omitted, if they are Some, the field will be present. *)
+
       let make_of_field fld =
-        sprintf "\"%s\",rpc_of_%s x.%s" (String.concat "_" fld.DT.full_name)
-          (OU.alias_of_ty fld.DT.ty) (OU.ocaml_of_record_field (obj_name :: fld.DT.full_name))
+        let field = sprintf "(x.%s)" (field fld) in
+        let rpc_of_fn ty = sprintf "(rpc_of_%s)" (OU.alias_of_ty ty) in
+        let value =
+          let open DT in
+          match fld.ty with
+          | Option ty ->
+              sprintf "(opt_map %s %s)" (rpc_of_fn ty) field
+          | String | Int | Float | Bool | DateTime | Enum _ | Set _ | Map _ | Ref _ | Record _ ->
+            sprintf "(Some (%s %s))" (rpc_of_fn fld.ty) field
+        in
+        sprintf "opt_map (fun v -> (%s, v)) %s"  (rpc_field fld) value
       in
       let get_default fld =
         let default_value =
@@ -93,18 +107,32 @@ let gen_record_type ~with_module highapi tys =
         | Some default -> sprintf "(Some (%s))" (Datamodel_values.to_ocaml_string ~v2:true default)
       in
       let make_to_field fld =
-        sprintf {|%s = %s_of_rpc (assocer "%s" x %s)|} (field fld) (OU.alias_of_ty fld.DT.ty)
-          (String.concat "_" fld.DT.full_name) (get_default fld)
+        let rpc_field = rpc_field fld in
+        let get_field ty =
+          let of_rpc_fn ty = sprintf "%s_of_rpc" (OU.alias_of_ty ty) in
+          sprintf "(%s (assocer %s x %s))" (of_rpc_fn ty) rpc_field (get_default fld)
+        in
+        let value =
+          let open DT in
+          match fld.ty with
+          | Option ty ->
+            sprintf "(if List.mem_assoc %s x then Some (%s) else None)"
+              rpc_field (get_field ty)
+          | String | Int | Float | Bool | DateTime | Enum _ | Set _ | Map _ | Ref _ | Record _ ->
+            sprintf "(%s)" (get_field fld.ty)
+        in
+        sprintf "%s = %s" (field fld) value
       in
 
       let type_t = sprintf "type %s_t = { %s }" obj_name (map_fields regular_def) in
       let others = if not with_module then
           []
         else [
-          sprintf "let rpc_of_%s_t x = Rpc.Dict [ %s ]" obj_name (map_fields make_of_field);
+          sprintf "let rpc_of_%s_t x = Rpc.Dict (unbox_list [ %s ])" obj_name (map_fields make_of_field);
           sprintf "let %s_t_of_rpc x = on_dict (fun x -> { %s }) x" obj_name (map_fields make_to_field);
           sprintf "type ref_%s_to_%s_t_map = (ref_%s * %s_t) list [@@deriving rpc]" record obj_name record obj_name;
           sprintf "type %s_t_set = %s_t list [@@deriving rpc]" obj_name obj_name;
+          sprintf "type %s_t_option = %s_t option [@@deriving rpc]" obj_name obj_name;
           ""
         ] in
       aux (type_t :: others @ accu) t
@@ -135,8 +163,47 @@ let add_set_enums types =
           if List.exists (fun ty2 -> ty2 = DT.Set ty) types then [ty] else [DT.Set ty; ty]
         | _ -> [ty]) types)
 
+let all_types_of highapi = DU.Types.of_objects (Dm_api.objects_of_api highapi)
+
+(** Returns a list of type sorted such that the first elements in the
+    list have nothing depending on them. Later elements in the list may
+    depend upon types earlier in the list *)
+let toposort_types highapi types =
+  let rec inner result remaining =
+    let rec references name = function
+      | DT.String
+      | DT.Int
+      | DT.Float
+      | DT.Bool
+      | DT.DateTime
+      | DT.Ref _
+      | DT.Enum _ -> false
+      | DT.Set ty -> references name ty
+      | DT.Map (ty, ty') -> (references name ty) || (references name ty')
+      | DT.Record record when record = name -> true
+      | DT.Record record ->
+        let all_fields = DU.fields_of_obj (Dm_api.get_obj_by_name highapi ~objname:record) in
+        List.exists (fun fld -> references name fld.DT.ty) all_fields
+      | DT.Option ty -> references name ty
+    in
+    let (ty_ref,ty_not_ref) =
+      List.partition (fun ty -> match ty with
+      | DT.Record name ->
+        let referencing = List.filter (references name) remaining in
+        List.length referencing > 1
+      | _ -> false) remaining
+    in
+    match ty_ref with
+    | [] -> result @ ty_not_ref
+    | _ -> inner (result @ ty_not_ref) ty_ref
+  in
+  let result = inner [] types in
+  assert(List.length result = List.length types);
+  assert(List.sort compare result = List.sort compare types);
+  result
+
 let gen_client_types highapi =
-  let all_types = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
+  let all_types = all_types_of highapi in
   let all_types = add_set_enums all_types in
   List.iter (List.iter print)
     (between [""] [
@@ -165,6 +232,14 @@ let gen_client_types highapi =
         ]; [
           "let on_dict f = function | Rpc.Dict x -> f x | _ -> failwith \"Expected Dictionary\"";
         ]; [
+          "let opt_map f = function | None -> None | Some x -> Some (f x)";
+        ];[
+          "let unbox_list = let rec loop aux = function";
+          "| [] -> List.rev aux";
+          "| None :: tl -> loop aux tl";
+          "| Some hd :: tl -> loop (hd :: aux) tl in";
+          "loop []";
+        ];[
           "let assocer key map default = ";
           "  try";
           "    List.assoc key map";
@@ -174,7 +249,7 @@ let gen_client_types highapi =
           "    | None -> failwith (Printf.sprintf \"Field %s not present in rpc\" key)"
         ];
         gen_non_record_type highapi all_types;
-        gen_record_type ~with_module:true highapi all_types;
+        gen_record_type ~with_module:true highapi (toposort_types highapi all_types);
         O.Signature.strings_of (Gen_client.gen_signature highapi);
       ])
 
@@ -196,22 +271,31 @@ let gen_custom_actions highapi =
 open Gen_db_actions
 
 let gen_db_actions highapi =
-  let all_types = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
-  let only_records = List.filter (function DT.Record _ -> true | _ -> false) all_types in
+  let highapi_in_db =
+    Dm_api.filter
+      (fun obj -> obj.DT.in_database)
+      (fun _ -> true)
+      (fun _ -> true)
+      highapi
+  in
+  let all_types_in_db = all_types_of highapi_in_db in
+  let only_records = List.filter (function DT.Record _ -> true | _ -> false) all_types_in_db in
 
   List.iter (List.iter print)
     (between [""]
        [
          [ "open API" ];
 
-         (* These records have the hidden fields inside *)
-         gen_record_type ~with_module:false highapi only_records;
+         (* These records have the hidden fields inside.
+            This excludes records not stored in the database, which must not
+            have hidden fields. *)
+         gen_record_type ~with_module:false highapi (toposort_types highapi only_records);
 
          (* NB record types are ignored by dm_to_string and string_to_dm *)
-         O.Module.strings_of (dm_to_string all_types);
-         O.Module.strings_of (string_to_dm all_types);
-         O.Module.strings_of (db_action highapi); ]
-     @ (List.map O.Module.strings_of (Gen_db_check.all highapi)) @ [
+         O.Module.strings_of (dm_to_string all_types_in_db);
+         O.Module.strings_of (string_to_dm all_types_in_db);
+         O.Module.strings_of (db_action highapi_in_db); ]
+     @ (List.map O.Module.strings_of (Gen_db_check.all highapi_in_db)) @ [
 
      ]
     )
