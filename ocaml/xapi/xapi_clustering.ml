@@ -124,11 +124,15 @@ let assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type
         let cluster = Db.Cluster_host.get_cluster ~__context ~self:cluster_host in
         Db.Cluster.get_cluster_stack ~__context ~self:cluster
       in
+      let error_no_cluster_host_found condition =
+        debug "No_cluster_host found%s" condition;
+        raise Api_errors.(Server_error (no_compatible_cluster_host, [Ref.string_of host]))
+      in
       begin match find_cluster_host ~__context ~host with
         | Some cluster_host when (List.mem (cluster_stack_of ~cluster_host) required_cluster_stacks) ->
           assert_cluster_host_enabled ~__context ~self:cluster_host ~expected:true
-        | Some _ (* incompatible cluster host *) | None ->
-          raise Api_errors.(Server_error (no_compatible_cluster_host, [Ref.string_of host]))
+        | Some _ -> error_no_cluster_host_found " with matching cluster_stack"
+        | None -> error_no_cluster_host_found ""
       end
   end
 
