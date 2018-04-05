@@ -35,6 +35,7 @@ open Xapi_stdext_unix
 open Xapi_stdext_pervasives.Pervasiveext
 open Printf
 open Datamodel_types
+open Datamodel_utils
 open Dm_api
 open CommonFunctions
 
@@ -222,6 +223,13 @@ and write_decl {name=classname; contents=contents; description=description;
   let full_stop = if Astring.String.is_suffix ~affix:"." description then "" else "."
   in
 
+  let rec get_needed x =
+  match x with
+    | Field fr -> find_needed'' needed fr.ty
+    | Namespace (p, cs) -> List.iter get_needed cs
+  in
+  List.iter get_needed contents;
+
   print_h_header out_chan protect;
   print "%s\n" (hash_includes !needed);
 
@@ -342,8 +350,7 @@ and record_fields contents needed =
 and record_field needed prefix content =
   match content with
   | Field fr ->
-    sprintf "%s%s%s;" (c_type_of_ty needed true fr.ty) prefix
-      (fieldname fr.field_name);
+    sprintf "%s%s%s;" (c_type_of_ty needed true fr.ty) prefix (fieldname fr.field_name);
   | Namespace (p, c) ->
     joined "\n    " (record_field needed (prefix ^ (fieldname p) ^ "_")) c
 
@@ -465,6 +472,7 @@ and abstract_member = function
   | Set _ -> "set"
   | Map _ -> "set"
   | Record _ -> "struct"
+  | x -> eprintf "%s" (Types.to_string x); assert false
 
 
 and abstract_result_handling needed classname msg_name param_count = function
@@ -513,6 +521,7 @@ and abstract_result_handling needed classname msg_name param_count = function
     %s
     return session->ok;
 " (abstract_result_type typ) call
+    | x -> eprintf "%s" (Types.to_string x); assert false
 
 
 and abstract_result_handling_async needed classname msg_name param_count =
@@ -578,6 +587,7 @@ and abstract_type record = function
   | Map(l, r) -> sprintf "abstract_type_" ^ (mapname l r)
 
   | Record n -> sprintf "%s_abstract_type_" (record_typename n)
+  | Option n -> abstract_type record n
 
 and get_deprecated_message message =
   let deprecatedMessage = get_deprecated_info_message message in
@@ -1211,10 +1221,8 @@ and find_needed needed messages =
 and find_needed' needed message =
   List.iter (fun p -> find_needed'' needed p.param_type) message.msg_params;
   match message.msg_result with
-    Some (x, _) ->
-    find_needed'' needed x
-  | None ->
-    ()
+    Some (x, _) -> find_needed'' needed x
+  | None -> ()
 
 
 and find_needed'' needed = function
@@ -1234,14 +1242,16 @@ and find_needed'' needed = function
     needed := StringSet.add (e ^ "_internal") !needed
   | Set(Record "event") ->
     needed := StringSet.add ("event_operation_internal") !needed
+  | Set _ -> ()
   | Map(l, r) ->
     let n = mapname l r in
     needed := StringSet.add n !needed;
     needed := add_enum_map_internal !needed l r;
     needed := add_enum_internal !needed l;
     needed := add_enum_internal !needed r
-  | _ ->
-    ()
+  | Record n -> needed := StringSet.add n !needed
+  | Option x -> find_needed'' needed x
+  | x   -> eprintf "%s" (Types.to_string x); assert false
 
 and record_free_impl prefix = function
   | Field fr         -> free_impl (prefix ^ (fieldname fr.field_name)) true fr.ty
@@ -1263,7 +1273,13 @@ and free_impl val_name record = function
     sprintf "%s_free(%s);" (typename n) val_name
   | Record x         -> sprintf "%s_free(%s);" (record_typename x) val_name
   | Set(Int)         -> sprintf "xen_int_set_free(%s);" val_name
-  | _                -> "DONT_KNOW"
+  | Option Int
+  | Option Float
+  | Option Bool
+  | Option DateTime
+  | Option Enum _    -> sprintf "free(%s);" val_name
+  | Option x         -> free_impl val_name record x
+  | x           -> eprintf "%s" (Types.to_string x); assert false
 
 
 and add_enum_internal needed = function
@@ -1330,8 +1346,16 @@ and c_type_of_ty needed record = function
       sprintf "struct %s *" (record_typename n)
     else
       sprintf "%s *" (record_typename n)
-  | _ -> assert false
-
+  | Option Int                   -> "int64_t *"
+  | Option Float                 -> "double *"
+  | Option Bool                  -> "bool *"
+  | Option DateTime              -> "time_t *"
+  | Option (Enum(name, cs) as x) ->
+    needed := StringSet.add name !needed;
+    enums := TypeSet.add x !enums;
+    (c_type_of_enum name) ^ " *"
+  | Option n                     -> c_type_of_ty needed record n
+  | x                       -> eprintf "%s" (Types.to_string x); assert false
 
 and c_type_of_enum name =
   sprintf "enum %s " (typename name)
@@ -1361,6 +1385,7 @@ and name_of_ty = function
   | Ref(x)   -> x
   | Map(l,r) -> sprintf "%s_%s_map" (name_of_ty l) (name_of_ty r)
   | Record n -> sprintf "%s" (record_typename n)
+  | x   -> eprintf "%s" (Types.to_string x); assert false
 
 and decl_filename name =
   let dir = (if Astring.String.is_suffix ~affix:"internal" name then "" else "xen/api/") in

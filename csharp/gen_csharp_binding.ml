@@ -379,7 +379,7 @@ namespace XenAPI
 
   let print_internal_ctor = function
     | []            -> ()
-    | _ as cnt -> print
+    | cnt -> print
                     "
         public %s(%s)
         {
@@ -1072,7 +1072,7 @@ and proxy_param ~with_types ~json p =
     if with_types then (
       let exposed_type_json = function
         | Ref name -> "string"
-        | _ as x -> exposed_type x
+        | x -> exposed_type x
       in
       sprintf "%s _%s" (exposed_type_json p.param_type) (String.lowercase_ascii p.param_name)
     )
@@ -1296,7 +1296,7 @@ and gen_map_conversion out_chan = function
 
 " el er (sanitise_function_name el_literal) (sanitise_function_name er_literal)
       el er el er
-      el (convert_from_proxy_never_null_string "key" l)
+      el (simple_convert_from_proxy "key" l)
       er (convert_from_proxy_hashtable_value "table[key]" r)
       (sanitise_function_name el_literal) (sanitise_function_name er_literal) el er el
       (proxy_type l) (convert_to_proxy "key" l)
@@ -1326,6 +1326,11 @@ and proxy_type = function
   | Enum _              -> "string"
   | Map _               -> "Object"
   | Record name         -> "Proxy_" ^ exposed_class_name name
+  | Option Float        -> "double?"
+  | Option Bool         -> "bool?"
+  | Option DateTime     -> "DateTime?"
+  | Option x            -> proxy_type x
+  | x              -> eprintf "%s" (Types.to_string x); assert false
 
 and exposed_type_opt = function
     Some (typ, _) -> exposed_type typ
@@ -1348,7 +1353,12 @@ and exposed_type = function
                                  (exposed_type v)
   | Record name             -> exposed_class_name name
   | Set(Record name)        -> sprintf "List<%s>" (exposed_class_name name)
-  | _                       -> assert false
+  | Option Int              -> "long?"
+  | Option Float            -> "double?"
+  | Option Bool             -> "bool?"
+  | Option DateTime         -> "DateTime?"
+  | Option x                -> exposed_type x
+  | x                  -> eprintf "%s" (Types.to_string x); assert false
 
 
 and internal_type = function
@@ -1368,6 +1378,8 @@ and convert_from_proxy_opt thing = function
 
 and convert_from_proxy_hashtable_value thing ty =
   match ty with
+  | Int                 -> sprintf "%s == null ? 0 : long.Parse((string)%s)" thing thing
+  | String              -> sprintf "%s == null ? null : (string)%s" thing thing
   | Set(String)         -> sprintf "%s == null ? new string[] {} : Array.ConvertAll<object, string>((object[])%s, Convert.ToString)" thing thing
   | _                   -> convert_from_proxy thing ty
 
@@ -1379,14 +1391,8 @@ and convert_from_proxy thing ty = (*function*)
   | Int                 -> sprintf "%s == null ? 0 : %s" thing (simple_convert_from_proxy thing ty)
   | Set(String)         -> sprintf "%s == null ? new string[] {} : %s" thing (simple_convert_from_proxy thing ty)
   | Enum(name, _)       -> sprintf "%s == null ? (%s) 0 : %s" thing name (simple_convert_from_proxy thing ty)
+  | Option x            -> convert_from_proxy thing x
   | _                   -> sprintf "%s == null ? null : %s" thing (simple_convert_from_proxy thing ty)
-
-and convert_from_proxy_never_null_string thing ty = (* for when 'thing' is never null and is a string - i.e. it is a key in a hashtable *)
-  match ty with
-  | DateTime            -> thing
-  | String              -> thing
-  | Int                 -> sprintf "long.Parse(%s)" thing
-  | _                   -> simple_convert_from_proxy thing ty
 
 and convert_from_hashtable fname ty =
   let field = sprintf "\"%s\"" fname in
@@ -1407,13 +1413,14 @@ and convert_from_hashtable fname ty =
     sprintf "%s(Marshalling.ParseHashTable(table, %s))"
       (sanitise_function_name (sprintf "Maps.convert_from_proxy_%s_%s" (exposed_type_as_literal u) (exposed_type_as_literal v))) field
   | Record name         ->
-    sprintf "new %s((Proxy_%s)table[%s])"
+    sprintf "(%s)Marshalling.convertStruct(typeof(%s), Marshalling.ParseHashTable(table, %s));"
       (exposed_class_name name) (exposed_class_name name) field
   | Set(Record name)    ->
     sprintf "%s.ProxyArrayToObjectList(Marshalling.ParseStringArray(%s))"
       (exposed_class_name name) field
   | Set(Int)            -> sprintf "Marshalling.ParseLongArray(table, %s)" field
-  | _                   -> assert false
+  | Option x            -> convert_from_hashtable fname x
+  | x              -> eprintf "%s %s" fname (Types.to_string x); assert false
 
 and sanitise_function_name name =
   let is_normal_char c = not (List.mem c ['>'; '<'; ','; ' ']) in
@@ -1422,11 +1429,11 @@ and sanitise_function_name name =
 and simple_convert_from_proxy thing ty =
   match ty with
   | DateTime            -> thing
-  | Int                 -> sprintf "long.Parse((string)%s)" thing
+  | Int                 -> sprintf "long.Parse(%s)" thing
   | Bool                -> sprintf "(bool)%s" thing
   | Float               -> sprintf "Convert.ToDouble(%s)" thing
   | Ref name            -> sprintf "XenRef<%s>.Create(%s)" (exposed_class_name name) thing
-  | String              -> sprintf "(string)%s" thing
+  | String              -> thing
   | Set(String)         -> sprintf "(string [])%s" thing
   | Set(Ref name)       -> sprintf "XenRef<%s>.Create(%s)" (exposed_class_name name) thing
   | Set(Enum(name, _))  -> sprintf "Helper.StringArrayToEnumList<%s>(%s)" name thing
@@ -1444,27 +1451,42 @@ and simple_convert_from_proxy thing ty =
       (exposed_class_name name) thing
   | Set(Int)            ->
     sprintf "Helper.StringArrayToLongArray(%s)" thing
-  | _                   -> assert false
+  | x              -> eprintf "%s" (Types.to_string x); assert false
 
 
 and convert_to_proxy thing ty =
   match ty with
-  | DateTime            -> thing
   | Int                 -> sprintf "%s.ToString()" thing
   | Bool
-  | Float               -> thing
-  | Ref _               -> sprintf "%s ?? \"\"" thing
-  | String              -> sprintf "%s ?? \"\"" thing
-  | Enum (name,_)       -> sprintf "%s_helper.ToString(%s)" name thing
-  | Set (Ref name)         -> sprintf "(%s != null) ? Helper.RefListToStringArray(%s) : new string[] {}" thing thing
-  | Set(String)         -> thing
-  | Set (Int) -> sprintf "(%s != null) ? Helper.LongArrayToStringArray(%s) : new string[] {}" thing thing
-  | Set(Enum(_, _))  -> sprintf "(%s != null) ? Helper.ObjectListToStringArray(%s) : new string[] {}" thing thing
-  | Map(u, v) as x      -> maps := TypeSet.add x !maps;
+  | Float
+  | DateTime         -> thing
+  | Ref _            -> sprintf "%s ?? \"\"" thing
+  | String           -> sprintf "%s ?? \"\"" thing
+  | Enum (name,_)    -> sprintf "%s_helper.ToString(%s)" name thing
+  | Set (Ref name)   -> sprintf "%s == null ? new string[] {} : Helper.RefListToStringArray(%s)" thing thing
+  | Set(String)      -> thing
+  | Set (Int)        -> sprintf "%s == null ? new string[] {} : Helper.LongArrayToStringArray(%s)" thing thing
+  | Set(Enum(_, _))  -> sprintf "%s == null ? new string[] {} : Helper.ObjectListToStringArray(%s)" thing thing
+  | Map(u, v) as x   -> maps := TypeSet.add x !maps;
     sprintf "%s(%s)"
       (sanitise_function_name (sprintf "Maps.convert_to_proxy_%s_%s" (exposed_type_as_literal u) (exposed_type_as_literal v))) thing
-  | Record name         -> sprintf "%s.ToProxy()" thing
-  | _                   -> assert false
+  | Record name      -> sprintf "%s.ToProxy()" thing
+  | Option Int       -> sprintf "%s == null ? null : %s.ToString()" thing thing
+  | Option Bool
+  | Option Float
+  | Option DateTime
+  | Option Ref _
+  | Option String                   -> thing
+  | Option (Enum (name,_))          -> sprintf "%s == null ? null : %s_helper.ToString(%s)" thing name thing
+  | Option (Set (Ref name))         -> sprintf "%s == null ? null : Helper.RefListToStringArray(%s)" thing thing
+  | Option (Set(String))            -> thing
+  | Option (Set (Int))              -> sprintf "%s == null ? null : Helper.LongArrayToStringArray(%s)" thing thing
+  | Option (Set(Enum(_, _)))        -> sprintf "%s == null ? null : Helper.ObjectListToStringArray(%s)" thing thing
+  | Option (Map(u, v) as x)         -> maps := TypeSet.add x !maps;
+    sprintf "%s == null ? null : %s(%s)" thing
+      (sanitise_function_name (sprintf "Maps.convert_to_proxy_%s_%s" (exposed_type_as_literal u) (exposed_type_as_literal v))) thing
+  | Option (Record name)            -> sprintf "%s == null ? null : %s.ToProxy()" thing thing
+  | x                          -> eprintf "%s" (Types.to_string x); assert false
 
 
 and proxy_msg_name classname msg =
@@ -1589,6 +1611,8 @@ and get_default_value_per_type ty thing =
   | Set _          -> sprintf " = new %s() {%s}" (exposed_type ty) (String.concat ", " thing)
   | Map(u, v)      -> sprintf " = new Dictionary<%s, %s>() {%s}" (exposed_type u) (exposed_type v) (String.concat ", " thing)
   | Record name    -> sprintf " = new %s()" (exposed_type ty)
+  | Option x       -> if thing = [] then "" else get_default_value_per_type x thing
+  | x         -> eprintf "%s" (Types.to_string x); assert false
 
 and gen_i18n_errors () =
   Friendly_error_names.parse_sr_xml sr_xml;
