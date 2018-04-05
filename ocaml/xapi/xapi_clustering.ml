@@ -75,9 +75,10 @@ let handle_error = function
   | Unix_error message -> failwith ("Unix Error: " ^ message)
 
 let assert_cluster_host_can_be_created ~__context ~host =
-  if Db.Cluster_host.get_refs_where ~__context
-      ~expr:Db_filter_types.(Eq(Literal (Ref.string_of host),Field "host")) <> [] then
-    failwith "Cluster host cannot be created because it already exists"
+  match Db.Cluster_host.get_refs_where ~__context
+      ~expr:Db_filter_types.(Eq(Literal (Ref.string_of host),Field "host")) with
+  | [] -> ()
+  | _ -> raise Api_errors.(Server_error (internal_error, [ "Cluster host cannot be created because it already exists" ]))
 
 (** One of the cluster stacks returned by
     [get_required_cluster_stacks context sr_sm_type]
