@@ -591,14 +591,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Local.Pool.ha_failover_plan_exists ~__context ~n
 
     let ha_compute_max_host_failures_to_tolerate ~__context =
-      info "Pool.ha_compute_max_host_failures_to_tolerate: pool = '%s'" (current_pool_uuid ~__context);
-      Local.Pool.ha_compute_max_host_failures_to_tolerate ~__context
+      Xapi_clustering.with_clustering_lock_if_cluster_exists ~__context (fun () ->
+        info "Pool.ha_compute_max_host_failures_to_tolerate: pool = '%s'" (current_pool_uuid ~__context);
+        Local.Pool.ha_compute_max_host_failures_to_tolerate ~__context)
 
     let ha_compute_hypothetical_max_host_failures_to_tolerate ~__context ~configuration =
-      info "Pool.ha_compute_hypothetical_max_host_failures_to_tolerate: pool = '%s'; configuration = [ %s ]"
-        (current_pool_uuid ~__context)
-        (String.concat "; " (List.map (fun (vm, p) -> Ref.string_of vm ^ " " ^ p) configuration));
-      Local.Pool.ha_compute_hypothetical_max_host_failures_to_tolerate ~__context ~configuration
+      Xapi_clustering.with_clustering_lock_if_cluster_exists ~__context (fun () ->
+        info "Pool.ha_compute_hypothetical_max_host_failures_to_tolerate: pool = '%s'; configuration = [ %s ]"
+          (current_pool_uuid ~__context)
+          (String.concat "; " (List.map (fun (vm, p) -> Ref.string_of vm ^ " " ^ p) configuration));
+        Local.Pool.ha_compute_hypothetical_max_host_failures_to_tolerate ~__context ~configuration)
 
     let ha_compute_vm_failover_plan ~__context ~failed_hosts ~failed_vms =
       info "Pool.ha_compute_vm_failover_plan: pool = '%s'; failed_hosts = [ %s ]; failed_vms = [ %s ]"
@@ -608,8 +610,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Local.Pool.ha_compute_vm_failover_plan ~__context ~failed_hosts ~failed_vms
 
     let set_ha_host_failures_to_tolerate ~__context ~self ~value =
-      info "Pool.set_ha_host_failures_to_tolerate: pool = '%s'; value = %Ld" (pool_uuid ~__context self) value;
-      Local.Pool.set_ha_host_failures_to_tolerate ~__context ~self ~value
+      Xapi_clustering.with_clustering_lock_if_cluster_exists ~__context (fun () ->
+        info "Pool.set_ha_host_failures_to_tolerate: pool = '%s'; value = %Ld" (pool_uuid ~__context self) value;
+        Local.Pool.set_ha_host_failures_to_tolerate ~__context ~self ~value)
 
     let ha_schedule_plan_recomputation ~__context =
       info "Pool.ha_schedule_plan_recomputation: pool = '%s'" (current_pool_uuid ~__context);

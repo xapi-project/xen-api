@@ -102,6 +102,11 @@ let with_clustering_lock_if_needed ~__context ~sr_sm_type f =
     | [] -> f ()
     | _required_cluster_stacks -> with_clustering_lock f
 
+let with_clustering_lock_if_cluster_exists ~__context f = 
+  match Db.Cluster.get_all ~__context with
+    | [] -> f ()
+    | _ -> with_clustering_lock f
+
 let find_cluster_host ~__context ~host =
   match Db.Cluster_host.get_refs_where ~__context
           ~expr:(Db_filter_types.(Eq (Field "host", Literal (Ref.string_of host)))) with
@@ -203,3 +208,10 @@ let is_clustering_disabled_on_host ~__context host =
   match find_cluster_host ~__context ~host with
   | None -> true (* there is no Cluster_host, therefore it is not enabled, therefore it is disabled *)
   | Some cluster_host -> not (Db.Cluster_host.get_enabled ~__context ~self:cluster_host)
+
+let compute_corosync_max_host_failures ~__context =
+  let all_hosts = Db.Host.get_all ~__context in
+  let nhosts = List.length (all_hosts) in
+  let disabled_hosts = List.length (List.filter (fun host -> is_clustering_disabled_on_host ~__context host = true ) all_hosts) in
+  let corosync_ha_max_hosts = ((nhosts - disabled_hosts  - 1) / 2) + disabled_hosts in
+  corosync_ha_max_hosts
