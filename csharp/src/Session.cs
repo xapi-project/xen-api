@@ -132,8 +132,7 @@ namespace XenAPI
         // Used after VDI.open_database
         public static Session get_record(Session session, string _session)
         {
-            Session newSession = new Session(session.proxy.Url);
-            newSession.opaque_ref = _session;
+            Session newSession = new Session(session.Url) {opaque_ref = _session};
             newSession.SetAPIVersion();
             if (newSession.XmlRpcToJsonRpcInvoker != null)
                 newSession.XmlRpcToJsonRpcInvoker(newSession);
@@ -246,6 +245,18 @@ namespace XenAPI
                     JsonRpcClient.ConnectionGroupName = value;
                 else
                     proxy.ConnectionGroupName = value;
+            }
+        }
+
+        public ICredentials Credentials
+        {
+            get
+            {
+                if (JsonRpcClient != null && JsonRpcClient.WebProxy != null)
+                    return JsonRpcClient.WebProxy.Credentials;
+                if (proxy.Proxy != null)
+                    return proxy.Proxy.Credentials;
+                return null;
             }
         }
 
