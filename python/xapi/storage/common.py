@@ -11,18 +11,18 @@ import subprocess
 
 
 def call(dbg, cmd_args, error=True, simple=True, expRc=0):
-    log.debug("%s: Running cmd %s" % (dbg, cmd_args))
-    p = subprocess.Popen(
+    log.debug('{}: Running cmd {}'.format(dbg, cmd_args))
+    proc = subprocess.Popen(
         cmd_args,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         close_fds=True)
-    stdout, stderr = p.communicate()
-    if error and p.returncode != expRc:
-        log.error("%s: %s exitted with code %d: %s" %
-                  (dbg, " ".join(cmd_args), p.returncode, stderr))
-        raise xapi.InternalError("%s exitted with non-zero code %d: %s"
-                                 % (" ".join(cmd_args), p.returncode, stderr))
+    stdout, stderr = proc.communicate()
+    if error and proc.returncode != expRc:
+        log.error('{}: {} exitted with code {}: {}'.format(
+            dbg, " ".join(cmd_args), proc.returncode, stderr))
+        raise xapi.InternalError('{} exitted with non-zero code {}: {}'.format(
+            " ".join(cmd_args), proc.returncode, stderr))
     if simple:
         return stdout
-    return stdout, stderr, p.returncode
+    return stdout, stderr, proc.returncode
