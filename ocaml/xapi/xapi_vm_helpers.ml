@@ -410,18 +410,24 @@ let assert_usbs_available ~__context ~self ~host =
       ]))
     )
 
-(* Get SR-IOV Vifs by return a list of [(network1,(required_num1,PCI1));(network2,(required_num2,PCI2))....] 
+(* 1.To avoid redundant checks,if VF had been reserved, then it's no need to check the ability again.
+   2.Get SR-IOV Vifs by return a list of [(network1,(required_num1,PCI1));(network2,(required_num2,PCI2))....]
    Raise exn immediately when found Idle VF nums < required_num *)
 let assert_netsriov_available ~__context ~self ~host =
   let sriov_networks = List.fold_left (fun acc vif ->
-      let network = Db.VIF.get_network ~__context ~self:vif in
-      try
-        let required, pif = List.assoc network acc in
-        (network,(required + 1,pif)) :: (List.remove_assoc network acc)
-      with Not_found ->
-        match Xapi_network_sriov_helpers.get_local_underlying_pif ~__context ~network ~host with
-        | Some pif -> (network,(1,pif)) :: acc
-        | None -> acc
+      let reserved_pci = Db.VIF.get_reserved_pci ~__context ~self:vif in
+      if Db.is_valid_ref __context reserved_pci
+      then acc
+      else begin
+        let network = Db.VIF.get_network ~__context ~self:vif in
+        try
+          let required, pif = List.assoc network acc in
+          (network,(required + 1,pif)) :: (List.remove_assoc network acc)
+        with Not_found ->
+          match Xapi_network_sriov_helpers.get_local_underlying_pif ~__context ~network ~host with
+          | Some pif -> (network,(1,pif)) :: acc
+          | None -> acc
+      end
     ) [] (Db.VM.get_VIFs ~__context ~self)
   in
   List.iter (fun (network, (required,pif)) ->
