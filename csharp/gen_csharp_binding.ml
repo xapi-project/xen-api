@@ -115,10 +115,10 @@ let joined sep f l =
     (List.filter (fun x -> String.compare x "" != 0) r)
 
 let escape_xml s = s |>
-  Astring.String.cuts ~sep:"<" ~empty:true |>
-  String.concat "&lt;" |>
-  Astring.String.cuts ~sep:">" ~empty:true |>
-  String.concat "&gt;"
+                   Astring.String.cuts ~sep:"<" ~empty:true |>
+                   String.concat "&lt;" |>
+                   Astring.String.cuts ~sep:">" ~empty:true |>
+                   String.concat "&gt;"
 
 let enum_of_wire =
   Astring.String.map (fun x ->  match x with '-' -> '_' | _ -> x)
@@ -379,15 +379,15 @@ namespace XenAPI
   let print_internal_ctor = function
     | []            -> ()
     | cnt -> print
-                    "
+               "
         public %s(%s)
         {
             %s
         }
 "
-                    exposed_class_name
-                    (String.concat ",\n            " (List.rev (get_constructor_params cnt)))
-                    (String.concat "\n            " (List.rev (get_constructor_body cnt)))
+               exposed_class_name
+               (String.concat ",\n            " (List.rev (get_constructor_params cnt)))
+               (String.concat "\n            " (List.rev (get_constructor_body cnt)))
   in print_internal_ctor contents;
 
   print

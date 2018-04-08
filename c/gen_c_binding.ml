@@ -224,7 +224,7 @@ and write_decl {name=classname; contents=contents; description=description;
   in
 
   let rec get_needed x =
-  match x with
+    match x with
     | Field fr -> find_needed'' needed fr.ty
     | Namespace (p, cs) -> List.iter get_needed cs
   in

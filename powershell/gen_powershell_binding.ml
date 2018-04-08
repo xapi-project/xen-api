@@ -153,17 +153,17 @@ namespace Citrix.XenServer.Commands
         #endregion
     }
 }\n" Licence.bsd_two_clause
-        verbCategory commonVerb stem (gen_should_process_http_decl meth)
-        commonVerb stem
-        (gen_progress_tracker meth)
-        (gen_arg_params args)
-        (gen_should_process_http meth uri)
-        (gen_http_action_call action)
-    in
-    {
-      filename = sprintf "%s-Xen%s.cs" commonVerb stem;
-      content;
-    }
+      verbCategory commonVerb stem (gen_should_process_http_decl meth)
+      commonVerb stem
+      (gen_progress_tracker meth)
+      (gen_arg_params args)
+      (gen_should_process_http meth uri)
+      (gen_http_action_call action)
+  in
+  {
+    filename = sprintf "%s-Xen%s.cs" commonVerb stem;
+    content;
+  }
 
 and gen_should_process_http_decl meth =
   match meth with
@@ -312,28 +312,28 @@ and gen_cmdlets obj =
       filename = sprintf "Get-Xen%s.cs" stem;
       content = gen_class obj classname;
     }; {
-      filename = sprintf "New-Xen%s.cs" stem;
-      content = gen_constructor obj classname (List.filter is_constructor messages)
-    }; {
-      filename = sprintf "Remove-Xen%s.cs" stem;
-      content = gen_destructor obj classname (List.filter is_destructor messages);
-    }; {
-      filename = sprintf "Remove-Xen%sProperty.cs" stem;
-      content = gen_remover obj classname (List.filter is_remover messages);
-    }; {
-      filename = sprintf "Add-Xen%s.cs" stem;
-      content = gen_adder obj classname (List.filter is_adder messages);
-    }; {
-      filename = sprintf "Set-Xen%s.cs" stem;
-      content = gen_setter obj classname (List.filter is_setter messages);
-    }; {
-      filename = sprintf "Get-Xen%sProperty.cs" stem;
-      content = gen_getter obj classname (List.filter is_getter messages);
-    }; {
-      filename = sprintf "Invoke-Xen%s.cs" stem;
-      content = gen_invoker obj classname (List.filter is_invoke messages);
-    };
-  ] in
+       filename = sprintf "New-Xen%s.cs" stem;
+       content = gen_constructor obj classname (List.filter is_constructor messages)
+     }; {
+       filename = sprintf "Remove-Xen%s.cs" stem;
+       content = gen_destructor obj classname (List.filter is_destructor messages);
+     }; {
+       filename = sprintf "Remove-Xen%sProperty.cs" stem;
+       content = gen_remover obj classname (List.filter is_remover messages);
+     }; {
+       filename = sprintf "Add-Xen%s.cs" stem;
+       content = gen_adder obj classname (List.filter is_adder messages);
+     }; {
+       filename = sprintf "Set-Xen%s.cs" stem;
+       content = gen_setter obj classname (List.filter is_setter messages);
+     }; {
+       filename = sprintf "Get-Xen%sProperty.cs" stem;
+       content = gen_getter obj classname (List.filter is_getter messages);
+     }; {
+       filename = sprintf "Invoke-Xen%s.cs" stem;
+       content = gen_invoker obj classname (List.filter is_invoke messages);
+     };
+    ] in
 
   cmdlets |> List.filter (fun x -> x.content <> "")
 
@@ -690,10 +690,10 @@ and gen_destructor obj classname messages =
   match messages with
   | [] -> ""
   | [x] ->
-      let cut_message_name = fun x-> cut_msg_name (pascal_case x.msg_name) "Remove" in
-      let asyncMessages = List.map cut_message_name (List.filter (fun x -> x.msg_async) messages) in
-      sprintf
-    "%s
+    let cut_message_name = fun x-> cut_msg_name (pascal_case x.msg_name) "Remove" in
+    let asyncMessages = List.map cut_message_name (List.filter (fun x -> x.msg_async) messages) in
+    sprintf
+      "%s
 
 using System;
 using System.Collections;
@@ -737,22 +737,22 @@ namespace Citrix.XenServer.Commands
         #endregion
     }
 }\n"
-    Licence.bsd_two_clause
-    (ocaml_class_to_csharp_class classname)
-    (qualified_class_name classname)
-    (if (List.length asyncMessages) > 0 then "
+      Licence.bsd_two_clause
+      (ocaml_class_to_csharp_class classname)
+      (qualified_class_name classname)
+      (if (List.length asyncMessages) > 0 then "
     [OutputType(typeof(XenAPI.Task))]" else "")
-    (ocaml_class_to_csharp_class classname)
-    (print_xenobject_params obj classname true true true)
-    (if (List.length asyncMessages) > 0 then sprintf "
+      (ocaml_class_to_csharp_class classname)
+      (print_xenobject_params obj classname true true true)
+      (if (List.length asyncMessages) > 0 then sprintf "
         protected override bool GenerateAsyncParam
         {
             get { return true; }
         }\n" else "")
-    (ocaml_class_to_csharp_local_var classname) (ocaml_class_to_csharp_property classname)
-    (print_cmdlet_methods_remover classname x)
-    (print_parse_xenobject_private_method obj classname true)
-    (print_process_record_private_methods classname messages "Remove" "asyncpassthru")
+      (ocaml_class_to_csharp_local_var classname) (ocaml_class_to_csharp_property classname)
+      (print_cmdlet_methods_remover classname x)
+      (print_parse_xenobject_private_method obj classname true)
+      (print_process_record_private_methods classname messages "Remove" "asyncpassthru")
   | _ -> assert false
 
 and print_cmdlet_methods_remover classname message =
@@ -769,10 +769,10 @@ and gen_remover obj classname messages =
   match messages with
   | [] -> ""
   | _ ->
-      let cut_message_name = fun x-> cut_msg_name (pascal_case x.msg_name) "Remove" in
-      let asyncMessages = List.map cut_message_name (List.filter (fun x -> x.msg_async) messages) in
-      sprintf
-    "%s
+    let cut_message_name = fun x-> cut_msg_name (pascal_case x.msg_name) "Remove" in
+    let asyncMessages = List.map cut_message_name (List.filter (fun x -> x.msg_async) messages) in
+    sprintf
+      "%s
 
 using System;
 using System.Collections;
@@ -817,21 +817,21 @@ namespace Citrix.XenServer.Commands
         #endregion
     }
 }\n"
-    Licence.bsd_two_clause
-    (ocaml_class_to_csharp_class classname)
-    (qualified_class_name classname)
-    (if (List.length asyncMessages) > 0 then "
+      Licence.bsd_two_clause
+      (ocaml_class_to_csharp_class classname)
+      (qualified_class_name classname)
+      (if (List.length asyncMessages) > 0 then "
     [OutputType(typeof(XenAPI.Task))]"
-     else "")
-    (ocaml_class_to_csharp_class classname)
-    (print_xenobject_params obj classname true true true)
-    (print_async_param asyncMessages)
-    (gen_message_as_param classname "Remove" messages)
-    (ocaml_class_to_csharp_local_var classname) (ocaml_class_to_csharp_property classname)
-    (print_cmdlet_methods classname messages "Remove")
-    (gen_passthru classname)
-    (print_parse_xenobject_private_method obj classname true)
-    (print_process_record_private_methods classname messages "Remove" "")
+       else "")
+      (ocaml_class_to_csharp_class classname)
+      (print_xenobject_params obj classname true true true)
+      (print_async_param asyncMessages)
+      (gen_message_as_param classname "Remove" messages)
+      (ocaml_class_to_csharp_local_var classname) (ocaml_class_to_csharp_property classname)
+      (print_cmdlet_methods classname messages "Remove")
+      (gen_passthru classname)
+      (print_parse_xenobject_private_method obj classname true)
+      (print_process_record_private_methods classname messages "Remove" "")
 
 
 (**************************************)
@@ -845,7 +845,7 @@ and gen_setter obj classname messages =
     let cut_message_name = fun x-> cut_msg_name (pascal_case x.msg_name) "Set" in
     let asyncMessages = List.map cut_message_name (List.filter (fun x -> x.msg_async) messages) in
     sprintf
-    "%s
+      "%s
 
 using System;
 using System.Collections;
@@ -891,21 +891,21 @@ namespace Citrix.XenServer.Commands
         #endregion
     }
 }\n"
-    Licence.bsd_two_clause
-    (ocaml_class_to_csharp_class classname)
-    (qualified_class_name classname)
-    (if (List.length asyncMessages) > 0 then "
+      Licence.bsd_two_clause
+      (ocaml_class_to_csharp_class classname)
+      (qualified_class_name classname)
+      (if (List.length asyncMessages) > 0 then "
     [OutputType(typeof(XenAPI.Task))]"
-     else "")
-    (ocaml_class_to_csharp_class classname)
-    (print_xenobject_params obj classname true true true)
-    (print_async_param asyncMessages)
-    (gen_message_as_param classname "Set" messages)
-    (ocaml_class_to_csharp_local_var classname) (ocaml_class_to_csharp_property classname)
-    (print_cmdlet_methods classname messages "Set")
-    (gen_passthru classname)
-    (print_parse_xenobject_private_method obj classname true)
-    (print_process_record_private_methods classname messages "Set" "")
+       else "")
+      (ocaml_class_to_csharp_class classname)
+      (print_xenobject_params obj classname true true true)
+      (print_async_param asyncMessages)
+      (gen_message_as_param classname "Set" messages)
+      (ocaml_class_to_csharp_local_var classname) (ocaml_class_to_csharp_property classname)
+      (print_cmdlet_methods classname messages "Set")
+      (gen_passthru classname)
+      (print_parse_xenobject_private_method obj classname true)
+      (print_process_record_private_methods classname messages "Set" "")
 
 
 (**************************************)
@@ -916,10 +916,10 @@ and gen_adder obj classname messages =
   match messages with
   | [] -> ""
   | _ ->
-      let cut_message_name = fun x-> cut_msg_name (pascal_case x.msg_name) "Add" in
-      let asyncMessages = List.map cut_message_name (List.filter (fun x -> x.msg_async) messages) in
-      sprintf
-    "%s
+    let cut_message_name = fun x-> cut_msg_name (pascal_case x.msg_name) "Add" in
+    let asyncMessages = List.map cut_message_name (List.filter (fun x -> x.msg_async) messages) in
+    sprintf
+      "%s
 
 using System;
 using System.Collections;
@@ -965,21 +965,21 @@ namespace Citrix.XenServer.Commands
         #endregion
     }
 }\n"
-    Licence.bsd_two_clause
-    (ocaml_class_to_csharp_class classname)
-    (qualified_class_name classname)
-    (if (List.length asyncMessages) > 0 then "
+      Licence.bsd_two_clause
+      (ocaml_class_to_csharp_class classname)
+      (qualified_class_name classname)
+      (if (List.length asyncMessages) > 0 then "
     [OutputType(typeof(XenAPI.Task))]"
-     else "")
-    (ocaml_class_to_csharp_class classname)
-    (print_xenobject_params obj classname true true true)
-    (print_async_param asyncMessages)
-    (gen_message_as_param classname "Add" messages)
-    (ocaml_class_to_csharp_local_var classname) (ocaml_class_to_csharp_property classname)
-    (print_cmdlet_methods classname messages "Add")
-    (gen_passthru classname)
-    (print_parse_xenobject_private_method obj classname true)
-    (print_process_record_private_methods classname messages "Add" "")
+       else "")
+      (ocaml_class_to_csharp_class classname)
+      (print_xenobject_params obj classname true true true)
+      (print_async_param asyncMessages)
+      (gen_message_as_param classname "Add" messages)
+      (ocaml_class_to_csharp_local_var classname) (ocaml_class_to_csharp_property classname)
+      (print_cmdlet_methods classname messages "Add")
+      (gen_passthru classname)
+      (print_parse_xenobject_private_method obj classname true)
+      (print_process_record_private_methods classname messages "Add" "")
 
 
 (*****************************************)
@@ -990,9 +990,9 @@ and gen_invoker obj classname messages =
   match messages with
   | [] -> ""
   | _ ->
-      let messagesWithParams = List.filter (is_message_with_dynamic_params classname) messages in
-      sprintf
-    "%s
+    let messagesWithParams = List.filter (is_message_with_dynamic_params classname) messages in
+    sprintf
+      "%s
 
 using System;
 using System.Collections;
@@ -1044,19 +1044,19 @@ namespace Citrix.XenServer.Commands
     }
 %s
 }\n"
-    Licence.bsd_two_clause
-    (ocaml_class_to_csharp_class classname)
-    (ocaml_class_to_csharp_class classname)
-    (print_xenobject_params obj classname true true true)
-    (ocaml_class_to_csharp_class classname)
-    (print_dynamic_generator classname "Action" "Invoke" messagesWithParams)
-    (ocaml_class_to_csharp_local_var classname) (ocaml_class_to_csharp_property classname)
-    (print_cmdlet_methods_dynamic classname messages "Action" "Invoke")
-    (print_parse_xenobject_private_method obj classname true)
-    (print_process_record_private_methods classname messages "Invoke" "passthru")
-    (ocaml_class_to_csharp_class classname)
-    (print_messages_as_enum "Invoke" messages)
-    (print_dynamic_params classname "Action" "Invoke" messagesWithParams)
+      Licence.bsd_two_clause
+      (ocaml_class_to_csharp_class classname)
+      (ocaml_class_to_csharp_class classname)
+      (print_xenobject_params obj classname true true true)
+      (ocaml_class_to_csharp_class classname)
+      (print_dynamic_generator classname "Action" "Invoke" messagesWithParams)
+      (ocaml_class_to_csharp_local_var classname) (ocaml_class_to_csharp_property classname)
+      (print_cmdlet_methods_dynamic classname messages "Action" "Invoke")
+      (print_parse_xenobject_private_method obj classname true)
+      (print_process_record_private_methods classname messages "Invoke" "passthru")
+      (ocaml_class_to_csharp_class classname)
+      (print_messages_as_enum "Invoke" messages)
+      (print_dynamic_params classname "Action" "Invoke" messagesWithParams)
 
 
 (**********************************************)
@@ -1067,9 +1067,9 @@ and gen_getter obj classname messages =
   match messages with
   | [] -> ""
   | _ ->
-      let messagesWithParams = List.filter (is_message_with_dynamic_params classname) messages in
-      sprintf
-    "%s
+    let messagesWithParams = List.filter (is_message_with_dynamic_params classname) messages in
+    sprintf
+      "%s
 
 using System;
 using System.Collections;
@@ -1118,19 +1118,19 @@ namespace Citrix.XenServer.Commands
     }
 %s
 }\n"
-    Licence.bsd_two_clause
-    (ocaml_class_to_csharp_class classname)
-    (ocaml_class_to_csharp_class classname)
-    (print_xenobject_params obj classname true true false)
-    (ocaml_class_to_csharp_class classname)
-    (print_dynamic_generator classname "Property" "Get" messagesWithParams)
-    (ocaml_class_to_csharp_local_var classname) (ocaml_class_to_csharp_property classname)
-    (print_cmdlet_methods_dynamic classname messages "Property" "Get")
-    (print_parse_xenobject_private_method obj classname false)
-    (print_process_record_private_methods classname messages "Get" "pipe")
-    (ocaml_class_to_csharp_class classname)
-    (print_messages_as_enum "Get" messages)
-    (print_dynamic_params classname "Property" "Get" messagesWithParams)
+      Licence.bsd_two_clause
+      (ocaml_class_to_csharp_class classname)
+      (ocaml_class_to_csharp_class classname)
+      (print_xenobject_params obj classname true true false)
+      (ocaml_class_to_csharp_class classname)
+      (print_dynamic_generator classname "Property" "Get" messagesWithParams)
+      (ocaml_class_to_csharp_local_var classname) (ocaml_class_to_csharp_property classname)
+      (print_cmdlet_methods_dynamic classname messages "Property" "Get")
+      (print_parse_xenobject_private_method obj classname false)
+      (print_process_record_private_methods classname messages "Get" "pipe")
+      (ocaml_class_to_csharp_class classname)
+      (print_messages_as_enum "Get" messages)
+      (print_dynamic_params classname "Property" "Get" messagesWithParams)
 
 and print_cmdlet_methods_dynamic classname messages enum commonVerb =
   let cut_message_name x = cut_msg_name (pascal_case x.msg_name) commonVerb in
