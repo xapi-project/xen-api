@@ -326,7 +326,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 
 
 namespace XenAPI
@@ -876,7 +875,7 @@ using CookComputing.XmlRpc;
 
 namespace XenAPI
 {
-    public partial interface Proxy : IXmlRpcProxy
+    public interface Proxy : IXmlRpcProxy
     {
         [XmlRpcMethod(\"event.get_record\")]
         Response<Proxy_Event>
@@ -1330,7 +1329,7 @@ and proxy_type = function
   | Option Bool         -> "bool?"
   | Option DateTime     -> "DateTime?"
   | Option x            -> proxy_type x
-  | x              -> eprintf "%s" (Types.to_string x); assert false
+  | x                   -> eprintf "%s" (Types.to_string x); assert false
 
 and exposed_type_opt = function
     Some (typ, _) -> exposed_type typ
@@ -1358,7 +1357,7 @@ and exposed_type = function
   | Option Bool             -> "bool?"
   | Option DateTime         -> "DateTime?"
   | Option x                -> exposed_type x
-  | x                  -> eprintf "%s" (Types.to_string x); assert false
+  | x                       -> eprintf "%s" (Types.to_string x); assert false
 
 
 and internal_type = function
@@ -1420,7 +1419,7 @@ and convert_from_hashtable fname ty =
       (exposed_class_name name) field
   | Set(Int)            -> sprintf "Marshalling.ParseLongArray(table, %s)" field
   | Option x            -> convert_from_hashtable fname x
-  | x              -> eprintf "%s %s" fname (Types.to_string x); assert false
+  | x                   -> eprintf "%s %s" fname (Types.to_string x); assert false
 
 and sanitise_function_name name =
   let is_normal_char c = not (List.mem c ['>'; '<'; ','; ' ']) in
@@ -1444,14 +1443,14 @@ and simple_convert_from_proxy thing ty =
     sprintf "%s(%s)"
       (sanitise_function_name (sprintf "Maps.convert_from_proxy_%s_%s" (exposed_type_as_literal u) (exposed_type_as_literal v))) thing
   | Record name         ->
-    sprintf "new %s((Proxy_%s)%s)"
-      (exposed_class_name name) (exposed_class_name name) thing
+    sprintf "new %s(%s)"
+      (exposed_class_name name) thing
   | Set(Record name)    ->
     sprintf "%s.ProxyArrayToObjectList(%s)"
       (exposed_class_name name) thing
   | Set(Int)            ->
     sprintf "Helper.StringArrayToLongArray(%s)" thing
-  | x              -> eprintf "%s" (Types.to_string x); assert false
+  | x                   -> eprintf "%s" (Types.to_string x); assert false
 
 
 and convert_to_proxy thing ty =
@@ -1486,7 +1485,7 @@ and convert_to_proxy thing ty =
     sprintf "%s == null ? null : %s(%s)" thing
       (sanitise_function_name (sprintf "Maps.convert_to_proxy_%s_%s" (exposed_type_as_literal u) (exposed_type_as_literal v))) thing
   | Option (Record name)            -> sprintf "%s == null ? null : %s.ToProxy()" thing thing
-  | x                          -> eprintf "%s" (Types.to_string x); assert false
+  | x                               -> eprintf "%s" (Types.to_string x); assert false
 
 
 and proxy_msg_name classname msg =
@@ -1612,7 +1611,7 @@ and get_default_value_per_type ty thing =
   | Map(u, v)      -> sprintf " = new Dictionary<%s, %s>() {%s}" (exposed_type u) (exposed_type v) (String.concat ", " thing)
   | Record name    -> sprintf " = new %s()" (exposed_type ty)
   | Option x       -> if thing = [] then "" else get_default_value_per_type x thing
-  | x         -> eprintf "%s" (Types.to_string x); assert false
+  | x              -> eprintf "%s" (Types.to_string x); assert false
 
 and gen_i18n_errors () =
   Friendly_error_names.parse_sr_xml sr_xml;

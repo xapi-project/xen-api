@@ -74,14 +74,7 @@ namespace XenAPI
 
         public Session(int timeout, string url)
         {
-            proxy = XmlRpcProxyGen.Create<Proxy>();
-            proxy.Url = url;
-            proxy.NonStandard = XmlRpcNonStandard.All;
-            proxy.Timeout = timeout;
-            proxy.UseIndentation = false;
-            proxy.UserAgent = UserAgent;
-            proxy.KeepAlive = true;
-            proxy.Proxy = Proxy;
+            InitializeXmlRpcProxy(url, timeout);
         }
 
         public Session(string url)
@@ -137,6 +130,18 @@ namespace XenAPI
             if (newSession.XmlRpcToJsonRpcInvoker != null)
                 newSession.XmlRpcToJsonRpcInvoker(newSession);
             return newSession;
+        }
+
+        private void InitializeXmlRpcProxy(string url, int timeout)
+        {
+            proxy = XmlRpcProxyGen.Create<Proxy>();
+            proxy.Url = url;
+            proxy.NonStandard = XmlRpcNonStandard.All;
+            proxy.Timeout = timeout;
+            proxy.UseIndentation = false;
+            proxy.UserAgent = UserAgent;
+            proxy.KeepAlive = true;
+            proxy.Proxy = Proxy;
         }
 
         /// <summary>
