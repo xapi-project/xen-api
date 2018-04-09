@@ -50,6 +50,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     message-switch-unix
     message-switch-async
     rpclib
+    xapi-stdext-date
     xapi-storage
     sexplib
   ))
