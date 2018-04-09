@@ -101,6 +101,66 @@ let test_cluster_host_ops_not_allowed_during_cluster_host_op () =
        let allowed_ops = Db.Cluster_host.get_allowed_operations ~__context ~self in
        assert_true "Cluster_host.allowed_operations should be empty" (allowed_ops = []))
 
+let test_clustering_ops_disallowed_during_rolling_upgrade () =
+  let __context = Test_common.make_test_database () in
+
+  (** Helpers for testing clustering operations forbidden during rolling pool upgrade *)
+  let test_clustering_ops_should_pass with_cluster_fn self ops =
+    List.iter
+      (fun op ->
+        Alcotest.(check unit)
+          "Clustering operations should be allowed"
+          () (with_cluster_fn self op)
+      ) ops
+  in
+  let with_cluster_op self op =
+    Xapi_cluster_helpers.with_cluster_operation ~__context ~self ~doc:"" ~op
+      (fun () -> ())
+  in
+  let with_cluster_host_op self op =
+    Xapi_cluster_host_helpers.with_cluster_host_operation ~__context ~self ~doc:"" ~op
+      (fun () -> ())
+  in
+  let cluster, cluster_host =
+    Test_common.make_cluster_and_cluster_host ~__context ()
+  in
+  let test_cluster_host_operations_valid () =
+    test_clustering_ops_should_pass
+      with_cluster_host_op
+      cluster_host
+      Xapi_cluster_host_helpers.all_cluster_host_operations
+  in
+
+  (* All clustering operations are valid without RPU in progress
+   * and rolling_upgrade is false by default *)
+  test_clustering_ops_should_pass
+    with_cluster_op
+    cluster
+    Xapi_cluster_helpers.all_cluster_operations;
+  test_cluster_host_operations_valid ();
+
+  (* set rolling upgrade *)
+  let key = Xapi_globs.rolling_upgrade_in_progress in
+  let self = Helpers.get_pool ~__context in
+  Db.Pool.remove_from_other_config ~__context ~self ~key;
+  Db.Pool.add_to_other_config ~__context ~self ~key ~value:"true";
+
+  (* Only cluster_host lifecycle changes valid during RPU, not cluster membership changes *)
+  List.iter
+    (fun op ->
+      Alcotest.check_raises
+        "Other than cluster_host enable/disable, no clustering operations should be allowed during RPU"
+        Api_errors.(Server_error (not_supported_during_upgrade, []))
+        (fun () -> with_cluster_op cluster op)
+    ) [ `add ; `remove ; `destroy];
+
+  test_clustering_ops_should_pass
+    with_cluster_op
+    cluster
+    [ `enable ; `disable ];
+
+  test_cluster_host_operations_valid ()
+
 let test =
   [ "test_pool_cluster_create_not_allowed_when_cluster_exists", `Quick, test_pool_cluster_create_not_allowed_when_cluster_exists
   ; "test_pool_cluster_create_not_allowed_during_pool_ops", `Quick, test_pool_cluster_create_not_allowed_during_pool_ops
@@ -110,4 +170,5 @@ let test =
   ; "test_cluster_host_disable_allowed", `Quick, test_cluster_host_disable_allowed
   ; "test_cluster_host_enable_allowed", `Quick, test_cluster_host_enable_allowed
   ; "test_cluster_host_ops_not_allowed_during_cluster_host_op", `Quick, test_cluster_host_ops_not_allowed_during_cluster_host_op
+  ; "test_clustering_ops_disallowed_during_rolling_upgrade", `Quick, test_clustering_ops_disallowed_during_rolling_upgrade
   ]
