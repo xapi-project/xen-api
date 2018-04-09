@@ -267,10 +267,13 @@ let call_api_functions_internal ~__context f =
   let rpc = make_rpc ~__context in
   (* let () = debug "logging into master" in *)
   (* If we're the master then our existing session may be a client one without 'pool' flag set, so
-     we consider making a new one. If we're a slave then our existing session (if we have one) must
-     have the 'pool' flag set because it would have been created for us in the message forwarding layer
-     in the master, so we just re-use it. [If we haven't got an existing session in our context then
-     we always make a new one *)
+     we consider making a new one.
+     If we're a slave then our existing session (if we have one) may have the 'pool' flag set
+     because it would have been created for us in the message forwarding layer in the master,
+     so we just re-use it. However sometimes the session is directly created in slave without 'pool'
+     flag set (e.g. cross pool VM import).
+     So no matter we are master or slave we have to make sure get a session with 'pool' flag set.
+     If we haven't got an existing session in our context then we always make a new one *)
   let require_explicit_logout = ref false in
   let do_master_login () =
     let session = Client.Client.Session.slave_login rpc (get_localhost ~__context) !Xapi_globs.pool_secret in
@@ -278,21 +281,16 @@ let call_api_functions_internal ~__context f =
     session
   in
   let session_id =
-    try
-      if Pool_role.is_master() then
-        begin
-          let session_id = Context.get_session_id __context in
-          if Db.Session.get_pool ~__context ~self:session_id
-          then session_id
-          else do_master_login ()
-        end
-      else
-        let session_id = Context.get_session_id __context in
-        (* read any attr to test if session is still valid *)
-        ignore (Db.Session.get_pool ~__context ~self:session_id) ;
-        session_id
-    with _ ->
-      do_master_login ()
+    let f () =
+      let session_id = Context.get_session_id __context in
+      (* read attr to test if session is still valid *)
+      let in_pool = Db.Session.get_pool ~__context ~self:session_id in
+      session_id, in_pool
+    in
+    match f () with
+    | session_id, true -> session_id
+    | _ -> do_master_login ()
+    | exception _ -> do_master_login ()
   in
   (* let () = debug "login done" in *)
   finally
