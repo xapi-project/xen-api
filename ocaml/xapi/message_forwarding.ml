@@ -64,7 +64,7 @@ let call_slave_with_session remote_rpc_fn __context host (task_opt: API.ref_task
   let hostname = Db.Host.get_address ~__context ~self:host in
   let session_id = Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:true ~is_local_superuser:true ~subject:(Ref.null) ~auth_user_sid:"" ~auth_user_name:"" ~rbac_permissions:[] in
   Pervasiveext.finally
-    (fun ()->f session_id (remote_rpc_fn __context hostname task_opt))
+    (fun () -> f session_id (remote_rpc_fn __context hostname task_opt))
     (fun () -> Xapi_session.destroy_db_session ~__context ~self:session_id)
 
 let call_slave_with_local_session remote_rpc_fn __context host (task_opt: API.ref_task option) f =
@@ -4301,7 +4301,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         )
 
     let destroy ~__context ~self =
-      info "Cluster.destroy";
+      info "Cluster.destroy cluster: %s" (Ref.string_of self);
       Xapi_cluster_helpers.with_cluster_operation ~__context ~self ~doc:"Cluster.destroy" ~op:`destroy
         (fun () ->
            Local.Cluster.destroy ~__context ~self)
@@ -4311,21 +4311,21 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Local.Cluster.pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient
 
     let pool_force_destroy ~__context ~self =
-      info "Cluster.pool_force_destroy";
+      info "Cluster.pool_force_destroy cluster: %s" (Ref.string_of self);
       Local.Cluster.pool_force_destroy ~__context ~self
 
     let pool_destroy ~__context ~self =
-      info "Cluster.pool_destroy";
+      info "Cluster.pool_destroy cluster %s" (Ref.string_of self);
       Local.Cluster.pool_destroy ~__context ~self
 
     let pool_resync ~__context ~self =
-      info "Cluster.pool_resync";
+      info "Cluster.pool_resync cluster: %s" (Ref.string_of self);
       Local.Cluster.pool_resync ~__context ~self
   end
 
   module Cluster_host = struct
     let create ~__context ~cluster ~host =
-      info "Cluster_host.create";
+      info "Cluster_host.create with cluster:%s, host:%s" (Ref.string_of cluster) (Ref.string_of host);
       let local_fn = Local.Cluster_host.create ~cluster ~host in
       Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster.add" ~op:`add
         (fun () ->
@@ -4336,21 +4336,21 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         )
 
     let destroy ~__context ~self =
-      info "Cluster_host.destroy";
+      info "Cluster_host.destroy cluster_host: %s" (Ref.string_of self);
       let local_fn = Local.Cluster_host.destroy ~self in
       let host = Db.Cluster_host.get_host ~__context ~self in
       do_op_on ~__context ~local_fn ~host
         (fun session_id rpc -> Client.Cluster_host.destroy rpc session_id self)
 
     let force_destroy ~__context ~self =
-      info "Cluster_host.force_destroy";
+      info "Cluster_host.force_destroy cluster_host: %s" (Ref.string_of self);
       let local_fn = Local.Cluster_host.force_destroy ~self in
       let host = Db.Cluster_host.get_host ~__context ~self in
       do_op_on ~__context ~local_fn ~host
         (fun session_id rpc -> Client.Cluster_host.force_destroy rpc session_id self)
 
     let enable ~__context ~self =
-      info "Cluster_host.enable";
+      info "Cluster_host.enable cluster_host %s" (Ref.string_of self);
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       let local_fn = Local.Cluster_host.enable ~self in
       let host = Db.Cluster_host.get_host ~__context ~self in
@@ -4362,7 +4362,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
                   (fun session_id rpc -> Client.Cluster_host.enable rpc session_id self)))
 
     let disable ~__context ~self =
-      info "Cluster_host.disable";
+      info "Cluster_host.disable cluster_host: %s" (Ref.string_of self);
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       let local_fn = Local.Cluster_host.disable ~self in
       let host = Db.Cluster_host.get_host ~__context ~self in

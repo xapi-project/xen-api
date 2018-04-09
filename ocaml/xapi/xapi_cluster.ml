@@ -63,9 +63,11 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~to
         Db.Cluster_host.create ~__context ~ref:cluster_host_ref ~uuid:cluster_host_uuid ~cluster:cluster_ref ~host ~enabled:true
           ~current_operations:[] ~allowed_operations:[] ~other_config:[];
         Xapi_cluster_host_helpers.update_allowed_operations ~__context ~self:cluster_host_ref;
-        D.debug "Created Cluster: %s and Cluster_host: %s" cluster_uuid cluster_host_uuid;
+        D.debug "Created Cluster: %s and Cluster_host: %s" (Ref.string_of cluster_ref) (Ref.string_of cluster_host_ref);
         cluster_ref
-      | Result.Error error -> handle_error error
+      | Result.Error error ->
+        D.warn "Error occurred during Cluster.create";
+        handle_error error
     )
 
 let destroy ~__context ~self =
@@ -88,8 +90,11 @@ let destroy ~__context ~self =
       Db.Cluster_host.destroy ~__context ~self:ch
     ) cluster_host;
     Db.Cluster.destroy ~__context ~self;
+    D.debug "Cluster destroyed successfully";
     Xapi_clustering.Daemon.disable ~__context
-  | Result.Error error -> handle_error error
+  | Result.Error error ->
+    D.warn "Error occurred during Cluster.destroy";
+    handle_error error
 
 (* helper function; concurrency checks are done in implementation of Cluster.create and Cluster_host.create *)
 let pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient =
@@ -118,7 +123,7 @@ let filter_on_option opn xs =
   | Some x -> List.filter ((<>) x) xs
 
 (* Helper function; concurrency checks are done in implementation of Cluster.destroy and Cluster_host.destroy *)
-let pool_force_destroy ~__context ~self = 
+let pool_force_destroy ~__context ~self =
   (* For now we assume we have only one pool, and that the cluster is the same as the pool.
      This means that the pool master must be a member of this cluster. *)
   let master = Helpers.get_master ~__context in
@@ -130,10 +135,10 @@ let pool_force_destroy ~__context ~self =
   in
   (* First try to destroy each cluster_host - if we can do so safely then do *)
   List.iter
-    (fun cluster_host -> 
+    (fun cluster_host ->
       (* We need to run this code on the slave *)
       (* We ignore failures here, we'll try a force_destroy after *)
-      log_and_ignore_exn (fun () ->  
+      log_and_ignore_exn (fun () ->
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             Client.Client.Cluster_host.destroy ~rpc ~session_id ~self:cluster_host)
       )
@@ -163,7 +168,7 @@ let pool_force_destroy ~__context ~self =
 
     begin
     match exns with
-    | [] -> ()
+    | [] -> D.debug "Cluster.force_destroy was successful"
     | e :: _ -> raise Api_errors.(Server_error (cluster_force_destroy_failed, [Ref.string_of self]))
     end;
 

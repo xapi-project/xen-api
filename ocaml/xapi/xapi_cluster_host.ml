@@ -49,9 +49,9 @@ let sync_required ~__context ~host =
         if cluster_rec.API.cluster_pool_auto_join
         then Some cluster_ref
         else None
-      | _ -> failwith "Internal error: More than one cluster_host object associated with this host"
+      | _ -> raise Api_errors.(Server_error (internal_error, [ "Host cannot be associated with more than one cluster_host"; Ref.string_of host ]))
     end
-  | _ -> failwith "Internal error: Cannot have more than one Cluster object per pool currently"
+  | _ -> raise Api_errors.(Server_error (internal_error, ["Cannot have more than one Cluster object per pool currently"]))
 
 let create_as_necessary ~__context ~host =
   match sync_required ~__context ~host with
@@ -97,8 +97,11 @@ let create ~__context ~cluster ~host =
       | Result.Ok () ->
         Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~enabled:true
           ~current_operations:[] ~allowed_operations:[] ~other_config:[];
+        debug "Cluster_host.create was successful; cluster_host: %s" (Ref.string_of ref);
         ref
-      | Result.Error error -> handle_error error
+      | Result.Error error ->
+        warn "Error occurred during Cluster_host.create";
+        handle_error error
     )
 
 let force_destroy ~__context ~self =
@@ -110,8 +113,11 @@ let force_destroy ~__context ~self =
   match result with
   | Result.Ok () ->
     Db.Cluster_host.destroy ~__context ~self;
+    debug "Cluster_host.force_destroy was successful";
     Xapi_clustering.Daemon.disable ~__context
-  | Result.Error error -> handle_error error
+  | Result.Error error ->
+    warn "Error occurred during Cluster_host.force_destroy";
+    handle_error error
 
 let destroy ~__context ~self =
   let dbg = Context.string_of_task __context in
@@ -121,13 +127,16 @@ let destroy ~__context ~self =
   assert_cluster_host_enabled ~__context ~self ~expected:true;
   let result = Cluster_client.LocalClient.leave (rpc ~__context) dbg in
   match result with
+  (* can't include refs in case those were successfully destroyed *)
   | Result.Ok () ->
     Db.Cluster_host.destroy ~__context ~self;
+    debug "Cluster_host.destroy was successful";
     Xapi_clustering.Daemon.disable ~__context
-  | Result.Error error -> handle_error error
+  | Result.Error error ->
+    warn "Error occurred during Cluster_host.destroy";
+    handle_error error
 
 let enable ~__context ~self =
-  (* TODO: debug/error/info logging *)
   with_clustering_lock (fun () ->
       let dbg = Context.string_of_task __context in
       let host = Db.Cluster_host.get_host ~__context ~self in
@@ -150,12 +159,14 @@ let enable ~__context ~self =
       let result = Cluster_client.LocalClient.enable (rpc ~__context) dbg init_config in
       match result with
       | Result.Ok () ->
-        Db.Cluster_host.set_enabled ~__context ~self ~value:true
-      | Result.Error error -> handle_error error
+        Db.Cluster_host.set_enabled ~__context ~self ~value:true;
+        debug "Cluster_host.enable was successful for cluster_host: %s" (Ref.string_of self)
+      | Result.Error error ->
+        warn "Error encountered when enabling cluster_host %s" (Ref.string_of self);
+        handle_error error
     )
 
 let disable ~__context ~self =
-  (* TODO: debug/error/info logging *)
   with_clustering_lock (fun () ->
       let dbg = Context.string_of_task __context in
       let host = Db.Cluster_host.get_host ~__context ~self in
@@ -168,8 +179,11 @@ let disable ~__context ~self =
       let result = Cluster_client.LocalClient.disable (rpc ~__context) dbg in
       match result with
       | Result.Ok () ->
-          Db.Cluster_host.set_enabled ~__context ~self ~value:false
-      | Result.Error error -> handle_error error
+        Db.Cluster_host.set_enabled ~__context ~self ~value:false;
+        debug "Cluster_host.disable was successful for cluster_host: %s" (Ref.string_of self)
+      | Result.Error error ->
+        warn "Error encountered when disabling cluster_host %s" (Ref.string_of self);
+        handle_error error
     )
 
 let disable_clustering ~__context =
@@ -177,6 +191,6 @@ let disable_clustering ~__context =
   match Xapi_clustering.find_cluster_host ~__context ~host with
   | None -> info "No cluster host found"
   | Some self ->
-     info "Disabling cluster host";
+     info "Disabling cluster_host %s" (Ref.string_of self);
      disable ~__context ~self
 

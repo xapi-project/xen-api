@@ -43,12 +43,11 @@ let pif_of_host ~__context (network : API.ref_network) (host : API.ref_host) =
   | _ ->
     let msg = Printf.sprintf "No PIF found for host:%s and network:%s" (Ref.string_of host) (Ref.string_of network) in
     debug "%s" msg;
-    failwith msg
+    raise Api_errors.(Server_error (internal_error, [ msg ]))
 
 let ip_of_pif (ref,record) =
   let ip = record.API.pIF_IP in
-  if ip = "" then failwith (Printf.sprintf "PIF %s does not have any IP" (Ref.string_of ref));
-  debug "Got IP %s for PIF %s" ip (Ref.string_of ref);
+  if ip = "" then raise Api_errors.(Server_error (pif_has_no_network_configuration, [ Ref.string_of ref ]));
   Cluster_interface.IPv4 ip
 
 (** [assert_pif_prerequisites (pif_ref,pif_rec)] raises an exception if any of
@@ -60,23 +59,26 @@ let ip_of_pif (ref,record) =
     {- that the PIF has disallow_unplug set}
     }*)
 let assert_pif_prerequisites pif =
-  let assert_pif_permaplugged (ref,record) =
+  let (pif_ref, record) = pif in
+  let assert_pif_permaplugged (pif_ref,record) =
     if not record.API.pIF_disallow_unplug then
-      raise Api_errors.(Server_error (pif_allows_unplug, [ record.API.pIF_uuid ] ));
+      raise Api_errors.(Server_error (pif_allows_unplug, [ Ref.string_of pif_ref ] ));
     if not record.pIF_currently_attached then
-      raise Api_errors.(Server_error (required_pif_is_unplugged, [ record.API.pIF_uuid ] ))
+      raise Api_errors.(Server_error (required_pif_is_unplugged, [ Ref.string_of pif_ref ] ))
   in
   assert_pif_permaplugged pif;
-  ignore(ip_of_pif pif)
+  ignore (ip_of_pif pif);
+  debug "Got IP %s for PIF %s" record.API.pIF_IP (Ref.string_of pif_ref)
 
 let handle_error = function
   | InternalError message -> raise Api_errors.(Server_error (internal_error, [ message ]))
   | Unix_error message -> failwith ("Unix Error: " ^ message)
 
 let assert_cluster_host_can_be_created ~__context ~host =
-  if Db.Cluster_host.get_refs_where ~__context
-      ~expr:Db_filter_types.(Eq(Literal (Ref.string_of host),Field "host")) <> [] then
-    failwith "Cluster host cannot be created because it already exists"
+  match Db.Cluster_host.get_refs_where ~__context
+      ~expr:Db_filter_types.(Eq(Literal (Ref.string_of host),Field "host")) with
+  | [] -> ()
+  | _ -> raise Api_errors.(Server_error (internal_error, [ "Cluster host cannot be created because it already exists" ]))
 
 (** One of the cluster stacks returned by
     [get_required_cluster_stacks context sr_sm_type]
@@ -122,11 +124,15 @@ let assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type
         let cluster = Db.Cluster_host.get_cluster ~__context ~self:cluster_host in
         Db.Cluster.get_cluster_stack ~__context ~self:cluster
       in
+      let error_no_cluster_host_found condition =
+        debug "No_cluster_host found%s" condition;
+        raise Api_errors.(Server_error (no_compatible_cluster_host, [Ref.string_of host]))
+      in
       begin match find_cluster_host ~__context ~host with
         | Some cluster_host when (List.mem (cluster_stack_of ~cluster_host) required_cluster_stacks) ->
           assert_cluster_host_enabled ~__context ~self:cluster_host ~expected:true
-        | Some _ (* incompatible cluster host *) | None ->
-          raise Api_errors.(Server_error (no_compatible_cluster_host, [Ref.string_of host]))
+        | Some _ -> error_no_cluster_host_found " with matching cluster_stack"
+        | None -> error_no_cluster_host_found ""
       end
   end
 
@@ -135,8 +141,7 @@ let assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type
    xapi-clusterd daemon running on the target host *)
 let assert_operation_host_target_is_localhost ~__context ~host =
   if host <> Helpers.get_localhost ~__context then
-    let msg = "A clustering operation was attempted from the wrong host" in
-    raise Api_errors.(Server_error (internal_error, [msg]))
+    raise Api_errors.(Server_error (internal_error, [ "A clustering operation was attempted from the wrong host" ]))
 
 let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self =
   let cluster = Db.Cluster_host.get_cluster ~__context ~self in
