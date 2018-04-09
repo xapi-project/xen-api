@@ -92,4 +92,9 @@ module Internal : sig
       		is called to allow us to forget the association between a task and an
       		stunnel pid *)
   val unset_stunnelpid_callback : (string option -> int -> unit) option ref
+
+  (** Callback to check whether a destination address is still OK. Only called after
+      a failed attempt to talk to the destination *)
+  val destination_is_ok : (string -> bool) option ref
+
 end

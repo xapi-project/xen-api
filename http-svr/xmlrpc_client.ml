@@ -24,6 +24,7 @@ module E = Debug.Make(struct let name = "mscgen" end)
 module Internal = struct
   let set_stunnelpid_callback : (string option -> int -> unit) option ref = ref None
   let unset_stunnelpid_callback : (string option -> int -> unit) option ref = ref None
+  let destination_is_ok : (string -> bool) option ref = ref None
 end
 
 let user_agent = "xen-api-libs/1.0"
@@ -49,7 +50,7 @@ let write_to_log x = StunnelDebug.debug "%s" (Astring.String.trim x)
     for an unknown method and checking we get a matching MESSAGE_METHOD_UNKNOWN.
     This is used to prevent us accidentally trying to reuse a connection which has been 
     closed or left in some other inconsistent state. *)
-let check_reusable (x: Unix.file_descr) =
+let check_reusable_inner (x: Unix.file_descr) =
   let msg_name = "system.isAlive" in
   let msg_uuid = Uuidm.to_string (Uuidm.create `V4) in
   (* This is for backward compatability *)
@@ -57,6 +58,7 @@ let check_reusable (x: Unix.file_descr) =
   let msg_param = [ XMLRPC.To.string msg_uuid ] in
   let xml = Xml.to_string (XMLRPC.To.methodCall msg_func msg_param) in
   let http = xmlrpc ~version:"1.1" ~keep_alive:true ~body:xml "/" in
+
   try
     Http_client.rpc x http
       (fun response _ ->
@@ -96,6 +98,64 @@ let get_new_stunnel_id =
   let m = Mutex.create () in
   fun () -> Mutex.execute m (fun () -> incr counter; !counter)
 
+let run_watchdog timeout (fire_fn : unit -> unit) f (pout,pin) =
+  let fired = ref None in
+  let th = Thread.create (fun () ->
+    match Unix.select [pout] [] [] timeout with
+      | [x],[],[] ->
+        fired := Some false
+      | _,_,_ ->
+        fire_fn ();
+        fired := Some true) () in
+  let cancel_watchdog () = let _x : int = Unix.write pin "x" 0 1 in () in
+  let get_fired () = Thread.join th; !fired in
+  f cancel_watchdog get_fired
+
+let with_pipe f =
+  let pout,pin = Unix.pipe () in
+  finally
+    (fun () -> f (pout,pin))
+    (fun () -> Unix.close pout; Unix.close pin)
+
+let watchdog timeout pid f =
+ with_pipe
+   (run_watchdog
+      timeout
+      (fun () ->
+         StunnelDebug.warn "Watchdog fired: killing pid: %d" pid;
+         Unix.kill pid Sys.sigterm)
+      (fun cancel_watchdog get_fired ->
+         let result = try Some (f ()) with _ -> None in
+         cancel_watchdog ();
+         match get_fired (), result with
+         | Some true, _ ->
+           (* Watchdog fired, stunnel is killed. Not reusable *)
+           false
+         | Some false, None ->
+           (* Watchdog didn't fire, but f () raised an exception. Not reusable *)
+           false
+         | Some false, Some x ->
+           (* Watchdog didn't fire and we got a result from f() - return that result *)
+           x
+         | None, _ ->
+           (* fire_fn raised an exception (!) - Not reusable *)
+           false))
+
+let check_reusable x pid =
+  watchdog 30.0 pid (fun () -> check_reusable_inner x)
+
+let assert_dest_is_ok host =
+  (* Double check whether we _should_ be able to talk to this host *)
+  let dest_is_ok =
+    match !Internal.destination_is_ok with
+    | Some f -> f host
+    | None -> true (* No check function set: assume it's OK *)
+  in
+  if not dest_is_ok then begin
+    StunnelDebug.error "Destination host has been marked as offline. Aborting";
+    raise Stunnel_connection_failed
+  end
+
 (** Returns an stunnel, either from the persistent cache or a fresh one which
     has been checked out and guaranteed to work. *)
 let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log ?verify_cert host port =
@@ -106,7 +166,7 @@ let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log ?verify_cert host p
     try
       while !found = None do
         let (x: Stunnel.t) = Stunnel_cache.remove host port verify_cert in
-        if check_reusable x.Stunnel.fd
+        if check_reusable x.Stunnel.fd (Stunnel.getpid x.Stunnel.pid)
         then found := Some x
         else begin
           StunnelDebug.debug "get_reusable_stunnel: Found non-reusable stunnel in the cache. disconnecting from %s:%d" host port;
@@ -130,14 +190,16 @@ let get_reusable_stunnel ?use_fork_exec_helper ?write_to_log ?verify_cert host p
         try
           let unique_id = get_new_stunnel_id () in
           let (x: Stunnel.t) = Stunnel.connect ~unique_id ?use_fork_exec_helper ?write_to_log ~verify_cert host port in
-          if check_reusable x.Stunnel.fd
+          if check_reusable x.Stunnel.fd (Stunnel.getpid x.Stunnel.pid)
           then found := Some x
           else begin
+            assert_dest_is_ok host;
             StunnelDebug.error "get_reusable_stunnel: fresh stunnel failed reusable check; delaying %.2f seconds before reconnecting to %s:%d (attempt %d / %d)" delay host port !attempt_number max_attempts;
             Thread.delay delay;
             Stunnel.disconnect x
           end
         with e ->
+          assert_dest_is_ok host;
           StunnelDebug.error "get_reusable_stunnel: fresh stunnel connection failed with exception: %s: delaying %.2f seconds before reconnecting to %s:%d (attempt %d / %d)" (Printexc.to_string e) delay host port !attempt_number max_attempts;
           Thread.delay delay;
       done
