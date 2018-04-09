@@ -68,6 +68,7 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~to
           ~current_operations:[] ~allowed_operations:[] ~other_config:[];
         Xapi_cluster_host_helpers.update_allowed_operations ~__context ~self:cluster_host_ref;
         D.debug "Created Cluster: %s and Cluster_host: %s" (Ref.string_of cluster_ref) (Ref.string_of cluster_host_ref);
+        set_ha_cluster_stack ~__context;
         cluster_ref
       | Result.Error error ->
         D.warn "Error occurred during Cluster.create";
@@ -95,6 +96,7 @@ let destroy ~__context ~self =
     ) cluster_host;
     Db.Cluster.destroy ~__context ~self;
     D.debug "Cluster destroyed successfully";
+    set_ha_cluster_stack ~__context;
     Xapi_clustering.Daemon.disable ~__context
   | Result.Error error ->
     D.warn "Error occurred during Cluster.destroy";

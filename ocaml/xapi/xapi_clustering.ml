@@ -17,6 +17,12 @@ open Cluster_interface
 module D=Debug.Make(struct let name="xapi_clustering" end)
 open D
 
+(* Called by Cluster.create/destroy *)
+let set_ha_cluster_stack ~__context =
+  let self = Helpers.get_pool ~__context in
+  let value = Cluster_stack_constraints.choose_cluster_stack ~__context in
+  Db.Pool.set_ha_cluster_stack ~__context ~self ~value
+
 (* host-local clustering lock *)
 let clustering_lock_m = Mutex.create ()
 
