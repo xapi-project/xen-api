@@ -148,11 +148,15 @@ let get_capabilities dev =
 		| Some vf_param ->
 			debug "enable SR-IOV on a device: %s via modprobe" dev;
 			(if enable then Modprobe.get_maxvfs driver config else Ok 0) >>= fun numvfs ->
-			if numvfs = Sysfs.get_sriov_numvfs dev then Ok Modprobe_successful
-			else begin
-				Modprobe.config_sriov driver vf_param numvfs >>= fun _ ->
+			(* CA-287340: Even if the current numvfs equals to the target numvfs,
+			it is still needed to update SR-IOV modprobe config file, as the
+			SR-IOV enabing takes effect after reboot. For example, a user
+			enables SR-IOV and disables it immediately without a reboot.*)
+			Modprobe.config_sriov driver vf_param numvfs >>= fun _ ->
+			if numvfs = Sysfs.get_sriov_numvfs dev then
+				Ok Modprobe_successful
+			else
 				Ok Modprobe_successful_requires_reboot
-			end
 		| None ->
 			debug "enable SR-IOV on a device: %s via sysfs" dev;
 			begin
