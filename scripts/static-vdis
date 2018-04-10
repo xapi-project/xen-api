@@ -2,12 +2,13 @@
 
 # Common functions for managing statically-attached (ie onboot, without xapi) VDIs
 
-import sys, os, subprocess, json, urlparse
+import sys, os, subprocess, json, urlparse, itertools
 import XenAPI, inventory, xmlrpclib
 
 main_dir = "/etc/xensource/static-vdis"
 
 xapi_storage_script = "/usr/libexec/xapi-storage-script"
+smapiv3_config = "device-config"
 
 def call_volume_plugin(name, command, args):
     args = [(xapi_storage_script + "/volume/org.xen.xapi.storage." + name + "/"
@@ -37,7 +38,7 @@ def write_whole_file(filename, contents):
 def load(name):
     """Return a dictionary describing a single static VDI"""
     d = { "id": name }
-    for key in [ "vdi-uuid", "config", "sr-uri", "volume-plugin", "volume-uri", "volume-key", "reason" ]:
+    for key in [ "vdi-uuid", "config", smapiv3_config, "volume-plugin", "volume-uri", "volume-key", "reason" ]:
         path = "%s/%s/%s" % (main_dir, name, key)
         if os.path.exists(path):
              d[key] = read_whole_file(path)
@@ -55,6 +56,11 @@ def load(name):
         pass
     d["delete-next-boot"] = dnb
     return d
+
+def sr_attach(ty, device_config):
+    args = [arg for (k,v) in device_config.iteritems()
+            for arg in ["--configuration", k, v]]
+    return call_volume_plugin(ty, "SR.attach", args)
 
 def list():
     all = []
@@ -142,9 +148,8 @@ def add(session, vdi_uuid, reason):
     # If the SM supports offline attach then we use it
     if sm["features"].has_key("VDI_ATTACH_OFFLINE"):
         data["volume-plugin"] = ty
-        data["sr-uri"] = device_config['uri']
-        data["sr-uuid"] = sr_uuid
-        sr = call_volume_plugin(ty, "SR.attach", [ data["sr-uuid"], data["sr-uri"] ])
+        data[smapiv3_config] = json.dumps(device_config)
+        sr = sr_attach(ty, device_config)
         location = session.xenapi.VDI.get_location(vdi)
         stat = call_volume_plugin(ty, "Volume.stat", [ sr, location ])
         data["volume-uri"] = stat["uri"][0]
@@ -237,19 +242,18 @@ def attach(vdi_uuid):
                 except:
                     pass
                 path = None
-                if not (os.path.exists(d + "/sr-uri")):
+                if not (os.path.exists(d + "/" + smapiv3_config)):
                     # SMAPIv1
                     config = read_whole_file(d + "/config")
                     driver = read_whole_file(d + "/driver")
                     path = call_backend_attach(driver, config)
                 else:
                     volume_plugin = read_whole_file(d + "/volume-plugin")
-                    sr_uuid = read_whole_file(d + "/sr-uuid")
-                    sr_uri = read_whole_file(d + "/sr-uri")
+                    configuration = json.loads(read_whole_file(d + "/" + smapiv3_config))
                     vol_key = read_whole_file(d + "/volume-key")
                     vol_uri = read_whole_file(d + "/volume-uri")
                     scheme = urlparse.urlparse(vol_uri).scheme
-                    sr = call_volume_plugin(volume_plugin, "SR.attach", [ sr_uuid, sr_uri ])
+                    sr = sr_attach(volume_plugin, configuration)
                     attach = call_datapath_plugin(scheme, "Datapath.attach", [ vol_uri, "0" ])
                     path = attach['implementation'][1]
                     call_datapath_plugin(scheme, "Datapath.activate", [ vol_uri, "0" ])
@@ -276,7 +280,7 @@ def detach(vdi_uuid):
             disk = existing['disk']
             if disk.startswith('/dev/nbd'):
                 disconnect_nbd_device(disk)
-            if not (os.path.exists(d + "/sr-uri")):
+            if not (os.path.exists(d + "/" + smapiv3_config)):
                 # SMAPIv1
                 config = read_whole_file(d + "/config")
                 driver = read_whole_file(d + "/driver")
