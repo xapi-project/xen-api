@@ -102,7 +102,7 @@ let proxy (fd : Lwt_unix.file_descr) protocol localport =
 
 let handler sock msg =
   Lwt_log.debug_f "Got msg: %s" msg >>= fun () ->
-  match Re_str.split (Re_str.regexp "[:]") msg with
+  match Re.Str.(split @@ regexp "[:]") msg with
   | [protocol;_;sport]
   | [protocol;sport] ->
     let port = int_of_string sport in
