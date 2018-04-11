@@ -46,7 +46,7 @@ let create_cluster ~__context =
   Db.PIF.set_IP ~__context ~self:pifref ~value:"192.0.2.1";
   Db.PIF.set_currently_attached ~__context ~self:pifref ~value:true;
   Db.PIF.set_disallow_unplug ~__context ~self:pifref ~value:true;
-  Xapi_cluster.create ~__context ~network ~cluster_stack:"corosync" ~pool_auto_join:true ~token_timeout:1. ~token_timeout_coefficient:1.
+  Xapi_cluster.create ~__context ~network ~cluster_stack:Constants.default_smapiv3_cluster_stack ~pool_auto_join:true ~token_timeout:1. ~token_timeout_coefficient:1.
 
 let test_create_destroy_status () =
   let __context = Test_common.make_test_database () in

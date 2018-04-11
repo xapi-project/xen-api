@@ -93,6 +93,10 @@ let get_required_cluster_stacks ~__context ~sr_sm_type =
   (* We assume that we only have one SM for each SR type, so this is only to satisfy type checking *)
   |> List.flatten
 
+let assert_cluster_stack_valid ~cluster_stack =
+  if not (List.mem cluster_stack Constants.supported_smapiv3_cluster_stacks)
+  then raise Api_errors.(Server_error (invalid_cluster_stack, [ cluster_stack ]))
+
 let with_clustering_lock_if_needed ~__context ~sr_sm_type f =
   match get_required_cluster_stacks ~__context ~sr_sm_type with
     | [] -> f ()

@@ -25,6 +25,10 @@ let validate_params ~token_timeout ~token_timeout_coefficient =
   if token_timeout_coefficient < 0.65 then invalid_value "token_timeout_coefficient" (string_of_float token_timeout_coefficient)
 
 let create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient =
+  assert_cluster_stack_valid ~cluster_stack;
+
+  (* Currently we only support corosync. If we support more cluster stacks, this
+   * should be replaced by a general function that checks the given cluster_stack *)
   Pool_features.assert_enabled ~__context ~f:Features.Corosync;
   (* TODO: take network lock *)
   with_clustering_lock (fun () ->
@@ -103,7 +107,7 @@ let pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout
   let hosts = Db.Host.get_all ~__context in
 
   let cluster = Helpers.call_api_functions ~__context (fun rpc session_id ->
-      Client.Client.Cluster.create ~rpc ~session_id ~network ~cluster_stack:"corosync" ~pool_auto_join:true ~token_timeout ~token_timeout_coefficient)
+      Client.Client.Cluster.create ~rpc ~session_id ~network ~cluster_stack:Constants.default_smapiv3_cluster_stack ~pool_auto_join:true ~token_timeout ~token_timeout_coefficient)
   in
 
   List.iter (fun host ->

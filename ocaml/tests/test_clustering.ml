@@ -24,6 +24,8 @@ let assert_equal ~msg ~required_cluster_stacks ~to_set =
   Alcotest.(check (slist string String.compare)) msg
     (setify required_cluster_stacks) (setify to_set)
 
+let default_stack = Constants.default_smapiv3_cluster_stack
+
 let test_zero_sms_in_database () =
   let __context = T.make_test_database () in
   let required_cluster_stacks = Xapi_clustering.get_required_cluster_stacks ~__context ~sr_sm_type:"" in
@@ -33,8 +35,8 @@ let test_zero_sms_in_database () =
 
 let test_zero_sms_with_matching_type_which_do_require_cluster_stack () =
   let __context = T.make_test_database () in
-  let _ = T.make_sm ~__context ~_type:"type2" ~required_cluster_stack:["stack1"; "corosync"] () in
-  let _ = T.make_sm ~__context ~_type:"type2" ~required_cluster_stack:["corosync"] () in
+  let _ = T.make_sm ~__context ~_type:"type2" ~required_cluster_stack:["stack1"; default_stack] () in
+  let _ = T.make_sm ~__context ~_type:"type2" ~required_cluster_stack:[default_stack] () in
   let required_cluster_stacks = Xapi_clustering.get_required_cluster_stacks ~__context ~sr_sm_type:"type1" in
   assert_equal
     ~msg:"Asserted by test_zero_sms_with_matching_type_which_do_require_cluster_stack"
@@ -50,11 +52,11 @@ let test_one_sm_with_matching_type_which_doesnt_require_cluster_stack () =
 
 let test_one_sm_with_matching_type_which_does_require_cluster_stack () =
   let __context = T.make_test_database () in
-  let _ = T.make_sm ~__context ~_type:"type1" ~required_cluster_stack:["corosync"] () in
+  let _ = T.make_sm ~__context ~_type:"type1" ~required_cluster_stack:[default_stack] () in
   let required_cluster_stacks = Xapi_clustering.get_required_cluster_stacks ~__context ~sr_sm_type:"type1" in
   assert_equal
     ~msg:"Asserted by test_one_sm_with_matching_type_which_does_require_cluster_stack"
-    ~required_cluster_stacks ~to_set:["corosync"]
+    ~required_cluster_stacks ~to_set:[default_stack]
 
 (* there should probably never be more than one SM of a particular type, but
    test it here anyway to see that the behavior of the function is as
@@ -62,15 +64,15 @@ let test_one_sm_with_matching_type_which_does_require_cluster_stack () =
 let test_multiple_sms_with_some_matching_type_with_some_requiring_cluster_stack () =
   let __context = T.make_test_database () in
   let _ = T.make_sm ~__context ~_type:"type1" ~required_cluster_stack:[] () in
-  let _ = T.make_sm ~__context ~_type:"type1" ~required_cluster_stack:["corosync"] () in
-  let _ = T.make_sm ~__context ~_type:"type1" ~required_cluster_stack:["stack1"; "corosync"] () in
-  let _ = T.make_sm ~__context ~_type:"type2" ~required_cluster_stack:["corosync"] () in
+  let _ = T.make_sm ~__context ~_type:"type1" ~required_cluster_stack:[default_stack] () in
+  let _ = T.make_sm ~__context ~_type:"type1" ~required_cluster_stack:["stack1"; default_stack] () in
+  let _ = T.make_sm ~__context ~_type:"type2" ~required_cluster_stack:[default_stack] () in
   let _ = T.make_sm ~__context ~_type:"type2" ~required_cluster_stack:["stack1"] () in
-  let _ = T.make_sm ~__context ~_type:"type2" ~required_cluster_stack:["stack1"; "corosync"] () in
+  let _ = T.make_sm ~__context ~_type:"type2" ~required_cluster_stack:["stack1"; default_stack] () in
   let required_cluster_stacks = Xapi_clustering.get_required_cluster_stacks ~__context ~sr_sm_type:"type1" in
   assert_equal
     ~msg:"Asserted by test_multiple_sms_with_some_matching_type_with_some_requiring_cluster_stack"
-    ~required_cluster_stacks ~to_set:["stack1"; "corosync"]
+    ~required_cluster_stacks ~to_set:["stack1"; default_stack]
 
 let test_get_required_cluster_stacks =
   [ "test_zero_sms_in_database", `Quick, test_zero_sms_in_database
@@ -169,7 +171,7 @@ let make_scenario ?(cluster_host=(Some true)) () =
       Db.Cluster_host.set_enabled ~__context ~self:cluster_host ~value:cluster_host_enabled;
       cluster, cluster_host
   in
-  let _sm_1 : _ API.Ref.t= T.make_sm ~__context ~_type:"gfs2" ~required_cluster_stack:["corosync"] () in
+  let _sm_1 : _ API.Ref.t= T.make_sm ~__context ~_type:"gfs2" ~required_cluster_stack:[default_stack] () in
   let _sm_2 : _ API.Ref.t= T.make_sm ~__context ~_type:"lvm" ~required_cluster_stack:[] () in
   __context, host, cluster, cluster_host
 
@@ -238,7 +240,7 @@ let nest_with_clustering_lock_if_needed ~__context ~timeout ~type1 ~type2 ~on_de
 
 let test_clustering_lock_only_taken_if_needed_nested_calls () =
   let __context = T.make_test_database () in
-  let _ = T.make_sm ~__context ~_type:"type_corosync" ~required_cluster_stack:["corosync"] () in
+  let _ = T.make_sm ~__context ~_type:"type_corosync" ~required_cluster_stack:[default_stack] () in
   let _ = T.make_sm ~__context ~_type:"type_nocluster" ~required_cluster_stack:[] () in
 
   nest_with_clustering_lock_if_needed
@@ -251,8 +253,8 @@ let test_clustering_lock_only_taken_if_needed_nested_calls () =
 
 let test_clustering_lock_taken_when_needed_nested_calls () =
   let __context = T.make_test_database () in
-  let _ = T.make_sm ~__context ~_type:"type_corosync1" ~required_cluster_stack:["corosync"] () in
-  let _ = T.make_sm ~__context ~_type:"type_corosync2" ~required_cluster_stack:["corosync"] () in
+  let _ = T.make_sm ~__context ~_type:"type_corosync1" ~required_cluster_stack:[default_stack] () in
+  let _ = T.make_sm ~__context ~_type:"type_corosync2" ~required_cluster_stack:[default_stack] () in
 
   nest_with_clustering_lock_if_needed
     ~__context
