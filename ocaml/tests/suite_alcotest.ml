@@ -31,5 +31,6 @@ let () =
     ; "Test_clustering_allowed_operations", Test_clustering_allowed_operations.test
     ; "Test_event", Test_event.test
     ; "Test_vm_placement", Test_vm_placement.test
+    ; "Test_vm_memory_constraints", Test_vm_memory_constraints.test
     ]
 
