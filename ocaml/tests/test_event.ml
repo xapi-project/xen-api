@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Test_common
 open Event_types
 open Stdext
@@ -30,9 +29,9 @@ let test_event_from_ev () =
   let evs = evs_rpc |> parse_event_from in
   Printf.printf "evs: %s\n%!" (Jsonrpc.to_string evs_rpc);
   let ev = List.filter (fun ev -> ev.ty="vm") evs.events in
-  assert_equal (List.length ev) 1;
+  Alcotest.(check int) "list length" 1 (List.length ev);
   let ev = List.hd ev in
-  assert_equal ev.reference (Ref.string_of vm)
+  Alcotest.(check string) "ev.reference" (Ref.string_of vm) ev.reference
 
 let test_event_from_ev_rel () =
   (* Test that creating a connector object generates all relevant events *)
@@ -46,17 +45,17 @@ let test_event_from_ev_rel () =
   let tok2 = evs2.token in
   let vm_ev = List.filter (fun ev -> ev.ty="vm") evs2.events in
   let vbd_ev = List.filter (fun ev -> ev.ty="vbd") evs2.events in
-  assert_equal (List.length vm_ev) 1;
-  assert_equal (List.length vbd_ev) 1;
+  Alcotest.(check int) "list length" 1 (List.length vm_ev);
+  Alcotest.(check int) "list length" 1 (List.length vbd_ev);
   let ev = List.hd vm_ev in
-  assert_equal ev.reference (Ref.string_of vm);
+  Alcotest.(check string) "ev.reference" (Ref.string_of vm) ev.reference;
   Db.VBD.destroy ~__context ~self:vbd;
   let evs_rpc = Xapi_event.from __context ["vm"; "vbd"] tok2 4.0 in
   let evs3 = evs_rpc |> parse_event_from in
   let vm_ev = List.filter (fun ev -> ev.ty="vm") evs3.events in
   let vbd_ev = List.filter (fun ev -> ev.ty="vbd") evs3.events in
-  assert_equal (List.length vm_ev) 1;
-  assert_equal (List.length vbd_ev) 1
+  Alcotest.(check int) "list length" 1 (List.length vm_ev);
+  Alcotest.(check int) "list length" 1 (List.length vbd_ev)
 
 let test_event_from_timeout () =
   let __context, session_id = event_setup_common () in
@@ -67,7 +66,7 @@ let test_event_from_timeout () =
   let end_time = Unix.gettimeofday () in
   let elapsed = end_time -. start_time in
   Printf.printf "test_event_from_timeout: elapsed=%f\n" elapsed;
-  assert_bool "timeout correct" (elapsed < 2.0 && elapsed > 1.0)
+  Alcotest.(check bool) "timeout correct" true (elapsed < 2.0 && elapsed > 1.0)
 
 let event_next_unblock () =
   let __context, session_id = event_setup_common () in
@@ -91,7 +90,7 @@ let event_next_unblock () =
   (* Again we can't tell the difference between a slow and a totally blocked thread
      so a little pause in here is also required *)
   Thread.delay 0.5;
-  assert_bool "Unblocked" (Mutex.execute m (fun () -> !unblocked))
+  Alcotest.(check bool) "Unblocked" true (Mutex.execute m (fun () -> !unblocked))
 
 let event_next_test () =
   let __context, session_id = event_setup_common () in
@@ -116,7 +115,7 @@ let event_next_test () =
   Thread.delay 1.;
   Db.Pool.add_to_other_config __context pool key "1";
   Thread.delay 1.;
-  assert_bool "checking other_config" (Mutex.execute m (fun () -> !finished))
+  Alcotest.(check bool) "checking other_config" true (Mutex.execute m (fun () -> !finished))
 
 let wait_for_pool_key __context key =
   let token = ref "" in
@@ -144,7 +143,7 @@ let event_from_test () =
   Thread.delay 0.5;
   Db.Pool.add_to_other_config __context pool key "1";
   Thread.delay 0.5;
-  assert_bool "event_from_test" (Mutex.execute m (fun () -> !finished))
+  Alcotest.(check bool) "event_from_test" true (Mutex.execute m (fun () -> !finished))
 
 let event_from_parallel_test () =
   let __context, session_id = event_setup_common () in
@@ -170,7 +169,7 @@ let event_from_parallel_test () =
   Thread.join interfering_thread;
   Thread.join i_should_succeed;
   (* Check that Event.from didn't get cancelled by mistake *)
-  assert_bool "event_from_parallel_test" !ok
+  Alcotest.(check bool) "event_from_parallel_test" true !ok
 
 let object_level_event_test session_id =
   let __context, session_id = event_setup_common () in
@@ -234,19 +233,18 @@ let object_level_event_test session_id =
   Mutex.execute m
     (fun () ->
        if (!failure) then begin
-         assert_bool "failed to see object-level event change" false
+         Alcotest.fail "failed to see object-level event change"
        end
     )
 
 let test =
-  "test_event" >:::
   [
-    "test_event_from_timeout" >:: test_event_from_timeout;
-    "test_event_from_ev" >:: test_event_from_ev;
-    "test_event_from_ev_rel" >:: test_event_from_ev_rel;
-    "test_event_next_unblock" >:: event_next_unblock;
-    "test_event_next" >:: event_next_test;
-    "test_event_from" >:: event_from_test;
-    "test_event_from_parallel" >:: event_from_parallel_test;
-    "test_event_object_level_event" >:: object_level_event_test;
+    "test_event_from_timeout", `Slow, test_event_from_timeout;
+    "test_event_from_ev", `Quick, test_event_from_ev;
+    "test_event_from_ev_rel", `Quick, test_event_from_ev_rel;
+    "test_event_next_unblock", `Slow, event_next_unblock;
+    "test_event_next", `Slow, event_next_test;
+    "test_event_from", `Quick, event_from_test;
+    "test_event_from_parallel", `Slow, event_from_parallel_test;
+    "test_event_object_level_event", `Slow, object_level_event_test;
   ]
