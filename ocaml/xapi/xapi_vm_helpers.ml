@@ -410,7 +410,7 @@ let assert_usbs_available ~__context ~self ~host =
       ]))
     )
 
-(* 1.To avoid redundant checks,if VF had been reserved, then it's no need to check the ability again.
+(* 1.To avoid redundant checks,for each VF if it was reserved, then it's no need to check remaining capacity again.
    2.Get SR-IOV Vifs by return a list of [(network1,(required_num1,PCI1));(network2,(required_num2,PCI2))....]
    Raise exn immediately when found Idle VF nums < required_num *)
 let assert_netsriov_available ~__context ~self ~host =
