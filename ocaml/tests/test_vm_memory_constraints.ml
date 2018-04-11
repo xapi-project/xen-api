@@ -11,10 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Quicktest_ocamltest
-open Ocamltest
 open Printf
-open Vm_memory_constraints.Vm_memory_constraints
+module C = Vm_memory_constraints.Vm_memory_constraints
 
 let ( ++ ) = Int64.add
 let ( -- ) = Int64.sub
@@ -25,7 +23,7 @@ let ( // ) = Int64.div
     memory constraints tuple (with values in MiB). *)
 let create (static_min, dynamic_min, target, dynamic_max, static_max) =
   let scale value = (Int64.of_int value) ** 1024L ** 1024L in
-  {
+  C.{
     static_min  = scale static_min ;
     dynamic_min = scale dynamic_min;
     target      = scale target     ;
@@ -66,43 +64,46 @@ let constraints_pinned_at_static_max = [
 
 (** Tests that [fn i] evaluates to [output] for all values [i] in [inputs]. *)
 let test_indicator_function fn fn_name output output_name inputs =
-  make_test_case
-    (sprintf "%s_%s" fn_name output_name)
-    (sprintf "Tests that function %s returns %s" fn_name output_name)
+    (sprintf "%s_%s" fn_name output_name),
+    `Quick,
     (fun () ->
        List.iter
-         (fun i -> assert_equal (fn ~constraints:(create i)) output)
+         (fun i ->
+            Alcotest.check (Alcotest_comparators.only_compare ()) "return value"
+              output
+              (fn ~constraints:(create i))
+         )
          (inputs))
 
 let test_are_pinned_true = test_indicator_function
-    are_pinned "are_pinned" true "true" constraints_pinned
+    C.are_pinned "are_pinned" true "true" constraints_pinned
 let test_are_pinned_false = test_indicator_function
-    are_pinned "are_pinned" false "false" constraints_unpinned
+    C.are_pinned "are_pinned" false "false" constraints_unpinned
 let test_are_valid_true = test_indicator_function
-    are_valid "are_valid" true "true" constraints_valid
+    C.are_valid "are_valid" true "true" constraints_valid
 let test_are_valid_false = test_indicator_function
-    are_valid "are_valid" false "false" constraints_invalid
+    C.are_valid "are_valid" false "false" constraints_invalid
 let test_are_valid_and_pinned_at_static_max_true = test_indicator_function
-    are_valid_and_pinned_at_static_max "are_valid_and_pinned_at_static_max"
+    C.are_valid_and_pinned_at_static_max "are_valid_and_pinned_at_static_max"
     true "true" constraints_pinned_at_static_max
 let test_are_valid_and_pinned_at_static_max_false = test_indicator_function
-    are_valid_and_pinned_at_static_max "are_valid_and_pinned_at_static_max"
+    C.are_valid_and_pinned_at_static_max "are_valid_and_pinned_at_static_max"
     false "false" (constraints_invalid @ constraints_unpinned)
 
-let test_reset_to_safe_defaults = make_function_test_case
-    "reset_to_safe_defaults"
-    (fun () ->
-       List.iter
-         (fun (input, output) ->
-            let reset constraints = reset_to_safe_defaults ~constraints in
-            assert_equal (reset (create input)) (create output))
-         [
-           ( 256, 512,1024,2048,4096), ( 256,4096,4096,4096,4096);
-           (4096,2048,1024, 512, 256), ( 256, 256, 256, 256, 256);
-           (1024,1024,1024,1024,1024), (1024,1024,1024,1024,1024);
-         ])
+let test_reset_to_safe_defaults () =
+  List.iter
+    (fun (input, output) ->
+       let reset constraints = C.reset_to_safe_defaults ~constraints in
+       Alcotest.check (Alcotest_comparators.only_compare ()) "same constraints"
+         (reset (create input))
+         (create output))
+    [
+      ( 256, 512,1024,2048,4096), ( 256,4096,4096,4096,4096);
+      (4096,2048,1024, 512, 256), ( 256, 256, 256, 256, 256);
+      (1024,1024,1024,1024,1024), (1024,1024,1024,1024,1024);
+    ]
 
-let tests = make_module_test_suite "VM_memory_constraints"
+let test =
     [
       test_are_pinned_true;
       test_are_pinned_false;
@@ -110,7 +111,6 @@ let tests = make_module_test_suite "VM_memory_constraints"
       test_are_valid_false;
       test_are_valid_and_pinned_at_static_max_true;
       test_are_valid_and_pinned_at_static_max_false;
-      test_reset_to_safe_defaults;
+      "test_reset_to_safe_defaults", `Quick, test_reset_to_safe_defaults;
     ]
 
-let run_from_within_quicktest () = run_from_within_quicktest tests

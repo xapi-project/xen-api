@@ -879,7 +879,6 @@ let _ =
     (fun () ->
        (try
           maybe_run_test "encodings" Quicktest_encodings.run_from_within_quicktest;
-          maybe_run_test "vm-memory-constraints" Quicktest_vm_memory_constraints.run_from_within_quicktest;
           maybe_run_test "pbd-bvt" (fun () -> Quicktest_bvt.start s !rpc);
           maybe_run_test "cbt" (fun () -> Quicktest_cbt.test s);
           maybe_run_test "reconfigure-ip-cluster" (fun () -> Quicktest_cluster.test s);
