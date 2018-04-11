@@ -4949,7 +4949,7 @@ end
 module Cluster = struct
   let pool_create printer rpc session_id params =
     let network_uuid = List.assoc "network-uuid" params in
-    let cluster_stack = get_param params "cluster-stack" ~default:"corosync" in
+    let cluster_stack = get_param params "cluster-stack" ~default:Constants.default_smapiv3_cluster_stack in
     let network = Client.Network.get_by_uuid rpc session_id network_uuid in
     let token_timeout = get_float_param params "token-timeout" ~default:Constants.default_token_timeout_s in
     let token_timeout_coefficient = get_float_param params "token-timeout-coefficient" ~default:Constants.default_token_timeout_coefficient_s in
@@ -4974,7 +4974,7 @@ module Cluster = struct
 
   let create printer rpc session_id params =
     let network_uuid = List.assoc "network-uuid" params in
-    let cluster_stack = get_param params "cluster-stack" ~default:"corosync" in
+    let cluster_stack = get_param params "cluster-stack" ~default:Constants.default_smapiv3_cluster_stack in
     let pool_auto_join = get_bool_param params "pool-auto-join" ~default:true in
     let token_timeout = get_float_param params "token-timeout" ~default:Constants.default_token_timeout_s in
     let token_timeout_coefficient = get_float_param params "token-timeout-coefficient" ~default:Constants.default_token_timeout_coefficient_s in

@@ -148,7 +148,7 @@ let enable ~__context ~self =
 
       let pool = Helpers.get_pool ~__context in
       if Db.Pool.get_ha_enabled ~__context ~self:pool then
-        Db.Pool.set_ha_cluster_stack ~__context ~self:pool ~value:"corosync";
+        Db.Pool.set_ha_cluster_stack ~__context ~self:pool ~value:Constants.default_smapiv3_cluster_stack;
       let ip = ip_of_pif pif in
       let init_config = {
         Cluster_interface.local_ip = ip;

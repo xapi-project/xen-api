@@ -114,7 +114,7 @@ let t =
           "The secret key used by xapi-clusterd when it talks to itself on other hosts"
 
       ; field   ~qualifier:StaticRO ~lifecycle
-          ~ty:String "cluster_stack" ~default_value:(Some (VString "corosync"))
+          ~ty:String "cluster_stack" ~default_value:(Some (VString Constants.default_smapiv3_cluster_stack))
           "Simply the string 'corosync'. No other cluster stacks are currently supported"
 
       ] @ (allowed_and_current_operations cluster_operation) @ [
