@@ -37,7 +37,7 @@ let test_rpc ~__context call =
   | name, params ->
      failwith (Printf.sprintf "Unexpected RPC: %s(%s)" name (String.concat " " (List.map Rpc.to_string params)))
 
-let create_cluster ~__context =
+let create_cluster ~__context ?(cluster_stack=Constants.default_smapiv3_cluster_stack) () =
   Context.set_test_rpc __context (test_rpc ~__context);
   Context.set_test_clusterd_rpc __context (test_clusterd_rpc ~__context);
   let network = Test_common.make_network ~__context () in
@@ -46,22 +46,31 @@ let create_cluster ~__context =
   Db.PIF.set_IP ~__context ~self:pifref ~value:"192.0.2.1";
   Db.PIF.set_currently_attached ~__context ~self:pifref ~value:true;
   Db.PIF.set_disallow_unplug ~__context ~self:pifref ~value:true;
-  Xapi_cluster.create ~__context ~network ~cluster_stack:Constants.default_smapiv3_cluster_stack ~pool_auto_join:true ~token_timeout:1. ~token_timeout_coefficient:1.
+  Xapi_cluster.create ~__context ~network ~cluster_stack ~pool_auto_join:true ~token_timeout:1. ~token_timeout_coefficient:1.
 
 let test_create_destroy_status () =
   let __context = Test_common.make_test_database () in
-  let cluster = create_cluster ~__context in
+  let cluster = create_cluster ~__context () in
   pool_destroy ~__context ~self:cluster
 
 let test_enable () =
   let __context = Test_common.make_test_database () in
-  let cluster = create_cluster ~__context in
+  let cluster = create_cluster ~__context () in
   (* simulate xapi getting restarted *)
 
   Create_storage.maybe_reenable_cluster_host __context;
   pool_destroy ~__context ~self:cluster
 
+let test_invalid_cluster_stack () =
+  let __context = Test_common.make_test_database () in
+  let cluster_stack = "invalid_cluster_stack" in
+  Alcotest.check_raises
+    "Cluster.create should fail upon receiving an invalid cluster stack"
+    Api_errors.(Server_error (invalid_cluster_stack, [ cluster_stack ]))
+    (fun () -> create_cluster ~__context ~cluster_stack () |> ignore)
+
 let test =
   [ "test_create_destroy_service_status", `Quick, test_create_destroy_status
   ; "test_enable", `Quick, test_enable
+  ; "test_invalid_cluster_stack", `Quick, test_invalid_cluster_stack
   ]
