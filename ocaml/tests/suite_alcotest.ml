@@ -29,5 +29,6 @@ let () =
     ; "Test_pvs_proxy", Test_pvs_proxy.test
     ; "Test_clustering", Test_clustering.test
     ; "Test_clustering_allowed_operations", Test_clustering_allowed_operations.test
+    ; "Test_event", Test_event.test
     ]
 
