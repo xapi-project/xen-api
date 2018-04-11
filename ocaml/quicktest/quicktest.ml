@@ -882,7 +882,6 @@ let _ =
           maybe_run_test "vm-memory-constraints" Quicktest_vm_memory_constraints.run_from_within_quicktest;
           maybe_run_test "pbd-bvt" (fun () -> Quicktest_bvt.start s !rpc);
           maybe_run_test "cbt" (fun () -> Quicktest_cbt.test s);
-          maybe_run_test "vm-placement" Quicktest_vm_placement.run_from_within_quicktest;
           maybe_run_test "reconfigure-ip-cluster" (fun () -> Quicktest_cluster.test s);
           maybe_run_test "storage" (fun () -> Quicktest_storage.go s);
           if not !using_unix_domain_socket then maybe_run_test "http" Quicktest_http.run_from_within_quicktest;

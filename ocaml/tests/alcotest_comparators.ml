@@ -1,4 +1,11 @@
 
+(** Creates a [testable] from the given pretty-printer using the polymorphic equality function *)
+let from_to_string pp =
+  Alcotest.testable (Fmt.of_to_string pp) (=)
+
+(** A [testable] that compares values using the polymorphic equality and does not pretty-print them *)
+let only_compare () = from_to_string (fun _ -> "<no pretty-printer>")
+
 (** Only compares the error code of xapi errors and ignores the parameters *)
 let error_code =
   let fmt = Fmt.pair Fmt.string (Fmt.list Fmt.string) in
@@ -7,8 +14,7 @@ let error_code =
 
 (** Creates a [testable] using OCaml's polymorphic equality and [Rpc.t] -> [string] conversion for formatting *)
 let from_rpc_of_t rpc_of =
-  let fmt = Fmt.of_to_string (fun t -> (rpc_of t) |> Rpc.to_string) in
-  Alcotest.testable fmt (=)
+  from_to_string (fun t -> (rpc_of t) |> Rpc.to_string)
 
 let vdi_nbd_server_info = from_rpc_of_t API.rpc_of_vdi_nbd_server_info_t
 
@@ -35,3 +41,12 @@ let ref () =
   let fmt = Fmt.of_to_string Ref.string_of in
   let cmp = (=) in
   Alcotest.testable fmt cmp
+
+let assert_raises_match exception_match fn =
+  try
+    fn ();
+    Alcotest.fail "assert_raises_match: failure expected"
+  with failure ->
+    if not (exception_match failure)
+    then raise failure
+    else ()
