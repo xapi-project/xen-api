@@ -38,9 +38,7 @@ let db_cache_structured_op = from_rpc_of_t Db_cache_types.rpc_of_structured_op_t
 let db_rpc_request = from_rpc_of_t Db_rpc_common_v2.Request.rpc_of_t
 
 let ref () =
-  let fmt = Fmt.of_to_string Ref.string_of in
-  let cmp = (=) in
-  Alcotest.testable fmt cmp
+  from_to_string Ref.string_of
 
 let assert_raises_match exception_match fn =
   try

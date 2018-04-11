@@ -62,9 +62,8 @@ let wait_for_no_vbds_then_destroy ~rpc ~session_id self =
   wait_for_no_vbds ();
   Client.VDI.destroy ~rpc ~session_id ~self
 
-let start session_id sr =
-  let t = make_test "Check VDI.copy delta handling" 1 in
-  start t;
+let start session_id sr_info =
+  let sr = sr_info.Storage_test.sr in
 
   (* Create a 4 MiB disk on src_sr *)
   let original =
@@ -74,7 +73,7 @@ let start session_id sr =
       ~_type:`user ~sharable:false ~read_only:false
       ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[] in
 
-  debug t "Created a 4MiB test disk";
+  print_endline "Created a 4MiB test disk";
 
   (* Upload 1 MiB of 'a' characters: on a .vhd this will consume
      half of a 2 MiB block *)
@@ -87,13 +86,13 @@ let start session_id sr =
        Chunk.marshal fd final;
     );
 
-  debug t "Uploaded 1MiB of 'a's";
+  print_endline "Uploaded 1MiB of 'a's";
 
   (* Snapshot the disk *)
   let snapshot =
     Client.VDI.snapshot ~rpc:!rpc ~session_id ~vdi:original ~driver_params:[] in
 
-  debug t "Snapshotted VDI";
+  print_endline "Snapshotted VDI";
 
   (* Upload a single sector of 'b' characters: on a .vhd this will
      be represented as a block with an almost-empty bitmap. *)
@@ -106,7 +105,7 @@ let start session_id sr =
        Chunk.marshal fd final;
     );
 
-  debug t "Uploaded 1 sector of 'b's";
+  print_endline "Uploaded 1 sector of 'b's";
 
   (* Back up the original snapshot *)
 
@@ -114,48 +113,49 @@ let start session_id sr =
     Client.VDI.copy ~rpc:!rpc ~session_id ~vdi:snapshot ~sr
       ~base_vdi:Ref.null ~into_vdi:Ref.null in
 
-  debug t "Created backup of snapshot full image";
+  print_endline "Created backup of snapshot full image";
 
   (* Back up the differences between the snapshot and the current *)
   let delta_backup =
     Client.VDI.copy ~rpc:!rpc ~session_id ~vdi:original ~sr
       ~base_vdi:snapshot ~into_vdi:Ref.null in
 
-  debug t "Created backup of deltas";
+  print_endline "Created backup of deltas";
 
   (* Consolidate the differences into the snapshot backup *)
   let (_: API.ref_VDI) =
     Client.VDI.copy ~rpc:!rpc ~session_id ~vdi:delta_backup ~sr:Ref.null
       ~base_vdi:Ref.null ~into_vdi:snapshot_backup in
 
-  debug t "Consolidated deltas into full image";
+  print_endline "Consolidated deltas into full image";
 
   (* Download the consolidated image, check the contents match what
      we've written to the original *)
   read_from_vdi ~session_id ~vdi:snapshot_backup
     (fun fd ->
-       let a = Stdext.Unixext.really_read_string fd 512 in
+       let a = Xapi_stdext_unix.Unixext.really_read_string fd 512 in
        for i = 0 to String.length a - 1 do
          if a.[i] <> 'b' then begin
            let msg = Printf.sprintf "VDI offset %d has %c: expected %c" i a.[i] 'b' in
-           failed t msg;
-           failwith msg;
+           Alcotest.fail msg
          end
        done;
-       debug t "First sector is full of 'b's";
-       let b = Stdext.Unixext.really_read_string fd (1024 * 1024 - 512) in
+       print_endline "First sector is full of 'b's";
+       let b = Xapi_stdext_unix.Unixext.really_read_string fd (1024 * 1024 - 512) in
        for i = 0 to String.length b - 1 do
          if b.[i] <> 'a' then begin
            let msg = Printf.sprintf "VDI offset %d has %c: expected %c" i b.[i] 'a' in
-           failed t msg;
-           failwith msg
+           Alcotest.fail msg
          end;
        done;
-       debug t "1MiB - 1 sector is full of 'a's";
+       print_endline "1MiB - 1 sector is full of 'a's";
     );
 
-  debug t "Destroying VDI (cleanup)";
-  List.iter (wait_for_no_vbds_then_destroy ~rpc:!rpc ~session_id) [ original; snapshot; snapshot_backup; delta_backup ];
+  print_endline "Destroying VDI (cleanup)";
+  List.iter (wait_for_no_vbds_then_destroy ~rpc:!rpc ~session_id) [ original; snapshot; snapshot_backup; delta_backup ]
 
-  success t
-
+let tests session_id =
+  let module F = Storage_test.Sr_filter in
+  (* XXX VDI.copy from a base VDI is currently not implemented for GFS2, remove this filter when it is done *)
+  [ "Check VDI.copy delta handling", `Quick, start, F.(allowed_operations [`vdi_create; `vdi_destroy] ||> not_iso ||> not_type "gfs2" )]
+  |> Storage_test.get_test_cases session_id
