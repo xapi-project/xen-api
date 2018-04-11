@@ -437,12 +437,7 @@ let assert_netsriov_available ~__context ~self ~host =
     ) sriov_networks
 
 let assert_host_supports_hvm ~__context ~self ~host =
-  (* For now we say that a host supports HVM if any of    *)
-  (* the capability strings contains the substring "hvm". *)
-  let capabilities = Db.Host.get_capabilities ~__context ~self:host in
-  let host_supports_hvm = List.fold_left (||) false
-      (List.map (fun x -> String.has_substr x "hvm") capabilities) in
-  if not(host_supports_hvm) then
+  if not (Helpers.host_supports_hvm ~__context host) then
     raise (Api_errors.Server_error (Api_errors.vm_hvm_required, [Ref.string_of self]))
 
 let assert_enough_memory_available ~__context ~self ~host ~snapshot =
