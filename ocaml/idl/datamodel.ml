@@ -4015,24 +4015,27 @@ module Event = struct
   let register = call
       ~name:"register"
       ~in_product_since:rel_rio
+      ~internal_deprecated_since:rel_boston
       ~params:[Set String, "classes", "register for events for the indicated classes"]
-      ~doc:"Registers this session with the event system.  Specifying * as the desired class will register for all classes."
+      ~doc:"Registers this session with the event system. Specifying * as the desired class will register for all classes. This method is only recommended for legacy use in conjunction with event.next."
       ~allowed_roles:_R_ALL
       ()
   let unregister = call
       ~name:"unregister"
       ~in_product_since:rel_rio
-      ~params:[Set String, "classes", "remove this session's registration for the indicated classes"]
+      ~internal_deprecated_since:rel_boston
+      ~params:[Set String, "classes", "Removes this session's registration for the indicated classes. This method is only recommended for legacy use in conjunction with event.next."]
       ~doc:"Unregisters this session with the event system"
       ~allowed_roles:_R_ALL
       ()
   let next = call
       ~name:"next" ~params:[]
       ~in_product_since:rel_rio
-      ~doc:"Blocking call which returns a (possibly empty) batch of events. This method is only recommended for legacy use. New development should use event.from which supercedes this method. "
+      ~internal_deprecated_since:rel_boston
+      ~doc:"Blocking call which returns a (possibly empty) batch of events. This method is only recommended for legacy use. New development should use event.from which supercedes this method."
       ~custom_marshaller:true
       ~flags:[`Session]
-      ~result:(Set (Record _event), "the batch of events")
+      ~result:(Set (Record _event), "A set of events")
       ~errs:[Api_errors.session_not_registered;Api_errors.events_lost]
       ~allowed_roles:_R_ALL
       ()
@@ -4047,6 +4050,10 @@ module Event = struct
       ~custom_marshaller:true
       ~flags:[`Session]
       ~result:(Set (Record _event), "the batch of events")
+      (*In reality the event batch is not a set of records as stated here, but rather a structure
+      consisting of a token, a map of valid references per object type, and a set of event records.
+      Due to the difficulty of representing this in the datamodel, the doc is generated manually,
+      so ensure the markdown_backend.ml is updated if something changes. *)
       ~errs:[Api_errors.session_not_registered;Api_errors.events_lost]
       ~allowed_roles:_R_ALL
       ()
@@ -4064,9 +4071,9 @@ module Event = struct
       String, "ref", "A reference to the object that will be changed.";
     ]
       ~in_product_since:rel_tampa
-      ~doc:"Injects an artificial event on the given object and return the corresponding ID"
+      ~doc:"Injects an artificial event on the given object and returns the corresponding ID in the form of a token, which can be used as a point of reference for database events. For example, to check whether an object has reached the right state before attempting an operation, one can inject an artificial event on the object and wait until the token returned by consecutive event.from calls is lexicographically greater than the one returned by event.inject."
       ~flags:[`Session]
-      ~result:(String, "the event ID")
+      ~result:(String, "the event ID in the form of a token")
       ~allowed_roles:_R_ALL
       ()
   (* !!! This should call create_obj ~in_db:true like everything else... !!! *)
@@ -4084,12 +4091,15 @@ module Event = struct
       obj_release = {internal=get_product_releases rel_rio; opensource=get_oss_releases (Some "3.0.3"); internal_deprecated_since=None};
       contents = [
         field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:Int "id" "An ID, monotonically increasing, and local to the current session";
-        field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:DateTime "timestamp" "The time at which the event occurred";
+        field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:DateTime ~internal_deprecated_since:rel_boston "timestamp" "The time at which the event occurred";
         field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String "class" "The name of the class of the object that changed";
         field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:operation "operation" "The operation that was performed";
         field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String "ref" "A reference to the object that changed";
-        field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String "obj_uuid" "The uuid of the object that changed";
+        field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String ~internal_deprecated_since:rel_boston "obj_uuid" "The uuid of the object that changed";
       ];
+      (* As of tampa, the event record has one more field, snapshot, which is the record of the object changed.
+      Due to the difficulty of representing this in the datamodel, the doc is generated manually,
+      so ensure the markdown_backend.ml is updated if something changes. *)
       persist = PersistNothing;
       in_database=false;
       force_custom_actions=None;

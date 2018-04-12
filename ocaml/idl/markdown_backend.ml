@@ -115,7 +115,8 @@ let is_deprecation_marker x =
   match x with | (Deprecated,_,_) -> true | _ -> false
 
 (* Make a markdown section for an API-specified message *)
-let markdown_section_of_message printer ~is_class_deprecated ~is_class_removed x =
+let markdown_section_of_message printer obj ~is_class_deprecated ~is_class_removed x =
+  let is_event_from = (String.lowercase_ascii obj.name) = "event" && (String.lowercase_ascii x.msg_name) = "from" in
   let return_type = of_ty_opt_verbatim x.msg_result in
 
   printer (sprintf "#### RPC name: %s" (escape x.msg_name));
@@ -137,8 +138,12 @@ let markdown_section_of_message printer ~is_class_deprecated ~is_class_removed x
   printer "_Signature:_";
   printer "";
   printer "```";
+  let result =
+    if is_event_from then "<event batch>"
+    else of_ty_opt_verbatim x.msg_result
+  in
   printer (sprintf "%s %s (%s)"
-    (of_ty_opt_verbatim x.msg_result) x.msg_name
+    result x.msg_name
     (String.concat ", "
       ((if x.msg_session then ["session ref session_id"] else []) @
         (List.map (fun p -> of_ty_verbatim p.param_type ^ " " ^ p.param_name) x.msg_params)))
@@ -161,9 +166,14 @@ let markdown_section_of_message printer ~is_class_deprecated ~is_class_removed x
     List.iter (fun p -> printer (get_param_row p)) x.msg_params;
     printer "";
 
-    printer (sprintf "_Return Type:_ `%s`" return_type);
+    printer ("_Return Type:_" ^ (if is_event_from then " an event batch" else sprintf " `%s`" return_type));
     printer "";
-    let descr= desc_of_ty_opt x.msg_result in
+    let descr =
+      if is_event_from then
+        "A structure consisting of a token ('token'), a map of valid references per object type ('valid_ref_counts'), and a set of event records ('events')."
+      else
+        desc_of_ty_opt x.msg_result
+    in
     if descr <> ""  then
       (printer (escape descr);
       printer "")
@@ -201,7 +211,14 @@ let print_field_table_of_obj printer ~is_class_deprecated ~is_class_removed x =
 
     x |> Datamodel_utils.fields_of_obj
     |> List.sort (fun x y -> compare_case_ins (Datamodel_utils.wire_name_of_field x) (Datamodel_utils.wire_name_of_field y))
-    |> List.iter (print_field_content printer)
+    |> List.iter (print_field_content printer);
+
+    if (String.lowercase_ascii x.name) = "event" then
+      printer (sprintf "|%s|`%s`|%s|%s|"
+        (pad_right "snapshot" col_width_20)
+        (pad_right "<object record>" (col_width_20 - 2))
+        (pad_right "_RO/runtime_" col_width_15)
+        (pad_right "The record of the database object that was added, changed or deleted" col_width_40))
   end
 
 let of_obj printer x =
@@ -233,7 +250,7 @@ let of_obj printer x =
   else
     x.messages
     |> List.sort (fun x y -> compare_case_ins x.msg_name y.msg_name)
-    |> List.iter (markdown_section_of_message printer ~is_class_deprecated ~is_class_removed)
+    |> List.iter (markdown_section_of_message printer x ~is_class_deprecated ~is_class_removed)
 
 let print_enum printer = function
   | Enum (name, options) ->
