@@ -831,8 +831,6 @@ let vm_powercycle_test s vm =
 let _ =
   let all_tests = [
     "storage";
-    "vm-placement";
-    "vm-memory-constraints";
     "encodings";
     "http";
     "event";
