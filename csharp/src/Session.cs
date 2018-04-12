@@ -257,10 +257,12 @@ namespace XenAPI
         {
             get
             {
-                if (JsonRpcClient != null && JsonRpcClient.WebProxy != null)
-                    return JsonRpcClient.WebProxy.Credentials;
-                if (proxy.Proxy != null)
-                    return proxy.Proxy.Credentials;
+                if (JsonRpcClient != null)
+                    return JsonRpcClient.WebProxy == null ? null : JsonRpcClient.WebProxy.Credentials;
+
+                if (proxy != null)
+                    return proxy.Proxy == null ? null : proxy.Proxy.Credentials;
+
                 return null;
             }
         }
