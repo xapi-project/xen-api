@@ -76,34 +76,30 @@ let get_local_pcis_and_records ~__context =
 let get_local_pci_refs ~__context =
   get_local ~__context Db.PCI.get_refs_where
 
+let get_phyfn_path pci_rec =
+  let pci_path x = Printf.sprintf "/sys/bus/pci/devices/%s/physfn" x in
+  let path = pci_path pci_rec.Db_actions.pCI_pci_id in
+  try
+    (*if can't read link from the path,then it's a physical function*)
+    Some (Filename.basename (Unix.readlink path))
+  with _ -> None
+
 (** Update pf and vf settings *)
 (* For virtual function record, set field `physical_function` to its PF PCI record *)
 (* For physical function record, set field `functions` to 1 plus number of its virtual functions *)
-let update_pf_vf_relations ~__context ~pcis =
-  let pci_path x = Printf.sprintf "/sys/bus/pci/devices/%s/physfn" x
-  in
-  let get_phyfn_path pci_rec =
-    let path = pci_path pci_rec.Db_actions.pCI_pci_id in
-    try
-      (*if can't read link from the path,then it's a physical function*)
-      Some (Filename.basename (Unix.readlink path))
-    with _ -> None
-  in
-  let set_phyfn (vf_ref, vf_rec, phyfn_path) pfs =
+let update_pf_vf_relations ~__context pfs vfs =
+  let set_phyfn (vf_ref, vf_rec, _, phyfn_path) pfs =
     match phyfn_path with
     | Some phyfn_path ->
       begin
         try
-          let pf, _, _ = List.find (fun (_, pf_rec, _) -> phyfn_path = pf_rec.Db_actions.pCI_pci_id) pfs in
+          let pf, _, _, _ = List.find (fun (_, pf_rec, _, _) -> phyfn_path = pf_rec.Db_actions.pCI_pci_id) pfs in
           if vf_rec.Db_actions.pCI_physical_function <> pf then Db.PCI.set_physical_function ~__context ~self:vf_ref ~value:pf
         with Not_found ->
           error "Failed to find physical function of vf %s" vf_rec.Db_actions.pCI_uuid
       end
     | None -> ()
   in
-  let pfs, vfs = pcis
-                 |> List.map (fun (pci_ref, pci_rec) -> pci_ref, pci_rec, get_phyfn_path pci_rec)
-                 |> List.partition (fun (_, _, phyfn_path) -> phyfn_path = None) in
   (* set physical function for vfs *)
   List.iter (fun vf -> set_phyfn vf pfs) vfs
 
@@ -207,28 +203,33 @@ let update_pcis ~__context =
   let deps = List.map (fun dep -> List.find (fun pci -> pci.address = dep) host_pcis) deps in
   let managed_pcis = List.setify (class_pcis @ deps) in
   let current = update_or_create [] managed_pcis in
+  let pfs, vfs =
+    current
+    |> List.map (fun ((pref, prec), pci) -> pref, prec, pci, get_phyfn_path prec)
+    |> List.partition (fun (_, _, pci, phyfn_path) -> phyfn_path = None)
+  in
 
-  let update_dependencies current =
+  let update_dependencies pfs =
     let rec update = function
       | [] -> ()
-      | ((pref, prec), pci) :: remaining ->
+      | (pref, prec, pci, _) :: remaining ->
         let dependencies = List.map
             (fun address ->
-               let (r, _), _ = List.find (fun ((_, rc), _) -> rc.Db_actions.pCI_pci_id = address) current
+               let r, _, _, _ = List.find (fun (_, rc, _, _) -> rc.Db_actions.pCI_pci_id = address) pfs
                in r)
             pci.related
         in
         Db.PCI.set_dependencies ~__context ~self:pref ~value:dependencies;
         update remaining
     in
-    update current
+    update pfs
   in
-  update_dependencies current;
+  update_dependencies pfs;
 
   let current = List.map (fun ((pref, prec), _) -> pref, prec) current in
   let obsolete = List.set_difference existing current in
   List.iter (fun (self, _) -> Db.PCI.destroy ~__context ~self) obsolete;
-  update_pf_vf_relations ~__context ~pcis:current
+  update_pf_vf_relations ~__context pfs vfs
 
 let with_vga_arbiter ~readonly f =
   Unixext.with_file
