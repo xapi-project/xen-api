@@ -540,8 +540,9 @@ let is_slave ~__context ~host = not (Pool_role.is_master ())
 
 let ask_host_if_it_is_a_slave ~__context ~host =
   let local_fn = is_slave ~host in
-  Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn ~__context
-	~host (fun session_id rpc -> Client.Client.Pool.is_slave rpc session_id host)
+  Server_helpers.exec_with_subtask ~__context "host.ask_host_if_it_is_a_slave" (fun ~__context ->
+    (Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn ~__context
+      ~host (fun session_id rpc -> Client.Client.Pool.is_slave rpc session_id host)))
 
 let is_host_alive ~__context ~host =
   (* If the host is marked as not-live then assume we don't need to contact it to verify *)

@@ -990,8 +990,9 @@ let hello ~__context ~host_uuid ~host_address =
 	(* Nb. next call is purely there to establish that we can talk back to the host that initiated this call *)
 	(* We don't care about the return type, only that no exception is raised while talking to it *)
 	(try
-	   ignore(Message_forwarding.do_op_on_nolivecheck_no_retry ~local_fn ~__context ~host:host_ref 
-		    (fun session_id rpc -> Client.Pool.is_slave rpc session_id host_ref))
+         ignore(Server_helpers.exec_with_subtask ~__context "pool.hello.is_slave" (fun ~__context ->
+             (Message_forwarding.do_op_on_nolivecheck_no_retry ~local_fn ~__context ~host:host_ref
+                  (fun session_id rpc -> Client.Pool.is_slave rpc session_id host_ref))))
 	 with Api_errors.Server_error(code, [ "pool.is_slave"; "1"; "2" ]) as e when code = Api_errors.message_parameter_count_mismatch ->
  	   debug "Caught %s: this host is a Rio box" (ExnHelper.string_of_exn e)
 	 | Api_errors.Server_error(code, _) as e when code = Api_errors.host_still_booting ->
