@@ -270,12 +270,12 @@ let test_clustering_lock_only_taken_if_needed =
   ]
 
 let test_assert_pif_prerequisites () =
-  let __context = Test_common.make_test_database () in
-  let network = Test_common.make_network ~__context () in
+  let __context = T.make_test_database () in
+  let network = T.make_network ~__context () in
   let localhost = Helpers.get_localhost ~__context in
-  let (_cluster, _cluster_host) = Test_common.make_cluster_and_cluster_host ~__context ~network ~host:localhost () in
+  let (_cluster, _cluster_host) = T.make_cluster_and_cluster_host ~__context ~network ~host:localhost () in
   let exn = "we_havent_decided_on_the_exception_yet" in
-  let pifref = Test_common.make_pif ~__context ~network ~host:localhost () in
+  let pifref = T.make_pif ~__context ~network ~host:localhost () in
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
   Alcotest.check_raises
     "test_assert_pif_prerequisites should fail at first"
@@ -324,14 +324,14 @@ let check_disallow_unplug expected_value __context pif msg =
 
 (* Need host and network to make PIF *)
 let make_host_network_pif ~__context =
-  let host = Test_common.make_host ~__context () in
-  let network = Test_common.make_network ~__context () in
-  let pif = Test_common.make_pif ~__context ~network ~host () in
+  let host = T.make_host ~__context () in
+  let network = T.make_network ~__context () in
+  let pif = T.make_pif ~__context ~network ~host () in
   (host, network, pif)
 
 (* Test PIF.set_disallow_unplug without cluster/cluster_host objects *)
 let test_disallow_unplug_no_clustering () =
-  let __context = Test_common.make_test_database () in
+  let __context = T.make_test_database () in
   let host,network,pif = make_host_network_pif ~__context in
 
   (* Test toggling disallow_unplug when disallow_unplug:false by default *)
@@ -342,7 +342,7 @@ let test_disallow_unplug_no_clustering () =
     "check_disallow_unplug called by test_disallow_unplug_no_clustering after setting disallow_unplug:true";
 
   (* Test toggling disallow_unplug when initialised to true *)
-  let pif_no_unplug = Test_common.make_pif ~__context ~network ~host ~disallow_unplug:true () in
+  let pif_no_unplug = T.make_pif ~__context ~network ~host ~disallow_unplug:true () in
   check_disallow_unplug true __context pif_no_unplug
     "check_disallow_unplug called by test_disallow_unplug_no_clustering when initialising disallow_unplug:true";
   Xapi_pif.set_disallow_unplug ~__context ~self:pif_no_unplug ~value:false;
@@ -350,7 +350,7 @@ let test_disallow_unplug_no_clustering () =
     "check_disallow_unplug called by test_disallow_unplug_no_clustering after setting disallow_unplug:false"
 
 let test_disallow_unplug_with_clustering () =
-  let __context = Test_common.make_test_database () in
+  let __context = T.make_test_database () in
   let host,network,pif = make_host_network_pif ~__context in
   check_disallow_unplug false __context pif
     "check_disallow_unplug called by test_disallow_unplug_with_clustering to check default config";
@@ -361,7 +361,7 @@ let test_disallow_unplug_with_clustering () =
     "check_disallow_unplug called by test_disallow_unplug_with_clustering after setting disallow_unplug:true";
 
   (* PIF.disallow_unplug should become RO upon introduce cluster_host object, should throw exception when changing value *)
-  let _ = Test_common.make_cluster_and_cluster_host ~__context ~network ~host () in
+  let _ = T.make_cluster_and_cluster_host ~__context ~network ~host () in
   Alcotest.check_raises
     "check_disallow_unplug called by test_disallow_unplug_with_clustering after attaching cluster and cluster_host to network"
     (Api_errors.(Server_error(clustering_enabled_on_network, [Ref.string_of network])))
@@ -376,12 +376,210 @@ let test_disallow_unplug_ro_with_clustering_enabled =
   ; "test_disallow_unplug_with_clustering", `Quick, test_disallow_unplug_with_clustering
   ]
 
+let default = !Xapi_globs.cluster_stack_default
+let default_smapiv3 = Constants.default_smapiv3_cluster_stack
+let test_default = "default_sm_stack_value_used_in_place_of_xhad"
+
+let choose_cluster_stack_should_select cluster_stack ~__context =
+  Alcotest.(check string) "choose_cluster_stack"
+  cluster_stack
+  (Cluster_stack_constraints.choose_cluster_stack ~__context)
+
+let choose_cluster_stack_should_fail_with_conflict ~__context =
+  Alcotest.check_raises
+    "choose_cluster_stack should fail with different cluster_stacks provided"
+    (Failure "Conflicting cluster stack demands.")
+    (fun () -> Cluster_stack_constraints.choose_cluster_stack ~__context |> ignore)
+
+(* Choose_cluster_stack looks at SM types and their required_cluster_stacks
+ * If any SRs of matching type are found, the first corresponding cluster_stack is returned,
+ * If no SRs are found it returns the existing cluster's stack, otherwise it returns the
+ * default cluster_stack in Xapi_globs *)
+
+let test_choose_cluster_stack_clusters_no_sms () =
+  let __context = T.make_test_database () in
+  choose_cluster_stack_should_select default ~__context;
+
+  (* Add two cluster, test choose_cluster_stack's filtering *)
+  for i = 0 to 1 do
+    let _ = T.make_cluster_and_cluster_host ~__context () in
+    choose_cluster_stack_should_select default_smapiv3 ~__context
+  done
+
+let create_and_plug_sr ~_type ~__context () =
+  let host = Helpers.get_localhost ~__context in (* plug to master *)
+  let sR : API.ref_SR = T.make_sr ~__context ~_type () in
+  let _  : API.ref_PBD = T.make_pbd ~__context ~host ~currently_attached:true ~sR () in
+  sR
+
+let test_choose_cluster_stack_sms_no_clusters () =
+  let __context = T.make_test_database () in
+
+  (* create SMs with cluster_stack constraints *)
+  let _  : API.ref_SM = T.make_sm ~__context ~_type:"sm" ~required_cluster_stack:[ test_default ] () in
+  let _  : API.ref_SM = T.make_sm ~__context ~_type:"nfs" ~required_cluster_stack:[] () in
+  let _  : API.ref_SM = T.make_sm ~__context ~_type:"ext" ~required_cluster_stack:[ default_smapiv3 ; default ] () in
+
+  let sm_sr = create_and_plug_sr ~_type:"sm" ~__context () in
+  choose_cluster_stack_should_select test_default ~__context;
+
+  (* New SR doesn't add additional constraints as NFS SM has no required_cluster_stacks *)
+  let _ = create_and_plug_sr ~_type:"nfs" ~__context () in
+  choose_cluster_stack_should_select test_default ~__context;
+
+  (* No common required cluster stack between EXT and SM types *)
+  let _ = create_and_plug_sr ~_type:"ext" ~__context () in
+  choose_cluster_stack_should_fail_with_conflict ~__context;
+
+  (* Remove conflict, now first LVM stack will be selected *)
+  begin match Db.SR.get_PBDs ~__context ~self:sm_sr with
+  | [ pBD ] ->
+    Db.PBD.set_currently_attached ~__context ~self:pBD ~value:false;
+    Db.SR.destroy ~__context ~self:sm_sr
+  | _ -> Alcotest.fail "only one PBD should be plugged into this SR"
+  end;
+  choose_cluster_stack_should_select default_smapiv3 ~__context;
+
+  (* default_smapiv3 is the only common cluster stack *)
+  let _  : API.ref_SM = T.make_sm ~__context ~_type:"hba" ~required_cluster_stack:[ test_default ; default_smapiv3 ] () in
+  let _ = create_and_plug_sr ~_type:"hba" ~__context () in
+  choose_cluster_stack_should_select default_smapiv3 ~__context;
+
+  let _  : API.ref_SM = T.make_sm ~__context ~_type:"gfs2" ~required_cluster_stack:[ default_smapiv3 ; default_smapiv3 ] () in
+  let _ = create_and_plug_sr ~_type:"gfs2" ~__context () in
+  choose_cluster_stack_should_select default_smapiv3 ~__context;
+
+  let _ = create_and_plug_sr ~_type:"type_not_in_sm_table" ~__context () in
+  Alcotest.check_raises
+    "choose_cluster_stack should fail when checking SR with no matching SM type"
+    (Failure "SR type not found in SM table.")
+    (fun () -> Cluster_stack_constraints.choose_cluster_stack ~__context |> ignore)
+
+let test_choose_cluster_stack_with_sms_and_clusters () =
+  let __context = T.make_test_database () in
+  let _ = T.make_cluster_and_cluster_host ~__context ~cluster_stack:default_smapiv3 () in
+  let _  : API.ref_SM = T.make_sm ~__context ~_type:"ext" ~required_cluster_stack:[ test_default ] () in
+  let _ = create_and_plug_sr ~_type:"ext" ~__context () in
+  choose_cluster_stack_should_select test_default ~__context
+
+let test_choose_cluster_stack =
+  [ "test_choose_cluster_stack_clusters_no_sms", `Quick, test_choose_cluster_stack_clusters_no_sms
+  ; "test_choose_cluster_stack_with_sms_and_clusters", `Quick, test_choose_cluster_stack_with_sms_and_clusters
+  ; "test_choose_cluster_stack_sms_no_clusters", `Quick, test_choose_cluster_stack_sms_no_clusters
+  ]
+
+let get_ha_cluster_stack ~__context =
+  Db.Pool.get_ha_cluster_stack ~__context ~self:(Helpers.get_pool ~__context)
+
+let assert_cluster_stack_is cluster_stack ~__context =
+  Alcotest.(check string)
+    "Pool's ha_cluster_stacks"
+    cluster_stack
+    (get_ha_cluster_stack ~__context)
+
+let test_pool_ha_cluster_stacks_no_ha_no_clustering () =
+  let __context = T.make_test_database () in
+  (* HA disabled by default *)
+  assert_cluster_stack_is default ~__context
+
+let get_only_cluster_host ~__context : API.ref_Cluster_host =
+  match Db.Cluster_host.get_all ~__context with
+  | [ cluster_host ] -> cluster_host
+  | lst ->
+    let nodes = lst |> List.length |> string_of_int in
+    raise Api_errors.(Server_error (cluster_does_not_have_one_node, [ nodes ]))
+
+let test_pool_ha_cluster_stacks_no_ha_with_clustering () =
+  (* Test that cluster creation and destruction set
+   * HA cluster stacks even when HA is disabled *)
+  let __context = T.make_test_database () in
+  assert_cluster_stack_is default ~__context;
+  let cluster = Test_cluster.create_cluster ~__context () in
+  assert_cluster_stack_is default_smapiv3 ~__context;
+
+  (* Cluster host operations shouldn't set stacks *)
+  let cluster_host = get_only_cluster_host ~__context in
+  Xapi_cluster_host.enable ~__context ~self:cluster_host;
+  assert_cluster_stack_is default_smapiv3 ~__context;
+  Xapi_cluster_host.disable ~__context ~self:cluster_host;
+  assert_cluster_stack_is default_smapiv3 ~__context;
+
+  (* Cluster lifecycle operations should set stack *)
+  Xapi_cluster.destroy ~__context ~self:cluster;
+  assert_cluster_stack_is default ~__context
+
+(* Toggling HA without clustering shouldn't change the stack *)
+let test_pool_ha_cluster_stacks_with_ha_no_clustering () =
+  let __context = T.make_test_database () in
+  let pool = Helpers.get_pool ~__context in
+  assert_cluster_stack_is default ~__context;
+  Db.Pool.set_ha_enabled ~__context ~self:pool ~value:true;
+  assert_cluster_stack_is default ~__context;
+  Db.Pool.set_ha_enabled ~__context ~self:pool ~value:false;
+  assert_cluster_stack_is default ~__context
+
+(* Note: this test uses Test_cluster.create_cluster, which sets up
+ * a mock RPC and clusterd, enabling other Xapi_cluster(_host) calls *)
+let test_pool_ha_cluster_stacks_with_ha_with_clustering () =
+  let __context = T.make_test_database () in
+
+  (* Cluster.create with HA enabled should set cluster stack *)
+  let pool = Helpers.get_pool ~__context in
+  Db.Pool.set_ha_enabled ~__context ~self:pool ~value:true;
+  let cluster = Test_cluster.create_cluster ~__context () in
+  assert_cluster_stack_is default_smapiv3 ~__context;
+
+  (* Cluster_host enable/disable shouldn't affect stack *)
+  let cluster_host = get_only_cluster_host ~__context in
+  Xapi_cluster_host.enable ~__context ~self:cluster_host;
+  assert_cluster_stack_is default_smapiv3 ~__context;
+  Xapi_cluster_host.disable ~__context ~self:cluster_host;
+  assert_cluster_stack_is default_smapiv3 ~__context;
+
+  (* Disabling HA while a cluster exists should not reset the stack *)
+  Db.Pool.set_ha_enabled ~__context ~self:pool ~value:false;
+  assert_cluster_stack_is default_smapiv3 ~__context;
+
+  (* Cluster.destroy should set HA cluster stack with HA disabled *)
+  Xapi_cluster_host.enable ~__context ~self:cluster_host;
+  Xapi_cluster_host.destroy ~__context ~self:cluster_host;
+  Xapi_cluster.destroy ~__context ~self:cluster;
+  (* Cluster.destroy should reset HA cluster stacks *)
+  assert_cluster_stack_is default ~__context;
+
+  let cluster2 = Test_cluster.create_cluster ~__context () in
+  let cluster_host2 = get_only_cluster_host ~__context in
+  (* With default_smapiv3 set, test Cluster_host.enable/disable doesn't affect stacks *)
+  Xapi_cluster_host.enable ~__context ~self:cluster_host2;
+  assert_cluster_stack_is default_smapiv3 ~__context;
+  Xapi_cluster_host.disable ~__context ~self:cluster_host2;
+  assert_cluster_stack_is default_smapiv3 ~__context;
+
+  Db.Pool.set_ha_enabled ~__context ~self:pool ~value:true;
+  Xapi_cluster_host.force_destroy ~__context ~self:cluster_host2;
+  assert_cluster_stack_is default_smapiv3 ~__context;
+  Xapi_cluster.destroy ~__context ~self:cluster2;
+  assert_cluster_stack_is default ~__context
+
+
+let test_pool_ha_cluster_stacks =
+  [ "test_pool_ha_cluster_stacks_no_ha_no_clustering", `Quick, test_pool_ha_cluster_stacks_no_ha_no_clustering
+  ; "test_pool_ha_cluster_stacks_no_ha_with_clustering", `Quick, test_pool_ha_cluster_stacks_no_ha_with_clustering
+  ; "test_pool_ha_cluster_stacks_with_ha_no_clustering", `Quick, test_pool_ha_cluster_stacks_with_ha_no_clustering
+  ; "test_pool_ha_cluster_stacks_with_ha_with_clustering", `Quick, test_pool_ha_cluster_stacks_with_ha_with_clustering
+  ]
+
+
 let test =
   ( test_get_required_cluster_stacks
   @ test_find_cluster_host
   @ test_assert_cluster_host_enabled
   @ test_assert_cluster_host_is_enabled_for_matching_sms
-  @ test_clustering_lock_only_taken_if_needed
   @ test_assert_pif_prerequisites
   @ test_disallow_unplug_ro_with_clustering_enabled
+  @ test_choose_cluster_stack
+  @ test_pool_ha_cluster_stacks
+  (* NOTE: lock test hoards the mutex and should thus always be last,
+   * otherwise any other functions trying to use the lock will hang *)
+  @ test_clustering_lock_only_taken_if_needed
   )

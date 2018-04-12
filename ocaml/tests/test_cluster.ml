@@ -14,12 +14,14 @@
 
 open Xapi_cluster
 
+(** NOTE: This mock rpc is also used by tests in test_clustering *)
+
 let test_clusterd_rpc ~__context call =
   let token = "test_token" in
   match call.Rpc.name, call.Rpc.params with
   | "create", _ ->
      Rpc.{success = true; contents = Rpc.String token }
-  | ("enable" | "disable" | "destroy"), _ ->
+  | ("enable" | "disable" | "destroy" | "leave"), _ ->
      Rpc.{success = true; contents = Rpc.Null }
   | name, params ->
      failwith (Printf.sprintf "Unexpected RPC: %s(%s)" name (String.concat " " (List.map Rpc.to_string params)))
