@@ -89,12 +89,12 @@ let update_pf_vf_relations ~__context ~pcis =
       Some (Filename.basename (Unix.readlink path))
     with _ -> None
   in
-  let set_phyfn (vf_ref, vf_rec, phyfn_path) pfs =
+  let set_phyfn (vf_ref, (vf_rec, phyfn_path)) pfs =
     match phyfn_path with
     | Some phyfn_path ->
       begin
         try
-          let pf, _, _ = List.find (fun (_, pf_rec, _) -> phyfn_path = pf_rec.Db_actions.pCI_pci_id) pfs in
+          let pf, (_, _) = List.find (fun (_, (pf_rec, _)) -> phyfn_path = pf_rec.Db_actions.pCI_pci_id) pfs in
           if vf_rec.Db_actions.pCI_physical_function <> pf then Db.PCI.set_physical_function ~__context ~self:vf_ref ~value:pf
         with Not_found ->
           error "Failed to find physical function of vf %s" vf_rec.Db_actions.pCI_uuid
@@ -102,8 +102,19 @@ let update_pf_vf_relations ~__context ~pcis =
     | None -> ()
   in
   let pfs, vfs = pcis
-                 |> List.map (fun (pci_ref, pci_rec) -> pci_ref, pci_rec, get_phyfn_path pci_rec)
-                 |> List.partition (fun (_, _, phyfn_path) -> phyfn_path = None) in
+                 |> List.map (fun (pci_ref, pci_rec) -> pci_ref, (pci_rec, get_phyfn_path pci_rec))
+                 |> List.partition (fun (_, (_, phyfn_path)) -> phyfn_path = None)
+  in
+  List.iter (fun (vf, (_, _)) ->
+      (*The PCI bus path of SR-IOV VFs have the same function number, but actually different VFs do not have
+      PCI dependencies with each other. So here we remove dependencies of VFs from the same PF*)
+      let pruned_dependencies =
+        List.filter (fun dependency ->
+            not (List.mem_assoc dependency vfs))
+          (Db.PCI.get_dependencies ~__context ~self:vf)
+      in
+      Db.PCI.set_dependencies ~__context ~self:vf ~value:pruned_dependencies
+    ) vfs;
   (* set physical function for vfs *)
   List.iter (fun vf -> set_phyfn vf pfs) vfs
 
