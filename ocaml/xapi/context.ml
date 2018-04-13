@@ -141,9 +141,6 @@ let check_for_foreign_database ~__context =
 
 (** destructors *)
 let destroy __context =
-  let debug = if __context.task_in_database then Real.debug else Dummy.debug in
-  if __context.forwarded_task
-  then debug "forwarded task destroyed";
   if not __context.forwarded_task
   then !__destroy_task ~__context __context.task_id
 
