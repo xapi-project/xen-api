@@ -2121,8 +2121,13 @@ module Backend = struct
                                  Qmp.(other |> as_msg |> string_of_message))) in
                  finally
                    (fun () ->
-                      let path = sprintf "/dev/fdset/%d" fd_info.Qmp.fdset_id in
-                      let cmd  = Qmp.(Blockdev_change_medium (cd, path)) in
+                      let path   = sprintf "/dev/fdset/%d" fd_info.Qmp.fdset_id in
+                      let medium = Qmp.
+                        { medium_device   = cd
+                        ; medium_filename = path
+                        ; medium_format   = Some "raw"
+                        } in
+                      let cmd  = Qmp.(Blockdev_change_medium medium) in
                       qmp_send_cmd domid cmd |> ignore)
                    (fun () ->
                       let cmd = Qmp.(Remove_fd fd_info.fdset_id) in
