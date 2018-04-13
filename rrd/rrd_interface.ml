@@ -56,10 +56,13 @@ type interdomain_uid =
  * already been defined as RPC types in their original declarations
  * so we are able to derive these type aliases like so *)
 
-type rrd_freq = Rrd.sampling_frequency
+type rrd_freq = Rrd.sampling_frequency = Five_Seconds
 [@@deriving rpcty]
 
-type sflat_lst = Rrd.Statefile_latency.t list
+type statefile_latency = Rrd.Statefile_latency.t = { id: string; latency: float option }
+[@@deriving rpcty]
+
+type sflat_lst = statefile_latency list
 [@@deriving rpcty]
 
 (** Domain database sampling info *)
@@ -91,6 +94,7 @@ exception Rrdd_error of rrd_errors
 module RrdErrHandler = Error.Make(struct
     type t = rrd_errors
     let t  = rrd_errors
+    let internal_error_of e = Some (Rrdd_internal_error (Printexc.to_string e))
   end)
 let rrd_err = Error.{ def     = rrd_errors
                     ; raiser  = (fun e -> raise (Rrdd_error e))
