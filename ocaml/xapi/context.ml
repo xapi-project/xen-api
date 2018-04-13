@@ -59,9 +59,6 @@ let forwarded_task ctx =
 let get_task_id ctx =
   ctx.task_id
 
-let get_task_id_string_name ctx =
-  (Ref.string_of ctx.task_id, ctx.task_name)
-
 let task_in_database ctx =
   ctx.task_in_database
 
@@ -89,13 +86,6 @@ let is_unix_socket s =
   match Unix.getpeername s with
     Unix.ADDR_UNIX _ -> true
   | Unix.ADDR_INET _ -> false
-
-(** Calls coming directly into xapi on port 80 from remote IPs are unencrypted *)
-let is_unencrypted s =
-  match Unix.getpeername s with
-  | Unix.ADDR_UNIX _ -> false
-  | Unix.ADDR_INET (addr, _) when addr = Unix.inet_addr_loopback -> false
-  | Unix.ADDR_INET _ -> true
 
 let default_database () =
   if Pool_role.is_master ()

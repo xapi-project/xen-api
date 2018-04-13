@@ -69,8 +69,6 @@ val forwarded_task : t -> bool
 
 val string_of_task : t -> string
 
-val get_task_id_string_name : t -> string * string
-
 (** [task_in_database __context] indicates if [get_task_id __context] corresponds to a task stored in database or
     to a dummy task. *)
 val task_in_database : t -> bool
@@ -96,9 +94,6 @@ val destroy : t -> unit
 
 (** [is_unix_socket fd] *)
 val is_unix_socket : Unix.file_descr -> bool
-
-(** [is_unencrypted fd] returns true if the calling connection is not encrypted *)
-val is_unencrypted : Unix.file_descr -> bool
 
 (** [preauth ~__context] *)
 val preauth : __context:t -> bool
