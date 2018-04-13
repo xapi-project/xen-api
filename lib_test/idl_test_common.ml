@@ -27,13 +27,38 @@ let read_str filename =
 
 open Idl
 
-module type PATHS = sig
+module type CONFIG = sig
   val test_data_path : string
   (** Path under which we look for or generate requests and responses. For example,
       if test_data_path = 'foo', this module will search for or generate requests
       matching 'foo/requests/<RPC name>.request.<n>' and responses matching
       'foo/responses/<RPC name>.response.<n>' *)
 end
+
+module type MARSHALLER = sig
+  val string_of_call : Rpc.call -> string
+  val call_of_string : string -> Rpc.call
+  val string_of_response : Rpc.response -> string
+  val response_of_string : string -> Rpc.response
+  val to_string : Rpc.t -> string
+  val of_string : string -> Rpc.t
+end
+
+(* Slightly annoyingly, both RPC modules have a slightly different signature. Fix it here *)
+module TJsonrpc : MARSHALLER = struct
+  include Jsonrpc
+  let string_of_call call = string_of_call call
+  let string_of_response response = string_of_response response
+end
+
+module TXmlrpc : MARSHALLER = struct
+  include Xmlrpc
+  let call_of_string s = call_of_string s
+  let response_of_string s = response_of_string s
+  let of_string s = of_string s
+end
+
+
 
 (** The following module implements test cases that write test
     RPC requests and responses in JSON that can be used to
@@ -45,8 +70,8 @@ end
     this module.
 
     The test data will be written to the path specified in the
-    PATH module passed in *)
-module GenTestData (P:PATHS) = struct
+    CONFIG module passed in *)
+module GenTestData (C:CONFIG) (M:MARSHALLER) = struct
   type implementation = unit Alcotest.test_case list ref
 
   let tests : unit Alcotest.test_case list ref = ref []
@@ -62,6 +87,8 @@ module GenTestData (P:PATHS) = struct
 
   let returning a err = Returning (a, err)
   let (@->) = fun t f -> Function (t, f)
+
+  open M
 
   let declare name _ ty =
     let rec inner : type b. (((string * Rpc.t) list * Rpc.t list) list) -> b fn -> unit = fun params ->
@@ -85,25 +112,25 @@ module GenTestData (P:PATHS) = struct
           let call = Rpc.call wire_name args in
           call) params in
         List.iteri (fun i call ->
-          let request_str = Jsonrpc.string_of_call call in
+          let request_str = string_of_call call in
           write_str
-            (Printf.sprintf "%s/requests/%s.request.%d" P.test_data_path wire_name i)
+            (Printf.sprintf "%s/requests/%s.request.%d" C.test_data_path wire_name i)
             request_str) calls;
         let vs = Rpc_genfake.genall 2 (match t.Param.name with Some n -> n | None -> t.Param.typedef.Rpc.Types.name) t.Param.typedef.Rpc.Types.ty in
         let marshalled_vs = List.map (fun v -> Rpc.success (Rpcmarshal.marshal t.Param.typedef.Rpc.Types.ty v)) vs in
         let errs = Rpc_genfake.genall 2 "error" e.Error.def.Rpc.Types.ty in
         let marshalled_errs = List.map (fun err -> Rpc.failure (Rpcmarshal.marshal e.Error.def.Rpc.Types.ty err)) errs in
         List.iteri (fun i response ->
-          let response_str = Jsonrpc.string_of_response response in
+          let response_str = string_of_response response in
           write_str
-            (Printf.sprintf "%s/responses/%s.response.%d" P.test_data_path wire_name i)
+            (Printf.sprintf "%s/responses/%s.response.%d" C.test_data_path wire_name i)
             response_str) (marshalled_vs @ marshalled_errs)
     in
     let test_fn () =
       let mkdir_safe p = begin try Unix.mkdir p 0o755 with Unix.Unix_error (EEXIST, _, _) -> () end in
-      mkdir_safe P.test_data_path;
-      mkdir_safe (Printf.sprintf "%s/requests" P.test_data_path);
-      mkdir_safe (Printf.sprintf "%s/responses" P.test_data_path);
+      mkdir_safe C.test_data_path;
+      mkdir_safe (Printf.sprintf "%s/requests" C.test_data_path);
+      mkdir_safe (Printf.sprintf "%s/responses" C.test_data_path);
       inner [[],[]] ty in
     tests := (Printf.sprintf "Generate test data for '%s'" (Idl.get_wire_name !description name), `Quick, test_fn) :: !tests
 end
@@ -138,7 +165,7 @@ exception MarshalError of string
 (** The following module will generate alcotest test cases to verify
     that a set of requests and responses can be successfully parsed.
 
-    The PATHS module specifies the location for the test data as
+    The CONFIG module specifies the location for the test data as
     `test_data_path`. Requests and responses will be looked up in
     this location in the subdirectories `requests` and `responses`.
     The actual data must be in files following the naming convention
@@ -148,7 +175,7 @@ exception MarshalError of string
     ensure it accurately represents how the server would parse the
     json.
     *)
-module TestOldRpcs (P : PATHS) = struct
+module TestOldRpcs (C : CONFIG) (M : MARSHALLER) = struct
   open Rpc
   type implementation = unit Alcotest.test_case list ref
 
@@ -166,6 +193,8 @@ module TestOldRpcs (P : PATHS) = struct
 
   let returning a b = Returning (a,b)
   let (@->) = fun t f -> Function (t, f)
+
+  open M
 
   let rec has_named_args : type a. a fn -> bool =
     function
@@ -191,13 +220,13 @@ module TestOldRpcs (P : PATHS) = struct
     let rec read_all path extension i =
       try
         let call =
-          read_str (Printf.sprintf "%s/%s/%s.%s.%d" P.test_data_path path wire_name extension i) in
+          read_str (Printf.sprintf "%s/%s/%s.%s.%d" C.test_data_path path wire_name extension i) in
         call :: read_all path extension (i+1)
       with _ -> []
     in
 
-    let calls = read_all "requests" "request" 0 |> List.map Jsonrpc.call_of_string in
-    let responses = read_all "responses" "response" 0 |> List.map Jsonrpc.response_of_string in
+    let calls = read_all "requests" "request" 0 |> List.map call_of_string in
+    let responses = read_all "responses" "response" 0 |> List.map response_of_string in
 
     let verify : type a. a Rpc.Types.typ -> Rpc.t -> a = fun typ rpc ->
       match Rpcmarshal.unmarshal typ rpc with
@@ -205,8 +234,8 @@ module TestOldRpcs (P : PATHS) = struct
         let check = Rpcmarshal.marshal typ x in
         if check <> rpc then begin
           let err = Printf.sprintf "Round-trip failed. Before: '%s' After: '%s'"
-            (Jsonrpc.to_string rpc)
-            (Jsonrpc.to_string check) in
+            (to_string rpc)
+            (to_string check) in
           raise (MarshalError err)
         end;
         x
