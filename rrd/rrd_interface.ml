@@ -178,12 +178,12 @@ module RPC_API(R : RPC) = struct
 
 
   let send_host_rrd_to_master =
-    let mast_addr_str = Param.mk ~name:"master address" ~description:[ "Address of remote" ] Types.string in
+    let mast_addr_str = Param.mk ~name:"master_address" ~description:[ "Address of remote" ] Types.string in
     declare "send_host_rrd_to_master"
       [ "Sends host rrd data to master" ]
       (mast_addr_str @-> returning unit_p rrd_err)
 
-  let rem_addr_opt_p = Param.mk ~name:"remote address" ~description:[ "Address of the remote" ] string_opt
+  let rem_addr_opt_p = Param.mk ~name:"remote_address" ~description:[ "Address of the remote" ] string_opt
   let backup_rrds = declare "backup_rrds"
       [ "Backs up rrd data" ]
       (rem_addr_opt_p @-> unit_p @-> returning unit_p rrd_err)
@@ -279,26 +279,26 @@ module RPC_API(R : RPC) = struct
     let info_p     = Param.mk ~name:"info"     ~description:[ "Interdomain info" ]        interdomain_info
     let protocol_p = Param.mk ~name:"protocol" ~description:[ "Plugin protocol version" ] plugin_protocol
 
-    let get_header = declare "get_header"
+    let get_header = declare "Plugin.get_header"
         [ "Returns header string." ]
         (unit_p @-> returning string_p rrd_err)
 
-    let get_path = declare "get_path"
+    let get_path = declare "Plugin.get_path"
         [ "Returns path of protocol." ]
         (uid_p @-> returning string_p rrd_err)
 
     module Local = struct
       let register =
         let info_p = Param.mk ~name:"info" ~description:[ "Local rrd info" ] rrd_freq in
-        declare "register"
+        declare "Plugin.Local.register"
           [ "docstring" ]
           (uid_p @-> info_p @-> protocol_p @-> returning float_p rrd_err)
 
-      let deregister = declare "deregister"
+      let deregister = declare "Plugin.Local.deregister"
         [ "docstring" ]
         (uid_p @-> returning unit_p rrd_err)
 
-      let next_reading = declare "next_reading"
+      let next_reading = declare "Plugin.Local.next_reading"
         [ "docstring" ]
         (uid_p @-> returning float_p rrd_err)
     end
@@ -308,30 +308,30 @@ module RPC_API(R : RPC) = struct
       let iduid_p = Param.mk ~name:"uid" ~description:[ "Interdomain ID" ] interdomain_uid
 
       let register =
-        declare "register"
+        declare "Plugin.Interdomain.register"
           [ "docstring" ]
           (iduid_p @-> info_p @-> protocol_p @-> returning float_p rrd_err)
 
-      let deregister = declare "deregister"
+      let deregister = declare "Plugin.Interdomain.deregister"
         [ "docstring" ]
         (iduid_p @-> returning unit_p rrd_err)
 
-      let next_reading = declare "next_reading"
+      let next_reading = declare "Plugin.Interdomain.next_reading"
         [ "docstring" ]
         (iduid_p @-> returning float_p rrd_err)
     end
 
     let register =
       let freq_p = Param.mk ~name:"frequency" ~description:[ "Rrd database sampling frequency" ] rrd_freq in
-      declare "register"
+      declare "Plugin.register"
         [ "docstring" ]
         (uid_p @-> freq_p @-> returning float_p rrd_err)
 
-    let deregister = declare "deregister"
+    let deregister = declare "Plugin.deregister"
       [ "docstring" ]
       (uid_p @-> returning unit_p rrd_err)
 
-    let next_reading = declare "next_reading"
+    let next_reading = declare "Plugin.next_reading"
       [ "docstring" ]
       (uid_p @-> returning float_p rrd_err)
   end
@@ -343,11 +343,11 @@ module RPC_API(R : RPC) = struct
       let heartb_lat_p  = Param.mk ~name:"heartbeat_latency"   ~description:[ "Time taken for heartbeat signal to travel" ] Types.float in
       let xapi_lat_p    = Param.mk ~name:"xapi_latency"        ~description:[ "Time taken for Xapi to respond" ]            Types.float in
       let stfile_lats_p = Param.mk ~name:"statefile_latencies" ~description:[ "Time taken for statefiles to update" ]       sflat_lst in
-      declare "enable_and_update"
+      declare "HA.enable_and_update"
         [ "docstring" ]
         (stfile_lats_p @-> heartb_lat_p @-> xapi_lat_p @-> returning unit_p rrd_err)
 
-    let disable = declare "disable"
+    let disable = declare "HA.disable"
       [ "docstring" ]
       (unit_p @-> returning unit_p rrd_err)
   end
@@ -357,7 +357,7 @@ module RPC_API(R : RPC) = struct
     let load_rrd = (* TODO: there can only be one *)
       let timescale_int_p = Param.mk ~name:"timescale"      ~description:[ "Speed of round-robin database loading" ] Types.int in
       let mast_addr_opt_p = Param.mk ~name:"master address" ~description:[ "Address of master" ]                     string_opt in
-      declare "load_rrd"
+      declare "Deprecated.load_rrd"
         [ "docstring" ]
         (uuid_p
          @-> timescale_int_p

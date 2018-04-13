@@ -97,7 +97,27 @@ module GenTestData (C:CONFIG) (M:MARSHALLER) = struct
         let vs = Rpc_genfake.genall 2 (match t.Param.name with Some n -> n | None -> t.Param.typedef.Rpc.Types.name) t.Param.typedef.Rpc.Types.ty in
         let marshalled = List.map (fun v -> Rpcmarshal.marshal t.Param.typedef.Rpc.Types.ty v) vs in
         match t.Param.name with
-        | Some n -> inner (List.flatten (List.map (fun marshalled -> List.map (fun (named,unnamed) -> (((n,marshalled)::named),unnamed)) params) marshalled)) f
+        | Some n ->
+          inner
+            (List.flatten
+              (List.map
+                (fun marshalled ->
+                  match marshalled, t.Param.typedef.Rpc.Types.ty with
+                  | Rpc.Enum [], Rpc.Types.Option _ ->
+                    params
+                  | Rpc.Enum [x], Rpc.Types.Option _ ->
+                    List.map
+                      (fun (named,unnamed) ->
+                        (((n, x)::named),unnamed))
+                      params
+                  | _, _ ->
+                    List.map
+                      (fun (named,unnamed) ->
+                        (((n,marshalled)::named),unnamed))
+                      params
+                ) marshalled
+              )
+            ) f
         | None -> inner (List.flatten (List.map (fun marshalled -> List.map (fun (named,unnamed) -> (named,(marshalled::unnamed))) params) marshalled)) f
       end
       | Returning (t, e) ->
@@ -135,17 +155,21 @@ module GenTestData (C:CONFIG) (M:MARSHALLER) = struct
     tests := (Printf.sprintf "Generate test data for '%s'" (Idl.get_wire_name !description name), `Quick, test_fn) :: !tests
 end
 
-let get_arg call has_named name =
+let get_arg call has_named name is_opt =
   match has_named, name, call.Rpc.params with
   | true, Some n, (Rpc.Dict named)::unnamed -> begin
-    match List.partition (fun (x,_) -> x = n) named with
-    | (_,arg)::dups,others -> Result.Ok (arg, {call with Rpc.params = (Rpc.Dict (dups @ others))::unnamed })
-    | _,_ -> Result.Error (`Msg (Printf.sprintf "Expecting named argument '%s'" n))
+      match List.partition (fun (x,_) -> x = n) named with
+      | (_,arg)::dups,others when is_opt ->
+        Result.Ok (Rpc.Enum [arg], {call with Rpc.params = (Rpc.Dict (dups @ others))::unnamed })
+      | [], _others when is_opt -> Result.Ok (Rpc.Enum [], call)
+      | (_,arg)::dups,others ->
+        Result.Ok (arg, {call with Rpc.params = (Rpc.Dict (dups @ others))::unnamed })
+      | _,_ -> Result.Error (`Msg (Printf.sprintf "Expecting named argument '%s'" n))
     end
   | true, None, (Rpc.Dict named)::unnamed -> begin
-    match unnamed with
-    | head::tail -> Result.Ok (head, {call with Rpc.params = (Rpc.Dict named)::tail})
-    | _ -> Result.Error (`Msg "Incorrect number of arguments")
+      match unnamed with
+      | head::tail -> Result.Ok (head, {call with Rpc.params = (Rpc.Dict named)::tail})
+      | _ -> Result.Error (`Msg "Incorrect number of arguments")
     end
   | true, _, _ -> begin
       Result.Error (`Msg "Marshalling error: Expecting dict as first argument when named parameters exist")
@@ -154,9 +178,9 @@ let get_arg call has_named name =
       Result.Ok (head, {call with Rpc.params = tail})
     end
   | false, None, [] ->
-      Result.Error (`Msg "Incorrect number of arguments")
+    Result.Error (`Msg "Incorrect number of arguments")
   | false, Some _, _ ->
-      failwith "Can't happen by construction"
+    failwith "Can't happen by construction"
 
 exception NoDescription
 exception MarshalError of string
@@ -229,10 +253,19 @@ module TestOldRpcs (C : CONFIG) (M : MARSHALLER) = struct
     let responses = read_all "responses" "response" 0 |> List.map response_of_string in
 
     let verify : type a. a Rpc.Types.typ -> Rpc.t -> a = fun typ rpc ->
+      let rec sort_dicts ty =
+        let open Rpc in
+        match ty with
+        | Dict kvs' ->
+          let kvs = List.map (fun (k,v) -> (k, sort_dicts v)) kvs' in
+          Dict (List.sort (fun (k1,_) (k2,_) -> String.compare k1 k2) kvs)
+        | Enum ts -> Enum (List.map sort_dicts ts)
+        | _ -> ty
+      in
       match Rpcmarshal.unmarshal typ rpc with
       | Ok x ->
         let check = Rpcmarshal.marshal typ x in
-        if check <> rpc then begin
+        if (to_string (sort_dicts check)) <> (to_string (sort_dicts rpc)) then begin
           let err = Printf.sprintf "Round-trip failed. Before: '%s' After: '%s'"
             (to_string rpc)
             (to_string check) in
@@ -249,7 +282,8 @@ module TestOldRpcs (C : CONFIG) (M : MARSHALLER) = struct
         match f with
         | Function (t, f) -> begin
             let (arg_rpc, call') =
-              match get_arg call has_named t.Param.name  with
+              let is_opt = match t.Param.typedef.Rpc.Types.ty with Rpc.Types.Option _ -> true | _ -> false in
+              match get_arg call has_named t.Param.name is_opt with
               | Result.Ok (x,y) -> (x,y)
               | Result.Error (`Msg m) -> raise (MarshalError m)
             in

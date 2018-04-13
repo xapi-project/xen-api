@@ -1,1 +1,1 @@
-{"method":"Network.Bridge.add_port","params":[{"kind":[],"bond_properties":[{"bond_properties":"bond_properties"}],"interfaces":[],"name":"name","bridge":"bridge","bond_mac":[]},"string"],"id":43}
+{"method":"Network.Bridge.add_port","params":[{"bond_properties":{"bond_properties":"bond_properties"},"interfaces":[],"name":"name","bridge":"bridge"},"string"],"id":53}
