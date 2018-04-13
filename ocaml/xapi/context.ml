@@ -16,8 +16,8 @@ open Pervasiveext
 open Fun
 open Xstringext
 
-module Real = Debug.Make(struct let name = "taskhelper" end)
-module Dummy = Debug.Make(struct let name = "dummytaskhelper" end)
+module R = Debug.Make(struct let name = "taskhelper" end)
+module D = Debug.Make(struct let name = "dummytaskhelper" end)
 
 (** Every operation has an origin: either the HTTP connection it came from or
     an internal subsystem (eg synchroniser thread / event handler
@@ -159,7 +159,7 @@ let from_forwarded_task ?(__context=get_initial ()) ?(http_other_config=[]) ?ses
     then Ref.name_of_dummy task_id
     else !__get_task_name ~__context task_id
   in
-  let info = if not (Ref.is_dummy task_id) then Real.info else Dummy.debug in
+  let info = if not (Ref.is_dummy task_id) then R.info else D.debug in
   (* CP-982: promote tracking debug line to info status *)
   let dbg = make_dbg http_other_config task_name task_id in
   info "task %s forwarded%s" dbg (trackid_of_session ~with_brackets:true ~prefix:" " session_id);
@@ -175,21 +175,24 @@ let from_forwarded_task ?(__context=get_initial ()) ?(http_other_config=[]) ?ses
     test_clusterd_rpc = None;
   }
 
-let make ?(__context=get_initial ()) ?(http_other_config=[]) ?(quiet=false) ?subtask_of ?session_id ?(database=default_database ()) ?(task_in_database=false) ?task_description ?(origin=Internal) task_name =
+let make ?(__context=get_initial ()) ?(http_other_config=[]) ?(quiet=false)
+  ?subtask_of ?session_id ?(database=default_database ()) ?(task_in_database=false)
+  ?task_description ?(origin=Internal) task_name =
+  (* create a real or a dummy task *)
   let task_id, task_uuid =
     if task_in_database
     then !__make_task ~__context ~http_other_config ?description:task_description ?session_id ?subtask_of task_name
     else Ref.make_dummy task_name, Uuid.null
   in
-  let task_uuid =
-    if task_uuid = Uuid.null
-    then ""
-    else Printf.sprintf " (uuid:%s)" (Uuid.to_string task_uuid)
-  in
-
-  let info = if task_in_database then Real.info else Dummy.debug in
   let dbg = make_dbg http_other_config task_name task_id in
-  if not quiet && subtask_of <> None then
+  (* log the creation of a subtask (unless quite=true) *)
+  if not quiet && subtask_of <> None then begin
+    let task_uuid =
+      if task_uuid = Uuid.null
+      then ""
+      else Printf.sprintf " (uuid:%s)" (Uuid.to_string task_uuid)
+    in
+    let info = if task_in_database then R.info else D.debug in
     info "task %s%s created%s%s" (* CP-982: promote tracking debug line to info status *)
       dbg
       task_uuid
@@ -197,7 +200,7 @@ let make ?(__context=get_initial ()) ?(http_other_config=[]) ?(quiet=false) ?sub
       (match subtask_of with
        | None -> ""
        | Some subtask_of -> " by task " ^ (make_dbg [] "" subtask_of))
-  ;
+  end;
   { session_id = session_id;
     database = database;
     task_id = task_id;

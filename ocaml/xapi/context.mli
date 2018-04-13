@@ -21,16 +21,17 @@ type origin =
 
 (** {6 Constructors} *)
 
-(** [make ~__context ~subtask_of ~database ~session_id ~task_in_database ~task_description ~origin name] creates a new context.
+(** [make ~__context ~subtask_of ~database ~session_id ~task_in_database ~task_description ~origin task_name] creates a new context.
     [__context] is the calling context,
     [http_other_config] are extra bits of context picked up from HTTP headers,
-    	[quiet] silences "task created" log messages,
+    [quiet] silences "task created" log messages,
     [subtask_of] is a reference to the parent task,
     [session_id] is the current session id,
-    	[database] is the database to use in future Db.* operations
+    [database] is the database to use in future Db.* operations
+    [origin] indicates whether the operation is triggered by an HTTP request or by an internal operation
     [task_in_database] indicates if the task needs to be stored the task in the database,
-    [task_descrpition] is the description of the task,
-    [task_name] is the task name of the created context. *)
+    [task_description] is the description of the task (Task.name_description),
+    [task_name] is the task name of the created context (Task.name_label). *)
 val make :
   ?__context:t ->
   ?http_other_config:(string * string) list ->
@@ -57,7 +58,7 @@ val from_forwarded_task :
 
 (** {6 Accessors} *)
 
-(** [session_of_t __context] returns the session id stored in [__context]. In case there is no session id in this
+(** [get_session_id __context] returns the session id stored in [__context]. In case there is no session id in this
     context, it fails with [Failure "Could not find a session_id"]. *)
 val get_session_id : t -> API.ref_session
 
@@ -73,7 +74,7 @@ val string_of_task : t -> string
     to a dummy task. *)
 val task_in_database : t -> bool
 
-(** [get_name __context] returns the name of the task stored in [__context]. This name is useful for dummy tasks,
+(** [get_task_name __context] returns the name of the task stored in [__context]. This name is useful for dummy tasks,
     as they do not have name associated in database. *)
 val get_task_name : t -> string
 
