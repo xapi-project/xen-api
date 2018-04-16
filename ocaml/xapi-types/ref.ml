@@ -12,73 +12,72 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** Internally, a reference is simply a string. *)
-type 'a t = string
+type 'a t =
+  | Real of string
+    (* ref to an object in the database *)
+  | Dummy of string * string
+    (* ref to an object that is not in the database, with its name *)
+  | Other of string
+    (* ref used for other purposes (it doesn't have one of the official prefixes) *)
+  | Null
+    (* ref to nothing at all *)
 
 let ref_prefix = "OpaqueRef:"
+let dummy_prefix = "DummyRef:"
+let dummy_sep = "|"
+let ref_null = ref_prefix ^ "NULL"
 
 let make () =
   let uuid = Uuidm.v `V4 |> Uuidm.to_string in
-  ref_prefix ^ uuid
+  Real uuid
 
-let null = ref_prefix ^ "NULL"
-
-let string_of x = x
-
-let of_string x = x
-
-(* very ugly hack to be able to distinguish dummy and real tasks. Moreover, dummy tasks have their name *)
-(* embedded into the reference .... *)
+let null = Null
 
 (* a dummy reference is a reference of an object which is not in database *)
-let dummy_sep = "|"
-let dummy_prefix = "DummyRef:"
-
-let make_dummy task_name =
+let make_dummy name =
   let uuid = Uuidm.v `V4 |> Uuidm.to_string in
-  dummy_prefix ^ dummy_sep ^ uuid ^ dummy_sep ^ task_name
+  Dummy (uuid, name)
 
-let is_dummy x =
-  Astring.String.is_prefix ~affix:dummy_prefix x
+let is_dummy = function
+  | Dummy _ -> true
+  | _ -> false
 
-let cut_in_three ~sep str =
-  let (>>=) opt f =
-    match opt with
-    | Some value -> f value
-    | None -> None
-  in
-  let open Astring in
-  String.cut ~sep str
-  >>= fun (head, tail) ->
-  String.cut ~sep tail
-  >>= fun (head', tail) ->
-  Some (head, head', tail)
+let string_of = function
+  | Real uuid -> ref_prefix ^ uuid
+  | Dummy (uuid, name) -> dummy_prefix ^ dummy_sep ^ uuid ^ dummy_sep ^ name
+  | Other x -> x
+  | Null -> ref_null
 
-let name_of_dummy x =
-  match cut_in_three ~sep:dummy_sep x with
-  | Some(_, _, name) -> name
-  | None -> failwith (
-      Printf.sprintf "Ref.name_of_dummy: %s is not a valid dummy reference" x)
+let of_string x =
+  if x = ref_null then
+    Null
+  else
+    match Astring.String.cut ~sep:ref_prefix x with
+    | Some ("", uuid) -> Real uuid
+    | _ ->
+      match Astring.String.cuts ~sep:dummy_sep x with
+      | prefix::uuid::name when prefix = dummy_prefix -> Dummy (uuid, String.concat dummy_sep name)
+      | _ -> Other x
+
+let name_of_dummy = function
+  | Real x | Other x -> failwith (
+      Printf.sprintf "Ref.name_of_dummy: %s is not a dummy reference" x)
+  | Null -> failwith "Ref.name_of_dummy: NULL is not a dummy reference"
+  | Dummy (_, name) -> name
 
 (* we do not show the name when we pretty print the dummy reference *)
-let pretty_string_of_dummy x =
-  match cut_in_three ~sep:dummy_sep x with
-  | Some (_, uuid, _) -> dummy_prefix ^ uuid
-  | None -> failwith (
-      Printf.sprintf "Ref.pretty_string_of_dummy: %s is not a valid dummy reference" x)
-
 let really_pretty_and_small x =
-  let s, prelen, c =
-    if is_dummy x then
-      (pretty_string_of_dummy x, String.length dummy_prefix, 'D')
-    else
-      (string_of x, String.length ref_prefix, 'R')
+  let small_uuid s =
+    try
+      let r = Bytes.create 12 in
+      for i = 0 to 7 do Bytes.set r (i) s.[i]; done;
+      for i = 0 to 3 do Bytes.set r (i + 8)  s.[8 + 1 + i]; done;
+      Bytes.unsafe_to_string r
+    with _ ->
+      s
   in
-  try
-    let r = Bytes.create 14 in
-    Bytes.set r 0 c; Bytes.set r 1 ':';
-    for i = 0 to 7 do Bytes.set r (i + 2) s.[prelen + i]; done;
-    for i = 0 to 3 do Bytes.set r (i + 10)  s.[prelen + 8 + 1 + i]; done;
-    Bytes.unsafe_to_string r
-  with _ ->
-    s
+  match x with
+  | Dummy (uuid, _) -> "D:" ^ (small_uuid uuid)
+  | Real uuid -> "R:" ^ (small_uuid uuid)
+  | Other x -> "O:" ^ (Astring.String.with_range ~len:12 x)
+  | Null -> "NULL"
