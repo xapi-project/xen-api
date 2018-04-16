@@ -832,11 +832,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let clear_reserved_netsriov_vfs_on ~__context ~vm =
       Db.VM.get_VIFs ~__context ~self:vm
       |> List.iter (fun vif ->
-            let vf =  Db.VIF.get_reserved_pci ~__context ~self:vif in
-            Db.VIF.set_reserved_pci ~__context ~self:vif ~value:Ref.null;
-            if Db.is_valid_ref __context vf
-            then Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:vf ~value:Ref.null
-          )
+          let vf =  Db.VIF.get_reserved_pci ~__context ~self:vif in
+          Db.VIF.set_reserved_pci ~__context ~self:vif ~value:Ref.null;
+          if Db.is_valid_ref __context vf
+          then Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:vf ~value:Ref.null
+        )
 
     (* Notes on memory checking/reservation logic:
        		   When computing the hosts free memory we consider all VMs resident_on (ie running
@@ -1660,11 +1660,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            let source_host = Db.VM.get_resident_on ~__context ~self:vm in
 
            let to_equal_or_greater_version = Helpers.host_versions_not_decreasing ~__context
-             ~host_from:(Helpers.LocalObject source_host)
-             ~host_to:(Helpers.LocalObject host) in
+               ~host_from:(Helpers.LocalObject source_host)
+               ~host_to:(Helpers.LocalObject host) in
 
            if (Helpers.rolling_upgrade_in_progress ~__context) && (not to_equal_or_greater_version) then
-               raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []));
+             raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []));
 
            (* Make sure the target has enough memory to receive the VM *)
            let snapshot = Db.VM.get_record ~__context ~self:vm in
@@ -1700,8 +1700,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
              * forward the call to the source. *)
             let snapshot = Db.VM.get_record ~__context ~self:vm in
             (fun ~local_fn ~__context ~vm op ->
-              allocate_vm_to_host ~__context ~vm ~host ~snapshot ~host_op:`vm_migrate ();
-              forward_vm_op ~local_fn ~__context ~vm op)
+               allocate_vm_to_host ~__context ~vm ~host ~snapshot ~host_op:`vm_migrate ();
+               forward_vm_op ~local_fn ~__context ~vm op)
           else
             (* Cross pool: just forward to the source host. Resources on the
              * destination will be reserved separately. *)
@@ -1713,8 +1713,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       with_vm_operation ~__context ~self:vm ~doc:"VM.migrate_send" ~op:`migrate_send
         (fun () ->
            Server_helpers.exec_with_subtask ~__context "VM.assert_can_migrate" (fun ~__context ->
-             assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options
-           );
+               assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options
+             );
            forwarder ~local_fn ~__context ~vm
              (fun session_id rpc -> Client.VM.migrate_send rpc session_id vm dest live vdi_map vif_map options vgpu_map)
         )
@@ -1990,7 +1990,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.VM.s3_resume ~vm in
       forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc -> Client.VM.s3_resume rpc session_id vm)
 
-   let set_bios_strings ~__context ~self ~value =
+    let set_bios_strings ~__context ~self ~value =
       info "VM.set_bios_strings: self = '%s'; value = '%s'" (vm_uuid ~__context self)
         (String.concat "; " (List.map (fun (k,v) -> k ^ "=" ^ v) value));
       Local.VM.set_bios_strings ~__context ~self ~value
@@ -2676,14 +2676,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.Host.set_iscsi_iqn ~host ~value in
       do_op_on ~local_fn ~__context ~host
         (fun session_id rpc ->
-          Client.Host.set_iscsi_iqn rpc session_id host value)
+           Client.Host.set_iscsi_iqn rpc session_id host value)
 
     let set_multipathing ~__context ~host ~value =
       info "Host.set_multipathing: host='%s' value='%s'" (host_uuid ~__context host) (string_of_bool value);
       let local_fn = Local.Host.set_multipathing ~host ~value in
       do_op_on ~local_fn ~__context ~host
         (fun session_id rpc ->
-          Client.Host.set_multipathing rpc session_id host value)
+           Client.Host.set_multipathing rpc session_id host value)
   end
 
   module Host_crashdump = struct
@@ -4084,7 +4084,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let update_vdi = Db.Pool_update.get_vdi ~__context ~self in
       if Db.is_valid_ref __context update_vdi then
         VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi
-        (fun session_id rpc -> Client.Pool_update.pool_clean rpc session_id self)
+          (fun session_id rpc -> Client.Pool_update.pool_clean rpc session_id self)
       else
         info "Pool_update.pool_clean: pool update '%s' has already been cleaned." (pool_update_uuid ~__context self)
 
@@ -4098,7 +4098,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let update_vdi = Db.Pool_update.get_vdi ~__context ~self in
       if Db.is_valid_ref __context update_vdi then
         VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi
-        (fun session_id rpc -> Client.Pool_update.attach rpc session_id self)
+          (fun session_id rpc -> Client.Pool_update.attach rpc session_id self)
       else
         raise (Api_errors.Server_error(Api_errors.cannot_find_update, [(pool_update_uuid ~__context self)]))
 
@@ -4108,7 +4108,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let update_vdi = Db.Pool_update.get_vdi ~__context ~self in
       if Db.is_valid_ref __context update_vdi then
         VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi
-        (fun session_id rpc -> Client.Pool_update.detach rpc session_id self)
+          (fun session_id rpc -> Client.Pool_update.detach rpc session_id self)
       else
         raise (Api_errors.Server_error(Api_errors.cannot_find_update, [(pool_update_uuid ~__context self)]))
 
@@ -4218,7 +4218,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   end
 
   module VUSB = struct
-   let update_vusb_operations ~__context ~vusb =
+    let update_vusb_operations ~__context ~vusb =
       Helpers.with_global_lock
         (fun () -> Xapi_vusb_helpers.update_allowed_operations ~__context ~self:vusb)
 
@@ -4354,8 +4354,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster_host.destroy" ~op:`remove
         (fun () ->
-          do_op_on ~__context ~local_fn ~host
-            (fun session_id rpc -> Client.Cluster_host.destroy rpc session_id self)
+           do_op_on ~__context ~local_fn ~host
+             (fun session_id rpc -> Client.Cluster_host.destroy rpc session_id self)
         )
 
     let force_destroy ~__context ~self =
@@ -4365,8 +4365,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster_host.force_destroy" ~op:`remove
         (fun () ->
-          do_op_on ~__context ~local_fn ~host
-            (fun session_id rpc -> Client.Cluster_host.force_destroy rpc session_id self)
+           do_op_on ~__context ~local_fn ~host
+             (fun session_id rpc -> Client.Cluster_host.force_destroy rpc session_id self)
         )
 
     let enable ~__context ~self =

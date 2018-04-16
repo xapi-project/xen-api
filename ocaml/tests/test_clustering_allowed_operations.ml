@@ -108,9 +108,9 @@ let test_clustering_ops_disallowed_during_rolling_upgrade () =
   let test_clustering_ops_should_pass with_cluster_fn self ops =
     List.iter
       (fun op ->
-        Alcotest.(check unit)
-          "Clustering operations should be allowed"
-          () (with_cluster_fn self op)
+         Alcotest.(check unit)
+           "Clustering operations should be allowed"
+           () (with_cluster_fn self op)
       ) ops
   in
   let with_cluster_op self op =
@@ -148,10 +148,10 @@ let test_clustering_ops_disallowed_during_rolling_upgrade () =
   (* Only cluster_host lifecycle changes valid during RPU, not cluster membership changes *)
   List.iter
     (fun op ->
-      Alcotest.check_raises
-        "Other than cluster_host enable/disable, no clustering operations should be allowed during RPU"
-        Api_errors.(Server_error (not_supported_during_upgrade, []))
-        (fun () -> with_cluster_op cluster op)
+       Alcotest.check_raises
+         "Other than cluster_host enable/disable, no clustering operations should be allowed during RPU"
+         Api_errors.(Server_error (not_supported_during_upgrade, []))
+         (fun () -> with_cluster_op cluster op)
     ) [ `add ; `remove ; `destroy];
 
   test_clustering_ops_should_pass
