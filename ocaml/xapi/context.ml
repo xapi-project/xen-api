@@ -153,11 +153,11 @@ let make_dbg http_other_config task_name task_id =
 
 (** constructors *)
 
-let from_forwarded_task ?(__context=get_initial ()) ?(http_other_config=[]) ?session_id ?(origin=Internal) task_id =
+let from_forwarded_task ?(http_other_config=[]) ?session_id ?(origin=Internal) task_id =
   let task_name =
     if Ref.is_dummy task_id
     then Ref.name_of_dummy task_id
-    else !__get_task_name ~__context task_id
+    else !__get_task_name ~__context:(get_initial ()) task_id
   in
   let info = if not (Ref.is_dummy task_id) then R.info else D.debug in
   (* CP-982: promote tracking debug line to info status *)
@@ -175,13 +175,13 @@ let from_forwarded_task ?(__context=get_initial ()) ?(http_other_config=[]) ?ses
     test_clusterd_rpc = None;
   }
 
-let make ?(__context=get_initial ()) ?(http_other_config=[]) ?(quiet=false)
+let make ?(http_other_config=[]) ?(quiet=false)
   ?subtask_of ?session_id ?(database=default_database ()) ?(task_in_database=false)
   ?task_description ?(origin=Internal) task_name =
   (* create a real or a dummy task *)
   let task_id, task_uuid =
     if task_in_database
-    then !__make_task ~__context ~http_other_config ?description:task_description ?session_id ?subtask_of task_name
+    then !__make_task ~__context:(get_initial ()) ~http_other_config ?description:task_description ?session_id ?subtask_of task_name
     else Ref.make_dummy task_name, Uuid.null
   in
   let dbg = make_dbg http_other_config task_name task_id in

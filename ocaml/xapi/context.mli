@@ -22,7 +22,6 @@ type origin =
 (** {6 Constructors} *)
 
 (** [make ~__context ~subtask_of ~database ~session_id ~task_in_database ~task_description ~origin task_name] creates a new context.
-    [__context] is the calling context,
     [http_other_config] are extra bits of context picked up from HTTP headers,
     [quiet] silences "task created" log messages,
     [subtask_of] is a reference to the parent task,
@@ -33,7 +32,6 @@ type origin =
     [task_description] is the description of the task (Task.name_description),
     [task_name] is the task name of the created context (Task.name_label). *)
 val make :
-  ?__context:t ->
   ?http_other_config:(string * string) list ->
   ?quiet:bool ->
   ?subtask_of:API.ref_task ->
@@ -51,7 +49,6 @@ val of_http_req :
   fd:Unix.file_descr -> t
 
 val from_forwarded_task :
-  ?__context:t ->
   ?http_other_config:(string * string) list ->
   ?session_id:API.ref_session ->
   ?origin:origin -> API.ref_task -> t

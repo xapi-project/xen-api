@@ -126,7 +126,7 @@ let test_get_nbd_info =
   let setup_test () =
     let __context = Test_common.make_test_database () in
     let session_id = Test_common.make_session ~__context () in
-    let __context = Context.make ~__context ~session_id "test" in
+    let __context = Context.make ~session_id "test" in
     let make_host ?hostname = make_host __context ?hostname in
 
     let sr_of_vdi = Test_common.make_sr ~__context () in
