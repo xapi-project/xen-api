@@ -231,11 +231,11 @@ let nest_with_clustering_lock_if_needed ~__context ~timeout ~type1 ~type2 ~on_de
     ~otherwise: on_deadlock
     (fun () ->
        Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type1
-        (fun () ->
-          Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type2
-          (fun () -> on_no_deadlock ()
-          )
-        )
+         (fun () ->
+            Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type2
+              (fun () -> on_no_deadlock ()
+              )
+         )
     )
 
 let test_clustering_lock_only_taken_if_needed_nested_calls () =
@@ -281,10 +281,10 @@ let test_assert_pif_prerequisites () =
     "test_assert_pif_prerequisites should fail at first"
     (Failure exn)
     (fun () ->
-      try
-        Xapi_clustering.assert_pif_prerequisites pif
-      with _ ->
-        failwith exn);
+       try
+         Xapi_clustering.assert_pif_prerequisites pif
+       with _ ->
+         failwith exn);
   (* Put in IPv4 info *)
   Db.PIF.set_IP ~__context ~self:pifref ~value:"1.1.1.1";
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
@@ -292,20 +292,20 @@ let test_assert_pif_prerequisites () =
     "test_assert_pif_prerequisites should fail after setting IPv4 info"
     (Failure exn)
     (fun () ->
-      try
-        Xapi_clustering.assert_pif_prerequisites pif
-      with _ ->
-        failwith exn);
+       try
+         Xapi_clustering.assert_pif_prerequisites pif
+       with _ ->
+         failwith exn);
   Db.PIF.set_currently_attached ~__context ~self:pifref ~value:true;
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
   Alcotest.check_raises
     "test_assert_pif_prerequisites should fail after setting attached:true"
     (Failure exn)
     (fun () ->
-      try
-        Xapi_clustering.assert_pif_prerequisites pif
-      with _ ->
-        failwith exn);
+       try
+         Xapi_clustering.assert_pif_prerequisites pif
+       with _ ->
+         failwith exn);
   Db.PIF.set_disallow_unplug ~__context ~self:pifref ~value:true;
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
   Alcotest.(check unit)
@@ -382,8 +382,8 @@ let test_default = "default_sm_stack_value_used_in_place_of_xhad"
 
 let choose_cluster_stack_should_select cluster_stack ~__context =
   Alcotest.(check string) "choose_cluster_stack"
-  cluster_stack
-  (Cluster_stack_constraints.choose_cluster_stack ~__context)
+    cluster_stack
+    (Cluster_stack_constraints.choose_cluster_stack ~__context)
 
 let choose_cluster_stack_should_fail_with_conflict ~__context =
   Alcotest.check_raises
@@ -433,10 +433,10 @@ let test_choose_cluster_stack_sms_no_clusters () =
 
   (* Remove conflict, now first LVM stack will be selected *)
   begin match Db.SR.get_PBDs ~__context ~self:sm_sr with
-  | [ pBD ] ->
-    Db.PBD.set_currently_attached ~__context ~self:pBD ~value:false;
-    Db.SR.destroy ~__context ~self:sm_sr
-  | _ -> Alcotest.fail "only one PBD should be plugged into this SR"
+    | [ pBD ] ->
+      Db.PBD.set_currently_attached ~__context ~self:pBD ~value:false;
+      Db.SR.destroy ~__context ~self:sm_sr
+    | _ -> Alcotest.fail "only one PBD should be plugged into this SR"
   end;
   choose_cluster_stack_should_select default_smapiv3 ~__context;
 
@@ -572,14 +572,14 @@ let test_pool_ha_cluster_stacks =
 
 let test =
   ( test_get_required_cluster_stacks
-  @ test_find_cluster_host
-  @ test_assert_cluster_host_enabled
-  @ test_assert_cluster_host_is_enabled_for_matching_sms
-  @ test_assert_pif_prerequisites
-  @ test_disallow_unplug_ro_with_clustering_enabled
-  @ test_choose_cluster_stack
-  @ test_pool_ha_cluster_stacks
-  (* NOTE: lock test hoards the mutex and should thus always be last,
-   * otherwise any other functions trying to use the lock will hang *)
-  @ test_clustering_lock_only_taken_if_needed
+    @ test_find_cluster_host
+    @ test_assert_cluster_host_enabled
+    @ test_assert_cluster_host_is_enabled_for_matching_sms
+    @ test_assert_pif_prerequisites
+    @ test_disallow_unplug_ro_with_clustering_enabled
+    @ test_choose_cluster_stack
+    @ test_pool_ha_cluster_stacks
+    (* NOTE: lock test hoards the mutex and should thus always be last,
+     * otherwise any other functions trying to use the lock will hang *)
+    @ test_clustering_lock_only_taken_if_needed
   )

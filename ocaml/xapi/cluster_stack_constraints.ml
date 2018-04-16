@@ -28,24 +28,24 @@ let required_cluster_stack ~__context =
   let required_stacks = List.filter_map (fun pbd ->
       let sr = Db.PBD.get_SR ~__context ~self:pbd in
       let sr_type = Db.SR.get_type ~__context ~self:sr in
-        match List.assoc sr_type constraints with
-        | exception Not_found -> begin
+      match List.assoc sr_type constraints with
+      | exception Not_found -> begin
           error "SR type not found in SM table.";
           failwith "SR type not found in SM table." end
-        | [] -> None    (* No constraints *)
-        | l ->  Some l  (* Any one of these will do *)
+      | [] -> None    (* No constraints *)
+      | l ->  Some l  (* Any one of these will do *)
     ) pbds in
   let failwith_cluster_stack_conflict () =
-      error "Conflicting cluster stack demands.";
-      failwith "Conflicting cluster stack demands."
+    error "Conflicting cluster stack demands.";
+    failwith "Conflicting cluster stack demands."
   in
   match required_stacks with
   | [] ->
     (* None of the attached SRs have constraints *)
     begin match active_cluster_stack with
-    | [] -> None
-    | [ stack ] -> Some stack
-    | _ -> failwith_cluster_stack_conflict ()
+      | [] -> None
+      | [ stack ] -> Some stack
+      | _ -> failwith_cluster_stack_conflict ()
     end
   | [stacks] ->
     (* There is one SR with constraints; pick the first alternative. *)
@@ -93,7 +93,7 @@ let assert_cluster_stack_compatible ~__context sr =
            ()  (* Constraints satisfied *)
          else
            raise Api_errors.(Server_error
-                    (incompatible_cluster_stack_active, [String.concat "," alternatives]))
+                               (incompatible_cluster_stack_active, [String.concat "," alternatives]))
       )
     | [] ->
       error "SR type not found in SM table.";
