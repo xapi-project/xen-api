@@ -48,6 +48,13 @@ let string_of = function
   | Other x -> x
   | Null -> ref_null
 
+let short_string_of = function
+  | Real x
+  | Dummy (x, _)
+  | Other x ->
+    Astring.String.with_range ~len:8 x
+  | Null -> "NULL"
+
 let of_string x =
   if x = ref_null then
     Null

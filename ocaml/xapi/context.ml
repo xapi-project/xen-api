@@ -99,7 +99,7 @@ let preauth ~__context =
 
 let get_initial () =
   { session_id = None;
-    task_id = Ref.of_string "initial_task";
+    task_id = Ref.make_dummy "initial_task";
     task_in_database = false;
     forwarded_task = false;
     origin = Internal;

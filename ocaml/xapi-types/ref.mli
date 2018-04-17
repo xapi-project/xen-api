@@ -18,6 +18,7 @@ val ref_prefix : string
 val make : unit -> 'a t
 val null : 'a t
 val string_of : 'a t -> string
+val short_string_of : 'a t -> string
 val of_string : string -> 'a t
 
 val make_dummy : string -> 'a t
