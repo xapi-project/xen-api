@@ -318,7 +318,12 @@ let compute_max_host_failures_to_tolerate ~__context ?live_set ?protected_vms ()
   let protected_vms = match protected_vms with
     | None -> all_protected_vms ~__context
     | Some vms -> vms in
-  let nhosts = List.length (Db.Host.get_all ~__context) in
+  let total_hosts = List.length (Db.Host.get_all ~__context) in
+  (* For corosync HA less than half of the pool can fail whilst maintaining quorum *)
+  let corosync_ha_max_hosts = Xapi_clustering.compute_corosync_max_host_failures ~__context in
+  let nhosts = match Db.Cluster.get_all ~__context with
+    | [] -> total_hosts
+    | _ -> corosync_ha_max_hosts in
   (* We assume that if not(plan_exists(n)) then \forall.x>n not(plan_exists(n))
      although even if we screw this up it's not a disaster because all we need is a
      safe approximation (so ultimately "0" will do but we'd prefer higher) *)
@@ -327,37 +332,38 @@ let compute_max_host_failures_to_tolerate ~__context ?live_set ?protected_vms ()
 (* Make sure the pool is marked as overcommitted and the appropriate alert is generated. Return
    true if something changed, false otherwise *)
 let mark_pool_as_overcommitted ~__context ~live_set =
-  let pool = Helpers.get_pool ~__context in
+  Xapi_clustering.with_clustering_lock_if_cluster_exists ~__context (fun () ->
+    let pool = Helpers.get_pool ~__context in
 
-  let overcommitted = Db.Pool.get_ha_overcommitted ~__context ~self:pool in
-  let planned_for = Db.Pool.get_ha_plan_exists_for ~__context ~self:pool in
-  let to_tolerate = Db.Pool.get_ha_host_failures_to_tolerate ~__context ~self:pool in
+    let overcommitted = Db.Pool.get_ha_overcommitted ~__context ~self:pool in
+    let planned_for = Db.Pool.get_ha_plan_exists_for ~__context ~self:pool in
+    let to_tolerate = Db.Pool.get_ha_host_failures_to_tolerate ~__context ~self:pool in
 
-  let max_failures = compute_max_host_failures_to_tolerate ~__context ~live_set () in
-  if planned_for <> max_failures then begin
-    Db.Pool.set_ha_plan_exists_for ~__context ~self:pool ~value:(min to_tolerate max_failures);
-    if max_failures < planned_for
-    then Xapi_alert.add ~msg:Api_messages.ha_pool_drop_in_plan_exists_for ~cls:`Pool ~obj_uuid:(Db.Pool.get_uuid ~__context ~self:pool) ~body:(Int64.to_string max_failures);
-  end;
+    let max_failures = compute_max_host_failures_to_tolerate ~__context ~live_set () in
+    if planned_for <> max_failures then begin
+      Db.Pool.set_ha_plan_exists_for ~__context ~self:pool ~value:(min to_tolerate max_failures);
+      if max_failures < planned_for
+      then Xapi_alert.add ~msg:Api_messages.ha_pool_drop_in_plan_exists_for ~cls:`Pool ~obj_uuid:(Db.Pool.get_uuid ~__context ~self:pool) ~body:(Int64.to_string max_failures);
+    end;
 
-  if not overcommitted then begin
-    Db.Pool.set_ha_overcommitted ~__context ~self:pool ~value:true;
+    if not overcommitted then begin
+      Db.Pool.set_ha_overcommitted ~__context ~self:pool ~value:true;
 
-    (* On the transition generate a message *)
-    let obj_uuid = Db.Pool.get_uuid ~__context ~self:pool in
-    let pool_name_label = Db.Pool.get_name_label ~__context ~self:pool in
-    (* Note -- it's OK to look up stuff in the database when generating the alert text, because this code runs on the master; therefore there is no
-       danger of blocking for db.* calls to return *)
-    let (name, priority) = Api_messages.ha_pool_overcommitted in
-    let (_: 'a Ref.t) = Xapi_message.create ~__context ~name ~priority ~cls:`Pool ~obj_uuid
-        ~body:(Printf.sprintf "The failover tolerance for pool '%s' has dropped and the initially specified number of host failures to tolerate can no longer be guaranteed"
-                 pool_name_label) in
-    ();
-    (* Call a hook to allow someone the opportunity to bring more capacity online *)
-    Xapi_hooks.pool_ha_overcommitted_hook ~__context
-  end;
+      (* On the transition generate a message *)
+      let obj_uuid = Db.Pool.get_uuid ~__context ~self:pool in
+      let pool_name_label = Db.Pool.get_name_label ~__context ~self:pool in
+      (* Note -- it's OK to look up stuff in the database when generating the alert text, because this code runs on the master; therefore there is no
+         danger of blocking for db.* calls to return *)
+      let (name, priority) = Api_messages.ha_pool_overcommitted in
+      let (_: 'a Ref.t) = Xapi_message.create ~__context ~name ~priority ~cls:`Pool ~obj_uuid
+          ~body:(Printf.sprintf "The failover tolerance for pool '%s' has dropped and the initially specified number of host failures to tolerate can no longer be guaranteed"
+                   pool_name_label) in
+      ();
+      (* Call a hook to allow someone the opportunity to bring more capacity online *)
+      Xapi_hooks.pool_ha_overcommitted_hook ~__context
+    end;
 
-  planned_for <> max_failures || (not overcommitted)
+    planned_for <> max_failures || (not overcommitted))
 
 (* Update the pool's HA fields *)
 let update_pool_status ~__context ?live_set () =
