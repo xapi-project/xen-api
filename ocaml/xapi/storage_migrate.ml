@@ -130,10 +130,10 @@ module State = struct
         Hashtbl.iter (Hashtbl.replace table) (hashtbl_of_rpc ~of_rpc:Copy_state.t_of_rpc rpc))
 
   let load () =
-    try load_one (Send_table active_send) with _ -> ();
-      try load_one (Recv_table active_recv) with _ -> ();
-        try load_one (Copy_table active_copy) with _ -> ();
-          loaded := true
+    ignore_exn (fun () -> load_one (Send_table active_send));
+    ignore_exn (fun () -> load_one (Recv_table active_recv));
+    ignore_exn (fun () -> load_one (Copy_table active_copy));
+    loaded := true
 
   let save_one : type a. a table -> unit = (fun table ->
       to_string table |> Unixext.write_string_to_file (path_of_table table))
