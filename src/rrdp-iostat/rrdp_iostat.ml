@@ -14,6 +14,8 @@
 
 open Xapi_stdext_std
 open Xapi_stdext_unix
+open Xapi_stdext_threads.Threadext
+
 open Rrdd_plugin
 open Blktap3_stats
 
@@ -134,7 +136,6 @@ module Iostat = struct
     (* Now read the values out of dev_values_map for devices for which we have data *)
     Listext.List.filter_map (fun dev ->
         if not (Hashtbl.mem dev_values_map dev) then (
-          D.debug "No iostat results for %s" dev;
           None
         ) else
           let values = Hashtbl.find dev_values_map dev in
@@ -192,7 +193,6 @@ let previous_map : (int * (int * (string * string))) list ref = ref []
 let phypath_to_sr_vdi : ((string, (string * string)) Hashtbl.t) = Hashtbl.create 20
 
 let refresh_phypath_to_sr_vdi () =
-  D.debug "Initialising phylink table";
   Hashtbl.clear phypath_to_sr_vdi;
   let phy_base = "/dev/sm/phy" in
   try
@@ -203,7 +203,6 @@ let refresh_phypath_to_sr_vdi () =
         List.iter (fun vdiuuid ->
             let vdi_file = Printf.sprintf "%s/%s" sr_dir vdiuuid in
             let phy_link = Unix.readlink vdi_file in
-            D.debug " - phylink for SR %s, VDI %s = %s" sruuid vdiuuid phy_link;
             Hashtbl.replace phypath_to_sr_vdi phy_link (sruuid, vdiuuid)
           ) vdis
       ) srs
@@ -228,7 +227,6 @@ let exec_tap_ctl () =
     else
       let (sr, vdi) = Hashtbl.find phypath_to_sr_vdi phypath in
       begin
-        D.debug "Found '%s' as phylink for SR %s, VDI %s" phypath sr vdi;
         Some (pid, (minor, (sr, vdi)))
       end
   in
@@ -320,8 +318,78 @@ module Blktap3_stats_wrapper = struct
       low_mem_mode		= false;
     }
 
+  let shm_devices_dir = "/dev/shm"
+
+  let m = Mutex.create ()
+  let cache : ((int * int), int option) Hashtbl.t = Hashtbl.create 100
+
+  let get_pids () =
+    let pid_from_xs (domid, devid) =
+      try
+        let result = with_xs (fun xs ->
+            let path = Printf.sprintf "/local/domain/0/backend/vbd3/%d/%d/kthread-pid" domid devid in
+            Some (int_of_string (xs.Xs.read path))) in
+        result
+      with _ ->
+        None (* Most likely the pid hasn't been written yet *)
+    in
+
+    Mutex.execute m (fun () ->
+        Hashtbl.fold (fun (domid, devid) pid_opt acc ->
+            match pid_opt with
+            | Some pid -> ((domid, devid), pid)::acc
+            | None ->
+              match pid_from_xs (domid, devid) with
+              | Some pid ->
+                Hashtbl.replace cache (domid, devid) (Some pid);
+                ((domid, devid), pid)::acc
+              | None -> acc) cache [])
+
+  let inotify_thread () =
+    let domdev_of_file f =
+      let domid, devid = Scanf.sscanf f "vbd3-%d-%d" (fun id devid -> (id, devid)) in
+      (domid, devid) in
+
+    let operate f fn =
+      let (domid, devid) = domdev_of_file f in
+      Mutex.execute m (fun () -> fn (domid, devid)) in
+
+    let add_file f = operate f (fun k -> D.debug "add_file: (%d,%d)" (fst k) (snd k); Hashtbl.replace cache k None) in
+    let remove_file f = operate f (fun k -> D.debug "remove_file: (%d,%d)" (fst k) (snd k); Hashtbl.remove cache k) in
+
+    let pred path = Xstringext.String.startswith "vbd3-" path in
+
+    let initialise () =
+      Mutex.execute m (fun () -> Hashtbl.clear cache);
+      let shm_dirs = Array.to_list (Sys.readdir shm_devices_dir) in
+      let shm_vbds = List.filter pred shm_dirs in
+      List.iter add_file shm_vbds;
+      D.debug "Populated %d cache entries" (List.length shm_vbds)
+    in
+
+    let inotify = Inotify.create () in
+    let _ = Inotify.add_watch inotify "/dev/shm/" Inotify.[S_Create; S_Delete] in
+    initialise ();
+
+    let rec loop () =
+      try
+        let evs = Inotify.read inotify in
+        List.iter (fun (w, kind_list, _, path) ->
+            let is_create = List.mem Inotify.Create kind_list in
+            let is_delete = List.mem Inotify.Delete kind_list in
+            match is_create, is_delete, path with
+            | _    , true , Some p when pred p -> remove_file p; loop ()
+            | true , false, Some p when pred p -> add_file p; loop ()
+            | _    , _    , Some p -> loop ()
+            | _    , _    , None -> loop ()) evs
+      with
+      | e ->
+        D.debug "Unexpected other exception: %s" (Printexc.to_string e);
+        initialise ();
+        loop ()
+    in loop ()
+
   let get_domid_devid_to_stats_blktap3 () : ((int * int) * t) list =
-    let shm_devices_dir = "/dev/shm" in
     let read_raw_blktap3_stats tdpid domid devid =
       try
         let stat_file = Printf.sprintf "%s/td3-%d/vbd-%d-%d" shm_devices_dir tdpid domid devid in
@@ -331,35 +399,12 @@ module Blktap3_stats_wrapper = struct
       with _ ->
         None
     in
-    let shm_dirs = Array.to_list (Sys.readdir shm_devices_dir) in
-    let shm_vbds = List.filter (fun s -> Xstringext.String.startswith "vbd3-" s) shm_dirs in
-    List.fold_left (fun acc vbd ->
-        let domid, devid = Scanf.sscanf vbd "vbd3-%d-%d" (fun id devid -> (id, devid)) in
-        try
-          with_xs (fun xs ->
-              let path = Printf.sprintf "/local/domain/0/backend/vbd3/%d/%d/kthread-pid" domid devid in
-              let tdpid = int_of_string (xs.Xs.read path) in
-              match read_raw_blktap3_stats tdpid domid devid with
-              | Some stat -> ((domid, devid), stat) :: acc
-              | None -> acc
-            )
-        with e ->
-          D.error "Error while looking up tapdisk pid: %s" (Printexc.to_string e);
-          acc
-      ) [] shm_vbds
+    let kvs = get_pids () in
+    List.fold_left (fun acc ((domid,devid),tdpid) ->
+        match read_raw_blktap3_stats tdpid domid devid with
+        | Some stat -> ((domid, devid), stat) :: acc
+        | None -> acc) [] kvs
 
-  let get_domid_devid_to_sr_blktap3 (domid_devids : (int * int) list) : ((int * int) * string) list =
-    try
-      with_xs (fun xs ->
-          List.fold_left (fun acc (domid, devid) ->
-              let path = Printf.sprintf "/local/domain/0/backend/vbd3/%d/%d/sm-data/mem-pool" domid devid in
-              let sr = xs.Xs.read path in
-              ((domid, devid), sr) :: acc
-            ) [] domid_devids
-        )
-    with e ->
-      D.error "Error while looking up the domid-devid to SR map: %s" (Printexc.to_string e);
-      []
 end
 
 module Stats_value = struct
@@ -590,12 +635,6 @@ let gen_metrics () =
   (* relations between dom-id, vm-uuid, device pos, dev-id, etc *)
   let domUs = with_xc get_running_domUs in
   let vdi_to_vm = get_vdi_to_vm_map () in
-  D.debug "VDI-to-VM map: %s" (String.concat "; " (List.map (fun (vdi, (vm, pos, devid)) ->
-      Printf.sprintf "VDI %s -> VM %s, %s, dev-id %d" vdi vm pos devid) vdi_to_vm));
-  D.debug "domUs: %s" (String.concat "; " (List.map (fun (domid, vm) ->
-      Printf.sprintf "Dom %d -> VM %s" domid vm) domUs));
-  D.debug "Blktap3-stats: %s" (String.concat "; " (List.map (fun ((domid, devid), _) ->
-      Printf.sprintf "Dom %d, dev-id %d" domid devid) domid_devid_to_stats_blktap3));
 
   let get_stats_blktap3_by_vdi vdi =
     if List.mem_assoc vdi vdi_to_vm then
@@ -715,6 +754,8 @@ let gen_metrics () =
 
 let _ =
   initialise ();
+  let _ = Thread.create Blktap3_stats_wrapper.inotify_thread () in
+
   (* Approx. one page per VBD, up to the limit. *)
   let shared_page_count = 2048 in
   (* It takes (at least) 1 second to get the iostat data, so start reading the data early enough *)
