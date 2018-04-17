@@ -146,9 +146,6 @@ let enable ~__context ~self =
       let pif = pif_of_host ~__context network host in
       assert_pif_prerequisites pif;
 
-      let pool = Helpers.get_pool ~__context in
-      if Db.Pool.get_ha_enabled ~__context ~self:pool then
-        Db.Pool.set_ha_cluster_stack ~__context ~self:pool ~value:Constants.default_smapiv3_cluster_stack;
       let ip = ip_of_pif pif in
       let init_config = {
         Cluster_interface.local_ip = ip;
@@ -173,9 +170,6 @@ let disable ~__context ~self =
       assert_operation_host_target_is_localhost ~__context ~host;
       assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self;
 
-      let pool = Helpers.get_pool ~__context in
-      if Db.Pool.get_ha_enabled ~__context ~self:pool then
-        Db.Pool.set_ha_cluster_stack ~__context ~self:pool ~value:"xhad";
       let result = Cluster_client.LocalClient.disable (rpc ~__context) dbg in
       match result with
       | Result.Ok () ->

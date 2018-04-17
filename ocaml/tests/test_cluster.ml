@@ -14,28 +14,30 @@
 
 open Xapi_cluster
 
+(** NOTE: This mock rpc is also used by tests in test_clustering *)
+
 let test_clusterd_rpc ~__context call =
   let token = "test_token" in
   match call.Rpc.name, call.Rpc.params with
   | "create", _ ->
-     Rpc.{success = true; contents = Rpc.String token }
-  | ("enable" | "disable" | "destroy"), _ ->
-     Rpc.{success = true; contents = Rpc.Null }
+    Rpc.{success = true; contents = Rpc.String token }
+  | ("enable" | "disable" | "destroy" | "leave"), _ ->
+    Rpc.{success = true; contents = Rpc.Null }
   | name, params ->
-     failwith (Printf.sprintf "Unexpected RPC: %s(%s)" name (String.concat " " (List.map Rpc.to_string params)))
+    failwith (Printf.sprintf "Unexpected RPC: %s(%s)" name (String.concat " " (List.map Rpc.to_string params)))
 
 let test_rpc ~__context call =
   match call.Rpc.name, call.Rpc.params with
   | "Cluster_host.destroy", [self] ->
-     let open API in
-     Xapi_cluster_host.destroy ~__context ~self:(ref_Cluster_host_of_rpc self);
-     Rpc.{success = true; contents = Rpc.String "" }
+    let open API in
+    Xapi_cluster_host.destroy ~__context ~self:(ref_Cluster_host_of_rpc self);
+    Rpc.{success = true; contents = Rpc.String "" }
   | "Cluster.destroy", [_session; self] ->
-     let open API in
-     Xapi_cluster.destroy ~__context ~self:(ref_Cluster_of_rpc self);
-     Rpc.{success = true; contents = Rpc.String "" }
+    let open API in
+    Xapi_cluster.destroy ~__context ~self:(ref_Cluster_of_rpc self);
+    Rpc.{success = true; contents = Rpc.String "" }
   | name, params ->
-     failwith (Printf.sprintf "Unexpected RPC: %s(%s)" name (String.concat " " (List.map Rpc.to_string params)))
+    failwith (Printf.sprintf "Unexpected RPC: %s(%s)" name (String.concat " " (List.map Rpc.to_string params)))
 
 let create_cluster ~__context ?(cluster_stack=Constants.default_smapiv3_cluster_stack) () =
   Context.set_test_rpc __context (test_rpc ~__context);
