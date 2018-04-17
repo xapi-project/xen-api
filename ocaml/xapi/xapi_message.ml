@@ -568,7 +568,7 @@ let get_since_for_events ~__context since =
                       if gen > since then Some (gen, Xapi_event.Message.Create (_ref, msg)) else None)
                    !in_memory_cache)
          | (last_in_memory, _, _) :: _ ->
-           debug "get_since_for_events: last_in_memory (%Ld) > since (%Ld): Using slow message lookup" last_in_memory since;
+           debug "get_since_for_events: last_in_memory (%Ld) >= since (%Ld): Using slow message lookup" last_in_memory since;
            None
          | _ ->
            warn "get_since_for_events: no in_memory_cache!";
