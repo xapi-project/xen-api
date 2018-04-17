@@ -220,7 +220,7 @@ let _ =
   error Api_errors.cannot_forget_sriov_logical [ "PIF" ]
     ~doc:"This is a network SR-IOV logical PIF and cannot do forget on it" ();
   error Api_errors.incompatible_pif_properties []
-    ~doc:"These PIFs can not be bonded, because their properties are different." ();
+    ~doc:"These PIFs cannot be bonded, because their properties are different." ();
   error Api_errors.slave_requires_management_iface []
     ~doc:"The management interface on a slave cannot be disabled because the slave would enter emergency mode." ();
   error Api_errors.vif_in_use [ "network"; "VIF" ]
@@ -441,7 +441,7 @@ let _ =
   error Api_errors.host_broken []
     ~doc:"This host failed in the middle of an automatic failover operation and needs to retry the failover action" ();
   error Api_errors.host_has_resident_vms [ "host" ]
-    ~doc:"This host can not be forgotten because there are some user VMs still running" ();
+    ~doc:"This host cannot be forgotten because there are some user VMs still running" ();
 
   error Api_errors.not_supported_during_upgrade []
     ~doc:"This operation is not supported during an upgrade." ();

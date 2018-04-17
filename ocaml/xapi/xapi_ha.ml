@@ -1154,7 +1154,7 @@ let disable_internal __context =
      	   If the master has access to the state file (how do we determine this)?
      	   * ha_set_pool_state(invalid)
      	   If the master hasn't access to the state file but all hosts are available via heartbeat
-     	   * set the flag "can not be master and no VM failover decision on next boot"
+     	   * set the flag "cannot be master and no VM failover decision on next boot"
      	   * ha_disarm_fencing()
      	   * ha_stop_daemon()
      	   Otherwise we'll be fenced *)
@@ -1379,7 +1379,7 @@ let enable __context heartbeat_srs configuration =
 
   (* Steps from 8.7 Enabling HA in Marathon spec:
      	 * 1. Bring up state file VDI(s)
-     	 * 2. Clear the flag "can not be master and no VM failover decision on next boot"
+     	 * 2. Clear the flag "cannot be master and no VM failover decision on next boot"
      	 * 3. XAPI stops its internal heartbeats with other hosts in the pool
      	 * 4. ha_set_pool_state(init) *)
 
