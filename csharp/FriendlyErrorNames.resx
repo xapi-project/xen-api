@@ -295,7 +295,7 @@
     <value>The server failed to acquire an IP address on its management interface and therefore cannot contact the master.</value>
   </data>
   <data name="HOST_HAS_RESIDENT_VMS" xml:space="preserve">
-    <value>This server can not be forgotten because there are some user VMs still running</value>
+    <value>This server cannot be forgotten because there are some user VMs still running</value>
   </data>
   <data name="HOST_IN_EMERGENCY_MODE" xml:space="preserve">
     <value>This server is in emergency mode</value>
