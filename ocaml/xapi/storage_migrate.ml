@@ -45,14 +45,18 @@ module State = struct
   end
 
   module Send_state = struct
+    type remote_info = {
+      dp: dp;
+      vdi: vdi;
+      url: string
+    } [@@deriving rpc]
+
     type t = {
       url : string;
       dest_sr : sr;
-      remote_dp : dp;
+      remote_info: remote_info option;
       local_dp : dp;
-      mirror_vdi : vdi;
-      remote_url : string;
-      tapdev : Tapctl.tapdev;
+      tapdev : Tapctl.tapdev option;
       mutable failed : bool;
       mutable watchdog : Scheduler.handle option;
     } [@@deriving rpc]
@@ -382,29 +386,34 @@ let stop ~dbg ~id =
   let alm = State.find_active_local_mirror id in
   match alm with
   | Some alm ->
-    let sr,vdi = State.of_mirror_id id in
-    let vdis = Local.SR.scan ~dbg ~sr in
-    let local_vdi =
-      try List.find (fun x -> x.vdi = vdi) vdis
-      with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
-    let local_vdi = add_to_sm_config local_vdi "mirror" "null" in
-    let local_vdi = remove_from_sm_config local_vdi "base_mirror" in
-    (* Disable mirroring on the local machine *)
-    let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi_info:local_vdi in
-    Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi;
-    (* Destroy the snapshot, if it still exists *)
-    let snap = try Some (List.find (fun x -> List.mem_assoc "base_mirror" x.sm_config && List.assoc "base_mirror" x.sm_config = id) vdis) with _ -> None in
     begin
-      match snap with
-      | Some s ->
-        debug "Found snapshot VDI: %s" s.vdi;
-        Local.VDI.destroy ~dbg ~sr ~vdi:s.vdi
-      | None ->
-        debug "Snapshot VDI already cleaned up"
+      match alm.State.Send_state.remote_info with
+      | Some remote_info ->
+        let sr,vdi = State.of_mirror_id id in
+        let vdis = Local.SR.scan ~dbg ~sr in
+        let local_vdi =
+          try List.find (fun x -> x.vdi = vdi) vdis
+          with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
+        let local_vdi = add_to_sm_config local_vdi "mirror" "null" in
+        let local_vdi = remove_from_sm_config local_vdi "base_mirror" in
+        (* Disable mirroring on the local machine *)
+        let snapshot = Local.VDI.snapshot ~dbg ~sr ~vdi_info:local_vdi in
+        Local.VDI.destroy ~dbg ~sr ~vdi:snapshot.vdi;
+        (* Destroy the snapshot, if it still exists *)
+        let snap = try Some (List.find (fun x -> List.mem_assoc "base_mirror" x.sm_config && List.assoc "base_mirror" x.sm_config = id) vdis) with _ -> None in
+        begin
+          match snap with
+          | Some s ->
+            debug "Found snapshot VDI: %s" s.vdi;
+            Local.VDI.destroy ~dbg ~sr ~vdi:s.vdi
+          | None ->
+            debug "Snapshot VDI already cleaned up"
+        end;
+        let remote_url = Http.Url.of_string remote_info.State.Send_state.url in
+        let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
+        (try Remote.DATA.MIRROR.receive_cancel ~dbg ~id with _ -> ());
+      | None -> ()
     end;
-    let remote_url = Http.Url.of_string alm.State.Send_state.remote_url in
-    let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
-    (try Remote.DATA.MIRROR.receive_cancel ~dbg ~id with _ -> ());
     State.remove_local_mirror id
   | None ->
     raise (Does_not_exist ("mirror",id))
@@ -422,6 +431,18 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
     with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
 
   let id = State.mirror_id_of (sr,local_vdi.vdi) in
+
+  debug "Adding to active local mirrors before sending: id=%s" id;
+  let alm = State.Send_state.({
+      url;
+      dest_sr=dest;
+      remote_info=None;
+      local_dp=dp;
+      tapdev=None;
+      failed=false;
+      watchdog=None}) in
+  State.add id (State.Send_op alm);
+  debug "Added";
 
   (* A list of cleanup actions to perform if the operation should fail. *)
   let on_fail : (unit -> unit) list ref = ref [] in
@@ -472,19 +493,17 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
       | None ->
         failwith "Not attached"
     in
-    debug "Adding to active local mirrors: id=%s" id;
+    debug "Updating active local mirrors: id=%s" id;
     let alm = State.Send_state.({
         url;
         dest_sr=dest;
-        remote_dp=mirror_dp;
+        remote_info=Some {dp=mirror_dp; vdi=result.Mirror.mirror_vdi.vdi; url=url};
         local_dp=dp;
-        mirror_vdi=result.Mirror.mirror_vdi.vdi;
-        remote_url=url;
-        tapdev;
+        tapdev=Some tapdev;
         failed=false;
         watchdog=None}) in
     State.add id (State.Send_op alm);
-    debug "Added";
+    debug "Updated";
 
     debug "About to snapshot VDI = %s" (string_of_vdi_info local_vdi);
     let local_vdi = add_to_sm_config local_vdi "mirror" ("nbd:" ^ dp) in
@@ -564,12 +583,17 @@ let stat ~dbg ~id =
   let failed = match send_opt with
     | Some send_state ->
       let failed =
-        try
-          let stats = Tapctl.stats (Tapctl.create ()) send_state.Send_state.tapdev in
-          stats.Tapctl.Stats.nbd_mirror_failed = 1
-        with e ->
-          debug "Using cached copy of failure status";
-          send_state.Send_state.failed
+        match send_state.Send_state.tapdev with
+        | Some tapdev ->
+          begin
+            try
+              let stats = Tapctl.stats (Tapctl.create ()) tapdev in
+              stats.Tapctl.Stats.nbd_mirror_failed = 1
+            with e ->
+              debug "Using cached copy of failure status";
+              send_state.Send_state.failed
+          end
+        | None -> false
       in
       send_state.Send_state.failed <- failed;
       failed
@@ -586,7 +610,11 @@ let stat ~dbg ~id =
     | (Some receive_state, _, _) ->
       receive_state.Receive_state.remote_vdi, receive_state.Receive_state.leaf_vdi
     | (_, Some send_state, _) ->
-      snd (of_mirror_id id), send_state.Send_state.mirror_vdi
+      let dst_vdi = match send_state.Send_state.remote_info with
+        | Some remote_info -> remote_info.Send_state.vdi
+        | None -> ""
+      in
+      snd (of_mirror_id id), dst_vdi
     | (_, _, Some copy_state) ->
       snd (of_copy_id id), copy_state.Copy_state.copy_vdi
     | _ -> failwith "Invalid" in
@@ -734,22 +762,25 @@ let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
         (* We used to pause here and then check the nbd_mirror_failed key. Now, we poll
            					   until the number of outstanding requests has gone to zero, then check the
            					   status. This avoids confusing the backend (CA-128460) *)
-        let open Tapctl in
-        let ctx = create () in
-        let rec wait () =
-          if get_delta () > reqs_outstanding_timeout then raise Timeout;
-          let st = stats ctx s.tapdev in
-          if st.Stats.reqs_outstanding > 0
-          then (Thread.delay 1.0; wait ())
-          else st
-        in
-        let st = wait () in
-        debug "Got final stats after waiting %f seconds" (get_delta ());
-        if st.Stats.nbd_mirror_failed = 1
-        then begin
-          error "tapdisk reports mirroring failed";
-          s.failed <- true
-        end;
+        match s.tapdev with
+        | None -> ()
+        | Some tapdev ->
+          let open Tapctl in
+          let ctx = create () in
+          let rec wait () =
+            if get_delta () > reqs_outstanding_timeout then raise Timeout;
+            let st = stats ctx tapdev in
+            if st.Stats.reqs_outstanding > 0
+            then (Thread.delay 1.0; wait ())
+            else st
+          in
+          let st = wait () in
+          debug "Got final stats after waiting %f seconds" (get_delta ());
+          if st.Stats.nbd_mirror_failed = 1
+          then begin
+            error "tapdisk reports mirroring failed";
+            s.failed <- true
+          end;
       with
       | Timeout ->
         error "Timeout out after %f seconds waiting for tapdisk to complete all outstanding requests" (get_delta ());
