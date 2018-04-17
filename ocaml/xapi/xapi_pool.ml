@@ -70,6 +70,17 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       raise (Api_errors.Server_error(Api_errors.ha_is_enabled, []));
     end in
 
+  (* I cannot join a Pool if I have Clustering enabled on me *)
+  let clustering_is_not_enabled_on_me () =
+    let host = Helpers.get_localhost ~__context in
+    match Xapi_clustering.find_cluster_host ~__context ~host with
+      | None -> ()
+      | Some cluster_host -> 
+        if (Db.Cluster_host.get_enabled ~__context ~self:cluster_host) then begin
+          error "Cannot join pool as Clustering is enabled";
+          raise (Api_errors.(Server_error( clustering_enabled, [Ref.string_of cluster_host])));
+    end in 
+
   (* CA-26975: Pool edition MUST match *)
   let assert_restrictions_match () =
     let my_edition = Db.Host.get_edition ~__context ~self:(Helpers.get_localhost ~__context) in
@@ -449,6 +460,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_pool_size_unrestricted ();
   assert_management_interface_exists ();
   ha_is_not_enable_on_me ();
+  clustering_is_not_enabled_on_me ();
   ha_is_not_enable_on_the_distant_pool ();
   assert_not_joining_myself();
   assert_i_know_of_no_other_hosts();
