@@ -253,10 +253,36 @@ module Volume(R: RPC) = struct
        version=(1,0,0)}
 end
 
+type configuration = (string * string) list [@@deriving rpcty]
+(** Plugin-specific configuration which describes where and;
+    how to locate the storage repository. This may include; the
+    physical block device name, a remote NFS server and; path
+    or an RBD storage pool. *)
+
+
+(** A set of properties that describe one result element of SR.probe.
+    Result elements and properties can change dynamically based on
+    changes to the the SR.probe input-parameters or the target. *)
 type probe_result = {
-  srs : sr_stat list [@doc ["SRs found on this storage device"]];
-  uris : uri list [@doc ["Other possible URIs which may contain SRs"]];
+  configuration : configuration;
+  (** Plugin-specific configuration which describes where and
+      how to locate the storage repository. This may include the physical block
+      device name, a remote NFS server and path or an RBD storage pool. *)
+
+  complete : bool;
+  (** True if this configuration is complete and can be used to call SR.create
+      or SR.attach. False if it requires further iterative calls to SR.probe, to
+      potentially narrow down on a configuration that can be used. *)
+
+  sr : sr_stat option; (** Existing SR found for this configuration *)
+
+  extra_info : (string * string) list;
+  (** Additional plugin-specific information about this configuration, that
+      might be of use for an API user. This can for example include the LUN or
+      the WWPN. *)
 } [@@deriving rpcty]
+
+type probe_results = probe_result list [@@deriving rpcty]
 
 module Sr(R : RPC) = struct
   open R
@@ -264,39 +290,39 @@ module Sr(R : RPC) = struct
   let uri = Param.mk ~name:"uri" ~description:["The Storage Repository URI"]
       Types.string
 
+  let configuration_p =
+    Param.mk
+      ~name:"configuration"
+      ~description:["Plugin-specific configuration which describes where and";
+                    "how to locate the storage repository. This may include";
+                    "the physical block device name, a remote NFS server and";
+                    "path or an RBD storage pool."]
+      configuration
+
   let uuid = Param.mk ~name:"uuid" ~description:["A uuid to associate with the SR."]
       Types.string
 
-  let probe_result_p = Param.mk ~name:"result"
-      ~description:["Contents of the storage device"] probe_result
+  let probe_result_p = Param.mk ~name:"probe_result"
+      ~description:["Contents of the storage device"] probe_results
 
   let probe = R.declare "probe"
-      ["[probe uri]: looks for existing SRs on the storage device"]
-      (dbg @-> uri @-> returning probe_result_p errors)
+      ["[probe configuration]: can be used iteratively to narrow down configurations";
+       "to use with SR.create, or to find existing SRs on the backing storage"]
+      (dbg @-> configuration_p @-> returning probe_result_p errors)
 
 
   let name = Param.mk ~name:"name" ~description:
       ["Human-readable name for the SR"] Types.string
   let description = Param.mk ~name:"description" ~description:
       ["Human-readable description for the SR"] Types.string
-  let configuration = Param.mk ~name:"configuration"
-      Types.{
-        name = "configuration";
-        description =
-          ["Plugin-specific configuration which describes where and how to ";
-           "create the storage repository. This may include the physical ";
-           "block device name, a remote NFS server and path or an RBD storage ";
-           "pool."];
-       ty = Dict(String, Basic String)}
   let create = R.declare "create"
-      ["[create uuid uri name description configuration]: creates a fresh SR"]
-      (dbg @-> uuid @-> uri @-> name @-> description @-> configuration
-       @-> returning uri errors)
+      ["[create uuid configuration name description]: creates a fresh SR"]
+      (dbg @-> uuid @-> configuration_p @-> name @-> description @-> returning configuration_p errors)
 
   let attach = R.declare "attach"
-      ["[attach uuid uri]: attaches the SR to the local host. Once an SR is ";
+      ["[attach configuration]: attaches the SR to the local host. Once an SR is ";
        "attached then volumes may be manipulated."]
-      (dbg @-> uuid @-> uri @-> returning sr errors)
+      (dbg @-> configuration_p @-> returning sr errors)
 
   let detach = R.declare "detach"
       ["[detach sr]: detaches the SR, clearing up any associated resources. ";
