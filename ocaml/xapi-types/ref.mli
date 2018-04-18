@@ -22,6 +22,8 @@ val short_string_of : 'a t -> string
 val of_string : string -> 'a t
 
 val make_dummy : string -> 'a t
+
+val is_real : 'a t -> bool
 val is_dummy : 'a t -> bool
 val name_of_dummy : 'a t -> string
 

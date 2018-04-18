@@ -38,6 +38,10 @@ let make_dummy name =
   let uuid = Uuidm.v `V4 |> Uuidm.to_string in
   Dummy (uuid, name)
 
+let is_real = function
+  | Real _ -> true
+  | _ -> false
+
 let is_dummy = function
   | Dummy _ -> true
   | _ -> false
