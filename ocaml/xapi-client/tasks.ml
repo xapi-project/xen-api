@@ -69,7 +69,7 @@ let with_tasks_destroy ~rpc ~session_id ~timeout ~tasks =
           if Client.Task.get_status ~rpc ~session_id ~self:task = `pending then
             Client.Task.cancel ~rpc ~session_id ~task) tasks;
       (* cancel is not immediate, give it a reasonable chance to take effect *)
-      wait_for_all_inner ~rpc ~session_id ~all_timeout:60. ~tasks;
+      wait_for_all_inner ~rpc ~session_id ~all_timeout:60. ~tasks |> ignore;
       false
     end else true
   in
