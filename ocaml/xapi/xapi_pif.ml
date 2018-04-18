@@ -65,7 +65,7 @@ let refresh_internal ~__context ~self =
       (Db.PIF.get_MAC)
       (Db.PIF.set_MAC)
       (fun () -> Net.Interface.get_mac dbg device)
-      (id);
+      (fun x -> x);
 
   maybe_update_database "PCI"
     (Db.PIF.get_PCI)
