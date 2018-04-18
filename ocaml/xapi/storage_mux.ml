@@ -79,7 +79,7 @@ let string_of_sm_result f = function
   | SMSuccess x -> Printf.sprintf "Success: %s" (f x)
   | SMFailure e -> Printf.sprintf "Failure: %s" (Printexc.to_string e)
 
-let partition l = List.partition (success ++ snd) l
+let partition l = List.partition (fun (_,x) -> success x) l
 
 let choose x = snd(List.hd x)
 
