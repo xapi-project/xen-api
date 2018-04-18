@@ -71,10 +71,6 @@ val string_of_task : t -> string
     to a dummy task. *)
 val task_in_database : t -> bool
 
-(** [get_task_name __context] returns the name of the task stored in [__context]. This name is useful for dummy tasks,
-    as they do not have name associated in database. *)
-val get_task_name : t -> string
-
 (** [get_origin __context] returns a string containing the origin of [__context]. *)
 val get_origin : t -> string
 

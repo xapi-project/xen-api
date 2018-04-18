@@ -41,7 +41,6 @@ type t = { session_id: API.ref_session option;
            task_in_database: bool;
            forwarded_task : bool;
            origin: origin;
-           task_name: string; (* Name for dummy task FIXME: used only for dummy task, as real task as their name in the database *)
            database: Db_ref.t;
            dbg: string;
            mutable test_rpc: (Rpc.call -> Rpc.response) option;
@@ -61,9 +60,6 @@ let get_task_id ctx =
 
 let task_in_database ctx =
   ctx.task_in_database
-
-let get_task_name ctx =
-  ctx.task_name
 
 let get_origin ctx =
   string_of_origin ctx.origin
@@ -92,7 +88,6 @@ let get_initial () =
     task_in_database = false;
     forwarded_task = false;
     origin = Internal;
-    task_name = "initial_task";
     database = default_database ();
     dbg = "initial_task";
     test_rpc = None;
@@ -157,7 +152,6 @@ let from_forwarded_task ?(http_other_config=[]) ?session_id ?(origin=Internal) t
     forwarded_task = true;
     task_in_database = not (Ref.is_dummy task_id);
     origin = origin;
-    task_name = task_name;
     database = default_database ();
     dbg = dbg;
     test_rpc = None;
@@ -196,7 +190,6 @@ let make ?(http_other_config=[]) ?(quiet=false)
     task_in_database = task_in_database;
     origin = origin;
     forwarded_task = false;
-    task_name = task_name;
     dbg = dbg;
     test_rpc = None;
     test_clusterd_rpc = None;
