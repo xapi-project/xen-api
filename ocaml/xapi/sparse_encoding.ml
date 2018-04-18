@@ -51,16 +51,11 @@ module Marshal = struct
     and f = (x >>> 40) &&& 0xffL
     and g = (x >>> 48) &&& 0xffL
     and h = (x >>> 56) &&& 0xffL in
-    let result = String.make 8 '\000' in
-    result.[0] <- char_of_int (Int64.to_int a);
-    result.[1] <- char_of_int (Int64.to_int b);
-    result.[2] <- char_of_int (Int64.to_int c);
-    result.[3] <- char_of_int (Int64.to_int d);
-    result.[4] <- char_of_int (Int64.to_int e);
-    result.[5] <- char_of_int (Int64.to_int f);
-    result.[6] <- char_of_int (Int64.to_int g);
-    result.[7] <- char_of_int (Int64.to_int h);
-    result
+    let result = Bytes.make 8 '\000' in
+    List.iteri (fun i v ->
+      Bytes.set result i (char_of_int @@ Int64.to_int v)
+    ) [a; b; c; d; e; f; g; h];
+    Bytes.unsafe_to_string result
   let int32 x =
     let (>>>) a b = Int32.shift_right_logical a b
     and (&&&) a b = Int32.logand a b in
@@ -68,12 +63,11 @@ module Marshal = struct
     and b = (x >>> 8) &&& 0xffl
     and c = (x >>> 16) &&& 0xffl
     and d = (x >>> 24) &&& 0xffl in
-    let result = String.make 4 '\000' in
-    result.[0] <- char_of_int (Int32.to_int a);
-    result.[1] <- char_of_int (Int32.to_int b);
-    result.[2] <- char_of_int (Int32.to_int c);
-    result.[3] <- char_of_int (Int32.to_int d);
-    result
+    let result = Bytes.make 4 '\000' in
+    List.iteri (fun i v ->
+      Bytes.set result i (char_of_int @@ Int32.to_int v)
+    ) [a; b; c; d];
+    Bytes.unsafe_to_string result
 
 end
 
