@@ -68,17 +68,6 @@ let get_task_name ctx =
 let get_origin ctx =
   string_of_origin ctx.origin
 
-let string_of x =
-  let session_id = match x.session_id with
-    | None -> "None" | Some x -> Ref.string_of x in
-  Printf.sprintf "Context { session_id: %s; task_id: %s; task_in_database: %b; forwarded_task: %b; origin: %s; task_name: %s }"
-    session_id
-    (Ref.string_of x.task_id)
-    x.task_in_database
-    x.forwarded_task
-    (string_of_origin x.origin)
-    x.task_name
-
 let database_of x = x.database
 
 (** Calls coming in from the unix socket are pre-authenticated *)

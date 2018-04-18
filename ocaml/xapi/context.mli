@@ -78,9 +78,6 @@ val get_task_name : t -> string
 (** [get_origin __context] returns a string containing the origin of [__context]. *)
 val get_origin : t -> string
 
-(** [string_of __context] returns a string representing the context. *)
-val string_of : t -> string
-
 (** [database_of __context] returns a database handle, which can be used by Db.* *)
 val database_of : t -> Db_ref.t
 
