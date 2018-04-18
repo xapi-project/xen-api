@@ -56,7 +56,7 @@ let fix_cookie = function
         in extract_comps_inner 0 [] n
       in
 
-      let comps = bounded_split_delim (Re.compile (Re_emacs.re "[;,][ \t]*")) str_cookie 0 in
+      let comps = bounded_split_delim (Re.compile (Re.Emacs.re "[;,][ \t]*")) str_cookie 0 in
 
       (* We don't handle $Path, $Domain, $Port, $Version (or $anything $else) *)
       let cookies = List.filter (fun s -> s.[0] != '$') comps in
