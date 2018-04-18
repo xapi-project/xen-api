@@ -445,16 +445,17 @@ struct
   let query_subject_information subject_identifier =
 
     let unmap_lw_space_chars lwname =
-      let defensive_copy = String.copy lwname in
+      let defensive_copy = Bytes.of_string lwname in
       (* CA-29006: map chars in names back to original space chars in windows-names *)
       (* we use + as the pbis space-replacement because it's an invalid NT-username char in windows *)
       (* the space-replacement char used by pbis is defined at /etc/pbis/lsassd.conf *)
       let current_lw_space_replacement = '+' in
-      for i = 0 to String.length defensive_copy - 1
-      do
-        if defensive_copy.[i] = current_lw_space_replacement then defensive_copy.[i] <- ' '
-      done;
-      defensive_copy
+      String.iteri (fun i c ->
+        if c = current_lw_space_replacement then
+          Bytes.set defensive_copy i ' '
+        else ()
+      ) lwname;
+      Bytes.unsafe_to_string defensive_copy
     in
     let get_value name ls = if List.mem_assoc name ls then List.assoc name ls else "" in
     let infolist = pbis_get_all_byid subject_identifier in
