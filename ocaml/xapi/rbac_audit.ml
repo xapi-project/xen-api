@@ -215,7 +215,7 @@ let action_params_zip =
 let zip data = (* todo: remove i/o, make this more efficient *)
   try
     let tmp_path = Filename.temp_file "zip-" ".dat" in
-    let zdata = ref "" in
+    let zdata = ref (Bytes.empty) in
     Stdext.Pervasiveext.finally
       (fun ()->
          Stdext.Unixext.atomic_write_to_file tmp_path 0o600
@@ -229,16 +229,18 @@ let zip data = (* todo: remove i/o, make this more efficient *)
          let fd_in = Unix.openfile tmp_path [ Unix.O_RDONLY] 0o400 in
          Stdext.Pervasiveext.finally
            (fun ()->
-              let cin=Unix.in_channel_of_descr fd_in in
+              let cin = Unix.in_channel_of_descr fd_in in
               let cin_len = in_channel_length cin in
               zdata := (Bytes.create cin_len);
-              for i = 1 to cin_len do !zdata.[i-1] <- input_char cin done;
+              for i = 1 to cin_len do 
+                Bytes.set !zdata (i-1) (input_char cin);
+              done
            )
-           (fun ()->Unix.close fd_in)
+           (fun ()-> Unix.close fd_in)
       )
       (fun ()-> Sys.remove tmp_path)
     ;
-    let b64zdata = Stdext.Base64.encode !zdata in
+    let b64zdata = Xapi_stdext_base64.Base64.encode (Bytes.unsafe_to_string !zdata) in
     b64zdata
   with e->
     D.debug "error %s zipping data: %s" (ExnHelper.string_of_exn e) data;
