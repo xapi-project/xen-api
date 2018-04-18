@@ -33,7 +33,7 @@ let server (s: Unix.file_descr) =
         (* Update the whole thing *)
         let buffer = Bytes.create (w * h * !bpp / 8) in
         for i = 0 to String.length buffer - 1 do
-          buffer.[i] <- char_of_int (Random.int 255)
+          Bytes.set buffer i (char_of_int @@ Random.int 255)
         done;
         let raw = { FramebufferUpdate.Raw.buffer = buffer } in
         let update = { FramebufferUpdate.x = 0; y = 0; w = w; h = h;
