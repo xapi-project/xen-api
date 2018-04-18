@@ -20,16 +20,18 @@ let usage () =
 let () =
   match Sys.argv with
   | [|_; filename|] -> begin
-      let stats = Blktap3_stats.get_blktap3_stats filename in
-      Printf.printf "read_reqs_submitted = %Ld\n" stats.Blktap3_stats.read_reqs_submitted;
-      Printf.printf "read_reqs_completed = %Ld\n" stats.Blktap3_stats.read_reqs_completed;
-      Printf.printf "read_sectors = %Ld\n" stats.Blktap3_stats.read_sectors;
-      Printf.printf "read_total_ticks = %Ld\n" stats.Blktap3_stats.read_total_ticks;
-      Printf.printf "write_reqs_submitted = %Ld\n" stats.Blktap3_stats.write_reqs_submitted;
-      Printf.printf "write_reqs_completed = %Ld\n" stats.Blktap3_stats.write_reqs_completed;
-      Printf.printf "write_sectors = %Ld\n" stats.Blktap3_stats.write_sectors;
-      Printf.printf "write_total_ticks = %Ld\n" stats.Blktap3_stats.write_total_ticks;
-      Printf.printf "io_errors = %Ld\n" stats.Blktap3_stats.io_errors;
-      Printf.printf "low_mem_mode = %b\n" stats.Blktap3_stats.low_mem_mode
+      let stats = Blktap3_stats.of_file filename in
+      let s = Blktap3_stats.copy stats in
+      let open Blktap3_stats in
+      Printf.printf "read_reqs_submitted = %Ld\n" (get_stats_read_reqs_submitted s);
+      Printf.printf "read_reqs_completed = %Ld\n" (get_stats_read_reqs_completed s);
+      Printf.printf "read_sectors = %Ld\n" (get_stats_read_sectors s);
+      Printf.printf "read_total_ticks = %Ld\n" (get_stats_read_total_ticks s);
+      Printf.printf "write_reqs_submitted = %Ld\n" (get_stats_write_reqs_submitted s);
+      Printf.printf "write_reqs_completed = %Ld\n" (get_stats_write_reqs_completed s);
+      Printf.printf "write_sectors = %Ld\n" (get_stats_write_sectors s);
+      Printf.printf "write_total_ticks = %Ld\n" (get_stats_write_total_ticks s);
+      Printf.printf "io_errors = %Ld\n" (get_stats_io_errors s);
+      Printf.printf "flags = %Ld\n" (get_stats_flags s);
     end
   | _ -> usage ()

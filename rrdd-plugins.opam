@@ -20,6 +20,7 @@ depends: [
   "xenstore"
   "xenops"
   "xenctrl"
+  "cstruct-unix"
 ]
 depexts: [
   [["centos"] ["blktap-devel"]]

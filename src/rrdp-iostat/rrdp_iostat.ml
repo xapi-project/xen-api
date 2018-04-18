@@ -135,9 +135,9 @@ module Iostat = struct
 
     (* Now read the values out of dev_values_map for devices for which we have data *)
     Listext.List.filter_map (fun dev ->
-        if not (Hashtbl.mem dev_values_map dev) then (
-          None
-        ) else
+        if not (Hashtbl.mem dev_values_map dev)
+        then None
+        else
           let values = Hashtbl.find dev_values_map dev in
           Some (dev, values)
       ) devs
@@ -226,9 +226,7 @@ let exec_tap_ctl () =
       end
     else
       let (sr, vdi) = Hashtbl.find phypath_to_sr_vdi phypath in
-      begin
-        Some (pid, (minor, (sr, vdi)))
-      end
+      Some (pid, (minor, (sr, vdi)))
   in
   let process_line str =
     let re = Str.regexp
@@ -302,28 +300,12 @@ let sr_to_sth s_v_to_i =
   List.fold_left fold_fun [] s_v_to_i
 
 module Blktap3_stats_wrapper = struct
-  type t = blktap3_stats
-
-  let empty =
-    {
-      read_reqs_submitted     = 0L;
-      read_reqs_completed     = 0L;
-      read_sectors            = 0L;
-      read_total_ticks        = 0L;
-      write_reqs_submitted    = 0L;
-      write_reqs_completed    = 0L;
-      write_sectors           = 0L;
-      write_total_ticks       = 0L;
-      io_errors		= 0L;
-      low_mem_mode		= false;
-    }
-
   let shm_devices_dir = "/dev/shm"
 
   let m = Mutex.create ()
-  let cache : ((int * int), int option) Hashtbl.t = Hashtbl.create 100
+  let cache : ((int * int), Blktap3_stats.t option) Hashtbl.t = Hashtbl.create 100
 
-  let get_pids () =
+  let get_stats () =
     let pid_from_xs (domid, devid) =
       try
         let result = with_xs (fun xs ->
@@ -335,36 +317,51 @@ module Blktap3_stats_wrapper = struct
     in
 
     Mutex.execute m (fun () ->
-        Hashtbl.fold (fun (domid, devid) pid_opt acc ->
-            match pid_opt with
-            | Some pid -> ((domid, devid), pid)::acc
+        Hashtbl.fold (fun (domid, devid) stats_opt acc ->
+            match stats_opt with
+            | Some stats -> ((domid, devid), Blktap3_stats.copy stats)::acc
             | None ->
               match pid_from_xs (domid, devid) with
               | Some pid ->
-                Hashtbl.replace cache (domid, devid) (Some pid);
-                ((domid, devid), pid)::acc
-              | None -> acc) cache [])
+                let stat_file = Printf.sprintf "%s/td3-%d/vbd-%d-%d" shm_devices_dir pid domid devid in
+                begin
+                  try
+                    let stats = Blktap3_stats.of_file stat_file in
+                    Hashtbl.replace cache (domid, devid) (Some stats);
+                    ((domid, devid), Blktap3_stats.copy stats)::acc
+                  with e ->
+                    D.warn "Caught exception trying to map stats file: %s" (Printexc.to_string e);
+                    acc
+                end
+              | None -> acc)
+          cache
+          []
+      )
 
   let inotify_thread () =
     let domdev_of_file f =
-      let domid, devid = Scanf.sscanf f "vbd3-%d-%d" (fun id devid -> (id, devid)) in
-      (domid, devid) in
+      try
+        Scanf.sscanf f "vbd3-%d-%d" (fun domid devid -> Some (domid, devid))
+      with e ->
+        None
+    in
 
     let operate f fn =
-      let (domid, devid) = domdev_of_file f in
-      Mutex.execute m (fun () -> fn (domid, devid)) in
+      match domdev_of_file f with
+      | Some (domid, devid) ->
+        Mutex.execute m (fun () -> fn (domid, devid))
+      | None ->
+        ()
+    in
 
-    let add_file f = operate f (fun k -> D.debug "add_file: (%d,%d)" (fst k) (snd k); Hashtbl.replace cache k None) in
-    let remove_file f = operate f (fun k -> D.debug "remove_file: (%d,%d)" (fst k) (snd k); Hashtbl.remove cache k) in
-
-    let pred path = Xstringext.String.startswith "vbd3-" path in
+    let add_file f = operate f (fun k -> Hashtbl.replace cache k None) in
+    let remove_file f = operate f (fun k -> Hashtbl.remove cache k) in
 
     let initialise () =
       Mutex.execute m (fun () -> Hashtbl.clear cache);
       let shm_dirs = Array.to_list (Sys.readdir shm_devices_dir) in
-      let shm_vbds = List.filter pred shm_dirs in
-      List.iter add_file shm_vbds;
-      D.debug "Populated %d cache entries" (List.length shm_vbds)
+      List.iter add_file shm_dirs;
+      D.debug "Populated %d cache entries" (Mutex.execute m (fun () -> Hashtbl.length cache))
     in
 
     let inotify = Inotify.create () in
@@ -374,14 +371,13 @@ module Blktap3_stats_wrapper = struct
     let rec loop () =
       try
         let evs = Inotify.read inotify in
-        List.iter (fun (w, kind_list, _, path) ->
+        List.iter (fun (_w, kind_list, _, path) ->
             let is_create = List.mem Inotify.Create kind_list in
             let is_delete = List.mem Inotify.Delete kind_list in
             match is_create, is_delete, path with
-            | _    , true , Some p when pred p -> remove_file p; loop ()
-            | true , false, Some p when pred p -> add_file p; loop ()
-            | _    , _    , Some p -> loop ()
-            | _    , _    , None -> loop ()) evs
+            | _    , true , Some p -> remove_file p; loop ()
+            | true , false, Some p -> add_file p; loop ()
+            | _    , _    , _ -> loop ()) evs
       with
       | e ->
         D.debug "Unexpected other exception: %s" (Printexc.to_string e);
@@ -389,21 +385,9 @@ module Blktap3_stats_wrapper = struct
         loop ()
     in loop ()
 
-  let get_domid_devid_to_stats_blktap3 () : ((int * int) * t) list =
-    let read_raw_blktap3_stats tdpid domid devid =
-      try
-        let stat_file = Printf.sprintf "%s/td3-%d/vbd-%d-%d" shm_devices_dir tdpid domid devid in
-        (* Retrieve blktap3 statistics record *)
-        let stat_rec = get_blktap3_stats stat_file in
-        Some stat_rec
-      with _ ->
-        None
-    in
-    let kvs = get_pids () in
-    List.fold_left (fun acc ((domid,devid),tdpid) ->
-        match read_raw_blktap3_stats tdpid domid devid with
-        | Some stat -> ((domid, devid), stat) :: acc
-        | None -> acc) [] kvs
+  let get_domid_devid_to_stats_blktap3 () : ((int * int) * Blktap3_stats.t) list =
+    let stats = get_stats () in
+    stats
 
 end
 
@@ -466,27 +450,26 @@ module Stats_value = struct
         inflight = stats_get 8;
       }
     | Some s3 ->
-      let last_s3 = match last_stats_blktap3 with
-        | None -> Blktap3_stats_wrapper.empty
-        | Some last_s3 -> last_s3
-      in
+      let last_s3 = last_stats_blktap3 in
+      let opt f x = match x with None -> 0L | Some x' -> f x' in
+      let open Blktap3_stats in
       {
-        rd_bytes = Int64.mul s3.read_sectors 512L;
-        wr_bytes = Int64.mul s3.write_sectors 512L;
+        rd_bytes = Int64.mul (get_stats_read_sectors s3) 512L;
+        wr_bytes = Int64.mul (get_stats_write_sectors s3) 512L;
         rd_avg_usecs =
-          if s3.read_reqs_completed > 0L then
-            Int64.div s3.read_total_ticks s3.read_reqs_completed
+          if (get_stats_read_reqs_completed s3) > 0L then
+            Int64.div (get_stats_read_total_ticks s3) (get_stats_read_reqs_completed s3)
           else 0L;
         wr_avg_usecs =
-          if s3.write_reqs_completed > 0L then
-            Int64.div s3.write_total_ticks s3.write_reqs_completed
+          if (get_stats_write_reqs_completed s3) > 0L then
+            Int64.div (get_stats_write_total_ticks s3) (get_stats_write_reqs_completed s3)
           else 0L;
-        io_throughput_read_mb = (to_float (s3.read_sectors -- last_s3.read_sectors)) *. 512. /. 1048576.;
-        io_throughput_write_mb = (to_float (s3.write_sectors -- last_s3.write_sectors)) *. 512. /. 1048576.;
-        iops_read = s3.read_reqs_completed -- last_s3.read_reqs_completed;
-        iops_write = s3.write_reqs_completed -- last_s3.write_reqs_completed;
-        iowait = to_float ((s3.read_total_ticks ++ s3.write_total_ticks) -- (last_s3.read_total_ticks ++ last_s3.write_total_ticks)) /. 1000000.0;
-        inflight = (s3.read_reqs_submitted ++ s3.write_reqs_submitted) -- (s3.read_reqs_completed ++ s3.write_reqs_completed);
+        io_throughput_read_mb = (to_float (get_stats_read_sectors s3 -- (opt get_stats_read_sectors last_s3))) *. 512. /. 1048576.;
+        io_throughput_write_mb = (to_float (get_stats_write_sectors s3 -- (opt get_stats_write_sectors last_s3))) *. 512. /. 1048576.;
+        iops_read = get_stats_read_reqs_completed s3 -- (opt get_stats_read_reqs_completed last_s3);
+        iops_write = get_stats_write_reqs_completed s3 -- (opt get_stats_write_reqs_completed last_s3);
+        iowait = to_float ((get_stats_read_total_ticks s3 ++ get_stats_write_total_ticks s3) -- (opt get_stats_read_total_ticks last_s3 ++ opt get_stats_write_total_ticks last_s3)) /. 1000000.0;
+        inflight = (get_stats_read_reqs_submitted s3 ++ get_stats_write_reqs_submitted s3) -- (opt get_stats_read_reqs_completed last_s3 ++ opt get_stats_write_reqs_completed last_s3);
       }
 
   let sumup (values : t list) : t =
@@ -583,15 +566,13 @@ module Iostats_value = struct
         avgqu_sz = iostats_get 7;
       }
     | Some s3 ->
-      let last_s3 = match last_stats_blktap3 with
-        | None -> Blktap3_stats_wrapper.empty
-        | Some last_s3 -> last_s3
-      in
-      let s3_usecs = (s3.read_total_ticks ++ s3.write_total_ticks) -- (last_s3.read_total_ticks ++ last_s3.write_total_ticks) in
-      let s3_count = (s3.read_reqs_completed ++ s3.write_reqs_completed) -- (last_s3.read_reqs_completed ++ last_s3.write_reqs_completed) in
+      let last_s3 = last_stats_blktap3 in
+      let opt f x = match x with | None -> 0L | Some x' -> f x' in
+      let s3_usecs = (get_stats_read_total_ticks s3 ++ get_stats_write_total_ticks s3) -- (opt get_stats_read_total_ticks last_s3 ++ opt get_stats_write_total_ticks last_s3) in
+      let s3_count = (get_stats_read_reqs_completed s3 ++ get_stats_write_reqs_completed s3) -- (opt get_stats_read_reqs_completed last_s3 ++ opt get_stats_write_reqs_completed last_s3) in
       let s3_latency_average = if s3_count = 0L then 0. else to_float s3_usecs /. to_float s3_count /. 1000.0 in
       (* refer to https://github.com/xenserver/xsiostat for the calculation below *)
-      let avgqu_sz = to_float ((s3.read_total_ticks ++ s3.write_total_ticks) -- (last_s3.read_total_ticks ++ last_s3.write_total_ticks)) /. 1000_000.0 in
+      let avgqu_sz = to_float ((get_stats_read_total_ticks s3 ++ get_stats_write_total_ticks s3) -- (opt get_stats_read_total_ticks last_s3 ++ opt get_stats_write_total_ticks last_s3)) /. 1000_000.0 in
       {
         latency = s3_latency_average;
         (* divide by the interval as the ds-type is Gauge *)
@@ -705,7 +686,7 @@ let gen_metrics () =
   let data_sources_low_mem_mode =
     let (++) = Int64.add in
     let count = List.fold_left (fun acc ((_, _), stats) ->
-        if stats.low_mem_mode then acc ++ 1L else acc
+        if (Int64.logand (get_stats_flags stats) Blktap3_stats.flag_low_mem_mode) = Blktap3_stats.flag_low_mem_mode then acc ++ 1L else acc
       )0L domid_devid_to_stats_blktap3
     in
     let ds_make = Ds.ds_make ~default:true in
