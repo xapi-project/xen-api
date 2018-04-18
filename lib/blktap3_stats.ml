@@ -19,18 +19,18 @@
 
 (** Define an equivalent blktap3 statistics record *)
 type blktap3_stats = {
-	read_reqs_submitted: int64;
-	read_reqs_completed: int64;
-	read_sectors: int64;
-	read_total_ticks: int64;
-	write_reqs_submitted: int64;
-	write_reqs_completed: int64;
-	write_sectors: int64;
-	write_total_ticks: int64;
-	io_errors: int64;
-	low_mem_mode: bool;
+  read_reqs_submitted: int64;
+  read_reqs_completed: int64;
+  read_sectors: int64;
+  read_total_ticks: int64;
+  write_reqs_submitted: int64;
+  write_reqs_completed: int64;
+  write_sectors: int64;
+  write_total_ticks: int64;
+  io_errors: int64;
+  low_mem_mode: bool;
 }
 
 (** Obtain a blktap3 statistics record using the stubs *)
 external get_blktap3_stats:
-	filename:string -> blktap3_stats = "stub_get_blktap3_stats"
+  filename:string -> blktap3_stats = "stub_get_blktap3_stats"
