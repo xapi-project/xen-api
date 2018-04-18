@@ -27,7 +27,7 @@ open Fun
 (* We treat versions as '.'-separated integer lists under the usual
    lexicographic ordering. *)
 type version = int list
-let version_of_string = List.map int_of_string ++ (String.split '.')
+let version_of_string s = List.map int_of_string (String.split_on_char '.' s)
 
 module D=Debug.Make(struct let name="xapi" end)
 open D
