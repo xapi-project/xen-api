@@ -24,6 +24,7 @@
 #include <caml/custom.h>
 #include <caml/fail.h>
 #include <caml/callback.h>
+#include <caml/signals.h>
 
 #include "xa_auth.h"
 
