@@ -98,12 +98,12 @@ let marshal_int32 x =
   and b = (x >> 8) && 0xffl
   and c = (x >> 16) && 0xffl
   and d = (x >> 24) && 0xffl in
-  let result = String.make 4 '\000' in
-  result.[0] <- char_of_int (Int32.to_int a);
-  result.[1] <- char_of_int (Int32.to_int b);
-  result.[2] <- char_of_int (Int32.to_int c);
-  result.[3] <- char_of_int (Int32.to_int d);
-  result
+  let set buf pos v =
+    Bytes.set buf pos (char_of_int @@ Int32.to_int v)
+  in
+  let result = Bytes.make 4 '\000' in
+  List.iteri (set result) [a;b;c;d];
+  Bytes.unsafe_to_string result
 
 let marshal_int x = marshal_int32 (Int32.of_int x)
 
