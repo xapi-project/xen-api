@@ -542,7 +542,7 @@ let domain_type_to_string = function
   | `unspecified -> "unspecified"
 
 let domain_type_of_string x =
-  match String.lowercase x with
+  match String.lowercase_ascii x with
   | "hvm" -> `hvm
   | "pv" -> `pv
   | "pv-in-pvh" -> `pv_in_pvh
