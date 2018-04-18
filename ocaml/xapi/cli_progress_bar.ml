@@ -22,7 +22,7 @@ module Make(T: Floatable) = struct
     max_value: T.t;
     mutable current_value: T.t;
     width: int;
-    line: string;
+    mutable line: string;
     mutable spin_index: int;
     start_time: float;
     mutable summarised: bool;
@@ -62,11 +62,13 @@ module Make(T: Floatable) = struct
 
   let string_of_bar t =
     let w = bar_width t t.current_value in
-    t.line.[1] <- spinner.(t.spin_index);
+    let line = Bytes.of_string t.line in
+    Bytes.set line 1 spinner.(t.spin_index);
     t.spin_index <- (t.spin_index + 1) mod (Array.length spinner);
     for i = 0 to w - 1 do
-      t.line.[prefix + i] <- (if i = w - 1 then '>' else '#')
+      Bytes.set line (prefix + i) (if i = w - 1 then '>' else '#')
     done;
+    t.line <- Bytes.unsafe_to_string line;
     let percent = Printf.sprintf "%3d" (percent t) in
     String.blit percent 0 t.line (t.width - 19) 3;
     let eta = eta t in
