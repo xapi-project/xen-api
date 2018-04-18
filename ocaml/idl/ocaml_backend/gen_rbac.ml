@@ -65,12 +65,12 @@ let hash2uuid str =
   in
   Uuid.string_of_uuid (Uuid.uuid_of_int_array (int_array hex))
 
-let replace_char _str c1 c2 =
-  let str = String.copy _str in (*defensive copy*)
-  for i=0 to String.length str -1 do
-    if str.[i]=c1 then str.[i]<-c2 else ()
-  done;
-  str
+let replace_char str c1 c2 =
+  let buf = Bytes.of_string str in (*defensive copy*)
+  String.iteri (fun i _ ->
+    if str.[i]=c1 then Bytes.set buf i c2 else ()
+  ) str;
+  Bytes.unsafe_to_string buf
 
 let role_uuid name = hash2uuid name
 
