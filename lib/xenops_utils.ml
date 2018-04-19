@@ -82,7 +82,9 @@ let finally f g =
     result
   with e ->
     Backtrace.is_important e;
-    g ();
+    (try g () with exn ->
+       debug "ignoring exception in finally() block: %s"
+         (Printexc.to_string exn));
     raise e
 
 
