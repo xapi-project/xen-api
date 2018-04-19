@@ -774,8 +774,6 @@ let gen_cmds rpc session_id =
     ; Client.VGPU.(mk get_all get_all_records_where get_by_uuid vgpu_record "vgpu" [] ["uuid";"vm-uuid";"device";"gpu-group-uuid"] rpc session_id)
     ; Client.VGPU_type.(mk get_all get_all_records_where get_by_uuid vgpu_type_record "vgpu-type" [] ["uuid";"vendor-name";"model-name";"max-resolution";"max-heads"] rpc session_id)
     ; Client.DR_task.(mk get_all get_all_records_where get_by_uuid dr_task_record "drtask" [] [] rpc session_id)
-    (*; Client.Alert.(mk get_all get_all_records_where get_by_uuid alert_record "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
-      		 *)
     ; Client.PVS_site.(mk get_all get_all_records_where get_by_uuid pvs_site_record "pvs-site" [] ["uuid"; "name-label"; "name-description"; "pvs-uuid"; "pvs-server-uuids"] rpc session_id)
     ; Client.PVS_server.(mk get_all get_all_records_where get_by_uuid pvs_server_record "pvs-server" [] ["uuid"; "addresses"; "pvs-site-uuid"] rpc session_id)
     ; Client.PVS_proxy.(mk get_all get_all_records_where get_by_uuid pvs_proxy_record "pvs-proxy" [] ["uuid"; "vif-uuid"; "pvs-site-uuid"; "currently-attached"; "cache-sr-uuid"] rpc session_id)
@@ -790,17 +788,6 @@ let gen_cmds rpc session_id =
     ; Client.Cluster.(mk get_all get_all_records_where get_by_uuid cluster_record "cluster" [] ["uuid";"cluster-hosts";"network";"cluster-token";"cluster-stack";"allowed-operations";"current-operations";"pool-auto-join";"cluster-config";"other-config"] rpc session_id)
     ; Client.Cluster_host.(mk get_all get_all_records_where get_by_uuid cluster_host_record "cluster-host" [] ["uuid";"cluster";"host";"enabled";"allowed-operations";"current-operations";"other-config"] rpc session_id)
     ]
-
-(* NB, might want to put these back in at some point
- * let zurich_params_gone =
- *   ["distribution";"distribution_vsn";"os";"boot_params"]
- *
- * let zurich_param_map =
- *   [("name","name-label");
- *    ("description","name-description");
- *    ("vcpus","vcpus-number");
- *    ("memory_set","memory-dynamic-max");]
-*)
 
 let message_create printer rpc session_id params =
   let body = List.assoc "body" params in
