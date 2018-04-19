@@ -21,7 +21,7 @@ import errno
 import stat
 import pwd
 import grp
-from subprocess import call
+import subprocess
 import ctypes
 import ctypes.util
 import os
@@ -136,10 +136,34 @@ def close_fds():
     for i in open_fds:
         os.close(i)
 
-def main(argv):
-    f = sys.stdout
+def prepare_exec():
+    """Set up the execution environment for QEMU."""
 
-    f.write("Arguments: %s\n" % " ".join(argv[1:]))
+    if cgroup_slice is not None:
+        # Move to nominated cgroup slice
+        print "Moving to cgroup slice '%s'" % cgroup_slice
+        try:
+            # Note the default slice uses /sys/fs/cgroup/cpu/tasks but
+            # other.slice uses /sys/fs/cgroup/cpu/other.slice/tasks.
+            g = open("/sys/fs/cgroup/cpu/%s/tasks" % cgroup_slice, 'w')
+            g.write(str(os.getpid()))
+            g.close()
+        except IOError, e:
+            print "Warning: writing pid to '%s' tasks file: %s" \
+                % (cgroup_slice, e)
+
+    core_dump_limit = enable_core_dumps()
+    print "core dump limit: %d" % core_dump_limit
+
+    restrict_fsize()
+
+    unshare(CLONE_NEWNET | CLONE_NEWNS | CLONE_NEWIPC)
+
+    sys.stdout.flush()
+    sys.stderr.flush()
+
+def main(argv):
+    print "Arguments: %s" % " ".join(argv[1:])
 
     for n in range(len(argv)):
         if argv[n] == "-xen-domid":
@@ -240,7 +264,7 @@ def main(argv):
         if p == "-loadvm":
             loadvm_path = qemu_args[n+1]
             if qemu_trad_image.is_trad_image(loadvm_path):
-                f.write("QEMU Traditional image detected. Upgrading...\n")
+                print "QEMU Traditional image detected. Upgrading..."
 
                 loadvm_file = open(loadvm_path, "rb")
                 incoming_file = tempfile.TemporaryFile()
@@ -294,10 +318,11 @@ def main(argv):
 
     xenstore_write("/libxl/%d/dm-version" % domid, "qemu_xen")
 
-    f.write("Exec: %s %s\n" % (qemu_dm, " ".join(qemu_args)))
+    print "Exec: %s %s" % (qemu_dm, " ".join(qemu_args))
 
     clipboardd = '/opt/xensource/libexec/xs-clipboardd'
-    call([clipboardd, "-d", str(domid), "-s", str(s2.fileno())], preexec_fn = lambda : (close_fds()))
+    subprocess.call([clipboardd, "-d", str(domid), "-s", str(s2.fileno())],
+                    preexec_fn=close_fds)
 
     s2.close()
 
@@ -309,31 +334,25 @@ def main(argv):
        qemu_env["LD_PRELOAD"] = "/usr/lib64/libjemalloc.so.1:" + qemu_env["LD_PRELOAD"]
     qemu_env["MALLOC_CONF"] = "narenas:1,tcache:false,lg_dirty_mult:22"
 
-    core_dump_limit = enable_core_dumps()
-    f.write("core dump limit: %d\n" % core_dump_limit)
+    sys.stdout.flush()
+    sys.stderr.flush()
 
-    pid = os.getpid()
-    xenstore_write("/local/domain/%d/qemu-pid" % domid, "%d" % pid)
+    qemu = subprocess.Popen(qemu_args, executable=qemu_dm, env=qemu_env,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            preexec_fn=prepare_exec)
 
-    if cgroup_slice is not None:
-        # Move to nominated cgroup slice
-        f.write("Moving to cgroup slice '%s'\n" % cgroup_slice)
-        try:
-            # Note the default slice uses /sys/fs/cgroup/cpu/tasks but
-            # other.slice uses /sys/fs/cgroup/cpu/other.slice/tasks.
-            g = open("/sys/fs/cgroup/cpu/%s/tasks" % cgroup_slice, 'w')
-            g.write(str(pid))
-            g.close()
-        except IOError, e:
-            print "Warning: writing pid to '%s' tasks file: %s" \
-                % (cgroup_slice, e)
+    xenstore_write("/local/domain/%d/qemu-pid" % domid, "%d" % qemu.pid)
 
-    restrict_fsize()
+    # Redirect output from QEMU to logger
+    os.dup2(qemu.stdout.fileno(), 0)
+    qemu.stdout.close()
 
-    unshare(CLONE_NEWNET | CLONE_NEWNS | CLONE_NEWIPC)
+    # Close all unneeded fds
+    open_fds.extend([1, 2])
+    close_fds()
 
-    f.flush()
-    os.execve(qemu_dm, qemu_args, qemu_env)
+    os.execvp('logger', ['logger', '-p', 'daemon.info', '-t',
+                         'qemu-dm-%d[%d]' % (domid, qemu.pid)])
 
 if __name__ == '__main__':
     raise SystemExit(main(sys.argv))
