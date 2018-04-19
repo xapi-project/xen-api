@@ -72,8 +72,10 @@ let ensure_utf8_xml string =
 (* Write field in cache *)
 let write_field_locked t tblname objref fldname newval =
   let current_val = get_field tblname objref fldname (get_database t) in
-  update_database t (set_field tblname objref fldname newval);
-  Database.notify (WriteField(tblname, objref, fldname, current_val, newval)) (get_database t)
+  if current_val <> newval then begin
+    update_database t (set_field tblname objref fldname newval);
+    Database.notify (WriteField(tblname, objref, fldname, current_val, newval)) (get_database t)
+  end
 
 let write_field t tblname objref fldname newval =
   let db = get_database t in
