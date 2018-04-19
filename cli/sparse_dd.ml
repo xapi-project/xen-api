@@ -352,20 +352,24 @@ let _ =
 		info "streaming from raw %s using BAT from %s (relative to %s) to raw %s" src vhd (string_opt relative_to) dest;
 		let t = Impl.make_stream common (src ^ ":" ^ vhd) relative_to "hybrid" "raw" in
 		t, dest, "raw"
-        | true, _, Some (`Vhd vhd), _, _, _ ->
+	| _, _, Some (`Nbd (server, export_name)), _, _, _ ->
+		let dest = rewrite_url dest in
+		let t = Impl.make_stream common (src ^ ":" ^ server ^ ":" ^ export_name) None "nbdhybrid" "raw" in
+		t, dest, "raw"
+	| true, _, Some (`Vhd vhd), _, _, _ ->
 		let dest = rewrite_url dest in
 		info "streaming from vhd %s (relative to %s) to raw %s" vhd (string_opt relative_to) dest;
-        	let t = Impl.make_stream common vhd relative_to "vhd" "raw" in
+		let t = Impl.make_stream common vhd relative_to "vhd" "raw" in
 		t, dest, "raw"
-        | _, _, Some (`Raw raw), _, _, _ ->
+	| _, _, Some (`Raw raw), _, _, _ ->
 		let dest = rewrite_url dest in
 		info "streaming from raw %s (relative to %s) to raw %s" raw (string_opt relative_to) dest;
-        	let t = Impl.make_stream common raw relative_to "raw" "raw" in
+		let t = Impl.make_stream common raw relative_to "raw" "raw" in
 		t, dest, "raw"
-        | _, device, None, _, _, _ ->
+	| _, device, None, _, _, _ ->
 		let dest = rewrite_url dest in
 		info "streaming from raw %s (relative to %s) to raw %s" src (string_opt relative_to) dest;
-        	let t = Impl.make_stream common device relative_to "raw" "raw" in
+		let t = Impl.make_stream common device relative_to "raw" "raw" in
 		t, dest, "raw" in
 
 	progress_cb 0.;

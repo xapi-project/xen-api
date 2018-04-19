@@ -626,6 +626,15 @@ let retry common retries f =
 
 let make_stream common source relative_to source_format destination_format =
   match source_format, destination_format with
+  | "nbdhybrid", "raw" ->
+    begin match Re_str.bounded_split colon source 3 with
+    | [ raw; nbd_server; export_name ] -> begin
+      Vhd_format_lwt.IO.openfile raw false >>= fun raw ->
+      Nbd_input.raw raw nbd_server export_name
+      end
+    | _ ->
+      fail (Failure (Printf.sprintf "Failed to parse nbdhybrid source: %s (expecting <raw_disk>:<nbd_server>:<export_name>" source))
+    end
   | "hybrid", "raw" ->
     (* expect source to be block_device:vhd *)
     begin match Re_str.bounded_split colon source 2 with

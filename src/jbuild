@@ -37,6 +37,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xenstore.unix
     xenstore_transport
     xenstore_transport.unix
+    rpclib
+    rpclib.json
   ))
 ))
-|} (flags ["cstruct.ppx"])
+|} (flags ["cstruct.ppx"; "ppx_deriving_rpc"])
