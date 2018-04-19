@@ -170,22 +170,17 @@ let get_pbds ~__context ~self ~attached ~master_pos =
   | `Last -> slave_pbds @ master_pbds
 
 let call_probe ~__context ~host ~device_config ~_type ~sm_config ~f =
-  Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:_type
-    (fun () ->
-      Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:_type;
+  debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
+  let _type = String.lowercase_ascii _type in
 
-      debug "SR.probe sm_config=[ %s ]" (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
-      let _type = String.lowercase_ascii _type in
+  let queue = !Storage_interface.queue_name ^ "." ^ _type in
+  let uri () = Storage_interface.uri () ^ ".d/" ^ _type in
+  let rpc = Storage_access.external_rpc queue uri in
+  let module Client = Storage_interface.Client(struct let rpc = rpc end) in
+  let dbg = Context.string_of_task __context in
 
-      let queue = !Storage_interface.queue_name ^ "." ^ _type in
-      let uri () = Storage_interface.uri () ^ ".d/" ^ _type in
-      let rpc = Storage_access.external_rpc queue uri in
-      let module Client = Storage_interface.Client(struct let rpc = rpc end) in
-      let dbg = Context.string_of_task __context in
-
-      Storage_access.transform_storage_exn
-        (fun () -> Client.SR.probe ~dbg ~queue ~device_config ~sm_config |> f )
-    )
+  Storage_access.transform_storage_exn
+    (fun () -> Client.SR.probe ~dbg ~queue ~device_config ~sm_config |> f )
 
 let probe = call_probe ~f:(
     function
