@@ -161,16 +161,16 @@ def _disconnect_cli(args):
     disconnect_nbd_device(nbd_device=args.device)
 
 
-if __name__ == '__main__':
+def _main():
     # Configure the root logger to log into syslog
     # (Specifically, into /var/log/user.log)
-    SYSLOG_HANDLER = logging.handlers.SysLogHandler(
+    syslog_handler = logging.handlers.SysLogHandler(
         address='/dev/log',
         facility=logging.handlers.SysLogHandler.LOG_USER)
     # Ensure the program name is included in the log messages:
     formatter = logging.Formatter('%(name)s: [%(levelname)s] %(message)s')
-    SYSLOG_HANDLER.setFormatter(formatter)
-    logging.getLogger().addHandler(SYSLOG_HANDLER)
+    syslog_handler.setFormatter(formatter)
+    logging.getLogger().addHandler(syslog_handler)
 
     try:
         parser = argparse.ArgumentParser(
@@ -205,3 +205,7 @@ if __name__ == '__main__':
     except Exception as e:
         LOGGER.exception(e)
         raise
+
+
+if __name__ == '__main__':
+    _main()
