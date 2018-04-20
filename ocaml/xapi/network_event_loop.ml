@@ -57,6 +57,7 @@ let _watch_networks_for_nbd_changes __context ~update_firewall ~wait_after_event
             pifs
         in
         let interfaces = List.map (fun network -> Db.Network.get_bridge ~__context ~self:network) allowed_connected_networks in
+        let interfaces = Xapi_stdext_std.Listext.List.setify interfaces in
         let needs_firewall_update = match allowed_interfaces with
           | Some allowed_interfaces ->
             not (Xapi_stdext_std.Listext.List.set_equiv interfaces allowed_interfaces)
