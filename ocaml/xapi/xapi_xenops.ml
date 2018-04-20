@@ -2261,6 +2261,12 @@ let resync_resident_on ~__context =
       Db.VM.set_resident_on ~__context ~self:vm ~value:localhost)
       xapi_thinks_are_nowhere;
 
+  List.iter (fun ((id, state), _queue_name) ->
+      match xenapi_of_xenops_power_state (Some state.Vm.power_state) with
+      | `Running | `Paused -> add_caches id;
+      | _ -> ()
+  ) xenopsd_vms_in_xapi;
+
   (* Sync VM state in Xapi for VMs not running on this host *)
   List.iter (fun (id, vm) ->
       info "VM %s was marked as resident here in the DB but isn't known to xenopsd. Resetting in DB" id;
