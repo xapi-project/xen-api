@@ -26,6 +26,8 @@ class NbdDeviceNotFound(Exception):
     devices.
     """
     def __init__(self, nbd_device):
+        super(NbdDeviceNotFound, self).__init__(
+            "NBD device '{}' does not exist".format(nbd_device))
         self.nbd_device = nbd_device
 
 
