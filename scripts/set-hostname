@@ -9,9 +9,6 @@ fi
 
 HOSTNAME=$1
 
-# Update system configuration
-sed -i -e "s/^\(HOSTNAME=\).*$/\1$1/g" /etc/sysconfig/network
-
 # Set current hostname
 hostnamectl set-hostname "$HOSTNAME"
 
