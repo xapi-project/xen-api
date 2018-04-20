@@ -167,6 +167,9 @@ if __name__ == '__main__':
     SYSLOG_HANDLER = logging.handlers.SysLogHandler(
         address='/dev/log',
         facility=logging.handlers.SysLogHandler.LOG_USER)
+    # Ensure the program name is included in the log messages:
+    formatter = logging.Formatter('%(name)s: [%(levelname)s] %(message)s')
+    SYSLOG_HANDLER.setFormatter(formatter)
     logging.getLogger().addHandler(SYSLOG_HANDLER)
 
     try:
