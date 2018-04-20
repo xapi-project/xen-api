@@ -7,7 +7,7 @@ open Datamodel_roles
               You do not have to bump vsn if you change/add/remove a message *)
 
 let schema_major_vsn = 5
-let schema_minor_vsn = 142
+let schema_minor_vsn = 144
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
