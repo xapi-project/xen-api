@@ -20,7 +20,6 @@ let base_suite =
     Test_helpers.test;
     Test_datamodel_utils.test;
     Test_http.test;
-    Test_pool_db_backup.test;
     Test_ha_vm_failover.test;
     Test_map_check.test;
     Test_pool_license.test;
