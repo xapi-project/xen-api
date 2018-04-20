@@ -28,7 +28,6 @@ let base_suite =
     Test_pool_restore_database.test;
     Test_platformdata.test;
     Test_sm_features.test;
-    Test_pci_helpers.test;
     Test_vgpu_type.test;
     Test_pgpu_helpers.test;
     Test_storage_migrate_state.test;
