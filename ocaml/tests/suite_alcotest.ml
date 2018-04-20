@@ -30,6 +30,7 @@ let () =
     ; "Test_pool_update", Test_pool_update.test
     ; "Test_pool_db_backup", Test_pool_db_backup.test
     ; "Test_pool_restore_database", Test_pool_restore_database.test
+    ; "Test_workload_balancing", Test_workload_balancing.test
     ; "Test_pusb", Test_pusb.test
     ; "Test_pvs_site", Test_pvs_site.test
     ; "Test_pvs_proxy", Test_pvs_proxy.test
