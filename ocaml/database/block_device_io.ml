@@ -547,16 +547,16 @@ let action_writedelta block_dev_fd client datasock target_response_time =
     let available_space = Db_globs.redo_log_length_of_half - (pos - start_of_half half_to_use) in
     if str_len > available_space then raise NotEnoughSpace;
 
-    (* Write the delta *)
-    Unixext.time_limited_write block_dev_fd str_len str target_response_time;
-
-    (* Set the internal pointer for this half to the position after this point *)
-    set_pointer half_to_use (str_len + pos);
-
     (* If there's space, write some ASCII NULs over the next few bytes so that we trample on any data which may already exist on the block device *)
     let available_space = available_space - str_len in
     let trample_size = if size_size > available_space then available_space else size_size in
-    Unixext.time_limited_write block_dev_fd trample_size (String.make trample_size '\000') target_response_time;
+    let str = str ^ (String.make trample_size '\000') in
+
+    (* Write the delta *)
+    Unixext.time_limited_write block_dev_fd (String.length str) str target_response_time;
+
+    (* Set the internal pointer for this half to the position after this point *)
+    set_pointer half_to_use (str_len + pos);
 
     (* Respond to the client indicating success *)
     send_response client success_mesg
