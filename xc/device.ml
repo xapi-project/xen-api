@@ -2739,13 +2739,15 @@ module Dm = struct
     let ready_path =
       Printf.sprintf "/local/domain/%d/device-model/%d/state" qemu_domid domid in
     let cancel = Cancel_utils.Qemu (qemu_domid, domid) in
-    let qemu_pid = init_daemon ~task ~path:(Profile.wrapper_of dm) ~args:argv
-        ~name:"qemu-dm" ~domid ~xs ~ready_path ~ready_val:"running"
-        ~timeout ~cancel ~fds:args.fd_map dm in
     let close (uuid,fd) = try Unix.close fd with
       | e -> error "Closing fd for %s failed: %s (%s)"
                uuid (Printexc.to_string e) __LOC__ in
-    List.iter close args.fd_map;
+    let qemu_pid =
+      finally
+        (fun () -> init_daemon ~task ~path:(Profile.wrapper_of dm) ~args:argv
+            ~name:"qemu-dm" ~domid ~xs ~ready_path ~ready_val:"running"
+            ~timeout ~cancel ~fds:args.fd_map dm)
+        (fun () -> List.iter close args.fd_map) in
     match !Xenopsd.action_after_qemu_crash with
     | None ->
       (* At this point we expect qemu to outlive us; we will never call waitpid *)
