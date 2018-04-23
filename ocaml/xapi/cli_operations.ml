@@ -182,24 +182,10 @@ let diagnostic_net_stats printer rpc session_id params =
 
 let diagnostic_db_stats printer rpc session_id params =
   let (n,avgtime,min,max) = Db_lock.report () in
-  let (writes,reads,creates,drops,tasks,threads) = Stats.summarise_db_calls () in
-  printer (Cli_printer.PMsg (Printf.sprintf "DB lock stats: n=%d avgtime=%f min=%f max=%f" n avgtime min max));
-  printer (Cli_printer.PMsg "Reads:");
-  printer (Cli_printer.PList reads);
-  printer (Cli_printer.PMsg "Writes:");
-  printer (Cli_printer.PList writes);
-  printer (Cli_printer.PMsg "Creates:");
-  printer (Cli_printer.PList creates);
-  printer (Cli_printer.PMsg "Drops:");
-  printer (Cli_printer.PList drops);
-  printer (Cli_printer.PMsg "Tasks:");
-  printer (Cli_printer.PTable (List.map (fun (name,ops)-> ("task",name)::ops) (List.sort (fun (t1,ops1) (t2,ops2)-> compare (List.length ops2) (List.length ops1)) tasks)));
-  printer (Cli_printer.PMsg "Threads:");
-  printer (Cli_printer.PTable (List.map (fun (id,ops)-> ("thread",string_of_int id)::ops) threads))
+  printer (Cli_printer.PMsg (Printf.sprintf "DB lock stats: n=%d avgtime=%f min=%f max=%f" n avgtime min max))
 
 let diagnostic_db_log printer rpc session_id params =
-  Stats.log_stats := true;
-  printer (Cli_printer.PMsg "Database/task statistics gathering enabled. Warning, this never releases memory! Restart xapi to reset.")
+  printer (Cli_printer.PMsg "Deprecated: no additional statistics available, use diagnostic-db-stats")
 
 type host_license = {
   hostname: string;
