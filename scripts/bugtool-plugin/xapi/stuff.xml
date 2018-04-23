@@ -2,4 +2,7 @@
 <command label="sm_diagnostics">@LIBEXECDIR@/sm_diagnostics</command>
 <command label="thread_diagnostics">@LIBEXECDIR@/thread_diagnostics</command>
 <command label="list_plugins">@LIBEXECDIR@/list_plugins</command>
+<command label="diagnostic_timing_stats">@BINDIR@/xe diagnostic-timing-stats</command>
+<command label="diagnostic_db_stats">@BINDIR@/xe diagnostic-db-stats</command>
+<command label="diagnostic_net_stats">@BINDIR@/xe diagnostic-net-stats</command>
 </collect>
