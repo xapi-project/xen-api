@@ -59,7 +59,7 @@ let update_vdi_to_vm_map () =
                         try
                           let devid = int_of_string vbd in
                           Some (Printf.sprintf "%s/%s" path vbd, devid)
-                        with Failure "int_of_string" ->
+                        with Failure _ ->
                           D.warn "Got non-integer vbd %s in domain %d" vbd domid;
                           None
                       ) (xs.Xs.directory path)
