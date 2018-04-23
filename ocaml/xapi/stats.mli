@@ -16,7 +16,3 @@ val summarise : unit -> (string * string) list
 
 (** Time the given function and attribute the result to the named population *)
 val time_this : string -> (unit -> 'a) -> 'a
-
-val summarise_db_calls : unit -> (string list * string list * string list * string list * (string * ((string * string) list)) list * (int * ((string * string) list)) list)
-
-val log_stats : bool ref
