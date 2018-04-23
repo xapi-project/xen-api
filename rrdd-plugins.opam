@@ -9,6 +9,7 @@ dev-repo: "git://github.com/xenserver/rrdd-plugins"
 build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 depends: [
   "jbuilder" {build}
+  "inotify"
   "rrdd-plugin"
   "xapi-libs-transitional"
   "xapi-stdext-std"
@@ -19,6 +20,7 @@ depends: [
   "xenstore"
   "xenops"
   "xenctrl"
+  "cstruct-unix"
 ]
 depexts: [
   [["centos"] ["blktap-devel"]]
