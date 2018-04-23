@@ -12,10 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
-open Test_common
-open Dbsync_master
-
+let alco_power_state = Alcotest_comparators.from_rpc_of_t API.rpc_of_vm_power_state
 let run_test vm =
   let (nameLabel, isControlDomain, powerState) = vm in
   let __context = Test_common.make_test_database () in
@@ -27,7 +24,8 @@ let run_test vm =
 
   Dbsync_master.reset_vms_running_on_missing_hosts ~__context;
 
-  assert_equal ~msg:(Printf.sprintf "The VM %s is not halted" nameLabel)
+  Alcotest.check alco_power_state
+    (Printf.sprintf "The VM %s is not halted" nameLabel)
     (Db.VM.get_power_state ~__context ~self:vm) `Halted
 
 let test_cases = [
@@ -40,9 +38,6 @@ let test_cases = [
 let test_reset_vms_on_missing_host () =
   List.iter run_test test_cases
 
-
 let test =
-  "pool_restore_database" >:::
-  [
-    "test_reset_vms_on_missing_host" >:: test_reset_vms_on_missing_host;
+  [ "test_reset_vms_on_missing_host", `Quick, test_reset_vms_on_missing_host
   ]

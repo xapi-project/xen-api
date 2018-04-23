@@ -12,18 +12,20 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
-open Test_common
+let split = Workload_balancing.split_host_port
+
+let assert_succeed url host port =
+  Alcotest.(check (pair string int))
+    "test_split_host_port"
+    (host, port) (split url)
+
+let assert_raise_url_invalid url =
+  Alcotest.check_raises
+    "wlb URL should be invalid"
+    Api_errors.(Server_error (wlb_url_invalid, [url]))
+    (fun () -> split url |> ignore)
 
 let test_split_host_port () =
-  let split = Workload_balancing.split_host_port in
-  let assert_succeed url host port =
-    assert_equal (split url) (host, port)
-  in
-  let assert_raise_url_invalid url =
-    assert_raises_api_error Api_errors.wlb_url_invalid ~args:[url] (fun () -> split url)
-  in
-
   (* succeed cases *)
   assert_succeed "192.168.0.1:80" "192.168.0.1" 80;
   assert_succeed "hostname.com:80" "hostname.com" 80;
@@ -47,7 +49,5 @@ let test_split_host_port () =
   assert_raise_url_invalid "http://example.com:80/"
 
 let test =
-  "test_workload_balancing" >:::
-  [
-    "test_split_host_port" >:: test_split_host_port;
+  [ "test_split_host_port", `Quick, test_split_host_port
   ]

@@ -20,24 +20,18 @@ let base_suite =
     Test_helpers.test;
     Test_datamodel_utils.test;
     Test_http.test;
-    Test_pool_db_backup.test;
-    Test_xapi_db_upgrade.test;
     Test_ha_vm_failover.test;
     Test_map_check.test;
     Test_pool_license.test;
     Test_features.test;
-    Test_pool_restore_database.test;
     Test_platformdata.test;
     Test_sm_features.test;
-    Test_pci_helpers.test;
     Test_vgpu_type.test;
-    Test_pgpu.test;
     Test_pgpu_helpers.test;
     Test_storage_migrate_state.test;
     Test_vm.test;
     Test_vm_helpers.test;
     Test_xenopsd_metadata.test;
-    Test_workload_balancing.test;
     Test_cpuid_helpers.test;
     Test_pool_cpuinfo.test;
     (* Test_ca121350.test; *)
@@ -53,7 +47,6 @@ let base_suite =
     Test_network_sriov.test;
     Test_xapi_vbd_helpers.test;
     Test_sr_update_vdis.test;
-    Test_network.test;
     Test_host_helpers.test;
   ]
 
