@@ -13,7 +13,6 @@
  *)
 (** Time activities, monitor the mean and standard deviation. Try to help understand how
     long key operations take under load. *)
-open Stdext
 
 module Normal_population = struct
   (** Stats on a normally-distributed population *)
@@ -50,8 +49,8 @@ end
 
 module D=Debug.Make(struct let name="stats" end)
 open D
-open Threadext
-open Pervasiveext
+open Xapi_stdext_threads.Threadext
+open Xapi_stdext_pervasives.Pervasiveext
 
 let timings : (string, Normal_population.t) Hashtbl.t = Hashtbl.create 10
 let timings_m = Mutex.create ()
