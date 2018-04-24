@@ -618,7 +618,8 @@ let perform_action f desc sock log =
     | None -> ()
     | Some (_, _, datasockpath) ->
       R.debug "About to perform action %s" desc;
-      f sock datasockpath;
+      Stats.time_this ("redo_log: " ^ desc) (fun () ->
+        f sock datasockpath);
       R.debug "Action '%s' completed successfully" desc;
       healthy log (* no exceptions: we can be confident that the redo log is working healthily *)
   with
@@ -718,7 +719,7 @@ let write_delta generation_count t flush_db_fn log =
     | None ->
       (* Instead of writing a delta, try to write the whole DB *)
       R.debug "write_delta: Not currently connected, so trying to re-connect and flush DB instead of writing the delta";
-      flush_db_fn ()
+      Stats.time_this "redo_log: flush_db" flush_db_fn
     | Some sock ->
       (* It looks like we're probably connected, so try to write the delta *)
       let str = redo_log_entry_to_string t in
