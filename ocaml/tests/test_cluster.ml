@@ -39,7 +39,7 @@ let test_rpc ~__context call =
   | name, params ->
     failwith (Printf.sprintf "Unexpected RPC: %s(%s)" name (String.concat " " (List.map Rpc.to_string params)))
 
-let create_cluster ~__context ?(cluster_stack=Constants.default_smapiv3_cluster_stack) () =
+let create_cluster ~__context ?(cluster_stack=Constants.default_smapiv3_cluster_stack) ?(test_clusterd_rpc=test_clusterd_rpc) () =
   Context.set_test_rpc __context (test_rpc ~__context);
   Context.set_test_clusterd_rpc __context (test_clusterd_rpc ~__context);
   let network = Test_common.make_network ~__context () in
@@ -71,8 +71,35 @@ let test_invalid_cluster_stack () =
     Api_errors.(Server_error (invalid_cluster_stack, [ cluster_stack ]))
     (fun () -> create_cluster ~__context ~cluster_stack () |> ignore)
 
+let test_create_cleanup () =
+  let __context = Test_common.make_test_database () in
+  let test_failed_clusterd_rpc ~__context call =
+    match call.Rpc.name, call.Rpc.params with
+    | "create", _ ->
+       Rpc.{ success = false
+           ; contents = Rpcmarshal.marshal
+                          (Cluster_interface.error.Rpc.Types.ty)
+                          (Cluster_interface.InternalError "Cluster.create failed")
+           }
+    | _, _ ->
+     Rpc.{success = true; contents = Rpc.Null }
+  in
+  try
+    create_cluster ~__context ~test_clusterd_rpc:test_failed_clusterd_rpc () |> ignore;
+    Alcotest.fail "Cluster.create should have failed"
+  with
+  | e ->
+    print_endline (ExnHelper.string_of_exn e);
+    Alcotest.(check (slist (Alcotest_comparators.ref ()) compare))
+      "Cluster refs should be destroyed"
+      [] (Db.Cluster.get_all ~__context);
+    Alcotest.(check (slist (Alcotest_comparators.ref ()) compare))
+      "Cluster_host refs should be destroyed"
+    [] (Db.Cluster_host.get_all ~__context)
+
 let test =
   [ "test_create_destroy_service_status", `Quick, test_create_destroy_status
   ; "test_enable", `Quick, test_enable
   ; "test_invalid_cluster_stack", `Quick, test_invalid_cluster_stack
+  ; "test_create_cleanup", `Quick, test_create_cleanup
   ]
