@@ -327,7 +327,7 @@ let transfer_data_from_sock_to_fd sock dest_fd available_space target_response_t
                (* Otherwise write it *)
                Unixext.time_limited_write dest_fd len chunk target_response_time;
                total_length := !total_length + len
-             ) ~block_size:16384 data_client
+             ) ~block_size:65536 data_client
         )
         (fun () ->
            (* Close the connection *)
