@@ -41,7 +41,6 @@ let base_suite =
     Test_sdn_controller.test;
     Test_extauth_plugin_ADpbis.test;
     Test_guest_agent.test;
-    Test_tunnel.test;
     Test_network_sriov.test;
     Test_xapi_vbd_helpers.test;
   ]
