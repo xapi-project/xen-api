@@ -99,9 +99,10 @@ val proxy : Unix.file_descr -> Unix.file_descr -> unit
 val really_read : Unix.file_descr -> bytes -> int -> int -> unit
 val really_read_string : Unix.file_descr -> int -> string
 (** [really_write] keeps repeating the write operation until all bytes
- * have been written or an error occurs. This is the same behaviour of
- * [Unix.write] that should be preferred instead. *)
-val really_write : Unix.file_descr -> bytes -> int -> int -> unit [@@ocaml.deprecated]
+ * have been written or an error occurs. This is not atomic but is
+ * robust against EINTR errors. 
+ * See: https://ocaml.github.io/ocamlunix/ocamlunix.html#sec118 *)
+val really_write : Unix.file_descr -> string -> int -> int -> unit
 val really_write_string : Unix.file_descr -> string -> unit
 val try_read_string : ?limit: int -> Unix.file_descr -> string
 exception Timeout
