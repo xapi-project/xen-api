@@ -465,13 +465,12 @@ amount of data (but not atomically!).
 let rec restart_on_EINTR f x =
   try f x with Unix.Unix_error (Unix.EINTR, _, _) -> restart_on_EINTR f x
 and really_write fd buffer offset len =
-  let n = restart_on_EINTR (Unix.single_write fd buffer offset) len in
+  let n = restart_on_EINTR (Unix.single_write_substring fd buffer offset) len in
   if n < len then really_write fd buffer (offset + n) (len - n);;
 
 (* Ideally, really_write would be implemented with optional arguments ?(off=0) ?(len=String.length string) *)
 let really_write_string fd string =
-  let payload = Bytes.unsafe_of_string string in
-  really_write fd payload 0 (Bytes.length payload)
+  really_write fd string 0 (String.length string)
 
 (* --------------------------------------------------------------------------------------- *)
 (* Functions to read and write to/from a file descriptor with a given latest response time *)

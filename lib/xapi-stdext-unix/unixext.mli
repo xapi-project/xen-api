@@ -102,7 +102,7 @@ val really_read_string : Unix.file_descr -> int -> string
  * have been written or an error occurs. This is not atomic but is
  * robust against EINTR errors. 
  * See: https://ocaml.github.io/ocamlunix/ocamlunix.html#sec118 *)
-val really_write : Unix.file_descr -> bytes -> int -> int -> unit
+val really_write : Unix.file_descr -> string -> int -> int -> unit
 val really_write_string : Unix.file_descr -> string -> unit
 val try_read_string : ?limit: int -> Unix.file_descr -> string
 exception Timeout
