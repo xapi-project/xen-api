@@ -255,6 +255,30 @@ module Volume(R: RPC) = struct
       ]
       (dbg @-> sr @-> key @-> returning key_list errors)
 
+  let enable_cbt = R.declare "enable_cbt"
+      [ "[enable_cbt sr volume] enables Changed Block Tracking for [volume]"
+      ]
+      (dbg @-> sr @-> key @-> returning unit errors)
+
+  let disable_cbt = R.declare "disable_cbt"
+      ["[disable_cbt sr volume] disables Changed Block Tracking for [volume]"]
+      (dbg @-> sr @-> key @-> returning unit errors)
+
+  let data_destroy = R.declare "data_destroy"
+      ["[data_destroy sr volume] deletes the data of the snapshot [volume]";
+       "without deleting its changed block tracking metadata"]
+      (dbg @-> sr @-> key @-> returning unit errors)
+
+  let changed_blocks = Param.mk ~name:"changed_blocks" ~description:
+      ["The changed blocks between two volumes as a base64-encoded string"]
+      Types.string
+
+  let list_changed_blocks = R.declare "list_changed_blocks"
+      ["[list_changed_blocks sr volume1 volume2] returns the blocks that";
+       "have changed between [volume1] and [volume2] as a base64-encoded";
+       "bitmap string"]
+      (dbg @-> sr @-> key @-> key2 @-> returning changed_blocks errors)
+
   let implementation = R.implement
       {Idl.Interface.name = "Volume";
        namespace=None;
