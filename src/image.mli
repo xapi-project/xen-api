@@ -1,8 +1,8 @@
 
 type t = [
-	| `Vhd of string
-    | `Raw of string
-    | `Nbd of (string * string)
+  | `Vhd of string
+  | `Raw of string
+  | `Nbd of (string * string)
 ]
 (** An image may either be backed by a vhd-format file or a
     raw-format file. *)
