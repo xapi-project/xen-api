@@ -89,10 +89,9 @@ end
 
 let output_http fd headers =
   headers
-  |> List.map (fun x ->  Printf.sprintf "%s\r\n" x |> Bytes.of_string)
-  |> Bytes.concat Bytes.empty
-  |> fun output -> Unix.write fd output 0 (Bytes.length output)
-  |> ignore
+  |> List.map (fun x ->  Printf.sprintf "%s\r\n" x)
+  |> String.concat ""
+  |> Unixext.really_write_string fd
 
 let explode str = Astring.String.fold_right (fun c acc -> c :: acc) str []
 let implode chr_list = String.concat "" (List.map Astring.String.of_char chr_list)
