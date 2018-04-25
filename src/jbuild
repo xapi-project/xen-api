@@ -22,23 +22,23 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (c_names (sendfile64_stubs))
   (flags (:standard -w -34-32 %s))
   (libraries (
-    lwt
-    cstruct
     cohttp.lwt
+    cstruct
     io-page.unix
+    lwt
     nbd-lwt-unix
     re.str
+    rpclib
+    rpclib.json
     sha
-    xapi-tapctl
     tar
     vhd-format
     vhd-format-lwt
+    xapi-tapctl
     xenstore.client
     xenstore.unix
     xenstore_transport
     xenstore_transport.unix
-    rpclib
-    rpclib.json
   ))
 ))
 |} (flags ["cstruct.ppx"; "ppx_deriving_rpc"])
