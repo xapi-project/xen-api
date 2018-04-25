@@ -17,7 +17,7 @@ import json
 import logging
 import logging.handlers
 
-from python_nbd_client import PythonNbdClient
+from python_nbd_client import PythonNbdClient, assert_protocol
 import python_nbd_client
 
 
@@ -46,9 +46,9 @@ def _get_extents(path, exportname):
         # https://github.com/NetworkBlockDevice/nbd/blob/extension-blockstatus/doc/proto.md#baseallocation-metadata-context
         context = 'base:allocation'
         selected_contexts = client.set_meta_contexts(exportname, [context])
-        assert len(selected_contexts) == 1
+        assert_protocol(len(selected_contexts) == 1)
         (meta_context_id, meta_context_name) = selected_contexts[0]
-        assert meta_context_name == context
+        assert_protocol(meta_context_name == context)
 
         client.connect(exportname)
 
@@ -66,7 +66,7 @@ def _get_extents(path, exportname):
             # "For a successful return, the server MUST use a structured reply,
             # containing exactly one chunk of type NBD_REPLY_TYPE_BLOCK_STATUS
             # per selected context id"
-            assert len(replies) == 1
+            assert_protocol(len(replies) == 1)
             reply = replies[0]
 
             # First make sure it's a block status reply
@@ -76,13 +76,13 @@ def _get_extents(path, exportname):
                 raise Exception('Unexpected reply: {}'.format(reply))
 
             # Then process the returned block status info
-            assert reply['context_id'] == meta_context_id
+            assert_protocol(reply['context_id'] == meta_context_id)
             descriptors = reply['descriptors']
             for descriptor in descriptors:
                 (length, flags) = descriptor
                 yield {'length':length, 'flags':flags}
                 offset += length
-                assert offset <= size
+                assert_protocol(offset <= size)
 
 
 def _main():

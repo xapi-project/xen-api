@@ -182,7 +182,8 @@ class NBDProtocolError(Exception):
     pass
 
 
-def _assert_protocol(assertion):
+def assert_protocol(assertion):
+    """Raise an NBDProtocolError if the given condition is false."""
     if assertion is False:
         raise NBDProtocolError
 
@@ -301,7 +302,7 @@ class PythonNbdClient(object):
             ">QLLL", reply)
         LOGGER.debug("NBD reply magic='0x%x' option='%d' reply_type='%d'",
                      magic, option, reply_type)
-        _assert_protocol(magic == OPTION_REPLY_MAGIC)
+        assert_protocol(magic == OPTION_REPLY_MAGIC)
         if option != self._last_sent_option:
             raise NBDUnexpectedOptionResponseError(
                 expected=self._last_sent_option, received=option)
@@ -320,7 +321,7 @@ class PythonNbdClient(object):
         (reply_type, data) = self._parse_option_reply()
         if reply_type == NBD_REP_ACK:
             return None
-        _assert_protocol(reply_type == NBD_REP_META_CONTEXT)
+        assert_protocol(reply_type == NBD_REP_META_CONTEXT)
         context_id = struct.unpack(">L", data[:4])[0]
         name = (data[4:]).decode('utf-8')
         return (context_id, name)
@@ -347,7 +348,7 @@ class PythonNbdClient(object):
         self._send_option(NBD_OPT_STARTTLS)
         # receive reply
         data = self._parse_option_reply_ack()
-        _assert_protocol(len(data) == 0)
+        assert_protocol(len(data) == 0)
 
     def request_info(self, export_name, info_requests):
         """Query information from the server."""
@@ -365,13 +366,13 @@ class PythonNbdClient(object):
                 info = {'information_type': info_type}
                 payload = data[2:]
                 if info_type == NBD_INFO_BLOCK_SIZE:
-                    _assert_protocol(len(data) == 14)
+                    assert_protocol(len(data) == 14)
                     (info['minimum_block_size'],
                      info['preferred_block_size'],
                      info['maximum_block_size']) = struct.unpack('>LLL', payload)
                     infos += [info]
                 elif info_type == NBD_INFO_EXPORT:
-                    _assert_protocol(len(data) == 12)
+                    assert_protocol(len(data) == 12)
                     (info['size'],
                      info['transmission_flags']) = struct.unpack('>QH', payload)
                     infos += [info]
@@ -380,7 +381,7 @@ class PythonNbdClient(object):
                     # understand.
                     LOGGER.warning('Unsupported info reply type: %d', info_type)
             elif reply_type == NBD_REP_ACK:
-                _assert_protocol(not data)
+                assert_protocol(not data)
                 break
             else:
                 raise NBDProtocolError(
@@ -441,12 +442,12 @@ class PythonNbdClient(object):
 
     def _fixed_new_style_handshake(self, cert, subject, use_tls):
         nbd_magic = self._recvall(len("NBDMAGIC"))
-        _assert_protocol(nbd_magic == b'NBDMAGIC')
+        assert_protocol(nbd_magic == b'NBDMAGIC')
         nbd_magic = self._recvall(len("IHAVEOPT"))
-        _assert_protocol(nbd_magic == b'IHAVEOPT')
+        assert_protocol(nbd_magic == b'IHAVEOPT')
         buf = self._recvall(2)
         handshake_flags = struct.unpack(">H", buf)[0]
-        _assert_protocol(handshake_flags & NBD_FLAG_HAS_FLAGS != 0)
+        assert_protocol(handshake_flags & NBD_FLAG_HAS_FLAGS != 0)
         client_flags = NBD_FLAG_C_FIXED_NEWSTYLE
         client_flags = struct.pack('>L', client_flags)
         self._s.sendall(client_flags)
@@ -482,10 +483,10 @@ class PythonNbdClient(object):
     def _old_style_handshake(self):
         LOGGER.info("Connecting to server using oldstyle negotiation")
         nbd_magic = self._recvall(len("NBDMAGIC"))
-        _assert_protocol(nbd_magic == b'NBDMAGIC')
+        assert_protocol(nbd_magic == b'NBDMAGIC')
         buf = self._recvall(8 + 8 + 4)
         (magic, self._size, self._transmission_flags) = struct.unpack(">QQL", buf)
-        _assert_protocol(magic == 0x00420281861253)
+        assert_protocol(magic == 0x00420281861253)
         # ignore trailing zeroes
         self._recvall(124)
         self._transmission_phase = True
@@ -511,7 +512,7 @@ class PythonNbdClient(object):
         (magic, errno, handle) = struct.unpack(">LLQ", reply)
         LOGGER.debug("NBD simple reply magic='0x%x' errno='%d' handle='%d'",
                      magic, errno, handle)
-        _assert_protocol(magic == NBD_SIMPLE_REPLY_MAGIC)
+        assert_protocol(magic == NBD_SIMPLE_REPLY_MAGIC)
         self._check_handle(handle)
         data = self._recvall(length=data_length)
         LOGGER.debug("NBD response received data_length=%d bytes", data_length)
@@ -521,7 +522,7 @@ class PythonNbdClient(object):
 
     def _handle_block_status_reply(self, fields):
         data_length = fields['data_length']
-        _assert_protocol((data_length >= 12) and (data_length % 8 == 4))
+        assert_protocol((data_length >= 12) and (data_length % 8 == 4))
         data = self._recvall(data_length)
         view = memoryview(data)
         fields['context_id'] = struct.unpack(">L", view[:4])[0]
@@ -531,25 +532,25 @@ class PythonNbdClient(object):
             (length, status_flags) = struct.unpack(">LL", view[:8])
             descriptors += [(length, status_flags)]
             view = view[8:]
-        _assert_protocol(descriptors)
+        assert_protocol(descriptors)
         fields['descriptors'] = descriptors
 
     def _handle_data_reply(self, fields):
         data_length = fields['data_length']
-        _assert_protocol(data_length >= 9)
+        assert_protocol(data_length >= 9)
         buf = self._recvall(8)
         fields['offset'] = struct.unpack(">Q", buf)[0]
         fields['data'] = self._recvall(data_length - 8)
-        _assert_protocol(fields['data'])
+        assert_protocol(fields['data'])
 
     def _handle_hole_reply(self, fields):
-        _assert_protocol(fields['data_length'] == 12)
+        assert_protocol(fields['data_length'] == 12)
         buf = self._recvall(12)
         (fields['offset'], fields['hole_size']) = struct.unpack(">QL", buf)
 
     def _handle_structured_reply_error(self, fields):
         data_length = fields['data_length']
-        _assert_protocol(data_length >= 6)
+        assert_protocol(data_length >= 6)
         buf = self._recvall(4 + 2)
         (errno, message_length) = struct.unpack(">LH", buf)
         fields['error'] = errno
@@ -573,14 +574,14 @@ class PythonNbdClient(object):
         LOGGER.debug("NBD structured reply magic='%x' flags='%s' "
                      "reply_type='%d' handle='%d' data_length='%d'",
                      magic, flags, reply_type, handle, data_length)
-        _assert_protocol(magic == NBD_STRUCTURED_REPLY_MAGIC)
+        assert_protocol(magic == NBD_STRUCTURED_REPLY_MAGIC)
         self._check_handle(handle)
         fields = {'flags': flags, 'reply_type': reply_type, 'data_length': data_length}
         if reply_type == NBD_REPLY_TYPE_BLOCK_STATUS:
             self._handle_block_status_reply(fields)
         elif reply_type == NBD_REPLY_TYPE_NONE:
-            _assert_protocol(data_length == 0)
-            _assert_protocol(_is_final_structured_reply_chunk(flags=flags))
+            assert_protocol(data_length == 0)
+            assert_protocol(_is_final_structured_reply_chunk(flags=flags))
         elif reply_type == NBD_REPLY_TYPE_OFFSET_DATA:
             self._handle_data_reply(fields)
         elif reply_type == NBD_REPLY_TYPE_OFFSET_HOLE:
