@@ -53,15 +53,15 @@ let get_operation_error ~__context ~self ~op =
       let current_ops = cr.Db_actions.cluster_current_operations in
       if (current_ops <> []) && not (is_allowed_concurrently ~op ~current_ops)
       then report_concurrent_operations_error ~current_ops ~ref_str
-      else begin
-        match (Helpers.rolling_upgrade_in_progress ~__context), op with
-          | true, (`add | `remove | `destroy) -> Some (Api_errors.not_supported_during_upgrade, [])
-          | _, _                              -> None
-       end)
+      else None)
   in
   current_error
 
 let assert_operation_valid ~__context ~self ~op =
+  begin match (Helpers.rolling_upgrade_in_progress ~__context), op with
+    | true, (`add | `remove | `destroy) -> raise Api_errors.(Server_error (not_supported_during_upgrade, []))
+    | _, _                              -> ()
+  end;
   match get_operation_error ~__context ~self ~op with
   | None       -> ()
   | Some (a,b) -> raise (Api_errors.Server_error (a,b))
