@@ -36,7 +36,6 @@ let base_suite =
     Test_pool_cpuinfo.test;
     (* Test_ca121350.test; *)
     Test_dbsync_master.test;
-    Test_xapi_xenops.test;
     Test_pvs_server.test;
     Test_pvs_cache_storage.test;
     Test_sdn_controller.test;

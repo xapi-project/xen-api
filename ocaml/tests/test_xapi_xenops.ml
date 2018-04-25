@@ -1,4 +1,3 @@
-open OUnit
 open Test_common
 open Test_vgpu_common
 
@@ -129,12 +128,12 @@ let test_xapi_restart_inner () =
     in
     let assert_correct_state (vm, running) =
       let name = Db.VM.get_name_label ~__context ~self:vm in
-      assert_bool
+      Alcotest.(check bool)
         (Printf.sprintf "State is correct in xapi (%s)" name)
-        (running = (is_resident vm));
-      assert_bool
+        running (is_resident vm);
+      Alcotest.(check bool)
         (Printf.sprintf "State is correct in xenopsd (%s)" name)
-        (running = (is_running_in_xenopsd vm))
+        running (is_running_in_xenopsd vm)
     in
 
     List.iter (fun vm -> assert_correct_state (vm, true)) [vm1; vm2; vm3; vm4; vm5; vm6; vm7];
@@ -245,9 +244,7 @@ let test_nested_virt_licensing () =
 
 
 let test =
-  "test_xapi_xenops" >:::
-  [
-    "test_nested_virt_licensing" >:: test_nested_virt_licensing;
-    "test_enabled_in_xenguest" >:: test_enabled_in_xenguest;
-    "test_xapi_restart" >:: test_xapi_restart;
+  [ "test_nested_virt_licensing", `Quick, test_nested_virt_licensing
+  ; "test_enabled_in_xenguest", `Quick, test_enabled_in_xenguest
+  ; "test_xapi_restart", `Quick, test_xapi_restart
   ]
