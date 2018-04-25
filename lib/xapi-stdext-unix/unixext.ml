@@ -444,14 +444,34 @@ let try_read_string ?limit fd =
   done;
   Buffer.contents buf
 
-(* This was equivalent to Unix.write - deprecating *)
-let really_write fd string off n =
-  Unix.write fd string off n |> ignore
+(* From https://ocaml.github.io/ocamlunix/ocamlunix.html#sec118
+The function write of the Unix module iterates the system call write until
+all the requested bytes are effectively written.
+val write : file_descr -> string -> int -> int -> int
+However, when the descriptor is a pipe (or a socket, see chapter 6), writes
+may block and the system call write may be interrupted by a signal. In this
+case the OCaml call to Unix.write is interrupted and the error EINTR is raised.
+The problem is that some of the data may already have been written by a
+previous system call to write but the actual size that was transferred is
+unknown and lost. This renders the function write of the Unix module useless
+in the presence of signals.
+
+To address this problem, the Unix module also provides the “raw” system call
+write under the name single_write.
+
+We can use multiple single_write calls to write exactly the requested
+amount of data (but not atomically!).
+*)
+let rec restart_on_EINTR f x =
+  try f x with Unix.Unix_error (Unix.EINTR, _, _) -> restart_on_EINTR f x
+and really_write fd buffer offset len =
+  let n = restart_on_EINTR (Unix.single_write fd buffer offset) len in
+  if n < len then really_write fd buffer (offset + n) (len - n);;
 
 (* Ideally, really_write would be implemented with optional arguments ?(off=0) ?(len=String.length string) *)
 let really_write_string fd string =
   let payload = Bytes.unsafe_of_string string in
-  Unix.write fd payload 0 (Bytes.length payload) |> ignore
+  really_write fd payload 0 (Bytes.length payload)
 
 (* --------------------------------------------------------------------------------------- *)
 (* Functions to read and write to/from a file descriptor with a given latest response time *)
