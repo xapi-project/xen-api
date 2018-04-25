@@ -72,6 +72,8 @@ type key = string [@@deriving rpcty]
     the implementation. For example this could be an NFS filename, an LVM LV
     name or even a URI. This string is abstract. *)
 
+type key_list = key list [@@deriving rpcty]
+
 (** A set of properties associated with a volume. These properties can
     change dynamically and can be queried by the Volume.stat call. *)
 type volume = {
@@ -134,6 +136,8 @@ module Volume(R: RPC) = struct
   open R
 
   let key = Param.mk ~name:"key" ~description:["The volume key"] key
+
+  let key_list = Param.mk ~name:"key list" ~description:["List of volume keys"] key_list
 
   let uri = Param.mk ~name:"uri" ~description:["The Storage Repository URI"]
       Types.string
@@ -244,6 +248,12 @@ module Volume(R: RPC) = struct
        "plugin, it should return a result indicating that all blocks are in ";
        "use."]
       (dbg @-> sr @-> key @-> key2 @-> returning blocklist_result errors)
+
+  let similar_content = R.declare "similar_content"
+      [ "[similar_content sr volume] returns a list of VDIs which have similar"
+      ; "content to [vdi]"
+      ]
+      (dbg @-> sr @-> key @-> returning key_list errors)
 
   let implementation = R.implement
       {Idl.Interface.name = "Volume";
