@@ -21,6 +21,7 @@ let () =
     ; "Test_vlan", Test_vlan.test
     ; "Test_network", Test_network.test
     ; "Test_bond", Test_bond.test
+    ; "Test_tunnel", Test_tunnel.test
     ; "Test_agility", Test_agility.test
     ; "Test_daemon_manager", Test_daemon_manager.test
     ; "Test_cluster", Test_cluster.test
