@@ -573,47 +573,6 @@ let rec wait_for_task_complete session_id task =
   | `pending | `cancelling -> wait_for_task_complete session_id task
   | _ -> ()
 
-(* CP-831 *)
-let test_vhd_locking_hook session_id vm =
-  let test = make_test "test vhd locking hook" 2 in
-  start test;
-  Client.VM.start !rpc session_id vm false false;
-  (* Add a new VDI whose VBD is unplugged (so 2 plugged, 1 unplugged *)
-
-  let all_srs = all_srs_with_vdi_create session_id in
-  let sr = List.hd all_srs in
-
-  let new_vdi = Client.VDI.create !rpc session_id "lvhd_testvdi"
-      "description" sr 4194304L `user false false [] [] [] [] in
-  let new_vbd = Client.VBD.create ~rpc:!rpc ~session_id ~vM:vm ~vDI:new_vdi ~userdevice:"9" ~bootable:false
-      ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[Xapi_globs.owner_key,""]
-      ~qos_algorithm_type:"" ~qos_algorithm_params:[] in
-
-  (* In a background thread plug/unplug the new VBD to cause some transient locking failures *)
-  let start = Unix.gettimeofday () in
-  debug test "Starting up conflicting thread in the background";
-  let total_bg_ops = ref 0 in
-  let t = Thread.create
-      (fun () ->
-         while Unix.gettimeofday () -. start < 30. do
-           (* We throw away exceptions because unplugs can fail (if the guest isn't ready) and this causes the
-              				   next plug to fail. We use asynchronous operations because we are sharing a single HTTP connection to the
-              				   master and we genuinely want the operations to (attempt to) execute in parallel *)
-           let task = Client.Async.VBD.plug !rpc session_id new_vbd in
-           incr total_bg_ops;
-           wait_for_task_complete session_id task;
-           let task = Client.Async.VBD.unplug !rpc session_id new_vbd in
-           incr total_bg_ops;
-           wait_for_task_complete session_id task
-         done) () in
-  (* Give the background thread a chance to start *)
-  Thread.delay 1.5;
-  (* Verify that the function 'test' can be called in the script *)
-
-  Thread.join t;
-  debug test (Printf.sprintf "Meanwhile background thread executed %d conflicting operations" !total_bg_ops);
-  success test
-
 let powercycle_test session_id vm =
   let test = make_test "Powercycling VM" 1 in
   start test;
@@ -796,37 +755,6 @@ let async_test session_id =
 let make_vif ~session_id ~vM ~network ~device =
   Client.VIF.create ~rpc:!rpc ~session_id ~vM ~network ~mTU:0L ~mAC:"" ~device ~other_config:["promiscuous", "on"; "mtu", "1400"] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
 
-let with_vm s f =
-  try
-    let (_: API.ref_VM) = find_template s vm_template in
-    let test = make_test "Setting up test VM" 0 in
-    start test;
-    let vm = install_vm test s in
-    f s vm;
-    vm_uninstall test s vm;
-    success test
-  with Unable_to_find_suitable_vm_template ->
-    (* SKIP *)
-    ()
-
-let vm_powercycle_test s vm =
-  let test = make_test "VM powercycle test" 1 in
-  start test;
-  (* Try to add some VIFs *)
-  let (guest_installer_network: API.ref_network) = find_guest_installer_network s in
-  debug test (Printf.sprintf "Adding VIF to guest installer network (%s)" (Client.Network.get_uuid !rpc s guest_installer_network));
-  let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:vm ~network:guest_installer_network ~device:"0" ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[] in
-  begin match Client.PIF.get_all !rpc s with
-    | pif :: _ ->
-      let net = Client.PIF.get_network !rpc s pif in
-      debug test (Printf.sprintf "Adding VIF to physical network (%s)" (Client.Network.get_uuid !rpc s net));
-      let (_: API.ref_VIF) = make_vif ~session_id:s ~vM:vm ~network:net ~device:"1" ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[] in
-      ()
-    | _ -> ()
-  end;
-  powercycle_test s vm;
-  success test
-
 
 let _ =
   let all_tests = [
@@ -836,9 +764,6 @@ let _ =
     "vdi";
     "async";
     "import";
-    "powercycle";
-    "lifecycle";
-    "vhd";
     "copy";
     "cbt";
     "import_raw_vdi";
@@ -891,9 +816,6 @@ let _ =
           maybe_run_test "vdi" (fun () -> vdi_test s);
           maybe_run_test "async" (fun () -> async_test s);
           maybe_run_test "import" (fun () -> import_export_test s);
-          maybe_run_test "vhd" (fun () -> with_vm s test_vhd_locking_hook);
-          maybe_run_test "powercycle" (fun () -> with_vm s vm_powercycle_test);
-          maybe_run_test "lifecycle" (fun () -> with_vm s Quicktest_lifecycle.test);
           maybe_run_test "copy" (fun () -> Quicktest_vdi_copy.start s sr);
           maybe_run_test "import_raw_vdi" (fun () -> Quicktest_import_raw_vdi.start s);
         with
