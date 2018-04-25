@@ -47,15 +47,13 @@ let get_nbd_device path =
   end else None
 
 let of_device path =
-  try
-    match Tapctl.of_device (Tapctl.create ()) path with
-    | _, _, (Some ("vhd", vhd)) -> Some (`Vhd vhd)
-    | _, _, (Some ("aio", vhd)) -> Some (`Raw vhd)
-    | _, _, _ -> raise Not_found
-  with
-  | Tapctl.Not_blktap ->
+  match Tapctl.of_device (Tapctl.create ()) path with
+  | _, _, (Some ("vhd", vhd)) -> Some (`Vhd vhd)
+  | _, _, (Some ("aio", vhd)) -> Some (`Raw vhd)
+  | _, _, _ -> None
+  | exception Tapctl.Not_blktap ->
     get_nbd_device path
-  | Tapctl.Not_a_device ->
+  | exception Tapctl.Not_a_device ->
     None
-  | _ ->
+  | exception _ ->
     None
