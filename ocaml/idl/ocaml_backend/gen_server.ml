@@ -360,18 +360,5 @@ let gen_module api : O.Module.t =
               ")))";
             ]
           ) ()
-      );
-      O.Module.Let (
-        O.Let.make
-          ~name: "dispatch"
-          ~params: [
-            O.Anon(Some "http_req", "Http.Request.t");
-            O.Anon(Some "fd", "Unix.file_descr");
-            O.Anon(Some "body", "string")
-          ]
-          ~ty: "unit"
-          ~body: [
-            "let call = Xmlrpc.call_of_string body in";
-            "  dispatch_call http_req fd call"
-          ] ())
+      )
     ] ()
