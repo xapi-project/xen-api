@@ -13,7 +13,7 @@ env:
     - TEST=false
     - BASE_REMOTE="https://github.com/xapi-project/xs-opam"
   matrix:
-    - PACKAGE=xapi-stdext OCAML_VERSION=4.04.2 REVDEPS=true \
+    - PACKAGE=xapi-stdext OCAML_VERSION=4.04.2 \
       POST_INSTALL_HOOK="opam install alcotest; env TRAVIS=$TRAVIS TRAVIS_JOB_ID=$TRAVIS_JOB_ID bash -ex coverage.sh"
     - PACKAGE=stdext OCAML_VERSION=4.04.2 REVDEPS=true
     - PACKAGE=xapi-stdext OCAML_VERSION=4.06.0
