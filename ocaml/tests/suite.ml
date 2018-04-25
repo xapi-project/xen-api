@@ -42,7 +42,6 @@ let base_suite =
     Test_extauth_plugin_ADpbis.test;
     Test_guest_agent.test;
     Test_tunnel.test;
-    Test_bond.test;
     Test_network_sriov.test;
     Test_xapi_vbd_helpers.test;
   ]
