@@ -44,7 +44,10 @@ static int open_flag_table[] = {
 CAMLprim value stub_stdext_unix_open_direct(value path, value flags, value perm)
 {
   CAMLparam3(path, flags, perm);
-  int fd, ret, cv_flags;
+  int fd, cv_flags;
+#ifndef O_DIRECT
+  int ret;
+#endif
   char * p;
 
   cv_flags = convert_flag_list(flags, open_flag_table);
@@ -60,11 +63,13 @@ CAMLprim value stub_stdext_unix_open_direct(value path, value flags, value perm)
 #ifndef O_DIRECT
   if (fd != -1)
     ret = fcntl(fd, F_NOCACHE);
-#endif  
+#endif
   leave_blocking_section();
   stat_free(p);
   if (fd == -1) uerror("open", path);
+#ifndef O_DIRECT
   if (ret == -1) uerror("fcntl", path);
+#endif
 
   CAMLreturn (Val_int(fd));
 }
