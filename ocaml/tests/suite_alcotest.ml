@@ -38,6 +38,7 @@ let () =
     ; "Test_pusb", Test_pusb.test
     ; "Test_pvs_site", Test_pvs_site.test
     ; "Test_pvs_proxy", Test_pvs_proxy.test
+    ; "Test_pvs_server", Test_pvs_server.test
     ; "Test_clustering", Test_clustering.test
     ; "Test_clustering_allowed_operations", Test_clustering_allowed_operations.test
     ; "Test_event", Test_event.test
