@@ -12,18 +12,18 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
-open Test_common
+module T = Test_common
 
 let create_base_environment () =
-  let __context = make_test_database () in
-  let sr = make_sr ~__context () in
+  let __context = T.make_test_database () in
+  let sr = T.make_sr ~__context () in
   __context, sr
 
 let assert_snapshot_of_is_not_null ~__context ~vdi_snapshot =
   let vdi = Db.VDI.get_snapshot_of ~__context ~self:vdi_snapshot in
-  assert_bool "VDI snapshot's `snapshot_of` reference has become null"
-    (vdi <> Ref.null)
+  Alcotest.(check bool)
+    "VDI snapshot's `snapshot_of` reference has become null"
+    true (vdi <> Ref.null)
 
 (* CA-254515 *)
 (* Tests that a single VDI snapshot from the SR is properly updating the
@@ -34,10 +34,10 @@ let test_update_existing_snapshot () =
   let __context, sr = create_base_environment () in
 
   (* create VDI and snapshot *)
-  let vdi_uuid = make_uuid () in
-  let vdi = make_vdi ~__context ~uuid:vdi_uuid ~location:vdi_uuid ~sR:sr () in
-  let vdi_snapshot_uuid = make_uuid () in
-  let vdi_snapshot = make_vdi ~__context ~uuid:vdi_snapshot_uuid ~sR:sr
+  let vdi_uuid = T.make_uuid () in
+  let vdi = T.make_vdi ~__context ~uuid:vdi_uuid ~location:vdi_uuid ~sR:sr () in
+  let vdi_snapshot_uuid = T.make_uuid () in
+  let vdi_snapshot = T.make_vdi ~__context ~uuid:vdi_snapshot_uuid ~sR:sr
     ~location:vdi_snapshot_uuid ~snapshot_of:vdi ~is_a_snapshot:true () in
 
   (* create mock snapshot record which we would get from an SR scan *)
@@ -98,58 +98,53 @@ let test_update_new_vdi_and_snapshot () =
    of SMAPIv3 plugins that are not backed by xapi's database, in that case xapi
    really needs to check the vdi_info records returned from the storage layer
    and update the database if necessary, to keep the VDIs' fields in sync. *)
-let test_sharable_field_correctly_set =
-  let test_sharable_field_updated_for_existing_vdi () =
-    let __context, sr = create_base_environment () in
-    let vdi_uuid = Test_common.make_uuid () in
+let test_sharable_field_updated_for_existing_vdi () =
+  let __context, sr = create_base_environment () in
+  let vdi_uuid = T.make_uuid () in
 
-    (* In Xapi's database, the sharable field is incorrect: it is false *)
-    let vdi = Test_common.make_vdi ~__context ~sR:sr ~uuid:vdi_uuid ~location:vdi_uuid ~sharable:false () in
+  (* In Xapi's database, the sharable field is incorrect: it is false *)
+  let vdi = T.make_vdi ~__context ~sR:sr ~uuid:vdi_uuid ~location:vdi_uuid ~sharable:false () in
 
-    (* SR.scan returned the correct vdi_info with the up-to-date sharable field *)
-    let vdi_sr_record = Storage_interface.({ default_vdi_info with
-      vdi = vdi_uuid;
-      uuid = Some vdi_uuid;
-      sharable = true;
-    }) in
+  (* SR.scan returned the correct vdi_info with the up-to-date sharable field *)
+  let vdi_sr_record = Storage_interface.({ default_vdi_info with
+    vdi = vdi_uuid;
+    uuid = Some vdi_uuid;
+    sharable = true;
+  }) in
 
-    (* When we call this function from our SR.scan XenAPI call for example, it should
-       update the VDI's sharable field to the correct value returned by the
-       storage layer. *)
-    let vdi_record = Db.VDI.get_record ~__context ~self:vdi in
-    Xapi_sr.update_vdis ~__context ~sr [(vdi, vdi_record)] [vdi_sr_record];
-    OUnit.assert_equal true (Db.VDI.get_sharable ~__context ~self:vdi)
-  in
+  (* When we call this function from our SR.scan XenAPI call for example, it should
+     update the VDI's sharable field to the correct value returned by the
+     storage layer. *)
+  let vdi_record = Db.VDI.get_record ~__context ~self:vdi in
+  Xapi_sr.update_vdis ~__context ~sr [(vdi, vdi_record)] [vdi_sr_record];
+  Alcotest.(check bool)
+    "test_sharable_field_updated_for_existing_vdi"
+    true (Db.VDI.get_sharable ~__context ~self:vdi)
 
-  let test_sharable_field_correct_for_new_vdi () =
-    let __context, sr = create_base_environment () in
-    let vdi_uuid = Test_common.make_uuid () in
+let test_sharable_field_correct_for_new_vdi () =
+  let __context, sr = create_base_environment () in
+  let vdi_uuid = T.make_uuid () in
 
-    (* We do not have this VDI in xapi's database. SR.scan returned it with the
-       correct vdi_info containing the up-to-date sharable field. *)
-    let vdi_sr_record = Storage_interface.({ default_vdi_info with
-      vdi = vdi_uuid;
-      uuid = Some vdi_uuid;
-      sharable = true;
-    }) in
+  (* We do not have this VDI in xapi's database. SR.scan returned it with the
+     correct vdi_info containing the up-to-date sharable field. *)
+  let vdi_sr_record = Storage_interface.({ default_vdi_info with
+    vdi = vdi_uuid;
+    uuid = Some vdi_uuid;
+    sharable = true;
+  }) in
 
-    (* When we call this function from our SR.scan XenAPI call for example, it should
-       add the VDI to xapi's database with the correct sharable field returned
-       by the storage layer. *)
-    Xapi_sr.update_vdis ~__context ~sr [] [vdi_sr_record];
-    let vdi = Db.VDI.get_by_uuid ~__context ~uuid:vdi_uuid in
-    OUnit.assert_equal true (Db.VDI.get_sharable ~__context ~self:vdi)
-  in
-
-  "test_sharable_field_correctly_updated" >:::
-  [ "test_sharable_field_updated_for_existing_vdi" >:: test_sharable_field_updated_for_existing_vdi
-  ; "test_sharable_field_correct_for_new_vdi" >:: test_sharable_field_correct_for_new_vdi
-  ]
+  (* When we call this function from our SR.scan XenAPI call for example, it should
+     add the VDI to xapi's database with the correct sharable field returned
+     by the storage layer. *)
+  Xapi_sr.update_vdis ~__context ~sr [] [vdi_sr_record];
+  let vdi = Db.VDI.get_by_uuid ~__context ~uuid:vdi_uuid in
+  Alcotest.(check bool)
+    "test_sharable_field_correct_for_new_vdi"
+    true (Db.VDI.get_sharable ~__context ~self:vdi)
 
 let test =
-  "test_sr_update_vdis" >:::
-  [
-    "test_update_existing_snapshot" >:: test_update_existing_snapshot;
-    "test_update_new_vdi_and_snapshot" >:: test_update_new_vdi_and_snapshot;
-    test_sharable_field_correctly_set
+  [ "test_update_existing_snapshot", `Quick, test_update_existing_snapshot
+  ; "test_update_new_vdi_and_snapshot", `Quick, test_update_new_vdi_and_snapshot
+  ; "test_sharable_field_updated_for_existing_vdi", `Quick, test_sharable_field_updated_for_existing_vdi
+  ; "test_sharable_field_correct_for_new_vdi", `Quick, test_sharable_field_correct_for_new_vdi
   ]
