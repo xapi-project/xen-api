@@ -72,6 +72,16 @@ let with_open_vdi rpc session_id vdi mode f =
    Integrity tests
  * ---------------- *)
 
+let random_bytes length =
+  let buf = Bytes.create length in
+  let f = open_in "/dev/urandom" in
+  finally
+    (fun () ->
+       really_input f buf 0 length;
+       buf
+    )
+    (fun () -> close_in f)
+
 let write_random_data rpc session_id vdi =
   let size = Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi in
   with_open_vdi rpc session_id vdi `RW
@@ -80,11 +90,8 @@ let write_random_data rpc session_id vdi =
        let max_writes = 100 in
        let max_write_length = 2048 in
 
-       let write_random_char_block offset length =
-         let buf =
-           let c = Random.int 256 |> Char.chr in
-           Bytes.make length c
-         in
+       let write_random_block offset length =
+         let buf = random_bytes length in
          assert (Unix.LargeFile.lseek fd offset Unix.SEEK_SET = offset);
          Unix.write fd buf 0 length |> ignore
        in
@@ -97,7 +104,7 @@ let write_random_data rpc session_id vdi =
          in
          let length = Random.int max_extent_length in
 
-         write_random_char_block offset length
+         write_random_block offset length
        in
 
        let num_extents = Random.int max_writes in
@@ -113,7 +120,7 @@ let fill rpc session_id vdi =
   in
   with_open_vdi rpc session_id vdi `RW
     (fun fd ->
-       let buf = Bytes.make size 'a' in
+       let buf = random_bytes size in
        Unix.write fd buf 0 size
     )
 
