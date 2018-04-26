@@ -13,13 +13,12 @@ let flag_hole = 1l
 let flag_zero = 2l
 type extent_list = extent list [@@deriving rpc]
 
-let get_extents_json ~server ~export_name =
-  let extent_reader = "/opt/xensource/libexec/get_nbd_extents.py" in
+let get_extents_json ~extent_reader ~server ~export_name =
   Lwt_process.pread
     ("", [|extent_reader; "--path"; server; "--exportname"; export_name|])
 
-let raw : Vhd_format_lwt.IO.fd -> string -> string -> Vhd_format_lwt.IO.fd F.stream Lwt.t = fun raw server export_name ->
-  get_extents_json ~server ~export_name >>= fun extents_json ->
+let raw ?(extent_reader="/opt/xensource/libexec/get_nbd_extents.py") raw server export_name =
+  get_extents_json ~extent_reader ~server ~export_name >>= fun extents_json ->
   let extents = extent_list_of_rpc (Jsonrpc.of_string extents_json) in
   let to_sectors b = Int64.div b 512L in
   let is_empty e =

@@ -11,6 +11,8 @@ tags: [
 build: [[ "jbuilder" "build" "-p" name "-j" jobs ]
 ]
 depends: [
+  "alcotest" {test}
+  "alcotest-lwt" {test}
   "base-threads"
   "cmdliner"
   "jbuilder" {build & >= "1.0+beta10"}
