@@ -206,6 +206,13 @@ def is_error_chunk(reply_type):
     return reply_type & NBD_REPLY_TYPE_ERROR_BIT != 0
 
 
+def _parse_block_status_descriptors(data):
+    while data:
+        (length, status_flags) = struct.unpack(">LL", data[:8])
+        yield (length, status_flags)
+        data = data[8:]
+
+
 class PythonNbdClient(object):
     """
     A pure-Python NBD client. Supports both the fixed-newstyle and the oldstyle
@@ -527,11 +534,7 @@ class PythonNbdClient(object):
         view = memoryview(data)
         fields['context_id'] = struct.unpack(">L", view[:4])[0]
         view = view[4:]
-        descriptors = []
-        while view:
-            (length, status_flags) = struct.unpack(">LL", view[:8])
-            descriptors += [(length, status_flags)]
-            view = view[8:]
+        descriptors = _parse_block_status_descriptors(view)
         assert_protocol(descriptors)
         fields['descriptors'] = descriptors
 
