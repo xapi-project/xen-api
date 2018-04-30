@@ -1139,7 +1139,9 @@ let _ =
   error Api_errors.cluster_stack_in_use ["cluster_stack"]
     ~doc:"The cluster stack is already in use." ();
   error Api_errors.invalid_cluster_stack [ "cluster_stack" ]
-    ~doc:"The cluster stack provided is not supported." ()
+    ~doc:"The cluster stack provided is not supported." ();
+  error Api_errors.pif_not_attached_to_host [ "pif"; "host" ]
+    ~doc:"Cluster_host creation failed as the PIF provided is not attached to the host." ()
 
 let _ =
   message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();
