@@ -40,7 +40,7 @@ val create_as_necessary : __context:Context.t -> host:API.ref_host -> unit
 (******************************************************************************)
 (** {2 External API calls} *)
 
-val create : __context:Context.t -> cluster:API.ref_Cluster -> host:API.ref_host
+val create : __context:Context.t -> cluster:API.ref_Cluster -> host:API.ref_host -> pif:API.ref_PIF
   -> API.ref_Cluster_host
 (** [create ~__context ~cluster ~host] is implementation of the XenAPI call
     'Cluster_host.create'. It is the Cluster_host object constructor *)

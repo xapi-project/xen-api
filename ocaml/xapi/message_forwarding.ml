@@ -4331,13 +4331,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   end
 
   module Cluster_host = struct
-    let create ~__context ~cluster ~host =
-      info "Cluster_host.create with cluster:%s, host:%s" (Ref.string_of cluster) (Ref.string_of host);
-      let local_fn = Local.Cluster_host.create ~cluster ~host in
+    let create ~__context ~cluster ~host ~pif =
+      info "Cluster_host.create with cluster:%s, host:%s, pif:%s" (Ref.string_of cluster) (Ref.string_of host) (Ref.string_of pif);
+      let local_fn = Local.Cluster_host.create ~cluster ~host ~pif in
       Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster.add" ~op:`add
         (fun () ->
            let cluster_host = do_op_on ~__context ~local_fn ~host
-             (fun session_id rpc -> Client.Cluster_host.create rpc session_id cluster host) in
+             (fun session_id rpc -> Client.Cluster_host.create rpc session_id cluster host pif) in
            Xapi_cluster_host_helpers.update_allowed_operations ~__context ~self:cluster_host;
            cluster_host
         )

@@ -2957,7 +2957,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     };
     "cluster-host-create",
     {
-      reqd=["cluster-uuid";"host-uuid"];
+      reqd=["cluster-uuid";"host-uuid";"pif-uuid"];
       optn=[];
       help="Add a host to an existing cluster";
       implementation=No_fd Cli_operations.Cluster_host.create;
