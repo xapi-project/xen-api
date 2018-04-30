@@ -281,7 +281,7 @@ module Volume(R: RPC) = struct
 
   let implementation = R.implement
       {Idl.Interface.name = "Volume";
-       namespace=None;
+       namespace=Some "Volume";
        description=["Operations which operate on volumes (also known as ";
                     "Virtual Disk Images)"];
        version=(1,0,0)}

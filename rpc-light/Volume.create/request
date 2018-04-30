@@ -1,4 +1,4 @@
-<?xml version="1.0"?><methodCall><methodName>create</methodName>
+<?xml version="1.0"?><methodCall><methodName>Volume.create</methodName>
   <params><param><value>
      <struct><member><name>dbg</name><value>OpaqueRef:9aa50d0c-4bf8-a03e-9796-3ca65459638a</value></member>
 	     <member><name>sr</name><value>65a478f3-066a-71e6-339e-025d8ae4e992</value></member>

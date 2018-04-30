@@ -6,7 +6,7 @@
     alcotest
     lwt
     lwt.unix
-    xapi-storage
+    xapi_storage
   ))
 ))
 
