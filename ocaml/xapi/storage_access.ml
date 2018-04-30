@@ -1366,6 +1366,7 @@ let resynchronise_pbds ~__context ~pbds =
   debug "Currently-attached SRs: [ %s ]" (String.concat "; " srs);
   List.iter
     (fun self ->
+     try
        let sr = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self) in
        let value = List.mem sr srs in
        debug "Setting PBD %s currently_attached <- %b" (Ref.string_of self) value;
@@ -1377,6 +1378,9 @@ let resynchronise_pbds ~__context ~pbds =
          error "Service implementing SR %s has failed. Performing emergency reset of SR state" sr;
          Client.SR.reset (Ref.string_of dbg) sr;
          Db.PBD.set_currently_attached ~__context ~self ~value:false;
+     with Db_exn.DBCache_NotFound(_, ("PBD"|"SR"), _) as e ->
+       debug "Ignoring PBD/SR that got deleted before we resynchronised: %s" (Printexc.to_string e)
+
     ) pbds
 
 (* -------------------------------------------------------------------------------- *)
