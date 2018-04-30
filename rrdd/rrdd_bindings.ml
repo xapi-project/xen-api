@@ -35,21 +35,21 @@ module type RRDD_IMPLEMENTATION = sig
   val set_cache_sr            : string -> unit
   val unset_cache_sr          : unit   -> unit
 
-   module Plugin : sig
+  module Plugin : sig
     val get_header   : unit   -> string
     val get_path     : string -> string
     val register     : string -> Rrd.sampling_frequency -> float
     val deregister   : string -> unit
     val next_reading : string -> float
 
-     module Local : sig
+    module Local : sig
       val register     : string -> Rrd.sampling_frequency -> Rrd_interface.plugin_protocol -> float
       val deregister   : string -> unit
       val next_reading : string -> float
     end
 
-     module Interdomain : sig
-       open Rrd_interface
+    module Interdomain : sig
+      open Rrd_interface
       val register     : interdomain_uid -> interdomain_info -> plugin_protocol -> float
       val deregister   : interdomain_uid -> unit
       val next_reading : interdomain_uid -> float
@@ -57,14 +57,14 @@ module type RRDD_IMPLEMENTATION = sig
 
   end
 
-   module HA : sig
+  module HA : sig
     val enable_and_update : Rrd.Statefile_latency.t list -> float -> float -> unit
     val disable           : unit                         -> unit
   end
 
-   module Deprecated : sig
+  module Deprecated : sig
     val load_rrd : string -> int -> string option -> unit
-   end
+  end
 end
 
 (* Generate empty server before binding API calls *)
