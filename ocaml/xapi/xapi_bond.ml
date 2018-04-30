@@ -257,6 +257,18 @@ let requirements_of_mode = function
     ]
   | _ -> []
 
+let maybe_move_cluster_pif ~__context ~host ~to_pif ~(should_move : API.ref_PIF -> bool) =
+  match Xapi_clustering.find_cluster_host ~__context ~host with
+  | Some cluster_host ->
+    let cluster_pif = Db.Cluster_host.get_PIF ~__context ~self:cluster_host in
+    if (should_move cluster_pif)
+    then begin
+      debug "Moving cluster_host %s from PIF %s to PIF %s" (Ref.string_of cluster_host)
+        (Ref.string_of cluster_pif) (Ref.string_of to_pif);
+      Db.Cluster_host.set_PIF ~__context ~self:cluster_host ~value:to_pif
+    end
+  | None -> ()
+
 let create ~__context ~network ~members ~mAC ~mode ~properties =
   Xapi_network.assert_network_is_managed ~__context ~self:network;
   let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
@@ -266,7 +278,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
   (* Validate MAC parameter; note an empty string is OK here, since that means 'inherit MAC from
      	 * primary slave PIF' (see below) *)
   if mAC <> "" && (not (Helpers.is_valid_MAC mAC)) then
-    raise (Api_errors.Server_error (Api_errors.mac_invalid, [mAC]));
+    raise Api_errors.(Server_error (mac_invalid, [mAC]));
 
   let requirements = requirements_of_mode mode in
   (* Check that each of the supplied properties is valid. *)
@@ -313,7 +325,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
         | None, pif_with_ip::_, _ -> pif_with_ip
         | None, [], pif::_ -> pif
         | None, [], [] ->
-          raise (Api_errors.Server_error(Api_errors.pif_bond_needs_more_members, []))
+          raise Api_errors.(Server_error (pif_bond_needs_more_members, []))
       in
       let mAC =
         if mAC <> "" then
@@ -321,7 +333,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
         else
           Db.PIF.get_MAC ~__context ~self:primary_slave
       in
-      let disallow_unplug =
+      let disallow_unplug = (* this is always true if one of the PIFs is a cluster_host.PIF *)
         List.fold_left (fun a m -> Db.PIF.get_disallow_unplug ~__context ~self:m || a) false members
       in
 
@@ -333,19 +345,19 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
       (* 5. Members must not be the management interface if HA is enabled *)
       (* 6. Members must be PIFs that are managed by xapi *)
       (* 7. Members must have the same PIF properties *)
-      (* 8. Only the primary PIF should have a non-None IP configuration *)
+      (* 8. At most one member may have an IP address *)
       List.iter (fun self ->
           Xapi_pif_helpers.assert_pif_is_managed ~__context ~self;
           Xapi_pif_helpers.bond_is_allowed_on_pif ~__context ~self;
           let pool = Helpers.get_pool ~__context in
           if Db.Pool.get_ha_enabled ~__context ~self:pool && Db.PIF.get_management ~__context ~self
-          then raise (Api_errors.Server_error(Api_errors.ha_cannot_change_bond_status_of_mgmt_iface, []));
+          then raise Api_errors.(Server_error(ha_cannot_change_bond_status_of_mgmt_iface, []));
           if Db.PIF.get_capabilities ~__context ~self |> List.mem "fcoe" then
             Xapi_pif.assert_fcoe_not_in_use ~__context ~self
         ) members;
       let hosts = List.map (fun self -> Db.PIF.get_host ~__context ~self) members in
       if List.length (List.setify hosts) <> 1
-      then raise (Api_errors.Server_error (Api_errors.pif_cannot_bond_cross_host, []));
+      then raise Api_errors.(Server_error (pif_cannot_bond_cross_host, []));
       let pif_properties =
         if members = [] then
           []
@@ -354,7 +366,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
           let p = List.hd ps in
           let equal = List.fold_left (fun result p' -> result && (p = p')) true (List.tl ps) in
           if not equal then
-            raise (Api_errors.Server_error (Api_errors.incompatible_pif_properties, []))
+            raise Api_errors.(Server_error (incompatible_pif_properties, []))
           else
             p
       in
@@ -431,6 +443,12 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
             Db.PIF.set_disallow_unplug ~__context ~self:pif ~value:false)
           members
       end;
+
+      TaskHelper.set_progress ~__context 0.9;
+
+      (* If the host has a cluster_host AND the cluster_host's PIF is a member, update the PIF *)
+      maybe_move_cluster_pif ~__context ~host ~to_pif:master ~should_move:(fun pif -> List.mem pif members);
+
       TaskHelper.set_progress ~__context 1.0;
     );
   (* return a ref to the new Bond object *)
@@ -456,7 +474,7 @@ let destroy ~__context ~self =
       (* CA-86573: forbid the deletion of a bond involving the mgmt interface if HA is on *)
       let pool = Helpers.get_pool ~__context in
       if Db.Pool.get_ha_enabled ~__context ~self:pool && Db.PIF.get_management ~__context ~self:master
-      then raise (Api_errors.Server_error(Api_errors.ha_cannot_change_bond_status_of_mgmt_iface, []));
+      then raise Api_errors.(Server_error (ha_cannot_change_bond_status_of_mgmt_iface, []));
 
       (* Copy IP configuration from master to primary member *)
       move_configuration ~__context master primary_slave;
@@ -501,6 +519,9 @@ let destroy ~__context ~self =
         debug "Setting disallow_unplug on primary slave";
         Db.PIF.set_disallow_unplug ~__context ~self:primary_slave ~value:true
       end;
+
+      (* Move Cluster_host to primary slave IF currently on bond, i.e. if cluster PIF = master *)
+      maybe_move_cluster_pif ~__context ~host ~to_pif:primary_slave ~should_move:((=) master);
 
       (* Destroy the Bond and master PIF *)
       Db.Bond.destroy ~__context ~self;
