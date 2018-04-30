@@ -102,7 +102,7 @@ let t =
 
       ] @ (allowed_and_current_operations cluster_host_operation) @ [
 
-       field   ~qualifier:StaticRO ~lifecycle
+        field   ~qualifier:StaticRO ~lifecycle
           ~ty:(Map(String, String)) "other_config" ~default_value:(Some (VMap []))
           "Additional configuration"
       ])

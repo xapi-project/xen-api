@@ -76,6 +76,10 @@ let assert_pif_prerequisites pif =
   ignore (ip_of_pif pif);
   debug "Got IP %s for PIF %s" record.API.pIF_IP (Ref.string_of pif_ref)
 
+let assert_pif_attached_to ~__context ~host ~pif =
+  if not (List.mem pif (Db.Host.get_PIFs ~__context ~self:host)) then
+    raise Api_errors.(Server_error (pif_not_attached_to_host, [Ref.string_of pif; Ref.string_of host]))
+
 let handle_error = function
   | InternalError message -> raise Api_errors.(Server_error (internal_error, [ message ]))
   | Unix_error message -> failwith ("Unix Error: " ^ message)
@@ -108,7 +112,7 @@ let with_clustering_lock_if_needed ~__context ~sr_sm_type f =
     | [] -> f ()
     | _required_cluster_stacks -> with_clustering_lock f
 
-let with_clustering_lock_if_cluster_exists ~__context f = 
+let with_clustering_lock_if_cluster_exists ~__context f =
   match Db.Cluster.get_all ~__context with
     | [] -> f ()
     | _ -> with_clustering_lock f
@@ -122,6 +126,27 @@ let find_cluster_host ~__context ~host =
     error "%s %s" msg (Db.Host.get_uuid ~__context ~self:host);
     raise Api_errors.(Server_error(internal_error, [msg; (Ref.string_of host)]))
   | _ -> None
+
+let get_network_internal ~__context ~self =
+  let cluster_host = match find_cluster_host ~__context ~host:Helpers.(get_master ~__context) with
+  | Some cluster_host -> cluster_host
+  | None ->
+    raise Api_errors.(Server_error (internal_error,
+    [ Printf.sprintf "No cluster_host master found for cluster %s" (Ref.string_of self) ]))
+  in
+  let master_pif = Db.Cluster_host.get_PIF ~__context ~self:cluster_host in
+  let cluster_network = Db.PIF.get_network ~__context ~self:master_pif in
+  if List.exists
+    (fun cluster_host ->
+      let pif = Db.Cluster_host.get_PIF ~__context ~self:cluster_host in
+      let cluster_host_network = Db.PIF.get_network ~__context ~self:pif in
+      cluster_host_network <> cluster_network
+    ) (Db.Cluster_host.get_all ~__context)
+  then
+    debug "Not all cluster hosts of cluster %s on same network %s"
+      (Ref.string_of self) (Ref.string_of cluster_network);
+
+  cluster_network
 
 let assert_cluster_host_enabled ~__context ~self ~expected =
   let actual = Db.Cluster_host.get_enabled ~__context ~self in
