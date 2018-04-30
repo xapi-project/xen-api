@@ -34,7 +34,7 @@ let plug_all_pbds __context =
          else Xapi_pbd.plug ~__context ~self
        with e ->
          result := false;
-         error "Could not plug in pbd '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
+         error "Could not plug in pbd '%s': %s" pbd_record.API.pBD_uuid (Printexc.to_string e))
     my_pbds;
   !result
 
