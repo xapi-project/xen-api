@@ -400,6 +400,24 @@ let qmp_send_cmd_internal connection domid cmd =
   Qmp_protocol.write connection msg;
   wait_for_result id
 
+let with_qmp_connection domid f =
+  let exec f =
+    try f ()
+    with e ->
+      warn "QMP connection error for domain %d" domid;
+      raise (QMP_connection_error (domid, Printexc.to_string e))
+  in
+  let connection = exec (fun () ->
+      Qmp_protocol.connect (qmp_libxl_path domid)
+    )
+  in
+  finally
+    (fun () -> f connection)
+    (fun () -> exec (fun () ->
+         Qmp_protocol.close connection
+       )
+    )
+
 (* [qmp_send_cmd domid cmd] sends [cmd] to [domid] and checks that the
  * result it returns is Success. Otherwise it will raise [QMP_Error].
  *
@@ -408,34 +426,28 @@ let qmp_send_cmd_internal connection domid cmd =
  * some commands.
 *)
 let qmp_send_cmd ?send_fd domid cmd =
-  let connection =
-    try
-      Qmp_protocol.connect (qmp_libxl_path domid)
-    with e ->
-      raise (QMP_connection_error(domid, Printexc.to_string e))
-  in
-  finally
-    (fun () ->
-       (* no mutex required: QMP never sends unrelated messages *)
-       Qmp_protocol.negotiate connection;
-       ( match send_fd with
-         | Some fd ->
-           let connection' = Qmp_protocol.to_fd connection in
-           Fd_send_recv.send_fd connection' " " 0 1 [] fd |> ignore
-         | None    -> ()
-       )
-       ;
-       match qmp_send_cmd_internal connection domid cmd with
-       | Qmp.(Success (_, result)) -> result
-       | message ->
-         let msg' = Qmp.string_of_message message in
-         error "QMP result for domid %d: %s (%s)" domid msg' __LOC__;
-         raise (QMP_Error(domid, msg'))
-       | exception e ->
-         let cmd' = Qmp.(string_of_message (Command(None,cmd))) in
-         error "sending QMP command '%s' to domain %d: %s (%s)"
-           cmd' domid (Printexc.to_string e) __LOC__;
-         raise (QMP_Error(domid, Printexc.to_string e)))
-    (fun () ->
-       Qmp_protocol.close connection)
-
+  with_qmp_connection domid (fun connection ->
+      let result =
+        try
+          (* no mutex required: QMP never sends unrelated messages *)
+          Qmp_protocol.negotiate connection;
+          begin match send_fd with
+            | Some fd ->
+              let connection' = Qmp_protocol.to_fd connection in
+              Fd_send_recv.send_fd connection' " " 0 1 [] fd |> ignore
+            | None    -> ()
+          end;
+          qmp_send_cmd_internal connection domid cmd
+        with e ->
+          let cmd' = Qmp.(string_of_message (Command(None,cmd))) in
+          error "sending QMP command '%s' to domain %d: %s (%s)"
+            cmd' domid (Printexc.to_string e) __LOC__;
+          raise (QMP_connection_error(domid, Printexc.to_string e))
+      in
+      match result with
+      | Qmp.(Success (_, result)) -> result
+      | message ->
+        let msg' = Qmp.string_of_message message in
+        error "QMP result for domid %d: %s (%s)" domid msg' __LOC__;
+        raise (QMP_Error(domid, msg'))
+    )

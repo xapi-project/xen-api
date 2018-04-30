@@ -1535,16 +1535,12 @@ module Vusb = struct
     *)
     if Qemu.is_running ~xs domid then
       let path = "/machine/peripheral" in
-      try
-        qmp_send_cmd domid Qmp.(Qom_list path)
-        |> ( function
-            | Qmp.(Qom usbs) -> List.map (fun p -> p.Qmp.name) usbs
-            | other ->
-              debug "%s unexpected QMP result for domid %d Qom_list"
-                __LOC__ domid;
-              []
-          )
-      with QMP_connection_error(_, _) ->
+      match qmp_send_cmd domid Qmp.(Qom_list path) with
+      | Qmp.(Qom usbs) -> List.map (fun p -> p.Qmp.name) usbs
+      | other ->
+        debug "%s unexpected QMP result for domid %d Qom_list" __LOC__ domid;
+        []
+      | exception QMP_connection_error _ ->
         raise Device_not_connected
     else
       []
@@ -1600,7 +1596,7 @@ module Vusb = struct
          if Qemu.is_running ~xs domid then
            try
              qmp_send_cmd domid Qmp.(Device_del id) |> ignore
-           with QMP_connection_error(_, _) ->
+           with QMP_connection_error _ ->
              raise Device_not_connected
       )
       (fun () ->
