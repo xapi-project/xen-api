@@ -3,8 +3,9 @@
 (executable (
   (name main)
   (libraries (
-    generator_lib
+    xapi-storage
     unix
     cmdliner
+    rpclib.markdown
   ))
 ))

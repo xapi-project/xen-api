@@ -223,15 +223,17 @@ let test_client_server =
         (Sr.ls "OpaqueRef:fbd1e3ed-ba49-3b9a-c04c-1ba3077d0029" "65a478f3-066a-71e6-339e-025d8ae4e992")
     in
 
-    let set_name () =
+    (* Unimplemented *)
+    (* let set_name () =
       Alcotest.(check unit)
         "SR.stat response"
         ()
         (Sr.set_name "OpaqueRef:65d6b084-07f3-0985-2478-64e989653b23" "sr" "new_name")
-    in
+    in *)
 
     [ "SR.attach", `Quick, attach
     ; "SR.ls", `Quick, ls
+    (* ; "SR.set_name", `Quick, set_name *)
     ]
   in
 
