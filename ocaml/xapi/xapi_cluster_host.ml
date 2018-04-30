@@ -55,12 +55,12 @@ let sync_required ~__context ~host =
 
 let create_as_necessary ~__context ~host =
   match sync_required ~__context ~host with
-  | Some cluster_ref ->
-    let network = Db.Cluster.get_network ~__context ~self:cluster_ref in
-    let pif = Xapi_clustering.pif_of_host ~__context network host in
-    fix_pif_prerequisites ~__context pif;
+  | Some cluster_ref -> (* assume pool autojoin set *)
+    let network = get_network_internal ~__context ~self:cluster_ref in
+    let (pifref,pifrec) = Xapi_clustering.pif_of_host ~__context network host in
+    fix_pif_prerequisites ~__context (pifref,pifrec);
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.Cluster_host.create rpc session_id cluster_ref host) |> ignore
+        Client.Client.Cluster_host.create rpc session_id cluster_ref host pifref) |> ignore
   | None -> ()
 
 let resync_host ~__context ~host =
@@ -73,29 +73,29 @@ let resync_host ~__context ~host =
       then Helpers.call_api_functions ~__context
         (fun rpc session_id -> Client.Client.Cluster_host.enable ~rpc ~session_id ~self:cluster_host)
 
-let create ~__context ~cluster ~host =
+let create ~__context ~cluster ~host ~pif =
   (* TODO: take network lock *)
   with_clustering_lock (fun () ->
       assert_operation_host_target_is_localhost ~__context ~host;
       assert_cluster_host_can_be_created ~__context ~host;
+      assert_pif_attached_to ~host ~pif ~__context;
       let ref = Ref.make () in
       let dbg = Context.string_of_task __context in
       let uuid = Uuidm.to_string (Uuidm.create `V4) in
-      let network = Db.Cluster.get_network ~__context ~self:cluster in
       let cluster_token = Db.Cluster.get_cluster_token ~__context ~self:cluster in
-      let pif = pif_of_host ~__context network host in
-      assert_pif_prerequisites pif;
-      let ip = ip_of_pif pif in
+      let pifref,pifrec = pif,(Db.PIF.get_record ~__context ~self:pif) in
+      assert_pif_prerequisites (pifref,pifrec);
+      let ip = ip_of_pif (pifref,pifrec) in
       let ip_list = List.map (fun cluster_host ->
-          Db.Cluster_host.get_host ~__context ~self:cluster_host |>
-          pif_of_host ~__context network |>
-          ip_of_pif
+        let pref = Db.Cluster_host.get_PIF ~__context ~self:cluster_host in
+        let prec = Db.PIF.get_record ~__context ~self:pref in
+          ip_of_pif (pref,prec)
         ) (Db.Cluster.get_cluster_hosts ~__context ~self:cluster) in
       Xapi_clustering.Daemon.enable ~__context;
       let result = Cluster_client.LocalClient.join (rpc ~__context) dbg cluster_token ip ip_list in
       match result with
       | Result.Ok () ->
-        Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~enabled:true
+        Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~pIF:pifref ~enabled:true
           ~current_operations:[] ~allowed_operations:[] ~other_config:[];
         debug "Cluster_host.create was successful; cluster_host: %s" (Ref.string_of ref);
         ref
@@ -141,12 +141,11 @@ let enable ~__context ~self =
       let dbg = Context.string_of_task __context in
       let host = Db.Cluster_host.get_host ~__context ~self in
       assert_operation_host_target_is_localhost ~__context ~host;
-      let cluster = Db.Cluster_host.get_cluster ~__context ~self in
-      let network = Db.Cluster.get_network ~__context ~self:cluster in
-      let pif = pif_of_host ~__context network host in
-      assert_pif_prerequisites pif;
+      let pifref = Db.Cluster_host.get_PIF ~__context ~self in
+      let pifrec = Db.PIF.get_record ~__context ~self:pifref in
+      assert_pif_prerequisites (pifref,pifrec);
 
-      let ip = ip_of_pif pif in
+      let ip = ip_of_pif (pifref,pifrec) in
       let init_config = {
         Cluster_interface.local_ip = ip;
         token_timeout_ms = None;
