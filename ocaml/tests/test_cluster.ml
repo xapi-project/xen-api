@@ -44,11 +44,11 @@ let create_cluster ~__context ?(cluster_stack=Constants.default_smapiv3_cluster_
   Context.set_test_clusterd_rpc __context (test_clusterd_rpc ~__context);
   let network = Test_common.make_network ~__context () in
   let localhost = Helpers.get_localhost ~__context in
-  let pifref = Test_common.make_pif ~__context ~network ~host:localhost () in
-  Db.PIF.set_IP ~__context ~self:pifref ~value:"192.0.2.1";
-  Db.PIF.set_currently_attached ~__context ~self:pifref ~value:true;
-  Db.PIF.set_disallow_unplug ~__context ~self:pifref ~value:true;
-  Xapi_cluster.create ~__context ~network ~cluster_stack ~pool_auto_join:true ~token_timeout:1. ~token_timeout_coefficient:1.
+  let pIF = Test_common.make_pif ~__context ~network ~host:localhost () in
+  Db.PIF.set_IP ~__context ~self:pIF ~value:"192.0.2.1";
+  Db.PIF.set_currently_attached ~__context ~self:pIF ~value:true;
+  Db.PIF.set_disallow_unplug ~__context ~self:pIF ~value:true;
+  Xapi_cluster.create ~__context ~pIF ~cluster_stack ~pool_auto_join:true ~token_timeout:1. ~token_timeout_coefficient:1.
 
 let test_create_destroy_status () =
   let __context = Test_common.make_test_database () in
