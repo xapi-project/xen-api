@@ -84,11 +84,20 @@ type ds_list = Data_source.t list
 type rrd_errors =
   | Archive_failed      of string    (** Archival failure *)
   | Invalid_protocol    of string    (** Thrown by protocol_of_string if
-                                string does not match plugin protocol *)
+                                         string does not match plugin protocol *)
   | Rrdd_internal_error of string    (** Internal Rrdd error *)
 [@@deriving rpcty]
 
 exception Rrdd_error of rrd_errors
+
+let () = (* register printer *)
+  let string_of_error e =
+    Rpcmarshal.marshal rrd_err.Rpc.Types.ty e |> Rpc.to_string in
+  let printer = function
+    | Rrdd_error e ->
+      Some (Printf.sprintf "Rrd_interface.Rrdd_error(%s)" (string_of_error e))
+    | _ -> None in
+  Printexc.register_printer printer
 
 (** Error handler *)
 module RrdErrHandler = Error.Make(struct
@@ -96,12 +105,7 @@ module RrdErrHandler = Error.Make(struct
     let t  = rrd_errors
     let internal_error_of e = Some (Rrdd_internal_error (Printexc.to_string e))
   end)
-let rrd_err = Error.{ def     = rrd_errors
-                    ; raiser  = (fun e -> raise (Rrdd_error e))
-                    ; matcher = (function
-                      | Rrdd_error e -> Some e
-                      | e            -> Some (Rrdd_internal_error (Printexc.to_string e)))
-                    }
+let rrd_err = RrdErrHandler.error
 
 let string_of_protocol = function
   | V1 -> "V1"
@@ -396,9 +400,9 @@ module RPC_API(R : RPC) = struct
 
   module Deprecated = struct
 
-    let load_rrd = (* TODO: there can only be one *)
+    let load_rrd =
       let timescale_int_p = Param.mk ~name:"timescale"      ~description:[ "Speed of round-robin database loading" ] Types.int in
-      let mast_addr_opt_p = Param.mk ~name:"master address" ~description:[ "Address of master" ]                     string_opt in
+      let mast_addr_opt_p = Param.mk ~name:"master address" ~description:[ "Master address to load rrd from" ]       string_opt in
       declare "Deprecated.load_rrd"
         [ "Deprecated call." ]
         (uuid_p
