@@ -785,8 +785,8 @@ let gen_cmds rpc session_id =
     ; Client.USB_group.(mk get_all get_all_records_where get_by_uuid usb_group_record "usb-group" [] ["uuid";"name-label";"name-description"] rpc session_id)
     ; Client.VUSB.(mk get_all get_all_records_where get_by_uuid vusb_record "vusb" [] ["uuid";"vm-uuid"; "usb-group-uuid"] rpc session_id)
     ; Client.Network_sriov.(mk get_all get_all_records_where get_by_uuid network_sriov_record "network-sriov" [] ["uuid"; "physical-pif"; "logical-pif"; "requires-reboot"; "configuration-mode"] rpc session_id)
-    ; Client.Cluster.(mk get_all get_all_records_where get_by_uuid cluster_record "cluster" [] ["uuid";"cluster-hosts";"network";"cluster-token";"cluster-stack";"allowed-operations";"current-operations";"pool-auto-join";"cluster-config";"other-config"] rpc session_id)
-    ; Client.Cluster_host.(mk get_all get_all_records_where get_by_uuid cluster_host_record "cluster-host" [] ["uuid";"cluster";"host";"enabled";"allowed-operations";"current-operations";"other-config"] rpc session_id)
+    ; Client.Cluster.(mk get_all get_all_records_where get_by_uuid cluster_record "cluster" [] ["uuid";"cluster-hosts";"cluster-token";"cluster-stack";"allowed-operations";"current-operations";"pool-auto-join";"cluster-config";"other-config"] rpc session_id)
+    ; Client.Cluster_host.(mk get_all get_all_records_where get_by_uuid cluster_host_record "cluster-host" [] ["uuid";"cluster";"pif";"host";"enabled";"allowed-operations";"current-operations";"other-config"] rpc session_id)
     ]
 
 let message_create printer rpc session_id params =
@@ -5000,18 +5000,18 @@ module Cluster = struct
     Client.Cluster.pool_destroy ~rpc ~session_id ~self:cluster_ref
 
   let pool_resync printer rpc session_id params =
-    let cluster = List.assoc "cluster-uuid" params in
-    let cluster_ref = Client.Cluster.get_by_uuid rpc session_id cluster in
+    let cluster_uuid = List.assoc "cluster-uuid" params in
+    let cluster_ref = Client.Cluster.get_by_uuid rpc session_id cluster_uuid in
     Client.Cluster.pool_resync rpc session_id cluster_ref
 
   let create printer rpc session_id params =
-    let network_uuid = List.assoc "network-uuid" params in
+    let pif_uuid = List.assoc "pif-uuid" params in
+    let pIF = Client.PIF.get_by_uuid rpc session_id pif_uuid in
     let cluster_stack = get_param params "cluster-stack" ~default:Constants.default_smapiv3_cluster_stack in
     let pool_auto_join = get_bool_param params "pool-auto-join" ~default:true in
     let token_timeout = get_float_param params "token-timeout" ~default:Constants.default_token_timeout_s in
     let token_timeout_coefficient = get_float_param params "token-timeout-coefficient" ~default:Constants.default_token_timeout_coefficient_s in
-    let network = Client.Network.get_by_uuid rpc session_id network_uuid in
-    let cluster = Client.Cluster.create ~rpc ~session_id ~network ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient in
+    let cluster = Client.Cluster.create ~rpc ~session_id ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient in
     let uuid = Client.Cluster.get_uuid ~rpc ~session_id ~self:cluster in
     printer (Cli_printer.PList [uuid])
 

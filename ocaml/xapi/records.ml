@@ -2080,9 +2080,6 @@ let cluster_record rpc session_id cluster =
           ~get:(fun () -> String.concat "; " (List.map (fun r -> get_uuid_from_ref r) (x ()).API.cluster_cluster_hosts))
           ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.cluster_cluster_hosts)
           ()
-      ; make_field ~name:"network"
-          ~get:(fun () -> (x ()).API.cluster_network |> get_uuid_from_ref)
-          ()
       ; make_field ~name:"cluster-token"
           ~get:(fun () -> (x ()).API.cluster_cluster_token)
           ()
