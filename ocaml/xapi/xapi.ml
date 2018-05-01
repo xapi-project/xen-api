@@ -911,6 +911,7 @@ let server_init() =
              	 table happens to be right) *)
           "Best-effort bring up of physical and sriov NICs", [ Startup.NoExnRaising ], Xapi_pif.start_of_day_best_effort_bring_up;
           "Create any necessary cluster_host objects", [ Startup.NoExnRaising ], (fun () -> Xapi_cluster_host.create_as_necessary __context (Helpers.get_localhost ~__context));
+          "resync cluster host state", [], (fun () -> Xapi_cluster_host.resync_host ~__context ~host:Helpers.(get_localhost ~__context));
           "updating the vswitch controller", [], (fun () -> Helpers.update_vswitch_controller ~__context ~host:(Helpers.get_localhost ~__context));
           "initialising storage", [ Startup.NoExnRaising ],
           (fun () -> Helpers.call_api_functions ~__context Create_storage.create_storage_localhost);
