@@ -32,9 +32,12 @@ let plug_all_pbds __context =
          if pbd_record.API.pBD_currently_attached
          then debug "Not replugging PBD %s: already plugged in" (Ref.string_of self)
          else Xapi_pbd.plug ~__context ~self
-       with e ->
+       with
+       | Db_exn.DBCache_NotFound(_, "PBD", _) as e ->
+           debug "Ignoring PBD/SR that got deleted before we plugged it: %s" (Printexc.to_string e)
+       | e ->
          result := false;
-         error "Could not plug in pbd '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
+         error "Could not plug in pbd '%s': %s" pbd_record.API.pBD_uuid (Printexc.to_string e))
     my_pbds;
   !result
 
