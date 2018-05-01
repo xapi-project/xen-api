@@ -247,7 +247,9 @@ def main(argv):
 
                 loadvm_file = open(loadvm_path, "rb")
                 incoming_file = tempfile.TemporaryFile()
-                upgraded_save_image = qemu_trad_image.convert_file(loadvm_file, incoming_file)
+                upgraded_save_image = qemu_trad_image.convert_file(loadvm_file,
+                                                                   incoming_file,
+                                                                   qemu_args)
                 loadvm_file.close()
 
                 incoming_file.seek(0)
