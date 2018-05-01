@@ -68,10 +68,15 @@ let resync_host ~__context ~host =
   match (find_cluster_host ~__context ~host) with
     | None              -> () (* no clusters exist *)
     | Some cluster_host ->    (* cluster_host and cluster exist *)
-      (* Cluster_host.enable unconditionally invokes the low-level enable operations and is idempotent. *)
       if Db.Cluster_host.get_enabled ~__context ~self:cluster_host
-      then Helpers.call_api_functions ~__context
+      (* Cluster_host.enable unconditionally invokes the low-level enable operations and is idempotent. *)
+      then begin
+        (* RPU reformats partition, losing service status, never re-enables clusterd *)
+        debug "Cluster_host %s is enabled, starting up xapi-clusterd" (Ref.string_of cluster_host);
+        Xapi_clustering.Daemon.enable ~__context;
+        Helpers.call_api_functions ~__context
         (fun rpc session_id -> Client.Client.Cluster_host.enable ~rpc ~session_id ~self:cluster_host)
+      end
 
 let create ~__context ~cluster ~host ~pif =
   (* TODO: take network lock *)
