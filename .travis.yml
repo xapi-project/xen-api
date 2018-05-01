@@ -1,13 +1,19 @@
 language: c
-services: docker
+sudo: false
+services:
+  - docker
 install:
-    - wget https://raw.githubusercontent.com/xenserver/xenserver-build-env/master/utils/travis-build-repo.sh
-script:
-    - cp vhd-tool.opam opam && bash travis-build-repo.sh
-sudo: true
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+script: bash -ex .travis-docker.sh
 env:
-    global:
-        - REPO_PACKAGE_NAME=vhd-tool
-        - REPO_CONFIGURE_CMD=""
-        - REPO_BUILD_CMD=make
-        - REPO_TEST_CMD=true
+  global:
+    - OCAML_VERSION=4.04.2
+    - DISTRO=centos-7
+    - PACKAGE=vhd-tool
+  matrix:
+    - BASE_REMOTE=git://github.com/xapi-project/xs-opam
+    - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+matrix:
+  fast_finish: true
+  allow_failures:
+    - env: EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
