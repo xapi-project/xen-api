@@ -8,7 +8,7 @@ script: bash -ex .travis-docker.sh
 env:
   global:
     - OCAML_VERSION=4.04.2
-    - DISTRO=centos-7
+    - DISTRO=debian-9
     - PACKAGE=vhd-tool
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam
