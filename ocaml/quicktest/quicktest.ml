@@ -841,9 +841,11 @@ let _ =
     "vhd";
     "copy";
     "cbt";
+    "vdi-copy-data-integrity";
     "import_raw_vdi";
     "pbd-bvt";
     "reconfigure-ip-cluster";
+    "vdi-copy-data-integrity";
   ] in
   let default_tests = List.filter (fun x -> not(List.mem x [ "lifecycle"; "vhd" ])) all_tests in
 
@@ -877,6 +879,7 @@ let _ =
        (try
           maybe_run_test "pbd-bvt" (fun () -> Quicktest_bvt.start s !rpc);
           maybe_run_test "cbt" (fun () -> Quicktest_cbt.test s);
+          maybe_run_test "vdi-copy-data-integrity" (fun () -> Quicktest_vdi_copy_data_integrity.test s);
           maybe_run_test "reconfigure-ip-cluster" (fun () -> Quicktest_cluster.test s);
           maybe_run_test "storage" (fun () -> Quicktest_storage.go s);
           if not !using_unix_domain_socket then maybe_run_test "http" Quicktest_http.run_from_within_quicktest;

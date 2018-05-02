@@ -12,6 +12,8 @@ import os
 import subprocess
 import time
 import fcntl
+import json
+import re
 
 
 LOGGER = logging.getLogger("nbd_client_manager")
@@ -127,6 +129,29 @@ def _wait_for_nbd_device(nbd_device, connected):
             connected)
         time.sleep(0.1)
 
+PERSISTENT_INFO_DIR = "/var/run/nonpersistent/nbd"
+
+def _get_persistent_connect_info_filename(device):
+    """
+    Return the full path for the persistent file containing
+    the connection details. This is based on the device
+    name, so /dev/nbd0 -> /var/run/nonpersistent/nbd/0
+    """
+    number = re.search('/dev/nbd([0-9]+)', device).group(1)
+    return PERSISTENT_INFO_DIR + '/' + number
+
+def _persist_connect_info(device, path, exportname):
+    if not os.path.exists(PERSISTENT_INFO_DIR):
+        os.makedirs(PERSISTENT_INFO_DIR)
+    filename = _get_persistent_connect_info_filename(device)
+    with open(filename, 'w') as f:
+        f.write(json.dumps({'path':path, 'exportname':exportname}))
+
+def _remove_persistent_connect_info(device):
+    try:
+        os.remove(_get_persistent_connect_info_filename(device))
+    except OSError:
+        pass
 
 def connect_nbd(path, exportname):
     """Connects to a free NBD device using nbd-client and returns its path"""
@@ -136,6 +161,7 @@ def connect_nbd(path, exportname):
         cmd = ['nbd-client', '-unix', path, nbd_device, '-name', exportname]
         _call(cmd)
         _wait_for_nbd_device(nbd_device=nbd_device, connected=True)
+        _persist_connect_info(nbd_device, path, exportname)
     return nbd_device
 
 
@@ -147,6 +173,7 @@ def disconnect_nbd_device(nbd_device):
     """
     with FILE_LOCK:
         if _is_nbd_device_connected(nbd_device=nbd_device):
+            _remove_persistent_connect_info(nbd_device)
             cmd = ['nbd-client', '-disconnect', nbd_device]
             _call(cmd)
             _wait_for_nbd_device(nbd_device=nbd_device, connected=False)
