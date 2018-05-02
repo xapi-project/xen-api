@@ -22,7 +22,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (c_names (sendfile64_stubs))
   (flags (:standard -w -34-32 %s))
   (libraries (
-    cohttp.lwt
+    cohttp-lwt
     cstruct
     io-page.unix
     lwt

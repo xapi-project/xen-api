@@ -17,6 +17,7 @@ depends: [
   "cmdliner"
   "jbuilder" {build & >= "1.0+beta10"}
   "cohttp" {>= "0.22.0"}
+  "cohttp-lwt" {>= "0.22.0"}
   "cstruct" {>= "3.0.0"}
   "io-page-unix"
   "lwt" {>= "3.0.0"}
