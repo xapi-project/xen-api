@@ -54,7 +54,7 @@ let check_sm_feature_error (op:API.vdi_operations) sm_features sr =
     if not and [None] if everything is ok. If the [vbd_records] parameter is
     specified, it should contain at least all the VBD records from the database
     that are linked to this VDI. *)
-let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_records=[]) ha_enabled record _ref' op =
+let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_records) ha_enabled record _ref' op =
   let _ref = Ref.string_of _ref' in
   let current_ops = record.Db_actions.vDI_current_operations in
   let reset_on_boot = record.Db_actions.vDI_on_boot = `reset in
@@ -102,16 +102,16 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 
       (* Only a 'live' operation can be performed if there are active (even RO) devices *)
       let my_active_vbd_records = match vbd_records with
-        | [] -> List.map snd (Db.VBD.get_internal_records_where ~__context
+        | None -> List.map snd (Db.VBD.get_internal_records_where ~__context
                                 ~expr:(
                                   And(Eq (Field "VDI", Literal _ref),
                                       Or(
                                         Eq (Field "currently_attached", Literal "true"),
                                         Eq (Field "reserved", Literal "true")))
                                 ))
-        | _ -> List.map snd (List.filter (fun (_, vbd_record) ->
+        | Some records -> List.map snd (List.filter (fun (_, vbd_record) ->
             vbd_record.Db_actions.vBD_VDI = _ref' && (vbd_record.Db_actions.vBD_currently_attached || vbd_record.Db_actions.vBD_reserved)
-          ) vbd_records)
+          ) records)
       in
       let my_active_rw_vbd_records = List.filter
           (fun vbd -> vbd.Db_actions.vBD_mode = `RW)
@@ -120,13 +120,13 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
 
       (* VBD operations (plug/unplug) (which should be transient) cause us to serialise *)
       let my_has_current_operation_vbd_records = match vbd_records with
-        | [] -> List.map snd (Db.VBD.get_internal_records_where ~__context
+        | None -> List.map snd (Db.VBD.get_internal_records_where ~__context
                                 ~expr:(
                                   And(Eq (Field "VDI", Literal _ref), Not (Eq (Field "current_operations", Literal "()")))
                                 ))
-        | _ -> List.map snd (List.filter (fun (_, vbd_record) ->
+        | Some records -> List.map snd (List.filter (fun (_, vbd_record) ->
             vbd_record.Db_actions.vBD_VDI = _ref' && vbd_record.Db_actions.vBD_current_operations <> []
-          ) vbd_records)
+          ) records)
       in
 
       (* If the VBD is currently_attached then some operations can still be performed ie:

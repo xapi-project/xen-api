@@ -56,7 +56,9 @@ let update_all_allowed_operations ~__context =
       let pbd_records = List.map (fun pbd -> (pbd, Db.PBD.get_record ~__context ~self:pbd)) all_pbds in
       let vbd_records = List.map (fun vbd -> (vbd, Db.VBD.get_record_internal ~__context ~self:vbd)) all_vbds in
       List.iter (safe_wrapper "allowed_ops - VDIs"
-                   (fun self -> Xapi_vdi.update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records ~vbd_records)) all_vdis;
+                   (fun self ->
+                    let relevant_vbds = List.filter (fun (_, vbd_record) -> vbd_record.Db_actions.vBD_VDI = self) vbd_records in
+                   Xapi_vdi.update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records ~vbd_records:relevant_vbds)) all_vdis;
       debug "Finished updating allowed operations: VDI");
   (* SR *)
   time_this "Cancel_tasks.update_all_allowed_operations: SR" (fun () ->
