@@ -1,0 +1,12 @@
+(executable
+ ((name suite)
+  (libraries
+   (alcotest
+    alcotest-lwt
+    local_lib))
+  ))
+
+(alias
+ ((name   runtest)
+  (deps   (suite.exe))
+  (action (run ${<}))))

@@ -1,10 +1,13 @@
-.PHONY: build release install uninstall clean reindent
+.PHONY: build release test install uninstall clean reindent
 
 build:
 	jbuilder build @install
 
 release:
 	jbuilder build @install
+
+test:
+	jbuilder runtest
 
 install:
 	jbuilder install
