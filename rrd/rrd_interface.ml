@@ -92,7 +92,7 @@ exception Rrdd_error of rrd_errors
 
 let () = (* register printer *)
   let string_of_error e =
-    Rpcmarshal.marshal rrd_err.Rpc.Types.ty e |> Rpc.to_string in
+    Rpcmarshal.marshal rrd_errors.Rpc.Types.ty e |> Rpc.to_string in
   let printer = function
     | Rrdd_error e ->
       Some (Printf.sprintf "Rrd_interface.Rrdd_error(%s)" (string_of_error e))
