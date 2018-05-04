@@ -1,1 +1,1 @@
-{"method":"Network.Bridge.add_port","params":[{"kind":["PVS_proxy"],"bond_properties":[],"interfaces":["interfaces"],"name":"name","bridge":"bridge","bond_mac":[]},"string"],"id":37}
+{"method":"Network.Bridge.add_port","params":[{"kind":"PVS_proxy","interfaces":["interfaces"],"name":"name","bridge":"bridge"},"string"],"id":47}

@@ -20,7 +20,7 @@ type t = {
 	min : float;
 	max : float;
 	units : string
-} [@@deriving rpc]
+} [@@deriving rpcty]
 
 let to_key_value_map ds = [
 	"name_label", ds.name;

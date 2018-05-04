@@ -1,1 +1,1 @@
-{"method":"Network.Bridge.create","params":[{"name":"name","other_config":[],"igmp_snooping":[],"mac":["mac"],"vlan":[]},"string"],"id":78}
+{"method":"Network.Bridge.create","params":[{"name":"name","mac":"mac"},"string"],"id":88}
