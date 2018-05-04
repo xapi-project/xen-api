@@ -2273,6 +2273,12 @@ module Backend = struct
           | Some (XEN_PLATFORM_PV_DRIVER_INFO x) -> xen_platform_pv_driver_info x
           | _ -> () (* unhandled QMP events *)
 
+        let process domid line =
+          match Qmp.message_of_string line with
+          | Event e ->  qmp_event_handle domid e
+          | msg     ->  debug "Got non-event message, domain-%d: %s" domid
+                          (string_of_message msg)
+
         let qmp_event_thread () =
           debug "Starting QMP_Event thread";
           (* Add the existing qmp sockets first *)
@@ -2284,21 +2290,25 @@ module Backend = struct
             try
               Monitor.wait m |> Monitor.with_event m (fun fd is_flag_in ->
                   Lookup.domid_of fd >>= fun domid ->
+                  Lookup.channel_of domid >>= fun c ->
+                  let qmp = Qmp_protocol.to_fd c in  
                   if is_flag_in then
-                    Lookup.channel_of domid >>= fun c ->
-                    try
-                      match Qmp_protocol.read c with
-                      | Event e -> qmp_event_handle domid e
-                      | msg -> debug "Got non-event message, domain-%d: %s" domid (string_of_message msg)
-                    with End_of_file ->
-                      debug "domain-%d: end of file, close QMP socket" domid;
+                    match Readln.read qmp with
+                    | Readln.Ok msgs  -> List.iter (process domid) msgs
+
+                    | Readln.Error msg ->
+                      error "domain-%d: %s, close QMP socket" domid msg;
+                      Readln.free qmp;
                       remove domid
-                       | e ->
-                         debug_exn (Printf.sprintf "domain-%d: close QMP socket" domid) e;
-                         remove domid
+
+                    | Readln.EOF ->
+                      debug "domain-%d: end of file, close QMP socket" domid;
+                      Readln.free qmp;
+                      remove domid
                   else begin
                     debug "EPOLL error on domain-%d, close QMP socket" domid;
-                    remove domid
+                    Readln.free qmp;
+                    remove domid;
                   end
                 )
             with e ->
