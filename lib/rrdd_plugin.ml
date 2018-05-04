@@ -146,7 +146,7 @@ module Reporter = struct
       ~uid
       ~protocol ~overdue_count =
     let next_reading =
-      RRDD.Plugin.Local.register ~uid ~info:Rrd.Five_Seconds ~protocol
+      RRDD.Plugin.Local.register uid Rrd.Five_Seconds protocol
     in
     let wait_time = next_reading -. neg_shift in
     let wait_time = if wait_time < 0.1 then wait_time+.5. else wait_time in
@@ -157,11 +157,11 @@ module Reporter = struct
     end
     else begin
       if (overdue_count > 1) then begin
-        (* if register returns negative more than once in a succession, 
+        (* if register returns negative more than once in a succession,
            				the thread should get delayed till things are normal back again *)
         let backoff_time = 2. ** ((float_of_int (overdue_count) -. 1.)) in
-        D.debug "rrdd says next reading is overdue, seems like rrdd is busy; 
-					Backing off for %.1f seconds" backoff_time; 
+        D.debug "rrdd says next reading is overdue, seems like rrdd is busy;
+					Backing off for %.1f seconds" backoff_time;
         Thread.delay (backoff_time);
       end
       else D.debug "rrdd says next reading is overdue by %.1f seconds; not sleeping" (-.wait_time);
@@ -215,7 +215,7 @@ module Reporter = struct
       ~protocol
       ~dss_f =
     try
-      let path = RRDD.Plugin.get_path ~uid in
+      let path = RRDD.Plugin.get_path uid in
       D.info "Obtained path=%s\n" path;
       let _ = Unixext.mkdir_safe (Filename.dirname path) 0o644 in
       let id = Rrd_writer.({
@@ -231,7 +231,7 @@ module Reporter = struct
             (module D)
             ~neg_shift
             ~uid
-            ~protocol 
+            ~protocol
             ~overdue_count:!overdue_count;
         let payload = Rrd_protocol.({
             timestamp = Utils.now ();
@@ -241,7 +241,7 @@ module Reporter = struct
         Thread.delay 0.003
       in
       let cleanup () =
-        RRDD.Plugin.Local.deregister ~uid;
+        RRDD.Plugin.Local.deregister uid;
         writer.Rrd_writer.cleanup ()
       in
       loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup
@@ -274,7 +274,7 @@ module Reporter = struct
           (List.map string_of_int shared_page_refs |> String.concat ",");
         Xs.write xs
           (Printf.sprintf "%s/%s/protocol" xs_state.Xs.root_path uid)
-          (Rpc.string_of_rpc (Rrd_interface.rpc_of_plugin_protocol protocol));
+          (Rrd_interface.string_of_protocol protocol);
         Xs.write xs
           (Printf.sprintf "%s/%s/ready" xs_state.Xs.root_path uid)
           "true");
