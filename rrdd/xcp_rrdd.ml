@@ -46,8 +46,6 @@ let xmlrpc_handler process req bio context =
     Http_svr.response_unauthorised ~req (Printf.sprintf "Go away: %s" (Printexc.to_string e)) s
 
 (* Bind the service interface to the server implementation. *)
-module Server = Rrd_interface.Server(Rrdd_server)
-
 (* A helper function for processing HTTP requests on a socket. *)
 let accept_forever sock f =
   ignore (Thread.create (fun _ ->
@@ -578,14 +576,14 @@ module Discover: DISCOVER = struct
     info "RRD plugin %s discovered - registering it" file;
     let info  = Rrd.Five_Seconds in
     let v2    = Rrd_interface.V2 in
-    Rrdd_server.Plugin.Local.register () ~uid:file ~info ~protocol:v2
+    Rrdd_server.Plugin.Local.register file info v2
     |> ignore (* seconds until next reading phase *)
 
   (* [deregister file] is called when a file is removed from the watched
      	 * directory *)
   let deregister file =
     info "RRD plugin - de-registering %s" file;
-    Rrdd_server.Plugin.Local.deregister () ~uid:file
+    Rrdd_server.Plugin.Local.deregister file
 
   (* Here we dispatch over all events that we receive. Note that
      	 * [Inotify.read] blocks until an event becomes available. Hence, this
@@ -671,6 +669,9 @@ let stop signal =
 
 (* Entry point. *)
 let _ =
+
+  Rrdd_bindings.Rrd_daemon.bind (); (* bind PPX-generated server calls to implementation of API *)
+
   (* Prevent shutdown due to sigpipe interrupt. This protects against
      	 * potential stunnel crashes. *)
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
@@ -704,12 +705,12 @@ let _ =
           let server = Xcp_service.make
               ~path:!Rrd_interface.default_path
               ~queue_name:!Rrd_interface.queue_name
-              ~rpc_fn:(Server.process ())
+              ~rpc_fn:(Idl.server Rrdd_bindings.Server.implementation)
               () in
           Debug.with_thread_associated "main" Xcp_service.serve_forever server
         end
       ) () in
-  start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) Server.process;
+  start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) (fun () -> Idl.server Rrdd_bindings.Server.implementation);
 
   ignore @@ Discover.start ();
 
