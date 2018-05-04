@@ -51,6 +51,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     message-switch-async
     rpclib
     xapi-stdext-date
+    rpclib.async
     xapi-storage
     sexplib
   ))
