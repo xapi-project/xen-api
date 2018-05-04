@@ -55,14 +55,35 @@ let rec sendfile from_fd to_fd len =
         ) (fun e ->
           Lwt_unix.set_blocking fd false;
           fail e) in
+
+  let sync_limit = Int64.(mul 4L (mul 1024L 1024L)) in
+
+  let write from_fd to_fd to_write =
+    let rec loop remaining =
+      if remaining > 0L then begin
+        _sendfile from_fd to_fd remaining
+        >>= fun written ->
+        loop (Int64.sub remaining written)
+      end else return () in
+    loop to_write >>= fun () ->
+    return to_write
+  in
+
+  let min x y =
+    if Int64.compare x y = -1 then x else y
+  in
+
   with_blocking_fd from_fd
     (fun from_fd ->
       with_blocking_fd to_fd
         (fun to_fd ->
           let rec loop remaining =
             if remaining > 0L then begin
-              _sendfile from_fd to_fd remaining
+              let to_write = min sync_limit remaining in
+              write from_fd to_fd to_write
               >>= fun written ->
+              Lwt_unix.fdatasync to_fd
+              >>= fun () ->
               loop (Int64.sub remaining written)
             end else return () in
           loop len
