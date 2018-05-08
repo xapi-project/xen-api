@@ -18,7 +18,9 @@ depends: [
   "core"
   "message-switch-unix"
   "message-switch-async"
-  "rpc"
+  "rpclib"
+  "rpclib-async"
+  "ppx_deriving_rpc"
   "ppx_sexp_conv"
   "xapi-stdext-date"
 ]
