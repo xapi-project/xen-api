@@ -50,7 +50,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     threads
     xapi-stdext-date
     xcp
-    xcp_storage_interface_types))
+    xcp.storage.interface.types))
   (wrapped false)
   %s))
 
@@ -58,14 +58,13 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name xcp_storage)
   (public_name xcp.storage)
   (flags (:standard -w -39 %s))
-  (modules (:standard \ storage_interface storage_test vdi_automaton))
+  (modules (:standard \ storage_interface storage_test vdi_automaton vdi_automaton_test))
   (libraries
    (rpclib
     threads
     xapi-stdext-date
     xcp
-    xcp_storage_interface
-    xcp_storage_interface_types))
+    xcp.storage.interface))
   (wrapped false)
   %s))
 
@@ -77,7 +76,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    (cmdliner
     oUnit
     xcp
-    xcp_storage))
+    xcp.storage))
   %s))
 
 (executable
