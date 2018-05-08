@@ -2087,43 +2087,22 @@ let rec events_watch ~__context cancel queue_name from =
            add_event ev;
            match ev with
            | Vm id ->
-             if Events_from_xenopsd.are_suppressed id
-             then debug "ignoring xenops event on VM %s" id
-             else begin
-               debug "xenops event on VM %s" id;
-               update_vm ~__context id;
-             end
+             debug "xenops event on VM %s" id;
+             update_vm ~__context id
            | Vbd id ->
-             if Events_from_xenopsd.are_suppressed (fst id)
-             then debug "ignoring xenops event on VBD %s.%s" (fst id) (snd id)
-             else begin
-               debug "xenops event on VBD %s.%s" (fst id) (snd id);
-               update_vbd ~__context id
-             end
+             debug "xenops event on VBD %s.%s" (fst id) (snd id);
+             update_vbd ~__context id
            | Vif id ->
-             if Events_from_xenopsd.are_suppressed (fst id)
-             then debug "ignoring xenops event on VIF %s.%s" (fst id) (snd id)
-             else begin
-               debug "xenops event on VIF %s.%s" (fst id) (snd id);
-               update_vif ~__context id
-             end
+             debug "xenops event on VIF %s.%s" (fst id) (snd id);
+             update_vif ~__context id
            | Pci id ->
-             if Events_from_xenopsd.are_suppressed (fst id)
-             then debug "ignoring xenops event on PCI %s.%s" (fst id) (snd id)
-             else begin
-               debug "xenops event on PCI %s.%s" (fst id) (snd id);
-               update_pci ~__context id
-             end
+             debug "xenops event on PCI %s.%s" (fst id) (snd id);
+             update_pci ~__context id
            | Vgpu id ->
-             if Events_from_xenopsd.are_suppressed (fst id)
-             then debug "ignoring xenops event on VGPU %s.%s" (fst id) (snd id)
-             else begin
-               debug "xenops event on VGPU %s.%s" (fst id) (snd id);
-               update_vgpu ~__context id
-             end
+             debug "xenops event on VGPU %s.%s" (fst id) (snd id);
+             update_vgpu ~__context id
            | Vusb id ->
-             if Events_from_xenopsd.are_suppressed (fst id)
-             then debug "ignoring xenops event on Vusb %s.%s" (fst id) (snd id);
+             debug "xenops event on VUSB %s.%s" (fst id) (snd id);
              update_vusb ~__context id
            | Task id ->
              debug "xenops event on Task %s" id;
