@@ -18,7 +18,6 @@
               rpclib
               xcp
               xcp.memory
-              rpclib.syntax
               uuidm
               re
               re.str)
