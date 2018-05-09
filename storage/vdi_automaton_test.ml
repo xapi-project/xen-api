@@ -25,11 +25,13 @@ let () =
        try
          let s' = s + op in
          let op' = List.map fst (s - s') in
-         if s <> s' && [ op ] <> op'
-         then failwith (Printf.sprintf "s = %s; op = %s; s + op = %s; s - (s + op) = %s" 
-                          (string_of_state s) (string_of_op op)
+         if s <> s' && [ op ] <> op' then
+           failwith (Printf.sprintf "s = %s; op = %s; s + op = %s; s - (s + op) = %s"
+                          (string_of_state s)
+                          (string_of_op op)
                           (string_of_state s')
                           (String.concat ", " (List.map string_of_op op')))
        with Bad_transition(_, _) -> ()
     ) (all_pairs every_state every_op);
     Printf.printf "Passed."
+
