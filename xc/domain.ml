@@ -674,6 +674,8 @@ let xenguest_args_hvm ~domid ~store_port ~store_domid ~console_port ~console_dom
   ]
   @ (vgpus |> function
     | [Xenops_interface.Vgpu.{implementation = Nvidia _}] -> ["-vgpu"]
+    | [Xenops_interface.Vgpu.{implementation = GVT_g _; physical_pci_address}] ->
+      ["-gvtg"; Xenops_interface.Pci.string_of_address physical_pci_address]
     | _ -> []
   )
   @ xenguest_args_base ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
