@@ -246,7 +246,7 @@ module Sysfs = struct
 		try
 			Sys.readdir ("/sys/bus/pci/drivers/" ^ driver)
 			|> Array.to_list
-			|> List.filter (Re.execp (Re_perl.compile_pat "\d+:\d+:\d+\.\d+"))
+			|> List.filter (Re.execp (Re.Perl.compile_pat "\\d+:\\d+:\\d+\\.\\d+"))
 			|> List.length
 		with _ -> 0
 
@@ -263,7 +263,7 @@ module Sysfs = struct
 			Result. Ok (
 				Sys.readdir device_path
 				|> Array.to_list
-				|> List.filter (Re.execp (Re_perl.compile_pat "virtfn(\d+)")) (* List elements are like "virtfn1" *)
+				|> List.filter (Re.execp (Re.Perl.compile_pat "virtfn(\\d+)")) (* List elements are like "virtfn1" *)
 				|> List.map (Filename.concat device_path)
 			)
 		with _ -> Result.Error (Vf_sysfs_path_not_found, "Can not get child vfs sysfs paths for " ^ dev)
@@ -274,7 +274,7 @@ module Sysfs = struct
 			get_child_vfs_sysfs_paths parent_dev >>= fun paths ->
 			let group = 
 				List.find (fun x -> Astring.String.is_infix ~affix:pcibuspath (Unix.readlink x)) paths
-				|> Re.exec_opt (Re_perl.compile_pat "virtfn(\d+)")
+				|> Re.exec_opt (Re.Perl.compile_pat "virtfn(\\d+)")
 			in
 			match group with
 			| None -> Result.Error (Vf_index_not_found, "Can not get device index for " ^ pcibuspath)
@@ -1323,7 +1323,7 @@ module Dracut = struct
 		try
 			info "Building initrd...";
 			let img_name = call_script !uname ["-r"] |> String.trim in
-			call ["-f"; Printf.sprintf "/boot/initrd-%s.img" img_name; img_name];
+			call ["-f"; Printf.sprintf "/boot/initrd-%s.img" img_name; img_name] |> ignore;
 			Result.Ok ()
 		with _ -> Result.Error (Fail_to_rebuild_initrd, "Error occurs in building initrd")
 end
@@ -1337,7 +1337,7 @@ module Modinfo = struct
 			let out = call ["--parameter"; driver]
 				|> String.trim |> String.split_on_char '\n'
 			in
-			let re = Re_perl.compile_pat "\((.*)\)$" in
+			let re = Re.Perl.compile_pat "\\((.*)\\)$" in
 			let has_array_of str =
 				match Re.exec_opt re str with
 				| None -> false
@@ -1451,8 +1451,8 @@ module Modprobe = struct
 				| _ -> s
 			in
 			let trimed_s = String.trim s in
-			if Re.execp (Re_perl.compile_pat ("options[ \t]+" ^ driver)) trimed_s then
-				let driver_options = Re.split (Re_perl.compile_pat "[ \t]+") trimed_s in
+			if Re.execp (Re.Perl.compile_pat ("options[ \\t]+" ^ driver)) trimed_s then
+				let driver_options = Re.split (Re.Perl.compile_pat "[ \\t]+") trimed_s in
 				List.map parse_driver_options driver_options
 				|> String.concat " "
 			else
