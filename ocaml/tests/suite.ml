@@ -30,7 +30,6 @@ let base_suite =
     Test_pgpu_helpers.test;
     Test_storage_migrate_state.test;
     Test_vm.test;
-    Test_vm_helpers.test;
     Test_xenopsd_metadata.test;
     Test_cpuid_helpers.test;
     Test_pool_cpuinfo.test;
