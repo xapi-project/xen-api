@@ -1,41 +1,38 @@
-# OASIS_START
-# DO NOT EDIT (digest: a3c674b4239234cbbe53afe090018954)
+OPAM_PREFIX=$(DESTDIR)$(shell opam config var prefix)
+OPAM_LIBDIR=$(DESTDIR)$(shell opam config var lib)
 
-SETUP = ocaml setup.ml
+.PHONY: build release install uninstall clean test doc reindent
 
-build: setup.data
-	$(SETUP) -build $(BUILDFLAGS)
+release:
+	    jbuilder build @install -j $$(getconf _NPROCESSORS_ONLN)
 
-doc: setup.data build
-	$(SETUP) -doc $(DOCFLAGS)
+build:
+	    jbuilder build @install --dev -j $$(getconf _NPROCESSORS_ONLN)
 
-test: setup.data build
-	$(SETUP) -test $(TESTFLAGS)
 
-all:
-	$(SETUP) -all $(ALLFLAGS)
+install:
+	    jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
 
-install: setup.data
-	$(SETUP) -install $(INSTALLFLAGS)
-
-uninstall: setup.data
-	$(SETUP) -uninstall $(UNINSTALLFLAGS)
-
-reinstall: setup.data
-	$(SETUP) -reinstall $(REINSTALLFLAGS)
+uninstall:
+	    jbuilder uninstall
 
 clean:
-	$(SETUP) -clean $(CLEANFLAGS)
+	    jbuilder clean
 
-distclean:
-	$(SETUP) -distclean $(DISTCLEANFLAGS)
+test:
+	    jbuilder runtest --dev -j $$(getconf _NPROCESSORS_ONLN)
 
-setup.data:
-	$(SETUP) -configure $(CONFIGUREFLAGS)
+# requires odoc
+doc:
+	    jbuilder build @doc
 
-configure:
-	$(SETUP) -configure $(CONFIGUREFLAGS)
+gh-pages:
+	    bash .docgen.sh
 
-.PHONY: build doc test all install uninstall reinstall clean distclean configure
+reindent:
+	    git ls-files '*.ml' '*.mli' | xargs ocp-indent --syntax cstruct -i
 
-# OASIS_STOP
+runtime-coverage:
+	    BISECT_RUNTIME=YES make
+
+.DEFAULT_GOAL := release

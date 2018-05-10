@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let project_url = "http://github.com/djs55/xenops-cli"
+let project_url = "http://github.com/xapi-project/xenops-cli"
 
 open Common
 open Cmdliner

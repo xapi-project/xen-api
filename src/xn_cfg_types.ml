@@ -4,7 +4,7 @@ type value =
 	| String of string
 	| Int of int
 	| List of value list
-with rpc
+[@@deriving rpc]
 
 exception Type_error of string * string
 
@@ -25,7 +25,7 @@ let list f = function
 	| List vs -> List.map f vs
 	| x -> raise (Type_error("int", x |> rpc_of_value |> Jsonrpc.to_string))
 
-type config = (string * value) list with rpc
+type config = (string * value) list [@@deriving rpc]
 
 (* Well-known constants *)
 let _kernel = "kernel"
