@@ -42,8 +42,9 @@ let common_options_t =
     let doc = Printf.sprintf "Specify path to the server Unix domain socket." in
     Arg.(value & opt file !Xenops_interface.default_path & info ["socket"] ~docs ~doc) in
   let queue =
+    let default = Some "org.xen.xapi.xenops.classic" in
     let doc = Printf.sprintf "Specify queue name in message switch." in
-    Arg.(value & opt (some string) None & info ["queue"] ~docs ~doc) in
+    Arg.(value & opt (some string) default & info ["queue"] ~docs ~doc) in
   Term.(pure Common.make $ debug $ verb $ socket $ queue)
     
 (* Commands *)
