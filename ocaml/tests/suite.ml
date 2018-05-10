@@ -34,7 +34,6 @@ let base_suite =
     Test_xenopsd_metadata.test;
     Test_cpuid_helpers.test;
     Test_pool_cpuinfo.test;
-    (* Test_ca121350.test; *)
     Test_dbsync_master.test;
     Test_pvs_cache_storage.test;
     Test_extauth_plugin_ADpbis.test;
