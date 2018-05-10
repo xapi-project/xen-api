@@ -50,7 +50,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    (rpclib
     threads
     xcp
-    xcp_xen_interface_types))
+    xcp.xen.interface.types))
   (wrapped false)
   %s))
 
@@ -63,7 +63,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    (rpclib
     threads
     xcp
-    xcp_xen_interface))
+    xcp.xen.interface))
   (wrapped false)
   %s))
 |} (flags rewriters_ppx) coverage_rewriter (flags rewriters_camlp4) coverage_rewriter (flags rewriters_ppx) coverage_rewriter

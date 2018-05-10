@@ -50,7 +50,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     rrd
     threads
     xcp
-    xcp_rrd_interface_types))
+    xcp.rrd.interface.types))
   (wrapped false)
   %s))
 
@@ -64,7 +64,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     rrd
     threads
     xcp
-    xcp_rrd_interface))
+    xcp.rrd.interface))
   (wrapped false)
   %s))
 
