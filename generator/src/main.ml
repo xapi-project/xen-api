@@ -7,9 +7,12 @@ let gen_markdown path =
 
   List.iter
     (fun api ->
-       with_output_file (Printf.sprintf "%s/%s.md" path api.Codegen.Interfaces.name)
+       with_output_file (Printf.sprintf "%s/%s.html.md" path api.Codegen.Interfaces.name)
          (fun oc ->
             let p = Markdowngen.to_string api in
+            output_string oc "---\n";
+            output_string oc (Printf.sprintf "title: %s\n" api.Codegen.Interfaces.name);
+            output_string oc "\nlanguage_tabs:\n - json\n - ocaml\n - python\n\nsearch: true\n---\n";
             output_string oc p)) Apis.apis;
   `Ok ()
 

@@ -123,11 +123,34 @@ module Datapath(R: RPC) = struct
   let implementation = R.implement Idl.Interface.{
       name = "Datapath";
       namespace = Some "Datapath";
-      description = [
-        "Xapi will call the functions here on VM start / shutdown /";
-        "suspend / resume / migrate. Every function is idempotent. Every";
-        "function takes a domain parameter which allows the implementation";
-        "to track how many domains are currently using the volume." ];
+      description = [ {|
+Xapi will call the functions here on VM start / shutdown /
+suspend / resume / migrate. Every function is idempotent. Every
+function takes a domain parameter which allows the implementation
+to track how many domains are currently using the volume. 
+
+Volumes must be attached via the following sequence of calls:
+
+1. [open url persistent] must be called first and is used to declare
+   that the writes to the disks must either be persisted or not.
+   [open] is not an exclusive operation - a disk may be opened on
+   more than once host at once. The call returns `unit` or an
+   error.
+
+2. [attach url domain] is then called. The `domain` parameter is
+   advisory. Note that this call is currently only ever called once.
+   In the future the call may be made multiple times with different
+   [domain] parameters if the disk is attached to multiple domains.
+   The return value from this call is the information required to 
+   attach the disk to a VM. This call is again, not exclusive. The
+   volume may be attached to more than one host concurrently.
+
+3. [activate url domain] is called to activate the datapath. This
+   must be called before the volume is to be used by the VM, and 
+   it is acceptible for this to be an exclusive operation, such that
+   it is an error for a volume to be activated on more than one host
+   simultaneously.
+      |}];
       version=(1,0,0);
     }
 
@@ -169,10 +192,13 @@ module Data (R : RPC) = struct
   let blocklist = Param.mk ~name:"blocklist" blocklist
 
   let copy = declare "copy"
-      ["[copy uri domain remote blocks] copies [blocks] from the local disk ";
+      ["[copy uri domain remotes blocks] copies [blocks] from the local disk ";
        "to a remote URI. This may be called as part of a Volume Mirroring ";
        "operation, and hence may need to cooperate with whatever process is ";
-       "currently mirroring writes to ensure data integrity is maintained"]
+       "currently mirroring writes to ensure data integrity is maintained.";
+      "The [remote] parameter is a remotely accessible URI, for example,";
+      "`nbd://root:pass@foo.com/path/to/disk` that must contain all necessary";
+      "authentication tokens"]
       (dbg @-> uri_p @-> domain @-> remote @-> blocklist @-> returning operation error)
 
   let mirror = declare "mirror"
@@ -206,10 +232,46 @@ module Data (R : RPC) = struct
   let implementation = implement Idl.Interface.{
       name = "Data";
       namespace = Some "Data";
-      description = [
-        "This interface is used for long-running data operations such as";
-        "copying the contents of volumes or mirroring volumes to remote";
-        "destinations"];
+      description = [ {|
+This interface is used for long-running data operations such as
+copying the contents of volumes or mirroring volumes to remote
+destinations.
+
+These operations are asynchronous and rely on the Tasks API to
+report results and errors.
+
+To mirror a VDI a sequence of these API calls is required:
+
+1. Create a destination VDI using the Volume API on the destination
+   SR. This must be the same size as the source. To minimize copying
+   the destination VDI may be cloned from one that has been previously
+   copied, as long as a disk from which the copy was made is still
+   present on the source (even as a metadata-only disk)
+
+2. Arrange for the destination disk to be accessible on the source
+   host by suitable URL. This may be `nbd`, `iscsi`, `nfs` or
+   other URL.
+
+3. Start mirroring all new writes to the destination disk via the
+   `Data.mirror` API call.
+
+4. Find the list of blocks to copy via the CBT API call. Note that if
+   the destination volume has not been 'prezeroed' then all of the
+   blocks must be copied to the destination.
+
+5. Start the background copy of the disk via a call to `DATA.copy`,
+   passing in the list of blocks to copy. The plugin must ensure that
+   the copy does not conflict with the mirror operation - ie., all
+   writes from the mirror operation must not be overwritten by writes
+   of old data from the copy operation.
+
+6. The progress of the copy operation may be queried via the `Data.stat`
+   call.
+
+7. Once the copy operation has succesfully completed the destination
+   disk will be a perfect mirror of the source.
+
+     |}];
       version = (1,0,0)
     }
 
@@ -220,8 +282,10 @@ module DCode = Data(Codegen.Gen())
 
 let interfaces = Codegen.Interfaces.create
     ~name:"datapath"
-    ~title:"The Plugin interface"
-    ~description:[
-      "The xapi toolstack expects all plugins to support a basic query ";
-      "interface."]
+    ~title:"The SMAPIv3 Data interfaces"
+    ~description:[ {|
+The Datapath interfaces are provided to access the data stored
+in the volumes. The `Datapath` interface is used to open and close the disks for read/write
+operations from VMs and the `Data` interface is used for operations such as `copy` and `mirror`
+    |}]
     ~interfaces:[DPCode.implementation (); DCode.implementation ()]
