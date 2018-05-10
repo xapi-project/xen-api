@@ -13,10 +13,19 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
-open Test_common
-open Test_vgpu_common
+module T = Test_common
+module VGPU_T = Test_vgpu_common
 open Xapi_vm_helpers
+
+(* Normally we provide the actual exn thrown (ie error code AND params) and test with Alcotest.check_raises
+ * but these errors are a bit involved and basically require duplicating the logic for returning the params *)
+let assert_raises_api_error expected_error_string f =
+  match f () with
+  | exception Api_errors.(Server_error (actual_error, _)) ->
+    Alcotest.(check string)
+      "check for API error"
+      expected_error_string actual_error
+  | _ -> Alcotest.fail ("check for API error, expecting " ^ expected_error_string)
 
 (*--- Helper functions ---*)
 let on_pool_of_k1s (f : Context.t -> API.ref_host -> API.ref_host -> API.ref_host -> 'a) =
@@ -28,23 +37,23 @@ let on_pool_of_k1s (f : Context.t -> API.ref_host -> API.ref_host -> API.ref_hos
      	 *           +----------+  +----------+  +----------+
      	 *                h             h'            h''
      	 *)
-  let __context = make_test_database () in
+  let __context = T.make_test_database () in
   let h = List.hd (Db.Host.get_all ~__context) in
   (* Make two more hosts *)
-  match (make_host ~__context (), make_host ~__context ()) with
+  match (T.make_host ~__context (), T.make_host ~__context ()) with
   | (h', h'') ->
-    let gPU_group = make_gpu_group ~__context () in
+    let gPU_group = T.make_gpu_group ~__context () in
     let rec make_k1s_on (host, num) =
       if num > 0 then
-        let _ = make_pgpu ~__context ~host ~gPU_group default_k1 in
+        let _ : API.ref_PGPU = VGPU_T.make_pgpu ~__context ~host ~gPU_group VGPU_T.default_k1 in
         make_k1s_on (host, (num - 1))
     in
     List.iter make_k1s_on [(h, 0); (h', 1); (h'', 2)];
     f __context h h' h''
 
 let make_vm_with_vgpu_in_group ~__context vgpu_type gpu_group_ref =
-  let vgpu_ref = make_vgpu ~__context ~resident_on:Ref.null vgpu_type
-  and vm_ref = make_vm ~__context () in
+  let vgpu_ref = VGPU_T.make_vgpu ~__context ~resident_on:Ref.null vgpu_type
+  and vm_ref = T.make_vm ~__context () in
   Db.VGPU.set_GPU_group ~__context ~self:vgpu_ref ~value:gpu_group_ref;
   Db.VGPU.set_VM ~__context ~self:vgpu_ref ~value:vm_ref;
   vm_ref
@@ -53,15 +62,17 @@ let make_vm_with_vgpu_in_group ~__context vgpu_type gpu_group_ref =
 let test_gpus_available_succeeds () =
   on_pool_of_k1s (fun __context _ h' _ ->
       let group = List.hd (Db.GPU_group.get_all ~__context) in
-      let vm = make_vm_with_vgpu_in_group ~__context k100 group in
+      let vm = make_vm_with_vgpu_in_group ~__context VGPU_T.k100 group in
       assert_gpus_available ~__context ~self:vm ~host:h')
 
 let test_gpus_available_fails_no_pgpu () =
   on_pool_of_k1s (fun __context h _ _ ->
       let group = List.hd (Db.GPU_group.get_all ~__context) in
-      let vm = make_vm_with_vgpu_in_group ~__context k100 group in
-      assert_raises_api_error Api_errors.vm_requires_gpu (fun () ->
-          assert_gpus_available ~__context ~self:vm ~host:h))
+      let vm = make_vm_with_vgpu_in_group ~__context VGPU_T.k100 group in
+      assert_raises_api_error
+        Api_errors.vm_requires_gpu
+        (fun () -> assert_gpus_available ~__context ~self:vm ~host:h)
+    )
 
 let test_gpus_available_fails_disabled_type () =
   on_pool_of_k1s (fun __context _ h' _ ->
@@ -70,9 +81,11 @@ let test_gpus_available_fails_disabled_type () =
       List.iter (fun p ->
           Db.PGPU.set_enabled_VGPU_types ~__context ~self:p ~value:[])
         pgpus;
-      let vm = make_vm_with_vgpu_in_group ~__context k100 group in
-      assert_raises_api_error Api_errors.vm_requires_gpu (fun () ->
-          assert_gpus_available ~__context ~self:vm ~host:h'))
+      let vm = make_vm_with_vgpu_in_group ~__context VGPU_T.k100 group in
+      assert_raises_api_error
+        Api_errors.vm_requires_gpu
+        (fun () -> assert_gpus_available ~__context ~self:vm ~host:h')
+    )
 
 let test_gpus_available_fails_no_capacity () =
   on_pool_of_k1s (fun __context _ h' _ ->
@@ -80,19 +93,23 @@ let test_gpus_available_fails_no_capacity () =
       let pgpus = Db.GPU_group.get_PGPUs ~__context ~self:group in
       (* Fill up all the PGPUs *)
       List.iter (fun p ->
-          ignore (make_vgpu ~__context ~resident_on:p Xapi_vgpu_type.passthrough_gpu))
+          ignore VGPU_T.(make_vgpu ~__context ~resident_on:p Xapi_vgpu_type.passthrough_gpu))
         pgpus;
-      let vm = make_vm_with_vgpu_in_group ~__context k100 group in
-      assert_raises_api_error Api_errors.vm_requires_gpu
-        (fun () -> assert_gpus_available ~__context ~self:vm ~host:h'))
+      let vm = make_vm_with_vgpu_in_group ~__context VGPU_T.k100 group in
+      assert_raises_api_error
+        Api_errors.vm_requires_gpu
+        (fun () -> assert_gpus_available ~__context ~self:vm ~host:h')
+    )
 
 (*--- Xapi_vm_helpers.group_hosts_by_best_pgpu ---*)
 let assert_list_is_set l =
   let rec inner ac = function
-    | [] -> ()
     | x :: xs ->
-      if (List.mem x ac) then assert_failure "List is not set"
-      else inner (x :: ac) xs
+      Alcotest.(check bool)
+        "List is not set"
+        false (List.mem x ac);
+      inner (x :: ac) xs
+    | [] -> ()
   in
   inner [] l
 
@@ -101,25 +118,31 @@ let assert_host_group_coherent g =
   | [] -> ()
   | (h, c) :: _ ->
     assert_list_is_set (List.map fst g);
-    assert_bool "Score not same for all hosts in group"
-      (List.for_all (fun x -> snd x = c) g)
+    Alcotest.(check bool)
+      "Score not same for all hosts in group"
+      true (List.for_all (fun x -> snd x = c) g)
 
 let assert_host_groups_equal g g' =
-  if g' <> [] then begin
+  match g' with
+  | [] -> ()
+  | _ ->
     let extract_host_strings g =
       let hosts = List.map fst g in
       List.sort String.compare (List.map Ref.string_of hosts)
     in
-    assert_equal (extract_host_strings g) (extract_host_strings g');
+    Alcotest.(check (slist string String.compare))
+      "check host strings"
+      (extract_host_strings g) (extract_host_strings g');
     let score_of g = snd (List.hd g) in
-    assert_equal (score_of g) (score_of g')
-  end
+    Alcotest.(check int64)
+      "check host score"
+      (score_of g) (score_of g')
 
 let rec assert_equivalent expected_grouping actual_grouping =
   match (expected_grouping, actual_grouping) with
   | [], [] -> ()
-  | [], xx -> assert_failure (Printf.sprintf "%d more groups than expected." (List.length xx))
-  | xx, [] -> assert_failure (Printf.sprintf "%d less groups than expected." (List.length xx))
+  | [], xx -> Alcotest.fail (Printf.sprintf "%d more groups than expected." (List.length xx))
+  | xx, [] -> Alcotest.fail (Printf.sprintf "%d less groups than expected." (List.length xx))
   | e :: es, g :: gs ->
     assert_host_group_coherent g;
     assert_host_groups_equal e g;
@@ -128,16 +151,7 @@ let rec assert_equivalent expected_grouping actual_grouping =
 let assert_grouping ~__context gpu_group vgpu_type g =
   let vgpu_type_ref = Xapi_vgpu_type.find_or_create ~__context vgpu_type in
   let host_lists = group_hosts_by_best_pgpu_in_group ~__context gpu_group vgpu_type_ref in
-  try assert_equivalent g host_lists
-  with e ->
-    let item_to_string (h, c) = Printf.sprintf "(%s, %Ld)" (Ref.string_of h) c in
-    let group_to_string g = Printf.sprintf "[ %s ]"
-        (String.concat "; " (List.map item_to_string g)) in
-    let groups_to_string gs = Printf.sprintf "[ %s ]"
-        (String.concat "; " (List.map group_to_string gs)) in
-    let diff_string = Printf.sprintf "Expected: %s\nActual: %s\n"
-        (groups_to_string g) (groups_to_string host_lists) in
-    assert_failure (diff_string ^ Printexc.to_string e)
+  assert_equivalent g host_lists
 
 let rec assert_expectations ~__context gpu_group = function
   | [] -> ()
@@ -145,76 +159,58 @@ let rec assert_expectations ~__context gpu_group = function
     assert_grouping ~__context gpu_group vgpu_type expected_grouping;
     assert_expectations ~__context gpu_group remaining
 
+let check_expectations __context gpu_group ~k100_lst ~k140q_lst =
+  assert_expectations ~__context gpu_group
+    VGPU_T.[ k100,  k100_lst ; k140q, k140q_lst ]
+
 let test_group_hosts_bf () =
-  on_pool_of_k1s (fun __context h h' h'' ->
+  on_pool_of_k1s VGPU_T.(fun __context h h' h'' ->
       let gpu_group = List.hd (Db.GPU_group.get_all ~__context) in
       Db.GPU_group.set_allocation_algorithm ~__context ~self:gpu_group ~value:`breadth_first;
       match Db.Host.get_PGPUs ~__context ~self:h' @ Db.Host.get_PGPUs ~__context ~self:h'' with
       | [h'_p; h''_p; h''_p'] ->
-        assert_expectations ~__context gpu_group [
-          k100,  [ [(h',8L);(h'',8L)] ];
-          k140q, [ [(h',4L);(h'',4L)] ];
-        ];
+        check_expectations __context gpu_group ~k100_lst:[ [(h',8L); (h'',8L)] ] ~k140q_lst:[ [(h',4L);(h'',4L)] ];
+
         ignore (make_vgpu ~__context ~resident_on:h''_p k100);
-        assert_expectations ~__context gpu_group [
-          k100,  [ [(h',8L);(h'',8L)] ];
-          k140q, [ [(h',4L);(h'',4L)] ];
-        ];
+        check_expectations __context gpu_group ~k100_lst:[ [(h',8L); (h'',8L)] ] ~k140q_lst:[ [(h',4L);(h'',4L)] ];
+
         ignore (make_vgpu ~__context ~resident_on:h''_p' k140q);
-        assert_expectations ~__context gpu_group [
-          k100,  [ [(h',8L)]; [(h'',7L)] ];
-          k140q, [ [(h',4L)]; [(h'',3L)] ];
-        ];
+        check_expectations __context gpu_group ~k100_lst:[ [(h',8L)]; [(h'',7L)] ] ~k140q_lst:[ [(h',4L)]; [(h'',3L)] ];
+
         ignore (make_vgpu ~__context ~resident_on:h'_p k100);
-        assert_expectations ~__context gpu_group [
-          k100,  [ [(h',7L);(h'',7L)] ];
-          k140q, [ [(h'',3L)]; ];
-        ];
+        check_expectations __context gpu_group ~k100_lst:[ [(h',7L); (h'',7L)] ] ~k140q_lst:[ [(h'',3L)]; ];
+
         ignore (make_vgpu ~__context ~resident_on:h'_p k100);
-        assert_expectations ~__context gpu_group [
-          k100,  [ [(h'',7L)]; [(h',6L)] ];
-          k140q, [ [(h'',3L)]; ];
-        ];
-      | _ -> failwith "Test-failure: Unexpected number of pgpus in test setup"
+        check_expectations __context gpu_group ~k100_lst:[ [(h'',7L)]; [(h',6L)] ] ~k140q_lst:[ [(h'',3L)]; ]
+      | _ -> Alcotest.fail "Test-failure: Unexpected number of pgpus in test setup"
     )
 
 let test_group_hosts_df () =
-  on_pool_of_k1s (fun __context h h' h'' ->
+  on_pool_of_k1s VGPU_T.(fun __context h h' h'' ->
       let gpu_group = List.hd (Db.GPU_group.get_all ~__context) in
       Db.GPU_group.set_allocation_algorithm ~__context ~self:gpu_group ~value:`depth_first;
       match Db.Host.get_PGPUs ~__context ~self:h' @ Db.Host.get_PGPUs ~__context ~self:h'' with
       | [h'_p; h''_p; h''_p'] ->
-        assert_expectations ~__context gpu_group [
-          k100,  [ [(h',8L);(h'',8L)] ];
-          k140q, [ [(h',4L);(h'',4L)] ];
-        ];
+        check_expectations __context gpu_group ~k100_lst:[ [(h',8L);(h'',8L)] ] ~k140q_lst:[ [(h',4L);(h'',4L)] ];
+
         ignore (make_vgpu ~__context ~resident_on:h''_p k100);
-        assert_expectations ~__context gpu_group [
-          k100,  [ [(h'',7L)]; [(h',8L)] ];
-          k140q, [ [(h',4L);(h'',4L)] ];
-        ];
+        check_expectations __context gpu_group ~k100_lst:[ [(h'',7L)]; [(h',8L)] ] ~k140q_lst:[ [(h',4L);(h'',4L)] ];
+
         ignore (make_vgpu ~__context ~resident_on:h''_p' k140q);
-        assert_expectations ~__context gpu_group [
-          k100,  [ [(h'',7L)]; [(h',8L)] ];
-          k140q, [ [(h'',3L)]; [(h',4L)] ];
-        ];
+        check_expectations __context gpu_group ~k100_lst:[ [(h'',7L)]; [(h',8L)] ] ~k140q_lst:[ [(h'',3L)]; [(h',4L)] ];
+
         ignore (make_vgpu ~__context ~resident_on:h'_p k100);
-        assert_expectations ~__context gpu_group [
-          k100,  [ [(h',7L);(h'',7L)] ];
-          k140q, [ [(h'',3L)]; ];
-        ];
+        check_expectations __context gpu_group ~k100_lst:[ [(h',7L);(h'',7L)] ] ~k140q_lst:[ [(h'',3L)]; ];
+
         ignore (make_vgpu ~__context ~resident_on:h'_p k100);
-        assert_expectations ~__context gpu_group [
-          k100,  [ [(h',6L)]; [(h'',7L)] ];
-          k140q, [ [(h'',3L)]; ];
-        ];
-      | _ -> failwith "Test-failure: Unexpected number of pgpus in test setup"
+        check_expectations __context gpu_group ~k100_lst:[ [(h',6L)]; [(h'',7L)] ] ~k140q_lst:[ [(h'',3L)]; ]
+      | _ -> Alcotest.fail "Test-failure: Unexpected number of pgpus in test setup"
     )
 
 let on_pool_of_intel_i350 (f : Context.t -> API.ref_host -> API.ref_host -> API.ref_host -> 'a) =
   (* Note: f c h h' h'' applied to hosts with the same number of Intel I350 as 's
       Due to one host at most have one pif in a network, for h'', the remaining vfs for each pif doesn't matter.
-      What really matters is on same sriov network,on different host h' and h'' pif's remaining vfs. 
+      What really matters is on same sriov network,on different host h' and h'' pif's remaining vfs.
    *           +------------+  +----------------+ +--------------+
    *           |            |  | +----+ +----+  | |+----+  +----+|
    *           |            |  | |I350| | K1 |  | ||I350|  |I350||
@@ -222,31 +218,31 @@ let on_pool_of_intel_i350 (f : Context.t -> API.ref_host -> API.ref_host -> API.
    *           +------------+  +----------------+ +--------------+
    *                 h                h'              h''
   *)
-  let __context = make_test_database () in
+  let __context = T.make_test_database () in
   let h = List.hd (Db.Host.get_all ~__context) in
   (* Make two more hosts *)
-  let h' = make_host ~__context () in
-  let h'' = make_host ~__context () in
-  let sriov_network1 = make_network ~__context ~name_description:"sriov1" ~bridge:"" () in
-  let sriov_network2 = make_network ~__context ~name_description:"sriov2" ~bridge:"" () in
+  let h' = T.make_host ~__context () in
+  let h'' = T.make_host ~__context () in
+  let sriov_network1 = T.make_network ~__context ~name_description:"sriov1" ~bridge:"" () in
+  let sriov_network2 = T.make_network ~__context ~name_description:"sriov2" ~bridge:"" () in
   let make_sriov_on (host,network) =
-    let local_network = make_network ~__context ~name_description:"local_network" () in
-    let pf = make_pci ~__context ~host ~functions:1L ~driver_name:"igb" () in
-    let physical_PIF = make_pif ~__context ~host ~network:local_network () in
+    let local_network = T.make_network ~__context ~name_description:"local_network" () in
+    let pf = T.make_pci ~__context ~host ~functions:1L ~driver_name:"igb" () in
+    let physical_PIF = T.make_pif ~__context ~host ~network:local_network () in
     Db.PIF.set_PCI ~__context ~self:physical_PIF ~value:pf;
-    let logical_pif = create_sriov_pif ~__context ~pif:physical_PIF ~network () in
+    let logical_pif = T.create_sriov_pif ~__context ~pif:physical_PIF ~network () in
     Db.PIF.set_currently_attached ~__context ~self:logical_pif ~value:true;
-    make_vfs_on_pf ~__context ~pf ~num:8L
+    T.make_vfs_on_pf ~__context ~pf ~num:8L
   in
   List.iter make_sriov_on [(h',sriov_network1); (h'',sriov_network1); (h'',sriov_network2)];
   (* make one k1 on h' *)
-  let gPU_group = make_gpu_group ~__context () in
-  let _ = make_pgpu ~__context ~host:h' ~gPU_group default_k1 in
+  let gPU_group = T.make_gpu_group ~__context () in
+  let _ : API.ref_PGPU = VGPU_T.(make_pgpu ~__context ~host:h' ~gPU_group default_k1) in
   f __context h h' h''
 
 let make_vm_with_vif ~__context ~network =
-  let vm = make_vm ~__context () in
-  let _ = make_vif ~__context ~vM:vm ~network:network () in
+  let vm = T.make_vm ~__context () in
+  let _ : API.ref_VIF = T.make_vif ~__context ~vM:vm ~network:network () in
   vm
 
 let make_allocated_vfs ~__context ~vm ~pci ~num =
@@ -267,7 +263,10 @@ let test_is_sriov_network_succeeds () =
         ))
       in
       let network = (List.map (fun (rf, _ ) -> Db.PIF.get_network ~__context ~self:rf ) local_logical_PIFs) |> List.hd in
-      OUnit.assert_equal true (Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network) )
+      Alcotest.(check bool)
+        "check is sriov_network"
+        true (Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network)
+    )
 
 (*--- Xapi_vm_helpers.assert_netsriov_available ---*)
 let test_netsriov_available_succeeds () =
@@ -285,8 +284,10 @@ let test_netsriov_available_fails_no_netsriov () =
   on_pool_of_intel_i350 (fun __context h _ _ ->
       let sriov_network = List.find (fun network -> Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network) (Db.Network.get_all ~__context) in
       let vm = make_vm_with_vif ~__context ~network:sriov_network in
-      assert_raises_api_error Api_errors.vm_requires_net (fun () ->
-          assert_can_see_networks ~__context ~self:vm ~host:h))
+      assert_raises_api_error
+        Api_errors.vm_requires_net
+        (fun () -> assert_can_see_networks ~__context ~self:vm ~host:h)
+    )
 
 let test_netsriov_available_fails_no_capacity () =
   on_pool_of_intel_i350 (fun __context _ h' _ ->
@@ -297,26 +298,18 @@ let test_netsriov_available_fails_no_capacity () =
         ) sriov_networks in
       let vm = make_vm_with_vif ~__context ~network:network_on_h in
       match Xapi_network_sriov_helpers.get_local_underlying_pif ~__context ~network:network_on_h ~host:h' with
-      | None -> failwith "Test-failure: Cannot get underlying pif from sr-iov network"
+      | None -> Alcotest.fail "Cannot get underlying pif from sr-iov network"
       | Some pif ->
         let pci = Db.PIF.get_PCI ~__context ~self:pif in
         make_allocated_vfs ~__context ~vm ~pci ~num:8L;
-        assert_raises_api_error Api_errors.network_sriov_insufficient_capacity (fun () ->
-            assert_netsriov_available ~__context ~self:vm ~host:h')
-      )
+        assert_raises_api_error
+          Api_errors.network_sriov_insufficient_capacity
+          (fun () -> assert_netsriov_available ~__context ~self:vm ~host:h')
+    )
 
 let assert_grouping_of_sriov ~__context ~network ~expection_groups =
   let host_lists = Xapi_network_sriov_helpers.group_hosts_by_best_sriov ~__context ~network in
-  try assert_equivalent expection_groups host_lists
-  with e ->
-    let item_to_string (h, c) = Printf.sprintf "(%s, %Ld)" (Ref.string_of h) c in
-    let group_to_string g = Printf.sprintf "[ %s ]"
-        (String.concat "; " (List.map item_to_string g)) in
-    let groups_to_string gs = Printf.sprintf "[ %s ]"
-        (String.concat "; " (List.map group_to_string gs)) in
-    let diff_string = Printf.sprintf "Expected: %s\nActual: %s\n"
-        (groups_to_string expection_groups) (groups_to_string host_lists) in
-    assert_failure (diff_string ^ Printexc.to_string e)
+  assert_equivalent expection_groups host_lists
 
 let test_group_hosts_netsriov () =
   on_pool_of_intel_i350 ( fun __context h h' h'' ->
@@ -333,7 +326,7 @@ let test_group_hosts_netsriov () =
         assert_grouping_of_sriov ~__context ~network:n1 ~expection_groups:[ [(h'',8L)] ];
         (* n2 has sriovs on h' and h'' *)
         assert_grouping_of_sriov ~__context ~network:n2 ~expection_groups:[ [(h',8L);(h'',8L)] ]
-      | _ -> failwith "Test-failure: Unexpected number of sriov network in test" )
+      | _ -> Alcotest.fail "Test-failure: Unexpected number of sriov network in test" )
 
 let test_group_hosts_netsriov_unattached () =
   on_pool_of_intel_i350 ( fun __context h h' h'' ->
@@ -354,7 +347,7 @@ let test_group_hosts_netsriov_unattached () =
         in
         Db.PIF.set_currently_attached ~__context ~self:pif ~value:false;
         assert_grouping_of_sriov ~__context ~network:n2 ~expection_groups:[ [(h',8L)];[(h'',0L)] ];
-      | _ -> failwith "Test-failure: Unexpected number of sriov network in test" )
+      | _ -> Alcotest.fail "Test-failure: Unexpected number of sriov network in test" )
 
 let test_group_hosts_netsriov_with_allocated () =
   on_pool_of_intel_i350 ( fun __context h h' h'' ->
@@ -374,62 +367,63 @@ let test_group_hosts_netsriov_with_allocated () =
           ) sriov_networks in
         let vm = make_vm_with_vif ~__context ~network:network_on_h in
         begin match Xapi_network_sriov_helpers.get_local_underlying_pif ~__context ~network:network_on_h ~host:h' with
-        | None -> failwith "Test-failure: Cannot get underlying pif from sr-iov network"
-        | Some pif ->
-          let pci = Db.PIF.get_PCI ~__context ~self:pif in
-          make_allocated_vfs ~__context ~vm ~pci ~num:2L;
-          assert_grouping_of_sriov ~__context ~network:n2 ~expection_groups:[ [(h'',8L)]; [(h',6L)] ]
+          | None -> Alcotest.fail "Test-failure: Cannot get underlying pif from sr-iov network"
+          | Some pif ->
+            let pci = Db.PIF.get_PCI ~__context ~self:pif in
+            make_allocated_vfs ~__context ~vm ~pci ~num:2L;
+            assert_grouping_of_sriov ~__context ~network:n2 ~expection_groups:[ [(h'',8L)]; [(h',6L)] ]
         end
-      | _ -> failwith "Test-failure: Unexpected number of sriov network in test" )
+      | _ -> Alcotest.fail "Test-failure: Unexpected number of sriov network in test" )
 
 let test_get_group_key_vgpu () =
   on_pool_of_intel_i350 ( fun __context _ h' _ ->
       let group = List.hd (Db.GPU_group.get_all ~__context) in
-      let vm = make_vm_with_vgpu_in_group ~__context k100 group in
+      let vm = make_vm_with_vgpu_in_group ~__context VGPU_T.k100 group in
       match Xapi_vm_helpers.get_group_key ~__context ~vm with
       | `VGPU _ -> ()
-      | _ -> failwith "Test-failure: Unexpected Group Key in test" )
+      | _ -> Alcotest.fail "Test-failure: Unexpected Group Key in test" )
 
 let test_get_group_key_netsriov () =
   on_pool_of_intel_i350 ( fun __context _ h' _ ->
-      let sriov_network = List.find (fun network -> Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network) (Db.Network.get_all ~__context) in
+      let sriov_network =
+        List.find
+          (fun network -> Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network)
+          (Db.Network.get_all ~__context)
+      in
       let vm = make_vm_with_vif ~__context ~network:sriov_network in
       match Xapi_vm_helpers.get_group_key ~__context ~vm with
       | `Netsriov _ -> ()
-      | _ -> failwith "Test-failure: Unexpected Group Key in test" )
+      | _ -> Alcotest.fail "Test-failure: Unexpected Group Key in test" )
 
 let test_get_group_key_vgpu_and_netsriov () =
   on_pool_of_intel_i350 ( fun __context _ h' _ ->
       let group = List.hd (Db.GPU_group.get_all ~__context) in
-      let vm = make_vm_with_vgpu_in_group ~__context k100 group in
+      let vm = make_vm_with_vgpu_in_group ~__context VGPU_T.k100 group in
       let sriov_network = List.find (fun network -> Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network) (Db.Network.get_all ~__context) in
-      let _ = make_vif ~__context ~vM:vm ~network:sriov_network () in
+      let _ : API.ref_VIF = T.make_vif ~__context ~vM:vm ~network:sriov_network () in
       match Xapi_vm_helpers.get_group_key ~__context ~vm with
       | `VGPU _ -> ()
-      | _ -> failwith "Test-failure: Unexpected Group Key in test" )
+      | _ -> Alcotest.fail "Test-failure: Unexpected Group Key in test" )
 
 let test =
-  "test_vm_helpers" >:::
-  [
-    "test_gpus_available_succeeds" >:: test_gpus_available_succeeds;
-    "test_gpus_available_fails_no_pgpu" >:: test_gpus_available_fails_no_pgpu;
-    "test_gpus_available_fails_disabled_type" >:: test_gpus_available_fails_disabled_type;
-    "test_gpus_available_fails_no_capacity" >:: test_gpus_available_fails_no_capacity;
+  [ "test_gpus_available_succeeds", `Quick, test_gpus_available_succeeds
+  ; "test_gpus_available_fails_no_pgpu", `Quick, test_gpus_available_fails_no_pgpu
+  ; "test_gpus_available_fails_disabled_type", `Quick, test_gpus_available_fails_disabled_type
+  ; "test_gpus_available_fails_no_capacity", `Quick, test_gpus_available_fails_no_capacity
 
-    "test_group_hosts_bf" >:: test_group_hosts_bf;
-    "test_group_hosts_df" >:: test_group_hosts_df;
+  ; "test_group_hosts_bf", `Quick, test_group_hosts_bf
+  ; "test_group_hosts_df", `Quick, test_group_hosts_df
 
-    "test_is_sriov_network_succeeds" >:: test_is_sriov_network_succeeds;
-    "test_netsriov_available_succeeds" >:: test_netsriov_available_succeeds;
-    "test_netsriov_available_fails_no_netsriov" >:: test_netsriov_available_fails_no_netsriov;
-    "test_netsriov_available_fails_no_capacity" >:: test_netsriov_available_fails_no_capacity;
+  ; "test_is_sriov_network_succeeds", `Quick, test_is_sriov_network_succeeds
+  ; "test_netsriov_available_succeeds", `Quick, test_netsriov_available_succeeds
+  ; "test_netsriov_available_fails_no_netsriov", `Quick, test_netsriov_available_fails_no_netsriov
+  ; "test_netsriov_available_fails_no_capacity", `Quick, test_netsriov_available_fails_no_capacity
 
-    "test_group_hosts_netsriov" >:: test_group_hosts_netsriov;
-    "test_group_hosts_netsriov_unattached" >:: test_group_hosts_netsriov_unattached;
-    "test_group_hosts_netsriov_with_allocated" >:: test_group_hosts_netsriov_with_allocated;
+  ; "test_group_hosts_netsriov", `Quick, test_group_hosts_netsriov
+  ; "test_group_hosts_netsriov_unattached", `Quick, test_group_hosts_netsriov_unattached
+  ; "test_group_hosts_netsriov_with_allocated", `Quick, test_group_hosts_netsriov_with_allocated
 
-    "test_get_group_key_vgpu" >:: test_get_group_key_vgpu;
-    "test_get_group_key_netsriov" >:: test_get_group_key_netsriov;
-    "test_get_group_key_vgpu_and_netsriov" >:: test_get_group_key_vgpu_and_netsriov;
-
+  ; "test_get_group_key_vgpu", `Quick, test_get_group_key_vgpu
+  ; "test_get_group_key_netsriov", `Quick, test_get_group_key_netsriov
+  ; "test_get_group_key_vgpu_and_netsriov", `Quick, test_get_group_key_vgpu_and_netsriov
   ]
