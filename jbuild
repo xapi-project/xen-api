@@ -42,18 +42,18 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (public_name xapi-storage-script)
   (flags (:standard -w -39 %s))
   (libraries (
-    xcp
-    xcp.storage
-    xcp.rrd
     async_inotify
-    threads
-    message-switch-unix
     message-switch-async
+    message-switch-unix
     rpclib
-    xapi-stdext-date
-    rpclib.async
-    xapi-storage
+    rpclib-async
     sexplib
+    threads
+    xapi-stdext-date
+    xapi-storage
+    xcp
+    xcp.rrd
+    xcp.storage
   ))
 ))
 
