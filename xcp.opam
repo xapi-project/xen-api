@@ -21,7 +21,8 @@ depends: [
   "ounit" {>= "2.0.0"}
   "ppx_sexp_conv"
   "re"
-  "rpc" {>= "1.9.51"}
+  "rpc" {>= "5.0.0"}
+  "rpclib-legacy"
   "sexplib"
   "uri"
   "xapi-backtrace"
