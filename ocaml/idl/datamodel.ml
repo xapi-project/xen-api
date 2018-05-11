@@ -2015,6 +2015,7 @@ module SR = struct
                Int, "value", "The new value of the SR's virtual_allocation"]
       ~flags:[`Session]
       ~doc:"Sets the SR's virtual_allocation field"
+      ~hide_from_docs:true
       ~allowed_roles:_R_POOL_OP
       ()
 
@@ -2037,6 +2038,7 @@ module SR = struct
       ~params:[Ref _sr, "self", "The SR to modify";
                Int, "value", "The new value of the SR's physical utilisation"]
       ~doc:"Sets the SR's physical_utilisation field"
+      ~hide_from_docs:true
       ~allowed_roles:_R_POOL_OP
       ()
 
@@ -2372,7 +2374,7 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN
       ()
 
-  let db_introduce = { pool_introduce with msg_name = "db_introduce"; msg_hide_from_docs = false }
+  let db_introduce = { pool_introduce with msg_name = "db_introduce"; hide_from_docs = true }
 
   let db_forget = call
       ~name:"db_forget"
@@ -2452,6 +2454,7 @@ module VDI = struct
       ~params:[Ref _vdi, "self", "The VDI to modify";
                Bool, "value", "The new value of the VDI's missing field"]
       ~doc:"Sets the VDI's missing field"
+      ~hide_from_docs:true
       ~flags:[`Session]
       ~allowed_roles:_R_VM_ADMIN
       ()
@@ -2486,6 +2489,7 @@ module VDI = struct
                Bool, "value", "The new value of the VDI's managed field"]
       ~flags:[`Session]
       ~doc:"Sets the VDI's managed field"
+      ~hide_from_docs:true
       ~allowed_roles:_R_VM_ADMIN
       ()
 
@@ -2497,6 +2501,7 @@ module VDI = struct
                Int, "value", "The new value of the VDI's virtual size"]
       ~flags:[`Session]
       ~doc:"Sets the VDI's virtual_size field"
+      ~hide_from_docs:true
       ~allowed_roles:_R_VM_ADMIN
       ()
 
@@ -2508,6 +2513,7 @@ module VDI = struct
                Int, "value", "The new value of the VDI's physical utilisation"]
       ~flags:[`Session]
       ~doc:"Sets the VDI's physical_utilisation field"
+      ~hide_from_docs:true
       ~allowed_roles:_R_VM_ADMIN
       ()
 
@@ -2519,6 +2525,7 @@ module VDI = struct
                Bool, "value", "The new value indicating whether this VDI is a snapshot"]
       ~flags:[`Session]
       ~doc:"Sets whether this VDI is a snapshot"
+      ~hide_from_docs:true
       ~allowed_roles:_R_VM_ADMIN
       ()
 
@@ -2530,6 +2537,7 @@ module VDI = struct
                Ref _vdi, "value", "The VDI of which this VDI is a snapshot"]
       ~flags:[`Session]
       ~doc:"Sets the VDI of which this VDI is a snapshot"
+      ~hide_from_docs:true
       ~allowed_roles:_R_VM_ADMIN
       ()
 
@@ -2541,6 +2549,7 @@ module VDI = struct
                DateTime, "value", "The snapshot time of this VDI."]
       ~flags:[`Session]
       ~doc:"Sets the snapshot time of this VDI."
+      ~hide_from_docs:true
       ~allowed_roles:_R_VM_ADMIN
       ()
 
@@ -2552,6 +2561,7 @@ module VDI = struct
                Ref _pool, "value", "The pool whose metadata is contained by this VDI"]
       ~flags:[`Session]
       ~doc:"Records the pool whose metadata is contained by this VDI."
+      ~hide_from_docs:true
       ~allowed_roles:_R_VM_ADMIN
       ()
 
