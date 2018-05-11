@@ -3,27 +3,6 @@
     Helper functions
  * ---------------- *)
 
-let with_test test f =
-  Quicktest_common.start test;
-  try
-    f ();
-    Quicktest_common.success test
-  with e ->
-    Quicktest_common.failed test (Printexc.to_string e);
-    raise e
-
-let finally f cleanup =
-  let result =
-    try
-      f ()
-    with e -> begin
-        cleanup ();
-        raise e
-      end
-  in
-  cleanup ();
-  result
-
 let get_domain_zero rpc session_id =
   Xapi_inventory.inventory_filename := "/etc/xensource-inventory";
   let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
@@ -45,10 +24,10 @@ let with_attached_vdi rpc session_id vdi mode f =
       ~qos_algorithm_params:[]
       ~other_config:[]
   in
-  finally
+  Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
        Client.Client.VBD.plug ~rpc ~session_id ~self:vbd;
-       finally
+       Xapi_stdext_pervasives.Pervasiveext.finally
          (fun () -> f ("/dev/" ^ (Client.Client.VBD.get_device ~rpc ~session_id ~self:vbd)))
          (fun () ->
             Client.Client.VBD.unplug ~rpc ~session_id ~self:vbd;
@@ -63,7 +42,7 @@ let with_open_vdi rpc session_id vdi mode f =
          | `RO -> [ Unix.O_RDONLY ]
          | `RW -> [ Unix.O_RDWR ] in
        let fd = Unix.openfile path mode' 0 in
-       finally
+       Xapi_stdext_pervasives.Pervasiveext.finally
          (fun () -> f fd)
          (fun () -> Unix.close fd)
     )
@@ -75,14 +54,15 @@ let with_open_vdi rpc session_id vdi mode f =
 let random_bytes length =
   let buf = Bytes.create length in
   let f = open_in "/dev/urandom" in
-  finally
+  Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
        really_input f buf 0 length;
        buf
     )
     (fun () -> close_in f)
 
-let write_random_data rpc session_id vdi =
+let write_random_data session_id vdi =
+  let rpc = !Quicktest_common.rpc in
   let size = Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi in
   with_open_vdi rpc session_id vdi `RW
     (fun fd ->
@@ -113,7 +93,8 @@ let write_random_data rpc session_id vdi =
        done
     )
 
-let fill rpc session_id vdi =
+let fill session_id vdi =
+  let rpc = !Quicktest_common.rpc in
   let size =
     Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi
     |> Int64.to_int
@@ -129,60 +110,31 @@ let checksum rpc session_id vdi =
       Digest.to_hex (Digest.file path)
     )
 
-let check_vdi_unchanged test rpc session_id sR ~prepare_vdi =
-  with_test test (fun () ->
-      let vdi = Client.Client.VDI.create ~rpc ~session_id ~name_label:"" ~name_description:"" ~sR ~virtual_size:4194304L ~_type:`user ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[] in
-      finally
-        (fun () ->
-           prepare_vdi vdi;
-           let checksum_original = checksum rpc session_id vdi in
-           let copy = Client.Client.VDI.copy ~rpc ~session_id
-               ~vdi
-               ~base_vdi:API.Ref.null
-               ~into_vdi:API.Ref.null
-               ~sr:sR
-           in
-           finally
-             (fun () ->
-                let checksum_copy = checksum rpc session_id vdi in
-                if (checksum_copy <> checksum_original) then
-                  failwith (Printf.sprintf "VDI copy (checksum: %s) has different data than original (checksum: %s)." checksum_copy checksum_original)
-             )
-             (fun () -> Client.Client.VDI.destroy ~rpc ~session_id ~self:copy)
+let check_vdi_unchanged session_id ~prepare_vdi sr_info =
+  let rpc = !Quicktest_common.rpc in
+  let sR = sr_info.Storage_test.sr in
+  let vdi = Client.Client.VDI.create ~rpc ~session_id ~name_label:"" ~name_description:"" ~sR ~virtual_size:4194304L ~_type:`user ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[] in
+  Storage_test.VDI.with_destroyed session_id vdi (fun () ->
+      prepare_vdi vdi;
+      let checksum_original = checksum rpc session_id vdi in
+      let copy = Client.Client.VDI.copy ~rpc ~session_id
+          ~vdi
+          ~base_vdi:API.Ref.null
+          ~into_vdi:API.Ref.null
+          ~sr:sR
+      in
+      Storage_test.VDI.with_destroyed session_id copy (fun () ->
+          let checksum_copy = checksum rpc session_id vdi in
+          if (checksum_copy <> checksum_original) then
+            failwith (Printf.sprintf "VDI copy (checksum: %s) has different data than original (checksum: %s)." checksum_copy checksum_original)
         )
-        (fun () -> Client.Client.VDI.destroy ~rpc ~session_id ~self:vdi)
     )
 
-let test_sr rpc session_id sr =
-  let sr_name = Client.Client.SR.get_name_label ~rpc ~session_id ~self:sr in
-  let test = Quicktest_common.make_test ("VDI.copy on SR [" ^ sr_name ^ "]") 4 in
-  with_test test (fun () ->
-      let test_nodata = Quicktest_common.make_test "Copy of empty VDI" 6 in
-      check_vdi_unchanged test_nodata rpc session_id sr
-        ~prepare_vdi:(fun _vdi -> ());
-
-      let test_random = Quicktest_common.make_test "Copy of random VDI" 6 in
-      check_vdi_unchanged test_random rpc session_id sr
-        ~prepare_vdi:(write_random_data rpc session_id);
-
-      let test_full = Quicktest_common.make_test "Copy of full VDI" 6 in
-      check_vdi_unchanged test_full rpc session_id sr
-        ~prepare_vdi:(fill rpc session_id)
-    )
-
-let test session_id =
-  let test = Quicktest_common.make_test "Checking VDI.copy data integrity" 2 in
-  with_test test (fun () ->
-      let rpc = !Quicktest_common.rpc in
-
-      Quicktest_storage.list_srs session_id
-      |> List.filter
-        (fun sR ->
-           let ops = Client.Client.SR.get_allowed_operations ~session_id ~rpc ~self:sR in
-           let required = [`vdi_create; `vdi_destroy] in
-           List.for_all (fun op -> List.mem op ops) required
-        )
-      (* VDI creation on ISO SRs doesn't work in this test *)
-      |> List.filter (fun self -> Client.Client.SR.get_type ~session_id ~rpc ~self <> "iso")
-      |> List.iter (test_sr rpc session_id);
-    )
+let tests session_id =
+  let module F = Storage_test.Sr_filter in
+  let filter = F.(allowed_operations [`vdi_create; `vdi_destroy] ||> not_iso) in
+  [ "Copy of empty VDI", `Slow, check_vdi_unchanged ~prepare_vdi:(fun _vdi -> ()), filter
+  ; "Copy of random VDI", `Slow, check_vdi_unchanged ~prepare_vdi:(write_random_data session_id), filter
+  ; "Copy of full VDI", `Slow, check_vdi_unchanged ~prepare_vdi:(fill session_id), filter
+  ]
+  |> Storage_test.get_test_cases session_id

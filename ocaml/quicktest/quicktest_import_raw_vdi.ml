@@ -30,20 +30,18 @@ let import_raw_vdi ~session_id ~task_id f =
   http req (fun (_, fd) -> f fd)
 
 let start session_id =
-  let t = make_test "import_raw_vdi_quicktest" 1 in
-  start t;
   let task_id = Client.Task.create ~rpc:!rpc ~session_id
       ~label:"quicktest import raw vdi"
       ~description:"" in
   try   
     import_raw_vdi ~session_id ~task_id (fun fd ->()) |> ignore;
-    failed t "No exception was raised by import_raw_vdi"
+    Alcotest.fail "No exception was raised by import_raw_vdi"
   with e -> 
     let a = Client.Task.get_record ~rpc:!rpc ~session_id ~self:task_id in
     Client.Task.destroy ~rpc:!rpc ~session_id ~self:task_id;
-    if a.API.task_status = `failure 
-    then success t
-    else failed t "The status of the original task is incorrect"
+    if a.API.task_status <> `failure then
+    Alcotest.fail "The status of the original task is incorrect"
 
-
+let tests session_id =
+  [ "import_raw_vdi", `Slow, (fun () -> start session_id) ]
 
