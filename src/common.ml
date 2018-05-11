@@ -16,7 +16,7 @@ type t = {
 	verbose: bool;
 	debug: bool;
 	socket: string;
-} with rpc
+} [@@deriving rpc]
 
 let make verbose debug socket queue =
         Xenops_interface.default_path := socket;

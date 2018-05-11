@@ -116,7 +116,7 @@ let success_task f id =
 			Client.TASK.destroy dbg id
 		)
 
-let parse_source x = match List.filter (fun x -> x <> "") (Re_str.split_delim (Re_str.regexp "[:]") x) with
+let parse_source x = match List.filter (fun x -> x <> "") (Re.Str.split_delim (Re.Str.regexp "[:]") x) with
 	| [ "phy"; path ] -> Some (Local path)
 	| [ "sm"; path ] -> Some (VDI path)
 	| [ "file"; path ] ->
@@ -147,15 +147,15 @@ let print_pci x =
 		"%04x:%02x:%02x.%01x%s%s"
 		x.address.domain x.address.bus x.address.dev x.address.fn msi power
 
-let parse_pci vm_id (x, idx) = match Re_str.split_delim (Re_str.regexp "[,]") x with
+let parse_pci vm_id (x, idx) = match Re.Str.split_delim (Re.Str.regexp "[,]") x with
 	| bdf :: options ->
 		let hex x = int_of_string ("0x" ^ x) in
-		let parse_dev_fn x = match Re_str.split_delim (Re_str.regexp "[.]") x with
+		let parse_dev_fn x = match Re.Str.split_delim (Re.Str.regexp "[.]") x with
 			| [ dev; fn ] -> hex dev, hex fn
 			| _ ->
 				Printf.fprintf stderr "Failed to parse BDF: %s. It should be '[DDDD:]BB:VV.F'\n" bdf;
 				exit 2 in
-		let domain, bus, dev, fn = match Re_str.split_delim (Re_str.regexp "[:]") bdf with
+		let domain, bus, dev, fn = match Re.Str.split_delim (Re.Str.regexp "[:]") bdf with
 			| [ domain; bus; dev_dot_fn ] ->
 				let dev, fn = parse_dev_fn dev_dot_fn in
 				hex domain, hex bus, dev, fn
@@ -165,7 +165,7 @@ let parse_pci vm_id (x, idx) = match Re_str.split_delim (Re_str.regexp "[,]") x 
 			| _ ->
 				Printf.fprintf stderr "Failed to parse BDF: %s. It should be '[DDDD:]BB:VV.F'\n" bdf;
 				exit 2 in
-		let options = List.map (fun x -> match Re_str.bounded_split_delim (Re_str.regexp "[=]") x 2 with
+		let options = List.map (fun x -> match Re.Str.bounded_split_delim (Re.Str.regexp "[=]") x 2 with
 			| [k; v] -> k, v
 			| _ ->
 				Printf.fprintf stderr "Failed to parse PCI option: %s. It should be key=value.\n" x;
@@ -201,6 +201,7 @@ let print_disk vbd =
 		| Vbd.ReadWrite -> "w" in
 	let ty = match vbd.Vbd.ty with
 		| Vbd.CDROM -> ":cdrom"
+		| Vbd.Floppy -> ":floppy"
 		| Vbd.Disk -> "" in
 	let source = print_source vbd.Vbd.backend in
 	Printf.sprintf "%s,%s%s,%s" source device_number ty mode
@@ -213,25 +214,27 @@ type disk_info = {
   disk: disk option;
 }
 
-let parse_disk_info x = match Re_str.split_delim (Re_str.regexp "[,]") x with
+let parse_disk_info x = match Re.Str.split_delim (Re.Str.regexp "[,]") x with
 	| [ source; device_number; rw ] ->
-		let ty, device_number, device_number' = match Re_str.split_delim (Re_str.regexp "[:]") device_number with
+		let ty, device_number, device_number' = match Re.Str.split_delim (Re.Str.regexp "[:]") device_number with
 			| [ x ] -> Vbd.Disk, x, Device_number.of_string false x
+			| [ x; "floppy" ] -> Vbd.Floppy, x, Device_number.of_string false x
 			| [ x; "cdrom" ] -> Vbd.CDROM, x, Device_number.of_string false x
 			| _ ->
 				Printf.fprintf stderr "Failed to understand disk name '%s'. It should be 'xvda' or 'hda:cdrom'\n" device_number;
 				exit 2 in
-		let mode = match String.lowercase rw with
+		let mode = match String.lowercase_ascii rw with
 			| "r" -> Vbd.ReadOnly
 			| "w" -> Vbd.ReadWrite
 			| x ->
 				Printf.fprintf stderr "Failed to understand disk mode '%s'. It should be 'r' or 'w'\n" x;
 				exit 2 in
-		let backend = parse_source source in {
+		let backend = parse_source source
+		in {
 			id = device_number;
-			ty = ty;
+			ty;
 			position = device_number';
-			mode = mode;
+			mode;
 			disk = backend;
 		}
 	| _ ->
@@ -255,6 +258,7 @@ let print_disk vbd =
 		| Vbd.ReadWrite -> "w" in
 	let ty = match vbd.Vbd.ty with
 		| Vbd.CDROM -> ":cdrom"
+		| Vbd.Floppy -> ":floppy"
 		| Vbd.Disk -> "" in
 	let source = print_source vbd.Vbd.backend in
 	Printf.sprintf "%s,%s%s,%s" source device_number ty mode
@@ -263,6 +267,7 @@ let print_vif vif =
 	let mac = if vif.Vif.mac = "" then "" else Printf.sprintf "mac=%s" vif.Vif.mac in
 	let bridge = match vif.Vif.backend with
 		| Network.Local x -> Printf.sprintf "bridge=%s" x
+		| Network.Sriov _ -> failwith "unimplemented"
 		| Network.Remote (_, _) ->
 			Printf.fprintf stderr "Cannot handle backend = Netback(_, _)\n%!";
 			exit 2 in
@@ -270,8 +275,8 @@ let print_vif vif =
 
 let parse_vif vm_id (x, idx) =
 	let open Xn_cfg_types in
-	let xs = List.filter (fun x -> x <> "") (Re_str.split_delim (Re_str.regexp "[ \t]*,[ \t]*") x) in
-	let kvpairs = List.map (fun x -> match Re_str.bounded_split_delim (Re_str.regexp "[=]") x 2 with
+	let xs = List.filter (fun x -> x <> "") (Re.Str.split_delim (Re.Str.regexp "[ \t]*,[ \t]*") x) in
+	let kvpairs = List.map (fun x -> match Re.Str.bounded_split_delim (Re.Str.regexp "[=]") x 2 with
 		| [ k; v ] -> k, v
 		| _ ->
 			Printf.fprintf stderr "I don't understand '%s'. Please use 'mac=xx:xx:xx:xx:xx:xx,bridge=xenbrX'.\n" x;
@@ -307,7 +312,9 @@ let print_vm id =
 		| HVM { boot_order = b } -> [
 			_builder, quote "hvm";
 			_boot, quote b
-		] in
+		]
+		| PVinPVH _ -> failwith "unimplemented";
+	in
 	let name = [ _name, quote vm_t.name ] in
 	let vcpus = [ _vcpus, string_of_int vm_t.vcpus ] in
 	let bytes_to_mib x = Int64.div x (Int64.mul 1024L 1024L) in
@@ -519,6 +526,7 @@ let pp x =
 				if line <> "" then [ Line line ] else [] in
 		aux "" xs in
 	let rec to_t = function
+		| Int32 x -> [ Line (Printf.sprintf "%d" (Int32.to_int x)) ]
 		| Int x -> [ Line (Printf.sprintf "%Ld" x) ]
 		| Bool x -> [ Line (Printf.sprintf "%b" x) ]
 		| Float x -> [ Line (Printf.sprintf "%g" x) ]
@@ -734,7 +742,7 @@ let vbd_list x =
 				| None -> "None"
 				| Some x -> Device_number.to_linux_device x in
 			let mode = if vbd.Vbd.mode = Vbd.ReadOnly then "RO" else "RW" in
-			let ty = match vbd.Vbd.ty with Vbd.CDROM -> "CDROM" | Vbd.Disk -> "HDD" in
+			let ty = match vbd.Vbd.ty with Vbd.CDROM -> "CDROM" | Vbd.Floppy -> "Floppy" | Vbd.Disk -> "HDD" in
 			let plugged = if state.Vbd.plugged then "X" else " " in
 			let disk = match vbd.Vbd.backend with
 				| None -> ""
@@ -869,7 +877,7 @@ let xenconsoles = [
 
 let vncviewer_binary =
 	let n = "vncviewer" in
-	let dirs = Re_str.split_delim (Re_str.regexp_string ":") (Unix.getenv "PATH") in
+	let dirs = Re.Str.split_delim (Re.Str.regexp_string ":") (Unix.getenv "PATH") in
         List.fold_left (fun result dir -> match result with
 	| Some x -> Some x
 	| None ->
@@ -930,7 +938,9 @@ let console_connect' copts x =
 		let port = unix_proxy path in
 		vncviewer port
 	| { Vm.protocol = Vm.Rfb; port = port } when port <> 0 ->
-		vncviewer port in
+		vncviewer port 
+	| _ -> failwith "unimplemented"
+	in
 	List.iter connect consoles;
 	List.iter
 		(fun exe ->
@@ -1004,7 +1014,7 @@ let pci_list x =
 	List.iter print_endline (header :: lines)
 
 let find_vbd id =
-	let vbd_id : Vbd.id = match Re_str.bounded_split_delim (Re_str.regexp "[.]") id 2 with
+	let vbd_id : Vbd.id = match Re.Str.bounded_split_delim (Re.Str.regexp "[.]") id 2 with
 		| [ a; b ] -> a, b
 		| _ ->
 			Printf.fprintf stderr "Failed to parse VBD id: %s (expected VM.device)\n" id;
@@ -1024,7 +1034,7 @@ let cd_eject _ = function
 	`Error(true, "Please supply a VBD id")
 | Some id ->
 	let vbd, _ = find_vbd id in
-	Client.VBD.eject dbg vbd.Vbd.id |> wait_for_task dbg;
+	Client.VBD.eject dbg vbd.Vbd.id |> wait_for_task dbg |> ignore;
 	`Ok ()
 
 let cd_insert id disk =
@@ -1051,6 +1061,10 @@ let rec events_watch from =
 				Printf.sprintf "PCI %s.%s" (fst id) (snd id)
 			| Task id ->
 				Printf.sprintf "Task %s" id
+			| Vgpu id ->
+				Printf.sprintf "VGPU %s.%s" (fst id) (snd id)
+			| Vusb id ->
+				Printf.sprintf "VUSB %s.%s" (fst id) (snd id)
 		) events in
 	List.iter (fun x -> Printf.printf "%-8d %s\n" next x) lines;
 	flush stdout;
