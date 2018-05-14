@@ -2374,7 +2374,7 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN
       ()
 
-  let db_introduce = { pool_introduce with msg_name = "db_introduce"; hide_from_docs = true }
+  let db_introduce = { pool_introduce with msg_name = "db_introduce"; msg_hide_from_docs = true }
 
   let db_forget = call
       ~name:"db_forget"
