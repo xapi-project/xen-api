@@ -1495,6 +1495,65 @@ let sr_probe printer rpc session_id params =
   with _ ->
     printer (Cli_printer.PList [txt])
 
+let sr_probe_ext printer rpc session_id params =
+  let host = parse_host_uuid rpc session_id params in
+  let _type = List.assoc "type" params in
+  let device_config = parse_device_config params in
+  let sm_config = read_map_params "sm-config" params in
+  let results = Client.SR.probe_ext ~rpc ~session_id ~host ~device_config ~_type ~sm_config in
+  let srs, complete_configs, incomplete_configs =
+    List.fold_left (fun (srs, complete_configs, incomplete_configs) x ->
+        match x.API.probe_result_sr with
+        | Some sr -> ((sr,x)::srs, complete_configs, incomplete_configs)
+        | None ->
+          if x.API.probe_result_complete then
+            (srs, x::complete_configs, incomplete_configs)
+          else
+            (srs, complete_configs, x::incomplete_configs)
+      )
+      ([], [], [])
+      results
+  in
+  let print_sr x =
+    let health_to_string = function `healthy -> "healthy" | `recovering -> "recovering" in
+    (match x.API.sr_stat_uuid with
+     | Some uuid -> [ "uuid", uuid ]
+     | None -> []) @
+    [ "name-label", x.sr_stat_name_label
+    ; "name-description", x.sr_stat_name_description
+    ; "total-space", Int64.to_string x.sr_stat_total_space
+    ; "free-space", Int64.to_string x.sr_stat_free_space
+    ; "clustered", string_of_bool x.sr_stat_clustered
+    ; "health", x.API.sr_stat_health |> health_to_string
+    ] in
+  if srs <> [] then begin
+    printer (Cli_printer.PMsg "The following SRs were found:");
+    List.iteri
+      (fun i (sr, probe_result) ->
+        printer (Cli_printer.PMsg (Printf.sprintf "SR %d:" i));
+        printer (Cli_printer.PTable [print_sr sr]);
+        printer (Cli_printer.PMsg (Printf.sprintf "SR %d configuration:" i));
+        printer (Cli_printer.PTable [probe_result.API.probe_result_configuration]);
+        printer (Cli_printer.PMsg (Printf.sprintf "SR %d extra information:" i));
+        printer (Cli_printer.PTable [probe_result.API.probe_result_extra_info]);
+      )
+      srs;
+  end;
+  let print_config i probe_result =
+    printer (Cli_printer.PMsg (Printf.sprintf "Configuration %d:" i));
+    printer (Cli_printer.PTable [probe_result.API.probe_result_configuration]);
+    printer (Cli_printer.PMsg (Printf.sprintf "Configuration %d extra information:" i));
+    printer (Cli_printer.PTable [probe_result.API.probe_result_extra_info]);
+  in
+  if complete_configs <> [] then begin
+    printer (Cli_printer.PMsg "Found the following complete configurations that can be used to create SRs:");
+    List.iteri print_config complete_configs;
+  end;
+  if incomplete_configs <> [] then begin
+    printer (Cli_printer.PMsg "Found the following incomplete configurations that may contain SRs:");
+    List.iteri print_config incomplete_configs;
+  end
+
 let sr_destroy printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let sr = Client.SR.get_by_uuid rpc session_id uuid in

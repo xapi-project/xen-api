@@ -1793,6 +1793,14 @@ let rec cmdtable_data : (string*cmd_spec) list =
       implementation=No_fd Cli_operations.sr_probe;
       flags=[];
     };
+    "sr-probe-ext",
+    {
+      reqd=["type"];
+      optn=["host-uuid";"device-config:";"sm-config:"];
+      help="Perform a storage probe. The device-config parameters can be specified by e.g. device-config:devs=/dev/sdb1. Unlike sr-probe, this command returns results in the same human-readable format for every SR type.";
+      implementation=No_fd Cli_operations.sr_probe_ext;
+      flags=[];
+    };
     "sr-scan",
     {
       reqd=["uuid"];
