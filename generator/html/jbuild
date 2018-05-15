@@ -3,7 +3,7 @@
 (executable (
   (name www)
   (libraries (
-    generator_lib
+    xapi_storage
     cow
     rpclib.markdown
     caml2html

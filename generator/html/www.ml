@@ -1,4 +1,4 @@
-open Files
+open Xapi_storage.Files
 open Cow.Html
 
 type page = {
@@ -184,7 +184,6 @@ let write apis =
   ]
 
 let _ =
-  let open Types in
-  let open Files in
+  let open Xapi_storage.Files in
   (* Prepend the debug_info argument *)
-  write Apis.apis
+  write Xapi_storage.Apis.apis
