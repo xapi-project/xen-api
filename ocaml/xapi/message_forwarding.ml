@@ -4293,12 +4293,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   end
 
   module Cluster = struct
-    let create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient =
+    let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient =
       info "Cluster.create";
-      let pool = Db.Pool.get_all ~__context |> List.hd in (* assumes 1 pool in DB *)
+      let pool = Helpers.get_pool ~__context in (* assumes 1 pool in DB *)
       Xapi_pool_helpers.with_pool_operation ~__context ~self:pool ~doc:"Cluster.create" ~op:`cluster_create
         (fun () ->
-           let cluster = Local.Cluster.create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient in
+           let cluster = Local.Cluster.create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient in
            Xapi_cluster_helpers.update_allowed_operations ~__context ~self:cluster;
            cluster
         )
@@ -4308,6 +4308,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Xapi_cluster_helpers.with_cluster_operation ~__context ~self ~doc:"Cluster.destroy" ~op:`destroy
         (fun () ->
            Local.Cluster.destroy ~__context ~self)
+
+    let get_network ~__context ~self =
+      info "Cluster.get_network";
+      Local.Cluster.get_network ~__context ~self
 
     let pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient =
       info "Cluster.pool_create";
@@ -4327,13 +4331,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   end
 
   module Cluster_host = struct
-    let create ~__context ~cluster ~host =
-      info "Cluster_host.create with cluster:%s, host:%s" (Ref.string_of cluster) (Ref.string_of host);
-      let local_fn = Local.Cluster_host.create ~cluster ~host in
+    let create ~__context ~cluster ~host ~pif =
+      info "Cluster_host.create with cluster:%s, host:%s, pif:%s" (Ref.string_of cluster) (Ref.string_of host) (Ref.string_of pif);
+      let local_fn = Local.Cluster_host.create ~cluster ~host ~pif in
       Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster.add" ~op:`add
         (fun () ->
            let cluster_host = do_op_on ~__context ~local_fn ~host
-             (fun session_id rpc -> Client.Cluster_host.create rpc session_id cluster host) in
+             (fun session_id rpc -> Client.Cluster_host.create rpc session_id cluster host pif) in
            Xapi_cluster_host_helpers.update_allowed_operations ~__context ~self:cluster_host;
            cluster_host
         )

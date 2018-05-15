@@ -20,6 +20,7 @@ let create = call
     ~params:
       [ Ref _cluster, "cluster", "Cluster to join"
       ; Ref _host,    "host",    "new cluster member"
+      ; Ref _pif,     "pif",     "Network interface to use for communication"
       ]
     ~lifecycle
     ~allowed_roles:_R_POOL_ADMIN
@@ -92,12 +93,16 @@ let t =
           ~ty:Bool "enabled" ~default_value:(Some (VBool false))
           "Whether the cluster host believes that clustering should be enabled on this host"
 
+      ; field  ~qualifier:StaticRO ~lifecycle
+          ~ty:(Ref _pif) "PIF" ~default_value:(Some (VRef null_ref))
+          "Reference to the PIF object"
+
       (* TODO: add `live` member to represent whether corosync believes that this
                cluster host actually is enabled *)
-      
+
       ] @ (allowed_and_current_operations cluster_host_operation) @ [
 
-       field   ~qualifier:StaticRO ~lifecycle
+        field   ~qualifier:StaticRO ~lifecycle
           ~ty:(Map(String, String)) "other_config" ~default_value:(Some (VMap []))
           "Additional configuration"
       ])
