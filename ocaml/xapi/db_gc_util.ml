@@ -113,8 +113,7 @@ let gc_PBDs ~__context =
 let gc_Cluster_hosts ~__context =
   gc_connector ~__context Db.Cluster_host.get_all Db.Cluster_host.get_record
     (fun x -> valid_ref __context x.cluster_host_host)
-    (* TODO: a PIF after https://github.com/xapi-project/xen-api/pull/3585 *)
-    (fun x -> true)
+    (fun x -> valid_ref __context x.cluster_host_PIF)
     Db.Cluster_host.destroy
 
 let gc_VGPUs ~__context =
