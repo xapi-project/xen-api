@@ -78,7 +78,19 @@ let execute_pool_hook ~__context ~reason =
   execute_hook ~__context ~args:[] ~reason
 
 let host_pre_declare_dead ~__context ~host ~reason =
-  execute_host_hook ~__context ~script_name:scriptname__host_pre_declare_dead ~reason ~host
+  info "Running host pre declare dead hook for %s" (Ref.string_of host);
+  (* this could use power fencing *)
+  execute_host_hook ~__context ~script_name:scriptname__host_pre_declare_dead ~reason ~host;
+
+  if String.equal reason reason__dbdestroy then log_and_ignore_exn (fun () ->
+      (* declare it as dead to the clustering daemon if any *)
+      match Xapi_clustering.find_cluster_host ~__context ~host with
+      | Some self ->
+        info "Declaring cluster host %s as permanently dead" (Ref.string_of self);
+        Helpers.call_api_functions ~__context
+          (fun rpc session_id -> Client.Client.Cluster_host.forget ~rpc ~session_id ~self)
+      | None -> ())
+
 
 (* Called when host died -- !! hook code in here to abort outstanding forwarded ops *)
 let internal_host_dead_hook __context host =
