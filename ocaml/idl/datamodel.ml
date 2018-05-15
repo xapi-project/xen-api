@@ -2381,6 +2381,7 @@ module VDI = struct
       ~in_oss_since:None
       ~params:[Ref _vdi, "vdi", "The VDI to forget about"]
       ~doc:"Removes a VDI record from the database"
+      ~hide_from_docs:true
       ~in_product_since:rel_miami
       ~allowed_roles:_R_VM_ADMIN
       ()
