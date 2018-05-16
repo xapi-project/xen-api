@@ -273,6 +273,9 @@ val start_of_day_best_effort_bring_up : unit -> unit
 
 (** {2 Assertion Helper Functions} *)
 
+(** Raise an error if PIF attached to ENABLED cluster_host *)
+val assert_no_clustering_enabled_on : __context:Context.t -> self:[`PIF] Ref.t -> unit
+
 (** Ensure the PIF is not a bond slave or master. *)
 val assert_not_in_bond : __context:Context.t -> self:[ `PIF ] Ref.t -> unit
 

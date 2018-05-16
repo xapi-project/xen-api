@@ -458,8 +458,7 @@ let assert_no_clustering_enabled_on ~__context ~self =
   | [ cluster_host ] ->
     if Db.Cluster_host.get_enabled ~__context ~self:cluster_host
     then raise Api_errors.(Server_error (clustering_enabled, [ Ref.string_of cluster_host ]))
-  | lst ->
-    raise Api_errors.(Server_error (cluster_does_not_have_one_node, [ lst |> List.length |> string_of_int ]))
+  | lst -> failwith "Should never happen: there can only be one cluster host associated with a PIF"
 
 (* Internal [forget] is passed a pre-built table [t] *)
 let forget_internal ~t ~__context ~self =
