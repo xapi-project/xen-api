@@ -364,9 +364,32 @@ let test_disallow_unplug_with_clustering () =
   check_disallow_unplug true __context pif
     "PIF.set_disallow_unplug should be idempotent even with clustering"
 
-let test_disallow_unplug_ro_with_clustering_enabled =
+let test_assert_no_clustering_on_pif () =
+  let __context = T.make_test_database () in
+  let host, _, self = make_host_network_pif ~__context in
+  let assert_no_clustering_on self msg =
+    Alcotest.(check unit) msg
+      () (Xapi_pif.assert_no_clustering_enabled_on ~__context ~self)
+  in
+  assert_no_clustering_on self
+    "assert_no_clustering_on_pif without clustering";
+
+  (* Add an enabled cluster_host *)
+  let cluster, cluster_host = T.make_cluster_and_cluster_host ~__context ~host ~pIF:self () in
+  Alcotest.check_raises
+    "Live cluster_host on PIF"
+    Api_errors.(Server_error (clustering_enabled, [ Ref.string_of cluster_host ]))
+    (fun () -> Xapi_pif.assert_no_clustering_enabled_on ~__context ~self);
+
+  (* Disable clustering on PIF *)
+  Db.Cluster_host.set_enabled ~__context ~self:cluster_host ~value:false;
+  assert_no_clustering_on self
+    "assert_no_clustering_on_pif with clustering disabled"
+
+let test_networking_with_clustering =
   [ "test_disallow_unplug_no_clustering", `Quick, test_disallow_unplug_no_clustering
   ; "test_disallow_unplug_with_clustering", `Quick, test_disallow_unplug_with_clustering
+  ; "test_assert_no_clustering_on_pif", `Quick, test_assert_no_clustering_on_pif
   ]
 
 let default = !Xapi_globs.cluster_stack_default
@@ -393,7 +416,7 @@ let test_choose_cluster_stack_clusters_no_sms () =
   let __context = T.make_test_database () in
   choose_cluster_stack_should_select default ~__context;
 
-  (* Add two cluster, test choose_cluster_stack's filtering *)
+  (* Add two clusters, test choose_cluster_stack's filtering *)
   for i = 0 to 1 do
     let _ = T.make_cluster_and_cluster_host ~__context () in
     choose_cluster_stack_should_select default_smapiv3 ~__context
@@ -562,14 +585,13 @@ let test_pool_ha_cluster_stacks =
   ; "test_pool_ha_cluster_stacks_with_ha_with_clustering", `Quick, test_pool_ha_cluster_stacks_with_ha_with_clustering
   ]
 
-
 let test =
   ( test_get_required_cluster_stacks
     @ test_find_cluster_host
     @ test_assert_cluster_host_enabled
     @ test_assert_cluster_host_is_enabled_for_matching_sms
     @ test_assert_pif_prerequisites
-    @ test_disallow_unplug_ro_with_clustering_enabled
+    @ test_networking_with_clustering
     @ test_choose_cluster_stack
     @ test_pool_ha_cluster_stacks
     (* NOTE: lock test hoards the mutex and should thus always be last,
