@@ -137,8 +137,54 @@ let _snapshot_time_key = "snapshot_time"
 let _is_a_snapshot_key = "is_a_snapshot"
 let _snapshot_of_key = "snapshot_of"
 
-let script_path ~script_dir ~call =
-  Filename.concat script_dir call.R.name
+let is_executable path =
+  Sys.is_file ~follow_symlinks:true path
+  >>= function
+  | `No | `Unknown ->
+    return (Error (`missing path))
+  | `Yes ->
+    ( Unix.access path [ `Exec ]
+      >>= function
+      | Error exn ->
+        return (Error (`not_executable (path, exn)))
+      | Ok () -> return (Ok ())
+    )
+
+module Script = struct
+
+  (** We cache (lowercase script name -> original script name) mapping for the
+      scripts in the root directory of every registered plugin. *)
+  let name_mapping = String.Table.create ~size:4 ()
+
+  let update_mapping ~script_dir =
+    Sys.readdir script_dir >>| Array.to_list >>| fun files ->
+    (* If there are multiple files which map to the same lowercase string, we
+       just take the first one, instead of failing *)
+    let mapping =
+      List.zip_exn files files
+      |> Core.String.Caseless.Map.of_alist_reduce ~f:min
+    in
+    Hashtbl.set name_mapping ~key:script_dir ~data:mapping
+
+  let path ~script_dir ~script_name =
+    let find () =
+      let cached_script_name =
+        let (>>?=) = Option.(>>=) in
+        Hashtbl.find name_mapping script_dir >>?= fun mapping ->
+        Core.String.Caseless.Map.find mapping script_name
+      in
+      let script_name = Option.value cached_script_name ~default:script_name in
+      let path = Filename.concat script_dir script_name in
+      is_executable path >>| function
+      | Ok () -> Ok path
+      | Error _ as e -> e
+    in
+    find () >>= function
+    | Ok path -> return (Ok path)
+    | Error _ ->
+      update_mapping ~script_dir >>= fun () ->
+      find ()
+end
 
 let id = fun x -> x
 
@@ -156,27 +202,7 @@ let id = fun x -> x
     This function either returns a successful RPC response, or raises
     Fork_exec_error with a suitable SMAPIv2 error if the call failed. *)
 let fork_exec_rpc ~script_dir ?missing ?(compat_in=id) ?(compat_out=id) =
-  let script_rpc call =
-    let script_name = script_path ~script_dir ~call in
-    info "%s %s" script_name (Jsonrpc.string_of_call call);
-    Sys.is_file ~follow_symlinks:true script_name
-      >>= function
-      | `No | `Unknown ->
-        error "%s is not a file" script_name;
-        (match missing with
-        | None ->
-          return (Error(backend_error "SCRIPT_MISSING" [ script_name; "Check whether the file exists and has correct permissions" ]))
-        | Some m ->
-          warn "Deprecated: script '%s' is missing, treating as no-op. Update your plugin!" script_name;
-          return (Ok (R.success m)))
-      | `Yes ->
-    ( Unix.access script_name [ `Exec ]
-      >>= function
-      | Error exn ->
-        error "%s is not executable" script_name;
-        return (Error (backend_error "SCRIPT_NOT_EXECUTABLE" [ script_name; Exn.to_string exn ]))
-      | Ok () -> return (Ok ())
-    ) >>>= fun () ->
+  let invoke_script call script_name =
     Process.create ~prog:script_name ~args:["--json"] ()
     >>= function
     | Error e ->
@@ -202,40 +228,57 @@ let fork_exec_rpc ~script_dir ?missing ?(compat_in=id) ?(compat_out=id) =
       Process.collect_output_and_wait p
       >>= fun output ->
       begin match output.Process.Output.exit_status with
-      | Error (`Exit_non_zero code) ->
-        (* Expect an exception and backtrace on stdout *)
-        begin match Or_error.try_with (fun () -> Jsonrpc.of_string output.Process.Output.stdout) with
-        | Error _ ->
-          error "%s failed and printed bad error json: %s" script_name output.Process.Output.stdout;
-          error "%s failed, stderr: %s" script_name output.Process.Output.stderr;
-          return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stdout"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stdout ]))
-        | Ok response ->
-          begin match Or_error.try_with (fun () -> error_of_rpc response) with
-          | Error _ ->
-            error "%s failed and printed bad error json: %s" script_name output.Process.Output.stdout;
-            error "%s failed, stderr: %s" script_name output.Process.Output.stderr;
-            return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stdout"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stdout ]))
-          | Ok x -> return (Error(backend_backtrace_error x.code x.params x.backtrace))
+        | Error (`Exit_non_zero code) ->
+          (* Expect an exception and backtrace on stdout *)
+          begin match Or_error.try_with (fun () -> Jsonrpc.of_string output.Process.Output.stdout) with
+            | Error _ ->
+              error "%s failed and printed bad error json: %s" script_name output.Process.Output.stdout;
+              error "%s failed, stderr: %s" script_name output.Process.Output.stderr;
+              return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stdout"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stdout ]))
+            | Ok response ->
+              begin match Or_error.try_with (fun () -> error_of_rpc response) with
+                | Error _ ->
+                  error "%s failed and printed bad error json: %s" script_name output.Process.Output.stdout;
+                  error "%s failed, stderr: %s" script_name output.Process.Output.stderr;
+                  return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stdout"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stdout ]))
+                | Ok x -> return (Error(backend_backtrace_error x.code x.params x.backtrace))
+              end
           end
-        end
-      | Error (`Signal signal) ->
-        error "%s caught a signal and failed" script_name;
-        return (Error (backend_error "SCRIPT_FAILED" [ script_name; "signalled"; Signal.to_string signal; output.Process.Output.stdout; output.Process.Output.stdout ]))
-      | Ok () ->
+        | Error (`Signal signal) ->
+          error "%s caught a signal and failed" script_name;
+          return (Error (backend_error "SCRIPT_FAILED" [ script_name; "signalled"; Signal.to_string signal; output.Process.Output.stdout; output.Process.Output.stdout ]))
+        | Ok () ->
 
-        (* Parse the json on stdout. We get back a JSON-RPC
-           value from the scripts, not a complete JSON-RPC response *)
-        begin match Or_error.try_with (fun () -> Jsonrpc.of_string output.Process.Output.stdout) with
-        | Error _ ->
-          error "%s succeeded but printed bad json: %s" script_name output.Process.Output.stdout;
-          return (Error (backend_error "SCRIPT_FAILED" [ script_name; "bad json on stdout"; output.Process.Output.stdout ]))
-        | Ok response ->
-          info "%s succeeded: %s" script_name output.Process.Output.stdout;
-          let response = compat_out response in
-          let response = R.success response in
-          return (Ok response)
-        end
+          (* Parse the json on stdout. We get back a JSON-RPC
+             value from the scripts, not a complete JSON-RPC response *)
+          begin match Or_error.try_with (fun () -> Jsonrpc.of_string output.Process.Output.stdout) with
+            | Error _ ->
+              error "%s succeeded but printed bad json: %s" script_name output.Process.Output.stdout;
+              return (Error (backend_error "SCRIPT_FAILED" [ script_name; "bad json on stdout"; output.Process.Output.stdout ]))
+            | Ok response ->
+              info "%s succeeded: %s" script_name output.Process.Output.stdout;
+              let response = compat_out response in
+              let response = R.success response in
+              return (Ok response)
+          end
       end
+  in
+
+  let script_rpc call =
+    info "%s" (Jsonrpc.string_of_call call);
+    Script.path ~script_dir ~script_name:call.R.name >>= function
+    | Error (`missing path) ->
+      error "%s is not a file" path;
+      (match missing with
+       | None ->
+         return (Error(backend_error "SCRIPT_MISSING" [ path; "Check whether the file exists and has correct permissions" ]))
+       | Some m ->
+         warn "Deprecated: script '%s' is missing, treating as no-op. Update your plugin!" path;
+         return (Ok (R.success m)))
+    | Error (`not_executable (path, exn)) ->
+      error "%s is not executable" path;
+      return (Error (backend_error "SCRIPT_NOT_EXECUTABLE" [ path; Exn.to_string exn ]))
+    | Ok path -> invoke_script call path
   in
 
   (* The Errors we return from this function and the special error format
@@ -372,7 +415,7 @@ module Compat(V : sig val version : string option ref end) = struct
 
   let with_pvs_version f rpc = if !V.version = Some pvs_version then f rpc else rpc
 
-  let add_to_input params =
+  let add_param_to_input params =
     with_pvs_version (function
         (* Currently all parameters must be named. In this case, rpclib
            currently puts them into a Dict. *)
@@ -412,7 +455,7 @@ module Compat(V : sig val version : string option ref end) = struct
       | None ->
         return (Error (missing_uri ()))
       | Some uri ->
-        return (Ok (device_config, add_to_input ["uri", R.String uri]))
+        return (Ok (device_config, add_param_to_input ["uri", R.String uri]))
     else
         return (Ok (List.Assoc.remove ~equal:String.equal device_config "uri", id))
 
@@ -508,9 +551,8 @@ let process_smapiv2_requests ~volume_script_dir =
     let args = Args.Query.Query.request_of_rpc args in
     (* convert to new storage interface *)
     let dbg = args.Args.Query.Query.dbg in
-    let open Deferred.Result.Monad_infix in
     return_plugin_rpc (fun () -> Plugin_client.query volume_rpc dbg)
-    >>= fun response ->
+    >>>= fun response ->
     (* Convert between the xapi-storage interface and the SMAPI *)
     let features = List.map ~f:(function
       | "VDI_DESTROY" -> "VDI_DELETE"
@@ -519,23 +561,10 @@ let process_smapiv2_requests ~volume_script_dir =
     let rec loop acc = function
       | [] -> return (Ok acc)
       | (script_name, capability) :: rest ->
-        let open Deferred.Monad_infix in
-        let script_path = Filename.concat volume_script_dir script_name in
-        ( Sys.is_file ~follow_symlinks:true script_name
-          >>= function
-          | `No | `Unknown ->
-            return false
-          | `Yes ->
-            ( Unix.access script_name [ `Exec ]
-              >>= function
-              | Error exn ->
-                return false
-              | Ok () ->
-                return true
-            )
-          ) >>= function
-          | false -> loop acc rest
-          | true -> loop (capability :: acc) rest in
+        Script.path ~script_dir:volume_script_dir ~script_name >>= function
+        | Error _ -> loop acc rest
+        | Ok _ -> loop (capability :: acc) rest
+    in
     loop [] [
       "SR.attach",       "SR_ATTACH";
       "SR.create",       "SR_CREATE";
@@ -551,7 +580,7 @@ let process_smapiv2_requests ~volume_script_dir =
       "Volume.destroy",  "VDI_DELETE";
       "Volume.stat",     "VDI_UPDATE";
     ]
-    >>= fun x ->
+    >>>= fun x ->
     let features = features @ x in
     (* Add the features we always have *)
     let features = features @ [
@@ -1070,7 +1099,7 @@ let process_smapiv2_requests ~volume_script_dir =
   | Result.Ok rpc ->
     return (Jsonrpc.string_of_response rpc)
 
-(* Active servers, one per sub-directory of the volume_root_dir *)
+(** Active servers, one per sub-directory of the volume_root_dir *)
 let servers = String.Table.create () ~size:4
 
 (* XXX: need a better error-handling strategy *)
@@ -1115,9 +1144,9 @@ let watch_volume_plugins ~volume_root ~switch_path ~pipe =
     >>= fun names ->
     let needed : string list = Array.to_list names in
     let got_already : string list = Hashtbl.keys servers in
-    Deferred.all_ignore (List.map ~f:create (diff needed got_already))
+    Deferred.all_unit (List.map ~f:create (diff needed got_already))
     >>= fun () ->
-    Deferred.all_ignore (List.map ~f:destroy (diff got_already needed)) in
+    Deferred.all_unit (List.map ~f:destroy (diff got_already needed)) in
   sync ()
   >>= fun () ->
   let open Async_inotify.Event in
@@ -1150,9 +1179,9 @@ let watch_datapath_plugins ~datapath_root ~pipe =
     >>= fun names ->
     let needed : string list = Array.to_list names in
     let got_already : string list = Hashtbl.keys servers in
-    Deferred.all_ignore (List.map ~f:(Datapath_plugins.register ~datapath_root) (diff needed got_already))
+    Deferred.all_unit (List.map ~f:(Datapath_plugins.register ~datapath_root) (diff needed got_already))
     >>= fun () ->
-    Deferred.all_ignore (List.map ~f:Datapath_plugins.unregister (diff got_already needed)) in
+    Deferred.all_unit (List.map ~f:Datapath_plugins.unregister (diff got_already needed)) in
   sync ()
   >>= fun () ->
   let open Async_inotify.Event in
