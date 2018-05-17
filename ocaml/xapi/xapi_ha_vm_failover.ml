@@ -15,6 +15,156 @@
 module D = Debug.Make(struct let name="xapi_ha_vm_failover" end)
 open D
 
+type task_result = (Rpc.t, exn) Result.result
+
+(** [result_of_task ~__context task] returns the status of [task]
+ * unless it is still pending. Exceptions are converted into [Result.Error] *)
+let result_of_task ~__context self : task_result option =
+  try match Db.Task.get_status ~__context ~self with
+    | `pending -> None
+    | `success ->
+      Some (Result.Ok (match Db.Task.get_result ~__context ~self with
+          | "" -> Rpc.Null
+          | s -> Xmlrpc.of_string s))
+    | `cancelled -> Some (Result.Error (Failure "Cancelled"))
+    | `cancelling -> Some (Result.Error (Failure "Cancelling"))
+    | `failure ->
+      Some (match Db.Task.get_error_info ~__context ~self with
+          | [] -> Result.Error (Failure "Unknown error")
+          | code :: params -> Result.Error (Api_errors.Server_error (code, params)))
+  with e ->
+    (* cannot fetch task status, maybe task got destroyed *)
+    Backtrace.is_important e;
+    Some (Result.Error e)
+
+
+module TaskChains : sig
+  (** the type of delayed task related actions *)
+  type +'a t
+
+  val return : 'a -> 'a t
+
+  val ok : 'a -> ('a, exn) Result.result t
+
+  val fail : exn -> ('a, exn) Result.result t
+
+  val task : (unit -> API.ref_task) -> task_result t
+  (**[task f] is an action that evaluates to the result of task [f ()] *)
+
+  val fmap : ('a -> 'b) -> 'a t -> 'b t
+  (** [fmap f t] will map the final result of action [t] through the function [f].
+     * It is not guaranteed that [f] is executed as soon as the result of [t] is available. *)
+
+  (** this module is meant to be opened, defines only an infix operator,
+   * avoids polluting the namespace with other functions *)
+  module Infix : sig
+    val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
+    (** [m >>= k] monadic bind: executes [k] with the result of [m] computation.
+     * It is not guaranteed that [k] is executed as soon as the result of [m] is available.
+     * *)
+  end
+
+  val eval : __context:Context.t -> 'a t -> 'a t
+  (** [eval ~__context t] will either return [t] unchanged,
+      or evaluate the next action after receiving the result of the contained task.
+      If the action raises an exception, that exceptions propagates out of this function *)
+
+  val parallel :
+    __context:Context.t -> rpc:(Rpc.call -> Rpc.response)
+    -> session_id:API.ref_session -> ('a * ('b, exn) Result.result t) list
+    -> ('a * ('b, exn) Result.result) list
+  (** [parallel ~__context lst] execute actions in [lst] in parallel.
+   * Returns the results from [lst], in an unspecified order, hence each item in [lst] is a tuple
+   * with arbitrary data (e.g. a VM ref) as first element, and the action as second:
+   * this way the results will be associated with some meaningful data.
+   *)
+end = struct
+  (** structured like a Freer Monad *)
+  type +'a t =
+    | Completed of 'a
+        (** [Completed result] an action that has finished, sometimes refered to as 'pure' *)
+    | Task of API.ref_task * (task_result -> 'a t)
+        (** [Task(task, next)] a task, and a function to call when the task finishes (continuation).
+     * This is an impure action. *)
+
+  (* Constructors *)
+
+  let return x = Completed x
+
+  let ok x = Completed (Result.Ok x)
+
+  let fail e = Completed (Result.Error e)
+
+  let wrap f = try f () with e -> Backtrace.is_important e ; fail e
+
+  let task f = wrap (fun () -> Task (f (), return))
+
+  (* Operations *)
+
+  let rec fmap f = function
+    | Completed x ->
+        (* just map the result through [f] if we already have it *)
+        Completed (f x)
+    | Task (task, task_next) ->
+        (* If everything was immediately available then the result would be:
+       * [f (task_next (result_of_task task))]
+       * However we first need to wait for the task to finish,
+       * and when we receive the result from the task, we need to map it through
+       * [task_next] and then through [f].
+       * The type system helps to ensure that the pipeline below is correct *)
+        Task (task, fun x -> x |> task_next |> fmap f)
+
+
+  module Infix = struct
+    let rec ( >>= ) m k =
+      match m with
+      | Completed x -> k x
+      | Task (task, next) ->
+          (* similar reasoning as above, when we get the result we need to chain the computations,
+         * refer to http://okmij.org/ftp/Computation/free-monad.html for a deeper theoretical explanation *)
+          Task (task, fun x -> next x >>= k)
+  end
+
+  let eval ~__context = function
+    | Completed _ as t -> t
+    | Task (task, next) as t ->
+      match result_of_task ~__context task with
+      | None -> t
+      | Some result ->
+          log_and_ignore_exn (fun () -> Xapi_task.destroy ~__context ~self:task) ;
+          next result
+
+
+  let classify completed lst =
+    List.fold_left
+      (fun (completed, pending, tasks) -> function
+        | k, Completed r -> ((k, r) :: completed, pending, tasks)
+        | (_, Task (task, _)) as t -> (completed, t :: pending, task :: tasks)
+        )
+      (completed, [], []) lst
+
+
+  let parallel ~__context ~rpc ~session_id lst =
+    let rec loop completed lst =
+      (* find any pending tasks we can wait for right now *)
+      match classify completed lst with
+      | completed, [], [] ->
+        debug "All %d parallel actions have completed" (List.length completed);
+        completed
+      | completed, pending, tasks ->
+          debug "Waiting for %d tasks" (List.length tasks);
+          Tasks.wait_for_all ~rpc ~session_id ~tasks ;
+          debug "Waited for %d tasks, evaluating next actions" (List.length tasks);
+          pending
+          |> List.rev_map (fun (k, v) ->
+                 (k, wrap (fun () -> eval ~__context v)) )
+          |> loop completed
+    in
+    debug "Starting to process %d parallel actions" (List.length lst);
+    loop [] lst
+end
+
+
 (* Return a list of (ref, record) pairs for all VMs which are marked as always_run *)
 let all_protected_vms ~__context =
   let vms = Db.VM.get_all_records ~__context in
