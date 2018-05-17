@@ -788,10 +788,26 @@ let set_property ~__context ~self ~name ~value =
         Nm.bring_pif_up ~__context pif
     ) (self :: vlan_pifs)
 
+let assert_cluster_host_operation_not_in_progress ~__context =
+  match (Db.Cluster.get_all ~__context) with
+  | [] -> ()
+  | cluster :: _ ->
+    let ops = Db.Cluster.get_current_operations ~__context ~self:cluster |> List.map snd in
+    if (List.mem `enable ops) || (List.mem `add ops)
+    then raise Api_errors.(Server_error (other_operation_in_progress,
+      [ "Cluster"; Ref.string_of cluster ]))
+
+(* Block allowing unplug if
+  - a cluster host is enabled on this PIF
+  - a cluster host is being created in this pool
+  - a Cluster_host.enable is in progress on any PIF *)
 let set_disallow_unplug ~__context ~self ~value =
   if (Db.PIF.get_disallow_unplug ~__context ~self) <> value
   then begin
-    assert_no_clustering_enabled_on ~__context ~self;
+    if not value then begin
+      assert_no_clustering_enabled_on ~__context ~self;
+      assert_cluster_host_operation_not_in_progress ~__context
+    end;
     Db.PIF.set_disallow_unplug ~__context ~self ~value
   end
 
