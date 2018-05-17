@@ -12,6 +12,7 @@ type sr_info =
   }
 
 module VDI : sig
+
   (** Runs the given function with a new temporary VDI if
       VDI.create is supported, otherwise it will pass an existing one to the
       function. *)
@@ -22,6 +23,13 @@ module VDI : sig
 
   (** Runs the given function with a new temporary VDI *)
   val with_new : API.ref_session -> ?virtual_size:int64 -> API.ref_SR -> (API.ref_VDI -> 'a) -> 'a
+
+  (** Verify that the fields of the two VDIs changed as expected *)
+  val check_fields : ([`Same | `Different] * string * (API.vDI_t -> string)) list -> API.vDI_t -> API.vDI_t -> unit
+
+  (** Calls VDI.update and checks that the VDI fields that must be the same are
+      the same before and after the update. *)
+  val test_update : API.ref_session -> API.ref_VDI -> unit
 end
 
 module Sr_filter : sig

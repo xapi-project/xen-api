@@ -95,6 +95,25 @@ module VDI = struct
       let self = Client.Client.SR.get_VDIs ~rpc ~session_id ~self:sr_info.sr |> List.hd in
       f self
     end
+
+  let check_fields = Quicktest_common.compare_fields "VDI"
+
+  let test_update session_id self =
+    let rpc = !Quicktest_common.rpc in
+    let original_vdi = Client.Client.VDI.get_record ~rpc ~session_id ~self in
+    Client.Client.VDI.update ~rpc ~session_id ~vdi:self;
+    let new_vdi = Client.Client.VDI.get_record ~rpc ~session_id ~self in
+    let expected =
+      [ `Same, "name_label", (fun vdi -> vdi.API.vDI_name_label)
+      ; `Same, "name_description", (fun vdi -> vdi.API.vDI_name_description)
+      ; `Same, "cbt_enabled", (fun vdi -> vdi.API.vDI_cbt_enabled |> string_of_bool)
+      ; `Same, "is_a_snapshot", (fun vdi -> vdi.API.vDI_is_a_snapshot |> string_of_bool)
+      ; `Same, "managed", (fun vdi -> vdi.API.vDI_managed |> string_of_bool)
+      ; `Same, "location", (fun vdi -> vdi.API.vDI_location)
+      ; `Same, "virtual_size", (fun vdi -> vdi.API.vDI_location)
+      ]
+    in
+    check_fields expected original_vdi new_vdi
 end
 
 module Sr_filter = struct

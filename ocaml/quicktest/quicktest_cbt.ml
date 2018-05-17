@@ -32,32 +32,6 @@ let assert_cbt_status boolean ~session_id  ~vDI ~msg =
   let cbt_status = (get_cbt_status ~session_id ~vDI) in
   Alcotest.(check bool) msg boolean cbt_status
 
-(* Helper for calling VDI.update and comparing changes in fields
- * after making an API call on a VDI *)
-let test_vdi_update  ~session_id vDI =
-  (** Collect the fields of the VDI that must be the same after VDI.update *)
-  let list_fields_labels_of vDI =
-    let list_fields_labels =
-      [ VDI.get_cbt_enabled , "cbt-enabled"
-      ; VDI.get_is_a_snapshot , "is-a-snapshot"
-      ; VDI.get_managed , "managed"
-        (* compiler complains if ~session_id and ~rpc switch order *)
-      ] |> List.map (fun (getter,label) -> ( getter ~rpc:!rpc ~session_id ~self:vDI , label))
-    in
-    ( (VDI.get_type ~session_id ~rpc:!rpc ~self:vDI , "type" ), list_fields_labels )
-  in
-  let validate =
-    (** Alcotest [testable] that checks that the saved fields of two VDIs are the same *)
-    let field_label_list = Alcotest.(pair (pair Testable.vdi_type string) (list (pair bool string))) in
-    Alcotest.check field_label_list "Same fields"
-  in
-
-  (* Call a VDI function like enable_CBT, check fields after,  *)
-  let vdi_before = list_fields_labels_of vDI in
-  VDI.update ~session_id ~rpc:!rpc ~vdi:vDI;
-  let vdi_after = list_fields_labels_of vDI in
-  validate vdi_before vdi_after
-
 (* ------------------ *
    Test declarations
  * ------------------ *)
@@ -73,27 +47,27 @@ let vdi_data_destroy_test session_id sr_info =
       VDI.enable_cbt ~session_id ~rpc:!rpc ~self:vDI;
       assert_cbt_status true ~session_id ~vDI
         ~msg:"VDI.enable_cbt failed";
-      test_vdi_update ~session_id vDI;
+      Storage_test.VDI.test_update session_id vDI;
 
       print_endline "Snapshotting original VDI with CBT enabled";
       let snapshot = VDI.snapshot ~session_id ~rpc:!rpc ~vdi:vDI ~driver_params:[] in
       Storage_test.VDI.with_destroyed session_id snapshot $ fun () ->
       assert_cbt_status true ~session_id  ~vDI:snapshot
         ~msg:"VDI.snapshot failed, cbt_enabled field didn't carry over";
-      List.iter (test_vdi_update ~session_id) [snapshot ; vDI];
+      List.iter (Storage_test.VDI.test_update session_id) [snapshot ; vDI];
 
       print_endline "Disabling CBT on original VDI";
       VDI.disable_cbt ~session_id ~rpc:!rpc ~self:vDI;
       assert_cbt_status false ~session_id  ~vDI
         ~msg:"VDI.disable_cbt failed";
-      test_vdi_update ~session_id  vDI;
+      Storage_test.VDI.test_update session_id  vDI;
 
       print_endline "Snapshotting original VDI with CBT disabled";
       let snapshot_no_cbt = VDI.snapshot ~session_id ~rpc:!rpc ~vdi:vDI ~driver_params:[] in
       Storage_test.VDI.with_destroyed session_id snapshot_no_cbt $ fun () ->
       assert_cbt_status false ~session_id  ~vDI:snapshot_no_cbt
         ~msg:"VDI.snapshot failed, cbt_enabled field didn't carry over";
-      List.iter (test_vdi_update ~session_id) [snapshot_no_cbt ; vDI];
+      List.iter (Storage_test.VDI.test_update session_id) [snapshot_no_cbt ; vDI];
 
       print_endline "Destroying snapshot VDI data";
       VDI.data_destroy ~session_id ~rpc:!rpc ~self:snapshot;
@@ -144,7 +118,7 @@ let vdi_clone_copy_test session_id sr_info =
            ] |> List.iter
              (fun (boolean, vDI, msg) ->
                 assert_cbt_status boolean  ~session_id ~vDI ~msg;
-                test_vdi_update ~session_id  vDI)
+                Storage_test.VDI.test_update session_id  vDI)
         )
     )
 
