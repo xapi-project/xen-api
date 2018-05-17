@@ -504,7 +504,13 @@ let resync_host ~__context ~host =
     (* Remove any pool_patch objects that don't have a corresponding pool_update object *)
     Db.Pool_patch.get_all ~__context
     |> List.filter (fun self -> Db.Pool_patch.get_pool_update ~__context ~self = Ref.null)
-    |> List.iter (fun self -> Db.Pool_patch.destroy ~__context ~self);
+    |> List.iter (fun self ->
+        (* Destroy connector before destroying Pool_patch *)
+        Db.Pool_patch.get_host_patches ~__context ~self
+        |> List.iter (fun self ->
+            if Db.Host_patch.get_host ~__context ~self = host then
+              Db.Host_patch.destroy ~__context ~self);
+        Db.Pool_patch.destroy ~__context ~self);
 
     (* Clean updates that don't have a corresponding patch record *)
     Db.Pool_update.get_all ~__context
@@ -522,10 +528,7 @@ let resync_host ~__context ~host =
          && Xapi_pool_patch.pool_patch_of_update ~__context self
             |> fun self -> Db.Pool_patch.get_host_patches ~__context ~self
             |> function [] -> false | _ -> true)
-    |> List.iter (fun self -> destroy ~__context ~self);
-    
-    (* Clean up host_patch table *)
-    Db_gc_util.gc_Host_patches ~__context
+    |> List.iter (fun self -> destroy ~__context ~self)
   end
 
 let pool_update_download_handler (req: Request.t) s _ =
