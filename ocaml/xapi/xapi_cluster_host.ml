@@ -53,30 +53,57 @@ let sync_required ~__context ~host =
     end
   | _ -> raise Api_errors.(Server_error (internal_error, ["Cannot have more than one Cluster object per pool currently"]))
 
+let call_api_function_with_alert ~__context ~msg ~cls ~obj_uuid ~body
+  ~(api_func : (Rpc.call -> Rpc.response) -> API.ref_session -> unit) =
+    Helpers.call_api_functions ~__context
+      (fun rpc session_id ->
+        try
+          api_func rpc session_id
+        with err ->
+          let body = Printf.sprintf "Error: %s\nMessage: %s" ExnHelper.(string_of_exn err) body in
+          Xapi_alert.add ~msg ~cls ~obj_uuid ~body;
+          raise err
+      )
+
 let create_as_necessary ~__context ~host =
   match sync_required ~__context ~host with
   | Some cluster_ref -> (* assume pool autojoin set *)
     let network = get_network_internal ~__context ~self:cluster_ref in
     let (pifref,pifrec) = Xapi_clustering.pif_of_host ~__context network host in
     fix_pif_prerequisites ~__context (pifref,pifrec);
-    Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.Cluster_host.create rpc session_id cluster_ref host pifref) |> ignore
+
+    (* Best effort Cluster_host.create *)
+    let body = Printf.sprintf "Unable to create cluster host on %s."
+        (Db.Host.get_name_label ~__context ~self:host) in
+    let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
+    call_api_function_with_alert ~__context
+      ~msg:Api_messages.cluster_host_creation_failed
+      ~cls:`Host ~obj_uuid ~body
+      ~api_func:(fun rpc session_id -> ignore
+          (Client.Client.Cluster_host.create rpc session_id cluster_ref host pifref))
   | None -> ()
 
 let resync_host ~__context ~host =
   create_as_necessary ~__context ~host;
   match (find_cluster_host ~__context ~host) with
-    | None              -> () (* no clusters exist *)
-    | Some cluster_host ->    (* cluster_host and cluster exist *)
-      if Db.Cluster_host.get_enabled ~__context ~self:cluster_host
-      (* Cluster_host.enable unconditionally invokes the low-level enable operations and is idempotent. *)
-      then begin
-        (* RPU reformats partition, losing service status, never re-enables clusterd *)
-        debug "Cluster_host %s is enabled, starting up xapi-clusterd" (Ref.string_of cluster_host);
-        Xapi_clustering.Daemon.enable ~__context;
-        Helpers.call_api_functions ~__context
-        (fun rpc session_id -> Client.Client.Cluster_host.enable ~rpc ~session_id ~self:cluster_host)
-      end
+  | None              -> () (* no clusters exist *)
+  | Some cluster_host ->    (* cluster_host and cluster exist *)
+    (* Cluster_host.enable unconditionally invokes the low-level enable operations and is idempotent. *)
+    if Db.Cluster_host.get_enabled ~__context ~self:cluster_host then begin
+      (* RPU reformats partition, losing service status, never re-enables clusterd *)
+      debug "Cluster_host %s is enabled, starting up xapi-clusterd" (Ref.string_of cluster_host);
+      Xapi_clustering.Daemon.enable ~__context;
+
+      (* Best-effort Cluster_host.enable *)
+      let body = Printf.sprintf "Unable to create cluster host on %s."
+          (Db.Host.get_name_label ~__context ~self:host) in
+      let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
+      call_api_function_with_alert ~__context
+        ~msg:Api_messages.cluster_host_enable_failed
+        ~cls:`Host ~obj_uuid ~body
+        ~api_func:(fun rpc session_id -> ignore
+            (Client.Client.Cluster_host.enable rpc session_id cluster_host))
+    end
 
 let create ~__context ~cluster ~host ~pif =
   (* TODO: take network lock *)
