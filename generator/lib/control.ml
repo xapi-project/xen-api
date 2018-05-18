@@ -128,6 +128,13 @@ type volume = {
 } [@@deriving rpcty]
 
 
+type changed_blocks = {
+  granularity: int;
+  bitmap: string;
+  (** The changed blocks between two volumes as a base64-encoded string *)
+} [@@deriving rpcty]
+
+
 let sr = Param.mk ~name:"sr" ~description:["The Storage Repository"]
     Types.string
 
@@ -270,14 +277,22 @@ module Volume(R: RPC) = struct
       (dbg @-> sr @-> key @-> returning unit errors)
 
   let changed_blocks = Param.mk ~name:"changed_blocks" ~description:
-      ["The changed blocks between two volumes as a base64-encoded string"]
-      Types.string
+      ["The changed blocks between two volumes in the specified extent"]
+      changed_blocks
+
+  let offset = Param.mk ~name:"offset" ~description:
+      ["The offset of the extent for which changed blocks should be computed"]
+      Types.int64
+
+  let length = Param.mk ~name:"length" ~description:
+      ["The length of the extent for which changed blocks should be computed"]
+      Types.int
 
   let list_changed_blocks = R.declare "list_changed_blocks"
       ["[list_changed_blocks sr volume1 volume2] returns the blocks that";
        "have changed between [volume1] and [volume2] as a base64-encoded";
        "bitmap string"]
-      (dbg @-> sr @-> key @-> key2 @-> returning changed_blocks errors)
+      (dbg @-> sr @-> key @-> key2 @-> offset @-> length @-> returning changed_blocks errors)
 
   let implementation = R.implement
       {Idl.Interface.name = "Volume";

@@ -11,21 +11,46 @@ type domain = string
   "VM uuid or a Xenstore path or anything else chosen by the toolstack.";
   "Implementations should not assume the string has any meaning."]]
 
+type xendisk = {
+  params: string; (** Put into the "params" key in xenstore *)
+
+  extra: (string * string) list;
+  (** Key-value pairs to be put into the "extra" subdirectory underneath the
+      xenstore backend *)
+
+  backend_type: string;
+} [@@deriving rpcty]
+
+type block_device = {
+  path: string; (** Path to the block device *)
+  dummy: unit;
+} [@@deriving rpcty]
+
+type file = {
+  path: string; (** Path to the raw file *)
+  dummy: unit;
+} [@@deriving rpcty]
+
+type nbd = {
+  uri: string;
+  (** NBD URI of the form nbd:unix:<domain-socket>:exportname=<NAME> (this
+      format is used by qemu-system:
+      https://manpages.debian.org/stretch/qemu-system-x86/qemu-system-x86_64.1.en.html) *)
+  dummy: unit;
+} [@@deriving rpcty]
+
 type implementation =
-  | Blkback of string
-        [@doc ["use kernel blkback with the given 'params' key"]]
-  | Qdisk of string
-        [@doc ["use userspace qemu qdisk with the given 'params' key"]]
-  | Tapdisk3 of string
-        [@doc ["use userspace tapdisk3 with the given 'params' key"]]
-[@@doc ["The choice of blkback to use."]]
+  | XenDisk of xendisk
+  | BlockDevice of block_device
+  | File of file
+  | Nbd of nbd
 [@@deriving rpcty]
 
 type backend = {
   domain_uuid: string
       [@doc ["UUID of the domain hosting the backend"]];
-  implementation: implementation
-      [@doc ["choice of implementation technology"]];
+  implementations: implementation list
+      [@doc ["choice of implementation technologies"]];
 }
 [@@doc [
   "A description of which Xen block backend to use. The toolstack needs";
