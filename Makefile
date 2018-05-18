@@ -9,6 +9,9 @@ release:
 test:
 	jbuilder runtest
 
+stresstest:
+	jbuilder build @stresstest
+
 install:
 	jbuilder install
 
