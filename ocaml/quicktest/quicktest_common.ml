@@ -102,3 +102,22 @@ let assert_raises_match exception_match fn =
     if not (exception_match failure)
     then raise failure
     else ()
+
+(** Check that those fields of two records that are supposed to be the same are
+    the same, and the ones that should be different are different. *)
+let compare_fields cls fields original_rec new_rec =
+  let check (comparison, field_name, get_field) =
+    let original_field = get_field original_rec in
+    let new_field = get_field new_rec in
+    match comparison with
+    | `Same ->
+      Alcotest.(check string)
+        (Printf.sprintf "%s field %s should be the same" cls field_name)
+        original_field new_field
+    | `Different ->
+      if new_field = original_field then
+        Alcotest.failf
+          "%s field %s should should be different, but is the same: '%s'"
+          cls field_name new_field
+  in
+  List.iter check fields

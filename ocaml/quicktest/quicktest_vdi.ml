@@ -123,28 +123,15 @@ let vdi_bad_introduce session_id sr_info =
 let check_clone_snapshot_fields session_id original_vdi new_vdi =
   (** Clones and snapshots should have some identical fields and some different
       fields: *)
-  let clone_snapshot_fields a b =
-    [ `Same, "virtual_size",
-      Int64.to_string a.API.vDI_virtual_size,
-      Int64.to_string b.API.vDI_virtual_size;
-      `Different, "location",
-      a.API.vDI_location, b.API.vDI_location;
+  let clone_snapshot_fields =
+    [ `Same, "virtual_size", (fun vdi -> vdi.API.vDI_virtual_size |> Int64.to_string)
+    ; `Different, "location", (fun vdi -> vdi.API.vDI_location)
     ]
-  in
-
-  let check_fields fields =
-    let check (comparison, field, a, b) = match comparison with
-      | `Same ->
-        if a <> b then Alcotest.fail (Printf.sprintf "%s field differs: %s <> %s" field a b)
-      | `Different ->
-        if a = b then Alcotest.fail (Printf.sprintf "%s field unchanged: %s = %s" field a b)
-    in
-    List.iter check fields
   in
 
   let a = Client.Client.VDI.get_record ~rpc:!rpc ~session_id ~self:original_vdi in
   let b = Client.Client.VDI.get_record ~rpc:!rpc ~session_id ~self:new_vdi in
-  check_fields (clone_snapshot_fields a b)
+  Storage_test.VDI.check_fields clone_snapshot_fields a b
 
 let check_vdi_snapshot session_id vdi =
   let vdi' = Client.Client.VDI.snapshot ~rpc:!rpc ~session_id ~vdi ~driver_params:[] in
