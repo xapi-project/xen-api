@@ -15,7 +15,7 @@
 module D = Debug.Make(struct let name="xapi_ha_vm_failover" end)
 open D
 
-type task_result = (Rpc.t, exn) result
+type task_result = (Rpc.t, exn) Result.result
 
 (** [result_of_task ~__context task] returns the status of [task]
  * unless it is still pending. Exceptions are converted into [Result.Error] *)
