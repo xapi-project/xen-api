@@ -1,5 +1,5 @@
 (executable
- ((name suite)
+ ((name stress)
   (libraries
    (alcotest
     alcotest-lwt
@@ -7,6 +7,6 @@
   ))
 
 (alias
- ((name   runtest)
-  (deps   (suite.exe))
+ ((name   stresstest)
+  (deps   (stress.exe (files_recursively_in .)))
   (action (run ${<}))))
