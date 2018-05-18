@@ -5,7 +5,7 @@
               oUnit))
 ))
 
-(alias
- ((name    runtest)
-  (deps    (test_pci.exe dump.data))
-  (action  (run ${<}))))
+;(alias
+; ((name    runtest)
+;  (deps    (test_pci.exe dump.data))
+;  (action  (run ${<}))))
