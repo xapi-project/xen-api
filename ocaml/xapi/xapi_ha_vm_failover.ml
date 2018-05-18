@@ -16,6 +16,8 @@ open Pervasiveext
 module D = Debug.Make(struct let name="xapi_ha_vm_failover" end)
 open D
 
+module Result = struct type ('a, 'b) result = Ok of 'a | Error of 'b end
+
 type task_result = (Rpc.t, exn) Result.result
 
 (** [result_of_task ~__context task] returns the status of [task]
