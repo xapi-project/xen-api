@@ -845,7 +845,9 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
 
 type suspend_flag = Live | Debug
 
-  let with_emu_manager_restore (task: Xenops_task.task_handle) ~domain_type ~store_port ~console_port ~extras manager_path domid uuid main_fd vgpu_fd f =
+  let with_emu_manager_restore (task: Xenops_task.task_handle)
+    ~domain_type ~(dm:Device.Profile.t) ~store_port ~console_port ~extras
+    manager_path domid uuid main_fd vgpu_fd f =
     let mode =
       match domain_type with
       | `hvm | `pvh -> "hvm_restore"
@@ -871,7 +873,15 @@ type suspend_flag = Live | Debug
       "-store_port"; string_of_int store_port;
       "-console_port"; string_of_int console_port;
       "-fork"; "true";
-    ] @ extras @ vgpu_cmdline
+    ]
+    @
+    ( match dm with
+      | Device.Profile.Qemu_upstream
+      | Device.Profile.Qemu_upstream_compat -> ["-dm"; "qemu"]
+      | _ -> []
+    )
+    @ extras
+    @ vgpu_cmdline
     in
     Emu_manager.with_connection task manager_path domid args fds f
 
@@ -916,8 +926,11 @@ type suspend_flag = Live | Debug
         end
       ) (fun () -> Unix.close fd2)
 
-  let restore_common (task: Xenops_task.task_handle) ~xc ~xs ~domain_type ~store_port ~store_domid
-      ~console_port ~console_domid ~no_incr_generationid ~vcpus ~extras
+  let restore_common (task: Xenops_task.task_handle)
+      ~xc ~xs ~(dm:Device.Profile.t)
+      ~domain_type ~store_port ~store_domid
+      ~console_port ~console_domid
+      ~no_incr_generationid ~vcpus ~extras
       manager_path domid main_fd vgpu_fd =
 
     let module DD = Debug.Make(struct let name = "mig64" end) in
@@ -931,9 +944,10 @@ type suspend_flag = Live | Debug
       let (store_mfn, console_mfn) =
         begin match
             with_conversion_script task "Emu_manager" hvm main_fd (fun pipe_r ->
-                with_emu_manager_restore task ~domain_type ~store_port ~console_port ~extras manager_path domid uuid pipe_r vgpu_fd (fun cnx ->
-                    restore_libxc_record cnx domid uuid
-                  )
+                with_emu_manager_restore task
+                  ~domain_type ~dm ~store_port ~console_port ~extras
+                  manager_path domid uuid pipe_r vgpu_fd
+                  (fun cnx -> restore_libxc_record cnx domid uuid)
               )
           with
           | `Ok (s, c) -> (s, c)
@@ -966,7 +980,8 @@ type suspend_flag = Live | Debug
         | Some fd when fd <> main_fd -> [main_fd; fd]
         | _ -> [main_fd]
       in
-      with_emu_manager_restore task ~domain_type ~store_port ~console_port ~extras manager_path domid uuid main_fd vgpu_fd (fun cnx ->
+      with_emu_manager_restore task ~domain_type ~dm ~store_port ~console_port
+        ~extras manager_path domid uuid main_fd vgpu_fd (fun cnx ->
           (* Maintain a list of results returned by emu-manager that are expected
            * by the reader threads. Contains the emu for which a result is wanted
            * plus an event channel for waking up the reader once the result is in. *)
@@ -1116,7 +1131,7 @@ type suspend_flag = Live | Debug
       error "VM = %s; domid = %d; Error reading save signature: %s" (Uuid.to_string uuid) domid e;
       raise Suspend_image_failure
 
-  let restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
+  let restore (task: Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid ~console_domid
       ~no_incr_generationid ~timeoffset ~extras info ~manager_path domid fd vgpu_fd =
     let static_max_kib = info.memory_max in
     let target_kib = info.memory_target in
@@ -1155,7 +1170,7 @@ type suspend_flag = Live | Debug
         memory, vm_stuff, `pvh
     in
     let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
-    let store_mfn, console_mfn = restore_common task ~xc ~xs ~domain_type
+    let store_mfn, console_mfn = restore_common task ~xc ~xs ~dm ~domain_type
         ~store_port ~store_domid
         ~console_port ~console_domid
         ~no_incr_generationid
@@ -1215,7 +1230,15 @@ type suspend_flag = Live | Debug
       "-mode"; mode;
       "-domid"; string_of_int domid;
       "-fork"; "true";
-    ] @ (List.concat flags') @ vgpu_cmdline in
+    ]
+    @
+    ( match dm with
+      | Device.Profile.Qemu_upstream
+      | Device.Profile.Qemu_upstream_compat -> ["-dm"; "qemu"]
+      | _ -> []
+    )
+    @ (List.concat flags')
+    @ vgpu_cmdline in
 
     let fds = [fd_uuid, main_fd] @ vgpu_args in
 

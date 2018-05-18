@@ -1825,7 +1825,8 @@ module VM = struct
                          | None -> None
                        in
                        let manager_path = choose_emu_manager vm.Vm.platformdata in
-                       Domain.restore task ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *)
+                       Domain.restore task ~xc ~xs ~dm:(dm_of vm)
+                         ~store_domid ~console_domid ~no_incr_generationid (* XXX progress_callback *)
                          ~timeoffset ~extras build_info ~manager_path domid fd vgpu_fd
                     );
                 with e ->

@@ -159,6 +159,7 @@ val build: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xens
 
 (** Restore a domain using the info provided *)
 val restore: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh
+  -> dm:Device.Profile.t
   -> store_domid:int -> console_domid:int -> no_incr_generationid:bool
   -> timeoffset:string -> extras:string list -> build_info
   -> manager_path:string -> domid
