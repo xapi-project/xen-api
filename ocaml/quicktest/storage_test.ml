@@ -104,12 +104,14 @@ module VDI = struct
     Client.Client.VDI.update ~rpc ~session_id ~vdi:self;
     let new_vdi = Client.Client.VDI.get_record ~rpc ~session_id ~self in
     let expected =
-      [ `Same, "name_label", (fun vdi -> vdi.API.vDI_name_label)
-      ; `Same, "name_description", (fun vdi -> vdi.API.vDI_name_description)
-      ; `Same, "cbt_enabled", (fun vdi -> vdi.API.vDI_cbt_enabled |> string_of_bool)
+      [ `Same, "cbt_enabled", (fun vdi -> vdi.API.vDI_cbt_enabled |> string_of_bool)
       ; `Same, "is_a_snapshot", (fun vdi -> vdi.API.vDI_is_a_snapshot |> string_of_bool)
-      ; `Same, "managed", (fun vdi -> vdi.API.vDI_managed |> string_of_bool)
       ; `Same, "location", (fun vdi -> vdi.API.vDI_location)
+      ; `Same, "managed", (fun vdi -> vdi.API.vDI_managed |> string_of_bool)
+      ; `Same, "name_description", (fun vdi -> vdi.API.vDI_name_description)
+      ; `Same, "name_label", (fun vdi -> vdi.API.vDI_name_label)
+      ; `Same, "snapshot_of", (fun vdi -> vdi.API.vDI_snapshot_of |> API.Ref.string_of)
+      ; `Same, "snapshot_time", (fun vdi -> vdi.API.vDI_snapshot_time |> Xapi_stdext_date.Date.to_string)
       ; `Same, "virtual_size", (fun vdi -> vdi.API.vDI_location)
       ]
     in
