@@ -33,8 +33,14 @@ let t_of_rpc x =
     match List.find (function TCP_proxy(_, _)-> true | _ -> false) protocols with
     | TCP_proxy(ip, port) ->
       let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-      Unix.connect s (Unix.ADDR_INET(Unix.inet_addr_of_string ip, port));
-      s
+      begin
+        try
+          Unix.connect s (Unix.ADDR_INET(Unix.inet_addr_of_string ip, port));
+          s
+        with e ->
+          Unix.close s;
+          raise (Internal_error (Printexc.to_string e))
+      end
     | _ -> assert false
   with Not_found ->
     raise Channel_setup_failed
