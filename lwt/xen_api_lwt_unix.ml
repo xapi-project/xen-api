@@ -91,7 +91,12 @@ module Lwt_unix_IO = struct
       let fd = Lwt_unix.socket domain Unix.SOCK_STREAM 0 in
       Lwt.catch
         (fun () ->
-           Lwt_unix.connect fd sockaddr >>= fun () ->
+           Lwt.catch (fun () ->
+               Lwt_unix.connect fd sockaddr
+             ) (fun e ->
+               Lwt_unix.close fd >>= fun () -> Lwt.fail e
+             )
+           >>= fun () ->
            Lwt_ssl.ssl_connect fd sslctx >>= fun sock ->
            let ic = Lwt_ssl.in_channel_of_descr sock in
            let oc = Lwt_ssl.out_channel_of_descr sock in
@@ -101,7 +106,12 @@ module Lwt_unix_IO = struct
       let fd = Lwt_unix.socket domain Unix.SOCK_STREAM 0 in
       Lwt.catch
         (fun () ->
-           Lwt_unix.connect fd sockaddr >>= fun () ->
+           Lwt.catch (fun () ->
+               Lwt_unix.connect fd sockaddr
+             ) (fun e ->
+               Lwt_unix.close fd >>= fun () -> Lwt.fail e
+             )
+           >>= fun () ->
            let ic = Lwt_io.of_fd ~close:return ~mode:Lwt_io.input fd in
            let oc = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.output fd in
            return (Ok (((fun () -> Lwt_io.close ic), ic), ((fun () -> Lwt_io.close oc), oc))))
