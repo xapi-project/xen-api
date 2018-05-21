@@ -706,7 +706,12 @@ let write_stream common s destination source_protocol destination_protocol preze
       return (c, [ Nbd; NoProtocol; Chunked; Human; Tar ])
     | Sockaddr sockaddr ->
       let sock = socket sockaddr in
-      Lwt_unix.connect sock sockaddr >>= fun () ->
+      Lwt.catch (fun () ->
+          Lwt_unix.connect sock sockaddr
+        ) (fun e ->
+          Lwt_unix.close sock >>= fun () -> Lwt.fail e
+        )
+      >>= fun () ->
       Channels.of_raw_fd sock >>= fun c ->
       return (c, [ Nbd; NoProtocol; Chunked; Human; Tar ])
     | Https uri'
@@ -717,7 +722,12 @@ let write_stream common s destination source_protocol destination_protocol preze
       Lwt_unix.gethostbyname host >>= fun host_entry ->
       let sockaddr = Lwt_unix.ADDR_INET(host_entry.Lwt_unix.h_addr_list.(0), port) in
       let sock = socket sockaddr in
-      Lwt_unix.connect sock sockaddr >>= fun () ->
+      Lwt.catch (fun () ->
+          Lwt_unix.connect sock sockaddr
+        ) (fun e ->
+          Lwt_unix.close sock >>= fun () -> Lwt.fail e
+        )
+      >>= fun () ->
 
       let open Cohttp in
       ( if use_ssl then Channels.of_ssl_fd sock ssl_legacy good_ciphersuites legacy_ciphersuites else Channels.of_raw_fd sock ) >>= fun c ->
