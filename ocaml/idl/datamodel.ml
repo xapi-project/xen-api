@@ -4016,16 +4016,16 @@ module Event = struct
       ~name:"register"
       ~in_product_since:rel_rio
       ~internal_deprecated_since:rel_boston
-      ~params:[Set String, "classes", "register for events for the indicated classes"]
-      ~doc:"Registers this session with the event system. Specifying * as the desired class will register for all classes. This method is only recommended for legacy use in conjunction with event.next."
+      ~params:[Set String, "classes", "the classes for which the session will register with the event system; specifying * as the desired class will register for all classes"]
+      ~doc:"Registers this session with the event system for a set of given classes. This method is only recommended for legacy use in conjunction with event.next."
       ~allowed_roles:_R_ALL
       ()
   let unregister = call
       ~name:"unregister"
       ~in_product_since:rel_rio
       ~internal_deprecated_since:rel_boston
-      ~params:[Set String, "classes", "Removes this session's registration for the indicated classes. This method is only recommended for legacy use in conjunction with event.next."]
-      ~doc:"Unregisters this session with the event system"
+      ~params:[Set String, "classes", "the classes for which the session's registration with the event system will be removed"]
+      ~doc:"Removes this session's registration with the event system for a set of given classes. This method is only recommended for legacy use in conjunction with event.next."
       ~allowed_roles:_R_ALL
       ()
   let next = call
@@ -4049,11 +4049,10 @@ module Event = struct
       ~doc:"Blocking call which returns a new token and a (possibly empty) batch of events. The returned token can be used in subsequent calls to this function."
       ~custom_marshaller:true
       ~flags:[`Session]
-      ~result:(Set (Record _event), "the batch of events")
-      (*In reality the event batch is not a set of records as stated here, but rather a structure
-      consisting of a token, a map of valid references per object type, and a set of event records.
-      Due to the difficulty of representing this in the datamodel, the doc is generated manually,
-      so ensure the markdown_backend.ml is updated if something changes. *)
+      ~result:(Set (Record _event), "a structure consisting of a token ('token'), a map of valid references per object type ('valid_ref_counts'), and a set of event records ('events').")
+      (*In reality the event batch is not a set of records as stated here.
+        Due to the difficulty of representing this in the datamodel, the doc is generated manually,
+        so ensure the markdown_backend.ml and gen_json.ml is updated if something changes. *)
       ~errs:[Api_errors.session_not_registered;Api_errors.events_lost]
       ~allowed_roles:_R_ALL
       ()
@@ -4098,8 +4097,8 @@ module Event = struct
         field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String ~internal_deprecated_since:rel_boston "obj_uuid" "The uuid of the object that changed";
       ];
       (* As of tampa, the event record has one more field, snapshot, which is the record of the object changed.
-      Due to the difficulty of representing this in the datamodel, the doc is generated manually,
-      so ensure the markdown_backend.ml is updated if something changes. *)
+         Due to the difficulty of representing this in the datamodel, the doc is generated manually,
+         so ensure the markdown_backend.ml and gen_json.ml is updated if something changes. *)
       persist = PersistNothing;
       in_database=false;
       force_custom_actions=None;

@@ -129,11 +129,16 @@ let fields_of_obj_with_enums obj =
       enums @ e
     ) ([], []) fields
 
-let jarray_of_result_with_enums = function
+let jarray_of_result_with_enums obj msg =
+  match msg.msg_result with
   | None -> JArray [JString "void"], []
   | Some (t, d) ->
-    let t', enums = string_of_ty_with_enums t in
-    JArray [JString t'; JString d], enums
+    if obj.name = "event" && (String.lowercase_ascii msg.msg_name) = "from" then
+      JArray [JString "an event batch"; JString d], []
+    else begin
+      let t', enums = string_of_ty_with_enums t in
+      JArray [JString t'; JString d], enums
+    end
 
 let jarray_of_params_with_enums ps =
   let params, enums = List.fold_left (fun (params, enums) p ->
@@ -186,7 +191,7 @@ let messages_of_obj_with_enums obj =
         else
           ""
       in
-      let result, enums1 = jarray_of_result_with_enums msg.msg_result in
+      let result, enums1 = jarray_of_result_with_enums obj msg in
       let params, enums2 = jarray_of_params_with_enums params in
       JObject [
         "name", JString msg.msg_name;
@@ -218,10 +223,23 @@ let json_of_objs objs =
       let fields, enums1 = fields_of_obj_with_enums obj in
       let messages, enums2 = messages_of_obj_with_enums obj in
       let enums = Xapi_stdext_std.Listext.List.setify (enums1 @ enums2) in
+      let event_snapshot =
+        if (String.lowercase_ascii obj.name) = "event" then
+          JObject (
+            ("name", JString "snapshot") ::
+            ("description", JString "The record of the database object that was added, changed or deleted") ::
+            ("type", JString "&lt;object record&gt;") ::
+            ("qualifier", JString (string_of_qualifier DynamicRO)) ::
+            ("tag", JString "") ::
+            ("lifecycle", jarray_of_lifecycle [Published, rel_boston, ""]) ::
+            []
+          )::[]
+        else []
+      in
       JObject [
         "name", JString obj.name;
         "description", JString obj.description;
-        "fields", JArray fields;
+        "fields", JArray (event_snapshot @ fields);
         "messages", JArray messages;
         "enums", jarray_of_enums enums;
         "lifecycle", jarray_of_lifecycle obj.obj_lifecycle;
@@ -300,8 +318,15 @@ let releases objs =
       in
       let fields = flatten_contents obj.contents in
       let field_changes = List.fold_left (fun l f -> l @ (changes_for_field f)) [] fields in
+      let event_snapshot_change =
+        if obj.name = "event" && rel.code_name = Some rel_boston then
+          [(Published,
+            "event.snapshot",
+            "The record of the database object that was added, changed or deleted",
+            "field")]
+        else [] in
 
-      obj_changes @ field_changes @ msg_changes
+      obj_changes @ event_snapshot_change @ field_changes @ msg_changes
     in
     JArray (List.map search_obj objs |> List.flatten |> List.sort compare_changes |> List.map jobject_of_change)
   in
