@@ -19,6 +19,15 @@ open Dm_api
 
 (* JSON *)
 
+let destdir' = ref "."
+
+let parse_args () =
+  Arg.parse [
+    "-destdir", Arg.Set_string destdir', "the destination directory for the generated files";
+  ]
+    (fun x-> Printf.printf "Ignoring anonymous argument %s" x)
+    ("Generates documentation for the datamodel classes. See -help.")
+
 let escape_json s =
   let len = String.length s in
   if len > 0 then begin
@@ -330,10 +339,14 @@ let releases objs =
     in
     JArray (List.map search_obj objs |> List.flatten |> List.sort compare_changes |> List.map jobject_of_change)
   in
-  let release_info = JObject (List.map (fun rel -> code_name_of_release rel, changes_in_release rel) release_order) in
-  Xapi_stdext_unix.Unixext.write_string_to_file ("release_info.json") (string_of_json 0 release_info)
+  JObject (List.map (fun rel -> code_name_of_release rel, changes_in_release rel) release_order)
+
 
 let _ =
+  parse_args ();
+  let destdir = !destdir' in
+  Xapi_stdext_unix.Unixext.mkdir_rec destdir 0o755;
+
   let api = Datamodel.all_api in
   (* Add all implicit messages *)
   let api = add_implicit_messages api in
@@ -343,6 +356,9 @@ let _ =
   let api = filter (fun _ -> true) (fun f -> not f.internal_only) (fun m -> not m.msg_hide_from_docs) api in
 
   let objs = objects_of_api api in
-  Xapi_stdext_unix.Unixext.write_string_to_file "xenapi.json" (objs |> json_of_objs |> string_of_json 0);
-  releases objs
+  Xapi_stdext_unix.Unixext.write_string_to_file (Filename.concat destdir "xenapi.json")
+    (objs |> json_of_objs |> string_of_json 0);
 
+  let release_info = releases objs in
+  Xapi_stdext_unix.Unixext.write_string_to_file (Filename.concat destdir "release_info.json")
+    (string_of_json 0 release_info)

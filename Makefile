@@ -24,7 +24,7 @@ doc:
 
 doc-json:
 	jbuilder build ocaml/idl/json_backend/gen_json.exe
-	jbuilder exec -- ocaml/idl/json_backend/gen_json.exe
+	jbuilder exec -- ocaml/idl/json_backend/gen_json.exe -destdir _build/install/default/jekyll
 
 reindent:
 	git ls-files '*.ml*' '**/*.ml*' | xargs ocp-indent --syntax cstruct -i

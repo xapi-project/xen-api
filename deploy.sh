@@ -19,8 +19,8 @@ echo Token MD5: $(echo $GH_TOKEN | md5sum)
 rev=$(git rev-parse --short HEAD)
 
 # Copy data we're interested in out of the container
-docker cp ${CONTAINER_NAME}:/home/builder/xen-api/xenapi.json $HOME/
-docker cp ${CONTAINER_NAME}:/home/builder/xen-api/release_info.json $HOME/
+docker cp ${CONTAINER_NAME}:/home/builder/xen-api/_build/install/default/jekyll/xenapi.json $HOME/
+docker cp ${CONTAINER_NAME}:/home/builder/xen-api/_build/install/default/jekyll/release_info.json $HOME/
 
 # Go to home and setup git
 cd $HOME
