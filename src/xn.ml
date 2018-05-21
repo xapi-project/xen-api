@@ -889,7 +889,13 @@ let vncviewer_binary =
 
 let unix_proxy path =
 	let unix = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-	Unix.connect unix (Unix.ADDR_UNIX path);
+	begin
+		try
+			Unix.connect unix (Unix.ADDR_UNIX path)
+		with e ->
+			Unix.close unix;
+			raise e
+	end;
 	let listen = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
 	Unix.bind listen (Unix.ADDR_INET(Unix.inet_addr_any, 0));
 	Unix.listen listen 5;
