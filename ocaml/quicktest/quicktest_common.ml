@@ -34,22 +34,6 @@ let http request f =
     else SSL(SSL.make ~use_fork_exec_helper:false (), !Quicktest_args.host, 443) in
   with_transport transport (with_http request f)
 
-let vm_template = "Demo Linux VM"
-let other = "Other install media"
-
-exception Unable_to_find_suitable_vm_template
-
-let find_template session_id startswith =
-  let vms = Client.VM.get_all !rpc session_id in
-  match List.filter (fun self ->
-      (String.startswith startswith (Client.VM.get_name_label !rpc session_id self))
-      && (Client.VM.get_is_a_template !rpc session_id self)
-    ) vms with
-  | [] -> raise Unable_to_find_suitable_vm_template
-  | x :: _ ->
-    (* Printf.printf "Choosing template with name: %s\n" (Client.VM.get_name_label !rpc session_id x); *)
-    x
-
 let cli_cmd args =
   print_endline (String.concat " " ("$ xe" :: args));
   try
@@ -64,35 +48,32 @@ let cli_cmd args =
   | e ->
     Alcotest.fail ("CLI failed" ^ (Printexc.to_string e))
 
-let vm_install session_id template name =
-  let newvm_uuid = cli_cmd [ "vm-install"; "template-uuid=" ^ template; "new-name-label=" ^ name ] in
-  Client.VM.get_by_uuid !rpc session_id newvm_uuid
+module VM = struct
+  module Template = struct
+    exception Unable_to_find_suitable_vm_template
 
-let template_uninstall test session_id vm =
-  let uuid = Client.VM.get_uuid !rpc session_id vm in
-  ignore(cli_cmd [ "template-uninstall"; "template-uuid=" ^ uuid; "--force" ])
+    let other = "Other install media"
 
-let install_vm session_id =
-  let t = find_template session_id vm_template in
-  let uuid = Client.VM.get_uuid !rpc session_id t in
-  print_endline (Printf.sprintf "Template has uuid: %s%!" uuid);
-  let vm = vm_install session_id uuid "quicktest" in
-  (* Prevent the guest startup blocking at the enter password stage *)
-  Client.VM.set_PV_args !rpc session_id vm "noninteractive";
-  vm
+    let find session_id startswith =
+      let vms = Client.VM.get_all !rpc session_id in
+      match List.filter (fun self ->
+          (String.startswith startswith (Client.VM.get_name_label !rpc session_id self))
+          && (Client.VM.get_is_a_template !rpc session_id self)
+        ) vms with
+      | [] -> raise Unable_to_find_suitable_vm_template
+      | x :: _ ->
+        Printf.printf "Choosing template with name: %s\n" (Client.VM.get_name_label !rpc session_id x);
+        x
+  end
 
-let find_guest_installer_network session_id =
-  let all = Client.Network.get_all_records !rpc session_id in
-  match List.filter (fun (_, r) -> List.mem_assoc Xapi_globs.is_guest_installer_network r.API.network_other_config) all with
-  | (rf, _) :: _ -> rf
-  | _ -> failwith "Could not find guest installer network"
+  let install session_id template name =
+    let newvm_uuid = cli_cmd [ "vm-install"; "template-uuid=" ^ template; "new-name-label=" ^ name ] in
+    Client.VM.get_by_uuid !rpc session_id newvm_uuid
 
-(** Return a host's domain zero *)
-let dom0_of_host session_id host =
-  Client.Host.get_control_domain !rpc session_id host
-
-let get_default_sr session_id =
-  Client.Pool.get_default_SR ~session_id ~rpc:!rpc ~self:(get_pool session_id)
+  (** Return a host's domain zero *)
+  let dom0_of_host session_id host =
+    Client.Host.get_control_domain !rpc session_id host
+end
 
 let assert_raises_match exception_match fn =
   try
@@ -117,7 +98,23 @@ let compare_fields cls fields original_rec new_rec =
     | `Different ->
       if new_field = original_field then
         Alcotest.failf
-          "%s field %s should should be different, but is the same: '%s'"
+          "%s field %s should be different, but is the same: '%s'"
           cls field_name new_field
   in
   List.iter check fields
+
+module Time = struct
+  type t = float
+
+  let now () = Unix.gettimeofday ()
+
+  let of_field = Xapi_stdext_date.Date.to_float
+
+  let pp t = Xapi_stdext_date.Date.of_float t |> Xapi_stdext_date.Date.to_string
+
+  let check t ~after ~before =
+    Alcotest.(check bool)
+      (Printf.sprintf "Time %s should be between %s and %s (+-1s)" (pp t) (pp before) (pp after))
+      true
+      (t > (after -. 1.0) && t < (before +. 1.0))
+end

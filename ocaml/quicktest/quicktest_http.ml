@@ -59,14 +59,6 @@ end
 
 module Secret_Auth_fails = struct (* {{{1 *)
 
-  let http request f =
-    let open Xmlrpc_client in
-    let transport =
-      if !Quicktest_args.using_unix_domain_socket
-      then Unix Xapi_globs.unix_domain_socket
-      else SSL(SSL.make ~use_fork_exec_helper:false (), !Quicktest_args.host, 443) in
-    with_transport transport (with_http request f)
-
   let invalid_pool_secret =
     Http.Request.make ~version:"1.0" ~cookie:["pool_secret", "whatever"]
       ~user_agent:"quicktest"

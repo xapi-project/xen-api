@@ -28,10 +28,10 @@ let vm_uninstall session_id vm =
 (** Create a small VM with a selection of CDs, empty drives, "iso" Disks etc *)
 let setup_export_test_vm session_id sr =
   print_endline "Setting up test VM";
-  let t = Quicktest_common.find_template session_id Quicktest_common.other in
+  let t = Quicktest_common.VM.Template.find session_id Quicktest_common.VM.Template.other in
   let uuid = Client.Client.VM.get_uuid !rpc session_id t in
   print_endline (Printf.sprintf "Template has uuid: %s%!" uuid);
-  let vm = Quicktest_common.vm_install session_id uuid "quicktest-export" in
+  let vm = Quicktest_common.VM.install session_id uuid "quicktest-export" in
   print_endline (Printf.sprintf "Installed new VM");
   let cd =
     let tools_iso_filter = "field \"is_tools_iso\"=\"true\"" in

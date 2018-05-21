@@ -134,9 +134,19 @@ let check_clone_snapshot_fields session_id original_vdi new_vdi =
   Storage_test.VDI.check_fields clone_snapshot_fields a b
 
 let check_vdi_snapshot session_id vdi =
-  let vdi' = Client.Client.VDI.snapshot ~rpc:!rpc ~session_id ~vdi ~driver_params:[] in
-  Storage_test.VDI.with_destroyed session_id vdi' (fun () ->
-      check_clone_snapshot_fields session_id vdi vdi')
+  let snapshot_start = Quicktest_common.Time.now () in
+  let snapshot_vdi = Client.Client.VDI.snapshot ~rpc:!rpc ~session_id ~vdi ~driver_params:[] in
+  Storage_test.VDI.with_destroyed session_id snapshot_vdi (fun () ->
+      let snapshot_finish = Quicktest_common.Time.now () in
+      let r = Client.Client.VDI.get_record ~rpc:!rpc ~session_id ~self:snapshot_vdi in
+      Quicktest_common.Time.(check (of_field r.API.vDI_snapshot_time)) ~after:snapshot_start ~before:snapshot_finish;
+      Alcotest.(check bool) "VDI.is_a_snapshot of must be true for snapshot VDI"
+        true r.API.vDI_is_a_snapshot;
+      Alcotest.(check bool) "VDI.snapshot_of must not be null for snapshot VDI"
+        true (r.API.vDI_snapshot_of <> API.Ref.null);
+      check_clone_snapshot_fields session_id vdi snapshot_vdi;
+      Storage_test.VDI.test_update session_id snapshot_vdi
+    )
 
 let test_vdi_snapshot session_id sr_info =
   Storage_test.VDI.with_any session_id sr_info
@@ -164,7 +174,7 @@ let vdi_snapshot_in_pool session_id sr_info =
       in
       let test_snapshot_on host =
         let name = Client.Client.Host.get_name_label !rpc session_id host in
-        let dom0 = Quicktest_common.dom0_of_host session_id host in
+        let dom0 = Quicktest_common.VM.dom0_of_host session_id host in
         let vbd = vbd_create_helper ~session_id ~vM:dom0 ~vDI:vdi () in
 
         print_endline (Printf.sprintf "Plugging in to host %s" name);
@@ -210,7 +220,7 @@ let vdi_create_destroy_plug_checksize session_id sr_info =
 
   let plug_in_check_size session_id host vdi =
     let size_should_be = Client.Client.VDI.get_virtual_size !rpc session_id vdi in
-    let dom0 = Quicktest_common.dom0_of_host session_id host in
+    let dom0 = Quicktest_common.VM.dom0_of_host session_id host in
     let vbd = vbd_create_helper ~session_id ~vM:dom0 ~vDI:vdi () in
     Client.Client.VBD.plug !rpc session_id vbd;
     Xapi_stdext_pervasives.Pervasiveext.finally
@@ -257,7 +267,7 @@ let vdi_general_test session_id sr_info =
       print_endline (Printf.sprintf "Time to create: %f%!" createtime);
       let pbd = List.hd (Client.Client.SR.get_PBDs !rpc session_id sr) in
       let host = Client.Client.PBD.get_host !rpc session_id pbd in
-      let dom0 = Quicktest_common.dom0_of_host session_id host in
+      let dom0 = Quicktest_common.VM.dom0_of_host session_id host in
       let device = List.hd (Client.Client.VM.get_allowed_VBD_devices !rpc session_id dom0) in
       print_endline (Printf.sprintf "Creating a VBD connecting the VDI to localhost%!");
       let vbd =
