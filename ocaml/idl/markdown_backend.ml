@@ -168,12 +168,7 @@ let markdown_section_of_message printer obj ~is_class_deprecated ~is_class_remov
 
     printer ("_Return Type:_" ^ (if is_event_from then " an event batch" else sprintf " `%s`" return_type));
     printer "";
-    let descr =
-      if is_event_from then
-        "A structure consisting of a token ('token'), a map of valid references per object type ('valid_ref_counts'), and a set of event records ('events')."
-      else
-        desc_of_ty_opt x.msg_result
-    in
+    let descr = desc_of_ty_opt x.msg_result in
     if descr <> ""  then
       (printer (escape descr);
       printer "")
