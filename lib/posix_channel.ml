@@ -190,8 +190,14 @@ let receive protocols =
   | V4V_proxy(_, _) -> assert false (* weight is 0 above *)
   | TCP_proxy(ip, port) ->
     let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-    Unix.connect s (Unix.ADDR_INET(Unix.inet_addr_of_string ip, port));
-    s
+    begin
+      try
+        Unix.connect s (Unix.ADDR_INET(Unix.inet_addr_of_string ip, port));
+        s
+      with e ->
+        Unix.close s;
+        raise e
+    end
   | Unix_sendmsg(_, path, token) ->
     let s = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
     finally
