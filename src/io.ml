@@ -37,8 +37,12 @@ let write fd buf =
 let connect host port =
 	let sockaddr = Unix.ADDR_INET (host, port) in
 	let fd = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-	Unix.connect fd sockaddr;
-	fd
+	try
+		Unix.connect fd sockaddr;
+		fd
+	with e ->
+		Unix.close fd;
+		raise e
 
 (** Write an integer to an fd as 4 bytes, most significant first *)
 let write_int fd x = 
