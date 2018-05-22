@@ -127,7 +127,7 @@ let event_loop_start ctx =
       (* if the poll was interrupted by an fd update, clear the signal *)
       if interrupt <> [] then begin
         debug "EVENTLOOP: poll interrupted for update";
-        let buf = String.create 32 in
+        let buf = Bytes.create 32 in
         ignore (Unix.read interrupt_in buf 0 32)
       end
     end
@@ -144,7 +144,7 @@ let event_loop_init ctx =
         fds := (token, fd, events, for_libxl) :: !fds;
         token
       ) in
-    ignore (Unix.write interrupt_out "r" 0 1);
+    ignore (Unix.write interrupt_out (Bytes.of_string "r") 0 1);
     token
   in
   let fd_modify _ fd token events =
@@ -155,13 +155,13 @@ let event_loop_init ctx =
       | hd :: tl -> hd :: replace tl
     in
     Mutex.execute fds_m (fun () -> fds := replace !fds);
-    ignore (Unix.write interrupt_out "m" 0 1);
+    ignore (Unix.write interrupt_out (Bytes.of_string "m") 0 1);
     token
   in
   let fd_deregister _ fd token =
     debug "EVENTREG: deregistering fd, token = %s" token;
     Mutex.execute fds_m (fun () -> fds := List.filter (fun (_, fd', _, _) -> fd <> fd') !fds);
-    ignore (Unix.write interrupt_out "d" 0 1)
+    ignore (Unix.write interrupt_out (Bytes.of_string "d") 0 1)
   in
   let timeout_register _ s us for_libxl =
     let token = Mutex.execute timeouts_m (fun () ->
@@ -171,7 +171,7 @@ let event_loop_init ctx =
         timeouts := (token, s, us, for_libxl) :: !timeouts;
         token
       ) in
-    ignore (Unix.write interrupt_out "t" 0 1);
+    ignore (Unix.write interrupt_out (Bytes.of_string "t") 0 1);
     token
   in
   let timeout_fire_now _ token =
@@ -189,7 +189,7 @@ let event_loop_init ctx =
           error "EVENTREG: cannot find timeout entry for token %s" token;
           failwith "invalid token"
       );
-    ignore (Unix.write interrupt_out "t" 0 1);
+    ignore (Unix.write interrupt_out (Bytes.of_string "t") 0 1);
     token
   in
   debug "EVENTREG: Registering event hooks";
