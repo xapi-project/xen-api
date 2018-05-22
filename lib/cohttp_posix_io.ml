@@ -43,18 +43,18 @@ module Unbuffered_IO = struct
   let read_http_headers fd =
     let buf = Buffer.create 128 in
     (* We can safely read everything up to this marker: *)
-    let end_of_headers = "\r\n\r\n" in
-    let tmp = String.make (String.length end_of_headers) '\000' in
+    let end_of_headers = (Bytes.of_string "\r\n\r\n") in
+    let tmp = Bytes.make (Bytes.length end_of_headers) '\000' in
     let module Scanner = struct
       type t = {
-        marker: string;
+        marker: bytes;
         mutable i: int;
       }
       let make x = { marker = x; i = 0 }
       let input x c =
-        if c = x.marker.[x.i] then x.i <- x.i + 1 else x.i <- 0
-      let remaining x = String.length x.marker - x.i
-      let matched x = x.i = String.length x.marker
+        if c = Bytes.get x.marker x.i then x.i <- x.i + 1 else x.i <- 0
+      let remaining x = Bytes.length x.marker - x.i
+      let matched x = x.i = Bytes.length x.marker
     end in
     let marker = Scanner.make end_of_headers in
 
@@ -68,8 +68,8 @@ module Unbuffered_IO = struct
       if n = 0 then raise End_of_file;
 
       for j = 0 to n - 1 do
-        Scanner.input marker tmp.[j];
-        Buffer.add_char buf tmp.[j]
+        Scanner.input marker (Bytes.get tmp j);
+        Buffer.add_char buf (Bytes.get tmp j)
       done;
     done;
     Buffer.contents buf
@@ -110,13 +110,15 @@ module Unbuffered_IO = struct
     | false -> return None
 
   let read ic n =
-    let buf = String.make n '\000' in
+    let buf = Bytes.make n '\000' in
     let actually_read = Unix.read ic.fd buf 0 n in
     if actually_read = n
-    then buf
-    else String.sub buf 0 actually_read
+    then Bytes.unsafe_to_string buf
+    else Bytes.sub_string buf 0 actually_read
 
-  let write oc x = ignore(Unix.write oc x 0 (String.length x))
+  let write oc x =
+    Unix.write oc (Bytes.unsafe_of_string x) 0 (String.length x)
+    |> ignore
 
   let flush _oc = ()
 end
@@ -152,11 +154,11 @@ module Buffered_IO = struct
     | false -> return None
 
   let read ic n =
-    let buf = String.make n '\000' in
+    let buf = Bytes.make n '\000' in
     let actually_read = input ic buf 0 n in
     if actually_read = n
-    then buf
-    else String.sub buf 0 actually_read
+    then Bytes.unsafe_to_string buf
+    else Bytes.sub_string buf 0 actually_read
 
   let write oc x = output_string oc x; flush oc
 
