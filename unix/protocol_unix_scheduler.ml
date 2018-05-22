@@ -29,7 +29,6 @@ module Mutex = struct
     lock m;
     finally' f (fun () -> unlock m)
 end
-let ( |> ) a b = b a
 
 module Int64Map = Map.Make(struct type t = int64 let compare = compare end)
 
@@ -92,7 +91,7 @@ module Delay = struct
     Mutex.execute x.m
       (fun () ->
          match x.pipe_in with
-         | Some fd -> ignore(Unix.write fd "X" 0 1)
+         | Some fd -> ignore(Unix.write fd (Bytes.of_string "X") 0 1)
          | None -> x.signalled <- true 	 (* If the wait hasn't happened yet then store up the signal *)
       )
 end
