@@ -43,18 +43,18 @@ module Unbuffered_IO = struct
   let read_http_headers fd =
     let buf = Buffer.create 128 in
     (* We can safely read everything up to this marker: *)
-    let end_of_headers = (Bytes.of_string "\r\n\r\n") in
-    let tmp = Bytes.make (Bytes.length end_of_headers) '\000' in
+    let end_of_headers = "\r\n\r\n" in
+    let tmp = Bytes.make (String.length end_of_headers) '\000' in
     let module Scanner = struct
       type t = {
-        marker: bytes;
+        marker: string;
         mutable i: int;
       }
       let make x = { marker = x; i = 0 }
       let input x c =
-        if c = Bytes.get x.marker x.i then x.i <- x.i + 1 else x.i <- 0
-      let remaining x = Bytes.length x.marker - x.i
-      let matched x = x.i = Bytes.length x.marker
+        if c = String.get x.marker x.i then x.i <- x.i + 1 else x.i <- 0
+      let remaining x = String.length x.marker - x.i
+      let matched x = x.i = String.length x.marker
     end in
     let marker = Scanner.make end_of_headers in
 
