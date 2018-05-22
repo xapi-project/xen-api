@@ -963,7 +963,9 @@ module PIF = struct
     ~params: [ Ref _pif, "self", "Reference to the object"
              ; Bool, "value", "New value to set" ]
     ~allowed_roles:_R_POOL_OP
-    ~errs:[Api_errors.clustering_enabled_on_network]
+    ~errs:Api_errors.([ other_operation_in_progress
+                      ; clustering_enabled
+                      ])
     ()
 
   let ip_configuration_mode = Enum ("ip_configuration_mode",
@@ -983,7 +985,7 @@ module PIF = struct
               ]
       ~in_product_since:rel_miami
       ~allowed_roles:_R_POOL_OP
-      ~errs:[Api_errors.clustering_enabled_on_network]
+      ~errs:Api_errors.([ clustering_enabled ])
       ()
 
   let ipv6_configuration_mode = Enum ("ipv6_configuration_mode",
@@ -1003,7 +1005,7 @@ module PIF = struct
               ]
       ~lifecycle:[Prototyped, rel_tampa, ""]
       ~allowed_roles:_R_POOL_OP
-      ~errs:[Api_errors.clustering_enabled_on_network]
+      ~errs:Api_errors.([ clustering_enabled ])
       ()
 
   let primary_address_type = Enum ("primary_address_type",
@@ -1051,8 +1053,9 @@ module PIF = struct
       ~params:[Ref _pif, "self", "The PIF object to destroy"]
       ~in_product_since:rel_miami
       ~allowed_roles:_R_POOL_OP
-      ~errs:[ Api_errors.pif_tunnel_still_exists
-            ; Api_errors.clustering_enabled_on_network]
+      ~errs:Api_errors.([ pif_tunnel_still_exists
+                        ; clustering_enabled
+                        ])
       ()
 
   let pool_introduce_params first_rel =

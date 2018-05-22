@@ -386,10 +386,59 @@ let test_assert_no_clustering_on_pif () =
   assert_no_clustering_on self
     "assert_no_clustering_on_pif with clustering disabled"
 
+let test_disallow_unplug_during_cluster_host_create () =
+  let __context = T.make_test_database () in
+  let host, network, pIF = make_host_network_pif ~__context in
+  let cluster, cluster_host =
+    T.make_cluster_and_cluster_host ~__context ~pIF ~host ()
+  in
+  let add_op value =
+    let key = Context.get_task_id __context |> Ref.string_of in
+    Db.Cluster.add_to_current_operations ~__context ~self:cluster ~key ~value
+  in
+  let check_disallow_unplug_false_fails self msg =
+    Alcotest.check_raises msg
+      Api_errors.(Server_error (other_operation_in_progress,
+        [ "Cluster" ; Ref.string_of cluster  ]))
+      (fun () -> Xapi_pif.set_disallow_unplug ~__context ~self ~value:false)
+  in
+  let check_successful_disallow_unplug value self msg =
+    Alcotest.(check unit) msg
+      () (Xapi_pif.set_disallow_unplug ~__context ~self ~value)
+  in
+  Db.Cluster_host.set_enabled ~__context ~self:cluster_host ~value:false;
+
+  let test_with_current op =
+    Xapi_pif.set_disallow_unplug ~__context ~self:pIF ~value:true;
+    add_op op;
+
+    check_disallow_unplug_false_fails pIF
+      "disallow_unplug cannot be set to false during cluster_host creation or enable on same PIF";
+
+    let other_pif = T.make_pif ~__context ~network ~host () in
+    check_successful_disallow_unplug true other_pif
+      "Should always be able to set disallow_unplug:true regardless of clustering operations";
+    check_disallow_unplug_false_fails other_pif
+      "disallow_unplug cannot be set to false during cluster_host creation or enable on any PIF";
+
+    let key = Context.get_task_id __context |> Ref.string_of in
+    Db.Cluster.remove_from_current_operations ~__context ~self:cluster ~key
+  in
+  (* Should block setting disallow_unplug false for any PIF during Cluster_host create or enable *)
+  List.iter test_with_current [`add; `enable];
+
+  List.iter
+    (fun self ->
+      check_successful_disallow_unplug false self
+        "No current clustering operations or enabled cluster hosts on PIF"
+    ) (Db.PIF.get_all ~__context)
+
+
 let test_networking_with_clustering =
   [ "test_disallow_unplug_no_clustering", `Quick, test_disallow_unplug_no_clustering
   ; "test_disallow_unplug_with_clustering", `Quick, test_disallow_unplug_with_clustering
   ; "test_assert_no_clustering_on_pif", `Quick, test_assert_no_clustering_on_pif
+  ; "test_disallow_unplug_during_cluster_host_create", `Quick, test_disallow_unplug_during_cluster_host_create
   ]
 
 let default = !Xapi_globs.cluster_stack_default
