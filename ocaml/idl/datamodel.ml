@@ -2016,7 +2016,7 @@ module SR = struct
       ~flags:[`Session]
       ~doc:"Sets the SR's virtual_allocation field"
       ~hide_from_docs:true
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 
   let set_physical_size = call
@@ -2039,7 +2039,7 @@ module SR = struct
                Int, "value", "The new value of the SR's physical utilisation"]
       ~doc:"Sets the SR's physical_utilisation field"
       ~hide_from_docs:true
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 
   let update = call
@@ -2374,7 +2374,7 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN
       ()
 
-  let db_introduce = { pool_introduce with msg_name = "db_introduce"; msg_hide_from_docs = true }
+  let db_introduce = { pool_introduce with msg_name = "db_introduce"; msg_hide_from_docs = true; msg_allowed_roles = _R_LOCAL_ROOT_ONLY }
 
   let db_forget = call
       ~name:"db_forget"
@@ -2383,7 +2383,7 @@ module VDI = struct
       ~doc:"Removes a VDI record from the database"
       ~hide_from_docs:true
       ~in_product_since:rel_miami
-      ~allowed_roles:_R_VM_ADMIN
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 
   let introduce = call
@@ -2457,7 +2457,7 @@ module VDI = struct
       ~doc:"Sets the VDI's missing field"
       ~hide_from_docs:true
       ~flags:[`Session]
-      ~allowed_roles:_R_VM_ADMIN
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 
   let set_read_only = call
@@ -2491,7 +2491,7 @@ module VDI = struct
       ~flags:[`Session]
       ~doc:"Sets the VDI's managed field"
       ~hide_from_docs:true
-      ~allowed_roles:_R_VM_ADMIN
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 
   let set_virtual_size = call
@@ -2503,7 +2503,7 @@ module VDI = struct
       ~flags:[`Session]
       ~doc:"Sets the VDI's virtual_size field"
       ~hide_from_docs:true
-      ~allowed_roles:_R_VM_ADMIN
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 
   let set_physical_utilisation = call
@@ -2515,7 +2515,7 @@ module VDI = struct
       ~flags:[`Session]
       ~doc:"Sets the VDI's physical_utilisation field"
       ~hide_from_docs:true
-      ~allowed_roles:_R_VM_ADMIN
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 
   let set_is_a_snapshot = call
@@ -2527,7 +2527,7 @@ module VDI = struct
       ~flags:[`Session]
       ~doc:"Sets whether this VDI is a snapshot"
       ~hide_from_docs:true
-      ~allowed_roles:_R_VM_ADMIN
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 
   let set_snapshot_of = call
@@ -2539,7 +2539,7 @@ module VDI = struct
       ~flags:[`Session]
       ~doc:"Sets the VDI of which this VDI is a snapshot"
       ~hide_from_docs:true
-      ~allowed_roles:_R_VM_ADMIN
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 
   let set_snapshot_time = call
@@ -2551,7 +2551,7 @@ module VDI = struct
       ~flags:[`Session]
       ~doc:"Sets the snapshot time of this VDI."
       ~hide_from_docs:true
-      ~allowed_roles:_R_VM_ADMIN
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 
   let set_metadata_of_pool = call
@@ -2563,7 +2563,7 @@ module VDI = struct
       ~flags:[`Session]
       ~doc:"Records the pool whose metadata is contained by this VDI."
       ~hide_from_docs:true
-      ~allowed_roles:_R_VM_ADMIN
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 
   (** An API call for debugging and testing only *)
