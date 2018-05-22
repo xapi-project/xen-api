@@ -107,7 +107,7 @@ let run_watchdog timeout (fire_fn : unit -> unit) f (pout,pin) =
       | _,_,_ ->
         fire_fn ();
         fired := Some true) () in
-  let cancel_watchdog () = let _x : int = Unix.write pin "x" 0 1 in () in
+  let cancel_watchdog () = let _x : int = Unix.write pin (Bytes.of_string "x") 0 1 in () in
   let get_fired () = Thread.join th; !fired in
   f cancel_watchdog get_fired
 
