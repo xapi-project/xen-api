@@ -90,7 +90,7 @@ module File_helpers = struct
     let rec fold acc = 
       let n = Unix.read fd block 0 block_size in
       (* Consider making the interface explicitly use Substrings *)
-      let s = if n = block_size then block else String.sub block 0 n in
+      let s = if n = block_size then (Bytes.to_string block) else Bytes.sub_string block 0 n in
       if n = 0 then acc else fold (f acc s) in
     fold start
 
