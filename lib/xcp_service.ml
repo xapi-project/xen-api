@@ -495,7 +495,7 @@ let pidfile_write filename =
 		let pid = Unix.getpid () in
 		let buf =
 			string_of_int pid ^ "\n" 
-			|> Bytes.unsafe_of_string
+			|> Bytes.of_string
 		in
 		let len = Bytes.length buf in
 		if Unix.write fd buf 0 len <> len
