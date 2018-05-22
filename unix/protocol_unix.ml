@@ -65,11 +65,11 @@ module IO = struct
       | false -> return None
 
     let read ic n =
-      let buf = String.make n '\000' in
+      let buf = Bytes.make n '\000' in
       let actually_read = input ic buf 0 n in
       if actually_read = n
-      then buf
-      else String.sub buf 0 actually_read
+      then Bytes.unsafe_to_string buf
+      else Bytes.sub_string buf 0 actually_read
 
     let write oc x =
       output_string oc x; flush oc

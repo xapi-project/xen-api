@@ -103,7 +103,7 @@ let make_server config =
       (fun fd ->
         let oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
         let n = String.length txt in
-        Lwt_io.write_from_exactly oc txt 0 n
+        Lwt_io.write_from_exactly oc (Bytes.unsafe_of_string txt) 0 n
         >>= fun () ->
         Lwt_io.flush oc
       )
@@ -114,14 +114,18 @@ let make_server config =
     let final_path = Filename.concat statedir _dump_file in
     Lwt_unix.stat final_path
     >>= fun stats ->
-    let txt = String.make stats.Unix.st_size '\000' in
+    let txt = Bytes.make stats.Unix.st_size '\000' in
     with_file final_path [ Unix.O_RDONLY ] 0o600
       (fun fd ->
         let ic = Lwt_io.of_fd ~mode:Lwt_io.input fd in
         Lwt_io.read_into_exactly ic txt 0 stats.Unix.st_size
       )
     >>= fun () ->
-    return (Q.queues_of_sexp (Sexplib.Sexp.of_string txt)) in
+      Bytes.unsafe_to_string txt
+      |> Sexplib.Sexp.of_string
+      |> Q.queues_of_sexp
+      |> return
+    in
 
   let module Redo_log = Shared_block.Journal.Make(Logging.Lwt_logger)(Block)(Time)(Clock)(Q.Op) in
 
@@ -155,7 +159,7 @@ let make_server config =
         Lwt_unix.openfile redo_log_path [ Lwt_unix.O_CREAT; Lwt_unix.O_WRONLY; Lwt_unix.O_TRUNC ] 0o0666
         >>= fun fd ->
         Lwt_unix.lseek fd (redo_log_size - 1) Lwt_unix.SEEK_CUR >>= fun _ ->
-        let byte = String.make 1 '\000' in
+        let byte = Bytes.make 1 '\000' in
         Lwt_unix.write fd byte 0 1
         >>= fun n ->
         if n <> 1 then begin
