@@ -1979,9 +1979,6 @@ module Backend = struct
       (** [stop xenstore qemu_domid domid] stops a domain *)
       val stop: xs:Xenstore.Xs.xsh -> qemu_domid:int -> int -> unit
 
-      (** [with_dirty_log domid f] executes f in a context where the dirty log is enabled *)
-      val with_dirty_log: int -> f:(unit -> 'a) -> 'a
-
       (** [cmdline_of_info xenstore info restore domid] creates the command line arguments to pass to the qemu wrapper script *)
       val qemu_args: xs:Xenstore.Xs.xsh -> dm:Profile.t -> Dm_Common.info
         -> bool -> int -> Dm_Common.qemu_args
@@ -2037,8 +2034,6 @@ module Backend = struct
         | Some qemu_pid ->
           Generic.best_effort "removing core files from /var/xen/qemu"
             (fun () -> Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)))
-
-      let with_dirty_log domid ~f = f()
 
       let qemu_args ~xs ~dm info restore domid =
         let common = Dm_Common.qemu_args ~xs ~dm info restore domid in
@@ -2390,16 +2385,6 @@ module Backend = struct
         Generic.best_effort (Printf.sprintf "removing %s" path)
           (fun () -> Xenops_utils.FileFS.rmtree path)
 
-      let with_dirty_log domid ~f =
-        finally
-          (fun() ->
-             qmp_send_cmd domid Qmp.(Xen_set_global_dirty_log true) |> ignore;
-             f()
-          )
-          (fun() ->
-             qmp_send_cmd domid Qmp.(Xen_set_global_dirty_log false) |> ignore
-          )
-
       let tap_open ifname =
         let uuid = Uuidm.to_string (Uuidm.create `V4) in
         let fd   = Tuntap.tap_open ifname in
@@ -2652,10 +2637,6 @@ module Dm = struct
   let stop ~xs ~qemu_domid ~dm domid =
     let module Q = (val Backend.of_profile dm) in
     Q.Dm.stop ~xs ~qemu_domid domid
-
-  let with_dirty_log dm domid ~f =
-    let module Q = (val Backend.of_profile dm) in
-    Q.Dm.with_dirty_log domid ~f
 
   let qemu_args ~xs ~dm info restore domid =
     let module Q = (val Backend.of_profile dm) in

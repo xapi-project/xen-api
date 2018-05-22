@@ -1195,7 +1195,7 @@ type suspend_flag = Live | Debug
       manager_path domid fd vgpu_fd
 *)
 
-  let suspend_emu_manager' ~(task: Xenops_task.task_handle) ~xc ~xs ~domain_type ~dm ~manager_path ~domid
+  let suspend_emu_manager ~(task: Xenops_task.task_handle) ~xc ~xs ~domain_type ~dm ~manager_path ~domid
       ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback =
     let open Suspend_image in let open Suspend_image.M in
     let open Emu_manager in
@@ -1310,13 +1310,6 @@ type suspend_flag = Live | Debug
             `Error (Emu_manager_protocol_failure)
         in
         wait_for_message ()
-      )
-
-  let suspend_emu_manager ~(task: Xenops_task.task_handle) ~xc ~xs ~domain_type ~dm ~manager_path ~domid
-      ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback =
-    Device.Dm.with_dirty_log dm domid ~f:(fun () ->
-        suspend_emu_manager' ~task ~xc ~xs ~domain_type ~dm ~manager_path ~domid
-          ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback
       )
 
   let write_qemu_record domid uuid fd =
