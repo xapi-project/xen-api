@@ -245,11 +245,11 @@ module Unixext = struct
   (** [fd_blocks_fold block_size f start fd] folds [f] over blocks (strings)
       		from the fd [fd] with initial value [start] *)
   let fd_blocks_fold block_size f start fd = 
-    let block = String.create block_size in
-    let rec fold acc = 
+    let block = Bytes.create block_size in
+    let rec fold acc =
       let n = Unix.read fd block 0 block_size in
       (* Consider making the interface explicitly use Substrings *)
-      let s = if n = block_size then block else String.sub block 0 n in
+      let s = if n = block_size then Bytes.to_string block else Bytes.sub_string block 0 n in
       if n = 0 then acc else fold (f acc s) in
     fold start
 
@@ -290,7 +290,7 @@ module Unixext = struct
   let write_string_to_file fname s =
     atomic_write_to_file fname 0o644 (fun fd ->
         let len = String.length s in
-        let written = Unix.write fd s 0 len in
+        let written = Unix.write fd (Bytes.unsafe_of_string s) 0 len in
         if written <> len then (failwith "Short write occured!"))
 
   exception Process_still_alive
@@ -332,8 +332,8 @@ module Unixext = struct
     )
 
   let copy_file_internal ?limit reader writer =
-    let buffer = String.make 65536 '\000' in
-    let buffer_len = Int64.of_int (String.length buffer) in
+    let buffer = Bytes.make 65536 '\000' in
+    let buffer_len = Int64.of_int (Bytes.length buffer) in
     let finished = ref false in
     let total_bytes = ref 0L in
     let limit = ref limit in

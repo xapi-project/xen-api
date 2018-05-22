@@ -42,24 +42,24 @@ module Handshake = struct
 
   (** Receive a 'result' from the remote *)
   let recv ?verbose:(verbose=false) (s: Unix.file_descr) : result =
-    let buf = String.make 2 '\000' in
+    let buf = Bytes.make 2 '\000' in
     if verbose then debug "Handshake.recv: about to read result code from remote.";
     (try
-       really_read s buf 0 (String.length buf)
+       really_read s buf 0 (Bytes.length buf)
      with _ ->
        raise (Remote_failed "unmarshalling result code from remote"));
     if verbose then debug "Handshake.recv: finished reading result code from remote.";
-    let len = int_of_char buf.[0] lsl 8 lor (int_of_char buf.[1]) in
+    let len = int_of_char (Bytes.get buf 0) lsl 8 lor (int_of_char @@ Bytes.get buf 1) in
     if len = 0
     then Success
     else begin
-      let msg = String.make len '\000' in
+      let msg = Bytes.make len '\000' in
       if verbose then debug "Handshake.recv: about to read error message from remote.";
       (try really_read s msg 0 len
        with _ ->
          raise (Remote_failed "unmarshalling error message from remote"));
       if verbose then debug "Handshake.recv: finished reading error message from remote.";
-      Error msg
+      Error (Bytes.unsafe_to_string msg)
     end
 
   (** Expects to receive a success code from the server, throws an exception otherwise *)
@@ -72,9 +72,9 @@ module Handshake = struct
     let len = match r with
       | Success -> 0
       | Error msg -> String.length msg in
-    let buf = String.make (2 + len) '\000' in
-    buf.[0] <- char_of_int ((len lsr 8) land 0xff);
-    buf.[1] <- char_of_int ((len lsr 0) land 0xff);
+    let buf = Bytes.make (2 + len) '\000' in
+    Bytes.set buf 0 @@ char_of_int ((len lsr 8) land 0xff);
+    Bytes.set buf 1 @@ char_of_int ((len lsr 0) land 0xff);
     (match r with
      | Success -> ()
      | Error msg -> String.blit msg 0 buf 2 len);

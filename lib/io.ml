@@ -16,7 +16,7 @@ let (|||) a b = Int64.logor a b
 
 (* read size bytes and return the completed buffer *)
 let read fd size =
-  let buf = String.create size in
+  let buf = Bytes.create size in
   let i = ref size in
   while !i <> 0
   do
@@ -28,7 +28,7 @@ let read fd size =
 
 (** write a buf to fd *)
 let write fd buf =
-  let len = String.length buf in
+  let len = Bytes.length buf in
   let i = ref len in
   while !i <> 0
   do
@@ -52,27 +52,27 @@ let byte_order_of_int64 ~endianness =
   | `little -> 7, 6, 5, 4, 3, 2, 1, 0
 
 let marshall_int ~endianness x =
-  let buffer = "\000\000\000\000" in
+  let buffer = Bytes.of_string "\000\000\000\000" in
   let a, b, c, d = byte_order_of_int ~endianness in
-  buffer.[a] <- char_of_int ((x lsr 24) land 0xff);
-  buffer.[b] <- char_of_int ((x lsr 16) land 0xff);
-  buffer.[c] <- char_of_int ((x lsr 8) land 0xff);
-  buffer.[d] <- char_of_int ((x lsr 0) land 0xff);
+  Bytes.set buffer a @@ char_of_int ((x lsr 24) land 0xff);
+  Bytes.set buffer b @@ char_of_int ((x lsr 16) land 0xff);
+  Bytes.set buffer c @@ char_of_int ((x lsr 8) land 0xff);
+  Bytes.set buffer d @@ char_of_int ((x lsr 0) land 0xff);
   buffer
 
 let write_int ~endianness fd x = write fd (marshall_int ~endianness x)
 
 let marshall_int64 ~endianness x =
-  let buffer = "\000\000\000\000\000\000\000\000" in
+  let buffer = Bytes.of_string "\000\000\000\000\000\000\000\000" in
   let a, b, c, d, e, f, g, h = byte_order_of_int64 ~endianness in
-  buffer.[a] <- char_of_int Int64.(to_int (logand (shift_right_logical x 56) 0xffL));
-  buffer.[b] <- char_of_int Int64.(to_int (logand (shift_right_logical x 48) 0xffL));
-  buffer.[c] <- char_of_int Int64.(to_int (logand (shift_right_logical x 40) 0xffL));
-  buffer.[d] <- char_of_int Int64.(to_int (logand (shift_right_logical x 32) 0xffL));
-  buffer.[e] <- char_of_int Int64.(to_int (logand (shift_right_logical x 24) 0xffL));
-  buffer.[f] <- char_of_int Int64.(to_int (logand (shift_right_logical x 16) 0xffL));
-  buffer.[g] <- char_of_int Int64.(to_int (logand (shift_right_logical x 8) 0xffL));
-  buffer.[h] <- char_of_int Int64.(to_int (logand (shift_right_logical x 0) 0xffL));
+  Bytes.set buffer a @@ char_of_int Int64.(to_int (logand (shift_right_logical x 56) 0xffL));
+  Bytes.set buffer b @@ char_of_int Int64.(to_int (logand (shift_right_logical x 48) 0xffL));
+  Bytes.set buffer c @@ char_of_int Int64.(to_int (logand (shift_right_logical x 40) 0xffL));
+  Bytes.set buffer d @@ char_of_int Int64.(to_int (logand (shift_right_logical x 32) 0xffL));
+  Bytes.set buffer e @@ char_of_int Int64.(to_int (logand (shift_right_logical x 24) 0xffL));
+  Bytes.set buffer f @@ char_of_int Int64.(to_int (logand (shift_right_logical x 16) 0xffL));
+  Bytes.set buffer g @@ char_of_int Int64.(to_int (logand (shift_right_logical x 8) 0xffL));
+  Bytes.set buffer h @@ char_of_int Int64.(to_int (logand (shift_right_logical x 0) 0xffL));
   buffer
 
 let write_int64 ~endianness fd x =
@@ -80,10 +80,10 @@ let write_int64 ~endianness fd x =
 
 let unmarshall_int ~endianness buffer =
   let a, b, c, d = byte_order_of_int ~endianness in
-  let a = int_of_char buffer.[a]
-  and b = int_of_char buffer.[b]
-  and c = int_of_char buffer.[c]
-  and d = int_of_char buffer.[d] in
+  let a = int_of_char (Bytes.get buffer a)
+  and b = int_of_char (Bytes.get buffer b)
+  and c = int_of_char (Bytes.get buffer c)
+  and d = int_of_char (Bytes.get buffer d) in
   (a lsl 24) lor (b lsl 16) lor (c lsl 8) lor d
 
 let read_int ~endianness fd =
@@ -91,15 +91,16 @@ let read_int ~endianness fd =
   unmarshall_int ~endianness buffer
 
 let unmarshall_int64 ~endianness buffer =
+  let char_to_int64 x = Int64.of_int (int_of_char (Bytes.get buffer x)) in
   let a, b, c, d, e, f, g, h = byte_order_of_int64 ~endianness in
-  let a = Int64.of_int (int_of_char buffer.[a])
-  and b = Int64.of_int (int_of_char buffer.[b])
-  and c = Int64.of_int (int_of_char buffer.[c])
-  and d = Int64.of_int (int_of_char buffer.[d])
-  and e = Int64.of_int (int_of_char buffer.[e])
-  and f = Int64.of_int (int_of_char buffer.[f])
-  and g = Int64.of_int (int_of_char buffer.[g])
-  and h = Int64.of_int (int_of_char buffer.[h]) in
+  let a = char_to_int64 a
+  and b = char_to_int64 b
+  and c = char_to_int64 c
+  and d = char_to_int64 d
+  and e = char_to_int64 e
+  and f = char_to_int64 f
+  and g = char_to_int64 g
+  and h = char_to_int64 h in
   Int64.((shift_left a 56) ||| (shift_left b 48) ||| (shift_left c 40) ||| (shift_left d 32) ||| (shift_left e 24) ||| (shift_left f 16) ||| (shift_left g 8) ||| h)
 
 let read_int64 ~endianness fd =
