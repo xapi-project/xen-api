@@ -261,7 +261,7 @@ let print_enum printer = function
   | _ -> ()
 
 let error_doc printer { err_name=name; err_params=params; err_doc=doc } =
-  printer (sprintf "#### %s" (escape name));
+  printer (sprintf "### %s" (escape name));
   printer "";
   printer (escape doc);
   printer "";
@@ -269,21 +269,23 @@ let error_doc printer { err_name=name; err_params=params; err_doc=doc } =
     printer "No parameters."
   else begin
     printer "_Signature:_";
+    printer "";
     printer "```";
     printer (sprintf "%s(%s)" name (String.concat ", " params));
     printer "```"
   end;
   printer ""
 
-let print_all printer api =
+let print_classes api io =
+  let printer text = fprintf io "%s\n" text in
   (* Remove private messages that are only used internally (e.g. get_record_internal) *)
   let api = Dm_api.filter (fun _ -> true) (fun _ -> true)
       (fun msg -> match msg.msg_tag with (FromObject (Private _)) -> false | _ -> true) api in
   let system = objects_of_api api |> List.sort (fun x y -> compare_case_ins x.name y.name) in
   let relations = relations_of_api api in
 
-  printer "
-# API Reference
+  printer
+  "# API Reference - Types and Classes
 
 ## Classes
 
@@ -356,10 +358,12 @@ The following enumeration types are used:
     | _ -> compare x y
   in
   Types.of_objects system |> List.sort type_comparer |> List.iter (print_enum printer);
-  List.iter (fun x -> of_obj printer x) system;
+  List.iter (fun x -> of_obj printer x) system
 
-    printer "
-## Error Handling
+let print_errors io =
+  let printer text = fprintf io "%s\n" text in
+    printer
+    "# API Reference - Error Handling
 
 When a low-level transport error occurs, or a request is malformed at the HTTP
 or RPC level, the server may send an HTTP 500 error response, or the client
@@ -473,7 +477,7 @@ Finally, when using the JSON-RPC protocol v1.0:
 
 Each possible error code is documented in the following section.
 
-### Error Codes
+## Error Codes
 ";
 
   (* Sort the errors alphabetically, then generate one section per code. *)
@@ -488,10 +492,12 @@ Each possible error code is documented in the following section.
 let all api destdir =
   Xapi_stdext_unix.Unixext.mkdir_rec destdir 0o755;
 
-  let out_chan = open_out (Filename.concat destdir "api-ref-autogen.md") in
-  let printer text =
-    fprintf out_chan "%s" text;
-    fprintf out_chan "\n"
+  let with_file filename f =
+    let io = open_out (Filename.concat destdir filename)  in
+    finally
+      (fun () -> f io)
+      (fun () -> close_out io)
   in
-  finally (fun () -> print_all printer api)
-          (fun () -> close_out out_chan)
+
+  with_file "api-ref-autogen.md" (print_classes api);
+  with_file "api-ref-autogen-errors.md" print_errors
