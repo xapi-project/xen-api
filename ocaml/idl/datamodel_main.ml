@@ -25,15 +25,13 @@ let _ =
   and dtd_mode = ref false
   and closed = ref false (* shows release_closed *)
   and all = ref false (* shows release_impl as well *)
-  and dirname = ref ""
-  and templdir = ref "" in
+  and dirname = ref "" in
 
   Arg.parse [ "-dot", Arg.Set dot_mode, "output dot graph";
               "-markdown", Arg.Set markdown_mode, "output markdown document";
               "-dtd", Arg.Set dtd_mode, "output XML DTD";
               "-closed", Arg.Set closed, "output all OSS + closed API functions but not including internal ones";
               "-all", Arg.Set all, "output all API functions, including internal ones";
-              "-templdir", Arg.Set_string templdir, "the directory with the template (mustache) files";
             ]
     (fun x -> dirname := x)
     "compile XenSource API datamodel specification";
@@ -69,7 +67,7 @@ let _ =
   let api = filter (fun _ -> true) (fun f -> not f.internal_only) (fun m -> not m.msg_hide_from_docs) api in
 
   if (!markdown_mode) then
-    Markdown_backend.all api !templdir !dirname;
+    Markdown_backend.all api !dirname;
 
   if !dirname <> "" then Unix.chdir !dirname;
   if !dot_mode then begin

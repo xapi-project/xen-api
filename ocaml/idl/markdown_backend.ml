@@ -485,34 +485,8 @@ Each possible error code is documented in the following section.
     (snd (List.split
             (List.sort (fun (n1, _) (n2, _)-> compare n1 n2) errs)))
 
-let json_current_version =
-  let open Xapi_stdext_std.Xstringext in
-  let time = Unix.gettimeofday () in
-  let month, year =
-     match String.split ' ' (Date.rfc822_to_string (Date.rfc822_of_float time)) with
-     | [ _; _; m; y; _; _ ] -> m,y
-     | _ -> failwith "Invalid datetime string"
-  in
-  `O [
-      "api_version_major", `Float (Int64.to_float api_version_major);
-      "api_version_minor", `Float (Int64.to_float api_version_minor);
-      "current_year", `String year;
-      "current_month", `String month;
-    ]
-
-let render_template template_file json output_file =
-  let templ = Xapi_stdext_unix.Unixext.string_of_file template_file |> Mustache.of_string in
-  let rendered = Mustache.render templ json in
-  let out_chan = open_out output_file in
-  finally (fun () -> output_string out_chan rendered)
-          (fun () -> close_out out_chan)
-
-let all api templdir destdir =
+let all api destdir =
   Xapi_stdext_unix.Unixext.mkdir_rec destdir 0o755;
-
-  ["cover.mustache", "cover.yaml"; "docbook.mustache", "template.db"] |>
-  List.iter (fun (x,y) -> render_template
-    (Filename.concat templdir x) json_current_version (Filename.concat destdir y));
 
   let out_chan = open_out (Filename.concat destdir "api-ref-autogen.md") in
   let printer text =

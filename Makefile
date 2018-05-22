@@ -18,7 +18,7 @@ doc:
 	jbuilder build ocaml/doc/jsapi.exe ocaml/idl/datamodel_main.exe
 	jbuilder exec -- ocaml/doc/jsapi.exe -destdir _build/install/default/xapi/doc/html -templdir ocaml/doc/templates
 	cp ocaml/doc/*.js ocaml/doc/*.html ocaml/doc/*.css _build/install/default/xapi/doc/html
-	jbuilder exec -- ocaml/idl/datamodel_main.exe -closed -markdown -templdir ocaml/doc/templates _build/install/default/xapi/doc/markdown
+	jbuilder exec -- ocaml/idl/datamodel_main.exe -closed -markdown _build/install/default/xapi/doc/markdown
 	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh _build/install/default/xapi/doc
 	find ocaml/doc -name "*.md" -not -name "README.md" -exec cp {} _build/install/default/xapi/doc/markdown/ \;
 
