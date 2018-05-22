@@ -79,6 +79,6 @@ let really_pretty_and_small x =
     Bytes.set r 0 c; Bytes.set r 1 ':';
     for i = 0 to 7 do Bytes.set r (i + 2) s.[prelen + i]; done;
     for i = 0 to 3 do Bytes.set r (i + 10)  s.[prelen + 8 + 1 + i]; done;
-    r
+    Bytes.unsafe_to_string r
   with _ ->
     s
