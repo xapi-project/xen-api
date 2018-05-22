@@ -717,16 +717,16 @@ module HOST = struct
   let get_console_data () =
     with_xc_and_xs
       (fun xc xs ->
-         let raw = Xenctrl.readconsolering xc in
+         let raw = Bytes.of_string (Xenctrl.readconsolering xc) in
          (* There may be invalid XML characters in the buffer, so remove them *)
          let is_printable chr =
            let x = int_of_char chr in
            x=13 || x=10 || (x >= 0x20 && x <= 0x7e) in
-         for i = 0 to String.length raw - 1 do
-           if not(is_printable raw.[i])
-           then raw.[i] <- ' '
+         for i = 0 to Bytes.length raw - 1 do
+           if not(is_printable (Bytes.get raw i))
+           then Bytes.set raw i ' '
          done;
-         raw
+         Bytes.unsafe_to_string raw
       )
   let get_total_memory_mib () =
     with_xc_and_xs
@@ -929,9 +929,9 @@ module VM = struct
     (* convert a mask into a binary string, one char per pCPU *)
     let bitmap cpus: string =
       let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
-      let result = String.make pcpus '0' in
-      List.iter (fun cpu -> result.[cpu] <- '1') cpus;
-      result in
+      let result = Bytes.make pcpus '0' in
+      List.iter (fun cpu -> Bytes.set result cpu '1') cpus;
+      Bytes.unsafe_to_string result in
     let affinity =
       snd(List.fold_left (fun (idx, acc) mask ->
           idx + 1, ((Printf.sprintf "vcpu/%d/affinity" idx, bitmap mask) :: acc)

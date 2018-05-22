@@ -1102,7 +1102,7 @@ module PCI = struct
     release_xl pcidevs domid
 
   let write_string_to_file file s =
-    let fn_write_string fd = Unixext.really_write fd s 0 (String.length s) in
+    let fn_write_string fd = Unixext.really_write fd (Bytes.unsafe_of_string s) 0 (String.length s) in
     Unixext.with_file file [ Unix.O_WRONLY ] 0o640 fn_write_string
 
   let do_flr device =
@@ -1212,8 +1212,11 @@ module PCI = struct
         let gpu_info_file = Filename.concat gpu_path "information" in
         let gpu_info = Unixext.string_of_file gpu_info_file in
         (* Work around due to PCI ID formatting inconsistency. *)
-        let devstr2 = String.copy devstr in
-        devstr2.[7] <- '.';
+        let devstr2 =
+          let devstr2 = Bytes.copy (Bytes.unsafe_of_string devstr) in
+          Bytes.set devstr2 7 '.';
+          Bytes.unsafe_to_string devstr2
+        in
         if false
         || (Stdext.Xstringext.String.has_substr gpu_info devstr2)
         || (Stdext.Xstringext.String.has_substr gpu_info devstr)
@@ -2202,7 +2205,7 @@ module Backend = struct
         module Monitor = struct
           module Epoll = Core.Linux_ext.Epoll
           module Flags = Core.Linux_ext.Epoll.Flags
-          let create () = (Core.Std.Or_error.ok_exn Epoll.create) ~num_file_descrs:1001 ~max_ready_events:1
+          let create () = (Core.Or_error.ok_exn Epoll.create) ~num_file_descrs:1001 ~max_ready_events:1
           let add m fd = Epoll.set m fd Flags.in_
           let remove m fd = Epoll.remove m fd
           let wait m = Epoll.wait m ~timeout:`Never
