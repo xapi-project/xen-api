@@ -568,17 +568,21 @@ let create_pool_cpuinfo ~__context =
   let open Cpuid_helpers in
 
   let all_host_cpus = List.map
-      (fun (_, s) -> s.API.host_cpu_info)
+      (fun (r, s) -> r, s.API.host_cpu_info)
       (Db.Host.get_all_records ~__context) in
 
-  let merge pool host =
+  let merge pool (hostref, host) =
     try
       pool
       |> setf vendor (getf vendor host)
       |> setf cpu_count ((getf cpu_count host) + (getf cpu_count pool))
       |> setf socket_count ((getf socket_count host) + (getf socket_count pool))
       |> setf features_pv (Cpuid_helpers.intersect (getf features_pv host) (getf features_pv pool))
-      |> setf features_hvm (Cpuid_helpers.intersect (getf features_hvm host) (getf features_hvm pool))
+      |> fun pool' ->
+           if Helpers.host_supports_hvm ~__context hostref then
+             setf features_hvm (Cpuid_helpers.intersect (getf features_hvm host) (getf features_hvm pool)) pool'
+           else
+             pool'
     with Not_found ->
       (* If the host doesn't have all the keys we expect, assume that we
          			   are in the middle of an RPU and it has not yet been upgraded, so

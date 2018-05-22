@@ -1207,3 +1207,10 @@ let get_first_vusb ~__context usb_group =
     raise Api_errors.(Server_error(internal_error,
       [Printf.sprintf "there is no VUSB associated with the USB_group: %s"
       (Ref.string_of usb_group)]))
+
+let host_supports_hvm ~__context host =
+  (* We say that a host supports HVM if any of
+   * the capability strings contains the substring "hvm". *)
+  let capabilities = Db.Host.get_capabilities ~__context ~self:host in
+  List.fold_left (||) false
+    (List.map (fun x -> String.has_substr x "hvm") capabilities)
