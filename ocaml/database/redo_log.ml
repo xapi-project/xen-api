@@ -326,8 +326,8 @@ let action_empty sock datasockpath =
   (* Compute desired response time *)
   let latest_response_time = get_latest_response_time !Db_globs.redo_log_max_block_time_empty in
   (* Empty *)
-  let str = "empty_____" in
-  Unixext.time_limited_write sock (String.length str) str latest_response_time;
+  let str = Bytes.of_string "empty_____" in
+  Unixext.time_limited_write sock (Bytes.length str) str latest_response_time;
   (* Read response *)
   let response_length = 10 in
   let response = Unixext.time_limited_read sock response_length latest_response_time in
@@ -346,8 +346,8 @@ let action_read fn_db fn_delta sock datasockpath =
   (* Compute desired response time *)
   let latest_response_time = get_latest_response_time !Db_globs.redo_log_max_block_time_read in
   (* Write *)
-  let str = "read______" in
-  Unixext.time_limited_write sock (String.length str) str latest_response_time;
+  let str = Bytes.of_string "read______" in
+  Unixext.time_limited_write sock (Bytes.length str) str latest_response_time;
   (* Read response *)
   read_read_response sock fn_db fn_delta Generation.null_generation latest_response_time datasockpath
 
@@ -356,8 +356,11 @@ let action_write_db marker generation_count write_fn sock datasockpath =
   (* Compute desired response time *)
   let latest_response_time = get_latest_response_time !Db_globs.redo_log_max_block_time_writedb in
   (* Send write command down control channel *)
-  let str = Printf.sprintf "writedb___|%s|%016Ld" marker generation_count in
-  Unixext.time_limited_write sock (String.length str) str latest_response_time;
+  let str =
+    Printf.sprintf "writedb___|%s|%016Ld" marker generation_count
+    |> Bytes.of_string
+  in
+  Unixext.time_limited_write sock (Bytes.length str) str latest_response_time;
 
   (*
    * Connect to the data socket. Note that this may delay a bit before being
@@ -413,8 +416,11 @@ let action_write_delta marker generation_count data flush_db_fn sock datasockpat
   (* Compute desired response time *)
   let latest_response_time = get_latest_response_time !Db_globs.redo_log_max_block_time_writedelta in
   (* Write *)
-  let str = Printf.sprintf "writedelta|%s|%016Ld|%016d|%s" marker generation_count (String.length data) data in
-  Unixext.time_limited_write sock (String.length str) str latest_response_time;
+  let str =
+    Printf.sprintf "writedelta|%s|%016Ld|%016d|%s" marker generation_count (String.length data) data
+    |> Bytes.of_string
+  in
+  Unixext.time_limited_write sock (Bytes.length str) str latest_response_time;
   (* Read response *)
   let response_length = 15 in
   let response = Unixext.time_limited_read sock response_length latest_response_time in
