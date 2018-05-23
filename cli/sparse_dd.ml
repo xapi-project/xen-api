@@ -303,9 +303,9 @@ let _ =
 
 	let common = Common.make true false true vhd_search_path in
 
-        if !experimental_reads_bypass_tapdisk
+	if !experimental_reads_bypass_tapdisk
 	then warn "experimental_reads_bypass_tapdisk set: this may cause data corruption";
-        if !experimental_writes_bypass_tapdisk
+	if !experimental_writes_bypass_tapdisk
 	then warn "experimental_writes_bypass_tapdisk set: this may cause data corruption";
 
 	let relative_to = match base_image with
@@ -339,11 +339,12 @@ let _ =
 		end in
 
 	let open Lwt in
-	let stream_t, destination, destination_format = match !experimental_reads_bypass_tapdisk, src, src_image, !experimental_writes_bypass_tapdisk, dest, dest_image with
-        | true, _, Some (`Vhd vhd), true, _, Some (`Vhd vhd') ->
+	let stream_t, destination, destination_format =
+		match !experimental_reads_bypass_tapdisk, src, src_image, !experimental_writes_bypass_tapdisk, dest, dest_image with
+		| true, _, Some (`Vhd vhd), true, _, Some (`Vhd vhd') ->
 		prezeroed := false; (* the physical disk will have vhd metadata and other stuff on it *)
 		info "streaming from vhd %s (relative to %s) to vhd %s" vhd (string_opt relative_to) vhd';
-        	let t = Impl.make_stream common vhd relative_to "vhd" "vhd" in
+		let t = Impl.make_stream common vhd relative_to "vhd" "vhd" in
 		t, "file://" ^ vhd', "vhd"
 	| false, _, _, true, _, _ ->
 		error "Not implemented: writes bypass tapdisk while reads go through tapdisk";
@@ -374,11 +375,11 @@ let _ =
 		t, dest, "raw" in
 
 	progress_cb 0.;
-        let progress total_work work_done =
-          let fraction = Int64.(to_float work_done /. (to_float total_work)) in
-          progress_cb fraction in
-        let t =
-        	stream_t >>= fun s ->
+	let progress total_work work_done =
+		let fraction = Int64.(to_float work_done /. (to_float total_work)) in
+			progress_cb fraction in
+		let t =
+		stream_t >>= fun s ->
 		Impl.write_stream common s destination (Some "none") None !prezeroed progress None !ssl_legacy !good_ciphersuites !legacy_ciphersuites in
 	if destination_format = "vhd"
 	then with_paused_tapdisk dest (fun () -> Lwt_main.run t)
