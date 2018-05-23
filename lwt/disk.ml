@@ -52,7 +52,12 @@ let start_upload ~chunked ~uri =
   Lwt_unix.gethostbyname host >>= fun host_entry ->
   let sockaddr = Lwt_unix.ADDR_INET(host_entry.Lwt_unix.h_addr_list.(0), port) in
   let sock = socket sockaddr in
-  Lwt_unix.connect sock sockaddr >>= fun () ->
+  Lwt.catch (fun () ->
+     Lwt_unix.connect sock sockaddr
+    ) (fun e ->
+      Lwt_unix.close sock >>= fun () -> Lwt.fail e
+    )
+  >>= fun () ->
 
   let open Cohttp in
   ( if use_ssl then Data_channel.of_ssl_fd sock else Data_channel.of_fd ~seekable:false sock ) >>= fun c ->
