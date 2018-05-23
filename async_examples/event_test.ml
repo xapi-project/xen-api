@@ -65,12 +65,12 @@ let watch_events rpc session_id =
             error "Event contained no snapshot";
             ty
           | Some s ->
-            StringMap.add ty ~key:ev.reference ~data:s
+            StringMap.update ty ev.reference ~f:(fun _ -> s)
         end
       | `del -> StringMap.remove ty ev.reference in
     if StringMap.is_empty ty
     then StringMap.remove map ev.ty
-    else StringMap.add map ~key:ev.ty ~data:ty in
+    else StringMap.update map ev.ty ~f:(fun _ -> ty) in
 
   let compare () =
     let open Event_types in

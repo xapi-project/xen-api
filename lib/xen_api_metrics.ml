@@ -30,8 +30,8 @@ module Legend = struct
 
   type t = string * cf * cls * Uuidm.t
 
-  let colon = Re_str.regexp_string ":"
-  let of_string x = match Re_str.split_delim colon x with
+  let colon = Re.Str.regexp_string ":"
+  let of_string x = match Re.Str.split_delim colon x with
     | cf :: cls :: uuid :: name :: [] ->
       begin match cf_of_string cf with
         | `Error x -> `Error x
