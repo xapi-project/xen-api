@@ -19,10 +19,10 @@ type t = {
   path: string list;
 }
 
-let colon = Re_str.regexp_string ":"
+let colon = Re.Str.regexp_string ":"
 
 let make debug verb unbuffered path =
-  let path = Re_str.split colon path in
+  let path = Re.Str.split colon path in
   { debug; verb; unbuffered; path }
 
 (* Keep this in sync with OCaml's Unix.file_descr *)
@@ -84,7 +84,7 @@ module Progress_bar(T: Floatable) = struct
     max_value: T.t;
     mutable current_value: T.t;
     width: int;
-    line: string;
+    line: bytes;
     mutable spin_index: int;
     start_time: float;
     mutable summarised: bool;
@@ -98,7 +98,7 @@ module Progress_bar(T: Floatable) = struct
   let spinner = [| '-'; '\\'; '|'; '/' |]
 
   let create width current_value max_value =
-    let line = String.make width ' ' in
+    let line = Bytes.make width ' ' in
     String.blit prefix_s 0 line 0 prefix;
     String.blit suffix_s 0 line (width - suffix - 1) suffix;
     let spin_index = 0 in
@@ -118,17 +118,17 @@ module Progress_bar(T: Floatable) = struct
 
   let print_bar t =
     let w = bar_width t t.current_value in
-    t.line.[1] <- spinner.(t.spin_index);
+    Bytes.set t.line 1 @@ spinner.(t.spin_index);
     t.spin_index <- (t.spin_index + 1) mod (Array.length spinner);
     for i = 0 to w - 1 do
-      t.line.[prefix + i] <- (if i = w - 1 then '>' else '#')
+      Bytes.set t.line (prefix + i) @@ (if i = w - 1 then '>' else '#')
     done;
     let percent = Printf.sprintf "%3d" (percent t) in
     String.blit percent 0 t.line (t.width - 19) 3;
     let eta = eta t in
     String.blit eta 0 t.line (t.width - 10) (String.length eta);
     
-    Printf.printf "\r%s%!" t.line
+    Printf.printf "\r%s%!" (Bytes.to_string t.line)
 
   let update t new_value =
     let new_value = min new_value t.max_value in
@@ -151,9 +151,9 @@ module Progress_bar(T: Floatable) = struct
 end
 
 let padto blank n s =
-  let result = String.make n blank in
+  let result = Bytes.make n blank in
   String.blit s 0 result 0 (min n (String.length s));
-  result
+  Bytes.unsafe_to_string result
 
 let print_table header rows =
   let nth xs i = try List.nth xs i with Not_found -> "" in
