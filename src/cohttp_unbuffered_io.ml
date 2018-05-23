@@ -45,14 +45,14 @@ type conn = Channels.t
 let really_read_into c buf ofs len =
   let tmp = Cstruct.create len in
   c.Channels.really_read tmp >>= fun () ->
-  Cstruct.blit_to_string tmp 0 buf ofs len;
+  Cstruct.blit_to_bytes tmp 0 buf ofs len;
   return ()
 
 let read_http_headers c =
   let buf = Buffer.create 128 in
   (* We can safely read everything up to this marker: *)
   let end_of_headers = "\r\n\r\n" in
-  let tmp = String.make (String.length end_of_headers) '\000' in
+  let tmp = Bytes.make (String.length end_of_headers) '\000' in
   let module Scanner = struct
     type t = {
       marker: string;
@@ -77,15 +77,15 @@ let read_http_headers c =
       really_read_into c tmp 0 safe_to_read >>= fun () ->
 
       for j = 0 to safe_to_read - 1 do
-        Scanner.input marker tmp.[j];
-        Buffer.add_char buf tmp.[j]
+        Scanner.input marker (Bytes.get tmp j);
+        Buffer.add_char buf (Bytes.get tmp j);
       done;
       loop ()
     end else return () in
   loop () >>= fun () ->
   return (Buffer.contents buf)
 
-let crlf = Re_str.regexp_string "\r\n"
+let crlf = Re.Str.regexp_string "\r\n"
 
 (* We assume read_line is only used to read the HTTP header *)
 let rec read_line ic = match ic.header_buffer, ic.header_buffer_idx with
@@ -96,7 +96,7 @@ let rec read_line ic = match ic.header_buffer, ic.header_buffer_idx with
 | Some buf, i when i < (String.length buf) ->
   begin
     try
-      let eol = Re_str.search_forward crlf buf i in
+      let eol = Re.Str.search_forward crlf buf i in
       let line = String.sub buf i (eol - i) in
       ic.header_buffer_idx <- eol + 2;
       return (Some line)
@@ -110,15 +110,15 @@ let read_into_exactly ic buf ofs len =
   return true
 
 let read_exactly ic len =
-  let buf = String.create len in
+  let buf = Bytes.create len in
   read_into_exactly ic buf 0 len >>= function
   | true -> return (Some buf)
   | false -> return None
 
 let read ic n =
-  let buf = String.make n '\000' in
+  let buf = Bytes.make n '\000' in
   really_read_into ic.c buf 0 n >>= fun () ->
-  return buf
+  return (Bytes.unsafe_to_string buf)
 
 let write oc x =
   let buf = Cstruct.create (String.length x) in
