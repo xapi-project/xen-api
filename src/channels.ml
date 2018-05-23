@@ -28,7 +28,7 @@ let _sendfile from_fd to_fd len =
     Lwt.catch
       (fun () -> detach (_sendfile from_fd to_fd) len)
       (function
-        | Unix.(Unix_error (EAGAIN, _, _)) as e when remaining_attempts > 0 ->
+        | Unix.(Unix_error (EAGAIN, _, _)) when remaining_attempts > 0 ->
             Lwt_unix.sleep 0.1 >>= fun () ->
             loop (remaining_attempts - 1)
         | e -> Lwt.fail e

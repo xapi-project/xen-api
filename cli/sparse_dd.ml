@@ -144,14 +144,14 @@ let find_backend_device path =
 		let rdev = (Unix.LargeFile.stat path).Unix.LargeFile.st_rdev in
 		let major = rdev / 256 and minor = rdev mod 256 in
 		let link = Unix.readlink (Printf.sprintf "/sys/dev/block/%d:%d/device" major minor) in
-		match List.rev (Re_str.split (Re_str.regexp_string "/") link) with
+		match List.rev (Re.Str.split (Re.Str.regexp_string "/") link) with
 		| id :: "xen" :: "devices" :: _ when startswith "vbd-" id ->
 			let id = int_of_string (String.sub id 4 (String.length id - 4)) in
 			with_xs (fun xs ->
 				let self = xs.Xs.read "domid" in
 				let backend = xs.Xs.read (Printf.sprintf "device/vbd/%d/backend" id) in
 				let params = xs.Xs.read (Printf.sprintf "%s/params" backend) in
-				match Re_str.split (Re_str.regexp_string "/") backend with
+				match Re.Str.split (Re.Str.regexp_string "/") backend with
 				| "local" :: "domain" :: bedomid :: _ ->
 					assert (self = bedomid);
 					Some params

@@ -609,7 +609,7 @@ let socket sockaddr =
   | Lwt_unix.ADDR_UNIX _ -> Unix.PF_UNIX in
   Lwt_unix.socket family Unix.SOCK_STREAM 0
 
-let colon = Re_str.regexp_string ":"
+let colon = Re.Str.regexp_string ":"
 
 let retry common retries f =
   let rec aux n =
@@ -627,7 +627,7 @@ let retry common retries f =
 let make_stream common source relative_to source_format destination_format =
   match source_format, destination_format with
   | "nbdhybrid", "raw" ->
-    begin match Re_str.bounded_split colon source 3 with
+    begin match Re.Str.bounded_split colon source 3 with
     | [ raw; nbd_server; export_name ] -> begin
       Vhd_format_lwt.IO.openfile raw false >>= fun raw ->
       Nbd_input.raw raw nbd_server export_name
@@ -637,7 +637,7 @@ let make_stream common source relative_to source_format destination_format =
     end
   | "hybrid", "raw" ->
     (* expect source to be block_device:vhd *)
-    begin match Re_str.bounded_split colon source 2 with
+    begin match Re.Str.bounded_split colon source 2 with
     | [ raw; vhd ] ->
       let path = common.path @ [ Filename.dirname vhd ] in
       retry common 3 (fun () -> Vhd_IO.openchain ~path vhd false) >>= fun t ->
@@ -650,7 +650,7 @@ let make_stream common source relative_to source_format destination_format =
     end
   | "hybrid", "vhd" ->
     (* expect source to be block_device:vhd *)
-    begin match Re_str.bounded_split colon source 2 with
+    begin match Re.Str.bounded_split colon source 2 with
     | [ raw; vhd ] ->
       let path = common.path @ [ Filename.dirname vhd ] in
       retry common 3 (fun () -> Vhd_IO.openchain ~path vhd false) >>= fun t ->
@@ -740,7 +740,7 @@ let write_stream common s destination source_protocol destination_protocol preze
       let headers = match Uri.userinfo uri' with
         | None -> headers
         | Some x ->
-          begin match Re_str.bounded_split_delim (Re_str.regexp_string ":") x 2 with
+          begin match Re.Str.bounded_split_delim (Re.Str.regexp_string ":") x 2 with
           | [ user; pass ] ->
             let b = Cohttp.Auth.string_of_credential (`Basic (user, pass)) in
             Header.add headers "authorization" b
@@ -760,7 +760,7 @@ let write_stream common s destination source_protocol destination_protocol preze
         if Code.is_success code then begin
           let advertises_nbd =
             let headers = Header.to_list (Cohttp.Response.headers x) in
-            let headers = List.map (fun (x, y) -> String.lowercase x, String.lowercase y) headers in
+            let headers = List.map (fun (x, y) -> String.lowercase_ascii x, String.lowercase_ascii y) headers in
             let te = "transfer-encoding" in
             List.mem_assoc te headers && (List.assoc te headers = "nbd") in
           if advertises_nbd
@@ -980,7 +980,7 @@ let serve common_options source source_fd source_format source_protocol destinat
           return c
         | Sockaddr s ->
           let sock = socket s in
-          Lwt_unix.bind sock s;
+          Lwt_unix.bind sock s >>= fun () ->
           Lwt_unix.setsockopt sock Unix.SO_REUSEADDR true;
           Lwt_unix.listen sock 1;
           Lwt_unix.accept sock >>= fun (fd, _) ->
