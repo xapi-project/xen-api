@@ -109,7 +109,7 @@ let get_rrd_updates_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
       "Access-Control-Allow-Headers: X-Requested-With";
     ] in
   Http_svr.headers s headers;
-  ignore (Unix.write s reply 0 (String.length reply))
+  Unix.write s (Bytes.unsafe_of_string reply) 0 (String.length reply) |> ignore
 
 (* Reads RRD information sent from the client over HTTP through the file
  * descriptor. The handler either archives the data, or updates the relevant
