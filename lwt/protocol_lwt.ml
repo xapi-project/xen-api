@@ -37,19 +37,21 @@ module M = struct
   let connect path =
     let sockaddr = Lwt_unix.ADDR_UNIX path in
     let fd = Lwt_unix.socket Lwt_unix.PF_UNIX Lwt_unix.SOCK_STREAM 0 in
-    let rec loop () =
+    let rec connect' () =
       Lwt.catch (fun () ->
-          Lwt_unix.connect fd sockaddr >>= fun () ->
-          let ic = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.input fd in
-          let oc = Lwt_io.of_fd ~close:(fun () -> return ()) ~mode:Lwt_io.output fd in
-          return (ic, oc)
+          Lwt_unix.connect fd sockaddr
         ) (function
           | Unix.Unix_error((Unix.ECONNREFUSED | Unix.ECONNABORTED | Unix.ENOENT), _, _) ->
-            Lwt_unix.sleep 5. >>= fun () ->
-            loop ()
-          | e -> fail e
-        ) in
-    loop ()
+            Lwt_unix.sleep 5. >>= fun () -> connect' ()
+          | e ->
+            Lwt_unix.close fd >>= fun () -> fail e
+        )
+    in
+    connect' ()
+    >>= fun () ->
+    let ic = Lwt_io.of_fd ~close:(fun () -> Lwt_unix.close fd) ~mode:Lwt_io.input fd in
+    let oc = Lwt_io.of_fd ~close:(fun () -> return ()) ~mode:Lwt_io.output fd in
+    return (ic, oc)
 
   let disconnect (ic, oc) =
     Lwt_io.close ic
