@@ -26,9 +26,9 @@ let open_unix_domain_sock_client path =
     raise e
 
 let read_raw_rpc sock =
-  let buffer = String.make 12 '\000' in
+  let buffer = Bytes.make 12 '\000' in
   Unixext.really_read sock buffer 0 12;
-  let len = int_of_string buffer in
+  let len = int_of_string (Bytes.unsafe_to_string buffer) in
   let body = Unixext.really_read_string sock len in
   ferpc_of_rpc (Jsonrpc.of_string body)
 
@@ -41,8 +41,11 @@ let write_raw_rpc sock ferpc =
 exception Connection_closed
 
 let receive_named_fd sock =
+  (* TODO: from ocaml-fd-send-recv, this currently will modify the *)
+  (* string as if it was mutable. It works for now but *)
+  (* could stop working in the future *)
   let buffer = String.make 36 '\000' in
-  let (len,_from,newfd) = Unixext.recv_fd sock buffer 0 36 [] in  
+  let (len,_from,newfd) = Unixext.recv_fd sock buffer 0 36 [] in
   if len=0 then raise Connection_closed;
   (newfd,buffer)
 
