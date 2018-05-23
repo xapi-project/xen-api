@@ -40,7 +40,7 @@ let run (task: Xenops_task.task_handle) ?env ?stdin fds ?(syslog_stdout=NoSyslog
                         try Unix.kill pid' Sys.sigkill with _ -> ()
                      )
                      (fun () ->
-                        Opt.iter (fun (str,_,wr) -> Unixext.really_write wr str 0 (String.length str)) stdinandpipes;
+                        Opt.iter (fun (str,_,wr) -> Unixext.really_write wr (Bytes.of_string str) 0 (String.length str)) stdinandpipes;
                         done_waitpid := true;
                         snd (Forkhelpers.waitpid t)
                      )

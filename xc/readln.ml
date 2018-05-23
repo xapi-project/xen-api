@@ -11,12 +11,12 @@ let read fd =
   let buffer       = Bytes.make buffer_size '\000' in
   match Unix.read fd buffer 0 buffer_size with
   | 0 ->
-    let pending = try Hashtbl.find input fd with Not_found -> "" in
+    let pending = try Hashtbl.find input fd with Not_found -> Bytes.empty in
     Hashtbl.remove input fd;
-    if pending = "" then
+    if pending = Bytes.empty then
       EOF
     else
-      Error (Printf.sprintf "Unconsumed data at EOF: '%s'" pending)
+      Error (Printf.sprintf "Unconsumed data at EOF: '%s'" (Bytes.to_string pending))
   | n ->
     let data = Bytes.sub buffer 0 n in
     let inpt = try Hashtbl.find input fd with Not_found -> Bytes.empty in

@@ -994,7 +994,7 @@ type suspend_flag = Live | Debug
             read_header fd >>= function
             | Xenops, len ->
               debug "Read Xenops record header (length=%Ld)" len;
-              let rec_str = Io.read fd (Io.int_of_int64_exn len) in
+              let rec_str = Io.read fd (Io.int_of_int64_exn len) |> Bytes.unsafe_to_string in
               debug "Read Xenops record contents";
               Xenops_record.of_string rec_str >>= fun (_ : Xenops_record.t) ->
               debug "Validated Xenops record contents";
@@ -1320,7 +1320,7 @@ type suspend_flag = Live | Debug
     debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid (List.mem Live flags);
     let open Suspend_image in let open Suspend_image.M in
     (* Suspend image signature *)
-    debug "Writing save signature: %s" save_signature;
+    debug "Writing save signature: %s" (Bytes.to_string save_signature);
     Io.write main_fd save_signature;
     (* CA-248130: originally, [xs_subtree] contained [xenstore_read_dir t
        	 * (xs.Xs.getdomainpath domid)] and this data was written to [fd].
@@ -1335,7 +1335,7 @@ type suspend_flag = Live | Debug
       debug "Writing Xenops header (length=%d)" xenops_rec_len;
       write_header main_fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
       debug "Writing Xenops record contents";
-      Io.write main_fd xenops_record;
+      Io.write main_fd (Bytes.unsafe_of_string xenops_record);
       suspend_emu_manager ~task ~xc ~xs ~domain_type ~dm ~manager_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
         ~progress_callback ~qemu_domid ~do_suspend_callback >>= fun () ->
       (* Qemu record (if this is a hvm domain) *)
