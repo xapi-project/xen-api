@@ -90,6 +90,7 @@ let api =
   in
   let message_filter msg =
     Datamodel_utils.on_client_side msg &&
+    (not msg.msg_hide_from_docs) &&
     (* XXX: C# binding generates get_all_records some other way *)
     (msg.msg_tag <> (FromObject GetAllRecords)) &&
     ((not open_source && (List.mem "closed" msg.msg_release.internal)) ||
@@ -548,7 +549,7 @@ namespace XenAPI
             }
         }";
 
-  List.iter (gen_exposed_method_overloads out_chan cls) (List.filter (fun x -> not x.msg_hide_from_docs) messages);
+  List.iter (gen_exposed_method_overloads out_chan cls) messages;
 
   (* Don't create duplicate get_all_records call *)
   if not (List.exists (fun msg -> String.compare msg.msg_name "get_all_records" = 0) messages) &&
@@ -987,8 +988,7 @@ namespace XenAPI
 "
 
 and gen_proxy_for_class protocol out_chan {name=classname; messages=messages} =
-  (* Generate each of the proxy methods (but not the internal-only ones that are marked hide_from_docs) *)
-  List.iter (gen_proxy_method_overloads protocol out_chan classname) (List.filter (fun x -> not x.msg_hide_from_docs) messages);
+  List.iter (gen_proxy_method_overloads protocol out_chan classname) messages;
   if (not (List.exists (fun msg -> String.compare msg.msg_name "get_all_records" = 0) messages)) then
     gen_proxy_method protocol out_chan classname (get_all_records_method classname) []
 
