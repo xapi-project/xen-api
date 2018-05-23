@@ -1102,7 +1102,7 @@ module PCI = struct
     release_xl pcidevs domid
 
   let write_string_to_file file s =
-    let fn_write_string fd = Unixext.really_write fd (Bytes.unsafe_of_string s) 0 (String.length s) in
+    let fn_write_string fd = Unixext.really_write fd (Bytes.of_string s) 0 (String.length s) in
     Unixext.with_file file [ Unix.O_WRONLY ] 0o640 fn_write_string
 
   let do_flr device =
