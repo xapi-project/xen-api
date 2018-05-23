@@ -542,6 +542,27 @@ let process_smapiv2_requests ~volume_script_dir =
        Deferred.Result.return { response with keys = (key, value) :: response.keys }
   in
 
+  let vdi_attach_common args =
+    let open Storage_interface in
+    let open Deferred.Result.Monad_infix in
+    let args = Args.VDI.Attach.request_of_rpc args in
+    Attached_SRs.find args.Args.VDI.Attach.sr
+    >>= fun sr ->
+    (* Discover the URIs using Volume.stat *)
+    stat ~dbg:args.Args.VDI.Attach.dbg ~sr ~vdi:args.Args.VDI.Attach.vdi
+    >>= fun response ->
+    (* If we have a clone-on-boot volume then use that instead *)
+    ( match List.Assoc.find response.Xapi_storage.Control.keys _clone_on_boot_key ~equal:String.equal with
+      | None ->
+        return (Ok response)
+      | Some temporary ->
+        stat ~dbg:args.Args.VDI.Attach.dbg ~sr ~vdi:temporary
+    ) >>= fun response ->
+    choose_datapath response
+    >>= fun (rpc, datapath, uri, domain) ->
+    return_data_rpc (fun () -> Datapath_client.attach rpc args.Args.VDI.Attach.dbg uri domain)
+  in
+
   (* the actual API call for this plugin, sharing same version ref across all calls *)
   fun x ->
   let open Storage_interface in
@@ -918,34 +939,43 @@ let process_smapiv2_requests ~volume_script_dir =
     Deferred.Result.return (R.success (Args.VDI.Introduce.rpc_of_response response))
   | { R.name = "VDI.attach"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
-    let args = Args.VDI.Attach.request_of_rpc args in
-    Attached_SRs.find args.Args.VDI.Attach.sr
-    >>= fun sr ->
-    (* Discover the URIs using Volume.stat *)
-    stat ~dbg:args.Args.VDI.Attach.dbg ~sr ~vdi:args.Args.VDI.Attach.vdi
-    >>= fun response ->
-    (* If we have a clone-on-boot volume then use that instead *)
-    ( match List.Assoc.find response.Xapi_storage.Control.keys _clone_on_boot_key ~equal:String.equal with
+    vdi_attach_common args >>= fun response ->
+    let attach_info =
+      List.find_map
+        ~f:(function
+            | XenDisk xendisk ->
+              Some {
+                params = xendisk.Xapi_storage.Data.params;
+                xenstore_data = [ "backend-kind", xendisk.Xapi_storage.Data.backend_type ];
+                o_direct = true;
+                o_direct_reason = "";
+              }
+            | _ -> None
+          )
+        response.Xapi_storage.Data.implementations
+    in
+    begin match attach_info with
+      | Some attach_info ->
+        Deferred.Result.return (R.success (Args.VDI.Attach.rpc_of_response attach_info))
       | None ->
-        return (Ok response)
-      | Some temporary ->
-        stat ~dbg:args.Args.VDI.Attach.dbg ~sr ~vdi:temporary
-    ) >>= fun response ->
-    choose_datapath response
-    >>= fun (rpc, datapath, uri, domain) ->
-    return_data_rpc (fun () -> Datapath_client.attach rpc args.Args.VDI.Attach.dbg uri domain)
-    >>= fun response ->
-    let backend, params = match response.Xapi_storage.Data.implementation with
-    | Xapi_storage.Data.Blkback p -> "vbd", p
-    | Xapi_storage.Data.Qdisk p -> "qdisk", p
-    | Xapi_storage.Data.Tapdisk3 p -> "vbd3", p in
-    let attach_info = {
-      params;
-      xenstore_data = [ "backend-kind", backend ];
-      o_direct = true;
-      o_direct_reason = "";
-    } in
-    Deferred.Result.return (R.success (Args.VDI.Attach.rpc_of_response attach_info))
+        let msg = "No XenDisk implementation in Datapath.attach response: " ^ (Rpcmarshal.marshal Xapi_storage.Data.typ_of_backend response |> R.to_string) in
+        return (Error (backend_error "NO_XENDISK_FROM_ATTACH" [msg]))
+    end
+  | { R.name = "VDI.attach2"; R.params = [ args ] } ->
+    let open Deferred.Result.Monad_infix in
+    vdi_attach_common args >>= fun response ->
+    let convert_implementation = function
+      | Xapi_storage.Data.XenDisk { params; extra; backend_type } -> XenDisk { params; extra; backend_type }
+      | Xapi_storage.Data.BlockDevice { path } -> BlockDevice { path }
+      | Xapi_storage.Data.File { path } -> File { path }
+      | Xapi_storage.Data.Nbd { uri } -> Nbd { uri }
+    in
+    let convert_backend = function Xapi_storage.Data.{ domain_uuid; implementations } ->
+      { domain_uuid
+      ; implementations = List.map ~f:convert_implementation response.Xapi_storage.Data.implementations
+      }
+    in
+    Deferred.Result.return (R.success (Args.VDI.Attach2.rpc_of_response (convert_backend response)))
   | { R.name = "VDI.activate"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
     let args = Args.VDI.Activate.request_of_rpc args in
