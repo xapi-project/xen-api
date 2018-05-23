@@ -553,7 +553,7 @@ module HOST = struct
           with Xenlight.Host.End_of_file ->
             []
         in
-        let raw = String.concat "" (List.rev (read_lines ())) |> Bytes.unsafe_of_string in
+        let raw = String.concat "" (List.rev (read_lines ())) |> Bytes.of_string in
         Xenlight.Host.xen_console_read_finish ctx reader;
         (* There may be invalid XML characters in the buffer, so remove them *)
         let is_printable chr =
