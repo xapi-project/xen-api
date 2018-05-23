@@ -112,17 +112,17 @@ let query common_opts =
     )
 
 let filename_suffix = "-filename"
-let filename_suffix_regex = Re_str.regexp_string filename_suffix
+let filename_suffix_regex = Re.Str.regexp_string filename_suffix
 
 let string_of_file filename =
   let ic = open_in filename in
   let output = Buffer.create 1024 in
   try
     while true do
-      let block = String.make 4096 '\000' in
-      let n = input ic block 0 (String.length block) in
+      let block = Bytes.make 4096 '\000' in
+      let n = input ic block 0 (Bytes.length block) in
       if n = 0 then raise End_of_file;
-      Buffer.add_substring output block 0 n
+      Buffer.add_subbytes output block 0 n
     done;
     "" (* never happens *)
   with End_of_file ->
@@ -144,9 +144,9 @@ let sr_attach common_opts sr device_config = match sr with
     let expected_device_config_keys = List.map fst q.configuration in
     (* The first 'device_config' will actually be the sr *)
     let device_config = List.tl device_config in
-    let device_config = List.map (fun x -> match Re_str.bounded_split (Re_str.regexp_string "=") x 2 with
+    let device_config = List.map (fun x -> match Re.Str.bounded_split (Re.Str.regexp_string "=") x 2 with
         | [ k; v ] when List.mem k expected_device_config_keys -> k, v
-        | [ k; v ] -> begin match Re_str.bounded_split_delim filename_suffix_regex k 2 with
+        | [ k; v ] -> begin match Re.Str.bounded_split_delim filename_suffix_regex k 2 with
             | [ k'; "" ] ->
               (* We will send the contents of the file [v] as the value and [k'] as the key *)
               if not(Sys.file_exists v) then begin
