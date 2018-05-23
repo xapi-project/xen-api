@@ -112,12 +112,12 @@ let binary_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="uns
 			output_string oc len;
 			output_string oc msg_buf;
 			flush oc;
-			let len_buf = String.make 16 '\000' in
+			let len_buf = Bytes.make 16 '\000' in
 			really_input ic len_buf 0 16;
-			let len = int_of_string len_buf in
-			let msg_buf = String.make len '\000' in
+			let len = int_of_string (Bytes.unsafe_to_string len_buf) in
+			let msg_buf = Bytes.make len '\000' in
 			really_input ic msg_buf 0 len;
-			let (response: Rpc.response) = response_of_string msg_buf in
+			let (response: Rpc.response) = response_of_string (Bytes.unsafe_to_string msg_buf) in
 			response
 		)
 

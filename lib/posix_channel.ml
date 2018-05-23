@@ -6,7 +6,7 @@ exception Channel_setup_failed
 module CBuf = struct
   (** A circular buffer constructed from a string *)
   type t = {
-    mutable buffer: string; 
+    mutable buffer: bytes; 
     mutable len: int;       (** bytes of valid data in [buffer] *)
     mutable start: int;     (** index of first valid byte in [buffer] *)
     mutable r_closed: bool; (** true if no more data can be read due to EOF *)
@@ -23,11 +23,11 @@ module CBuf = struct
 
   let drop (x: t) n =
     if n > x.len then failwith (Printf.sprintf "drop %d > %d" n x.len);
-    x.start <- (x.start + n) mod (String.length x.buffer);
+    x.start <- (x.start + n) mod (Bytes.length x.buffer);
     x.len <- x.len - n
 
   let should_read (x: t) =
-    not x.r_closed && (x.len < (String.length x.buffer - 1))
+    not x.r_closed && (x.len < (Bytes.length x.buffer - 1))
   let should_write (x: t) =
     not x.w_closed && (x.len > 0)
 
@@ -36,18 +36,18 @@ module CBuf = struct
 
   let write (x: t) fd =
     (* Offset of the character after the substring *)
-    let next = min (String.length x.buffer) (x.start + x.len) in
+    let next = min (Bytes.length x.buffer) (x.start + x.len) in
     let len = next - x.start in
     let written = try Unix.single_write fd x.buffer x.start len with _e -> x.w_closed <- true; len in
     drop x written
 
   let read (x: t) fd =
     (* Offset of the next empty character *)
-    let next = (x.start + x.len) mod (String.length x.buffer) in
-    let len = min (String.length x.buffer - next) (String.length x.buffer - x.len) in
+    let next = (x.start + x.len) mod (Bytes.length x.buffer) in
+    let len = min (Bytes.length x.buffer - next) (Bytes.length x.buffer - x.len) in
     let read = Unix.read fd x.buffer next len in
     if read = 0 then x.r_closed <- true;
-    x.len <- x.len + read    
+    x.len <- x.len + read
 end
 
 let proxy (a: Unix.file_descr) (b: Unix.file_descr) =
@@ -145,9 +145,9 @@ let send proxy_socket =
             if List.mem s_unix readable then begin
               let fd, _peer = Unix.accept s_unix in
               to_close := fd :: !to_close;
-              let buffer = String.make (String.length token) '\000' in
-              let n = Unix.recv fd buffer 0 (String.length buffer) [] in
-              let token' = String.sub buffer 0 n in
+              let buffer = Bytes.make (String.length token) '\000' in
+              let n = Unix.recv fd buffer 0 (Bytes.length buffer) [] in
+              let token' = Bytes.sub_string buffer 0 n in
               if token = token' then begin
                 let (_: int) = Fd_send_recv.send_fd fd token 0 (String.length token) [] proxy_socket in
                 ()
@@ -203,7 +203,7 @@ let receive protocols =
     finally
       (fun () ->
         Unix.connect s (Unix.ADDR_UNIX path);
-        let (_: int) = Unix.send s token 0 (String.length token) [] in
+        let (_: int) = Unix.send s (Bytes.unsafe_of_string token) 0 (String.length token) [] in
         let (_, _, fd) = Fd_send_recv.recv_fd s token 0 (String.length token) [] in
         fd
       ) (fun () -> Unix.close s)

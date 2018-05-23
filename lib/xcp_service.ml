@@ -389,9 +389,9 @@ let http_handler call_of_string string_of_response process s =
 				debug "Failed to read content-length"
 			| Some content_length ->
 				let content_length = int_of_string content_length in
-				let request_txt = String.make content_length '\000' in
+				let request_txt = Bytes.make content_length '\000' in
 				really_input ic request_txt 0 content_length;
-				let rpc_call = call_of_string request_txt in
+				let rpc_call = call_of_string (Bytes.unsafe_to_string request_txt) in
 				debug "%s" (Rpc.string_of_call rpc_call);
 				let rpc_response = process rpc_call in
 				debug "   %s" (Rpc.string_of_response rpc_response);
@@ -493,8 +493,11 @@ let pidfile_write filename =
 	finally
 	(fun () ->
 		let pid = Unix.getpid () in
-		let buf = string_of_int pid ^ "\n" in
-		let len = String.length buf in
+		let buf =
+			string_of_int pid ^ "\n" 
+			|> Bytes.of_string
+		in
+		let len = Bytes.length buf in
 		if Unix.write fd buf 0 len <> len
 		then failwith "pidfile_write failed")
 	(fun () -> Unix.close fd)

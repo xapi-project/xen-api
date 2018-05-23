@@ -23,7 +23,7 @@ let read_str filename =
   let s = Bytes.create n in
   really_input ic s 0 n;
   close_in ic;
-  s
+  Bytes.unsafe_to_string s
 
 open Idl
 
