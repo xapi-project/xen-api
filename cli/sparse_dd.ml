@@ -311,6 +311,7 @@ let _ =
 	let relative_to = match base_image with
 	| Some (`Vhd x) -> Some x
 	| Some (`Raw _) -> None
+	| Some (`Nbd _) -> None (* TODO: make delta copies work with NBD, CA-289660 *)
 	| None -> None in
 
 	let rewrite_url device_or_url =
