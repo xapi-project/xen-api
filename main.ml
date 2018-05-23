@@ -69,6 +69,8 @@ let _nonpersistent = "NONPERSISTENT"
 let _clone_on_boot_key = "clone-on-boot"
 let _vdi_type_key = "vdi-type"
 let _snapshot_time_key = "snapshot_time"
+let _is_a_snapshot_key = "is_a_snapshot"
+let _snapshot_of_key = "snapshot_of"
 
 let backend_error name args =
   let open Storage_interface in
@@ -250,24 +252,23 @@ module Datapath_plugins = struct
 end
 
 let vdi_of_volume x =
-  let ty = match List.Assoc.find x.Xapi_storage.Volume.Types.keys _vdi_type_key ~equal:String.equal with
-    | None -> "";
-    | Some v -> v in
-  let snapshot_time = match List.Assoc.find x.Xapi_storage.Volume.Types.keys _snapshot_time_key ~equal:String.equal with
-    | None -> "19700101T00:00:00Z"
-    | Some snapshot_time -> snapshot_time
+  let find key ~default ~of_string =
+    match List.Assoc.find x.Xapi_storage.Volume.Types.keys key ~equal:String.equal with
+    | None -> default;
+    | Some v -> v |> of_string
   in
+  let find_string = find ~of_string:(fun x -> x) in
   let open Storage_interface in {
   vdi = x.Xapi_storage.Volume.Types.key;
   uuid = x.Xapi_storage.Volume.Types.uuid;
   content_id = "";
   name_label = x.Xapi_storage.Volume.Types.name;
   name_description = x.Xapi_storage.Volume.Types.description;
-  ty = ty;
+  ty = find_string _vdi_type_key ~default:"";
   metadata_of_pool = "";
-  is_a_snapshot = false;
-  snapshot_time;
-  snapshot_of = "";
+  is_a_snapshot = find _is_a_snapshot_key ~default:false ~of_string:bool_of_string;
+  snapshot_time = find_string _snapshot_time_key ~default:"19700101T00:00:00Z";
+  snapshot_of = find_string _snapshot_of_key ~default:"";
   read_only = not x.Xapi_storage.Volume.Types.read_write;
   cbt_enabled = false;
   virtual_size = x.Xapi_storage.Volume.Types.virtual_size;
@@ -755,9 +756,10 @@ let process root_dir name =
     fork_exec_rpc root_dir (script root_dir name `Volume "Volume.snapshot") args Xapi_storage.Volume.Types.Volume.Snapshot.Out.t_of_rpc
     >>= fun response ->
     let now = Xapi_stdext_date.Date.(to_string (of_float (Unix.gettimeofday ()))) in
-    set !version root_dir name dbg sr response.Xapi_storage.Volume.Types.key _snapshot_time_key now
-    >>= fun () ->
-    let response = { (vdi_of_volume response) with snapshot_time = now } in
+    set !version root_dir name dbg sr response.Xapi_storage.Volume.Types.key _snapshot_time_key now >>= fun () ->
+    set !version root_dir name dbg sr response.Xapi_storage.Volume.Types.key _is_a_snapshot_key (string_of_bool true) >>= fun () ->
+    set !version root_dir name dbg sr response.Xapi_storage.Volume.Types.key _snapshot_of_key vdi_info.vdi >>= fun () ->
+    let response = { (vdi_of_volume response) with snapshot_time = now; is_a_snapshot = true; snapshot_of = vdi_info.vdi } in
     Deferred.Result.return (R.success (Args.VDI.Snapshot.rpc_of_response response))
   | { R.name = "VDI.clone"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
