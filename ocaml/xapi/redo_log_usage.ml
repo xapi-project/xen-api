@@ -33,7 +33,9 @@ let read_from_redo_log log staging_path db_ref =
         (fun () ->
            let outfd = Unix.openfile temp_file [Unix.O_CREAT; Unix.O_WRONLY; Unix.O_TRUNC] 0o755 in
            (* ideally, the reading would also respect the latest_response_time *)
-           let total_read = Stdext.Unixext.read_data_in_chunks (fun str length -> Stdext.Unixext.time_limited_write outfd length (Bytes.of_string str) latest_response_time) fd in
+           let total_read = Stdext.Unixext.read_data_in_string_chunks (fun str length -> 
+            Stdext.Unixext.time_limited_write_substring outfd length str latest_response_time) fd 
+          in
            R.debug "Reading database from fd into file %s" temp_file;
 
            (* Check that we read the expected amount of data *)
