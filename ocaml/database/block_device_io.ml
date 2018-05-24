@@ -163,8 +163,8 @@ let get_pointer half =
 (* May raise Unixext.Timeout exception *)
 let initialise_redo_log block_dev_fd target_response_time =
   ignore_int (Unixext.seek_to block_dev_fd 0);
-  Unixext.time_limited_write block_dev_fd magic_size (Bytes.unsafe_of_string magic) target_response_time;
-  Unixext.time_limited_write block_dev_fd 2 (Bytes.unsafe_of_string "\0000") target_response_time (* write the NUL and set the initial validity byte to 0 *)
+  Unixext.time_limited_write_substring block_dev_fd magic_size magic target_response_time;
+  Unixext.time_limited_write_substring block_dev_fd 2 "\0000" target_response_time (* write the NUL and set the initial validity byte to 0 *)
 
 (* Check that the given filename refers to a valid redo-log block device. Returns a read/write file descriptor. *)
 (* May raise exceptions Unixext.Timeout or Unix.Unix_error *)
@@ -202,7 +202,7 @@ let read_validity_byte block_dev_fd target_response_time =
 let set_validity_byte block_dev_fd half target_response_time =
   seek_to_validity_byte block_dev_fd;
   let validity = half_to_string half in
-  Unixext.time_limited_write block_dev_fd 1 (Bytes.unsafe_of_string validity) target_response_time
+  Unixext.time_limited_write_substring block_dev_fd 1 validity target_response_time
 
 (* Seeks to, and returns, the position just after the last db or delta record in the given half. *)
 let seek_past_last_record block_dev_fd half target_response_time =
@@ -325,7 +325,7 @@ let transfer_data_from_sock_to_fd sock dest_fd available_space target_response_t
                (* Check that there's enough space *)
                if available_space - !total_length < len then raise NotEnoughSpace;
                (* Otherwise write it *)
-               Unixext.time_limited_write dest_fd len (Bytes.unsafe_of_string chunk) target_response_time;
+               Unixext.time_limited_write dest_fd len chunk target_response_time;
                total_length := !total_length + len
              ) ~block_size:65536 data_client
         )
