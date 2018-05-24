@@ -123,29 +123,9 @@ module Mux = struct
         )
   end
   module DP = struct
-    let create context ~dbg ~id = id (* XXX: is this pointless? *)
-    let destroy context ~dbg ~dp ~allow_leak =
-      (* Tell each plugin about this *)
-      match fail_or choose (multicast (fun sr rpc ->
-          let module C = Client(struct let rpc = of_sr sr end) in
-          C.DP.destroy ~dbg ~dp ~allow_leak)) with
-      | SMSuccess x -> x
-      | SMFailure e -> raise e
-
-    let diagnostics context () =
-      forall (fun sr rpc ->
-          let module C = Client(struct let rpc = of_sr sr end) in
-          C.DP.diagnostics ()
-        )
-
-    let attach_info context ~dbg ~sr ~vdi ~dp =
-      let module C = Client(struct let rpc = of_sr sr end) in
-      C.DP.attach_info ~dbg ~sr ~vdi ~dp
-
-    let stat_vdi context ~dbg ~sr ~vdi =
-      let module C = Client(struct let rpc = of_sr sr end) in
-      C.DP.stat_vdi ~dbg ~sr ~vdi
-
+    (* We'll never get here, because DP is implemented in
+       Storage_impl.Wrapper(Impl), and it never calls Impl.DP *)
+    include Storage_skeleton.DP
   end
   module SR = struct
     include Storage_skeleton.SR
@@ -225,9 +205,12 @@ module Mux = struct
     let epoch_begin context ~dbg ~sr ~vdi ~persistent =
       let module C = Client(struct let rpc = of_sr sr end) in
       C.VDI.epoch_begin ~dbg ~sr ~vdi ~persistent
+    (* We need to include this to satisfy the SMAPIv2 signature *)
     let attach context ~dbg ~dp ~sr ~vdi ~read_write =
+      failwith "We'll never get here: attach is implemented in Storage_impl.Wrapper"
+    let attach2 context ~dbg ~dp ~sr ~vdi ~read_write =
       let module C = Client(struct let rpc = of_sr sr end) in
-      C.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write
+      C.VDI.attach2 ~dbg ~dp ~sr ~vdi ~read_write
     let activate context ~dbg ~dp ~sr ~vdi =
       let module C = Client(struct let rpc = of_sr sr end) in
       C.VDI.activate ~dbg ~dp ~sr ~vdi

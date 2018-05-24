@@ -73,17 +73,15 @@ let plug ~__context ~self =
     debug "VBD.plug of loopback VBD '%s'" (Ref.string_of self);
     Storage_access.attach_and_activate ~__context ~vbd:self ~domid
       (fun attach_info ->
-         let params = attach_info.Storage_interface.params in
+         let (xendisks, blockdevs, files, nbds) = Attach_helpers.implementations_of_backend attach_info in
          let device_path =
-           let nbd_prefix = "hack|nbd:unix:" in
-           let is_nbd = Astring.String.is_prefix ~affix:nbd_prefix params in
-           if is_nbd then begin
-             debug "Using nbd-client for VBD.plug of VBD '%s', attach_info.params='%s'" (Ref.string_of self) params;
-             let export_name = "qemu_node" in
-             let unix_socket_path = params |> Astring.String.cuts ~empty:false ~sep:nbd_prefix |> List.hd |> String.split_on_char '|' |> List.hd in
+           match files, blockdevs, nbds with
+           | { path }::_, _, _ | _, { path }::_, _ -> path
+           | _, _, nbd::_ ->
+             debug "Using nbd-client for VBD.plug of VBD '%s'" (Ref.string_of self);
+             let unix_socket_path, export_name = Storage_interface.parse_nbd_uri nbd in
              NbdClient.start_nbd_client ~unix_socket_path ~export_name
-           end
-           else params
+           | [], [], [] -> raise (Storage_interface.Backend_error (Api_errors.internal_error, ["No File, BlockDevice or Nbd implementation in Datapath.attach response: " ^ (Storage_interface.rpc_of_backend attach_info |> Jsonrpc.to_string)]))
          in
          let device_path =
            let prefix = "/dev/" in
