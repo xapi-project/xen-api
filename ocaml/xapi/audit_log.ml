@@ -48,7 +48,7 @@ let write_line line fd ?filter since =
       if went_through ?filter line
       then
         let len = String.length line in
-        Unix.write fd (Bytes.unsafe_of_string line) 0 len |> ignore
+        Unix.write_substring fd line 0 len |> ignore
 
 let transfer_audit_file _path compression fd_out ?filter since : unit =
   let path = Unixext.resolve_dot_and_dotdot _path in
