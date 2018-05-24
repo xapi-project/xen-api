@@ -81,5 +81,5 @@ let _ =
   let args = List.map (fun arg -> "&arg="^arg) (List.tl (List.tl (List.tl (Array.to_list Sys.argv)))) in
   let req = Printf.sprintf "CONNECT /remotecmd?session_id=%s&cmd=%s%s http/1.0\r\n\r\n" session cmd (String.concat "" args) in
   let fd = open_tcp_ssl host in
-  Unix.write fd (Bytes.unsafe_of_string req) 0 (String.length req) |> ignore;
+  Unix.write_substring fd req 0 (String.length req) |> ignore;
   proxy Unix.stdin Unix.stdout fd (Unix.dup fd)
