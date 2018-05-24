@@ -70,7 +70,7 @@ let start_upload ~chunked ~uri =
   let headers = match Uri.userinfo uri with
     | None -> headers
     | Some x ->
-      begin match Re_str.bounded_split_delim (Re_str.regexp_string ":") x 2 with
+      begin match Re.Str.bounded_split_delim (Re.Str.regexp_string ":") x 2 with
         | [ user; pass ] ->
           let b = Cohttp.Auth.string_of_credential (`Basic (user, pass)) in
           Header.add headers "authorization" b

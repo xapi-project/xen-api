@@ -48,7 +48,7 @@ let main () =
          let headers = Response.headers res in
          Cohttp.Header.iter
            (fun k v -> List.iter (Printf.eprintf "%s: %s\n%!" k) v) headers;
-         Cohttp_lwt_body.to_string body
+         Cohttp_lwt.Body.to_string body
          >>= fun s ->
          let update = Xen_api_metrics.Updates.parse s in
          Printf.eprintf "%s\n%!" (Rrd_updates.string_of update);
