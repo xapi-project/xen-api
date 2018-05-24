@@ -114,7 +114,7 @@ let trim_and_send method_name tag recv_sock send_sock =
   in
   (* Since we use xml parser to parse the reponse message, we don't need to escape the xml content in `send` *)
   let send s =
-    ignore (Unix.write send_sock s 0 (Bytes.length s))
+    Unix.write_substring send_sock s 0 (String.length s) |> ignore
   in
   let rec recv_all ()=
     let n = fill() in
@@ -132,7 +132,7 @@ let trim_and_send method_name tag recv_sock send_sock =
     try
       let xml_data_set_content = Workload_balancing.data_from_leaf (Workload_balancing.descend_and_match [tag] report_result_xml) in
       debug "send conent: %s" xml_data_set_content;
-      send (Bytes.unsafe_of_string xml_data_set_content)
+      send xml_data_set_content
     with
     | Workload_balancing.Xml_parse_failure error ->
       Workload_balancing.parse_result_code
