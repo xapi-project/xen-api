@@ -47,7 +47,7 @@ let start path handler =
          let _ : unit Lwt.t =
            let buffer = String.make 16384 '\000' in
            with_fd fd_sock'
-             (fun fd ->
+             ~callback:(fun fd ->
                 let iov = Lwt_unix.io_vector ~buffer ~offset:0 ~length:16384 in
                 Lwt_unix.recv_msg ~socket:fd ~io_vectors:[iov])
            >>= fun (len, newfds) ->
@@ -56,7 +56,7 @@ let start path handler =
            | ufd :: ufds ->
              ensure_close ufds >>= fun () ->
              with_fd (Lwt_unix.of_unix_file_descr ufd)
-               (fun fd ->
+               ~callback:(fun fd ->
                   Lwt_log.debug_f "About to start connection" >>= fun () ->
                   Lwt_unix.setsockopt fd Lwt_unix.SO_KEEPALIVE true;
                   let msg = String.sub buffer 0 len in
@@ -68,7 +68,7 @@ let start path handler =
     >>= fun () -> loop ()
 
   in
-  with_fd fd_sock (fun _ -> loop ())
+  with_fd fd_sock ~callback:(fun _ -> loop ())
 
 
 let proxy (fd : Lwt_unix.file_descr) protocol localport =
