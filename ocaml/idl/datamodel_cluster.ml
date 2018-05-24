@@ -171,13 +171,19 @@ let t =
           ~ty:Bool "pool_auto_join" ~default_value:(Some (VBool true))
           "True if automatically joining new pool members to the cluster. This will be `true` in the first release"
 
-      ; field   ~qualifier:StaticRO ~lifecycle
-          ~ty:Int "token_timeout" ~default_value:(Some (VInt 20000L))
-          "The corosync token timeout in ms"
+      ; field   ~qualifier:StaticRO ~lifecycle:[
+            Prototyped, rel_kolkata, "the unit is milliseconds";
+            Changed, rel_lima, "the unit is now seconds"
+          ]
+          ~ty:Float "token_timeout" ~default_value:(Some (VFloat Constants.default_token_timeout_s))
+          "The corosync token timeout in seconds"
 
-      ; field   ~qualifier:StaticRO ~lifecycle
-          ~ty:Int "token_timeout_coefficient" ~default_value:(Some (VInt 1000L))
-          "The corosync token timeout coefficient in ms"
+      ; field   ~qualifier:StaticRO ~lifecycle:[
+            Prototyped, rel_kolkata, "the unit is milliseconds";
+            Changed, rel_lima, "the unit is now seconds"
+          ]
+          ~ty:Float "token_timeout_coefficient" ~default_value:(Some (VFloat Constants.default_token_timeout_coefficient_s))
+          "The corosync token timeout coefficient in seconds"
 
 
       ; field   ~qualifier:StaticRO ~lifecycle
