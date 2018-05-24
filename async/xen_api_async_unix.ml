@@ -38,7 +38,7 @@ module IO = struct
   let read (_, ic) len =
     let buf = Bytes.create len in
     Reader.read ic ~len buf >>| function
-    | `Ok len' -> String.sub buf ~pos:0 ~len:len'
+    | `Ok len' -> let content = Bytes.sub buf ~pos:0 ~len:len' in Bytes.to_string content
     | `Eof -> ""
 
   (* let read_exactly (_, ic) len =
