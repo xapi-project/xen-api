@@ -12,12 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type endpoint = { fdin: Unix.file_descr; fdout: Unix.file_descr; mutable buffer: string; mutable buffer_len: int }
+type endpoint = { fdin: Unix.file_descr; fdout: Unix.file_descr; mutable buffer: bytes; mutable buffer_len: int }
 
 let make_endpoint fdin fdout = {
   fdin = fdin;
   fdout = fdout;
-  buffer = String.make 4096 '\000';
+  buffer = Bytes.make 4096 '\000';
   buffer_len = 0
 }
 
@@ -29,15 +29,15 @@ let proxy (ain: Unix.file_descr) (aout: Unix.file_descr) (bin: Unix.file_descr) 
   Unix.set_nonblock bout;
 
   let can_read x =
-    x.buffer_len < (String.length x.buffer - 1) in
+    x.buffer_len < (Bytes.length x.buffer - 1) in
   let can_write x =
     x.buffer_len > 0 in
   let write_from x y =
     let written = Unix.single_write y.fdout x.buffer 0 x.buffer_len in
-    String.blit x.buffer written x.buffer 0 (x.buffer_len - written);
+    Bytes.blit x.buffer written x.buffer 0 (x.buffer_len - written);
     x.buffer_len <- x.buffer_len - written in
   let read_into x =
-    let read = Unix.read x.fdin x.buffer x.buffer_len (String.length x.buffer - x.buffer_len) in
+    let read = Unix.read x.fdin x.buffer x.buffer_len (Bytes.length x.buffer - x.buffer_len) in
     if read = 0 then raise End_of_file;
     x.buffer_len <- x.buffer_len + read in
 
@@ -81,5 +81,5 @@ let _ =
   let args = List.map (fun arg -> "&arg="^arg) (List.tl (List.tl (List.tl (Array.to_list Sys.argv)))) in
   let req = Printf.sprintf "CONNECT /remotecmd?session_id=%s&cmd=%s%s http/1.0\r\n\r\n" session cmd (String.concat "" args) in
   let fd = open_tcp_ssl host in
-  ignore (Unix.write fd req 0 (String.length req));
+  Unix.write fd (Bytes.unsafe_of_string req) 0 (String.length req) |> ignore;
   proxy Unix.stdin Unix.stdout fd (Unix.dup fd)
