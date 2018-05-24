@@ -25,7 +25,7 @@ let read fd size =
 
 (** write a buf to fd *)
 let write fd buf =
-	let len = String.length buf in
+	let len = Bytes.length buf in
 	let i = ref len in
 	while !i <> 0
 	do
@@ -46,7 +46,7 @@ let connect host port =
 
 (** Write an integer to an fd as 4 bytes, most significant first *)
 let write_int fd x = 
-	let buffer = "\000\000\000\000" in
+	let buffer = Bytes.of_string "\000\000\000\000" in
 	let put_in = Bytes.set buffer in
 	char_of_int ((x lsr 24) land 0xff) |> put_in 0;
 	char_of_int ((x lsr 16) land 0xff) |> put_in 1;
@@ -57,8 +57,8 @@ let write_int fd x =
 (** Read a 4-byte most significant first integer from an fd *)
 let read_int fd = 
 	let buffer = read fd 4 in
-	let a = int_of_char buffer.[0]
-	and b = int_of_char buffer.[1] 
-	and c = int_of_char buffer.[2] 
-	and d = int_of_char buffer.[3] in
+	let a = int_of_char (Bytes.get buffer 0)
+	and b = int_of_char (Bytes.get buffer 1)
+	and c = int_of_char (Bytes.get buffer 2)
+	and d = int_of_char (Bytes.get buffer 3) in
 	(a lsl 24) lor (b lsl 16) lor (c lsl 8) lor d
