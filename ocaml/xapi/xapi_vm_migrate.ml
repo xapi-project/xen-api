@@ -659,7 +659,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
         let read_write = true in
         (* DP set up is only essential for MIRROR.start/stop due to their open ended pattern.
            It's not necessary for copy which will take care of that itself. *)
-        ignore(SMAPI.VDI.attach ~dbg ~dp:new_dp ~sr:vconf.sr ~vdi:vconf.location ~read_write);
+        ignore(SMAPI.VDI.attach2 ~dbg ~dp:new_dp ~sr:vconf.sr ~vdi:vconf.location ~read_write);
         SMAPI.VDI.activate ~dbg ~dp:new_dp ~sr:vconf.sr ~vdi:vconf.location;
         ignore(Storage_access.register_mirror __context vconf.location);
         SMAPI.DATA.MIRROR.start ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:new_dp ~url:remote.sm_url ~dest:dest_sr_uuid
