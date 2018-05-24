@@ -32,7 +32,7 @@ let gen_random_string() =
         fillstr (l+1)
       end in
   fillstr 0;
-  string
+  Bytes.unsafe_to_string string
 
 let gen_random_string_option() =
   if (Random.int 2)=0 then
