@@ -18,34 +18,16 @@ open Stdext.Xstringext
 let dmidecode_prog = "/usr/sbin/dmidecode"
 
 let remove_invisible str =
-  let l = String.split '\n' str in
+  let l = String.split_on_char '\n' str in
   let l = List.filter (fun s -> not (String.startswith "#" s)) l in
   let str = String.concat "" l in
   String.fold_left (fun s c -> if c >= ' ' && c <= '~' then s ^ (String.of_char c) else s) "" str
-
-let trim str =
-  let l = String.length str in
-  let rec check_left i =
-    if i < l && String.isspace str.[i] then
-      check_left (i+1)
-    else
-      i
-  in
-  let rec check_right i =
-    if i > 0 && String.isspace str.[i] then
-      check_right (i-1)
-    else
-      i+1
-  in
-  let a = check_left 0 in
-  let b = (check_right (l-1)) - a in
-  try	String.sub str a b with Invalid_argument _  -> ""
 
 (* obtain the BIOS string with the given name from dmidecode *)
 let get_bios_string name =
   try
     let str, _ = Forkhelpers.execute_command_get_output dmidecode_prog [dmidecode_prog; "-s"; name] in
-    let str = trim (remove_invisible str) in
+    let str = String.trim (remove_invisible str) in
     if str = "" || str = "Not Specified" then ""
     else str
   with _ -> ""
@@ -61,7 +43,7 @@ let get_oem_strings () =
         let b = String.index_from result a ':' in
         let c = String.index_from result b '\n' in
         let str = "oem-" ^ (string_of_int index) in
-        let value = trim (remove_invisible (String.sub result (b+2) (c-b-2))) in
+        let value = String.trim (remove_invisible (String.sub result (b+2) (c-b-2))) in
         if value <> "" then
           (str, value) :: loop (index+1) c
         else
@@ -74,7 +56,7 @@ let get_oem_strings () =
 (* Get the HP-specific ROMBIOS OEM string:
  * 6 bytes from the memory starting at 0xfffea *)
 let get_hp_rombios () =
-  let hp_rombios = String.make 6 ' ' in
+  let hp_rombios = Bytes.make 6 ' ' in
   begin try
       let mem = Unix.openfile "/dev/mem" [Unix.O_RDONLY] 0 in
       Stdext.Pervasiveext.finally (fun () ->
@@ -83,7 +65,8 @@ let get_hp_rombios () =
         (fun () -> Unix.close mem)
     with _ -> ()
   end;
-  if trim (remove_invisible hp_rombios) = "COMPAQ" then "COMPAQ" else ""
+  let hp_rombios = Bytes.unsafe_to_string hp_rombios in
+  if String.trim (remove_invisible hp_rombios) = "COMPAQ" then "COMPAQ" else ""
 
 (* Get host bios strings *)
 let get_host_bios_strings ~__context =
