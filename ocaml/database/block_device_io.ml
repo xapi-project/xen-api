@@ -245,7 +245,7 @@ let read_database block_dev_fd target_response_time =
     (* Seek to the position of the database *)
     ignore_int (Unixext.seek_to block_dev_fd cur_pos);
     (* Read 'len' bytes from the block device and send them to the function we were given *)
-    ignore_int (Unixext.read_data_in_chunks f ~max_bytes:len block_dev_fd);
+    ignore_int (Unixext.read_data_in_string_chunks f ~max_bytes:len block_dev_fd);
     (* Seek back to where we were before *)
     ignore_int (Unixext.seek_to block_dev_fd prev_pos)
   in
@@ -355,7 +355,7 @@ let transfer_database_to_sock sock db_fn target_response_time =
   finally
     (fun () ->
        (* Read the data and send it down the socket *)
-       db_fn (fun chunk len -> Unixext.time_limited_write data_client len (Bytes.of_string chunk) target_response_time)
+       db_fn (fun chunk len -> Unixext.time_limited_write_substring data_client len chunk target_response_time)
     )
     (fun () ->
        (* Close the socket *)
