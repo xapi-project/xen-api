@@ -163,8 +163,8 @@ let get_pointer half =
 (* May raise Unixext.Timeout exception *)
 let initialise_redo_log block_dev_fd target_response_time =
   ignore_int (Unixext.seek_to block_dev_fd 0);
-  Unixext.time_limited_write block_dev_fd magic_size magic target_response_time;
-  Unixext.time_limited_write block_dev_fd 2 "\0000" target_response_time (* write the NUL and set the initial validity byte to 0 *)
+  Unixext.time_limited_write block_dev_fd magic_size (Bytes.unsafe_of_string magic) target_response_time;
+  Unixext.time_limited_write block_dev_fd 2 (Bytes.unsafe_of_string "\0000") target_response_time (* write the NUL and set the initial validity byte to 0 *)
 
 (* Check that the given filename refers to a valid redo-log block device. Returns a read/write file descriptor. *)
 (* May raise exceptions Unixext.Timeout or Unix.Unix_error *)
@@ -202,7 +202,7 @@ let read_validity_byte block_dev_fd target_response_time =
 let set_validity_byte block_dev_fd half target_response_time =
   seek_to_validity_byte block_dev_fd;
   let validity = half_to_string half in
-  Unixext.time_limited_write block_dev_fd 1 validity target_response_time
+  Unixext.time_limited_write block_dev_fd 1 (Bytes.unsafe_of_string validity) target_response_time
 
 (* Seeks to, and returns, the position just after the last db or delta record in the given half. *)
 let seek_past_last_record block_dev_fd half target_response_time =
@@ -325,7 +325,7 @@ let transfer_data_from_sock_to_fd sock dest_fd available_space target_response_t
                (* Check that there's enough space *)
                if available_space - !total_length < len then raise NotEnoughSpace;
                (* Otherwise write it *)
-               Unixext.time_limited_write dest_fd len chunk target_response_time;
+               Unixext.time_limited_write dest_fd len (Bytes.unsafe_of_string chunk) target_response_time;
                total_length := !total_length + len
              ) ~block_size:65536 data_client
         )
@@ -355,7 +355,7 @@ let transfer_database_to_sock sock db_fn target_response_time =
   finally
     (fun () ->
        (* Read the data and send it down the socket *)
-       db_fn (fun chunk len -> Unixext.time_limited_write data_client len chunk target_response_time)
+       db_fn (fun chunk len -> Unixext.time_limited_write data_client len (Bytes.of_string chunk) target_response_time)
     )
     (fun () ->
        (* Close the socket *)
@@ -383,13 +383,13 @@ let send_failure client prefix error =
 
 (* Read a byte from the given file descriptor. If it is not '|' then raises ExpectedSeparator. *)
 let read_separator client =
-  let str = "\000" in
+  let str = Bytes.of_string "\000" in
   Unixext.really_read client str 0 1;
-  if str <> "|" then raise ExpectedSeparator
+  if str <> (Bytes.of_string "|") then raise ExpectedSeparator
 
 (* Read and return data of a specified length from a given file descriptor. *)
 let read_data client length =
-  let str = String.make length '\000' in
+  let str = Bytes.make length '\000' in
   Unixext.really_read client str 0 length;
   str
 
@@ -419,7 +419,7 @@ let action_writedb block_dev_fd client datasock target_response_time =
   read_separator client;
   let generation_count = read_generation_count client in
 
-  R.debug "Read marker [%s] and gen_count [%s] from control socket" marker generation_count;
+  R.debug "Read marker [%s] and gen_count [%s] from control socket" (Bytes.to_string marker) (Bytes.to_string generation_count);
 
   try
     (* Read the validity byte *)
@@ -443,7 +443,7 @@ let action_writedb block_dev_fd client datasock target_response_time =
 
     (* Write the marker *)
     Unixext.time_limited_write block_dev_fd marker_size marker target_response_time;
-    R.debug "Written the marker [%s]" marker;
+    R.debug "Written the marker [%s]" (Bytes.to_string marker);
 
     (* Save the current cursor position *)
     let pos_to_write_length = Unixext.current_cursor_pos block_dev_fd in
@@ -476,11 +476,12 @@ let action_writedb block_dev_fd client datasock target_response_time =
     (* If there's space, write some ASCII NULs over the next few bytes so that we trample on any data which may already exist on the block device *)
     let remaining_space = remaining_space - min_space_needed in
     let trample_size = if size_size > remaining_space then remaining_space else size_size in
-    Unixext.time_limited_write block_dev_fd trample_size (String.make trample_size '\000') target_response_time;
+    Unixext.time_limited_write block_dev_fd trample_size (Bytes.make trample_size '\000') target_response_time;
 
     (* Seek backwards in the block device to where the length is supposed to go and write it *)
     ignore_int (Unixext.seek_to block_dev_fd pos_to_write_length);
-    Unixext.time_limited_write block_dev_fd size_size (Printf.sprintf "%016d" total_length) target_response_time;
+    let total_length_str = Printf.sprintf "%016d" total_length in
+    Unixext.time_limited_write block_dev_fd size_size (Bytes.of_string total_length_str) target_response_time;
     R.debug "Gone backwards and written the length %d at position %d" total_length pos_to_write_length;
 
     (* Set the internal pointer for this half to the position after the db, generation count and marker *)
@@ -515,11 +516,11 @@ let action_writedelta block_dev_fd client datasock target_response_time =
   let generation_count = read_generation_count client in
   read_separator client;
   let length_str = read_length client in
-  let length = int_of_string length_str in
+  let length = int_of_string (Bytes.unsafe_to_string length_str) in
   read_separator client;
   let data = read_data client length in
 
-  R.debug "writedelta command read params from client: generation count [%s] length [%d]" generation_count length;
+  R.debug "writedelta command read params from client: generation count [%s] length [%d]" (Bytes.to_string generation_count) length;
 
   try
     (* Read the validity byte *)
@@ -540,8 +541,8 @@ let action_writedelta block_dev_fd client datasock target_response_time =
     end in
 
     (* Construct the delta string *)
-    let str = length_str ^ data ^ generation_count ^ marker in
-    let str_len = String.length str in
+    let str = Bytes.concat Bytes.empty [length_str; data; generation_count; marker] in
+    let str_len = Bytes.length str in
 
     (* See if there's enough space for the delta *)
     let available_space = Db_globs.redo_log_length_of_half - (pos - start_of_half half_to_use) in
@@ -550,10 +551,10 @@ let action_writedelta block_dev_fd client datasock target_response_time =
     (* If there's space, write some ASCII NULs over the next few bytes so that we trample on any data which may already exist on the block device *)
     let available_space = available_space - str_len in
     let trample_size = if size_size > available_space then available_space else size_size in
-    let str = str ^ (String.make trample_size '\000') in
+    let str = Bytes.concat Bytes.empty [str; Bytes.make trample_size '\000'] in
 
     (* Write the delta *)
-    Unixext.time_limited_write block_dev_fd (String.length str) str target_response_time;
+    Unixext.time_limited_write block_dev_fd (Bytes.length str) str target_response_time;
 
     (* Set the internal pointer for this half to the position after this point *)
     set_pointer half_to_use (str_len + pos);
@@ -784,9 +785,9 @@ let _ =
              while not !stop do
                R.debug "Reading from client...";
                try
-                 let str = String.make command_size '\000' in
-                 Unixext.really_read client str 0 command_size;
-
+                 let buf = Bytes.make command_size '\000' in
+                 Unixext.really_read client buf 0 command_size;
+                 let str = Bytes.to_string buf in
                  (* Note: none of the action functions throw any exceptions; they report errors directly to the client. *)
                  let (action_fn, block_time) = match str with
                    | "writedelta" -> action_writedelta, !Db_globs.redo_log_max_block_time_writedelta
