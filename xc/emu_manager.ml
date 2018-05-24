@@ -71,7 +71,7 @@ let supports_feature path feat =
   let open Stdext.Xstringext.String in
   try
     execute_command_get_output path ("-supports" :: [feat])
-    |> fst |> strip isspace |> lowercase = "true"
+    |> fst |> strip isspace |> lowercase_ascii = "true"
   with Spawn_internal_error _ -> false
 
 let with_connection (task: Xenops_task.task_handle) path domid (args: string list) (fds: (string * Unix.file_descr) list) f =
