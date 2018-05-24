@@ -421,14 +421,14 @@ module SMAPIv1 = struct
       | Api_errors.Server_error(code, params) ->
         raise (Backend_error(code, params))
 
-    let attach context ~dbg ~dp ~sr ~vdi ~read_write =
+    let attach2 context ~dbg ~dp ~sr ~vdi ~read_write =
       try
-        let attach_info =
-          for_vdi ~dbg ~sr ~vdi "VDI.attach"
+        let backend =
+          for_vdi ~dbg ~sr ~vdi "VDI.attach2"
             (fun device_config _type sr self ->
                let attach_info_v1 = Sm.vdi_attach device_config _type sr self read_write in
                (* Record whether the VDI is benefiting from read caching *)
-               Server_helpers.exec_with_new_task "VDI.attach" ~subtask_of:(Ref.of_string dbg) (fun __context ->
+               Server_helpers.exec_with_new_task "VDI.attach2" ~subtask_of:(Ref.of_string dbg) (fun __context ->
                    let read_caching = not attach_info_v1.Smint.o_direct in
                    let on_key = read_caching_key ~__context in
                    let reason_key = read_caching_reason_key ~__context in
@@ -442,16 +442,29 @@ module SMAPIv1 = struct
                            ~value:(attach_info_v1.Smint.o_direct_reason)
                      )
                  );
-               { params = attach_info_v1.Smint.params;
-                 o_direct = attach_info_v1.Smint.o_direct;
-                 o_direct_reason = attach_info_v1.Smint.o_direct_reason;
-                 xenstore_data = attach_info_v1.Smint.xenstore_data; }
+               {
+                 implementations = [
+                   XenDisk {
+                     params = attach_info_v1.Smint.params;
+                     extra = attach_info_v1.Smint.xenstore_data;
+                     backend_type = "Tapdisk3"
+                   };
+                   (* We always get a BlockDevice from SMAPIv3, never a File, not even for ISOs *)
+                   BlockDevice {
+                     path = attach_info_v1.Smint.params
+                   }
+                 ];
+                 domain_uuid = "0"
+               }
             ) in
         Mutex.execute vdi_read_write_m
           (fun () -> Hashtbl.replace vdi_read_write (sr, vdi) read_write);
-        attach_info
+        backend
       with Api_errors.Server_error(code, params) ->
         raise (Backend_error(code, params))
+
+    let attach _ =
+      failwith "We'll never get here: attach is implemented in Storage_impl.Wrapper"
 
     let activate context ~dbg ~dp ~sr ~vdi =
       try
@@ -1322,7 +1335,7 @@ let attach_and_activate ~__context ~vbd ~domid f =
        on_vdi ~__context ~vbd ~domid
          (fun rpc dbg dp sr vdi ->
             let module C = Storage_interface.Client(struct let rpc = rpc end) in
-            let attach_info = C.VDI.attach dbg dp sr vdi read_write in
+            let attach_info = C.VDI.attach2 dbg dp sr vdi read_write in
             C.VDI.activate dbg dp sr vdi;
             f attach_info
          )

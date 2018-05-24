@@ -100,3 +100,36 @@ let with_vbds rpc session_id __context vm vdis mode f =
                         (fun self -> safe_unplug rpc session_id self)) !vbds;
            List.iter (Helpers.log_exn_continue "destroying VBD on VM"
                         (fun self -> Client.VBD.destroy rpc session_id self)) !vbds))
+
+(** Separates the implementations of the given backend returned from
+    the VDI.attach2 SMAPIv2 call based on their type *)
+let implementations_of_backend backend =
+  let open Storage_interface in
+  List.fold_left
+    (fun (xendisks, blockdevices, files, nbds) implementation ->
+       match implementation with
+       | XenDisk xendisk -> (xendisk::xendisks, blockdevices, files, nbds)
+       | BlockDevice blockdevice -> (xendisks, blockdevice::blockdevices, files, nbds)
+       | File file -> (xendisks, blockdevices, file::files, nbds)
+       | Nbd nbd -> (xendisks, blockdevices, files, nbd::nbds)
+    )
+    ([], [], [], [])
+    backend.implementations
+
+(** Extracts the UNIX domain socket path and the export name from the NBD URI in
+    the NBD information returned from the VDI.attach2 SMAPIv2 call.
+    This has the format nbd:unix:<domain-socket>:exportname=<name> *)
+let parse_nbd_uri nbd =
+  let Storage_interface.{ uri } = nbd in
+  let fail () =
+    raise Api_errors.(Server_error (Api_errors.internal_error, ["Unexpected NBD URI returned from the storage backend: " ^ uri]))
+  in
+  match String.split_on_char ':' uri with
+  | ["nbd"; "unix"; socket; exportname] -> begin
+      let prefix = "exportname=" in
+      match Astring.String.cuts ~empty:false ~sep:prefix exportname with
+      | [exportname] ->
+        (socket, exportname)
+      | _ -> fail ()
+    end
+  | _ -> fail ()
