@@ -149,7 +149,7 @@ let send proxy_socket =
               let n = Unix.recv fd buffer 0 (Bytes.length buffer) [] in
               let token' = Bytes.sub_string buffer 0 n in
               if token = token' then begin
-                let (_: int) = Fd_send_recv.send_fd fd token 0 (String.length token) [] proxy_socket in
+                let (_: int) = Fd_send_recv.send_fd_substring fd token 0 (String.length token) [] proxy_socket in
                 ()
               end
             end else if List.mem s_ip readable then begin
@@ -203,8 +203,9 @@ let receive protocols =
     finally
       (fun () ->
         Unix.connect s (Unix.ADDR_UNIX path);
-        let (_: int) = Unix.send s (Bytes.unsafe_of_string token) 0 (String.length token) [] in
-        let (_, _, fd) = Fd_send_recv.recv_fd s token 0 (String.length token) [] in
+        let token = Bytes.of_string token in
+        let (_: int) = Unix.send s token 0 (Bytes.length token) [] in
+        let (_, _, fd) = Fd_send_recv.recv_fd s token 0 (Bytes.length token) [] in
         fd
       ) (fun () -> Unix.close s)
 

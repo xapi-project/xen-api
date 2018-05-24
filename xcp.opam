@@ -12,7 +12,7 @@ depends: [
   "base-unix"
   "cmdliner"
   "cohttp"
-  "fd-send-recv"
+  "fd-send-recv" {>= "2.0.0"}
   "jbuilder" {build & >= "1.0+beta11"}
   "lwt" {>= "3.0.0"}
   "message-switch-core"
