@@ -584,7 +584,7 @@ let main_loop ifd ofd =
     | Command Prompt ->
       let data = input_line stdin in
       marshal ofd (Blob (Chunk (Int32.of_int (String.length data))));
-      Unix.write ofd (Bytes.unsafe_of_string data) 0 (String.length data) |> ignore;
+      Unix.write_substring ofd data 0 (String.length data) |> ignore;
       marshal ofd (Blob End)
     | Command (Error(code, params)) ->
       error "Error code: %s\n" code;
