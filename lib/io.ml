@@ -40,8 +40,12 @@ let write fd buf =
 let connect host port =
   let sockaddr = Unix.ADDR_INET (host, port) in
   let fd = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
-  Unix.connect fd sockaddr;
-  fd
+  try
+    Unix.connect fd sockaddr;
+    fd
+  with e ->
+    Unix.close fd;
+    raise e
 
 let byte_order_of_int ~endianness =
   match endianness with `big -> 0, 1, 2, 3 | `little -> 3, 2, 1, 0
