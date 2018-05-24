@@ -32,7 +32,7 @@ let string_of_date_opt = function
   | Some date -> Printf.sprintf "Some %s" (Date.to_string date)
 
 let f2d = Date.of_float
-let f2d2s = Date.to_string ++ Date.of_float
+let f2d2s f = f |> Date.of_float |> Date.to_string
 
 let edition_to_int = ["edition1", 1; "edition2", 2; "edition3", 3]
 
