@@ -81,18 +81,13 @@ let start (xmlrpc_path, http_fwd_path) process =
   Unix.listen http_fwd_socket 5;
   accept_forever http_fwd_socket (fun this_connection ->
       let msg_size = 16384 in
-      (* TODO: as for forkexec, ocaml-fd-send-recv currently operates on
-       * strings as if they were bytes. We need to change that library and
-       * then come back and fix this, as it is fine for now but could
-       * break in the future as ocaml starts getting immutable strings
-       * optimisations *)
-      let buf = String.make msg_size '\000' in
+      let buf = Bytes.make msg_size '\000' in
       (* debug "Calling Unixext.recv_fd()"; *)
       let len, _, received_fd = Xapi_stdext_unix.Unixext.recv_fd this_connection buf 0 msg_size [] in
       (* debug "Unixext.recv_fd ok (len = %d)" len; *)
       finally
         (fun _ ->
-           let req = String.sub buf 0 len |> Jsonrpc.of_string |> Http.Request.t_of_rpc in
+           let req = Bytes.sub_string buf 0 len |> Jsonrpc.of_string |> Http.Request.t_of_rpc in
            (* debug "Received request = [%s]\n%!" (req |> Http.Request.rpc_of_t |> Jsonrpc.to_string); *)
            req.Http.Request.close <- true;
            ignore_bool (Http_svr.handle_one server received_fd () req)
