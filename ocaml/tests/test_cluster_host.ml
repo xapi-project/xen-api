@@ -101,7 +101,9 @@ let test_create_as_necessary () =
   check_cluster_option "sync_required with an existing cluster_host" None result;
   let host = Test_common.make_host ~__context () in
   let result = sync_required ~__context ~host in
-  check_cluster_option "sync_required with an existing cluster_host on master but not given host" (Some cluster) result
+  check_cluster_option
+    "sync_required with an existing cluster_host on master but not given host"
+    (Some cluster) result
 
 (* CA-275728 *)
 let test_destroy_forbidden_when_sr_attached () =

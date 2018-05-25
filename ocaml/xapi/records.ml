@@ -2144,6 +2144,9 @@ let cluster_host_record rpc session_id cluster_host =
       ; make_field ~name:"enabled"
           ~get:(fun () -> (x ()).API.cluster_host_enabled |> string_of_bool)
           ()
+      ; make_field ~name:"joined"
+          ~get:(fun () -> (x ()).API.cluster_host_joined |> string_of_bool)
+          ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () -> String.concat "; " (List.map Record_util.cluster_host_operation_to_string (x ()).API.cluster_host_allowed_operations))
           ~get_set:(fun () -> List.map Record_util.cluster_host_operation_to_string (x ()).API.cluster_host_allowed_operations)

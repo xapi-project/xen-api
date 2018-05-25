@@ -30,7 +30,6 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_
   (* Currently we only support corosync. If we support more cluster stacks, this
    * should be replaced by a general function that checks the given cluster_stack *)
   Pool_features.assert_enabled ~__context ~f:Features.Corosync;
-  (* TODO: take network lock *)
   with_clustering_lock (fun () ->
       let dbg = Context.string_of_task __context in
       validate_params ~token_timeout ~token_timeout_coefficient;
@@ -64,7 +63,7 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_
           ~pool_auto_join ~token_timeout ~token_timeout_coefficient ~current_operations:[] ~allowed_operations:[] ~cluster_config:[]
           ~other_config:[];
         Db.Cluster_host.create ~__context ~ref:cluster_host_ref ~uuid:cluster_host_uuid ~cluster:cluster_ref ~host ~enabled:true ~pIF
-          ~current_operations:[] ~allowed_operations:[] ~other_config:[];
+          ~current_operations:[] ~allowed_operations:[] ~other_config:[] ~joined:true;
         Xapi_cluster_host_helpers.update_allowed_operations ~__context ~self:cluster_host_ref;
         D.debug "Created Cluster: %s and Cluster_host: %s" (Ref.string_of cluster_ref) (Ref.string_of cluster_host_ref);
         set_ha_cluster_stack ~__context;
