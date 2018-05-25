@@ -41,15 +41,13 @@ let write_raw_rpc sock ferpc =
 exception Connection_closed
 
 let receive_named_fd sock =
-  (* TODO: from ocaml-fd-send-recv, this currently will modify the *)
-  (* string as if it was mutable. It works for now but *)
-  (* could stop working in the future *)
-  let buffer = String.make 36 '\000' in
+  let buffer = Bytes.make 36 '\000' in
   let (len,_from,newfd) = Unixext.recv_fd sock buffer 0 36 [] in
+  let buffer = Bytes.unsafe_to_string buffer in
   if len=0 then raise Connection_closed;
-  (newfd,buffer)
+  (newfd, buffer)
 
 let send_named_fd sock uuid fd =
-  ignore(Unixext.send_fd sock uuid 0 (String.length uuid) [] fd)
+  ignore(Unixext.send_fd_substring sock uuid 0 (String.length uuid) [] fd)
 
 
