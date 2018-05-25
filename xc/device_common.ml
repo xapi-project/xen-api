@@ -434,7 +434,7 @@ let qmp_send_cmd ?send_fd domid cmd =
           begin match send_fd with
             | Some fd ->
               let connection' = Qmp_protocol.to_fd connection in
-              Fd_send_recv.send_fd connection' " " 0 1 [] fd |> ignore
+              Fd_send_recv.send_fd_substring connection' " " 0 1 [] fd |> ignore
             | None    -> ()
           end;
           qmp_send_cmd_internal connection domid cmd

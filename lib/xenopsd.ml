@@ -79,13 +79,13 @@ let rpc_fn call =
 
 let handle_received_fd this_connection =
   let msg_size = 16384 in
-  let buf = String.make msg_size '\000' in
+  let buf = Bytes.make msg_size '\000' in
   debug "Calling recv_fd()";
   let len, _, received_fd = Fd_send_recv.recv_fd this_connection buf 0 msg_size [] in
   debug "recv_fd ok (len = %d)" len;
   finally
     (fun () ->
-       let req = String.sub buf 0 len |> Jsonrpc.of_string |> Xenops_migrate.Forwarded_http_request.t_of_rpc in
+       let req = Bytes.sub_string buf 0 len |> Jsonrpc.of_string |> Xenops_migrate.Forwarded_http_request.t_of_rpc in
        debug "Received request = [%s]\n%!" (req |> Xenops_migrate.Forwarded_http_request.rpc_of_t |> Jsonrpc.to_string);
        let common_prefix = "/services/xenops/" in
        let memory_prefix = common_prefix ^ "memory/" in

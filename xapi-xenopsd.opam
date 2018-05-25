@@ -15,7 +15,7 @@ depends: [
   "cohttp"
   "core"
   "ezxenstore"
-  "fd-send-recv"
+  "fd-send-recv" {>= "2.0.0"}
   "ounit" {test}
   "qmp"
   "re"
