@@ -203,9 +203,9 @@ let receive protocols =
     finally
       (fun () ->
         Unix.connect s (Unix.ADDR_UNIX path);
-        let token = Bytes.of_string token in
-        let (_: int) = Unix.send s token 0 (Bytes.length token) [] in
-        let (_, _, fd) = Fd_send_recv.recv_fd s token 0 (Bytes.length token) [] in
+        let (_: int) = Unix.send_substring s token 0 (String.length token) [] in
+        let buf = Bytes.create (String.length token) in
+        let (_, _, fd) = Fd_send_recv.recv_fd s buf 0 (Bytes.length buf) [] in
         fd
       ) (fun () -> Unix.close s)
 
