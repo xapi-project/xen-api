@@ -116,11 +116,11 @@ let advertise_t _common_options_t proxy_socket =
     proxy fd (Lwt_unix.of_unix_file_descr proxy_socket) in
   let t_unix =
     Lwt_unix.accept s_unix >>= fun (fd, _peer) ->
-    let buffer = String.make (String.length token) '\000' in
-    let io_vector = Lwt_unix.io_vector ~buffer ~offset:0 ~length:(String.length buffer) in
+    let buffer = Bytes.make (String.length token) '\000' in
+    let io_vector = Lwt_unix.io_vector ~buffer:(Bytes.unsafe_to_string buffer) ~offset:0 ~length:(Bytes.length buffer) in
     Lwt_unix.recv_msg ~socket:fd ~io_vectors:[io_vector] >>= fun (n, fds) ->
     List.iter Unix.close fds;
-    let token' = String.sub buffer 0 n in
+    let token' = Bytes.sub_string buffer 0 n in
     let io_vector' = Lwt_unix.io_vector ~buffer:token' ~offset:0 ~length:(String.length token') in
     if token = token'
     then
