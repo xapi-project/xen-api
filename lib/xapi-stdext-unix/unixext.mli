@@ -63,7 +63,11 @@ val buffer_of_file : string -> Buffer.t
 val string_of_file : string -> string
 
 val atomic_write_to_file : string -> Unix.file_perm -> (Unix.file_descr -> 'a) -> 'a
+
+(** Atomically write a string to a file *)
 val write_string_to_file : string -> string -> unit
+
+(** Atomically write a bytes to a file *)
 val write_bytes_to_file : string -> bytes -> unit
 val execv_get_output : string -> string array -> int * Unix.file_descr
 val copy_file : ?limit:int64 -> Unix.file_descr -> Unix.file_descr -> int64
@@ -98,6 +102,7 @@ val string_of_signal : int -> string
 val proxy : Unix.file_descr -> Unix.file_descr -> unit
 val really_read : Unix.file_descr -> bytes -> int -> int -> unit
 val really_read_string : Unix.file_descr -> int -> string
+
 (** [really_write] keeps repeating the write operation until all bytes
  * have been written or an error occurs. This is not atomic but is
  * robust against EINTR errors. 
@@ -107,8 +112,10 @@ val really_write_string : Unix.file_descr -> string -> unit
 val try_read_string : ?limit: int -> Unix.file_descr -> string
 exception Timeout
 val time_limited_write : Unix.file_descr -> int -> bytes -> float -> unit
+val time_limited_write_substring : Unix.file_descr -> int -> string -> float -> unit
 val time_limited_read : Unix.file_descr -> int -> float -> string
-val read_data_in_chunks : (string -> int -> unit) -> ?block_size:int -> ?max_bytes:int -> Unix.file_descr -> int
+val read_data_in_string_chunks : (string -> int -> unit) -> ?block_size:int -> ?max_bytes:int -> Unix.file_descr -> int
+val read_data_in_chunks : (bytes -> int -> unit) -> ?block_size:int -> ?max_bytes:int -> Unix.file_descr -> int
 val spawnvp :
   ?pid_callback:(int -> unit) ->
   string -> string array -> Unix.process_status
@@ -145,8 +152,9 @@ end
 
 val wait_for_path : string -> (float -> unit) -> int -> unit
 
-val send_fd : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> Unix.file_descr -> int
-val recv_fd : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> int * Unix.sockaddr * Unix.file_descr
+val send_fd : Unix.file_descr -> bytes -> int -> int -> Unix.msg_flag list -> Unix.file_descr -> int
+val send_fd_substring : Unix.file_descr -> string -> int -> int -> Unix.msg_flag list -> Unix.file_descr -> int
+val recv_fd : Unix.file_descr -> bytes -> int -> int -> Unix.msg_flag list -> int * Unix.sockaddr * Unix.file_descr
 
 type statvfs_t = {
   f_bsize : int64;

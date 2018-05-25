@@ -11,7 +11,7 @@ build:  [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 depends: [
   "jbuilder" {build}
   "base-unix"
-  "fd-send-recv"
+  "fd-send-recv" {>= "2.0.0"}
   "xapi-stdext-pervasives"
   "xapi-stdext-std"
 ]

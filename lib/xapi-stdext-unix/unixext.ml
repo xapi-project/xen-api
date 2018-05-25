@@ -188,7 +188,8 @@ let write_bytes_to_file fname b =
       let written = Unix.write fd b 0 len in
       if written <> len then (failwith "Short write occured!"))
 
-let write_string_to_file fname s = write_bytes_to_file fname (Bytes.unsafe_of_string s)
+let write_string_to_file fname s =
+  write_bytes_to_file fname (Bytes.unsafe_of_string s)
 
 let execv_get_output cmd args =
   let (pipe_exit, pipe_entrance) = Unix.pipe () in
@@ -480,7 +481,7 @@ exception Timeout
 (* Write as many bytes to a file descriptor as possible from data before a given clock time. *)
 (* Raises Timeout exception if the number of bytes written is less than the specified length. *)
 (* Writes into the file descriptor at the current cursor position. *)
-let time_limited_write filedesc length data target_response_time =
+let time_limited_write_internal (write : Unix.file_descr -> 'a -> int -> int -> int) filedesc length data target_response_time =
   let total_bytes_to_write = length in
   let bytes_written = ref 0 in
   let now = ref (Unix.gettimeofday()) in
@@ -489,12 +490,19 @@ let time_limited_write filedesc length data target_response_time =
     let (_, ready_to_write, _) = Unix.select [] [filedesc] [] remaining_time in (* Note: there is a possibility that the storage could go away after the select and before the write, so the write would block. *)
     if List.mem filedesc ready_to_write then begin
       let bytes_to_write = total_bytes_to_write - !bytes_written in
-      let bytes = (try Unix.write filedesc data !bytes_written bytes_to_write with Unix.Unix_error(Unix.EAGAIN,_,_) | Unix.Unix_error(Unix.EWOULDBLOCK,_,_) -> 0) in (* write from buffer=data from offset=bytes_written, length=bytes_to_write *)
+      let bytes = (try write filedesc data !bytes_written bytes_to_write with Unix.Unix_error(Unix.EAGAIN,_,_) | Unix.Unix_error(Unix.EWOULDBLOCK,_,_) -> 0) in (* write from buffer=data from offset=bytes_written, length=bytes_to_write *)
       bytes_written := bytes + !bytes_written;
     end;
     now := Unix.gettimeofday()
   done;
   if !bytes_written = total_bytes_to_write then () else (* we ran out of time *) raise Timeout
+
+let time_limited_write filedesc length data target_response_time =
+  time_limited_write_internal Unix.write filedesc length data target_response_time
+
+let time_limited_write_substring filedesc length data target_response_time =
+  time_limited_write_internal Unix.write_substring filedesc length data target_response_time
+
 
 (* Read as many bytes to a file descriptor as possible before a given clock time. *)
 (* Raises Timeout exception if the number of bytes read is less than the desired number. *)
@@ -521,7 +529,7 @@ let time_limited_read filedesc length target_response_time =
 
 (* Read a given number of bytes of data from the fd, or stop at EOF, whichever comes first. *)
 (* A negative ~max_bytes indicates that all the data should be read from the fd until EOF. This is the default. *)
-let read_data_in_chunks (f : string -> int -> unit) ?(block_size = 1024) ?(max_bytes = -1) from_fd =
+let read_data_in_chunks_internal (sub : bytes -> int -> int -> 'a) (f : 'a -> int -> unit) ?(block_size = 1024) ?(max_bytes = -1) from_fd =
   let buf = Bytes.make block_size '\000' in
   let rec do_read acc =
     let remaining_bytes = max_bytes - acc in
@@ -531,11 +539,17 @@ let read_data_in_chunks (f : string -> int -> unit) ?(block_size = 1024) ?(max_b
       let bytes_read = Unix.read from_fd buf 0 bytes_to_read in
       if bytes_read = 0 then acc (* we reached EOF *)
       else begin
-        f (Bytes.sub_string buf 0 bytes_read) bytes_read;
+        f (sub buf 0 bytes_read) bytes_read;
         do_read (acc + bytes_read)
       end
     end in
   do_read 0
+
+let read_data_in_string_chunks (f : string -> int -> unit) ?(block_size = 1024) ?(max_bytes = -1) from_fd =
+  read_data_in_chunks_internal Bytes.sub_string f ~block_size ~max_bytes from_fd
+
+let read_data_in_chunks (f : bytes -> int -> unit) ?(block_size = 1024) ?(max_bytes = -1) from_fd =
+  read_data_in_chunks_internal Bytes.sub f ~block_size ~max_bytes from_fd
 
 let spawnvp ?(pid_callback=(fun _ -> ())) cmd args =
   match Unix.fork () with
@@ -658,6 +672,7 @@ let wait_for_path path delay timeout =
 let _ = Callback.register_exception "unixext.unix_error" (Unix_error (0))
 
 let send_fd = Fd_send_recv.send_fd
+let send_fd_substring = Fd_send_recv.send_fd_substring
 let recv_fd = Fd_send_recv.recv_fd
 
 type statvfs_t = {
