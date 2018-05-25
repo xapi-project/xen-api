@@ -2092,6 +2092,10 @@ let cluster_record rpc session_id cluster =
       ; make_field ~name:"token-timeout-coefficient"
           ~get:(fun () -> Int64.to_string((x ()).API.cluster_token_timeout_coefficient))
           ()
+      ; make_field ~name:"pending-forget" ~hidden:true
+          ~get:(fun () -> String.concat "; " (x ()).API.cluster_pending_forget)
+          ~get_set:(fun () -> (x ()).API.cluster_pending_forget)
+          ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () -> String.concat "; " (List.map Record_util.cluster_operation_to_string (x ()).API.cluster_allowed_operations))
           ~get_set:(fun () -> List.map Record_util.cluster_operation_to_string (x ()).API.cluster_allowed_operations)

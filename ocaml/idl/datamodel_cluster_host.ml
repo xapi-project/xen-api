@@ -66,6 +66,17 @@ let disable = call
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+let forget = call
+  ~name:"forget"
+  ~doc:"Permanently remove a dead host from the cluster. This host must never rejoin the cluster."
+  ~params:
+      [ Ref _cluster_host, "self", "the cluster_host to declare permanently dead and forget"
+      ]
+  ~lifecycle:[Prototyped, rel_lima, ""]
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
+  ~hide_from_docs:true
+  ()
+
 let t =
   create_obj
     ~name: _cluster_host
@@ -111,6 +122,7 @@ let t =
       ; destroy
       ; enable
       ; force_destroy
+      ; forget
       ; disable
       ]
     ()

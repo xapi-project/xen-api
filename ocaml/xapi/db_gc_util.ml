@@ -110,6 +110,12 @@ let gc_VIFs ~__context =
 let gc_PBDs ~__context =
   gc_connector ~__context Db.PBD.get_all Db.PBD.get_record (fun x->valid_ref __context x.pBD_host) (fun x->valid_ref __context x.pBD_SR) Db.PBD.destroy
 
+let gc_Cluster_hosts ~__context =
+  gc_connector ~__context Db.Cluster_host.get_all Db.Cluster_host.get_record
+    (fun x -> valid_ref __context x.cluster_host_host)
+    (fun x -> valid_ref __context x.cluster_host_PIF)
+    Db.Cluster_host.destroy
+
 let gc_VGPUs ~__context =
   gc_connector ~__context Db.VGPU.get_all Db.VGPU.get_record (fun x->valid_ref __context x.vGPU_VM) (fun x->valid_ref __context x.vGPU_GPU_group)
     (fun ~__context ~self ->
@@ -400,6 +406,7 @@ let timeout_alerts ~__context =
 let gc_subtask_list = [
     "VDIs", gc_VDIs;
     "PIFs", gc_PIFs;
+    "Cluster_host", gc_Cluster_hosts;
     "VBDs", gc_VBDs;
     "crashdumps", gc_crashdumps;
     "VIFs", gc_VIFs;

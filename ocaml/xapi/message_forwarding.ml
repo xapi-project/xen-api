@@ -4388,5 +4388,33 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
              (fun () ->
                 do_op_on ~__context ~local_fn ~host
                   (fun session_id rpc -> Client.Cluster_host.disable rpc session_id self)))
+
+    let forget ~__context ~self =
+      info "Cluster_host.forget cluster_host:%s" (Ref.string_of self);
+      let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+      let local_fn = Local.Cluster_host.disable ~self in
+      (* We need to ask another host that has a cluster host to mark it as dead.
+       * We might've run force destroy and this host would no longer have a cluster host
+       * *)
+      let other_hosts =
+        Db.Cluster.get_cluster_hosts ~__context ~self:cluster
+        |> List.filter ((<>) self) in
+      let rec find_first_live = function
+      | [] -> info "No other cluster hosts, nothing to do" (* go ahead and finish Host.destroy *)
+      | other_cluster_host :: rest ->
+        try
+          let host = Db.Cluster_host.get_host ~__context ~self:other_cluster_host in
+          Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster ~doc:"Cluster.remove" ~op:`remove
+            (fun () ->
+               do_op_on ~__context ~local_fn ~host
+                 (fun session_id rpc -> Client.Cluster_host.forget rpc session_id self));
+        with Api_errors.Server_error(code, _) as e when code = Api_errors.host_offline ->
+          match rest with
+          | [] ->
+            debug "Ran out of hosts to try (and no cluster host on ourselves), reporting error";
+            raise e
+          | _ -> find_first_live rest
+      in
+      find_first_live other_hosts
   end
 end

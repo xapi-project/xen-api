@@ -701,7 +701,6 @@ let precheck_destroy_declare_dead ~__context ~self call =
   let me = Helpers.get_localhost ~__context in
   if self=me then raise (Api_errors.Server_error(Api_errors.host_is_live, [ Ref.string_of self ]))
 
-
 (* Returns a tuple of lists: The first containing the control domains, and the second containing the regular VMs *)
 let get_resident_vms ~__context ~self =
   let my_resident_vms = Db.Host.get_resident_VMs ~__context ~self in
@@ -720,6 +719,10 @@ let destroy ~__context ~self =
   if List.length my_regular_vms > 0
   then raise (Api_errors.Server_error(Api_errors.host_has_resident_vms, [ Ref.string_of self ]));
 
+  (* Call external host failed hook (allows a third-party to use power-fencing if desired).
+   * This will declare the host as dead to the clustering daemon *)
+  Xapi_hooks.host_pre_declare_dead ~__context ~host:self ~reason:Xapi_hooks.reason__dbdestroy;
+
   (* Call the hook before we destroy the stuff as it will likely need the
      database records *)
   Xapi_hooks.host_post_declare_dead ~__context ~host:self ~reason:Xapi_hooks.reason__dbdestroy;
@@ -731,6 +734,10 @@ let destroy ~__context ~self =
 
 let declare_dead ~__context ~host =
   precheck_destroy_declare_dead ~__context ~self:host "declare_dead";
+
+  (* Call external host failed hook (allows a third-party to use power-fencing if desired).
+   * This needs to happen before we reset the power state of the VMs *)
+  Xapi_hooks.host_pre_declare_dead ~__context ~host ~reason:Xapi_hooks.reason__user;
 
   let my_control_domains, my_regular_vms = get_resident_vms ~__context ~self:host in
 

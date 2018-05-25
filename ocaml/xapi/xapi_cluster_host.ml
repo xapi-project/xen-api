@@ -168,6 +168,33 @@ let destroy ~__context ~self =
     warn "Error occurred during Cluster_host.destroy";
     handle_error error
 
+
+let ip_of_str str = Cluster_interface.IPv4 str
+
+let forget ~__context ~self =
+  with_clustering_lock (fun () ->
+      let dbg = Context.string_of_task __context in
+      let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+      let pif = Db.Cluster_host.get_PIF ~__context ~self in
+      let ip = Db.PIF.get_IP ~__context ~self:pif in
+      let pending = ip :: Db.Cluster.get_pending_forget ~__context ~self:cluster in
+      debug "Setting pending forget to %s" (String.concat "," pending);
+      Db.Cluster.set_pending_forget ~__context ~self:cluster ~value:pending;
+
+      let pending = List.map ip_of_str pending in
+      let result = Cluster_client.LocalClient.declare_dead (rpc ~__context) dbg pending in
+      match result with
+      | Result.Ok () ->
+        debug "Successfully forgot permanently dead hosts, setting pending forget to empty";
+        Db.Cluster.set_pending_forget ~__context ~self:cluster ~value:[];
+        (* must not disable the daemon here, because we declared another unreachable node dead,
+         * not the current one *)
+        debug "Cluster_host.forget was successful"
+      | Result.Error error ->
+        warn "Error encountered when declaring dead cluster_host %s (did you declare all dead hosts yet?)" (Ref.string_of self);
+        handle_error error
+    )
+
 let enable ~__context ~self =
   with_clustering_lock (fun () ->
       let dbg = Context.string_of_task __context in

@@ -500,8 +500,23 @@ let make_cluster_and_cluster_host ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid
     ?(allowed_operations=[]) ?(current_operations=[]) ?(pool_auto_join=true)
     ?(token_timeout=5000L) ?(token_timeout_coefficient=1000L) ?(cluster_config=[])
     ?(other_config=[]) ?(host=Ref.null) () =
-  Db.Cluster.create ~__context ~ref ~uuid ~cluster_token
+  Db.Cluster.create ~__context ~ref ~uuid ~cluster_token ~pending_forget:[]
     ~cluster_stack ~allowed_operations ~current_operations ~pool_auto_join
     ~token_timeout ~token_timeout_coefficient ~cluster_config ~other_config;
   let cluster_host_ref = make_cluster_host ~__context ~cluster:ref ~host ~pIF () in
   ref, cluster_host_ref
+
+let make_cluster_and_hosts ~__context extra_hosts =
+  let cluster_stack = "mock_cluster_stack" in
+  let network = make_network ~__context () in
+
+  let host = Helpers.get_localhost ~__context in
+  let pIF = make_pif ~__context ~network ~host ~iP:"192.0.2.1" () in
+  let cluster, cluster_host = make_cluster_and_cluster_host ~__context ~cluster_stack ~pIF ~host () in
+
+  let build_cluster_host i host =
+    let pIF = make_pif ~__context ~network ~host ~iP:(Printf.sprintf "192.0.2.%d" (i+2)) () in
+    make_cluster_host ~__context ~cluster ~host ~pIF ()
+  in
+
+  cluster, cluster_host :: List.mapi build_cluster_host extra_hosts

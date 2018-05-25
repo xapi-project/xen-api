@@ -75,3 +75,9 @@ val resync_host : __context:Context.t -> host:API.ref_host -> unit
     exists but is not associated with a cluster_host, it creates one. If the
     database indicates the cluster_host is enabled, host_resync enables it
     in the Client layer too. Otherwise, nothing happens. *)
+
+val forget : __context:Context.t -> self:API.ref_Cluster_host -> unit
+(** [forget ~__context ~self] marks the cluster host as permanently removed
+ *  from the cluster. This will only succeed if the rest of the hosts are online,
+ *  so in the case of failure the cluster's pending_forget list will be updated.
+ *  If you declare all your dead hosts as dead one by one the last one should succeed *)

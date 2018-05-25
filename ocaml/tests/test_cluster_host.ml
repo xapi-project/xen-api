@@ -19,7 +19,7 @@ let create_cluster ~__context pool_auto_join =
   let cluster_uuid = Uuidm.to_string (Uuidm.create `V4) in
   Db.Cluster.create ~__context ~ref:cluster_ref ~uuid:cluster_uuid ~cluster_token:"token"
     ~cluster_stack:Constants.default_smapiv3_cluster_stack ~token_timeout:5000L ~token_timeout_coefficient:1000L ~allowed_operations:[]
-    ~current_operations:[] ~pool_auto_join ~cluster_config:[] ~other_config:[];
+    ~current_operations:[] ~pool_auto_join ~cluster_config:[] ~other_config:[] ~pending_forget:[];
   cluster_ref
 
 let check_cluster_option =
@@ -122,6 +122,84 @@ let test_destroy_forbidden_when_sr_attached () =
     Api_errors.(Server_error (cluster_stack_in_use, [ cluster_stack ]))
     (fun () -> Xapi_cluster_host.destroy ~__context ~self:cluster_host)
 
+type declare_dead_args = {
+  dead_members: Cluster_interface.address list;
+  dbg: string
+} [@@deriving rpcty]
+
+let test_clusterd_rpc ~__context call =
+  match call.Rpc.name, call.Rpc.params with
+  | "declare-dead", [args] ->
+    let args = Rpcmarshal.unmarshal declare_dead_args.Rpc.Types.ty args |> Rresult.R.get_ok in
+    let all = Db.Cluster_host.get_all ~__context in
+    let ndead = List.length args.dead_members in
+    let nall = List.length all in
+    Printf.printf "dead_members: %d, all: %d\n" ndead nall;
+    if ndead = nall - 1 then
+      Rpc.{success = true; contents = Rpc.rpc_of_unit () }
+    else
+      let err = Cluster_interface.InternalError "Remaining hosts are not all alive" in
+      (* in the test we must declare N-1 as dead before it succeeds *)
+      Rpc.failure (Rpcmarshal.marshal Cluster_interface.error.Rpc.Types.ty err)
+  | name, params ->
+    failwith (Printf.sprintf "Unexpected RPC: %s(%s)" name (String.concat " " (List.map Rpc.to_string params)))
+
+let test_rpc ~__context call =
+  match call.Rpc.name, call.Rpc.params with
+  | "Cluster_host.forget", [_session; self] ->
+    let open API in
+    Xapi_cluster_host.forget ~__context ~self:(ref_Cluster_host_of_rpc self);
+    Rpc.{success = true; contents = Rpc.String "" }
+  | "host.apply_guest_agent_config", _ ->
+    Rpc.{success = true; contents = Rpc.rpc_of_unit () }
+  | name, params ->
+    failwith (Printf.sprintf "Unexpected RPC: %s(%s)" name (String.concat " " (List.map Rpc.to_string params)))
+
+let make ~__context extra_hosts =
+  Context.set_test_rpc __context (test_rpc ~__context);
+  Context.set_test_clusterd_rpc __context (test_clusterd_rpc ~__context);
+  Test_common.make_cluster_and_hosts ~__context extra_hosts
+
+
+let test_forget () =
+  let __context = Test_common.make_test_database () in
+  let host2 = Test_common.make_host ~__context () in
+  let cluster, original_cluster_hosts = make ~__context [host2] in
+
+  Xapi_host.destroy ~__context ~self:host2;
+  let pending = Db.Cluster.get_pending_forget ~__context ~self:cluster in
+  Alcotest.(check (list string)) "no pending forgets"
+              [] pending;
+
+  Db_gc_util.gc_Cluster_hosts ~__context;
+  let cluster_hosts = Db.Cluster.get_cluster_hosts ~__context ~self:cluster in
+  Alcotest.(check (list Alcotest_comparators.(ref ())) "surviving cluster host"
+              [List.hd original_cluster_hosts] cluster_hosts)
+
+
+let test_forget2 () =
+  let __context = Test_common.make_test_database () in
+  let host2 = Test_common.make_host ~__context () in
+  let host3 = Test_common.make_host __context () in
+  let cluster, original_cluster_hosts = make ~__context [host2; host3] in
+
+  Xapi_host.destroy ~__context ~self:host3;
+
+  let pending = Db.Cluster.get_pending_forget ~__context ~self:cluster in
+  Alcotest.(check (list string) "1 pending forgets"
+              ["192.0.2.3"] pending);
+
+  Xapi_host.destroy ~__context ~self:host2;
+
+  Db_gc_util.gc_Cluster_hosts ~__context;
+  let cluster_hosts = Db.Cluster.get_cluster_hosts ~__context ~self:cluster in
+  Alcotest.(check (list Alcotest_comparators.(ref ())) "surviving cluster host"
+              [List.hd original_cluster_hosts] cluster_hosts);
+
+  let pending = Db.Cluster.get_pending_forget ~__context ~self:cluster in
+  Alcotest.(check (list string) "no pending forgets"
+              [] pending)
+
 
 let test =
   [ "test_dbsync_join", `Quick, test_dbsync_join
@@ -129,4 +207,6 @@ let test =
   ; "test_fix_prerequisites", `Quick, test_fix_prereq
   ; "test_create_as_necessary", `Quick, test_create_as_necessary
   ; "test_destroy_forbidden_when_sr_attached", `Quick, test_destroy_forbidden_when_sr_attached
+  ; "test_forget", `Quick, test_forget
+  ; "test_forget2", `Quick, test_forget2
   ]
