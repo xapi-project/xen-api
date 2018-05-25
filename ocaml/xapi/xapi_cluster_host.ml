@@ -35,28 +35,9 @@ let fix_pif_prerequisites ~__context (pif_ref,pif_rec) =
     Db.PIF.set_disallow_unplug ~__context ~self:pif_ref ~value:true
   end
 
-let sync_required ~__context ~host =
-  let clusters = Db.Cluster.get_all_records ~__context in
-  match clusters with
-  | [] -> None
-  | [cluster_ref, cluster_rec] -> begin
-      let expr = Db_filter_types.(And (Eq (Field "host", Literal (Ref.string_of host)),
-                                       Eq (Field "cluster", Literal (Ref.string_of cluster_ref)))) in
-      let my_cluster_hosts = Db.Cluster_host.get_internal_records_where ~__context ~expr in
-      match my_cluster_hosts with
-      | [(_ref,_rec)] -> None
-      | [] ->
-        if cluster_rec.API.cluster_pool_auto_join
-        then Some cluster_ref
-        else None
-      | _ -> raise Api_errors.(Server_error (internal_error, [ "Host cannot be associated with more than one cluster_host"; Ref.string_of host ]))
-    end
-  | _ -> raise Api_errors.(Server_error (internal_error, ["Cannot have more than one Cluster object per pool currently"]))
-
 let call_api_function_with_alert ~__context ~msg ~cls ~obj_uuid ~body
   ~(api_func : (Rpc.call -> Rpc.response) -> API.ref_session -> unit) =
-    Helpers.call_api_functions ~__context
-      (fun rpc session_id ->
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
         try
           api_func rpc session_id
         with err ->
@@ -112,29 +93,68 @@ let create ~__context ~cluster ~host ~pif =
       assert_cluster_host_can_be_created ~__context ~host;
       assert_pif_attached_to ~host ~pif ~__context;
       let ref = Ref.make () in
-      let dbg = Context.string_of_task __context in
       let uuid = Uuidm.to_string (Uuidm.create `V4) in
-      let cluster_token = Db.Cluster.get_cluster_token ~__context ~self:cluster in
-      let pifref,pifrec = pif,(Db.PIF.get_record ~__context ~self:pif) in
-      assert_pif_prerequisites (pifref,pifrec);
-      let ip = ip_of_pif (pifref,pifrec) in
-      let ip_list = List.map (fun cluster_host ->
-        let pref = Db.Cluster_host.get_PIF ~__context ~self:cluster_host in
-        let prec = Db.PIF.get_record ~__context ~self:pref in
-          ip_of_pif (pref,prec)
-        ) (Db.Cluster.get_cluster_hosts ~__context ~self:cluster) in
-      Xapi_clustering.Daemon.enable ~__context;
-      let result = Cluster_client.LocalClient.join (rpc ~__context) dbg cluster_token ip ip_list in
-      match result with
-      | Result.Ok () ->
-        Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~pIF:pifref ~enabled:true
-          ~current_operations:[] ~allowed_operations:[] ~other_config:[];
-        debug "Cluster_host.create was successful; cluster_host: %s" (Ref.string_of ref);
-        ref
-      | Result.Error error ->
-        warn "Error occurred during Cluster_host.create";
-        handle_error error
-    )
+      let pifrec = Db.PIF.get_record ~__context ~self:pif in
+      assert_pif_prerequisites (pif,pifrec);
+      Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~pIF:pif ~enabled:false
+        ~current_operations:[] ~allowed_operations:[] ~other_config:[] ~joined:false;
+      ref
+  )
+
+(* Enable cluster_host in client layer via clusterd *)
+let resync_host ~__context ~host =
+  match (find_cluster_host ~__context ~host) with
+  | None      -> () (* no clusters exist *)
+  | Some self ->    (* cluster_host and cluster exist *)
+    with_clustering_lock (fun () ->
+        (* Join cluster host in clusterd *)
+        if not (Db.Cluster_host.get_joined ~__context ~self) then begin
+          debug "Enabling clusterd and joining cluster_host %s" (Ref.string_of self);
+          Xapi_clustering.Daemon.enable ~__context;
+          let dbg = Context.string_of_task __context in
+          let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+          let cluster_token = Db.Cluster.get_cluster_token ~__context ~self:cluster in
+          let pifref = Db.Cluster_host.get_PIF ~__context ~self in
+          let pifrec = Db.PIF.get_record ~__context ~self:pifref in
+          let ip = ip_of_pif (pifref,pifrec) in
+          let ip_list = List.map (fun self ->
+            let pref = Db.Cluster_host.get_PIF ~__context ~self in
+            let prec = Db.PIF.get_record ~__context ~self:pref in
+              ip_of_pif (pref,prec)
+            ) (Db.Cluster.get_cluster_hosts ~__context ~self:cluster) in
+          let result = Cluster_client.LocalClient.join (rpc ~__context) dbg cluster_token ip ip_list in
+          match result with
+          | Result.Ok () ->
+            Db.Cluster_host.set_joined ~__context ~self ~value:true;
+            Db.Cluster_host.set_enabled ~__context ~self ~value:true;
+            debug "Cluster_host.create was successful; cluster_host: %s" (Ref.string_of self);
+          | Result.Error error ->
+            warn "Error occurred during Cluster_host.create";
+            handle_error error
+        end;
+        if Db.Cluster_host.get_enabled ~__context ~self then begin
+        (* [enable] unconditionally invokes low-level enable operations and is idempotent. *)
+          (* RPU reformats partition, losing service status, never re-enables clusterd *)
+          debug "Cluster_host %s is enabled, starting up xapi-clusterd" (Ref.string_of self);
+          Xapi_clustering.Daemon.enable ~__context;
+
+          (* Best-effort Cluster_host.enable *)
+          let body = Printf.sprintf "Unable to create cluster host on %s."
+              (Db.Host.get_name_label ~__context ~self:host) in
+          let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
+          call_api_function_with_alert ~__context
+            ~msg:Api_messages.cluster_host_enable_failed
+            ~cls:`Host ~obj_uuid ~body
+            ~api_func:(fun rpc session_id -> ignore
+                (Client.Client.Cluster_host.enable rpc session_id self))
+        end
+      )
+
+(* API call split into separate functions to create in db and enable in client layer *)
+let create ~__context ~cluster ~host ~pif =
+  let cluster_host = create_internal ~__context ~cluster ~host ~pif in
+  resync_host ~__context ~host;
+  cluster_host
 
 let force_destroy ~__context ~self =
   let dbg = Context.string_of_task __context in
@@ -245,4 +265,32 @@ let disable_clustering ~__context =
   | Some self ->
      info "Disabling cluster_host %s" (Ref.string_of self);
      disable ~__context ~self
+
+let sync_required ~__context ~host =
+  let clusters = Db.Cluster.get_all_records ~__context in
+  match clusters with
+  | [] -> None
+  | [cluster_ref, cluster_rec] -> begin
+      let expr = Db_filter_types.(And (Eq (Field "host", Literal (Ref.string_of host)),
+                                       Eq (Field "cluster", Literal (Ref.string_of cluster_ref)))) in
+      let my_cluster_hosts = Db.Cluster_host.get_internal_records_where ~__context ~expr in
+      match my_cluster_hosts with
+      | [(_ref,_rec)] -> None
+      | [] ->
+        if cluster_rec.API.cluster_pool_auto_join
+        then Some cluster_ref
+        else None
+      | _ -> raise Api_errors.(Server_error (internal_error, [ "Host cannot be associated with more than one cluster_host"; Ref.string_of host ]))
+    end
+  | _ -> raise Api_errors.(Server_error (internal_error, ["Cannot have more than one Cluster object per pool currently"]))
+
+(* If cluster found without local cluster_host, create one in db *)
+let create_as_necessary ~__context ~host =
+  match sync_required ~__context ~host with
+  | Some cluster -> (* assume pool autojoin set *)
+    let network = get_network_internal ~__context ~self:cluster in
+    let (pif,pifrec) = Xapi_clustering.pif_of_host ~__context network host in
+    fix_pif_prerequisites ~__context (pif,pifrec);
+    create_internal ~__context ~cluster ~host ~pif |> ignore
+  | None -> ()
 

@@ -489,10 +489,10 @@ let make_vfs_on_pf ~__context ~pf ~num =
   make_vf num
 
 let make_cluster_host ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
-    ?(cluster=Ref.null) ?(host=Ref.null) ?(pIF=Ref.null) ?(enabled=true)
+    ?(cluster=Ref.null) ?(host=Ref.null) ?(pIF=Ref.null) ?(enabled=true) ?(joined=true)
     ?(allowed_operations=[]) ?(current_operations=[]) ?(other_config=[]) () =
   Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~pIF ~enabled
-    ~allowed_operations ~current_operations ~other_config;
+    ~allowed_operations ~current_operations ~other_config ~joined;
   ref
 
 let make_cluster_and_cluster_host ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
