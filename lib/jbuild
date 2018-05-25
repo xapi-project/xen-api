@@ -46,7 +46,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name xcp)
   (public_name xcp)
   (flags (:standard -w -39 %s -warn-error -3))
-  (modules (:standard \ channel_helper scheduler task_server updates))
+  (modules (:standard \ scheduler task_server updates))
   (c_names (syslog_stubs))
   (libraries
    (%s
@@ -78,19 +78,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (public_name xcp.updates)
   (flags (:standard -w -39 %s))
   (modules (updates task_server scheduler))
-  (libraries
-   (lwt
-    xcp))
+  (libraries (xcp))
   (wrapped false)
   %s))
-
-(executable
- ((name channel_helper)
-  (flags (:standard -w -39 %s))
-  (modules (channel_helper))
-  (libraries
-   (cmdliner
-    lwt
-    lwt.unix
-    xcp))))
-|} runtime_coverage_enabled flags coverage_dep coverage_rewriter flags coverage_rewriter flags
+|} runtime_coverage_enabled flags coverage_dep coverage_rewriter flags coverage_rewriter

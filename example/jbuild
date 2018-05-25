@@ -32,9 +32,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name example)
   (flags (:standard -w -39 %s))
   (libraries
-   (lwt
-    lwt.unix
-    rpclib
+   (rpclib
     xcp))
   %s))
 
