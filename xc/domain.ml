@@ -453,17 +453,22 @@ let destroy (task: Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
     (fun pcidev ->
        let open Xenops_interface.Pci in
        log_exn_continue
-         ("Deassign PCI device " ^ string_of_address pcidev)
-         (fun () ->
-            Xenctrl.domain_deassign_device xc domid
-              (pcidev.domain, pcidev.bus, pcidev.dev, pcidev.fn)) ())
+         ("Reset PCI device " ^ string_of_address pcidev)
+         (fun () -> Device.PCI.reset ~xs pcidev) ())
     all_pci_devices;
+  
+  (* PCI specification document says that the Function must complete the FLR within 100 ms
+    https://pcisig.com/sites/default/files/specification_documents/ECN_RN_29_Aug_2013.pdf on page 7 *)
+  Thread.delay 0.1;
+
   List.iter
     (fun pcidev ->
        let open Xenops_interface.Pci in
        log_exn_continue
-         ("Reset PCI device " ^ string_of_address pcidev)
-         (fun () -> Device.PCI.reset ~xs pcidev) ())
+         ("Deassign PCI device " ^ string_of_address pcidev)
+         (fun () ->
+            Xenctrl.domain_deassign_device xc domid
+              (pcidev.domain, pcidev.bus, pcidev.dev, pcidev.fn)) ())
     all_pci_devices;
 
   (* Now we should kill the domain itself *)
