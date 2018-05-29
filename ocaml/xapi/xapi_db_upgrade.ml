@@ -522,20 +522,49 @@ let upgrade_vswitch_controller = {
         ignore (Xapi_sdn_controller.introduce ~__context ~protocol:`ssl ~address ~port:6632L)
 }
 
-let upgrade_vm_platform_device_model = {
-  description = "Set or upgrade VM.platform.device-model profiles";
-  version = (fun _x -> true);
-  fn = fun ~__context ->
-    Db.VM.get_all ~__context
-    |> List.iter (fun vm ->
-         Db.VM.get_platform ~__context ~self:vm
-         |> Xapi_vm_helpers.ensure_device_model_profile_present ~__context
-            ~domain_type:(Db.VM.get_domain_type ~__context ~self:vm)
-         |> fun value ->
-            Db.VM.set_platform ~__context ~self:vm ~value
-       )
-}
 
+let upgrade_vm_platform_device_model =
+  let string_to_assoc = function
+    | ""  -> []
+    | str -> Helpers.vm_string_to_assoc str
+  in
+  let assoc_to_string assoc =
+    SExpr.string_of @@ SExpr.Node (List.map (fun (key,value) ->
+        SExpr.Node [SExpr.String key; SExpr.String value]) assoc) in
+
+  let upgrade_metadata ~__context domain_type assoc =
+    let upgrade = function
+      | "platform", str ->
+        ( "platform"
+        , string_to_assoc str
+          |> Xapi_vm_helpers.ensure_device_model_profile_present
+            ~__context ~domain_type
+          |> assoc_to_string
+        )
+      | other -> other in
+    List.map upgrade assoc in
+
+  {
+    description = "Set or upgrade VM.platform.device-model profiles";
+    version = (fun _x -> true);
+    fn = fun ~__context ->
+      Db.VM.get_all ~__context
+      |> List.iter (fun vm ->
+          (* update VM record *)
+          let domain_type = Db.VM.get_domain_type ~__context ~self:vm in
+          let platform    = Db.VM.get_platform ~__context ~self:vm in
+          let platform' =
+            Xapi_vm_helpers.ensure_device_model_profile_present
+              ~__context ~domain_type platform in
+          Db.VM.set_platform ~__context ~self:vm ~value:platform';
+          (* update snapshot meta data *)
+          Db.VM.get_snapshot_metadata ~__context ~self:vm
+          |> string_to_assoc
+          |> upgrade_metadata ~__context domain_type
+          |> assoc_to_string
+          |> (fun value ->
+              Db.VM.set_snapshot_metadata ~__context ~self:vm ~value))
+  }
 
 let upgrade_domain_type = {
   description = "Set domain_type for all VMs/snapshots/templates";
