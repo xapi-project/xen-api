@@ -148,12 +148,9 @@ let fd_blocks_fold block_size f start fd =
 
 let with_directory dir f =
   let dh = Unix.opendir dir in
-  let r =
-    try f dh
-    with exn -> Unix.closedir dh; raise exn
-  in
-  Unix.closedir dh;
-  r
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () -> f dh)
+    (fun () -> Unix.closedir dh)
 
 let buffer_of_fd fd = 
   fd_blocks_fold 1024 (fun b s -> Buffer.add_bytes b s; b) (Buffer.create 1024) fd
