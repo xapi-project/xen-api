@@ -203,12 +203,9 @@ let release_order_full = [{
      code_name     = Some rel_kolkata;
      version_major = 2;
      version_minor = 10;
-     branding   = "Unreleased";
+     branding   = "XenServer 7.5";
    };
   ]
-(* When you add a new release, use the version number of the latest release,
-   and "Unreleased" for the branding, until the actual values are finalised. *)
-
 (* When you add a new release, use the version number of the latest release,
    and "Unreleased" for the branding, until the actual values are finalised. *)
 
