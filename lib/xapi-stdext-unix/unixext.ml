@@ -63,6 +63,13 @@ let pidfile_read filename =
        with _ -> None)
     (fun () -> Unix.close fd)
 
+(** open a file, and make sure the close is always done *)
+let with_file file mode perms f =
+  let fd = Unix.openfile file mode perms in
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () -> f fd)
+    (fun () -> Unix.close fd)
+
 (** daemonize a process *)
 (* !! Must call this before spawning any threads !! *)
 let daemonize () =
@@ -73,14 +80,11 @@ let daemonize () =
 
     begin match Unix.fork () with
       | 0 ->
-        let nullfd = Unix.openfile "/dev/null" [ Unix.O_WRONLY ] 0 in
-        begin try
-            Unix.close Unix.stdin;
-            Unix.dup2 nullfd Unix.stdout;
-            Unix.dup2 nullfd Unix.stderr;
-          with exn -> Unix.close nullfd; raise exn
-        end;
-        Unix.close nullfd
+        with_file "/dev/null" [ Unix.O_WRONLY ] 0
+          (fun nullfd ->
+             Unix.close Unix.stdin;
+             Unix.dup2 nullfd Unix.stdout;
+             Unix.dup2 nullfd Unix.stderr)
       | _ -> exit 0
     end
   | _ -> exit 0
@@ -115,15 +119,6 @@ let with_input_channel file f =
     (fun () -> f input)
     (fun () -> close_in input)
 
-(** open a file, and make sure the close is always done *)
-let with_file file mode perms f =
-  let fd = Unix.openfile file mode perms in
-  let r =
-    try f fd
-    with exn -> Unix.close fd; raise exn
-  in
-  Unix.close fd;
-  r
 
 let file_lines_fold f start file_path = with_input_channel file_path (lines_fold f start)
 
@@ -148,12 +143,9 @@ let fd_blocks_fold block_size f start fd =
 
 let with_directory dir f =
   let dh = Unix.opendir dir in
-  let r =
-    try f dh
-    with exn -> Unix.closedir dh; raise exn
-  in
-  Unix.closedir dh;
-  r
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () -> f dh)
+    (fun () -> Unix.closedir dh)
 
 let buffer_of_fd fd = 
   fd_blocks_fold 1024 (fun b s -> Buffer.add_bytes b s; b) (Buffer.create 1024) fd
@@ -262,6 +254,7 @@ let open_connection_fd host port =
       connect s ai.ai_addr;
       s
     with e ->
+      Backtrace.is_important e;
       close s;
       raise e
 
@@ -271,7 +264,10 @@ let open_connection_unix_fd filename =
     let addr = Unix.ADDR_UNIX(filename) in
     Unix.connect s addr;
     s
-  with e -> Unix.close s; raise e
+  with e ->
+    Backtrace.is_important e;
+    Unix.close s;
+    raise e
 
 module CBuf = struct
   (** A circular buffer constructed from a string *)

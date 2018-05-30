@@ -55,13 +55,8 @@ let release s k =
 
 let execute_with_weight s k f =
   acquire s k;
-  try
-    let x = f () in
-    release s k;
-    x
-  with e ->
-    release s k;
-    raise e
+  Xapi_stdext_pervasives.Pervasiveext.finally f
+    (fun () -> release s k)
 
 let execute s f =
   execute_with_weight s 1 f
