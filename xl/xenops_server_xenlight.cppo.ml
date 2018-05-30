@@ -360,14 +360,15 @@ module Storage = struct
 
   (* We need to deal with driver domains here: *)
   let attach_and_activate ~xs task vm dp sr vdi read_write =
-    let result = attach_and_activate task vm dp sr vdi read_write in
+    let _result = attach_and_activate task vm dp sr vdi read_write in
     let backend = Xenops_task.with_subtask task (Printf.sprintf "Policy.get_backend_vm %s %s %s" vm sr vdi)
         (transform_exception (fun () -> Client.Policy.get_backend_vm "attach_and_activate" vm sr vdi)) in
     match domid_of_uuid Newest (uuid_of_string backend) with
     | None ->
       failwith (Printf.sprintf "Driver domain disapppeared: %s" backend)
     | Some domid ->
-      { domid = domid; attach_info = result }
+      (* FIXME This is a temporary workaround; assuming the xl backend is not used and will be removed soon *)
+      { domid = domid; attach_info = Storage_interface.{params="";o_direct=false;o_direct_reason="";xenstore_data=[]} }
 
   let deactivate = deactivate
   let dp_destroy = dp_destroy
