@@ -165,12 +165,14 @@ let rec split_c c str =
     String.sub str 0 i :: (split_c c (String.sub str (i+1) (String.length str - i - 1)))
   with Not_found -> [str]
 
-let log_backtrace exn _bt =
+let log_backtrace_exn ?(level=Syslog.Err) ?(msg="error") exn _bt =
   Backtrace.is_important exn;
   let all = split_c '\n' (Backtrace.(to_string_hum (remove exn))) in
   (* Write to the log line at a time *)
-  output_log "backtrace" Syslog.Err "error" (Printf.sprintf "Raised %s" (Printexc.to_string exn));
-  List.iter (output_log "backtrace" Syslog.Err "error") all
+  output_log "backtrace" level msg (Printf.sprintf "Raised %s" (Printexc.to_string exn));
+  List.iter (output_log "backtrace" level msg) all
+
+let log_backtrace e bt = log_backtrace_exn e bt
 
 let with_thread_associated task f x =
   ThreadLocalTable.add tasks task;
@@ -284,5 +286,7 @@ module Make = functor(Brand: BRAND) -> struct
     debug "%s" (String.escaped backtrace)
 
   let log_and_ignore_exn f =
-    try f () with _ -> log_backtrace ()
+    try f ()
+    with e -> log_backtrace_exn ~level:Syslog.Debug ~msg:"debug" e ()
 end
+
