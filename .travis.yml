@@ -8,6 +8,7 @@ env:
         - secure: tokxJl2litqu/T6UUwzkLRZzlbxnbYqVG2QRKKQz3tkIXyZHQWTS2NAyH7mwDgdBq2dDVSxAUxS1jWq/vGraX7MmbVz37Pz8wjykoIfIRtQuEx+REDAvAzWSw+1LTpUf7ZcI+F2SpgJrnH87uN5AAc220UqIx8TvAtGrita+2+o=
     matrix:
         - BUILD_METHOD=xenserver-build-env
+        - BUILD_METHOD=xs-opam
         - BUILD_METHOD=python-nosetests
         - BUILD_METHOD=opam-coverage
 notifications:
