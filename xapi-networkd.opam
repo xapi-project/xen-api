@@ -10,6 +10,7 @@ build-test: ["jbuilder" "runtest" "-p" name]
 depends: [
   "jbuilder" {build}
   "astring"
+  "mtime"
   "netlink"
   "rpc"
   "systemd"

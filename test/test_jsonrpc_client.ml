@@ -41,7 +41,7 @@ module Input_json_object = Generic.Make (struct
 		let fin = open_in (Filename.concat dir filename) in
 		let response =
 			try
-				let json = Jsonrpc_client.input_json_object fin in
+				let json = Jsonrpc_client.timeout_read (Unix.descr_of_in_channel fin) 5_000_000_000L in
 				let rpc = Jsonrpc.of_string json in
 				Right rpc
 			with
@@ -57,11 +57,8 @@ module Input_json_object = Generic.Make (struct
 		"good_call.json", Right good_call;
 
 		(* A file containing a partial JSON object. *)
-		"short_call.json", Left End_of_file;
+		"short_call.json", Left Parse_error;
 
-		(* A file containing a JSON object, plus some more characters at the end. *)
-		"good_call_plus.json", Right good_call;
-		
 		(* A file containing some invalid JSON object. *)
 		"bad_call.json", (Left Parse_error);
 	]

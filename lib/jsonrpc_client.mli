@@ -12,9 +12,15 @@
  * GNU Lesser General Public License for more details.
  *)
 
+exception Timeout
+exception Read_error
+
+val json_rpc_max_len : int ref
+val json_rpc_read_timeout : int64 ref
+val json_rpc_write_timeout : int64 ref
+
+val timeout_read : Unix.file_descr -> int64 -> string
 (** Do an JSON-RPC call to a server that is listening on a Unix domain 
  *  socket at the given path. *)
 val with_rpc : ?version:Jsonrpc.version -> path:string -> call:Rpc.call -> unit -> Rpc.response
 
-(** Read an entire JSON object from an input channel. *)
-val input_json_object : in_channel -> string

@@ -64,6 +64,9 @@ let options = [
 	"dracut-cmd-path", Arg.Set_string Network_utils.dracut, (fun () -> !Network_utils.dracut), "Path to the Unix command dracut";
 	"dracut-timeout", Arg.Set_float Network_utils.dracut_timeout, (fun () -> string_of_float !Network_utils.dracut_timeout), "Default value for the dracut command timeout";
 	"modinfo-cmd-path", Arg.Set_string Network_utils.modinfo, (fun () -> !Network_utils.modinfo), "Path to the Unix command modinfo";
+	"json-rpc-max-len", Arg.Set_int Jsonrpc_client.json_rpc_max_len, (fun () -> string_of_int !Jsonrpc_client.json_rpc_max_len), "Maximum buffer size for Json RPC response";
+	"json-rpc-read-timeout", Arg.Int (fun x -> Jsonrpc_client.json_rpc_read_timeout := Int64.(mul 1000000L (of_int x))), (fun () -> Int64.(to_string (div !Jsonrpc_client.json_rpc_read_timeout 1000000L))), "JSON RPC response read timeout value in ms";
+	"json-rpc-write-timeout", Arg.Int (fun x -> Jsonrpc_client.json_rpc_write_timeout := Int64.(mul 1000000L (of_int x))), (fun () -> Int64.(to_string (div !Jsonrpc_client.json_rpc_write_timeout 1000000L))), "JSON RPC write timeout value in ms";
 ]
 
 let start server =
