@@ -18,7 +18,13 @@ module Mutex = struct
   (** execute the function f with the mutex hold *)
   let execute lock f =
     Mutex.lock lock;
-    let r = begin try f () with exn -> Mutex.unlock lock; raise exn end; in
+    let r =
+      try f ()
+      with exn ->
+        Backtrace.is_important exn;
+        Mutex.unlock lock;
+        raise exn
+    in
     Mutex.unlock lock;
     r
 end
