@@ -254,6 +254,7 @@ let open_connection_fd host port =
       connect s ai.ai_addr;
       s
     with e ->
+      Backtrace.is_important e;
       close s;
       raise e
 
@@ -263,7 +264,10 @@ let open_connection_unix_fd filename =
     let addr = Unix.ADDR_UNIX(filename) in
     Unix.connect s addr;
     s
-  with e -> Unix.close s; raise e
+  with e ->
+    Backtrace.is_important e;
+    Unix.close s;
+    raise e
 
 module CBuf = struct
   (** A circular buffer constructed from a string *)
