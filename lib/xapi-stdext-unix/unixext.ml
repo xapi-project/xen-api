@@ -63,6 +63,13 @@ let pidfile_read filename =
        with _ -> None)
     (fun () -> Unix.close fd)
 
+(** open a file, and make sure the close is always done *)
+let with_file file mode perms f =
+  let fd = Unix.openfile file mode perms in
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () -> f fd)
+    (fun () -> Unix.close fd)
+
 (** daemonize a process *)
 (* !! Must call this before spawning any threads !! *)
 let daemonize () =
@@ -73,14 +80,11 @@ let daemonize () =
 
     begin match Unix.fork () with
       | 0 ->
-        let nullfd = Unix.openfile "/dev/null" [ Unix.O_WRONLY ] 0 in
-        begin try
-            Unix.close Unix.stdin;
-            Unix.dup2 nullfd Unix.stdout;
-            Unix.dup2 nullfd Unix.stderr;
-          with exn -> Unix.close nullfd; raise exn
-        end;
-        Unix.close nullfd
+        with_file "/dev/null" [ Unix.O_WRONLY ] 0
+          (fun nullfd ->
+             Unix.close Unix.stdin;
+             Unix.dup2 nullfd Unix.stdout;
+             Unix.dup2 nullfd Unix.stderr)
       | _ -> exit 0
     end
   | _ -> exit 0
@@ -115,15 +119,6 @@ let with_input_channel file f =
     (fun () -> f input)
     (fun () -> close_in input)
 
-(** open a file, and make sure the close is always done *)
-let with_file file mode perms f =
-  let fd = Unix.openfile file mode perms in
-  let r =
-    try f fd
-    with exn -> Unix.close fd; raise exn
-  in
-  Unix.close fd;
-  r
 
 let file_lines_fold f start file_path = with_input_channel file_path (lines_fold f start)
 
