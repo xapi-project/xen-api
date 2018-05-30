@@ -37,6 +37,7 @@ exception Hotplug_script_expecting_field of device * string
 exception QMP_Error of int * string (** domid, message *)
 exception QMP_connection_error of int * string
 
+val block_device_of_device : device -> string
 val backend_path : xs:Xenstore.Xs.xsh -> endpoint -> Xenctrl.domid -> string
 val backend_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 val frontend_rw_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
