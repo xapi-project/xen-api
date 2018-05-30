@@ -18,15 +18,7 @@ module Mutex = struct
   (** execute the function f with the mutex hold *)
   let execute lock f =
     Mutex.lock lock;
-    let r =
-      try f ()
-      with exn ->
-        Backtrace.is_important exn;
-        Mutex.unlock lock;
-        raise exn
-    in
-    Mutex.unlock lock;
-    r
+    Xapi_stdext_pervasives.Pervasiveext.finally f (fun () -> Mutex.unlock lock)
 end
 
 
