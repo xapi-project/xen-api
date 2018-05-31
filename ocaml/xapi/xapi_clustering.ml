@@ -199,6 +199,8 @@ let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__conte
   then raise Api_errors.(Server_error (cluster_stack_in_use, [ cluster_stack ]))
 
 module Daemon = struct
+  let enabled = ref false
+
   let maybe_call_script ~__context script params =
     match Context.get_test_clusterd_rpc __context with
     | Some _ -> debug "in unit test, not calling %s %s" script (String.concat " " params)
@@ -211,11 +213,13 @@ module Daemon = struct
     maybe_call_script ~__context !Xapi_globs.firewall_port_config_script ["open"; port];
     maybe_call_script ~__context "/usr/bin/systemctl" [ "enable"; service ];
     maybe_call_script ~__context "/usr/bin/systemctl" [ "start"; service ];
+    enabled := true;
     debug "Cluster daemon: enabled & started"
 
   let disable ~__context =
     let port = (string_of_int !Xapi_globs.xapi_clusterd_port) in
     debug "Disabling and stopping the clustering daemon";
+    enabled := false;
     maybe_call_script ~__context "/usr/bin/systemctl" [ "disable"; service ];
     maybe_call_script ~__context "/usr/bin/systemctl" [ "stop"; service ];
     maybe_call_script ~__context !Xapi_globs.firewall_port_config_script ["close"; port];
@@ -228,6 +232,9 @@ end
  * Instead of returning an empty URL which wouldn't work just raise an
  * exception. *)
 let rpc ~__context =
+  if not !Daemon.enabled then
+    raise Api_errors.(Server_error(Api_errors.operation_not_allowed,
+                                   ["clustering daemon has not been started yet"]));
   match Context.get_test_clusterd_rpc __context with
   | Some rpc -> rpc
   | None ->
