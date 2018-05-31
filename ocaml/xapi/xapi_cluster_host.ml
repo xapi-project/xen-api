@@ -50,7 +50,7 @@ let call_api_function_with_alert ~__context ~msg ~cls ~obj_uuid ~body
 
 (* Create xapi db object for cluster_host, resync_host calls clusterd *)
 let create_internal ~__context ~cluster ~host ~pIF : API.ref_Cluster_host =
-  with_clustering_lock (fun () ->
+  with_clustering_lock __LOC__ (fun () ->
       assert_operation_host_target_is_localhost ~__context ~host;
       assert_pif_attached_to ~host ~pIF ~__context;
       assert_cluster_host_can_be_created ~__context ~host;
@@ -63,7 +63,7 @@ let create_internal ~__context ~cluster ~host ~pIF : API.ref_Cluster_host =
 
 (* Helper function atomically enables clusterd and joins the cluster_host *)
 let join_internal ~__context ~self =
-  with_clustering_lock (fun () ->
+  with_clustering_lock __LOC__ (fun () ->
 
       let pIF = Db.Cluster_host.get_PIF ~__context ~self in
       fix_pif_prerequisites ~__context pIF;
@@ -163,7 +163,7 @@ let destroy ~__context ~self =
 let ip_of_str str = Cluster_interface.IPv4 str
 
 let forget ~__context ~self =
-  with_clustering_lock (fun () ->
+  with_clustering_lock __LOC__ (fun () ->
       let dbg = Context.string_of_task __context in
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       let pif = Db.Cluster_host.get_PIF ~__context ~self in
@@ -187,7 +187,7 @@ let forget ~__context ~self =
     )
 
 let enable ~__context ~self =
-  with_clustering_lock (fun () ->
+  with_clustering_lock __LOC__ (fun () ->
       let dbg = Context.string_of_task __context in
       let host = Db.Cluster_host.get_host ~__context ~self in
       assert_operation_host_target_is_localhost ~__context ~host;
@@ -213,7 +213,7 @@ let enable ~__context ~self =
     )
 
 let disable ~__context ~self =
-  with_clustering_lock (fun () ->
+  with_clustering_lock __LOC__ (fun () ->
       let dbg = Context.string_of_task __context in
       let host = Db.Cluster_host.get_host ~__context ~self in
       assert_operation_host_target_is_localhost ~__context ~host;

@@ -230,9 +230,9 @@ let nest_with_clustering_lock_if_needed ~__context ~timeout ~type1 ~type2 ~on_de
     ~timeout:timeout
     ~otherwise: on_deadlock
     (fun () ->
-       Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type1
+       Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type1 __LOC__
          (fun () ->
-            Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type2
+            Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type2 __LOC__
               (fun () -> on_no_deadlock ()
               )
          )
