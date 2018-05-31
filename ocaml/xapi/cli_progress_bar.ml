@@ -22,7 +22,7 @@ module Make(T: Floatable) = struct
     max_value: T.t;
     mutable current_value: T.t;
     width: int;
-    mutable line: bytes;
+    line: bytes;
     mutable spin_index: int;
     start_time: float;
     mutable summarised: bool;
