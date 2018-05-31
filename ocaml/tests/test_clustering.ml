@@ -607,7 +607,7 @@ let test_pool_ha_cluster_stacks_with_ha_with_clustering () =
 
   (* Cluster.destroy should set HA cluster stack with HA disabled *)
   Xapi_cluster_host.enable ~__context ~self:cluster_host;
-  Xapi_cluster_host.destroy ~__context ~self:cluster_host;
+  (* can't destroy last cluster_host, must be done through destroying cluster *)
   Xapi_cluster.destroy ~__context ~self:cluster;
   (* Cluster.destroy should reset HA cluster stacks *)
   assert_cluster_stack_is default ~__context;
